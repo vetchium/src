@@ -43,6 +43,25 @@ WITH existing_user AS (
         sqlc.arg(payload_ciphertext)
     FROM upserted
     RETURNING admin_email_outbox_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.invitation.created',
+        'admin_invitation',
+        admin_invitation_id::text,
+        'admin',
+        sqlc.arg(invited_by)::text,
+        'admin-api',
+        sqlc.arg(idempotency_key),
+        jsonb_build_object(
+            'permissions', to_jsonb(sqlc.arg(permissions)::text[]),
+            'email_queued', EXISTS (SELECT 1 FROM outbox)
+        )
+    FROM upserted
 )
 SELECT
     CASE
@@ -106,6 +125,27 @@ WITH invitation AS (
     )
       AND EXISTS (SELECT 1 FROM inserted_user)
     RETURNING admin_invitation_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.user.created',
+        'admin_user',
+        admin_user_id::text,
+        'anonymous',
+        NULL,
+        'admin-api',
+        sqlc.arg(idempotency_key),
+        jsonb_build_object(
+            'invitation_id', invitation.admin_invitation_id,
+            'permissions', to_jsonb(invitation.permissions)
+        )
+    FROM inserted_user
+    CROSS JOIN invitation
+    WHERE EXISTS (SELECT 1 FROM consumed)
 )
 SELECT
     CASE

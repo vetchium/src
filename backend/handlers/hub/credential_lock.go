@@ -1,14 +1,14 @@
 package hub
 
 import (
+	"context"
 	"errors"
-	"net/http"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"backend/internal/db/sqlc"
-	"backend/internal/hubapi"
+	"backend/internal/handlerauth"
 )
 
 type hubCredentialLock struct {
@@ -16,41 +16,20 @@ type hubCredentialLock struct {
 	emailAddress string
 }
 
-func withHubCredentialLock[T any](
-	s *hubapi.Server, r *http.Request, identity hubCredentialLock,
-	work func(sqlc.Querier) (T, error),
-) (T, error) {
-	var zero T
-	if s.DB == nil {
-		return work(s.Queries)
-	}
-	tx, err := s.DB.Begin(r.Context())
-	if err != nil {
-		return zero, err
-	}
-	defer func() { _ = tx.Rollback(r.Context()) }()
-	queries := sqlc.New(tx)
-	if identity.emailAddress != "" {
-		_, err = queries.LockHubEmailCredentialMutation(
-			r.Context(), identity.emailAddress,
-		)
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			return zero, err
+func hubCredentialLocker(
+	identity hubCredentialLock,
+) handlerauth.CredentialLock {
+	return func(ctx context.Context, queries sqlc.Querier) error {
+		if identity.emailAddress != "" {
+			_, err := queries.LockHubEmailCredentialMutation(
+				ctx, identity.emailAddress,
+			)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil
+			}
+			return err
 		}
-	} else {
-		_, err = queries.LockHubUserCredentialMutation(
-			r.Context(), identity.userDID,
-		)
-		if err != nil {
-			return zero, err
-		}
+		_, err := queries.LockHubUserCredentialMutation(ctx, identity.userDID)
+		return err
 	}
-	result, err := work(queries)
-	if err != nil {
-		return zero, err
-	}
-	if err := tx.Commit(r.Context()); err != nil {
-		return zero, err
-	}
-	return result, nil
 }

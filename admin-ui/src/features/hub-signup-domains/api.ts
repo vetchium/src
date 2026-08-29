@@ -4,7 +4,7 @@ import type {
   ListRequest,
   ListResponse,
   UpdateRequest,
-} from "../../../../typespec/admin/hub-signup-domains/domains.ts";
+} from "typespec/admin/hub-signup-domains/domains";
 import { requestJson } from "../../api/client";
 
 export function listHubSignupDomains(

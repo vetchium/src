@@ -68,7 +68,7 @@ func run(log *slog.Logger) error {
 		cfg.TenantID, hubCredentialSecret,
 	)
 	worker := workers.New(
-		pool, log, cfg.Workers,
+		pool, log, cfg.TenantID, cfg.Workers,
 		&workers.HubEmailDelivery{
 			TenantID: cfg.TenantID,
 			Renderer: renderer,

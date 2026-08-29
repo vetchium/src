@@ -45,7 +45,7 @@ remain deployment-time overrides so existing installations can select their
 database and TLS policy without rewriting the file. The content hash in the
 Swarm config name causes the backend services to roll when the file changes.
 
-Each tenant's `global-coordinator.baseURL` must resolve to the coordinator over
+Each tenant's `globalCoordinator.baseURL` must resolve to the coordinator over
 the operator's private HTTP network. Do not expose the coordinator directly to
 the public Internet. The singleton must retain its named state volume and use
 stop-first updates; do not scale it horizontally. Restrict each tenant's

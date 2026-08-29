@@ -1120,6 +1120,26 @@ function assertHubAuditAction(action: string): void {
   }
 }
 
+function assertAdminAuditAction(action: string): void {
+  if (!/^admin\.[a-z0-9.-]+$/.test(action)) {
+    throw new Error(
+      `refusing to inspect malformed Admin audit action: ${action}`,
+    );
+  }
+}
+
+function assertAdminUserID(adminUserID: string): void {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      adminUserID,
+    )
+  ) {
+    throw new Error(
+      `refusing to inspect malformed Admin user ID: ${adminUserID}`,
+    );
+  }
+}
+
 function assertHubUserDID(hubUserDID: string): void {
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
@@ -1138,6 +1158,139 @@ function assertHubIdempotencyKey(key: string): void {
       `refusing to inspect malformed Hub idempotency key: ${key}`,
     );
   }
+}
+
+function assertAdminIdempotencyKey(key: string): void {
+  if (!/^e2e-[A-Za-z0-9_-]{22,124}$/.test(key)) {
+    throw new Error(
+      `refusing to inspect malformed Admin idempotency key: ${key}`,
+    );
+  }
+}
+
+export function adminAuditEventsByIdempotencyKey(key: string): AuditEvent[] {
+  assertAdminIdempotencyKey(key);
+  return auditEventJSON(`idempotency_key = ${sqlLiteral(key)}`);
+}
+
+export function adminAuditEventsForActor(
+  adminUserID: string,
+  action: string,
+): AuditEvent[] {
+  assertAdminUserID(adminUserID);
+  assertAdminAuditAction(action);
+  return auditEventJSON(
+    `actor_id = ${sqlLiteral(adminUserID)} AND action = ${sqlLiteral(action)}`,
+  );
+}
+
+export function adminAuditEventsForEntity(
+  adminUserID: string,
+  action: string,
+): AuditEvent[] {
+  assertAdminUserID(adminUserID);
+  assertAdminAuditAction(action);
+  return auditEventJSON(
+    `entity_id = ${sqlLiteral(adminUserID)} AND action = ${sqlLiteral(action)}`,
+  );
+}
+
+export function adminPasswordHash(emailAddress: string): string {
+  assertOwnedEmail(emailAddress);
+  return sqlScalar(`
+    SELECT password_hash
+    FROM vetchium.admin_users
+    WHERE email_address = ${sqlLiteral(emailAddress)};
+  `);
+}
+
+export function adminInvitationArtifactCounts(
+  emailAddress: string,
+  key: string,
+): {
+  auditEvents: number;
+  idempotencyRows: number;
+  invitations: number;
+  outboxItems: number;
+} {
+  assertOwnedEmail(emailAddress);
+  assertAdminIdempotencyKey(key);
+  const value = sqlScalar(`
+    SELECT
+      (SELECT count(*) FROM vetchium.audit_events
+        WHERE idempotency_key = ${sqlLiteral(key)})::text || '|' ||
+      (SELECT count(*) FROM vetchium.idempotency_ledger
+        WHERE idempotency_key = ${sqlLiteral(key)})::text || '|' ||
+      (SELECT count(*) FROM vetchium.admin_invitations
+        WHERE email_address = ${sqlLiteral(emailAddress)})::text || '|' ||
+      (SELECT count(*) FROM vetchium.admin_email_outbox
+        WHERE recipient_email_address = ${sqlLiteral(emailAddress)})::text;
+  `);
+  const [auditEvents, idempotencyRows, invitations, outboxItems] = value
+    .split("|")
+    .map(Number);
+  if (
+    auditEvents === undefined ||
+    idempotencyRows === undefined ||
+    invitations === undefined ||
+    outboxItems === undefined
+  ) {
+    throw new Error(`invalid Admin invitation artifact counts: ${value}`);
+  }
+  return { auditEvents, idempotencyRows, invitations, outboxItems };
+}
+
+export function installAdminAuditInsertFailure(match: {
+  action: string;
+  actorID?: string;
+  idempotencyKey?: string;
+}): () => void {
+  assertAdminAuditAction(match.action);
+  if (match.actorID !== undefined) assertAdminUserID(match.actorID);
+  if (match.idempotencyKey !== undefined) {
+    assertAdminIdempotencyKey(match.idempotencyKey);
+  }
+  if (match.actorID === undefined && match.idempotencyKey === undefined) {
+    throw new Error("audit failure must be scoped to a test-owned identifier");
+  }
+
+  const suffix = randomBytes(8).toString("hex");
+  const functionName = `e2e_fail_admin_audit_${suffix}`;
+  const triggerName = `e2e_fail_admin_audit_${suffix}`;
+  const predicates = [`NEW.action = ${sqlLiteral(match.action)}`];
+  if (match.actorID !== undefined) {
+    predicates.push(`NEW.actor_id = ${sqlLiteral(match.actorID)}`);
+  }
+  if (match.idempotencyKey !== undefined) {
+    predicates.push(
+      `NEW.idempotency_key = ${sqlLiteral(match.idempotencyKey)}`,
+    );
+  }
+  sqlScalar(`
+    CREATE FUNCTION vetchium.${functionName}()
+    RETURNS trigger
+    LANGUAGE plpgsql
+    AS $function$
+    BEGIN
+      RAISE EXCEPTION 'injected Admin audit failure';
+    END
+    $function$;
+    CREATE TRIGGER ${triggerName}
+    BEFORE INSERT ON vetchium.audit_events
+    FOR EACH ROW
+    WHEN (${predicates.join(" AND ")})
+    EXECUTE FUNCTION vetchium.${functionName}();
+  `);
+
+  let installed = true;
+  return () => {
+    if (!installed) return;
+    sqlScalar(`
+      DROP TRIGGER ${triggerName} ON vetchium.audit_events;
+      DROP FUNCTION vetchium.${functionName}();
+    `);
+    installed = false;
+  };
 }
 
 export function hubAuditEventsByIdempotencyKey(key: string): AuditEvent[] {

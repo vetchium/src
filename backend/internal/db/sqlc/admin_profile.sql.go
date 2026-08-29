@@ -11,44 +11,82 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const setAdminDisplayName = `-- name: SetAdminDisplayName :execrows
-UPDATE vetchium.admin_users AS u
-SET display_name = $1,
-    updated_at = now()
-WHERE u.admin_user_id = $2
-  AND u.admin_user_state = 'active'
+const setAdminDisplayName = `-- name: SetAdminDisplayName :one
+WITH updated AS (
+    UPDATE vetchium.admin_users AS u
+    SET display_name = $1,
+        updated_at = now()
+    WHERE u.admin_user_id = $2
+      AND u.admin_user_state = 'active'
+    RETURNING admin_user_id, display_name
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $3,
+        'admin.profile.display-name-set',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        jsonb_build_object('display_name_changed', true)
+    FROM updated
+)
+SELECT count(*)::bigint FROM updated
 `
 
 type SetAdminDisplayNameParams struct {
 	DisplayName       string      `json:"display_name"`
 	TargetAdminUserID pgtype.UUID `json:"target_admin_user_id"`
+	TenantID          string      `json:"tenant_id"`
 }
 
 func (q *Queries) SetAdminDisplayName(ctx context.Context, arg SetAdminDisplayNameParams) (int64, error) {
-	result, err := q.db.Exec(ctx, setAdminDisplayName, arg.DisplayName, arg.TargetAdminUserID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+	row := q.db.QueryRow(ctx, setAdminDisplayName, arg.DisplayName, arg.TargetAdminUserID, arg.TenantID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
-const setAdminPreferredLanguage = `-- name: SetAdminPreferredLanguage :execrows
-UPDATE vetchium.admin_users AS u
-SET preferred_language = $2,
-    updated_at = now()
-WHERE admin_user_id = $1
-  AND admin_user_state = 'active'
+const setAdminPreferredLanguage = `-- name: SetAdminPreferredLanguage :one
+WITH updated AS (
+    UPDATE vetchium.admin_users AS u
+    SET preferred_language = $1,
+        updated_at = now()
+    WHERE admin_user_id = $2
+      AND admin_user_state = 'active'
+    RETURNING admin_user_id, preferred_language
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $3,
+        'admin.profile.preferred-language-set',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        jsonb_build_object('preferred_language', preferred_language)
+    FROM updated
+)
+SELECT count(*)::bigint FROM updated
 `
 
 type SetAdminPreferredLanguageParams struct {
-	AdminUserID       pgtype.UUID `json:"admin_user_id"`
 	PreferredLanguage string      `json:"preferred_language"`
+	AdminUserID       pgtype.UUID `json:"admin_user_id"`
+	TenantID          string      `json:"tenant_id"`
 }
 
 func (q *Queries) SetAdminPreferredLanguage(ctx context.Context, arg SetAdminPreferredLanguageParams) (int64, error) {
-	result, err := q.db.Exec(ctx, setAdminPreferredLanguage, arg.AdminUserID, arg.PreferredLanguage)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+	row := q.db.QueryRow(ctx, setAdminPreferredLanguage, arg.PreferredLanguage, arg.AdminUserID, arg.TenantID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }

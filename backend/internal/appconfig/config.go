@@ -51,7 +51,7 @@ type Database struct {
 }
 
 type AdminAPIServer struct {
-	AdminSessionTTL time.Duration
+	SessionTTL time.Duration
 }
 
 type Workers struct {
@@ -101,12 +101,12 @@ type fileConfig struct {
 	Env               string                 `json:"env"`
 	Database          fileDatabase           `json:"database"`
 	Workers           fileWorkers            `json:"workers"`
-	AdminAPIServer    *fileAdminAPIServer    `json:"admin-api-server"`
-	GlobalCoordinator *fileGlobalCoordinator `json:"global-coordinator"`
-	HubAPIServer      *fileHubAPIServer      `json:"hub-api-server"`
+	AdminAPIServer    *fileAdminAPIServer    `json:"adminAPIServer"`
+	GlobalCoordinator *fileGlobalCoordinator `json:"globalCoordinator"`
+	HubAPIServer      *fileHubAPIServer      `json:"hubAPIServer"`
 	SMTP              *fileSMTP              `json:"smtp"`
-	OrgsAPIServer     *Server                `json:"orgs-api-server"`
-	MCPServer         *Server                `json:"mcp-server"`
+	OrgsAPIServer     *Server                `json:"orgsAPIServer"`
+	MCPServer         *Server                `json:"mcpServer"`
 }
 
 type fileGlobalCoordinator struct {
@@ -125,7 +125,7 @@ type fileDatabase struct {
 }
 
 type fileAdminAPIServer struct {
-	AdminSessionTTL string `json:"adminSessionTTL"`
+	SessionTTL string `json:"sessionTTL"`
 }
 
 type fileWorkers struct {
@@ -225,11 +225,11 @@ func LoadFile(path string) (Config, error) {
 	}
 
 	if raw.AdminAPIServer == nil {
-		err := fmt.Errorf("missing admin-api-server")
+		err := fmt.Errorf("missing adminAPIServer")
 		return Config{}, configError(path, err)
 	}
 	if raw.HubAPIServer == nil {
-		err := fmt.Errorf("missing hub-api-server")
+		err := fmt.Errorf("missing hubAPIServer")
 		return Config{}, configError(path, err)
 	}
 	if raw.SMTP == nil {
@@ -237,15 +237,15 @@ func LoadFile(path string) (Config, error) {
 		return Config{}, configError(path, err)
 	}
 	if raw.OrgsAPIServer == nil {
-		err := fmt.Errorf("missing orgs-api-server")
+		err := fmt.Errorf("missing orgsAPIServer")
 		return Config{}, configError(path, err)
 	}
 	if raw.MCPServer == nil {
-		err := fmt.Errorf("missing mcp-server")
+		err := fmt.Errorf("missing mcpServer")
 		return Config{}, configError(path, err)
 	}
 	if raw.GlobalCoordinator == nil {
-		err := fmt.Errorf("missing global-coordinator")
+		err := fmt.Errorf("missing globalCoordinator")
 		return Config{}, configError(path, err)
 	}
 	coordinatorURL, err := url.Parse(raw.GlobalCoordinator.BaseURL)
@@ -253,21 +253,21 @@ func LoadFile(path string) (Config, error) {
 		(coordinatorURL.Scheme != "http" && coordinatorURL.Scheme != "https") ||
 		coordinatorURL.User != nil || coordinatorURL.RawQuery != "" ||
 		coordinatorURL.Fragment != "" {
-		err := fmt.Errorf("global-coordinator.baseURL must be an HTTP(S) origin")
+		err := fmt.Errorf("globalCoordinator.baseURL must be an HTTP(S) origin")
 		return Config{}, configError(path, err)
 	}
 	if coordinatorURL.Path != "" && coordinatorURL.Path != "/" {
-		err := fmt.Errorf("global-coordinator.baseURL must not contain a path")
+		err := fmt.Errorf("globalCoordinator.baseURL must not contain a path")
 		return Config{}, configError(path, err)
 	}
 	if err := required(
-		"global-coordinator.credentialFile",
+		"globalCoordinator.credentialFile",
 		raw.GlobalCoordinator.CredentialFile,
 	); err != nil {
 		return Config{}, configError(path, err)
 	}
 	coordinatorTimeout, err := positiveDuration(
-		"global-coordinator.requestTimeout",
+		"globalCoordinator.requestTimeout",
 		raw.GlobalCoordinator.RequestTimeout,
 	)
 	if err != nil {
@@ -275,20 +275,20 @@ func LoadFile(path string) (Config, error) {
 	}
 
 	adminSessionTTL, err := positiveDuration(
-		"admin-api-server.adminSessionTTL",
-		raw.AdminAPIServer.AdminSessionTTL,
+		"adminAPIServer.sessionTTL",
+		raw.AdminAPIServer.SessionTTL,
 	)
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
 	hubSessionTTL, err := positiveDuration(
-		"hub-api-server.sessionTTL", raw.HubAPIServer.SessionTTL,
+		"hubAPIServer.sessionTTL", raw.HubAPIServer.SessionTTL,
 	)
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
 	rememberedSessionTTL, err := positiveDuration(
-		"hub-api-server.rememberedSessionTTL",
+		"hubAPIServer.rememberedSessionTTL",
 		raw.HubAPIServer.RememberedSessionTTL,
 	)
 	if err != nil {
@@ -296,12 +296,12 @@ func LoadFile(path string) (Config, error) {
 	}
 	if rememberedSessionTTL <= hubSessionTTL {
 		err := fmt.Errorf(
-			"hub-api-server.rememberedSessionTTL must exceed sessionTTL",
+			"hubAPIServer.rememberedSessionTTL must exceed sessionTTL",
 		)
 		return Config{}, configError(path, err)
 	}
 	hubBaseURL, err := httpOrigin(
-		"hub-api-server.publicBaseURL", raw.HubAPIServer.PublicBaseURL,
+		"hubAPIServer.publicBaseURL", raw.HubAPIServer.PublicBaseURL,
 	)
 	if err != nil {
 		return Config{}, configError(path, err)
@@ -361,7 +361,7 @@ func LoadFile(path string) (Config, error) {
 			SSLMode:      raw.Database.SSLMode,
 		},
 		AdminAPIServer: AdminAPIServer{
-			AdminSessionTTL: adminSessionTTL,
+			SessionTTL: adminSessionTTL,
 		},
 		GlobalCoordinator: GlobalCoordinator{
 			BaseURL:        strings.TrimRight(coordinatorURL.String(), "/"),

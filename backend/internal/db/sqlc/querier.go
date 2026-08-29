@@ -26,7 +26,7 @@ type Querier interface {
 	CompleteHubSignup(ctx context.Context, arg CompleteHubSignupParams) (CompleteHubSignupRow, error)
 	CompleteHubTOTPLogin(ctx context.Context, arg CompleteHubTOTPLoginParams) (CompleteHubTOTPLoginRow, error)
 	CompleteIdempotency(ctx context.Context, arg CompleteIdempotencyParams) error
-	ConfirmAdminTOTPEnrollment(ctx context.Context, arg ConfirmAdminTOTPEnrollmentParams) (pgtype.Bool, error)
+	ConfirmAdminTOTPEnrollment(ctx context.Context, arg ConfirmAdminTOTPEnrollmentParams) (bool, error)
 	ConfirmHubTOTPEnrollment(ctx context.Context, arg ConfirmHubTOTPEnrollmentParams) (bool, error)
 	CreateAdminInvitation(ctx context.Context, arg CreateAdminInvitationParams) (CreateAdminInvitationRow, error)
 	CreateAdminLoginChallenge(ctx context.Context, arg CreateAdminLoginChallengeParams) (CreateAdminLoginChallengeRow, error)
@@ -41,7 +41,7 @@ type Querier interface {
 	CreateHubTOTPEnrollment(ctx context.Context, arg CreateHubTOTPEnrollmentParams) (CreateHubTOTPEnrollmentRow, error)
 	CreateIdempotency(ctx context.Context, arg CreateIdempotencyParams) error
 	DeleteAdminSession(ctx context.Context, arg DeleteAdminSessionParams) (int64, error)
-	DeleteAdminSessionByTokenHash(ctx context.Context, sessionTokenHash []byte) (int64, error)
+	DeleteAdminSessionByTokenHash(ctx context.Context, arg DeleteAdminSessionByTokenHashParams) (int64, error)
 	DeleteExpiredIdempotency(ctx context.Context, arg DeleteExpiredIdempotencyParams) error
 	DeleteHubSessionByTokenHash(ctx context.Context, arg DeleteHubSessionByTokenHashParams) error
 	DeleteIdempotency(ctx context.Context, arg DeleteIdempotencyParams) error
@@ -52,7 +52,7 @@ type Querier interface {
 	// predicate, so this stops a lockout reached any other way.
 	DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (string, error)
 	DisableHubTOTP(ctx context.Context, arg DisableHubTOTPParams) (bool, error)
-	EnableAdminUser(ctx context.Context, targetAdminUserID pgtype.UUID) (string, error)
+	EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (string, error)
 	GetAdminLoginChallenge(ctx context.Context, tokenHash []byte) (GetAdminLoginChallengeRow, error)
 	GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) (GetAdminMyInfoRow, error)
 	GetAdminPasswordForReauthentication(ctx context.Context, arg GetAdminPasswordForReauthenticationParams) (string, error)
@@ -74,17 +74,18 @@ type Querier interface {
 	LockIdempotency(ctx context.Context, dollar_1 string) error
 	MarkHubEmailFailed(ctx context.Context, arg MarkHubEmailFailedParams) (bool, error)
 	MarkHubEmailSent(ctx context.Context, arg MarkHubEmailSentParams) (bool, error)
+	PingDatabase(ctx context.Context) (PingDatabaseRow, error)
 	// Outbox ciphertext is retained no longer than the maximum usable lifetime of
 	// the credential it contains, whether delivery succeeded or not.
-	PruneAdminEmailOutbox(ctx context.Context) (int64, error)
-	PruneAdminInvitations(ctx context.Context) (int64, error)
-	PruneAdminLoginChallenges(ctx context.Context) (int64, error)
-	PruneAdminPasswordResets(ctx context.Context) (int64, error)
-	PruneAdminTOTPEnrollments(ctx context.Context) (int64, error)
-	PruneConsumedAdminTOTPRecoveryCodes(ctx context.Context) (int64, error)
+	PruneAdminEmailOutbox(ctx context.Context, tenantID string) (int64, error)
+	PruneAdminInvitations(ctx context.Context, tenantID string) (int64, error)
+	PruneAdminLoginChallenges(ctx context.Context, tenantID string) (int64, error)
+	PruneAdminPasswordResets(ctx context.Context, tenantID string) (int64, error)
+	PruneAdminTOTPEnrollments(ctx context.Context, tenantID string) (int64, error)
+	PruneConsumedAdminTOTPRecoveryCodes(ctx context.Context, tenantID string) (int64, error)
 	// Housekeeping deletes at most one batch per table and worker run so a large
 	// backlog cannot monopolize the database. Subsequent runs drain the backlog.
-	PruneExpiredAdminSessions(ctx context.Context) (int64, error)
+	PruneExpiredAdminSessions(ctx context.Context, tenantID string) (int64, error)
 	PruneExpiredIdempotency(ctx context.Context) (int64, error)
 	ReauthenticateAdminSession(ctx context.Context, arg ReauthenticateAdminSessionParams) (pgtype.Timestamptz, error)
 	ReauthenticateHubSession(ctx context.Context, arg ReauthenticateHubSessionParams) (pgtype.Timestamptz, error)

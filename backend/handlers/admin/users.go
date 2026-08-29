@@ -19,8 +19,8 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
-	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
+	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 )
 
@@ -35,12 +35,9 @@ type adminUsersPaginationPayload struct {
 func ListUsers(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.ListUsersRequest
-		if err := apiserver.DecodeJSON(r, &request); err != nil {
-			s.InvalidJSON(r.Context(), w, err)
-			return
-		}
-		if fields := request.Validate(); len(fields) != 0 {
-			s.ValidationFailed(r.Context(), w, fields)
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
+			return request.Validate()
+		}) {
 			return
 		}
 		filtersHash, err := listUsersFiltersHash(request)
@@ -99,7 +96,7 @@ func ListUsers(s *adminapi.Server) http.HandlerFunc {
 func DisableUser(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.DisableUserRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
@@ -110,6 +107,7 @@ func DisableUser(s *adminapi.Server) http.HandlerFunc {
 			r.Context(), sqlc.DisableAdminUserParams{
 				TargetAdminUserID: targetID,
 				ActorAdminUserID:  identity.UserID,
+				TenantID:          s.TenantID,
 			},
 		)
 		if err != nil {
@@ -126,13 +124,20 @@ func DisableUser(s *adminapi.Server) http.HandlerFunc {
 func EnableUser(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.EnableUserRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
 		}
 		targetID, _ := adminapi.ParseUUID(string(request.AdminUserID))
-		result, err := s.Queries.EnableAdminUser(r.Context(), targetID)
+		identity, _ := middleware.AdminIdentityFromContext(r.Context())
+		result, err := s.Queries.EnableAdminUser(
+			r.Context(), sqlc.EnableAdminUserParams{
+				TargetAdminUserID: targetID,
+				TenantID:          s.TenantID,
+				ActorAdminUserID:  identity.UserID,
+			},
+		)
 		if err != nil {
 			s.InternalError(r.Context(), w, "enable admin user", err)
 			return

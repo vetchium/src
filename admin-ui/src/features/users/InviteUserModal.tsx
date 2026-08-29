@@ -2,17 +2,17 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { App, Form, Input, Modal } from "antd";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import type { AdminPermissionID } from "../../../../typespec/admin/authorization/types.ts";
-import { ViewUsers } from "../../../../typespec/admin/authorization/types.ts";
-import type { InviteUserRequest } from "../../../../typespec/admin/users/invitations.ts";
+import type { AdminPermissionID } from "typespec/admin/authorization/types";
+import { ViewUsers } from "typespec/admin/authorization/types";
+import type { InviteUserRequest } from "typespec/admin/users/invitations";
 import {
   normalizeInviteUserRequest,
   validateInviteUserRequest,
-} from "../../../../typespec/admin/users/invitations.ts";
+} from "typespec/admin/users/invitations";
 import {
   AdminInvitationAlreadyPendingError,
   AdminUserAlreadyExistsError,
-} from "../../../../typespec/problem/admin/users.ts";
+} from "typespec/problem/admin/users";
 import { useIdempotencyKey } from "../../api/idempotency";
 import { problemTranslationKey } from "../../api/problems";
 import { intlLocale } from "../../app/preferences";

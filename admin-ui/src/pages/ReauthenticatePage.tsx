@@ -3,8 +3,8 @@ import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
-import type { ReauthenticateRequest } from "../../../typespec/admin/auth/login.ts";
-import { validateReauthenticateRequest } from "../../../typespec/admin/auth/login.ts";
+import type { ReauthenticateRequest } from "typespec/admin/auth/login";
+import { validateReauthenticateRequest } from "typespec/admin/auth/login";
 import { safeReturnTo } from "../auth/navigation";
 import { reauthenticate } from "../features/auth/api";
 import {

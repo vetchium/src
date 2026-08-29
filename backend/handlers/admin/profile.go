@@ -7,20 +7,17 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
-	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
+	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 )
 
 func SetPreferredLanguage(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.SetPreferredLanguageRequest
-		if err := apiserver.DecodeJSON(r, &request); err != nil {
-			s.InvalidJSON(r.Context(), w, err)
-			return
-		}
-		if fields := request.Validate(); len(fields) != 0 {
-			s.ValidationFailed(r.Context(), w, fields)
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
+			return request.Validate()
+		}) {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
@@ -28,6 +25,7 @@ func SetPreferredLanguage(s *adminapi.Server) http.HandlerFunc {
 			r.Context(), sqlc.SetAdminPreferredLanguageParams{
 				AdminUserID:       identity.UserID,
 				PreferredLanguage: string(request.PreferredLanguage),
+				TenantID:          s.TenantID,
 			},
 		)
 		if err != nil {
@@ -41,13 +39,10 @@ func SetPreferredLanguage(s *adminapi.Server) http.HandlerFunc {
 func SetDisplayName(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.SetDisplayNameRequest
-		if err := apiserver.DecodeJSON(r, &request); err != nil {
-			s.InvalidJSON(r.Context(), w, err)
-			return
-		}
-		request = request.Normalize()
-		if fields := request.Validate(); len(fields) != 0 {
-			s.ValidationFailed(r.Context(), w, fields)
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
+			request = request.Normalize()
+			return request.Validate()
+		}) {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
@@ -55,6 +50,7 @@ func SetDisplayName(s *adminapi.Server) http.HandlerFunc {
 			r.Context(), sqlc.SetAdminDisplayNameParams{
 				TargetAdminUserID: identity.UserID,
 				DisplayName:       string(request.DisplayName),
+				TenantID:          s.TenantID,
 			},
 		)
 		if err != nil {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"backend/handlers/hub"
+	"backend/handlers/portal"
 	"backend/internal/apiserver"
 	"backend/internal/hubapi"
 	"backend/internal/middleware"
@@ -12,7 +13,9 @@ import (
 
 func RegisterHubRoutes(mux *http.ServeMux, s *hubapi.Server) {
 	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
-	mux.HandleFunc("GET /api/hub/ping", hub.Ping(s))
+	mux.HandleFunc(
+		"GET /api/hub/ping", portal.Ping(s.Runtime, s.Queries, "hub", s.TenantID),
+	)
 
 	hubAuth := middleware.HubAuth(s)
 	recentAuth := middleware.RequireRecentHubAuthentication(s, 5*time.Minute)

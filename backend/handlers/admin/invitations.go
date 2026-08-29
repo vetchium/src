@@ -13,6 +13,7 @@ import (
 
 	"backend/internal/adminapi"
 	"backend/internal/db/sqlc"
+	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 )
 
@@ -21,7 +22,7 @@ const adminInvitationTTL = 24 * time.Hour
 func InviteUser(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.InviteUserRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
@@ -32,40 +33,40 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 		for index, permission := range granted {
 			permissions[index] = string(permission)
 		}
-		key, ok := idempotencyKey(s, w, r)
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
 		binding := adminapi.FormatUUID(identity.UserID)
 		now := s.CurrentTime()
-		runIdempotent(
+		handlerauth.RunIdempotent(
 			s, w, r, "admin:invite-user", binding, key, request,
 			now.Add(adminInvitationTTL),
 			func(q *sqlc.Queries) (
-				idempotentResult[users.InviteUserResponse],
-				*apiProblem, error,
+				handlerauth.Result[users.InviteUserResponse],
+				*handlerauth.Problem, error,
 			) {
 				token, tokenHash, err := adminapi.NewToken()
 				if err != nil {
-					return idempotentResult[users.InviteUserResponse]{}, nil, err
+					return handlerauth.Result[users.InviteUserResponse]{}, nil, err
 				}
 				invitationID, err := adminapi.NewUUID()
 				if err != nil {
-					return idempotentResult[users.InviteUserResponse]{}, nil, err
+					return handlerauth.Result[users.InviteUserResponse]{}, nil, err
 				}
 				payload, err := json.Marshal(struct {
 					InvitationToken string `json:"invitation_token"`
 					TenantID        string `json:"tenant_id"`
 				}{InvitationToken: token, TenantID: s.TenantID})
 				if err != nil {
-					return idempotentResult[users.InviteUserResponse]{}, nil, err
+					return handlerauth.Result[users.InviteUserResponse]{}, nil, err
 				}
 				ciphertext, err := adminapi.Encrypt(
 					s.CredentialSubkey("outbox"), payload,
 				)
 				if err != nil {
-					return idempotentResult[users.InviteUserResponse]{}, nil, err
+					return handlerauth.Result[users.InviteUserResponse]{}, nil, err
 				}
 				expiresAt := now.Add(adminInvitationTTL)
 				row, err := q.CreateAdminInvitation(
@@ -77,25 +78,29 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 						InvitedBy:          identity.UserID,
 						ExpiresAt:          adminapi.Timestamp(expiresAt),
 						PayloadCiphertext:  ciphertext,
+						TenantID:           s.TenantID,
+						IdempotencyKey: adminapi.Text(
+							pointer(string(key)),
+						),
 					},
 				)
 				if err != nil {
-					return idempotentResult[users.InviteUserResponse]{}, nil, err
+					return handlerauth.Result[users.InviteUserResponse]{}, nil, err
 				}
 				switch row.Result {
 				case "user_exists":
-					return idempotentResult[users.InviteUserResponse]{},
-						&apiProblem{details: adminproblem.AdminUserAlreadyExistsError}, nil
+					return handlerauth.Result[users.InviteUserResponse]{},
+						&handlerauth.Problem{Details: adminproblem.AdminUserAlreadyExistsError}, nil
 				case "pending":
-					return idempotentResult[users.InviteUserResponse]{},
-						&apiProblem{details: adminproblem.AdminInvitationAlreadyPendingError}, nil
+					return handlerauth.Result[users.InviteUserResponse]{},
+						&handlerauth.Problem{Details: adminproblem.AdminInvitationAlreadyPendingError}, nil
 				}
 				if row.ExpiresAt.Valid {
 					expiresAt = row.ExpiresAt.Time
 				}
-				return idempotentResult[users.InviteUserResponse]{
-					status: http.StatusCreated,
-					body: users.InviteUserResponse{
+				return handlerauth.Result[users.InviteUserResponse]{
+					Status: http.StatusCreated,
+					Body: users.InviteUserResponse{
 						AdminInvitationID: users.AdminInvitationID(
 							adminapi.FormatUUID(row.AdminInvitationID),
 						),
@@ -110,33 +115,33 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.CompleteSetupRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
 		}
 		request = request.Normalize()
-		key, ok := idempotencyKey(s, w, r)
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
 			return
 		}
 		binding := base64.RawURLEncoding.EncodeToString(adminapi.TokenHash(
 			string(request.InvitationToken),
 		))
-		runIdempotent(
+		handlerauth.RunIdempotent(
 			s, w, r, "admin:complete-setup", binding, key, request,
 			s.CurrentTime().Add(24*time.Hour),
 			func(q *sqlc.Queries) (
-				idempotentResult[users.CompleteSetupResponse],
-				*apiProblem, error,
+				handlerauth.Result[users.CompleteSetupResponse],
+				*handlerauth.Problem, error,
 			) {
 				passwordHash, err := adminapi.HashPassword(string(request.Password))
 				if err != nil {
-					return idempotentResult[users.CompleteSetupResponse]{}, nil, err
+					return handlerauth.Result[users.CompleteSetupResponse]{}, nil, err
 				}
 				newUserID, err := adminapi.NewUUID()
 				if err != nil {
-					return idempotentResult[users.CompleteSetupResponse]{}, nil, err
+					return handlerauth.Result[users.CompleteSetupResponse]{}, nil, err
 				}
 				params := sqlc.CompleteAdminSetupParams{
 					InvitationTokenHash: adminapi.TokenHash(
@@ -146,25 +151,29 @@ func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 					DisplayName:       string(request.DisplayName),
 					PasswordHash:      passwordHash,
 					PreferredLanguage: string(request.PreferredLanguage),
+					TenantID:          s.TenantID,
+					IdempotencyKey: adminapi.Text(
+						pointer(string(key)),
+					),
 				}
 				row, err := q.CompleteAdminSetup(r.Context(), params)
 				if err != nil {
-					return idempotentResult[users.CompleteSetupResponse]{}, nil, err
+					return handlerauth.Result[users.CompleteSetupResponse]{}, nil, err
 				}
 				switch row.Result {
 				case "invalid_token":
-					return idempotentResult[users.CompleteSetupResponse]{},
-						&apiProblem{
-							details:         adminproblem.InvalidInvitationTokenError,
-							wwwAuthenticate: adminapi.InvitationChallenge,
+					return handlerauth.Result[users.CompleteSetupResponse]{},
+						&handlerauth.Problem{
+							Details:         adminproblem.InvalidInvitationTokenError,
+							WWWAuthenticate: adminapi.InvitationChallenge,
 						}, nil
 				case "user_exists":
-					return idempotentResult[users.CompleteSetupResponse]{},
-						&apiProblem{details: adminproblem.AdminUserAlreadyExistsError}, nil
+					return handlerauth.Result[users.CompleteSetupResponse]{},
+						&handlerauth.Problem{Details: adminproblem.AdminUserAlreadyExistsError}, nil
 				}
-				return idempotentResult[users.CompleteSetupResponse]{
-					status: http.StatusCreated,
-					body: users.CompleteSetupResponse{
+				return handlerauth.Result[users.CompleteSetupResponse]{
+					Status: http.StatusCreated,
+					Body: users.CompleteSetupResponse{
 						AdminUserID: adminspec.AdminUserID(
 							adminapi.FormatUUID(row.AdminUserID),
 						),

@@ -24,22 +24,22 @@ import { Navigate } from "react-router";
 import {
   ManageHubSignupDomains,
   ViewHubSignupDomains,
-} from "../../../typespec/admin/authorization/types.ts";
+} from "typespec/admin/authorization/types";
 import type {
   Domain,
   ListRequest,
   State,
-} from "../../../typespec/admin/hub-signup-domains/domains.ts";
+} from "typespec/admin/hub-signup-domains/domains";
 import {
   isDisableComment,
   isDomainName,
   normalizeDomainName,
-} from "../../../typespec/admin/hub-signup-domains/domains.ts";
-import type { PaginationKey } from "../../../typespec/common/pagination.ts";
+} from "typespec/admin/hub-signup-domains/domains";
+import type { PaginationKey } from "typespec/common/pagination";
 import {
   HubSignupDomainAlreadyExistsError,
   HubSignupDomainNotFoundError,
-} from "../../../typespec/problem/admin/hub-signup-domains.ts";
+} from "typespec/problem/admin/hub-signup-domains";
 import { problemTranslationKey } from "../api/problems";
 import { intlLocale } from "../app/preferences";
 import {

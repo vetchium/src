@@ -2,8 +2,8 @@ import { useMutation } from "@tanstack/react-query";
 import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import type { RequestPasswordResetRequest } from "../../../typespec/admin/auth/password.ts";
-import { normalizeRequestPasswordResetRequest } from "../../../typespec/admin/auth/password.ts";
+import type { RequestPasswordResetRequest } from "typespec/admin/auth/password";
+import { normalizeRequestPasswordResetRequest } from "typespec/admin/auth/password";
 import { requestPasswordReset } from "../features/auth/api";
 
 export function ForgotPasswordPage() {

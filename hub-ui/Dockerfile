@@ -5,11 +5,12 @@ FROM node:24.12.0-alpine@sha256:c921b97d4b74f51744057454b306b418cf693865e73b8100
 WORKDIR /app
 
 COPY hub-ui/package.json hub-ui/package-lock.json ./hub-ui/
+COPY portal-ui/ /app/portal-ui/
+COPY typespec/ /app/typespec/
 WORKDIR /app/hub-ui
 RUN --mount=type=cache,target=/root/.npm npm ci
 
 COPY hub-ui/ ./
-COPY typespec/ /app/typespec/
 RUN npm run build
 
 # nginx-unprivileged runs the master process as an unprivileged user and listens

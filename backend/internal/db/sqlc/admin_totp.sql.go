@@ -66,6 +66,22 @@ WITH consumed_code AS (
     FROM updated_user
     RETURNING admin_session_id, created_at, expires_at, authenticated_at,
         admin_user_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        $6,
+        'admin.session.created-with-recovery-code',
+        'admin_session',
+        admin_session_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        $7,
+        jsonb_build_object('authentication_method', 'recovery-code')
+    FROM session
 )
 SELECT
     session.admin_session_id,
@@ -88,6 +104,8 @@ type CompleteAdminRecoveryCodeLoginParams struct {
 	AdminLoginChallengeID pgtype.UUID        `json:"admin_login_challenge_id"`
 	SessionTokenHash      []byte             `json:"session_token_hash"`
 	SessionExpiresAt      pgtype.Timestamptz `json:"session_expires_at"`
+	TenantID              string             `json:"tenant_id"`
+	IdempotencyKey        pgtype.Text        `json:"idempotency_key"`
 }
 
 type CompleteAdminRecoveryCodeLoginRow struct {
@@ -105,6 +123,8 @@ func (q *Queries) CompleteAdminRecoveryCodeLogin(ctx context.Context, arg Comple
 		arg.AdminLoginChallengeID,
 		arg.SessionTokenHash,
 		arg.SessionExpiresAt,
+		arg.TenantID,
+		arg.IdempotencyKey,
 	)
 	var i CompleteAdminRecoveryCodeLoginRow
 	err := row.Scan(
@@ -166,10 +186,27 @@ WITH enrollment AS (
     SET active = false
     WHERE admin_user_id IN (SELECT admin_user_id FROM updated)
       AND active
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        $7,
+        'admin.totp.enabled',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        $8,
+        jsonb_build_object('recovery_codes_created', 10)
+    FROM consumed
+    WHERE (SELECT count(*) FROM inserted_codes) = 10
+    RETURNING audit_event_id
 )
 SELECT
-    EXISTS (SELECT 1 FROM consumed) AND
-    (SELECT count(*) FROM inserted_codes) = 10 AS confirmed
+    EXISTS (SELECT 1 FROM audit) AS confirmed
 `
 
 type ConfirmAdminTOTPEnrollmentParams struct {
@@ -179,9 +216,11 @@ type ConfirmAdminTOTPEnrollmentParams struct {
 	TotpTimestep          pgtype.Int8 `json:"totp_timestep"`
 	RecoveryCodeHashes    [][]byte    `json:"recovery_code_hashes"`
 	CurrentAdminSessionID pgtype.UUID `json:"current_admin_session_id"`
+	TenantID              string      `json:"tenant_id"`
+	IdempotencyKey        pgtype.Text `json:"idempotency_key"`
 }
 
-func (q *Queries) ConfirmAdminTOTPEnrollment(ctx context.Context, arg ConfirmAdminTOTPEnrollmentParams) (pgtype.Bool, error) {
+func (q *Queries) ConfirmAdminTOTPEnrollment(ctx context.Context, arg ConfirmAdminTOTPEnrollmentParams) (bool, error) {
 	row := q.db.QueryRow(ctx, confirmAdminTOTPEnrollment,
 		arg.TargetEnrollmentID,
 		arg.TargetAdminUserID,
@@ -189,8 +228,10 @@ func (q *Queries) ConfirmAdminTOTPEnrollment(ctx context.Context, arg ConfirmAdm
 		arg.TotpTimestep,
 		arg.RecoveryCodeHashes,
 		arg.CurrentAdminSessionID,
+		arg.TenantID,
+		arg.IdempotencyKey,
 	)
-	var confirmed pgtype.Bool
+	var confirmed bool
 	err := row.Scan(&confirmed)
 	return confirmed, err
 }
@@ -222,6 +263,22 @@ WITH eligible_user AS (
         expires_at = EXCLUDED.expires_at,
         consumed_at = NULL
     RETURNING admin_totp_enrollment_id, expires_at
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        $5,
+        'admin.totp-enrollment.started',
+        'admin_totp_enrollment',
+        admin_totp_enrollment_id::text,
+        'admin',
+        $1::text,
+        'admin-api',
+        $6,
+        jsonb_build_object('expires_at', expires_at)
+    FROM inserted
 )
 SELECT admin_totp_enrollment_id, expires_at
 FROM inserted
@@ -232,6 +289,8 @@ type CreateAdminTOTPEnrollmentParams struct {
 	TokenHash         []byte             `json:"token_hash"`
 	SecretCiphertext  []byte             `json:"secret_ciphertext"`
 	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	TenantID          string             `json:"tenant_id"`
+	IdempotencyKey    pgtype.Text        `json:"idempotency_key"`
 }
 
 type CreateAdminTOTPEnrollmentRow struct {
@@ -245,6 +304,8 @@ func (q *Queries) CreateAdminTOTPEnrollment(ctx context.Context, arg CreateAdmin
 		arg.TokenHash,
 		arg.SecretCiphertext,
 		arg.ExpiresAt,
+		arg.TenantID,
+		arg.IdempotencyKey,
 	)
 	var i CreateAdminTOTPEnrollmentRow
 	err := row.Scan(&i.AdminTotpEnrollmentID, &i.ExpiresAt)
@@ -278,17 +339,34 @@ WITH updated AS (
     DELETE FROM vetchium.admin_sessions
     WHERE admin_user_id IN (SELECT admin_user_id FROM updated)
       AND admin_session_id <> $2
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $3,
+        'admin.totp.disabled',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        jsonb_build_object('other_sessions_revoked', true)
+    FROM updated
+    RETURNING audit_event_id
 )
-SELECT EXISTS (SELECT 1 FROM updated) AS disabled
+SELECT EXISTS (SELECT 1 FROM audit) AS disabled
 `
 
 type DisableAdminTOTPParams struct {
 	TargetAdminUserID     pgtype.UUID `json:"target_admin_user_id"`
 	CurrentAdminSessionID pgtype.UUID `json:"current_admin_session_id"`
+	TenantID              string      `json:"tenant_id"`
 }
 
 func (q *Queries) DisableAdminTOTP(ctx context.Context, arg DisableAdminTOTPParams) (bool, error) {
-	row := q.db.QueryRow(ctx, disableAdminTOTP, arg.TargetAdminUserID, arg.CurrentAdminSessionID)
+	row := q.db.QueryRow(ctx, disableAdminTOTP, arg.TargetAdminUserID, arg.CurrentAdminSessionID, arg.TenantID)
 	var disabled bool
 	err := row.Scan(&disabled)
 	return disabled, err
@@ -358,18 +436,44 @@ WITH eligible_user AS (
     SET active = false
     WHERE admin_user_id IN (SELECT admin_user_id FROM eligible_user)
       AND active
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        $4,
+        'admin.totp.recovery-codes-regenerated',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        $5,
+        jsonb_build_object('recovery_codes_created', 10)
+    FROM eligible_user
+    WHERE (SELECT count(*) FROM inserted_codes) = 10
+    RETURNING audit_event_id
 )
-SELECT (SELECT count(*) FROM inserted_codes) = 10 AS regenerated
+SELECT EXISTS (SELECT 1 FROM audit) AS regenerated
 `
 
 type RegenerateAdminTOTPRecoveryCodesParams struct {
 	TargetAdminUserID     pgtype.UUID `json:"target_admin_user_id"`
 	RecoveryCodeHashes    [][]byte    `json:"recovery_code_hashes"`
 	CurrentAdminSessionID pgtype.UUID `json:"current_admin_session_id"`
+	TenantID              string      `json:"tenant_id"`
+	IdempotencyKey        pgtype.Text `json:"idempotency_key"`
 }
 
 func (q *Queries) RegenerateAdminTOTPRecoveryCodes(ctx context.Context, arg RegenerateAdminTOTPRecoveryCodesParams) (bool, error) {
-	row := q.db.QueryRow(ctx, regenerateAdminTOTPRecoveryCodes, arg.TargetAdminUserID, arg.RecoveryCodeHashes, arg.CurrentAdminSessionID)
+	row := q.db.QueryRow(ctx, regenerateAdminTOTPRecoveryCodes,
+		arg.TargetAdminUserID,
+		arg.RecoveryCodeHashes,
+		arg.CurrentAdminSessionID,
+		arg.TenantID,
+		arg.IdempotencyKey,
+	)
 	var regenerated bool
 	err := row.Scan(&regenerated)
 	return regenerated, err

@@ -5,9 +5,9 @@ import { Link, useSearchParams } from "react-router";
 import {
   type CompleteSetupRequest,
   normalizeCompleteSetupRequest,
-} from "../../../typespec/admin/users/invitations.ts";
-import { isNewPassword } from "../../../typespec/common/authentication.ts";
-import { isDisplayName } from "../../../typespec/common/localization.ts";
+} from "typespec/admin/users/invitations";
+import { isNewPassword } from "typespec/common/authentication";
+import { isDisplayName } from "typespec/common/localization";
 import { useIdempotencyKey } from "../api/idempotency";
 import { problemTranslationKey } from "../api/problems";
 import { usePendingOperations } from "../app/PendingOperationContext";

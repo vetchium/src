@@ -14,20 +14,25 @@ import (
 // panics on anything else.
 type stubQuerier struct {
 	sqlc.Querier
-	pruneExpiredAdminSessions func(context.Context) (int64, error)
+	pruneExpiredAdminSessions func(context.Context, string) (int64, error)
 }
 
 func (s stubQuerier) PruneExpiredAdminSessions(
-	ctx context.Context,
+	ctx context.Context, tenantID string,
 ) (int64, error) {
-	return s.pruneExpiredAdminSessions(ctx)
+	return s.pruneExpiredAdminSessions(ctx, tenantID)
 }
 
 func TestPruneAdminSessionsLogsDeletedCount(t *testing.T) {
 	var logs bytes.Buffer
 	worker := newTestWorker(slog.New(slog.NewTextHandler(&logs, nil)))
 	worker.queries = stubQuerier{
-		pruneExpiredAdminSessions: func(context.Context) (int64, error) {
+		pruneExpiredAdminSessions: func(
+			_ context.Context, tenantID string,
+		) (int64, error) {
+			if tenantID != "test" {
+				t.Fatalf("tenant ID = %q", tenantID)
+			}
 			return 2, nil
 		},
 	}
@@ -44,7 +49,7 @@ func TestPruneAdminSessionsStaysQuietWhenNothingExpired(t *testing.T) {
 	var logs bytes.Buffer
 	worker := newTestWorker(slog.New(slog.NewTextHandler(&logs, nil)))
 	worker.queries = stubQuerier{
-		pruneExpiredAdminSessions: func(context.Context) (int64, error) {
+		pruneExpiredAdminSessions: func(context.Context, string) (int64, error) {
 			return 0, nil
 		},
 	}
@@ -61,7 +66,7 @@ func TestPruneAdminSessionsWrapsQueryError(t *testing.T) {
 	wantErr := errors.New("transient database error")
 	worker := newTestWorker(slog.Default())
 	worker.queries = stubQuerier{
-		pruneExpiredAdminSessions: func(context.Context) (int64, error) {
+		pruneExpiredAdminSessions: func(context.Context, string) (int64, error) {
 			return 0, wantErr
 		},
 	}

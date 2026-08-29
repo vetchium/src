@@ -1,3 +1,5 @@
+import type { LocaleResource } from "./en";
+
 export const ta = {
   shell: {
     documentTitle: "Vetchium",
@@ -215,4 +217,4 @@ export const ta = {
     documentTitle: "முகப்பு | Vetchium",
     placeholder: "Vetchium முகப்புப் பக்கம்",
   },
-} as const;
+} as const satisfies LocaleResource;

@@ -7,14 +7,15 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
-	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
+	"backend/internal/handlerauth"
+	"backend/internal/middleware"
 )
 
 func SetPermissions(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request authorization.SetPermissionsRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
@@ -25,10 +26,13 @@ func SetPermissions(s *adminapi.Server) http.HandlerFunc {
 		for index, permission := range permissions {
 			stored[index] = string(permission)
 		}
+		identity, _ := middleware.AdminIdentityFromContext(r.Context())
 		result, err := s.Queries.SetAdminPermissions(
 			r.Context(), sqlc.SetAdminPermissionsParams{
 				TargetAdminUserID: userID,
 				Permissions:       stored,
+				TenantID:          s.TenantID,
+				ActorAdminUserID:  identity.UserID,
 			},
 		)
 		if err != nil {
@@ -45,19 +49,4 @@ func SetPermissions(s *adminapi.Server) http.HandlerFunc {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
-}
-
-func decodeAndValidate[T any](
-	s *adminapi.Server, w http.ResponseWriter, r *http.Request,
-	request *T, validate func() []string,
-) bool {
-	if err := apiserver.DecodeJSON(r, request); err != nil {
-		s.InvalidJSON(r.Context(), w, err)
-		return false
-	}
-	if fields := validate(); len(fields) != 0 {
-		s.ValidationFailed(r.Context(), w, fields)
-		return false
-	}
-	return true
 }

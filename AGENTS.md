@@ -48,6 +48,10 @@ The global coordinator instead reads its own non-tenant JSON manifest from
   Vetchium platform. These Organizations create Posts, Job Openings, go through
   the hiring process for Applicants, etc. This portal talks to the `orgs-api`
   server of the same Tenant.
+- `portal-ui` is not a portal. It is the workspace package holding the React
+  behavior the portals share — the application shell, authentication, session
+  storage, preferences, idempotency, error presentation, and the account
+  security cards. It is portal-agnostic and talks to no API of its own.
 
 `AGENTS.md` files define scope and route agents to shared guidance. The
 substantive conventions live once under `agent-guides/`.
@@ -57,6 +61,8 @@ will be used in prompts, specifications, UIs related to the Vetchium platform.
 
 Before changing files, read every guide that applies:
 
+- Product terminology and domain vocabulary:
+  [`glossary.md`](agent-guides/glossary.md)
 - Maintained Go code: [`go.md`](agent-guides/go.md)
 - Backend API servers and workers:
   [`backend.md`](agent-guides/backend.md)
@@ -68,6 +74,7 @@ Before changing files, read every guide that applies:
   [`typespec.md`](agent-guides/typespec.md)
 - Hand-maintained TypeScript:
   [`typescript.md`](agent-guides/typescript.md)
+- Portal user interfaces: [`ui.md`](agent-guides/ui.md)
 - Playwright API and UI tests:
   [`playwright.md`](agent-guides/playwright.md)
 
@@ -83,6 +90,9 @@ Scoped routers make these requirements visible near the code:
 - [`backend/internal/db/AGENTS.md`](backend/internal/db/AGENTS.md)
 - [`typespec/AGENTS.md`](typespec/AGENTS.md)
 - [`playwright/AGENTS.md`](playwright/AGENTS.md)
+- [`admin-ui/AGENTS.md`](admin-ui/AGENTS.md)
+- [`hub-ui/AGENTS.md`](hub-ui/AGENTS.md)
+- [`portal-ui/AGENTS.md`](portal-ui/AGENTS.md)
 
 The nearest scoped `AGENTS.md` takes precedence when instructions conflict.
 More specific guides take precedence over general guides.
@@ -97,7 +107,9 @@ More specific guides take precedence over general guides.
 - Keep changes focused and preserve unrelated work already present in the
   worktree.
 - Use the commands documented in every applicable guide to format, regenerate,
-  and test changes.
+  and test changes. `make fmt` applies every formatter the repository owns,
+  including the JSON outside the npm workspaces, and `make test` verifies that
+  the committed result is already formatted.
 - Do not hand-edit generated artifacts when a source file and generator are
   available.
 - Keep source comments purposeful. Do not add namesake comments that merely

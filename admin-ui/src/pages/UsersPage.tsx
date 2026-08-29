@@ -24,24 +24,24 @@ import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate } from "react-router";
-import type { AdminPermissionID } from "../../../typespec/admin/authorization/types.ts";
+import type { AdminPermissionID } from "typespec/admin/authorization/types";
 import {
   AdminPermissions,
   ManageUsers,
   ViewUsers,
-} from "../../../typespec/admin/authorization/types.ts";
-import type { State } from "../../../typespec/admin/user/user.ts";
+} from "typespec/admin/authorization/types";
+import type { State } from "typespec/admin/user/user";
 import type {
   AdminLastLoginFilter,
   AdminUserSummary,
   ListUsersRequest,
-} from "../../../typespec/admin/users/management.ts";
-import type { PaginationKey } from "../../../typespec/common/pagination.ts";
+} from "typespec/admin/users/management";
+import type { PaginationKey } from "typespec/common/pagination";
 import {
   AdminUserNotFoundError,
   CannotDisableCurrentAdminError,
   LastAdminManagerError,
-} from "../../../typespec/problem/admin/users.ts";
+} from "typespec/problem/admin/users";
 import { problemTranslationKey } from "../api/problems";
 import { intlLocale } from "../app/preferences";
 import {

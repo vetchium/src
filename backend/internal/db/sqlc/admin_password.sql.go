@@ -33,6 +33,24 @@ WITH updated AS (
     SET active = false
     WHERE admin_user_id IN (SELECT admin_user_id FROM updated)
       AND active
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $4,
+        'admin.password.changed',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        admin_user_id::text,
+        'admin-api',
+        jsonb_build_object(
+            'password_changed', true,
+            'other_sessions_revoked', true
+        )
+    FROM updated
 )
 SELECT EXISTS (SELECT 1 FROM updated) AS changed
 `
@@ -41,10 +59,16 @@ type ChangeAdminPasswordParams struct {
 	PasswordHash          string      `json:"password_hash"`
 	TargetAdminUserID     pgtype.UUID `json:"target_admin_user_id"`
 	CurrentAdminSessionID pgtype.UUID `json:"current_admin_session_id"`
+	TenantID              string      `json:"tenant_id"`
 }
 
 func (q *Queries) ChangeAdminPassword(ctx context.Context, arg ChangeAdminPasswordParams) (bool, error) {
-	row := q.db.QueryRow(ctx, changeAdminPassword, arg.PasswordHash, arg.TargetAdminUserID, arg.CurrentAdminSessionID)
+	row := q.db.QueryRow(ctx, changeAdminPassword,
+		arg.PasswordHash,
+		arg.TargetAdminUserID,
+		arg.CurrentAdminSessionID,
+		arg.TenantID,
+	)
 	var changed bool
 	err := row.Scan(&changed)
 	return changed, err
@@ -89,17 +113,43 @@ WITH token AS (
     SET active = false
     WHERE admin_user_id IN (SELECT admin_user_id FROM updated)
       AND active
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        $3,
+        'admin.password.reset',
+        'admin_user',
+        admin_user_id::text,
+        'anonymous',
+        NULL,
+        'admin-api',
+        $4,
+        jsonb_build_object(
+            'password_changed', true,
+            'all_sessions_revoked', true
+        )
+    FROM consumed
 )
 SELECT EXISTS (SELECT 1 FROM consumed) AS completed
 `
 
 type CompleteAdminPasswordResetParams struct {
-	ResetTokenHash []byte `json:"reset_token_hash"`
-	PasswordHash   string `json:"password_hash"`
+	ResetTokenHash []byte      `json:"reset_token_hash"`
+	PasswordHash   string      `json:"password_hash"`
+	TenantID       string      `json:"tenant_id"`
+	IdempotencyKey pgtype.Text `json:"idempotency_key"`
 }
 
 func (q *Queries) CompleteAdminPasswordReset(ctx context.Context, arg CompleteAdminPasswordResetParams) (bool, error) {
-	row := q.db.QueryRow(ctx, completeAdminPasswordReset, arg.ResetTokenHash, arg.PasswordHash)
+	row := q.db.QueryRow(ctx, completeAdminPasswordReset,
+		arg.ResetTokenHash,
+		arg.PasswordHash,
+		arg.TenantID,
+		arg.IdempotencyKey,
+	)
 	var completed bool
 	err := row.Scan(&completed)
 	return completed, err
@@ -127,7 +177,7 @@ WITH eligible_user AS (
         created_at = now(),
         expires_at = EXCLUDED.expires_at,
         consumed_at = NULL
-    RETURNING admin_password_reset_token_id
+    RETURNING admin_password_reset_token_id, admin_user_id
 ), outbox AS (
     INSERT INTO vetchium.admin_email_outbox (
         kind,
@@ -141,6 +191,21 @@ WITH eligible_user AS (
     FROM eligible_user
     WHERE EXISTS (SELECT 1 FROM inserted)
     RETURNING admin_email_outbox_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $5,
+        'admin.password-reset.requested',
+        'admin_password_reset',
+        admin_password_reset_token_id::text,
+        'anonymous',
+        NULL,
+        'admin-api',
+        jsonb_build_object('email_queued', EXISTS (SELECT 1 FROM outbox))
+    FROM inserted
 )
 SELECT EXISTS (SELECT 1 FROM outbox) AS queued
 `
@@ -150,6 +215,7 @@ type CreateAdminPasswordResetParams struct {
 	TokenHash           []byte             `json:"token_hash"`
 	ExpiresAt           pgtype.Timestamptz `json:"expires_at"`
 	PayloadCiphertext   []byte             `json:"payload_ciphertext"`
+	TenantID            string             `json:"tenant_id"`
 }
 
 func (q *Queries) CreateAdminPasswordReset(ctx context.Context, arg CreateAdminPasswordResetParams) (bool, error) {
@@ -158,6 +224,7 @@ func (q *Queries) CreateAdminPasswordReset(ctx context.Context, arg CreateAdminP
 		arg.TokenHash,
 		arg.ExpiresAt,
 		arg.PayloadCiphertext,
+		arg.TenantID,
 	)
 	var queued bool
 	err := row.Scan(&queued)

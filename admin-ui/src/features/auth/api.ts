@@ -4,21 +4,21 @@ import type {
   ReauthenticateRequest,
   ReauthenticateResponse,
   VerifyTFARequest,
-} from "../../../../typespec/admin/auth/login.ts";
+} from "typespec/admin/auth/login";
 import type {
   CompletePasswordResetRequest,
   RequestPasswordResetRequest,
-} from "../../../../typespec/admin/auth/password.ts";
+} from "typespec/admin/auth/password";
 import type {
   VerifyRecoveryCodeRequest,
   VerifyRecoveryCodeResponse,
-} from "../../../../typespec/admin/auth/totp.ts";
-import type { AuthenticatedSessionResponse } from "../../../../typespec/admin/auth/types.ts";
+} from "typespec/admin/auth/totp";
+import type { AuthenticatedSessionResponse } from "typespec/admin/auth/types";
 import type {
   CompleteSetupRequest,
   CompleteSetupResponse,
-} from "../../../../typespec/admin/users/invitations.ts";
-import type { IdempotencyKey } from "../../../../typespec/common/idempotency.ts";
+} from "typespec/admin/users/invitations";
+import type { IdempotencyKey } from "typespec/common/idempotency";
 import { idempotencyHeaders, requestJson, requestVoid } from "../../api/client";
 
 function jsonBody(value: unknown): string {

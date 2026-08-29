@@ -1,3 +1,5 @@
+import type { LocaleResource } from "./en";
+
 export const de = {
   shell: {
     documentTitle: "Vetchium-Administration",
@@ -384,4 +386,4 @@ export const de = {
     description: "Die angeforderte Seite ist nicht verfügbar.",
     action: "Zur Startseite",
   },
-} as const;
+} as const satisfies LocaleResource;

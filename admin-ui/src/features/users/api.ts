@@ -1,14 +1,14 @@
 import type {
   InviteUserRequest,
   InviteUserResponse,
-} from "../../../../typespec/admin/users/invitations.ts";
+} from "typespec/admin/users/invitations";
 import type {
   DisableUserRequest,
   EnableUserRequest,
   ListUsersRequest,
   ListUsersResponse,
-} from "../../../../typespec/admin/users/management.ts";
-import type { IdempotencyKey } from "../../../../typespec/common/idempotency.ts";
+} from "typespec/admin/users/management";
+import type { IdempotencyKey } from "typespec/common/idempotency";
 import { idempotencyHeaders, requestJson, requestVoid } from "../../api/client";
 
 export function listUsers(

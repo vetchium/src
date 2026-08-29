@@ -58,6 +58,19 @@ placeholders to TypeScript applications.
 
 ## Architecture
 
+- Keep behavior used by more than one portal in the `portal-ui/` workspace
+  package. This includes the application shell, authentication concurrency,
+  session-storage primitives, preferences, idempotency keys, API problem
+  handling, return-path validation, and account-security presentation. A
+  security control such as the `returnTo` open-redirect guard belongs here
+  above all: a copy per portal is a copy that can be fixed in one portal and
+  left wrong in the others. Portal packages supply typed
+  API, storage, navigation, translation-key, and authorization adapters; they
+  must not copy the shared implementation.
+- Portal-private code is limited to domain pages and features, route tables,
+  endpoint adapters, permission-aware navigation, runtime configuration, and
+  locale resources. When a second portal needs the same behavior, move that
+  behavior into `portal-ui/` in the same change instead of copying it.
 - Keep application-wide providers and route configuration under `src/app/`.
 - Keep direct HTTP calls under `src/api` or a feature's `api.ts`. Components do
   not call `fetch` directly.
@@ -86,7 +99,7 @@ placeholders to TypeScript applications.
 
 ## Verification
 
-From the portal package, run:
+From each changed portal package and from `portal-ui/`, run:
 
 ```sh
 npm run format

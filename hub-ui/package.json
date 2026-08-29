@@ -17,13 +17,14 @@
   "dependencies": {
     "@ant-design/icons": "6.3.2",
     "@tanstack/react-query": "5.101.4",
-    "ajv": "8.20.0",
+    "@vetchium/portal-ui": "file:../portal-ui",
     "antd": "6.6.0",
     "i18next": "26.3.6",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-i18next": "17.0.11",
-    "react-router": "8.3.0"
+    "react-router": "8.3.0",
+    "typespec": "file:../typespec"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.8",
@@ -33,5 +34,6 @@
     "@vitejs/plugin-react": "6.0.5",
     "typescript": "7.0.2",
     "vite": "8.2.1"
-  }
+  },
+  "packageManager": "npm@12.0.2+sha512.b885e890b9418fa1693544d05f53e64f9a73ec194837d4258b15fecdd692347b1dd2a517b1b0cbaf9d31cd8e92c3b70956bd2ecc72833a57b4b3098f5bfa7943"
 }

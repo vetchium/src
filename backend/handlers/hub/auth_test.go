@@ -140,10 +140,12 @@ func hubTestServer(db sqlc.Querier, now time.Time) *hubapi.Server {
 		Runtime: apiserver.New(
 			nil, slog.New(slog.NewTextHandler(io.Discard, nil)),
 		),
-		Queries: db, TenantID: "test", SessionTTL: 24 * time.Hour,
-		RememberedSessionTTL: 265 * 24 * time.Hour,
-		CredentialKey:        hubapi.DeriveCredentialKey("test", "secret"),
-		Now:                  func() time.Time { return now },
+		Queries: db, TenantID: "test",
+		SessionDurations: apiserver.SessionDurations{
+			Default: 24 * time.Hour, Remembered: 265 * 24 * time.Hour,
+		},
+		CredentialKey: hubapi.DeriveCredentialKey("test", "secret"),
+		Now:           func() time.Time { return now },
 	}
 }
 

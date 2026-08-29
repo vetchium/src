@@ -22,7 +22,7 @@ func TestLoadFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.TenantID != "sgp" || cfg.Env != EnvironmentDev ||
-		cfg.AdminAPIServer.AdminSessionTTL != 24*time.Hour {
+		cfg.AdminAPIServer.SessionTTL != 24*time.Hour {
 		t.Fatalf("config = %+v, want tenant sgp and admin-session TTL 24h", cfg)
 	}
 	if cfg.Workers.RetryBackoffLimit != 5*time.Minute ||
@@ -161,6 +161,26 @@ func TestLoadFileRejectsUnknownFields(t *testing.T) {
 	}
 }
 
+func TestLoadFileRejectsLegacySectionNames(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	path := writeConfig(t, passwordFile, "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(
+		string(contents), `"adminAPIServer"`, `"admin-api-server"`, 1,
+	))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = LoadFile(path)
+	if err == nil || !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("LoadFile() error = %v, want legacy-key rejection", err)
+	}
+}
+
 func TestLoadFileRejectsUnknownEnvironment(t *testing.T) {
 	passwordFile := filepath.Join(t.TempDir(), "password")
 	path := writeConfig(t, passwordFile, "")
@@ -248,15 +268,15 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5
   },
-  "admin-api-server": {
-    "adminSessionTTL": "24h"
+  "adminAPIServer": {
+    "sessionTTL": "24h"
   },
-  "global-coordinator": {
+  "globalCoordinator": {
     "baseURL": "http://global-coordinator:8080",
     "credentialFile": "/run/secrets/global_coordinator_credential",
     "requestTimeout": "5s"
   },
-  "hub-api-server": {
+  "hubAPIServer": {
     "sessionTTL": "24h",
     "rememberedSessionTTL": "6360h",
     "publicBaseURL": "http://hub-ui.sgp.localhost"
@@ -271,8 +291,8 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "startTLS": "disabled",
     "connectionTimeout": "5s"
   },
-  "orgs-api-server": {},
-  "mcp-server": {}
+  "orgsAPIServer": {},
+  "mcpServer": {}
 }`, passwordFile)
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
 		t.Fatal(err)
@@ -344,15 +364,15 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5%s
   },
-  "admin-api-server": {
-    "adminSessionTTL": "24h"
+  "adminAPIServer": {
+    "sessionTTL": "24h"
   },
-  "global-coordinator": {
+  "globalCoordinator": {
     "baseURL": "http://global-coordinator:8080",
     "credentialFile": "/run/secrets/global_coordinator_credential",
     "requestTimeout": "5s"
   },
-  "hub-api-server": {
+  "hubAPIServer": {
     "sessionTTL": "24h",
     "rememberedSessionTTL": "6360h",
     "publicBaseURL": "http://hub-ui.sgp.localhost"
@@ -367,8 +387,8 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "startTLS": "disabled",
     "connectionTimeout": "5s"
   },
-  "orgs-api-server": {},
-  "mcp-server": {}
+  "orgsAPIServer": {},
+  "mcpServer": {}
 }`, passwordFile, extraWorkerField)
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
 		t.Fatal(err)

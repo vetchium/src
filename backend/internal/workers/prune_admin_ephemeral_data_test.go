@@ -24,27 +24,57 @@ func (s *ephemeralStubQuerier) result(name string) (int64, error) {
 	return 1, nil
 }
 
-func (s *ephemeralStubQuerier) PruneAdminLoginChallenges(context.Context) (int64, error) {
+func (s *ephemeralStubQuerier) PruneAdminLoginChallenges(
+	_ context.Context, tenantID string,
+) (int64, error) {
+	if tenantID != "test" {
+		return 0, errors.New("unexpected tenant")
+	}
 	return s.result("login challenges")
 }
 
-func (s *ephemeralStubQuerier) PruneAdminTOTPEnrollments(context.Context) (int64, error) {
+func (s *ephemeralStubQuerier) PruneAdminTOTPEnrollments(
+	_ context.Context, tenantID string,
+) (int64, error) {
+	if tenantID != "test" {
+		return 0, errors.New("unexpected tenant")
+	}
 	return s.result("TOTP enrollments")
 }
 
-func (s *ephemeralStubQuerier) PruneAdminPasswordResets(context.Context) (int64, error) {
+func (s *ephemeralStubQuerier) PruneAdminPasswordResets(
+	_ context.Context, tenantID string,
+) (int64, error) {
+	if tenantID != "test" {
+		return 0, errors.New("unexpected tenant")
+	}
 	return s.result("password resets")
 }
 
-func (s *ephemeralStubQuerier) PruneAdminInvitations(context.Context) (int64, error) {
+func (s *ephemeralStubQuerier) PruneAdminInvitations(
+	_ context.Context, tenantID string,
+) (int64, error) {
+	if tenantID != "test" {
+		return 0, errors.New("unexpected tenant")
+	}
 	return s.result("invitations")
 }
 
-func (s *ephemeralStubQuerier) PruneConsumedAdminTOTPRecoveryCodes(context.Context) (int64, error) {
+func (s *ephemeralStubQuerier) PruneConsumedAdminTOTPRecoveryCodes(
+	_ context.Context, tenantID string,
+) (int64, error) {
+	if tenantID != "test" {
+		return 0, errors.New("unexpected tenant")
+	}
 	return s.result("recovery codes")
 }
 
-func (s *ephemeralStubQuerier) PruneAdminEmailOutbox(context.Context) (int64, error) {
+func (s *ephemeralStubQuerier) PruneAdminEmailOutbox(
+	_ context.Context, tenantID string,
+) (int64, error) {
+	if tenantID != "test" {
+		return 0, errors.New("unexpected tenant")
+	}
 	return s.result("outbox")
 }
 

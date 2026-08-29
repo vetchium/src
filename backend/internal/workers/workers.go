@@ -24,6 +24,7 @@ type Worker struct {
 	hubEmailQueries   hubEmailQueries
 	hubEmailDelivery  *HubEmailDelivery
 	log               *slog.Logger
+	tenantID          string
 	retryBackoffLimit time.Duration
 	jobs              []periodicJob
 }
@@ -31,6 +32,7 @@ type Worker struct {
 func New(
 	db *pgxpool.Pool,
 	log *slog.Logger,
+	tenantID string,
 	config appconfig.Workers,
 	hubEmailDelivery ...*HubEmailDelivery,
 ) *Worker {
@@ -39,6 +41,7 @@ func New(
 		queries:           queries,
 		hubEmailQueries:   queries,
 		log:               log,
+		tenantID:          tenantID,
 		retryBackoffLimit: config.RetryBackoffLimit,
 	}
 	w.jobs = []periodicJob{

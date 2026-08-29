@@ -3,11 +3,11 @@ import { Alert, App, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
-import type { LoginRequest } from "../../../typespec/admin/auth/login.ts";
+import type { LoginRequest } from "typespec/admin/auth/login";
 import {
   normalizeLoginRequest,
   validateLoginRequest,
-} from "../../../typespec/admin/auth/login.ts";
+} from "typespec/admin/auth/login";
 import { usePendingOperations } from "../app/PendingOperationContext";
 import type { LoginAttempt } from "../auth/AuthContext";
 import { useAuth } from "../auth/AuthContext";
@@ -74,14 +74,14 @@ export function LoginPage() {
       return;
     }
     if (response.authentication_state === "totp_required") {
-      if (!auth.beginChallenge(response, attempt)) {
+      if (!auth.beginChallenge(response, undefined, attempt)) {
         return;
       }
       unhandedAttempt.current = null;
       navigate(`/login/two-factor?returnTo=${encodeURIComponent(returnTo)}`);
       return;
     }
-    if (!auth.completeAuthentication(response, { attempt })) {
+    if (!auth.completeAuthentication(response, undefined, { attempt })) {
       return;
     }
     unhandedAttempt.current = null;

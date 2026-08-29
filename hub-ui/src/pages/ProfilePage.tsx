@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import {
   countryCodeValues,
   type FrontendLocale,
-} from "../../../typespec/common/localization.ts";
+} from "typespec/common/localization";
 import { hubAPI } from "../api/hub";
 import { usePreferences } from "../app/PreferencesContext";
 import { useAuth } from "../auth/AuthContext";

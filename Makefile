@@ -26,6 +26,11 @@ GOVULNCHECK             := go run golang.org/x/vuln/cmd/govulncheck@v1.7.0
 GOLANGCI_LINT           := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 SQLFLUFF_IMAGE          := sqlfluff/sqlfluff:4.2.2@sha256:7e8f4f1bc8f70c6ab7da3094c3ca0ff0c66f3d721896d79c3731e549ea1921fb
 GO_MODULES             := backend typespec
+JS_WORKSPACES          := admin-ui hub-ui portal-ui typespec playwright
+# Each workspace formats its own tree. These files sit outside every workspace,
+# so `repository-json` is the only thing that formats and checks them.
+REPOSITORY_JSON        := biome.json docker-compose.json docker-compose-ci.json \
+	config deploy
 SQL_DIRS               := backend/internal/db/queries db/bootstrap db/dev-seed \
 	db/migrations
 GOTESTFLAGS            ?=
@@ -43,16 +48,42 @@ WAIT_TIMEOUT ?= 300
 # Compose has no per-service opt-out, so the wait set is named explicitly.
 serving_services = $$(docker compose -f $(1) config --services | grep -v '^workers-')
 
-.PHONY: check dev dev-secrets sqlc sqlc-vet sqlc-verify sql-lint sql-check \
+.PHONY: check fmt dev dev-secrets sqlc sqlc-vet sqlc-verify sql-lint sql-check \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
 	admin-ui-deps admin-ui-check admin-ui-check-ready \
-	hub-ui-deps hub-ui-check hub-ui-check-ready typespec-deps \
+	hub-ui-deps hub-ui-check hub-ui-check-ready portal-ui-deps \
+	portal-ui-check portal-ui-check-ready typespec-deps \
 	typespec-check \
 	typespec-check-ready typespec-test playwright-deps playwright-browser \
 	playwright-browser-ready playwright-check playwright-check-ready \
 	playwright-test playwright-test-run api-coverage-prepare \
-	api-coverage-report docker publish clean
+	api-coverage-report repository-json-fmt repository-json-check-ready \
+	repository-json-check docker publish clean
+
+fmt:
+	@find $(GO_MODULES) -type f -name '*.go' -print0 | xargs -0 gofmt -w
+	@for workspace in $(JS_WORKSPACES); do \
+		echo "==> format $$workspace"; \
+		(cd "$$workspace" && npm run format) || exit $$?; \
+	done
+	$(MAKE) --no-print-directory repository-json-fmt
+
+# Biome runs from a workspace that has it installed; the paths are repository
+# relative, so they are passed through with a leading `../`.
+#
+# Biome's JSON formatter preserves whether an object was written expanded or on
+# one line, so these targets normalize indentation, spacing, and quoting but
+# cannot settle that choice. Match the surrounding file when editing by hand.
+repository-json-fmt: typespec-deps
+	cd typespec && npx biome check --write --config-path=../biome.json \
+		$(addprefix ../,$(REPOSITORY_JSON))
+
+repository-json-check-ready: typespec-deps
+	cd typespec && npx biome check --config-path=../biome.json \
+		$(addprefix ../,$(REPOSITORY_JSON))
+
+repository-json-check: repository-json-check-ready
 
 dev: clean
 	$(MAKE) --no-print-directory dev-secrets
@@ -130,11 +161,12 @@ test: clean
 	$(MAKE) --no-print-directory coverage-summary
 	$(MAKE) --no-print-directory api-coverage-report
 
-test-dependencies: admin-ui-deps hub-ui-deps typespec-deps playwright-deps
+test-dependencies: admin-ui-deps hub-ui-deps portal-ui-deps typespec-deps \
+	playwright-deps
 
 test-static-ready: test-go test-go-static test-go-lint test-go-vuln \
 	admin-ui-check-ready hub-ui-check-ready typespec-check-ready \
-	playwright-check-ready
+	portal-ui-check-ready playwright-check-ready repository-json-check-ready
 
 test-environment:
 	$(MAKE) --no-print-directory playwright-browser-ready
@@ -241,11 +273,22 @@ hub-ui-check-ready: hub-ui-deps
 
 hub-ui-check: hub-ui-check-ready
 
+portal-ui-deps:
+	cd portal-ui && npm ci
+
+portal-ui-check-ready: portal-ui-deps
+	cd portal-ui && npm run format:check
+	cd portal-ui && npm run typecheck
+	cd portal-ui && npm audit --audit-level=high
+
+portal-ui-check: portal-ui-check-ready
+
 typespec-deps:
 	cd typespec && npm ci
 
 typespec-check-ready: typespec-deps
 	cd typespec && npm run check:contract-files
+	cd typespec && npm run test:contract-files
 	cd typespec && npm run format:check
 	cd typespec && npm run typecheck
 	cd typespec && npm run test:ts
@@ -310,6 +353,7 @@ publish:
 		docker buildx bake --builder $(BUILDER) -f docker-bake.hcl --push
 
 clean:
+	docker compose -f docker-compose-ci.json down --remove-orphans --volumes
 	docker compose -f docker-compose.json down --remove-orphans --volumes
 	rm -f "$(APP_PASSWORD_FILE)" "$(ADMIN_KEY_FILE)" "$(HUB_KEY_FILE)" \
 		"$(COORDINATOR_KEY_FILE)"

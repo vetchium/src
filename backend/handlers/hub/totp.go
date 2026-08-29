@@ -14,6 +14,7 @@ import (
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
 	"backend/internal/db/sqlc"
+	"backend/internal/handlerauth"
 	"backend/internal/hubapi"
 	"backend/internal/middleware"
 )
@@ -37,51 +38,54 @@ func getLockedHubLoginChallenge(
 func VerifyTFA(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.VerifyTFARequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
 		}
-		key, ok := idempotencyKey(s, w, r)
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
 			return
 		}
 		tokenHash := hubapi.TokenHash(string(request.LoginChallengeToken))
 		binding := base64.RawURLEncoding.EncodeToString(tokenHash)
 		now := s.CurrentTime()
-		runIdempotent(
+		handlerauth.RunIdempotent(
 			s, w, r, "hub:login-tfa", binding, key, request,
-			now.Add(5*time.Minute),
+			handlerauth.LoginReplayExpiresAt(s.SessionDurations, now),
 			func(q *sqlc.Queries) (
-				idempotentResult[hubauth.AuthenticatedSessionResponse],
-				*apiProblem, error,
+				handlerauth.Result[hubauth.AuthenticatedSessionResponse],
+				*handlerauth.Problem, error,
 			) {
 				challenge, err := getLockedHubLoginChallenge(
 					r.Context(), q, tokenHash,
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return invalidLoginChallengeResult[hubauth.AuthenticatedSessionResponse]()
+					return handlerauth.Failure[hubauth.AuthenticatedSessionResponse](
+						hubproblem.InvalidLoginChallengeError,
+						hubapi.LoginTokenChallenge,
+					)
 				}
 				if err != nil {
-					return idempotentResult[hubauth.AuthenticatedSessionResponse]{}, nil, err
+					return handlerauth.Result[hubauth.AuthenticatedSessionResponse]{}, nil, err
 				}
 				secret, err := hubapi.Decrypt(
 					s.CredentialSubkey("totp"),
 					challenge.TotpSecretCiphertext,
 				)
 				if err != nil {
-					return idempotentResult[hubauth.AuthenticatedSessionResponse]{}, nil, err
+					return handlerauth.Result[hubauth.AuthenticatedSessionResponse]{}, nil, err
 				}
 				timestep, valid := hubapi.VerifyTOTP(
 					string(secret), string(request.TOTPCode), now,
 				)
 				if !valid {
-					return idempotentResult[hubauth.AuthenticatedSessionResponse]{},
-						&apiProblem{details: hubproblem.IncorrectTOTPCodeError}, nil
+					return handlerauth.Result[hubauth.AuthenticatedSessionResponse]{},
+						&handlerauth.Problem{Details: hubproblem.IncorrectTOTPCodeError}, nil
 				}
 				token, sessionHash, err := hubapi.NewToken()
 				if err != nil {
-					return idempotentResult[hubauth.AuthenticatedSessionResponse]{}, nil, err
+					return handlerauth.Result[hubauth.AuthenticatedSessionResponse]{}, nil, err
 				}
 				expiresAt := now.Add(s.SessionDuration(challenge.Remembered))
 				session, err := q.CompleteHubTOTPLogin(
@@ -97,18 +101,18 @@ func VerifyTFA(s *hubapi.Server) http.HandlerFunc {
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return idempotentResult[hubauth.AuthenticatedSessionResponse]{},
-						&apiProblem{details: hubproblem.IncorrectTOTPCodeError}, nil
+					return handlerauth.Result[hubauth.AuthenticatedSessionResponse]{},
+						&handlerauth.Problem{Details: hubproblem.IncorrectTOTPCodeError}, nil
 				}
 				if err != nil {
-					return idempotentResult[hubauth.AuthenticatedSessionResponse]{}, nil, err
+					return handlerauth.Result[hubauth.AuthenticatedSessionResponse]{}, nil, err
 				}
 				if session.ExpiresAt.Valid {
 					expiresAt = session.ExpiresAt.Time
 				}
-				return idempotentResult[hubauth.AuthenticatedSessionResponse]{
-					status: http.StatusOK,
-					body: authenticatedSessionResponse(
+				return handlerauth.Result[hubauth.AuthenticatedSessionResponse]{
+					Status: http.StatusOK,
+					Body: authenticatedSessionResponse(
 						token, expiresAt, challenge.HubUserDid,
 						challenge.Handle, challenge.PreferredLanguage,
 						challenge.ResidentCountry,
@@ -121,38 +125,38 @@ func VerifyTFA(s *hubapi.Server) http.HandlerFunc {
 
 func StartTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		key, ok := idempotencyKey(s, w, r)
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
 		binding := hubapi.FormatUUID(identity.UserDID)
 		now := s.CurrentTime()
-		runIdempotent(
+		handlerauth.RunIdempotent(
 			s, w, r, "hub:start-totp-enrollment", binding, key,
 			struct{}{}, now.Add(totpEnrollmentTTL),
 			func(q *sqlc.Queries) (
-				idempotentResult[hubauth.StartTOTPEnrollmentResponse],
-				*apiProblem, error,
+				handlerauth.Result[hubauth.StartTOTPEnrollmentResponse],
+				*handlerauth.Problem, error,
 			) {
 				if _, err := q.LockHubUserCredentialMutation(
 					r.Context(), identity.UserDID,
 				); err != nil {
-					return idempotentResult[hubauth.StartTOTPEnrollmentResponse]{}, nil, err
+					return handlerauth.Result[hubauth.StartTOTPEnrollmentResponse]{}, nil, err
 				}
 				secret, err := hubapi.NewTOTPSecret()
 				if err != nil {
-					return idempotentResult[hubauth.StartTOTPEnrollmentResponse]{}, nil, err
+					return handlerauth.Result[hubauth.StartTOTPEnrollmentResponse]{}, nil, err
 				}
 				ciphertext, err := hubapi.Encrypt(
 					s.CredentialSubkey("totp"), []byte(secret),
 				)
 				if err != nil {
-					return idempotentResult[hubauth.StartTOTPEnrollmentResponse]{}, nil, err
+					return handlerauth.Result[hubauth.StartTOTPEnrollmentResponse]{}, nil, err
 				}
 				token, tokenHash, err := hubapi.NewToken()
 				if err != nil {
-					return idempotentResult[hubauth.StartTOTPEnrollmentResponse]{}, nil, err
+					return handlerauth.Result[hubauth.StartTOTPEnrollmentResponse]{}, nil, err
 				}
 				expiresAt := now.Add(totpEnrollmentTTL)
 				enrollment, err := q.CreateHubTOTPEnrollment(
@@ -166,18 +170,18 @@ func StartTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return idempotentResult[hubauth.StartTOTPEnrollmentResponse]{},
-						&apiProblem{details: hubproblem.TOTPAlreadyEnabledError}, nil
+					return handlerauth.Result[hubauth.StartTOTPEnrollmentResponse]{},
+						&handlerauth.Problem{Details: hubproblem.TOTPAlreadyEnabledError}, nil
 				}
 				if err != nil {
-					return idempotentResult[hubauth.StartTOTPEnrollmentResponse]{}, nil, err
+					return handlerauth.Result[hubauth.StartTOTPEnrollmentResponse]{}, nil, err
 				}
 				if enrollment.ExpiresAt.Valid {
 					expiresAt = enrollment.ExpiresAt.Time
 				}
-				return idempotentResult[hubauth.StartTOTPEnrollmentResponse]{
-					status: http.StatusOK,
-					body: hubauth.StartTOTPEnrollmentResponse{
+				return handlerauth.Result[hubauth.StartTOTPEnrollmentResponse]{
+					Status: http.StatusOK,
+					Body: hubauth.StartTOTPEnrollmentResponse{
 						TOTPEnrollmentToken: common.TOTPEnrollmentToken(token),
 						ProvisioningURI: hubapi.TOTPProvisioningURI(
 							binding, "Vetchium "+s.TenantID, secret,
@@ -195,12 +199,12 @@ func StartTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 func ConfirmTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.ConfirmTOTPEnrollmentRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
 		}
-		key, ok := idempotencyKey(s, w, r)
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
 			return
 		}
@@ -210,17 +214,17 @@ func ConfirmTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 				string(request.TOTPEnrollmentToken),
 			))
 		now := s.CurrentTime()
-		runIdempotent(
+		handlerauth.RunIdempotent(
 			s, w, r, "hub:confirm-totp-enrollment", binding, key,
 			request, now.Add(totpEnrollmentTTL),
 			func(q *sqlc.Queries) (
-				idempotentResult[hubauth.ConfirmTOTPEnrollmentResponse],
-				*apiProblem, error,
+				handlerauth.Result[hubauth.ConfirmTOTPEnrollmentResponse],
+				*handlerauth.Problem, error,
 			) {
 				if _, err := q.LockHubUserCredentialMutation(
 					r.Context(), identity.UserDID,
 				); err != nil {
-					return idempotentResult[hubauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
+					return handlerauth.Result[hubauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
 				}
 				enrollment, err := q.GetHubTOTPEnrollment(
 					r.Context(), sqlc.GetHubTOTPEnrollmentParams{
@@ -231,28 +235,28 @@ func ConfirmTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return idempotentResult[hubauth.ConfirmTOTPEnrollmentResponse]{},
-						&apiProblem{details: hubproblem.InvalidTOTPEnrollmentError}, nil
+					return handlerauth.Result[hubauth.ConfirmTOTPEnrollmentResponse]{},
+						&handlerauth.Problem{Details: hubproblem.InvalidTOTPEnrollmentError}, nil
 				}
 				if err != nil {
-					return idempotentResult[hubauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
+					return handlerauth.Result[hubauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
 				}
 				secret, err := hubapi.Decrypt(
 					s.CredentialSubkey("totp"), enrollment.SecretCiphertext,
 				)
 				if err != nil {
-					return idempotentResult[hubauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
+					return handlerauth.Result[hubauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
 				}
 				timestep, valid := hubapi.VerifyTOTP(
 					string(secret), string(request.TOTPCode), now,
 				)
 				if !valid {
-					return idempotentResult[hubauth.ConfirmTOTPEnrollmentResponse]{},
-						&apiProblem{details: hubproblem.IncorrectTOTPCodeError}, nil
+					return handlerauth.Result[hubauth.ConfirmTOTPEnrollmentResponse]{},
+						&handlerauth.Problem{Details: hubproblem.IncorrectTOTPCodeError}, nil
 				}
 				codes, hashes, err := hubapi.NewRecoveryCodes()
 				if err != nil {
-					return idempotentResult[hubauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
+					return handlerauth.Result[hubauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
 				}
 				confirmed, err := q.ConfirmHubTOTPEnrollment(
 					r.Context(), sqlc.ConfirmHubTOTPEnrollmentParams{
@@ -267,19 +271,19 @@ func ConfirmTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 					},
 				)
 				if err != nil {
-					return idempotentResult[hubauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
+					return handlerauth.Result[hubauth.ConfirmTOTPEnrollmentResponse]{}, nil, err
 				}
 				if !confirmed {
-					return idempotentResult[hubauth.ConfirmTOTPEnrollmentResponse]{},
-						&apiProblem{details: hubproblem.InvalidTOTPEnrollmentError}, nil
+					return handlerauth.Result[hubauth.ConfirmTOTPEnrollmentResponse]{},
+						&handlerauth.Problem{Details: hubproblem.InvalidTOTPEnrollmentError}, nil
 				}
 				wireCodes := make([]common.TOTPRecoveryCode, len(codes))
 				for index, code := range codes {
 					wireCodes[index] = common.TOTPRecoveryCode(code)
 				}
-				return idempotentResult[hubauth.ConfirmTOTPEnrollmentResponse]{
-					status: http.StatusOK,
-					body: hubauth.ConfirmTOTPEnrollmentResponse{
+				return handlerauth.Result[hubauth.ConfirmTOTPEnrollmentResponse]{
+					Status: http.StatusOK,
+					Body: hubauth.ConfirmTOTPEnrollmentResponse{
 						RecoveryCodes: wireCodes,
 					},
 				}, nil, nil
@@ -291,37 +295,40 @@ func ConfirmTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 func VerifyRecoveryCode(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.VerifyRecoveryCodeRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
 		}
-		key, ok := idempotencyKey(s, w, r)
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
 			return
 		}
 		tokenHash := hubapi.TokenHash(string(request.LoginChallengeToken))
 		binding := base64.RawURLEncoding.EncodeToString(tokenHash)
 		now := s.CurrentTime()
-		runIdempotent(
+		handlerauth.RunIdempotent(
 			s, w, r, "hub:login-recovery-code", binding, key, request,
-			now.Add(5*time.Minute),
+			handlerauth.LoginReplayExpiresAt(s.SessionDurations, now),
 			func(q *sqlc.Queries) (
-				idempotentResult[hubauth.VerifyRecoveryCodeResponse],
-				*apiProblem, error,
+				handlerauth.Result[hubauth.VerifyRecoveryCodeResponse],
+				*handlerauth.Problem, error,
 			) {
 				challenge, err := getLockedHubLoginChallenge(
 					r.Context(), q, tokenHash,
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return invalidLoginChallengeResult[hubauth.VerifyRecoveryCodeResponse]()
+					return handlerauth.Failure[hubauth.VerifyRecoveryCodeResponse](
+						hubproblem.InvalidLoginChallengeError,
+						hubapi.LoginTokenChallenge,
+					)
 				}
 				if err != nil {
-					return idempotentResult[hubauth.VerifyRecoveryCodeResponse]{}, nil, err
+					return handlerauth.Result[hubauth.VerifyRecoveryCodeResponse]{}, nil, err
 				}
 				token, sessionHash, err := hubapi.NewToken()
 				if err != nil {
-					return idempotentResult[hubauth.VerifyRecoveryCodeResponse]{}, nil, err
+					return handlerauth.Result[hubauth.VerifyRecoveryCodeResponse]{}, nil, err
 				}
 				expiresAt := now.Add(s.SessionDuration(challenge.Remembered))
 				session, err := q.CompleteHubRecoveryCodeLogin(
@@ -339,18 +346,18 @@ func VerifyRecoveryCode(s *hubapi.Server) http.HandlerFunc {
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return idempotentResult[hubauth.VerifyRecoveryCodeResponse]{},
-						&apiProblem{details: hubproblem.IncorrectRecoveryCodeError}, nil
+					return handlerauth.Result[hubauth.VerifyRecoveryCodeResponse]{},
+						&handlerauth.Problem{Details: hubproblem.IncorrectRecoveryCodeError}, nil
 				}
 				if err != nil {
-					return idempotentResult[hubauth.VerifyRecoveryCodeResponse]{}, nil, err
+					return handlerauth.Result[hubauth.VerifyRecoveryCodeResponse]{}, nil, err
 				}
 				if session.ExpiresAt.Valid {
 					expiresAt = session.ExpiresAt.Time
 				}
-				return idempotentResult[hubauth.VerifyRecoveryCodeResponse]{
-					status: http.StatusOK,
-					body: hubauth.VerifyRecoveryCodeResponse{
+				return handlerauth.Result[hubauth.VerifyRecoveryCodeResponse]{
+					Status: http.StatusOK,
+					Body: hubauth.VerifyRecoveryCodeResponse{
 						AuthenticatedSessionResponse: authenticatedSessionResponse(
 							token, expiresAt, challenge.HubUserDid,
 							challenge.Handle, challenge.PreferredLanguage,
@@ -369,8 +376,10 @@ func VerifyRecoveryCode(s *hubapi.Server) http.HandlerFunc {
 func DisableTOTP(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		disabled, err := withHubCredentialLock(
-			s, r, hubCredentialLock{userDID: identity.UserDID},
+		disabled, err := handlerauth.WithCredentialLock(
+			s, r, hubCredentialLocker(hubCredentialLock{
+				userDID: identity.UserDID,
+			}),
 			func(q sqlc.Querier) (bool, error) {
 				return q.DisableHubTOTP(
 					r.Context(), sqlc.DisableHubTOTPParams{
@@ -398,39 +407,39 @@ func DisableTOTP(s *hubapi.Server) http.HandlerFunc {
 
 func RegenerateTOTPRecoveryCodes(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		key, ok := idempotencyKey(s, w, r)
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
 		binding := hubapi.FormatUUID(identity.UserDID)
-		runIdempotent(
+		handlerauth.RunIdempotent(
 			s, w, r, "hub:regenerate-totp-recovery-codes", binding,
 			key, struct{}{}, s.CurrentTime().Add(5*time.Minute),
 			func(q *sqlc.Queries) (
-				idempotentResult[hubauth.RegenerateTOTPRecoveryCodesResponse],
-				*apiProblem, error,
+				handlerauth.Result[hubauth.RegenerateTOTPRecoveryCodesResponse],
+				*handlerauth.Problem, error,
 			) {
 				if _, err := q.LockHubUserCredentialMutation(
 					r.Context(), identity.UserDID,
 				); err != nil {
-					return idempotentResult[hubauth.RegenerateTOTPRecoveryCodesResponse]{}, nil, err
+					return handlerauth.Result[hubauth.RegenerateTOTPRecoveryCodesResponse]{}, nil, err
 				}
 				enabled, err := q.HubTOTPEnabled(r.Context(), identity.UserDID)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return idempotentResult[hubauth.RegenerateTOTPRecoveryCodesResponse]{},
-						&apiProblem{details: hubproblem.TOTPNotEnabledError}, nil
+					return handlerauth.Result[hubauth.RegenerateTOTPRecoveryCodesResponse]{},
+						&handlerauth.Problem{Details: hubproblem.TOTPNotEnabledError}, nil
 				}
 				if err != nil {
-					return idempotentResult[hubauth.RegenerateTOTPRecoveryCodesResponse]{}, nil, err
+					return handlerauth.Result[hubauth.RegenerateTOTPRecoveryCodesResponse]{}, nil, err
 				}
 				if !enabled {
-					return idempotentResult[hubauth.RegenerateTOTPRecoveryCodesResponse]{},
-						&apiProblem{details: hubproblem.TOTPNotEnabledError}, nil
+					return handlerauth.Result[hubauth.RegenerateTOTPRecoveryCodesResponse]{},
+						&handlerauth.Problem{Details: hubproblem.TOTPNotEnabledError}, nil
 				}
 				codes, hashes, err := hubapi.NewRecoveryCodes()
 				if err != nil {
-					return idempotentResult[hubauth.RegenerateTOTPRecoveryCodesResponse]{}, nil, err
+					return handlerauth.Result[hubauth.RegenerateTOTPRecoveryCodesResponse]{}, nil, err
 				}
 				regenerated, err := q.RegenerateHubTOTPRecoveryCodes(
 					r.Context(), sqlc.RegenerateHubTOTPRecoveryCodesParams{
@@ -442,32 +451,23 @@ func RegenerateTOTPRecoveryCodes(s *hubapi.Server) http.HandlerFunc {
 					},
 				)
 				if err != nil {
-					return idempotentResult[hubauth.RegenerateTOTPRecoveryCodesResponse]{}, nil, err
+					return handlerauth.Result[hubauth.RegenerateTOTPRecoveryCodesResponse]{}, nil, err
 				}
 				if !regenerated {
-					return idempotentResult[hubauth.RegenerateTOTPRecoveryCodesResponse]{},
-						&apiProblem{details: hubproblem.TOTPNotEnabledError}, nil
+					return handlerauth.Result[hubauth.RegenerateTOTPRecoveryCodesResponse]{},
+						&handlerauth.Problem{Details: hubproblem.TOTPNotEnabledError}, nil
 				}
 				wireCodes := make([]common.TOTPRecoveryCode, len(codes))
 				for index, code := range codes {
 					wireCodes[index] = common.TOTPRecoveryCode(code)
 				}
-				return idempotentResult[hubauth.RegenerateTOTPRecoveryCodesResponse]{
-					status: http.StatusOK,
-					body: hubauth.RegenerateTOTPRecoveryCodesResponse{
+				return handlerauth.Result[hubauth.RegenerateTOTPRecoveryCodesResponse]{
+					Status: http.StatusOK,
+					Body: hubauth.RegenerateTOTPRecoveryCodesResponse{
 						RecoveryCodes: wireCodes,
 					},
 				}, nil, nil
 			},
 		)
 	}
-}
-
-func invalidLoginChallengeResult[T any]() (
-	idempotentResult[T], *apiProblem, error,
-) {
-	return idempotentResult[T]{}, &apiProblem{
-		details:         hubproblem.InvalidLoginChallengeError,
-		wwwAuthenticate: hubapi.LoginTokenChallenge,
-	}, nil
 }

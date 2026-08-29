@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { ListRequest } from "../../../../typespec/admin/hub-signup-domains/domains.ts";
+import type { ListRequest } from "typespec/admin/hub-signup-domains/domains";
 import { listHubSignupDomains } from "./api";
 
 export const hubSignupDomainsQueryKey = [

@@ -13,10 +13,10 @@ type Server struct {
 	Queries sqlc.Querier
 
 	// Values below come from the shared application config.
-	TenantID        string
-	AdminSessionTTL time.Duration
-	CredentialKey   [32]byte
-	Now             func() time.Time
+	TenantID         string
+	SessionDurations apiserver.SessionDurations
+	CredentialKey    [32]byte
+	Now              func() time.Time
 }
 
 func (s *Server) CurrentTime() time.Time {
@@ -28,4 +28,24 @@ func (s *Server) CurrentTime() time.Time {
 
 func (s *Server) CredentialSubkey(purpose string) [32]byte {
 	return DeriveCredentialSubkey(s.CredentialKey, purpose)
+}
+
+func (s *Server) SessionDuration(remembered bool) time.Duration {
+	return s.SessionDurations.Duration(remembered)
+}
+
+func (s *Server) HandlerRuntime() *apiserver.Runtime {
+	return s.Runtime
+}
+
+func (s *Server) HandlerQueries() sqlc.Querier {
+	return s.Queries
+}
+
+func (s *Server) EncryptIdempotency(plaintext []byte) ([]byte, error) {
+	return Encrypt(s.CredentialSubkey("idempotency"), plaintext)
+}
+
+func (s *Server) DecryptIdempotency(ciphertext []byte) ([]byte, error) {
+	return Decrypt(s.CredentialSubkey("idempotency"), ciphertext)
 }

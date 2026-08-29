@@ -6,7 +6,7 @@ import { Navigate, useNavigate, useSearchParams } from "react-router";
 import {
   isTOTPRecoveryCode,
   type TOTPRecoveryCode,
-} from "../../../typespec/common/authentication.ts";
+} from "typespec/common/authentication";
 import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
 import { usePendingOperations } from "../app/PendingOperationContext";

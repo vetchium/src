@@ -18,8 +18,8 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
-	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
+	"backend/internal/handlerauth"
 )
 
 const hubSignupDomainsPaginationPurpose = "admin-list-hub-signup-domains-v1"
@@ -33,13 +33,10 @@ type hubSignupDomainsPaginationPayload struct {
 func ListHubSignupDomains(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubsignupdomains.ListRequest
-		if err := apiserver.DecodeJSON(r, &request); err != nil {
-			s.InvalidJSON(r.Context(), w, err)
-			return
-		}
-		request = request.Normalize()
-		if fields := request.Validate(); len(fields) != 0 {
-			s.ValidationFailed(r.Context(), w, fields)
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
+			request = request.Normalize()
+			return request.Validate()
+		}) {
 			return
 		}
 		filtersHash, err := hubSignupDomainsFiltersHash(request)
@@ -119,13 +116,10 @@ func ListHubSignupDomains(s *adminapi.Server) http.HandlerFunc {
 func CreateHubSignupDomain(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubsignupdomains.CreateRequest
-		if err := apiserver.DecodeJSON(r, &request); err != nil {
-			s.InvalidJSON(r.Context(), w, err)
-			return
-		}
-		request = request.Normalize()
-		if fields := request.Validate(); len(fields) != 0 {
-			s.ValidationFailed(r.Context(), w, fields)
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
+			request = request.Normalize()
+			return request.Validate()
+		}) {
 			return
 		}
 		domainID, err := adminapi.NewUUID()
@@ -170,13 +164,10 @@ func CreateHubSignupDomain(s *adminapi.Server) http.HandlerFunc {
 func UpdateHubSignupDomain(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubsignupdomains.UpdateRequest
-		if err := apiserver.DecodeJSON(r, &request); err != nil {
-			s.InvalidJSON(r.Context(), w, err)
-			return
-		}
-		request = request.Normalize()
-		if fields := request.Validate(); len(fields) != 0 {
-			s.ValidationFailed(r.Context(), w, fields)
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
+			request = request.Normalize()
+			return request.Validate()
+		}) {
 			return
 		}
 		domainID, _ := adminapi.ParseUUID(string(request.HubSignupDomainID))

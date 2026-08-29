@@ -9,7 +9,7 @@ import (
 	"context"
 )
 
-const pruneAdminEmailOutbox = `-- name: PruneAdminEmailOutbox :execrows
+const pruneAdminEmailOutbox = `-- name: PruneAdminEmailOutbox :one
 WITH candidates AS MATERIALIZED (
     SELECT admin_email_outbox_id
     FROM vetchium.admin_email_outbox AS candidate
@@ -19,23 +19,43 @@ WITH candidates AS MATERIALIZED (
     ORDER BY created_at
     FOR UPDATE SKIP LOCKED
     LIMIT 1000
+), deleted AS (
+    DELETE FROM vetchium.admin_email_outbox AS outbox
+    USING candidates
+    WHERE outbox.admin_email_outbox_id = candidates.admin_email_outbox_id
+    RETURNING outbox.admin_email_outbox_id
+), summary AS (
+    SELECT count(*)::bigint AS deleted_count FROM deleted
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $1,
+        'admin.housekeeping.email-outbox-pruned',
+        'housekeeping_batch',
+        gen_random_uuid()::text,
+        'worker',
+        'workers',
+        'workers',
+        jsonb_build_object('deleted_count', deleted_count)
+    FROM summary
+    WHERE deleted_count > 0
 )
-DELETE FROM vetchium.admin_email_outbox AS outbox
-USING candidates
-WHERE outbox.admin_email_outbox_id = candidates.admin_email_outbox_id
+SELECT deleted_count FROM summary
 `
 
 // Outbox ciphertext is retained no longer than the maximum usable lifetime of
 // the credential it contains, whether delivery succeeded or not.
-func (q *Queries) PruneAdminEmailOutbox(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, pruneAdminEmailOutbox)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) PruneAdminEmailOutbox(ctx context.Context, tenantID string) (int64, error) {
+	row := q.db.QueryRow(ctx, pruneAdminEmailOutbox, tenantID)
+	var deleted_count int64
+	err := row.Scan(&deleted_count)
+	return deleted_count, err
 }
 
-const pruneAdminInvitations = `-- name: PruneAdminInvitations :execrows
+const pruneAdminInvitations = `-- name: PruneAdminInvitations :one
 WITH candidates AS MATERIALIZED (
     SELECT admin_invitation_id
     FROM vetchium.admin_invitations AS candidate
@@ -43,21 +63,41 @@ WITH candidates AS MATERIALIZED (
     ORDER BY COALESCE(consumed_at, expires_at)
     FOR UPDATE SKIP LOCKED
     LIMIT 1000
+), deleted AS (
+    DELETE FROM vetchium.admin_invitations AS invitation
+    USING candidates
+    WHERE invitation.admin_invitation_id = candidates.admin_invitation_id
+    RETURNING invitation.admin_invitation_id
+), summary AS (
+    SELECT count(*)::bigint AS deleted_count FROM deleted
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $1,
+        'admin.housekeeping.invitations-pruned',
+        'housekeeping_batch',
+        gen_random_uuid()::text,
+        'worker',
+        'workers',
+        'workers',
+        jsonb_build_object('deleted_count', deleted_count)
+    FROM summary
+    WHERE deleted_count > 0
 )
-DELETE FROM vetchium.admin_invitations AS invitation
-USING candidates
-WHERE invitation.admin_invitation_id = candidates.admin_invitation_id
+SELECT deleted_count FROM summary
 `
 
-func (q *Queries) PruneAdminInvitations(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, pruneAdminInvitations)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) PruneAdminInvitations(ctx context.Context, tenantID string) (int64, error) {
+	row := q.db.QueryRow(ctx, pruneAdminInvitations, tenantID)
+	var deleted_count int64
+	err := row.Scan(&deleted_count)
+	return deleted_count, err
 }
 
-const pruneAdminLoginChallenges = `-- name: PruneAdminLoginChallenges :execrows
+const pruneAdminLoginChallenges = `-- name: PruneAdminLoginChallenges :one
 WITH candidates AS MATERIALIZED (
     SELECT admin_login_challenge_id
     FROM vetchium.admin_login_challenges AS candidate
@@ -65,21 +105,42 @@ WITH candidates AS MATERIALIZED (
     ORDER BY COALESCE(consumed_at, expires_at)
     FOR UPDATE SKIP LOCKED
     LIMIT 1000
+), deleted AS (
+    DELETE FROM vetchium.admin_login_challenges AS challenge
+    USING candidates
+    WHERE challenge.admin_login_challenge_id =
+        candidates.admin_login_challenge_id
+    RETURNING challenge.admin_login_challenge_id
+), summary AS (
+    SELECT count(*)::bigint AS deleted_count FROM deleted
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $1,
+        'admin.housekeeping.login-challenges-pruned',
+        'housekeeping_batch',
+        gen_random_uuid()::text,
+        'worker',
+        'workers',
+        'workers',
+        jsonb_build_object('deleted_count', deleted_count)
+    FROM summary
+    WHERE deleted_count > 0
 )
-DELETE FROM vetchium.admin_login_challenges AS challenge
-USING candidates
-WHERE challenge.admin_login_challenge_id = candidates.admin_login_challenge_id
+SELECT deleted_count FROM summary
 `
 
-func (q *Queries) PruneAdminLoginChallenges(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, pruneAdminLoginChallenges)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) PruneAdminLoginChallenges(ctx context.Context, tenantID string) (int64, error) {
+	row := q.db.QueryRow(ctx, pruneAdminLoginChallenges, tenantID)
+	var deleted_count int64
+	err := row.Scan(&deleted_count)
+	return deleted_count, err
 }
 
-const pruneAdminPasswordResets = `-- name: PruneAdminPasswordResets :execrows
+const pruneAdminPasswordResets = `-- name: PruneAdminPasswordResets :one
 WITH candidates AS MATERIALIZED (
     SELECT admin_password_reset_token_id
     FROM vetchium.admin_password_reset_tokens AS candidate
@@ -87,21 +148,42 @@ WITH candidates AS MATERIALIZED (
     ORDER BY COALESCE(consumed_at, expires_at)
     FOR UPDATE SKIP LOCKED
     LIMIT 1000
+), deleted AS (
+    DELETE FROM vetchium.admin_password_reset_tokens AS reset
+    USING candidates
+    WHERE reset.admin_password_reset_token_id =
+        candidates.admin_password_reset_token_id
+    RETURNING reset.admin_password_reset_token_id
+), summary AS (
+    SELECT count(*)::bigint AS deleted_count FROM deleted
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $1,
+        'admin.housekeeping.password-resets-pruned',
+        'housekeeping_batch',
+        gen_random_uuid()::text,
+        'worker',
+        'workers',
+        'workers',
+        jsonb_build_object('deleted_count', deleted_count)
+    FROM summary
+    WHERE deleted_count > 0
 )
-DELETE FROM vetchium.admin_password_reset_tokens AS reset
-USING candidates
-WHERE reset.admin_password_reset_token_id = candidates.admin_password_reset_token_id
+SELECT deleted_count FROM summary
 `
 
-func (q *Queries) PruneAdminPasswordResets(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, pruneAdminPasswordResets)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) PruneAdminPasswordResets(ctx context.Context, tenantID string) (int64, error) {
+	row := q.db.QueryRow(ctx, pruneAdminPasswordResets, tenantID)
+	var deleted_count int64
+	err := row.Scan(&deleted_count)
+	return deleted_count, err
 }
 
-const pruneAdminTOTPEnrollments = `-- name: PruneAdminTOTPEnrollments :execrows
+const pruneAdminTOTPEnrollments = `-- name: PruneAdminTOTPEnrollments :one
 WITH candidates AS MATERIALIZED (
     SELECT admin_totp_enrollment_id
     FROM vetchium.admin_totp_enrollments AS candidate
@@ -109,21 +191,42 @@ WITH candidates AS MATERIALIZED (
     ORDER BY COALESCE(consumed_at, expires_at)
     FOR UPDATE SKIP LOCKED
     LIMIT 1000
+), deleted AS (
+    DELETE FROM vetchium.admin_totp_enrollments AS enrollment
+    USING candidates
+    WHERE enrollment.admin_totp_enrollment_id =
+        candidates.admin_totp_enrollment_id
+    RETURNING enrollment.admin_totp_enrollment_id
+), summary AS (
+    SELECT count(*)::bigint AS deleted_count FROM deleted
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $1,
+        'admin.housekeeping.totp-enrollments-pruned',
+        'housekeeping_batch',
+        gen_random_uuid()::text,
+        'worker',
+        'workers',
+        'workers',
+        jsonb_build_object('deleted_count', deleted_count)
+    FROM summary
+    WHERE deleted_count > 0
 )
-DELETE FROM vetchium.admin_totp_enrollments AS enrollment
-USING candidates
-WHERE enrollment.admin_totp_enrollment_id = candidates.admin_totp_enrollment_id
+SELECT deleted_count FROM summary
 `
 
-func (q *Queries) PruneAdminTOTPEnrollments(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, pruneAdminTOTPEnrollments)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) PruneAdminTOTPEnrollments(ctx context.Context, tenantID string) (int64, error) {
+	row := q.db.QueryRow(ctx, pruneAdminTOTPEnrollments, tenantID)
+	var deleted_count int64
+	err := row.Scan(&deleted_count)
+	return deleted_count, err
 }
 
-const pruneConsumedAdminTOTPRecoveryCodes = `-- name: PruneConsumedAdminTOTPRecoveryCodes :execrows
+const pruneConsumedAdminTOTPRecoveryCodes = `-- name: PruneConsumedAdminTOTPRecoveryCodes :one
 WITH candidates AS MATERIALIZED (
     SELECT admin_user_id, code_hash
     FROM vetchium.admin_totp_recovery_codes AS candidate
@@ -131,22 +234,42 @@ WITH candidates AS MATERIALIZED (
     ORDER BY consumed_at
     FOR UPDATE SKIP LOCKED
     LIMIT 1000
+), deleted AS (
+    DELETE FROM vetchium.admin_totp_recovery_codes AS recovery_code
+    USING candidates
+    WHERE recovery_code.admin_user_id = candidates.admin_user_id
+      AND recovery_code.code_hash = candidates.code_hash
+    RETURNING recovery_code.admin_user_id
+), summary AS (
+    SELECT count(*)::bigint AS deleted_count FROM deleted
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $1,
+        'admin.housekeeping.recovery-codes-pruned',
+        'housekeeping_batch',
+        gen_random_uuid()::text,
+        'worker',
+        'workers',
+        'workers',
+        jsonb_build_object('deleted_count', deleted_count)
+    FROM summary
+    WHERE deleted_count > 0
 )
-DELETE FROM vetchium.admin_totp_recovery_codes AS recovery_code
-USING candidates
-WHERE recovery_code.admin_user_id = candidates.admin_user_id
-  AND recovery_code.code_hash = candidates.code_hash
+SELECT deleted_count FROM summary
 `
 
-func (q *Queries) PruneConsumedAdminTOTPRecoveryCodes(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, pruneConsumedAdminTOTPRecoveryCodes)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) PruneConsumedAdminTOTPRecoveryCodes(ctx context.Context, tenantID string) (int64, error) {
+	row := q.db.QueryRow(ctx, pruneConsumedAdminTOTPRecoveryCodes, tenantID)
+	var deleted_count int64
+	err := row.Scan(&deleted_count)
+	return deleted_count, err
 }
 
-const pruneExpiredAdminSessions = `-- name: PruneExpiredAdminSessions :execrows
+const pruneExpiredAdminSessions = `-- name: PruneExpiredAdminSessions :one
 
 WITH candidates AS MATERIALIZED (
     SELECT admin_session_id
@@ -155,18 +278,38 @@ WITH candidates AS MATERIALIZED (
     ORDER BY expires_at
     FOR UPDATE SKIP LOCKED
     LIMIT 1000
+), deleted AS (
+    DELETE FROM vetchium.admin_sessions AS session
+    USING candidates
+    WHERE session.admin_session_id = candidates.admin_session_id
+    RETURNING session.admin_session_id
+), summary AS (
+    SELECT count(*)::bigint AS deleted_count FROM deleted
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $1,
+        'admin.housekeeping.sessions-pruned',
+        'housekeeping_batch',
+        gen_random_uuid()::text,
+        'worker',
+        'workers',
+        'workers',
+        jsonb_build_object('deleted_count', deleted_count)
+    FROM summary
+    WHERE deleted_count > 0
 )
-DELETE FROM vetchium.admin_sessions AS session
-USING candidates
-WHERE session.admin_session_id = candidates.admin_session_id
+SELECT deleted_count FROM summary
 `
 
 // Housekeeping deletes at most one batch per table and worker run so a large
 // backlog cannot monopolize the database. Subsequent runs drain the backlog.
-func (q *Queries) PruneExpiredAdminSessions(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, pruneExpiredAdminSessions)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) PruneExpiredAdminSessions(ctx context.Context, tenantID string) (int64, error) {
+	row := q.db.QueryRow(ctx, pruneExpiredAdminSessions, tenantID)
+	var deleted_count int64
+	err := row.Scan(&deleted_count)
+	return deleted_count, err
 }

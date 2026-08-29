@@ -50,6 +50,24 @@ WITH target AS (
     SET active = false
     WHERE admin_user_id IN (SELECT admin_user_id FROM updated)
       AND active
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $3,
+        'admin.user.disabled',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        $2::uuid::text,
+        'admin-api',
+        jsonb_build_object(
+            'state', 'disabled',
+            'sessions_revoked', true
+        )
+    FROM updated
 )
 SELECT CASE
     WHEN NOT EXISTS (SELECT 1 FROM target) THEN 'not_found'
@@ -63,6 +81,7 @@ END::text AS result
 type DisableAdminUserParams struct {
 	TargetAdminUserID pgtype.UUID `json:"target_admin_user_id"`
 	ActorAdminUserID  pgtype.UUID `json:"actor_admin_user_id"`
+	TenantID          string      `json:"tenant_id"`
 }
 
 // The update refuses to leave a tenant without an active administrator able to
@@ -70,7 +89,7 @@ type DisableAdminUserParams struct {
 // caller holding that permission is normally the one who satisfies the
 // predicate, so this stops a lockout reached any other way.
 func (q *Queries) DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (string, error) {
-	row := q.db.QueryRow(ctx, disableAdminUser, arg.TargetAdminUserID, arg.ActorAdminUserID)
+	row := q.db.QueryRow(ctx, disableAdminUser, arg.TargetAdminUserID, arg.ActorAdminUserID, arg.TenantID)
 	var result string
 	err := row.Scan(&result)
 	return result, err
@@ -87,6 +106,21 @@ WITH target AS (
         updated_at = now()
     WHERE admin_user_id = $1
     RETURNING admin_user_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $2,
+        'admin.user.enabled',
+        'admin_user',
+        admin_user_id::text,
+        'admin',
+        $3::uuid::text,
+        'admin-api',
+        jsonb_build_object('state', 'active')
+    FROM updated
 )
 SELECT CASE
     WHEN NOT EXISTS (SELECT 1 FROM target) THEN 'not_found'
@@ -94,8 +128,14 @@ SELECT CASE
 END::text AS result
 `
 
-func (q *Queries) EnableAdminUser(ctx context.Context, targetAdminUserID pgtype.UUID) (string, error) {
-	row := q.db.QueryRow(ctx, enableAdminUser, targetAdminUserID)
+type EnableAdminUserParams struct {
+	TargetAdminUserID pgtype.UUID `json:"target_admin_user_id"`
+	TenantID          string      `json:"tenant_id"`
+	ActorAdminUserID  pgtype.UUID `json:"actor_admin_user_id"`
+}
+
+func (q *Queries) EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (string, error) {
+	row := q.db.QueryRow(ctx, enableAdminUser, arg.TargetAdminUserID, arg.TenantID, arg.ActorAdminUserID)
 	var result string
 	err := row.Scan(&result)
 	return result, err
