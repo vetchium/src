@@ -61,7 +61,10 @@ placeholders to TypeScript applications.
 - Keep behavior used by more than one portal in the `portal-ui/` workspace
   package. This includes the application shell, authentication concurrency,
   session-storage primitives, preferences, idempotency keys, API problem
-  handling, and account-security presentation. Portal packages supply typed
+  handling, return-path validation, and account-security presentation. A
+  security control such as the `returnTo` open-redirect guard belongs here
+  above all: a copy per portal is a copy that can be fixed in one portal and
+  left wrong in the others. Portal packages supply typed
   API, storage, navigation, translation-key, and authorization adapters; they
   must not copy the shared implementation.
 - Portal-private code is limited to domain pages and features, route tables,
