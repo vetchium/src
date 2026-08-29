@@ -692,7 +692,7 @@
         "test": ["CMD", "traefik", "healthcheck", "--ping"],
         "timeout": "3s"
       },
-      "image": "traefik:v3.4.1",
+      "image": "traefik:v3.4.1@sha256:cd40ab7bc1f047731d5b22595203812343efcb6538014c4e93221cfc3a77217a",
       "networks": {
         "deu_ingress": null,
         "ind1_ingress": null,
@@ -1766,7 +1766,7 @@
         "test": ["CMD", "traefik", "healthcheck", "--ping"],
         "timeout": "3s"
       },
-      "image": "traefik:v3.4.1",
+      "image": "traefik:v3.4.1@sha256:cd40ab7bc1f047731d5b22595203812343efcb6538014c4e93221cfc3a77217a",
       "networks": {
         "deu_admin_api_access": null,
         "deu_hub_api_access": null,
@@ -1804,7 +1804,7 @@
         "test": ["CMD", "traefik", "healthcheck", "--ping"],
         "timeout": "3s"
       },
-      "image": "traefik:v3.4.1",
+      "image": "traefik:v3.4.1@sha256:cd40ab7bc1f047731d5b22595203812343efcb6538014c4e93221cfc3a77217a",
       "networks": {
         "ind1_admin_api_access": null,
         "ind1_hub_api_access": null,
@@ -1842,7 +1842,7 @@
         "test": ["CMD", "traefik", "healthcheck", "--ping"],
         "timeout": "3s"
       },
-      "image": "traefik:v3.4.1",
+      "image": "traefik:v3.4.1@sha256:cd40ab7bc1f047731d5b22595203812343efcb6538014c4e93221cfc3a77217a",
       "networks": {
         "sgp_admin_api_access": null,
         "sgp_hub_api_access": null,
@@ -1880,7 +1880,7 @@
         "test": ["CMD", "traefik", "healthcheck", "--ping"],
         "timeout": "3s"
       },
-      "image": "traefik:v3.4.1",
+      "image": "traefik:v3.4.1@sha256:cd40ab7bc1f047731d5b22595203812343efcb6538014c4e93221cfc3a77217a",
       "networks": {
         "usa1_admin_api_access": null,
         "usa1_hub_api_access": null,
