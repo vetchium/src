@@ -50,3 +50,32 @@ implemented. The remaining rollout and abuse-control work is tracked here.
   gofmt-aligned struct tags that cannot be wrapped, so any enforcement needs an
   exemption for them; the rest are deep nesting inside idempotent closures and
   long generic type arguments.
+
+## Portal page duplication
+
+- `admin-ui` and `hub-ui` share their shell, auth, session, preferences,
+  idempotency, API client and error presentation through
+  `@vetchium/portal-ui`, but six auth pages are still written twice:
+  `LoginPage`, `TwoFactorPage`, `ProfilePage`, `ReauthenticatePage`,
+  `ForgotPasswordPage`, and `ResetPasswordPage`. They differ by 58 to 226 lines
+  each. Some of that is real (the Hub asks for a remembered session and a
+  resident country; the admin portal does not), and some is drift, which is how
+  the Hub reset page came to swallow an incomplete link. Decide which of
+  these pages a shared form component can own before `orgs-ui` copies them a
+  third time.
+
+## Mesh tenant authentication
+
+- `backend/handlers/mesh/sync.go` accepts any caller. It is the only
+  unauthenticated write surface in the tree and the only TODO marker left in
+  hand-written source. The endpoint is not routed to the public internet — the
+  mesh network is internal — but it must authenticate the calling tenant
+  before it carries anything.
+
+## Hub portal test coverage
+
+- Playwright has one Hub UI spec against five admin specs, and two Hub API
+  specs against eleven admin ones. Hub signup, login, two-factor, password
+  reset and profile have no UI coverage. `typespec/hub/auth` and
+  `typespec/hub/users` have no Go contract tests where their admin
+  counterparts do.
