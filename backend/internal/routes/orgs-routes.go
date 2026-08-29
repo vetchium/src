@@ -11,6 +11,7 @@ import (
 func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsapi.Server) {
 	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
 	mux.HandleFunc(
-		"GET /api/org/ping", portal.Ping(s.Runtime, s.Queries, "org", s.TenantID),
+		"GET /api/orgs/ping",
+		portal.Ping(s.Runtime, s.Queries, "orgs", s.TenantID),
 	)
 }
