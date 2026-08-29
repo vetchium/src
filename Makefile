@@ -27,6 +27,10 @@ GOLANGCI_LINT           := go run github.com/golangci/golangci-lint/v2/cmd/golan
 SQLFLUFF_IMAGE          := sqlfluff/sqlfluff:4.2.2@sha256:7e8f4f1bc8f70c6ab7da3094c3ca0ff0c66f3d721896d79c3731e549ea1921fb
 GO_MODULES             := backend typespec
 JS_WORKSPACES          := admin-ui hub-ui portal-ui typespec playwright
+# Each workspace formats its own tree. These files sit outside every workspace,
+# so `repository-json` is the only thing that formats and checks them.
+REPOSITORY_JSON        := biome.json docker-compose.json docker-compose-ci.json \
+	config deploy
 SQL_DIRS               := backend/internal/db/queries db/bootstrap db/dev-seed \
 	db/migrations
 GOTESTFLAGS            ?=
@@ -54,7 +58,8 @@ serving_services = $$(docker compose -f $(1) config --services | grep -v '^worke
 	typespec-check-ready typespec-test playwright-deps playwright-browser \
 	playwright-browser-ready playwright-check playwright-check-ready \
 	playwright-test playwright-test-run api-coverage-prepare \
-	api-coverage-report docker publish clean
+	api-coverage-report repository-json-fmt repository-json-check-ready \
+	repository-json-check docker publish clean
 
 fmt:
 	@find $(GO_MODULES) -type f -name '*.go' -print0 | xargs -0 gofmt -w
@@ -62,9 +67,23 @@ fmt:
 		echo "==> format $$workspace"; \
 		(cd "$$workspace" && npm run format) || exit $$?; \
 	done
+	$(MAKE) --no-print-directory repository-json-fmt
+
+# Biome runs from a workspace that has it installed; the paths are repository
+# relative, so they are passed through with a leading `../`.
+#
+# Biome's JSON formatter preserves whether an object was written expanded or on
+# one line, so these targets normalize indentation, spacing, and quoting but
+# cannot settle that choice. Match the surrounding file when editing by hand.
+repository-json-fmt: typespec-deps
 	cd typespec && npx biome check --write --config-path=../biome.json \
-		../biome.json ../docker-compose.json ../docker-compose-ci.json \
-		../config ../deploy
+		$(addprefix ../,$(REPOSITORY_JSON))
+
+repository-json-check-ready: typespec-deps
+	cd typespec && npx biome check --config-path=../biome.json \
+		$(addprefix ../,$(REPOSITORY_JSON))
+
+repository-json-check: repository-json-check-ready
 
 dev: clean
 	$(MAKE) --no-print-directory dev-secrets
@@ -147,7 +166,7 @@ test-dependencies: admin-ui-deps hub-ui-deps portal-ui-deps typespec-deps \
 
 test-static-ready: test-go test-go-static test-go-lint test-go-vuln \
 	admin-ui-check-ready hub-ui-check-ready typespec-check-ready \
-	portal-ui-check-ready playwright-check-ready
+	portal-ui-check-ready playwright-check-ready repository-json-check-ready
 
 test-environment:
 	$(MAKE) --no-print-directory playwright-browser-ready

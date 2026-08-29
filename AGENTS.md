@@ -102,7 +102,9 @@ More specific guides take precedence over general guides.
 - Keep changes focused and preserve unrelated work already present in the
   worktree.
 - Use the commands documented in every applicable guide to format, regenerate,
-  and test changes.
+  and test changes. `make fmt` applies every formatter the repository owns,
+  including the JSON outside the npm workspaces, and `make test` verifies that
+  the committed result is already formatted.
 - Do not hand-edit generated artifacts when a source file and generator are
   available.
 - Keep source comments purposeful. Do not add namesake comments that merely
