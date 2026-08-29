@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { ListUsersRequest } from "../../../../typespec/admin/users/management.ts";
+import type { ListUsersRequest } from "typespec/admin/users/management";
 import { listUsers } from "./api";
 
 export const usersQueryKey = ["admin", "users"] as const;

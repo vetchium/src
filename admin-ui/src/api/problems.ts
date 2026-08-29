@@ -1,5 +1,5 @@
 import { problemTranslationKey as sharedProblemTranslationKey } from "@vetchium/portal-ui/errors";
-import { IdempotencyKeyConflictError } from "../../../typespec/problem/common.ts";
+import { IdempotencyKeyConflictError } from "typespec/problem/common";
 
 const sharedProblems: Readonly<Record<string, string>> = {
   [IdempotencyKeyConflictError.type]: "common.idempotencyConflict",

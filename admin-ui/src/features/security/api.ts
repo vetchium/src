@@ -1,11 +1,11 @@
-import type { ChangePasswordRequest } from "../../../../typespec/admin/auth/password.ts";
+import type { ChangePasswordRequest } from "typespec/admin/auth/password";
 import type {
   ConfirmTOTPEnrollmentRequest,
   ConfirmTOTPEnrollmentResponse,
   RegenerateTOTPRecoveryCodesResponse,
   StartTOTPEnrollmentResponse,
-} from "../../../../typespec/admin/auth/totp.ts";
-import type { IdempotencyKey } from "../../../../typespec/common/idempotency.ts";
+} from "typespec/admin/auth/totp";
+import type { IdempotencyKey } from "typespec/common/idempotency";
 import { idempotencyHeaders, requestJson, requestVoid } from "../../api/client";
 
 export function changePassword(request: ChangePasswordRequest): Promise<void> {

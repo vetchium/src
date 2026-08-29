@@ -2,12 +2,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Alert, App, Descriptions, Modal, Space, Tag, Typography } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { AdminPermissionID } from "../../../../typespec/admin/authorization/types.ts";
-import type { AdminUserSummary } from "../../../../typespec/admin/users/management.ts";
+import type { AdminPermissionID } from "typespec/admin/authorization/types";
+import type { AdminUserSummary } from "typespec/admin/users/management";
 import {
   AdminUserNotFoundError,
   LastAdminManagerError,
-} from "../../../../typespec/problem/admin/users.ts";
+} from "typespec/problem/admin/users";
 import { isRecentAuthenticationRequired } from "../../api/client";
 import { problemTranslationKey } from "../../api/problems";
 import { ReauthenticationAlert } from "../../components/common/ReauthenticationAlert";

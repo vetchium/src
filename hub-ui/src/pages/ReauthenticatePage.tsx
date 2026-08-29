@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
-import type { ReauthenticateRequest } from "../../../typespec/hub/auth/login.ts";
+import type { ReauthenticateRequest } from "typespec/hub/auth/login";
 import { hubAPI } from "../api/hub";
 import { safeReturnTo } from "../auth/navigation";
 import {

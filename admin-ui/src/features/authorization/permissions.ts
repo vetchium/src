@@ -5,7 +5,7 @@ import {
   effectivePermissions,
   impliedPermissions,
   isAdminPermission,
-} from "../../../../typespec/admin/authorization/types.ts";
+} from "typespec/admin/authorization/types";
 
 export interface PermissionRow {
   permission: AdminPermissionID;

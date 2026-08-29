@@ -2,7 +2,7 @@ import type {
   MyInfoResponse,
   SetDisplayNameRequest,
   SetPreferredLanguageRequest,
-} from "../../../../typespec/admin/users/profile.ts";
+} from "typespec/admin/users/profile";
 import { requestJson, requestVoid } from "../../api/client";
 
 export function getMyInfo(): Promise<MyInfoResponse> {

@@ -1,5 +1,5 @@
 import { createTokenSessionStorage } from "@vetchium/portal-ui/session";
-import type { AdminSessionToken } from "../../../typespec/admin/auth/types.ts";
+import type { AdminSessionToken } from "typespec/admin/auth/types";
 
 const storage = createTokenSessionStorage<AdminSessionToken>(
   "vetchium.admin.session-token",

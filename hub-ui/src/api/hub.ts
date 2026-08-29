@@ -1,21 +1,21 @@
-import type { IdempotencyKey } from "../../../typespec/common/idempotency.ts";
+import type { IdempotencyKey } from "typespec/common/idempotency";
 import type {
   LoginRequest,
   LoginResponse,
   ReauthenticateRequest,
   ReauthenticateResponse,
   VerifyTFARequest,
-} from "../../../typespec/hub/auth/login.ts";
+} from "typespec/hub/auth/login";
 import type {
   ChangePasswordRequest,
   CompletePasswordResetRequest,
   RequestPasswordResetRequest,
-} from "../../../typespec/hub/auth/password.ts";
+} from "typespec/hub/auth/password";
 import type {
   CompleteSignupRequest,
   CompleteSignupResponse,
   RequestSignupRequest,
-} from "../../../typespec/hub/auth/signup.ts";
+} from "typespec/hub/auth/signup";
 import type {
   ConfirmTOTPEnrollmentRequest,
   ConfirmTOTPEnrollmentResponse,
@@ -23,13 +23,13 @@ import type {
   StartTOTPEnrollmentResponse,
   VerifyRecoveryCodeRequest,
   VerifyRecoveryCodeResponse,
-} from "../../../typespec/hub/auth/totp.ts";
-import type { AuthenticatedSessionResponse } from "../../../typespec/hub/auth/types.ts";
+} from "typespec/hub/auth/totp";
+import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";
 import type {
   MyInfoResponse,
   SetPreferredLanguageRequest,
   SetResidentCountryRequest,
-} from "../../../typespec/hub/users/profile.ts";
+} from "typespec/hub/users/profile";
 import { apiRequest } from "./client";
 
 const base = "/api/hub";

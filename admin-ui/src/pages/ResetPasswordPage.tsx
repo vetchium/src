@@ -5,8 +5,8 @@ import { Link, useSearchParams } from "react-router";
 import {
   type CompletePasswordResetRequest,
   validateCompletePasswordResetRequest,
-} from "../../../typespec/admin/auth/password.ts";
-import type { NewPassword } from "../../../typespec/common/authentication.ts";
+} from "typespec/admin/auth/password";
+import type { NewPassword } from "typespec/common/authentication";
 import { useIdempotencyKey } from "../api/idempotency";
 import { problemTranslationKey } from "../api/problems";
 import { usePendingOperations } from "../app/PendingOperationContext";

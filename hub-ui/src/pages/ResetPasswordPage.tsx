@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
-import { isNewPassword } from "../../../typespec/common/authentication.ts";
+import { isNewPassword } from "typespec/common/authentication";
 import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
 import { usePendingOperations } from "../app/PendingOperationContext";

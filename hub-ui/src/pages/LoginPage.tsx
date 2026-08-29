@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Button, Card, Checkbox, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
-import type { LoginRequest } from "../../../typespec/hub/auth/login.ts";
+import type { LoginRequest } from "typespec/hub/auth/login";
 import { hubAPI } from "../api/hub";
 import { useAuth } from "../auth/AuthContext";
 import { safeReturnTo } from "../auth/navigation";

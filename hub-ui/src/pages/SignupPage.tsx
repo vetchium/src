@@ -11,8 +11,8 @@ import {
 } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import type { FrontendLocale } from "../../../typespec/common/localization.ts";
-import { countryCodeValues } from "../../../typespec/common/localization.ts";
+import type { FrontendLocale } from "typespec/common/localization";
+import { countryCodeValues } from "typespec/common/localization";
 import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
 import { usePreferences } from "../app/PreferencesContext";

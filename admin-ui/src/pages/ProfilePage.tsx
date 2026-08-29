@@ -4,8 +4,8 @@ import { useTranslation } from "react-i18next";
 import {
   normalizeSetDisplayNameRequest,
   type SetDisplayNameRequest,
-} from "../../../typespec/admin/users/profile.ts";
-import { isDisplayName } from "../../../typespec/common/localization.ts";
+} from "typespec/admin/users/profile";
+import { isDisplayName } from "typespec/common/localization";
 import { setDisplayName } from "../features/profile/api";
 import { myInfoQueryKey, useMyInfoQuery } from "../features/profile/queries";
 

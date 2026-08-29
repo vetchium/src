@@ -1,11 +1,8 @@
 import { createRememberedSessionStorage } from "@vetchium/portal-ui/session";
-import { isOpaqueToken } from "../../../typespec/common/authentication.ts";
-import {
-  isCountryCode,
-  isFrontendLocale,
-} from "../../../typespec/common/localization.ts";
-import type { AuthenticatedSessionResponse } from "../../../typespec/hub/auth/types.ts";
-import { isHubHandle, isHubUserDID } from "../../../typespec/hub/types.ts";
+import { isOpaqueToken } from "typespec/common/authentication";
+import { isCountryCode, isFrontendLocale } from "typespec/common/localization";
+import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";
+import { isHubHandle, isHubUserDID } from "typespec/hub/types";
 
 export interface StoredSession extends AuthenticatedSessionResponse {
   remembered: boolean;

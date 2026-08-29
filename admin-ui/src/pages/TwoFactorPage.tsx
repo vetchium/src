@@ -15,8 +15,8 @@ import { Navigate, useNavigate, useSearchParams } from "react-router";
 import type {
   TOTPCode,
   TOTPRecoveryCode,
-} from "../../../typespec/common/authentication.ts";
-import { isTOTPRecoveryCode } from "../../../typespec/common/authentication.ts";
+} from "typespec/common/authentication";
+import { isTOTPRecoveryCode } from "typespec/common/authentication";
 import { useIdempotencyKey } from "../api/idempotency";
 import { problemTranslationKey } from "../api/problems";
 import { usePendingOperations } from "../app/PendingOperationContext";
