@@ -2,7 +2,6 @@ package routes
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/vetchium/src/typespec/admin/authorization"
 
@@ -17,7 +16,7 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *adminapi.Server) {
 
 	adminAuth := middleware.AdminAuth(s)
 	recentAuth := middleware.RequireRecentAdminAuthentication(
-		s, 5*time.Minute,
+		s, middleware.RecentAuthenticationWindow,
 	)
 	viewUsers := middleware.RequireAdminPermission(
 		s, string(authorization.ViewUsers),

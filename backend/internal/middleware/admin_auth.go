@@ -2,13 +2,9 @@ package middleware
 
 import (
 	"context"
-	"crypto/sha256"
-	"errors"
 	"net/http"
-	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
@@ -25,52 +21,50 @@ type AdminIdentity struct {
 	Permissions     []string
 }
 
-func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			authorization := r.Header.Get("Authorization")
-			credentials := strings.Fields(authorization)
-			if len(credentials) != 2 || !strings.EqualFold(credentials[0], "Bearer") {
-				s.Problem(
-					ctx, w, adminproblem.AdminAuthenticationRequiredError,
-					adminapi.BearerChallenge,
-				)
-				return
-			}
-			tokenHash := sha256.Sum256([]byte(credentials[1]))
-
-			session, err := s.Queries.AuthenticateAdminSession(ctx, tokenHash[:])
+func adminAuthentication(
+	s *adminapi.Server,
+) PortalAuthentication[AdminIdentity] {
+	return PortalAuthentication[AdminIdentity]{
+		Runtime:                      s.Runtime,
+		Portal:                       "admin",
+		Challenge:                    adminapi.BearerChallenge,
+		AuthenticationRequired:       adminproblem.AdminAuthenticationRequiredError,
+		RecentAuthenticationRequired: adminproblem.RecentAuthenticationRequiredError,
+		Authenticate: func(
+			ctx context.Context, tokenHash []byte,
+		) (AdminIdentity, error) {
+			session, err := s.Queries.AuthenticateAdminSession(ctx, tokenHash)
 			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					s.WarnContext(
-						ctx, "admin authentication failed",
-						"event", "authentication_failed",
-						"reason", "session_not_found",
-						"error", err,
-					)
-					s.Problem(
-						ctx, w,
-						adminproblem.AdminAuthenticationRequiredError,
-						adminapi.BearerChallenge,
-					)
-					return
-				}
-				s.InternalError(ctx, w, "authenticate admin", err)
-				return
+				return AdminIdentity{}, err
 			}
-
-			identity := AdminIdentity{
+			return AdminIdentity{
 				UserID:          session.AdminUserID,
 				SessionID:       session.AdminSessionID,
 				AuthenticatedAt: session.AuthenticatedAt.Time,
 				Permissions:     session.Permissions,
-			}
-			ctx = context.WithValue(ctx, adminIdentityContextKey{}, identity)
-			w.Header().Set("Cache-Control", "no-store")
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
+			}, nil
+		},
+		AuthenticatedAt: func(identity AdminIdentity) time.Time {
+			return identity.AuthenticatedAt
+		},
+		Store: func(
+			ctx context.Context, identity AdminIdentity,
+		) context.Context {
+			return context.WithValue(ctx, adminIdentityContextKey{}, identity)
+		},
+		Load: AdminIdentityFromContext,
+		Now:  s.CurrentTime,
 	}
+}
+
+func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
+	return adminAuthentication(s).Session()
+}
+
+func RequireRecentAdminAuthentication(
+	s *adminapi.Server, maximumAge time.Duration,
+) func(http.Handler) http.Handler {
+	return adminAuthentication(s).RequireRecentAuthentication(maximumAge)
 }
 
 func RequireAdminPermission(
@@ -91,35 +85,6 @@ func RequireAdminPermission(
 				s.Problem(
 					r.Context(), w,
 					adminproblem.AdminPermissionRequiredError,
-				)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-func RequireRecentAdminAuthentication(
-	s *adminapi.Server, maximumAge time.Duration,
-) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			identity, ok := AdminIdentityFromContext(r.Context())
-			if !ok {
-				s.Problem(
-					r.Context(), w,
-					adminproblem.AdminAuthenticationRequiredError,
-					adminapi.BearerChallenge,
-				)
-				return
-			}
-			if identity.AuthenticatedAt.Before(
-				s.CurrentTime().Add(-maximumAge),
-			) {
-				s.Problem(
-					r.Context(), w,
-					adminproblem.RecentAuthenticationRequiredError,
-					adminapi.BearerChallenge,
 				)
 				return
 			}

@@ -2,13 +2,9 @@ package middleware
 
 import (
 	"context"
-	"crypto/sha256"
-	"errors"
 	"net/http"
-	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
@@ -24,74 +20,47 @@ type HubIdentity struct {
 	AuthenticatedAt time.Time
 }
 
-func HubAuth(s *hubapi.Server) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			credentials := strings.Fields(r.Header.Get("Authorization"))
-			if len(credentials) != 2 ||
-				!strings.EqualFold(credentials[0], "Bearer") {
-				s.Problem(
-					r.Context(), w, hubproblem.AuthenticationRequiredError,
-					hubapi.BearerChallenge,
-				)
-				return
-			}
-			tokenHash := sha256.Sum256([]byte(credentials[1]))
-			session, err := s.Queries.AuthenticateHubSession(
-				r.Context(), tokenHash[:],
-			)
+func hubAuthentication(s *hubapi.Server) PortalAuthentication[HubIdentity] {
+	return PortalAuthentication[HubIdentity]{
+		Runtime:                      s.Runtime,
+		Portal:                       "hub",
+		Challenge:                    hubapi.BearerChallenge,
+		AuthenticationRequired:       hubproblem.AuthenticationRequiredError,
+		RecentAuthenticationRequired: hubproblem.RecentAuthenticationRequiredError,
+		Authenticate: func(
+			ctx context.Context, tokenHash []byte,
+		) (HubIdentity, error) {
+			session, err := s.Queries.AuthenticateHubSession(ctx, tokenHash)
 			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					s.Problem(
-						r.Context(), w,
-						hubproblem.AuthenticationRequiredError,
-						hubapi.BearerChallenge,
-					)
-					return
-				}
-				s.InternalError(r.Context(), w, "authenticate Hub session", err)
-				return
+				return HubIdentity{}, err
 			}
-			identity := HubIdentity{
+			return HubIdentity{
 				UserDID:         session.HubUserDid,
 				SessionID:       session.HubSessionID,
 				AuthenticatedAt: session.AuthenticatedAt.Time,
-			}
-			ctx := context.WithValue(
-				r.Context(), hubIdentityContextKey{}, identity,
-			)
-			w.Header().Set("Cache-Control", "no-store")
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
+			}, nil
+		},
+		AuthenticatedAt: func(identity HubIdentity) time.Time {
+			return identity.AuthenticatedAt
+		},
+		Store: func(
+			ctx context.Context, identity HubIdentity,
+		) context.Context {
+			return context.WithValue(ctx, hubIdentityContextKey{}, identity)
+		},
+		Load: HubIdentityFromContext,
+		Now:  s.CurrentTime,
 	}
+}
+
+func HubAuth(s *hubapi.Server) func(http.Handler) http.Handler {
+	return hubAuthentication(s).Session()
 }
 
 func RequireRecentHubAuthentication(
 	s *hubapi.Server, maximumAge time.Duration,
 ) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			identity, ok := HubIdentityFromContext(r.Context())
-			if !ok {
-				s.Problem(
-					r.Context(), w, hubproblem.AuthenticationRequiredError,
-					hubapi.BearerChallenge,
-				)
-				return
-			}
-			if identity.AuthenticatedAt.Before(
-				s.CurrentTime().Add(-maximumAge),
-			) {
-				s.Problem(
-					r.Context(), w,
-					hubproblem.RecentAuthenticationRequiredError,
-					hubapi.BearerChallenge,
-				)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
+	return hubAuthentication(s).RequireRecentAuthentication(maximumAge)
 }
 
 func HubIdentityFromContext(ctx context.Context) (HubIdentity, bool) {

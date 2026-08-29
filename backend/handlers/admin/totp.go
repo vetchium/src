@@ -21,10 +21,7 @@ import (
 	"backend/internal/middleware"
 )
 
-const (
-	totpEnrollmentTTL = 10 * time.Minute
-	recentAuthAge     = 5 * time.Minute
-)
+const totpEnrollmentTTL = 10 * time.Minute
 
 func getLockedAdminLoginChallenge(
 	ctx context.Context, q *sqlc.Queries, tokenHash []byte,

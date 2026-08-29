@@ -2,7 +2,6 @@ package routes
 
 import (
 	"net/http"
-	"time"
 
 	"backend/handlers/hub"
 	"backend/handlers/portal"
@@ -18,7 +17,9 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubapi.Server) {
 	)
 
 	hubAuth := middleware.HubAuth(s)
-	recentAuth := middleware.RequireRecentHubAuthentication(s, 5*time.Minute)
+	recentAuth := middleware.RequireRecentHubAuthentication(
+		s, middleware.RecentAuthenticationWindow,
+	)
 	mux.HandleFunc("POST /api/hub/request-signup", hub.RequestSignup(s))
 	mux.HandleFunc("POST /api/hub/complete-signup", hub.CompleteSignup(s))
 	mux.HandleFunc("POST /api/hub/login", hub.Login(s))
