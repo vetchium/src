@@ -40,15 +40,22 @@ func (s *Runtime) JSON(
 			"event", "response_encode_error",
 			"error", err,
 		)
-		s.InternalError(ctx, w, "JSON Marshal", err)
+		s.InternalError(ctx, w, "marshal JSON response", err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(status)
-	_, err = w.Write(b)
-	if err != nil {
-		s.InternalError(ctx, w, "JSON Marshal", err)
+	if _, err := w.Write(b); err != nil {
+		// The status line and headers are already on the wire, so the response
+		// cannot be replaced with a problem document. Report the failure.
+		s.ErrorContext(
+			ctx, "write JSON response",
+			"event", "request_error",
+			"operation", "write JSON response",
+			"status", status,
+			"error", err,
+		)
 	}
 }
