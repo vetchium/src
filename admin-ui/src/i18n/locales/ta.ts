@@ -1,3 +1,5 @@
+import type { LocaleResource } from "./en";
+
 export const ta = {
   shell: {
     documentTitle: "Vetchium நிர்வாகம்",
@@ -367,4 +369,4 @@ export const ta = {
     description: "நீங்கள் கோரிய பக்கம் கிடைக்கவில்லை.",
     action: "முகப்புக்குத் திரும்பு",
   },
-} as const;
+} as const satisfies LocaleResource;

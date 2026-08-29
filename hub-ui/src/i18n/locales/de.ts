@@ -1,3 +1,5 @@
+import type { LocaleResource } from "./en";
+
 export const de = {
   shell: {
     documentTitle: "Vetchium",
@@ -223,4 +225,4 @@ export const de = {
     documentTitle: "Startseite | Vetchium",
     placeholder: "Vetchium-Startseite",
   },
-} as const;
+} as const satisfies LocaleResource;

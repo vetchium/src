@@ -371,3 +371,11 @@ export const en = {
     action: "Return home",
   },
 } as const;
+
+type TranslationShape<Resource> = {
+  readonly [Key in keyof Resource]: Resource[Key] extends string
+    ? string
+    : TranslationShape<Resource[Key]>;
+};
+
+export type LocaleResource = TranslationShape<typeof en>;
