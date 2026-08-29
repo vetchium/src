@@ -289,6 +289,12 @@ func TestCreateHubSignupDomainHandlesSuccessConflictAndFailure(t *testing.T) {
 		t.Fatalf("response = %d %s, params = %+v",
 			response.Code, response.Body.String(), db.createParams)
 	}
+	// The audit event is written by the same statement, so the tenant and the
+	// acting administrator have to reach the query.
+	if db.createParams.TenantID != "test" ||
+		db.createParams.ActorAdminUserID != testUUID(10) {
+		t.Fatalf("audit context = %+v", db.createParams)
+	}
 
 	db.createRow = sqlc.CreateHubSignupDomainRow{Result: "already_exists"}
 	response = performHubSignupDomainRequest(
@@ -377,6 +383,10 @@ func TestUpdateHubSignupDomainHandlesEveryOutcome(t *testing.T) {
 		db.updateParams.DisabledComment.String != "Partner access suspended" {
 		t.Fatalf("response = %d %s, params = %+v",
 			response.Code, response.Body.String(), db.updateParams)
+	}
+	if db.updateParams.TenantID != "test" ||
+		db.updateParams.ActorAdminUserID != testUUID(10) {
+		t.Fatalf("audit context = %+v", db.updateParams)
 	}
 
 	for result, details := range map[string]problem.Details{

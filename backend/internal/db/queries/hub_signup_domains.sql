@@ -47,6 +47,27 @@ WITH inserted AS (
         disabled_comment,
         created_at,
         updated_at
+), audit AS (
+    -- ON CONFLICT DO NOTHING leaves `inserted` empty when the domain already
+    -- exists, so a rejected create commits no audit event.
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.hub-signup-domain.created',
+        'hub_signup_domain',
+        hub_signup_domain_id::text,
+        'admin',
+        sqlc.arg(actor_admin_user_id)::uuid::text,
+        'admin-api',
+        jsonb_build_object(
+            'domain', domain,
+            'state', hub_signup_domain_state,
+            'disabled_comment', disabled_comment
+        )
+    FROM inserted
 )
 SELECT
     CASE WHEN EXISTS (SELECT 1 FROM inserted)
@@ -78,7 +99,10 @@ SELECT
 
 -- name: UpdateHubSignupDomain :one
 WITH target AS (
-    SELECT 1
+    SELECT
+        d.domain,
+        d.hub_signup_domain_state,
+        d.disabled_comment
     FROM vetchium.hub_signup_domains AS d
     WHERE d.hub_signup_domain_id = sqlc.arg(target_domain_id)
 ), conflicting AS (
@@ -101,6 +125,34 @@ WITH target AS (
         disabled_comment,
         created_at,
         updated_at
+), audit AS (
+    -- Joining `updated` to `target` keeps the before and after values in one
+    -- event, and commits nothing when the update matched no row.
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'admin.hub-signup-domain.updated',
+        'hub_signup_domain',
+        updated.hub_signup_domain_id::text,
+        'admin',
+        sqlc.arg(actor_admin_user_id)::uuid::text,
+        'admin-api',
+        jsonb_build_object(
+            'before', jsonb_build_object(
+                'domain', target.domain,
+                'state', target.hub_signup_domain_state,
+                'disabled_comment', target.disabled_comment
+            ),
+            'after', jsonb_build_object(
+                'domain', updated.domain,
+                'state', updated.hub_signup_domain_state,
+                'disabled_comment', updated.disabled_comment
+            )
+        )
+    FROM updated, target
 )
 SELECT
     CASE

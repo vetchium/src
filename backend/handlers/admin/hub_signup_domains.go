@@ -22,6 +22,7 @@ import (
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
 	"backend/internal/handlerauth"
+	"backend/internal/middleware"
 )
 
 const hubSignupDomainsPaginationPurpose = "admin-list-hub-signup-domains-v1"
@@ -115,6 +116,15 @@ func ListHubSignupDomains(s *adminapi.Server) http.HandlerFunc {
 
 func CreateHubSignupDomain(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		identity, ok := middleware.AdminIdentityFromContext(r.Context())
+		if !ok {
+			s.Problem(
+				r.Context(), w,
+				adminproblem.AdminAuthenticationRequiredError,
+				adminapi.BearerChallenge,
+			)
+			return
+		}
 		var request hubsignupdomains.CreateRequest
 		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			request = request.Normalize()
@@ -137,6 +147,8 @@ func CreateHubSignupDomain(s *adminapi.Server) http.HandlerFunc {
 				DisabledComment: hubSignupDomainCommentParam(
 					request.DisabledComment,
 				),
+				TenantID:         s.TenantID,
+				ActorAdminUserID: identity.UserID,
 			},
 		)
 		if err != nil {
@@ -163,6 +175,15 @@ func CreateHubSignupDomain(s *adminapi.Server) http.HandlerFunc {
 
 func UpdateHubSignupDomain(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		identity, ok := middleware.AdminIdentityFromContext(r.Context())
+		if !ok {
+			s.Problem(
+				r.Context(), w,
+				adminproblem.AdminAuthenticationRequiredError,
+				adminapi.BearerChallenge,
+			)
+			return
+		}
 		var request hubsignupdomains.UpdateRequest
 		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			request = request.Normalize()
@@ -181,6 +202,8 @@ func UpdateHubSignupDomain(s *adminapi.Server) http.HandlerFunc {
 				DisabledComment: hubSignupDomainCommentParam(
 					request.DisabledComment,
 				),
+				TenantID:         s.TenantID,
+				ActorAdminUserID: identity.UserID,
 			},
 		)
 		if err != nil {

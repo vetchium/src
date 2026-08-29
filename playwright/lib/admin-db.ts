@@ -1128,6 +1128,20 @@ function assertAdminAuditAction(action: string): void {
   }
 }
 
+// Audited entities are identified by their random version 4 identifier,
+// whether that is an administrator, a Hub signup domain, or anything later.
+function assertAuditEntityID(entityID: string): void {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      entityID,
+    )
+  ) {
+    throw new Error(
+      `refusing to inspect malformed audit entity ID: ${entityID}`,
+    );
+  }
+}
+
 function assertAdminUserID(adminUserID: string): void {
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
@@ -1185,13 +1199,13 @@ export function adminAuditEventsForActor(
 }
 
 export function adminAuditEventsForEntity(
-  adminUserID: string,
+  entityID: string,
   action: string,
 ): AuditEvent[] {
-  assertAdminUserID(adminUserID);
+  assertAuditEntityID(entityID);
   assertAdminAuditAction(action);
   return auditEventJSON(
-    `entity_id = ${sqlLiteral(adminUserID)} AND action = ${sqlLiteral(action)}`,
+    `entity_id = ${sqlLiteral(entityID)} AND action = ${sqlLiteral(action)}`,
   );
 }
 
@@ -1559,6 +1573,21 @@ export function expireAdminIdempotency(operation: string, key: string): void {
     WHERE operation = ${sqlLiteral(operation)}
       AND idempotency_key = ${sqlLiteral(key)};
   `);
+}
+
+export function seededManagerAdminUserID(tenant: TestTenant = "sgp"): string {
+  const adminUserID = sqlScalarForTenant(
+    tenant,
+    `
+    SELECT admin_user_id
+    FROM vetchium.admin_users
+    WHERE email_address = 'admin@${tenant}.example';
+  `,
+  ).trim();
+  if (adminUserID.length === 0) {
+    throw new Error("seeded manager is unavailable");
+  }
+  return adminUserID;
 }
 
 export function createSeededManagerSession(tenant: TestTenant = "sgp"): string {

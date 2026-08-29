@@ -5,7 +5,15 @@ import type {
   StartTOTPEnrollmentResponse,
   VerifyRecoveryCodeResponse,
 } from "typespec/admin/auth/totp";
+import type {
+  Domain,
+  ListResponse,
+} from "typespec/admin/hub-signup-domains/domains";
 import type { InviteUserResponse } from "typespec/admin/users/invitations";
+import {
+  HubSignupDomainAlreadyExistsError,
+  HubSignupDomainNotFoundError,
+} from "typespec/problem/admin/hub-signup-domains";
 import {
   expectProblem,
   idempotencyKey,
@@ -20,6 +28,7 @@ import {
   adminPasswordHash,
   currentTOTP,
   installAdminAuditInsertFailure,
+  seededManagerAdminUserID,
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 
@@ -279,4 +288,158 @@ test("Admin authorization and TOTP writes record safe actor context", async ({
   ]) {
     expect(auditText).not.toContain(sensitive);
   }
+});
+
+test.describe("Hub signup domain audit trail", () => {
+  test("creating and updating a domain commits one audit event each", async ({
+    adminAPI,
+    managerToken,
+    ownedDomain,
+  }) => {
+    const actorID = seededManagerAdminUserID();
+    const domain = ownedDomain("audit");
+    const renamed = ownedDomain("audit-renamed");
+
+    const created = await responseJSON<Domain>(
+      await adminAPI.post(
+        "/create-hub-signup-domain",
+        { domain },
+        { token: managerToken },
+      ),
+    );
+    expectOneAuditEvent(
+      adminAuditEventsForEntity(
+        created.hub_signup_domain_id,
+        "admin.hub-signup-domain.created",
+      ),
+      {
+        action: "admin.hub-signup-domain.created",
+        entity_type: "hub_signup_domain",
+        entity_id: created.hub_signup_domain_id,
+        actor_type: "admin",
+        actor_id: actorID,
+        source: "admin-api",
+        payload: { domain, state: "active", disabled_comment: null },
+      },
+    );
+
+    await adminAPI.post(
+      "/update-hub-signup-domain",
+      {
+        hub_signup_domain_id: created.hub_signup_domain_id,
+        domain: renamed,
+        state: "disabled",
+        disabled_comment: "Partner contract ended",
+      },
+      { token: managerToken },
+    );
+    // The before and after values belong to one event so the history answers
+    // what changed, not only that something did.
+    expectOneAuditEvent(
+      adminAuditEventsForEntity(
+        created.hub_signup_domain_id,
+        "admin.hub-signup-domain.updated",
+      ),
+      {
+        action: "admin.hub-signup-domain.updated",
+        entity_id: created.hub_signup_domain_id,
+        actor_id: actorID,
+        payload: {
+          before: { domain, state: "active", disabled_comment: null },
+          after: {
+            domain: renamed,
+            state: "disabled",
+            disabled_comment: "Partner contract ended",
+          },
+        },
+      },
+    );
+  });
+
+  test("a rejected domain write commits no audit event", async ({
+    adminAPI,
+    managerToken,
+    ownedDomain,
+  }) => {
+    const domain = ownedDomain("audit-rejected");
+    const created = await responseJSON<Domain>(
+      await adminAPI.post(
+        "/create-hub-signup-domain",
+        { domain },
+        { token: managerToken },
+      ),
+    );
+
+    // A duplicate create is rejected by ON CONFLICT DO NOTHING, and a missing
+    // target updates nothing. Neither may claim a change occurred.
+    await expectProblem(
+      await adminAPI.post(
+        "/create-hub-signup-domain",
+        { domain },
+        { token: managerToken },
+      ),
+      409,
+      HubSignupDomainAlreadyExistsError.type,
+    );
+    await expectProblem(
+      await adminAPI.post(
+        "/update-hub-signup-domain",
+        {
+          hub_signup_domain_id: randomUUID(),
+          domain: ownedDomain("audit-missing"),
+          state: "active",
+        },
+        { token: managerToken },
+      ),
+      404,
+      HubSignupDomainNotFoundError.type,
+    );
+
+    expect(
+      adminAuditEventsForEntity(
+        created.hub_signup_domain_id,
+        "admin.hub-signup-domain.created",
+      ),
+    ).toHaveLength(1);
+    expect(
+      adminAuditEventsForEntity(
+        created.hub_signup_domain_id,
+        "admin.hub-signup-domain.updated",
+      ),
+    ).toHaveLength(0);
+  });
+
+  test("a failed domain audit write rolls back the domain", async ({
+    adminAPI,
+    managerToken,
+    ownedDomain,
+  }) => {
+    const actorID = seededManagerAdminUserID();
+    const domain = ownedDomain("audit-rollback");
+    const removeAuditFailure = installAdminAuditInsertFailure({
+      action: "admin.hub-signup-domain.created",
+      actorID,
+    });
+    try {
+      const response = await adminAPI.post(
+        "/create-hub-signup-domain",
+        { domain },
+        { token: managerToken },
+      );
+      expect(response.status()).toBe(500);
+    } finally {
+      removeAuditFailure();
+    }
+
+    // The domain must not exist: the state change and its audit event commit
+    // together or not at all.
+    const listed = await responseJSON<ListResponse>(
+      await adminAPI.post(
+        "/list-hub-signup-domains",
+        { filter_search: domain },
+        { token: managerToken },
+      ),
+    );
+    expect(listed.domains).toEqual([]);
+  });
 });
