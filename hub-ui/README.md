@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-The development server forwards `/api` requests to `http://localhost:8080`.
+The development server forwards `/api` requests to `http://localhost:8081`.
 Change the Vite proxy target when running the Hub API elsewhere.
 
 The container reads `VETCHIUM_DEFAULT_LANGUAGE` at startup. Set it to `en-US`,
