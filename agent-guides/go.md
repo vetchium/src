@@ -5,6 +5,9 @@ not apply to generated Go output such as `backend/internal/db/sqlc/*.go`.
 
 ## Formatting and imports
 
+- Name Go source files in lowercase snake_case. Preserve the conventional
+  `_test.go` suffix, and keep command directory names aligned with their
+  executable and container image names even when those names contain hyphens.
 - Run `gofmt` on every changed Go file.
 - Group imports by domain. Put standard-library imports first, then
   non-standard modules grouped by module owner or domain in lexical order, and
