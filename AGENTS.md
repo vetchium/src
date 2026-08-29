@@ -48,6 +48,10 @@ The global coordinator instead reads its own non-tenant JSON manifest from
   Vetchium platform. These Organizations create Posts, Job Openings, go through
   the hiring process for Applicants, etc. This portal talks to the `orgs-api`
   server of the same Tenant.
+- `portal-ui` is not a portal. It is the workspace package holding the React
+  behavior the portals share — the application shell, authentication, session
+  storage, preferences, idempotency, error presentation, and the account
+  security cards. It is portal-agnostic and talks to no API of its own.
 
 `AGENTS.md` files define scope and route agents to shared guidance. The
 substantive conventions live once under `agent-guides/`.
@@ -88,6 +92,7 @@ Scoped routers make these requirements visible near the code:
 - [`playwright/AGENTS.md`](playwright/AGENTS.md)
 - [`admin-ui/AGENTS.md`](admin-ui/AGENTS.md)
 - [`hub-ui/AGENTS.md`](hub-ui/AGENTS.md)
+- [`portal-ui/AGENTS.md`](portal-ui/AGENTS.md)
 
 The nearest scoped `AGENTS.md` takes precedence when instructions conflict.
 More specific guides take precedence over general guides.
