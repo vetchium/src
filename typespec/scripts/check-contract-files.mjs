@@ -8,8 +8,12 @@ const missingFiles = [];
 
 for (const typeSpecFile of contractFiles) {
   const stem = typeSpecFile.slice(0, -".tsp".length);
-  for (const extension of [".go", ".ts"]) {
-    const matchingFile = `${stem}${extension}`;
+  const parsedStem = path.parse(stem);
+  const matchingFiles = [
+    path.join(parsedStem.dir, `${parsedStem.name.replaceAll("-", "_")}.go`),
+    `${stem}.ts`,
+  ];
+  for (const matchingFile of matchingFiles) {
     try {
       await access(matchingFile);
     } catch {
