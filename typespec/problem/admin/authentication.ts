@@ -29,7 +29,7 @@ export const AdminAuthenticationRequiredError: Readonly<Details> = {
 };
 
 export const RecentAuthenticationRequiredError: Readonly<Details> = {
-  type: "vetchium-problem-details/recent-authentication-required",
+  type: "vetchium-problem-details/admin-recent-authentication-required",
   title: "Recent authentication required",
   status: 401,
   detail:

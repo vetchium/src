@@ -232,7 +232,7 @@ test.describe("Admin password management", () => {
     await expectProblem(
       response,
       401,
-      "vetchium-problem-details/recent-authentication-required",
+      "vetchium-problem-details/admin-recent-authentication-required",
     );
     expect(response.headers()["www-authenticate"]).toBe('Bearer realm="admin"');
     expect((await adminAPI.get("/my-info", admin.sessionToken)).status()).toBe(

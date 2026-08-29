@@ -51,7 +51,7 @@ alias AdminAuthenticationRequiredErrorResponse = AuthenticationResponse<
 >;
 
 const RecentAuthenticationRequiredError = #{
-  type: "vetchium-problem-details/recent-authentication-required",
+  type: "vetchium-problem-details/admin-recent-authentication-required",
   title: "Recent authentication required",
   status: 401,
   detail: "Full authentication must have completed within the preceding five minutes",

@@ -32,7 +32,7 @@ var AdminAuthenticationRequiredError = problem.Details{
 }
 
 var RecentAuthenticationRequiredError = problem.Details{
-	Type:   "vetchium-problem-details/recent-authentication-required",
+	Type:   "vetchium-problem-details/admin-recent-authentication-required",
 	Title:  "Recent authentication required",
 	Status: 401,
 	Detail: "Full authentication must have completed within the preceding " +

@@ -194,7 +194,7 @@ func TestSetPermissionsFailureResponses(t *testing.T) {
 			body: `{"admin_user_id":"` + testAdminUserID +
 				`","permissions":[]}`,
 			status:      http.StatusUnauthorized,
-			problemType: "vetchium-problem-details/recent-authentication-required",
+			problemType: "vetchium-problem-details/admin-recent-authentication-required",
 		},
 		{
 			name:        "unknown target",

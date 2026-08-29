@@ -592,14 +592,14 @@ test.describe("Admin TOTP", () => {
         idempotencyKey: idempotencyKey(),
       }),
       401,
-      "vetchium-problem-details/recent-authentication-required",
+      "vetchium-problem-details/admin-recent-authentication-required",
     );
     await expectProblem(
       await adminAPI.post("/disable-totp", undefined, {
         token: admin.sessionToken,
       }),
       401,
-      "vetchium-problem-details/recent-authentication-required",
+      "vetchium-problem-details/admin-recent-authentication-required",
     );
     const challenge = (await adminAPI.login(
       admin.emailAddress,
@@ -643,7 +643,7 @@ test.describe("Admin TOTP", () => {
         idempotencyKey: idempotencyKey(),
       }),
       401,
-      "vetchium-problem-details/recent-authentication-required",
+      "vetchium-problem-details/admin-recent-authentication-required",
     );
   });
 

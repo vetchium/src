@@ -557,7 +557,7 @@ test.describe("Admin access management", () => {
         { token: managerToken },
       ),
       401,
-      "vetchium-problem-details/recent-authentication-required",
+      "vetchium-problem-details/admin-recent-authentication-required",
     );
   });
 
