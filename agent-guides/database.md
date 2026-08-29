@@ -72,7 +72,9 @@ code, and transaction boundaries.
   persistent application data must also append one or more durable audit events.
   This applies regardless of whether the write originates in an admin, hub,
   org, or mesh API, a worker, or another internal process. The audit table's own
-  inserts and schema migrations are not recursively audited.
+  inserts and schema migrations are not recursively audited, and neither is the
+  idempotency ledger, whose rows are protocol state that makes a guarded
+  operation replay-safe; that operation audits the state change it commits.
 - Write the audit event in the same database transaction as the state change.
   If either the state change or its audit write fails, roll back both. An
   application log, metric, asynchronous job, or best-effort write is not a

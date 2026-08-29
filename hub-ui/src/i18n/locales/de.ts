@@ -87,6 +87,7 @@ export const de = {
   },
   completeSignup: {
     documentTitle: "Registrierung abschließen | Vetchium",
+    missingToken: "Dieser Registrierungslink ist unvollständig.",
     title: "Passwort wählen",
     action: "Registrierung abschließen",
     success: "Ihr Konto ist bereit. Ihr Handle lautet {{handle}}.",
@@ -101,6 +102,8 @@ export const de = {
   },
   resetPassword: {
     documentTitle: "Neues Passwort wählen | Vetchium",
+    missingToken:
+      "Dieser Link zum Zurücksetzen des Passworts ist unvollständig.",
     title: "Neues Passwort wählen",
     action: "Passwort zurücksetzen",
     success:

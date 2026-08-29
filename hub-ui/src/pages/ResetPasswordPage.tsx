@@ -43,7 +43,15 @@ export function ResetPasswordPage() {
         <Typography.Title level={1}>
           {t("resetPassword.title")}
         </Typography.Title>
-        {reset.isSuccess ? (
+        {token.length === 0 ? (
+          // A truncated link must say so. A form whose submit
+          // button is disabled explains nothing.
+          <Alert
+            type="error"
+            showIcon
+            title={t("resetPassword.missingToken")}
+          />
+        ) : reset.isSuccess ? (
           <>
             <Alert type="success" showIcon title={t("resetPassword.success")} />
             <Link to="/login">{t("common.continueToSignin")}</Link>
@@ -94,7 +102,6 @@ export function ResetPasswordPage() {
                 type="primary"
                 htmlType="submit"
                 block
-                disabled={token.length === 0}
                 loading={reset.isPending}
               >
                 {t("resetPassword.action")}

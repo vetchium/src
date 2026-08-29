@@ -84,6 +84,7 @@ export const en = {
   },
   completeSignup: {
     documentTitle: "Complete signup | Vetchium",
+    missingToken: "This signup link is incomplete.",
     title: "Choose your password",
     action: "Complete signup",
     success: "Your account is ready. Your handle is {{handle}}.",
@@ -98,6 +99,7 @@ export const en = {
   },
   resetPassword: {
     documentTitle: "Choose a new password | Vetchium",
+    missingToken: "This password-reset link is incomplete.",
     title: "Choose a new password",
     action: "Reset password",
     success:

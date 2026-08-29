@@ -86,6 +86,7 @@ export const ta = {
   },
   completeSignup: {
     documentTitle: "பதிவை நிறைவு செய்க | Vetchium",
+    missingToken: "இந்தப் பதிவு இணைப்பு முழுமையில்லை.",
     title: "கடவுச்சொல்லைத் தேர்ந்தெடுக்கவும்",
     action: "பதிவை நிறைவு செய்க",
     success: "உங்கள் கணக்கு தயாராக உள்ளது. உங்கள் ஹேண்டில் {{handle}}.",
@@ -100,6 +101,7 @@ export const ta = {
   },
   resetPassword: {
     documentTitle: "புதிய கடவுச்சொல் | Vetchium",
+    missingToken: "இந்தக் கடவுச்சொல் மீட்டமைப்பு இணைப்பு முழுமையில்லை.",
     title: "புதிய கடவுச்சொல்லைத் தேர்ந்தெடுக்கவும்",
     action: "கடவுச்சொல்லை மீட்டமை",
     success:

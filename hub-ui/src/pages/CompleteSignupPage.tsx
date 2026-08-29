@@ -41,7 +41,15 @@ export function CompleteSignupPage() {
         <Typography.Title level={1}>
           {t("completeSignup.title")}
         </Typography.Title>
-        {complete.isSuccess ? (
+        {token.length === 0 ? (
+          // A truncated link must say so. A form whose submit
+          // button is disabled explains nothing.
+          <Alert
+            type="error"
+            showIcon
+            title={t("completeSignup.missingToken")}
+          />
+        ) : complete.isSuccess ? (
           <>
             <Alert
               type="success"
@@ -98,7 +106,6 @@ export function CompleteSignupPage() {
                 type="primary"
                 htmlType="submit"
                 block
-                disabled={token.length === 0}
                 loading={complete.isPending}
               >
                 {t("completeSignup.action")}
