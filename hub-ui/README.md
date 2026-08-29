@@ -15,7 +15,13 @@ npm run dev
 ```
 
 The development server forwards `/api` requests to `http://localhost:8081`.
-Change the Vite proxy target when running the Hub API elsewhere.
+Every API listens on `:8080` by default, so start the Hub API on the port this
+portal expects. That leaves `:8080` free for the admin portal's API and lets
+both portals run at once:
+
+```sh
+LISTEN_ADDRESS=:8081 go run ./backend/cmd/hub-api
+```
 
 The container reads `VETCHIUM_DEFAULT_LANGUAGE` at startup. Set it to `en-US`,
 `ta`, or `de-DE` to choose the initial locale for browsers without a locally

@@ -18,6 +18,12 @@ Use it together with `go.md`. Also read `database.md` for any database access.
   Name portal server sections `adminAPIServer`, `hubAPIServer`, and
   `orgsAPIServer`; use the shared `sessionTTL` key for each portal's ordinary
   session lifetime.
+- Resolve the HTTP listen address with `apiserver.ListenAddress()` in `main`
+  and pass it to `run`. Every service listens on `apiserver.DefaultListenAddress`
+  inside its own container, so the address stays out of the per-tenant config
+  file, which one tenant's services all share. The `LISTEN_ADDRESS` environment
+  variable overrides it per process, which is how several APIs run side by side
+  on a development host.
 - Keep controls in the layer that owns them. Generic public-ingress concerns
   such as source rate limits, request-body size limits, and proxy trust belong
   in Traefik or deployment configuration by default. Do not duplicate them in

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -16,9 +17,12 @@ import (
 	"backend/internal/routes"
 )
 
-const address = ":8080"
-
 func main() {
+	address, err := apiserver.ListenAddress()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
 		if err := apiserver.SelfCheck(address); err != nil {
 			os.Exit(1)
@@ -28,13 +32,13 @@ func main() {
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{AddSource: true})
 	log := slog.New(handler).With("component", "global-coordinator")
 	slog.SetDefault(log)
-	if err := run(log); err != nil {
+	if err := run(log, address); err != nil {
 		log.Error("process exited with error", "event", "process_exit", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run(log *slog.Logger) error {
+func run(log *slog.Logger, address string) error {
 	config, err := globalcoordinator.LoadConfig()
 	if err != nil {
 		return err
