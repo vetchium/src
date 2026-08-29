@@ -5,8 +5,11 @@ Use it together with `go.md`. Also read `database.md` for any database access.
 
 ## Architecture and ownership
 
-- `cmd/` contains executable entry points. Keep startup, shutdown, and
-  dependency wiring there; put reusable behavior in packages.
+- `cmd/` contains executable entry points. Keep only the dependency wiring
+  that differs between services there. The process lifecycle every service
+  shares — the `healthcheck` subcommand, the JSON process logger, signal
+  handling, and graceful HTTP shutdown — lives in `internal/service/`, so a
+  new executable calls `service.Main` rather than repeating it.
 - `handlers/` owns portal and mesh HTTP handlers.
 - `internal/apiserver/` owns shared HTTP response and logging behavior.
 - `internal/middleware/` owns cross-cutting request behavior.
@@ -30,10 +33,10 @@ Use it together with `go.md`. Also read `database.md` for any database access.
   Name portal server sections `adminAPIServer`, `hubAPIServer`, and
   `orgsAPIServer`; use the shared `sessionTTL` key for each portal's ordinary
   session lifetime.
-- Resolve the HTTP listen address with `apiserver.ListenAddress()` in `main`
-  and pass it to `run`. Every service listens on `apiserver.DefaultListenAddress`
-  inside its own container, so the address stays out of the per-tenant config
-  file, which one tenant's services all share. The `LISTEN_ADDRESS` environment
+- `service.Main` resolves the HTTP listen address and passes it to `run`.
+  Every service listens on `apiserver.DefaultListenAddress` inside its own
+  container, so the address stays out of the per-tenant config file, which one
+  tenant's services all share. The `LISTEN_ADDRESS` environment
   variable overrides it per process, which is how several APIs run side by side
   on a development host.
 - Keep controls in the layer that owns them. Generic public-ingress concerns

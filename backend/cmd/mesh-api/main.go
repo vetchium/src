@@ -1,15 +1,8 @@
 package main
 
 import (
-	"context"
-	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
@@ -17,32 +10,11 @@ import (
 	"backend/internal/meshapi"
 	"backend/internal/middleware"
 	"backend/internal/routes"
+	"backend/internal/service"
 )
 
 func main() {
-	address, err := apiserver.ListenAddress()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
-		if err := apiserver.SelfCheck(address); err != nil {
-			os.Exit(1)
-		}
-		return
-	}
-
-	handlerOptions := &slog.HandlerOptions{AddSource: true}
-	handler := slog.NewJSONHandler(os.Stdout, handlerOptions)
-	log := slog.New(handler).With("component", "mesh-api")
-	slog.SetDefault(log)
-
-	if err := run(log, address); err != nil {
-		log.Error(
-			"process exited with error", "event", "process_exit", "error", err,
-		)
-		os.Exit(1)
-	}
+	service.Main("mesh-api", run)
 }
 
 func run(log *slog.Logger, address string) error {
@@ -54,12 +26,9 @@ func run(log *slog.Logger, address string) error {
 	if err != nil {
 		return err
 	}
-	log = log.With("tenant", cfg.TenantID)
-	slog.SetDefault(log)
+	log = service.WithTenant(log, cfg.TenantID)
 
-	ctx, stop := signal.NotifyContext(
-		context.Background(), os.Interrupt, syscall.SIGTERM,
-	)
+	ctx, stop := service.SignalContext()
 	defer stop()
 
 	pool, err := db.Connect(ctx, databaseURL, log)
@@ -75,32 +44,7 @@ func run(log *slog.Logger, address string) error {
 	mux := http.NewServeMux()
 	routes.RegisterMeshRoutes(mux, s)
 
-	httpServer := &http.Server{
-		Addr:              address,
-		Handler:           middleware.RequestLogger(s.Runtime)(mux),
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-	errC := make(chan error, 1)
-	go func() {
-		log.Info("server started", "address", address)
-		err := httpServer.ListenAndServe()
-		if errors.Is(err, http.ErrServerClosed) {
-			log.Info("HTTP server closed", "event", "server_closed", "error", err)
-			err = nil
-		}
-		errC <- err
-	}()
-
-	select {
-	case err := <-errC:
-		return err
-	case <-ctx.Done():
-		log.Info("shutdown requested", "event", "shutdown", "error", ctx.Err())
-	}
-
-	shutdownCtx, cancel := context.WithTimeout(
-		context.Background(), 15*time.Second,
+	return service.ListenAndServe(
+		ctx, log, address, middleware.RequestLogger(s.Runtime)(mux),
 	)
-	defer cancel()
-	return httpServer.Shutdown(shutdownCtx)
 }

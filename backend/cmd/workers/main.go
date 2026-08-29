@@ -1,31 +1,18 @@
 package main
 
 import (
-	"context"
 	"log/slog"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"backend/internal/appconfig"
 	"backend/internal/db"
 	"backend/internal/email"
 	"backend/internal/hubapi"
+	"backend/internal/service"
 	"backend/internal/workers"
 )
 
 func main() {
-	handlerOptions := &slog.HandlerOptions{AddSource: true}
-	handler := slog.NewJSONHandler(os.Stdout, handlerOptions)
-	log := slog.New(handler).With("component", "workers")
-	slog.SetDefault(log)
-
-	if err := run(log); err != nil {
-		log.Error(
-			"process exited with error", "event", "process_exit", "error", err,
-		)
-		os.Exit(1)
-	}
+	service.MainWithoutServer("workers", run)
 }
 
 func run(log *slog.Logger) error {
@@ -38,12 +25,9 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
-	log = log.With("tenant", cfg.TenantID)
-	slog.SetDefault(log)
+	log = service.WithTenant(log, cfg.TenantID)
 
-	ctx, stop := signal.NotifyContext(
-		context.Background(), os.Interrupt, syscall.SIGTERM,
-	)
+	ctx, stop := service.SignalContext()
 	defer stop()
 
 	pool, err := db.Connect(ctx, databaseURL, log)
