@@ -17,7 +17,7 @@ export function ForgotPasswordPage() {
       <title>{t("forgotPassword.documentTitle")}</title>
       <Space orientation="vertical" size="large" className="full-width">
         <div>
-          <Typography.Title level={2}>
+          <Typography.Title level={1}>
             {t("forgotPassword.title")}
           </Typography.Title>
           <Typography.Text type="secondary">

@@ -114,7 +114,7 @@ export function TwoFactorPage() {
       <title>{t("twoFactor.documentTitle")}</title>
       <Space orientation="vertical" size="large" className="full-width">
         <div>
-          <Typography.Title level={2}>{t("twoFactor.title")}</Typography.Title>
+          <Typography.Title level={1}>{t("twoFactor.title")}</Typography.Title>
           <Typography.Text type="secondary">
             {t("twoFactor.description")}
           </Typography.Text>

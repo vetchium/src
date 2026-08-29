@@ -26,7 +26,7 @@ export function ResetPasswordPage() {
     <Card className="auth-card">
       <title>{t("resetPassword.documentTitle")}</title>
       <Space orientation="vertical" size="large" className="full-width">
-        <Typography.Title level={2}>
+        <Typography.Title level={1}>
           {t("resetPassword.title")}
         </Typography.Title>
         {token === null ? (

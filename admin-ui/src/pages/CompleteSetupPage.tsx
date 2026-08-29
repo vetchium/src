@@ -30,7 +30,7 @@ export function CompleteSetupPage() {
       <title>{t("completeSetup.documentTitle")}</title>
       <Space orientation="vertical" size="large" className="full-width">
         <div>
-          <Typography.Title level={2}>
+          <Typography.Title level={1}>
             {t("completeSetup.title")}
           </Typography.Title>
           <Typography.Text type="secondary">

@@ -93,7 +93,7 @@ export function LoginPage() {
       <title>{t("login.documentTitle")}</title>
       <Space orientation="vertical" size="large" className="full-width">
         <div>
-          <Typography.Title level={2}>{t("login.title")}</Typography.Title>
+          <Typography.Title level={1}>{t("login.title")}</Typography.Title>
           <Typography.Text type="secondary">
             {t("login.description")}
           </Typography.Text>
