@@ -16,6 +16,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"backend/internal/db/sqlc"
+	"backend/internal/handlerauth"
 	"backend/internal/hubapi"
 	"backend/internal/middleware"
 )
@@ -25,7 +26,7 @@ const loginChallengeTTL = 5 * time.Minute
 func Login(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.LoginRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
@@ -125,8 +126,10 @@ func loginWithTOTP(
 		return
 	}
 	expiresAt := s.CurrentTime().Add(loginChallengeTTL)
-	challenge, err := withHubCredentialLock(
-		s, r, hubCredentialLock{userDID: user.HubUserDid},
+	challenge, err := handlerauth.WithCredentialLock(
+		s, r, hubCredentialLocker(hubCredentialLock{
+			userDID: user.HubUserDid,
+		}),
 		func(q sqlc.Querier) (sqlc.CreateHubLoginChallengeRow, error) {
 			return q.CreateHubLoginChallenge(
 				r.Context(), sqlc.CreateHubLoginChallengeParams{
@@ -164,7 +167,7 @@ func loginWithTOTP(
 func Reauthenticate(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.ReauthenticateRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return

@@ -70,10 +70,12 @@ func run(log *slog.Logger) error {
 	defer pool.Close()
 
 	s := &adminapi.Server{
-		Runtime:         apiserver.New(pool, log),
-		TenantID:        cfg.TenantID,
-		Queries:         dbsqlc.New(pool),
-		AdminSessionTTL: cfg.AdminAPIServer.AdminSessionTTL,
+		Runtime:  apiserver.New(pool, log),
+		TenantID: cfg.TenantID,
+		Queries:  dbsqlc.New(pool),
+		SessionDurations: apiserver.SessionDurations{
+			Default: cfg.AdminAPIServer.AdminSessionTTL,
+		},
 		CredentialKey: adminapi.DeriveCredentialKey(
 			cfg.TenantID, credentialSecret,
 		),

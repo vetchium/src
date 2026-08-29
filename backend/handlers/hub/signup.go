@@ -16,6 +16,7 @@ import (
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
 	"backend/internal/db/sqlc"
+	"backend/internal/handlerauth"
 	"backend/internal/hubapi"
 )
 
@@ -30,32 +31,32 @@ type signupEmailPayload struct {
 func RequestSignup(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.RequestSignupRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
 		}
 		request = request.Normalize()
-		key, ok := idempotencyKey(s, w, r)
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
 			return
 		}
 		emailAddress := string(request.EmailAddress)
 		domain := emailAddress[strings.LastIndexByte(emailAddress, '@')+1:]
 		now := s.CurrentTime()
-		runIdempotent(
+		handlerauth.RunIdempotent(
 			s, w, r, "hub:request-signup", emailAddress, key, request,
 			now.Add(signupTTL),
 			func(q *sqlc.Queries) (
-				idempotentResult[struct{}], *apiProblem, error,
+				handlerauth.Result[struct{}], *handlerauth.Problem, error,
 			) {
 				token, tokenHash, err := hubapi.NewToken()
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				requestID, err := hubapi.NewUUID()
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				expiresAt := now.Add(signupTTL)
 				payload, err := json.Marshal(signupEmailPayload{
@@ -65,13 +66,13 @@ func RequestSignup(s *hubapi.Server) http.HandlerFunc {
 					ExpiresAt: expiresAt,
 				})
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				ciphertext, err := hubapi.Encrypt(
 					s.CredentialSubkey("outbox"), payload,
 				)
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				result, err := q.CreateHubSignupRequest(
 					r.Context(), sqlc.CreateHubSignupRequestParams{
@@ -89,15 +90,15 @@ func RequestSignup(s *hubapi.Server) http.HandlerFunc {
 					},
 				)
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				if result == "domain_not_allowed" {
-					return idempotentResult[struct{}]{}, &apiProblem{
-						details: hubproblem.SignupDomainNotAllowedError,
+					return handlerauth.Result[struct{}]{}, &handlerauth.Problem{
+						Details: hubproblem.SignupDomainNotAllowedError,
 					}, nil
 				}
-				return idempotentResult[struct{}]{
-					status: http.StatusAccepted, body: struct{}{},
+				return handlerauth.Result[struct{}]{
+					Status: http.StatusAccepted, Body: struct{}{},
 				}, nil, nil
 			},
 		)
@@ -107,44 +108,47 @@ func RequestSignup(s *hubapi.Server) http.HandlerFunc {
 func CompleteSignup(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.CompleteSignupRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
 		}
-		key, ok := idempotencyKey(s, w, r)
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
 			return
 		}
 		tokenHash := hubapi.TokenHash(string(request.SignupToken))
 		binding := base64.RawURLEncoding.EncodeToString(tokenHash)
-		runIdempotent(
+		handlerauth.RunIdempotent(
 			s, w, r, "hub:complete-signup", binding, key, request,
 			s.CurrentTime().Add(24*time.Hour),
 			func(q *sqlc.Queries) (
-				idempotentResult[hubauth.CompleteSignupResponse],
-				*apiProblem, error,
+				handlerauth.Result[hubauth.CompleteSignupResponse],
+				*handlerauth.Problem, error,
 			) {
 				signup, err := q.ResolveHubSignupForCompletion(
 					r.Context(), tokenHash,
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return invalidSignupTokenResult()
+					return handlerauth.Failure[hubauth.CompleteSignupResponse](
+						hubproblem.InvalidSignupTokenError,
+						hubapi.SignupChallenge,
+					)
 				}
 				if err != nil {
-					return idempotentResult[hubauth.CompleteSignupResponse]{}, nil, err
+					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
 				}
 				passwordHash, err := hubapi.HashPassword(string(request.Password))
 				if err != nil {
-					return idempotentResult[hubauth.CompleteSignupResponse]{}, nil, err
+					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
 				}
 				shortID, err := s.Coordinator.GenerateShortID(r.Context())
 				if err != nil {
-					return idempotentResult[hubauth.CompleteSignupResponse]{}, nil, err
+					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
 				}
 				did, err := hubapi.NewUUIDv7(s.CurrentTime())
 				if err != nil {
-					return idempotentResult[hubauth.CompleteSignupResponse]{}, nil, err
+					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
 				}
 				handle := hubapi.Handle(signup.DisplayName, shortID)
 				created, err := q.CompleteHubSignup(
@@ -158,14 +162,17 @@ func CompleteSignup(s *hubapi.Server) http.HandlerFunc {
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return invalidSignupTokenResult()
+					return handlerauth.Failure[hubauth.CompleteSignupResponse](
+						hubproblem.InvalidSignupTokenError,
+						hubapi.SignupChallenge,
+					)
 				}
 				if err != nil {
-					return idempotentResult[hubauth.CompleteSignupResponse]{}, nil, err
+					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
 				}
-				return idempotentResult[hubauth.CompleteSignupResponse]{
-					status: http.StatusCreated,
-					body: hubauth.CompleteSignupResponse{
+				return handlerauth.Result[hubauth.CompleteSignupResponse]{
+					Status: http.StatusCreated,
+					Body: hubauth.CompleteSignupResponse{
 						HubUserDID: hubspec.HubUserDID(
 							hubapi.FormatUUID(created.HubUserDid),
 						),
@@ -175,13 +182,4 @@ func CompleteSignup(s *hubapi.Server) http.HandlerFunc {
 			},
 		)
 	}
-}
-
-func invalidSignupTokenResult() (
-	idempotentResult[hubauth.CompleteSignupResponse], *apiProblem, error,
-) {
-	return idempotentResult[hubauth.CompleteSignupResponse]{}, &apiProblem{
-		details:         hubproblem.InvalidSignupTokenError,
-		wwwAuthenticate: hubapi.SignupChallenge,
-	}, nil
 }

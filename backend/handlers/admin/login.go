@@ -15,8 +15,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"backend/internal/adminapi"
-	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
+	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 )
 
@@ -26,12 +26,9 @@ func Reauthenticate(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		var request adminauth.ReauthenticateRequest
-		if err := apiserver.DecodeJSON(r, &request); err != nil {
-			s.InvalidJSON(ctx, w, err)
-			return
-		}
-		if fields := request.Validate(); len(fields) != 0 {
-			s.ValidationFailed(ctx, w, fields)
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
+			return request.Validate()
+		}) {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(ctx)
@@ -85,13 +82,10 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		var request adminauth.LoginRequest
-		if err := apiserver.DecodeJSON(r, &request); err != nil {
-			s.InvalidJSON(ctx, w, err)
-			return
-		}
-		request = request.Normalize()
-		if fields := request.Validate(); len(fields) != 0 {
-			s.ValidationFailed(ctx, w, fields)
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
+			request = request.Normalize()
+			return request.Validate()
+		}) {
 			return
 		}
 		adminUser, err := s.Queries.GetAdminUserForLogin(
@@ -145,7 +139,7 @@ func loginWithoutTOTP(
 		s.InternalError(r.Context(), w, "generate admin session token", err)
 		return
 	}
-	expiresAt := s.CurrentTime().Add(s.AdminSessionTTL)
+	expiresAt := s.CurrentTime().Add(s.SessionDuration(false))
 	session, err := s.Queries.CreateAdminSession(
 		r.Context(), sqlc.CreateAdminSessionParams{
 			SessionTokenHash:     tokenHash,
@@ -189,8 +183,10 @@ func loginWithTOTP(
 		return
 	}
 	expiresAt := s.CurrentTime().Add(loginChallengeTTL)
-	challenge, err := withAdminCredentialLock(
-		s, r, adminCredentialLock{userID: adminUser.AdminUserID},
+	challenge, err := handlerauth.WithCredentialLock(
+		s, r, adminCredentialLocker(adminCredentialLock{
+			userID: adminUser.AdminUserID,
+		}),
 		func(q sqlc.Querier) (sqlc.CreateAdminLoginChallengeRow, error) {
 			return q.CreateAdminLoginChallenge(
 				r.Context(), sqlc.CreateAdminLoginChallengeParams{

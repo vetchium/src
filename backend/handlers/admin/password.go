@@ -14,6 +14,7 @@ import (
 
 	"backend/internal/adminapi"
 	"backend/internal/db/sqlc"
+	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 )
 
@@ -22,7 +23,7 @@ const passwordResetTTL = 30 * time.Minute
 func RequestPasswordReset(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request adminauth.RequestPasswordResetRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
@@ -48,10 +49,10 @@ func RequestPasswordReset(s *adminapi.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "encrypt password reset email", err)
 			return
 		}
-		_, err = withAdminCredentialLock(
-			s, r, adminCredentialLock{
+		_, err = handlerauth.WithCredentialLock(
+			s, r, adminCredentialLocker(adminCredentialLock{
 				emailAddress: string(request.EmailAddress),
-			},
+			}),
 			func(q sqlc.Querier) (bool, error) {
 				return q.CreateAdminPasswordReset(
 					r.Context(), sqlc.CreateAdminPasswordResetParams{
@@ -78,27 +79,27 @@ func RequestPasswordReset(s *adminapi.Server) http.HandlerFunc {
 func CompletePasswordReset(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request adminauth.CompletePasswordResetRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
 		}
-		key, ok := idempotencyKey(s, w, r)
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
 			return
 		}
 		binding := base64.RawURLEncoding.EncodeToString(adminapi.TokenHash(
 			string(request.ResetToken),
 		))
-		runIdempotent(
+		handlerauth.RunIdempotent(
 			s, w, r, "admin:complete-password-reset", binding, key,
 			request, s.CurrentTime().Add(24*time.Hour),
 			func(q *sqlc.Queries) (
-				idempotentResult[struct{}], *apiProblem, error,
+				handlerauth.Result[struct{}], *handlerauth.Problem, error,
 			) {
 				hash, err := adminapi.HashPassword(string(request.NewPassword))
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				resetTokenHash := adminapi.TokenHash(
 					string(request.ResetToken),
@@ -107,18 +108,18 @@ func CompletePasswordReset(s *adminapi.Server) http.HandlerFunc {
 					r.Context(), resetTokenHash,
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return idempotentResult[struct{}]{}, &apiProblem{
-						details:         adminproblem.InvalidPasswordResetTokenError,
-						wwwAuthenticate: adminapi.PasswordResetChallenge,
+					return handlerauth.Result[struct{}]{}, &handlerauth.Problem{
+						Details:         adminproblem.InvalidPasswordResetTokenError,
+						WWWAuthenticate: adminapi.PasswordResetChallenge,
 					}, nil
 				}
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				if _, err := q.LockAdminUserCredentialMutation(
 					r.Context(), adminUserID,
 				); err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				completed, err := q.CompleteAdminPasswordReset(
 					r.Context(), sqlc.CompleteAdminPasswordResetParams{
@@ -131,16 +132,16 @@ func CompletePasswordReset(s *adminapi.Server) http.HandlerFunc {
 					},
 				)
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				if !completed {
-					return idempotentResult[struct{}]{}, &apiProblem{
-						details:         adminproblem.InvalidPasswordResetTokenError,
-						wwwAuthenticate: adminapi.PasswordResetChallenge,
+					return handlerauth.Result[struct{}]{}, &handlerauth.Problem{
+						Details:         adminproblem.InvalidPasswordResetTokenError,
+						WWWAuthenticate: adminapi.PasswordResetChallenge,
 					}, nil
 				}
-				return idempotentResult[struct{}]{
-					status: http.StatusNoContent, body: struct{}{},
+				return handlerauth.Result[struct{}]{
+					Status: http.StatusNoContent, Body: struct{}{},
 				}, nil, nil
 			},
 		)
@@ -150,7 +151,7 @@ func CompletePasswordReset(s *adminapi.Server) http.HandlerFunc {
 func ChangePassword(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request adminauth.ChangePasswordRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return

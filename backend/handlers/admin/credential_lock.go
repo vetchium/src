@@ -1,14 +1,14 @@
 package admin
 
 import (
+	"context"
 	"errors"
-	"net/http"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"backend/internal/adminapi"
 	"backend/internal/db/sqlc"
+	"backend/internal/handlerauth"
 )
 
 type adminCredentialLock struct {
@@ -16,43 +16,20 @@ type adminCredentialLock struct {
 	emailAddress string
 }
 
-func withAdminCredentialLock[T any](
-	s *adminapi.Server, r *http.Request, identity adminCredentialLock,
-	work func(sqlc.Querier) (T, error),
-) (T, error) {
-	var zero T
-	// Handler unit tests use a query stub without a pool. Production servers
-	// always take the transaction-scoped row-lock path below.
-	if s.DB == nil {
-		return work(s.Queries)
-	}
-	tx, err := s.DB.Begin(r.Context())
-	if err != nil {
-		return zero, err
-	}
-	defer func() { _ = tx.Rollback(r.Context()) }()
-	queries := sqlc.New(tx)
-	if identity.emailAddress != "" {
-		_, err = queries.LockAdminEmailCredentialMutation(
-			r.Context(), identity.emailAddress,
-		)
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			return zero, err
+func adminCredentialLocker(
+	identity adminCredentialLock,
+) handlerauth.CredentialLock {
+	return func(ctx context.Context, queries sqlc.Querier) error {
+		if identity.emailAddress != "" {
+			_, err := queries.LockAdminEmailCredentialMutation(
+				ctx, identity.emailAddress,
+			)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil
+			}
+			return err
 		}
-	} else {
-		_, err = queries.LockAdminUserCredentialMutation(
-			r.Context(), identity.userID,
-		)
-		if err != nil {
-			return zero, err
-		}
+		_, err := queries.LockAdminUserCredentialMutation(ctx, identity.userID)
+		return err
 	}
-	result, err := work(queries)
-	if err != nil {
-		return zero, err
-	}
-	if err := tx.Commit(r.Context()); err != nil {
-		return zero, err
-	}
-	return result, nil
 }

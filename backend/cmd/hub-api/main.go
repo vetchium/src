@@ -77,13 +77,15 @@ func run(log *slog.Logger) error {
 	defer pool.Close()
 
 	s := &hubapi.Server{
-		Runtime:              apiserver.New(pool, log),
-		Queries:              dbsqlc.New(pool),
-		Coordinator:          coordinator,
-		TenantID:             cfg.TenantID,
-		SessionTTL:           cfg.HubAPIServer.SessionTTL,
-		RememberedSessionTTL: cfg.HubAPIServer.RememberedSessionTTL,
-		PublicBaseURL:        cfg.HubAPIServer.PublicBaseURL,
+		Runtime:     apiserver.New(pool, log),
+		Queries:     dbsqlc.New(pool),
+		Coordinator: coordinator,
+		TenantID:    cfg.TenantID,
+		SessionDurations: apiserver.SessionDurations{
+			Default:    cfg.HubAPIServer.SessionTTL,
+			Remembered: cfg.HubAPIServer.RememberedSessionTTL,
+		},
+		PublicBaseURL: cfg.HubAPIServer.PublicBaseURL,
 		CredentialKey: hubapi.DeriveCredentialKey(
 			cfg.TenantID, credentialSecret,
 		),

@@ -12,6 +12,7 @@ import (
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
 	"backend/internal/db/sqlc"
+	"backend/internal/handlerauth"
 	"backend/internal/hubapi"
 	"backend/internal/middleware"
 )
@@ -56,7 +57,7 @@ func MyInfo(s *hubapi.Server) http.HandlerFunc {
 func SetPreferredLanguage(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubusers.SetPreferredLanguageRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
@@ -87,7 +88,7 @@ func SetPreferredLanguage(s *hubapi.Server) http.HandlerFunc {
 func SetResidentCountry(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubusers.SetResidentCountryRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return

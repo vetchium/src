@@ -522,9 +522,10 @@ func testAdminServer(db sqlc.Querier, now time.Time) *adminapi.Server {
 		Runtime: apiserver.New(
 			nil, slog.New(slog.NewTextHandler(io.Discard, nil)),
 		),
-		Queries: db, TenantID: "test", AdminSessionTTL: time.Hour,
-		CredentialKey: adminapi.DeriveCredentialKey("test", "secret"),
-		Now:           func() time.Time { return now },
+		Queries: db, TenantID: "test",
+		SessionDurations: apiserver.SessionDurations{Default: time.Hour},
+		CredentialKey:    adminapi.DeriveCredentialKey("test", "secret"),
+		Now:              func() time.Time { return now },
 	}
 }
 

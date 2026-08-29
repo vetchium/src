@@ -14,6 +14,7 @@ import (
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
 	"backend/internal/db/sqlc"
+	"backend/internal/handlerauth"
 	"backend/internal/hubapi"
 	"backend/internal/middleware"
 )
@@ -28,27 +29,27 @@ type passwordResetEmailPayload struct {
 func RequestPasswordReset(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.RequestPasswordResetRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
 		}
 		request = request.Normalize()
 		emailAddress := string(request.EmailAddress)
-		key, ok := idempotencyKey(s, w, r)
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
 			return
 		}
 		now := s.CurrentTime()
-		runIdempotent(
+		handlerauth.RunIdempotent(
 			s, w, r, "hub:request-password-reset", emailAddress, key,
 			request, now.Add(24*time.Hour),
 			func(q *sqlc.Queries) (
-				idempotentResult[struct{}], *apiProblem, error,
+				handlerauth.Result[struct{}], *handlerauth.Problem, error,
 			) {
 				token, tokenHash, err := hubapi.NewToken()
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				expiresAt := now.Add(passwordResetTTL)
 				payload, err := json.Marshal(passwordResetEmailPayload{
@@ -57,13 +58,13 @@ func RequestPasswordReset(s *hubapi.Server) http.HandlerFunc {
 					ExpiresAt: expiresAt,
 				})
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				ciphertext, err := hubapi.Encrypt(
 					s.CredentialSubkey("outbox"), payload,
 				)
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				_, err = q.CreateHubPasswordReset(
 					r.Context(), sqlc.CreateHubPasswordResetParams{
@@ -74,10 +75,10 @@ func RequestPasswordReset(s *hubapi.Server) http.HandlerFunc {
 					},
 				)
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
-				return idempotentResult[struct{}]{
-					status: http.StatusAccepted, body: struct{}{},
+				return handlerauth.Result[struct{}]{
+					Status: http.StatusAccepted, Body: struct{}{},
 				}, nil, nil
 			},
 		)
@@ -87,40 +88,43 @@ func RequestPasswordReset(s *hubapi.Server) http.HandlerFunc {
 func CompletePasswordReset(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.CompletePasswordResetRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
 		}
-		key, ok := idempotencyKey(s, w, r)
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
 			return
 		}
 		resetHash := hubapi.TokenHash(string(request.ResetToken))
 		binding := base64.RawURLEncoding.EncodeToString(resetHash)
-		runIdempotent(
+		handlerauth.RunIdempotent(
 			s, w, r, "hub:complete-password-reset", binding, key,
 			request, s.CurrentTime().Add(24*time.Hour),
 			func(q *sqlc.Queries) (
-				idempotentResult[struct{}], *apiProblem, error,
+				handlerauth.Result[struct{}], *handlerauth.Problem, error,
 			) {
 				userDID, err := q.ResolveHubPasswordResetUser(
 					r.Context(), resetHash,
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return invalidPasswordResetResult()
+					return handlerauth.Failure[struct{}](
+						hubproblem.InvalidPasswordResetTokenError,
+						hubapi.PasswordResetChallenge,
+					)
 				}
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				if _, err := q.LockHubUserCredentialMutation(
 					r.Context(), userDID,
 				); err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				hash, err := hubapi.HashPassword(string(request.NewPassword))
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				completed, err := q.CompleteHubPasswordReset(
 					r.Context(), sqlc.CompleteHubPasswordResetParams{
@@ -131,13 +135,16 @@ func CompletePasswordReset(s *hubapi.Server) http.HandlerFunc {
 					},
 				)
 				if err != nil {
-					return idempotentResult[struct{}]{}, nil, err
+					return handlerauth.Result[struct{}]{}, nil, err
 				}
 				if !completed {
-					return invalidPasswordResetResult()
+					return handlerauth.Failure[struct{}](
+						hubproblem.InvalidPasswordResetTokenError,
+						hubapi.PasswordResetChallenge,
+					)
 				}
-				return idempotentResult[struct{}]{
-					status: http.StatusNoContent, body: struct{}{},
+				return handlerauth.Result[struct{}]{
+					Status: http.StatusNoContent, Body: struct{}{},
 				}, nil, nil
 			},
 		)
@@ -147,7 +154,7 @@ func CompletePasswordReset(s *hubapi.Server) http.HandlerFunc {
 func ChangePassword(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.ChangePasswordRequest
-		if !decodeAndValidate(s, w, r, &request, func() []string {
+		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
 			return request.Validate()
 		}) {
 			return
@@ -179,13 +186,4 @@ func ChangePassword(s *hubapi.Server) http.HandlerFunc {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
-}
-
-func invalidPasswordResetResult() (
-	idempotentResult[struct{}], *apiProblem, error,
-) {
-	return idempotentResult[struct{}]{}, &apiProblem{
-		details:         hubproblem.InvalidPasswordResetTokenError,
-		wwwAuthenticate: hubapi.PasswordResetChallenge,
-	}, nil
 }
