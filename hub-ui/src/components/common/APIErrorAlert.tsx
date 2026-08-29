@@ -1,8 +1,6 @@
-import { Alert } from "antd";
-import { useTranslation } from "react-i18next";
-import { APIError } from "../../api/client";
+import { APIErrorAlert as SharedAPIErrorAlert } from "@vetchium/portal-ui/errors";
 
-const problemKeys: Record<string, string> = {
+export const problemKeys: Record<string, string> = {
   "vetchium-problem-details/hub-invalid-credentials":
     "errors.invalidCredentials",
   "vetchium-problem-details/hub-signup-domain-not-allowed":
@@ -30,11 +28,11 @@ const problemKeys: Record<string, string> = {
 };
 
 export function APIErrorAlert({ error }: { error: unknown }) {
-  const { t } = useTranslation();
-  if (error === null || error === undefined) return null;
-  const key =
-    error instanceof APIError && error.problem
-      ? problemKeys[error.problem.type]
-      : undefined;
-  return <Alert type="error" showIcon title={t(key ?? "errors.generic")} />;
+  return (
+    <SharedAPIErrorAlert
+      error={error}
+      problemKeys={problemKeys}
+      fallbackKey="errors.generic"
+    />
+  );
 }

@@ -15,6 +15,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@vetchium/portal-ui": "file:../portal-ui",
     "@ant-design/icons": "6.3.2",
     "@tanstack/react-query": "5.101.4",
     "ajv": "8.20.0",
@@ -23,7 +24,8 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-i18next": "17.0.11",
-    "react-router": "8.3.0"
+    "react-router": "8.3.0",
+    "typespec": "file:../typespec"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.8",

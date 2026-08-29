@@ -1,0 +1,57 @@
+{
+  "name": "@vetchium/portal-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "exports": {
+    "./api": "./src/api.ts",
+    "./auth": "./src/auth.tsx",
+    "./errors": "./src/errors.tsx",
+    "./idempotency": "./src/idempotency.ts",
+    "./pending-operations": "./src/pending-operations.tsx",
+    "./preferences": "./src/preferences.tsx",
+    "./providers": "./src/providers.tsx",
+    "./recovery-codes": "./src/recovery-codes.tsx",
+    "./session": "./src/session.ts",
+    "./security": "./src/security.tsx",
+    "./shell": "./src/shell.tsx",
+    "./styles.css": "./src/styles.css"
+  },
+  "files": ["src"],
+  "peerDependencies": {
+    "@ant-design/icons": "6.3.2",
+    "@tanstack/react-query": "5.101.4",
+    "antd": "6.6.0",
+    "i18next": "26.3.6",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-i18next": "17.0.11",
+    "react-router": "8.3.0",
+    "typespec": "0.1.0"
+  },
+  "devDependencies": {
+    "@ant-design/icons": "6.3.2",
+    "@biomejs/biome": "2.5.8",
+    "@tanstack/react-query": "5.101.4",
+    "@types/node": "26.2.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "antd": "6.6.0",
+    "i18next": "26.3.6",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-i18next": "17.0.11",
+    "react-router": "8.3.0",
+    "typescript": "7.0.2",
+    "typespec": "file:../typespec"
+  },
+  "scripts": {
+    "format": "biome check --write --config-path=../biome.json .",
+    "format:check": "biome check --config-path=../biome.json .",
+    "typecheck": "tsc --noEmit"
+  },
+  "packageManager": "npm@12.0.2+sha512.b885e890b9418fa1693544d05f53e64f9a73ec194837d4258b15fecdd692347b1dd2a517b1b0cbaf9d31cd8e92c3b70956bd2ecc72833a57b4b3098f5bfa7943"
+}

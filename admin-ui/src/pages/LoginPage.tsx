@@ -74,14 +74,14 @@ export function LoginPage() {
       return;
     }
     if (response.authentication_state === "totp_required") {
-      if (!auth.beginChallenge(response, attempt)) {
+      if (!auth.beginChallenge(response, undefined, attempt)) {
         return;
       }
       unhandedAttempt.current = null;
       navigate(`/login/two-factor?returnTo=${encodeURIComponent(returnTo)}`);
       return;
     }
-    if (!auth.completeAuthentication(response, { attempt })) {
+    if (!auth.completeAuthentication(response, undefined, { attempt })) {
       return;
     }
     unhandedAttempt.current = null;

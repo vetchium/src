@@ -1,82 +1,32 @@
-import { useMutation } from "@tanstack/react-query";
-import { App, Button, Card, Form, Input, Space, Typography } from "antd";
-import { useTranslation } from "react-i18next";
-import { isNewPassword } from "../../../../typespec/common/authentication.ts";
+import { ChangePasswordCard as SharedChangePasswordCard } from "@vetchium/portal-ui/security";
+import { isNewPassword } from "typespec/common/authentication";
 import { isRecentAuthenticationRequired } from "../../api/client";
 import { hubAPI } from "../../api/hub";
-import { APIErrorAlert } from "../../components/common/APIErrorAlert";
+import { problemKeys } from "../../components/common/APIErrorAlert";
 import { ReauthenticationAlert } from "../../components/common/ReauthenticationAlert";
 
-interface ChangePasswordForm {
-  new_password: string;
-  confirm_password: string;
-}
-
 export function ChangePasswordCard() {
-  const { t } = useTranslation();
-  const { message } = App.useApp();
-  const [form] = Form.useForm<ChangePasswordForm>();
-  const mutation = useMutation({ mutationFn: hubAPI.changePassword });
-  const submit = async ({ new_password }: ChangePasswordForm) => {
-    try {
-      await mutation.mutateAsync({ new_password });
-      form.resetFields();
-      void message.success(t("passwordChange.success"));
-    } catch {}
-  };
   return (
-    <Card title={t("passwordChange.title")}>
-      <Space orientation="vertical" size="middle" className="full-width">
-        <Typography.Text type="secondary">
-          {t("passwordChange.description")}
-        </Typography.Text>
-        {isRecentAuthenticationRequired(mutation.error) ? (
-          <ReauthenticationAlert />
-        ) : (
-          <APIErrorAlert error={mutation.error} />
-        )}
-        <Form<ChangePasswordForm>
-          form={form}
-          layout="vertical"
-          className="settings-form"
-          onFinish={(values) => void submit(values)}
-        >
-          <Form.Item
-            name="new_password"
-            label={t("fields.newPassword")}
-            rules={[
-              { required: true, message: t("validation.required") },
-              {
-                validator: (_, value: string | undefined) =>
-                  value === undefined || value === "" || isNewPassword(value)
-                    ? Promise.resolve()
-                    : Promise.reject(new Error(t("validation.newPassword"))),
-              },
-            ]}
-          >
-            <Input.Password autoComplete="new-password" maxLength={128} />
-          </Form.Item>
-          <Form.Item
-            name="confirm_password"
-            label={t("fields.confirmPassword")}
-            dependencies={["new_password"]}
-            rules={[
-              { required: true, message: t("validation.required") },
-              ({ getFieldValue }) => ({
-                validator: (_, value: string) =>
-                  value === getFieldValue("new_password")
-                    ? Promise.resolve()
-                    : Promise.reject(new Error(t("validation.passwordMatch"))),
-              }),
-            ]}
-          >
-            <Input.Password autoComplete="new-password" maxLength={128} />
-          </Form.Item>
-          <Button type="primary" htmlType="submit" loading={mutation.isPending}>
-            {t("passwordChange.action")}
-          </Button>
-        </Form>
-      </Space>
-    </Card>
+    <SharedChangePasswordCard
+      changePassword={(newPassword) =>
+        hubAPI.changePassword({ new_password: newPassword })
+      }
+      validPassword={isNewPassword}
+      isRecentAuthenticationRequired={isRecentAuthenticationRequired}
+      reauthenticationAlert={<ReauthenticationAlert />}
+      problemKeys={problemKeys}
+      fallbackProblemKey="errors.generic"
+      translations={{
+        title: "passwordChange.title",
+        description: "passwordChange.description",
+        success: "passwordChange.success",
+        action: "passwordChange.action",
+        newPassword: "fields.newPassword",
+        confirmPassword: "fields.confirmPassword",
+        passwordMismatch: "validation.passwordMatch",
+        invalidPassword: "validation.newPassword",
+        required: "validation.required",
+      }}
+    />
   );
 }

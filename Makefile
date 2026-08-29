@@ -47,7 +47,8 @@ serving_services = $$(docker compose -f $(1) config --services | grep -v '^worke
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
 	admin-ui-deps admin-ui-check admin-ui-check-ready \
-	hub-ui-deps hub-ui-check hub-ui-check-ready typespec-deps \
+	hub-ui-deps hub-ui-check hub-ui-check-ready portal-ui-deps \
+	portal-ui-check portal-ui-check-ready typespec-deps \
 	typespec-check \
 	typespec-check-ready typespec-test playwright-deps playwright-browser \
 	playwright-browser-ready playwright-check playwright-check-ready \
@@ -130,11 +131,12 @@ test: clean
 	$(MAKE) --no-print-directory coverage-summary
 	$(MAKE) --no-print-directory api-coverage-report
 
-test-dependencies: admin-ui-deps hub-ui-deps typespec-deps playwright-deps
+test-dependencies: admin-ui-deps hub-ui-deps portal-ui-deps typespec-deps \
+	playwright-deps
 
 test-static-ready: test-go test-go-static test-go-lint test-go-vuln \
 	admin-ui-check-ready hub-ui-check-ready typespec-check-ready \
-	playwright-check-ready
+	portal-ui-check-ready playwright-check-ready
 
 test-environment:
 	$(MAKE) --no-print-directory playwright-browser-ready
@@ -240,6 +242,16 @@ hub-ui-check-ready: hub-ui-deps
 	cd hub-ui && npm run build
 
 hub-ui-check: hub-ui-check-ready
+
+portal-ui-deps:
+	cd portal-ui && npm ci
+
+portal-ui-check-ready: portal-ui-deps
+	cd portal-ui && npm run format:check
+	cd portal-ui && npm run typecheck
+	cd portal-ui && npm audit --audit-level=high
+
+portal-ui-check: portal-ui-check-ready
 
 typespec-deps:
 	cd typespec && npm ci

@@ -1,3 +1,4 @@
+import { createRememberedSessionStorage } from "@vetchium/portal-ui/session";
 import { isOpaqueToken } from "../../../typespec/common/authentication.ts";
 import {
   isCountryCode,
@@ -5,8 +6,6 @@ import {
 } from "../../../typespec/common/localization.ts";
 import type { AuthenticatedSessionResponse } from "../../../typespec/hub/auth/types.ts";
 import { isHubHandle, isHubUserDID } from "../../../typespec/hub/types.ts";
-
-const sessionKey = "vetchium.hub.session";
 
 export interface StoredSession extends AuthenticatedSessionResponse {
   remembered: boolean;
@@ -39,15 +38,13 @@ function parseSession(value: string | null): StoredSession | null {
   }
 }
 
+const storage = createRememberedSessionStorage<StoredSession>({
+  key: "vetchium.hub.session",
+  parse: parseSession,
+});
+
 export function readSession(): StoredSession | null {
-  try {
-    return (
-      parseSession(globalThis.sessionStorage?.getItem(sessionKey) ?? null) ??
-      parseSession(globalThis.localStorage?.getItem(sessionKey) ?? null)
-    );
-  } catch {
-    return null;
-  }
+  return storage.read();
 }
 
 export function storeSession(
@@ -55,23 +52,9 @@ export function storeSession(
   remembered: boolean,
 ): StoredSession {
   const stored = { ...session, remembered };
-  clearSession();
-  try {
-    const storage = remembered
-      ? globalThis.localStorage
-      : globalThis.sessionStorage;
-    storage?.setItem(sessionKey, JSON.stringify(stored));
-  } catch {
-    // The Auth context retains the session when browser storage is unavailable.
-  }
-  return stored;
+  return storage.store(stored, remembered);
 }
 
 export function clearSession(): void {
-  try {
-    globalThis.localStorage?.removeItem(sessionKey);
-    globalThis.sessionStorage?.removeItem(sessionKey);
-  } catch {
-    // The Auth context still clears its in-memory state.
-  }
+  storage.clear();
 }

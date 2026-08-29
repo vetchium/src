@@ -100,7 +100,7 @@ export function TwoFactorPage() {
     // The user may have restarted, or begun a second sign in, while this was in
     // flight. That flow now owns the portal, so this response is discarded.
     if (
-      !auth.completeAuthentication(session, {
+      !auth.completeAuthentication(session, undefined, {
         challenge: challenge.login_challenge_token,
       })
     ) {
