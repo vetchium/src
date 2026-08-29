@@ -334,6 +334,7 @@ publish:
 		docker buildx bake --builder $(BUILDER) -f docker-bake.hcl --push
 
 clean:
+	docker compose -f docker-compose-ci.json down --remove-orphans --volumes
 	docker compose -f docker-compose.json down --remove-orphans --volumes
 	rm -f "$(APP_PASSWORD_FILE)" "$(ADMIN_KEY_FILE)" "$(HUB_KEY_FILE)" \
 		"$(COORDINATOR_KEY_FILE)"
