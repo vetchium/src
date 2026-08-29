@@ -1,7 +1,9 @@
 # Vetchium Admin UI
 
 The tenant administrator portal is a React application built with Vite,
-TypeScript, Ant Design, TanStack Query, React Router, react-i18next, and Ajv.
+TypeScript, Ant Design, TanStack Query, React Router, and react-i18next.
+
+Use Node.js 22.13.0 or newer.
 
 ## Development
 
