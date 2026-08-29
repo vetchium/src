@@ -26,6 +26,7 @@ GOVULNCHECK             := go run golang.org/x/vuln/cmd/govulncheck@v1.7.0
 GOLANGCI_LINT           := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 SQLFLUFF_IMAGE          := sqlfluff/sqlfluff:4.2.2@sha256:7e8f4f1bc8f70c6ab7da3094c3ca0ff0c66f3d721896d79c3731e549ea1921fb
 GO_MODULES             := backend typespec
+JS_WORKSPACES          := admin-ui hub-ui portal-ui typespec playwright
 SQL_DIRS               := backend/internal/db/queries db/bootstrap db/dev-seed \
 	db/migrations
 GOTESTFLAGS            ?=
@@ -43,7 +44,7 @@ WAIT_TIMEOUT ?= 300
 # Compose has no per-service opt-out, so the wait set is named explicitly.
 serving_services = $$(docker compose -f $(1) config --services | grep -v '^workers-')
 
-.PHONY: check dev dev-secrets sqlc sqlc-vet sqlc-verify sql-lint sql-check \
+.PHONY: check fmt dev dev-secrets sqlc sqlc-vet sqlc-verify sql-lint sql-check \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
 	admin-ui-deps admin-ui-check admin-ui-check-ready \
@@ -54,6 +55,16 @@ serving_services = $$(docker compose -f $(1) config --services | grep -v '^worke
 	playwright-browser-ready playwright-check playwright-check-ready \
 	playwright-test playwright-test-run api-coverage-prepare \
 	api-coverage-report docker publish clean
+
+fmt:
+	@find $(GO_MODULES) -type f -name '*.go' -print0 | xargs -0 gofmt -w
+	@for workspace in $(JS_WORKSPACES); do \
+		echo "==> format $$workspace"; \
+		(cd "$$workspace" && npm run format) || exit $$?; \
+	done
+	cd typespec && npx biome check --write --config-path=../biome.json \
+		../biome.json ../docker-compose.json ../docker-compose-ci.json \
+		../config ../deploy
 
 dev: clean
 	$(MAKE) --no-print-directory dev-secrets
