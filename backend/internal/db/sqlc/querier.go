@@ -74,6 +74,7 @@ type Querier interface {
 	LockIdempotency(ctx context.Context, dollar_1 string) error
 	MarkHubEmailFailed(ctx context.Context, arg MarkHubEmailFailedParams) (bool, error)
 	MarkHubEmailSent(ctx context.Context, arg MarkHubEmailSentParams) (bool, error)
+	PingDatabase(ctx context.Context) (PingDatabaseRow, error)
 	// Outbox ciphertext is retained no longer than the maximum usable lifetime of
 	// the credential it contains, whether delivery succeeded or not.
 	PruneAdminEmailOutbox(ctx context.Context, tenantID string) (int64, error)

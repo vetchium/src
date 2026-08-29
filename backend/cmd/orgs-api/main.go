@@ -13,6 +13,7 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
 	"backend/internal/db"
+	dbsqlc "backend/internal/db/sqlc"
 	"backend/internal/middleware"
 	"backend/internal/orgsapi"
 	"backend/internal/routes"
@@ -66,6 +67,7 @@ func run(log *slog.Logger) error {
 
 	s := &orgsapi.Server{
 		Runtime:  apiserver.New(pool, log),
+		Queries:  dbsqlc.New(pool),
 		TenantID: cfg.TenantID,
 	}
 	mux := http.NewServeMux()
