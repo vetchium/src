@@ -1,30 +1,48 @@
 import { APIErrorAlert as SharedAPIErrorAlert } from "@vetchium/portal-ui/errors";
+import {
+  IdempotencyKeyConflictError,
+  RateLimitExceededError,
+} from "typespec/problem/common";
+import {
+  HubUserDisabledError,
+  IncorrectPasswordError,
+  IncorrectTOTPCodeError,
+  InvalidCredentialsError,
+  InvalidLoginChallengeError,
+  InvalidPasswordResetTokenError,
+  RecentAuthenticationRequiredError,
+} from "typespec/problem/hub/authentication";
+import {
+  InvalidSignupTokenError,
+  SignupDomainNotAllowedError,
+} from "typespec/problem/hub/signup";
+import {
+  IncorrectRecoveryCodeError,
+  InvalidTOTPEnrollmentError,
+  TOTPAlreadyEnabledError,
+  TOTPNotEnabledError,
+} from "typespec/problem/hub/totp";
 
+// Keyed by the contract constants rather than by the literal type strings, so
+// renaming a problem type in TypeSpec fails the build here instead of silently
+// falling back to the generic message.
 export const problemKeys: Record<string, string> = {
-  "vetchium-problem-details/hub-invalid-credentials":
-    "errors.invalidCredentials",
-  "vetchium-problem-details/hub-signup-domain-not-allowed":
-    "errors.signupDomainNotAllowed",
-  "vetchium-problem-details/hub-invalid-signup-token":
-    "errors.invalidSignupToken",
-  "vetchium-problem-details/hub-invalid-password-reset-token":
-    "errors.invalidResetToken",
-  "vetchium-problem-details/hub-incorrect-password": "errors.incorrectPassword",
-  "vetchium-problem-details/hub-incorrect-totp-code": "errors.incorrectTOTP",
-  "vetchium-problem-details/hub-incorrect-recovery-code":
-    "errors.incorrectRecoveryCode",
-  "vetchium-problem-details/hub-invalid-login-challenge":
-    "errors.expiredLoginChallenge",
-  "vetchium-problem-details/hub-recent-authentication-required":
+  [InvalidCredentialsError.type]: "errors.invalidCredentials",
+  [HubUserDisabledError.type]: "errors.userDisabled",
+  [SignupDomainNotAllowedError.type]: "errors.signupDomainNotAllowed",
+  [InvalidSignupTokenError.type]: "errors.invalidSignupToken",
+  [InvalidPasswordResetTokenError.type]: "errors.invalidResetToken",
+  [IncorrectPasswordError.type]: "errors.incorrectPassword",
+  [IncorrectTOTPCodeError.type]: "errors.incorrectTOTP",
+  [IncorrectRecoveryCodeError.type]: "errors.incorrectRecoveryCode",
+  [InvalidLoginChallengeError.type]: "errors.expiredLoginChallenge",
+  [RecentAuthenticationRequiredError.type]:
     "errors.recentAuthenticationRequired",
-  "vetchium-problem-details/rate-limit-exceeded": "errors.rateLimited",
-  "vetchium-problem-details/idempotency-key-conflict":
-    "errors.idempotencyConflict",
-  "vetchium-problem-details/hub-totp-already-enabled":
-    "errors.totpAlreadyEnabled",
-  "vetchium-problem-details/hub-totp-not-enabled": "errors.totpNotEnabled",
-  "vetchium-problem-details/hub-invalid-totp-enrollment":
-    "errors.invalidEnrollment",
+  [RateLimitExceededError.type]: "errors.rateLimited",
+  [IdempotencyKeyConflictError.type]: "errors.idempotencyConflict",
+  [TOTPAlreadyEnabledError.type]: "errors.totpAlreadyEnabled",
+  [TOTPNotEnabledError.type]: "errors.totpNotEnabled",
+  [InvalidTOTPEnrollmentError.type]: "errors.invalidEnrollment",
 };
 
 export function APIErrorAlert({ error }: { error: unknown }) {

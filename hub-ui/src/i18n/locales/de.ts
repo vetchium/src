@@ -133,6 +133,8 @@ export const de = {
   errors: {
     generic: "Ein Fehler ist aufgetreten. Versuchen Sie es erneut.",
     invalidCredentials: "E-Mail-Adresse oder Passwort ist falsch.",
+    userDisabled:
+      "Dieses Konto wurde deaktiviert. Wenden Sie sich an Ihre Vetchium-Administration.",
     signupDomainNotAllowed:
       "Dieser Vetchium-Mandant erlaubt keine Registrierung mit dieser E-Mail-Domain.",
     invalidSignupToken:

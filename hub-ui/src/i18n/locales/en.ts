@@ -128,6 +128,8 @@ export const en = {
   errors: {
     generic: "Something went wrong. Please try again.",
     invalidCredentials: "The email address or password is incorrect.",
+    userDisabled:
+      "This account has been disabled. Contact your Vetchium administrator.",
     signupDomainNotAllowed:
       "This Vetchium tenant does not allow signup with that email domain.",
     invalidSignupToken: "This signup link is invalid or has expired.",
