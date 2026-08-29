@@ -300,13 +300,13 @@ test.describe("Hub signup domain audit trail", () => {
     const domain = ownedDomain("audit");
     const renamed = ownedDomain("audit-renamed");
 
-    const created = await responseJSON<Domain>(
-      await adminAPI.post(
-        "/create-hub-signup-domain",
-        { domain },
-        { token: managerToken },
-      ),
+    const createdResponse = await adminAPI.post(
+      "/create-hub-signup-domain",
+      { domain },
+      { token: managerToken },
     );
+    expect(createdResponse.status(), await createdResponse.text()).toBe(201);
+    const created = await responseJSON<Domain>(createdResponse);
     expectOneAuditEvent(
       adminAuditEventsForEntity(
         created.hub_signup_domain_id,
@@ -362,13 +362,13 @@ test.describe("Hub signup domain audit trail", () => {
     ownedDomain,
   }) => {
     const domain = ownedDomain("audit-rejected");
-    const created = await responseJSON<Domain>(
-      await adminAPI.post(
-        "/create-hub-signup-domain",
-        { domain },
-        { token: managerToken },
-      ),
+    const createdResponse = await adminAPI.post(
+      "/create-hub-signup-domain",
+      { domain },
+      { token: managerToken },
     );
+    expect(createdResponse.status(), await createdResponse.text()).toBe(201);
+    const created = await responseJSON<Domain>(createdResponse);
 
     // A duplicate create is rejected by ON CONFLICT DO NOTHING, and a missing
     // target updates nothing. Neither may claim a change occurred.
@@ -412,21 +412,38 @@ test.describe("Hub signup domain audit trail", () => {
   test("a failed domain audit write rolls back the domain", async ({
     adminAPI,
     managerToken,
+    createAdmin,
     ownedDomain,
   }) => {
-    const actorID = seededManagerAdminUserID();
+    // The failure trigger matches on action and actor, so it runs against a
+    // dedicated administrator rather than the shared seeded manager every
+    // other test in this file writes as.
+    const manager = await createAdmin();
+    expect(
+      (
+        await adminAPI.post(
+          "/set-user-permissions",
+          {
+            admin_user_id: manager.adminUserID,
+            permissions: ["admin:manage_hub_signup_domains"],
+          },
+          { token: managerToken },
+        )
+      ).status(),
+    ).toBe(204);
+
     const domain = ownedDomain("audit-rollback");
     const removeAuditFailure = installAdminAuditInsertFailure({
       action: "admin.hub-signup-domain.created",
-      actorID,
+      actorID: manager.adminUserID,
     });
     try {
       const response = await adminAPI.post(
         "/create-hub-signup-domain",
         { domain },
-        { token: managerToken },
+        { token: manager.sessionToken },
       );
-      expect(response.status()).toBe(500);
+      expect(response.status(), await response.text()).toBe(500);
     } finally {
       removeAuditFailure();
     }
@@ -437,7 +454,7 @@ test.describe("Hub signup domain audit trail", () => {
       await adminAPI.post(
         "/list-hub-signup-domains",
         { filter_search: domain },
-        { token: managerToken },
+        { token: manager.sessionToken },
       ),
     );
     expect(listed.domains).toEqual([]);

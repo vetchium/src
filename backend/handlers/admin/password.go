@@ -1,13 +1,13 @@
 package admin
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	adminauth "github.com/vetchium/src/typespec/admin/auth"
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
@@ -90,62 +90,55 @@ func CompletePasswordReset(s *adminapi.Server) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		binding := base64.RawURLEncoding.EncodeToString(credentials.TokenHash(
-			string(request.ResetToken),
-		))
+		resetHash := credentials.TokenHash(string(request.ResetToken))
+		binding := base64.RawURLEncoding.EncodeToString(resetHash)
 		handlerauth.RunIdempotent(
 			s, w, r, "admin:complete-password-reset", binding, key,
 			request, s.CurrentTime().Add(24*time.Hour),
 			func(q *sqlc.Queries) (
 				handlerauth.Result[struct{}], *handlerauth.Problem, error,
 			) {
-				hash, err := credentials.HashPassword(string(request.NewPassword))
-				if err != nil {
-					return handlerauth.Result[struct{}]{}, nil, err
-				}
-				resetTokenHash := credentials.TokenHash(
-					string(request.ResetToken),
-				)
-				adminUserID, err := q.ResolveAdminPasswordResetUser(
-					r.Context(), resetTokenHash,
-				)
-				if errors.Is(err, pgx.ErrNoRows) {
-					return handlerauth.Result[struct{}]{}, &handlerauth.Problem{
-						Details:         adminproblem.InvalidPasswordResetTokenError,
-						WWWAuthenticate: adminapi.PasswordResetChallenge,
-					}, nil
-				}
-				if err != nil {
-					return handlerauth.Result[struct{}]{}, nil, err
-				}
-				if _, err := q.LockAdminUserCredentialMutation(
-					r.Context(), adminUserID,
-				); err != nil {
-					return handlerauth.Result[struct{}]{}, nil, err
-				}
-				completed, err := q.CompleteAdminPasswordReset(
-					r.Context(), sqlc.CompleteAdminPasswordResetParams{
-						ResetTokenHash: resetTokenHash,
-						PasswordHash:   hash,
-						TenantID:       s.TenantID,
-						IdempotencyKey: dbvalue.Text(string(key)),
-					},
-				)
-				if err != nil {
-					return handlerauth.Result[struct{}]{}, nil, err
-				}
-				if !completed {
-					return handlerauth.Result[struct{}]{}, &handlerauth.Problem{
-						Details:         adminproblem.InvalidPasswordResetTokenError,
-						WWWAuthenticate: adminapi.PasswordResetChallenge,
-					}, nil
-				}
-				return handlerauth.Result[struct{}]{
-					Status: http.StatusNoContent, Body: struct{}{},
-				}, nil, nil
+				return handlerauth.PasswordReset{
+					ResetTokenHash: resetHash,
+					NewPassword:    string(request.NewPassword),
+					IdempotencyKey: key,
+					TenantID:       s.TenantID,
+					InvalidToken:   adminproblem.InvalidPasswordResetTokenError,
+					Challenge:      adminapi.PasswordResetChallenge,
+					ResolveUser:    resolveAdminPasswordResetUser,
+					LockUser:       lockAdminUser,
+					Complete:       completeAdminPasswordReset,
+				}.Run(r.Context(), q)
 			},
 		)
 	}
+}
+
+func resolveAdminPasswordResetUser(
+	ctx context.Context, q *sqlc.Queries, tokenHash []byte,
+) (pgtype.UUID, error) {
+	return q.ResolveAdminPasswordResetUser(ctx, tokenHash)
+}
+
+func lockAdminUser(
+	ctx context.Context, q *sqlc.Queries, adminUserID pgtype.UUID,
+) error {
+	_, err := q.LockAdminUserCredentialMutation(ctx, adminUserID)
+	return err
+}
+
+func completeAdminPasswordReset(
+	ctx context.Context, q *sqlc.Queries,
+	reset handlerauth.CompletedPasswordReset,
+) (bool, error) {
+	return q.CompleteAdminPasswordReset(
+		ctx, sqlc.CompleteAdminPasswordResetParams{
+			ResetTokenHash: reset.ResetTokenHash,
+			PasswordHash:   reset.PasswordHash,
+			TenantID:       reset.TenantID,
+			IdempotencyKey: reset.IdempotencyKey,
+		},
+	)
 }
 
 func ChangePassword(s *adminapi.Server) http.HandlerFunc {
@@ -157,31 +150,21 @@ func ChangePassword(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
-		hash, err := credentials.HashPassword(string(request.NewPassword))
-		if err != nil {
-			s.InternalError(r.Context(), w, "hash changed password", err)
-			return
-		}
-		changed, err := s.Queries.ChangeAdminPassword(
-			r.Context(), sqlc.ChangeAdminPasswordParams{
-				PasswordHash:          hash,
-				TargetAdminUserID:     identity.UserID,
-				CurrentAdminSessionID: identity.SessionID,
-				TenantID:              s.TenantID,
+		handlerauth.ChangePassword(
+			s, w, r, "change admin password",
+			string(request.NewPassword),
+			func(ctx context.Context, hash string) (bool, error) {
+				return s.Queries.ChangeAdminPassword(
+					ctx, sqlc.ChangeAdminPasswordParams{
+						PasswordHash:          hash,
+						TargetAdminUserID:     identity.UserID,
+						CurrentAdminSessionID: identity.SessionID,
+						TenantID:              s.TenantID,
+					},
+				)
 			},
+			adminproblem.AdminAuthenticationRequiredError,
+			adminapi.BearerChallenge,
 		)
-		if err != nil {
-			s.InternalError(r.Context(), w, "change admin password", err)
-			return
-		}
-		if !changed {
-			s.Problem(
-				r.Context(), w,
-				adminproblem.AdminAuthenticationRequiredError,
-				adminapi.BearerChallenge,
-			)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
 	}
 }

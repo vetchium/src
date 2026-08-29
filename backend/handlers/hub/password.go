@@ -1,14 +1,14 @@
 package hub
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/url"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
@@ -107,50 +107,47 @@ func CompletePasswordReset(s *hubapi.Server) http.HandlerFunc {
 			func(q *sqlc.Queries) (
 				handlerauth.Result[struct{}], *handlerauth.Problem, error,
 			) {
-				userDID, err := q.ResolveHubPasswordResetUser(
-					r.Context(), resetHash,
-				)
-				if errors.Is(err, pgx.ErrNoRows) {
-					return handlerauth.Failure[struct{}](
-						hubproblem.InvalidPasswordResetTokenError,
-						hubapi.PasswordResetChallenge,
-					)
-				}
-				if err != nil {
-					return handlerauth.Result[struct{}]{}, nil, err
-				}
-				if _, err := q.LockHubUserCredentialMutation(
-					r.Context(), userDID,
-				); err != nil {
-					return handlerauth.Result[struct{}]{}, nil, err
-				}
-				hash, err := credentials.HashPassword(string(request.NewPassword))
-				if err != nil {
-					return handlerauth.Result[struct{}]{}, nil, err
-				}
-				completed, err := q.CompleteHubPasswordReset(
-					r.Context(), sqlc.CompleteHubPasswordResetParams{
-						ResetTokenHash: resetHash,
-						PasswordHash:   hash,
-						TenantID:       s.TenantID,
-						IdempotencyKey: dbvalue.Text(string(key)),
-					},
-				)
-				if err != nil {
-					return handlerauth.Result[struct{}]{}, nil, err
-				}
-				if !completed {
-					return handlerauth.Failure[struct{}](
-						hubproblem.InvalidPasswordResetTokenError,
-						hubapi.PasswordResetChallenge,
-					)
-				}
-				return handlerauth.Result[struct{}]{
-					Status: http.StatusNoContent, Body: struct{}{},
-				}, nil, nil
+				return handlerauth.PasswordReset{
+					ResetTokenHash: resetHash,
+					NewPassword:    string(request.NewPassword),
+					IdempotencyKey: key,
+					TenantID:       s.TenantID,
+					InvalidToken:   hubproblem.InvalidPasswordResetTokenError,
+					Challenge:      hubapi.PasswordResetChallenge,
+					ResolveUser:    resolveHubPasswordResetUser,
+					LockUser:       lockHubUser,
+					Complete:       completeHubPasswordReset,
+				}.Run(r.Context(), q)
 			},
 		)
 	}
+}
+
+func resolveHubPasswordResetUser(
+	ctx context.Context, q *sqlc.Queries, tokenHash []byte,
+) (pgtype.UUID, error) {
+	return q.ResolveHubPasswordResetUser(ctx, tokenHash)
+}
+
+func lockHubUser(
+	ctx context.Context, q *sqlc.Queries, userDID pgtype.UUID,
+) error {
+	_, err := q.LockHubUserCredentialMutation(ctx, userDID)
+	return err
+}
+
+func completeHubPasswordReset(
+	ctx context.Context, q *sqlc.Queries,
+	reset handlerauth.CompletedPasswordReset,
+) (bool, error) {
+	return q.CompleteHubPasswordReset(
+		ctx, sqlc.CompleteHubPasswordResetParams{
+			ResetTokenHash: reset.ResetTokenHash,
+			PasswordHash:   reset.PasswordHash,
+			TenantID:       reset.TenantID,
+			IdempotencyKey: reset.IdempotencyKey,
+		},
+	)
 }
 
 func ChangePassword(s *hubapi.Server) http.HandlerFunc {
@@ -162,30 +159,21 @@ func ChangePassword(s *hubapi.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		hash, err := credentials.HashPassword(string(request.NewPassword))
-		if err != nil {
-			s.InternalError(r.Context(), w, "hash changed Hub password", err)
-			return
-		}
-		changed, err := s.Queries.ChangeHubPassword(
-			r.Context(), sqlc.ChangeHubPasswordParams{
-				PasswordHash:        hash,
-				HubUserDid:          identity.UserDID,
-				CurrentHubSessionID: identity.SessionID,
-				TenantID:            s.TenantID,
+		handlerauth.ChangePassword(
+			s, w, r, "change Hub password",
+			string(request.NewPassword),
+			func(ctx context.Context, hash string) (bool, error) {
+				return s.Queries.ChangeHubPassword(
+					ctx, sqlc.ChangeHubPasswordParams{
+						PasswordHash:        hash,
+						HubUserDid:          identity.UserDID,
+						CurrentHubSessionID: identity.SessionID,
+						TenantID:            s.TenantID,
+					},
+				)
 			},
+			hubproblem.AuthenticationRequiredError,
+			hubapi.BearerChallenge,
 		)
-		if err != nil {
-			s.InternalError(r.Context(), w, "change Hub password", err)
-			return
-		}
-		if !changed {
-			s.Problem(
-				r.Context(), w, hubproblem.AuthenticationRequiredError,
-				hubapi.BearerChallenge,
-			)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
 	}
 }

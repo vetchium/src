@@ -8,9 +8,29 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
+
+// syncBuffer collects log output that the server goroutine writes while the
+// test goroutine reads it.
+type syncBuffer struct {
+	mutex   sync.Mutex
+	written bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	return b.written.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	return b.written.String()
+}
 
 func freeAddress(t *testing.T) string {
 	t.Helper()
@@ -26,8 +46,8 @@ func freeAddress(t *testing.T) string {
 }
 
 func TestListenAndServeShutsDownWhenTheContextIsCancelled(t *testing.T) {
-	var logged bytes.Buffer
-	log := slog.New(slog.NewTextHandler(&logged, nil))
+	logged := &syncBuffer{}
+	log := slog.New(slog.NewTextHandler(logged, nil))
 	address := freeAddress(t)
 	ctx, cancel := context.WithCancel(t.Context())
 
