@@ -38,7 +38,7 @@ func Login(s *hubapi.Server) http.HandlerFunc {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				credentials.CompareUnknownPassword(string(request.Password))
-				s.Problem(
+				s.AuthenticationProblem(
 					r.Context(), w, problem.InvalidCredentialsError,
 					hubapi.LoginChallenge,
 				)
@@ -54,7 +54,7 @@ func Login(s *hubapi.Server) http.HandlerFunc {
 				s.InternalError(r.Context(), w, "compare Hub password", err)
 				return
 			}
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w, problem.InvalidCredentialsError,
 				hubapi.LoginChallenge,
 			)
@@ -95,7 +95,7 @@ func loginWithoutTOTP(
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w, problem.InvalidCredentialsError,
 				hubapi.LoginChallenge,
 			)
@@ -145,7 +145,7 @@ func loginWithTOTP(
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w, problem.InvalidCredentialsError,
 				hubapi.LoginChallenge,
 			)

@@ -23,7 +23,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, ok := middleware.AdminIdentityFromContext(r.Context())
 		if !ok {
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w,
 				adminproblem.AdminAuthenticationRequiredError,
 				adminapi.BearerChallenge,
@@ -38,7 +38,7 @@ func MyInfo(s *adminapi.Server) http.HandlerFunc {
 		)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Problem(
+				s.AuthenticationProblem(
 					r.Context(), w,
 					adminproblem.AdminAuthenticationRequiredError,
 					adminapi.BearerChallenge,

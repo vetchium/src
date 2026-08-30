@@ -92,7 +92,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				credentials.CompareUnknownPassword(string(request.Password))
-				s.Problem(
+				s.AuthenticationProblem(
 					ctx, w, adminproblem.InvalidCredentialsError,
 					adminapi.LoginChallenge,
 				)
@@ -108,7 +108,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 				s.InternalError(ctx, w, "compare admin password", err)
 				return
 			}
-			s.Problem(
+			s.AuthenticationProblem(
 				ctx, w, adminproblem.InvalidCredentialsError,
 				adminapi.LoginChallenge,
 			)
@@ -149,7 +149,7 @@ func loginWithoutTOTP(
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w, adminproblem.InvalidCredentialsError,
 				adminapi.LoginChallenge,
 			)
@@ -201,7 +201,7 @@ func loginWithTOTP(
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w, adminproblem.InvalidCredentialsError,
 				adminapi.LoginChallenge,
 			)

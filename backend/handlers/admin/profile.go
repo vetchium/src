@@ -53,7 +53,7 @@ func SetDisplayName(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		if updated == 0 {
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w,
 				adminproblem.AdminAuthenticationRequiredError,
 				adminapi.BearerChallenge,

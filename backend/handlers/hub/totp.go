@@ -249,7 +249,7 @@ func DisableTOTP(s *hubapi.Server) http.HandlerFunc {
 			return
 		}
 		if !disabled {
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w, hubproblem.AuthenticationRequiredError,
 				hubapi.BearerChallenge,
 			)

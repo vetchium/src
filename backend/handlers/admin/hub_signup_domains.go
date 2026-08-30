@@ -115,7 +115,7 @@ func CreateHubSignupDomain(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, ok := middleware.AdminIdentityFromContext(r.Context())
 		if !ok {
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w,
 				adminproblem.AdminAuthenticationRequiredError,
 				adminapi.BearerChallenge,
@@ -171,7 +171,7 @@ func UpdateHubSignupDomain(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, ok := middleware.AdminIdentityFromContext(r.Context())
 		if !ok {
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w,
 				adminproblem.AdminAuthenticationRequiredError,
 				adminapi.BearerChallenge,

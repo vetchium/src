@@ -155,11 +155,10 @@ func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 				}
 				switch row.Result {
 				case "invalid_token":
-					return handlerauth.Result[users.CompleteSetupResponse]{},
-						&handlerauth.Problem{
-							Details:         adminproblem.InvalidInvitationTokenError,
-							WWWAuthenticate: adminapi.InvitationChallenge,
-						}, nil
+					return handlerauth.AuthenticationFailure[users.CompleteSetupResponse](
+						adminproblem.InvalidInvitationTokenError,
+						adminapi.InvitationChallenge,
+					)
 				case "user_exists":
 					return handlerauth.Result[users.CompleteSetupResponse]{},
 						&handlerauth.Problem{Details: adminproblem.AdminUserAlreadyExistsError}, nil

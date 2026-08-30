@@ -29,7 +29,7 @@ func MyInfo(s *hubapi.Server) http.HandlerFunc {
 		)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Problem(
+				s.AuthenticationProblem(
 					r.Context(), w,
 					hubproblem.AuthenticationRequiredError,
 					hubapi.BearerChallenge,
@@ -74,7 +74,7 @@ func SetPreferredLanguage(s *hubapi.Server) http.HandlerFunc {
 			return
 		}
 		if !changed {
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w, hubproblem.AuthenticationRequiredError,
 				hubapi.BearerChallenge,
 			)
@@ -103,7 +103,7 @@ func SetResidentCountry(s *hubapi.Server) http.HandlerFunc {
 			return
 		}
 		if !changed {
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w, hubproblem.AuthenticationRequiredError,
 				hubapi.BearerChallenge,
 			)

@@ -128,7 +128,7 @@ func CompleteSignup(s *hubapi.Server) http.HandlerFunc {
 					r.Context(), tokenHash,
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return handlerauth.Failure[hubauth.CompleteSignupResponse](
+					return handlerauth.AuthenticationFailure[hubauth.CompleteSignupResponse](
 						hubproblem.InvalidSignupTokenError,
 						hubapi.SignupChallenge,
 					)
@@ -160,7 +160,7 @@ func CompleteSignup(s *hubapi.Server) http.HandlerFunc {
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return handlerauth.Failure[hubauth.CompleteSignupResponse](
+					return handlerauth.AuthenticationFailure[hubauth.CompleteSignupResponse](
 						hubproblem.InvalidSignupTokenError,
 						hubapi.SignupChallenge,
 					)

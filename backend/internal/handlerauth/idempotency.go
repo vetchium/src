@@ -27,13 +27,17 @@ func IdempotencyKey(
 	return idempotency.Key(s.HandlerRuntime(), w, r)
 }
 
-func Failure[T any](
-	details problem.Details, wwwAuthenticate ...string,
+// Failure returns an expected problem that carries no authentication
+// challenge. A 401 belongs in AuthenticationFailure instead.
+func Failure[T any](details problem.Details) (Result[T], *Problem, error) {
+	return Result[T]{}, &Problem{Details: details}, nil
+}
+
+// AuthenticationFailure returns a 401 together with the WWW-Authenticate
+// challenge RFC 9110 requires. The replay path reproduces both.
+func AuthenticationFailure[T any](
+	details problem.Details, challenge string,
 ) (Result[T], *Problem, error) {
-	challenge := ""
-	if len(wwwAuthenticate) != 0 {
-		challenge = wwwAuthenticate[0]
-	}
 	return Result[T]{}, &Problem{
 		Details: details, WWWAuthenticate: challenge,
 	}, nil

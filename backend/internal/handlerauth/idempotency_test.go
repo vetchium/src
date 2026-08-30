@@ -2,6 +2,7 @@ package handlerauth
 
 import (
 	"encoding/json"
+	"net/http"
 	"testing"
 	"time"
 
@@ -11,13 +12,30 @@ import (
 )
 
 func TestFailure(t *testing.T) {
-	_, got, err := Failure[struct{}](
-		problem.InvalidJSONError, `Bearer realm="test"`,
-	)
+	_, got, err := Failure[struct{}](problem.InvalidJSONError)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got == nil || got.Details.Type != problem.InvalidJSONError.Type ||
+		got.WWWAuthenticate != "" {
+		encoded, _ := json.Marshal(got)
+		t.Fatalf("problem = %s", encoded)
+	}
+}
+
+func TestAuthenticationFailureCarriesTheChallenge(t *testing.T) {
+	unauthenticated := problem.Details{
+		Type:   "vetchium-problem-details/test-authentication-required",
+		Title:  "Authentication required",
+		Status: http.StatusUnauthorized,
+	}
+	_, got, err := AuthenticationFailure[struct{}](
+		unauthenticated, `Bearer realm="test"`,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || got.Details.Type != unauthenticated.Type ||
 		got.WWWAuthenticate != `Bearer realm="test"` {
 		encoded, _ := json.Marshal(got)
 		t.Fatalf("problem = %s", encoded)

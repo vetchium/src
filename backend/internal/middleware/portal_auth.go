@@ -103,7 +103,7 @@ func (p PortalAuthentication[Identity]) RequireRecentAuthentication(
 			if p.AuthenticatedAt(identity).Before(
 				p.Now().Add(-maximumAge),
 			) {
-				p.Runtime.Problem(
+				p.Runtime.AuthenticationProblem(
 					ctx, w, p.RecentAuthenticationRequired, p.Challenge,
 				)
 				return
@@ -116,7 +116,9 @@ func (p PortalAuthentication[Identity]) RequireRecentAuthentication(
 func (p PortalAuthentication[Identity]) unauthenticated(
 	ctx context.Context, w http.ResponseWriter,
 ) {
-	p.Runtime.Problem(ctx, w, p.AuthenticationRequired, p.Challenge)
+	p.Runtime.AuthenticationProblem(
+		ctx, w, p.AuthenticationRequired, p.Challenge,
+	)
 }
 
 func bearerToken(r *http.Request) (string, bool) {

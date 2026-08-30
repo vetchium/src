@@ -8,15 +8,37 @@ import (
 	problemspec "github.com/vetchium/src/typespec/problem"
 )
 
-// Problem writes one RFC 9457 response. Every handler exit that is not a
-// success passes through here, so this is also the single place that records
-// which rejection a request received. Problem details carry no request data
-// beyond the failing field names, so the record is safe to emit for every
-// rejection, including credential failures.
+// Problem writes one RFC 9457 response for a rejection that carries no
+// authentication challenge. A 401 belongs in AuthenticationProblem instead.
 func (s *Runtime) Problem(
 	ctx context.Context, w http.ResponseWriter, details problemspec.Details,
-	wwwAuthenticate ...string,
 ) {
+	s.problem(ctx, w, details, "")
+}
+
+// AuthenticationProblem writes a 401 together with the WWW-Authenticate
+// challenge that RFC 9110 section 11.6.1 requires every 401 to carry. It is
+// the Go counterpart of the AuthenticationResponse alias in the TypeSpec
+// contract, which declares the same header.
+func (s *Runtime) AuthenticationProblem(
+	ctx context.Context, w http.ResponseWriter, details problemspec.Details,
+	challenge string,
+) {
+	s.problem(ctx, w, details, challenge)
+}
+
+func (s *Runtime) problem(
+	ctx context.Context, w http.ResponseWriter,
+	details problemspec.Details, challenge string,
+) {
+	if details.Status == http.StatusUnauthorized && challenge == "" {
+		s.ErrorContext(
+			ctx, "401 without an authentication challenge",
+			"event", "missing_authentication_challenge",
+			"problem_type", details.Type,
+		)
+	}
+
 	attrs := []any{
 		"event", "problem_response",
 		"problem_type", details.Type,
@@ -33,8 +55,8 @@ func (s *Runtime) Problem(
 	}
 
 	w.Header().Set("Content-Type", problemspec.MediaType)
-	if len(wwwAuthenticate) != 0 {
-		w.Header().Set("WWW-Authenticate", wwwAuthenticate[0])
+	if challenge != "" {
+		w.Header().Set("WWW-Authenticate", challenge)
 	}
 	w.WriteHeader(details.Status)
 	if err := json.NewEncoder(w).Encode(details); err != nil {

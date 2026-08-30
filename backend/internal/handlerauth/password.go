@@ -64,7 +64,7 @@ func (p PasswordReset) Run(
 ) (Result[struct{}], *Problem, error) {
 	userID, err := p.ResolveUser(ctx, q, p.ResetTokenHash)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Failure[struct{}](p.InvalidToken, p.Challenge)
+		return AuthenticationFailure[struct{}](p.InvalidToken, p.Challenge)
 	}
 	if err != nil {
 		return Result[struct{}]{}, nil, err
@@ -86,7 +86,7 @@ func (p PasswordReset) Run(
 		return Result[struct{}]{}, nil, err
 	}
 	if !completed {
-		return Failure[struct{}](p.InvalidToken, p.Challenge)
+		return AuthenticationFailure[struct{}](p.InvalidToken, p.Challenge)
 	}
 	return Result[struct{}]{
 		Status: http.StatusNoContent, Body: struct{}{},
@@ -114,7 +114,9 @@ func ChangePassword(
 		return
 	}
 	if !changed {
-		runtime.Problem(r.Context(), w, unauthenticated, challenge)
+		runtime.AuthenticationProblem(
+			r.Context(), w, unauthenticated, challenge,
+		)
 		return
 	}
 	runtime.Empty(r.Context(), w, http.StatusNoContent)

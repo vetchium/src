@@ -17,7 +17,7 @@ const authenticationChallenge = `Bearer realm="global-coordinator"`
 func GenerateShortID(s *globalcoordinator.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !authenticated(r.Header.Get("Authorization"), s.Credential) {
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w,
 				coordinatorproblem.AuthenticationRequiredError,
 				authenticationChallenge,

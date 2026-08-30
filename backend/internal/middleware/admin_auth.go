@@ -74,7 +74,7 @@ func RequireAdminPermission(
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			identity, ok := AdminIdentityFromContext(r.Context())
 			if !ok {
-				s.Problem(
+				s.AuthenticationProblem(
 					r.Context(), w,
 					adminproblem.AdminAuthenticationRequiredError,
 					adminapi.BearerChallenge,

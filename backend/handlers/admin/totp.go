@@ -249,7 +249,7 @@ func DisableTOTP(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		if !disabled {
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w,
 				adminproblem.AdminAuthenticationRequiredError,
 				adminapi.BearerChallenge,

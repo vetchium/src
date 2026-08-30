@@ -148,7 +148,7 @@ func Run[T any](
 	if apiError != nil {
 		_ = tx.Rollback(r.Context())
 		if apiError.WWWAuthenticate != "" {
-			s.Problem(
+			s.AuthenticationProblem(
 				r.Context(), w, apiError.Details,
 				apiError.WWWAuthenticate,
 			)

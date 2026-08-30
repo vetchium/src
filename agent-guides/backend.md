@@ -89,6 +89,14 @@ Use it together with `go.md`. Also read `database.md` for any database access.
 - Distinguish authentication from authorization. Missing, invalid, or expired
   credentials are `401`; an authenticated principal lacking permission is
   `403`. Follow the TypeSpec contract for resource and state errors.
+- Answer every `401` through `Runtime.AuthenticationProblem`, which takes the
+  `WWW-Authenticate` challenge RFC 9110 section 11.6.1 requires as a mandatory
+  argument. `Runtime.Problem` is for every other rejection and sets no
+  challenge. Idempotent mutation work makes the same distinction with
+  `handlerauth.AuthenticationFailure` and `handlerauth.Failure`, so a replayed
+  `401` reproduces its challenge. A `401` that reaches the challengeless
+  responder is still answered, but logs `missing_authentication_challenge` at
+  error level.
 - Handle response-encoding failures. If headers were already written, log the
   failure instead of attempting to replace the response.
 - Keep handlers small and move reusable behavior to the package that owns it.
@@ -99,13 +107,14 @@ Use it together with `go.md`. Also read `database.md` for any database access.
   handled failures belong at debug or warning level; unexpected operational
   failures belong at error level.
 - Leave every handler exit traceable. Return through `Runtime.Problem`,
-  `Runtime.JSON`, or `Runtime.Empty`; each records the reply exactly once,
-  so no branch can return silently and no handler needs a per-branch log line.
-  Do not call `w.WriteHeader` from a handler. `InternalError` and `InvalidJSON`
-  add the cause, which the responders cannot see, and then delegate to
-  `Problem` for the response record. `apiserver.HealthCheck` is the deliberate
-  exception: container liveness probes run every few seconds per service and
-  carry no diagnostic value worth recording.
+  `Runtime.AuthenticationProblem`, `Runtime.JSON`, or `Runtime.Empty`; each
+  records the reply exactly once, so no branch can return silently and no
+  handler needs a per-branch log line. Do not call `w.WriteHeader` from a
+  handler. `InternalError` and `InvalidJSON` add the cause, which the
+  responders cannot see, and then delegate to `Problem` for the response
+  record. `apiserver.HealthCheck` is the deliberate exception: container
+  liveness probes run every few seconds per service and carry no diagnostic
+  value worth recording.
 - Structured application logs are operational telemetry, not the durable audit
   trail for database changes. Follow `database.md` for every write, including
   actor and correlation propagation into the transaction that changes state.

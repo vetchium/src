@@ -145,6 +145,101 @@ func TestEveryResponseIsRecorded(t *testing.T) {
 	}
 }
 
+// RFC 9110 section 11.6.1 requires every 401 to name a challenge, and the
+// TypeSpec contract declares the header, so the responder has to emit it.
+func TestAuthenticationProblemCarriesTheChallenge(t *testing.T) {
+	var logs bytes.Buffer
+	runtime := New(nil, slog.New(slog.NewJSONHandler(&logs, nil)))
+	recorder := httptest.NewRecorder()
+
+	runtime.AuthenticationProblem(
+		context.Background(), recorder, unauthenticated,
+		`Bearer realm="test"`,
+	)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", recorder.Code)
+	}
+	got := recorder.Header().Get("WWW-Authenticate")
+	if got != `Bearer realm="test"` {
+		t.Fatalf("WWW-Authenticate = %q", got)
+	}
+	var details problemspec.Details
+	if err := json.NewDecoder(recorder.Body).Decode(&details); err != nil {
+		t.Fatal(err)
+	}
+	assertDetailsEqual(t, details, unauthenticated)
+	if bytes.Contains(logs.Bytes(), []byte("missing_authentication_challenge")) {
+		t.Fatalf("log = %q, want no missing-challenge report", logs.String())
+	}
+}
+
+// The split into two responders cannot stop a 401 from reaching the
+// challengeless one, so the omission has to be visible in the logs rather than
+// silently shipped to the client.
+func TestUnauthorizedWithoutAChallengeIsReported(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		respond func(*Runtime, http.ResponseWriter)
+	}{
+		{
+			name: "plain problem responder",
+			respond: func(runtime *Runtime, w http.ResponseWriter) {
+				runtime.Problem(context.Background(), w, unauthenticated)
+			},
+		},
+		{
+			name: "empty challenge",
+			respond: func(runtime *Runtime, w http.ResponseWriter) {
+				runtime.AuthenticationProblem(
+					context.Background(), w, unauthenticated, "",
+				)
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			runtime := New(nil, slog.New(slog.NewJSONHandler(&logs, nil)))
+			recorder := httptest.NewRecorder()
+
+			test.respond(runtime, recorder)
+
+			wantedLogs := []string{
+				`"level":"ERROR"`,
+				`"event":"missing_authentication_challenge"`,
+				`"problem_type":"` + unauthenticated.Type + `"`,
+			}
+			for _, want := range wantedLogs {
+				if !bytes.Contains(logs.Bytes(), []byte(want)) {
+					t.Errorf("log = %q, want %q", logs.String(), want)
+				}
+			}
+			// The reply still goes out, so a contract mistake cannot turn
+			// into a request that never completes.
+			if recorder.Code != http.StatusUnauthorized {
+				t.Errorf("status = %d, want 401", recorder.Code)
+			}
+			if got := recorder.Header().Get("WWW-Authenticate"); got != "" {
+				t.Errorf("WWW-Authenticate = %q, want none", got)
+			}
+		})
+	}
+}
+
+// Only a 401 names a challenge, so no other rejection may carry the header.
+func TestProblemSetsNoChallengeHeader(t *testing.T) {
+	runtime := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	recorder := httptest.NewRecorder()
+
+	runtime.Problem(
+		context.Background(), recorder, problemspec.InvalidJSONError,
+	)
+
+	if got := recorder.Header().Get("WWW-Authenticate"); got != "" {
+		t.Fatalf("WWW-Authenticate = %q, want none", got)
+	}
+}
+
 // A successful response must never carry the encoded body into the log, since
 // session tokens and recovery codes travel in it.
 func TestJSONDoesNotLogTheEncodedValue(t *testing.T) {
@@ -242,6 +337,15 @@ func TestValidationFailedLogsEncodingFailure(t *testing.T) {
 	if !bytes.Contains(logs.Bytes(), []byte("encode problem response")) {
 		t.Fatalf("log = %q", logs.String())
 	}
+}
+
+// unauthenticated stands in for a portal's 401, which the portal problem
+// packages declare rather than the shared one.
+var unauthenticated = problemspec.Details{
+	Type:   "vetchium-problem-details/test-authentication-required",
+	Title:  "Authentication required",
+	Status: http.StatusUnauthorized,
+	Detail: "The request carried no live session",
 }
 
 func assertDetailsEqual(t *testing.T, got, want problemspec.Details) {
