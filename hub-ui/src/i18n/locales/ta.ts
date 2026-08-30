@@ -23,6 +23,7 @@ export const ta = {
   },
   language: {
     selectorLabel: "மொழியைத் தேர்ந்தெடுக்கவும்",
+    changeError: "மொழியை மாற்ற முடியவில்லை. மீண்டும் முயலவும்.",
   },
   languages: {
     "en-US": "English US",

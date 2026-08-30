@@ -23,6 +23,8 @@ export const de = {
   },
   language: {
     selectorLabel: "Sprache auswählen",
+    changeError:
+      "Die Sprache konnte nicht geändert werden. Versuchen Sie es erneut.",
   },
   languages: {
     "en-US": "English US",

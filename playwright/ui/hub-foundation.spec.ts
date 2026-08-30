@@ -84,6 +84,80 @@ test("a visitor with a stored session sees the placeholder home", async ({
   await expect(page.locator("body")).not.toContainText("Hub");
 });
 
+test("an authenticated language change reaches the server and updates the session", async ({
+  page,
+}) => {
+  await provideStoredSession(page);
+  await provideMyInfo(page);
+  await page.route("**/api/hub/set-preferred-language", async (route) => {
+    await route.fulfill({ status: 204 });
+  });
+  await page.goto(hubBaseURL);
+
+  const languageRequest = page.waitForRequest(
+    "**/api/hub/set-preferred-language",
+  );
+  await page.getByRole("combobox", { name: "Select language" }).click();
+  await page.getByRole("option", { name: "Deutsch" }).click();
+
+  const request = await languageRequest;
+  expect(request.method()).toBe("POST");
+  expect(request.postDataJSON()).toEqual({ preferred_language: "de-DE" });
+  await expect(
+    page.getByRole("heading", { name: "Vetchium-Startseite" }),
+  ).toBeVisible();
+  await expect
+    .poll(async () => {
+      const value = await page.evaluate(
+        (key) => sessionStorage.getItem(key),
+        sessionKey,
+      );
+      return value === null
+        ? undefined
+        : (JSON.parse(value) as { preferred_language?: unknown })
+            .preferred_language;
+    })
+    .toBe("de-DE");
+});
+
+test("a rejected authenticated language change keeps the current language", async ({
+  page,
+}) => {
+  await provideStoredSession(page);
+  await provideMyInfo(page);
+  await page.route("**/api/hub/set-preferred-language", async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: "application/problem+json",
+      body: JSON.stringify({
+        type: "about:blank",
+        title: "Internal Server Error",
+        status: 500,
+      }),
+    });
+  });
+  await page.goto(hubBaseURL);
+
+  await page.getByRole("combobox", { name: "Select language" }).click();
+  await page.getByRole("option", { name: "Deutsch" }).click();
+
+  await expect(
+    page.getByText("The language could not be changed. Please try again."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Vetchium home page" }),
+  ).toBeVisible();
+  const storedSession = await page.evaluate(
+    (key) => sessionStorage.getItem(key),
+    sessionKey,
+  );
+  expect(storedSession).not.toBeNull();
+  expect(
+    (JSON.parse(storedSession ?? "{}") as { preferred_language?: unknown })
+      .preferred_language,
+  ).toBe("en-US");
+});
+
 test("sign out clears the stored session and returns to sign in", async ({
   page,
 }) => {

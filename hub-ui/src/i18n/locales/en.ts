@@ -21,6 +21,7 @@ export const en = {
   },
   language: {
     selectorLabel: "Select language",
+    changeError: "The language could not be changed. Please try again.",
   },
   languages: {
     "en-US": "English US",
