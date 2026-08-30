@@ -6,7 +6,7 @@ import (
 	"backend/internal/appconfig"
 	"backend/internal/db"
 	"backend/internal/email"
-	"backend/internal/hubapi"
+	hubauthn "backend/internal/hub/auth"
 	"backend/internal/service"
 	"backend/internal/workers"
 )
@@ -48,7 +48,7 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	hubCredentialKey := hubapi.DeriveCredentialKey(
+	hubCredentialKey := hubauthn.DeriveCredentialKey(
 		cfg.TenantID, hubCredentialSecret,
 	)
 	worker := workers.New(
@@ -57,7 +57,7 @@ func run(log *slog.Logger) error {
 			TenantID: cfg.TenantID,
 			Renderer: renderer,
 			Sender:   sender,
-			OutboxKey: hubapi.DeriveCredentialSubkey(
+			OutboxKey: hubauthn.DeriveCredentialSubkey(
 				hubCredentialKey, "outbox",
 			),
 			LeaseTTL:    cfg.Workers.HubEmailLeaseTTL,

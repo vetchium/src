@@ -4,7 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"backend/internal/adminapi"
+	adminruntime "backend/internal/admin"
+	adminauthn "backend/internal/admin/auth"
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
 	"backend/internal/db"
@@ -42,14 +43,14 @@ func run(log *slog.Logger, address string) error {
 	}
 	defer pool.Close()
 
-	s := &adminapi.Server{
+	s := &adminruntime.Server{
 		Runtime:  apiserver.New(pool, log),
 		TenantID: cfg.TenantID,
 		Queries:  dbsqlc.New(pool),
 		SessionDurations: apiserver.SessionDurations{
 			Default: cfg.AdminAPIServer.SessionTTL,
 		},
-		CredentialKey: adminapi.DeriveCredentialKey(
+		CredentialKey: adminauthn.DeriveCredentialKey(
 			cfg.TenantID, credentialSecret,
 		),
 	}

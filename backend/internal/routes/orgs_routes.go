@@ -5,10 +5,10 @@ import (
 
 	"backend/handlers/portal"
 	"backend/internal/apiserver"
-	"backend/internal/orgsapi"
+	orgsruntime "backend/internal/orgs"
 )
 
-func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsapi.Server) {
+func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
 	mux.HandleFunc(
 		"GET /api/orgs/ping",

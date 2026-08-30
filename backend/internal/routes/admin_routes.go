@@ -5,13 +5,16 @@ import (
 
 	"github.com/vetchium/src/typespec/admin/authorization"
 
-	"backend/handlers/admin"
-	"backend/internal/adminapi"
+	adminauth "backend/handlers/admin/auth"
+	adminauthorization "backend/handlers/admin/authorization"
+	adminsignupdomains "backend/handlers/admin/hubsignupdomains"
+	adminusers "backend/handlers/admin/users"
+	adminruntime "backend/internal/admin"
 	"backend/internal/apiserver"
 	"backend/internal/middleware"
 )
 
-func RegisterAdminRoutes(mux *http.ServeMux, s *adminapi.Server) {
+func RegisterAdminRoutes(mux *http.ServeMux, s *adminruntime.Server) {
 	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
 
 	adminAuth := middleware.AdminAuth(s)
@@ -31,82 +34,89 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *adminapi.Server) {
 		s, string(authorization.ManageHubSignupDomains),
 	)
 
-	mux.HandleFunc("POST /api/admin/login", admin.Login(s))
+	mux.HandleFunc("POST /api/admin/login", adminauth.Login(s))
 	mux.Handle(
 		"POST /api/admin/reauthenticate",
-		adminAuth(admin.Reauthenticate(s)),
+		adminAuth(adminauth.Reauthenticate(s)),
 	)
-	mux.HandleFunc("POST /api/admin/login/tfa", admin.VerifyTFA(s))
-	mux.HandleFunc("POST /api/admin/login/recovery-code", admin.VerifyRecoveryCode(s))
-	mux.HandleFunc("POST /api/admin/logout", admin.Logout(s))
+	mux.HandleFunc("POST /api/admin/login/tfa", adminauth.VerifyTFA(s))
+	mux.HandleFunc(
+		"POST /api/admin/login/recovery-code",
+		adminauth.VerifyRecoveryCode(s),
+	)
+	mux.HandleFunc("POST /api/admin/logout", adminauth.Logout(s))
 	mux.HandleFunc(
 		"POST /api/admin/request-password-reset",
-		admin.RequestPasswordReset(s),
+		adminauth.RequestPasswordReset(s),
 	)
 	mux.HandleFunc(
 		"POST /api/admin/complete-password-reset",
-		admin.CompletePasswordReset(s),
+		adminauth.CompletePasswordReset(s),
 	)
 	mux.Handle(
 		"POST /api/admin/change-password",
-		adminAuth(recentAuth(admin.ChangePassword(s))),
+		adminAuth(recentAuth(adminauth.ChangePassword(s))),
 	)
 	mux.Handle(
 		"POST /api/admin/start-totp-enrollment",
-		adminAuth(recentAuth(admin.StartTOTPEnrollment(s))),
+		adminAuth(recentAuth(adminauth.StartTOTPEnrollment(s))),
 	)
 	mux.Handle(
 		"POST /api/admin/confirm-totp-enrollment",
-		adminAuth(admin.ConfirmTOTPEnrollment(s)),
+		adminAuth(adminauth.ConfirmTOTPEnrollment(s)),
 	)
 	mux.Handle(
 		"POST /api/admin/disable-totp",
-		adminAuth(recentAuth(admin.DisableTOTP(s))),
+		adminAuth(recentAuth(adminauth.DisableTOTP(s))),
 	)
 	mux.Handle(
 		"POST /api/admin/regenerate-totp-recovery-codes",
-		adminAuth(recentAuth(admin.RegenerateTOTPRecoveryCodes(s))),
+		adminAuth(recentAuth(adminauth.RegenerateTOTPRecoveryCodes(s))),
 	)
 	mux.Handle(
 		"POST /api/admin/set-user-permissions",
-		adminAuth(manageUsers(recentAuth(admin.SetPermissions(s)))),
+		adminAuth(manageUsers(recentAuth(adminauthorization.SetPermissions(s)))),
 	)
 	mux.Handle(
 		"POST /api/admin/invite-user",
-		adminAuth(manageUsers(admin.InviteUser(s))),
+		adminAuth(manageUsers(adminusers.InviteUser(s))),
 	)
-	mux.HandleFunc("POST /api/admin/complete-setup", admin.CompleteSetup(s))
+	mux.HandleFunc("POST /api/admin/complete-setup", adminusers.CompleteSetup(s))
 	mux.Handle(
 		"POST /api/admin/list-users",
-		adminAuth(viewUsers(admin.ListUsers(s))),
+		adminAuth(viewUsers(adminusers.ListUsers(s))),
 	)
 	mux.Handle(
 		"POST /api/admin/disable-user",
-		adminAuth(manageUsers(admin.DisableUser(s))),
+		adminAuth(manageUsers(adminusers.DisableUser(s))),
 	)
 	mux.Handle(
 		"POST /api/admin/enable-user",
-		adminAuth(manageUsers(admin.EnableUser(s))),
+		adminAuth(manageUsers(adminusers.EnableUser(s))),
 	)
 	mux.Handle(
 		"POST /api/admin/list-hub-signup-domains",
-		adminAuth(viewHubSignupDomains(admin.ListHubSignupDomains(s))),
+		adminAuth(viewHubSignupDomains(adminsignupdomains.ListHubSignupDomains(s))),
 	)
 	mux.Handle(
 		"POST /api/admin/create-hub-signup-domain",
-		adminAuth(manageHubSignupDomains(admin.CreateHubSignupDomain(s))),
+		adminAuth(manageHubSignupDomains(
+			adminsignupdomains.CreateHubSignupDomain(s),
+		)),
 	)
 	mux.Handle(
 		"POST /api/admin/update-hub-signup-domain",
-		adminAuth(manageHubSignupDomains(admin.UpdateHubSignupDomain(s))),
+		adminAuth(manageHubSignupDomains(
+			adminsignupdomains.UpdateHubSignupDomain(s),
+		)),
 	)
-	mux.Handle("GET /api/admin/my-info", adminAuth(admin.MyInfo(s)))
+	mux.Handle("GET /api/admin/my-info", adminAuth(adminusers.MyInfo(s)))
 	mux.Handle(
 		"POST /api/admin/set-preferred-language",
-		adminAuth(admin.SetPreferredLanguage(s)),
+		adminAuth(adminusers.SetPreferredLanguage(s)),
 	)
 	mux.Handle(
 		"POST /api/admin/set-display-name",
-		adminAuth(admin.SetDisplayName(s)),
+		adminAuth(adminusers.SetDisplayName(s)),
 	)
 }

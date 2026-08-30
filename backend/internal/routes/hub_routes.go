@@ -3,14 +3,15 @@ package routes
 import (
 	"net/http"
 
-	"backend/handlers/hub"
+	hubauth "backend/handlers/hub/auth"
+	hubusers "backend/handlers/hub/users"
 	"backend/handlers/portal"
 	"backend/internal/apiserver"
-	"backend/internal/hubapi"
+	hubruntime "backend/internal/hub"
 	"backend/internal/middleware"
 )
 
-func RegisterHubRoutes(mux *http.ServeMux, s *hubapi.Server) {
+func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
 	mux.HandleFunc(
 		"GET /api/hub/ping", portal.Ping(s.Runtime, s.Queries, "hub", s.TenantID),
@@ -20,53 +21,53 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubapi.Server) {
 	recentAuth := middleware.RequireRecentHubAuthentication(
 		s, middleware.RecentAuthenticationWindow,
 	)
-	mux.HandleFunc("POST /api/hub/request-signup", hub.RequestSignup(s))
-	mux.HandleFunc("POST /api/hub/complete-signup", hub.CompleteSignup(s))
-	mux.HandleFunc("POST /api/hub/login", hub.Login(s))
-	mux.HandleFunc("POST /api/hub/login/tfa", hub.VerifyTFA(s))
+	mux.HandleFunc("POST /api/hub/request-signup", hubauth.RequestSignup(s))
+	mux.HandleFunc("POST /api/hub/complete-signup", hubauth.CompleteSignup(s))
+	mux.HandleFunc("POST /api/hub/login", hubauth.Login(s))
+	mux.HandleFunc("POST /api/hub/login/tfa", hubauth.VerifyTFA(s))
 	mux.HandleFunc(
-		"POST /api/hub/login/recovery-code", hub.VerifyRecoveryCode(s),
+		"POST /api/hub/login/recovery-code", hubauth.VerifyRecoveryCode(s),
 	)
-	mux.HandleFunc("POST /api/hub/logout", hub.Logout(s))
+	mux.HandleFunc("POST /api/hub/logout", hubauth.Logout(s))
 	mux.Handle(
 		"POST /api/hub/reauthenticate",
-		hubAuth(hub.Reauthenticate(s)),
+		hubAuth(hubauth.Reauthenticate(s)),
 	)
 	mux.HandleFunc(
 		"POST /api/hub/request-password-reset",
-		hub.RequestPasswordReset(s),
+		hubauth.RequestPasswordReset(s),
 	)
 	mux.HandleFunc(
 		"POST /api/hub/complete-password-reset",
-		hub.CompletePasswordReset(s),
+		hubauth.CompletePasswordReset(s),
 	)
 	mux.Handle(
 		"POST /api/hub/change-password",
-		hubAuth(recentAuth(hub.ChangePassword(s))),
+		hubAuth(recentAuth(hubauth.ChangePassword(s))),
 	)
 	mux.Handle(
 		"POST /api/hub/start-totp-enrollment",
-		hubAuth(recentAuth(hub.StartTOTPEnrollment(s))),
+		hubAuth(recentAuth(hubauth.StartTOTPEnrollment(s))),
 	)
 	mux.Handle(
 		"POST /api/hub/confirm-totp-enrollment",
-		hubAuth(hub.ConfirmTOTPEnrollment(s)),
+		hubAuth(hubauth.ConfirmTOTPEnrollment(s)),
 	)
 	mux.Handle(
 		"POST /api/hub/disable-totp",
-		hubAuth(recentAuth(hub.DisableTOTP(s))),
+		hubAuth(recentAuth(hubauth.DisableTOTP(s))),
 	)
 	mux.Handle(
 		"POST /api/hub/regenerate-totp-recovery-codes",
-		hubAuth(recentAuth(hub.RegenerateTOTPRecoveryCodes(s))),
+		hubAuth(recentAuth(hubauth.RegenerateTOTPRecoveryCodes(s))),
 	)
-	mux.Handle("GET /api/hub/my-info", hubAuth(hub.MyInfo(s)))
+	mux.Handle("GET /api/hub/my-info", hubAuth(hubusers.MyInfo(s)))
 	mux.Handle(
 		"POST /api/hub/set-preferred-language",
-		hubAuth(hub.SetPreferredLanguage(s)),
+		hubAuth(hubusers.SetPreferredLanguage(s)),
 	)
 	mux.Handle(
 		"POST /api/hub/set-resident-country",
-		hubAuth(hub.SetResidentCountry(s)),
+		hubAuth(hubusers.SetResidentCountry(s)),
 	)
 }

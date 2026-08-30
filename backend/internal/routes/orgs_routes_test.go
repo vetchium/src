@@ -5,12 +5,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"backend/internal/orgsapi"
+	orgsruntime "backend/internal/orgs"
 )
 
 func TestOrgsPingRouteUsesPluralName(t *testing.T) {
 	mux := http.NewServeMux()
-	RegisterOrgsRoutes(mux, &orgsapi.Server{})
+	RegisterOrgsRoutes(mux, &orgsruntime.Server{})
 
 	request := httptest.NewRequest(http.MethodGet, "/api/orgs/ping", nil)
 	_, pattern := mux.Handler(request)

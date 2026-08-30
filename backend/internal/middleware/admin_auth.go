@@ -9,7 +9,8 @@ import (
 
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
-	"backend/internal/adminapi"
+	adminruntime "backend/internal/admin"
+	adminauthn "backend/internal/admin/auth"
 )
 
 type adminIdentityContextKey struct{}
@@ -22,12 +23,12 @@ type AdminIdentity struct {
 }
 
 func adminAuthentication(
-	s *adminapi.Server,
+	s *adminruntime.Server,
 ) PortalAuthentication[AdminIdentity] {
 	return PortalAuthentication[AdminIdentity]{
 		Runtime:                      s.Runtime,
 		Portal:                       "admin",
-		Challenge:                    adminapi.BearerChallenge,
+		Challenge:                    adminauthn.BearerChallenge,
 		AuthenticationRequired:       adminproblem.AdminAuthenticationRequiredError,
 		RecentAuthenticationRequired: adminproblem.RecentAuthenticationRequiredError,
 		Authenticate: func(
@@ -57,18 +58,18 @@ func adminAuthentication(
 	}
 }
 
-func AdminAuth(s *adminapi.Server) func(http.Handler) http.Handler {
+func AdminAuth(s *adminruntime.Server) func(http.Handler) http.Handler {
 	return adminAuthentication(s).Session()
 }
 
 func RequireRecentAdminAuthentication(
-	s *adminapi.Server, maximumAge time.Duration,
+	s *adminruntime.Server, maximumAge time.Duration,
 ) func(http.Handler) http.Handler {
 	return adminAuthentication(s).RequireRecentAuthentication(maximumAge)
 }
 
 func RequireAdminPermission(
-	s *adminapi.Server, permission string,
+	s *adminruntime.Server, permission string,
 ) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +78,7 @@ func RequireAdminPermission(
 				s.AuthenticationProblem(
 					r.Context(), w,
 					adminproblem.AdminAuthenticationRequiredError,
-					adminapi.BearerChallenge,
+					adminauthn.BearerChallenge,
 				)
 				return
 			}

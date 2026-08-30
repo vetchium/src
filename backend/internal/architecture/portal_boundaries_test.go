@@ -16,13 +16,13 @@ import (
 // owns it. Shared behavior belongs in a portal-agnostic package under
 // backend/internal/ instead, such as credentials, dbvalue, or handlerauth.
 var portalPackages = map[string]string{
-	"backend/internal/adminapi": "admin",
-	"backend/handlers/admin":    "admin",
-	"backend/internal/hubapi":   "hub",
-	"backend/handlers/hub":      "hub",
-	"backend/internal/orgsapi":  "orgs",
-	"backend/handlers/org":      "orgs",
-	"backend/handlers/orgs":     "orgs",
+	"backend/internal/admin": "admin",
+	"backend/handlers/admin": "admin",
+	"backend/internal/hub":   "hub",
+	"backend/handlers/hub":   "hub",
+	"backend/internal/orgs":  "orgs",
+	"backend/handlers/org":   "orgs",
+	"backend/handlers/orgs":  "orgs",
 }
 
 func portalOf(importPath string) (string, bool) {

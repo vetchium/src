@@ -9,7 +9,8 @@ import (
 
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
-	"backend/internal/hubapi"
+	hubruntime "backend/internal/hub"
+	hubauthn "backend/internal/hub/auth"
 )
 
 type hubIdentityContextKey struct{}
@@ -20,11 +21,11 @@ type HubIdentity struct {
 	AuthenticatedAt time.Time
 }
 
-func hubAuthentication(s *hubapi.Server) PortalAuthentication[HubIdentity] {
+func hubAuthentication(s *hubruntime.Server) PortalAuthentication[HubIdentity] {
 	return PortalAuthentication[HubIdentity]{
 		Runtime:                      s.Runtime,
 		Portal:                       "hub",
-		Challenge:                    hubapi.BearerChallenge,
+		Challenge:                    hubauthn.BearerChallenge,
 		AuthenticationRequired:       hubproblem.AuthenticationRequiredError,
 		RecentAuthenticationRequired: hubproblem.RecentAuthenticationRequiredError,
 		Authenticate: func(
@@ -53,12 +54,12 @@ func hubAuthentication(s *hubapi.Server) PortalAuthentication[HubIdentity] {
 	}
 }
 
-func HubAuth(s *hubapi.Server) func(http.Handler) http.Handler {
+func HubAuth(s *hubruntime.Server) func(http.Handler) http.Handler {
 	return hubAuthentication(s).Session()
 }
 
 func RequireRecentHubAuthentication(
-	s *hubapi.Server, maximumAge time.Duration,
+	s *hubruntime.Server, maximumAge time.Duration,
 ) func(http.Handler) http.Handler {
 	return hubAuthentication(s).RequireRecentAuthentication(maximumAge)
 }

@@ -9,7 +9,7 @@ import (
 	"backend/internal/db"
 	dbsqlc "backend/internal/db/sqlc"
 	"backend/internal/middleware"
-	"backend/internal/orgsapi"
+	orgsruntime "backend/internal/orgs"
 	"backend/internal/routes"
 	"backend/internal/service"
 )
@@ -38,7 +38,7 @@ func run(log *slog.Logger, address string) error {
 	}
 	defer pool.Close()
 
-	s := &orgsapi.Server{
+	s := &orgsruntime.Server{
 		Runtime:  apiserver.New(pool, log),
 		Queries:  dbsqlc.New(pool),
 		TenantID: cfg.TenantID,

@@ -5,8 +5,8 @@ package credentials_test
 import (
 	"testing"
 
-	"backend/internal/adminapi"
-	"backend/internal/hubapi"
+	adminauthn "backend/internal/admin/auth"
+	hubauthn "backend/internal/hub/auth"
 )
 
 // One deployment secret serves every portal in a tenant, so no two portals may
@@ -16,8 +16,8 @@ func TestPortalCredentialKeysDoNotCollide(t *testing.T) {
 	const tenantID = "sgp"
 	const secret = "deployment-secret"
 	keys := map[string][32]byte{
-		"admin": adminapi.DeriveCredentialKey(tenantID, secret),
-		"hub":   hubapi.DeriveCredentialKey(tenantID, secret),
+		"admin": adminauthn.DeriveCredentialKey(tenantID, secret),
+		"hub":   hubauthn.DeriveCredentialKey(tenantID, secret),
 	}
 	seen := make(map[[32]byte]string, len(keys))
 	for portal, key := range keys {
@@ -29,8 +29,8 @@ func TestPortalCredentialKeysDoNotCollide(t *testing.T) {
 
 	root := keys["admin"]
 	subkeys := map[string][32]byte{
-		"admin": adminapi.DeriveCredentialSubkey(root, "totp"),
-		"hub":   hubapi.DeriveCredentialSubkey(root, "totp"),
+		"admin": adminauthn.DeriveCredentialSubkey(root, "totp"),
+		"hub":   hubauthn.DeriveCredentialSubkey(root, "totp"),
 	}
 	seenSubkeys := make(map[[32]byte]string, len(subkeys))
 	for portal, subkey := range subkeys {

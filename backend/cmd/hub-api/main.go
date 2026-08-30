@@ -9,7 +9,8 @@ import (
 	"backend/internal/db"
 	dbsqlc "backend/internal/db/sqlc"
 	"backend/internal/globalcoordinatorclient"
-	"backend/internal/hubapi"
+	hubruntime "backend/internal/hub"
+	hubauthn "backend/internal/hub/auth"
 	"backend/internal/middleware"
 	"backend/internal/routes"
 	"backend/internal/service"
@@ -49,7 +50,7 @@ func run(log *slog.Logger, address string) error {
 	}
 	defer pool.Close()
 
-	s := &hubapi.Server{
+	s := &hubruntime.Server{
 		Runtime:     apiserver.New(pool, log),
 		Queries:     dbsqlc.New(pool),
 		Coordinator: coordinator,
@@ -59,7 +60,7 @@ func run(log *slog.Logger, address string) error {
 			Remembered: cfg.HubAPIServer.RememberedSessionTTL,
 		},
 		PublicBaseURL: cfg.HubAPIServer.PublicBaseURL,
-		CredentialKey: hubapi.DeriveCredentialKey(
+		CredentialKey: hubauthn.DeriveCredentialKey(
 			cfg.TenantID, credentialSecret,
 		),
 	}

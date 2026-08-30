@@ -1,75 +1,49 @@
 # Go Guide
 
-This guide applies to every hand-maintained Go file in the repository. It does
-not apply to generated Go output such as `backend/internal/db/sqlc/*.go`.
+This guide applies to hand-maintained Go files. It does not apply to generated
+files such as `backend/internal/db/sqlc/*.go`.
+
+## Files and packages
+
+- Name Go files in lowercase snake_case. Preserve the `_test.go` suffix.
+- Use short lowercase package directory names such as `auth`, `users`, and
+  `hubsignupdomains`.
+- Hyphens are allowed in `backend/cmd/<executable>/` and TypeSpec contract
+  directories. Go files inside those directories still use snake_case names.
+- Keep each package focused on one responsibility.
 
 ## Formatting and imports
 
-- Name Go source files in lowercase snake_case. Preserve the conventional
-  `_test.go` suffix. Directory names follow what the directory already answers
-  to elsewhere, so hyphens stay in two cases: `backend/cmd/<name>/` matches its
-  executable and container image name, and a directory under `typespec/` matches
-  the contract path its `.tsp` file defines. A hyphenated contract directory
-  still holds snake_case Go files, as `typespec/admin/hub-signup-domains/`
-  does — the sibling check in `typespec/scripts/check-contract-files.mjs`
-  expects that pairing.
 - Run `gofmt` on every changed Go file.
-- Group imports by domain. Put standard-library imports first, then
-  non-standard modules grouped by module owner or domain in lexical order, and
-  imports belonging to the current module last.
-- Separate import groups with one blank line and sort imports lexically within
-  each group. Do not combine `github.com/jackc/...`,
-  `github.com/vetchium/...`, `golang.org/...`, or `backend/...` in one group.
-  `backend/handlers/admin/login.go` is the repository example.
-- Keep hand-maintained source lines at or below 80 characters where practical.
-- When wrapping related lines, keep their widths reasonably balanced. Avoid a
-  nearly full first line followed by a very short continuation.
-- Do not split expressions or argument lists when the complete form fits
-  comfortably within 80 columns.
-- In structured log calls, keep every key and its value on the same physical
-  line. Prefer one key/value pair per continuation line when a call wraps.
+- Group imports in this order: standard library, external modules by domain,
+  then packages from the current module.
+- Separate import groups with one blank line. Sort each group lexically.
+- Keep `github.com/jackc/...`, `github.com/vetchium/...`, `golang.org/...`, and
+  `backend/...` in separate groups.
+- Add an import alias only when it prevents ambiguity or clarifies ownership.
+- Keep hand-maintained lines at or below 80 characters when practical.
+- Wrap related lines evenly. Do not wrap an expression that fits clearly on
+  one line.
 
-## Implementation practices
+## Implementation
 
-- Normalize every timestamp exposed by an API response to UTC before encoding
-  it. A `time.Time` with a non-UTC location must call `UTC()` at the response
-  boundary even when it represents the same instant.
-- Represent closed string vocabularies, including wire enums and discriminator
-  values, with a named string type and a typed constant for every allowed
-  value. Use those constants when constructing or comparing values instead of
-  repeating string literals. Do not widen a closed vocabulary field to
-  `string`; validate values received from untrusted inputs because a named Go
-  type alone does not enforce membership at runtime.
-- Give every `*Request` wire type under `typespec/` both a `Normalize()` and a
-  `Validate() []string` method, so it satisfies `apiserver.Request`. A type that
-  needs no canonicalization still declares an empty `Normalize()`; the compiler
-  then reports a request type that never considered normalization, and a field
-  added later to a type whose body is empty is a visible omission rather than a
-  silently skipped one.
-- Declare `Normalize()` on a pointer receiver and canonicalize in place. Keep
-  `Validate()` on a value receiver: it must not mutate, and it may assume it
-  receives normalized input because the decoder normalizes first. Do not
-  re-normalize inside `Validate()`. When normalization replaces an optional
-  field, assign a new pointer instead of writing through the existing one, so a
-  value the caller still holds is left alone.
-- Propagate request contexts through database, logging, and downstream calls.
-- Preserve error identity with `%w` when adding context to returned errors.
-- Avoid deprecated library APIs. Check the version pinned by the owning module
-  and its documentation instead of copying examples for another version.
-- Keep required slices non-nil when their JSON representation must be `[]`.
-  Preserve `nil` only when the contract makes the value optional or nullable.
+- Pass `context.Context` through database, logging, and downstream calls.
+- Wrap errors with `%w` when callers need the original error identity.
+- Use named string types and typed constants for closed string sets.
+- Validate closed string values received from untrusted sources.
+- Do not use deprecated APIs. Check the version pinned by the owning module.
 
-## Tests and verification
+## Tests
 
-- Keep regression tests close to the package that owns the behavior.
-- Make tests independent and safe to run in parallel. Integration tests must
-  generate unique identifiers and clean up every record they create.
-- Run `go test ./...` from every Go module affected by the change.
-- Run `make test-go` from the repository root for all Go modules. This runs
-  unit tests with both statement coverage and the race detector enabled.
-- Run `make test-go-static` for formatting and `go vet`, `make test-go-lint`
-  for the pinned GolangCI-Lint standard set, and `make test-go-vuln` for the
-  official Go vulnerability scan.
-- Run `make test` for the complete repository suite; it automatically prepares
-  the standalone CI stack from `docker-compose-ci.json` and the Playwright
-  Chromium browser.
+- Keep tests beside the package that owns the behavior.
+- Make tests independent and safe to run in parallel.
+- Give integration-test records unique identifiers. Remove records created by
+  the test.
+
+## Verification
+
+- Run `go test ./...` in every changed Go module.
+- Run `make test-go` for race-enabled tests and coverage.
+- Run `make test-go-static` for `gofmt` and `go vet`.
+- Run `make test-go-lint` for GolangCI-Lint.
+- Run `make test-go-vuln` for `govulncheck`.

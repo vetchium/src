@@ -32,6 +32,13 @@ contract consumed by backend and future UI implementations.
 - Add normalization and validation beside the request type so implementations
   do not duplicate contract rules. Validation must report JSON field names, not
   Go field names.
+- Every Go `*Request` type must implement `apiserver.Request`.
+- Define `Normalize()` on a pointer receiver. Define `Validate() []string` on a
+  value receiver.
+- Declare an empty `Normalize()` when the request needs no normalization.
+- `Validate()` must not mutate or normalize its receiver.
+- When normalization replaces an optional value, assign a new pointer. Do not
+  mutate storage shared with the caller.
 - Backend code must import API wire types from the appropriate package under
   `github.com/vetchium/src/typespec`; do not duplicate request or response body
   structs in handlers.
@@ -60,8 +67,9 @@ contract consumed by backend and future UI implementations.
 - Keep problem type identifiers, titles, statuses, and field shapes stable.
   Treat changes to them as API compatibility changes.
 - Do not add backend-only convenience fields to wire types.
-- Test normalization without mutating the original request and cover every
-  validation rule, including combinations of invalid fields.
+- Test normalization on a copy. Verify that storage shared with the original
+  request is unchanged.
+- Test every validation rule, including combinations of invalid fields.
 
 ## API styles
 - Do not use query parameters for the backend APIs, unless the link will

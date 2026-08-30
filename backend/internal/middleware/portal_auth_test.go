@@ -16,10 +16,12 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
-	"backend/internal/adminapi"
+	adminruntime "backend/internal/admin"
+	adminauthn "backend/internal/admin/auth"
 	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
-	"backend/internal/hubapi"
+	hubruntime "backend/internal/hub"
+	hubauthn "backend/internal/hub/auth"
 )
 
 var authenticationTestNow = time.Date(2026, 8, 29, 12, 0, 0, 0, time.UTC)
@@ -72,14 +74,14 @@ func testRuntime(logged *bytes.Buffer) *apiserver.Runtime {
 }
 
 func portalsUnderTest(logged *bytes.Buffer) []portalUnderTest {
-	adminServer := func(db sessionStub) *adminapi.Server {
-		return &adminapi.Server{
+	adminServer := func(db sessionStub) *adminruntime.Server {
+		return &adminruntime.Server{
 			Runtime: testRuntime(logged), Queries: db,
 			Now: func() time.Time { return authenticationTestNow },
 		}
 	}
-	hubServer := func(db sessionStub) *hubapi.Server {
-		return &hubapi.Server{
+	hubServer := func(db sessionStub) *hubruntime.Server {
+		return &hubruntime.Server{
 			Runtime: testRuntime(logged), Queries: db,
 			Now: func() time.Time { return authenticationTestNow },
 		}
@@ -87,7 +89,7 @@ func portalsUnderTest(logged *bytes.Buffer) []portalUnderTest {
 	return []portalUnderTest{
 		{
 			name:      "admin",
-			challenge: adminapi.BearerChallenge,
+			challenge: adminauthn.BearerChallenge,
 			session: func(db sessionStub) func(http.Handler) http.Handler {
 				return AdminAuth(adminServer(db))
 			},
@@ -106,7 +108,7 @@ func portalsUnderTest(logged *bytes.Buffer) []portalUnderTest {
 		},
 		{
 			name:      "hub",
-			challenge: hubapi.BearerChallenge,
+			challenge: hubauthn.BearerChallenge,
 			session: func(db sessionStub) func(http.Handler) http.Handler {
 				return HubAuth(hubServer(db))
 			},

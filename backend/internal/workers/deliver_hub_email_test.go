@@ -15,7 +15,7 @@ import (
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/email"
-	"backend/internal/hubapi"
+	hubauthn "backend/internal/hub/auth"
 )
 
 type hubEmailQueryStub struct {
@@ -113,8 +113,8 @@ func testEmailWorker(
 	t *testing.T, now time.Time, attempt int32, sendErr error,
 ) (*Worker, *hubEmailQueryStub, *emailSenderStub) {
 	t.Helper()
-	rootKey := hubapi.DeriveCredentialKey("test", "secret")
-	outboxKey := hubapi.DeriveCredentialSubkey(rootKey, "outbox")
+	rootKey := hubauthn.DeriveCredentialKey("test", "secret")
+	outboxKey := hubauthn.DeriveCredentialSubkey(rootKey, "outbox")
 	payload, err := json.Marshal(hubEmailPayload{
 		DisplayName: "Person", VerificationURL: "https://hub.test/verify",
 		ExpiresAt: now.Add(time.Hour),
