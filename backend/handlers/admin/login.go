@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"backend/internal/adminapi"
+	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
@@ -28,9 +29,7 @@ func Reauthenticate(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		var request adminauth.ReauthenticateRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(ctx)
@@ -84,10 +83,7 @@ func Login(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		var request adminauth.LoginRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			request = request.Normalize()
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		adminUser, err := s.Queries.GetAdminUserForLogin(

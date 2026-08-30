@@ -26,6 +26,6 @@ func Logout(s *adminapi.Server) http.HandlerFunc {
 			}
 		}
 		w.Header().Set("Cache-Control", "no-store")
-		w.WriteHeader(http.StatusNoContent)
+		s.Empty(r.Context(), w, http.StatusNoContent)
 	}
 }

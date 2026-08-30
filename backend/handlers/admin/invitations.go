@@ -12,6 +12,7 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
+	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
@@ -24,12 +25,9 @@ const adminInvitationTTL = 24 * time.Hour
 func InviteUser(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.InviteUserRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
-		request = request.Normalize()
 		granted := authorization.DirectPermissions(request.Permissions)
 		permissions := make([]string, len(granted))
 		for index, permission := range granted {
@@ -115,12 +113,9 @@ func InviteUser(s *adminapi.Server) http.HandlerFunc {
 func CompleteSetup(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.CompleteSetupRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
-		request = request.Normalize()
 		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
 			return

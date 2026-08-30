@@ -18,10 +18,10 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
+	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
-	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 )
 
@@ -36,9 +36,7 @@ type adminUsersPaginationPayload struct {
 func ListUsers(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.ListUsersRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		filtersHash, err := listUsersFiltersHash(request)
@@ -97,9 +95,7 @@ func ListUsers(s *adminapi.Server) http.HandlerFunc {
 func DisableUser(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.DisableUserRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		targetID, _ := dbvalue.ParseUUID(string(request.AdminUserID))
@@ -118,16 +114,14 @@ func DisableUser(s *adminapi.Server) http.HandlerFunc {
 		if writeAdminUserMutationProblem(s, w, r, result) {
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		s.Empty(r.Context(), w, http.StatusNoContent)
 	}
 }
 
 func EnableUser(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.EnableUserRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		targetID, _ := dbvalue.ParseUUID(string(request.AdminUserID))
@@ -146,7 +140,7 @@ func EnableUser(s *adminapi.Server) http.HandlerFunc {
 		if writeAdminUserMutationProblem(s, w, r, result) {
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		s.Empty(r.Context(), w, http.StatusNoContent)
 	}
 }
 

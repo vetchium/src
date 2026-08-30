@@ -8,13 +8,12 @@ type RequestPasswordResetRequest struct {
 	EmailAddress common.EmailAddress `json:"email_address"`
 }
 
-func (r RequestPasswordResetRequest) Normalize() RequestPasswordResetRequest {
+func (r *RequestPasswordResetRequest) Normalize() {
 	r.EmailAddress = common.NormalizeEmailAddress(r.EmailAddress)
-	return r
 }
 
 func (r RequestPasswordResetRequest) Validate() []string {
-	if !common.IsEmailAddress(r.Normalize().EmailAddress) {
+	if !common.IsEmailAddress(r.EmailAddress) {
 		return []string{"email_address"}
 	}
 	return []string{}
@@ -24,6 +23,8 @@ type CompletePasswordResetRequest struct {
 	ResetToken  HubPasswordResetToken `json:"reset_token"`
 	NewPassword common.NewPassword    `json:"new_password"`
 }
+
+func (r *CompletePasswordResetRequest) Normalize() {}
 
 func (r CompletePasswordResetRequest) Validate() []string {
 	fields := make([]string, 0, 2)
@@ -39,6 +40,8 @@ func (r CompletePasswordResetRequest) Validate() []string {
 type ChangePasswordRequest struct {
 	NewPassword common.NewPassword `json:"new_password"`
 }
+
+func (r *ChangePasswordRequest) Normalize() {}
 
 func (r ChangePasswordRequest) Validate() []string {
 	if !common.IsNewPassword(r.NewPassword) {

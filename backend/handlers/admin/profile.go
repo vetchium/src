@@ -7,17 +7,15 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
+	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
-	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 )
 
 func SetPreferredLanguage(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.SetPreferredLanguageRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
@@ -32,17 +30,14 @@ func SetPreferredLanguage(s *adminapi.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "set preferred language", err)
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		s.Empty(r.Context(), w, http.StatusNoContent)
 	}
 }
 
 func SetDisplayName(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.SetDisplayNameRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			request = request.Normalize()
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())
@@ -65,6 +60,6 @@ func SetDisplayName(s *adminapi.Server) http.HandlerFunc {
 			)
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		s.Empty(r.Context(), w, http.StatusNoContent)
 	}
 }

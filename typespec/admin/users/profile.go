@@ -12,6 +12,8 @@ type SetPreferredLanguageRequest struct {
 	PreferredLanguage common.FrontendLocale `json:"preferred_language"`
 }
 
+func (r *SetPreferredLanguageRequest) Normalize() {}
+
 func (r SetPreferredLanguageRequest) Validate() []string {
 	if !common.IsFrontendLocale(r.PreferredLanguage) {
 		return []string{"preferred_language"}
@@ -23,13 +25,11 @@ type SetDisplayNameRequest struct {
 	DisplayName common.DisplayName `json:"display_name"`
 }
 
-func (r SetDisplayNameRequest) Normalize() SetDisplayNameRequest {
+func (r *SetDisplayNameRequest) Normalize() {
 	r.DisplayName = common.NormalizeDisplayName(r.DisplayName)
-	return r
 }
 
 func (r SetDisplayNameRequest) Validate() []string {
-	r = r.Normalize()
 	if !common.IsDisplayName(r.DisplayName) {
 		return []string{"display_name"}
 	}

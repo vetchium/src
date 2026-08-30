@@ -35,6 +35,8 @@ func (r ListUsersRequest) EffectiveLimit() common.PageSize {
 	return *r.Limit
 }
 
+func (r *ListUsersRequest) Normalize() {}
+
 func (r ListUsersRequest) Validate() []string {
 	fields := make([]string, 0, 7)
 	if !common.IsPageSize(r.EffectiveLimit()) {
@@ -91,6 +93,8 @@ type DisableUserRequest struct {
 	AdminUserID adminspec.AdminUserID `json:"admin_user_id"`
 }
 
+func (r *DisableUserRequest) Normalize() {}
+
 func (r DisableUserRequest) Validate() []string {
 	if !adminspec.IsAdminUserID(r.AdminUserID) {
 		return []string{"admin_user_id"}
@@ -101,6 +105,8 @@ func (r DisableUserRequest) Validate() []string {
 type EnableUserRequest struct {
 	AdminUserID adminspec.AdminUserID `json:"admin_user_id"`
 }
+
+func (r *EnableUserRequest) Normalize() {}
 
 func (r EnableUserRequest) Validate() []string {
 	if !adminspec.IsAdminUserID(r.AdminUserID) {

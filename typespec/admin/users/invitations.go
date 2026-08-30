@@ -17,14 +17,13 @@ type InviteUserRequest struct {
 	Permissions  []authorization.AdminPermissionID `json:"permissions,omitempty"`
 }
 
-func (r InviteUserRequest) Normalize() InviteUserRequest {
+func (r *InviteUserRequest) Normalize() {
 	r.EmailAddress = common.NormalizeEmailAddress(r.EmailAddress)
-	return r
 }
 
 func (r InviteUserRequest) Validate() []string {
 	fields := make([]string, 0, 2)
-	if !common.IsEmailAddress(r.Normalize().EmailAddress) {
+	if !common.IsEmailAddress(r.EmailAddress) {
 		fields = append(fields, "email_address")
 	}
 	if !authorization.ValidatePermissions(r.Permissions) {
@@ -45,13 +44,11 @@ type CompleteSetupRequest struct {
 	PreferredLanguage common.FrontendLocale `json:"preferred_language"`
 }
 
-func (r CompleteSetupRequest) Normalize() CompleteSetupRequest {
+func (r *CompleteSetupRequest) Normalize() {
 	r.DisplayName = common.NormalizeDisplayName(r.DisplayName)
-	return r
 }
 
 func (r CompleteSetupRequest) Validate() []string {
-	r = r.Normalize()
 	fields := make([]string, 0, 4)
 	if !common.IsOpaqueToken(string(r.InvitationToken)) {
 		fields = append(fields, "invitation_token")

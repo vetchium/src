@@ -193,7 +193,7 @@ func writeResponse[T any](
 ) {
 	w.Header().Set("Cache-Control", "no-store")
 	if status == http.StatusNoContent || status == http.StatusAccepted {
-		w.WriteHeader(status)
+		s.Empty(r.Context(), w, status)
 		return
 	}
 	s.JSON(r.Context(), w, status, body)

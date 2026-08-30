@@ -1,14 +1,17 @@
+// Package handlerauth provides HTTP and transaction behavior shared by portal
+// authentication handlers.
 package handlerauth
 
 import (
 	"context"
 	"net/http"
 
+	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
 )
 
 type QueryServer interface {
-	RuntimeServer
+	apiserver.RuntimeServer
 	HandlerQueries() sqlc.Querier
 }
 

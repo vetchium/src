@@ -72,6 +72,25 @@ implemented. The remaining rollout and abuse-control work is tracked here.
   mesh network is internal — but it must authenticate the calling tenant
   before it carries anything.
 
+## Per-route log levels
+
+- Every handler exit is recorded once. `Runtime.Problem` logs 4xx at info and
+  5xx at warning. `Runtime.JSON` and `Runtime.Empty` log success at info.
+- One level for every route is too coarse. A rejected login and a malformed
+  request body are both 4xx, and they do not deserve the same level.
+- Malformed JSON is logged twice. `InvalidJSON` writes a warning carrying the
+  decode error, then `Problem` records the response.
+- `service.Logger` sets no `slog` level, so the handler default of info
+  applies. Debug records are discarded in every environment and no setting
+  enables them.
+- Add a process-wide level control first. Nothing can move to debug while
+  debug is dropped.
+- Decide what the level keys off: the route, the problem type, or the status.
+- Decide where it is configured. The per-tenant JSON file and an environment
+  variable both reach every service.
+- Keep one record per exit. A per-route level must lower a record, never
+  remove the exit trace.
+
 ## Hub portal test coverage
 
 - Playwright has one Hub UI spec against five admin specs, and two Hub API

@@ -71,14 +71,18 @@ Use it together with `go.md`. Also read `database.md` for any database access.
 - Import request, response, problem, and domain types from the `typespec`
   module. Do not define replacement wire structs in handlers.
 - Decode every JSON request body in admin, hub, and org portal handlers with
-  `apiserver.DecodeJSON`; do not construct an endpoint-local `json.Decoder`.
-  The helper enforces the shared `application/json` Content-Type requirement
-  and rejects unknown fields, trailing data, and multiple JSON values.
-  Request-body size limits are ingress concerns and must not be added to this
-  helper.
-- Keep handler flow explicit: decode, normalize, validate, call dependencies,
-  check state, and encode the typed response. Validate before database calls or
-  other side effects.
+  `apiserver.Decode`; do not call `apiserver.DecodeJSON` directly and do not
+  construct an endpoint-local `json.Decoder`. `Decode` enforces the shared
+  `application/json` Content-Type requirement, rejects unknown fields, trailing
+  data, and multiple JSON values, then normalizes and validates the body,
+  answering with the shared problem responses when either step fails. It
+  returns `false` once the response is written, so the handler only returns.
+  Request-body size limits are ingress concerns and must not be added to it.
+- Do not normalize or validate a decoded body in the handler. `Decode` owns
+  that ordering; a handler that repeats it re-establishes the per-call-site
+  drift the shared decoder exists to prevent. Handler flow is therefore decode,
+  call dependencies, check state, and encode the typed response, with every
+  side effect after the decode.
 - Use `internal/apiserver/` helpers and stable problem types for errors. Do not
   introduce endpoint-local error envelopes or use `http.Error` for API
   responses.
@@ -94,6 +98,14 @@ Use it together with `go.md`. Also read `database.md` for any database access.
 - Use structured logging with stable event and attribute names. Expected,
   handled failures belong at debug or warning level; unexpected operational
   failures belong at error level.
+- Leave every handler exit traceable. Return through `Runtime.Problem`,
+  `Runtime.JSON`, or `Runtime.Empty`; each records the reply exactly once,
+  so no branch can return silently and no handler needs a per-branch log line.
+  Do not call `w.WriteHeader` from a handler. `InternalError` and `InvalidJSON`
+  add the cause, which the responders cannot see, and then delegate to
+  `Problem` for the response record. `apiserver.HealthCheck` is the deliberate
+  exception: container liveness probes run every few seconds per service and
+  carry no diagnostic value worth recording.
 - Structured application logs are operational telemetry, not the durable audit
   trail for database changes. Follow `database.md` for every write, including
   actor and correlation propagation into the transaction that changes state.

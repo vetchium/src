@@ -11,9 +11,9 @@ import (
 	hubusers "github.com/vetchium/src/typespec/hub/users"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
+	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
-	"backend/internal/handlerauth"
 	"backend/internal/hubapi"
 	"backend/internal/middleware"
 )
@@ -58,9 +58,7 @@ func MyInfo(s *hubapi.Server) http.HandlerFunc {
 func SetPreferredLanguage(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubusers.SetPreferredLanguageRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
@@ -82,16 +80,14 @@ func SetPreferredLanguage(s *hubapi.Server) http.HandlerFunc {
 			)
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		s.Empty(r.Context(), w, http.StatusNoContent)
 	}
 }
 
 func SetResidentCountry(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubusers.SetResidentCountryRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
@@ -113,6 +109,6 @@ func SetResidentCountry(s *hubapi.Server) http.HandlerFunc {
 			)
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		s.Empty(r.Context(), w, http.StatusNoContent)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
+	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
@@ -76,9 +77,7 @@ func hubSession(
 func VerifyTFA(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.VerifyTFARequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		key, ok := handlerauth.IdempotencyKey(s, w, r)
@@ -113,9 +112,7 @@ func VerifyTFA(s *hubapi.Server) http.HandlerFunc {
 func VerifyRecoveryCode(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.VerifyRecoveryCodeRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		key, ok := handlerauth.IdempotencyKey(s, w, r)
@@ -185,9 +182,7 @@ func StartTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 func ConfirmTOTPEnrollment(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.ConfirmTOTPEnrollmentRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		key, ok := handlerauth.IdempotencyKey(s, w, r)
@@ -260,7 +255,7 @@ func DisableTOTP(s *hubapi.Server) http.HandlerFunc {
 			)
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		s.Empty(r.Context(), w, http.StatusNoContent)
 	}
 }
 

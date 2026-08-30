@@ -42,15 +42,13 @@ type ListRequest struct {
 	FilterState   *State                `json:"filter_state,omitempty"`
 }
 
-func (r ListRequest) Normalize() ListRequest {
-	normalized := r
-	if normalized.FilterSearch != nil {
+func (r *ListRequest) Normalize() {
+	if r.FilterSearch != nil {
 		value := DomainFilterText(strings.ToLower(strings.TrimSpace(
-			string(*normalized.FilterSearch),
+			string(*r.FilterSearch),
 		)))
-		normalized.FilterSearch = &value
+		r.FilterSearch = &value
 	}
-	return normalized
 }
 
 func (r ListRequest) EffectiveLimit() common.PageSize {
@@ -88,10 +86,9 @@ type CreateRequest struct {
 	DisabledComment *DisableComment `json:"disabled_comment,omitempty"`
 }
 
-func (r CreateRequest) Normalize() CreateRequest {
+func (r *CreateRequest) Normalize() {
 	r.Domain = NormalizeDomainName(r.Domain)
 	r.DisabledComment = normalizeDisableComment(r.DisabledComment)
-	return r
 }
 
 func (r CreateRequest) EffectiveState() State {
@@ -122,10 +119,9 @@ type UpdateRequest struct {
 	DisabledComment   *DisableComment             `json:"disabled_comment,omitempty"`
 }
 
-func (r UpdateRequest) Normalize() UpdateRequest {
+func (r *UpdateRequest) Normalize() {
 	r.Domain = NormalizeDomainName(r.Domain)
 	r.DisabledComment = normalizeDisableComment(r.DisabledComment)
-	return r
 }
 
 func (r UpdateRequest) Validate() []string {

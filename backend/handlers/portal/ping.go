@@ -3,7 +3,6 @@ package portal
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -25,10 +24,7 @@ func Ping(
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(struct {
+		runtime.JSON(r.Context(), w, http.StatusOK, struct {
 			Portal       string    `json:"portal"`
 			Tenant       string    `json:"tenant"`
 			Nonce        string    `json:"nonce"`
@@ -38,12 +34,6 @@ func Ping(
 			Tenant:       tenant,
 			Nonce:        row.Nonce,
 			DatabaseTime: row.DatabaseTime.Time.UTC(),
-		}); err != nil {
-			runtime.ErrorContext(
-				r.Context(), "encode "+portal+" ping response",
-				"event", "response_encode_error",
-				"error", err,
-			)
-		}
+		})
 	}
 }

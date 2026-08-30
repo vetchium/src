@@ -13,6 +13,7 @@ import (
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
+	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
@@ -31,12 +32,9 @@ type passwordResetEmailPayload struct {
 func RequestPasswordReset(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.RequestPasswordResetRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
-		request = request.Normalize()
 		emailAddress := string(request.EmailAddress)
 		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
@@ -90,9 +88,7 @@ func RequestPasswordReset(s *hubapi.Server) http.HandlerFunc {
 func CompletePasswordReset(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.CompletePasswordResetRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		key, ok := handlerauth.IdempotencyKey(s, w, r)
@@ -153,9 +149,7 @@ func completeHubPasswordReset(
 func ChangePassword(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.ChangePasswordRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())

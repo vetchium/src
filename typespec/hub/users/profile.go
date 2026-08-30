@@ -24,6 +24,8 @@ type SetPreferredLanguageRequest struct {
 	PreferredLanguage common.FrontendLocale `json:"preferred_language"`
 }
 
+func (r *SetPreferredLanguageRequest) Normalize() {}
+
 func (r SetPreferredLanguageRequest) Validate() []string {
 	if !common.IsFrontendLocale(r.PreferredLanguage) {
 		return []string{"preferred_language"}
@@ -34,6 +36,8 @@ func (r SetPreferredLanguageRequest) Validate() []string {
 type SetResidentCountryRequest struct {
 	ResidentCountry common.CountryCode `json:"resident_country"`
 }
+
+func (r *SetResidentCountryRequest) Normalize() {}
 
 func (r SetResidentCountryRequest) Validate() []string {
 	if !common.IsCountryCode(r.ResidentCountry) {

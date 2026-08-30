@@ -15,6 +15,7 @@ import (
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
+	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
@@ -33,12 +34,9 @@ type signupEmailPayload struct {
 func RequestSignup(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.RequestSignupRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
-		request = request.Normalize()
 		key, ok := handlerauth.IdempotencyKey(s, w, r)
 		if !ok {
 			return
@@ -110,9 +108,7 @@ func RequestSignup(s *hubapi.Server) http.HandlerFunc {
 func CompleteSignup(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.CompleteSignupRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		key, ok := handlerauth.IdempotencyKey(s, w, r)

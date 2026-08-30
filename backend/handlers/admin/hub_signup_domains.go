@@ -18,10 +18,10 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
+	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
-	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 )
 
@@ -36,10 +36,7 @@ type hubSignupDomainsPaginationPayload struct {
 func ListHubSignupDomains(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubsignupdomains.ListRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			request = request.Normalize()
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		filtersHash, err := hubSignupDomainsFiltersHash(request)
@@ -126,10 +123,7 @@ func CreateHubSignupDomain(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		var request hubsignupdomains.CreateRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			request = request.Normalize()
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		domainID, err := dbvalue.NewUUID()
@@ -185,10 +179,7 @@ func UpdateHubSignupDomain(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		var request hubsignupdomains.UpdateRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			request = request.Normalize()
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		domainID, _ := dbvalue.ParseUUID(string(request.HubSignupDomainID))

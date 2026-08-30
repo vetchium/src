@@ -14,14 +14,12 @@ type RequestSignupRequest struct {
 	ResidentCountry   common.CountryCode    `json:"resident_country"`
 }
 
-func (r RequestSignupRequest) Normalize() RequestSignupRequest {
+func (r *RequestSignupRequest) Normalize() {
 	r.EmailAddress = common.NormalizeEmailAddress(r.EmailAddress)
 	r.DisplayName = common.NormalizeDisplayName(r.DisplayName)
-	return r
 }
 
 func (r RequestSignupRequest) Validate() []string {
-	r = r.Normalize()
 	fields := make([]string, 0, 4)
 	if !common.IsEmailAddress(r.EmailAddress) {
 		fields = append(fields, "email_address")
@@ -42,6 +40,8 @@ type CompleteSignupRequest struct {
 	SignupToken HubSignupToken     `json:"signup_token"`
 	Password    common.NewPassword `json:"password"`
 }
+
+func (r *CompleteSignupRequest) Normalize() {}
 
 func (r CompleteSignupRequest) Validate() []string {
 	fields := make([]string, 0, 2)

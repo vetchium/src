@@ -13,6 +13,7 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
+	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
@@ -76,9 +77,7 @@ func adminSession(
 func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request adminauth.VerifyTFARequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		key, ok := handlerauth.IdempotencyKey(s, w, r)
@@ -113,9 +112,7 @@ func VerifyTFA(s *adminapi.Server) http.HandlerFunc {
 func VerifyRecoveryCode(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request adminauth.VerifyRecoveryCodeRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		key, ok := handlerauth.IdempotencyKey(s, w, r)
@@ -185,9 +182,7 @@ func StartTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 func ConfirmTOTPEnrollment(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request adminauth.ConfirmTOTPEnrollmentRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		key, ok := handlerauth.IdempotencyKey(s, w, r)
@@ -261,7 +256,7 @@ func DisableTOTP(s *adminapi.Server) http.HandlerFunc {
 			)
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		s.Empty(r.Context(), w, http.StatusNoContent)
 	}
 }
 

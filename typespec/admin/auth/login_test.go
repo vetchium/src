@@ -11,16 +11,10 @@ func TestLoginRequestNormalize(t *testing.T) {
 		Password:     "password",
 	}
 
-	normalized := request.Normalize()
-	if normalized.EmailAddress != "admin@example.com" {
+	request.Normalize()
+	if request.EmailAddress != "admin@example.com" {
 		t.Fatalf(
 			"normalized email_address = %q, want admin@example.com",
-			normalized.EmailAddress,
-		)
-	}
-	if request.EmailAddress != " ADMIN@example.com " {
-		t.Fatalf(
-			"Normalize modified original email_address: %q",
 			request.EmailAddress,
 		)
 	}

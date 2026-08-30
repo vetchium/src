@@ -11,6 +11,7 @@ import (
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/problem"
 
+	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
@@ -96,7 +97,7 @@ func (p PasswordReset) Run(
 // that affects no row means the session no longer identifies a live user, so
 // it answers with the portal's authentication challenge rather than success.
 func ChangePassword(
-	s RuntimeServer, w http.ResponseWriter, r *http.Request,
+	s apiserver.RuntimeServer, w http.ResponseWriter, r *http.Request,
 	operation, newPassword string,
 	change func(context.Context, string) (bool, error),
 	unauthenticated problem.Details, challenge string,
@@ -116,5 +117,5 @@ func ChangePassword(
 		runtime.Problem(r.Context(), w, unauthenticated, challenge)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	runtime.Empty(r.Context(), w, http.StatusNoContent)
 }

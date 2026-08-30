@@ -16,6 +16,8 @@ type ReauthenticateRequest struct {
 	Password common.Password `json:"password"`
 }
 
+func (r *ReauthenticateRequest) Normalize() {}
+
 func (r ReauthenticateRequest) Validate() []string {
 	if r.Password == "" {
 		return []string{"password"}
@@ -27,13 +29,11 @@ type ReauthenticateResponse struct {
 	SessionAuthenticatedAt time.Time `json:"session_authenticated_at"`
 }
 
-func (r LoginRequest) Normalize() LoginRequest {
+func (r *LoginRequest) Normalize() {
 	r.EmailAddress = common.NormalizeEmailAddress(r.EmailAddress)
-	return r
 }
 
 func (r LoginRequest) Validate() []string {
-	r = r.Normalize()
 	fields := make([]string, 0, 2)
 	if !common.IsEmailAddress(r.EmailAddress) {
 		fields = append(fields, "email_address")
@@ -66,6 +66,8 @@ type VerifyTFARequest struct {
 	LoginChallengeToken AdminLoginChallengeToken `json:"login_challenge_token"`
 	TOTPCode            common.TOTPCode          `json:"totp_code"`
 }
+
+func (r *VerifyTFARequest) Normalize() {}
 
 func (r VerifyTFARequest) Validate() []string {
 	fields := make([]string, 0, 2)

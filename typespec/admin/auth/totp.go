@@ -19,6 +19,8 @@ type ConfirmTOTPEnrollmentRequest struct {
 	TOTPCode            common.TOTPCode            `json:"totp_code"`
 }
 
+func (r *ConfirmTOTPEnrollmentRequest) Normalize() {}
+
 func (r ConfirmTOTPEnrollmentRequest) Validate() []string {
 	fields := make([]string, 0, 2)
 	if !common.IsOpaqueToken(string(r.TOTPEnrollmentToken)) {
@@ -38,6 +40,8 @@ type VerifyRecoveryCodeRequest struct {
 	LoginChallengeToken AdminLoginChallengeToken `json:"login_challenge_token"`
 	RecoveryCode        common.TOTPRecoveryCode  `json:"recovery_code"`
 }
+
+func (r *VerifyRecoveryCodeRequest) Normalize() {}
 
 func (r VerifyRecoveryCodeRequest) Validate() []string {
 	fields := make([]string, 0, 2)

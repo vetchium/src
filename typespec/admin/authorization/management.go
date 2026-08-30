@@ -7,6 +7,8 @@ type SetPermissionsRequest struct {
 	Permissions []AdminPermissionID   `json:"permissions"`
 }
 
+func (r *SetPermissionsRequest) Normalize() {}
+
 func (r SetPermissionsRequest) Validate() []string {
 	fields := make([]string, 0, 2)
 	if !adminspec.IsAdminUserID(r.AdminUserID) {

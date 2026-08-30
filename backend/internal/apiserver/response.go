@@ -8,10 +8,30 @@ import (
 	problemspec "github.com/vetchium/src/typespec/problem"
 )
 
+// Problem writes one RFC 9457 response. Every handler exit that is not a
+// success passes through here, so this is also the single place that records
+// which rejection a request received. Problem details carry no request data
+// beyond the failing field names, so the record is safe to emit for every
+// rejection, including credential failures.
 func (s *Runtime) Problem(
 	ctx context.Context, w http.ResponseWriter, details problemspec.Details,
 	wwwAuthenticate ...string,
 ) {
+	attrs := []any{
+		"event", "problem_response",
+		"problem_type", details.Type,
+		"status", details.Status,
+	}
+	if len(details.Fields) != 0 {
+		attrs = append(attrs, "fields", details.Fields)
+	}
+	if details.Status >= http.StatusInternalServerError {
+		// InternalError already reported the cause, so record only the reply.
+		s.WarnContext(ctx, "problem response", attrs...)
+	} else {
+		s.InfoContext(ctx, "problem response", attrs...)
+	}
+
 	w.Header().Set("Content-Type", problemspec.MediaType)
 	if len(wwwAuthenticate) != 0 {
 		w.Header().Set("WWW-Authenticate", wwwAuthenticate[0])

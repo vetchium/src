@@ -49,16 +49,14 @@ func TestDomainNameNormalizationAndValidation(t *testing.T) {
 	}
 }
 
-func TestRequestsNormalizeWithoutMutationAndReportAllFields(t *testing.T) {
+func TestRequestsNormalizeInPlaceAndReportAllFields(t *testing.T) {
 	state := Active
 	create := CreateRequest{Domain: " EXAMPLE.COM. ", State: &state}
-	normalizedCreate := create.Normalize()
-	if create.Domain != " EXAMPLE.COM. " ||
-		normalizedCreate.Domain != "example.com" {
-		t.Fatalf("create normalization mutated input: %#v %#v",
-			create, normalizedCreate)
+	create.Normalize()
+	if create.Domain != "example.com" {
+		t.Fatalf("create normalization = %#v", create)
 	}
-	if fields := normalizedCreate.Validate(); len(fields) != 0 {
+	if fields := create.Validate(); len(fields) != 0 {
 		t.Fatalf("valid create fields = %v", fields)
 	}
 	comment := DisableComment("  Vendor contract ended  ")
@@ -66,12 +64,15 @@ func TestRequestsNormalizeWithoutMutationAndReportAllFields(t *testing.T) {
 	disabledCreate := CreateRequest{
 		Domain: "example.org", State: &disabledState, DisabledComment: &comment,
 	}
-	normalizedDisabledCreate := disabledCreate.Normalize()
-	if *disabledCreate.DisabledComment != "  Vendor contract ended  " ||
-		*normalizedDisabledCreate.DisabledComment != "Vendor contract ended" ||
-		len(normalizedDisabledCreate.Validate()) != 0 {
-		t.Fatalf("disabled create normalization = %#v %#v",
-			disabledCreate, normalizedDisabledCreate)
+	disabledCreate.Normalize()
+	if *disabledCreate.DisabledComment != "Vendor contract ended" ||
+		len(disabledCreate.Validate()) != 0 {
+		t.Fatalf("disabled create normalization = %#v", disabledCreate)
+	}
+	// Normalizing an optional field must retarget the pointer rather than
+	// write through it, so a value the caller still holds stays untouched.
+	if comment != "  Vendor contract ended  " {
+		t.Fatalf("normalization wrote through the caller's pointer: %q", comment)
 	}
 
 	badState := State("retired")
@@ -130,10 +131,12 @@ func TestListRequestDefaultsNormalizationAndBounds(t *testing.T) {
 	if fields := request.Validate(); len(fields) != 0 {
 		t.Fatalf("uppercase search fields = %v", fields)
 	}
-	normalized := request.Normalize()
-	if *request.FilterSearch != "  EXAMPLE  " ||
-		*normalized.FilterSearch != "example" {
-		t.Fatalf("list normalization mutated input: %#v %#v", request, normalized)
+	request.Normalize()
+	if *request.FilterSearch != "example" {
+		t.Fatalf("list normalization = %#v", request)
+	}
+	if search != "  EXAMPLE  " {
+		t.Fatalf("normalization wrote through the caller's pointer: %q", search)
 	}
 
 	zero := commonPageSize(0)

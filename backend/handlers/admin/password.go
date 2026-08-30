@@ -13,6 +13,7 @@ import (
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"backend/internal/adminapi"
+	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
@@ -25,12 +26,9 @@ const passwordResetTTL = 30 * time.Minute
 func RequestPasswordReset(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request adminauth.RequestPasswordResetRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
-		request = request.Normalize()
 		token, tokenHash, err := credentials.NewToken()
 		if err != nil {
 			s.InternalError(r.Context(), w, "generate password reset token", err)
@@ -74,16 +72,14 @@ func RequestPasswordReset(s *adminapi.Server) http.HandlerFunc {
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")
-		w.WriteHeader(http.StatusAccepted)
+		s.Empty(r.Context(), w, http.StatusAccepted)
 	}
 }
 
 func CompletePasswordReset(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request adminauth.CompletePasswordResetRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		key, ok := handlerauth.IdempotencyKey(s, w, r)
@@ -144,9 +140,7 @@ func completeAdminPasswordReset(
 func ChangePassword(s *adminapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request adminauth.ChangePasswordRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		identity, _ := middleware.AdminIdentityFromContext(r.Context())

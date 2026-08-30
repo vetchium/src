@@ -63,6 +63,104 @@ func TestInternalErrorLogsEncodingFailure(t *testing.T) {
 	}
 }
 
+// Every handler exit has to leave a traceable line, so the two shared
+// responders record the reply even when nothing else logs.
+func TestEveryResponseIsRecorded(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		respond  func(*Runtime, http.ResponseWriter)
+		wantLogs []string
+	}{
+		{
+			name: "client problem",
+			respond: func(runtime *Runtime, w http.ResponseWriter) {
+				runtime.Problem(
+					context.Background(), w, problemspec.InvalidJSONError,
+				)
+			},
+			wantLogs: []string{
+				`"level":"INFO"`,
+				`"event":"problem_response"`,
+				`"problem_type":"` + problemspec.InvalidJSONError.Type + `"`,
+				`"status":400`,
+			},
+		},
+		{
+			name: "validation problem carries the failing fields",
+			respond: func(runtime *Runtime, w http.ResponseWriter) {
+				runtime.ValidationFailed(
+					context.Background(), w, []string{"email_address"},
+				)
+			},
+			wantLogs: []string{
+				`"event":"problem_response"`,
+				`"fields":["email_address"]`,
+			},
+		},
+		{
+			name: "server problem stays above info",
+			respond: func(runtime *Runtime, w http.ResponseWriter) {
+				runtime.Problem(
+					context.Background(), w, problemspec.InternalServerError,
+				)
+			},
+			wantLogs: []string{`"level":"WARN"`, `"status":500`},
+		},
+		{
+			name: "JSON response",
+			respond: func(runtime *Runtime, w http.ResponseWriter) {
+				runtime.JSON(
+					context.Background(), w, http.StatusOK,
+					map[string]string{"value": "ok"},
+				)
+			},
+			wantLogs: []string{
+				`"level":"INFO"`, `"event":"json_response"`, `"status":200`,
+			},
+		},
+		{
+			name: "bodyless response",
+			respond: func(runtime *Runtime, w http.ResponseWriter) {
+				runtime.Empty(
+					context.Background(), w, http.StatusNoContent,
+				)
+			},
+			wantLogs: []string{
+				`"level":"INFO"`, `"event":"empty_response"`, `"status":204`,
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			runtime := New(nil, slog.New(slog.NewJSONHandler(&logs, nil)))
+
+			test.respond(runtime, httptest.NewRecorder())
+
+			for _, want := range test.wantLogs {
+				if !bytes.Contains(logs.Bytes(), []byte(want)) {
+					t.Errorf("log = %q, want %q", logs.String(), want)
+				}
+			}
+		})
+	}
+}
+
+// A successful response must never carry the encoded body into the log, since
+// session tokens and recovery codes travel in it.
+func TestJSONDoesNotLogTheEncodedValue(t *testing.T) {
+	var logs bytes.Buffer
+	runtime := New(nil, slog.New(slog.NewJSONHandler(&logs, nil)))
+
+	runtime.JSON(
+		context.Background(), httptest.NewRecorder(), http.StatusOK,
+		map[string]string{"session_token": "super-secret-token"},
+	)
+
+	if bytes.Contains(logs.Bytes(), []byte("super-secret-token")) {
+		t.Fatalf("log leaked the response body: %s", logs.String())
+	}
+}
+
 func TestInvalidJSON(t *testing.T) {
 	var logs bytes.Buffer
 	runtime := New(nil, slog.New(slog.NewJSONHandler(&logs, nil)))

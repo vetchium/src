@@ -1,11 +1,28 @@
 package handlerauth
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/vetchium/src/typespec/problem"
+
 	"backend/internal/apiserver"
 )
+
+func TestFailure(t *testing.T) {
+	_, got, err := Failure[struct{}](
+		problem.InvalidJSONError, `Bearer realm="test"`,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || got.Details.Type != problem.InvalidJSONError.Type ||
+		got.WWWAuthenticate != `Bearer realm="test"` {
+		encoded, _ := json.Marshal(got)
+		t.Fatalf("problem = %s", encoded)
+	}
+}
 
 func TestLoginReplayExpiresAtNeverOutlivesAnySession(t *testing.T) {
 	now := time.Date(2026, 8, 29, 10, 0, 0, 0, time.UTC)

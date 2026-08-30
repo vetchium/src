@@ -12,13 +12,11 @@ type LoginRequest struct {
 	RememberMe   *bool               `json:"remember_me,omitempty"`
 }
 
-func (r LoginRequest) Normalize() LoginRequest {
+func (r *LoginRequest) Normalize() {
 	r.EmailAddress = common.NormalizeEmailAddress(r.EmailAddress)
-	return r
 }
 
 func (r LoginRequest) Validate() []string {
-	r = r.Normalize()
 	fields := make([]string, 0, 2)
 	if !common.IsEmailAddress(r.EmailAddress) {
 		fields = append(fields, "email_address")
@@ -36,6 +34,8 @@ func (r LoginRequest) EffectiveRememberMe() bool {
 type ReauthenticateRequest struct {
 	Password common.Password `json:"password"`
 }
+
+func (r *ReauthenticateRequest) Normalize() {}
 
 func (r ReauthenticateRequest) Validate() []string {
 	if r.Password == "" {
@@ -70,6 +70,8 @@ type VerifyTFARequest struct {
 	LoginChallengeToken HubLoginChallengeToken `json:"login_challenge_token"`
 	TOTPCode            common.TOTPCode        `json:"totp_code"`
 }
+
+func (r *VerifyTFARequest) Normalize() {}
 
 func (r VerifyTFARequest) Validate() []string {
 	fields := make([]string, 0, 2)

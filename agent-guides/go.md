@@ -40,6 +40,18 @@ not apply to generated Go output such as `backend/internal/db/sqlc/*.go`.
   repeating string literals. Do not widen a closed vocabulary field to
   `string`; validate values received from untrusted inputs because a named Go
   type alone does not enforce membership at runtime.
+- Give every `*Request` wire type under `typespec/` both a `Normalize()` and a
+  `Validate() []string` method, so it satisfies `apiserver.Request`. A type that
+  needs no canonicalization still declares an empty `Normalize()`; the compiler
+  then reports a request type that never considered normalization, and a field
+  added later to a type whose body is empty is a visible omission rather than a
+  silently skipped one.
+- Declare `Normalize()` on a pointer receiver and canonicalize in place. Keep
+  `Validate()` on a value receiver: it must not mutate, and it may assume it
+  receives normalized input because the decoder normalizes first. Do not
+  re-normalize inside `Validate()`. When normalization replaces an optional
+  field, assign a new pointer instead of writing through the existing one, so a
+  value the caller still holds is left alone.
 - Propagate request contexts through database, logging, and downstream calls.
 - Preserve error identity with `%w` when adding context to returned errors.
 - Avoid deprecated library APIs. Check the version pinned by the owning module

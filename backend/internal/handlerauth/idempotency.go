@@ -13,7 +13,7 @@ import (
 )
 
 type IdempotencyServer interface {
-	RuntimeServer
+	apiserver.RuntimeServer
 	EncryptIdempotency([]byte) ([]byte, error)
 	DecryptIdempotency([]byte) ([]byte, error)
 }

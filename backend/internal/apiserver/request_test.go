@@ -3,6 +3,7 @@ package apiserver
 import (
 	"bytes"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -72,6 +73,88 @@ func TestDecodeJSON(t *testing.T) {
 				t.Fatalf(
 					"DecodeJSON() error = %v, want error containing %q",
 					err, tt.wantError,
+				)
+			}
+		})
+	}
+}
+
+type runtimeServerStub struct {
+	runtime *Runtime
+}
+
+func (s runtimeServerStub) HandlerRuntime() *Runtime { return s.runtime }
+
+// decodeStub records whether Decode normalized before validating, which is the
+// ordering guarantee every request type depends on.
+type decodeStub struct {
+	Value string `json:"value"`
+
+	validatedValue string
+}
+
+func (r *decodeStub) Normalize() { r.Value = strings.TrimSpace(r.Value) }
+
+func (r *decodeStub) Validate() []string {
+	r.validatedValue = r.Value
+	if r.Value == "bad" {
+		return []string{"value"}
+	}
+	return nil
+}
+
+func TestDecode(t *testing.T) {
+	server := runtimeServerStub{runtime: New(
+		nil, slog.New(slog.NewTextHandler(io.Discard, nil)),
+	)}
+	for _, test := range []struct {
+		name       string
+		body       string
+		wantOK     bool
+		wantValue  string
+		wantStatus int
+	}{
+		{
+			name: "valid", body: `{"value":"ok"}`,
+			wantOK: true, wantValue: "ok", wantStatus: http.StatusOK,
+		},
+		{
+			name: "normalized before validation", body: `{"value":"  ok  "}`,
+			wantOK: true, wantValue: "ok", wantStatus: http.StatusOK,
+		},
+		{
+			name: "normalization decides validity", body: `{"value":"  bad  "}`,
+			wantValue: "bad", wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "invalid JSON", body: `{"unknown":true}`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "invalid wire value", body: `{"value":"bad"}`,
+			wantValue: "bad", wantStatus: http.StatusBadRequest,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var request decodeStub
+			httpRequest := httptest.NewRequest(
+				http.MethodPost, "/", bytes.NewBufferString(test.body),
+			)
+			httpRequest.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+
+			got := Decode(server, response, httpRequest, &request)
+
+			if got != test.wantOK || response.Code != test.wantStatus {
+				t.Fatalf(
+					"result = %t, status = %d; want %t, %d",
+					got, response.Code, test.wantOK, test.wantStatus,
+				)
+			}
+			if request.validatedValue != test.wantValue {
+				t.Fatalf(
+					"validated value = %q, want %q",
+					request.validatedValue, test.wantValue,
 				)
 			}
 		})

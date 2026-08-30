@@ -9,12 +9,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
-	hubspec "github.com/vetchium/src/typespec/hub"
-	hubauth "github.com/vetchium/src/typespec/hub/auth"
-	hubproblem "github.com/vetchium/src/typespec/problem/hub"
+	"github.com/vetchium/src/typespec/hub"
+	"github.com/vetchium/src/typespec/hub/auth"
+	problem "github.com/vetchium/src/typespec/problem/hub"
 
 	"golang.org/x/crypto/bcrypt"
 
+	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
@@ -27,13 +28,10 @@ const loginChallengeTTL = 5 * time.Minute
 
 func Login(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var request hubauth.LoginRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		var request auth.LoginRequest
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
-		request = request.Normalize()
 		user, err := s.Queries.GetHubUserForLogin(
 			r.Context(), string(request.EmailAddress),
 		)
@@ -41,7 +39,7 @@ func Login(s *hubapi.Server) http.HandlerFunc {
 			if errors.Is(err, pgx.ErrNoRows) {
 				credentials.CompareUnknownPassword(string(request.Password))
 				s.Problem(
-					r.Context(), w, hubproblem.InvalidCredentialsError,
+					r.Context(), w, problem.InvalidCredentialsError,
 					hubapi.LoginChallenge,
 				)
 				return
@@ -57,13 +55,13 @@ func Login(s *hubapi.Server) http.HandlerFunc {
 				return
 			}
 			s.Problem(
-				r.Context(), w, hubproblem.InvalidCredentialsError,
+				r.Context(), w, problem.InvalidCredentialsError,
 				hubapi.LoginChallenge,
 			)
 			return
 		}
 		if user.HubUserState != sqlc.VetchiumHubUserStateActive {
-			s.Problem(r.Context(), w, hubproblem.HubUserDisabledError)
+			s.Problem(r.Context(), w, problem.HubUserDisabledError)
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")
@@ -98,7 +96,7 @@ func loginWithoutTOTP(
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			s.Problem(
-				r.Context(), w, hubproblem.InvalidCredentialsError,
+				r.Context(), w, problem.InvalidCredentialsError,
 				hubapi.LoginChallenge,
 			)
 			return
@@ -109,8 +107,8 @@ func loginWithoutTOTP(
 	if session.ExpiresAt.Valid {
 		expiresAt = session.ExpiresAt.Time
 	}
-	s.JSON(r.Context(), w, http.StatusOK, hubauth.LoginAuthenticatedResponse{
-		AuthenticationState: hubauth.AuthenticationStateAuthenticated,
+	s.JSON(r.Context(), w, http.StatusOK, auth.LoginAuthenticatedResponse{
+		AuthenticationState: auth.AuthenticationStateAuthenticated,
 		AuthenticatedSessionResponse: authenticatedSessionResponse(
 			token, expiresAt, user.HubUserDid, user.Handle,
 			user.PreferredLanguage, user.ResidentCountry,
@@ -148,7 +146,7 @@ func loginWithTOTP(
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			s.Problem(
-				r.Context(), w, hubproblem.InvalidCredentialsError,
+				r.Context(), w, problem.InvalidCredentialsError,
 				hubapi.LoginChallenge,
 			)
 			return
@@ -159,19 +157,17 @@ func loginWithTOTP(
 	if challenge.ExpiresAt.Valid {
 		expiresAt = challenge.ExpiresAt.Time
 	}
-	s.JSON(r.Context(), w, http.StatusOK, hubauth.LoginTOTPRequiredResponse{
-		AuthenticationState:     hubauth.AuthenticationStateTOTPRequired,
-		LoginChallengeToken:     hubauth.HubLoginChallengeToken(token),
+	s.JSON(r.Context(), w, http.StatusOK, auth.LoginTOTPRequiredResponse{
+		AuthenticationState:     auth.AuthenticationStateTOTPRequired,
+		LoginChallengeToken:     auth.HubLoginChallengeToken(token),
 		LoginChallengeExpiresAt: expiresAt.UTC(),
 	})
 }
 
 func Reauthenticate(s *hubapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var request hubauth.ReauthenticateRequest
-		if !handlerauth.DecodeAndValidate(s, w, r, &request, func() []string {
-			return request.Validate()
-		}) {
+		var request auth.ReauthenticateRequest
+		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
@@ -183,7 +179,7 @@ func Reauthenticate(s *hubapi.Server) http.HandlerFunc {
 		)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Problem(r.Context(), w, hubproblem.IncorrectPasswordError)
+				s.Problem(r.Context(), w, problem.IncorrectPasswordError)
 				return
 			}
 			s.InternalError(r.Context(), w, "get Hub password", err)
@@ -196,7 +192,7 @@ func Reauthenticate(s *hubapi.Server) http.HandlerFunc {
 				s.InternalError(r.Context(), w, "compare Hub password", err)
 				return
 			}
-			s.Problem(r.Context(), w, hubproblem.IncorrectPasswordError)
+			s.Problem(r.Context(), w, problem.IncorrectPasswordError)
 			return
 		}
 		authenticatedAt, err := s.Queries.ReauthenticateHubSession(
@@ -209,13 +205,13 @@ func Reauthenticate(s *hubapi.Server) http.HandlerFunc {
 		)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				s.Problem(r.Context(), w, hubproblem.IncorrectPasswordError)
+				s.Problem(r.Context(), w, problem.IncorrectPasswordError)
 				return
 			}
 			s.InternalError(r.Context(), w, "reauthenticate Hub session", err)
 			return
 		}
-		s.JSON(r.Context(), w, http.StatusOK, hubauth.ReauthenticateResponse{
+		s.JSON(r.Context(), w, http.StatusOK, auth.ReauthenticateResponse{
 			SessionAuthenticatedAt: authenticatedAt.Time.UTC(),
 		})
 	}
@@ -224,13 +220,13 @@ func Reauthenticate(s *hubapi.Server) http.HandlerFunc {
 func authenticatedSessionResponse(
 	token string, expiresAt time.Time, did pgtype.UUID, handle string,
 	preferredLanguage, residentCountry string,
-) hubauth.AuthenticatedSessionResponse {
-	return hubauth.AuthenticatedSessionResponse{
-		SessionToken:      hubauth.HubSessionToken(token),
+) auth.AuthenticatedSessionResponse {
+	return auth.AuthenticatedSessionResponse{
+		SessionToken:      auth.HubSessionToken(token),
 		SessionExpiresAt:  expiresAt.UTC(),
 		PreferredLanguage: common.FrontendLocale(preferredLanguage),
 		ResidentCountry:   common.CountryCode(residentCountry),
-		HubUserDID:        hubspec.HubUserDID(dbvalue.FormatUUID(did)),
-		Handle:            hubspec.HubHandle(handle),
+		HubUserDID:        hub.HubUserDID(dbvalue.FormatUUID(did)),
+		Handle:            hub.HubHandle(handle),
 	}
 }

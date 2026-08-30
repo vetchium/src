@@ -14,19 +14,18 @@ func TestCompleteSetupNormalizeAndValidate(t *testing.T) {
 		DisplayName:       "  நிர்வாகி  ",
 		PreferredLanguage: common.Tamil,
 	}
-	normalized := request.Normalize()
-	if normalized.DisplayName != "நிர்வாகி" ||
-		request.DisplayName != "  நிர்வாகி  " {
-		t.Fatalf("normalization mutated input: %#v %#v", request, normalized)
+	request.Normalize()
+	if request.DisplayName != "நிர்வாகி" {
+		t.Fatalf("normalization = %#v", request)
 	}
-	if fields := normalized.Validate(); len(fields) != 0 {
+	if fields := request.Validate(); len(fields) != 0 {
 		t.Fatalf("valid request fields = %v", fields)
 	}
 
-	normalized.DisplayName = " "
-	normalized.PreferredLanguage = common.FrontendLocale("fr-FR")
+	request.DisplayName = " "
+	request.PreferredLanguage = common.FrontendLocale("fr-FR")
 	want := []string{"display_name", "preferred_language"}
-	if fields := normalized.Validate(); !slices.Equal(fields, want) {
+	if fields := request.Validate(); !slices.Equal(fields, want) {
 		t.Fatalf("Validate() = %v, want %v", fields, want)
 	}
 }
