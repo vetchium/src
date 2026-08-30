@@ -43,6 +43,25 @@ Clean and bring up the development environment:
 make [dev]
 ```
 
+[Tilt](https://tilt.dev) is an optional front end for that same
+`docker-compose.json` stack. It creates the development secrets through
+`make dev-secrets`, keeps every service's log stream separately addressable,
+and rebuilds only what a change touched instead of recreating the stack the way
+`make dev` does:
+
+```bash
+tilt up                     # every tenant, rebuilding on source changes
+tilt up -- --tenants sgp    # one tenant (repeat the flag for more)
+tilt up -- --manual         # build once, then rebuild only on demand
+tilt logs -f hub-api-sgp    # follow one service outside the UI
+tilt down                   # stop the stack; volumes and secrets survive
+```
+
+Every backend service is built from the same `backend/Dockerfile` and the same
+repository-root context, so one backend change invalidates all of them. Use
+`--manual`, or a single tenant, when that fan-out costs more than it saves.
+`make clean` remains the full teardown.
+
 Clean and bring up the test environment; run the Go, TypeScript, React,
 PostgreSQL, sqlc, dependency, and vulnerability checks and tests; then report
 the per-module and aggregate Go statement coverage. The final report also

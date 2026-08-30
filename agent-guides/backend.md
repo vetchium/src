@@ -93,6 +93,9 @@ for Go rules. Read `database.md` for database work.
 - Keep `docker-compose.json` and `docker-compose-ci.json` separate.
 - Apply topology changes to both Compose files.
 - Keep repeated tenant service blocks explicit in each Compose file.
+- Mirror `docker-compose.json` tenant and service additions in the root
+  `Tiltfile`, which names the development services explicitly for its
+  labels, links, and tenant subsets.
 - Change `deploy/` only when the task includes production deployment.
 
 ## Backend tests
