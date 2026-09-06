@@ -250,6 +250,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
 	passwordFile := filepath.Join(t.TempDir(), "password")
 	path := filepath.Join(t.TempDir(), "config.json")
 	contents := fmt.Sprintf(`{
+  "signupRegionsFile": "/etc/vetchium/signup-regions.json",
   "tenantId": "sgp",
   "env": "dev",
   "database": {
@@ -274,6 +275,11 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
   "globalCoordinator": {
     "baseURL": "http://global-coordinator:8080",
     "credentialFile": "/run/secrets/global_coordinator_credential",
+    "requestTimeout": "5s"
+  },
+  "meshAPIServer": {
+    "baseURL": "http://mesh-api-sgp:8080",
+    "credentialFile": "/run/secrets/mesh_credential",
     "requestTimeout": "5s"
   },
   "hubAPIServer": {
@@ -346,6 +352,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "config.json")
 	contents := fmt.Sprintf(`{
+  "signupRegionsFile": "/etc/vetchium/signup-regions.json",
   "tenantId": "sgp",
   "env": "dev",
   "database": {
@@ -370,6 +377,11 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
   "globalCoordinator": {
     "baseURL": "http://global-coordinator:8080",
     "credentialFile": "/run/secrets/global_coordinator_credential",
+    "requestTimeout": "5s"
+  },
+  "meshAPIServer": {
+    "baseURL": "http://mesh-api-sgp:8080",
+    "credentialFile": "/run/secrets/mesh_credential",
     "requestTimeout": "5s"
   },
   "hubAPIServer": {

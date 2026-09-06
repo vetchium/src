@@ -18,7 +18,9 @@ implemented. The remaining rollout and abuse-control work is tracked here.
 ### Abuse and uniqueness controls
 
 - Add rate limits for signup initiation, verification attempts, source
-  addresses, and repeated email targets.
+  addresses, and repeated email targets. `POST /api/hub/list-signup-regions` is
+  unauthenticated and each call fans out to the tenant's mesh API and on to the
+  coordinator, so it needs a rate limit and a cache before public exposure.
 - Decide whether a low-cost CAPTCHA or proof-of-work challenge is needed after
   measuring abuse. Do not claim that a corporate domain proves a unique human.
 - Add useful abuse signals without storing unnecessary personal data.

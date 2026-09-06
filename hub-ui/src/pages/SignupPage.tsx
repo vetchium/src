@@ -28,6 +28,9 @@ import { APIErrorAlert } from "../components/common/APIErrorAlert";
 
 const languages: FrontendLocale[] = ["en-US", "ta", "de-DE"];
 
+// Pages hold 50 regions, so this bounds discovery at 1000 regions.
+const maxRegionPages = 20;
+
 export function SignupPage() {
   const params = useParams();
   return (
@@ -60,18 +63,20 @@ function SignupFlow() {
       const regions: SignupRegion[] = [];
       let cursor: string | undefined;
       const seen = new Set<string>();
-      do {
-        const page = await hubAPI.listSignupRegions({
+      // A repeated cursor catches a server that loops; the page cap also stops
+      // one that hands out an unbounded chain of fresh cursors.
+      for (let page = 0; page < maxRegionPages; page += 1) {
+        const result = await hubAPI.listSignupRegions({
           resident_country: country,
           pagination_key: cursor,
         });
-        regions.push(...page.regions);
-        cursor = page.next_pagination_key ?? undefined;
-        if (cursor && seen.has(cursor))
-          throw new Error("Repeated region cursor");
-        if (cursor) seen.add(cursor);
-      } while (cursor);
-      return regions;
+        regions.push(...result.regions);
+        cursor = result.next_pagination_key ?? undefined;
+        if (!cursor) return regions;
+        if (seen.has(cursor)) throw new Error("Repeated region cursor");
+        seen.add(cursor);
+      }
+      throw new Error("Too many region pages");
     },
   });
   const options = catalog.data ?? [];

@@ -12,7 +12,7 @@ func TestLoadConfigFile(t *testing.T) {
 	contents := `{
   "env": "dev",
   "credentialFile": "/run/secrets/global_coordinator_credential",
-  "stateFile": "/var/lib/vetchium-global-coordinator/last-id"
+  "signupRegionsFile": "/etc/vetchium/signup-regions.json"
 }`
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
 		t.Fatal(err)
@@ -21,7 +21,7 @@ func TestLoadConfigFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config.Environment != "dev" || config.StateFile == "" ||
+	if config.Environment != "dev" || config.SignupRegionsFile == "" ||
 		config.CredentialFile == "" {
 		t.Fatalf("config = %+v, want populated development config", config)
 	}
@@ -32,7 +32,6 @@ func TestLoadConfigFileRejectsUnknownFields(t *testing.T) {
 	contents := `{
   "env": "dev",
   "credentialFile": "/credential",
-  "stateFile": "/state",
   "database": "forbidden"
 }`
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {

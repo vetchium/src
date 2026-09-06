@@ -5,6 +5,23 @@
 -- a complete schema source for tools such as sqlc.
 CREATE SCHEMA IF NOT EXISTS vetchium;
 
+-- A CHECK constraint may not contain a subquery, so set-returning checks are
+-- wrapped in an immutable function instead. Immutability is what lets the
+-- planner use it in a constraint at all.
+-- +goose StatementBegin
+CREATE OR REPLACE FUNCTION vetchium.array_is_distinct(elements text[])
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+STRICT
+AS $$
+    SELECT cardinality(elements) = (
+        SELECT count(DISTINCT element) FROM unnest(elements) AS element
+    );
+$$;
+-- +goose StatementEnd
+
 CREATE TABLE vetchium.orgs (
     id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name text NOT NULL,
@@ -53,7 +70,8 @@ CREATE TABLE vetchium.hub_users (
     preferred_job_countries text[] NOT NULL DEFAULT '{}',
     CONSTRAINT hub_users_job_countries_check CHECK (
         cardinality(preferred_job_countries) <= 10 AND
-        array_position(preferred_job_countries, NULL) IS NULL
+        array_position(preferred_job_countries, NULL) IS NULL AND
+        vetchium.array_is_distinct(preferred_job_countries)
     ),
     totp_secret_ciphertext bytea,
     totp_enabled boolean NOT NULL DEFAULT false,
@@ -67,7 +85,7 @@ CREATE TABLE vetchium.hub_users (
         substring(hub_user_did::text FROM 15 FOR 1) = '7'
     ),
     CONSTRAINT hub_users_handle_check CHECK (
-        handle ~ '^[a-z0-9]{5}-[0-9a-f]{32}$'
+        handle ~ '^[a-z0-9]{5}-[0-9a-hjkmnp-tv-z]{11}$'
     ),
     CONSTRAINT hub_users_email_address_normalized CHECK (
         email_address = lower(btrim(email_address)) AND
@@ -550,3 +568,4 @@ DROP TABLE IF EXISTS vetchium.hub_users;
 DROP TYPE IF EXISTS vetchium.hub_user_state;
 DROP TABLE IF EXISTS vetchium.audit_events;
 DROP TABLE IF EXISTS vetchium.orgs;
+DROP FUNCTION IF EXISTS vetchium.array_is_distinct(text[]);

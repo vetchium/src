@@ -15,14 +15,12 @@ type Config struct {
 	SignupRegionsFile string
 	Environment       string
 	CredentialFile    string
-	StateFile         string
 }
 
 type fileConfig struct {
 	SignupRegionsFile string `json:"signupRegionsFile"`
 	Environment       string `json:"env"`
 	CredentialFile    string `json:"credentialFile"`
-	StateFile         string `json:"stateFile"`
 }
 
 func LoadConfig() (Config, error) {
@@ -60,11 +58,6 @@ func LoadConfigFile(path string) (Config, error) {
 	if raw.CredentialFile == "" {
 		return Config{}, fmt.Errorf(
 			"global coordinator config %q: missing credentialFile", path,
-		)
-	}
-	if raw.StateFile == "" {
-		return Config{}, fmt.Errorf(
-			"global coordinator config %q: missing stateFile", path,
 		)
 	}
 	return Config(raw), nil

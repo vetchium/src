@@ -17,8 +17,7 @@
     "common/**/*.ts",
     "problem/**/*.ts",
     "hub/**/*.ts",
-    "regions/**/*.ts",
-    "global-coordinator/**/*.ts"
+    "regions/**/*.ts"
   ],
   "exclude": ["node_modules", "tsp-output"]
 }

@@ -6,6 +6,10 @@
         {
           "source": "global_coordinator_config",
           "target": "/etc/vetchium/global-coordinator.json"
+        },
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
         }
       ],
       "secrets": ["global_coordinator_credential"],
@@ -16,9 +20,6 @@
           "protocol": "tcp",
           "mode": "host"
         }
-      ],
-      "volumes": [
-        "global-coordinator-state:/var/lib/vetchium-global-coordinator"
       ],
       "read_only": true,
       "healthcheck": {
@@ -45,8 +46,12 @@
           "delay": "5s"
         },
         "resources": {
-          "limits": { "memory": "128M" },
-          "reservations": { "memory": "32M" }
+          "limits": {
+            "memory": "128M"
+          },
+          "reservations": {
+            "memory": "32M"
+          }
         }
       }
     }
@@ -55,6 +60,10 @@
     "global_coordinator_config": {
       "file": "./config.json",
       "name": "global-coordinator-${GLOBAL_COORDINATOR_CONFIG_HASH:?run via make}"
+    },
+    "signup_regions": {
+      "file": "../signup-regions.json",
+      "name": "global-coordinator-signup-regions-${SIGNUP_REGIONS_HASH:?run via make}"
     }
   },
   "secrets": {
@@ -62,8 +71,5 @@
       "external": true,
       "name": "global_coordinator_credential"
     }
-  },
-  "volumes": {
-    "global-coordinator-state": {}
   }
 }

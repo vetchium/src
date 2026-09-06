@@ -6,7 +6,7 @@ type HubUserDID string
 type HubHandle string
 
 var hubHandlePattern = regexp.MustCompile(
-	`^[a-z0-9]{5}-[0-9a-f]{32}$`,
+	`^[a-z0-9]{5}-[0-9a-hjkmnp-tv-z]{11}$`,
 )
 
 func IsHubUserDID(value HubUserDID) bool {

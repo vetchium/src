@@ -18,10 +18,13 @@ Completion also rechecks region eligibility. A policy refusal never creates a
 user. Already completed idempotent requests retain their original result.
 
 An email may identify independent accounts in different tenants. DIDs are
-immutable, location-neutral UUIDv7 identifiers. Handles contain a readable
-five-character prefix and the full DID without hyphens, so account creation
-requires no global short-ID allocation. The existing short-ID API remains
-available for future consumers.
+immutable, location-neutral UUIDv7 identifiers and are not public. Handles
+contain a readable five-character prefix and eleven random Crockford base32
+characters, so account creation requires no global allocation and a handle
+discloses neither the DID nor the account's creation time. Uniqueness comes
+from the `hub_users` unique index: completion retries a colliding handle with a
+fresh suffix and never consumes the signup request on a collision. There is no
+short-ID service; it had no callers and was removed.
 
 `preferred_job_countries` is initialized to residence during signup and changed
 through an authenticated profile endpoint. Residence changes do not change job

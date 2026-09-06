@@ -167,6 +167,8 @@ export const en = {
     totpAlreadyEnabled: "Two-factor authentication is already enabled.",
     totpNotEnabled: "Two-factor authentication is not enabled.",
     invalidEnrollment: "This authenticator setup expired. Start again.",
+    regionDiscoveryUnavailable:
+      "Regions could not be loaded just now. Try again.",
   },
   profile: {
     jobCountries: "Preferred job countries",

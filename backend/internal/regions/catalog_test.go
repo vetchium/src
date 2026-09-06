@@ -91,3 +91,28 @@ func TestCatalogValidation(t *testing.T) {
 		}
 	}
 }
+
+// SignupEnabled must ignore country restrictions: hub-api compares it against
+// a local setting that knows nothing about the visitor's residence.
+func TestCatalogSignupEnabledIgnoresCountryRestrictions(t *testing.T) {
+	t.Parallel()
+	c := testCatalog(t, 3)
+	c.Regions[0].AllowedCountries = []common.CountryCode{"DEU"}
+	c.Regions[1].SignupEnabled = false
+	for _, tt := range []struct {
+		tenant string
+		want   bool
+	}{
+		{"region000", true},
+		{"region001", false},
+		{"region002", true},
+		{"unknown", false},
+	} {
+		if got := c.SignupEnabled(tt.tenant); got != tt.want {
+			t.Errorf("SignupEnabled(%q) = %v, want %v", tt.tenant, got, tt.want)
+		}
+	}
+	if c.Allows("region000", "IND") {
+		t.Fatal("country restriction ignored by Allows")
+	}
+}

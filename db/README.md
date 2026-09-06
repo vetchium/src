@@ -5,8 +5,17 @@ This directory contains the database source artifacts used by Vetchium:
 - `bootstrap/` contains the one-time initialization files mounted into the
   pinned official PostgreSQL image.
 - `migrations/` contains the versioned application schema managed by Goose.
-- `dev-seed/` contains only local-development fixtures. Production data is not
-  stored in this repository.
+- `db-seed/` contains only local-development fixtures written straight to the
+  tables. Production data is not stored in this repository.
+
+Fixtures that must be created through a portal API instead of by direct
+insert live in the `dev-seed` command (`backend/cmd/dev-seed`), which runs
+after `db-seed` and logs in as the administrator `db-seed` created. Anything
+that has to pass API validation, authorization, or auditing belongs there;
+plain table content belongs in `db-seed/`. The Hub signup allowlist is seeded
+this way, so each development tenant admits `<tenant>.example` addresses and
+nothing else. Signup refuses any domain that is not on the receiving tenant's
+active allowlist, so a tenant with no seeded domain accepts no signups at all.
 
 For a new, empty PostgreSQL data volume, the official image performs this order:
 
@@ -32,7 +41,7 @@ and the mounted runtime secret as one explicit operation.
 
 ## Development admin credentials
 
-Each `dev-seed/<tenant>.sql` file creates several local administrators, one per
+Each `db-seed/<tenant>.sql` file creates several local administrators, one per
 combination of access and account state the admin portal has to present. They
 all share the password `DevPassword123$`:
 

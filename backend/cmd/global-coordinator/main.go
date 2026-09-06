@@ -29,20 +29,6 @@ func run(log *slog.Logger, address string) error {
 	if err != nil {
 		return err
 	}
-	generator, err := globalcoordinator.OpenGenerator(config.StateFile)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if closeErr := generator.Close(); closeErr != nil {
-			log.Error(
-				"close short ID generator",
-				"event", "generator_close_error",
-				"error", closeErr,
-			)
-		}
-	}()
-
 	ctx, stop := service.SignalContext()
 	defer stop()
 
@@ -50,7 +36,6 @@ func run(log *slog.Logger, address string) error {
 	server := &globalcoordinator.Server{
 		Runtime:    runtime,
 		Regions:    catalog,
-		Generator:  generator,
 		Credential: credential,
 	}
 	mux := http.NewServeMux()

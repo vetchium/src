@@ -23,8 +23,12 @@
   "globalCoordinator": {
     "baseURL": "http://global-coordinator:8080",
     "credentialFile": "/run/secrets/global_coordinator_credential",
-    "requestTimeout": "5s",
-    "meshBaseURL": "http://mesh-api-deu:8080"
+    "requestTimeout": "5s"
+  },
+  "meshAPIServer": {
+    "baseURL": "http://mesh-api-deu:8080",
+    "credentialFile": "/run/secrets/mesh_credential",
+    "requestTimeout": "5s"
   },
   "hubAPIServer": {
     "sessionTTL": "24h",

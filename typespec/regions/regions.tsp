@@ -4,6 +4,7 @@ import "../common/pagination.tsp";
 import "../problem/common.tsp";
 import "../problem/details.tsp";
 import "../problem/global-coordinator/authentication.tsp";
+import "../problem/regions/discovery.tsp";
 using TypeSpec.Http;
 namespace Vetchium.Regions;
 model ListSignupRegionsRequest {
@@ -30,6 +31,7 @@ alias ListResponse =
   | Vetchium.Problem.InvalidJSONErrorResponse
   | Vetchium.Problem.ValidationFailedErrorResponse
   | Vetchium.Problem.InvalidPaginationKeyErrorResponse
+  | Vetchium.Problem.RegionDiscoveryUnavailableErrorResponse
   | Vetchium.Problem.InternalServerErrorResponse;
 @route("/api/hub")
 @tag("Hub signup")

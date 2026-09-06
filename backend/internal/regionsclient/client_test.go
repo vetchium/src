@@ -1,4 +1,4 @@
-package globalcoordinatorclient
+package regionsclient
 
 import (
 	"context"
@@ -30,7 +30,7 @@ func TestRegionDiscoveryClient(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != http.MethodPost || r.URL.Path != "/mesh/list-signup-regions" || r.Header.Get("Authorization") != "Bearer credential" {
+				if r.Method != http.MethodPost || r.URL.Path != MeshPath || r.Header.Get("Authorization") != "Bearer credential" {
 					t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 				}
 				w.Header().Set("Content-Type", tt.media)
@@ -38,8 +38,7 @@ func TestRegionDiscoveryClient(t *testing.T) {
 				_, _ = w.Write([]byte(tt.body))
 			}))
 			defer server.Close()
-			client := New(server.URL, "credential", time.Second)
-			client.RegionsPath = "/mesh/list-signup-regions"
+			client := New(server.URL, MeshPath, "credential", time.Second)
 			result, err := client.ListSignupRegions(context.Background(), regionspec.ListSignupRegionsRequest{ResidentCountry: "IND"})
 			if (err != nil) != tt.wantError {
 				t.Fatalf("result=%+v error=%v", result, err)

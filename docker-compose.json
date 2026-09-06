@@ -1,7 +1,9 @@
 {
   "name": "vetchium",
   "configs": {
-    "signup_regions": { "file": "./config/signup-regions.json" },
+    "signup_regions": {
+      "file": "./config/signup-regions.json"
+    },
     "global_coordinator_config": {
       "file": "./config/global-coordinator.json"
     },
@@ -101,6 +103,9 @@
     },
     "global_coordinator_credential": {
       "file": "./.dev-secrets/global_coordinator_credential"
+    },
+    "mesh_credential": {
+      "file": "./.dev-secrets/mesh_credential"
     }
   },
   "services": {
@@ -114,11 +119,19 @@
         "timeout": "2s"
       },
       "networks": {
-        "deu_backend": { "aliases": ["mailpit"] },
-        "ind1_backend": { "aliases": ["mailpit"] },
+        "deu_backend": {
+          "aliases": ["mailpit"]
+        },
+        "ind1_backend": {
+          "aliases": ["mailpit"]
+        },
         "mailpit_access": null,
-        "sgp_backend": { "aliases": ["mailpit"] },
-        "usa1_backend": { "aliases": ["mailpit"] }
+        "sgp_backend": {
+          "aliases": ["mailpit"]
+        },
+        "usa1_backend": {
+          "aliases": ["mailpit"]
+        }
       },
       "ports": ["${MAILPIT_BIND:-127.0.0.1}:${MAILPIT_PORT:-18025}:8025"],
       "read_only": true,
@@ -159,10 +172,7 @@
       "read_only": true,
       "restart": "unless-stopped",
       "secrets": ["global_coordinator_credential"],
-      "security_opt": ["no-new-privileges:true"],
-      "volumes": [
-        "global-coordinator-state:/var/lib/vetchium-global-coordinator"
-      ]
+      "security_opt": ["no-new-privileges:true"]
     },
     "admin-api-deu": {
       "build": {
@@ -171,7 +181,7 @@
         "target": "admin-api"
       },
       "depends_on": {
-        "seed-deu": {
+        "db-seed-deu": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -207,10 +217,6 @@
         {
           "source": "admin_credential_key",
           "target": "/run/secrets/admin_credential_key"
-        },
-        {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -222,7 +228,7 @@
         "target": "admin-api"
       },
       "depends_on": {
-        "seed-ind1": {
+        "db-seed-ind1": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -258,10 +264,6 @@
         {
           "source": "admin_credential_key",
           "target": "/run/secrets/admin_credential_key"
-        },
-        {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -273,7 +275,7 @@
         "target": "admin-api"
       },
       "depends_on": {
-        "seed-sgp": {
+        "db-seed-sgp": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -309,10 +311,6 @@
         {
           "source": "admin_credential_key",
           "target": "/run/secrets/admin_credential_key"
-        },
-        {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -324,7 +322,7 @@
         "target": "admin-api"
       },
       "depends_on": {
-        "seed-usa1": {
+        "db-seed-usa1": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -360,10 +358,6 @@
         {
           "source": "admin_credential_key",
           "target": "/run/secrets/admin_credential_key"
-        },
-        {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -723,7 +717,7 @@
         "target": "hub-api"
       },
       "depends_on": {
-        "seed-deu": {
+        "db-seed-deu": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -733,7 +727,10 @@
           "source": "signup_regions",
           "target": "/etc/vetchium/signup-regions.json"
         },
-        { "source": "app_config_deu", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_deu",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -758,12 +755,12 @@
           "target": "/run/secrets/app_postgres_password"
         },
         {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
-        },
-        {
           "source": "hub_credential_key",
           "target": "/run/secrets/hub_credential_key"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -775,7 +772,7 @@
         "target": "hub-api"
       },
       "depends_on": {
-        "seed-ind1": {
+        "db-seed-ind1": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -785,7 +782,10 @@
           "source": "signup_regions",
           "target": "/etc/vetchium/signup-regions.json"
         },
-        { "source": "app_config_ind1", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_ind1",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -810,12 +810,12 @@
           "target": "/run/secrets/app_postgres_password"
         },
         {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
-        },
-        {
           "source": "hub_credential_key",
           "target": "/run/secrets/hub_credential_key"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -827,7 +827,7 @@
         "target": "hub-api"
       },
       "depends_on": {
-        "seed-sgp": {
+        "db-seed-sgp": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -837,7 +837,10 @@
           "source": "signup_regions",
           "target": "/etc/vetchium/signup-regions.json"
         },
-        { "source": "app_config_sgp", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_sgp",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -862,12 +865,12 @@
           "target": "/run/secrets/app_postgres_password"
         },
         {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
-        },
-        {
           "source": "hub_credential_key",
           "target": "/run/secrets/hub_credential_key"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -879,7 +882,7 @@
         "target": "hub-api"
       },
       "depends_on": {
-        "seed-usa1": {
+        "db-seed-usa1": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -889,7 +892,10 @@
           "source": "signup_regions",
           "target": "/etc/vetchium/signup-regions.json"
         },
-        { "source": "app_config_usa1", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_usa1",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -914,12 +920,12 @@
           "target": "/run/secrets/app_postgres_password"
         },
         {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
-        },
-        {
           "source": "hub_credential_key",
           "target": "/run/secrets/hub_credential_key"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -987,13 +993,16 @@
         "target": "mcp-server"
       },
       "depends_on": {
-        "seed-deu": {
+        "db-seed-deu": {
           "condition": "service_completed_successfully",
           "required": true
         }
       },
       "configs": [
-        { "source": "app_config_deu", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_deu",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -1018,10 +1027,6 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
-        },
-        {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1033,13 +1038,16 @@
         "target": "mcp-server"
       },
       "depends_on": {
-        "seed-ind1": {
+        "db-seed-ind1": {
           "condition": "service_completed_successfully",
           "required": true
         }
       },
       "configs": [
-        { "source": "app_config_ind1", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_ind1",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -1064,10 +1072,6 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
-        },
-        {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1079,13 +1083,16 @@
         "target": "mcp-server"
       },
       "depends_on": {
-        "seed-sgp": {
+        "db-seed-sgp": {
           "condition": "service_completed_successfully",
           "required": true
         }
       },
       "configs": [
-        { "source": "app_config_sgp", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_sgp",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -1110,10 +1117,6 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
-        },
-        {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1125,13 +1128,16 @@
         "target": "mcp-server"
       },
       "depends_on": {
-        "seed-usa1": {
+        "db-seed-usa1": {
           "condition": "service_completed_successfully",
           "required": true
         }
       },
       "configs": [
-        { "source": "app_config_usa1", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_usa1",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -1156,10 +1162,6 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
-        },
-        {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1171,7 +1173,7 @@
         "target": "mesh-api"
       },
       "depends_on": {
-        "seed-deu": {
+        "db-seed-deu": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -1181,7 +1183,10 @@
           "source": "signup_regions",
           "target": "/etc/vetchium/signup-regions.json"
         },
-        { "source": "app_config_deu", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_deu",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -1208,6 +1213,10 @@
         {
           "source": "global_coordinator_credential",
           "target": "/run/secrets/global_coordinator_credential"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1219,7 +1228,7 @@
         "target": "mesh-api"
       },
       "depends_on": {
-        "seed-ind1": {
+        "db-seed-ind1": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -1229,7 +1238,10 @@
           "source": "signup_regions",
           "target": "/etc/vetchium/signup-regions.json"
         },
-        { "source": "app_config_ind1", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_ind1",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -1256,6 +1268,10 @@
         {
           "source": "global_coordinator_credential",
           "target": "/run/secrets/global_coordinator_credential"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1267,7 +1283,7 @@
         "target": "mesh-api"
       },
       "depends_on": {
-        "seed-sgp": {
+        "db-seed-sgp": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -1277,7 +1293,10 @@
           "source": "signup_regions",
           "target": "/etc/vetchium/signup-regions.json"
         },
-        { "source": "app_config_sgp", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_sgp",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -1304,6 +1323,10 @@
         {
           "source": "global_coordinator_credential",
           "target": "/run/secrets/global_coordinator_credential"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1315,7 +1338,7 @@
         "target": "mesh-api"
       },
       "depends_on": {
-        "seed-usa1": {
+        "db-seed-usa1": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -1325,7 +1348,10 @@
           "source": "signup_regions",
           "target": "/etc/vetchium/signup-regions.json"
         },
-        { "source": "app_config_usa1", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_usa1",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -1352,6 +1378,10 @@
         {
           "source": "global_coordinator_credential",
           "target": "/run/secrets/global_coordinator_credential"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1443,13 +1473,16 @@
         "target": "orgs-api"
       },
       "depends_on": {
-        "seed-deu": {
+        "db-seed-deu": {
           "condition": "service_completed_successfully",
           "required": true
         }
       },
       "configs": [
-        { "source": "app_config_deu", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_deu",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -1472,10 +1505,6 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
-        },
-        {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1487,13 +1516,16 @@
         "target": "orgs-api"
       },
       "depends_on": {
-        "seed-ind1": {
+        "db-seed-ind1": {
           "condition": "service_completed_successfully",
           "required": true
         }
       },
       "configs": [
-        { "source": "app_config_ind1", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_ind1",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -1516,10 +1548,6 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
-        },
-        {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1531,13 +1559,16 @@
         "target": "orgs-api"
       },
       "depends_on": {
-        "seed-sgp": {
+        "db-seed-sgp": {
           "condition": "service_completed_successfully",
           "required": true
         }
       },
       "configs": [
-        { "source": "app_config_sgp", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_sgp",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -1560,10 +1591,6 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
-        },
-        {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1575,13 +1602,16 @@
         "target": "orgs-api"
       },
       "depends_on": {
-        "seed-usa1": {
+        "db-seed-usa1": {
           "condition": "service_completed_successfully",
           "required": true
         }
       },
       "configs": [
-        { "source": "app_config_usa1", "target": "/etc/vetchium/config.json" }
+        {
+          "source": "app_config_usa1",
+          "target": "/etc/vetchium/config.json"
+        }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
@@ -1604,10 +1634,6 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
-        },
-        {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1652,7 +1678,7 @@
       "restart": "unless-stopped",
       "security_opt": ["no-new-privileges:true"]
     },
-    "seed-deu": {
+    "db-seed-deu": {
       "command": [
         "psql",
         "--no-password",
@@ -1687,13 +1713,38 @@
             "create_host_path": true
           },
           "read_only": true,
-          "source": "./db/dev-seed/deu.sql",
+          "source": "./db/db-seed/deu.sql",
           "target": "/seed.sql",
           "type": "bind"
         }
       ]
     },
-    "seed-ind1": {
+    "dev-seed-deu": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "dev-seed"
+      },
+      "depends_on": {
+        "admin-api-deu": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "DEV_SEED_ADMIN_API_URL": "http://admin-api-deu:8080",
+        "DEV_SEED_ADMIN_EMAIL": "admin@deu.example",
+        "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
+        "DEV_SEED_SIGNUP_DOMAINS": "deu.example"
+      },
+      "networks": {
+        "deu_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "db-seed-ind1": {
       "command": [
         "psql",
         "--no-password",
@@ -1728,13 +1779,38 @@
             "create_host_path": true
           },
           "read_only": true,
-          "source": "./db/dev-seed/ind1.sql",
+          "source": "./db/db-seed/ind1.sql",
           "target": "/seed.sql",
           "type": "bind"
         }
       ]
     },
-    "seed-sgp": {
+    "dev-seed-ind1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "dev-seed"
+      },
+      "depends_on": {
+        "admin-api-ind1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "DEV_SEED_ADMIN_API_URL": "http://admin-api-ind1:8080",
+        "DEV_SEED_ADMIN_EMAIL": "admin@ind1.example",
+        "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
+        "DEV_SEED_SIGNUP_DOMAINS": "ind1.example"
+      },
+      "networks": {
+        "ind1_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "db-seed-sgp": {
       "command": [
         "psql",
         "--no-password",
@@ -1769,13 +1845,38 @@
             "create_host_path": true
           },
           "read_only": true,
-          "source": "./db/dev-seed/sgp.sql",
+          "source": "./db/db-seed/sgp.sql",
           "target": "/seed.sql",
           "type": "bind"
         }
       ]
     },
-    "seed-usa1": {
+    "dev-seed-sgp": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "dev-seed"
+      },
+      "depends_on": {
+        "admin-api-sgp": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "DEV_SEED_ADMIN_API_URL": "http://admin-api-sgp:8080",
+        "DEV_SEED_ADMIN_EMAIL": "admin@sgp.example",
+        "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
+        "DEV_SEED_SIGNUP_DOMAINS": "sgp.example"
+      },
+      "networks": {
+        "sgp_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "db-seed-usa1": {
       "command": [
         "psql",
         "--no-password",
@@ -1810,11 +1911,36 @@
             "create_host_path": true
           },
           "read_only": true,
-          "source": "./db/dev-seed/usa1.sql",
+          "source": "./db/db-seed/usa1.sql",
           "target": "/seed.sql",
           "type": "bind"
         }
       ]
+    },
+    "dev-seed-usa1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "dev-seed"
+      },
+      "depends_on": {
+        "admin-api-usa1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "DEV_SEED_ADMIN_API_URL": "http://admin-api-usa1:8080",
+        "DEV_SEED_ADMIN_EMAIL": "admin@usa1.example",
+        "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
+        "DEV_SEED_SIGNUP_DOMAINS": "usa1.example"
+      },
+      "networks": {
+        "usa1_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"]
     },
     "traefik-deu": {
       "command": [
@@ -1979,7 +2105,7 @@
           "condition": "service_healthy",
           "required": true
         },
-        "seed-deu": {
+        "db-seed-deu": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -2022,7 +2148,7 @@
           "condition": "service_healthy",
           "required": true
         },
-        "seed-ind1": {
+        "db-seed-ind1": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -2065,7 +2191,7 @@
           "condition": "service_healthy",
           "required": true
         },
-        "seed-sgp": {
+        "db-seed-sgp": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -2108,7 +2234,7 @@
           "condition": "service_healthy",
           "required": true
         },
-        "seed-usa1": {
+        "db-seed-usa1": {
           "condition": "service_completed_successfully",
           "required": true
         }
@@ -2142,7 +2268,6 @@
     }
   },
   "volumes": {
-    "global-coordinator-state": {},
     "pgdata-deu": {},
     "pgdata-ind1": {},
     "pgdata-sgp": {},

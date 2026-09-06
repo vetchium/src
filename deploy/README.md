@@ -6,9 +6,10 @@ services: `admin-api`, `hub-api`, `orgs-api`, `mesh-api`, `mcp-server`, and
 `workers`.
 
 `global-coordinator/stack.json` is a separate singleton deployment. It has no
-database and currently exposes only authenticated short-ID generation. Its
-small state volume stores the last allocated counter so normal restarts cannot
-reuse an identifier.
+database, no volume, and no durable state; it exposes only authenticated region
+discovery. `signup-regions.json` in this directory is the region catalog shared
+by every stack, mounted read-only into `hub-api`, `mesh-api`, and the
+coordinator. All three refuse to start without it.
 
 Images are pulled from the configured registry. Nothing is built from this
 directory.
@@ -47,13 +48,23 @@ Swarm config name causes the backend services to roll when the file changes.
 
 Each tenant's `globalCoordinator.baseURL` must resolve to the coordinator over
 the operator's private HTTP network. Do not expose the coordinator directly to
-the public Internet. The singleton must retain its named state volume and use
-stop-first updates; do not scale it horizontally. Restrict each tenant's
+the public Internet. Only `mesh-api` dials the coordinator, so it is the only
+service in a tenant stack that carries `global_coordinator_credential` or joins
+`global_coordinator_egress`. Every other service reaches discovery through its
+own tenant's `mesh-api`, presenting the separate per-region
+`<region>_mesh_credential` that `make deploy` generates locally on first use.
+Keeping the two apart means a compromised portal API can reach neither the
+coordinator nor another region's mesh. Restrict each tenant's
 `global_coordinator_egress` network at the host firewall to the configured
-coordinator destination. Losing the state volume removes the no-reuse
-guarantee, so back it up and restore it with the service. Docker secrets are
-immutable; credential rotation requires coordinated replacement of the global
-and per-tenant secrets before their services are redeployed.
+coordinator destination. Docker secrets are immutable; credential rotation
+requires coordinated replacement of the global and per-tenant secrets before
+their services are redeployed.
+
+`hubAPIServer.signup.enabled` must agree with the region's `signupEnabled` in
+`signup-regions.json`. `hub-api` compares them at startup and refuses to run if
+they disagree, because discovery would otherwise send visitors to a region that
+then refuses them. Changing either one means rolling the catalog and the
+region's config together.
 
 For an existing stack, migrations run before `docker stack deploy`. A failed
 migration leaves the running stack untouched. On the first deployment, the
@@ -66,7 +77,9 @@ migrations are then applied.
 - Traefik is the only publicly exposed ingress. For each portal hostname it
   sends `/api` to the matching `admin-api`, `hub-api`, or `orgs-api` over a
   dedicated private access network; all other paths go to the static portal.
-- `mesh-api`: private `mesh` plus `backend`; no published port and no ingress.
+- `mesh-api`: private `mesh` and `backend`, plus `global_coordinator_egress`;
+  no published port and no ingress. It is the only service that dials the
+  coordinator, so it is the only one on that egress network.
 - `mcp-server`: private `mcp_access` plus `backend`; Traefik can reach the
   network, but no MCP router is configured by default.
 - `workers`: `backend` only and exactly one replica per tenant. Do not scale this

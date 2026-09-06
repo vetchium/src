@@ -23,6 +23,9 @@ type Querier interface {
 	CompleteAdminTOTPLogin(ctx context.Context, arg CompleteAdminTOTPLoginParams) (CompleteAdminTOTPLoginRow, error)
 	CompleteHubPasswordReset(ctx context.Context, arg CompleteHubPasswordResetParams) (bool, error)
 	CompleteHubRecoveryCodeLogin(ctx context.Context, arg CompleteHubRecoveryCodeLoginParams) (CompleteHubRecoveryCodeLoginRow, error)
+	// ON CONFLICT DO NOTHING absorbs a random-handle collision as well as a
+	// racing duplicate email. Either way no user row appears and the caller
+	// retries with a fresh handle; 'conflict' below reports which happened.
 	CompleteHubSignup(ctx context.Context, arg CompleteHubSignupParams) (CompleteHubSignupRow, error)
 	CompleteHubTOTPLogin(ctx context.Context, arg CompleteHubTOTPLoginParams) (CompleteHubTOTPLoginRow, error)
 	CompleteIdempotency(ctx context.Context, arg CompleteIdempotencyParams) error
@@ -37,6 +40,10 @@ type Querier interface {
 	CreateHubPasswordReset(ctx context.Context, arg CreateHubPasswordResetParams) (bool, error)
 	CreateHubSession(ctx context.Context, arg CreateHubSessionParams) (CreateHubSessionRow, error)
 	CreateHubSignupDomain(ctx context.Context, arg CreateHubSignupDomainParams) (CreateHubSignupDomainRow, error)
+	// An attempt on an address that already has an account is answered with the
+	// same 202 as a fresh request, so that the response cannot be used to test
+	// whether an address is registered. This event is the only record that it
+	// happened, and repeated rows are what makes probing visible to an operator.
 	CreateHubSignupRequest(ctx context.Context, arg CreateHubSignupRequestParams) (string, error)
 	CreateHubTOTPEnrollment(ctx context.Context, arg CreateHubTOTPEnrollmentParams) (CreateHubTOTPEnrollmentRow, error)
 	CreateIdempotency(ctx context.Context, arg CreateIdempotencyParams) error

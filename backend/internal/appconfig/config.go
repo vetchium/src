@@ -29,6 +29,7 @@ type Config struct {
 	Workers           Workers
 	AdminAPIServer    AdminAPIServer
 	GlobalCoordinator GlobalCoordinator
+	MeshAPIServer     MeshAPIServer
 	HubAPIServer      HubAPIServer
 	SMTP              SMTP
 	OrgsAPIServer     Server
@@ -92,8 +93,19 @@ const (
 	StartTLSRequired      StartTLSMode = "required"
 )
 
+// GlobalCoordinator is the mesh API's link to the coordinator. No other
+// program dials the coordinator, so no other program reads its credential.
 type GlobalCoordinator struct {
-	MeshBaseURL    string
+	BaseURL        string
+	CredentialFile string
+	RequestTimeout time.Duration
+}
+
+// MeshAPIServer is this tenant's own mesh API: the origin hub-api dials for
+// region discovery, and the credential both sides of that hop present. Keeping
+// it distinct from the coordinator credential means a compromised hub-api
+// cannot reach the coordinator or another tenant's mesh.
+type MeshAPIServer struct {
 	BaseURL        string
 	CredentialFile string
 	RequestTimeout time.Duration
@@ -109,6 +121,7 @@ type fileConfig struct {
 	Workers           fileWorkers            `json:"workers"`
 	AdminAPIServer    *fileAdminAPIServer    `json:"adminAPIServer"`
 	GlobalCoordinator *fileGlobalCoordinator `json:"globalCoordinator"`
+	MeshAPIServer     *fileMeshAPIServer     `json:"meshAPIServer"`
 	HubAPIServer      *fileHubAPIServer      `json:"hubAPIServer"`
 	SMTP              *fileSMTP              `json:"smtp"`
 	OrgsAPIServer     *Server                `json:"orgsAPIServer"`
@@ -116,7 +129,12 @@ type fileConfig struct {
 }
 
 type fileGlobalCoordinator struct {
-	MeshBaseURL    string `json:"meshBaseURL"`
+	BaseURL        string `json:"baseURL"`
+	CredentialFile string `json:"credentialFile"`
+	RequestTimeout string `json:"requestTimeout"`
+}
+
+type fileMeshAPIServer struct {
 	BaseURL        string `json:"baseURL"`
 	CredentialFile string `json:"credentialFile"`
 	RequestTimeout string `json:"requestTimeout"`
@@ -256,6 +274,18 @@ func LoadFile(path string) (Config, error) {
 		err := fmt.Errorf("missing globalCoordinator")
 		return Config{}, configError(path, err)
 	}
+	if raw.MeshAPIServer == nil {
+		err := fmt.Errorf("missing meshAPIServer")
+		return Config{}, configError(path, err)
+	}
+	// Every tenant program loads the region catalog from this path and refuses
+	// to start without it, so an absent setting is a configuration error rather
+	// than something to discover at boot.
+	if err := required(
+		"signupRegionsFile", raw.SignupRegionsFile,
+	); err != nil {
+		return Config{}, configError(path, err)
+	}
 	coordinatorURL, err := url.Parse(raw.GlobalCoordinator.BaseURL)
 	if err != nil || coordinatorURL.Scheme == "" || coordinatorURL.Host == "" ||
 		(coordinatorURL.Scheme != "http" && coordinatorURL.Scheme != "https") ||
@@ -274,14 +304,27 @@ func LoadFile(path string) (Config, error) {
 	); err != nil {
 		return Config{}, configError(path, err)
 	}
-	if raw.GlobalCoordinator.MeshBaseURL != "" {
-		if _, err := httpOrigin("globalCoordinator.meshBaseURL", raw.GlobalCoordinator.MeshBaseURL); err != nil {
-			return Config{}, configError(path, err)
-		}
-	}
 	coordinatorTimeout, err := positiveDuration(
 		"globalCoordinator.requestTimeout",
 		raw.GlobalCoordinator.RequestTimeout,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+
+	meshBaseURL, err := httpOrigin(
+		"meshAPIServer.baseURL", raw.MeshAPIServer.BaseURL,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	if err := required(
+		"meshAPIServer.credentialFile", raw.MeshAPIServer.CredentialFile,
+	); err != nil {
+		return Config{}, configError(path, err)
+	}
+	meshTimeout, err := positiveDuration(
+		"meshAPIServer.requestTimeout", raw.MeshAPIServer.RequestTimeout,
 	)
 	if err != nil {
 		return Config{}, configError(path, err)
@@ -381,8 +424,12 @@ func LoadFile(path string) (Config, error) {
 		AdminAPIServer: AdminAPIServer{
 			SessionTTL: adminSessionTTL,
 		},
+		MeshAPIServer: MeshAPIServer{
+			BaseURL:        meshBaseURL,
+			CredentialFile: raw.MeshAPIServer.CredentialFile,
+			RequestTimeout: meshTimeout,
+		},
 		GlobalCoordinator: GlobalCoordinator{
-			MeshBaseURL:    raw.GlobalCoordinator.MeshBaseURL,
 			BaseURL:        strings.TrimRight(coordinatorURL.String(), "/"),
 			CredentialFile: raw.GlobalCoordinator.CredentialFile,
 			RequestTimeout: coordinatorTimeout,
@@ -408,18 +455,22 @@ func LoadFile(path string) (Config, error) {
 }
 
 func (c GlobalCoordinator) Credential() (string, error) {
-	value, err := os.ReadFile(c.CredentialFile)
+	return readCredential("global coordinator", c.CredentialFile)
+}
+
+func (m MeshAPIServer) Credential() (string, error) {
+	return readCredential("mesh", m.CredentialFile)
+}
+
+func readCredential(kind, path string) (string, error) {
+	value, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf(
-			"read global coordinator credential file %q: %w",
-			c.CredentialFile, err,
-		)
+		return "", fmt.Errorf("read %s credential file %q: %w", kind, path, err)
 	}
 	credential := strings.TrimRight(string(value), "\r\n")
 	if len(credential) < 32 {
 		return "", fmt.Errorf(
-			"global coordinator credential file %q must contain at least 32 bytes",
-			c.CredentialFile,
+			"%s credential file %q must contain at least 32 bytes", kind, path,
 		)
 	}
 	return credential, nil

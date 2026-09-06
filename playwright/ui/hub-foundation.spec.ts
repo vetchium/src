@@ -5,7 +5,7 @@ const hubBaseURL =
 const sessionKey = "vetchium.hub.session";
 const sessionToken = "s".repeat(64);
 const hubUserDID = "018f7e32-7b5a-7d31-8fd0-f7e2a852f144";
-const handle = "perso-00000000000000000000000000000001";
+const handle = "perso-00000000001";
 
 function myInfo(sessionAuthenticatedAt = new Date().toISOString()) {
   return {

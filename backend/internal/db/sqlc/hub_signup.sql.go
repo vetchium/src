@@ -31,7 +31,8 @@ WITH eligible_signup AS (
           WHERE u.email_address = s.email_address
       )
     FOR UPDATE
-), inserted_user AS (
+),
+inserted_user AS (
     INSERT INTO vetchium.hub_users (
         hub_user_did,
         handle,
@@ -86,9 +87,15 @@ WITH eligible_signup AS (
     FROM inserted_user
     WHERE EXISTS (SELECT 1 FROM consumed)
 )
-SELECT hub_user_did, handle
-FROM inserted_user
-WHERE EXISTS (SELECT 1 FROM consumed)
+SELECT
+    CASE
+        WHEN EXISTS (SELECT 1 FROM consumed) THEN 'created'
+        WHEN NOT EXISTS (SELECT 1 FROM eligible_signup) THEN 'ineligible'
+        ELSE 'conflict'
+    END::text AS result,
+    COALESCE((SELECT hub_user_did FROM inserted_user)::text, '')::text
+        AS hub_user_did,
+    COALESCE((SELECT handle FROM inserted_user), '')::text AS handle
 `
 
 type CompleteHubSignupParams struct {
@@ -101,10 +108,14 @@ type CompleteHubSignupParams struct {
 }
 
 type CompleteHubSignupRow struct {
-	HubUserDid pgtype.UUID `json:"hub_user_did"`
-	Handle     string      `json:"handle"`
+	Result     string `json:"result"`
+	HubUserDid string `json:"hub_user_did"`
+	Handle     string `json:"handle"`
 }
 
+// ON CONFLICT DO NOTHING absorbs a random-handle collision as well as a
+// racing duplicate email. Either way no user row appears and the caller
+// retries with a fresh handle; 'conflict' below reports which happened.
 func (q *Queries) CompleteHubSignup(ctx context.Context, arg CompleteHubSignupParams) (CompleteHubSignupRow, error) {
 	row := q.db.QueryRow(ctx, completeHubSignup,
 		arg.HubSignupRequestID,
@@ -115,7 +126,7 @@ func (q *Queries) CompleteHubSignup(ctx context.Context, arg CompleteHubSignupPa
 		arg.IdempotencyKey,
 	)
 	var i CompleteHubSignupRow
-	err := row.Scan(&i.HubUserDid, &i.Handle)
+	err := row.Scan(&i.Result, &i.HubUserDid, &i.Handle)
 	return i, err
 }
 
@@ -199,6 +210,32 @@ WITH allowed_domain AS (
             'email_queued', EXISTS (SELECT 1 FROM outbox)
         )
     FROM upserted
+),
+existing_account_audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id,
+        action,
+        entity_type,
+        entity_id,
+        actor_type,
+        source,
+        idempotency_key,
+        payload
+    )
+    SELECT
+        $10,
+        'hub.signup.rejected',
+        'hub_signup_request',
+        $3::text,
+        'anonymous',
+        'hub-api',
+        $11,
+        jsonb_build_object(
+            'reason', 'email_already_registered',
+            'resident_country', $6::text
+        )
+    WHERE EXISTS (SELECT 1 FROM allowed_domain)
+      AND EXISTS (SELECT 1 FROM existing_user)
 )
 SELECT CASE
     WHEN NOT EXISTS (SELECT 1 FROM allowed_domain) THEN 'domain_not_allowed'
@@ -220,6 +257,10 @@ type CreateHubSignupRequestParams struct {
 	IdempotencyKey     pgtype.Text        `json:"idempotency_key"`
 }
 
+// An attempt on an address that already has an account is answered with the
+// same 202 as a fresh request, so that the response cannot be used to test
+// whether an address is registered. This event is the only record that it
+// happened, and repeated rows are what makes probing visible to an operator.
 func (q *Queries) CreateHubSignupRequest(ctx context.Context, arg CreateHubSignupRequestParams) (string, error) {
 	row := q.db.QueryRow(ctx, createHubSignupRequest,
 		arg.EmailDomain,

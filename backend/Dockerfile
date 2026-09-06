@@ -34,7 +34,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/mcp-server ./cmd/mcp-server && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/workers ./cmd/workers && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/global-coordinator ./cmd/global-coordinator && \
-    mkdir /out/global-coordinator-state
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/dev-seed ./cmd/dev-seed
 
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:f5b485ea962d9bd1186b2f6b3a061191539b905b82ec395de78cbfae51f20e35 AS runtime
 
@@ -67,4 +67,9 @@ HEALTHCHECK NONE
 
 FROM runtime AS global-coordinator
 COPY --from=build /out/global-coordinator /service
-COPY --from=build --chown=nonroot:nonroot /out/global-coordinator-state /var/lib/vetchium-global-coordinator
+
+# Development fixtures only. This stage is absent from docker-bake.hcl, so it
+# is never published and never deployed.
+FROM runtime AS dev-seed
+COPY --from=build /out/dev-seed /service
+HEALTHCHECK NONE

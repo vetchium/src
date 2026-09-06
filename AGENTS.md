@@ -12,8 +12,9 @@ exists.
 
 ## Backend
 
-The backend is one Go module with seven command directories and seven
-independent container images:
+The backend is one Go module with eight command directories. Seven build the
+published container images below; `dev-seed` is a development-only fixture
+command that is absent from `docker-bake.hcl` and is never deployed:
 
 - `admin-api`, `hub-api`, and `orgs-api` — stateless, portal-specific browser
   APIs. Traefik routes each portal hostname's `/api` requests to its matching
@@ -24,11 +25,14 @@ independent container images:
   dedicated access network so an authenticated public route can be added
   without placing it on general portal ingress.
 - `workers` — periodic background work. Each tenant runs one replica.
-- `global-coordinator` — a database-free singleton outside the tenant stacks.
-  It serves authenticated region discovery over the private mesh and allocates
-  globally unique short IDs; its durable state volume prevents counter reuse.
-  Hub signup generates handles locally from DIDs and does not require the global
-  service. Hub and mesh APIs use a bundled region catalog when discovery fails.
+- `global-coordinator` — a stateless, database-free singleton outside the
+  tenant stacks. It serves authenticated region discovery over the private mesh
+  and holds no durable state of its own. Hub signup generates handles locally
+  and does not require the global service. Hub and mesh APIs use a bundled
+  region catalog when discovery fails.
+- `dev-seed` — applies local-development fixtures that must go through a portal
+  API rather than straight into the database. Table-content fixtures stay in
+  `db/db-seed`.
 
 The tenant backend commands share database, configuration, and domain packages
 under `backend/internal/`, but build as separate executables under

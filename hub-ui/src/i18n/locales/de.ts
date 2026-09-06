@@ -176,6 +176,8 @@ export const de = {
       "Die Zwei-Faktor-Authentifizierung ist bereits aktiviert.",
     totpNotEnabled: "Die Zwei-Faktor-Authentifizierung ist nicht aktiviert.",
     invalidEnrollment: "Diese Einrichtung ist abgelaufen. Beginnen Sie erneut.",
+    regionDiscoveryUnavailable:
+      "Regionen konnten gerade nicht geladen werden. Versuchen Sie es erneut.",
   },
   profile: {
     jobCountries: "Bevorzugte Arbeitsländer",

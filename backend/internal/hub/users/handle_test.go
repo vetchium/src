@@ -36,14 +36,48 @@ func TestHandle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := Handle(
-				tt.displayName,
-				hub.HubUserDID("018f7e32-7b5a-7d31-8fd0-f7e2a852f144"),
-			)
+			got, err := Handle(tt.displayName)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if !strings.HasPrefix(string(got), tt.wantPrefix) ||
 				!hub.IsHubHandle(got) {
 				t.Fatalf("Handle(%q) = %q", tt.displayName, got)
 			}
 		})
+	}
+}
+
+// The suffix is what keeps a handle from disclosing the account it belongs to,
+// so two handles for the same display name must not repeat.
+func TestHandleSuffixIsRandom(t *testing.T) {
+	t.Parallel()
+	seen := map[hub.HubHandle]bool{}
+	for range 100 {
+		got, err := Handle("Grace Hopper")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if seen[got] {
+			t.Fatalf("Handle repeated %q", got)
+		}
+		seen[got] = true
+	}
+}
+
+func TestHandleUsesCrockfordAlphabet(t *testing.T) {
+	t.Parallel()
+	for range 100 {
+		got, err := Handle("Grace Hopper")
+		if err != nil {
+			t.Fatal(err)
+		}
+		suffix := string(got)[len("grace-"):]
+		if len(suffix) != suffixLength {
+			t.Fatalf("suffix %q length = %d", suffix, len(suffix))
+		}
+		if strings.ContainsAny(suffix, "ilou") {
+			t.Fatalf("suffix %q contains an excluded letter", suffix)
+		}
 	}
 }

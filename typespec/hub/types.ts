@@ -8,5 +8,5 @@ export function isHubUserDID(value: HubUserDID): boolean {
 }
 
 export function isHubHandle(value: HubHandle): boolean {
-  return /^[a-z0-9]{5}-[0-9a-f]{32}$/.test(value);
+  return /^[a-z0-9]{5}-[0-9a-hjkmnp-tv-z]{11}$/.test(value);
 }

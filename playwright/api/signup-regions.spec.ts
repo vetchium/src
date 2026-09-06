@@ -70,6 +70,40 @@ for (const [name, origin, prefix, headers] of [
     }
   });
 }
+// ind1 deliberately cannot reach the coordinator in the CI config, so its
+// bundled catalog answers instead. A cursor bound to a different catalog cannot
+// be continued from that fallback, and the outage is reported as such rather
+// than blamed on the caller. A malformed cursor stays the caller's error.
+test("a directory cursor cannot be continued from the bundled catalog", async ({
+  request,
+}) => {
+  const url = "http://hub-ui.ind1.localhost/api/hub/list-signup-regions";
+  const foreign = await request.post(url, {
+    data: {
+      resident_country: "IND",
+      pagination_key:
+        "eyJjb3VudHJ5IjoiSU5EIiwidmVyc2lvbiI6ImRlYWRiZWVmIiwibGFzdCI6InNncCJ9",
+    },
+  });
+  expect(foreign.status(), await foreign.text()).toBe(503);
+  expect(foreign.headers()["content-type"]).toContain(
+    "application/problem+json",
+  );
+  expect(await foreign.json()).toMatchObject({
+    type: "vetchium-problem-details/region-discovery-unavailable",
+    status: 503,
+  });
+
+  const malformed = await request.post(url, {
+    data: { resident_country: "IND", pagination_key: "not-a-cursor" },
+  });
+  expect(malformed.status()).toBe(400);
+  expect(await malformed.json()).toMatchObject({
+    type: "vetchium-problem-details/invalid-pagination-key",
+    status: 400,
+  });
+});
+
 test("global region discovery requires authentication", async ({ request }) => {
   const response = await request.post(
     `${coordinator}/api/global-coordinator/list-signup-regions`,
@@ -124,9 +158,11 @@ async function signup(
   });
   expect(complete.status(), await complete.text()).toBe(201);
   const body = (await complete.json()) as CompleteSignupResponse;
-  expect(body.handle.replace("indep-", "")).toBe(
-    body.hub_user_did.replaceAll("-", ""),
-  );
+  // The handle is public and the DID is not, so the suffix is random rather
+  // than derived from the DID or from the signup time.
+  expect(body.handle).toMatch(/^indep-[0-9a-hjkmnp-tv-z]{11}$/);
+  expect(body.handle).not.toContain(body.hub_user_did.replaceAll("-", ""));
+  expect(body.hub_user_did).not.toContain(body.handle.replace("indep-", ""));
   return body;
 }
 test("allowlisted signup works offline and the same email creates independent regional accounts", async ({

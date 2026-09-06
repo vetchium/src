@@ -1,4 +1,5 @@
 {
+  "signupRegionsFile": "/etc/vetchium/signup-regions.json",
   "tenantId": "sgp",
   "env": "production",
   "database": {
@@ -23,6 +24,11 @@
   "globalCoordinator": {
     "baseURL": "http://global-coordinator.internal:8080",
     "credentialFile": "/run/secrets/global_coordinator_credential",
+    "requestTimeout": "5s"
+  },
+  "meshAPIServer": {
+    "baseURL": "http://mesh-api:8080",
+    "credentialFile": "/run/secrets/mesh_credential",
     "requestTimeout": "5s"
   },
   "hubAPIServer": {

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -23,6 +24,19 @@ type Directory interface {
 		context.Context, regionspec.ListSignupRegionsRequest,
 	) (regionspec.ListSignupRegionsResponse, error)
 }
+
+// ErrRequestRejected reports that the directory understood the request and
+// refused it, rather than being unreachable. The bundled catalog cannot do
+// better with the same input, so a refusal is passed back to the caller
+// instead of being masked as an outage.
+var ErrRequestRejected = errors.New("region directory rejected the request")
+
+// ErrForeignCursor reports a well-formed cursor that was issued against a
+// different catalog. During an outage that is the signature of a cursor the
+// live directory handed out, which the bundled catalog cannot continue. A
+// cursor that is merely malformed stays the caller's error either way.
+var ErrForeignCursor = errors.New("pagination key was issued for a different catalog")
+
 type Region struct {
 	TenantID         string               `json:"tenantId"`
 	HostingCountry   common.CountryCode   `json:"hostingCountry"`
@@ -106,6 +120,20 @@ func (c *Catalog) Allows(tenant string, country common.CountryCode) bool {
 	}
 	return false
 }
+
+// SignupEnabled reports the catalog's own open/closed state for a tenant,
+// independent of any country restriction. hub-api compares it against its
+// local signup setting at startup so the two can never disagree in a running
+// process: discovery would otherwise advertise a region that then refuses.
+func (c *Catalog) SignupEnabled(tenant string) bool {
+	for _, r := range c.Regions {
+		if r.TenantID == tenant {
+			return r.SignupEnabled
+		}
+	}
+	return false
+}
+
 func (c *Catalog) HasOrigin(tenant, origin string) bool {
 	for _, r := range c.Regions {
 		if r.TenantID == tenant && r.HubURL == origin {
@@ -132,9 +160,11 @@ func (c *Catalog) List(
 		raw, err := base64.RawURLEncoding.DecodeString(string(*request.PaginationKey))
 		var key cursor
 		if err != nil || json.Unmarshal(raw, &key) != nil ||
-			key.Country != request.ResidentCountry ||
-			key.Version != c.fingerprint || !IsTenantID(key.Last) {
+			key.Country != request.ResidentCountry || !IsTenantID(key.Last) {
 			return response, fmt.Errorf("invalid pagination key")
+		}
+		if key.Version != c.fingerprint {
+			return response, ErrForeignCursor
 		}
 		after = key.Last
 	}

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -27,6 +28,19 @@ import (
 )
 
 const signupTTL = 24 * time.Hour
+
+// Outcomes of CompleteHubSignup. A conflict means the generated handle (or,
+// far more rarely, a racing duplicate email) was already taken and no user
+// was created, so the signup request survives for another attempt.
+const (
+	completionCreated    = "created"
+	completionIneligible = "ineligible"
+	completionConflict   = "conflict"
+)
+
+// handleAttempts bounds the retries for a colliding handle. The suffix has 55
+// bits of entropy, so needing even a second attempt is already remarkable.
+const handleAttempts = 5
 
 type signupEmailPayload struct {
 	DisplayName     string    `json:"display_name"`
@@ -153,33 +167,47 @@ func CompleteSignup(s *hubruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
 				}
-				handle := hubusers.Handle(signup.DisplayName, hubspec.HubUserDID(did.String()))
-				created, err := q.CompleteHubSignup(
-					r.Context(), sqlc.CompleteHubSignupParams{
-						HubSignupRequestID: signup.HubSignupRequestID,
-						HubUserDid:         did,
-						Handle:             string(handle),
-						PasswordHash:       passwordHash,
-						TenantID:           s.TenantID,
-						IdempotencyKey:     dbvalue.Text(string(key)),
-					},
-				)
-				if errors.Is(err, pgx.ErrNoRows) {
+				var created sqlc.CompleteHubSignupRow
+				for range handleAttempts {
+					handle, err := hubusers.Handle(signup.DisplayName)
+					if err != nil {
+						return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
+					}
+					created, err = q.CompleteHubSignup(
+						r.Context(), sqlc.CompleteHubSignupParams{
+							HubSignupRequestID: signup.HubSignupRequestID,
+							HubUserDid:         did,
+							Handle:             string(handle),
+							PasswordHash:       passwordHash,
+							TenantID:           s.TenantID,
+							IdempotencyKey:     dbvalue.Text(string(key)),
+						},
+					)
+					if err != nil {
+						return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
+					}
+					if created.Result != completionConflict {
+						break
+					}
+				}
+				switch created.Result {
+				case completionCreated:
+				case completionIneligible:
 					return handlerauth.AuthenticationFailure[hubauth.CompleteSignupResponse](
 						hubproblem.InvalidSignupTokenError,
 						hubauthn.SignupChallenge,
 					)
-				}
-				if err != nil {
-					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
+				default:
+					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil,
+						fmt.Errorf(
+							"no free handle after %d attempts", handleAttempts,
+						)
 				}
 				return handlerauth.Result[hubauth.CompleteSignupResponse]{
 					Status: http.StatusCreated,
 					Body: hubauth.CompleteSignupResponse{
-						HubUserDID: hubspec.HubUserDID(
-							dbvalue.FormatUUID(created.HubUserDid),
-						),
-						Handle: hubspec.HubHandle(created.Handle),
+						HubUserDID: hubspec.HubUserDID(created.HubUserDid),
+						Handle:     hubspec.HubHandle(created.Handle),
 					},
 				}, nil, nil
 			},

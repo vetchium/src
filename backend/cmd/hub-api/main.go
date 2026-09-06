@@ -9,11 +9,11 @@ import (
 	"backend/internal/appconfig"
 	"backend/internal/db"
 	dbsqlc "backend/internal/db/sqlc"
-	"backend/internal/globalcoordinatorclient"
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/middleware"
 	"backend/internal/regions"
+	"backend/internal/regionsclient"
 	"backend/internal/routes"
 	"backend/internal/service"
 )
@@ -42,15 +42,24 @@ func run(log *slog.Logger, address string) error {
 	if !catalog.HasOrigin(cfg.TenantID, cfg.HubAPIServer.PublicBaseURL) {
 		return fmt.Errorf("tenant origin missing from signup catalog")
 	}
-	coordinatorConfig := cfg.GlobalCoordinator
-	coordinatorConfig.BaseURL = coordinatorConfig.MeshBaseURL
-	coordinator, err := globalcoordinatorclient.NewFromConfig(
-		coordinatorConfig,
-	)
+	// The catalog decides which regions discovery offers; this setting decides
+	// whether signup is actually served. Disagreement would route visitors to a
+	// region that then refuses them, so refuse to start instead.
+	if catalog.SignupEnabled(cfg.TenantID) != cfg.HubAPIServer.Signup.Enabled {
+		return fmt.Errorf(
+			"signup catalog says enabled=%t for %q but hubAPIServer.signup.enabled is %t",
+			catalog.SignupEnabled(cfg.TenantID), cfg.TenantID,
+			cfg.HubAPIServer.Signup.Enabled,
+		)
+	}
+	meshCredential, err := cfg.MeshAPIServer.Credential()
 	if err != nil {
 		return err
 	}
-	coordinator.RegionsPath = "/mesh/list-signup-regions"
+	directory := regionsclient.New(
+		cfg.MeshAPIServer.BaseURL, regionsclient.MeshPath,
+		meshCredential, cfg.MeshAPIServer.RequestTimeout,
+	)
 	log = service.WithTenant(log, cfg.TenantID)
 
 	ctx, stop := service.SignalContext()
@@ -65,7 +74,7 @@ func run(log *slog.Logger, address string) error {
 	s := &hubruntime.Server{
 		Runtime:         apiserver.New(pool, log),
 		Queries:         dbsqlc.New(pool),
-		RegionDirectory: coordinator,
+		RegionDirectory: directory,
 		Regions:         catalog,
 		Signup:          cfg.HubAPIServer.Signup,
 		TenantID:        cfg.TenantID,

@@ -7,10 +7,10 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
 	"backend/internal/db"
-	"backend/internal/globalcoordinatorclient"
 	"backend/internal/meshapi"
 	"backend/internal/middleware"
 	"backend/internal/regions"
+	"backend/internal/regionsclient"
 	"backend/internal/routes"
 	"backend/internal/service"
 )
@@ -32,14 +32,20 @@ func run(log *slog.Logger, address string) error {
 	if err != nil {
 		return err
 	}
-	credential, err := cfg.GlobalCoordinator.Credential()
+	// The inbound credential is this tenant's mesh secret; the outbound one is
+	// the coordinator secret. Only mesh-api holds both.
+	credential, err := cfg.MeshAPIServer.Credential()
 	if err != nil {
 		return err
 	}
-	directory, err := globalcoordinatorclient.NewFromConfig(cfg.GlobalCoordinator)
+	coordinatorCredential, err := cfg.GlobalCoordinator.Credential()
 	if err != nil {
 		return err
 	}
+	directory := regionsclient.New(
+		cfg.GlobalCoordinator.BaseURL, regionsclient.CoordinatorPath,
+		coordinatorCredential, cfg.GlobalCoordinator.RequestTimeout,
+	)
 	log = service.WithTenant(log, cfg.TenantID)
 
 	ctx, stop := service.SignalContext()

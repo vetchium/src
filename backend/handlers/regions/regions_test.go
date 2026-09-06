@@ -29,12 +29,20 @@ type unavailableDirectory struct{}
 func (unavailableDirectory) ListSignupRegions(context.Context, regionspec.ListSignupRegionsRequest) (regionspec.ListSignupRegionsResponse, error) {
 	return regionspec.ListSignupRegionsResponse{}, fmt.Errorf("offline")
 }
+
+type rejectingDirectory struct{}
+
+func (rejectingDirectory) ListSignupRegions(context.Context, regionspec.ListSignupRegionsRequest) (regionspec.ListSignupRegionsResponse, error) {
+	return regionspec.ListSignupRegionsResponse{}, fmt.Errorf(
+		"%w: 400", regionpolicy.ErrRequestRejected,
+	)
+}
 func TestDiscoveryHTTP(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name, body, auth, credential string
 		status                       int
-		offline                      bool
+		offline, rejecting           bool
 	}{
 		{name: "public", body: `{"resident_country":"IND"}`, status: 200},
 		{name: "global outage", body: `{"resident_country":"IND"}`, status: 200, offline: true},
@@ -45,11 +53,23 @@ func TestDiscoveryHTTP(t *testing.T) {
 		{name: "unknown field", body: `{"resident_country":"IND","tenant":"sgp"}`, status: 400},
 		{name: "invalid country", body: `{"resident_country":"ZZZ"}`, status: 400},
 		{name: "invalid cursor", body: `{"resident_country":"IND","pagination_key":"bad"}`, status: 400},
+		// A malformed cursor is the caller's error whether or not discovery is
+		// reachable, so an outage must not turn it into a 503.
+		{name: "malformed cursor during outage", body: `{"resident_country":"IND","pagination_key":"bad"}`, status: 400, offline: true},
+		// A well-formed cursor bound to another catalog is what the live
+		// directory hands out, and the bundled catalog cannot continue it.
+		{name: "directory cursor during outage", body: `{"resident_country":"IND","pagination_key":"eyJjb3VudHJ5IjoiSU5EIiwidmVyc2lvbiI6ImRlYWRiZWVmIiwibGFzdCI6InNncCJ9"}`, status: 503, offline: true},
+		// A directory that answers 400 has judged the request itself, so the
+		// refusal is passed on rather than reported as an outage.
+		{name: "cursor the directory rejected", body: `{"resident_country":"IND","pagination_key":"bad"}`, status: 400, rejecting: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var directory regionpolicy.Directory
 			if test.offline {
 				directory = unavailableDirectory{}
+			}
+			if test.rejecting {
+				directory = rejectingDirectory{}
 			}
 			request := httptest.NewRequest(http.MethodPost, "/list-signup-regions", strings.NewReader(test.body))
 			request.Header.Set("Content-Type", "application/json")

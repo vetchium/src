@@ -23,6 +23,7 @@ import {
   TOTPAlreadyEnabledError,
   TOTPNotEnabledError,
 } from "typespec/problem/hub/totp";
+import { RegionDiscoveryUnavailableError } from "typespec/problem/regions/discovery";
 
 // Keyed by the contract constants rather than by the literal type strings, so
 // renaming a problem type in TypeSpec fails the build here instead of silently
@@ -45,6 +46,7 @@ export const problemKeys: Record<string, string> = {
   [TOTPAlreadyEnabledError.type]: "errors.totpAlreadyEnabled",
   [TOTPNotEnabledError.type]: "errors.totpNotEnabled",
   [InvalidTOTPEnrollmentError.type]: "errors.invalidEnrollment",
+  [RegionDiscoveryUnavailableError.type]: "errors.regionDiscoveryUnavailable",
 };
 
 export function APIErrorAlert({ error }: { error: unknown }) {

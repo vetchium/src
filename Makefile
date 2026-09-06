@@ -13,11 +13,13 @@ APP_POSTGRES_PASSWORD ?= app_pgpassword
 ADMIN_CREDENTIAL_KEY  ?= dev_admin_credential_key
 HUB_CREDENTIAL_KEY    ?= dev_hub_credential_key
 GLOBAL_COORDINATOR_CREDENTIAL ?= dev_global_coordinator_credential_32_bytes
+MESH_CREDENTIAL       ?= dev_mesh_credential_at_least_32_bytes
 DEV_SECRETS_DIR       := .dev-secrets
 APP_PASSWORD_FILE     := $(DEV_SECRETS_DIR)/app_postgres_password
 ADMIN_KEY_FILE        := $(DEV_SECRETS_DIR)/admin_credential_key
 HUB_KEY_FILE          := $(DEV_SECRETS_DIR)/hub_credential_key
 COORDINATOR_KEY_FILE  := $(DEV_SECRETS_DIR)/global_coordinator_credential
+MESH_KEY_FILE         := $(DEV_SECRETS_DIR)/mesh_credential
 SQLC                   := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
 GOVULNCHECK             := go run golang.org/x/vuln/cmd/govulncheck@v1.7.0
 # The v2.12.2 image was built with Go 1.26 and rejects Go 1.27 modules. Build
@@ -31,7 +33,7 @@ JS_WORKSPACES          := admin-ui hub-ui portal-ui typespec playwright
 # so `repository-json` is the only thing that formats and checks them.
 REPOSITORY_JSON        := biome.json docker-compose.json docker-compose-ci.json \
 	config deploy
-SQL_DIRS               := backend/internal/db/queries db/bootstrap db/dev-seed \
+SQL_DIRS               := backend/internal/db/queries db/bootstrap db/db-seed \
 	db/migrations
 GOTESTFLAGS            ?=
 COVERAGE_DIR            := $(CURDIR)/.coverage
@@ -44,9 +46,13 @@ WAIT_TIMEOUT ?= 300
 # `docker compose up --wait` with no service arguments waits on every service,
 # and it fails outright on any service that has no health state instead of
 # settling for "running". The workers are background job loops that serve no
-# requests, so they carry no health check and must be excluded from the wait.
-# Compose has no per-service opt-out, so the wait set is named explicitly.
-serving_services = $$(docker compose -f $(1) config --services | grep -v '^workers-')
+# requests, so they carry no health check. The dev-seed one-shots exit as soon
+# as they finish, and a container that exits inside the wait window fails it
+# even on success; the db-seed one-shots escape this only because they run as a
+# dependency of admin-api and are already gone before the wait starts. Compose
+# has no per-service opt-out, so the wait set is named explicitly.
+serving_services = $$(docker compose -f $(1) config --services | \
+	grep -vE '^(workers|dev-seed)-')
 
 .PHONY: check fmt dev dev-secrets sqlc sqlc-vet sqlc-verify sql-lint sql-check \
 	test test-dependencies test-environment test-stack test-static-ready \
@@ -124,6 +130,13 @@ dev-secrets:
 			{ echo "GLOBAL_COORDINATOR_CREDENTIAL differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
 	else \
 		umask 077; printf '%s' "$$GLOBAL_COORDINATOR_CREDENTIAL" > "$(COORDINATOR_KEY_FILE)"; \
+	fi
+	@if [ -f "$(MESH_KEY_FILE)" ]; then \
+		current=$$(cat "$(MESH_KEY_FILE)"); \
+		test "$$current" = "$$MESH_CREDENTIAL" || \
+			{ echo "MESH_CREDENTIAL differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
+	else \
+		umask 077; printf '%s' "$$MESH_CREDENTIAL" > "$(MESH_KEY_FILE)"; \
 	fi
 
 sqlc:
@@ -356,6 +369,6 @@ clean:
 	docker compose -f docker-compose-ci.json down --remove-orphans --volumes
 	docker compose -f docker-compose.json down --remove-orphans --volumes
 	rm -f "$(APP_PASSWORD_FILE)" "$(ADMIN_KEY_FILE)" "$(HUB_KEY_FILE)" \
-		"$(COORDINATOR_KEY_FILE)"
+		"$(COORDINATOR_KEY_FILE)" "$(MESH_KEY_FILE)"
 	-rmdir "$(DEV_SECRETS_DIR)"
 	rm -rf "$(COVERAGE_DIR)"

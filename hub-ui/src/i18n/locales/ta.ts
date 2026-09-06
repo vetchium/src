@@ -168,6 +168,8 @@ export const ta = {
     totpAlreadyEnabled: "இரு-காரணி அங்கீகாரம் ஏற்கனவே இயக்கப்பட்டுள்ளது.",
     totpNotEnabled: "இரு-காரணி அங்கீகாரம் இயக்கப்படவில்லை.",
     invalidEnrollment: "இந்த அமைப்பு காலாவதியானது. மீண்டும் தொடங்கவும்.",
+    regionDiscoveryUnavailable:
+      "பகுதிகளை இப்போது ஏற்ற முடியவில்லை. மீண்டும் முயலவும்.",
   },
   profile: {
     jobCountries: "வேலை தேட விரும்பும் நாடுகள்",

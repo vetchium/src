@@ -28,7 +28,9 @@ deploy-global-coordinator:
 			docker secret create global_coordinator_credential - >/dev/null; \
 	fi
 	@config_hash=$$(sha256sum global-coordinator/config.json | cut -c1-12); \
+	signup_regions_hash=$$(sha256sum signup-regions.json | cut -c1-12); \
 	GLOBAL_COORDINATOR_CONFIG_HASH=$$config_hash REGISTRY=$(REGISTRY) TAG=$(TAG) \
+		SIGNUP_REGIONS_HASH=$$signup_regions_hash \
 		GLOBAL_COORDINATOR_PORT=$(GLOBAL_COORDINATOR_PORT) \
 		docker stack deploy --compose-file global-coordinator/stack.json \
 		--with-registry-auth --prune --detach=false global-coordinator
@@ -76,12 +78,18 @@ deploy:
 		printf '%s' "$(GLOBAL_COORDINATOR_CREDENTIAL)" | \
 			docker secret create "$(REGION)_global_coordinator_credential" - >/dev/null; \
 	fi
+	@if ! docker secret inspect "$(REGION)_mesh_credential" >/dev/null 2>&1; then \
+		printf '%s' "$$(openssl rand -hex 32)" | \
+			docker secret create "$(REGION)_mesh_credential" - >/dev/null; \
+	fi
 
 	@set -e; \
 	traefik_hash=$$(sha256sum $(REGION)/traefik.json | cut -c1-12); \
 	app_config_hash=$$(sha256sum $(REGION)/config.json | cut -c1-12); \
+	signup_regions_hash=$$(sha256sum signup-regions.json | cut -c1-12); \
 	deploy_stack() { \
 		TRAEFIK_HASH=$$traefik_hash APP_CONFIG_HASH=$$app_config_hash \
+		SIGNUP_REGIONS_HASH=$$signup_regions_hash \
 		REGISTRY=$(REGISTRY) TAG=$(TAG) PGSSLMODE=$(PGSSLMODE) \
 		POSTGRES_USER=$(POSTGRES_USER) POSTGRES_DB=$(POSTGRES_DB) \
 		docker stack deploy --compose-file $(REGION)/stack.json --with-registry-auth \

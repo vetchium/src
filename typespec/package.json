@@ -26,7 +26,6 @@
     "./common/localization": "./common/localization.ts",
     "./common/pagination": "./common/pagination.ts",
     "./common/security-effects": "./common/security-effects.ts",
-    "./global-coordinator/global-coordinator": "./global-coordinator/global-coordinator.ts",
     "./hub/hub": "./hub/hub.ts",
     "./hub/auth/login": "./hub/auth/login.ts",
     "./hub/auth/password": "./hub/auth/password.ts",
@@ -46,12 +45,12 @@
     "./problem/hub/authentication": "./problem/hub/authentication.ts",
     "./problem/hub/signup": "./problem/hub/signup.ts",
     "./problem/hub/totp": "./problem/hub/totp.ts",
+    "./problem/regions/discovery": "./problem/regions/discovery.ts",
     "./regions/regions": "./regions/regions.ts"
   },
   "files": [
     "admin/**/*.ts",
     "common/**/*.ts",
-    "global-coordinator/**/*.ts",
     "hub/**/*.ts",
     "problem/**/*.ts",
     "!**/*.test.ts"
@@ -62,7 +61,7 @@
     "format": "biome check --write --config-path=../biome.json .",
     "format:check": "biome check --config-path=../biome.json .",
     "test:contract-files": "node --test scripts/check-contract-files.test.mjs",
-    "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts global-coordinator/*.test.ts hub/*.test.ts regions/*.test.ts",
+    "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts hub/*.test.ts regions/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -133,7 +133,15 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
     expect(completed.hub_user_did).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
-    expect(completed.handle).toMatch(/^adalo-[0-9a-f]{32}$/);
+    expect(completed.handle).toMatch(/^adalo-[0-9a-hjkmnp-tv-z]{11}$/);
+    // The handle is public and the DID is not. A handle derived from the DID
+    // would also disclose the UUIDv7 creation timestamp.
+    expect(completed.handle).not.toContain(
+      completed.hub_user_did.replaceAll("-", ""),
+    );
+    expect(completed.hub_user_did).not.toContain(
+      completed.handle.split("-")[1],
+    );
     await expectProblem(
       await hub.post(
         "/complete-signup",

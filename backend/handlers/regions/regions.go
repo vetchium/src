@@ -3,11 +3,13 @@ package regions
 import (
 	"crypto/sha256"
 	"crypto/subtle"
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/vetchium/src/typespec/problem"
 	coordinatorproblem "github.com/vetchium/src/typespec/problem/global-coordinator"
+	regionsproblem "github.com/vetchium/src/typespec/problem/regions"
 	regionspec "github.com/vetchium/src/typespec/regions"
 
 	"backend/internal/apiserver"
@@ -31,16 +33,33 @@ func Handler(runtime *apiserver.Runtime, catalog *regionpolicy.Catalog, director
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")
+		degraded := false
 		if directory != nil {
 			response, err := directory.ListSignupRegions(r.Context(), request)
 			if err == nil {
 				runtime.JSON(r.Context(), w, http.StatusOK, response)
 				return
 			}
+			if errors.Is(err, regionpolicy.ErrRequestRejected) {
+				runtime.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
+				return
+			}
+			degraded = true
 			runtime.WarnContext(r.Context(), "region discovery unavailable; using local catalog", "event", "region_discovery_fallback")
 		}
 		response, err := catalog.List(request)
 		if err != nil {
+			// A cursor the directory issued is bound to the directory's own
+			// catalog, so the bundled one cannot continue it. During an outage
+			// that is a server-side fault. A cursor that is malformed, or bound
+			// to another country, stays the caller's error either way.
+			if degraded && errors.Is(err, regionpolicy.ErrForeignCursor) {
+				runtime.Problem(
+					r.Context(), w,
+					regionsproblem.RegionDiscoveryUnavailableError,
+				)
+				return
+			}
 			runtime.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
 			return
 		}
