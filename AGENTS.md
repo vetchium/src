@@ -25,8 +25,10 @@ independent container images:
   without placing it on general portal ingress.
 - `workers` — periodic background work. Each tenant runs one replica.
 - `global-coordinator` — a database-free singleton outside the tenant stacks.
-  Tenant APIs call its authenticated HTTP endpoint to allocate globally unique
-  short IDs; its durable state volume prevents counter reuse across restarts.
+  It serves authenticated region discovery over the private mesh and allocates
+  globally unique short IDs; its durable state volume prevents counter reuse.
+  Hub signup generates handles locally from DIDs and does not require the global
+  service. Hub and mesh APIs use a bundled region catalog when discovery fails.
 
 The tenant backend commands share database, configuration, and domain packages
 under `backend/internal/`, but build as separate executables under

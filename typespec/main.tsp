@@ -6,6 +6,8 @@ import "./admin/admin.tsp";
 import "./hub/hub.tsp";
 import "./global-coordinator/global-coordinator.tsp";
 
+import "./regions/regions.tsp";
+
 using TypeSpec.Http;
 
 @service(#{ title: "Vetchium API" })

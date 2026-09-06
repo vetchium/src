@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"backend/internal/regions"
 )
 
 const defaultPath = "/etc/vetchium/config.json"
@@ -20,6 +22,7 @@ const defaultAdminCredentialKeyPath = "/run/secrets/admin_credential_key"
 const defaultHubCredentialKeyPath = "/run/secrets/hub_credential_key"
 
 type Config struct {
+	SignupRegionsFile string
 	TenantID          string
 	Env               Environment
 	Database          Database
@@ -64,6 +67,7 @@ type Workers struct {
 }
 
 type HubAPIServer struct {
+	Signup               regions.Admission
 	SessionTTL           time.Duration
 	RememberedSessionTTL time.Duration
 	PublicBaseURL        string
@@ -89,6 +93,7 @@ const (
 )
 
 type GlobalCoordinator struct {
+	MeshBaseURL    string
 	BaseURL        string
 	CredentialFile string
 	RequestTimeout time.Duration
@@ -97,6 +102,7 @@ type GlobalCoordinator struct {
 type Server struct{}
 
 type fileConfig struct {
+	SignupRegionsFile string                 `json:"signupRegionsFile"`
 	TenantID          string                 `json:"tenantId"`
 	Env               string                 `json:"env"`
 	Database          fileDatabase           `json:"database"`
@@ -110,6 +116,7 @@ type fileConfig struct {
 }
 
 type fileGlobalCoordinator struct {
+	MeshBaseURL    string `json:"meshBaseURL"`
 	BaseURL        string `json:"baseURL"`
 	CredentialFile string `json:"credentialFile"`
 	RequestTimeout string `json:"requestTimeout"`
@@ -138,9 +145,10 @@ type fileWorkers struct {
 }
 
 type fileHubAPIServer struct {
-	SessionTTL           string `json:"sessionTTL"`
-	RememberedSessionTTL string `json:"rememberedSessionTTL"`
-	PublicBaseURL        string `json:"publicBaseURL"`
+	Signup               *regions.Admission `json:"signup"`
+	SessionTTL           string             `json:"sessionTTL"`
+	RememberedSessionTTL string             `json:"rememberedSessionTTL"`
+	PublicBaseURL        string             `json:"publicBaseURL"`
 }
 
 type fileSMTP struct {
@@ -266,6 +274,11 @@ func LoadFile(path string) (Config, error) {
 	); err != nil {
 		return Config{}, configError(path, err)
 	}
+	if raw.GlobalCoordinator.MeshBaseURL != "" {
+		if _, err := httpOrigin("globalCoordinator.meshBaseURL", raw.GlobalCoordinator.MeshBaseURL); err != nil {
+			return Config{}, configError(path, err)
+		}
+	}
 	coordinatorTimeout, err := positiveDuration(
 		"globalCoordinator.requestTimeout",
 		raw.GlobalCoordinator.RequestTimeout,
@@ -279,6 +292,13 @@ func LoadFile(path string) (Config, error) {
 		raw.AdminAPIServer.SessionTTL,
 	)
 	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	admission := regions.Admission{Enabled: true, EmailDomainMode: regions.Allowlist}
+	if raw.HubAPIServer.Signup != nil {
+		admission = *raw.HubAPIServer.Signup
+	}
+	if err := admission.Validate(); err != nil {
 		return Config{}, configError(path, err)
 	}
 	hubSessionTTL, err := positiveDuration(
@@ -350,8 +370,9 @@ func LoadFile(path string) (Config, error) {
 	}
 
 	return Config{
-		TenantID: raw.TenantID,
-		Env:      environment,
+		SignupRegionsFile: raw.SignupRegionsFile,
+		TenantID:          raw.TenantID,
+		Env:               environment,
 		Database: Database{
 			Host:         raw.Database.Host,
 			Port:         uint16(raw.Database.Port),
@@ -364,6 +385,7 @@ func LoadFile(path string) (Config, error) {
 			SessionTTL: adminSessionTTL,
 		},
 		GlobalCoordinator: GlobalCoordinator{
+			MeshBaseURL:    raw.GlobalCoordinator.MeshBaseURL,
 			BaseURL:        strings.TrimRight(coordinatorURL.String(), "/"),
 			CredentialFile: raw.GlobalCoordinator.CredentialFile,
 			RequestTimeout: coordinatorTimeout,
@@ -377,6 +399,7 @@ func LoadFile(path string) (Config, error) {
 			HubEmailMaxAttempts:     raw.Workers.HubEmailMaxAttempts,
 		},
 		HubAPIServer: HubAPIServer{
+			Signup:               admission,
 			SessionTTL:           hubSessionTTL,
 			RememberedSessionTTL: rememberedSessionTTL,
 			PublicBaseURL:        hubBaseURL,

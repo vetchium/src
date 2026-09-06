@@ -12,15 +12,17 @@ import (
 const defaultConfigPath = "/etc/vetchium/global-coordinator.json"
 
 type Config struct {
-	Environment    string
-	CredentialFile string
-	StateFile      string
+	SignupRegionsFile string
+	Environment       string
+	CredentialFile    string
+	StateFile         string
 }
 
 type fileConfig struct {
-	Environment    string `json:"env"`
-	CredentialFile string `json:"credentialFile"`
-	StateFile      string `json:"stateFile"`
+	SignupRegionsFile string `json:"signupRegionsFile"`
+	Environment       string `json:"env"`
+	CredentialFile    string `json:"credentialFile"`
+	StateFile         string `json:"stateFile"`
 }
 
 func LoadConfig() (Config, error) {

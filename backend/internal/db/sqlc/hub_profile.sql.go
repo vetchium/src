@@ -19,6 +19,7 @@ SELECT
     u.display_name,
     u.preferred_language,
     u.resident_country,
+    u.preferred_job_countries,
     u.totp_enabled,
     recovery.remaining_codes AS recovery_codes_remaining,
     s.authenticated_at
@@ -48,6 +49,7 @@ type GetHubMyInfoRow struct {
 	DisplayName            string             `json:"display_name"`
 	PreferredLanguage      string             `json:"preferred_language"`
 	ResidentCountry        string             `json:"resident_country"`
+	PreferredJobCountries  []string           `json:"preferred_job_countries"`
 	TotpEnabled            bool               `json:"totp_enabled"`
 	RecoveryCodesRemaining int64              `json:"recovery_codes_remaining"`
 	AuthenticatedAt        pgtype.Timestamptz `json:"authenticated_at"`
@@ -63,11 +65,53 @@ func (q *Queries) GetHubMyInfo(ctx context.Context, arg GetHubMyInfoParams) (Get
 		&i.DisplayName,
 		&i.PreferredLanguage,
 		&i.ResidentCountry,
+		&i.PreferredJobCountries,
 		&i.TotpEnabled,
 		&i.RecoveryCodesRemaining,
 		&i.AuthenticatedAt,
 	)
 	return i, err
+}
+
+const setHubPreferredJobCountries = `-- name: SetHubPreferredJobCountries :one
+WITH updated AS (
+    UPDATE vetchium.hub_users
+    SET preferred_job_countries = $1,
+        updated_at = now()
+    WHERE hub_user_did = $2
+      AND hub_user_state = 'active'
+    RETURNING hub_user_did, preferred_job_countries
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $3,
+        'hub.profile.preferred-job-countries-set',
+        'hub_user',
+        hub_user_did::text,
+        'hub_user',
+        hub_user_did::text,
+        'hub-api',
+        jsonb_build_object('preferred_job_countries', preferred_job_countries)
+    FROM updated
+    RETURNING audit_event_id
+)
+SELECT EXISTS (SELECT 1 FROM audit) AS changed
+`
+
+type SetHubPreferredJobCountriesParams struct {
+	PreferredJobCountries []string    `json:"preferred_job_countries"`
+	HubUserDid            pgtype.UUID `json:"hub_user_did"`
+	TenantID              string      `json:"tenant_id"`
+}
+
+func (q *Queries) SetHubPreferredJobCountries(ctx context.Context, arg SetHubPreferredJobCountriesParams) (bool, error) {
+	row := q.db.QueryRow(ctx, setHubPreferredJobCountries, arg.PreferredJobCountries, arg.HubUserDid, arg.TenantID)
+	var changed bool
+	err := row.Scan(&changed)
+	return changed, err
 }
 
 const setHubPreferredLanguage = `-- name: SetHubPreferredLanguage :one

@@ -13,3 +13,11 @@ export const InvalidSignupTokenError: Readonly<Details> = {
   status: 401,
   detail: "Signup token is invalid, expired, consumed, or no longer eligible",
 };
+
+export const SignupUnavailableError: Readonly<Details> = {
+  type: "vetchium-problem-details/hub-signup-unavailable",
+  title: "Hub signup unavailable",
+  status: 403,
+  detail:
+    "This region is not accepting signup for your resident country. Choose another region.",
+};

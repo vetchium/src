@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 import type { LoginResponse } from "typespec/hub/auth/login";
 import type { CompleteSignupResponse } from "typespec/hub/auth/signup";
+import type { MyInfoResponse } from "typespec/hub/users/profile";
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
 import {
   type AuditEvent,
@@ -312,6 +313,35 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
     if (firstLogin.authentication_state !== "authenticated") {
       throw new Error("unexpected TFA challenge");
     }
+    removeAuditFailure = installHubAuditInsertFailure({
+      action: "hub.profile.preferred-job-countries-set",
+      actorID: completed.hub_user_did,
+    });
+    await expectProblem(
+      await hub.post(
+        "/set-preferred-job-countries",
+        { preferred_job_countries: ["FRA"] },
+        { token: firstLogin.session_token },
+      ),
+      500,
+      "vetchium-problem-details/internal-server-error",
+    );
+    expect(
+      (
+        await responseJSON<MyInfoResponse>(
+          await hub.get("/my-info", firstLogin.session_token),
+        )
+      ).preferred_job_countries,
+    ).toEqual(["USA"]);
+    expect(
+      hubAuditEventsForActor(
+        completed.hub_user_did,
+        "hub.profile.preferred-job-countries-set",
+      ),
+    ).toEqual([]);
+    removeAuditFailure();
+    removeAuditFailure = undefined;
+
     const rememberedLoginResponse = await hub.post("/login", {
       email_address: emailAddress,
       password: initialPassword,

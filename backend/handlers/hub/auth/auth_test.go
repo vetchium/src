@@ -67,7 +67,7 @@ func TestLoginSessionDurations(t *testing.T) {
 					t.Fatalf("normalized email = %q", email)
 				}
 				return sqlc.GetHubUserForLoginRow{
-					HubUserDid: did, Handle: "perso-00000000001",
+					HubUserDid: did, Handle: "perso-00000000000000000000000000000001",
 					PasswordHash:      passwordHash,
 					HubUserState:      sqlc.VetchiumHubUserStateActive,
 					PreferredLanguage: "de-DE", ResidentCountry: "DEU",

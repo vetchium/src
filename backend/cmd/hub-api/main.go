@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -12,6 +13,7 @@ import (
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/middleware"
+	"backend/internal/regions"
 	"backend/internal/routes"
 	"backend/internal/service"
 )
@@ -33,12 +35,22 @@ func run(log *slog.Logger, address string) error {
 	if err != nil {
 		return err
 	}
+	catalog, err := regions.Load(cfg.SignupRegionsFile)
+	if err != nil {
+		return err
+	}
+	if !catalog.HasOrigin(cfg.TenantID, cfg.HubAPIServer.PublicBaseURL) {
+		return fmt.Errorf("tenant origin missing from signup catalog")
+	}
+	coordinatorConfig := cfg.GlobalCoordinator
+	coordinatorConfig.BaseURL = coordinatorConfig.MeshBaseURL
 	coordinator, err := globalcoordinatorclient.NewFromConfig(
-		cfg.GlobalCoordinator,
+		coordinatorConfig,
 	)
 	if err != nil {
 		return err
 	}
+	coordinator.RegionsPath = "/mesh/list-signup-regions"
 	log = service.WithTenant(log, cfg.TenantID)
 
 	ctx, stop := service.SignalContext()
@@ -51,10 +63,12 @@ func run(log *slog.Logger, address string) error {
 	defer pool.Close()
 
 	s := &hubruntime.Server{
-		Runtime:     apiserver.New(pool, log),
-		Queries:     dbsqlc.New(pool),
-		Coordinator: coordinator,
-		TenantID:    cfg.TenantID,
+		Runtime:         apiserver.New(pool, log),
+		Queries:         dbsqlc.New(pool),
+		RegionDirectory: coordinator,
+		Regions:         catalog,
+		Signup:          cfg.HubAPIServer.Signup,
+		TenantID:        cfg.TenantID,
 		SessionDurations: apiserver.SessionDurations{
 			Default:    cfg.HubAPIServer.SessionTTL,
 			Remembered: cfg.HubAPIServer.RememberedSessionTTL,

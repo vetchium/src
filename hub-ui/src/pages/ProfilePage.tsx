@@ -48,6 +48,14 @@ export function ProfilePage() {
       void message.success(t("profile.saved"));
     },
   });
+  const jobs = useMutation({
+    mutationFn: (preferred_job_countries: string[]) =>
+      hubAPI.setPreferredJobCountries({ preferred_job_countries }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
+      void message.success(t("profile.saved"));
+    },
+  });
   if (me === undefined) return null;
 
   return (
@@ -96,8 +104,7 @@ export function ProfilePage() {
           <Form layout="vertical" className="preference-form">
             <Form.Item label={t("fields.residentCountry")}>
               <Select
-                showSearch
-                optionFilterProp="label"
+                showSearch={{ optionFilterProp: "label" }}
                 value={me.resident_country}
                 loading={country.isPending}
                 options={countryCodeValues.map((value) => ({
@@ -108,8 +115,29 @@ export function ProfilePage() {
               />
             </Form.Item>
           </Form>
+          <Form layout="vertical" className="preference-form">
+            <Form.Item
+              label={t("profile.jobCountries")}
+              help={t("profile.jobCountriesHelp")}
+            >
+              <Select
+                mode="multiple"
+                maxCount={10}
+                aria-label={t("profile.jobCountries")}
+                showSearch={{ optionFilterProp: "label" }}
+                value={me.preferred_job_countries}
+                loading={jobs.isPending}
+                disabled={jobs.isPending}
+                options={countryCodeValues.map((value) => ({
+                  value,
+                  label: value,
+                }))}
+                onChange={(value: string[]) => jobs.mutate(value)}
+              />
+            </Form.Item>
+          </Form>
         </Flex>
-        <APIErrorAlert error={language.error ?? country.error} />
+        <APIErrorAlert error={language.error ?? country.error ?? jobs.error} />
       </Card>
     </Space>
   );

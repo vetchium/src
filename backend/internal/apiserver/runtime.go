@@ -15,3 +15,5 @@ type Runtime struct {
 func New(db *pgxpool.Pool, logger *slog.Logger) *Runtime {
 	return &Runtime{DB: db, Logger: logger}
 }
+
+func (s *Runtime) HandlerRuntime() *Runtime { return s }

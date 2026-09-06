@@ -41,7 +41,7 @@ interface PasswordOperations {
     | {
         @statusCode status_code: 202;
         @header("Cache-Control") cache_control: "no-store";
-    }
+      }
     | Vetchium.Problem.InvalidJSONErrorResponse
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse

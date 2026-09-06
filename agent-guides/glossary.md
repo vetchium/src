@@ -7,7 +7,7 @@ Admin — a platform maintainer; cell-local, scoped to one country.
 Principal — a hub user or an org: the two things that own data, are routable, and can migrate.
 DID (_\_did) — a principal's stable, opaque, never-reused UUID. Encodes no location.
 OID (_\_oid) — a seeded config id (language, plan, capability, opening tag), byte-identical in every cell, never minted at runtime.
-Handle — a hub user's public name in a URL; unique per country, mutable, re-assignable.
+Handle — a hub user's public name in a URL; tenant-local uniqueness. Signup derives it from a readable prefix and the full DID, without a global allocation. A future move must preserve it.
 Follow — a one-way interest used for network-opportunity discovery and warm endorsement suggestions. It is not evidence that the users worked together and grants no endorsement privilege.
 Domain — an org's DNS-verified domain; globally unique, owned by one org at a time. One is primary.
 Home cell — the cell holding a principal's authoritative rows and credentials. Every principal is single-homed.
@@ -29,3 +29,9 @@ Capability — a seeded service category an org can offer. Staffing is the first
 Listing — a service offer by a provider org. Numbered per (org, country).
 Subscription — a consumer org subscribing to a provider's listing. Authoritative provider-side.
 Agency assignment — a client org officially assigning an agency to one of its openings.
+
+Location:
+
+Resident country — a Hub user's self-declared current country, independent of their home tenant.
+Preferred job countries — up to ten countries used for discovery; initially residence, later independently editable. An empty list means no country filter.
+Signup region — a tenant selected by the user from the configured eligible regions. Country recommendations do not force placement.

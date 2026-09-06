@@ -41,6 +41,6 @@ test("Hub signup completion validates token and password", () => {
 test("Hub identifiers enforce UUIDv7 and fixed-width handles", () => {
   assert.equal(isHubUserDID("018f7e32-7b5a-7d31-8fd0-f7e2a852f144"), true);
   assert.equal(isHubUserDID("018f7e32-7b5a-4d31-8fd0-f7e2a852f144"), false);
-  assert.equal(isHubHandle("perso-00000000001"), true);
-  assert.equal(isHubHandle("person-00000000001"), false);
+  assert.equal(isHubHandle("perso-00000000000000000000000000000001"), true);
+  assert.equal(isHubHandle("person-00000000000000000000000000000001"), false);
 });

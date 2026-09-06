@@ -15,3 +15,10 @@ var InvalidSignupTokenError = problem.Details{
 	Status: 401,
 	Detail: "Signup token is invalid, expired, consumed, or no longer eligible",
 }
+
+var SignupUnavailableError = problem.Details{
+	Type:   "vetchium-problem-details/hub-signup-unavailable",
+	Title:  "Hub signup unavailable",
+	Status: 403,
+	Detail: "This region is not accepting signup for your resident country. Choose another region.",
+}

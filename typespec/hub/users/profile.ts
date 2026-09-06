@@ -9,6 +9,7 @@ import { isCountryCode, isFrontendLocale } from "../../common/localization.ts";
 import type { HubHandle, HubUserDID } from "../types.ts";
 
 export interface MyInfoResponse {
+  preferred_job_countries: CountryCode[];
   hub_user_did: HubUserDID;
   handle: HubHandle;
   email_address: EmailAddress;
@@ -40,4 +41,19 @@ export function validateSetResidentCountryRequest(
   request: SetResidentCountryRequest,
 ): string[] {
   return isCountryCode(request.resident_country) ? [] : ["resident_country"];
+}
+
+export interface SetPreferredJobCountriesRequest {
+  preferred_job_countries: CountryCode[];
+}
+export function validateSetPreferredJobCountriesRequest(
+  request: SetPreferredJobCountriesRequest,
+): string[] {
+  const countries = request.preferred_job_countries;
+  return !Array.isArray(countries) ||
+    countries.length > 10 ||
+    new Set(countries).size !== countries.length ||
+    countries.some((country) => !isCountryCode(country))
+    ? ["preferred_job_countries"]
+    : [];
 }

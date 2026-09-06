@@ -7,6 +7,7 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/globalcoordinator"
 	"backend/internal/middleware"
+	"backend/internal/regions"
 	"backend/internal/routes"
 	"backend/internal/service"
 )
@@ -17,6 +18,10 @@ func main() {
 
 func run(log *slog.Logger, address string) error {
 	config, err := globalcoordinator.LoadConfig()
+	if err != nil {
+		return err
+	}
+	catalog, err := regions.Load(config.SignupRegionsFile)
 	if err != nil {
 		return err
 	}
@@ -44,6 +49,7 @@ func run(log *slog.Logger, address string) error {
 	runtime := apiserver.New(nil, log)
 	server := &globalcoordinator.Server{
 		Runtime:    runtime,
+		Regions:    catalog,
 		Generator:  generator,
 		Credential: credential,
 	}

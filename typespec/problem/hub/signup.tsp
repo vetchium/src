@@ -23,3 +23,14 @@ alias InvalidHubSignupTokenErrorResponse = AuthenticationResponse<
   "VetchiumSignup realm=\"hub\"",
   typeof InvalidHubSignupTokenError
 >;
+
+const HubSignupUnavailableError = #{
+  type: "vetchium-problem-details/hub-signup-unavailable",
+  title: "Hub signup unavailable",
+  status: 403,
+  detail: "This region is not accepting signup for your resident country. Choose another region.",
+};
+alias HubSignupUnavailableErrorResponse = Response<
+  403,
+  typeof HubSignupUnavailableError
+>;

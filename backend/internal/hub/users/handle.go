@@ -3,14 +3,13 @@ package users
 import (
 	"strings"
 
-	coordinatorspec "github.com/vetchium/src/typespec/global-coordinator"
 	"github.com/vetchium/src/typespec/hub"
 )
 
-// Handle builds the tenant-local handle for a new Hub User. The short ID keeps
-// it unique; the display-name prefix keeps it recognizable.
+// Deriving the suffix from the full DID keeps signup independent of the global
+// allocator and preserves the handle when the account moves.
 func Handle(
-	displayName string, shortID coordinatorspec.ShortID,
+	displayName string, did hub.HubUserDID,
 ) hub.HubHandle {
 	prefix := make([]byte, 0, 5)
 	for _, character := range strings.ToLower(displayName) {
@@ -25,5 +24,5 @@ func Handle(
 	for len(prefix) < 5 {
 		prefix = append(prefix, 'x')
 	}
-	return hub.HubHandle(string(prefix) + "-" + string(shortID))
+	return hub.HubHandle(string(prefix) + "-" + strings.ReplaceAll(string(did), "-", ""))
 }

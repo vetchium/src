@@ -87,7 +87,7 @@ export function App() {
           }
         />
         <Route
-          path="signup"
+          path="signup/:residentCountry?/:language?/:step?"
           element={
             <Page>
               <SignupPage />

@@ -23,12 +23,17 @@
   "globalCoordinator": {
     "baseURL": "http://global-coordinator:8080",
     "credentialFile": "/run/secrets/global_coordinator_credential",
-    "requestTimeout": "5s"
+    "requestTimeout": "5s",
+    "meshBaseURL": "http://mesh-api-sgp:8080"
   },
   "hubAPIServer": {
     "sessionTTL": "24h",
     "rememberedSessionTTL": "6360h",
-    "publicBaseURL": "http://hub-ui.sgp.localhost"
+    "publicBaseURL": "http://hub-ui.sgp.localhost",
+    "signup": {
+      "enabled": true,
+      "emailDomainMode": "allowlist"
+    }
   },
   "smtp": {
     "host": "mailpit",
@@ -41,5 +46,6 @@
     "connectionTimeout": "5s"
   },
   "orgsAPIServer": {},
-  "mcpServer": {}
+  "mcpServer": {},
+  "signupRegionsFile": "/etc/vetchium/signup-regions.json"
 }

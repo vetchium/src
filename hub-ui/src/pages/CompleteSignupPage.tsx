@@ -63,6 +63,9 @@ export function CompleteSignupPage() {
         ) : (
           <>
             <APIErrorAlert error={complete.error} />
+            {complete.isError && (
+              <Link to="/signup">{t("signup.changeRegion")}</Link>
+            )}
             <Form<PasswordValues>
               layout="vertical"
               onFinish={(values) => complete.mutate(values)}

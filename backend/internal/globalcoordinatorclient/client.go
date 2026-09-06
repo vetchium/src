@@ -18,16 +18,22 @@ import (
 const generateShortIDPath = "/api/global-coordinator/generate-short-id"
 
 type Client struct {
-	baseURL    string
-	credential string
-	httpClient *http.Client
+	RegionsPath string
+	baseURL     string
+	credential  string
+	httpClient  *http.Client
 }
 
 func New(baseURL, credential string, timeout time.Duration) *Client {
 	return &Client{
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		credential: credential,
-		httpClient: &http.Client{Timeout: timeout},
+		httpClient: &http.Client{
+			Timeout: timeout,
+			CheckRedirect: func(*http.Request, []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
 	}
 }
 

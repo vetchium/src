@@ -9,6 +9,7 @@ const exportedDirectories = [
   "global-coordinator",
   "hub",
   "problem",
+  "regions",
 ];
 
 export function packageExportProblems(actualExports, expectedExports) {

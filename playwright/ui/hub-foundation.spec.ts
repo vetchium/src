@@ -5,7 +5,7 @@ const hubBaseURL =
 const sessionKey = "vetchium.hub.session";
 const sessionToken = "s".repeat(64);
 const hubUserDID = "018f7e32-7b5a-7d31-8fd0-f7e2a852f144";
-const handle = "perso-00000000001";
+const handle = "perso-00000000000000000000000000000001";
 
 function myInfo(sessionAuthenticatedAt = new Date().toISOString()) {
   return {
@@ -15,6 +15,7 @@ function myInfo(sessionAuthenticatedAt = new Date().toISOString()) {
     display_name: "Example Person",
     preferred_language: "en-US",
     resident_country: "SGP",
+    preferred_job_countries: ["SGP"],
     totp_enabled: false,
     recovery_codes_remaining: 0,
     session_authenticated_at: sessionAuthenticatedAt,
@@ -350,5 +351,32 @@ test("signup defaults to the current interface language", async ({ page }) => {
   await page.goto(`${hubBaseURL}/signup`);
   await expect(
     page.getByRole("main").getByText("தமிழ்", { exact: true }),
+  ).toBeVisible();
+});
+
+test("job countries update independently of residence", async ({ page }) => {
+  await provideStoredSession(page);
+  let countries = ["SGP"];
+  await page.route("**/api/hub/my-info", async (route) => {
+    await route.fulfill({
+      json: { ...myInfo(), preferred_job_countries: countries },
+    });
+  });
+  await page.route("**/api/hub/set-preferred-job-countries", async (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      preferred_job_countries: ["SGP", "FRA"],
+    });
+    countries = ["SGP", "FRA"];
+    await route.fulfill({ status: 204 });
+  });
+  await page.goto(`${hubBaseURL}/settings/profile`);
+  const jobs = page.getByRole("combobox", { name: "Preferred job countries" });
+  await jobs.fill("FRA");
+  await jobs.press("Enter");
+  await expect.poll(() => countries).toEqual(["SGP", "FRA"]);
+  await page.keyboard.press("Escape");
+  await expect(page.getByText("FRA", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Choose up to 10 countries.", { exact: false }),
   ).toBeVisible();
 });

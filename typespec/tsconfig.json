@@ -12,6 +12,13 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["admin/**/*.ts", "common/**/*.ts", "problem/**/*.ts"],
+  "include": [
+    "admin/**/*.ts",
+    "common/**/*.ts",
+    "problem/**/*.ts",
+    "hub/**/*.ts",
+    "regions/**/*.ts",
+    "global-coordinator/**/*.ts"
+  ],
   "exclude": ["node_modules", "tsp-output"]
 }

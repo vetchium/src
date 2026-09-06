@@ -42,7 +42,7 @@ function sqlLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
-type TestTenant = "deu" | "sgp";
+type TestTenant = "deu" | "sgp" | "ind1" | "usa1";
 
 function sqlScalarForTenant(tenant: TestTenant, sql: string): string {
   return execFileSync(
@@ -1006,10 +1006,15 @@ export function cleanupHubSignupDomain(
   );
 }
 
-export function cleanupHubUser(emailAddress: string): void {
+export function cleanupHubUser(
+  emailAddress: string,
+  tenant: TestTenant = "sgp",
+): void {
   assertOwnedHubEmail(emailAddress);
   const email = sqlLiteral(emailAddress);
-  sqlScalar(`
+  sqlScalarForTenant(
+    tenant,
+    `
     DELETE FROM vetchium.hub_email_outbox
     WHERE recipient_email_address = ${email};
     DELETE FROM vetchium.hub_signup_requests
@@ -1018,7 +1023,8 @@ export function cleanupHubUser(emailAddress: string): void {
     WHERE email_address = ${email};
     DELETE FROM vetchium.idempotency_ledger
     WHERE binding_id = ${email};
-  `);
+  `,
+  );
 }
 
 export function ageHubSession(token: string): void {
@@ -1060,8 +1066,17 @@ export function cleanupAdminIdempotency(keys: Iterable<string>): void {
   `);
 }
 
-export function cleanupHubIdempotency(keys: Iterable<string>): void {
-  cleanupAdminIdempotency(keys);
+export function cleanupHubIdempotency(
+  keys: Iterable<string>,
+  tenant: TestTenant = "sgp",
+): void {
+  const values = [...new Set(keys)];
+  if (values.length === 0) return;
+  for (const key of values) assertHubIdempotencyKey(key);
+  sqlScalarForTenant(
+    tenant,
+    `DELETE FROM vetchium.idempotency_ledger WHERE idempotency_key IN (${values.map(sqlLiteral).join(", ")});`,
+  );
 }
 
 export interface AuditEvent {
@@ -1723,4 +1738,19 @@ export function currentTOTP(secret: string, timestamp = Date.now()): string {
   const offset = (digest.at(-1) ?? 0) & 0x0f;
   const value = (digest.readUInt32BE(offset) & 0x7fffffff) % 1_000_000;
   return value.toString().padStart(6, "0");
+}
+
+export function seedPendingHubSignup(
+  emailAddress: string,
+  token: string,
+  tenant: TestTenant,
+): void {
+  assertOwnedHubEmail(emailAddress);
+  if (!/^[0-9a-f]{64}$/.test(token))
+    throw new Error("invalid test signup token");
+  const hash = createHash("sha256").update(token).digest("hex");
+  sqlScalarForTenant(
+    tenant,
+    `INSERT INTO vetchium.hub_signup_requests (email_address, display_name, preferred_language, resident_country, token_hash, expires_at) VALUES (${sqlLiteral(emailAddress)}, 'Pending Signup', 'en-US', 'DEU', decode('${hash}', 'hex'), now() + interval '10 minutes');`,
+  );
 }

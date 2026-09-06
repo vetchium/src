@@ -1,5 +1,6 @@
 {
   "env": "ci",
   "credentialFile": "/run/secrets/global_coordinator_credential",
-  "stateFile": "/var/lib/vetchium-global-coordinator/last-id"
+  "stateFile": "/var/lib/vetchium-global-coordinator/last-id",
+  "signupRegionsFile": "/etc/vetchium/signup-regions.json"
 }

@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Alert,
   Button,
@@ -7,12 +7,20 @@ import {
   Input,
   Select,
   Space,
+  Spin,
   Typography,
 } from "antd";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
-import type { FrontendLocale } from "typespec/common/localization";
-import { countryCodeValues } from "typespec/common/localization";
+import { Link, useNavigate, useParams } from "react-router";
+import {
+  countryCodeValues,
+  type FrontendLocale,
+  isCountryCode,
+  isFrontendLocale,
+} from "typespec/common/localization";
+import type { RequestSignupRequest } from "typespec/hub/auth/signup";
+import type { SignupRegion } from "typespec/regions/regions";
 import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
 import { usePreferences } from "../app/PreferencesContext";
@@ -20,23 +28,80 @@ import { APIErrorAlert } from "../components/common/APIErrorAlert";
 
 const languages: FrontendLocale[] = ["en-US", "ta", "de-DE"];
 
-interface SignupValues {
-  display_name: string;
-  email_address: string;
-  preferred_language: FrontendLocale;
-  resident_country: string;
+export function SignupPage() {
+  const params = useParams();
+  return (
+    <SignupFlow
+      key={`${params.residentCountry ?? ""}/${params.language ?? ""}/${params.step ?? ""}`}
+    />
+  );
 }
 
-export function SignupPage() {
+function SignupFlow() {
   const { t } = useTranslation();
   const preferences = usePreferences();
+  const params = useParams();
+  const navigate = useNavigate();
+  const [country, setCountry] = useState(
+    isCountryCode(params.residentCountry ?? "")
+      ? (params.residentCountry ?? "")
+      : "",
+  );
+  const [language, setLanguage] = useState<FrontendLocale>(
+    isFrontendLocale(params.language) ? params.language : preferences.language,
+  );
+  const [selectedTenant, setSelectedTenant] = useState<string>();
   const key = useIdempotencyKey();
+  const catalog = useQuery({
+    queryKey: ["signup-regions", country],
+    enabled: isCountryCode(country),
+    retry: false,
+    queryFn: async () => {
+      const regions: SignupRegion[] = [];
+      let cursor: string | undefined;
+      const seen = new Set<string>();
+      do {
+        const page = await hubAPI.listSignupRegions({
+          resident_country: country,
+          pagination_key: cursor,
+        });
+        regions.push(...page.regions);
+        cursor = page.next_pagination_key ?? undefined;
+        if (cursor && seen.has(cursor))
+          throw new Error("Repeated region cursor");
+        if (cursor) seen.add(cursor);
+      } while (cursor);
+      return regions;
+    },
+  });
+  const options = catalog.data ?? [];
+  const selected =
+    options.find((region) => region.tenant_id === selectedTenant) ??
+    options.find((region) => region.recommended) ??
+    options[0];
+  const local = options.find(
+    (region) => new URL(region.hub_url).origin === window.location.origin,
+  );
+  const details = params.step === "details" && local !== undefined;
   const signup = useMutation({
-    mutationFn: (request: SignupValues) =>
-      hubAPI.requestSignup(request, key.current()),
+    mutationFn: (
+      values: Pick<RequestSignupRequest, "display_name" | "email_address">,
+    ) =>
+      hubAPI.requestSignup(
+        { ...values, preferred_language: language, resident_country: country },
+        key.current(),
+      ),
     onSuccess: () => key.rotate(),
   });
-
+  function continueSignup() {
+    if (!selected) return;
+    const path = `/signup/${country}/${language}/details`;
+    if (new URL(selected.hub_url).origin === window.location.origin) {
+      navigate(path);
+      return;
+    }
+    window.location.assign(new URL(path, selected.hub_url).href);
+  }
   return (
     <Card className="auth-card">
       <title>{t("signup.documentTitle")}</title>
@@ -44,7 +109,7 @@ export function SignupPage() {
         <div>
           <Typography.Title level={1}>{t("signup.title")}</Typography.Title>
           <Typography.Text type="secondary">
-            {t("signup.description")}
+            {t(details ? "signup.description" : "signup.regionDescription")}
           </Typography.Text>
         </div>
         {signup.isSuccess ? (
@@ -52,12 +117,24 @@ export function SignupPage() {
             <Alert type="success" showIcon title={t("signup.checkEmail")} />
             <Link to="/login">{t("common.backToSignin")}</Link>
           </>
-        ) : (
+        ) : details ? (
           <>
+            <Alert
+              type="info"
+              showIcon
+              title={t("signup.hosting", {
+                region: t(`signup.regionCountries.${local.hosting_country}`, {
+                  defaultValue: local.hosting_country,
+                }),
+                tenant: local.tenant_id,
+              })}
+            />
+            <Typography.Text>
+              {t("signup.residence", { country })}
+            </Typography.Text>
             <APIErrorAlert error={signup.error} />
-            <Form<SignupValues>
+            <Form<Pick<RequestSignupRequest, "display_name" | "email_address">>
               layout="vertical"
-              initialValues={{ preferred_language: preferences.language }}
               onFinish={(values) => signup.mutate(values)}
             >
               <Form.Item
@@ -86,32 +163,6 @@ export function SignupPage() {
               >
                 <Input autoComplete="email" />
               </Form.Item>
-              <Form.Item
-                name="preferred_language"
-                label={t("fields.language")}
-                rules={[{ required: true, message: t("validation.required") }]}
-              >
-                <Select
-                  options={languages.map((language) => ({
-                    value: language,
-                    label: t(`languages.${language}`),
-                  }))}
-                />
-              </Form.Item>
-              <Form.Item
-                name="resident_country"
-                label={t("fields.residentCountry")}
-                rules={[{ required: true, message: t("validation.country") }]}
-              >
-                <Select
-                  showSearch
-                  optionFilterProp="label"
-                  options={countryCodeValues.map((country) => ({
-                    value: country,
-                    label: country,
-                  }))}
-                />
-              </Form.Item>
               <Button
                 type="primary"
                 htmlType="submit"
@@ -121,11 +172,97 @@ export function SignupPage() {
                 {t("signup.action")}
               </Button>
             </Form>
-            <Typography.Text>
-              {t("signup.haveAccount")}{" "}
-              <Link to="/login">{t("signup.signin")}</Link>
-            </Typography.Text>
+            <Button
+              disabled={signup.isPending}
+              onClick={() => {
+                signup.reset();
+                key.rotate();
+                navigate(`/signup/${country}/${language}`);
+              }}
+            >
+              {t("signup.changeRegion")}
+            </Button>
           </>
+        ) : (
+          <Form layout="vertical" onFinish={continueSignup}>
+            <Form.Item label={t("fields.residentCountry")} required>
+              <Select
+                aria-label={t("fields.residentCountry")}
+                showSearch={{ optionFilterProp: "label" }}
+                value={country || undefined}
+                options={countryCodeValues.map((value) => ({
+                  value,
+                  label: value,
+                }))}
+                onChange={(value: string) => {
+                  setCountry(value);
+                  setSelectedTenant(undefined);
+                }}
+              />
+            </Form.Item>
+            <Form.Item label={t("fields.language")} required>
+              <Select
+                aria-label={`* ${t("fields.language")}`}
+                value={language}
+                options={languages.map((value) => ({
+                  value,
+                  label: t(`languages.${value}`),
+                }))}
+                onChange={(value: FrontendLocale) => {
+                  setLanguage(value);
+                  preferences.setLanguage(value);
+                }}
+              />
+            </Form.Item>
+            <APIErrorAlert error={catalog.error} />
+            {catalog.isFetching && <Spin />}
+            {catalog.isError && (
+              <Button onClick={() => void catalog.refetch()}>
+                {t("signup.retryRegions")}
+              </Button>
+            )}
+            {catalog.isSuccess && options.length === 0 && (
+              <Alert type="info" title={t("signup.noRegions")} />
+            )}
+            {options.length > 0 && (
+              <Form.Item label={t("signup.regionLabel")} required>
+                <Select
+                  aria-label={t("signup.regionLabel")}
+                  value={selected?.tenant_id}
+                  options={options.map((region) => ({
+                    value: region.tenant_id,
+                    label: t(
+                      region.recommended
+                        ? "signup.recommendedRegion"
+                        : "signup.regionOption",
+                      {
+                        region: t(
+                          `signup.regionCountries.${region.hosting_country}`,
+                          { defaultValue: region.hosting_country },
+                        ),
+                        tenant: region.tenant_id,
+                      },
+                    ),
+                  }))}
+                  onChange={setSelectedTenant}
+                />
+              </Form.Item>
+            )}
+            <Button
+              type="primary"
+              htmlType="submit"
+              block
+              disabled={!selected || catalog.isFetching || catalog.isError}
+            >
+              {t("signup.continueRegion")}
+            </Button>
+          </Form>
+        )}
+        {!signup.isSuccess && (
+          <Typography.Text>
+            {t("signup.haveAccount")}{" "}
+            <Link to="/login">{t("signup.signin")}</Link>
+          </Typography.Text>
         )}
       </Space>
     </Card>

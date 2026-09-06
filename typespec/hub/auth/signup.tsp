@@ -38,7 +38,7 @@ model CompleteSignupResponse {
 @route("/api/hub")
 @tag("Hub signup")
 interface SignupOperations {
-  /** Queue a localized email-address verification link for an allowed domain. */
+  /** Queue a localized verification link under this tenant’s country and email admission policy. Email uniqueness is tenant-local. */
   @route("/request-signup")
   @post
   @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
@@ -61,6 +61,7 @@ interface SignupOperations {
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.HubSignupDomainNotAllowedErrorResponse
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
+    | Vetchium.Problem.HubSignupUnavailableErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
@@ -88,6 +89,7 @@ interface SignupOperations {
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.InvalidHubSignupTokenErrorResponse
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
+    | Vetchium.Problem.HubSignupUnavailableErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 }

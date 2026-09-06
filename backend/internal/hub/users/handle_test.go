@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	coordinatorspec "github.com/vetchium/src/typespec/global-coordinator"
 	"github.com/vetchium/src/typespec/hub"
 
 	"backend/internal/dbvalue"
@@ -39,7 +38,7 @@ func TestHandle(t *testing.T) {
 			t.Parallel()
 			got := Handle(
 				tt.displayName,
-				coordinatorspec.ShortID("00000000001"),
+				hub.HubUserDID("018f7e32-7b5a-7d31-8fd0-f7e2a852f144"),
 			)
 			if !strings.HasPrefix(string(got), tt.wantPrefix) ||
 				!hub.IsHubHandle(got) {

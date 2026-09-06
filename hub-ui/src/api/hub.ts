@@ -27,14 +27,23 @@ import type {
 import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";
 import type {
   MyInfoResponse,
+  SetPreferredJobCountriesRequest,
   SetPreferredLanguageRequest,
   SetResidentCountryRequest,
 } from "typespec/hub/users/profile";
+import type {
+  ListSignupRegionsRequest,
+  ListSignupRegionsResponse,
+} from "typespec/regions/regions";
 import { apiRequest } from "./client";
 
 const base = "/api/hub";
 
 export const hubAPI = {
+  listSignupRegions: (body: ListSignupRegionsRequest) =>
+    apiRequest<ListSignupRegionsResponse>(`${base}/list-signup-regions`, {
+      body,
+    }),
   requestSignup: (body: RequestSignupRequest, idempotencyKey: IdempotencyKey) =>
     apiRequest<void>(`${base}/request-signup`, { body, idempotencyKey }),
   completeSignup: (
@@ -82,6 +91,8 @@ export const hubAPI = {
     }),
   changePassword: (body: ChangePasswordRequest) =>
     apiRequest<void>(`${base}/change-password`, { body }),
+  setPreferredJobCountries: (body: SetPreferredJobCountriesRequest) =>
+    apiRequest<void>(`${base}/set-preferred-job-countries`, { body }),
   myInfo: () => apiRequest<MyInfoResponse>(`${base}/my-info`),
   setPreferredLanguage: (body: SetPreferredLanguageRequest) =>
     apiRequest<void>(`${base}/set-preferred-language`, { body }),

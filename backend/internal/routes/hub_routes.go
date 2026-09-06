@@ -6,6 +6,7 @@ import (
 	hubauth "backend/handlers/hub/auth"
 	hubusers "backend/handlers/hub/users"
 	"backend/handlers/portal"
+	"backend/handlers/regions"
 	"backend/internal/apiserver"
 	hubruntime "backend/internal/hub"
 	"backend/internal/middleware"
@@ -13,6 +14,7 @@ import (
 
 func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
+	mux.HandleFunc("POST /api/hub/list-signup-regions", regions.Handler(s.Runtime, s.Regions, s.RegionDirectory, ""))
 	mux.HandleFunc(
 		"GET /api/hub/ping", portal.Ping(s.Runtime, s.Queries, "hub", s.TenantID),
 	)
@@ -62,6 +64,7 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(recentAuth(hubauth.RegenerateTOTPRecoveryCodes(s))),
 	)
 	mux.Handle("GET /api/hub/my-info", hubAuth(hubusers.MyInfo(s)))
+	mux.Handle("POST /api/hub/set-preferred-job-countries", hubAuth(hubusers.SetPreferredJobCountries(s)))
 	mux.Handle(
 		"POST /api/hub/set-preferred-language",
 		hubAuth(hubusers.SetPreferredLanguage(s)),

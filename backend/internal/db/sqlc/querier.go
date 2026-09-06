@@ -103,6 +103,7 @@ type Querier interface {
 	// tenant that already has none is not held to the invariant it has lost.
 	SetAdminPermissions(ctx context.Context, arg SetAdminPermissionsParams) (string, error)
 	SetAdminPreferredLanguage(ctx context.Context, arg SetAdminPreferredLanguageParams) (int64, error)
+	SetHubPreferredJobCountries(ctx context.Context, arg SetHubPreferredJobCountriesParams) (bool, error)
 	SetHubPreferredLanguage(ctx context.Context, arg SetHubPreferredLanguageParams) (bool, error)
 	SetHubResidentCountry(ctx context.Context, arg SetHubResidentCountryParams) (bool, error)
 	UpdateHubSignupDomain(ctx context.Context, arg UpdateHubSignupDomainParams) (UpdateHubSignupDomainRow, error)

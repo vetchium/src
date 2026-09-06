@@ -50,6 +50,11 @@ CREATE TABLE vetchium.hub_users (
     hub_user_state vetchium.hub_user_state NOT NULL DEFAULT 'active',
     preferred_language text NOT NULL DEFAULT 'en-US',
     resident_country text NOT NULL,
+    preferred_job_countries text[] NOT NULL DEFAULT '{}',
+    CONSTRAINT hub_users_job_countries_check CHECK (
+        cardinality(preferred_job_countries) <= 10 AND
+        array_position(preferred_job_countries, NULL) IS NULL
+    ),
     totp_secret_ciphertext bytea,
     totp_enabled boolean NOT NULL DEFAULT false,
     totp_last_timestep bigint,
@@ -62,7 +67,7 @@ CREATE TABLE vetchium.hub_users (
         substring(hub_user_did::text FROM 15 FOR 1) = '7'
     ),
     CONSTRAINT hub_users_handle_check CHECK (
-        handle ~ '^[a-z0-9]{5}-[0-9a-hjkmnp-tv-z]{11}$'
+        handle ~ '^[a-z0-9]{5}-[0-9a-f]{32}$'
     ),
     CONSTRAINT hub_users_email_address_normalized CHECK (
         email_address = lower(btrim(email_address)) AND

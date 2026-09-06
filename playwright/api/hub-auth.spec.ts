@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
+import {
+  Disabled,
+  type Domain,
+} from "typespec/admin/hub-signup-domains/domains";
 import type {
   LoginResponse,
   LoginTOTPRequiredResponse,
@@ -129,7 +133,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
     expect(completed.hub_user_did).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
-    expect(completed.handle).toMatch(/^adalo-[0-9a-hjkmnp-tv-z]{11}$/);
+    expect(completed.handle).toMatch(/^adalo-[0-9a-f]{32}$/);
     await expectProblem(
       await hub.post(
         "/complete-signup",
@@ -273,6 +277,75 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
         )
       ).status(),
     ).toBe(204);
+
+    const jobPath = "/set-preferred-job-countries";
+    expect(info.preferred_job_countries).toEqual(["DEU"]);
+    for (const countries of [
+      ["ZZZ"],
+      ["IND", "IND"],
+      null,
+      Array(11).fill("IND"),
+    ]) {
+      await expectProblem(
+        await hub.post(
+          jobPath,
+          { preferred_job_countries: countries },
+          { token: first.session_token },
+        ),
+        400,
+        "vetchium-problem-details/validation-failed",
+        ["preferred_job_countries"],
+      );
+    }
+    await expectProblem(
+      await hub.post(jobPath, { preferred_job_countries: [] }),
+      401,
+      "vetchium-problem-details/hub-authentication-required",
+    );
+    await expectProblem(
+      await hub.postRaw(jobPath, "{", { token: first.session_token }),
+      400,
+      "vetchium-problem-details/invalid-json",
+    );
+    expect(
+      (
+        await hub.post(
+          jobPath,
+          { preferred_job_countries: ["FRA", "GBR"] },
+          { token: first.session_token },
+        )
+      ).status(),
+    ).toBe(204);
+    expect(
+      await responseJSON<MyInfoResponse>(
+        await hub.get("/my-info", first.session_token),
+      ),
+    ).toMatchObject({
+      resident_country: "USA",
+      preferred_job_countries: ["FRA", "GBR"],
+    });
+    expect(
+      hubAuditEventsForActor(
+        completed.hub_user_did,
+        "hub.profile.preferred-job-countries-set",
+      ),
+    ).toHaveLength(1);
+    expect(
+      (
+        await hub.post(
+          jobPath,
+          { preferred_job_countries: [] },
+          { token: first.session_token },
+        )
+      ).status(),
+    ).toBe(204);
+    expect(
+      (
+        await responseJSON<MyInfoResponse>(
+          await hub.get("/my-info", first.session_token),
+        )
+      ).preferred_job_countries,
+    ).toEqual([]);
 
     ageHubSession(first.session_token);
     for (const [path, idempotent] of [
@@ -818,6 +891,70 @@ test("Hub signup enforces the tenant domain and validates locale and country", a
     );
   } finally {
     cleanupHubUser(emailAddress);
+    cleanupHubIdempotency(hub.idempotencyKeys);
+  }
+});
+
+test("signup completion rechecks a revoked email domain", async ({
+  adminAPI,
+  managerToken,
+  ownedDomain,
+  request,
+}) => {
+  const domain = ownedDomain("signup-revoked");
+  const email = `e2e+${randomUUID()}@${domain}`;
+  const hub = new HubAPI(request);
+  try {
+    const createdResponse = await adminAPI.post(
+      "/create-hub-signup-domain",
+      { domain },
+      { token: managerToken },
+    );
+    expect(createdResponse.status()).toBe(201);
+    const created = await responseJSON<Domain>(createdResponse);
+    expect(
+      (
+        await hub.post(
+          "/request-signup",
+          {
+            email_address: email,
+            display_name: "Pending User",
+            preferred_language: "en-US",
+            resident_country: "SGP",
+          },
+          { idempotencyKey: hubIdempotencyKey() },
+        )
+      ).status(),
+    ).toBe(202);
+    const text = await latestEmailText(request, email, "complete-signup");
+    expect(
+      (
+        await adminAPI.post(
+          "/update-hub-signup-domain",
+          {
+            hub_signup_domain_id: created.hub_signup_domain_id,
+            domain,
+            state: Disabled,
+            disabled_comment: "Revoke pending signup eligibility",
+          },
+          { token: managerToken },
+        )
+      ).status(),
+    ).toBe(200);
+    await expectProblem(
+      await hub.post(
+        "/complete-signup",
+        {
+          signup_token: actionToken(text, "/complete-signup"),
+          password: `Password!${randomUUID()}`,
+        },
+        { idempotencyKey: hubIdempotencyKey() },
+      ),
+      401,
+      "vetchium-problem-details/hub-invalid-signup-token",
+    );
+  } finally {
+    cleanupHubUser(email);
     cleanupHubIdempotency(hub.idempotencyKeys);
   }
 });

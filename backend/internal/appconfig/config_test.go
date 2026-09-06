@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"backend/internal/regions"
 )
 
 func TestLoadFile(t *testing.T) {
@@ -394,4 +396,15 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func TestAdmissionModes(t *testing.T) {
+	for _, mode := range []regions.EmailDomainMode{regions.AnyDomain, regions.Allowlist} {
+		if err := (regions.Admission{Enabled: true, EmailDomainMode: mode}).Validate(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := (regions.Admission{Enabled: true, EmailDomainMode: "anything"}).Validate(); err == nil {
+		t.Fatal("invalid admission mode accepted")
+	}
 }

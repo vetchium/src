@@ -342,20 +342,21 @@ type VetchiumHubTotpRecoveryCode struct {
 }
 
 type VetchiumHubUser struct {
-	HubUserDid           pgtype.UUID          `json:"hub_user_did"`
-	Handle               string               `json:"handle"`
-	EmailAddress         string               `json:"email_address"`
-	DisplayName          string               `json:"display_name"`
-	PasswordHash         string               `json:"password_hash"`
-	HubUserState         VetchiumHubUserState `json:"hub_user_state"`
-	PreferredLanguage    string               `json:"preferred_language"`
-	ResidentCountry      string               `json:"resident_country"`
-	TotpSecretCiphertext []byte               `json:"totp_secret_ciphertext"`
-	TotpEnabled          bool                 `json:"totp_enabled"`
-	TotpLastTimestep     pgtype.Int8          `json:"totp_last_timestep"`
-	LastLoginAt          pgtype.Timestamptz   `json:"last_login_at"`
-	CreatedAt            pgtype.Timestamptz   `json:"created_at"`
-	UpdatedAt            pgtype.Timestamptz   `json:"updated_at"`
+	HubUserDid            pgtype.UUID          `json:"hub_user_did"`
+	Handle                string               `json:"handle"`
+	EmailAddress          string               `json:"email_address"`
+	DisplayName           string               `json:"display_name"`
+	PasswordHash          string               `json:"password_hash"`
+	HubUserState          VetchiumHubUserState `json:"hub_user_state"`
+	PreferredLanguage     string               `json:"preferred_language"`
+	ResidentCountry       string               `json:"resident_country"`
+	PreferredJobCountries []string             `json:"preferred_job_countries"`
+	TotpSecretCiphertext  []byte               `json:"totp_secret_ciphertext"`
+	TotpEnabled           bool                 `json:"totp_enabled"`
+	TotpLastTimestep      pgtype.Int8          `json:"totp_last_timestep"`
+	LastLoginAt           pgtype.Timestamptz   `json:"last_login_at"`
+	CreatedAt             pgtype.Timestamptz   `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz   `json:"updated_at"`
 }
 
 type VetchiumIdempotencyLedger struct {

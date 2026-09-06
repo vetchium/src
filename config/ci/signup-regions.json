@@ -1,0 +1,59 @@
+{
+  "version": "1",
+  "defaultTenant": "sgp",
+  "recommendations": {
+    "IND": "ind1",
+    "USA": "usa1",
+    "CAN": "usa1",
+    "MEX": "usa1",
+    "DEU": "deu",
+    "FRA": "deu",
+    "GBR": "deu",
+    "IRL": "deu",
+    "ESP": "deu",
+    "ITA": "deu",
+    "NLD": "deu",
+    "BEL": "deu",
+    "CHE": "deu",
+    "AUT": "deu",
+    "POL": "deu",
+    "PRT": "deu",
+    "SWE": "deu",
+    "NOR": "deu",
+    "FIN": "deu",
+    "DNK": "deu",
+    "AUS": "sgp",
+    "NZL": "sgp",
+    "SGP": "sgp"
+  },
+  "regions": [
+    {
+      "tenantId": "deu",
+      "hostingCountry": "DEU",
+      "hubURL": "http://hub-ui.deu.localhost",
+      "signupEnabled": false,
+      "allowedCountries": []
+    },
+    {
+      "tenantId": "ind1",
+      "hostingCountry": "IND",
+      "hubURL": "http://hub-ui.ind1.localhost",
+      "signupEnabled": true,
+      "allowedCountries": []
+    },
+    {
+      "tenantId": "sgp",
+      "hostingCountry": "SGP",
+      "hubURL": "http://hub-ui.sgp.localhost",
+      "signupEnabled": true,
+      "allowedCountries": []
+    },
+    {
+      "tenantId": "usa1",
+      "hostingCountry": "USA",
+      "hubURL": "http://hub-ui.usa1.localhost",
+      "signupEnabled": true,
+      "allowedCountries": []
+    }
+  ]
+}

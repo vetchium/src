@@ -15,6 +15,7 @@ import {
 import {
   InvalidSignupTokenError,
   SignupDomainNotAllowedError,
+  SignupUnavailableError,
 } from "typespec/problem/hub/signup";
 import {
   IncorrectRecoveryCodeError,
@@ -27,6 +28,7 @@ import {
 // renaming a problem type in TypeSpec fails the build here instead of silently
 // falling back to the generic message.
 export const problemKeys: Record<string, string> = {
+  [SignupUnavailableError.type]: "errors.signupUnavailable",
   [InvalidCredentialsError.type]: "errors.invalidCredentials",
   [HubUserDisabledError.type]: "errors.userDisabled",
   [SignupDomainNotAllowedError.type]: "errors.signupDomainNotAllowed",

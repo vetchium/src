@@ -6,6 +6,7 @@ SELECT
     u.display_name,
     u.preferred_language,
     u.resident_country,
+    u.preferred_job_countries,
     u.totp_enabled,
     recovery.remaining_codes AS recovery_codes_remaining,
     s.authenticated_at
@@ -71,6 +72,33 @@ WITH updated AS (
         hub_user_did::text,
         'hub-api',
         jsonb_build_object('resident_country', resident_country)
+    FROM updated
+    RETURNING audit_event_id
+)
+SELECT EXISTS (SELECT 1 FROM audit) AS changed;
+
+-- name: SetHubPreferredJobCountries :one
+WITH updated AS (
+    UPDATE vetchium.hub_users
+    SET preferred_job_countries = sqlc.arg(preferred_job_countries),
+        updated_at = now()
+    WHERE hub_user_did = sqlc.arg(hub_user_did)
+      AND hub_user_state = 'active'
+    RETURNING hub_user_did, preferred_job_countries
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'hub.profile.preferred-job-countries-set',
+        'hub_user',
+        hub_user_did::text,
+        'hub_user',
+        hub_user_did::text,
+        'hub-api',
+        jsonb_build_object('preferred_job_countries', preferred_job_countries)
     FROM updated
     RETURNING audit_event_id
 )

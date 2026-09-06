@@ -14,6 +14,7 @@ type MyInfoResponse struct {
 	EmailAddress           common.EmailAddress          `json:"email_address"`
 	DisplayName            common.DisplayName           `json:"display_name"`
 	PreferredLanguage      common.FrontendLocale        `json:"preferred_language"`
+	PreferredJobCountries  []common.CountryCode         `json:"preferred_job_countries"`
 	ResidentCountry        common.CountryCode           `json:"resident_country"`
 	TOTPEnabled            bool                         `json:"totp_enabled"`
 	RecoveryCodesRemaining common.TOTPRecoveryCodeCount `json:"recovery_codes_remaining"`
@@ -42,6 +43,26 @@ func (r *SetResidentCountryRequest) Normalize() {}
 func (r SetResidentCountryRequest) Validate() []string {
 	if !common.IsCountryCode(r.ResidentCountry) {
 		return []string{"resident_country"}
+	}
+	return []string{}
+}
+
+// An empty preference means the user has no country filter.
+type SetPreferredJobCountriesRequest struct {
+	PreferredJobCountries []common.CountryCode `json:"preferred_job_countries"`
+}
+
+func (r *SetPreferredJobCountriesRequest) Normalize() {}
+func (r SetPreferredJobCountriesRequest) Validate() []string {
+	if r.PreferredJobCountries == nil || len(r.PreferredJobCountries) > 10 {
+		return []string{"preferred_job_countries"}
+	}
+	seen := map[common.CountryCode]bool{}
+	for _, country := range r.PreferredJobCountries {
+		if !common.IsCountryCode(country) || seen[country] {
+			return []string{"preferred_job_countries"}
+		}
+		seen[country] = true
 	}
 	return []string{}
 }

@@ -1,6 +1,7 @@
 {
   "name": "vetchium",
   "configs": {
+    "signup_regions": { "file": "./config/signup-regions.json" },
     "global_coordinator_config": {
       "file": "./config/global-coordinator.json"
     },
@@ -133,6 +134,10 @@
       },
       "configs": [
         {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
+        {
           "source": "global_coordinator_config",
           "target": "/etc/vetchium/global-coordinator.json"
         }
@@ -146,10 +151,7 @@
       },
       "networks": {
         "global_coordinator_access": null,
-        "deu_backend": { "aliases": ["global-coordinator"] },
-        "ind1_backend": { "aliases": ["global-coordinator"] },
-        "sgp_backend": { "aliases": ["global-coordinator"] },
-        "usa1_backend": { "aliases": ["global-coordinator"] }
+        "mesh": null
       },
       "ports": [
         "${GLOBAL_COORDINATOR_BIND:-127.0.0.1}:${GLOBAL_COORDINATOR_PORT:-18080}:8080"
@@ -727,6 +729,10 @@
         }
       },
       "configs": [
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
         { "source": "app_config_deu", "target": "/etc/vetchium/config.json" }
       ],
       "environment": {
@@ -775,6 +781,10 @@
         }
       },
       "configs": [
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
         { "source": "app_config_ind1", "target": "/etc/vetchium/config.json" }
       ],
       "environment": {
@@ -823,6 +833,10 @@
         }
       },
       "configs": [
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
         { "source": "app_config_sgp", "target": "/etc/vetchium/config.json" }
       ],
       "environment": {
@@ -871,6 +885,10 @@
         }
       },
       "configs": [
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
         { "source": "app_config_usa1", "target": "/etc/vetchium/config.json" }
       ],
       "environment": {
@@ -1159,6 +1177,10 @@
         }
       },
       "configs": [
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
         { "source": "app_config_deu", "target": "/etc/vetchium/config.json" }
       ],
       "environment": {
@@ -1203,6 +1225,10 @@
         }
       },
       "configs": [
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
         { "source": "app_config_ind1", "target": "/etc/vetchium/config.json" }
       ],
       "environment": {
@@ -1247,6 +1273,10 @@
         }
       },
       "configs": [
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
         { "source": "app_config_sgp", "target": "/etc/vetchium/config.json" }
       ],
       "environment": {
@@ -1291,6 +1321,10 @@
         }
       },
       "configs": [
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
         { "source": "app_config_usa1", "target": "/etc/vetchium/config.json" }
       ],
       "environment": {

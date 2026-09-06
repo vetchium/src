@@ -73,6 +73,23 @@ export const en = {
     restart: "Start sign in again",
   },
   signup: {
+    regionDescription:
+      "Choose where you live and where your account will be hosted. You can explore opportunities worldwide.",
+    regionLabel: "Account region",
+    continueRegion: "Continue in this region",
+    changeRegion: "Change country or region",
+    retryRegions: "Try loading regions again",
+    noRegions: "No regions are accepting signup for this country.",
+    recommendedRegion: "{{region}} ({{tenant}}) — recommended",
+    regionOption: "{{region}} ({{tenant}})",
+    hosting: "Your account will be hosted in {{region}} ({{tenant}}).",
+    residence: "Current resident country: {{country}}",
+    regionCountries: {
+      DEU: "Germany",
+      IND: "India",
+      SGP: "Singapore",
+      USA: "United States",
+    },
     documentTitle: "Create account | Vetchium",
     title: "Create your account",
     description:
@@ -127,6 +144,8 @@ export const en = {
     recoveryCode: "Enter a valid recovery code.",
   },
   errors: {
+    signupUnavailable:
+      "This region is not accepting signup for your country. Choose another region.",
     generic: "Something went wrong. Please try again.",
     invalidCredentials: "The email address or password is incorrect.",
     userDisabled:
@@ -150,6 +169,9 @@ export const en = {
     invalidEnrollment: "This authenticator setup expired. Start again.",
   },
   profile: {
+    jobCountries: "Preferred job countries",
+    jobCountriesHelp:
+      "Choose up to 10 countries. Leave empty to explore all countries. Changing residence does not change these preferences.",
     documentTitle: "My profile | Vetchium",
     title: "My profile",
     description: "Review your identity and choose your account preferences.",

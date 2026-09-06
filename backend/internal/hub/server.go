@@ -1,25 +1,21 @@
 package hub
 
 import (
-	"context"
 	"time"
-
-	coordinatorspec "github.com/vetchium/src/typespec/global-coordinator"
 
 	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/hub/auth"
+	"backend/internal/regions"
 )
-
-type ShortIDGenerator interface {
-	GenerateShortID(context.Context) (coordinatorspec.ShortID, error)
-}
 
 type Server struct {
 	*apiserver.Runtime
-	Queries     sqlc.Querier
-	Coordinator ShortIDGenerator
+	Regions         *regions.Catalog
+	RegionDirectory regions.Directory
+	Signup          regions.Admission
+	Queries         sqlc.Querier
 
 	// Values below come from the shared application config.
 	TenantID         string

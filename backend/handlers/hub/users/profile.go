@@ -49,6 +49,7 @@ func MyInfo(s *hubruntime.Server) http.HandlerFunc {
 			DisplayName:            common.DisplayName(row.DisplayName),
 			PreferredLanguage:      common.FrontendLocale(row.PreferredLanguage),
 			ResidentCountry:        common.CountryCode(row.ResidentCountry),
+			PreferredJobCountries:  jobCountries(row.PreferredJobCountries),
 			TOTPEnabled:            row.TotpEnabled,
 			RecoveryCodesRemaining: common.TOTPRecoveryCodeCount(row.RecoveryCodesRemaining),
 			SessionAuthenticatedAt: row.AuthenticatedAt.Time.UTC(),
@@ -112,4 +113,48 @@ func SetResidentCountry(s *hubruntime.Server) http.HandlerFunc {
 		}
 		s.Empty(r.Context(), w, http.StatusNoContent)
 	}
+}
+
+func SetPreferredJobCountries(s *hubruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request hubusers.SetPreferredJobCountriesRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		identity, _ := middleware.HubIdentityFromContext(r.Context())
+		changed, err := s.Queries.SetHubPreferredJobCountries(
+			r.Context(), sqlc.SetHubPreferredJobCountriesParams{
+				PreferredJobCountries: countryStrings(request.PreferredJobCountries),
+				HubUserDid:            identity.UserDID,
+				TenantID:              s.TenantID,
+			},
+		)
+		if err != nil {
+			s.InternalError(r.Context(), w, "set Hub preferred job countries", err)
+			return
+		}
+		if !changed {
+			s.AuthenticationProblem(
+				r.Context(), w, hubproblem.AuthenticationRequiredError,
+				hubauthn.BearerChallenge,
+			)
+			return
+		}
+		s.Empty(r.Context(), w, http.StatusNoContent)
+	}
+}
+
+func jobCountries(values []string) []common.CountryCode {
+	result := make([]common.CountryCode, 0, len(values))
+	for _, value := range values {
+		result = append(result, common.CountryCode(value))
+	}
+	return result
+}
+func countryStrings(values []common.CountryCode) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		result = append(result, string(value))
+	}
+	return result
 }

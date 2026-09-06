@@ -77,6 +77,23 @@ export const de = {
     restart: "Anmeldung neu starten",
   },
   signup: {
+    regionDescription:
+      "Wählen Sie Ihr Wohnsitzland und die Region für Ihr Konto. Sie können weltweit nach Stellen suchen.",
+    regionLabel: "Kontoregion",
+    continueRegion: "In dieser Region fortfahren",
+    changeRegion: "Land oder Region ändern",
+    retryRegions: "Regionen erneut laden",
+    noRegions: "Für dieses Land ist derzeit keine Registrierung verfügbar.",
+    recommendedRegion: "{{region}} ({{tenant}}) — empfohlen",
+    regionOption: "{{region}} ({{tenant}})",
+    hosting: "Ihr Konto wird in {{region}} ({{tenant}}) gespeichert.",
+    residence: "Aktuelles Wohnsitzland: {{country}}",
+    regionCountries: {
+      DEU: "Deutschland",
+      IND: "Indien",
+      SGP: "Singapur",
+      USA: "Vereinigte Staaten",
+    },
     documentTitle: "Konto erstellen | Vetchium",
     title: "Erstellen Sie Ihr Konto",
     description:
@@ -133,6 +150,8 @@ export const de = {
     recoveryCode: "Geben Sie einen gültigen Wiederherstellungscode ein.",
   },
   errors: {
+    signupUnavailable:
+      "Diese Region nimmt derzeit keine Registrierungen aus Ihrem Land an. Wählen Sie eine andere Region.",
     generic: "Ein Fehler ist aufgetreten. Versuchen Sie es erneut.",
     invalidCredentials: "E-Mail-Adresse oder Passwort ist falsch.",
     userDisabled:
@@ -159,6 +178,9 @@ export const de = {
     invalidEnrollment: "Diese Einrichtung ist abgelaufen. Beginnen Sie erneut.",
   },
   profile: {
+    jobCountries: "Bevorzugte Arbeitsländer",
+    jobCountriesHelp:
+      "Wählen Sie bis zu 10 Länder. Ohne Auswahl suchen Sie weltweit. Eine Änderung des Wohnsitzlands ändert diese Auswahl nicht.",
     documentTitle: "Mein Profil | Vetchium",
     title: "Mein Profil",
     description: "Prüfen Sie Ihre Identität und wählen Sie Ihre Einstellungen.",

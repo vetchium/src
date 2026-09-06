@@ -26,7 +26,7 @@ WITH allowed_domain AS (
         sqlc.arg(resident_country),
         sqlc.arg(token_hash),
         sqlc.arg(expires_at)
-    WHERE EXISTS (SELECT 1 FROM allowed_domain)
+    WHERE (sqlc.arg(allow_any_domain)::boolean OR EXISTS (SELECT 1 FROM allowed_domain))
       AND NOT EXISTS (SELECT 1 FROM existing_user)
     ON CONFLICT (email_address) WHERE active DO UPDATE
     SET hub_signup_request_id = EXCLUDED.hub_signup_request_id,
@@ -80,7 +80,7 @@ WITH allowed_domain AS (
     FROM upserted
 )
 SELECT CASE
-    WHEN NOT EXISTS (SELECT 1 FROM allowed_domain) THEN 'domain_not_allowed'
+    WHEN NOT sqlc.arg(allow_any_domain)::boolean AND NOT EXISTS (SELECT 1 FROM allowed_domain) THEN 'domain_not_allowed'
     ELSE 'accepted'
 END::text AS result;
 
@@ -107,6 +107,11 @@ WITH eligible_signup AS (
       AND s.active
       AND s.consumed_at IS NULL
       AND s.expires_at > now()
+      AND (sqlc.arg(allow_any_domain)::boolean OR EXISTS (
+          SELECT 1 FROM vetchium.hub_signup_domains AS d
+          WHERE d.domain = split_part(s.email_address, '@', 2)
+            AND d.hub_signup_domain_state = 'active'
+      ))
       AND NOT EXISTS (
           SELECT 1
           FROM vetchium.hub_users AS u
@@ -121,7 +126,8 @@ WITH eligible_signup AS (
         display_name,
         password_hash,
         preferred_language,
-        resident_country
+        resident_country,
+        preferred_job_countries
     )
     SELECT
         sqlc.arg(hub_user_did),
@@ -130,7 +136,8 @@ WITH eligible_signup AS (
         display_name,
         sqlc.arg(password_hash),
         preferred_language,
-        resident_country
+        resident_country,
+        ARRAY[resident_country]
     FROM eligible_signup
     ON CONFLICT DO NOTHING
     RETURNING hub_user_did, handle

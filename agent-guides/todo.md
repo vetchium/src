@@ -11,8 +11,9 @@ implemented. The remaining rollout and abuse-control work is tracked here.
 
 ### Signup policy
 
-- Define tenant-local signup settings, including whether self-signup is open
-  and which verification methods are enabled.
+- Tenant-local enabled/domain settings and region discovery are implemented;
+  see [hub-signup-design.md](hub-signup-design.md). Verification-provider
+  selection remains future work.
 
 ### Abuse and uniqueness controls
 

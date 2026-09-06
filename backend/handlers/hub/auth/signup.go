@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/vetchium/src/typespec/common"
 	hubspec "github.com/vetchium/src/typespec/hub"
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
@@ -23,6 +24,7 @@ import (
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
 	hubusers "backend/internal/hub/users"
+	"backend/internal/regions"
 )
 
 const signupTTL = 24 * time.Hour
@@ -52,6 +54,9 @@ func RequestSignup(s *hubruntime.Server) http.HandlerFunc {
 			func(q *sqlc.Queries) (
 				handlerauth.Result[struct{}], *handlerauth.Problem, error,
 			) {
+				if !s.Signup.Enabled || !s.Regions.Allows(s.TenantID, request.ResidentCountry) {
+					return handlerauth.Failure[struct{}](hubproblem.SignupUnavailableError)
+				}
 				token, tokenHash, err := credentials.NewToken()
 				if err != nil {
 					return handlerauth.Result[struct{}]{}, nil, err
@@ -79,6 +84,7 @@ func RequestSignup(s *hubruntime.Server) http.HandlerFunc {
 				result, err := q.CreateHubSignupRequest(
 					r.Context(), sqlc.CreateHubSignupRequestParams{
 						EmailDomain:        domain,
+						AllowAnyDomain:     s.Signup.EmailDomainMode == regions.AnyDomain,
 						EmailAddress:       emailAddress,
 						HubSignupRequestID: requestID,
 						DisplayName:        string(request.DisplayName),
@@ -138,11 +144,10 @@ func CompleteSignup(s *hubruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
 				}
-				passwordHash, err := credentials.HashPassword(string(request.Password))
-				if err != nil {
-					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
+				if !s.Signup.Enabled || !s.Regions.Allows(s.TenantID, common.CountryCode(signup.ResidentCountry)) {
+					return handlerauth.Failure[hubauth.CompleteSignupResponse](hubproblem.SignupUnavailableError)
 				}
-				shortID, err := s.Coordinator.GenerateShortID(r.Context())
+				passwordHash, err := credentials.HashPassword(string(request.Password))
 				if err != nil {
 					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
 				}
@@ -150,10 +155,11 @@ func CompleteSignup(s *hubruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
 				}
-				handle := hubusers.Handle(signup.DisplayName, shortID)
+				handle := hubusers.Handle(signup.DisplayName, hubspec.HubUserDID(did.String()))
 				created, err := q.CompleteHubSignup(
 					r.Context(), sqlc.CompleteHubSignupParams{
 						HubSignupRequestID: signup.HubSignupRequestID,
+						AllowAnyDomain:     s.Signup.EmailDomainMode == regions.AnyDomain,
 						HubUserDid:         did,
 						Handle:             string(handle),
 						PasswordHash:       passwordHash,

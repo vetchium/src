@@ -7,8 +7,10 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
 	"backend/internal/db"
+	"backend/internal/globalcoordinatorclient"
 	"backend/internal/meshapi"
 	"backend/internal/middleware"
+	"backend/internal/regions"
 	"backend/internal/routes"
 	"backend/internal/service"
 )
@@ -26,6 +28,18 @@ func run(log *slog.Logger, address string) error {
 	if err != nil {
 		return err
 	}
+	catalog, err := regions.Load(cfg.SignupRegionsFile)
+	if err != nil {
+		return err
+	}
+	credential, err := cfg.GlobalCoordinator.Credential()
+	if err != nil {
+		return err
+	}
+	directory, err := globalcoordinatorclient.NewFromConfig(cfg.GlobalCoordinator)
+	if err != nil {
+		return err
+	}
 	log = service.WithTenant(log, cfg.TenantID)
 
 	ctx, stop := service.SignalContext()
@@ -38,8 +52,11 @@ func run(log *slog.Logger, address string) error {
 	defer pool.Close()
 
 	s := &meshapi.Server{
-		Runtime:  apiserver.New(pool, log),
-		TenantID: cfg.TenantID,
+		Runtime:         apiserver.New(pool, log),
+		TenantID:        cfg.TenantID,
+		Regions:         catalog,
+		RegionDirectory: directory,
+		Credential:      credential,
 	}
 	mux := http.NewServeMux()
 	routes.RegisterMeshRoutes(mux, s)
