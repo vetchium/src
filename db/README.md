@@ -13,9 +13,10 @@ insert live in the `dev-seed` command (`backend/cmd/dev-seed`), which runs
 after `db-seed` and logs in as the administrator `db-seed` created. Anything
 that has to pass API validation, authorization, or auditing belongs there;
 plain table content belongs in `db-seed/`. The Hub signup allowlist is seeded
-this way, so each development tenant admits `<tenant>.example` addresses and
-nothing else. Signup refuses any domain that is not on the receiving tenant's
-active allowlist, so a tenant with no seeded domain accepts no signups at all.
+this way. Each development tenant admits `<tenant>.example` addresses; SGP
+also admits `test1.example` through `test100.example` for development and UI
+testing. Signup refuses any domain that is not on the receiving tenant's active
+allowlist, so a tenant with no seeded domain accepts no signups at all.
 
 For a new, empty PostgreSQL data volume, the official image performs this order:
 
