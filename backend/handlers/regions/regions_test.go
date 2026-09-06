@@ -44,24 +44,24 @@ func TestDiscoveryHTTP(t *testing.T) {
 		status                       int
 		offline, rejecting           bool
 	}{
-		{name: "public", body: `{"resident_country":"IND"}`, status: 200},
-		{name: "global outage", body: `{"resident_country":"IND"}`, status: 200, offline: true},
-		{name: "mesh authorized", body: `{"resident_country":"IND"}`, auth: "Bearer secret", credential: "secret", status: 200},
-		{name: "missing auth", body: `{"resident_country":"IND"}`, credential: "secret", status: 401},
-		{name: "wrong auth", body: `{"resident_country":"IND"}`, credential: "secret", auth: "Bearer wrong", status: 401},
+		{name: "public", body: `{"resident_country":"IN"}`, status: 200},
+		{name: "global outage", body: `{"resident_country":"IN"}`, status: 200, offline: true},
+		{name: "mesh authorized", body: `{"resident_country":"IN"}`, auth: "Bearer secret", credential: "secret", status: 200},
+		{name: "missing auth", body: `{"resident_country":"IN"}`, credential: "secret", status: 401},
+		{name: "wrong auth", body: `{"resident_country":"IN"}`, credential: "secret", auth: "Bearer wrong", status: 401},
 		{name: "invalid JSON", body: `{`, status: 400},
-		{name: "unknown field", body: `{"resident_country":"IND","tenant":"sgp"}`, status: 400},
-		{name: "invalid country", body: `{"resident_country":"ZZZ"}`, status: 400},
-		{name: "invalid cursor", body: `{"resident_country":"IND","pagination_key":"bad"}`, status: 400},
+		{name: "unknown field", body: `{"resident_country":"IN","tenant":"sgp"}`, status: 400},
+		{name: "invalid country", body: `{"resident_country":"ZZ"}`, status: 400},
+		{name: "invalid cursor", body: `{"resident_country":"IN","pagination_key":"bad"}`, status: 400},
 		// A malformed cursor is the caller's error whether or not discovery is
 		// reachable, so an outage must not turn it into a 503.
-		{name: "malformed cursor during outage", body: `{"resident_country":"IND","pagination_key":"bad"}`, status: 400, offline: true},
+		{name: "malformed cursor during outage", body: `{"resident_country":"IN","pagination_key":"bad"}`, status: 400, offline: true},
 		// A well-formed cursor bound to another catalog is what the live
 		// directory hands out, and the bundled catalog cannot continue it.
-		{name: "directory cursor during outage", body: `{"resident_country":"IND","pagination_key":"eyJjb3VudHJ5IjoiSU5EIiwidmVyc2lvbiI6ImRlYWRiZWVmIiwibGFzdCI6InNncCJ9"}`, status: 503, offline: true},
+		{name: "directory cursor during outage", body: `{"resident_country":"IN","pagination_key":"eyJjb3VudHJ5IjoiSU4iLCJ2ZXJzaW9uIjoiZGVhZGJlZWYiLCJsYXN0Ijoic2dwIn0"}`, status: 503, offline: true},
 		// A directory that answers 400 has judged the request itself, so the
 		// refusal is passed on rather than reported as an outage.
-		{name: "cursor the directory rejected", body: `{"resident_country":"IND","pagination_key":"bad"}`, status: 400, rejecting: true},
+		{name: "cursor the directory rejected", body: `{"resident_country":"IN","pagination_key":"bad"}`, status: 400, rejecting: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var directory regionpolicy.Directory

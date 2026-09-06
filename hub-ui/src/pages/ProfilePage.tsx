@@ -10,15 +10,13 @@ import {
   Typography,
 } from "antd";
 import { useTranslation } from "react-i18next";
-import {
-  countryCodeValues,
-  type FrontendLocale,
-} from "typespec/common/localization";
+import type { CountryCode, FrontendLocale } from "typespec/common/localization";
 import { hubAPI } from "../api/hub";
 import { usePreferences } from "../app/PreferencesContext";
 import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { myInfoQueryKey, useMyInfoQuery } from "../features/profile/queries";
+import { countryOptions } from "../i18n/countries";
 
 const languages: FrontendLocale[] = ["en-US", "ta", "de-DE"];
 
@@ -28,6 +26,7 @@ export function ProfilePage() {
   const queryClient = useQueryClient();
   const preferences = usePreferences();
   const auth = useAuth();
+  const countries = countryOptions(preferences.language);
   const { data: me } = useMyInfoQuery();
   const language = useMutation({
     mutationFn: (preferred_language: FrontendLocale) =>
@@ -40,7 +39,7 @@ export function ProfilePage() {
     },
   });
   const country = useMutation({
-    mutationFn: (resident_country: string) =>
+    mutationFn: (resident_country: CountryCode) =>
       hubAPI.setResidentCountry({ resident_country }),
     onSuccess: async (_, value) => {
       auth.updateSession({ resident_country: value });
@@ -49,7 +48,7 @@ export function ProfilePage() {
     },
   });
   const jobs = useMutation({
-    mutationFn: (preferred_job_countries: string[]) =>
+    mutationFn: (preferred_job_countries: CountryCode[]) =>
       hubAPI.setPreferredJobCountries({ preferred_job_countries }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
@@ -107,10 +106,7 @@ export function ProfilePage() {
                 showSearch={{ optionFilterProp: "label" }}
                 value={me.resident_country}
                 loading={country.isPending}
-                options={countryCodeValues.map((value) => ({
-                  value,
-                  label: value,
-                }))}
+                options={countries}
                 onChange={(value) => country.mutate(value)}
               />
             </Form.Item>
@@ -128,11 +124,8 @@ export function ProfilePage() {
                 value={me.preferred_job_countries}
                 loading={jobs.isPending}
                 disabled={jobs.isPending}
-                options={countryCodeValues.map((value) => ({
-                  value,
-                  label: value,
-                }))}
-                onChange={(value: string[]) => jobs.mutate(value)}
+                options={countries}
+                onChange={(value: CountryCode[]) => jobs.mutate(value)}
               />
             </Form.Item>
           </Form>

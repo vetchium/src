@@ -13,9 +13,9 @@ import (
 
 func testCatalog(t *testing.T, count int) *Catalog {
 	t.Helper()
-	c := Catalog{Version: "1", DefaultTenant: "region000", Recommendations: map[common.CountryCode]string{"IND": "region001"}}
+	c := Catalog{Version: "1", DefaultTenant: "region000", Recommendations: map[common.CountryCode]string{"IN": "region001"}}
 	for i := 0; i < count; i++ {
-		c.Regions = append(c.Regions, Region{TenantID: fmt.Sprintf("region%03d", i), HostingCountry: "SGP", HubURL: fmt.Sprintf("https://region%03d.example.com", i), SignupEnabled: true})
+		c.Regions = append(c.Regions, Region{TenantID: fmt.Sprintf("region%03d", i), HostingCountry: "SG", HubURL: fmt.Sprintf("https://region%03d.example.com", i), SignupEnabled: true})
 	}
 	return loadTestCatalog(t, c)
 }
@@ -38,12 +38,12 @@ func loadTestCatalog(t *testing.T, c Catalog) *Catalog {
 func TestCatalogKeysetAndEligibility(t *testing.T) {
 	t.Parallel()
 	c := testCatalog(t, 53)
-	c.Regions[0].AllowedCountries = []common.CountryCode{"DEU"}
+	c.Regions[0].AllowedCountries = []common.CountryCode{"DE"}
 	c.Regions[2].SignupEnabled = false
-	if c.Allows("region000", "IND") || c.Allows("region002", "IND") || c.Allows("unknown", "IND") {
+	if c.Allows("region000", "IN") || c.Allows("region002", "IN") || c.Allows("unknown", "IN") {
 		t.Fatal("ineligible region allowed")
 	}
-	request := regionspec.ListSignupRegionsRequest{ResidentCountry: "IND"}
+	request := regionspec.ListSignupRegionsRequest{ResidentCountry: "IN"}
 	first, err := c.List(request)
 	if err != nil {
 		t.Fatal(err)
@@ -59,11 +59,11 @@ func TestCatalogKeysetAndEligibility(t *testing.T) {
 	if len(second.Regions) != 1 || second.NextPaginationKey != nil || second.Regions[0].TenantID <= first.Regions[49].TenantID {
 		t.Fatalf("unexpected second page: %+v", second)
 	}
-	request.ResidentCountry = "DEU"
+	request.ResidentCountry = "DE"
 	if _, err := c.List(request); err == nil {
 		t.Fatal("cross-country cursor accepted")
 	}
-	request.ResidentCountry = "IND"
+	request.ResidentCountry = "IN"
 	c.fingerprint = "changed"
 	if _, err := c.List(request); err == nil {
 		t.Fatal("old-catalog cursor accepted")
@@ -78,11 +78,11 @@ func TestCatalogValidation(t *testing.T) {
 		func(c *Catalog) { c.Regions[0].HubURL = "javascript:alert(1)" },
 		func(c *Catalog) { c.Regions[0].HubURL = "https://example.com/path" },
 		func(c *Catalog) { c.Regions[0].HubURL = "https://example.com?" },
-		func(c *Catalog) { c.Regions[0].AllowedCountries = []common.CountryCode{"ZZZ"} },
-		func(c *Catalog) { c.Regions[0].AllowedCountries = []common.CountryCode{"IND", "IND"} },
+		func(c *Catalog) { c.Regions[0].AllowedCountries = []common.CountryCode{"ZZ"} },
+		func(c *Catalog) { c.Regions[0].AllowedCountries = []common.CountryCode{"IN", "IN"} },
 		func(c *Catalog) { c.Regions[1].TenantID = c.Regions[0].TenantID },
 		func(c *Catalog) { c.Regions[1].HubURL = c.Regions[0].HubURL },
-		func(c *Catalog) { c.Recommendations["ZZZ"] = "region000" },
+		func(c *Catalog) { c.Recommendations["ZZ"] = "region000" },
 	} {
 		c := testCatalog(t, 2)
 		change(c)
@@ -97,7 +97,7 @@ func TestCatalogValidation(t *testing.T) {
 func TestCatalogSignupEnabledIgnoresCountryRestrictions(t *testing.T) {
 	t.Parallel()
 	c := testCatalog(t, 3)
-	c.Regions[0].AllowedCountries = []common.CountryCode{"DEU"}
+	c.Regions[0].AllowedCountries = []common.CountryCode{"DE"}
 	c.Regions[1].SignupEnabled = false
 	for _, tt := range []struct {
 		tenant string
@@ -112,7 +112,7 @@ func TestCatalogSignupEnabledIgnoresCountryRestrictions(t *testing.T) {
 			t.Errorf("SignupEnabled(%q) = %v, want %v", tt.tenant, got, tt.want)
 		}
 	}
-	if c.Allows("region000", "IND") {
+	if c.Allows("region000", "IN") {
 		t.Fatal("country restriction ignored by Allows")
 	}
 }

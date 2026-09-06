@@ -13,7 +13,7 @@ import (
 
 func TestRegionDiscoveryClient(t *testing.T) {
 	t.Parallel()
-	valid := `{"catalog_version":"1","regions":[{"tenant_id":"sgp","hosting_country":"SGP","hub_url":"https://hub.example.com","recommended":true}],"next_pagination_key":null}`
+	valid := `{"catalog_version":"1","regions":[{"tenant_id":"sgp","hosting_country":"SG","hub_url":"https://hub.example.com","recommended":true}],"next_pagination_key":null}`
 	for _, tt := range []struct {
 		name, body, media string
 		status            int
@@ -26,7 +26,7 @@ func TestRegionDiscoveryClient(t *testing.T) {
 		{"missing regions", `{"catalog_version":"1"}`, "application/json", 200, true},
 		{"untrusted scheme", strings.ReplaceAll(valid, "https://hub.example.com", "javascript:alert(1)"), "application/json", 200, true},
 		{"credentials in URL", strings.ReplaceAll(valid, "https://hub.example.com", "https://user@hub.example.com"), "application/json", 200, true},
-		{"invalid country", strings.ReplaceAll(valid, `"SGP"`, `"ZZZ"`), "application/json", 200, true},
+		{"invalid country", strings.ReplaceAll(valid, `"SG"`, `"ZZ"`), "application/json", 200, true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +39,7 @@ func TestRegionDiscoveryClient(t *testing.T) {
 			}))
 			defer server.Close()
 			client := New(server.URL, MeshPath, "credential", time.Second)
-			result, err := client.ListSignupRegions(context.Background(), regionspec.ListSignupRegionsRequest{ResidentCountry: "IND"})
+			result, err := client.ListSignupRegions(context.Background(), regionspec.ListSignupRegionsRequest{ResidentCountry: "IN"})
 			if (err != nil) != tt.wantError {
 				t.Fatalf("result=%+v error=%v", result, err)
 			}

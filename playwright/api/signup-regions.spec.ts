@@ -34,7 +34,7 @@ for (const [name, origin, prefix, headers] of [
     const url = `${origin}${prefix}/list-signup-regions`;
     const response = await request.post(url, {
       headers,
-      data: { resident_country: "IND" },
+      data: { resident_country: "IN" },
     });
     expect(response.status(), await response.text()).toBe(200);
     expect(response.headers()["cache-control"]).toBe("no-store");
@@ -51,12 +51,12 @@ for (const [name, origin, prefix, headers] of [
     ).toEqual(["ind1"]);
     expect(body.next_pagination_key).toBeNull();
     for (const [data, problem] of [
-      [{ resident_country: "ZZZ" }, "validation-failed"],
+      [{ resident_country: "ZZ" }, "validation-failed"],
       [
-        { resident_country: "IND", pagination_key: "invalid" },
+        { resident_country: "IN", pagination_key: "invalid" },
         "invalid-pagination-key",
       ],
-      [{ resident_country: "IND", extra: true }, "invalid-json"],
+      [{ resident_country: "IN", extra: true }, "invalid-json"],
     ]) {
       const invalid = await request.post(url, { headers, data });
       expect(invalid.status()).toBe(400);
@@ -80,9 +80,9 @@ test("a directory cursor cannot be continued from the bundled catalog", async ({
   const url = "http://hub-ui.ind1.localhost/api/hub/list-signup-regions";
   const foreign = await request.post(url, {
     data: {
-      resident_country: "IND",
+      resident_country: "IN",
       pagination_key:
-        "eyJjb3VudHJ5IjoiSU5EIiwidmVyc2lvbiI6ImRlYWRiZWVmIiwibGFzdCI6InNncCJ9",
+        "eyJjb3VudHJ5IjoiSU4iLCJ2ZXJzaW9uIjoiZGVhZGJlZWYiLCJsYXN0Ijoic2dwIn0",
     },
   });
   expect(foreign.status(), await foreign.text()).toBe(503);
@@ -95,7 +95,7 @@ test("a directory cursor cannot be continued from the bundled catalog", async ({
   });
 
   const malformed = await request.post(url, {
-    data: { resident_country: "IND", pagination_key: "not-a-cursor" },
+    data: { resident_country: "IN", pagination_key: "not-a-cursor" },
   });
   expect(malformed.status()).toBe(400);
   expect(await malformed.json()).toMatchObject({
@@ -107,7 +107,7 @@ test("a directory cursor cannot be continued from the bundled catalog", async ({
 test("global region discovery requires authentication", async ({ request }) => {
   const response = await request.post(
     `${coordinator}/api/global-coordinator/list-signup-regions`,
-    { data: { resident_country: "IND" } },
+    { data: { resident_country: "IN" } },
   );
   expect(response.status()).toBe(401);
   expect(response.headers()["www-authenticate"]).toBe(
@@ -134,7 +134,7 @@ async function signup(
       email_address: email,
       display_name: "Independent User",
       preferred_language: "en-US",
-      resident_country: "FRA",
+      resident_country: "FR",
     },
   });
   expect(response.status(), await response.text()).toBe(202);
@@ -206,7 +206,7 @@ test("a closed tenant rejects signup without creating an account", async ({
           email_address: email,
           display_name: "Closed Signup",
           preferred_language: "en-US",
-          resident_country: "DEU",
+          resident_country: "DE",
         },
       },
     );
@@ -274,7 +274,7 @@ test("India requires its own allowlist at signup initiation and completion", asy
       data: {
         email_address: email,
         display_name: "Independent User",
-        resident_country: "IND",
+        resident_country: "IN",
         preferred_language: "en-US",
       },
     });

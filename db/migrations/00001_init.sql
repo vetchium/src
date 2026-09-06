@@ -102,7 +102,7 @@ CREATE TABLE vetchium.hub_users (
         preferred_language IN ('en-US', 'ta', 'de-DE')
     ),
     CONSTRAINT hub_users_resident_country_check CHECK (
-        resident_country ~ '^[A-Z]{3}$'
+        resident_country ~ '^[A-Z]{2}$'
     ),
     CONSTRAINT hub_users_totp_consistent CHECK (
         totp_enabled = (totp_secret_ciphertext IS NOT NULL)
@@ -196,7 +196,7 @@ CREATE TABLE vetchium.hub_signup_requests (
         preferred_language IN ('en-US', 'ta', 'de-DE')
     ),
     CONSTRAINT hub_signup_requests_country_check CHECK (
-        resident_country ~ '^[A-Z]{3}$'
+        resident_country ~ '^[A-Z]{2}$'
     ),
     CONSTRAINT hub_signup_requests_expiry_check CHECK (
         expires_at > created_at

@@ -84,12 +84,6 @@ export const en = {
     regionOption: "{{region}} ({{tenant}})",
     hosting: "Your account will be hosted in {{region}} ({{tenant}}).",
     residence: "Current resident country: {{country}}",
-    regionCountries: {
-      DEU: "Germany",
-      IND: "India",
-      SGP: "Singapore",
-      USA: "United States",
-    },
     documentTitle: "Create account | Vetchium",
     title: "Create your account",
     description:

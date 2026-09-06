@@ -1760,6 +1760,6 @@ export function seedPendingHubSignup(
   const hash = createHash("sha256").update(token).digest("hex");
   sqlScalarForTenant(
     tenant,
-    `INSERT INTO vetchium.hub_signup_requests (email_address, display_name, preferred_language, resident_country, token_hash, expires_at) VALUES (${sqlLiteral(emailAddress)}, 'Pending Signup', 'en-US', 'DEU', decode('${hash}', 'hex'), now() + interval '10 minutes');`,
+    `INSERT INTO vetchium.hub_signup_requests (email_address, display_name, preferred_language, resident_country, token_hash, expires_at) VALUES (${sqlLiteral(emailAddress)}, 'Pending Signup', 'en-US', 'DE', decode('${hash}', 'hex'), now() + interval '10 minutes');`,
   );
 }

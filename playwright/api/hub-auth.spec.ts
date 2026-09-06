@@ -79,7 +79,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
       email_address: emailAddress,
       display_name: "Ada Lovelace",
       preferred_language: "de-DE" as const,
-      resident_country: "DEU",
+      resident_country: "DE",
     };
     const requested = await hub.post("/request-signup", signupRequest, {
       idempotencyKey: signupKey,
@@ -244,7 +244,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
       handle: completed.handle,
       email_address: emailAddress,
       preferred_language: "de-DE",
-      resident_country: "DEU",
+      resident_country: "DE",
       totp_enabled: false,
     });
     await expectProblem(
@@ -260,7 +260,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
     await expectProblem(
       await hub.post(
         "/set-resident-country",
-        { resident_country: "ZZZ" },
+        { resident_country: "ZZ" },
         { token: first.session_token },
       ),
       400,
@@ -280,19 +280,19 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
       (
         await hub.post(
           "/set-resident-country",
-          { resident_country: "USA" },
+          { resident_country: "US" },
           { token: first.session_token },
         )
       ).status(),
     ).toBe(204);
 
     const jobPath = "/set-preferred-job-countries";
-    expect(info.preferred_job_countries).toEqual(["DEU"]);
+    expect(info.preferred_job_countries).toEqual(["DE"]);
     for (const countries of [
-      ["ZZZ"],
-      ["IND", "IND"],
+      ["ZZ"],
+      ["IN", "IN"],
       null,
-      Array(11).fill("IND"),
+      Array(11).fill("IN"),
     ]) {
       await expectProblem(
         await hub.post(
@@ -319,7 +319,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
       (
         await hub.post(
           jobPath,
-          { preferred_job_countries: ["FRA", "GBR"] },
+          { preferred_job_countries: ["FR", "GB"] },
           { token: first.session_token },
         )
       ).status(),
@@ -329,8 +329,8 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
         await hub.get("/my-info", first.session_token),
       ),
     ).toMatchObject({
-      resident_country: "USA",
-      preferred_job_countries: ["FRA", "GBR"],
+      resident_country: "US",
+      preferred_job_countries: ["FR", "GB"],
     });
     expect(
       hubAuditEventsForActor(
@@ -834,7 +834,7 @@ test("Hub authentication endpoints reject malformed and unauthenticated requests
       ["/reauthenticate", { password: validPassword }, false],
       ["/change-password", { new_password: validPassword }, false],
       ["/set-preferred-language", { preferred_language: "en-US" }, false],
-      ["/set-resident-country", { resident_country: "USA" }, false],
+      ["/set-resident-country", { resident_country: "US" }, false],
       ["/start-totp-enrollment", undefined, true],
       [
         "/confirm-totp-enrollment",
@@ -875,7 +875,7 @@ test("Hub signup enforces the tenant domain and validates locale and country", a
           email_address: emailAddress,
           display_name: "Not Allowed",
           preferred_language: "en-US",
-          resident_country: "USA",
+          resident_country: "US",
         },
         { idempotencyKey: hubIdempotencyKey() },
       ),
@@ -889,7 +889,7 @@ test("Hub signup enforces the tenant domain and validates locale and country", a
           email_address: emailAddress,
           display_name: " ",
           preferred_language: "fr-FR",
-          resident_country: "ZZZ",
+          resident_country: "ZZ",
         },
         { idempotencyKey: hubIdempotencyKey() },
       ),
@@ -928,7 +928,7 @@ test("signup completion rechecks a revoked email domain", async ({
             email_address: email,
             display_name: "Pending User",
             preferred_language: "en-US",
-            resident_country: "SGP",
+            resident_country: "SG",
           },
           { idempotencyKey: hubIdempotencyKey() },
         )

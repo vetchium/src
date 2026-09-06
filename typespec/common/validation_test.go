@@ -43,10 +43,11 @@ func TestIsCountryCode(t *testing.T) {
 		value CountryCode
 		want  bool
 	}{
-		{"India", "IND", true},
-		{"Singapore", "SGP", true},
-		{"lowercase", "ind", false},
-		{"unknown", "ZZZ", false},
+		{"India", "IN", true},
+		{"Singapore", "SG", true},
+		{"lowercase", "in", false},
+		{"alpha-3", "IND", false},
+		{"unassigned", "ZZ", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -13,10 +13,9 @@ import {
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
+import { isCountryCode } from "typespec/common/countries";
 import {
-  countryCodeValues,
   type FrontendLocale,
-  isCountryCode,
   isFrontendLocale,
 } from "typespec/common/localization";
 import type { RequestSignupRequest } from "typespec/hub/auth/signup";
@@ -25,6 +24,7 @@ import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
 import { usePreferences } from "../app/PreferencesContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import { countryName, countryOptions } from "../i18n/countries";
 
 const languages: FrontendLocale[] = ["en-US", "ta", "de-DE"];
 
@@ -43,6 +43,7 @@ export function SignupPage() {
 function SignupFlow() {
   const { t } = useTranslation();
   const preferences = usePreferences();
+  const countries = countryOptions(preferences.language);
   const params = useParams();
   const navigate = useNavigate();
   const [country, setCountry] = useState(
@@ -128,14 +129,17 @@ function SignupFlow() {
               type="info"
               showIcon
               title={t("signup.hosting", {
-                region: t(`signup.regionCountries.${local.hosting_country}`, {
-                  defaultValue: local.hosting_country,
-                }),
+                region: countryName(
+                  local.hosting_country,
+                  preferences.language,
+                ),
                 tenant: local.tenant_id,
               })}
             />
             <Typography.Text>
-              {t("signup.residence", { country })}
+              {t("signup.residence", {
+                country: countryName(country, preferences.language),
+              })}
             </Typography.Text>
             <APIErrorAlert error={signup.error} />
             <Form<Pick<RequestSignupRequest, "display_name" | "email_address">>
@@ -195,10 +199,7 @@ function SignupFlow() {
                 aria-label={t("fields.residentCountry")}
                 showSearch={{ optionFilterProp: "label" }}
                 value={country || undefined}
-                options={countryCodeValues.map((value) => ({
-                  value,
-                  label: value,
-                }))}
+                options={countries}
                 onChange={(value: string) => {
                   setCountry(value);
                   setSelectedTenant(undefined);
@@ -241,9 +242,9 @@ function SignupFlow() {
                         ? "signup.recommendedRegion"
                         : "signup.regionOption",
                       {
-                        region: t(
-                          `signup.regionCountries.${region.hosting_country}`,
-                          { defaultValue: region.hosting_country },
+                        region: countryName(
+                          region.hosting_country,
+                          preferences.language,
                         ),
                         tenant: region.tenant_id,
                       },

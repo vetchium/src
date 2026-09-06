@@ -86,12 +86,6 @@ export const ta = {
     regionOption: "{{region}} ({{tenant}})",
     hosting: "உங்கள் கணக்கு {{region}} ({{tenant}}) பகுதியில் சேமிக்கப்படும்.",
     residence: "தற்போது வசிக்கும் நாடு: {{country}}",
-    regionCountries: {
-      DEU: "ஜெர்மனி",
-      IND: "இந்தியா",
-      SGP: "சிங்கப்பூர்",
-      USA: "அமெரிக்கா",
-    },
     documentTitle: "கணக்கை உருவாக்கு | Vetchium",
     title: "உங்கள் கணக்கை உருவாக்குங்கள்",
     description:

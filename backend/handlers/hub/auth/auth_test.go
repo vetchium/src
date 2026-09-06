@@ -70,7 +70,7 @@ func TestLoginSessionDurations(t *testing.T) {
 					HubUserDid: did, Handle: "perso-00000000000000000000000000000001",
 					PasswordHash:      passwordHash,
 					HubUserState:      sqlc.VetchiumHubUserStateActive,
-					PreferredLanguage: "de-DE", ResidentCountry: "DEU",
+					PreferredLanguage: "de-DE", ResidentCountry: "DE",
 				}, nil
 			}
 			db.createSession = func(
@@ -96,7 +96,7 @@ func TestLoginSessionDurations(t *testing.T) {
 			}
 			if payload.SessionExpiresAt != now.Add(test.duration) ||
 				payload.PreferredLanguage != "de-DE" ||
-				payload.ResidentCountry != "DEU" || len(payload.SessionToken) < 32 {
+				payload.ResidentCountry != "DE" || len(payload.SessionToken) < 32 {
 				t.Fatalf("response = %+v", payload)
 			}
 		})

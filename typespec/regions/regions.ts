@@ -1,5 +1,5 @@
+import { isCountryCode } from "../common/countries.ts";
 import type { CountryCode } from "../common/localization.ts";
-import { isCountryCode } from "../common/localization.ts";
 import type { PaginationKey } from "../common/pagination.ts";
 import { isPaginationKey } from "../common/pagination.ts";
 export interface ListSignupRegionsRequest {

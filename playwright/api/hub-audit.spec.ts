@@ -120,7 +120,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       email_address: emailAddress,
       display_name: "Audit Person",
       preferred_language: "en-US" as const,
-      resident_country: "USA",
+      resident_country: "US",
     };
     removeAuditFailure = installHubAuditInsertFailure({
       action: "hub.signup.requested",
@@ -177,7 +177,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
         idempotency_key: signupKey,
         payload: {
           preferred_language: "en-US",
-          resident_country: "USA",
+          resident_country: "US",
           email_queued: true,
         },
       },
@@ -320,7 +320,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
     await expectProblem(
       await hub.post(
         "/set-preferred-job-countries",
-        { preferred_job_countries: ["FRA"] },
+        { preferred_job_countries: ["FR"] },
         { token: firstLogin.session_token },
       ),
       500,
@@ -332,7 +332,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
           await hub.get("/my-info", firstLogin.session_token),
         )
       ).preferred_job_countries,
-    ).toEqual(["USA"]);
+    ).toEqual(["US"]);
     expect(
       hubAuditEventsForActor(
         completed.hub_user_did,

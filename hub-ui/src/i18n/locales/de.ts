@@ -88,12 +88,6 @@ export const de = {
     regionOption: "{{region}} ({{tenant}})",
     hosting: "Ihr Konto wird in {{region}} ({{tenant}}) gespeichert.",
     residence: "Aktuelles Wohnsitzland: {{country}}",
-    regionCountries: {
-      DEU: "Deutschland",
-      IND: "Indien",
-      SGP: "Singapur",
-      USA: "Vereinigte Staaten",
-    },
     documentTitle: "Konto erstellen | Vetchium",
     title: "Erstellen Sie Ihr Konto",
     description:

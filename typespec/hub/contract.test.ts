@@ -13,7 +13,7 @@ test("Hub signup validates locale and ISO country", () => {
       email_address: "person@example.com",
       display_name: "Person",
       preferred_language: "de-DE",
-      resident_country: "DEU",
+      resident_country: "DE",
     }),
     [],
   );
@@ -22,7 +22,7 @@ test("Hub signup validates locale and ISO country", () => {
       email_address: "invalid",
       display_name: " ",
       preferred_language: "fr-FR" as "en-US",
-      resident_country: "ZZZ",
+      resident_country: "ZZ",
     }),
     ["email_address", "display_name", "preferred_language", "resident_country"],
   );

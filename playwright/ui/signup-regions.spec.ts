@@ -8,13 +8,13 @@ const regions: ListSignupRegionsResponse = {
   regions: [
     {
       tenant_id: "ind1",
-      hosting_country: "IND",
+      hosting_country: "IN",
       hub_url: "http://hub-ui.ind1.localhost",
       recommended: true,
     },
     {
       tenant_id: "sgp",
-      hosting_country: "SGP",
+      hosting_country: "SG",
       hub_url: origin,
       recommended: false,
     },
@@ -26,20 +26,22 @@ test("signup selects a region before collecting personal details and supports go
   await page.route("**/api/hub/list-signup-regions", async (route) => {
     await route.fulfill({ json: regions });
   });
-  await page.goto(`${origin}/signup/IND/en-US`);
+  await page.goto(`${origin}/signup/IN/en-US`);
   await expect(
     page.getByRole("textbox", { name: "Email address" }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("combobox", { name: "Account region" }),
   ).toBeVisible();
+  await expect(page.getByText("India (ind1) — recommended")).toBeVisible();
   await page.getByRole("combobox", { name: "Account region" }).click();
   await page
     .getByRole("combobox", { name: "Account region" })
     .press("ArrowDown");
   await page.getByRole("combobox", { name: "Account region" }).press("Enter");
   await page.getByRole("button", { name: "Continue in this region" }).click();
-  await expect(page).toHaveURL(`${origin}/signup/IND/en-US/details`);
+  await expect(page).toHaveURL(`${origin}/signup/IN/en-US/details`);
+  await expect(page.getByText("Current resident country: India")).toBeVisible();
   await page.getByRole("button", { name: "Email my signup link" }).click();
   await expect(
     page.getByText("Enter a display name of no more than 200 characters."),
@@ -53,7 +55,7 @@ test("signup selects a region before collecting personal details and supports go
       email_address: "person@example.com",
       display_name: "New User",
       preferred_language: "en-US",
-      resident_country: "IND",
+      resident_country: "IN",
     });
     await route.fulfill({
       status: 403,
@@ -97,10 +99,10 @@ test("signup crosses regions with only country and language in the URL", async (
   await page.route("**/api/hub/list-signup-regions", async (route) => {
     await route.fulfill({ json: regions });
   });
-  await page.goto(`${origin}/signup/IND/en-US`);
+  await page.goto(`${origin}/signup/IN/en-US`);
   await page.getByRole("button", { name: "Continue in this region" }).click();
   await expect(page).toHaveURL(
-    "http://hub-ui.ind1.localhost/signup/IND/en-US/details",
+    "http://hub-ui.ind1.localhost/signup/IN/en-US/details",
   );
   await expect(
     page.getByRole("textbox", { name: "Email address" }),
@@ -115,7 +117,7 @@ test("signup handles discovery errors, retries, and empty eligibility", async ({
       json: { title: "Internal Server Error", status: 500 },
     });
   });
-  await page.goto(`${origin}/signup/IND/en-US`);
+  await page.goto(`${origin}/signup/IN/en-US`);
   await expect(
     page.getByRole("button", { name: "Continue in this region" }),
   ).toBeDisabled();

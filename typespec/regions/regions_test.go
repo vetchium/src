@@ -12,7 +12,7 @@ func TestListSignupRegionsValidation(t *testing.T) {
 		key     *common.PaginationKey
 		want    int
 	}{
-		{"IND", nil, 0}, {"ZZZ", nil, 1}, {"ind", nil, 1}, {"IND", new(common.PaginationKey("")), 1}, {"IND", new(common.PaginationKey("abc")), 0},
+		{"IN", nil, 0}, {"ZZ", nil, 1}, {"in", nil, 1}, {"IN", new(common.PaginationKey("")), 1}, {"IN", new(common.PaginationKey("abc")), 0},
 	} {
 		r := ListSignupRegionsRequest{ResidentCountry: tt.country, PaginationKey: tt.key}
 		r.Normalize()

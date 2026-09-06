@@ -1,6 +1,7 @@
 import { createRememberedSessionStorage } from "@vetchium/portal-ui/session";
 import { isOpaqueToken } from "typespec/common/authentication";
-import { isCountryCode, isFrontendLocale } from "typespec/common/localization";
+import { isCountryCode } from "typespec/common/countries";
+import { isFrontendLocale } from "typespec/common/localization";
 import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";
 import { isHubHandle, isHubUserDID } from "typespec/hub/types";
 
@@ -19,7 +20,6 @@ function parseSession(value: string | null): StoredSession | null {
       !Number.isFinite(Date.parse(session.session_expires_at)) ||
       Date.parse(session.session_expires_at) <= Date.now() ||
       !isFrontendLocale(session.preferred_language) ||
-      typeof session.resident_country !== "string" ||
       !isCountryCode(session.resident_country) ||
       typeof session.hub_user_did !== "string" ||
       !isHubUserDID(session.hub_user_did) ||

@@ -9,6 +9,7 @@ import {
   isTOTPRecoveryCode,
 } from "./authentication.ts";
 import { isEmailAddress } from "./common.ts";
+import { countryCodeValues, isCountryCode } from "./countries.ts";
 import { isIdempotencyKey } from "./idempotency.ts";
 import {
   isDisplayName,
@@ -57,6 +58,15 @@ test("localization validators cover supported interfaces and Unicode names", () 
   assert.equal(isDisplayName("  நிர்வாகி  "), true);
   assert.equal(isDisplayName("   "), false);
   assert.equal(isDisplayName("x".repeat(201)), false);
+});
+
+test("country validation uses assigned ISO 3166-1 alpha-2 codes", () => {
+  assert.equal(countryCodeValues.length, 249);
+  assert.equal(isCountryCode("IN"), true);
+  assert.equal(isCountryCode("SG"), true);
+  assert.equal(isCountryCode("IND"), false);
+  assert.equal(isCountryCode("in"), false);
+  assert.equal(isCountryCode("ZZ"), false);
 });
 
 test("email validation follows the shared ASCII addr-spec policy", () => {

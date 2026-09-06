@@ -2,13 +2,13 @@ import type { NewPassword } from "../../common/authentication.ts";
 import { isNewPassword, isOpaqueToken } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
 import { isEmailAddress, normalizeEmailAddress } from "../../common/common.ts";
+import { isCountryCode } from "../../common/countries.ts";
 import type {
   CountryCode,
   DisplayName,
   FrontendLocale,
 } from "../../common/localization.ts";
 import {
-  isCountryCode,
   isDisplayName,
   isFrontendLocale,
   normalizeDisplayName,

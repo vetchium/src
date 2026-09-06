@@ -14,8 +14,8 @@ function myInfo(sessionAuthenticatedAt = new Date().toISOString()) {
     email_address: "person@example.com",
     display_name: "Example Person",
     preferred_language: "en-US",
-    resident_country: "SGP",
-    preferred_job_countries: ["SGP"],
+    resident_country: "SG",
+    preferred_job_countries: ["SG"],
     totp_enabled: false,
     recovery_codes_remaining: 0,
     session_authenticated_at: sessionAuthenticatedAt,
@@ -44,7 +44,7 @@ async function provideStoredSession(page: import("@playwright/test").Page) {
           session_token: sessionToken,
           session_expires_at: new Date(Date.now() + 60_000).toISOString(),
           preferred_language: "en-US",
-          resident_country: "SGP",
+          resident_country: "SG",
           hub_user_did: hubUserDID,
           handle,
           remembered: false,
@@ -231,13 +231,31 @@ test("signup offers only supported languages and ISO resident countries", async 
   await expect(page.getByText("Deutsch", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   const residentCountry = page.getByLabel("Resident country");
-  await residentCountry.fill("SGP");
+  await residentCountry.fill("Singapore");
   await expect(
-    page.locator(".ant-select-item-option-content", { hasText: /^SGP$/ }),
+    page.locator(".ant-select-item-option-content", {
+      hasText: /^Singapore$/,
+    }),
   ).toBeVisible();
-  await residentCountry.fill("USA");
+  await residentCountry.fill("United States");
   await expect(
-    page.locator(".ant-select-item-option-content", { hasText: /^USA$/ }),
+    page.locator(".ant-select-item-option-content", {
+      hasText: /^United States$/,
+    }),
+  ).toBeVisible();
+});
+
+test("signup localizes CLDR country names", async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem("vetchium.language", "de-DE"),
+  );
+  await page.goto(`${hubBaseURL}/signup`);
+  const residentCountry = page.getByLabel("Wohnsitzland");
+  await residentCountry.fill("Singapur");
+  await expect(
+    page.locator(".ant-select-item-option-content", {
+      hasText: /^Singapur$/,
+    }),
   ).toBeVisible();
 });
 
@@ -254,7 +272,7 @@ test("password sign in stores the returned session and opens the home page", asy
         session_token: sessionToken,
         session_expires_at: new Date(Date.now() + 86_400_000).toISOString(),
         preferred_language: "en-US",
-        resident_country: "SGP",
+        resident_country: "SG",
         hub_user_did: hubUserDID,
         handle,
       }),
@@ -356,7 +374,7 @@ test("signup defaults to the current interface language", async ({ page }) => {
 
 test("job countries update independently of residence", async ({ page }) => {
   await provideStoredSession(page);
-  let countries = ["SGP"];
+  let countries = ["SG"];
   await page.route("**/api/hub/my-info", async (route) => {
     await route.fulfill({
       json: { ...myInfo(), preferred_job_countries: countries },
@@ -364,18 +382,18 @@ test("job countries update independently of residence", async ({ page }) => {
   });
   await page.route("**/api/hub/set-preferred-job-countries", async (route) => {
     expect(route.request().postDataJSON()).toEqual({
-      preferred_job_countries: ["SGP", "FRA"],
+      preferred_job_countries: ["SG", "FR"],
     });
-    countries = ["SGP", "FRA"];
+    countries = ["SG", "FR"];
     await route.fulfill({ status: 204 });
   });
   await page.goto(`${hubBaseURL}/settings/profile`);
   const jobs = page.getByRole("combobox", { name: "Preferred job countries" });
-  await jobs.fill("FRA");
+  await jobs.fill("France");
   await jobs.press("Enter");
-  await expect.poll(() => countries).toEqual(["SGP", "FRA"]);
+  await expect.poll(() => countries).toEqual(["SG", "FR"]);
   await page.keyboard.press("Escape");
-  await expect(page.getByText("FRA", { exact: true })).toBeVisible();
+  await expect(page.getByText("France", { exact: true })).toBeVisible();
   await expect(
     page.getByText("Choose up to 10 countries.", { exact: false }),
   ).toBeVisible();
