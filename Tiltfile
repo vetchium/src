@@ -62,7 +62,8 @@ portal_links = []
 
 for tenant in tenants:
     roles = {
-        'database': ['db-' + tenant, 'migrate-' + tenant, 'seed-' + tenant],
+        'database': ['db-' + tenant, 'migrate-' + tenant, 'db-seed-' + tenant],
+        'fixtures': ['dev-seed-' + tenant],
         'api': ['admin-api-' + tenant, 'hub-api-' + tenant, 'orgs-api-' + tenant,
                 'mesh-api-' + tenant, 'mcp-server-' + tenant],
         'workers': ['workers-' + tenant],
