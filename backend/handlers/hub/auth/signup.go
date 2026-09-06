@@ -24,7 +24,6 @@ import (
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
 	hubusers "backend/internal/hub/users"
-	"backend/internal/regions"
 )
 
 const signupTTL = 24 * time.Hour
@@ -84,7 +83,6 @@ func RequestSignup(s *hubruntime.Server) http.HandlerFunc {
 				result, err := q.CreateHubSignupRequest(
 					r.Context(), sqlc.CreateHubSignupRequestParams{
 						EmailDomain:        domain,
-						AllowAnyDomain:     s.Signup.EmailDomainMode == regions.AnyDomain,
 						EmailAddress:       emailAddress,
 						HubSignupRequestID: requestID,
 						DisplayName:        string(request.DisplayName),
@@ -159,7 +157,6 @@ func CompleteSignup(s *hubruntime.Server) http.HandlerFunc {
 				created, err := q.CompleteHubSignup(
 					r.Context(), sqlc.CompleteHubSignupParams{
 						HubSignupRequestID: signup.HubSignupRequestID,
-						AllowAnyDomain:     s.Signup.EmailDomainMode == regions.AnyDomain,
 						HubUserDid:         did,
 						Handle:             string(handle),
 						PasswordHash:       passwordHash,

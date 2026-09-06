@@ -20,11 +20,11 @@ WITH eligible_signup AS (
       AND s.active
       AND s.consumed_at IS NULL
       AND s.expires_at > now()
-      AND ($2::boolean OR EXISTS (
+      AND EXISTS (
           SELECT 1 FROM vetchium.hub_signup_domains AS d
           WHERE d.domain = split_part(s.email_address, '@', 2)
             AND d.hub_signup_domain_state = 'active'
-      ))
+      )
       AND NOT EXISTS (
           SELECT 1
           FROM vetchium.hub_users AS u
@@ -43,11 +43,11 @@ WITH eligible_signup AS (
         preferred_job_countries
     )
     SELECT
+        $2,
         $3,
-        $4,
         email_address,
         display_name,
-        $5,
+        $4,
         preferred_language,
         resident_country,
         ARRAY[resident_country]
@@ -75,13 +75,13 @@ WITH eligible_signup AS (
         payload
     )
     SELECT
-        $6,
+        $5,
         'hub.user.created',
         'hub_user',
         hub_user_did::text,
         'anonymous',
         'hub-api',
-        $7,
+        $6,
         jsonb_build_object('handle', handle)
     FROM inserted_user
     WHERE EXISTS (SELECT 1 FROM consumed)
@@ -93,7 +93,6 @@ WHERE EXISTS (SELECT 1 FROM consumed)
 
 type CompleteHubSignupParams struct {
 	HubSignupRequestID pgtype.UUID `json:"hub_signup_request_id"`
-	AllowAnyDomain     bool        `json:"allow_any_domain"`
 	HubUserDid         pgtype.UUID `json:"hub_user_did"`
 	Handle             string      `json:"handle"`
 	PasswordHash       string      `json:"password_hash"`
@@ -109,7 +108,6 @@ type CompleteHubSignupRow struct {
 func (q *Queries) CompleteHubSignup(ctx context.Context, arg CompleteHubSignupParams) (CompleteHubSignupRow, error) {
 	row := q.db.QueryRow(ctx, completeHubSignup,
 		arg.HubSignupRequestID,
-		arg.AllowAnyDomain,
 		arg.HubUserDid,
 		arg.Handle,
 		arg.PasswordHash,
@@ -125,12 +123,12 @@ const createHubSignupRequest = `-- name: CreateHubSignupRequest :one
 WITH allowed_domain AS (
     SELECT 1
     FROM vetchium.hub_signup_domains
-    WHERE domain = $2
+    WHERE domain = $1
       AND hub_signup_domain_state = 'active'
 ), existing_user AS (
     SELECT 1
     FROM vetchium.hub_users AS u
-    WHERE u.email_address = $3
+    WHERE u.email_address = $2
 ), upserted AS (
     INSERT INTO vetchium.hub_signup_requests (
         hub_signup_request_id,
@@ -142,14 +140,14 @@ WITH allowed_domain AS (
         expires_at
     )
     SELECT
-        $4,
         $3,
+        $2,
+        $4,
         $5,
         $6,
         $7,
-        $8,
-        $9
-    WHERE ($1::boolean OR EXISTS (SELECT 1 FROM allowed_domain))
+        $8
+    WHERE EXISTS (SELECT 1 FROM allowed_domain)
       AND NOT EXISTS (SELECT 1 FROM existing_user)
     ON CONFLICT (email_address) WHERE active DO UPDATE
     SET hub_signup_request_id = EXCLUDED.hub_signup_request_id,
@@ -171,9 +169,9 @@ WITH allowed_domain AS (
     )
     SELECT
         'signup',
-        $3,
-        $6,
-        $10
+        $2,
+        $5,
+        $9
     FROM upserted
     RETURNING hub_email_outbox_id
 ), audit AS (
@@ -188,28 +186,27 @@ WITH allowed_domain AS (
         payload
     )
     SELECT
-        $11,
+        $10,
         'hub.signup.requested',
         'hub_signup_request',
         hub_signup_request_id::text,
         'anonymous',
         'hub-api',
-        $12,
+        $11,
         jsonb_build_object(
-            'preferred_language', $6::text,
-            'resident_country', $7::text,
+            'preferred_language', $5::text,
+            'resident_country', $6::text,
             'email_queued', EXISTS (SELECT 1 FROM outbox)
         )
     FROM upserted
 )
 SELECT CASE
-    WHEN NOT $1::boolean AND NOT EXISTS (SELECT 1 FROM allowed_domain) THEN 'domain_not_allowed'
+    WHEN NOT EXISTS (SELECT 1 FROM allowed_domain) THEN 'domain_not_allowed'
     ELSE 'accepted'
 END::text AS result
 `
 
 type CreateHubSignupRequestParams struct {
-	AllowAnyDomain     bool               `json:"allow_any_domain"`
 	EmailDomain        string             `json:"email_domain"`
 	EmailAddress       string             `json:"email_address"`
 	HubSignupRequestID pgtype.UUID        `json:"hub_signup_request_id"`
@@ -225,7 +222,6 @@ type CreateHubSignupRequestParams struct {
 
 func (q *Queries) CreateHubSignupRequest(ctx context.Context, arg CreateHubSignupRequestParams) (string, error) {
 	row := q.db.QueryRow(ctx, createHubSignupRequest,
-		arg.AllowAnyDomain,
 		arg.EmailDomain,
 		arg.EmailAddress,
 		arg.HubSignupRequestID,

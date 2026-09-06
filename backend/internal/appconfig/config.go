@@ -294,12 +294,9 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
-	admission := regions.Admission{Enabled: true, EmailDomainMode: regions.Allowlist}
+	admission := regions.Admission{Enabled: true}
 	if raw.HubAPIServer.Signup != nil {
 		admission = *raw.HubAPIServer.Signup
-	}
-	if err := admission.Validate(); err != nil {
-		return Config{}, configError(path, err)
 	}
 	hubSessionTTL, err := positiveDuration(
 		"hubAPIServer.sessionTTL", raw.HubAPIServer.SessionTTL,

@@ -994,6 +994,15 @@ export function createAdminForPendingInvitation(emailAddress: string): void {
   `);
 }
 
+export function seedHubSignupDomain(domain: string, tenant: TestTenant): void {
+  assertOwnedDomain(domain);
+  sqlScalarForTenant(
+    tenant,
+    `INSERT INTO vetchium.hub_signup_domains (domain)
+     VALUES (${sqlLiteral(domain)});`,
+  );
+}
+
 export function cleanupHubSignupDomain(
   domain: string,
   tenant: TestTenant = "sgp",

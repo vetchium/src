@@ -31,8 +31,7 @@
     "rememberedSessionTTL": "6360h",
     "publicBaseURL": "http://hub-ui.deu.localhost",
     "signup": {
-      "enabled": false,
-      "emailDomainMode": "any_domain"
+      "enabled": false
     }
   },
   "smtp": {

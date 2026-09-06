@@ -31,8 +31,7 @@
     "rememberedSessionTTL": "6360h",
     "publicBaseURL": "http://hub-ui.sgp.localhost",
     "signup": {
-      "enabled": true,
-      "emailDomainMode": "any_domain"
+      "enabled": true
     }
   },
   "smtp": {
