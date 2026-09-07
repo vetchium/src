@@ -26,16 +26,6 @@ export const de = {
     changeError:
       "Die Sprache konnte nicht geändert werden. Versuchen Sie es erneut.",
   },
-  languages: {
-    "en-US": "English US",
-    ta: "தமிழ்",
-    "de-DE": "Deutsch",
-  },
-  languageShort: {
-    "en-US": "EN",
-    ta: "TA",
-    "de-DE": "DE",
-  },
   fields: {
     email: "E-Mail-Adresse",
     password: "Passwort",

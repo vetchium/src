@@ -1,6 +1,6 @@
+import { languageName } from "@vetchium/portal-ui/localization";
 import { Card, Descriptions, Grid, Space, Tag, Typography } from "antd";
 import { useTranslation } from "react-i18next";
-import { intlLocale } from "../app/preferences";
 import {
   permissionNameKey,
   permissionRows,
@@ -68,7 +68,7 @@ export function HomePage() {
             {
               key: "language",
               label: t("fields.language"),
-              children: t(`languages.${me.preferred_language}`),
+              children: languageName(me.preferred_language),
             },
             {
               key: "totp",
@@ -89,7 +89,7 @@ export function HomePage() {
             {
               key: "expires",
               label: t("fields.sessionExpires"),
-              children: new Intl.DateTimeFormat(intlLocale(i18n.language), {
+              children: new Intl.DateTimeFormat(i18n.language, {
                 dateStyle: "medium",
                 timeStyle: "short",
               }).format(new Date(me.session_expires_at)),

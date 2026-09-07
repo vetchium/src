@@ -5,6 +5,7 @@ import {
   type FrontendLocale,
   isFrontendLocale,
 } from "typespec/common/localization";
+import { matchFrontendLocale } from "./localization";
 
 export type ThemeMode = "light" | "dark";
 
@@ -44,7 +45,9 @@ function storeValue(key: string, value: string): void {
 
 export function readPreferredLanguage(): FrontendLocale {
   const stored = storedValue(languageStorageKey);
-  return isFrontendLocale(stored) ? stored : runtimeDefaultLanguage();
+  if (isFrontendLocale(stored)) return stored;
+  const browser = matchFrontendLocale(globalThis.navigator?.languages ?? []);
+  return browser ?? runtimeDefaultLanguage();
 }
 
 export function storePreferredLanguage(language: FrontendLocale): void {
@@ -57,10 +60,6 @@ export function readThemeMode(): ThemeMode {
 
 export function storeThemeMode(themeMode: ThemeMode): void {
   storeValue(themeStorageKey, themeMode);
-}
-
-export function intlLocale(language: string): string {
-  return language === "de-DE" ? "de-DE" : language;
 }
 
 interface PreferencesContextValue {

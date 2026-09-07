@@ -28,11 +28,6 @@ export const en = {
     changeError: "The language could not be changed. Please try again.",
     selectorLabel: "Select language",
   },
-  languageShort: {
-    "en-US": "EN",
-    ta: "TA",
-    "de-DE": "DE",
-  },
   common: {
     all: "All",
     backToLogin: "Back to sign in",
@@ -91,11 +86,6 @@ export const en = {
     recoveryCode: "Enter a valid recovery code.",
     required: "This field is required.",
     totpCode: "Enter the six-digit code.",
-  },
-  languages: {
-    "en-US": "English US",
-    ta: "தமிழ்",
-    "de-DE": "Deutsch",
   },
   states: { active: "Active", disabled: "Disabled" },
   permissions: {

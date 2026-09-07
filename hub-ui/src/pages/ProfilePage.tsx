@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { frontendLocaleOptions } from "@vetchium/portal-ui/localization";
 import {
   App,
   Card,
@@ -17,8 +18,6 @@ import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { myInfoQueryKey, useMyInfoQuery } from "../features/profile/queries";
 import { countryOptions } from "../i18n/countries";
-
-const languages: FrontendLocale[] = ["en-US", "ta", "de-DE"];
 
 export function ProfilePage() {
   const { t } = useTranslation();
@@ -92,10 +91,7 @@ export function ProfilePage() {
               <Select<FrontendLocale>
                 value={me.preferred_language}
                 loading={language.isPending}
-                options={languages.map((value) => ({
-                  value,
-                  label: t(`languages.${value}`),
-                }))}
+                options={frontendLocaleOptions()}
                 onChange={(value) => language.mutate(value)}
               />
             </Form.Item>

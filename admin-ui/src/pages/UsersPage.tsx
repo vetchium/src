@@ -43,7 +43,6 @@ import {
   LastAdminManagerError,
 } from "typespec/problem/admin/users";
 import { problemTranslationKey } from "../api/problems";
-import { intlLocale } from "../app/preferences";
 import {
   permissionNameKey,
   permissionRows,
@@ -216,7 +215,7 @@ export function UsersPage() {
       render: (_, user) =>
         user.last_login_at === undefined
           ? t("common.never")
-          : new Intl.DateTimeFormat(intlLocale(i18n.language), {
+          : new Intl.DateTimeFormat(i18n.language, {
               dateStyle: "medium",
               timeStyle: "short",
             }).format(new Date(user.last_login_at)),

@@ -15,7 +15,6 @@ import {
 } from "typespec/problem/admin/users";
 import { useIdempotencyKey } from "../../api/idempotency";
 import { problemTranslationKey } from "../../api/problems";
-import { intlLocale } from "../../app/preferences";
 import { PermissionTable } from "../authorization/PermissionTable";
 import { permissionGrants } from "../authorization/permissions";
 import { inviteUser } from "./api";
@@ -77,7 +76,7 @@ export function InviteUserModal({ open, onClose }: InviteUserModalProps) {
       void message.success(
         t("users.invite.sent", {
           email: request.email_address,
-          expiresAt: new Intl.DateTimeFormat(intlLocale(i18n.language), {
+          expiresAt: new Intl.DateTimeFormat(i18n.language, {
             dateStyle: "medium",
             timeStyle: "short",
           }).format(new Date(response.expires_at)),

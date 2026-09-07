@@ -18,7 +18,7 @@ func TestRendererLoadsEveryLocalizedTemplate(t *testing.T) {
 		ActionURL:   "https://hub.example/verify?one=1&two=2",
 		ExpiresAt:   time.Date(2026, 8, 24, 12, 30, 0, 0, time.UTC),
 	}
-	for _, locale := range supportedLocales {
+	for _, locale := range common.FrontendLocales() {
 		for _, kind := range supportedKinds {
 			message, renderErr := renderer.Render(kind, locale, data)
 			if renderErr != nil {

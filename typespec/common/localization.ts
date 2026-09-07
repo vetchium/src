@@ -1,15 +1,15 @@
-export type FrontendLocale = "en-US" | "ta" | "de-DE";
+export const frontendLocaleValues = ["en-US", "ta", "de-DE"] as const;
 
-export const EnglishUnitedStates: FrontendLocale = "en-US";
-export const Tamil: FrontendLocale = "ta";
-export const German: FrontendLocale = "de-DE";
+export type FrontendLocale = (typeof frontendLocaleValues)[number];
+
+const frontendLocales = new Set<string>(frontendLocaleValues);
 
 export type CountryCode = string;
 
 export type DisplayName = string;
 
 export function isFrontendLocale(value: unknown): value is FrontendLocale {
-  return value === "en-US" || value === "ta" || value === "de-DE";
+  return typeof value === "string" && frontendLocales.has(value);
 }
 
 export function normalizeDisplayName(value: DisplayName): DisplayName {

@@ -1,6 +1,6 @@
 namespace Vetchium;
 
-/** Locales with translated user-interface strings in Vetchium portals. */
+/** Canonical BCP 47 locales with complete Vetchium interface translations. */
 enum FrontendLocale {
   EnglishUnitedStates: "en-US",
   Tamil: "ta",

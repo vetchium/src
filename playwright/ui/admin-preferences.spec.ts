@@ -47,9 +47,9 @@ test("login replaces the local language and authenticated changes reach the serv
   });
   await languageSelect.click();
   await expect(
-    page.getByRole("option", { name: "English US" }),
+    page.getByRole("option", { name: "English (United States)" }),
   ).toHaveAttribute("aria-selected", "true");
-  await page.getByRole("option", { name: "Deutsch" }).click();
+  await page.getByRole("option", { name: "Deutsch (Deutschland)" }).click();
   await expect(
     page.getByRole("heading", { name: /^Willkommen,/ }),
   ).toBeVisible();
@@ -64,10 +64,9 @@ test("login replaces the local language and authenticated changes reach the serv
   await page.getByRole("button", { name: "Abmelden" }).click();
   await expect(page.getByRole("heading", { name: "Anmelden" })).toBeVisible();
   await page.getByRole("combobox", { name: "Sprache auswählen" }).click();
-  await expect(page.getByRole("option", { name: "Deutsch" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(
+    page.getByRole("option", { name: "Deutsch (Deutschland)" }),
+  ).toHaveAttribute("aria-selected", "true");
 });
 
 test("permission tags use the authenticated user's language", async ({
@@ -96,7 +95,7 @@ test("permission tags use the authenticated user's language", async ({
   ).toBeVisible();
 
   await page.getByRole("combobox", { name: "Select language" }).click();
-  await page.getByRole("option", { name: "Deutsch" }).click();
+  await page.getByRole("option", { name: "Deutsch (Deutschland)" }).click();
   await expect(
     page.getByText("ADMINISTRATOREN_ANZEIGEN", { exact: true }),
   ).toBeVisible();

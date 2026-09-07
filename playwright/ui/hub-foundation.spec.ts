@@ -99,7 +99,7 @@ test("an authenticated language change reaches the server and updates the sessio
     "**/api/hub/set-preferred-language",
   );
   await page.getByRole("combobox", { name: "Select language" }).click();
-  await page.getByRole("option", { name: "Deutsch" }).click();
+  await page.getByRole("option", { name: "Deutsch (Deutschland)" }).click();
 
   const request = await languageRequest;
   expect(request.method()).toBe("POST");
@@ -140,7 +140,7 @@ test("a rejected authenticated language change keeps the current language", asyn
   await page.goto(hubBaseURL);
 
   await page.getByRole("combobox", { name: "Select language" }).click();
-  await page.getByRole("option", { name: "Deutsch" }).click();
+  await page.getByRole("option", { name: "Deutsch (Deutschland)" }).click();
 
   await expect(
     page.getByText("The language could not be changed. Please try again."),
@@ -224,11 +224,15 @@ test("signup offers only supported languages and ISO resident countries", async 
     exact: true,
   });
   await expect(
-    page.getByRole("main").getByText("English US", { exact: true }),
+    page
+      .getByRole("main")
+      .getByText("English (United States)", { exact: true }),
   ).toBeVisible();
   await language.click();
   await expect(page.getByText("தமிழ்", { exact: true })).toBeVisible();
-  await expect(page.getByText("Deutsch", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Deutsch (Deutschland)", { exact: true }),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
   const residentCountry = page.getByLabel("Resident country");
   await residentCountry.fill("Singapore");
@@ -363,12 +367,34 @@ test("unknown routes show a useful not-found page", async ({ page }) => {
 });
 
 test("signup defaults to the current interface language", async ({ page }) => {
-  await page.addInitScript(() =>
-    localStorage.setItem("vetchium.language", "ta"),
-  );
+  await page.addInitScript(() => {
+    localStorage.setItem("vetchium.language", "ta");
+    Object.defineProperty(navigator, "languages", {
+      configurable: true,
+      get: () => ["de-AT"],
+    });
+  });
   await page.goto(`${hubBaseURL}/signup`);
   await expect(
     page.getByRole("main").getByText("தமிழ்", { exact: true }),
+  ).toBeVisible();
+});
+
+test("a first visit matches the browser's BCP 47 locale", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "languages", {
+      configurable: true,
+      get: () => ["de-AT", "en-US"],
+    });
+  });
+  await page.goto(`${hubBaseURL}/signup`);
+  await expect(
+    page.getByRole("heading", { name: "Erstellen Sie Ihr Konto" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("main").getByText("Deutsch (Deutschland)", {
+      exact: true,
+    }),
   ).toBeVisible();
 });
 

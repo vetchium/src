@@ -19,9 +19,20 @@ type CountryCode string
 type DisplayName string
 
 func IsFrontendLocale(value FrontendLocale) bool {
-	return value == EnglishUnitedStates ||
-		value == Tamil ||
-		value == German
+	for _, locale := range FrontendLocales() {
+		if value == locale {
+			return true
+		}
+	}
+	return false
+}
+
+func FrontendLocales() []FrontendLocale {
+	return []FrontendLocale{
+		EnglishUnitedStates,
+		Tamil,
+		German,
+	}
 }
 
 func IsCountryCode(value CountryCode) bool {

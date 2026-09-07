@@ -11,6 +11,7 @@
     "./auth": "./src/auth.tsx",
     "./errors": "./src/errors.tsx",
     "./idempotency": "./src/idempotency.ts",
+    "./localization": "./src/localization.ts",
     "./navigation": "./src/navigation.ts",
     "./pending-operations": "./src/pending-operations.tsx",
     "./preferences": "./src/preferences.tsx",

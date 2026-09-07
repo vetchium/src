@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { frontendLocaleOptions } from "@vetchium/portal-ui/localization";
 import {
   Alert,
   Button,
@@ -25,8 +26,6 @@ import { useIdempotencyKey } from "../api/idempotency";
 import { usePreferences } from "../app/PreferencesContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { countryName, countryOptions } from "../i18n/countries";
-
-const languages: FrontendLocale[] = ["en-US", "ta", "de-DE"];
 
 // Pages hold 50 regions, so this bounds discovery at 1000 regions.
 const maxRegionPages = 20;
@@ -210,10 +209,7 @@ function SignupFlow() {
               <Select
                 aria-label={`* ${t("fields.language")}`}
                 value={language}
-                options={languages.map((value) => ({
-                  value,
-                  label: t(`languages.${value}`),
-                }))}
+                options={frontendLocaleOptions()}
                 onChange={(value: FrontendLocale) => {
                   setLanguage(value);
                   preferences.setLanguage(value);

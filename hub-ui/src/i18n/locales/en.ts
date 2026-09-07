@@ -23,16 +23,6 @@ export const en = {
     selectorLabel: "Select language",
     changeError: "The language could not be changed. Please try again.",
   },
-  languages: {
-    "en-US": "English US",
-    ta: "தமிழ்",
-    "de-DE": "Deutsch",
-  },
-  languageShort: {
-    "en-US": "EN",
-    ta: "TA",
-    "de-DE": "DE",
-  },
   fields: {
     email: "Email address",
     password: "Password",

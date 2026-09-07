@@ -41,7 +41,6 @@ import {
   HubSignupDomainNotFoundError,
 } from "typespec/problem/admin/hub-signup-domains";
 import { problemTranslationKey } from "../api/problems";
-import { intlLocale } from "../app/preferences";
 import {
   createHubSignupDomain,
   updateHubSignupDomain,
@@ -203,7 +202,7 @@ export function HubSignupDomainsPage() {
       width: 200,
       responsive: ["md"],
       render: (value: string) =>
-        new Intl.DateTimeFormat(intlLocale(i18n.language), {
+        new Intl.DateTimeFormat(i18n.language, {
           dateStyle: "medium",
           timeStyle: "short",
         }).format(new Date(value)),

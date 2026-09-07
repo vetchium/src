@@ -30,11 +30,15 @@ import { useTranslation } from "react-i18next";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
 import type { FrontendLocale } from "typespec/common/localization";
 import { isFrontendLocale } from "typespec/common/localization";
+import {
+  frontendLocaleOptions,
+  languageName,
+  shortLanguageName,
+} from "./localization";
 import { usePendingOperations } from "./pending-operations";
 import { usePreferences } from "./preferences";
 
 const { Content, Footer, Header, Sider } = Layout;
-const languages: FrontendLocale[] = ["en-US", "ta", "de-DE"];
 
 export function HeaderControls({
   onSignOut,
@@ -72,16 +76,11 @@ export function HeaderControls({
         placement="bottomRight"
         popupMatchSelectWidth={false}
         style={{ width: compact ? 88 : 160 }}
-        options={languages.map((language) => ({
-          value: language,
-          label: t(`languages.${language}`),
-        }))}
+        options={frontendLocaleOptions()}
         labelRender={({ value }) =>
-          t(
-            compact
-              ? `languageShort.${value as FrontendLocale}`
-              : `languages.${value as FrontendLocale}`,
-          )
+          compact
+            ? shortLanguageName(value as FrontendLocale)
+            : languageName(value as FrontendLocale)
         }
         onChange={(language) => void selectLanguage(language)}
       />

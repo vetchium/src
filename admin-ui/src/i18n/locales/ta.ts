@@ -30,11 +30,6 @@ export const ta = {
     changeError: "மொழியை மாற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
     selectorLabel: "மொழியைத் தேர்ந்தெடுக்கவும்",
   },
-  languageShort: {
-    "en-US": "EN",
-    ta: "TA",
-    "de-DE": "DE",
-  },
   common: {
     all: "அனைத்தும்",
     backToLogin: "உள்நுழைவுக்குத் திரும்பு",
@@ -93,11 +88,6 @@ export const ta = {
     recoveryCode: "சரியான மீட்புக் குறியீட்டை உள்ளிடவும்.",
     required: "இந்தப் புலம் தேவை.",
     totpCode: "ஆறு இலக்கக் குறியீட்டை உள்ளிடவும்.",
-  },
-  languages: {
-    "en-US": "English US",
-    ta: "தமிழ்",
-    "de-DE": "Deutsch",
   },
   states: { active: "செயலில்", disabled: "முடக்கப்பட்டது" },
   permissions: {

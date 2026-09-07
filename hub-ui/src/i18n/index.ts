@@ -1,18 +1,21 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
+import type { FrontendLocale } from "typespec/common/localization";
 import { readPreferredLanguage } from "../app/preferences";
 import { de } from "./locales/de";
 import { en } from "./locales/en";
 import { ta } from "./locales/ta";
 
+const resources = {
+  "en-US": { translation: en },
+  ta: { translation: ta },
+  "de-DE": { translation: de },
+} satisfies Record<FrontendLocale, { translation: object }>;
+
 void i18n.use(initReactI18next).init({
   fallbackLng: "en-US",
   lng: readPreferredLanguage(),
-  resources: {
-    "en-US": { translation: en },
-    ta: { translation: ta },
-    "de-DE": { translation: de },
-  },
+  resources,
   interpolation: { escapeValue: false },
 });
 

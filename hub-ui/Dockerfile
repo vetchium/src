@@ -20,7 +20,7 @@ RUN npm run build
 FROM nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6
 
 COPY --chown=nginx:nginx hub-ui/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --chmod=755 hub-ui/runtime-config.sh /docker-entrypoint.d/40-vetchium-runtime-config.sh
+COPY --chmod=755 portal-ui/runtime-config.sh /docker-entrypoint.d/40-vetchium-runtime-config.sh
 COPY --from=build --chown=nginx:nginx /app/hub-ui/dist/ /usr/share/nginx/html/
 
 EXPOSE 8080

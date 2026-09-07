@@ -31,11 +31,6 @@ export const de = {
       "Die Sprache konnte nicht geändert werden. Bitte erneut versuchen.",
     selectorLabel: "Sprache auswählen",
   },
-  languageShort: {
-    "en-US": "EN",
-    ta: "TA",
-    "de-DE": "DE",
-  },
   common: {
     all: "Alle",
     backToLogin: "Zurück zur Anmeldung",
@@ -95,11 +90,6 @@ export const de = {
     recoveryCode: "Geben Sie einen gültigen Wiederherstellungscode ein.",
     required: "Dieses Feld ist erforderlich.",
     totpCode: "Geben Sie den sechsstelligen Code ein.",
-  },
-  languages: {
-    "en-US": "English US",
-    ta: "தமிழ்",
-    "de-DE": "Deutsch",
   },
   states: { active: "Aktiv", disabled: "Deaktiviert" },
   permissions: {

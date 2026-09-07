@@ -22,11 +22,6 @@ const (
 )
 
 var supportedKinds = []Kind{Signup, PasswordReset}
-var supportedLocales = []common.FrontendLocale{
-	common.EnglishUnitedStates,
-	common.Tamil,
-	common.German,
-}
 
 //go:embed templates/*/*
 var templateFiles embed.FS
@@ -59,7 +54,7 @@ func NewRenderer() (*Renderer, error) {
 	renderer := &Renderer{
 		templates: make(map[common.FrontendLocale]map[Kind]templateSet),
 	}
-	for _, locale := range supportedLocales {
+	for _, locale := range common.FrontendLocales() {
 		renderer.templates[locale] = make(map[Kind]templateSet)
 		for _, kind := range supportedKinds {
 			set, err := parseTemplateSet(templateFiles, locale, kind)
