@@ -1,95 +1,70 @@
-# Code Review Gate
+# Review Gate
 
-Every coding activity requires a review pass after implementation and before it
-is called done. Review the complete diff, not only the last edited file. A task
-is not complete while the review has unresolved correctness, security,
-authorization, data-integrity, API-contract, or test findings.
+Every coding activity gets a review pass after implementation and before it is
+called done. Review the whole diff, not the last file edited. Inspect the code
+and the verification output; a summary written from memory is not a review. Use
+a reviewer when one is assigned, otherwise a separate self-review pass. The task
+stays open while any correctness, security, authorization, data-integrity,
+API-contract, or test finding is unresolved.
 
-The review may be performed by another reviewer or as a separate self-review
-pass when no reviewer is assigned. The reviewer must inspect the code and the
-verification output; a summary written from memory is not a review.
-
-## Scope and behavior
+## Requirement and scope
 
 - Reconstruct the requirement from the original request and repository
-  evidence. Do not treat the implementer's plan, summary, or tests as proof
-  that a design assumption is correct.
-- Identify every material inference about product policy, ownership, privacy,
-  tenant behavior, portal capabilities, and deployment. Challenge it with a
-  counterexample and require evidence or explicit user direction for choices
-  that alter externally visible behavior.
-- For a cross-portal abstraction, verify that the shared part is mechanism
-  rather than an accidentally shared capability or policy. Equal current
-  values are not evidence of shared ownership.
-- Compare the diff with the request and record any missing, extra, or deferred
+  evidence. The implementer's plan, summary, and tests are not proof that a
+  design assumption is right. Apply [`change-design.md`](change-design.md) to
+  every material inference, especially a shared abstraction that may be shared
+  policy rather than shared mechanism.
+- Compare the diff with the request. Record missing, extra, and deferred
   behavior.
 - Check positive, negative, boundary, retry, concurrency, and failure paths.
 - Confirm tenant isolation and authorization at every server-side boundary.
-- Check that errors do not expose credentials, account existence, private
-  policy, or unnecessary personal data.
-- Confirm that state transitions preserve their documented invariants.
+- Confirm errors expose no credentials, account existence, private policy, or
+  unnecessary personal data.
+- Confirm state transitions keep their documented invariants.
 
-## API and data design
+## API and data
 
-- Keep the TypeSpec contract and the matching Go and TypeScript wire types in
-  sync.
-- Specify status codes, RFC 9457 problems, defaults, optional fields,
-  normalization, validation, and authorization requirements.
-- Use keyset pagination for APIs whose result can grow into a long list. Check
-  that the ordering is deterministic, the pagination key is bound to filters,
-  and the query shape can use suitable indexes. Follow the database guide when
-  deciding whether to add performance indexes now. Do not use offset
-  pagination for such APIs.
-- Check database constraints as well as application validation. Assume
-  concurrent requests can pass application checks at the same time.
-- Review transaction boundaries, idempotency, foreign keys, uniqueness,
-  lifecycle behavior, and query plans where they matter.
-- For every database write, verify that the same transaction appends the
-  durable audit event required by `database.md`, including safe actor, entity,
-  change, and correlation context. Check rollback, retry, bulk-write, and
-  sensitive-data behavior; application logs do not satisfy this requirement.
-- Do not hand-edit generated files. Review the source and regenerated output
+- TypeSpec, Go, and TypeScript wire types agree, per
+  [`typespec.md`](typespec.md).
+- Status codes, RFC 9457 problems, defaults, optionality, normalization,
+  validation, and authorization are all specified.
+- Growable lists use keyset pagination, never offset: deterministic ordering,
+  pagination key bound to the filters, index-friendly query shape.
+- Database constraints back application validation. Assume two concurrent
+  requests pass the application check at the same time.
+- Transaction boundaries, idempotency, foreign keys, uniqueness, and lifecycle
+  behavior are correct, per [`database.md`](database.md).
+- Every committed write appends its audit event in the same transaction, with
+  safe actor, entity, change, and correlation context. Check rollback, retry,
+  bulk, and sensitive-data behavior. Application logs do not satisfy this.
+- No hand-edited generated files. Review source and regenerated output
   together.
 
-## Code and language
+## Code
 
-- Use simple technical English in names, messages, documentation, and UI text.
-- Remove verbose, namesake, and decorative comments. Keep comments only for
-  non-obvious intent, invariants, tradeoffs, or external requirements that the
-  code cannot express.
-- Remove dead code, temporary diagnostics, copied boilerplate, and unrelated
-  changes.
-- Follow every applicable `AGENTS.md` file and guide under `agent-guides/`.
-- For UI changes, review accessibility, keyboard behavior, loading and error
-  states, responsive layout, and every supported locale.
+- Simple technical English in names, messages, documentation, and UI text.
+- Comments only for non-obvious intent, invariants, tradeoffs, or external
+  requirements. Delete namesake and decorative ones.
+- No dead code, leftover diagnostics, copied boilerplate, or unrelated edits.
+- Every applicable `AGENTS.md` and `agent-guides/` rule is followed.
+- UI changes: accessibility, keyboard behavior, loading and error states,
+  responsive layout, every supported locale.
 
-## Verification
+## Tests and verification
 
-- Run the formatters, generators, linters, static analysis, type checks,
-  compilers, and tests required by the applicable guides.
-- Require clean results with no new warnings or errors. Do not hide failures by
-  weakening a rule or excluding changed code.
-- Add focused tests for every new rule and regression. Include positive,
-  negative, and edge cases at the lowest useful layer, then integration or UI
-  coverage where the boundary matters.
-- Inspect generated schemas, SQL, snapshots, or other artifacts when a tool can
-  succeed while producing the wrong shape.
-- Do not use a green test suite to close a requirements or design finding. Tests
-  can faithfully verify a wrong assumption; compare observed behavior against
-  the ownership and impact matrix from `change-design.md`.
-- Run `git diff --check` and inspect `git status` before committing so generated
-  output, temporary files, and unrelated edits are not included accidentally.
+- Run everything in [`verification.md`](verification.md) that applies.
+- Add focused tests for each new rule and regression: positive, negative, and
+  edge cases at the lowest useful layer, then integration or UI coverage where
+  the boundary matters.
+- A green suite does not close a requirements or design finding. Tests can
+  faithfully verify a wrong assumption; re-check against the ownership map.
 
 ## Completion record
 
-Before calling the activity done, report:
+Report what the review covered, the findings and their resolution, the exact
+commands or suites that passed, and any remaining risk or deferred work with
+where it is tracked.
 
-- what the review covered;
-- the findings and how they were resolved;
-- the exact verification commands or suites that passed;
-- any remaining risk or intentionally deferred work, with its tracking
-  location.
-
-Do not describe a coding activity as complete if required checks were not run
-or if their result is unknown. State the limitation plainly and keep the task
-open unless the user accepts the exception.
+Do not call an activity complete when a required check was skipped or its
+result is unknown. State the limitation and keep the task open unless the user
+accepts the exception.

@@ -1,129 +1,91 @@
-# Playwright Guide
+# Playwright
 
-This guide applies to API and UI tests under `playwright/`.
+Applies to the API and UI tests under `playwright/`. Read
+[`typescript.md`](typescript.md) as well.
 
-## Test layout
+## Layout
 
-- Put API tests in `playwright/api/` and browser tests in `playwright/ui/`.
-- Import all wire types from `typespec`; inspect the matching `.tsp` and
+- API tests in `playwright/api/`, browser tests in `playwright/ui/`.
+- Import every wire type from `typespec`, and read the matching `.tsp` and
   `.ts` files before writing requests or response assertions.
-- Give API clients a typed method for valid payloads. When validation behavior
-  requires malformed input, expose a clearly named raw method accepting
+- Give each API client a typed method for valid payloads. Where validation
+  behavior needs malformed input, expose a clearly named raw method taking
   `unknown` or `Record<string, unknown>`.
 
 ## Parallel isolation
 
-The runner uses `fullyParallel`. Assume every test can start at the same time,
-on another worker, in any order, and more than once because of retries.
-The worker count is capped because these tests share one resource-heavy local
-container stack; host CPU count is not a reliable measure of its database and
-container capacity. Keep the cap parallel, and change it only with evidence
-from a clean full-suite run rather than to conceal a test-isolation defect.
+The runner is `fullyParallel`: assume every test can start at the same moment,
+on another worker, in any order, and more than once through retries. The worker
+count is capped because the suite shares one resource-heavy local container
+stack, and host CPU count does not measure its database and container capacity.
+Keep the cap parallel; change it only with evidence from a clean full-suite
+run, never to hide a test-isolation defect.
 
 - Generate a UUID-backed identifier for every email, domain, tenant, user, and
-  mutable resource created by a test. A timestamp, worker index, or fixed
-  suffix is not unique enough by itself.
-- Use `uniqueTestID` and `uniqueTestEmail` from `playwright/lib/test-id.ts` when
-  a more domain-specific factory is not available.
-- Each test owns its setup and cleanup. Delete everything it creates using an
-  automatic fixture or `try`/`finally`, including partial setup left after a
-  failed assertion.
-- Do not make tests depend on mutations performed by another test. Do not
-  share mutable resources through module globals, `beforeAll`, or ordered
-  `describe` blocks.
-- Do not use `serial`, `workers: 1`, project dependencies, or a global setup
-  script to hide shared-state coupling. Redesign the data setup so it can run
-  concurrently.
-- Treat development seed records as read-only. Create dedicated records for
-  mutation tests and never delete shared seed data.
-- Scope mailbox, audit-log, and list queries to the test's unique identifiers;
-  do not assert against the newest or only global record.
-- Tests that change singleton configuration must restore it safely and use a
-  namespace or tenant that no parallel test shares. If the product offers no
-  isolation boundary, stop and raise the limitation instead of weakening the
-  suite's parallel configuration.
+  mutable resource a test creates. A timestamp, worker index, or fixed suffix
+  is not unique enough. Use `uniqueTestID` and `uniqueTestEmail` from
+  `playwright/lib/test-id.ts` when no domain-specific factory exists.
+- Each test owns its setup and cleanup, and deletes everything it created
+  through an automatic fixture or `try`/`finally`, including partial setup left
+  by a failed assertion.
+- No test depends on another test's mutations. No sharing mutable resources
+  through module globals, `beforeAll`, or ordered `describe` blocks.
+- Never use `serial`, `workers: 1`, project dependencies, or a global setup
+  script to paper over shared-state coupling. Redesign the data setup instead.
+- Development seed records are read-only. Create dedicated records for mutation
+  tests and never delete shared seed data.
+- Scope mailbox, audit-log, and list queries to the test's unique identifiers.
+  Never assert against the newest or the only global record.
+- A test changing singleton configuration restores it safely and uses a
+  namespace or tenant no parallel test shares. If the product offers no such
+  boundary, raise the limitation instead of weakening the parallel
+  configuration.
 
-## Reliable assertions
+## Assertions
 
-- Use Playwright's request fixture for API tests and the per-test browser
-  context for UI tests.
+- Use the request fixture for API tests and the per-test browser context for UI
+  tests.
 - Prefer role, label, and test-id locators over CSS structure or visible text
-  that changes with localization.
-- Use retrying Playwright assertions or explicit event waits. Do not add fixed
-  sleeps.
+  that changes with locale.
+- Use retrying assertions or explicit event waits. Never a fixed sleep.
 - Assert externally observable API or UI behavior. Direct database helpers are
-  permitted for isolated setup and cleanup, not as a substitute for the
-  behavior under test.
+  for isolated setup and cleanup only, never as a stand-in for the behavior
+  under test.
 
-## Required change coverage
+## Required coverage
 
-- Every new or changed API implementation must add or update tests under
-  `playwright/api/` in the same change. Exercise every non-`5xx` response in
-  the TypeSpec response union and assert its status, stable problem type,
-  required headers, and response body. Shared table-driven contract tests count
-  only when they explicitly enumerate the endpoint. Add a `5xx` integration
-  case when the failure can be injected reliably without weakening isolation.
-  A response owned by planned ingress middleware remains in the contract; note
-  why it cannot yet be exercised and add its Playwright coverage when that
-  middleware is present in the test topology.
-- API tests must cover the successful state transition and important negative
+- Every new or changed API implementation updates `playwright/api/` in the same
+  change. Exercise every non-`5xx` response in the TypeSpec response union and
+  assert status, stable problem type, required headers, and body. A shared
+  table-driven test counts only when it enumerates the endpoint explicitly. Add
+  a `5xx` case when the failure can be injected reliably without weakening
+  isolation. A response owned by planned ingress middleware stays in the
+  contract: note why it cannot be exercised yet and add coverage when that
+  middleware is in the test topology.
+- API tests cover the successful state transition and the important negative
   invariants, such as preserving an existing session or leaving persistent
-  state unchanged after rejection. Handler unit tests alone are not sufficient
-  because they do not verify routing, middleware, encoding, or the deployed
-  database predicates.
-- Every new or changed UI behavior must add or update tests under
-  `playwright/ui/` in the same change. Cover the primary success path and every
-  applicable validation, server-error, cancel/back, route-guard, session-state,
-  and security-boundary path. Test both sides of time or permission boundaries
-  with a safe margin so wall-clock scheduling cannot make the test flaky.
-- Before declaring the implementation complete, review the contract and the
-  changed UI as a response/behavior matrix and account for every row with a
-  named test. Do not use the total test count as evidence of coverage.
-
-## Verification
-
-Run the complete self-contained suite from the repository root:
-
-```sh
-make test
-```
-
-This tears down any existing dev stack, then runs every independent unit —
-Go tests, the portal/TypeSpec/Playwright installs and lint/typecheck steps,
-Chromium installation, and recreating and waiting for every service from the
-standalone `docker-compose-ci.json` — in parallel, and runs Playwright last
-once the CI stack reports healthy and Chromium is installed. Every API server
-in the CI stack answers `GET /healthz` once it has finished starting, and
-`docker compose ... --wait` blocks on that health check, so Playwright never
-starts against a container that is merely running but not yet serving
-requests. To run Playwright directly after that environment is prepared,
-execute:
-
-```sh
-cd playwright
-npm ci
-npm run format:check
-npm run typecheck
-npm test
-```
-
-`make playwright-test` performs the same automatic environment setup and runs
-only Playwright. Both Make targets finish with an API contract coverage report
-derived from requests made through the Playwright request fixture and browser
-responses. Review operation, status-class, total status, and RFC problem-type
-variant coverage together with the endpoint-level gaps. Coverage gaps are
-reported for follow-up; observed non-404 behavior that is absent from the
-generated OpenAPI contract, undeclared statuses, and undeclared problem types
-fail the run. A request to an intentionally unsupported path that returns 404
-is listed separately as a non-contract probe.
+  state unchanged after a rejection. Handler unit tests are not enough: they do
+  not verify routing, middleware, encoding, or the deployed database
+  predicates.
+- Every new or changed UI behavior updates `playwright/ui/` in the same change:
+  the primary success path plus every applicable validation, server-error,
+  cancel/back, route-guard, session-state, and security-boundary path. Test
+  both sides of a time or permission boundary with a safe margin so wall-clock
+  scheduling cannot make it flaky.
+- Before declaring the work complete, walk the contract and the changed UI as a
+  response/behavior matrix and account for every row with a named test. Total
+  test count is not evidence of coverage.
 
 ## CI Compose topology
 
-- `docker-compose-ci.json` is a standalone duplicate of the complete local
-  topology. Do not turn it into an overlay, include, extension, generated file,
-  or template based on `docker-compose.json`.
-- Keep service, network, secret, and health-check changes synchronized
-  explicitly between the two Compose files.
-- CI application configs live under `config/ci/`. They use the `ci`
-  environment and intentionally short session and worker timings for
-  integration tests.
+- `docker-compose-ci.json` is a standalone duplicate of the full local
+  topology. Never turn it into an overlay, include, extension, generated file,
+  or template derived from `docker-compose.json`.
+- Synchronize service, network, secret, and health-check changes between the
+  two files explicitly.
+- CI application configs live under `config/ci/` and use the `ci` environment
+  with intentionally short session and worker timings.
+
+## Verification
+
+See [`verification.md`](verification.md).

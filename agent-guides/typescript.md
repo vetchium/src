@@ -1,68 +1,52 @@
-# TypeScript Guide
+# TypeScript
 
-This guide applies to hand-maintained TypeScript in the repository, including
-the wire types under `typespec/` and tests under `playwright/`.
+Applies to hand-maintained TypeScript anywhere in the repository, including the
+wire types under `typespec/` and the tests under `playwright/`.
 
 ## Types and imports
 
-- Keep strict TypeScript enabled. Do not introduce `any`; use `unknown` and
-  narrow it when a test intentionally sends an invalid payload.
-- Import API request, response, enum, and problem types from
-  `typespec/<path>`. Do not reconstruct wire types in a UI, API client,
-  fixture, or test.
-- Use `import type` when an import is erased at runtime.
+- Strict TypeScript stays on. No `any`; use `unknown` and narrow it when a test
+  deliberately sends an invalid payload.
+- Import request, response, enum, and problem types from `typespec/<path>`.
+  Never reconstruct a wire type in a UI, API client, fixture, or test.
+- Use `import type` for imports erased at runtime.
 - Preserve JSON names, casing, required fields, optionality, nullability, and
-  array shapes exactly as declared in TypeSpec.
-- Represent `utcDateTime` values as RFC 3339 strings in wire types. Convert to
-  `Date` only in application code that needs date operations.
+  array shapes exactly as TypeSpec declares them.
+- `utcDateTime` values are RFC 3339 strings in wire types. Convert to `Date`
+  only in application code that needs date operations.
 
 ## Implementation
 
-- Keep normalization and validation pure: return a new value and do not
-  mutate caller-owned input.
-- Report validation failures with JSON member names.
-- Prefer small exported interfaces and literal unions. Do not add UI-only or
-  test-only convenience fields to shared wire types.
+- Normalization and validation are pure: return a new value, never mutate
+  caller-owned input. Report failures with JSON member names.
+- Prefer small exported interfaces and literal unions. No UI-only or test-only
+  convenience fields on shared wire types.
 
 ## Workspaces
 
-- Name every npm workspace under the `@vetchium/` scope, the way
-  `@vetchium/admin-ui`, `@vetchium/hub-ui`, `@vetchium/portal-ui`, and
-  `@vetchium/playwright` do. The contract package is the one exception: it is
-  named `typespec` because that is the bare specifier every consumer imports
-  from, and renaming it would change every contract import in the repository.
+- Every npm workspace is scoped `@vetchium/`, as `@vetchium/admin-ui`,
+  `@vetchium/hub-ui`, `@vetchium/portal-ui`, and `@vetchium/playwright` are.
+  The contract package is the exception: it is named `typespec` because that is
+  the bare specifier every consumer imports, and renaming it would rewrite
+  every contract import in the repository.
 - Keep `engines`, `packageManager`, and shared tool versions aligned across
-  workspaces. A workspace running a different Biome or TypeScript than its
-  siblings can accept code the others reject.
+  workspaces. A workspace on a different Biome or TypeScript accepts code its
+  siblings reject.
 
 ## Formatting
 
-- Format every `.ts` and `.tsx` file with Biome. Do not use Prettier or another
-  formatter for TypeScript.
-- Use the shared repository configuration at `biome.json`; do not add a nested
-  Biome configuration unless the package genuinely requires different rules.
-- Every Node package that owns TypeScript must pin `@biomejs/biome` in
-  `devDependencies` and expose `format` and `format:check` npm scripts.
-- Keep Biome's recommended rules enabled. Use its recommended React and test
-  domains so Hooks, JSX, and test-specific correctness rules are checked.
-- Run the owning package's `npm run format` after changing TypeScript and
-  before verification. Do not invoke `biome format` directly: the package
-  script uses `biome check --write` so it also organizes imports and applies
-  safe lint fixes. Do not hand-format around Biome output.
+- Biome formats every `.ts` and `.tsx` file. Not Prettier, not anything else.
+- Use the shared `biome.json`. Add a nested configuration only when a package
+  genuinely needs different rules.
+- Every Node package owning TypeScript pins `@biomejs/biome` in
+  `devDependencies` and exposes `format` and `format:check` scripts.
+- Keep Biome's recommended rules on, including its React and test domains, so
+  Hooks, JSX, and test correctness rules are checked.
+- Run the owning package's `npm run format` after editing and before
+  verification. It runs `biome check --write`, which also organizes imports and
+  applies safe lint fixes. Do not call `biome format` directly or hand-format
+  around its output.
 
 ## Verification
 
-Run the owning package's type check after changes:
-
-```sh
-cd typespec && npm run format:check
-cd typespec && npm run typecheck
-cd playwright && npm run format:check
-cd playwright && npm run typecheck
-```
-
-The complete package checks also run `npm audit --audit-level=high` against
-each locked dependency tree.
-
-Run `make test` from the repository root for all TypeScript tests and every
-other repository suite.
+See [`verification.md`](verification.md).

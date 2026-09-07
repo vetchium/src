@@ -1,10 +1,7 @@
-# Hub UI Agent Guidance
+# hub-ui
 
-Changes under `hub-ui/` must follow both shared guides:
-
-- [`../agent-guides/typescript.md`](../agent-guides/typescript.md)
-- [`../agent-guides/ui.md`](../agent-guides/ui.md)
-
-The TypeScript guide controls language, formatting, wire-type, and verification
-conventions. The UI guide controls the frontend stack and application
-architecture.
+Changes here follow
+[`../agent-guides/typescript.md`](../agent-guides/typescript.md) for language,
+formatting, wire types, and verification, and
+[`../agent-guides/ui.md`](../agent-guides/ui.md) for the frontend stack and
+application architecture.

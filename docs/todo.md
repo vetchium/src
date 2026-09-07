@@ -47,7 +47,7 @@ implemented. The remaining rollout and abuse-control work is tracked here.
 
 ## Go line width
 
-- `go.md` asks for lines at or below 80 characters "where practical", and 283
+- `agent-guides/go.md` asks for lines at or below 80 characters "where practical", and 283
   hand-maintained Go lines exceed it when a tab counts as four columns. Decide
   what the rule means and whether to enforce it. Thirty-two of those lines are
   gofmt-aligned struct tags that cannot be wrapped, so any enforcement needs an

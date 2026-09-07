@@ -1,14 +1,11 @@
-# Playwright Scope Router
+# playwright/
 
-These routing instructions apply to the complete `playwright/` tree.
+Applies to the whole `playwright/` tree. Read
+[`../agent-guides/playwright.md`](../agent-guides/playwright.md) for layout,
+parallel isolation, cleanup, assertions, and coverage, and
+[`../agent-guides/typescript.md`](../agent-guides/typescript.md) for typing,
+contract imports, and formatting.
 
-Read the following shared guides before making changes:
-
-- [`../agent-guides/typescript.md`](../agent-guides/typescript.md) for strict
-  typing, contract imports, formatting, and type checking.
-- [`../agent-guides/playwright.md`](../agent-guides/playwright.md) for test
-  layout, parallel isolation, cleanup, assertions, and verification.
-
-When a test requires a contract change, also read
-[`../agent-guides/typespec.md`](../agent-guides/typespec.md) and the scoped
+When a test needs a contract change, also read
+[`../agent-guides/typespec.md`](../agent-guides/typespec.md) and
 [`../typespec/AGENTS.md`](../typespec/AGENTS.md) before editing `typespec/`.
