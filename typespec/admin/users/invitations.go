@@ -38,10 +38,10 @@ type InviteUserResponse struct {
 }
 
 type CompleteSetupRequest struct {
-	InvitationToken   AdminInvitationToken  `json:"invitation_token"`
-	Password          common.NewPassword    `json:"password"`
-	DisplayName       common.DisplayName    `json:"display_name"`
-	PreferredLanguage common.FrontendLocale `json:"preferred_language"`
+	InvitationToken   AdminInvitationToken     `json:"invitation_token"`
+	Password          common.NewPassword       `json:"password"`
+	DisplayName       common.DisplayName       `json:"display_name"`
+	PreferredLanguage adminspec.FrontendLocale `json:"preferred_language"`
 }
 
 func (r *CompleteSetupRequest) Normalize() {
@@ -59,7 +59,7 @@ func (r CompleteSetupRequest) Validate() []string {
 	if !common.IsDisplayName(r.DisplayName) {
 		fields = append(fields, "display_name")
 	}
-	if !common.IsFrontendLocale(r.PreferredLanguage) {
+	if !adminspec.IsFrontendLocale(r.PreferredLanguage) {
 		fields = append(fields, "preferred_language")
 	}
 	return fields

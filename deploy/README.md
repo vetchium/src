@@ -39,7 +39,9 @@ secrets on first use. Tags must be immutable; `latest` and `dev` are rejected.
 `ghcr.io/vetchium`, `HTTP_PORT` defaults to `80`, and `PGSSLMODE` defaults to
 `disable` until PostgreSQL TLS is configured. `ADMIN_UI_DEFAULT_LANGUAGE` and
 `HUB_UI_DEFAULT_LANGUAGE` select their portal's fallback locale after saved and
-browser preferences; the supported values are `en-US`, `ta`, and `de-DE`. Each region's `config.json`
+browser preferences. Each variable is validated against its portal's own
+supported locale set; both currently accept `en-US`, `ta`, and `de-DE`. Each
+region's `config.json`
 contains the shared non-secret configuration for every backend program and is
 mounted read-only at `/etc/vetchium/config.json`. `POSTGRES_DB` and `PGSSLMODE`
 remain deployment-time overrides so existing installations can select their

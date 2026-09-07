@@ -2,7 +2,8 @@ import deData from "cldr-localenames-full/main/de/territories.json";
 import enData from "cldr-localenames-full/main/en/territories.json";
 import taData from "cldr-localenames-full/main/ta/territories.json";
 import { countryCodeValues } from "typespec/common/countries";
-import type { CountryCode, FrontendLocale } from "typespec/common/localization";
+import type { CountryCode } from "typespec/common/localization";
+import type { FrontendLocale } from "typespec/hub/types";
 
 type TerritoryNames = Record<string, string>;
 

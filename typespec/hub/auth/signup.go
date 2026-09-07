@@ -8,10 +8,10 @@ import (
 type HubSignupToken common.OpaqueToken
 
 type RequestSignupRequest struct {
-	EmailAddress      common.EmailAddress   `json:"email_address"`
-	DisplayName       common.DisplayName    `json:"display_name"`
-	PreferredLanguage common.FrontendLocale `json:"preferred_language"`
-	ResidentCountry   common.CountryCode    `json:"resident_country"`
+	EmailAddress      common.EmailAddress `json:"email_address"`
+	DisplayName       common.DisplayName  `json:"display_name"`
+	PreferredLanguage hub.FrontendLocale  `json:"preferred_language"`
+	ResidentCountry   common.CountryCode  `json:"resident_country"`
 }
 
 func (r *RequestSignupRequest) Normalize() {
@@ -27,7 +27,7 @@ func (r RequestSignupRequest) Validate() []string {
 	if !common.IsDisplayName(r.DisplayName) {
 		fields = append(fields, "display_name")
 	}
-	if !common.IsFrontendLocale(r.PreferredLanguage) {
+	if !hub.IsFrontendLocale(r.PreferredLanguage) {
 		fields = append(fields, "preferred_language")
 	}
 	if !common.IsCountryCode(r.ResidentCountry) {

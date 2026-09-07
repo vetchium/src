@@ -14,5 +14,7 @@ sql:
         emit_prepared_queries: false
         emit_exact_table_names: false
         overrides:
-          - db_type: "vetchium.frontend_locale"
+          - db_type: "vetchium.admin_frontend_locale"
+            go_type: "string"
+          - db_type: "vetchium.hub_frontend_locale"
             go_type: "string"

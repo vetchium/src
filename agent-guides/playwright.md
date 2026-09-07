@@ -15,6 +15,10 @@ This guide applies to API and UI tests under `playwright/`.
 
 The runner uses `fullyParallel`. Assume every test can start at the same time,
 on another worker, in any order, and more than once because of retries.
+The worker count is capped because these tests share one resource-heavy local
+container stack; host CPU count is not a reliable measure of its database and
+container capacity. Keep the cap parallel, and change it only with evidence
+from a clean full-suite run rather than to conceal a test-isolation defect.
 
 - Generate a UUID-backed identifier for every email, domain, tenant, user, and
   mutable resource created by a test. A timestamp, worker index, or fixed

@@ -1,1 +1,1 @@
-export * from "@vetchium/portal-ui/preferences";
+export * from "./preferences";

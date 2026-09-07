@@ -11,6 +11,16 @@ verification output; a summary written from memory is not a review.
 
 ## Scope and behavior
 
+- Reconstruct the requirement from the original request and repository
+  evidence. Do not treat the implementer's plan, summary, or tests as proof
+  that a design assumption is correct.
+- Identify every material inference about product policy, ownership, privacy,
+  tenant behavior, portal capabilities, and deployment. Challenge it with a
+  counterexample and require evidence or explicit user direction for choices
+  that alter externally visible behavior.
+- For a cross-portal abstraction, verify that the shared part is mechanism
+  rather than an accidentally shared capability or policy. Equal current
+  values are not evidence of shared ownership.
 - Compare the diff with the request and record any missing, extra, or deferred
   behavior.
 - Check positive, negative, boundary, retry, concurrency, and failure paths.
@@ -64,6 +74,9 @@ verification output; a summary written from memory is not a review.
   coverage where the boundary matters.
 - Inspect generated schemas, SQL, snapshots, or other artifacts when a tool can
   succeed while producing the wrong shape.
+- Do not use a green test suite to close a requirements or design finding. Tests
+  can faithfully verify a wrong assumption; compare observed behavior against
+  the ownership and impact matrix from `change-design.md`.
 - Run `git diff --check` and inspect `git status` before committing so generated
   output, temporary files, and unrelated edits are not included accidentally.
 

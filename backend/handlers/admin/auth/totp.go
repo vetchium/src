@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	adminspec "github.com/vetchium/src/typespec/admin"
 	adminauth "github.com/vetchium/src/typespec/admin/auth"
 	"github.com/vetchium/src/typespec/common"
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
@@ -69,7 +70,7 @@ func adminSession(
 	return adminauth.AuthenticatedSessionResponse{
 		SessionToken:     adminauth.AdminSessionToken(session.Token),
 		SessionExpiresAt: session.ExpiresAt.UTC(),
-		PreferredLanguage: common.FrontendLocale(
+		PreferredLanguage: adminspec.FrontendLocale(
 			challenge.PreferredLanguage,
 		),
 	}

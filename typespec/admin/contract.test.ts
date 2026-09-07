@@ -29,6 +29,7 @@ import {
   validateListRequest as validateDomainListRequest,
   validateUpdateRequest as validateUpdateDomainRequest,
 } from "./hub-signup-domains/domains.ts";
+import { frontendLocaleValues, isFrontendLocale } from "./types.ts";
 import {
   normalizeCompleteSetupRequest,
   validateCompleteSetupRequest,
@@ -46,6 +47,18 @@ import {
 
 const uuid = "11111111-1111-4111-8111-111111111111";
 const token = "t".repeat(32);
+
+test("Admin locales are canonical and portal-owned", () => {
+  assert.deepEqual(frontendLocaleValues, ["en-US", "ta", "de-DE"]);
+  for (const locale of frontendLocaleValues)
+    assert.equal(Intl.getCanonicalLocales(locale)[0], locale);
+  assert.equal(isFrontendLocale("en-US"), true);
+  assert.equal(isFrontendLocale("ta"), true);
+  assert.equal(isFrontendLocale("de-DE"), true);
+  assert.equal(isFrontendLocale("EN-us"), false);
+  assert.equal(isFrontendLocale("de-AT"), false);
+  assert.equal(isFrontendLocale("fr-FR"), false);
+});
 
 test("password and TOTP requests report all invalid JSON members", () => {
   assert.deepEqual(

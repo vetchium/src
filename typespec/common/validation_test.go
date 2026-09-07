@@ -1,7 +1,6 @@
 package common
 
 import (
-	"slices"
 	"strings"
 	"testing"
 )
@@ -23,12 +22,6 @@ func TestScalarValidationBoundaries(t *testing.T) {
 		{"recovery", IsTOTPRecoveryCode("ABCD-1234"), true},
 		{"recovery invalid", IsTOTPRecoveryCode("bad/code"), false},
 		{"password unicode", IsNewPassword(NewPassword("🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂")), true},
-		{"English locale", IsFrontendLocale("en-US"), true},
-		{"Tamil locale", IsFrontendLocale("ta"), true},
-		{"German locale", IsFrontendLocale("de-DE"), true},
-		{"non-canonical locale", IsFrontendLocale("EN-us"), false},
-		{"unsupported regional locale", IsFrontendLocale("de-AT"), false},
-		{"unsupported locale", IsFrontendLocale("fr-FR"), false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -36,19 +29,6 @@ func TestScalarValidationBoundaries(t *testing.T) {
 				t.Fatalf("got %v, want %v", tt.got, tt.want)
 			}
 		})
-	}
-}
-
-func TestFrontendLocales(t *testing.T) {
-	t.Parallel()
-	want := []FrontendLocale{EnglishUnitedStates, Tamil, German}
-	got := FrontendLocales()
-	if !slices.Equal(got, want) {
-		t.Fatalf("FrontendLocales() = %v, want %v", got, want)
-	}
-	got[0] = "changed"
-	if !IsFrontendLocale(EnglishUnitedStates) {
-		t.Fatal("caller mutated the supported locale set")
 	}
 }
 

@@ -1,3 +1,13 @@
+export const frontendLocaleValues = ["en-US", "ta", "de-DE"] as const;
+
+export type FrontendLocale = (typeof frontendLocaleValues)[number];
+
+const frontendLocales = new Set<string>(frontendLocaleValues);
+
+export function isFrontendLocale(value: unknown): value is FrontendLocale {
+  return typeof value === "string" && frontendLocales.has(value);
+}
+
 export type AdminUserID = string;
 export type HubSignupDomainID = string;
 

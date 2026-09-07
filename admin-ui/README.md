@@ -27,7 +27,8 @@ match.
 The container reads `VETCHIUM_DEFAULT_LANGUAGE` at startup. Set it to `en-US`,
 `ta`, or `de-DE` as the fallback locale. A user's saved preference takes
 precedence, followed by the closest supported locale from the browser's BCP 47
-language preferences.
+language preferences. This supported set belongs to the Admin portal and may
+differ from other portals.
 
 Run `npm run format`, `npm run typecheck`, and `npm run build` before handing
 off a change.

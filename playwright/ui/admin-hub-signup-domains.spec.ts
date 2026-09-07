@@ -51,7 +51,13 @@ test("a domain manager can add, search, edit, disable with a comment, and reacti
   await page.getByRole("button", { name: "Add domain" }).click();
   editor = page.getByRole("dialog", { name: "Add a Hub signup domain" });
   await editor.getByLabel("Domain").fill(` ${original.toUpperCase()}. `);
+  const createResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/admin/create-hub-signup-domain") &&
+      response.request().method() === "POST",
+  );
   await editor.getByRole("button", { name: "Add domain" }).click();
+  expect((await createResponse).status()).toBe(201);
   await expect(page.getByText("Hub signup domain added.")).toBeVisible();
   await expect(editor).not.toBeVisible();
   let row = page.getByRole("row").filter({ hasText: original });

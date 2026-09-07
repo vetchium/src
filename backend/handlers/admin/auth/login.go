@@ -8,8 +8,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	adminspec "github.com/vetchium/src/typespec/admin"
 	adminauth "github.com/vetchium/src/typespec/admin/auth"
-	"github.com/vetchium/src/typespec/common"
 	adminproblem "github.com/vetchium/src/typespec/problem/admin"
 
 	"golang.org/x/crypto/bcrypt"
@@ -167,7 +167,7 @@ func loginWithoutTOTP(
 		AuthenticatedSessionResponse: adminauth.AuthenticatedSessionResponse{
 			SessionToken:      adminauth.AdminSessionToken(token),
 			SessionExpiresAt:  expiresAt.UTC(),
-			PreferredLanguage: common.FrontendLocale(adminUser.PreferredLanguage),
+			PreferredLanguage: adminspec.FrontendLocale(adminUser.PreferredLanguage),
 		},
 	})
 }

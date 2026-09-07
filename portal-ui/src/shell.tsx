@@ -28,11 +28,10 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
-import type { FrontendLocale } from "typespec/common/localization";
-import { isFrontendLocale } from "typespec/common/localization";
 import {
   frontendLocaleOptions,
   languageName,
+  type PortalLocaleConfiguration,
   shortLanguageName,
 } from "./localization";
 import { usePendingOperations } from "./pending-operations";
@@ -40,23 +39,28 @@ import { usePreferences } from "./preferences";
 
 const { Content, Footer, Header, Sider } = Layout;
 
-export function HeaderControls({
+export function HeaderControls<Locale extends string = string>({
+  localization,
   onSignOut,
   onSelectLanguage,
   languagePending = false,
 }: {
+  localization: PortalLocaleConfiguration<Locale>;
   onSignOut?: () => void;
-  onSelectLanguage?: (language: FrontendLocale) => Promise<void>;
+  onSelectLanguage?: (language: Locale) => Promise<void>;
   languagePending?: boolean;
 }) {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const screens = Grid.useBreakpoint();
-  const preferences = usePreferences();
+  const preferences = usePreferences(localization);
   const compact = screens.sm !== true;
 
-  const selectLanguage = async (language: FrontendLocale) => {
-    if (!isFrontendLocale(language) || language === preferences.language)
+  const selectLanguage = async (language: Locale) => {
+    if (
+      !preferences.supportedLocales.includes(language) ||
+      language === preferences.language
+    )
       return;
     try {
       await onSelectLanguage?.(language);
@@ -68,7 +72,7 @@ export function HeaderControls({
 
   return (
     <Flex gap="small" align="center" wrap={false}>
-      <Select<FrontendLocale>
+      <Select<Locale>
         value={preferences.language}
         aria-label={t("language.selectorLabel")}
         loading={languagePending}
@@ -76,11 +80,11 @@ export function HeaderControls({
         placement="bottomRight"
         popupMatchSelectWidth={false}
         style={{ width: compact ? 88 : 160 }}
-        options={frontendLocaleOptions()}
+        options={frontendLocaleOptions(preferences.supportedLocales)}
         labelRender={({ value }) =>
           compact
-            ? shortLanguageName(value as FrontendLocale)
-            : languageName(value as FrontendLocale)
+            ? shortLanguageName(value as Locale)
+            : languageName(value as Locale)
         }
         onChange={(language) => void selectLanguage(language)}
       />
@@ -110,8 +114,9 @@ export function HeaderControls({
   );
 }
 
-export function AppHeader({
+export function AppHeader<Locale extends string = string>({
   homePath = "/",
+  localization,
   onNavigateHome,
   onOpenNavigation,
   onSignOut,
@@ -120,11 +125,12 @@ export function AppHeader({
   languagePending,
 }: {
   homePath?: string;
+  localization: PortalLocaleConfiguration<Locale>;
   onNavigateHome?: () => void;
   onOpenNavigation?: () => void;
   onSignOut?: () => void;
   portalTag?: boolean;
-  onSelectLanguage?: (language: FrontendLocale) => Promise<void>;
+  onSelectLanguage?: (language: Locale) => Promise<void>;
   languagePending?: boolean;
 }) {
   const { t } = useTranslation();
@@ -212,6 +218,7 @@ export function AppHeader({
           </Button>
         </Flex>
         <HeaderControls
+          localization={localization}
           onSignOut={onSignOut}
           onSelectLanguage={onSelectLanguage}
           languagePending={languagePending}
@@ -221,7 +228,8 @@ export function AppHeader({
   );
 }
 
-export function PortalShell({
+export function PortalShell<Locale extends string>({
+  localization,
   navigationItems,
   selectedKey,
   onSignOut,
@@ -229,17 +237,18 @@ export function PortalShell({
   onSelectLanguage,
   languagePending,
 }: {
+  localization: PortalLocaleConfiguration<Locale>;
   navigationItems: ItemType[];
   selectedKey: string;
   onSignOut: () => Promise<void>;
   portalTag?: boolean;
-  onSelectLanguage?: (language: FrontendLocale) => Promise<void>;
+  onSelectLanguage?: (language: Locale) => Promise<void>;
   languagePending?: boolean;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const screens = Grid.useBreakpoint();
-  const preferences = usePreferences();
+  const preferences = usePreferences(localization);
   const { message } = App.useApp();
   const { pending } = usePendingOperations();
   const [navigationOpen, setNavigationOpen] = useState(false);
@@ -262,6 +271,7 @@ export function PortalShell({
     <Layout className="app-layout">
       <title>{t("shell.documentTitle")}</title>
       <AppHeader
+        localization={localization}
         onNavigateHome={() => navigateFromMenu("/")}
         onOpenNavigation={() => setNavigationOpen(true)}
         onSignOut={() => void signOut()}
@@ -314,13 +324,15 @@ export function PortalShell({
   );
 }
 
-export function PublicShell({
+export function PublicShell<Locale extends string>({
   homePath = "/",
+  localization,
   guardNavigation = false,
   verticallyCentered = false,
   portalTag = false,
 }: {
   homePath?: string;
+  localization: PortalLocaleConfiguration<Locale>;
   guardNavigation?: boolean;
   verticallyCentered?: boolean;
   portalTag?: boolean;
@@ -341,6 +353,7 @@ export function PublicShell({
       <title>{t("shell.documentTitle")}</title>
       <AppHeader
         homePath={homePath}
+        localization={localization}
         onNavigateHome={guardNavigation ? navigateHome : undefined}
         portalTag={portalTag}
       />

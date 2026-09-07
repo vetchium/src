@@ -1,10 +1,7 @@
 import type { i18n } from "i18next";
 import type { PropsWithChildren } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import {
-  type FrontendLocale,
-  isFrontendLocale,
-} from "typespec/common/localization";
+import type { PortalLocaleConfiguration } from "./localization";
 import { matchFrontendLocale } from "./localization";
 
 export type ThemeMode = "light" | "dark";
@@ -16,15 +13,17 @@ interface RuntimeConfig {
   defaultLanguage?: unknown;
 }
 
-function runtimeDefaultLanguage(): FrontendLocale {
+function runtimeDefaultLanguage<Locale extends string>(
+  localization: PortalLocaleConfiguration<Locale>,
+): Locale {
   const config = (
     globalThis as typeof globalThis & {
       __VETCHIUM_CONFIG__?: RuntimeConfig;
     }
   ).__VETCHIUM_CONFIG__;
-  return isFrontendLocale(config?.defaultLanguage)
+  return localization.isSupportedLocale(config?.defaultLanguage)
     ? config.defaultLanguage
-    : "en-US";
+    : localization.fallbackLocale;
 }
 
 function storedValue(key: string): string | null {
@@ -43,14 +42,19 @@ function storeValue(key: string, value: string): void {
   }
 }
 
-export function readPreferredLanguage(): FrontendLocale {
+export function readPreferredLanguage<Locale extends string>(
+  localization: PortalLocaleConfiguration<Locale>,
+): Locale {
   const stored = storedValue(languageStorageKey);
-  if (isFrontendLocale(stored)) return stored;
-  const browser = matchFrontendLocale(globalThis.navigator?.languages ?? []);
-  return browser ?? runtimeDefaultLanguage();
+  if (localization.isSupportedLocale(stored)) return stored;
+  const browser = matchFrontendLocale(
+    globalThis.navigator?.languages ?? [],
+    localization.supportedLocales,
+  );
+  return browser ?? runtimeDefaultLanguage(localization);
 }
 
-export function storePreferredLanguage(language: FrontendLocale): void {
+export function storePreferredLanguage(language: string): void {
   storeValue(languageStorageKey, language);
 }
 
@@ -62,20 +66,28 @@ export function storeThemeMode(themeMode: ThemeMode): void {
   storeValue(themeStorageKey, themeMode);
 }
 
-interface PreferencesContextValue {
-  language: FrontendLocale;
+export interface PreferencesContextValue<Locale extends string> {
+  language: Locale;
+  supportedLocales: readonly Locale[];
   themeMode: ThemeMode;
-  setLanguage: (language: FrontendLocale) => void;
+  setLanguage: (language: Locale) => void;
   toggleTheme: () => void;
 }
 
-const PreferencesContext = createContext<PreferencesContextValue | null>(null);
+const PreferencesContext =
+  createContext<PreferencesContextValue<string> | null>(null);
 
-export function PreferencesProvider({
+export function PreferencesProvider<Locale extends string>({
   children,
   i18n: translation,
-}: PropsWithChildren<{ i18n: i18n }>) {
-  const [language, setLanguageState] = useState(readPreferredLanguage);
+  localization,
+}: PropsWithChildren<{
+  i18n: i18n;
+  localization: PortalLocaleConfiguration<Locale>;
+}>) {
+  const [language, setLanguageState] = useState(() =>
+    readPreferredLanguage(localization),
+  );
   const [themeMode, setThemeMode] = useState(readThemeMode);
 
   useEffect(() => {
@@ -83,11 +95,13 @@ export function PreferencesProvider({
     void translation.changeLanguage(language);
   }, [language, translation]);
 
-  const value = useMemo<PreferencesContextValue>(
+  const value = useMemo<PreferencesContextValue<string>>(
     () => ({
       language,
+      supportedLocales: localization.supportedLocales,
       themeMode,
       setLanguage: (nextLanguage) => {
+        if (!localization.isSupportedLocale(nextLanguage)) return;
         storePreferredLanguage(nextLanguage);
         setLanguageState(nextLanguage);
       },
@@ -99,7 +113,7 @@ export function PreferencesProvider({
         });
       },
     }),
-    [language, themeMode],
+    [language, localization, themeMode],
   );
 
   return (
@@ -109,8 +123,30 @@ export function PreferencesProvider({
   );
 }
 
-export function usePreferences(): PreferencesContextValue {
+export function usePreferences(): PreferencesContextValue<string>;
+export function usePreferences<Locale extends string>(
+  localization: PortalLocaleConfiguration<Locale>,
+): PreferencesContextValue<Locale>;
+export function usePreferences<Locale extends string>(
+  localization?: PortalLocaleConfiguration<Locale>,
+): PreferencesContextValue<string> | PreferencesContextValue<Locale> {
   const value = useContext(PreferencesContext);
   if (value === null) throw new Error("PreferencesProvider is missing");
-  return value;
+  if (localization === undefined) return value;
+  if (!localization.isSupportedLocale(value.language)) {
+    throw new Error("PreferencesProvider returned an unsupported language");
+  }
+  const supportedLocales = value.supportedLocales.filter(
+    localization.isSupportedLocale,
+  );
+  if (supportedLocales.length !== value.supportedLocales.length) {
+    throw new Error(
+      "PreferencesProvider returned unsupported language options",
+    );
+  }
+  return {
+    ...value,
+    language: value.language,
+    supportedLocales,
+  };
 }

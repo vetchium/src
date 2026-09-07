@@ -1,13 +1,16 @@
 import type { TOTPRecoveryCodeCount } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
-import type { DisplayName, FrontendLocale } from "../../common/localization.ts";
+import type { DisplayName } from "../../common/localization.ts";
 import {
   isDisplayName,
-  isFrontendLocale,
   normalizeDisplayName,
 } from "../../common/localization.ts";
 import type { AdminAuthorization } from "../authorization/types.ts";
-import type { AdminUserID } from "../types.ts";
+import {
+  type AdminUserID,
+  type FrontendLocale,
+  isFrontendLocale,
+} from "../types.ts";
 import type { AdminUserState } from "./state.ts";
 
 export interface SetPreferredLanguageRequest {

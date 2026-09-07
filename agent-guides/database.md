@@ -15,6 +15,10 @@ code, and transaction boundaries.
   including for cosmetic formatting or line wrapping.
 - `backend/sqlc.yaml` owns generator settings.
 - PostgreSQL schema changes originate in `db/migrations/`.
+- Scope constraints to the owner of the invariant. Do not use one domain or
+  check constraint for separate portal capabilities merely because their
+  current allowed values are equal. Separate constraints preserve independent
+  evolution; shared domains are for product rules that must change in lockstep.
 
 ## Query conventions
 

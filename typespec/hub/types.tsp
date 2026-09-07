@@ -1,5 +1,12 @@
 namespace Vetchium.Hub;
 
+/** Canonical BCP 47 locales with complete Hub portal translations. */
+enum FrontendLocale {
+  EnglishUnitedStates: "en-US",
+  Tamil: "ta",
+  German: "de-DE",
+}
+
 /** A stable, location-neutral Hub user DID encoded as UUIDv7. */
 @format("uuid")
 scalar HubUserDID extends string;

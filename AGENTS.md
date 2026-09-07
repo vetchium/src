@@ -69,6 +69,8 @@ will be used in prompts, specifications, UIs related to the Vetchium platform.
 
 Before changing files, read every guide that applies:
 
+- Change discovery, ownership, and assumption control for every change:
+  [`change-design.md`](agent-guides/change-design.md)
 - Product terminology and domain vocabulary:
   [`glossary.md`](agent-guides/glossary.md)
 - Maintained Go code: [`go.md`](agent-guides/go.md)

@@ -1,6 +1,6 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import type { FrontendLocale } from "typespec/common/localization";
+import type { FrontendLocale } from "typespec/hub/types";
 import { readPreferredLanguage } from "../app/preferences";
 import { de } from "./locales/de";
 import { en } from "./locales/en";

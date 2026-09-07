@@ -4,9 +4,10 @@ import { PortalShell } from "@vetchium/portal-ui/shell";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router";
-import type { FrontendLocale } from "typespec/common/localization";
+import type { FrontendLocale } from "typespec/hub/types";
 import { hubAPI } from "../../api/hub";
 import { usePreferences } from "../../app/PreferencesContext";
+import { localeConfiguration } from "../../app/preferences";
 import { useAuth } from "../../auth/AuthContext";
 import {
   type MyInfoQueryData,
@@ -61,6 +62,7 @@ export function AppShell() {
   ];
   return (
     <PortalShell
+      localization={localeConfiguration}
       navigationItems={navigationItems}
       selectedKey={selectedKey}
       onSignOut={auth.signOut}

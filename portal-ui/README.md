@@ -15,9 +15,10 @@ Use Node.js 22.13.0 or newer.
 - `styles.css` — layout classes and design tokens the portals import.
 
 The package is portal-agnostic. Each portal supplies its own typed API adapter,
-storage keys, translation keys, routes, and permission model; nothing here may
-depend on which portal is calling. `agent-guides/ui.md` defines what belongs
-here and what stays private to a portal.
+storage keys, supported locale configuration and component translations,
+translation keys, routes, and permission model; nothing here may depend on
+which portal is calling. `agent-guides/ui.md` defines what belongs here and what
+stays private to a portal.
 
 ## Development
 
@@ -28,6 +29,7 @@ portal can import it.
 npm ci
 npm run format
 npm run typecheck
+npm test
 ```
 
 Because this package is type-checked again inside each consumer, run

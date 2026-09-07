@@ -6,34 +6,9 @@ import (
 	"github.com/moov-io/iso3166"
 )
 
-type FrontendLocale string
-
-const (
-	EnglishUnitedStates FrontendLocale = "en-US"
-	Tamil               FrontendLocale = "ta"
-	German              FrontendLocale = "de-DE"
-)
-
 type CountryCode string
 
 type DisplayName string
-
-func IsFrontendLocale(value FrontendLocale) bool {
-	for _, locale := range FrontendLocales() {
-		if value == locale {
-			return true
-		}
-	}
-	return false
-}
-
-func FrontendLocales() []FrontendLocale {
-	return []FrontendLocale{
-		EnglishUnitedStates,
-		Tamil,
-		German,
-	}
-}
 
 func IsCountryCode(value CountryCode) bool {
 	code := string(value)

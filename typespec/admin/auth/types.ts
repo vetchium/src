@@ -1,5 +1,5 @@
 import type { OpaqueToken } from "../../common/authentication.ts";
-import type { FrontendLocale } from "../../common/localization.ts";
+import type { FrontendLocale } from "../types.ts";
 
 export type AdminSessionToken = OpaqueToken;
 export type AdminLoginChallengeToken = OpaqueToken;

@@ -1,5 +1,5 @@
-import type { CountryCode, FrontendLocale } from "../../common/localization.ts";
-import type { HubHandle, HubUserDID } from "../types.ts";
+import type { CountryCode } from "../../common/localization.ts";
+import type { FrontendLocale, HubHandle, HubUserDID } from "../types.ts";
 
 export type HubSessionToken = string;
 export type HubLoginChallengeToken = string;

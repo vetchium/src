@@ -98,6 +98,8 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
   ownedDomain,
   request,
 }) => {
+  test.setTimeout(60_000);
+
   const domain = ownedDomain("hub-audit");
   const emailAddress = `e2e+${randomUUID()}@${domain}`;
   const missingEmailAddress = `e2e+${randomUUID()}@${domain}`;

@@ -9,13 +9,13 @@ import (
 )
 
 type SetPreferredLanguageRequest struct {
-	PreferredLanguage common.FrontendLocale `json:"preferred_language"`
+	PreferredLanguage adminspec.FrontendLocale `json:"preferred_language"`
 }
 
 func (r *SetPreferredLanguageRequest) Normalize() {}
 
 func (r SetPreferredLanguageRequest) Validate() []string {
-	if !common.IsFrontendLocale(r.PreferredLanguage) {
+	if !adminspec.IsFrontendLocale(r.PreferredLanguage) {
 		return []string{"preferred_language"}
 	}
 	return []string{}
@@ -44,7 +44,7 @@ type MyInfoResponse struct {
 	authorization.AdminAuthorization
 	TOTPEnabled            bool                         `json:"totp_enabled"`
 	RecoveryCodesRemaining common.TOTPRecoveryCodeCount `json:"recovery_codes_remaining"`
-	PreferredLanguage      common.FrontendLocale        `json:"preferred_language"`
+	PreferredLanguage      adminspec.FrontendLocale     `json:"preferred_language"`
 	CreatedAt              time.Time                    `json:"created_at"`
 	SessionAuthenticatedAt time.Time                    `json:"session_authenticated_at"`
 	SessionExpiresAt       time.Time                    `json:"session_expires_at"`

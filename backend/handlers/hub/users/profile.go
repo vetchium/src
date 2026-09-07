@@ -47,7 +47,7 @@ func MyInfo(s *hubruntime.Server) http.HandlerFunc {
 			Handle:                 hubspec.HubHandle(row.Handle),
 			EmailAddress:           common.EmailAddress(row.EmailAddress),
 			DisplayName:            common.DisplayName(row.DisplayName),
-			PreferredLanguage:      common.FrontendLocale(row.PreferredLanguage),
+			PreferredLanguage:      hubspec.FrontendLocale(row.PreferredLanguage),
 			ResidentCountry:        common.CountryCode(row.ResidentCountry),
 			PreferredJobCountries:  jobCountries(row.PreferredJobCountries),
 			TOTPEnabled:            row.TotpEnabled,

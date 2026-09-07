@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/hub"
 )
 
 func TestRendererLoadsEveryLocalizedTemplate(t *testing.T) {
@@ -18,7 +18,7 @@ func TestRendererLoadsEveryLocalizedTemplate(t *testing.T) {
 		ActionURL:   "https://hub.example/verify?one=1&two=2",
 		ExpiresAt:   time.Date(2026, 8, 24, 12, 30, 0, 0, time.UTC),
 	}
-	for _, locale := range common.FrontendLocales() {
+	for _, locale := range hub.FrontendLocales() {
 		for _, kind := range supportedKinds {
 			message, renderErr := renderer.Render(kind, locale, data)
 			if renderErr != nil {
@@ -44,10 +44,10 @@ func TestRendererRejectsUnsupportedLocaleAndKind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := renderer.Render(Signup, common.FrontendLocale("fr"), TemplateData{}); err == nil {
+	if _, err := renderer.Render(Signup, hub.FrontendLocale("fr"), TemplateData{}); err == nil {
 		t.Fatal("unsupported locale was accepted")
 	}
-	if _, err := renderer.Render(Kind("unknown"), common.EnglishUnitedStates, TemplateData{}); err == nil {
+	if _, err := renderer.Render(Kind("unknown"), hub.EnglishUnitedStates, TemplateData{}); err == nil {
 		t.Fatal("unsupported kind was accepted")
 	}
 }

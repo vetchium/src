@@ -1,5 +1,5 @@
 import "../../common/authentication.tsp";
-import "../../common/localization.tsp";
+import "../types.tsp";
 
 namespace Vetchium.Admin;
 

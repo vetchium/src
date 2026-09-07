@@ -75,7 +75,7 @@ func MyInfo(s *adminruntime.Server) http.HandlerFunc {
 			RecoveryCodesRemaining: common.TOTPRecoveryCodeCount(
 				row.RecoveryCodesRemaining,
 			),
-			PreferredLanguage:      common.FrontendLocale(row.PreferredLanguage),
+			PreferredLanguage:      adminspec.FrontendLocale(row.PreferredLanguage),
 			CreatedAt:              row.CreatedAt.Time.UTC(),
 			SessionAuthenticatedAt: identity.AuthenticatedAt.UTC(),
 			SessionExpiresAt:       row.ExpiresAt.Time.UTC(),

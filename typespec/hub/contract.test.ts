@@ -5,7 +5,24 @@ import {
   validateCompleteSignupRequest,
   validateRequestSignupRequest,
 } from "./auth/signup.ts";
-import { isHubHandle, isHubUserDID } from "./types.ts";
+import {
+  frontendLocaleValues,
+  isFrontendLocale,
+  isHubHandle,
+  isHubUserDID,
+} from "./types.ts";
+
+test("Hub locales are canonical and portal-owned", () => {
+  assert.deepEqual(frontendLocaleValues, ["en-US", "ta", "de-DE"]);
+  for (const locale of frontendLocaleValues)
+    assert.equal(Intl.getCanonicalLocales(locale)[0], locale);
+  assert.equal(isFrontendLocale("en-US"), true);
+  assert.equal(isFrontendLocale("ta"), true);
+  assert.equal(isFrontendLocale("de-DE"), true);
+  assert.equal(isFrontendLocale("EN-us"), false);
+  assert.equal(isFrontendLocale("de-AT"), false);
+  assert.equal(isFrontendLocale("fr-FR"), false);
+});
 
 test("Hub signup validates locale and ISO country", () => {
   assert.deepEqual(

@@ -225,7 +225,7 @@ func authenticatedSessionResponse(
 	return auth.AuthenticatedSessionResponse{
 		SessionToken:      auth.HubSessionToken(token),
 		SessionExpiresAt:  expiresAt.UTC(),
-		PreferredLanguage: common.FrontendLocale(preferredLanguage),
+		PreferredLanguage: hub.FrontendLocale(preferredLanguage),
 		ResidentCountry:   common.CountryCode(residentCountry),
 		HubUserDID:        hub.HubUserDID(dbvalue.FormatUUID(did)),
 		Handle:            hub.HubHandle(handle),

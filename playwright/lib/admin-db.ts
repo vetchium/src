@@ -535,9 +535,10 @@ export async function stalePasswordLoginCreationRace(): Promise<{
       "ON_ERROR_STOP=1",
       "-Atqc",
     ];
-    const directAttempt = dockerComposeAsync([
-      ...psqlPrefix(directApplication),
-      `
+    const directAttempt = dockerComposeAsync(
+      [
+        ...psqlPrefix(directApplication),
+        `
         WITH eligible AS (
           UPDATE vetchium.admin_users
           SET last_login_at = now(), updated_at = now()
@@ -556,10 +557,13 @@ export async function stalePasswordLoginCreationRace(): Promise<{
         )
         SELECT count(*) FROM inserted;
       `,
-    ]);
-    const totpAttempt = dockerComposeAsync([
-      ...psqlPrefix(totpApplication),
-      `
+      ],
+      30_000,
+    );
+    const totpAttempt = dockerComposeAsync(
+      [
+        ...psqlPrefix(totpApplication),
+        `
         WITH eligible AS (
           SELECT admin_user_id
           FROM vetchium.admin_users
@@ -578,7 +582,9 @@ export async function stalePasswordLoginCreationRace(): Promise<{
         )
         SELECT count(*) FROM inserted;
       `,
-    ]);
+      ],
+      30_000,
+    );
 
     await waitForDatabaseLockWaiters(databaseName, [
       directApplication,

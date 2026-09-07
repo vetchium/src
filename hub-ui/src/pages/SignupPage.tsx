@@ -15,11 +15,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { isCountryCode } from "typespec/common/countries";
-import {
-  type FrontendLocale,
-  isFrontendLocale,
-} from "typespec/common/localization";
 import type { RequestSignupRequest } from "typespec/hub/auth/signup";
+import { type FrontendLocale, isFrontendLocale } from "typespec/hub/types";
 import type { SignupRegion } from "typespec/regions/regions";
 import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
@@ -209,7 +206,7 @@ function SignupFlow() {
               <Select
                 aria-label={`* ${t("fields.language")}`}
                 value={language}
-                options={frontendLocaleOptions()}
+                options={frontendLocaleOptions(preferences.supportedLocales)}
                 onChange={(value: FrontendLocale) => {
                   setLanguage(value);
                   preferences.setLanguage(value);

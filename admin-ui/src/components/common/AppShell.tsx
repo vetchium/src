@@ -7,8 +7,9 @@ import {
   ViewHubSignupDomains,
   ViewUsers,
 } from "typespec/admin/authorization/types";
-import type { FrontendLocale } from "typespec/common/localization";
+import type { FrontendLocale } from "typespec/admin/types";
 import { usePreferences } from "../../app/PreferencesContext";
+import { localeConfiguration } from "../../app/preferences";
 import { useAuth } from "../../auth/AuthContext";
 import { setPreferredLanguage } from "../../features/profile/api";
 import {
@@ -68,6 +69,7 @@ export function AppShell() {
   ];
   return (
     <PortalShell
+      localization={localeConfiguration}
       navigationItems={navigationItems}
       selectedKey={selectedKey}
       onSignOut={auth.signOut}

@@ -13,7 +13,7 @@ type MyInfoResponse struct {
 	Handle                 hub.HubHandle                `json:"handle"`
 	EmailAddress           common.EmailAddress          `json:"email_address"`
 	DisplayName            common.DisplayName           `json:"display_name"`
-	PreferredLanguage      common.FrontendLocale        `json:"preferred_language"`
+	PreferredLanguage      hub.FrontendLocale           `json:"preferred_language"`
 	PreferredJobCountries  []common.CountryCode         `json:"preferred_job_countries"`
 	ResidentCountry        common.CountryCode           `json:"resident_country"`
 	TOTPEnabled            bool                         `json:"totp_enabled"`
@@ -22,13 +22,13 @@ type MyInfoResponse struct {
 }
 
 type SetPreferredLanguageRequest struct {
-	PreferredLanguage common.FrontendLocale `json:"preferred_language"`
+	PreferredLanguage hub.FrontendLocale `json:"preferred_language"`
 }
 
 func (r *SetPreferredLanguageRequest) Normalize() {}
 
 func (r SetPreferredLanguageRequest) Validate() []string {
-	if !common.IsFrontendLocale(r.PreferredLanguage) {
+	if !hub.IsFrontendLocale(r.PreferredLanguage) {
 		return []string{"preferred_language"}
 	}
 	return []string{}

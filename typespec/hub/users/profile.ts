@@ -1,13 +1,13 @@
 import type { TOTPRecoveryCodeCount } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
 import { isCountryCode } from "../../common/countries.ts";
-import type {
-  CountryCode,
-  DisplayName,
-  FrontendLocale,
-} from "../../common/localization.ts";
-import { isFrontendLocale } from "../../common/localization.ts";
-import type { HubHandle, HubUserDID } from "../types.ts";
+import type { CountryCode, DisplayName } from "../../common/localization.ts";
+import {
+  type FrontendLocale,
+  type HubHandle,
+  type HubUserDID,
+  isFrontendLocale,
+} from "../types.ts";
 
 export interface MyInfoResponse {
   preferred_job_countries: CountryCode[];

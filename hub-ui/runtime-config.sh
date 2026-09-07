@@ -5,7 +5,7 @@ language="${VETCHIUM_DEFAULT_LANGUAGE:-en-US}"
 case "$language" in
   en-US|ta|de-DE) ;;
   *)
-    echo "VETCHIUM_DEFAULT_LANGUAGE must be en-US, ta, or de-DE" >&2
+    echo "VETCHIUM_DEFAULT_LANGUAGE must be a Hub portal locale: en-US, ta, or de-DE" >&2
     exit 1
     ;;
 esac

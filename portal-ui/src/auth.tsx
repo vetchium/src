@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-import type { FrontendLocale } from "typespec/common/localization";
 import { usePendingOperations } from "./pending-operations";
 import { usePreferences } from "./preferences";
 
@@ -37,7 +36,7 @@ export interface PortalAuthConfiguration<
   ) => StoredSession;
   clearSession: () => void;
   sessionToken: (session: StoredSession) => SessionToken;
-  preferredLanguage: (session: SessionResponse) => FrontendLocale;
+  preferredLanguage: (session: SessionResponse) => string;
   logout: (session: StoredSession) => Promise<void>;
   ignoreLogoutFailure?: boolean;
   challengeToken: (challenge: Challenge) => ChallengeToken;

@@ -26,6 +26,11 @@ contract consumed by backend and future UI implementations.
   HTTP response encoding for typed Problem values.
 - Keep shared scalars in `common/`, stable RFC 9457 problem types in `problem/`,
   and portal-owned types in focused portal packages.
+- A common representation standard does not make a closed vocabulary common.
+  Keep supported locale sets, feature capabilities, and similar product-owned
+  enums in their portal namespace unless the product explicitly requires one
+  lockstep set. It is valid for two portal enums to contain the same members
+  today. Share syntax or display mechanics separately from the accepted set.
 - Keep portal-owned domain types in focused subpackages such as `admin/user/`.
   Let the package supply context so exported names stay concise, for example
   `user.State`, `user.Active`, and `user.Disabled`.

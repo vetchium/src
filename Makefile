@@ -292,6 +292,7 @@ portal-ui-deps:
 portal-ui-check-ready: portal-ui-deps
 	cd portal-ui && npm run format:check
 	cd portal-ui && npm run typecheck
+	cd portal-ui && npm test
 	cd portal-ui && npm audit --audit-level=high
 
 portal-ui-check: portal-ui-check-ready

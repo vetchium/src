@@ -11,7 +11,7 @@ import (
 	texttemplate "text/template"
 	"time"
 
-	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/hub"
 )
 
 type Kind string
@@ -47,14 +47,14 @@ type templateSet struct {
 }
 
 type Renderer struct {
-	templates map[common.FrontendLocale]map[Kind]templateSet
+	templates map[hub.FrontendLocale]map[Kind]templateSet
 }
 
 func NewRenderer() (*Renderer, error) {
 	renderer := &Renderer{
-		templates: make(map[common.FrontendLocale]map[Kind]templateSet),
+		templates: make(map[hub.FrontendLocale]map[Kind]templateSet),
 	}
-	for _, locale := range common.FrontendLocales() {
+	for _, locale := range hub.FrontendLocales() {
 		renderer.templates[locale] = make(map[Kind]templateSet)
 		for _, kind := range supportedKinds {
 			set, err := parseTemplateSet(templateFiles, locale, kind)
@@ -68,7 +68,7 @@ func NewRenderer() (*Renderer, error) {
 }
 
 func (r *Renderer) Render(
-	kind Kind, locale common.FrontendLocale, data TemplateData,
+	kind Kind, locale hub.FrontendLocale, data TemplateData,
 ) (Message, error) {
 	kinds, ok := r.templates[locale]
 	if !ok {
@@ -98,7 +98,7 @@ func (r *Renderer) Render(
 }
 
 func parseTemplateSet(
-	files fs.FS, locale common.FrontendLocale, kind Kind,
+	files fs.FS, locale hub.FrontendLocale, kind Kind,
 ) (templateSet, error) {
 	directory := "templates/" + string(locale) + "/" + string(kind)
 	subjectSource, err := fs.ReadFile(files, directory+".subject.txt")

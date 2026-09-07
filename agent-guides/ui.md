@@ -67,6 +67,16 @@ placeholders to TypeScript applications.
   left wrong in the others. Portal packages supply typed
   API, storage, navigation, translation-key, and authorization adapters; they
   must not copy the shared implementation.
+- Sharing mechanics does not make product capabilities global. Translation
+  availability, runtime defaults, permission-aware navigation, and other
+  closed portal capabilities remain owned by each portal. Shared components
+  must receive those values through typed portal adapters or configuration.
+  Equal capability lists today do not require the portals to evolve together.
+- Treat locale standards and locale support separately. BCP 47 supplies the
+  canonical tag format and `Intl`/CLDR supplies matching and display behavior;
+  each portal independently declares the tags for which it ships complete
+  translations. Browser negotiation must run against that portal's list, and
+  a standards-valid but unsupported tag must not be sent to its API.
 - Portal-private code is limited to domain pages and features, route tables,
   endpoint adapters, permission-aware navigation, runtime configuration, and
   locale resources. When a second portal needs the same behavior, move that

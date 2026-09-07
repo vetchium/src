@@ -11,7 +11,8 @@ import {
   Typography,
 } from "antd";
 import { useTranslation } from "react-i18next";
-import type { CountryCode, FrontendLocale } from "typespec/common/localization";
+import type { CountryCode } from "typespec/common/localization";
+import type { FrontendLocale } from "typespec/hub/types";
 import { hubAPI } from "../api/hub";
 import { usePreferences } from "../app/PreferencesContext";
 import { useAuth } from "../auth/AuthContext";
@@ -91,7 +92,7 @@ export function ProfilePage() {
               <Select<FrontendLocale>
                 value={me.preferred_language}
                 loading={language.isPending}
-                options={frontendLocaleOptions()}
+                options={frontendLocaleOptions(preferences.supportedLocales)}
                 onChange={(value) => language.mutate(value)}
               />
             </Form.Item>

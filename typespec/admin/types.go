@@ -1,5 +1,30 @@
 package admin
 
+type FrontendLocale string
+
+const (
+	EnglishUnitedStates FrontendLocale = "en-US"
+	Tamil               FrontendLocale = "ta"
+	German              FrontendLocale = "de-DE"
+)
+
+func IsFrontendLocale(value FrontendLocale) bool {
+	for _, locale := range FrontendLocales() {
+		if value == locale {
+			return true
+		}
+	}
+	return false
+}
+
+func FrontendLocales() []FrontendLocale {
+	return []FrontendLocale{
+		EnglishUnitedStates,
+		Tamil,
+		German,
+	}
+}
+
 type AdminUserID string
 type HubSignupDomainID string
 

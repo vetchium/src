@@ -5,7 +5,10 @@
 -- a complete schema source for tools such as sqlc.
 CREATE SCHEMA IF NOT EXISTS vetchium;
 
-CREATE DOMAIN vetchium.frontend_locale AS text
+CREATE DOMAIN vetchium.hub_frontend_locale AS text
+CHECK (VALUE IN ('en-US', 'ta', 'de-DE'));
+
+CREATE DOMAIN vetchium.admin_frontend_locale AS text
 CHECK (VALUE IN ('en-US', 'ta', 'de-DE'));
 
 -- A CHECK constraint may not contain a subquery, so set-returning checks are
@@ -68,7 +71,7 @@ CREATE TABLE vetchium.hub_users (
     display_name text NOT NULL,
     password_hash text NOT NULL,
     hub_user_state vetchium.hub_user_state NOT NULL DEFAULT 'active',
-    preferred_language vetchium.frontend_locale NOT NULL DEFAULT 'en-US',
+    preferred_language vetchium.hub_frontend_locale NOT NULL DEFAULT 'en-US',
     resident_country text NOT NULL,
     preferred_job_countries text[] NOT NULL DEFAULT '{}',
     CONSTRAINT hub_users_job_countries_check CHECK (
@@ -177,7 +180,7 @@ CREATE TABLE vetchium.hub_signup_requests (
     hub_signup_request_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     email_address text NOT NULL,
     display_name text NOT NULL,
-    preferred_language vetchium.frontend_locale NOT NULL,
+    preferred_language vetchium.hub_frontend_locale NOT NULL,
     resident_country text NOT NULL,
     token_hash bytea NOT NULL UNIQUE CHECK (octet_length(token_hash) = 32),
     created_at timestamptz NOT NULL DEFAULT now(),
@@ -224,7 +227,7 @@ CREATE TABLE vetchium.hub_email_outbox (
     hub_email_outbox_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     kind text NOT NULL CHECK (kind IN ('signup', 'password-reset')),
     recipient_email_address text NOT NULL,
-    preferred_language vetchium.frontend_locale NOT NULL,
+    preferred_language vetchium.hub_frontend_locale NOT NULL,
     payload_ciphertext bytea NOT NULL,
     attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
     next_attempt_at timestamptz NOT NULL DEFAULT now(),
@@ -252,7 +255,7 @@ CREATE TABLE vetchium.admin_users (
     display_name text NOT NULL,
     password_hash text NOT NULL,
     admin_user_state vetchium.admin_user_state NOT NULL DEFAULT 'active',
-    preferred_language vetchium.frontend_locale NOT NULL DEFAULT 'en-US',
+    preferred_language vetchium.admin_frontend_locale NOT NULL DEFAULT 'en-US',
     totp_secret_ciphertext bytea,
     totp_enabled boolean NOT NULL DEFAULT false,
     totp_last_timestep bigint,
@@ -560,5 +563,6 @@ DROP TABLE IF EXISTS vetchium.hub_users;
 DROP TYPE IF EXISTS vetchium.hub_user_state;
 DROP TABLE IF EXISTS vetchium.audit_events;
 DROP TABLE IF EXISTS vetchium.orgs;
-DROP DOMAIN IF EXISTS vetchium.frontend_locale;
+DROP DOMAIN IF EXISTS vetchium.admin_frontend_locale;
+DROP DOMAIN IF EXISTS vetchium.hub_frontend_locale;
 DROP FUNCTION IF EXISTS vetchium.array_is_distinct(text[]);

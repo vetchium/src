@@ -11,12 +11,7 @@ import {
 import { isEmailAddress } from "./common.ts";
 import { countryCodeValues, isCountryCode } from "./countries.ts";
 import { isIdempotencyKey } from "./idempotency.ts";
-import {
-  frontendLocaleValues,
-  isDisplayName,
-  isFrontendLocale,
-  normalizeDisplayName,
-} from "./localization.ts";
+import { isDisplayName, normalizeDisplayName } from "./localization.ts";
 import { isPageSize, isPaginationKey } from "./pagination.ts";
 
 test("authentication scalar validators enforce every boundary", () => {
@@ -50,16 +45,7 @@ test("idempotency key validator enforces URL-safe ASCII and length", () => {
   assert.equal(isIdempotencyKey("a".repeat(129)), false);
 });
 
-test("localization validators cover supported interfaces and Unicode names", () => {
-  assert.deepEqual(frontendLocaleValues, ["en-US", "ta", "de-DE"]);
-  for (const locale of frontendLocaleValues)
-    assert.equal(Intl.getCanonicalLocales(locale)[0], locale);
-  assert.equal(isFrontendLocale("en-US"), true);
-  assert.equal(isFrontendLocale("ta"), true);
-  assert.equal(isFrontendLocale("de-DE"), true);
-  assert.equal(isFrontendLocale("EN-us"), false);
-  assert.equal(isFrontendLocale("de-AT"), false);
-  assert.equal(isFrontendLocale("fr-FR"), false);
+test("localization validators cover Unicode names", () => {
   assert.equal(normalizeDisplayName("  நிர்வாகி  "), "நிர்வாகி");
   assert.equal(isDisplayName("  நிர்வாகி  "), true);
   assert.equal(isDisplayName("   "), false);
