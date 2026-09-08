@@ -39,7 +39,9 @@ test("signup selects a region before collecting personal details and supports go
     .getByRole("combobox", { name: "Account region" })
     .press("ArrowDown");
   await page.getByRole("combobox", { name: "Account region" }).press("Enter");
-  await page.getByRole("button", { name: "Continue in this region" }).click();
+  await page
+    .getByRole("button", { name: "Continue in Singapore (sgp)" })
+    .click();
   await expect(page).toHaveURL(`${origin}/signup/IN/en-US/details`);
   await expect(page.getByText("Current resident country: India")).toBeVisible();
   await page.getByRole("button", { name: "Email my signup link" }).click();
@@ -82,7 +84,9 @@ test("signup selects a region before collecting personal details and supports go
     .getByRole("combobox", { name: "Account region" })
     .press("ArrowDown");
   await page.getByRole("combobox", { name: "Account region" }).press("Enter");
-  await page.getByRole("button", { name: "Continue in this region" }).click();
+  await page
+    .getByRole("button", { name: "Continue in Singapore (sgp)" })
+    .click();
   await page.route("**/api/hub/request-signup", async (route) => {
     await route.fulfill({ status: 202 });
   });
@@ -100,7 +104,7 @@ test("signup crosses regions with only country and language in the URL", async (
     await route.fulfill({ json: regions });
   });
   await page.goto(`${origin}/signup/IN/en-US`);
-  await page.getByRole("button", { name: "Continue in this region" }).click();
+  await page.getByRole("button", { name: "Continue in India (ind1)" }).click();
   await expect(page).toHaveURL(
     "http://hub-ui.ind1.localhost/signup/IN/en-US/details",
   );
@@ -119,7 +123,7 @@ test("signup handles discovery errors, retries, and empty eligibility", async ({
   });
   await page.goto(`${origin}/signup/IN/en-US`);
   await expect(
-    page.getByRole("button", { name: "Continue in this region" }),
+    page.getByRole("button", { name: "Continue", exact: true }),
   ).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Try loading regions again" }),
@@ -132,7 +136,7 @@ test("signup handles discovery errors, retries, and empty eligibility", async ({
     page.getByText("No regions are accepting signup for this country."),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Continue in this region" }),
+    page.getByRole("button", { name: "Continue", exact: true }),
   ).toBeDisabled();
 });
 

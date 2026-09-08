@@ -253,7 +253,15 @@ function SignupFlow() {
               block
               disabled={!selected || catalog.isFetching || catalog.isError}
             >
-              {t("signup.continueRegion")}
+              {selected
+                ? t("signup.continueRegion", {
+                    region: countryName(
+                      selected.hosting_country,
+                      preferences.language,
+                    ),
+                    tenant: selected.tenant_id,
+                  })
+                : t("common.continue")}
             </Button>
           </Form>
         )}

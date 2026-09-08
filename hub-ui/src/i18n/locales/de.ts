@@ -70,7 +70,7 @@ export const de = {
     regionDescription:
       "Wählen Sie Ihr Wohnsitzland und die Region für Ihr Konto. Sie können weltweit nach Stellen suchen.",
     regionLabel: "Kontoregion",
-    continueRegion: "In dieser Region fortfahren",
+    continueRegion: "In {{region}} ({{tenant}}) fortfahren",
     changeRegion: "Land oder Region ändern",
     retryRegions: "Regionen erneut laden",
     noRegions: "Für dieses Land ist derzeit keine Registrierung verfügbar.",
@@ -114,6 +114,7 @@ export const de = {
   },
   common: {
     backToSignin: "Zurück zur Anmeldung",
+    continue: "Weiter",
     continueToSignin: "Weiter zur Anmeldung",
     cancel: "Abbrechen",
     confirm: "Bestätigen",

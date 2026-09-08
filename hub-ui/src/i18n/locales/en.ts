@@ -66,7 +66,7 @@ export const en = {
     regionDescription:
       "Choose where you live and where your account will be hosted. You can explore opportunities worldwide.",
     regionLabel: "Account region",
-    continueRegion: "Continue in this region",
+    continueRegion: "Continue in {{region}} ({{tenant}})",
     changeRegion: "Change country or region",
     retryRegions: "Try loading regions again",
     noRegions: "No regions are accepting signup for this country.",
@@ -109,6 +109,7 @@ export const en = {
   },
   common: {
     backToSignin: "Back to sign in",
+    continue: "Continue",
     continueToSignin: "Continue to sign in",
     cancel: "Cancel",
     confirm: "Confirm",
