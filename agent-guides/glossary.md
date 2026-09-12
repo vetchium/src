@@ -33,7 +33,7 @@ Work-email stint — a verified mailbox at an employer domain plus the user's se
 
 Capability — a seeded service category an org can offer. Staffing is the first.
 Listing — a service offer by a provider org. Numbered per (org, country).
-Subscription — a consumer org subscribing to a provider's listing. Authoritative provider-side.
+ServiceConsumer — a consumer org subscribing to a provider's Listing. Authoritative provider-side.
 Agency assignment — a client org officially assigning an agency to one of its openings.
 
 ## Location
