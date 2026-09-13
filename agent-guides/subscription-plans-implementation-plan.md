@@ -14,7 +14,8 @@ Claims below are labelled where it matters:
 
 - **Requested** — stated in the design document.
 - **User direction** — decided by the product owner while this plan was
-  reviewed on 2026-09-12. Record these in the design document (§11).
+  reviewed, on 2026-09-12 and 2026-09-13. Record these in the design document
+  (§11).
 - **Fact** — verified in the repository when this plan was written.
 - **Decision** — an inference this plan makes, with its reason, so a reviewer
   can challenge it.
@@ -31,7 +32,8 @@ In scope, all **requested**:
   transaction.
 - A read endpoint and an idempotent set-plan endpoint.
 - Upgrade, downgrade, cancellation, clearing a scheduled change, and simulated
-  renewal applied by a worker at period end, all audited.
+  renewal at period end, all audited. The worker applies period end, or a
+  user's plan change applies it first (§2.1).
 - The plan-requirement check and its `403` problem type, unit-tested and not
   yet declared by any endpoint.
 - The Hub plan page, the home page invitation, and a public `/terms` page
@@ -60,32 +62,23 @@ not ask for it, and doing so would need a new admin permission.
   years.
 - **User direction — production offerings.** `usa1`, `deu`, `sgp`, and `ind1`
   all offer `hub-silver-tier` at launch. `hub-free-tier` is always offered.
-- **Decision — who writes period end.** Only the worker writes period-end
-  transitions (**requested**: "At period end, a worker applies any scheduled
-  change").
-  - Every API reads and decides from committed state.
-  - A due change therefore takes effect when the worker applies it. That is
-    normally within one worker interval of the stored period end. It can take
-    longer:
-    - when more than 1,000 rows are due in one run;
-    - when a user request holds the row's lock during a pass;
-    - while the job backs off after a failed run.
-  - Until then the stored plan and its entitlement still hold.
-  - In that window the API still applies an immediate upgrade. It refuses a
-    request that would schedule or clear a period-end change with `409`
-    `hub-subscription-period-end-pending` (§4.3, §6.2).
-    - Refusing to *clear* is **requested**: the design allows clearing a
-      scheduled change only "before period end".
-    - Refusing to *schedule* is a **Decision**. The design lists only the
-      validation and not-offered refusals. Accepting it would record a change
-      scheduled after its own effective boundary.
-
-      Because this is externally visible behavior the design does not decide,
-      the product owner must confirm the refusal and the exact problem type
-      before any contract work starts (§12, prerequisite).
-    - An upgrade in that window clears even a due cancellation. **Decision:**
-      this is deliberate. The user chose a paid plan immediately, so nothing
-      is applied retroactively, and the worker then finds nothing due.
+- **User direction (2026-09-13) — who applies period end.** Payments are
+  simulated, so period end is pure bookkeeping on the user's row. Whichever
+  touches a due row first applies it:
+  - **The worker** applies it for users who make no request (**requested**:
+    "At period end, a worker applies any scheduled change").
+  - **Set-plan** applies it inside its own transaction, before deciding the
+    user's change. The user's change then always starts from the current
+    period, so no request is refused for being late.
+  - **`GET my-subscription`** computes the same transition in memory for the
+    response and writes nothing, so a lagging worker never shows an ended
+    period.
+  - The period-end rules exist once, in `billing.Advance` (§6.2), and every
+    path above calls it.
+  - **Audit.** A transition written by `hub-api` uses actor `system` /
+    `subscription-renewal`, source `hub-api`, and the request's idempotency
+    key. The design names only the Hub user and the worker as actors; the
+    product owner approved this third actor for this case.
 
 ### 2.2 Naming
 
@@ -127,7 +120,7 @@ different packages never share a name in one import block.
 | Owner | Change |
 | --- | --- |
 | `typespec/hub/subscriptions/` | New: plan vocabulary, ranks, upgrade rule, presence-tracking optional interval, wire types, two operations |
-| `typespec/problem/hub/subscriptions.*` | New: plan-not-offered, period-end-pending, and plan-required problems |
+| `typespec/problem/hub/subscriptions.*` | New: plan-not-offered and plan-required problems |
 | `typespec/problem/details.*` | `Body` interface so a problem can carry extension members |
 | `typespec/package.json`, `typespec/tsconfig.json`, `typespec/hub/hub.tsp`, `typespec/scripts/` | Exports, imports, and an OpenAPI extension test |
 | `Makefile` | `typespec-check-ready` runs the extension test after `compile`; `hub-ui-check-ready` runs `npm test` |
@@ -308,7 +301,7 @@ Operations follow `typespec/hub/users/profile.tsp` and, for idempotency,
 | Operation | Route | Auth | Responses |
 | --- | --- | --- | --- |
 | `mySubscription` | `GET /api/hub/my-subscription` | Bearer | `200 HubSubscription` with `Cache-Control: no-store`; `401` Hub authentication required; `500` |
-| `setSubscriptionPlan` | `POST /api/hub/set-subscription-plan`; required `@header("Idempotency-Key")`; `@TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)` | Bearer | `200 HubSubscription` with `Cache-Control: no-store`; `400` invalid JSON; `400` validation failed; `401`; `403` plan not offered; `409` idempotency key conflict; `409` subscription period end pending; `500` |
+| `setSubscriptionPlan` | `POST /api/hub/set-subscription-plan`; required `@header("Idempotency-Key")`; `@TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)` | Bearer | `200 HubSubscription` with `Cache-Control: no-store`; `400` invalid JSON; `400` validation failed; `401`; `403` plan not offered; `409` idempotency key conflict; `500` |
 
 **Fact:** every operation taking `Idempotency-Key` declares the replay
 extension; `completeSignup` uses `86400`. Here `86400` matches the ledger
@@ -326,17 +319,6 @@ moves no money. Revisit this when a processor is integrated.
 - Title "Hub plan not offered".
 - Detail "This tenant does not offer that Hub plan".
 - A plain `Details` constant.
-
-**`HubSubscriptionPeriodEndPendingError`**
-
-- `409`, type `vetchium-problem-details/hub-subscription-period-end-pending`.
-- Title "Hub subscription period end pending".
-- Detail "The current period has ended and is being processed. Try again
-  shortly".
-- A plain `Details` constant. Go and TypeScript name it
-  `SubscriptionPeriodEndPendingError`.
-- Returned when a request would schedule or clear a period-end change after
-  the stored period end, before the worker has applied it (§2.1, §6.2).
 
 **`HubPlanRequiredDetails`**
 
@@ -690,19 +672,20 @@ snapshot `{hub_plan_oid}`. No payload contains personal data.
 | `hub.subscription.upgraded` | `hub_user` / DID | `hub-api` | Immediate upgrade |
 | `hub.subscription.change-scheduled` | `hub_user` / DID | `hub-api` | Downgrade or cancellation scheduled, or replaced |
 | `hub.subscription.scheduled-change-cleared` | `hub_user` / DID | `hub-api` | Current plan chosen again |
-| `hub.subscription.scheduled-change-applied` | `worker` / `subscription-renewal` | `workers` | Worker applies a scheduled change at its effective boundary |
-| `hub.subscription.renewed` | `worker` / `subscription-renewal` | `workers` | Worker starts one or more new periods; payload adds `periods_advanced` |
+| `hub.subscription.scheduled-change-applied` | `worker` / `subscription-renewal` from the worker; `system` / `subscription-renewal` from set-plan | `workers` or `hub-api` | A scheduled change applied at its effective boundary |
+| `hub.subscription.renewed` | same as the row above | `workers` or `hub-api` | One or more new periods started; payload adds `periods_advanced` |
 
 **Requested:** every change is audited "with the Hub user or the worker as
-actor". Only the worker writes period-end events, and only the user writes
-change events, so actor and source always identify who acted and where
-(`database.md`).
+actor". **User direction (§2.1):** a period-end transition that set-plan
+applies uses actor `system`, because the user did not cause it. Actor and source
+therefore always name who acted and where (`database.md`). The request's
+idempotency key links a `system` event to the operation that triggered it.
 
 **Fact:** the email worker uses actor `worker` with a job-named actor ID and
 source `workers`.
 
-When one worker pass applies a scheduled paid change and then crosses more
-periods, it writes two events:
+When one pass, by the worker or by set-plan, applies a scheduled paid change and
+then crosses more periods, it writes two events:
 
 - `scheduled-change-applied`, whose `after` is the state at the effective
   boundary: the new anchor, and the first period of the new series;
@@ -774,7 +757,9 @@ difference, then corrects by at most one step each way.
 
 ### 6.2 `advance.go`, `change.go`
 
-**`Advance(state, at) (State, []Transition)`** is used only by the worker.
+**`Advance(state, at) (State, []Transition)`** is the only statement of the
+period-end rules. Three callers use it: the worker, set-plan before `Decide`,
+and `GET` in memory (§2.1).
 
 - **Free, or `at` before the stored period end:** unchanged, no transitions.
   This includes `at` before the period start, which absorbs clock skew between
@@ -793,7 +778,8 @@ difference, then corrects by at most one step each way.
 
 **`Decide(current State, plan subscriptionspec.Plan, interval
 subscriptionspec.BillingInterval, at time.Time) (State, *Transition,
-Outcome)`** runs on the committed state.
+Outcome)`** runs on the state `Advance` returned for the same `at`, so the
+current period is never already over.
 
 | Condition | Outcome | Result |
 | --- | --- | --- |
@@ -816,16 +802,9 @@ The **requested** rules this implements:
 
 - A second downgrade replaces the first.
 - Re-choosing the already-scheduled target is `Unchanged`.
-- `Decide` never advances a due state. When the plan is paid and `at >=
-  current_period_end`, the period end is waiting for the worker (§2.1):
-  - `Upgraded` and `Unchanged` proceed as in the table. An upgrade starts a new
-    period at `at`, so nothing remains due.
-  - An outcome that would be `ScheduledChangeCleared` or `ChangeScheduled`
-    becomes `PeriodEndPending`. There is no write, and the handler answers
-    `409` `hub-subscription-period-end-pending`.
-  - Refusing to clear follows the design's "before period end" (**requested**).
-    Refusing to schedule is a **Decision** (§2.1). An upgrade that clears a due
-    cancellation is deliberate (§2.1).
+- A due scheduled change is always applied before `Decide` runs. A user can
+  therefore clear or replace only a change whose period end has not yet
+  arrived, which matches the design's "before period end" (**requested**).
 
 ### 6.3 `events.go`
 
@@ -842,7 +821,10 @@ The **requested** rules this implements:
   write's `hub_plan_oid = ANY(...)` predicate (**requested**).
 - `Refusal(minimum subscriptionspec.Plan) hubproblem.PlanRequiredDetails`.
 - The package documentation says a gated statement predicates on the committed
-  `hub_users.hub_plan_oid`, which §2.1 makes the entitlement.
+  `hub_users.hub_plan_oid`. A due change counts only once the worker or a
+  set-plan has written it. A gated feature that cannot accept that lag must
+  apply due transitions first in its own transaction, with `Advance` and
+  `SaveHubSubscriptionStates`, as set-plan does.
 
 ### 6.5 Tests
 
@@ -868,9 +850,8 @@ Table-driven, parallel, fixed instants.
   - the same change crossing several more periods, which emits both events;
   - exactly on the boundary instant.
 - **`Decide`:** every table row, for every combination of current state,
-  scheduled change, and target. With a stored period already past (`at` equal
-  to the end, and after it), clearing and scheduling give `PeriodEndPending`,
-  while `Upgraded` and `Unchanged` still apply.
+  scheduled change, and target, always on a state `Advance` has already
+  brought up to `at`.
 - **`StateFromStored`:** an unknown plan, an unknown scheduled plan, and an
   inconsistent period.
 - **`Events` and `StateRecord`:** the JSON field names match the recordset
@@ -902,36 +883,13 @@ list:
 | Files | `offeredPlans` | Timer |
 | --- | --- | --- |
 | `config/<tenant>.json` (dev) | both plans, every tenant | `1m` |
-| `config/ci/<tenant>.json` | both plans for `sgp`, `ind1`, `deu`; only `hub-free-tier` for `usa1` | `1s`, except `24h` for `ind1` |
+| `config/ci/<tenant>.json` | both plans for `sgp`, `ind1`, `deu`; only `hub-free-tier` for `usa1` | `1s` |
 | `deploy/<tenant>/config.json` | both plans, every tenant (**user direction**) | `1m` |
 
 **Decision, CI `usa1`:** this is a test fixture, not evidence about production
 policy. Playwright must exercise the not-offered `403` against a real tenant,
 and `usa1` accepts signup in CI while `deu` does not (**fact:**
 `config/ci/deu.json` has `signup.enabled: false`).
-
-**Decision, CI `ind1` timer `24h`:** a second test fixture. **Fact:**
-`runPeriodicJob` runs the job once before its first wait. After a successful
-run the next one is 24 hours away.
-
-That quiet period is not guaranteed:
-
-- A failed run retries on backoff, starting at one second and doubling to the
-  CI `retryBackoffLimit` of `10s`.
-- `workers-ind1` has `restart: unless-stopped`, so a crash repeats the startup
-  run.
-- `make playwright-test` does not wait for workers.
-
-The fixture is dependable only after a successful startup pass with no later
-failure. A test cannot observe that without a fixed wait, so test 16 guards
-itself: it sets up each overdue row immediately before its request, then
-checks for worker events before judging the response (§10.1). With that:
-
-- A period moved into the past on `ind1` normally stays unprocessed.
-- That lets §10.1 test 16 exercise the period-end-pending `409` without
-  racing a `1s` worker. If the fixture's precondition breaks, it fails loudly.
-- Worker-dependent tests run on `sgp`.
-- `ind1` still accepts signup in CI.
 
 Tests in `config_test.go`:
 
@@ -967,10 +925,8 @@ deployment. This relies on the portal values being literals (§9.3).
    problem, as in `MyInfo`; any other error is `500`.
 3. Run `storedFromMySubscription`, then `StateFromStored`. An invalid state is
    `500`.
-4. Respond `200` with the committed state.
-
-There is no read-time advance (§2.1). Until the worker applies it, after the
-stored period end, the response still shows that period, and §9.4 presents it.
+4. Run `Advance(state, billing.Instant(s.CurrentTime()))` in memory and
+   respond `200` with the result. `GET` writes nothing (§2.1).
 
 **`SetSubscriptionPlan(s)`**
 
@@ -1005,17 +961,19 @@ stored period end, the response still shows that period, and §9.4 presents it.
       `handlerauth.AuthenticationFailure(hubproblem.AuthenticationRequiredError,
       hubauthn.BearerChallenge)`.
    3. `at := billing.Instant(env.Now())`, taken after the lock is held.
-   4. Run `storedFromLock`, then `StateFromStored`, then `Decide(state,
+   4. Run `storedFromLock`, then `StateFromStored`, then `advanced,
+      transitions := Advance(state, at)`, then `Decide(advanced,
       request.PlanOID, request.BillingInterval.Value, at)`.
-   5. `PeriodEndPending`: return
-      `handlerauth.Failure(hubproblem.SubscriptionPeriodEndPendingError)`.
-      No write; the ledger keeps nothing, so a retry with the same key after
-      the worker runs executes again.
-      `Unchanged`: return `200` with the committed state. No write.
-   6. Otherwise: one `SaveHubSubscriptionStates` call with one state record,
-      one `hub_user` event, source `hub-api`, and the idempotency key. Check
-      all three counts (§5.2).
-   7. Return `200` with the decided state.
+   5. With no transitions and an `Unchanged` outcome, return `200` with
+      `advanced` and write nothing.
+   6. Otherwise, make one `SaveHubSubscriptionStates` call with source
+      `hub-api` and the idempotency key, carrying:
+      - one state record, the final state;
+      - a `system` / `subscription-renewal` event for each transition;
+      - a `hub_user` event for the decision, unless it is `Unchanged`.
+
+      Check all three counts (§5.2).
+   7. Return `200` with the final state.
 
 **Concurrency.** §10.1 tests 13 and 14 cover the skip and the serialization
 points. The committed-version re-check is PostgreSQL behavior that no test can
@@ -1050,11 +1008,11 @@ is the matrix, and each row is covered at the lowest layer that reaches it:
 
 | Response | Unit (Go) | Playwright API (§10.1) |
 | --- | --- | --- |
-| `GET` `200` | `MySubscription` with a `sqlc.Querier` stub: free, paid, scheduled change, stored period already past, instants truncated | Tests 1, 6, 8–11 |
+| `GET` `200` | `MySubscription` with a `sqlc.Querier` stub: free, paid, scheduled change, stored period already past returned advanced with no write, instants truncated | Tests 1, 6, 8–11 |
 | `GET` `401` from middleware | — | Test 3 |
 | `GET` `401` from query `ErrNoRows` | Stub returns `ErrNoRows` | Unit only: `AuthenticateHubSession` already requires an active user, so this happens only when a user is disabled between middleware and query |
 | `GET` `500` | Database error; stored state with an unknown plan | Not injectable without weakening isolation; unit only |
-| `POST` `200` | `setPlan` with a `setPlanQueries` stub: one case per `Decide` outcome, including a stored period already past; asserts the saved state, the event, the actor, and microsecond instants | Tests 5–8, 13, 14 |
+| `POST` `200` | `setPlan` with a `setPlanQueries` stub: one case per `Decide` outcome; a due transition alone with an `Unchanged` decision, which writes only `system` events; and a due transition followed by a change. Asserts the saved state, events, actors, and microsecond instants | Tests 5–8, 13, 14, 16 |
 | `POST` `400` invalid JSON | `SetSubscriptionPlan` HTTP test, which fails before the transaction | Test 4 |
 | `POST` `400` validation | Same, per field, including `billing_interval: null` and combinations | Test 4 |
 | `POST` `400` `Idempotency-Key` | Same, missing and malformed | Test 4 |
@@ -1062,7 +1020,6 @@ is the matrix, and each row is covered at the lowest layer that reaches it:
 | `POST` `401` from lock `ErrNoRows` | `setPlan` | Unit only, for the reason given for the `GET` query |
 | `POST` `403` not offered | `setPlan`, asserting the lock is never called | Test 5 |
 | `POST` `409` idempotency key conflict | Needs the ledger transaction | Test 7 |
-| `POST` `409` period end pending | `setPlan` with a stored period already past: clearing and scheduling refused; upgrade and unchanged allowed | Test 16 (tenant `ind1`) |
 | `POST` `500` | `setPlan`: lock error, save error, `updated_count` 0, short `audited_count`, `audited_user_count` mismatch, unknown plan in the row | Test 12 (audit insert failure) |
 
 Assert status, `Content-Type`, and body shape everywhere. Assert
@@ -1075,7 +1032,7 @@ does not set it. So a `401` rejected by the middleware is not asserted for it.
 
 The test file's header comment records the split. The idempotency-key-conflict
 `409` and replay need the ledger transaction, so they are covered in
-Playwright. The period-end-pending `409` is unit-tested in `setPlan`.
+Playwright.
 
 ### 7.4 Problem runtime tests
 
@@ -1210,14 +1167,8 @@ Verify with `make portal-ui-check admin-ui-check hub-ui-check`.
 **Script test**, `hub-ui/scripts/runtime-config.test.mjs`, uses `node:test` and
 `child_process`. **Fact:** `hub-ui/package.json` has no test script today.
 
-- **Run by:** a new `"test"` script, which the Makefile's `hub-ui-check-ready`
-  runs:
-
-  ```sh
-  node --test scripts/*.test.mjs && node --experimental-strip-types --test src/features/subscriptions/*.test.ts
-  ```
-
-  The second half runs the `nextBoundaryDelay` unit test (§9.4). A bare directory argument makes
+- **Run by:** a new `"test": "node --test scripts/*.test.mjs"` script, which
+  the Makefile's `hub-ui-check-ready` runs. A bare directory argument would make
   Node 24 treat the directory itself as a test file.
 - **Rejections:** each case exits non-zero and writes no output file:
   - `VETCHIUM_TENANT_ID` missing, or containing uppercase letters or `/`;
@@ -1323,30 +1274,6 @@ plan; otherwise the raw OID (**requested**).
 - Scheduled changes and cancellations confirm through
   `App.useApp().modal.confirm`, showing the effective date. No browser
   dialogs.
-- **Processing window.** While `current_period_end` is at or before now:
-  - "Switch at period end", "Cancel at period end", and "Keep this plan" are
-    disabled, matching the API's `409` refusal (§6.2). "Upgrade" and "Switch
-    to annual" stay available.
-  - A boundary timer re-renders the page when `current_period_end` passes,
-    even with no new API data.
-    - Browsers treat a `setTimeout` delay above 2,147,483,647 ms (about 24.8
-      days) as zero. Monthly and annual periods often end further away than
-      that.
-    - So each wake uses a delay of `min(remaining, 24 hours)`, checks the
-      clock, and re-arms until the boundary has passed.
-    - The delay comes from a pure `nextBoundaryDelay(now, end)` in
-      `hub-ui/src/features/subscriptions/boundary.ts`. It returns
-      `min(end - now, 24 hours)`, or `0` once `end` has passed.
-    - `boundary.test.ts` beside it asserts that the delay never exceeds 24
-      hours, including for an end 400 days away, and is `0` at and after
-      `end`. It runs in `npm test` (§9.2).
-    - The effect clears its timer on unmount and whenever
-      `current_period_end` changes.
-  - Each action checks the clock again when clicked, and a click that has
-    crossed the boundary shows the processing notice instead of sending.
-  - While in the window, `useMySubscriptionQuery` refetches every 5 seconds,
-    so the notice clears once the worker has applied the period end.
-  - A `409` period-end-pending from a race renders through `APIErrorAlert`.
 - If the current or scheduled plan OID is not a known `HubPlan`, every change
   action is disabled. An Ant Design `Alert` says the plan cannot be changed in
   this version of the portal, and the raw OID is shown.
@@ -1361,9 +1288,10 @@ plan; otherwise the raw OID (**requested**).
 - Shows the plan name, the interval, period dates via `Intl.DateTimeFormat` in
   the interface language, and any scheduled change or cancellation with its
   effective date.
-- While `current_period_end` is at or before now, it replaces the renewal or
-  effective-date wording with a translated "Your renewal or scheduled change is
-  being processed" (§2.1).
+- **Decision:** no special handling for a page left open past period end. `GET`
+  always returns the advanced state (§7.2), and TanStack Query refetches on
+  focus. A choice made from a stale page is applied by set-plan after the due
+  transition, so the result is still correct.
 
 **Query states for `GET my-subscription`, both pages:**
 
@@ -1419,8 +1347,7 @@ for every tenant):
 prompt.
 
 **`components/common/APIErrorAlert.tsx`:** map `PlanNotOfferedError.type` to
-`errors.planNotOffered`, and `SubscriptionPeriodEndPendingError.type` to
-`errors.subscriptionPeriodEndPending`.
+`errors.planNotOffered`.
 
 **Decision:** no mapping for the plan-required problem yet. The design says no
 endpoint declares it until the first gated feature, and that "the portal
@@ -1431,12 +1358,12 @@ kept aligned by the `LocaleResource` type:
 
 - `navigation.plan`;
 - `plans.*`: names for both OIDs, titles, interval labels, action labels,
-  confirmation text, scheduled-change text, the processing notice, the FOSS
-  bullet, the unknown-plan alert, the loading label, and "Try again";
+  confirmation text, scheduled-change text, the FOSS bullet, the unknown-plan
+  alert, the loading label, and "Try again";
 - `home.*`: the invitations, replacing `home.placeholder`;
 - `terms.*`;
 - `signup.terms`;
-- `errors.planNotOffered` and `errors.subscriptionPeriodEndPending`.
+- `errors.planNotOffered`.
 
 ## 10. Playwright
 
@@ -1721,27 +1648,26 @@ Add `playwright/lib/billing-periods.ts`, the test oracle for §2.1.
       - a scheduled change on a free plan;
       - a scheduled change equal to the current plan and interval.
     - After each case, `GET` shows the subscription unchanged.
-16. **Period end pending, tenant `ind1`.** This relies on the `ind1` fixture
-    (§7.1).
-    - **Guard, for every request below:**
-      - Immediately before it, `setHubSubscriptionPeriod` makes the period
-        already ended, using a first-of-month pair.
-      - Immediately after the response, and before asserting on it, check that
-        the user has no `renewed` or `scheduled-change-applied` event. If one
-        exists, fail with "ind1 subscription worker ran during the suite; the
-        §7.1 fixture precondition does not hold" rather than a bare status
-        mismatch.
-      - The test therefore cannot pass wrongly.
-    1. User 1: silver monthly with a scheduled cancellation. Choosing silver
-       monthly, which would clear the schedule, returns `409`
-       `hub-subscription-period-end-pending`.
-    2. User 1: choosing silver annual returns `200`, an immediate upgrade with
-       a new period starting now, clearing the due cancellation (deliberate,
-       §2.1).
-    3. User 2: silver monthly with no schedule.
-       - Choosing `hub-free-tier` returns `409`.
-       - Choosing silver monthly returns `200` unchanged, with no event.
-    4. After each `409`, `GET` is unchanged and no event is written.
+16. **A plan change applies a due period end first.** Tenant `sgp`.
+    - The worker may apply the due transition before the request arrives. The
+      assertions hold either way, so the test is deterministic. Unit tests
+      (§7.3) prove the `system`-actor path specifically.
+    1. User 1 is silver monthly with a scheduled cancellation. Move its period
+       into the past with a first-of-month pair, then immediately choose silver
+       annual.
+       - The response is `200`: silver annual, with a period starting after the
+         request began.
+       - There is exactly one `scheduled-change-applied` event. It has either
+         actor `worker` with source `workers`, or actor `system` with source
+         `hub-api` and the request's idempotency key.
+       - There is exactly one `upgraded` event with the request's key, whose
+         `before` plan is `hub-free-tier`.
+    2. User 2 is silver monthly with no schedule. Move its period into the
+       past, then immediately choose silver monthly.
+       - The response is `200`, with a period containing now.
+       - There is exactly one `renewed` event, from either actor as above.
+       - There is no `hub_user` event.
+    3. For both users, `GET` equals the response.
 
 Tests 9–11 and 13 depend on the `sgp` CI worker timer (`1s`, §7.1).
 
@@ -1796,34 +1722,6 @@ with `page.route("**/runtime-config.js", ...)`.
   and the scheduled change appears with its date.
 - **Keep this plan:** with a scheduled change, it sends the current plan and
   interval.
-- **Processing window:**
-  - A subscription whose `current_period_end` is in the past shows the
-    processing notice. "Switch at period end", "Cancel at period end", and
-    "Keep this plan" are disabled; "Upgrade" stays enabled.
-  - **Crossing the boundary:** with `page.clock.install()`, mock a subscription
-    ending 10 minutes ahead, then `page.clock.fastForward` past it. The notice
-    appears and the actions disable with no new API response.
-  - **Far boundaries:** mock subscriptions ending 400 days ahead (annual) and
-    30 days ahead (monthly).
-    - The page renders normally, and the scheduling actions are enabled.
-    - Advance in steps of at most 24 days. **Fact:** Playwright 1.62.1's clock
-      coerces a fast-forward duration through a signed 32-bit value, so a
-      single 25-day step overflows.
-    - After `page.clock.fastForward` of 20 days, then 5 days, then 1 day,
-      there is still no notice and the actions are still enabled.
-    - After fast-forwarding past the end, the notice appears.
-    - This checks the rendered behavior only. Playwright's fake clock
-      reproduces the browser's timer overflow, so it cannot tell a capped
-      timer from an uncapped one. The unit test of `nextBoundaryDelay` (§9.4)
-      proves the cap.
-  - **Click-time guard:** with the clock installed and a subscription ending 10
-    minutes ahead, `page.clock.setSystemTime` moves past the end without
-    running the boundary timer. Clicking "Cancel at period end" shows the
-    processing notice, and no `POST` is sent.
-  - **Refetch:** after the boundary, the page re-requests `my-subscription`.
-    Once the mock returns a renewed subscription, the notice clears.
-  - **Race:** a mocked `409` period-end-pending on an action taken just before
-    the boundary shows its translated message.
 - **Mutation errors:** a mocked `403` plan-not-offered shows its translated
   message, and a mocked `500` shows the generic one. Actions re-enable after
   both.
@@ -1885,23 +1783,20 @@ must show no undeclared status or problem type.
 **`docs/subscriptions-plans.md`:**
 
 - Replace "Designed, not implemented" with the implementation date.
-- Record the two **user direction** rules from §2.1 as settled decisions,
-  dated 2026-09-12: the anchor-day, clamped period rule with its examples, and
-  silver offered by all four production tenants.
+- Record the **user direction** rules from §2.1 as settled decisions:
+  - 2026-09-12: the anchor-day, clamped period rule with its examples;
+  - 2026-09-12: silver offered by all four production tenants;
+  - 2026-09-13: period end is applied by the worker, or first by set-plan in
+    its own transaction; `GET` computes it in memory; transitions written by
+    `hub-api` use the `system` actor.
 - Add a short "Implementation notes" section for the non-policy choices a
   future reader needs:
   - `_oid` naming;
   - subscription columns on `hub_users`;
-  - the worker as the only period-end writer, and the lag that follows
-    (normally one worker interval, longer under the §2.1 conditions);
-  - during that lag, the API's `409` refusal of scheduling or clearing, and
-    the portal disabling the same actions;
-  - the product owner's answer to the §12 prerequisite, recorded as a
-    settled decision: the `hub-subscription-period-end-pending` problem type,
-    the refusal to schedule after period end, and an upgrade clearing a due
-    cancellation;
-  - CI fixtures: `usa1` offers only the free plan, and `ind1`'s subscription
-    worker timer is `24h`;
+  - `billing.Advance` as the single statement of period-end rules;
+  - gated features read the committed plan, which can lag a due change until
+    the worker or a set-plan writes it (§6.4);
+  - CI fixture: `usa1` offers only the free plan;
   - literal portal variables with the consistency test;
   - portal behavior for unknown plans.
 - Keep every open question unchanged.
@@ -1916,22 +1811,6 @@ sentence links `subscriptions-plans.md`.
 ## 12. Implementation order
 
 Each step leaves the tree building.
-
-**Prerequisite, before step 1:** get the product owner's answer on the
-period-end-pending policy (§2.1). The question has three parts:
-
-- whether a request that would schedule a period-end change after the stored
-  period end is refused;
-- whether that refusal uses `409` `hub-subscription-period-end-pending`, with
-  the title and detail in §4.3;
-- whether an upgrade in that window may clear a due cancellation.
-
-Record the answer in `docs/subscriptions-plans.md` as a settled decision.
-
-If any part is rejected, first revise every place that depends on it: §2.1,
-§4.2, §4.3, §6.2, §7.2, §7.3, §9.4, §10.1 test 16, §10.2, §11, and §13.
-Refusing to clear a change after period end is requested by the design, and
-stays either way.
 
 1. **Contract (§4).** `make typespec-check`, then `make test-go`.
 2. **Schema and queries (§5).** `make sqlc`, then `make sql-check`. Read the
@@ -1959,14 +1838,16 @@ confirm:
   the named schema invariant and the seeded catalog. Ranks appear only in the
   contract.
 - **One upgrade rule:** `IsUpgrade`, used by both the backend and `hub-ui`.
-- **Period-end writer:** only the worker writes period-end transitions, and no
-  API advances or projects them.
+- **Period end:** `billing.Advance` is the only statement of the rules. The
+  worker and set-plan write transitions, and `GET` computes them in memory and
+  writes nothing.
 - **Audit:**
   - every subscription write appends its events in the same statement, and
     all three counts are checked, including distinct audited users;
   - replays and unchanged requests write nothing;
   - an audit failure rolls back the change (§10.1 tests 2 and 12);
-  - actors are only `anonymous` for creation, `hub_user`, and `worker`;
+  - actors are only `anonymous` for creation, `hub_user`, `worker`, and
+    `system` for transitions written by `hub-api`;
   - a catch-up after a scheduled change writes both events.
 - **Instants:** every instant is truncated to microseconds, so the response,
   the replay, and the later `GET` agree.
@@ -1982,9 +1863,8 @@ confirm:
     scheduled-plan constraint use explicit null-determined branches.
   - The ordering constraint relies on the presence constraint for paid rows.
   - §10.1 test 15 passes.
-- **Period end pending:** after the stored period end, scheduling and clearing
-  are refused with `409` in the API and disabled in the portal, while upgrades
-  proceed (§10.1 test 16).
+- **Due period end before a change:** set-plan applies it first, in the same
+  transaction, and never refuses a request for arriving late (§10.1 test 16).
 - **Test cleanup:** Playwright tests delete the subscription audit rows they
   created.
 - **No money from the browser:** no amount, price, or currency reaches the
