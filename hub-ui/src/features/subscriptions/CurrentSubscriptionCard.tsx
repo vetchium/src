@@ -1,5 +1,6 @@
 import { Alert, Card, Descriptions } from "antd";
 import { useTranslation } from "react-i18next";
+import { FreeTier } from "typespec/hub/subscriptions/plans";
 import type { HubSubscription } from "typespec/hub/subscriptions/subscriptions";
 import { planLabel } from "./labels";
 
@@ -12,6 +13,13 @@ export function CurrentSubscriptionCard({
 }) {
   const { t } = useTranslation();
   const dateFormatter = new Intl.DateTimeFormat(locale, { dateStyle: "long" });
+
+  if (
+    subscription.plan_oid === FreeTier &&
+    subscription.scheduled_change === undefined
+  ) {
+    return null;
+  }
 
   const items = [
     {

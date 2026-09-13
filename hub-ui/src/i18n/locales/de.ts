@@ -258,8 +258,35 @@ export const de = {
     documentTitle: "Tarife | Vetchium",
     title: "Tarife",
     description:
-      "Wählen Sie den Tarif, der zu Ihnen passt. Sie können ihn jederzeit ändern.",
+      "Wählen Sie den Tarif, der zu Ihrer Art passt, Inhalte zu teilen und Kontakte zu knüpfen. Sie können ihn jederzeit ändern.",
     loadingLabel: "Ihr Abonnement wird geladen",
+    billingIntervalLabel: "Abrechnungsintervall",
+    annualSaving: "1 Monat sparen",
+    pricingNote:
+      "Die Preise enthalten Steuern. Zahlungen werden derzeit simuliert, Ihnen wird also nichts berechnet.",
+    recommended: "Empfohlen",
+    planCardLabel: "Tarif {{plan}}",
+    currentBadge: "Aktuell",
+    freePrice: "Kostenlos",
+    freePriceCaption: "für immer",
+    pricePeriod: {
+      month: "pro Monat",
+      year: "pro Jahr",
+    },
+    descriptions: {
+      free: "Das Wesentliche für Ihre professionelle Präsenz.",
+      silver:
+        "Mehr Möglichkeiten, sich auszudrücken und Ihr Profil zu personalisieren.",
+    },
+    featuresTitle: "Enthaltene Leistungen",
+    features: {
+      professionalProfile: "Professionelles Profil erstellen",
+      standardPosts: "Standardbeiträge veröffentlichen",
+      professionalNetwork: "Professionelles Netzwerk erweitern",
+      everythingInFree: "Alles aus Kostenlos",
+      longPosts: "Lange Beiträge",
+      profilePictures: "Unterstützung für Profilbilder",
+    },
     currentTitle: "Aktueller Tarif",
     currentPlan: "Tarif",
     currentInterval: "Abrechnungsintervall",
@@ -277,6 +304,7 @@ export const de = {
       "Dies wird am {{date}}, zum Ende des aktuellen Zeitraums, wirksam.",
     confirmDescriptionNoDate:
       "Dies wird zum Ende des aktuellen Zeitraums wirksam.",
+    confirmBack: "Zurück",
     interval: {
       month: "Monatlich",
       year: "Jährlich",
@@ -291,7 +319,7 @@ export const de = {
       upgrade: "Upgrade",
       switchToAnnual: "Zu jährlich wechseln",
       switchAtPeriodEnd: "Zum Zeitraumende wechseln",
-      cancel: "Zum Zeitraumende kündigen",
+      switchToFree: "Zum kostenlosen Tarif wechseln",
     },
   },
   terms: {

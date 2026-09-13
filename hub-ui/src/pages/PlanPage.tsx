@@ -1,4 +1,4 @@
-import { Button, Skeleton, Space, Typography } from "antd";
+import { Button, Flex, Skeleton, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { usePreferences } from "../app/PreferencesContext";
 import { configuredPlans, configuredTenantID } from "../app/runtime-config";
@@ -16,12 +16,12 @@ export function PlanPage() {
   return (
     <Space orientation="vertical" size="large" className="full-width">
       <title>{t("plans.documentTitle")}</title>
-      <div>
+      <Flex vertical align="center" gap="small" style={{ textAlign: "center" }}>
         <Typography.Title level={1}>{t("plans.title")}</Typography.Title>
         <Typography.Text type="secondary">
           {t("plans.description")}
         </Typography.Text>
-      </div>
+      </Flex>
       {subscription.isPending ? (
         <div role="status" aria-label={t("plans.loadingLabel")}>
           <Skeleton active />
@@ -35,14 +35,14 @@ export function PlanPage() {
         </Space>
       ) : (
         <>
-          <CurrentSubscriptionCard
-            subscription={subscription.data}
-            locale={preferences.language}
-          />
           <PlanOptions
             subscription={subscription.data}
             tenantID={tenantID}
             configuredPlans={configuredPlans()}
+            locale={preferences.language}
+          />
+          <CurrentSubscriptionCard
+            subscription={subscription.data}
             locale={preferences.language}
           />
         </>

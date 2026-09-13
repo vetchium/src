@@ -246,8 +246,35 @@ export const en = {
   plans: {
     documentTitle: "Plans | Vetchium",
     title: "Plans",
-    description: "Choose the plan that fits you. You can change it any time.",
+    description:
+      "Choose the plan that fits how you share and connect. Change it any time.",
     loadingLabel: "Loading your subscription",
+    billingIntervalLabel: "Billing interval",
+    annualSaving: "Save 1 month",
+    pricingNote:
+      "Prices include tax. Payments are currently simulated, so you will not be charged.",
+    recommended: "Recommended",
+    planCardLabel: "{{plan}} plan",
+    currentBadge: "Current",
+    freePrice: "Free",
+    freePriceCaption: "forever",
+    pricePeriod: {
+      month: "per month",
+      year: "per year",
+    },
+    descriptions: {
+      free: "The essentials for building your professional presence.",
+      silver: "More ways to express yourself and personalize your profile.",
+    },
+    featuresTitle: "What's included",
+    features: {
+      professionalProfile: "Build your professional profile",
+      standardPosts: "Share standard posts",
+      professionalNetwork: "Grow your professional network",
+      everythingInFree: "Everything in Free",
+      longPosts: "Long posts",
+      profilePictures: "Profile picture support",
+    },
     currentTitle: "Current plan",
     currentPlan: "Plan",
     currentInterval: "Billing interval",
@@ -265,6 +292,7 @@ export const en = {
       "This takes effect on {{date}}, at the end of the current period.",
     confirmDescriptionNoDate:
       "This takes effect at the end of the current period.",
+    confirmBack: "Go back",
     interval: {
       month: "Monthly",
       year: "Annual",
@@ -279,7 +307,7 @@ export const en = {
       upgrade: "Upgrade",
       switchToAnnual: "Switch to annual",
       switchAtPeriodEnd: "Switch at period end",
-      cancel: "Cancel at period end",
+      switchToFree: "Switch to Free",
     },
   },
   terms: {

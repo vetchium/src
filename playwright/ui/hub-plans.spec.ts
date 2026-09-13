@@ -226,8 +226,15 @@ test("the plan page on sgp shows both plans with translated names and prices", a
     style: "currency",
     currency: "SGD",
   }).format(110);
-  await expect(page.getByText(monthly, { exact: false })).toBeVisible();
-  await expect(page.getByText(annual, { exact: false })).toBeVisible();
+  const silverPlan = page.getByRole("region", { name: "Silver plan" });
+  await expect(silverPlan.getByText(monthly, { exact: false })).toBeVisible();
+  await expect(silverPlan.getByText(annual, { exact: false })).toHaveCount(0);
+  await expect(
+    silverPlan.getByText("Long posts", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    silverPlan.getByText("Profile picture support", { exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByText(
       "The paid plans will support the development of the Vetchium FOSS project.",
@@ -236,6 +243,23 @@ test("the plan page on sgp shows both plans with translated names and prices", a
   await expect(
     page.getByRole("button", { name: "Current plan" }),
   ).toBeVisible();
+
+  await page.getByText("Annual", { exact: true }).click();
+  await expect(silverPlan.getByText(annual, { exact: false })).toBeVisible();
+  await expect(silverPlan.getByText(monthly, { exact: false })).toHaveCount(0);
+});
+
+test("the plan comparison fits a narrow viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await provideMySubscription(page);
+  await gotoPlanPage(page);
+  await expect(page.getByRole("region", { name: "Free plan" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Silver plan" })).toBeVisible();
+  const viewport = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(viewport.scrollWidth).toBeLessThanOrEqual(viewport.clientWidth);
 });
 
 for (const [tenant, currency, monthly, annual] of [
@@ -257,8 +281,14 @@ for (const [tenant, currency, monthly, annual] of [
       style: "currency",
       currency,
     }).format(annual);
-    await expect(page.getByText(monthlyText, { exact: false })).toBeVisible();
-    await expect(page.getByText(annualText, { exact: false })).toBeVisible();
+    const silverPlan = page.getByRole("region", { name: "Silver plan" });
+    await expect(
+      silverPlan.getByText(monthlyText, { exact: false }),
+    ).toBeVisible();
+    await page.getByText("Annual", { exact: true }).click();
+    await expect(
+      silverPlan.getByText(annualText, { exact: false }),
+    ).toBeVisible();
     expect(annual).toBe(monthly * 11);
   });
 }
@@ -305,20 +335,21 @@ test("an upgrade sends an idempotency key and the expected body", async ({
       contentType: "application/json",
       body: JSON.stringify({
         plan_oid: "hub-silver-tier",
-        billing_interval: "month",
+        billing_interval: "year",
         current_period_start: new Date().toISOString(),
         current_period_end: new Date(
-          Date.now() + 30 * 86_400_000,
+          Date.now() + 365 * 86_400_000,
         ).toISOString(),
         cancel_at_period_end: false,
       }),
     });
   });
-  await page.getByRole("button", { name: "Upgrade" }).first().click();
+  await page.getByText("Annual", { exact: true }).click();
+  await page.getByRole("button", { name: "Upgrade" }).click();
   await expect.poll(() => received !== undefined).toBe(true);
   expect(received?.body).toEqual({
     plan_oid: "hub-silver-tier",
-    billing_interval: "month",
+    billing_interval: "year",
   });
   expect(received?.headers["idempotency-key"]).toBeTruthy();
   await expect(page.getByRole("row", { name: "Plan : Silver" })).toBeVisible();
@@ -353,16 +384,19 @@ test("a downgrade confirms before sending and shows the scheduled change", async
     });
   });
 
-  await page.getByRole("button", { name: "Cancel at period end" }).click();
+  const switchToFree = page
+    .getByRole("region", { name: "Free plan" })
+    .getByRole("button", { name: "Switch to Free" });
+  await switchToFree.click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await dialog.getByRole("button", { name: "Go back" }).click();
   expect(requestCount).toBe(0);
 
-  await page.getByRole("button", { name: "Cancel at period end" }).click();
+  await switchToFree.click();
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Confirm" })
+    .getByRole("button", { name: "Switch to Free" })
     .click();
   await expect.poll(() => requestCount).toBe(1);
   const expectedDate = new Intl.DateTimeFormat("en-US", {

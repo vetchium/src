@@ -198,9 +198,11 @@ runtime configuration and code.
 ## Hub portal
 
 - A plan page for signed-in users shows the offered plans with translated
-  names, monthly and annual prices, and the current subscription with any
-  scheduled change. Paid plans carry the highlighted bullet "The paid plans
-  will support the development of the Vetchium FOSS project."
+  names, a monthly or annual billing switch, prices, a feature comparison, and
+  the current subscription with any scheduled change. The initial paid plan
+  calls out long posts and profile picture support, and carries the highlighted
+  bullet "The paid plans will support the development of the Vetchium FOSS
+  project."
 - After sign-in, the home page invites the user to choose a plan and fill in
   basic profile information, and asks them to consider a paid plan.
 - Terms and Conditions is one public `/terms` page, the same for every tenant.
