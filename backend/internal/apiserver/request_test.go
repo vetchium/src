@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
 	problemspec "github.com/vetchium/src/typespec/problem"
 )
 
@@ -76,6 +77,20 @@ func TestDecodeJSON(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+
+// A field implementing json.Unmarshaler, such as OptionalBillingInterval,
+// must not make DecodeJSON's strict decoder blind to an unrelated unknown
+// member elsewhere in the same request.
+func TestDecodeJSONRejectsUnknownFieldsBesideACustomUnmarshaler(t *testing.T) {
+	body := `{"plan_oid":"hub-silver-tier","billing_interval":"month","extra":true}`
+	request := httptest.NewRequest("POST", "/", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	var destination subscriptionspec.SetSubscriptionPlanRequest
+	err := DecodeJSON(request, &destination)
+	if err == nil || !strings.Contains(err.Error(), `unknown field "extra"`) {
+		t.Fatalf("DecodeJSON() error = %v, want an unknown field error", err)
 	}
 }
 

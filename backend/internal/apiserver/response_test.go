@@ -11,7 +11,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
 	problemspec "github.com/vetchium/src/typespec/problem"
+	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 )
 
 func TestInternalError(t *testing.T) {
@@ -336,6 +338,42 @@ func TestValidationFailedLogsEncodingFailure(t *testing.T) {
 	)
 	if !bytes.Contains(logs.Bytes(), []byte("encode problem response")) {
 		t.Fatalf("log = %q", logs.String())
+	}
+}
+
+// A problem struct embedding Details, such as PlanRequiredDetails, must be
+// encoded whole: the promoted ProblemDetails() only supplies status, type,
+// and fields for logging, not the wire body.
+func TestProblemEncodesExtensionMembers(t *testing.T) {
+	var logs bytes.Buffer
+	runtime := New(nil, slog.New(slog.NewJSONHandler(&logs, nil)))
+	recorder := httptest.NewRecorder()
+	details := hubproblem.PlanRequiredError(subscriptionspec.SilverTier)
+
+	runtime.Problem(context.Background(), recorder, details)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", recorder.Code)
+	}
+	if got := recorder.Header().Get("Content-Type"); got != problemspec.MediaType {
+		t.Fatalf("Content-Type = %q, want %q", got, problemspec.MediaType)
+	}
+	var decoded map[string]any
+	if err := json.NewDecoder(recorder.Body).Decode(&decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded["required_plan_oid"] != "hub-silver-tier" {
+		t.Fatalf("body = %v, missing required_plan_oid", decoded)
+	}
+	if decoded["type"] != details.Type {
+		t.Fatalf("body = %v", decoded)
+	}
+	var logLine map[string]any
+	if err := json.Unmarshal(logs.Bytes(), &logLine); err != nil {
+		t.Fatal(err)
+	}
+	if logLine["problem_type"] != details.Type {
+		t.Fatalf("log = %v, want problem_type %q", logLine, details.Type)
 	}
 }
 

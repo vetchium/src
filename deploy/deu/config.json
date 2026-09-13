@@ -16,7 +16,8 @@
     "pruneEphemeralDataTimer": "5m",
     "deliverHubEmailTimer": "5s",
     "hubEmailLeaseTTL": "1m",
-    "hubEmailMaxAttempts": 5
+    "hubEmailMaxAttempts": 5,
+    "advanceHubSubscriptionsTimer": "1m"
   },
   "adminAPIServer": {
     "sessionTTL": "24h"
@@ -34,7 +35,8 @@
   "hubAPIServer": {
     "sessionTTL": "24h",
     "rememberedSessionTTL": "6360h",
-    "publicBaseURL": "https://hub.deu.vetchium.com"
+    "publicBaseURL": "https://hub.deu.vetchium.com",
+    "offeredPlans": ["hub-free-tier", "hub-silver-tier"]
   },
   "smtp": {
     "host": "smtp.vetchium.com",

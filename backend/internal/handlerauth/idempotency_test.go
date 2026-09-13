@@ -16,7 +16,8 @@ func TestFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got == nil || got.Details.Type != problem.InvalidJSONError.Type ||
+	if got == nil ||
+		got.Details.ProblemDetails().Type != problem.InvalidJSONError.Type ||
 		got.WWWAuthenticate != "" {
 		encoded, _ := json.Marshal(got)
 		t.Fatalf("problem = %s", encoded)
@@ -35,7 +36,8 @@ func TestAuthenticationFailureCarriesTheChallenge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got == nil || got.Details.Type != unauthenticated.Type ||
+	if got == nil ||
+		got.Details.ProblemDetails().Type != unauthenticated.Type ||
 		got.WWWAuthenticate != `Bearer realm="test"` {
 		encoded, _ := json.Marshal(got)
 		t.Fatalf("problem = %s", encoded)

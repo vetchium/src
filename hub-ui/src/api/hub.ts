@@ -26,6 +26,10 @@ import type {
 } from "typespec/hub/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";
 import type {
+  HubSubscription,
+  SetSubscriptionPlanRequest,
+} from "typespec/hub/subscriptions/subscriptions";
+import type {
   MyInfoResponse,
   SetPreferredJobCountriesRequest,
   SetPreferredLanguageRequest,
@@ -98,6 +102,15 @@ export const hubAPI = {
     apiRequest<void>(`${base}/set-preferred-language`, { body }),
   setResidentCountry: (body: SetResidentCountryRequest) =>
     apiRequest<void>(`${base}/set-resident-country`, { body }),
+  mySubscription: () => apiRequest<HubSubscription>(`${base}/my-subscription`),
+  setSubscriptionPlan: (
+    body: SetSubscriptionPlanRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<HubSubscription>(`${base}/set-subscription-plan`, {
+      body,
+      idempotencyKey,
+    }),
   startTOTPEnrollment: (idempotencyKey: IdempotencyKey) =>
     apiRequest<StartTOTPEnrollmentResponse>(`${base}/start-totp-enrollment`, {
       method: "POST",

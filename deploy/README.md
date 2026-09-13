@@ -68,6 +68,26 @@ they disagree, because discovery would otherwise send visitors to a region that
 then refuses them. Changing either one means rolling the catalog and the
 region's config together.
 
+`hubAPIServer.offeredPlans` in each tenant's `config.json` must agree with
+`VETCHIUM_HUB_PLANS` for that tenant's `hub-ui` service in `stack.json`, and
+`tenantId` must agree with `VETCHIUM_TENANT_ID`. Nothing compares them at
+container startup, because `hub-ui` is a static nginx container; a
+repository test, `TestCheckedInHubPlansMatchPortalConfiguration` in
+`backend/internal/appconfig`, compares every checked-in environment instead.
+When the two disagree, either the portal offers a plan the backend refuses
+(shown to the visitor as a translated error when they choose it), or the
+portal hides a plan the backend would otherwise accept. Simulated payments
+are enabled in every environment, production included, so anyone who can
+sign up in production can take a paid plan without paying; there is no
+setting to disable simulation until a payment processor is integrated.
+Adding a plan means migrating the database first, then deploying `hub-api`
+and `workers` from the same release, and release `hub-ui` before listing the
+plan in `VETCHIUM_HUB_PLANS`: a database with a plan a running binary does not
+recognize causes that plan's rows to be skipped by the worker and rejected by
+`StateFromStored` until the new binaries are live, and `runtime-config.sh`
+hard-codes the plan list, so listing a new plan before releasing the image
+stops `hub-ui` from starting.
+
 For an existing stack, migrations run before `docker stack deploy`. A failed
 migration leaves the running stack untouched. On the first deployment, the
 database must be started first. Its image initializes the empty data volume,

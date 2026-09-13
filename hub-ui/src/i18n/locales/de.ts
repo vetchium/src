@@ -17,6 +17,7 @@ export const de = {
     home: "Startseite",
     profile: "Mein Profil",
     security: "Sicherheit",
+    plan: "Tarif",
   },
   theme: {
     toggleLabel: "Zwischen hellem und dunklem Modus wechseln",
@@ -87,6 +88,7 @@ export const de = {
       "Prüfen Sie Ihren Posteingang. Wenn die Adresse berechtigt ist, wird der Registrierungslink gesendet.",
     haveAccount: "Sie haben bereits ein Konto?",
     signin: "Anmelden",
+    terms: "Allgemeine Geschäftsbedingungen",
   },
   completeSignup: {
     documentTitle: "Registrierung abschließen | Vetchium",
@@ -163,6 +165,7 @@ export const de = {
     invalidEnrollment: "Diese Einrichtung ist abgelaufen. Beginnen Sie erneut.",
     regionDiscoveryUnavailable:
       "Regionen konnten gerade nicht geladen werden. Versuchen Sie es erneut.",
+    planNotOffered: "Dieser Tarif ist für Ihr Konto nicht verfügbar.",
   },
   profile: {
     jobCountries: "Bevorzugte Arbeitsländer",
@@ -239,6 +242,65 @@ export const de = {
   },
   home: {
     documentTitle: "Startseite | Vetchium",
-    placeholder: "Vetchium-Startseite",
+    title: "Willkommen zurück",
+    planInvitationTitle: "Tarif wählen",
+    planInvitationBody:
+      "Wählen Sie den Tarif, der zu Ihnen passt. Sie können ihn jederzeit ändern.",
+    planInvitationAction: "Tarife ansehen",
+    considerPaidPlan:
+      "Erwägen Sie einen kostenpflichtigen Tarif, um mehr von Vetchium zu nutzen.",
+    profileInvitationTitle: "Profil vervollständigen",
+    profileInvitationBody:
+      "Geben Sie Ihre grundlegenden Profildaten ein, damit Möglichkeiten Sie finden können.",
+    profileInvitationAction: "Zu meinem Profil",
+  },
+  plans: {
+    documentTitle: "Tarife | Vetchium",
+    title: "Tarife",
+    description:
+      "Wählen Sie den Tarif, der zu Ihnen passt. Sie können ihn jederzeit ändern.",
+    loadingLabel: "Ihr Abonnement wird geladen",
+    currentTitle: "Aktueller Tarif",
+    currentPlan: "Tarif",
+    currentInterval: "Abrechnungsintervall",
+    currentPeriod: "Aktueller Zeitraum",
+    periodRange: "{{start}} – {{end}}",
+    scheduledChange: "Wechselt am {{date}} zu {{plan}} ({{interval}}).",
+    scheduledCancellation: "Endet am {{date}}, zum Ende des Zeitraums.",
+    fossBullet:
+      "Die kostenpflichtigen Tarife unterstützen die Entwicklung des Vetchium-FOSS-Projekts.",
+    unknownPlanTitle: "Dieser Tarif kann hier nicht geändert werden",
+    unknownPlanDescription:
+      "Ihr Abonnement verwendet einen Tarif ({{plan}}), den diese Version des Portals nicht kennt. Aktualisieren Sie die App, um den Tarif zu ändern.",
+    confirmTitle: "Änderung bestätigen",
+    confirmDescription:
+      "Dies wird am {{date}}, zum Ende des aktuellen Zeitraums, wirksam.",
+    confirmDescriptionNoDate:
+      "Dies wird zum Ende des aktuellen Zeitraums wirksam.",
+    interval: {
+      month: "Monatlich",
+      year: "Jährlich",
+    },
+    names: {
+      "hub-free-tier": "Kostenlos",
+      "hub-silver-tier": "Silber",
+    },
+    actions: {
+      current: "Aktueller Tarif",
+      keep: "Diesen Tarif behalten",
+      upgrade: "Upgrade",
+      switchToAnnual: "Zu jährlich wechseln",
+      switchAtPeriodEnd: "Zum Zeitraumende wechseln",
+      cancel: "Zum Zeitraumende kündigen",
+    },
+  },
+  terms: {
+    documentTitle: "Allgemeine Geschäftsbedingungen | Vetchium",
+    title: "Allgemeine Geschäftsbedingungen",
+    general:
+      "Diese Bedingungen beschreiben, wie Vetchium seine Plattform bereitstellt. Die vollständigen rechtlichen Bedingungen werden veröffentlicht, bevor Vetchium allgemein verfügbar ist.",
+    paymentsTitle: "Zahlungen",
+    paymentsBody:
+      "Vetchium-Tarife werden noch nicht abgerechnet. Sobald Zahlungen aktiviert sind, werden hier Zahlungsbedingungen zu Preisen, Abrechnungszeiträumen, Erstattungen und Kündigungen veröffentlicht, bevor eine Zahlung erfolgt.",
   },
 } as const satisfies LocaleResource;

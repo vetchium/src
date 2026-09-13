@@ -65,6 +65,12 @@ backends and portals consume.
   names, casing, optionality, or status from a handler or a UI.
 - Problem type identifiers, titles, statuses, and field shapes are stable.
   Changing one is an API compatibility change.
+- A problem with extension members beyond the base `Details` fields is a
+  TypeSpec model listing them; in Go, a struct embedding `problem.Details`;
+  in TypeScript, an interface extending `Details`. It is written through
+  `Runtime.Problem` or `Runtime.AuthenticationProblem`, whose Go signatures
+  take `problem.Body` so the whole struct is encoded, not just the promoted
+  base fields.
 - Test normalization on a copy and verify the original's shared storage is
   unchanged. Test every validation rule, including combinations of invalid
   fields.

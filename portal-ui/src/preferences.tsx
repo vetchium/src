@@ -3,26 +3,19 @@ import type { PropsWithChildren } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { PortalLocaleConfiguration } from "./localization";
 import { matchFrontendLocale } from "./localization";
+import { runtimeConfigValue } from "./runtime-config";
 
 export type ThemeMode = "light" | "dark";
 
 const languageStorageKey = "vetchium.language";
 const themeStorageKey = "vetchium.theme";
 
-interface RuntimeConfig {
-  defaultLanguage?: unknown;
-}
-
 function runtimeDefaultLanguage<Locale extends string>(
   localization: PortalLocaleConfiguration<Locale>,
 ): Locale {
-  const config = (
-    globalThis as typeof globalThis & {
-      __VETCHIUM_CONFIG__?: RuntimeConfig;
-    }
-  ).__VETCHIUM_CONFIG__;
-  return localization.isSupportedLocale(config?.defaultLanguage)
-    ? config.defaultLanguage
+  const defaultLanguage = runtimeConfigValue("defaultLanguage");
+  return localization.isSupportedLocale(defaultLanguage)
+    ? defaultLanguage
     : localization.fallbackLocale;
 }
 

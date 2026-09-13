@@ -10,10 +10,13 @@ import (
 
 // Problem writes one RFC 9457 response for a rejection that carries no
 // authentication challenge. A 401 belongs in AuthenticationProblem instead.
+// body may be bare Details or a struct embedding it with extension members;
+// the whole body is encoded, while status, type, and fields for logging come
+// from ProblemDetails().
 func (s *Runtime) Problem(
-	ctx context.Context, w http.ResponseWriter, details problemspec.Details,
+	ctx context.Context, w http.ResponseWriter, body problemspec.Body,
 ) {
-	s.problem(ctx, w, details, "")
+	s.problem(ctx, w, body, "")
 }
 
 // AuthenticationProblem writes a 401 together with the WWW-Authenticate
@@ -21,16 +24,17 @@ func (s *Runtime) Problem(
 // the Go counterpart of the AuthenticationResponse alias in the TypeSpec
 // contract, which declares the same header.
 func (s *Runtime) AuthenticationProblem(
-	ctx context.Context, w http.ResponseWriter, details problemspec.Details,
+	ctx context.Context, w http.ResponseWriter, body problemspec.Body,
 	challenge string,
 ) {
-	s.problem(ctx, w, details, challenge)
+	s.problem(ctx, w, body, challenge)
 }
 
 func (s *Runtime) problem(
 	ctx context.Context, w http.ResponseWriter,
-	details problemspec.Details, challenge string,
+	body problemspec.Body, challenge string,
 ) {
+	details := body.ProblemDetails()
 	if details.Status == http.StatusUnauthorized && challenge == "" {
 		s.ErrorContext(
 			ctx, "401 without an authentication challenge",
@@ -59,7 +63,7 @@ func (s *Runtime) problem(
 		w.Header().Set("WWW-Authenticate", challenge)
 	}
 	w.WriteHeader(details.Status)
-	if err := json.NewEncoder(w).Encode(details); err != nil {
+	if err := json.NewEncoder(w).Encode(body); err != nil {
 		s.ErrorContext(
 			ctx, "encode problem response",
 			"event", "response_encode_error",

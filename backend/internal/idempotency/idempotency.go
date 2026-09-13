@@ -28,7 +28,7 @@ type Cipher struct {
 
 // APIProblem describes an expected problem returned by mutation work.
 type APIProblem struct {
-	Details         problem.Details
+	Details         problem.Body
 	WWWAuthenticate string
 }
 
@@ -147,14 +147,7 @@ func Run[T any](
 	}
 	if apiError != nil {
 		_ = tx.Rollback(r.Context())
-		if apiError.WWWAuthenticate != "" {
-			s.AuthenticationProblem(
-				r.Context(), w, apiError.Details,
-				apiError.WWWAuthenticate,
-			)
-		} else {
-			s.Problem(r.Context(), w, apiError.Details)
-		}
+		writeAPIProblem(s, w, r, apiError)
 		return
 	}
 	responseJSON, err := json.Marshal(result.Body)
@@ -185,6 +178,22 @@ func Run[T any](
 		return
 	}
 	writeResponse(s, w, r, result.Status, result.Body)
+}
+
+// writeAPIProblem writes apiError.Details whole, extension members included,
+// since apiError.Details may be a struct embedding problem.Details rather
+// than a bare problem.Details value.
+func writeAPIProblem(
+	s *apiserver.Runtime, w http.ResponseWriter, r *http.Request,
+	apiError *APIProblem,
+) {
+	if apiError.WWWAuthenticate != "" {
+		s.AuthenticationProblem(
+			r.Context(), w, apiError.Details, apiError.WWWAuthenticate,
+		)
+		return
+	}
+	s.Problem(r.Context(), w, apiError.Details)
 }
 
 func writeResponse[T any](

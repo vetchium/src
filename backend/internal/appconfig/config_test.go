@@ -1,12 +1,16 @@
 package appconfig
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
 )
 
 func TestLoadFile(t *testing.T) {
@@ -41,6 +45,17 @@ func TestLoadFile(t *testing.T) {
 		cfg.HubAPIServer.RememberedSessionTTL != 6360*time.Hour ||
 		cfg.HubAPIServer.PublicBaseURL != "http://hub-ui.sgp.localhost" {
 		t.Fatalf("hub API config = %+v", cfg.HubAPIServer)
+	}
+	if !slices.Equal(cfg.HubAPIServer.OfferedPlans, []subscriptionspec.Plan{
+		subscriptionspec.FreeTier, subscriptionspec.SilverTier,
+	}) {
+		t.Fatalf("offered plans = %v", cfg.HubAPIServer.OfferedPlans)
+	}
+	if cfg.Workers.AdvanceHubSubscriptionsTimer != time.Minute {
+		t.Fatalf(
+			"advance hub subscriptions timer = %s, want 1m",
+			cfg.Workers.AdvanceHubSubscriptionsTimer,
+		)
 	}
 	if cfg.SMTP.Host != "mailpit" || cfg.SMTP.Port != 1025 ||
 		cfg.SMTP.StartTLS != StartTLSDisabled {
@@ -267,7 +282,8 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "pruneEphemeralDataTimer": "1h",
     "deliverHubEmailTimer": "1s",
     "hubEmailLeaseTTL": "1m",
-    "hubEmailMaxAttempts": 5
+    "hubEmailMaxAttempts": 5,
+    "advanceHubSubscriptionsTimer": "1m"
   },
   "adminAPIServer": {
     "sessionTTL": "24h"
@@ -285,7 +301,8 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
   "hubAPIServer": {
     "sessionTTL": "24h",
     "rememberedSessionTTL": "6360h",
-    "publicBaseURL": "http://hub-ui.sgp.localhost"
+    "publicBaseURL": "http://hub-ui.sgp.localhost",
+    "offeredPlans": ["hub-free-tier", "hub-silver-tier"]
   },
   "smtp": {
     "host": "mailpit",
@@ -309,6 +326,105 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
 		err.Error(), "workers.retryBackoffLimit must be positive",
 	) {
 		t.Fatalf("LoadFile() error = %v, want positive retry backoff error", err)
+	}
+}
+
+func TestLoadFileRequiresPositiveAdvanceHubSubscriptionsTimer(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	path := writeConfig(t, passwordFile, "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(
+		string(contents),
+		`"advanceHubSubscriptionsTimer": "1m"`,
+		`"advanceHubSubscriptionsTimer": "0s"`,
+		1,
+	))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = LoadFile(path)
+	if err == nil || !strings.Contains(
+		err.Error(), "workers.advanceHubSubscriptionsTimer must be positive",
+	) {
+		t.Fatalf("LoadFile() error = %v, want positive timer error", err)
+	}
+}
+
+func TestLoadFileRejectsOfferedPlansRules(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	for _, test := range []struct {
+		name        string
+		replacement string
+		wantError   string
+	}{
+		{
+			"empty", `"offeredPlans": []`,
+			"hubAPIServer.offeredPlans must not be empty",
+		},
+		{
+			"unknown plan", `"offeredPlans": ["hub-free-tier", "hub-gold-tier"]`,
+			"unknown plan",
+		},
+		{
+			"duplicate",
+			`"offeredPlans": ["hub-free-tier", "hub-free-tier"]`,
+			"duplicate plan",
+		},
+		{
+			"missing free tier", `"offeredPlans": ["hub-silver-tier"]`,
+			"must include",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := writeConfig(t, passwordFile, "")
+			contents, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			contents = []byte(strings.Replace(
+				string(contents),
+				`"offeredPlans": ["hub-free-tier", "hub-silver-tier"]`,
+				test.replacement, 1,
+			))
+			if err := os.WriteFile(path, contents, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, err = LoadFile(path)
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf(
+					"LoadFile() error = %v, want error containing %q",
+					err, test.wantError,
+				)
+			}
+		})
+	}
+}
+
+func TestLoadFileRejectsMissingOfferedPlans(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	path := writeConfig(t, passwordFile, "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(
+		string(contents),
+		`,
+    "offeredPlans": ["hub-free-tier", "hub-silver-tier"]`,
+		"", 1,
+	))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LoadFile(path)
+	if err == nil || !strings.Contains(
+		err.Error(), "hubAPIServer.offeredPlans must not be empty",
+	) {
+		t.Fatalf("LoadFile() error = %v, want empty offeredPlans error", err)
 	}
 }
 
@@ -348,6 +464,100 @@ func TestCheckedInConfigs(t *testing.T) {
 	}
 }
 
+// TestCheckedInHubPlansMatchPortalConfiguration compares each tenant's
+// backend offeredPlans and tenantId with the literal hub-ui portal
+// environment values in the matching compose or stack file. Nothing can
+// compare them at process startup because hub-ui is a static nginx
+// container, so this repository test is what catches drift before
+// deployment.
+func TestCheckedInHubPlansMatchPortalConfiguration(t *testing.T) {
+	root := filepath.Join("..", "..", "..")
+	for _, region := range []string{"deu", "ind1", "sgp", "usa1"} {
+		for _, test := range []struct {
+			name        string
+			configPath  string
+			composePath string
+			serviceName string
+		}{
+			{
+				"dev", filepath.Join(root, "config", region+".json"),
+				filepath.Join(root, "docker-compose.json"),
+				"hub-ui-" + region,
+			},
+			{
+				"ci", filepath.Join(root, "config", "ci", region+".json"),
+				filepath.Join(root, "docker-compose-ci.json"),
+				"hub-ui-" + region,
+			},
+			{
+				"production",
+				filepath.Join(root, "deploy", region, "config.json"),
+				filepath.Join(root, "deploy", region, "stack.json"),
+				"hub-ui",
+			},
+		} {
+			t.Run(region+"/"+test.name, func(t *testing.T) {
+				cfg, err := LoadFile(test.configPath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				tenantID, plans := hubUIPortalEnvironment(
+					t, test.composePath, test.serviceName,
+				)
+				if tenantID != cfg.TenantID {
+					t.Fatalf(
+						"%s VETCHIUM_TENANT_ID = %q, want %q (tenantId)",
+						test.composePath, tenantID, cfg.TenantID,
+					)
+				}
+				wantPlans := make([]string, len(cfg.HubAPIServer.OfferedPlans))
+				for i, plan := range cfg.HubAPIServer.OfferedPlans {
+					wantPlans[i] = string(plan)
+				}
+				slices.Sort(wantPlans)
+				slices.Sort(plans)
+				if !slices.Equal(plans, wantPlans) {
+					t.Fatalf(
+						"%s VETCHIUM_HUB_PLANS = %v, want %v (offeredPlans)",
+						test.composePath, plans, wantPlans,
+					)
+				}
+			})
+		}
+	}
+}
+
+func hubUIPortalEnvironment(
+	t *testing.T, composePath, serviceName string,
+) (string, []string) {
+	t.Helper()
+	contents, err := os.ReadFile(composePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var compose struct {
+		Services map[string]struct {
+			Environment map[string]string `json:"environment"`
+		} `json:"services"`
+	}
+	if err := json.Unmarshal(contents, &compose); err != nil {
+		t.Fatal(err)
+	}
+	service, ok := compose.Services[serviceName]
+	if !ok {
+		t.Fatalf("%s: service %q not found", composePath, serviceName)
+	}
+	tenantID := service.Environment["VETCHIUM_TENANT_ID"]
+	hubPlans := service.Environment["VETCHIUM_HUB_PLANS"]
+	if tenantID == "" || hubPlans == "" {
+		t.Fatalf(
+			"%s: service %q is missing VETCHIUM_TENANT_ID or VETCHIUM_HUB_PLANS",
+			composePath, serviceName,
+		)
+	}
+	return tenantID, strings.Split(hubPlans, ",")
+}
+
 func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "config.json")
@@ -369,7 +579,8 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "pruneEphemeralDataTimer": "1h",
     "deliverHubEmailTimer": "1s",
     "hubEmailLeaseTTL": "1m",
-    "hubEmailMaxAttempts": 5%s
+    "hubEmailMaxAttempts": 5,
+    "advanceHubSubscriptionsTimer": "1m"%s
   },
   "adminAPIServer": {
     "sessionTTL": "24h"
@@ -387,7 +598,8 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
   "hubAPIServer": {
     "sessionTTL": "24h",
     "rememberedSessionTTL": "6360h",
-    "publicBaseURL": "http://hub-ui.sgp.localhost"
+    "publicBaseURL": "http://hub-ui.sgp.localhost",
+    "offeredPlans": ["hub-free-tier", "hub-silver-tier"]
   },
   "smtp": {
     "host": "mailpit",

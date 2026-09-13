@@ -10,9 +10,12 @@ import (
 	"net/mail"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
 
 	"backend/internal/regions"
 )
@@ -59,12 +62,13 @@ type AdminAPIServer struct {
 }
 
 type Workers struct {
-	RetryBackoffLimit       time.Duration
-	PruneAdminSessionsTimer time.Duration
-	PruneEphemeralDataTimer time.Duration
-	DeliverHubEmailTimer    time.Duration
-	HubEmailLeaseTTL        time.Duration
-	HubEmailMaxAttempts     int
+	RetryBackoffLimit            time.Duration
+	PruneAdminSessionsTimer      time.Duration
+	PruneEphemeralDataTimer      time.Duration
+	DeliverHubEmailTimer         time.Duration
+	HubEmailLeaseTTL             time.Duration
+	HubEmailMaxAttempts          int
+	AdvanceHubSubscriptionsTimer time.Duration
 }
 
 type HubAPIServer struct {
@@ -72,6 +76,7 @@ type HubAPIServer struct {
 	SessionTTL           time.Duration
 	RememberedSessionTTL time.Duration
 	PublicBaseURL        string
+	OfferedPlans         []subscriptionspec.Plan
 }
 
 type SMTP struct {
@@ -154,12 +159,13 @@ type fileAdminAPIServer struct {
 }
 
 type fileWorkers struct {
-	RetryBackoffLimit       string `json:"retryBackoffLimit"`
-	PruneAdminSessionsTimer string `json:"pruneAdminSessionsTimer"`
-	PruneEphemeralDataTimer string `json:"pruneEphemeralDataTimer"`
-	DeliverHubEmailTimer    string `json:"deliverHubEmailTimer"`
-	HubEmailLeaseTTL        string `json:"hubEmailLeaseTTL"`
-	HubEmailMaxAttempts     int    `json:"hubEmailMaxAttempts"`
+	RetryBackoffLimit            string `json:"retryBackoffLimit"`
+	PruneAdminSessionsTimer      string `json:"pruneAdminSessionsTimer"`
+	PruneEphemeralDataTimer      string `json:"pruneEphemeralDataTimer"`
+	DeliverHubEmailTimer         string `json:"deliverHubEmailTimer"`
+	HubEmailLeaseTTL             string `json:"hubEmailLeaseTTL"`
+	HubEmailMaxAttempts          int    `json:"hubEmailMaxAttempts"`
+	AdvanceHubSubscriptionsTimer string `json:"advanceHubSubscriptionsTimer"`
 }
 
 type fileHubAPIServer struct {
@@ -167,6 +173,7 @@ type fileHubAPIServer struct {
 	SessionTTL           string             `json:"sessionTTL"`
 	RememberedSessionTTL string             `json:"rememberedSessionTTL"`
 	PublicBaseURL        string             `json:"publicBaseURL"`
+	OfferedPlans         []string           `json:"offeredPlans"`
 }
 
 type fileSMTP struct {
@@ -366,6 +373,10 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	offeredPlans, err := parseOfferedPlans(raw.HubAPIServer.OfferedPlans)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	retryBackoffLimit, err := positiveDuration(
 		"workers.retryBackoffLimit",
 		raw.Workers.RetryBackoffLimit,
@@ -404,6 +415,13 @@ func LoadFile(path string) (Config, error) {
 		err := fmt.Errorf("workers.hubEmailMaxAttempts must be between 1 and 20")
 		return Config{}, configError(path, err)
 	}
+	advanceHubSubscriptionsTimer, err := positiveDuration(
+		"workers.advanceHubSubscriptionsTimer",
+		raw.Workers.AdvanceHubSubscriptionsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	smtp, err := parseSMTP(*raw.SMTP)
 	if err != nil {
 		return Config{}, configError(path, err)
@@ -435,18 +453,20 @@ func LoadFile(path string) (Config, error) {
 			RequestTimeout: coordinatorTimeout,
 		},
 		Workers: Workers{
-			RetryBackoffLimit:       retryBackoffLimit,
-			PruneAdminSessionsTimer: pruneTimer,
-			PruneEphemeralDataTimer: pruneEphemeralTimer,
-			DeliverHubEmailTimer:    deliverHubEmailTimer,
-			HubEmailLeaseTTL:        hubEmailLeaseTTL,
-			HubEmailMaxAttempts:     raw.Workers.HubEmailMaxAttempts,
+			RetryBackoffLimit:            retryBackoffLimit,
+			PruneAdminSessionsTimer:      pruneTimer,
+			PruneEphemeralDataTimer:      pruneEphemeralTimer,
+			DeliverHubEmailTimer:         deliverHubEmailTimer,
+			HubEmailLeaseTTL:             hubEmailLeaseTTL,
+			HubEmailMaxAttempts:          raw.Workers.HubEmailMaxAttempts,
+			AdvanceHubSubscriptionsTimer: advanceHubSubscriptionsTimer,
 		},
 		HubAPIServer: HubAPIServer{
 			Signup:               admission,
 			SessionTTL:           hubSessionTTL,
 			RememberedSessionTTL: rememberedSessionTTL,
 			PublicBaseURL:        hubBaseURL,
+			OfferedPlans:         offeredPlans,
 		},
 		SMTP:          smtp,
 		OrgsAPIServer: Server{},
@@ -612,6 +632,38 @@ func parseSMTP(raw fileSMTP) (SMTP, error) {
 		UsernameFile: raw.UsernameFile, PasswordFile: raw.PasswordFile,
 		StartTLS: startTLS, ConnectionTimeout: timeout,
 	}, nil
+}
+
+// parseOfferedPlans has no silent default: that would let the backend and
+// hub-ui portal disagree on offered plans without anyone editing either file.
+func parseOfferedPlans(values []string) ([]subscriptionspec.Plan, error) {
+	if len(values) == 0 {
+		return nil, fmt.Errorf("hubAPIServer.offeredPlans must not be empty")
+	}
+	plans := make([]subscriptionspec.Plan, 0, len(values))
+	seen := make(map[subscriptionspec.Plan]bool, len(values))
+	for _, value := range values {
+		plan := subscriptionspec.Plan(value)
+		if !subscriptionspec.IsPlan(subscriptionspec.PlanOID(plan)) {
+			return nil, fmt.Errorf(
+				"hubAPIServer.offeredPlans: unknown plan %q", value,
+			)
+		}
+		if seen[plan] {
+			return nil, fmt.Errorf(
+				"hubAPIServer.offeredPlans: duplicate plan %q", value,
+			)
+		}
+		seen[plan] = true
+		plans = append(plans, plan)
+	}
+	if !slices.Contains(plans, subscriptionspec.DefaultPlan) {
+		return nil, fmt.Errorf(
+			"hubAPIServer.offeredPlans must include %q",
+			subscriptionspec.DefaultPlan,
+		)
+	}
+	return plans, nil
 }
 
 func httpOrigin(name, value string) (string, error) {

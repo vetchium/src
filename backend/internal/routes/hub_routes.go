@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	hubauth "backend/handlers/hub/auth"
+	hubsubscriptions "backend/handlers/hub/subscriptions"
 	hubusers "backend/handlers/hub/users"
 	"backend/handlers/portal"
 	"backend/handlers/regions"
@@ -72,5 +73,13 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 	mux.Handle(
 		"POST /api/hub/set-resident-country",
 		hubAuth(hubusers.SetResidentCountry(s)),
+	)
+	mux.Handle(
+		"GET /api/hub/my-subscription",
+		hubAuth(hubsubscriptions.MySubscription(s)),
+	)
+	mux.Handle(
+		"POST /api/hub/set-subscription-plan",
+		hubAuth(hubsubscriptions.SetSubscriptionPlan(s)),
 	)
 }

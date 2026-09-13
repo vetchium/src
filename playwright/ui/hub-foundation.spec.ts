@@ -35,6 +35,23 @@ async function provideMyInfo(
   });
 }
 
+function mySubscription() {
+  return {
+    plan_oid: "hub-free-tier",
+    cancel_at_period_end: false,
+  };
+}
+
+async function provideMySubscription(page: import("@playwright/test").Page) {
+  await page.route("**/api/hub/my-subscription", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(mySubscription()),
+    });
+  });
+}
+
 async function provideStoredSession(page: import("@playwright/test").Page) {
   await page.addInitScript(
     ({ key, sessionToken, hubUserDID, handle }) =>
@@ -69,18 +86,23 @@ test("a visitor without a session enters through sign in", async ({ page }) => {
   await expect(page.locator("body")).not.toContainText("Hub");
 });
 
-test("a visitor with a stored session sees the placeholder home", async ({
+test("a visitor with a stored session sees the plan and profile invitations", async ({
   page,
 }) => {
   await provideStoredSession(page);
   await provideMyInfo(page);
+  await provideMySubscription(page);
   await page.goto(`${hubBaseURL}/login`);
 
   await expect(page).toHaveURL(`${hubBaseURL}/`);
   await expect(
-    page.getByRole("heading", { name: "Vetchium home page" }),
+    page.getByRole("heading", { name: "Welcome back" }),
   ).toBeVisible();
-  await expect(page.getByRole("menuitem")).toHaveCount(3);
+  await expect(page.getByRole("link", { name: "View plans" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Go to my profile" }),
+  ).toBeVisible();
+  await expect(page.getByRole("menuitem")).toHaveCount(4);
   await expect(page.getByRole("menuitem", { name: "Home" })).toBeVisible();
   await expect(page.locator("body")).not.toContainText("Hub");
 });
@@ -90,6 +112,7 @@ test("an authenticated language change reaches the server and updates the sessio
 }) => {
   await provideStoredSession(page);
   await provideMyInfo(page);
+  await provideMySubscription(page);
   await page.route("**/api/hub/set-preferred-language", async (route) => {
     await route.fulfill({ status: 204 });
   });
@@ -105,7 +128,7 @@ test("an authenticated language change reaches the server and updates the sessio
   expect(request.method()).toBe("POST");
   expect(request.postDataJSON()).toEqual({ preferred_language: "de-DE" });
   await expect(
-    page.getByRole("heading", { name: "Vetchium-Startseite" }),
+    page.getByRole("heading", { name: "Willkommen zurück" }),
   ).toBeVisible();
   await expect
     .poll(async () => {
@@ -126,6 +149,7 @@ test("a rejected authenticated language change keeps the current language", asyn
 }) => {
   await provideStoredSession(page);
   await provideMyInfo(page);
+  await provideMySubscription(page);
   await page.route("**/api/hub/set-preferred-language", async (route) => {
     await route.fulfill({
       status: 500,
@@ -146,7 +170,7 @@ test("a rejected authenticated language change keeps the current language", asyn
     page.getByText("The language could not be changed. Please try again."),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Vetchium home page" }),
+    page.getByRole("heading", { name: "Welcome back" }),
   ).toBeVisible();
   const storedSession = await page.evaluate(
     (key) => sessionStorage.getItem(key),
@@ -164,6 +188,7 @@ test("sign out clears the stored session and returns to sign in", async ({
 }) => {
   await provideStoredSession(page);
   await provideMyInfo(page);
+  await provideMySubscription(page);
   await page.route("**/api/hub/logout", async (route) => {
     await route.fulfill({ status: 204 });
   });
@@ -182,6 +207,7 @@ test("the single home entry remains usable on a narrow viewport", async ({
 }) => {
   await provideStoredSession(page);
   await provideMyInfo(page);
+  await provideMySubscription(page);
   await page.setViewportSize({ width: 320, height: 720 });
   await page.goto(hubBaseURL);
 
@@ -200,7 +226,7 @@ test("the single home entry remains usable on a narrow viewport", async ({
 
   await header.getByRole("button", { name: "Open navigation" }).click();
   const navigation = page.getByRole("dialog", { name: "Navigation" });
-  await expect(navigation.getByRole("menuitem")).toHaveCount(3);
+  await expect(navigation.getByRole("menuitem")).toHaveCount(4);
   await expect(
     navigation.getByRole("menuitem", { name: "Home" }),
   ).toBeVisible();
@@ -209,6 +235,9 @@ test("the single home entry remains usable on a narrow viewport", async ({
   ).toBeVisible();
   await expect(
     navigation.getByRole("menuitem", { name: "Security" }),
+  ).toBeVisible();
+  await expect(
+    navigation.getByRole("menuitem", { name: "Plan" }),
   ).toBeVisible();
 });
 
@@ -267,6 +296,7 @@ test("password sign in stores the returned session and opens the home page", asy
   page,
 }) => {
   await provideMyInfo(page);
+  await provideMySubscription(page);
   await page.route("**/api/hub/login", async (route) => {
     await route.fulfill({
       status: 200,
@@ -290,7 +320,7 @@ test("password sign in stores the returned session and opens the home page", asy
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(`${hubBaseURL}/`);
   await expect(
-    page.getByRole("heading", { name: "Vetchium home page" }),
+    page.getByRole("heading", { name: "Welcome back" }),
   ).toBeVisible();
   expect(
     await page.evaluate((key) => sessionStorage.getItem(key), sessionKey),
@@ -325,6 +355,7 @@ test("an old session asks for password confirmation before security settings", a
 }) => {
   await provideStoredSession(page);
   await provideMyInfo(page, new Date(Date.now() - 10 * 60_000).toISOString());
+  await provideMySubscription(page);
   await page.goto(`${hubBaseURL}/settings/security`);
   await expect(page).toHaveURL(/\/reauthenticate\?returnTo=/);
   await expect(

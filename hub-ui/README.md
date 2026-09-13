@@ -29,5 +29,22 @@ followed by the closest supported locale from the browser's BCP 47 language
 preferences. This supported set belongs to the Hub portal and may differ from
 other portals.
 
-Run `npm run format`, `npm run typecheck`, and `npm run build` before handing
-off a change.
+It also reads two subscription-plan variables at startup:
+
+- `VETCHIUM_TENANT_ID` — this tenant's ID, matching the backend's
+  `tenantId`. Required, and must match `^[a-z][a-z0-9-]{0,62}$`.
+- `VETCHIUM_HUB_PLANS` — a comma-separated list of the plans this tenant
+  offers, matching the backend's `hubAPIServer.offeredPlans`. Required, with
+  no empty items, no duplicates, every item a known plan, and `hub-free-tier`
+  present.
+
+Both values must match the tenant's backend configuration exactly. When they
+disagree, the portal either offers a plan the backend refuses (shown as a
+translated error when chosen) or hides a plan the backend would accept.
+Nothing can compare the two at container startup, because `hub-ui` is a
+static nginx container; `backend/internal/appconfig` has a repository test,
+`TestCheckedInHubPlansMatchPortalConfiguration`, that compares every
+checked-in environment's backend config against its compose or stack file.
+
+Run `npm run format`, `npm run typecheck`, `npm test`, and `npm run build`
+before handing off a change.

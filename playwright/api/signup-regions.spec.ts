@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import type { APIRequestContext } from "@playwright/test";
-import type { CompleteSignupResponse } from "typespec/hub/auth/signup";
 import type { ListSignupRegionsResponse } from "typespec/regions/regions";
 import {
   cleanupHubIdempotency,
@@ -10,7 +8,8 @@ import {
   seedPendingHubSignup,
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { hubIdempotencyKey, MAILPIT_ORIGIN } from "../lib/hub-api.ts";
+import { hubIdempotencyKey } from "../lib/hub-api.ts";
+import { signup } from "../lib/hub-signup.ts";
 
 const coordinator =
   process.env.GLOBAL_COORDINATOR_TEST_URL ??
@@ -118,53 +117,6 @@ test("global region discovery requires authentication", async ({ request }) => {
     status: 401,
   });
 });
-async function signup(
-  request: APIRequestContext,
-  tenant: string,
-  email: string,
-  keys: string[],
-): Promise<CompleteSignupResponse> {
-  const signupKey = hubIdempotencyKey();
-  const completeKey = hubIdempotencyKey();
-  keys.push(signupKey, completeKey);
-  const origin = `http://hub-ui.${tenant}.localhost`;
-  const response = await request.post(`${origin}/api/hub/request-signup`, {
-    headers: { "Idempotency-Key": signupKey },
-    data: {
-      email_address: email,
-      display_name: "Independent User",
-      preferred_language: "en-US",
-      resident_country: "FR",
-    },
-  });
-  expect(response.status(), await response.text()).toBe(202);
-  const mailbox = `${MAILPIT_ORIGIN}/view/latest.txt?query=${encodeURIComponent(`to:${email}`)}`;
-  let text = "";
-  await expect
-    .poll(
-      async () => {
-        const mail = await request.get(mailbox);
-        text = mail.ok() ? await mail.text() : "";
-        return text;
-      },
-      { timeout: 15000 },
-    )
-    .toContain(`${origin}/complete-signup`);
-  const token = text.match(/complete-signup\?token=([0-9a-f]{64})/)?.[1];
-  expect(token).toBeDefined();
-  const complete = await request.post(`${origin}/api/hub/complete-signup`, {
-    headers: { "Idempotency-Key": completeKey },
-    data: { signup_token: token, password: `Password!${randomUUID()}` },
-  });
-  expect(complete.status(), await complete.text()).toBe(201);
-  const body = (await complete.json()) as CompleteSignupResponse;
-  // The handle is public and the DID is not, so the suffix is random rather
-  // than derived from the DID or from the signup time.
-  expect(body.handle).toMatch(/^indep-[0-9a-hjkmnp-tv-z]{11}$/);
-  expect(body.handle).not.toContain(body.hub_user_did.replaceAll("-", ""));
-  expect(body.hub_user_did).not.toContain(body.handle.replace("indep-", ""));
-  return body;
-}
 test("allowlisted signup works offline and the same email creates independent regional accounts", async ({
   request,
 }) => {
@@ -179,8 +131,19 @@ test("allowlisted signup works offline and the same email creates independent re
     // ind1 deliberately cannot reach the global coordinator in the CI config.
     const india = await signup(request, "ind1", email, indiaKeys);
     const usa = await signup(request, "usa1", email, usaKeys);
-    expect(india.hub_user_did).not.toBe(usa.hub_user_did);
+    expect(india.hubUserDID).not.toBe(usa.hubUserDID);
     expect(india.handle).not.toBe(usa.handle);
+    // The handle is public and the DID is not, so the suffix is random
+    // rather than derived from the DID or from the signup time.
+    for (const account of [india, usa]) {
+      expect(account.handle).toMatch(/^indep-[0-9a-hjkmnp-tv-z]{11}$/);
+      expect(account.handle).not.toContain(
+        account.hubUserDID.replaceAll("-", ""),
+      );
+      expect(account.hubUserDID).not.toContain(
+        account.handle.replace("indep-", ""),
+      );
+    }
   } finally {
     cleanupHubUser(email, "ind1");
     cleanupHubUser(email, "usa1");

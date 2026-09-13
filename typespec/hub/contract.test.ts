@@ -6,6 +6,22 @@ import {
   validateRequestSignupRequest,
 } from "./auth/signup.ts";
 import {
+  type BillingInterval,
+  DefaultPlan,
+  FreeTier,
+  type HubPlan,
+  isBillingInterval,
+  isHubPlan,
+  isUpgrade,
+  planIncludes,
+  planRank,
+  plans,
+  plansAtOrAbove,
+  requiresBillingInterval,
+  SilverTier,
+} from "./subscriptions/plans.ts";
+import { validateSetSubscriptionPlanRequest } from "./subscriptions/subscriptions.ts";
+import {
   frontendLocaleValues,
   isFrontendLocale,
   isHubHandle,
@@ -60,4 +76,109 @@ test("Hub identifiers enforce UUIDv7 and fixed-width handles", () => {
   assert.equal(isHubUserDID("018f7e32-7b5a-4d31-8fd0-f7e2a852f144"), false);
   assert.equal(isHubHandle("perso-00000000001"), true);
   assert.equal(isHubHandle("person-00000000001"), false);
+});
+
+test("Hub plans are ranked and default to the free tier", () => {
+  assert.deepEqual(plans, ["hub-free-tier", "hub-silver-tier"]);
+  assert.equal(DefaultPlan, FreeTier);
+  assert.equal(planRank(FreeTier) < planRank(SilverTier), true);
+  assert.deepEqual(plansAtOrAbove(SilverTier), ["hub-silver-tier"]);
+  assert.equal(isHubPlan("hub-free-tier"), true);
+  assert.equal(isHubPlan("hub-gold-tier"), false);
+  assert.equal(isBillingInterval("month"), true);
+  assert.equal(isBillingInterval("week"), false);
+  assert.equal(requiresBillingInterval(FreeTier), false);
+  assert.equal(requiresBillingInterval(SilverTier), true);
+  assert.equal(planIncludes("hub-silver-tier", FreeTier), true);
+  assert.equal(planIncludes("hub-gold-tier", FreeTier), false);
+});
+
+test("isUpgrade matches the Go companion's rule for every combination", () => {
+  const cases: Array<
+    [
+      HubPlan,
+      BillingInterval | undefined,
+      HubPlan,
+      BillingInterval | undefined,
+      boolean,
+    ]
+  > = [
+    [FreeTier, undefined, FreeTier, undefined, false],
+    [FreeTier, undefined, SilverTier, "month", true],
+    [FreeTier, undefined, SilverTier, "year", true],
+    [SilverTier, "month", FreeTier, undefined, false],
+    [SilverTier, "month", SilverTier, "month", false],
+    [SilverTier, "month", SilverTier, "year", true],
+    [SilverTier, "year", FreeTier, undefined, false],
+    [SilverTier, "year", SilverTier, "month", false],
+    [SilverTier, "year", SilverTier, "year", false],
+  ];
+  for (const [fromPlan, fromInterval, toPlan, toInterval, want] of cases) {
+    assert.equal(
+      isUpgrade(fromPlan, fromInterval, toPlan, toInterval),
+      want,
+      `isUpgrade(${fromPlan}, ${fromInterval}, ${toPlan}, ${toInterval})`,
+    );
+  }
+});
+
+test("set-subscription-plan request validation matches the Go companion", () => {
+  assert.deepEqual(
+    validateSetSubscriptionPlanRequest({ plan_oid: "hub-free-tier" }),
+    [],
+  );
+  assert.deepEqual(
+    validateSetSubscriptionPlanRequest({
+      plan_oid: "hub-silver-tier",
+      billing_interval: "month",
+    }),
+    [],
+  );
+  assert.deepEqual(validateSetSubscriptionPlanRequest(null), [
+    "plan_oid",
+    "billing_interval",
+  ]);
+  assert.deepEqual(
+    validateSetSubscriptionPlanRequest({ plan_oid: "hub-gold-tier" }),
+    ["plan_oid"],
+  );
+  assert.deepEqual(
+    validateSetSubscriptionPlanRequest({
+      plan_oid: "hub-free-tier",
+      billing_interval: "month",
+    }),
+    ["billing_interval"],
+  );
+  assert.deepEqual(
+    validateSetSubscriptionPlanRequest({
+      plan_oid: "hub-free-tier",
+      billing_interval: null,
+    }),
+    ["billing_interval"],
+  );
+  assert.deepEqual(
+    validateSetSubscriptionPlanRequest({ plan_oid: "hub-silver-tier" }),
+    ["billing_interval"],
+  );
+  assert.deepEqual(
+    validateSetSubscriptionPlanRequest({
+      plan_oid: "hub-silver-tier",
+      billing_interval: null,
+    }),
+    ["billing_interval"],
+  );
+  assert.deepEqual(
+    validateSetSubscriptionPlanRequest({
+      plan_oid: "hub-silver-tier",
+      billing_interval: "week",
+    }),
+    ["billing_interval"],
+  );
+  assert.deepEqual(
+    validateSetSubscriptionPlanRequest({
+      plan_oid: "hub-gold-tier",
+      billing_interval: "week",
+    }),
+    ["plan_oid", "billing_interval"],
+  );
 });

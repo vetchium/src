@@ -17,6 +17,7 @@ import {
   SignupDomainNotAllowedError,
   SignupUnavailableError,
 } from "typespec/problem/hub/signup";
+import { PlanNotOfferedError } from "typespec/problem/hub/subscriptions";
 import {
   IncorrectRecoveryCodeError,
   InvalidTOTPEnrollmentError,
@@ -47,6 +48,7 @@ export const problemKeys: Record<string, string> = {
   [TOTPNotEnabledError.type]: "errors.totpNotEnabled",
   [InvalidTOTPEnrollmentError.type]: "errors.invalidEnrollment",
   [RegionDiscoveryUnavailableError.type]: "errors.regionDiscoveryUnavailable",
+  [PlanNotOfferedError.type]: "errors.planNotOffered",
 };
 
 export function APIErrorAlert({ error }: { error: unknown }) {

@@ -281,6 +281,7 @@ hub-ui-deps:
 hub-ui-check-ready: hub-ui-deps
 	cd hub-ui && npm run format:check
 	cd hub-ui && npm run typecheck
+	cd hub-ui && npm test
 	cd hub-ui && npm audit --audit-level=high
 	cd hub-ui && npm run build
 
@@ -308,6 +309,7 @@ typespec-check-ready: typespec-deps
 	cd typespec && npm run test:ts
 	cd typespec && npm audit --audit-level=high
 	cd typespec && npm run compile
+	cd typespec && npm run test:openapi
 
 typespec-check: typespec-check-ready
 
