@@ -3,56 +3,13 @@
 Deliberately deferred work. Each item names what is not done and what has to be
 decided before it is.
 
-## Hub signup
-
-Hub self-signup, email ownership verification, tenant-local uniqueness,
-idempotent completion, localized UI, audit events, and tenant isolation are
-implemented. The remaining rollout and abuse-control work is tracked here.
-
-### Signup policy
-
-- Tenant-local enabled/domain settings and region discovery are implemented;
-  see [hub-signup-design.md](hub-signup-design.md). Verification-provider
-  selection remains future work.
-
-### Abuse and uniqueness controls
-
-- Add rate limits for signup initiation, verification attempts, source
-  addresses, and repeated email targets. `POST /api/hub/list-signup-regions` is
-  unauthenticated and each call fans out to the tenant's mesh API and on to the
-  coordinator, so it needs a rate limit and a cache before public exposure.
-- Decide whether a low-cost CAPTCHA or proof-of-work challenge is needed after
-  measuring abuse. Do not claim that a corporate domain proves a unique human.
-- Add useful abuse signals without storing unnecessary personal data.
-
-### Verification methods
-
-- Design a verification-provider interface before adding country-specific
-  identity checks.
-- Configure providers per tenant. A provider enabled for one country or tenant
-  must not appear or run in another tenant.
-- Define consent, retention, redaction, audit, and deletion rules before
-  collecting government identity data.
-- Keep provider evidence separate from public profiles and ordinary product
-  analytics.
-
-### Operations and tests
-
-- Add metrics for signup starts, verification delivery, completion, rejection,
-  throttling, and provider failure without exposing email addresses in labels.
-- Cover rate limiting once it is implemented.
-- Add deployment and rollback notes before enabling self-signup for a tenant.
-- Roll out behind tenant configuration and monitor one tenant before broader
-  enablement.
-
 ## Go line width
 
-- `agent-guides/go.md` asks for lines at or below 80 characters "where practical", and 283
-  hand-maintained Go lines exceed it when a tab counts as four columns. Decide
-  what the rule means and whether to enforce it. Thirty-two of those lines are
-  gofmt-aligned struct tags that cannot be wrapped, so any enforcement needs an
-  exemption for them; the rest are deep nesting inside idempotent closures and
-  long generic type arguments.
+- `agent-guides/go.md` asks for lines at or below 80 characters "where
+  practical", but the repository does not enforce that rule and
+  hand-maintained Go still exceeds it. Decide what "where practical" means and
+  whether to enforce it. Any enforcement needs exemptions for lines that
+  `gofmt` controls, including aligned struct tags.
 
 ## Portal page duplication
 
@@ -60,12 +17,10 @@ implemented. The remaining rollout and abuse-control work is tracked here.
   idempotency, API client and error presentation through
   `@vetchium/portal-ui`, but six auth pages are still written twice:
   `LoginPage`, `TwoFactorPage`, `ProfilePage`, `ReauthenticatePage`,
-  `ForgotPasswordPage`, and `ResetPasswordPage`. They differ by 58 to 226 lines
-  each. Some of that is real (the Hub asks for a remembered session and a
-  resident country; the admin portal does not), and some is drift, which is how
-  the Hub reset page came to swallow an incomplete link. Decide which of
-  these pages a shared form component can own before `orgs-ui` copies them a
-  third time.
+  `ForgotPasswordPage`, and `ResetPasswordPage`. Some differences are real
+  (the Hub asks for a remembered session and a resident country; the admin
+  portal does not), and some are drift. Decide which parts shared form
+  components can own before `orgs-ui` copies them a third time.
 
 ## Mesh tenant authentication
 
@@ -96,8 +51,24 @@ implemented. The remaining rollout and abuse-control work is tracked here.
 
 ## Hub portal test coverage
 
-- Playwright has one Hub UI spec against five admin specs, and two Hub API
-  specs against eleven admin ones. Hub signup, login, two-factor, password
-  reset and profile have no UI coverage. `typespec/hub/auth` and
-  `typespec/hub/users` have no Go contract tests where their admin
-  counterparts do.
+- Hub authentication and subscriptions have broad API coverage, and the Hub
+  foundation, signup-region, and plan flows have browser coverage. Complete
+  the remaining browser paths: successful signup completion, TOTP sign-in and
+  account management, reauthentication success, forgot/reset password, and
+  the profile fields and failures not exercised by the preferred-job-country
+  test.
+- Add Go contract tests for `typespec/hub/auth` and `typespec/hub/users`, where
+  the admin counterparts and Hub subscriptions already have companion tests.
+
+## Hub subscription payments
+
+- Hub plans are implemented with simulated payments in every environment,
+  including production. Integrate real payment processors before charging for
+  paid plans; processor choice and credentials must be tenant-specific, the
+  server must own price mapping, and verified webhooks must drive subscription
+  state. The requirements and provider constraints are in
+  [subscriptions-plans.md](subscriptions-plans.md#payment-integration-requirements-in-future).
+- With the first integration, decide proration, failed-payment grace periods,
+  and how billing agreements and unused paid time behave when a Hub user moves
+  tenants. Also decide what happens when a tenant withdraws a plan and what
+  happens to paid-feature content after a downgrade.
