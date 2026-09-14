@@ -66,8 +66,8 @@ decided before it is.
   including production. Integrate real payment processors before charging for
   paid plans; processor choice and credentials must be tenant-specific, the
   server must own price mapping, and verified webhooks must drive subscription
-  state. The requirements and provider constraints are in
-  [subscriptions-plans.md](subscriptions-plans.md#payment-integration-requirements-in-future).
+  state. Follow the durable integration constraints in
+  [`hub-subscriptions.md`](../agent-guides/hub-subscriptions.md#real-payment-integration).
 - With the first integration, decide proration, failed-payment grace periods,
   and how billing agreements and unused paid time behave when a Hub user moves
   tenants. Also decide what happens when a tenant withdraws a plan and what

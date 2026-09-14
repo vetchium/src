@@ -65,6 +65,8 @@ before changing files:
 | [`backend.md`](agent-guides/backend.md) | API servers and workers |
 | [`database.md`](agent-guides/database.md) | PostgreSQL, queries, sqlc, transactions |
 | [`authorization.md`](agent-guides/authorization.md) | permissions and the screens presenting them |
+| [`hub-signup.md`](agent-guides/hub-signup.md) | Hub signup, region discovery, locality, federation, migration |
+| [`hub-subscriptions.md`](agent-guides/hub-subscriptions.md) | Hub plans, subscriptions, billing periods, payment integration |
 | [`typespec.md`](agent-guides/typespec.md) | contracts and matching wire types |
 | [`typescript.md`](agent-guides/typescript.md) | hand-maintained TypeScript |
 | [`ui.md`](agent-guides/ui.md) | portal user interfaces |
@@ -101,9 +103,5 @@ over a general one.
 - Put a shared language or tool convention in one guide rather than copying it
   into several routers.
 
-`docs/` holds records rather than rules: [`todo.md`](docs/todo.md) for
-deliberately deferred work,
-[`hub-signup-design.md`](docs/hub-signup-design.md) for the signup and
-locality design, and
-[`subscriptions-plans.md`](docs/subscriptions-plans.md) for the Hub
-subscription plans design.
+`docs/` holds only [`todo.md`](docs/todo.md), the deliberately deferred work.
+Durable implementation and product guidance belongs under `agent-guides/`.

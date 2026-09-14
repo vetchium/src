@@ -1,8 +1,9 @@
 /**
  * The test oracle for the anchor-day, clamped billing period rule
- * (`docs/subscriptions-plans.md`), mirroring `backend/internal/hub/billing`'s
- * `Boundary` and `PeriodContaining` in TypeScript so Playwright can compute
- * expected period boundaries independently of the implementation under test.
+ * (`agent-guides/hub-subscriptions.md`), mirroring
+ * `backend/internal/hub/billing`'s `Boundary` and `PeriodContaining` in
+ * TypeScript so Playwright can compute expected period boundaries independently
+ * of the implementation under test.
  */
 
 export type BillingInterval = "month" | "year";
