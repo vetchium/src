@@ -16,7 +16,7 @@ To validate the contract and emit OpenAPI 3.1 locally:
 ```sh
 npm ci
 npm run check:contract-files
-npx tsp compile .
+npx tsp compile main.tsp
 npm run typecheck
 npm run test:ts
 ```

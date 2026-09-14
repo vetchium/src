@@ -41,7 +41,8 @@ inserted_user AS (
         password_hash,
         preferred_language,
         resident_country,
-        preferred_job_countries
+        preferred_job_countries,
+        hub_plan_oid
     )
     SELECT
         $2,
@@ -51,7 +52,8 @@ inserted_user AS (
         $4,
         preferred_language,
         resident_country,
-        ARRAY[resident_country]
+        ARRAY[resident_country],
+        $5
     FROM eligible_signup
     ON CONFLICT DO NOTHING
     RETURNING hub_user_did, handle
@@ -76,14 +78,36 @@ inserted_user AS (
         payload
     )
     SELECT
-        $5,
+        $6,
         'hub.user.created',
         'hub_user',
         hub_user_did::text,
         'anonymous',
         'hub-api',
-        $6,
+        $7,
         jsonb_build_object('handle', handle)
+    FROM inserted_user
+    WHERE EXISTS (SELECT 1 FROM consumed)
+), subscription_audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id,
+        action,
+        entity_type,
+        entity_id,
+        actor_type,
+        source,
+        idempotency_key,
+        payload
+    )
+    SELECT
+        $6,
+        'hub.subscription.created',
+        'hub_subscription',
+        hub_user_did::text,
+        'anonymous',
+        'hub-api',
+        $7,
+        jsonb_build_object('hub_plan_oid', $5)
     FROM inserted_user
     WHERE EXISTS (SELECT 1 FROM consumed)
 )
@@ -103,6 +127,7 @@ type CompleteHubSignupParams struct {
 	HubUserDid         pgtype.UUID `json:"hub_user_did"`
 	Handle             string      `json:"handle"`
 	PasswordHash       string      `json:"password_hash"`
+	DefaultHubPlanOid  string      `json:"default_hub_plan_oid"`
 	TenantID           string      `json:"tenant_id"`
 	IdempotencyKey     pgtype.Text `json:"idempotency_key"`
 }
@@ -122,6 +147,7 @@ func (q *Queries) CompleteHubSignup(ctx context.Context, arg CompleteHubSignupPa
 		arg.HubUserDid,
 		arg.Handle,
 		arg.PasswordHash,
+		arg.DefaultHubPlanOid,
 		arg.TenantID,
 		arg.IdempotencyKey,
 	)

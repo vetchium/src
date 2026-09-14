@@ -64,6 +64,19 @@ CREATE TYPE vetchium.hub_user_state AS ENUM (
     'disabled'
 );
 
+-- Plan OIDs, identical in every tenant. Ranks live only in the TypeSpec
+-- contract so there is one authority for ordering.
+CREATE TABLE vetchium.hub_plans (
+    hub_plan_oid text PRIMARY KEY
+        CHECK (hub_plan_oid ~ '^hub-[a-z0-9]+(-[a-z0-9]+)*$')
+);
+
+INSERT INTO vetchium.hub_plans (hub_plan_oid)
+VALUES ('hub-free-tier'), ('hub-silver-tier');
+
+CREATE TYPE vetchium.hub_billing_interval AS ENUM ('month', 'year');
+CREATE TYPE vetchium.hub_subscription_source AS ENUM ('simulated');
+
 CREATE TABLE vetchium.hub_users (
     hub_user_did uuid PRIMARY KEY,
     handle text NOT NULL,
@@ -83,6 +96,18 @@ CREATE TABLE vetchium.hub_users (
     totp_enabled boolean NOT NULL DEFAULT false,
     totp_last_timestep bigint,
     last_login_at timestamptz,
+    hub_plan_oid text NOT NULL REFERENCES vetchium.hub_plans (hub_plan_oid),
+    subscription_billing_interval vetchium.hub_billing_interval,
+    subscription_anchor_at timestamptz,
+    subscription_period_start timestamptz,
+    subscription_period_end timestamptz,
+    scheduled_hub_plan_oid text REFERENCES vetchium.hub_plans (hub_plan_oid),
+    scheduled_billing_interval vetchium.hub_billing_interval,
+    subscription_cancels_at_period_end boolean NOT NULL GENERATED ALWAYS AS (
+        COALESCE(scheduled_hub_plan_oid = 'hub-free-tier', false)
+    ) STORED,
+    subscription_source vetchium.hub_subscription_source NOT NULL
+        DEFAULT 'simulated',
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT hub_users_handle_key UNIQUE (handle),
@@ -112,6 +137,45 @@ CREATE TABLE vetchium.hub_users (
     ),
     CONSTRAINT hub_users_timestamps_ordered CHECK (
         updated_at >= created_at
+    ),
+    -- Two explicit branches, so a partially null row cannot pass as SQL
+    -- UNKNOWN.
+    CONSTRAINT hub_users_free_plan_has_no_period CHECK (
+        (hub_plan_oid = 'hub-free-tier'
+            AND subscription_billing_interval IS NULL
+            AND subscription_anchor_at IS NULL
+            AND subscription_period_start IS NULL
+            AND subscription_period_end IS NULL)
+        OR (hub_plan_oid <> 'hub-free-tier'
+            AND subscription_billing_interval IS NOT NULL
+            AND subscription_anchor_at IS NOT NULL
+            AND subscription_period_start IS NOT NULL
+            AND subscription_period_end IS NOT NULL)
+    ),
+    -- On a free row every operand is null, so the expression is UNKNOWN and
+    -- the row passes; the presence constraint above governs free rows. On a
+    -- paid row that constraint makes every operand non-null, so this
+    -- comparison is always determined.
+    CONSTRAINT hub_users_subscription_period_ordered CHECK (
+        subscription_anchor_at <= subscription_period_start
+        AND subscription_period_start < subscription_period_end
+    ),
+    -- Three explicit, null-determined branches: no schedule; a scheduled
+    -- cancellation on a paid plan; a scheduled paid change on a paid plan
+    -- that differs from the current plan and interval.
+    CONSTRAINT hub_users_scheduled_plan_consistent CHECK (
+        (scheduled_hub_plan_oid IS NULL
+            AND scheduled_billing_interval IS NULL)
+        OR (scheduled_hub_plan_oid IS NOT NULL
+            AND scheduled_hub_plan_oid = 'hub-free-tier'
+            AND scheduled_billing_interval IS NULL
+            AND hub_plan_oid <> 'hub-free-tier')
+        OR (scheduled_hub_plan_oid IS NOT NULL
+            AND scheduled_hub_plan_oid <> 'hub-free-tier'
+            AND scheduled_billing_interval IS NOT NULL
+            AND hub_plan_oid <> 'hub-free-tier'
+            AND (scheduled_hub_plan_oid, scheduled_billing_interval)
+                IS DISTINCT FROM (hub_plan_oid, subscription_billing_interval))
     )
 );
 
@@ -560,6 +624,9 @@ DROP TABLE IF EXISTS vetchium.admin_sessions;
 DROP TABLE IF EXISTS vetchium.admin_users;
 DROP TYPE IF EXISTS vetchium.admin_user_state;
 DROP TABLE IF EXISTS vetchium.hub_users;
+DROP TYPE IF EXISTS vetchium.hub_subscription_source;
+DROP TYPE IF EXISTS vetchium.hub_billing_interval;
+DROP TABLE IF EXISTS vetchium.hub_plans;
 DROP TYPE IF EXISTS vetchium.hub_user_state;
 DROP TABLE IF EXISTS vetchium.audit_events;
 DROP TABLE IF EXISTS vetchium.orgs;

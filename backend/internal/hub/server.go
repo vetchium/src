@@ -1,7 +1,10 @@
 package hub
 
 import (
+	"slices"
 	"time"
+
+	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
 
 	"backend/internal/apiserver"
 	"backend/internal/credentials"
@@ -22,7 +25,12 @@ type Server struct {
 	SessionDurations apiserver.SessionDurations
 	PublicBaseURL    string
 	CredentialKey    [32]byte
+	OfferedPlans     []subscriptionspec.Plan
 	Now              func() time.Time
+}
+
+func (s *Server) Offers(plan subscriptionspec.Plan) bool {
+	return slices.Contains(s.OfferedPlans, plan)
 }
 
 func (s *Server) CurrentTime() time.Time {

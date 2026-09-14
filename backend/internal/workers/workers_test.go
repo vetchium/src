@@ -18,13 +18,14 @@ func TestNewUsesConfiguredJobInterval(t *testing.T) {
 	const retryBackoffLimit = 30 * time.Second
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	worker := New(nil, log, "test", appconfig.Workers{
-		RetryBackoffLimit:       retryBackoffLimit,
-		PruneAdminSessionsTimer: interval,
-		PruneEphemeralDataTimer: interval,
+		RetryBackoffLimit:            retryBackoffLimit,
+		PruneAdminSessionsTimer:      interval,
+		PruneEphemeralDataTimer:      interval,
+		AdvanceHubSubscriptionsTimer: interval,
 	})
 
-	if len(worker.jobs) != 3 {
-		t.Fatalf("jobs = %d, want 3", len(worker.jobs))
+	if len(worker.jobs) != 4 {
+		t.Fatalf("jobs = %d, want 4", len(worker.jobs))
 	}
 	for _, job := range worker.jobs {
 		if got := job.interval; got != interval {

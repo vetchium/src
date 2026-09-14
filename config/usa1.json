@@ -15,7 +15,8 @@
     "pruneEphemeralDataTimer": "5m",
     "deliverHubEmailTimer": "5s",
     "hubEmailLeaseTTL": "1m",
-    "hubEmailMaxAttempts": 5
+    "hubEmailMaxAttempts": 5,
+    "advanceHubSubscriptionsTimer": "1m"
   },
   "adminAPIServer": {
     "sessionTTL": "24h"
@@ -36,7 +37,8 @@
     "publicBaseURL": "http://hub-ui.usa1.localhost",
     "signup": {
       "enabled": true
-    }
+    },
+    "offeredPlans": ["hub-free-tier", "hub-silver-tier"]
   },
   "smtp": {
     "host": "mailpit",

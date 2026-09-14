@@ -259,20 +259,42 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       409,
       "vetchium-problem-details/idempotency-key-conflict",
     );
-    const userCreated = expectOneAuditEvent(
-      hubAuditEventsByIdempotencyKey(completeSignupKey),
-      {
-        tenant_id: "sgp",
-        action: "hub.user.created",
-        entity_type: "hub_user",
-        entityID: completed.hub_user_did,
-        actor_type: "anonymous",
-        actor_id: null,
-        source: "hub-api",
-        idempotency_key: completeSignupKey,
-        payload: { handle: completed.handle },
-      },
+    const completionEvents = hubAuditEventsByIdempotencyKey(completeSignupKey);
+    expect(completionEvents).toHaveLength(2);
+    const userCreated = completionEvents.find(
+      (event) => event.action === "hub.user.created",
     );
+    if (userCreated === undefined) throw new Error("expected hub.user.created");
+    expect(userCreated).toMatchObject({
+      tenant_id: "sgp",
+      action: "hub.user.created",
+      entity_type: "hub_user",
+      entity_id: completed.hub_user_did,
+      actor_type: "anonymous",
+      actor_id: null,
+      source: "hub-api",
+      idempotency_key: completeSignupKey,
+    });
+    expect(userCreated.payload).toEqual({ handle: completed.handle });
+    const subscriptionCreated = completionEvents.find(
+      (event) => event.action === "hub.subscription.created",
+    );
+    if (subscriptionCreated === undefined) {
+      throw new Error("expected hub.subscription.created");
+    }
+    expect(subscriptionCreated).toMatchObject({
+      tenant_id: "sgp",
+      action: "hub.subscription.created",
+      entity_type: "hub_subscription",
+      entity_id: completed.hub_user_did,
+      actor_type: "anonymous",
+      actor_id: null,
+      source: "hub-api",
+      idempotency_key: completeSignupKey,
+    });
+    expect(subscriptionCreated.payload).toEqual({
+      hub_plan_oid: "hub-free-tier",
+    });
 
     await expectProblem(
       await hub.post("/login", {

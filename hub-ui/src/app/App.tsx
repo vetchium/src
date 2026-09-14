@@ -29,6 +29,11 @@ const NotFoundPage = lazy(() =>
     default: NotFoundPage,
   })),
 );
+const PlanPage = lazy(() =>
+  import("../pages/PlanPage").then(({ PlanPage }) => ({
+    default: PlanPage,
+  })),
+);
 const ProfilePage = lazy(() =>
   import("../pages/ProfilePage").then(({ ProfilePage }) => ({
     default: ProfilePage,
@@ -52,6 +57,11 @@ const SecurityPage = lazy(() =>
 const SignupPage = lazy(() =>
   import("../pages/SignupPage").then(({ SignupPage }) => ({
     default: SignupPage,
+  })),
+);
+const TermsPage = lazy(() =>
+  import("../pages/TermsPage").then(({ TermsPage }) => ({
+    default: TermsPage,
   })),
 );
 const TwoFactorPage = lazy(() =>
@@ -118,6 +128,14 @@ export function App() {
             </Page>
           }
         />
+        <Route
+          path="terms"
+          element={
+            <Page>
+              <TermsPage />
+            </Page>
+          }
+        />
       </Route>
       <Route element={<ProtectedRoute />}>
         <Route element={<PublicShell />}>
@@ -144,6 +162,14 @@ export function App() {
             element={
               <Page>
                 <ProfilePage />
+              </Page>
+            }
+          />
+          <Route
+            path="plan"
+            element={
+              <Page>
+                <PlanPage />
               </Page>
             }
           />

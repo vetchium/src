@@ -102,6 +102,8 @@ over a general one.
   into several routers.
 
 `docs/` holds records rather than rules: [`todo.md`](docs/todo.md) for
-deliberately deferred work, and
+deliberately deferred work,
 [`hub-signup-design.md`](docs/hub-signup-design.md) for the signup and
-locality design.
+locality design, and
+[`subscriptions-plans.md`](docs/subscriptions-plans.md) for the Hub
+subscription plans design.

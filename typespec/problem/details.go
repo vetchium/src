@@ -13,6 +13,15 @@ type Details struct {
 	Fields   []string `json:"fields,omitempty"`
 }
 
+// Body is a problem response, either bare Details or a struct embedding it
+// with extension members. Embedding Details promotes ProblemDetails, so any
+// such struct satisfies Body without writing the method itself.
+type Body interface {
+	ProblemDetails() Details
+}
+
+func (d Details) ProblemDetails() Details { return d }
+
 var InternalServerError = Details{
 	Type:   "vetchium-problem-details/internal-server-error",
 	Title:  "Internal Server Error",

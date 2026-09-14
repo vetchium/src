@@ -161,7 +161,8 @@ inserted_user AS (
         password_hash,
         preferred_language,
         resident_country,
-        preferred_job_countries
+        preferred_job_countries,
+        hub_plan_oid
     )
     SELECT
         sqlc.arg(hub_user_did),
@@ -171,7 +172,8 @@ inserted_user AS (
         sqlc.arg(password_hash),
         preferred_language,
         resident_country,
-        ARRAY[resident_country]
+        ARRAY[resident_country],
+        sqlc.arg(default_hub_plan_oid)
     FROM eligible_signup
     ON CONFLICT DO NOTHING
     RETURNING hub_user_did, handle
@@ -204,6 +206,28 @@ inserted_user AS (
         'hub-api',
         sqlc.arg(idempotency_key),
         jsonb_build_object('handle', handle)
+    FROM inserted_user
+    WHERE EXISTS (SELECT 1 FROM consumed)
+), subscription_audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id,
+        action,
+        entity_type,
+        entity_id,
+        actor_type,
+        source,
+        idempotency_key,
+        payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'hub.subscription.created',
+        'hub_subscription',
+        hub_user_did::text,
+        'anonymous',
+        'hub-api',
+        sqlc.arg(idempotency_key),
+        jsonb_build_object('hub_plan_oid', sqlc.arg(default_hub_plan_oid))
     FROM inserted_user
     WHERE EXISTS (SELECT 1 FROM consumed)
 )

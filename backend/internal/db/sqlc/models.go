@@ -53,6 +53,48 @@ func (ns NullVetchiumAdminUserState) Value() (driver.Value, error) {
 	return string(ns.VetchiumAdminUserState), nil
 }
 
+type VetchiumHubBillingInterval string
+
+const (
+	VetchiumHubBillingIntervalMonth VetchiumHubBillingInterval = "month"
+	VetchiumHubBillingIntervalYear  VetchiumHubBillingInterval = "year"
+)
+
+func (e *VetchiumHubBillingInterval) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumHubBillingInterval(s)
+	case string:
+		*e = VetchiumHubBillingInterval(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumHubBillingInterval: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumHubBillingInterval struct {
+	VetchiumHubBillingInterval VetchiumHubBillingInterval `json:"vetchium_hub_billing_interval"`
+	Valid                      bool                       `json:"valid"` // Valid is true if VetchiumHubBillingInterval is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumHubBillingInterval) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumHubBillingInterval, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumHubBillingInterval.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumHubBillingInterval) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumHubBillingInterval), nil
+}
+
 type VetchiumHubSignupDomainState string
 
 const (
@@ -93,6 +135,47 @@ func (ns NullVetchiumHubSignupDomainState) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.VetchiumHubSignupDomainState), nil
+}
+
+type VetchiumHubSubscriptionSource string
+
+const (
+	VetchiumHubSubscriptionSourceSimulated VetchiumHubSubscriptionSource = "simulated"
+)
+
+func (e *VetchiumHubSubscriptionSource) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumHubSubscriptionSource(s)
+	case string:
+		*e = VetchiumHubSubscriptionSource(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumHubSubscriptionSource: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumHubSubscriptionSource struct {
+	VetchiumHubSubscriptionSource VetchiumHubSubscriptionSource `json:"vetchium_hub_subscription_source"`
+	Valid                         bool                          `json:"valid"` // Valid is true if VetchiumHubSubscriptionSource is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumHubSubscriptionSource) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumHubSubscriptionSource, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumHubSubscriptionSource.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumHubSubscriptionSource) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumHubSubscriptionSource), nil
 }
 
 type VetchiumHubUserState string
@@ -291,6 +374,10 @@ type VetchiumHubPasswordResetToken struct {
 	Active                  bool               `json:"active"`
 }
 
+type VetchiumHubPlan struct {
+	HubPlanOid string `json:"hub_plan_oid"`
+}
+
 type VetchiumHubSession struct {
 	HubSessionID     pgtype.UUID        `json:"hub_session_id"`
 	HubUserDid       pgtype.UUID        `json:"hub_user_did"`
@@ -342,21 +429,30 @@ type VetchiumHubTotpRecoveryCode struct {
 }
 
 type VetchiumHubUser struct {
-	HubUserDid            pgtype.UUID          `json:"hub_user_did"`
-	Handle                string               `json:"handle"`
-	EmailAddress          string               `json:"email_address"`
-	DisplayName           string               `json:"display_name"`
-	PasswordHash          string               `json:"password_hash"`
-	HubUserState          VetchiumHubUserState `json:"hub_user_state"`
-	PreferredLanguage     string               `json:"preferred_language"`
-	ResidentCountry       string               `json:"resident_country"`
-	PreferredJobCountries []string             `json:"preferred_job_countries"`
-	TotpSecretCiphertext  []byte               `json:"totp_secret_ciphertext"`
-	TotpEnabled           bool                 `json:"totp_enabled"`
-	TotpLastTimestep      pgtype.Int8          `json:"totp_last_timestep"`
-	LastLoginAt           pgtype.Timestamptz   `json:"last_login_at"`
-	CreatedAt             pgtype.Timestamptz   `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz   `json:"updated_at"`
+	HubUserDid                     pgtype.UUID                    `json:"hub_user_did"`
+	Handle                         string                         `json:"handle"`
+	EmailAddress                   string                         `json:"email_address"`
+	DisplayName                    string                         `json:"display_name"`
+	PasswordHash                   string                         `json:"password_hash"`
+	HubUserState                   VetchiumHubUserState           `json:"hub_user_state"`
+	PreferredLanguage              string                         `json:"preferred_language"`
+	ResidentCountry                string                         `json:"resident_country"`
+	PreferredJobCountries          []string                       `json:"preferred_job_countries"`
+	TotpSecretCiphertext           []byte                         `json:"totp_secret_ciphertext"`
+	TotpEnabled                    bool                           `json:"totp_enabled"`
+	TotpLastTimestep               pgtype.Int8                    `json:"totp_last_timestep"`
+	LastLoginAt                    pgtype.Timestamptz             `json:"last_login_at"`
+	HubPlanOid                     string                         `json:"hub_plan_oid"`
+	SubscriptionBillingInterval    NullVetchiumHubBillingInterval `json:"subscription_billing_interval"`
+	SubscriptionAnchorAt           pgtype.Timestamptz             `json:"subscription_anchor_at"`
+	SubscriptionPeriodStart        pgtype.Timestamptz             `json:"subscription_period_start"`
+	SubscriptionPeriodEnd          pgtype.Timestamptz             `json:"subscription_period_end"`
+	ScheduledHubPlanOid            pgtype.Text                    `json:"scheduled_hub_plan_oid"`
+	ScheduledBillingInterval       NullVetchiumHubBillingInterval `json:"scheduled_billing_interval"`
+	SubscriptionCancelsAtPeriodEnd bool                           `json:"subscription_cancels_at_period_end"`
+	SubscriptionSource             VetchiumHubSubscriptionSource  `json:"subscription_source"`
+	CreatedAt                      pgtype.Timestamptz             `json:"created_at"`
+	UpdatedAt                      pgtype.Timestamptz             `json:"updated_at"`
 }
 
 type VetchiumIdempotencyLedger struct {

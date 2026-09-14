@@ -266,10 +266,15 @@ function SignupFlow() {
           </Form>
         )}
         {!signup.isSuccess && (
-          <Typography.Text>
-            {t("signup.haveAccount")}{" "}
-            <Link to="/login">{t("signup.signin")}</Link>
-          </Typography.Text>
+          <>
+            <Typography.Text>
+              {t("signup.haveAccount")}{" "}
+              <Link to="/login">{t("signup.signin")}</Link>
+            </Typography.Text>
+            <Typography.Text>
+              <Link to="/terms">{t("signup.terms")}</Link>
+            </Typography.Text>
+          </>
         )}
       </Space>
     </Card>

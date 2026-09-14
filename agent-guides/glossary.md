@@ -36,6 +36,12 @@ Listing — a service offer by a provider org. Numbered per (org, country).
 ServiceConsumer — a consumer org subscribing to a provider's Listing. Authoritative provider-side.
 Agency assignment — a client org officially assigning an agency to one of its openings.
 
+## Subscriptions
+
+Plan — a Hub subscription tier identified by its plan OID, with a unique rank. A higher rank includes everything a lower rank allows.
+Subscription — a Hub user's single current plan, billing interval, period, and scheduled change, stored on the user's row in the home tenant.
+Offered plans — the plans a tenant sells, configured in both the backend and `hub-ui`.
+
 ## Location
 
 Resident country — a Hub user's self-declared current country, independent of their home tenant.

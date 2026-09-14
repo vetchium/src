@@ -87,3 +87,11 @@ func NullBool(value *bool) pgtype.Bool {
 	}
 	return pgtype.Bool{Bool: *value, Valid: true}
 }
+
+func TimePtr(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	t := value.Time
+	return &t
+}

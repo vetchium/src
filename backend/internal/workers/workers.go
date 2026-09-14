@@ -20,13 +20,15 @@ type periodicJob struct {
 
 // Worker owns the dependencies and periodic jobs for the worker process.
 type Worker struct {
-	queries           sqlc.Querier
-	hubEmailQueries   hubEmailQueries
-	hubEmailDelivery  *HubEmailDelivery
-	log               *slog.Logger
-	tenantID          string
-	retryBackoffLimit time.Duration
-	jobs              []periodicJob
+	queries                  sqlc.Querier
+	hubEmailQueries          hubEmailQueries
+	hubEmailDelivery         *HubEmailDelivery
+	subscriptionTransactions subscriptionTransactions
+	hubSubscriptionNow       func() time.Time
+	log                      *slog.Logger
+	tenantID                 string
+	retryBackoffLimit        time.Duration
+	jobs                     []periodicJob
 }
 
 func New(
@@ -38,11 +40,12 @@ func New(
 ) *Worker {
 	queries := sqlc.New(db)
 	w := &Worker{
-		queries:           queries,
-		hubEmailQueries:   queries,
-		log:               log,
-		tenantID:          tenantID,
-		retryBackoffLimit: config.RetryBackoffLimit,
+		queries:                  queries,
+		hubEmailQueries:          queries,
+		log:                      log,
+		tenantID:                 tenantID,
+		retryBackoffLimit:        config.RetryBackoffLimit,
+		subscriptionTransactions: poolSubscriptionTransactions{db: db},
 	}
 	w.jobs = []periodicJob{
 		{
@@ -59,6 +62,11 @@ func New(
 			name:     "prune-idempotency",
 			interval: config.PruneEphemeralDataTimer,
 			run:      w.pruneIdempotency,
+		},
+		{
+			name:     "advance-hub-subscriptions",
+			interval: config.AdvanceHubSubscriptionsTimer,
+			run:      w.advanceHubSubscriptions,
 		},
 	}
 	if len(hubEmailDelivery) > 0 && hubEmailDelivery[0] != nil {

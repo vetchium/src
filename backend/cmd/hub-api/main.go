@@ -86,6 +86,7 @@ func run(log *slog.Logger, address string) error {
 		CredentialKey: hubauthn.DeriveCredentialKey(
 			cfg.TenantID, credentialSecret,
 		),
+		OfferedPlans: cfg.HubAPIServer.OfferedPlans,
 	}
 	mux := http.NewServeMux()
 	routes.RegisterHubRoutes(mux, s)

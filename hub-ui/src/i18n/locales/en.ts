@@ -15,6 +15,7 @@ export const en = {
     home: "Home",
     profile: "My profile",
     security: "Security",
+    plan: "Plan",
   },
   theme: {
     toggleLabel: "Switch light or dark mode",
@@ -83,6 +84,7 @@ export const en = {
       "Check your inbox. If the address is eligible, your signup link is on its way.",
     haveAccount: "Already have an account?",
     signin: "Sign in",
+    terms: "Terms and Conditions",
   },
   completeSignup: {
     documentTitle: "Complete signup | Vetchium",
@@ -154,6 +156,7 @@ export const en = {
     invalidEnrollment: "This authenticator setup expired. Start again.",
     regionDiscoveryUnavailable:
       "Regions could not be loaded just now. Try again.",
+    planNotOffered: "This plan is not available for your account.",
   },
   profile: {
     jobCountries: "Preferred job countries",
@@ -229,7 +232,92 @@ export const en = {
   },
   home: {
     documentTitle: "Home | Vetchium",
-    placeholder: "Vetchium home page",
+    title: "Welcome back",
+    planInvitationTitle: "Choose a plan",
+    planInvitationBody:
+      "Pick the plan that fits you. You can change it at any time.",
+    planInvitationAction: "View plans",
+    considerPaidPlan: "Consider a paid plan to unlock more from Vetchium.",
+    profileInvitationTitle: "Complete your profile",
+    profileInvitationBody:
+      "Fill in your basic profile information so opportunities can find you.",
+    profileInvitationAction: "Go to my profile",
+  },
+  plans: {
+    documentTitle: "Plans | Vetchium",
+    title: "Plans",
+    description:
+      "Choose the plan that fits how you share and connect. Change it any time.",
+    loadingLabel: "Loading your subscription",
+    billingIntervalLabel: "Billing interval",
+    annualSaving: "Save 1 month",
+    pricingNote:
+      "Prices include tax. Payments are currently simulated, so you will not be charged.",
+    recommended: "Recommended",
+    planCardLabel: "{{plan}} plan",
+    currentBadge: "Current",
+    freePrice: "Free",
+    freePriceCaption: "forever",
+    pricePeriod: {
+      month: "per month",
+      year: "per year",
+    },
+    descriptions: {
+      free: "The essentials for building your professional presence.",
+      silver: "More ways to express yourself and personalize your profile.",
+    },
+    featuresTitle: "What's included",
+    features: {
+      professionalProfile: "Build your professional profile",
+      standardPosts: "Share standard posts",
+      professionalNetwork: "Grow your professional network",
+      everythingInFree: "Everything in Free",
+      longPosts: "Long posts",
+      profilePictures: "Profile picture support",
+    },
+    currentTitle: "Current plan",
+    currentPlan: "Plan",
+    currentInterval: "Billing interval",
+    currentPeriod: "Current period",
+    periodRange: "{{start}} – {{end}}",
+    scheduledChange: "Switches to {{plan}} ({{interval}}) on {{date}}.",
+    scheduledCancellation: "Cancels at the end of the period, on {{date}}.",
+    fossBullet:
+      "The paid plans will support the development of the Vetchium FOSS project.",
+    unknownPlanTitle: "This plan cannot be changed here",
+    unknownPlanDescription:
+      "Your subscription uses a plan ({{plan}}) this version of the portal does not recognize. Update the app to change your plan.",
+    confirmTitle: "Confirm this change",
+    confirmDescription:
+      "This takes effect on {{date}}, at the end of the current period.",
+    confirmDescriptionNoDate:
+      "This takes effect at the end of the current period.",
+    confirmBack: "Go back",
+    interval: {
+      month: "Monthly",
+      year: "Annual",
+    },
+    names: {
+      "hub-free-tier": "Free",
+      "hub-silver-tier": "Silver",
+    },
+    actions: {
+      current: "Current plan",
+      keep: "Keep this plan",
+      upgrade: "Upgrade",
+      switchToAnnual: "Switch to annual",
+      switchAtPeriodEnd: "Switch at period end",
+      switchToFree: "Switch to Free",
+    },
+  },
+  terms: {
+    documentTitle: "Terms and Conditions | Vetchium",
+    title: "Terms and Conditions",
+    general:
+      "These terms describe how Vetchium provides its platform. Full legal terms will be published before Vetchium is generally available.",
+    paymentsTitle: "Payments",
+    paymentsBody:
+      "Vetchium plans are not yet billed. When payments are enabled, payment terms covering pricing, billing periods, refunds, and cancellations will be published here before any payment is taken.",
   },
 } as const;
 

@@ -1,4 +1,9 @@
-import { HomeOutlined, SafetyOutlined, UserOutlined } from "@ant-design/icons";
+import {
+  CreditCardOutlined,
+  HomeOutlined,
+  SafetyOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PortalShell } from "@vetchium/portal-ui/shell";
 import { useEffect } from "react";
@@ -46,7 +51,9 @@ export function AppShell() {
     ? "/settings/profile"
     : location.pathname.startsWith("/settings/security")
       ? "/settings/security"
-      : "/";
+      : location.pathname.startsWith("/plan")
+        ? "/plan"
+        : "/";
   const navigationItems = [
     { key: "/", icon: <HomeOutlined />, label: t("navigation.home") },
     {
@@ -58,6 +65,11 @@ export function AppShell() {
       key: "/settings/security",
       icon: <SafetyOutlined />,
       label: t("navigation.security"),
+    },
+    {
+      key: "/plan",
+      icon: <CreditCardOutlined />,
+      label: t("navigation.plan"),
     },
   ];
   return (

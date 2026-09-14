@@ -42,7 +42,7 @@ function sqlLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
-type TestTenant = "deu" | "sgp" | "ind1" | "usa1";
+export type TestTenant = "deu" | "sgp" | "ind1" | "usa1";
 
 function sqlScalarForTenant(tenant: TestTenant, sql: string): string {
   return execFileSync(
@@ -1027,6 +1027,8 @@ export function cleanupHubUser(
 ): void {
   assertOwnedHubEmail(emailAddress);
   const email = sqlLiteral(emailAddress);
+  const did = `(SELECT hub_user_did::text FROM vetchium.hub_users
+                WHERE email_address = ${email})`;
   sqlScalarForTenant(
     tenant,
     `
@@ -1034,6 +1036,10 @@ export function cleanupHubUser(
     WHERE recipient_email_address = ${email};
     DELETE FROM vetchium.hub_signup_requests
     WHERE email_address = ${email};
+    DELETE FROM vetchium.audit_events
+    WHERE entity_type = 'hub_user' AND entity_id = ${did};
+    DELETE FROM vetchium.audit_events
+    WHERE actor_type = 'hub_user' AND actor_id = ${did};
     DELETE FROM vetchium.hub_users
     WHERE email_address = ${email};
     DELETE FROM vetchium.idempotency_ledger
@@ -1117,7 +1123,16 @@ function parseAuditEvents(value: string): AuditEvent[] {
 }
 
 function auditEventJSON(where: string): AuditEvent[] {
-  const value = sqlScalar(`
+  return auditEventJSONForTenant("sgp", where);
+}
+
+function auditEventJSONForTenant(
+  tenant: TestTenant,
+  where: string,
+): AuditEvent[] {
+  const value = sqlScalarForTenant(
+    tenant,
+    `
     SELECT COALESCE(
       jsonb_agg(
         jsonb_build_object(
@@ -1138,7 +1153,8 @@ function auditEventJSON(where: string): AuditEvent[] {
     )::text
     FROM vetchium.audit_events
     WHERE ${where};
-  `);
+  `,
+  );
   return parseAuditEvents(value);
 }
 
@@ -1768,4 +1784,414 @@ export function seedPendingHubSignup(
     tenant,
     `INSERT INTO vetchium.hub_signup_requests (email_address, display_name, preferred_language, resident_country, token_hash, expires_at) VALUES (${sqlLiteral(emailAddress)}, 'Pending Signup', 'en-US', 'DE', decode('${hash}', 'hex'), now() + interval '10 minutes');`,
   );
+}
+
+export interface SubscriptionPeriod {
+  anchor: Date;
+  start: Date;
+  end: Date;
+}
+
+function subscriptionPeriodSQL(
+  did: string,
+  period: SubscriptionPeriod,
+): string {
+  assertHubUserDID(did);
+  return `
+    UPDATE vetchium.hub_users
+    SET subscription_anchor_at = ${sqlLiteral(period.anchor.toISOString())},
+        subscription_period_start = ${sqlLiteral(period.start.toISOString())},
+        subscription_period_end = ${sqlLiteral(period.end.toISOString())}
+    WHERE hub_user_did = ${sqlLiteral(did)}::uuid;
+  `;
+}
+
+export function setHubSubscriptionPeriod(
+  did: string,
+  tenant: TestTenant,
+  period: SubscriptionPeriod,
+): void {
+  sqlScalarForTenant(tenant, subscriptionPeriodSQL(did, period));
+}
+
+/** Applies several period updates in one psql invocation. */
+export function setHubSubscriptionPeriods(
+  tenant: TestTenant,
+  entries: Array<[string, SubscriptionPeriod]>,
+): void {
+  sqlScalarForTenant(
+    tenant,
+    entries
+      .map(([did, period]) => subscriptionPeriodSQL(did, period))
+      .join("\n"),
+  );
+}
+
+export function hubSubscriptionAuditEvents(
+  did: string,
+  tenant: TestTenant,
+): AuditEvent[] {
+  assertHubUserDID(did);
+  return auditEventJSONForTenant(
+    tenant,
+    `entity_type = 'hub_subscription' AND entity_id = ${sqlLiteral(did)}`,
+  );
+}
+
+export function cleanupHubSubscriptionAudit(
+  did: string,
+  tenant: TestTenant = "sgp",
+): void {
+  assertHubUserDID(did);
+  sqlScalarForTenant(
+    tenant,
+    `DELETE FROM vetchium.audit_events
+     WHERE entity_type = 'hub_subscription' AND entity_id = ${sqlLiteral(did)};`,
+  );
+}
+
+/**
+ * Deletes every audit_events row naming did as either the entity or the
+ * actor, regardless of entity_type or actor_type, so a test does not need to
+ * enumerate every action that can reference a Hub user's DID.
+ */
+export function cleanupHubUserAuditEvents(
+  did: string,
+  tenant: TestTenant = "sgp",
+): void {
+  assertHubUserDID(did);
+  sqlScalarForTenant(
+    tenant,
+    `DELETE FROM vetchium.audit_events
+     WHERE entity_id = ${sqlLiteral(did)} OR actor_id = ${sqlLiteral(did)};`,
+  );
+}
+
+/** The database's own clock, so tests compute instants on the database's
+ * clock rather than the test runner's. */
+export function databaseNow(tenant: TestTenant): Date {
+  return new Date(
+    Number(
+      sqlScalarForTenant(tenant, "SELECT extract(epoch FROM now())::text;"),
+    ) * 1000,
+  );
+}
+
+export interface HeldRowLock {
+  holderPID: number;
+  lockedAt: Date;
+  /** Idempotent: does nothing once the session has exited. */
+  release: (period?: SubscriptionPeriod) => Promise<void>;
+}
+
+/**
+ * Holds a `FOR NO KEY UPDATE` lock on one Hub user's row in a spawned psql
+ * session, following the pattern `credentialRefreshPruneRace` uses.
+ * `clock_timestamp()` is taken after the lock is granted, so `lockedAt`
+ * reflects when the lock actually took effect rather than the transaction's
+ * start.
+ */
+export async function holdHubUserRowLock(
+  did: string,
+  tenant: TestTenant,
+): Promise<HeldRowLock> {
+  assertHubUserDID(did);
+  const marker = `row_lock_ready_${randomBytes(8).toString("hex")}`;
+  const session = spawn(
+    "docker",
+    [
+      "compose",
+      "-f",
+      resolve(repositoryRoot, "docker-compose-ci.json"),
+      "exec",
+      "-T",
+      `db-${tenant}`,
+      "env",
+      "PGPASSWORD=pgpassword",
+      "psql",
+      "-X",
+      "-q",
+      "-A",
+      "-t",
+      "-U",
+      "pguser",
+      "-d",
+      "tenant_db",
+      "-v",
+      "ON_ERROR_STOP=1",
+    ],
+    { cwd: repositoryRoot, stdio: ["pipe", "pipe", "pipe"] },
+  );
+  let sessionExited = false;
+  let stdout = "";
+  let stderr = "";
+  session.stdout.setEncoding("utf8");
+  session.stderr.setEncoding("utf8");
+  session.stdout.on("data", (chunk: string) => {
+    stdout += chunk;
+  });
+  session.stderr.on("data", (chunk: string) => {
+    stderr += chunk;
+  });
+  const exited = new Promise<void>((resolvePromise, reject) => {
+    session.once("error", reject);
+    session.once("exit", (code) => {
+      sessionExited = true;
+      if (code === 0) resolvePromise();
+      else reject(new Error(`row lock session exited ${code}: ${stderr}`));
+    });
+  });
+  const ready = new Promise<{ pid: number; lockedAt: Date }>(
+    (resolvePromise, reject) => {
+      const timeout = setTimeout(
+        () =>
+          reject(
+            new Error(
+              `row lock session did not become ready: ${stdout} ${stderr}`,
+            ),
+          ),
+        10_000,
+      );
+      const onData = () => {
+        const match = stdout.match(/(\d+)\|([^\n]+)\n/);
+        if (match?.[1] !== undefined && match[2] !== undefined) {
+          clearTimeout(timeout);
+          session.stdout.off("data", onData);
+          resolvePromise({
+            pid: Number(match[1]),
+            lockedAt: new Date(Number(match[2]) * 1000),
+          });
+        }
+      };
+      session.stdout.on("data", onData);
+      session.once("exit", () => {
+        clearTimeout(timeout);
+        reject(new Error(`row lock session exited before ready: ${stderr}`));
+      });
+    },
+  );
+  session.stdin.write(`
+    BEGIN;
+    SELECT 1 FROM vetchium.hub_users
+    WHERE hub_user_did = ${sqlLiteral(did)}::uuid FOR NO KEY UPDATE;
+    SELECT pg_backend_pid()::text || '|' ||
+      extract(epoch FROM clock_timestamp())::text;
+    SELECT '${marker}';
+  `);
+  const { pid, lockedAt } = await ready;
+  let released = false;
+  return {
+    holderPID: pid,
+    lockedAt,
+    release: async (period) => {
+      if (released || sessionExited) return;
+      released = true;
+      if (period !== undefined) {
+        session.stdin.write(subscriptionPeriodSQL(did, period));
+      }
+      session.stdin.write("COMMIT;\n\\q\n");
+      await exited.catch(() => {});
+    },
+  };
+}
+
+export type HubUserSubscriptionViolation =
+  | "free-with-anchor"
+  | "free-with-period-start"
+  | "free-with-period-end"
+  | "free-with-interval"
+  | "paid-missing-anchor"
+  | "paid-missing-period-start"
+  | "paid-missing-period-end"
+  | "paid-missing-interval"
+  | "period-start-not-before-end"
+  | "anchor-after-start"
+  | "scheduled-paid-without-interval"
+  | "scheduled-free-with-interval"
+  | "scheduled-interval-without-plan"
+  | "scheduled-change-on-free-plan"
+  | "scheduled-change-equals-current";
+
+const hubUserSubscriptionViolationSQL: Record<
+  HubUserSubscriptionViolation,
+  (did: string) => string
+> = {
+  "free-with-anchor": (did) =>
+    `UPDATE vetchium.hub_users SET subscription_anchor_at = now()
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+  "free-with-period-start": (did) =>
+    `UPDATE vetchium.hub_users SET subscription_period_start = now()
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+  "free-with-period-end": (did) =>
+    `UPDATE vetchium.hub_users SET subscription_period_end = now()
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+  "free-with-interval": (did) =>
+    `UPDATE vetchium.hub_users SET subscription_billing_interval = 'month'
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+  "paid-missing-anchor": (did) =>
+    `UPDATE vetchium.hub_users
+     SET hub_plan_oid = 'hub-silver-tier',
+         subscription_billing_interval = 'month',
+         subscription_period_start = now(),
+         subscription_period_end = now() + interval '1 month'
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+  "paid-missing-period-start": (did) =>
+    `UPDATE vetchium.hub_users
+     SET hub_plan_oid = 'hub-silver-tier',
+         subscription_billing_interval = 'month',
+         subscription_anchor_at = now(),
+         subscription_period_end = now() + interval '1 month'
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+  "paid-missing-period-end": (did) =>
+    `UPDATE vetchium.hub_users
+     SET hub_plan_oid = 'hub-silver-tier',
+         subscription_billing_interval = 'month',
+         subscription_anchor_at = now(),
+         subscription_period_start = now()
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+  "paid-missing-interval": (did) =>
+    `UPDATE vetchium.hub_users
+     SET hub_plan_oid = 'hub-silver-tier',
+         subscription_anchor_at = now(),
+         subscription_period_start = now(),
+         subscription_period_end = now() + interval '1 month'
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+  "period-start-not-before-end": (did) =>
+    `UPDATE vetchium.hub_users
+     SET hub_plan_oid = 'hub-silver-tier',
+         subscription_billing_interval = 'month',
+         subscription_anchor_at = now(),
+         subscription_period_start = now(),
+         subscription_period_end = now()
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+  "anchor-after-start": (did) =>
+    `UPDATE vetchium.hub_users
+     SET hub_plan_oid = 'hub-silver-tier',
+         subscription_billing_interval = 'month',
+         subscription_anchor_at = now() + interval '1 day',
+         subscription_period_start = now(),
+         subscription_period_end = now() + interval '1 month'
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+  "scheduled-paid-without-interval": (did) =>
+    `UPDATE vetchium.hub_users
+     SET hub_plan_oid = 'hub-silver-tier',
+         subscription_billing_interval = 'month',
+         subscription_anchor_at = now(),
+         subscription_period_start = now(),
+         subscription_period_end = now() + interval '1 month',
+         scheduled_hub_plan_oid = 'hub-silver-tier'
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+  "scheduled-free-with-interval": (did) =>
+    `UPDATE vetchium.hub_users
+     SET hub_plan_oid = 'hub-silver-tier',
+         subscription_billing_interval = 'month',
+         subscription_anchor_at = now(),
+         subscription_period_start = now(),
+         subscription_period_end = now() + interval '1 month',
+         scheduled_hub_plan_oid = 'hub-free-tier',
+         scheduled_billing_interval = 'month'
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+  "scheduled-interval-without-plan": (did) =>
+    `UPDATE vetchium.hub_users
+     SET scheduled_billing_interval = 'month'
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+  "scheduled-change-on-free-plan": (did) =>
+    `UPDATE vetchium.hub_users
+     SET scheduled_hub_plan_oid = 'hub-free-tier'
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+  "scheduled-change-equals-current": (did) =>
+    `UPDATE vetchium.hub_users
+     SET hub_plan_oid = 'hub-silver-tier',
+         subscription_billing_interval = 'month',
+         subscription_anchor_at = now(),
+         subscription_period_start = now(),
+         subscription_period_end = now() + interval '1 month',
+         scheduled_hub_plan_oid = 'hub-silver-tier',
+         scheduled_billing_interval = 'month'
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid;`,
+};
+
+const hubUserSubscriptionViolationConstraint: Record<
+  HubUserSubscriptionViolation,
+  string
+> = {
+  "free-with-anchor": "hub_users_free_plan_has_no_period",
+  "free-with-period-start": "hub_users_free_plan_has_no_period",
+  "free-with-period-end": "hub_users_free_plan_has_no_period",
+  "free-with-interval": "hub_users_free_plan_has_no_period",
+  "paid-missing-anchor": "hub_users_free_plan_has_no_period",
+  "paid-missing-period-start": "hub_users_free_plan_has_no_period",
+  "paid-missing-period-end": "hub_users_free_plan_has_no_period",
+  "paid-missing-interval": "hub_users_free_plan_has_no_period",
+  "period-start-not-before-end": "hub_users_subscription_period_ordered",
+  "anchor-after-start": "hub_users_subscription_period_ordered",
+  "scheduled-paid-without-interval": "hub_users_scheduled_plan_consistent",
+  "scheduled-free-with-interval": "hub_users_scheduled_plan_consistent",
+  "scheduled-interval-without-plan": "hub_users_scheduled_plan_consistent",
+  "scheduled-change-on-free-plan": "hub_users_scheduled_plan_consistent",
+  "scheduled-change-equals-current": "hub_users_scheduled_plan_consistent",
+};
+
+/**
+ * Asserts that a named `hub_users` subscription-shape violation is rejected
+ * by the specific database constraint it targets. No API can produce these
+ * rows, so the schema itself is the subject here, not setup; the SQL is a
+ * fixed named statement, never caller-supplied.
+ */
+export function expectHubUserSubscriptionRejected(
+  did: string,
+  tenant: TestTenant,
+  violation: HubUserSubscriptionViolation,
+): void {
+  assertHubUserDID(did);
+  const sql = hubUserSubscriptionViolationSQL[violation](did);
+  const constraint = hubUserSubscriptionViolationConstraint[violation];
+  try {
+    sqlScalarForTenant(tenant, sql);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes(constraint)) {
+      throw new Error(
+        `expected ${violation} to violate ${constraint}, got: ${message}`,
+      );
+    }
+    return;
+  }
+  throw new Error(`expected ${violation} to violate ${constraint}`);
+}
+
+/**
+ * Polls until at least n backends are transitively blocked by holderPID,
+ * following the blocking chain so a second waiter queued behind the first
+ * still counts toward the holder.
+ */
+export async function waitForBlockedBy(
+  tenant: TestTenant,
+  holderPID: number,
+  n: number,
+): Promise<void> {
+  if (!/^\d+$/.test(String(holderPID))) {
+    throw new Error(`invalid holder PID: ${holderPID}`);
+  }
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const count = Number(
+      sqlScalarForTenant(
+        tenant,
+        `
+        WITH RECURSIVE blocked(pid) AS (
+            SELECT pid FROM pg_stat_activity
+            WHERE ${holderPID} = ANY (pg_blocking_pids(pid))
+            UNION
+            SELECT a.pid FROM pg_stat_activity AS a
+            JOIN blocked AS b ON b.pid = ANY (pg_blocking_pids(a.pid))
+        )
+        SELECT count(*)::text FROM blocked;
+      `,
+      ),
+    );
+    if (count >= n) return;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+  }
+  throw new Error(`fewer than ${n} backends blocked by PID ${holderPID}`);
 }

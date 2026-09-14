@@ -17,6 +17,7 @@
     "./preferences": "./src/preferences.tsx",
     "./providers": "./src/providers.tsx",
     "./recovery-codes": "./src/recovery-codes.tsx",
+    "./runtime-config": "./src/runtime-config.ts",
     "./security": "./src/security.tsx",
     "./session": "./src/session.ts",
     "./shell": "./src/shell.tsx",

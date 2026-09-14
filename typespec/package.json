@@ -33,6 +33,8 @@
     "./hub/auth/signup": "./hub/auth/signup.ts",
     "./hub/auth/totp": "./hub/auth/totp.ts",
     "./hub/auth/types": "./hub/auth/types.ts",
+    "./hub/subscriptions/plans": "./hub/subscriptions/plans.ts",
+    "./hub/subscriptions/subscriptions": "./hub/subscriptions/subscriptions.ts",
     "./hub/types": "./hub/types.ts",
     "./hub/users/profile": "./hub/users/profile.ts",
     "./problem/admin/authentication": "./problem/admin/authentication.ts",
@@ -45,6 +47,7 @@
     "./problem/global-coordinator/authentication": "./problem/global-coordinator/authentication.ts",
     "./problem/hub/authentication": "./problem/hub/authentication.ts",
     "./problem/hub/signup": "./problem/hub/signup.ts",
+    "./problem/hub/subscriptions": "./problem/hub/subscriptions.ts",
     "./problem/hub/totp": "./problem/hub/totp.ts",
     "./problem/regions/discovery": "./problem/regions/discovery.ts",
     "./regions/regions": "./regions/regions.ts"
@@ -58,19 +61,20 @@
   ],
   "scripts": {
     "check:contract-files": "node scripts/check-contract-files.mjs",
-    "compile": "tsp compile .",
+    "compile": "tsp compile main.tsp",
     "format": "biome check --write --config-path=../biome.json .",
     "format:check": "biome check --config-path=../biome.json .",
     "test:contract-files": "node --test scripts/check-contract-files.test.mjs",
+    "test:openapi": "node --experimental-strip-types --test scripts/openapi-extensions.test.ts",
     "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts hub/*.test.ts regions/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@typespec/compiler": "1.14.0",
-    "@typespec/http": "1.14.0",
-    "@typespec/openapi": "1.14.0",
-    "@typespec/openapi3": "1.14.0",
-    "@typespec/rest": "0.84.0",
+    "@typespec/compiler": "1.16.0",
+    "@typespec/http": "1.16.0",
+    "@typespec/openapi": "1.16.0",
+    "@typespec/openapi3": "1.16.0",
+    "@typespec/rest": "0.86.0",
     "iso-3166": "4.4.0"
   },
   "devDependencies": {

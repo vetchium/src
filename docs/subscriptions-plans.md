@@ -1,7 +1,8 @@
 # Hub subscription plans
 
-Designed, not implemented. The decisions below were made on 2026-09-12; what
-remains undecided is listed under [Open questions](#open-questions).
+Implemented 2026-09-13. The decisions below were made on 2026-09-12 and
+2026-09-13; what remains undecided is listed under
+[Open questions](#open-questions).
 
 ## Scope
 
@@ -116,8 +117,34 @@ database keeps only which user is on which plan and, later, payment records.
 
 Every change, whether by the user or by the worker, writes its audit events in
 the same transaction, with the Hub user or the worker as actor. The user's plan
-change goes through the idempotency ledger. The worker's transitions use state
-predicates, so a user change racing a period-end transition cannot apply twice.
+change goes through the idempotency ledger.
+
+**User direction (2026-09-12) — billing periods.** Each period boundary is
+computed from the day the paid series started (the anchor). A month without
+that day ends the period on its last day. Examples: an anchor of Jan 31 gives
+Feb 28, then Mar 31, then Apr 30. A Feb 29 annual anchor gives Feb 28, and
+Feb 29 in leap years.
+
+**User direction (2026-09-12) — production offerings.** `usa1`, `deu`, `sgp`,
+and `ind1` all offer `hub-silver-tier` at launch. `hub-free-tier` is always
+offered.
+
+**User direction (2026-09-13) — who applies period end.** Payments are
+simulated, so period end is pure bookkeeping on the user's row. Whichever
+touches a due row first applies it:
+
+- The worker applies it for users who make no request.
+- Set-plan applies it inside its own transaction, before deciding the user's
+  change. The user's change then always starts from the current period, so no
+  request is refused for being late.
+- `GET my-subscription` computes the same transition in memory for the
+  response and writes nothing, so a lagging worker never shows an ended
+  period.
+- The period-end rules exist once, in `billing.Advance`, and every path above
+  calls it.
+- A transition written by `hub-api` uses actor `system` /
+  `subscription-renewal`, source `hub-api`, and the request's idempotency key.
+  The worker uses actor `worker` / `subscription-renewal`, source `workers`.
 
 ## Simulated payments
 
@@ -171,9 +198,11 @@ runtime configuration and code.
 ## Hub portal
 
 - A plan page for signed-in users shows the offered plans with translated
-  names, monthly and annual prices, and the current subscription with any
-  scheduled change. Paid plans carry the highlighted bullet "The paid plans
-  will support the development of the Vetchium FOSS project."
+  names, a monthly or annual billing switch, prices, a feature comparison, and
+  the current subscription with any scheduled change. The initial paid plan
+  calls out long posts and profile picture support, and carries the highlighted
+  bullet "The paid plans will support the development of the Vetchium FOSS
+  project."
 - After sign-in, the home page invites the user to choose a plan and fill in
   basic profile information, and asks them to consider a paid plan.
 - Terms and Conditions is one public `/terms` page, the same for every tenant.
@@ -181,6 +210,42 @@ runtime configuration and code.
   every Hub locale (`en-US`, `de-DE`, `ta`), and is linked from signup.
   Acceptance is not recorded; it will be captured at checkout once real
   payments exist.
+
+## Implementation notes
+
+Non-policy choices a future reader needs, recorded when this design was
+implemented:
+
+- Plan identifiers use the `_oid` suffix throughout (database, wire, contract,
+  and Go/TypeScript names), matching the existing OID convention for seeded
+  config rows.
+- The subscription is stored as columns on `vetchium.hub_users`, not a
+  separate table, so exactly one subscription per user holds by construction.
+- `backend/internal/hub/billing.Advance` is the single statement of the
+  period-end rules; the worker, `set-subscription-plan`, and `GET
+  my-subscription` all call it.
+- A gated feature reads the committed `hub_plan_oid`, which can lag a due
+  change until the worker or a `set-subscription-plan` request writes it. A
+  feature that cannot accept that lag must apply due transitions first in its
+  own transaction, the way `set-subscription-plan` does.
+- The CI fixture tenant `usa1` offers only `hub-free-tier`, so Playwright can
+  exercise the plan-not-offered refusal against a real tenant. This is a test
+  fixture, not evidence about production policy; every production tenant
+  offers `hub-silver-tier`.
+- The backend's `hubAPIServer.offeredPlans` and the portal's
+  `VETCHIUM_HUB_PLANS` are literal values in every compose and stack file, not
+  `.env` substitutions, because nothing can compare them at container startup
+  (`hub-ui` is a static nginx container). A repository test,
+  `TestCheckedInHubPlansMatchPortalConfiguration`, compares every checked-in
+  environment instead.
+- A plan the portal does not recognize is shown as its raw OID, and every
+  change action is disabled for that subscription, so an older portal never
+  silently mishandles a newer plan.
+- A `set-subscription-plan` request locks the `hub_users` row with
+  `FOR NO KEY UPDATE` before deciding anything, so it waits out a worker batch
+  already holding that row. The worker claims its batch with `SKIP LOCKED`,
+  so it skips a row a concurrent request holds instead of waiting for it, and
+  picks the row back up on a later pass if it is still due then.
 
 ## Payment integration requirements in future
 

@@ -936,7 +936,9 @@
         "dockerfile": "hub-ui/Dockerfile"
       },
       "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_DEU_DEFAULT_LANGUAGE:-de-DE}"
+        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_DEU_DEFAULT_LANGUAGE:-de-DE}",
+        "VETCHIUM_TENANT_ID": "deu",
+        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier"
       },
       "networks": {
         "deu_ingress": null
@@ -950,7 +952,9 @@
         "dockerfile": "hub-ui/Dockerfile"
       },
       "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_IND1_DEFAULT_LANGUAGE:-en-US}"
+        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_IND1_DEFAULT_LANGUAGE:-en-US}",
+        "VETCHIUM_TENANT_ID": "ind1",
+        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier"
       },
       "networks": {
         "ind1_ingress": null
@@ -964,7 +968,9 @@
         "dockerfile": "hub-ui/Dockerfile"
       },
       "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_SGP_DEFAULT_LANGUAGE:-en-US}"
+        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_SGP_DEFAULT_LANGUAGE:-en-US}",
+        "VETCHIUM_TENANT_ID": "sgp",
+        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier"
       },
       "networks": {
         "sgp_ingress": null
@@ -978,7 +984,9 @@
         "dockerfile": "hub-ui/Dockerfile"
       },
       "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_USA1_DEFAULT_LANGUAGE:-en-US}"
+        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_USA1_DEFAULT_LANGUAGE:-en-US}",
+        "VETCHIUM_TENANT_ID": "usa1",
+        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier"
       },
       "networks": {
         "usa1_ingress": null

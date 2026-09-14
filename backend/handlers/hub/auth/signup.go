@@ -15,6 +15,7 @@ import (
 	"github.com/vetchium/src/typespec/common"
 	hubspec "github.com/vetchium/src/typespec/hub"
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
+	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
 	"backend/internal/apiserver"
@@ -181,6 +182,7 @@ func CompleteSignup(s *hubruntime.Server) http.HandlerFunc {
 							PasswordHash:       passwordHash,
 							TenantID:           s.TenantID,
 							IdempotencyKey:     dbvalue.Text(string(key)),
+							DefaultHubPlanOid:  string(subscriptionspec.DefaultPlan),
 						},
 					)
 					if err != nil {

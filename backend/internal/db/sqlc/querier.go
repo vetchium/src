@@ -16,6 +16,10 @@ type Querier interface {
 	AuthenticateHubSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateHubSessionRow, error)
 	ChangeAdminPassword(ctx context.Context, arg ChangeAdminPasswordParams) (bool, error)
 	ChangeHubPassword(ctx context.Context, arg ChangeHubPasswordParams) (bool, error)
+	// The worker passes a non-nil, possibly empty, exclusion slice. pgx v5
+	// encodes a nil Go slice as SQL NULL, and `x <> ALL (NULL)` is never true, so
+	// the COALESCE also guards a caller that does pass nil.
+	ClaimDueHubSubscriptions(ctx context.Context, arg ClaimDueHubSubscriptionsParams) ([]ClaimDueHubSubscriptionsRow, error)
 	ClaimHubEmail(ctx context.Context, arg ClaimHubEmailParams) (ClaimHubEmailRow, error)
 	CompleteAdminPasswordReset(ctx context.Context, arg CompleteAdminPasswordResetParams) (bool, error)
 	CompleteAdminRecoveryCodeLogin(ctx context.Context, arg CompleteAdminRecoveryCodeLoginParams) (CompleteAdminRecoveryCodeLoginRow, error)
@@ -67,6 +71,7 @@ type Querier interface {
 	GetAdminUserForLogin(ctx context.Context, emailAddress string) (GetAdminUserForLoginRow, error)
 	GetHubLoginChallenge(ctx context.Context, tokenHash []byte) (GetHubLoginChallengeRow, error)
 	GetHubMyInfo(ctx context.Context, arg GetHubMyInfoParams) (GetHubMyInfoRow, error)
+	GetHubMySubscription(ctx context.Context, arg GetHubMySubscriptionParams) (GetHubMySubscriptionRow, error)
 	GetHubPasswordForReauthentication(ctx context.Context, arg GetHubPasswordForReauthenticationParams) (string, error)
 	GetHubTOTPEnrollment(ctx context.Context, arg GetHubTOTPEnrollmentParams) (GetHubTOTPEnrollmentRow, error)
 	GetHubUserForLogin(ctx context.Context, emailAddress string) (GetHubUserForLoginRow, error)
@@ -77,6 +82,7 @@ type Querier interface {
 	LockAdminEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
 	LockAdminUserCredentialMutation(ctx context.Context, adminUserID pgtype.UUID) (pgtype.UUID, error)
 	LockHubEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
+	LockHubSubscriptionForChange(ctx context.Context, hubUserDid pgtype.UUID) (LockHubSubscriptionForChangeRow, error)
 	LockHubUserCredentialMutation(ctx context.Context, hubUserDid pgtype.UUID) (pgtype.UUID, error)
 	LockIdempotency(ctx context.Context, dollar_1 string) error
 	MarkHubEmailFailed(ctx context.Context, arg MarkHubEmailFailedParams) (bool, error)
@@ -103,6 +109,12 @@ type Querier interface {
 	ResolveHubLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveHubPasswordResetUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveHubSignupForCompletion(ctx context.Context, tokenHash []byte) (ResolveHubSignupForCompletionRow, error)
+	// The single write statement shared by the set-plan handler and the worker.
+	// A jsonb array with explicit `->>`/`->` field extraction lets one statement
+	// serve both a single-row caller and a batch caller; sqlc cannot resolve
+	// columns from jsonb_to_recordset's column-definition-list form, and parallel
+	// unnest arrays would read worse with eight state columns.
+	SaveHubSubscriptionStates(ctx context.Context, arg SaveHubSubscriptionStatesParams) (SaveHubSubscriptionStatesRow, error)
 	ScheduleHubEmailRetry(ctx context.Context, arg ScheduleHubEmailRetryParams) (bool, error)
 	SetAdminDisplayName(ctx context.Context, arg SetAdminDisplayNameParams) (int64, error)
 	// Refused when the replacement would remove the last active administrator
