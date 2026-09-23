@@ -34,8 +34,20 @@ type APIProblem struct {
 
 // Result is the successful response persisted for subsequent replays.
 type Result[T any] struct {
-	Status int
-	Body   T
+	Status           int
+	Body             T
+	CommittedProblem *APIProblem
+}
+
+// replayProblem retains extension members while Runtime.Problem reads the
+// common fields for status and logging.
+type replayProblem struct {
+	problem.Details
+	raw json.RawMessage
+}
+
+func (p replayProblem) MarshalJSON() ([]byte, error) {
+	return p.raw, nil
 }
 
 // Request identifies one globally named operation and its replay binding.
@@ -112,8 +124,21 @@ func Run[T any](
 			s.InternalError(r.Context(), w, "decrypt idempotent response", err)
 			return
 		}
+		status := int(existing.ResponseStatus.Int32)
 		var body T
-		if err := json.Unmarshal(plaintext, &body); err != nil {
+		var committedProblem *APIProblem
+		if status >= http.StatusBadRequest {
+			var details problem.Details
+			if err := json.Unmarshal(plaintext, &details); err != nil ||
+				details.Status != status || details.Type == "" {
+				s.InternalError(r.Context(), w, "decode idempotent problem",
+					fmt.Errorf("invalid stored problem: %w", err))
+				return
+			}
+			committedProblem = &APIProblem{Details: replayProblem{
+				Details: details, raw: plaintext,
+			}}
+		} else if err := json.Unmarshal(plaintext, &body); err != nil {
 			s.InternalError(r.Context(), w, "decode idempotent response", err)
 			return
 		}
@@ -121,7 +146,11 @@ func Run[T any](
 			s.InternalError(r.Context(), w, "commit idempotent replay", err)
 			return
 		}
-		writeResponse(s, w, r, int(existing.ResponseStatus.Int32), body)
+		if committedProblem != nil {
+			writeAPIProblem(s, w, r, committedProblem)
+		} else {
+			writeResponse(s, w, r, status, body)
+		}
 		return
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -150,7 +179,23 @@ func Run[T any](
 		writeAPIProblem(s, w, r, apiError)
 		return
 	}
-	responseJSON, err := json.Marshal(result.Body)
+	if result.CommittedProblem != nil {
+		details := result.CommittedProblem.Details.ProblemDetails()
+		if apiError != nil || details.Status < http.StatusBadRequest ||
+			details.Status >= http.StatusInternalServerError ||
+			details.Status == http.StatusUnauthorized ||
+			result.CommittedProblem.WWWAuthenticate != "" {
+			s.InternalError(r.Context(), w, "invalid committed problem",
+				fmt.Errorf("unsupported committed problem status %d", details.Status))
+			return
+		}
+		result.Status = details.Status
+	}
+	responseBody := any(result.Body)
+	if result.CommittedProblem != nil {
+		responseBody = result.CommittedProblem.Details
+	}
+	responseJSON, err := json.Marshal(responseBody)
 	if err != nil {
 		s.InternalError(r.Context(), w, "encode idempotent response", err)
 		return
@@ -177,7 +222,11 @@ func Run[T any](
 		s.InternalError(r.Context(), w, "commit idempotent operation", err)
 		return
 	}
-	writeResponse(s, w, r, result.Status, result.Body)
+	if result.CommittedProblem != nil {
+		writeAPIProblem(s, w, r, result.CommittedProblem)
+	} else {
+		writeResponse(s, w, r, result.Status, result.Body)
+	}
 }
 
 // writeAPIProblem writes apiError.Details whole, extension members included,
@@ -201,9 +250,17 @@ func writeResponse[T any](
 	status int, body T,
 ) {
 	w.Header().Set("Cache-Control", "no-store")
-	if status == http.StatusNoContent || status == http.StatusAccepted {
+	if status == http.StatusNoContent {
 		s.Empty(r.Context(), w, status)
 		return
+	}
+	// Existing 202-without-body operations use struct{}; a typed 202 result
+	// such as a verification challenge must retain its JSON representation.
+	if status == http.StatusAccepted {
+		if _, empty := any(body).(struct{}); empty {
+			s.Empty(r.Context(), w, status)
+			return
+		}
 	}
 	s.JSON(r.Context(), w, status, body)
 }

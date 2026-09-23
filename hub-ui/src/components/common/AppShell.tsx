@@ -19,6 +19,7 @@ import {
   myInfoQueryKey,
   useMyInfoQuery,
 } from "../../features/profile/queries";
+import { SubscriptionEndingAlert } from "../../features/subscriptions/SubscriptionEndingAlert";
 
 export function AppShell() {
   const { t } = useTranslation();
@@ -80,6 +81,7 @@ export function AppShell() {
       onSignOut={auth.signOut}
       onSelectLanguage={selectLanguage}
       languagePending={languageMutation.isPending}
+      banner={<SubscriptionEndingAlert />}
     />
   );
 }

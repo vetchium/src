@@ -13,3 +13,36 @@ export function useMyInfoQuery(enabled = true) {
     enabled,
   });
 }
+
+export function usePublicProfileQuery(address: string, enabled = true) {
+  return useQuery({
+    queryKey: ["hub", "profile", address],
+    queryFn: () => hubAPI.readProfile({ address }),
+    retry: false,
+    enabled,
+  });
+}
+
+export const professionalEmailsQueryKey = [
+  "hub",
+  "professional-emails",
+] as const;
+
+export function useProfessionalEmailsQuery() {
+  return useQuery({
+    queryKey: professionalEmailsQueryKey,
+    queryFn: () => hubAPI.listProfessionalEmails({ limit: 10 }),
+    retry: false,
+  });
+}
+
+export const aliasStateQueryKey = ["hub", "profile", "alias-state"] as const;
+
+export function useAliasStateQuery(enabled: boolean) {
+  return useQuery({
+    queryKey: aliasStateQueryKey,
+    queryFn: hubAPI.aliasState,
+    retry: false,
+    enabled,
+  });
+}

@@ -14,6 +14,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 COPY typespec/ /src/typespec/
 COPY backend/ .
+COPY db/global-migrations /src/db/global-migrations
 COPY db/migrations /src/db/migrations
 
 # Generated database access is always rebuilt from the SQL sources in this
@@ -22,8 +23,9 @@ COPY db/migrations /src/db/migrations
 # context changes later.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    rm -rf internal/db/sqlc && \
-    go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0 generate
+    rm -rf internal/db/sqlc internal/globaldb/sqlc && \
+    go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0 generate && \
+    go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0 generate -f sqlc-global.yaml
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \

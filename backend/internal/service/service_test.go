@@ -104,6 +104,80 @@ func TestListenAndServeReportsAnUnusableAddress(t *testing.T) {
 	}
 }
 
+func TestListenAndServeTLSRequiresConfiguration(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	err := ListenAndServeTLS(
+		t.Context(), log, "127.0.0.1:0", http.NewServeMux(), nil,
+	)
+	if err == nil {
+		t.Fatal("ListenAndServeTLS() accepted a nil TLS configuration")
+	}
+}
+
+func TestListenAndServeEndpointsServesAndDrainsEveryListener(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	firstAddress := freeAddress(t)
+	secondAddress := freeAddress(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	served := make(chan error, 1)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	go func() {
+		served <- ListenAndServeEndpoints(ctx, log,
+			Endpoint{Name: "first", Address: firstAddress, Handler: handler},
+			Endpoint{Name: "second", Address: secondAddress, Handler: handler},
+		)
+	}()
+
+	client := http.Client{Timeout: 2 * time.Second}
+	for _, address := range []string{firstAddress, secondAddress} {
+		var response *http.Response
+		var err error
+		for range 50 {
+			response, err = client.Get("http://" + address + "/")
+			if err == nil {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		if err != nil {
+			t.Fatalf("listener %s never accepted a request: %v", address, err)
+		}
+		_ = response.Body.Close()
+		if response.StatusCode != http.StatusNoContent {
+			t.Fatalf("listener %s status = %d", address, response.StatusCode)
+		}
+	}
+
+	cancel()
+	select {
+	case err := <-served:
+		if err != nil {
+			t.Fatalf("ListenAndServeEndpoints() = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("ListenAndServeEndpoints did not return after cancellation")
+	}
+}
+
+func TestListenAndServeEndpointsValidatesBeforeStarting(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	address := freeAddress(t)
+	err := ListenAndServeEndpoints(t.Context(), log,
+		Endpoint{Name: "valid", Address: address, Handler: http.NewServeMux()},
+		Endpoint{Name: "", Address: freeAddress(t), Handler: http.NewServeMux()},
+	)
+	if err == nil {
+		t.Fatal("ListenAndServeEndpoints() accepted an unnamed endpoint")
+	}
+	listener, listenErr := net.Listen("tcp", address)
+	if listenErr != nil {
+		t.Fatalf("first endpoint started before validation completed: %v", listenErr)
+	}
+	_ = listener.Close()
+}
+
 func TestWithTenantBindsTheTenantToEveryRecord(t *testing.T) {
 	previous := slog.Default()
 	t.Cleanup(func() { slog.SetDefault(previous) })

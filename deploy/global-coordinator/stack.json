@@ -1,5 +1,62 @@
 {
   "services": {
+    "db": {
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "entrypoint": ["/bin/sh", "/usr/local/bin/vetchium-entrypoint.sh"],
+      "command": ["postgres"],
+      "environment": {
+        "POSTGRES_DB": "${GLOBAL_POSTGRES_DB:?set GLOBAL_POSTGRES_DB}",
+        "POSTGRES_USER": "${GLOBAL_POSTGRES_USER:?set GLOBAL_POSTGRES_USER}",
+        "POSTGRES_PASSWORD_FILE": "/run/secrets/global_postgres_password",
+        "APP_POSTGRES_PASSWORD_FILE": "/run/secrets/global_app_postgres_password",
+        "POSTGRES_INITDB_ARGS": "--auth-host=scram-sha-256"
+      },
+      "secrets": ["global_postgres_password", "global_app_postgres_password"],
+      "configs": [
+        {
+          "source": "database_entrypoint",
+          "target": "/usr/local/bin/vetchium-entrypoint.sh",
+          "mode": 292
+        },
+        {
+          "source": "database_init_sql",
+          "target": "/docker-entrypoint-initdb.d/10-vetchium.sql",
+          "mode": 292
+        }
+      ],
+      "networks": ["backend"],
+      "volumes": ["pgdata:/var/lib/postgresql/data"],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 5,
+        "start_period": "30s"
+      },
+      "deploy": {
+        "replicas": 1,
+        "update_config": {
+          "order": "stop-first",
+          "failure_action": "pause",
+          "parallelism": 1
+        },
+        "restart_policy": {
+          "condition": "any",
+          "delay": "10s"
+        },
+        "resources": {
+          "limits": {
+            "memory": "1G"
+          },
+          "reservations": {
+            "memory": "256M"
+          }
+        }
+      }
+    },
     "global-coordinator": {
       "image": "${REGISTRY:-ghcr.io/vetchium}/global-coordinator:${TAG:?set TAG}",
       "configs": [
@@ -12,7 +69,19 @@
           "target": "/etc/vetchium/signup-regions.json"
         }
       ],
-      "secrets": ["global_coordinator_credential"],
+      "environment": {
+        "PGDATABASE": "${GLOBAL_POSTGRES_DB:?set GLOBAL_POSTGRES_DB}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "secrets": [
+        "global_app_postgres_password",
+        "mesh_ca_certificate",
+        "global_coordinator_tls_certificate",
+        "global_coordinator_tls_key",
+        "global_coordinator_health_certificate",
+        "global_coordinator_health_key"
+      ],
+      "networks": ["backend"],
       "ports": [
         {
           "target": 8080,
@@ -57,6 +126,14 @@
     }
   },
   "configs": {
+    "database_entrypoint": {
+      "file": "../../db/bootstrap/entrypoint.sh",
+      "name": "global-coordinator-database-entrypoint-v1"
+    },
+    "database_init_sql": {
+      "file": "../../db/bootstrap/init.sql",
+      "name": "global-coordinator-database-init-v1"
+    },
     "global_coordinator_config": {
       "file": "./config.json",
       "name": "global-coordinator-${GLOBAL_COORDINATOR_CONFIG_HASH:?run via make}"
@@ -66,10 +143,43 @@
       "name": "global-coordinator-signup-regions-${SIGNUP_REGIONS_HASH:?run via make}"
     }
   },
-  "secrets": {
-    "global_coordinator_credential": {
-      "external": true,
-      "name": "global_coordinator_credential"
+  "networks": {
+    "backend": {
+      "attachable": true,
+      "internal": true
     }
+  },
+  "secrets": {
+    "global_postgres_password": {
+      "external": true,
+      "name": "global_postgres_password"
+    },
+    "global_app_postgres_password": {
+      "external": true,
+      "name": "global_app_postgres_password"
+    },
+    "mesh_ca_certificate": {
+      "external": true,
+      "name": "${MESH_CA_SECRET_NAME:?set MESH_CA_SECRET_NAME}"
+    },
+    "global_coordinator_tls_certificate": {
+      "external": true,
+      "name": "${GLOBAL_COORDINATOR_TLS_CERTIFICATE_SECRET_NAME:?set GLOBAL_COORDINATOR_TLS_CERTIFICATE_SECRET_NAME}"
+    },
+    "global_coordinator_tls_key": {
+      "external": true,
+      "name": "${GLOBAL_COORDINATOR_TLS_KEY_SECRET_NAME:?set GLOBAL_COORDINATOR_TLS_KEY_SECRET_NAME}"
+    },
+    "global_coordinator_health_certificate": {
+      "external": true,
+      "name": "${GLOBAL_COORDINATOR_HEALTH_CERTIFICATE_SECRET_NAME:?set GLOBAL_COORDINATOR_HEALTH_CERTIFICATE_SECRET_NAME}"
+    },
+    "global_coordinator_health_key": {
+      "external": true,
+      "name": "${GLOBAL_COORDINATOR_HEALTH_KEY_SECRET_NAME:?set GLOBAL_COORDINATOR_HEALTH_KEY_SECRET_NAME}"
+    }
+  },
+  "volumes": {
+    "pgdata": {}
   }
 }

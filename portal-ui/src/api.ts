@@ -26,6 +26,16 @@ export interface PortalRequestOptions {
   token?: string | null;
 }
 
+/** Bytes the caller already encoded, such as an uploaded image. The caller
+ * supplies the matching Content-Type through `headers`. */
+function isBinaryBody(body: unknown): body is BodyInit {
+  return (
+    body instanceof Blob ||
+    body instanceof ArrayBuffer ||
+    ArrayBuffer.isView(body)
+  );
+}
+
 async function problemDetails(
   response: Response,
 ): Promise<Details | undefined> {
@@ -59,7 +69,7 @@ export function createPortalAPIClient(config: PortalAPIClientConfiguration) {
     options: PortalRequestOptions = {},
   ): Promise<Response> => {
     const headers = new Headers({ Accept: "application/json" });
-    if (options.body !== undefined)
+    if (options.body !== undefined && !isBinaryBody(options.body))
       headers.set("Content-Type", "application/json");
     for (const [name, value] of new Headers(options.headers)) {
       headers.set(name, value);
@@ -74,8 +84,8 @@ export function createPortalAPIClient(config: PortalAPIClientConfiguration) {
       body:
         options.body === undefined
           ? undefined
-          : typeof options.body === "string"
-            ? options.body
+          : isBinaryBody(options.body) || typeof options.body === "string"
+            ? (options.body as BodyInit)
             : JSON.stringify(options.body),
     });
     if (!response.ok) {
@@ -98,8 +108,14 @@ export function createPortalAPIClient(config: PortalAPIClientConfiguration) {
       }
       throw error;
     }
-    if (response.status === 202 || response.status === 204) {
+    if (response.status === 204) {
       return undefined as Response;
+    }
+    if (response.status === 202) {
+      const contentType = response.headers.get("Content-Type") ?? "";
+      if (!contentType.toLowerCase().startsWith("application/json")) {
+        return undefined as Response;
+      }
     }
     return (await response.json()) as Response;
   };

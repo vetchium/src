@@ -12,6 +12,7 @@ import (
 	regionspec "github.com/vetchium/src/typespec/regions"
 
 	"backend/internal/apiserver"
+	"backend/internal/meshidentity"
 	regionpolicy "backend/internal/regions"
 )
 
@@ -22,6 +23,50 @@ func testCatalog(t *testing.T, _ int) *regionpolicy.Catalog {
 		t.Fatal(err)
 	}
 	return c
+}
+
+func TestGlobalDiscoveryRequiresMeshIdentity(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name          string
+		authenticated bool
+		status        int
+	}{
+		{name: "authenticated tenant", authenticated: true, status: http.StatusOK},
+		{name: "missing client identity", status: http.StatusUnauthorized},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			request := httptest.NewRequest(
+				http.MethodPost, "/list-signup-regions",
+				strings.NewReader(`{"resident_country":"IN"}`),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			if test.authenticated {
+				request = request.WithContext(meshidentity.WithTenant(
+					request.Context(), "ind1",
+				))
+			}
+			response := httptest.NewRecorder()
+			GlobalHandler(
+				apiserver.New(nil, slog.Default()), testCatalog(t, 2),
+			).ServeHTTP(response, request)
+			if response.Code != test.status {
+				t.Fatalf(
+					"status = %d, want %d; body = %s",
+					response.Code, test.status, response.Body.String(),
+				)
+			}
+			if test.status == http.StatusUnauthorized &&
+				response.Header().Get("WWW-Authenticate") !=
+					`MutualTLS realm="global-coordinator"` {
+				t.Fatalf(
+					"WWW-Authenticate = %q",
+					response.Header().Get("WWW-Authenticate"),
+				)
+			}
+		})
+	}
 }
 
 type unavailableDirectory struct{}

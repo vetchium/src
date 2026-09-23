@@ -9,7 +9,7 @@
 #   tilt up -- --tenants sgp    one tenant plus the shared services
 #   tilt up -- --manual         build once, then rebuild only on demand
 #   tilt logs -f hub-api-sgp    follow one service outside the UI
-#   tilt down                   stop the stack; database volumes survive
+#   tilt down                   stop the stack; database and object volumes survive
 #
 # `tilt down` leaves the volumes and the development secrets in place. Run
 # `make clean` for the full teardown `make dev` performs before it starts.
@@ -57,12 +57,15 @@ def portal_link(portal, tenant):
 
 # Every resource carries its tenant and its role as labels, so the UI can be
 # sliced either way: one tenant's whole stack, or every tenant's hub-api.
-enabled = ['edge', 'mailpit', 'global-coordinator']
+enabled = ['edge', 'mailpit', 'global-db', 'global-migrate', 'global-coordinator']
 portal_links = []
 
 for tenant in tenants:
     roles = {
         'database': ['db-' + tenant, 'migrate-' + tenant, 'db-seed-' + tenant],
+        'object-storage': ['seaweed-master-' + tenant, 'seaweed-volume-' + tenant,
+                           'seaweed-filer-' + tenant, 'seaweed-s3-' + tenant],
+        'media': ['media-proxy-' + tenant],
         'fixtures': ['dev-seed-' + tenant],
         'api': ['admin-api-' + tenant, 'hub-api-' + tenant, 'orgs-api-' + tenant,
                 'mesh-api-' + tenant, 'mcp-server-' + tenant],
@@ -85,6 +88,8 @@ dc_resource('edge', labels=['shared', 'edge'], trigger_mode=trigger,
             links=portal_links)
 dc_resource('mailpit', labels=['shared'], trigger_mode=trigger,
             links=[link('http://%s:%s/' % (mailpit_host, mailpit_port), 'mailpit')])
+dc_resource('global-db', labels=['shared', 'database'], trigger_mode=trigger)
+dc_resource('global-migrate', labels=['shared', 'database'], trigger_mode=trigger)
 dc_resource('global-coordinator', labels=['shared'], trigger_mode=trigger)
 
 # Tilt starts every service in the compose file unless told otherwise, so a

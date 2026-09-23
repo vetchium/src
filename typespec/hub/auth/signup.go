@@ -58,3 +58,7 @@ type CompleteSignupResponse struct {
 	HubUserDID hub.HubUserDID `json:"hub_user_did"`
 	Handle     hub.HubHandle  `json:"handle"`
 }
+
+type SignupCompletionPendingResponse struct {
+	OperationID string `json:"operation_id"`
+}

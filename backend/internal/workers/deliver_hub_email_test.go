@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -83,6 +84,45 @@ func TestDeliverHubEmailRendersAndMarksSent(t *testing.T) {
 		sender.message.Subject == "" || sender.message.TextBody == "" ||
 		sender.message.HTMLBody == "" {
 		t.Fatalf("message = %+v", sender.message)
+	}
+}
+
+func TestDeliverExplicitProfessionalCodeEmail(t *testing.T) {
+	now := time.Date(2026, 8, 25, 10, 0, 0, 0, time.UTC)
+	worker, queries, sender := testEmailWorker(t, now, 1, nil)
+	payload, err := json.Marshal(hubEmailPayload{Code: "012345"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ciphertext, err := credentials.Encrypt(worker.hubEmailDelivery.OutboxKey, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	queries.claims[0].Kind = string(email.ProfessionalEmailVerification)
+	queries.claims[0].PayloadCiphertext = ciphertext
+
+	if err := worker.deliverHubEmail(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if queries.sent != 1 || queries.failed != 0 || queries.retry != 0 {
+		t.Fatalf("sent=%d failed=%d retry=%d", queries.sent, queries.failed, queries.retry)
+	}
+	if sender.message.To != "person@example.com" ||
+		!strings.Contains(sender.message.TextBody, "012345") ||
+		!strings.Contains(sender.message.HTMLBody, "012345") {
+		t.Fatalf("professional code email not delivered correctly: %+v", sender.message)
+	}
+}
+
+func TestProfessionalCodeEmailRejectsMalformedPayload(t *testing.T) {
+	for _, code := range []string{"", "12345", "1234567", "abcdef", "12 456"} {
+		_, _, err := hubEmailKind(
+			string(email.ProfessionalEmailVerification),
+			hubEmailPayload{Code: code},
+		)
+		if err == nil {
+			t.Errorf("accepted malformed code %q", code)
+		}
 	}
 }
 

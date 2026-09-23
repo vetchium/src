@@ -43,6 +43,13 @@ func AuthenticationFailure[T any](
 	}, nil
 }
 
+// CommittedFailure persists a client-visible rejection together with a
+// deliberate state change, such as incrementing a verification attempt. A
+// retry replays the same problem without repeating the mutation.
+func CommittedFailure[T any](details problem.Body) Result[T] {
+	return Result[T]{CommittedProblem: &Problem{Details: details}}
+}
+
 func RunIdempotent[T any](
 	s IdempotencyServer, w http.ResponseWriter, r *http.Request,
 	operation, bindingID string, key common.IdempotencyKey,

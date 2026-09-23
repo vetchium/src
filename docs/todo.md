@@ -22,14 +22,6 @@ decided before it is.
   portal does not), and some are drift. Decide which parts shared form
   components can own before `orgs-ui` copies them a third time.
 
-## Mesh tenant authentication
-
-- `backend/handlers/mesh/sync.go` accepts any caller. It is the only
-  unauthenticated write surface in the tree and the only TODO marker left in
-  hand-written source. The endpoint is not routed to the public internet — the
-  mesh network is internal — but it must authenticate the calling tenant
-  before it carries anything.
-
 ## Per-route log levels
 
 - Every handler exit is recorded once. `Runtime.Problem` logs 4xx at info and
@@ -72,3 +64,15 @@ decided before it is.
   and how billing agreements and unused paid time behave when a Hub user moves
   tenants. Also decide what happens when a tenant withdraws a plan and what
   happens to paid-feature content after a downgrade.
+
+## Profile domain moderation
+
+- Employer and educational-institution entries initially accept any
+  syntactically valid domain. Add an admin-owned policy that can block a domain
+  from new work or education entries and filter or remove existing entries
+  across every tenant. Decide exact-domain versus registrable-domain matching,
+  policy scope, propagation, appeals, audit evidence, and whether a later
+  unblock restores removed content.
+- Keep Hub profile rows keyed only by normalized domain. A future verified Org
+  may provide display metadata for that domain, but must not become a foreign-key
+  owner of Hub-user work or education data.

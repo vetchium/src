@@ -18,3 +18,5 @@ sql:
             go_type: "string"
           - db_type: "vetchium.hub_frontend_locale"
             go_type: "string"
+          - db_type: "vetchium.profile_domain"
+            go_type: "string"

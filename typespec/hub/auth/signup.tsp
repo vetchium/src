@@ -35,6 +35,11 @@ model CompleteSignupResponse {
   handle: HubHandle;
 }
 
+model SignupCompletionPendingResponse {
+  @format("uuid")
+  operation_id: string;
+}
+
 @route("/api/hub")
 @tag("Hub signup")
 interface SignupOperations {
@@ -68,7 +73,7 @@ interface SignupOperations {
   /** Consume the emailed token and create a Hub profile and password. */
   @route("/complete-signup")
   @post
-  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 604800)
   @TypeSpec.OpenAPI.extension(
     "x-vetchium-security-effects",
     #[
@@ -84,6 +89,11 @@ interface SignupOperations {
         @statusCode status_code: 201;
         @header("Cache-Control") cache_control: "no-store";
         @body body: CompleteSignupResponse;
+      }
+    | {
+        @statusCode status_code: 202;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: SignupCompletionPendingResponse;
       }
     | Vetchium.Problem.InvalidJSONErrorResponse
     | Vetchium.Problem.ValidationFailedErrorResponse

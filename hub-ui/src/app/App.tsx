@@ -39,6 +39,11 @@ const ProfilePage = lazy(() =>
     default: ProfilePage,
   })),
 );
+const ProfileViewPage = lazy(() =>
+  import("../pages/ProfileViewPage").then(({ ProfileViewPage }) => ({
+    default: ProfileViewPage,
+  })),
+);
 const ReauthenticatePage = lazy(() =>
   import("../pages/ReauthenticatePage").then(({ ReauthenticatePage }) => ({
     default: ReauthenticatePage,
@@ -162,6 +167,14 @@ export function App() {
             element={
               <Page>
                 <ProfilePage />
+              </Page>
+            }
+          />
+          <Route
+            path="u/:address"
+            element={
+              <Page>
+                <ProfileViewPage />
               </Page>
             }
           />

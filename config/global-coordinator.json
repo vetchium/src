@@ -1,5 +1,20 @@
 {
+  "database": {
+    "host": "global-db",
+    "name": "global_db",
+    "passwordFile": "/run/secrets/global_app_postgres_password",
+    "port": 5432,
+    "sslMode": "disable",
+    "user": "vetchium_app"
+  },
   "env": "dev",
-  "credentialFile": "/run/secrets/global_coordinator_credential",
-  "signupRegionsFile": "/etc/vetchium/signup-regions.json"
+  "signupRegionsFile": "/etc/vetchium/signup-regions.json",
+  "tls": {
+    "certificateFile": "/run/secrets/global_coordinator_tls_certificate",
+    "keyFile": "/run/secrets/global_coordinator_tls_key",
+    "clientCAFile": "/run/secrets/mesh_ca_certificate",
+    "healthCertificateFile": "/run/secrets/global_coordinator_health_certificate",
+    "healthKeyFile": "/run/secrets/global_coordinator_health_key",
+    "healthServerName": "global-coordinator.mesh.vetchium.com"
+  }
 }

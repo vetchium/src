@@ -72,6 +72,17 @@ being changed.
   backend always enforces the requirement.
 - Decide per feature what a downgrade does to content created while paid. Do
   not infer one global retention rule.
+- Profile pictures and aliases require `hub-silver-tier`. When an effective
+  downgrade drops below Silver, remove the picture reference and alias
+  entitlement in the subscription transition transaction. Enqueue retryable
+  deletion of the picture object and release of the global alias. Neither may
+  remain usable by the downgraded account while asynchronous cleanup runs.
+- A generated handle is permanent and unaffected by plan changes. An alias is
+  alternate only, releases without quarantine, and never appears in the stable
+  QR code.
+- When paid access is known not to renew, show an in-app warning and email the
+  account address seven days and one day before period end. Do not send those
+  warnings while renewal is configured and expected to succeed.
 
 ## Real payment integration
 

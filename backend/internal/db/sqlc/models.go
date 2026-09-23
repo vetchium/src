@@ -53,6 +53,49 @@ func (ns NullVetchiumAdminUserState) Value() (driver.Value, error) {
 	return string(ns.VetchiumAdminUserState), nil
 }
 
+type VetchiumFederationOperationState string
+
+const (
+	VetchiumFederationOperationStatePending   VetchiumFederationOperationState = "pending"
+	VetchiumFederationOperationStateSucceeded VetchiumFederationOperationState = "succeeded"
+	VetchiumFederationOperationStateFailed    VetchiumFederationOperationState = "failed"
+)
+
+func (e *VetchiumFederationOperationState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumFederationOperationState(s)
+	case string:
+		*e = VetchiumFederationOperationState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumFederationOperationState: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumFederationOperationState struct {
+	VetchiumFederationOperationState VetchiumFederationOperationState `json:"vetchium_federation_operation_state"`
+	Valid                            bool                             `json:"valid"` // Valid is true if VetchiumFederationOperationState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumFederationOperationState) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumFederationOperationState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumFederationOperationState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumFederationOperationState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumFederationOperationState), nil
+}
+
 type VetchiumHubBillingInterval string
 
 const (
@@ -95,6 +138,179 @@ func (ns NullVetchiumHubBillingInterval) Value() (driver.Value, error) {
 	return string(ns.VetchiumHubBillingInterval), nil
 }
 
+type VetchiumHubLanguageAbilityKind string
+
+const (
+	VetchiumHubLanguageAbilityKindSpeaking VetchiumHubLanguageAbilityKind = "speaking"
+	VetchiumHubLanguageAbilityKindReading  VetchiumHubLanguageAbilityKind = "reading"
+	VetchiumHubLanguageAbilityKindWriting  VetchiumHubLanguageAbilityKind = "writing"
+)
+
+func (e *VetchiumHubLanguageAbilityKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumHubLanguageAbilityKind(s)
+	case string:
+		*e = VetchiumHubLanguageAbilityKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumHubLanguageAbilityKind: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumHubLanguageAbilityKind struct {
+	VetchiumHubLanguageAbilityKind VetchiumHubLanguageAbilityKind `json:"vetchium_hub_language_ability_kind"`
+	Valid                          bool                           `json:"valid"` // Valid is true if VetchiumHubLanguageAbilityKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumHubLanguageAbilityKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumHubLanguageAbilityKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumHubLanguageAbilityKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumHubLanguageAbilityKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumHubLanguageAbilityKind), nil
+}
+
+type VetchiumHubProfilePictureFormat string
+
+const (
+	VetchiumHubProfilePictureFormatJpeg VetchiumHubProfilePictureFormat = "jpeg"
+	VetchiumHubProfilePictureFormatPng  VetchiumHubProfilePictureFormat = "png"
+)
+
+func (e *VetchiumHubProfilePictureFormat) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumHubProfilePictureFormat(s)
+	case string:
+		*e = VetchiumHubProfilePictureFormat(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumHubProfilePictureFormat: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumHubProfilePictureFormat struct {
+	VetchiumHubProfilePictureFormat VetchiumHubProfilePictureFormat `json:"vetchium_hub_profile_picture_format"`
+	Valid                           bool                            `json:"valid"` // Valid is true if VetchiumHubProfilePictureFormat is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumHubProfilePictureFormat) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumHubProfilePictureFormat, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumHubProfilePictureFormat.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumHubProfilePictureFormat) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumHubProfilePictureFormat), nil
+}
+
+type VetchiumHubProfilePictureState string
+
+const (
+	VetchiumHubProfilePictureStateUploading     VetchiumHubProfilePictureState = "uploading"
+	VetchiumHubProfilePictureStateActive        VetchiumHubProfilePictureState = "active"
+	VetchiumHubProfilePictureStatePendingDelete VetchiumHubProfilePictureState = "pending_delete"
+)
+
+func (e *VetchiumHubProfilePictureState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumHubProfilePictureState(s)
+	case string:
+		*e = VetchiumHubProfilePictureState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumHubProfilePictureState: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumHubProfilePictureState struct {
+	VetchiumHubProfilePictureState VetchiumHubProfilePictureState `json:"vetchium_hub_profile_picture_state"`
+	Valid                          bool                           `json:"valid"` // Valid is true if VetchiumHubProfilePictureState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumHubProfilePictureState) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumHubProfilePictureState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumHubProfilePictureState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumHubProfilePictureState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumHubProfilePictureState), nil
+}
+
+type VetchiumHubSignupCompletionState string
+
+const (
+	VetchiumHubSignupCompletionStatePrepared     VetchiumHubSignupCompletionState = "prepared"
+	VetchiumHubSignupCompletionStateReserved     VetchiumHubSignupCompletionState = "reserved"
+	VetchiumHubSignupCompletionStateLocalCreated VetchiumHubSignupCompletionState = "local_created"
+	VetchiumHubSignupCompletionStateCompleted    VetchiumHubSignupCompletionState = "completed"
+	VetchiumHubSignupCompletionStateFailed       VetchiumHubSignupCompletionState = "failed"
+)
+
+func (e *VetchiumHubSignupCompletionState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumHubSignupCompletionState(s)
+	case string:
+		*e = VetchiumHubSignupCompletionState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumHubSignupCompletionState: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumHubSignupCompletionState struct {
+	VetchiumHubSignupCompletionState VetchiumHubSignupCompletionState `json:"vetchium_hub_signup_completion_state"`
+	Valid                            bool                             `json:"valid"` // Valid is true if VetchiumHubSignupCompletionState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumHubSignupCompletionState) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumHubSignupCompletionState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumHubSignupCompletionState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumHubSignupCompletionState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumHubSignupCompletionState), nil
+}
+
 type VetchiumHubSignupDomainState string
 
 const (
@@ -135,6 +351,48 @@ func (ns NullVetchiumHubSignupDomainState) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.VetchiumHubSignupDomainState), nil
+}
+
+type VetchiumHubSubscriptionNoticeLead string
+
+const (
+	VetchiumHubSubscriptionNoticeLeadSevenDay VetchiumHubSubscriptionNoticeLead = "seven_day"
+	VetchiumHubSubscriptionNoticeLeadOneDay   VetchiumHubSubscriptionNoticeLead = "one_day"
+)
+
+func (e *VetchiumHubSubscriptionNoticeLead) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumHubSubscriptionNoticeLead(s)
+	case string:
+		*e = VetchiumHubSubscriptionNoticeLead(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumHubSubscriptionNoticeLead: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumHubSubscriptionNoticeLead struct {
+	VetchiumHubSubscriptionNoticeLead VetchiumHubSubscriptionNoticeLead `json:"vetchium_hub_subscription_notice_lead"`
+	Valid                             bool                              `json:"valid"` // Valid is true if VetchiumHubSubscriptionNoticeLead is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumHubSubscriptionNoticeLead) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumHubSubscriptionNoticeLead, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumHubSubscriptionNoticeLead.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumHubSubscriptionNoticeLead) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumHubSubscriptionNoticeLead), nil
 }
 
 type VetchiumHubSubscriptionSource string
@@ -181,8 +439,9 @@ func (ns NullVetchiumHubSubscriptionSource) Value() (driver.Value, error) {
 type VetchiumHubUserState string
 
 const (
-	VetchiumHubUserStateActive   VetchiumHubUserState = "active"
-	VetchiumHubUserStateDisabled VetchiumHubUserState = "disabled"
+	VetchiumHubUserStateProvisioning VetchiumHubUserState = "provisioning"
+	VetchiumHubUserStateActive       VetchiumHubUserState = "active"
+	VetchiumHubUserStateDisabled     VetchiumHubUserState = "disabled"
 )
 
 func (e *VetchiumHubUserState) Scan(src interface{}) error {
@@ -338,6 +597,93 @@ type VetchiumAuditEvent struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type VetchiumFederationCommandLedger struct {
+	CommandID      pgtype.UUID        `json:"command_id"`
+	SourceTenantID string             `json:"source_tenant_id"`
+	Kind           string             `json:"kind"`
+	AggregateID    string             `json:"aggregate_id"`
+	RequestDigest  []byte             `json:"request_digest"`
+	ResponseStatus int32              `json:"response_status"`
+	ResponseBody   []byte             `json:"response_body"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+}
+
+type VetchiumFederationInbox struct {
+	EventID          pgtype.UUID        `json:"event_id"`
+	SourceTenantID   string             `json:"source_tenant_id"`
+	Kind             string             `json:"kind"`
+	AggregateType    string             `json:"aggregate_type"`
+	AggregateID      string             `json:"aggregate_id"`
+	AggregateVersion int64              `json:"aggregate_version"`
+	PayloadDigest    []byte             `json:"payload_digest"`
+	ReceivedAt       pgtype.Timestamptz `json:"received_at"`
+	AppliedAt        pgtype.Timestamptz `json:"applied_at"`
+}
+
+type VetchiumFederationOperation struct {
+	OperationID        pgtype.UUID                      `json:"operation_id"`
+	CommandID          pgtype.UUID                      `json:"command_id"`
+	Kind               string                           `json:"kind"`
+	TargetAuthority    string                           `json:"target_authority"`
+	AggregateID        string                           `json:"aggregate_id"`
+	OwnerPrincipalType string                           `json:"owner_principal_type"`
+	OwnerPrincipalID   string                           `json:"owner_principal_id"`
+	IdempotencyKey     string                           `json:"idempotency_key"`
+	RequestDigest      []byte                           `json:"request_digest"`
+	PayloadBytes       []byte                           `json:"payload_bytes"`
+	State              VetchiumFederationOperationState `json:"state"`
+	ResponseStatus     pgtype.Int4                      `json:"response_status"`
+	ResponseCiphertext []byte                           `json:"response_ciphertext"`
+	AttemptCount       int32                            `json:"attempt_count"`
+	NextAttemptAt      pgtype.Timestamptz               `json:"next_attempt_at"`
+	LastError          pgtype.Text                      `json:"last_error"`
+	CreatedAt          pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz               `json:"updated_at"`
+	CompletedAt        pgtype.Timestamptz               `json:"completed_at"`
+	ExpiresAt          pgtype.Timestamptz               `json:"expires_at"`
+}
+
+type VetchiumFederationOutbox struct {
+	EventID             pgtype.UUID        `json:"event_id"`
+	DestinationTenantID string             `json:"destination_tenant_id"`
+	Kind                string             `json:"kind"`
+	AggregateType       string             `json:"aggregate_type"`
+	AggregateID         string             `json:"aggregate_id"`
+	AggregateVersion    int64              `json:"aggregate_version"`
+	Payload             []byte             `json:"payload"`
+	PayloadDigest       []byte             `json:"payload_digest"`
+	AttemptCount        int32              `json:"attempt_count"`
+	NextAttemptAt       pgtype.Timestamptz `json:"next_attempt_at"`
+	LeaseToken          pgtype.UUID        `json:"lease_token"`
+	LeasedUntil         pgtype.Timestamptz `json:"leased_until"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	DeliveredAt         pgtype.Timestamptz `json:"delivered_at"`
+	FailedAt            pgtype.Timestamptz `json:"failed_at"`
+	LastError           pgtype.Text        `json:"last_error"`
+}
+
+type VetchiumHubCertification struct {
+	CertificationID pgtype.UUID        `json:"certification_id"`
+	HubUserDid      pgtype.UUID        `json:"hub_user_did"`
+	Title           string             `json:"title"`
+	CredentialUrl   string             `json:"credential_url"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type VetchiumHubEducationalQualification struct {
+	EducationalQualificationID pgtype.UUID        `json:"educational_qualification_id"`
+	HubUserDid                 pgtype.UUID        `json:"hub_user_did"`
+	InstitutionDomain          string             `json:"institution_domain"`
+	Degree                     string             `json:"degree"`
+	Title                      pgtype.Text        `json:"title"`
+	SupportingText             pgtype.Text        `json:"supporting_text"`
+	StartMonth                 pgtype.Date        `json:"start_month"`
+	EndMonth                   pgtype.Date        `json:"end_month"`
+	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type VetchiumHubEmailOutbox struct {
 	HubEmailOutboxID      pgtype.UUID        `json:"hub_email_outbox_id"`
 	Kind                  string             `json:"kind"`
@@ -351,6 +697,13 @@ type VetchiumHubEmailOutbox struct {
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	SentAt                pgtype.Timestamptz `json:"sent_at"`
 	FailedAt              pgtype.Timestamptz `json:"failed_at"`
+}
+
+type VetchiumHubLanguageAbility struct {
+	HubUserDid  pgtype.UUID                    `json:"hub_user_did"`
+	Ability     VetchiumHubLanguageAbilityKind `json:"ability"`
+	LanguageTag string                         `json:"language_tag"`
+	CreatedAt   pgtype.Timestamptz             `json:"created_at"`
 }
 
 type VetchiumHubLoginChallenge struct {
@@ -378,6 +731,47 @@ type VetchiumHubPlan struct {
 	HubPlanOid string `json:"hub_plan_oid"`
 }
 
+type VetchiumHubProfessionalEmail struct {
+	ProfessionalEmailID pgtype.UUID        `json:"professional_email_id"`
+	HubUserDid          pgtype.UUID        `json:"hub_user_did"`
+	EmailAddress        string             `json:"email_address"`
+	Domain              string             `json:"domain"`
+	FirstVerifiedAt     pgtype.Timestamptz `json:"first_verified_at"`
+	LastVerifiedAt      pgtype.Timestamptz `json:"last_verified_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type VetchiumHubProfessionalEmailChallenge struct {
+	ChallengeID         pgtype.UUID        `json:"challenge_id"`
+	ProfessionalEmailID pgtype.UUID        `json:"professional_email_id"`
+	CodeHash            []byte             `json:"code_hash"`
+	AttemptCount        int32              `json:"attempt_count"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt           pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt          pgtype.Timestamptz `json:"consumed_at"`
+	SupersededAt        pgtype.Timestamptz `json:"superseded_at"`
+}
+
+type VetchiumHubProfilePictureObject struct {
+	ObjectID          pgtype.UUID                     `json:"object_id"`
+	HubUserDid        pgtype.UUID                     `json:"hub_user_did"`
+	Format            VetchiumHubProfilePictureFormat `json:"format"`
+	ByteSize          int32                           `json:"byte_size"`
+	Width             int32                           `json:"width"`
+	Height            int32                           `json:"height"`
+	ContentSha256     []byte                          `json:"content_sha256"`
+	State             VetchiumHubProfilePictureState  `json:"state"`
+	AttemptCount      int32                           `json:"attempt_count"`
+	NextAttemptAt     pgtype.Timestamptz              `json:"next_attempt_at"`
+	LeaseToken        pgtype.UUID                     `json:"lease_token"`
+	LeasedUntil       pgtype.Timestamptz              `json:"leased_until"`
+	LastError         pgtype.Text                     `json:"last_error"`
+	CreatedAt         pgtype.Timestamptz              `json:"created_at"`
+	UploadExpiresAt   pgtype.Timestamptz              `json:"upload_expires_at"`
+	DeleteRequestedAt pgtype.Timestamptz              `json:"delete_requested_at"`
+}
+
 type VetchiumHubSession struct {
 	HubSessionID     pgtype.UUID        `json:"hub_session_id"`
 	HubUserDid       pgtype.UUID        `json:"hub_user_did"`
@@ -386,6 +780,28 @@ type VetchiumHubSession struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
 	Remembered       bool               `json:"remembered"`
+}
+
+type VetchiumHubSignupCompletion struct {
+	OperationID           pgtype.UUID                      `json:"operation_id"`
+	HubSignupRequestID    pgtype.UUID                      `json:"hub_signup_request_id"`
+	TokenHash             []byte                           `json:"token_hash"`
+	IdempotencyKey        string                           `json:"idempotency_key"`
+	RequestDigest         []byte                           `json:"request_digest"`
+	HubUserDid            pgtype.UUID                      `json:"hub_user_did"`
+	Handle                string                           `json:"handle"`
+	ReserveCommandID      pgtype.UUID                      `json:"reserve_command_id"`
+	ActivateCommandID     pgtype.UUID                      `json:"activate_command_id"`
+	PayloadCiphertext     []byte                           `json:"payload_ciphertext"`
+	State                 VetchiumHubSignupCompletionState `json:"state"`
+	ProvisioningExpiresAt pgtype.Timestamptz               `json:"provisioning_expires_at"`
+	AttemptCount          int32                            `json:"attempt_count"`
+	NextAttemptAt         pgtype.Timestamptz               `json:"next_attempt_at"`
+	LastError             pgtype.Text                      `json:"last_error"`
+	CreatedAt             pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz               `json:"updated_at"`
+	CompletedAt           pgtype.Timestamptz               `json:"completed_at"`
+	ExpiresAt             pgtype.Timestamptz               `json:"expires_at"`
 }
 
 type VetchiumHubSignupDomain struct {
@@ -408,6 +824,14 @@ type VetchiumHubSignupRequest struct {
 	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
 	ConsumedAt         pgtype.Timestamptz `json:"consumed_at"`
 	Active             bool               `json:"active"`
+}
+
+type VetchiumHubSubscriptionExpiryNotice struct {
+	HubSubscriptionExpiryNoticeID pgtype.UUID                       `json:"hub_subscription_expiry_notice_id"`
+	HubUserDid                    pgtype.UUID                       `json:"hub_user_did"`
+	PeriodEnd                     pgtype.Timestamptz                `json:"period_end"`
+	LeadTime                      VetchiumHubSubscriptionNoticeLead `json:"lead_time"`
+	CreatedAt                     pgtype.Timestamptz                `json:"created_at"`
 }
 
 type VetchiumHubTotpEnrollment struct {
@@ -433,6 +857,10 @@ type VetchiumHubUser struct {
 	Handle                         string                         `json:"handle"`
 	EmailAddress                   string                         `json:"email_address"`
 	DisplayName                    string                         `json:"display_name"`
+	Biography                      pgtype.Text                    `json:"biography"`
+	ProfileAlias                   pgtype.Text                    `json:"profile_alias"`
+	AliasLastChangedAt             pgtype.Timestamptz             `json:"alias_last_changed_at"`
+	ProfileVersion                 int64                          `json:"profile_version"`
 	PasswordHash                   string                         `json:"password_hash"`
 	HubUserState                   VetchiumHubUserState           `json:"hub_user_state"`
 	PreferredLanguage              string                         `json:"preferred_language"`
@@ -453,6 +881,19 @@ type VetchiumHubUser struct {
 	SubscriptionSource             VetchiumHubSubscriptionSource  `json:"subscription_source"`
 	CreatedAt                      pgtype.Timestamptz             `json:"created_at"`
 	UpdatedAt                      pgtype.Timestamptz             `json:"updated_at"`
+}
+
+type VetchiumHubWorkExperience struct {
+	WorkExperienceID pgtype.UUID        `json:"work_experience_id"`
+	HubUserDid       pgtype.UUID        `json:"hub_user_did"`
+	EmployerDomain   string             `json:"employer_domain"`
+	JobTitle         string             `json:"job_title"`
+	StartMonth       pgtype.Date        `json:"start_month"`
+	EndMonth         pgtype.Date        `json:"end_month"`
+	Location         pgtype.Text        `json:"location"`
+	Description      pgtype.Text        `json:"description"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type VetchiumIdempotencyLedger struct {

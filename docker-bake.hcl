@@ -19,6 +19,7 @@ group "default" {
     "mcp-server",
     "workers",
     "global-coordinator",
+    "global-migrate",
     "migrate",
     "orgs-ui",
     "hub-ui",
@@ -85,6 +86,12 @@ target "migrate" {
   inherits = ["_common"]
   context = "db/migrations"
   tags    = ["${REGISTRY}/migrate:${TAG}"]
+}
+
+target "global-migrate" {
+  inherits = ["_common"]
+  context = "db/global-migrations"
+  tags    = ["${REGISTRY}/global-migrate:${TAG}"]
 }
 
 target "orgs-ui" {

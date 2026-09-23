@@ -3,7 +3,14 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-const exportedDirectories = ["admin", "common", "hub", "problem", "regions"];
+const exportedDirectories = [
+  "admin",
+  "common",
+  "directory",
+  "hub",
+  "problem",
+  "regions",
+];
 
 export function packageExportProblems(actualExports, expectedExports) {
   const problems = [];

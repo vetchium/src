@@ -10,16 +10,17 @@ TAG       ?= dev
 PLATFORMS ?= linux/amd64,linux/arm64
 BUILDER   := vetchium
 APP_POSTGRES_PASSWORD ?= app_pgpassword
+GLOBAL_APP_POSTGRES_PASSWORD ?= global_app_pgpassword
 ADMIN_CREDENTIAL_KEY  ?= dev_admin_credential_key
 HUB_CREDENTIAL_KEY    ?= dev_hub_credential_key
-GLOBAL_COORDINATOR_CREDENTIAL ?= dev_global_coordinator_credential_32_bytes
 MESH_CREDENTIAL       ?= dev_mesh_credential_at_least_32_bytes
 DEV_SECRETS_DIR       := .dev-secrets
 APP_PASSWORD_FILE     := $(DEV_SECRETS_DIR)/app_postgres_password
+GLOBAL_APP_PASSWORD_FILE := $(DEV_SECRETS_DIR)/global_app_postgres_password
 ADMIN_KEY_FILE        := $(DEV_SECRETS_DIR)/admin_credential_key
 HUB_KEY_FILE          := $(DEV_SECRETS_DIR)/hub_credential_key
-COORDINATOR_KEY_FILE  := $(DEV_SECRETS_DIR)/global_coordinator_credential
 MESH_KEY_FILE         := $(DEV_SECRETS_DIR)/mesh_credential
+MESH_CA_FILE          := $(DEV_SECRETS_DIR)/mesh_ca_certificate
 SQLC                   := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
 GOVULNCHECK             := go run golang.org/x/vuln/cmd/govulncheck@v1.7.0
 # The v2.12.2 image was built with Go 1.26 and rejects Go 1.27 modules. Build
@@ -34,7 +35,7 @@ JS_WORKSPACES          := admin-ui hub-ui portal-ui typespec playwright
 REPOSITORY_JSON        := biome.json docker-compose.json docker-compose-ci.json \
 	config deploy
 SQL_DIRS               := backend/internal/db/queries db/bootstrap db/db-seed \
-	db/migrations
+	db/global-migrations db/migrations
 GOTESTFLAGS            ?=
 COVERAGE_DIR            := $(CURDIR)/.coverage
 API_COVERAGE_DIR        := $(COVERAGE_DIR)/api
@@ -42,6 +43,10 @@ OPENAPI_DOCUMENT        := $(CURDIR)/typespec/tsp-output/schema/openapi.json
 # nproc covers Linux; the sysctl fallback covers macOS.
 JOBS ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 WAIT_TIMEOUT ?= 300
+# The host-exposed origin of the shared Mailpit instance every tenant's mail
+# sender uses in development; matches Mailpit's own port default and the
+# fallback playwright/lib/hub-api.ts uses.
+DEV_SEED_MAILPIT_URL ?= http://127.0.0.1:18025
 
 # `docker compose up --wait` with no service arguments waits on every service,
 # and it fails outright on any service that has no health state instead of
@@ -54,7 +59,8 @@ WAIT_TIMEOUT ?= 300
 serving_services = $$(docker compose -f $(1) config --services | \
 	grep -vE '^(workers|dev-seed)-')
 
-.PHONY: check fmt dev dev-secrets sqlc sqlc-vet sqlc-verify sql-lint sql-check \
+.PHONY: check fmt backend dev dev-secrets dev-seed dev-seed-hub-profiles sqlc sqlc-vet \
+	sqlc-verify sql-lint sql-check \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
 	admin-ui-deps admin-ui-check admin-ui-check-ready \
@@ -91,6 +97,12 @@ repository-json-check-ready: typespec-deps
 
 repository-json-check: repository-json-check-ready
 
+# Compiles every Go program under backend/cmd/ with the local Go toolchain,
+# skipping the Docker image builds for a much faster compile-error feedback
+# loop.
+backend:
+	cd backend && go build ./...
+
 dev: clean
 	$(MAKE) --no-print-directory dev-secrets
 	docker compose -f docker-compose.json up --build -d --remove-orphans
@@ -101,8 +113,45 @@ dev: clean
 		for p in orgs hub admin; do echo "  http://$$p-ui.$$t.localhost/"; done; \
 	done
 
+# The single entry point for developer data seeding. It brings up a fresh
+# stack, then runs every seed target that must go through a portal API
+# instead of a direct insert. `dev` is a real prerequisite so its stack is up
+# first; the seed steps run from an explicit recipe, not more prerequisites,
+# so their order does not depend on whether `-j` is in effect. Add a future
+# seed target (for example, Org fixtures) as another recipe line here.
+dev-seed: dev
+	$(MAKE) --no-print-directory dev-seed-hub-profiles
+
+# Seeds Hub user profiles by driving the same signup, subscription, and
+# profile-write APIs a browser would use: request signup, follow the
+# verification link the shared Mailpit instance captured, complete signup,
+# log in, then write every profile section the tenant's fixture file
+# supplies. Fixture data, including the avatars paid-tier users reference,
+# lives in dev/hub-seed-profiles/ and is meant to be hand-edited. Runs from
+# the host against the Traefik-exposed hub-ui origins `dev` already prints,
+# so it does not need dev-secrets or a container of its own.
+dev-seed-hub-profiles:
+	@for t in sgp usa1 deu ind1; do \
+		echo "==> hub profiles $$t"; \
+		(cd backend && DEV_SEED_MODE=hub-profiles \
+			DEV_SEED_HUB_ORIGIN="http://hub-ui.$$t.localhost" \
+			DEV_SEED_MAILPIT_URL="$(DEV_SEED_MAILPIT_URL)" \
+			DEV_SEED_HUB_PROFILES_FILE="$(CURDIR)/dev/hub-seed-profiles/$$t.json" \
+			go run ./cmd/dev-seed) | jq . || exit $$?; \
+	done
+
 dev-secrets:
 	@install -d -m 700 "$(DEV_SECRETS_DIR)"
+	@./dev/generate-mesh-pki.sh "$(DEV_SECRETS_DIR)" sgp usa1 deu ind1
+	@./dev/generate-wireguard-keys.sh "$(DEV_SECRETS_DIR)" global-coordinator sgp usa1 deu ind1
+	@sh ./dev/generate-seaweed-s3-secrets.sh "$(DEV_SECRETS_DIR)" sgp usa1 deu ind1
+	@if [ -f "$(GLOBAL_APP_PASSWORD_FILE)" ]; then \
+		current=$$(cat "$(GLOBAL_APP_PASSWORD_FILE)"); \
+		test "$$current" = "$$GLOBAL_APP_POSTGRES_PASSWORD" || \
+			{ echo "GLOBAL_APP_POSTGRES_PASSWORD differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
+	else \
+		umask 077; printf '%s' "$$GLOBAL_APP_POSTGRES_PASSWORD" > "$(GLOBAL_APP_PASSWORD_FILE)"; \
+	fi
 	@if [ -f "$(APP_PASSWORD_FILE)" ]; then \
 		current=$$(cat "$(APP_PASSWORD_FILE)"); \
 		test "$$current" = "$$APP_POSTGRES_PASSWORD" || \
@@ -124,13 +173,6 @@ dev-secrets:
 	else \
 		umask 077; printf '%s' "$$HUB_CREDENTIAL_KEY" > "$(HUB_KEY_FILE)"; \
 	fi
-	@if [ -f "$(COORDINATOR_KEY_FILE)" ]; then \
-		current=$$(cat "$(COORDINATOR_KEY_FILE)"); \
-		test "$$current" = "$$GLOBAL_COORDINATOR_CREDENTIAL" || \
-			{ echo "GLOBAL_COORDINATOR_CREDENTIAL differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
-	else \
-		umask 077; printf '%s' "$$GLOBAL_COORDINATOR_CREDENTIAL" > "$(COORDINATOR_KEY_FILE)"; \
-	fi
 	@if [ -f "$(MESH_KEY_FILE)" ]; then \
 		current=$$(cat "$(MESH_KEY_FILE)"); \
 		test "$$current" = "$$MESH_CREDENTIAL" || \
@@ -141,18 +183,29 @@ dev-secrets:
 
 sqlc:
 	cd backend && $(SQLC) generate
+	cd backend && $(SQLC) generate -f sqlc-global.yaml
 
 sqlc-vet:
 	cd backend && $(SQLC) vet
+	cd backend && $(SQLC) vet -f sqlc-global.yaml
 
 sqlc-verify:
 	@set -e; \
 	verification_dir=$$(mktemp -d); \
 	trap 'rm -rf "$$verification_dir"' EXIT; \
 	cp -R backend/internal/db/sqlc/. "$$verification_dir/"; \
+	global_verification_dir=$$(mktemp -d); \
+	trap 'rm -rf "$$verification_dir" "$$global_verification_dir"' EXIT; \
+	if [ -d backend/internal/globaldb/sqlc ]; then \
+		cp -R backend/internal/globaldb/sqlc/. "$$global_verification_dir/"; \
+	fi; \
 	$(MAKE) --no-print-directory sqlc; \
 	diff -ru "$$verification_dir" backend/internal/db/sqlc || { \
 		echo "generated sqlc code is stale; run 'make sqlc' and commit it"; \
+		exit 1; \
+	}; \
+	diff -ru "$$global_verification_dir" backend/internal/globaldb/sqlc || { \
+		echo "generated global sqlc code is stale; run 'make sqlc' and commit it"; \
 		exit 1; \
 	}
 
@@ -302,6 +355,7 @@ typespec-deps:
 	cd typespec && npm ci
 
 typespec-check-ready: typespec-deps
+	cd typespec && npm run check:language-catalog
 	cd typespec && npm run check:contract-files
 	cd typespec && npm run test:contract-files
 	cd typespec && npm run format:check
@@ -371,7 +425,5 @@ publish:
 clean:
 	docker compose -f docker-compose-ci.json down --remove-orphans --volumes
 	docker compose -f docker-compose.json down --remove-orphans --volumes
-	rm -f "$(APP_PASSWORD_FILE)" "$(ADMIN_KEY_FILE)" "$(HUB_KEY_FILE)" \
-		"$(COORDINATOR_KEY_FILE)" "$(MESH_KEY_FILE)"
-	-rmdir "$(DEV_SECRETS_DIR)"
+	rm -rf "$(DEV_SECRETS_DIR)"
 	rm -rf "$(COVERAGE_DIR)"

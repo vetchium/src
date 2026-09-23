@@ -1,0 +1,7 @@
+Hello {{.DisplayName}},
+
+Your paid Vetchium access is scheduled to end on {{.ExpiresAt.UTC.Format "02 Jan 2006 15:04 UTC"}}{{if eq .LeadDays 1}}, which is tomorrow{{else}}, which is {{.LeadDays}} days from now{{end}}.
+
+Renew before then to keep your paid features. If you take no action, your account moves to the free plan when the current period ends.
+
+If you already renewed or changed your mind about ending your subscription, you can ignore this email.

@@ -1,0 +1,297 @@
+{
+  "users": [
+    {
+      "email": "wei.tan@sgp.example",
+      "displayName": "Wei Jie Tan",
+      "preferredLanguage": "en-US",
+      "residentCountry": "SG",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "grab.com",
+          "jobTitle": "Software Engineer",
+          "startMonth": "2021-03",
+          "location": "Singapore"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "nus.edu.sg",
+          "degree": "BEng Computer Engineering",
+          "startMonth": "2017-08",
+          "endMonth": "2021-05"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "writing", "languageTag": "en" }
+      ]
+    },
+    {
+      "email": "priya.ramachandran@sgp.example",
+      "displayName": "Priya Ramachandran",
+      "preferredLanguage": "ta",
+      "residentCountry": "SG",
+      "plan": "hub-silver-tier",
+      "billingInterval": "month",
+      "profilePicture": "avatar1.jpg",
+      "biography": "Product manager focused on digital banking experiences across Southeast Asia.",
+      "workExperience": [
+        {
+          "employerDomain": "dbs.com",
+          "jobTitle": "Product Manager",
+          "startMonth": "2019-06",
+          "location": "Singapore",
+          "description": "Leads the consumer digital payments roadmap."
+        },
+        {
+          "employerDomain": "ocbc.com",
+          "jobTitle": "Business Analyst",
+          "startMonth": "2016-01",
+          "endMonth": "2019-05",
+          "location": "Singapore"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "ntu.edu.sg",
+          "degree": "MBA",
+          "startMonth": "2014-08",
+          "endMonth": "2016-05"
+        }
+      ],
+      "certifications": [
+        {
+          "title": "Project Management Professional (PMP)",
+          "credentialUrl": "https://www.pmi.org/certifications/verify/pmp-4471002"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "ta" },
+        { "ability": "writing", "languageTag": "en" }
+      ]
+    },
+    {
+      "email": "siti.yusof@sgp.example",
+      "displayName": "Siti Nurhaliza Yusof",
+      "preferredLanguage": "en-US",
+      "residentCountry": "SG",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "shopee.com",
+          "jobTitle": "UX Designer",
+          "startMonth": "2022-02",
+          "location": "Singapore"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "nafa.edu.sg",
+          "degree": "BA Design",
+          "startMonth": "2018-08",
+          "endMonth": "2022-01"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "ms" }
+      ]
+    },
+    {
+      "email": "arun.pillai@sgp.example",
+      "displayName": "Arun Kumar Pillai",
+      "preferredLanguage": "en-US",
+      "residentCountry": "SG",
+      "plan": "hub-silver-tier",
+      "billingInterval": "year",
+      "profilePicture": "avatar2.jpg",
+      "biography": "Senior data scientist building recommendation systems for e-commerce.",
+      "workExperience": [
+        {
+          "employerDomain": "sea.com",
+          "jobTitle": "Senior Data Scientist",
+          "startMonth": "2018-04",
+          "location": "Singapore",
+          "description": "Owns the demand-forecasting models for the marketplace."
+        },
+        {
+          "employerDomain": "singtel.com",
+          "jobTitle": "Data Analyst",
+          "startMonth": "2015-01",
+          "endMonth": "2018-03",
+          "location": "Singapore"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "nus.edu.sg",
+          "degree": "MSc Data Science",
+          "startMonth": "2013-08",
+          "endMonth": "2014-12"
+        }
+      ],
+      "certifications": [
+        {
+          "title": "AWS Certified Machine Learning - Specialty",
+          "credentialUrl": "https://www.credly.com/badges/aws-mls-3391884"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "ta" },
+        { "ability": "reading", "languageTag": "zh" }
+      ]
+    },
+    {
+      "email": "meiling.ong@sgp.example",
+      "displayName": "Mei Ling Ong",
+      "preferredLanguage": "en-US",
+      "residentCountry": "SG",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "singtel.com",
+          "jobTitle": "HR Business Partner",
+          "startMonth": "2020-09",
+          "location": "Singapore"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "nus.edu.sg",
+          "degree": "BSocSci",
+          "startMonth": "2016-08",
+          "endMonth": "2020-05"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "zh" }
+      ]
+    },
+    {
+      "email": "faizal.rahman@sgp.example",
+      "displayName": "Faizal Rahman",
+      "preferredLanguage": "en-US",
+      "residentCountry": "SG",
+      "plan": "hub-silver-tier",
+      "billingInterval": "month",
+      "profilePicture": "avatar3.jpg",
+      "biography": "Engineering manager scaling ride-hailing and delivery platforms.",
+      "workExperience": [
+        {
+          "employerDomain": "grab.com",
+          "jobTitle": "Engineering Manager",
+          "startMonth": "2014-06",
+          "location": "Singapore",
+          "description": "Leads the platform reliability engineering group."
+        },
+        {
+          "employerDomain": "dbs.com",
+          "jobTitle": "Software Engineer",
+          "startMonth": "2010-07",
+          "endMonth": "2014-05",
+          "location": "Singapore"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "ntu.edu.sg",
+          "degree": "BEng Computer Science",
+          "startMonth": "2006-08",
+          "endMonth": "2010-05"
+        }
+      ],
+      "certifications": [
+        {
+          "title": "AWS Certified Solutions Architect - Professional",
+          "credentialUrl": "https://www.credly.com/badges/aws-csap-7742210"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "ms" }
+      ]
+    },
+    {
+      "email": "jiahao.koh@sgp.example",
+      "displayName": "Jia Hao Koh",
+      "preferredLanguage": "en-US",
+      "residentCountry": "SG",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "shopee.com",
+          "jobTitle": "Marketing Executive",
+          "startMonth": "2023-01",
+          "location": "Singapore"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "smu.edu.sg",
+          "degree": "BBA",
+          "startMonth": "2019-08",
+          "endMonth": "2022-12"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "zh" }
+      ]
+    },
+    {
+      "email": "kavitha.suresh@sgp.example",
+      "displayName": "Kavitha Suresh",
+      "preferredLanguage": "ta",
+      "residentCountry": "SG",
+      "plan": "hub-silver-tier",
+      "billingInterval": "year",
+      "profilePicture": "avatar4.jpg",
+      "biography": "Finance director with two decades in regional banking and audit.",
+      "workExperience": [
+        {
+          "employerDomain": "ocbc.com",
+          "jobTitle": "Finance Director",
+          "startMonth": "2012-03",
+          "location": "Singapore",
+          "description": "Oversees regional financial planning and controls."
+        },
+        {
+          "employerDomain": "pwc.com",
+          "jobTitle": "Associate Auditor",
+          "startMonth": "2008-07",
+          "endMonth": "2012-02",
+          "location": "Singapore"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "nus.edu.sg",
+          "degree": "MBA",
+          "startMonth": "2010-08",
+          "endMonth": "2011-12"
+        },
+        {
+          "institutionDomain": "ntu.edu.sg",
+          "degree": "BAcc",
+          "startMonth": "2004-08",
+          "endMonth": "2008-05"
+        }
+      ],
+      "certifications": [
+        {
+          "title": "Chartered Accountant of Singapore",
+          "credentialUrl": "https://www.isca.org.sg/verify/ca-118820"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "ta" },
+        { "ability": "writing", "languageTag": "ta" }
+      ]
+    }
+  ]
+}

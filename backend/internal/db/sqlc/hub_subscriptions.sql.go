@@ -127,6 +127,79 @@ func (q *Queries) GetHubMySubscription(ctx context.Context, arg GetHubMySubscrip
 	return i, err
 }
 
+const listHubUsersWithEndingSubscriptions = `-- name: ListHubUsersWithEndingSubscriptions :many
+SELECT
+    hub_user_did,
+    email_address,
+    display_name,
+    preferred_language,
+    hub_plan_oid,
+    scheduled_hub_plan_oid,
+    subscription_period_end
+FROM vetchium.hub_users
+WHERE hub_user_state = 'active'
+  AND hub_plan_oid <> 'hub-free-tier'
+  AND scheduled_hub_plan_oid IS NOT NULL
+  AND subscription_period_end > $1
+  AND subscription_period_end <= $1 + interval '7 days'
+  AND hub_user_did <> ALL (
+      COALESCE($2::uuid[], '{}')
+  )
+ORDER BY subscription_period_end, hub_user_did
+LIMIT $3
+`
+
+type ListHubUsersWithEndingSubscriptionsParams struct {
+	At                 pgtype.Timestamptz `json:"at"`
+	SkippedHubUserDids []pgtype.UUID      `json:"skipped_hub_user_dids"`
+	BatchSize          int32              `json:"batch_size"`
+}
+
+type ListHubUsersWithEndingSubscriptionsRow struct {
+	HubUserDid            pgtype.UUID        `json:"hub_user_did"`
+	EmailAddress          string             `json:"email_address"`
+	DisplayName           string             `json:"display_name"`
+	PreferredLanguage     string             `json:"preferred_language"`
+	HubPlanOid            string             `json:"hub_plan_oid"`
+	ScheduledHubPlanOid   pgtype.Text        `json:"scheduled_hub_plan_oid"`
+	SubscriptionPeriodEnd pgtype.Timestamptz `json:"subscription_period_end"`
+}
+
+// Candidates for a subscription-ending warning: a paid plan with a scheduled
+// change, and a period end inside the widest lead window. Whether the
+// scheduled plan is genuinely lower stays a Go-side decision, since plan
+// ranks are a TypeSpec contract concept the database does not hold. The
+// exclusion list plays the same role as ClaimDueHubSubscriptions' above: it
+// lets one run walk multiple batches without re-selecting rows it already
+// looked at, without needing to lock or mutate hub_users.
+func (q *Queries) ListHubUsersWithEndingSubscriptions(ctx context.Context, arg ListHubUsersWithEndingSubscriptionsParams) ([]ListHubUsersWithEndingSubscriptionsRow, error) {
+	rows, err := q.db.Query(ctx, listHubUsersWithEndingSubscriptions, arg.At, arg.SkippedHubUserDids, arg.BatchSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHubUsersWithEndingSubscriptionsRow
+	for rows.Next() {
+		var i ListHubUsersWithEndingSubscriptionsRow
+		if err := rows.Scan(
+			&i.HubUserDid,
+			&i.EmailAddress,
+			&i.DisplayName,
+			&i.PreferredLanguage,
+			&i.HubPlanOid,
+			&i.ScheduledHubPlanOid,
+			&i.SubscriptionPeriodEnd,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockHubSubscriptionForChange = `-- name: LockHubSubscriptionForChange :one
 SELECT
     hub_plan_oid,
@@ -167,6 +240,80 @@ func (q *Queries) LockHubSubscriptionForChange(ctx context.Context, hubUserDid p
 	return i, err
 }
 
+const recordHubSubscriptionExpiryNotice = `-- name: RecordHubSubscriptionExpiryNotice :one
+WITH inserted AS (
+    INSERT INTO vetchium.hub_subscription_expiry_notices (
+        hub_user_did, period_end, lead_time
+    )
+    VALUES (
+        $1, $2, $3
+    )
+    ON CONFLICT ON CONSTRAINT hub_subscription_expiry_notices_key
+        DO NOTHING
+    RETURNING hub_subscription_expiry_notice_id
+), outbox AS (
+    INSERT INTO vetchium.hub_email_outbox (
+        kind, recipient_email_address, preferred_language, payload_ciphertext
+    )
+    SELECT 'subscription-ending', $4,
+        $5, $6
+    FROM inserted
+    RETURNING hub_email_outbox_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $7,
+        'hub.subscription.expiry-notice-queued',
+        'hub_subscription',
+        $1::text,
+        'worker',
+        'subscription-expiry-warning',
+        'workers',
+        jsonb_build_object(
+            'lead_time', $3::text,
+            'period_end', $2,
+            'scheduled_hub_plan_oid', $8::text
+        )
+    FROM outbox
+    RETURNING audit_event_id
+)
+SELECT EXISTS (SELECT 1 FROM audit) AS queued
+`
+
+type RecordHubSubscriptionExpiryNoticeParams struct {
+	HubUserDid            pgtype.UUID                       `json:"hub_user_did"`
+	PeriodEnd             pgtype.Timestamptz                `json:"period_end"`
+	LeadTime              VetchiumHubSubscriptionNoticeLead `json:"lead_time"`
+	RecipientEmailAddress string                            `json:"recipient_email_address"`
+	PreferredLanguage     string                            `json:"preferred_language"`
+	PayloadCiphertext     []byte                            `json:"payload_ciphertext"`
+	TenantID              string                            `json:"tenant_id"`
+	ScheduledHubPlanOid   string                            `json:"scheduled_hub_plan_oid"`
+}
+
+// Queues the warning email, records the notice, and audits the operation in
+// one statement. ON CONFLICT DO NOTHING makes a retried or repeated tick a
+// no-op: when the notice already exists, the outbox and audit CTEs have
+// nothing to select from and queued comes back false.
+func (q *Queries) RecordHubSubscriptionExpiryNotice(ctx context.Context, arg RecordHubSubscriptionExpiryNoticeParams) (bool, error) {
+	row := q.db.QueryRow(ctx, recordHubSubscriptionExpiryNotice,
+		arg.HubUserDid,
+		arg.PeriodEnd,
+		arg.LeadTime,
+		arg.RecipientEmailAddress,
+		arg.PreferredLanguage,
+		arg.PayloadCiphertext,
+		arg.TenantID,
+		arg.ScheduledHubPlanOid,
+	)
+	var queued bool
+	err := row.Scan(&queued)
+	return queued, err
+}
+
 const saveHubSubscriptionStates = `-- name: SaveHubSubscriptionStates :one
 WITH states AS (
     SELECT
@@ -184,6 +331,23 @@ WITH states AS (
         (elem ->> 'scheduled_billing_interval')::
             vetchium.hub_billing_interval AS scheduled_billing_interval
     FROM jsonb_array_elements($1::jsonb) AS elem
+), previous AS (
+    SELECT u.hub_user_did, u.hub_plan_oid, u.profile_alias,
+        EXISTS (
+            SELECT 1
+            FROM vetchium.hub_profile_picture_objects AS picture
+            WHERE picture.hub_user_did = u.hub_user_did
+              AND picture.state = 'active'
+        ) AS had_profile_picture,
+        EXISTS (
+            SELECT 1
+            FROM vetchium.hub_profile_picture_objects AS picture
+            WHERE picture.hub_user_did = u.hub_user_did
+              AND picture.state = 'uploading'
+        ) AS had_staged_picture
+    FROM vetchium.hub_users AS u
+    JOIN states USING (hub_user_did)
+    FOR UPDATE OF u
 ), updated AS (
     UPDATE vetchium.hub_users AS u
     SET hub_plan_oid = states.hub_plan_oid,
@@ -193,10 +357,86 @@ WITH states AS (
         subscription_period_end = states.subscription_period_end,
         scheduled_hub_plan_oid = states.scheduled_hub_plan_oid,
         scheduled_billing_interval = states.scheduled_billing_interval,
+        profile_alias = CASE
+            WHEN previous.hub_plan_oid <> 'hub-free-tier'
+                AND states.hub_plan_oid = 'hub-free-tier' THEN NULL
+            ELSE u.profile_alias
+        END,
+        profile_version = u.profile_version + CASE
+            WHEN previous.hub_plan_oid <> 'hub-free-tier'
+                AND states.hub_plan_oid = 'hub-free-tier'
+                AND (previous.profile_alias IS NOT NULL OR
+                    previous.had_profile_picture) THEN 1
+            ELSE 0
+        END,
         updated_at = now()
     FROM states
+    JOIN previous USING (hub_user_did)
     WHERE u.hub_user_did = states.hub_user_did
-    RETURNING u.hub_user_did
+    RETURNING u.hub_user_did, u.profile_version,
+        previous.profile_alias AS released_alias,
+        previous.had_profile_picture,
+        previous.had_staged_picture,
+        previous.hub_plan_oid <> 'hub-free-tier'
+            AND states.hub_plan_oid = 'hub-free-tier' AS downgraded
+), pictures_queued AS (
+    UPDATE vetchium.hub_profile_picture_objects AS picture
+    SET state = 'pending_delete', delete_requested_at = now(),
+        upload_expires_at = NULL,
+        -- A concurrent replay can still be writing a formerly active object.
+        -- Bound PutObject to 30 seconds and defer every delete beyond that.
+        next_attempt_at = now() + interval '1 minute'
+    FROM updated
+    WHERE picture.hub_user_did = updated.hub_user_did
+      AND updated.downgraded
+      AND picture.state IN ('active', 'uploading')
+    RETURNING picture.object_id, picture.hub_user_did
+), alias_release_commands AS (
+    SELECT updated.hub_user_did, updated.released_alias,
+        gen_random_uuid() AS operation_id,
+        gen_random_uuid() AS command_id,
+        jsonb_build_object(
+            'hub_user_did', updated.hub_user_did,
+            'profile_alias', NULL,
+            'downgrade_release_if_alias', updated.released_alias
+        ) AS payload
+    FROM updated
+    WHERE updated.downgraded AND updated.released_alias IS NOT NULL
+), alias_releases AS (
+    INSERT INTO vetchium.federation_operations (
+        operation_id, command_id, kind, target_authority, aggregate_id,
+        owner_principal_type, owner_principal_id, idempotency_key,
+        request_digest, payload_bytes, expires_at
+    )
+    SELECT operation_id, command_id, 'hub-alias-release',
+        'global-directory', hub_user_did::text, 'hub_user',
+        hub_user_did::text, operation_id::text,
+        sha256(convert_to(payload::text, 'UTF8')),
+        convert_to(payload::text, 'UTF8'), now() + interval '30 days'
+    FROM alias_release_commands
+    RETURNING operation_id
+), profile_cleanup_audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT $2, 'hub.profile.entitlements-removed',
+        'hub_user', updated.hub_user_did::text,
+        CASE WHEN $3::text = 'workers'
+            THEN 'worker' ELSE 'hub_user' END,
+        CASE WHEN $3::text = 'workers'
+            THEN NULL ELSE updated.hub_user_did::text END,
+        $3, jsonb_build_object(
+            'alias_release_scheduled', updated.released_alias IS NOT NULL,
+            'picture_deletion_scheduled',
+                updated.had_profile_picture OR updated.had_staged_picture,
+            'profile_version', updated.profile_version
+        )
+    FROM updated
+    WHERE updated.downgraded
+      AND (updated.released_alias IS NOT NULL OR
+          updated.had_profile_picture OR updated.had_staged_picture)
+    RETURNING audit_event_id
 ), events AS (
     SELECT
         (elem ->> 'hub_user_did')::uuid AS hub_user_did,
@@ -204,7 +444,7 @@ WITH states AS (
         (elem ->> 'actor_type')::text AS actor_type,
         (elem ->> 'actor_id')::text AS actor_id,
         (elem -> 'payload')::jsonb AS payload
-    FROM jsonb_array_elements($2::jsonb) AS elem
+    FROM jsonb_array_elements($4::jsonb) AS elem
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id,
@@ -218,13 +458,13 @@ WITH states AS (
         payload
     )
     SELECT
-        $3,
+        $2,
         events.action,
         'hub_subscription',
         events.hub_user_did::text,
         events.actor_type,
         events.actor_id,
-        $4,
+        $3,
         $5,
         events.payload
     FROM events
@@ -235,21 +475,28 @@ SELECT
     (SELECT count(*) FROM updated)::bigint AS updated_count,
     (SELECT count(*) FROM audit)::bigint AS audited_count,
     (SELECT count(DISTINCT entity_id) FROM audit)::bigint
-        AS audited_user_count
+        AS audited_user_count,
+    (SELECT count(*) FROM alias_releases)::bigint AS alias_release_count,
+    (SELECT count(*) FROM pictures_queued)::bigint AS picture_deletion_count,
+    (SELECT count(*) FROM profile_cleanup_audit)::bigint
+        AS profile_cleanup_audit_count
 `
 
 type SaveHubSubscriptionStatesParams struct {
 	States         []byte      `json:"states"`
-	Events         []byte      `json:"events"`
 	TenantID       string      `json:"tenant_id"`
 	Source         string      `json:"source"`
+	Events         []byte      `json:"events"`
 	IdempotencyKey pgtype.Text `json:"idempotency_key"`
 }
 
 type SaveHubSubscriptionStatesRow struct {
-	UpdatedCount     int64 `json:"updated_count"`
-	AuditedCount     int64 `json:"audited_count"`
-	AuditedUserCount int64 `json:"audited_user_count"`
+	UpdatedCount             int64 `json:"updated_count"`
+	AuditedCount             int64 `json:"audited_count"`
+	AuditedUserCount         int64 `json:"audited_user_count"`
+	AliasReleaseCount        int64 `json:"alias_release_count"`
+	PictureDeletionCount     int64 `json:"picture_deletion_count"`
+	ProfileCleanupAuditCount int64 `json:"profile_cleanup_audit_count"`
 }
 
 // The single write statement shared by the set-plan handler and the worker.
@@ -260,12 +507,19 @@ type SaveHubSubscriptionStatesRow struct {
 func (q *Queries) SaveHubSubscriptionStates(ctx context.Context, arg SaveHubSubscriptionStatesParams) (SaveHubSubscriptionStatesRow, error) {
 	row := q.db.QueryRow(ctx, saveHubSubscriptionStates,
 		arg.States,
-		arg.Events,
 		arg.TenantID,
 		arg.Source,
+		arg.Events,
 		arg.IdempotencyKey,
 	)
 	var i SaveHubSubscriptionStatesRow
-	err := row.Scan(&i.UpdatedCount, &i.AuditedCount, &i.AuditedUserCount)
+	err := row.Scan(
+		&i.UpdatedCount,
+		&i.AuditedCount,
+		&i.AuditedUserCount,
+		&i.AliasReleaseCount,
+		&i.PictureDeletionCount,
+		&i.ProfileCleanupAuditCount,
+	)
 	return i, err
 }

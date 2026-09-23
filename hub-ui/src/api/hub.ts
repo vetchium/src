@@ -15,6 +15,7 @@ import type {
   CompleteSignupRequest,
   CompleteSignupResponse,
   RequestSignupRequest,
+  SignupCompletionPendingResponse,
 } from "typespec/hub/auth/signup";
 import type {
   ConfirmTOTPEnrollmentRequest,
@@ -25,6 +26,32 @@ import type {
   VerifyRecoveryCodeResponse,
 } from "typespec/hub/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";
+import type {
+  GetOperationRequest,
+  OperationStatus,
+  PendingOperation,
+} from "typespec/hub/operations/operations";
+import type { AliasState, SetAliasRequest } from "typespec/hub/profile/alias";
+import type { PictureContentType } from "typespec/hub/profile/picture";
+import type {
+  AddProfessionalEmailRequest,
+  ListProfessionalEmailsRequest,
+  ListProfessionalEmailsResponse,
+  ProfessionalEmail,
+  ProfessionalEmailChallenge,
+  ProfessionalEmailIDRequest,
+  VerifyProfessionalEmailRequest,
+} from "typespec/hub/profile/professional_email";
+import type {
+  ChangeLanguageAbilityRequest,
+  DeleteProfileEntryRequest,
+  PublicProfile,
+  ReadProfileRequest,
+  SaveCertificationRequest,
+  SaveEducationalQualificationRequest,
+  SaveWorkExperienceRequest,
+  SetPublicFieldsRequest,
+} from "typespec/hub/profile/public";
 import type {
   HubSubscription,
   SetSubscriptionPlanRequest,
@@ -54,10 +81,13 @@ export const hubAPI = {
     body: CompleteSignupRequest,
     idempotencyKey: IdempotencyKey,
   ) =>
-    apiRequest<CompleteSignupResponse>(`${base}/complete-signup`, {
-      body,
-      idempotencyKey,
-    }),
+    apiRequest<CompleteSignupResponse | SignupCompletionPendingResponse>(
+      `${base}/complete-signup`,
+      {
+        body,
+        idempotencyKey,
+      },
+    ),
   login: (body: LoginRequest) =>
     apiRequest<LoginResponse>(`${base}/login`, { body }),
   verifyTFA: (body: VerifyTFARequest, idempotencyKey: IdempotencyKey) =>
@@ -98,6 +128,140 @@ export const hubAPI = {
   setPreferredJobCountries: (body: SetPreferredJobCountriesRequest) =>
     apiRequest<void>(`${base}/set-preferred-job-countries`, { body }),
   myInfo: () => apiRequest<MyInfoResponse>(`${base}/my-info`),
+  readProfile: (body: ReadProfileRequest) =>
+    apiRequest<PublicProfile>(`${base}/profile/read`, { body }),
+  setPublicFields: (
+    body: SetPublicFieldsRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>(`${base}/profile/set-public-fields`, {
+      body,
+      idempotencyKey,
+    }),
+  saveWorkExperience: (
+    body: SaveWorkExperienceRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>(`${base}/profile/save-work-experience`, {
+      body,
+      idempotencyKey,
+    }),
+  deleteWorkExperience: (
+    body: DeleteProfileEntryRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>(`${base}/profile/delete-work-experience`, {
+      body,
+      idempotencyKey,
+    }),
+  saveCertification: (
+    body: SaveCertificationRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>(`${base}/profile/save-certification`, {
+      body,
+      idempotencyKey,
+    }),
+  deleteCertification: (
+    body: DeleteProfileEntryRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>(`${base}/profile/delete-certification`, {
+      body,
+      idempotencyKey,
+    }),
+  saveEducation: (
+    body: SaveEducationalQualificationRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>(`${base}/profile/save-education`, {
+      body,
+      idempotencyKey,
+    }),
+  deleteEducation: (
+    body: DeleteProfileEntryRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>(`${base}/profile/delete-education`, {
+      body,
+      idempotencyKey,
+    }),
+  addLanguageAbility: (
+    body: ChangeLanguageAbilityRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>(`${base}/profile/add-language`, {
+      body,
+      idempotencyKey,
+    }),
+  deleteLanguageAbility: (
+    body: ChangeLanguageAbilityRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>(`${base}/profile/delete-language`, {
+      body,
+      idempotencyKey,
+    }),
+  aliasState: () => apiRequest<AliasState>(`${base}/profile/alias/state`),
+  setAlias: (body: SetAliasRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<PendingOperation>(`${base}/profile/alias/set`, {
+      body,
+      idempotencyKey,
+    }),
+  operationStatus: (body: GetOperationRequest) =>
+    apiRequest<OperationStatus>(`${base}/operations/status`, { body }),
+  uploadPicture: (
+    body: ArrayBuffer,
+    contentType: PictureContentType,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>(`${base}/profile/picture/upload`, {
+      body,
+      idempotencyKey,
+      headers: { "Content-Type": contentType },
+    }),
+  removePicture: (idempotencyKey: IdempotencyKey) =>
+    apiRequest<void>(`${base}/profile/picture/remove`, {
+      body: {},
+      idempotencyKey,
+    }),
+  listProfessionalEmails: (body: ListProfessionalEmailsRequest) =>
+    apiRequest<ListProfessionalEmailsResponse>(
+      `${base}/profile/professional-email/list`,
+      { body },
+    ),
+  addProfessionalEmail: (
+    body: AddProfessionalEmailRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ProfessionalEmail>(`${base}/profile/professional-email/add`, {
+      body,
+      idempotencyKey,
+    }),
+  requestProfessionalEmailCode: (
+    body: ProfessionalEmailIDRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ProfessionalEmailChallenge>(
+      `${base}/profile/professional-email/request-code`,
+      { body, idempotencyKey },
+    ),
+  verifyProfessionalEmail: (
+    body: VerifyProfessionalEmailRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>(`${base}/profile/professional-email/verify`, {
+      body,
+      idempotencyKey,
+    }),
+  deleteProfessionalEmail: (
+    body: ProfessionalEmailIDRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>(`${base}/profile/professional-email/delete`, {
+      body,
+      idempotencyKey,
+    }),
   setPreferredLanguage: (body: SetPreferredLanguageRequest) =>
     apiRequest<void>(`${base}/set-preferred-language`, { body }),
   setResidentCountry: (body: SetResidentCountryRequest) =>

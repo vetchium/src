@@ -34,6 +34,7 @@ type Config struct {
 	GlobalCoordinator GlobalCoordinator
 	MeshAPIServer     MeshAPIServer
 	HubAPIServer      HubAPIServer
+	ObjectStorage     ObjectStorage
 	SMTP              SMTP
 	OrgsAPIServer     Server
 	MCPServer         Server
@@ -69,6 +70,7 @@ type Workers struct {
 	HubEmailLeaseTTL             time.Duration
 	HubEmailMaxAttempts          int
 	AdvanceHubSubscriptionsTimer time.Duration
+	ReconcileHubSignupTimer      time.Duration
 }
 
 type HubAPIServer struct {
@@ -77,6 +79,13 @@ type HubAPIServer struct {
 	RememberedSessionTTL time.Duration
 	PublicBaseURL        string
 	OfferedPlans         []subscriptionspec.Plan
+}
+
+type ObjectStorage struct {
+	PrivateBaseURL string
+	MediaBaseURL   string
+	AccessKeyFile  string
+	SecretKeyFile  string
 }
 
 type SMTP struct {
@@ -98,22 +107,37 @@ const (
 	StartTLSRequired      StartTLSMode = "required"
 )
 
-// GlobalCoordinator is the mesh API's link to the coordinator. No other
-// program dials the coordinator, so no other program reads its credential.
+// GlobalCoordinator is the mesh API's mutually authenticated link to the
+// coordinator. No other tenant process may dial the coordinator.
 type GlobalCoordinator struct {
 	BaseURL        string
-	CredentialFile string
 	RequestTimeout time.Duration
+	TLS            MeshClientTLS
+}
+
+type MeshClientTLS struct {
+	CertificateFile string
+	KeyFile         string
+	CAFile          string
+	ServerName      string
+}
+
+type MeshServerTLS struct {
+	CertificateFile string
+	KeyFile         string
+	ClientCAFile    string
 }
 
 // MeshAPIServer is this tenant's own mesh API: the origin hub-api dials for
-// region discovery, and the credential both sides of that hop present. Keeping
-// it distinct from the coordinator credential means a compromised hub-api
-// cannot reach the coordinator or another tenant's mesh.
+// region discovery, and the credential both sides of that hop present. A
+// compromised hub-api therefore cannot reach the coordinator or another
+// tenant's mesh.
 type MeshAPIServer struct {
 	BaseURL        string
 	CredentialFile string
 	RequestTimeout time.Duration
+	PeerAddress    string
+	PeerTLS        MeshServerTLS
 }
 
 type Server struct{}
@@ -128,21 +152,37 @@ type fileConfig struct {
 	GlobalCoordinator *fileGlobalCoordinator `json:"globalCoordinator"`
 	MeshAPIServer     *fileMeshAPIServer     `json:"meshAPIServer"`
 	HubAPIServer      *fileHubAPIServer      `json:"hubAPIServer"`
+	ObjectStorage     *fileObjectStorage     `json:"objectStorage"`
 	SMTP              *fileSMTP              `json:"smtp"`
 	OrgsAPIServer     *Server                `json:"orgsAPIServer"`
 	MCPServer         *Server                `json:"mcpServer"`
 }
 
 type fileGlobalCoordinator struct {
-	BaseURL        string `json:"baseURL"`
-	CredentialFile string `json:"credentialFile"`
-	RequestTimeout string `json:"requestTimeout"`
+	BaseURL        string            `json:"baseURL"`
+	RequestTimeout string            `json:"requestTimeout"`
+	TLS            fileMeshClientTLS `json:"tls"`
+}
+
+type fileMeshClientTLS struct {
+	CertificateFile string `json:"certificateFile"`
+	KeyFile         string `json:"keyFile"`
+	CAFile          string `json:"caFile"`
+	ServerName      string `json:"serverName"`
 }
 
 type fileMeshAPIServer struct {
-	BaseURL        string `json:"baseURL"`
-	CredentialFile string `json:"credentialFile"`
-	RequestTimeout string `json:"requestTimeout"`
+	BaseURL        string            `json:"baseURL"`
+	CredentialFile string            `json:"credentialFile"`
+	RequestTimeout string            `json:"requestTimeout"`
+	PeerAddress    string            `json:"peerAddress"`
+	PeerTLS        fileMeshServerTLS `json:"peerTLS"`
+}
+
+type fileMeshServerTLS struct {
+	CertificateFile string `json:"certificateFile"`
+	KeyFile         string `json:"keyFile"`
+	ClientCAFile    string `json:"clientCAFile"`
 }
 
 type fileDatabase struct {
@@ -166,6 +206,7 @@ type fileWorkers struct {
 	HubEmailLeaseTTL             string `json:"hubEmailLeaseTTL"`
 	HubEmailMaxAttempts          int    `json:"hubEmailMaxAttempts"`
 	AdvanceHubSubscriptionsTimer string `json:"advanceHubSubscriptionsTimer"`
+	ReconcileHubSignupTimer      string `json:"reconcileHubSignupTimer"`
 }
 
 type fileHubAPIServer struct {
@@ -174,6 +215,13 @@ type fileHubAPIServer struct {
 	RememberedSessionTTL string             `json:"rememberedSessionTTL"`
 	PublicBaseURL        string             `json:"publicBaseURL"`
 	OfferedPlans         []string           `json:"offeredPlans"`
+}
+
+type fileObjectStorage struct {
+	PrivateBaseURL string `json:"privateBaseURL"`
+	MediaBaseURL   string `json:"mediaBaseURL"`
+	AccessKeyFile  string `json:"accessKeyFile"`
+	SecretKeyFile  string `json:"secretKeyFile"`
 }
 
 type fileSMTP struct {
@@ -265,6 +313,9 @@ func LoadFile(path string) (Config, error) {
 		err := fmt.Errorf("missing hubAPIServer")
 		return Config{}, configError(path, err)
 	}
+	if raw.ObjectStorage == nil {
+		return Config{}, configError(path, fmt.Errorf("missing objectStorage"))
+	}
 	if raw.SMTP == nil {
 		err := fmt.Errorf("missing smtp")
 		return Config{}, configError(path, err)
@@ -295,21 +346,28 @@ func LoadFile(path string) (Config, error) {
 	}
 	coordinatorURL, err := url.Parse(raw.GlobalCoordinator.BaseURL)
 	if err != nil || coordinatorURL.Scheme == "" || coordinatorURL.Host == "" ||
-		(coordinatorURL.Scheme != "http" && coordinatorURL.Scheme != "https") ||
+		coordinatorURL.Scheme != "https" ||
 		coordinatorURL.User != nil || coordinatorURL.RawQuery != "" ||
 		coordinatorURL.Fragment != "" {
-		err := fmt.Errorf("globalCoordinator.baseURL must be an HTTP(S) origin")
+		err := fmt.Errorf("globalCoordinator.baseURL must be an HTTPS origin")
 		return Config{}, configError(path, err)
 	}
 	if coordinatorURL.Path != "" && coordinatorURL.Path != "/" {
 		err := fmt.Errorf("globalCoordinator.baseURL must not contain a path")
 		return Config{}, configError(path, err)
 	}
-	if err := required(
-		"globalCoordinator.credentialFile",
-		raw.GlobalCoordinator.CredentialFile,
-	); err != nil {
-		return Config{}, configError(path, err)
+	for _, field := range []struct {
+		name  string
+		value string
+	}{
+		{"globalCoordinator.tls.certificateFile", raw.GlobalCoordinator.TLS.CertificateFile},
+		{"globalCoordinator.tls.keyFile", raw.GlobalCoordinator.TLS.KeyFile},
+		{"globalCoordinator.tls.caFile", raw.GlobalCoordinator.TLS.CAFile},
+		{"globalCoordinator.tls.serverName", raw.GlobalCoordinator.TLS.ServerName},
+	} {
+		if err := required(field.name, field.value); err != nil {
+			return Config{}, configError(path, err)
+		}
 	}
 	coordinatorTimeout, err := positiveDuration(
 		"globalCoordinator.requestTimeout",
@@ -335,6 +393,23 @@ func LoadFile(path string) (Config, error) {
 	)
 	if err != nil {
 		return Config{}, configError(path, err)
+	}
+	if _, err := net.ResolveTCPAddr("tcp", raw.MeshAPIServer.PeerAddress); err != nil {
+		return Config{}, configError(path, fmt.Errorf(
+			"meshAPIServer.peerAddress must be a TCP listen address: %w", err,
+		))
+	}
+	for _, field := range []struct {
+		name  string
+		value string
+	}{
+		{"meshAPIServer.peerTLS.certificateFile", raw.MeshAPIServer.PeerTLS.CertificateFile},
+		{"meshAPIServer.peerTLS.keyFile", raw.MeshAPIServer.PeerTLS.KeyFile},
+		{"meshAPIServer.peerTLS.clientCAFile", raw.MeshAPIServer.PeerTLS.ClientCAFile},
+	} {
+		if err := required(field.name, field.value); err != nil {
+			return Config{}, configError(path, err)
+		}
 	}
 
 	adminSessionTTL, err := positiveDuration(
@@ -375,6 +450,30 @@ func LoadFile(path string) (Config, error) {
 	}
 	offeredPlans, err := parseOfferedPlans(raw.HubAPIServer.OfferedPlans)
 	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	privateObjectURL, err := httpOrigin(
+		"objectStorage.privateBaseURL", raw.ObjectStorage.PrivateBaseURL,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	mediaURL, err := httpOrigin(
+		"objectStorage.mediaBaseURL", raw.ObjectStorage.MediaBaseURL,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	if (environment == EnvironmentProduction || environment == EnvironmentStaging) &&
+		!strings.HasPrefix(mediaURL, "https://") {
+		return Config{}, configError(path, fmt.Errorf(
+			"objectStorage.mediaBaseURL must use HTTPS outside development and CI",
+		))
+	}
+	if err := required("objectStorage.accessKeyFile", raw.ObjectStorage.AccessKeyFile); err != nil {
+		return Config{}, configError(path, err)
+	}
+	if err := required("objectStorage.secretKeyFile", raw.ObjectStorage.SecretKeyFile); err != nil {
 		return Config{}, configError(path, err)
 	}
 	retryBackoffLimit, err := positiveDuration(
@@ -422,6 +521,13 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	reconcileHubSignupTimer, err := positiveDuration(
+		"workers.reconcileHubSignupTimer",
+		raw.Workers.ReconcileHubSignupTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	smtp, err := parseSMTP(*raw.SMTP)
 	if err != nil {
 		return Config{}, configError(path, err)
@@ -446,11 +552,22 @@ func LoadFile(path string) (Config, error) {
 			BaseURL:        meshBaseURL,
 			CredentialFile: raw.MeshAPIServer.CredentialFile,
 			RequestTimeout: meshTimeout,
+			PeerAddress:    raw.MeshAPIServer.PeerAddress,
+			PeerTLS: MeshServerTLS{
+				CertificateFile: raw.MeshAPIServer.PeerTLS.CertificateFile,
+				KeyFile:         raw.MeshAPIServer.PeerTLS.KeyFile,
+				ClientCAFile:    raw.MeshAPIServer.PeerTLS.ClientCAFile,
+			},
 		},
 		GlobalCoordinator: GlobalCoordinator{
 			BaseURL:        strings.TrimRight(coordinatorURL.String(), "/"),
-			CredentialFile: raw.GlobalCoordinator.CredentialFile,
 			RequestTimeout: coordinatorTimeout,
+			TLS: MeshClientTLS{
+				CertificateFile: raw.GlobalCoordinator.TLS.CertificateFile,
+				KeyFile:         raw.GlobalCoordinator.TLS.KeyFile,
+				CAFile:          raw.GlobalCoordinator.TLS.CAFile,
+				ServerName:      raw.GlobalCoordinator.TLS.ServerName,
+			},
 		},
 		Workers: Workers{
 			RetryBackoffLimit:            retryBackoffLimit,
@@ -460,6 +577,7 @@ func LoadFile(path string) (Config, error) {
 			HubEmailLeaseTTL:             hubEmailLeaseTTL,
 			HubEmailMaxAttempts:          raw.Workers.HubEmailMaxAttempts,
 			AdvanceHubSubscriptionsTimer: advanceHubSubscriptionsTimer,
+			ReconcileHubSignupTimer:      reconcileHubSignupTimer,
 		},
 		HubAPIServer: HubAPIServer{
 			Signup:               admission,
@@ -468,14 +586,31 @@ func LoadFile(path string) (Config, error) {
 			PublicBaseURL:        hubBaseURL,
 			OfferedPlans:         offeredPlans,
 		},
+		ObjectStorage: ObjectStorage{
+			PrivateBaseURL: privateObjectURL,
+			MediaBaseURL:   mediaURL,
+			AccessKeyFile:  raw.ObjectStorage.AccessKeyFile,
+			SecretKeyFile:  raw.ObjectStorage.SecretKeyFile,
+		},
 		SMTP:          smtp,
 		OrgsAPIServer: Server{},
 		MCPServer:     Server{},
 	}, nil
 }
 
-func (c GlobalCoordinator) Credential() (string, error) {
-	return readCredential("global coordinator", c.CredentialFile)
+func (s ObjectStorage) Credentials() (string, string, error) {
+	accessKey, err := readTrimmedSecret("object-storage access key", s.AccessKeyFile)
+	if err != nil {
+		return "", "", err
+	}
+	secretKey, err := readTrimmedSecret("object-storage secret key", s.SecretKeyFile)
+	if err != nil {
+		return "", "", err
+	}
+	if len(accessKey) < 16 || len(secretKey) < 32 {
+		return "", "", fmt.Errorf("object-storage credentials are too short")
+	}
+	return accessKey, secretKey, nil
 }
 
 func (m MeshAPIServer) Credential() (string, error) {

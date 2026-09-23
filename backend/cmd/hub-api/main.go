@@ -9,9 +9,13 @@ import (
 	"backend/internal/appconfig"
 	"backend/internal/db"
 	dbsqlc "backend/internal/db/sqlc"
+	"backend/internal/directoryclient"
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
+	"backend/internal/hub/signupcompletion"
 	"backend/internal/middleware"
+	"backend/internal/objectstorage"
+	"backend/internal/profileclient"
 	"backend/internal/regions"
 	"backend/internal/regionsclient"
 	"backend/internal/routes"
@@ -60,6 +64,25 @@ func run(log *slog.Logger, address string) error {
 		cfg.MeshAPIServer.BaseURL, regionsclient.MeshPath,
 		meshCredential, cfg.MeshAPIServer.RequestTimeout,
 	)
+	globalDirectory := directoryclient.New(
+		cfg.MeshAPIServer.BaseURL, directoryclient.MeshPrefix,
+		meshCredential, cfg.MeshAPIServer.RequestTimeout,
+	)
+	profiles := profileclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
+	)
+	accessKey, secretKey, err := cfg.ObjectStorage.Credentials()
+	if err != nil {
+		return err
+	}
+	pictures, err := objectstorage.New(
+		cfg.ObjectStorage.PrivateBaseURL, cfg.ObjectStorage.MediaBaseURL,
+		accessKey, secretKey,
+	)
+	if err != nil {
+		return err
+	}
 	log = service.WithTenant(log, cfg.TenantID)
 
 	ctx, stop := service.SignalContext()
@@ -70,14 +93,29 @@ func run(log *slog.Logger, address string) error {
 		return err
 	}
 	defer pool.Close()
+	if err := pictures.EnsureBucket(ctx); err != nil {
+		return err
+	}
 
+	signupCompletion := signupcompletion.New(
+		pool, globalDirectory, cfg.TenantID,
+		hubauthn.DeriveCredentialSubkey(
+			hubauthn.DeriveCredentialKey(cfg.TenantID, credentialSecret),
+			"signup-provisioning",
+		),
+		nil,
+	)
 	s := &hubruntime.Server{
-		Runtime:         apiserver.New(pool, log),
-		Queries:         dbsqlc.New(pool),
-		RegionDirectory: directory,
-		Regions:         catalog,
-		Signup:          cfg.HubAPIServer.Signup,
-		TenantID:        cfg.TenantID,
+		Runtime:          apiserver.New(pool, log),
+		Queries:          dbsqlc.New(pool),
+		RegionDirectory:  directory,
+		Directory:        globalDirectory,
+		Profiles:         profiles,
+		Pictures:         pictures,
+		SignupCompletion: signupCompletion,
+		Regions:          catalog,
+		Signup:           cfg.HubAPIServer.Signup,
+		TenantID:         cfg.TenantID,
 		SessionDurations: apiserver.SessionDurations{
 			Default:    cfg.HubAPIServer.SessionTTL,
 			Remembered: cfg.HubAPIServer.RememberedSessionTTL,

@@ -13,6 +13,7 @@ import (
 	regionspec "github.com/vetchium/src/typespec/regions"
 
 	"backend/internal/apiserver"
+	"backend/internal/meshidentity"
 	regionpolicy "backend/internal/regions"
 )
 
@@ -24,7 +25,7 @@ func Handler(runtime *apiserver.Runtime, catalog *regionpolicy.Catalog, director
 			scheme, token, ok := strings.Cut(r.Header.Get("Authorization"), " ")
 			got, want := sha256.Sum256([]byte(token)), sha256.Sum256([]byte(credential))
 			if !ok || !strings.EqualFold(scheme, "Bearer") || subtle.ConstantTimeCompare(got[:], want[:]) != 1 {
-				runtime.AuthenticationProblem(r.Context(), w, coordinatorproblem.AuthenticationRequiredError, `Bearer realm="global-coordinator"`)
+				runtime.AuthenticationProblem(r.Context(), w, coordinatorproblem.MeshRelayAuthenticationRequiredError, `Bearer realm="mesh-api"`)
 				return
 			}
 		}
@@ -64,5 +65,21 @@ func Handler(runtime *apiserver.Runtime, catalog *regionpolicy.Catalog, director
 			return
 		}
 		runtime.JSON(r.Context(), w, http.StatusOK, response)
+	}
+}
+
+func GlobalHandler(
+	runtime *apiserver.Runtime, catalog *regionpolicy.Catalog,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := meshidentity.TenantFromContext(r.Context()); !ok {
+			runtime.AuthenticationProblem(
+				r.Context(), w,
+				coordinatorproblem.AuthenticationRequiredError,
+				`MutualTLS realm="global-coordinator"`,
+			)
+			return
+		}
+		Handler(runtime, catalog, nil, "").ServeHTTP(w, r)
 	}
 }

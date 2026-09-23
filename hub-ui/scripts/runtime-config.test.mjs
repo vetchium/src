@@ -16,9 +16,15 @@ const scriptPath = path.join(
 function run(env) {
   const dir = mkdtempSync(path.join(tmpdir(), "hub-ui-runtime-config-"));
   const outputPath = path.join(dir, "runtime-config.js");
+  const cspConfigPath = path.join(dir, "vetchium-csp.conf");
   try {
     const result = spawnSync("sh", [scriptPath], {
-      env: { ...process.env, VETCHIUM_RUNTIME_CONFIG_PATH: outputPath, ...env },
+      env: {
+        ...process.env,
+        VETCHIUM_RUNTIME_CONFIG_PATH: outputPath,
+        VETCHIUM_CSP_CONFIG_PATH: cspConfigPath,
+        ...env,
+      },
       encoding: "utf8",
     });
     return {
@@ -27,6 +33,10 @@ function run(env) {
       outputExists: existsSync(outputPath),
       outputContents: existsSync(outputPath)
         ? readFileSync(outputPath, "utf8")
+        : null,
+      cspConfigExists: existsSync(cspConfigPath),
+      cspConfigContents: existsSync(cspConfigPath)
+        ? readFileSync(cspConfigPath, "utf8")
         : null,
     };
   } finally {
@@ -37,6 +47,8 @@ function run(env) {
 const validEnv = {
   VETCHIUM_TENANT_ID: "sgp",
   VETCHIUM_HUB_PLANS: "hub-free-tier,hub-silver-tier",
+  VETCHIUM_MEDIA_ORIGINS:
+    "http://media.sgp.localhost,http://media.usa1.localhost",
 };
 
 test("rejects a missing VETCHIUM_TENANT_ID", () => {
@@ -121,6 +133,99 @@ test("still enforces the existing language check", () => {
   assert.equal(result.outputExists, false);
 });
 
+test("rejects a missing VETCHIUM_MEDIA_ORIGINS", () => {
+  const env = { ...validEnv };
+  delete env.VETCHIUM_MEDIA_ORIGINS;
+  const result = run(env);
+  assert.notEqual(result.status, 0);
+  assert.equal(result.outputExists, false);
+  assert.equal(result.cspConfigExists, false);
+});
+
+test("rejects an empty item in VETCHIUM_MEDIA_ORIGINS", () => {
+  const result = run({
+    ...validEnv,
+    VETCHIUM_MEDIA_ORIGINS:
+      "http://media.sgp.localhost,,http://media.usa1.localhost",
+  });
+  assert.notEqual(result.status, 0);
+  assert.equal(result.outputExists, false);
+  assert.equal(result.cspConfigExists, false);
+});
+
+test("rejects a duplicate item in VETCHIUM_MEDIA_ORIGINS", () => {
+  const result = run({
+    ...validEnv,
+    VETCHIUM_MEDIA_ORIGINS:
+      "http://media.sgp.localhost,http://media.sgp.localhost",
+  });
+  assert.notEqual(result.status, 0);
+  assert.equal(result.outputExists, false);
+  assert.equal(result.cspConfigExists, false);
+});
+
+test("rejects an unsupported scheme in VETCHIUM_MEDIA_ORIGINS", () => {
+  const result = run({
+    ...validEnv,
+    VETCHIUM_MEDIA_ORIGINS:
+      "http://media.sgp.localhost,ftp://media.usa1.localhost",
+  });
+  assert.notEqual(result.status, 0);
+  assert.equal(result.outputExists, false);
+  assert.equal(result.cspConfigExists, false);
+});
+
+test("rejects a path in VETCHIUM_MEDIA_ORIGINS", () => {
+  const result = run({
+    ...validEnv,
+    VETCHIUM_MEDIA_ORIGINS: "http://media.sgp.localhost/pictures",
+  });
+  assert.notEqual(result.status, 0);
+  assert.equal(result.outputExists, false);
+  assert.equal(result.cspConfigExists, false);
+});
+
+test("rejects a trailing slash in VETCHIUM_MEDIA_ORIGINS", () => {
+  const result = run({
+    ...validEnv,
+    VETCHIUM_MEDIA_ORIGINS: "http://media.sgp.localhost/",
+  });
+  assert.notEqual(result.status, 0);
+  assert.equal(result.outputExists, false);
+  assert.equal(result.cspConfigExists, false);
+});
+
+test("rejects credentials in VETCHIUM_MEDIA_ORIGINS", () => {
+  const result = run({
+    ...validEnv,
+    VETCHIUM_MEDIA_ORIGINS: "http://user@media.sgp.localhost",
+  });
+  assert.notEqual(result.status, 0);
+  assert.equal(result.outputExists, false);
+  assert.equal(result.cspConfigExists, false);
+});
+
+test("writes every media origin into the CSP header's img-src", () => {
+  const result = run(validEnv);
+  assert.equal(result.status, 0);
+  assert.equal(
+    result.cspConfigContents,
+    "add_header Content-Security-Policy \"default-src 'self'; base-uri 'self'; connect-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'self'; img-src 'self' data: http://media.sgp.localhost http://media.usa1.localhost; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'\" always;\n",
+  );
+});
+
+test("accepts a single media origin", () => {
+  const result = run({
+    ...validEnv,
+    VETCHIUM_MEDIA_ORIGINS: "http://media.sgp.localhost",
+  });
+  assert.equal(result.status, 0);
+  assert.match(
+    result.cspConfigContents,
+    /img-src 'self' data: http:\/\/media\.sgp\.localhost;/,
+  );
+});
+
 test("writes a frozen runtime config on success", () => {
   const result = run(validEnv);
   assert.equal(result.status, 0);
@@ -141,6 +246,7 @@ test("accepts a single-plan tenant", () => {
   const result = run({
     VETCHIUM_TENANT_ID: "usa1",
     VETCHIUM_HUB_PLANS: "hub-free-tier",
+    VETCHIUM_MEDIA_ORIGINS: "http://media.usa1.localhost",
   });
   assert.equal(result.status, 0);
   const sandbox = { globalThis: {} };

@@ -1,0 +1,5 @@
+Du hast einen Code angefordert, um die Kontrolle über eine berufliche E-Mail-Adresse bei Vetchium zu bestätigen.
+
+Dein Code lautet {{.Code}}. Er läuft 10 Minuten nach der Anforderung ab.
+
+Falls du diesen Code nicht angefordert hast, kannst du diese Nachricht ignorieren.

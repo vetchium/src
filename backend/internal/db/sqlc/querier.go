@@ -11,7 +11,11 @@ import (
 )
 
 type Querier interface {
+	AbandonExpiredHubSignupCompletion(ctx context.Context, arg AbandonExpiredHubSignupCompletionParams) (AbandonExpiredHubSignupCompletionRow, error)
+	ActivateHubProfilePicture(ctx context.Context, arg ActivateHubProfilePictureParams) (ActivateHubProfilePictureRow, error)
+	AddHubLanguageAbility(ctx context.Context, arg AddHubLanguageAbilityParams) (AddHubLanguageAbilityRow, error)
 	AdminTOTPEnabled(ctx context.Context, adminUserID pgtype.UUID) (bool, error)
+	ApplyHubProfileAlias(ctx context.Context, arg ApplyHubProfileAliasParams) (ApplyHubProfileAliasRow, error)
 	AuthenticateAdminSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateAdminSessionRow, error)
 	AuthenticateHubSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateHubSessionRow, error)
 	ChangeAdminPassword(ctx context.Context, arg ChangeAdminPasswordParams) (bool, error)
@@ -20,12 +24,16 @@ type Querier interface {
 	// encodes a nil Go slice as SQL NULL, and `x <> ALL (NULL)` is never true, so
 	// the COALESCE also guards a caller that does pass nil.
 	ClaimDueHubSubscriptions(ctx context.Context, arg ClaimDueHubSubscriptionsParams) ([]ClaimDueHubSubscriptionsRow, error)
+	ClaimFederationOutboxEvent(ctx context.Context, leaseToken pgtype.UUID) (ClaimFederationOutboxEventRow, error)
 	ClaimHubEmail(ctx context.Context, arg ClaimHubEmailParams) (ClaimHubEmailRow, error)
+	ClaimHubProfilePictureDeletion(ctx context.Context, leaseToken pgtype.UUID) (ClaimHubProfilePictureDeletionRow, error)
 	CompleteAdminPasswordReset(ctx context.Context, arg CompleteAdminPasswordResetParams) (bool, error)
 	CompleteAdminRecoveryCodeLogin(ctx context.Context, arg CompleteAdminRecoveryCodeLoginParams) (CompleteAdminRecoveryCodeLoginRow, error)
 	CompleteAdminSetup(ctx context.Context, arg CompleteAdminSetupParams) (CompleteAdminSetupRow, error)
 	CompleteAdminTOTPLogin(ctx context.Context, arg CompleteAdminTOTPLoginParams) (CompleteAdminTOTPLoginRow, error)
+	CompleteFederationOutboxEvent(ctx context.Context, arg CompleteFederationOutboxEventParams) (int64, error)
 	CompleteHubPasswordReset(ctx context.Context, arg CompleteHubPasswordResetParams) (bool, error)
+	CompleteHubProfilePictureDeletion(ctx context.Context, arg CompleteHubProfilePictureDeletionParams) (pgtype.UUID, error)
 	CompleteHubRecoveryCodeLogin(ctx context.Context, arg CompleteHubRecoveryCodeLoginParams) (CompleteHubRecoveryCodeLoginRow, error)
 	// ON CONFLICT DO NOTHING absorbs a random-handle collision as well as a
 	// racing duplicate email. Either way no user row appears and the caller
@@ -33,6 +41,7 @@ type Querier interface {
 	CompleteHubSignup(ctx context.Context, arg CompleteHubSignupParams) (CompleteHubSignupRow, error)
 	CompleteHubTOTPLogin(ctx context.Context, arg CompleteHubTOTPLoginParams) (CompleteHubTOTPLoginRow, error)
 	CompleteIdempotency(ctx context.Context, arg CompleteIdempotencyParams) error
+	CompleteProvisioningHubUser(ctx context.Context, arg CompleteProvisioningHubUserParams) (CompleteProvisioningHubUserRow, error)
 	ConfirmAdminTOTPEnrollment(ctx context.Context, arg ConfirmAdminTOTPEnrollmentParams) (bool, error)
 	ConfirmHubTOTPEnrollment(ctx context.Context, arg ConfirmHubTOTPEnrollmentParams) (bool, error)
 	CreateAdminInvitation(ctx context.Context, arg CreateAdminInvitationParams) (CreateAdminInvitationRow, error)
@@ -40,8 +49,13 @@ type Querier interface {
 	CreateAdminPasswordReset(ctx context.Context, arg CreateAdminPasswordResetParams) (bool, error)
 	CreateAdminSession(ctx context.Context, arg CreateAdminSessionParams) (CreateAdminSessionRow, error)
 	CreateAdminTOTPEnrollment(ctx context.Context, arg CreateAdminTOTPEnrollmentParams) (CreateAdminTOTPEnrollmentRow, error)
+	CreateFederationOperation(ctx context.Context, arg CreateFederationOperationParams) (VetchiumFederationOperation, error)
+	CreateFederationOutboxEvent(ctx context.Context, arg CreateFederationOutboxEventParams) (VetchiumFederationOutbox, error)
+	CreateHubCertification(ctx context.Context, arg CreateHubCertificationParams) (CreateHubCertificationRow, error)
+	CreateHubEducationalQualification(ctx context.Context, arg CreateHubEducationalQualificationParams) (CreateHubEducationalQualificationRow, error)
 	CreateHubLoginChallenge(ctx context.Context, arg CreateHubLoginChallengeParams) (CreateHubLoginChallengeRow, error)
 	CreateHubPasswordReset(ctx context.Context, arg CreateHubPasswordResetParams) (bool, error)
+	CreateHubProfessionalEmail(ctx context.Context, arg CreateHubProfessionalEmailParams) (CreateHubProfessionalEmailRow, error)
 	CreateHubSession(ctx context.Context, arg CreateHubSessionParams) (CreateHubSessionRow, error)
 	CreateHubSignupDomain(ctx context.Context, arg CreateHubSignupDomainParams) (CreateHubSignupDomainRow, error)
 	// An attempt on an address that already has an account is answered with the
@@ -50,11 +64,18 @@ type Querier interface {
 	// happened, and repeated rows are what makes probing visible to an operator.
 	CreateHubSignupRequest(ctx context.Context, arg CreateHubSignupRequestParams) (string, error)
 	CreateHubTOTPEnrollment(ctx context.Context, arg CreateHubTOTPEnrollmentParams) (CreateHubTOTPEnrollmentRow, error)
+	CreateHubWorkExperience(ctx context.Context, arg CreateHubWorkExperienceParams) (CreateHubWorkExperienceRow, error)
 	CreateIdempotency(ctx context.Context, arg CreateIdempotencyParams) error
+	CreateProvisioningHubUser(ctx context.Context, arg CreateProvisioningHubUserParams) (CreateProvisioningHubUserRow, error)
 	DeleteAdminSession(ctx context.Context, arg DeleteAdminSessionParams) (int64, error)
 	DeleteAdminSessionByTokenHash(ctx context.Context, arg DeleteAdminSessionByTokenHashParams) (int64, error)
 	DeleteExpiredIdempotency(ctx context.Context, arg DeleteExpiredIdempotencyParams) error
+	DeleteHubCertification(ctx context.Context, arg DeleteHubCertificationParams) (DeleteHubCertificationRow, error)
+	DeleteHubEducationalQualification(ctx context.Context, arg DeleteHubEducationalQualificationParams) (DeleteHubEducationalQualificationRow, error)
+	DeleteHubLanguageAbility(ctx context.Context, arg DeleteHubLanguageAbilityParams) (DeleteHubLanguageAbilityRow, error)
+	DeleteHubProfessionalEmail(ctx context.Context, arg DeleteHubProfessionalEmailParams) (pgtype.UUID, error)
 	DeleteHubSessionByTokenHash(ctx context.Context, arg DeleteHubSessionByTokenHashParams) error
+	DeleteHubWorkExperience(ctx context.Context, arg DeleteHubWorkExperienceParams) (DeleteHubWorkExperienceRow, error)
 	DeleteIdempotency(ctx context.Context, arg DeleteIdempotencyParams) error
 	DisableAdminTOTP(ctx context.Context, arg DisableAdminTOTPParams) (bool, error)
 	// The update refuses to leave a tenant without an active administrator able to
@@ -64,21 +85,49 @@ type Querier interface {
 	DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (string, error)
 	DisableHubTOTP(ctx context.Context, arg DisableHubTOTPParams) (bool, error)
 	EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (string, error)
+	FindHubSignupForCompletion(ctx context.Context, tokenHash []byte) (FindHubSignupForCompletionRow, error)
 	GetAdminLoginChallenge(ctx context.Context, tokenHash []byte) (GetAdminLoginChallengeRow, error)
 	GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) (GetAdminMyInfoRow, error)
 	GetAdminPasswordForReauthentication(ctx context.Context, arg GetAdminPasswordForReauthenticationParams) (string, error)
 	GetAdminTOTPEnrollment(ctx context.Context, arg GetAdminTOTPEnrollmentParams) (GetAdminTOTPEnrollmentRow, error)
 	GetAdminUserForLogin(ctx context.Context, emailAddress string) (GetAdminUserForLoginRow, error)
+	GetFederationCommandResult(ctx context.Context, commandID pgtype.UUID) (VetchiumFederationCommandLedger, error)
+	GetFederationOperation(ctx context.Context, operationID pgtype.UUID) (VetchiumFederationOperation, error)
+	GetFederationOperationByIdempotency(ctx context.Context, arg GetFederationOperationByIdempotencyParams) (VetchiumFederationOperation, error)
+	GetHubAliasMutationState(ctx context.Context, arg GetHubAliasMutationStateParams) (GetHubAliasMutationStateRow, error)
+	GetHubAliasState(ctx context.Context, arg GetHubAliasStateParams) (GetHubAliasStateRow, error)
+	GetHubFederationOperationStatus(ctx context.Context, arg GetHubFederationOperationStatusParams) (GetHubFederationOperationStatusRow, error)
 	GetHubLoginChallenge(ctx context.Context, tokenHash []byte) (GetHubLoginChallengeRow, error)
 	GetHubMyInfo(ctx context.Context, arg GetHubMyInfoParams) (GetHubMyInfoRow, error)
 	GetHubMySubscription(ctx context.Context, arg GetHubMySubscriptionParams) (GetHubMySubscriptionRow, error)
 	GetHubPasswordForReauthentication(ctx context.Context, arg GetHubPasswordForReauthenticationParams) (string, error)
+	GetHubProfilePictureUpload(ctx context.Context, arg GetHubProfilePictureUploadParams) (GetHubProfilePictureUploadRow, error)
+	GetHubProfileViewer(ctx context.Context, hubUserDid pgtype.UUID) (string, error)
+	GetHubPublicProfile(ctx context.Context, hubUserDid pgtype.UUID) (GetHubPublicProfileRow, error)
+	GetHubSignupCompletion(ctx context.Context, operationID pgtype.UUID) (VetchiumHubSignupCompletion, error)
+	GetHubSignupCompletionByTokenHash(ctx context.Context, tokenHash []byte) (VetchiumHubSignupCompletion, error)
 	GetHubTOTPEnrollment(ctx context.Context, arg GetHubTOTPEnrollmentParams) (GetHubTOTPEnrollmentRow, error)
 	GetHubUserForLogin(ctx context.Context, emailAddress string) (GetHubUserForLoginRow, error)
 	GetIdempotency(ctx context.Context, arg GetIdempotencyParams) (GetIdempotencyRow, error)
+	HubAliasOperationPreflight(ctx context.Context, arg HubAliasOperationPreflightParams) (bool, error)
+	HubProfessionalEmailExistsForOwner(ctx context.Context, arg HubProfessionalEmailExistsForOwnerParams) (int32, error)
 	HubTOTPEnabled(ctx context.Context, hubUserDid pgtype.UUID) (bool, error)
+	IssueHubProfessionalEmailChallenge(ctx context.Context, arg IssueHubProfessionalEmailChallengeParams) (IssueHubProfessionalEmailChallengeRow, error)
 	ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) ([]ListAdminUsersRow, error)
+	ListHubProfessionalEmails(ctx context.Context, hubUserDid pgtype.UUID) ([]ListHubProfessionalEmailsRow, error)
 	ListHubSignupDomains(ctx context.Context, arg ListHubSignupDomainsParams) ([]ListHubSignupDomainsRow, error)
+	// Candidates for a subscription-ending warning: a paid plan with a scheduled
+	// change, and a period end inside the widest lead window. Whether the
+	// scheduled plan is genuinely lower stays a Go-side decision, since plan
+	// ranks are a TypeSpec contract concept the database does not hold. The
+	// exclusion list plays the same role as ClaimDueHubSubscriptions' above: it
+	// lets one run walk multiple batches without re-selecting rows it already
+	// looked at, without needing to lock or mutate hub_users.
+	ListHubUsersWithEndingSubscriptions(ctx context.Context, arg ListHubUsersWithEndingSubscriptionsParams) ([]ListHubUsersWithEndingSubscriptionsRow, error)
+	ListRecoverableFederationOperations(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
+	ListRecoverableHubAliasChanges(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
+	ListRecoverableHubAliasReleases(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
+	ListRecoverableHubSignupCompletions(ctx context.Context) ([]VetchiumHubSignupCompletion, error)
 	LockAdminEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
 	LockAdminUserCredentialMutation(ctx context.Context, adminUserID pgtype.UUID) (pgtype.UUID, error)
 	LockHubEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
@@ -87,7 +136,10 @@ type Querier interface {
 	LockIdempotency(ctx context.Context, dollar_1 string) error
 	MarkHubEmailFailed(ctx context.Context, arg MarkHubEmailFailedParams) (bool, error)
 	MarkHubEmailSent(ctx context.Context, arg MarkHubEmailSentParams) (bool, error)
+	MarkHubSignupCompletionReserved(ctx context.Context, arg MarkHubSignupCompletionReservedParams) (VetchiumHubSignupCompletion, error)
 	PingDatabase(ctx context.Context) (PingDatabaseRow, error)
+	PrepareHubProfilePictureUpload(ctx context.Context, arg PrepareHubProfilePictureUploadParams) (PrepareHubProfilePictureUploadRow, error)
+	PrepareHubSignupCompletion(ctx context.Context, arg PrepareHubSignupCompletionParams) (PrepareHubSignupCompletionRow, error)
 	// Outbox ciphertext is retained no longer than the maximum usable lifetime of
 	// the credential it contains, whether delivery succeeded or not.
 	PruneAdminEmailOutbox(ctx context.Context, tenantID string) (int64, error)
@@ -99,16 +151,37 @@ type Querier interface {
 	// Housekeeping deletes at most one batch per table and worker run so a large
 	// backlog cannot monopolize the database. Subsequent runs drain the backlog.
 	PruneExpiredAdminSessions(ctx context.Context, tenantID string) (int64, error)
+	PruneExpiredFederationOperations(ctx context.Context) (int64, error)
+	PruneExpiredHubSignupCompletions(ctx context.Context) (int64, error)
 	PruneExpiredIdempotency(ctx context.Context) (int64, error)
+	QueueExpiredHubProfilePictureUploads(ctx context.Context, tenantID string) (int32, error)
 	ReauthenticateAdminSession(ctx context.Context, arg ReauthenticateAdminSessionParams) (pgtype.Timestamptz, error)
 	ReauthenticateHubSession(ctx context.Context, arg ReauthenticateHubSessionParams) (pgtype.Timestamptz, error)
+	RecordFederationCommandResult(ctx context.Context, arg RecordFederationCommandResultParams) (VetchiumFederationCommandLedger, error)
+	RecordFederationInboxReceipt(ctx context.Context, arg RecordFederationInboxReceiptParams) (VetchiumFederationInbox, error)
+	RecordFederationOperationRetry(ctx context.Context, arg RecordFederationOperationRetryParams) (int64, error)
+	RecordHubSignupCompletionRetry(ctx context.Context, arg RecordHubSignupCompletionRetryParams) error
+	// Queues the warning email, records the notice, and audits the operation in
+	// one statement. ON CONFLICT DO NOTHING makes a retried or repeated tick a
+	// no-op: when the notice already exists, the outbox and audit CTEs have
+	// nothing to select from and queued comes back false.
+	RecordHubSubscriptionExpiryNotice(ctx context.Context, arg RecordHubSubscriptionExpiryNoticeParams) (bool, error)
 	RegenerateAdminTOTPRecoveryCodes(ctx context.Context, arg RegenerateAdminTOTPRecoveryCodesParams) (bool, error)
 	RegenerateHubTOTPRecoveryCodes(ctx context.Context, arg RegenerateHubTOTPRecoveryCodesParams) (bool, error)
+	RemoveHubProfilePicture(ctx context.Context, arg RemoveHubProfilePictureParams) (RemoveHubProfilePictureRow, error)
 	ResolveAdminLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveAdminPasswordResetUser(ctx context.Context, resetTokenHash []byte) (pgtype.UUID, error)
+	ResolveFederationOperation(ctx context.Context, arg ResolveFederationOperationParams) (VetchiumFederationOperation, error)
 	ResolveHubLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveHubPasswordResetUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveHubSignupForCompletion(ctx context.Context, tokenHash []byte) (ResolveHubSignupForCompletionRow, error)
+	// Call before ActivateHubProfilePicture in the same transaction. PostgreSQL
+	// does not order sibling data-modifying CTEs, so a single statement cannot
+	// reliably vacate the active-user unique index before activating the new row.
+	RetireHubProfilePictureForReplacement(ctx context.Context, arg RetireHubProfilePictureForReplacementParams) ([]pgtype.UUID, error)
+	RetryFederationOutboxEvent(ctx context.Context, arg RetryFederationOutboxEventParams) (int64, error)
+	RetryHubProfilePictureDeletion(ctx context.Context, arg RetryHubProfilePictureDeletionParams) (int64, error)
+	RotateHubSignupCompletionHandle(ctx context.Context, arg RotateHubSignupCompletionHandleParams) (VetchiumHubSignupCompletion, error)
 	// The single write statement shared by the set-plan handler and the worker.
 	// A jsonb array with explicit `->>`/`->` field extraction lets one statement
 	// serve both a single-row caller and a batch caller; sqlc cannot resolve
@@ -124,8 +197,19 @@ type Querier interface {
 	SetAdminPreferredLanguage(ctx context.Context, arg SetAdminPreferredLanguageParams) (int64, error)
 	SetHubPreferredJobCountries(ctx context.Context, arg SetHubPreferredJobCountriesParams) (bool, error)
 	SetHubPreferredLanguage(ctx context.Context, arg SetHubPreferredLanguageParams) (bool, error)
+	SetHubPublicProfile(ctx context.Context, arg SetHubPublicProfileParams) (SetHubPublicProfileRow, error)
 	SetHubResidentCountry(ctx context.Context, arg SetHubResidentCountryParams) (bool, error)
+	// Call before IssueHubProfessionalEmailChallenge in the same transaction.
+	// Sibling data-modifying CTEs cannot reliably vacate the active-email index.
+	SupersedeHubProfessionalEmailChallenges(ctx context.Context, arg SupersedeHubProfessionalEmailChallengesParams) (int64, error)
+	// An in-flight PutObject is bounded to 30 seconds; delay deletion for one
+	// minute so a superseded upload cannot recreate bytes after the worker deletes.
+	SupersedeHubProfilePictureUploads(ctx context.Context, arg SupersedeHubProfilePictureUploadsParams) (int32, error)
+	UpdateHubCertification(ctx context.Context, arg UpdateHubCertificationParams) (UpdateHubCertificationRow, error)
+	UpdateHubEducationalQualification(ctx context.Context, arg UpdateHubEducationalQualificationParams) (UpdateHubEducationalQualificationRow, error)
 	UpdateHubSignupDomain(ctx context.Context, arg UpdateHubSignupDomainParams) (UpdateHubSignupDomainRow, error)
+	UpdateHubWorkExperience(ctx context.Context, arg UpdateHubWorkExperienceParams) (UpdateHubWorkExperienceRow, error)
+	VerifyHubProfessionalEmailChallenge(ctx context.Context, arg VerifyHubProfessionalEmailChallengeParams) (VerifyHubProfessionalEmailChallengeRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

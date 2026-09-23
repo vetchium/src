@@ -52,6 +52,43 @@ async function provideMySubscription(page: import("@playwright/test").Page) {
   });
 }
 
+/** The profile page's owner cards each read their own endpoint. This test is
+ * about job countries, so the rest answer with empty owner state. */
+async function provideProfileCards(page: import("@playwright/test").Page) {
+  await page.route("**/api/hub/profile/read", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        display_name: "Hub User",
+        handle,
+        resident_country: "SG",
+        work_experiences: [],
+        educational_qualifications: [],
+        certifications: [],
+        language_abilities: [],
+      }),
+    });
+  });
+  await page.route(
+    "**/api/hub/profile/professional-email/list",
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ emails: [] }),
+      });
+    },
+  );
+  await page.route("**/api/hub/profile/alias/state", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ profile_alias: null }),
+    });
+  });
+}
+
 async function provideStoredSession(page: import("@playwright/test").Page) {
   await page.addInitScript(
     ({ key, sessionToken, hubUserDID, handle }) =>
@@ -431,6 +468,8 @@ test("a first visit matches the browser's BCP 47 locale", async ({ page }) => {
 
 test("job countries update independently of residence", async ({ page }) => {
   await provideStoredSession(page);
+  await provideMySubscription(page);
+  await provideProfileCards(page);
   let countries = ["SG"];
   await page.route("**/api/hub/my-info", async (route) => {
     await route.fulfill({

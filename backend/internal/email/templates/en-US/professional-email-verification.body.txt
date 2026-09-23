@@ -1,0 +1,5 @@
+You requested a code to verify control of a professional email address on Vetchium.
+
+Your code is {{.Code}}. It expires 10 minutes after you requested it.
+
+If you did not request this code, you can ignore this message.

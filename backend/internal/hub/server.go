@@ -1,24 +1,39 @@
 package hub
 
 import (
+	"context"
 	"slices"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 
 	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
 
 	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/directoryclient"
 	"backend/internal/hub/auth"
+	"backend/internal/hub/signupcompletion"
+	"backend/internal/profileclient"
+	"backend/internal/profilepicture"
 	"backend/internal/regions"
 )
 
+type PictureStorage interface {
+	Put(context.Context, pgtype.UUID, profilepicture.Sanitized) error
+}
+
 type Server struct {
 	*apiserver.Runtime
-	Regions         *regions.Catalog
-	RegionDirectory regions.Directory
-	Signup          regions.Admission
-	Queries         sqlc.Querier
+	Regions          *regions.Catalog
+	RegionDirectory  regions.Directory
+	Directory        *directoryclient.Client
+	Profiles         *profileclient.Client
+	Pictures         PictureStorage
+	SignupCompletion *signupcompletion.Service
+	Signup           regions.Admission
+	Queries          sqlc.Querier
 
 	// Values below come from the shared application config.
 	TenantID         string

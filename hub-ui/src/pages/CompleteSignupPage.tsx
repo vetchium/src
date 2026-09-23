@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
 import { isNewPassword } from "typespec/common/authentication";
@@ -31,8 +32,21 @@ export function CompleteSignupPage() {
         release();
       }
     },
-    onSuccess: () => key.rotate(),
+    onSuccess: (result) => {
+      if ("handle" in result) key.rotate();
+    },
   });
+
+  const awaitingRecovery =
+    complete.isSuccess && "operation_id" in complete.data;
+  useEffect(() => {
+    if (!awaitingRecovery || complete.variables === undefined) return;
+    const timer = window.setTimeout(
+      () => complete.mutate(complete.variables),
+      2000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [awaitingRecovery, complete]);
 
   return (
     <Card className="auth-card">
@@ -49,7 +63,9 @@ export function CompleteSignupPage() {
             showIcon
             title={t("completeSignup.missingToken")}
           />
-        ) : complete.isSuccess ? (
+        ) : awaitingRecovery ? (
+          <Alert type="info" showIcon title={t("completeSignup.pending")} />
+        ) : complete.isSuccess && "handle" in complete.data ? (
           <>
             <Alert
               type="success"

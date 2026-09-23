@@ -128,6 +128,443 @@ WHERE token_hash = sqlc.arg(token_hash)
   AND expires_at > now()
 FOR UPDATE;
 
+-- name: FindHubSignupForCompletion :one
+SELECT
+    hub_signup_request_id,
+    email_address,
+    display_name,
+    preferred_language,
+    resident_country
+FROM vetchium.hub_signup_requests
+WHERE token_hash = sqlc.arg(token_hash)
+  AND active
+  AND consumed_at IS NULL
+  AND expires_at > now();
+
+-- name: GetHubSignupCompletionByTokenHash :one
+SELECT
+    operation_id,
+    hub_signup_request_id,
+    token_hash,
+    idempotency_key,
+    request_digest,
+    hub_user_did,
+    handle,
+    reserve_command_id,
+    activate_command_id,
+    payload_ciphertext,
+    state,
+    provisioning_expires_at,
+    attempt_count,
+    next_attempt_at,
+    last_error,
+    created_at,
+    updated_at,
+    completed_at,
+    expires_at
+FROM vetchium.hub_signup_completions
+WHERE token_hash = sqlc.arg(token_hash)
+  AND expires_at > now();
+
+-- name: GetHubSignupCompletion :one
+SELECT
+    operation_id,
+    hub_signup_request_id,
+    token_hash,
+    idempotency_key,
+    request_digest,
+    hub_user_did,
+    handle,
+    reserve_command_id,
+    activate_command_id,
+    payload_ciphertext,
+    state,
+    provisioning_expires_at,
+    attempt_count,
+    next_attempt_at,
+    last_error,
+    created_at,
+    updated_at,
+    completed_at,
+    expires_at
+FROM vetchium.hub_signup_completions
+WHERE operation_id = sqlc.arg(operation_id)
+  AND expires_at > now();
+
+-- name: PrepareHubSignupCompletion :one
+WITH eligible_signup AS (
+    SELECT s.hub_signup_request_id
+    FROM vetchium.hub_signup_requests AS s
+    WHERE s.hub_signup_request_id = sqlc.arg(hub_signup_request_id)
+      AND s.token_hash = sqlc.arg(token_hash)
+      AND s.active
+      AND s.consumed_at IS NULL
+      AND s.expires_at > now()
+      AND EXISTS (
+          SELECT 1 FROM vetchium.hub_signup_domains AS d
+          WHERE d.domain = split_part(s.email_address, '@', 2)
+            AND d.hub_signup_domain_state = 'active'
+      )
+      AND NOT EXISTS (
+          SELECT 1 FROM vetchium.hub_users AS u
+          WHERE u.email_address = s.email_address
+      )
+    FOR UPDATE
+), inserted AS (
+    INSERT INTO vetchium.hub_signup_completions (
+        operation_id,
+        hub_signup_request_id,
+        token_hash,
+        idempotency_key,
+        request_digest,
+        hub_user_did,
+        handle,
+        reserve_command_id,
+        activate_command_id,
+        payload_ciphertext,
+        provisioning_expires_at,
+        expires_at
+    )
+    SELECT
+        sqlc.arg(operation_id),
+        hub_signup_request_id,
+        sqlc.arg(token_hash),
+        sqlc.arg(idempotency_key),
+        sqlc.arg(request_digest),
+        sqlc.arg(hub_user_did),
+        sqlc.arg(handle),
+        sqlc.arg(reserve_command_id),
+        sqlc.arg(activate_command_id),
+        sqlc.arg(payload_ciphertext),
+        sqlc.arg(provisioning_expires_at),
+        sqlc.arg(expires_at)
+    FROM eligible_signup
+    ON CONFLICT DO NOTHING
+    RETURNING *
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, source,
+        idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'hub.signup.completion_prepared',
+        'hub_signup_completion',
+        operation_id::text,
+        'anonymous',
+        'hub-api',
+        sqlc.arg(idempotency_key),
+        jsonb_build_object(
+            'hub_user_did', hub_user_did,
+            'handle', handle
+        )
+    FROM inserted
+)
+SELECT * FROM inserted;
+
+-- name: RotateHubSignupCompletionHandle :one
+UPDATE vetchium.hub_signup_completions
+SET handle = sqlc.arg(handle),
+    reserve_command_id = sqlc.arg(new_reserve_command_id),
+    attempt_count = attempt_count + 1,
+    updated_at = now(),
+    next_attempt_at = now(),
+    last_error = 'global_handle_conflict'
+WHERE operation_id = sqlc.arg(operation_id)
+  AND state = 'prepared'
+  AND reserve_command_id = sqlc.arg(previous_reserve_command_id)
+RETURNING *;
+
+-- name: MarkHubSignupCompletionReserved :one
+UPDATE vetchium.hub_signup_completions
+SET state = 'reserved',
+    attempt_count = attempt_count + 1,
+    updated_at = now(),
+    next_attempt_at = now(),
+    last_error = NULL
+WHERE operation_id = sqlc.arg(operation_id)
+  AND state = 'prepared'
+  AND reserve_command_id = sqlc.arg(reserve_command_id)
+RETURNING *;
+
+-- name: RecordHubSignupCompletionRetry :exec
+UPDATE vetchium.hub_signup_completions
+SET attempt_count = attempt_count + 1,
+    updated_at = now(),
+    next_attempt_at = now() + LEAST(
+        interval '5 minutes',
+        interval '1 second' * power(2, LEAST(attempt_count, 8))
+    ),
+    last_error = left(sqlc.arg(last_error), 200)
+WHERE operation_id = sqlc.arg(operation_id)
+  AND state <> 'completed';
+
+-- name: CreateProvisioningHubUser :one
+WITH locked_operation AS (
+    SELECT operation.*
+    FROM vetchium.hub_signup_completions AS operation
+    WHERE operation.operation_id = sqlc.arg(operation_id)
+      AND operation.state = 'reserved'
+    FOR UPDATE
+), inserted_user AS (
+    INSERT INTO vetchium.hub_users (
+        hub_user_did,
+        handle,
+        email_address,
+        display_name,
+        password_hash,
+        hub_user_state,
+        preferred_language,
+        resident_country,
+        preferred_job_countries,
+        hub_plan_oid
+    )
+    SELECT
+        hub_user_did,
+        handle,
+        sqlc.arg(email_address),
+        sqlc.arg(display_name),
+        sqlc.arg(password_hash),
+        'provisioning',
+        sqlc.arg(preferred_language),
+        sqlc.arg(resident_country),
+        ARRAY[sqlc.arg(resident_country)]::text[],
+        sqlc.arg(default_hub_plan_oid)
+    FROM locked_operation
+    RETURNING hub_user_did
+), consumed AS (
+    UPDATE vetchium.hub_signup_requests
+    SET consumed_at = now(), active = false
+    WHERE hub_signup_request_id = (
+        SELECT hub_signup_request_id FROM locked_operation
+    )
+      AND EXISTS (SELECT 1 FROM inserted_user)
+    RETURNING hub_signup_request_id
+), updated AS (
+    UPDATE vetchium.hub_signup_completions AS operation
+    SET state = 'local_created',
+        updated_at = now(),
+        next_attempt_at = now(),
+        last_error = NULL
+    WHERE operation.operation_id = sqlc.arg(operation_id)
+      AND EXISTS (SELECT 1 FROM consumed)
+    RETURNING *
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, source,
+        idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'hub.user.provisioning',
+        'hub_user',
+        hub_user_did::text,
+        'anonymous',
+        sqlc.arg(source),
+        idempotency_key,
+        jsonb_build_object('handle', handle, 'operation_id', operation_id)
+    FROM updated
+)
+SELECT
+    operation_id,
+    hub_signup_request_id,
+    token_hash,
+    idempotency_key,
+    request_digest,
+    hub_user_did,
+    handle,
+    reserve_command_id,
+    activate_command_id,
+    payload_ciphertext,
+    state,
+    provisioning_expires_at,
+    attempt_count,
+    next_attempt_at,
+    last_error,
+    created_at,
+    updated_at,
+    completed_at,
+    expires_at
+FROM updated;
+
+-- name: CompleteProvisioningHubUser :one
+WITH locked_operation AS (
+    SELECT operation.*
+    FROM vetchium.hub_signup_completions AS operation
+    WHERE operation.operation_id = sqlc.arg(operation_id)
+      AND operation.state = 'local_created'
+    FOR UPDATE
+), activated_user AS (
+    UPDATE vetchium.hub_users AS u
+    SET hub_user_state = 'active', updated_at = now()
+    FROM locked_operation AS operation
+    WHERE u.hub_user_did = operation.hub_user_did
+      AND u.hub_user_state = 'provisioning'
+    RETURNING u.hub_user_did, u.handle, u.hub_plan_oid
+), updated AS (
+    UPDATE vetchium.hub_signup_completions AS operation
+    SET state = 'completed',
+        completed_at = now(),
+        updated_at = now(),
+        next_attempt_at = now(),
+        last_error = NULL,
+        payload_ciphertext = '\\x'::bytea
+    WHERE operation.operation_id = sqlc.arg(operation_id)
+      AND EXISTS (SELECT 1 FROM activated_user)
+    RETURNING *
+), user_audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, source,
+        idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'hub.user.created',
+        'hub_user',
+        user_row.hub_user_did::text,
+        'anonymous',
+        sqlc.arg(source),
+        operation.idempotency_key,
+        jsonb_build_object('handle', user_row.handle)
+    FROM activated_user AS user_row
+    CROSS JOIN updated AS operation
+), subscription_audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, source,
+        idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'hub.subscription.created',
+        'hub_subscription',
+        user_row.hub_user_did::text,
+        'anonymous',
+        sqlc.arg(source),
+        operation.idempotency_key,
+        jsonb_build_object('hub_plan_oid', user_row.hub_plan_oid)
+    FROM activated_user AS user_row
+    CROSS JOIN updated AS operation
+)
+SELECT
+    operation_id,
+    hub_signup_request_id,
+    token_hash,
+    idempotency_key,
+    request_digest,
+    hub_user_did,
+    handle,
+    reserve_command_id,
+    activate_command_id,
+    payload_ciphertext,
+    state,
+    provisioning_expires_at,
+    attempt_count,
+    next_attempt_at,
+    last_error,
+    created_at,
+    updated_at,
+    completed_at,
+    expires_at
+FROM updated;
+
+-- name: AbandonExpiredHubSignupCompletion :one
+WITH locked_operation AS (
+    SELECT operation.*
+    FROM vetchium.hub_signup_completions AS operation
+    WHERE operation.operation_id = sqlc.arg(operation_id)
+      AND operation.state NOT IN ('completed', 'failed')
+      AND operation.provisioning_expires_at <= now()
+    FOR UPDATE
+), deleted_user AS (
+    DELETE FROM vetchium.hub_users AS hub_user
+    USING locked_operation AS operation
+    WHERE hub_user.hub_user_did = operation.hub_user_did
+      AND hub_user.hub_user_state = 'provisioning'
+    RETURNING hub_user.hub_user_did
+), updated AS (
+    UPDATE vetchium.hub_signup_completions AS operation
+    SET state = 'failed',
+        completed_at = now(),
+        updated_at = now(),
+        next_attempt_at = now(),
+        last_error = 'global_reservation_expired',
+        payload_ciphertext = '\\x'::bytea
+    WHERE operation.operation_id = sqlc.arg(operation_id)
+      AND EXISTS (SELECT 1 FROM locked_operation)
+    RETURNING operation.*
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, source,
+        idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'hub.signup.completion_abandoned',
+        'hub_signup_completion',
+        operation_id::text,
+        'system',
+        sqlc.arg(source),
+        idempotency_key,
+        jsonb_build_object(
+            'hub_user_did', hub_user_did,
+            'provisioning_user_deleted', EXISTS (SELECT 1 FROM deleted_user)
+        )
+    FROM updated
+)
+SELECT
+    operation_id,
+    hub_signup_request_id,
+    token_hash,
+    idempotency_key,
+    request_digest,
+    hub_user_did,
+    handle,
+    reserve_command_id,
+    activate_command_id,
+    payload_ciphertext,
+    state,
+    provisioning_expires_at,
+    attempt_count,
+    next_attempt_at,
+    last_error,
+    created_at,
+    updated_at,
+    completed_at,
+    expires_at
+FROM updated;
+
+-- name: ListRecoverableHubSignupCompletions :many
+SELECT
+    operation_id,
+    hub_signup_request_id,
+    token_hash,
+    idempotency_key,
+    request_digest,
+    hub_user_did,
+    handle,
+    reserve_command_id,
+    activate_command_id,
+    payload_ciphertext,
+    state,
+    provisioning_expires_at,
+    attempt_count,
+    next_attempt_at,
+    last_error,
+    created_at,
+    updated_at,
+    completed_at,
+    expires_at
+FROM vetchium.hub_signup_completions
+WHERE state NOT IN ('completed', 'failed')
+  AND next_attempt_at <= now()
+ORDER BY next_attempt_at, created_at
+LIMIT 25;
+
+-- name: PruneExpiredHubSignupCompletions :execrows
+DELETE FROM vetchium.hub_signup_completions
+WHERE state IN ('completed', 'failed')
+  AND expires_at <= now();
+
 -- name: CompleteHubSignup :one
 WITH eligible_signup AS (
     SELECT s.hub_signup_request_id, s.email_address, s.display_name,

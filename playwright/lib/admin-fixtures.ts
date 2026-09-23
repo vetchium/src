@@ -44,7 +44,7 @@ interface AdminFixtures {
   }) => Promise<CreatedAdmin>;
 }
 
-interface APIObservation {
+export interface APIObservation {
   method: string;
   path: string;
   status: number;
@@ -126,7 +126,7 @@ function fetchMethod(options: unknown): string {
   return "GET";
 }
 
-function trackedRequestContext(
+export function trackedRequestContext(
   request: APIRequestContext,
   observations: APIObservation[],
 ): APIRequestContext {

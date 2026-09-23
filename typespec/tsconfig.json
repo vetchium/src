@@ -15,6 +15,7 @@
   "include": [
     "admin/**/*.ts",
     "common/**/*.ts",
+    "directory/**/*.ts",
     "problem/**/*.ts",
     "hub/**/*.ts",
     "regions/**/*.ts",

@@ -173,6 +173,7 @@ test("signup rollback on subscription audit failure leaves no user", async ({
   try {
     const signupKey = hubIdempotencyKey();
     const completeKey = hubIdempotencyKey();
+    const password = `Password!${randomUUID()}`;
     keys.push(signupKey, completeKey);
     const requestResponse = await hub.post(
       "/request-signup",
@@ -207,27 +208,26 @@ test("signup rollback on subscription audit failure leaves no user", async ({
     });
     const completeResponse = await hub.post(
       "/complete-signup",
-      { signup_token: token, password: `Password!${randomUUID()}` },
+      { signup_token: token, password },
       { idempotencyKey: completeKey },
     );
-    expect(completeResponse.status(), await completeResponse.text()).toBe(500);
+    expect(completeResponse.status(), await completeResponse.text()).toBe(202);
+
+    expect(hubSignupCompletionArtifactCounts(email, completeKey)).toEqual({
+      activeSignupRequests: 0,
+      auditEvents: 2,
+      hubUsers: 1,
+      idempotencyRows: 0,
+    });
     removeFailure();
     removeFailure = undefined;
 
-    expect(hubSignupCompletionArtifactCounts(email, completeKey)).toEqual({
-      activeSignupRequests: 1,
-      auditEvents: 0,
-      hubUsers: 0,
-      idempotencyRows: 0,
-    });
-
-    // The signup request survived, so completion can be retried.
+    // The durable completion resumes with the original operation identity.
     const retry = await hub.post(
       "/complete-signup",
-      { signup_token: token, password: `Password!${randomUUID()}` },
-      { idempotencyKey: hubIdempotencyKey() },
+      { signup_token: token, password },
+      { idempotencyKey: completeKey },
     );
-    keys.push(...hub.idempotencyKeys);
     expect(retry.status(), await retry.text()).toBe(201);
     const created = (await retry.json()) as { hub_user_did: string };
     createdDID = created.hub_user_did;

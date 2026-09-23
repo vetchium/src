@@ -17,6 +17,8 @@ func TestRendererLoadsEveryLocalizedTemplate(t *testing.T) {
 		DisplayName: "Ada & Lin",
 		ActionURL:   "https://hub.example/verify?one=1&two=2",
 		ExpiresAt:   time.Date(2026, 8, 24, 12, 30, 0, 0, time.UTC),
+		Code:        "123456",
+		LeadDays:    7,
 	}
 	for _, locale := range hub.FrontendLocales() {
 		for _, kind := range supportedKinds {
@@ -34,6 +36,16 @@ func TestRendererLoadsEveryLocalizedTemplate(t *testing.T) {
 			if !strings.Contains(message.HTMLBody, "Ada &amp; Lin") &&
 				kind == Signup {
 				t.Errorf("render %s/%s omitted escaped display name", locale, kind)
+			}
+			if kind == ProfessionalEmailVerification &&
+				(!strings.Contains(message.TextBody, data.Code) ||
+					!strings.Contains(message.HTMLBody, data.Code)) {
+				t.Errorf("render %s/%s omitted verification code", locale, kind)
+			}
+			if kind == SubscriptionEnding &&
+				(!strings.Contains(message.TextBody, "7") ||
+					!strings.Contains(message.HTMLBody, "7")) {
+				t.Errorf("render %s/%s omitted the lead time", locale, kind)
 			}
 		}
 	}

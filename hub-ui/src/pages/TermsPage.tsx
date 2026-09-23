@@ -8,6 +8,12 @@ export function TermsPage() {
       <title>{t("terms.documentTitle")}</title>
       <Typography.Title level={1}>{t("terms.title")}</Typography.Title>
       <Typography.Paragraph>{t("terms.general")}</Typography.Paragraph>
+      <Typography.Title level={2}>
+        {t("terms.profileClaimsTitle")}
+      </Typography.Title>
+      <Typography.Paragraph>
+        {t("terms.profileClaimsBody")}
+      </Typography.Paragraph>
       <Typography.Title level={2}>{t("terms.paymentsTitle")}</Typography.Title>
       <Typography.Paragraph>{t("terms.paymentsBody")}</Typography.Paragraph>
     </Space>

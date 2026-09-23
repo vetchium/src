@@ -9,3 +9,9 @@ application architecture. Read
 region selection, or profile locality, and
 [`../agent-guides/hub-subscriptions.md`](../agent-guides/hub-subscriptions.md)
 for plans, subscriptions, prices, or payments.
+Read [`../agent-guides/federation.md`](../agent-guides/federation.md) for remote
+profiles or durable cross-tenant operations, and
+[`../agent-guides/object-storage.md`](../agent-guides/object-storage.md) for
+uploads or signed media.
+Read [`../agent-guides/hub-profile.md`](../agent-guides/hub-profile.md) for Hub
+profile fields, visibility, professional-email evidence, or profile editing.
