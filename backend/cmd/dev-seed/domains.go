@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -25,10 +25,9 @@ type domainSeeder struct {
 	baseURL string
 	token   string
 	client  *http.Client
-	log     *slog.Logger
 }
 
-func runDomainSeed(log *slog.Logger) error {
+func runDomainSeed() error {
 	settings, err := loadDomainSettings()
 	if err != nil {
 		return err
@@ -39,7 +38,6 @@ func runDomainSeed(log *slog.Logger) error {
 	s := &domainSeeder{
 		baseURL: settings.baseURL,
 		client:  &http.Client{Timeout: domainRequestTimeout},
-		log:     log,
 	}
 	if err := s.login(ctx, settings.email, settings.password); err != nil {
 		return err
@@ -118,15 +116,9 @@ func (s *domainSeeder) seedSignupDomains(ctx context.Context, domains []string) 
 		}
 		switch status {
 		case http.StatusCreated:
-			s.log.Info(
-				"seeded Hub signup domain",
-				"event", "signup_domain_seeded", "domain", domain,
-			)
+			log.Printf("seeded Hub signup domain %s", domain)
 		case http.StatusConflict:
-			s.log.Info(
-				"Hub signup domain already present",
-				"event", "signup_domain_present", "domain", domain,
-			)
+			log.Printf("Hub signup domain already present %s", domain)
 		default:
 			return fmt.Errorf(
 				"create Hub signup domain %q returned %d", domain, status,

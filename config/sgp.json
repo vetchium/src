@@ -13,7 +13,7 @@
     "retryBackoffLimit": "5m",
     "pruneAdminSessionsTimer": "5m",
     "pruneEphemeralDataTimer": "5m",
-    "deliverHubEmailTimer": "5s",
+    "deliverHubEmailTimer": "500ms",
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",

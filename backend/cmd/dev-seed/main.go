@@ -17,23 +17,24 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
+	"log"
 	"os"
 	"strings"
-
-	"backend/internal/service"
 )
 
 func main() {
-	service.MainWithoutServer("dev-seed", run)
+	log.SetFlags(0)
+	if err := run(); err != nil {
+		log.Fatalf("fatal error: %v", err)
+	}
 }
 
-func run(log *slog.Logger) error {
+func run() error {
 	switch mode := strings.TrimSpace(os.Getenv("DEV_SEED_MODE")); mode {
 	case "", "domains":
-		return runDomainSeed(log)
+		return runDomainSeed()
 	case "hub-profiles":
-		return runHubProfileSeed(log)
+		return runHubProfileSeed()
 	default:
 		return fmt.Errorf("unknown DEV_SEED_MODE %q", mode)
 	}

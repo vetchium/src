@@ -137,7 +137,7 @@ dev-seed-hub-profiles:
 			DEV_SEED_HUB_ORIGIN="http://hub-ui.$$t.localhost" \
 			DEV_SEED_MAILPIT_URL="$(DEV_SEED_MAILPIT_URL)" \
 			DEV_SEED_HUB_PROFILES_FILE="$(CURDIR)/dev/hub-seed-profiles/$$t.json" \
-			go run ./cmd/dev-seed) | jq . || exit $$?; \
+			go run ./cmd/dev-seed) || exit $$?; \
 	done
 
 dev-secrets:

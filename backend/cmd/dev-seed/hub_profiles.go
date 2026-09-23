@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -22,6 +22,7 @@ import (
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
 	hubprofile "github.com/vetchium/src/typespec/hub/profile"
 	hubsubscriptions "github.com/vetchium/src/typespec/hub/subscriptions"
+	"golang.org/x/sync/errgroup"
 
 	"backend/internal/service"
 )
@@ -64,7 +65,7 @@ func loadHubProfileSettings() (hubProfileSettings, error) {
 	return s, nil
 }
 
-func runHubProfileSeed(log *slog.Logger) error {
+func runHubProfileSeed() error {
 	settings, err := loadHubProfileSettings()
 	if err != nil {
 		return err
@@ -83,20 +84,23 @@ func runHubProfileSeed(log *slog.Logger) error {
 		// filename resolves relative to the fixture's own directory.
 		avatarDir: filepath.Dir(settings.fixtureFile),
 		client:    &http.Client{Timeout: hubProfileRequestTimeout},
-		log:       log,
 	}
+	var eg errgroup.Group
 	for _, user := range fixture.Users {
-		if err := client.seedUser(ctx, user); err != nil {
-			return fmt.Errorf("seed hub user %q: %w", user.Email, err)
-		}
+		u := user
+		eg.Go(func() error {
+			if err := client.seedUser(ctx, u); err != nil {
+				return fmt.Errorf("seed hub user %q: %w", u.Email, err)
+			}
+			return nil
+		})
 	}
-	return nil
+	return eg.Wait()
 }
 
 type hubProfileClient struct {
 	hubOrigin, mailpitOrigin, avatarDir string
 	client                              *http.Client
-	log                                 *slog.Logger
 }
 
 // seedUser drives one fixture user through the same signup and profile-write
@@ -158,12 +162,7 @@ func (c *hubProfileClient) seedUser(
 			return fmt.Errorf("upload picture: %w", err)
 		}
 	}
-	c.log.Info(
-		"seeded Hub profile",
-		"handle", string(handle),
-		"email", string(user.Email),
-		"region", string(user.ResidentCountry),
-	)
+	log.Printf("seeded Hub profile handle=%s email=%s region=%s", handle, user.Email, user.ResidentCountry)
 	return nil
 }
 
