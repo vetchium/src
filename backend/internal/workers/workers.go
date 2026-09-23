@@ -18,17 +18,32 @@ type periodicJob struct {
 	run      func(context.Context) error
 }
 
+type HubSignupRecovery interface {
+	Recover(context.Context) (int, error)
+}
+
 // Worker owns the dependencies and periodic jobs for the worker process.
 type Worker struct {
-	queries                  sqlc.Querier
-	hubEmailQueries          hubEmailQueries
-	hubEmailDelivery         *HubEmailDelivery
-	subscriptionTransactions subscriptionTransactions
-	hubSubscriptionNow       func() time.Time
-	log                      *slog.Logger
-	tenantID                 string
-	retryBackoffLimit        time.Duration
-	jobs                     []periodicJob
+	queries                   sqlc.Querier
+	hubEmailQueries           hubEmailQueries
+	hubEmailDelivery          *HubEmailDelivery
+	hubSignupRecovery         HubSignupRecovery
+	pictureQueries            pictureDeletionQueries
+	pictureStore              PictureStore
+	pictureDeletionInterval   time.Duration
+	aliasReleaseQueries       aliasReleaseQueries
+	aliasReleaseDirectory     AliasReleaseDirectory
+	aliasReleaseInterval      time.Duration
+	aliasChangeDB             *pgxpool.Pool
+	aliasChangeQueries        aliasChangeQueries
+	subscriptionTransactions  subscriptionTransactions
+	hubSubscriptionNow        func() time.Time
+	subscriptionExpiryQueries subscriptionExpiryQueries
+	hubSubscriptionExpiryNow  func() time.Time
+	log                       *slog.Logger
+	tenantID                  string
+	retryBackoffLimit         time.Duration
+	jobs                      []periodicJob
 }
 
 func New(
@@ -36,16 +51,25 @@ func New(
 	log *slog.Logger,
 	tenantID string,
 	config appconfig.Workers,
-	hubEmailDelivery ...*HubEmailDelivery,
+	hubEmailDelivery *HubEmailDelivery,
+	hubSignupRecovery HubSignupRecovery,
 ) *Worker {
 	queries := sqlc.New(db)
 	w := &Worker{
-		queries:                  queries,
-		hubEmailQueries:          queries,
-		log:                      log,
-		tenantID:                 tenantID,
-		retryBackoffLimit:        config.RetryBackoffLimit,
-		subscriptionTransactions: poolSubscriptionTransactions{db: db},
+		queries:                   queries,
+		hubEmailQueries:           queries,
+		log:                       log,
+		tenantID:                  tenantID,
+		retryBackoffLimit:         config.RetryBackoffLimit,
+		subscriptionTransactions:  poolSubscriptionTransactions{db: db},
+		hubSignupRecovery:         hubSignupRecovery,
+		pictureQueries:            queries,
+		pictureDeletionInterval:   config.PruneEphemeralDataTimer,
+		aliasReleaseQueries:       queries,
+		aliasReleaseInterval:      config.ReconcileHubSignupTimer,
+		aliasChangeDB:             db,
+		aliasChangeQueries:        queries,
+		subscriptionExpiryQueries: queries,
 	}
 	w.jobs = []periodicJob{
 		{
@@ -69,15 +93,49 @@ func New(
 			run:      w.advanceHubSubscriptions,
 		},
 	}
-	if len(hubEmailDelivery) > 0 && hubEmailDelivery[0] != nil {
-		w.hubEmailDelivery = hubEmailDelivery[0]
+	if hubEmailDelivery != nil {
+		w.hubEmailDelivery = hubEmailDelivery
 		w.jobs = append(w.jobs, periodicJob{
 			name:     "deliver-hub-email",
 			interval: config.DeliverHubEmailTimer,
 			run:      w.deliverHubEmail,
 		})
+		// Shares the subscription advance job's cadence: both are periodic
+		// Hub subscription bookkeeping, and this one also needs the outbox
+		// encryption key that only arrives with hubEmailDelivery.
+		w.jobs = append(w.jobs, periodicJob{
+			name:     "warn-hub-subscription-expiry",
+			interval: config.AdvanceHubSubscriptionsTimer,
+			run:      w.warnHubSubscriptionExpiry,
+		})
+	}
+	if hubSignupRecovery != nil {
+		w.jobs = append(w.jobs, periodicJob{
+			name: "reconcile-hub-signup", interval: config.ReconcileHubSignupTimer,
+			run: w.reconcileHubSignup,
+		})
 	}
 	return w
+}
+
+func (w *Worker) EnablePictureDeletion(store PictureStore) {
+	w.pictureStore = store
+	w.jobs = append(w.jobs, periodicJob{
+		name: "delete-hub-profile-pictures", interval: w.pictureDeletionInterval,
+		run: w.deleteHubProfilePictures,
+	})
+}
+
+func (w *Worker) EnableAliasOperations(directory AliasReleaseDirectory) {
+	w.aliasReleaseDirectory = directory
+	w.jobs = append(w.jobs, periodicJob{
+		name: "release-hub-aliases", interval: w.aliasReleaseInterval,
+		run: w.releaseDowngradedHubAliases,
+	})
+	w.jobs = append(w.jobs, periodicJob{
+		name: "complete-hub-alias-changes", interval: w.aliasReleaseInterval,
+		run: w.completeHubAliasChanges,
+	})
 }
 
 // Run starts every job in its own goroutine and returns immediately. A slow or

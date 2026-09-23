@@ -58,6 +58,11 @@ for anything touching PostgreSQL, [`database.md`](database.md).
   authenticated principal lacks permission. Follow the TypeSpec contract for
   resource and state errors.
 - Convert response timestamps to UTC before encoding.
+- When a rejected request deliberately commits state (for example, counting a
+  wrong verification code), use `handlerauth.CommittedFailure` inside the
+  idempotent transaction. Ordinary `handlerauth.Failure` rolls back and must
+  not be used for such attempts. Replays must reproduce the stored problem
+  without repeating the state change; committed failures are non-401 4xx only.
 - Handle response-encoding failures, and log them when headers were already
   sent.
 
@@ -91,6 +96,12 @@ for anything touching PostgreSQL, [`database.md`](database.md).
   `Tiltfile`, which names development services explicitly for its labels,
   links, and tenant subsets.
 - Change `deploy/` only when the task includes production deployment.
+- MCP is deliberately not public yet. `mcp-server` and tenant Traefik already
+  share `*_mcp_access`, so exposing it later is a routing/configuration
+  change, not a network-topology change. Before adding a router for
+  `mcp.<tenant-domain>/mcp`, add the MCP authorization flow, TLS, request
+  limits, and an explicit allowed-origin policy. Never attach `mcp-server`
+  directly to `*_ingress`.
 
 ## Tests
 

@@ -1,7 +1,20 @@
 package meshapi
 
-import "backend/internal/apiserver"
-import "backend/internal/regions"
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
+
+	"backend/internal/apiserver"
+	"backend/internal/db/sqlc"
+	"backend/internal/directoryclient"
+	"backend/internal/profileclient"
+	"backend/internal/regions"
+)
+
+type PictureSigner interface {
+	SignGet(context.Context, pgtype.UUID) (string, error)
+}
 
 type Server struct {
 	*apiserver.Runtime
@@ -10,5 +23,9 @@ type Server struct {
 	TenantID        string
 	Regions         *regions.Catalog
 	RegionDirectory regions.Directory
+	Directory       *directoryclient.Client
+	Profiles        *profileclient.Client
+	Pictures        PictureSigner
+	Queries         sqlc.Querier
 	Credential      string
 }

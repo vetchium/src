@@ -1,5 +1,22 @@
 import { randomBytes } from "node:crypto";
 import type { APIRequestContext, APIResponse } from "@playwright/test";
+import type { GetOperationRequest } from "typespec/hub/operations/operations";
+import type { SetAliasRequest } from "typespec/hub/profile/alias";
+import type {
+  AddProfessionalEmailRequest,
+  ListProfessionalEmailsRequest,
+  ProfessionalEmailIDRequest,
+  VerifyProfessionalEmailRequest,
+} from "typespec/hub/profile/professional_email";
+import type {
+  ChangeLanguageAbilityRequest,
+  DeleteProfileEntryRequest,
+  ReadProfileRequest,
+  SaveCertificationRequest,
+  SaveEducationalQualificationRequest,
+  SaveWorkExperienceRequest,
+  SetPublicFieldsRequest,
+} from "typespec/hub/profile/public";
 import type { SetSubscriptionPlanRequest } from "typespec/hub/subscriptions/subscriptions";
 
 export const HUB_ORIGIN =
@@ -15,6 +32,11 @@ function originFor(tenant?: string): string {
   return tenant === undefined
     ? HUB_ORIGIN
     : `http://hub-ui.${tenant}.localhost`;
+}
+
+export interface ProfileMutationOptions {
+  token: string;
+  idempotencyKey: string;
 }
 
 export class HubAPI {
@@ -77,6 +99,147 @@ export class HubAPI {
 
   mySubscription(token: string): Promise<APIResponse> {
     return this.get("/my-subscription", token);
+  }
+
+  readProfile(body: ReadProfileRequest, token: string): Promise<APIResponse> {
+    return this.post("/profile/read", body, { token });
+  }
+
+  setPublicFields(
+    body: SetPublicFieldsRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post("/profile/set-public-fields", body, options);
+  }
+
+  aliasState(token: string): Promise<APIResponse> {
+    return this.get("/profile/alias/state", token);
+  }
+
+  setAlias(
+    body: SetAliasRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post("/profile/alias/set", body, options);
+  }
+
+  operationStatus(
+    body: GetOperationRequest,
+    token: string,
+  ): Promise<APIResponse> {
+    return this.post("/operations/status", body, { token });
+  }
+
+  saveWorkExperience(
+    body: SaveWorkExperienceRequest,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    return this.post("/profile/save-work-experience", body, options);
+  }
+
+  deleteWorkExperience(
+    body: DeleteProfileEntryRequest,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    return this.post("/profile/delete-work-experience", body, options);
+  }
+
+  saveCertification(
+    body: SaveCertificationRequest,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    return this.post("/profile/save-certification", body, options);
+  }
+
+  deleteCertification(
+    body: DeleteProfileEntryRequest,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    return this.post("/profile/delete-certification", body, options);
+  }
+
+  saveEducation(
+    body: SaveEducationalQualificationRequest,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    return this.post("/profile/save-education", body, options);
+  }
+
+  deleteEducation(
+    body: DeleteProfileEntryRequest,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    return this.post("/profile/delete-education", body, options);
+  }
+
+  addLanguageAbility(
+    body: ChangeLanguageAbilityRequest,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    return this.post("/profile/add-language", body, options);
+  }
+
+  deleteLanguageAbility(
+    body: ChangeLanguageAbilityRequest,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    return this.post("/profile/delete-language", body, options);
+  }
+
+  listProfessionalEmails(
+    body: ListProfessionalEmailsRequest,
+    token: string,
+  ): Promise<APIResponse> {
+    return this.post("/profile/professional-email/list", body, { token });
+  }
+
+  addProfessionalEmail(
+    body: AddProfessionalEmailRequest,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    return this.post("/profile/professional-email/add", body, options);
+  }
+
+  deleteProfessionalEmail(
+    body: ProfessionalEmailIDRequest,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    return this.post("/profile/professional-email/delete", body, options);
+  }
+
+  requestProfessionalEmailCode(
+    body: ProfessionalEmailIDRequest,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    return this.post("/profile/professional-email/request-code", body, options);
+  }
+
+  verifyProfessionalEmailCode(
+    body: VerifyProfessionalEmailRequest,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    return this.post("/profile/professional-email/verify", body, options);
+  }
+
+  removePicture(options: ProfileMutationOptions): Promise<APIResponse> {
+    return this.post("/profile/picture/remove", {}, options);
+  }
+
+  /** The one profile write whose body is raw image bytes rather than JSON. */
+  uploadPicture(
+    contentType: string,
+    body: Buffer,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    this.idempotencyKeys.add(options.idempotencyKey);
+    return this.request.post(`${this.origin}/api/hub/profile/picture/upload`, {
+      data: body,
+      headers: {
+        "Content-Type": contentType,
+        Authorization: `Bearer ${options.token}`,
+        "Idempotency-Key": options.idempotencyKey,
+      },
+    });
   }
 
   setSubscriptionPlan(

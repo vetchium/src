@@ -22,158 +22,467 @@
   },
   "networks": {
     "deu_admin_api_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.1.0/24"
+          }
+        ]
+      }
     },
     "deu_backend": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.2.0/24"
+          }
+        ]
+      }
     },
     "deu_hub_api_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.3.0/24"
+          }
+        ]
+      }
     },
-    "deu_ingress": {},
+    "deu_ingress": {
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.4.0/24"
+          }
+        ]
+      }
+    },
+    "deu_media_access": {
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.5.0/24"
+          }
+        ]
+      }
+    },
     "deu_mcp_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.6.0/24"
+          }
+        ]
+      }
     },
     "deu_orgs_api_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.7.0/24"
+          }
+        ]
+      }
     },
     "ind1_admin_api_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.8.0/24"
+          }
+        ]
+      }
     },
     "ind1_backend": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.9.0/24"
+          }
+        ]
+      }
     },
     "ind1_hub_api_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.10.0/24"
+          }
+        ]
+      }
     },
-    "ind1_ingress": {},
+    "ind1_ingress": {
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.11.0/24"
+          }
+        ]
+      }
+    },
+    "ind1_media_access": {
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.12.0/24"
+          }
+        ]
+      }
+    },
     "ind1_mcp_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.13.0/24"
+          }
+        ]
+      }
     },
     "ind1_orgs_api_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.14.0/24"
+          }
+        ]
+      }
     },
     "mesh": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.15.0/24"
+          }
+        ]
+      }
     },
-    "mailpit_access": {},
-    "global_coordinator_access": {},
+    "mailpit_access": {
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.16.0/24"
+          }
+        ]
+      }
+    },
+    "global_coordinator_access": {
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.17.0/24"
+          }
+        ]
+      }
+    },
+    "global_backend": {
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.18.0/24"
+          }
+        ]
+      }
+    },
     "sgp_admin_api_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.19.0/24"
+          }
+        ]
+      }
     },
     "sgp_backend": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.20.0/24"
+          }
+        ]
+      }
     },
     "sgp_hub_api_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.21.0/24"
+          }
+        ]
+      }
     },
-    "sgp_ingress": {},
+    "sgp_ingress": {
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.22.0/24"
+          }
+        ]
+      }
+    },
+    "sgp_media_access": {
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.23.0/24"
+          }
+        ]
+      }
+    },
     "sgp_mcp_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.24.0/24"
+          }
+        ]
+      }
     },
     "sgp_orgs_api_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.25.0/24"
+          }
+        ]
+      }
     },
     "usa1_admin_api_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.26.0/24"
+          }
+        ]
+      }
     },
     "usa1_backend": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.27.0/24"
+          }
+        ]
+      }
     },
     "usa1_hub_api_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.28.0/24"
+          }
+        ]
+      }
     },
-    "usa1_ingress": {},
+    "usa1_ingress": {
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.29.0/24"
+          }
+        ]
+      }
+    },
+    "usa1_media_access": {
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.30.0/24"
+          }
+        ]
+      }
+    },
     "usa1_mcp_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.31.0/24"
+          }
+        ]
+      }
     },
     "usa1_orgs_api_access": {
-      "internal": true
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.32.0/24"
+          }
+        ]
+      }
     }
   },
   "secrets": {
+    "admin_credential_key": {
+      "file": "./.dev-secrets/admin_credential_key"
+    },
     "app_postgres_password": {
       "file": "./.dev-secrets/app_postgres_password"
     },
-    "admin_credential_key": {
-      "file": "./.dev-secrets/admin_credential_key"
+    "global_app_postgres_password": {
+      "file": "./.dev-secrets/global_app_postgres_password"
+    },
+    "global_coordinator_health_certificate": {
+      "file": "./.dev-secrets/global_coordinator_health_certificate"
+    },
+    "global_coordinator_health_key": {
+      "file": "./.dev-secrets/global_coordinator_health_key"
+    },
+    "global_coordinator_tls_certificate": {
+      "file": "./.dev-secrets/global_coordinator_tls_certificate"
+    },
+    "global_coordinator_tls_key": {
+      "file": "./.dev-secrets/global_coordinator_tls_key"
     },
     "hub_credential_key": {
       "file": "./.dev-secrets/hub_credential_key"
     },
-    "global_coordinator_credential": {
-      "file": "./.dev-secrets/global_coordinator_credential"
+    "mesh_ca_certificate": {
+      "file": "./.dev-secrets/mesh_ca_certificate"
+    },
+    "mesh_client_deu_certificate": {
+      "file": "./.dev-secrets/mesh_client_deu_certificate"
+    },
+    "mesh_client_deu_key": {
+      "file": "./.dev-secrets/mesh_client_deu_key"
+    },
+    "mesh_client_ind1_certificate": {
+      "file": "./.dev-secrets/mesh_client_ind1_certificate"
+    },
+    "mesh_client_ind1_key": {
+      "file": "./.dev-secrets/mesh_client_ind1_key"
+    },
+    "mesh_client_sgp_certificate": {
+      "file": "./.dev-secrets/mesh_client_sgp_certificate"
+    },
+    "mesh_client_sgp_key": {
+      "file": "./.dev-secrets/mesh_client_sgp_key"
+    },
+    "mesh_client_usa1_certificate": {
+      "file": "./.dev-secrets/mesh_client_usa1_certificate"
+    },
+    "mesh_client_usa1_key": {
+      "file": "./.dev-secrets/mesh_client_usa1_key"
     },
     "mesh_credential": {
       "file": "./.dev-secrets/mesh_credential"
+    },
+    "mesh_server_deu_certificate": {
+      "file": "./.dev-secrets/mesh_server_deu_certificate"
+    },
+    "mesh_server_deu_key": {
+      "file": "./.dev-secrets/mesh_server_deu_key"
+    },
+    "mesh_server_ind1_certificate": {
+      "file": "./.dev-secrets/mesh_server_ind1_certificate"
+    },
+    "mesh_server_ind1_key": {
+      "file": "./.dev-secrets/mesh_server_ind1_key"
+    },
+    "mesh_server_sgp_certificate": {
+      "file": "./.dev-secrets/mesh_server_sgp_certificate"
+    },
+    "mesh_server_sgp_key": {
+      "file": "./.dev-secrets/mesh_server_sgp_key"
+    },
+    "mesh_server_usa1_certificate": {
+      "file": "./.dev-secrets/mesh_server_usa1_certificate"
+    },
+    "mesh_server_usa1_key": {
+      "file": "./.dev-secrets/mesh_server_usa1_key"
+    },
+    "seaweed_s3_deu_access_key": {
+      "file": "./.dev-secrets/seaweed_s3_deu_access_key"
+    },
+    "seaweed_s3_deu_config": {
+      "file": "./.dev-secrets/seaweed_s3_deu_config"
+    },
+    "seaweed_s3_deu_secret_key": {
+      "file": "./.dev-secrets/seaweed_s3_deu_secret_key"
+    },
+    "seaweed_s3_ind1_access_key": {
+      "file": "./.dev-secrets/seaweed_s3_ind1_access_key"
+    },
+    "seaweed_s3_ind1_config": {
+      "file": "./.dev-secrets/seaweed_s3_ind1_config"
+    },
+    "seaweed_s3_ind1_secret_key": {
+      "file": "./.dev-secrets/seaweed_s3_ind1_secret_key"
+    },
+    "seaweed_s3_sgp_access_key": {
+      "file": "./.dev-secrets/seaweed_s3_sgp_access_key"
+    },
+    "seaweed_s3_sgp_config": {
+      "file": "./.dev-secrets/seaweed_s3_sgp_config"
+    },
+    "seaweed_s3_sgp_secret_key": {
+      "file": "./.dev-secrets/seaweed_s3_sgp_secret_key"
+    },
+    "seaweed_s3_usa1_access_key": {
+      "file": "./.dev-secrets/seaweed_s3_usa1_access_key"
+    },
+    "seaweed_s3_usa1_config": {
+      "file": "./.dev-secrets/seaweed_s3_usa1_config"
+    },
+    "seaweed_s3_usa1_secret_key": {
+      "file": "./.dev-secrets/seaweed_s3_usa1_secret_key"
+    },
+    "wireguard_deu_private_key": {
+      "file": "./.dev-secrets/wireguard_deu_private_key"
+    },
+    "wireguard_deu_public_key": {
+      "file": "./.dev-secrets/wireguard_deu_public_key"
+    },
+    "wireguard_global-coordinator_private_key": {
+      "file": "./.dev-secrets/wireguard_global-coordinator_private_key"
+    },
+    "wireguard_global-coordinator_public_key": {
+      "file": "./.dev-secrets/wireguard_global-coordinator_public_key"
+    },
+    "wireguard_ind1_private_key": {
+      "file": "./.dev-secrets/wireguard_ind1_private_key"
+    },
+    "wireguard_ind1_public_key": {
+      "file": "./.dev-secrets/wireguard_ind1_public_key"
+    },
+    "wireguard_sgp_private_key": {
+      "file": "./.dev-secrets/wireguard_sgp_private_key"
+    },
+    "wireguard_sgp_public_key": {
+      "file": "./.dev-secrets/wireguard_sgp_public_key"
+    },
+    "wireguard_usa1_private_key": {
+      "file": "./.dev-secrets/wireguard_usa1_private_key"
+    },
+    "wireguard_usa1_public_key": {
+      "file": "./.dev-secrets/wireguard_usa1_public_key"
     }
   },
   "services": {
-    "mailpit": {
-      "image": "axllent/mailpit:v1.31.0@sha256:c96991d9bef73594c246d89ca81411d4e916f03e76a7d2d72fa2ab5dd3c9ce24",
-      "healthcheck": {
-        "interval": "5s",
-        "retries": 10,
-        "start_period": "5s",
-        "test": ["CMD", "/mailpit", "readyz"],
-        "timeout": "2s"
-      },
-      "networks": {
-        "deu_backend": {
-          "aliases": ["mailpit"]
-        },
-        "ind1_backend": {
-          "aliases": ["mailpit"]
-        },
-        "mailpit_access": null,
-        "sgp_backend": {
-          "aliases": ["mailpit"]
-        },
-        "usa1_backend": {
-          "aliases": ["mailpit"]
-        }
-      },
-      "ports": ["${MAILPIT_BIND:-127.0.0.1}:${MAILPIT_PORT:-18025}:8025"],
-      "read_only": true,
-      "restart": "unless-stopped",
-      "security_opt": ["no-new-privileges:true"],
-      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=64m"]
-    },
-    "global-coordinator": {
-      "build": {
-        "context": ".",
-        "dockerfile": "backend/Dockerfile",
-        "target": "global-coordinator"
-      },
-      "configs": [
-        {
-          "source": "signup_regions",
-          "target": "/etc/vetchium/signup-regions.json"
-        },
-        {
-          "source": "global_coordinator_config",
-          "target": "/etc/vetchium/global-coordinator.json"
-        }
-      ],
-      "healthcheck": {
-        "interval": "5s",
-        "retries": 10,
-        "start_period": "5s",
-        "test": ["CMD", "/service", "healthcheck"],
-        "timeout": "2s"
-      },
-      "networks": {
-        "global_coordinator_access": null,
-        "mesh": null
-      },
-      "ports": [
-        "${GLOBAL_COORDINATOR_BIND:-127.0.0.1}:${GLOBAL_COORDINATOR_PORT:-18080}:8080"
-      ],
-      "read_only": true,
-      "restart": "unless-stopped",
-      "secrets": ["global_coordinator_credential"],
-      "security_opt": ["no-new-privileges:true"]
-    },
     "admin-api-deu": {
       "build": {
         "context": ".",
@@ -536,6 +845,170 @@
         }
       ]
     },
+    "db-seed-deu": {
+      "command": [
+        "psql",
+        "--no-password",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-1",
+        "-f",
+        "/seed.sql"
+      ],
+      "depends_on": {
+        "migrate-deu": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGHOST": "db-deu",
+        "PGPASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
+        "PGUSER": "${POSTGRES_USER:-pguser}"
+      },
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "networks": {
+        "deu_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/db-seed/deu.sql",
+          "target": "/seed.sql",
+          "type": "bind"
+        }
+      ]
+    },
+    "db-seed-ind1": {
+      "command": [
+        "psql",
+        "--no-password",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-1",
+        "-f",
+        "/seed.sql"
+      ],
+      "depends_on": {
+        "migrate-ind1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGHOST": "db-ind1",
+        "PGPASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
+        "PGUSER": "${POSTGRES_USER:-pguser}"
+      },
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "networks": {
+        "ind1_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/db-seed/ind1.sql",
+          "target": "/seed.sql",
+          "type": "bind"
+        }
+      ]
+    },
+    "db-seed-sgp": {
+      "command": [
+        "psql",
+        "--no-password",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-1",
+        "-f",
+        "/seed.sql"
+      ],
+      "depends_on": {
+        "migrate-sgp": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGHOST": "db-sgp",
+        "PGPASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
+        "PGUSER": "${POSTGRES_USER:-pguser}"
+      },
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "networks": {
+        "sgp_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/db-seed/sgp.sql",
+          "target": "/seed.sql",
+          "type": "bind"
+        }
+      ]
+    },
+    "db-seed-usa1": {
+      "command": [
+        "psql",
+        "--no-password",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-1",
+        "-f",
+        "/seed.sql"
+      ],
+      "depends_on": {
+        "migrate-usa1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGHOST": "db-usa1",
+        "PGPASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
+        "PGUSER": "${POSTGRES_USER:-pguser}"
+      },
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "networks": {
+        "usa1_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/db-seed/usa1.sql",
+          "target": "/seed.sql",
+          "type": "bind"
+        }
+      ]
+    },
     "db-sgp": {
       "command": ["postgres"],
       "entrypoint": ["/bin/sh", "/usr/local/bin/vetchium-entrypoint.sh"],
@@ -654,6 +1127,106 @@
         }
       ]
     },
+    "dev-seed-deu": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "dev-seed"
+      },
+      "depends_on": {
+        "admin-api-deu": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "DEV_SEED_ADMIN_API_URL": "http://admin-api-deu:8080",
+        "DEV_SEED_ADMIN_EMAIL": "admin@deu.example",
+        "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
+        "DEV_SEED_SIGNUP_DOMAINS": "deu.example"
+      },
+      "networks": {
+        "deu_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "dev-seed-ind1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "dev-seed"
+      },
+      "depends_on": {
+        "admin-api-ind1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "DEV_SEED_ADMIN_API_URL": "http://admin-api-ind1:8080",
+        "DEV_SEED_ADMIN_EMAIL": "admin@ind1.example",
+        "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
+        "DEV_SEED_SIGNUP_DOMAINS": "ind1.example"
+      },
+      "networks": {
+        "ind1_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "dev-seed-sgp": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "dev-seed"
+      },
+      "depends_on": {
+        "admin-api-sgp": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "DEV_SEED_ADMIN_API_URL": "http://admin-api-sgp:8080",
+        "DEV_SEED_ADMIN_EMAIL": "admin@sgp.example",
+        "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
+        "DEV_SEED_SIGNUP_DOMAINS": "sgp.example,test1.example,test2.example,test3.example,test4.example,test5.example,test6.example,test7.example,test8.example,test9.example,test10.example,test11.example,test12.example,test13.example,test14.example,test15.example,test16.example,test17.example,test18.example,test19.example,test20.example,test21.example,test22.example,test23.example,test24.example,test25.example,test26.example,test27.example,test28.example,test29.example,test30.example,test31.example,test32.example,test33.example,test34.example,test35.example,test36.example,test37.example,test38.example,test39.example,test40.example,test41.example,test42.example,test43.example,test44.example,test45.example,test46.example,test47.example,test48.example,test49.example,test50.example,test51.example,test52.example,test53.example,test54.example,test55.example,test56.example,test57.example,test58.example,test59.example,test60.example,test61.example,test62.example,test63.example,test64.example,test65.example,test66.example,test67.example,test68.example,test69.example,test70.example,test71.example,test72.example,test73.example,test74.example,test75.example,test76.example,test77.example,test78.example,test79.example,test80.example,test81.example,test82.example,test83.example,test84.example,test85.example,test86.example,test87.example,test88.example,test89.example,test90.example,test91.example,test92.example,test93.example,test94.example,test95.example,test96.example,test97.example,test98.example,test99.example,test100.example"
+      },
+      "networks": {
+        "sgp_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "dev-seed-usa1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "dev-seed"
+      },
+      "depends_on": {
+        "admin-api-usa1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "DEV_SEED_ADMIN_API_URL": "http://admin-api-usa1:8080",
+        "DEV_SEED_ADMIN_EMAIL": "admin@usa1.example",
+        "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
+        "DEV_SEED_SIGNUP_DOMAINS": "usa1.example"
+      },
+      "networks": {
+        "usa1_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"]
+    },
     "edge": {
       "command": [
         "--providers.file.filename=/etc/traefik/dynamic.json",
@@ -710,6 +1283,130 @@
         }
       ]
     },
+    "global-coordinator": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "global-coordinator"
+      },
+      "configs": [
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
+        {
+          "source": "global_coordinator_config",
+          "target": "/etc/vetchium/global-coordinator.json"
+        }
+      ],
+      "depends_on": {
+        "global-migrate": {
+          "condition": "service_completed_successfully",
+          "required": true
+        },
+        "wg-global-coordinator": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "PGDATABASE": "${GLOBAL_POSTGRES_DB:-global_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
+      "network_mode": "service:wg-global-coordinator",
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        "global_app_postgres_password",
+        "mesh_ca_certificate",
+        "global_coordinator_tls_certificate",
+        "global_coordinator_tls_key",
+        "global_coordinator_health_certificate",
+        "global_coordinator_health_key"
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "global-db": {
+      "command": ["postgres"],
+      "entrypoint": ["/bin/sh", "/usr/local/bin/vetchium-entrypoint.sh"],
+      "environment": {
+        "APP_POSTGRES_PASSWORD_FILE": "/run/secrets/global_app_postgres_password",
+        "POSTGRES_DB": "${GLOBAL_POSTGRES_DB:-global_db}",
+        "POSTGRES_INITDB_ARGS": "--auth-host=scram-sha-256",
+        "POSTGRES_PASSWORD": "${GLOBAL_POSTGRES_PASSWORD:-global_pgpassword}",
+        "POSTGRES_USER": "${GLOBAL_POSTGRES_USER:-global_pguser}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 20,
+        "start_period": "10s",
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
+        ],
+        "timeout": "3s"
+      },
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "networks": {
+        "global_backend": null
+      },
+      "restart": "unless-stopped",
+      "secrets": ["global_app_postgres_password"],
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": [
+        {
+          "source": "pgdata-global",
+          "target": "/var/lib/postgresql/data",
+          "type": "volume",
+          "volume": {}
+        },
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/bootstrap/entrypoint.sh",
+          "target": "/usr/local/bin/vetchium-entrypoint.sh",
+          "type": "bind"
+        },
+        {
+          "bind": {
+            "create_host_path": true
+          },
+          "read_only": true,
+          "source": "./db/bootstrap/init.sql",
+          "target": "/docker-entrypoint-initdb.d/10-vetchium.sql",
+          "type": "bind"
+        }
+      ]
+    },
+    "global-migrate": {
+      "build": {
+        "context": "db/global-migrations"
+      },
+      "depends_on": {
+        "global-db": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "GOOSE_DBSTRING": "postgres://${GLOBAL_POSTGRES_USER:-global_pguser}:${GLOBAL_POSTGRES_PASSWORD:-global_pgpassword}@global-db:5432/${GLOBAL_POSTGRES_DB:-global_db}?sslmode=${PGSSLMODE:-disable}"
+      },
+      "networks": {
+        "global_backend": null
+      },
+      "read_only": true,
+      "restart": "no",
+      "security_opt": ["no-new-privileges:true"]
+    },
     "hub-api-deu": {
       "build": {
         "context": ".",
@@ -761,6 +1458,14 @@
         {
           "source": "mesh_credential",
           "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "seaweed_s3_deu_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_deu_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -816,6 +1521,14 @@
         {
           "source": "mesh_credential",
           "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "seaweed_s3_ind1_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_ind1_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -871,6 +1584,14 @@
         {
           "source": "mesh_credential",
           "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "seaweed_s3_sgp_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_sgp_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -926,6 +1647,14 @@
         {
           "source": "mesh_credential",
           "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "seaweed_s3_usa1_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_usa1_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -938,7 +1667,8 @@
       "environment": {
         "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_DEU_DEFAULT_LANGUAGE:-de-DE}",
         "VETCHIUM_TENANT_ID": "deu",
-        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier"
+        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier",
+        "VETCHIUM_MEDIA_ORIGINS": "http://media.deu.localhost,http://media.ind1.localhost,http://media.sgp.localhost,http://media.usa1.localhost"
       },
       "networks": {
         "deu_ingress": null
@@ -954,7 +1684,8 @@
       "environment": {
         "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_IND1_DEFAULT_LANGUAGE:-en-US}",
         "VETCHIUM_TENANT_ID": "ind1",
-        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier"
+        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier",
+        "VETCHIUM_MEDIA_ORIGINS": "http://media.deu.localhost,http://media.ind1.localhost,http://media.sgp.localhost,http://media.usa1.localhost"
       },
       "networks": {
         "ind1_ingress": null
@@ -970,7 +1701,8 @@
       "environment": {
         "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_SGP_DEFAULT_LANGUAGE:-en-US}",
         "VETCHIUM_TENANT_ID": "sgp",
-        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier"
+        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier",
+        "VETCHIUM_MEDIA_ORIGINS": "http://media.deu.localhost,http://media.ind1.localhost,http://media.sgp.localhost,http://media.usa1.localhost"
       },
       "networks": {
         "sgp_ingress": null
@@ -986,13 +1718,44 @@
       "environment": {
         "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_USA1_DEFAULT_LANGUAGE:-en-US}",
         "VETCHIUM_TENANT_ID": "usa1",
-        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier"
+        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier",
+        "VETCHIUM_MEDIA_ORIGINS": "http://media.deu.localhost,http://media.ind1.localhost,http://media.sgp.localhost,http://media.usa1.localhost"
       },
       "networks": {
         "usa1_ingress": null
       },
       "restart": "unless-stopped",
       "security_opt": ["no-new-privileges:true"]
+    },
+    "mailpit": {
+      "image": "axllent/mailpit:v1.31.0@sha256:c96991d9bef73594c246d89ca81411d4e916f03e76a7d2d72fa2ab5dd3c9ce24",
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/mailpit", "readyz"],
+        "timeout": "2s"
+      },
+      "networks": {
+        "deu_backend": {
+          "aliases": ["mailpit"]
+        },
+        "ind1_backend": {
+          "aliases": ["mailpit"]
+        },
+        "mailpit_access": null,
+        "sgp_backend": {
+          "aliases": ["mailpit"]
+        },
+        "usa1_backend": {
+          "aliases": ["mailpit"]
+        }
+      },
+      "ports": ["${MAILPIT_BIND:-127.0.0.1}:${MAILPIT_PORT:-18025}:8025"],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=64m"]
     },
     "mcp-server-deu": {
       "build": {
@@ -1174,17 +1937,163 @@
       ],
       "security_opt": ["no-new-privileges:true"]
     },
+    "media-proxy-deu": {
+      "image": "nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
+      "networks": {
+        "deu_backend": null,
+        "deu_media_access": null
+      },
+      "depends_on": {
+        "seaweed-s3-deu": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./media/nginx.conf",
+          "target": "/etc/nginx/conf.d/default.conf",
+          "read_only": true
+        }
+      ],
+      "read_only": true,
+      "tmpfs": ["/tmp"],
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:8080/healthz"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "10s"
+      }
+    },
+    "media-proxy-ind1": {
+      "image": "nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
+      "networks": {
+        "ind1_backend": null,
+        "ind1_media_access": null
+      },
+      "depends_on": {
+        "seaweed-s3-ind1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./media/nginx.conf",
+          "target": "/etc/nginx/conf.d/default.conf",
+          "read_only": true
+        }
+      ],
+      "read_only": true,
+      "tmpfs": ["/tmp"],
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:8080/healthz"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "10s"
+      }
+    },
+    "media-proxy-sgp": {
+      "image": "nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
+      "networks": {
+        "sgp_backend": null,
+        "sgp_media_access": null
+      },
+      "depends_on": {
+        "seaweed-s3-sgp": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./media/nginx.conf",
+          "target": "/etc/nginx/conf.d/default.conf",
+          "read_only": true
+        }
+      ],
+      "read_only": true,
+      "tmpfs": ["/tmp"],
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:8080/healthz"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "10s"
+      }
+    },
+    "media-proxy-usa1": {
+      "image": "nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
+      "networks": {
+        "usa1_backend": null,
+        "usa1_media_access": null
+      },
+      "depends_on": {
+        "seaweed-s3-usa1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./media/nginx.conf",
+          "target": "/etc/nginx/conf.d/default.conf",
+          "read_only": true
+        }
+      ],
+      "read_only": true,
+      "tmpfs": ["/tmp"],
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:8080/healthz"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "10s"
+      }
+    },
     "mesh-api-deu": {
       "build": {
         "context": ".",
         "dockerfile": "backend/Dockerfile",
         "target": "mesh-api"
-      },
-      "depends_on": {
-        "db-seed-deu": {
-          "condition": "service_completed_successfully",
-          "required": true
-        }
       },
       "configs": [
         {
@@ -1196,6 +2105,16 @@
           "target": "/etc/vetchium/config.json"
         }
       ],
+      "depends_on": {
+        "db-seed-deu": {
+          "condition": "service_completed_successfully",
+          "required": true
+        },
+        "wg-deu": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1207,10 +2126,7 @@
         "test": ["CMD", "/service", "healthcheck"],
         "timeout": "2s"
       },
-      "networks": {
-        "deu_backend": null,
-        "mesh": null
-      },
+      "network_mode": "service:wg-deu",
       "read_only": true,
       "restart": "unless-stopped",
       "secrets": [
@@ -1219,12 +2135,36 @@
           "target": "/run/secrets/app_postgres_password"
         },
         {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
-        },
-        {
           "source": "mesh_credential",
           "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "mesh_ca_certificate",
+          "target": "/run/secrets/mesh_ca_certificate"
+        },
+        {
+          "source": "mesh_client_deu_certificate",
+          "target": "/run/secrets/mesh_client_certificate"
+        },
+        {
+          "source": "mesh_client_deu_key",
+          "target": "/run/secrets/mesh_client_key"
+        },
+        {
+          "source": "mesh_server_deu_certificate",
+          "target": "/run/secrets/mesh_server_certificate"
+        },
+        {
+          "source": "mesh_server_deu_key",
+          "target": "/run/secrets/mesh_server_key"
+        },
+        {
+          "source": "seaweed_s3_deu_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_deu_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1234,12 +2174,6 @@
         "context": ".",
         "dockerfile": "backend/Dockerfile",
         "target": "mesh-api"
-      },
-      "depends_on": {
-        "db-seed-ind1": {
-          "condition": "service_completed_successfully",
-          "required": true
-        }
       },
       "configs": [
         {
@@ -1251,6 +2185,16 @@
           "target": "/etc/vetchium/config.json"
         }
       ],
+      "depends_on": {
+        "db-seed-ind1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        },
+        "wg-ind1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1262,10 +2206,7 @@
         "test": ["CMD", "/service", "healthcheck"],
         "timeout": "2s"
       },
-      "networks": {
-        "ind1_backend": null,
-        "mesh": null
-      },
+      "network_mode": "service:wg-ind1",
       "read_only": true,
       "restart": "unless-stopped",
       "secrets": [
@@ -1274,12 +2215,36 @@
           "target": "/run/secrets/app_postgres_password"
         },
         {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
-        },
-        {
           "source": "mesh_credential",
           "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "mesh_ca_certificate",
+          "target": "/run/secrets/mesh_ca_certificate"
+        },
+        {
+          "source": "mesh_client_ind1_certificate",
+          "target": "/run/secrets/mesh_client_certificate"
+        },
+        {
+          "source": "mesh_client_ind1_key",
+          "target": "/run/secrets/mesh_client_key"
+        },
+        {
+          "source": "mesh_server_ind1_certificate",
+          "target": "/run/secrets/mesh_server_certificate"
+        },
+        {
+          "source": "mesh_server_ind1_key",
+          "target": "/run/secrets/mesh_server_key"
+        },
+        {
+          "source": "seaweed_s3_ind1_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_ind1_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1289,12 +2254,6 @@
         "context": ".",
         "dockerfile": "backend/Dockerfile",
         "target": "mesh-api"
-      },
-      "depends_on": {
-        "db-seed-sgp": {
-          "condition": "service_completed_successfully",
-          "required": true
-        }
       },
       "configs": [
         {
@@ -1306,6 +2265,16 @@
           "target": "/etc/vetchium/config.json"
         }
       ],
+      "depends_on": {
+        "db-seed-sgp": {
+          "condition": "service_completed_successfully",
+          "required": true
+        },
+        "wg-sgp": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1317,10 +2286,7 @@
         "test": ["CMD", "/service", "healthcheck"],
         "timeout": "2s"
       },
-      "networks": {
-        "mesh": null,
-        "sgp_backend": null
-      },
+      "network_mode": "service:wg-sgp",
       "read_only": true,
       "restart": "unless-stopped",
       "secrets": [
@@ -1329,12 +2295,36 @@
           "target": "/run/secrets/app_postgres_password"
         },
         {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
-        },
-        {
           "source": "mesh_credential",
           "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "mesh_ca_certificate",
+          "target": "/run/secrets/mesh_ca_certificate"
+        },
+        {
+          "source": "mesh_client_sgp_certificate",
+          "target": "/run/secrets/mesh_client_certificate"
+        },
+        {
+          "source": "mesh_client_sgp_key",
+          "target": "/run/secrets/mesh_client_key"
+        },
+        {
+          "source": "mesh_server_sgp_certificate",
+          "target": "/run/secrets/mesh_server_certificate"
+        },
+        {
+          "source": "mesh_server_sgp_key",
+          "target": "/run/secrets/mesh_server_key"
+        },
+        {
+          "source": "seaweed_s3_sgp_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_sgp_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1344,12 +2334,6 @@
         "context": ".",
         "dockerfile": "backend/Dockerfile",
         "target": "mesh-api"
-      },
-      "depends_on": {
-        "db-seed-usa1": {
-          "condition": "service_completed_successfully",
-          "required": true
-        }
       },
       "configs": [
         {
@@ -1361,6 +2345,16 @@
           "target": "/etc/vetchium/config.json"
         }
       ],
+      "depends_on": {
+        "db-seed-usa1": {
+          "condition": "service_completed_successfully",
+          "required": true
+        },
+        "wg-usa1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
@@ -1372,10 +2366,7 @@
         "test": ["CMD", "/service", "healthcheck"],
         "timeout": "2s"
       },
-      "networks": {
-        "mesh": null,
-        "usa1_backend": null
-      },
+      "network_mode": "service:wg-usa1",
       "read_only": true,
       "restart": "unless-stopped",
       "secrets": [
@@ -1384,12 +2375,36 @@
           "target": "/run/secrets/app_postgres_password"
         },
         {
-          "source": "global_coordinator_credential",
-          "target": "/run/secrets/global_coordinator_credential"
-        },
-        {
           "source": "mesh_credential",
           "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "mesh_ca_certificate",
+          "target": "/run/secrets/mesh_ca_certificate"
+        },
+        {
+          "source": "mesh_client_usa1_certificate",
+          "target": "/run/secrets/mesh_client_certificate"
+        },
+        {
+          "source": "mesh_client_usa1_key",
+          "target": "/run/secrets/mesh_client_key"
+        },
+        {
+          "source": "mesh_server_usa1_certificate",
+          "target": "/run/secrets/mesh_server_certificate"
+        },
+        {
+          "source": "mesh_server_usa1_key",
+          "target": "/run/secrets/mesh_server_key"
+        },
+        {
+          "source": "seaweed_s3_usa1_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_usa1_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -1686,269 +2701,653 @@
       "restart": "unless-stopped",
       "security_opt": ["no-new-privileges:true"]
     },
-    "db-seed-deu": {
-      "command": [
-        "psql",
-        "--no-password",
-        "-v",
-        "ON_ERROR_STOP=1",
-        "-1",
-        "-f",
-        "/seed.sql"
-      ],
-      "depends_on": {
-        "migrate-deu": {
-          "condition": "service_completed_successfully",
-          "required": true
-        }
-      },
-      "environment": {
-        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
-        "PGHOST": "db-deu",
-        "PGPASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
-        "PGUSER": "${POSTGRES_USER:-pguser}"
-      },
-      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+    "seaweed-filer-deu": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
       "networks": {
         "deu_backend": null
       },
-      "read_only": true,
-      "restart": "no",
+      "restart": "unless-stopped",
       "security_opt": ["no-new-privileges:true"],
-      "volumes": [
-        {
-          "bind": {
-            "create_host_path": true
-          },
-          "read_only": true,
-          "source": "./db/db-seed/deu.sql",
-          "target": "/seed.sql",
-          "type": "bind"
-        }
-      ]
-    },
-    "dev-seed-deu": {
-      "build": {
-        "context": ".",
-        "dockerfile": "backend/Dockerfile",
-        "target": "dev-seed"
-      },
+      "command": [
+        "filer",
+        "-ip=seaweed-filer-deu",
+        "-ip.bind=0.0.0.0",
+        "-port=8888",
+        "-master=seaweed-master-deu:9333",
+        "-defaultStoreDir=/data"
+      ],
       "depends_on": {
-        "admin-api-deu": {
+        "seaweed-master-deu": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "seaweed-volume-deu": {
           "condition": "service_healthy",
           "required": true
         }
       },
-      "environment": {
-        "DEV_SEED_ADMIN_API_URL": "http://admin-api-deu:8080",
-        "DEV_SEED_ADMIN_EMAIL": "admin@deu.example",
-        "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
-        "DEV_SEED_SIGNUP_DOMAINS": "deu.example"
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "seaweed-filerdata-deu",
+          "target": "/data"
+        }
+      ],
+      "healthcheck": {
+        "test": ["CMD-SHELL", "curl -fsS http://127.0.0.1:8888/ >/dev/null"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
+    },
+    "seaweed-filer-ind1": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "networks": {
+        "ind1_backend": null
       },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "command": [
+        "filer",
+        "-ip=seaweed-filer-ind1",
+        "-ip.bind=0.0.0.0",
+        "-port=8888",
+        "-master=seaweed-master-ind1:9333",
+        "-defaultStoreDir=/data"
+      ],
+      "depends_on": {
+        "seaweed-master-ind1": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "seaweed-volume-ind1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "seaweed-filerdata-ind1",
+          "target": "/data"
+        }
+      ],
+      "healthcheck": {
+        "test": ["CMD-SHELL", "curl -fsS http://127.0.0.1:8888/ >/dev/null"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
+    },
+    "seaweed-filer-sgp": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "networks": {
+        "sgp_backend": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "command": [
+        "filer",
+        "-ip=seaweed-filer-sgp",
+        "-ip.bind=0.0.0.0",
+        "-port=8888",
+        "-master=seaweed-master-sgp:9333",
+        "-defaultStoreDir=/data"
+      ],
+      "depends_on": {
+        "seaweed-master-sgp": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "seaweed-volume-sgp": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "seaweed-filerdata-sgp",
+          "target": "/data"
+        }
+      ],
+      "healthcheck": {
+        "test": ["CMD-SHELL", "curl -fsS http://127.0.0.1:8888/ >/dev/null"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
+    },
+    "seaweed-filer-usa1": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "networks": {
+        "usa1_backend": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "command": [
+        "filer",
+        "-ip=seaweed-filer-usa1",
+        "-ip.bind=0.0.0.0",
+        "-port=8888",
+        "-master=seaweed-master-usa1:9333",
+        "-defaultStoreDir=/data"
+      ],
+      "depends_on": {
+        "seaweed-master-usa1": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "seaweed-volume-usa1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "seaweed-filerdata-usa1",
+          "target": "/data"
+        }
+      ],
+      "healthcheck": {
+        "test": ["CMD-SHELL", "curl -fsS http://127.0.0.1:8888/ >/dev/null"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
+    },
+    "seaweed-master-deu": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
       "networks": {
         "deu_backend": null
       },
-      "read_only": true,
-      "restart": "no",
-      "security_opt": ["no-new-privileges:true"]
-    },
-    "db-seed-ind1": {
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
       "command": [
-        "psql",
-        "--no-password",
-        "-v",
-        "ON_ERROR_STOP=1",
-        "-1",
-        "-f",
-        "/seed.sql"
+        "master",
+        "-ip=seaweed-master-deu",
+        "-ip.bind=0.0.0.0",
+        "-port=9333",
+        "-mdir=/data",
+        "-volumeSizeLimitMB=1024"
       ],
-      "depends_on": {
-        "migrate-ind1": {
-          "condition": "service_completed_successfully",
-          "required": true
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "seaweed-masterdata-deu",
+          "target": "/data"
         }
-      },
-      "environment": {
-        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
-        "PGHOST": "db-ind1",
-        "PGPASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
-        "PGUSER": "${POSTGRES_USER:-pguser}"
-      },
-      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:9333/cluster/status >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
+    },
+    "seaweed-master-ind1": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
       "networks": {
         "ind1_backend": null
       },
-      "read_only": true,
-      "restart": "no",
+      "restart": "unless-stopped",
       "security_opt": ["no-new-privileges:true"],
+      "command": [
+        "master",
+        "-ip=seaweed-master-ind1",
+        "-ip.bind=0.0.0.0",
+        "-port=9333",
+        "-mdir=/data",
+        "-volumeSizeLimitMB=1024"
+      ],
       "volumes": [
         {
-          "bind": {
-            "create_host_path": true
-          },
-          "read_only": true,
-          "source": "./db/db-seed/ind1.sql",
-          "target": "/seed.sql",
-          "type": "bind"
+          "type": "volume",
+          "source": "seaweed-masterdata-ind1",
+          "target": "/data"
         }
-      ]
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:9333/cluster/status >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
     },
-    "dev-seed-ind1": {
-      "build": {
-        "context": ".",
-        "dockerfile": "backend/Dockerfile",
-        "target": "dev-seed"
+    "seaweed-master-sgp": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "networks": {
+        "sgp_backend": null
       },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "command": [
+        "master",
+        "-ip=seaweed-master-sgp",
+        "-ip.bind=0.0.0.0",
+        "-port=9333",
+        "-mdir=/data",
+        "-volumeSizeLimitMB=1024"
+      ],
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "seaweed-masterdata-sgp",
+          "target": "/data"
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:9333/cluster/status >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
+    },
+    "seaweed-master-usa1": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "networks": {
+        "usa1_backend": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "command": [
+        "master",
+        "-ip=seaweed-master-usa1",
+        "-ip.bind=0.0.0.0",
+        "-port=9333",
+        "-mdir=/data",
+        "-volumeSizeLimitMB=1024"
+      ],
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "seaweed-masterdata-usa1",
+          "target": "/data"
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:9333/cluster/status >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
+    },
+    "seaweed-s3-deu": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "networks": {
+        "deu_backend": {
+          "aliases": ["seaweed-s3"]
+        }
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "entrypoint": ["/bin/sh", "/etc/vetchium/seaweedfs-s3-entrypoint.sh"],
+      "command": [
+        "-ip=seaweed-s3-deu",
+        "-ip.bind=0.0.0.0",
+        "-port=8333",
+        "-filer=seaweed-filer-deu:8888",
+        "-iam=false",
+        "-port.iceberg=0",
+        "-port.lance=0"
+      ],
       "depends_on": {
-        "admin-api-ind1": {
+        "seaweed-filer-deu": {
           "condition": "service_healthy",
           "required": true
         }
       },
-      "environment": {
-        "DEV_SEED_ADMIN_API_URL": "http://admin-api-ind1:8080",
-        "DEV_SEED_ADMIN_EMAIL": "admin@ind1.example",
-        "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
-        "DEV_SEED_SIGNUP_DOMAINS": "ind1.example"
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./dev/seaweedfs-s3-entrypoint.sh",
+          "target": "/etc/vetchium/seaweedfs-s3-entrypoint.sh",
+          "read_only": true
+        }
+      ],
+      "secrets": [
+        {
+          "source": "seaweed_s3_deu_config",
+          "target": "seaweed_s3_config"
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/ | grep -qx 403"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
+    },
+    "seaweed-s3-ind1": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "networks": {
+        "ind1_backend": {
+          "aliases": ["seaweed-s3"]
+        }
       },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "entrypoint": ["/bin/sh", "/etc/vetchium/seaweedfs-s3-entrypoint.sh"],
+      "command": [
+        "-ip=seaweed-s3-ind1",
+        "-ip.bind=0.0.0.0",
+        "-port=8333",
+        "-filer=seaweed-filer-ind1:8888",
+        "-iam=false",
+        "-port.iceberg=0",
+        "-port.lance=0"
+      ],
+      "depends_on": {
+        "seaweed-filer-ind1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./dev/seaweedfs-s3-entrypoint.sh",
+          "target": "/etc/vetchium/seaweedfs-s3-entrypoint.sh",
+          "read_only": true
+        }
+      ],
+      "secrets": [
+        {
+          "source": "seaweed_s3_ind1_config",
+          "target": "seaweed_s3_config"
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/ | grep -qx 403"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
+    },
+    "seaweed-s3-sgp": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "networks": {
+        "sgp_backend": {
+          "aliases": ["seaweed-s3"]
+        }
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "entrypoint": ["/bin/sh", "/etc/vetchium/seaweedfs-s3-entrypoint.sh"],
+      "command": [
+        "-ip=seaweed-s3-sgp",
+        "-ip.bind=0.0.0.0",
+        "-port=8333",
+        "-filer=seaweed-filer-sgp:8888",
+        "-iam=false",
+        "-port.iceberg=0",
+        "-port.lance=0"
+      ],
+      "depends_on": {
+        "seaweed-filer-sgp": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./dev/seaweedfs-s3-entrypoint.sh",
+          "target": "/etc/vetchium/seaweedfs-s3-entrypoint.sh",
+          "read_only": true
+        }
+      ],
+      "secrets": [
+        {
+          "source": "seaweed_s3_sgp_config",
+          "target": "seaweed_s3_config"
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/ | grep -qx 403"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
+    },
+    "seaweed-s3-usa1": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "networks": {
+        "usa1_backend": {
+          "aliases": ["seaweed-s3"]
+        }
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "entrypoint": ["/bin/sh", "/etc/vetchium/seaweedfs-s3-entrypoint.sh"],
+      "command": [
+        "-ip=seaweed-s3-usa1",
+        "-ip.bind=0.0.0.0",
+        "-port=8333",
+        "-filer=seaweed-filer-usa1:8888",
+        "-iam=false",
+        "-port.iceberg=0",
+        "-port.lance=0"
+      ],
+      "depends_on": {
+        "seaweed-filer-usa1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./dev/seaweedfs-s3-entrypoint.sh",
+          "target": "/etc/vetchium/seaweedfs-s3-entrypoint.sh",
+          "read_only": true
+        }
+      ],
+      "secrets": [
+        {
+          "source": "seaweed_s3_usa1_config",
+          "target": "seaweed_s3_config"
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/ | grep -qx 403"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
+    },
+    "seaweed-volume-deu": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "networks": {
+        "deu_backend": null
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "command": [
+        "volume",
+        "-ip=seaweed-volume-deu",
+        "-ip.bind=0.0.0.0",
+        "-port=8080",
+        "-dir=/data",
+        "-master=seaweed-master-deu:9333"
+      ],
+      "depends_on": {
+        "seaweed-master-deu": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "seaweed-volumedata-deu",
+          "target": "/data"
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/status >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
+    },
+    "seaweed-volume-ind1": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
       "networks": {
         "ind1_backend": null
       },
-      "read_only": true,
-      "restart": "no",
-      "security_opt": ["no-new-privileges:true"]
-    },
-    "db-seed-sgp": {
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
       "command": [
-        "psql",
-        "--no-password",
-        "-v",
-        "ON_ERROR_STOP=1",
-        "-1",
-        "-f",
-        "/seed.sql"
+        "volume",
+        "-ip=seaweed-volume-ind1",
+        "-ip.bind=0.0.0.0",
+        "-port=8080",
+        "-dir=/data",
+        "-master=seaweed-master-ind1:9333"
       ],
       "depends_on": {
-        "migrate-sgp": {
-          "condition": "service_completed_successfully",
-          "required": true
-        }
-      },
-      "environment": {
-        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
-        "PGHOST": "db-sgp",
-        "PGPASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
-        "PGUSER": "${POSTGRES_USER:-pguser}"
-      },
-      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
-      "networks": {
-        "sgp_backend": null
-      },
-      "read_only": true,
-      "restart": "no",
-      "security_opt": ["no-new-privileges:true"],
-      "volumes": [
-        {
-          "bind": {
-            "create_host_path": true
-          },
-          "read_only": true,
-          "source": "./db/db-seed/sgp.sql",
-          "target": "/seed.sql",
-          "type": "bind"
-        }
-      ]
-    },
-    "dev-seed-sgp": {
-      "build": {
-        "context": ".",
-        "dockerfile": "backend/Dockerfile",
-        "target": "dev-seed"
-      },
-      "depends_on": {
-        "admin-api-sgp": {
+        "seaweed-master-ind1": {
           "condition": "service_healthy",
           "required": true
         }
       },
-      "environment": {
-        "DEV_SEED_ADMIN_API_URL": "http://admin-api-sgp:8080",
-        "DEV_SEED_ADMIN_EMAIL": "admin@sgp.example",
-        "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
-        "DEV_SEED_SIGNUP_DOMAINS": "sgp.example,test1.example,test2.example,test3.example,test4.example,test5.example,test6.example,test7.example,test8.example,test9.example,test10.example,test11.example,test12.example,test13.example,test14.example,test15.example,test16.example,test17.example,test18.example,test19.example,test20.example,test21.example,test22.example,test23.example,test24.example,test25.example,test26.example,test27.example,test28.example,test29.example,test30.example,test31.example,test32.example,test33.example,test34.example,test35.example,test36.example,test37.example,test38.example,test39.example,test40.example,test41.example,test42.example,test43.example,test44.example,test45.example,test46.example,test47.example,test48.example,test49.example,test50.example,test51.example,test52.example,test53.example,test54.example,test55.example,test56.example,test57.example,test58.example,test59.example,test60.example,test61.example,test62.example,test63.example,test64.example,test65.example,test66.example,test67.example,test68.example,test69.example,test70.example,test71.example,test72.example,test73.example,test74.example,test75.example,test76.example,test77.example,test78.example,test79.example,test80.example,test81.example,test82.example,test83.example,test84.example,test85.example,test86.example,test87.example,test88.example,test89.example,test90.example,test91.example,test92.example,test93.example,test94.example,test95.example,test96.example,test97.example,test98.example,test99.example,test100.example"
-      },
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "seaweed-volumedata-ind1",
+          "target": "/data"
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/status >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
+    },
+    "seaweed-volume-sgp": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
       "networks": {
         "sgp_backend": null
       },
-      "read_only": true,
-      "restart": "no",
-      "security_opt": ["no-new-privileges:true"]
-    },
-    "db-seed-usa1": {
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
       "command": [
-        "psql",
-        "--no-password",
-        "-v",
-        "ON_ERROR_STOP=1",
-        "-1",
-        "-f",
-        "/seed.sql"
+        "volume",
+        "-ip=seaweed-volume-sgp",
+        "-ip.bind=0.0.0.0",
+        "-port=8080",
+        "-dir=/data",
+        "-master=seaweed-master-sgp:9333"
       ],
       "depends_on": {
-        "migrate-usa1": {
-          "condition": "service_completed_successfully",
-          "required": true
-        }
-      },
-      "environment": {
-        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
-        "PGHOST": "db-usa1",
-        "PGPASSWORD": "${POSTGRES_PASSWORD:-pgpassword}",
-        "PGUSER": "${POSTGRES_USER:-pguser}"
-      },
-      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
-      "networks": {
-        "usa1_backend": null
-      },
-      "read_only": true,
-      "restart": "no",
-      "security_opt": ["no-new-privileges:true"],
-      "volumes": [
-        {
-          "bind": {
-            "create_host_path": true
-          },
-          "read_only": true,
-          "source": "./db/db-seed/usa1.sql",
-          "target": "/seed.sql",
-          "type": "bind"
-        }
-      ]
-    },
-    "dev-seed-usa1": {
-      "build": {
-        "context": ".",
-        "dockerfile": "backend/Dockerfile",
-        "target": "dev-seed"
-      },
-      "depends_on": {
-        "admin-api-usa1": {
+        "seaweed-master-sgp": {
           "condition": "service_healthy",
           "required": true
         }
       },
-      "environment": {
-        "DEV_SEED_ADMIN_API_URL": "http://admin-api-usa1:8080",
-        "DEV_SEED_ADMIN_EMAIL": "admin@usa1.example",
-        "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
-        "DEV_SEED_SIGNUP_DOMAINS": "usa1.example"
-      },
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "seaweed-volumedata-sgp",
+          "target": "/data"
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/status >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
+    },
+    "seaweed-volume-usa1": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
       "networks": {
         "usa1_backend": null
       },
-      "read_only": true,
-      "restart": "no",
-      "security_opt": ["no-new-privileges:true"]
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "command": [
+        "volume",
+        "-ip=seaweed-volume-usa1",
+        "-ip.bind=0.0.0.0",
+        "-port=8080",
+        "-dir=/data",
+        "-master=seaweed-master-usa1:9333"
+      ],
+      "depends_on": {
+        "seaweed-master-usa1": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "seaweed-volumedata-usa1",
+          "target": "/data"
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/status >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "20s"
+      }
     },
     "traefik-deu": {
       "command": [
@@ -1972,6 +3371,7 @@
         "deu_hub_api_access": null,
         "deu_ingress": null,
         "deu_mcp_access": null,
+        "deu_media_access": null,
         "deu_orgs_api_access": null
       },
       "restart": "unless-stopped",
@@ -2010,6 +3410,7 @@
         "ind1_hub_api_access": null,
         "ind1_ingress": null,
         "ind1_mcp_access": null,
+        "ind1_media_access": null,
         "ind1_orgs_api_access": null
       },
       "restart": "unless-stopped",
@@ -2048,6 +3449,7 @@
         "sgp_hub_api_access": null,
         "sgp_ingress": null,
         "sgp_mcp_access": null,
+        "sgp_media_access": null,
         "sgp_orgs_api_access": null
       },
       "restart": "unless-stopped",
@@ -2086,6 +3488,7 @@
         "usa1_hub_api_access": null,
         "usa1_ingress": null,
         "usa1_mcp_access": null,
+        "usa1_media_access": null,
         "usa1_orgs_api_access": null
       },
       "restart": "unless-stopped",
@@ -2099,6 +3502,364 @@
           "source": "./traefik/usa1.json",
           "target": "/etc/traefik/dynamic.json",
           "type": "bind"
+        }
+      ]
+    },
+    "wg-deu": {
+      "build": {
+        "context": ".",
+        "dockerfile": "dev/wireguard/Dockerfile"
+      },
+      "cap_add": ["NET_ADMIN"],
+      "devices": ["/dev/net/tun:/dev/net/tun"],
+      "environment": {
+        "WIREGUARD_ADDRESS": "10.242.0.13",
+        "WIREGUARD_PEERS": "/run/secrets/wireguard_global-coordinator_public_key=10.242.0.1=wg-global-coordinator /run/secrets/wireguard_sgp_public_key=10.242.0.11=wg-sgp /run/secrets/wireguard_usa1_public_key=10.242.0.12=wg-usa1 /run/secrets/wireguard_ind1_public_key=10.242.0.14=wg-ind1"
+      },
+      "extra_hosts": [
+        "sgp.mesh.vetchium.com:10.242.0.11",
+        "usa1.mesh.vetchium.com:10.242.0.12",
+        "deu.mesh.vetchium.com:10.242.0.13",
+        "ind1.mesh.vetchium.com:10.242.0.14",
+        "global-coordinator:10.242.0.1",
+        "global-coordinator.mesh.vetchium.com:10.242.0.1"
+      ],
+      "healthcheck": {
+        "test": ["CMD", "wg", "show", "wg0"],
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "timeout": "2s"
+      },
+      "networks": {
+        "mesh": {
+          "aliases": ["wg-deu"]
+        },
+        "deu_backend": {
+          "aliases": ["mesh-api-deu"]
+        }
+      },
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "wireguard_deu_private_key",
+          "target": "/run/secrets/wireguard_private_key"
+        },
+        {
+          "source": "wireguard_global-coordinator_public_key",
+          "target": "/run/secrets/wireguard_global-coordinator_public_key"
+        },
+        {
+          "source": "wireguard_sgp_public_key",
+          "target": "/run/secrets/wireguard_sgp_public_key"
+        },
+        {
+          "source": "wireguard_usa1_public_key",
+          "target": "/run/secrets/wireguard_usa1_public_key"
+        },
+        {
+          "source": "wireguard_ind1_public_key",
+          "target": "/run/secrets/wireguard_ind1_public_key"
+        },
+        {
+          "source": "mesh_ca_certificate",
+          "target": "/run/secrets/mesh_ca_certificate"
+        },
+        {
+          "source": "mesh_client_deu_certificate",
+          "target": "/run/secrets/mesh_client_certificate"
+        },
+        {
+          "source": "mesh_client_deu_key",
+          "target": "/run/secrets/mesh_client_key"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
+        }
+      ]
+    },
+    "wg-global-coordinator": {
+      "build": {
+        "context": ".",
+        "dockerfile": "dev/wireguard/Dockerfile"
+      },
+      "cap_add": ["NET_ADMIN"],
+      "devices": ["/dev/net/tun:/dev/net/tun"],
+      "environment": {
+        "WIREGUARD_ADDRESS": "10.242.0.1",
+        "WIREGUARD_PEERS": "/run/secrets/wireguard_sgp_public_key=10.242.0.11=wg-sgp /run/secrets/wireguard_usa1_public_key=10.242.0.12=wg-usa1 /run/secrets/wireguard_deu_public_key=10.242.0.13=wg-deu /run/secrets/wireguard_ind1_public_key=10.242.0.14=wg-ind1"
+      },
+      "extra_hosts": [
+        "sgp.mesh.vetchium.com:10.242.0.11",
+        "usa1.mesh.vetchium.com:10.242.0.12",
+        "deu.mesh.vetchium.com:10.242.0.13",
+        "ind1.mesh.vetchium.com:10.242.0.14",
+        "global-coordinator:10.242.0.1",
+        "global-coordinator.mesh.vetchium.com:10.242.0.1"
+      ],
+      "healthcheck": {
+        "test": ["CMD", "wg", "show", "wg0"],
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "timeout": "2s"
+      },
+      "networks": {
+        "mesh": {
+          "aliases": ["wg-global-coordinator"]
+        },
+        "global_coordinator_access": {
+          "aliases": ["global-coordinator"]
+        },
+        "global_backend": null
+      },
+      "ports": [
+        "${GLOBAL_COORDINATOR_BIND:-127.0.0.1}:${GLOBAL_COORDINATOR_PORT:-18080}:8080"
+      ],
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "wireguard_global-coordinator_private_key",
+          "target": "/run/secrets/wireguard_private_key"
+        },
+        {
+          "source": "wireguard_sgp_public_key",
+          "target": "/run/secrets/wireguard_sgp_public_key"
+        },
+        {
+          "source": "wireguard_usa1_public_key",
+          "target": "/run/secrets/wireguard_usa1_public_key"
+        },
+        {
+          "source": "wireguard_deu_public_key",
+          "target": "/run/secrets/wireguard_deu_public_key"
+        },
+        {
+          "source": "wireguard_ind1_public_key",
+          "target": "/run/secrets/wireguard_ind1_public_key"
+        }
+      ]
+    },
+    "wg-ind1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "dev/wireguard/Dockerfile"
+      },
+      "cap_add": ["NET_ADMIN"],
+      "devices": ["/dev/net/tun:/dev/net/tun"],
+      "environment": {
+        "WIREGUARD_ADDRESS": "10.242.0.14",
+        "WIREGUARD_PEERS": "/run/secrets/wireguard_global-coordinator_public_key=10.242.0.1=wg-global-coordinator /run/secrets/wireguard_sgp_public_key=10.242.0.11=wg-sgp /run/secrets/wireguard_usa1_public_key=10.242.0.12=wg-usa1 /run/secrets/wireguard_deu_public_key=10.242.0.13=wg-deu"
+      },
+      "extra_hosts": [
+        "sgp.mesh.vetchium.com:10.242.0.11",
+        "usa1.mesh.vetchium.com:10.242.0.12",
+        "deu.mesh.vetchium.com:10.242.0.13",
+        "ind1.mesh.vetchium.com:10.242.0.14",
+        "global-coordinator:10.242.0.1",
+        "global-coordinator.mesh.vetchium.com:10.242.0.1"
+      ],
+      "healthcheck": {
+        "test": ["CMD", "wg", "show", "wg0"],
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "timeout": "2s"
+      },
+      "networks": {
+        "mesh": {
+          "aliases": ["wg-ind1"]
+        },
+        "ind1_backend": {
+          "aliases": ["mesh-api-ind1"]
+        }
+      },
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "wireguard_ind1_private_key",
+          "target": "/run/secrets/wireguard_private_key"
+        },
+        {
+          "source": "wireguard_global-coordinator_public_key",
+          "target": "/run/secrets/wireguard_global-coordinator_public_key"
+        },
+        {
+          "source": "wireguard_sgp_public_key",
+          "target": "/run/secrets/wireguard_sgp_public_key"
+        },
+        {
+          "source": "wireguard_usa1_public_key",
+          "target": "/run/secrets/wireguard_usa1_public_key"
+        },
+        {
+          "source": "wireguard_deu_public_key",
+          "target": "/run/secrets/wireguard_deu_public_key"
+        },
+        {
+          "source": "mesh_ca_certificate",
+          "target": "/run/secrets/mesh_ca_certificate"
+        },
+        {
+          "source": "mesh_client_ind1_certificate",
+          "target": "/run/secrets/mesh_client_certificate"
+        },
+        {
+          "source": "mesh_client_ind1_key",
+          "target": "/run/secrets/mesh_client_key"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
+        }
+      ]
+    },
+    "wg-sgp": {
+      "build": {
+        "context": ".",
+        "dockerfile": "dev/wireguard/Dockerfile"
+      },
+      "cap_add": ["NET_ADMIN"],
+      "devices": ["/dev/net/tun:/dev/net/tun"],
+      "environment": {
+        "WIREGUARD_ADDRESS": "10.242.0.11",
+        "WIREGUARD_PEERS": "/run/secrets/wireguard_global-coordinator_public_key=10.242.0.1=wg-global-coordinator /run/secrets/wireguard_usa1_public_key=10.242.0.12=wg-usa1 /run/secrets/wireguard_deu_public_key=10.242.0.13=wg-deu /run/secrets/wireguard_ind1_public_key=10.242.0.14=wg-ind1"
+      },
+      "extra_hosts": [
+        "sgp.mesh.vetchium.com:10.242.0.11",
+        "usa1.mesh.vetchium.com:10.242.0.12",
+        "deu.mesh.vetchium.com:10.242.0.13",
+        "ind1.mesh.vetchium.com:10.242.0.14",
+        "global-coordinator:10.242.0.1",
+        "global-coordinator.mesh.vetchium.com:10.242.0.1"
+      ],
+      "healthcheck": {
+        "test": ["CMD", "wg", "show", "wg0"],
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "timeout": "2s"
+      },
+      "networks": {
+        "mesh": {
+          "aliases": ["wg-sgp"]
+        },
+        "sgp_backend": {
+          "aliases": ["mesh-api-sgp"]
+        }
+      },
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "wireguard_sgp_private_key",
+          "target": "/run/secrets/wireguard_private_key"
+        },
+        {
+          "source": "wireguard_global-coordinator_public_key",
+          "target": "/run/secrets/wireguard_global-coordinator_public_key"
+        },
+        {
+          "source": "wireguard_usa1_public_key",
+          "target": "/run/secrets/wireguard_usa1_public_key"
+        },
+        {
+          "source": "wireguard_deu_public_key",
+          "target": "/run/secrets/wireguard_deu_public_key"
+        },
+        {
+          "source": "wireguard_ind1_public_key",
+          "target": "/run/secrets/wireguard_ind1_public_key"
+        },
+        {
+          "source": "mesh_ca_certificate",
+          "target": "/run/secrets/mesh_ca_certificate"
+        },
+        {
+          "source": "mesh_client_sgp_certificate",
+          "target": "/run/secrets/mesh_client_certificate"
+        },
+        {
+          "source": "mesh_client_sgp_key",
+          "target": "/run/secrets/mesh_client_key"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
+        }
+      ]
+    },
+    "wg-usa1": {
+      "build": {
+        "context": ".",
+        "dockerfile": "dev/wireguard/Dockerfile"
+      },
+      "cap_add": ["NET_ADMIN"],
+      "devices": ["/dev/net/tun:/dev/net/tun"],
+      "environment": {
+        "WIREGUARD_ADDRESS": "10.242.0.12",
+        "WIREGUARD_PEERS": "/run/secrets/wireguard_global-coordinator_public_key=10.242.0.1=wg-global-coordinator /run/secrets/wireguard_sgp_public_key=10.242.0.11=wg-sgp /run/secrets/wireguard_deu_public_key=10.242.0.13=wg-deu /run/secrets/wireguard_ind1_public_key=10.242.0.14=wg-ind1"
+      },
+      "extra_hosts": [
+        "sgp.mesh.vetchium.com:10.242.0.11",
+        "usa1.mesh.vetchium.com:10.242.0.12",
+        "deu.mesh.vetchium.com:10.242.0.13",
+        "ind1.mesh.vetchium.com:10.242.0.14",
+        "global-coordinator:10.242.0.1",
+        "global-coordinator.mesh.vetchium.com:10.242.0.1"
+      ],
+      "healthcheck": {
+        "test": ["CMD", "wg", "show", "wg0"],
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "timeout": "2s"
+      },
+      "networks": {
+        "mesh": {
+          "aliases": ["wg-usa1"]
+        },
+        "usa1_backend": {
+          "aliases": ["mesh-api-usa1"]
+        }
+      },
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "wireguard_usa1_private_key",
+          "target": "/run/secrets/wireguard_private_key"
+        },
+        {
+          "source": "wireguard_global-coordinator_public_key",
+          "target": "/run/secrets/wireguard_global-coordinator_public_key"
+        },
+        {
+          "source": "wireguard_sgp_public_key",
+          "target": "/run/secrets/wireguard_sgp_public_key"
+        },
+        {
+          "source": "wireguard_deu_public_key",
+          "target": "/run/secrets/wireguard_deu_public_key"
+        },
+        {
+          "source": "wireguard_ind1_public_key",
+          "target": "/run/secrets/wireguard_ind1_public_key"
+        },
+        {
+          "source": "mesh_ca_certificate",
+          "target": "/run/secrets/mesh_ca_certificate"
+        },
+        {
+          "source": "mesh_client_usa1_certificate",
+          "target": "/run/secrets/mesh_client_certificate"
+        },
+        {
+          "source": "mesh_client_usa1_key",
+          "target": "/run/secrets/mesh_client_key"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
         }
       ]
     },
@@ -2141,6 +3902,18 @@
         {
           "source": "hub_credential_key",
           "target": "/run/secrets/hub_credential_key"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "seaweed_s3_deu_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_deu_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -2184,6 +3957,18 @@
         {
           "source": "hub_credential_key",
           "target": "/run/secrets/hub_credential_key"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "seaweed_s3_ind1_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_ind1_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -2227,6 +4012,18 @@
         {
           "source": "hub_credential_key",
           "target": "/run/secrets/hub_credential_key"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "seaweed_s3_sgp_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_sgp_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -2270,15 +4067,40 @@
         {
           "source": "hub_credential_key",
           "target": "/run/secrets/hub_credential_key"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "seaweed_s3_usa1_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_usa1_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
     }
   },
   "volumes": {
+    "pgdata-global": {},
     "pgdata-deu": {},
     "pgdata-ind1": {},
     "pgdata-sgp": {},
-    "pgdata-usa1": {}
+    "pgdata-usa1": {},
+    "seaweed-masterdata-deu": {},
+    "seaweed-volumedata-deu": {},
+    "seaweed-filerdata-deu": {},
+    "seaweed-masterdata-ind1": {},
+    "seaweed-volumedata-ind1": {},
+    "seaweed-filerdata-ind1": {},
+    "seaweed-masterdata-sgp": {},
+    "seaweed-volumedata-sgp": {},
+    "seaweed-filerdata-sgp": {},
+    "seaweed-masterdata-usa1": {},
+    "seaweed-volumedata-usa1": {},
+    "seaweed-filerdata-usa1": {}
   }
 }

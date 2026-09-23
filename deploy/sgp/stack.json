@@ -65,7 +65,7 @@
       "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
       "PGSSLMODE": "${PGSSLMODE:-disable}"
     },
-    "secrets": ["app_postgres_password", "global_coordinator_credential"]
+    "secrets": ["app_postgres_password"]
   },
   "services": {
     "traefik": {
@@ -91,7 +91,8 @@
         "admin_api_access",
         "hub_api_access",
         "orgs_api_access",
-        "mcp_access"
+        "mcp_access",
+        "media_access"
       ],
       "configs": [
         {
@@ -275,7 +276,9 @@
       "secrets": [
         "app_postgres_password",
         "hub_credential_key",
-        "mesh_credential"
+        "mesh_credential",
+        "seaweed_s3_access_key",
+        "seaweed_s3_secret_key"
       ],
       "image": "${REGISTRY:-ghcr.io/vetchium}/hub-api:${TAG:?set TAG}",
       "networks": ["hub_api_access", "backend"]
@@ -366,11 +369,25 @@
       },
       "secrets": [
         "app_postgres_password",
-        "global_coordinator_credential",
-        "mesh_credential"
+        "mesh_credential",
+        "mesh_ca_certificate",
+        "mesh_client_certificate",
+        "mesh_client_key",
+        "mesh_server_certificate",
+        "mesh_server_key",
+        "seaweed_s3_access_key",
+        "seaweed_s3_secret_key"
       ],
       "image": "${REGISTRY:-ghcr.io/vetchium}/mesh-api:${TAG:?set TAG}",
-      "networks": ["mesh", "backend", "global_coordinator_egress"]
+      "networks": ["mesh", "backend", "global_coordinator_egress"],
+      "ports": [
+        {
+          "target": 8443,
+          "published": "${MESH_API_PORT:-8443}",
+          "protocol": "tcp",
+          "mode": "host"
+        }
+      ]
     },
     "mcp-server": {
       "deploy": {
@@ -453,8 +470,11 @@
       "secrets": [
         "app_postgres_password",
         "hub_credential_key",
+        "mesh_credential",
         "smtp_username",
-        "smtp_password"
+        "smtp_password",
+        "seaweed_s3_access_key",
+        "seaweed_s3_secret_key"
       ],
       "image": "${REGISTRY:-ghcr.io/vetchium}/workers:${TAG:?set TAG}",
       "networks": ["backend", "smtp_egress"]
@@ -534,7 +554,8 @@
       "environment": {
         "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_DEFAULT_LANGUAGE:-en-US}",
         "VETCHIUM_TENANT_ID": "sgp",
-        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier"
+        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier",
+        "VETCHIUM_MEDIA_ORIGINS": "https://media.deu.vetchium.com,https://media.ind1.vetchium.com,https://media.sgp.vetchium.com,https://media.usa1.vetchium.com"
       },
       "read_only": true,
       "tmpfs": ["/tmp"],
@@ -600,6 +621,221 @@
         "retries": 3,
         "start_period": "10s"
       }
+    },
+    "media-proxy": {
+      "image": "nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
+      "networks": ["backend", "media_access"],
+      "configs": [
+        {
+          "source": "media_proxy",
+          "target": "/etc/nginx/conf.d/default.conf"
+        }
+      ],
+      "read_only": true,
+      "tmpfs": ["/tmp"],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:8080/healthz"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "10s"
+      },
+      "deploy": {
+        "replicas": 1,
+        "restart_policy": { "condition": "any", "delay": "5s" },
+        "resources": {
+          "limits": { "memory": "128M" },
+          "reservations": { "memory": "32M" }
+        }
+      }
+    },
+    "seaweed-master": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "networks": ["backend"],
+      "security_opt": ["no-new-privileges:true"],
+      "deploy": {
+        "replicas": 1,
+        "update_config": {
+          "order": "stop-first",
+          "failure_action": "pause",
+          "parallelism": 1
+        },
+        "restart_policy": {
+          "condition": "any",
+          "delay": "10s"
+        },
+        "resources": {
+          "limits": {
+            "memory": "512M"
+          },
+          "reservations": {
+            "memory": "128M"
+          }
+        }
+      },
+      "command": [
+        "master",
+        "-ip=seaweed-master",
+        "-ip.bind=0.0.0.0",
+        "-port=9333",
+        "-mdir=/data",
+        "-volumeSizeLimitMB=1024"
+      ],
+      "volumes": ["seaweed-masterdata:/data"],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:9333/cluster/status >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "30s"
+      }
+    },
+    "seaweed-volume": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "networks": ["backend"],
+      "security_opt": ["no-new-privileges:true"],
+      "deploy": {
+        "replicas": 1,
+        "update_config": {
+          "order": "stop-first",
+          "failure_action": "pause",
+          "parallelism": 1
+        },
+        "restart_policy": {
+          "condition": "any",
+          "delay": "10s"
+        },
+        "resources": {
+          "limits": {
+            "memory": "1G"
+          },
+          "reservations": {
+            "memory": "256M"
+          }
+        }
+      },
+      "command": [
+        "volume",
+        "-ip=seaweed-volume",
+        "-ip.bind=0.0.0.0",
+        "-port=8080",
+        "-dir=/data",
+        "-master=seaweed-master:9333"
+      ],
+      "volumes": ["seaweed-volumedata:/data"],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/status >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "30s"
+      }
+    },
+    "seaweed-filer": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "networks": ["backend"],
+      "security_opt": ["no-new-privileges:true"],
+      "deploy": {
+        "replicas": 1,
+        "update_config": {
+          "order": "stop-first",
+          "failure_action": "pause",
+          "parallelism": 1
+        },
+        "restart_policy": {
+          "condition": "any",
+          "delay": "10s"
+        },
+        "resources": {
+          "limits": {
+            "memory": "512M"
+          },
+          "reservations": {
+            "memory": "128M"
+          }
+        }
+      },
+      "command": [
+        "filer",
+        "-ip=seaweed-filer",
+        "-ip.bind=0.0.0.0",
+        "-port=8888",
+        "-master=seaweed-master:9333",
+        "-defaultStoreDir=/data"
+      ],
+      "volumes": ["seaweed-filerdata:/data"],
+      "healthcheck": {
+        "test": ["CMD-SHELL", "curl -fsS http://127.0.0.1:8888/ >/dev/null"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "30s"
+      }
+    },
+    "seaweed-s3": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "networks": ["backend"],
+      "security_opt": ["no-new-privileges:true"],
+      "deploy": {
+        "replicas": 1,
+        "update_config": {
+          "order": "stop-first",
+          "failure_action": "pause",
+          "parallelism": 1
+        },
+        "restart_policy": {
+          "condition": "any",
+          "delay": "10s"
+        },
+        "resources": {
+          "limits": {
+            "memory": "512M"
+          },
+          "reservations": {
+            "memory": "128M"
+          }
+        }
+      },
+      "entrypoint": ["/bin/sh", "/etc/vetchium/seaweedfs-s3-entrypoint.sh"],
+      "command": [
+        "-ip=seaweed-s3",
+        "-ip.bind=0.0.0.0",
+        "-port=8333",
+        "-filer=seaweed-filer:8888",
+        "-iam=false",
+        "-port.iceberg=0",
+        "-port.lance=0"
+      ],
+      "configs": [
+        {
+          "source": "seaweed_s3_entrypoint",
+          "target": "/etc/vetchium/seaweedfs-s3-entrypoint.sh",
+          "mode": 292
+        }
+      ],
+      "secrets": ["seaweed_s3_config"],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/ | grep -qx 403"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "30s"
+      }
     }
   },
   "networks": {
@@ -627,6 +863,10 @@
       "driver": "overlay",
       "internal": true
     },
+    "media_access": {
+      "driver": "overlay",
+      "internal": true
+    },
     "backend": {
       "driver": "overlay",
       "internal": true,
@@ -640,9 +880,20 @@
     }
   },
   "volumes": {
-    "pgdata": {}
+    "pgdata": {},
+    "seaweed-masterdata": {},
+    "seaweed-volumedata": {},
+    "seaweed-filerdata": {}
   },
   "configs": {
+    "media_proxy": {
+      "file": "../../media/nginx.conf",
+      "name": "sgp-media-proxy-${MEDIA_PROXY_HASH:?run via make}"
+    },
+    "seaweed_s3_entrypoint": {
+      "file": "../../dev/seaweedfs-s3-entrypoint.sh",
+      "name": "sgp-seaweed-s3-entrypoint-${SEAWEED_S3_ENTRYPOINT_HASH:?run via make}"
+    },
     "database_entrypoint": {
       "file": "../../db/bootstrap/entrypoint.sh"
     },
@@ -663,6 +914,18 @@
     }
   },
   "secrets": {
+    "seaweed_s3_config": {
+      "external": true,
+      "name": "sgp_seaweed_s3_config"
+    },
+    "seaweed_s3_access_key": {
+      "external": true,
+      "name": "sgp_seaweed_s3_access_key"
+    },
+    "seaweed_s3_secret_key": {
+      "external": true,
+      "name": "sgp_seaweed_s3_secret_key"
+    },
     "postgres_password": {
       "external": true,
       "name": "sgp_postgres_password"
@@ -687,13 +950,29 @@
       "external": true,
       "name": "sgp_smtp_password"
     },
-    "global_coordinator_credential": {
-      "external": true,
-      "name": "sgp_global_coordinator_credential"
-    },
     "mesh_credential": {
       "external": true,
       "name": "sgp_mesh_credential"
+    },
+    "mesh_ca_certificate": {
+      "external": true,
+      "name": "${MESH_CA_SECRET_NAME:?set MESH_CA_SECRET_NAME}"
+    },
+    "mesh_client_certificate": {
+      "external": true,
+      "name": "${MESH_CLIENT_CERTIFICATE_SECRET_NAME:?set MESH_CLIENT_CERTIFICATE_SECRET_NAME}"
+    },
+    "mesh_client_key": {
+      "external": true,
+      "name": "${MESH_CLIENT_KEY_SECRET_NAME:?set MESH_CLIENT_KEY_SECRET_NAME}"
+    },
+    "mesh_server_certificate": {
+      "external": true,
+      "name": "${MESH_SERVER_CERTIFICATE_SECRET_NAME:?set MESH_SERVER_CERTIFICATE_SECRET_NAME}"
+    },
+    "mesh_server_key": {
+      "external": true,
+      "name": "${MESH_SERVER_KEY_SECRET_NAME:?set MESH_SERVER_KEY_SECRET_NAME}"
     }
   }
 }

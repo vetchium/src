@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -50,6 +51,10 @@ type hubEmailPayload struct {
 	VerificationURL string    `json:"verification_url"`
 	ResetURL        string    `json:"reset_url"`
 	ExpiresAt       time.Time `json:"expires_at"`
+	Code            string    `json:"code"`
+	// LeadDays carries the subscription-ending warning's lead time (7 or 1).
+	// Unused by every other kind.
+	LeadDays int `json:"lead_days"`
 }
 
 func (w *Worker) deliverHubEmail(ctx context.Context) error {
@@ -140,6 +145,8 @@ func (w *Worker) sendClaimedHubEmail(
 			DisplayName: payload.DisplayName,
 			ActionURL:   actionURL,
 			ExpiresAt:   payload.ExpiresAt,
+			Code:        payload.Code,
+			LeadDays:    payload.LeadDays,
 		},
 	)
 	if err != nil {
@@ -206,10 +213,22 @@ func hubEmailKind(
 			return "", "", fmt.Errorf("password reset email has no reset URL")
 		}
 		return email.PasswordReset, payload.ResetURL, nil
+	case email.ProfessionalEmailVerification:
+		if !professionalEmailCodePattern.MatchString(payload.Code) {
+			return "", "", fmt.Errorf("professional email code is malformed")
+		}
+		return email.ProfessionalEmailVerification, "", nil
+	case email.SubscriptionEnding:
+		if payload.LeadDays != 7 && payload.LeadDays != 1 {
+			return "", "", fmt.Errorf("subscription ending lead is invalid")
+		}
+		return email.SubscriptionEnding, "", nil
 	default:
 		return "", "", fmt.Errorf("unsupported email kind %q", kind)
 	}
 }
+
+var professionalEmailCodePattern = regexp.MustCompile(`^[0-9]{6}$`)
 
 func (d *HubEmailDelivery) currentTime() time.Time {
 	if d.Now != nil {

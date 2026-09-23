@@ -1,0 +1,291 @@
+{
+  "users": [
+    {
+      "email": "emily.johnson@usa1.example",
+      "displayName": "Emily Johnson",
+      "preferredLanguage": "en-US",
+      "residentCountry": "US",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "google.com",
+          "jobTitle": "Software Engineer",
+          "startMonth": "2021-07",
+          "location": "Mountain View, CA"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "berkeley.edu",
+          "degree": "BS Computer Science",
+          "startMonth": "2017-08",
+          "endMonth": "2021-05"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "writing", "languageTag": "en" }
+      ]
+    },
+    {
+      "email": "marcus.reed@usa1.example",
+      "displayName": "Marcus Reed",
+      "preferredLanguage": "en-US",
+      "residentCountry": "US",
+      "plan": "hub-silver-tier",
+      "billingInterval": "month",
+      "profilePicture": "avatar5.jpg",
+      "biography": "Staff engineer working on payments infrastructure at scale.",
+      "workExperience": [
+        {
+          "employerDomain": "stripe.com",
+          "jobTitle": "Staff Engineer",
+          "startMonth": "2017-03",
+          "location": "San Francisco, CA",
+          "description": "Owns the ledger reconciliation platform."
+        },
+        {
+          "employerDomain": "amazon.com",
+          "jobTitle": "Software Development Engineer",
+          "startMonth": "2013-06",
+          "endMonth": "2017-02",
+          "location": "Seattle, WA"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "mit.edu",
+          "degree": "BS Electrical Engineering and Computer Science",
+          "startMonth": "2009-08",
+          "endMonth": "2013-05"
+        }
+      ],
+      "certifications": [
+        {
+          "title": "AWS Certified Solutions Architect - Associate",
+          "credentialUrl": "https://www.credly.com/badges/aws-csaa-1029384"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "writing", "languageTag": "en" }
+      ]
+    },
+    {
+      "email": "sofia.martinez@usa1.example",
+      "displayName": "Sofia Martinez",
+      "preferredLanguage": "en-US",
+      "residentCountry": "US",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "airbnb.com",
+          "jobTitle": "Product Designer",
+          "startMonth": "2020-01",
+          "location": "San Francisco, CA"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "risd.edu",
+          "degree": "BFA Graphic Design",
+          "startMonth": "2015-08",
+          "endMonth": "2019-05"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "es" }
+      ]
+    },
+    {
+      "email": "david.chen@usa1.example",
+      "displayName": "David Chen",
+      "preferredLanguage": "en-US",
+      "residentCountry": "US",
+      "plan": "hub-silver-tier",
+      "billingInterval": "year",
+      "profilePicture": "avatar6.jpg",
+      "biography": "VP of Engineering leading streaming infrastructure teams.",
+      "workExperience": [
+        {
+          "employerDomain": "netflix.com",
+          "jobTitle": "VP Engineering",
+          "startMonth": "2015-09",
+          "location": "Los Gatos, CA",
+          "description": "Leads global content delivery engineering."
+        },
+        {
+          "employerDomain": "microsoft.com",
+          "jobTitle": "Senior Software Engineer",
+          "startMonth": "2010-01",
+          "endMonth": "2015-08",
+          "location": "Redmond, WA"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "stanford.edu",
+          "degree": "MS Computer Science",
+          "startMonth": "2008-08",
+          "endMonth": "2009-12"
+        },
+        {
+          "institutionDomain": "umich.edu",
+          "degree": "BS Computer Science",
+          "startMonth": "2004-08",
+          "endMonth": "2008-05"
+        }
+      ],
+      "certifications": [
+        {
+          "title": "Certified Kubernetes Administrator",
+          "credentialUrl": "https://training.linuxfoundation.org/verify/cka-5528201"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "zh" }
+      ]
+    },
+    {
+      "email": "ashley.williams@usa1.example",
+      "displayName": "Ashley Williams",
+      "preferredLanguage": "en-US",
+      "residentCountry": "US",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "salesforce.com",
+          "jobTitle": "Technical Recruiter",
+          "startMonth": "2022-04",
+          "location": "New York, NY"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "umich.edu",
+          "degree": "BA Psychology",
+          "startMonth": "2018-08",
+          "endMonth": "2022-05"
+        }
+      ],
+      "languages": [{ "ability": "speaking", "languageTag": "en" }]
+    },
+    {
+      "email": "brian.oconnor@usa1.example",
+      "displayName": "Brian O'Connor",
+      "preferredLanguage": "en-US",
+      "residentCountry": "US",
+      "plan": "hub-silver-tier",
+      "billingInterval": "month",
+      "profilePicture": "avatar7.jpg",
+      "biography": "Engineering director focused on developer platforms.",
+      "workExperience": [
+        {
+          "employerDomain": "meta.com",
+          "jobTitle": "Engineering Director",
+          "startMonth": "2012-08",
+          "location": "Menlo Park, CA",
+          "description": "Runs the internal developer-tools organization."
+        },
+        {
+          "employerDomain": "google.com",
+          "jobTitle": "Software Engineer",
+          "startMonth": "2008-01",
+          "endMonth": "2012-07",
+          "location": "Mountain View, CA"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "stanford.edu",
+          "degree": "MBA",
+          "startMonth": "2016-08",
+          "endMonth": "2018-05"
+        },
+        {
+          "institutionDomain": "cmu.edu",
+          "degree": "BS Computer Science",
+          "startMonth": "2003-08",
+          "endMonth": "2007-05"
+        }
+      ],
+      "languages": [{ "ability": "speaking", "languageTag": "en" }]
+    },
+    {
+      "email": "natasha.brooks@usa1.example",
+      "displayName": "Natasha Brooks",
+      "preferredLanguage": "en-US",
+      "residentCountry": "US",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "amazon.com",
+          "jobTitle": "Data Analyst",
+          "startMonth": "2023-02",
+          "location": "Seattle, WA"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "berkeley.edu",
+          "degree": "BS Statistics",
+          "startMonth": "2019-08",
+          "endMonth": "2023-01"
+        }
+      ],
+      "languages": [{ "ability": "speaking", "languageTag": "en" }]
+    },
+    {
+      "email": "kevin.patel@usa1.example",
+      "displayName": "Kevin Patel",
+      "preferredLanguage": "en-US",
+      "residentCountry": "US",
+      "plan": "hub-silver-tier",
+      "billingInterval": "year",
+      "profilePicture": "avatar8.jpg",
+      "biography": "Head of Product for billing and monetization.",
+      "workExperience": [
+        {
+          "employerDomain": "stripe.com",
+          "jobTitle": "Head of Product",
+          "startMonth": "2016-05",
+          "location": "San Francisco, CA",
+          "description": "Owns the billing and revenue-recognition product line."
+        },
+        {
+          "employerDomain": "salesforce.com",
+          "jobTitle": "Product Manager",
+          "startMonth": "2012-01",
+          "endMonth": "2016-04",
+          "location": "San Francisco, CA"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "cmu.edu",
+          "degree": "MBA",
+          "startMonth": "2010-08",
+          "endMonth": "2012-05"
+        },
+        {
+          "institutionDomain": "umich.edu",
+          "degree": "BS Industrial Engineering",
+          "startMonth": "2006-08",
+          "endMonth": "2010-05"
+        }
+      ],
+      "certifications": [
+        {
+          "title": "Project Management Professional (PMP)",
+          "credentialUrl": "https://www.pmi.org/certifications/verify/pmp-8802214"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "hi" }
+      ]
+    }
+  ]
+}

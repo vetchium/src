@@ -6,6 +6,7 @@ package service
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -30,13 +31,20 @@ const shutdownTimeout = 15 * time.Second
 // address, answers the "healthcheck" subcommand the container image's
 // HEALTHCHECK invokes, installs the process logger, and reports a failed run.
 func Main(component string, run func(*slog.Logger, string) error) {
+	MainWithHealthCheck(component, run, apiserver.SelfCheck)
+}
+
+func MainWithHealthCheck(
+	component string, run func(*slog.Logger, string) error,
+	healthCheck func(string) error,
+) {
 	address, err := apiserver.ListenAddress()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
-		if err := apiserver.SelfCheck(address); err != nil {
+		if err := healthCheck(address); err != nil {
 			os.Exit(1)
 		}
 		return
@@ -88,27 +96,60 @@ func ListenAndServe(
 	ctx context.Context, log *slog.Logger,
 	address string, handler http.Handler,
 ) error {
-	httpServer := &http.Server{
-		Addr:              address,
-		Handler:           handler,
-		ReadHeaderTimeout: readHeaderTimeout,
-	}
-	failed := make(chan error, 1)
-	go func() {
-		log.Info("server started", "address", httpServer.Addr)
-		err := httpServer.ListenAndServe()
-		if errors.Is(err, http.ErrServerClosed) {
-			log.Info(
-				"HTTP server closed", "event", "server_closed", "error", err,
-			)
-			err = nil
-		}
-		failed <- err
-	}()
+	return ListenAndServeEndpoints(ctx, log, Endpoint{
+		Name: "http", Address: address, Handler: handler,
+	})
+}
 
+// ListenAndServeTLS is ListenAndServe for an HTTPS service. The caller owns
+// certificate loading so startup fails before the listener becomes visible.
+func ListenAndServeTLS(
+	ctx context.Context, log *slog.Logger, address string,
+	handler http.Handler, tlsConfig *tls.Config,
+) error {
+	if tlsConfig == nil {
+		return fmt.Errorf("TLS server configuration is required")
+	}
+	return ListenAndServeEndpoints(ctx, log, Endpoint{
+		Name: "https", Address: address, Handler: handler, TLSConfig: tlsConfig,
+	})
+}
+
+type Endpoint struct {
+	Name      string
+	Address   string
+	Handler   http.Handler
+	TLSConfig *tls.Config
+}
+
+// ListenAndServeEndpoints runs one process-local listener set and drains every
+// listener if one fails or shutdown is requested. Mesh API uses this to keep
+// its tenant-local relay separate from its private-CA peer boundary.
+func ListenAndServeEndpoints(
+	ctx context.Context, log *slog.Logger, endpoints ...Endpoint,
+) error {
+	if len(endpoints) == 0 {
+		return fmt.Errorf("at least one HTTP endpoint is required")
+	}
+	servers := make([]*http.Server, 0, len(endpoints))
+	for _, endpoint := range endpoints {
+		if endpoint.Name == "" || endpoint.Address == "" || endpoint.Handler == nil {
+			return fmt.Errorf("HTTP endpoint name, address, and handler are required")
+		}
+		server := &http.Server{
+			Addr: endpoint.Address, Handler: endpoint.Handler,
+			ReadHeaderTimeout: readHeaderTimeout, TLSConfig: endpoint.TLSConfig,
+		}
+		servers = append(servers, server)
+	}
+	failed := make(chan error, len(endpoints))
+	for i, endpoint := range endpoints {
+		go serveEndpoint(log, endpoint.Name, servers[i], failed)
+	}
+
+	var serveErr error
 	select {
-	case err := <-failed:
-		return err
+	case serveErr = <-failed:
 	case <-ctx.Done():
 		log.Info("shutdown requested", "event", "shutdown", "error", ctx.Err())
 	}
@@ -118,7 +159,32 @@ func ListenAndServe(
 		context.Background(), shutdownTimeout,
 	)
 	defer cancel()
-	return httpServer.Shutdown(shutdownCtx)
+	for _, server := range servers {
+		if err := server.Shutdown(shutdownCtx); err != nil && serveErr == nil {
+			serveErr = err
+		}
+	}
+	return serveErr
+}
+
+func serveEndpoint(
+	log *slog.Logger, name string, server *http.Server, failed chan<- error,
+) {
+	log.Info("server started", "endpoint", name, "address", server.Addr)
+	var err error
+	if server.TLSConfig == nil {
+		err = server.ListenAndServe()
+	} else {
+		err = server.ListenAndServeTLS("", "")
+	}
+	if errors.Is(err, http.ErrServerClosed) {
+		log.Info(
+			"HTTP server closed", "event", "server_closed", "endpoint", name,
+			"error", err,
+		)
+		err = nil
+	}
+	failed <- err
 }
 
 func exit(log *slog.Logger, err error) {

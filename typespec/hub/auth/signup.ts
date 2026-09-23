@@ -68,3 +68,7 @@ export interface CompleteSignupResponse {
   hub_user_did: HubUserDID;
   handle: HubHandle;
 }
+
+export interface SignupCompletionPendingResponse {
+  operation_id: string;
+}

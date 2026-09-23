@@ -236,6 +236,7 @@ export function PortalShell<Locale extends string>({
   portalTag,
   onSelectLanguage,
   languagePending,
+  banner,
 }: {
   localization: PortalLocaleConfiguration<Locale>;
   navigationItems: ItemType[];
@@ -244,6 +245,9 @@ export function PortalShell<Locale extends string>({
   portalTag?: boolean;
   onSelectLanguage?: (language: Locale) => Promise<void>;
   languagePending?: boolean;
+  /** Rendered above every routed page, for notices the portal must not hide
+   * behind a particular route. */
+  banner?: ReactNode;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -310,6 +314,7 @@ export function PortalShell<Locale extends string>({
           className="app-content"
           orientation="vertical"
         >
+          {banner}
           <Outlet />
         </Flex>
       </Layout>

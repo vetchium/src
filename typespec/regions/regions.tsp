@@ -31,15 +31,25 @@ alias ListResponse =
   | Vetchium.Problem.InvalidJSONErrorResponse
   | Vetchium.Problem.ValidationFailedErrorResponse
   | Vetchium.Problem.InvalidPaginationKeyErrorResponse
-  | Vetchium.Problem.RegionDiscoveryUnavailableErrorResponse
   | Vetchium.Problem.InternalServerErrorResponse;
+
+/**
+ * Adds the outage variant for the routes that consult the live directory and
+ * can fall back to a bundled catalog. The coordinator serves its own catalog
+ * directly, so it never has a directory to lose.
+ */
+alias DirectoryListResponse =
+  | ListResponse
+  | Vetchium.Problem.RegionDiscoveryUnavailableErrorResponse;
 @route("/api/hub")
 @tag("Hub signup")
 interface HubOperations {
   /** List eligible regions ordered by tenant ID, in pages of 50. Cursors bind country and catalog version. */
   @route("/list-signup-regions")
   @post
-  listSignupRegions(@body request: ListSignupRegionsRequest): ListResponse;
+  listSignupRegions(
+    @body request: ListSignupRegionsRequest,
+  ): DirectoryListResponse;
 }
 @route("/api/global-coordinator")
 @tag("Global coordinator")
@@ -47,7 +57,7 @@ interface GlobalOperations {
   /** Discover signup regions over the authenticated private mesh. */
   @route("/list-signup-regions")
   @post
-  @useAuth(BearerAuth)
+  @useAuth(Vetchium.Authentication.MutualTLSAuth)
   listSignupRegions(@body request: ListSignupRegionsRequest):
     | ListResponse
     | Vetchium.Problem.GlobalCoordinatorAuthenticationRequiredErrorResponse;
@@ -60,6 +70,6 @@ interface MeshOperations {
   @post
   @useAuth(BearerAuth)
   listSignupRegions(@body request: ListSignupRegionsRequest):
-    | ListResponse
-    | Vetchium.Problem.GlobalCoordinatorAuthenticationRequiredErrorResponse;
+    | DirectoryListResponse
+    | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
 }

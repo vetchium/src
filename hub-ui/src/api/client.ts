@@ -21,6 +21,7 @@ const client = createPortalAPIClient({
 
 interface RequestOptions {
   body?: unknown;
+  headers?: Record<string, string>;
   idempotencyKey?: IdempotencyKey;
   method?: "GET" | "POST";
   token?: string | null;
@@ -34,10 +35,10 @@ export function apiRequest<Response>(
   path: string,
   options: RequestOptions = {},
 ): Promise<Response> {
-  const headers =
-    options.idempotencyKey === undefined
-      ? undefined
-      : { "Idempotency-Key": options.idempotencyKey };
+  const headers = { ...options.headers };
+  if (options.idempotencyKey !== undefined) {
+    headers["Idempotency-Key"] = options.idempotencyKey;
+  }
   return client.request<Response>(path, { ...options, headers });
 }
 

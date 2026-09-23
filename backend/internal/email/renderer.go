@@ -17,11 +17,15 @@ import (
 type Kind string
 
 const (
-	Signup        Kind = "signup"
-	PasswordReset Kind = "password-reset"
+	Signup                        Kind = "signup"
+	PasswordReset                 Kind = "password-reset"
+	ProfessionalEmailVerification Kind = "professional-email-verification"
+	SubscriptionEnding            Kind = "subscription-ending"
 )
 
-var supportedKinds = []Kind{Signup, PasswordReset}
+var supportedKinds = []Kind{
+	Signup, PasswordReset, ProfessionalEmailVerification, SubscriptionEnding,
+}
 
 //go:embed templates/*/*
 var templateFiles embed.FS
@@ -30,6 +34,10 @@ type TemplateData struct {
 	DisplayName string
 	ActionURL   string
 	ExpiresAt   time.Time
+	Code        string
+	// LeadDays is the number of days a subscription-ending warning is ahead
+	// of the period end: 7 or 1. Unused by every other kind.
+	LeadDays int
 }
 
 type Message struct {

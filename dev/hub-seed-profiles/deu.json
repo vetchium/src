@@ -1,0 +1,282 @@
+{
+  "users": [
+    {
+      "email": "lukas.mueller@deu.example",
+      "displayName": "Lukas Müller",
+      "preferredLanguage": "de-DE",
+      "residentCountry": "DE",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "sap.com",
+          "jobTitle": "Software Engineer",
+          "startMonth": "2021-09",
+          "location": "Walldorf"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "tum.de",
+          "degree": "BSc Informatik",
+          "startMonth": "2017-10",
+          "endMonth": "2021-07"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "de" },
+        { "ability": "writing", "languageTag": "de" }
+      ]
+    },
+    {
+      "email": "anna.schmidt@deu.example",
+      "displayName": "Anna Schmidt",
+      "preferredLanguage": "de-DE",
+      "residentCountry": "DE",
+      "plan": "hub-silver-tier",
+      "billingInterval": "month",
+      "profilePicture": "avatar9.jpg",
+      "biography": "Engineering manager building fashion e-commerce platforms.",
+      "workExperience": [
+        {
+          "employerDomain": "zalando.de",
+          "jobTitle": "Engineering Manager",
+          "startMonth": "2018-02",
+          "location": "Berlin",
+          "description": "Leads the checkout and payments engineering team."
+        },
+        {
+          "employerDomain": "siemens.com",
+          "jobTitle": "Software Engineer",
+          "startMonth": "2014-06",
+          "endMonth": "2018-01",
+          "location": "Munich"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "rwth-aachen.de",
+          "degree": "MSc Informatik",
+          "startMonth": "2012-10",
+          "endMonth": "2014-05"
+        }
+      ],
+      "certifications": [
+        {
+          "title": "AWS Certified Solutions Architect - Associate",
+          "credentialUrl": "https://www.credly.com/badges/aws-csaa-6650912"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "de" },
+        { "ability": "speaking", "languageTag": "en" }
+      ]
+    },
+    {
+      "email": "jonas.weber@deu.example",
+      "displayName": "Jonas Weber",
+      "preferredLanguage": "de-DE",
+      "residentCountry": "DE",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "bmw.de",
+          "jobTitle": "Mechanical Engineer",
+          "startMonth": "2022-05",
+          "location": "Munich"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "rwth-aachen.de",
+          "degree": "BEng Maschinenbau",
+          "startMonth": "2018-10",
+          "endMonth": "2022-03"
+        }
+      ],
+      "languages": [{ "ability": "speaking", "languageTag": "de" }]
+    },
+    {
+      "email": "laura.fischer@deu.example",
+      "displayName": "Laura Fischer",
+      "preferredLanguage": "de-DE",
+      "residentCountry": "DE",
+      "plan": "hub-silver-tier",
+      "billingInterval": "year",
+      "profilePicture": "avatar10.jpg",
+      "biography": "Finance manager covering corporate treasury and risk.",
+      "workExperience": [
+        {
+          "employerDomain": "db.com",
+          "jobTitle": "Finance Manager",
+          "startMonth": "2016-01",
+          "location": "Frankfurt",
+          "description": "Leads treasury reporting for the corporate banking division."
+        },
+        {
+          "employerDomain": "allianz.com",
+          "jobTitle": "Financial Analyst",
+          "startMonth": "2012-09",
+          "endMonth": "2015-12",
+          "location": "Munich"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "lmu.de",
+          "degree": "MBA",
+          "startMonth": "2010-10",
+          "endMonth": "2012-07"
+        },
+        {
+          "institutionDomain": "hu-berlin.de",
+          "degree": "BSc Betriebswirtschaftslehre",
+          "startMonth": "2006-10",
+          "endMonth": "2010-07"
+        }
+      ],
+      "certifications": [
+        {
+          "title": "Chartered Financial Analyst (CFA)",
+          "credentialUrl": "https://www.cfainstitute.org/verify/cfa-2217743"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "de" },
+        { "ability": "speaking", "languageTag": "en" }
+      ]
+    },
+    {
+      "email": "max.schneider@deu.example",
+      "displayName": "Maximilian Schneider",
+      "preferredLanguage": "de-DE",
+      "residentCountry": "DE",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "bosch.com",
+          "jobTitle": "Data Engineer",
+          "startMonth": "2023-03",
+          "location": "Stuttgart"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "tum.de",
+          "degree": "MSc Data Engineering and Analytics",
+          "startMonth": "2020-10",
+          "endMonth": "2023-02"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "de" },
+        { "ability": "speaking", "languageTag": "en" }
+      ]
+    },
+    {
+      "email": "hannah.becker@deu.example",
+      "displayName": "Hannah Becker",
+      "preferredLanguage": "de-DE",
+      "residentCountry": "DE",
+      "plan": "hub-silver-tier",
+      "billingInterval": "month",
+      "profilePicture": "avatar11.jpg",
+      "biography": "Head of HR for a global industrial engineering workforce.",
+      "workExperience": [
+        {
+          "employerDomain": "siemens.com",
+          "jobTitle": "Head of HR",
+          "startMonth": "2013-04",
+          "location": "Munich",
+          "description": "Leads HR business partnering for the energy division."
+        },
+        {
+          "employerDomain": "sap.com",
+          "jobTitle": "HR Generalist",
+          "startMonth": "2009-01",
+          "endMonth": "2013-03",
+          "location": "Walldorf"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "hu-berlin.de",
+          "degree": "MSc Psychology",
+          "startMonth": "2006-10",
+          "endMonth": "2008-12"
+        }
+      ],
+      "languages": [{ "ability": "speaking", "languageTag": "de" }]
+    },
+    {
+      "email": "felix.wagner@deu.example",
+      "displayName": "Felix Wagner",
+      "preferredLanguage": "de-DE",
+      "residentCountry": "DE",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "zalando.de",
+          "jobTitle": "Product Manager",
+          "startMonth": "2021-11",
+          "location": "Berlin"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "tum.de",
+          "degree": "BSc Wirtschaftsinformatik",
+          "startMonth": "2017-10",
+          "endMonth": "2021-07"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "de" },
+        { "ability": "speaking", "languageTag": "en" }
+      ]
+    },
+    {
+      "email": "sophie.hoffmann@deu.example",
+      "displayName": "Sophie Hoffmann",
+      "preferredLanguage": "de-DE",
+      "residentCountry": "DE",
+      "plan": "hub-silver-tier",
+      "billingInterval": "year",
+      "profilePicture": "avatar12.jpg",
+      "biography": "Director of Engineering for enterprise cloud platforms.",
+      "workExperience": [
+        {
+          "employerDomain": "sap.com",
+          "jobTitle": "Director of Engineering",
+          "startMonth": "2011-06",
+          "location": "Walldorf",
+          "description": "Leads platform engineering for the cloud ERP suite."
+        },
+        {
+          "employerDomain": "bosch.com",
+          "jobTitle": "Software Engineer",
+          "startMonth": "2007-01",
+          "endMonth": "2011-05",
+          "location": "Stuttgart"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "rwth-aachen.de",
+          "degree": "MSc Informatik",
+          "startMonth": "2004-10",
+          "endMonth": "2006-12"
+        },
+        {
+          "institutionDomain": "tum.de",
+          "degree": "BSc Informatik",
+          "startMonth": "2000-10",
+          "endMonth": "2004-07"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "de" },
+        { "ability": "speaking", "languageTag": "en" }
+      ]
+    }
+  ]
+}

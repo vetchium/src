@@ -1,0 +1,301 @@
+{
+  "users": [
+    {
+      "email": "maithili@ind1.example",
+      "displayName": "Maithili",
+      "preferredLanguage": "en-US",
+      "residentCountry": "IN",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "infosys.com",
+          "jobTitle": "Software Engineer",
+          "startMonth": "2022-06",
+          "location": "Bengaluru"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "iitd.ac.in",
+          "degree": "BTech Computer Science and Engineering",
+          "startMonth": "2018-07",
+          "endMonth": "2022-05"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "hi" }
+      ]
+    },
+    {
+      "email": "rohan.verma@ind1.example",
+      "displayName": "Rohan Verma",
+      "preferredLanguage": "en-US",
+      "residentCountry": "IN",
+      "plan": "hub-silver-tier",
+      "billingInterval": "month",
+      "profilePicture": "avatar13.jpg",
+      "biography": "Engineering manager for large-scale e-commerce catalog systems.",
+      "workExperience": [
+        {
+          "employerDomain": "flipkart.com",
+          "jobTitle": "Engineering Manager",
+          "startMonth": "2017-08",
+          "location": "Bengaluru",
+          "description": "Leads the catalog and search platform team."
+        },
+        {
+          "employerDomain": "tcs.com",
+          "jobTitle": "Software Development Engineer",
+          "startMonth": "2013-07",
+          "endMonth": "2017-07",
+          "location": "Chennai"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "iitb.ac.in",
+          "degree": "BTech Computer Science and Engineering",
+          "startMonth": "2009-07",
+          "endMonth": "2013-05"
+        }
+      ],
+      "certifications": [
+        {
+          "title": "AWS Certified Solutions Architect - Associate",
+          "credentialUrl": "https://www.credly.com/badges/aws-csaa-4471029"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "hi" }
+      ]
+    },
+    {
+      "email": "vaidehi@ind1.example",
+      "displayName": "Vaidehi",
+      "preferredLanguage": "ta",
+      "residentCountry": "IN",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "zoho.com",
+          "jobTitle": "Product Designer",
+          "startMonth": "2021-04",
+          "location": "Chennai"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "annauniv.edu",
+          "degree": "BDes",
+          "startMonth": "2017-08",
+          "endMonth": "2021-05"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "ta" }
+      ]
+    },
+    {
+      "email": "arjun.nair@ind1.example",
+      "displayName": "Arjun Nair",
+      "preferredLanguage": "en-US",
+      "residentCountry": "IN",
+      "plan": "hub-silver-tier",
+      "billingInterval": "year",
+      "profilePicture": "avatar14.jpg",
+      "biography": "VP of Engineering for customer support and CRM software.",
+      "workExperience": [
+        {
+          "employerDomain": "freshworks.com",
+          "jobTitle": "VP Engineering",
+          "startMonth": "2015-02",
+          "location": "Chennai",
+          "description": "Leads engineering for the customer service product line."
+        },
+        {
+          "employerDomain": "wipro.com",
+          "jobTitle": "Technical Lead",
+          "startMonth": "2010-06",
+          "endMonth": "2015-01",
+          "location": "Bengaluru"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "iitb.ac.in",
+          "degree": "MTech Computer Science and Engineering",
+          "startMonth": "2008-07",
+          "endMonth": "2010-05"
+        },
+        {
+          "institutionDomain": "annauniv.edu",
+          "degree": "BTech Information Technology",
+          "startMonth": "2004-08",
+          "endMonth": "2008-05"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "ta" },
+        { "ability": "speaking", "languageTag": "hi" }
+      ]
+    },
+    {
+      "email": "anjali@ind1.example",
+      "displayName": "Anjali",
+      "preferredLanguage": "en-US",
+      "residentCountry": "IN",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "hdfcbank.com",
+          "jobTitle": "HR Manager",
+          "startMonth": "2023-01",
+          "location": "Mumbai"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "iima.ac.in",
+          "degree": "MBA Human Resources",
+          "startMonth": "2020-06",
+          "endMonth": "2022-04"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "ta" }
+      ]
+    },
+    {
+      "email": "vikram.malhotra@ind1.example",
+      "displayName": "Vikram Malhotra",
+      "preferredLanguage": "en-US",
+      "residentCountry": "IN",
+      "plan": "hub-silver-tier",
+      "billingInterval": "month",
+      "profilePicture": "avatar15.jpg",
+      "biography": "Director of Product for mobility and logistics platforms.",
+      "workExperience": [
+        {
+          "employerDomain": "olacabs.com",
+          "jobTitle": "Director of Product",
+          "startMonth": "2014-09",
+          "location": "Bengaluru",
+          "description": "Owns the driver-partner experience product line."
+        },
+        {
+          "employerDomain": "flipkart.com",
+          "jobTitle": "Product Manager",
+          "startMonth": "2011-01",
+          "endMonth": "2014-08",
+          "location": "Bengaluru"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "iima.ac.in",
+          "degree": "MBA",
+          "startMonth": "2008-06",
+          "endMonth": "2010-04"
+        },
+        {
+          "institutionDomain": "du.ac.in",
+          "degree": "BTech",
+          "startMonth": "2004-08",
+          "endMonth": "2008-05"
+        }
+      ],
+      "certifications": [
+        {
+          "title": "Project Management Professional (PMP)",
+          "credentialUrl": "https://www.pmi.org/certifications/verify/pmp-9931072"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "hi" }
+      ]
+    },
+    {
+      "email": "geetha@ind1.example",
+      "displayName": "Geetha",
+      "preferredLanguage": "ta",
+      "residentCountry": "IN",
+      "plan": "hub-free-tier",
+      "workExperience": [
+        {
+          "employerDomain": "zoho.com",
+          "jobTitle": "Data Scientist",
+          "startMonth": "2022-09",
+          "location": "Chennai"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "du.ac.in",
+          "degree": "MSc Statistics",
+          "startMonth": "2020-07",
+          "endMonth": "2022-05"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "ta" }
+      ]
+    },
+    {
+      "email": "rahul.gupta@ind1.example",
+      "displayName": "Rahul Gupta",
+      "preferredLanguage": "en-US",
+      "residentCountry": "IN",
+      "plan": "hub-silver-tier",
+      "billingInterval": "year",
+      "profilePicture": "avatar16.jpg",
+      "biography": "Senior finance manager for enterprise IT services.",
+      "workExperience": [
+        {
+          "employerDomain": "tcs.com",
+          "jobTitle": "Senior Finance Manager",
+          "startMonth": "2012-04",
+          "location": "Mumbai",
+          "description": "Leads financial planning for the BFSI vertical."
+        },
+        {
+          "employerDomain": "infosys.com",
+          "jobTitle": "Financial Analyst",
+          "startMonth": "2008-07",
+          "endMonth": "2012-03",
+          "location": "Bengaluru"
+        }
+      ],
+      "education": [
+        {
+          "institutionDomain": "iima.ac.in",
+          "degree": "MBA Finance",
+          "startMonth": "2006-06",
+          "endMonth": "2008-04"
+        },
+        {
+          "institutionDomain": "du.ac.in",
+          "degree": "BCom",
+          "startMonth": "2003-07",
+          "endMonth": "2006-05"
+        }
+      ],
+      "certifications": [
+        {
+          "title": "Chartered Accountant",
+          "credentialUrl": "https://www.icai.org/verify/ca-771320"
+        }
+      ],
+      "languages": [
+        { "ability": "speaking", "languageTag": "en" },
+        { "ability": "speaking", "languageTag": "hi" }
+      ]
+    }
+  ]
+}

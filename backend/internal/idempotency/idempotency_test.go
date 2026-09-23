@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -26,6 +27,31 @@ func TestKeyReturnsValidHeader(t *testing.T) {
 	key, ok := Key(runtime, response, request)
 	if !ok || key != common.IdempotencyKey("valid-idempotency-key-1") {
 		t.Fatalf("Key() = %q, %t", key, ok)
+	}
+}
+
+func TestAcceptedIdempotentResponseCanCarryBody(t *testing.T) {
+	runtime := apiserver.New(
+		nil, slog.New(slog.NewTextHandler(io.Discard, nil)),
+	)
+	request := httptest.NewRequest("POST", "/mutation", nil)
+	empty := httptest.NewRecorder()
+	writeResponse(runtime, empty, request, http.StatusAccepted, struct{}{})
+	if empty.Code != http.StatusAccepted || empty.Body.Len() != 0 {
+		t.Fatalf("empty 202 = %d %q", empty.Code, empty.Body.String())
+	}
+	withBody := httptest.NewRecorder()
+	writeResponse(runtime, withBody, request, http.StatusAccepted,
+		struct {
+			ChallengeID string `json:"challenge_id"`
+		}{
+			ChallengeID: "example",
+		})
+	if withBody.Code != http.StatusAccepted ||
+		withBody.Header().Get("Content-Type") != "application/json" ||
+		withBody.Body.String() != `{"challenge_id":"example"}` {
+		t.Fatalf("202 with body = %d %q", withBody.Code,
+			withBody.Body.String())
 	}
 }
 
@@ -74,5 +100,33 @@ func TestWriteAPIProblemKeepsExtensionMembers(t *testing.T) {
 	}
 	if decoded["required_plan_oid"] != "hub-silver-tier" {
 		t.Fatalf("body = %v, missing required_plan_oid", decoded)
+	}
+}
+
+func TestCommittedProblemReplayKeepsExtensionsAndMediaType(t *testing.T) {
+	runtime := apiserver.New(
+		nil, slog.New(slog.NewTextHandler(io.Discard, nil)),
+	)
+	request := httptest.NewRequest("POST", "/mutation", nil)
+	response := httptest.NewRecorder()
+	original := hubproblem.PlanRequiredError(subscriptionspec.SilverTier)
+	raw, err := json.Marshal(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeAPIProblem(runtime, response, request, &APIProblem{
+		Details: replayProblem{Details: original.Details, raw: raw},
+	})
+	if response.Code != original.Status ||
+		response.Header().Get("Content-Type") != problem.MediaType {
+		t.Fatalf("replayed status/content type = %d/%q",
+			response.Code, response.Header().Get("Content-Type"))
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded["required_plan_oid"] != string(subscriptionspec.SilverTier) {
+		t.Fatalf("extension lost on replay: %v", decoded)
 	}
 }

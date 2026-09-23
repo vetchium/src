@@ -70,6 +70,32 @@ function sqlScalarForTenant(tenant: TestTenant, sql: string): string {
   ).trim();
 }
 
+function globalSQLScalar(sql: string): string {
+  return execFileSync(
+    "docker",
+    [
+      "compose",
+      "-f",
+      resolve(repositoryRoot, "docker-compose-ci.json"),
+      "exec",
+      "-T",
+      "global-db",
+      "env",
+      "PGPASSWORD=global_pgpassword",
+      "psql",
+      "-U",
+      "global_pguser",
+      "-d",
+      "global_db",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-Atqc",
+      sql,
+    ],
+    { cwd: repositoryRoot, encoding: "utf8" },
+  ).trim();
+}
+
 function dockerCompose(args: string[]): string {
   return execFileSync(
     "docker",
@@ -1032,6 +1058,19 @@ export function cleanupHubUser(
   sqlScalarForTenant(
     tenant,
     `
+    DELETE FROM vetchium.audit_events
+    WHERE idempotency_key IN (
+      SELECT idempotency_key FROM vetchium.hub_signup_completions
+      WHERE hub_signup_request_id IN (
+        SELECT hub_signup_request_id FROM vetchium.hub_signup_requests
+        WHERE email_address = ${email}
+      )
+    );
+    DELETE FROM vetchium.hub_signup_completions
+    WHERE hub_signup_request_id IN (
+      SELECT hub_signup_request_id FROM vetchium.hub_signup_requests
+      WHERE email_address = ${email}
+    );
     DELETE FROM vetchium.hub_email_outbox
     WHERE recipient_email_address = ${email};
     DELETE FROM vetchium.hub_signup_requests
@@ -1040,12 +1079,96 @@ export function cleanupHubUser(
     WHERE entity_type = 'hub_user' AND entity_id = ${did};
     DELETE FROM vetchium.audit_events
     WHERE actor_type = 'hub_user' AND actor_id = ${did};
+    DELETE FROM vetchium.federation_operations
+    WHERE aggregate_id = ${did} OR
+          (owner_principal_type = 'hub_user' AND owner_principal_id = ${did});
     DELETE FROM vetchium.hub_users
     WHERE email_address = ${email};
     DELETE FROM vetchium.idempotency_ledger
     WHERE binding_id = ${email};
   `,
   );
+}
+
+/**
+ * Seeds an active global principal homed at `homeTenantID`, reachable through
+ * `alias`, without going through signup. Federation tests use it to address a
+ * home tenant that signup would never place a real user on. The slug is an
+ * alias rather than a handle because a handle slug is permanent by design and
+ * could not be cleaned up afterwards.
+ */
+export function seedGlobalHubPrincipal(
+  hubUserDID: string,
+  homeTenantID: TestTenant,
+  alias: string,
+): void {
+  assertHubUserDID(hubUserDID);
+  globalSQLScalar(`
+    INSERT INTO vetchium.hub_principals (
+      hub_user_did, home_tenant_id, state, routing_version,
+      directory_version, provisioning_operation_id, activated_at
+    ) VALUES (
+      ${sqlLiteral(hubUserDID)}, ${sqlLiteral(homeTenantID)}, 'active', 1, 1,
+      gen_random_uuid(), now()
+    );
+    INSERT INTO vetchium.hub_profile_slugs (slug, hub_user_did, kind)
+    VALUES (${sqlLiteral(alias)}, ${sqlLiteral(hubUserDID)}, 'alias');
+  `);
+}
+
+export function cleanupGlobalHubPrincipal(
+  hubUserDID: string,
+  alias: string,
+): void {
+  assertHubUserDID(hubUserDID);
+  globalSQLScalar(`
+    DELETE FROM vetchium.hub_profile_slugs WHERE slug = ${sqlLiteral(alias)};
+    DELETE FROM vetchium.hub_principals
+    WHERE hub_user_did = ${sqlLiteral(hubUserDID)};
+  `);
+}
+
+export function globalHubPrincipal(hubUserDID: string): {
+  handle: string;
+  homeTenantID: string;
+  state: "provisioning" | "active";
+} {
+  assertHubUserDID(hubUserDID);
+  const value = globalSQLScalar(`
+    SELECT json_build_object(
+      'handle', slug.slug,
+      'homeTenantID', principal.home_tenant_id,
+      'state', principal.state
+    )::text
+    FROM vetchium.hub_principals AS principal
+    JOIN vetchium.hub_profile_slugs AS slug
+      ON slug.hub_user_did = principal.hub_user_did
+      AND slug.kind = 'handle'
+    WHERE principal.hub_user_did = ${sqlLiteral(hubUserDID)};
+  `);
+  if (value === "")
+    throw new Error(`global principal not found: ${hubUserDID}`);
+  return JSON.parse(value) as {
+    handle: string;
+    homeTenantID: string;
+    state: "provisioning" | "active";
+  };
+}
+
+export function cleanupHubAliasClaim(hubUserDID: string): void {
+  assertHubUserDID(hubUserDID);
+  globalSQLScalar(`
+    WITH removed AS (
+      DELETE FROM vetchium.hub_profile_slugs
+      WHERE hub_user_did = ${sqlLiteral(hubUserDID)} AND kind = 'alias'
+      RETURNING hub_user_did
+    )
+    UPDATE vetchium.hub_principals AS principal
+    SET alias_revision = alias_revision + 1,
+        directory_version = directory_version + 1,
+        updated_at = now()
+    WHERE principal.hub_user_did IN (SELECT hub_user_did FROM removed);
+  `);
 }
 
 export function ageHubSession(token: string): void {

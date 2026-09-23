@@ -1,0 +1,1 @@
+{{if eq .LeadDays 1}}Ihr kostenpflichtiger Vetchium-Zugang endet morgen{{else}}Ihr kostenpflichtiger Vetchium-Zugang endet in {{.LeadDays}} Tagen{{end}}

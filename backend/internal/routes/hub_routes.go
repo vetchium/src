@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	hubauth "backend/handlers/hub/auth"
+	huboperations "backend/handlers/hub/operations"
+	hubprofile "backend/handlers/hub/profile"
 	hubsubscriptions "backend/handlers/hub/subscriptions"
 	hubusers "backend/handlers/hub/users"
 	"backend/handlers/portal"
@@ -82,4 +84,46 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		"POST /api/hub/set-subscription-plan",
 		hubAuth(hubsubscriptions.SetSubscriptionPlan(s)),
 	)
+	mux.Handle(
+		"POST /api/hub/profile/set-public-fields",
+		hubAuth(hubprofile.SetPublicFields(s)),
+	)
+	mux.Handle("POST /api/hub/profile/save-certification",
+		hubAuth(hubprofile.SaveCertification(s)))
+	mux.Handle("POST /api/hub/profile/delete-certification",
+		hubAuth(hubprofile.DeleteCertification(s)))
+	mux.Handle("POST /api/hub/profile/add-language",
+		hubAuth(hubprofile.AddLanguageAbility(s)))
+	mux.Handle("POST /api/hub/profile/delete-language",
+		hubAuth(hubprofile.DeleteLanguageAbility(s)))
+	mux.Handle("POST /api/hub/profile/save-work-experience",
+		hubAuth(hubprofile.SaveWorkExperience(s)))
+	mux.Handle("POST /api/hub/profile/delete-work-experience",
+		hubAuth(hubprofile.DeleteWorkExperience(s)))
+	mux.Handle("POST /api/hub/profile/save-education",
+		hubAuth(hubprofile.SaveEducation(s)))
+	mux.Handle("POST /api/hub/profile/delete-education",
+		hubAuth(hubprofile.DeleteEducation(s)))
+	mux.Handle("POST /api/hub/profile/read",
+		hubAuth(hubprofile.Read(s)))
+	mux.Handle("POST /api/hub/profile/professional-email/list",
+		hubAuth(hubprofile.ListProfessionalEmails(s)))
+	mux.Handle("POST /api/hub/profile/professional-email/add",
+		hubAuth(hubprofile.AddProfessionalEmail(s)))
+	mux.Handle("POST /api/hub/profile/professional-email/delete",
+		hubAuth(hubprofile.DeleteProfessionalEmail(s)))
+	mux.Handle("POST /api/hub/profile/professional-email/request-code",
+		hubAuth(hubprofile.RequestProfessionalEmailCode(s)))
+	mux.Handle("POST /api/hub/profile/professional-email/verify",
+		hubAuth(hubprofile.VerifyProfessionalEmailCode(s)))
+	mux.Handle("POST /api/hub/profile/picture/remove",
+		hubAuth(hubprofile.RemovePicture(s)))
+	mux.Handle("POST /api/hub/profile/picture/upload",
+		hubAuth(hubprofile.UploadPicture(s)))
+	mux.Handle("GET /api/hub/profile/alias/state",
+		hubAuth(hubprofile.AliasState(s)))
+	mux.Handle("POST /api/hub/profile/alias/set",
+		hubAuth(hubprofile.SetAlias(s)))
+	mux.Handle("POST /api/hub/operations/status",
+		hubAuth(huboperations.Status(s)))
 }

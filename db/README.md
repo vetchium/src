@@ -65,6 +65,31 @@ access an administrator has been given since untouched.
 These credentials are fixtures loaded only by the development seed containers.
 Production environments must provision their first administrator explicitly.
 
+## Development Hub user credentials
+
+`make dev-seed` (or `make dev-seed-hub-profiles` on its own, once `make dev`
+is already up) seeds eight Hub user profiles per tenant by driving the Hub
+signup, subscription, and profile APIs the same way a browser would,
+following each tenant's verification email through the shared Mailpit
+instance. Every seeded Hub user shares the same fixture password used above,
+`DevPassword123$`, so any of them can be logged into in hub-ui.
+
+Half of each tenant's users are on `hub-silver-tier`; those carry a work
+history, education, a biography, and a profile picture. The other half are on
+`hub-free-tier` with a lighter profile and no picture. The fixture data —
+display names, employers, institutions, work experience, education,
+certifications, languages, and the avatar images paid-tier users reference —
+lives in `dev/hub-seed-profiles/` (one `<tenant>.json` file plus a shared set
+of avatar images) and is meant to be hand-edited; `go test ./cmd/dev-seed/...`
+validates every fixture file against the same contract rules the Hub API
+enforces.
+
+This seed assumes a fresh tenant database: `dev-seed` is not idempotent
+against a previously seeded Hub user the way the domain and administrator
+seeds are, so re-running it against a stack that already has these users will
+fail. Run it again only after `make dev` (which starts from `make clean`) has
+produced a fresh stack.
+
 ## Admin API manager bootstrap and recovery
 
 The development seeds grant `admin:manage_users` to their tenant's seeded

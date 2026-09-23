@@ -46,3 +46,26 @@ func TestRegionDiscoveryClient(t *testing.T) {
 		})
 	}
 }
+
+func TestRegionDiscoveryClientOmitsEmptyBearerCredential(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(
+		w http.ResponseWriter, r *http.Request,
+	) {
+		if authorization := r.Header.Get("Authorization"); authorization != "" {
+			t.Errorf("Authorization = %q, want omitted", authorization)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(
+			`{"catalog_version":"1","regions":[],"next_pagination_key":null}`,
+		))
+	}))
+	defer server.Close()
+	client := New(server.URL, CoordinatorPath, "", time.Second)
+	if _, err := client.ListSignupRegions(
+		context.Background(),
+		regionspec.ListSignupRegionsRequest{ResidentCountry: "IN"},
+	); err != nil {
+		t.Fatal(err)
+	}
+}

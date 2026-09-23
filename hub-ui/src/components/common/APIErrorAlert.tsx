@@ -13,11 +13,22 @@ import {
   RecentAuthenticationRequiredError,
 } from "typespec/problem/hub/authentication";
 import {
+  ProfessionalEmailCodeRejectedError,
+  ProfileConflictError,
+  ProfileNotFoundError,
+  ProfilePictureInvalidError,
+  ProfilePictureTooLargeError,
+  ProfileUnavailableError,
+} from "typespec/problem/hub/profile";
+import {
   InvalidSignupTokenError,
   SignupDomainNotAllowedError,
   SignupUnavailableError,
 } from "typespec/problem/hub/signup";
-import { PlanNotOfferedError } from "typespec/problem/hub/subscriptions";
+import {
+  PlanNotOfferedError,
+  PlanRequiredErrorType,
+} from "typespec/problem/hub/subscriptions";
 import {
   IncorrectRecoveryCodeError,
   InvalidTOTPEnrollmentError,
@@ -49,6 +60,14 @@ export const problemKeys: Record<string, string> = {
   [InvalidTOTPEnrollmentError.type]: "errors.invalidEnrollment",
   [RegionDiscoveryUnavailableError.type]: "errors.regionDiscoveryUnavailable",
   [PlanNotOfferedError.type]: "errors.planNotOffered",
+  [ProfileNotFoundError.type]: "errors.profileNotFound",
+  [ProfileUnavailableError.type]: "errors.profileUnavailable",
+  [ProfileConflictError.type]: "errors.profileConflict",
+  [ProfessionalEmailCodeRejectedError.type]:
+    "errors.professionalEmailCodeRejected",
+  [ProfilePictureTooLargeError.type]: "errors.profilePictureTooLarge",
+  [ProfilePictureInvalidError.type]: "errors.profilePictureInvalid",
+  [PlanRequiredErrorType]: "errors.planRequired",
 };
 
 export function APIErrorAlert({ error }: { error: unknown }) {

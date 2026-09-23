@@ -3,8 +3,9 @@
 Vetchium is a professional social networking and jobs platform. It runs one
 isolated stack per tenant — today `sgp`, `usa1`, `deu`, and `ind1`, with more
 possible. Each tenant has its own database, backend services, and three
-portals. A tenant-local S3-compatible object store is planned but not deployed,
-so nothing here may assume one exists.
+portals. A tenant-local S3-compatible object store is not yet deployed. The
+profile-picture work must add an isolated SeaweedFS deployment per tenant before
+application code may depend on object storage.
 
 ## Backend
 
@@ -21,10 +22,11 @@ never deployed.
   access network so an authenticated public route can be added without putting
   it on portal ingress.
 - `workers` — periodic background work; one replica per tenant.
-- `global-coordinator` — stateless, database-free singleton outside the tenant
-  stacks, serving authenticated region discovery over the private mesh. It
-  holds no durable state. Hub signup generates handles locally without it, and
-  hub and mesh APIs fall back to a bundled region catalog when discovery fails.
+- `global-coordinator` — singleton service outside the tenant stacks. Today it
+  serves region discovery from a bundled catalog. Federation work expands it
+  with a global PostgreSQL directory for principal routing, globally unique Hub
+  handles, and paid aliases. It remains mesh-internal and stores no credentials
+  or tenant-owned business data. See `agent-guides/federation.md`.
 - `dev-seed` — local fixtures that must go through a portal API. Table-content
   fixtures stay in `db/db-seed`.
 
@@ -65,7 +67,10 @@ before changing files:
 | [`backend.md`](agent-guides/backend.md) | API servers and workers |
 | [`database.md`](agent-guides/database.md) | PostgreSQL, queries, sqlc, transactions |
 | [`authorization.md`](agent-guides/authorization.md) | permissions and the screens presenting them |
-| [`hub-signup.md`](agent-guides/hub-signup.md) | Hub signup, region discovery, locality, federation, migration |
+| [`federation.md`](agent-guides/federation.md) | global routing, mesh trust, cross-tenant commands, outbox/inbox, migration |
+| [`object-storage.md`](agent-guides/object-storage.md) | SeaweedFS, tenant blobs, signed media, object lifecycle |
+| [`hub-profile.md`](agent-guides/hub-profile.md) | Hub profiles, professional claims, work-email evidence, aliases, pictures |
+| [`hub-signup.md`](agent-guides/hub-signup.md) | Hub signup, region discovery, identity claims, locality |
 | [`hub-subscriptions.md`](agent-guides/hub-subscriptions.md) | Hub plans, subscriptions, billing periods, payment integration |
 | [`typespec.md`](agent-guides/typespec.md) | contracts and matching wire types |
 | [`typescript.md`](agent-guides/typescript.md) | hand-maintained TypeScript |
@@ -103,5 +108,6 @@ over a general one.
 - Put a shared language or tool convention in one guide rather than copying it
   into several routers.
 
-`docs/` holds only [`todo.md`](docs/todo.md), the deliberately deferred work.
-Durable implementation and product guidance belongs under `agent-guides/`.
+`docs/` holds [`todo.md`](docs/todo.md) and accepted feature specifications
+that the product owner explicitly requests. Durable cross-cutting implementation
+guidance belongs under `agent-guides/`.

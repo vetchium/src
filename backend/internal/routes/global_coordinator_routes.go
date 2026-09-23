@@ -3,6 +3,7 @@ package routes
 import (
 	"net/http"
 
+	"backend/handlers/directory"
 	"backend/handlers/regions"
 	"backend/internal/apiserver"
 	"backend/internal/globalcoordinator"
@@ -14,6 +15,22 @@ func RegisterGlobalCoordinatorRoutes(
 	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
 	mux.HandleFunc(
 		"POST /api/global-coordinator/list-signup-regions",
-		regions.Handler(s.Runtime, s.Regions, nil, s.Credential),
+		regions.GlobalHandler(s.Runtime, s.Regions),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/resolve-profile-slug",
+		directory.ResolveProfileSlug(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/reserve-hub-principal",
+		directory.ReserveHubPrincipal(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/activate-hub-principal",
+		directory.ActivateHubPrincipal(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/set-hub-alias",
+		directory.SetHubAlias(s.Runtime, s.Directory),
 	)
 }

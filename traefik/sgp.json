@@ -1,6 +1,12 @@
 {
   "http": {
     "routers": {
+      "media": {
+        "rule": "Host(`media.sgp.localhost`) && (Method(`GET`) || Method(`HEAD`)) && PathRegexp(`^/hub-profile-pictures/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
+        "service": "media",
+        "entryPoints": ["web"],
+        "priority": 100
+      },
       "orgs-api": {
         "rule": "Host(`orgs-ui.sgp.localhost`) && (Path(`/api`) || PathPrefix(`/api/`))",
         "service": "orgs-api",
@@ -36,6 +42,12 @@
       }
     },
     "services": {
+      "media": {
+        "loadBalancer": {
+          "servers": [{ "url": "http://media-proxy-sgp:8080" }],
+          "passHostHeader": true
+        }
+      },
       "orgs-api": {
         "loadBalancer": {
           "servers": [

@@ -212,19 +212,20 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       action: "hub.user.created",
       idempotencyKey: completeSignupKey,
     });
-    await expectProblem(
-      await hub.post("/complete-signup", completeSignupRequest, {
-        idempotencyKey: completeSignupKey,
-      }),
-      500,
-      "vetchium-problem-details/internal-server-error",
+    const pendingCompletion = await hub.post(
+      "/complete-signup",
+      completeSignupRequest,
+      { idempotencyKey: completeSignupKey },
+    );
+    expect(pendingCompletion.status(), await pendingCompletion.text()).toBe(
+      202,
     );
     expect(
       hubSignupCompletionArtifactCounts(emailAddress, completeSignupKey),
     ).toEqual({
-      activeSignupRequests: 1,
-      auditEvents: 0,
-      hubUsers: 0,
+      activeSignupRequests: 0,
+      auditEvents: 2,
+      hubUsers: 1,
       idempotencyRows: 0,
     });
     removeAuditFailure();
@@ -260,7 +261,15 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       "vetchium-problem-details/idempotency-key-conflict",
     );
     const completionEvents = hubAuditEventsByIdempotencyKey(completeSignupKey);
-    expect(completionEvents).toHaveLength(2);
+    expect(completionEvents).toHaveLength(4);
+    expect(completionEvents.map((event) => event.action)).toEqual(
+      expect.arrayContaining([
+        "hub.signup.completion_prepared",
+        "hub.user.provisioning",
+        "hub.user.created",
+        "hub.subscription.created",
+      ]),
+    );
     const userCreated = completionEvents.find(
       (event) => event.action === "hub.user.created",
     );

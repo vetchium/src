@@ -15,8 +15,8 @@ const suffixAlphabet = "0123456789abcdefghjkmnpqrstvwxyz"
 // suffixLength gives the suffix 55 bits of entropy. The handle is a public
 // identifier, so the suffix is random rather than derived from the DID or the
 // clock: neither the account identifier nor its creation time may be readable
-// from a handle. Uniqueness is enforced by the hub_users unique index, and
-// CompleteHubSignup retries a collision with a fresh suffix.
+// from a handle. The global directory enforces uniqueness, and the signup
+// completion saga retries a collision with a fresh suffix.
 const suffixLength = 11
 
 // Handle builds the public handle for a new Hub User. The display-name prefix

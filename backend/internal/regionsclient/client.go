@@ -1,12 +1,13 @@
 // Package regionsclient calls a signup-region directory over HTTP. One client
-// type serves both hops of discovery: hub-api calls its own tenant's mesh API,
-// and mesh-api calls the global coordinator. Each hop carries its own
-// credential, so neither can be replayed against the other.
+// type serves both hops of discovery: hub-api calls its own tenant's mesh API
+// with a bearer credential, and mesh-api calls the global coordinator with a
+// tenant client certificate.
 package regionsclient
 
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,11 +39,30 @@ type Client struct {
 // than followed, so a relocated endpoint cannot silently receive the
 // credential.
 func New(baseURL, path, credential string, timeout time.Duration) *Client {
+	return newClient(baseURL, path, credential, timeout, nil)
+}
+
+func NewMutualTLS(
+	baseURL, path, credential string, timeout time.Duration,
+	tlsConfig *tls.Config,
+) *Client {
+	return newClient(baseURL, path, credential, timeout, tlsConfig)
+}
+
+func newClient(
+	baseURL, path, credential string, timeout time.Duration,
+	tlsConfig *tls.Config,
+) *Client {
+	transport := http.DefaultTransport
+	if tlsConfig != nil {
+		transport = &http.Transport{TLSClientConfig: tlsConfig}
+	}
 	return &Client{
 		endpoint:   strings.TrimRight(baseURL, "/") + path,
 		credential: credential,
 		httpClient: &http.Client{
-			Timeout: timeout,
+			Timeout:   timeout,
+			Transport: transport,
 			CheckRedirect: func(*http.Request, []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
@@ -64,7 +84,9 @@ func (c *Client) ListSignupRegions(
 	if err != nil {
 		return result, err
 	}
-	request.Header.Set("Authorization", "Bearer "+c.credential)
+	if c.credential != "" {
+		request.Header.Set("Authorization", "Bearer "+c.credential)
+	}
 	request.Header.Set("Content-Type", "application/json")
 	response, err := c.httpClient.Do(request)
 	if err != nil {

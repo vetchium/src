@@ -17,12 +17,18 @@
 !portal-ui/
 !portal-ui/**
 !db/
+!db/global-migrations/
+!db/global-migrations/**
 !db/migrations/
 !db/migrations/**
+!dev/
+!dev/wireguard/
+!dev/wireguard/**
 
 # Backend images regenerate this package from SQL sources. Never copy the
 # committed editor-friendly output into the build context.
 backend/internal/db/sqlc/
+backend/internal/globaldb/sqlc/
 admin-ui/node_modules/
 admin-ui/dist/
 admin-ui/*.tsbuildinfo

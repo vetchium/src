@@ -11,5 +11,10 @@ For Hub signup, locality, or migration contracts, also read
 [`../agent-guides/hub-signup.md`](../agent-guides/hub-signup.md). For Hub plan,
 subscription, or payment contracts, also read
 [`../agent-guides/hub-subscriptions.md`](../agent-guides/hub-subscriptions.md).
+For any global-directory or cross-tenant contract, also read
+[`../agent-guides/federation.md`](../agent-guides/federation.md). For uploads or
+signed media, read [`../agent-guides/object-storage.md`](../agent-guides/object-storage.md).
+For Hub profile contracts, also read
+[`../agent-guides/hub-profile.md`](../agent-guides/hub-profile.md).
 
 Backend implementation and database rules do not apply to this module.

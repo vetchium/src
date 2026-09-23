@@ -37,9 +37,20 @@ func TestLoadFile(t *testing.T) {
 			cfg.Workers,
 		)
 	}
-	if cfg.GlobalCoordinator.BaseURL != "http://global-coordinator:8080" ||
-		cfg.GlobalCoordinator.RequestTimeout != 5*time.Second {
+	if cfg.GlobalCoordinator.BaseURL != "https://global-coordinator:8080" ||
+		cfg.GlobalCoordinator.RequestTimeout != 5*time.Second ||
+		cfg.GlobalCoordinator.TLS.CertificateFile == "" ||
+		cfg.GlobalCoordinator.TLS.KeyFile == "" ||
+		cfg.GlobalCoordinator.TLS.CAFile == "" ||
+		cfg.GlobalCoordinator.TLS.ServerName !=
+			"global-coordinator.mesh.vetchium.com" {
 		t.Fatalf("global coordinator config = %+v", cfg.GlobalCoordinator)
+	}
+	if cfg.MeshAPIServer.PeerAddress != ":8443" ||
+		cfg.MeshAPIServer.PeerTLS.CertificateFile == "" ||
+		cfg.MeshAPIServer.PeerTLS.KeyFile == "" ||
+		cfg.MeshAPIServer.PeerTLS.ClientCAFile == "" {
+		t.Fatalf("mesh API config = %+v", cfg.MeshAPIServer)
 	}
 	if cfg.HubAPIServer.SessionTTL != 24*time.Hour ||
 		cfg.HubAPIServer.RememberedSessionTTL != 6360*time.Hour ||
@@ -51,10 +62,20 @@ func TestLoadFile(t *testing.T) {
 	}) {
 		t.Fatalf("offered plans = %v", cfg.HubAPIServer.OfferedPlans)
 	}
+	if cfg.ObjectStorage.PrivateBaseURL != "http://seaweed-s3-sgp:8333" ||
+		cfg.ObjectStorage.MediaBaseURL != "http://media.sgp.localhost" {
+		t.Fatalf("object storage config = %+v", cfg.ObjectStorage)
+	}
 	if cfg.Workers.AdvanceHubSubscriptionsTimer != time.Minute {
 		t.Fatalf(
 			"advance hub subscriptions timer = %s, want 1m",
 			cfg.Workers.AdvanceHubSubscriptionsTimer,
+		)
+	}
+	if cfg.Workers.ReconcileHubSignupTimer != time.Minute {
+		t.Fatalf(
+			"reconcile Hub signup timer = %s, want 1m",
+			cfg.Workers.ReconcileHubSignupTimer,
 		)
 	}
 	if cfg.SMTP.Host != "mailpit" || cfg.SMTP.Port != 1025 ||
@@ -225,16 +246,38 @@ func TestLoadFileRejectsCoordinatorURLCredentials(t *testing.T) {
 	}
 	contents = []byte(strings.Replace(
 		string(contents),
-		"http://global-coordinator:8080",
-		"http://credential@global-coordinator:8080",
+		"https://global-coordinator:8080",
+		"https://credential@global-coordinator:8080",
 		1,
 	))
 	if err := os.WriteFile(path, contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_, err = LoadFile(path)
-	if err == nil || !strings.Contains(err.Error(), "must be an HTTP(S) origin") {
+	if err == nil || !strings.Contains(err.Error(), "must be an HTTPS origin") {
 		t.Fatalf("LoadFile() error = %v, want coordinator origin error", err)
+	}
+}
+
+func TestLoadFileRejectsInsecureCoordinatorURL(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	path := writeConfig(t, passwordFile, "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(
+		string(contents),
+		"https://global-coordinator:8080",
+		"http://global-coordinator:8080",
+		1,
+	))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LoadFile(path)
+	if err == nil || !strings.Contains(err.Error(), "must be an HTTPS origin") {
+		t.Fatalf("LoadFile() error = %v, want HTTPS-only error", err)
 	}
 }
 
@@ -261,6 +304,23 @@ func TestLoadFileAcceptsCIEnvironment(t *testing.T) {
 	}
 }
 
+func TestProductionMediaOriginMustUseHTTPS(t *testing.T) {
+	path := writeConfig(t, "password-not-read", "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(string(contents),
+		`"env": "dev"`, `"env": "production"`, 1))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadFile(path); err == nil ||
+		!strings.Contains(err.Error(), "mediaBaseURL must use HTTPS") {
+		t.Fatalf("insecure production media origin error = %v", err)
+	}
+}
+
 func TestLoadFileRequiresPositiveDurations(t *testing.T) {
 	passwordFile := filepath.Join(t.TempDir(), "password")
 	path := filepath.Join(t.TempDir(), "config.json")
@@ -283,26 +343,44 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "deliverHubEmailTimer": "1s",
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5,
-    "advanceHubSubscriptionsTimer": "1m"
+    "advanceHubSubscriptionsTimer": "1m",
+    "reconcileHubSignupTimer": "1m"
   },
   "adminAPIServer": {
     "sessionTTL": "24h"
   },
   "globalCoordinator": {
-    "baseURL": "http://global-coordinator:8080",
-    "credentialFile": "/run/secrets/global_coordinator_credential",
-    "requestTimeout": "5s"
+    "baseURL": "https://global-coordinator:8080",
+    "requestTimeout": "5s",
+    "tls": {
+      "certificateFile": "/run/secrets/mesh_client_certificate",
+      "keyFile": "/run/secrets/mesh_client_key",
+      "caFile": "/run/secrets/mesh_ca_certificate",
+      "serverName": "global-coordinator.mesh.vetchium.com"
+    }
   },
   "meshAPIServer": {
     "baseURL": "http://mesh-api-sgp:8080",
     "credentialFile": "/run/secrets/mesh_credential",
-    "requestTimeout": "5s"
+    "requestTimeout": "5s",
+    "peerAddress": ":8443",
+    "peerTLS": {
+      "certificateFile": "/run/secrets/mesh_server_certificate",
+      "keyFile": "/run/secrets/mesh_server_key",
+      "clientCAFile": "/run/secrets/mesh_ca_certificate"
+    }
   },
   "hubAPIServer": {
     "sessionTTL": "24h",
     "rememberedSessionTTL": "6360h",
     "publicBaseURL": "http://hub-ui.sgp.localhost",
     "offeredPlans": ["hub-free-tier", "hub-silver-tier"]
+  },
+  "objectStorage": {
+    "privateBaseURL": "http://seaweed-s3-sgp:8333",
+    "mediaBaseURL": "http://media.sgp.localhost",
+    "accessKeyFile": "/run/secrets/seaweed_s3_access_key",
+    "secretKeyFile": "/run/secrets/seaweed_s3_secret_key"
   },
   "smtp": {
     "host": "mailpit",
@@ -466,70 +544,104 @@ func TestCheckedInConfigs(t *testing.T) {
 
 // TestCheckedInHubPlansMatchPortalConfiguration compares each tenant's
 // backend offeredPlans and tenantId with the literal hub-ui portal
-// environment values in the matching compose or stack file. Nothing can
-// compare them at process startup because hub-ui is a static nginx
-// container, so this repository test is what catches drift before
+// environment values in the matching compose or stack file, and compares
+// VETCHIUM_MEDIA_ORIGINS against every tenant's objectStorage.mediaBaseURL
+// for that environment: a federated profile read renders the picture
+// owner's home tenant's signed media URL directly in the browser, so every
+// tenant's hub-ui must allow every tenant's media origin, not only its own.
+// Nothing can compare them at process startup because hub-ui is a static
+// nginx container, so this repository test is what catches drift before
 // deployment.
 func TestCheckedInHubPlansMatchPortalConfiguration(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
-	for _, region := range []string{"deu", "ind1", "sgp", "usa1"} {
-		for _, test := range []struct {
-			name        string
-			configPath  string
-			composePath string
-			serviceName string
-		}{
-			{
-				"dev", filepath.Join(root, "config", region+".json"),
-				filepath.Join(root, "docker-compose.json"),
-				"hub-ui-" + region,
+	regions := []string{"deu", "ind1", "sgp", "usa1"}
+	for _, env := range []struct {
+		name        string
+		configPath  func(region string) string
+		composePath func(region string) string
+		serviceName func(region string) string
+	}{
+		{
+			"dev",
+			func(region string) string {
+				return filepath.Join(root, "config", region+".json")
 			},
-			{
-				"ci", filepath.Join(root, "config", "ci", region+".json"),
-				filepath.Join(root, "docker-compose-ci.json"),
-				"hub-ui-" + region,
+			func(string) string { return filepath.Join(root, "docker-compose.json") },
+			func(region string) string { return "hub-ui-" + region },
+		},
+		{
+			"ci",
+			func(region string) string {
+				return filepath.Join(root, "config", "ci", region+".json")
 			},
-			{
-				"production",
-				filepath.Join(root, "deploy", region, "config.json"),
-				filepath.Join(root, "deploy", region, "stack.json"),
-				"hub-ui",
+			func(string) string { return filepath.Join(root, "docker-compose-ci.json") },
+			func(region string) string { return "hub-ui-" + region },
+		},
+		{
+			"production",
+			func(region string) string {
+				return filepath.Join(root, "deploy", region, "config.json")
 			},
-		} {
-			t.Run(region+"/"+test.name, func(t *testing.T) {
-				cfg, err := LoadFile(test.configPath)
+			func(region string) string {
+				return filepath.Join(root, "deploy", region, "stack.json")
+			},
+			func(string) string { return "hub-ui" },
+		},
+	} {
+		t.Run(env.name, func(t *testing.T) {
+			cfgs := make(map[string]Config, len(regions))
+			wantMediaOrigins := make([]string, 0, len(regions))
+			for _, region := range regions {
+				cfg, err := LoadFile(env.configPath(region))
 				if err != nil {
 					t.Fatal(err)
 				}
-				tenantID, plans := hubUIPortalEnvironment(
-					t, test.composePath, test.serviceName,
-				)
-				if tenantID != cfg.TenantID {
-					t.Fatalf(
-						"%s VETCHIUM_TENANT_ID = %q, want %q (tenantId)",
-						test.composePath, tenantID, cfg.TenantID,
+				cfgs[region] = cfg
+				wantMediaOrigins = append(wantMediaOrigins, cfg.ObjectStorage.MediaBaseURL)
+			}
+			slices.Sort(wantMediaOrigins)
+
+			for _, region := range regions {
+				t.Run(region, func(t *testing.T) {
+					cfg := cfgs[region]
+					composePath := env.composePath(region)
+					tenantID, plans, mediaOrigins := hubUIPortalEnvironment(
+						t, composePath, env.serviceName(region),
 					)
-				}
-				wantPlans := make([]string, len(cfg.HubAPIServer.OfferedPlans))
-				for i, plan := range cfg.HubAPIServer.OfferedPlans {
-					wantPlans[i] = string(plan)
-				}
-				slices.Sort(wantPlans)
-				slices.Sort(plans)
-				if !slices.Equal(plans, wantPlans) {
-					t.Fatalf(
-						"%s VETCHIUM_HUB_PLANS = %v, want %v (offeredPlans)",
-						test.composePath, plans, wantPlans,
-					)
-				}
-			})
-		}
+					if tenantID != cfg.TenantID {
+						t.Fatalf(
+							"%s VETCHIUM_TENANT_ID = %q, want %q (tenantId)",
+							composePath, tenantID, cfg.TenantID,
+						)
+					}
+					wantPlans := make([]string, len(cfg.HubAPIServer.OfferedPlans))
+					for i, plan := range cfg.HubAPIServer.OfferedPlans {
+						wantPlans[i] = string(plan)
+					}
+					slices.Sort(wantPlans)
+					slices.Sort(plans)
+					if !slices.Equal(plans, wantPlans) {
+						t.Fatalf(
+							"%s VETCHIUM_HUB_PLANS = %v, want %v (offeredPlans)",
+							composePath, plans, wantPlans,
+						)
+					}
+					slices.Sort(mediaOrigins)
+					if !slices.Equal(mediaOrigins, wantMediaOrigins) {
+						t.Fatalf(
+							"%s VETCHIUM_MEDIA_ORIGINS = %v, want %v (every region's objectStorage.mediaBaseURL)",
+							composePath, mediaOrigins, wantMediaOrigins,
+						)
+					}
+				})
+			}
+		})
 	}
 }
 
 func hubUIPortalEnvironment(
 	t *testing.T, composePath, serviceName string,
-) (string, []string) {
+) (string, []string, []string) {
 	t.Helper()
 	contents, err := os.ReadFile(composePath)
 	if err != nil {
@@ -549,13 +661,14 @@ func hubUIPortalEnvironment(
 	}
 	tenantID := service.Environment["VETCHIUM_TENANT_ID"]
 	hubPlans := service.Environment["VETCHIUM_HUB_PLANS"]
-	if tenantID == "" || hubPlans == "" {
+	mediaOrigins := service.Environment["VETCHIUM_MEDIA_ORIGINS"]
+	if tenantID == "" || hubPlans == "" || mediaOrigins == "" {
 		t.Fatalf(
-			"%s: service %q is missing VETCHIUM_TENANT_ID or VETCHIUM_HUB_PLANS",
+			"%s: service %q is missing VETCHIUM_TENANT_ID, VETCHIUM_HUB_PLANS, or VETCHIUM_MEDIA_ORIGINS",
 			composePath, serviceName,
 		)
 	}
-	return tenantID, strings.Split(hubPlans, ",")
+	return tenantID, strings.Split(hubPlans, ","), strings.Split(mediaOrigins, ",")
 }
 
 func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
@@ -580,26 +693,44 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "deliverHubEmailTimer": "1s",
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5,
-    "advanceHubSubscriptionsTimer": "1m"%s
+    "advanceHubSubscriptionsTimer": "1m",
+    "reconcileHubSignupTimer": "1m"%s
   },
   "adminAPIServer": {
     "sessionTTL": "24h"
   },
   "globalCoordinator": {
-    "baseURL": "http://global-coordinator:8080",
-    "credentialFile": "/run/secrets/global_coordinator_credential",
-    "requestTimeout": "5s"
+    "baseURL": "https://global-coordinator:8080",
+    "requestTimeout": "5s",
+    "tls": {
+      "certificateFile": "/run/secrets/mesh_client_certificate",
+      "keyFile": "/run/secrets/mesh_client_key",
+      "caFile": "/run/secrets/mesh_ca_certificate",
+      "serverName": "global-coordinator.mesh.vetchium.com"
+    }
   },
   "meshAPIServer": {
     "baseURL": "http://mesh-api-sgp:8080",
     "credentialFile": "/run/secrets/mesh_credential",
-    "requestTimeout": "5s"
+    "requestTimeout": "5s",
+    "peerAddress": ":8443",
+    "peerTLS": {
+      "certificateFile": "/run/secrets/mesh_server_certificate",
+      "keyFile": "/run/secrets/mesh_server_key",
+      "clientCAFile": "/run/secrets/mesh_ca_certificate"
+    }
   },
   "hubAPIServer": {
     "sessionTTL": "24h",
     "rememberedSessionTTL": "6360h",
     "publicBaseURL": "http://hub-ui.sgp.localhost",
     "offeredPlans": ["hub-free-tier", "hub-silver-tier"]
+  },
+  "objectStorage": {
+    "privateBaseURL": "http://seaweed-s3-sgp:8333",
+    "mediaBaseURL": "http://media.sgp.localhost",
+    "accessKeyFile": "/run/secrets/seaweed_s3_access_key",
+    "secretKeyFile": "/run/secrets/seaweed_s3_secret_key"
   },
   "smtp": {
     "host": "mailpit",

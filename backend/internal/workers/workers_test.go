@@ -22,7 +22,7 @@ func TestNewUsesConfiguredJobInterval(t *testing.T) {
 		PruneAdminSessionsTimer:      interval,
 		PruneEphemeralDataTimer:      interval,
 		AdvanceHubSubscriptionsTimer: interval,
-	})
+	}, nil, nil)
 
 	if len(worker.jobs) != 4 {
 		t.Fatalf("jobs = %d, want 4", len(worker.jobs))

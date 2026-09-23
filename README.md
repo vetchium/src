@@ -18,22 +18,14 @@ Internet/browser
        |-- portal hostname, /api/* --> matching portal API --> PostgreSQL
        `-- portal hostname, other paths --> portal nginx (static files)
 
-future WireGuard gateway --> private mesh --> mesh-api --> PostgreSQL
+WireGuard mesh --> mesh-api --> PostgreSQL
 
 optional authenticated MCP route --> mcp-server --> PostgreSQL
 
 workers --> PostgreSQL
 ```
 
-Traefik is the only publicly exposed ingress.
-
-## MCP exposure
-
-MCP is deliberately not public yet. The service and tenant Traefik already
-share `*_mcp_access`, so exposure later is a routing/configuration change, not a
-network-topology change. Before adding a router for `mcp.<tenant-domain>/mcp`,
-add the MCP authorization flow, TLS, request limits, and an explicit allowed
-origin policy. Do not attach `mcp-server` directly to `*_ingress`.
+Traefik is the only publicly exposed ingress. MCP is not public yet.
 
 ## Development
 
@@ -41,6 +33,13 @@ Clean and bring up the development environment:
 
 ```bash
 make [dev]
+```
+
+Seed development fixtures — Hub signup domains, and Hub user profiles with
+work history, education, and pictures — once that stack is up:
+
+```bash
+make dev-seed
 ```
 
 [Tilt](https://tilt.dev) is an optional front end for that same
@@ -62,13 +61,8 @@ repository-root context, so one backend change invalidates all of them. Use
 `--manual`, or a single tenant, when that fan-out costs more than it saves.
 `make clean` remains the full teardown.
 
-Clean and bring up the test environment; run the Go, TypeScript, React,
-PostgreSQL, sqlc, dependency, and vulnerability checks and tests; then report
-the per-module and aggregate Go statement coverage. The final report also
-compares the API responses exercised by Playwright with the generated OpenAPI
-contract, including operation, 2xx/4xx/5xx status, and RFC problem-type
-coverage, followed by the exact remaining gaps. Go tests always run with the
-race detector. The test environment is left running afterward for inspection:
+Clean and bring up the test environment, run every check and test suite, and
+report coverage; the stack is left running afterward for inspection:
 
 ```bash
 make test

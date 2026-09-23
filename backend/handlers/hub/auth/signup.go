@@ -1,21 +1,16 @@
 package auth
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-
 	"github.com/vetchium/src/typespec/common"
-	hubspec "github.com/vetchium/src/typespec/hub"
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
-	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
+	"github.com/vetchium/src/typespec/problem"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
 	"backend/internal/apiserver"
@@ -25,23 +20,10 @@ import (
 	"backend/internal/handlerauth"
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
-	hubusers "backend/internal/hub/users"
+	"backend/internal/hub/signupcompletion"
 )
 
 const signupTTL = 24 * time.Hour
-
-// Outcomes of CompleteHubSignup. A conflict means the generated handle (or,
-// far more rarely, a racing duplicate email) was already taken and no user
-// was created, so the signup request survives for another attempt.
-const (
-	completionCreated    = "created"
-	completionIneligible = "ineligible"
-	completionConflict   = "conflict"
-)
-
-// handleAttempts bounds the retries for a colliding handle. The suffix has 55
-// bits of entropy, so needing even a second attempt is already remarkable.
-const handleAttempts = 5
 
 type signupEmailPayload struct {
 	DisplayName     string    `json:"display_name"`
@@ -136,83 +118,37 @@ func CompleteSignup(s *hubruntime.Server) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		tokenHash := credentials.TokenHash(string(request.SignupToken))
-		binding := base64.RawURLEncoding.EncodeToString(tokenHash)
-		handlerauth.RunIdempotent(
-			s, w, r, "hub:complete-signup", binding, key, request,
-			s.CurrentTime().Add(24*time.Hour),
-			func(q *sqlc.Queries) (
-				handlerauth.Result[hubauth.CompleteSignupResponse],
-				*handlerauth.Problem, error,
-			) {
-				signup, err := q.ResolveHubSignupForCompletion(
-					r.Context(), tokenHash,
-				)
-				if errors.Is(err, pgx.ErrNoRows) {
-					return handlerauth.AuthenticationFailure[hubauth.CompleteSignupResponse](
-						hubproblem.InvalidSignupTokenError,
-						hubauthn.SignupChallenge,
-					)
-				}
-				if err != nil {
-					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
-				}
-				if !s.Signup.Enabled || !s.Regions.Allows(s.TenantID, common.CountryCode(signup.ResidentCountry)) {
-					return handlerauth.Failure[hubauth.CompleteSignupResponse](hubproblem.SignupUnavailableError)
-				}
-				passwordHash, err := credentials.HashPassword(string(request.Password))
-				if err != nil {
-					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
-				}
-				did, err := dbvalue.NewUUIDv7(s.CurrentTime())
-				if err != nil {
-					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
-				}
-				var created sqlc.CompleteHubSignupRow
-				for range handleAttempts {
-					handle, err := hubusers.Handle(signup.DisplayName)
-					if err != nil {
-						return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
-					}
-					created, err = q.CompleteHubSignup(
-						r.Context(), sqlc.CompleteHubSignupParams{
-							HubSignupRequestID: signup.HubSignupRequestID,
-							HubUserDid:         did,
-							Handle:             string(handle),
-							PasswordHash:       passwordHash,
-							TenantID:           s.TenantID,
-							IdempotencyKey:     dbvalue.Text(string(key)),
-							DefaultHubPlanOid:  string(subscriptionspec.DefaultPlan),
-						},
-					)
-					if err != nil {
-						return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil, err
-					}
-					if created.Result != completionConflict {
-						break
-					}
-				}
-				switch created.Result {
-				case completionCreated:
-				case completionIneligible:
-					return handlerauth.AuthenticationFailure[hubauth.CompleteSignupResponse](
-						hubproblem.InvalidSignupTokenError,
-						hubauthn.SignupChallenge,
-					)
-				default:
-					return handlerauth.Result[hubauth.CompleteSignupResponse]{}, nil,
-						fmt.Errorf(
-							"no free handle after %d attempts", handleAttempts,
-						)
-				}
-				return handlerauth.Result[hubauth.CompleteSignupResponse]{
-					Status: http.StatusCreated,
-					Body: hubauth.CompleteSignupResponse{
-						HubUserDID: hubspec.HubUserDID(created.HubUserDid),
-						Handle:     hubspec.HubHandle(created.Handle),
-					},
-				}, nil, nil
+		if !s.Signup.Enabled {
+			s.Problem(r.Context(), w, hubproblem.SignupUnavailableError)
+			return
+		}
+		result, err := s.SignupCompletion.Start(
+			r.Context(), request, key,
+			func(country common.CountryCode) bool {
+				return s.Regions.Allows(s.TenantID, country)
 			},
 		)
+		switch {
+		case errors.Is(err, signupcompletion.ErrInvalidToken),
+			errors.Is(err, signupcompletion.ErrExpired):
+			s.AuthenticationProblem(
+				r.Context(), w, hubproblem.InvalidSignupTokenError,
+				hubauthn.SignupChallenge,
+			)
+		case errors.Is(err, signupcompletion.ErrIdempotencyConflict):
+			s.Problem(r.Context(), w, problem.IdempotencyKeyConflictError)
+		case errors.Is(err, signupcompletion.ErrPending):
+			w.Header().Set("Cache-Control", "no-store")
+			s.JSON(r.Context(), w, http.StatusAccepted,
+				hubauth.SignupCompletionPendingResponse{
+					OperationID: result.OperationID,
+				},
+			)
+		case err != nil:
+			s.InternalError(r.Context(), w, "complete Hub signup", err)
+		default:
+			w.Header().Set("Cache-Control", "no-store")
+			s.JSON(r.Context(), w, http.StatusCreated, result.Response)
+		}
 	}
 }

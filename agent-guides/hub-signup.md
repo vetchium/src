@@ -1,8 +1,8 @@
 # Hub Signup and Locality
 
-Applies to Hub signup, signup-region discovery, profile location, federation,
-and principal migration. Compose it with the backend, database, TypeSpec, UI,
-and Playwright guides for the layers being changed.
+Applies to Hub signup, signup-region discovery, global identity claims, and
+profile locality. Compose it with `federation.md` plus the backend, database,
+TypeSpec, UI, and Playwright guides for the layers being changed.
 
 ## Signup ownership
 
@@ -20,18 +20,24 @@ and Playwright guides for the layers being changed.
   idempotent request retains its original result rather than applying current
   policy retroactively.
 - The same email may identify independent accounts in different tenants. Never
-  infer a global account, account merge, or cross-tenant authorization from an
-  equal email address.
+  infer an account merge or cross-tenant authorization from an equal email
+  address. Global identity comes only from the DID directory.
 
 ## Identity and profile locality
 
 - A Hub user's DID is an immutable, location-neutral UUIDv7. It is private,
   never reused, and survives a future tenant move.
-- Handles are public and allocated locally without a coordinator. Keep the
-  readable prefix and random Crockford-base32 suffix; the suffix must reveal
-  neither the DID nor creation time. Let the database unique constraint decide
-  collisions, retry with a fresh suffix, and do not consume the signup request
-  on a collision.
+- Handles are public, permanent, and globally unique. Keep the readable prefix
+  and random Crockford-base32 suffix; the suffix must reveal neither the DID nor
+  creation time. The global directory, not a tenant-local constraint, decides
+  uniqueness. A collision retries with a fresh suffix without consuming the
+  signup request.
+- Signup uses the provisioning reservation/finalization flow in
+  `federation.md`: reserve the DID, handle, and home tenant globally; create a
+  non-loginable local row; activate the global route; then activate the local
+  account and mint a session. Directory unavailability fails closed.
+- The permanent handle URL is `https://vetchium.com/u/<handle>`. A paid alias is
+  an alternate address and never replaces the canonical handle or QR payload.
 - Initialize preferred job countries from residence. Later residence changes
   do not change job preferences, home tenant, or identity. An empty preference
   means no country filter.
@@ -41,9 +47,10 @@ and Playwright guides for the layers being changed.
 The discovery path is browser to tenant Hub API to tenant mesh API to the
 global coordinator.
 
-- The coordinator is an authenticated private-mesh service containing only
-  deployment catalog data. It has no database and must never become an account
-  directory or hold profiles, connections, hiring data, or credentials.
+- Region discovery remains deployment-catalog behavior. The same global service
+  may also front the separate global PostgreSQL directory defined in
+  `federation.md`; catalog fallback never substitutes for an identity-routing or
+  uniqueness decision.
 - Hub and mesh processes each use a mounted, versioned local catalog. Bound
   remote calls with timeouts and fall back to the caller's local catalog so a
   cold start and an outage do not block discovery.
@@ -56,29 +63,15 @@ global coordinator.
 - Paginate catalog results by tenant-ID keysets bound to the country filter and
   catalog contents.
 
-## Future federation and migration
+## Federation and migration
 
-Federated account routing and principal migration are not implemented. Before
-adding them, preserve these boundaries:
+Federated routing and migration use `federation.md`. In addition:
 
-- Add a minimal DID-to-home-tenant directory with routing versions and durable
-  local caches. Ordinary operations must survive the global service being down.
-- Give every business aggregate one authoritative tenant. Follow edges belong
-  to the follower; mutual connections need a deterministic owner. Represent a
-  remote principal by DID, not by a required local account row.
-- Keep applications, interviews, and offers with the hiring Org. Move
-  user-owned records while preserving access to active Org-owned workflows.
-- Copy state and pending work, fence source writes, verify the copy, and only
-  then perform a versioned routing handover. Retain source authority during a
-  global outage and preserve forwarding information for stale callers.
-- Transfer idempotency and security state, re-encrypting secrets as needed,
-  plus outboxes and scheduled work. Migration cleanup must not reuse
-  account-deletion cascades.
-- Recheck the destination tenant's active email-domain allowlist at final
-  admission, and require it to offer the user's subscription plan before
-  handover. Revocation rejects the move without losing source data. Resolve
-  destination email collisions explicitly; equal emails never merge accounts.
-  Preserve the DID and handle.
+- Follow edges belong to the follower; mutual connections need a deterministic
+  owner. Keep applications, interviews, and offers with the hiring Org.
+- A destination rechecks its active email-domain allowlist and must offer the
+  user's plan before handover. Resolve destination email collisions explicitly;
+  equal emails never merge accounts. Preserve the DID and permanent handle.
 - Derive expansion reports from aggregate tenant counts by residence and
   activity. Do not centralize individual business data for reporting.
 

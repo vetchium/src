@@ -16,20 +16,32 @@
     "deliverHubEmailTimer": "5s",
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5,
-    "advanceHubSubscriptionsTimer": "1m"
+    "advanceHubSubscriptionsTimer": "1m",
+    "reconcileHubSignupTimer": "10s"
   },
   "adminAPIServer": {
     "sessionTTL": "24h"
   },
   "globalCoordinator": {
-    "baseURL": "http://global-coordinator:8080",
-    "credentialFile": "/run/secrets/global_coordinator_credential",
-    "requestTimeout": "5s"
+    "baseURL": "https://global-coordinator:8080",
+    "requestTimeout": "5s",
+    "tls": {
+      "certificateFile": "/run/secrets/mesh_client_certificate",
+      "keyFile": "/run/secrets/mesh_client_key",
+      "caFile": "/run/secrets/mesh_ca_certificate",
+      "serverName": "global-coordinator.mesh.vetchium.com"
+    }
   },
   "meshAPIServer": {
     "baseURL": "http://mesh-api-usa1:8080",
     "credentialFile": "/run/secrets/mesh_credential",
-    "requestTimeout": "5s"
+    "requestTimeout": "5s",
+    "peerAddress": "10.242.0.12:8443",
+    "peerTLS": {
+      "certificateFile": "/run/secrets/mesh_server_certificate",
+      "keyFile": "/run/secrets/mesh_server_key",
+      "clientCAFile": "/run/secrets/mesh_ca_certificate"
+    }
   },
   "hubAPIServer": {
     "sessionTTL": "24h",
@@ -39,6 +51,12 @@
       "enabled": true
     },
     "offeredPlans": ["hub-free-tier", "hub-silver-tier"]
+  },
+  "objectStorage": {
+    "privateBaseURL": "http://seaweed-s3-usa1:8333",
+    "mediaBaseURL": "http://media.usa1.localhost",
+    "accessKeyFile": "/run/secrets/seaweed_s3_access_key",
+    "secretKeyFile": "/run/secrets/seaweed_s3_secret_key"
   },
   "smtp": {
     "host": "mailpit",

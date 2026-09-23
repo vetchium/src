@@ -11,6 +11,14 @@ CHECK (VALUE IN ('en-US', 'ta', 'de-DE'));
 CREATE DOMAIN vetchium.admin_frontend_locale AS text
 CHECK (VALUE IN ('en-US', 'ta', 'de-DE'));
 
+CREATE DOMAIN vetchium.profile_domain AS text
+CHECK (
+    VALUE = lower(btrim(VALUE)) AND
+    char_length(VALUE) BETWEEN 3 AND 253 AND
+    VALUE ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$' AND
+    VALUE !~ '^[0-9]+(\.[0-9]+){3}$'
+);
+
 -- A CHECK constraint may not contain a subquery, so set-returning checks are
 -- wrapped in an immutable function instead. Immutability is what lets the
 -- planner use it in a constraint at all.
@@ -60,6 +68,7 @@ CREATE TABLE vetchium.audit_events (
 );
 
 CREATE TYPE vetchium.hub_user_state AS ENUM (
+	'provisioning',
     'active',
     'disabled'
 );
@@ -82,6 +91,10 @@ CREATE TABLE vetchium.hub_users (
     handle text NOT NULL,
     email_address text NOT NULL,
     display_name text NOT NULL,
+    biography text,
+    profile_alias text,
+    alias_last_changed_at timestamptz,
+    profile_version bigint NOT NULL DEFAULT 1,
     password_hash text NOT NULL,
     hub_user_state vetchium.hub_user_state NOT NULL DEFAULT 'active',
     preferred_language vetchium.hub_frontend_locale NOT NULL DEFAULT 'en-US',
@@ -126,6 +139,27 @@ CREATE TABLE vetchium.hub_users (
         display_name = btrim(display_name) AND
         length(btrim(display_name)) BETWEEN 1 AND 200
     ),
+    CONSTRAINT hub_users_biography_check CHECK (
+        biography IS NULL OR (
+            biography = btrim(biography) AND
+            char_length(biography) BETWEEN 1 AND 2000
+        )
+    ),
+    CONSTRAINT hub_users_profile_alias_key UNIQUE (profile_alias),
+    CONSTRAINT hub_users_profile_alias_check CHECK (
+        profile_alias IS NULL OR (
+            char_length(profile_alias) BETWEEN 3 AND 30 AND
+            profile_alias ~ '^[a-z][a-z0-9-]*[a-z0-9]$' AND
+            profile_alias !~ '--' AND
+            profile_alias !~ '^[a-z0-9]{5}-[0-9a-hjkmnp-tv-z]{11}$' AND
+            profile_alias NOT IN (
+                'api', 'admin', 'auth', 'help', 'jobs', 'login', 'logout',
+                'media', 'org', 'privacy', 'settings', 'signup', 'support',
+                'terms', 'u'
+            )
+        )
+    ),
+    CONSTRAINT hub_users_profile_version_check CHECK (profile_version > 0),
     CONSTRAINT hub_users_password_hash_not_blank CHECK (
         length(password_hash) > 0
     ),
@@ -177,6 +211,407 @@ CREATE TABLE vetchium.hub_users (
             AND (scheduled_hub_plan_oid, scheduled_billing_interval)
                 IS DISTINCT FROM (hub_plan_oid, subscription_billing_interval))
     )
+);
+
+CREATE TYPE vetchium.hub_subscription_notice_lead AS ENUM ('seven_day', 'one_day');
+
+-- One row per (user, period end, lead time) ever warned. The unique
+-- constraint is what makes a warning idempotent under a retried or repeated
+-- worker tick: the insert is attempted with ON CONFLICT DO NOTHING rather
+-- than guarded by a preceding read.
+CREATE TABLE vetchium.hub_subscription_expiry_notices (
+    hub_subscription_expiry_notice_id uuid PRIMARY KEY
+        DEFAULT gen_random_uuid(),
+    hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
+        ON DELETE CASCADE,
+    period_end timestamptz NOT NULL,
+    lead_time vetchium.hub_subscription_notice_lead NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT hub_subscription_expiry_notices_key UNIQUE (
+        hub_user_did, period_end, lead_time
+    )
+);
+
+CREATE TYPE vetchium.hub_profile_picture_format AS ENUM ('jpeg', 'png');
+CREATE TYPE vetchium.hub_profile_picture_state AS ENUM (
+    'uploading',
+    'active',
+    'pending_delete'
+);
+
+CREATE TABLE vetchium.hub_profile_picture_objects (
+    object_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
+        ON DELETE CASCADE,
+    format vetchium.hub_profile_picture_format NOT NULL,
+    byte_size integer NOT NULL CHECK (byte_size BETWEEN 1 AND 8388608),
+    width integer NOT NULL CHECK (width BETWEEN 400 AND 7680),
+    height integer NOT NULL CHECK (height BETWEEN 400 AND 7680),
+    content_sha256 bytea NOT NULL CHECK (octet_length(content_sha256) = 32),
+    state vetchium.hub_profile_picture_state NOT NULL DEFAULT 'uploading',
+    attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    next_attempt_at timestamptz NOT NULL DEFAULT now(),
+    lease_token uuid,
+    leased_until timestamptz,
+    last_error text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    upload_expires_at timestamptz,
+    delete_requested_at timestamptz,
+    CONSTRAINT hub_profile_picture_objects_dimensions_check CHECK (
+        LEAST(width, height) <= 4320 AND
+        width::bigint * height::bigint <= 33177600
+    ),
+    CONSTRAINT hub_profile_picture_objects_state_check CHECK (
+        (state = 'uploading' AND upload_expires_at IS NOT NULL AND
+            delete_requested_at IS NULL) OR
+        (state = 'active' AND upload_expires_at IS NULL AND
+            delete_requested_at IS NULL) OR
+        (state = 'pending_delete' AND upload_expires_at IS NULL AND
+            delete_requested_at IS NOT NULL)
+    ),
+    CONSTRAINT hub_profile_picture_objects_lease_check CHECK (
+        (lease_token IS NULL) = (leased_until IS NULL)
+    )
+);
+
+CREATE UNIQUE INDEX hub_profile_picture_objects_active_user_idx
+    ON vetchium.hub_profile_picture_objects (hub_user_did)
+    WHERE state = 'active';
+
+CREATE UNIQUE INDEX hub_profile_picture_objects_uploading_user_idx
+    ON vetchium.hub_profile_picture_objects (hub_user_did)
+    WHERE state = 'uploading';
+
+CREATE TABLE vetchium.hub_professional_emails (
+    professional_email_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
+        ON DELETE CASCADE,
+    email_address text NOT NULL,
+    domain vetchium.profile_domain NOT NULL,
+    first_verified_at timestamptz,
+    last_verified_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT hub_professional_emails_user_domain_key UNIQUE (
+        hub_user_did, domain
+    ),
+    CONSTRAINT hub_professional_emails_user_address_key UNIQUE (
+        hub_user_did, email_address
+    ),
+    CONSTRAINT hub_professional_emails_address_check CHECK (
+        email_address = lower(btrim(email_address)) AND
+        email_address LIKE '%@' || domain AND
+        char_length(email_address) <= 320
+    ),
+    CONSTRAINT hub_professional_emails_verification_check CHECK (
+        (first_verified_at IS NULL AND last_verified_at IS NULL) OR
+        (first_verified_at IS NOT NULL AND
+            last_verified_at >= first_verified_at)
+    ),
+    CONSTRAINT hub_professional_emails_timestamps_check CHECK (
+        updated_at >= created_at
+    )
+);
+
+CREATE TABLE vetchium.hub_professional_email_challenges (
+    challenge_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    professional_email_id uuid NOT NULL
+        REFERENCES vetchium.hub_professional_emails (professional_email_id)
+        ON DELETE CASCADE,
+    code_hash bytea NOT NULL CHECK (octet_length(code_hash) = 32),
+    attempt_count integer NOT NULL DEFAULT 0
+        CHECK (attempt_count BETWEEN 0 AND 5),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL,
+    consumed_at timestamptz,
+    superseded_at timestamptz,
+    CONSTRAINT hub_professional_email_challenges_expiry_check CHECK (
+        expires_at > created_at
+    ),
+    CONSTRAINT hub_professional_email_challenges_result_check CHECK (
+        NOT (consumed_at IS NOT NULL AND superseded_at IS NOT NULL)
+    )
+);
+
+CREATE UNIQUE INDEX hub_professional_email_challenges_active_email_idx
+    ON vetchium.hub_professional_email_challenges (professional_email_id)
+    WHERE consumed_at IS NULL AND superseded_at IS NULL AND attempt_count < 5;
+
+CREATE TABLE vetchium.hub_work_experiences (
+    work_experience_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
+        ON DELETE CASCADE,
+    employer_domain vetchium.profile_domain NOT NULL,
+    job_title text NOT NULL,
+    start_month date NOT NULL,
+    end_month date,
+    location text,
+    description text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT hub_work_experiences_title_check CHECK (
+        job_title = btrim(job_title) AND char_length(job_title) BETWEEN 1 AND 200
+    ),
+    CONSTRAINT hub_work_experiences_location_check CHECK (
+        location IS NULL OR (
+            location = btrim(location) AND char_length(location) BETWEEN 1 AND 200
+        )
+    ),
+    CONSTRAINT hub_work_experiences_description_check CHECK (
+        description IS NULL OR (
+            description = btrim(description) AND
+            char_length(description) BETWEEN 1 AND 2000
+        )
+    ),
+    CONSTRAINT hub_work_experiences_months_check CHECK (
+        start_month >= DATE '1900-01-01' AND
+        start_month = date_trunc('month', start_month)::date AND
+        (end_month IS NULL OR (
+            end_month >= start_month AND
+            end_month = date_trunc('month', end_month)::date
+        ))
+    ),
+    CONSTRAINT hub_work_experiences_timestamps_check CHECK (
+        updated_at >= created_at
+    )
+);
+
+CREATE TABLE vetchium.hub_certifications (
+    certification_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
+        ON DELETE CASCADE,
+    title text NOT NULL,
+    credential_url text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT hub_certifications_title_check CHECK (
+        title = btrim(title) AND char_length(title) BETWEEN 1 AND 200
+    ),
+    CONSTRAINT hub_certifications_url_check CHECK (
+        char_length(credential_url) BETWEEN 9 AND 2048 AND
+        credential_url ~ '^https://[^/?#@[:space:]]+(/[^#[:space:]]*)?$' AND
+        credential_url !~ '[^ -~]'
+    ),
+    CONSTRAINT hub_certifications_timestamps_check CHECK (
+        updated_at >= created_at
+    )
+);
+
+CREATE TYPE vetchium.hub_language_ability_kind AS ENUM (
+    'speaking',
+    'reading',
+    'writing'
+);
+
+CREATE TABLE vetchium.hub_language_abilities (
+    hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
+        ON DELETE CASCADE,
+    ability vetchium.hub_language_ability_kind NOT NULL,
+    language_tag text NOT NULL CHECK (language_tag ~ '^[a-z]{2,3}$'),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (hub_user_did, ability, language_tag)
+);
+
+CREATE TABLE vetchium.hub_educational_qualifications (
+    educational_qualification_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
+        ON DELETE CASCADE,
+    institution_domain vetchium.profile_domain NOT NULL,
+    degree text NOT NULL,
+    title text,
+    supporting_text text,
+    start_month date,
+    end_month date,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT hub_educational_qualifications_degree_check CHECK (
+        degree = btrim(degree) AND char_length(degree) BETWEEN 1 AND 200
+    ),
+    CONSTRAINT hub_educational_qualifications_title_check CHECK (
+        title IS NULL OR (
+            title = btrim(title) AND char_length(title) BETWEEN 1 AND 200
+        )
+    ),
+    CONSTRAINT hub_educational_qualifications_supporting_text_check CHECK (
+        supporting_text IS NULL OR (
+            supporting_text = btrim(supporting_text) AND
+            char_length(supporting_text) BETWEEN 1 AND 249
+        )
+    ),
+    CONSTRAINT hub_educational_qualifications_months_check CHECK (
+        (start_month IS NULL OR (
+            start_month >= DATE '1900-01-01' AND
+            start_month = date_trunc('month', start_month)::date
+        )) AND
+        (end_month IS NULL OR (
+            end_month >= DATE '1900-01-01' AND
+            end_month = date_trunc('month', end_month)::date
+        )) AND
+        (start_month IS NULL OR end_month IS NULL OR end_month >= start_month)
+    ),
+    CONSTRAINT hub_educational_qualifications_timestamps_check CHECK (
+        updated_at >= created_at
+    )
+);
+
+-- Serialize bounded profile-entry inserts through the owner row. The API also
+-- checks limits to return a useful problem, while these triggers preserve the
+-- invariant under concurrent requests and non-HTTP maintenance paths.
+-- +goose StatementBegin
+CREATE OR REPLACE FUNCTION vetchium.enforce_hub_profile_entry_limit()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    existing_count integer;
+    maximum_count integer := TG_ARGV[0]::integer;
+BEGIN
+    PERFORM 1
+    FROM vetchium.hub_users
+    WHERE hub_user_did = NEW.hub_user_did
+    FOR UPDATE;
+
+    IF TG_NARGS = 2 AND TG_ARGV[1] = 'ability' THEN
+        EXECUTE format(
+            'SELECT count(*) FROM %I.%I WHERE hub_user_did = $1 AND ability = $2',
+            TG_TABLE_SCHEMA,
+            TG_TABLE_NAME
+        ) INTO existing_count USING NEW.hub_user_did, NEW.ability;
+    ELSE
+        EXECUTE format(
+            'SELECT count(*) FROM %I.%I WHERE hub_user_did = $1',
+            TG_TABLE_SCHEMA,
+            TG_TABLE_NAME
+        ) INTO existing_count USING NEW.hub_user_did;
+    END IF;
+
+    IF existing_count >= maximum_count THEN
+        RAISE EXCEPTION '% profile entry limit is %', TG_TABLE_NAME, maximum_count
+            USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+-- +goose StatementEnd
+
+CREATE TRIGGER hub_professional_emails_limit
+BEFORE INSERT ON vetchium.hub_professional_emails
+FOR EACH ROW EXECUTE FUNCTION vetchium.enforce_hub_profile_entry_limit('10');
+
+CREATE TRIGGER hub_work_experiences_limit
+BEFORE INSERT ON vetchium.hub_work_experiences
+FOR EACH ROW EXECUTE FUNCTION vetchium.enforce_hub_profile_entry_limit('50');
+
+CREATE TRIGGER hub_certifications_limit
+BEFORE INSERT ON vetchium.hub_certifications
+FOR EACH ROW EXECUTE FUNCTION vetchium.enforce_hub_profile_entry_limit('50');
+
+CREATE TRIGGER hub_language_abilities_limit
+BEFORE INSERT ON vetchium.hub_language_abilities
+FOR EACH ROW EXECUTE FUNCTION
+    vetchium.enforce_hub_profile_entry_limit('25', 'ability');
+
+CREATE TRIGGER hub_educational_qualifications_limit
+BEFORE INSERT ON vetchium.hub_educational_qualifications
+FOR EACH ROW EXECUTE FUNCTION vetchium.enforce_hub_profile_entry_limit('30');
+
+CREATE TYPE vetchium.federation_operation_state AS ENUM (
+    'pending',
+    'succeeded',
+    'failed'
+);
+
+CREATE TABLE vetchium.federation_operations (
+    operation_id uuid PRIMARY KEY,
+    command_id uuid NOT NULL UNIQUE,
+    kind text NOT NULL CHECK (length(btrim(kind)) BETWEEN 1 AND 100),
+    target_authority text NOT NULL CHECK (
+        target_authority = 'global-directory' OR
+        target_authority ~ '^[a-z][a-z0-9]{2,15}$'
+    ),
+    aggregate_id text NOT NULL CHECK (length(btrim(aggregate_id)) > 0),
+    owner_principal_type text NOT NULL CHECK (
+        owner_principal_type IN ('hub_user', 'org_user', 'admin', 'system')
+    ),
+    owner_principal_id text NOT NULL CHECK (
+        length(btrim(owner_principal_id)) BETWEEN 1 AND 100
+    ),
+    idempotency_key text NOT NULL,
+    request_digest bytea NOT NULL CHECK (octet_length(request_digest) = 32),
+    payload_bytes bytea NOT NULL,
+    state vetchium.federation_operation_state NOT NULL DEFAULT 'pending',
+    response_status integer,
+    response_ciphertext bytea,
+    attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    next_attempt_at timestamptz NOT NULL DEFAULT now(),
+    last_error text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    completed_at timestamptz,
+    expires_at timestamptz NOT NULL,
+    CONSTRAINT federation_operations_idempotency_key UNIQUE (
+        kind, aggregate_id, idempotency_key
+    ),
+    CONSTRAINT federation_operations_result_check CHECK (
+        (state = 'pending' AND response_status IS NULL AND
+            response_ciphertext IS NULL AND completed_at IS NULL) OR
+        (state IN ('succeeded', 'failed') AND response_status IS NOT NULL AND
+            response_ciphertext IS NOT NULL AND completed_at IS NOT NULL)
+    ),
+    CONSTRAINT federation_operations_timestamps_check CHECK (
+        updated_at >= created_at AND expires_at > created_at
+    )
+);
+
+CREATE TABLE vetchium.federation_command_ledger (
+    command_id uuid PRIMARY KEY,
+    source_tenant_id text NOT NULL
+        CHECK (source_tenant_id ~ '^[a-z][a-z0-9]{2,15}$'),
+    kind text NOT NULL CHECK (length(btrim(kind)) BETWEEN 1 AND 100),
+    aggregate_id text NOT NULL CHECK (length(btrim(aggregate_id)) > 0),
+    request_digest bytea NOT NULL CHECK (octet_length(request_digest) = 32),
+    response_status integer NOT NULL CHECK (response_status BETWEEN 200 AND 599),
+    response_body bytea NOT NULL,
+    completed_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE vetchium.federation_outbox (
+    event_id uuid PRIMARY KEY,
+    destination_tenant_id text NOT NULL
+        CHECK (destination_tenant_id ~ '^[a-z][a-z0-9]{2,15}$'),
+    kind text NOT NULL CHECK (length(btrim(kind)) BETWEEN 1 AND 100),
+    aggregate_type text NOT NULL CHECK (length(btrim(aggregate_type)) > 0),
+    aggregate_id text NOT NULL CHECK (length(btrim(aggregate_id)) > 0),
+    aggregate_version bigint NOT NULL CHECK (aggregate_version > 0),
+    payload jsonb NOT NULL,
+    payload_digest bytea NOT NULL CHECK (octet_length(payload_digest) = 32),
+    attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    next_attempt_at timestamptz NOT NULL DEFAULT now(),
+    lease_token uuid,
+    leased_until timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    delivered_at timestamptz,
+    failed_at timestamptz,
+    last_error text,
+    CONSTRAINT federation_outbox_lease_check CHECK (
+        (lease_token IS NULL) = (leased_until IS NULL)
+    ),
+    CONSTRAINT federation_outbox_result_check CHECK (
+        NOT (delivered_at IS NOT NULL AND failed_at IS NOT NULL)
+    )
+);
+
+CREATE TABLE vetchium.federation_inbox (
+    event_id uuid PRIMARY KEY,
+    source_tenant_id text NOT NULL
+        CHECK (source_tenant_id ~ '^[a-z][a-z0-9]{2,15}$'),
+    kind text NOT NULL CHECK (length(btrim(kind)) BETWEEN 1 AND 100),
+    aggregate_type text NOT NULL CHECK (length(btrim(aggregate_type)) > 0),
+    aggregate_id text NOT NULL CHECK (length(btrim(aggregate_id)) > 0),
+    aggregate_version bigint NOT NULL CHECK (aggregate_version > 0),
+    payload_digest bytea NOT NULL CHECK (octet_length(payload_digest) = 32),
+    received_at timestamptz NOT NULL DEFAULT now(),
+    applied_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE vetchium.hub_sessions (
@@ -270,6 +705,55 @@ CREATE TABLE vetchium.hub_signup_requests (
 CREATE UNIQUE INDEX hub_signup_requests_active_email_idx
     ON vetchium.hub_signup_requests (email_address) WHERE active;
 
+CREATE TYPE vetchium.hub_signup_completion_state AS ENUM (
+    'prepared',
+    'reserved',
+    'local_created',
+    'completed',
+    'failed'
+);
+
+-- This is the origin-side durable operation for the global directory signup
+-- saga. The encrypted payload contains the data needed to finish creating the
+-- local account after a process restart; command IDs never change once sent.
+CREATE TABLE vetchium.hub_signup_completions (
+    operation_id uuid PRIMARY KEY,
+    hub_signup_request_id uuid NOT NULL UNIQUE,
+    token_hash bytea NOT NULL UNIQUE CHECK (octet_length(token_hash) = 32),
+    idempotency_key text NOT NULL,
+    request_digest bytea NOT NULL CHECK (octet_length(request_digest) = 32),
+    hub_user_did uuid NOT NULL UNIQUE,
+    handle text NOT NULL,
+    reserve_command_id uuid NOT NULL UNIQUE,
+    activate_command_id uuid NOT NULL UNIQUE,
+    payload_ciphertext bytea NOT NULL,
+    state vetchium.hub_signup_completion_state NOT NULL DEFAULT 'prepared',
+    provisioning_expires_at timestamptz NOT NULL,
+    attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    next_attempt_at timestamptz NOT NULL DEFAULT now(),
+    last_error text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    completed_at timestamptz,
+    expires_at timestamptz NOT NULL,
+    CONSTRAINT hub_signup_completions_did_uuidv7_check CHECK (
+        substring(hub_user_did::text FROM 15 FOR 1) = '7'
+    ),
+    CONSTRAINT hub_signup_completions_handle_check CHECK (
+        handle ~ '^[a-z0-9]{5}-[0-9a-hjkmnp-tv-z]{11}$'
+    ),
+    CONSTRAINT hub_signup_completions_times_check CHECK (
+        updated_at >= created_at
+        AND provisioning_expires_at > created_at
+        AND expires_at > provisioning_expires_at
+        AND ((state IN ('completed', 'failed')) = (completed_at IS NOT NULL))
+    )
+);
+
+CREATE INDEX hub_signup_completions_recovery_idx
+    ON vetchium.hub_signup_completions (next_attempt_at, created_at)
+    WHERE state NOT IN ('completed', 'failed');
+
 CREATE TABLE vetchium.hub_password_reset_tokens (
     hub_password_reset_token_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
@@ -289,7 +773,12 @@ CREATE UNIQUE INDEX hub_password_reset_tokens_active_user_idx
 
 CREATE TABLE vetchium.hub_email_outbox (
     hub_email_outbox_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    kind text NOT NULL CHECK (kind IN ('signup', 'password-reset')),
+    kind text NOT NULL CHECK (kind IN (
+        'signup',
+        'password-reset',
+        'professional-email-verification',
+        'subscription-ending'
+    )),
     recipient_email_address text NOT NULL,
     preferred_language vetchium.hub_frontend_locale NOT NULL,
     payload_ciphertext bytea NOT NULL,
@@ -601,13 +1090,32 @@ CREATE INDEX idempotency_expiry_idx
 
 -- +goose Down
 DROP TABLE IF EXISTS vetchium.idempotency_ledger;
+DROP TABLE IF EXISTS vetchium.federation_inbox;
+DROP TABLE IF EXISTS vetchium.federation_outbox;
+DROP TABLE IF EXISTS vetchium.federation_command_ledger;
+DROP TABLE IF EXISTS vetchium.federation_operations;
+DROP TYPE IF EXISTS vetchium.federation_operation_state;
 DROP TABLE IF EXISTS vetchium.hub_email_outbox;
 DROP TABLE IF EXISTS vetchium.hub_password_reset_tokens;
+DROP TABLE IF EXISTS vetchium.hub_signup_completions;
+DROP TYPE IF EXISTS vetchium.hub_signup_completion_state;
 DROP TABLE IF EXISTS vetchium.hub_signup_requests;
 DROP TABLE IF EXISTS vetchium.hub_totp_recovery_codes;
 DROP TABLE IF EXISTS vetchium.hub_totp_enrollments;
 DROP TABLE IF EXISTS vetchium.hub_login_challenges;
 DROP TABLE IF EXISTS vetchium.hub_sessions;
+DROP TABLE IF EXISTS vetchium.hub_educational_qualifications;
+DROP TABLE IF EXISTS vetchium.hub_language_abilities;
+DROP TYPE IF EXISTS vetchium.hub_language_ability_kind;
+DROP TABLE IF EXISTS vetchium.hub_certifications;
+DROP TABLE IF EXISTS vetchium.hub_work_experiences;
+DROP TABLE IF EXISTS vetchium.hub_professional_email_challenges;
+DROP TABLE IF EXISTS vetchium.hub_professional_emails;
+DROP TABLE IF EXISTS vetchium.hub_profile_picture_objects;
+DROP TYPE IF EXISTS vetchium.hub_profile_picture_state;
+DROP TYPE IF EXISTS vetchium.hub_profile_picture_format;
+DROP TABLE IF EXISTS vetchium.hub_subscription_expiry_notices;
+DROP TYPE IF EXISTS vetchium.hub_subscription_notice_lead;
 DROP TABLE IF EXISTS vetchium.admin_email_outbox;
 DROP TABLE IF EXISTS vetchium.admin_password_reset_tokens;
 DROP TABLE IF EXISTS vetchium.admin_invitations;
@@ -632,4 +1140,6 @@ DROP TABLE IF EXISTS vetchium.audit_events;
 DROP TABLE IF EXISTS vetchium.orgs;
 DROP DOMAIN IF EXISTS vetchium.admin_frontend_locale;
 DROP DOMAIN IF EXISTS vetchium.hub_frontend_locale;
+DROP DOMAIN IF EXISTS vetchium.profile_domain;
+DROP FUNCTION IF EXISTS vetchium.enforce_hub_profile_entry_limit();
 DROP FUNCTION IF EXISTS vetchium.array_is_distinct(text[]);

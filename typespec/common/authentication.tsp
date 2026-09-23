@@ -1,4 +1,13 @@
+import "@typespec/http";
+
+using TypeSpec.Http;
+
 namespace Vetchium.Authentication;
+
+model MutualTLSAuth {
+  type: AuthType.http;
+  scheme: "MutualTLS";
+}
 
 /** A bounded opaque credential whose internal encoding is not API contract. */
 @minLength(32)

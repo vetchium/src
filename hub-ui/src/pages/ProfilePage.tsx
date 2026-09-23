@@ -4,6 +4,7 @@ import {
   App,
   Card,
   Descriptions,
+  Divider,
   Flex,
   Form,
   Select,
@@ -17,7 +18,14 @@ import { hubAPI } from "../api/hub";
 import { usePreferences } from "../app/PreferencesContext";
 import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import { AliasCard } from "../features/profile/AliasCard";
+import { CertificationsCard } from "../features/profile/CertificationsCard";
+import { EducationCard } from "../features/profile/EducationCard";
+import { LanguageAbilitiesCard } from "../features/profile/LanguageAbilitiesCard";
+import { ProfessionalEmailsCard } from "../features/profile/ProfessionalEmailsCard";
+import { ProfileHeaderCard } from "../features/profile/ProfileHeaderCard";
 import { myInfoQueryKey, useMyInfoQuery } from "../features/profile/queries";
+import { WorkExperienceCard } from "../features/profile/WorkExperienceCard";
 import { countryOptions } from "../i18n/countries";
 
 export function ProfilePage() {
@@ -66,15 +74,24 @@ export function ProfilePage() {
           {t("profile.description")}
         </Typography.Text>
       </div>
-      <Card title={t("profile.identity")}>
+      <ProfileHeaderCard address={me.handle} />
+      <AliasCard handle={me.handle} />
+      <div>
+        <Typography.Title level={3}>
+          {t("profile.sectionBackground")}
+        </Typography.Title>
+        <Space orientation="vertical" size="large" className="full-width">
+          <WorkExperienceCard address={me.handle} />
+          <EducationCard address={me.handle} />
+          <CertificationsCard address={me.handle} />
+          <LanguageAbilitiesCard address={me.handle} />
+        </Space>
+      </div>
+      <ProfessionalEmailsCard ownerDID={me.hub_user_did} />
+      <Card title={t("profile.accountTitle")}>
         <Descriptions
           column={{ xs: 1, sm: 2 }}
           items={[
-            {
-              key: "name",
-              label: t("fields.displayName"),
-              children: me.display_name,
-            },
             {
               key: "email",
               label: t("fields.email"),
@@ -84,8 +101,7 @@ export function ProfilePage() {
             { key: "did", label: t("fields.did"), children: me.hub_user_did },
           ]}
         />
-      </Card>
-      <Card title={t("profile.preferences")}>
+        <Divider />
         <Flex gap="large" wrap>
           <Form layout="vertical" className="preference-form">
             <Form.Item label={t("fields.language")}>

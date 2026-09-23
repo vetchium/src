@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="de-DE">
+  <body>
+    <p>Hallo {{.DisplayName}},</p>
+    <p>Ihr kostenpflichtiger Vetchium-Zugang endet am {{.ExpiresAt.UTC.Format "02.01.2006 um 15:04 UTC"}}{{if eq .LeadDays 1}}, also morgen{{else}}, also in {{.LeadDays}} Tagen{{end}}.</p>
+    <p>Verlängern Sie rechtzeitig, um Ihre kostenpflichtigen Funktionen zu behalten. Wenn Sie nichts unternehmen, wechselt Ihr Konto am Ende des aktuellen Zeitraums zum kostenlosen Plan.</p>
+    <p>Falls Sie bereits verlängert oder es sich anders überlegt haben, können Sie diese E-Mail ignorieren.</p>
+  </body>
+</html>

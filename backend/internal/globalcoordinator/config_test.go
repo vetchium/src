@@ -10,9 +10,24 @@ import (
 func TestLoadConfigFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	contents := `{
+  "database": {
+    "host": "global-db",
+    "port": 5432,
+    "user": "vetchium_app",
+    "name": "global_db",
+    "passwordFile": "/run/secrets/global_app_postgres_password",
+    "sslMode": "disable"
+  },
   "env": "dev",
-  "credentialFile": "/run/secrets/global_coordinator_credential",
-  "signupRegionsFile": "/etc/vetchium/signup-regions.json"
+  "signupRegionsFile": "/etc/vetchium/signup-regions.json",
+  "tls": {
+    "certificateFile": "/run/secrets/server.crt",
+    "keyFile": "/run/secrets/server.key",
+    "clientCAFile": "/run/secrets/ca.crt",
+    "healthCertificateFile": "/run/secrets/health.crt",
+    "healthKeyFile": "/run/secrets/health.key",
+    "healthServerName": "global-coordinator.mesh.vetchium.com"
+  }
 }`
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
 		t.Fatal(err)
@@ -22,7 +37,8 @@ func TestLoadConfigFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if config.Environment != "dev" || config.SignupRegionsFile == "" ||
-		config.CredentialFile == "" {
+		config.Database.Host != "global-db" ||
+		config.TLS.CertificateFile == "" {
 		t.Fatalf("config = %+v, want populated development config", config)
 	}
 }
@@ -30,9 +46,17 @@ func TestLoadConfigFile(t *testing.T) {
 func TestLoadConfigFileRejectsUnknownFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	contents := `{
+  "database": {
+    "host": "global-db",
+    "port": 5432,
+    "user": "vetchium_app",
+    "name": "global_db",
+    "passwordFile": "/credential",
+    "sslMode": "disable"
+  },
   "env": "dev",
-  "credentialFile": "/credential",
-  "database": "forbidden"
+  "signupRegionsFile": "/regions",
+  "forbidden": true
 }`
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
 		t.Fatal(err)
@@ -43,17 +67,21 @@ func TestLoadConfigFileRejectsUnknownFields(t *testing.T) {
 	}
 }
 
-func TestLoadCredential(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "credential")
-	if err := os.WriteFile(path, []byte(strings.Repeat("a", 32)+"\n"), 0o600); err != nil {
+func TestDatabaseURL(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "password")
+	if err := os.WriteFile(path, []byte("p@ssword\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	credential, err := LoadCredential(path)
+	database := Database{
+		Host: "global-db", Port: 5432, User: "vetchium_app",
+		Name: "global_db", PasswordFile: path, SSLMode: "require",
+	}
+	databaseURL, err := database.URL()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if credential != strings.Repeat("a", 32) {
-		t.Fatalf("credential = %q", credential)
+	if databaseURL != "postgres://vetchium_app:p%40ssword@global-db:5432/global_db?sslmode=require" {
+		t.Fatalf("URL() = %q", databaseURL)
 	}
 }
 
