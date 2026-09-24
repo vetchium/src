@@ -16,6 +16,5 @@ type AuthenticatedSessionResponse struct {
 	SessionExpiresAt  time.Time          `json:"session_expires_at"`
 	PreferredLanguage hub.FrontendLocale `json:"preferred_language"`
 	ResidentCountry   common.CountryCode `json:"resident_country"`
-	HubUserDID        hub.HubUserDID     `json:"hub_user_did"`
 	Handle            hub.HubHandle      `json:"handle"`
 }

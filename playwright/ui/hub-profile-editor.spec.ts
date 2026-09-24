@@ -51,8 +51,8 @@ async function openEditor(
     subscription?: HubSubscription;
     aliasState?: AliasState;
   } = {},
+  destination: "profile" | "work-emails" = "profile",
 ) {
-  const did = `018f7e32-7b5a-7d31-8fd0-${randomUUID().replaceAll("-", "").slice(0, 12)}`;
   const handle = `edito-${randomUUID().replaceAll("-", "").slice(0, 11)}`;
   const profile: PublicProfile = {
     display_name: "Original Name",
@@ -66,7 +66,7 @@ async function openEditor(
     ...overrides,
   };
   await page.addInitScript(
-    ({ hubUserDID, userHandle }) => {
+    ({ userHandle }) => {
       sessionStorage.setItem(
         "vetchium.hub.session",
         JSON.stringify({
@@ -74,22 +74,20 @@ async function openEditor(
           session_expires_at: new Date(Date.now() + 60_000).toISOString(),
           preferred_language: "en-US",
           resident_country: "SG",
-          hub_user_did: hubUserDID,
           handle: userHandle,
           remembered: false,
         }),
       );
     },
-    { hubUserDID: did, userHandle: handle },
+    { userHandle: handle },
   );
   await page.route("**/api/hub/my-info", (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        hub_user_did: did,
         handle,
-        email_address: `editor+${did}@example.test`,
+        email_address: `editor+${handle}@example.test`,
         display_name: profile.display_name,
         preferred_language: "en-US",
         resident_country: "SG",
@@ -128,6 +126,13 @@ async function openEditor(
       body: JSON.stringify(entitlement.aliasState ?? { profile_alias: null }),
     }),
   );
+  if (destination === "work-emails") {
+    await page.goto(`${hubBaseURL}/settings/work-emails`);
+    await expect(
+      page.getByRole("heading", { name: "Professional emails", level: 1 }),
+    ).toBeVisible();
+    return profile;
+  }
   await page.goto(`${hubBaseURL}/settings/profile`);
   await expect(page.getByRole("heading", { name: "My profile" })).toBeVisible();
   await expect(page.getByLabel("Biography")).toHaveValue("Original biography");
@@ -170,7 +175,7 @@ test("adding a professional email immediately and explicitly requests its verifi
   page,
 }) => {
   const emails: ProfessionalEmail[] = [];
-  await openEditor(page, emails);
+  await openEditor(page, emails, {}, {}, "work-emails");
   const address = `person+${randomUUID()}@example.org`;
   const id = randomUUID();
   const challengeID = randomUUID();
@@ -255,7 +260,7 @@ test("annual reminder stays in the owner UI and deletion requires confirmation",
       created_at: "2020-01-01T00:00:00Z",
     },
   ];
-  await openEditor(page, emails);
+  await openEditor(page, emails, {}, {}, "work-emails");
   await expect(page.getByText(/It has been a year/)).toBeVisible();
   let deletions = 0;
   await page.route(
@@ -275,6 +280,52 @@ test("annual reminder stays in the owner UI and deletion requires confirmation",
   await page.getByRole("button", { name: "Remove address" }).last().click();
   await expect(page.getByText(address)).toHaveCount(0);
   expect(deletions).toBe(1);
+});
+
+test("the profile page holds only what other users see", async ({ page }) => {
+  const profile = await openEditor(page);
+  await expect(
+    page.getByText(
+      "This is what other Hub users and recruiters see when they open your profile.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByText(`editor+${profile.handle}@example.test`),
+  ).toHaveCount(0);
+  await expect(page.getByText("Profile ID")).toHaveCount(0);
+  await expect(
+    page.getByText(/[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-/),
+  ).toHaveCount(0);
+  await expect(page.getByText("Your addresses")).toHaveCount(0);
+  await expect(
+    page.getByRole("combobox", { name: "Preferred job countries" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("combobox", { name: "Language", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText("Where you live", { exact: true })).toBeVisible();
+  await expect(page.getByText("Singapore", { exact: true })).toBeVisible();
+});
+
+test("changing the resident country saves it and refreshes the profile", async ({
+  page,
+}) => {
+  const profile = await openEditor(page);
+  let sent: unknown;
+  await page.route("**/api/hub/set-resident-country", async (route) => {
+    sent = route.request().postDataJSON();
+    profile.resident_country = "FR";
+    await route.fulfill({ status: 204 });
+  });
+  const reads = page.waitForRequest("**/api/hub/profile/read");
+  const country = page.getByLabel("Resident country");
+  await country.fill("France");
+  await country.press("Enter");
+  await expect(
+    page.getByText("Your resident country was saved."),
+  ).toBeVisible();
+  expect(sent).toEqual({ resident_country: "FR" });
+  await reads;
 });
 
 test("invalid public fields stay local and discard restores saved values", async ({

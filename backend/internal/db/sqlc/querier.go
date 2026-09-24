@@ -43,6 +43,9 @@ type Querier interface {
 	CompleteIdempotency(ctx context.Context, arg CompleteIdempotencyParams) error
 	CompleteProvisioningHubUser(ctx context.Context, arg CompleteProvisioningHubUserParams) (CompleteProvisioningHubUserRow, error)
 	ConfirmAdminTOTPEnrollment(ctx context.Context, arg ConfirmAdminTOTPEnrollmentParams) (bool, error)
+	// A taken address fails the whole statement on hub_users_email_address_key;
+	// the caller maps that unique violation to the unavailable-address problem.
+	ConfirmHubEmailChange(ctx context.Context, arg ConfirmHubEmailChangeParams) (ConfirmHubEmailChangeRow, error)
 	ConfirmHubTOTPEnrollment(ctx context.Context, arg ConfirmHubTOTPEnrollmentParams) (bool, error)
 	CreateAdminInvitation(ctx context.Context, arg CreateAdminInvitationParams) (CreateAdminInvitationRow, error)
 	CreateAdminLoginChallenge(ctx context.Context, arg CreateAdminLoginChallengeParams) (CreateAdminLoginChallengeRow, error)
@@ -112,6 +115,9 @@ type Querier interface {
 	HubAliasOperationPreflight(ctx context.Context, arg HubAliasOperationPreflightParams) (bool, error)
 	HubProfessionalEmailExistsForOwner(ctx context.Context, arg HubProfessionalEmailExistsForOwnerParams) (int32, error)
 	HubTOTPEnabled(ctx context.Context, hubUserDid pgtype.UUID) (bool, error)
+	// An address that already belongs to an account still gets a challenge, so
+	// rate limits and the response are identical, but no code is queued for it.
+	IssueHubEmailChangeChallenge(ctx context.Context, arg IssueHubEmailChangeChallengeParams) (IssueHubEmailChangeChallengeRow, error)
 	IssueHubProfessionalEmailChallenge(ctx context.Context, arg IssueHubProfessionalEmailChallengeParams) (IssueHubProfessionalEmailChallengeRow, error)
 	ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) ([]ListAdminUsersRow, error)
 	ListHubProfessionalEmails(ctx context.Context, hubUserDid pgtype.UUID) ([]ListHubProfessionalEmailsRow, error)
@@ -199,6 +205,9 @@ type Querier interface {
 	SetHubPreferredLanguage(ctx context.Context, arg SetHubPreferredLanguageParams) (bool, error)
 	SetHubPublicProfile(ctx context.Context, arg SetHubPublicProfileParams) (SetHubPublicProfileRow, error)
 	SetHubResidentCountry(ctx context.Context, arg SetHubResidentCountryParams) (bool, error)
+	// Call before IssueHubEmailChangeChallenge in the same transaction.
+	// Sibling data-modifying CTEs cannot reliably vacate the active-user index.
+	SupersedeHubEmailChangeChallenges(ctx context.Context, hubUserDid pgtype.UUID) (int64, error)
 	// Call before IssueHubProfessionalEmailChallenge in the same transaction.
 	// Sibling data-modifying CTEs cannot reliably vacate the active-email index.
 	SupersedeHubProfessionalEmailChallenges(ctx context.Context, arg SupersedeHubProfessionalEmailChallengesParams) (int64, error)

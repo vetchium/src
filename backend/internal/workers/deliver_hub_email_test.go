@@ -114,14 +114,53 @@ func TestDeliverExplicitProfessionalCodeEmail(t *testing.T) {
 	}
 }
 
-func TestProfessionalCodeEmailRejectsMalformedPayload(t *testing.T) {
-	for _, code := range []string{"", "12345", "1234567", "abcdef", "12 456"} {
-		_, _, err := hubEmailKind(
-			string(email.ProfessionalEmailVerification),
-			hubEmailPayload{Code: code},
+func TestCodeEmailsRejectMalformedPayload(t *testing.T) {
+	for _, kind := range []email.Kind{
+		email.ProfessionalEmailVerification, email.EmailChangeVerification,
+	} {
+		for _, code := range []string{"", "12345", "1234567", "abcdef", "12 456"} {
+			_, _, err := hubEmailKind(string(kind), hubEmailPayload{Code: code})
+			if err == nil {
+				t.Errorf("%s accepted malformed code %q", kind, code)
+			}
+		}
+	}
+}
+
+func TestDeliverEmailChangeMessages(t *testing.T) {
+	for _, test := range []struct {
+		kind    email.Kind
+		payload hubEmailPayload
+		want    string
+	}{
+		{email.EmailChangeVerification, hubEmailPayload{Code: "654321"}, "654321"},
+		{email.EmailChanged, hubEmailPayload{}, "was changed"},
+	} {
+		now := time.Date(2026, 8, 25, 10, 0, 0, 0, time.UTC)
+		worker, queries, sender := testEmailWorker(t, now, 1, nil)
+		payload, err := json.Marshal(test.payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ciphertext, err := credentials.Encrypt(
+			worker.hubEmailDelivery.OutboxKey, payload,
 		)
-		if err == nil {
-			t.Errorf("accepted malformed code %q", code)
+		if err != nil {
+			t.Fatal(err)
+		}
+		queries.claims[0].Kind = string(test.kind)
+		queries.claims[0].PayloadCiphertext = ciphertext
+
+		if err := worker.deliverHubEmail(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if queries.sent != 1 || queries.failed != 0 || queries.retry != 0 {
+			t.Fatalf("%s sent=%d failed=%d retry=%d", test.kind,
+				queries.sent, queries.failed, queries.retry)
+		}
+		if !strings.Contains(sender.message.TextBody, test.want) ||
+			!strings.Contains(sender.message.HTMLBody, test.want) {
+			t.Fatalf("%s message = %+v", test.kind, sender.message)
 		}
 	}
 }

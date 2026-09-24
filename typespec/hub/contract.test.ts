@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  normalizeRequestEmailChangeRequest,
+  validateConfirmEmailChangeRequest,
+  validateRequestEmailChangeRequest,
+} from "./auth/email_change.ts";
+import {
   validateCompleteSignupRequest,
   validateRequestSignupRequest,
 } from "./auth/signup.ts";
@@ -180,5 +185,36 @@ test("set-subscription-plan request validation matches the Go companion", () => 
       billing_interval: "week",
     }),
     ["plan_oid", "billing_interval"],
+  );
+});
+
+test("Hub email change normalizes without mutating and validates each field", () => {
+  const original = { new_email_address: "  Person@Example.COM " };
+  const normalized = normalizeRequestEmailChangeRequest(original);
+  assert.equal(normalized.new_email_address, "person@example.com");
+  assert.equal(original.new_email_address, "  Person@Example.COM ");
+  assert.deepEqual(validateRequestEmailChangeRequest(original), []);
+  for (const address of ["", "not-an-address", "a@", "@b.c"])
+    assert.deepEqual(
+      validateRequestEmailChangeRequest({ new_email_address: address }),
+      ["new_email_address"],
+    );
+  assert.deepEqual(
+    validateConfirmEmailChangeRequest({ challenge_id: "bad", code: "12345a" }),
+    ["challenge_id", "code"],
+  );
+  assert.deepEqual(
+    validateConfirmEmailChangeRequest({
+      challenge_id: "22222222-2222-4222-8222-222222222222",
+      code: "12345",
+    }),
+    ["code"],
+  );
+  assert.deepEqual(
+    validateConfirmEmailChangeRequest({
+      challenge_id: "22222222-2222-4222-8222-222222222222",
+      code: "000123",
+    }),
+    [],
   );
 });

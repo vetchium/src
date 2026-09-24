@@ -73,6 +73,7 @@ export function PlanOptions({
     ? (subscription.plan_oid as HubPlan)
     : FreeTier;
   const currentInterval = subscription.billing_interval;
+  const onPaidPlan = currentPlanKnown && currentPlan !== FreeTier;
   const effectiveDate =
     subscription.current_period_end !== undefined
       ? new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(
@@ -176,6 +177,7 @@ export function PlanOptions({
       t("plans.features.everythingInFree"),
       t("plans.features.longPosts"),
       t("plans.features.profilePictures"),
+      t("plans.features.profileAlias"),
     ];
   }
 
@@ -186,17 +188,30 @@ export function PlanOptions({
     const price =
       interval === undefined ? undefined : planPrice(tenantID, plan, interval);
     const isCurrent = currentPlanKnown && currentPlan === plan;
+    // A paying subscriber has already chosen: their plan leads, and Free
+    // stays available as a quieter downgrade option.
+    const highlighted = isCurrent && plan !== FreeTier;
+    const deemphasized = onPaidPlan && plan === FreeTier;
+    const secondary = deemphasized ? "secondary" : undefined;
 
     const card = (
       <Card
         role="region"
         aria-label={t("plans.planCardLabel", { plan: label })}
-        style={{ height: "100%", width: "100%" }}
+        variant={deemphasized ? "borderless" : "outlined"}
+        style={{
+          height: "100%",
+          width: "100%",
+          ...(highlighted
+            ? { borderColor: token.colorPrimary, borderWidth: 2 }
+            : {}),
+          ...(deemphasized ? { background: token.colorFillQuaternary } : {}),
+        }}
         styles={{ body: { height: "100%" } }}
       >
         <Flex vertical gap="large" style={{ height: "100%" }}>
           <Flex align="center" gap="small" wrap>
-            <Typography.Title level={2} style={{ margin: 0 }}>
+            <Typography.Title level={2} type={secondary} style={{ margin: 0 }}>
               {label}
             </Typography.Title>
             {isCurrent ? (
@@ -205,7 +220,11 @@ export function PlanOptions({
           </Flex>
           <div>
             <Flex align="baseline" gap="small" wrap>
-              <Typography.Title level={3} style={{ margin: 0 }}>
+              <Typography.Title
+                level={3}
+                type={secondary}
+                style={{ margin: 0 }}
+              >
                 {price === undefined
                   ? t("plans.freePrice")
                   : formatPrice(price.amount, price.currency, locale)}
@@ -224,13 +243,20 @@ export function PlanOptions({
           </div>
 
           <Space orientation="vertical" size="middle">
-            <Typography.Text strong>{t("plans.featuresTitle")}</Typography.Text>
+            <Typography.Text strong type={secondary}>
+              {t("plans.featuresTitle")}
+            </Typography.Text>
             {featuresFor(plan).map((feature) => (
               <Flex key={feature} align="start" gap="small">
                 <CheckCircleFilled
-                  style={{ color: token.colorSuccess, marginTop: 4 }}
+                  style={{
+                    color: deemphasized
+                      ? token.colorTextQuaternary
+                      : token.colorSuccess,
+                    marginTop: 4,
+                  }}
                 />
-                <Typography.Text>{feature}</Typography.Text>
+                <Typography.Text type={secondary}>{feature}</Typography.Text>
               </Flex>
             ))}
           </Space>
@@ -241,8 +267,10 @@ export function PlanOptions({
 
           <Button
             block
-            size="large"
-            type={plan === FreeTier ? "default" : "primary"}
+            size={deemphasized ? "middle" : "large"}
+            type={
+              deemphasized ? "text" : plan === FreeTier ? "default" : "primary"
+            }
             disabled={!knownState || action.disabled || mutation.isPending}
             loading={isPendingFor(plan, interval)}
             onClick={() => handleClick(action)}
@@ -257,7 +285,11 @@ export function PlanOptions({
     return plan === FreeTier ? (
       card
     ) : (
-      <Badge.Ribbon text={t("plans.recommended")}>{card}</Badge.Ribbon>
+      <Badge.Ribbon
+        text={highlighted ? t("plans.yourPlan") : t("plans.recommended")}
+      >
+        {card}
+      </Badge.Ribbon>
     );
   }
 

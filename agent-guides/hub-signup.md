@@ -26,7 +26,10 @@ TypeSpec, UI, and Playwright guides for the layers being changed.
 ## Identity and profile locality
 
 - A Hub user's DID is an immutable, location-neutral UUIDv7. It is private,
-  never reused, and survives a future tenant move.
+  never reused, and survives a future tenant move. It never leaves the backend
+  and the private mesh: no portal response, stored browser session, or UI shows
+  it. Browser APIs identify a Hub user by handle, and the backend maps a handle
+  to its DID when it needs one.
 - Handles are public, permanent, and globally unique. Keep the readable prefix
   and random Crockford-base32 suffix; the suffix must reveal neither the DID nor
   creation time. The global directory, not a tenant-local constraint, decides
@@ -41,6 +44,23 @@ TypeSpec, UI, and Playwright guides for the layers being changed.
 - Initialize preferred job countries from residence. Later residence changes
   do not change job preferences, home tenant, or identity. An empty preference
   means no country filter.
+
+## Account email changes
+
+- The account email is the sign-in identifier, so changing it is a credential
+  change. Request a code for the new address only from a recently
+  authenticated session, and accept it only from that same session.
+- The email-domain allowlist gates signup only. After admission a user may
+  move to any address, including a personal one, so an email change never
+  consults the allowlist.
+- Answer an address that already belongs to an account exactly like any other,
+  but send it no code, so the response cannot test whether an address is
+  registered. The unique account-email constraint decides the race with a
+  concurrent signup.
+- A confirmed change revokes the user's other sessions, pending login
+  challenges, and password reset links, which were delivered to the old
+  address, and notifies the old address. Audit that the address changed, never
+  the addresses themselves.
 
 ## Region discovery
 

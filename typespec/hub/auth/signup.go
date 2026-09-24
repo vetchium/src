@@ -55,8 +55,7 @@ func (r CompleteSignupRequest) Validate() []string {
 }
 
 type CompleteSignupResponse struct {
-	HubUserDID hub.HubUserDID `json:"hub_user_did"`
-	Handle     hub.HubHandle  `json:"handle"`
+	Handle hub.HubHandle `json:"handle"`
 }
 
 type SignupCompletionPendingResponse struct {

@@ -16,8 +16,11 @@ export const de = {
     openMenu: "Navigation öffnen",
     home: "Startseite",
     profile: "Mein Profil",
-    security: "Sicherheit",
     plan: "Tarif",
+    settings: "Einstellungen",
+    security: "Konto & Sicherheit",
+    preferences: "Präferenzen",
+    workEmails: "Berufliche E-Mails",
   },
   theme: {
     toggleLabel: "Zwischen hellem und dunklem Modus wechseln",
@@ -38,8 +41,6 @@ export const de = {
     currentPassword: "Aktuelles Passwort",
     totpCode: "Authenticator-Code",
     recoveryCode: "Wiederherstellungscode",
-    handle: "Handle",
-    did: "Profil-ID",
     twoFactor: "Zwei-Faktor-Authentifizierung",
     recoveryCodes: "Verbleibende Wiederherstellungscodes",
   },
@@ -179,19 +180,23 @@ export const de = {
     profilePictureTooLarge: "Dieses Bild ist größer als 8 MB.",
     profilePictureInvalid:
       "Dieses Bild konnte nicht angenommen werden. Verwenden Sie ein JPEG oder PNG mit mindestens 400 Pixeln je Seite.",
+    emailChangeCodeRejected:
+      "Dieser Code wurde nicht akzeptiert. Prüfen Sie ihn oder senden Sie einen neuen Code.",
+    emailAddressUnavailable:
+      "Ein anderes Vetchium-Konto verwendet diese Adresse bereits.",
     planRequired:
       "Für diese Funktion ist ein kostenpflichtiger Tarif erforderlich.",
   },
   profile: {
-    jobCountries: "Bevorzugte Arbeitsländer",
-    jobCountriesHelp:
-      "Wählen Sie bis zu 10 Länder. Ohne Auswahl suchen Sie weltweit. Eine Änderung des Wohnsitzlands ändert diese Auswahl nicht.",
     documentTitle: "Mein Profil | Vetchium",
     title: "Mein Profil",
-    description: "Prüfen Sie Ihre Identität und wählen Sie Ihre Einstellungen.",
+    description:
+      "So sehen andere Hub-Nutzer und Personalverantwortliche Ihr Profil.",
+    locationTitle: "Wohnort",
+    residentCountryHelp:
+      "Wird in Ihrem Profil angezeigt. Eine Änderung verschiebt weder Ihr Konto noch Ihre bevorzugten Arbeitsländer.",
+    residentCountrySaved: "Ihr Wohnsitzland wurde gespeichert.",
     sectionBackground: "Werdegang",
-    accountTitle: "Konto & Einstellungen",
-    saved: "Ihre Einstellung wurde gespeichert.",
     viewPublicProfile: "Mein Profil ansehen",
     shareQr: "Über QR-Code teilen",
     shareQrAlt: "QR-Code für Ihren dauerhaften Profillink",
@@ -205,8 +210,9 @@ export const de = {
     publicFieldsSaved: "Ihre öffentliche Vorstellung wurde gespeichert.",
   },
   profileEmails: {
-    title: "Berufliche E-Mail-Adressen",
-    privacyNote: "Nur Sie können diese Adressen sehen.",
+    title: "Ihre Adressen",
+    privacyNote:
+      "Andere Hub-Nutzer sehen weder diese Adressen noch deren Domains. Arbeitgeber und Personalvermittlungen, die nach Kandidaten suchen, sehen möglicherweise die Domains Ihrer bestätigten Adressen, aber nie die Adressen selbst.",
     addButton: "E-Mail hinzufügen",
     addTitle: "Berufliche E-Mail hinzufügen",
     addressLabel: "Berufliche E-Mail-Adresse",
@@ -388,6 +394,7 @@ export const de = {
     viewPlans: "Tarife ansehen",
   },
   profileView: {
+    edit: "Mein Profil bearbeiten",
     documentTitle: "{{name}} | Vetchium",
     pictureAlt: "Profilbild von {{name}}",
     workTitle: "Berufserfahrung",
@@ -408,9 +415,53 @@ export const de = {
     },
   },
   security: {
-    documentTitle: "Sicherheit | Vetchium",
-    title: "Sicherheit",
-    description: "Verwalten Sie Passwort und Zwei-Faktor-Authentifizierung.",
+    documentTitle: "Konto & Sicherheit | Vetchium",
+    title: "Konto & Sicherheit",
+    description:
+      "Verwalten Sie E-Mail-Adresse, Passwort und zweiten Faktor für die Anmeldung.",
+  },
+  emailChange: {
+    title: "E-Mail-Adresse",
+    description:
+      "Mit dieser Adresse melden Sie sich an und erhalten Kontonachrichten. Sie wird nie in Ihrem Profil angezeigt.",
+    current: "Aktuelle Adresse",
+    start: "E-Mail-Adresse ändern",
+    effects:
+      "Eine Änderung meldet alle anderen Browser ab und macht zuvor gesendete Links zum Zurücksetzen des Passworts ungültig.",
+    newAddress: "Neue E-Mail-Adresse",
+    sameAddress: "Geben Sie eine andere als Ihre aktuelle Adresse ein.",
+    sendCode: "Bestätigungscode senden",
+    codeSent:
+      "Falls {{address}} verwendet werden kann, ist ein sechsstelliger Code unterwegs. Er läuft um {{time}} ab.",
+    noCodeHint:
+      "Kein Code erhalten? Prüfen Sie die Adresse. Eine Adresse, die bereits zu einem Vetchium-Konto gehört, erhält keinen Code.",
+    codeLabel: "Sechsstelliger Code",
+    codeInvalid: "Geben Sie den sechsstelligen Code aus der E-Mail ein.",
+    confirm: "Neue Adresse bestätigen",
+    resend: "Neuen Code senden",
+    cancel: "Abbrechen",
+    changed:
+      "Ihre E-Mail-Adresse wurde geändert. Andere Browser wurden abgemeldet.",
+  },
+  preferences: {
+    documentTitle: "Präferenzen | Vetchium",
+    title: "Präferenzen",
+    description:
+      "Legen Sie fest, wie Vetchium für Sie arbeitet. Nur Sie sehen diese Angaben.",
+    languageTitle: "Anzeigesprache",
+    languageHelp:
+      "Gilt für dieses Portal und für die E-Mails, die Vetchium Ihnen sendet.",
+    jobSearchTitle: "Jobsuche",
+    jobCountries: "Bevorzugte Arbeitsländer",
+    jobCountriesHelp:
+      "Wählen Sie bis zu 10 Länder. Ohne Auswahl suchen Sie weltweit. Eine Änderung des Wohnsitzlands ändert diese Auswahl nicht.",
+    saved: "Ihre Einstellung wurde gespeichert.",
+  },
+  workEmails: {
+    documentTitle: "Berufliche E-Mails | Vetchium",
+    title: "Berufliche E-Mails",
+    description:
+      "Weisen Sie nach, dass Sie eine Adresse bei einem aktuellen oder früheren Arbeitgeber kontrollieren. Die Bestätigung belegt weder Ihre Berufsbezeichnung noch Ihren Beschäftigungszeitraum.",
   },
   reauthentication: {
     documentTitle: "Identität bestätigen | Vetchium",
@@ -471,17 +522,30 @@ export const de = {
   },
   home: {
     documentTitle: "Startseite | Vetchium",
-    title: "Willkommen zurück",
-    planInvitationTitle: "Tarif wählen",
-    planInvitationBody:
-      "Wählen Sie den Tarif, der zu Ihnen passt. Sie können ihn jederzeit ändern.",
-    planInvitationAction: "Tarife ansehen",
-    considerPaidPlan:
-      "Erwägen Sie einen kostenpflichtigen Tarif, um mehr von Vetchium zu nutzen.",
-    profileInvitationTitle: "Profil vervollständigen",
-    profileInvitationBody:
-      "Geben Sie Ihre grundlegenden Profildaten ein, damit Möglichkeiten Sie finden können.",
-    profileInvitationAction: "Zu meinem Profil",
+    title: "Willkommen zurück, {{name}}",
+    profileTitle: "Ihr Profil",
+    profileProgress: "{{done}} von {{total}} Abschnitten vollständig",
+    profileComplete:
+      "Ihr Profil ist vollständig. Halten Sie es mit Ihrer Laufbahn aktuell.",
+    profileIncomplete:
+      "Ein vollständiges Profil hilft Kollegen und Personalverantwortlichen, Ihre Erfahrung einzuordnen.",
+    profileLoading: "Ihr Profil wird geladen",
+    checklist: {
+      biography: "Eine kurze Biografie schreiben",
+      work: "Berufserfahrung hinzufügen",
+      education: "Ausbildung hinzufügen",
+      languages: "Ihre Sprachen hinzufügen",
+    },
+    editProfile: "Mein Profil bearbeiten",
+    viewProfile: "Mein Profil ansehen",
+    supportTitle: "Vetchium unterstützen",
+    supportBody:
+      "Vetchium ist freie Open-Source-Software. Der Silber-Tarif finanziert die Entwicklung und bietet ein Profilbild sowie einen Profil-Alias.",
+    supportAction: "Tarife ansehen",
+    securityTitle: "Konto schützen",
+    securityBody:
+      "Aktivieren Sie die Zwei-Faktor-Authentifizierung, damit ein gestohlenes Passwort allein Ihr Konto nicht öffnet.",
+    securityAction: "Zwei-Faktor-Authentifizierung einrichten",
   },
   plans: {
     endingSoon: "Ihr kostenpflichtiger Zugang endet am {{date}}.",
@@ -492,6 +556,8 @@ export const de = {
     title: "Tarife",
     description:
       "Wählen Sie den Tarif, der zu Ihrer Art passt, Inhalte zu teilen und Kontakte zu knüpfen. Sie können ihn jederzeit ändern.",
+    descriptionPaid:
+      "Danke, dass Sie die Entwicklung des Vetchium-FOSS-Projekts unterstützen.",
     loadingLabel: "Ihr Abonnement wird geladen",
     billingIntervalLabel: "Abrechnungsintervall",
     annualSaving: "1 Monat sparen",
@@ -499,6 +565,7 @@ export const de = {
       "Die Preise enthalten Steuern. Zahlungen werden derzeit simuliert, Ihnen wird also nichts berechnet.",
     recommended: "Empfohlen",
     planCardLabel: "Tarif {{plan}}",
+    yourPlan: "Ihr Tarif",
     currentBadge: "Aktuell",
     freePrice: "Kostenlos",
     freePriceCaption: "für immer",
@@ -519,6 +586,7 @@ export const de = {
       everythingInFree: "Alles aus Kostenlos",
       longPosts: "Lange Beiträge",
       profilePictures: "Unterstützung für Profilbilder",
+      profileAlias: "Ein eigener Profil-Alias",
     },
     currentTitle: "Aktueller Tarif",
     currentPlan: "Tarif",

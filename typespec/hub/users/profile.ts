@@ -5,13 +5,11 @@ import type { CountryCode, DisplayName } from "../../common/localization.ts";
 import {
   type FrontendLocale,
   type HubHandle,
-  type HubUserDID,
   isFrontendLocale,
 } from "../types.ts";
 
 export interface MyInfoResponse {
   preferred_job_countries: CountryCode[];
-  hub_user_did: HubUserDID;
   handle: HubHandle;
   email_address: EmailAddress;
   display_name: DisplayName;

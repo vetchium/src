@@ -37,7 +37,8 @@ func TestRendererLoadsEveryLocalizedTemplate(t *testing.T) {
 				kind == Signup {
 				t.Errorf("render %s/%s omitted escaped display name", locale, kind)
 			}
-			if kind == ProfessionalEmailVerification &&
+			if (kind == ProfessionalEmailVerification ||
+				kind == EmailChangeVerification) &&
 				(!strings.Contains(message.TextBody, data.Code) ||
 					!strings.Contains(message.HTMLBody, data.Code)) {
 				t.Errorf("render %s/%s omitted verification code", locale, kind)

@@ -684,6 +684,19 @@ type VetchiumHubEducationalQualification struct {
 	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
 }
 
+type VetchiumHubEmailChangeChallenge struct {
+	ChallengeID     pgtype.UUID        `json:"challenge_id"`
+	HubUserDid      pgtype.UUID        `json:"hub_user_did"`
+	HubSessionID    pgtype.UUID        `json:"hub_session_id"`
+	NewEmailAddress string             `json:"new_email_address"`
+	CodeHash        []byte             `json:"code_hash"`
+	AttemptCount    int32              `json:"attempt_count"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt      pgtype.Timestamptz `json:"consumed_at"`
+	SupersededAt    pgtype.Timestamptz `json:"superseded_at"`
+}
+
 type VetchiumHubEmailOutbox struct {
 	HubEmailOutboxID      pgtype.UUID        `json:"hub_email_outbox_id"`
 	Kind                  string             `json:"kind"`

@@ -31,7 +31,6 @@ model CompleteSignupRequest {
 }
 
 model CompleteSignupResponse {
-  hub_user_did: HubUserDID;
   handle: HubHandle;
 }
 

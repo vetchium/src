@@ -1,0 +1,5 @@
+The email address of your Vetchium account was changed. Vetchium will no longer send account messages to this address.
+
+Every other signed-in browser was signed out, and any password reset link sent earlier no longer works.
+
+If you did not make this change, contact your Vetchium administrator.

@@ -13,6 +13,10 @@ import {
   RecentAuthenticationRequiredError,
 } from "typespec/problem/hub/authentication";
 import {
+  EmailAddressUnavailableError,
+  EmailChangeCodeRejectedError,
+} from "typespec/problem/hub/email";
+import {
   ProfessionalEmailCodeRejectedError,
   ProfileConflictError,
   ProfileNotFoundError,
@@ -68,6 +72,8 @@ export const problemKeys: Record<string, string> = {
   [ProfilePictureTooLargeError.type]: "errors.profilePictureTooLarge",
   [ProfilePictureInvalidError.type]: "errors.profilePictureInvalid",
   [PlanRequiredErrorType]: "errors.planRequired",
+  [EmailChangeCodeRejectedError.type]: "errors.emailChangeCodeRejected",
+  [EmailAddressUnavailableError.type]: "errors.emailAddressUnavailable",
 };
 
 export function APIErrorAlert({ error }: { error: unknown }) {

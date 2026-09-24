@@ -134,9 +134,12 @@ they appear in bold.
 - **PROF-WEM-010:** The private owner view **MAY** show the complete address,
   pending state, and exact management details. Other Hub users **MUST NOT** see
   an address, its domain, or its verification evidence.
-- **PROF-WEM-011:** Future authorized Org features **MAY** show each unique
+- **PROF-WEM-011:** Future authorized Org features, including candidate search
+  by employer Orgs and recruitment agencies, **MAY** show each unique
   normalized domain and the month and year of its first and last successful
   verification. Exact instants and local parts **MUST NOT** be exposed there.
+  The private management screen **MUST** tell the owner that these domains can
+  be shown that way and that the addresses never are.
 - **PROF-WEM-012:** Complete professional addresses and verification codes
   **MUST NOT** enter profile mesh payloads, audit-event bodies, or application
   logs.
@@ -165,16 +168,14 @@ they appear in bold.
   then by descending start month, with a stable identifier as the final
   deterministic tie-breaker.
 
-## 7. Domain favicons
+## 7. Domain display
 
-- **PROF-ICO-001:** For an employer or institution domain, the browser **MAY**
-  attempt to render `https://<normalized-domain>/favicon.ico`.
-- **PROF-ICO-002:** Vetchium services **MUST NOT** proxy, download, cache,
-  inspect, or persist the favicon. A failed or undecodable request **MUST** be
-  ignored without impairing the profile.
-- **PROF-ICO-003:** The request **SHOULD NOT** send a referrer, credentials, or
-  other Vetchium user data. The icon is decorative and untrusted and **MUST
-  NOT** be used as proof of the named organization's identity.
+- **PROF-ICO-001:** An employer or institution domain **MUST** be shown as
+  plain text. Clients **MUST NOT** load a favicon or any other image from that
+  domain, and Vetchium services **MUST NOT** proxy, download, cache, inspect,
+  or persist one.
+- **PROF-ICO-002:** The displayed domain is user-entered and **MUST NOT** be
+  used as proof of the named organization's identity.
 
 ## 8. Certifications
 
@@ -446,7 +447,7 @@ the first unchecked item after inspecting `git status` and recent commits.
 - [x] Implement the Hub profile view, editor, private professional-email
   management, alias management, QR code, and localized validation/error states.
   - [x] Add authenticated tenant-local `/u/<address>` view for local and remote
-    profiles, public-field rendering, domain favicons, localized not-found
+    profiles, public-field rendering, plain-text domains, localized not-found
     and outage handling, and a canonical handle-only QR code. Five browser
     cases pass.
   - [x] Add the owner public-introduction editor for display name and
@@ -460,8 +461,7 @@ the first unchecked item after inspecting `git status` and recent commits.
     and confirmed deletion.
   - [x] Add the work-experience, education, certification, and language
     editors with the specification's display orders, entry caps, a shared
-    bounded month selector, and the favicon renderer shared with the
-    read-only view.
+    bounded month selector.
   - [x] Add the paid-alias card driven by durable operation status with the
     seven-day cooldown, the plan-gated picture upload and removal, and the
     in-portal warning for an entitlement ending within seven days.

@@ -3,6 +3,7 @@ import type { APIRequestContext } from "@playwright/test";
 import { expect } from "@playwright/test";
 import type { LoginResponse } from "typespec/hub/auth/login";
 import type { CompleteSignupResponse } from "typespec/hub/auth/signup";
+import { hubUserDIDForHandle, type TestTenant } from "./admin-db.ts";
 import { hubIdempotencyKey, MAILPIT_ORIGIN } from "./hub-api.ts";
 
 export interface SignedUpHubUser {
@@ -19,7 +20,7 @@ export interface SignedUpHubUser {
  */
 export async function signup(
   request: APIRequestContext,
-  tenant: string,
+  tenant: TestTenant,
   email: string,
   keys: string[],
   options: {
@@ -66,7 +67,11 @@ export async function signup(
   });
   expect(complete.status(), await complete.text()).toBe(201);
   const body = (await complete.json()) as CompleteSignupResponse;
-  return { hubUserDID: body.hub_user_did, handle: body.handle, password };
+  return {
+    hubUserDID: hubUserDIDForHandle(body.handle, tenant),
+    handle: body.handle,
+    password,
+  };
 }
 
 /** Logs in a signed-up Hub user and returns a bearer session token. */

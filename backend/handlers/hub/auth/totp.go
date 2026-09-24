@@ -69,9 +69,8 @@ func hubSession(
 	session handlerauth.IssuedSession,
 ) hubauth.AuthenticatedSessionResponse {
 	return authenticatedSessionResponse(
-		session.Token, session.ExpiresAt, challenge.HubUserDid,
-		challenge.Handle, challenge.PreferredLanguage,
-		challenge.ResidentCountry,
+		session.Token, session.ExpiresAt, challenge.Handle,
+		challenge.PreferredLanguage, challenge.ResidentCountry,
 	)
 }
 

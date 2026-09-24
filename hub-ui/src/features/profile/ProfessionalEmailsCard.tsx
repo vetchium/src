@@ -1,4 +1,9 @@
-import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
+import {
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  DeleteOutlined,
+  PlusOutlined,
+} from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -11,6 +16,7 @@ import {
   Popconfirm,
   Space,
   Spin,
+  Timeline,
   Typography,
 } from "antd";
 import { useEffect, useRef, useState } from "react";
@@ -30,8 +36,8 @@ import {
   useProfessionalEmailsQuery,
 } from "./queries";
 
-function challengeStorageKey(ownerDID: string, emailID: string): string {
-  return `vetchium.hub.professional-email.${ownerDID}.${emailID}`;
+function challengeStorageKey(ownerHandle: string, emailID: string): string {
+  return `vetchium.hub.professional-email.${ownerHandle}.${emailID}`;
 }
 
 function readChallenge(key: string): ProfessionalEmailChallenge | null {
@@ -73,15 +79,15 @@ function needsAnnualReminder(lastVerifiedAt: string | undefined): boolean {
 
 function ProfessionalEmailRow({
   entry,
-  ownerDID,
+  ownerHandle,
 }: {
   entry: ProfessionalEmail;
-  ownerDID: string;
+  ownerHandle: string;
 }) {
   const { t, i18n } = useTranslation();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
-  const storageKey = challengeStorageKey(ownerDID, entry.id);
+  const storageKey = challengeStorageKey(ownerHandle, entry.id);
   const [challenge, setChallenge] = useState(() => readChallenge(storageKey));
   const [code, setCode] = useState("");
   const requestKey = useIdempotencyKey();
@@ -166,50 +172,57 @@ function ProfessionalEmailRow({
   const formatDate = (value: string) => dateFormat.format(new Date(value));
 
   return (
-    <li>
-      <Space orientation="vertical" size="small">
-        <Space align="start">
-          <Space orientation="vertical" size={0}>
-            <Typography.Text strong>{entry.email_address}</Typography.Text>
-            {entry.last_verified_at === undefined ? (
-              <Typography.Text type="secondary">
-                {t("profileEmails.notVerifiedYet")}
-              </Typography.Text>
-            ) : (
-              <Typography.Text type="secondary">
-                {t("profileEmails.verifiedDates", {
-                  first: formatDate(
-                    entry.first_verified_at ?? entry.last_verified_at,
-                  ),
-                  last: formatDate(entry.last_verified_at),
-                })}
-              </Typography.Text>
-            )}
-          </Space>
-          <Popconfirm
-            title={t("profileEmails.confirmRemove")}
-            okText={t("profileEmails.remove")}
-            cancelText={t("profileEmails.cancel")}
-            onConfirm={() => remove.mutate()}
-          >
-            <Button
-              type="text"
-              danger
-              size="small"
-              icon={<DeleteOutlined />}
-              aria-label={t("profileEmails.remove")}
-              disabled={remove.isPending}
-              loading={remove.isPending}
+    <Space orientation="vertical" size="middle">
+      <Space orientation="vertical" size={2}>
+        <Typography.Text strong>{entry.email_address}</Typography.Text>
+        {entry.last_verified_at === undefined ? (
+          <Typography.Text type="secondary">
+            {t("profileEmails.notVerifiedYet")}
+          </Typography.Text>
+        ) : (
+          <Typography.Text type="secondary">
+            {t("profileEmails.verifiedDates", {
+              first: formatDate(
+                entry.first_verified_at ?? entry.last_verified_at,
+              ),
+              last: formatDate(entry.last_verified_at),
+            })}
+          </Typography.Text>
+        )}
+      </Space>
+      {needsAnnualReminder(entry.last_verified_at) ? (
+        <Alert type="info" showIcon title={t("profileEmails.annualReminder")} />
+      ) : null}
+      {challenge === null ? null : (
+        <Space orientation="vertical" size="small">
+          <Typography.Text type="secondary">
+            {t("profileEmails.codeExpires", {
+              date: dateTimeFormat.format(new Date(challenge.expires_at)),
+            })}
+          </Typography.Text>
+          <Space wrap>
+            <Input
+              aria-label={t("profileEmails.codeLabel")}
+              value={code}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              style={{ width: 120 }}
+              onChange={(event) => setCode(event.target.value)}
             />
-          </Popconfirm>
+            <Button
+              type="primary"
+              size="small"
+              disabled={!/^[0-9]{6}$/.test(code) || verify.isPending}
+              loading={verify.isPending}
+              onClick={() => verify.mutate()}
+            >
+              {t("profileEmails.verify")}
+            </Button>
+          </Space>
         </Space>
-        {needsAnnualReminder(entry.last_verified_at) ? (
-          <Alert
-            type="info"
-            showIcon
-            title={t("profileEmails.annualReminder")}
-          />
-        ) : null}
+      )}
+      <Space wrap>
         {challenge === null ? (
           <Button
             size="small"
@@ -219,49 +232,38 @@ function ProfessionalEmailRow({
           >
             {t("profileEmails.requestCode")}
           </Button>
-        ) : (
-          <Space orientation="vertical" size="small">
-            <Typography.Text type="secondary">
-              {t("profileEmails.codeExpires", {
-                date: dateTimeFormat.format(new Date(challenge.expires_at)),
-              })}
-            </Typography.Text>
-            <Space wrap>
-              <Input
-                aria-label={t("profileEmails.codeLabel")}
-                value={code}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                style={{ width: 120 }}
-                onChange={(event) => setCode(event.target.value)}
-              />
-              <Button
-                type="primary"
-                size="small"
-                disabled={!/^[0-9]{6}$/.test(code) || verify.isPending}
-                loading={verify.isPending}
-                onClick={() => verify.mutate()}
-              >
-                {t("profileEmails.verify")}
-              </Button>
-            </Space>
-          </Space>
-        )}
-        <APIErrorAlert
-          error={requestCode.error ?? verify.error ?? remove.error}
-        />
+        ) : null}
+        <Popconfirm
+          title={t("profileEmails.confirmRemove")}
+          okText={t("profileEmails.remove")}
+          cancelText={t("profileEmails.cancel")}
+          onConfirm={() => remove.mutate()}
+        >
+          <Button
+            type="text"
+            danger
+            size="small"
+            icon={<DeleteOutlined />}
+            disabled={remove.isPending}
+            loading={remove.isPending}
+          >
+            {t("profileEmails.remove")}
+          </Button>
+        </Popconfirm>
       </Space>
-    </li>
+      <APIErrorAlert
+        error={requestCode.error ?? verify.error ?? remove.error}
+      />
+    </Space>
   );
 }
 
 function AddEmailModal({
-  ownerDID,
+  ownerHandle,
   open,
   onClose,
 }: {
-  ownerDID: string;
+  ownerHandle: string;
   open: boolean;
   onClose: () => void;
 }) {
@@ -292,7 +294,7 @@ function AddEmailModal({
           { id: created.id },
           requestKey.current(),
         );
-        storeChallenge(challengeStorageKey(ownerDID, created.id), challenge);
+        storeChallenge(challengeStorageKey(ownerHandle, created.id), challenge);
         requestKey.rotate();
       } catch {
         // The address is saved either way; its own row keeps a "Request
@@ -363,7 +365,11 @@ function AddEmailModal({
   );
 }
 
-export function ProfessionalEmailsCard({ ownerDID }: { ownerDID: string }) {
+export function ProfessionalEmailsCard({
+  ownerHandle,
+}: {
+  ownerHandle: string;
+}) {
   const { t } = useTranslation();
   const list = useProfessionalEmailsQuery();
   const [addOpen, setAddOpen] = useState(false);
@@ -401,18 +407,24 @@ export function ProfessionalEmailsCard({ ownerDID }: { ownerDID: string }) {
           {t("profileEmails.empty")}
         </Typography.Paragraph>
       ) : (
-        <ul>
-          {list.data.emails.map((entry) => (
-            <ProfessionalEmailRow
-              key={entry.id}
-              entry={entry}
-              ownerDID={ownerDID}
-            />
-          ))}
-        </ul>
+        <Timeline
+          items={list.data.emails.map((entry) => ({
+            key: entry.id,
+            color: entry.last_verified_at === undefined ? "gray" : "green",
+            icon:
+              entry.last_verified_at === undefined ? (
+                <ClockCircleOutlined />
+              ) : (
+                <CheckCircleOutlined />
+              ),
+            content: (
+              <ProfessionalEmailRow entry={entry} ownerHandle={ownerHandle} />
+            ),
+          }))}
+        />
       )}
       <AddEmailModal
-        ownerDID={ownerDID}
+        ownerHandle={ownerHandle}
         open={addOpen}
         onClose={() => setAddOpen(false)}
       />

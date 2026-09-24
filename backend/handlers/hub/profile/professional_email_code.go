@@ -1,18 +1,12 @@
 package profile
 
 import (
-	"crypto/hmac"
-	"crypto/rand"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"math/big"
 	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	profilespec "github.com/vetchium/src/typespec/hub/profile"
 	"github.com/vetchium/src/typespec/problem"
@@ -59,7 +53,7 @@ func RequestProfessionalEmailCode(s *hubruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return zero, nil, err
 				}
-				code, err := newProfessionalCode()
+				code, err := credentials.NewVerificationCode()
 				if err != nil {
 					return zero, nil, err
 				}
@@ -88,9 +82,9 @@ func RequestProfessionalEmailCode(s *hubruntime.Server) http.HandlerFunc {
 						ProfessionalEmailID: emailID,
 						HubUserDid:          identity.UserDID,
 						ChallengeID:         challengeID,
-						CodeHash: professionalCodeHash(
+						CodeHash: credentials.VerificationCodeHash(
 							s.CredentialSubkey("professional-email-code"),
-							challengeID, code,
+							dbvalue.FormatUUID(challengeID), code,
 						),
 						PayloadCiphertext: ciphertext,
 						TenantID:          s.TenantID,
@@ -164,9 +158,9 @@ func VerifyProfessionalEmailCode(s *hubruntime.Server) http.HandlerFunc {
 						ChallengeID:         challengeID,
 						ProfessionalEmailID: emailID,
 						HubUserDid:          identity.UserDID,
-						CodeHash: professionalCodeHash(
+						CodeHash: credentials.VerificationCodeHash(
 							s.CredentialSubkey("professional-email-code"),
-							challengeID, request.Code,
+							dbvalue.FormatUUID(challengeID), request.Code,
 						),
 						TenantID:       s.TenantID,
 						IdempotencyKey: dbvalue.Text(string(key)),
@@ -206,22 +200,4 @@ func VerifyProfessionalEmailCode(s *hubruntime.Server) http.HandlerFunc {
 			},
 		)
 	}
-}
-
-func newProfessionalCode() (string, error) {
-	number, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%06d", number.Int64()), nil
-}
-
-func professionalCodeHash(
-	key [32]byte, challengeID pgtype.UUID, code string,
-) []byte {
-	mac := hmac.New(sha256.New, key[:])
-	_, _ = mac.Write([]byte(dbvalue.FormatUUID(challengeID)))
-	_, _ = mac.Write([]byte{0})
-	_, _ = mac.Write([]byte(code))
-	return mac.Sum(nil)
 }

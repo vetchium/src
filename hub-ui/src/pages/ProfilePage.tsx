@@ -1,19 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { frontendLocaleOptions } from "@vetchium/portal-ui/localization";
-import {
-  App,
-  Card,
-  Descriptions,
-  Divider,
-  Flex,
-  Form,
-  Select,
-  Space,
-  Typography,
-} from "antd";
+import { App, Card, Form, Select, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import type { CountryCode } from "typespec/common/localization";
-import type { FrontendLocale } from "typespec/hub/types";
 import { hubAPI } from "../api/hub";
 import { usePreferences } from "../app/PreferencesContext";
 import { useAuth } from "../auth/AuthContext";
@@ -22,47 +10,63 @@ import { AliasCard } from "../features/profile/AliasCard";
 import { CertificationsCard } from "../features/profile/CertificationsCard";
 import { EducationCard } from "../features/profile/EducationCard";
 import { LanguageAbilitiesCard } from "../features/profile/LanguageAbilitiesCard";
-import { ProfessionalEmailsCard } from "../features/profile/ProfessionalEmailsCard";
 import { ProfileHeaderCard } from "../features/profile/ProfileHeaderCard";
 import { myInfoQueryKey, useMyInfoQuery } from "../features/profile/queries";
 import { WorkExperienceCard } from "../features/profile/WorkExperienceCard";
 import { countryOptions } from "../i18n/countries";
 
-export function ProfilePage() {
+function ResidentCountryCard({
+  handle,
+  residentCountry,
+}: {
+  handle: string;
+  residentCountry: CountryCode;
+}) {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const preferences = usePreferences();
   const auth = useAuth();
-  const countries = countryOptions(preferences.language);
-  const { data: me } = useMyInfoQuery();
-  const language = useMutation({
-    mutationFn: (preferred_language: FrontendLocale) =>
-      hubAPI.setPreferredLanguage({ preferred_language }),
-    onSuccess: async (_, value) => {
-      preferences.setLanguage(value);
-      auth.updateSession({ preferred_language: value });
-      await queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
-      void message.success(t("profile.saved"));
-    },
-  });
   const country = useMutation({
     mutationFn: (resident_country: CountryCode) =>
       hubAPI.setResidentCountry({ resident_country }),
     onSuccess: async (_, value) => {
       auth.updateSession({ resident_country: value });
-      await queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
-      void message.success(t("profile.saved"));
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: myInfoQueryKey }),
+        queryClient.invalidateQueries({
+          queryKey: ["hub", "profile", handle],
+        }),
+      ]);
+      void message.success(t("profile.residentCountrySaved"));
     },
   });
-  const jobs = useMutation({
-    mutationFn: (preferred_job_countries: CountryCode[]) =>
-      hubAPI.setPreferredJobCountries({ preferred_job_countries }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
-      void message.success(t("profile.saved"));
-    },
-  });
+  return (
+    <Card title={t("profile.locationTitle")}>
+      <Form layout="vertical" className="settings-form">
+        <Form.Item
+          label={t("fields.residentCountry")}
+          help={t("profile.residentCountryHelp")}
+        >
+          <Select
+            aria-label={t("fields.residentCountry")}
+            showSearch={{ optionFilterProp: "label" }}
+            value={residentCountry}
+            loading={country.isPending}
+            disabled={country.isPending}
+            options={countryOptions(preferences.language)}
+            onChange={(value) => country.mutate(value)}
+          />
+        </Form.Item>
+      </Form>
+      <APIErrorAlert error={country.error} />
+    </Card>
+  );
+}
+
+export function ProfilePage() {
+  const { t } = useTranslation();
+  const { data: me } = useMyInfoQuery();
   if (me === undefined) return null;
 
   return (
@@ -75,7 +79,10 @@ export function ProfilePage() {
         </Typography.Text>
       </div>
       <ProfileHeaderCard address={me.handle} />
-      <AliasCard handle={me.handle} />
+      <ResidentCountryCard
+        handle={me.handle}
+        residentCountry={me.resident_country}
+      />
       <div>
         <Typography.Title level={3}>
           {t("profile.sectionBackground")}
@@ -87,64 +94,7 @@ export function ProfilePage() {
           <LanguageAbilitiesCard address={me.handle} />
         </Space>
       </div>
-      <ProfessionalEmailsCard ownerDID={me.hub_user_did} />
-      <Card title={t("profile.accountTitle")}>
-        <Descriptions
-          column={{ xs: 1, sm: 2 }}
-          items={[
-            {
-              key: "email",
-              label: t("fields.email"),
-              children: me.email_address,
-            },
-            { key: "handle", label: t("fields.handle"), children: me.handle },
-            { key: "did", label: t("fields.did"), children: me.hub_user_did },
-          ]}
-        />
-        <Divider />
-        <Flex gap="large" wrap>
-          <Form layout="vertical" className="preference-form">
-            <Form.Item label={t("fields.language")}>
-              <Select<FrontendLocale>
-                value={me.preferred_language}
-                loading={language.isPending}
-                options={frontendLocaleOptions(preferences.supportedLocales)}
-                onChange={(value) => language.mutate(value)}
-              />
-            </Form.Item>
-          </Form>
-          <Form layout="vertical" className="preference-form">
-            <Form.Item label={t("fields.residentCountry")}>
-              <Select
-                showSearch={{ optionFilterProp: "label" }}
-                value={me.resident_country}
-                loading={country.isPending}
-                options={countries}
-                onChange={(value) => country.mutate(value)}
-              />
-            </Form.Item>
-          </Form>
-          <Form layout="vertical" className="preference-form">
-            <Form.Item
-              label={t("profile.jobCountries")}
-              help={t("profile.jobCountriesHelp")}
-            >
-              <Select
-                mode="multiple"
-                maxCount={10}
-                aria-label={t("profile.jobCountries")}
-                showSearch={{ optionFilterProp: "label" }}
-                value={me.preferred_job_countries}
-                loading={jobs.isPending}
-                disabled={jobs.isPending}
-                options={countries}
-                onChange={(value: CountryCode[]) => jobs.mutate(value)}
-              />
-            </Form.Item>
-          </Form>
-        </Flex>
-        <APIErrorAlert error={language.error ?? country.error ?? jobs.error} />
-      </Card>
+      <AliasCard handle={me.handle} />
     </Space>
   );
 }

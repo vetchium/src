@@ -4,12 +4,10 @@ const hubBaseURL =
   process.env.PLAYWRIGHT_HUB_BASE_URL ?? "http://hub-ui.sgp.localhost";
 const sessionKey = "vetchium.hub.session";
 const sessionToken = "s".repeat(64);
-const hubUserDID = "018f7e32-7b5a-7d31-8fd0-f7e2a852f144";
 const handle = "perso-00000000001";
 
 function myInfo(sessionAuthenticatedAt = new Date().toISOString()) {
   return {
-    hub_user_did: hubUserDID,
     handle,
     email_address: "person@example.com",
     display_name: "Example Person",
@@ -52,15 +50,14 @@ async function provideMySubscription(page: import("@playwright/test").Page) {
   });
 }
 
-/** The profile page's owner cards each read their own endpoint. This test is
- * about job countries, so the rest answer with empty owner state. */
-async function provideProfileCards(page: import("@playwright/test").Page) {
+/** The home page summarizes the signed-in user's own profile. */
+async function provideOwnProfile(page: import("@playwright/test").Page) {
   await page.route("**/api/hub/profile/read", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        display_name: "Hub User",
+        display_name: "Example Person",
         handle,
         resident_country: "SG",
         work_experiences: [],
@@ -70,28 +67,15 @@ async function provideProfileCards(page: import("@playwright/test").Page) {
       }),
     });
   });
-  await page.route(
-    "**/api/hub/profile/professional-email/list",
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ emails: [] }),
-      });
-    },
-  );
-  await page.route("**/api/hub/profile/alias/state", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ profile_alias: null }),
-    });
-  });
 }
 
-async function provideStoredSession(page: import("@playwright/test").Page) {
+async function provideStoredSession(
+  page: import("@playwright/test").Page,
+  extra: Record<string, unknown> = {},
+) {
+  await provideOwnProfile(page);
   await page.addInitScript(
-    ({ key, sessionToken, hubUserDID, handle }) =>
+    ({ key, sessionToken, handle, extra }) =>
       sessionStorage.setItem(
         key,
         JSON.stringify({
@@ -99,12 +83,12 @@ async function provideStoredSession(page: import("@playwright/test").Page) {
           session_expires_at: new Date(Date.now() + 60_000).toISOString(),
           preferred_language: "en-US",
           resident_country: "SG",
-          hub_user_did: hubUserDID,
           handle,
           remembered: false,
+          ...extra,
         }),
       ),
-    { key: sessionKey, sessionToken, hubUserDID, handle },
+    { key: sessionKey, sessionToken, handle, extra },
   );
 }
 
@@ -123,7 +107,7 @@ test("a visitor without a session enters through sign in", async ({ page }) => {
   await expect(page.locator("body")).not.toContainText("Hub");
 });
 
-test("a visitor with a stored session sees the plan and profile invitations", async ({
+test("a visitor with a stored session lands on a personal home page", async ({
   page,
 }) => {
   await provideStoredSession(page);
@@ -133,15 +117,49 @@ test("a visitor with a stored session sees the plan and profile invitations", as
 
   await expect(page).toHaveURL(`${hubBaseURL}/`);
   await expect(
-    page.getByRole("heading", { name: "Welcome back" }),
+    page.getByRole("heading", { name: "Welcome back, Example Person" }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: "View plans" })).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Go to my profile" }),
+    page.getByRole("link", { name: "Edit my profile" }),
   ).toBeVisible();
-  await expect(page.getByRole("menuitem")).toHaveCount(4);
+  await expect(page.getByRole("link", { name: "See plans" })).toBeVisible();
+  await expect(page.getByRole("menuitem")).toHaveCount(6);
   await expect(page.getByRole("menuitem", { name: "Home" })).toBeVisible();
   await expect(page.locator("body")).not.toContainText("Hub");
+});
+
+test("a session stored by an older portal keeps working and drops the retired DID", async ({
+  page,
+}) => {
+  await provideStoredSession(page, {
+    hub_user_did: "018f7e32-7b5a-7d31-8fd0-f7e2a852f144",
+  });
+  await provideMyInfo(page);
+  await provideMySubscription(page);
+  await page.route("**/api/hub/set-preferred-language", async (route) => {
+    await route.fulfill({ status: 204 });
+  });
+  await page.goto(hubBaseURL);
+  await expect(
+    page.getByRole("heading", { name: "Welcome back, Example Person" }),
+  ).toBeVisible();
+
+  await page.getByRole("combobox", { name: "Select language" }).click();
+  await page.getByRole("option", { name: "Deutsch (Deutschland)" }).click();
+  await expect
+    .poll(async () => {
+      const value = await page.evaluate(
+        (key) => sessionStorage.getItem(key),
+        sessionKey,
+      );
+      return value === null ? undefined : JSON.parse(value);
+    })
+    .toEqual(expect.objectContaining({ preferred_language: "de-DE" }));
+  const stored = await page.evaluate(
+    (key) => sessionStorage.getItem(key),
+    sessionKey,
+  );
+  expect(JSON.parse(stored ?? "{}")).not.toHaveProperty("hub_user_did");
 });
 
 test("an authenticated language change reaches the server and updates the session", async ({
@@ -263,18 +281,22 @@ test("the single home entry remains usable on a narrow viewport", async ({
 
   await header.getByRole("button", { name: "Open navigation" }).click();
   const navigation = page.getByRole("dialog", { name: "Navigation" });
-  await expect(navigation.getByRole("menuitem")).toHaveCount(4);
+  await expect(navigation.getByRole("menuitem")).toHaveCount(6);
+  for (const name of [
+    "Home",
+    "My profile",
+    "Plan",
+    "Account & security",
+    "Preferences",
+    "Professional emails",
+  ]) {
+    await expect(navigation.getByRole("menuitem", { name })).toBeVisible();
+  }
+  await expect(navigation.getByText("Settings", { exact: true })).toBeVisible();
+  await navigation.getByRole("menuitem", { name: "Preferences" }).click();
+  await expect(page).toHaveURL(`${hubBaseURL}/settings/preferences`);
   await expect(
-    navigation.getByRole("menuitem", { name: "Home" }),
-  ).toBeVisible();
-  await expect(
-    navigation.getByRole("menuitem", { name: "My profile" }),
-  ).toBeVisible();
-  await expect(
-    navigation.getByRole("menuitem", { name: "Security" }),
-  ).toBeVisible();
-  await expect(
-    navigation.getByRole("menuitem", { name: "Plan" }),
+    page.getByRole("heading", { name: "Preferences", level: 1 }),
   ).toBeVisible();
 });
 
@@ -332,6 +354,7 @@ test("signup localizes CLDR country names", async ({ page }) => {
 test("password sign in stores the returned session and opens the home page", async ({
   page,
 }) => {
+  await provideOwnProfile(page);
   await provideMyInfo(page);
   await provideMySubscription(page);
   await page.route("**/api/hub/login", async (route) => {
@@ -344,7 +367,6 @@ test("password sign in stores the returned session and opens the home page", asy
         session_expires_at: new Date(Date.now() + 86_400_000).toISOString(),
         preferred_language: "en-US",
         resident_country: "SG",
-        hub_user_did: hubUserDID,
         handle,
       }),
     });
@@ -469,7 +491,6 @@ test("a first visit matches the browser's BCP 47 locale", async ({ page }) => {
 test("job countries update independently of residence", async ({ page }) => {
   await provideStoredSession(page);
   await provideMySubscription(page);
-  await provideProfileCards(page);
   let countries = ["SG"];
   await page.route("**/api/hub/my-info", async (route) => {
     await route.fulfill({
@@ -483,7 +504,7 @@ test("job countries update independently of residence", async ({ page }) => {
     countries = ["SG", "FR"];
     await route.fulfill({ status: 204 });
   });
-  await page.goto(`${hubBaseURL}/settings/profile`);
+  await page.goto(`${hubBaseURL}/settings/preferences`);
   const jobs = page.getByRole("combobox", { name: "Preferred job countries" });
   await jobs.fill("France");
   await jobs.press("Enter");

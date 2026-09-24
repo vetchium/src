@@ -117,7 +117,7 @@ func (c *hubProfileClient) seedUser(
 	if err != nil {
 		return fmt.Errorf("await signup token: %w", err)
 	}
-	_, handle, err := c.completeSignup(ctx, token)
+	handle, err := c.completeSignup(ctx, token)
 	if err != nil {
 		return fmt.Errorf("complete signup: %w", err)
 	}
@@ -245,7 +245,7 @@ func (c *hubProfileClient) fetchMailbox(
 
 func (c *hubProfileClient) completeSignup(
 	ctx context.Context, token string,
-) (hub.HubUserDID, hub.HubHandle, error) {
+) (hub.HubHandle, error) {
 	request := hubauth.CompleteSignupRequest{
 		SignupToken: hubauth.HubSignupToken(token),
 		Password:    common.NewPassword(devSeedHubUserPassword),
@@ -254,16 +254,16 @@ func (c *hubProfileClient) completeSignup(
 		ctx, "/api/hub/complete-signup", "", newIdempotencyKey(), request,
 	)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	if status != http.StatusCreated {
-		return "", "", fmt.Errorf("returned %d: %s", status, body)
+		return "", fmt.Errorf("returned %d: %s", status, body)
 	}
 	var response hubauth.CompleteSignupResponse
 	if err := json.Unmarshal(body, &response); err != nil {
-		return "", "", fmt.Errorf("decode response: %w", err)
+		return "", fmt.Errorf("decode response: %w", err)
 	}
-	return response.HubUserDID, response.Handle, nil
+	return response.Handle, nil
 }
 
 func (c *hubProfileClient) login(

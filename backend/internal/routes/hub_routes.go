@@ -51,6 +51,14 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(recentAuth(hubauth.ChangePassword(s))),
 	)
 	mux.Handle(
+		"POST /api/hub/request-email-change",
+		hubAuth(recentAuth(hubauth.RequestEmailChange(s))),
+	)
+	mux.Handle(
+		"POST /api/hub/confirm-email-change",
+		hubAuth(hubauth.ConfirmEmailChange(s)),
+	)
+	mux.Handle(
 		"POST /api/hub/start-totp-enrollment",
 		hubAuth(recentAuth(hubauth.StartTOTPEnrollment(s))),
 	)

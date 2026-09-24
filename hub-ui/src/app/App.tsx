@@ -34,6 +34,11 @@ const PlanPage = lazy(() =>
     default: PlanPage,
   })),
 );
+const PreferencesPage = lazy(() =>
+  import("../pages/PreferencesPage").then(({ PreferencesPage }) => ({
+    default: PreferencesPage,
+  })),
+);
 const ProfilePage = lazy(() =>
   import("../pages/ProfilePage").then(({ ProfilePage }) => ({
     default: ProfilePage,
@@ -67,6 +72,11 @@ const SignupPage = lazy(() =>
 const TermsPage = lazy(() =>
   import("../pages/TermsPage").then(({ TermsPage }) => ({
     default: TermsPage,
+  })),
+);
+const WorkEmailsPage = lazy(() =>
+  import("../pages/WorkEmailsPage").then(({ WorkEmailsPage }) => ({
+    default: WorkEmailsPage,
   })),
 );
 const TwoFactorPage = lazy(() =>
@@ -167,6 +177,22 @@ export function App() {
             element={
               <Page>
                 <ProfilePage />
+              </Page>
+            }
+          />
+          <Route
+            path="settings/preferences"
+            element={
+              <Page>
+                <PreferencesPage />
+              </Page>
+            }
+          />
+          <Route
+            path="settings/work-emails"
+            element={
+              <Page>
+                <WorkEmailsPage />
               </Page>
             }
           />

@@ -22,6 +22,10 @@ being changed.
   and interval. Currency follows the home tenant, not residence; annual price
   is eleven monthly payments; listed prices include tax. Hide a paid plan when
   either interval lacks a price. Format amounts in the interface locale.
+- Invite only a subscriber known to be on `hub-free-tier` to consider a paid
+  plan; a failed subscription read shows no invitation. A paid subscriber's
+  plan page leads with their current plan and keeps Free as a quieter
+  downgrade option.
 - Show an unknown current plan by its raw OID and disable every change action
   for it. An older portal must not guess how to change a newer plan.
 - No API lists offerings or display prices while simulation is in use. Do not

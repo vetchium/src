@@ -2,6 +2,7 @@ import { Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { useMyInfoQuery } from "../features/profile/queries";
 import { ChangePasswordCard } from "../features/security/ChangePasswordCard";
+import { EmailAddressCard } from "../features/security/EmailAddressCard";
 import { TwoFactorCard } from "../features/security/TwoFactorCard";
 
 export function SecurityPage() {
@@ -17,6 +18,7 @@ export function SecurityPage() {
           {t("security.description")}
         </Typography.Text>
       </div>
+      <EmailAddressCard handle={me.handle} currentAddress={me.email_address} />
       <ChangePasswordCard />
       <TwoFactorCard
         totpEnabled={me.totp_enabled}

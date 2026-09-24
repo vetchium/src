@@ -9,7 +9,7 @@ Org — an employer or agency, in the Org portal. Also called a company.
 Org user — a person acting inside one org; cell-local id, not a principal of the federation.
 Admin — a platform maintainer; cell-local, scoped to one country.
 Principal — a hub user or an org: the two things that own data, are routable, and can migrate.
-DID (`_did`) — a principal's stable, opaque, never-reused UUID. Encodes no location and is not exposed on a Hub profile.
+DID (`_did`) — a principal's stable, opaque, never-reused UUID. Encodes no location and never leaves the backend and private mesh; browser APIs use the handle.
 OID (`_oid`) — a seeded config id (language, plan, capability, opening tag), byte-identical in every cell, never minted at runtime.
 Handle — a Hub user's globally unique, permanent generated name in the canonical `/u/<handle>` URL. It is never reassigned.
 Alias — one optional, globally unique, human-chosen `/u/<alias>` label available from the Silver plan. It is not canonical and is released immediately when changed, deleted, or lost on downgrade.

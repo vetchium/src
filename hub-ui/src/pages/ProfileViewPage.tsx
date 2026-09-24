@@ -17,7 +17,7 @@ import {
 } from "antd";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import type {
   EducationalQualification,
   LanguageAbility,
@@ -35,8 +35,10 @@ import {
 import { usePreferences } from "../app/PreferencesContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { canonicalProfileURL } from "../features/profile/canonical";
-import { DomainFavicon } from "../features/profile/DomainFavicon";
-import { usePublicProfileQuery } from "../features/profile/queries";
+import {
+  useMyInfoQuery,
+  usePublicProfileQuery,
+} from "../features/profile/queries";
 import { countryOptions } from "../i18n/countries";
 
 const abilities: readonly LanguageAbility[] = [Speaking, Reading, Writing];
@@ -88,7 +90,7 @@ function WorkExperienceTimeline({
         content: (
           <Space orientation="vertical" size="small">
             <Typography.Text strong>{work.job_title}</Typography.Text>
-            <DomainFavicon value={work.employer_domain} />
+            <Typography.Text>{work.employer_domain}</Typography.Text>
             <Typography.Text type="secondary">
               {t("profileView.dateRange", {
                 start: month(work.start_month),
@@ -123,7 +125,7 @@ function EducationTimeline({
         content: (
           <Space orientation="vertical" size="small">
             <Typography.Text strong>{education.degree}</Typography.Text>
-            <DomainFavicon value={education.institution_domain} />
+            <Typography.Text>{education.institution_domain}</Typography.Text>
             {education.title !== undefined ? (
               <Typography.Text>{education.title}</Typography.Text>
             ) : null}
@@ -154,6 +156,7 @@ function EducationTimeline({
 function ProfileContents({ profile }: { profile: PublicProfile }) {
   const { t } = useTranslation();
   const preferences = usePreferences();
+  const { data: me } = useMyInfoQuery();
   const country =
     countryOptions(preferences.language).find(
       (option) => option.value === profile.resident_country,
@@ -208,6 +211,9 @@ function ProfileContents({ profile }: { profile: PublicProfile }) {
               aria-label={t("profileView.qrAlt")}
             />
             <a href={canonicalURL}>{canonicalURL}</a>
+            {me?.handle === profile.handle ? (
+              <Link to="/settings/profile">{t("profileView.edit")}</Link>
+            ) : null}
           </Space>
         </Flex>
       </Card>

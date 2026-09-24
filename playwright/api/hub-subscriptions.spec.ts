@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { APIResponse } from "@playwright/test";
+import type { CompleteSignupResponse } from "typespec/hub/auth/signup";
 import type { HubPlan } from "typespec/hub/subscriptions/plans";
 import type {
   HubSubscription,
@@ -17,6 +18,7 @@ import {
   holdHubUserRowLock,
   hubSignupCompletionArtifactCounts,
   hubSubscriptionAuditEvents,
+  hubUserDIDForHandle,
   installHubAuditInsertFailure,
   seedHubSignupDomain,
   setHubSubscriptionPeriod,
@@ -229,8 +231,8 @@ test("signup rollback on subscription audit failure leaves no user", async ({
       { idempotencyKey: completeKey },
     );
     expect(retry.status(), await retry.text()).toBe(201);
-    const created = (await retry.json()) as { hub_user_did: string };
-    createdDID = created.hub_user_did;
+    const created = (await retry.json()) as CompleteSignupResponse;
+    createdDID = hubUserDIDForHandle(created.handle, "sgp");
   } finally {
     removeFailure?.();
     if (createdDID !== undefined) {

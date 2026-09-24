@@ -14,7 +14,6 @@ namespace Vetchium.Hub;
 
 model MyInfoResponse {
   preferred_job_countries: CountryCode[];
-  hub_user_did: HubUserDID;
   handle: HubHandle;
   email_address: EmailAddress;
   display_name: DisplayName;

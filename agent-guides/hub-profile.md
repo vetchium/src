@@ -26,8 +26,15 @@ those rules.
   is UI-only: do not email the account address or professional address.
 - Professional-email evidence is private account data in this version. Do not
   add it to another Hub user's profile response or a federated profile payload.
+- The owner's profile editor holds only what other users see (PROF-GEN-005).
+  Private account data (the sign-in email, language and job-search
+  preferences, and professional-email evidence) belongs on settings pages,
+  never on the profile page.
 - Employer and institution values are normalized domains, not Org foreign keys.
-  Client-side favicons and future Org display metadata do not change ownership.
+  Future Org display metadata does not change ownership. Never load favicons or
+  other third-party images for these domains: hub-ui's CSP `img-src` allows
+  only `'self'`, `data:`, and tenant media origins, and profile domains are
+  user-chosen.
 - Validate language-only tags against `typespec/hub/profile/language_catalog.json`,
   generated from pinned living ISO 639-3 entries that have CLDR English display
   names. The catalog includes represented sign languages and deliberately omits

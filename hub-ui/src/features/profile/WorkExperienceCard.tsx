@@ -33,7 +33,6 @@ import { hubAPI } from "../../api/hub";
 import { useIdempotencyKey } from "../../api/idempotency";
 import { usePreferences } from "../../app/PreferencesContext";
 import { APIErrorAlert } from "../../components/common/APIErrorAlert";
-import { DomainFavicon } from "./DomainFavicon";
 import { MonthSelect } from "./MonthSelect";
 import { myInfoQueryKey, usePublicProfileQuery } from "./queries";
 
@@ -313,7 +312,7 @@ function WorkExperienceEntry({
     <Flex justify="space-between" align="start" gap="middle" wrap>
       <Space orientation="vertical" size="small">
         <Typography.Text strong>{entry.job_title}</Typography.Text>
-        <DomainFavicon value={entry.employer_domain} />
+        <Typography.Text>{entry.employer_domain}</Typography.Text>
         <Typography.Text type="secondary">
           {t("profileWork.dateRange", {
             start: month(entry.start_month),

@@ -21,10 +21,13 @@ const (
 	PasswordReset                 Kind = "password-reset"
 	ProfessionalEmailVerification Kind = "professional-email-verification"
 	SubscriptionEnding            Kind = "subscription-ending"
+	EmailChangeVerification       Kind = "email-change-verification"
+	EmailChanged                  Kind = "email-changed"
 )
 
 var supportedKinds = []Kind{
 	Signup, PasswordReset, ProfessionalEmailVerification, SubscriptionEnding,
+	EmailChangeVerification, EmailChanged,
 }
 
 //go:embed templates/*/*

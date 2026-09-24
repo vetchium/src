@@ -12,6 +12,5 @@ model AuthenticatedSessionResponse {
   session_expires_at: utcDateTime;
   preferred_language: FrontendLocale;
   resident_country: CountryCode;
-  hub_user_did: HubUserDID;
   handle: HubHandle;
 }

@@ -13,7 +13,6 @@ import (
 
 	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
-	"backend/internal/dbvalue"
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/middleware"
@@ -41,9 +40,6 @@ func MyInfo(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		s.JSON(r.Context(), w, http.StatusOK, hubusers.MyInfoResponse{
-			HubUserDID: hubspec.HubUserDID(
-				dbvalue.FormatUUID(row.HubUserDid),
-			),
 			Handle:                 hubspec.HubHandle(row.Handle),
 			EmailAddress:           common.EmailAddress(row.EmailAddress),
 			DisplayName:            common.DisplayName(row.DisplayName),

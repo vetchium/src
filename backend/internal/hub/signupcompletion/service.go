@@ -476,8 +476,7 @@ func completedResult(operation sqlc.VetchiumHubSignupCompletion) Result {
 	return Result{
 		OperationID: dbvalue.FormatUUID(operation.OperationID), Completed: true,
 		Response: hubauth.CompleteSignupResponse{
-			HubUserDID: hubspec.HubUserDID(dbvalue.FormatUUID(operation.HubUserDid)),
-			Handle:     hubspec.HubHandle(operation.Handle),
+			Handle: hubspec.HubHandle(operation.Handle),
 		},
 	}
 }

@@ -214,10 +214,17 @@ func hubEmailKind(
 		}
 		return email.PasswordReset, payload.ResetURL, nil
 	case email.ProfessionalEmailVerification:
-		if !professionalEmailCodePattern.MatchString(payload.Code) {
+		if !verificationCodePattern.MatchString(payload.Code) {
 			return "", "", fmt.Errorf("professional email code is malformed")
 		}
 		return email.ProfessionalEmailVerification, "", nil
+	case email.EmailChangeVerification:
+		if !verificationCodePattern.MatchString(payload.Code) {
+			return "", "", fmt.Errorf("email change code is malformed")
+		}
+		return email.EmailChangeVerification, "", nil
+	case email.EmailChanged:
+		return email.EmailChanged, "", nil
 	case email.SubscriptionEnding:
 		if payload.LeadDays != 7 && payload.LeadDays != 1 {
 			return "", "", fmt.Errorf("subscription ending lead is invalid")
@@ -228,7 +235,7 @@ func hubEmailKind(
 	}
 }
 
-var professionalEmailCodePattern = regexp.MustCompile(`^[0-9]{6}$`)
+var verificationCodePattern = regexp.MustCompile(`^[0-9]{6}$`)
 
 func (d *HubEmailDelivery) currentTime() time.Time {
 	if d.Now != nil {

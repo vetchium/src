@@ -14,6 +14,7 @@ import {
   hubSessionCount,
   hubSignupArtifactCounts,
   hubSignupCompletionArtifactCounts,
+  hubUserDIDForHandle,
   installHubAuditInsertFailure,
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
@@ -241,6 +242,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
     );
     const completed =
       await responseJSON<CompleteSignupResponse>(completedResponse);
+    const completedDID = hubUserDIDForHandle(completed.handle);
     expect(
       (
         await hub.post("/complete-signup", completeSignupRequest, {
@@ -278,7 +280,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       tenant_id: "sgp",
       action: "hub.user.created",
       entity_type: "hub_user",
-      entity_id: completed.hub_user_did,
+      entity_id: completedDID,
       actor_type: "anonymous",
       actor_id: null,
       source: "hub-api",
@@ -295,7 +297,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       tenant_id: "sgp",
       action: "hub.subscription.created",
       entity_type: "hub_subscription",
-      entity_id: completed.hub_user_did,
+      entity_id: completedDID,
       actor_type: "anonymous",
       actor_id: null,
       source: "hub-api",
@@ -313,13 +315,13 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       401,
       "vetchium-problem-details/hub-invalid-credentials",
     );
-    expect(
-      hubAuditEventsForActor(completed.hub_user_did, "hub.session.created"),
-    ).toEqual([]);
+    expect(hubAuditEventsForActor(completedDID, "hub.session.created")).toEqual(
+      [],
+    );
 
     removeAuditFailure = installHubAuditInsertFailure({
       action: "hub.session.created",
-      actorID: completed.hub_user_did,
+      actorID: completedDID,
     });
     await expectProblem(
       await hub.post("/login", {
@@ -329,10 +331,10 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       500,
       "vetchium-problem-details/internal-server-error",
     );
-    expect(hubSessionCount(completed.hub_user_did)).toBe(0);
-    expect(
-      hubAuditEventsForActor(completed.hub_user_did, "hub.session.created"),
-    ).toEqual([]);
+    expect(hubSessionCount(completedDID)).toBe(0);
+    expect(hubAuditEventsForActor(completedDID, "hub.session.created")).toEqual(
+      [],
+    );
     removeAuditFailure();
     removeAuditFailure = undefined;
 
@@ -348,7 +350,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
     }
     removeAuditFailure = installHubAuditInsertFailure({
       action: "hub.profile.preferred-job-countries-set",
-      actorID: completed.hub_user_did,
+      actorID: completedDID,
     });
     await expectProblem(
       await hub.post(
@@ -368,7 +370,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
     ).toEqual(["US"]);
     expect(
       hubAuditEventsForActor(
-        completed.hub_user_did,
+        completedDID,
         "hub.profile.preferred-job-countries-set",
       ),
     ).toEqual([]);
@@ -388,14 +390,14 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       throw new Error("unexpected TFA challenge");
     }
     const sessionEvents = hubAuditEventsForActor(
-      completed.hub_user_did,
+      completedDID,
       "hub.session.created",
     );
     expect(sessionEvents).toHaveLength(2);
     for (const event of sessionEvents) {
       expectActorEvent(event, {
         action: "hub.session.created",
-        actorID: completed.hub_user_did,
+        actorID: completedDID,
         entityType: "hub_session",
       });
     }
@@ -406,7 +408,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
           String(left.remembered).localeCompare(String(right.remembered)),
         ),
     ).toEqual([{ remembered: false }, { remembered: true }]);
-    expect(hubSessionCount(completed.hub_user_did)).toBe(2);
+    expect(hubSessionCount(completedDID)).toBe(2);
 
     expect(
       (
@@ -418,16 +420,13 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       ).status(),
     ).toBe(200);
     const reauthenticated = expectOneAuditEvent(
-      hubAuditEventsForActor(
-        completed.hub_user_did,
-        "hub.session.reauthenticated",
-      ),
+      hubAuditEventsForActor(completedDID, "hub.session.reauthenticated"),
       {
         tenant_id: "sgp",
         action: "hub.session.reauthenticated",
         entity_type: "hub_session",
         actor_type: "hub_user",
-        actor_id: completed.hub_user_did,
+        actor_id: completedDID,
         source: "hub-api",
         idempotency_key: null,
         payload: { authentication_refreshed: true },
@@ -437,7 +436,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
     const initialHash = hubPasswordHash(emailAddress);
     removeAuditFailure = installHubAuditInsertFailure({
       action: "hub.password.changed",
-      actorID: completed.hub_user_did,
+      actorID: completedDID,
     });
     await expectProblem(
       await hub.post(
@@ -449,9 +448,9 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       "vetchium-problem-details/internal-server-error",
     );
     expect(hubPasswordHash(emailAddress)).toBe(initialHash);
-    expect(hubSessionCount(completed.hub_user_did)).toBe(2);
+    expect(hubSessionCount(completedDID)).toBe(2);
     expect(
-      hubAuditEventsForActor(completed.hub_user_did, "hub.password.changed"),
+      hubAuditEventsForActor(completedDID, "hub.password.changed"),
     ).toEqual([]);
     removeAuditFailure();
     removeAuditFailure = undefined;
@@ -466,16 +465,16 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       ).status(),
     ).toBe(204);
     expect(hubPasswordHash(emailAddress)).not.toBe(initialHash);
-    expect(hubSessionCount(completed.hub_user_did)).toBe(1);
+    expect(hubSessionCount(completedDID)).toBe(1);
     const passwordChanged = expectOneAuditEvent(
-      hubAuditEventsForActor(completed.hub_user_did, "hub.password.changed"),
+      hubAuditEventsForActor(completedDID, "hub.password.changed"),
       {
         tenant_id: "sgp",
         action: "hub.password.changed",
         entity_type: "hub_user",
-        entityID: completed.hub_user_did,
+        entityID: completedDID,
         actor_type: "hub_user",
-        actor_id: completed.hub_user_did,
+        actor_id: completedDID,
         source: "hub-api",
         idempotency_key: null,
         payload: {
@@ -561,7 +560,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       "vetchium-problem-details/internal-server-error",
     );
     expect(hubPasswordHash(emailAddress)).toBe(changedHash);
-    expect(hubSessionCount(completed.hub_user_did)).toBe(1);
+    expect(hubSessionCount(completedDID)).toBe(1);
     expect(hubAuditEventsByIdempotencyKey(completeResetKey)).toEqual([]);
     removeAuditFailure();
     removeAuditFailure = undefined;
@@ -586,7 +585,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       "vetchium-problem-details/idempotency-key-conflict",
     );
     expect(hubPasswordHash(emailAddress)).not.toBe(changedHash);
-    expect(hubSessionCount(completed.hub_user_did)).toBe(0);
+    expect(hubSessionCount(completedDID)).toBe(0);
     expect(
       (
         await hub.post("/complete-password-reset", completeResetRequest, {
@@ -600,7 +599,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
         tenant_id: "sgp",
         action: "hub.password.reset",
         entity_type: "hub_user",
-        entityID: completed.hub_user_did,
+        entityID: completedDID,
         actor_type: "anonymous",
         actor_id: null,
         source: "hub-api",

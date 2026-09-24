@@ -9,7 +9,6 @@ import (
 )
 
 type MyInfoResponse struct {
-	HubUserDID             hub.HubUserDID               `json:"hub_user_did"`
 	Handle                 hub.HubHandle                `json:"handle"`
 	EmailAddress           common.EmailAddress          `json:"email_address"`
 	DisplayName            common.DisplayName           `json:"display_name"`

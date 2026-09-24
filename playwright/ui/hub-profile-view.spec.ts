@@ -34,7 +34,6 @@ async function signedIn(page: Page) {
         session_expires_at: new Date(Date.now() + 60_000).toISOString(),
         preferred_language: "en-US",
         resident_country: "SG",
-        hub_user_did: "018f7e32-7b5a-7d31-8fd0-f7e2a852f144",
         handle: "local-00000000001",
         remembered: false,
       }),
@@ -57,7 +56,6 @@ async function signedIn(page: Page) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        hub_user_did: "018f7e32-7b5a-7d31-8fd0-f7e2a852f144",
         handle: "local-00000000001",
         email_address: "local@example.com",
         display_name: "Local Viewer",
@@ -90,9 +88,7 @@ test("authenticated users can view a remote profile through an alias", async ({
   ).toBeVisible();
   await expect(page.getByText("Engineer")).toBeVisible();
   await expect(page.getByText("example.com")).toBeVisible();
-  const favicon = page.locator('img[src="https://example.com/favicon.ico"]');
-  await expect(favicon).toHaveAttribute("referrerpolicy", "no-referrer");
-  await expect(favicon).toHaveAttribute("crossorigin", "anonymous");
+  await expect(page.locator('img[src*="example.com"]')).toHaveCount(0);
   await expect(
     page.getByRole("link", {
       name: "https://vetchium.com/u/remot-0123456789a",
@@ -102,6 +98,33 @@ test("authenticated users can view a remote profile through an alias", async ({
     page.getByLabel("QR code for the permanent profile link"),
   ).toBeVisible();
   await expect(page.getByText("local@example.com")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Edit my profile" })).toHaveCount(
+    0,
+  );
+});
+
+test("the owner viewing their own profile can jump to editing it", async ({
+  page,
+}) => {
+  await signedIn(page);
+  await page.route("**/api/hub/profile/read", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...profile,
+        display_name: "Local Viewer",
+        handle: "local-00000000001",
+        profile_alias: undefined,
+      }),
+    }),
+  );
+  await page.goto(`${hubBaseURL}/u/local-00000000001`);
+  await expect(
+    page.getByRole("heading", { name: "Local Viewer" }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Edit my profile" }).click();
+  await expect(page).toHaveURL(`${hubBaseURL}/settings/profile`);
 });
 
 test("profile viewing requires a signed-in Hub user", async ({ page }) => {

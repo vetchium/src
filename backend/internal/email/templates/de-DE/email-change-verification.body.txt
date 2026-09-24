@@ -1,0 +1,5 @@
+Sie möchten diese Adresse als E-Mail-Adresse Ihres Vetchium-Kontos verwenden.
+
+Ihr Code lautet {{.Code}}. Er läuft 10 Minuten nach der Anforderung ab.
+
+Falls Sie dies nicht angefordert haben, können Sie diese Nachricht ignorieren. Die E-Mail-Adresse Ihres Kontos bleibt unverändert.

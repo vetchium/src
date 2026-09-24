@@ -771,13 +771,48 @@ CREATE TABLE vetchium.hub_password_reset_tokens (
 CREATE UNIQUE INDEX hub_password_reset_tokens_active_user_idx
     ON vetchium.hub_password_reset_tokens (hub_user_did) WHERE active;
 
+-- A code proving control of a proposed new account address. It is bound to the
+-- recently authenticated session that asked for it, so another session of the
+-- same user cannot finish the change.
+CREATE TABLE vetchium.hub_email_change_challenges (
+    challenge_id uuid PRIMARY KEY,
+    hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
+        ON DELETE CASCADE,
+    hub_session_id uuid NOT NULL
+        REFERENCES vetchium.hub_sessions (hub_session_id) ON DELETE CASCADE,
+    new_email_address text NOT NULL,
+    code_hash bytea NOT NULL CHECK (octet_length(code_hash) = 32),
+    attempt_count integer NOT NULL DEFAULT 0
+        CHECK (attempt_count BETWEEN 0 AND 5),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL,
+    consumed_at timestamptz,
+    superseded_at timestamptz,
+    CONSTRAINT hub_email_change_challenges_address_check CHECK (
+        new_email_address = lower(btrim(new_email_address)) AND
+        char_length(new_email_address) BETWEEN 3 AND 254
+    ),
+    CONSTRAINT hub_email_change_challenges_expiry_check CHECK (
+        expires_at > created_at
+    ),
+    CONSTRAINT hub_email_change_challenges_result_check CHECK (
+        NOT (consumed_at IS NOT NULL AND superseded_at IS NOT NULL)
+    )
+);
+
+CREATE UNIQUE INDEX hub_email_change_challenges_active_user_idx
+    ON vetchium.hub_email_change_challenges (hub_user_did)
+    WHERE consumed_at IS NULL AND superseded_at IS NULL AND attempt_count < 5;
+
 CREATE TABLE vetchium.hub_email_outbox (
     hub_email_outbox_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     kind text NOT NULL CHECK (kind IN (
         'signup',
         'password-reset',
         'professional-email-verification',
-        'subscription-ending'
+        'subscription-ending',
+        'email-change-verification',
+        'email-changed'
     )),
     recipient_email_address text NOT NULL,
     preferred_language vetchium.hub_frontend_locale NOT NULL,

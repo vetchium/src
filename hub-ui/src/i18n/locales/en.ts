@@ -14,8 +14,11 @@ export const en = {
     openMenu: "Open navigation",
     home: "Home",
     profile: "My profile",
-    security: "Security",
     plan: "Plan",
+    settings: "Settings",
+    security: "Account & security",
+    preferences: "Preferences",
+    workEmails: "Professional emails",
   },
   theme: {
     toggleLabel: "Switch light or dark mode",
@@ -35,8 +38,6 @@ export const en = {
     currentPassword: "Current password",
     totpCode: "Authenticator code",
     recoveryCode: "Recovery code",
-    handle: "Handle",
-    did: "Profile ID",
     twoFactor: "Two-factor authentication",
     recoveryCodes: "Recovery codes remaining",
   },
@@ -167,18 +168,22 @@ export const en = {
     profilePictureTooLarge: "That image is larger than 8 MB.",
     profilePictureInvalid:
       "That image could not be accepted. Use a JPEG or PNG at least 400 pixels on each side.",
+    emailChangeCodeRejected:
+      "That code could not be accepted. Check it or send a new code.",
+    emailAddressUnavailable:
+      "Another Vetchium account already uses that address.",
     planRequired: "This feature needs a paid plan.",
   },
   profile: {
-    jobCountries: "Preferred job countries",
-    jobCountriesHelp:
-      "Choose up to 10 countries. Leave empty to explore all countries. Changing residence does not change these preferences.",
     documentTitle: "My profile | Vetchium",
     title: "My profile",
-    description: "Review your identity and choose your account preferences.",
+    description:
+      "This is what other Hub users and recruiters see when they open your profile.",
+    locationTitle: "Where you live",
+    residentCountryHelp:
+      "Shown on your profile. Changing it does not move your account or change your job-search countries.",
+    residentCountrySaved: "Your resident country was saved.",
     sectionBackground: "Background",
-    accountTitle: "Account & preferences",
-    saved: "Your preference was saved.",
     viewPublicProfile: "View my profile",
     shareQr: "Share via QR code",
     shareQrAlt: "QR code for your permanent profile link",
@@ -191,8 +196,9 @@ export const en = {
     publicFieldsSaved: "Your public introduction was saved.",
   },
   profileEmails: {
-    title: "Professional email addresses",
-    privacyNote: "Only you can see these addresses.",
+    title: "Your addresses",
+    privacyNote:
+      "Other Hub users cannot see these addresses or their domains. Employers and recruitment agencies that search for candidates may see the domains of your verified addresses, but never the addresses themselves.",
     addButton: "Add email",
     addTitle: "Add professional email",
     addressLabel: "Professional email address",
@@ -365,6 +371,7 @@ export const en = {
     viewPlans: "View plans",
   },
   profileView: {
+    edit: "Edit my profile",
     documentTitle: "{{name}} | Vetchium",
     pictureAlt: "Profile picture of {{name}}",
     workTitle: "Work experience",
@@ -385,9 +392,50 @@ export const en = {
     },
   },
   security: {
-    documentTitle: "Security | Vetchium",
-    title: "Security",
-    description: "Manage your password and two-factor authentication.",
+    documentTitle: "Account & security | Vetchium",
+    title: "Account & security",
+    description:
+      "Manage the email address, password, and second factor you sign in with.",
+  },
+  emailChange: {
+    title: "Email address",
+    description:
+      "You sign in with this address and receive account messages at it. It is never shown on your profile.",
+    current: "Current address",
+    start: "Change email address",
+    effects:
+      "Changing it signs out every other browser and cancels any password reset link sent earlier.",
+    newAddress: "New email address",
+    sameAddress: "Enter an address different from your current one.",
+    sendCode: "Send verification code",
+    codeSent:
+      "If {{address}} can be used, a six-digit code is on its way. It expires at {{time}}.",
+    noCodeHint:
+      "No code? Check the address. An address that already belongs to a Vetchium account does not receive one.",
+    codeLabel: "Six-digit code",
+    codeInvalid: "Enter the six-digit code from the email.",
+    confirm: "Confirm new address",
+    resend: "Send a new code",
+    cancel: "Cancel",
+    changed: "Your email address was changed. Other browsers were signed out.",
+  },
+  preferences: {
+    documentTitle: "Preferences | Vetchium",
+    title: "Preferences",
+    description: "Choose how Vetchium works for you. Only you can see these.",
+    languageTitle: "Display language",
+    languageHelp: "Used for this portal and for the emails Vetchium sends you.",
+    jobSearchTitle: "Job search",
+    jobCountries: "Preferred job countries",
+    jobCountriesHelp:
+      "Choose up to 10 countries. Leave empty to explore all countries. Changing residence does not change these preferences.",
+    saved: "Your preference was saved.",
+  },
+  workEmails: {
+    documentTitle: "Professional emails | Vetchium",
+    title: "Professional emails",
+    description:
+      "Prove that you control an address at a place you work or worked. Verification does not confirm your job title or employment dates.",
   },
   reauthentication: {
     documentTitle: "Confirm your identity | Vetchium",
@@ -447,16 +495,30 @@ export const en = {
   },
   home: {
     documentTitle: "Home | Vetchium",
-    title: "Welcome back",
-    planInvitationTitle: "Choose a plan",
-    planInvitationBody:
-      "Pick the plan that fits you. You can change it at any time.",
-    planInvitationAction: "View plans",
-    considerPaidPlan: "Consider a paid plan to unlock more from Vetchium.",
-    profileInvitationTitle: "Complete your profile",
-    profileInvitationBody:
-      "Fill in your basic profile information so opportunities can find you.",
-    profileInvitationAction: "Go to my profile",
+    title: "Welcome back, {{name}}",
+    profileTitle: "Your profile",
+    profileProgress: "{{done}} of {{total}} sections complete",
+    profileComplete:
+      "Your profile is complete. Keep it current as your career grows.",
+    profileIncomplete:
+      "A complete profile helps colleagues and recruiters understand your experience.",
+    profileLoading: "Loading your profile",
+    checklist: {
+      biography: "Write a short biography",
+      work: "Add your work experience",
+      education: "Add your education",
+      languages: "Add the languages you use",
+    },
+    editProfile: "Edit my profile",
+    viewProfile: "View my profile",
+    supportTitle: "Support Vetchium",
+    supportBody:
+      "Vetchium is free and open-source software. The Silver plan funds its development and adds a profile picture and a profile alias.",
+    supportAction: "See plans",
+    securityTitle: "Protect your account",
+    securityBody:
+      "Turn on two-factor authentication so that a stolen password alone cannot open your account.",
+    securityAction: "Set up two-factor authentication",
   },
   plans: {
     endingSoon: "Your paid access ends on {{date}}.",
@@ -467,6 +529,8 @@ export const en = {
     title: "Plans",
     description:
       "Choose the plan that fits how you share and connect. Change it any time.",
+    descriptionPaid:
+      "Thank you for supporting the development of the Vetchium FOSS project.",
     loadingLabel: "Loading your subscription",
     billingIntervalLabel: "Billing interval",
     annualSaving: "Save 1 month",
@@ -474,6 +538,7 @@ export const en = {
       "Prices include tax. Payments are currently simulated, so you will not be charged.",
     recommended: "Recommended",
     planCardLabel: "{{plan}} plan",
+    yourPlan: "Your plan",
     currentBadge: "Current",
     freePrice: "Free",
     freePriceCaption: "forever",
@@ -493,6 +558,7 @@ export const en = {
       everythingInFree: "Everything in Free",
       longPosts: "Long posts",
       profilePictures: "Profile picture support",
+      profileAlias: "A custom profile alias",
     },
     currentTitle: "Current plan",
     currentPlan: "Plan",

@@ -1,5 +1,6 @@
 import { Button, Flex, Skeleton, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
+import { FreeTier, isHubPlan } from "typespec/hub/subscriptions/plans";
 import { usePreferences } from "../app/PreferencesContext";
 import { configuredPlans, configuredTenantID } from "../app/runtime-config";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
@@ -12,6 +13,10 @@ export function PlanPage() {
   const preferences = usePreferences();
   const subscription = useMySubscriptionQuery();
   const tenantID = configuredTenantID() ?? "";
+  const onPaidPlan =
+    subscription.isSuccess &&
+    isHubPlan(subscription.data.plan_oid) &&
+    subscription.data.plan_oid !== FreeTier;
 
   return (
     <Space orientation="vertical" size="large" className="full-width">
@@ -19,7 +24,7 @@ export function PlanPage() {
       <Flex vertical align="center" gap="small" style={{ textAlign: "center" }}>
         <Typography.Title level={1}>{t("plans.title")}</Typography.Title>
         <Typography.Text type="secondary">
-          {t("plans.description")}
+          {onPaidPlan ? t("plans.descriptionPaid") : t("plans.description")}
         </Typography.Text>
       </Flex>
       {subscription.isPending ? (
@@ -35,14 +40,14 @@ export function PlanPage() {
         </Space>
       ) : (
         <>
+          <CurrentSubscriptionCard
+            subscription={subscription.data}
+            locale={preferences.language}
+          />
           <PlanOptions
             subscription={subscription.data}
             tenantID={tenantID}
             configuredPlans={configuredPlans()}
-            locale={preferences.language}
-          />
-          <CurrentSubscriptionCard
-            subscription={subscription.data}
             locale={preferences.language}
           />
         </>

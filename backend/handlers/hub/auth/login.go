@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/hub"
@@ -111,7 +110,7 @@ func loginWithoutTOTP(
 	s.JSON(r.Context(), w, http.StatusOK, auth.LoginAuthenticatedResponse{
 		AuthenticationState: auth.AuthenticationStateAuthenticated,
 		AuthenticatedSessionResponse: authenticatedSessionResponse(
-			token, expiresAt, user.HubUserDid, user.Handle,
+			token, expiresAt, user.Handle,
 			user.PreferredLanguage, user.ResidentCountry,
 		),
 	})
@@ -219,7 +218,7 @@ func Reauthenticate(s *hubruntime.Server) http.HandlerFunc {
 }
 
 func authenticatedSessionResponse(
-	token string, expiresAt time.Time, did pgtype.UUID, handle string,
+	token string, expiresAt time.Time, handle string,
 	preferredLanguage, residentCountry string,
 ) auth.AuthenticatedSessionResponse {
 	return auth.AuthenticatedSessionResponse{
@@ -227,7 +226,6 @@ func authenticatedSessionResponse(
 		SessionExpiresAt:  expiresAt.UTC(),
 		PreferredLanguage: hub.FrontendLocale(preferredLanguage),
 		ResidentCountry:   common.CountryCode(residentCountry),
-		HubUserDID:        hub.HubUserDID(dbvalue.FormatUUID(did)),
 		Handle:            hub.HubHandle(handle),
 	}
 }

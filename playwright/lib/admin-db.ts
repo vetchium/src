@@ -1090,6 +1090,24 @@ export function cleanupHubUser(
   );
 }
 
+/** Browser APIs return only the public handle; tests that inspect database
+ * rows keyed by DID resolve it here. */
+export function hubUserDIDForHandle(
+  handle: string,
+  tenant: TestTenant = "sgp",
+): string {
+  if (!/^[a-z0-9]{5}-[0-9a-hjkmnp-tv-z]{11}$/.test(handle)) {
+    throw new Error(`refusing Hub lookup for malformed handle: ${handle}`);
+  }
+  const did = sqlScalarForTenant(
+    tenant,
+    `SELECT hub_user_did::text FROM vetchium.hub_users
+     WHERE handle = ${sqlLiteral(handle)};`,
+  );
+  assertHubUserDID(did);
+  return did;
+}
+
 /**
  * Seeds an active global principal homed at `homeTenantID`, reachable through
  * `alias`, without going through signup. Federation tests use it to address a

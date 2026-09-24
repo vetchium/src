@@ -33,7 +33,6 @@ import { hubAPI } from "../../api/hub";
 import { useIdempotencyKey } from "../../api/idempotency";
 import { usePreferences } from "../../app/PreferencesContext";
 import { APIErrorAlert } from "../../components/common/APIErrorAlert";
-import { DomainFavicon } from "./DomainFavicon";
 import { MonthSelect } from "./MonthSelect";
 import { myInfoQueryKey, usePublicProfileQuery } from "./queries";
 
@@ -339,7 +338,7 @@ function EducationEntry({
     <Flex justify="space-between" align="start" gap="middle" wrap>
       <Space orientation="vertical" size="small">
         <Typography.Text strong>{entry.degree}</Typography.Text>
-        <DomainFavicon value={entry.institution_domain} />
+        <Typography.Text>{entry.institution_domain}</Typography.Text>
         {entry.title !== undefined ? (
           <Typography.Text>{entry.title}</Typography.Text>
         ) : null}

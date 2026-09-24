@@ -1,0 +1,5 @@
+You asked to use this address as the email address of your Vetchium account.
+
+Your code is {{.Code}}. It expires 10 minutes after you requested it.
+
+If you did not ask for this, you can ignore this message. Your account email address will not change.

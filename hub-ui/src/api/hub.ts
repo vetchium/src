@@ -1,5 +1,10 @@
 import type { IdempotencyKey } from "typespec/common/idempotency";
 import type {
+  ConfirmEmailChangeRequest,
+  EmailChangeChallenge,
+  RequestEmailChangeRequest,
+} from "typespec/hub/auth/email_change";
+import type {
   LoginRequest,
   LoginResponse,
   ReauthenticateRequest,
@@ -125,6 +130,22 @@ export const hubAPI = {
     }),
   changePassword: (body: ChangePasswordRequest) =>
     apiRequest<void>(`${base}/change-password`, { body }),
+  requestEmailChange: (
+    body: RequestEmailChangeRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<EmailChangeChallenge>(`${base}/request-email-change`, {
+      body,
+      idempotencyKey,
+    }),
+  confirmEmailChange: (
+    body: ConfirmEmailChangeRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>(`${base}/confirm-email-change`, {
+      body,
+      idempotencyKey,
+    }),
   setPreferredJobCountries: (body: SetPreferredJobCountriesRequest) =>
     apiRequest<void>(`${base}/set-preferred-job-countries`, { body }),
   myInfo: () => apiRequest<MyInfoResponse>(`${base}/my-info`),

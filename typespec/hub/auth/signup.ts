@@ -11,7 +11,6 @@ import {
 import {
   type FrontendLocale,
   type HubHandle,
-  type HubUserDID,
   isFrontendLocale,
 } from "../types.ts";
 
@@ -65,7 +64,6 @@ export function validateCompleteSignupRequest(
 }
 
 export interface CompleteSignupResponse {
-  hub_user_did: HubUserDID;
   handle: HubHandle;
 }
 

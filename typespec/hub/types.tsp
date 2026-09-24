@@ -7,7 +7,9 @@ enum FrontendLocale {
   German: "de-DE",
 }
 
-/** A stable, location-neutral Hub user DID encoded as UUIDv7. */
+/** A stable, location-neutral Hub user DID encoded as UUIDv7. It stays inside
+ * the backend and the private mesh; browser APIs identify a Hub user by
+ * handle. */
 @format("uuid")
 scalar HubUserDID extends string;
 

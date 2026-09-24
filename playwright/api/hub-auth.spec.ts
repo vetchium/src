@@ -24,6 +24,7 @@ import {
   currentTOTP,
   hubAuditEventsByIdempotencyKey,
   hubAuditEventsForActor,
+  hubUserDIDForHandle,
   setHubUserState,
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
@@ -130,18 +131,18 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
     );
     const completed =
       await responseJSON<CompleteSignupResponse>(completedResponse);
-    expect(completed.hub_user_did).toMatch(
+    // Browser APIs identify a Hub user by handle; the DID never leaves the
+    // backend.
+    expect(Object.keys(completed)).toEqual(["handle"]);
+    expect(completed.handle).toMatch(/^adalo-[0-9a-hjkmnp-tv-z]{11}$/);
+    const completedDID = hubUserDIDForHandle(completed.handle);
+    expect(completedDID).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
-    expect(completed.handle).toMatch(/^adalo-[0-9a-hjkmnp-tv-z]{11}$/);
-    // The handle is public and the DID is not. A handle derived from the DID
-    // would also disclose the UUIDv7 creation timestamp.
-    expect(completed.handle).not.toContain(
-      completed.hub_user_did.replaceAll("-", ""),
-    );
-    expect(completed.hub_user_did).not.toContain(
-      completed.handle.split("-")[1],
-    );
+    // A handle derived from the DID would disclose the private identifier and
+    // its UUIDv7 creation timestamp.
+    expect(completed.handle).not.toContain(completedDID.replaceAll("-", ""));
+    expect(completedDID).not.toContain(completed.handle.split("-")[1]);
     await expectProblem(
       await hub.post(
         "/complete-signup",
@@ -184,6 +185,8 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
     expect(first.authentication_state).toBe("authenticated");
     if (first.authentication_state !== "authenticated")
       throw new Error("unexpected TFA");
+    expect(first).toMatchObject({ handle: completed.handle });
+    expect(first).not.toHaveProperty("hub_user_did");
 
     const malformedProtectedRequests = [
       ["/reauthenticate", false],
@@ -239,8 +242,8 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
     const info = await responseJSON<MyInfoResponse>(
       await hub.get("/my-info", first.session_token),
     );
+    expect(info).not.toHaveProperty("hub_user_did");
     expect(info).toMatchObject({
-      hub_user_did: completed.hub_user_did,
       handle: completed.handle,
       email_address: emailAddress,
       preferred_language: "de-DE",
@@ -334,7 +337,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
     });
     expect(
       hubAuditEventsForActor(
-        completed.hub_user_did,
+        completedDID,
         "hub.profile.preferred-job-countries-set",
       ),
     ).toHaveLength(1);
@@ -553,7 +556,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
       entity_type: "hub_session",
       entity_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
       actor_type: "hub_user",
-      actor_id: completed.hub_user_did,
+      actor_id: completedDID,
       source: "hub-api",
       idempotency_key: tfaKey,
       payload: { remembered: false },
@@ -619,7 +622,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
       entity_type: "hub_session",
       entity_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
       actor_type: "hub_user",
-      actor_id: completed.hub_user_did,
+      actor_id: completedDID,
       source: "hub-api",
       idempotency_key: recoveryKey,
       payload: { remembered: false },
@@ -629,7 +632,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
       Number.isNaN(Date.parse(recoveryAuditEvents[0]?.created_at ?? "")),
     ).toBe(false);
     const challengeAuditEvents = hubAuditEventsForActor(
-      completed.hub_user_did,
+      completedDID,
       "hub.login-challenge.created",
     );
     expect(challengeAuditEvents).toHaveLength(2);
@@ -640,7 +643,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
         entity_type: "hub_login_challenge",
         entity_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
         actor_type: "hub_user",
-        actor_id: completed.hub_user_did,
+        actor_id: completedDID,
         source: "hub-api",
         idempotency_key: null,
         payload: { remembered: false },
