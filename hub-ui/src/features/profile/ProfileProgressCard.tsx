@@ -1,6 +1,5 @@
 import { PlusCircleOutlined } from "@ant-design/icons";
 import {
-  Avatar,
   Button,
   Card,
   Flex,
@@ -14,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { PublicProfile } from "typespec/hub/profile/public";
 import { APIErrorAlert } from "../../components/common/APIErrorAlert";
+import { ProfileAvatar } from "../../components/common/ProfileAvatar";
 import { usePublicProfileQuery } from "./queries";
 
 const sections = ["biography", "work", "education", "languages"] as const;
@@ -40,9 +40,11 @@ function ProgressContent({ profile }: { profile: PublicProfile }) {
   return (
     <Space orientation="vertical" size="middle" className="full-width">
       <Flex gap="middle" align="center">
-        <Avatar size={56} src={profile.profile_picture_url}>
-          {profile.display_name.slice(0, 1)}
-        </Avatar>
+        <ProfileAvatar
+          size={56}
+          displayName={profile.display_name}
+          src={profile.profile_picture_url}
+        />
         <div>
           <Typography.Title level={3} style={{ margin: 0 }}>
             {profile.display_name}

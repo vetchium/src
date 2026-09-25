@@ -89,6 +89,7 @@ test("authenticated users can view a remote profile through an alias", async ({
   await expect(page.getByText("Engineer")).toBeVisible();
   await expect(page.getByText("example.com")).toBeVisible();
   await expect(page.locator('img[src*="example.com"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Share profile" }).click();
   await expect(
     page.getByRole("link", {
       name: "https://vetchium.com/u/remot-0123456789a",
@@ -101,6 +102,76 @@ test("authenticated users can view a remote profile through an alias", async ({
   await expect(page.getByRole("link", { name: "Edit my profile" })).toHaveCount(
     0,
   );
+});
+
+test("a very long display name wraps inside the header instead of breaking the layout", async ({
+  page,
+}) => {
+  const longName = `${"Wolfeschlegelsteinhausenbergerdorff ".repeat(3)}${"x".repeat(80)}`;
+  await signedIn(page);
+  await page.route("**/api/hub/profile/read", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ...profile, display_name: longName }),
+    }),
+  );
+  for (const width of [1280, 375]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto(`${hubBaseURL}/u/shared-name`);
+    const heading = page.getByRole("heading", { name: longName });
+    await expect(heading).toBeVisible();
+    const share = page.getByRole("button", { name: "Share profile" });
+    await expect(share).toBeVisible();
+    const box = await heading.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box?.x ?? 0).toBeGreaterThanOrEqual(0);
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width);
+    // The QR code no longer claims its own column, so nothing may scroll
+    // the page sideways.
+    const overflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+  }
+});
+
+test("a profile without a picture shows the display name initial as the avatar", async ({
+  page,
+}) => {
+  await signedIn(page);
+  const show = (displayName: string, pictureURL?: string) =>
+    page.route("**/api/hub/profile/read", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ...profile,
+          display_name: displayName,
+          profile_picture_url: pictureURL,
+        }),
+      }),
+    );
+  const avatar = page.locator("main .ant-avatar").first();
+
+  await show("élodie Martin");
+  await page.goto(`${hubBaseURL}/u/shared-name`);
+  await expect(avatar).toHaveText("É");
+
+  // An emoji is one user-perceived character, not a lone surrogate half.
+  await show("🚀 Rocket Co");
+  await page.goto(`${hubBaseURL}/u/shared-name`);
+  await expect(avatar).toHaveText("🚀");
+
+  await show(
+    "Remote Colleague",
+    "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
+  );
+  await page.goto(`${hubBaseURL}/u/shared-name`);
+  await expect(avatar.locator("img")).toBeVisible();
+  await expect(avatar).not.toHaveText("R");
 });
 
 test("the owner viewing their own profile can jump to editing it", async ({

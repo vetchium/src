@@ -2,14 +2,16 @@ import {
   BankOutlined,
   EnvironmentOutlined,
   IdcardOutlined,
+  QrcodeOutlined,
   SafetyCertificateOutlined,
   TranslationOutlined,
 } from "@ant-design/icons";
 import {
-  Avatar,
+  Button,
   Card,
   Flex,
   List,
+  Popover,
   QRCode,
   Space,
   Timeline,
@@ -34,6 +36,7 @@ import {
 } from "typespec/hub/profile/public";
 import { usePreferences } from "../app/PreferencesContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import { ProfileAvatar } from "../components/common/ProfileAvatar";
 import { canonicalProfileURL } from "../features/profile/canonical";
 import {
   useMyInfoQuery,
@@ -180,41 +183,65 @@ function ProfileContents({ profile }: { profile: PublicProfile }) {
         {t("profileView.documentTitle", { name: profile.display_name })}
       </title>
       <Card>
-        <Flex gap="large" wrap align="start" justify="space-between">
-          <Flex gap="large" wrap align="start">
-            <Avatar
-              size={120}
-              src={profile.profile_picture_url}
-              alt={t("profileView.pictureAlt", { name: profile.display_name })}
-            >
-              {profile.display_name.slice(0, 1)}
-            </Avatar>
+        <Flex gap="large" wrap align="start">
+          <ProfileAvatar
+            size={120}
+            displayName={profile.display_name}
+            src={profile.profile_picture_url}
+            alt={t("profileView.pictureAlt", { name: profile.display_name })}
+          />
+          {/* The text column takes the remaining width and wraps below the
+              avatar on narrow screens; minWidth lets long names wrap instead
+              of stretching the card. */}
+          <Flex vertical gap="small" style={{ flex: "1 1 20rem", minWidth: 0 }}>
             <div>
-              <Typography.Title level={1} style={{ marginBottom: 0 }}>
+              <Typography.Title
+                level={1}
+                style={{ marginBottom: 0, overflowWrap: "anywhere" }}
+              >
                 {profile.display_name}
               </Typography.Title>
-              <Typography.Text type="secondary">
-                @{profile.handle}
-              </Typography.Text>
-              <Typography.Paragraph>
-                <EnvironmentOutlined /> {country}
-              </Typography.Paragraph>
-              {profile.biography !== undefined ? (
-                <Typography.Paragraph>{profile.biography}</Typography.Paragraph>
-              ) : null}
+              <Space size="small" wrap separator={<span>·</span>}>
+                <Typography.Text type="secondary">
+                  @{profile.handle}
+                </Typography.Text>
+                <Typography.Text type="secondary">
+                  <EnvironmentOutlined /> {country}
+                </Typography.Text>
+              </Space>
             </div>
-          </Flex>
-          <Space orientation="vertical" align="center" size="small">
-            <QRCode
-              value={canonicalURL}
-              size={96}
-              aria-label={t("profileView.qrAlt")}
-            />
-            <a href={canonicalURL}>{canonicalURL}</a>
-            {me?.handle === profile.handle ? (
-              <Link to="/settings/profile">{t("profileView.edit")}</Link>
+            <Space size="middle" wrap>
+              <Popover
+                trigger="click"
+                content={
+                  <Space orientation="vertical" align="center">
+                    <QRCode
+                      value={canonicalURL}
+                      size={160}
+                      aria-label={t("profileView.qrAlt")}
+                    />
+                    <Typography.Link href={canonicalURL} copyable>
+                      {canonicalURL}
+                    </Typography.Link>
+                  </Space>
+                }
+              >
+                <Button size="small" icon={<QrcodeOutlined />}>
+                  {t("profileView.share")}
+                </Button>
+              </Popover>
+              {me?.handle === profile.handle ? (
+                <Link to="/settings/profile">{t("profileView.edit")}</Link>
+              ) : null}
+            </Space>
+            {profile.biography !== undefined ? (
+              <Typography.Paragraph
+                style={{ marginBottom: 0, overflowWrap: "anywhere" }}
+              >
+                {profile.biography}
+              </Typography.Paragraph>
             ) : null}
-          </Space>
+          </Flex>
         </Flex>
       </Card>
       <SectionCard

@@ -2,7 +2,6 @@ import { QrcodeOutlined } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   App,
-  Avatar,
   Button,
   Card,
   Flex,
@@ -35,6 +34,7 @@ import { planIncludes, SilverTier } from "typespec/hub/subscriptions/plans";
 import { hubAPI } from "../../api/hub";
 import { useIdempotencyKey } from "../../api/idempotency";
 import { APIErrorAlert } from "../../components/common/APIErrorAlert";
+import { ProfileAvatar } from "../../components/common/ProfileAvatar";
 import { useMySubscriptionQuery } from "../subscriptions/queries";
 import { canonicalProfileURL } from "./canonical";
 import { myInfoQueryKey, usePublicProfileQuery } from "./queries";
@@ -97,13 +97,12 @@ function AvatarWithPicture({
 
   return (
     <Space orientation="vertical" align="center" size="small">
-      <Avatar
+      <ProfileAvatar
         size={112}
+        displayName={profile.display_name}
         src={profile.profile_picture_url}
         alt={t("profilePicture.currentAlt")}
-      >
-        {profile.display_name.slice(0, 1)}
-      </Avatar>
+      />
       {subscription.isPending ? (
         <Spin aria-label={t("profilePicture.loading")} size="small" />
       ) : entitled ? (

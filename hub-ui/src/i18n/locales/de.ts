@@ -405,6 +405,7 @@ export const de = {
     present: "Heute",
     unknown: "Unbekannt",
     dateRange: "{{start}} – {{end}}",
+    share: "Profil teilen",
     qrAlt: "QR-Code für den dauerhaften Profillink",
     loading: "Profil wird geladen…",
     notFound: "Diese Profiladresse ist ungültig.",

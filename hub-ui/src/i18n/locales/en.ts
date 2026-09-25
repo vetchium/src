@@ -382,6 +382,7 @@ export const en = {
     present: "Present",
     unknown: "Unknown",
     dateRange: "{{start}} – {{end}}",
+    share: "Share profile",
     qrAlt: "QR code for the permanent profile link",
     loading: "Loading profile…",
     notFound: "This profile address is not valid.",
