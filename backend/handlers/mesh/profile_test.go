@@ -24,7 +24,7 @@ func (s pictureSignerStub) SignGet(context.Context, pgtype.UUID) (string, error)
 
 func TestPublicProfileProjectionExcludesPrivateData(t *testing.T) {
 	row := sqlc.GetHubPublicProfileRow{
-		DisplayName: "Ada", Handle: "abcde-123456789ab",
+		DisplayName: "Ada", Handle: "abcde000-123456789ab",
 		ResidentCountry: "SG",
 		Websites: []byte(`[{"id":"01987aef-1234-7abc-8abc-123456789abd",` +
 			`"url":"https://github.com/ada"}]`),
@@ -69,7 +69,7 @@ func TestPublicProfileProjectionExcludesPrivateData(t *testing.T) {
 
 func TestPeerViewerMustBeHomedByCertificateTenant(t *testing.T) {
 	const viewer = "01987aef-1234-7abc-8abc-123456789abc"
-	const handle = "abcde-123456789ab"
+	const handle = "abcde000-123456789ab"
 	request := profilespec.PeerReadProfileRequest{
 		ViewerHubUserDID: viewer,
 		ViewerHandle:     handle,
@@ -100,7 +100,7 @@ func TestPeerViewerMustBeHomedByCertificateTenant(t *testing.T) {
 func TestResolvedAliasMustMatchEffectiveHomeProfile(t *testing.T) {
 	alias := directoryspec.HubAlias("friendly-name")
 	profile := profilespec.PublicProfile{
-		Handle: "abcde-123456789ab", ProfileAlias: &alias,
+		Handle: "abcde000-123456789ab", ProfileAlias: &alias,
 	}
 	resolved := directoryspec.ResolveProfileSlugResponse{
 		Slug: string(alias), Kind: directoryspec.ProfileSlugKindAlias,
@@ -117,7 +117,7 @@ func TestResolvedAliasMustMatchEffectiveHomeProfile(t *testing.T) {
 	if !profileMatchesResolvedSlug(profile, resolved) {
 		t.Fatal("permanent handle was rejected")
 	}
-	resolved.Slug = "other-123456789ab"
+	resolved.Slug = "other000-123456789ab"
 	if profileMatchesResolvedSlug(profile, resolved) {
 		t.Fatal("stale directory handle was accepted")
 	}

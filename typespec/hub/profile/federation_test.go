@@ -9,11 +9,11 @@ import (
 
 func TestFederatedProfileReadRequests(t *testing.T) {
 	viewer := hub.HubUserDID("01987aef-1234-7abc-8abc-123456789abc")
-	handle := hub.HubHandle("abcde-123456789ab")
+	handle := hub.HubHandle("abcde000-123456789ab")
 	relay := RelayReadProfileRequest{
 		ViewerHubUserDID: viewer,
 		ViewerHandle:     handle,
-		Address:          "  abcde-123456789ab  ",
+		Address:          "  abcde000-123456789ab  ",
 	}
 	relay.Normalize()
 	if relay.Address != ProfileAddress(handle) || len(relay.Validate()) != 0 {

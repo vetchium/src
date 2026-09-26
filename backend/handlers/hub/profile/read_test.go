@@ -26,7 +26,7 @@ import (
 	"backend/internal/profileclient"
 )
 
-const readViewerHandle = "abcde-123456789ab"
+const readViewerHandle = "abcde000-123456789ab"
 
 var readViewerDID = mustParseUUID("01987aef-1234-7abc-8abc-123456789abc")
 var readSessionID = mustParseUUID("01987aef-1234-7abc-8abc-123456789abd")
@@ -109,7 +109,7 @@ func writeProblem(w http.ResponseWriter, details problemspec.Details) {
 // TestReadRejectsUnauthenticated covers PROF-GEN-002: only an authenticated
 // Hub user may view a profile.
 func TestReadRejectsUnauthenticated(t *testing.T) {
-	response := callRead(t, nil, false, `{"address":"abcde-123456789ab"}`)
+	response := callRead(t, nil, false, `{"address":"abcde000-123456789ab"}`)
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d", response.Code)
 	}
@@ -176,7 +176,7 @@ func TestReadRelayTransportFailureIsUnavailable(t *testing.T) {
 		func(http.ResponseWriter, *http.Request) {},
 	))
 	mesh.Close() // Closed before use: every relay attempt fails to connect.
-	response := callRead(t, mesh, true, `{"address":"abcde-123456789ab"}`)
+	response := callRead(t, mesh, true, `{"address":"abcde000-123456789ab"}`)
 	if response.Code != hubproblem.ProfileUnavailableError.Status {
 		t.Fatalf("status = %d", response.Code)
 	}
@@ -201,7 +201,7 @@ func TestReadRelayNotFoundIsSurfaced(t *testing.T) {
 		},
 	))
 	defer mesh.Close()
-	response := callRead(t, mesh, true, `{"address":"abcde-123456789ab"}`)
+	response := callRead(t, mesh, true, `{"address":"abcde000-123456789ab"}`)
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("status = %d", response.Code)
 	}
@@ -220,7 +220,7 @@ func TestReadRelayOtherProblemIsMappedToUnavailable(t *testing.T) {
 		},
 	))
 	defer mesh.Close()
-	response := callRead(t, mesh, true, `{"address":"abcde-123456789ab"}`)
+	response := callRead(t, mesh, true, `{"address":"abcde000-123456789ab"}`)
 	if response.Code != hubproblem.ProfileUnavailableError.Status {
 		t.Fatalf("status = %d", response.Code)
 	}
@@ -239,7 +239,7 @@ func TestReadRelayOtherProblemIsMappedToUnavailable(t *testing.T) {
 func TestReadSuccessReturnsOnlyPermittedFields(t *testing.T) {
 	const relayBody = `{` +
 		`"display_name":"Ada Lovelace",` +
-		`"handle":"abcde-123456789ab",` +
+		`"handle":"abcde000-123456789ab",` +
 		`"profile_alias":"ada-lovelace",` +
 		`"resident_country":"SG",` +
 		`"profile_picture_url":"https://media.sgp.vetchium.com/pic",` +
@@ -258,7 +258,7 @@ func TestReadSuccessReturnsOnlyPermittedFields(t *testing.T) {
 		},
 	))
 	defer mesh.Close()
-	response := callRead(t, mesh, true, `{"address":"abcde-123456789ab"}`)
+	response := callRead(t, mesh, true, `{"address":"abcde000-123456789ab"}`)
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}

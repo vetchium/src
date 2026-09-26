@@ -2,6 +2,7 @@ package users
 
 import (
 	"crypto/rand"
+	"math/big"
 	"strings"
 
 	"github.com/vetchium/src/typespec/hub"
@@ -19,21 +20,28 @@ const suffixAlphabet = "0123456789abcdefghjkmnpqrstvwxyz"
 // completion saga retries a collision with a fresh suffix.
 const suffixLength = 11
 
-// Handle builds the public handle for a new Hub User. The display-name prefix
-// keeps it recognizable; the random suffix keeps it unique and opaque.
+// prefixLength is the fixed width of the display-name section of a handle.
+const prefixLength = 8
+
+// fallbackPrefix is used when the display name has no ASCII letter or digit
+// to take, such as a name written wholly in a non-Latin script. Transliteration
+// is deliberately not attempted.
+const fallbackPrefix = "user"
+
+// Handle builds the public handle for a new Hub User: an eight-character
+// prefix, a hyphen and the random suffix. The prefix is the first eight ASCII
+// letters and digits of the display name; any other character is skipped. Random
+// digits fill any shortfall, so the prefix is always eight characters. A name
+// with no ASCII letter or digit uses "user" in their place. The random suffix
+// keeps the handle unique and opaque.
 func Handle(displayName string) (hub.HubHandle, error) {
-	prefix := make([]byte, 0, 5)
-	for _, character := range strings.ToLower(displayName) {
-		if len(prefix) == 5 {
-			break
-		}
-		if character >= 'a' && character <= 'z' ||
-			character >= '0' && character <= '9' {
-			prefix = append(prefix, byte(character))
-		}
+	prefix := namePrefix(displayName)
+	if prefix == "" {
+		prefix = fallbackPrefix
 	}
-	for len(prefix) < 5 {
-		prefix = append(prefix, 'x')
+	padding, err := randomDigits(prefixLength - len(prefix))
+	if err != nil {
+		return "", err
 	}
 	suffix := make([]byte, suffixLength)
 	if _, err := rand.Read(suffix); err != nil {
@@ -44,5 +52,32 @@ func Handle(displayName string) (hub.HubHandle, error) {
 	for index, value := range suffix {
 		suffix[index] = suffixAlphabet[value&31]
 	}
-	return hub.HubHandle(string(prefix) + "-" + string(suffix)), nil
+	return hub.HubHandle(prefix + padding + "-" + string(suffix)), nil
+}
+
+func namePrefix(displayName string) string {
+	prefix := make([]byte, 0, prefixLength)
+	for _, character := range strings.ToLower(displayName) {
+		if len(prefix) == prefixLength {
+			break
+		}
+		if character >= 'a' && character <= 'z' ||
+			character >= '0' && character <= '9' {
+			prefix = append(prefix, byte(character))
+		}
+	}
+	return string(prefix)
+}
+
+func randomDigits(count int) (string, error) {
+	digits := make([]byte, count)
+	ten := big.NewInt(10)
+	for index := range digits {
+		digit, err := rand.Int(rand.Reader, ten)
+		if err != nil {
+			return "", err
+		}
+		digits[index] = byte('0' + digit.Int64())
+	}
+	return string(digits), nil
 }

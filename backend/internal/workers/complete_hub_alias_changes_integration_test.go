@@ -37,9 +37,9 @@ func TestHubAliasCompletionAndCompensationIntegration(t *testing.T) {
 		wantState   sqlc.VetchiumFederationOperationState
 		wantRelease int
 	}{
-		{"paid claim", "wpaid-0123456789a", false,
+		{"paid claim", "wpaid000-0123456789a", false,
 			sqlc.VetchiumFederationOperationStateSucceeded, 0},
-		{"downgraded claim", "wfree-0123456789a", true,
+		{"downgraded claim", "wfree000-0123456789a", true,
 			sqlc.VetchiumFederationOperationStateFailed, 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {

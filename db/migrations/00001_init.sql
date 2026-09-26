@@ -129,7 +129,7 @@ CREATE TABLE vetchium.hub_users (
         substring(hub_user_did::text FROM 15 FOR 1) = '7'
     ),
     CONSTRAINT hub_users_handle_check CHECK (
-        handle ~ '^[a-z0-9]{5}-[0-9a-hjkmnp-tv-z]{11}$'
+        handle ~ '^[a-z0-9]{8}-[0-9a-hjkmnp-tv-z]{11}$'
     ),
     CONSTRAINT hub_users_email_address_normalized CHECK (
         email_address = lower(btrim(email_address)) AND
@@ -151,7 +151,7 @@ CREATE TABLE vetchium.hub_users (
             char_length(profile_alias) BETWEEN 3 AND 30 AND
             profile_alias ~ '^[a-z][a-z0-9-]*[a-z0-9]$' AND
             profile_alias !~ '--' AND
-            profile_alias !~ '^[a-z0-9]{5}-[0-9a-hjkmnp-tv-z]{11}$' AND
+            profile_alias !~ '^[a-z0-9]{8}-[0-9a-hjkmnp-tv-z]{11}$' AND
             profile_alias NOT IN (
                 'api', 'admin', 'auth', 'help', 'jobs', 'login', 'logout',
                 'media', 'org', 'privacy', 'settings', 'signup', 'support',
@@ -770,7 +770,7 @@ CREATE TABLE vetchium.hub_signup_completions (
         substring(hub_user_did::text FROM 15 FOR 1) = '7'
     ),
     CONSTRAINT hub_signup_completions_handle_check CHECK (
-        handle ~ '^[a-z0-9]{5}-[0-9a-hjkmnp-tv-z]{11}$'
+        handle ~ '^[a-z0-9]{8}-[0-9a-hjkmnp-tv-z]{11}$'
     ),
     CONSTRAINT hub_signup_completions_times_check CHECK (
         updated_at >= created_at

@@ -21,7 +21,7 @@ import (
 const (
 	testDID       = "018f7e32-7b5a-7d31-8fd0-f7e2a852f144"
 	testCommandID = "4569b853-4778-4e67-a635-5f41b06585f5"
-	testHandle    = "abcde-0123456789a"
+	testHandle    = "abcde000-0123456789a"
 )
 
 type fakeService struct {

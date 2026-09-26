@@ -134,7 +134,7 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
     // Browser APIs identify a Hub user by handle; the DID never leaves the
     // backend.
     expect(Object.keys(completed)).toEqual(["handle"]);
-    expect(completed.handle).toMatch(/^adalo-[0-9a-hjkmnp-tv-z]{11}$/);
+    expect(completed.handle).toMatch(/^adalovel-[0-9a-hjkmnp-tv-z]{11}$/);
     const completedDID = hubUserDIDForHandle(completed.handle);
     expect(completedDID).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,

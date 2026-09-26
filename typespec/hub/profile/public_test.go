@@ -10,7 +10,7 @@ import (
 func TestProfileAddressAndMonth(t *testing.T) {
 	t.Parallel()
 	for _, address := range []ProfileAddress{
-		"alice", "a-b", "alice-2", "alice-23456789012",
+		"alice", "a-b", "alice-2", "alice000-23456789012",
 	} {
 		if !IsProfileAddress(address) {
 			t.Errorf("valid address %q rejected", address)

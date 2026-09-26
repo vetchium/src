@@ -7,7 +7,7 @@ const hubBaseURL =
   process.env.PLAYWRIGHT_HUB_BASE_URL ?? "http://hub-ui.sgp.localhost";
 const sessionKey = "vetchium.hub.session";
 const sessionToken = "s".repeat(64);
-const handle = "perso-00000000001";
+const handle = "perso000-00000000001";
 
 function myInfo(preferredLanguage = "en-US") {
   return {

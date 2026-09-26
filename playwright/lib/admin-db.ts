@@ -1096,7 +1096,7 @@ export function hubUserDIDForHandle(
   handle: string,
   tenant: TestTenant = "sgp",
 ): string {
-  if (!/^[a-z0-9]{5}-[0-9a-hjkmnp-tv-z]{11}$/.test(handle)) {
+  if (!/^[a-z0-9]{8}-[0-9a-hjkmnp-tv-z]{11}$/.test(handle)) {
     throw new Error(`refusing Hub lookup for malformed handle: ${handle}`);
   }
   const did = sqlScalarForTenant(

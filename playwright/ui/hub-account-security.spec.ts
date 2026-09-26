@@ -16,7 +16,7 @@ import {
 
 const hubBaseURL =
   process.env.PLAYWRIGHT_HUB_BASE_URL ?? "http://hub-ui.sgp.localhost";
-const handle = "accou-00000000001";
+const handle = "accou000-00000000001";
 const currentAddress = "person@example.com";
 
 interface Account {

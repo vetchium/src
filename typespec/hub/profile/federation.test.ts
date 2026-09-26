@@ -8,7 +8,7 @@ import {
 } from "./federation.ts";
 
 const viewer = "01987aef-1234-7abc-8abc-123456789abc";
-const handle = "abcde-123456789ab";
+const handle = "abcde000-123456789ab";
 
 test("federated profile read requests validate every identity field", () => {
   const input = {

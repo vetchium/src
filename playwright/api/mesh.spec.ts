@@ -49,7 +49,7 @@ function randomHubUserDID(): string {
 }
 
 function randomHubHandle(): string {
-  const prefix = randomUUID().replaceAll("-", "").slice(0, 5);
+  const prefix = randomUUID().replaceAll("-", "").slice(0, 8);
   return `${prefix}-${randomSuffix(11)}`;
 }
 

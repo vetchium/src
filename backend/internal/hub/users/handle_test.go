@@ -28,10 +28,17 @@ func TestHandle(t *testing.T) {
 		name        string
 		displayName string
 		wantPrefix  string
+		wantPadding int
 	}{
-		{"ASCII", "Grace Hopper", "grace-"},
-		{"padding", "Li", "lixxx-"},
-		{"non-ASCII", "தமிழ்", "xxxxx-"},
+		{"truncated to eight", "Grace Hopper", "gracehop", 0},
+		{"exactly eight", "Margaret", "margaret", 0},
+		{"digits and case", "R2 D2 Unit", "r2d2unit", 0},
+		{"padded", "Li", "li", 6},
+		{"non-ASCII skipped", "Christopher José", "christop", 0},
+		{"non-ASCII letter skipped", "Zoë", "zo", 6},
+		{"non-ASCII punctuation skipped", "O’Connor", "oconnor", 1},
+		{"only non-ASCII", "தமிழ்", "user", 4},
+		{"no letters or digits", "?!", "user", 4},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -40,9 +47,17 @@ func TestHandle(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.HasPrefix(string(got), tt.wantPrefix) ||
+			prefix, _, _ := strings.Cut(string(got), "-")
+			if len(prefix) != prefixLength ||
+				!strings.HasPrefix(prefix, tt.wantPrefix) ||
 				!hub.IsHubHandle(got) {
 				t.Fatalf("Handle(%q) = %q", tt.displayName, got)
+			}
+			padding := prefix[len(tt.wantPrefix):]
+			if len(padding) != tt.wantPadding ||
+				strings.Trim(padding, "0123456789") != "" {
+				t.Fatalf("Handle(%q) = %q, padding %q is not %d digits",
+					tt.displayName, got, padding, tt.wantPadding)
 			}
 		})
 	}
@@ -72,7 +87,7 @@ func TestHandleUsesCrockfordAlphabet(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		suffix := string(got)[len("grace-"):]
+		suffix := string(got)[len("gracehop-"):]
 		if len(suffix) != suffixLength {
 			t.Fatalf("suffix %q length = %d", suffix, len(suffix))
 		}

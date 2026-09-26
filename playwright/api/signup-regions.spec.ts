@@ -256,12 +256,12 @@ test("online tenants claim global handles while an offline tenant remains pendin
       ["sgp", singapore],
       ["usa1", usa],
     ] as const) {
-      expect(account.handle).toMatch(/^indep-[0-9a-hjkmnp-tv-z]{11}$/);
+      expect(account.handle).toMatch(/^independ-[0-9a-hjkmnp-tv-z]{11}$/);
       expect(account.handle).not.toContain(
         account.hubUserDID.replaceAll("-", ""),
       );
       expect(account.hubUserDID).not.toContain(
-        account.handle.replace("indep-", ""),
+        account.handle.replace("independ-", ""),
       );
       expect(globalHubPrincipal(account.hubUserDID)).toEqual({
         handle: account.handle,

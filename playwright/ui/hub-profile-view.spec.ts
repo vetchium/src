@@ -7,7 +7,7 @@ const hubBaseURL =
 
 const profile: PublicProfile = {
   display_name: "Remote Colleague",
-  handle: "remot-0123456789a",
+  handle: "remot000-0123456789a",
   profile_alias: "shared-name",
   resident_country: "DE",
   biography: "Building reliable systems.",
@@ -52,7 +52,7 @@ async function signedIn(page: Page) {
         session_expires_at: new Date(Date.now() + 60_000).toISOString(),
         preferred_language: "en-US",
         resident_country: "SG",
-        handle: "local-00000000001",
+        handle: "local000-00000000001",
         remembered: false,
       }),
     );
@@ -74,7 +74,7 @@ async function signedIn(page: Page) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        handle: "local-00000000001",
+        handle: "local000-00000000001",
         email_address: "local@example.com",
         display_name: "Local Viewer",
         preferred_language: "en-US",
@@ -110,9 +110,9 @@ test("authenticated users can view a remote profile through an alias", async ({
   await page.getByRole("button", { name: "Share profile" }).click();
   await expect(
     page.getByRole("link", {
-      name: "https://vetchium.com/u/remot-0123456789a",
+      name: "https://vetchium.com/u/remot000-0123456789a",
     }),
-  ).toHaveAttribute("href", "https://vetchium.com/u/remot-0123456789a");
+  ).toHaveAttribute("href", "https://vetchium.com/u/remot000-0123456789a");
   await expect(
     page.getByLabel("QR code for the permanent profile link"),
   ).toBeVisible();
@@ -203,12 +203,12 @@ test("the owner viewing their own profile can jump to editing it", async ({
       body: JSON.stringify({
         ...profile,
         display_name: "Local Viewer",
-        handle: "local-00000000001",
+        handle: "local000-00000000001",
         profile_alias: undefined,
       }),
     }),
   );
-  await page.goto(`${hubBaseURL}/u/local-00000000001`);
+  await page.goto(`${hubBaseURL}/u/local000-00000000001`);
   await expect(
     page.getByRole("heading", { name: "Local Viewer" }),
   ).toBeVisible();

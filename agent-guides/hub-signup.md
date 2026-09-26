@@ -30,9 +30,13 @@ TypeSpec, UI, and Playwright guides for the layers being changed.
   and the private mesh: no portal response, stored browser session, or UI shows
   it. Browser APIs identify a Hub user by handle, and the backend maps a handle
   to its DID when it needs one.
-- Handles are public, permanent, and globally unique. Keep the readable prefix
-  and random Crockford-base32 suffix; the suffix must reveal neither the DID nor
-  creation time. The global directory, not a tenant-local constraint, decides
+- Handles are public, permanent, and globally unique. A handle is an
+  eight-character prefix, a hyphen, and an 11-character random Crockford-base32
+  suffix; the suffix must reveal neither the DID nor creation time. The prefix
+  is the first eight ASCII letters and digits of the display name, skipping any
+  other character and padded with random digits when the name has fewer. Only a
+  name with no ASCII letter or digit uses `user` plus random digits. Do not
+  transliterate. The global directory, not a tenant-local constraint, decides
   uniqueness. A collision retries with a fresh suffix without consuming the
   signup request.
 - Signup uses the provisioning reservation/finalization flow in

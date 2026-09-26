@@ -10,14 +10,14 @@ func TestIdentifiers(t *testing.T) {
 	}{
 		{"mary-jane", true},
 		{"api", false},
-		{"abcde-0123456789a", false},
+		{"abcde000-0123456789a", false},
 		{"two--hyphens", false},
 	} {
 		if got := IsHubAlias(HubAlias(test.value)); got != test.valid {
 			t.Errorf("IsHubAlias(%q) = %t, want %t", test.value, got, test.valid)
 		}
 	}
-	if !IsProfileSlug("abcde-0123456789a") {
+	if !IsProfileSlug("abcde000-0123456789a") {
 		t.Fatal("permanent handle was not accepted as a profile slug")
 	}
 	if !IsTenantID("ind1") || IsTenantID("IN") {

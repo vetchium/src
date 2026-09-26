@@ -165,7 +165,7 @@ func (h *websiteHarness) expectFailureRolledBack(
 }
 
 func TestHubWebsiteLifecycleIntegration(t *testing.T) {
-	h := newWebsiteHarness(t, "pweb1-0123456789a")
+	h := newWebsiteHarness(t, "pweb1000-0123456789a")
 	start := h.version()
 
 	githubID, created, err := h.create(
@@ -252,7 +252,7 @@ func TestHubWebsiteLifecycleIntegration(t *testing.T) {
 	}
 
 	// Another owner's entry cannot be updated or deleted through this owner.
-	stranger := websiteTestOwner(t, h, "pweb2-0123456789a")
+	stranger := websiteTestOwner(t, h, "pweb2000-0123456789a")
 	if _, err := stranger.update(
 		blogID, "https://stolen.example.org", "sgp", "update-foreign",
 	); !errors.Is(err, pgx.ErrNoRows) {
@@ -318,7 +318,7 @@ func websiteTestOwner(
 }
 
 func TestHubWebsiteLimitAndConstraintsIntegration(t *testing.T) {
-	h := newWebsiteHarness(t, "pweb3-0123456789a")
+	h := newWebsiteHarness(t, "pweb3000-0123456789a")
 
 	// PROF-WEB-004: ten websites fit; the eleventh is refused without state.
 	for i := range 10 {
@@ -349,7 +349,7 @@ func TestHubWebsiteLimitAndConstraintsIntegration(t *testing.T) {
 
 	// The constraints reject every non-normalized or unsafe shape on their
 	// own, for a writer that skips the API's validation.
-	fresh := websiteTestOwner(t, h, "pweb4-0123456789a")
+	fresh := websiteTestOwner(t, h, "pweb4000-0123456789a")
 	for _, url := range []string{
 		"http://example.org",
 		"https://Example.org",
@@ -396,7 +396,7 @@ func TestHubWebsiteLimitAndConstraintsIntegration(t *testing.T) {
 
 // Every logical write and its audit event commit together or not at all.
 func TestHubWebsiteWritesRollBackWithRejectedAuditIntegration(t *testing.T) {
-	h := newWebsiteHarness(t, "pweb5-0123456789a")
+	h := newWebsiteHarness(t, "pweb5000-0123456789a")
 	id, _, err := h.create("https://example.org", "sgp", "seed")
 	if err != nil {
 		t.Fatal(err)
@@ -503,7 +503,7 @@ func TestHubWebsiteRacingWritesKeepInvariantsIntegration(t *testing.T) {
 	if _, err := pool.Exec(ctx, `INSERT INTO vetchium.hub_users
         (hub_user_did, handle, email_address, display_name, password_hash,
          resident_country, hub_plan_oid)
-        VALUES ($1, 'pweb6-0123456789a', $2, 'Race Test', 'test-hash', 'SG',
+        VALUES ($1, 'pweb6000-0123456789a', $2, 'Race Test', 'test-hash', 'SG',
                 'hub-free-tier')`,
 		did, "website-race-"+dbvalue.FormatUUID(did)+"@example.com",
 	); err != nil {

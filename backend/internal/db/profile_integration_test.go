@@ -49,7 +49,7 @@ func TestHubProfileQueryLifecycleIntegration(t *testing.T) {
                 'hub-silver-tier', 'month', now() - interval '1 month',
                 now() - interval '1 day', now() + interval '1 month',
                 'profile-test-alias')`, did,
-		"ptest-0123456789a", "profile-test-"+dbvalue.FormatUUID(did)+"@example.com")
+		"ptest000-0123456789a", "profile-test-"+dbvalue.FormatUUID(did)+"@example.com")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestHubProfileQueryLifecycleIntegration(t *testing.T) {
 		t.Fatalf("initial alias state = %+v, %v", aliasState, err)
 	}
 	viewerHandle, err := q.GetHubProfileViewer(ctx, did)
-	if err != nil || viewerHandle != "ptest-0123456789a" {
+	if err != nil || viewerHandle != "ptest000-0123456789a" {
 		t.Fatalf("profile viewer = %q, %v", viewerHandle, err)
 	}
 
@@ -547,7 +547,7 @@ func TestHubAliasMutationLifecycleIntegration(t *testing.T) {
          resident_country, hub_plan_oid, subscription_billing_interval,
          subscription_anchor_at, subscription_period_start,
          subscription_period_end)
-        VALUES ($1, 'alist-0123456789a', $2, 'Alias Test', 'test-hash', 'SG',
+        VALUES ($1, 'alist000-0123456789a', $2, 'Alias Test', 'test-hash', 'SG',
                 'hub-silver-tier', 'month', now() - interval '1 month',
                 now() - interval '1 day', now() + interval '1 month')`, did,
 		"alias-test-"+dbvalue.FormatUUID(did)+"@example.com")
@@ -858,7 +858,7 @@ func TestHubProfileConstraintsIntegration(t *testing.T) {
          resident_country, hub_plan_oid, subscription_billing_interval,
          subscription_anchor_at, subscription_period_start,
          subscription_period_end)
-        VALUES ($1, 'pcons-0123456789a', $2, 'Constraint Test', 'test-hash',
+        VALUES ($1, 'pcons000-0123456789a', $2, 'Constraint Test', 'test-hash',
                 'SG', 'hub-silver-tier', 'month', now() - interval '1 month',
                 now() - interval '1 day', now() + interval '1 month')`,
 		did, "profile-constraints-"+dbvalue.FormatUUID(did)+"@example.com")

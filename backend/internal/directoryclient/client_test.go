@@ -21,7 +21,7 @@ func TestCommandUsesBearerCredentialAndDecodesSuccess(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
             "hub_user_did":"018f7e32-7b5a-7d31-8fd0-f7e2a852f144",
-            "handle":"abcde-0123456789a",
+            "handle":"abcde000-0123456789a",
             "profile_alias":null,
             "home_tenant_id":"ind1",
             "routing_version":1,
@@ -35,7 +35,7 @@ func TestCommandUsesBearerCredentialAndDecodesSuccess(t *testing.T) {
 		context.Background(), directoryspec.ReserveHubPrincipalRequest{
 			CommandID:  "4569b853-4778-4e67-a635-5f41b06585f5",
 			HubUserDID: "018f7e32-7b5a-7d31-8fd0-f7e2a852f144",
-			Handle:     "abcde-0123456789a", HomeTenantID: "ind1",
+			Handle:     "abcde000-0123456789a", HomeTenantID: "ind1",
 			ProvisioningExpiresAt: time.Now().Add(time.Hour),
 		},
 	)

@@ -60,11 +60,11 @@ CREATE TABLE vetchium.hub_profile_slugs (
     created_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT hub_profile_slugs_one_kind_per_user UNIQUE (hub_user_did, kind),
     CONSTRAINT hub_profile_slugs_shape_check CHECK (
-        (kind = 'handle' AND slug ~ '^[a-z0-9]{5}-[0-9a-hjkmnp-tv-z]{11}$')
+        (kind = 'handle' AND slug ~ '^[a-z0-9]{8}-[0-9a-hjkmnp-tv-z]{11}$')
         OR (kind = 'alias'
             AND slug ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
             AND length(slug) BETWEEN 3 AND 30
-            AND slug !~ '^[a-z0-9]{5}-[0-9a-hjkmnp-tv-z]{11}$'
+            AND slug !~ '^[a-z0-9]{8}-[0-9a-hjkmnp-tv-z]{11}$'
             AND slug <> ALL (ARRAY[
                 'api', 'admin', 'auth', 'help', 'jobs', 'login', 'logout',
                 'media', 'org', 'privacy', 'settings', 'signup', 'support',

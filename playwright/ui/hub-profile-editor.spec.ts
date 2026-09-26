@@ -53,7 +53,7 @@ async function openEditor(
   } = {},
   destination: "profile" | "work-emails" = "profile",
 ) {
-  const handle = `edito-${randomUUID().replaceAll("-", "").slice(0, 11)}`;
+  const handle = `editor00-${randomUUID().replaceAll("-", "").slice(0, 11)}`;
   const profile: PublicProfile = {
     display_name: "Original Name",
     handle,

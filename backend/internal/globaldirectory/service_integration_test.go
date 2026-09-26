@@ -45,7 +45,7 @@ func TestDirectoryCommandProtocolIntegration(t *testing.T) {
 	first := directoryspec.ReserveHubPrincipalRequest{
 		CommandID:  "4569b853-4778-4e67-a635-5f41b06585f5",
 		HubUserDID: "018f7e32-7b5a-7d31-8fd0-f7e2a852f144",
-		Handle:     "abcde-0123456789a", HomeTenantID: "ind1",
+		Handle:     "abcde000-0123456789a", HomeTenantID: "ind1",
 		ProvisioningExpiresAt: time.Now().UTC().Add(time.Hour),
 	}
 	reserved, err := service.ReserveHubPrincipal(ctx, "ind1", first)
@@ -56,7 +56,7 @@ func TestDirectoryCommandProtocolIntegration(t *testing.T) {
 	assertCounts(t, pool, 1, 1, 1)
 
 	changed := first
-	changed.Handle = "fghij-0123456789b"
+	changed.Handle = "fghij000-0123456789b"
 	conflict, err := service.ReserveHubPrincipal(ctx, "ind1", changed)
 	assertProblemType(
 		t, conflict, err,
@@ -119,7 +119,7 @@ func TestDirectoryCommandProtocolIntegration(t *testing.T) {
 	second := directoryspec.ReserveHubPrincipalRequest{
 		CommandID:  "905c6bd6-6b12-4192-a16c-76f0bf00403e",
 		HubUserDID: "018f7e32-7b5a-7d31-8fd0-f7e2a852f145",
-		Handle:     "klmno-0123456789c", HomeTenantID: "sgp",
+		Handle:     "klmno000-0123456789c", HomeTenantID: "sgp",
 		ProvisioningExpiresAt: time.Now().UTC().Add(time.Hour),
 	}
 	secondReserved, err := service.ReserveHubPrincipal(ctx, "sgp", second)
@@ -162,7 +162,7 @@ func TestDirectoryCommandProtocolIntegration(t *testing.T) {
 	expired := directoryspec.ReserveHubPrincipalRequest{
 		CommandID:  "3129fe10-9132-431c-afaf-a60bd3767294",
 		HubUserDID: "018f7e32-7b5a-7d31-8fd0-f7e2a852f146",
-		Handle:     "pqrst-0123456789d", HomeTenantID: "deu",
+		Handle:     "pqrst000-0123456789d", HomeTenantID: "deu",
 		ProvisioningExpiresAt: time.Now().UTC().Add(-time.Minute),
 	}
 	expiredOutcome, err := service.ReserveHubPrincipal(ctx, "deu", expired)
@@ -305,7 +305,7 @@ func TestPrincipalResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	response := principalResponse(
-		did, "abcde-0123456789a", dbvalue.Text("mary-jane"),
+		did, "abcde000-0123456789a", dbvalue.Text("mary-jane"),
 		"ind1", 2, "active",
 	)
 	if response.ProfileAlias == nil || *response.ProfileAlias != "mary-jane" ||

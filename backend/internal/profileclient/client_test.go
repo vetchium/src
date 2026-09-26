@@ -20,7 +20,7 @@ func TestRelayReadChecksEnvelopeAndPrivateFields(t *testing.T) {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"display_name":"Ada",` +
-				`"handle":"abcde-123456789ab","resident_country":"SG",` +
+				`"handle":"abcde000-123456789ab","resident_country":"SG",` +
 				`"websites":[],"work_experiences":[],"certifications":[],` +
 				`"language_abilities":[],"educational_qualifications":[]}`))
 		},
@@ -42,7 +42,7 @@ func TestRelayRejectsProfileWithoutWebsites(t *testing.T) {
 		func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"display_name":"Ada",` +
-				`"handle":"abcde-123456789ab","resident_country":"SG",` +
+				`"handle":"abcde000-123456789ab","resident_country":"SG",` +
 				`"work_experiences":[],"certifications":[],` +
 				`"language_abilities":[],"educational_qualifications":[]}`))
 		},
@@ -61,7 +61,7 @@ func TestRelayRejectsUndeclaredProfileFields(t *testing.T) {
 		func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"display_name":"Ada",` +
-				`"handle":"abcde-123456789ab","resident_country":"SG",` +
+				`"handle":"abcde000-123456789ab","resident_country":"SG",` +
 				`"hub_user_did":"private","websites":[],` +
 				`"work_experiences":[],"certifications":[],` +
 				`"language_abilities":[],"educational_qualifications":[]}`))
