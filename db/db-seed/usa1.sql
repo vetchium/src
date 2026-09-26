@@ -1,10 +1,5 @@
 -- Local-development fixtures for the "usa1" tenant.
 
-INSERT INTO vetchium.orgs (name) VALUES
-    ('usa1_org_1'),
-    ('usa1_org_2')
-ON CONFLICT (name) DO NOTHING;
-
 -- Local-only administrators, one for each combination of access and account
 -- state a portal has to present. Their shared password is documented in
 -- db/README.md. The temporary table keeps the two writes below driven by one
