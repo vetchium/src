@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en-US">
+  <body>
+    <p>The DNS TXT record for {{.Domain}} was missing for too long, so Vetchium released the domain and suspended your Org.</p>
+    <p>To restore the Org, publish this record again and check it from the Org portal:</p>
+    <p>Name: <code>{{.RecordName}}</code><br>Type: <code>TXT</code><br>Value: <code>{{.RecordValue}}</code></p>
+    <p>If another Org has claimed {{.Domain}} in the meantime, your Org cannot be restored with this domain.</p>
+  </body>
+</html>

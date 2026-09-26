@@ -1,0 +1,11 @@
+Someone asked to sign up an Org on Vetchium with the domain {{.Domain}}.
+
+To prove that the Org controls this domain, publish this DNS TXT record. You can forward this email to whoever manages DNS for {{.Domain}}: it contains nothing that lets anyone complete the signup.
+
+Name: {{.RecordName}}
+Type: TXT
+Value: {{.RecordValue}}
+
+Keep the record published for as long as the Org uses Vetchium. Vetchium checks it regularly, and removing it eventually releases the domain.
+
+The signup request expires at {{.ExpiresAt.UTC.Format "02 Jan 2006 15:04 UTC"}}. If nobody at your Org asked for this, ignore this email and do not publish the record.

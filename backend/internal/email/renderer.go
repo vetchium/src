@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/vetchium/src/typespec/hub"
+	"github.com/vetchium/src/typespec/orgs"
 )
 
 type Kind string
@@ -23,11 +24,22 @@ const (
 	SubscriptionEnding            Kind = "subscription-ending"
 	EmailChangeVerification       Kind = "email-change-verification"
 	EmailChanged                  Kind = "email-changed"
+
+	OrgSignupDNSInstructions Kind = "org-signup-dns-instructions"
+	OrgSignupLink            Kind = "org-signup-link"
+	OrgPasswordReset         Kind = "org-password-reset"
+	OrgDomainFailing         Kind = "org-domain-failing"
+	OrgSuspended             Kind = "org-suspended"
 )
 
-var supportedKinds = []Kind{
+var hubKinds = []Kind{
 	Signup, PasswordReset, ProfessionalEmailVerification, SubscriptionEnding,
 	EmailChangeVerification, EmailChanged,
+}
+
+var orgKinds = []Kind{
+	OrgSignupDNSInstructions, OrgSignupLink, OrgPasswordReset,
+	OrgDomainFailing, OrgSuspended,
 }
 
 //go:embed templates/*/*
@@ -41,6 +53,13 @@ type TemplateData struct {
 	// LeadDays is the number of days a subscription-ending warning is ahead
 	// of the period end: 7 or 1. Unused by every other kind.
 	LeadDays int
+
+	// Org domain verification: the domain and the TXT record that proves it,
+	// and when a failing domain will be released.
+	Domain       string
+	RecordName   string
+	RecordValue  string
+	ReleaseAfter time.Time
 }
 
 type Message struct {
@@ -57,17 +76,35 @@ type templateSet struct {
 	html    *htmltemplate.Template
 }
 
+// Renderer renders one portal's kinds in that portal's locales. Each portal
+// owns its locale set, so equal sets today are not shared policy.
 type Renderer struct {
-	templates map[hub.FrontendLocale]map[Kind]templateSet
+	templates map[string]map[Kind]templateSet
 }
 
 func NewRenderer() (*Renderer, error) {
-	renderer := &Renderer{
-		templates: make(map[hub.FrontendLocale]map[Kind]templateSet),
-	}
+	locales := []string{}
 	for _, locale := range hub.FrontendLocales() {
+		locales = append(locales, string(locale))
+	}
+	return newRenderer(locales, hubKinds)
+}
+
+func NewOrgRenderer() (*Renderer, error) {
+	locales := []string{}
+	for _, locale := range orgs.FrontendLocales() {
+		locales = append(locales, string(locale))
+	}
+	return newRenderer(locales, orgKinds)
+}
+
+func newRenderer(locales []string, kinds []Kind) (*Renderer, error) {
+	renderer := &Renderer{
+		templates: make(map[string]map[Kind]templateSet),
+	}
+	for _, locale := range locales {
 		renderer.templates[locale] = make(map[Kind]templateSet)
-		for _, kind := range supportedKinds {
+		for _, kind := range kinds {
 			set, err := parseTemplateSet(templateFiles, locale, kind)
 			if err != nil {
 				return nil, err
@@ -79,7 +116,7 @@ func NewRenderer() (*Renderer, error) {
 }
 
 func (r *Renderer) Render(
-	kind Kind, locale hub.FrontendLocale, data TemplateData,
+	kind Kind, locale string, data TemplateData,
 ) (Message, error) {
 	kinds, ok := r.templates[locale]
 	if !ok {
@@ -109,9 +146,9 @@ func (r *Renderer) Render(
 }
 
 func parseTemplateSet(
-	files fs.FS, locale hub.FrontendLocale, kind Kind,
+	files fs.FS, locale string, kind Kind,
 ) (templateSet, error) {
-	directory := "templates/" + string(locale) + "/" + string(kind)
+	directory := "templates/" + locale + "/" + string(kind)
 	subjectSource, err := fs.ReadFile(files, directory+".subject.txt")
 	if err != nil {
 		return templateSet{}, fmt.Errorf("read %s subject: %w", directory, err)

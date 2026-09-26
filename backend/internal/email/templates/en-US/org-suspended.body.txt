@@ -1,0 +1,9 @@
+The DNS TXT record for {{.Domain}} was missing for too long, so Vetchium released the domain and suspended your Org.
+
+To restore the Org, publish this record again and check it from the Org portal:
+
+Name: {{.RecordName}}
+Type: TXT
+Value: {{.RecordValue}}
+
+If another Org has claimed {{.Domain}} in the meantime, your Org cannot be restored with this domain.

@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="de-DE">
+  <body>
+    <p>Jemand möchte eine Organisation mit der Domain {{.Domain}} bei Vetchium registrieren.</p>
+    <p>Veröffentlichen Sie diesen DNS-TXT-Eintrag, um nachzuweisen, dass die Organisation diese Domain kontrolliert. Sie können diese E-Mail an die Person weiterleiten, die das DNS für {{.Domain}} verwaltet: Sie enthält nichts, womit jemand die Registrierung abschließen kann.</p>
+    <p>Name: <code>{{.RecordName}}</code><br>Typ: <code>TXT</code><br>Wert: <code>{{.RecordValue}}</code></p>
+    <p>Lassen Sie den Eintrag veröffentlicht, solange die Organisation Vetchium nutzt. Vetchium prüft ihn regelmäßig; wird er entfernt, wird die Domain schließlich freigegeben.</p>
+    <p>Die Registrierungsanfrage ist bis zum {{.ExpiresAt.UTC.Format "02.01.2006 um 15:04 UTC"}} gültig. Falls niemand in Ihrer Organisation dies angefordert hat, ignorieren Sie diese E-Mail und veröffentlichen Sie den Eintrag nicht.</p>
+  </body>
+</html>

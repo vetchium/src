@@ -1,0 +1,9 @@
+Der DNS-TXT-Eintrag für {{.Domain}} fehlte zu lange. Deshalb hat Vetchium die Domain freigegeben und Ihre Organisation gesperrt.
+
+Um die Organisation wiederherzustellen, veröffentlichen Sie diesen Eintrag erneut und lassen Sie ihn im Organisationsportal prüfen:
+
+Name: {{.RecordName}}
+Typ: TXT
+Wert: {{.RecordValue}}
+
+Hat inzwischen eine andere Organisation {{.Domain}} beansprucht, kann Ihre Organisation mit dieser Domain nicht wiederhergestellt werden.

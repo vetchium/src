@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="de-DE">
+  <body>
+    <p>Der DNS-TXT-Eintrag für {{.Domain}} fehlte zu lange. Deshalb hat Vetchium die Domain freigegeben und Ihre Organisation gesperrt.</p>
+    <p>Um die Organisation wiederherzustellen, veröffentlichen Sie diesen Eintrag erneut und lassen Sie ihn im Organisationsportal prüfen:</p>
+    <p>Name: <code>{{.RecordName}}</code><br>Typ: <code>TXT</code><br>Wert: <code>{{.RecordValue}}</code></p>
+    <p>Hat inzwischen eine andere Organisation {{.Domain}} beansprucht, kann Ihre Organisation mit dieser Domain nicht wiederhergestellt werden.</p>
+  </body>
+</html>

@@ -1,0 +1,7 @@
+Vetchium could not find the DNS TXT record that proves your Org controls {{.Domain}}. Restore this record:
+
+Name: {{.RecordName}}
+Type: TXT
+Value: {{.RecordValue}}
+
+If the record is not restored by {{.ReleaseAfter.UTC.Format "02 Jan 2006 15:04 UTC"}}, Vetchium will release the domain and suspend the Org until the record is published again. Superadmins can check the record now from the Org portal.

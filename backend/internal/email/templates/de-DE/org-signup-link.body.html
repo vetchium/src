@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="de-DE">
+  <body>
+    <p>Sobald der DNS-Eintrag aus der anderen E-Mail veröffentlicht ist, schließen Sie die Registrierung der Organisation für {{.Domain}} mit diesem privaten Link ab:</p>
+    <p><a href="{{.ActionURL}}">Registrierung abschließen</a></p>
+    <p>Leiten Sie diese E-Mail nicht weiter. Wer diesen Link hat, kann die Registrierung abschließen und wird erster Superadmin der Organisation.</p>
+    <p>Dieser Link ist bis zum {{.ExpiresAt.UTC.Format "02.01.2006 um 15:04 UTC"}} gültig. Falls Sie diese Registrierung nicht angefordert haben, können Sie diese E-Mail ignorieren.</p>
+  </body>
+</html>
