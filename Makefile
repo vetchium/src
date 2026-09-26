@@ -13,12 +13,14 @@ APP_POSTGRES_PASSWORD ?= app_pgpassword
 GLOBAL_APP_POSTGRES_PASSWORD ?= global_app_pgpassword
 ADMIN_CREDENTIAL_KEY  ?= dev_admin_credential_key
 HUB_CREDENTIAL_KEY    ?= dev_hub_credential_key
+ORGS_CREDENTIAL_KEY   ?= dev_orgs_credential_key
 MESH_CREDENTIAL       ?= dev_mesh_credential_at_least_32_bytes
 DEV_SECRETS_DIR       := .dev-secrets
 APP_PASSWORD_FILE     := $(DEV_SECRETS_DIR)/app_postgres_password
 GLOBAL_APP_PASSWORD_FILE := $(DEV_SECRETS_DIR)/global_app_postgres_password
 ADMIN_KEY_FILE        := $(DEV_SECRETS_DIR)/admin_credential_key
 HUB_KEY_FILE          := $(DEV_SECRETS_DIR)/hub_credential_key
+ORGS_KEY_FILE         := $(DEV_SECRETS_DIR)/orgs_credential_key
 MESH_KEY_FILE         := $(DEV_SECRETS_DIR)/mesh_credential
 MESH_CA_FILE          := $(DEV_SECRETS_DIR)/mesh_ca_certificate
 SQLC                   := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
@@ -173,6 +175,13 @@ dev-secrets:
 			{ echo "HUB_CREDENTIAL_KEY differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
 	else \
 		umask 077; printf '%s' "$$HUB_CREDENTIAL_KEY" > "$(HUB_KEY_FILE)"; \
+	fi
+	@if [ -f "$(ORGS_KEY_FILE)" ]; then \
+		current=$$(cat "$(ORGS_KEY_FILE)"); \
+		test "$$current" = "$$ORGS_CREDENTIAL_KEY" || \
+			{ echo "ORGS_CREDENTIAL_KEY differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
+	else \
+		umask 077; printf '%s' "$$ORGS_CREDENTIAL_KEY" > "$(ORGS_KEY_FILE)"; \
 	fi
 	@if [ -f "$(MESH_KEY_FILE)" ]; then \
 		current=$$(cat "$(MESH_KEY_FILE)"); \

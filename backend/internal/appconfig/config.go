@@ -23,21 +23,23 @@ import (
 const defaultPath = "/etc/vetchium/config.json"
 const defaultAdminCredentialKeyPath = "/run/secrets/admin_credential_key"
 const defaultHubCredentialKeyPath = "/run/secrets/hub_credential_key"
+const defaultOrgsCredentialKeyPath = "/run/secrets/orgs_credential_key"
 
 type Config struct {
-	SignupRegionsFile string
-	TenantID          string
-	Env               Environment
-	Database          Database
-	Workers           Workers
-	AdminAPIServer    AdminAPIServer
-	GlobalCoordinator GlobalCoordinator
-	MeshAPIServer     MeshAPIServer
-	HubAPIServer      HubAPIServer
-	ObjectStorage     ObjectStorage
-	SMTP              SMTP
-	OrgsAPIServer     Server
-	MCPServer         Server
+	SignupRegionsFile     string
+	TenantID              string
+	Env                   Environment
+	Database              Database
+	Workers               Workers
+	AdminAPIServer        AdminAPIServer
+	GlobalCoordinator     GlobalCoordinator
+	MeshAPIServer         MeshAPIServer
+	HubAPIServer          HubAPIServer
+	ObjectStorage         ObjectStorage
+	SMTP                  SMTP
+	OrgsAPIServer         OrgsAPIServer
+	OrgDomainVerification OrgDomainVerification
+	MCPServer             Server
 }
 
 type Environment string
@@ -71,6 +73,11 @@ type Workers struct {
 	HubEmailMaxAttempts          int
 	AdvanceHubSubscriptionsTimer time.Duration
 	ReconcileHubSignupTimer      time.Duration
+	DeliverOrgEmailTimer         time.Duration
+	OrgEmailLeaseTTL             time.Duration
+	OrgEmailMaxAttempts          int
+	ReconcileOrgSignupTimer      time.Duration
+	VerifyOrgDomainsTimer        time.Duration
 }
 
 type HubAPIServer struct {
@@ -79,6 +86,26 @@ type HubAPIServer struct {
 	RememberedSessionTTL time.Duration
 	PublicBaseURL        string
 	OfferedPlans         []subscriptionspec.Plan
+}
+
+type OrgsAPIServer struct {
+	Signup        regions.Admission
+	SessionTTL    time.Duration
+	PublicBaseURL string
+}
+
+// OrgDomainVerification sets how Org domain TXT records are looked up and how
+// the re-verification lifecycle in docs/org-signup.md section 7 is timed.
+type OrgDomainVerification struct {
+	// ResolverAddress is the only resolver queried; there is no fallback to
+	// the system resolver.
+	ResolverAddress    string
+	LookupTimeout      time.Duration
+	CheckInterval      time.Duration
+	FailureThreshold   int
+	FailingGracePeriod time.Duration
+	InconclusiveRetry  time.Duration
+	InconclusiveLimit  time.Duration
 }
 
 type ObjectStorage struct {
@@ -143,19 +170,20 @@ type MeshAPIServer struct {
 type Server struct{}
 
 type fileConfig struct {
-	SignupRegionsFile string                 `json:"signupRegionsFile"`
-	TenantID          string                 `json:"tenantId"`
-	Env               string                 `json:"env"`
-	Database          fileDatabase           `json:"database"`
-	Workers           fileWorkers            `json:"workers"`
-	AdminAPIServer    *fileAdminAPIServer    `json:"adminAPIServer"`
-	GlobalCoordinator *fileGlobalCoordinator `json:"globalCoordinator"`
-	MeshAPIServer     *fileMeshAPIServer     `json:"meshAPIServer"`
-	HubAPIServer      *fileHubAPIServer      `json:"hubAPIServer"`
-	ObjectStorage     *fileObjectStorage     `json:"objectStorage"`
-	SMTP              *fileSMTP              `json:"smtp"`
-	OrgsAPIServer     *Server                `json:"orgsAPIServer"`
-	MCPServer         *Server                `json:"mcpServer"`
+	SignupRegionsFile     string                     `json:"signupRegionsFile"`
+	TenantID              string                     `json:"tenantId"`
+	Env                   string                     `json:"env"`
+	Database              fileDatabase               `json:"database"`
+	Workers               fileWorkers                `json:"workers"`
+	AdminAPIServer        *fileAdminAPIServer        `json:"adminAPIServer"`
+	GlobalCoordinator     *fileGlobalCoordinator     `json:"globalCoordinator"`
+	MeshAPIServer         *fileMeshAPIServer         `json:"meshAPIServer"`
+	HubAPIServer          *fileHubAPIServer          `json:"hubAPIServer"`
+	ObjectStorage         *fileObjectStorage         `json:"objectStorage"`
+	SMTP                  *fileSMTP                  `json:"smtp"`
+	OrgsAPIServer         *fileOrgsAPIServer         `json:"orgsAPIServer"`
+	OrgDomainVerification *fileOrgDomainVerification `json:"orgDomainVerification"`
+	MCPServer             *Server                    `json:"mcpServer"`
 }
 
 type fileGlobalCoordinator struct {
@@ -207,6 +235,11 @@ type fileWorkers struct {
 	HubEmailMaxAttempts          int    `json:"hubEmailMaxAttempts"`
 	AdvanceHubSubscriptionsTimer string `json:"advanceHubSubscriptionsTimer"`
 	ReconcileHubSignupTimer      string `json:"reconcileHubSignupTimer"`
+	DeliverOrgEmailTimer         string `json:"deliverOrgEmailTimer"`
+	OrgEmailLeaseTTL             string `json:"orgEmailLeaseTTL"`
+	OrgEmailMaxAttempts          int    `json:"orgEmailMaxAttempts"`
+	ReconcileOrgSignupTimer      string `json:"reconcileOrgSignupTimer"`
+	VerifyOrgDomainsTimer        string `json:"verifyOrgDomainsTimer"`
 }
 
 type fileHubAPIServer struct {
@@ -215,6 +248,22 @@ type fileHubAPIServer struct {
 	RememberedSessionTTL string             `json:"rememberedSessionTTL"`
 	PublicBaseURL        string             `json:"publicBaseURL"`
 	OfferedPlans         []string           `json:"offeredPlans"`
+}
+
+type fileOrgsAPIServer struct {
+	Signup        *regions.Admission `json:"signup"`
+	SessionTTL    string             `json:"sessionTTL"`
+	PublicBaseURL string             `json:"publicBaseURL"`
+}
+
+type fileOrgDomainVerification struct {
+	ResolverAddress    string `json:"resolverAddress"`
+	LookupTimeout      string `json:"lookupTimeout"`
+	CheckInterval      string `json:"checkInterval"`
+	FailureThreshold   int    `json:"failureThreshold"`
+	FailingGracePeriod string `json:"failingGracePeriod"`
+	InconclusiveRetry  string `json:"inconclusiveRetry"`
+	InconclusiveLimit  string `json:"inconclusiveLimit"`
 }
 
 type fileObjectStorage struct {
@@ -322,6 +371,10 @@ func LoadFile(path string) (Config, error) {
 	}
 	if raw.OrgsAPIServer == nil {
 		err := fmt.Errorf("missing orgsAPIServer")
+		return Config{}, configError(path, err)
+	}
+	if raw.OrgDomainVerification == nil {
+		err := fmt.Errorf("missing orgDomainVerification")
 		return Config{}, configError(path, err)
 	}
 	if raw.MCPServer == nil {
@@ -452,6 +505,16 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	orgsAPIServer, err := parseOrgsAPIServer(*raw.OrgsAPIServer)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	orgDomainVerification, err := parseOrgDomainVerification(
+		*raw.OrgDomainVerification,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	privateObjectURL, err := httpOrigin(
 		"objectStorage.privateBaseURL", raw.ObjectStorage.PrivateBaseURL,
 	)
@@ -528,6 +591,10 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	orgWorkers, err := parseOrgWorkers(raw.Workers)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	smtp, err := parseSMTP(*raw.SMTP)
 	if err != nil {
 		return Config{}, configError(path, err)
@@ -578,6 +645,11 @@ func LoadFile(path string) (Config, error) {
 			HubEmailMaxAttempts:          raw.Workers.HubEmailMaxAttempts,
 			AdvanceHubSubscriptionsTimer: advanceHubSubscriptionsTimer,
 			ReconcileHubSignupTimer:      reconcileHubSignupTimer,
+			DeliverOrgEmailTimer:         orgWorkers.DeliverOrgEmailTimer,
+			OrgEmailLeaseTTL:             orgWorkers.OrgEmailLeaseTTL,
+			OrgEmailMaxAttempts:          orgWorkers.OrgEmailMaxAttempts,
+			ReconcileOrgSignupTimer:      orgWorkers.ReconcileOrgSignupTimer,
+			VerifyOrgDomainsTimer:        orgWorkers.VerifyOrgDomainsTimer,
 		},
 		HubAPIServer: HubAPIServer{
 			Signup:               admission,
@@ -592,9 +664,10 @@ func LoadFile(path string) (Config, error) {
 			AccessKeyFile:  raw.ObjectStorage.AccessKeyFile,
 			SecretKeyFile:  raw.ObjectStorage.SecretKeyFile,
 		},
-		SMTP:          smtp,
-		OrgsAPIServer: Server{},
-		MCPServer:     Server{},
+		SMTP:                  smtp,
+		OrgsAPIServer:         orgsAPIServer,
+		OrgDomainVerification: orgDomainVerification,
+		MCPServer:             Server{},
 	}, nil
 }
 
@@ -674,6 +747,14 @@ func HubCredentialSecret() (string, error) {
 		path = defaultHubCredentialKeyPath
 	}
 	return credentialSecret("hub", path)
+}
+
+func OrgsCredentialSecret() (string, error) {
+	path := os.Getenv("ORGS_CREDENTIAL_KEY_FILE")
+	if path == "" {
+		path = defaultOrgsCredentialKeyPath
+	}
+	return credentialSecret("orgs", path)
 }
 
 func credentialSecret(kind, path string) (string, error) {
@@ -767,6 +848,124 @@ func parseSMTP(raw fileSMTP) (SMTP, error) {
 		UsernameFile: raw.UsernameFile, PasswordFile: raw.PasswordFile,
 		StartTLS: startTLS, ConnectionTimeout: timeout,
 	}, nil
+}
+
+func parseOrgsAPIServer(raw fileOrgsAPIServer) (OrgsAPIServer, error) {
+	admission := regions.Admission{Enabled: true}
+	if raw.Signup != nil {
+		admission = *raw.Signup
+	}
+	sessionTTL, err := positiveDuration(
+		"orgsAPIServer.sessionTTL", raw.SessionTTL,
+	)
+	if err != nil {
+		return OrgsAPIServer{}, err
+	}
+	publicBaseURL, err := httpOrigin(
+		"orgsAPIServer.publicBaseURL", raw.PublicBaseURL,
+	)
+	if err != nil {
+		return OrgsAPIServer{}, err
+	}
+	return OrgsAPIServer{
+		Signup:        admission,
+		SessionTTL:    sessionTTL,
+		PublicBaseURL: publicBaseURL,
+	}, nil
+}
+
+func parseOrgDomainVerification(
+	raw fileOrgDomainVerification,
+) (OrgDomainVerification, error) {
+	const prefix = "orgDomainVerification."
+	result := OrgDomainVerification{
+		ResolverAddress:  raw.ResolverAddress,
+		FailureThreshold: raw.FailureThreshold,
+	}
+	if err := validateResolverAddress(
+		prefix+"resolverAddress", raw.ResolverAddress,
+	); err != nil {
+		return OrgDomainVerification{}, err
+	}
+	for _, field := range []struct {
+		name   string
+		value  string
+		target *time.Duration
+	}{
+		{"lookupTimeout", raw.LookupTimeout, &result.LookupTimeout},
+		{"checkInterval", raw.CheckInterval, &result.CheckInterval},
+		{"failingGracePeriod", raw.FailingGracePeriod, &result.FailingGracePeriod},
+		{"inconclusiveRetry", raw.InconclusiveRetry, &result.InconclusiveRetry},
+		{"inconclusiveLimit", raw.InconclusiveLimit, &result.InconclusiveLimit},
+	} {
+		duration, err := positiveDuration(prefix+field.name, field.value)
+		if err != nil {
+			return OrgDomainVerification{}, err
+		}
+		*field.target = duration
+	}
+	if raw.FailureThreshold < 1 || raw.FailureThreshold > 10 {
+		return OrgDomainVerification{}, fmt.Errorf(
+			"%sfailureThreshold must be between 1 and 10", prefix,
+		)
+	}
+	// Retries of an inconclusive lookup happen within one check cycle, so a
+	// retry delay as long as the cycle would never run before the next
+	// scheduled check.
+	if result.InconclusiveRetry >= result.CheckInterval {
+		return OrgDomainVerification{}, fmt.Errorf(
+			"%sinconclusiveRetry must be shorter than checkInterval", prefix,
+		)
+	}
+	return result, nil
+}
+
+// validateResolverAddress does not resolve the host: a Compose service name
+// such as dns-dev resolves only inside the container network.
+func validateResolverAddress(name, value string) error {
+	host, port, err := net.SplitHostPort(value)
+	if err != nil || host == "" {
+		return fmt.Errorf("%s must be a host:port address", name)
+	}
+	number, err := strconv.Atoi(port)
+	if err != nil || number < 1 || number > 65535 {
+		return fmt.Errorf("%s must have a port between 1 and 65535", name)
+	}
+	return nil
+}
+
+type orgWorkers struct {
+	DeliverOrgEmailTimer    time.Duration
+	OrgEmailLeaseTTL        time.Duration
+	OrgEmailMaxAttempts     int
+	ReconcileOrgSignupTimer time.Duration
+	VerifyOrgDomainsTimer   time.Duration
+}
+
+func parseOrgWorkers(raw fileWorkers) (orgWorkers, error) {
+	result := orgWorkers{OrgEmailMaxAttempts: raw.OrgEmailMaxAttempts}
+	for _, field := range []struct {
+		name   string
+		value  string
+		target *time.Duration
+	}{
+		{"deliverOrgEmailTimer", raw.DeliverOrgEmailTimer, &result.DeliverOrgEmailTimer},
+		{"orgEmailLeaseTTL", raw.OrgEmailLeaseTTL, &result.OrgEmailLeaseTTL},
+		{"reconcileOrgSignupTimer", raw.ReconcileOrgSignupTimer, &result.ReconcileOrgSignupTimer},
+		{"verifyOrgDomainsTimer", raw.VerifyOrgDomainsTimer, &result.VerifyOrgDomainsTimer},
+	} {
+		duration, err := positiveDuration("workers."+field.name, field.value)
+		if err != nil {
+			return orgWorkers{}, err
+		}
+		*field.target = duration
+	}
+	if raw.OrgEmailMaxAttempts < 1 || raw.OrgEmailMaxAttempts > 20 {
+		return orgWorkers{}, fmt.Errorf(
+			"workers.orgEmailMaxAttempts must be between 1 and 20",
+		)
+	}
+	return result, nil
 }
 
 // parseOfferedPlans has no silent default: that would let the backend and

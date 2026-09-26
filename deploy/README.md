@@ -12,7 +12,7 @@ principal routing, permanent handles, paid aliases, and the protocol ledgers
 needed to change them safely; tenant-owned profiles, credentials, and hiring
 data remain in tenant databases. The service also exposes authenticated region
 discovery. `signup-regions.json` is the region catalog shared by every stack,
-mounted read-only into `hub-api`, `mesh-api`, and the coordinator.
+mounted read-only into `hub-api`, `orgs-api`, `mesh-api`, and the coordinator.
 
 Images are pulled from the configured registry. Nothing is built from this
 directory.
@@ -37,7 +37,10 @@ make deploy-global-coordinator TAG=v1.2.3 \
 ```
 
 The Makefile initializes Swarm when necessary and creates the tenant and global
-database secrets on first use. It also creates three tenant-specific SeaweedFS
+database secrets on first use, as well as each tenant's
+`<region>_admin_credential_key`, `<region>_orgs_credential_key`, and
+`<region>_mesh_credential`. The Org credential key is mounted only into
+`orgs-api` and `workers`. It also creates three tenant-specific SeaweedFS
 S3 secrets together: the gateway identity configuration and its access and
 secret keys. A partial set stops deployment. Do not replace just one of these
 secrets; rotate all three as a coordinated change and roll the gateway and its
@@ -94,7 +97,16 @@ the stack's external-secret mappings before the roll.
 `signup-regions.json`. `hub-api` compares them at startup and refuses to run if
 they disagree, because discovery would otherwise send visitors to a region that
 then refuses them. Changing either one means rolling the catalog and the
-region's config together.
+region's config together. The same holds for `orgsAPIServer.signup.enabled` and
+the region's `orgSignupEnabled`, and for `orgsAPIServer.publicBaseURL` and the
+region's `orgsURL`: the catalog is advisory, and the tenant's own setting
+decides Org admission.
+
+`orgDomainVerification.resolverAddress` is the one resolver `orgs-api` and
+`workers` query for Org domain TXT records; there is no fallback to the host's
+resolver. Production uses a public recursive resolver over plain DNS, so the
+host firewall must allow outbound UDP and TCP port 53 from the `dns_egress`
+network to that address.
 
 `hubAPIServer.offeredPlans` in each tenant's `config.json` must agree with
 `VETCHIUM_HUB_PLANS` for that tenant's `hub-ui` service in `stack.json`, and
@@ -135,7 +147,10 @@ applied.
   that dials the coordinator, so it is the only one on that egress network.
 - `mcp-server`: private `mcp_access` plus `backend`; Traefik can reach the
   network, but no MCP router is configured by default.
-- `workers`: `backend` only and exactly one replica per tenant. Do not scale this
+- `orgs-api`: private `orgs_api_access` and `backend`, plus `dns_egress` for
+  Org domain TXT lookups. It reaches its own `mesh-api` relay over `backend`.
+- `workers`: `backend`, plus `smtp_egress` for mail and `dns_egress` for Org
+  domain re-verification, and exactly one replica per tenant. Do not scale this
   service beyond one replica until task-level locking is implemented.
 - The four SeaweedFS services join only `backend`. Their S3 gateway has no
   published host port. Its startup guard rejects a missing or empty identity
