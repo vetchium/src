@@ -43,6 +43,10 @@ type Region struct {
 	HubURL           string               `json:"hubURL"`
 	SignupEnabled    bool                 `json:"signupEnabled"`
 	AllowedCountries []common.CountryCode `json:"allowedCountries"`
+	OrgsURL          string               `json:"orgsURL"`
+	// OrgSignupEnabled is advisory, like SignupEnabled for Hub: the tenant's
+	// own orgsAPIServer.signup setting decides admission.
+	OrgSignupEnabled bool `json:"orgSignupEnabled"`
 }
 type Catalog struct {
 	Version         string                        `json:"version"`
@@ -91,8 +95,17 @@ func (c *Catalog) Validate() error {
 		if !IsHubOrigin(r.HubURL) || origins[r.HubURL] {
 			return fmt.Errorf("region %q requires a unique HTTP(S) origin", r.TenantID)
 		}
-		seen[r.TenantID] = true
 		origins[r.HubURL] = true
+		// Org and Hub portals share one origin namespace so a catalog typo
+		// cannot send an Org to a Hub portal or the reverse.
+		if !IsHubOrigin(r.OrgsURL) || origins[r.OrgsURL] {
+			return fmt.Errorf(
+				"region %q requires a unique HTTP(S) Org portal origin",
+				r.TenantID,
+			)
+		}
+		origins[r.OrgsURL] = true
+		seen[r.TenantID] = true
 		countries := map[common.CountryCode]bool{}
 		for _, country := range r.AllowedCountries {
 			if !common.IsCountryCode(country) || countries[country] {
@@ -143,10 +156,51 @@ func (c *Catalog) HasOrigin(tenant, origin string) bool {
 	return false
 }
 
+// cursor binds a page position to the country, the exact catalog contents,
+// and the list that issued it, so a Hub cursor cannot page the Org list. The
+// Hub list leaves List empty, which keeps its cursors byte-identical to those
+// issued before the Org list existed.
 type cursor struct {
+	List    string             `json:"list,omitempty"`
 	Country common.CountryCode `json:"country"`
 	Version string             `json:"version"`
 	Last    string             `json:"last"`
+}
+
+const (
+	hubList  = ""
+	orgsList = "orgs"
+	pageSize = 50
+)
+
+// after returns the tenant ID a page starts after.
+func (c *Catalog) after(
+	key *common.PaginationKey, list string, country common.CountryCode,
+) (string, error) {
+	if key == nil {
+		return "", nil
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(string(*key))
+	var decoded cursor
+	if err != nil || json.Unmarshal(raw, &decoded) != nil ||
+		decoded.List != list || decoded.Country != country ||
+		!IsTenantID(decoded.Last) {
+		return "", fmt.Errorf("invalid pagination key")
+	}
+	if decoded.Version != c.fingerprint {
+		return "", ErrForeignCursor
+	}
+	return decoded.Last, nil
+}
+
+func (c *Catalog) nextKey(
+	list string, country common.CountryCode, last string,
+) *common.PaginationKey {
+	raw, _ := json.Marshal(cursor{
+		List: list, Country: country, Version: c.fingerprint, Last: last,
+	})
+	key := common.PaginationKey(base64.RawURLEncoding.EncodeToString(raw))
+	return &key
 }
 
 func (c *Catalog) List(
@@ -155,18 +209,11 @@ func (c *Catalog) List(
 	response := regionspec.ListSignupRegionsResponse{
 		CatalogVersion: c.Version, Regions: []regionspec.SignupRegion{},
 	}
-	after := ""
-	if request.PaginationKey != nil {
-		raw, err := base64.RawURLEncoding.DecodeString(string(*request.PaginationKey))
-		var key cursor
-		if err != nil || json.Unmarshal(raw, &key) != nil ||
-			key.Country != request.ResidentCountry || !IsTenantID(key.Last) {
-			return response, fmt.Errorf("invalid pagination key")
-		}
-		if key.Version != c.fingerprint {
-			return response, ErrForeignCursor
-		}
-		after = key.Last
+	after, err := c.after(
+		request.PaginationKey, hubList, request.ResidentCountry,
+	)
+	if err != nil {
+		return response, err
 	}
 	recommended := c.Recommendations[request.ResidentCountry]
 	if recommended == "" {
@@ -185,18 +232,91 @@ func (c *Catalog) List(
 		if r.TenantID <= after || !c.Allows(r.TenantID, request.ResidentCountry) {
 			continue
 		}
-		if len(response.Regions) == 50 {
-			raw, _ := json.Marshal(cursor{
-				Country: request.ResidentCountry, Version: c.fingerprint,
-				Last: response.Regions[49].TenantID,
-			})
-			key := common.PaginationKey(base64.RawURLEncoding.EncodeToString(raw))
-			response.NextPaginationKey = &key
+		if len(response.Regions) == pageSize {
+			response.NextPaginationKey = c.nextKey(
+				hubList, request.ResidentCountry,
+				response.Regions[pageSize-1].TenantID,
+			)
 			break
 		}
 		response.Regions = append(response.Regions, regionspec.SignupRegion{
 			TenantID: r.TenantID, HostingCountry: r.HostingCountry,
 			HubURL: r.HubURL, Recommended: r.TenantID == recommended,
+		})
+	}
+	return response, nil
+}
+
+// OrgSignupEnabled reports the catalog's advisory Org signup state for a
+// tenant, independent of any country, so orgs-api can refuse to start when it
+// disagrees with the tenant's own setting.
+func (c *Catalog) OrgSignupEnabled(tenant string) bool {
+	for _, r := range c.Regions {
+		if r.TenantID == tenant {
+			return r.OrgSignupEnabled
+		}
+	}
+	return false
+}
+
+func (c *Catalog) HasOrgsOrigin(tenant, origin string) bool {
+	for _, r := range c.Regions {
+		if r.TenantID == tenant && r.OrgsURL == origin {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Catalog) OrgsURL(tenant string) (string, bool) {
+	for _, r := range c.Regions {
+		if r.TenantID == tenant {
+			return r.OrgsURL, true
+		}
+	}
+	return "", false
+}
+
+// ListOrgs lists the regions accepting Org signup. It ignores
+// allowedCountries, which is Hub residency policy: an Org's chosen country
+// only selects the recommendation.
+func (c *Catalog) ListOrgs(
+	request regionspec.ListOrgSignupRegionsRequest,
+) (regionspec.ListOrgSignupRegionsResponse, error) {
+	response := regionspec.ListOrgSignupRegionsResponse{
+		CatalogVersion: c.Version, Regions: []regionspec.OrgSignupRegion{},
+	}
+	after, err := c.after(request.PaginationKey, orgsList, request.Country)
+	if err != nil {
+		return response, err
+	}
+	recommended := c.Recommendations[request.Country]
+	if recommended == "" {
+		recommended = c.DefaultTenant
+	}
+	if !c.OrgSignupEnabled(recommended) {
+		recommended = ""
+		for _, r := range c.Regions {
+			if r.OrgSignupEnabled {
+				recommended = r.TenantID
+				break
+			}
+		}
+	}
+	for _, r := range c.Regions {
+		if r.TenantID <= after || !r.OrgSignupEnabled {
+			continue
+		}
+		if len(response.Regions) == pageSize {
+			response.NextPaginationKey = c.nextKey(
+				orgsList, request.Country,
+				response.Regions[pageSize-1].TenantID,
+			)
+			break
+		}
+		response.Regions = append(response.Regions, regionspec.OrgSignupRegion{
+			TenantID: r.TenantID, HostingCountry: r.HostingCountry,
+			OrgsURL: r.OrgsURL, Recommended: r.TenantID == recommended,
 		})
 	}
 	return response, nil
