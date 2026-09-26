@@ -29,7 +29,7 @@ GOVULNCHECK             := go run golang.org/x/vuln/cmd/govulncheck@v1.7.0
 GOLANGCI_LINT           := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 SQLFLUFF_IMAGE          := sqlfluff/sqlfluff:4.2.2@sha256:7e8f4f1bc8f70c6ab7da3094c3ca0ff0c66f3d721896d79c3731e549ea1921fb
 GO_MODULES             := backend typespec
-JS_WORKSPACES          := admin-ui hub-ui portal-ui typespec playwright
+JS_WORKSPACES          := admin-ui hub-ui orgs-ui portal-ui typespec playwright
 # Each workspace formats its own tree. These files sit outside every workspace,
 # so `repository-json` is the only thing that formats and checks them.
 REPOSITORY_JSON        := biome.json docker-compose.json docker-compose-ci.json \
@@ -64,7 +64,8 @@ serving_services = $$(docker compose -f $(1) config --services | \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
 	admin-ui-deps admin-ui-check admin-ui-check-ready \
-	hub-ui-deps hub-ui-check hub-ui-check-ready portal-ui-deps \
+	hub-ui-deps hub-ui-check hub-ui-check-ready \
+	orgs-ui-deps orgs-ui-check orgs-ui-check-ready portal-ui-deps \
 	portal-ui-check portal-ui-check-ready typespec-deps \
 	typespec-check \
 	typespec-check-ready typespec-test playwright-deps playwright-browser \
@@ -227,12 +228,13 @@ test: clean
 	$(MAKE) --no-print-directory coverage-summary
 	$(MAKE) --no-print-directory api-coverage-report
 
-test-dependencies: admin-ui-deps hub-ui-deps portal-ui-deps typespec-deps \
-	playwright-deps
+test-dependencies: admin-ui-deps hub-ui-deps orgs-ui-deps portal-ui-deps \
+	typespec-deps playwright-deps
 
 test-static-ready: test-go test-go-static test-go-lint test-go-vuln \
-	admin-ui-check-ready hub-ui-check-ready typespec-check-ready \
-	portal-ui-check-ready playwright-check-ready repository-json-check-ready
+	admin-ui-check-ready hub-ui-check-ready orgs-ui-check-ready \
+	typespec-check-ready portal-ui-check-ready playwright-check-ready \
+	repository-json-check-ready
 
 test-environment:
 	$(MAKE) --no-print-directory playwright-browser-ready
@@ -339,6 +341,18 @@ hub-ui-check-ready: hub-ui-deps
 	cd hub-ui && npm run build
 
 hub-ui-check: hub-ui-check-ready
+
+orgs-ui-deps:
+	cd orgs-ui && npm ci
+
+orgs-ui-check-ready: orgs-ui-deps
+	cd orgs-ui && npm run format:check
+	cd orgs-ui && npm run typecheck
+	cd orgs-ui && npm test
+	cd orgs-ui && npm audit --audit-level=high
+	cd orgs-ui && npm run build
+
+orgs-ui-check: orgs-ui-check-ready
 
 portal-ui-deps:
 	cd portal-ui && npm ci

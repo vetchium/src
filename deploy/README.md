@@ -48,10 +48,11 @@ rejected. `POSTGRES_USER` and `POSTGRES_DB` are required for a tenant;
 `GLOBAL_POSTGRES_USER` and `GLOBAL_POSTGRES_DB` are required for the global
 stack. `REGISTRY` defaults to
 `ghcr.io/vetchium`, `HTTP_PORT` defaults to `80`, and `PGSSLMODE` defaults to
-`disable` until PostgreSQL TLS is configured. `ADMIN_UI_DEFAULT_LANGUAGE` and
-`HUB_UI_DEFAULT_LANGUAGE` select their portal's fallback locale after saved and
-browser preferences. Each variable is validated against its portal's own
-supported locale set; both currently accept `en-US`, `ta`, and `de-DE`. Each
+`disable` until PostgreSQL TLS is configured. `ADMIN_UI_DEFAULT_LANGUAGE`,
+`HUB_UI_DEFAULT_LANGUAGE`, and `ORGS_UI_DEFAULT_LANGUAGE` select their portal's
+fallback locale after saved and browser preferences. Each variable is validated
+against its portal's own supported locale set; all currently accept `en-US`,
+`ta`, and `de-DE`. Each
 region's `config.json`
 contains the shared non-secret configuration for every backend program and is
 mounted read-only at `/etc/vetchium/config.json`. `POSTGRES_DB` and `PGSSLMODE`

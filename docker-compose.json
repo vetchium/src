@@ -2663,7 +2663,11 @@
     },
     "orgs-ui-deu": {
       "build": {
-        "context": "orgs-ui"
+        "context": ".",
+        "dockerfile": "orgs-ui/Dockerfile"
+      },
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "${ORGS_UI_DEU_DEFAULT_LANGUAGE:-de-DE}"
       },
       "networks": {
         "deu_ingress": null
@@ -2673,7 +2677,11 @@
     },
     "orgs-ui-ind1": {
       "build": {
-        "context": "orgs-ui"
+        "context": ".",
+        "dockerfile": "orgs-ui/Dockerfile"
+      },
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "${ORGS_UI_IND1_DEFAULT_LANGUAGE:-en-US}"
       },
       "networks": {
         "ind1_ingress": null
@@ -2683,7 +2691,11 @@
     },
     "orgs-ui-sgp": {
       "build": {
-        "context": "orgs-ui"
+        "context": ".",
+        "dockerfile": "orgs-ui/Dockerfile"
+      },
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "${ORGS_UI_SGP_DEFAULT_LANGUAGE:-en-US}"
       },
       "networks": {
         "sgp_ingress": null
@@ -2693,7 +2705,11 @@
     },
     "orgs-ui-usa1": {
       "build": {
-        "context": "orgs-ui"
+        "context": ".",
+        "dockerfile": "orgs-ui/Dockerfile"
+      },
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "${ORGS_UI_USA1_DEFAULT_LANGUAGE:-en-US}"
       },
       "networks": {
         "usa1_ingress": null

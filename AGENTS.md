@@ -88,7 +88,7 @@ Scoped routers repeat these requirements near the code:
 [`backend/internal/db/`](backend/internal/db/AGENTS.md),
 [`typespec/`](typespec/AGENTS.md), [`playwright/`](playwright/AGENTS.md),
 [`admin-ui/`](admin-ui/AGENTS.md), [`hub-ui/`](hub-ui/AGENTS.md),
-[`portal-ui/`](portal-ui/AGENTS.md).
+[`orgs-ui/`](orgs-ui/AGENTS.md), [`portal-ui/`](portal-ui/AGENTS.md).
 
 The nearest scoped `AGENTS.md` wins on conflict, and a more specific guide wins
 over a general one.

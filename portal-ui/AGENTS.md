@@ -6,7 +6,7 @@ formatting, wire types, and verification, and
 [`../agent-guides/ui.md`](../agent-guides/ui.md) for the frontend stack,
 application architecture, and what belongs here rather than in a portal.
 
-`admin-ui/` and `hub-ui/` consume this package, and `orgs-ui/` will. Two rules
+`admin-ui/`, `hub-ui/`, and `orgs-ui/` consume this package. Two rules
 follow, and apply only here:
 
 - Keep it portal-agnostic. It must not import from a portal, name one in an
@@ -22,5 +22,5 @@ module is unreachable from the portals.
 
 This package has no build of its own and is type-checked again inside each
 consumer, so `make portal-ui-check` is not enough — also run
-`make admin-ui-check hub-ui-check`. See
+`make admin-ui-check hub-ui-check orgs-ui-check`. See
 [`../agent-guides/verification.md`](../agent-guides/verification.md).

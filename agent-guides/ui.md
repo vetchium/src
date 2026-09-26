@@ -1,8 +1,7 @@
 # UI
 
-Applies to the portal applications under `admin-ui/`, `hub-ui/`, and `orgs-ui/`
-(once converted from static placeholders). Read [`typescript.md`](typescript.md)
-as well.
+Applies to the portal applications under `admin-ui/`, `hub-ui/`, and
+`orgs-ui/`. Read [`typescript.md`](typescript.md) as well.
 
 ## Stack
 

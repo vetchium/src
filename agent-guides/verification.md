@@ -13,7 +13,8 @@ before calling work done.
 | `typespec/` (`.tsp`, `.ts`) | `make typespec-check`; add `make test-go` when the `.go` companion changed |
 | `admin-ui/` | `make admin-ui-check` |
 | `hub-ui/` | `make hub-ui-check` |
-| `portal-ui/` | `make portal-ui-check`, then `make admin-ui-check hub-ui-check` |
+| `orgs-ui/` | `make orgs-ui-check` |
+| `portal-ui/` | `make portal-ui-check`, then `make admin-ui-check hub-ui-check orgs-ui-check` |
 | `playwright/` | `make playwright-check` (static), `make playwright-test` (full run) |
 | Repository JSON | `make repository-json-check` |
 

@@ -14,6 +14,8 @@
 !admin-ui/**
 !hub-ui/
 !hub-ui/**
+!orgs-ui/
+!orgs-ui/**
 !portal-ui/
 !portal-ui/**
 !db/
@@ -35,6 +37,9 @@ admin-ui/*.tsbuildinfo
 hub-ui/node_modules/
 hub-ui/dist/
 hub-ui/*.tsbuildinfo
+orgs-ui/node_modules/
+orgs-ui/dist/
+orgs-ui/*.tsbuildinfo
 portal-ui/node_modules/
 typespec/node_modules/
 typespec/tsp-output/

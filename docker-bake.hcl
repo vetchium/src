@@ -96,7 +96,8 @@ target "global-migrate" {
 
 target "orgs-ui" {
   inherits = ["_common"]
-  context = "orgs-ui"
+  context = "."
+  dockerfile = "orgs-ui/Dockerfile"
   tags    = ["${REGISTRY}/orgs-ui:${TAG}"]
 }
 

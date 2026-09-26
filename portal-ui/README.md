@@ -33,4 +33,4 @@ npm test
 ```
 
 Because this package is type-checked again inside each consumer, run
-`make admin-ui-check hub-ui-check` before handing off a change.
+`make admin-ui-check hub-ui-check orgs-ui-check` before handing off a change.

@@ -1,0 +1,5 @@
+@import "@vetchium/portal-ui/styles.css";
+
+.home-intro {
+  width: min(100%, 640px);
+}
