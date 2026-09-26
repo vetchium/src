@@ -1,3 +1,4 @@
+import type { TOTPRecoveryCodeCount } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
 import type { DisplayName } from "../../common/localization.ts";
 import type { OrgPermissionID } from "../authorization/types.ts";
@@ -35,6 +36,9 @@ export interface MyInfoResponse {
   email_address: EmailAddress;
   preferred_language: FrontendLocale;
   permissions: OrgPermissionID[];
+  totp_enabled: boolean;
+  recovery_codes_remaining: TOTPRecoveryCodeCount;
+  session_authenticated_at: string;
   org: OrgSummary;
 }
 

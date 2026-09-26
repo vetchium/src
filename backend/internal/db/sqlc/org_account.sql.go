@@ -22,6 +22,15 @@ SELECT
     d.verification_token,
     d.last_verified_at,
     d.failing_since,
+    EXISTS (
+        SELECT 1 FROM vetchium.org_user_totp_credentials AS t
+        WHERE t.org_user_id = u.org_user_id
+    ) AS totp_enabled,
+    (
+        SELECT count(*)
+        FROM vetchium.org_totp_recovery_codes AS r
+        WHERE r.org_user_id = u.org_user_id AND r.consumed_at IS NULL
+    )::bigint AS recovery_codes_remaining,
     ARRAY(
         SELECT ep.permission
         FROM vetchium.org_effective_permissions AS ep
@@ -36,16 +45,18 @@ WHERE u.org_user_id = $1
 `
 
 type GetOrgMyInfoRow struct {
-	EmailAddress      string                 `json:"email_address"`
-	PreferredLanguage string                 `json:"preferred_language"`
-	DisplayName       string                 `json:"display_name"`
-	OrgState          VetchiumOrgState       `json:"org_state"`
-	Domain            string                 `json:"domain"`
-	DomainState       VetchiumOrgDomainState `json:"domain_state"`
-	VerificationToken string                 `json:"verification_token"`
-	LastVerifiedAt    pgtype.Timestamptz     `json:"last_verified_at"`
-	FailingSince      pgtype.Timestamptz     `json:"failing_since"`
-	Permissions       []string               `json:"permissions"`
+	EmailAddress           string                 `json:"email_address"`
+	PreferredLanguage      string                 `json:"preferred_language"`
+	DisplayName            string                 `json:"display_name"`
+	OrgState               VetchiumOrgState       `json:"org_state"`
+	Domain                 string                 `json:"domain"`
+	DomainState            VetchiumOrgDomainState `json:"domain_state"`
+	VerificationToken      string                 `json:"verification_token"`
+	LastVerifiedAt         pgtype.Timestamptz     `json:"last_verified_at"`
+	FailingSince           pgtype.Timestamptz     `json:"failing_since"`
+	TotpEnabled            bool                   `json:"totp_enabled"`
+	RecoveryCodesRemaining int64                  `json:"recovery_codes_remaining"`
+	Permissions            []string               `json:"permissions"`
 }
 
 func (q *Queries) GetOrgMyInfo(ctx context.Context, orgUserID pgtype.UUID) (GetOrgMyInfoRow, error) {
@@ -61,6 +72,8 @@ func (q *Queries) GetOrgMyInfo(ctx context.Context, orgUserID pgtype.UUID) (GetO
 		&i.VerificationToken,
 		&i.LastVerifiedAt,
 		&i.FailingSince,
+		&i.TotpEnabled,
+		&i.RecoveryCodesRemaining,
 		&i.Permissions,
 	)
 	return i, err

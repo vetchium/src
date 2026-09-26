@@ -9,6 +9,15 @@ SELECT
     d.verification_token,
     d.last_verified_at,
     d.failing_since,
+    EXISTS (
+        SELECT 1 FROM vetchium.org_user_totp_credentials AS t
+        WHERE t.org_user_id = u.org_user_id
+    ) AS totp_enabled,
+    (
+        SELECT count(*)
+        FROM vetchium.org_totp_recovery_codes AS r
+        WHERE r.org_user_id = u.org_user_id AND r.consumed_at IS NULL
+    )::bigint AS recovery_codes_remaining,
     ARRAY(
         SELECT ep.permission
         FROM vetchium.org_effective_permissions AS ep

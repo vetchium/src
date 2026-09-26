@@ -41,10 +41,13 @@ type OrgSummary struct {
 }
 
 type MyInfoResponse struct {
-	EmailAddress      common.EmailAddress             `json:"email_address"`
-	PreferredLanguage orgs.FrontendLocale             `json:"preferred_language"`
-	Permissions       []authorization.OrgPermissionID `json:"permissions"`
-	Org               OrgSummary                      `json:"org"`
+	EmailAddress           common.EmailAddress             `json:"email_address"`
+	PreferredLanguage      orgs.FrontendLocale             `json:"preferred_language"`
+	Permissions            []authorization.OrgPermissionID `json:"permissions"`
+	TOTPEnabled            bool                            `json:"totp_enabled"`
+	RecoveryCodesRemaining common.TOTPRecoveryCodeCount    `json:"recovery_codes_remaining"`
+	SessionAuthenticatedAt time.Time                       `json:"session_authenticated_at"`
+	Org                    OrgSummary                      `json:"org"`
 }
 
 type DomainCheckResult string

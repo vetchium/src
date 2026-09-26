@@ -1,6 +1,7 @@
 import "@typespec/http";
 import "@typespec/openapi";
 
+import "../../common/authentication.tsp";
 import "../../common/common.tsp";
 import "../../problem/common.tsp";
 import "../../problem/details.tsp";
@@ -52,6 +53,13 @@ model MyInfoResponse {
 
   /** Effective permissions, including permissions implied by other grants. */
   permissions: OrgPermissionID[];
+
+  totp_enabled: boolean;
+  recovery_codes_remaining: Vetchium.Authentication.TOTPRecoveryCodeCount;
+
+  /** When this session last completed full authentication, so the portal can
+   * ask for step-up before a credential change rather than after a refusal. */
+  session_authenticated_at: utcDateTime;
 
   org: OrgSummary;
 }
