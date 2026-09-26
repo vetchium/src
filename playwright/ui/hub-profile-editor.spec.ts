@@ -59,6 +59,7 @@ async function openEditor(
     handle,
     resident_country: "SG",
     biography: "Original biography",
+    websites: [],
     work_experiences: [],
     educational_qualifications: [],
     certifications: [],
@@ -674,4 +675,297 @@ test("an ending paid entitlement is announced in the portal", async ({
   await expect(
     page.getByRole("button", { name: "Review plans" }),
   ).toBeVisible();
+});
+
+const githubID = "00000000-0000-4000-8000-00000000a001";
+const blogID = "00000000-0000-4000-8000-00000000a002";
+
+function tenWebsites() {
+  return Array.from({ length: 10 }, (_, index) => ({
+    id: `00000000-0000-4000-8000-00000000e${String(index).padStart(3, "0")}`,
+    url: `https://site-${index}.example.test`,
+  }));
+}
+
+test("the editor groups identity fields, with websites under the introduction, before the background sections", async ({
+  page,
+}) => {
+  await openEditor(page);
+  const top = async (locator: Locator) => {
+    const box = await locator.boundingBox();
+    expect(box).not.toBeNull();
+    return box?.y ?? 0;
+  };
+  const inOrder = [
+    page.getByRole("heading", { name: "About you" }),
+    page.getByLabel("Biography"),
+    page.getByText("Websites", { exact: true }),
+    page.getByText("Where you live", { exact: true }),
+    page.getByText("Profile alias", { exact: true }).first(),
+    page.getByRole("heading", { name: "Background" }),
+    page.getByText("Work experience", { exact: true }),
+  ];
+  const positions: number[] = [];
+  for (const locator of inOrder) positions.push(await top(locator));
+  expect(positions).toEqual([...positions].sort((a, b) => a - b));
+  expect(new Set(positions).size).toBe(positions.length);
+});
+
+test("the owner adds a website, which is normalized before it is saved", async ({
+  page,
+}) => {
+  const profile = await openEditor(page);
+  await expect(page.getByText("No websites added yet.")).toBeVisible();
+  let writes = 0;
+  await page.route("**/api/hub/profile/save-website", async (route) => {
+    writes += 1;
+    expect(route.request().headers()["idempotency-key"]).toBeTruthy();
+    expect(route.request().postDataJSON()).toEqual({
+      url: "https://github.com/octocat",
+    });
+    profile.websites = [{ id: githubID, url: "https://github.com/octocat" }];
+    await route.fulfill({
+      status: 204,
+      headers: { "Cache-Control": "no-store" },
+    });
+  });
+  await page.getByRole("button", { name: "Add website" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Website URL").fill("  HTTPS://GitHub.com/octocat/ ");
+  await dialog.getByRole("button", { name: "Add website" }).click();
+  await expect(page.getByText("Website added.")).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+  expect(writes).toBe(1);
+  // The saved entry shows its kind and the exact address that is stored.
+  await expect(page.getByRole("link", { name: "GitHub" })).toHaveAttribute(
+    "href",
+    "https://github.com/octocat",
+  );
+  await expect(
+    page.getByText("https://github.com/octocat", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("No websites added yet.")).toHaveCount(0);
+});
+
+test("invalid or duplicate website addresses are rejected locally without any network write", async ({
+  page,
+}) => {
+  await openEditor(page, [], {
+    websites: [{ id: githubID, url: "https://github.com/octocat" }],
+  });
+  let writes = 0;
+  await page.route("**/api/hub/profile/save-website", (route) => {
+    writes += 1;
+    return route.fulfill({ status: 204 });
+  });
+  await page.getByRole("button", { name: "Add website" }).click();
+  const dialog = page.getByRole("dialog");
+  const field = dialog.getByLabel("Website URL");
+  const invalidMessage =
+    "Enter a valid HTTPS address, such as https://example.com, with no username, password, or fragment.";
+  for (const value of [
+    "",
+    "github.com/octocat",
+    "http://example.com",
+    "https://user:secret@example.com",
+    "https://example.com/page#section",
+    "https://localhost",
+    "https://127.0.0.1",
+    "https://example.com/ü",
+  ]) {
+    await field.fill(value);
+    await dialog.getByRole("button", { name: "Add website" }).click();
+    await expect(dialog.getByText(invalidMessage), value).toBeVisible();
+  }
+  // The same address, however it is spelled, is already listed.
+  await field.fill(" HTTPS://GITHUB.com/octocat/ ");
+  await dialog.getByRole("button", { name: "Add website" }).click();
+  await expect(
+    dialog.getByText("You have already added this website."),
+  ).toBeVisible();
+  expect(writes).toBe(0);
+});
+
+test("editing a website sends its id, and saving it unchanged is not a duplicate of itself", async ({
+  page,
+}) => {
+  const profile = await openEditor(page, [], {
+    websites: [
+      { id: githubID, url: "https://github.com/octocat" },
+      { id: blogID, url: "https://octocat.example.dev/blog" },
+    ],
+  });
+  const bodies: unknown[] = [];
+  await page.route("**/api/hub/profile/save-website", async (route) => {
+    const body = route.request().postDataJSON() as { id: string; url: string };
+    bodies.push(body);
+    profile.websites = profile.websites.map((site) =>
+      site.id === body.id ? { id: body.id, url: body.url } : site,
+    );
+    await route.fulfill({ status: 204 });
+  });
+  await page
+    .getByRole("button", { name: "Edit https://octocat.example.dev/blog" })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Website URL")).toHaveValue(
+    "https://octocat.example.dev/blog",
+  );
+  // The other entry's address is a duplicate, this entry's own is not.
+  await dialog.getByLabel("Website URL").fill("https://github.com/octocat");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(
+    dialog.getByText("You have already added this website."),
+  ).toBeVisible();
+  expect(bodies).toEqual([]);
+  await dialog
+    .getByLabel("Website URL")
+    .fill("https://octocat.example.dev/blog");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Website updated.")).toBeVisible();
+  expect(bodies).toEqual([
+    { id: blogID, url: "https://octocat.example.dev/blog" },
+  ]);
+
+  await page
+    .getByRole("button", { name: "Edit https://octocat.example.dev/blog" })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByLabel("Website URL")
+    .fill("https://octocat.example.dev/writing");
+  await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await expect(
+    page.getByText("https://octocat.example.dev/writing", { exact: true }),
+  ).toBeVisible();
+  expect(bodies).toHaveLength(2);
+  expect(bodies[1]).toEqual({
+    id: blogID,
+    url: "https://octocat.example.dev/writing",
+  });
+});
+
+test("cancelling the website dialog writes nothing", async ({ page }) => {
+  await openEditor(page);
+  let writes = 0;
+  await page.route("**/api/hub/profile/save-website", (route) => {
+    writes += 1;
+    return route.fulfill({ status: 204 });
+  });
+  await page.getByRole("button", { name: "Add website" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Website URL").fill("https://example.com");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+  // A reopened dialog starts empty rather than keeping the abandoned draft.
+  await page.getByRole("button", { name: "Add website" }).click();
+  await expect(page.getByRole("dialog").getByLabel("Website URL")).toHaveValue(
+    "",
+  );
+  expect(writes).toBe(0);
+});
+
+test("deleting a website requires confirmation", async ({ page }) => {
+  const profile = await openEditor(page, [], {
+    websites: [{ id: githubID, url: "https://github.com/octocat" }],
+  });
+  let deletions = 0;
+  await page.route("**/api/hub/profile/delete-website", async (route) => {
+    deletions += 1;
+    expect(route.request().headers()["idempotency-key"]).toBeTruthy();
+    expect(route.request().postDataJSON()).toEqual({ id: githubID });
+    profile.websites = [];
+    await route.fulfill({ status: 204 });
+  });
+  const remove = page.getByRole("button", {
+    name: "Delete https://github.com/octocat",
+  });
+  await remove.click();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  expect(deletions).toBe(0);
+  await expect(remove).toBeVisible();
+  await remove.click();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByText("Website removed.")).toBeVisible();
+  await expect(page.getByText("No websites added yet.")).toBeVisible();
+  expect(deletions).toBe(1);
+});
+
+test("the ten-website limit disables adding and is explained", async ({
+  page,
+}) => {
+  const nine = tenWebsites().slice(0, 9);
+  const profile = await openEditor(page, [], { websites: nine });
+  await expect(page.getByRole("button", { name: "Add website" })).toBeEnabled();
+  await expect(
+    page.getByText("You have reached the limit of 10 websites."),
+  ).toHaveCount(0);
+
+  await page.route("**/api/hub/profile/save-website", async (route) => {
+    profile.websites = tenWebsites();
+    await route.fulfill({ status: 204 });
+  });
+  await page.getByRole("button", { name: "Add website" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Website URL").fill("https://site-9.example.test");
+  await dialog.getByRole("button", { name: "Add website" }).click();
+  await expect(page.getByText("Website added.")).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByText("You have reached the limit of 10 websites."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Add website" }),
+  ).toBeDisabled();
+  // Existing entries stay editable at the limit.
+  await expect(
+    page.getByRole("button", { name: "Edit https://site-3.example.test" }),
+  ).toBeEnabled();
+});
+
+test("a failed website save keeps the dialog and the typed address and shows the error", async ({
+  page,
+}) => {
+  await openEditor(page);
+  let attempt = 0;
+  await page.route("**/api/hub/profile/save-website", (route) => {
+    attempt += 1;
+    if (attempt === 1) {
+      return route.fulfill({
+        status: 500,
+        contentType: "application/problem+json",
+        body: JSON.stringify({
+          type: "about:blank",
+          title: "Internal server error",
+          status: 500,
+        }),
+      });
+    }
+    return route.fulfill({
+      status: 409,
+      contentType: "application/problem+json",
+      body: JSON.stringify({
+        type: "vetchium-problem-details/hub-profile-conflict",
+        title: "Hub profile conflict",
+        status: 409,
+        detail: "The profile change conflicts with the current state",
+      }),
+    });
+  });
+  await page.getByRole("button", { name: "Add website" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Website URL").fill("https://example.com/me");
+  await dialog.getByRole("button", { name: "Add website" }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await expect(dialog.getByLabel("Website URL")).toHaveValue(
+    "https://example.com/me",
+  );
+  // A conflict, such as the limit being reached from another browser, gets
+  // its own localized message.
+  await dialog.getByRole("button", { name: "Add website" }).click();
+  await expect(
+    dialog.getByText("This profile changed elsewhere. Refresh and try again."),
+  ).toBeVisible();
+  await expect(dialog).toBeVisible();
+  expect(attempt).toBe(2);
 });

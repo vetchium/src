@@ -20,8 +20,12 @@ type ProfileLongText string
 type ProfileLocation string
 type EducationSupportingText string
 type CredentialURL string
+type WebsiteURL string
 type LanguageTag string
 type LanguageAbility string
+
+// MaxWebsites is the most websites one profile may list.
+const MaxWebsites = 10
 
 const (
 	Speaking LanguageAbility = "speaking"
@@ -76,6 +80,54 @@ func IsCredentialURL(value CredentialURL) bool {
 		u.User == nil && u.Opaque == ""
 }
 
+// websiteURLPattern is mirrored by the hub_websites_url_check constraint and
+// the TypeScript companion: an HTTPS URL whose lowercase host has at least two
+// DNS labels and an optional port, followed by printable ASCII other than
+// space and '#'. That excludes credentials, fragments and non-ASCII text. An
+// IPv4 host matches it too and is refused separately below.
+var websiteURLPattern = regexp.MustCompile(
+	`^https://[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?` +
+		`(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+` +
+		`(:[0-9]{1,5})?(/[!"$-~]*)?$`,
+)
+
+// websiteIPv4HostPattern matches a URL whose host is an IPv4 address. Like a
+// professional domain, a website host is a name, so the address is rejected.
+var websiteIPv4HostPattern = regexp.MustCompile(
+	`^https://[0-9]+(\.[0-9]+){3}(:[0-9]{1,5})?(/|$)`,
+)
+
+// NormalizeWebsiteURL trims the value, lowercases the scheme and host, and
+// drops one trailing slash from a URL without a query, so equal links compare
+// equal. It leaves anything that is not an HTTPS URL for validation to reject.
+func NormalizeWebsiteURL(value WebsiteURL) WebsiteURL {
+	text := strings.TrimSpace(string(value))
+	const scheme = "https://"
+	if len(text) < len(scheme) || !strings.EqualFold(text[:len(scheme)], scheme) {
+		return WebsiteURL(text)
+	}
+	rest := text[len(scheme):]
+	end := strings.IndexAny(rest, "/?#")
+	if end < 0 {
+		end = len(rest)
+	}
+	text = scheme + strings.ToLower(rest[:end]) + rest[end:]
+	if !strings.Contains(text, "?") {
+		text = strings.TrimSuffix(text, "/")
+	}
+	return WebsiteURL(text)
+}
+
+// IsWebsiteURL reports whether the value is already in normalized form.
+func IsWebsiteURL(value WebsiteURL) bool {
+	text := string(value)
+	if len(text) > 2048 || !websiteURLPattern.MatchString(text) ||
+		websiteIPv4HostPattern.MatchString(text) {
+		return false
+	}
+	return strings.Contains(text, "?") || !strings.HasSuffix(text, "/")
+}
+
 func IsLanguageAbility(value LanguageAbility) bool {
 	return value == Speaking || value == Reading || value == Writing
 }
@@ -101,6 +153,11 @@ type Certification struct {
 	CredentialURL CredentialURL  `json:"credential_url"`
 }
 
+type Website struct {
+	ID  ProfileEntryID `json:"id"`
+	URL WebsiteURL     `json:"url"`
+}
+
 type LanguageAbilityEntry struct {
 	Ability     LanguageAbility `json:"ability"`
 	LanguageTag LanguageTag     `json:"language_tag"`
@@ -123,6 +180,7 @@ type PublicProfile struct {
 	ResidentCountry           common.CountryCode         `json:"resident_country"`
 	ProfilePictureURL         *string                    `json:"profile_picture_url,omitempty"`
 	Biography                 *ProfileLongText           `json:"biography,omitempty"`
+	Websites                  []Website                  `json:"websites"`
 	WorkExperiences           []WorkExperience           `json:"work_experiences"`
 	Certifications            []Certification            `json:"certifications"`
 	LanguageAbilities         []LanguageAbilityEntry     `json:"language_abilities"`
@@ -244,6 +302,26 @@ func (r SaveCertificationRequest) Validate() []string {
 	}
 	if !IsCredentialURL(r.CredentialURL) {
 		fields = append(fields, "credential_url")
+	}
+	return fields
+}
+
+type SaveWebsiteRequest struct {
+	ID  *ProfileEntryID `json:"id,omitempty"`
+	URL WebsiteURL      `json:"url"`
+}
+
+func (r *SaveWebsiteRequest) Normalize() {
+	r.URL = NormalizeWebsiteURL(r.URL)
+}
+
+func (r SaveWebsiteRequest) Validate() []string {
+	fields := []string{}
+	if r.ID != nil && !IsProfileEntryID(*r.ID) {
+		fields = append(fields, "id")
+	}
+	if !IsWebsiteURL(r.URL) {
+		fields = append(fields, "url")
 	}
 	return fields
 }

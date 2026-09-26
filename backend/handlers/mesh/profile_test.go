@@ -26,6 +26,8 @@ func TestPublicProfileProjectionExcludesPrivateData(t *testing.T) {
 	row := sqlc.GetHubPublicProfileRow{
 		DisplayName: "Ada", Handle: "abcde-123456789ab",
 		ResidentCountry: "SG",
+		Websites: []byte(`[{"id":"01987aef-1234-7abc-8abc-123456789abd",` +
+			`"url":"https://github.com/ada"}]`),
 		WorkExperiences: []byte(`[{"id":"01987aef-1234-7abc-8abc-123456789abc",` +
 			`"employer_domain":"example.com","job_title":"Engineer",` +
 			`"start_month":"2020-06"}]`),
@@ -35,7 +37,9 @@ func TestPublicProfileProjectionExcludesPrivateData(t *testing.T) {
 	}
 	profile, err := publicProfileFromRow(context.Background(), row, nil)
 	if err != nil || len(profile.WorkExperiences) != 1 ||
-		profile.WorkExperiences[0].StartMonth != "2020-06" {
+		profile.WorkExperiences[0].StartMonth != "2020-06" ||
+		len(profile.Websites) != 1 ||
+		profile.Websites[0].URL != "https://github.com/ada" {
 		t.Fatalf("projection = %+v, %v", profile, err)
 	}
 	encoded, err := json.Marshal(profile)

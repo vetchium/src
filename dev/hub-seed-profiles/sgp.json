@@ -25,6 +25,9 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "writing", "languageTag": "en" }
+      ],
+      "websites": [
+        "https://www.linkedin.com/in/wei-tan"
       ]
     },
     {
@@ -70,6 +73,11 @@
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "ta" },
         { "ability": "writing", "languageTag": "en" }
+      ],
+      "websites": [
+        "https://github.com/priya-ramachandran",
+        "https://www.linkedin.com/in/priya-ramachandran",
+        "https://priya-ramachandran.example.com"
       ]
     },
     {
@@ -97,6 +105,10 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "ms" }
+      ],
+      "websites": [
+        "https://x.com/siti",
+        "https://siti-yusof.example.dev/blog"
       ]
     },
     {
@@ -142,6 +154,11 @@
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "ta" },
         { "ability": "reading", "languageTag": "zh" }
+      ],
+      "websites": [
+        "https://github.com/arun-pillai",
+        "https://www.linkedin.com/in/arun-pillai",
+        "https://arun-pillai.example.com"
       ]
     },
     {
@@ -169,6 +186,9 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "zh" }
+      ],
+      "websites": [
+        "https://www.linkedin.com/in/meiling-ong"
       ]
     },
     {
@@ -213,6 +233,11 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "ms" }
+      ],
+      "websites": [
+        "https://github.com/faizal-rahman",
+        "https://www.linkedin.com/in/faizal-rahman",
+        "https://faizal-rahman.example.com"
       ]
     },
     {
@@ -291,6 +316,11 @@
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "ta" },
         { "ability": "writing", "languageTag": "ta" }
+      ],
+      "websites": [
+        "https://github.com/kavitha-suresh",
+        "https://www.linkedin.com/in/kavitha-suresh",
+        "https://kavitha-suresh.example.com"
       ]
     }
   ]

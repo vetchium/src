@@ -224,6 +224,7 @@ func publicProfileFromRow(
 		data   []byte
 		target any
 	}{
+		{"websites", row.Websites, &result.Websites},
 		{"work experiences", row.WorkExperiences, &result.WorkExperiences},
 		{"certifications", row.Certifications, &result.Certifications},
 		{"language abilities", row.LanguageAbilities, &result.LanguageAbilities},

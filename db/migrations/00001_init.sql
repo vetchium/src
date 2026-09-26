@@ -397,6 +397,32 @@ CREATE TABLE vetchium.hub_certifications (
     )
 );
 
+CREATE TABLE vetchium.hub_websites (
+    website_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
+        ON DELETE CASCADE,
+    website_url text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    -- The API stores the normalized form (lowercase scheme and host, no
+    -- trailing slash without a query), so this uniqueness is per profile link.
+    CONSTRAINT hub_websites_user_url_key UNIQUE (hub_user_did, website_url),
+    CONSTRAINT hub_websites_url_check CHECK (
+        char_length(website_url) BETWEEN 11 AND 2048 AND
+        website_url ~ (
+            '^https://[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?' ||
+            '(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+' ||
+            '(:[0-9]{1,5})?(/[^#[:space:]]*)?$'
+        ) AND
+        website_url !~ '[^ -~]' AND
+        website_url !~ '^[^?]*/$' AND
+        website_url !~ '^https://[0-9]+(\.[0-9]+){3}(:[0-9]{1,5})?(/|$)'
+    ),
+    CONSTRAINT hub_websites_timestamps_check CHECK (
+        updated_at >= created_at
+    )
+);
+
 CREATE TYPE vetchium.hub_language_ability_kind AS ENUM (
     'speaking',
     'reading',
@@ -505,6 +531,10 @@ FOR EACH ROW EXECUTE FUNCTION vetchium.enforce_hub_profile_entry_limit('50');
 CREATE TRIGGER hub_certifications_limit
 BEFORE INSERT ON vetchium.hub_certifications
 FOR EACH ROW EXECUTE FUNCTION vetchium.enforce_hub_profile_entry_limit('50');
+
+CREATE TRIGGER hub_websites_limit
+BEFORE INSERT ON vetchium.hub_websites
+FOR EACH ROW EXECUTE FUNCTION vetchium.enforce_hub_profile_entry_limit('10');
 
 CREATE TRIGGER hub_language_abilities_limit
 BEFORE INSERT ON vetchium.hub_language_abilities
@@ -1142,6 +1172,7 @@ DROP TABLE IF EXISTS vetchium.hub_sessions;
 DROP TABLE IF EXISTS vetchium.hub_educational_qualifications;
 DROP TABLE IF EXISTS vetchium.hub_language_abilities;
 DROP TYPE IF EXISTS vetchium.hub_language_ability_kind;
+DROP TABLE IF EXISTS vetchium.hub_websites;
 DROP TABLE IF EXISTS vetchium.hub_certifications;
 DROP TABLE IF EXISTS vetchium.hub_work_experiences;
 DROP TABLE IF EXISTS vetchium.hub_professional_email_challenges;

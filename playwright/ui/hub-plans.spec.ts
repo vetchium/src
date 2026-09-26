@@ -644,6 +644,7 @@ const emptyProfile: PublicProfile = {
   display_name: "Example Person",
   handle,
   resident_country: "SG",
+  websites: [],
   work_experiences: [],
   educational_qualifications: [],
   certifications: [],

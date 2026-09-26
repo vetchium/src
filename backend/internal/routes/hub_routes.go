@@ -100,6 +100,10 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(hubprofile.SaveCertification(s)))
 	mux.Handle("POST /api/hub/profile/delete-certification",
 		hubAuth(hubprofile.DeleteCertification(s)))
+	mux.Handle("POST /api/hub/profile/save-website",
+		hubAuth(hubprofile.SaveWebsite(s)))
+	mux.Handle("POST /api/hub/profile/delete-website",
+		hubAuth(hubprofile.DeleteWebsite(s)))
 	mux.Handle("POST /api/hub/profile/add-language",
 		hubAuth(hubprofile.AddLanguageAbility(s)))
 	mux.Handle("POST /api/hub/profile/delete-language",

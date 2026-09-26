@@ -44,6 +44,14 @@ scalar EducationSupportingText extends string;
 @maxLength(2048)
 scalar CredentialURL extends string;
 
+/**
+ * A normalized absolute HTTPS URL: lowercase host of at least two DNS labels,
+ * optional port, no credentials, no fragment, and no trailing slash unless it
+ * has a query.
+ */
+@maxLength(2048)
+scalar WebsiteURL extends string;
+
 /** A canonical, language-only BCP 47 tag from the supported living catalog. */
 @pattern("^[a-z]{2,3}$")
 scalar LanguageTag extends string;
@@ -70,6 +78,11 @@ model Certification {
   credential_url: CredentialURL;
 }
 
+model Website {
+  id: ProfileEntryID;
+  url: WebsiteURL;
+}
+
 model LanguageAbilityEntry {
   ability: LanguageAbility;
   language_tag: LanguageTag;
@@ -93,6 +106,9 @@ model PublicProfile {
   resident_country: Vetchium.CountryCode;
   profile_picture_url?: url;
   biography?: ProfileLongText;
+
+  @maxItems(10)
+  websites: Website[];
 
   @maxItems(50)
   work_experiences: WorkExperience[];
@@ -134,6 +150,13 @@ model SaveCertificationRequest {
   id?: ProfileEntryID;
   title: ProfileTitle;
   credential_url: CredentialURL;
+}
+
+model SaveWebsiteRequest {
+  /** Omit to create; supply an owned id to update. */
+  id?: ProfileEntryID;
+
+  url: WebsiteURL;
 }
 
 model SaveEducationalQualificationRequest {
@@ -229,6 +252,22 @@ interface PublicProfileOperations {
   @post
   @useAuth(BearerAuth)
   deleteCertification(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: DeleteProfileEntryRequest,
+  ): ProfileEntryWriteResult;
+
+  @route("/save-website")
+  @post
+  @useAuth(BearerAuth)
+  saveWebsite(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: SaveWebsiteRequest,
+  ): ProfileEntryWriteResult;
+
+  @route("/delete-website")
+  @post
+  @useAuth(BearerAuth)
+  deleteWebsite(
     @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
     @body request: DeleteProfileEntryRequest,
   ): ProfileEntryWriteResult;

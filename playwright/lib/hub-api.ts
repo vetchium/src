@@ -14,6 +14,7 @@ import type {
   ReadProfileRequest,
   SaveCertificationRequest,
   SaveEducationalQualificationRequest,
+  SaveWebsiteRequest,
   SaveWorkExperienceRequest,
   SetPublicFieldsRequest,
 } from "typespec/hub/profile/public";
@@ -156,6 +157,20 @@ export class HubAPI {
     options: ProfileMutationOptions,
   ): Promise<APIResponse> {
     return this.post("/profile/delete-certification", body, options);
+  }
+
+  saveWebsite(
+    body: SaveWebsiteRequest,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    return this.post("/profile/save-website", body, options);
+  }
+
+  deleteWebsite(
+    body: DeleteProfileEntryRequest,
+    options: ProfileMutationOptions,
+  ): Promise<APIResponse> {
+    return this.post("/profile/delete-website", body, options);
   }
 
   saveEducation(

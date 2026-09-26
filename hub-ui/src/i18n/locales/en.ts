@@ -183,6 +183,7 @@ export const en = {
     residentCountryHelp:
       "Shown on your profile. Changing it does not move your account or change your job-search countries.",
     residentCountrySaved: "Your resident country was saved.",
+    sectionIdentity: "About you",
     sectionBackground: "Background",
     viewPublicProfile: "View my profile",
     shareQr: "Share via QR code",
@@ -285,6 +286,42 @@ export const en = {
         "Enter a valid HTTPS URL with no username, password, or fragment.",
     },
   },
+  profileWebsites: {
+    title: "Websites",
+    description:
+      "Links to your code, writing, or professional profiles, such as GitHub, LinkedIn, X, or your own site. They appear under your biography.",
+    disclaimer:
+      "These are links you provide. Vetchium does not verify that you own them.",
+    add: "Add website",
+    addTitle: "Add website",
+    editTitle: "Edit website",
+    editEntry: "Edit {{url}}",
+    deleteEntry: "Delete {{url}}",
+    cancel: "Cancel",
+    delete: "Delete",
+    confirmDelete: "Delete this website?",
+    empty: "No websites added yet.",
+    loading: "Loading websites",
+    added: "Website added.",
+    updated: "Website updated.",
+    removed: "Website removed.",
+    limitReached: "You have reached the limit of {{limit}} websites.",
+    fields: {
+      url: "Website URL",
+    },
+    placeholder: "https://github.com/your-name",
+    help: "Use the full address, starting with https://.",
+    validation: {
+      url: "Enter a valid HTTPS address, such as https://example.com, with no username, password, or fragment.",
+      duplicate: "You have already added this website.",
+    },
+    kinds: {
+      github: "GitHub",
+      gitlab: "GitLab",
+      linkedin: "LinkedIn",
+      x: "X",
+    },
+  },
   profileEducation: {
     title: "Education",
     add: "Add qualification",
@@ -378,6 +415,7 @@ export const en = {
     educationTitle: "Education",
     certificationsTitle: "Certifications",
     languagesTitle: "Languages",
+    websitesLabel: "Websites",
     empty: "Nothing shared yet.",
     present: "Present",
     unknown: "Unknown",

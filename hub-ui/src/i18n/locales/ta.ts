@@ -184,6 +184,7 @@ export const ta = {
     residentCountryHelp:
       "உங்கள் சுயவிவரத்தில் காட்டப்படும். இதை மாற்றுவது உங்கள் கணக்கையோ வேலை தேடும் நாடுகளையோ மாற்றாது.",
     residentCountrySaved: "நீங்கள் வசிக்கும் நாடு சேமிக்கப்பட்டது.",
+    sectionIdentity: "உங்களைப் பற்றி",
     sectionBackground: "பணி வரலாறு",
     viewPublicProfile: "என் சுயவிவரத்தைப் பார்",
     shareQr: "QR குறியீடு மூலம் பகிர்",
@@ -288,6 +289,42 @@ export const ta = {
         "பயனர்பெயர், கடவுச்சொல் அல்லது துண்டு (fragment) இல்லாத சரியான HTTPS URL-ஐ உள்ளிடவும்.",
     },
   },
+  profileWebsites: {
+    title: "இணையதளங்கள்",
+    description:
+      "GitHub, LinkedIn, X அல்லது உங்கள் சொந்த தளம் போன்ற, உங்கள் பணி, எழுத்து அல்லது தொழில்முறை சுயவிவரங்களுக்கான இணைப்புகள். இவை உங்கள் சுயவிவரக் குறிப்பின் கீழே தோன்றும்.",
+    disclaimer:
+      "இவை நீங்கள் அளிக்கும் இணைப்புகள். இவை உங்களுடையவை என்பதை Vetchium சரிபார்க்காது.",
+    add: "இணையதளத்தைச் சேர்",
+    addTitle: "இணையதளத்தைச் சேர்",
+    editTitle: "இணையதளத்தைத் திருத்து",
+    editEntry: "{{url}} ஐத் திருத்து",
+    deleteEntry: "{{url}} ஐ நீக்கு",
+    cancel: "ரத்துசெய்",
+    delete: "நீக்கு",
+    confirmDelete: "இந்த இணையதளத்தை நீக்கவா?",
+    empty: "இன்னும் இணையதளங்கள் சேர்க்கப்படவில்லை.",
+    loading: "இணையதளங்கள் ஏற்றப்படுகின்றன",
+    added: "இணையதளம் சேர்க்கப்பட்டது.",
+    updated: "இணையதளம் புதுப்பிக்கப்பட்டது.",
+    removed: "இணையதளம் அகற்றப்பட்டது.",
+    limitReached: "{{limit}} இணையதளங்களின் வரம்பை அடைந்துவிட்டீர்கள்.",
+    fields: {
+      url: "இணையதள URL",
+    },
+    placeholder: "https://github.com/your-name",
+    help: "https:// உடன் தொடங்கும் முழு முகவரியைப் பயன்படுத்தவும்.",
+    validation: {
+      url: "பயனர்பெயர், கடவுச்சொல் அல்லது துண்டு (fragment) இல்லாத, https://example.com போன்ற சரியான HTTPS முகவரியை உள்ளிடவும்.",
+      duplicate: "இந்த இணையதளத்தை ஏற்கெனவே சேர்த்துவிட்டீர்கள்.",
+    },
+    kinds: {
+      github: "GitHub",
+      gitlab: "GitLab",
+      linkedin: "LinkedIn",
+      x: "X",
+    },
+  },
   profileEducation: {
     title: "கல்வி",
     add: "தகுதியைச் சேர்",
@@ -382,6 +419,7 @@ export const ta = {
     educationTitle: "கல்வி",
     certificationsTitle: "சான்றிதழ்கள்",
     languagesTitle: "மொழிகள்",
+    websitesLabel: "இணையதளங்கள்",
     empty: "இன்னும் எதுவும் பகிரப்படவில்லை.",
     present: "தற்போது",
     unknown: "தெரியவில்லை",

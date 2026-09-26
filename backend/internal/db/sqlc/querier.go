@@ -67,6 +67,7 @@ type Querier interface {
 	// happened, and repeated rows are what makes probing visible to an operator.
 	CreateHubSignupRequest(ctx context.Context, arg CreateHubSignupRequestParams) (string, error)
 	CreateHubTOTPEnrollment(ctx context.Context, arg CreateHubTOTPEnrollmentParams) (CreateHubTOTPEnrollmentRow, error)
+	CreateHubWebsite(ctx context.Context, arg CreateHubWebsiteParams) (CreateHubWebsiteRow, error)
 	CreateHubWorkExperience(ctx context.Context, arg CreateHubWorkExperienceParams) (CreateHubWorkExperienceRow, error)
 	CreateIdempotency(ctx context.Context, arg CreateIdempotencyParams) error
 	CreateProvisioningHubUser(ctx context.Context, arg CreateProvisioningHubUserParams) (CreateProvisioningHubUserRow, error)
@@ -78,6 +79,7 @@ type Querier interface {
 	DeleteHubLanguageAbility(ctx context.Context, arg DeleteHubLanguageAbilityParams) (DeleteHubLanguageAbilityRow, error)
 	DeleteHubProfessionalEmail(ctx context.Context, arg DeleteHubProfessionalEmailParams) (pgtype.UUID, error)
 	DeleteHubSessionByTokenHash(ctx context.Context, arg DeleteHubSessionByTokenHashParams) error
+	DeleteHubWebsite(ctx context.Context, arg DeleteHubWebsiteParams) (DeleteHubWebsiteRow, error)
 	DeleteHubWorkExperience(ctx context.Context, arg DeleteHubWorkExperienceParams) (DeleteHubWorkExperienceRow, error)
 	DeleteIdempotency(ctx context.Context, arg DeleteIdempotencyParams) error
 	DisableAdminTOTP(ctx context.Context, arg DisableAdminTOTPParams) (bool, error)
@@ -217,6 +219,7 @@ type Querier interface {
 	UpdateHubCertification(ctx context.Context, arg UpdateHubCertificationParams) (UpdateHubCertificationRow, error)
 	UpdateHubEducationalQualification(ctx context.Context, arg UpdateHubEducationalQualificationParams) (UpdateHubEducationalQualificationRow, error)
 	UpdateHubSignupDomain(ctx context.Context, arg UpdateHubSignupDomainParams) (UpdateHubSignupDomainRow, error)
+	UpdateHubWebsite(ctx context.Context, arg UpdateHubWebsiteParams) (UpdateHubWebsiteRow, error)
 	UpdateHubWorkExperience(ctx context.Context, arg UpdateHubWorkExperienceParams) (UpdateHubWorkExperienceRow, error)
 	VerifyHubProfessionalEmailChallenge(ctx context.Context, arg VerifyHubProfessionalEmailChallengeParams) (VerifyHubProfessionalEmailChallengeRow, error)
 }

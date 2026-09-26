@@ -42,6 +42,7 @@ import {
   useMyInfoQuery,
   usePublicProfileQuery,
 } from "../features/profile/queries";
+import { WebsiteLink } from "../features/profile/WebsiteLink";
 import { countryOptions } from "../i18n/countries";
 
 const abilities: readonly LanguageAbility[] = [Speaking, Reading, Writing];
@@ -240,6 +241,26 @@ function ProfileContents({ profile }: { profile: PublicProfile }) {
               >
                 {profile.biography}
               </Typography.Paragraph>
+            ) : null}
+            {/* PROF-WEB-008: contact points sit with the identity, under the
+                biography. */}
+            {profile.websites.length > 0 ? (
+              <Flex
+                component="ul"
+                wrap
+                gap="4px 16px"
+                aria-label={t("profileView.websitesLabel")}
+                style={{ listStyle: "none", margin: 0, padding: 0 }}
+              >
+                {profile.websites.map((website) => (
+                  <li
+                    key={website.id}
+                    style={{ minWidth: 0, overflowWrap: "anywhere" }}
+                  >
+                    <WebsiteLink url={website.url} />
+                  </li>
+                ))}
+              </Flex>
             ) : null}
           </Flex>
         </Flex>

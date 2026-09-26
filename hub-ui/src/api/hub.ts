@@ -54,6 +54,7 @@ import type {
   ReadProfileRequest,
   SaveCertificationRequest,
   SaveEducationalQualificationRequest,
+  SaveWebsiteRequest,
   SaveWorkExperienceRequest,
   SetPublicFieldsRequest,
 } from "typespec/hub/profile/public";
@@ -188,6 +189,19 @@ export const hubAPI = {
     idempotencyKey: IdempotencyKey,
   ) =>
     apiRequest<void>(`${base}/profile/delete-certification`, {
+      body,
+      idempotencyKey,
+    }),
+  saveWebsite: (body: SaveWebsiteRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<void>(`${base}/profile/save-website`, {
+      body,
+      idempotencyKey,
+    }),
+  deleteWebsite: (
+    body: DeleteProfileEntryRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>(`${base}/profile/delete-website`, {
       body,
       idempotencyKey,
     }),

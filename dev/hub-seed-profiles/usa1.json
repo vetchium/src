@@ -25,6 +25,9 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "writing", "languageTag": "en" }
+      ],
+      "websites": [
+        "https://www.linkedin.com/in/emily-johnson"
       ]
     },
     {
@@ -69,6 +72,11 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "writing", "languageTag": "en" }
+      ],
+      "websites": [
+        "https://github.com/marcus-reed",
+        "https://www.linkedin.com/in/marcus-reed",
+        "https://marcus-reed.example.com"
       ]
     },
     {
@@ -96,6 +104,10 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "es" }
+      ],
+      "websites": [
+        "https://x.com/sofia",
+        "https://sofia-martinez.example.dev/blog"
       ]
     },
     {
@@ -146,6 +158,11 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "zh" }
+      ],
+      "websites": [
+        "https://github.com/david-chen",
+        "https://www.linkedin.com/in/david-chen",
+        "https://david-chen.example.com"
       ]
     },
     {
@@ -170,7 +187,10 @@
           "endMonth": "2022-05"
         }
       ],
-      "languages": [{ "ability": "speaking", "languageTag": "en" }]
+      "languages": [{ "ability": "speaking", "languageTag": "en" }],
+      "websites": [
+        "https://www.linkedin.com/in/ashley-williams"
+      ]
     },
     {
       "email": "brian.oconnor@usa1.example",
@@ -211,7 +231,12 @@
           "endMonth": "2007-05"
         }
       ],
-      "languages": [{ "ability": "speaking", "languageTag": "en" }]
+      "languages": [{ "ability": "speaking", "languageTag": "en" }],
+      "websites": [
+        "https://github.com/brian-oconnor",
+        "https://www.linkedin.com/in/brian-oconnor",
+        "https://brian-oconnor.example.com"
+      ]
     },
     {
       "email": "natasha.brooks@usa1.example",
@@ -285,6 +310,11 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "hi" }
+      ],
+      "websites": [
+        "https://github.com/kevin-patel",
+        "https://www.linkedin.com/in/kevin-patel",
+        "https://kevin-patel.example.com"
       ]
     }
   ]

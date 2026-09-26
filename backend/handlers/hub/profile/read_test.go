@@ -244,6 +244,8 @@ func TestReadSuccessReturnsOnlyPermittedFields(t *testing.T) {
 		`"resident_country":"SG",` +
 		`"profile_picture_url":"https://media.sgp.vetchium.com/pic",` +
 		`"biography":"Mathematician",` +
+		`"websites":[{"id":"01987aef-1234-7abc-8abc-123456789abc",` +
+		`"url":"https://github.com/ada"}],` +
 		`"work_experiences":[],` +
 		`"certifications":[],` +
 		`"language_abilities":[],` +
@@ -272,8 +274,9 @@ func TestReadSuccessReturnsOnlyPermittedFields(t *testing.T) {
 	permitted := map[string]bool{
 		"display_name": true, "handle": true, "profile_alias": true,
 		"resident_country": true, "profile_picture_url": true,
-		"biography": true, "work_experiences": true, "certifications": true,
-		"language_abilities": true, "educational_qualifications": true,
+		"biography": true, "websites": true, "work_experiences": true,
+		"certifications": true, "language_abilities": true,
+		"educational_qualifications": true,
 	}
 	for key := range wire {
 		if !permitted[key] {

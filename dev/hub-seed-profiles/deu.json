@@ -25,6 +25,9 @@
       "languages": [
         { "ability": "speaking", "languageTag": "de" },
         { "ability": "writing", "languageTag": "de" }
+      ],
+      "websites": [
+        "https://www.linkedin.com/in/lukas-mueller"
       ]
     },
     {
@@ -69,6 +72,11 @@
       "languages": [
         { "ability": "speaking", "languageTag": "de" },
         { "ability": "speaking", "languageTag": "en" }
+      ],
+      "websites": [
+        "https://github.com/anna-schmidt",
+        "https://www.linkedin.com/in/anna-schmidt",
+        "https://anna-schmidt.example.com"
       ]
     },
     {
@@ -93,7 +101,11 @@
           "endMonth": "2022-03"
         }
       ],
-      "languages": [{ "ability": "speaking", "languageTag": "de" }]
+      "languages": [{ "ability": "speaking", "languageTag": "de" }],
+      "websites": [
+        "https://x.com/jonas",
+        "https://jonas-weber.example.dev/blog"
+      ]
     },
     {
       "email": "laura.fischer@deu.example",
@@ -143,6 +155,11 @@
       "languages": [
         { "ability": "speaking", "languageTag": "de" },
         { "ability": "speaking", "languageTag": "en" }
+      ],
+      "websites": [
+        "https://github.com/laura-fischer",
+        "https://www.linkedin.com/in/laura-fischer",
+        "https://laura-fischer.example.com"
       ]
     },
     {
@@ -170,6 +187,9 @@
       "languages": [
         { "ability": "speaking", "languageTag": "de" },
         { "ability": "speaking", "languageTag": "en" }
+      ],
+      "websites": [
+        "https://www.linkedin.com/in/max-schneider"
       ]
     },
     {
@@ -205,7 +225,12 @@
           "endMonth": "2008-12"
         }
       ],
-      "languages": [{ "ability": "speaking", "languageTag": "de" }]
+      "languages": [{ "ability": "speaking", "languageTag": "de" }],
+      "websites": [
+        "https://github.com/hannah-becker",
+        "https://www.linkedin.com/in/hannah-becker",
+        "https://hannah-becker.example.com"
+      ]
     },
     {
       "email": "felix.wagner@deu.example",
@@ -276,6 +301,11 @@
       "languages": [
         { "ability": "speaking", "languageTag": "de" },
         { "ability": "speaking", "languageTag": "en" }
+      ],
+      "websites": [
+        "https://github.com/sophie-hoffmann",
+        "https://www.linkedin.com/in/sophie-hoffmann",
+        "https://sophie-hoffmann.example.com"
       ]
     }
   ]

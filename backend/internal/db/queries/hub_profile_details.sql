@@ -8,6 +8,7 @@ SELECT
     u.profile_version,
     picture.object_id AS profile_picture_object_id,
     COALESCE(picture.format::text, '')::text AS profile_picture_format,
+    COALESCE(websites.items, '[]'::jsonb) AS websites,
     COALESCE(work.items, '[]'::jsonb) AS work_experiences,
     COALESCE(certifications.items, '[]'::jsonb) AS certifications,
     COALESCE(languages.items, '[]'::jsonb) AS language_abilities,
@@ -18,6 +19,14 @@ LEFT JOIN LATERAL (
     FROM vetchium.hub_profile_picture_objects AS p
     WHERE p.hub_user_did = u.hub_user_did AND p.state = 'active'
 ) AS picture ON true
+LEFT JOIN LATERAL (
+    SELECT jsonb_agg(
+        jsonb_build_object('id', s.website_id, 'url', s.website_url)
+        ORDER BY s.created_at, s.website_id
+    ) AS items
+    FROM vetchium.hub_websites AS s
+    WHERE s.hub_user_did = u.hub_user_did
+) AS websites ON true
 LEFT JOIN LATERAL (
     SELECT jsonb_agg(
         jsonb_build_object(
@@ -420,6 +429,135 @@ WITH deleted AS (
     FROM deleted CROSS JOIN versioned
 )
 SELECT deleted.certification_id, versioned.profile_version
+FROM deleted CROSS JOIN versioned;
+
+-- name: CreateHubWebsite :one
+WITH owner AS (
+    SELECT u.hub_user_did FROM vetchium.hub_users AS u
+    WHERE u.hub_user_did = sqlc.arg(hub_user_did)
+      AND u.hub_user_state = 'active'
+    FOR UPDATE
+), inserted AS (
+    INSERT INTO vetchium.hub_websites (website_id, hub_user_did, website_url)
+    SELECT sqlc.arg(website_id), owner.hub_user_did, sqlc.arg(website_url)
+    FROM owner
+    WHERE (SELECT count(*) FROM vetchium.hub_websites AS existing
+           WHERE existing.hub_user_did = owner.hub_user_did) < 10
+    ON CONFLICT (hub_user_did, website_url) DO NOTHING
+    RETURNING website_id, hub_user_did, website_url, created_at, updated_at
+), versioned AS (
+    UPDATE vetchium.hub_users AS u
+    SET profile_version = profile_version + 1, updated_at = now()
+    WHERE u.hub_user_did = (SELECT hub_user_did FROM inserted)
+    RETURNING profile_version
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'hub.profile.website-created',
+        'hub_website', website_id::text, 'hub_user',
+        hub_user_did::text, 'hub-api', sqlc.arg(idempotency_key),
+        jsonb_build_object(
+            'schema_version', 1, 'profile_version', versioned.profile_version,
+            'host', split_part(website_url, '/', 3),
+            'website_url_sha256', encode(
+                sha256(convert_to(website_url, 'UTF8')), 'hex'
+            )
+        )
+    FROM inserted CROSS JOIN versioned
+)
+SELECT inserted.website_id, inserted.hub_user_did, inserted.website_url,
+    inserted.created_at, inserted.updated_at, versioned.profile_version
+FROM inserted CROSS JOIN versioned;
+
+-- name: UpdateHubWebsite :one
+WITH owner AS (
+    SELECT u.hub_user_did FROM vetchium.hub_users AS u
+    WHERE u.hub_user_did = sqlc.arg(hub_user_did)
+      AND u.hub_user_state = 'active'
+    FOR UPDATE
+), previous AS (
+    SELECT s.website_id, s.website_url
+    FROM vetchium.hub_websites AS s
+    JOIN owner USING (hub_user_did)
+    WHERE s.website_id = sqlc.arg(website_id)
+    FOR UPDATE OF s
+), updated AS (
+    UPDATE vetchium.hub_websites AS s
+    SET website_url = sqlc.arg(website_url), updated_at = now()
+    FROM previous
+    WHERE s.website_id = previous.website_id
+      AND NOT EXISTS (
+          SELECT 1 FROM vetchium.hub_websites AS other
+          WHERE other.hub_user_did = s.hub_user_did
+            AND other.website_url = sqlc.arg(website_url)
+            AND other.website_id <> s.website_id
+      )
+    RETURNING s.website_id, s.hub_user_did, s.website_url, s.created_at,
+        s.updated_at,
+        jsonb_build_object(
+            'website_url', previous.website_url IS DISTINCT FROM s.website_url
+        ) AS field_changes
+), versioned AS (
+    UPDATE vetchium.hub_users AS u
+    SET profile_version = profile_version + 1, updated_at = now()
+    WHERE u.hub_user_did = (SELECT hub_user_did FROM updated)
+    RETURNING profile_version
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'hub.profile.website-updated',
+        'hub_website', website_id::text, 'hub_user',
+        hub_user_did::text, 'hub-api', sqlc.arg(idempotency_key),
+        jsonb_build_object(
+            'schema_version', 1, 'field_changes', updated.field_changes,
+            'profile_version', versioned.profile_version,
+            'host', split_part(website_url, '/', 3)
+        )
+    FROM updated CROSS JOIN versioned
+)
+SELECT updated.website_id, updated.hub_user_did, updated.website_url,
+    updated.created_at, updated.updated_at, versioned.profile_version
+FROM updated CROSS JOIN versioned;
+
+-- name: DeleteHubWebsite :one
+WITH deleted AS (
+    DELETE FROM vetchium.hub_websites AS s
+    WHERE s.website_id = sqlc.arg(website_id)
+      AND s.hub_user_did = sqlc.arg(hub_user_did)
+      AND EXISTS (
+          SELECT 1 FROM vetchium.hub_users AS u
+          WHERE u.hub_user_did = sqlc.arg(hub_user_did)
+            AND u.hub_user_state = 'active'
+          FOR UPDATE
+      )
+    RETURNING website_id, hub_user_did, website_url
+), versioned AS (
+    UPDATE vetchium.hub_users AS u
+    SET profile_version = profile_version + 1, updated_at = now()
+    WHERE u.hub_user_did = (SELECT hub_user_did FROM deleted)
+    RETURNING profile_version
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'hub.profile.website-deleted',
+        'hub_website', website_id::text, 'hub_user',
+        hub_user_did::text, 'hub-api', sqlc.arg(idempotency_key),
+        jsonb_build_object(
+            'schema_version', 1, 'profile_version', versioned.profile_version,
+            'host', split_part(website_url, '/', 3),
+            'website_url_sha256', encode(
+                sha256(convert_to(website_url, 'UTF8')), 'hex'
+            )
+        )
+    FROM deleted CROSS JOIN versioned
+)
+SELECT deleted.website_id, versioned.profile_version
 FROM deleted CROSS JOIN versioned;
 
 -- name: AddHubLanguageAbility :one

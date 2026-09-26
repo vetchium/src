@@ -41,6 +41,9 @@ type hubUserFixture struct {
 	Education      []educationFixture       `json:"education,omitempty"`
 	Certifications []certificationFixture   `json:"certifications,omitempty"`
 	Languages      []languageAbilityFixture `json:"languages,omitempty"`
+
+	// Websites are normalized HTTPS URLs, listed in the order they are added.
+	Websites []string `json:"websites,omitempty"`
 }
 
 type workExperienceFixture struct {
@@ -145,6 +148,26 @@ func validateHubUserFixture(user hubUserFixture) error {
 		if err := validateLanguageFixture(entry); err != nil {
 			return fmt.Errorf("language %q: %w", entry.LanguageTag, err)
 		}
+	}
+	return validateWebsiteFixtures(user.Websites)
+}
+
+func validateWebsiteFixtures(websites []string) error {
+	if len(websites) > hubprofile.MaxWebsites {
+		return fmt.Errorf(
+			"%d websites exceed the limit of %d",
+			len(websites), hubprofile.MaxWebsites,
+		)
+	}
+	seen := make(map[string]struct{}, len(websites))
+	for _, website := range websites {
+		if !hubprofile.IsWebsiteURL(hubprofile.WebsiteURL(website)) {
+			return fmt.Errorf("invalid website %q", website)
+		}
+		if _, exists := seen[website]; exists {
+			return fmt.Errorf("duplicate website %q", website)
+		}
+		seen[website] = struct{}{}
 	}
 	return nil
 }

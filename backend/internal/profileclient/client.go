@@ -118,6 +118,7 @@ func (c *Client) read(
 			return Outcome{}, err
 		}
 		if !hubspec.IsHubHandle(profile.Handle) ||
+			profile.Websites == nil ||
 			profile.WorkExperiences == nil ||
 			profile.Certifications == nil ||
 			profile.LanguageAbilities == nil ||

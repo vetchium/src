@@ -32,8 +32,8 @@ they appear in bold.
   in the same local database transaction as the change.
 - **PROF-GEN-005:** An authenticated Hub profile view **MUST** contain only the
   user's display name, permanent handle, active alias if any, resident country,
-  profile picture if any, biography, work experience, certifications,
-  language abilities, and educational qualifications.
+  profile picture if any, biography, websites, work experience,
+  certifications, language abilities, and educational qualifications.
 - **PROF-GEN-006:** A profile view **MUST NOT** expose an account email, a work
   email address or verification evidence, a Hub user DID, job preferences,
   subscription details, or security details.
@@ -44,7 +44,7 @@ they appear in bold.
   preserved.
 - **PROF-GEN-009:** Character limits **MUST** count Unicode code points, not
   encoded bytes, and **MUST** be enforced by the authoritative API.
-- **PROF-GEN-010:** Live work-email, work-experience, certification,
+- **PROF-GEN-010:** Live work-email, website, work-experience, certification,
   language-ability, and education records **MUST** be hard-deleted when the
   owner deletes them. Audit records **MAY** retain only a minimal,
   non-sensitive summary required for accountability.
@@ -267,7 +267,47 @@ they appear in bold.
   order, and fully undated entries. A stable identifier **MUST** be the final
   deterministic tie-breaker in every group.
 
-## 13. Global directory and federated reads
+## 13. Websites
+
+- **PROF-WEB-001:** An owner **MUST** be able to add, update, and delete
+  website links, such as a code-hosting profile, a social or professional
+  network profile, or a personal site. Websites are public profile fields.
+- **PROF-WEB-002:** Each website **MUST** be a single absolute HTTPS URL of at
+  most 2,048 ASCII characters. Its host **MUST** be a lowercase name of at
+  least two labels that follow the label rules of PROF-DOM-003, with an
+  optional port. An IPv4 address is not a name and **MUST** be rejected. It **MUST NOT** contain credentials, user information, or a
+  fragment. A non-ASCII host **MUST** be supplied in Punycode and non-ASCII
+  path or query text in percent-encoded form.
+- **PROF-WEB-003:** Before validation and storage, the URL **MUST** be trimmed,
+  its scheme and host converted to lowercase, and one trailing slash removed
+  from the path when the URL has no query. The stored value is the normalized
+  value.
+- **PROF-WEB-004:** A user **MUST NOT** have more than 10 websites or two
+  websites with the same normalized URL. Both limits **MUST** hold under
+  concurrent requests. A save that would break either **MUST** be rejected as a
+  profile conflict without changing any state.
+- **PROF-WEB-005:** Websites **MUST** be shown oldest-created first, with a
+  stable identifier as the final deterministic tie-breaker. Users do not define
+  an order.
+- **PROF-WEB-006:** Clients **MAY** derive a presentation kind from the host
+  alone. A host equal to `github.com`, `gitlab.com`, `linkedin.com`, `x.com`,
+  or `twitter.com`, with or without a leading `www.`, has a known kind that
+  selects its icon and display name; any other host is a generic website shown
+  by its host name. The kind is not stored or sent, is not verified, and
+  **MUST NOT** imply that the user owns the linked profile.
+- **PROF-WEB-007:** A website **MUST** be rendered as an external link that
+  sends no referrer and grants the destination no reference to the opening
+  page. Clients **MUST NOT** load a favicon or any other image from the linked
+  host, and Vetchium services **MUST NOT** fetch, proxy, cache, or inspect it.
+  The owner editor **MUST** tell the owner that Vetchium does not verify these
+  links.
+- **PROF-WEB-008:** The profile view **MUST** show websites in the header card
+  directly under the biography, so contact points sit with the person's
+  identity. The owner editor **MUST** group the fields that make up that
+  header (introduction, websites, location, and profile address) before the
+  history sections.
+
+## 14. Global directory and federated reads
 
 - **PROF-FED-001:** The platform **MUST** operate a durable global identity
   directory containing the Hub user DID, permanent handle, optional alias, and
@@ -297,7 +337,7 @@ they appear in bold.
 - **PROF-FED-008:** The global URL resolver **MUST** select the correct tenant
   and authentication flow but **MUST NOT** itself serve private profile data.
 
-## 14. Durable cross-tenant operations
+## 15. Durable cross-tenant operations
 
 - **PROF-XTN-001:** Global claims and future cross-tenant mutations **MUST** use
   the durable command protocol in `agent-guides/federation.md`; they **MUST NOT**
@@ -322,7 +362,7 @@ they appear in bold.
   while the global directory is unavailable. Existing local profiles and
   bounded cached routes **MAY** remain readable.
 
-## 15. Subscription notifications
+## 16. Subscription notifications
 
 - **PROF-SUB-001:** When a paid entitlement is scheduled to end or cannot
   renew, the system **SHOULD** notify the user in the Hub UI and at their account
@@ -332,7 +372,7 @@ they appear in bold.
   professional-email verification. They **MUST NOT** be sent to a professional
   address unless it is independently the user's account email.
 
-## 16. Explicitly deferred work
+## 17. Explicitly deferred work
 
 The following are not part of this implementation:
 
@@ -349,7 +389,7 @@ Deferred domain moderation is recorded in `docs/todo.md`. Any future Org view
 of professional-email evidence requires its own authorization, privacy, and
 contract design before implementation.
 
-## 17. Implementation ledger
+## 18. Implementation ledger
 
 This checklist is the branch-local resume point for `codex/hub-profile`.
 Update it only in the same commit that completes and verifies the corresponding
@@ -488,4 +528,11 @@ the first unchecked item after inspecting `git status` and recent commits.
   `make test-go-static`, `make test-go-lint`, `make sql-check`,
   `make typespec-check`, `make repository-json-check`, the three portal
   checks, and `make playwright-test` all pass.
+- [x] Add owner-managed websites (PROF-WEB-001 to PROF-WEB-008): the
+  `hub_websites` table with its URL check, unique index, ten-entry trigger, and
+  audited create, update, and delete; the public-profile and mesh payloads; the
+  save and delete APIs; the header links in the profile view; and the
+  regrouped owner editor. Database tests cover the audit events, atomic
+  rollback, constraints, and racing writes; Go, TypeScript, API, and browser
+  tests cover the rest. `make test` passes with 339 Playwright cases.
 - [ ] Perform a final whole-diff review against this specification.

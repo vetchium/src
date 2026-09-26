@@ -196,6 +196,7 @@ export const de = {
     residentCountryHelp:
       "Wird in Ihrem Profil angezeigt. Eine Änderung verschiebt weder Ihr Konto noch Ihre bevorzugten Arbeitsländer.",
     residentCountrySaved: "Ihr Wohnsitzland wurde gespeichert.",
+    sectionIdentity: "Über Sie",
     sectionBackground: "Werdegang",
     viewPublicProfile: "Mein Profil ansehen",
     shareQr: "Über QR-Code teilen",
@@ -302,6 +303,42 @@ export const de = {
         "Geben Sie eine gültige HTTPS-URL ohne Benutzername, Passwort oder Fragment ein.",
     },
   },
+  profileWebsites: {
+    title: "Websites",
+    description:
+      "Links zu Ihrem Code, Ihren Texten oder beruflichen Profilen, etwa GitHub, LinkedIn, X oder Ihrer eigenen Website. Sie erscheinen unter Ihrer Biografie.",
+    disclaimer:
+      "Dies sind von Ihnen angegebene Links. Vetchium prüft nicht, ob sie Ihnen gehören.",
+    add: "Website hinzufügen",
+    addTitle: "Website hinzufügen",
+    editTitle: "Website bearbeiten",
+    editEntry: "{{url}} bearbeiten",
+    deleteEntry: "{{url}} löschen",
+    cancel: "Abbrechen",
+    delete: "Löschen",
+    confirmDelete: "Diese Website löschen?",
+    empty: "Noch keine Websites hinzugefügt.",
+    loading: "Websites werden geladen",
+    added: "Website hinzugefügt.",
+    updated: "Website aktualisiert.",
+    removed: "Website entfernt.",
+    limitReached: "Sie haben das Limit von {{limit}} Websites erreicht.",
+    fields: {
+      url: "Website-URL",
+    },
+    placeholder: "https://github.com/your-name",
+    help: "Verwenden Sie die vollständige Adresse, die mit https:// beginnt.",
+    validation: {
+      url: "Geben Sie eine gültige HTTPS-Adresse wie https://example.com ohne Benutzername, Passwort oder Fragment ein.",
+      duplicate: "Sie haben diese Website bereits hinzugefügt.",
+    },
+    kinds: {
+      github: "GitHub",
+      gitlab: "GitLab",
+      linkedin: "LinkedIn",
+      x: "X",
+    },
+  },
   profileEducation: {
     title: "Ausbildung",
     add: "Qualifikation hinzufügen",
@@ -401,6 +438,7 @@ export const de = {
     educationTitle: "Ausbildung",
     certificationsTitle: "Zertifikate",
     languagesTitle: "Sprachen",
+    websitesLabel: "Websites",
     empty: "Noch keine Angaben geteilt.",
     present: "Heute",
     unknown: "Unbekannt",

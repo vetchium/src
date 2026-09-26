@@ -133,6 +133,11 @@ func (c *hubProfileClient) seedUser(
 	if err := c.setPublicFields(ctx, session, user); err != nil {
 		return fmt.Errorf("set public fields: %w", err)
 	}
+	for _, website := range user.Websites {
+		if err := c.saveWebsite(ctx, session, website); err != nil {
+			return fmt.Errorf("save website %q: %w", website, err)
+		}
+	}
 	for _, entry := range user.WorkExperience {
 		if err := c.saveWorkExperience(ctx, session, entry); err != nil {
 			return fmt.Errorf(
@@ -393,6 +398,15 @@ func (c *hubProfileClient) saveCertification(
 			Title:         hubprofile.ProfileTitle(entry.Title),
 			CredentialURL: hubprofile.CredentialURL(entry.CredentialURL),
 		},
+	)
+}
+
+func (c *hubProfileClient) saveWebsite(
+	ctx context.Context, session, website string,
+) error {
+	return c.writeProfile(
+		ctx, session, "/api/hub/profile/save-website",
+		hubprofile.SaveWebsiteRequest{URL: hubprofile.WebsiteURL(website)},
 	)
 }
 

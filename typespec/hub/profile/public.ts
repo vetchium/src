@@ -20,7 +20,11 @@ export type ProfileLongText = string;
 export type ProfileLocation = string;
 export type EducationSupportingText = string;
 export type CredentialURL = string;
+export type WebsiteURL = string;
 export type LanguageTag = string;
+
+/** The most websites one profile may list. */
+export const MaxWebsites = 10;
 
 export const Speaking = "speaking" as const;
 export const Reading = "reading" as const;
@@ -72,6 +76,43 @@ export function isCredentialURL(value: CredentialURL): boolean {
   }
 }
 
+// Mirrored by the Go companion and the hub_websites_url_check constraint: an
+// HTTPS URL whose lowercase host has at least two DNS labels and an optional
+// port, followed by printable ASCII other than space and '#'. That excludes
+// credentials, fragments and non-ASCII text.
+const websiteURLPattern =
+  /^https:\/\/[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+(:[0-9]{1,5})?(\/[!"$-~]*)?$/;
+
+// A website host is a name like a professional domain, so an IPv4 host is
+// refused even though websiteURLPattern matches its digit labels.
+const websiteIPv4HostPattern =
+  /^https:\/\/[0-9]+(\.[0-9]+){3}(:[0-9]{1,5})?(\/|$)/;
+
+/**
+ * Trims the value, lowercases the scheme and host, and drops one trailing
+ * slash from a URL without a query, so equal links compare equal. Anything
+ * that is not an HTTPS URL is left for validation to reject.
+ */
+export function normalizeWebsiteURL(value: WebsiteURL): WebsiteURL {
+  const text = value.trim();
+  if (!/^https:\/\//i.test(text)) return text;
+  const rest = text.slice("https://".length);
+  const end = rest.search(/[/?#]/);
+  const split = end < 0 ? rest.length : end;
+  const lowered = `https://${rest.slice(0, split).toLowerCase()}${rest.slice(split)}`;
+  return lowered.includes("?") ? lowered : lowered.replace(/\/$/, "");
+}
+
+/** Reports whether the value is already in normalized form. */
+export function isWebsiteURL(value: WebsiteURL): boolean {
+  return (
+    value.length <= 2048 &&
+    websiteURLPattern.test(value) &&
+    !websiteIPv4HostPattern.test(value) &&
+    (value.includes("?") || !value.endsWith("/"))
+  );
+}
+
 export function isLanguageAbility(value: string): value is LanguageAbility {
   return value === Speaking || value === Reading || value === Writing;
 }
@@ -99,6 +140,11 @@ export interface Certification {
   credential_url: CredentialURL;
 }
 
+export interface Website {
+  id: ProfileEntryID;
+  url: WebsiteURL;
+}
+
 export interface LanguageAbilityEntry {
   ability: LanguageAbility;
   language_tag: LanguageTag;
@@ -121,6 +167,7 @@ export interface PublicProfile {
   resident_country: CountryCode;
   profile_picture_url?: string;
   biography?: ProfileLongText;
+  websites: Website[];
   work_experiences: WorkExperience[];
   certifications: Certification[];
   language_abilities: LanguageAbilityEntry[];
@@ -249,6 +296,28 @@ export function validateSaveCertificationRequest(
   }
   if (!isProfileTitle(request.title)) fields.push("title");
   if (!isCredentialURL(request.credential_url)) fields.push("credential_url");
+  return fields;
+}
+
+export interface SaveWebsiteRequest {
+  id?: ProfileEntryID;
+  url: WebsiteURL;
+}
+
+export function normalizeSaveWebsiteRequest(
+  request: SaveWebsiteRequest,
+): SaveWebsiteRequest {
+  return { ...request, url: normalizeWebsiteURL(request.url) };
+}
+
+export function validateSaveWebsiteRequest(
+  request: SaveWebsiteRequest,
+): string[] {
+  const fields: string[] = [];
+  if (request.id !== undefined && !isProfileEntryID(request.id)) {
+    fields.push("id");
+  }
+  if (!isWebsiteURL(request.url)) fields.push("url");
   return fields;
 }
 

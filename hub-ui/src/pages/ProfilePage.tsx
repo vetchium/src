@@ -12,6 +12,7 @@ import { EducationCard } from "../features/profile/EducationCard";
 import { LanguageAbilitiesCard } from "../features/profile/LanguageAbilitiesCard";
 import { ProfileHeaderCard } from "../features/profile/ProfileHeaderCard";
 import { myInfoQueryKey, useMyInfoQuery } from "../features/profile/queries";
+import { WebsitesCard } from "../features/profile/WebsitesCard";
 import { WorkExperienceCard } from "../features/profile/WorkExperienceCard";
 import { countryOptions } from "../i18n/countries";
 
@@ -78,11 +79,20 @@ export function ProfilePage() {
           {t("profile.description")}
         </Typography.Text>
       </div>
-      <ProfileHeaderCard address={me.handle} />
-      <ResidentCountryCard
-        handle={me.handle}
-        residentCountry={me.resident_country}
-      />
+      <div>
+        <Typography.Title level={3}>
+          {t("profile.sectionIdentity")}
+        </Typography.Title>
+        <Space orientation="vertical" size="large" className="full-width">
+          <ProfileHeaderCard address={me.handle} />
+          <WebsitesCard address={me.handle} />
+          <ResidentCountryCard
+            handle={me.handle}
+            residentCountry={me.resident_country}
+          />
+          <AliasCard handle={me.handle} />
+        </Space>
+      </div>
       <div>
         <Typography.Title level={3}>
           {t("profile.sectionBackground")}
@@ -94,7 +104,6 @@ export function ProfilePage() {
           <LanguageAbilitiesCard address={me.handle} />
         </Space>
       </div>
-      <AliasCard handle={me.handle} />
     </Space>
   );
 }

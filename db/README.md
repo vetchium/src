@@ -78,7 +78,7 @@ Half of each tenant's users are on `hub-silver-tier`; those carry a work
 history, education, a biography, and a profile picture. The other half are on
 `hub-free-tier` with a lighter profile and no picture. The fixture data —
 display names, employers, institutions, work experience, education,
-certifications, languages, and the avatar images paid-tier users reference —
+certifications, websites, languages, and the avatar images paid-tier users reference —
 lives in `dev/hub-seed-profiles/` (one `<tenant>.json` file plus a shared set
 of avatar images) and is meant to be hand-edited; `go test ./cmd/dev-seed/...`
 validates every fixture file against the same contract rules the Hub API

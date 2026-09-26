@@ -896,6 +896,14 @@ type VetchiumHubUser struct {
 	UpdatedAt                      pgtype.Timestamptz             `json:"updated_at"`
 }
 
+type VetchiumHubWebsite struct {
+	WebsiteID  pgtype.UUID        `json:"website_id"`
+	HubUserDid pgtype.UUID        `json:"hub_user_did"`
+	WebsiteUrl string             `json:"website_url"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type VetchiumHubWorkExperience struct {
 	WorkExperienceID pgtype.UUID        `json:"work_experience_id"`
 	HubUserDid       pgtype.UUID        `json:"hub_user_did"`

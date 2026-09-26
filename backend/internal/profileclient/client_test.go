@@ -21,7 +21,7 @@ func TestRelayReadChecksEnvelopeAndPrivateFields(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"display_name":"Ada",` +
 				`"handle":"abcde-123456789ab","resident_country":"SG",` +
-				`"work_experiences":[],"certifications":[],` +
+				`"websites":[],"work_experiences":[],"certifications":[],` +
 				`"language_abilities":[],"educational_qualifications":[]}`))
 		},
 	))
@@ -37,15 +37,34 @@ func TestRelayReadChecksEnvelopeAndPrivateFields(t *testing.T) {
 	}
 }
 
+func TestRelayRejectsProfileWithoutWebsites(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"display_name":"Ada",` +
+				`"handle":"abcde-123456789ab","resident_country":"SG",` +
+				`"work_experiences":[],"certifications":[],` +
+				`"language_abilities":[],"educational_qualifications":[]}`))
+		},
+	))
+	defer server.Close()
+	client := NewRelay(server.URL, "secret", time.Second)
+	if _, err := client.RelayRead(
+		context.Background(), profilespec.RelayReadProfileRequest{},
+	); err == nil {
+		t.Fatal("profile without the websites array was accepted")
+	}
+}
+
 func TestRelayRejectsUndeclaredProfileFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"display_name":"Ada",` +
 				`"handle":"abcde-123456789ab","resident_country":"SG",` +
-				`"hub_user_did":"private","work_experiences":[],` +
-				`"certifications":[],"language_abilities":[],` +
-				`"educational_qualifications":[]}`))
+				`"hub_user_did":"private","websites":[],` +
+				`"work_experiences":[],"certifications":[],` +
+				`"language_abilities":[],"educational_qualifications":[]}`))
 		},
 	))
 	defer server.Close()

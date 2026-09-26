@@ -60,6 +60,7 @@ async function provideOwnProfile(page: import("@playwright/test").Page) {
         display_name: "Example Person",
         handle,
         resident_country: "SG",
+        websites: [],
         work_experiences: [],
         educational_qualifications: [],
         certifications: [],

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,6 +32,10 @@ func validFixtureUser() hubUserFixture {
 			Ability:     "speaking",
 			LanguageTag: "en",
 		}},
+		Websites: []string{
+			"https://github.com/alice-tan",
+			"https://alice.example.com",
+		},
 	}
 }
 
@@ -177,5 +182,26 @@ func TestTenantFixturesAreValid(t *testing.T) {
 				usedAvatars[user.ProfilePicture] = user.Email
 			}
 		})
+	}
+}
+
+func TestValidateHubUserFixtureRejectsBadWebsites(t *testing.T) {
+	tooMany := make([]string, 0, 11)
+	for i := range 11 {
+		tooMany = append(tooMany, fmt.Sprintf("https://site-%d.example.com", i))
+	}
+	for name, websites := range map[string][]string{
+		"not normalized": {"https://GitHub.com/alice/"},
+		"not https":      {"http://example.com"},
+		"credentials":    {"https://user:pass@example.com"},
+		"duplicate":      {"https://example.com", "https://example.com"},
+		"over the limit": tooMany,
+		"blank":          {""},
+	} {
+		user := validFixtureUser()
+		user.Websites = websites
+		if err := validateHubUserFixture(user); err == nil {
+			t.Errorf("%s: expected an error for websites %v", name, websites)
+		}
 	}
 }

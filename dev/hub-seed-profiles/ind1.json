@@ -25,6 +25,9 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "hi" }
+      ],
+      "websites": [
+        "https://www.linkedin.com/in/maithili"
       ]
     },
     {
@@ -69,6 +72,11 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "hi" }
+      ],
+      "websites": [
+        "https://github.com/rohan-verma",
+        "https://www.linkedin.com/in/rohan-verma",
+        "https://rohan-verma.example.com"
       ]
     },
     {
@@ -96,6 +104,10 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "ta" }
+      ],
+      "websites": [
+        "https://x.com/vaidehi",
+        "https://vaidehi.example.dev/blog"
       ]
     },
     {
@@ -141,6 +153,11 @@
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "ta" },
         { "ability": "speaking", "languageTag": "hi" }
+      ],
+      "websites": [
+        "https://github.com/arjun-nair",
+        "https://www.linkedin.com/in/arjun-nair",
+        "https://arjun-nair.example.com"
       ]
     },
     {
@@ -168,6 +185,9 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "ta" }
+      ],
+      "websites": [
+        "https://www.linkedin.com/in/anjali"
       ]
     },
     {
@@ -218,6 +238,11 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "hi" }
+      ],
+      "websites": [
+        "https://github.com/vikram-malhotra",
+        "https://www.linkedin.com/in/vikram-malhotra",
+        "https://vikram-malhotra.example.com"
       ]
     },
     {
@@ -295,6 +320,11 @@
       "languages": [
         { "ability": "speaking", "languageTag": "en" },
         { "ability": "speaking", "languageTag": "hi" }
+      ],
+      "websites": [
+        "https://github.com/rahul-gupta",
+        "https://www.linkedin.com/in/rahul-gupta",
+        "https://rahul-gupta.example.com"
       ]
     }
   ]

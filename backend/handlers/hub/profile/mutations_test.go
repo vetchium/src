@@ -46,3 +46,42 @@ func TestProfessionalEmailConflictMapping(t *testing.T) {
 		t.Fatal("professional email conflict classification changed")
 	}
 }
+
+func TestWebsiteConflictMapping(t *testing.T) {
+	for name, err := range map[string]error{
+		"no row: missing entry, full profile, or duplicate": pgx.ErrNoRows,
+		"racing duplicate reached the unique index": &pgconn.PgError{
+			Code: "23505", ConstraintName: "hub_websites_user_url_key",
+		},
+		"racing insert reached the limit trigger": &pgconn.PgError{
+			Code:    "23514",
+			Message: "hub_websites profile entry limit is 10",
+		},
+	} {
+		problem, unexpected := websiteConflict(err)
+		if unexpected != nil || problem == nil ||
+			!reflect.DeepEqual(problem.Details, hubproblem.ProfileConflictError) {
+			t.Errorf("%s = %+v, %v", name, problem, unexpected)
+		}
+	}
+	for name, err := range map[string]error{
+		"another unique constraint": &pgconn.PgError{
+			Code: "23505", ConstraintName: "audit_events_pkey",
+		},
+		"the URL check constraint": &pgconn.PgError{
+			Code: "23514", ConstraintName: "hub_websites_url_check",
+			Message: `new row violates check constraint "hub_websites_url_check"`,
+		},
+		"another table's limit trigger": &pgconn.PgError{
+			Code:    "23514",
+			Message: "hub_certifications profile entry limit is 50",
+		},
+		"a database failure": errors.New("database failed"),
+	} {
+		problem, unexpected := websiteConflict(err)
+		if problem != nil || unexpected == nil {
+			t.Errorf("%s = %+v, %v; want a passed-through error",
+				name, problem, unexpected)
+		}
+	}
+}

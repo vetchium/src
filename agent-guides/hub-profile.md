@@ -1,8 +1,8 @@
 # Hub Profile
 
 Applies to Hub profile storage, editing, viewing, professional-email evidence,
-work and education claims, languages, certifications, pictures, profile URLs,
-and aliases.
+work and education claims, languages, certifications, websites, pictures,
+profile URLs, and aliases.
 
 ## Required product specification
 
@@ -43,3 +43,11 @@ those rules.
   because it matches the two- or three-letter shape.
 - Treat all user-entered professional claims as plain text and unverified unless
   a contract explicitly gives Vetchium a verification role.
+- Websites are public profile fields whose stored value is the normalized URL
+  and nothing else (PROF-WEB-*). The GitHub, LinkedIn, X, and similar kind is a
+  client-side presentation derived from the exact host, never stored, sent, or
+  used to grant trust. Link only a value that passes the shared validator, since
+  a peer tenant's payload is not trusted to be a safe `href`; render it with
+  `rel="noopener noreferrer"`; and use local icons, never an image from the
+  linked host. The URL normalization and check exist in Go, TypeScript, and the
+  `hub_websites_url_check` constraint; change them together.
