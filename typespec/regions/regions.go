@@ -30,3 +30,32 @@ type ListSignupRegionsResponse struct {
 	Regions           []SignupRegion        `json:"regions"`
 	NextPaginationKey *common.PaginationKey `json:"next_pagination_key"`
 }
+
+type ListOrgSignupRegionsRequest struct {
+	Country       common.CountryCode    `json:"country"`
+	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
+}
+
+func (r *ListOrgSignupRegionsRequest) Normalize() {}
+func (r ListOrgSignupRegionsRequest) Validate() []string {
+	fields := []string{}
+	if !common.IsCountryCode(r.Country) {
+		fields = append(fields, "country")
+	}
+	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
+		fields = append(fields, "pagination_key")
+	}
+	return fields
+}
+
+type OrgSignupRegion struct {
+	TenantID       string             `json:"tenant_id"`
+	HostingCountry common.CountryCode `json:"hosting_country"`
+	OrgsURL        string             `json:"orgs_url"`
+	Recommended    bool               `json:"recommended"`
+}
+type ListOrgSignupRegionsResponse struct {
+	CatalogVersion    string                `json:"catalog_version"`
+	Regions           []OrgSignupRegion     `json:"regions"`
+	NextPaginationKey *common.PaginationKey `json:"next_pagination_key"`
+}

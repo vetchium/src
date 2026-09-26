@@ -57,7 +57,7 @@ def portal_link(portal, tenant):
 
 # Every resource carries its tenant and its role as labels, so the UI can be
 # sliced either way: one tenant's whole stack, or every tenant's hub-api.
-enabled = ['edge', 'mailpit', 'global-db', 'global-migrate', 'global-coordinator']
+enabled = ['edge', 'mailpit', 'dns-dev', 'global-db', 'global-migrate', 'global-coordinator']
 portal_links = []
 
 for tenant in tenants:
@@ -88,6 +88,9 @@ dc_resource('edge', labels=['shared', 'edge'], trigger_mode=trigger,
             links=portal_links)
 dc_resource('mailpit', labels=['shared'], trigger_mode=trigger,
             links=[link('http://%s:%s/' % (mailpit_host, mailpit_port), 'mailpit')])
+# The development DNS server publishes only its record-management API, which
+# needs an API key, so there is no page worth linking.
+dc_resource('dns-dev', labels=['shared'], trigger_mode=trigger)
 dc_resource('global-db', labels=['shared', 'database'], trigger_mode=trigger)
 dc_resource('global-migrate', labels=['shared', 'database'], trigger_mode=trigger)
 dc_resource('global-coordinator', labels=['shared'], trigger_mode=trigger)

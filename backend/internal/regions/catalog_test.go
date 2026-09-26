@@ -15,7 +15,14 @@ func testCatalog(t *testing.T, count int) *Catalog {
 	t.Helper()
 	c := Catalog{Version: "1", DefaultTenant: "region000", Recommendations: map[common.CountryCode]string{"IN": "region001"}}
 	for i := 0; i < count; i++ {
-		c.Regions = append(c.Regions, Region{TenantID: fmt.Sprintf("region%03d", i), HostingCountry: "SG", HubURL: fmt.Sprintf("https://region%03d.example.com", i), SignupEnabled: true})
+		c.Regions = append(c.Regions, Region{
+			TenantID:         fmt.Sprintf("region%03d", i),
+			HostingCountry:   "SG",
+			HubURL:           fmt.Sprintf("https://region%03d.example.com", i),
+			SignupEnabled:    true,
+			OrgsURL:          fmt.Sprintf("https://orgs.region%03d.example.com", i),
+			OrgSignupEnabled: true,
+		})
 	}
 	return loadTestCatalog(t, c)
 }
@@ -83,6 +90,15 @@ func TestCatalogValidation(t *testing.T) {
 		func(c *Catalog) { c.Regions[1].TenantID = c.Regions[0].TenantID },
 		func(c *Catalog) { c.Regions[1].HubURL = c.Regions[0].HubURL },
 		func(c *Catalog) { c.Recommendations["ZZ"] = "region000" },
+		func(c *Catalog) { c.Regions[0].OrgsURL = "" },
+		func(c *Catalog) { c.Regions[0].OrgsURL = "https://trusted.example@evil.example" },
+		func(c *Catalog) { c.Regions[0].OrgsURL = "javascript:alert(1)" },
+		func(c *Catalog) { c.Regions[0].OrgsURL = "https://orgs.example.com/path" },
+		func(c *Catalog) { c.Regions[0].OrgsURL = "https://orgs.example.com/" },
+		func(c *Catalog) { c.Regions[1].OrgsURL = c.Regions[0].OrgsURL },
+		func(c *Catalog) { c.Regions[0].OrgsURL = c.Regions[0].HubURL },
+		func(c *Catalog) { c.Regions[1].OrgsURL = c.Regions[0].HubURL },
+		func(c *Catalog) { c.Regions[0].HubURL = c.Regions[1].OrgsURL },
 	} {
 		c := testCatalog(t, 2)
 		change(c)

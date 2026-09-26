@@ -29,3 +29,30 @@ export interface ListSignupRegionsResponse {
   regions: SignupRegion[];
   next_pagination_key: PaginationKey | null;
 }
+export interface ListOrgSignupRegionsRequest {
+  country: CountryCode;
+  pagination_key?: PaginationKey;
+}
+export function validateListOrgSignupRegionsRequest(
+  request: ListOrgSignupRegionsRequest,
+): string[] {
+  const fields: string[] = [];
+  if (!isCountryCode(request.country)) fields.push("country");
+  if (
+    request.pagination_key !== undefined &&
+    !isPaginationKey(request.pagination_key)
+  )
+    fields.push("pagination_key");
+  return fields;
+}
+export interface OrgSignupRegion {
+  tenant_id: string;
+  hosting_country: CountryCode;
+  orgs_url: string;
+  recommended: boolean;
+}
+export interface ListOrgSignupRegionsResponse {
+  catalog_version: string;
+  regions: OrgSignupRegion[];
+  next_pagination_key: PaginationKey | null;
+}

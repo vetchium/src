@@ -18,7 +18,12 @@
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
-    "reconcileHubSignupTimer": "10s"
+    "reconcileHubSignupTimer": "10s",
+    "deliverOrgEmailTimer": "5s",
+    "orgEmailLeaseTTL": "1m",
+    "orgEmailMaxAttempts": 5,
+    "reconcileOrgSignupTimer": "10s",
+    "verifyOrgDomainsTimer": "5m"
   },
   "adminAPIServer": {
     "sessionTTL": "24h"
@@ -66,6 +71,18 @@
     "startTLS": "required",
     "connectionTimeout": "10s"
   },
-  "orgsAPIServer": {},
+  "orgsAPIServer": {
+    "sessionTTL": "24h",
+    "publicBaseURL": "https://orgs.deu.vetchium.com"
+  },
+  "orgDomainVerification": {
+    "resolverAddress": "1.1.1.1:53",
+    "lookupTimeout": "5s",
+    "checkInterval": "168h",
+    "failureThreshold": 2,
+    "failingGracePeriod": "720h",
+    "inconclusiveRetry": "1h",
+    "inconclusiveLimit": "168h"
+  },
   "mcpServer": {}
 }
