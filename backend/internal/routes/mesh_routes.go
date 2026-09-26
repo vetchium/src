@@ -28,6 +28,26 @@ func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 		"POST /mesh/directory/set-hub-alias",
 		mesh.SetHubAlias(s.Runtime, s.Directory, s.Credential),
 	)
+	mux.HandleFunc(
+		"POST /mesh/directory/resolve-org-domain",
+		mesh.ResolveOrgDomain(s.Runtime, s.Directory, s.Credential),
+	)
+	mux.HandleFunc(
+		"POST /mesh/directory/reserve-org-principal",
+		mesh.ReserveOrgPrincipal(s.Runtime, s.Directory, s.Credential),
+	)
+	mux.HandleFunc(
+		"POST /mesh/directory/activate-org-principal",
+		mesh.ActivateOrgPrincipal(s.Runtime, s.Directory, s.Credential),
+	)
+	mux.HandleFunc(
+		"POST /mesh/directory/release-org-domain",
+		mesh.ReleaseOrgDomain(s.Runtime, s.Directory, s.Credential),
+	)
+	mux.HandleFunc(
+		"POST /mesh/directory/claim-org-domain",
+		mesh.ClaimOrgDomain(s.Runtime, s.Directory, s.Credential),
+	)
 	mux.HandleFunc("POST /mesh/profile/read", mesh.RelayReadProfile(s))
 }
 

@@ -8,6 +8,7 @@ const exportedDirectories = [
   "common",
   "directory",
   "hub",
+  "orgs",
   "problem",
   "regions",
 ];

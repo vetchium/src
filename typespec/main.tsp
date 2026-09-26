@@ -4,6 +4,7 @@ import "@typespec/openapi3";
 import "./common/common.tsp";
 import "./admin/admin.tsp";
 import "./hub/hub.tsp";
+import "./orgs/orgs.tsp";
 import "./directory/directory.tsp";
 
 import "./regions/regions.tsp";

@@ -1,5 +1,5 @@
-// Package directoryclient calls the global Hub identity directory through
-// either a tenant-local bearer-authenticated relay or coordinator mTLS.
+// Package directoryclient calls the global Hub and Org identity directory
+// through either a tenant-local bearer-authenticated relay or coordinator mTLS.
 package directoryclient
 
 import (
@@ -17,6 +17,7 @@ import (
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	hubspec "github.com/vetchium/src/typespec/hub"
+	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/problem"
 )
 
@@ -32,6 +33,12 @@ type Outcome struct {
 	Status    int
 	Principal *directoryspec.PrincipalCommandResponse
 	Problem   *problem.Details
+}
+
+type OrgOutcome struct {
+	Status  int
+	Org     *directoryspec.OrgPrincipalCommandResponse
+	Problem *problem.Details
 }
 
 type Client struct {
@@ -116,25 +123,100 @@ func (c *Client) SetHubAlias(
 }
 
 func (c *Client) command(ctx context.Context, operation string, request any) (Outcome, error) {
-	status, body, mediaType, err := c.do(ctx, operation, request)
+	status, body, details, err := commandResult(
+		ctx, c, operation, request, validPrincipal,
+	)
+	return Outcome{Status: status, Principal: body, Problem: details}, err
+}
+
+func (c *Client) ResolveOrgDomain(
+	ctx context.Context, request directoryspec.ResolveOrgDomainRequest,
+) (directoryspec.ResolveOrgDomainResponse, *problem.Details, error) {
+	var result directoryspec.ResolveOrgDomainResponse
+	status, body, mediaType, err := c.do(ctx, "resolve-org-domain", request)
 	if err != nil {
-		return Outcome{}, err
+		return result, nil, err
 	}
 	if status == http.StatusOK && mediaType == "application/json" {
-		var principal directoryspec.PrincipalCommandResponse
-		if err := decode(body, &principal); err != nil {
-			return Outcome{}, err
+		if err := decode(body, &result); err != nil {
+			return result, nil, err
 		}
-		if !validPrincipal(principal) {
-			return Outcome{}, fmt.Errorf("%w: invalid principal", ErrInvalidResponse)
+		if !orgs.IsOrgDID(result.OrgDID) || !orgs.IsOrgDomain(result.Domain) ||
+			!directoryspec.IsTenantID(result.HomeTenantID) ||
+			result.RoutingVersion < 1 {
+			return result, nil, fmt.Errorf("%w: invalid Org lookup result", ErrInvalidResponse)
 		}
-		return Outcome{Status: status, Principal: &principal}, nil
+		return result, nil, nil
+	}
+	details, err := decodeProblem(status, mediaType, body)
+	return result, details, err
+}
+
+func (c *Client) ReserveOrgPrincipal(
+	ctx context.Context, request directoryspec.ReserveOrgPrincipalRequest,
+) (OrgOutcome, error) {
+	return c.orgCommand(ctx, "reserve-org-principal", request)
+}
+
+func (c *Client) ActivateOrgPrincipal(
+	ctx context.Context, request directoryspec.ActivateOrgPrincipalRequest,
+) (OrgOutcome, error) {
+	return c.orgCommand(ctx, "activate-org-principal", request)
+}
+
+func (c *Client) ReleaseOrgDomain(
+	ctx context.Context, request directoryspec.ReleaseOrgDomainRequest,
+) (OrgOutcome, error) {
+	return c.orgCommand(ctx, "release-org-domain", request)
+}
+
+func (c *Client) ClaimOrgDomain(
+	ctx context.Context, request directoryspec.ClaimOrgDomainRequest,
+) (OrgOutcome, error) {
+	return c.orgCommand(ctx, "claim-org-domain", request)
+}
+
+func (c *Client) orgCommand(
+	ctx context.Context, operation string, request any,
+) (OrgOutcome, error) {
+	status, body, details, err := commandResult(
+		ctx, c, operation, request, validOrgPrincipal,
+	)
+	return OrgOutcome{Status: status, Org: body, Problem: details}, err
+}
+
+func commandResult[R any](
+	ctx context.Context, c *Client, operation string, request any,
+	valid func(R) bool,
+) (int, *R, *problem.Details, error) {
+	status, body, mediaType, err := c.do(ctx, operation, request)
+	if err != nil {
+		return 0, nil, nil, err
+	}
+	if status == http.StatusOK && mediaType == "application/json" {
+		var response R
+		if err := decode(body, &response); err != nil {
+			return 0, nil, nil, err
+		}
+		if !valid(response) {
+			return 0, nil, nil, fmt.Errorf("%w: invalid principal", ErrInvalidResponse)
+		}
+		return status, &response, nil, nil
 	}
 	details, err := decodeProblem(status, mediaType, body)
 	if err != nil {
-		return Outcome{}, err
+		return 0, nil, nil, err
 	}
-	return Outcome{Status: status, Problem: details}, nil
+	return status, nil, details, nil
+}
+
+func validOrgPrincipal(principal directoryspec.OrgPrincipalCommandResponse) bool {
+	return orgs.IsOrgDID(principal.OrgDID) &&
+		(principal.Domain == nil || orgs.IsOrgDomain(*principal.Domain)) &&
+		directoryspec.IsTenantID(principal.HomeTenantID) &&
+		principal.RoutingVersion >= 1 &&
+		(principal.State == directoryspec.PrincipalProvisioning ||
+			principal.State == directoryspec.PrincipalActive)
 }
 
 func validPrincipal(principal directoryspec.PrincipalCommandResponse) bool {

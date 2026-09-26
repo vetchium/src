@@ -1,4 +1,5 @@
 import { type HubHandle, type HubUserDID, isHubHandle } from "../hub/types.ts";
+import type { OrgDID, OrgDomain } from "../orgs/types.ts";
 
 export type HubAlias = string;
 export type TenantID = string;
@@ -84,6 +85,43 @@ export interface PrincipalCommandResponse {
   hub_user_did: HubUserDID;
   handle: HubHandle;
   profile_alias: HubAlias | null;
+  home_tenant_id: TenantID;
+  routing_version: number;
+  state: PrincipalState;
+}
+export interface ResolveOrgDomainRequest {
+  domain: OrgDomain;
+}
+export interface ResolveOrgDomainResponse {
+  org_did: OrgDID;
+  domain: OrgDomain;
+  home_tenant_id: TenantID;
+  routing_version: number;
+}
+export interface ReserveOrgPrincipalRequest {
+  command_id: CommandID;
+  org_did: OrgDID;
+  domain: OrgDomain;
+  home_tenant_id: TenantID;
+  provisioning_expires_at: string;
+}
+export interface ActivateOrgPrincipalRequest {
+  command_id: CommandID;
+  org_did: OrgDID;
+}
+export interface ReleaseOrgDomainRequest {
+  command_id: CommandID;
+  org_did: OrgDID;
+  domain: OrgDomain;
+}
+export interface ClaimOrgDomainRequest {
+  command_id: CommandID;
+  org_did: OrgDID;
+  domain: OrgDomain;
+}
+export interface OrgPrincipalCommandResponse {
+  org_did: OrgDID;
+  domain: OrgDomain | null;
   home_tenant_id: TenantID;
   routing_version: number;
   state: PrincipalState;

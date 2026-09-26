@@ -1,6 +1,7 @@
 import "@typespec/http";
 import "../common/idempotency.tsp";
 import "../hub/types.tsp";
+import "../orgs/types.tsp";
 import "../problem/common.tsp";
 import "../problem/details.tsp";
 import "../problem/global-coordinator/directory.tsp";
@@ -72,6 +73,58 @@ model PrincipalCommandResponse {
   state: "provisioning" | "active";
 }
 
+model ResolveOrgDomainRequest {
+  domain: Vetchium.Orgs.OrgDomain;
+}
+
+model ResolveOrgDomainResponse {
+  org_did: Vetchium.Orgs.OrgDID;
+  domain: Vetchium.Orgs.OrgDomain;
+  home_tenant_id: TenantID;
+  routing_version: int64;
+}
+
+/** Reserves a provisioning Org and its first domain in one step. The domain
+ * stays unresolvable until activation, and an expired reservation is reaped
+ * together with its domain. */
+model ReserveOrgPrincipalRequest {
+  command_id: CommandID;
+  org_did: Vetchium.Orgs.OrgDID;
+  domain: Vetchium.Orgs.OrgDomain;
+  home_tenant_id: TenantID;
+  provisioning_expires_at: utcDateTime;
+}
+
+model ActivateOrgPrincipalRequest {
+  command_id: CommandID;
+  org_did: Vetchium.Orgs.OrgDID;
+}
+
+/** Releases the domain if this Org still owns it. Releasing a domain the Org
+ * no longer owns succeeds without a change. */
+model ReleaseOrgDomainRequest {
+  command_id: CommandID;
+  org_did: Vetchium.Orgs.OrgDID;
+  domain: Vetchium.Orgs.OrgDomain;
+}
+
+/** Claims a domain for an active Org that holds none, as when a suspended Org
+ * proves a released domain again. Claiming the domain the Org already owns
+ * succeeds without a change. */
+model ClaimOrgDomainRequest {
+  command_id: CommandID;
+  org_did: Vetchium.Orgs.OrgDID;
+  domain: Vetchium.Orgs.OrgDomain;
+}
+
+model OrgPrincipalCommandResponse {
+  org_did: Vetchium.Orgs.OrgDID;
+  domain: Vetchium.Orgs.OrgDomain | null;
+  home_tenant_id: TenantID;
+  routing_version: int64;
+  state: "provisioning" | "active";
+}
+
 alias ReadResponseBase =
   | {
       @statusCode status_code: 200;
@@ -105,6 +158,34 @@ alias ClaimCommandResponseBase =
   | CommandResponseBase
   | Vetchium.Problem.DirectoryClaimConflictErrorResponse;
 
+alias OrgReadResponseBase =
+  | {
+      @statusCode status_code: 200;
+      @header("Cache-Control") cache_control: "no-store";
+      @body body: ResolveOrgDomainResponse;
+    }
+  | Vetchium.Problem.InvalidJSONErrorResponse
+  | Vetchium.Problem.ValidationFailedErrorResponse
+  | Vetchium.Problem.DirectoryEntryNotFoundErrorResponse
+  | Vetchium.Problem.InternalServerErrorResponse;
+
+alias OrgCommandResponseBase =
+  | {
+      @statusCode status_code: 200;
+      @header("Cache-Control") cache_control: "no-store";
+      @body body: OrgPrincipalCommandResponse;
+    }
+  | Vetchium.Problem.InvalidJSONErrorResponse
+  | Vetchium.Problem.ValidationFailedErrorResponse
+  | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
+  | Vetchium.Problem.DirectoryStateConflictErrorResponse
+  | Vetchium.Problem.DirectoryCallerTenantMismatchErrorResponse
+  | Vetchium.Problem.InternalServerErrorResponse;
+
+alias OrgClaimCommandResponseBase =
+  | OrgCommandResponseBase
+  | Vetchium.Problem.DirectoryClaimConflictErrorResponse;
+
 alias ReadResponse =
   | ReadResponseBase
   | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
@@ -116,6 +197,30 @@ alias CommandResponse =
 alias ClaimCommandResponse =
   | ClaimCommandResponseBase
   | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
+
+alias OrgReadResponse =
+  | OrgReadResponseBase
+  | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
+
+alias OrgCommandResponse =
+  | OrgCommandResponseBase
+  | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
+
+alias OrgClaimCommandResponse =
+  | OrgClaimCommandResponseBase
+  | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
+
+alias MeshOrgReadResponse =
+  | OrgReadResponseBase
+  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+
+alias MeshOrgCommandResponse =
+  | OrgCommandResponseBase
+  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+
+alias MeshOrgClaimCommandResponse =
+  | OrgClaimCommandResponseBase
+  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
 
 alias MeshReadResponse =
   | ReadResponseBase
@@ -152,6 +257,30 @@ interface Operations {
   @route("/set-hub-alias")
   @post
   setHubAlias(@body request: SetHubAliasRequest): ClaimCommandResponse;
+
+  @route("/resolve-org-domain")
+  @post
+  resolveOrgDomain(@body request: ResolveOrgDomainRequest): OrgReadResponse;
+
+  @route("/reserve-org-principal")
+  @post
+  reserveOrgPrincipal(
+    @body request: ReserveOrgPrincipalRequest,
+  ): OrgClaimCommandResponse;
+
+  @route("/activate-org-principal")
+  @post
+  activateOrgPrincipal(
+    @body request: ActivateOrgPrincipalRequest,
+  ): OrgCommandResponse;
+
+  @route("/release-org-domain")
+  @post
+  releaseOrgDomain(@body request: ReleaseOrgDomainRequest): OrgCommandResponse;
+
+  @route("/claim-org-domain")
+  @post
+  claimOrgDomain(@body request: ClaimOrgDomainRequest): OrgClaimCommandResponse;
 }
 
 @route("/mesh/directory")
@@ -179,4 +308,32 @@ interface MeshOperations {
   @route("/set-hub-alias")
   @post
   setHubAlias(@body request: SetHubAliasRequest): MeshClaimCommandResponse;
+
+  @route("/resolve-org-domain")
+  @post
+  resolveOrgDomain(@body request: ResolveOrgDomainRequest): MeshOrgReadResponse;
+
+  @route("/reserve-org-principal")
+  @post
+  reserveOrgPrincipal(
+    @body request: ReserveOrgPrincipalRequest,
+  ): MeshOrgClaimCommandResponse;
+
+  @route("/activate-org-principal")
+  @post
+  activateOrgPrincipal(
+    @body request: ActivateOrgPrincipalRequest,
+  ): MeshOrgCommandResponse;
+
+  @route("/release-org-domain")
+  @post
+  releaseOrgDomain(
+    @body request: ReleaseOrgDomainRequest,
+  ): MeshOrgCommandResponse;
+
+  @route("/claim-org-domain")
+  @post
+  claimOrgDomain(
+    @body request: ClaimOrgDomainRequest,
+  ): MeshOrgClaimCommandResponse;
 }

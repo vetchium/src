@@ -13,18 +13,28 @@ import (
 type Querier interface {
 	AcquireCommandLock(ctx context.Context, commandID string) error
 	ActivateHubPrincipal(ctx context.Context, arg ActivateHubPrincipalParams) (ActivateHubPrincipalRow, error)
+	ActivateOrgPrincipal(ctx context.Context, arg ActivateOrgPrincipalParams) (ActivateOrgPrincipalRow, error)
 	DeleteHubAlias(ctx context.Context, hubUserDid pgtype.UUID) error
+	DeleteOrgDomain(ctx context.Context, arg DeleteOrgDomainParams) (int64, error)
 	GetCommandResult(ctx context.Context, commandID pgtype.UUID) (VetchiumGlobalCommandLedger, error)
+	GetOrgPrincipal(ctx context.Context, orgDid pgtype.UUID) (GetOrgPrincipalRow, error)
+	GetOrgPrincipalCommandView(ctx context.Context, orgDid pgtype.UUID) (GetOrgPrincipalCommandViewRow, error)
 	GetPrincipal(ctx context.Context, hubUserDid pgtype.UUID) (GetPrincipalRow, error)
 	GetPrincipalCommandView(ctx context.Context, hubUserDid pgtype.UUID) (GetPrincipalCommandViewRow, error)
 	InsertCommandResult(ctx context.Context, arg InsertCommandResultParams) error
 	InsertGlobalAuditEvent(ctx context.Context, arg InsertGlobalAuditEventParams) error
 	InsertGlobalOutboxEvent(ctx context.Context, arg InsertGlobalOutboxEventParams) error
 	InsertHubAlias(ctx context.Context, arg InsertHubAliasParams) error
+	InsertOrgDomain(ctx context.Context, arg InsertOrgDomainParams) error
+	LockOrgPrincipal(ctx context.Context, orgDid pgtype.UUID) (LockOrgPrincipalRow, error)
 	LockPrincipalForAlias(ctx context.Context, hubUserDid pgtype.UUID) (LockPrincipalForAliasRow, error)
 	ReapExpiredHubPrincipalReservations(ctx context.Context) (int64, error)
+	ReapExpiredOrgPrincipalReservations(ctx context.Context) (int64, error)
 	RecordHubAliasChange(ctx context.Context, arg RecordHubAliasChangeParams) (int64, error)
+	RecordOrgDomainChange(ctx context.Context, orgDid pgtype.UUID) (int64, error)
 	ReserveHubPrincipal(ctx context.Context, arg ReserveHubPrincipalParams) (ReserveHubPrincipalRow, error)
+	ReserveOrgPrincipal(ctx context.Context, arg ReserveOrgPrincipalParams) (ReserveOrgPrincipalRow, error)
+	ResolveOrgDomain(ctx context.Context, domain string) (ResolveOrgDomainRow, error)
 	ResolveProfileSlug(ctx context.Context, slug string) (ResolveProfileSlugRow, error)
 }
 

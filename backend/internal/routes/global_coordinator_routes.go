@@ -33,4 +33,24 @@ func RegisterGlobalCoordinatorRoutes(
 		"POST /api/global-coordinator/directory/set-hub-alias",
 		directory.SetHubAlias(s.Runtime, s.Directory),
 	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/resolve-org-domain",
+		directory.ResolveOrgDomain(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/reserve-org-principal",
+		directory.ReserveOrgPrincipal(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/activate-org-principal",
+		directory.ActivateOrgPrincipal(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/release-org-domain",
+		directory.ReleaseOrgDomain(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/claim-org-domain",
+		directory.ClaimOrgDomain(s.Runtime, s.Directory),
+	)
 }
