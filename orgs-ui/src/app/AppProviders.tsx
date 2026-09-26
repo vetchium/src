@@ -3,6 +3,8 @@ import deDE from "antd/locale/de_DE";
 import enUS from "antd/locale/en_US";
 import taIN from "antd/locale/ta_IN";
 import type { PropsWithChildren } from "react";
+import { AuthProvider } from "../auth/AuthContext";
+import { RecoveryCodesProvider } from "../features/security/RecoveryCodesContext";
 import i18n from "../i18n";
 import { type FrontendLocale, localeConfiguration } from "./preferences";
 
@@ -12,12 +14,6 @@ const componentLocales = {
   "de-DE": deDE,
 } satisfies Record<FrontendLocale, typeof enUS>;
 
-// PortalProviders reserves these two slots for a portal's sign-in adapters.
-// Orgs sign-in is not built yet, so both pass their children through.
-function NoAdapter({ children }: PropsWithChildren) {
-  return children;
-}
-
 export function AppProviders({ children }: PropsWithChildren) {
   return (
     <PortalProviders
@@ -25,8 +21,8 @@ export function AppProviders({ children }: PropsWithChildren) {
       primaryColor="#2563eb"
       localization={localeConfiguration}
       componentLocales={componentLocales}
-      AuthProvider={NoAdapter}
-      RecoveryCodesProvider={NoAdapter}
+      AuthProvider={AuthProvider}
+      RecoveryCodesProvider={RecoveryCodesProvider}
     >
       {children}
     </PortalProviders>
