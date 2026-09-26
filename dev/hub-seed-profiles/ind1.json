@@ -27,7 +27,7 @@
         { "ability": "speaking", "languageTag": "hi" }
       ],
       "websites": [
-        "https://www.linkedin.com/in/maithili"
+        "https://linkedin.example.com/in/maithili-example"
       ]
     },
     {
@@ -66,7 +66,7 @@
       "certifications": [
         {
           "title": "AWS Certified Solutions Architect - Associate",
-          "credentialUrl": "https://www.credly.com/badges/aws-csaa-4471029"
+          "credentialUrl": "https://credly.example.com/badges/aws-csaa-4471029"
         }
       ],
       "languages": [
@@ -74,8 +74,8 @@
         { "ability": "speaking", "languageTag": "hi" }
       ],
       "websites": [
-        "https://github.com/rohan-verma",
-        "https://www.linkedin.com/in/rohan-verma",
+        "https://github.example.com/rohan-verma-example",
+        "https://linkedin.example.com/in/rohan-verma-example",
         "https://rohan-verma.example.com"
       ]
     },
@@ -106,7 +106,7 @@
         { "ability": "speaking", "languageTag": "ta" }
       ],
       "websites": [
-        "https://x.com/vaidehi",
+        "https://x.example.com/vaidehi-example",
         "https://vaidehi.example.dev/blog"
       ]
     },
@@ -155,8 +155,8 @@
         { "ability": "speaking", "languageTag": "hi" }
       ],
       "websites": [
-        "https://github.com/arjun-nair",
-        "https://www.linkedin.com/in/arjun-nair",
+        "https://github.example.com/arjun-nair-example",
+        "https://linkedin.example.com/in/arjun-nair-example",
         "https://arjun-nair.example.com"
       ]
     },
@@ -187,7 +187,7 @@
         { "ability": "speaking", "languageTag": "ta" }
       ],
       "websites": [
-        "https://www.linkedin.com/in/anjali"
+        "https://linkedin.example.com/in/anjali-example"
       ]
     },
     {
@@ -232,7 +232,7 @@
       "certifications": [
         {
           "title": "Project Management Professional (PMP)",
-          "credentialUrl": "https://www.pmi.org/certifications/verify/pmp-9931072"
+          "credentialUrl": "https://pmi.example.com/certifications/verify/pmp-9931072"
         }
       ],
       "languages": [
@@ -240,8 +240,8 @@
         { "ability": "speaking", "languageTag": "hi" }
       ],
       "websites": [
-        "https://github.com/vikram-malhotra",
-        "https://www.linkedin.com/in/vikram-malhotra",
+        "https://github.example.com/vikram-malhotra-example",
+        "https://linkedin.example.com/in/vikram-malhotra-example",
         "https://vikram-malhotra.example.com"
       ]
     },
@@ -314,7 +314,7 @@
       "certifications": [
         {
           "title": "Chartered Accountant",
-          "credentialUrl": "https://www.icai.org/verify/ca-771320"
+          "credentialUrl": "https://icai.example.com/verify/ca-771320"
         }
       ],
       "languages": [
@@ -322,8 +322,8 @@
         { "ability": "speaking", "languageTag": "hi" }
       ],
       "websites": [
-        "https://github.com/rahul-gupta",
-        "https://www.linkedin.com/in/rahul-gupta",
+        "https://github.example.com/rahul-gupta-example",
+        "https://linkedin.example.com/in/rahul-gupta-example",
         "https://rahul-gupta.example.com"
       ]
     }

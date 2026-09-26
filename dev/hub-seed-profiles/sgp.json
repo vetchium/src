@@ -27,7 +27,7 @@
         { "ability": "writing", "languageTag": "en" }
       ],
       "websites": [
-        "https://www.linkedin.com/in/wei-tan"
+        "https://linkedin.example.com/in/wei-tan-example"
       ]
     },
     {
@@ -66,7 +66,7 @@
       "certifications": [
         {
           "title": "Project Management Professional (PMP)",
-          "credentialUrl": "https://www.pmi.org/certifications/verify/pmp-4471002"
+          "credentialUrl": "https://pmi.example.com/certifications/verify/pmp-4471002"
         }
       ],
       "languages": [
@@ -75,8 +75,8 @@
         { "ability": "writing", "languageTag": "en" }
       ],
       "websites": [
-        "https://github.com/priya-ramachandran",
-        "https://www.linkedin.com/in/priya-ramachandran",
+        "https://github.example.com/priya-ramachandran-example",
+        "https://linkedin.example.com/in/priya-ramachandran-example",
         "https://priya-ramachandran.example.com"
       ]
     },
@@ -107,7 +107,7 @@
         { "ability": "speaking", "languageTag": "ms" }
       ],
       "websites": [
-        "https://x.com/siti",
+        "https://x.example.com/siti-example",
         "https://siti-yusof.example.dev/blog"
       ]
     },
@@ -147,7 +147,7 @@
       "certifications": [
         {
           "title": "AWS Certified Machine Learning - Specialty",
-          "credentialUrl": "https://www.credly.com/badges/aws-mls-3391884"
+          "credentialUrl": "https://credly.example.com/badges/aws-mls-3391884"
         }
       ],
       "languages": [
@@ -156,8 +156,8 @@
         { "ability": "reading", "languageTag": "zh" }
       ],
       "websites": [
-        "https://github.com/arun-pillai",
-        "https://www.linkedin.com/in/arun-pillai",
+        "https://github.example.com/arun-pillai-example",
+        "https://linkedin.example.com/in/arun-pillai-example",
         "https://arun-pillai.example.com"
       ]
     },
@@ -188,7 +188,7 @@
         { "ability": "speaking", "languageTag": "zh" }
       ],
       "websites": [
-        "https://www.linkedin.com/in/meiling-ong"
+        "https://linkedin.example.com/in/meiling-ong-example"
       ]
     },
     {
@@ -227,7 +227,7 @@
       "certifications": [
         {
           "title": "AWS Certified Solutions Architect - Professional",
-          "credentialUrl": "https://www.credly.com/badges/aws-csap-7742210"
+          "credentialUrl": "https://credly.example.com/badges/aws-csap-7742210"
         }
       ],
       "languages": [
@@ -235,8 +235,8 @@
         { "ability": "speaking", "languageTag": "ms" }
       ],
       "websites": [
-        "https://github.com/faizal-rahman",
-        "https://www.linkedin.com/in/faizal-rahman",
+        "https://github.example.com/faizal-rahman-example",
+        "https://linkedin.example.com/in/faizal-rahman-example",
         "https://faizal-rahman.example.com"
       ]
     },
@@ -309,7 +309,7 @@
       "certifications": [
         {
           "title": "Chartered Accountant of Singapore",
-          "credentialUrl": "https://www.isca.org.sg/verify/ca-118820"
+          "credentialUrl": "https://isca.example.com/verify/ca-118820"
         }
       ],
       "languages": [
@@ -318,8 +318,8 @@
         { "ability": "writing", "languageTag": "ta" }
       ],
       "websites": [
-        "https://github.com/kavitha-suresh",
-        "https://www.linkedin.com/in/kavitha-suresh",
+        "https://github.example.com/kavitha-suresh-example",
+        "https://linkedin.example.com/in/kavitha-suresh-example",
         "https://kavitha-suresh.example.com"
       ]
     }

@@ -21,6 +21,11 @@ those rules.
   profile reads, and cross-tenant commands; with `object-storage.md` for profile
   pictures; and with `hub-subscriptions.md` for Silver entitlements and
   downgrade behavior.
+- Seed profile fixtures under `dev/hub-seed-profiles/` must never point at a
+  real person's account or a real credential. Website and credential URLs use
+  a reserved `example.com` or `example.dev` host, such as
+  `https://github.example.com/priya-ramachandran-example`, because dev-seed
+  output and logs would otherwise expose them.
 - A professional-address message is permitted only for a verification code the
   user explicitly requested for that address. The annual verification reminder
   is UI-only: do not email the account address or professional address.

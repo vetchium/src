@@ -27,7 +27,7 @@
         { "ability": "writing", "languageTag": "de" }
       ],
       "websites": [
-        "https://www.linkedin.com/in/lukas-mueller"
+        "https://linkedin.example.com/in/lukas-mueller-example"
       ]
     },
     {
@@ -66,7 +66,7 @@
       "certifications": [
         {
           "title": "AWS Certified Solutions Architect - Associate",
-          "credentialUrl": "https://www.credly.com/badges/aws-csaa-6650912"
+          "credentialUrl": "https://credly.example.com/badges/aws-csaa-6650912"
         }
       ],
       "languages": [
@@ -74,8 +74,8 @@
         { "ability": "speaking", "languageTag": "en" }
       ],
       "websites": [
-        "https://github.com/anna-schmidt",
-        "https://www.linkedin.com/in/anna-schmidt",
+        "https://github.example.com/anna-schmidt-example",
+        "https://linkedin.example.com/in/anna-schmidt-example",
         "https://anna-schmidt.example.com"
       ]
     },
@@ -103,7 +103,7 @@
       ],
       "languages": [{ "ability": "speaking", "languageTag": "de" }],
       "websites": [
-        "https://x.com/jonas",
+        "https://x.example.com/jonas-example",
         "https://jonas-weber.example.dev/blog"
       ]
     },
@@ -149,7 +149,7 @@
       "certifications": [
         {
           "title": "Chartered Financial Analyst (CFA)",
-          "credentialUrl": "https://www.cfainstitute.org/verify/cfa-2217743"
+          "credentialUrl": "https://cfainstitute.example.com/verify/cfa-2217743"
         }
       ],
       "languages": [
@@ -157,8 +157,8 @@
         { "ability": "speaking", "languageTag": "en" }
       ],
       "websites": [
-        "https://github.com/laura-fischer",
-        "https://www.linkedin.com/in/laura-fischer",
+        "https://github.example.com/laura-fischer-example",
+        "https://linkedin.example.com/in/laura-fischer-example",
         "https://laura-fischer.example.com"
       ]
     },
@@ -189,7 +189,7 @@
         { "ability": "speaking", "languageTag": "en" }
       ],
       "websites": [
-        "https://www.linkedin.com/in/max-schneider"
+        "https://linkedin.example.com/in/max-schneider-example"
       ]
     },
     {
@@ -227,8 +227,8 @@
       ],
       "languages": [{ "ability": "speaking", "languageTag": "de" }],
       "websites": [
-        "https://github.com/hannah-becker",
-        "https://www.linkedin.com/in/hannah-becker",
+        "https://github.example.com/hannah-becker-example",
+        "https://linkedin.example.com/in/hannah-becker-example",
         "https://hannah-becker.example.com"
       ]
     },
@@ -303,8 +303,8 @@
         { "ability": "speaking", "languageTag": "en" }
       ],
       "websites": [
-        "https://github.com/sophie-hoffmann",
-        "https://www.linkedin.com/in/sophie-hoffmann",
+        "https://github.example.com/sophie-hoffmann-example",
+        "https://linkedin.example.com/in/sophie-hoffmann-example",
         "https://sophie-hoffmann.example.com"
       ]
     }

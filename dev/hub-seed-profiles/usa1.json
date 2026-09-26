@@ -27,7 +27,7 @@
         { "ability": "writing", "languageTag": "en" }
       ],
       "websites": [
-        "https://www.linkedin.com/in/emily-johnson"
+        "https://linkedin.example.com/in/emily-johnson-example"
       ]
     },
     {
@@ -66,7 +66,7 @@
       "certifications": [
         {
           "title": "AWS Certified Solutions Architect - Associate",
-          "credentialUrl": "https://www.credly.com/badges/aws-csaa-1029384"
+          "credentialUrl": "https://credly.example.com/badges/aws-csaa-1029384"
         }
       ],
       "languages": [
@@ -74,8 +74,8 @@
         { "ability": "writing", "languageTag": "en" }
       ],
       "websites": [
-        "https://github.com/marcus-reed",
-        "https://www.linkedin.com/in/marcus-reed",
+        "https://github.example.com/marcus-reed-example",
+        "https://linkedin.example.com/in/marcus-reed-example",
         "https://marcus-reed.example.com"
       ]
     },
@@ -106,7 +106,7 @@
         { "ability": "speaking", "languageTag": "es" }
       ],
       "websites": [
-        "https://x.com/sofia",
+        "https://x.example.com/sofia-example",
         "https://sofia-martinez.example.dev/blog"
       ]
     },
@@ -152,7 +152,7 @@
       "certifications": [
         {
           "title": "Certified Kubernetes Administrator",
-          "credentialUrl": "https://training.linuxfoundation.org/verify/cka-5528201"
+          "credentialUrl": "https://linuxfoundation.example.com/verify/cka-5528201"
         }
       ],
       "languages": [
@@ -160,8 +160,8 @@
         { "ability": "speaking", "languageTag": "zh" }
       ],
       "websites": [
-        "https://github.com/david-chen",
-        "https://www.linkedin.com/in/david-chen",
+        "https://github.example.com/david-chen-example",
+        "https://linkedin.example.com/in/david-chen-example",
         "https://david-chen.example.com"
       ]
     },
@@ -189,7 +189,7 @@
       ],
       "languages": [{ "ability": "speaking", "languageTag": "en" }],
       "websites": [
-        "https://www.linkedin.com/in/ashley-williams"
+        "https://linkedin.example.com/in/ashley-williams-example"
       ]
     },
     {
@@ -233,8 +233,8 @@
       ],
       "languages": [{ "ability": "speaking", "languageTag": "en" }],
       "websites": [
-        "https://github.com/brian-oconnor",
-        "https://www.linkedin.com/in/brian-oconnor",
+        "https://github.example.com/brian-oconnor-example",
+        "https://linkedin.example.com/in/brian-oconnor-example",
         "https://brian-oconnor.example.com"
       ]
     },
@@ -304,7 +304,7 @@
       "certifications": [
         {
           "title": "Project Management Professional (PMP)",
-          "credentialUrl": "https://www.pmi.org/certifications/verify/pmp-8802214"
+          "credentialUrl": "https://pmi.example.com/certifications/verify/pmp-8802214"
         }
       ],
       "languages": [
@@ -312,8 +312,8 @@
         { "ability": "speaking", "languageTag": "hi" }
       ],
       "websites": [
-        "https://github.com/kevin-patel",
-        "https://www.linkedin.com/in/kevin-patel",
+        "https://github.example.com/kevin-patel-example",
+        "https://linkedin.example.com/in/kevin-patel-example",
         "https://kevin-patel.example.com"
       ]
     }
