@@ -24,6 +24,9 @@ void i18n.use(initReactI18next).init({
   interpolation: {
     escapeValue: false,
   },
+  // Permission IDs are translation object keys (for example,
+  // `org:superadmin`), not i18next namespace-qualified keys.
+  nsSeparator: false,
 });
 
 export default i18n;

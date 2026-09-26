@@ -1,5 +1,10 @@
 @import "@vetchium/portal-ui/styles.css";
 
-.home-intro {
+.landing {
   width: min(100%, 640px);
+}
+
+/* The shell renders the banner and the routed page as siblings with no gap. */
+.shell-banner {
+  margin-bottom: 24px;
 }
