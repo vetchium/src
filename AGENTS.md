@@ -68,6 +68,7 @@ before changing files:
 | [`database.md`](agent-guides/database.md) | PostgreSQL, queries, sqlc, transactions |
 | [`authorization.md`](agent-guides/authorization.md) | permissions and the screens presenting them |
 | [`federation.md`](agent-guides/federation.md) | global routing, mesh trust, cross-tenant commands, outbox/inbox, migration |
+| [`mesh-topology.md`](agent-guides/mesh-topology.md) | mesh/coordinator deployment, certificates and rotation, WireGuard, dev/CI networks |
 | [`object-storage.md`](agent-guides/object-storage.md) | SeaweedFS, tenant blobs, signed media, object lifecycle |
 | [`hub-profile.md`](agent-guides/hub-profile.md) | Hub profiles, professional claims, work-email evidence, aliases, pictures |
 | [`hub-signup.md`](agent-guides/hub-signup.md) | Hub signup, region discovery, identity claims, locality |
