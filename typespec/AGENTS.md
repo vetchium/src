@@ -15,6 +15,7 @@ For any global-directory or cross-tenant contract, also read
 [`../agent-guides/federation.md`](../agent-guides/federation.md). For uploads or
 signed media, read [`../agent-guides/object-storage.md`](../agent-guides/object-storage.md).
 For Hub profile contracts, also read
-[`../agent-guides/hub-profile.md`](../agent-guides/hub-profile.md).
+[`../agent-guides/hub-profile.md`](../agent-guides/hub-profile.md). For Org
+contracts, also read [`../agent-guides/orgs.md`](../agent-guides/orgs.md).
 
 Backend implementation and database rules do not apply to this module.

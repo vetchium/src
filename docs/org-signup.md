@@ -2,7 +2,7 @@
 
 Status: Accepted for implementation
 
-Last updated: 2026-09-26
+Last updated: 2026-09-27
 
 ## 1. Purpose
 
@@ -244,30 +244,30 @@ corresponding phase.
 
 - [x] Resolve product decisions and record this specification.
 - [x] Add Org signup terms to the glossary.
-- [ ] Add the Org guide under `agent-guides/` and route to it from
+- [x] Add the Org guide under `agent-guides/` and route to it from
   `CLAUDE.md`.
-- [ ] Add global-directory Org principals and domain ownership: schema,
+- [x] Add global-directory Org principals and domain ownership: schema,
   generated queries, coordinator reserve/activate/resolve/release commands, and
   mesh contracts, with database and command tests.
-- [ ] Add the tenant Org schema: Orgs, domains and verification state, Org
+- [x] Add the tenant Org schema: Orgs, domains and verification state, Org
   users, credentials, sessions, login challenges, TOTP, recovery codes, password
   reset, signup requests and completions, permission catalog, plans, blocked
   domains, and the Org email outbox, with constraint tests.
-- [ ] Add the development authoritative DNS server to development, CI, and Tilt
+- [x] Add the development authoritative DNS server to development, CI, and Tilt
   orchestration, and the resolver configuration to every tenant config.
-- [ ] Define the Org signup, authentication, session, and domain TypeSpec
+- [x] Define the Org signup, authentication, session, and domain TypeSpec
   contracts and problems, with contract tests.
-- [ ] Implement Org signup in `orgs-api`, including DNS verification and the
+- [x] Implement Org signup in `orgs-api`, including DNS verification and the
   global claim workflow.
-- [ ] Implement Org sign-in, the wrong-tenant redirect, TOTP, sign-out, session,
+- [x] Implement Org sign-in, the wrong-tenant redirect, TOTP, sign-out, session,
   reauthentication, change password, and forgot and reset password.
-- [ ] Implement workers: signup reconciliation, Org email delivery, domain
+- [x] Implement workers: signup reconciliation, Org email delivery, domain
   re-verification, failing and suspension notices, release, re-claim, and
   pruning.
-- [ ] Extend the region catalog and discovery with Org portal URLs and the
+- [x] Extend the region catalog and discovery with Org portal URLs and the
   advisory Org-signup flag.
-- [ ] Build the `orgs-ui` pages in section 10 in every locale.
-- [ ] Add development seed Orgs with matching development DNS records.
-- [ ] Add Go handler and worker tests and Playwright API and UI tests.
+- [x] Build the `orgs-ui` pages in section 10 in every locale.
+- [x] Add development seed Orgs with matching development DNS records.
+- [x] Add Go handler and worker tests and Playwright API and UI tests.
 - [ ] Final review against this specification; move remaining open items to
   `docs/todo.md`.
