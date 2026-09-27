@@ -20,11 +20,10 @@ import {
   signupOrg,
 } from "../lib/orgs-api.ts";
 
-// Complete-signup's 202 needs a global directory outcome that is uncertain
-// after the command was sent, and request-signup's and complete-signup's 403
-// signup-unavailable need a tenant with Org signup switched off. Neither can
-// be produced on demand in the shared CI stack; the handler branches are
-// exercised by the mocked orgs-ui tests and code review.
+// Request-signup's and complete-signup's 403 signup-unavailable need a tenant
+// with Org signup switched off, which the shared CI stack does not have.
+// Complete-signup's 202 is produced in orgs-audit.spec.ts by failing the
+// final activation audit event.
 
 const invalidJSON = "vetchium-problem-details/invalid-json";
 const validationFailed = "vetchium-problem-details/validation-failed";
