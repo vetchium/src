@@ -205,11 +205,16 @@ Requirement ids are for the ledger (§9) and test names.
       change_id uuid PRIMARY KEY,          -- the tenant's local operation id
       hub_user_did uuid NOT NULL
           REFERENCES vetchium.hub_principals (hub_user_did) ON DELETE CASCADE,
-      email_digest bytea NOT NULL CHECK (octet_length(email_digest) = 32),
+      -- NULL only on a tombstone written by an abandon that arrived before
+      -- its reserve: the change id alone fences it.
+      email_digest bytea CHECK (octet_length(email_digest) = 32),
       state vetchium.global_email_change_reservation_state NOT NULL,
       not_after timestamptz NOT NULL,      -- no reserve is accepted after this
       created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now()
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT hub_account_email_change_reservations_digest_check CHECK (
+          state = 'cancelled' OR email_digest IS NOT NULL
+      )
   );
   ```
 
@@ -220,8 +225,9 @@ Requirement ids are for the ledger (§9) and test names.
   Allowed reservation transitions:
   - `reserved → cancelled`
   - `reserved → finalized`
-  - an abandon for an unknown `change_id` inserts a `cancelled` row directly;
-    that tombstone is the fence
+  - an abandon for an unknown `change_id` inserts a `cancelled` row directly,
+    with a null `email_digest`; that tombstone is the fence. A
+    `reserved → cancelled` transition keeps its digest.
 
   Terminal rows are pruned only after `not_after + 7 days`. By then the
   coordinator itself rejects any reserve for that change id, because it
@@ -382,9 +388,10 @@ principal, except where stated otherwise.
 - **GU-DIR-006 `abandon-hub-account-email-change`:**
   - Request `{command_id, change_id, hub_user_did, not_after}`.
   - `reserved`: mark it `cancelled` and delete its `pending_change` claim.
-  - Missing: insert a `cancelled` tombstone with the given `not_after`. This
-    fences a reserve that is still in flight: whichever arrives first, the
-    address ends up unclaimed.
+  - Missing: insert a `cancelled` tombstone with the given `not_after` and a
+    null `email_digest`. The request deliberately carries no digest, because
+    the change id alone fences the reservation. This fences a reserve that is
+    still in flight: whichever arrives first, the address ends up unclaimed.
   - `cancelled`: success without a change.
   - `finalized`: `DirectoryStateConflictError`. The tenant never abandons
     after applying locally, so this means a bug; log it at error level.
@@ -897,8 +904,10 @@ Files:
   - change reserve, finalize and abandon: idempotent replay, conflict, stale
     reservation replaced, finalize of a cancelled reservation
   - fencing:
-    - abandon before reserve leaves a tombstone, and the later reserve returns
-      `reservation-cancelled` with no claim
+    - abandon before reserve leaves a tombstone with a null digest, and the
+      later reserve returns `reservation-cancelled` with no claim
+    - the digest check rejects a null digest on a `reserved` or `finalized`
+      row
     - reserve after `not_after` returns `reservation-expired`
     - abandon after finalize is a state conflict
   - feed ordering: two concurrent transfers to the same tenant. Hold the first
