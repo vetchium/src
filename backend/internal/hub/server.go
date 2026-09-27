@@ -24,6 +24,17 @@ type PictureStorage interface {
 	Put(context.Context, pgtype.UUID, profilepicture.Sanitized) error
 }
 
+// AccountEmailDigester is satisfied structurally by identitydigest.Key. This
+// package must never import backend/internal/identitydigest directly: it is
+// reachable from backend/internal/routes (hub_routes.go), which
+// global-coordinator and mesh-api also import for their own unrelated
+// routes, and identitydigest must never be linked into those binaries
+// (GU-KEY-002). Only backend/cmd/hub-api constructs the concrete key.
+type AccountEmailDigester interface {
+	HubAccountEmail(address string) []byte
+	ID() string
+}
+
 type Server struct {
 	*apiserver.Runtime
 	Regions          *regions.Catalog
@@ -34,6 +45,9 @@ type Server struct {
 	SignupCompletion *signupcompletion.Service
 	Signup           regions.Admission
 	Queries          sqlc.Querier
+	// DigestKey computes the keyed digests the global directory holds claims
+	// for (GU-CFG-002); it never leaves hub-api and workers.
+	DigestKey AccountEmailDigester
 
 	// Values below come from the shared application config.
 	TenantID         string

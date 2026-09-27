@@ -277,6 +277,18 @@ func (c *Catalog) OrgsURL(tenant string) (string, bool) {
 	return "", false
 }
 
+// HubURL resolves a tenant's Hub portal origin, used only after the caller
+// has proven control of a mailbox (signup completion, an emailed notice):
+// an unauthenticated caller must never learn a Hub account's home region.
+func (c *Catalog) HubURL(tenant string) (string, bool) {
+	for _, r := range c.Regions {
+		if r.TenantID == tenant {
+			return r.HubURL, true
+		}
+	}
+	return "", false
+}
+
 // ListOrgs lists the regions accepting Org signup. It ignores
 // allowedCountries, which is Hub residency policy: an Org's chosen country
 // only selects the recommendation.

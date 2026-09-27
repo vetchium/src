@@ -13,6 +13,7 @@ import (
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/hub/signupcompletion"
+	"backend/internal/identitydigest"
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
 	"backend/internal/profileclient"
@@ -39,6 +40,11 @@ func run(log *slog.Logger, address string) error {
 	if err != nil {
 		return err
 	}
+	digestSecret, err := appconfig.IdentityDigestSecret()
+	if err != nil {
+		return err
+	}
+	digestKey := identitydigest.NewKey(digestSecret)
 	catalog, err := regions.Load(cfg.SignupRegionsFile)
 	if err != nil {
 		return err
@@ -103,7 +109,7 @@ func run(log *slog.Logger, address string) error {
 			hubauthn.DeriveCredentialKey(cfg.TenantID, credentialSecret),
 			"signup-provisioning",
 		),
-		nil,
+		digestKey, nil,
 	)
 	s := &hubruntime.Server{
 		Runtime:          apiserver.New(pool, log),
@@ -113,6 +119,7 @@ func run(log *slog.Logger, address string) error {
 		Profiles:         profiles,
 		Pictures:         pictures,
 		SignupCompletion: signupCompletion,
+		DigestKey:        digestKey,
 		Regions:          catalog,
 		Signup:           cfg.HubAPIServer.Signup,
 		TenantID:         cfg.TenantID,

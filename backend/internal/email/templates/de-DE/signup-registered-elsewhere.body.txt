@@ -1,0 +1,9 @@
+Hallo {{.DisplayName}},
+
+Jemand hat versucht, sich mit dieser E-Mail-Adresse bei Vetchium zu
+registrieren. Sie haben jedoch bereits ein Konto in der Region
+{{.RegionLabel}}. Melden Sie sich stattdessen dort an:
+
+{{.ActionURL}}
+
+Falls Sie dies nicht angefordert haben, können Sie diese E-Mail ignorieren.

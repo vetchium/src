@@ -41,14 +41,14 @@ func TestHubProfileQueryLifecycleIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO vetchium.hub_users
-        (hub_user_did, handle, email_address, display_name, password_hash,
-         resident_country, hub_plan_oid, subscription_billing_interval,
-         subscription_anchor_at, subscription_period_start,
-         subscription_period_end, profile_alias)
-        VALUES ($1, $2, $3, 'Profile Test', 'test-hash', 'SG',
-                'hub-silver-tier', 'month', now() - interval '1 month',
-                now() - interval '1 day', now() + interval '1 month',
-                'profile-test-alias')`, did,
+        (hub_user_did, handle, email_address, email_digest, display_name,
+         password_hash, resident_country, hub_plan_oid,
+         subscription_billing_interval, subscription_anchor_at,
+         subscription_period_start, subscription_period_end, profile_alias)
+        VALUES ($1, $2, $3, sha256(convert_to($3, 'UTF8')), 'Profile Test',
+                'test-hash', 'SG', 'hub-silver-tier', 'month',
+                now() - interval '1 month', now() - interval '1 day',
+                now() + interval '1 month', 'profile-test-alias')`, did,
 		"ptest000-0123456789a", "profile-test-"+dbvalue.FormatUUID(did)+"@example.com")
 	if err != nil {
 		t.Fatal(err)
@@ -543,13 +543,14 @@ func TestHubAliasMutationLifecycleIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO vetchium.hub_users
-        (hub_user_did, handle, email_address, display_name, password_hash,
-         resident_country, hub_plan_oid, subscription_billing_interval,
-         subscription_anchor_at, subscription_period_start,
-         subscription_period_end)
-        VALUES ($1, 'alist000-0123456789a', $2, 'Alias Test', 'test-hash', 'SG',
-                'hub-silver-tier', 'month', now() - interval '1 month',
-                now() - interval '1 day', now() + interval '1 month')`, did,
+        (hub_user_did, handle, email_address, email_digest, display_name,
+         password_hash, resident_country, hub_plan_oid,
+         subscription_billing_interval, subscription_anchor_at,
+         subscription_period_start, subscription_period_end)
+        VALUES ($1, 'alist000-0123456789a', $2, sha256(convert_to($2, 'UTF8')),
+                'Alias Test', 'test-hash', 'SG', 'hub-silver-tier', 'month',
+                now() - interval '1 month', now() - interval '1 day',
+                now() + interval '1 month')`, did,
 		"alias-test-"+dbvalue.FormatUUID(did)+"@example.com")
 	if err != nil {
 		t.Fatal(err)
@@ -854,12 +855,13 @@ func TestHubProfileConstraintsIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO vetchium.hub_users
-        (hub_user_did, handle, email_address, display_name, password_hash,
-         resident_country, hub_plan_oid, subscription_billing_interval,
-         subscription_anchor_at, subscription_period_start,
-         subscription_period_end)
-        VALUES ($1, 'pcons000-0123456789a', $2, 'Constraint Test', 'test-hash',
-                'SG', 'hub-silver-tier', 'month', now() - interval '1 month',
+        (hub_user_did, handle, email_address, email_digest, display_name,
+         password_hash, resident_country, hub_plan_oid,
+         subscription_billing_interval, subscription_anchor_at,
+         subscription_period_start, subscription_period_end)
+        VALUES ($1, 'pcons000-0123456789a', $2, sha256(convert_to($2, 'UTF8')),
+                'Constraint Test', 'test-hash', 'SG', 'hub-silver-tier',
+                'month', now() - interval '1 month',
                 now() - interval '1 day', now() + interval '1 month')`,
 		did, "profile-constraints-"+dbvalue.FormatUUID(did)+"@example.com")
 	if err != nil {

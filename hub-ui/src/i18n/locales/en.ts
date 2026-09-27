@@ -94,6 +94,12 @@ export const en = {
     action: "Complete signup",
     pending: "Your account is being finalized. This page will keep checking.",
     success: "Your account is ready. Your handle is {{handle}}.",
+    homedElsewhere: {
+      title: "You already have a Vetchium account in {{region}}",
+      description:
+        "This email address is registered at another Vetchium region. Sign in there instead.",
+      action: "Go to sign in",
+    },
   },
   forgotPassword: {
     documentTitle: "Forgot password | Vetchium",

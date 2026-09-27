@@ -56,11 +56,12 @@ func TestHubAliasCompletionAndCompensationIntegration(t *testing.T) {
                     WHERE hub_user_did = $1`, did)
 			}()
 			_, err = pool.Exec(ctx, `INSERT INTO vetchium.hub_users
-                (hub_user_did, handle, email_address, display_name,
-                 password_hash, resident_country, hub_plan_oid,
+                (hub_user_did, handle, email_address, email_digest,
+                 display_name, password_hash, resident_country, hub_plan_oid,
                  subscription_billing_interval, subscription_anchor_at,
                  subscription_period_start, subscription_period_end)
-                VALUES ($1, $2, $3, 'Alias Worker Test', 'test-hash', 'SG',
+                VALUES ($1, $2, $3, sha256(convert_to($3, 'UTF8')),
+                        'Alias Worker Test', 'test-hash', 'SG',
                         'hub-silver-tier', 'month', now() - interval '1 month',
                         now() - interval '1 day', now() + interval '1 month')`,
 				did, test.handle,

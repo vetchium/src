@@ -77,6 +77,10 @@ type Querier interface {
 	CreateHubProfessionalEmail(ctx context.Context, arg CreateHubProfessionalEmailParams) (CreateHubProfessionalEmailRow, error)
 	CreateHubSession(ctx context.Context, arg CreateHubSessionParams) (CreateHubSessionRow, error)
 	CreateHubSignupDomain(ctx context.Context, arg CreateHubSignupDomainParams) (CreateHubSignupDomainRow, error)
+	// The address is registered at another tenant (GU-SIG-002): no signup
+	// request is created here, so the response cannot distinguish this from an
+	// unregistered address, and the mailed notice names the home region instead
+	// of carrying a signup link.
 	// An attempt on an address that already has an account is answered with the
 	// same 202 as a fresh request, so that the response cannot be used to test
 	// whether an address is registered. This event is the only record that it
@@ -116,6 +120,12 @@ type Querier interface {
 	DisableHubTOTP(ctx context.Context, arg DisableHubTOTPParams) (bool, error)
 	DisableOrgTOTP(ctx context.Context, arg DisableOrgTOTPParams) (bool, error)
 	EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (string, error)
+	// The reserve-hub-principal directory-email-claim-conflict path (GU-SIG-004):
+	// the address is already an account elsewhere, discovered only once the
+	// caller has proven mailbox control. conflicting_home_tenant_id is null when
+	// the coordinator's resolve-hub-account-email lookup itself failed; the
+	// completion still fails, just without naming a region.
+	FailHubSignupCompletionRegisteredElsewhere(ctx context.Context, arg FailHubSignupCompletionRegisteredElsewhereParams) (FailHubSignupCompletionRegisteredElsewhereRow, error)
 	// A definite claim conflict means the signup can never succeed, so the
 	// request is retired with the operation.
 	FailOrgSignupCompletionDomainOwned(ctx context.Context, arg FailOrgSignupCompletionDomainOwnedParams) (FailOrgSignupCompletionDomainOwnedRow, error)

@@ -1084,32 +1084,29 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
 - [x] GU-GDB-001..004 (incl. 002a). Deviation: global_outbox_events is
       deliberately not written for these tables; see §10.
 - [x] GU-DIR-001..011
-- [ ] GU-SIG-001..007
+- [x] GU-SIG-001..007
 - [ ] GU-ECH-001..007 (incl. 002a)
 - [ ] GU-PEM-001..009
-- [ ] GU-CFG-001..002 (identitydigest.Key wiring into hub-api/workers deferred to
-      M3, when the first consumer needs it)
-- [x] Tests §4.1 (Go integration tests for GU-DIR-001..011, including
-      concurrency, fencing, and feed-ordering) — the globaldirectory,
-      handler, and directoryclient layers only. §4.1's
-      signupcompletion/emailchange/professionalemail service tests belong to
-      M3-M5 and are not started.
+- [x] GU-CFG-001..002, partially: the identitydigest.Key wiring into hub-api
+      and workers (via the AccountEmailDigester interface, not the concrete
+      type — see §10) is done; the three new Workers timers (GU-CFG-001) are
+      not added yet, since email-change and professional-email workers
+      (M4/M5) are their first consumers.
+- [x] Tests §4.1 for GU-DIR-001..011 (globaldirectory, handler, directoryclient
+      layers) and for GU-SIG-001..007 (signupcompletion service: email
+      conflict → failed + replay, handle conflict still rotates). §4.1's
+      emailchange/professionalemail service tests belong to M4/M5.
 - [ ] Tests §4.2, §4.3
-- [ ] Documentation §5
+- [x] Documentation §5, partially: agent-guides/hub-signup.md (GU-SIG-007) and
+      docs/todo.md are updated. agent-guides/federation.md, hub-profile.md,
+      docs/hub-profile.md, and glossary.md are still M4/M5/M6 work.
 - [ ] `make test` green
 
 ## 10. Progress log
 
-**Current milestone:** M2 complete. All of GU-GDB-001..004 and GU-DIR-001..011
-are implemented and tested: global schema, `globaldirectory` service
-(`backend/internal/globaldirectory/hub_email.go`), coordinator HTTP handlers
-(`backend/handlers/directory/directory.go`, routes in
-`backend/internal/routes/global_coordinator_routes.go`), mesh relay
-(`backend/handlers/mesh/directory.go`, routes in
-`backend/internal/routes/mesh_routes.go`), and
-`backend/internal/directoryclient/client.go`. Starting M3 (Hub signup):
-schema, queries, signup completion saga, request-time notice email and
-templates, completion 409 contract, hub-ui completion page, tests.
+**Current milestone:** M3 (Hub signup) complete. Starting M4 (account email
+change durable operation): schema, queries, `emailchange` service, worker,
+contracts, hub-ui, tests, including the concurrent-`Advance` tests.
 
 **Design decisions already validated against a real disposable PostgreSQL
 container** (a scratch `postgres:17-alpine` container, not part of the repo;
@@ -1214,40 +1211,166 @@ the commit message for the exact list) plus this log update.
   confirmed). Close this gap with Playwright API tests in M6, which
   exercise the mesh relay for real against the CI stack anyway.
 
-**Exact next step:** Start M3 (Hub signup). Read
-`agent-guides/hub-signup.md` and plan §3.4 again before touching code. Files
-to touch, per the plan: `db/migrations/00001_init.sql` (tenant-local schema:
-`hub_users.email_digest`, `hub_signup_completions.account_email_digest` /
-`failure_reason` / `conflicting_home_tenant_id`, the new
-`signup-registered-elsewhere` outbox kind), `backend/internal/db/queries/hub_signup.sql`,
-`backend/internal/hub/signupcompletion/service.go`, `backend/handlers/hub/auth/signup.go`,
-`typespec/hub/auth/signup.*`, `typespec/problem/hub/signup.*`,
-`backend/internal/email/` (renderer + templates), and
-`backend/internal/workers/deliver_hub_email.go`. Read
-`backend/internal/hub/signupcompletion/service.go` in full first — it is the
-existing saga this work extends (compare with how `orgs/signupcompletion`
-handles its own homed-elsewhere case, since Org signup already solved the
-analogous problem and GU-SIG-004/005 explicitly model this on it). The tenant
-side will need an `identitydigest.Key` threaded into `hub-api`'s main.go and
-the signup-completion service (GU-CFG-002) — this is the first real consumer
-of the M1 secret wiring. Use the same scratch-PostgreSQL-container technique
-(see the design-decisions note further below) for the *tenant* schema this
-time, migrating with `goose -dir db/migrations` against a throwaway tenant
-database, to iterate on the new tenant-local queries before running the full
-`make test-stack`.
+**What M3 actually implemented, for a resumed session's reference:**
+
+- Tenant schema (`db/migrations/00001_init.sql`): `hub_users.email_digest`
+  (`bytea NOT NULL UNIQUE`), `hub_signup_completions.account_email_digest`
+  (set once at prepare time), `.failure_reason` (`'expired'` or
+  `'email_registered_elsewhere'`), `.conflicting_home_tenant_id` (set only
+  for the latter, only when the coordinator's lookup at completion succeeded),
+  and the new `'signup-registered-elsewhere'` `hub_email_outbox` kind.
+- `backend/internal/db/queries/hub_signup.sql`: `CreateHubSignupRequest`
+  gained a `registered_elsewhere_tenant_id` (nullable) and
+  `elsewhere_payload_ciphertext` parameter; when the former is set, the
+  `upserted` and normal `outbox` CTEs are skipped entirely (no signup request
+  or verification email is created) and a `signup-registered-elsewhere`
+  outbox row plus a `hub.signup.rejected` audit fire instead — the HTTP
+  response stays the identical `202` either way. `PrepareHubSignupCompletion`
+  now stores `account_email_digest`. `CreateProvisioningHubUser` copies that
+  digest straight into `hub_users.email_digest`. `AbandonExpiredHubSignupCompletion`
+  now also sets `failure_reason = 'expired'`. New
+  `FailHubSignupCompletionRegisteredElsewhere` query (mirrors the abandon
+  query's shape: locks the `prepared` operation, deactivates its signup
+  request, sets `failed`/`email_registered_elsewhere`/the conflicting tenant
+  id, audits `hub.signup.rejected`). All six pre-existing queries that
+  explicitly listed `hub_signup_completions` columns (both `Get*` reads, both
+  saga-step final `SELECT`s, the abandon query, `ListRecoverable...`) were
+  updated to include the three new columns in table order, since several are
+  cast via `sqlc.VetchiumHubSignupCompletion(row)` and require an exact field
+  match.
+- `backend/internal/hub/signupcompletion/service.go`: `Start` computes
+  `account_email_digest` and stores it; `Advance`'s `prepared` case sends
+  `account_email_digest`/`digest_key_id` with `reserve-hub-principal` and
+  checks `DirectoryEmailClaimConflictError` **before** the existing handle
+  ­conflict/rotation check (never rotates a handle for an email conflict);
+  a new `failRegisteredElsewhere` helper calls `ResolveHubAccountEmail` for
+  the display-only home tenant (best-effort; a resolve failure still fails
+  the completion, just without naming a region) and runs the new query; the
+  `failed` case in the state switch branches on `failure_reason` so a replay
+  of an already-failed completion (by token or by idempotency key) returns
+  the same `*ErrRegisteredElsewhere` or `ErrExpired` it originally reached,
+  without re-deriving it.
+- **Important architecture fix**: the first attempt at wiring
+  `identitydigest.Key` directly onto `hub.Server` and
+  `signupcompletion.Service` broke the GU-KEY-002 architecture test, because
+  `backend/internal/routes` (imported by **every** `cmd/*/main.go`, including
+  `global-coordinator` and `mesh-api`, for their own unrelated route
+  registration) transitively imports `backend/internal/hub` and
+  `backend/handlers/hub/auth`. Any import added to *any* file in a package
+  reachable from `backend/internal/routes` leaks into every binary that
+  imports that package, regardless of whether that binary's code path ever
+  uses it. The fix: both `hub.Server` and `signupcompletion.Service` now
+  declare their own local `AccountEmailDigester` interface
+  (`HubAccountEmail(string) []byte; ID() string`) instead of importing
+  `identitydigest.Key` directly; only `backend/cmd/hub-api/main.go` and
+  `backend/cmd/workers/main.go` (isolated per-executable `main` packages, not
+  reachable from `routes`) import `identitydigest` and construct the
+  concrete key. **Remember this pattern for M4 and M5**: `emailchange` and
+  `professionalemail` services/handlers must use the same
+  interface-not-concrete-type approach for anything digest-related, or the
+  architecture test will fail the same way. Run
+  `go test ./internal/architecture/...` after wiring any new digest consumer.
+- TypeSpec: `HubAccountHomedElsewhereDetails` (409) added to
+  `typespec/problem/hub/signup.tsp` + Go + TS companions, modeled on
+  `OrgHomedElsewhereDetails`; added to `completeSignup`'s response union.
+  `requestSignup`'s doc comment (falsely said "email uniqueness is
+  tenant-local") corrected.
+- Email: new `email.SignupRegisteredElsewhere` kind, `TemplateData.RegionLabel`
+  field, templates in all three Hub locales (en-US, de-DE, ta) — deliberately
+  showing the raw tenant id as the "region" (e.g. "usa1"), not a localized
+  country name. See the deviation below.
+- `hub-ui/src/pages/CompleteSignupPage.tsx`: a `HomedElsewhere` component
+  (modeled on `orgs-ui`'s `LoginPage.tsx` `HomedElsewhere`) shows an info
+  alert with a "go to sign in" button when `complete.error` carries
+  `HubAccountHomedElsewhereDetails`, instead of the generic error+password
+  form. i18n added to all three locales under `completeSignup.homedElsewhere.*`.
+- Tests: `backend/internal/hub/signupcompletion/service_test.go` (new) —
+  email conflict → failed + replay returns the same error; handle conflict
+  still rotates and then completes, using a `fakeDirectory` that echoes
+  request fields back so the test never needs to predict the generated
+  handle/DID. Uses `TENANT_DATABASE_URL` against a live Postgres, same
+  convention as the pre-existing `backend/internal/db/*_integration_test.go`
+  files. **Also had to fix 7 pre-existing raw-SQL `INSERT INTO
+  vetchium.hub_users` statements** across `backend/internal/db/profile_integration_test.go`,
+  `website_integration_test.go`, and
+  `backend/internal/workers/complete_hub_alias_changes_integration_test.go`
+  that didn't set the new `email_digest` column — each now uses
+  `sha256(convert_to($n, 'UTF8'))` on the same parameter as `email_address`,
+  which is a convenient way to get a deterministic, unique-enough 32-byte
+  value in a raw SQL fixture without needing a real digest key.
+- A local scratch PostgreSQL container (see the M2 notes below for the exact
+  commands) was used for **both** `GLOBAL_DATABASE_URL` and
+  `TENANT_DATABASE_URL` in the same container (two databases, `global_db` and
+  `tenant_db`), migrated with `goose -dir db/global-migrations` and
+  `goose -dir db/migrations` respectively.
+
+**Exact next step:** Start M4 (account email change durable operation). Read
+plan §3.5 and the templates it names again:
+`backend/handlers/hub/profile/alias_set.go` (enqueue + `PendingOperation`),
+`backend/internal/hub/aliaschange/payload.go`,
+`backend/internal/workers/complete_hub_alias_changes.go` (state machine and
+retries — this is the closest existing analog to the `emailchange` state
+machine GU-ECH-003 describes), and `backend/handlers/hub/operations/status.go`
+(polling). Files to touch:
+`backend/handlers/hub/auth/email_change.go` (existing, extends),
+`backend/internal/db/queries/hub_email_change.sql` (existing, extends),
+`typespec/hub/auth/email_change.*` (existing, extends), new
+`backend/internal/hub/emailchange/`, new
+`backend/internal/workers/complete_hub_email_changes.go`, and the hub-ui
+account security email card. Schema: add the
+`hub_account_email_changes` table from GU-ECH-002a to
+`db/migrations/00001_init.sql` (note it references `federation_operations`,
+an existing table — check its exact columns first) and
+`RequestEmailChangeRequest`'s existing local-conflict check needs to also
+resolve globally (GU-ECH-001) using the same
+`s.DigestKey.HubAccountEmail(...)` pattern `RequestSignup` now uses (`hub.Server`
+already has `DigestKey AccountEmailDigester`, no new wiring needed there).
+**Remember the architecture constraint recorded above**: if `emailchange`
+needs its own digest-computing interface (it will, for the same reason
+`signupcompletion` does), declare it locally in that package, never import
+`identitydigest` directly, and run the architecture test after wiring.
+GU-ECH-003's table of state transitions is the actual spec for
+`emailchange.Service.Advance`; implement it as literally as possible and
+write the "two concurrent `Advance` calls, only one applies" test using the
+same conditional-`UPDATE ... WHERE state = '<expected>'` pattern the plan
+describes, verified against a real Postgres for the race the same way the
+M2 concurrent-transfer test was.
 
 **Known failing tests / open issues:** none — every test in the `backend`
-module passes, including with `GLOBAL_DATABASE_URL` set against a live
-Postgres (`go build ./...`, `go vet ./...`, `gofmt -l .` all clean, and
-`make test-go-lint` / `make test-go-static` both pass). `make test` (the full
-gate, including the CI docker stack and Playwright) has not been run; far too
-much of the plan remains unimplemented for it to be meaningful yet, and it is
-a long-running command better run once near the end of M6. Open gap: no
-`backend/handlers/mesh/directory_test.go` exists (pre-existing condition, not
-introduced by this change) — see the M2 summary above.
+module passes, including with `GLOBAL_DATABASE_URL` and `TENANT_DATABASE_URL`
+both set against a live Postgres (`go build ./...`, `go vet ./...`,
+`gofmt -l .` all clean, `make test-go-lint` / `make test-go-static` /
+`make sql-check` / `make typespec-check` / `make hub-ui-check` all pass).
+`make test` (the full gate, including the CI docker stack and Playwright) has
+not been run; far too much of the plan remains unimplemented for it to be
+meaningful yet, and it is a long-running command better run once near the end
+of M6. Open gap carried from M2: no `backend/handlers/mesh/directory_test.go`
+exists (pre-existing condition, not introduced by this plan) — see the M2
+summary below.
 
-**Deviations from the plan (in addition to the three recorded after M1):**
+**Deviations from the plan (M3, in addition to the M1/M2 ones below):**
 
+- The `hub.Server.DigestKey` and `signupcompletion.Service`'s digest field
+  are typed as a locally-declared `AccountEmailDigester` interface, not
+  `identitydigest.Key` directly. Required by GU-KEY-002; see the M3 summary
+  above for the full explanation (the `backend/internal/routes` package
+  aggregates every portal's route registration into one Go package, which
+  both `global-coordinator` and `mesh-api` import for their own routes, so
+  any new import in any file reachable from `routes` leaks into those
+  binaries regardless of which code path is actually reachable at runtime).
+- The `signup-registered-elsewhere` email template shows the raw tenant id
+  (e.g. "usa1") as the "region", not a localized country name. GU-SIG-006
+  asks the **hub-ui completion page** to get a friendly region name "the same
+  way as the Org signup region step (`Intl.DisplayNames`)" — but that
+  technique needs a country code, and neither `HubAccountHomedElsewhereDetails`
+  (only `tenant_id` and `hub_url`) nor the backend email path has one without
+  fetching the full, paginated region catalog (`hubAPI.listSignupRegions`,
+  up to 1000 regions) just to resolve one tenant id. The **hub-ui page**
+  implementation (this M3 work) also uses the raw tenant id for the same
+  reason, deferring a friendlier display name as a follow-up rather than
+  adding a catalog fetch to a page that otherwise doesn't need one. Backend
+  Go has no country-name-localization utility at all today (grepped); adding
+  one was judged out of scope for this plan.
 - No dedicated `backend/handlers/mesh/directory_test.go` was added for the
   eight new mesh relay routes. This mirrors the pre-existing state (the mesh
   directory relay has never had its own handler-level test file for any

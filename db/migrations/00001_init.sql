@@ -94,6 +94,9 @@ CREATE TABLE vetchium.hub_users (
     hub_user_did uuid PRIMARY KEY,
     handle text NOT NULL,
     email_address text NOT NULL,
+    -- Keyed digest of email_address (GU-SIG-001), the same one the global
+    -- directory holds a claim for; the key never reaches this database.
+    email_digest bytea NOT NULL CHECK (octet_length(email_digest) = 32),
     display_name text NOT NULL,
     biography text,
     profile_alias text,
@@ -129,6 +132,7 @@ CREATE TABLE vetchium.hub_users (
     updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT hub_users_handle_key UNIQUE (handle),
     CONSTRAINT hub_users_email_address_key UNIQUE (email_address),
+    CONSTRAINT hub_users_email_digest_key UNIQUE (email_digest),
     CONSTRAINT hub_users_did_uuidv7_check CHECK (
         substring(hub_user_did::text FROM 15 FOR 1) = '7'
     ),
@@ -756,12 +760,25 @@ CREATE TABLE vetchium.hub_signup_completions (
     token_hash bytea NOT NULL UNIQUE CHECK (octet_length(token_hash) = 32),
     idempotency_key text NOT NULL,
     request_digest bytea NOT NULL CHECK (octet_length(request_digest) = 32),
+    -- Computed once at prepare time; also written to hub_users.email_digest
+    -- when the local account is created (GU-SIG-004).
+    account_email_digest bytea NOT NULL CHECK (
+        octet_length(account_email_digest) = 32
+    ),
     hub_user_did uuid NOT NULL UNIQUE,
     handle text NOT NULL,
     reserve_command_id uuid NOT NULL UNIQUE,
     activate_command_id uuid NOT NULL UNIQUE,
     payload_ciphertext bytea NOT NULL,
     state vetchium.hub_signup_completion_state NOT NULL DEFAULT 'prepared',
+    failure_reason text CHECK (
+        failure_reason IN ('expired', 'email_registered_elsewhere')
+    ),
+    -- Set only for the email_registered_elsewhere failure, and only when the
+    -- coordinator's resolve-hub-account-email lookup itself succeeded.
+    conflicting_home_tenant_id text CHECK (
+        conflicting_home_tenant_id ~ '^[a-z][a-z0-9]{2,15}$'
+    ),
     provisioning_expires_at timestamptz NOT NULL,
     attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
     next_attempt_at timestamptz NOT NULL DEFAULT now(),
@@ -775,6 +792,13 @@ CREATE TABLE vetchium.hub_signup_completions (
     ),
     CONSTRAINT hub_signup_completions_handle_check CHECK (
         handle ~ '^[a-z0-9]{8}-[0-9a-hjkmnp-tv-z]{11}$'
+    ),
+    CONSTRAINT hub_signup_completions_failure_check CHECK (
+        (state = 'failed') = (failure_reason IS NOT NULL)
+    ),
+    CONSTRAINT hub_signup_completions_conflicting_tenant_check CHECK (
+        conflicting_home_tenant_id IS NULL
+        OR failure_reason = 'email_registered_elsewhere'
     ),
     CONSTRAINT hub_signup_completions_times_check CHECK (
         updated_at >= created_at
@@ -842,6 +866,7 @@ CREATE TABLE vetchium.hub_email_outbox (
     hub_email_outbox_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     kind text NOT NULL CHECK (kind IN (
         'signup',
+        'signup-registered-elsewhere',
         'password-reset',
         'professional-email-verification',
         'subscription-ending',

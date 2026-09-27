@@ -42,7 +42,7 @@ model SignupCompletionPendingResponse {
 @route("/api/hub")
 @tag("Hub signup")
 interface SignupOperations {
-  /** Queue a localized verification link under this tenant’s country and email admission policy. Email uniqueness is tenant-local. */
+  /** Queue a localized verification link under this tenant’s country and email admission policy. The account email is globally unique; an address already registered at another tenant gets the identical 202 here, with a notice naming that region instead of a signup link. */
   @route("/request-signup")
   @post
   @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
@@ -97,6 +97,7 @@ interface SignupOperations {
     | Vetchium.Problem.InvalidJSONErrorResponse
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.InvalidHubSignupTokenErrorResponse
+    | Vetchium.Problem.HubAccountHomedElsewhereErrorResponse
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.HubSignupUnavailableErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse

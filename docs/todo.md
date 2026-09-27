@@ -101,3 +101,27 @@ section 11). Each needs its own specification first.
 - The tenant migration's down section fails because
   `hub_email_change_challenges` is never dropped before `hub_sessions`; the
   down path is not exercised by any test.
+
+## Global Hub email uniqueness follow-ups
+
+Deferred from [`global-uniqueness.md`](global-uniqueness.md), section 1.
+
+- Hub login does not redirect to the account's home region. Deliberately not
+  built: an unauthenticated "this email lives in region X" answer would be an
+  account-enumeration oracle. Only a flow where the caller has proven mailbox
+  control (a signup completion, an emailed notice) may reveal the home
+  region.
+- Hub account deletion does not exist yet. When it is built it must release
+  the global account-email claim and every professional-email claim the user
+  holds.
+- Digest key rotation has no procedure yet, only the key id hook
+  (`identitydigest.Key.ID()`, GU-KEY-004) that would let the coordinator
+  detect a tenant still using the old key.
+- Decommissioning a tenant must delete its `hub_professional_email_feed_cursors`
+  row and any `hub_professional_email_supersessions` rows still addressed to
+  it (GU-DIR-010); nothing does this yet, since no tenant decommissioning
+  procedure exists.
+- No `backend/handlers/mesh/directory_test.go` exists for any directory
+  operation relayed through mesh-api, the eight Hub-email ones included; it
+  is exercised only by `go build`/`go vet` (interface satisfaction) and by
+  the Playwright API suite against the real CI stack.

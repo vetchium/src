@@ -22,3 +22,24 @@ var SignupUnavailableError = problem.Details{
 	Status: 403,
 	Detail: "This region is not accepting signup for your resident country. Choose another region.",
 }
+
+// HubAccountHomedElsewhereDetails.
+type HubAccountHomedElsewhereDetails struct {
+	problem.Details
+	TenantID string `json:"tenant_id"`
+	HubURL   string `json:"hub_url"`
+}
+
+func HubAccountHomedElsewhereError(
+	tenantID, hubURL string,
+) HubAccountHomedElsewhereDetails {
+	return HubAccountHomedElsewhereDetails{
+		Details: problem.Details{
+			Type:   "vetchium-problem-details/hub-account-homed-elsewhere",
+			Title:  "Hub account homed in another region",
+			Status: 409,
+			Detail: "This Hub account signs in at another region's Hub portal",
+		},
+		TenantID: tenantID, HubURL: hubURL,
+	}
+}

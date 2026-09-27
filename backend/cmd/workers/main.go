@@ -11,6 +11,7 @@ import (
 	"backend/internal/email"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/hub/signupcompletion"
+	"backend/internal/identitydigest"
 	"backend/internal/objectstorage"
 	orgsauthn "backend/internal/orgs/auth"
 	"backend/internal/orgs/domainverification"
@@ -59,6 +60,11 @@ func run(log *slog.Logger) error {
 	hubCredentialKey := hubauthn.DeriveCredentialKey(
 		cfg.TenantID, hubCredentialSecret,
 	)
+	digestSecret, err := appconfig.IdentityDigestSecret()
+	if err != nil {
+		return err
+	}
+	digestKey := identitydigest.NewKey(digestSecret)
 	meshCredential, err := cfg.MeshAPIServer.Credential()
 	if err != nil {
 		return err
@@ -86,7 +92,7 @@ func run(log *slog.Logger) error {
 		hubauthn.DeriveCredentialSubkey(
 			hubCredentialKey, "signup-provisioning",
 		),
-		nil,
+		digestKey, nil,
 	)
 	worker := workers.New(
 		pool, log, cfg.TenantID, cfg.Workers,

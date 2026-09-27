@@ -53,6 +53,10 @@ type hubEmailPayload struct {
 	// LeadDays carries the subscription-ending warning's lead time (7 or 1).
 	// Unused by every other kind.
 	LeadDays int `json:"lead_days"`
+	// HomeTenant and SignInURL carry a signup-registered-elsewhere notice's
+	// destination; unused by every other kind.
+	HomeTenant string `json:"home_tenant"`
+	SignInURL  string `json:"sign_in_url"`
 }
 
 func (w *Worker) deliverHubEmail(ctx context.Context) error {
@@ -145,6 +149,7 @@ func (w *Worker) sendClaimedHubEmail(
 			ExpiresAt:   payload.ExpiresAt,
 			Code:        payload.Code,
 			LeadDays:    payload.LeadDays,
+			RegionLabel: payload.HomeTenant,
 		},
 	)
 	if err != nil {
@@ -206,6 +211,13 @@ func hubEmailKind(
 			return "", "", fmt.Errorf("signup email has no verification URL")
 		}
 		return email.Signup, payload.VerificationURL, nil
+	case email.SignupRegisteredElsewhere:
+		if payload.SignInURL == "" || payload.HomeTenant == "" {
+			return "", "", fmt.Errorf(
+				"signup-registered-elsewhere email is missing its destination",
+			)
+		}
+		return email.SignupRegisteredElsewhere, payload.SignInURL, nil
 	case email.PasswordReset:
 		if payload.ResetURL == "" {
 			return "", "", fmt.Errorf("password reset email has no reset URL")

@@ -21,6 +21,7 @@ import (
 	hubspec "github.com/vetchium/src/typespec/hub"
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
 	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
+	"github.com/vetchium/src/typespec/problem"
 	coordinatorproblem "github.com/vetchium/src/typespec/problem/global-coordinator"
 
 	"backend/internal/credentials"
@@ -43,6 +44,19 @@ var (
 	ErrExpired             = errors.New("signup completion expired")
 )
 
+// ErrRegisteredElsewhere reports that the account email is already claimed by
+// a Hub user at another tenant (GU-SIG-004). HomeTenantID is empty when the
+// coordinator's resolve-hub-account-email lookup itself failed; the caller
+// still fails the completion (reserve-hub-principal already gave a definite
+// conflict), just without naming a region.
+type ErrRegisteredElsewhere struct {
+	HomeTenantID string
+}
+
+func (e *ErrRegisteredElsewhere) Error() string {
+	return "Hub account email is already registered at another tenant"
+}
+
 type Directory interface {
 	ReserveHubPrincipal(
 		context.Context, directoryspec.ReserveHubPrincipalRequest,
@@ -50,6 +64,21 @@ type Directory interface {
 	ActivateHubPrincipal(
 		context.Context, directoryspec.ActivateHubPrincipalRequest,
 	) (directoryclient.Outcome, error)
+	ResolveHubAccountEmail(
+		context.Context, directoryspec.ResolveHubAccountEmailRequest,
+	) (directoryspec.ResolveHubAccountEmailResponse, *problem.Details, error)
+}
+
+// AccountEmailDigester is satisfied structurally by identitydigest.Key. This
+// package never imports backend/internal/identitydigest directly: it is
+// reachable from backend/internal/routes (hub_routes.go), which
+// global-coordinator and mesh-api also import for their own unrelated
+// routes, and identitydigest must never be linked into those binaries
+// (GU-KEY-002). Only backend/cmd/hub-api and backend/cmd/workers construct
+// the concrete key and pass it in here.
+type AccountEmailDigester interface {
+	HubAccountEmail(address string) []byte
+	ID() string
 }
 
 type Service struct {
@@ -58,6 +87,7 @@ type Service struct {
 	directory  Directory
 	tenantID   string
 	payloadKey [32]byte
+	digestKey  AccountEmailDigester
 	now        func() time.Time
 }
 
@@ -77,14 +107,15 @@ type Result struct {
 
 func New(
 	pool *pgxpool.Pool, directory Directory, tenantID string,
-	payloadKey [32]byte, now func() time.Time,
+	payloadKey [32]byte, digestKey AccountEmailDigester, now func() time.Time,
 ) *Service {
 	if now == nil {
 		now = time.Now
 	}
 	return &Service{
 		pool: pool, queries: sqlc.New(pool), directory: directory,
-		tenantID: tenantID, payloadKey: payloadKey, now: now,
+		tenantID: tenantID, payloadKey: payloadKey, digestKey: digestKey,
+		now: now,
 	}
 }
 
@@ -181,12 +212,14 @@ func (s *Service) Start(
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Result{}, err
 	}
+	accountEmailDigest := s.digestKey.HubAccountEmail(signup.EmailAddress)
 	prepared, err := q.PrepareHubSignupCompletion(
 		ctx, sqlc.PrepareHubSignupCompletionParams{
 			HubSignupRequestID: signup.HubSignupRequestID,
 			TokenHash:          tokenHash, OperationID: operationID,
 			IdempotencyKey: string(key), RequestDigest: digest,
-			HubUserDid: did, Handle: string(handle),
+			AccountEmailDigest: accountEmailDigest,
+			HubUserDid:         did, Handle: string(handle),
 			ReserveCommandID: reserveID, ActivateCommandID: activateID,
 			PayloadCiphertext:     ciphertext,
 			ProvisioningExpiresAt: dbvalue.Timestamp(now.Add(reservationTTL)),
@@ -228,6 +261,10 @@ func (s *Service) Advance(
 					Handle:                hubspec.HubHandle(operation.Handle),
 					HomeTenantID:          directoryspec.TenantID(s.tenantID),
 					ProvisioningExpiresAt: operation.ProvisioningExpiresAt.Time,
+					AccountEmailDigest: directoryspec.EmailDigest(
+						hex.EncodeToString(operation.AccountEmailDigest),
+					),
+					DigestKeyID: directoryspec.DigestKeyID(s.digestKey.ID()),
 				},
 			)
 			if err != nil {
@@ -235,6 +272,14 @@ func (s *Service) Advance(
 				return pendingResult(operation), ErrPending
 			}
 			if outcome.Problem != nil {
+				// Checked first and distinctly from the handle conflict
+				// below (GU-SIG-004): the email digest is checked before the
+				// handle at the coordinator, so this can never also be a
+				// handle collision, and it must never be rotated through as
+				// one.
+				if outcome.Problem.Type == coordinatorproblem.DirectoryEmailClaimConflictError.Type {
+					return s.failRegisteredElsewhere(ctx, operation)
+				}
 				if outcome.Problem.Type == coordinatorproblem.DirectoryClaimConflictError.Type &&
 					operation.AttemptCount < handleAttempts {
 					rotated, rotateErr := s.rotateHandle(ctx, operation)
@@ -324,6 +369,15 @@ func (s *Service) Advance(
 		case sqlc.VetchiumHubSignupCompletionStateCompleted:
 			return completedResult(operation), nil
 		case sqlc.VetchiumHubSignupCompletionStateFailed:
+			// A replay of an already-failed completion (by token or by
+			// idempotency key) returns the same outcome it originally
+			// reached, rather than re-deriving it.
+			if operation.FailureReason.Valid &&
+				operation.FailureReason.String == "email_registered_elsewhere" {
+				return pendingResult(operation), &ErrRegisteredElsewhere{
+					HomeTenantID: operation.ConflictingHomeTenantID.String,
+				}
+			}
 			return pendingResult(operation), ErrExpired
 		default:
 			return Result{}, fmt.Errorf("unknown signup completion state %q", operation.State)
@@ -351,6 +405,58 @@ func (s *Service) Recover(ctx context.Context) (int, error) {
 		return completed, fmt.Errorf("prune expired signup completions: %w", err)
 	}
 	return completed, nil
+}
+
+// failRegisteredElsewhere handles a definite directory-email-claim-conflict:
+// the address is already an active Hub account at another tenant. The
+// coordinator already gave a definite answer, so this always terminates the
+// completion; it never retries (GU-SIG-004).
+func (s *Service) failRegisteredElsewhere(
+	ctx context.Context, operation sqlc.VetchiumHubSignupCompletion,
+) (Result, error) {
+	homeTenantID := ""
+	response, details, err := s.directory.ResolveHubAccountEmail(
+		ctx, directoryspec.ResolveHubAccountEmailRequest{
+			EmailDigest: directoryspec.EmailDigest(
+				hex.EncodeToString(operation.AccountEmailDigest),
+			),
+			DigestKeyID: directoryspec.DigestKeyID(s.digestKey.ID()),
+		},
+	)
+	if err == nil && details == nil {
+		homeTenantID = string(response.HomeTenantID)
+	}
+	var conflictingHomeTenantID *string
+	if homeTenantID != "" {
+		conflictingHomeTenantID = &homeTenantID
+	}
+	failed, err := s.queries.FailHubSignupCompletionRegisteredElsewhere(
+		ctx, sqlc.FailHubSignupCompletionRegisteredElsewhereParams{
+			OperationID:             operation.OperationID,
+			ConflictingHomeTenantID: dbvalue.NullText(conflictingHomeTenantID),
+			TenantID:                s.tenantID,
+		},
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Already resolved by a racing driver; re-read and let the normal
+		// state switch report the same outcome on the next loop iteration.
+		current, getErr := s.queries.GetHubSignupCompletion(ctx, operation.OperationID)
+		if getErr != nil {
+			return Result{}, fmt.Errorf(
+				"reload signup completion after registered-elsewhere race: %w",
+				getErr,
+			)
+		}
+		return s.Advance(ctx, current, "hub-api")
+	}
+	if err != nil {
+		return Result{}, fmt.Errorf(
+			"fail signup completion registered elsewhere: %w", err,
+		)
+	}
+	return pendingResult(fromFail(failed)), &ErrRegisteredElsewhere{
+		HomeTenantID: homeTenantID,
+	}
 }
 
 func (s *Service) abandon(
@@ -490,5 +596,11 @@ func fromCreate(row sqlc.CreateProvisioningHubUserRow) sqlc.VetchiumHubSignupCom
 }
 
 func fromComplete(row sqlc.CompleteProvisioningHubUserRow) sqlc.VetchiumHubSignupCompletion {
+	return sqlc.VetchiumHubSignupCompletion(row)
+}
+
+func fromFail(
+	row sqlc.FailHubSignupCompletionRegisteredElsewhereRow,
+) sqlc.VetchiumHubSignupCompletion {
 	return sqlc.VetchiumHubSignupCompletion(row)
 }

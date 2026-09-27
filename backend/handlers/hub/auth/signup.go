@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/vetchium/src/typespec/common"
+	directoryspec "github.com/vetchium/src/typespec/directory"
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
 	"github.com/vetchium/src/typespec/problem"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
@@ -31,6 +33,15 @@ type signupEmailPayload struct {
 	ExpiresAt       time.Time `json:"expires_at"`
 }
 
+// signupRegisteredElsewhereEmailPayload deliberately carries no signup link:
+// the recipient already has an account, so the only useful action is signing
+// in at their home region (GU-SIG-003).
+type signupRegisteredElsewhereEmailPayload struct {
+	DisplayName string `json:"display_name"`
+	HomeTenant  string `json:"home_tenant"`
+	SignInURL   string `json:"sign_in_url"`
+}
+
 func RequestSignup(s *hubruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubauth.RequestSignupRequest
@@ -44,6 +55,49 @@ func RequestSignup(s *hubruntime.Server) http.HandlerFunc {
 		emailAddress := string(request.EmailAddress)
 		domain := emailAddress[strings.LastIndexByte(emailAddress, '@')+1:]
 		now := s.CurrentTime()
+
+		// Resolved once, outside the idempotent transaction: this is a
+		// network call, and an errored or not-found result must not block
+		// signup or code delivery (GU-SIG-002). The response stays the
+		// identical 202 either way, so this can never be used to test
+		// whether an address is registered.
+		accountDigest := s.DigestKey.HubAccountEmail(emailAddress)
+		var registeredElsewhereTenantID string
+		resolved, details, err := s.Directory.ResolveHubAccountEmail(
+			r.Context(), directoryspec.ResolveHubAccountEmailRequest{
+				EmailDigest: directoryspec.EmailDigest(
+					hex.EncodeToString(accountDigest),
+				),
+				DigestKeyID: directoryspec.DigestKeyID(s.DigestKey.ID()),
+			},
+		)
+		if err == nil && details == nil &&
+			string(resolved.HomeTenantID) != s.TenantID {
+			registeredElsewhereTenantID = string(resolved.HomeTenantID)
+		}
+		var elsewhereCiphertext []byte
+		if registeredElsewhereTenantID != "" {
+			if signInURL, ok := s.Regions.HubURL(registeredElsewhereTenantID); ok {
+				elsewhereCiphertext, err = encryptElsewherePayload(
+					s, string(request.DisplayName),
+					registeredElsewhereTenantID, signInURL,
+				)
+				if err != nil {
+					s.InternalError(
+						r.Context(), w, "encrypt registered-elsewhere notice", err,
+					)
+					return
+				}
+			} else {
+				s.WarnContext(
+					r.Context(), "Hub account home tenant missing from region catalog",
+					"event", "hub_account_home_tenant_unknown",
+					"tenantID", registeredElsewhereTenantID,
+				)
+				registeredElsewhereTenantID = ""
+			}
+		}
+
 		handlerauth.RunIdempotent(
 			s, w, r, "hub:request-signup", emailAddress, key, request,
 			now.Add(signupTTL),
@@ -87,9 +141,13 @@ func RequestSignup(s *hubruntime.Server) http.HandlerFunc {
 						ResidentCountry:    string(request.ResidentCountry),
 						TokenHash:          tokenHash,
 						ExpiresAt:          dbvalue.Timestamp(expiresAt),
-						PayloadCiphertext:  ciphertext,
-						TenantID:           s.TenantID,
-						IdempotencyKey:     dbvalue.Text(string(key)),
+						RegisteredElsewhereTenantID: dbvalue.NullText(
+							nilIfEmpty(registeredElsewhereTenantID),
+						),
+						PayloadCiphertext:          ciphertext,
+						ElsewherePayloadCiphertext: elsewhereCiphertext,
+						TenantID:                   s.TenantID,
+						IdempotencyKey:             dbvalue.Text(string(key)),
 					},
 				)
 				if err != nil {
@@ -106,6 +164,26 @@ func RequestSignup(s *hubruntime.Server) http.HandlerFunc {
 			},
 		)
 	}
+}
+
+func encryptElsewherePayload(
+	s *hubruntime.Server, displayName, homeTenant, signInURL string,
+) ([]byte, error) {
+	payload, err := json.Marshal(signupRegisteredElsewhereEmailPayload{
+		DisplayName: displayName, HomeTenant: homeTenant,
+		SignInURL: signInURL,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return credentials.Encrypt(s.CredentialSubkey("outbox"), payload)
+}
+
+func nilIfEmpty(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func CompleteSignup(s *hubruntime.Server) http.HandlerFunc {
@@ -128,6 +206,7 @@ func CompleteSignup(s *hubruntime.Server) http.HandlerFunc {
 				return s.Regions.Allows(s.TenantID, country)
 			},
 		)
+		var elsewhere *signupcompletion.ErrRegisteredElsewhere
 		switch {
 		case errors.Is(err, signupcompletion.ErrInvalidToken),
 			errors.Is(err, signupcompletion.ErrExpired):
@@ -135,6 +214,26 @@ func CompleteSignup(s *hubruntime.Server) http.HandlerFunc {
 				r.Context(), w, hubproblem.InvalidSignupTokenError,
 				hubauthn.SignupChallenge,
 			)
+		case errors.As(err, &elsewhere):
+			// The home tenant is unknown only when the coordinator lookup at
+			// completion time itself failed or named a tenant this catalog
+			// does not have a Hub URL for; either way there is nothing
+			// useful to redirect to (GU-SIG-005).
+			var hubURL string
+			var ok bool
+			if elsewhere.HomeTenantID != "" {
+				hubURL, ok = s.Regions.HubURL(elsewhere.HomeTenantID)
+			}
+			if !ok {
+				s.AuthenticationProblem(
+					r.Context(), w, hubproblem.InvalidSignupTokenError,
+					hubauthn.SignupChallenge,
+				)
+				return
+			}
+			s.Problem(r.Context(), w, hubproblem.HubAccountHomedElsewhereError(
+				elsewhere.HomeTenantID, hubURL,
+			))
 		case errors.Is(err, signupcompletion.ErrIdempotencyConflict):
 			s.Problem(r.Context(), w, problem.IdempotencyKeyConflictError)
 		case errors.Is(err, signupcompletion.ErrPending):

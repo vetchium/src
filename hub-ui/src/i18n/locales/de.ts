@@ -99,6 +99,12 @@ export const de = {
     pending:
       "Ihr Konto wird fertiggestellt. Diese Seite prüft den Fortschritt weiter.",
     success: "Ihr Konto ist bereit. Ihr Handle lautet {{handle}}.",
+    homedElsewhere: {
+      title: "Sie haben bereits ein Vetchium-Konto in {{region}}",
+      description:
+        "Diese E-Mail-Adresse ist in einer anderen Vetchium-Region registriert. Melden Sie sich dort an.",
+      action: "Zur Anmeldung",
+    },
   },
   forgotPassword: {
     documentTitle: "Passwort vergessen | Vetchium",

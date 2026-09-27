@@ -972,25 +972,28 @@ type VetchiumHubSession struct {
 }
 
 type VetchiumHubSignupCompletion struct {
-	OperationID           pgtype.UUID                      `json:"operation_id"`
-	HubSignupRequestID    pgtype.UUID                      `json:"hub_signup_request_id"`
-	TokenHash             []byte                           `json:"token_hash"`
-	IdempotencyKey        string                           `json:"idempotency_key"`
-	RequestDigest         []byte                           `json:"request_digest"`
-	HubUserDid            pgtype.UUID                      `json:"hub_user_did"`
-	Handle                string                           `json:"handle"`
-	ReserveCommandID      pgtype.UUID                      `json:"reserve_command_id"`
-	ActivateCommandID     pgtype.UUID                      `json:"activate_command_id"`
-	PayloadCiphertext     []byte                           `json:"payload_ciphertext"`
-	State                 VetchiumHubSignupCompletionState `json:"state"`
-	ProvisioningExpiresAt pgtype.Timestamptz               `json:"provisioning_expires_at"`
-	AttemptCount          int32                            `json:"attempt_count"`
-	NextAttemptAt         pgtype.Timestamptz               `json:"next_attempt_at"`
-	LastError             pgtype.Text                      `json:"last_error"`
-	CreatedAt             pgtype.Timestamptz               `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz               `json:"updated_at"`
-	CompletedAt           pgtype.Timestamptz               `json:"completed_at"`
-	ExpiresAt             pgtype.Timestamptz               `json:"expires_at"`
+	OperationID             pgtype.UUID                      `json:"operation_id"`
+	HubSignupRequestID      pgtype.UUID                      `json:"hub_signup_request_id"`
+	TokenHash               []byte                           `json:"token_hash"`
+	IdempotencyKey          string                           `json:"idempotency_key"`
+	RequestDigest           []byte                           `json:"request_digest"`
+	AccountEmailDigest      []byte                           `json:"account_email_digest"`
+	HubUserDid              pgtype.UUID                      `json:"hub_user_did"`
+	Handle                  string                           `json:"handle"`
+	ReserveCommandID        pgtype.UUID                      `json:"reserve_command_id"`
+	ActivateCommandID       pgtype.UUID                      `json:"activate_command_id"`
+	PayloadCiphertext       []byte                           `json:"payload_ciphertext"`
+	State                   VetchiumHubSignupCompletionState `json:"state"`
+	FailureReason           pgtype.Text                      `json:"failure_reason"`
+	ConflictingHomeTenantID pgtype.Text                      `json:"conflicting_home_tenant_id"`
+	ProvisioningExpiresAt   pgtype.Timestamptz               `json:"provisioning_expires_at"`
+	AttemptCount            int32                            `json:"attempt_count"`
+	NextAttemptAt           pgtype.Timestamptz               `json:"next_attempt_at"`
+	LastError               pgtype.Text                      `json:"last_error"`
+	CreatedAt               pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz               `json:"updated_at"`
+	CompletedAt             pgtype.Timestamptz               `json:"completed_at"`
+	ExpiresAt               pgtype.Timestamptz               `json:"expires_at"`
 }
 
 type VetchiumHubSignupDomain struct {
@@ -1045,6 +1048,7 @@ type VetchiumHubUser struct {
 	HubUserDid                     pgtype.UUID                    `json:"hub_user_did"`
 	Handle                         string                         `json:"handle"`
 	EmailAddress                   string                         `json:"email_address"`
+	EmailDigest                    []byte                         `json:"email_digest"`
 	DisplayName                    string                         `json:"display_name"`
 	Biography                      pgtype.Text                    `json:"biography"`
 	ProfileAlias                   pgtype.Text                    `json:"profile_alias"`

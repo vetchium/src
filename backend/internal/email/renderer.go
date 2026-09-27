@@ -19,6 +19,7 @@ type Kind string
 
 const (
 	Signup                        Kind = "signup"
+	SignupRegisteredElsewhere     Kind = "signup-registered-elsewhere"
 	PasswordReset                 Kind = "password-reset"
 	ProfessionalEmailVerification Kind = "professional-email-verification"
 	SubscriptionEnding            Kind = "subscription-ending"
@@ -33,7 +34,8 @@ const (
 )
 
 var hubKinds = []Kind{
-	Signup, PasswordReset, ProfessionalEmailVerification, SubscriptionEnding,
+	Signup, SignupRegisteredElsewhere, PasswordReset,
+	ProfessionalEmailVerification, SubscriptionEnding,
 	EmailChangeVerification, EmailChanged,
 }
 
@@ -60,6 +62,10 @@ type TemplateData struct {
 	RecordName   string
 	RecordValue  string
 	ReleaseAfter time.Time
+
+	// RegionLabel names the tenant a signup-registered-elsewhere notice
+	// points the recipient at. Unused by every other kind.
+	RegionLabel string
 }
 
 type Message struct {
