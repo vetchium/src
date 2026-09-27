@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import type {
   CompleteSignupResponse,
   SignupDetailsResponse,
@@ -393,4 +394,62 @@ test.describe("Org signup completion", () => {
       invalidJSON,
     );
   });
+});
+
+// ind1 deliberately cannot reach the global coordinator in the CI
+// configuration, so every decision that needs domain ownership fails closed.
+test("fails closed when the global directory is unreachable", async ({
+  request,
+}) => {
+  const api = new OrgsAPI(request, "ind1");
+  const domain = uniqueOrgDomain();
+  const directoryUnavailable =
+    "vetchium-problem-details/org-directory-unavailable";
+  try {
+    await expectProblem(
+      await api.post(
+        "/request-signup",
+        { email_address: `it@${domain}`, preferred_language: "en-US" },
+        { idempotencyKey: orgsIdempotencyKey() },
+      ),
+      503,
+      directoryUnavailable,
+    );
+    await expectProblem(
+      await api.post("/login", {
+        domain,
+        email_address: `it@${domain}`,
+        password: orgPassword(),
+      }),
+      503,
+      directoryUnavailable,
+    );
+
+    const token = randomBytes(32).toString("hex");
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+    orgSQL(
+      `INSERT INTO vetchium.org_signup_requests (org_signup_request_id,
+         email_address, domain, preferred_language, verification_token,
+         token_hash, expires_at)
+       VALUES (gen_random_uuid(), 'it@${domain}', '${domain}', 'en-US',
+         'aaaaaaaaaaaaaaaaaaaaaaaaaa', decode('${tokenHash}', 'hex'),
+         now() + interval '1 hour')`,
+      "ind1",
+    );
+    await expectProblem(
+      await api.post(
+        "/complete-signup",
+        {
+          signup_token: token,
+          org_display_name: "Offline",
+          password: orgPassword(),
+        },
+        { idempotencyKey: orgsIdempotencyKey() },
+      ),
+      503,
+      directoryUnavailable,
+    );
+  } finally {
+    cleanupOrg(domain, "ind1");
+  }
 });
