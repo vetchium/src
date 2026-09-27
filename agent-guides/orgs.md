@@ -32,7 +32,9 @@ superadmin; never describe them as a founder or owner in code, text, or tests.
   `vetchium-verify=<token>`, checked by `backend/internal/dnsverify` against the
   tenant's configured resolver only. Never add an environment bypass;
   development and CI publish real records in the `dns-dev` server under
-  `vetchium.test` (`playwright/lib/dev-dns.ts`, `make dev-seed-orgs`).
+  the reserved zones `example` and `example.com` (`playwright/lib/dev-dns.ts`,
+  `make dev-seed-orgs`). Seeds use `<tenant>.example.com`; tests use unique
+  `*.example` domains.
 - Only an authoritative absence counts against a domain. Resolver errors are
   inconclusive, back off, and count as absent only after the configured limit.
 - `internal/orgs/domainverification` is the single owner of the lifecycle and

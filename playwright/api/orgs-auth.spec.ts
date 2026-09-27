@@ -108,7 +108,7 @@ test.describe("Org sign-in", () => {
       for (const attempt of [
         { ...org, password: orgPassword() },
         { ...org, emailAddress: `nobody@${org.domain}` },
-        { ...org, domain: "unknown-org.vetchium.test" },
+        { ...org, domain: "unknown-org.example" },
       ]) {
         const response = await api.post("/login", {
           domain: attempt.domain,

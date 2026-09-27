@@ -1,4 +1,8 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import {
+  randomBytes,
+  randomBytes as randomSuffix,
+  randomUUID,
+} from "node:crypto";
 import type { APIRequestContext, APIResponse } from "@playwright/test";
 import { expect } from "@playwright/test";
 import type { MyInfoResponse } from "typespec/orgs/account/account";
@@ -6,6 +10,8 @@ import type { LoginResponse } from "typespec/orgs/auth/login";
 import type { CompleteSignupResponse } from "typespec/orgs/auth/signup";
 import type { OrgDomain } from "typespec/orgs/types";
 import {
+  type AuditEvent,
+  auditEventJSONForTenant,
   globalSQLScalar,
   sqlLiteral,
   sqlScalarForTenant,
@@ -216,7 +222,7 @@ export async function orgInfo(
 }
 
 function assertOwnedOrgDomain(domain: string): void {
-  if (!/^org-[0-9a-f-]+\.vetchium\.test$/.test(domain)) {
+  if (!/^org-[0-9a-f-]+\.example$/.test(domain)) {
     throw new Error(`refusing Org cleanup for non-test domain: ${domain}`);
   }
 }
@@ -264,7 +270,20 @@ export function cleanupOrg(domain: string, tenant: TestTenant = "sgp"): void {
        OR idempotency_key IN (
          SELECT idempotency_key FROM vetchium.org_signup_completions
          WHERE domain = ${value}
-       );
+       )
+       OR entity_id IN (
+         SELECT org_signup_request_id::text FROM vetchium.org_signup_requests
+         WHERE domain = ${value}
+         UNION SELECT operation_id::text FROM vetchium.org_signup_completions
+         WHERE domain = ${value}
+         UNION SELECT org_email_outbox_id::text FROM vetchium.org_email_outbox
+         WHERE recipient_email_address LIKE ${pattern}
+         UNION SELECT t.org_password_reset_token_id::text
+         FROM vetchium.org_password_reset_tokens AS t
+         JOIN vetchium.org_users AS u USING (org_user_id)
+         WHERE u.email_address LIKE ${pattern}
+       )
+       OR payload ->> 'domain' = ${value};
     DELETE FROM vetchium.org_signup_completions WHERE domain = ${value};
     DELETE FROM vetchium.org_signup_requests WHERE domain = ${value};
     DELETE FROM vetchium.org_email_outbox
@@ -291,4 +310,106 @@ export function cleanupOrg(domain: string, tenant: TestTenant = "sgp"): void {
 /** Runs one SQL statement in a tenant database, for test setup only. */
 export function orgSQL(sql: string, tenant: TestTenant = "sgp"): string {
   return sqlScalarForTenant(tenant, sql);
+}
+
+function assertOrgAuditAction(action: string): void {
+  if (!/^org(_user)?\.[a-z0-9._-]+$/.test(action)) {
+    throw new Error(`refusing malformed Org audit action: ${action}`);
+  }
+}
+
+/** Audit events whose entity or actor is one of `ids`, oldest first. */
+export function orgAuditEvents(
+  ids: string[],
+  tenant: TestTenant = "sgp",
+): AuditEvent[] {
+  if (ids.length === 0) return [];
+  const list = ids.map(sqlLiteral).join(", ");
+  return auditEventJSONForTenant(
+    tenant,
+    `entity_id IN (${list}) OR actor_id IN (${list})`,
+  );
+}
+
+export function orgAuditEventsByKey(
+  key: string,
+  tenant: TestTenant = "sgp",
+): AuditEvent[] {
+  return auditEventJSONForTenant(
+    tenant,
+    `idempotency_key = ${sqlLiteral(key)}`,
+  );
+}
+
+export function orgUserID(emailAddress: string, tenant: TestTenant = "sgp") {
+  return sqlScalarForTenant(
+    tenant,
+    `SELECT org_user_id FROM vetchium.org_users
+     WHERE email_address = ${sqlLiteral(emailAddress)}`,
+  );
+}
+
+export function orgDID(domain: string, tenant: TestTenant = "sgp") {
+  return sqlScalarForTenant(
+    tenant,
+    `SELECT org_did FROM vetchium.org_domains
+     WHERE domain = ${sqlLiteral(domain)}`,
+  );
+}
+
+/**
+ * Makes inserting the named audit event fail for rows matching the given
+ * test-owned identifiers, so a test can prove the audited write rolls back
+ * with it. Returns the function that removes the fault.
+ */
+export function installOrgAuditInsertFailure(
+  match: {
+    action: string;
+    entityID?: string;
+    actorID?: string;
+    idempotencyKey?: string;
+    domain?: string;
+  },
+  tenant: TestTenant = "sgp",
+): () => void {
+  assertOrgAuditAction(match.action);
+  const predicates = [`NEW.action = ${sqlLiteral(match.action)}`];
+  if (match.entityID)
+    predicates.push(`NEW.entity_id = ${sqlLiteral(match.entityID)}`);
+  if (match.actorID)
+    predicates.push(`NEW.actor_id = ${sqlLiteral(match.actorID)}`);
+  if (match.idempotencyKey) {
+    predicates.push(
+      `NEW.idempotency_key = ${sqlLiteral(match.idempotencyKey)}`,
+    );
+  }
+  if (match.domain) {
+    assertOwnedOrgDomain(match.domain);
+    predicates.push(`NEW.payload ->> 'domain' = ${sqlLiteral(match.domain)}`);
+  }
+  if (predicates.length === 1) {
+    throw new Error("audit failure must be scoped to a test-owned identifier");
+  }
+  const name = `e2e_fail_org_audit_${randomSuffix(8).toString("hex")}`;
+  sqlScalarForTenant(
+    tenant,
+    `
+    CREATE FUNCTION vetchium.${name}() RETURNS trigger LANGUAGE plpgsql
+    AS $function$ BEGIN RAISE EXCEPTION 'injected Org audit failure'; END
+    $function$;
+    CREATE TRIGGER ${name} BEFORE INSERT ON vetchium.audit_events
+    FOR EACH ROW WHEN (${predicates.join(" AND ")})
+    EXECUTE FUNCTION vetchium.${name}();
+    `,
+  );
+  let installed = true;
+  return () => {
+    if (!installed) return;
+    sqlScalarForTenant(
+      tenant,
+      `DROP TRIGGER ${name} ON vetchium.audit_events;
+       DROP FUNCTION vetchium.${name}();`,
+    );
+    installed = false;
+  };
 }

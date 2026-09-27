@@ -96,8 +96,8 @@ produced a fresh stack.
 signs one Org up per tenant through the Org signup API: it follows the DNS
 instructions email through Mailpit, publishes the TXT record in the
 development DNS server, and completes signup from the private link. Each
-tenant gets `example-<tenant>.vetchium.test`, whose first superadmin is
-`it@example-<tenant>.vetchium.test` with the password `DevPassword123$`.
+tenant gets `<tenant>.example.com`, whose first superadmin is
+`admin@<tenant>.example.com` with the password `DevPassword123$`.
 Sign in to orgs-ui with that domain, address and password.
 
 The development DNS server keeps no data across restarts, so after a stack

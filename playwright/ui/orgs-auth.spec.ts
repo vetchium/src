@@ -16,7 +16,7 @@ import {
 
 const sgp = orgsOrigin("sgp");
 const token = "a".repeat(64);
-const domain = "mocked.vetchium.test";
+const domain = "mocked.example";
 
 async function openCompletion(page: Page) {
   await page.route("**/api/orgs/get-signup-details", (route) =>

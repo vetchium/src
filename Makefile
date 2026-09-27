@@ -146,8 +146,8 @@ dev-seed-hub-profiles:
 			go run ./cmd/dev-seed) || exit $$?; \
 	done
 
-# Signs one Org up per tenant (example-<tenant>.vetchium.test, superadmin
-# it@ that domain) through the Org signup API: it follows the DNS
+# Signs one Org up per tenant (<tenant>.example.com, superadmin
+# admin@ that domain) through the Org signup API: it follows the DNS
 # instructions Mailpit captured, publishes the TXT record in the development
 # DNS server, then completes signup from the private link.
 dev-seed-orgs:

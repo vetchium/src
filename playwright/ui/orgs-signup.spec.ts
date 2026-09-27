@@ -84,7 +84,7 @@ test("signs an Org up through region choice, DNS proof and sign-in", async ({
     await expect(page).toHaveURL(`${sgp}/login?domain=${domain}`);
 
     await signIn(page, { domain, emailAddress, password, value });
-    await expect(page).toHaveURL(`${sgp}/home`);
+    await expect(page).toHaveURL(`${sgp}/`);
     await expect(page.getByTestId("shell-org-name")).toHaveText("Browser Org");
     await expect(page.getByTestId("home-domain")).toHaveText(domain);
     await expect(page.getByTestId("home-domain-state")).toHaveAttribute(
@@ -123,7 +123,7 @@ test("a failing domain shows the record and recovers with check-now", async ({
   const org = await signupOrg(new OrgsAPI(request));
   try {
     await signIn(page, org);
-    await expect(page).toHaveURL(`${sgp}/home`);
+    await expect(page).toHaveURL(`${sgp}/`);
     await deleteOrgVerificationRecord(org.domain);
     const banner = page.getByTestId("domain-failing-banner");
     await expect(async () => {
@@ -167,12 +167,12 @@ test("a suspended Org can only restore its domain", async ({
     await signIn(page, org);
     await expect(page).toHaveURL(`${sgp}/restore-domain`);
     await expect(page.getByTestId("restore-domain")).toContainText(org.value);
-    await page.goto(`${sgp}/home`);
+    await page.goto(`${sgp}/`);
     await expect(page).toHaveURL(`${sgp}/restore-domain`);
 
     await setOrgVerificationRecord(org.domain, [org.value]);
     await page.getByRole("button", { name: "Check now" }).click();
-    await expect(page).toHaveURL(`${sgp}/home`);
+    await expect(page).toHaveURL(`${sgp}/`);
     await expect(page.getByTestId("home-domain-state")).toHaveAttribute(
       "data-state",
       "verified",
@@ -190,7 +190,7 @@ test("the security page asks for the password when the session is old", async ({
   const org = await signupOrg(new OrgsAPI(request));
   try {
     await signIn(page, org);
-    await expect(page).toHaveURL(`${sgp}/home`);
+    await expect(page).toHaveURL(`${sgp}/`);
     await page.goto(`${sgp}/security`);
     await expect(
       page.getByRole("button", { name: "Set up authenticator app" }),
@@ -205,7 +205,7 @@ test("the security page asks for the password when the session is old", async ({
          WHERE email_address = '${org.emailAddress}'
        )`,
     );
-    await page.goto(`${sgp}/home`);
+    await page.goto(`${sgp}/`);
     await page.reload();
     await page.goto(`${sgp}/security`);
     await expect(page).toHaveURL(/\/reauthenticate\?returnTo=/);

@@ -65,8 +65,8 @@ func runOrgSeed() error {
 	}
 	ctx, stop := service.SignalContext()
 	defer stop()
-	domain := orgs.OrgDomain("example-" + settings.tenantID + ".vetchium.test")
-	email := "it@" + string(domain)
+	domain := orgs.OrgDomain(settings.tenantID + ".example.com")
+	email := "admin@" + string(domain)
 	seeder := &orgSeeder{
 		settings: settings,
 		client:   &http.Client{Timeout: hubProfileRequestTimeout},
@@ -152,7 +152,7 @@ func (s *orgSeeder) publishRecord(
 	}
 	request, err := http.NewRequestWithContext(
 		ctx, http.MethodPatch,
-		s.settings.dnsOrigin+"/api/v1/servers/localhost/zones/vetchium.test.",
+		s.settings.dnsOrigin+"/api/v1/servers/localhost/zones/example.com.",
 		bytes.NewReader(payload),
 	)
 	if err != nil {

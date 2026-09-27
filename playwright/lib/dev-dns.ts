@@ -2,11 +2,22 @@ import type { OrgDomain } from "typespec/orgs/types";
 import { uniqueTestID } from "./test-id.ts";
 
 /**
- * The development PowerDNS server is authoritative for this zone only, and
- * every tenant resolves Org verification records through it. A domain outside
- * the zone gets REFUSED, which the backend treats as inconclusive.
+ * The development PowerDNS server is authoritative for these reserved zones
+ * only, and every tenant resolves Org verification records through it. A
+ * domain outside them gets REFUSED, which the backend treats as inconclusive.
+ * Seeded Orgs live under example.com; tests use unique names under example.
  */
-export const DEV_DNS_ZONE = "vetchium.test";
+export const DEV_DNS_ZONES = ["example.com", "example"] as const;
+
+function zoneOf(domain: OrgDomain): string {
+  const zone = DEV_DNS_ZONES.find((candidate) =>
+    domain.endsWith(`.${candidate}`),
+  );
+  if (!zone) {
+    throw new Error(`${domain} is outside the development DNS zones`);
+  }
+  return zone;
+}
 
 export const DEV_DNS_ORIGIN =
   process.env.DNS_DEV_API_URL ?? "http://127.0.0.1:18081";
@@ -17,7 +28,7 @@ const DEV_DNS_API_KEY = "vetchium-dev-dns-api-key";
 
 /** Return a domain under the development zone that no other test uses. */
 export function uniqueOrgDomain(): OrgDomain {
-  return `${uniqueTestID("org")}.${DEV_DNS_ZONE}`;
+  return `${uniqueTestID("org")}.example`;
 }
 
 /**
@@ -57,11 +68,8 @@ async function patchVerificationRRSet(
   domain: OrgDomain,
   change: RRSetChange,
 ): Promise<void> {
-  if (!domain.endsWith(`.${DEV_DNS_ZONE}`)) {
-    throw new Error(`${domain} is outside the ${DEV_DNS_ZONE} zone`);
-  }
   const response = await fetch(
-    `${DEV_DNS_ORIGIN}/api/v1/servers/localhost/zones/${DEV_DNS_ZONE}.`,
+    `${DEV_DNS_ORIGIN}/api/v1/servers/localhost/zones/${zoneOf(domain)}.`,
     {
       method: "PATCH",
       headers: {
