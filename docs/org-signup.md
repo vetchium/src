@@ -269,5 +269,5 @@ corresponding phase.
 - [x] Build the `orgs-ui` pages in section 10 in every locale.
 - [x] Add development seed Orgs with matching development DNS records.
 - [x] Add Go handler and worker tests and Playwright API and UI tests.
-- [ ] Final review against this specification; move remaining open items to
+- [x] Final review against this specification; move remaining open items to
   `docs/todo.md`.
