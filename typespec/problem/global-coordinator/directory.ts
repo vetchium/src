@@ -31,3 +31,28 @@ export const directoryCallerTenantMismatchError = {
   detail:
     "The authenticated tenant does not own the requested global identity operation",
 } as const satisfies Details;
+export const directoryEmailClaimConflictError = {
+  type: "vetchium-problem-details/directory-email-claim-conflict",
+  title: "Directory email claim conflict",
+  status: 409,
+  detail: "The email digest is already claimed by another Hub user",
+} as const satisfies Details;
+export const directoryDigestKeyMismatchError = {
+  type: "vetchium-problem-details/directory-digest-key-mismatch",
+  title: "Directory digest key mismatch",
+  status: 409,
+  detail:
+    "The caller's identity digest key id does not match the configured key",
+} as const satisfies Details;
+export const directoryReservationExpiredError = {
+  type: "vetchium-problem-details/directory-reservation-expired",
+  title: "Directory reservation expired",
+  status: 409,
+  detail: "The email change reservation arrived after its deadline",
+} as const satisfies Details;
+export const directoryReservationCancelledError = {
+  type: "vetchium-problem-details/directory-reservation-cancelled",
+  title: "Directory reservation cancelled",
+  status: 409,
+  detail: "The email change reservation was already abandoned",
+} as const satisfies Details;

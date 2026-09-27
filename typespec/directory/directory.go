@@ -13,19 +13,28 @@ type TenantID string
 type CommandID string
 type ProfileSlugKind string
 type PrincipalState string
+type EmailDigest string
+type DigestKeyID string
+type EmailChangeReservationState string
 
 const (
 	ProfileSlugKindHandle ProfileSlugKind = "handle"
 	ProfileSlugKindAlias  ProfileSlugKind = "alias"
 	PrincipalProvisioning PrincipalState  = "provisioning"
 	PrincipalActive       PrincipalState  = "active"
+
+	EmailChangeReserved  EmailChangeReservationState = "reserved"
+	EmailChangeCancelled EmailChangeReservationState = "cancelled"
+	EmailChangeFinalized EmailChangeReservationState = "finalized"
 )
 
 var (
-	aliasPattern    = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
-	tenantPattern   = regexp.MustCompile(`^[a-z][a-z0-9]{2,15}$`)
-	uuidPattern     = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
-	reservedAliases = map[HubAlias]struct{}{
+	aliasPattern       = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
+	tenantPattern      = regexp.MustCompile(`^[a-z][a-z0-9]{2,15}$`)
+	uuidPattern        = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
+	emailDigestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	digestKeyIDPattern = regexp.MustCompile(`^[0-9a-f]{16}$`)
+	reservedAliases    = map[HubAlias]struct{}{
 		"api": {}, "admin": {}, "auth": {}, "help": {}, "jobs": {},
 		"login": {}, "logout": {}, "media": {}, "org": {}, "privacy": {},
 		"settings": {}, "signup": {}, "support": {}, "terms": {}, "u": {},
@@ -43,6 +52,27 @@ func IsTenantID(value TenantID) bool   { return tenantPattern.MatchString(string
 func IsCommandID(value CommandID) bool { return uuidPattern.MatchString(string(value)) }
 func IsProfileSlug(value string) bool {
 	return hub.IsHubHandle(hub.HubHandle(value)) || IsHubAlias(HubAlias(value))
+}
+
+// IsEmailDigest matches the lowercase hex encoding of a 32-byte
+// identitydigest.Key digest. The coordinator never decodes it; it is stored
+// and compared as opaque bytes.
+func IsEmailDigest(value EmailDigest) bool {
+	return emailDigestPattern.MatchString(string(value))
+}
+
+// IsDigestKeyID matches the lowercase hex encoding of identitydigest.Key.ID().
+func IsDigestKeyID(value DigestKeyID) bool {
+	return digestKeyIDPattern.MatchString(string(value))
+}
+
+func IsEmailChangeReservationState(value EmailChangeReservationState) bool {
+	switch value {
+	case EmailChangeReserved, EmailChangeCancelled, EmailChangeFinalized:
+		return true
+	default:
+		return false
+	}
 }
 
 type ResolveProfileSlugRequest struct {
@@ -71,6 +101,8 @@ type ReserveHubPrincipalRequest struct {
 	Handle                hub.HubHandle  `json:"handle"`
 	HomeTenantID          TenantID       `json:"home_tenant_id"`
 	ProvisioningExpiresAt time.Time      `json:"provisioning_expires_at"`
+	AccountEmailDigest    EmailDigest    `json:"account_email_digest"`
+	DigestKeyID           DigestKeyID    `json:"digest_key_id"`
 }
 
 func (r *ReserveHubPrincipalRequest) Normalize() {}
@@ -90,6 +122,12 @@ func (r ReserveHubPrincipalRequest) Validate() []string {
 	}
 	if r.ProvisioningExpiresAt.IsZero() {
 		fields = append(fields, "provisioning_expires_at")
+	}
+	if !IsEmailDigest(r.AccountEmailDigest) {
+		fields = append(fields, "account_email_digest")
+	}
+	if !IsDigestKeyID(r.DigestKeyID) {
+		fields = append(fields, "digest_key_id")
 	}
 	return fields
 }
@@ -247,4 +285,246 @@ func orgCommandFields(commandID CommandID, orgDID orgs.OrgDID) []string {
 		fields = append(fields, "org_did")
 	}
 	return fields
+}
+
+// ResolveHubAccountEmailRequest resolves a Hub account-email digest, never
+// revealing the DID (GU-DIR-001).
+type ResolveHubAccountEmailRequest struct {
+	EmailDigest EmailDigest `json:"email_digest"`
+	DigestKeyID DigestKeyID `json:"digest_key_id"`
+}
+
+func (r *ResolveHubAccountEmailRequest) Normalize() {}
+func (r ResolveHubAccountEmailRequest) Validate() []string {
+	fields := []string{}
+	if !IsEmailDigest(r.EmailDigest) {
+		fields = append(fields, "email_digest")
+	}
+	if !IsDigestKeyID(r.DigestKeyID) {
+		fields = append(fields, "digest_key_id")
+	}
+	return fields
+}
+
+type ResolveHubAccountEmailResponse struct {
+	HomeTenantID TenantID `json:"home_tenant_id"`
+}
+
+type ReserveHubAccountEmailChangeRequest struct {
+	CommandID      CommandID      `json:"command_id"`
+	ChangeID       CommandID      `json:"change_id"`
+	HubUserDID     hub.HubUserDID `json:"hub_user_did"`
+	NewEmailDigest EmailDigest    `json:"new_email_digest"`
+	NotAfter       time.Time      `json:"not_after"`
+	DigestKeyID    DigestKeyID    `json:"digest_key_id"`
+}
+
+func (r *ReserveHubAccountEmailChangeRequest) Normalize() {}
+func (r ReserveHubAccountEmailChangeRequest) Validate() []string {
+	fields := []string{}
+	if !IsCommandID(r.CommandID) {
+		fields = append(fields, "command_id")
+	}
+	if !IsCommandID(r.ChangeID) {
+		fields = append(fields, "change_id")
+	}
+	if !hub.IsHubUserDID(r.HubUserDID) {
+		fields = append(fields, "hub_user_did")
+	}
+	if !IsEmailDigest(r.NewEmailDigest) {
+		fields = append(fields, "new_email_digest")
+	}
+	if r.NotAfter.IsZero() {
+		fields = append(fields, "not_after")
+	}
+	if !IsDigestKeyID(r.DigestKeyID) {
+		fields = append(fields, "digest_key_id")
+	}
+	return fields
+}
+
+type FinalizeHubAccountEmailChangeRequest struct {
+	CommandID  CommandID      `json:"command_id"`
+	ChangeID   CommandID      `json:"change_id"`
+	HubUserDID hub.HubUserDID `json:"hub_user_did"`
+}
+
+func (r *FinalizeHubAccountEmailChangeRequest) Normalize() {}
+func (r FinalizeHubAccountEmailChangeRequest) Validate() []string {
+	return emailChangeCommandFields(r.CommandID, r.ChangeID, r.HubUserDID)
+}
+
+type AbandonHubAccountEmailChangeRequest struct {
+	CommandID  CommandID      `json:"command_id"`
+	ChangeID   CommandID      `json:"change_id"`
+	HubUserDID hub.HubUserDID `json:"hub_user_did"`
+	NotAfter   time.Time      `json:"not_after"`
+}
+
+func (r *AbandonHubAccountEmailChangeRequest) Normalize() {}
+func (r AbandonHubAccountEmailChangeRequest) Validate() []string {
+	fields := emailChangeCommandFields(r.CommandID, r.ChangeID, r.HubUserDID)
+	if r.NotAfter.IsZero() {
+		fields = append(fields, "not_after")
+	}
+	return fields
+}
+
+func emailChangeCommandFields(
+	commandID, changeID CommandID, hubUserDID hub.HubUserDID,
+) []string {
+	fields := []string{}
+	if !IsCommandID(commandID) {
+		fields = append(fields, "command_id")
+	}
+	if !IsCommandID(changeID) {
+		fields = append(fields, "change_id")
+	}
+	if !hub.IsHubUserDID(hubUserDID) {
+		fields = append(fields, "hub_user_did")
+	}
+	return fields
+}
+
+type HubAccountEmailChangeReservationResponse struct {
+	State EmailChangeReservationState `json:"state"`
+}
+
+type ClaimHubProfessionalEmailRequest struct {
+	CommandID   CommandID      `json:"command_id"`
+	HubUserDID  hub.HubUserDID `json:"hub_user_did"`
+	EmailDigest EmailDigest    `json:"email_digest"`
+	DigestKeyID DigestKeyID    `json:"digest_key_id"`
+}
+
+func (r *ClaimHubProfessionalEmailRequest) Normalize() {}
+func (r ClaimHubProfessionalEmailRequest) Validate() []string {
+	fields := []string{}
+	if !IsCommandID(r.CommandID) {
+		fields = append(fields, "command_id")
+	}
+	if !hub.IsHubUserDID(r.HubUserDID) {
+		fields = append(fields, "hub_user_did")
+	}
+	if !IsEmailDigest(r.EmailDigest) {
+		fields = append(fields, "email_digest")
+	}
+	if !IsDigestKeyID(r.DigestKeyID) {
+		fields = append(fields, "digest_key_id")
+	}
+	return fields
+}
+
+// ClaimHubProfessionalEmailResponse never reveals a DID from another tenant:
+// SupersededSameTenantHubUserDID is present only when the previous holder is
+// homed at the caller (GU-DIR-007).
+type ClaimHubProfessionalEmailResponse struct {
+	ClaimRevision                  int64           `json:"claim_revision"`
+	SupersededSameTenantHubUserDID *hub.HubUserDID `json:"superseded_same_tenant_hub_user_did,omitempty"`
+}
+
+type ReleaseHubProfessionalEmailRequest struct {
+	CommandID     CommandID      `json:"command_id"`
+	HubUserDID    hub.HubUserDID `json:"hub_user_did"`
+	EmailDigest   EmailDigest    `json:"email_digest"`
+	ClaimRevision int64          `json:"claim_revision"`
+}
+
+func (r *ReleaseHubProfessionalEmailRequest) Normalize() {}
+func (r ReleaseHubProfessionalEmailRequest) Validate() []string {
+	fields := []string{}
+	if !IsCommandID(r.CommandID) {
+		fields = append(fields, "command_id")
+	}
+	if !hub.IsHubUserDID(r.HubUserDID) {
+		fields = append(fields, "hub_user_did")
+	}
+	if !IsEmailDigest(r.EmailDigest) {
+		fields = append(fields, "email_digest")
+	}
+	if r.ClaimRevision < 1 {
+		fields = append(fields, "claim_revision")
+	}
+	return fields
+}
+
+type ReleaseHubProfessionalEmailResponse struct {
+	Released bool `json:"released"`
+}
+
+// PullHubProfessionalEmailSupersessionsRequest is caller-scoped: it mutates
+// only the caller's own cursor, so it is naturally idempotent and bypasses
+// the command ledger (GU-DIR-009).
+type PullHubProfessionalEmailSupersessionsRequest struct {
+	AcknowledgedSeq int64 `json:"acknowledged_seq"`
+	Limit           int32 `json:"limit"`
+}
+
+const maxHubProfessionalEmailSupersessionsLimit = 500
+
+func (r *PullHubProfessionalEmailSupersessionsRequest) Normalize() {}
+func (r PullHubProfessionalEmailSupersessionsRequest) Validate() []string {
+	fields := []string{}
+	if r.AcknowledgedSeq < 0 {
+		fields = append(fields, "acknowledged_seq")
+	}
+	if r.Limit < 1 || r.Limit > maxHubProfessionalEmailSupersessionsLimit {
+		fields = append(fields, "limit")
+	}
+	return fields
+}
+
+// HubProfessionalEmailSupersession identifies the caller's own Hub user who
+// lost a professional-email claim; hub_user_did is always homed at the
+// caller (it is the tenant that previously held the address).
+type HubProfessionalEmailSupersession struct {
+	SupersessionSeq      int64          `json:"supersession_seq"`
+	HubUserDID           hub.HubUserDID `json:"hub_user_did"`
+	EmailDigest          EmailDigest    `json:"email_digest"`
+	SupersededByRevision int64          `json:"superseded_by_revision"`
+}
+
+type PullHubProfessionalEmailSupersessionsResponse struct {
+	Supersessions          []HubProfessionalEmailSupersession `json:"supersessions"`
+	AcknowledgedSeq        int64                              `json:"acknowledged_seq"`
+	OldestPendingCreatedAt *time.Time                         `json:"oldest_pending_created_at"`
+}
+
+type HubProfessionalEmailHoldingQuery struct {
+	HubUserDID  hub.HubUserDID `json:"hub_user_did"`
+	EmailDigest EmailDigest    `json:"email_digest"`
+}
+
+const maxHubProfessionalEmailHoldingsItems = 500
+
+// CheckHubProfessionalEmailHoldingsRequest requires every DID to be homed at
+// the caller; the whole request is rejected otherwise (GU-DIR-011).
+type CheckHubProfessionalEmailHoldingsRequest struct {
+	Items []HubProfessionalEmailHoldingQuery `json:"items"`
+}
+
+func (r *CheckHubProfessionalEmailHoldingsRequest) Normalize() {}
+func (r CheckHubProfessionalEmailHoldingsRequest) Validate() []string {
+	if len(r.Items) < 1 || len(r.Items) > maxHubProfessionalEmailHoldingsItems {
+		return []string{"items"}
+	}
+	for _, item := range r.Items {
+		if !hub.IsHubUserDID(item.HubUserDID) || !IsEmailDigest(item.EmailDigest) {
+			return []string{"items"}
+		}
+	}
+	return []string{}
+}
+
+// HubProfessionalEmailHoldingResult never reveals another holder's DID
+// (GU-DIR-011). ClaimRevision is absent when the address is not currently
+// held by anyone, even though the coordinator's own row may still remember
+// its last revision for fencing.
+type HubProfessionalEmailHoldingResult struct {
+	HeldByRequestedUser bool   `json:"held_by_requested_user"`
+	ClaimRevision       *int64 `json:"claim_revision"`
+}
+
+type CheckHubProfessionalEmailHoldingsResponse struct {
+	Results []HubProfessionalEmailHoldingResult `json:"results"`
 }

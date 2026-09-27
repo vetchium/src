@@ -252,6 +252,170 @@ CREATE TRIGGER org_principals_enforce_transition
 BEFORE UPDATE ON vetchium.org_principals
 FOR EACH ROW EXECUTE FUNCTION vetchium.enforce_org_principal_transition();
 
+CREATE TYPE vetchium.global_account_email_claim_state AS ENUM (
+    'provisioning', 'active', 'pending_change'
+);
+
+CREATE TYPE vetchium.global_email_change_reservation_state AS ENUM (
+    'reserved', 'cancelled', 'finalized'
+);
+
+-- An email-change reservation is created before its pending_change claim, so
+-- the claim's change_id foreign key can reference it directly. A cancelled
+-- reservation stays as a tombstone (see the digest CHECK below), so a
+-- delayed reserve for the same change_id can never resurrect it.
+CREATE TABLE vetchium.hub_account_email_change_reservations (
+    change_id uuid PRIMARY KEY,
+    hub_user_did uuid NOT NULL
+        REFERENCES vetchium.hub_principals (hub_user_did) ON DELETE CASCADE,
+    -- NULL only on a tombstone written by an abandon that arrived before its
+    -- reserve: the change id alone fences it.
+    email_digest bytea CHECK (octet_length(email_digest) = 32),
+    state vetchium.global_email_change_reservation_state NOT NULL,
+    not_after timestamptz NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT hub_account_email_change_reservations_digest_check CHECK (
+        state = 'cancelled' OR email_digest IS NOT NULL
+    ),
+    CONSTRAINT hub_account_email_change_reservations_timestamps_check CHECK (
+        updated_at >= created_at
+    )
+);
+
+CREATE TABLE vetchium.hub_account_email_claims (
+    email_digest bytea PRIMARY KEY CHECK (octet_length(email_digest) = 32),
+    hub_user_did uuid NOT NULL
+        REFERENCES vetchium.hub_principals (hub_user_did) ON DELETE CASCADE,
+    state vetchium.global_account_email_claim_state NOT NULL,
+    command_id uuid NOT NULL,
+    change_id uuid
+        REFERENCES vetchium.hub_account_email_change_reservations (change_id),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CHECK (updated_at >= created_at),
+    CHECK ((state = 'pending_change') = (change_id IS NOT NULL))
+);
+CREATE UNIQUE INDEX hub_account_email_claims_one_current
+    ON vetchium.hub_account_email_claims (hub_user_did)
+    WHERE state IN ('provisioning', 'active');
+CREATE UNIQUE INDEX hub_account_email_claims_one_pending_change
+    ON vetchium.hub_account_email_claims (hub_user_did)
+    WHERE state = 'pending_change';
+
+-- +goose StatementBegin
+CREATE FUNCTION vetchium.enforce_account_email_claim_transition()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    principal_active boolean;
+    other_current_exists boolean;
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    IF NEW.hub_user_did <> OLD.hub_user_did OR
+       NEW.email_digest <> OLD.email_digest THEN
+        RAISE EXCEPTION 'immutable global account email claim identity changed';
+    END IF;
+    IF OLD.state = NEW.state THEN
+        RETURN NEW;
+    END IF;
+    IF OLD.state = 'provisioning' AND NEW.state = 'active' THEN
+        SELECT (state = 'active') INTO principal_active
+        FROM vetchium.hub_principals
+        WHERE hub_user_did = NEW.hub_user_did;
+        IF NOT COALESCE(principal_active, false) THEN
+            RAISE EXCEPTION 'account email claim cannot activate before its principal';
+        END IF;
+        RETURN NEW;
+    END IF;
+    -- finalize deletes the user's old active claim before promoting the
+    -- pending_change claim in the same statement, so by the time this fires
+    -- no other current claim should remain.
+    IF OLD.state = 'pending_change' AND NEW.state = 'active' THEN
+        SELECT EXISTS (
+            SELECT 1 FROM vetchium.hub_account_email_claims
+            WHERE hub_user_did = NEW.hub_user_did
+              AND state IN ('active', 'provisioning')
+        ) INTO other_current_exists;
+        IF other_current_exists THEN
+            RAISE EXCEPTION 'another current account email claim still exists for this user';
+        END IF;
+        RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'disallowed account email claim state transition from % to %', OLD.state, NEW.state;
+END;
+$$;
+-- +goose StatementEnd
+
+CREATE TRIGGER hub_account_email_claims_enforce_transition
+BEFORE UPDATE OR DELETE ON vetchium.hub_account_email_claims
+FOR EACH ROW EXECUTE FUNCTION vetchium.enforce_account_email_claim_transition();
+
+-- +goose StatementBegin
+CREATE FUNCTION vetchium.enforce_email_change_reservation_transition()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.change_id <> OLD.change_id OR
+       NEW.hub_user_did <> OLD.hub_user_did OR
+       NEW.email_digest IS DISTINCT FROM OLD.email_digest OR
+       NEW.created_at <> OLD.created_at THEN
+        RAISE EXCEPTION 'immutable global email change reservation identity changed';
+    END IF;
+    IF OLD.state = NEW.state THEN
+        RETURN NEW;
+    END IF;
+    IF OLD.state = 'reserved' AND NEW.state IN ('cancelled', 'finalized') THEN
+        RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'disallowed email change reservation state transition from % to %', OLD.state, NEW.state;
+END;
+$$;
+-- +goose StatementEnd
+
+CREATE TRIGGER hub_account_email_change_reservations_enforce_transition
+BEFORE UPDATE ON vetchium.hub_account_email_change_reservations
+FOR EACH ROW EXECUTE FUNCTION vetchium.enforce_email_change_reservation_transition();
+
+-- Global uniqueness of a verified professional (work) email, transferable to
+-- a newer proof of mailbox control. The row survives a release (holder set
+-- to NULL) so claim_revision never restarts, which is what lets a tenant
+-- fence a late claim result against a subsequent supersession.
+CREATE TABLE vetchium.hub_professional_email_claims (
+    email_digest bytea PRIMARY KEY CHECK (octet_length(email_digest) = 32),
+    hub_user_did uuid
+        REFERENCES vetchium.hub_principals (hub_user_did) ON DELETE SET NULL,
+    claim_revision bigint NOT NULL CHECK (claim_revision > 0),
+    claimed_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX hub_professional_email_claims_user
+    ON vetchium.hub_professional_email_claims (hub_user_did);
+
+-- Pull feed: a tenant learns that one of its users lost a professional-email
+-- claim by polling rows addressed to it. Rows are deleted only after that
+-- tenant acknowledges them; there is no time-based pruning (GU-PEM-008).
+CREATE TABLE vetchium.hub_professional_email_feed_cursors (
+    tenant_id text PRIMARY KEY CHECK (tenant_id ~ '^[a-z][a-z0-9]{2,15}$'),
+    last_issued_seq bigint NOT NULL DEFAULT 0 CHECK (last_issued_seq >= 0),
+    acknowledged_seq bigint NOT NULL DEFAULT 0,
+    CHECK (acknowledged_seq BETWEEN 0 AND last_issued_seq)
+);
+
+CREATE TABLE vetchium.hub_professional_email_supersessions (
+    previous_home_tenant_id text NOT NULL
+        REFERENCES vetchium.hub_professional_email_feed_cursors (tenant_id),
+    supersession_seq bigint NOT NULL CHECK (supersession_seq > 0),
+    email_digest bytea NOT NULL CHECK (octet_length(email_digest) = 32),
+    previous_hub_user_did uuid NOT NULL,
+    superseded_by_revision bigint NOT NULL CHECK (superseded_by_revision > 0),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (previous_home_tenant_id, supersession_seq)
+);
+
 CREATE TABLE vetchium.global_audit_events (
     global_audit_event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     action text NOT NULL,
@@ -310,6 +474,19 @@ CREATE TABLE vetchium.global_outbox_events (
 DROP TABLE IF EXISTS vetchium.global_outbox_events;
 DROP TABLE IF EXISTS vetchium.global_command_ledger;
 DROP TABLE IF EXISTS vetchium.global_audit_events;
+DROP TABLE IF EXISTS vetchium.hub_professional_email_supersessions;
+DROP TABLE IF EXISTS vetchium.hub_professional_email_feed_cursors;
+DROP TABLE IF EXISTS vetchium.hub_professional_email_claims;
+DROP TRIGGER IF EXISTS hub_account_email_change_reservations_enforce_transition
+    ON vetchium.hub_account_email_change_reservations;
+DROP FUNCTION IF EXISTS vetchium.enforce_email_change_reservation_transition();
+DROP TRIGGER IF EXISTS hub_account_email_claims_enforce_transition
+    ON vetchium.hub_account_email_claims;
+DROP FUNCTION IF EXISTS vetchium.enforce_account_email_claim_transition();
+DROP TABLE IF EXISTS vetchium.hub_account_email_claims;
+DROP TABLE IF EXISTS vetchium.hub_account_email_change_reservations;
+DROP TYPE IF EXISTS vetchium.global_email_change_reservation_state;
+DROP TYPE IF EXISTS vetchium.global_account_email_claim_state;
 DROP TABLE IF EXISTS vetchium.hub_profile_slugs;
 DROP TABLE IF EXISTS vetchium.org_domains;
 DROP TABLE IF EXISTS vetchium.org_principals;

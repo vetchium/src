@@ -67,6 +67,9 @@ SELECT pg_advisory_xact_lock(
     hashtextextended(sqlc.arg(command_id)::text, 0)
 );
 
+-- The claim is inserted before the handle, and its failure aborts the whole
+-- statement before the handle insert even runs, so a digest already claimed
+-- elsewhere never burns a handle-rotation attempt (GU-DIR-002).
 -- name: ReserveHubPrincipal :one
 WITH principal AS (
     INSERT INTO vetchium.hub_principals (
@@ -78,9 +81,19 @@ WITH principal AS (
     )
     RETURNING hub_user_did, home_tenant_id, routing_version,
         directory_version, state
+), claim AS (
+    INSERT INTO vetchium.hub_account_email_claims (
+        email_digest, hub_user_did, state, command_id
+    )
+    SELECT sqlc.arg(account_email_digest), hub_user_did, 'provisioning',
+        sqlc.arg(command_id)
+    FROM principal
+    RETURNING email_digest
 ), handle AS (
     INSERT INTO vetchium.hub_profile_slugs (slug, hub_user_did, kind)
-    SELECT sqlc.arg(handle), hub_user_did, 'handle' FROM principal
+    SELECT sqlc.arg(handle), principal.hub_user_did, 'handle'
+    FROM principal
+    INNER JOIN claim ON TRUE
     RETURNING slug
 )
 SELECT
@@ -89,16 +102,34 @@ SELECT
 FROM principal AS p
 CROSS JOIN handle AS h;
 
+-- Activates the principal and, in the same statement, its provisioning
+-- account email claim (GU-DIR-003). The claim update depends on
+-- activated_principal via a real FROM reference, so the claim's transition
+-- trigger sees the principal already active.
 -- name: ActivateHubPrincipal :one
-UPDATE vetchium.hub_principals
-SET state = 'active', provisioning_expires_at = NULL,
-    activated_at = now(), updated_at = now(),
-    directory_version = directory_version + 1
-WHERE hub_user_did = sqlc.arg(hub_user_did)
-  AND home_tenant_id = sqlc.arg(caller_tenant_id)
-  AND state = 'provisioning'
-  AND provisioning_expires_at > now()
-RETURNING hub_user_did, directory_version;
+WITH activated_principal AS (
+    UPDATE vetchium.hub_principals
+    SET state = 'active', provisioning_expires_at = NULL,
+        activated_at = now(), updated_at = now(),
+        directory_version = directory_version + 1
+    WHERE hub_principals.hub_user_did = sqlc.arg(hub_user_did)
+      AND home_tenant_id = sqlc.arg(caller_tenant_id)
+      AND state = 'provisioning'
+      AND provisioning_expires_at > now()
+    RETURNING hub_user_did, directory_version
+), activated_claim AS (
+    UPDATE vetchium.hub_account_email_claims AS claim
+    SET state = 'active', updated_at = now()
+    FROM activated_principal
+    WHERE claim.hub_user_did = activated_principal.hub_user_did
+      AND claim.state = 'provisioning'
+    RETURNING claim.email_digest
+)
+SELECT
+    p.hub_user_did,
+    p.directory_version,
+    (SELECT count(*) FROM activated_claim) AS activated_claim_count
+FROM activated_principal AS p;
 
 -- name: LockPrincipalForAlias :one
 SELECT

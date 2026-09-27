@@ -11,6 +11,92 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type VetchiumGlobalAccountEmailClaimState string
+
+const (
+	VetchiumGlobalAccountEmailClaimStateProvisioning  VetchiumGlobalAccountEmailClaimState = "provisioning"
+	VetchiumGlobalAccountEmailClaimStateActive        VetchiumGlobalAccountEmailClaimState = "active"
+	VetchiumGlobalAccountEmailClaimStatePendingChange VetchiumGlobalAccountEmailClaimState = "pending_change"
+)
+
+func (e *VetchiumGlobalAccountEmailClaimState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumGlobalAccountEmailClaimState(s)
+	case string:
+		*e = VetchiumGlobalAccountEmailClaimState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumGlobalAccountEmailClaimState: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumGlobalAccountEmailClaimState struct {
+	VetchiumGlobalAccountEmailClaimState VetchiumGlobalAccountEmailClaimState `json:"vetchium_global_account_email_claim_state"`
+	Valid                                bool                                 `json:"valid"` // Valid is true if VetchiumGlobalAccountEmailClaimState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumGlobalAccountEmailClaimState) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumGlobalAccountEmailClaimState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumGlobalAccountEmailClaimState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumGlobalAccountEmailClaimState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumGlobalAccountEmailClaimState), nil
+}
+
+type VetchiumGlobalEmailChangeReservationState string
+
+const (
+	VetchiumGlobalEmailChangeReservationStateReserved  VetchiumGlobalEmailChangeReservationState = "reserved"
+	VetchiumGlobalEmailChangeReservationStateCancelled VetchiumGlobalEmailChangeReservationState = "cancelled"
+	VetchiumGlobalEmailChangeReservationStateFinalized VetchiumGlobalEmailChangeReservationState = "finalized"
+)
+
+func (e *VetchiumGlobalEmailChangeReservationState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumGlobalEmailChangeReservationState(s)
+	case string:
+		*e = VetchiumGlobalEmailChangeReservationState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumGlobalEmailChangeReservationState: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumGlobalEmailChangeReservationState struct {
+	VetchiumGlobalEmailChangeReservationState VetchiumGlobalEmailChangeReservationState `json:"vetchium_global_email_change_reservation_state"`
+	Valid                                     bool                                      `json:"valid"` // Valid is true if VetchiumGlobalEmailChangeReservationState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumGlobalEmailChangeReservationState) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumGlobalEmailChangeReservationState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumGlobalEmailChangeReservationState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumGlobalEmailChangeReservationState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumGlobalEmailChangeReservationState), nil
+}
+
 type VetchiumGlobalPrincipalState string
 
 const (
@@ -129,6 +215,26 @@ type VetchiumGlobalOutboxEvent struct {
 	DeliveredAt         pgtype.Timestamptz `json:"delivered_at"`
 }
 
+type VetchiumHubAccountEmailChangeReservation struct {
+	ChangeID    pgtype.UUID                               `json:"change_id"`
+	HubUserDid  pgtype.UUID                               `json:"hub_user_did"`
+	EmailDigest []byte                                    `json:"email_digest"`
+	State       VetchiumGlobalEmailChangeReservationState `json:"state"`
+	NotAfter    pgtype.Timestamptz                        `json:"not_after"`
+	CreatedAt   pgtype.Timestamptz                        `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz                        `json:"updated_at"`
+}
+
+type VetchiumHubAccountEmailClaim struct {
+	EmailDigest []byte                               `json:"email_digest"`
+	HubUserDid  pgtype.UUID                          `json:"hub_user_did"`
+	State       VetchiumGlobalAccountEmailClaimState `json:"state"`
+	CommandID   pgtype.UUID                          `json:"command_id"`
+	ChangeID    pgtype.UUID                          `json:"change_id"`
+	CreatedAt   pgtype.Timestamptz                   `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz                   `json:"updated_at"`
+}
+
 type VetchiumHubPrincipal struct {
 	HubUserDid              pgtype.UUID                  `json:"hub_user_did"`
 	HomeTenantID            string                       `json:"home_tenant_id"`
@@ -142,6 +248,28 @@ type VetchiumHubPrincipal struct {
 	AliasChangedAt          pgtype.Timestamptz           `json:"alias_changed_at"`
 	CreatedAt               pgtype.Timestamptz           `json:"created_at"`
 	UpdatedAt               pgtype.Timestamptz           `json:"updated_at"`
+}
+
+type VetchiumHubProfessionalEmailClaim struct {
+	EmailDigest   []byte             `json:"email_digest"`
+	HubUserDid    pgtype.UUID        `json:"hub_user_did"`
+	ClaimRevision int64              `json:"claim_revision"`
+	ClaimedAt     pgtype.Timestamptz `json:"claimed_at"`
+}
+
+type VetchiumHubProfessionalEmailFeedCursor struct {
+	TenantID        string `json:"tenant_id"`
+	LastIssuedSeq   int64  `json:"last_issued_seq"`
+	AcknowledgedSeq int64  `json:"acknowledged_seq"`
+}
+
+type VetchiumHubProfessionalEmailSupersession struct {
+	PreviousHomeTenantID string             `json:"previous_home_tenant_id"`
+	SupersessionSeq      int64              `json:"supersession_seq"`
+	EmailDigest          []byte             `json:"email_digest"`
+	PreviousHubUserDid   pgtype.UUID        `json:"previous_hub_user_did"`
+	SupersededByRevision int64              `json:"superseded_by_revision"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
 type VetchiumHubProfileSlug struct {
