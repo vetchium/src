@@ -38,13 +38,13 @@ function assertOwnedHubEmail(emailAddress: string): void {
   }
 }
 
-function sqlLiteral(value: string): string {
+export function sqlLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
 export type TestTenant = "deu" | "sgp" | "ind1" | "usa1";
 
-function sqlScalarForTenant(tenant: TestTenant, sql: string): string {
+export function sqlScalarForTenant(tenant: TestTenant, sql: string): string {
   return execFileSync(
     "docker",
     [
@@ -70,7 +70,7 @@ function sqlScalarForTenant(tenant: TestTenant, sql: string): string {
   ).trim();
 }
 
-function globalSQLScalar(sql: string): string {
+export function globalSQLScalar(sql: string): string {
   return execFileSync(
     "docker",
     [
