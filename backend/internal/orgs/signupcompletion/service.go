@@ -310,7 +310,7 @@ func (s *Service) Advance(
 			)
 		}
 	}
-	return Result{}, fmt.Errorf("Org signup completion transition limit exceeded")
+	return Result{}, fmt.Errorf("org signup completion transition limit exceeded")
 }
 
 func (s *Service) reserve(

@@ -22,11 +22,10 @@ import (
 
 type fakeQueries struct {
 	Queries
-	row       sqlc.GetOrgDomainForCheckRow
-	calls     []string
-	absent    sqlc.RecordOrgDomainAbsentParams
-	retryAt   time.Time
-	completed bool
+	row     sqlc.GetOrgDomainForCheckRow
+	calls   []string
+	absent  sqlc.RecordOrgDomainAbsentParams
+	retryAt time.Time
 }
 
 func (f *fakeQueries) GetOrgDomainForCheck(
