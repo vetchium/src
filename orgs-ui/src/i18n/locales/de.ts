@@ -105,14 +105,6 @@ export const de = {
     invalidEnrollment:
       "Diese Einrichtung ist abgelaufen. Beginnen Sie sie erneut.",
   },
-  landing: {
-    title: "Vetchium für Organisationen",
-    description: "Die Startseite Ihrer Organisation auf Vetchium.",
-    signIn: "Anmelden",
-    signUp: "Organisation registrieren",
-    signUpHint:
-      "Für die Registrierung brauchen Sie eine E-Mail-Adresse unter der Domain Ihrer Organisation und Zugriff auf die DNS-Einstellungen dieser Domain.",
-  },
   signup: {
     regionDescription:
       "Wählen Sie, wo die Daten Ihrer Organisation gespeichert werden. Wählen Sie das Land, in dem Ihre Organisation hauptsächlich tätig ist, um die empfohlene Region zu sehen.",

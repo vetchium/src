@@ -11,6 +11,7 @@ export function ProtectedRoute() {
     <SharedProtectedRoute
       authenticated={authenticated}
       identity={useMyInfoQuery(authenticated)}
+      omitRootReturnTo
     />
   );
 }

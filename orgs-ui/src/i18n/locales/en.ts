@@ -97,14 +97,6 @@ export const en = {
     totpNotEnabled: "Two-factor authentication is off.",
     invalidEnrollment: "This setup has expired. Start it again.",
   },
-  landing: {
-    title: "Vetchium for organizations",
-    description: "Your organization's home on Vetchium.",
-    signIn: "Sign in",
-    signUp: "Sign up your organization",
-    signUpHint:
-      "Signing up needs an email address at your organization's domain and access to that domain's DNS settings.",
-  },
   signup: {
     regionDescription:
       "Choose where your organization's data is kept. Pick the country your organization mainly operates in to see the recommended region.",

@@ -1,7 +1,6 @@
 import { Spin } from "antd";
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router";
-import { useAuth } from "../auth/AuthContext";
+import { Route, Routes } from "react-router";
 import { AppShell } from "../components/common/AppShell";
 import {
   ActiveOrgRoute,
@@ -23,11 +22,6 @@ const ForgotPasswordPage = lazy(() =>
 );
 const HomePage = lazy(() =>
   import("../pages/HomePage").then(({ HomePage }) => ({ default: HomePage })),
-);
-const LandingPage = lazy(() =>
-  import("../pages/LandingPage").then(({ LandingPage }) => ({
-    default: LandingPage,
-  })),
 );
 const LoginPage = lazy(() =>
   import("../pages/LoginPage").then(({ LoginPage }) => ({
@@ -76,21 +70,10 @@ function Page({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Landing() {
-  const { authenticated } = useAuth();
-  if (authenticated) return <Navigate replace to={paths.home} />;
-  return (
-    <Page>
-      <LandingPage />
-    </Page>
-  );
-}
-
 export function App() {
   return (
     <Routes>
       <Route element={<PublicShell />}>
-        <Route index element={<Landing />} />
         <Route
           path={`${paths.signup}/:country?/:language?/:step?`}
           element={
@@ -172,7 +155,7 @@ export function App() {
           />
           <Route element={<ActiveOrgRoute />}>
             <Route
-              path={paths.home}
+              index
               element={
                 <Page>
                   <HomePage />
