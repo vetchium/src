@@ -1080,13 +1080,94 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
 
 ## 9. Implementation ledger
 
-- [ ] GU-KEY-001..005
+- [x] GU-KEY-001..005
 - [ ] GU-GDB-001..004 (incl. 002a)
 - [ ] GU-DIR-001..011
 - [ ] GU-SIG-001..007
 - [ ] GU-ECH-001..007 (incl. 002a)
 - [ ] GU-PEM-001..009
-- [ ] GU-CFG-001..002
+- [ ] GU-CFG-001..002 (identitydigest.Key wiring into hub-api/workers deferred to
+      M3, when the first consumer needs it)
 - [ ] Tests §4.1, §4.2, §4.3
 - [ ] Documentation §5
 - [ ] `make test` green
+
+## 10. Progress log
+
+**Current milestone:** M1 complete; starting M2 (global schema, globaldirectory
+commands, typespec directory contracts, coordinator routes, mesh relay,
+directoryclient, Go integration tests).
+
+**Last commit:** (about to be created — "Add the shared identity digest key
+and wire it through configuration") — `identitydigest` package (GU-KEY-003,
+GU-KEY-004: HMAC-SHA256 digests, namespace separation, key id, fixed-vector
+tests), `appconfig.IdentityDigestSecret()` (GU-KEY-001), the coordinator's
+`identityDigestKeyId` config field and validation (part of GU-KEY-004),
+architecture test asserting `global-coordinator` and `mesh-api` never
+transitively import `backend/internal/identitydigest` (GU-KEY-002), and secret
+wiring: `docker-compose.json`/`docker-compose-ci.json` mount
+`identity_digest_key` into every tenant's `hub-api` and `workers` only,
+`Makefile` dev-secrets writes it from `IDENTITY_DIGEST_KEY` (default
+`dev_identity_digest_key`), `deploy/Makefile` requires an operator-supplied
+`IDENTITY_DIGEST_KEY_FILE` and creates `<region>_identity_digest_key` from it
+verbatim (never `openssl rand`, since the plan requires this secret to be
+identical in every region), all four `deploy/<region>/stack.json` reference
+the secret in `hub-api`/`workers`, and `deploy/README.md` documents computing
+the key id with `openssl` for `deploy/global-coordinator/config.json`
+(currently a placeholder there, since production's real secret is
+operator-supplied and unknown at commit time). Dev/CI key id
+`909577e87ebd5395` (from `dev_identity_digest_key`) is in
+`config/global-coordinator.json` and `config/ci/global-coordinator.json`.
+
+**Exact next step:** Start M2: add the global schema
+(`db/global-migrations/00001_init.sql`: `hub_account_email_claims`,
+`hub_account_email_change_reservations`, `hub_professional_email_claims`,
+`hub_professional_email_feed_cursors`, `hub_professional_email_supersessions`,
+triggers), then `backend/internal/globaldirectory/hub_email.go` commands,
+`backend/internal/globaldb/queries/hub_email_directory.sql` + `make sqlc`,
+typespec `directory` contracts (GU-DIR-001..011) and new problem types, the
+coordinator routes, `backend/handlers/mesh/directory.go` mesh relay routes,
+and `backend/internal/directoryclient/client.go` methods. Read
+`backend/internal/globaldirectory/org.go`, `org_integration_test.go`, and
+`service.go` (`runCommand`, `mutation[R]`) first, since GU-DIR-001..011 must
+follow those exact patterns. Then write
+`hub_email_integration_test.go` covering every case in plan §4.1, including
+the two-connection concurrent-transfer feed-ordering test.
+
+**Known failing tests / open issues:** none yet; only M1 has been built.
+`make test` (the full gate) has not been run yet — it will only be meaningful
+once more of the plan lands, and running it now would just spend a long CI
+cycle re-verifying unrelated, already-passing behavior. Verified so far:
+`go build ./...` and `go test ./internal/identitydigest/... ./internal/appconfig/...
+./internal/architecture/... ./internal/globalcoordinator/...` (all pass),
+`gofmt -l` (clean), `make repository-json-check` (clean).
+
+**Deviations from the plan:**
+
+- GU-KEY-005 says "Update the `Tiltfile` if it enumerates secrets." It does
+  not (it only calls `make dev-secrets` and never names an individual
+  secret), so no Tiltfile change was made.
+- `deploy/README.md` documents computing the production
+  `identityDigestKeyId` with a portable `openssl`/`xxd` pipeline rather than a
+  new Go CLI tool, to avoid adding a new `backend/cmd/` executable (and its
+  packaging/lint/test surface) for a one-time operational computation the
+  plan does not otherwise call for. The pipeline's output was verified to
+  match `identitydigest.Key.ID()` for the `dev_identity_digest_key` value
+  used in `config/global-coordinator.json`.
+- `identitydigest.Normalize` trims only the ASCII space character
+  (`strings.Trim(address, " ")`), not `strings.TrimSpace`'s full Unicode
+  whitespace set, because PostgreSQL's `btrim(text)` with no explicit
+  character argument also strips only space. `typespec/common.NormalizeEmailAddress`
+  (pre-existing, unrelated to this plan) still uses `strings.TrimSpace`; this
+  is not a behavioral regression since a string accepted by
+  `common.IsEmailAddress` never contains other whitespace, but the two
+  functions are not literally the same code, so it is recorded here per
+  GU-KEY-003's "Go must produce byte-identical output" requirement.
+- `identitydigest.Key`'s root key is derived as
+  `sha256("vetchium-identity-digest-root\x00" + secret)`, a domain-separated
+  hash of the raw secret with no tenant id folded in (unlike
+  `credentials.DeriveKey`, which binds a tenant id). This is required by
+  GU-KEY-005 ("this value must be identical in every region"): folding in a
+  tenant id would make every tenant's key differ, defeating the entire
+  mechanism. The plan's "derive it the same way" is read as "reuse the same
+  domain-separation *technique*," not "call the same tenant-bound function."

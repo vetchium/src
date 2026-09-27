@@ -164,6 +164,35 @@ func TestHubCredentialSecretUsesConfiguredFile(t *testing.T) {
 	}
 }
 
+func TestIdentityDigestSecretUsesConfiguredFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "identity-digest-key")
+	if err := os.WriteFile(path, []byte("identity-secret\r\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("IDENTITY_DIGEST_KEY_FILE", path)
+
+	secret, err := IdentityDigestSecret()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if secret != "identity-secret" {
+		t.Fatalf("IdentityDigestSecret() = %q, want trimmed secret", secret)
+	}
+}
+
+func TestIdentityDigestSecretRejectsEmptyFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "identity-digest-key")
+	if err := os.WriteFile(path, []byte("\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("IDENTITY_DIGEST_KEY_FILE", path)
+
+	_, err := IdentityDigestSecret()
+	if err == nil || !strings.Contains(err.Error(), "is empty") {
+		t.Fatalf("IdentityDigestSecret() error = %v, want empty-file error", err)
+	}
+}
+
 func TestParseSMTPRequiresTLSForCredentials(t *testing.T) {
 	for _, mode := range []StartTLSMode{
 		StartTLSDisabled,

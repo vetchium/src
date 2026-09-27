@@ -24,6 +24,7 @@ const defaultPath = "/etc/vetchium/config.json"
 const defaultAdminCredentialKeyPath = "/run/secrets/admin_credential_key"
 const defaultHubCredentialKeyPath = "/run/secrets/hub_credential_key"
 const defaultOrgsCredentialKeyPath = "/run/secrets/orgs_credential_key"
+const defaultIdentityDigestKeyPath = "/run/secrets/identity_digest_key"
 
 type Config struct {
 	SignupRegionsFile     string
@@ -757,6 +758,18 @@ func OrgsCredentialSecret() (string, error) {
 		path = defaultOrgsCredentialKeyPath
 	}
 	return credentialSecret("orgs", path)
+}
+
+// IdentityDigestSecret is, unlike the per-portal credential secrets above,
+// identical in every tenant: it derives the shared identitydigest.Key so
+// every tenant computes the same digest for the same address. Only hub-api
+// and workers read it.
+func IdentityDigestSecret() (string, error) {
+	path := os.Getenv("IDENTITY_DIGEST_KEY_FILE")
+	if path == "" {
+		path = defaultIdentityDigestKeyPath
+	}
+	return credentialSecret("identity digest", path)
 }
 
 func credentialSecret(kind, path string) (string, error) {

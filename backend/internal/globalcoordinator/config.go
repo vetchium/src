@@ -19,6 +19,13 @@ type Config struct {
 	Environment       string
 	Database          Database
 	TLS               TLS
+	// IdentityDigestKeyID identifies the shared secret every tenant's
+	// hub-api and workers derive their identitydigest.Key from. The
+	// coordinator never holds that secret; it only compares this id against
+	// the one each directory request carries, to reject a tenant
+	// misconfigured with a different secret (GU-KEY-004) instead of
+	// silently breaking global email uniqueness.
+	IdentityDigestKeyID string
 }
 
 type TLS struct {
@@ -40,10 +47,11 @@ type Database struct {
 }
 
 type fileConfig struct {
-	SignupRegionsFile string   `json:"signupRegionsFile"`
-	Environment       string   `json:"env"`
-	Database          Database `json:"database"`
-	TLS               TLS      `json:"tls"`
+	SignupRegionsFile   string   `json:"signupRegionsFile"`
+	Environment         string   `json:"env"`
+	Database            Database `json:"database"`
+	TLS                 TLS      `json:"tls"`
+	IdentityDigestKeyID string   `json:"identityDigestKeyId"`
 }
 
 func LoadConfig() (Config, error) {
@@ -106,6 +114,12 @@ func LoadConfigFile(path string) (Config, error) {
 		raw.TLS.HealthKeyFile == "" || raw.TLS.HealthServerName == "" {
 		return Config{}, fmt.Errorf(
 			"global coordinator config %q: TLS fields must not be empty", path,
+		)
+	}
+	if raw.IdentityDigestKeyID == "" {
+		return Config{}, fmt.Errorf(
+			"global coordinator config %q: identityDigestKeyId must not be empty",
+			path,
 		)
 	}
 	return Config(raw), nil

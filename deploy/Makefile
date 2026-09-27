@@ -195,6 +195,13 @@ deploy:
 		printf '%s' "$$(openssl rand -hex 32)" | \
 			docker secret create "$(REGION)_mesh_credential" - >/dev/null; \
 	fi
+	@test -n "$(IDENTITY_DIGEST_KEY_FILE)" || \
+		{ echo "IDENTITY_DIGEST_KEY_FILE is required, e.g. IDENTITY_DIGEST_KEY_FILE=/path/to/identity_digest_key"; exit 1; }
+	@test -s "$(IDENTITY_DIGEST_KEY_FILE)" || \
+		{ echo "IDENTITY_DIGEST_KEY_FILE $(IDENTITY_DIGEST_KEY_FILE) is missing or empty"; exit 1; }
+	@if ! docker secret inspect "$(REGION)_identity_digest_key" >/dev/null 2>&1; then \
+		docker secret create "$(REGION)_identity_digest_key" "$(IDENTITY_DIGEST_KEY_FILE)" >/dev/null; \
+	fi
 	@set -e; \
 	config_secret=$(REGION)_seaweed_s3_config; \
 	access_secret=$(REGION)_seaweed_s3_access_key; \

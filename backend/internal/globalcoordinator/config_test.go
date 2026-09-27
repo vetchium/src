@@ -27,7 +27,8 @@ func TestLoadConfigFile(t *testing.T) {
     "healthCertificateFile": "/run/secrets/health.crt",
     "healthKeyFile": "/run/secrets/health.key",
     "healthServerName": "global-coordinator.mesh.vetchium.com"
-  }
+  },
+  "identityDigestKeyId": "909577e87ebd5395"
 }`
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
 		t.Fatal(err)
