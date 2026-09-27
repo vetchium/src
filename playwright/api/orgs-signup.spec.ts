@@ -129,14 +129,14 @@ test.describe("Org signup request", () => {
       ).toBe(202);
       // The request is in Tamil, so wait on the count, not a subject.
       await expect
-        .poll(() => orgEmailCount(request, emailAddress), { timeout: 15_000 })
+        .poll(() => orgEmailCount(emailAddress), { timeout: 15_000 })
         .toBe(2);
       expect(
         (
           await api.post("/request-signup", body, { idempotencyKey: key })
         ).status(),
       ).toBe(202);
-      expect(await orgEmailCount(request, emailAddress)).toBe(2);
+      expect(await orgEmailCount(emailAddress)).toBe(2);
       await expectProblem(
         await api.post(
           "/request-signup",

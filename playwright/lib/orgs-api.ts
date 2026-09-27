@@ -100,11 +100,10 @@ export async function orgEmailText(
   return text;
 }
 
-export async function orgEmailCount(
-  request: APIRequestContext,
-  emailAddress: string,
-): Promise<number> {
-  const response = await request.get(
+/** Counts messages to `emailAddress`. Mailpit's JSON API is called with plain
+ * fetch so API-coverage tracking does not report it as Vetchium behavior. */
+export async function orgEmailCount(emailAddress: string): Promise<number> {
+  const response = await fetch(
     `${MAILPIT_ORIGIN}/api/v1/search?query=${encodeURIComponent(
       `to:${emailAddress}`,
     )}`,

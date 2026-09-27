@@ -247,15 +247,36 @@ for (const transport of transports) {
           "active",
           null,
         );
+        const claim = {
+          command_id: randomUUID(),
+          org_did: reserve.org_did,
+          domain,
+        };
         expectOrg(
-          await call("sgp", "claim-org-domain", {
-            command_id: randomUUID(),
-            org_did: reserve.org_did,
-            domain,
-          }),
+          await call("sgp", "claim-org-domain", claim),
           "active",
           domain,
         );
+
+        // A command id replayed with a different body is refused on every
+        // command, whatever its first outcome was.
+        for (const [route, first] of [
+          ["claim-org-domain", claim],
+          ["release-org-domain", release],
+          [
+            "activate-org-principal",
+            { command_id: randomUUID(), org_did: reserve.org_did },
+          ],
+        ] as const) {
+          if (route === "activate-org-principal") {
+            await call("sgp", route, first);
+          }
+          expectProblem(
+            await call("sgp", route, { ...first, org_did: orgDID() }),
+            409,
+            "vetchium-problem-details/idempotency-key-conflict",
+          );
+        }
       } finally {
         cleanup(dids);
       }
