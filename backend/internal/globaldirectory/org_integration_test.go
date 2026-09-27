@@ -30,6 +30,11 @@ func TestOrgDirectoryCommandsIntegration(t *testing.T) {
             vetchium.global_outbox_events,
             vetchium.global_command_ledger,
             vetchium.global_audit_events,
+            vetchium.hub_professional_email_supersessions,
+            vetchium.hub_professional_email_feed_cursors,
+            vetchium.hub_professional_email_claims,
+            vetchium.hub_account_email_claims,
+            vetchium.hub_account_email_change_reservations,
             vetchium.hub_profile_slugs,
             vetchium.hub_principals,
             vetchium.org_domains,
@@ -40,7 +45,7 @@ func TestOrgDirectoryCommandsIntegration(t *testing.T) {
 	}
 	reset()
 	defer reset()
-	service := New(pool)
+	service := New(pool, "909577e87ebd5395")
 
 	const firstDID orgs.OrgDID = "018f7e32-7b5a-7d31-8fd0-f7e2a852f144"
 	const secondDID orgs.OrgDID = "018f7e32-7b5a-7d31-8fd0-f7e2a852f145"

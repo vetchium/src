@@ -34,6 +34,38 @@ func RegisterGlobalCoordinatorRoutes(
 		directory.SetHubAlias(s.Runtime, s.Directory),
 	)
 	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/resolve-hub-account-email",
+		directory.ResolveHubAccountEmail(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/reserve-hub-account-email-change",
+		directory.ReserveHubAccountEmailChange(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/finalize-hub-account-email-change",
+		directory.FinalizeHubAccountEmailChange(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/abandon-hub-account-email-change",
+		directory.AbandonHubAccountEmailChange(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/claim-hub-professional-email",
+		directory.ClaimHubProfessionalEmail(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/release-hub-professional-email",
+		directory.ReleaseHubProfessionalEmail(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/pull-hub-professional-email-supersessions",
+		directory.PullHubProfessionalEmailSupersessions(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/check-hub-professional-email-holdings",
+		directory.CheckHubProfessionalEmailHoldings(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
 		"POST /api/global-coordinator/directory/resolve-org-domain",
 		directory.ResolveOrgDomain(s.Runtime, s.Directory),
 	)

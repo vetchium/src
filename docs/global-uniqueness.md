@@ -1081,28 +1081,35 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
 ## 9. Implementation ledger
 
 - [x] GU-KEY-001..005
-- [ ] GU-GDB-001..004 (incl. 002a)
-- [ ] GU-DIR-001..011
+- [x] GU-GDB-001..004 (incl. 002a). Deviation: global_outbox_events is
+      deliberately not written for these tables; see §10.
+- [x] GU-DIR-001..011
 - [ ] GU-SIG-001..007
 - [ ] GU-ECH-001..007 (incl. 002a)
 - [ ] GU-PEM-001..009
 - [ ] GU-CFG-001..002 (identitydigest.Key wiring into hub-api/workers deferred to
       M3, when the first consumer needs it)
-- [ ] Tests §4.1, §4.2, §4.3
+- [x] Tests §4.1 (Go integration tests for GU-DIR-001..011, including
+      concurrency, fencing, and feed-ordering) — the globaldirectory,
+      handler, and directoryclient layers only. §4.1's
+      signupcompletion/emailchange/professionalemail service tests belong to
+      M3-M5 and are not started.
+- [ ] Tests §4.2, §4.3
 - [ ] Documentation §5
 - [ ] `make test` green
 
 ## 10. Progress log
 
-**Current milestone:** M2 in progress. Global schema and TypeSpec directory
-contracts are done and committed (`c121359`). Still to do for M2: the
-`globaldirectory` service methods (`backend/internal/globaldirectory/hub_email.go`),
-coordinator HTTP handlers (`backend/handlers/directory/directory.go` +
+**Current milestone:** M2 complete. All of GU-GDB-001..004 and GU-DIR-001..011
+are implemented and tested: global schema, `globaldirectory` service
+(`backend/internal/globaldirectory/hub_email.go`), coordinator HTTP handlers
+(`backend/handlers/directory/directory.go`, routes in
 `backend/internal/routes/global_coordinator_routes.go`), mesh relay
-(`backend/handlers/mesh/directory.go` + `backend/internal/routes/mesh_routes.go`),
-`backend/internal/directoryclient/client.go` methods, and the Go integration
-tests in `backend/internal/globaldirectory/hub_email_integration_test.go`
-(§4.1, including the two-connection concurrent-transfer feed-ordering test).
+(`backend/handlers/mesh/directory.go`, routes in
+`backend/internal/routes/mesh_routes.go`), and
+`backend/internal/directoryclient/client.go`. Starting M3 (Hub signup):
+schema, queries, signup completion saga, request-time notice email and
+templates, completion 409 contract, hub-ui completion page, tests.
 
 **Design decisions already validated against a real disposable PostgreSQL
 container** (a scratch `postgres:17-alpine` container, not part of the repo;
@@ -1151,174 +1158,107 @@ re-derive them:
   NULL::type`); return the raw nullable source columns instead and compute
   the "effective" nullable value in Go.
 
-**Last commit:** `c121359` "Add the global schema and directory contracts for
-Hub email uniqueness" — see that message for the full schema/contract
-inventory. Before it, `b073fee` (M1, identity digest key).
+**Last commit before this checkpoint:** `c121359` (M2 schema/contracts). This
+checkpoint's commit implements the remaining M2 layers described below (see
+the commit message for the exact list) plus this log update.
 
-**Exact next step:** Write `backend/internal/globaldirectory/hub_email.go`.
-Read `backend/internal/globaldirectory/org.go` and `service.go` first (the
-`runCommand[R]`/`mutation[R]` generic engine). Key implementation notes for
-whoever writes this:
+**What M2 actually implemented, for a resumed session's reference:**
 
-- The coordinator's configured `identityDigestKeyId` (from
-  `globalcoordinator.Config`) must be threaded into
-  `globaldirectory.New(pool, digestKeyID string)` (currently `New(pool)` takes
-  no digest key id — this is a signature change touching
-  `backend/cmd/global-coordinator/main.go` too) so `hub_email.go` can compare
-  `request.DigestKeyID` against it at the top of every command that carries
-  one (reserve-hub-principal, reserve-hub-account-email-change,
-  claim-hub-professional-email, resolve-hub-account-email) and return
-  `DirectoryDigestKeyMismatchError` before touching the database.
-- Account-email-claim and reservation mutations (reserve/finalize/abandon
-  email change) write ONLY `global_audit_events`, not
-  `global_outbox_events`, despite GU-GDB-004's blanket "every mutation of
-  these tables" wording. Reasoning: extending `runCommand`'s generic
-  `appendChangeRecords` to also write an outbox row here would require
-  either (a) bumping `hub_principals.directory_version` for a claim-only
-  change, which the existing `enforce_principal_transition` trigger
-  explicitly rejects unless a listed field (state/home_tenant/alias) also
-  changed, or (b) inventing a non-principal aggregate id for the outbox row,
-  which risks putting a digest in `global_outbox_events` and violating
-  decision #8 ("digests never appear in ... outbox"). Since nothing consumes
-  `global_outbox_events` yet (grepped; only directory.go and its tests
-  reference it) and GU-PEM-008 already establishes the pull-feed as the real
-  delivery mechanism for professional-email supersession, outbox rows for
-  the new tables were skipped entirely as the smallest correct fix. This
-  needs `appendChangeRecords`-equivalent write to be a *new, smaller* helper
-  (audit-only, no outbox) rather than reusing `changedMutation`/`mutation[R]`
-  as-is, OR add a `skipOutbox bool` field to `mutation[R]` and change
-  `appendChangeRecords` to skip the outbox insert when true (simplest: treat
-  `directoryVersion == 0` as "no outbox" sentinel, since every existing
-  caller already passes a strictly-positive DB-generated version). Pick one
-  and use it consistently for every new command below.
-- `resolve-hub-account-email` (GU-DIR-001): plain read via
-  `ResolveHubAccountEmail` query; `pgx.ErrNoRows` -> `ErrNotFound` (existing
-  sentinel), else digest-key-id check, else `{home_tenant_id}`.
-- `reserve-hub-account-email-change` (GU-DIR-004) Go flow: check digest key
-  id; load+check principal via existing `GetPrincipal` query (active, caller
-  tenant match) -> `DirectoryStateConflictError`/`DirectoryCallerTenantMismatchError`;
-  lock reservation row via `LockHubAccountEmailChangeReservation`
-  (`pgx.ErrNoRows` means "no row yet", not an error); check
-  `time.Now().After(request.NotAfter)` -> `DirectoryReservationExpiredError`
-  (checked even when the row is missing, per the plan's literal ordering);
-  if row exists and `state == cancelled` -> `DirectoryReservationCancelledError`;
-  if row exists and `state in (reserved, finalized)` and
-  `HubUserDid == request.HubUserDID` and `EmailDigest == request.NewEmailDigest`
-  -> success, no mutation, response `{state: row.State}`; if row exists and
-  did NOT match the above (a genuine anomaly — a change id should never be
-  reused for a different user/digest) -> return a Go `error` (internal, not
-  a problem), do not attempt the insert; otherwise (row missing, or existing
-  row is exactly what's being fenced) run `ReserveHubAccountEmailChange`
-  (catch `isUniqueViolation` on `hub_account_email_claims_pkey` ->
-  `DirectoryEmailClaimConflictError`), audit
-  `global_directory.hub_account_email_change_reserved`, response
-  `{state: reserved}`.
-- `finalize-hub-account-email-change` (GU-DIR-005): lock reservation row;
-  missing or `cancelled` -> `DirectoryStateConflictError`; `finalized` ->
-  success no mutation, response `{state: finalized}`; `reserved` -> run
-  `FinalizeHubAccountEmailChange`, audit
-  `global_directory.hub_account_email_changed`, response `{state: finalized}`.
-- `abandon-hub-account-email-change` (GU-DIR-006): lock reservation row;
-  missing -> check principal (active + caller match) then
-  `InsertAbandonedHubAccountEmailChangeTombstone`, response
-  `{state: cancelled}` (audited only because a row changed — GU-DIR-006 says
-  "Audit it only when a row changed", and a fresh tombstone insert is a
-  change); `cancelled` -> success no mutation, no audit, response
-  `{state: cancelled}`; `finalized` -> `DirectoryStateConflictError`, logged
-  at error level by the caller (this "should never happen"); `reserved` ->
-  run `AbandonReservedHubAccountEmailChange`, audit
-  `global_directory.hub_account_email_change_abandoned`, response
-  `{state: cancelled}`.
-- `claim-hub-professional-email` (GU-DIR-007): check digest key id; check
-  principal (active + caller match); run
-  `InsertHubProfessionalEmailClaimIfAbsent`; on success (no error) response
-  is `{claim_revision: 1}`, audit `{transferred: false}`; on
-  `pgx.ErrNoRows`, run `LockHubProfessionalEmailClaim` then
-  `TransferHubProfessionalEmailClaim`; if the locked row's `hub_user_did`
-  was valid and different from the caller's requested DID, this is a
-  transfer: audit `{transferred: true}`, and if the locked row's
-  `home_tenant_id` (nullable, from the LEFT JOIN) equals the caller tenant,
-  set `SupersededSameTenantHubUserDID` in the response to that DID, AND
-  write the supersession feed row addressed to that tenant (
-  `EnsureHubProfessionalEmailFeedCursor` +
-  `NextHubProfessionalEmailSupersessionSeq` +
-  `InsertHubProfessionalEmailSupersession`, all inside the same transaction,
-  audited or not per GU-PEM-003's later consumption — the *coordinator*
-  side does not need a second audit event for the supersession itself,
-  since GU-DIR-007 only mentions auditing the claim). If the locked row's
-  `hub_user_did` was already equal to the caller's requested DID (reverify),
-  audit `{transferred: false}`, no supersession row.
-- `release-hub-professional-email` (GU-DIR-008): run
-  `ReleaseHubProfessionalEmailClaim` (`:execrows`); audit only if rows > 0;
-  response `{released: rows > 0}`. This one does NOT use `runCommand`'s
-  idempotency ledger check at all per the plan text ("Audit it only when a
-  row changed" with no mention of the command ledger) — re-read GU-DIR-008
-  before deciding whether it should still go through `runCommand` for its
-  idempotency-key replay behavior (the contract declares
-  `IdempotencyKeyConflictErrorResponse` for it, which implies yes, it DOES
-  use the command ledger, unlike the pull/check reads). Use `runCommand`.
-- `pull-hub-professional-email-supersessions` (GU-DIR-009) and
-  `check-hub-professional-email-holdings` (GU-DIR-011): both bypass
-  `runCommand` entirely (no command ledger) per the plan text; implement as
-  plain `pool.Begin`/commit methods on `Service`. For pull: lock cursor via
-  `LockHubProfessionalEmailFeedCursor`; if
-  `request.AcknowledgedSeq > cursor.LastIssuedSeq` ->
-  `DirectoryStateConflictError`; else
-  `newAck := max(cursor.AcknowledgedSeq, request.AcknowledgedSeq)`;
-  `AcknowledgeHubProfessionalEmailSupersessions`; delete via
-  `DeleteAcknowledgedHubProfessionalEmailSupersessions` (audit
-  `global_directory.hub_professional_email_supersessions_acknowledged`
-  `{count}` only if count > 0); list via
-  `ListPendingHubProfessionalEmailSupersessions`; oldest via
-  `OldestPendingHubProfessionalEmailSupersession`. For holdings: run
-  `CountHubPrincipalsNotHomedAtTenant` first (>0 -> `DirectoryCallerTenantMismatchError`),
-  then `CheckHubProfessionalEmailHoldings`, and in Go compute
-  `held_by_requested_user := row.HolderHubUserDid.Valid && row.HolderHubUserDid == requested DID`
-  and `claim_revision := row.HolderHubUserDid.Valid ? &row.ClaimRevision.Int64 : nil`
-  (see the sqlc quirk note above for why this is computed in Go, not SQL).
-- `GU-DIR-010` reaper/prune: extend `reapExpiredReservations` in
-  `backend/cmd/global-coordinator/main.go` to also log
-  `"email_claim_released", true` (the claim cascades automatically via the
-  `ON DELETE CASCADE` FK, no query change needed) — see the deviation note
-  below on why this is a log field, not a new `global_audit_events` row.
-  Also add a periodic call (same ticker or a new one, deploy config TBD via
-  GU-CFG-001) to `PruneTerminalHubAccountEmailChangeReservations` with
-  `cutoff = time.Now().Add(-7 * 24 * time.Hour)`.
-- After `hub_email.go` exists: extend `backend/handlers/directory/directory.go`
-  (`Service` interface + handler funcs, mirroring `ReserveHubPrincipal`'s
-  `commandHandler[T]` pattern for the command endpoints and
-  `ResolveProfileSlug`'s plain-function pattern for the two bypass-runCommand
-  reads — note pull/check need the caller tenant too, which
-  `commandHandler`'s `authenticate()` already extracts, so a new small
-  non-command wrapper that still calls `authenticate()` is needed for
-  them), `backend/internal/routes/global_coordinator_routes.go` (8 new
-  routes), `backend/handlers/mesh/directory.go` + `mesh_routes.go` (mirror
-  again), and `backend/internal/directoryclient/client.go` (8 new client
-  methods using the generic `commandResult[R]` helper, plus 2 bespoke ones
-  for the two bypass-runCommand reads since those don't fit `commandResult`'s
-  problem/success shape assumptions — check whether they do actually fit
-  before writing bespoke code).
-- Then write `hub_email_integration_test.go` covering every bullet in plan
-  §4.1. For the "feed ordering" concurrent-transfer test, open two real
-  `pgxpool` connections/transactions exactly like the manual verification
-  done for this progress log (see the `InsertHubProfessionalEmailClaimIfAbsent`
-  concurrency note above) rather than relying on goroutine timing alone —
-  hold the first transaction open past a synchronization point (a channel)
-  before letting the second proceed, so the test is deterministic.
-- A scratch PostgreSQL container is the fastest way to iterate on any of
-  this without paying for the full `make test-stack`:
-  `docker run -d --name gu-scratch-pg -e POSTGRES_PASSWORD=postgres -p 15432:5432 postgres:17-alpine`,
-  then `createdb` + `goose -dir db/global-migrations up` against
-  `postgres://postgres:postgres@localhost:15432/global_db?sslmode=disable`,
-  then run the Go integration tests with
-  `GLOBAL_DATABASE_URL=postgres://postgres:postgres@localhost:15432/global_db?sslmode=disable`.
+- `backend/internal/globaldirectory/hub_email.go`: all of GU-DIR-001..011,
+  plus `PruneTerminalHubAccountEmailChangeReservations`. `globaldirectory.New`
+  now takes a `digestKeyID string` second argument (compared against every
+  digest-carrying request's `DigestKeyID` before touching the database) —
+  callers updated: `backend/cmd/global-coordinator/main.go` (passes
+  `config.IdentityDigestKeyID`) and both `_integration_test.go` files (pass
+  the dev key id `"909577e87ebd5395"`).
+- `mutation[R]` (in `service.go`) gained `skipOutbox bool` and
+  `auditPayload any` fields. Every new Hub-email command sets
+  `skipOutbox: true` (see the deviation note below) and, for professional
+  email claims, a custom `auditPayload` of `{transferred: bool}` instead of
+  the generic `{schema_version, principal: response}` shape (which would
+  have put the response — safe here — but the pattern exists so a future
+  command with a sensitive response shape doesn't have to invent this).
+- `reserve-hub-principal`'s query and service method now insert the account
+  email claim before the handle and distinguish
+  `hub_account_email_claims_pkey` (-> `DirectoryEmailClaimConflictError`)
+  from any other unique violation (-> `DirectoryClaimConflictError`, the
+  handle case). `activate-hub-principal` activates the claim in the same
+  statement as the principal.
+- Coordinator handlers/routes, mesh relay/routes, and directoryclient all
+  follow the exact existing generic patterns (`commandHandler[T]`,
+  `directoryCommand[T]`, `commandResult[R]`) with no changes to those
+  generic engines beyond what's listed above.
+- `backend/internal/globaldirectory/hub_email_integration_test.go` covers:
+  resolve (found/missing/key-mismatch), reserve-hub-principal's email-vs-handle
+  conflict priority, the full email-change lifecycle (reserve, idempotent
+  replay, stale-reservation replacement, collision with the user's own
+  current claim, finalize, finalize replay, abandon-after-finalize
+  rejection), fencing (abandon-before-reserve tombstone, late reserve
+  rejected as cancelled, reserve-after-deadline rejected as expired), digest
+  key mismatch, caller tenant mismatch, professional-email first
+  claim/reverify/same-tenant-transfer/cross-tenant-transfer (asserting the
+  supersession row and the response's DID-hiding rule), release (stale
+  no-op, current clears holder, reclaim gets a higher revision), holdings
+  check (held/released/never-claimed/foreign-DID-rejected), the pull feed's
+  acknowledgment lifecycle (ack-ahead-of-issued conflict, delivery, deletion
+  on ack, caller-scoping, regressed-request idempotence), the concurrent
+  feed-ordering test (two real overlapping transactions, one holding the
+  sgp cursor row lock past a synchronization channel), and reservation
+  pruning. `backend/handlers/directory/directory_test.go` and
+  `backend/internal/directoryclient/client_test.go` got matching new cases
+  for the handler and client layers. **Not yet covered**: a dedicated
+  `backend/handlers/mesh/directory_test.go` (none existed before this
+  change either — mesh directory relay has never had its own handler-level
+  test file; it's exercised indirectly through `*directoryclient.Client`
+  satisfying `mesh.Directory` at compile time, which `go build`/`go vet`
+  confirmed). Close this gap with Playwright API tests in M6, which
+  exercise the mesh relay for real against the CI stack anyway.
 
-**Known failing tests / open issues:** none — everything written so far
-passes. `make test` (the full gate) has not been run; far too much of the
-plan remains unimplemented for it to be meaningful yet.
+**Exact next step:** Start M3 (Hub signup). Read
+`agent-guides/hub-signup.md` and plan §3.4 again before touching code. Files
+to touch, per the plan: `db/migrations/00001_init.sql` (tenant-local schema:
+`hub_users.email_digest`, `hub_signup_completions.account_email_digest` /
+`failure_reason` / `conflicting_home_tenant_id`, the new
+`signup-registered-elsewhere` outbox kind), `backend/internal/db/queries/hub_signup.sql`,
+`backend/internal/hub/signupcompletion/service.go`, `backend/handlers/hub/auth/signup.go`,
+`typespec/hub/auth/signup.*`, `typespec/problem/hub/signup.*`,
+`backend/internal/email/` (renderer + templates), and
+`backend/internal/workers/deliver_hub_email.go`. Read
+`backend/internal/hub/signupcompletion/service.go` in full first — it is the
+existing saga this work extends (compare with how `orgs/signupcompletion`
+handles its own homed-elsewhere case, since Org signup already solved the
+analogous problem and GU-SIG-004/005 explicitly model this on it). The tenant
+side will need an `identitydigest.Key` threaded into `hub-api`'s main.go and
+the signup-completion service (GU-CFG-002) — this is the first real consumer
+of the M1 secret wiring. Use the same scratch-PostgreSQL-container technique
+(see the design-decisions note further below) for the *tenant* schema this
+time, migrating with `goose -dir db/migrations` against a throwaway tenant
+database, to iterate on the new tenant-local queries before running the full
+`make test-stack`.
+
+**Known failing tests / open issues:** none — every test in the `backend`
+module passes, including with `GLOBAL_DATABASE_URL` set against a live
+Postgres (`go build ./...`, `go vet ./...`, `gofmt -l .` all clean, and
+`make test-go-lint` / `make test-go-static` both pass). `make test` (the full
+gate, including the CI docker stack and Playwright) has not been run; far too
+much of the plan remains unimplemented for it to be meaningful yet, and it is
+a long-running command better run once near the end of M6. Open gap: no
+`backend/handlers/mesh/directory_test.go` exists (pre-existing condition, not
+introduced by this change) — see the M2 summary above.
 
 **Deviations from the plan (in addition to the three recorded after M1):**
 
+- No dedicated `backend/handlers/mesh/directory_test.go` was added for the
+  eight new mesh relay routes. This mirrors the pre-existing state (the mesh
+  directory relay has never had its own handler-level test file for any
+  operation, not just the new ones), so it is not a regression, but it does
+  mean the new mesh routes are currently verified only by `go build`/`go vet`
+  (interface satisfaction) and will be verified behaviorally by the M6
+  Playwright API suite, which exercises the mesh relay for real against the
+  CI stack. If a resumed session has spare time before M6, adding that test
+  file (mirroring `backend/handlers/directory/directory_test.go`'s
+  `fakeService` pattern, but for `mesh.Directory`) would close this gap
+  earlier.
 - Global `global_outbox_events` rows are skipped for every new table in this
   plan (account email claims/reservations, professional email claims). See
   the "next step" note above for the full reasoning. This does not weaken

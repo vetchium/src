@@ -42,10 +42,17 @@ type Outcome struct {
 type Service struct {
 	pool    *pgxpool.Pool
 	queries *sqlc.Queries
+	// digestKeyID is the coordinator's configured identity_digest_key_id
+	// (GU-KEY-004). The coordinator never holds the digest secret itself; it
+	// only compares this id against the one each digest-carrying request
+	// sends, to reject a tenant misconfigured with a different secret.
+	digestKeyID string
 }
 
-func New(pool *pgxpool.Pool) *Service {
-	return &Service{pool: pool, queries: sqlc.New(pool)}
+func New(pool *pgxpool.Pool, digestKeyID string) *Service {
+	return &Service{
+		pool: pool, queries: sqlc.New(pool), digestKeyID: digestKeyID,
+	}
 }
 
 func (s *Service) ReapExpiredReservations(ctx context.Context) (int64, error) {
@@ -94,6 +101,15 @@ func (s *Service) ReserveHubPrincipal(
 					coordinatorproblem.DirectoryCallerTenantMismatchError,
 				), nil
 			}
+			if directoryspec.DigestKeyID(s.digestKeyID) != request.DigestKeyID {
+				return hubMutation{}, details(
+					coordinatorproblem.DirectoryDigestKeyMismatchError,
+				), nil
+			}
+			emailDigest, err := decodeDigest(request.AccountEmailDigest)
+			if err != nil {
+				return hubMutation{}, nil, err
+			}
 			did, _ := dbvalue.ParseUUID(string(request.HubUserDID))
 			commandID, _ := dbvalue.ParseUUID(string(request.CommandID))
 			row, err := q.ReserveHubPrincipal(
@@ -103,9 +119,20 @@ func (s *Service) ReserveHubPrincipal(
 					ProvisioningExpiresAt: dbvalue.Timestamp(
 						request.ProvisioningExpiresAt,
 					),
-					Handle: string(request.Handle),
+					AccountEmailDigest: emailDigest,
+					Handle:             string(request.Handle),
 				},
 			)
+			// The claim insert runs before the handle insert (GU-DIR-002), so
+			// an email conflict is checked, and reported, before a handle
+			// conflict ever could be.
+			if isConstraintViolation(
+				err, "23505", "hub_account_email_claims_pkey",
+			) {
+				return hubMutation{}, details(
+					coordinatorproblem.DirectoryEmailClaimConflictError,
+				), nil
+			}
 			if isUniqueViolation(err) {
 				return hubMutation{}, details(
 					coordinatorproblem.DirectoryClaimConflictError,
@@ -278,7 +305,8 @@ func (s *Service) SetHubAlias(
 }
 
 // mutation is what one command's work reports: the response, and whether a
-// directory change happened that needs audit and outbox records.
+// directory change happened that needs an audit record (and, unless
+// skipOutbox, an outbox record).
 type mutation[R any] struct {
 	response         R
 	changed          bool
@@ -287,6 +315,18 @@ type mutation[R any] struct {
 	entityID         string
 	auditAction      string
 	eventType        string
+	// skipOutbox is set by commands whose entity has no routing/version
+	// concept to attach to an outbox row (the Hub email claim tables): audit
+	// GU-DIR-* commands still record their audit event, but never write
+	// global_outbox_events, since nothing consumes it for these entities yet
+	// and doing so would need either a digest in the payload (forbidden) or
+	// an artificial principal-version bump the existing
+	// enforce_principal_transition trigger rejects.
+	skipOutbox bool
+	// auditPayload overrides the default {schema_version, principal:
+	// response} audit and outbox payload. Hub email claim commands set this
+	// to a minimal, digest-free payload such as {transferred: bool}.
+	auditPayload any
 }
 
 type hubMutation = mutation[directoryspec.PrincipalCommandResponse]
@@ -425,10 +465,14 @@ func appendChangeRecords[R any](
 	ctx context.Context, q *sqlc.Queries, commandID pgtype.UUID,
 	caller directoryspec.TenantID, change mutation[R],
 ) error {
-	payload, err := json.Marshal(struct {
-		SchemaVersion int `json:"schema_version"`
-		Principal     R   `json:"principal"`
-	}{SchemaVersion: 1, Principal: change.response})
+	auditPayload := change.auditPayload
+	if auditPayload == nil {
+		auditPayload = struct {
+			SchemaVersion int `json:"schema_version"`
+			Principal     R   `json:"principal"`
+		}{SchemaVersion: 1, Principal: change.response}
+	}
+	payload, err := json.Marshal(auditPayload)
 	if err != nil {
 		return fmt.Errorf("encode directory change record: %w", err)
 	}
@@ -440,6 +484,9 @@ func appendChangeRecords[R any](
 		},
 	); err != nil {
 		return fmt.Errorf("insert global directory audit event: %w", err)
+	}
+	if change.skipOutbox {
+		return nil
 	}
 	if err := q.InsertGlobalOutboxEvent(
 		ctx, sqlc.InsertGlobalOutboxEventParams{

@@ -68,7 +68,7 @@ func run(log *slog.Logger, address string) error {
 	defer pool.Close()
 
 	runtime := apiserver.New(pool, log)
-	directory := globaldirectory.New(pool)
+	directory := globaldirectory.New(pool, config.IdentityDigestKeyID)
 	server := &globalcoordinator.Server{
 		Runtime:   runtime,
 		Regions:   catalog,
@@ -77,6 +77,7 @@ func run(log *slog.Logger, address string) error {
 	mux := http.NewServeMux()
 	routes.RegisterGlobalCoordinatorRoutes(mux, server)
 	go reapExpiredReservations(ctx, log, directory)
+	go pruneTerminalEmailChangeReservations(ctx, log, directory)
 
 	return service.ListenAndServeTLS(
 		ctx, log, address,
@@ -99,9 +100,46 @@ func reapExpiredReservations(
 				"event", "directory_reservation_reap_failed", "error", err,
 			)
 		} else if count > 0 {
+			// Reaping a provisioning Hub principal cascades its account
+			// email claim via ON DELETE CASCADE (GU-DIR-010); this reap
+			// loop is not scoped to Hub principals alone, so the flag only
+			// asserts that any Hub principals in this batch released their
+			// claim, not a precise count.
 			log.Info(
 				"expired directory reservations reaped",
 				"event", "directory_reservations_reaped", "count", count,
+				"email_claim_released", true,
+			)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// pruneTerminalEmailChangeReservations implements the second half of
+// GU-DIR-010. It runs far less often than the reaper above because
+// terminal reservations are only pruned a full week after they stop being
+// able to fence anything.
+func pruneTerminalEmailChangeReservations(
+	ctx context.Context, log *slog.Logger,
+	directory *globaldirectory.Service,
+) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		count, err := directory.PruneTerminalHubAccountEmailChangeReservations(ctx)
+		if err != nil && ctx.Err() == nil {
+			log.Error(
+				"failed to prune terminal email change reservations",
+				"event", "email_change_reservation_prune_failed", "error", err,
+			)
+		} else if count > 0 {
+			log.Info(
+				"terminal email change reservations pruned",
+				"event", "email_change_reservations_pruned", "count", count,
 			)
 		}
 		select {

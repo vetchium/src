@@ -32,6 +32,11 @@ func TestDirectoryCommandProtocolIntegration(t *testing.T) {
             vetchium.global_outbox_events,
             vetchium.global_command_ledger,
             vetchium.global_audit_events,
+            vetchium.hub_professional_email_supersessions,
+            vetchium.hub_professional_email_feed_cursors,
+            vetchium.hub_professional_email_claims,
+            vetchium.hub_account_email_claims,
+            vetchium.hub_account_email_change_reservations,
             vetchium.hub_profile_slugs,
             vetchium.hub_principals,
             vetchium.org_domains,
@@ -43,12 +48,14 @@ func TestDirectoryCommandProtocolIntegration(t *testing.T) {
 	reset()
 	defer reset()
 
-	service := New(pool)
+	service := New(pool, "909577e87ebd5395")
 	first := directoryspec.ReserveHubPrincipalRequest{
 		CommandID:  "4569b853-4778-4e67-a635-5f41b06585f5",
 		HubUserDID: "018f7e32-7b5a-7d31-8fd0-f7e2a852f144",
 		Handle:     "abcde000-0123456789a", HomeTenantID: "ind1",
 		ProvisioningExpiresAt: time.Now().UTC().Add(time.Hour),
+		AccountEmailDigest:    "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+		DigestKeyID:           "909577e87ebd5395",
 	}
 	reserved, err := service.ReserveHubPrincipal(ctx, "ind1", first)
 	assertSuccess(t, reserved, err, directoryspec.PrincipalProvisioning)
@@ -123,6 +130,8 @@ func TestDirectoryCommandProtocolIntegration(t *testing.T) {
 		HubUserDID: "018f7e32-7b5a-7d31-8fd0-f7e2a852f145",
 		Handle:     "klmno000-0123456789c", HomeTenantID: "sgp",
 		ProvisioningExpiresAt: time.Now().UTC().Add(time.Hour),
+		AccountEmailDigest:    "a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2",
+		DigestKeyID:           "909577e87ebd5395",
 	}
 	secondReserved, err := service.ReserveHubPrincipal(ctx, "sgp", second)
 	assertSuccess(t, secondReserved, err, directoryspec.PrincipalProvisioning)
@@ -166,6 +175,8 @@ func TestDirectoryCommandProtocolIntegration(t *testing.T) {
 		HubUserDID: "018f7e32-7b5a-7d31-8fd0-f7e2a852f146",
 		Handle:     "pqrst000-0123456789d", HomeTenantID: "deu",
 		ProvisioningExpiresAt: time.Now().UTC().Add(-time.Minute),
+		AccountEmailDigest:    "a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3",
+		DigestKeyID:           "909577e87ebd5395",
 	}
 	expiredOutcome, err := service.ReserveHubPrincipal(ctx, "deu", expired)
 	assertProblemType(
