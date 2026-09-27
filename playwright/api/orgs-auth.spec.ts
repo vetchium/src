@@ -481,6 +481,19 @@ test.describe("Org two-factor authentication", () => {
         401,
         recentRequired,
       );
+      for (const path of [
+        "/start-totp-enrollment",
+        "/regenerate-totp-recovery-codes",
+      ]) {
+        await expectProblem(
+          await api.post(path, undefined, {
+            token,
+            idempotencyKey: orgsIdempotencyKey(),
+          }),
+          401,
+          recentRequired,
+        );
+      }
     } finally {
       await deleteOrgVerificationRecord(org.domain);
       cleanupOrg(org.domain);
