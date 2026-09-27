@@ -8,6 +8,7 @@ import {
   ProtectedRoute,
 } from "../components/common/ProtectedRoute";
 import { PublicShell } from "../components/common/PublicShell";
+import { RecentAuthenticationRoute } from "../components/common/RecentAuthenticationRoute";
 import { paths } from "./paths";
 
 const CompleteSignupPage = lazy(() =>
@@ -91,7 +92,7 @@ export function App() {
       <Route element={<PublicShell />}>
         <Route index element={<Landing />} />
         <Route
-          path={paths.signup}
+          path={`${paths.signup}/:country?/:language?/:step?`}
           element={
             <Page>
               <SignupPage />
@@ -151,14 +152,16 @@ export function App() {
           />
         </Route>
         <Route element={<AppShell />}>
-          <Route
-            path={paths.security}
-            element={
-              <Page>
-                <SecurityPage />
-              </Page>
-            }
-          />
+          <Route element={<RecentAuthenticationRoute />}>
+            <Route
+              path={paths.security}
+              element={
+                <Page>
+                  <SecurityPage />
+                </Page>
+              }
+            />
+          </Route>
           <Route
             path={paths.restoreDomain}
             element={

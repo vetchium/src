@@ -32,9 +32,15 @@ import type {
   VerifyRecoveryCodeResponse,
 } from "typespec/orgs/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/orgs/auth/types";
+import type {
+  ListOrgSignupRegionsRequest,
+  ListOrgSignupRegionsResponse,
+} from "typespec/regions/regions";
 import { apiRequest } from "./client";
 
 export const orgsAPI = {
+  listSignupRegions: (body: ListOrgSignupRegionsRequest) =>
+    apiRequest<ListOrgSignupRegionsResponse>("/list-signup-regions", { body }),
   requestSignup: (body: RequestSignupRequest, idempotencyKey: IdempotencyKey) =>
     apiRequest<void>("/request-signup", { body, idempotencyKey }),
   getSignupDetails: (body: GetSignupDetailsRequest) =>

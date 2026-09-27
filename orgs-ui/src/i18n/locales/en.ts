@@ -106,6 +106,19 @@ export const en = {
       "Signing up needs an email address at your organization's domain and access to that domain's DNS settings.",
   },
   signup: {
+    regionDescription:
+      "Choose where your organization's data is kept. Pick the country your organization mainly operates in to see the recommended region.",
+    country: "Country",
+    language: "Language",
+    regionLabel: "Region",
+    recommendedRegion: "{{region}} ({{tenant}}), recommended",
+    regionOption: "{{region}} ({{tenant}})",
+    continueRegion: "Continue in {{region}} ({{tenant}})",
+    continue: "Continue",
+    retryRegions: "Try again",
+    noRegions: "No region accepts organization signups right now.",
+    hosting: "Your organization will be kept in {{region}} ({{tenant}}).",
+    changeRegion: "Choose another region",
     documentTitle: "Sign up | Vetchium for organizations",
     title: "Sign up your organization",
     description:
@@ -282,6 +295,8 @@ export const en = {
       title: "Two-factor authentication",
       description:
         "Add a code from an authenticator app to every sign-in. You can set it up, replace your recovery codes, or turn it off here.",
+      status: "Two-factor authentication",
+      recoveryCodes: "Unused recovery codes",
       statusEnabled: "On",
       statusDisabled: "Off",
       start: "Set up authenticator app",

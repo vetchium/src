@@ -1,20 +1,22 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { safeReturnTo } from "@vetchium/portal-ui/navigation";
 import { Button, Card, Flex, Form, Input, Typography } from "antd";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
+import type { MyInfoResponse } from "typespec/orgs/account/account";
 import type { ReauthenticateRequest } from "typespec/orgs/auth/login";
 import { validateReauthenticateRequest } from "typespec/orgs/auth/login";
 import { orgsAPI } from "../api/orgs";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
-import { useMyInfoQuery } from "../features/account/queries";
+import { myInfoQueryKey, useMyInfoQuery } from "../features/account/queries";
 
 export function ReauthenticatePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = safeReturnTo(searchParams.get("returnTo"));
+  const queryClient = useQueryClient();
   const { data: me } = useMyInfoQuery();
   const mutation = useMutation({ mutationFn: orgsAPI.reauthenticate });
   const mounted = useRef(true);
@@ -31,7 +33,17 @@ export function ReauthenticatePage() {
   const submit = async (request: ReauthenticateRequest) => {
     if (validateReauthenticateRequest(request).length !== 0) return;
     try {
-      await mutation.mutateAsync(request);
+      const response = await mutation.mutateAsync(request);
+      // The step-up guard reads this timestamp, so without it the guard
+      // would send the user straight back here.
+      queryClient.setQueryData<MyInfoResponse>(myInfoQueryKey, (current) =>
+        current === undefined
+          ? current
+          : {
+              ...current,
+              session_authenticated_at: response.session_authenticated_at,
+            },
+      );
     } catch {
       return;
     }

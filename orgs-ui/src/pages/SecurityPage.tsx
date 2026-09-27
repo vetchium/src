@@ -18,7 +18,10 @@ export function SecurityPage() {
         </Typography.Text>
       </div>
       <ChangePasswordCard />
-      <TwoFactorCard />
+      <TwoFactorCard
+        totpEnabled={me.totp_enabled}
+        recoveryCodesRemaining={me.recovery_codes_remaining}
+      />
     </Flex>
   );
 }

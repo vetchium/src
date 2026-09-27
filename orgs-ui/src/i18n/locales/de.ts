@@ -114,6 +114,20 @@ export const de = {
       "Für die Registrierung brauchen Sie eine E-Mail-Adresse unter der Domain Ihrer Organisation und Zugriff auf die DNS-Einstellungen dieser Domain.",
   },
   signup: {
+    regionDescription:
+      "Wählen Sie, wo die Daten Ihrer Organisation gespeichert werden. Wählen Sie das Land, in dem Ihre Organisation hauptsächlich tätig ist, um die empfohlene Region zu sehen.",
+    country: "Land",
+    language: "Sprache",
+    regionLabel: "Region",
+    recommendedRegion: "{{region}} ({{tenant}}), empfohlen",
+    regionOption: "{{region}} ({{tenant}})",
+    continueRegion: "Weiter in {{region}} ({{tenant}})",
+    continue: "Weiter",
+    retryRegions: "Erneut versuchen",
+    noRegions:
+      "Derzeit nimmt keine Region Registrierungen von Organisationen an.",
+    hosting: "Ihre Organisation wird in {{region}} ({{tenant}}) gespeichert.",
+    changeRegion: "Andere Region wählen",
     documentTitle: "Registrieren | Vetchium für Organisationen",
     title: "Organisation registrieren",
     description:
@@ -292,6 +306,8 @@ export const de = {
       title: "Zwei-Faktor-Authentifizierung",
       description:
         "Ergänzen Sie jede Anmeldung um einen Code aus einer Authenticator-App. Hier können Sie sie einrichten, Ihre Wiederherstellungscodes ersetzen oder sie ausschalten.",
+      status: "Zwei-Faktor-Authentifizierung",
+      recoveryCodes: "Unbenutzte Wiederherstellungscodes",
       statusEnabled: "Aktiv",
       statusDisabled: "Aus",
       start: "Authenticator-App einrichten",
