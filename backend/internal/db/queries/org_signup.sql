@@ -265,16 +265,34 @@ SELECT
 FROM inserted;
 
 -- name: MarkOrgSignupCompletionReserved :one
-UPDATE vetchium.org_signup_completions
-SET state = 'reserved',
-    attempt_count = attempt_count + 1,
-    updated_at = now(),
-    next_attempt_at = now(),
-    last_error = NULL
-WHERE operation_id = sqlc.arg(operation_id)
-  AND state = 'prepared'
-  AND reserve_command_id = sqlc.arg(reserve_command_id)
-RETURNING
+WITH updated AS (
+    UPDATE vetchium.org_signup_completions
+    SET state = 'reserved',
+        attempt_count = attempt_count + 1,
+        updated_at = now(),
+        next_attempt_at = now(),
+        last_error = NULL
+    WHERE operation_id = sqlc.arg(operation_id)
+      AND state = 'prepared'
+      AND reserve_command_id = sqlc.arg(reserve_command_id)
+    RETURNING *
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, source,
+        idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'org.signup.completion_reserved',
+        'org_signup_completion',
+        operation_id::text,
+        'system',
+        sqlc.arg(source),
+        idempotency_key,
+        jsonb_build_object('org_did', org_did, 'domain', domain)
+    FROM updated
+)
+SELECT
     operation_id,
     org_signup_request_id,
     token_hash,
@@ -294,7 +312,8 @@ RETURNING
     created_at,
     updated_at,
     completed_at,
-    expires_at;
+    expires_at
+FROM updated;
 
 -- A definite claim conflict means the signup can never succeed, so the
 -- request is retired with the operation.
@@ -357,16 +376,36 @@ SELECT
 FROM updated;
 
 -- name: RecordOrgSignupCompletionRetry :exec
-UPDATE vetchium.org_signup_completions
-SET attempt_count = attempt_count + 1,
-    updated_at = now(),
-    next_attempt_at = now() + LEAST(
-        interval '5 minutes',
-        interval '1 second' * power(2, LEAST(attempt_count, 8))
-    ),
-    last_error = left(sqlc.arg(last_error), 200)
-WHERE operation_id = sqlc.arg(operation_id)
-  AND state NOT IN ('completed', 'failed');
+WITH updated AS (
+    UPDATE vetchium.org_signup_completions
+    SET attempt_count = attempt_count + 1,
+        updated_at = now(),
+        next_attempt_at = now() + LEAST(
+            interval '5 minutes',
+            interval '1 second' * power(2, LEAST(attempt_count, 8))
+        ),
+        last_error = left(sqlc.arg(last_error), 200)
+    WHERE operation_id = sqlc.arg(operation_id)
+      AND state NOT IN ('completed', 'failed')
+    RETURNING operation_id, idempotency_key, attempt_count, next_attempt_at
+)
+INSERT INTO vetchium.audit_events (
+    tenant_id, action, entity_type, entity_id, actor_type, source,
+    idempotency_key, payload
+)
+SELECT
+    sqlc.arg(tenant_id),
+    'org.signup.completion_retry_scheduled',
+    'org_signup_completion',
+    operation_id::text,
+    'system',
+    sqlc.arg(source),
+    idempotency_key,
+    jsonb_build_object(
+        'attempt_count', attempt_count,
+        'next_attempt_at', next_attempt_at
+    )
+FROM updated;
 
 -- The Org and its first superadmin stay non-loginable until the global
 -- activation succeeds.
@@ -671,7 +710,29 @@ WHERE state NOT IN ('completed', 'failed')
 ORDER BY next_attempt_at, created_at
 LIMIT 25;
 
--- name: PruneExpiredOrgSignupCompletions :execrows
-DELETE FROM vetchium.org_signup_completions
-WHERE state IN ('completed', 'failed')
-  AND expires_at <= now();
+-- name: PruneExpiredOrgSignupCompletions :one
+WITH deleted AS (
+    DELETE FROM vetchium.org_signup_completions
+    WHERE state IN ('completed', 'failed')
+      AND expires_at <= now()
+    RETURNING operation_id
+), summary AS (
+    SELECT count(*)::bigint AS deleted_count FROM deleted
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'org.housekeeping.signup-completions-pruned',
+        'housekeeping_batch',
+        gen_random_uuid()::text,
+        'worker',
+        'workers',
+        'workers',
+        jsonb_build_object('deleted_count', deleted_count)
+    FROM summary
+    WHERE deleted_count > 0
+)
+SELECT deleted_count FROM summary;

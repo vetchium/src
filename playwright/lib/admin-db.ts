@@ -1267,7 +1267,7 @@ function auditEventJSON(where: string): AuditEvent[] {
   return auditEventJSONForTenant("sgp", where);
 }
 
-function auditEventJSONForTenant(
+export function auditEventJSONForTenant(
   tenant: TestTenant,
   where: string,
 ): AuditEvent[] {

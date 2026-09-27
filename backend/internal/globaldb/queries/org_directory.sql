@@ -88,9 +88,11 @@ LEFT JOIN vetchium.org_domains AS d
     ON d.org_did = p.org_did
 WHERE p.org_did = sqlc.arg(org_did);
 
+-- The coordinator reaps a reservation its home tenant never activated. The
+-- audit event names that tenant, whose signup the reservation belonged to.
 -- name: ReapExpiredOrgPrincipalReservations :execrows
 WITH candidates AS MATERIALIZED (
-    SELECT org_did
+    SELECT org_did, home_tenant_id, provisioning_operation_id
     FROM vetchium.org_principals
     WHERE state = 'provisioning'
       AND provisioning_expires_at <= now()
@@ -101,12 +103,33 @@ WITH candidates AS MATERIALIZED (
     DELETE FROM vetchium.org_domains AS domain
     USING candidates
     WHERE domain.org_did = candidates.org_did
-    RETURNING domain.org_did
+    RETURNING domain.org_did, domain.domain
+), deleted AS (
+    DELETE FROM vetchium.org_principals AS principal
+    USING candidates
+    WHERE principal.org_did = candidates.org_did
+      AND EXISTS (
+          SELECT 1 FROM deleted_domains
+          WHERE deleted_domains.org_did = principal.org_did
+      )
+    RETURNING principal.org_did
+), audit AS (
+    INSERT INTO vetchium.global_audit_events (
+        action, entity_type, entity_id, actor_tenant_id, command_id, payload
+    )
+    SELECT
+        'global_directory.org_principal_reservation_expired',
+        'org_principal',
+        c.org_did::text,
+        c.home_tenant_id,
+        c.provisioning_operation_id,
+        jsonb_build_object(
+            'schema_version', 1,
+            'actor', 'global-coordinator',
+            'released_domain', d.domain
+        )
+    FROM candidates AS c
+    JOIN deleted AS removed ON removed.org_did = c.org_did
+    JOIN deleted_domains AS d ON d.org_did = c.org_did
 )
-DELETE FROM vetchium.org_principals AS principal
-USING candidates
-WHERE principal.org_did = candidates.org_did
-  AND EXISTS (
-      SELECT 1 FROM deleted_domains
-      WHERE deleted_domains.org_did = principal.org_did
-  );
+SELECT count(*) FROM deleted;

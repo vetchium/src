@@ -986,16 +986,34 @@ func (q *Queries) ListRecoverableOrgSignupCompletions(ctx context.Context) ([]Ve
 }
 
 const markOrgSignupCompletionReserved = `-- name: MarkOrgSignupCompletionReserved :one
-UPDATE vetchium.org_signup_completions
-SET state = 'reserved',
-    attempt_count = attempt_count + 1,
-    updated_at = now(),
-    next_attempt_at = now(),
-    last_error = NULL
-WHERE operation_id = $1
-  AND state = 'prepared'
-  AND reserve_command_id = $2
-RETURNING
+WITH updated AS (
+    UPDATE vetchium.org_signup_completions
+    SET state = 'reserved',
+        attempt_count = attempt_count + 1,
+        updated_at = now(),
+        next_attempt_at = now(),
+        last_error = NULL
+    WHERE operation_id = $1
+      AND state = 'prepared'
+      AND reserve_command_id = $2
+    RETURNING operation_id, org_signup_request_id, token_hash, idempotency_key, request_digest, org_did, domain, reserve_command_id, activate_command_id, payload_ciphertext, state, failure_reason, provisioning_expires_at, attempt_count, next_attempt_at, last_error, created_at, updated_at, completed_at, expires_at
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, source,
+        idempotency_key, payload
+    )
+    SELECT
+        $3,
+        'org.signup.completion_reserved',
+        'org_signup_completion',
+        operation_id::text,
+        'system',
+        $4,
+        idempotency_key,
+        jsonb_build_object('org_did', org_did, 'domain', domain)
+    FROM updated
+)
+SELECT
     operation_id,
     org_signup_request_id,
     token_hash,
@@ -1016,16 +1034,47 @@ RETURNING
     updated_at,
     completed_at,
     expires_at
+FROM updated
 `
 
 type MarkOrgSignupCompletionReservedParams struct {
 	OperationID      pgtype.UUID `json:"operation_id"`
 	ReserveCommandID pgtype.UUID `json:"reserve_command_id"`
+	TenantID         string      `json:"tenant_id"`
+	Source           string      `json:"source"`
 }
 
-func (q *Queries) MarkOrgSignupCompletionReserved(ctx context.Context, arg MarkOrgSignupCompletionReservedParams) (VetchiumOrgSignupCompletion, error) {
-	row := q.db.QueryRow(ctx, markOrgSignupCompletionReserved, arg.OperationID, arg.ReserveCommandID)
-	var i VetchiumOrgSignupCompletion
+type MarkOrgSignupCompletionReservedRow struct {
+	OperationID           pgtype.UUID                      `json:"operation_id"`
+	OrgSignupRequestID    pgtype.UUID                      `json:"org_signup_request_id"`
+	TokenHash             []byte                           `json:"token_hash"`
+	IdempotencyKey        string                           `json:"idempotency_key"`
+	RequestDigest         []byte                           `json:"request_digest"`
+	OrgDid                pgtype.UUID                      `json:"org_did"`
+	Domain                string                           `json:"domain"`
+	ReserveCommandID      pgtype.UUID                      `json:"reserve_command_id"`
+	ActivateCommandID     pgtype.UUID                      `json:"activate_command_id"`
+	PayloadCiphertext     []byte                           `json:"payload_ciphertext"`
+	State                 VetchiumOrgSignupCompletionState `json:"state"`
+	FailureReason         pgtype.Text                      `json:"failure_reason"`
+	ProvisioningExpiresAt pgtype.Timestamptz               `json:"provisioning_expires_at"`
+	AttemptCount          int32                            `json:"attempt_count"`
+	NextAttemptAt         pgtype.Timestamptz               `json:"next_attempt_at"`
+	LastError             pgtype.Text                      `json:"last_error"`
+	CreatedAt             pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz               `json:"updated_at"`
+	CompletedAt           pgtype.Timestamptz               `json:"completed_at"`
+	ExpiresAt             pgtype.Timestamptz               `json:"expires_at"`
+}
+
+func (q *Queries) MarkOrgSignupCompletionReserved(ctx context.Context, arg MarkOrgSignupCompletionReservedParams) (MarkOrgSignupCompletionReservedRow, error) {
+	row := q.db.QueryRow(ctx, markOrgSignupCompletionReserved,
+		arg.OperationID,
+		arg.ReserveCommandID,
+		arg.TenantID,
+		arg.Source,
+	)
+	var i MarkOrgSignupCompletionReservedRow
 	err := row.Scan(
 		&i.OperationID,
 		&i.OrgSignupRequestID,
@@ -1219,39 +1268,87 @@ func (q *Queries) PrepareOrgSignupCompletion(ctx context.Context, arg PrepareOrg
 	return i, err
 }
 
-const pruneExpiredOrgSignupCompletions = `-- name: PruneExpiredOrgSignupCompletions :execrows
-DELETE FROM vetchium.org_signup_completions
-WHERE state IN ('completed', 'failed')
-  AND expires_at <= now()
+const pruneExpiredOrgSignupCompletions = `-- name: PruneExpiredOrgSignupCompletions :one
+WITH deleted AS (
+    DELETE FROM vetchium.org_signup_completions
+    WHERE state IN ('completed', 'failed')
+      AND expires_at <= now()
+    RETURNING operation_id
+), summary AS (
+    SELECT count(*)::bigint AS deleted_count FROM deleted
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        $1,
+        'org.housekeeping.signup-completions-pruned',
+        'housekeeping_batch',
+        gen_random_uuid()::text,
+        'worker',
+        'workers',
+        'workers',
+        jsonb_build_object('deleted_count', deleted_count)
+    FROM summary
+    WHERE deleted_count > 0
+)
+SELECT deleted_count FROM summary
 `
 
-func (q *Queries) PruneExpiredOrgSignupCompletions(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, pruneExpiredOrgSignupCompletions)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) PruneExpiredOrgSignupCompletions(ctx context.Context, tenantID string) (int64, error) {
+	row := q.db.QueryRow(ctx, pruneExpiredOrgSignupCompletions, tenantID)
+	var deleted_count int64
+	err := row.Scan(&deleted_count)
+	return deleted_count, err
 }
 
 const recordOrgSignupCompletionRetry = `-- name: RecordOrgSignupCompletionRetry :exec
-UPDATE vetchium.org_signup_completions
-SET attempt_count = attempt_count + 1,
-    updated_at = now(),
-    next_attempt_at = now() + LEAST(
-        interval '5 minutes',
-        interval '1 second' * power(2, LEAST(attempt_count, 8))
-    ),
-    last_error = left($1, 200)
-WHERE operation_id = $2
-  AND state NOT IN ('completed', 'failed')
+WITH updated AS (
+    UPDATE vetchium.org_signup_completions
+    SET attempt_count = attempt_count + 1,
+        updated_at = now(),
+        next_attempt_at = now() + LEAST(
+            interval '5 minutes',
+            interval '1 second' * power(2, LEAST(attempt_count, 8))
+        ),
+        last_error = left($3, 200)
+    WHERE operation_id = $4
+      AND state NOT IN ('completed', 'failed')
+    RETURNING operation_id, idempotency_key, attempt_count, next_attempt_at
+)
+INSERT INTO vetchium.audit_events (
+    tenant_id, action, entity_type, entity_id, actor_type, source,
+    idempotency_key, payload
+)
+SELECT
+    $1,
+    'org.signup.completion_retry_scheduled',
+    'org_signup_completion',
+    operation_id::text,
+    'system',
+    $2,
+    idempotency_key,
+    jsonb_build_object(
+        'attempt_count', attempt_count,
+        'next_attempt_at', next_attempt_at
+    )
+FROM updated
 `
 
 type RecordOrgSignupCompletionRetryParams struct {
+	TenantID    string      `json:"tenant_id"`
+	Source      string      `json:"source"`
 	LastError   string      `json:"last_error"`
 	OperationID pgtype.UUID `json:"operation_id"`
 }
 
 func (q *Queries) RecordOrgSignupCompletionRetry(ctx context.Context, arg RecordOrgSignupCompletionRetryParams) error {
-	_, err := q.db.Exec(ctx, recordOrgSignupCompletionRetry, arg.LastError, arg.OperationID)
+	_, err := q.db.Exec(ctx, recordOrgSignupCompletionRetry,
+		arg.TenantID,
+		arg.Source,
+		arg.LastError,
+		arg.OperationID,
+	)
 	return err
 }

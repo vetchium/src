@@ -291,7 +291,7 @@ func (s *Service) Advance(
 				operation = fromCreate(created)
 			}
 			if err != nil {
-				s.recordRetry(ctx, operation.OperationID, err)
+				s.recordRetry(ctx, operation.OperationID, err, source)
 				return pendingResult(operation), ErrPending
 			}
 		case sqlc.VetchiumOrgSignupCompletionStateLocalCreated:
@@ -327,7 +327,7 @@ func (s *Service) reserve(
 		},
 	)
 	if err != nil {
-		s.recordRetry(ctx, operation.OperationID, err)
+		s.recordRetry(ctx, operation.OperationID, err, source)
 		return operation, ErrPending
 	}
 	if outcome.Problem != nil {
@@ -346,29 +346,30 @@ func (s *Service) reserve(
 			return fromFail(failed), ErrDomainOwned
 		}
 		err := fmt.Errorf("reserve global Org principal: %s", outcome.Problem.Type)
-		s.recordRetry(ctx, operation.OperationID, err)
+		s.recordRetry(ctx, operation.OperationID, err, source)
 		return operation, ErrPending
 	}
 	if err := validatePrincipal(
 		outcome.Org, operation, s.tenantID, directoryspec.PrincipalProvisioning,
 	); err != nil {
-		s.recordRetry(ctx, operation.OperationID, err)
+		s.recordRetry(ctx, operation.OperationID, err, source)
 		return operation, ErrPending
 	}
 	reserved, err := s.queries.MarkOrgSignupCompletionReserved(
 		ctx, sqlc.MarkOrgSignupCompletionReservedParams{
 			OperationID:      operation.OperationID,
 			ReserveCommandID: operation.ReserveCommandID,
+			TenantID:         s.tenantID, Source: source,
 		},
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s.reload(ctx, operation)
 	}
 	if err != nil {
-		s.recordRetry(ctx, operation.OperationID, err)
+		s.recordRetry(ctx, operation.OperationID, err, source)
 		return operation, ErrPending
 	}
-	return reserved, nil
+	return sqlc.VetchiumOrgSignupCompletion(reserved), nil
 }
 
 func (s *Service) activate(
@@ -382,7 +383,7 @@ func (s *Service) activate(
 		},
 	)
 	if err != nil {
-		s.recordRetry(ctx, operation.OperationID, err)
+		s.recordRetry(ctx, operation.OperationID, err, source)
 		return operation, ErrPending
 	}
 	if outcome.Problem != nil {
@@ -394,13 +395,13 @@ func (s *Service) activate(
 			return operation, ErrExpired
 		}
 		err := fmt.Errorf("activate global Org principal: %s", outcome.Problem.Type)
-		s.recordRetry(ctx, operation.OperationID, err)
+		s.recordRetry(ctx, operation.OperationID, err, source)
 		return operation, ErrPending
 	}
 	if err := validatePrincipal(
 		outcome.Org, operation, s.tenantID, directoryspec.PrincipalActive,
 	); err != nil {
-		s.recordRetry(ctx, operation.OperationID, err)
+		s.recordRetry(ctx, operation.OperationID, err, source)
 		return operation, ErrPending
 	}
 	completed, err := s.queries.CompleteProvisioningOrg(
@@ -413,7 +414,7 @@ func (s *Service) activate(
 		return s.reload(ctx, operation)
 	}
 	if err != nil {
-		s.recordRetry(ctx, operation.OperationID, err)
+		s.recordRetry(ctx, operation.OperationID, err, source)
 		return operation, ErrPending
 	}
 	return fromComplete(completed), nil
@@ -435,7 +436,7 @@ func (s *Service) Recover(ctx context.Context) (int, error) {
 			completed++
 		}
 	}
-	if _, err := s.queries.PruneExpiredOrgSignupCompletions(ctx); err != nil {
+	if _, err := s.queries.PruneExpiredOrgSignupCompletions(ctx, s.tenantID); err != nil {
 		return completed, fmt.Errorf("prune expired Org signup completions: %w", err)
 	}
 	return completed, nil
@@ -499,11 +500,12 @@ func (s *Service) createLocal(
 }
 
 func (s *Service) recordRetry(
-	ctx context.Context, operationID pgtype.UUID, err error,
+	ctx context.Context, operationID pgtype.UUID, err error, source string,
 ) {
 	_ = s.queries.RecordOrgSignupCompletionRetry(
 		ctx, sqlc.RecordOrgSignupCompletionRetryParams{
 			OperationID: operationID, LastError: err.Error(),
+			TenantID: s.tenantID, Source: source,
 		},
 	)
 }

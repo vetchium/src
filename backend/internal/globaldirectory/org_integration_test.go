@@ -196,6 +196,22 @@ func TestOrgDirectoryCommandsIntegration(t *testing.T) {
 		remaining != 0 {
 		t.Fatalf("expired domain remained: %d, %v", remaining, err)
 	}
+	var reapAudit string
+	if err := pool.QueryRow(ctx, `SELECT actor_tenant_id || '|' ||
+            (payload ->> 'released_domain')
+        FROM vetchium.global_audit_events
+        WHERE action = 'global_directory.org_principal_reservation_expired'
+          AND entity_id = $1`, string(expired.OrgDID)).Scan(&reapAudit); err != nil ||
+		reapAudit != "ind1|expired.example.com" {
+		t.Fatalf("reap audit = %q, %v", reapAudit, err)
+	}
+	// Every directory change above has exactly one audit event.
+	var changes int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM vetchium.global_audit_events
+        WHERE entity_type = 'org_principal' AND entity_id = $1`,
+		string(firstDID)).Scan(&changes); err != nil || changes != 4 {
+		t.Fatalf("first Org audit events = %d, %v", changes, err)
+	}
 }
 
 func assertOrgSuccess(

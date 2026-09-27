@@ -30,7 +30,7 @@ func TestOrgSignupAndDomainLifecycleIntegration(t *testing.T) {
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := sqlc.New(tx)
 
-	domain := "acme-" + strings.ReplaceAll(dbvalue.FormatUUID(orgTestUUID(t)), "-", "")[:12] + ".vetchium.test"
+	domain := "acme-" + strings.ReplaceAll(dbvalue.FormatUUID(orgTestUUID(t)), "-", "")[:12] + ".example"
 	email := "it@" + domain
 	request := func(address, token string) string {
 		t.Helper()
@@ -104,8 +104,15 @@ func TestOrgSignupAndDomainLifecycleIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepare: %v", err)
 	}
+	if err := q.RecordOrgSignupCompletionRetry(ctx, sqlc.RecordOrgSignupCompletionRetryParams{
+		OperationID: prepared.OperationID, LastError: "directory timeout",
+		TenantID: "sgp", Source: "orgs-api",
+	}); err != nil {
+		t.Fatalf("record retry: %v", err)
+	}
 	if _, err := q.MarkOrgSignupCompletionReserved(ctx, sqlc.MarkOrgSignupCompletionReservedParams{
 		OperationID: prepared.OperationID, ReserveCommandID: prepared.ReserveCommandID,
+		TenantID: "sgp", Source: "orgs-api",
 	}); err != nil {
 		t.Fatalf("mark reserved: %v", err)
 	}
@@ -275,6 +282,100 @@ func TestOrgSignupAndDomainLifecycleIntegration(t *testing.T) {
 	if err != nil || info.OrgState != sqlc.VetchiumOrgStateActive ||
 		info.DomainState != sqlc.VetchiumOrgDomainStateVerified {
 		t.Fatalf("after reclaim = %+v, %v", info, err)
+	}
+
+	// Every write above committed its audit event in the same statement.
+	counts := map[string]int{}
+	rows, err := tx.Query(ctx, `SELECT action, count(*) FROM vetchium.audit_events
+        WHERE entity_id IN ($1, $2, $3)
+           OR idempotency_key IN ('complete', 'key-`+strings.Repeat("c", 26)+`',
+                                  'key-`+strings.Repeat("d", 26)+`')
+        GROUP BY action`,
+		dbvalue.FormatUUID(orgDID), dbvalue.FormatUUID(user.OrgUserID),
+		dbvalue.FormatUUID(prepared.OperationID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var action string
+		var count int
+		if err := rows.Scan(&action, &count); err != nil {
+			t.Fatal(err)
+		}
+		counts[action] = count
+	}
+	rows.Close()
+	for action, want := range map[string]int{
+		"org.signup.requested":                  2,
+		"org.signup.completion_prepared":        1,
+		"org.signup.completion_retry_scheduled": 1,
+		"org.signup.completion_reserved":        1,
+		"org.provisioning":                      1,
+		"org.created":                           1,
+		"org_user.created":                      1,
+		"org.domain.checked":                    3,
+		"org.domain.release-started":            1,
+		"org.suspended":                         1,
+		"org.domain.released":                   1,
+		"org.domain.reclaim-started":            2,
+		"org.domain.reclaim-rejected":           1,
+		"org.domain.reclaimed":                  1,
+		"org.reactivated":                       1,
+	} {
+		if counts[action] != want {
+			t.Errorf("audit %s = %d, want %d (all: %v)", action, counts[action], want, counts)
+		}
+	}
+	// The stale absent result above changed nothing, so it recorded nothing.
+	var stale int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM vetchium.audit_events
+        WHERE action = 'org.domain.checked' AND entity_id = $1
+          AND payload ->> 'previous_state' = 'verified'
+          AND payload ->> 'state' = 'failing'`,
+		dbvalue.FormatUUID(orgDID)).Scan(&stale); err != nil || stale != 1 {
+		t.Fatalf("verified-to-failing checks = %d, %v", stale, err)
+	}
+}
+
+func TestOrgSignupCompletionPruneIsAuditedIntegration(t *testing.T) {
+	pool := orgTestPool(t)
+	ctx := context.Background()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	q := sqlc.New(tx)
+	if _, err := tx.Exec(ctx, `DELETE FROM vetchium.org_signup_completions`); err != nil {
+		t.Fatal(err)
+	}
+	if deleted, err := q.PruneExpiredOrgSignupCompletions(ctx, "sgp"); err != nil || deleted != 0 {
+		t.Fatalf("empty prune = %d, %v", deleted, err)
+	}
+	did, _ := dbvalue.NewUUIDv7(time.Now())
+	if _, err := tx.Exec(ctx, `INSERT INTO vetchium.org_signup_completions (
+            operation_id, org_signup_request_id, token_hash, idempotency_key,
+            request_digest, org_did, domain, reserve_command_id,
+            activate_command_id, payload_ciphertext, state, failure_reason,
+            provisioning_expires_at, created_at, updated_at, completed_at,
+            expires_at)
+        VALUES (gen_random_uuid(), gen_random_uuid(),
+            decode(repeat('01', 32), 'hex'), 'prune', decode(repeat('02', 32), 'hex'),
+            $1, 'prune.example', gen_random_uuid(), gen_random_uuid(), '\x',
+            'failed', 'reservation_expired', now() - interval '2 days',
+            now() - interval '3 days', now() - interval '3 days',
+            now() - interval '2 days', now() - interval '1 day')`, did); err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := q.PruneExpiredOrgSignupCompletions(ctx, "sgp")
+	if err != nil || deleted != 1 {
+		t.Fatalf("prune = %d, %v", deleted, err)
+	}
+	var count int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM vetchium.audit_events
+        WHERE action = 'org.housekeeping.signup-completions-pruned'
+          AND payload ->> 'deleted_count' = '1'`).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("prune audit events = %d, %v", count, err)
 	}
 }
 

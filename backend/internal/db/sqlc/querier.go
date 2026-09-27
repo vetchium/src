@@ -197,7 +197,7 @@ type Querier interface {
 	MarkHubSignupCompletionReserved(ctx context.Context, arg MarkHubSignupCompletionReservedParams) (VetchiumHubSignupCompletion, error)
 	MarkOrgEmailFailed(ctx context.Context, arg MarkOrgEmailFailedParams) (bool, error)
 	MarkOrgEmailSent(ctx context.Context, arg MarkOrgEmailSentParams) (bool, error)
-	MarkOrgSignupCompletionReserved(ctx context.Context, arg MarkOrgSignupCompletionReservedParams) (VetchiumOrgSignupCompletion, error)
+	MarkOrgSignupCompletionReserved(ctx context.Context, arg MarkOrgSignupCompletionReservedParams) (MarkOrgSignupCompletionReservedRow, error)
 	OrgTOTPEnabled(ctx context.Context, orgUserID pgtype.UUID) (bool, error)
 	OrgUserHoldsPermission(ctx context.Context, arg OrgUserHoldsPermissionParams) (bool, error)
 	PingDatabase(ctx context.Context) (PingDatabaseRow, error)
@@ -218,7 +218,7 @@ type Querier interface {
 	PruneExpiredFederationOperations(ctx context.Context) (int64, error)
 	PruneExpiredHubSignupCompletions(ctx context.Context) (int64, error)
 	PruneExpiredIdempotency(ctx context.Context) (int64, error)
-	PruneExpiredOrgSignupCompletions(ctx context.Context) (int64, error)
+	PruneExpiredOrgSignupCompletions(ctx context.Context, tenantID string) (int64, error)
 	// Deletes at most one batch per table and run, like administrator
 	// housekeeping, so a backlog cannot monopolize the database.
 	// Outbox ciphertext can contain a signup or reset link, so it is kept only

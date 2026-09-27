@@ -29,6 +29,8 @@ type Querier interface {
 	LockOrgPrincipal(ctx context.Context, orgDid pgtype.UUID) (LockOrgPrincipalRow, error)
 	LockPrincipalForAlias(ctx context.Context, hubUserDid pgtype.UUID) (LockPrincipalForAliasRow, error)
 	ReapExpiredHubPrincipalReservations(ctx context.Context) (int64, error)
+	// The coordinator reaps a reservation its home tenant never activated. The
+	// audit event names that tenant, whose signup the reservation belonged to.
 	ReapExpiredOrgPrincipalReservations(ctx context.Context) (int64, error)
 	RecordHubAliasChange(ctx context.Context, arg RecordHubAliasChangeParams) (int64, error)
 	RecordOrgDomainChange(ctx context.Context, orgDid pgtype.UUID) (int64, error)
