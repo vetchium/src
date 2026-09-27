@@ -6,10 +6,10 @@ Terms used in prompts, specifications, and UI text.
 
 Hub user — an individual with a profile, in the Hub portal.
 Org — an employer or agency, in the Org portal. Also called a company.
-Org user — a person acting inside one org; cell-local id, not a principal of the federation.
+Org user — a person acting inside one org; cell-local id, not a principal of the federation. Unique per (org, email); the same email may belong to users of several orgs.
 Admin — a platform maintainer; cell-local, scoped to one country.
 Principal — a hub user or an org: the two things that own data, are routable, and can migrate.
-DID (`_did`) — a principal's stable, opaque, never-reused UUID. Encodes no location and never leaves the backend and private mesh; browser APIs use the handle.
+DID (`_did`) — a principal's stable, opaque, never-reused UUID. Encodes no location and never leaves the backend and private mesh; browser APIs use a Hub user's handle or an org's domain.
 OID (`_oid`) — a seeded config id (language, plan, capability, opening tag), byte-identical in every cell, never minted at runtime.
 Handle — a Hub user's globally unique, permanent generated name in the canonical `/u/<handle>` URL. It is never reassigned.
 Alias — one optional, globally unique, human-chosen `/u/<alias>` label available from the Silver plan. It is not canonical and is released immediately when changed, deleted, or lost on downgrade.
@@ -17,6 +17,14 @@ Follow — a one-way interest used for network-opportunity discovery and warm en
 Domain — an org's DNS-verified domain; globally unique, owned by one org at a time. One is primary.
 Home tenant — the tenant holding a principal's authoritative rows and credentials. Every principal is single-homed.
 Migration — moving a principal to another tenant; a fenced flip of one versioned global routing row.
+
+## Orgs
+
+Org signup — an org joining a tenant by proving control of its first domain: a mailbox on that exact domain plus a published DNS TXT record.
+Requester — the person who asks for and completes org signup, typically IT staff who administer the domain. They become the org's first superadmin. Never call them a founder or owner; they need not have started or own the company.
+Superadmin — an org user holding `org:superadmin`. An active org always keeps at least one active superadmin.
+Verified / failing domain — a domain whose TXT record was found at the last conclusive check, versus one whose record has been absent on consecutive periodic checks.
+Suspended org — an org whose only domain stayed failing past the grace period and was released. Its users can sign in only to restore the domain.
 
 ## Hiring
 

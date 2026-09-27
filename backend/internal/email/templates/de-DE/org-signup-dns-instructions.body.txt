@@ -1,0 +1,11 @@
+Jemand möchte eine Organisation mit der Domain {{.Domain}} bei Vetchium registrieren.
+
+Veröffentlichen Sie diesen DNS-TXT-Eintrag, um nachzuweisen, dass die Organisation diese Domain kontrolliert. Sie können diese E-Mail an die Person weiterleiten, die das DNS für {{.Domain}} verwaltet: Sie enthält nichts, womit jemand die Registrierung abschließen kann.
+
+Name: {{.RecordName}}
+Typ: TXT
+Wert: {{.RecordValue}}
+
+Lassen Sie den Eintrag veröffentlicht, solange die Organisation Vetchium nutzt. Vetchium prüft ihn regelmäßig; wird er entfernt, wird die Domain schließlich freigegeben.
+
+Die Registrierungsanfrage ist bis zum {{.ExpiresAt.UTC.Format "02.01.2006 um 15:04 UTC"}} gültig. Falls niemand in Ihrer Organisation dies angefordert hat, ignorieren Sie diese E-Mail und veröffentlichen Sie den Eintrag nicht.

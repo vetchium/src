@@ -315,15 +315,23 @@
         {
           "source": "app_config",
           "target": "/etc/vetchium/config.json"
+        },
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
         }
       ],
       "environment": {
         "PGDATABASE": "${POSTGRES_DB:?set POSTGRES_DB}",
         "PGSSLMODE": "${PGSSLMODE:-disable}"
       },
-      "secrets": ["app_postgres_password"],
+      "secrets": [
+        "app_postgres_password",
+        "mesh_credential",
+        "orgs_credential_key"
+      ],
       "image": "${REGISTRY:-ghcr.io/vetchium}/orgs-api:${TAG:?set TAG}",
-      "networks": ["orgs_api_access", "backend"]
+      "networks": ["orgs_api_access", "backend", "dns_egress"]
     },
     "mesh-api": {
       "deploy": {
@@ -471,13 +479,14 @@
         "app_postgres_password",
         "hub_credential_key",
         "mesh_credential",
+        "orgs_credential_key",
         "smtp_username",
         "smtp_password",
         "seaweed_s3_access_key",
         "seaweed_s3_secret_key"
       ],
       "image": "${REGISTRY:-ghcr.io/vetchium}/workers:${TAG:?set TAG}",
-      "networks": ["backend", "smtp_egress"]
+      "networks": ["backend", "smtp_egress", "dns_egress"]
     },
     "orgs-ui": {
       "deploy": {
@@ -881,6 +890,9 @@
     },
     "smtp_egress": {
       "driver": "overlay"
+    },
+    "dns_egress": {
+      "driver": "overlay"
     }
   },
   "volumes": {
@@ -945,6 +957,10 @@
     "hub_credential_key": {
       "external": true,
       "name": "ind1_hub_credential_key"
+    },
+    "orgs_credential_key": {
+      "external": true,
+      "name": "ind1_orgs_credential_key"
     },
     "smtp_username": {
       "external": true,

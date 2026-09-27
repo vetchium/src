@@ -13,12 +13,14 @@ APP_POSTGRES_PASSWORD ?= app_pgpassword
 GLOBAL_APP_POSTGRES_PASSWORD ?= global_app_pgpassword
 ADMIN_CREDENTIAL_KEY  ?= dev_admin_credential_key
 HUB_CREDENTIAL_KEY    ?= dev_hub_credential_key
+ORGS_CREDENTIAL_KEY   ?= dev_orgs_credential_key
 MESH_CREDENTIAL       ?= dev_mesh_credential_at_least_32_bytes
 DEV_SECRETS_DIR       := .dev-secrets
 APP_PASSWORD_FILE     := $(DEV_SECRETS_DIR)/app_postgres_password
 GLOBAL_APP_PASSWORD_FILE := $(DEV_SECRETS_DIR)/global_app_postgres_password
 ADMIN_KEY_FILE        := $(DEV_SECRETS_DIR)/admin_credential_key
 HUB_KEY_FILE          := $(DEV_SECRETS_DIR)/hub_credential_key
+ORGS_KEY_FILE         := $(DEV_SECRETS_DIR)/orgs_credential_key
 MESH_KEY_FILE         := $(DEV_SECRETS_DIR)/mesh_credential
 MESH_CA_FILE          := $(DEV_SECRETS_DIR)/mesh_ca_certificate
 SQLC                   := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
@@ -47,6 +49,8 @@ WAIT_TIMEOUT ?= 300
 # sender uses in development; matches Mailpit's own port default and the
 # fallback playwright/lib/hub-api.ts uses.
 DEV_SEED_MAILPIT_URL ?= http://127.0.0.1:18025
+# The host-exposed HTTP API of the development DNS server.
+DEV_SEED_DNS_URL ?= http://127.0.0.1:18081
 
 # `docker compose up --wait` with no service arguments waits on every service,
 # and it fails outright on any service that has no health state instead of
@@ -59,7 +63,7 @@ DEV_SEED_MAILPIT_URL ?= http://127.0.0.1:18025
 serving_services = $$(docker compose -f $(1) config --services | \
 	grep -vE '^(workers|dev-seed)-')
 
-.PHONY: check fmt backend dev dev-secrets dev-seed dev-seed-hub-profiles sqlc sqlc-vet \
+.PHONY: check fmt backend dev dev-secrets dev-seed dev-seed-hub-profiles dev-seed-orgs sqlc sqlc-vet \
 	sqlc-verify sql-lint sql-check \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
@@ -122,6 +126,7 @@ dev: clean
 # seed target (for example, Org fixtures) as another recipe line here.
 dev-seed: dev
 	$(MAKE) --no-print-directory dev-seed-hub-profiles
+	$(MAKE) --no-print-directory dev-seed-orgs
 
 # Seeds Hub user profiles by driving the same signup, subscription, and
 # profile-write APIs a browser would use: request signup, follow the
@@ -138,6 +143,20 @@ dev-seed-hub-profiles:
 			DEV_SEED_HUB_ORIGIN="http://hub-ui.$$t.localhost" \
 			DEV_SEED_MAILPIT_URL="$(DEV_SEED_MAILPIT_URL)" \
 			DEV_SEED_HUB_PROFILES_FILE="$(CURDIR)/dev/hub-seed-profiles/$$t.json" \
+			go run ./cmd/dev-seed) || exit $$?; \
+	done
+
+# Signs one Org up per tenant (<tenant>.example.com, superadmin
+# admin@ that domain) through the Org signup API: it follows the DNS
+# instructions Mailpit captured, publishes the TXT record in the development
+# DNS server, then completes signup from the private link.
+dev-seed-orgs:
+	@for t in sgp usa1 deu ind1; do \
+		echo "==> orgs $$t"; \
+		(cd backend && DEV_SEED_MODE=orgs DEV_SEED_TENANT=$$t \
+			DEV_SEED_ORGS_ORIGIN="http://orgs-ui.$$t.localhost" \
+			DEV_SEED_MAILPIT_URL="$(DEV_SEED_MAILPIT_URL)" \
+			DEV_SEED_DNS_URL="$(DEV_SEED_DNS_URL)" \
 			go run ./cmd/dev-seed) || exit $$?; \
 	done
 
@@ -173,6 +192,13 @@ dev-secrets:
 			{ echo "HUB_CREDENTIAL_KEY differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
 	else \
 		umask 077; printf '%s' "$$HUB_CREDENTIAL_KEY" > "$(HUB_KEY_FILE)"; \
+	fi
+	@if [ -f "$(ORGS_KEY_FILE)" ]; then \
+		current=$$(cat "$(ORGS_KEY_FILE)"); \
+		test "$$current" = "$$ORGS_CREDENTIAL_KEY" || \
+			{ echo "ORGS_CREDENTIAL_KEY differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
+	else \
+		umask 077; printf '%s' "$$ORGS_CREDENTIAL_KEY" > "$(ORGS_KEY_FILE)"; \
 	fi
 	@if [ -f "$(MESH_KEY_FILE)" ]; then \
 		current=$$(cat "$(MESH_KEY_FILE)"); \

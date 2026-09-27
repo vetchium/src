@@ -22,6 +22,21 @@ model ListSignupRegionsResponse {
   regions: SignupRegion[];
   next_pagination_key: PaginationKey | null;
 }
+model ListOrgSignupRegionsRequest {
+  country: CountryCode;
+  pagination_key?: PaginationKey;
+}
+model OrgSignupRegion {
+  tenant_id: string;
+  hosting_country: CountryCode;
+  orgs_url: url;
+  recommended: boolean;
+}
+model ListOrgSignupRegionsResponse {
+  catalog_version: string;
+  regions: OrgSignupRegion[];
+  next_pagination_key: PaginationKey | null;
+}
 alias ListResponse =
   | {
       @statusCode status_code: 200;
@@ -72,4 +87,26 @@ interface MeshOperations {
   listSignupRegions(@body request: ListSignupRegionsRequest):
     | DirectoryListResponse
     | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+}
+@route("/api/orgs")
+@tag("Org signup")
+interface OrgsOperations {
+  /**
+   * List regions accepting Org signup ordered by tenant ID, in pages of 50,
+   * from the tenant's bundled catalog. The country only selects the
+   * recommended region and never filters eligibility. Cursors bind country
+   * and catalog version.
+   */
+  @route("/list-signup-regions")
+  @post
+  listSignupRegions(@body request: ListOrgSignupRegionsRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ListOrgSignupRegionsResponse;
+      }
+    | Vetchium.Problem.InvalidJSONErrorResponse
+    | Vetchium.Problem.ValidationFailedErrorResponse
+    | Vetchium.Problem.InvalidPaginationKeyErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
 }

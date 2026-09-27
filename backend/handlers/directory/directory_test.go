@@ -11,6 +11,7 @@ import (
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	"github.com/vetchium/src/typespec/hub"
+	"github.com/vetchium/src/typespec/orgs"
 	coordinatorproblem "github.com/vetchium/src/typespec/problem/global-coordinator"
 
 	"backend/internal/apiserver"
@@ -28,6 +29,8 @@ type fakeService struct {
 	resolveResponse directoryspec.ResolveProfileSlugResponse
 	resolveErr      error
 	outcome         globaldirectory.Outcome
+	orgResolve      directoryspec.ResolveOrgDomainResponse
+	orgOutcome      globaldirectory.OrgOutcome
 	commandErr      error
 	caller          directoryspec.TenantID
 	command         string
@@ -61,6 +64,44 @@ func (f *fakeService) SetHubAlias(
 ) (globaldirectory.Outcome, error) {
 	f.caller, f.command = caller, "alias"
 	return f.outcome, f.commandErr
+}
+
+func (f *fakeService) ResolveOrgDomain(
+	context.Context, orgs.OrgDomain,
+) (directoryspec.ResolveOrgDomainResponse, error) {
+	return f.orgResolve, f.resolveErr
+}
+
+func (f *fakeService) ReserveOrgPrincipal(
+	_ context.Context, caller directoryspec.TenantID,
+	_ directoryspec.ReserveOrgPrincipalRequest,
+) (globaldirectory.OrgOutcome, error) {
+	f.caller, f.command = caller, "reserve-org"
+	return f.orgOutcome, f.commandErr
+}
+
+func (f *fakeService) ActivateOrgPrincipal(
+	_ context.Context, caller directoryspec.TenantID,
+	_ directoryspec.ActivateOrgPrincipalRequest,
+) (globaldirectory.OrgOutcome, error) {
+	f.caller, f.command = caller, "activate-org"
+	return f.orgOutcome, f.commandErr
+}
+
+func (f *fakeService) ReleaseOrgDomain(
+	_ context.Context, caller directoryspec.TenantID,
+	_ directoryspec.ReleaseOrgDomainRequest,
+) (globaldirectory.OrgOutcome, error) {
+	f.caller, f.command = caller, "release-org-domain"
+	return f.orgOutcome, f.commandErr
+}
+
+func (f *fakeService) ClaimOrgDomain(
+	_ context.Context, caller directoryspec.TenantID,
+	_ directoryspec.ClaimOrgDomainRequest,
+) (globaldirectory.OrgOutcome, error) {
+	f.caller, f.command = caller, "claim-org-domain"
+	return f.orgOutcome, f.commandErr
 }
 
 func TestResolveProfileSlugHandler(t *testing.T) {
@@ -220,4 +261,117 @@ func serve(
 
 func testRuntime() *apiserver.Runtime {
 	return apiserver.New(nil, slog.Default())
+}
+
+func TestResolveOrgDomainHandler(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name       string
+		authorized bool
+		body       string
+		err        error
+		status     int
+	}{
+		{
+			name: "success", authorized: true,
+			body: `{"domain":"Example.COM"}`, status: 200,
+		},
+		{
+			name: "missing", authorized: true, body: `{"domain":"example.com"}`,
+			err: globaldirectory.ErrNotFound, status: 404,
+		},
+		{
+			name: "invalid domain", authorized: true,
+			body: `{"domain":"localhost"}`, status: 400,
+		},
+		{name: "unauthenticated", body: `{"domain":"example.com"}`, status: 401},
+		{
+			name: "database failure", authorized: true,
+			body: `{"domain":"example.com"}`,
+			err:  fmt.Errorf("offline"), status: 500,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			service := &fakeService{
+				orgResolve: directoryspec.ResolveOrgDomainResponse{
+					OrgDID: testDID, Domain: "example.com",
+					HomeTenantID: "ind1", RoutingVersion: 1,
+				},
+				resolveErr: test.err,
+			}
+			recorder := serve(
+				t, test.authorized, test.body,
+				ResolveOrgDomain(testRuntime(), service),
+			)
+			if recorder.Code != test.status {
+				t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body)
+			}
+		})
+	}
+}
+
+func TestOrgCommandHandlers(t *testing.T) {
+	t.Parallel()
+	domain := orgs.OrgDomain("example.com")
+	response := directoryspec.OrgPrincipalCommandResponse{
+		OrgDID: testDID, Domain: &domain, HomeTenantID: "ind1",
+		RoutingVersion: 1, State: directoryspec.PrincipalActive,
+	}
+	identity := `"command_id":"` + testCommandID + `","org_did":"` + testDID + `"`
+	for _, test := range []struct {
+		name, body, wantCommand string
+		handler                 func(*apiserver.Runtime, Service) http.HandlerFunc
+	}{
+		{
+			name: "reserve", wantCommand: "reserve-org",
+			body: `{` + identity + `,"domain":"example.com",` +
+				`"home_tenant_id":"ind1",` +
+				`"provisioning_expires_at":"2030-01-01T00:00:00Z"}`,
+			handler: ReserveOrgPrincipal,
+		},
+		{
+			name: "activate", wantCommand: "activate-org",
+			body: `{` + identity + `}`, handler: ActivateOrgPrincipal,
+		},
+		{
+			name: "release", wantCommand: "release-org-domain",
+			body:    `{` + identity + `,"domain":"example.com"}`,
+			handler: ReleaseOrgDomain,
+		},
+		{
+			name: "claim", wantCommand: "claim-org-domain",
+			body:    `{` + identity + `,"domain":"example.com"}`,
+			handler: ClaimOrgDomain,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			service := &fakeService{orgOutcome: globaldirectory.OrgOutcome{
+				Status: http.StatusOK, Org: &response,
+			}}
+			recorder := serve(
+				t, true, test.body, test.handler(testRuntime(), service),
+			)
+			if recorder.Code != http.StatusOK ||
+				!strings.Contains(recorder.Body.String(), `"domain":"example.com"`) {
+				t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body)
+			}
+			if service.command != test.wantCommand || service.caller != "ind1" {
+				t.Fatalf(
+					"command = %q, caller = %q", service.command, service.caller,
+				)
+			}
+		})
+	}
+	conflict := &fakeService{orgOutcome: globaldirectory.OrgOutcome{
+		Status: 409, Problem: &coordinatorproblem.DirectoryClaimConflictError,
+	}}
+	recorder := serve(
+		t, true, `{`+identity+`,"domain":"example.com"}`,
+		ClaimOrgDomain(testRuntime(), conflict),
+	)
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("claim conflict status = %d", recorder.Code)
+	}
 }

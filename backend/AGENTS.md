@@ -19,6 +19,8 @@ Applies to the whole `backend/` tree. Read before changing anything here:
   pictures.
 - [`../agent-guides/hub-subscriptions.md`](../agent-guides/hub-subscriptions.md)
   — Hub plans, subscriptions, billing periods, plan enforcement, or payments.
+- [`../agent-guides/orgs.md`](../agent-guides/orgs.md) — Org signup, Org user
+  authentication, or domain verification and re-verification.
 
 [`internal/db/AGENTS.md`](internal/db/AGENTS.md) always applies inside
 `backend/internal/db/`.

@@ -1,0 +1,1 @@
+DNS record to verify {{.Domain}} for Vetchium

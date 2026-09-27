@@ -29,20 +29,51 @@ type Directory interface {
 	SetHubAlias(
 		context.Context, directoryspec.SetHubAliasRequest,
 	) (directoryclient.Outcome, error)
+	ResolveOrgDomain(
+		context.Context, directoryspec.ResolveOrgDomainRequest,
+	) (directoryspec.ResolveOrgDomainResponse, *problem.Details, error)
+	ReserveOrgPrincipal(
+		context.Context, directoryspec.ReserveOrgPrincipalRequest,
+	) (directoryclient.OrgOutcome, error)
+	ActivateOrgPrincipal(
+		context.Context, directoryspec.ActivateOrgPrincipalRequest,
+	) (directoryclient.OrgOutcome, error)
+	ReleaseOrgDomain(
+		context.Context, directoryspec.ReleaseOrgDomainRequest,
+	) (directoryclient.OrgOutcome, error)
+	ClaimOrgDomain(
+		context.Context, directoryspec.ClaimOrgDomainRequest,
+	) (directoryclient.OrgOutcome, error)
 }
 
 func ResolveProfileSlug(
 	runtime *apiserver.Runtime, directory Directory, credential string,
 ) http.HandlerFunc {
+	return relayRead(runtime, credential, directory.ResolveProfileSlug)
+}
+
+func ResolveOrgDomain(
+	runtime *apiserver.Runtime, directory Directory, credential string,
+) http.HandlerFunc {
+	return relayRead(runtime, credential, directory.ResolveOrgDomain)
+}
+
+func relayRead[T, R any, P interface {
+	*T
+	apiserver.Request
+}](
+	runtime *apiserver.Runtime, credential string,
+	read func(context.Context, T) (R, *problem.Details, error),
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !authenticateRelay(runtime, w, r, credential) {
 			return
 		}
-		var request directoryspec.ResolveProfileSlugRequest
-		if !apiserver.Decode(runtime, w, r, &request) {
+		var request T
+		if !apiserver.Decode(runtime, w, r, P(&request)) {
 			return
 		}
-		response, details, err := directory.ResolveProfileSlug(r.Context(), request)
+		response, details, err := read(r.Context(), request)
 		if err != nil {
 			runtime.InternalError(r.Context(), w, "relay directory lookup", err)
 			return
@@ -64,7 +95,7 @@ func ReserveHubPrincipal(
 	runtime *apiserver.Runtime, directory Directory, credential string,
 ) http.HandlerFunc {
 	return directoryCommand[directoryspec.ReserveHubPrincipalRequest](
-		runtime, credential, directory.ReserveHubPrincipal,
+		runtime, credential, hubCommand(directory.ReserveHubPrincipal),
 	)
 }
 
@@ -72,7 +103,7 @@ func ActivateHubPrincipal(
 	runtime *apiserver.Runtime, directory Directory, credential string,
 ) http.HandlerFunc {
 	return directoryCommand[directoryspec.ActivateHubPrincipalRequest](
-		runtime, credential, directory.ActivateHubPrincipal,
+		runtime, credential, hubCommand(directory.ActivateHubPrincipal),
 	)
 }
 
@@ -80,8 +111,71 @@ func SetHubAlias(
 	runtime *apiserver.Runtime, directory Directory, credential string,
 ) http.HandlerFunc {
 	return directoryCommand[directoryspec.SetHubAliasRequest](
-		runtime, credential, directory.SetHubAlias,
+		runtime, credential, hubCommand(directory.SetHubAlias),
 	)
+}
+
+func ReserveOrgPrincipal(
+	runtime *apiserver.Runtime, directory Directory, credential string,
+) http.HandlerFunc {
+	return directoryCommand[directoryspec.ReserveOrgPrincipalRequest](
+		runtime, credential, orgCommand(directory.ReserveOrgPrincipal),
+	)
+}
+
+func ActivateOrgPrincipal(
+	runtime *apiserver.Runtime, directory Directory, credential string,
+) http.HandlerFunc {
+	return directoryCommand[directoryspec.ActivateOrgPrincipalRequest](
+		runtime, credential, orgCommand(directory.ActivateOrgPrincipal),
+	)
+}
+
+func ReleaseOrgDomain(
+	runtime *apiserver.Runtime, directory Directory, credential string,
+) http.HandlerFunc {
+	return directoryCommand[directoryspec.ReleaseOrgDomainRequest](
+		runtime, credential, orgCommand(directory.ReleaseOrgDomain),
+	)
+}
+
+func ClaimOrgDomain(
+	runtime *apiserver.Runtime, directory Directory, credential string,
+) http.HandlerFunc {
+	return directoryCommand[directoryspec.ClaimOrgDomainRequest](
+		runtime, credential, orgCommand(directory.ClaimOrgDomain),
+	)
+}
+
+// relayOutcome is a relayed command result independent of the principal kind
+// whose response it carries.
+type relayOutcome struct {
+	status  int
+	body    any
+	problem *problem.Details
+}
+
+func hubCommand[T any](
+	command func(context.Context, T) (directoryclient.Outcome, error),
+) func(context.Context, T) (relayOutcome, error) {
+	return func(ctx context.Context, request T) (relayOutcome, error) {
+		outcome, err := command(ctx, request)
+		return relayOutcome{
+			status: outcome.Status, body: outcome.Principal,
+			problem: outcome.Problem,
+		}, err
+	}
+}
+
+func orgCommand[T any](
+	command func(context.Context, T) (directoryclient.OrgOutcome, error),
+) func(context.Context, T) (relayOutcome, error) {
+	return func(ctx context.Context, request T) (relayOutcome, error) {
+		outcome, err := command(ctx, request)
+		return relayOutcome{
+			status: outcome.Status, body: outcome.Org, problem: outcome.Problem,
+		}, err
+	}
 }
 
 func directoryCommand[T any, P interface {
@@ -89,7 +183,7 @@ func directoryCommand[T any, P interface {
 	apiserver.Request
 }](
 	runtime *apiserver.Runtime, credential string,
-	command func(context.Context, T) (directoryclient.Outcome, error),
+	command func(context.Context, T) (relayOutcome, error),
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !authenticateRelay(runtime, w, r, credential) {
@@ -104,16 +198,16 @@ func directoryCommand[T any, P interface {
 			runtime.InternalError(r.Context(), w, "relay directory command", err)
 			return
 		}
-		if outcome.Problem != nil {
-			if isCoordinatorAuthenticationProblem(outcome.Problem) {
+		if outcome.problem != nil {
+			if isCoordinatorAuthenticationProblem(outcome.problem) {
 				runtime.InternalError(r.Context(), w, "authenticate directory relay", fmt.Errorf("coordinator rejected mesh certificate"))
 				return
 			}
-			runtime.Problem(r.Context(), w, *outcome.Problem)
+			runtime.Problem(r.Context(), w, *outcome.problem)
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")
-		runtime.JSON(r.Context(), w, outcome.Status, outcome.Principal)
+		runtime.JSON(r.Context(), w, outcome.status, outcome.body)
 	}
 }
 

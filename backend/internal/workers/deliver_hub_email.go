@@ -11,8 +11,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/vetchium/src/typespec/hub"
-
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
@@ -140,7 +138,7 @@ func (w *Worker) sendClaimedHubEmail(
 	}
 	message, err := delivery.Renderer.Render(
 		kind,
-		hub.FrontendLocale(row.PreferredLanguage),
+		row.PreferredLanguage,
 		email.TemplateData{
 			DisplayName: payload.DisplayName,
 			ActionURL:   actionURL,

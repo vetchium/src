@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { validateSetPreferredJobCountriesRequest } from "../hub/users/profile.ts";
-import { validateListSignupRegionsRequest } from "./regions.ts";
+import {
+  validateListOrgSignupRegionsRequest,
+  validateListSignupRegionsRequest,
+} from "./regions.ts";
 
 test("region query validates country and cursor", () => {
   assert.deepEqual(
@@ -14,6 +17,23 @@ test("region query validates country and cursor", () => {
       pagination_key: "",
     }),
     ["resident_country", "pagination_key"],
+  );
+});
+test("Org region query validates country and cursor", () => {
+  assert.deepEqual(validateListOrgSignupRegionsRequest({ country: "IN" }), []);
+  assert.deepEqual(
+    validateListOrgSignupRegionsRequest({
+      country: "IN",
+      pagination_key: "abc",
+    }),
+    [],
+  );
+  assert.deepEqual(validateListOrgSignupRegionsRequest({ country: "in" }), [
+    "country",
+  ]);
+  assert.deepEqual(
+    validateListOrgSignupRegionsRequest({ country: "ZZ", pagination_key: "" }),
+    ["country", "pagination_key"],
   );
 });
 test("job countries are distinct and bounded and may be empty", () => {

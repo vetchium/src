@@ -11,6 +11,19 @@ CHECK (VALUE IN ('en-US', 'ta', 'de-DE'));
 CREATE DOMAIN vetchium.admin_frontend_locale AS text
 CHECK (VALUE IN ('en-US', 'ta', 'de-DE'));
 
+CREATE DOMAIN vetchium.org_frontend_locale AS text
+CHECK (VALUE IN ('en-US', 'ta', 'de-DE'));
+
+-- An exact, normalized domain an Org can claim: DNS syntax with a lettered
+-- last label, so an IP address or numeric name can never be claimed.
+CREATE DOMAIN vetchium.org_domain AS text
+CHECK (
+    VALUE = lower(btrim(VALUE)) AND
+    char_length(VALUE) BETWEEN 3 AND 253 AND
+    VALUE ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$' AND
+    VALUE ~ '\.[a-z0-9-]*[a-z][a-z0-9-]*$'
+);
+
 CREATE DOMAIN vetchium.profile_domain AS text
 CHECK (
     VALUE = lower(btrim(VALUE)) AND
@@ -35,15 +48,6 @@ AS $$
     );
 $$;
 -- +goose StatementEnd
-
-CREATE TABLE vetchium.orgs (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name text NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT orgs_name_key UNIQUE (name),
-    CONSTRAINT orgs_name_not_blank CHECK (length(btrim(name)) > 0)
-);
 
 CREATE TABLE vetchium.audit_events (
     audit_event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1134,6 +1138,408 @@ CREATE TABLE vetchium.admin_email_outbox (
 CREATE INDEX admin_email_outbox_retention_idx
     ON vetchium.admin_email_outbox (kind, created_at);
 
+-- Plan OIDs, identical in every tenant.
+CREATE TABLE vetchium.org_plans (
+    org_plan_oid text PRIMARY KEY
+        CHECK (org_plan_oid ~ '^org-[a-z0-9]+(-[a-z0-9]+)*$')
+);
+
+INSERT INTO vetchium.org_plans (org_plan_oid) VALUES ('org-free-tier');
+
+CREATE TYPE vetchium.org_state AS ENUM (
+    'provisioning',
+    'active',
+    'suspended'
+);
+
+CREATE TABLE vetchium.orgs (
+    org_did uuid PRIMARY KEY,
+    display_name text NOT NULL,
+    org_state vetchium.org_state NOT NULL DEFAULT 'provisioning',
+    org_plan_oid text NOT NULL REFERENCES vetchium.org_plans (org_plan_oid),
+    suspended_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT orgs_did_uuidv7_check CHECK (
+        substring(org_did::text FROM 15 FOR 1) = '7'
+    ),
+    CONSTRAINT orgs_display_name_check CHECK (
+        display_name = btrim(display_name) AND
+        char_length(display_name) BETWEEN 1 AND 200
+    ),
+    CONSTRAINT orgs_suspension_check CHECK (
+        (org_state = 'suspended') = (suspended_at IS NOT NULL)
+    ),
+    CONSTRAINT orgs_timestamps_ordered CHECK (updated_at >= created_at)
+);
+
+-- verified and failing hold a global claim. releasing and reclaiming carry the
+-- durable global command that moves the domain out of or back into the
+-- directory; released holds no claim, but the Org keeps its record and token
+-- so it can prove the domain again.
+CREATE TYPE vetchium.org_domain_state AS ENUM (
+    'verified',
+    'failing',
+    'releasing',
+    'released',
+    'reclaiming'
+);
+
+-- One domain per Org in this version, so the Org is the key. Allowing several
+-- later needs a surrogate key and a primary-domain marker.
+CREATE TABLE vetchium.org_domains (
+    org_did uuid PRIMARY KEY REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    domain vetchium.org_domain NOT NULL,
+    verification_token text NOT NULL
+        CHECK (verification_token ~ '^[a-z2-7]{26}$'),
+    domain_state vetchium.org_domain_state NOT NULL DEFAULT 'verified',
+    last_verified_at timestamptz NOT NULL,
+    last_conclusive_at timestamptz NOT NULL,
+    consecutive_failures integer NOT NULL DEFAULT 0
+        CHECK (consecutive_failures >= 0),
+    consecutive_inconclusive integer NOT NULL DEFAULT 0
+        CHECK (consecutive_inconclusive >= 0),
+    next_check_at timestamptz NOT NULL,
+    failing_since timestamptz,
+    released_at timestamptz,
+    directory_command_id uuid UNIQUE,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_domains_state_check CHECK (
+        (domain_state = 'verified'
+            AND failing_since IS NULL AND released_at IS NULL
+            AND directory_command_id IS NULL)
+        OR (domain_state = 'failing'
+            AND failing_since IS NOT NULL AND released_at IS NULL
+            AND directory_command_id IS NULL)
+        OR (domain_state = 'releasing'
+            AND failing_since IS NOT NULL AND released_at IS NULL
+            AND directory_command_id IS NOT NULL)
+        OR (domain_state = 'released'
+            AND failing_since IS NULL AND released_at IS NOT NULL
+            AND directory_command_id IS NULL)
+        OR (domain_state = 'reclaiming'
+            AND failing_since IS NULL AND released_at IS NOT NULL
+            AND directory_command_id IS NOT NULL)
+    ),
+    CONSTRAINT org_domains_timestamps_ordered CHECK (updated_at >= created_at)
+);
+
+-- Mirrors the global one-owner invariant locally, so two Orgs of one tenant
+-- can never both believe they hold a domain.
+CREATE UNIQUE INDEX org_domains_claimed_domain_idx
+    ON vetchium.org_domains (domain)
+    WHERE domain_state <> 'released';
+
+CREATE TYPE vetchium.org_user_state AS ENUM (
+    'provisioning',
+    'active',
+    'disabled'
+);
+
+CREATE TABLE vetchium.org_users (
+    org_user_id uuid PRIMARY KEY,
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    email_address text NOT NULL,
+    org_user_state vetchium.org_user_state NOT NULL DEFAULT 'provisioning',
+    preferred_language vetchium.org_frontend_locale NOT NULL,
+    last_login_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_users_org_email_key UNIQUE (org_did, email_address),
+    CONSTRAINT org_users_email_address_normalized CHECK (
+        email_address = lower(btrim(email_address)) AND
+        char_length(email_address) BETWEEN 3 AND 254
+    ),
+    CONSTRAINT org_users_timestamps_ordered CHECK (updated_at >= created_at)
+);
+
+-- Credentials live apart from the Org user, so another credential kind such
+-- as enterprise single sign-on can be added without reshaping org_users.
+CREATE TABLE vetchium.org_user_passwords (
+    org_user_id uuid PRIMARY KEY REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
+    password_hash text NOT NULL CHECK (length(password_hash) > 0),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_user_passwords_timestamps_ordered CHECK (
+        updated_at >= created_at
+    )
+);
+
+-- A row means TOTP is enabled for the Org user.
+CREATE TABLE vetchium.org_user_totp_credentials (
+    org_user_id uuid PRIMARY KEY REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
+    secret_ciphertext bytea NOT NULL,
+    last_timestep bigint,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE vetchium.org_permission_catalog (
+    permission text PRIMARY KEY CHECK (permission LIKE 'org:%')
+);
+
+INSERT INTO vetchium.org_permission_catalog (permission)
+VALUES ('org:superadmin');
+
+-- A grant of permission also confers implied_permission, resolved on read by
+-- vetchium.org_effective_permissions and never stored as a grant of its own.
+CREATE TABLE vetchium.org_permission_implications (
+    permission text NOT NULL
+        REFERENCES vetchium.org_permission_catalog (permission),
+    implied_permission text NOT NULL
+        REFERENCES vetchium.org_permission_catalog (permission),
+    PRIMARY KEY (permission, implied_permission),
+    CONSTRAINT org_permission_implications_not_self CHECK (
+        permission <> implied_permission
+    )
+);
+
+CREATE TABLE vetchium.org_user_permissions (
+    org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
+    permission text NOT NULL
+        REFERENCES vetchium.org_permission_catalog (permission),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (org_user_id, permission)
+);
+
+-- One hop of implication is resolved, as for administrators.
+CREATE VIEW vetchium.org_effective_permissions AS
+SELECT p.org_user_id, p.permission
+FROM vetchium.org_user_permissions AS p
+UNION
+SELECT p.org_user_id, i.implied_permission
+FROM vetchium.org_user_permissions AS p
+JOIN vetchium.org_permission_implications AS i
+    ON i.permission = p.permission;
+
+CREATE TABLE vetchium.org_sessions (
+    org_session_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
+    session_token_hash bytea NOT NULL UNIQUE
+        CHECK (octet_length(session_token_hash) = 32),
+    authenticated_at timestamptz NOT NULL DEFAULT now(),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL,
+    CONSTRAINT org_sessions_expiry_check CHECK (expires_at > created_at),
+    CONSTRAINT org_sessions_authentication_check CHECK (
+        authenticated_at >= created_at AND authenticated_at <= expires_at
+    )
+);
+
+CREATE TABLE vetchium.org_login_challenges (
+    org_login_challenge_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
+    token_hash bytea NOT NULL UNIQUE CHECK (octet_length(token_hash) = 32),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL,
+    consumed_at timestamptz,
+    active boolean NOT NULL DEFAULT true,
+    CONSTRAINT org_login_challenges_expiry_check CHECK (
+        expires_at > created_at
+    )
+);
+
+CREATE UNIQUE INDEX org_login_challenges_active_user_idx
+    ON vetchium.org_login_challenges (org_user_id) WHERE active;
+
+CREATE TABLE vetchium.org_totp_enrollments (
+    org_totp_enrollment_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
+    token_hash bytea NOT NULL UNIQUE CHECK (octet_length(token_hash) = 32),
+    secret_ciphertext bytea NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL,
+    consumed_at timestamptz,
+    active boolean NOT NULL DEFAULT true,
+    CONSTRAINT org_totp_enrollments_expiry_check CHECK (
+        expires_at > created_at
+    )
+);
+
+CREATE UNIQUE INDEX org_totp_enrollments_active_user_idx
+    ON vetchium.org_totp_enrollments (org_user_id) WHERE active;
+
+CREATE TABLE vetchium.org_totp_recovery_codes (
+    org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
+    code_hash bytea NOT NULL CHECK (octet_length(code_hash) = 32),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    consumed_at timestamptz,
+    PRIMARY KEY (org_user_id, code_hash)
+);
+
+CREATE TABLE vetchium.org_password_reset_tokens (
+    org_password_reset_token_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
+    token_hash bytea NOT NULL UNIQUE CHECK (octet_length(token_hash) = 32),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL,
+    consumed_at timestamptz,
+    active boolean NOT NULL DEFAULT true,
+    CONSTRAINT org_password_reset_tokens_expiry_check CHECK (
+        expires_at > created_at
+    )
+);
+
+CREATE UNIQUE INDEX org_password_reset_tokens_active_user_idx
+    ON vetchium.org_password_reset_tokens (org_user_id) WHERE active;
+
+-- Public mailbox providers. A listed domain and every subdomain of it can
+-- never be claimed by an Org.
+CREATE TABLE vetchium.org_signup_blocked_domains (
+    domain vetchium.org_domain PRIMARY KEY
+);
+
+INSERT INTO vetchium.org_signup_blocked_domains (domain)
+VALUES
+    ('126.com'),
+    ('163.com'),
+    ('aol.com'),
+    ('fastmail.com'),
+    ('gmail.com'),
+    ('gmx.com'),
+    ('gmx.de'),
+    ('gmx.net'),
+    ('googlemail.com'),
+    ('hey.com'),
+    ('hotmail.com'),
+    ('icloud.com'),
+    ('live.com'),
+    ('mac.com'),
+    ('mail.com'),
+    ('mail.ru'),
+    ('me.com'),
+    ('msn.com'),
+    ('outlook.com'),
+    ('pm.me'),
+    ('proton.me'),
+    ('protonmail.com'),
+    ('qq.com'),
+    ('rediffmail.com'),
+    ('tuta.io'),
+    ('tutanota.com'),
+    ('web.de'),
+    ('yahoo.com'),
+    ('yandex.com'),
+    ('yandex.ru'),
+    ('ymail.com'),
+    ('zoho.com');
+
+-- The email domain must be exactly the claimed domain. verification_token is
+-- the public DNS value; the signup link token is stored only as its hash.
+CREATE TABLE vetchium.org_signup_requests (
+    org_signup_request_id uuid PRIMARY KEY,
+    email_address text NOT NULL,
+    domain vetchium.org_domain NOT NULL,
+    preferred_language vetchium.org_frontend_locale NOT NULL,
+    verification_token text NOT NULL
+        CHECK (verification_token ~ '^[a-z2-7]{26}$'),
+    token_hash bytea NOT NULL UNIQUE CHECK (octet_length(token_hash) = 32),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL,
+    consumed_at timestamptz,
+    active boolean NOT NULL DEFAULT true,
+    CONSTRAINT org_signup_requests_email_check CHECK (
+        email_address = lower(btrim(email_address)) AND
+        char_length(email_address) BETWEEN 3 AND 254 AND
+        split_part(email_address, '@', 2) = domain
+    ),
+    CONSTRAINT org_signup_requests_expiry_check CHECK (
+        expires_at > created_at
+    )
+);
+
+CREATE UNIQUE INDEX org_signup_requests_active_email_idx
+    ON vetchium.org_signup_requests (email_address) WHERE active;
+
+CREATE TYPE vetchium.org_signup_completion_state AS ENUM (
+    'prepared',
+    'reserved',
+    'local_created',
+    'completed',
+    'failed'
+);
+
+-- The origin-side durable operation for the global Org signup saga. The
+-- encrypted payload holds what finishing the local Org needs after a restart;
+-- command IDs never change once sent.
+CREATE TABLE vetchium.org_signup_completions (
+    operation_id uuid PRIMARY KEY,
+    org_signup_request_id uuid NOT NULL UNIQUE,
+    token_hash bytea NOT NULL UNIQUE CHECK (octet_length(token_hash) = 32),
+    idempotency_key text NOT NULL,
+    request_digest bytea NOT NULL CHECK (octet_length(request_digest) = 32),
+    org_did uuid NOT NULL UNIQUE,
+    domain vetchium.org_domain NOT NULL,
+    reserve_command_id uuid NOT NULL UNIQUE,
+    activate_command_id uuid NOT NULL UNIQUE,
+    payload_ciphertext bytea NOT NULL,
+    state vetchium.org_signup_completion_state NOT NULL DEFAULT 'prepared',
+    failure_reason text CHECK (
+        failure_reason IN ('domain_owned', 'reservation_expired')
+    ),
+    provisioning_expires_at timestamptz NOT NULL,
+    attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    next_attempt_at timestamptz NOT NULL DEFAULT now(),
+    last_error text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    completed_at timestamptz,
+    expires_at timestamptz NOT NULL,
+    CONSTRAINT org_signup_completions_did_uuidv7_check CHECK (
+        substring(org_did::text FROM 15 FOR 1) = '7'
+    ),
+    CONSTRAINT org_signup_completions_failure_check CHECK (
+        (state = 'failed') = (failure_reason IS NOT NULL)
+    ),
+    CONSTRAINT org_signup_completions_times_check CHECK (
+        updated_at >= created_at
+        AND provisioning_expires_at > created_at
+        AND expires_at > provisioning_expires_at
+        AND ((state IN ('completed', 'failed')) = (completed_at IS NOT NULL))
+    )
+);
+
+CREATE INDEX org_signup_completions_recovery_idx
+    ON vetchium.org_signup_completions (next_attempt_at, created_at)
+    WHERE state NOT IN ('completed', 'failed');
+
+CREATE TABLE vetchium.org_email_outbox (
+    org_email_outbox_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    kind text NOT NULL CHECK (kind IN (
+        'signup-dns-instructions',
+        'signup-link',
+        'password-reset',
+        'domain-failing',
+        'org-suspended'
+    )),
+    recipient_email_address text NOT NULL,
+    preferred_language vetchium.org_frontend_locale NOT NULL,
+    payload_ciphertext bytea NOT NULL,
+    attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    next_attempt_at timestamptz NOT NULL DEFAULT now(),
+    lease_token uuid,
+    leased_until timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    sent_at timestamptz,
+    failed_at timestamptz,
+    CONSTRAINT org_email_outbox_lease_consistent CHECK (
+        (lease_token IS NULL) = (leased_until IS NULL)
+    ),
+    CONSTRAINT org_email_outbox_result_consistent CHECK (
+        NOT (sent_at IS NOT NULL AND failed_at IS NOT NULL)
+    )
+);
+
 CREATE TABLE vetchium.idempotency_ledger (
     operation text NOT NULL,
     binding_id text NOT NULL,
@@ -1155,6 +1561,29 @@ CREATE INDEX idempotency_expiry_idx
 
 -- +goose Down
 DROP TABLE IF EXISTS vetchium.idempotency_ledger;
+DROP TABLE IF EXISTS vetchium.org_email_outbox;
+DROP TABLE IF EXISTS vetchium.org_signup_completions;
+DROP TYPE IF EXISTS vetchium.org_signup_completion_state;
+DROP TABLE IF EXISTS vetchium.org_signup_requests;
+DROP TABLE IF EXISTS vetchium.org_signup_blocked_domains;
+DROP TABLE IF EXISTS vetchium.org_password_reset_tokens;
+DROP TABLE IF EXISTS vetchium.org_totp_recovery_codes;
+DROP TABLE IF EXISTS vetchium.org_totp_enrollments;
+DROP TABLE IF EXISTS vetchium.org_login_challenges;
+DROP TABLE IF EXISTS vetchium.org_sessions;
+DROP VIEW IF EXISTS vetchium.org_effective_permissions;
+DROP TABLE IF EXISTS vetchium.org_user_permissions;
+DROP TABLE IF EXISTS vetchium.org_permission_implications;
+DROP TABLE IF EXISTS vetchium.org_permission_catalog;
+DROP TABLE IF EXISTS vetchium.org_user_totp_credentials;
+DROP TABLE IF EXISTS vetchium.org_user_passwords;
+DROP TABLE IF EXISTS vetchium.org_users;
+DROP TYPE IF EXISTS vetchium.org_user_state;
+DROP TABLE IF EXISTS vetchium.org_domains;
+DROP TYPE IF EXISTS vetchium.org_domain_state;
+DROP TABLE IF EXISTS vetchium.orgs;
+DROP TYPE IF EXISTS vetchium.org_state;
+DROP TABLE IF EXISTS vetchium.org_plans;
 DROP TABLE IF EXISTS vetchium.federation_inbox;
 DROP TABLE IF EXISTS vetchium.federation_outbox;
 DROP TABLE IF EXISTS vetchium.federation_command_ledger;
@@ -1203,7 +1632,8 @@ DROP TYPE IF EXISTS vetchium.hub_billing_interval;
 DROP TABLE IF EXISTS vetchium.hub_plans;
 DROP TYPE IF EXISTS vetchium.hub_user_state;
 DROP TABLE IF EXISTS vetchium.audit_events;
-DROP TABLE IF EXISTS vetchium.orgs;
+DROP DOMAIN IF EXISTS vetchium.org_domain;
+DROP DOMAIN IF EXISTS vetchium.org_frontend_locale;
 DROP DOMAIN IF EXISTS vetchium.admin_frontend_locale;
 DROP DOMAIN IF EXISTS vetchium.hub_frontend_locale;
 DROP DOMAIN IF EXISTS vetchium.profile_domain;

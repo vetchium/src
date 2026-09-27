@@ -45,7 +45,9 @@ details are in [`mesh-topology.md`](mesh-topology.md).
 - One global PostgreSQL database owns principal routing and globally unique
   profile slugs. For a Hub user it stores only the stable DID, permanent
   generated handle, optional paid alias, home tenant, routing version, lifecycle
-  state, and timestamps needed to enforce those invariants.
+  state, and timestamps needed to enforce those invariants. For an Org it
+  stores only the DID, home tenant, routing version, lifecycle state, and the
+  exact domains the Org owns ([`orgs.md`](orgs.md)).
 - Never put credentials, raw email addresses, profile fields, work-email
   evidence, subscription state, hiring data, or other tenant-owned business data
   in it.

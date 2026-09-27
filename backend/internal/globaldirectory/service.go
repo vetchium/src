@@ -1,4 +1,5 @@
-// Package globaldirectory owns global Hub identity and profile-slug commands.
+// Package globaldirectory owns global Hub and Org identity, profile-slug, and
+// Org domain commands.
 package globaldirectory
 
 import (
@@ -48,11 +49,17 @@ func New(pool *pgxpool.Pool) *Service {
 }
 
 func (s *Service) ReapExpiredReservations(ctx context.Context) (int64, error) {
-	count, err := s.queries.ReapExpiredHubPrincipalReservations(ctx)
+	hubCount, err := s.queries.ReapExpiredHubPrincipalReservations(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("reap expired Hub principal reservations: %w", err)
 	}
-	return count, nil
+	orgCount, err := s.queries.ReapExpiredOrgPrincipalReservations(ctx)
+	if err != nil {
+		return hubCount, fmt.Errorf(
+			"reap expired Org principal reservations: %w", err,
+		)
+	}
+	return hubCount + orgCount, nil
 }
 
 func (s *Service) ResolveProfileSlug(
@@ -81,9 +88,9 @@ func (s *Service) ReserveHubPrincipal(
 	request directoryspec.ReserveHubPrincipalRequest,
 ) (Outcome, error) {
 	return s.command(ctx, caller, reserveOperation, request.CommandID, request,
-		func(q *sqlc.Queries) (mutation, *problem.Details, error) {
+		func(q *sqlc.Queries) (hubMutation, *problem.Details, error) {
 			if request.HomeTenantID != caller {
-				return mutation{}, details(
+				return hubMutation{}, details(
 					coordinatorproblem.DirectoryCallerTenantMismatchError,
 				), nil
 			}
@@ -100,19 +107,19 @@ func (s *Service) ReserveHubPrincipal(
 				},
 			)
 			if isUniqueViolation(err) {
-				return mutation{}, details(
+				return hubMutation{}, details(
 					coordinatorproblem.DirectoryClaimConflictError,
 				), nil
 			}
 			if isConstraintViolation(
 				err, "23514", "hub_principals_state_check",
 			) {
-				return mutation{}, details(
+				return hubMutation{}, details(
 					coordinatorproblem.DirectoryStateConflictError,
 				), nil
 			}
 			if err != nil {
-				return mutation{}, nil, fmt.Errorf(
+				return hubMutation{}, nil, fmt.Errorf(
 					"reserve Hub principal: %w", err,
 				)
 			}
@@ -134,21 +141,21 @@ func (s *Service) ActivateHubPrincipal(
 	request directoryspec.ActivateHubPrincipalRequest,
 ) (Outcome, error) {
 	return s.command(ctx, caller, activateOperation, request.CommandID, request,
-		func(q *sqlc.Queries) (mutation, *problem.Details, error) {
+		func(q *sqlc.Queries) (hubMutation, *problem.Details, error) {
 			did, _ := dbvalue.ParseUUID(string(request.HubUserDID))
 			principal, err := q.GetPrincipal(ctx, did)
 			if errors.Is(err, pgx.ErrNoRows) {
-				return mutation{}, details(
+				return hubMutation{}, details(
 					coordinatorproblem.DirectoryStateConflictError,
 				), nil
 			}
 			if err != nil {
-				return mutation{}, nil, fmt.Errorf(
+				return hubMutation{}, nil, fmt.Errorf(
 					"get Hub principal for activation: %w", err,
 				)
 			}
 			if principal.HomeTenantID != string(caller) {
-				return mutation{}, details(
+				return hubMutation{}, details(
 					coordinatorproblem.DirectoryCallerTenantMismatchError,
 				), nil
 			}
@@ -158,18 +165,18 @@ func (s *Service) ActivateHubPrincipal(
 				},
 			)
 			if errors.Is(err, pgx.ErrNoRows) {
-				return mutation{}, details(
+				return hubMutation{}, details(
 					coordinatorproblem.DirectoryStateConflictError,
 				), nil
 			}
 			if err != nil {
-				return mutation{}, nil, fmt.Errorf(
+				return hubMutation{}, nil, fmt.Errorf(
 					"activate Hub principal: %w", err,
 				)
 			}
 			response, err := commandResponse(ctx, q, did)
 			if err != nil {
-				return mutation{}, nil, err
+				return hubMutation{}, nil, err
 			}
 			return changedMutation(
 				response, activated.DirectoryVersion,
@@ -185,26 +192,26 @@ func (s *Service) SetHubAlias(
 	request directoryspec.SetHubAliasRequest,
 ) (Outcome, error) {
 	return s.command(ctx, caller, aliasOperation, request.CommandID, request,
-		func(q *sqlc.Queries) (mutation, *problem.Details, error) {
+		func(q *sqlc.Queries) (hubMutation, *problem.Details, error) {
 			did, _ := dbvalue.ParseUUID(string(request.HubUserDID))
 			locked, err := q.LockPrincipalForAlias(ctx, did)
 			if errors.Is(err, pgx.ErrNoRows) {
-				return mutation{}, details(
+				return hubMutation{}, details(
 					coordinatorproblem.DirectoryStateConflictError,
 				), nil
 			}
 			if err != nil {
-				return mutation{}, nil, fmt.Errorf(
+				return hubMutation{}, nil, fmt.Errorf(
 					"lock Hub principal for alias: %w", err,
 				)
 			}
 			if locked.HomeTenantID != string(caller) {
-				return mutation{}, details(
+				return hubMutation{}, details(
 					coordinatorproblem.DirectoryCallerTenantMismatchError,
 				), nil
 			}
 			if locked.State != sqlc.VetchiumGlobalPrincipalStateActive {
-				return mutation{}, details(
+				return hubMutation{}, details(
 					coordinatorproblem.DirectoryStateConflictError,
 				), nil
 			}
@@ -213,33 +220,33 @@ func (s *Service) SetHubAlias(
 			if request.DowngradeReleaseIfAlias != nil &&
 				!sameAlias(locked.ProfileAlias, request.DowngradeReleaseIfAlias) {
 				response, err := commandResponse(ctx, q, did)
-				return mutation{response: response}, nil, err
+				return hubMutation{response: response}, nil, err
 			}
 			if sameAlias(locked.ProfileAlias, request.ProfileAlias) {
 				response, err := commandResponse(ctx, q, did)
-				return mutation{response: response}, nil, err
+				return hubMutation{response: response}, nil, err
 			}
 			if request.DowngradeReleaseIfAlias == nil &&
 				(!locked.AliasChangeAllowed.Valid ||
 					!locked.AliasChangeAllowed.Bool) {
-				return mutation{}, details(
+				return hubMutation{}, details(
 					coordinatorproblem.DirectoryStateConflictError,
 				), nil
 			}
 			if err := q.DeleteHubAlias(ctx, did); err != nil {
-				return mutation{}, nil, fmt.Errorf("delete Hub alias: %w", err)
+				return hubMutation{}, nil, fmt.Errorf("delete Hub alias: %w", err)
 			}
 			if request.ProfileAlias != nil {
 				err := q.InsertHubAlias(ctx, sqlc.InsertHubAliasParams{
 					ProfileAlias: string(*request.ProfileAlias), HubUserDid: did,
 				})
 				if isUniqueViolation(err) {
-					return mutation{}, details(
+					return hubMutation{}, details(
 						coordinatorproblem.DirectoryClaimConflictError,
 					), nil
 				}
 				if err != nil {
-					return mutation{}, nil, fmt.Errorf("insert Hub alias: %w", err)
+					return hubMutation{}, nil, fmt.Errorf("insert Hub alias: %w", err)
 				}
 			}
 			version, err := q.RecordHubAliasChange(ctx,
@@ -248,11 +255,11 @@ func (s *Service) SetHubAlias(
 					RecordCooldown: request.DowngradeReleaseIfAlias == nil,
 				})
 			if err != nil {
-				return mutation{}, nil, fmt.Errorf("record Hub alias change: %w", err)
+				return hubMutation{}, nil, fmt.Errorf("record Hub alias change: %w", err)
 			}
 			response, err := commandResponse(ctx, q, did)
 			if err != nil {
-				return mutation{}, nil, err
+				return hubMutation{}, nil, err
 			}
 			eventType := "hub_alias_set.v1"
 			auditAction := "global_directory.hub_alias_changed"
@@ -270,138 +277,165 @@ func (s *Service) SetHubAlias(
 	)
 }
 
-type mutation struct {
-	response         directoryspec.PrincipalCommandResponse
+// mutation is what one command's work reports: the response, and whether a
+// directory change happened that needs audit and outbox records.
+type mutation[R any] struct {
+	response         R
 	changed          bool
 	directoryVersion int64
+	entityType       string
+	entityID         string
 	auditAction      string
 	eventType        string
 }
 
+type hubMutation = mutation[directoryspec.PrincipalCommandResponse]
+
 func changedMutation(
 	response directoryspec.PrincipalCommandResponse, version int64,
 	auditAction, eventType string,
-) mutation {
-	return mutation{
+) hubMutation {
+	return hubMutation{
 		response: response, changed: true, directoryVersion: version,
+		entityType: "hub_principal", entityID: string(response.HubUserDID),
 		auditAction: auditAction, eventType: eventType,
 	}
+}
+
+// result is a command outcome before it is wrapped in the caller-facing type
+// for its principal kind.
+type result[R any] struct {
+	status  int
+	body    *R
+	problem *problem.Details
 }
 
 func (s *Service) command(
 	ctx context.Context, caller directoryspec.TenantID, operation string,
 	commandID directoryspec.CommandID, request any,
-	work func(*sqlc.Queries) (mutation, *problem.Details, error),
+	work func(*sqlc.Queries) (hubMutation, *problem.Details, error),
 ) (Outcome, error) {
+	outcome, err := runCommand(
+		ctx, s.pool, caller, operation, commandID, request, work,
+	)
+	return Outcome{
+		Status: outcome.status, Principal: outcome.body,
+		Problem: outcome.problem,
+	}, err
+}
+
+func runCommand[R any](
+	ctx context.Context, pool *pgxpool.Pool,
+	caller directoryspec.TenantID, operation string,
+	commandID directoryspec.CommandID, request any,
+	work func(*sqlc.Queries) (mutation[R], *problem.Details, error),
+) (result[R], error) {
 	requestJSON, err := json.Marshal(request)
 	if err != nil {
-		return Outcome{}, fmt.Errorf("encode directory command: %w", err)
+		return result[R]{}, fmt.Errorf("encode directory command: %w", err)
 	}
 	digest := sha256.Sum256(requestJSON)
 	id, err := dbvalue.ParseUUID(string(commandID))
 	if err != nil {
-		return Outcome{}, fmt.Errorf("parse directory command ID: %w", err)
+		return result[R]{}, fmt.Errorf("parse directory command ID: %w", err)
 	}
-	tx, err := s.pool.Begin(ctx)
+	tx, err := pool.Begin(ctx)
 	if err != nil {
-		return Outcome{}, fmt.Errorf("begin directory command: %w", err)
+		return result[R]{}, fmt.Errorf("begin directory command: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := sqlc.New(tx)
 	if err := q.AcquireCommandLock(ctx, string(commandID)); err != nil {
-		return Outcome{}, fmt.Errorf("lock directory command: %w", err)
+		return result[R]{}, fmt.Errorf("lock directory command: %w", err)
 	}
 	existing, err := q.GetCommandResult(ctx, id)
 	if err == nil {
 		if existing.Operation != operation ||
 			existing.CallerTenantID != string(caller) ||
 			!bytes.Equal(existing.RequestDigest, digest[:]) {
-			return problemOutcome(problem.IdempotencyKeyConflictError), nil
+			return problemResult[R](problem.IdempotencyKeyConflictError), nil
 		}
-		outcome, err := decodeOutcome(
+		outcome, err := decodeResult[R](
 			int(existing.ResponseStatus), existing.ResponseBody,
 		)
 		if err != nil {
-			return Outcome{}, err
+			return result[R]{}, err
 		}
 		if err := tx.Commit(ctx); err != nil {
-			return Outcome{}, fmt.Errorf("commit directory replay: %w", err)
+			return result[R]{}, fmt.Errorf("commit directory replay: %w", err)
 		}
 		return outcome, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		return Outcome{}, fmt.Errorf("get directory command result: %w", err)
+		return result[R]{}, fmt.Errorf("get directory command result: %w", err)
 	}
 
 	commandTx, err := tx.Begin(ctx)
 	if err != nil {
-		return Outcome{}, fmt.Errorf("begin directory mutation: %w", err)
+		return result[R]{}, fmt.Errorf("begin directory mutation: %w", err)
 	}
 	commandQueries := sqlc.New(commandTx)
 	change, expected, err := work(commandQueries)
 	if expected != nil {
 		if rollbackErr := commandTx.Rollback(ctx); rollbackErr != nil {
-			return Outcome{}, fmt.Errorf(
+			return result[R]{}, fmt.Errorf(
 				"rollback rejected directory mutation: %w", rollbackErr,
 			)
 		}
-		outcome := problemOutcome(*expected)
-		if err := persistOutcome(
+		outcome := problemResult[R](*expected)
+		if err := persistResult(
 			ctx, q, id, operation, caller, digest[:], outcome,
 		); err != nil {
-			return Outcome{}, err
+			return result[R]{}, err
 		}
 		if err := tx.Commit(ctx); err != nil {
-			return Outcome{}, fmt.Errorf("commit directory rejection: %w", err)
+			return result[R]{}, fmt.Errorf("commit directory rejection: %w", err)
 		}
 		return outcome, nil
 	}
 	if err != nil {
 		_ = commandTx.Rollback(ctx)
-		return Outcome{}, err
+		return result[R]{}, err
 	}
-	outcome := Outcome{
-		Status: http.StatusOK, Principal: &change.response,
-	}
+	outcome := result[R]{status: http.StatusOK, body: &change.response}
 	if change.changed {
 		if err := appendChangeRecords(
 			ctx, commandQueries, id, caller, change,
 		); err != nil {
 			_ = commandTx.Rollback(ctx)
-			return Outcome{}, err
+			return result[R]{}, err
 		}
 	}
-	if err := persistOutcome(
+	if err := persistResult(
 		ctx, commandQueries, id, operation, caller, digest[:], outcome,
 	); err != nil {
 		_ = commandTx.Rollback(ctx)
-		return Outcome{}, err
+		return result[R]{}, err
 	}
 	if err := commandTx.Commit(ctx); err != nil {
-		return Outcome{}, fmt.Errorf("finish directory mutation: %w", err)
+		return result[R]{}, fmt.Errorf("finish directory mutation: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return Outcome{}, fmt.Errorf("commit directory command: %w", err)
+		return result[R]{}, fmt.Errorf("commit directory command: %w", err)
 	}
 	return outcome, nil
 }
 
-func appendChangeRecords(
+func appendChangeRecords[R any](
 	ctx context.Context, q *sqlc.Queries, commandID pgtype.UUID,
-	caller directoryspec.TenantID, change mutation,
+	caller directoryspec.TenantID, change mutation[R],
 ) error {
 	payload, err := json.Marshal(struct {
-		SchemaVersion int                                    `json:"schema_version"`
-		Principal     directoryspec.PrincipalCommandResponse `json:"principal"`
+		SchemaVersion int `json:"schema_version"`
+		Principal     R   `json:"principal"`
 	}{SchemaVersion: 1, Principal: change.response})
 	if err != nil {
 		return fmt.Errorf("encode directory change record: %w", err)
 	}
-	entityID := string(change.response.HubUserDID)
 	if err := q.InsertGlobalAuditEvent(
 		ctx, sqlc.InsertGlobalAuditEventParams{
-			Action: change.auditAction, EntityType: "hub_principal",
-			EntityID: entityID, ActorTenantID: string(caller),
+			Action: change.auditAction, EntityType: change.entityType,
+			EntityID: change.entityID, ActorTenantID: string(caller),
 			CommandID: commandID, Payload: payload,
 		},
 	); err != nil {
@@ -409,7 +443,7 @@ func appendChangeRecords(
 	}
 	if err := q.InsertGlobalOutboxEvent(
 		ctx, sqlc.InsertGlobalOutboxEventParams{
-			AggregateType: "hub_principal", AggregateID: entityID,
+			AggregateType: change.entityType, AggregateID: change.entityID,
 			AggregateVersion: change.directoryVersion,
 			EventType:        change.eventType, Payload: payload,
 		},
@@ -419,35 +453,35 @@ func appendChangeRecords(
 	return nil
 }
 
-func persistOutcome(
+func persistResult[R any](
 	ctx context.Context, q *sqlc.Queries, commandID pgtype.UUID,
 	operation string, caller directoryspec.TenantID, digest []byte,
-	outcome Outcome,
+	outcome result[R],
 ) error {
-	body, err := encodeOutcome(outcome)
+	body, err := encodeResult(outcome)
 	if err != nil {
 		return err
 	}
 	if err := q.InsertCommandResult(ctx, sqlc.InsertCommandResultParams{
 		CommandID: commandID, Operation: operation,
 		CallerTenantID: string(caller), RequestDigest: digest,
-		ResponseStatus: int32(outcome.Status), ResponseBody: body,
+		ResponseStatus: int32(outcome.status), ResponseBody: body,
 	}); err != nil {
 		return fmt.Errorf("insert global directory command result: %w", err)
 	}
 	return nil
 }
 
-func encodeOutcome(outcome Outcome) ([]byte, error) {
-	if outcome.Principal != nil {
-		body, err := json.Marshal(outcome.Principal)
+func encodeResult[R any](outcome result[R]) ([]byte, error) {
+	if outcome.body != nil {
+		body, err := json.Marshal(outcome.body)
 		if err != nil {
 			return nil, fmt.Errorf("encode directory success: %w", err)
 		}
 		return body, nil
 	}
-	if outcome.Problem != nil {
-		body, err := json.Marshal(outcome.Problem)
+	if outcome.problem != nil {
+		body, err := json.Marshal(outcome.problem)
 		if err != nil {
 			return nil, fmt.Errorf("encode directory problem: %w", err)
 		}
@@ -456,19 +490,19 @@ func encodeOutcome(outcome Outcome) ([]byte, error) {
 	return nil, fmt.Errorf("directory outcome has no body")
 }
 
-func decodeOutcome(status int, body []byte) (Outcome, error) {
+func decodeResult[R any](status int, body []byte) (result[R], error) {
 	if status >= http.StatusBadRequest {
 		var details problem.Details
 		if err := json.Unmarshal(body, &details); err != nil {
-			return Outcome{}, fmt.Errorf("decode directory problem replay: %w", err)
+			return result[R]{}, fmt.Errorf("decode directory problem replay: %w", err)
 		}
-		return Outcome{Status: status, Problem: &details}, nil
+		return result[R]{status: status, problem: &details}, nil
 	}
-	var response directoryspec.PrincipalCommandResponse
+	var response R
 	if err := json.Unmarshal(body, &response); err != nil {
-		return Outcome{}, fmt.Errorf("decode directory success replay: %w", err)
+		return result[R]{}, fmt.Errorf("decode directory success replay: %w", err)
 	}
-	return Outcome{Status: status, Principal: &response}, nil
+	return result[R]{status: status, body: &response}, nil
 }
 
 func commandResponse(
@@ -512,8 +546,8 @@ func sameAlias(current pgtype.Text, requested *directoryspec.HubAlias) bool {
 	return current.Valid && current.String == string(*requested)
 }
 
-func problemOutcome(value problem.Details) Outcome {
-	return Outcome{Status: value.Status, Problem: &value}
+func problemResult[R any](value problem.Details) result[R] {
+	return result[R]{status: value.Status, problem: &value}
 }
 
 func details(value problem.Details) *problem.Details { return &value }

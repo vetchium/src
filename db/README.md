@@ -90,6 +90,20 @@ seeds are, so re-running it against a stack that already has these users will
 fail. Run it again only after `make dev` (which starts from `make clean`) has
 produced a fresh stack.
 
+## Development Orgs
+
+`make dev-seed` (or `make dev-seed-orgs` on its own, once `make dev` is up)
+signs one Org up per tenant through the Org signup API: it follows the DNS
+instructions email through Mailpit, publishes the TXT record in the
+development DNS server, and completes signup from the private link. Each
+tenant gets `<tenant>.example.com`, whose first superadmin is
+`admin@<tenant>.example.com` with the password `DevPassword123$`.
+Sign in to orgs-ui with that domain, address and password.
+
+The development DNS server keeps no data across restarts, so after a stack
+restart the seeded records are gone and the Orgs' next re-verification finds
+them absent. Re-seed from a fresh stack instead.
+
 ## Admin API manager bootstrap and recovery
 
 The development seeds grant `admin:manage_users` to their tenant's seeded

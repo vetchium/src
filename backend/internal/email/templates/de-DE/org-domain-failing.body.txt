@@ -1,0 +1,7 @@
+Vetchium konnte den DNS-TXT-Eintrag nicht finden, der belegt, dass Ihre Organisation {{.Domain}} kontrolliert. Stellen Sie diesen Eintrag wieder her:
+
+Name: {{.RecordName}}
+Typ: TXT
+Wert: {{.RecordValue}}
+
+Wird der Eintrag nicht bis zum {{.ReleaseAfter.UTC.Format "02.01.2006 um 15:04 UTC"}} wiederhergestellt, gibt Vetchium die Domain frei und sperrt die Organisation, bis der Eintrag wieder veröffentlicht ist. Superadmins können den Eintrag im Organisationsportal sofort prüfen lassen.

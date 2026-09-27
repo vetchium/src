@@ -186,6 +186,11 @@ deploy:
 		printf '%s' "$$credential_key" | \
 			docker secret create "$(REGION)_admin_credential_key" - >/dev/null; \
 	fi
+	@if ! docker secret inspect "$(REGION)_orgs_credential_key" >/dev/null 2>&1; then \
+		credential_key=$$(openssl rand -hex 32); \
+		printf '%s' "$$credential_key" | \
+			docker secret create "$(REGION)_orgs_credential_key" - >/dev/null; \
+	fi
 	@if ! docker secret inspect "$(REGION)_mesh_credential" >/dev/null 2>&1; then \
 		printf '%s' "$$(openssl rand -hex 32)" | \
 			docker secret create "$(REGION)_mesh_credential" - >/dev/null; \

@@ -17,7 +17,12 @@
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
-    "reconcileHubSignupTimer": "10s"
+    "reconcileHubSignupTimer": "10s",
+    "deliverOrgEmailTimer": "500ms",
+    "orgEmailLeaseTTL": "1m",
+    "orgEmailMaxAttempts": 5,
+    "reconcileOrgSignupTimer": "10s",
+    "verifyOrgDomainsTimer": "30s"
   },
   "adminAPIServer": {
     "sessionTTL": "24h"
@@ -68,7 +73,23 @@
     "startTLS": "disabled",
     "connectionTimeout": "5s"
   },
-  "orgsAPIServer": {},
+  "orgsAPIServer": {
+    "sessionTTL": "24h",
+    "signupTTL": "168h",
+    "publicBaseURL": "http://orgs-ui.sgp.localhost",
+    "signup": {
+      "enabled": true
+    }
+  },
+  "orgDomainVerification": {
+    "resolverAddress": "dns-dev:53",
+    "lookupTimeout": "5s",
+    "checkInterval": "10m",
+    "failureThreshold": 2,
+    "failingGracePeriod": "1h",
+    "inconclusiveRetry": "1m",
+    "inconclusiveLimit": "1h"
+  },
   "mcpServer": {},
   "signupRegionsFile": "/etc/vetchium/signup-regions.json"
 }

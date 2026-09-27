@@ -479,6 +479,182 @@ func (ns NullVetchiumHubUserState) Value() (driver.Value, error) {
 	return string(ns.VetchiumHubUserState), nil
 }
 
+type VetchiumOrgDomainState string
+
+const (
+	VetchiumOrgDomainStateVerified   VetchiumOrgDomainState = "verified"
+	VetchiumOrgDomainStateFailing    VetchiumOrgDomainState = "failing"
+	VetchiumOrgDomainStateReleasing  VetchiumOrgDomainState = "releasing"
+	VetchiumOrgDomainStateReleased   VetchiumOrgDomainState = "released"
+	VetchiumOrgDomainStateReclaiming VetchiumOrgDomainState = "reclaiming"
+)
+
+func (e *VetchiumOrgDomainState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumOrgDomainState(s)
+	case string:
+		*e = VetchiumOrgDomainState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumOrgDomainState: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumOrgDomainState struct {
+	VetchiumOrgDomainState VetchiumOrgDomainState `json:"vetchium_org_domain_state"`
+	Valid                  bool                   `json:"valid"` // Valid is true if VetchiumOrgDomainState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumOrgDomainState) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumOrgDomainState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumOrgDomainState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumOrgDomainState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumOrgDomainState), nil
+}
+
+type VetchiumOrgSignupCompletionState string
+
+const (
+	VetchiumOrgSignupCompletionStatePrepared     VetchiumOrgSignupCompletionState = "prepared"
+	VetchiumOrgSignupCompletionStateReserved     VetchiumOrgSignupCompletionState = "reserved"
+	VetchiumOrgSignupCompletionStateLocalCreated VetchiumOrgSignupCompletionState = "local_created"
+	VetchiumOrgSignupCompletionStateCompleted    VetchiumOrgSignupCompletionState = "completed"
+	VetchiumOrgSignupCompletionStateFailed       VetchiumOrgSignupCompletionState = "failed"
+)
+
+func (e *VetchiumOrgSignupCompletionState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumOrgSignupCompletionState(s)
+	case string:
+		*e = VetchiumOrgSignupCompletionState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumOrgSignupCompletionState: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumOrgSignupCompletionState struct {
+	VetchiumOrgSignupCompletionState VetchiumOrgSignupCompletionState `json:"vetchium_org_signup_completion_state"`
+	Valid                            bool                             `json:"valid"` // Valid is true if VetchiumOrgSignupCompletionState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumOrgSignupCompletionState) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumOrgSignupCompletionState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumOrgSignupCompletionState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumOrgSignupCompletionState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumOrgSignupCompletionState), nil
+}
+
+type VetchiumOrgState string
+
+const (
+	VetchiumOrgStateProvisioning VetchiumOrgState = "provisioning"
+	VetchiumOrgStateActive       VetchiumOrgState = "active"
+	VetchiumOrgStateSuspended    VetchiumOrgState = "suspended"
+)
+
+func (e *VetchiumOrgState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumOrgState(s)
+	case string:
+		*e = VetchiumOrgState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumOrgState: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumOrgState struct {
+	VetchiumOrgState VetchiumOrgState `json:"vetchium_org_state"`
+	Valid            bool             `json:"valid"` // Valid is true if VetchiumOrgState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumOrgState) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumOrgState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumOrgState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumOrgState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumOrgState), nil
+}
+
+type VetchiumOrgUserState string
+
+const (
+	VetchiumOrgUserStateProvisioning VetchiumOrgUserState = "provisioning"
+	VetchiumOrgUserStateActive       VetchiumOrgUserState = "active"
+	VetchiumOrgUserStateDisabled     VetchiumOrgUserState = "disabled"
+)
+
+func (e *VetchiumOrgUserState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumOrgUserState(s)
+	case string:
+		*e = VetchiumOrgUserState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumOrgUserState: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumOrgUserState struct {
+	VetchiumOrgUserState VetchiumOrgUserState `json:"vetchium_org_user_state"`
+	Valid                bool                 `json:"valid"` // Valid is true if VetchiumOrgUserState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumOrgUserState) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumOrgUserState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumOrgUserState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumOrgUserState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumOrgUserState), nil
+}
+
 type VetchiumAdminEffectivePermission struct {
 	AdminUserID pgtype.UUID `json:"admin_user_id"`
 	Permission  string      `json:"permission"`
@@ -929,8 +1105,179 @@ type VetchiumIdempotencyLedger struct {
 }
 
 type VetchiumOrg struct {
-	ID        int64              `json:"id"`
-	Name      string             `json:"name"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	OrgDid      pgtype.UUID        `json:"org_did"`
+	DisplayName string             `json:"display_name"`
+	OrgState    VetchiumOrgState   `json:"org_state"`
+	OrgPlanOid  string             `json:"org_plan_oid"`
+	SuspendedAt pgtype.Timestamptz `json:"suspended_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type VetchiumOrgDomain struct {
+	OrgDid                  pgtype.UUID            `json:"org_did"`
+	Domain                  string                 `json:"domain"`
+	VerificationToken       string                 `json:"verification_token"`
+	DomainState             VetchiumOrgDomainState `json:"domain_state"`
+	LastVerifiedAt          pgtype.Timestamptz     `json:"last_verified_at"`
+	LastConclusiveAt        pgtype.Timestamptz     `json:"last_conclusive_at"`
+	ConsecutiveFailures     int32                  `json:"consecutive_failures"`
+	ConsecutiveInconclusive int32                  `json:"consecutive_inconclusive"`
+	NextCheckAt             pgtype.Timestamptz     `json:"next_check_at"`
+	FailingSince            pgtype.Timestamptz     `json:"failing_since"`
+	ReleasedAt              pgtype.Timestamptz     `json:"released_at"`
+	DirectoryCommandID      pgtype.UUID            `json:"directory_command_id"`
+	CreatedAt               pgtype.Timestamptz     `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz     `json:"updated_at"`
+}
+
+type VetchiumOrgEffectivePermission struct {
+	OrgUserID  pgtype.UUID `json:"org_user_id"`
+	Permission string      `json:"permission"`
+}
+
+type VetchiumOrgEmailOutbox struct {
+	OrgEmailOutboxID      pgtype.UUID        `json:"org_email_outbox_id"`
+	Kind                  string             `json:"kind"`
+	RecipientEmailAddress string             `json:"recipient_email_address"`
+	PreferredLanguage     string             `json:"preferred_language"`
+	PayloadCiphertext     []byte             `json:"payload_ciphertext"`
+	AttemptCount          int32              `json:"attempt_count"`
+	NextAttemptAt         pgtype.Timestamptz `json:"next_attempt_at"`
+	LeaseToken            pgtype.UUID        `json:"lease_token"`
+	LeasedUntil           pgtype.Timestamptz `json:"leased_until"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	SentAt                pgtype.Timestamptz `json:"sent_at"`
+	FailedAt              pgtype.Timestamptz `json:"failed_at"`
+}
+
+type VetchiumOrgLoginChallenge struct {
+	OrgLoginChallengeID pgtype.UUID        `json:"org_login_challenge_id"`
+	OrgUserID           pgtype.UUID        `json:"org_user_id"`
+	TokenHash           []byte             `json:"token_hash"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt           pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt          pgtype.Timestamptz `json:"consumed_at"`
+	Active              bool               `json:"active"`
+}
+
+type VetchiumOrgPasswordResetToken struct {
+	OrgPasswordResetTokenID pgtype.UUID        `json:"org_password_reset_token_id"`
+	OrgUserID               pgtype.UUID        `json:"org_user_id"`
+	TokenHash               []byte             `json:"token_hash"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt               pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt              pgtype.Timestamptz `json:"consumed_at"`
+	Active                  bool               `json:"active"`
+}
+
+type VetchiumOrgPermissionCatalog struct {
+	Permission string `json:"permission"`
+}
+
+type VetchiumOrgPermissionImplication struct {
+	Permission        string `json:"permission"`
+	ImpliedPermission string `json:"implied_permission"`
+}
+
+type VetchiumOrgPlan struct {
+	OrgPlanOid string `json:"org_plan_oid"`
+}
+
+type VetchiumOrgSession struct {
+	OrgSessionID     pgtype.UUID        `json:"org_session_id"`
+	OrgUserID        pgtype.UUID        `json:"org_user_id"`
+	SessionTokenHash []byte             `json:"session_token_hash"`
+	AuthenticatedAt  pgtype.Timestamptz `json:"authenticated_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+}
+
+type VetchiumOrgSignupBlockedDomain struct {
+	Domain string `json:"domain"`
+}
+
+type VetchiumOrgSignupCompletion struct {
+	OperationID           pgtype.UUID                      `json:"operation_id"`
+	OrgSignupRequestID    pgtype.UUID                      `json:"org_signup_request_id"`
+	TokenHash             []byte                           `json:"token_hash"`
+	IdempotencyKey        string                           `json:"idempotency_key"`
+	RequestDigest         []byte                           `json:"request_digest"`
+	OrgDid                pgtype.UUID                      `json:"org_did"`
+	Domain                string                           `json:"domain"`
+	ReserveCommandID      pgtype.UUID                      `json:"reserve_command_id"`
+	ActivateCommandID     pgtype.UUID                      `json:"activate_command_id"`
+	PayloadCiphertext     []byte                           `json:"payload_ciphertext"`
+	State                 VetchiumOrgSignupCompletionState `json:"state"`
+	FailureReason         pgtype.Text                      `json:"failure_reason"`
+	ProvisioningExpiresAt pgtype.Timestamptz               `json:"provisioning_expires_at"`
+	AttemptCount          int32                            `json:"attempt_count"`
+	NextAttemptAt         pgtype.Timestamptz               `json:"next_attempt_at"`
+	LastError             pgtype.Text                      `json:"last_error"`
+	CreatedAt             pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz               `json:"updated_at"`
+	CompletedAt           pgtype.Timestamptz               `json:"completed_at"`
+	ExpiresAt             pgtype.Timestamptz               `json:"expires_at"`
+}
+
+type VetchiumOrgSignupRequest struct {
+	OrgSignupRequestID pgtype.UUID        `json:"org_signup_request_id"`
+	EmailAddress       string             `json:"email_address"`
+	Domain             string             `json:"domain"`
+	PreferredLanguage  string             `json:"preferred_language"`
+	VerificationToken  string             `json:"verification_token"`
+	TokenHash          []byte             `json:"token_hash"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt         pgtype.Timestamptz `json:"consumed_at"`
+	Active             bool               `json:"active"`
+}
+
+type VetchiumOrgTotpEnrollment struct {
+	OrgTotpEnrollmentID pgtype.UUID        `json:"org_totp_enrollment_id"`
+	OrgUserID           pgtype.UUID        `json:"org_user_id"`
+	TokenHash           []byte             `json:"token_hash"`
+	SecretCiphertext    []byte             `json:"secret_ciphertext"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt           pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt          pgtype.Timestamptz `json:"consumed_at"`
+	Active              bool               `json:"active"`
+}
+
+type VetchiumOrgTotpRecoveryCode struct {
+	OrgUserID  pgtype.UUID        `json:"org_user_id"`
+	CodeHash   []byte             `json:"code_hash"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
+}
+
+type VetchiumOrgUser struct {
+	OrgUserID         pgtype.UUID          `json:"org_user_id"`
+	OrgDid            pgtype.UUID          `json:"org_did"`
+	EmailAddress      string               `json:"email_address"`
+	OrgUserState      VetchiumOrgUserState `json:"org_user_state"`
+	PreferredLanguage string               `json:"preferred_language"`
+	LastLoginAt       pgtype.Timestamptz   `json:"last_login_at"`
+	CreatedAt         pgtype.Timestamptz   `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz   `json:"updated_at"`
+}
+
+type VetchiumOrgUserPassword struct {
+	OrgUserID    pgtype.UUID        `json:"org_user_id"`
+	PasswordHash string             `json:"password_hash"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type VetchiumOrgUserPermission struct {
+	OrgUserID  pgtype.UUID        `json:"org_user_id"`
+	Permission string             `json:"permission"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type VetchiumOrgUserTotpCredential struct {
+	OrgUserID        pgtype.UUID        `json:"org_user_id"`
+	SecretCiphertext []byte             `json:"secret_ciphertext"`
+	LastTimestep     pgtype.Int8        `json:"last_timestep"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }

@@ -11,6 +11,9 @@
 //   - "hub-profiles" seeds Hub user profiles from a hand-edited fixture file
 //     under dev/hub-seed-profiles/. It runs on demand, from the host, via
 //     `make dev-seed-hub-profiles`.
+//   - "orgs" signs one Org up per tenant through the Org signup API, with its
+//     TXT record published in the development DNS server. It runs on demand,
+//     from the host, via `make dev-seed-orgs`.
 //
 // It is never built into a production image and never deployed.
 package main
@@ -35,6 +38,8 @@ func run() error {
 		return runDomainSeed()
 	case "hub-profiles":
 		return runHubProfileSeed()
+	case "orgs":
+		return runOrgSeed()
 	default:
 		return fmt.Errorf("unknown DEV_SEED_MODE %q", mode)
 	}

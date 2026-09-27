@@ -33,7 +33,9 @@ func TestDirectoryCommandProtocolIntegration(t *testing.T) {
             vetchium.global_command_ledger,
             vetchium.global_audit_events,
             vetchium.hub_profile_slugs,
-            vetchium.hub_principals`)
+            vetchium.hub_principals,
+            vetchium.org_domains,
+            vetchium.org_principals`)
 		if err != nil {
 			t.Fatal(err)
 		}

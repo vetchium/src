@@ -344,7 +344,12 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
-    "reconcileHubSignupTimer": "1m"
+    "reconcileHubSignupTimer": "1m",
+    "deliverOrgEmailTimer": "1s",
+    "orgEmailLeaseTTL": "1m",
+    "orgEmailMaxAttempts": 5,
+    "reconcileOrgSignupTimer": "1m",
+    "verifyOrgDomainsTimer": "1m"
   },
   "adminAPIServer": {
     "sessionTTL": "24h"
@@ -392,7 +397,20 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "startTLS": "disabled",
     "connectionTimeout": "5s"
   },
-  "orgsAPIServer": {},
+  "orgsAPIServer": {
+    "sessionTTL": "12h",
+    "signupTTL": "168h",
+    "publicBaseURL": "http://orgs-ui.sgp.localhost/"
+  },
+  "orgDomainVerification": {
+    "resolverAddress": "dns-dev:53",
+    "lookupTimeout": "5s",
+    "checkInterval": "168h",
+    "failureThreshold": 2,
+    "failingGracePeriod": "720h",
+    "inconclusiveRetry": "1h",
+    "inconclusiveLimit": "168h"
+  },
   "mcpServer": {}
 }`, passwordFile)
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
@@ -694,7 +712,12 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
-    "reconcileHubSignupTimer": "1m"%s
+    "reconcileHubSignupTimer": "1m",
+    "deliverOrgEmailTimer": "1s",
+    "orgEmailLeaseTTL": "1m",
+    "orgEmailMaxAttempts": 5,
+    "reconcileOrgSignupTimer": "1m",
+    "verifyOrgDomainsTimer": "1m"%s
   },
   "adminAPIServer": {
     "sessionTTL": "24h"
@@ -742,7 +765,20 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "startTLS": "disabled",
     "connectionTimeout": "5s"
   },
-  "orgsAPIServer": {},
+  "orgsAPIServer": {
+    "sessionTTL": "12h",
+    "signupTTL": "168h",
+    "publicBaseURL": "http://orgs-ui.sgp.localhost/"
+  },
+  "orgDomainVerification": {
+    "resolverAddress": "dns-dev:53",
+    "lookupTimeout": "5s",
+    "checkInterval": "168h",
+    "failureThreshold": 2,
+    "failingGracePeriod": "720h",
+    "inconclusiveRetry": "1h",
+    "inconclusiveLimit": "168h"
+  },
   "mcpServer": {}
 }`, passwordFile, extraWorkerField)
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {

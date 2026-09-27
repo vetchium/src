@@ -15,7 +15,9 @@ For cross-tenant operations, routing, or mesh coverage, read
 object-store, or signed-media coverage, read
 [`../agent-guides/object-storage.md`](../agent-guides/object-storage.md).
 For Hub profile behavior or privacy coverage, read
-[`../agent-guides/hub-profile.md`](../agent-guides/hub-profile.md).
+[`../agent-guides/hub-profile.md`](../agent-guides/hub-profile.md). For Org
+signup, sign-in, or domain lifecycle coverage, read
+[`../agent-guides/orgs.md`](../agent-guides/orgs.md).
 
 When a test needs a contract change, also read
 [`../agent-guides/typespec.md`](../agent-guides/typespec.md) and

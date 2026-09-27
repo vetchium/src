@@ -73,6 +73,7 @@ before changing files:
 | [`hub-profile.md`](agent-guides/hub-profile.md) | Hub profiles, professional claims, work-email evidence, aliases, pictures |
 | [`hub-signup.md`](agent-guides/hub-signup.md) | Hub signup, region discovery, identity claims, locality |
 | [`hub-subscriptions.md`](agent-guides/hub-subscriptions.md) | Hub plans, subscriptions, billing periods, payment integration |
+| [`orgs.md`](agent-guides/orgs.md) | Org signup, Org user authentication, domain verification and re-verification |
 | [`typespec.md`](agent-guides/typespec.md) | contracts and matching wire types |
 | [`typescript.md`](agent-guides/typescript.md) | hand-maintained TypeScript |
 | [`ui.md`](agent-guides/ui.md) | portal user interfaces |

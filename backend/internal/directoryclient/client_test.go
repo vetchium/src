@@ -2,6 +2,7 @@ package directoryclient
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -83,5 +84,80 @@ func TestCommandRejectsOversizedResponse(t *testing.T) {
 	)
 	if err == nil {
 		t.Fatal("ActivateHubPrincipal() error = nil, want oversized response error")
+	}
+}
+
+func TestOrgCommandDecodesAndValidatesResponse(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name, body string
+		valid      bool
+	}{
+		{
+			name: "released domain", valid: true,
+			body: `{"org_did":"018f7e32-7b5a-7d31-8fd0-f7e2a852f144",` +
+				`"domain":null,"home_tenant_id":"ind1",` +
+				`"routing_version":1,"state":"active"}`,
+		},
+		{
+			name: "non-normalized domain",
+			body: `{"org_did":"018f7e32-7b5a-7d31-8fd0-f7e2a852f144",` +
+				`"domain":"Example.com","home_tenant_id":"ind1",` +
+				`"routing_version":1,"state":"active"}`,
+		},
+		{
+			name: "unknown field",
+			body: `{"org_did":"018f7e32-7b5a-7d31-8fd0-f7e2a852f144",` +
+				`"domain":null,"home_tenant_id":"ind1",` +
+				`"routing_version":1,"state":"active","extra":1}`,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(
+				func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path != "/directory/release-org-domain" {
+						t.Errorf("path = %s", r.URL.Path)
+					}
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(test.body))
+				},
+			))
+			defer server.Close()
+			client := New(server.URL, "/directory", "secret", time.Second)
+			outcome, err := client.ReleaseOrgDomain(
+				context.Background(), directoryspec.ReleaseOrgDomainRequest{},
+			)
+			if test.valid && (err != nil || outcome.Org == nil ||
+				outcome.Org.Domain != nil) {
+				t.Fatalf("outcome = %+v, err = %v", outcome, err)
+			}
+			if !test.valid && !errors.Is(err, ErrInvalidResponse) {
+				t.Fatalf("err = %v, want invalid response", err)
+			}
+		})
+	}
+}
+
+func TestResolveOrgDomainPreservesNotFound(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/problem+json")
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{
+                "type":"vetchium-problem-details/directory-entry-not-found",
+                "title":"Directory entry not found","status":404
+            }`))
+		},
+	))
+	defer server.Close()
+	client := New(server.URL, "", "secret", time.Second)
+	_, details, err := client.ResolveOrgDomain(
+		context.Background(),
+		directoryspec.ResolveOrgDomainRequest{Domain: "example.com"},
+	)
+	if err != nil || details == nil || details.Status != 404 {
+		t.Fatalf("details = %+v, err = %v", details, err)
 	}
 }

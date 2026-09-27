@@ -150,3 +150,22 @@ type VetchiumHubProfileSlug struct {
 	Kind       VetchiumGlobalProfileSlugKind `json:"kind"`
 	CreatedAt  pgtype.Timestamptz            `json:"created_at"`
 }
+
+type VetchiumOrgDomain struct {
+	Domain    string             `json:"domain"`
+	OrgDid    pgtype.UUID        `json:"org_did"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type VetchiumOrgPrincipal struct {
+	OrgDid                  pgtype.UUID                  `json:"org_did"`
+	HomeTenantID            string                       `json:"home_tenant_id"`
+	State                   VetchiumGlobalPrincipalState `json:"state"`
+	RoutingVersion          int64                        `json:"routing_version"`
+	DirectoryVersion        int64                        `json:"directory_version"`
+	ProvisioningOperationID pgtype.UUID                  `json:"provisioning_operation_id"`
+	ProvisioningExpiresAt   pgtype.Timestamptz           `json:"provisioning_expires_at"`
+	ActivatedAt             pgtype.Timestamptz           `json:"activated_at"`
+	CreatedAt               pgtype.Timestamptz           `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz           `json:"updated_at"`
+}

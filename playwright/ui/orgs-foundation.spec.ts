@@ -3,15 +3,16 @@ import { expect, test } from "@playwright/test";
 const orgsBaseURL =
   process.env.PLAYWRIGHT_ORGS_BASE_URL ?? "http://orgs-ui.sgp.localhost";
 
-test("the home page names the portal under one level-1 heading", async ({
-  page,
-}) => {
+test("a visitor without a session enters through sign in", async ({ page }) => {
   await page.goto(orgsBaseURL);
 
+  await expect(page).toHaveURL(`${orgsBaseURL}/login`);
   const headings = page.getByRole("heading", { level: 1 });
   await expect(headings).toHaveCount(1);
-  await expect(headings).toHaveText("Vetchium for organizations");
-  await expect(page).toHaveTitle("Vetchium for organizations");
+  await expect(headings).toHaveText("Sign in");
+  await expect(page).toHaveTitle("Sign in | Vetchium for organizations");
+  await expect(page.getByLabel("Organization domain")).toBeEnabled();
+  await expect(page.getByRole("link", { name: "Sign it up" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Vetchium for organizations home" }),
   ).toBeVisible();
@@ -24,10 +25,8 @@ test("an unknown route offers a way back home", async ({ page }) => {
   await expect(page.getByText("Page not found")).toBeVisible();
   await page.getByRole("link", { name: "Go to home" }).click();
 
-  await expect(page).toHaveURL(`${orgsBaseURL}/`);
-  await expect(
-    page.getByRole("heading", { name: "Vetchium for organizations" }),
-  ).toBeVisible();
+  // Home needs a session, so a visitor lands on sign in.
+  await expect(page).toHaveURL(`${orgsBaseURL}/login`);
 });
 
 test("language and theme choices survive a reload", async ({ page }) => {
@@ -36,16 +35,12 @@ test("language and theme choices survive a reload", async ({ page }) => {
   await page.getByRole("combobox", { name: "Select language" }).click();
   await page.getByRole("option", { name: "Deutsch (Deutschland)" }).click();
 
-  await expect(
-    page.getByRole("heading", { name: "Vetchium für Organisationen" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Anmelden" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "de-DE");
 
   await page.reload();
 
-  await expect(
-    page.getByRole("heading", { name: "Vetchium für Organisationen" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Anmelden" })).toBeVisible();
   await expect(
     page.getByRole("switch", {
       name: "Zwischen hellem und dunklem Modus wechseln",

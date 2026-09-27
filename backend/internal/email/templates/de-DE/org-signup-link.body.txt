@@ -1,0 +1,7 @@
+Sobald der DNS-Eintrag aus der anderen E-Mail veröffentlicht ist, schließen Sie die Registrierung der Organisation für {{.Domain}} mit diesem privaten Link ab:
+
+{{.ActionURL}}
+
+Leiten Sie diese E-Mail nicht weiter. Wer diesen Link hat, kann die Registrierung abschließen und wird erster Superadmin der Organisation.
+
+Dieser Link ist bis zum {{.ExpiresAt.UTC.Format "02.01.2006 um 15:04 UTC"}} gültig. Falls Sie diese Registrierung nicht angefordert haben, können Sie diese E-Mail ignorieren.

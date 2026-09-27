@@ -178,6 +178,15 @@
         ]
       }
     },
+    "dns_dev_access": {
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.33.0/24"
+          }
+        ]
+      }
+    },
     "global_coordinator_access": {
       "ipam": {
         "config": [
@@ -414,6 +423,9 @@
     },
     "mesh_server_usa1_key": {
       "file": "./.dev-secrets/mesh_server_usa1_key"
+    },
+    "orgs_credential_key": {
+      "file": "./.dev-secrets/orgs_credential_key"
     },
     "seaweed_s3_deu_access_key": {
       "file": "./.dev-secrets/seaweed_s3_deu_access_key"
@@ -1226,6 +1238,49 @@
       "read_only": true,
       "restart": "no",
       "security_opt": ["no-new-privileges:true"]
+    },
+    "dns-dev": {
+      "image": "powerdns/pdns-auth-51:5.1.4@sha256:bb5b1c133bcca1dd455075321de7d55db4945a8d7f2ba23339e3c7bbe416b205",
+      "entrypoint": [
+        "/usr/bin/tini",
+        "--",
+        "/bin/sh",
+        "-eu",
+        "-c",
+        "cp /var/lib/powerdns/pdns.sqlite3 /tmp/pdns.sqlite3\nprintf '%s\\n' launch=gsqlite3 gsqlite3-database=/tmp/pdns.sqlite3 socket-dir=/tmp local-address=0.0.0.0 security-poll-suffix= api=yes api-key=vetchium-dev-dns-api-key webserver=yes webserver-address=0.0.0.0 webserver-port=8081 webserver-allow-from=0.0.0.0/0 > /tmp/pdns.conf\npdnsutil --config-dir=/tmp zone create example ns1.example\npdnsutil --config-dir=/tmp zone create example.com ns1.example.com\nexec pdns_server --config-dir=/tmp --disable-syslog"
+      ],
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": [
+          "CMD-SHELL",
+          "sdig 127.0.0.1 53 example SOA | grep -q 'Rcode: 0 .*AA: 1' && sdig 127.0.0.1 53 example.com SOA | grep -q 'Rcode: 0 .*AA: 1'"
+        ],
+        "timeout": "2s"
+      },
+      "networks": {
+        "deu_backend": {
+          "aliases": ["dns-dev"]
+        },
+        "dns_dev_access": null,
+        "ind1_backend": {
+          "aliases": ["dns-dev"]
+        },
+        "sgp_backend": {
+          "aliases": ["dns-dev"]
+        },
+        "usa1_backend": {
+          "aliases": ["dns-dev"]
+        }
+      },
+      "ports": [
+        "${DNS_DEV_API_BIND:-127.0.0.1}:${DNS_DEV_API_PORT:-18081}:8081"
+      ],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=64m"]
     },
     "edge": {
       "command": [
@@ -2496,12 +2551,20 @@
         "target": "orgs-api"
       },
       "depends_on": {
+        "dns-dev": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "db-seed-deu": {
           "condition": "service_completed_successfully",
           "required": true
         }
       },
       "configs": [
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
         {
           "source": "app_config_deu",
           "target": "/etc/vetchium/config.json"
@@ -2528,6 +2591,14 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "orgs_credential_key",
+          "target": "/run/secrets/orgs_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -2539,12 +2610,20 @@
         "target": "orgs-api"
       },
       "depends_on": {
+        "dns-dev": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "db-seed-ind1": {
           "condition": "service_completed_successfully",
           "required": true
         }
       },
       "configs": [
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
         {
           "source": "app_config_ind1",
           "target": "/etc/vetchium/config.json"
@@ -2571,6 +2650,14 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "orgs_credential_key",
+          "target": "/run/secrets/orgs_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -2582,12 +2669,20 @@
         "target": "orgs-api"
       },
       "depends_on": {
+        "dns-dev": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "db-seed-sgp": {
           "condition": "service_completed_successfully",
           "required": true
         }
       },
       "configs": [
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
         {
           "source": "app_config_sgp",
           "target": "/etc/vetchium/config.json"
@@ -2614,6 +2709,14 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "orgs_credential_key",
+          "target": "/run/secrets/orgs_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -2625,12 +2728,20 @@
         "target": "orgs-api"
       },
       "depends_on": {
+        "dns-dev": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "db-seed-usa1": {
           "condition": "service_completed_successfully",
           "required": true
         }
       },
       "configs": [
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
         {
           "source": "app_config_usa1",
           "target": "/etc/vetchium/config.json"
@@ -2657,6 +2768,14 @@
         {
           "source": "app_postgres_password",
           "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "orgs_credential_key",
+          "target": "/run/secrets/orgs_credential_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -3886,6 +4005,10 @@
         "target": "workers"
       },
       "depends_on": {
+        "dns-dev": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "mailpit": {
           "condition": "service_healthy",
           "required": true
@@ -3924,6 +4047,10 @@
           "target": "/run/secrets/mesh_credential"
         },
         {
+          "source": "orgs_credential_key",
+          "target": "/run/secrets/orgs_credential_key"
+        },
+        {
           "source": "seaweed_s3_deu_access_key",
           "target": "/run/secrets/seaweed_s3_access_key"
         },
@@ -3941,6 +4068,10 @@
         "target": "workers"
       },
       "depends_on": {
+        "dns-dev": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "mailpit": {
           "condition": "service_healthy",
           "required": true
@@ -3979,6 +4110,10 @@
           "target": "/run/secrets/mesh_credential"
         },
         {
+          "source": "orgs_credential_key",
+          "target": "/run/secrets/orgs_credential_key"
+        },
+        {
           "source": "seaweed_s3_ind1_access_key",
           "target": "/run/secrets/seaweed_s3_access_key"
         },
@@ -3996,6 +4131,10 @@
         "target": "workers"
       },
       "depends_on": {
+        "dns-dev": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "mailpit": {
           "condition": "service_healthy",
           "required": true
@@ -4034,6 +4173,10 @@
           "target": "/run/secrets/mesh_credential"
         },
         {
+          "source": "orgs_credential_key",
+          "target": "/run/secrets/orgs_credential_key"
+        },
+        {
           "source": "seaweed_s3_sgp_access_key",
           "target": "/run/secrets/seaweed_s3_access_key"
         },
@@ -4051,6 +4194,10 @@
         "target": "workers"
       },
       "depends_on": {
+        "dns-dev": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "mailpit": {
           "condition": "service_healthy",
           "required": true
@@ -4087,6 +4234,10 @@
         {
           "source": "mesh_credential",
           "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "orgs_credential_key",
+          "target": "/run/secrets/orgs_credential_key"
         },
         {
           "source": "seaweed_s3_usa1_access_key",

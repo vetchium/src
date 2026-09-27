@@ -13,14 +13,18 @@ decided before it is.
 
 ## Portal page duplication
 
-- `admin-ui` and `hub-ui` share their shell, auth, session, preferences,
-  idempotency, API client and error presentation through
-  `@vetchium/portal-ui`, but six auth pages are still written twice:
-  `LoginPage`, `TwoFactorPage`, `ProfilePage`, `ReauthenticatePage`,
-  `ForgotPasswordPage`, and `ResetPasswordPage`. Some differences are real
-  (the Hub asks for a remembered session and a resident country; the admin
-  portal does not), and some are drift. Decide which parts shared form
-  components can own before `orgs-ui` copies them a third time.
+- `admin-ui`, `hub-ui` and `orgs-ui` share their shell, auth, session,
+  preferences, idempotency, API client and error presentation through
+  `@vetchium/portal-ui`, but the auth pages are still written per portal:
+  `LoginPage`, `TwoFactorPage`, `ReauthenticatePage`, `ForgotPasswordPage`,
+  and `ResetPasswordPage` exist in all three, and `ProfilePage` in two. The
+  Org copies were made deliberately for the first Org feature. Some
+  differences are real (the Hub asks for a remembered session and a resident
+  country; Org sign-in and password reset also take the Org domain; the admin
+  portal needs neither), and some are drift. Decide which parts shared form
+  components can own, then collapse the copies. `orgs-ui` also carries its own
+  `isDefiniteRefusal` and `useDateTimeFormat` helpers that belong in
+  `portal-ui` if the other portals adopt them.
 
 ## Per-route log levels
 
@@ -76,3 +80,24 @@ decided before it is.
 - Keep Hub profile rows keyed only by normalized domain. A future verified Org
   may provide display metadata for that domain, but must not become a foreign-key
   owner of Hub-user work or education data.
+
+## Org follow-ups
+
+Deferred from the first Org feature ([`org-signup.md`](org-signup.md),
+section 11). Each needs its own specification first.
+
+- Suspended-Org enforcement is only in orgs-ui and the absence of other Org
+  routes today. The first Org route beyond account management must add the
+  Org-suspended middleware described in
+  [`orgs.md`](../agent-guides/orgs.md#suspended-orgs).
+- The lockout invariant (an active Org keeps an active superadmin) has no
+  writer to enforce it yet; the first Org user management statement must.
+- Production DNS verification resolves through `1.1.1.1:53`
+  (`deploy/*/config.json`). Confirm the resolver choice, or run a validating
+  resolver per tenant, before production launch.
+- Administrator management of the blocked signup-domain list and of Orgs,
+  additional domains and domain transfer, Org plans beyond the seeded free
+  tier, enterprise SSO, and Org migration between tenants.
+- The tenant migration's down section fails because
+  `hub_email_change_challenges` is never dropped before `hub_sessions`; the
+  down path is not exercised by any test.

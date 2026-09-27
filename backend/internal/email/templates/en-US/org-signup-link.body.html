@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en-US">
+  <body>
+    <p>After the DNS record from the other email is published, use this private link to complete the Org signup for {{.Domain}}:</p>
+    <p><a href="{{.ActionURL}}">Complete Org signup</a></p>
+    <p>Do not forward this email. Anyone with this link can complete the signup and become the Org's first superadmin.</p>
+    <p>This link expires at {{.ExpiresAt.UTC.Format "02 Jan 2006 15:04 UTC"}}. If you did not ask for this signup, you can ignore this email.</p>
+  </body>
+</html>

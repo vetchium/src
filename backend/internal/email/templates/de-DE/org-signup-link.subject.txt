@@ -1,0 +1,1 @@
+Registrierung der Organisation für {{.Domain}} abschließen

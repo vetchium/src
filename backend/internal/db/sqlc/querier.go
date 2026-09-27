@@ -12,14 +12,22 @@ import (
 
 type Querier interface {
 	AbandonExpiredHubSignupCompletion(ctx context.Context, arg AbandonExpiredHubSignupCompletionParams) (AbandonExpiredHubSignupCompletionRow, error)
+	AbandonExpiredOrgSignupCompletion(ctx context.Context, arg AbandonExpiredOrgSignupCompletionParams) (AbandonExpiredOrgSignupCompletionRow, error)
 	ActivateHubProfilePicture(ctx context.Context, arg ActivateHubProfilePictureParams) (ActivateHubProfilePictureRow, error)
 	AddHubLanguageAbility(ctx context.Context, arg AddHubLanguageAbilityParams) (AddHubLanguageAbilityRow, error)
 	AdminTOTPEnabled(ctx context.Context, adminUserID pgtype.UUID) (bool, error)
 	ApplyHubProfileAlias(ctx context.Context, arg ApplyHubProfileAliasParams) (ApplyHubProfileAliasRow, error)
 	AuthenticateAdminSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateAdminSessionRow, error)
 	AuthenticateHubSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateHubSessionRow, error)
+	AuthenticateOrgSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateOrgSessionRow, error)
+	BeginOrgDomainReclaim(ctx context.Context, arg BeginOrgDomainReclaimParams) (bool, error)
+	// Suspends the Org locally before the global release is sent, so the Org is
+	// never treated as owning a domain the directory may already have released.
+	BeginOrgDomainRelease(ctx context.Context, arg BeginOrgDomainReleaseParams) (bool, error)
 	ChangeAdminPassword(ctx context.Context, arg ChangeAdminPasswordParams) (bool, error)
 	ChangeHubPassword(ctx context.Context, arg ChangeHubPasswordParams) (bool, error)
+	ChangeOrgPassword(ctx context.Context, arg ChangeOrgPasswordParams) (bool, error)
+	CheckOrgDomainAdmission(ctx context.Context, domain string) (CheckOrgDomainAdmissionRow, error)
 	// The worker passes a non-nil, possibly empty, exclusion slice. pgx v5
 	// encodes a nil Go slice as SQL NULL, and `x <> ALL (NULL)` is never true, so
 	// the COALESCE also guards a caller that does pass nil.
@@ -27,6 +35,7 @@ type Querier interface {
 	ClaimFederationOutboxEvent(ctx context.Context, leaseToken pgtype.UUID) (ClaimFederationOutboxEventRow, error)
 	ClaimHubEmail(ctx context.Context, arg ClaimHubEmailParams) (ClaimHubEmailRow, error)
 	ClaimHubProfilePictureDeletion(ctx context.Context, leaseToken pgtype.UUID) (ClaimHubProfilePictureDeletionRow, error)
+	ClaimOrgEmail(ctx context.Context, arg ClaimOrgEmailParams) (ClaimOrgEmailRow, error)
 	CompleteAdminPasswordReset(ctx context.Context, arg CompleteAdminPasswordResetParams) (bool, error)
 	CompleteAdminRecoveryCodeLogin(ctx context.Context, arg CompleteAdminRecoveryCodeLoginParams) (CompleteAdminRecoveryCodeLoginRow, error)
 	CompleteAdminSetup(ctx context.Context, arg CompleteAdminSetupParams) (CompleteAdminSetupRow, error)
@@ -41,12 +50,19 @@ type Querier interface {
 	CompleteHubSignup(ctx context.Context, arg CompleteHubSignupParams) (CompleteHubSignupRow, error)
 	CompleteHubTOTPLogin(ctx context.Context, arg CompleteHubTOTPLoginParams) (CompleteHubTOTPLoginRow, error)
 	CompleteIdempotency(ctx context.Context, arg CompleteIdempotencyParams) error
+	CompleteOrgDomainReclaim(ctx context.Context, arg CompleteOrgDomainReclaimParams) (bool, error)
+	CompleteOrgDomainRelease(ctx context.Context, arg CompleteOrgDomainReleaseParams) (bool, error)
+	CompleteOrgPasswordReset(ctx context.Context, arg CompleteOrgPasswordResetParams) (bool, error)
+	CompleteOrgRecoveryCodeLogin(ctx context.Context, arg CompleteOrgRecoveryCodeLoginParams) (CompleteOrgRecoveryCodeLoginRow, error)
+	CompleteOrgTOTPLogin(ctx context.Context, arg CompleteOrgTOTPLoginParams) (CompleteOrgTOTPLoginRow, error)
 	CompleteProvisioningHubUser(ctx context.Context, arg CompleteProvisioningHubUserParams) (CompleteProvisioningHubUserRow, error)
+	CompleteProvisioningOrg(ctx context.Context, arg CompleteProvisioningOrgParams) (CompleteProvisioningOrgRow, error)
 	ConfirmAdminTOTPEnrollment(ctx context.Context, arg ConfirmAdminTOTPEnrollmentParams) (bool, error)
 	// A taken address fails the whole statement on hub_users_email_address_key;
 	// the caller maps that unique violation to the unavailable-address problem.
 	ConfirmHubEmailChange(ctx context.Context, arg ConfirmHubEmailChangeParams) (ConfirmHubEmailChangeRow, error)
 	ConfirmHubTOTPEnrollment(ctx context.Context, arg ConfirmHubTOTPEnrollmentParams) (bool, error)
+	ConfirmOrgTOTPEnrollment(ctx context.Context, arg ConfirmOrgTOTPEnrollmentParams) (bool, error)
 	CreateAdminInvitation(ctx context.Context, arg CreateAdminInvitationParams) (CreateAdminInvitationRow, error)
 	CreateAdminLoginChallenge(ctx context.Context, arg CreateAdminLoginChallengeParams) (CreateAdminLoginChallengeRow, error)
 	CreateAdminPasswordReset(ctx context.Context, arg CreateAdminPasswordResetParams) (bool, error)
@@ -70,7 +86,15 @@ type Querier interface {
 	CreateHubWebsite(ctx context.Context, arg CreateHubWebsiteParams) (CreateHubWebsiteRow, error)
 	CreateHubWorkExperience(ctx context.Context, arg CreateHubWorkExperienceParams) (CreateHubWorkExperienceRow, error)
 	CreateIdempotency(ctx context.Context, arg CreateIdempotencyParams) error
+	CreateOrgLoginChallenge(ctx context.Context, arg CreateOrgLoginChallengeParams) (CreateOrgLoginChallengeRow, error)
+	CreateOrgPasswordReset(ctx context.Context, arg CreateOrgPasswordResetParams) (bool, error)
+	CreateOrgSession(ctx context.Context, arg CreateOrgSessionParams) (CreateOrgSessionRow, error)
+	CreateOrgSignupRequest(ctx context.Context, arg CreateOrgSignupRequestParams) (string, error)
+	CreateOrgTOTPEnrollment(ctx context.Context, arg CreateOrgTOTPEnrollmentParams) (CreateOrgTOTPEnrollmentRow, error)
 	CreateProvisioningHubUser(ctx context.Context, arg CreateProvisioningHubUserParams) (CreateProvisioningHubUserRow, error)
+	// The Org and its first superadmin stay non-loginable until the global
+	// activation succeeds.
+	CreateProvisioningOrg(ctx context.Context, arg CreateProvisioningOrgParams) (CreateProvisioningOrgRow, error)
 	DeleteAdminSession(ctx context.Context, arg DeleteAdminSessionParams) (int64, error)
 	DeleteAdminSessionByTokenHash(ctx context.Context, arg DeleteAdminSessionByTokenHashParams) (int64, error)
 	DeleteExpiredIdempotency(ctx context.Context, arg DeleteExpiredIdempotencyParams) error
@@ -82,6 +106,7 @@ type Querier interface {
 	DeleteHubWebsite(ctx context.Context, arg DeleteHubWebsiteParams) (DeleteHubWebsiteRow, error)
 	DeleteHubWorkExperience(ctx context.Context, arg DeleteHubWorkExperienceParams) (DeleteHubWorkExperienceRow, error)
 	DeleteIdempotency(ctx context.Context, arg DeleteIdempotencyParams) error
+	DeleteOrgSessionByTokenHash(ctx context.Context, arg DeleteOrgSessionByTokenHashParams) error
 	DisableAdminTOTP(ctx context.Context, arg DisableAdminTOTPParams) (bool, error)
 	// The update refuses to leave a tenant without an active administrator able to
 	// manage administrators, the state no remaining principal could undo. The
@@ -89,8 +114,13 @@ type Querier interface {
 	// predicate, so this stops a lockout reached any other way.
 	DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (string, error)
 	DisableHubTOTP(ctx context.Context, arg DisableHubTOTPParams) (bool, error)
+	DisableOrgTOTP(ctx context.Context, arg DisableOrgTOTPParams) (bool, error)
 	EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (string, error)
+	// A definite claim conflict means the signup can never succeed, so the
+	// request is retired with the operation.
+	FailOrgSignupCompletionDomainOwned(ctx context.Context, arg FailOrgSignupCompletionDomainOwnedParams) (FailOrgSignupCompletionDomainOwnedRow, error)
 	FindHubSignupForCompletion(ctx context.Context, tokenHash []byte) (FindHubSignupForCompletionRow, error)
+	FindOrgSignupForCompletion(ctx context.Context, tokenHash []byte) (FindOrgSignupForCompletionRow, error)
 	GetAdminLoginChallenge(ctx context.Context, tokenHash []byte) (GetAdminLoginChallengeRow, error)
 	GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) (GetAdminMyInfoRow, error)
 	GetAdminPasswordForReauthentication(ctx context.Context, arg GetAdminPasswordForReauthenticationParams) (string, error)
@@ -114,6 +144,17 @@ type Querier interface {
 	GetHubTOTPEnrollment(ctx context.Context, arg GetHubTOTPEnrollmentParams) (GetHubTOTPEnrollmentRow, error)
 	GetHubUserForLogin(ctx context.Context, emailAddress string) (GetHubUserForLoginRow, error)
 	GetIdempotency(ctx context.Context, arg GetIdempotencyParams) (GetIdempotencyRow, error)
+	GetOrgDomainForCheck(ctx context.Context, orgDid pgtype.UUID) (GetOrgDomainForCheckRow, error)
+	GetOrgLoginChallenge(ctx context.Context, tokenHash []byte) (GetOrgLoginChallengeRow, error)
+	GetOrgMyInfo(ctx context.Context, orgUserID pgtype.UUID) (GetOrgMyInfoRow, error)
+	GetOrgPasswordForReauthentication(ctx context.Context, arg GetOrgPasswordForReauthenticationParams) (string, error)
+	GetOrgSignupCompletion(ctx context.Context, operationID pgtype.UUID) (VetchiumOrgSignupCompletion, error)
+	GetOrgSignupCompletionByTokenHash(ctx context.Context, tokenHash []byte) (VetchiumOrgSignupCompletion, error)
+	GetOrgSignupDetails(ctx context.Context, tokenHash []byte) (GetOrgSignupDetailsRow, error)
+	GetOrgTOTPEnrollment(ctx context.Context, arg GetOrgTOTPEnrollmentParams) (GetOrgTOTPEnrollmentRow, error)
+	// A suspended Org's users can still sign in, to restore the domain. When a
+	// released domain was claimed by another local Org, the current owner wins.
+	GetOrgUserForLogin(ctx context.Context, arg GetOrgUserForLoginParams) (GetOrgUserForLoginRow, error)
 	HubAliasOperationPreflight(ctx context.Context, arg HubAliasOperationPreflightParams) (bool, error)
 	HubProfessionalEmailExistsForOwner(ctx context.Context, arg HubProfessionalEmailExistsForOwnerParams) (int32, error)
 	HubTOTPEnabled(ctx context.Context, hubUserDid pgtype.UUID) (bool, error)
@@ -122,6 +163,10 @@ type Querier interface {
 	IssueHubEmailChangeChallenge(ctx context.Context, arg IssueHubEmailChangeChallengeParams) (IssueHubEmailChangeChallengeRow, error)
 	IssueHubProfessionalEmailChallenge(ctx context.Context, arg IssueHubProfessionalEmailChallengeParams) (IssueHubProfessionalEmailChallengeRow, error)
 	ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) ([]ListAdminUsersRow, error)
+	// Domain re-verification. Every write is guarded by the state the caller
+	// read, so a scheduled check and a superadmin's check-now cannot both apply a
+	// stale result.
+	ListDueOrgDomains(ctx context.Context) ([]ListDueOrgDomainsRow, error)
 	ListHubProfessionalEmails(ctx context.Context, hubUserDid pgtype.UUID) ([]ListHubProfessionalEmailsRow, error)
 	ListHubSignupDomains(ctx context.Context, arg ListHubSignupDomainsParams) ([]ListHubSignupDomainsRow, error)
 	// Candidates for a subscription-ending warning: a paid plan with a scheduled
@@ -132,22 +177,33 @@ type Querier interface {
 	// lets one run walk multiple batches without re-selecting rows it already
 	// looked at, without needing to lock or mutate hub_users.
 	ListHubUsersWithEndingSubscriptions(ctx context.Context, arg ListHubUsersWithEndingSubscriptionsParams) ([]ListHubUsersWithEndingSubscriptionsRow, error)
+	ListOrgDomainsPastGrace(ctx context.Context, failingBefore pgtype.Timestamptz) ([]ListOrgDomainsPastGraceRow, error)
+	ListPendingOrgDomainCommands(ctx context.Context) ([]ListPendingOrgDomainCommandsRow, error)
 	ListRecoverableFederationOperations(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
 	ListRecoverableHubAliasChanges(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
 	ListRecoverableHubAliasReleases(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
 	ListRecoverableHubSignupCompletions(ctx context.Context) ([]VetchiumHubSignupCompletion, error)
+	ListRecoverableOrgSignupCompletions(ctx context.Context) ([]VetchiumOrgSignupCompletion, error)
+	LocalOrgDomainExists(ctx context.Context, domain string) (bool, error)
 	LockAdminEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
 	LockAdminUserCredentialMutation(ctx context.Context, adminUserID pgtype.UUID) (pgtype.UUID, error)
 	LockHubEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
 	LockHubSubscriptionForChange(ctx context.Context, hubUserDid pgtype.UUID) (LockHubSubscriptionForChangeRow, error)
 	LockHubUserCredentialMutation(ctx context.Context, hubUserDid pgtype.UUID) (pgtype.UUID, error)
 	LockIdempotency(ctx context.Context, dollar_1 string) error
+	LockOrgUserCredentialMutation(ctx context.Context, orgUserID pgtype.UUID) (pgtype.UUID, error)
 	MarkHubEmailFailed(ctx context.Context, arg MarkHubEmailFailedParams) (bool, error)
 	MarkHubEmailSent(ctx context.Context, arg MarkHubEmailSentParams) (bool, error)
 	MarkHubSignupCompletionReserved(ctx context.Context, arg MarkHubSignupCompletionReservedParams) (VetchiumHubSignupCompletion, error)
+	MarkOrgEmailFailed(ctx context.Context, arg MarkOrgEmailFailedParams) (bool, error)
+	MarkOrgEmailSent(ctx context.Context, arg MarkOrgEmailSentParams) (bool, error)
+	MarkOrgSignupCompletionReserved(ctx context.Context, arg MarkOrgSignupCompletionReservedParams) (MarkOrgSignupCompletionReservedRow, error)
+	OrgTOTPEnabled(ctx context.Context, orgUserID pgtype.UUID) (bool, error)
+	OrgUserHoldsPermission(ctx context.Context, arg OrgUserHoldsPermissionParams) (bool, error)
 	PingDatabase(ctx context.Context) (PingDatabaseRow, error)
 	PrepareHubProfilePictureUpload(ctx context.Context, arg PrepareHubProfilePictureUploadParams) (PrepareHubProfilePictureUploadRow, error)
 	PrepareHubSignupCompletion(ctx context.Context, arg PrepareHubSignupCompletionParams) (PrepareHubSignupCompletionRow, error)
+	PrepareOrgSignupCompletion(ctx context.Context, arg PrepareOrgSignupCompletionParams) (PrepareOrgSignupCompletionRow, error)
 	// Outbox ciphertext is retained no longer than the maximum usable lifetime of
 	// the credential it contains, whether delivery succeeded or not.
 	PruneAdminEmailOutbox(ctx context.Context, tenantID string) (int64, error)
@@ -162,9 +218,16 @@ type Querier interface {
 	PruneExpiredFederationOperations(ctx context.Context) (int64, error)
 	PruneExpiredHubSignupCompletions(ctx context.Context) (int64, error)
 	PruneExpiredIdempotency(ctx context.Context) (int64, error)
+	PruneExpiredOrgSignupCompletions(ctx context.Context, tenantID string) (int64, error)
+	// Deletes at most one batch per table and run, like administrator
+	// housekeeping, so a backlog cannot monopolize the database.
+	// Outbox ciphertext can contain a signup or reset link, so it is kept only
+	// for a day after delivery ends, whether it succeeded or not.
+	PruneOrgEphemeralData(ctx context.Context, tenantID string) (int64, error)
 	QueueExpiredHubProfilePictureUploads(ctx context.Context, tenantID string) (int32, error)
 	ReauthenticateAdminSession(ctx context.Context, arg ReauthenticateAdminSessionParams) (pgtype.Timestamptz, error)
 	ReauthenticateHubSession(ctx context.Context, arg ReauthenticateHubSessionParams) (pgtype.Timestamptz, error)
+	ReauthenticateOrgSession(ctx context.Context, arg ReauthenticateOrgSessionParams) (pgtype.Timestamptz, error)
 	RecordFederationCommandResult(ctx context.Context, arg RecordFederationCommandResultParams) (VetchiumFederationCommandLedger, error)
 	RecordFederationInboxReceipt(ctx context.Context, arg RecordFederationInboxReceiptParams) (VetchiumFederationInbox, error)
 	RecordFederationOperationRetry(ctx context.Context, arg RecordFederationOperationRetryParams) (int64, error)
@@ -174,8 +237,20 @@ type Querier interface {
 	// no-op: when the notice already exists, the outbox and audit CTEs have
 	// nothing to select from and queued comes back false.
 	RecordHubSubscriptionExpiryNotice(ctx context.Context, arg RecordHubSubscriptionExpiryNoticeParams) (bool, error)
+	// Reaching the failure threshold moves a verified domain to failing and
+	// queues one notice to each active superadmin in the same transaction, so the
+	// notice is sent exactly once per failing period.
+	RecordOrgDomainAbsent(ctx context.Context, arg RecordOrgDomainAbsentParams) (RecordOrgDomainAbsentRow, error)
+	RecordOrgDomainInconclusive(ctx context.Context, arg RecordOrgDomainInconclusiveParams) (bool, error)
+	RecordOrgDomainPresent(ctx context.Context, arg RecordOrgDomainPresentParams) (bool, error)
+	RecordOrgSignupCompletionRetry(ctx context.Context, arg RecordOrgSignupCompletionRetryParams) error
+	// A released domain holds no claim, so a missing record only reschedules the
+	// next attempt to restore it.
+	RecordReleasedOrgDomainAbsent(ctx context.Context, arg RecordReleasedOrgDomainAbsentParams) (bool, error)
 	RegenerateAdminTOTPRecoveryCodes(ctx context.Context, arg RegenerateAdminTOTPRecoveryCodesParams) (bool, error)
 	RegenerateHubTOTPRecoveryCodes(ctx context.Context, arg RegenerateHubTOTPRecoveryCodesParams) (bool, error)
+	RegenerateOrgTOTPRecoveryCodes(ctx context.Context, arg RegenerateOrgTOTPRecoveryCodesParams) (bool, error)
+	RejectOrgDomainReclaim(ctx context.Context, arg RejectOrgDomainReclaimParams) (bool, error)
 	RemoveHubProfilePicture(ctx context.Context, arg RemoveHubProfilePictureParams) (RemoveHubProfilePictureRow, error)
 	ResolveAdminLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveAdminPasswordResetUser(ctx context.Context, resetTokenHash []byte) (pgtype.UUID, error)
@@ -183,6 +258,8 @@ type Querier interface {
 	ResolveHubLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveHubPasswordResetUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveHubSignupForCompletion(ctx context.Context, tokenHash []byte) (ResolveHubSignupForCompletionRow, error)
+	ResolveOrgLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
+	ResolveOrgPasswordResetUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	// Call before ActivateHubProfilePicture in the same transaction. PostgreSQL
 	// does not order sibling data-modifying CTEs, so a single statement cannot
 	// reliably vacate the active-user unique index before activating the new row.
@@ -197,6 +274,7 @@ type Querier interface {
 	// unnest arrays would read worse with eight state columns.
 	SaveHubSubscriptionStates(ctx context.Context, arg SaveHubSubscriptionStatesParams) (SaveHubSubscriptionStatesRow, error)
 	ScheduleHubEmailRetry(ctx context.Context, arg ScheduleHubEmailRetryParams) (bool, error)
+	ScheduleOrgEmailRetry(ctx context.Context, arg ScheduleOrgEmailRetryParams) (bool, error)
 	SetAdminDisplayName(ctx context.Context, arg SetAdminDisplayNameParams) (int64, error)
 	// Refused when the replacement would remove the last active administrator
 	// able to manage administrators, which no remaining principal could undo. A

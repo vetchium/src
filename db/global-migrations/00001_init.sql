@@ -160,6 +160,98 @@ CREATE TRIGGER hub_principals_enforce_transition
 BEFORE UPDATE ON vetchium.hub_principals
 FOR EACH ROW EXECUTE FUNCTION vetchium.enforce_principal_transition();
 
+CREATE TABLE vetchium.org_principals (
+    org_did uuid PRIMARY KEY,
+    home_tenant_id text NOT NULL,
+    state vetchium.global_principal_state NOT NULL,
+    routing_version bigint NOT NULL DEFAULT 1,
+    directory_version bigint NOT NULL DEFAULT 1,
+    provisioning_operation_id uuid NOT NULL UNIQUE,
+    provisioning_expires_at timestamptz,
+    activated_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_principals_did_uuidv7_check CHECK (
+        substring(org_did::text FROM 15 FOR 1) = '7'
+    ),
+    CONSTRAINT org_principals_home_tenant_check CHECK (
+        home_tenant_id ~ '^[a-z][a-z0-9]{2,15}$'
+    ),
+    CONSTRAINT org_principals_routing_version_check CHECK (
+        routing_version > 0
+    ),
+    CONSTRAINT org_principals_directory_version_check CHECK (
+        directory_version > 0
+    ),
+    CONSTRAINT org_principals_state_check CHECK (
+        (state = 'provisioning'
+            AND provisioning_expires_at IS NOT NULL
+            AND provisioning_expires_at > created_at
+            AND activated_at IS NULL)
+        OR (state = 'active'
+            AND provisioning_expires_at IS NULL
+            AND activated_at IS NOT NULL
+            AND activated_at >= created_at)
+    ),
+    CONSTRAINT org_principals_timestamps_check CHECK (
+        updated_at >= created_at
+    )
+);
+
+-- Exact domains, so eu.example.com and example.com are independent claims.
+-- A row exists only while its Org owns the domain; releasing deletes it and
+-- the domain becomes claimable again.
+CREATE TABLE vetchium.org_domains (
+    domain text PRIMARY KEY,
+    org_did uuid NOT NULL REFERENCES vetchium.org_principals (org_did),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_domains_domain_check CHECK (
+        domain = lower(btrim(domain)) AND
+        char_length(domain) BETWEEN 3 AND 253 AND
+        domain ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$' AND
+        domain ~ '\.[a-z0-9-]*[a-z][a-z0-9-]*$'
+    )
+);
+
+-- An Org has exactly one domain in this version. Allowing several later means
+-- dropping this constraint and adding a primary-domain marker.
+CREATE UNIQUE INDEX org_domains_one_per_org_idx
+    ON vetchium.org_domains (org_did);
+
+-- +goose StatementBegin
+CREATE FUNCTION vetchium.enforce_org_principal_transition()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.org_did <> OLD.org_did OR
+       NEW.provisioning_operation_id <> OLD.provisioning_operation_id OR
+       NEW.created_at <> OLD.created_at THEN
+        RAISE EXCEPTION 'immutable global Org principal identity changed';
+    END IF;
+    IF OLD.state = 'active' AND NEW.state <> 'active' THEN
+        RAISE EXCEPTION 'an active Org principal cannot return to provisioning';
+    END IF;
+    IF NEW.home_tenant_id IS DISTINCT FROM OLD.home_tenant_id THEN
+        IF OLD.state <> 'active' OR NEW.state <> 'active' OR
+           NEW.routing_version <> OLD.routing_version + 1 THEN
+            RAISE EXCEPTION 'tenant handover must increment the active route version once';
+        END IF;
+    ELSIF NEW.routing_version <> OLD.routing_version THEN
+        RAISE EXCEPTION 'route version changed without a tenant handover';
+    END IF;
+    IF NEW.directory_version < OLD.directory_version THEN
+        RAISE EXCEPTION 'directory version must not decrease';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+-- +goose StatementEnd
+
+CREATE TRIGGER org_principals_enforce_transition
+BEFORE UPDATE ON vetchium.org_principals
+FOR EACH ROW EXECUTE FUNCTION vetchium.enforce_org_principal_transition();
+
 CREATE TABLE vetchium.global_audit_events (
     global_audit_event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     action text NOT NULL,
@@ -219,6 +311,9 @@ DROP TABLE IF EXISTS vetchium.global_outbox_events;
 DROP TABLE IF EXISTS vetchium.global_command_ledger;
 DROP TABLE IF EXISTS vetchium.global_audit_events;
 DROP TABLE IF EXISTS vetchium.hub_profile_slugs;
+DROP TABLE IF EXISTS vetchium.org_domains;
+DROP TABLE IF EXISTS vetchium.org_principals;
+DROP FUNCTION IF EXISTS vetchium.enforce_org_principal_transition();
 DROP FUNCTION IF EXISTS vetchium.protect_permanent_handle();
 DROP TABLE IF EXISTS vetchium.hub_principals;
 DROP FUNCTION IF EXISTS vetchium.enforce_principal_transition();
