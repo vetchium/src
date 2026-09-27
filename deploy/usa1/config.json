@@ -73,6 +73,7 @@
   },
   "orgsAPIServer": {
     "sessionTTL": "24h",
+    "signupTTL": "168h",
     "publicBaseURL": "https://orgs.usa1.vetchium.com"
   },
   "orgDomainVerification": {

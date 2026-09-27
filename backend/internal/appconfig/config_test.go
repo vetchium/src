@@ -399,6 +399,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
   },
   "orgsAPIServer": {
     "sessionTTL": "12h",
+    "signupTTL": "168h",
     "publicBaseURL": "http://orgs-ui.sgp.localhost/"
   },
   "orgDomainVerification": {
@@ -766,6 +767,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
   },
   "orgsAPIServer": {
     "sessionTTL": "12h",
+    "signupTTL": "168h",
     "publicBaseURL": "http://orgs-ui.sgp.localhost/"
   },
   "orgDomainVerification": {

@@ -19,6 +19,7 @@ func TestLoadFileParsesOrgSettings(t *testing.T) {
 	if cfg.OrgsAPIServer != (OrgsAPIServer{
 		Signup:        regions.Admission{Enabled: true},
 		SessionTTL:    12 * time.Hour,
+		SignupTTL:     168 * time.Hour,
 		PublicBaseURL: "http://orgs-ui.sgp.localhost",
 	}) {
 		t.Fatalf("orgs API config = %+v", cfg.OrgsAPIServer)
@@ -69,6 +70,10 @@ func TestLoadFileRejectsInvalidOrgSettings(t *testing.T) {
 			"missing orgsAPIServer.sessionTTL",
 		},
 		{
+			"missing orgs signup TTL", `"signupTTL": "168h",`, ``,
+			"missing orgsAPIServer.signupTTL",
+		},
+		{
 			"non-positive orgs session TTL", `"sessionTTL": "12h"`,
 			`"sessionTTL": "0s"`, "orgsAPIServer.sessionTTL must be positive",
 		},
@@ -105,6 +110,7 @@ func TestLoadFileRejectsInvalidOrgSettings(t *testing.T) {
 			"missing orgs section",
 			`"orgsAPIServer": {
     "sessionTTL": "12h",
+    "signupTTL": "168h",
     "publicBaseURL": "http://orgs-ui.sgp.localhost/"
   },`, ``,
 			"missing orgsAPIServer",

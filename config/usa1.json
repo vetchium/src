@@ -75,6 +75,7 @@
   },
   "orgsAPIServer": {
     "sessionTTL": "24h",
+    "signupTTL": "168h",
     "publicBaseURL": "http://orgs-ui.usa1.localhost",
     "signup": {
       "enabled": true

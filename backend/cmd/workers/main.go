@@ -5,11 +5,16 @@ import (
 
 	"backend/internal/appconfig"
 	"backend/internal/db"
+	dbsqlc "backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
+	"backend/internal/dnsverify"
 	"backend/internal/email"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/hub/signupcompletion"
 	"backend/internal/objectstorage"
+	orgsauthn "backend/internal/orgs/auth"
+	"backend/internal/orgs/domainverification"
+	orgsignup "backend/internal/orgs/signupcompletion"
 	"backend/internal/service"
 	"backend/internal/workers"
 )
@@ -97,6 +102,41 @@ func run(log *slog.Logger) error {
 		},
 		signupRecovery,
 	)
+	orgsCredentialSecret, err := appconfig.OrgsCredentialSecret()
+	if err != nil {
+		return err
+	}
+	orgsCredentialKey := orgsauthn.DeriveCredentialKey(
+		cfg.TenantID, orgsCredentialSecret,
+	)
+	orgRenderer, err := email.NewOrgRenderer()
+	if err != nil {
+		return err
+	}
+	verification := cfg.OrgDomainVerification
+	checker := dnsverify.New(
+		verification.ResolverAddress, verification.LookupTimeout,
+	)
+	orgOutboxKey := orgsauthn.DeriveCredentialSubkey(orgsCredentialKey, "outbox")
+	worker.EnableOrgs(cfg.Workers, workers.OrgWork{
+		Email: workers.OrgEmailDelivery{
+			Renderer: orgRenderer, Sender: sender, OutboxKey: orgOutboxKey,
+			LeaseTTL:    cfg.Workers.OrgEmailLeaseTTL,
+			MaxAttempts: cfg.Workers.OrgEmailMaxAttempts,
+		},
+		Signup: orgsignup.New(
+			pool, directory, checker, cfg.TenantID,
+			orgsauthn.DeriveCredentialSubkey(
+				orgsCredentialKey, "signup-provisioning",
+			),
+			verification.CheckInterval, nil,
+		),
+		Domains: domainverification.New(
+			dbsqlc.New(pool), directory, checker,
+			domainverification.PolicyFrom(verification), cfg.TenantID,
+			orgOutboxKey, log,
+		),
+	})
 	worker.EnablePictureDeletion(pictures)
 	worker.EnableAliasOperations(directory)
 	worker.Run(ctx)

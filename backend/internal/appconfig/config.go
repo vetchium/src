@@ -91,6 +91,7 @@ type HubAPIServer struct {
 type OrgsAPIServer struct {
 	Signup        regions.Admission
 	SessionTTL    time.Duration
+	SignupTTL     time.Duration
 	PublicBaseURL string
 }
 
@@ -253,6 +254,7 @@ type fileHubAPIServer struct {
 type fileOrgsAPIServer struct {
 	Signup        *regions.Admission `json:"signup"`
 	SessionTTL    string             `json:"sessionTTL"`
+	SignupTTL     string             `json:"signupTTL"`
 	PublicBaseURL string             `json:"publicBaseURL"`
 }
 
@@ -861,6 +863,12 @@ func parseOrgsAPIServer(raw fileOrgsAPIServer) (OrgsAPIServer, error) {
 	if err != nil {
 		return OrgsAPIServer{}, err
 	}
+	signupTTL, err := positiveDuration(
+		"orgsAPIServer.signupTTL", raw.SignupTTL,
+	)
+	if err != nil {
+		return OrgsAPIServer{}, err
+	}
 	publicBaseURL, err := httpOrigin(
 		"orgsAPIServer.publicBaseURL", raw.PublicBaseURL,
 	)
@@ -870,6 +878,7 @@ func parseOrgsAPIServer(raw fileOrgsAPIServer) (OrgsAPIServer, error) {
 	return OrgsAPIServer{
 		Signup:        admission,
 		SessionTTL:    sessionTTL,
+		SignupTTL:     signupTTL,
 		PublicBaseURL: publicBaseURL,
 	}, nil
 }

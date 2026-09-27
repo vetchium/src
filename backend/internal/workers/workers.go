@@ -39,6 +39,8 @@ type Worker struct {
 	subscriptionTransactions  subscriptionTransactions
 	hubSubscriptionNow        func() time.Time
 	subscriptionExpiryQueries subscriptionExpiryQueries
+	orgQueries                orgEmailQueries
+	orgs                      *orgJobs
 	hubSubscriptionExpiryNow  func() time.Time
 	log                       *slog.Logger
 	tenantID                  string
@@ -70,6 +72,7 @@ func New(
 		aliasChangeDB:             db,
 		aliasChangeQueries:        queries,
 		subscriptionExpiryQueries: queries,
+		orgQueries:                queries,
 	}
 	w.jobs = []periodicJob{
 		{
