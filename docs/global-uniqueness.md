@@ -877,11 +877,12 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
       email-change-saga paragraph; the professional-email paragraph
       GU-PEM-008 asked for is dropped), and `agent-guides/glossary.md`
       (*Account email* and *Identity digest*) are all updated.
-- [ ] `make test` green
+- [x] `make test` green
 
 ## 10. Progress log
 
-**Current milestone:** M4 is complete and verified against a live CI stack.
+**Current milestone:** complete. M1–M4 and M6 (account-email scope) are
+verified by a green full `make test` (402 Playwright tests passed).
 M5 (professional email claims) was fully implemented, then reverted whole:
 the product owner decided against global uniqueness for professional emails
 after the M5 commits landed (see §1's "Dropped" note for the rationale).
@@ -1332,11 +1333,7 @@ audited separately under the operation's own key. All 6 cases in
    before, so this was a silent gap since M2, not a regression from the M5
    scope change.
 
-**Exact next step:** run `make fmt` then a full `make test` (long-running:
-the CI Docker stack plus every Playwright spec) and confirm it exits 0; then
-mark every remaining §9 checkbox (only "`make test` green" itself), set
-"Current milestone" below to "complete", and commit everything in this
-session as the final M6 checkpoint.
+**Exact next step:** none; the plan is complete.
 
 **Known failing tests / open issues:** none identified by static checks.
 Every targeted `go test` passes (including `-race` on `emailchange` and
