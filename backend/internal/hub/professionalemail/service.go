@@ -674,7 +674,11 @@ func (s *Service) SyncSupersessions(ctx context.Context) (SyncResult, error) {
 // email rows and repairs any that the coordinator no longer agrees this
 // tenant's user holds (GU-PEM-009).
 func (s *Service) SweepHoldings(ctx context.Context) error {
-	var after pgtype.UUID
+	// An all-zero but Valid UUID sorts before every real generated one; a
+	// zero-value (Valid: false) pgtype.UUID would encode as SQL NULL, and
+	// "professional_email_id > NULL" is never true, which would silently
+	// skip every row on the first page.
+	after := pgtype.UUID{Valid: true}
 	for {
 		rows, err := s.queries.ListVerifiedHubProfessionalEmailsForHoldingsSweep(
 			ctx, sqlc.ListVerifiedHubProfessionalEmailsForHoldingsSweepParams{
