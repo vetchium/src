@@ -1085,10 +1085,11 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
       deliberately not written for these tables; see §10.
 - [x] GU-DIR-001..011
 - [x] GU-SIG-001..007
-- [x] GU-ECH-001..006 (incl. 002a) — schema, queries, `emailchange` service
-      and worker, handlers, contracts, and integration tests (including the
-      concurrent-`Advance` race) all against a live Postgres.
-      [ ] GU-ECH-007 (hub-ui polling not started).
+- [x] GU-ECH-001..007 (incl. 002a) — schema, queries, `emailchange` service
+      and worker, handlers, contracts, integration tests (including the
+      concurrent-`Advance` race) all against a live Postgres, and the
+      hub-ui poll/replay flow. Playwright coverage (§4.2/§4.3) is M6 scope
+      per the plan's own file list, not part of this checkbox.
 - [ ] GU-PEM-001..009
 - [x] GU-CFG-001, partially: `reconcileHubEmailChangeTimer` (the
       email-change worker's timer) is added to config end to end; the
@@ -1108,14 +1109,20 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
 
 ## 10. Progress log
 
-**Current milestone:** M4 (account email change durable operation) nearly
-done. Schema, queries, the `emailchange` service and worker, the handlers,
-the TypeSpec contracts, and the integration tests (including the
-concurrent-`Advance` race test GU-ECH-003 calls for, stable under `-race`
-and repeated runs) are all done, committed, and build/vet/test clean.
-Remaining for M4: the hub-ui polling flow (GU-ECH-007), and updating
-`agent-guides/hub-profile.md`/`docs/hub-profile.md`/`glossary.md`. See
-"What M4 actually implemented so far" and "Exact next step" below.
+**Current milestone:** M4 (account email change durable operation) complete.
+Schema, queries, the `emailchange` service and worker, the handlers, the
+TypeSpec contracts (`.tsp`/`.go`/`.ts` companions), the integration tests
+(including the concurrent-`Advance` race test GU-ECH-003 calls for, stable
+under `-race` and repeated runs), and the hub-ui poll/replay flow are all
+done, committed, and build/vet/test clean (`go build`, `go vet`,
+`gofmt -l .`, `make sql-check`, `make typespec-check`, `make hub-ui-check`
+all pass). `agent-guides/hub-profile.md`/`docs/hub-profile.md`/`glossary.md`
+have no stale email-change content to fix today (grepped: neither guide
+mentions the old synchronous `ConfirmHubEmailChange` design), so their
+GU-ECH-specific updates are deferred to M6's documentation pass alongside
+M5's, per the plan's own M6 file list. Starting M5 (professional email
+claims) next. See "What M4 actually implemented so far" below for the full
+M4 record, and "Exact next step" for where M5 begins.
 
 **Design decisions already validated against a real disposable PostgreSQL
 container** (a scratch `postgres:17-alpine` container, not part of the repo;
@@ -1426,41 +1433,104 @@ or a later run's notice-count assertion inflates from a previous run's
 leftover rows (hit this directly: the concurrency test's assertion counted
 6 accumulated rows before the cleanup was added).
 
-**Exact next step:** Finish M4. In order:
+**Exact next step:** Start M5 (professional email claims). Read plan §3.6 in
+full again before touching files; it is denser than GU-ECH. In order:
 
-1. hub-ui: extend the account security email card for the `202`/poll/replay
-   flow (GU-ECH-007) — poll `/api/hub/operations/status`, then replay
-   confirm with the same idempotency key; "Applying your new email…" while
-   pending; i18n in all locales. Reuse whatever helper the alias editor uses
-   client-side, if one exists (check `hub-ui/src/pages` and `portal-ui` for
-   an existing alias-change polling helper before writing a new one).
-2. Update `agent-guides/hub-profile.md` (or wherever email-change is
-   documented today) and `docs/todo.md` if any M4-specific follow-up is
-   discovered; `docs/hub-profile.md`/`glossary.md` updates can wait for M6's
-   documentation pass unless M4 introduces a new term.
-3. Commit M4 with a §9/§10 update, then start M5 (professional email
-   claims) per plan §3.6, applying the same `AccountEmailDigester`-local-
-   interface pattern for `professionalemail` and the same
-   `ResolveFederationOperation`-reuse pattern for terminal transitions.
+1. Schema (GU-PEM-001), `db/migrations/00001_init.sql`: add to
+   `hub_professional_emails` — `email_digest bytea NOT NULL CHECK
+   (octet_length = 32)`, `claim_revision bigint NULL`,
+   `superseded_revision bigint NOT NULL DEFAULT 0`,
+   `superseded_at timestamptz NULL`, plus the
+   `CHECK ((superseded_at IS NOT NULL) = (claim_revision IS NOT NULL AND
+   superseded_revision >= claim_revision))` constraint. New
+   `global_feed_watermarks (feed text PRIMARY KEY, last_seq bigint NOT NULL
+   CHECK (last_seq >= 0))` table. **Grep every existing query that reads
+   `last_verified_at`/`first_verified_at`** (`backend/internal/db/queries/hub_profile_private.sql`
+   and any handler using it directly) and update each to the
+   `last_verified_at IS NOT NULL AND superseded_at IS NULL` predicate GU-PEM-001
+   specifies as the one true "is this verified" check.
+2. `VerifyProfessionalEmailChallenge`-equivalent query (GU-PEM-002): find its
+   current name in `hub_profile_private.sql` first (it may not be called
+   exactly that). Change it so a correct code no longer sets verification
+   times directly; it consumes the challenge, inserts a
+   `federation_operations` row (`kind = 'hub-professional-email-claim'`,
+   payload `{HubUserDID, ProfessionalEmailID, EmailDigest}`), and audits
+   `hub.profile.professional-email-proof-accepted`. Add the partial unique
+   index fencing one pending claim op per professional email row (mirrors
+   `hub_account_email_changes_one_live`'s shape but keyed on aggregate_id +
+   kind + pending state instead of hub_user_did).
+3. New `backend/internal/hub/professionalemail/` package: `Start`/`Advance`
+   mirroring `emailchange`'s shape (same `AccountEmailDigester`-local-
+   interface pattern, same `ResolveFederationOperation`-reuse for terminal
+   transitions), but GU-PEM-003's `ApplyHubProfessionalEmailClaim` has three
+   outcomes per revision-fencing (verified/outdated/row-deleted-so-enqueue-
+   release), not a fixed linear state machine like `hub_account_email_changes`
+   — read GU-PEM-003 closely before designing the SQL, it is the trickiest
+   part of M5.
+4. GU-PEM-005 (delete enqueues a release op in the same statement, gated on
+   `claim_revision IS NOT NULL AND superseded_at IS NULL`) and its worker.
+5. GU-PEM-006 (`sync_hub_professional_email_supersessions.go` worker: pulls
+   GU-DIR-009's feed, applies `SupersedeHubProfessionalEmail`, advances the
+   watermark) and GU-PEM-009 (`complete_hub_professional_email_claims.go`'s
+   sibling holdings-sweep worker calling GU-DIR-011). Both need the three new
+   `appconfig.Workers` timers from GU-CFG-001
+   (`CompleteHubProfessionalEmailClaimsTimer`,
+   `SyncHubProfessionalEmailSupersessionsTimer`,
+   `SweepHubProfessionalEmailHoldingsTimer`) plus
+   `CompleteHubEmailChangesTimer` if that one was named differently from the
+   `reconcileHubEmailChangeTimer` this session already added under M4 — check
+   and reconcile the name against GU-CFG-001's literal wording before adding
+   three more, to avoid two config keys for the same timer.
+6. Contracts: `typespec/hub/profile/professional_email.*` gains `202
+   PendingOperation` on verify, and `ProfessionalEmail` gains optional
+   `superseded_at`. Update `.tsp`, `.go`, **and `.ts`** every time (M4 missed
+   the `.ts` companion once already this session — see the deviation note
+   below — double check all three every time from now on).
+7. hub-ui professional email card: show a superseded row as "Verification
+   moved to another account" with a reverify action, never "valid"/"invalid"
+   wording (PROF-WEM-008), never naming the new holder.
+8. `docs/hub-profile.md` §5 (continue the PROF-WEM numbering) and
+   `agent-guides/hub-profile.md`, per GU-PEM-007.
+9. `agent-guides/federation.md`: record GU-PEM-008's design note (pull feed,
+   not push; the three safety properties).
+10. Tests: `professionalemail` service/worker tests per §4.1's list (first
+    claim, reverify bumps revision, transfer's supersession, conditional
+    release, the "claim response delayed past a supersession" outdated case,
+    the row-deleted-so-release-enqueued case), plus a concurrent-supersession-
+    feed-ordering test if not already adequately covered by M2's
+    `globaldirectory` version of that test (it covers the coordinator side;
+    M5 needs the tenant-side apply-and-ack loop covered too).
+11. Commit M5 with a §9/§10 update, then M6: hub-ui polish, Playwright API/UI
+    tests (§4.2/§4.3 — this is where the GU-ECH Playwright specs from §4.2
+    deferred during M4 belong too), the remaining doc passes, and finally a
+    full `make test` run (long-running; run with a long timeout or in the
+    background).
 
-**Known failing tests / open issues:** none in what exists so far — every
-targeted `go test` passes (including `-race` on `emailchange` and
-`internal/architecture`, which confirms `identitydigest` still does not leak
-into `global-coordinator`/`mesh-api` via `emailchange`), and `go build`,
-`go vet`, `gofmt -l .`, and `make sql-check` are all clean. Not yet done for
-M4: the hub-ui polling flow (item 1 above) — `make test` will not be
-meaningful until at least that lands, since Playwright would otherwise
-exercise a confirm-email-change flow the backend can now answer with `202`
-in ways the current UI doesn't handle. `make test` (the full gate, including
-the CI docker stack and Playwright) has not been run; far too much of the
-plan remains unimplemented for it to be meaningful yet, and it is a
-long-running command better run once near the end
-of M6. Open gap carried from M2: no `backend/handlers/mesh/directory_test.go`
-exists (pre-existing condition, not introduced by this plan) — see the M2
-summary below.
+**Known failing tests / open issues:** none in what exists so far for M1-M4 —
+every targeted `go test` passes (including `-race` on `emailchange` and
+`internal/architecture`), and `go build`, `go vet`, `gofmt -l .`,
+`make sql-check`, `make typespec-check`, and `make hub-ui-check` are all
+clean. `make test` (the full gate, including the CI docker stack and
+Playwright) has not been run; M5 is entirely unimplemented and M6's
+Playwright/doc work has not started, so it would not be meaningful yet, and
+it is a long-running command better run once near the end of M6. Open gap
+carried from M2: no `backend/handlers/mesh/directory_test.go` exists
+(pre-existing condition, not introduced by this plan) — see the M2 summary
+below.
 
 **Deviations from the plan (M4, in addition to the M1/M2/M3 ones below):**
 
+- Not a plan deviation but a process mistake worth flagging for M5: the first
+  M4 commit added `HubEmailChangeInProgressError`/`HubEmailChangeUnavailableError`
+  to `typespec/problem/hub/email.tsp` and `.go` but missed the `.ts`
+  companion (`typespec/problem/hub/email.ts`), because `make sql-check`/
+  `go build`/`go vet` all stay green without it — nothing in the Go toolchain
+  notices a missing TS file. It was only caught while wiring hub-ui's
+  `APIErrorAlert`, which imports the TS constant directly. `make typespec-check`
+  (specifically `npm run typecheck`) would have caught it immediately had it
+  been run right after the `.tsp`/`.go` edit instead of only once hub-ui
+  needed it. **For every M5 TypeSpec change, run `make typespec-check` in the
+  same commit's verification pass, not just `go build`.**
 - `FailHubAccountEmailChangeDirectly`, `MarkHubAccountEmailChangeSucceeded`,
   and `MarkHubAccountEmailChangeFailed` do not themselves resolve the
   sibling `federation_operations` row "in one statement" as plan wording
