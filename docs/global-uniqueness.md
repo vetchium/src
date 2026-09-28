@@ -1085,10 +1085,10 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
       deliberately not written for these tables; see §10.
 - [x] GU-DIR-001..011
 - [x] GU-SIG-001..007
-- [x] GU-ECH-001..004, 002a, 006 (schema, queries, `emailchange` service,
-      worker, handlers, contracts). [ ] GU-ECH-005 (replay-typed-result
-      responses done; not yet re-verified against a live Postgres
-      integration test), [ ] GU-ECH-007 (hub-ui polling not started).
+- [x] GU-ECH-001..006 (incl. 002a) — schema, queries, `emailchange` service
+      and worker, handlers, contracts, and integration tests (including the
+      concurrent-`Advance` race) all against a live Postgres.
+      [ ] GU-ECH-007 (hub-ui polling not started).
 - [ ] GU-PEM-001..009
 - [x] GU-CFG-001, partially: `reconcileHubEmailChangeTimer` (the
       email-change worker's timer) is added to config end to end; the
@@ -1108,12 +1108,12 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
 
 ## 10. Progress log
 
-**Current milestone:** M4 (account email change durable operation) in
-progress. Schema, queries, the `emailchange` service and worker, the
-handlers, and the TypeSpec contracts are done and build/vet/unit-test clean.
-Remaining for M4: the `emailchange` package's own state-machine tests
-against a live Postgres (including the concurrent-`Advance` race test
-GU-ECH-003 calls for), the hub-ui polling flow (GU-ECH-007), and updating
+**Current milestone:** M4 (account email change durable operation) nearly
+done. Schema, queries, the `emailchange` service and worker, the handlers,
+the TypeSpec contracts, and the integration tests (including the
+concurrent-`Advance` race test GU-ECH-003 calls for, stable under `-race`
+and repeated runs) are all done, committed, and build/vet/test clean.
+Remaining for M4: the hub-ui polling flow (GU-ECH-007), and updating
 `agent-guides/hub-profile.md`/`docs/hub-profile.md`/`glossary.md`. See
 "What M4 actually implemented so far" and "Exact next step" below.
 
@@ -1397,48 +1397,64 @@ the commit message for the exact list) plus this log update.
   `internal/appconfig`, `internal/architecture` (confirms the
   identitydigest boundary still holds) all green.
 
+**What M4's test pass added:** `backend/internal/hub/emailchange/service_integration_test.go`
+(new): `fakeDirectory`/`fakeDigester` doubles mirroring
+`signupcompletion/service_test.go`'s convention; `seedHubUser`/`seedChallenge`/
+`seedReservedChange` fixtures against `TENANT_DATABASE_URL`. Covers the happy
+path to `succeeded`; wrong code (rejects, no operation row created);
+`address_unavailable` at reserve time; `reservation_expired` at reserve time;
+idempotent replay of an accepted change after a transient finalize failure
+(`ErrPending` then, on retry with the same idempotency key, `Completed`);
+refusing a second confirm while a change is already live
+(`hub_account_email_changes_one_live`). Plus the GU-ECH-003 concurrency test:
+two goroutines call `Advance` on the same seeded `'reserved'` row at once;
+`ApplyHubAccountEmailChange`'s `FOR UPDATE` plus its `state = 'reserved'`
+guard means the loser's statement re-evaluates its `WHERE` after waiting for
+the lock and gets zero rows (`pgx.ErrNoRows`), so it falls through to
+`reget` and keeps advancing the now-`applied` row instead of double-applying
+or erroring — both goroutines converge to `Completed`. Asserted: exactly one
+`email-changed` outbox notice, and the address changes exactly once.
+Verified stable across five repeated runs and under `go test -race`.
+**Test-fixture gotchas hit and fixed**: `hub_users.hub_user_did` must be a
+UUIDv7 (`dbvalue.NewUUIDv7`, not `NewUUID`) or `hub_users_did_uuidv7_check`
+fails; `hub_users.handle` must match `^[a-z0-9]{8}-[0-9a-hjkmnp-tv-z]{11}$`
+(hex digits satisfy both character classes, so `sha256(email)` hex-encoded
+and split 8/11 makes a valid, unique-enough test handle); `hub_email_outbox`
+has no FK to `hub_users` (it addresses arbitrary mailboxes), so a
+literal-address fixture's cleanup must explicitly delete its outbox rows too,
+or a later run's notice-count assertion inflates from a previous run's
+leftover rows (hit this directly: the concurrency test's assertion counted
+6 accumulated rows before the cleanup was added).
+
 **Exact next step:** Finish M4. In order:
 
-1. Write `backend/internal/hub/emailchange/service_test.go` (or a new
-   `_integration_test.go`, matching the existing convention of using
-   `TENANT_DATABASE_URL` against a live Postgres for anything that touches
-   real SQL) covering `Start`/`Advance` with a `fakeDirectory` test double
-   (mirroring `signupcompletion/service_test.go`'s pattern): the happy path
-   to `succeeded`, `address_unavailable` at reserve time, `address_unavailable`
-   at local apply time (the unique-violation safety net), reservation-expired
-   at reserve time and via local `not_after` expiry, and the idempotent
-   replay of an already-accepted change. Then the concurrent-`Advance` race
-   GU-ECH-003 calls for: two goroutines calling `Advance` on the same
-   `reserved` change at once, using the conditional
-   `UPDATE ... WHERE state = 'reserved'` in `ApplyHubAccountEmailChange`;
-   assert only one applies (same technique as the M2 concurrent-transfer
-   test — two real overlapping transactions/connections, not mocked).
-2. hub-ui: extend the account security email card for the `202`/poll/replay
+1. hub-ui: extend the account security email card for the `202`/poll/replay
    flow (GU-ECH-007) — poll `/api/hub/operations/status`, then replay
    confirm with the same idempotency key; "Applying your new email…" while
    pending; i18n in all locales. Reuse whatever helper the alias editor uses
    client-side, if one exists (check `hub-ui/src/pages` and `portal-ui` for
    an existing alias-change polling helper before writing a new one).
-3. Update `agent-guides/hub-profile.md` (or wherever email-change is
+2. Update `agent-guides/hub-profile.md` (or wherever email-change is
    documented today) and `docs/todo.md` if any M4-specific follow-up is
    discovered; `docs/hub-profile.md`/`glossary.md` updates can wait for M6's
    documentation pass unless M4 introduces a new term.
-4. Commit M4 with a §9/§10 update, then start M5 (professional email
+3. Commit M4 with a §9/§10 update, then start M5 (professional email
    claims) per plan §3.6, applying the same `AccountEmailDigester`-local-
    interface pattern for `professionalemail` and the same
    `ResolveFederationOperation`-reuse pattern for terminal transitions.
 
 **Known failing tests / open issues:** none in what exists so far — every
-targeted `go test` passes, including `internal/architecture` (confirms
-`identitydigest` still does not leak into `global-coordinator`/`mesh-api`
-via `emailchange`). Not yet done for M4: the `emailchange`
-integration/concurrency tests and the hub-ui polling flow (items 1-2 above)
-— `make test` will not be meaningful until at least those land, since
-Playwright would otherwise exercise a confirm-email-change flow the backend
-can now answer with `202` in ways the current UI doesn't handle. `make test`
-(the full gate, including the CI docker stack and Playwright) has not been
-run; far too much of the plan remains unimplemented for it to be meaningful
-yet, and it is a long-running command better run once near the end
+targeted `go test` passes (including `-race` on `emailchange` and
+`internal/architecture`, which confirms `identitydigest` still does not leak
+into `global-coordinator`/`mesh-api` via `emailchange`), and `go build`,
+`go vet`, `gofmt -l .`, and `make sql-check` are all clean. Not yet done for
+M4: the hub-ui polling flow (item 1 above) — `make test` will not be
+meaningful until at least that lands, since Playwright would otherwise
+exercise a confirm-email-change flow the backend can now answer with `202`
+in ways the current UI doesn't handle. `make test` (the full gate, including
+the CI docker stack and Playwright) has not been run; far too much of the
+plan remains unimplemented for it to be meaningful yet, and it is a
+long-running command better run once near the end
 of M6. Open gap carried from M2: no `backend/handlers/mesh/directory_test.go`
 exists (pre-existing condition, not introduced by this plan) — see the M2
 summary below.
