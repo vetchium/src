@@ -57,6 +57,16 @@ function randomAlias(): string {
   return `e2e-${randomSuffix(20)}`;
 }
 
+// config/ci/global-coordinator.json's identityDigestKeyId; ReserveHubPrincipal
+// rejects any other key id outright (GU-KEY-002), before ever looking at the
+// digest itself, so every reservation here must send it. The digest value
+// need not be a real HMAC output: the coordinator only stores and uniques it.
+const DIGEST_KEY_ID = "909577e87ebd5395";
+
+function randomEmailDigest(): string {
+  return randomBytes(32).toString("hex");
+}
+
 function freshReservation(
   homeTenantID: string,
   overrides: Partial<ReserveHubPrincipalRequest> = {},
@@ -67,6 +77,8 @@ function freshReservation(
     handle: randomHubHandle(),
     home_tenant_id: homeTenantID,
     provisioning_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    account_email_digest: randomEmailDigest(),
+    digest_key_id: DIGEST_KEY_ID,
     ...overrides,
   };
 }

@@ -853,10 +853,24 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
       (incl. the concurrent-`Advance` race, stable under `-race`), all
       against a live Postgres. GU-DIR-007..011 and GU-PEM's tests were
       implemented in M5 and removed with it.
-- [ ] Tests §4.2, §4.3 (Playwright) — remaining: the new
-      `hub-global-email.spec.ts` and the `hub-email-change.spec.ts`
-      extensions §4.2 lists (professional-email extensions are dropped);
-      §4.3's two UI items.
+- [x] Tests §4.2, §4.3 (Playwright), account-email scope: new
+      `hub-global-email.spec.ts` (signup registered-elsewhere, the sgp/usa1
+      signup race, ind1's pending completion); `hub-email-change.spec.ts`
+      extended with the cross-tenant no-code case, the usa1-race conflict,
+      the successful-change-frees-the-old-address/protects-the-new-one case,
+      and a consolidated ind1 pending-confirm case (unchanged address, other
+      sessions intact, in-progress 409, deterministic replay, survives
+      logout); `hub-account-security.spec.ts` gained the pending-confirm UI
+      case and a new `hub-signup-completion.spec.ts` covers the
+      homed-elsewhere UI case. Contract coverage: no new exemptions needed,
+      these add coverage of previously-unexercised statuses
+      (hub-account-homed-elsewhere, the ind1 202s) rather than requiring any.
+      Also fixed a pre-existing gap from M2 (`c121359`): `mesh.spec.ts` and
+      `global-directory.spec.ts`'s shared `freshReservation` helper never set
+      `account_email_digest`/`digest_key_id`, which `ReserveHubPrincipalRequest`
+      has required since that commit — a `tsc` error caught it (`playwright
+      typecheck` is part of `make test`), not a runtime failure someone had
+      hit yet.
 - [x] Documentation §5: `agent-guides/hub-signup.md` (GU-SIG-007),
       `docs/todo.md`, this document's own dropped-scope notes,
       `agent-guides/federation.md` (the account-email-digest and
@@ -1261,58 +1275,77 @@ audit is keyed by the client's idempotency key while the terminal outcome is
 audited separately under the operation's own key. All 6 cases in
 `playwright/api/hub-email-change.spec.ts` pass against the live stack.
 
-**Exact next step:** Continue M6 for account-email scope only (professional
-email is fully dropped, so its §4.1/§4.2/§4.3/§5 items are gone, not
-deferred). In order:
+**M6 completion (account-email Playwright/doc work):** all of the previous
+"Exact next step" checklist is done:
 
-1. New `playwright/api/hub-global-email.spec.ts` per plan §4.2's signup
-   scenarios: sgp signup followed by a usa1 signup attempt at the same
-   address gets "registered elsewhere" plus its audit; a concurrent
-   sgp/usa1 signup race for the same address — the loser gets 409
-   homed-elsewhere; an ind1 signup returns `202 PendingOperation` and never
-   creates an active local user while the coordinator path is unreachable;
-   an email conflict during signup does not consume a handle-rotation
-   attempt.
-2. Extend `playwright/api/hub-email-change.spec.ts` with the remaining
-   §4.2 bullets not yet covered: confirming a change to an address already
-   claimed by a usa1 user sends no verification code; the race scenario
-   (address free in sgp, signed up in usa1, then confirmed in sgp) returns
-   409; after a successful change, signing up with the old address in usa1
-   gets "registered elsewhere"; confirming on ind1 returns
-   `202 PendingOperation` with the address unchanged and no session
-   revoked; a second `RequestEmailChange` while one is already pending on
-   ind1 returns 409 `hub-email-change-in-progress`; logging out mid-pending
-   change survives (check via `sqlScalarForTenant` that the pending row is
-   untouched by session teardown).
-3. Playwright UI tests per §4.3: a signup flow that completes with
-   "registered elsewhere" messaging; an email-change flow that shows the
-   pending/`202` state (force it via ind1 or an injected coordinator
-   failure).
-4. Generalize `playwright/lib/orgs-api.ts`'s `installOrgAuditInsertFailure`
-   pattern for Hub audit actions if a test above needs to force a
-   post-commit audit failure to exercise a recovery path.
-5. Contract coverage check: confirm every response status added or kept by
-   M2-M4 (200/202/400/409/503 across signup and email-change) is exercised
-   by a Playwright test, or explicitly documented here as unreachable
-   against the CI stack (e.g. a true coordinator outage) and covered instead
-   by a Go integration test.
-6. Add the `docs/todo.md` line for the deferred admin feature: detect and
-   block abuse where many accounts verify the same professional address or
-   domain (this is the rationale-driven follow-up the scope change calls
-   for, not part of this plan's scope).
-7. `make fmt`, then a full `make test` run (long-running; run in the
-   background or with an extended timeout) and confirm it exits 0.
-8. Mark every remaining §9 checkbox (done or dropped), set this section's
-   "Current milestone" to "complete", and commit.
+1. New `playwright/api/hub-global-email.spec.ts`: signup registered-elsewhere
+   (sgp then usa1, mail names sgp and carries no link, usa1 audits
+   `hub.signup.rejected`/`email_registered_elsewhere`); the sgp/usa1 signup
+   race (both links issued before either completes; sgp completes, usa1's
+   completion gets 409 `hub-account-homed-elsewhere` naming sgp, its
+   `hub_signup_completions` row is `failed`/`email_registered_elsewhere`
+   with `attempt_count` untouched at 0 — proving the conflict never went
+   through handle-rotation — and no local `hub_users` row exists; a replay
+   with the same token/key reaches the same 409 deterministically); ind1's
+   completion returns `202 PendingOperation` and never creates a local user
+   while its coordinator path stays broken (`config/ci/ind1.json`).
+2. Extended `playwright/api/hub-email-change.spec.ts`: a usa1 user's address
+   requested from sgp sends no code and the identical challenge response;
+   confirming after the address is claimed by a usa1 signup (not a same-
+   tenant one) still gets 409 `EmailAddressUnavailable` and the
+   `hub.email-change.rejected` audit, proving the global directory (not a
+   local unique index) is the gate; after a successful change the old
+   address can be signed up at usa1 and the new one gets
+   registered-elsewhere there; a single consolidated ind1 case covers a
+   pending confirm leaving the address unchanged on every session, a
+   concurrent `RequestEmailChange` getting the in-progress 409, a same-key
+   replay reaching the identical pending result, and the
+   `hub_account_email_changes` row surviving a logout/re-login cycle
+   (checked directly via `sqlScalarForTenant`).
+3. Playwright UI: `hub-signup-completion.spec.ts` (new) mocks
+   `/api/hub/complete-signup` with the homed-elsewhere problem and asserts
+   the `complete-signup-homed-elsewhere` panel and its region text, mirroring
+   `signup-regions.spec.ts`'s mocked-network style rather than a second real
+   tenant signup. `hub-account-security.spec.ts` gained a case mocking a
+   `202` confirm followed by a resolving `operations/status` poll, asserting
+   the `email-change-applying` indicator and the eventual success message.
+4. Audit-rollback helper: already generalized before this session
+   (`installHubAuditInsertFailure` in `admin-db.ts`, used by
+   `hub-audit.spec.ts`/`hub-subscriptions.spec.ts`); nothing new needed here.
+5. Contract coverage: the new tests add coverage of previously-unexercised
+   statuses (`hub-account-homed-elsewhere`, ind1's `202`s) rather than
+   requiring new exemptions; `PLAYWRIGHT_UNTESTABLE_STATUSES`/`_VARIANTS` in
+   `scripts/api-coverage-report.ts` are unchanged.
+6. Added the `docs/todo.md` "Global Hub email uniqueness follow-ups" line for
+   the deferred admin abuse-detection feature, and trimmed two lines from
+   that section that referenced the now-dropped professional-email global
+   tables.
+7. Found and fixed a genuine pre-existing bug while typechecking the above:
+   `playwright/api/mesh.spec.ts` and `global-directory.spec.ts` each define
+   their own copy of a `freshReservation` helper that never set
+   `account_email_digest`/`digest_key_id`, fields `ReserveHubPrincipalRequest`
+   has required since M2's `c121359` added Hub email uniqueness to the
+   directory contract. `tsc` (via `playwright typecheck`, part of
+   `make test`) caught it as a type error; a random 32-byte digest plus the
+   CI coordinator's configured `digest_key_id` (`909577e87ebd5395`) fixes
+   both files. Neither file had ever exercised the digest-bearing fields
+   before, so this was a silent gap since M2, not a regression from the M5
+   scope change.
 
-**Known failing tests / open issues:** none. Every targeted `go test`
-passes (including `-race` on `emailchange` and `internal/architecture`),
-and `go build`, `go vet`, `gofmt -l .`, `make sql-check`,
-`make typespec-check`, and `make hub-ui-check` are all clean on the
-post-revert tree. `make test` (the full gate, including the CI docker stack
-and Playwright) has not been run since the M5 revert; M6's remaining
-Playwright/doc work (above) is what's left before that final run is
-meaningful. Open gap carried from M2: no
+**Exact next step:** run `make fmt` then a full `make test` (long-running:
+the CI Docker stack plus every Playwright spec) and confirm it exits 0; then
+mark every remaining §9 checkbox (only "`make test` green" itself), set
+"Current milestone" below to "complete", and commit everything in this
+session as the final M6 checkpoint.
+
+**Known failing tests / open issues:** none identified by static checks.
+Every targeted `go test` passes (including `-race` on `emailchange` and
+`internal/architecture`), `go build`, `go vet`, `gofmt -l .`,
+`make sql-check`, `make typespec-check`, `playwright typecheck`, and
+`playwright format:check` are all clean. The full `make test` run (which
+also runs `playwright test:coverage-api`, `hub-ui-check`, and the actual
+Playwright suite against the live CI stack) is the one item left before this
+milestone can be marked complete. Open gap carried from M2: no
 `backend/handlers/mesh/directory_test.go` exists (pre-existing condition,
 not introduced by this plan) — see the M2 summary below.
 

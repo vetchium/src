@@ -230,6 +230,52 @@ test("sending a new code issues a fresh request for the same address", async ({
   );
 });
 
+test("a confirm that comes back pending shows progress and resolves on its own", async ({
+  page,
+}) => {
+  const account = await openAccountSecurity(page);
+  await acceptEmailChangeRequests(page);
+  const operationID = randomUUID();
+  let confirmCalls = 0;
+  await page.route("**/api/hub/confirm-email-change", async (route) => {
+    confirmCalls += 1;
+    // The first attempt only learns the coordinator hiccupped (GU-ECH-005);
+    // the card polls the operation and replays confirm with the same
+    // idempotency key once it settles, which is what the second call is.
+    if (confirmCalls === 1) {
+      await route.fulfill({
+        status: 202,
+        json: { operation_id: operationID },
+      });
+      return;
+    }
+    account.me = { ...account.me, email_address: "new@example.org" };
+    await route.fulfill({ status: 204 });
+  });
+  let statusCalls = 0;
+  await page.route("**/api/hub/operations/status", async (route) => {
+    statusCalls += 1;
+    await route.fulfill({
+      json: {
+        operation_id: operationID,
+        state: statusCalls < 2 ? "pending" : "succeeded",
+      },
+    });
+  });
+
+  await startChange(page, "new@example.org");
+  await page.getByLabel("Six-digit code").fill("123456");
+  await page.getByRole("button", { name: "Confirm new address" }).click();
+  await expect(page.getByTestId("email-change-applying")).toBeVisible();
+  await expect(
+    page.getByText("Your email address was changed.", { exact: false }),
+  ).toBeVisible();
+  expect(confirmCalls).toBe(2);
+  await expect(page.getByTestId("current-email-address")).toHaveText(
+    "new@example.org",
+  );
+});
+
 test("a pending change survives a reload and cancel forgets it", async ({
   page,
 }) => {

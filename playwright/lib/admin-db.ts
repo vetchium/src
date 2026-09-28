@@ -1605,6 +1605,60 @@ export function hubSignupCompletionArtifactCounts(
   return { activeSignupRequests, auditEvents, hubUsers, idempotencyRows };
 }
 
+/**
+ * The durable signup-completion saga's own state for a given signup
+ * request's email address, keyed via `hub_signup_requests` since
+ * `hub_signup_completions` carries no email column of its own (GU-SIG-004).
+ * Used to assert a registered-elsewhere failure left `attempt_count`
+ * untouched (it is only ever bumped by handle-collision rotation, a
+ * distinct code path) and that no local `hub_users` row was created.
+ */
+export function hubSignupCompletionState(
+  emailAddress: string,
+  tenant: TestTenant,
+): {
+  state: string;
+  attemptCount: number;
+  failureReason: string | null;
+  conflictingHomeTenantID: string | null;
+  localAccountCreated: boolean;
+} | null {
+  assertOwnedHubEmail(emailAddress);
+  const value = sqlScalarForTenant(
+    tenant,
+    `
+    SELECT COALESCE(
+      (SELECT c.state::text || '|' || c.attempt_count::text || '|' ||
+              coalesce(c.failure_reason, '') || '|' ||
+              coalesce(c.conflicting_home_tenant_id, '') || '|' ||
+              (EXISTS(
+                SELECT 1 FROM vetchium.hub_users AS u
+                WHERE u.email_address = r.email_address
+              ))::text
+       FROM vetchium.hub_signup_completions AS c
+       JOIN vetchium.hub_signup_requests AS r
+         ON r.hub_signup_request_id = c.hub_signup_request_id
+       WHERE r.email_address = ${sqlLiteral(emailAddress)}),
+      ''
+    );
+    `,
+  );
+  if (value === "") return null;
+  const [state, attemptCount, failureReason, conflictingHomeTenantID, exists] =
+    value.split("|");
+  if (state === undefined || attemptCount === undefined) {
+    throw new Error(`invalid Hub signup completion state: ${value}`);
+  }
+  return {
+    state,
+    attemptCount: Number(attemptCount),
+    failureReason: failureReason === "" ? null : (failureReason ?? null),
+    conflictingHomeTenantID:
+      conflictingHomeTenantID === "" ? null : (conflictingHomeTenantID ?? null),
+    localAccountCreated: exists === "t",
+  };
+}
+
 export function installHubAuditInsertFailure(match: {
   action: string;
   actorID?: string;
