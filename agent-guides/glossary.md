@@ -12,6 +12,8 @@ Principal — a hub user or an org: the two things that own data, are routable, 
 DID (`_did`) — a principal's stable, opaque, never-reused UUID. Encodes no location and never leaves the backend and private mesh; browser APIs use a Hub user's handle or an org's domain.
 OID (`_oid`) — a seeded config id (language, plan, capability, opening tag), byte-identical in every cell, never minted at runtime.
 Handle — a Hub user's globally unique, permanent generated name in the canonical `/u/<handle>` URL. It is never reassigned.
+Account email — the address a Hub user signs in with; globally unique across every tenant, reserved at signup and moved by a durable reserve/apply/finalize saga on change.
+Identity digest — `HMAC-SHA256(identity_digest_key, address)`, the only form of a Hub account email the global coordinator ever stores; it can enforce uniqueness without ever holding a reversible address.
 Alias — one optional, globally unique, human-chosen `/u/<alias>` label available from the Silver plan. It is not canonical and is released immediately when changed, deleted, or lost on downgrade.
 Follow — a one-way interest used for network-opportunity discovery and warm endorsement suggestions. It is not evidence that the users worked together and grants no endorsement privilege.
 Domain — an org's DNS-verified domain; globally unique, owned by one org at a time. One is primary.

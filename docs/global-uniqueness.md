@@ -24,8 +24,34 @@ After this change:
 | Org domain | global, one Org | already done (`org_domains` in the global DB) |
 | Org user email | per Org | unchanged, beyond argument |
 | Hub account email | **global**, one Hub user | this plan |
-| Verified professional email | **global**, one Hub user holds the verification at a time | this plan |
+| Verified professional email | per Hub user | **dropped**, see below |
 | Hub handle / alias | global | already done |
+
+**Dropped: global uniqueness of verified professional (work) emails.**
+Implemented in M1/M2/M5, then reverted after product review. Recorded here
+rather than deleted so a future session does not re-derive and re-implement
+it. Rationale:
+
+- Agencies searching by employer only ever see the verified domain, never the
+  address (PROF-WEM-011); a global claim protected an address no authorized
+  reader can see.
+- Verification evidence is explicitly a dated record of past mailbox control
+  that the owner is prompted to refresh yearly (PROF-WEM-007..009), not a
+  live identity assertion; global "only one holder at a time" semantics do
+  not match that model.
+- Duplicate verification of the same mailbox or domain by unrelated accounts
+  is an abuse-detection concern, not an identity invariant. It belongs to a
+  later admin feature that flags and blocks abused domains or addresses
+  (see `docs/todo.md`), which can act on all holders at once rather than
+  forcing a single transfer.
+- The global claim, its per-tenant supersession feed, and the periodic
+  holdings sweep cost meaningfully more (a new global table set, a pull-feed
+  protocol, two extra workers per tenant) than the property was worth once
+  the above was considered.
+
+Per-user professional-email verification and its existing local uniqueness
+constraint (`hub_professional_emails`, one verified address per user per
+normalized domain) are unchanged and outside this plan's scope either way.
 
 Out of scope, listed in `docs/todo.md` by this work:
 
@@ -35,12 +61,12 @@ Out of scope, listed in `docs/todo.md` by this work:
   account-enumeration oracle. Only flows where the caller has proven control of
   the mailbox (a signup link, an emailed notice) may reveal the home region.
 - **Hub account deletion.** It does not exist yet. When it is built it must
-  release the account-email claim and every professional-email claim. Add a
-  todo line.
+  release the account-email claim. Add a todo line.
 - **Digest key rotation.** Build the key id hook (GU-KEY-004) but not a rotation
   procedure.
-- Tenant-to-tenant outbox delivery (none exists today; see GU-PEM-008 for why
-  this plan uses a pull feed instead).
+- Tenant-to-tenant outbox delivery (none exists today; not needed by anything
+  this plan still implements, since the professional-email supersession feed
+  that would have used it was dropped — see §1).
 
 There is no production data to migrate. The Org signup work edited
 `db/migrations/00001_init.sql` and `db/global-migrations/00001_init.sql` in
@@ -75,13 +101,13 @@ backfill.
    releases the old digest after it. This uses a durable operation modeled on
    the alias-change saga (`202` `PendingOperation` when the outcome is
    uncertain). The address stays claimed by the user until the change is final.
-6. **Professional email: newest proof of control wins.** Work mailboxes are
-   recycled (a leaver's address is reassigned), so a claim must be
-   transferable. A successful verification by user B of an address held by user
-   A moves the claim to B. A's evidence for that address becomes *superseded*:
-   it no longer counts as verified anywhere. A can reverify to take it back.
-   Verification requires reading a code sent to the mailbox, so ping-pong needs
-   real control of the mailbox.
+6. **Professional email uniqueness: dropped.** Originally specified as
+   "newest proof of control wins" with a transferable global claim (a
+   verification by user B of an address user A held would supersede A's
+   evidence). Implemented in M1/M2/M5, then reverted per product decision;
+   see §1's "Dropped" note for the rationale. Per-user professional-email
+   verification, and its existing local (per-user, per-domain) uniqueness
+   constraint, are unaffected.
 7. **Fail closed.** No claim-dependent write completes locally without the
    directory's definite answer. The directory being unreachable yields `202`
    pending (after local state is durable) or a retryable `503` (before anything
@@ -233,72 +259,17 @@ Requirement ids are for the ledger (§9) and test names.
   coordinator itself rejects any reserve for that change id, because it
   compares `not_after` with its own clock, so correctness does not depend on
   tenant clocks.
-- **GU-GDB-003:** Professional email claims and the supersession feed:
-
-  ```sql
-  CREATE TABLE vetchium.hub_professional_email_claims (
-      email_digest bytea PRIMARY KEY CHECK (octet_length(email_digest) = 32),
-      -- NULL once released; the row stays so claim_revision never restarts.
-      hub_user_did uuid
-          REFERENCES vetchium.hub_principals (hub_user_did) ON DELETE SET NULL,
-      claim_revision bigint NOT NULL CHECK (claim_revision > 0),
-      claimed_at timestamptz NOT NULL DEFAULT now()
-  );
-  CREATE INDEX hub_professional_email_claims_user
-      ON vetchium.hub_professional_email_claims (hub_user_did);
-
-  -- Pull feed: a tenant learns that one of its users lost a professional-email
-  -- claim by polling rows addressed to it. Rows are deleted only after that
-  -- tenant acknowledges them; there is no time-based pruning.
-  CREATE TABLE vetchium.hub_professional_email_feed_cursors (
-      tenant_id text PRIMARY KEY CHECK (tenant_id ~ '^[a-z][a-z0-9]{2,15}$'),
-      last_issued_seq bigint NOT NULL DEFAULT 0 CHECK (last_issued_seq >= 0),
-      acknowledged_seq bigint NOT NULL DEFAULT 0,
-      CHECK (acknowledged_seq BETWEEN 0 AND last_issued_seq)
-  );
-
-  CREATE TABLE vetchium.hub_professional_email_supersessions (
-      previous_home_tenant_id text NOT NULL
-          REFERENCES vetchium.hub_professional_email_feed_cursors (tenant_id),
-      supersession_seq bigint NOT NULL CHECK (supersession_seq > 0),
-      email_digest bytea NOT NULL CHECK (octet_length(email_digest) = 32),
-      previous_hub_user_did uuid NOT NULL,
-      superseded_by_revision bigint NOT NULL CHECK (superseded_by_revision > 0),
-      created_at timestamptz NOT NULL DEFAULT now(),
-      PRIMARY KEY (previous_home_tenant_id, supersession_seq)
-  );
-  ```
-
-  **Sequence allocation must not use an identity or sequence.** PostgreSQL
-  hands out sequence values independently of commit order: T1 can take 10, T2
-  take 11 and commit, and a reader advance past 11 before T1 commits, skipping
-  10 forever. Instead, the transfer transaction runs:
-
-  ```sql
-  INSERT INTO hub_professional_email_feed_cursors (tenant_id)
-  VALUES ($1) ON CONFLICT DO NOTHING;
-  UPDATE hub_professional_email_feed_cursors
-     SET last_issued_seq = last_issued_seq + 1
-   WHERE tenant_id = $1
-  RETURNING last_issued_seq;
-  ```
-
-  The row lock is held until commit, so sequence N+1 cannot be issued, let
-  alone become visible, until N has committed or rolled back (a rollback also
-  undoes the increment, leaving no gap). Per tenant, visibility order equals
-  sequence order, and a cursor can advance safely. Lock order is always the
-  claim row, then the cursor row, which avoids deadlocks. Transfers are rare,
-  so the per-tenant serialization costs nothing measurable.
-
-  - `claim_revision` increases strictly monotonically per digest, forever:
-    - every claim (first, reverify, transfer, or claim of a released row) sets
-      `revision + 1`
-    - a release sets `hub_user_did = NULL` and keeps the row and revision; rows
-      are never deleted
-
-    This matters because tenants supersede a local row only when its
-    `claim_revision < superseded_by_revision`. If revisions restarted after a
-    release, a delayed feed row could wrongly supersede a later reclaim.
+- **GU-GDB-003: dropped**, with global professional-email uniqueness itself
+  (see §1's "Dropped" note for the full rationale). Would have added
+  `hub_professional_email_claims`, `hub_professional_email_feed_cursors`, and
+  `hub_professional_email_supersessions`, plus a per-tenant row-locked
+  sequence allocator for the supersession feed (`UPDATE ... SET
+  last_issued_seq = last_issued_seq + 1 ... RETURNING`, never an identity or
+  sequence object, since Postgres hands those out independently of commit
+  order). Implemented in M1/M2, reverted in the same change that dropped
+  M5. The row-locked sequence allocation technique itself remains valid
+  and documented for any future feed that needs the same ordering
+  guarantee.
 - **GU-GDB-004:** Every mutation of these tables happens inside
   `runCommand[R]` (`backend/internal/globaldirectory/service.go`), so the
   command ledger, `global_audit_events`, and `global_outbox_events` rows are
@@ -396,52 +367,11 @@ principal, except where stated otherwise.
   - `finalized`: `DirectoryStateConflictError`. The tenant never abandons
     after applying locally, so this means a bug; log it at error level.
   - Audit it only when a row changed.
-- **GU-DIR-007 `claim-hub-professional-email`:**
-  - Request `{command_id, hub_user_did, email_digest, digest_key_id}`.
-  - Upsert under a row lock:
-    - **Absent:** insert at revision 1.
-    - **Released (`hub_user_did IS NULL`):** set the holder and bump the
-      revision.
-    - **Same holder:** bump the revision by 1 and set `claimed_at = now()`, so a
-      reverify is a fresh proof.
-    - **Other holder:** update the holder, bump the revision, and insert a
-      supersession row addressed to the previous holder's current
-      `home_tenant_id` (from `hub_principals`).
-  - Response:
-    - `{claim_revision}`
-    - `superseded_same_tenant_hub_user_did`: present only when the previous
-      holder's home tenant is the caller, so the caller can supersede locally
-      in the same step.
-  - Never reveal a DID from another tenant here.
-  - Audit `global_directory.hub_professional_email_claimed`, with payload
-    `{transferred: bool}` and no digest.
-- **GU-DIR-008 `release-hub-professional-email`:**
-  - Request `{command_id, hub_user_did, email_digest, claim_revision}`.
-  - Sets `hub_user_did = NULL` only if the row is still held by that DID at
-    that revision. Otherwise it is a no-op success, because a newer proof may
-    already own it.
-  - Audit it only when a row changed.
-- **GU-DIR-009 `pull-hub-professional-email-supersessions`**
-  (caller-scoped; mutates only the caller's cursor, so it is naturally
-  idempotent and does not use the command ledger):
-  - Request `{acknowledged_seq, limit ≤ 500}`. `acknowledged_seq` is the
-    tenant's committed watermark.
-  - In one transaction:
-    - if `acknowledged_seq > last_issued_seq`, return
-      `DirectoryStateConflictError`. The tenant is ahead of the coordinator,
-      which should not happen outside a coordinator restore; the tenant logs it
-      at error level and runs the GU-PEM-009 sweep.
-    - set `acknowledged_seq = GREATEST(acknowledged_seq, request)`
-    - delete this tenant's rows at or below it, auditing
-      `global_directory.hub_professional_email_supersessions_acknowledged`
-      `{count}` only when rows were deleted
-    - return rows with a higher sequence, in order, as
-      `{supersession_seq, hub_user_did, email_digest, superseded_by_revision}`
-  - The response also returns the stored `acknowledged_seq` and
-    `oldest_pending_created_at`. When the stored value exceeds the tenant's
-    request, the tenant's watermark regressed (for example, a tenant database
-    restore), so rows it never applied are gone: the tenant jumps its
-    watermark and runs the GU-PEM-009 sweep immediately.
+- **GU-DIR-007..009, GU-DIR-011: dropped** with global professional-email
+  uniqueness (§1). Would have been `claim-hub-professional-email`,
+  `release-hub-professional-email`, `pull-hub-professional-email-supersessions`,
+  and `check-hub-professional-email-holdings`. Implemented in M1/M2, reverted
+  with M5.
 - **GU-DIR-010 Reaper and prune:**
   - Extend the existing reservation reaper (`ReapExpiredHubPrincipalReservations`
     or its equivalent in `backend/internal/globaldb/queries`). Reaping a
@@ -450,19 +380,11 @@ principal, except where stated otherwise.
   - Prune terminal `hub_account_email_change_reservations` older than
     `not_after + 7 days`, with a summary global audit event, run by the
     coordinator's existing periodic loop (find where the reaper is scheduled).
-  - Supersession rows are **never** pruned by time, only by acknowledgment
-    (GU-DIR-009). Decommissioning a tenant must delete its cursor and rows; add
-    a todo line.
   - `pending_change` claims are **not** reaped by time. They leave only through
     finalize or abandon, and the tenant's durable operation always reaches one
     of them (GU-ECH-006).
-- **GU-DIR-011 `check-hub-professional-email-holdings`** (read,
-  caller-scoped):
-  - Request: up to 500 `{hub_user_did, email_digest}`. Each DID must be homed
-    at the caller, or the whole request is rejected with the caller mismatch.
-  - Response, per item: `{held_by_requested_user: bool, claim_revision | null}`.
-  - It never reveals another holder's DID.
-  - It is the authoritative repair path for any feed loss (GU-PEM-009).
+  - (Its professional-email supersession-feed pruning and decommissioning
+    bullets are dropped along with GU-DIR-009 above.)
 
 ### 3.4 Hub signup (tenant)
 
@@ -715,167 +637,31 @@ Mirror them closely, including replay handling via
   - Show "Applying your new email…" while pending.
   - Add i18n in all locales.
 
-### 3.6 Professional emails (tenant)
+### 3.6 Professional emails (tenant): dropped
 
-Files:
+Global uniqueness for verified professional emails — the claim, its
+transfer-on-reverify semantics, the per-tenant supersession pull feed, and
+the periodic holdings sweep — is dropped per the product decision recorded
+in §1. Implemented in M1/M2/M5; reverted in the same change that dropped it.
 
-- `db/migrations/00001_init.sql`
-- `backend/internal/db/queries/hub_profile_private.sql`
-- `backend/handlers/hub/profile/professional_email_*.go`
-- `typespec/hub/profile/professional_email.*`
-- new `backend/internal/hub/professionalemail/`
-- new workers `complete_hub_professional_email_claims.go` and
-  `sync_hub_professional_email_supersessions.go`
-- hub-ui professional email card
-- `docs/hub-profile.md` §5
-- `agent-guides/hub-profile.md`
-
-- **GU-PEM-001 Schema:**
-  - On `hub_professional_emails`, add:
-    - `email_digest bytea NOT NULL CHECK (octet_length = 32)` (professional
-      namespace), set at add time
-    - `claim_revision bigint NULL`: the global revision this row last applied
-    - `superseded_revision bigint NOT NULL DEFAULT 0`: the highest
-      `superseded_by_revision` this tenant has learned for this (user, digest),
-      recorded **even when the row is unverified**, so it fences a claim result
-      that arrives late
-    - `superseded_at timestamptz NULL`
-  - `CHECK ((superseded_at IS NOT NULL) = (claim_revision IS NOT NULL AND
-    superseded_revision >= claim_revision))`.
-  - A row is *verified evidence* iff `last_verified_at IS NOT NULL AND
-    superseded_at IS NULL`. Every current and future reader of verification
-    status (including PROF-WEM-011 Org features and the public profile, if it
-    shows verified domains) must use that predicate. Grep every query reading
-    `last_verified_at`/`first_verified_at` and update it.
-  - New table `global_feed_watermarks (feed text PRIMARY KEY, last_seq bigint NOT NULL CHECK (last_seq >= 0))`.
-- **GU-PEM-002 Verify:** `VerifyHubProfessionalEmailChallenge` keeps its code
-  checks and attempt counting. On a correct code it no longer sets the
-  verification times. Instead, in the same statement, it:
-  - consumes the challenge
-  - creates `federation_operations` `kind = 'hub-professional-email-claim'` with
-    payload `{HubUserDID, ProfessionalEmailID, EmailDigest}`
-  - audits `hub.profile.professional-email-proof-accepted`
-
-  At most one pending claim op per professional email row: a partial unique
-  index on `(aggregate_id)` where the kind matches and the state is pending,
-  with aggregate = the professional email id. A duplicate returns the existing
-  operation.
-- **GU-PEM-003 Drive:** inline plus worker, as in GU-ECH-004:
-  1. `claim-hub-professional-email`.
-  2. `ApplyHubProfessionalEmailClaim`, in one statement:
-     - If the row still exists, belongs to the user, **and** the response
-       revision is greater than both `COALESCE(claim_revision, 0)` and
-       `superseded_revision`:
-       - set `first_verified_at = COALESCE(first_verified_at, now())`,
-         `last_verified_at = now()`, `claim_revision = response revision`,
-         `superseded_at = NULL`
-       - if `superseded_same_tenant_hub_user_did` is present, apply the
-         GU-PEM-006 supersede rule to that user's row with the same digest,
-         at the response revision, and audit
-         `hub.profile.professional-email-superseded` (actor `system`) for it
-       - audit the existing `hub.profile.professional-email-verified`
-       - resolve the op as succeeded (`204`)
-     - If the row exists but the revision check fails, a newer proof already
-       won. That happens when the claim response was delayed and a
-       supersession for a higher revision was applied first. Change nothing
-       on the row, resolve the op as succeeded (`204`, because the proof itself
-       was accepted), and audit `hub.profile.professional-email-claim-outdated`.
-       The owner list shows the moved state. This rule is why
-       `superseded_revision` is recorded even for rows that are not verified.
-     - If the row was deleted meanwhile, resolve the op as succeeded and
-       enqueue a release op (GU-PEM-005) with the response revision, in the
-       same statement. Claim ops reference the row by id with no foreign key,
-       so they survive its deletion and must still reach a definite directory
-       result.
-
-  The contract for `verifyProfessionalEmail` adds `202 PendingOperation`, with
-  the same replay semantics.
-- **GU-PEM-004 Owner view:**
-  - `ProfessionalEmail` in the contract gains optional
-    `superseded_at: utcDateTime`.
-  - PROF-WEM-013's list shows a superseded row as "Verification moved to
-    another account", with a reverify action.
-  - Wording must obey PROF-WEM-008: never "valid" or "invalid".
-  - Never reveal who holds the address now.
-- **GU-PEM-005 Delete:** the existing delete statement also enqueues, in the
-  same statement, `federation_operations` `kind = 'hub-professional-email-release'`
-  with payload `{HubUserDID, EmailDigest, ClaimRevision}`. It does this only
-  when the row has `claim_revision IS NOT NULL AND superseded_at IS NULL`. The
-  worker drives `release-hub-professional-email` to completion, with no
-  browser-visible pending state; delete stays `204`.
-- **GU-PEM-006 Supersession sync worker:** on its timer:
-  - read the `hub-professional-email-supersessions` watermark
-  - call GU-DIR-009 with it as `acknowledged_seq`
-  - for each returned row, in order, run `SupersedeHubProfessionalEmail` in one
-    statement:
-    - on the row matching (did, digest), whether verified or not, set
-      `superseded_revision = GREATEST(superseded_revision,
-      superseded_by_revision)`
-    - set `superseded_at = COALESCE(superseded_at, now())` where
-      `claim_revision IS NOT NULL AND claim_revision <= superseded_by_revision`
-    - audit `hub.profile.professional-email-superseded` (actor `system`,
-      source `workers`) only when `superseded_at` changed
-    - advance the watermark to that row's sequence
-  - The next pull acknowledges what was applied. The coordinator deletes rows
-    only after that acknowledgment, so a crash between apply and ack causes a
-    harmless re-apply, never a loss.
-  - Handle a stored `acknowledged_seq` greater than the local watermark as in
-    GU-DIR-009: jump the watermark and run GU-PEM-009 now.
-  - Log a warning (no addresses or digests) when `oldest_pending_created_at` is
-    older than 1 hour.
-  - The directory being unreachable is a logged, retried no-op.
-- **GU-PEM-009 Holdings sweep (repair):** a daily worker job, and an
-  immediate one on watermark regression:
-  - Page through this tenant's rows with `last_verified_at IS NOT NULL AND
-    superseded_at IS NULL`, and call GU-DIR-011 in batches.
-  - For each item that is not held by the requested user at a revision at least
-    the local `claim_revision`, apply the GU-PEM-006 supersede rule using the
-    returned revision. For a released row (null revision), use the local
-    `claim_revision`, which still fences because the next claim bumps the
-    revision.
-  - Skip rows with a live claim op; the op's apply is authoritative for them.
-  - This bounds the damage of any feed loss, including a coordinator or tenant
-    restore, to one sweep interval.
-- **GU-PEM-007:** Add `docs/hub-profile.md` requirements, continuing the
-  PROF-WEM numbering:
-  - a verified address is held by at most one Hub user globally
-  - newest proof wins
-  - superseded evidence is not verified anywhere
-  - the owner is shown the moved state without learning the new holder
-  - staleness is bounded by the sync interval while the tenant and
-    coordinator can reach each other. During an outage, supersession applies
-    when connectivity returns; nothing is lost, because feed rows persist until
-    acknowledged and the holdings sweep repairs any drift.
-
-  Mirror them in `agent-guides/hub-profile.md`.
-- **GU-PEM-008 (design note, record in `federation.md`):** Supersession uses a
-  caller-scoped pull feed on the coordinator, not tenant-to-tenant push. No
-  tenant outbox dispatcher exists (`federation_outbox` has queries but no
-  delivery worker), and the pull path reuses the existing tenant → mesh-api →
-  coordinator channel. Record the three properties that make it safe:
-  - sequences are allocated under a per-tenant row lock, so commit order
-    equals sequence order and a cursor never skips (not an identity column)
-  - rows are deleted only after acknowledgment, never by age
-  - per-digest revisions are fenced on the tenant side, so replays, reordering
-    and late claim results are harmless
-
-  The holdings check (GU-DIR-011) is the authoritative repair.
+Per-user professional-email verification and its existing local uniqueness
+constraint (`hub_professional_emails`, one verified address per user per
+normalized domain, `backend/internal/db/queries/hub_profile_private.sql`)
+are unaffected and remain outside this plan's scope, as they were before it
+started.
 
 ### 3.7 Configuration
 
-- **GU-CFG-001:** New `appconfig.Workers` timers:
-  - `CompleteHubEmailChangesTimer`
-  - `CompleteHubProfessionalEmailClaimsTimer`
-  - `SyncHubProfessionalEmailSupersessionsTimer`
-  - `SweepHubProfessionalEmailHoldingsTimer` (CI 5s, deploy 24h)
-
-  Set them in `config/*.json`, `config/ci/*.json` (CI: 2s, like the Org
-  timers), and `deploy/*/config.json` (1m, 1m, 5m, 24h). Validate them in
-  `appconfig` with tests, following how `ReconcileOrgSignupTimer` is validated.
+- **GU-CFG-001:** New `appconfig.Workers` timer: `reconcileHubEmailChangeTimer`
+  (implemented as such; the three professional-email timers this
+  requirement originally also listed are dropped along with GU-PEM). Set it
+  in `config/*.json` (10s), `config/ci/*.json` (1s, like the Org timers), and
+  `deploy/*/config.json` (10s). Validate it in `appconfig` with a test,
+  following how `ReconcileOrgSignupTimer` is validated.
 - **GU-CFG-002:** Wire:
   - `hub-api` main: `identitydigest.Key` into `hub.Server` and the
-    signup-completion, email-change and professional-email services.
-  - `workers` main: register the three jobs.
+    signup-completion and email-change services.
+  - `workers` main: register the reconciliation job.
   - Coordinator: `identity_digest_key_id` config.
 
 ### 3.8 Audit rules (applies everywhere above)
@@ -910,20 +696,6 @@ Files:
       row
     - reserve after `not_after` returns `reservation-expired`
     - abandon after finalize is a state conflict
-  - feed ordering: two concurrent transfers to the same tenant. Hold the first
-    transaction open, and assert the second blocks on the cursor row until the
-    first commits (use two pool connections), so no reader can ever observe
-    N+1 without N.
-  - feed acknowledgment: rows persist until acknowledged, then are deleted with
-    an audit; `acknowledged_seq > last_issued_seq` is a conflict; a regressed
-    request returns the stored cursor
-  - holdings check: held, transferred, released; a foreign DID is rejected
-  - professional claim: first claim, reverify bumps the revision, transfer
-    writes a supersession addressed to the right tenant, the same-tenant DID
-    appears only for the same tenant
-  - conditional release: current revision clears the holder, stale revision is
-    a no-op, a reclaim after release gets a higher revision
-  - the feed is caller-scoped
   - prune of terminal reservations only after `not_after + 7 days`
   - digest key mismatch
   - caller tenant mismatch
@@ -935,12 +707,6 @@ Files:
   - deadline cancel racing a successful reserve
   - never cancelling after `applied`
   - apply after the confirming session was deleted revokes all sessions
-- `professionalemail` service and workers:
-  - a late claim result below `superseded_revision` changes nothing and is
-    audited as outdated
-  - a supersession applied to an unverified row fences a later claim result
-  - watermark regression triggers the sweep
-  - the sweep supersedes drifted rows and skips rows with a live op
 - `backend/internal/db` integration: each new statement's audit row and
   rollback, in the style of `org_integration_test.go`.
 
@@ -948,8 +714,8 @@ Files:
 
 Use `lib/hub-api.ts`, Mailpit helpers, and `lib/admin-db.ts`
 (`sqlScalarForTenant`, `globalSQLScalar`, `auditEventJSONForTenant`). Use
-unique addresses per test and clean up fully, including global claim rows. Add
-a helper that deletes claims for a DID.
+unique addresses per test and clean up fully, including the global account-
+email claim row.
 
 New `hub-global-email.spec.ts`:
 
@@ -983,15 +749,8 @@ Extend `hub-email-change.spec.ts`:
   after signing in again. Use ind1 for the pending state. A tenant that
   reaches the coordinator completes too fast to observe it.
 
-Extend `hub-profile-professional-email.spec.ts`:
-
-- Cross-tenant transfer: sgp A verifies W; usa1 B verifies W and gets `204`.
-  Poll until A's list shows `superseded_at` (CI sync timer 2s). A reverifies,
-  then B is superseded.
-- Same-tenant transfer is immediate, with no polling.
-- Delete releases: the global claim row's holder becomes NULL after the worker
-  runs.
-- ind1 verify returns `202`.
+`hub-profile-professional-email.spec.ts` needs no extension: professional
+email verification is per-user only, unchanged from before this plan.
 
 Also:
 
@@ -1005,22 +764,18 @@ Also:
 
 - Signup completion homed elsewhere: shows the message and the region link.
 - Email change pending state: use ind1, or make the operation resolve.
-- Professional email moved state and reverify.
 
 ## 5. Documentation updates
 
 - `agent-guides/hub-signup.md` (GU-SIG-007)
 - `agent-guides/federation.md`:
   - what the directory stores for Hub users: digests only, with the key
-    location and namespaces
+    location and (now singular) namespace
   - the email-change claim workflow
-  - the professional-email transfer and the supersession pull feed
-    (GU-PEM-008)
-- `agent-guides/hub-profile.md`, `docs/hub-profile.md` (GU-PEM-007)
-- `agent-guides/glossary.md`: add *Account email*, *Identity digest*,
-  *Superseded professional email*
+- `agent-guides/glossary.md`: add *Account email*, *Identity digest*
 - `deploy/README.md`: the shared identity digest key and the coordinator key id
-- `docs/todo.md`: the out-of-scope items from §1
+- `docs/todo.md`: the out-of-scope items from §1, plus the deferred abuse-
+  detection admin feature §1's "Dropped" note names
 
 ## 6. Suggested commit sequence
 
@@ -1037,8 +792,8 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
    completion 409 contract, hub-ui completion page, tests.
 4. Email change durable operation: schema, queries, service, worker,
    contracts, hub-ui, tests.
-5. Professional email claims, supersession feed worker, contracts, hub-ui,
-   tests.
+5. ~~Professional email claims, supersession feed worker, contracts,
+   hub-ui, tests.~~ Dropped per §1; implemented then reverted.
 6. Guides and docs, Playwright UI tests, final `make fmt` and `make test`.
 
 ## 7. Verification
@@ -1062,67 +817,92 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
 - `pending_change` claims must never be reaped by time (GU-DIR-010). They
   leave through finalize or abandon, and abandon writes a tombstone that
   fences late reserves.
-- Never allocate feed sequences from an identity or sequence (GU-GDB-003), and
-  never prune feed rows by age (GU-DIR-009).
 - Never read pending email-change data from the challenge row; it cascades
   with its session (GU-ECH-002a).
 - Every email-change state transition is conditional on the expected state
   (GU-ECH-003). An unconditional update reintroduces the apply/cancel race.
-- A professional-email claim result is applied only if its revision exceeds
-  both `claim_revision` and `superseded_revision` (GU-PEM-003).
 - An errored resolve at request time must not block signup or code delivery;
   the completion and confirm steps are the fail-closed points.
-- Professional-email "verified" readers must all switch to the
-  superseded-aware predicate (GU-PEM-001), or a transferred address keeps
-  showing as verified.
 - CI `ind1` has no coordinator path. Never create ind1 fixtures that need a
   claim.
 
 ## 9. Implementation ledger
 
 - [x] GU-KEY-001..005
-- [x] GU-GDB-001..004 (incl. 002a). Deviation: global_outbox_events is
+- [x] GU-GDB-001..002 (incl. 002a). Deviation: global_outbox_events is
       deliberately not written for these tables; see §10.
-- [x] GU-DIR-001..011
+      GU-GDB-003: **dropped**, see §1/§3.2.
+- [x] GU-DIR-001..006, GU-DIR-010 (the email-change-reservation half).
+      GU-DIR-007..009, GU-DIR-011: **dropped**, see §1/§3.3.
 - [x] GU-SIG-001..007
 - [x] GU-ECH-001..007 (incl. 002a) — schema, queries, `emailchange` service
       and worker, handlers, contracts, integration tests (including the
-      concurrent-`Advance` race) all against a live Postgres, and the
-      hub-ui poll/replay flow. Playwright coverage (§4.2/§4.3) is M6 scope
-      per the plan's own file list, not part of this checkbox.
-- [ ] GU-PEM-001..009
-- [x] GU-CFG-001, partially: `reconcileHubEmailChangeTimer` (the
-      email-change worker's timer) is added to config end to end; the
-      professional-email timer is still M5 work. GU-CFG-002 (the
-      identitydigest.Key wiring into hub-api and workers via the
-      AccountEmailDigester interface, not the concrete type) is done, now
-      also for `emailchange`.
-- [x] Tests §4.1 for GU-DIR-001..011 (globaldirectory, handler, directoryclient
-      layers) and for GU-SIG-001..007 (signupcompletion service: email
-      conflict → failed + replay, handle conflict still rotates). §4.1's
-      emailchange/professionalemail service tests belong to M4/M5.
-- [ ] Tests §4.2, §4.3
-- [x] Documentation §5, partially: agent-guides/hub-signup.md (GU-SIG-007) and
-      docs/todo.md are updated. agent-guides/federation.md, hub-profile.md,
-      docs/hub-profile.md, and glossary.md are still M4/M5/M6 work.
+      concurrent-`Advance` race) all against a live Postgres, the hub-ui
+      poll/replay flow, and two audit-completeness fixes found by running
+      hub-email-change.spec.ts against a live CI stack (M6). All six of its
+      cases pass.
+- [ ] GU-PEM-001..009: implemented in M5, then **dropped** per the product
+      decision recorded in §1. See §10 for the revert commits.
+- [x] GU-CFG-001, for the email-change timer (`reconcileHubEmailChangeTimer`);
+      the three professional-email timers it also named are dropped along
+      with GU-PEM. GU-CFG-002 (the identitydigest.Key wiring into hub-api and
+      workers via the AccountEmailDigester interface, not the concrete type)
+      is done for signup and email-change; professional-email's wiring was
+      implemented in M5 and removed with it.
+- [x] Tests §4.1 for GU-DIR-001..006/010, GU-SIG-001..007, and GU-ECH-003
+      (incl. the concurrent-`Advance` race, stable under `-race`), all
+      against a live Postgres. GU-DIR-007..011 and GU-PEM's tests were
+      implemented in M5 and removed with it.
+- [ ] Tests §4.2, §4.3 (Playwright) — remaining: the new
+      `hub-global-email.spec.ts` and the `hub-email-change.spec.ts`
+      extensions §4.2 lists (professional-email extensions are dropped);
+      §4.3's two UI items.
+- [x] Documentation §5: `agent-guides/hub-signup.md` (GU-SIG-007),
+      `docs/todo.md`, this document's own dropped-scope notes,
+      `agent-guides/federation.md` (the account-email-digest and
+      email-change-saga paragraph; the professional-email paragraph
+      GU-PEM-008 asked for is dropped), and `agent-guides/glossary.md`
+      (*Account email* and *Identity digest*) are all updated.
 - [ ] `make test` green
 
 ## 10. Progress log
 
-**Current milestone:** M4 (account email change durable operation) complete.
-Schema, queries, the `emailchange` service and worker, the handlers, the
-TypeSpec contracts (`.tsp`/`.go`/`.ts` companions), the integration tests
-(including the concurrent-`Advance` race test GU-ECH-003 calls for, stable
-under `-race` and repeated runs), and the hub-ui poll/replay flow are all
-done, committed, and build/vet/test clean (`go build`, `go vet`,
-`gofmt -l .`, `make sql-check`, `make typespec-check`, `make hub-ui-check`
-all pass). `agent-guides/hub-profile.md`/`docs/hub-profile.md`/`glossary.md`
-have no stale email-change content to fix today (grepped: neither guide
-mentions the old synchronous `ConfirmHubEmailChange` design), so their
-GU-ECH-specific updates are deferred to M6's documentation pass alongside
-M5's, per the plan's own M6 file list. Starting M5 (professional email
-claims) next. See "What M4 actually implemented so far" below for the full
-M4 record, and "Exact next step" for where M5 begins.
+**Current milestone:** M4 is complete and verified against a live CI stack.
+M5 (professional email claims) was fully implemented, then reverted whole:
+the product owner decided against global uniqueness for professional emails
+after the M5 commits landed (see §1's "Dropped" note for the rationale).
+Continuing M6 now, scoped to account-email only (signup and email change);
+professional-email Playwright/doc items §4.2/§4.3/§5 originally listed are
+dropped along with GU-PEM.
+
+M4 delivered: schema, queries, the `emailchange` service and worker, the
+handlers, the TypeSpec contracts (`.tsp`/`.go`/`.ts` companions), the
+integration tests (including the concurrent-`Advance` race test GU-ECH-003
+calls for, stable under `-race` and repeated runs), and the hub-ui
+poll/replay flow — plus, discovered while running `hub-email-change.spec.ts`
+against a real CI stack during M6, two audit-completeness fixes (a dropped
+`attempt_count` field and a missing `hub.email-change.rejected` audit on the
+reserve-time-conflict path) and three test-fixture/assertion updates for
+behavior that genuinely changed under the new durable-operation design (see
+"M6 progress" below for the exact list). All six of that spec's cases now
+pass.
+
+M5's revert (two commits: reverting the five M5 commits, then removing the
+M1/M2 GU-DIR-007..011 foundations those commits called into) left every Go
+package, migration, and contract building and testing clean — see "M5
+revert" below for the exact file list and verification performed.
+
+`agent-guides/federation.md` and `agent-guides/glossary.md` had a real,
+pre-existing gap this session closed: neither ever documented the
+account-email digest or the email-change saga at all (the only federation.md
+paragraph that would have covered it, added in M5, mixed account-email and
+professional-email content together and was lost entirely on revert).
+Rewritten with an account-email-only version. `docs/hub-profile.md` and
+`agent-guides/hub-profile.md` have no stale email-change content (grepped:
+neither ever mentioned the old synchronous `ConfirmHubEmailChange` design or
+survived M5's revert with dangling references).
+
+See "M5 revert", "M6 progress", and "Exact next step" below.
 
 **Design decisions already validated against a real disposable PostgreSQL
 container** (a scratch `postgres:17-alpine` container, not part of the repo;
@@ -1433,90 +1213,108 @@ or a later run's notice-count assertion inflates from a previous run's
 leftover rows (hit this directly: the concurrency test's assertion counted
 6 accumulated rows before the cleanup was added).
 
-**Exact next step:** Start M5 (professional email claims). Read plan §3.6 in
-full again before touching files; it is denser than GU-ECH. In order:
+**M5 revert (professional email claims, implemented then dropped):** M5 was
+fully implemented per plan §3.6 (schema, claim/release sagas, supersession
+feed and sweep workers, contracts, hub-ui card, docs) across commits 8380f98,
+b3d4cac, 4d5a0e9, a15ab96, 3d62cb7. After those landed, the product owner
+decided against global uniqueness for professional emails (see §1's
+"Dropped" callout for the full rationale: agencies only ever see the verified
+domain, evidence is a re-verified-yearly dated record rather than an identity
+invariant, and duplicate-mailbox detection belongs to a later admin
+abuse-detection feature, not a global claim). The revert was done in two
+commits:
+- `e5fdcd6` cleanly `git revert`ed all five M5 commits (newest first), zero
+  conflicts, removing exactly the 44 files M5 had touched.
+- `cedba73` then removed what the earlier M1/M2 milestones had added only to
+  support professional-email claims and were never reverted by the M5
+  revert: the three global tables
+  (`hub_professional_email_claims`/`_feed_cursors`/`_supersessions`) and
+  their DROP statements from `db/global-migrations/00001_init.sql`; GU-DIR
+  007-011's globaldirectory methods, queries, coordinator/mesh handlers and
+  routes, directoryclient methods, and `validProfessionalClaim`; the
+  TypeSpec `directory` models/routes/tests naming professional emails;
+  `identitydigest.HubProfessionalEmail`/`NamespaceHubProfessionalEmail` and
+  its test vector; and the now-dropped tables' references in every
+  integration test's TRUNCATE list. Verified after each commit: `make sqlc`,
+  `go build ./...`, `go vet ./...`, full `go test ./...` against a freshly
+  recreated scratch `global_db`+`tenant_db`, `make sql-check`,
+  `make typespec-check`, and `make fmt`, all clean.
 
-1. Schema (GU-PEM-001), `db/migrations/00001_init.sql`: add to
-   `hub_professional_emails` — `email_digest bytea NOT NULL CHECK
-   (octet_length = 32)`, `claim_revision bigint NULL`,
-   `superseded_revision bigint NOT NULL DEFAULT 0`,
-   `superseded_at timestamptz NULL`, plus the
-   `CHECK ((superseded_at IS NOT NULL) = (claim_revision IS NOT NULL AND
-   superseded_revision >= claim_revision))` constraint. New
-   `global_feed_watermarks (feed text PRIMARY KEY, last_seq bigint NOT NULL
-   CHECK (last_seq >= 0))` table. **Grep every existing query that reads
-   `last_verified_at`/`first_verified_at`** (`backend/internal/db/queries/hub_profile_private.sql`
-   and any handler using it directly) and update each to the
-   `last_verified_at IS NOT NULL AND superseded_at IS NULL` predicate GU-PEM-001
-   specifies as the one true "is this verified" check.
-2. `VerifyProfessionalEmailChallenge`-equivalent query (GU-PEM-002): find its
-   current name in `hub_profile_private.sql` first (it may not be called
-   exactly that). Change it so a correct code no longer sets verification
-   times directly; it consumes the challenge, inserts a
-   `federation_operations` row (`kind = 'hub-professional-email-claim'`,
-   payload `{HubUserDID, ProfessionalEmailID, EmailDigest}`), and audits
-   `hub.profile.professional-email-proof-accepted`. Add the partial unique
-   index fencing one pending claim op per professional email row (mirrors
-   `hub_account_email_changes_one_live`'s shape but keyed on aggregate_id +
-   kind + pending state instead of hub_user_did).
-3. New `backend/internal/hub/professionalemail/` package: `Start`/`Advance`
-   mirroring `emailchange`'s shape (same `AccountEmailDigester`-local-
-   interface pattern, same `ResolveFederationOperation`-reuse for terminal
-   transitions), but GU-PEM-003's `ApplyHubProfessionalEmailClaim` has three
-   outcomes per revision-fencing (verified/outdated/row-deleted-so-enqueue-
-   release), not a fixed linear state machine like `hub_account_email_changes`
-   — read GU-PEM-003 closely before designing the SQL, it is the trickiest
-   part of M5.
-4. GU-PEM-005 (delete enqueues a release op in the same statement, gated on
-   `claim_revision IS NOT NULL AND superseded_at IS NULL`) and its worker.
-5. GU-PEM-006 (`sync_hub_professional_email_supersessions.go` worker: pulls
-   GU-DIR-009's feed, applies `SupersedeHubProfessionalEmail`, advances the
-   watermark) and GU-PEM-009 (`complete_hub_professional_email_claims.go`'s
-   sibling holdings-sweep worker calling GU-DIR-011). Both need the three new
-   `appconfig.Workers` timers from GU-CFG-001
-   (`CompleteHubProfessionalEmailClaimsTimer`,
-   `SyncHubProfessionalEmailSupersessionsTimer`,
-   `SweepHubProfessionalEmailHoldingsTimer`) plus
-   `CompleteHubEmailChangesTimer` if that one was named differently from the
-   `reconcileHubEmailChangeTimer` this session already added under M4 — check
-   and reconcile the name against GU-CFG-001's literal wording before adding
-   three more, to avoid two config keys for the same timer.
-6. Contracts: `typespec/hub/profile/professional_email.*` gains `202
-   PendingOperation` on verify, and `ProfessionalEmail` gains optional
-   `superseded_at`. Update `.tsp`, `.go`, **and `.ts`** every time (M4 missed
-   the `.ts` companion once already this session — see the deviation note
-   below — double check all three every time from now on).
-7. hub-ui professional email card: show a superseded row as "Verification
-   moved to another account" with a reverify action, never "valid"/"invalid"
-   wording (PROF-WEM-008), never naming the new holder.
-8. `docs/hub-profile.md` §5 (continue the PROF-WEM numbering) and
-   `agent-guides/hub-profile.md`, per GU-PEM-007.
-9. `agent-guides/federation.md`: record GU-PEM-008's design note (pull feed,
-   not push; the three safety properties).
-10. Tests: `professionalemail` service/worker tests per §4.1's list (first
-    claim, reverify bumps revision, transfer's supersession, conditional
-    release, the "claim response delayed past a supersession" outdated case,
-    the row-deleted-so-release-enqueued case), plus a concurrent-supersession-
-    feed-ordering test if not already adequately covered by M2's
-    `globaldirectory` version of that test (it covers the coordinator side;
-    M5 needs the tenant-side apply-and-ack loop covered too).
-11. Commit M5 with a §9/§10 update, then M6: hub-ui polish, Playwright API/UI
-    tests (§4.2/§4.3 — this is where the GU-ECH Playwright specs from §4.2
-    deferred during M4 belong too), the remaining doc passes, and finally a
-    full `make test` run (long-running; run with a long timeout or in the
-    background).
+Account-email uniqueness (GU-KEY, GU-GDB except -003, GU-DIR except
+007-011, GU-ECH, the email-change saga) is untouched by the revert and
+remains exactly as M2-M4 built it.
 
-**Known failing tests / open issues:** none in what exists so far for M1-M4 —
-every targeted `go test` passes (including `-race` on `emailchange` and
-`internal/architecture`), and `go build`, `go vet`, `gofmt -l .`,
-`make sql-check`, `make typespec-check`, and `make hub-ui-check` are all
-clean. `make test` (the full gate, including the CI docker stack and
-Playwright) has not been run; M5 is entirely unimplemented and M6's
-Playwright/doc work has not started, so it would not be meaningful yet, and
-it is a long-running command better run once near the end of M6. Open gap
-carried from M2: no `backend/handlers/mesh/directory_test.go` exists
-(pre-existing condition, not introduced by this plan) — see the M2 summary
-below.
+**M6 progress (account-email scope only):** `6682925` fixed two real audit
+gaps found by running `hub-email-change.spec.ts` against a live rebuilt CI
+stack: `AcceptHubEmailChange`'s verification-failed audit had lost
+`attempt_count` in the M4 query redesign, and
+`FailHubAccountEmailChangeDirectly` (the reserve-time address-already-taken
+path) never wrote a `hub.email-change.rejected` audit at all. Both are fixed
+in `backend/internal/db/queries/hub_email_change.sql`, regenerated via
+`make sqlc`, with `emailchange.Service.failDirectly` gaining a `source`
+parameter to supply the new audit's actor/idempotency fields. That commit
+also updated two Playwright assertions to match M4's actual (correct, not a
+bug) behavior: a wrong-code confirm doesn't create a durable operation, so
+replaying the same idempotency key with the now-correct code is a fresh
+attempt rather than a cached idempotency conflict; and the accept step's
+audit is keyed by the client's idempotency key while the terminal outcome is
+audited separately under the operation's own key. All 6 cases in
+`playwright/api/hub-email-change.spec.ts` pass against the live stack.
+
+**Exact next step:** Continue M6 for account-email scope only (professional
+email is fully dropped, so its §4.1/§4.2/§4.3/§5 items are gone, not
+deferred). In order:
+
+1. New `playwright/api/hub-global-email.spec.ts` per plan §4.2's signup
+   scenarios: sgp signup followed by a usa1 signup attempt at the same
+   address gets "registered elsewhere" plus its audit; a concurrent
+   sgp/usa1 signup race for the same address — the loser gets 409
+   homed-elsewhere; an ind1 signup returns `202 PendingOperation` and never
+   creates an active local user while the coordinator path is unreachable;
+   an email conflict during signup does not consume a handle-rotation
+   attempt.
+2. Extend `playwright/api/hub-email-change.spec.ts` with the remaining
+   §4.2 bullets not yet covered: confirming a change to an address already
+   claimed by a usa1 user sends no verification code; the race scenario
+   (address free in sgp, signed up in usa1, then confirmed in sgp) returns
+   409; after a successful change, signing up with the old address in usa1
+   gets "registered elsewhere"; confirming on ind1 returns
+   `202 PendingOperation` with the address unchanged and no session
+   revoked; a second `RequestEmailChange` while one is already pending on
+   ind1 returns 409 `hub-email-change-in-progress`; logging out mid-pending
+   change survives (check via `sqlScalarForTenant` that the pending row is
+   untouched by session teardown).
+3. Playwright UI tests per §4.3: a signup flow that completes with
+   "registered elsewhere" messaging; an email-change flow that shows the
+   pending/`202` state (force it via ind1 or an injected coordinator
+   failure).
+4. Generalize `playwright/lib/orgs-api.ts`'s `installOrgAuditInsertFailure`
+   pattern for Hub audit actions if a test above needs to force a
+   post-commit audit failure to exercise a recovery path.
+5. Contract coverage check: confirm every response status added or kept by
+   M2-M4 (200/202/400/409/503 across signup and email-change) is exercised
+   by a Playwright test, or explicitly documented here as unreachable
+   against the CI stack (e.g. a true coordinator outage) and covered instead
+   by a Go integration test.
+6. Add the `docs/todo.md` line for the deferred admin feature: detect and
+   block abuse where many accounts verify the same professional address or
+   domain (this is the rationale-driven follow-up the scope change calls
+   for, not part of this plan's scope).
+7. `make fmt`, then a full `make test` run (long-running; run in the
+   background or with an extended timeout) and confirm it exits 0.
+8. Mark every remaining §9 checkbox (done or dropped), set this section's
+   "Current milestone" to "complete", and commit.
+
+**Known failing tests / open issues:** none. Every targeted `go test`
+passes (including `-race` on `emailchange` and `internal/architecture`),
+and `go build`, `go vet`, `gofmt -l .`, `make sql-check`,
+`make typespec-check`, and `make hub-ui-check` are all clean on the
+post-revert tree. `make test` (the full gate, including the CI docker stack
+and Playwright) has not been run since the M5 revert; M6's remaining
+Playwright/doc work (above) is what's left before that final run is
+meaningful. Open gap carried from M2: no
+`backend/handlers/mesh/directory_test.go` exists (pre-existing condition,
+not introduced by this plan) — see the M2 summary below.
 
 **Deviations from the plan (M4, in addition to the M1/M2/M3 ones below):**
 

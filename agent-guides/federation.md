@@ -188,6 +188,23 @@ reservation/finalization state machine, not an outbox-only write.
     the newly claimed alias; never leave a paid slug attached to a downgraded
     profile. Downgrade cleanup and this compensation are both release requests
     using the same retryable operation protocol.
+- A Hub account email is globally unique the same way handles are, using a
+  keyed HMAC digest instead of the raw address so the coordinator never holds
+  a reversible address (`identitydigest.Key`, `docs/global-uniqueness.md`).
+  Signup reserves the digest alongside the DID and handle. Changing the
+  address is a three-step reserve/apply/finalize saga per change
+  (`backend/internal/hub/emailchange`, mirroring the alias-change shape
+  above): the new digest is reserved globally before anything local changes,
+  the local `hub_users` row is updated only once the reservation is
+  confirmed, and the reservation is finalized (freeing the old digest) only
+  after that. A conflict, an expired reservation, or a lost connection to the
+  coordinator during any step durably records the operation and drives it
+  through to a terminal state via the same recovery worker and idempotent
+  replay pattern the alias-change saga uses, never leaving the address
+  claimed by nobody or by two users at once. Verified professional (work)
+  emails are **not** globally unique; that was tried and reverted (see
+  `docs/global-uniqueness.md` §1) — they remain a per-user, per-domain local
+  constraint.
 - Principal migration freezes source writes, copies authoritative state plus both
   sides of the reliability ledgers, verifies the copy, performs one versioned
   global routing flip, and retains forwarding evidence for stale callers. Never

@@ -112,16 +112,17 @@ Deferred from [`global-uniqueness.md`](global-uniqueness.md), section 1.
   control (a signup completion, an emailed notice) may reveal the home
   region.
 - Hub account deletion does not exist yet. When it is built it must release
-  the global account-email claim and every professional-email claim the user
-  holds.
+  the global account-email claim.
 - Digest key rotation has no procedure yet, only the key id hook
   (`identitydigest.Key.ID()`, GU-KEY-004) that would let the coordinator
   detect a tenant still using the old key.
-- Decommissioning a tenant must delete its `hub_professional_email_feed_cursors`
-  row and any `hub_professional_email_supersessions` rows still addressed to
-  it (GU-DIR-010); nothing does this yet, since no tenant decommissioning
-  procedure exists.
 - No `backend/handlers/mesh/directory_test.go` exists for any directory
-  operation relayed through mesh-api, the eight Hub-email ones included; it
+  operation relayed through mesh-api, the account-email ones included; it
   is exercised only by `go build`/`go vet` (interface satisfaction) and by
   the Playwright API suite against the real CI stack.
+- Global uniqueness for verified professional (work) emails was tried and
+  dropped (`global-uniqueness.md` §1): agencies only ever see the verified
+  domain, never the address, and duplicate verification of one mailbox
+  across accounts is an abuse signal, not an identity invariant. Add a later
+  admin feature that detects and blocks abuse where many accounts verify the
+  same professional address or domain.
