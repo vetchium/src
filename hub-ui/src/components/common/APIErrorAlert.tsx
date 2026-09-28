@@ -15,6 +15,8 @@ import {
 import {
   EmailAddressUnavailableError,
   EmailChangeCodeRejectedError,
+  EmailChangeInProgressError,
+  EmailChangeUnavailableError,
 } from "typespec/problem/hub/email";
 import {
   ProfessionalEmailCodeRejectedError,
@@ -74,6 +76,8 @@ export const problemKeys: Record<string, string> = {
   [PlanRequiredErrorType]: "errors.planRequired",
   [EmailChangeCodeRejectedError.type]: "errors.emailChangeCodeRejected",
   [EmailAddressUnavailableError.type]: "errors.emailAddressUnavailable",
+  [EmailChangeInProgressError.type]: "errors.emailChangeInProgress",
+  [EmailChangeUnavailableError.type]: "errors.emailChangeUnavailable",
 };
 
 export function APIErrorAlert({ error }: { error: unknown }) {

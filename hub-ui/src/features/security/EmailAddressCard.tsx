@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   App,
@@ -20,6 +20,7 @@ import {
   normalizeRequestEmailChangeRequest,
   validateRequestEmailChangeRequest,
 } from "typespec/hub/auth/email_change";
+import { Pending } from "typespec/hub/operations/operations";
 import { isRecentAuthenticationRequired } from "../../api/client";
 import { hubAPI } from "../../api/hub";
 import { useIdempotencyKey } from "../../api/idempotency";
@@ -135,6 +136,11 @@ export function EmailAddressCard({
       setEditing(false);
     },
   });
+  // A 202 means the global directory hiccupped; poll the operation, then
+  // replay confirm with the same (unrotated) idempotency key for the
+  // resolved typed result (GU-ECH-005, GU-ECH-007), same as the alias
+  // editor's operation-polling helper.
+  const [operationID, setOperationID] = useState<string | null>(null);
   const confirm = useMutation({
     mutationFn: async () => {
       if (pending === null) throw new Error("Missing email change challenge");
@@ -144,7 +150,7 @@ export function EmailAddressCard({
       lastCode.current = code;
       const release = hold();
       try {
-        await hubAPI.confirmEmailChange(
+        return await hubAPI.confirmEmailChange(
           { challenge_id: pending.challenge_id, code },
           confirmKey.current(),
         );
@@ -152,12 +158,38 @@ export function EmailAddressCard({
         release();
       }
     },
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      if (result !== undefined) {
+        setOperationID(result.operation_id);
+        return;
+      }
+      setOperationID(null);
       confirmKey.rotate();
       forget();
       await queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
       void message.success(t("emailChange.changed"));
     },
+  });
+  useQuery({
+    queryKey: ["hub", "email-change-operation", operationID],
+    queryFn: async () => {
+      if (operationID === null) throw new Error("Missing operation");
+      const status = await hubAPI.operationStatus({
+        operation_id: operationID,
+      });
+      if (status.state !== Pending) {
+        setOperationID(null);
+        try {
+          await confirm.mutateAsync();
+        } catch {
+          // confirm.error now carries the resolved typed problem, if any.
+        }
+      }
+      return status;
+    },
+    enabled: operationID !== null,
+    refetchInterval: 1000,
+    retry: false,
   });
 
   const sendCode = (address: string) => {
@@ -218,6 +250,14 @@ export function EmailAddressCard({
               })}
               description={t("emailChange.noCodeHint")}
             />
+            {operationID !== null ? (
+              <Alert
+                type="info"
+                showIcon
+                title={t("emailChange.applying")}
+                data-testid="email-change-applying"
+              />
+            ) : null}
             <Form
               layout="vertical"
               className="settings-form"
@@ -241,6 +281,7 @@ export function EmailAddressCard({
                   autoComplete="one-time-code"
                   maxLength={6}
                   autoFocus
+                  disabled={operationID !== null}
                   onChange={(event) => setCode(event.target.value.trim())}
                 />
               </Form.Item>
@@ -248,13 +289,17 @@ export function EmailAddressCard({
                 <Button
                   type="primary"
                   htmlType="submit"
-                  disabled={!/^[0-9]{6}$/.test(code) || request.isPending}
+                  disabled={
+                    !/^[0-9]{6}$/.test(code) ||
+                    request.isPending ||
+                    operationID !== null
+                  }
                   loading={confirm.isPending}
                 >
                   {t("emailChange.confirm")}
                 </Button>
                 <Button
-                  disabled={confirm.isPending}
+                  disabled={confirm.isPending || operationID !== null}
                   loading={request.isPending}
                   onClick={() => sendCode(pending.new_email_address)}
                 >
@@ -262,7 +307,11 @@ export function EmailAddressCard({
                 </Button>
                 <Button
                   type="text"
-                  disabled={confirm.isPending || request.isPending}
+                  disabled={
+                    confirm.isPending ||
+                    request.isPending ||
+                    operationID !== null
+                  }
                   onClick={cancel}
                 >
                   {t("emailChange.cancel")}

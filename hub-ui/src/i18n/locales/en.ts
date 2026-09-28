@@ -178,6 +178,9 @@ export const en = {
       "That code could not be accepted. Check it or send a new code.",
     emailAddressUnavailable:
       "Another Vetchium account already uses that address.",
+    emailChangeInProgress: "Another email change is already in progress.",
+    emailChangeUnavailable:
+      "The email change could not be completed. Please try again.",
     planRequired: "This feature needs a paid plan.",
   },
   profile: {
@@ -462,6 +465,7 @@ export const en = {
     confirm: "Confirm new address",
     resend: "Send a new code",
     cancel: "Cancel",
+    applying: "Applying your new email…",
     changed: "Your email address was changed. Other browsers were signed out.",
   },
   preferences: {
