@@ -390,7 +390,7 @@ func (s *Service) Advance(
 		}
 	}
 	return Result{}, fmt.Errorf(
-		"Hub account email change transition limit exceeded",
+		"hub account email change transition limit exceeded",
 	)
 }
 
