@@ -78,7 +78,8 @@ func ListProfessionalEmails(s *hubruntime.Server) http.HandlerFunc {
 			}
 			response.Emails = append(response.Emails, professionalEmail(
 				row.ProfessionalEmailID, row.EmailAddress, row.Domain,
-				row.FirstVerifiedAt, row.LastVerifiedAt, row.CreatedAt,
+				row.FirstVerifiedAt, row.LastVerifiedAt, row.SupersededAt,
+				row.CreatedAt,
 			))
 			last = row
 		}

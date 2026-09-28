@@ -13,6 +13,11 @@ export interface ProfessionalEmail {
   domain: ProfessionalDomain;
   first_verified_at?: string;
   last_verified_at?: string;
+  // Set when a newer proof elsewhere claimed this address (GU-PEM-004):
+  // verification "moved to another account" without naming who holds it
+  // now. A verified address is last_verified_at set AND superseded_at
+  // unset; never treat last_verified_at alone as verified.
+  superseded_at?: string;
   created_at: string;
 }
 

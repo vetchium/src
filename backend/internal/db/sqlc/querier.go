@@ -28,7 +28,19 @@ type Querier interface {
 	// The confirming session is preserved unless it no longer exists, in which
 	// case every session is revoked (GU-ECH-002a).
 	ApplyHubAccountEmailChange(ctx context.Context, arg ApplyHubAccountEmailChangeParams) (pgtype.UUID, error)
+	// Sets superseded_revision unconditionally (GREATEST), and superseded_at
+	// only the first time claim_revision is fenced by it, whether or not the
+	// row is currently verified (GU-PEM-006). The caller has already locked
+	// the row with LockHubProfessionalEmailForSupersede and decided in Go
+	// whether superseded_at is newly set, to know whether to audit.
+	ApplyHubProfessionalEmailSupersession(ctx context.Context, arg ApplyHubProfessionalEmailSupersessionParams) (int64, error)
 	ApplyHubProfileAlias(ctx context.Context, arg ApplyHubProfileAliasParams) (ApplyHubProfileAliasRow, error)
+	// GU-PEM-003 case 2: the row exists but a newer proof already won, because
+	// the claim response was delayed past a supersession for a higher
+	// revision. Nothing on the row changes; the proof itself was still
+	// accepted, so the operation still resolves as succeeded.
+	AuditHubProfessionalEmailClaimOutdated(ctx context.Context, arg AuditHubProfessionalEmailClaimOutdatedParams) error
+	AuditHubProfessionalEmailSuperseded(ctx context.Context, arg AuditHubProfessionalEmailSupersededParams) error
 	AuthenticateAdminSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateAdminSessionRow, error)
 	AuthenticateHubSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateHubSessionRow, error)
 	AuthenticateOrgSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateOrgSessionRow, error)
@@ -114,6 +126,10 @@ type Querier interface {
 	DeleteHubCertification(ctx context.Context, arg DeleteHubCertificationParams) (DeleteHubCertificationRow, error)
 	DeleteHubEducationalQualification(ctx context.Context, arg DeleteHubEducationalQualificationParams) (DeleteHubEducationalQualificationRow, error)
 	DeleteHubLanguageAbility(ctx context.Context, arg DeleteHubLanguageAbilityParams) (DeleteHubLanguageAbilityRow, error)
+	// A held global claim (claim_revision IS NOT NULL AND superseded_at IS
+	// NULL) is released in the same statement (GU-PEM-005): the worker drives
+	// release-hub-professional-email to completion, with no browser-visible
+	// pending state, so delete itself always stays 204.
 	DeleteHubProfessionalEmail(ctx context.Context, arg DeleteHubProfessionalEmailParams) (pgtype.UUID, error)
 	DeleteHubSessionByTokenHash(ctx context.Context, arg DeleteHubSessionByTokenHashParams) error
 	DeleteHubWebsite(ctx context.Context, arg DeleteHubWebsiteParams) (DeleteHubWebsiteRow, error)
@@ -129,6 +145,11 @@ type Querier interface {
 	DisableHubTOTP(ctx context.Context, arg DisableHubTOTPParams) (bool, error)
 	DisableOrgTOTP(ctx context.Context, arg DisableOrgTOTPParams) (bool, error)
 	EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (string, error)
+	// GU-PEM-003 case 3 (the row was deleted meanwhile) and GU-PEM-009 (a
+	// holdings-sweep repair) both compensate by releasing the coordinator's
+	// claim directly, since there is no local row left to drive a release
+	// from.
+	EnqueueHubProfessionalEmailReleaseOperation(ctx context.Context, arg EnqueueHubProfessionalEmailReleaseOperationParams) (pgtype.UUID, error)
 	// The reserve-time email-claim-conflict path (GU-ECH-003): fails directly,
 	// skipping 'cancelling', since nothing was reserved globally to undo. The
 	// caller resolves the sibling federation_operations row with the existing
@@ -153,6 +174,7 @@ type Querier interface {
 	GetFederationCommandResult(ctx context.Context, commandID pgtype.UUID) (VetchiumFederationCommandLedger, error)
 	GetFederationOperation(ctx context.Context, operationID pgtype.UUID) (VetchiumFederationOperation, error)
 	GetFederationOperationByIdempotency(ctx context.Context, arg GetFederationOperationByIdempotencyParams) (VetchiumFederationOperation, error)
+	GetGlobalFeedWatermark(ctx context.Context, feed string) (int64, error)
 	GetHubAccountEmailChangeByOperationID(ctx context.Context, arg GetHubAccountEmailChangeByOperationIDParams) (GetHubAccountEmailChangeByOperationIDRow, error)
 	GetHubAliasMutationState(ctx context.Context, arg GetHubAliasMutationStateParams) (GetHubAliasMutationStateRow, error)
 	GetHubAliasState(ctx context.Context, arg GetHubAliasStateParams) (GetHubAliasStateRow, error)
@@ -167,6 +189,12 @@ type Querier interface {
 	GetHubMyInfo(ctx context.Context, arg GetHubMyInfoParams) (GetHubMyInfoRow, error)
 	GetHubMySubscription(ctx context.Context, arg GetHubMySubscriptionParams) (GetHubMySubscriptionRow, error)
 	GetHubPasswordForReauthentication(ctx context.Context, arg GetHubPasswordForReauthenticationParams) (string, error)
+	// Read-only lookup so the caller can build the claim payload (identitydigest
+	// lives in Go, not SQL, but the digest was already computed and stored at
+	// add time) before calling VerifyHubProfessionalEmailChallenge. That
+	// statement re-validates the challenge itself with FOR UPDATE, so a plain
+	// read here cannot introduce a race.
+	GetHubProfessionalEmailChallengeDigest(ctx context.Context, arg GetHubProfessionalEmailChallengeDigestParams) ([]byte, error)
 	GetHubProfilePictureUpload(ctx context.Context, arg GetHubProfilePictureUploadParams) (GetHubProfilePictureUploadRow, error)
 	GetHubProfileViewer(ctx context.Context, hubUserDid pgtype.UUID) (string, error)
 	GetHubPublicProfile(ctx context.Context, hubUserDid pgtype.UUID) (GetHubPublicProfileRow, error)
@@ -186,6 +214,10 @@ type Querier interface {
 	// A suspended Org's users can still sign in, to restore the domain. When a
 	// released domain was claimed by another local Org, the current owner wins.
 	GetOrgUserForLogin(ctx context.Context, arg GetOrgUserForLoginParams) (GetOrgUserForLoginRow, error)
+	// Used when VerifyHubProfessionalEmailChallenge's insert lost the
+	// one-live race: the existing pending operation is advanced instead
+	// (GU-PEM-002).
+	GetPendingHubProfessionalEmailClaimOperation(ctx context.Context, professionalEmailID string) (VetchiumFederationOperation, error)
 	// While a live (non-terminal) account-email-change durable operation exists
 	// for this user, request-email-change and confirm-email-change both refuse
 	// outright (GU-ECH-001): neither issues nor supersedes a challenge.
@@ -203,6 +235,9 @@ type Querier interface {
 	// read, so a scheduled check and a superadmin's check-now cannot both apply a
 	// stale result.
 	ListDueOrgDomains(ctx context.Context) ([]ListDueOrgDomainsRow, error)
+	// Verified evidence is last_verified_at IS NOT NULL AND superseded_at IS
+	// NULL (GU-PEM-001); every reader of verification status must use that
+	// predicate, not last_verified_at alone.
 	ListHubProfessionalEmails(ctx context.Context, hubUserDid pgtype.UUID) ([]ListHubProfessionalEmailsRow, error)
 	ListHubSignupDomains(ctx context.Context, arg ListHubSignupDomainsParams) ([]ListHubSignupDomainsRow, error)
 	// Candidates for a subscription-ending warning: a paid plan with a scheduled
@@ -219,13 +254,26 @@ type Querier interface {
 	ListRecoverableHubAccountEmailChanges(ctx context.Context, batchSize int32) ([]ListRecoverableHubAccountEmailChangesRow, error)
 	ListRecoverableHubAliasChanges(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
 	ListRecoverableHubAliasReleases(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
+	ListRecoverableHubProfessionalEmailOperations(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
 	ListRecoverableHubSignupCompletions(ctx context.Context) ([]VetchiumHubSignupCompletion, error)
 	ListRecoverableOrgSignupCompletions(ctx context.Context) ([]VetchiumOrgSignupCompletion, error)
+	// GU-PEM-009: pages through currently-verified rows with no live claim
+	// op (that op's own apply is authoritative for them), for a periodic
+	// reconciliation against GU-DIR-011.
+	ListVerifiedHubProfessionalEmailsForHoldingsSweep(ctx context.Context, arg ListVerifiedHubProfessionalEmailsForHoldingsSweepParams) ([]ListVerifiedHubProfessionalEmailsForHoldingsSweepRow, error)
 	LocalOrgDomainExists(ctx context.Context, domain string) (bool, error)
 	LockAdminEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
 	LockAdminUserCredentialMutation(ctx context.Context, adminUserID pgtype.UUID) (pgtype.UUID, error)
 	LockHubAccountEmailChange(ctx context.Context, operationID pgtype.UUID) (LockHubAccountEmailChangeRow, error)
 	LockHubEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
+	// A plain row lock read by (professional_email_id, hub_user_did), taken
+	// before deciding whether a claim response's revision applies
+	// (GU-PEM-003), so a concurrent delete or another driver's apply cannot
+	// race the decision.
+	LockHubProfessionalEmailForClaim(ctx context.Context, arg LockHubProfessionalEmailForClaimParams) (LockHubProfessionalEmailForClaimRow, error)
+	// By (hub_user_did, email_digest), the natural key a supersession feed
+	// item or a same-tenant claim transfer addresses (GU-PEM-006).
+	LockHubProfessionalEmailForSupersede(ctx context.Context, arg LockHubProfessionalEmailForSupersedeParams) (LockHubProfessionalEmailForSupersedeRow, error)
 	LockHubSubscriptionForChange(ctx context.Context, hubUserDid pgtype.UUID) (LockHubSubscriptionForChangeRow, error)
 	LockHubUserCredentialMutation(ctx context.Context, hubUserDid pgtype.UUID) (pgtype.UUID, error)
 	LockIdempotency(ctx context.Context, dollar_1 string) error
@@ -238,6 +286,11 @@ type Querier interface {
 	MarkHubAccountEmailChangeSucceeded(ctx context.Context, operationID pgtype.UUID) (int64, error)
 	MarkHubEmailFailed(ctx context.Context, arg MarkHubEmailFailedParams) (bool, error)
 	MarkHubEmailSent(ctx context.Context, arg MarkHubEmailSentParams) (bool, error)
+	// Applies a claim response whose revision already passed the
+	// LockHubProfessionalEmailForClaim check in Go (GU-PEM-003 case 1). The
+	// WHERE clause repeats that check as a belt-and-suspenders guard, not as
+	// the primary decision point.
+	MarkHubProfessionalEmailVerified(ctx context.Context, arg MarkHubProfessionalEmailVerifiedParams) (int64, error)
 	MarkHubSignupCompletionReserved(ctx context.Context, arg MarkHubSignupCompletionReservedParams) (VetchiumHubSignupCompletion, error)
 	MarkOrgEmailFailed(ctx context.Context, arg MarkOrgEmailFailedParams) (bool, error)
 	MarkOrgEmailSent(ctx context.Context, arg MarkOrgEmailSentParams) (bool, error)
@@ -325,6 +378,7 @@ type Querier interface {
 	// tenant that already has none is not held to the invariant it has lost.
 	SetAdminPermissions(ctx context.Context, arg SetAdminPermissionsParams) (string, error)
 	SetAdminPreferredLanguage(ctx context.Context, arg SetAdminPreferredLanguageParams) (int64, error)
+	SetGlobalFeedWatermark(ctx context.Context, arg SetGlobalFeedWatermarkParams) error
 	SetHubPreferredJobCountries(ctx context.Context, arg SetHubPreferredJobCountriesParams) (bool, error)
 	SetHubPreferredLanguage(ctx context.Context, arg SetHubPreferredLanguageParams) (bool, error)
 	SetHubPublicProfile(ctx context.Context, arg SetHubPublicProfileParams) (SetHubPublicProfileRow, error)
@@ -343,6 +397,14 @@ type Querier interface {
 	UpdateHubSignupDomain(ctx context.Context, arg UpdateHubSignupDomainParams) (UpdateHubSignupDomainRow, error)
 	UpdateHubWebsite(ctx context.Context, arg UpdateHubWebsiteParams) (UpdateHubWebsiteRow, error)
 	UpdateHubWorkExperience(ctx context.Context, arg UpdateHubWorkExperienceParams) (UpdateHubWorkExperienceRow, error)
+	// A correct code no longer sets verification times directly (GU-PEM-002):
+	// it consumes the challenge and creates a federation_operations row
+	// (kind = 'hub-professional-email-claim') that emailclaim.Service drives
+	// through the coordinator. A unique violation on
+	// hub_professional_email_claims_one_live (another confirm already created a
+	// pending claim for this row) is caught by the caller, which looks up and
+	// advances that existing operation instead (GU-PEM-002's "a duplicate
+	// returns the existing operation").
 	VerifyHubProfessionalEmailChallenge(ctx context.Context, arg VerifyHubProfessionalEmailChallengeParams) (VerifyHubProfessionalEmailChallengeRow, error)
 }
 

@@ -66,20 +66,23 @@ type AdminAPIServer struct {
 }
 
 type Workers struct {
-	RetryBackoffLimit            time.Duration
-	PruneAdminSessionsTimer      time.Duration
-	PruneEphemeralDataTimer      time.Duration
-	DeliverHubEmailTimer         time.Duration
-	HubEmailLeaseTTL             time.Duration
-	HubEmailMaxAttempts          int
-	AdvanceHubSubscriptionsTimer time.Duration
-	ReconcileHubSignupTimer      time.Duration
-	ReconcileHubEmailChangeTimer time.Duration
-	DeliverOrgEmailTimer         time.Duration
-	OrgEmailLeaseTTL             time.Duration
-	OrgEmailMaxAttempts          int
-	ReconcileOrgSignupTimer      time.Duration
-	VerifyOrgDomainsTimer        time.Duration
+	RetryBackoffLimit                          time.Duration
+	PruneAdminSessionsTimer                    time.Duration
+	PruneEphemeralDataTimer                    time.Duration
+	DeliverHubEmailTimer                       time.Duration
+	HubEmailLeaseTTL                           time.Duration
+	HubEmailMaxAttempts                        int
+	AdvanceHubSubscriptionsTimer               time.Duration
+	ReconcileHubSignupTimer                    time.Duration
+	ReconcileHubEmailChangeTimer               time.Duration
+	CompleteHubProfessionalEmailClaimsTimer    time.Duration
+	SyncHubProfessionalEmailSupersessionsTimer time.Duration
+	SweepHubProfessionalEmailHoldingsTimer     time.Duration
+	DeliverOrgEmailTimer                       time.Duration
+	OrgEmailLeaseTTL                           time.Duration
+	OrgEmailMaxAttempts                        int
+	ReconcileOrgSignupTimer                    time.Duration
+	VerifyOrgDomainsTimer                      time.Duration
 }
 
 type HubAPIServer struct {
@@ -230,20 +233,23 @@ type fileAdminAPIServer struct {
 }
 
 type fileWorkers struct {
-	RetryBackoffLimit            string `json:"retryBackoffLimit"`
-	PruneAdminSessionsTimer      string `json:"pruneAdminSessionsTimer"`
-	PruneEphemeralDataTimer      string `json:"pruneEphemeralDataTimer"`
-	DeliverHubEmailTimer         string `json:"deliverHubEmailTimer"`
-	HubEmailLeaseTTL             string `json:"hubEmailLeaseTTL"`
-	HubEmailMaxAttempts          int    `json:"hubEmailMaxAttempts"`
-	AdvanceHubSubscriptionsTimer string `json:"advanceHubSubscriptionsTimer"`
-	ReconcileHubSignupTimer      string `json:"reconcileHubSignupTimer"`
-	ReconcileHubEmailChangeTimer string `json:"reconcileHubEmailChangeTimer"`
-	DeliverOrgEmailTimer         string `json:"deliverOrgEmailTimer"`
-	OrgEmailLeaseTTL             string `json:"orgEmailLeaseTTL"`
-	OrgEmailMaxAttempts          int    `json:"orgEmailMaxAttempts"`
-	ReconcileOrgSignupTimer      string `json:"reconcileOrgSignupTimer"`
-	VerifyOrgDomainsTimer        string `json:"verifyOrgDomainsTimer"`
+	RetryBackoffLimit                          string `json:"retryBackoffLimit"`
+	PruneAdminSessionsTimer                    string `json:"pruneAdminSessionsTimer"`
+	PruneEphemeralDataTimer                    string `json:"pruneEphemeralDataTimer"`
+	DeliverHubEmailTimer                       string `json:"deliverHubEmailTimer"`
+	HubEmailLeaseTTL                           string `json:"hubEmailLeaseTTL"`
+	HubEmailMaxAttempts                        int    `json:"hubEmailMaxAttempts"`
+	AdvanceHubSubscriptionsTimer               string `json:"advanceHubSubscriptionsTimer"`
+	ReconcileHubSignupTimer                    string `json:"reconcileHubSignupTimer"`
+	ReconcileHubEmailChangeTimer               string `json:"reconcileHubEmailChangeTimer"`
+	CompleteHubProfessionalEmailClaimsTimer    string `json:"completeHubProfessionalEmailClaimsTimer"`
+	SyncHubProfessionalEmailSupersessionsTimer string `json:"syncHubProfessionalEmailSupersessionsTimer"`
+	SweepHubProfessionalEmailHoldingsTimer     string `json:"sweepHubProfessionalEmailHoldingsTimer"`
+	DeliverOrgEmailTimer                       string `json:"deliverOrgEmailTimer"`
+	OrgEmailLeaseTTL                           string `json:"orgEmailLeaseTTL"`
+	OrgEmailMaxAttempts                        int    `json:"orgEmailMaxAttempts"`
+	ReconcileOrgSignupTimer                    string `json:"reconcileOrgSignupTimer"`
+	VerifyOrgDomainsTimer                      string `json:"verifyOrgDomainsTimer"`
 }
 
 type fileHubAPIServer struct {
@@ -603,6 +609,27 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	completeHubProfessionalEmailClaimsTimer, err := positiveDuration(
+		"workers.completeHubProfessionalEmailClaimsTimer",
+		raw.Workers.CompleteHubProfessionalEmailClaimsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	syncHubProfessionalEmailSupersessionsTimer, err := positiveDuration(
+		"workers.syncHubProfessionalEmailSupersessionsTimer",
+		raw.Workers.SyncHubProfessionalEmailSupersessionsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	sweepHubProfessionalEmailHoldingsTimer, err := positiveDuration(
+		"workers.sweepHubProfessionalEmailHoldingsTimer",
+		raw.Workers.SweepHubProfessionalEmailHoldingsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	orgWorkers, err := parseOrgWorkers(raw.Workers)
 	if err != nil {
 		return Config{}, configError(path, err)
@@ -649,20 +676,23 @@ func LoadFile(path string) (Config, error) {
 			},
 		},
 		Workers: Workers{
-			RetryBackoffLimit:            retryBackoffLimit,
-			PruneAdminSessionsTimer:      pruneTimer,
-			PruneEphemeralDataTimer:      pruneEphemeralTimer,
-			DeliverHubEmailTimer:         deliverHubEmailTimer,
-			HubEmailLeaseTTL:             hubEmailLeaseTTL,
-			HubEmailMaxAttempts:          raw.Workers.HubEmailMaxAttempts,
-			AdvanceHubSubscriptionsTimer: advanceHubSubscriptionsTimer,
-			ReconcileHubSignupTimer:      reconcileHubSignupTimer,
-			ReconcileHubEmailChangeTimer: reconcileHubEmailChangeTimer,
-			DeliverOrgEmailTimer:         orgWorkers.DeliverOrgEmailTimer,
-			OrgEmailLeaseTTL:             orgWorkers.OrgEmailLeaseTTL,
-			OrgEmailMaxAttempts:          orgWorkers.OrgEmailMaxAttempts,
-			ReconcileOrgSignupTimer:      orgWorkers.ReconcileOrgSignupTimer,
-			VerifyOrgDomainsTimer:        orgWorkers.VerifyOrgDomainsTimer,
+			RetryBackoffLimit:                          retryBackoffLimit,
+			PruneAdminSessionsTimer:                    pruneTimer,
+			PruneEphemeralDataTimer:                    pruneEphemeralTimer,
+			DeliverHubEmailTimer:                       deliverHubEmailTimer,
+			HubEmailLeaseTTL:                           hubEmailLeaseTTL,
+			HubEmailMaxAttempts:                        raw.Workers.HubEmailMaxAttempts,
+			AdvanceHubSubscriptionsTimer:               advanceHubSubscriptionsTimer,
+			ReconcileHubSignupTimer:                    reconcileHubSignupTimer,
+			ReconcileHubEmailChangeTimer:               reconcileHubEmailChangeTimer,
+			CompleteHubProfessionalEmailClaimsTimer:    completeHubProfessionalEmailClaimsTimer,
+			SyncHubProfessionalEmailSupersessionsTimer: syncHubProfessionalEmailSupersessionsTimer,
+			SweepHubProfessionalEmailHoldingsTimer:     sweepHubProfessionalEmailHoldingsTimer,
+			DeliverOrgEmailTimer:                       orgWorkers.DeliverOrgEmailTimer,
+			OrgEmailLeaseTTL:                           orgWorkers.OrgEmailLeaseTTL,
+			OrgEmailMaxAttempts:                        orgWorkers.OrgEmailMaxAttempts,
+			ReconcileOrgSignupTimer:                    orgWorkers.ReconcileOrgSignupTimer,
+			VerifyOrgDomainsTimer:                      orgWorkers.VerifyOrgDomainsTimer,
 		},
 		HubAPIServer: HubAPIServer{
 			Signup:               admission,

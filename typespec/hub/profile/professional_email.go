@@ -14,7 +14,12 @@ type ProfessionalEmail struct {
 	Domain          common.ProfessionalDomain `json:"domain"`
 	FirstVerifiedAt *time.Time                `json:"first_verified_at,omitempty"`
 	LastVerifiedAt  *time.Time                `json:"last_verified_at,omitempty"`
-	CreatedAt       time.Time                 `json:"created_at"`
+	// Set when a newer proof elsewhere claimed this address (GU-PEM-004):
+	// verification "moved to another account" without naming who holds it
+	// now. A verified address is LastVerifiedAt set AND SupersededAt unset;
+	// never treat LastVerifiedAt alone as verified.
+	SupersededAt *time.Time `json:"superseded_at,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
 }
 
 type ProfessionalEmailPageSize int32

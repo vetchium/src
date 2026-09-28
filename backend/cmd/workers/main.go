@@ -11,6 +11,7 @@ import (
 	"backend/internal/email"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/hub/emailchange"
+	"backend/internal/hub/professionalemail"
 	"backend/internal/hub/signupcompletion"
 	"backend/internal/identitydigest"
 	"backend/internal/objectstorage"
@@ -101,6 +102,13 @@ func run(log *slog.Logger) error {
 		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "outbox"),
 		digestKey, nil,
 	)
+	professionalEmailService := professionalemail.New(
+		pool, directory, cfg.TenantID,
+		hubauthn.DeriveCredentialSubkey(
+			hubCredentialKey, "professional-email-code",
+		),
+		digestKey, nil,
+	)
 	worker := workers.New(
 		pool, log, cfg.TenantID, cfg.Workers,
 		&workers.HubEmailDelivery{
@@ -116,6 +124,7 @@ func run(log *slog.Logger) error {
 		signupRecovery,
 		emailChangeRecovery,
 	)
+	worker.EnableProfessionalEmail(professionalEmailService, cfg.Workers)
 	orgsCredentialSecret, err := appconfig.OrgsCredentialSecret()
 	if err != nil {
 		return err

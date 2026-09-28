@@ -122,6 +122,98 @@ func (q *Queries) ActivateHubProfilePicture(ctx context.Context, arg ActivateHub
 	return i, err
 }
 
+const applyHubProfessionalEmailSupersession = `-- name: ApplyHubProfessionalEmailSupersession :execrows
+UPDATE vetchium.hub_professional_emails AS e
+SET superseded_revision = GREATEST(
+        e.superseded_revision, $1),
+    superseded_at = $2,
+    updated_at = now()
+WHERE e.professional_email_id = $3
+`
+
+type ApplyHubProfessionalEmailSupersessionParams struct {
+	SupersededByRevision int64              `json:"superseded_by_revision"`
+	SupersededAt         pgtype.Timestamptz `json:"superseded_at"`
+	ProfessionalEmailID  pgtype.UUID        `json:"professional_email_id"`
+}
+
+// Sets superseded_revision unconditionally (GREATEST), and superseded_at
+// only the first time claim_revision is fenced by it, whether or not the
+// row is currently verified (GU-PEM-006). The caller has already locked
+// the row with LockHubProfessionalEmailForSupersede and decided in Go
+// whether superseded_at is newly set, to know whether to audit.
+func (q *Queries) ApplyHubProfessionalEmailSupersession(ctx context.Context, arg ApplyHubProfessionalEmailSupersessionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, applyHubProfessionalEmailSupersession, arg.SupersededByRevision, arg.SupersededAt, arg.ProfessionalEmailID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const auditHubProfessionalEmailClaimOutdated = `-- name: AuditHubProfessionalEmailClaimOutdated :exec
+INSERT INTO vetchium.audit_events (
+    tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+    source, idempotency_key, payload
+) VALUES (
+    $1, 'hub.profile.professional-email-claim-outdated',
+    'hub_professional_email', $2::text,
+    'hub_user', $3::text, $4,
+    $5, jsonb_build_object('schema_version', 1)
+)
+`
+
+type AuditHubProfessionalEmailClaimOutdatedParams struct {
+	TenantID            string      `json:"tenant_id"`
+	ProfessionalEmailID string      `json:"professional_email_id"`
+	HubUserDid          string      `json:"hub_user_did"`
+	Source              string      `json:"source"`
+	IdempotencyKey      pgtype.Text `json:"idempotency_key"`
+}
+
+// GU-PEM-003 case 2: the row exists but a newer proof already won, because
+// the claim response was delayed past a supersession for a higher
+// revision. Nothing on the row changes; the proof itself was still
+// accepted, so the operation still resolves as succeeded.
+func (q *Queries) AuditHubProfessionalEmailClaimOutdated(ctx context.Context, arg AuditHubProfessionalEmailClaimOutdatedParams) error {
+	_, err := q.db.Exec(ctx, auditHubProfessionalEmailClaimOutdated,
+		arg.TenantID,
+		arg.ProfessionalEmailID,
+		arg.HubUserDid,
+		arg.Source,
+		arg.IdempotencyKey,
+	)
+	return err
+}
+
+const auditHubProfessionalEmailSuperseded = `-- name: AuditHubProfessionalEmailSuperseded :exec
+INSERT INTO vetchium.audit_events (
+    tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+    source, idempotency_key, payload
+) VALUES (
+    $1, 'hub.profile.professional-email-superseded',
+    'hub_professional_email', $2::text,
+    'system', 'system', $3, $4,
+    jsonb_build_object('schema_version', 1)
+)
+`
+
+type AuditHubProfessionalEmailSupersededParams struct {
+	TenantID            string      `json:"tenant_id"`
+	ProfessionalEmailID string      `json:"professional_email_id"`
+	Source              string      `json:"source"`
+	IdempotencyKey      pgtype.Text `json:"idempotency_key"`
+}
+
+func (q *Queries) AuditHubProfessionalEmailSuperseded(ctx context.Context, arg AuditHubProfessionalEmailSupersededParams) error {
+	_, err := q.db.Exec(ctx, auditHubProfessionalEmailSuperseded,
+		arg.TenantID,
+		arg.ProfessionalEmailID,
+		arg.Source,
+		arg.IdempotencyKey,
+	)
+	return err
+}
+
 const claimHubProfilePictureDeletion = `-- name: ClaimHubProfilePictureDeletion :one
 WITH candidate AS (
     SELECT object_id
@@ -235,10 +327,11 @@ WITH owner AS (
     FOR UPDATE
 ), inserted AS (
     INSERT INTO vetchium.hub_professional_emails (
-        professional_email_id, hub_user_did, email_address, domain
+        professional_email_id, hub_user_did, email_address, domain,
+        email_digest
     )
     SELECT $2, owner.hub_user_did,
-        $3, $4
+        $3, $4, $5
     FROM owner
     WHERE (SELECT count(*) FROM vetchium.hub_professional_emails AS existing
            WHERE existing.hub_user_did = owner.hub_user_did) < 10
@@ -249,9 +342,9 @@ WITH owner AS (
         tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, idempotency_key, payload
     )
-    SELECT $5, 'hub.profile.professional-email-created',
+    SELECT $6, 'hub.profile.professional-email-created',
         'hub_professional_email', professional_email_id::text, 'hub_user',
-        hub_user_did::text, 'hub-api', $6,
+        hub_user_did::text, 'hub-api', $7,
         jsonb_build_object(
             'schema_version', 1,
             'domain_sha256', encode(sha256(convert_to(domain::text, 'UTF8')), 'hex')
@@ -268,6 +361,7 @@ type CreateHubProfessionalEmailParams struct {
 	ProfessionalEmailID pgtype.UUID `json:"professional_email_id"`
 	EmailAddress        string      `json:"email_address"`
 	Domain              string      `json:"domain"`
+	EmailDigest         []byte      `json:"email_digest"`
 	TenantID            string      `json:"tenant_id"`
 	IdempotencyKey      pgtype.Text `json:"idempotency_key"`
 }
@@ -289,6 +383,7 @@ func (q *Queries) CreateHubProfessionalEmail(ctx context.Context, arg CreateHubP
 		arg.ProfessionalEmailID,
 		arg.EmailAddress,
 		arg.Domain,
+		arg.EmailDigest,
 		arg.TenantID,
 		arg.IdempotencyKey,
 	)
@@ -317,16 +412,46 @@ WITH deleted AS (
             AND u.hub_user_state = 'active'
           FOR UPDATE
       )
-    RETURNING professional_email_id, hub_user_did, domain,
-        first_verified_at IS NOT NULL AS was_verified
+    RETURNING professional_email_id, hub_user_did, domain, email_digest,
+        claim_revision,
+        (last_verified_at IS NOT NULL AND superseded_at IS NULL) AS was_verified,
+        (claim_revision IS NOT NULL AND superseded_at IS NULL) AS holds_claim
+), release AS (
+    -- The payload and its digest are built here, not passed in from Go,
+    -- because they need email_digest and claim_revision as they stood at
+    -- delete time, which only this statement's own DELETE can reveal.
+    INSERT INTO vetchium.federation_operations (
+        operation_id, command_id, kind, target_authority, aggregate_id,
+        owner_principal_type, owner_principal_id, idempotency_key,
+        request_digest, payload_bytes, expires_at
+    )
+    SELECT
+        $3, $4,
+        'hub-professional-email-release', 'global-directory',
+        deleted.professional_email_id::text, 'hub_user',
+        deleted.hub_user_did::text, $5,
+        sha256(convert_to(jsonb_build_object(
+            'hub_user_did', deleted.hub_user_did::text,
+            'email_digest', encode(deleted.email_digest, 'hex'),
+            'claim_revision', deleted.claim_revision
+        )::text, 'UTF8')),
+        convert_to(jsonb_build_object(
+            'hub_user_did', deleted.hub_user_did::text,
+            'email_digest', encode(deleted.email_digest, 'hex'),
+            'claim_revision', deleted.claim_revision
+        )::text, 'UTF8'),
+        $6
+    FROM deleted
+    WHERE deleted.holds_claim
+    RETURNING operation_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, idempotency_key, payload
     )
-    SELECT $3, 'hub.profile.professional-email-deleted',
+    SELECT $7, 'hub.profile.professional-email-deleted',
         'hub_professional_email', professional_email_id::text, 'hub_user',
-        hub_user_did::text, 'hub-api', $4,
+        hub_user_did::text, 'hub-api', $8,
         jsonb_build_object(
             'schema_version', 1, 'was_verified', was_verified,
             'domain_sha256', encode(sha256(convert_to(domain::text, 'UTF8')), 'hex')
@@ -337,22 +462,122 @@ SELECT professional_email_id FROM deleted
 `
 
 type DeleteHubProfessionalEmailParams struct {
-	ProfessionalEmailID pgtype.UUID `json:"professional_email_id"`
-	HubUserDid          pgtype.UUID `json:"hub_user_did"`
-	TenantID            string      `json:"tenant_id"`
-	IdempotencyKey      pgtype.Text `json:"idempotency_key"`
+	ProfessionalEmailID   pgtype.UUID        `json:"professional_email_id"`
+	HubUserDid            pgtype.UUID        `json:"hub_user_did"`
+	ReleaseOperationID    pgtype.UUID        `json:"release_operation_id"`
+	ReleaseCommandID      pgtype.UUID        `json:"release_command_id"`
+	ReleaseIdempotencyKey string             `json:"release_idempotency_key"`
+	ReleaseExpiresAt      pgtype.Timestamptz `json:"release_expires_at"`
+	TenantID              string             `json:"tenant_id"`
+	IdempotencyKey        pgtype.Text        `json:"idempotency_key"`
 }
 
+// A held global claim (claim_revision IS NOT NULL AND superseded_at IS
+// NULL) is released in the same statement (GU-PEM-005): the worker drives
+// release-hub-professional-email to completion, with no browser-visible
+// pending state, so delete itself always stays 204.
 func (q *Queries) DeleteHubProfessionalEmail(ctx context.Context, arg DeleteHubProfessionalEmailParams) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, deleteHubProfessionalEmail,
 		arg.ProfessionalEmailID,
 		arg.HubUserDid,
+		arg.ReleaseOperationID,
+		arg.ReleaseCommandID,
+		arg.ReleaseIdempotencyKey,
+		arg.ReleaseExpiresAt,
 		arg.TenantID,
 		arg.IdempotencyKey,
 	)
 	var professional_email_id pgtype.UUID
 	err := row.Scan(&professional_email_id)
 	return professional_email_id, err
+}
+
+const enqueueHubProfessionalEmailReleaseOperation = `-- name: EnqueueHubProfessionalEmailReleaseOperation :one
+INSERT INTO vetchium.federation_operations (
+    operation_id, command_id, kind, target_authority, aggregate_id,
+    owner_principal_type, owner_principal_id, idempotency_key,
+    request_digest, payload_bytes, expires_at
+) VALUES (
+    $1, $2,
+    'hub-professional-email-release', 'global-directory',
+    $3, 'hub_user', $4,
+    $5, $6,
+    $7, $8
+)
+RETURNING operation_id
+`
+
+type EnqueueHubProfessionalEmailReleaseOperationParams struct {
+	OperationID    pgtype.UUID        `json:"operation_id"`
+	CommandID      pgtype.UUID        `json:"command_id"`
+	AggregateID    string             `json:"aggregate_id"`
+	HubUserDid     string             `json:"hub_user_did"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	RequestDigest  []byte             `json:"request_digest"`
+	PayloadBytes   []byte             `json:"payload_bytes"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+}
+
+// GU-PEM-003 case 3 (the row was deleted meanwhile) and GU-PEM-009 (a
+// holdings-sweep repair) both compensate by releasing the coordinator's
+// claim directly, since there is no local row left to drive a release
+// from.
+func (q *Queries) EnqueueHubProfessionalEmailReleaseOperation(ctx context.Context, arg EnqueueHubProfessionalEmailReleaseOperationParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, enqueueHubProfessionalEmailReleaseOperation,
+		arg.OperationID,
+		arg.CommandID,
+		arg.AggregateID,
+		arg.HubUserDid,
+		arg.IdempotencyKey,
+		arg.RequestDigest,
+		arg.PayloadBytes,
+		arg.ExpiresAt,
+	)
+	var operation_id pgtype.UUID
+	err := row.Scan(&operation_id)
+	return operation_id, err
+}
+
+const getGlobalFeedWatermark = `-- name: GetGlobalFeedWatermark :one
+SELECT last_seq FROM vetchium.global_feed_watermarks
+WHERE feed = $1
+`
+
+func (q *Queries) GetGlobalFeedWatermark(ctx context.Context, feed string) (int64, error) {
+	row := q.db.QueryRow(ctx, getGlobalFeedWatermark, feed)
+	var last_seq int64
+	err := row.Scan(&last_seq)
+	return last_seq, err
+}
+
+const getHubProfessionalEmailChallengeDigest = `-- name: GetHubProfessionalEmailChallengeDigest :one
+SELECT e.email_digest
+FROM vetchium.hub_professional_email_challenges AS c
+JOIN vetchium.hub_professional_emails AS e USING (professional_email_id)
+WHERE c.challenge_id = $1
+  AND c.professional_email_id = $2
+  AND e.hub_user_did = $3
+  AND c.consumed_at IS NULL
+  AND c.superseded_at IS NULL
+  AND c.expires_at > now()
+`
+
+type GetHubProfessionalEmailChallengeDigestParams struct {
+	ChallengeID         pgtype.UUID `json:"challenge_id"`
+	ProfessionalEmailID pgtype.UUID `json:"professional_email_id"`
+	HubUserDid          pgtype.UUID `json:"hub_user_did"`
+}
+
+// Read-only lookup so the caller can build the claim payload (identitydigest
+// lives in Go, not SQL, but the digest was already computed and stored at
+// add time) before calling VerifyHubProfessionalEmailChallenge. That
+// statement re-validates the challenge itself with FOR UPDATE, so a plain
+// read here cannot introduce a race.
+func (q *Queries) GetHubProfessionalEmailChallengeDigest(ctx context.Context, arg GetHubProfessionalEmailChallengeDigestParams) ([]byte, error) {
+	row := q.db.QueryRow(ctx, getHubProfessionalEmailChallengeDigest, arg.ChallengeID, arg.ProfessionalEmailID, arg.HubUserDid)
+	var email_digest []byte
+	err := row.Scan(&email_digest)
+	return email_digest, err
 }
 
 const getHubProfilePictureUpload = `-- name: GetHubProfilePictureUpload :one
@@ -391,6 +616,49 @@ func (q *Queries) GetHubProfilePictureUpload(ctx context.Context, arg GetHubProf
 		&i.ContentSha256,
 		&i.UploadExpiresAt,
 		&i.HubPlanOid,
+	)
+	return i, err
+}
+
+const getPendingHubProfessionalEmailClaimOperation = `-- name: GetPendingHubProfessionalEmailClaimOperation :one
+SELECT operation_id, command_id, kind, target_authority, aggregate_id,
+    owner_principal_type, owner_principal_id, idempotency_key,
+    request_digest, payload_bytes, state, response_status,
+    response_ciphertext, attempt_count, next_attempt_at, last_error,
+    created_at, updated_at, completed_at, expires_at
+FROM vetchium.federation_operations
+WHERE kind = 'hub-professional-email-claim'
+  AND aggregate_id = $1
+  AND state = 'pending'
+`
+
+// Used when VerifyHubProfessionalEmailChallenge's insert lost the
+// one-live race: the existing pending operation is advanced instead
+// (GU-PEM-002).
+func (q *Queries) GetPendingHubProfessionalEmailClaimOperation(ctx context.Context, professionalEmailID string) (VetchiumFederationOperation, error) {
+	row := q.db.QueryRow(ctx, getPendingHubProfessionalEmailClaimOperation, professionalEmailID)
+	var i VetchiumFederationOperation
+	err := row.Scan(
+		&i.OperationID,
+		&i.CommandID,
+		&i.Kind,
+		&i.TargetAuthority,
+		&i.AggregateID,
+		&i.OwnerPrincipalType,
+		&i.OwnerPrincipalID,
+		&i.IdempotencyKey,
+		&i.RequestDigest,
+		&i.PayloadBytes,
+		&i.State,
+		&i.ResponseStatus,
+		&i.ResponseCiphertext,
+		&i.AttemptCount,
+		&i.NextAttemptAt,
+		&i.LastError,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
+		&i.ExpiresAt,
 	)
 	return i, err
 }
@@ -513,6 +781,7 @@ SELECT
     domain,
     first_verified_at,
     last_verified_at,
+    superseded_at,
     created_at,
     updated_at
 FROM vetchium.hub_professional_emails AS e
@@ -522,7 +791,7 @@ WHERE e.hub_user_did = $1
       WHERE owner.hub_user_did = $1
         AND owner.hub_user_state = 'active'
   )
-ORDER BY (last_verified_at IS NOT NULL) DESC,
+ORDER BY (last_verified_at IS NOT NULL AND superseded_at IS NULL) DESC,
     last_verified_at DESC NULLS LAST,
     created_at DESC,
     professional_email_id
@@ -534,10 +803,14 @@ type ListHubProfessionalEmailsRow struct {
 	Domain              string             `json:"domain"`
 	FirstVerifiedAt     pgtype.Timestamptz `json:"first_verified_at"`
 	LastVerifiedAt      pgtype.Timestamptz `json:"last_verified_at"`
+	SupersededAt        pgtype.Timestamptz `json:"superseded_at"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
+// Verified evidence is last_verified_at IS NOT NULL AND superseded_at IS
+// NULL (GU-PEM-001); every reader of verification status must use that
+// predicate, not last_verified_at alone.
 func (q *Queries) ListHubProfessionalEmails(ctx context.Context, hubUserDid pgtype.UUID) ([]ListHubProfessionalEmailsRow, error) {
 	rows, err := q.db.Query(ctx, listHubProfessionalEmails, hubUserDid)
 	if err != nil {
@@ -553,6 +826,7 @@ func (q *Queries) ListHubProfessionalEmails(ctx context.Context, hubUserDid pgty
 			&i.Domain,
 			&i.FirstVerifiedAt,
 			&i.LastVerifiedAt,
+			&i.SupersededAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -564,6 +838,181 @@ func (q *Queries) ListHubProfessionalEmails(ctx context.Context, hubUserDid pgty
 		return nil, err
 	}
 	return items, nil
+}
+
+const listVerifiedHubProfessionalEmailsForHoldingsSweep = `-- name: ListVerifiedHubProfessionalEmailsForHoldingsSweep :many
+SELECT e.professional_email_id, e.hub_user_did, e.email_digest,
+    e.claim_revision
+FROM vetchium.hub_professional_emails AS e
+WHERE e.last_verified_at IS NOT NULL
+  AND e.superseded_at IS NULL
+  AND e.professional_email_id > $1
+  AND NOT EXISTS (
+      SELECT 1 FROM vetchium.federation_operations AS op
+      WHERE op.kind = 'hub-professional-email-claim'
+        AND op.aggregate_id = e.professional_email_id::text
+        AND op.state = 'pending'
+  )
+ORDER BY e.professional_email_id
+LIMIT $2
+`
+
+type ListVerifiedHubProfessionalEmailsForHoldingsSweepParams struct {
+	AfterProfessionalEmailID pgtype.UUID `json:"after_professional_email_id"`
+	RowLimit                 int32       `json:"row_limit"`
+}
+
+type ListVerifiedHubProfessionalEmailsForHoldingsSweepRow struct {
+	ProfessionalEmailID pgtype.UUID `json:"professional_email_id"`
+	HubUserDid          pgtype.UUID `json:"hub_user_did"`
+	EmailDigest         []byte      `json:"email_digest"`
+	ClaimRevision       pgtype.Int8 `json:"claim_revision"`
+}
+
+// GU-PEM-009: pages through currently-verified rows with no live claim
+// op (that op's own apply is authoritative for them), for a periodic
+// reconciliation against GU-DIR-011.
+func (q *Queries) ListVerifiedHubProfessionalEmailsForHoldingsSweep(ctx context.Context, arg ListVerifiedHubProfessionalEmailsForHoldingsSweepParams) ([]ListVerifiedHubProfessionalEmailsForHoldingsSweepRow, error) {
+	rows, err := q.db.Query(ctx, listVerifiedHubProfessionalEmailsForHoldingsSweep, arg.AfterProfessionalEmailID, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListVerifiedHubProfessionalEmailsForHoldingsSweepRow
+	for rows.Next() {
+		var i ListVerifiedHubProfessionalEmailsForHoldingsSweepRow
+		if err := rows.Scan(
+			&i.ProfessionalEmailID,
+			&i.HubUserDid,
+			&i.EmailDigest,
+			&i.ClaimRevision,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockHubProfessionalEmailForClaim = `-- name: LockHubProfessionalEmailForClaim :one
+SELECT professional_email_id, claim_revision, superseded_revision
+FROM vetchium.hub_professional_emails
+WHERE professional_email_id = $1
+  AND hub_user_did = $2
+FOR UPDATE
+`
+
+type LockHubProfessionalEmailForClaimParams struct {
+	ProfessionalEmailID pgtype.UUID `json:"professional_email_id"`
+	HubUserDid          pgtype.UUID `json:"hub_user_did"`
+}
+
+type LockHubProfessionalEmailForClaimRow struct {
+	ProfessionalEmailID pgtype.UUID `json:"professional_email_id"`
+	ClaimRevision       pgtype.Int8 `json:"claim_revision"`
+	SupersededRevision  int64       `json:"superseded_revision"`
+}
+
+// A plain row lock read by (professional_email_id, hub_user_did), taken
+// before deciding whether a claim response's revision applies
+// (GU-PEM-003), so a concurrent delete or another driver's apply cannot
+// race the decision.
+func (q *Queries) LockHubProfessionalEmailForClaim(ctx context.Context, arg LockHubProfessionalEmailForClaimParams) (LockHubProfessionalEmailForClaimRow, error) {
+	row := q.db.QueryRow(ctx, lockHubProfessionalEmailForClaim, arg.ProfessionalEmailID, arg.HubUserDid)
+	var i LockHubProfessionalEmailForClaimRow
+	err := row.Scan(&i.ProfessionalEmailID, &i.ClaimRevision, &i.SupersededRevision)
+	return i, err
+}
+
+const lockHubProfessionalEmailForSupersede = `-- name: LockHubProfessionalEmailForSupersede :one
+SELECT professional_email_id, claim_revision, superseded_revision,
+    superseded_at
+FROM vetchium.hub_professional_emails
+WHERE hub_user_did = $1
+  AND email_digest = $2
+FOR UPDATE
+`
+
+type LockHubProfessionalEmailForSupersedeParams struct {
+	HubUserDid  pgtype.UUID `json:"hub_user_did"`
+	EmailDigest []byte      `json:"email_digest"`
+}
+
+type LockHubProfessionalEmailForSupersedeRow struct {
+	ProfessionalEmailID pgtype.UUID        `json:"professional_email_id"`
+	ClaimRevision       pgtype.Int8        `json:"claim_revision"`
+	SupersededRevision  int64              `json:"superseded_revision"`
+	SupersededAt        pgtype.Timestamptz `json:"superseded_at"`
+}
+
+// By (hub_user_did, email_digest), the natural key a supersession feed
+// item or a same-tenant claim transfer addresses (GU-PEM-006).
+func (q *Queries) LockHubProfessionalEmailForSupersede(ctx context.Context, arg LockHubProfessionalEmailForSupersedeParams) (LockHubProfessionalEmailForSupersedeRow, error) {
+	row := q.db.QueryRow(ctx, lockHubProfessionalEmailForSupersede, arg.HubUserDid, arg.EmailDigest)
+	var i LockHubProfessionalEmailForSupersedeRow
+	err := row.Scan(
+		&i.ProfessionalEmailID,
+		&i.ClaimRevision,
+		&i.SupersededRevision,
+		&i.SupersededAt,
+	)
+	return i, err
+}
+
+const markHubProfessionalEmailVerified = `-- name: MarkHubProfessionalEmailVerified :execrows
+WITH updated AS (
+    UPDATE vetchium.hub_professional_emails AS e
+    SET first_verified_at = COALESCE(e.first_verified_at, now()),
+        last_verified_at = now(),
+        claim_revision = $4,
+        superseded_at = NULL,
+        updated_at = now()
+    WHERE e.professional_email_id = $5
+      AND e.hub_user_did = $6
+      AND $4::bigint > GREATEST(
+          COALESCE(e.claim_revision, 0), e.superseded_revision)
+    RETURNING e.professional_email_id, e.hub_user_did
+)
+INSERT INTO vetchium.audit_events (
+    tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+    source, idempotency_key, payload
+)
+SELECT $1, 'hub.profile.professional-email-verified',
+    'hub_professional_email', u.professional_email_id::text,
+    'hub_user', u.hub_user_did::text, $2,
+    $3, jsonb_build_object('schema_version', 1)
+FROM updated AS u
+`
+
+type MarkHubProfessionalEmailVerifiedParams struct {
+	TenantID            string      `json:"tenant_id"`
+	Source              string      `json:"source"`
+	IdempotencyKey      pgtype.Text `json:"idempotency_key"`
+	ClaimRevision       pgtype.Int8 `json:"claim_revision"`
+	ProfessionalEmailID pgtype.UUID `json:"professional_email_id"`
+	HubUserDid          pgtype.UUID `json:"hub_user_did"`
+}
+
+// Applies a claim response whose revision already passed the
+// LockHubProfessionalEmailForClaim check in Go (GU-PEM-003 case 1). The
+// WHERE clause repeats that check as a belt-and-suspenders guard, not as
+// the primary decision point.
+func (q *Queries) MarkHubProfessionalEmailVerified(ctx context.Context, arg MarkHubProfessionalEmailVerifiedParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markHubProfessionalEmailVerified,
+		arg.TenantID,
+		arg.Source,
+		arg.IdempotencyKey,
+		arg.ClaimRevision,
+		arg.ProfessionalEmailID,
+		arg.HubUserDid,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const prepareHubProfilePictureUpload = `-- name: PrepareHubProfilePictureUpload :one
@@ -835,6 +1284,24 @@ func (q *Queries) RetryHubProfilePictureDeletion(ctx context.Context, arg RetryH
 	return result.RowsAffected(), nil
 }
 
+const setGlobalFeedWatermark = `-- name: SetGlobalFeedWatermark :exec
+INSERT INTO vetchium.global_feed_watermarks (feed, last_seq)
+VALUES ($1, $2)
+ON CONFLICT (feed) DO UPDATE
+SET last_seq = EXCLUDED.last_seq, updated_at = now()
+WHERE EXCLUDED.last_seq > vetchium.global_feed_watermarks.last_seq
+`
+
+type SetGlobalFeedWatermarkParams struct {
+	Feed    string `json:"feed"`
+	LastSeq int64  `json:"last_seq"`
+}
+
+func (q *Queries) SetGlobalFeedWatermark(ctx context.Context, arg SetGlobalFeedWatermarkParams) error {
+	_, err := q.db.Exec(ctx, setGlobalFeedWatermark, arg.Feed, arg.LastSeq)
+	return err
+}
+
 const supersedeHubProfessionalEmailChallenges = `-- name: SupersedeHubProfessionalEmailChallenges :execrows
 UPDATE vetchium.hub_professional_email_challenges AS old
 SET superseded_at = now()
@@ -925,7 +1392,7 @@ func (q *Queries) SupersedeHubProfilePictureUploads(ctx context.Context, arg Sup
 const verifyHubProfessionalEmailChallenge = `-- name: VerifyHubProfessionalEmailChallenge :one
 WITH candidate AS (
     SELECT c.challenge_id, c.professional_email_id, c.code_hash,
-        c.attempt_count, e.hub_user_did
+        c.attempt_count, e.hub_user_did, e.email_digest
     FROM vetchium.hub_professional_email_challenges AS c
     JOIN vetchium.hub_professional_emails AS e USING (professional_email_id)
     JOIN vetchium.hub_users AS u USING (hub_user_did)
@@ -947,73 +1414,95 @@ WITH candidate AS (
         END
     FROM candidate
     WHERE c.challenge_id = candidate.challenge_id
-    RETURNING c.challenge_id, c.professional_email_id, c.attempt_count,
-        candidate.hub_user_did,
+    RETURNING c.challenge_id, candidate.professional_email_id,
+        c.attempt_count, candidate.hub_user_did, candidate.email_digest,
         candidate.code_hash = $4 AS verified
-), verified_email AS (
-    UPDATE vetchium.hub_professional_emails AS e
-    SET first_verified_at = COALESCE(e.first_verified_at, now()),
-        last_verified_at = now(),
-        updated_at = now()
-    FROM attempted
-    WHERE e.professional_email_id = attempted.professional_email_id
-      AND attempted.verified
-    RETURNING e.professional_email_id, e.first_verified_at,
-        e.last_verified_at
+), inserted_operation AS (
+    INSERT INTO vetchium.federation_operations (
+        operation_id, command_id, kind, target_authority, aggregate_id,
+        owner_principal_type, owner_principal_id, idempotency_key,
+        request_digest, payload_bytes, expires_at
+    )
+    SELECT
+        $5, $6,
+        'hub-professional-email-claim', 'global-directory',
+        a.professional_email_id::text, 'hub_user', a.hub_user_did::text,
+        $7, $8,
+        $9, $10
+    FROM attempted AS a
+    WHERE a.verified
+    RETURNING operation_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, idempotency_key, payload
     )
-    SELECT $5,
-        CASE WHEN attempted.verified
-            THEN 'hub.profile.professional-email-verified'
+    SELECT $11,
+        CASE WHEN a.verified
+            THEN 'hub.profile.professional-email-proof-accepted'
             ELSE 'hub.profile.professional-email-verification-failed' END,
-        'hub_professional_email', attempted.professional_email_id::text,
-        'hub_user', attempted.hub_user_did::text, 'hub-api',
-        $6,
-        jsonb_build_object('attempt_count', attempted.attempt_count)
-    FROM attempted
+        'hub_professional_email', a.professional_email_id::text,
+        'hub_user', a.hub_user_did::text, 'hub-api',
+        $7,
+        CASE WHEN a.verified
+            THEN jsonb_build_object('operation_id', $5)
+            ELSE jsonb_build_object('attempt_count', a.attempt_count) END
+    FROM attempted AS a
 )
-SELECT attempted.challenge_id, attempted.attempt_count, attempted.verified,
-    verified_email.first_verified_at, verified_email.last_verified_at
-FROM attempted
-LEFT JOIN verified_email USING (professional_email_id)
+SELECT a.challenge_id, a.attempt_count, a.verified,
+    (SELECT operation_id FROM inserted_operation) AS operation_id
+FROM attempted AS a
 `
 
 type VerifyHubProfessionalEmailChallengeParams struct {
-	ChallengeID         pgtype.UUID `json:"challenge_id"`
-	ProfessionalEmailID pgtype.UUID `json:"professional_email_id"`
-	HubUserDid          pgtype.UUID `json:"hub_user_did"`
-	CodeHash            []byte      `json:"code_hash"`
-	TenantID            string      `json:"tenant_id"`
-	IdempotencyKey      pgtype.Text `json:"idempotency_key"`
+	ChallengeID         pgtype.UUID        `json:"challenge_id"`
+	ProfessionalEmailID pgtype.UUID        `json:"professional_email_id"`
+	HubUserDid          pgtype.UUID        `json:"hub_user_did"`
+	CodeHash            []byte             `json:"code_hash"`
+	OperationID         pgtype.UUID        `json:"operation_id"`
+	CommandID           pgtype.UUID        `json:"command_id"`
+	IdempotencyKey      string             `json:"idempotency_key"`
+	RequestDigest       []byte             `json:"request_digest"`
+	PayloadBytes        []byte             `json:"payload_bytes"`
+	OperationExpiresAt  pgtype.Timestamptz `json:"operation_expires_at"`
+	TenantID            string             `json:"tenant_id"`
 }
 
 type VerifyHubProfessionalEmailChallengeRow struct {
-	ChallengeID     pgtype.UUID        `json:"challenge_id"`
-	AttemptCount    int32              `json:"attempt_count"`
-	Verified        bool               `json:"verified"`
-	FirstVerifiedAt pgtype.Timestamptz `json:"first_verified_at"`
-	LastVerifiedAt  pgtype.Timestamptz `json:"last_verified_at"`
+	ChallengeID  pgtype.UUID `json:"challenge_id"`
+	AttemptCount int32       `json:"attempt_count"`
+	Verified     bool        `json:"verified"`
+	OperationID  pgtype.UUID `json:"operation_id"`
 }
 
+// A correct code no longer sets verification times directly (GU-PEM-002):
+// it consumes the challenge and creates a federation_operations row
+// (kind = 'hub-professional-email-claim') that emailclaim.Service drives
+// through the coordinator. A unique violation on
+// hub_professional_email_claims_one_live (another confirm already created a
+// pending claim for this row) is caught by the caller, which looks up and
+// advances that existing operation instead (GU-PEM-002's "a duplicate
+// returns the existing operation").
 func (q *Queries) VerifyHubProfessionalEmailChallenge(ctx context.Context, arg VerifyHubProfessionalEmailChallengeParams) (VerifyHubProfessionalEmailChallengeRow, error) {
 	row := q.db.QueryRow(ctx, verifyHubProfessionalEmailChallenge,
 		arg.ChallengeID,
 		arg.ProfessionalEmailID,
 		arg.HubUserDid,
 		arg.CodeHash,
-		arg.TenantID,
+		arg.OperationID,
+		arg.CommandID,
 		arg.IdempotencyKey,
+		arg.RequestDigest,
+		arg.PayloadBytes,
+		arg.OperationExpiresAt,
+		arg.TenantID,
 	)
 	var i VerifyHubProfessionalEmailChallengeRow
 	err := row.Scan(
 		&i.ChallengeID,
 		&i.AttemptCount,
 		&i.Verified,
-		&i.FirstVerifiedAt,
-		&i.LastVerifiedAt,
+		&i.OperationID,
 	)
 	return i, err
 }

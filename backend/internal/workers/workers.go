@@ -10,6 +10,7 @@ import (
 
 	"backend/internal/appconfig"
 	"backend/internal/db/sqlc"
+	"backend/internal/hub/professionalemail"
 )
 
 type periodicJob struct {
@@ -26,32 +27,44 @@ type HubEmailChangeRecovery interface {
 	Recover(context.Context) (int, error)
 }
 
+// ProfessionalEmailWork implements the claim/release recovery loop plus the
+// two housekeeping jobs GU-PEM-006 and GU-PEM-009 describe.
+type ProfessionalEmailWork interface {
+	Recover(context.Context) (int, error)
+	SyncSupersessions(context.Context) (professionalemail.SyncResult, error)
+	SweepHoldings(context.Context) error
+}
+
 // Worker owns the dependencies and periodic jobs for the worker process.
 type Worker struct {
-	queries                      sqlc.Querier
-	hubEmailQueries              hubEmailQueries
-	hubEmailDelivery             *HubEmailDelivery
-	hubSignupRecovery            HubSignupRecovery
-	hubEmailChangeRecovery       HubEmailChangeRecovery
-	reconcileHubEmailChangeTimer time.Duration
-	pictureQueries               pictureDeletionQueries
-	pictureStore                 PictureStore
-	pictureDeletionInterval      time.Duration
-	aliasReleaseQueries          aliasReleaseQueries
-	aliasReleaseDirectory        AliasReleaseDirectory
-	aliasReleaseInterval         time.Duration
-	aliasChangeDB                *pgxpool.Pool
-	aliasChangeQueries           aliasChangeQueries
-	subscriptionTransactions     subscriptionTransactions
-	hubSubscriptionNow           func() time.Time
-	subscriptionExpiryQueries    subscriptionExpiryQueries
-	orgQueries                   orgEmailQueries
-	orgs                         *orgJobs
-	hubSubscriptionExpiryNow     func() time.Time
-	log                          *slog.Logger
-	tenantID                     string
-	retryBackoffLimit            time.Duration
-	jobs                         []periodicJob
+	queries                                 sqlc.Querier
+	hubEmailQueries                         hubEmailQueries
+	hubEmailDelivery                        *HubEmailDelivery
+	hubSignupRecovery                       HubSignupRecovery
+	hubEmailChangeRecovery                  HubEmailChangeRecovery
+	reconcileHubEmailChangeTimer            time.Duration
+	professionalEmail                       ProfessionalEmailWork
+	completeProfessionalEmailClaimsTimer    time.Duration
+	syncProfessionalEmailSupersessionsTimer time.Duration
+	sweepProfessionalEmailHoldingsTimer     time.Duration
+	pictureQueries                          pictureDeletionQueries
+	pictureStore                            PictureStore
+	pictureDeletionInterval                 time.Duration
+	aliasReleaseQueries                     aliasReleaseQueries
+	aliasReleaseDirectory                   AliasReleaseDirectory
+	aliasReleaseInterval                    time.Duration
+	aliasChangeDB                           *pgxpool.Pool
+	aliasChangeQueries                      aliasChangeQueries
+	subscriptionTransactions                subscriptionTransactions
+	hubSubscriptionNow                      func() time.Time
+	subscriptionExpiryQueries               subscriptionExpiryQueries
+	orgQueries                              orgEmailQueries
+	orgs                                    *orgJobs
+	hubSubscriptionExpiryNow                func() time.Time
+	log                                     *slog.Logger
+	tenantID                                string
+	retryBackoffLimit                       time.Duration
+	jobs                                    []periodicJob
 }
 
 func New(
@@ -154,6 +167,33 @@ func (w *Worker) EnableAliasOperations(directory AliasReleaseDirectory) {
 	w.jobs = append(w.jobs, periodicJob{
 		name: "complete-hub-alias-changes", interval: w.aliasReleaseInterval,
 		run: w.completeHubAliasChanges,
+	})
+}
+
+// EnableProfessionalEmail registers GU-PEM's three periodic jobs: claim and
+// release recovery, the supersession feed sync (GU-PEM-006), and the
+// holdings sweep repair (GU-PEM-009).
+func (w *Worker) EnableProfessionalEmail(
+	service ProfessionalEmailWork, config appconfig.Workers,
+) {
+	w.professionalEmail = service
+	w.completeProfessionalEmailClaimsTimer = config.CompleteHubProfessionalEmailClaimsTimer
+	w.syncProfessionalEmailSupersessionsTimer = config.SyncHubProfessionalEmailSupersessionsTimer
+	w.sweepProfessionalEmailHoldingsTimer = config.SweepHubProfessionalEmailHoldingsTimer
+	w.jobs = append(w.jobs, periodicJob{
+		name:     "complete-hub-professional-email-claims",
+		interval: w.completeProfessionalEmailClaimsTimer,
+		run:      w.completeHubProfessionalEmailClaims,
+	})
+	w.jobs = append(w.jobs, periodicJob{
+		name:     "sync-hub-professional-email-supersessions",
+		interval: w.syncProfessionalEmailSupersessionsTimer,
+		run:      w.syncHubProfessionalEmailSupersessions,
+	})
+	w.jobs = append(w.jobs, periodicJob{
+		name:     "sweep-hub-professional-email-holdings",
+		interval: w.sweepProfessionalEmailHoldingsTimer,
+		run:      w.sweepHubProfessionalEmailHoldings,
 	})
 }
 

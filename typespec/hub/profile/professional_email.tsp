@@ -9,6 +9,7 @@ import "../../problem/common.tsp";
 import "../../problem/details.tsp";
 import "../../problem/hub/authentication.tsp";
 import "../../problem/hub/profile.tsp";
+import "../operations/operations.tsp";
 import "./public.tsp";
 
 using TypeSpec.Http;
@@ -22,6 +23,11 @@ model ProfessionalEmail {
   domain: Vetchium.ProfessionalDomain;
   first_verified_at?: utcDateTime;
   last_verified_at?: utcDateTime;
+  /** Set when a newer proof elsewhere claimed this address (GU-PEM-004):
+   * verification "moved to another account" without naming who holds it
+   * now. A verified address is last_verified_at set AND superseded_at
+   * unset; never treat last_verified_at alone as verified. */
+  superseded_at?: utcDateTime;
   created_at: utcDateTime;
 }
 
@@ -120,6 +126,9 @@ interface ProfessionalEmailOperations {
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
+  /** A `202` means the proof was accepted but the global claim is still
+   * being applied; poll `/api/hub/operations/status`, then replay this
+   * request with the same idempotency key for the resolved typed result. */
   @route("/verify")
   @post
   @useAuth(BearerAuth)
@@ -130,6 +139,11 @@ interface ProfessionalEmailOperations {
     | {
         @statusCode status_code: 204;
         @header("Cache-Control") cache_control: "no-store";
+      }
+    | {
+        @statusCode status_code: 202;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: Vetchium.Hub.Operations.PendingOperation;
       }
     | Vetchium.Problem.InvalidJSONErrorResponse
     | Vetchium.Problem.ValidationFailedErrorResponse
