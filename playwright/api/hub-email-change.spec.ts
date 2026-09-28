@@ -34,6 +34,8 @@ import {
   cleanupHubUser,
   hubAuditEventsByIdempotencyKey,
   hubAuditEventsForActor,
+  seedActiveHubUser,
+  seedHubSession,
   seedHubSignupDomain,
   sqlLiteral,
   sqlScalarForTenant,
@@ -823,19 +825,15 @@ test("a pending confirm on ind1 changes nothing yet, blocks a new request, repla
   const domain = testDomain();
   const keys: string[] = [];
   const hub = new HubAPI(request, "ind1");
+  const email = addressAt(domain);
   const newAddress = addressAt(domain);
-  let account: Account | undefined;
+  // ind1's coordinator path is deliberately broken in CI, so signup can
+  // never reach `completed` there (see hub-global-email.spec.ts); the
+  // account under test is seeded directly instead of signed up.
+  const seeded = seedActiveHubUser("ind1", email, "Ind1 Email Changer");
+  const otherSession = seedHubSession("ind1", seeded.hubUserDID);
   try {
-    seedHubSignupDomain(domain, "ind1");
-    account = await createAccount(request, domain, keys, "ind1");
-    const otherSession = await login(
-      request,
-      "ind1",
-      account.email,
-      account.password,
-    );
-
-    const requested = await requestChange(hub, account.token, {
+    const requested = await requestChange(hub, seeded.sessionToken, {
       new_email_address: newAddress,
     });
     expect(requested.status(), await requested.text()).toBe(202);
@@ -845,7 +843,7 @@ test("a pending confirm on ind1 changes nothing yet, blocks a new request, repla
     const confirmKey = hubIdempotencyKey();
     const confirmed = await confirmChange(
       hub,
-      account.token,
+      seeded.sessionToken,
       { challenge_id: challenge.challenge_id, code },
       confirmKey,
     );
@@ -855,13 +853,11 @@ test("a pending confirm on ind1 changes nothing yet, blocks a new request, repla
 
     // The reserve step never reached its answer, so nothing local changed:
     // every session still sees the old address.
-    expect((await myInfo(hub, account.token)).email_address).toBe(
-      account.email,
-    );
-    expect((await myInfo(hub, otherSession)).email_address).toBe(account.email);
+    expect((await myInfo(hub, seeded.sessionToken)).email_address).toBe(email);
+    expect((await myInfo(hub, otherSession)).email_address).toBe(email);
 
     await expectProblem(
-      await requestChange(hub, account.token, {
+      await requestChange(hub, seeded.sessionToken, {
         new_email_address: addressAt(domain),
       }),
       409,
@@ -872,7 +868,7 @@ test("a pending confirm on ind1 changes nothing yet, blocks a new request, repla
     // result rather than re-deriving it (GU-ECH-005/007).
     const replay = await confirmChange(
       hub,
-      account.token,
+      seeded.sessionToken,
       { challenge_id: challenge.challenge_id, code },
       confirmKey,
     );
@@ -883,7 +879,7 @@ test("a pending confirm on ind1 changes nothing yet, blocks a new request, repla
 
     // Logging out and back in touches only the session, never the durable
     // change row, which stays pollable under a fresh session.
-    await hub.post("/logout", undefined, { token: account.token });
+    await hub.post("/logout", undefined, { token: seeded.sessionToken });
     const status = await hub.operationStatus(
       { operation_id: pending.operation_id },
       otherSession,
@@ -894,13 +890,12 @@ test("a pending confirm on ind1 changes nothing yet, blocks a new request, repla
       sqlScalarForTenant(
         "ind1",
         `SELECT count(*)::text FROM vetchium.hub_account_email_changes
-         WHERE hub_user_did = ${sqlLiteral(account.hubUserDID)}::uuid;`,
+         WHERE hub_user_did = ${sqlLiteral(seeded.hubUserDID)}::uuid;`,
       ),
     ).toBe("1");
   } finally {
-    if (account !== undefined) cleanupHubUser(account.email, "ind1");
+    cleanupHubUser(email, "ind1");
     cleanupHubUser(newAddress, "ind1");
     cleanupHubIdempotency(keys, "ind1");
-    cleanupHubSignupDomain(domain, "ind1");
   }
 });

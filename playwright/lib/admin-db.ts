@@ -1092,6 +1092,63 @@ export function cleanupHubUser(
   );
 }
 
+/** Seeds one more active session for an already-seeded Hub user, so a test
+ * can hold two independent bearer tokens for the same account. */
+export function seedHubSession(tenant: TestTenant, hubUserDID: string): string {
+  assertHubUserDID(hubUserDID);
+  const sessionToken = randomBytes(32).toString("hex");
+  const tokenHash = createHash("sha256").update(sessionToken).digest("hex");
+  sqlScalarForTenant(
+    tenant,
+    `INSERT INTO vetchium.hub_sessions (
+       hub_user_did, session_token_hash, expires_at
+     ) VALUES (
+       ${sqlLiteral(hubUserDID)}::uuid, decode(${sqlLiteral(tokenHash)}, 'hex'),
+       now() + interval '1 hour'
+     );`,
+  );
+  return sessionToken;
+}
+
+/**
+ * Directly seeds a fully active, loggable-in Hub user plus one authenticated
+ * session, bypassing the signup-completion saga entirely. The only way to
+ * get a real local account on a tenant whose global-coordinator path is
+ * deliberately broken in CI (ind1): signup can never reach `completed`
+ * there, so a test that needs to call authenticated local endpoints against
+ * ind1 (email change, for instance) cannot get one through `signup()`. The
+ * digest and password hash are synthetic — nothing exercised through a
+ * seeded user reads them back through the global directory or `/login`.
+ */
+export function seedActiveHubUser(
+  tenant: TestTenant,
+  emailAddress: string,
+  displayName: string,
+): { hubUserDID: string; handle: string; sessionToken: string } {
+  assertOwnedHubEmail(emailAddress);
+  const hubUserDID = `018f7e32-7b5a-7d31-8fd0-${randomBytes(6).toString("hex")}`;
+  const handle = `${randomBytes(4).toString("hex")}-${randomBytes(6)
+    .toString("hex")
+    .slice(0, 11)}`;
+  const digest = randomBytes(32).toString("hex");
+  sqlScalarForTenant(
+    tenant,
+    `INSERT INTO vetchium.hub_users (
+       hub_user_did, handle, email_address, email_digest, display_name,
+       password_hash, resident_country, hub_plan_oid
+     ) VALUES (
+       ${sqlLiteral(hubUserDID)}::uuid, ${sqlLiteral(handle)},
+       ${sqlLiteral(emailAddress)}, decode(${sqlLiteral(digest)}, 'hex'),
+       ${sqlLiteral(displayName)}, 'not-a-real-hash', 'US', 'hub-free-tier'
+     );`,
+  );
+  return {
+    hubUserDID,
+    handle,
+    sessionToken: seedHubSession(tenant, hubUserDID),
+  };
+}
+
 /** Browser APIs return only the public handle; tests that inspect database
  * rows keyed by DID resolve it here. */
 export function hubUserDIDForHandle(

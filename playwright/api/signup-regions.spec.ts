@@ -215,7 +215,14 @@ test("online tenants claim global handles while an offline tenant remains pendin
   request,
 }) => {
   const domain = `e2e-${randomUUID()}.example.test`;
-  const email = `e2e+${randomUUID()}@${domain}`;
+  // A distinct address per tenant: the Hub account email is now globally
+  // unique (docs/global-uniqueness.md), so the same address could no longer
+  // complete signup at both sgp and usa1 the way this test originally
+  // assumed — that scenario is covered on its own by
+  // hub-global-email.spec.ts's signup-race test.
+  const indiaEmail = `e2e+${randomUUID()}@${domain}`;
+  const singaporeEmail = `e2e+${randomUUID()}@${domain}`;
+  const usaEmail = `e2e+${randomUUID()}@${domain}`;
   const indiaKeys: string[] = [];
   const singaporeKeys: string[] = [];
   const usaKeys: string[] = [];
@@ -227,7 +234,7 @@ test("online tenants claim global handles while an offline tenant remains pendin
     const indiaToken = await requestSignupToken(
       request,
       "ind1",
-      email,
+      indiaEmail,
       indiaKeys,
     );
     const indiaCompleteKey = hubIdempotencyKey();
@@ -246,8 +253,13 @@ test("online tenants claim global handles while an offline tenant remains pendin
     };
     expect(pending.operation_id).toMatch(/^[0-9a-f-]{36}$/);
 
-    const singapore = await signup(request, "sgp", email, singaporeKeys);
-    const usa = await signup(request, "usa1", email, usaKeys);
+    const singapore = await signup(
+      request,
+      "sgp",
+      singaporeEmail,
+      singaporeKeys,
+    );
+    const usa = await signup(request, "usa1", usaEmail, usaKeys);
     expect(singapore.hubUserDID).not.toBe(usa.hubUserDID);
     expect(singapore.handle).not.toBe(usa.handle);
     // The handle is public and the DID is not, so the suffix is random
@@ -270,9 +282,9 @@ test("online tenants claim global handles while an offline tenant remains pendin
       });
     }
   } finally {
-    cleanupHubUser(email, "ind1");
-    cleanupHubUser(email, "sgp");
-    cleanupHubUser(email, "usa1");
+    cleanupHubUser(indiaEmail, "ind1");
+    cleanupHubUser(singaporeEmail, "sgp");
+    cleanupHubUser(usaEmail, "usa1");
     cleanupHubIdempotency(indiaKeys, "ind1");
     cleanupHubIdempotency(singaporeKeys, "sgp");
     cleanupHubIdempotency(usaKeys, "usa1");
