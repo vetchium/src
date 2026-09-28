@@ -169,78 +169,6 @@ model HubAccountEmailChangeReservationResponse {
   state: "reserved" | "cancelled" | "finalized";
 }
 
-model ClaimHubProfessionalEmailRequest {
-  command_id: CommandID;
-  hub_user_did: Vetchium.Hub.HubUserDID;
-  email_digest: EmailDigest;
-  digest_key_id: DigestKeyID;
-}
-
-/**
- * superseded_same_tenant_hub_user_did is present only when the previous
- * holder's home tenant is the caller, so the caller can supersede locally in
- * the same step. It never reveals a DID from another tenant.
- */
-model ClaimHubProfessionalEmailResponse {
-  claim_revision: int64;
-  superseded_same_tenant_hub_user_did?: Vetchium.Hub.HubUserDID;
-}
-
-model ReleaseHubProfessionalEmailRequest {
-  command_id: CommandID;
-  hub_user_did: Vetchium.Hub.HubUserDID;
-  email_digest: EmailDigest;
-  claim_revision: int64;
-}
-
-model ReleaseHubProfessionalEmailResponse {
-  released: boolean;
-}
-
-@maxValue(500)
-scalar HubProfessionalEmailSupersessionsLimit extends int32;
-
-model PullHubProfessionalEmailSupersessionsRequest {
-  acknowledged_seq: int64;
-  limit: HubProfessionalEmailSupersessionsLimit;
-}
-
-/** hub_user_did is always homed at the caller: it is the caller's own Hub
- * user who lost this professional-email claim. */
-model HubProfessionalEmailSupersession {
-  supersession_seq: int64;
-  hub_user_did: Vetchium.Hub.HubUserDID;
-  email_digest: EmailDigest;
-  superseded_by_revision: int64;
-}
-
-model PullHubProfessionalEmailSupersessionsResponse {
-  supersessions: HubProfessionalEmailSupersession[];
-  acknowledged_seq: int64;
-  oldest_pending_created_at: utcDateTime | null;
-}
-
-model HubProfessionalEmailHoldingQuery {
-  hub_user_did: Vetchium.Hub.HubUserDID;
-  email_digest: EmailDigest;
-}
-
-model CheckHubProfessionalEmailHoldingsRequest {
-  @maxItems(500)
-  items: HubProfessionalEmailHoldingQuery[];
-}
-
-/** Never reveals another holder's DID. claim_revision is null whenever the
- * address is not currently held by anyone. */
-model HubProfessionalEmailHoldingResult {
-  held_by_requested_user: boolean;
-  claim_revision: int64 | null;
-}
-
-model CheckHubProfessionalEmailHoldingsResponse {
-  results: HubProfessionalEmailHoldingResult[];
-}
-
 alias ReadResponseBase =
   | {
       @statusCode status_code: 200;
@@ -315,59 +243,6 @@ alias ReserveHubAccountEmailChangeResponseBase =
   | Vetchium.Problem.DirectoryDigestKeyMismatchErrorResponse
   | Vetchium.Problem.DirectoryReservationExpiredErrorResponse
   | Vetchium.Problem.DirectoryReservationCancelledErrorResponse;
-
-alias ClaimHubProfessionalEmailResponseBase =
-  | {
-      @statusCode status_code: 200;
-      @header("Cache-Control") cache_control: "no-store";
-      @body body: ClaimHubProfessionalEmailResponse;
-    }
-  | Vetchium.Problem.InvalidJSONErrorResponse
-  | Vetchium.Problem.ValidationFailedErrorResponse
-  | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
-  | Vetchium.Problem.DirectoryStateConflictErrorResponse
-  | Vetchium.Problem.DirectoryCallerTenantMismatchErrorResponse
-  | Vetchium.Problem.DirectoryDigestKeyMismatchErrorResponse
-  | Vetchium.Problem.InternalServerErrorResponse;
-
-alias ReleaseHubProfessionalEmailResponseBase =
-  | {
-      @statusCode status_code: 200;
-      @header("Cache-Control") cache_control: "no-store";
-      @body body: ReleaseHubProfessionalEmailResponse;
-    }
-  | Vetchium.Problem.InvalidJSONErrorResponse
-  | Vetchium.Problem.ValidationFailedErrorResponse
-  | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
-  | Vetchium.Problem.DirectoryCallerTenantMismatchErrorResponse
-  | Vetchium.Problem.InternalServerErrorResponse;
-
-/**
- * Caller-scoped and naturally idempotent (it mutates only the caller's own
- * cursor), so it bypasses the command ledger and carries no
- * idempotency-key-conflict or caller-tenant-mismatch response.
- */
-alias PullHubProfessionalEmailSupersessionsResponseBase =
-  | {
-      @statusCode status_code: 200;
-      @header("Cache-Control") cache_control: "no-store";
-      @body body: PullHubProfessionalEmailSupersessionsResponse;
-    }
-  | Vetchium.Problem.InvalidJSONErrorResponse
-  | Vetchium.Problem.ValidationFailedErrorResponse
-  | Vetchium.Problem.DirectoryStateConflictErrorResponse
-  | Vetchium.Problem.InternalServerErrorResponse;
-
-alias CheckHubProfessionalEmailHoldingsResponseBase =
-  | {
-      @statusCode status_code: 200;
-      @header("Cache-Control") cache_control: "no-store";
-      @body body: CheckHubProfessionalEmailHoldingsResponse;
-    }
-  | Vetchium.Problem.InvalidJSONErrorResponse
-  | Vetchium.Problem.ValidationFailedErrorResponse
-  | Vetchium.Problem.DirectoryCallerTenantMismatchErrorResponse
-  | Vetchium.Problem.InternalServerErrorResponse;
 
 alias OrgReadResponseBase =
   | {
@@ -473,34 +348,6 @@ alias MeshEmailChangeCommandResult =
   | EmailChangeCommandResponseBase
   | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
 
-alias ClaimHubProfessionalEmailResult =
-  | ClaimHubProfessionalEmailResponseBase
-  | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
-alias MeshClaimHubProfessionalEmailResult =
-  | ClaimHubProfessionalEmailResponseBase
-  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
-
-alias ReleaseHubProfessionalEmailResult =
-  | ReleaseHubProfessionalEmailResponseBase
-  | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
-alias MeshReleaseHubProfessionalEmailResult =
-  | ReleaseHubProfessionalEmailResponseBase
-  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
-
-alias PullHubProfessionalEmailSupersessionsResult =
-  | PullHubProfessionalEmailSupersessionsResponseBase
-  | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
-alias MeshPullHubProfessionalEmailSupersessionsResult =
-  | PullHubProfessionalEmailSupersessionsResponseBase
-  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
-
-alias CheckHubProfessionalEmailHoldingsResult =
-  | CheckHubProfessionalEmailHoldingsResponseBase
-  | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
-alias MeshCheckHubProfessionalEmailHoldingsResult =
-  | CheckHubProfessionalEmailHoldingsResponseBase
-  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
-
 @route("/api/global-coordinator/directory")
 @tag("Global directory")
 @useAuth(Vetchium.Authentication.MutualTLSAuth)
@@ -548,30 +395,6 @@ interface Operations {
   abandonHubAccountEmailChange(
     @body request: AbandonHubAccountEmailChangeRequest,
   ): EmailChangeCommandResult;
-
-  @route("/claim-hub-professional-email")
-  @post
-  claimHubProfessionalEmail(
-    @body request: ClaimHubProfessionalEmailRequest,
-  ): ClaimHubProfessionalEmailResult;
-
-  @route("/release-hub-professional-email")
-  @post
-  releaseHubProfessionalEmail(
-    @body request: ReleaseHubProfessionalEmailRequest,
-  ): ReleaseHubProfessionalEmailResult;
-
-  @route("/pull-hub-professional-email-supersessions")
-  @post
-  pullHubProfessionalEmailSupersessions(
-    @body request: PullHubProfessionalEmailSupersessionsRequest,
-  ): PullHubProfessionalEmailSupersessionsResult;
-
-  @route("/check-hub-professional-email-holdings")
-  @post
-  checkHubProfessionalEmailHoldings(
-    @body request: CheckHubProfessionalEmailHoldingsRequest,
-  ): CheckHubProfessionalEmailHoldingsResult;
 
   @route("/resolve-org-domain")
   @post
@@ -647,30 +470,6 @@ interface MeshOperations {
   abandonHubAccountEmailChange(
     @body request: AbandonHubAccountEmailChangeRequest,
   ): MeshEmailChangeCommandResult;
-
-  @route("/claim-hub-professional-email")
-  @post
-  claimHubProfessionalEmail(
-    @body request: ClaimHubProfessionalEmailRequest,
-  ): MeshClaimHubProfessionalEmailResult;
-
-  @route("/release-hub-professional-email")
-  @post
-  releaseHubProfessionalEmail(
-    @body request: ReleaseHubProfessionalEmailRequest,
-  ): MeshReleaseHubProfessionalEmailResult;
-
-  @route("/pull-hub-professional-email-supersessions")
-  @post
-  pullHubProfessionalEmailSupersessions(
-    @body request: PullHubProfessionalEmailSupersessionsRequest,
-  ): MeshPullHubProfessionalEmailSupersessionsResult;
-
-  @route("/check-hub-professional-email-holdings")
-  @post
-  checkHubProfessionalEmailHoldings(
-    @body request: CheckHubProfessionalEmailHoldingsRequest,
-  ): MeshCheckHubProfessionalEmailHoldingsResult;
 
   @route("/resolve-org-domain")
   @post

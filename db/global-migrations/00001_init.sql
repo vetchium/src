@@ -381,41 +381,6 @@ CREATE TRIGGER hub_account_email_change_reservations_enforce_transition
 BEFORE UPDATE ON vetchium.hub_account_email_change_reservations
 FOR EACH ROW EXECUTE FUNCTION vetchium.enforce_email_change_reservation_transition();
 
--- Global uniqueness of a verified professional (work) email, transferable to
--- a newer proof of mailbox control. The row survives a release (holder set
--- to NULL) so claim_revision never restarts, which is what lets a tenant
--- fence a late claim result against a subsequent supersession.
-CREATE TABLE vetchium.hub_professional_email_claims (
-    email_digest bytea PRIMARY KEY CHECK (octet_length(email_digest) = 32),
-    hub_user_did uuid
-        REFERENCES vetchium.hub_principals (hub_user_did) ON DELETE SET NULL,
-    claim_revision bigint NOT NULL CHECK (claim_revision > 0),
-    claimed_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX hub_professional_email_claims_user
-    ON vetchium.hub_professional_email_claims (hub_user_did);
-
--- Pull feed: a tenant learns that one of its users lost a professional-email
--- claim by polling rows addressed to it. Rows are deleted only after that
--- tenant acknowledges them; there is no time-based pruning (GU-PEM-008).
-CREATE TABLE vetchium.hub_professional_email_feed_cursors (
-    tenant_id text PRIMARY KEY CHECK (tenant_id ~ '^[a-z][a-z0-9]{2,15}$'),
-    last_issued_seq bigint NOT NULL DEFAULT 0 CHECK (last_issued_seq >= 0),
-    acknowledged_seq bigint NOT NULL DEFAULT 0,
-    CHECK (acknowledged_seq BETWEEN 0 AND last_issued_seq)
-);
-
-CREATE TABLE vetchium.hub_professional_email_supersessions (
-    previous_home_tenant_id text NOT NULL
-        REFERENCES vetchium.hub_professional_email_feed_cursors (tenant_id),
-    supersession_seq bigint NOT NULL CHECK (supersession_seq > 0),
-    email_digest bytea NOT NULL CHECK (octet_length(email_digest) = 32),
-    previous_hub_user_did uuid NOT NULL,
-    superseded_by_revision bigint NOT NULL CHECK (superseded_by_revision > 0),
-    created_at timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (previous_home_tenant_id, supersession_seq)
-);
-
 CREATE TABLE vetchium.global_audit_events (
     global_audit_event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     action text NOT NULL,
@@ -474,9 +439,6 @@ CREATE TABLE vetchium.global_outbox_events (
 DROP TABLE IF EXISTS vetchium.global_outbox_events;
 DROP TABLE IF EXISTS vetchium.global_command_ledger;
 DROP TABLE IF EXISTS vetchium.global_audit_events;
-DROP TABLE IF EXISTS vetchium.hub_professional_email_supersessions;
-DROP TABLE IF EXISTS vetchium.hub_professional_email_feed_cursors;
-DROP TABLE IF EXISTS vetchium.hub_professional_email_claims;
 DROP TRIGGER IF EXISTS hub_account_email_change_reservations_enforce_transition
     ON vetchium.hub_account_email_change_reservations;
 DROP FUNCTION IF EXISTS vetchium.enforce_email_change_reservation_transition();

@@ -24,14 +24,11 @@ const digestPrefix = "vetchium/identity-digest/v1/"
 const keyIDPurpose = "vetchium/identity-digest/key-id/v1"
 
 // Namespace separates digests of the same address computed for different
-// purposes, so the global directory can never correlate an account email with
-// a professional email even when they are byte-identical addresses.
+// purposes, so a future second purpose could never be correlated with the
+// account-email digest even for a byte-identical address.
 type Namespace string
 
-const (
-	NamespaceHubAccountEmail      Namespace = "hub-account-email"
-	NamespaceHubProfessionalEmail Namespace = "hub-professional-email"
-)
+const NamespaceHubAccountEmail Namespace = "hub-account-email"
 
 // Key is the shared HMAC key every tenant derives from the identity digest
 // secret. It never leaves the hub-api and workers processes that hold the
@@ -49,12 +46,6 @@ func NewKey(secret string) Key {
 // account (sign-in) email address.
 func (k Key) HubAccountEmail(address string) []byte {
 	return k.digest(NamespaceHubAccountEmail, address)
-}
-
-// HubProfessionalEmail returns the digest the global directory stores for a
-// verified professional (work) email address.
-func (k Key) HubProfessionalEmail(address string) []byte {
-	return k.digest(NamespaceHubProfessionalEmail, address)
 }
 
 func (k Key) digest(namespace Namespace, address string) []byte {

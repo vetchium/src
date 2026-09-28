@@ -47,18 +47,6 @@ type EmailChangeOutcome struct {
 	Problem     *problem.Details
 }
 
-type ProfessionalClaimOutcome struct {
-	Status  int
-	Claim   *directoryspec.ClaimHubProfessionalEmailResponse
-	Problem *problem.Details
-}
-
-type ProfessionalReleaseOutcome struct {
-	Status  int
-	Release *directoryspec.ReleaseHubProfessionalEmailResponse
-	Problem *problem.Details
-}
-
 type Client struct {
 	baseURL    string
 	prefix     string
@@ -251,87 +239,10 @@ func (c *Client) emailChangeCommand(
 	return EmailChangeOutcome{Status: status, Reservation: body, Problem: details}, err
 }
 
-func (c *Client) ClaimHubProfessionalEmail(
-	ctx context.Context, request directoryspec.ClaimHubProfessionalEmailRequest,
-) (ProfessionalClaimOutcome, error) {
-	status, body, details, err := commandResult(
-		ctx, c, "claim-hub-professional-email", request,
-		validProfessionalClaim,
-	)
-	return ProfessionalClaimOutcome{Status: status, Claim: body, Problem: details}, err
-}
-
-func (c *Client) ReleaseHubProfessionalEmail(
-	ctx context.Context, request directoryspec.ReleaseHubProfessionalEmailRequest,
-) (ProfessionalReleaseOutcome, error) {
-	status, body, details, err := commandResult(
-		ctx, c, "release-hub-professional-email", request,
-		func(directoryspec.ReleaseHubProfessionalEmailResponse) bool { return true },
-	)
-	return ProfessionalReleaseOutcome{Status: status, Release: body, Problem: details}, err
-}
-
-func (c *Client) PullHubProfessionalEmailSupersessions(
-	ctx context.Context,
-	request directoryspec.PullHubProfessionalEmailSupersessionsRequest,
-) (
-	directoryspec.PullHubProfessionalEmailSupersessionsResponse,
-	*problem.Details, error,
-) {
-	var result directoryspec.PullHubProfessionalEmailSupersessionsResponse
-	status, body, mediaType, err := c.do(
-		ctx, "pull-hub-professional-email-supersessions", request,
-	)
-	if err != nil {
-		return result, nil, err
-	}
-	if status == http.StatusOK && mediaType == "application/json" {
-		if err := decode(body, &result); err != nil {
-			return result, nil, err
-		}
-		return result, nil, nil
-	}
-	details, err := decodeProblem(status, mediaType, body)
-	return result, details, err
-}
-
-func (c *Client) CheckHubProfessionalEmailHoldings(
-	ctx context.Context,
-	request directoryspec.CheckHubProfessionalEmailHoldingsRequest,
-) (
-	directoryspec.CheckHubProfessionalEmailHoldingsResponse,
-	*problem.Details, error,
-) {
-	var result directoryspec.CheckHubProfessionalEmailHoldingsResponse
-	status, body, mediaType, err := c.do(
-		ctx, "check-hub-professional-email-holdings", request,
-	)
-	if err != nil {
-		return result, nil, err
-	}
-	if status == http.StatusOK && mediaType == "application/json" {
-		if err := decode(body, &result); err != nil {
-			return result, nil, err
-		}
-		if len(result.Results) != len(request.Items) {
-			return result, nil, fmt.Errorf("%w: holdings result count mismatch", ErrInvalidResponse)
-		}
-		return result, nil, nil
-	}
-	details, err := decodeProblem(status, mediaType, body)
-	return result, details, err
-}
-
 func validEmailChangeReservation(
 	response directoryspec.HubAccountEmailChangeReservationResponse,
 ) bool {
 	return directoryspec.IsEmailChangeReservationState(response.State)
-}
-
-func validProfessionalClaim(
-	response directoryspec.ClaimHubProfessionalEmailResponse,
-) bool {
-	return response.ClaimRevision >= 1
 }
 
 func commandResult[R any](

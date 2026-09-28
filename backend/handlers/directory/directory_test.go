@@ -38,12 +38,6 @@ type fakeService struct {
 	emailChangeOutcome   globaldirectory.EmailChangeOutcome
 	resolveEmailResponse directoryspec.ResolveHubAccountEmailResponse
 	resolveEmailProblem  *problem.Details
-	professionalClaim    globaldirectory.ProfessionalClaimOutcome
-	professionalRelease  globaldirectory.ProfessionalReleaseOutcome
-	pullResponse         directoryspec.PullHubProfessionalEmailSupersessionsResponse
-	pullProblem          *problem.Details
-	holdingsResponse     directoryspec.CheckHubProfessionalEmailHoldingsResponse
-	holdingsProblem      *problem.Details
 	commandErr           error
 	caller               directoryspec.TenantID
 	command              string
@@ -145,44 +139,6 @@ func (f *fakeService) AbandonHubAccountEmailChange(
 ) (globaldirectory.EmailChangeOutcome, error) {
 	f.caller, f.command = caller, "abandon-email-change"
 	return f.emailChangeOutcome, f.commandErr
-}
-
-func (f *fakeService) ClaimHubProfessionalEmail(
-	_ context.Context, caller directoryspec.TenantID,
-	_ directoryspec.ClaimHubProfessionalEmailRequest,
-) (globaldirectory.ProfessionalClaimOutcome, error) {
-	f.caller, f.command = caller, "claim-professional-email"
-	return f.professionalClaim, f.commandErr
-}
-
-func (f *fakeService) ReleaseHubProfessionalEmail(
-	_ context.Context, caller directoryspec.TenantID,
-	_ directoryspec.ReleaseHubProfessionalEmailRequest,
-) (globaldirectory.ProfessionalReleaseOutcome, error) {
-	f.caller, f.command = caller, "release-professional-email"
-	return f.professionalRelease, f.commandErr
-}
-
-func (f *fakeService) PullHubProfessionalEmailSupersessions(
-	_ context.Context, caller directoryspec.TenantID,
-	_ directoryspec.PullHubProfessionalEmailSupersessionsRequest,
-) (
-	directoryspec.PullHubProfessionalEmailSupersessionsResponse,
-	*problem.Details, error,
-) {
-	f.caller, f.command = caller, "pull-professional-email-supersessions"
-	return f.pullResponse, f.pullProblem, f.commandErr
-}
-
-func (f *fakeService) CheckHubProfessionalEmailHoldings(
-	_ context.Context, caller directoryspec.TenantID,
-	_ directoryspec.CheckHubProfessionalEmailHoldingsRequest,
-) (
-	directoryspec.CheckHubProfessionalEmailHoldingsResponse,
-	*problem.Details, error,
-) {
-	f.caller, f.command = caller, "check-professional-email-holdings"
-	return f.holdingsResponse, f.holdingsProblem, f.commandErr
 }
 
 func TestResolveProfileSlugHandler(t *testing.T) {
@@ -571,135 +527,5 @@ func TestEmailChangeCommandHandlers(t *testing.T) {
 	)
 	if recorder.Code != http.StatusConflict {
 		t.Fatalf("reservation-expired status = %d", recorder.Code)
-	}
-}
-
-func TestProfessionalEmailCommandHandlers(t *testing.T) {
-	t.Parallel()
-	claimBody := `{"command_id":"` + testCommandID + `",` +
-		`"hub_user_did":"` + testDID + `",` +
-		`"email_digest":"` + testEmailDigest + `",` +
-		`"digest_key_id":"` + testDigestKeyID + `"}`
-	releaseBody := `{"command_id":"` + testCommandID + `",` +
-		`"hub_user_did":"` + testDID + `",` +
-		`"email_digest":"` + testEmailDigest + `",` +
-		`"claim_revision":1}`
-
-	claimService := &fakeService{
-		professionalClaim: globaldirectory.ProfessionalClaimOutcome{
-			Status: http.StatusOK,
-			Claim: &directoryspec.ClaimHubProfessionalEmailResponse{
-				ClaimRevision: 1,
-			},
-		},
-	}
-	recorder := serve(
-		t, true, claimBody, ClaimHubProfessionalEmail(testRuntime(), claimService),
-	)
-	if recorder.Code != http.StatusOK ||
-		claimService.command != "claim-professional-email" ||
-		claimService.caller != "ind1" {
-		t.Fatalf(
-			"claim status = %d command = %q caller = %q",
-			recorder.Code, claimService.command, claimService.caller,
-		)
-	}
-
-	releaseService := &fakeService{
-		professionalRelease: globaldirectory.ProfessionalReleaseOutcome{
-			Status: http.StatusOK,
-			Release: &directoryspec.ReleaseHubProfessionalEmailResponse{
-				Released: true,
-			},
-		},
-	}
-	recorder = serve(
-		t, true, releaseBody,
-		ReleaseHubProfessionalEmail(testRuntime(), releaseService),
-	)
-	if recorder.Code != http.StatusOK ||
-		releaseService.command != "release-professional-email" ||
-		releaseService.caller != "ind1" {
-		t.Fatalf(
-			"release status = %d command = %q caller = %q",
-			recorder.Code, releaseService.command, releaseService.caller,
-		)
-	}
-
-	mismatch := &fakeService{
-		professionalClaim: globaldirectory.ProfessionalClaimOutcome{
-			Status:  403,
-			Problem: &coordinatorproblem.DirectoryCallerTenantMismatchError,
-		},
-	}
-	recorder = serve(
-		t, true, claimBody, ClaimHubProfessionalEmail(testRuntime(), mismatch),
-	)
-	if recorder.Code != http.StatusForbidden {
-		t.Fatalf("caller mismatch status = %d", recorder.Code)
-	}
-}
-
-func TestPullHubProfessionalEmailSupersessionsHandler(t *testing.T) {
-	t.Parallel()
-	body := `{"acknowledged_seq":0,"limit":10}`
-	for _, test := range []struct {
-		name    string
-		problem *problem.Details
-		err     error
-		status  int
-	}{
-		{name: "success", status: 200},
-		{
-			name:    "state conflict",
-			problem: &coordinatorproblem.DirectoryStateConflictError, status: 409,
-		},
-		{name: "database failure", err: fmt.Errorf("offline"), status: 500},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			service := &fakeService{pullProblem: test.problem, commandErr: test.err}
-			recorder := serve(
-				t, true, body,
-				PullHubProfessionalEmailSupersessions(testRuntime(), service),
-			)
-			if recorder.Code != test.status {
-				t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body)
-			}
-		})
-	}
-}
-
-func TestCheckHubProfessionalEmailHoldingsHandler(t *testing.T) {
-	t.Parallel()
-	body := `{"items":[{"hub_user_did":"` + testDID + `",` +
-		`"email_digest":"` + testEmailDigest + `"}]}`
-	for _, test := range []struct {
-		name    string
-		problem *problem.Details
-		err     error
-		status  int
-	}{
-		{name: "success", status: 200},
-		{
-			name:    "caller mismatch",
-			problem: &coordinatorproblem.DirectoryCallerTenantMismatchError,
-			status:  403,
-		},
-		{name: "database failure", err: fmt.Errorf("offline"), status: 500},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			service := &fakeService{
-				holdingsProblem: test.problem, commandErr: test.err,
-			}
-			recorder := serve(
-				t, true, body,
-				CheckHubProfessionalEmailHoldings(testRuntime(), service),
-			)
-			if recorder.Code != test.status {
-				t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body)
-			}
-		})
 	}
 }

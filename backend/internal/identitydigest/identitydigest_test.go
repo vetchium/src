@@ -19,29 +19,9 @@ func TestFixedVectors(t *testing.T) {
 		t.Fatalf("HubAccountEmail() = %s, want %s", got, wantAccount)
 	}
 
-	wantProfessional := "12dfcc45f137e21bf90fc04de82e18e858cc496e1b1c43d4cad69a81a7e0180d"
-	if got := hex.EncodeToString(
-		key.HubProfessionalEmail("  A@B.Example "),
-	); got != wantProfessional {
-		t.Fatalf("HubProfessionalEmail() = %s, want %s", got, wantProfessional)
-	}
-
 	wantID := "a17b74020aa051b7"
 	if got := key.ID(); got != wantID {
 		t.Fatalf("ID() = %s, want %s", got, wantID)
-	}
-}
-
-func TestNamespaceSeparation(t *testing.T) {
-	key := NewKey("some-secret")
-	account := key.HubAccountEmail("same@example.com")
-	professional := key.HubProfessionalEmail("same@example.com")
-	if hex.EncodeToString(account) == hex.EncodeToString(professional) {
-		t.Fatal(
-			"HubAccountEmail and HubProfessionalEmail produced the same " +
-				"digest for the same address; the global directory could " +
-				"correlate a user's account and work addresses",
-		)
 	}
 }
 

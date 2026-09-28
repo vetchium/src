@@ -250,28 +250,6 @@ type VetchiumHubPrincipal struct {
 	UpdatedAt               pgtype.Timestamptz           `json:"updated_at"`
 }
 
-type VetchiumHubProfessionalEmailClaim struct {
-	EmailDigest   []byte             `json:"email_digest"`
-	HubUserDid    pgtype.UUID        `json:"hub_user_did"`
-	ClaimRevision int64              `json:"claim_revision"`
-	ClaimedAt     pgtype.Timestamptz `json:"claimed_at"`
-}
-
-type VetchiumHubProfessionalEmailFeedCursor struct {
-	TenantID        string `json:"tenant_id"`
-	LastIssuedSeq   int64  `json:"last_issued_seq"`
-	AcknowledgedSeq int64  `json:"acknowledged_seq"`
-}
-
-type VetchiumHubProfessionalEmailSupersession struct {
-	PreviousHomeTenantID string             `json:"previous_home_tenant_id"`
-	SupersessionSeq      int64              `json:"supersession_seq"`
-	EmailDigest          []byte             `json:"email_digest"`
-	PreviousHubUserDid   pgtype.UUID        `json:"previous_hub_user_did"`
-	SupersededByRevision int64              `json:"superseded_by_revision"`
-	CreatedAt            pgtype.Timestamptz `json:"created_at"`
-}
-
 type VetchiumHubProfileSlug struct {
 	Slug       string                        `json:"slug"`
 	HubUserDid pgtype.UUID                   `json:"hub_user_did"`

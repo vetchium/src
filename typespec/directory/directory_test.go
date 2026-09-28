@@ -187,31 +187,3 @@ func TestEmailChangeCommandValidation(t *testing.T) {
 		t.Fatalf("abandon missing not_after fields = %v", fields)
 	}
 }
-
-func TestCheckHubProfessionalEmailHoldingsRequestValidation(t *testing.T) {
-	t.Parallel()
-	digest := EmailDigest(
-		"bee57e69a23d800d7718d0e79b2be1519e131232967431dba85e2737b6621f6e",
-	)
-	valid := CheckHubProfessionalEmailHoldingsRequest{
-		Items: []HubProfessionalEmailHoldingQuery{
-			{HubUserDID: "018f7e32-7b5a-7d31-8fd0-f7e2a852f144", EmailDigest: digest},
-		},
-	}
-	if fields := valid.Validate(); len(fields) != 0 {
-		t.Fatalf("valid holdings request rejected: %v", fields)
-	}
-	empty := CheckHubProfessionalEmailHoldingsRequest{}
-	if fields := empty.Validate(); !slices.Equal(fields, []string{"items"}) {
-		t.Fatalf("empty holdings request fields = %v, want [items]", fields)
-	}
-	tooMany := CheckHubProfessionalEmailHoldingsRequest{
-		Items: make(
-			[]HubProfessionalEmailHoldingQuery,
-			maxHubProfessionalEmailHoldingsItems+1,
-		),
-	}
-	if fields := tooMany.Validate(); !slices.Equal(fields, []string{"items"}) {
-		t.Fatalf("oversized holdings request fields = %v, want [items]", fields)
-	}
-}

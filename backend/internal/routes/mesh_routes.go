@@ -45,22 +45,6 @@ func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 		mesh.AbandonHubAccountEmailChange(s.Runtime, s.Directory, s.Credential),
 	)
 	mux.HandleFunc(
-		"POST /mesh/directory/claim-hub-professional-email",
-		mesh.ClaimHubProfessionalEmail(s.Runtime, s.Directory, s.Credential),
-	)
-	mux.HandleFunc(
-		"POST /mesh/directory/release-hub-professional-email",
-		mesh.ReleaseHubProfessionalEmail(s.Runtime, s.Directory, s.Credential),
-	)
-	mux.HandleFunc(
-		"POST /mesh/directory/pull-hub-professional-email-supersessions",
-		mesh.PullHubProfessionalEmailSupersessions(s.Runtime, s.Directory, s.Credential),
-	)
-	mux.HandleFunc(
-		"POST /mesh/directory/check-hub-professional-email-holdings",
-		mesh.CheckHubProfessionalEmailHoldings(s.Runtime, s.Directory, s.Credential),
-	)
-	mux.HandleFunc(
 		"POST /mesh/directory/resolve-org-domain",
 		mesh.ResolveOrgDomain(s.Runtime, s.Directory, s.Credential),
 	)

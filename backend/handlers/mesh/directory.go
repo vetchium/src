@@ -56,24 +56,6 @@ type Directory interface {
 	AbandonHubAccountEmailChange(
 		context.Context, directoryspec.AbandonHubAccountEmailChangeRequest,
 	) (directoryclient.EmailChangeOutcome, error)
-	ClaimHubProfessionalEmail(
-		context.Context, directoryspec.ClaimHubProfessionalEmailRequest,
-	) (directoryclient.ProfessionalClaimOutcome, error)
-	ReleaseHubProfessionalEmail(
-		context.Context, directoryspec.ReleaseHubProfessionalEmailRequest,
-	) (directoryclient.ProfessionalReleaseOutcome, error)
-	PullHubProfessionalEmailSupersessions(
-		context.Context, directoryspec.PullHubProfessionalEmailSupersessionsRequest,
-	) (
-		directoryspec.PullHubProfessionalEmailSupersessionsResponse,
-		*problem.Details, error,
-	)
-	CheckHubProfessionalEmailHoldings(
-		context.Context, directoryspec.CheckHubProfessionalEmailHoldingsRequest,
-	) (
-		directoryspec.CheckHubProfessionalEmailHoldingsResponse,
-		*problem.Details, error,
-	)
 }
 
 func ResolveProfileSlug(
@@ -207,34 +189,6 @@ func AbandonHubAccountEmailChange(
 	)
 }
 
-func ClaimHubProfessionalEmail(
-	runtime *apiserver.Runtime, directory Directory, credential string,
-) http.HandlerFunc {
-	return directoryCommand[directoryspec.ClaimHubProfessionalEmailRequest](
-		runtime, credential, professionalClaimCommand(directory.ClaimHubProfessionalEmail),
-	)
-}
-
-func ReleaseHubProfessionalEmail(
-	runtime *apiserver.Runtime, directory Directory, credential string,
-) http.HandlerFunc {
-	return directoryCommand[directoryspec.ReleaseHubProfessionalEmailRequest](
-		runtime, credential, professionalReleaseCommand(directory.ReleaseHubProfessionalEmail),
-	)
-}
-
-func PullHubProfessionalEmailSupersessions(
-	runtime *apiserver.Runtime, directory Directory, credential string,
-) http.HandlerFunc {
-	return relayRead(runtime, credential, directory.PullHubProfessionalEmailSupersessions)
-}
-
-func CheckHubProfessionalEmailHoldings(
-	runtime *apiserver.Runtime, directory Directory, credential string,
-) http.HandlerFunc {
-	return relayRead(runtime, credential, directory.CheckHubProfessionalEmailHoldings)
-}
-
 // relayOutcome is a relayed command result independent of the principal kind
 // whose response it carries.
 type relayOutcome struct {
@@ -273,29 +227,6 @@ func emailChangeCommand[T any](
 		outcome, err := command(ctx, request)
 		return relayOutcome{
 			status: outcome.Status, body: outcome.Reservation,
-			problem: outcome.Problem,
-		}, err
-	}
-}
-
-func professionalClaimCommand[T any](
-	command func(context.Context, T) (directoryclient.ProfessionalClaimOutcome, error),
-) func(context.Context, T) (relayOutcome, error) {
-	return func(ctx context.Context, request T) (relayOutcome, error) {
-		outcome, err := command(ctx, request)
-		return relayOutcome{
-			status: outcome.Status, body: outcome.Claim, problem: outcome.Problem,
-		}, err
-	}
-}
-
-func professionalReleaseCommand[T any](
-	command func(context.Context, T) (directoryclient.ProfessionalReleaseOutcome, error),
-) func(context.Context, T) (relayOutcome, error) {
-	return func(ctx context.Context, request T) (relayOutcome, error) {
-		outcome, err := command(ctx, request)
-		return relayOutcome{
-			status: outcome.Status, body: outcome.Release,
 			problem: outcome.Problem,
 		}, err
 	}
