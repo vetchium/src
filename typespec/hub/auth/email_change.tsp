@@ -8,6 +8,7 @@ import "../../problem/common.tsp";
 import "../../problem/details.tsp";
 import "../../problem/hub/authentication.tsp";
 import "../../problem/hub/email.tsp";
+import "../operations/operations.tsp";
 
 using TypeSpec.Http;
 
@@ -63,11 +64,15 @@ interface EmailChangeOperations {
     | Vetchium.Problem.InvalidJSONErrorResponse
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.HubAuthenticationOrRecentRequiredErrorResponse
+    | Vetchium.Problem.HubEmailChangeInProgressErrorResponse
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
-  /** Only the session that requested the code may confirm it. */
+  /** Only the session that requested the code may confirm it. A `202` means
+   * the change is still being applied at the global directory; poll
+   * `/api/hub/operations/status` and replay this request with the same
+   * idempotency key for the resolved typed result. */
   @route("/confirm-email-change")
   @post
   @useAuth(BearerAuth)
@@ -90,11 +95,18 @@ interface EmailChangeOperations {
         @statusCode status_code: 204;
         @header("Cache-Control") cache_control: "no-store";
       }
+    | {
+        @statusCode status_code: 202;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: Vetchium.Hub.Operations.PendingOperation;
+      }
     | Vetchium.Problem.InvalidJSONErrorResponse
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.HubEmailChangeCodeRejectedErrorResponse
     | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
     | Vetchium.Problem.HubEmailAddressUnavailableErrorResponse
+    | Vetchium.Problem.HubEmailChangeInProgressErrorResponse
+    | Vetchium.Problem.HubEmailChangeUnavailableErrorResponse
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 }

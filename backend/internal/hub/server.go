@@ -14,6 +14,7 @@ import (
 	"backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
 	"backend/internal/hub/auth"
+	"backend/internal/hub/emailchange"
 	"backend/internal/hub/signupcompletion"
 	"backend/internal/profileclient"
 	"backend/internal/profilepicture"
@@ -43,6 +44,7 @@ type Server struct {
 	Profiles         *profileclient.Client
 	Pictures         PictureStorage
 	SignupCompletion *signupcompletion.Service
+	EmailChange      *emailchange.Service
 	Signup           regions.Admission
 	Queries          sqlc.Querier
 	// DigestKey computes the keyed digests the global directory holds claims

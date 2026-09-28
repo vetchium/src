@@ -8,9 +8,35 @@ WHERE old.hub_user_did = sqlc.arg(hub_user_did)
   AND old.superseded_at IS NULL
   AND old.attempt_count < 5;
 
+-- While a live (non-terminal) account-email-change durable operation exists
+-- for this user, request-email-change and confirm-email-change both refuse
+-- outright (GU-ECH-001): neither issues nor supersedes a challenge.
+-- name: HubAccountEmailChangeInProgress :one
+SELECT EXISTS (
+    SELECT 1 FROM vetchium.hub_account_email_changes
+    WHERE hub_user_did = sqlc.arg(hub_user_did)
+      AND state NOT IN ('succeeded', 'failed')
+) AS in_progress;
+
+-- Read-only lookup so the caller can compute the new address's global digest
+-- (identitydigest lives in Go, not SQL) before calling AcceptHubEmailChange.
+-- That statement re-validates every one of these conditions itself with
+-- FOR UPDATE, so a plain read here cannot introduce a race: the address on
+-- an already-created challenge row never changes.
+-- name: GetHubEmailChangeChallengeAddress :one
+SELECT new_email_address
+FROM vetchium.hub_email_change_challenges
+WHERE challenge_id = sqlc.arg(challenge_id)
+  AND hub_user_did = sqlc.arg(hub_user_did)
+  AND hub_session_id = sqlc.arg(hub_session_id)
+  AND consumed_at IS NULL
+  AND superseded_at IS NULL
+  AND expires_at > now();
+
 -- name: IssueHubEmailChangeChallenge :one
--- An address that already belongs to an account still gets a challenge, so
--- rate limits and the response are identical, but no code is queued for it.
+-- An address that already belongs to an account locally or globally still
+-- gets a challenge, so rate limits and the response are identical, but no
+-- code is queued for it (GU-ECH-001).
 WITH account AS (
     SELECT u.hub_user_did, u.preferred_language
     FROM vetchium.hub_users AS u
@@ -64,6 +90,7 @@ WITH account AS (
     FROM eligible AS e
     WHERE EXISTS (SELECT 1 FROM inserted)
       AND NOT EXISTS (SELECT 1 FROM existing_user)
+      AND NOT sqlc.arg(globally_registered)::boolean
     RETURNING hub_email_outbox_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
@@ -93,17 +120,17 @@ SELECT
     END)::text AS result,
     (SELECT i.expires_at FROM inserted AS i)::timestamptz AS expires_at;
 
--- name: ConfirmHubEmailChange :one
--- A taken address fails the whole statement on hub_users_email_address_key;
--- the caller maps that unique violation to the unavailable-address problem.
+-- name: AcceptHubEmailChange :one
+-- Replaces the old ConfirmHubEmailChange (GU-ECH-002): a correct code no
+-- longer applies the change directly. It creates the durable operation
+-- (federation_operations, pollable, payload holds only the operation id)
+-- and the richer hub_account_email_changes saga row in the same statement.
+-- A unique violation on hub_account_email_changes_one_live (the caller
+-- already has a live change) maps to the in-progress problem.
 WITH candidate AS (
     SELECT
-        c.challenge_id,
-        c.hub_user_did,
-        c.new_email_address,
-        c.code_hash,
-        u.email_address AS previous_email_address,
-        u.preferred_language
+        c.challenge_id, c.hub_user_did, c.new_email_address, c.code_hash,
+        u.email_digest AS old_email_digest
     FROM vetchium.hub_email_change_challenges AS c
     JOIN vetchium.hub_users AS u USING (hub_user_did)
     WHERE c.challenge_id = sqlc.arg(challenge_id)
@@ -125,46 +152,40 @@ WITH candidate AS (
     WHERE c.challenge_id = candidate.challenge_id
     RETURNING
         c.challenge_id,
-        c.attempt_count,
         candidate.hub_user_did,
         candidate.new_email_address,
-        candidate.previous_email_address,
-        candidate.preferred_language,
+        candidate.old_email_digest,
         candidate.code_hash = sqlc.arg(code_hash) AS verified
-), changed AS (
-    UPDATE vetchium.hub_users AS u
-    SET email_address = a.new_email_address,
-        updated_at = now()
-    FROM attempted AS a
-    WHERE u.hub_user_did = a.hub_user_did
-      AND a.verified
-    RETURNING u.hub_user_did
-), sessions AS (
-    DELETE FROM vetchium.hub_sessions
-    WHERE hub_user_did IN (SELECT hub_user_did FROM changed)
-      AND hub_session_id <> sqlc.arg(hub_session_id)
-), login_challenges AS (
-    UPDATE vetchium.hub_login_challenges
-    SET active = false
-    WHERE hub_user_did IN (SELECT hub_user_did FROM changed)
-      AND active
-), resets AS (
-    UPDATE vetchium.hub_password_reset_tokens
-    SET active = false
-    WHERE hub_user_did IN (SELECT hub_user_did FROM changed)
-      AND active
-), notice AS (
-    INSERT INTO vetchium.hub_email_outbox (
-        kind, recipient_email_address, preferred_language, payload_ciphertext
+), inserted_operation AS (
+    INSERT INTO vetchium.federation_operations (
+        operation_id, command_id, kind, target_authority, aggregate_id,
+        owner_principal_type, owner_principal_id, idempotency_key,
+        request_digest, payload_bytes, expires_at
     )
     SELECT
-        'email-changed',
-        a.previous_email_address,
-        a.preferred_language,
-        sqlc.arg(notice_payload_ciphertext)
+        sqlc.arg(operation_id), sqlc.arg(command_id),
+        'hub-account-email-change', 'global-directory',
+        a.hub_user_did::text, 'hub_user', a.hub_user_did::text,
+        sqlc.arg(idempotency_key), sqlc.arg(request_digest),
+        sqlc.arg(payload_bytes), sqlc.arg(operation_expires_at)
     FROM attempted AS a
-    WHERE a.hub_user_did IN (SELECT hub_user_did FROM changed)
-    RETURNING hub_email_outbox_id
+    WHERE a.verified
+    RETURNING operation_id
+), inserted_change AS (
+    INSERT INTO vetchium.hub_account_email_changes (
+        operation_id, hub_user_did, new_email_address, new_email_digest,
+        old_email_digest, confirming_session_id, reserve_command_id,
+        finalize_command_id, abandon_command_id, not_after
+    )
+    SELECT
+        io.operation_id, a.hub_user_did, a.new_email_address,
+        sqlc.arg(new_email_digest), a.old_email_digest,
+        sqlc.arg(hub_session_id), sqlc.arg(reserve_command_id),
+        sqlc.arg(finalize_command_id), sqlc.arg(abandon_command_id),
+        sqlc.arg(not_after)
+    FROM attempted AS a
+    CROSS JOIN inserted_operation AS io
+    RETURNING operation_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, actor_id,
@@ -172,32 +193,173 @@ WITH candidate AS (
     )
     SELECT
         sqlc.arg(tenant_id),
-        CASE
-            WHEN a.verified THEN 'hub.email.changed'
-            ELSE 'hub.email-change.verification-failed'
-        END,
-        'hub_user',
-        a.hub_user_did::text,
-        'hub_user',
-        a.hub_user_did::text,
-        'hub-api',
-        sqlc.arg(idempotency_key),
-        CASE
-            WHEN a.verified THEN jsonb_build_object(
+        CASE WHEN a.verified THEN 'hub.email-change.accepted'
+             ELSE 'hub.email-change.verification-failed' END,
+        'hub_user', a.hub_user_did::text, 'hub_user', a.hub_user_did::text,
+        'hub-api', sqlc.arg(idempotency_key),
+        CASE WHEN a.verified
+            THEN jsonb_build_object(
                 'challenge_id', a.challenge_id::text,
-                'changed_fields', jsonb_build_array('email_address'),
-                'other_sessions_revoked', true,
-                'previous_address_notified', EXISTS (SELECT 1 FROM notice)
+                'operation_id', sqlc.arg(operation_id)
             )
-            ELSE jsonb_build_object(
-                'challenge_id', a.challenge_id::text,
-                'attempt_count', a.attempt_count
-            )
+            ELSE jsonb_build_object('challenge_id', a.challenge_id::text)
         END
     FROM attempted AS a
 )
 SELECT
-    a.challenge_id,
-    a.attempt_count,
-    a.verified
+    a.challenge_id, a.verified,
+    (SELECT operation_id FROM inserted_change) AS operation_id
 FROM attempted AS a;
+
+-- name: GetHubAccountEmailChangeByOperationID :one
+SELECT
+    operation_id, hub_user_did, new_email_address, new_email_digest,
+    old_email_digest, confirming_session_id, state, failure_reason,
+    reserve_command_id, finalize_command_id, abandon_command_id, not_after
+FROM vetchium.hub_account_email_changes
+WHERE operation_id = sqlc.arg(operation_id)
+  AND hub_user_did = sqlc.arg(hub_user_did);
+
+-- name: LockHubAccountEmailChange :one
+SELECT
+    operation_id, hub_user_did, new_email_address, new_email_digest,
+    old_email_digest, confirming_session_id, state, failure_reason,
+    reserve_command_id, finalize_command_id, abandon_command_id, not_after
+FROM vetchium.hub_account_email_changes
+WHERE operation_id = sqlc.arg(operation_id)
+FOR UPDATE;
+
+-- name: MarkHubAccountEmailChangeReserved :execrows
+UPDATE vetchium.hub_account_email_changes
+SET state = 'reserved', updated_at = now()
+WHERE operation_id = sqlc.arg(operation_id)
+  AND state = 'accepted';
+
+-- The reserve-time email-claim-conflict path (GU-ECH-003): fails directly,
+-- skipping 'cancelling', since nothing was reserved globally to undo. The
+-- caller resolves the sibling federation_operations row with the existing
+-- generic ResolveFederationOperation in the same transaction.
+-- name: FailHubAccountEmailChangeDirectly :execrows
+UPDATE vetchium.hub_account_email_changes
+SET state = 'failed', failure_reason = sqlc.arg(failure_reason),
+    completed_at = now(), updated_at = now()
+WHERE operation_id = sqlc.arg(operation_id)
+  AND state = 'accepted';
+
+-- name: MarkHubAccountEmailChangeCancelling :execrows
+UPDATE vetchium.hub_account_email_changes
+SET state = 'cancelling', failure_reason = sqlc.arg(failure_reason),
+    updated_at = now()
+WHERE operation_id = sqlc.arg(operation_id)
+  AND state IN ('accepted', 'reserved');
+
+-- Applies the change locally: this is today's ConfirmHubEmailChange effects,
+-- minus the code check, reading everything from hub_account_email_changes.
+-- The confirming session is preserved unless it no longer exists, in which
+-- case every session is revoked (GU-ECH-002a).
+-- name: ApplyHubAccountEmailChange :one
+WITH locked_change AS (
+    SELECT change.operation_id, change.hub_user_did,
+        change.new_email_address, change.new_email_digest,
+        change.confirming_session_id
+    FROM vetchium.hub_account_email_changes AS change
+    WHERE change.operation_id = sqlc.arg(operation_id)
+      AND change.state = 'reserved'
+    FOR UPDATE
+), previous_user AS (
+    SELECT hub_user_did, email_address, preferred_language
+    FROM vetchium.hub_users
+    WHERE hub_user_did = (SELECT hub_user_did FROM locked_change)
+), changed_user AS (
+    UPDATE vetchium.hub_users AS u
+    SET email_address = lc.new_email_address,
+        email_digest = lc.new_email_digest, updated_at = now()
+    FROM locked_change AS lc
+    WHERE u.hub_user_did = lc.hub_user_did
+    RETURNING u.hub_user_did
+), updated_change AS (
+    UPDATE vetchium.hub_account_email_changes AS change
+    SET state = 'applied', updated_at = now()
+    FROM changed_user
+    WHERE change.operation_id = sqlc.arg(operation_id)
+      AND change.state = 'reserved'
+      AND change.hub_user_did = changed_user.hub_user_did
+    RETURNING change.operation_id
+), sessions AS (
+    DELETE FROM vetchium.hub_sessions
+    WHERE hub_user_did IN (SELECT hub_user_did FROM changed_user)
+      AND hub_session_id <>
+          (SELECT confirming_session_id FROM locked_change)
+), login_challenges AS (
+    UPDATE vetchium.hub_login_challenges
+    SET active = false
+    WHERE hub_user_did IN (SELECT hub_user_did FROM changed_user)
+      AND active
+), resets AS (
+    UPDATE vetchium.hub_password_reset_tokens
+    SET active = false
+    WHERE hub_user_did IN (SELECT hub_user_did FROM changed_user)
+      AND active
+), notice AS (
+    INSERT INTO vetchium.hub_email_outbox (
+        kind, recipient_email_address, preferred_language, payload_ciphertext
+    )
+    SELECT 'email-changed', pu.email_address, pu.preferred_language,
+        sqlc.arg(notice_payload_ciphertext)
+    FROM previous_user AS pu
+    WHERE EXISTS (SELECT 1 FROM changed_user)
+    RETURNING hub_email_outbox_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id), 'hub.email.changed', 'hub_user',
+        cu.hub_user_did::text, 'hub_user', cu.hub_user_did::text,
+        sqlc.arg(source), sqlc.arg(idempotency_key),
+        jsonb_build_object(
+            'changed_fields', jsonb_build_array('email_address'),
+            'other_sessions_revoked', true,
+            'previous_address_notified', EXISTS (SELECT 1 FROM notice)
+        )
+    FROM changed_user AS cu
+)
+SELECT operation_id FROM updated_change;
+
+-- The caller resolves the sibling federation_operations row with the
+-- existing generic ResolveFederationOperation in the same transaction.
+-- name: MarkHubAccountEmailChangeSucceeded :execrows
+UPDATE vetchium.hub_account_email_changes
+SET state = 'succeeded', completed_at = now(), updated_at = now()
+WHERE operation_id = sqlc.arg(operation_id)
+  AND state = 'applied';
+
+-- name: MarkHubAccountEmailChangeFailed :execrows
+WITH updated_change AS (
+    UPDATE vetchium.hub_account_email_changes
+    SET state = 'failed', completed_at = now(), updated_at = now()
+    WHERE operation_id = sqlc.arg(operation_id)
+      AND state = 'cancelling'
+    RETURNING operation_id
+)
+INSERT INTO vetchium.audit_events (
+    tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+    source, idempotency_key, payload
+)
+SELECT
+    sqlc.arg(tenant_id), 'hub.email-change.rejected', 'hub_user',
+    sqlc.arg(hub_user_did)::text, 'hub_user',
+    sqlc.arg(hub_user_did)::text, sqlc.arg(source),
+    sqlc.arg(idempotency_key),
+    jsonb_build_object('reason', sqlc.arg(failure_reason)::text)
+FROM updated_change;
+
+-- name: ListRecoverableHubAccountEmailChanges :many
+SELECT operation_id, hub_user_did, new_email_address, new_email_digest,
+    old_email_digest, confirming_session_id, state, failure_reason,
+    reserve_command_id, finalize_command_id, abandon_command_id, not_after
+FROM vetchium.hub_account_email_changes
+WHERE state NOT IN ('succeeded', 'failed')
+ORDER BY created_at
+LIMIT sqlc.arg(batch_size);

@@ -18,6 +18,7 @@
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1s",
     "reconcileHubSignupTimer": "1s",
+    "reconcileHubEmailChangeTimer": "1s",
     "deliverOrgEmailTimer": "250ms",
     "orgEmailLeaseTTL": "10s",
     "orgEmailMaxAttempts": 5,

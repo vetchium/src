@@ -1085,13 +1085,17 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
       deliberately not written for these tables; see §10.
 - [x] GU-DIR-001..011
 - [x] GU-SIG-001..007
-- [ ] GU-ECH-001..007 (incl. 002a)
+- [x] GU-ECH-001..004, 002a, 006 (schema, queries, `emailchange` service,
+      worker, handlers, contracts). [ ] GU-ECH-005 (replay-typed-result
+      responses done; not yet re-verified against a live Postgres
+      integration test), [ ] GU-ECH-007 (hub-ui polling not started).
 - [ ] GU-PEM-001..009
-- [x] GU-CFG-001..002, partially: the identitydigest.Key wiring into hub-api
-      and workers (via the AccountEmailDigester interface, not the concrete
-      type — see §10) is done; the three new Workers timers (GU-CFG-001) are
-      not added yet, since email-change and professional-email workers
-      (M4/M5) are their first consumers.
+- [x] GU-CFG-001, partially: `reconcileHubEmailChangeTimer` (the
+      email-change worker's timer) is added to config end to end; the
+      professional-email timer is still M5 work. GU-CFG-002 (the
+      identitydigest.Key wiring into hub-api and workers via the
+      AccountEmailDigester interface, not the concrete type) is done, now
+      also for `emailchange`.
 - [x] Tests §4.1 for GU-DIR-001..011 (globaldirectory, handler, directoryclient
       layers) and for GU-SIG-001..007 (signupcompletion service: email
       conflict → failed + replay, handle conflict still rotates). §4.1's
@@ -1104,9 +1108,14 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
 
 ## 10. Progress log
 
-**Current milestone:** M3 (Hub signup) complete. Starting M4 (account email
-change durable operation): schema, queries, `emailchange` service, worker,
-contracts, hub-ui, tests, including the concurrent-`Advance` tests.
+**Current milestone:** M4 (account email change durable operation) in
+progress. Schema, queries, the `emailchange` service and worker, the
+handlers, and the TypeSpec contracts are done and build/vet/unit-test clean.
+Remaining for M4: the `emailchange` package's own state-machine tests
+against a live Postgres (including the concurrent-`Advance` race test
+GU-ECH-003 calls for), the hub-ui polling flow (GU-ECH-007), and updating
+`agent-guides/hub-profile.md`/`docs/hub-profile.md`/`glossary.md`. See
+"What M4 actually implemented so far" and "Exact next step" below.
 
 **Design decisions already validated against a real disposable PostgreSQL
 container** (a scratch `postgres:17-alpine` container, not part of the repo;
@@ -1304,49 +1313,162 @@ the commit message for the exact list) plus this log update.
   `tenant_db`), migrated with `goose -dir db/global-migrations` and
   `goose -dir db/migrations` respectively.
 
-**Exact next step:** Start M4 (account email change durable operation). Read
-plan §3.5 and the templates it names again:
-`backend/handlers/hub/profile/alias_set.go` (enqueue + `PendingOperation`),
-`backend/internal/hub/aliaschange/payload.go`,
-`backend/internal/workers/complete_hub_alias_changes.go` (state machine and
-retries — this is the closest existing analog to the `emailchange` state
-machine GU-ECH-003 describes), and `backend/handlers/hub/operations/status.go`
-(polling). Files to touch:
-`backend/handlers/hub/auth/email_change.go` (existing, extends),
-`backend/internal/db/queries/hub_email_change.sql` (existing, extends),
-`typespec/hub/auth/email_change.*` (existing, extends), new
-`backend/internal/hub/emailchange/`, new
-`backend/internal/workers/complete_hub_email_changes.go`, and the hub-ui
-account security email card. Schema: add the
-`hub_account_email_changes` table from GU-ECH-002a to
-`db/migrations/00001_init.sql` (note it references `federation_operations`,
-an existing table — check its exact columns first) and
-`RequestEmailChangeRequest`'s existing local-conflict check needs to also
-resolve globally (GU-ECH-001) using the same
-`s.DigestKey.HubAccountEmail(...)` pattern `RequestSignup` now uses (`hub.Server`
-already has `DigestKey AccountEmailDigester`, no new wiring needed there).
-**Remember the architecture constraint recorded above**: if `emailchange`
-needs its own digest-computing interface (it will, for the same reason
-`signupcompletion` does), declare it locally in that package, never import
-`identitydigest` directly, and run the architecture test after wiring.
-GU-ECH-003's table of state transitions is the actual spec for
-`emailchange.Service.Advance`; implement it as literally as possible and
-write the "two concurrent `Advance` calls, only one applies" test using the
-same conditional-`UPDATE ... WHERE state = '<expected>'` pattern the plan
-describes, verified against a real Postgres for the race the same way the
-M2 concurrent-transfer test was.
+**What M4 actually implemented so far, for a resumed session's reference:**
 
-**Known failing tests / open issues:** none — every test in the `backend`
-module passes, including with `GLOBAL_DATABASE_URL` and `TENANT_DATABASE_URL`
-both set against a live Postgres (`go build ./...`, `go vet ./...`,
-`gofmt -l .` all clean, `make test-go-lint` / `make test-go-static` /
-`make sql-check` / `make typespec-check` / `make hub-ui-check` all pass).
-`make test` (the full gate, including the CI docker stack and Playwright) has
-not been run; far too much of the plan remains unimplemented for it to be
-meaningful yet, and it is a long-running command better run once near the end
+- Schema (`db/migrations/00001_init.sql`): `hub_account_email_change_state`
+  enum (`accepted`, `reserved`, `applied`, `cancelling`, `succeeded`,
+  `failed`) and `hub_account_email_changes` exactly as GU-ECH-002a specifies,
+  including the `hub_account_email_changes_one_live` partial unique index
+  and the completed/failure-reason CHECK constraints. Verified UP against a
+  fresh scratch `tenant_db`; DOWN still fails on the pre-existing,
+  already-documented `hub_email_change_challenges`-before-`hub_sessions`
+  ordering bug (unrelated to this change, see `docs/todo.md`).
+- `backend/internal/db/queries/hub_email_change.sql`: `ConfirmHubEmailChange`
+  is replaced by `AcceptHubEmailChange` (one statement: checks the code,
+  consumes the challenge, inserts both the `federation_operations` row and
+  the `hub_account_email_changes` row, audits `hub.email-change.accepted`);
+  new `HubAccountEmailChangeInProgress`, `GetHubEmailChangeChallengeAddress`
+  (a plain pre-read so Go can compute the new address's digest before the
+  atomic accept — identitydigest lives in Go, not SQL; safe because a
+  challenge's address never changes after insert and the atomic accept
+  re-validates everything itself), `GetHubAccountEmailChangeByOperationID`,
+  `LockHubAccountEmailChange`, `MarkHubAccountEmailChangeReserved`,
+  `FailHubAccountEmailChangeDirectly`, `MarkHubAccountEmailChangeCancelling`,
+  `ApplyHubAccountEmailChange` (today's old `ConfirmHubEmailChange` effects
+  minus the code check), `MarkHubAccountEmailChangeSucceeded`,
+  `MarkHubAccountEmailChangeFailed`, `ListRecoverableHubAccountEmailChanges`.
+  The three terminal-transition queries (`FailHubAccountEmailChangeDirectly`,
+  `MarkHubAccountEmailChangeSucceeded`, `MarkHubAccountEmailChangeFailed`)
+  deliberately do **not** also resolve the `federation_operations` row
+  themselves — `emailchange.Service` calls the existing generic
+  `ResolveFederationOperation` (from `federation.sql`) in the same DB
+  transaction instead, avoiding a near-duplicate query. `IssueHubEmailChangeChallenge`
+  gained a `globally_registered` boolean parameter that skips queuing the
+  verification email, same as today's locally-taken-address case
+  (GU-ECH-001). Hit the same sqlc-reports-"ambiguous"-where-real-Postgres-
+  doesn't quirk noted in the M2 section, on a single-relation CTE with a
+  `FOR UPDATE`; fixed the same way (qualify with a table alias even though
+  Postgres does not need it).
+- New `backend/internal/hub/emailchange/` package: `Service.Start` (accept +
+  idempotent replay via `GetFederationOperationByIdempotency`, mirroring
+  `signupcompletion.Start`'s token-hash replay pattern but keyed on
+  `(kind, aggregate_id=hub_user_did, idempotency_key)` since email-change has
+  no separate token) and `Service.Advance` (GU-ECH-003's transition table,
+  implemented as literally as possible: `accepted`→reserve or
+  direct-fail/cancel on conflict/expiry, `reserved`→local apply (with the
+  `hub_users_email_address_key` unique-violation safety net moving to
+  `cancelling` instead of retrying forever), `applied`→finalize→`succeeded`,
+  `cancelling`→abandon→`failed`). Declares its own local
+  `AccountEmailDigester` interface (GU-KEY-002 pattern from M3); only
+  `backend/cmd/hub-api/main.go` and `backend/cmd/workers/main.go` import
+  `identitydigest` to construct the concrete key passed in.
+- `backend/internal/workers/reconcile_hub_email_change.go` +
+  `Worker.reconcileHubEmailChange` (new `HubEmailChangeRecovery` interface,
+  new `reconcileHubEmailChangeTimer` config field end to end through
+  `appconfig`, all twelve tenant/CI/deploy config JSON files, and
+  `workers.New`'s signature).
+- `backend/handlers/hub/auth/email_change.go`: `RequestEmailChange` now
+  checks `HubAccountEmailChangeInProgress` first (409
+  `hub-email-change-in-progress`) and resolves the new address globally via
+  `s.Directory.ResolveHubAccountEmail`, treating any error or "not found" as
+  "not registered" (fail open to sending the code, per GU-ECH-001's explicit
+  fail-closed-on-confirmation tradeoff — the reserve step is the real,
+  authoritative gate). `ConfirmEmailChange` no longer uses
+  `handlerauth.RunIdempotent` (that would hold a DB transaction open across
+  the coordinator network calls `Advance` makes, the exact anti-pattern
+  `signupcompletion`'s package doc warns about); it calls
+  `s.EmailChange.Start` directly and maps its typed errors to responses:
+  `ErrCodeRejected`→400, `ErrAddressUnavailable`→409,
+  `ErrUnavailable`→503 (new `EmailChangeUnavailableError`), `ErrPending`→202
+  `PendingOperation`, success→204.
+- TypeSpec: `typespec/problem/hub/email.tsp`/`.go` gained
+  `HubEmailChangeInProgressError` (409) and `HubEmailChangeUnavailableError`
+  (503, retryable); `typespec/hub/auth/email_change.tsp` adds the `202`
+  `PendingOperation` response and both new problems to `confirmEmailChange`,
+  and the in-progress problem to `requestEmailChange`.
+- Moved `isAccountEmailTaken`'s unit test from
+  `backend/handlers/hub/auth/email_change_test.go` (the function moved to
+  `emailchange`) into new `backend/internal/hub/emailchange/service_test.go`,
+  which also covers `isEmailChangeInProgress` and `failureStatus`.
+- Verified: `go build ./...`, `go vet ./...`, `gofmt -l .` clean; `make sqlc`
+  clean (no manual edits to generated files); `make sql-check` (sqlc vet +
+  verify + sqlfluff AM04/ST03) clean; targeted `go test` of
+  `internal/hub/emailchange`, `internal/workers`, `handlers/hub/auth`,
+  `internal/appconfig`, `internal/architecture` (confirms the
+  identitydigest boundary still holds) all green.
+
+**Exact next step:** Finish M4. In order:
+
+1. Write `backend/internal/hub/emailchange/service_test.go` (or a new
+   `_integration_test.go`, matching the existing convention of using
+   `TENANT_DATABASE_URL` against a live Postgres for anything that touches
+   real SQL) covering `Start`/`Advance` with a `fakeDirectory` test double
+   (mirroring `signupcompletion/service_test.go`'s pattern): the happy path
+   to `succeeded`, `address_unavailable` at reserve time, `address_unavailable`
+   at local apply time (the unique-violation safety net), reservation-expired
+   at reserve time and via local `not_after` expiry, and the idempotent
+   replay of an already-accepted change. Then the concurrent-`Advance` race
+   GU-ECH-003 calls for: two goroutines calling `Advance` on the same
+   `reserved` change at once, using the conditional
+   `UPDATE ... WHERE state = 'reserved'` in `ApplyHubAccountEmailChange`;
+   assert only one applies (same technique as the M2 concurrent-transfer
+   test — two real overlapping transactions/connections, not mocked).
+2. hub-ui: extend the account security email card for the `202`/poll/replay
+   flow (GU-ECH-007) — poll `/api/hub/operations/status`, then replay
+   confirm with the same idempotency key; "Applying your new email…" while
+   pending; i18n in all locales. Reuse whatever helper the alias editor uses
+   client-side, if one exists (check `hub-ui/src/pages` and `portal-ui` for
+   an existing alias-change polling helper before writing a new one).
+3. Update `agent-guides/hub-profile.md` (or wherever email-change is
+   documented today) and `docs/todo.md` if any M4-specific follow-up is
+   discovered; `docs/hub-profile.md`/`glossary.md` updates can wait for M6's
+   documentation pass unless M4 introduces a new term.
+4. Commit M4 with a §9/§10 update, then start M5 (professional email
+   claims) per plan §3.6, applying the same `AccountEmailDigester`-local-
+   interface pattern for `professionalemail` and the same
+   `ResolveFederationOperation`-reuse pattern for terminal transitions.
+
+**Known failing tests / open issues:** none in what exists so far — every
+targeted `go test` passes, including `internal/architecture` (confirms
+`identitydigest` still does not leak into `global-coordinator`/`mesh-api`
+via `emailchange`). Not yet done for M4: the `emailchange`
+integration/concurrency tests and the hub-ui polling flow (items 1-2 above)
+— `make test` will not be meaningful until at least those land, since
+Playwright would otherwise exercise a confirm-email-change flow the backend
+can now answer with `202` in ways the current UI doesn't handle. `make test`
+(the full gate, including the CI docker stack and Playwright) has not been
+run; far too much of the plan remains unimplemented for it to be meaningful
+yet, and it is a long-running command better run once near the end
 of M6. Open gap carried from M2: no `backend/handlers/mesh/directory_test.go`
 exists (pre-existing condition, not introduced by this plan) — see the M2
 summary below.
+
+**Deviations from the plan (M4, in addition to the M1/M2/M3 ones below):**
+
+- `FailHubAccountEmailChangeDirectly`, `MarkHubAccountEmailChangeSucceeded`,
+  and `MarkHubAccountEmailChangeFailed` do not themselves resolve the
+  sibling `federation_operations` row "in one statement" as plan wording
+  suggested; `emailchange.Service` instead calls the pre-existing generic
+  `ResolveFederationOperation` query as a second statement in the same DB
+  transaction. This avoids duplicating that query's logic three times and
+  matches how `complete_hub_alias_changes.go` already separates its own
+  local-effect query from `ResolveFederationOperation`. Atomicity is
+  preserved (same transaction, same commit); only literal single-statement-
+  ness is not.
+- `federation_operations.response_ciphertext` is always written as an empty,
+  non-nil placeholder (`[]byte{}`), never an encrypted problem body. GU-ECH-005's
+  "returns the stored problem if it reached failed" is implemented by reading
+  `hub_account_email_changes.failure_reason` directly (the service always has
+  that row in hand) and mapping it to a typed error/problem in Go, not by
+  decoding a response payload — mirroring exactly how
+  `complete_hub_alias_changes.go`'s `finalizeAliasChange`/`resolveAliasChange`
+  already use an empty `ResponseCiphertext` and let `response_status` alone
+  carry the signal for polling/replay.
+- `GU-ECH-003 Local serialization`'s expiry description folds together
+  `hub_account_email_changes.not_after` reaching this session's `s.now()`
+  clock, i.e. it is checked in-process on every `Advance` call rather than
+  via a separate cron sweep; matches GU-ECH-006 ("`accepted` past
+  `not_after` goes to `cancelling`") without needing a dedicated query.
 
 **Deviations from the plan (M3, in addition to the M1/M2 ones below):**
 

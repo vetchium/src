@@ -2,14 +2,10 @@ package auth
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"net/http"
 	"slices"
 	"testing"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/vetchium/src/typespec/problem"
 )
@@ -51,26 +47,5 @@ func TestEmailChangeRejectsInvalidRequestsBeforeWork(t *testing.T) {
 				t.Fatalf("problem = %+v", details)
 			}
 		})
-	}
-}
-
-func TestIsAccountEmailTaken(t *testing.T) {
-	taken := &pgconn.PgError{
-		Code: "23505", ConstraintName: "hub_users_email_address_key",
-	}
-	if !isAccountEmailTaken(fmt.Errorf("confirm: %w", taken)) {
-		t.Fatal("wrapped account email violation was not recognized")
-	}
-	for _, err := range []error{
-		nil,
-		errors.New("connection reset"),
-		&pgconn.PgError{Code: "23505", ConstraintName: "hub_users_handle_key"},
-		&pgconn.PgError{
-			Code: "23503", ConstraintName: "hub_users_email_address_key",
-		},
-	} {
-		if isAccountEmailTaken(err) {
-			t.Errorf("misclassified %v as a taken address", err)
-		}
 	}
 }

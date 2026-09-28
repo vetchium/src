@@ -12,6 +12,7 @@ import (
 	"backend/internal/directoryclient"
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
+	"backend/internal/hub/emailchange"
 	"backend/internal/hub/signupcompletion"
 	"backend/internal/identitydigest"
 	"backend/internal/middleware"
@@ -103,12 +104,16 @@ func run(log *slog.Logger, address string) error {
 		return err
 	}
 
+	hubCredentialKey := hubauthn.DeriveCredentialKey(cfg.TenantID, credentialSecret)
 	signupCompletion := signupcompletion.New(
 		pool, globalDirectory, cfg.TenantID,
-		hubauthn.DeriveCredentialSubkey(
-			hubauthn.DeriveCredentialKey(cfg.TenantID, credentialSecret),
-			"signup-provisioning",
-		),
+		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "signup-provisioning"),
+		digestKey, nil,
+	)
+	emailChange := emailchange.New(
+		pool, globalDirectory, cfg.TenantID,
+		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "email-change-code"),
+		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "outbox"),
 		digestKey, nil,
 	)
 	s := &hubruntime.Server{
@@ -119,6 +124,7 @@ func run(log *slog.Logger, address string) error {
 		Profiles:         profiles,
 		Pictures:         pictures,
 		SignupCompletion: signupCompletion,
+		EmailChange:      emailChange,
 		DigestKey:        digestKey,
 		Regions:          catalog,
 		Signup:           cfg.HubAPIServer.Signup,
@@ -128,10 +134,8 @@ func run(log *slog.Logger, address string) error {
 			Remembered: cfg.HubAPIServer.RememberedSessionTTL,
 		},
 		PublicBaseURL: cfg.HubAPIServer.PublicBaseURL,
-		CredentialKey: hubauthn.DeriveCredentialKey(
-			cfg.TenantID, credentialSecret,
-		),
-		OfferedPlans: cfg.HubAPIServer.OfferedPlans,
+		CredentialKey: hubCredentialKey,
+		OfferedPlans:  cfg.HubAPIServer.OfferedPlans,
 	}
 	mux := http.NewServeMux()
 	routes.RegisterHubRoutes(mux, s)

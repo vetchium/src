@@ -74,6 +74,7 @@ type Workers struct {
 	HubEmailMaxAttempts          int
 	AdvanceHubSubscriptionsTimer time.Duration
 	ReconcileHubSignupTimer      time.Duration
+	ReconcileHubEmailChangeTimer time.Duration
 	DeliverOrgEmailTimer         time.Duration
 	OrgEmailLeaseTTL             time.Duration
 	OrgEmailMaxAttempts          int
@@ -237,6 +238,7 @@ type fileWorkers struct {
 	HubEmailMaxAttempts          int    `json:"hubEmailMaxAttempts"`
 	AdvanceHubSubscriptionsTimer string `json:"advanceHubSubscriptionsTimer"`
 	ReconcileHubSignupTimer      string `json:"reconcileHubSignupTimer"`
+	ReconcileHubEmailChangeTimer string `json:"reconcileHubEmailChangeTimer"`
 	DeliverOrgEmailTimer         string `json:"deliverOrgEmailTimer"`
 	OrgEmailLeaseTTL             string `json:"orgEmailLeaseTTL"`
 	OrgEmailMaxAttempts          int    `json:"orgEmailMaxAttempts"`
@@ -594,6 +596,13 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	reconcileHubEmailChangeTimer, err := positiveDuration(
+		"workers.reconcileHubEmailChangeTimer",
+		raw.Workers.ReconcileHubEmailChangeTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	orgWorkers, err := parseOrgWorkers(raw.Workers)
 	if err != nil {
 		return Config{}, configError(path, err)
@@ -648,6 +657,7 @@ func LoadFile(path string) (Config, error) {
 			HubEmailMaxAttempts:          raw.Workers.HubEmailMaxAttempts,
 			AdvanceHubSubscriptionsTimer: advanceHubSubscriptionsTimer,
 			ReconcileHubSignupTimer:      reconcileHubSignupTimer,
+			ReconcileHubEmailChangeTimer: reconcileHubEmailChangeTimer,
 			DeliverOrgEmailTimer:         orgWorkers.DeliverOrgEmailTimer,
 			OrgEmailLeaseTTL:             orgWorkers.OrgEmailLeaseTTL,
 			OrgEmailMaxAttempts:          orgWorkers.OrgEmailMaxAttempts,

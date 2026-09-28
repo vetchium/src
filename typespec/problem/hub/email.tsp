@@ -23,3 +23,28 @@ alias HubEmailAddressUnavailableErrorResponse = Response<
   409,
   typeof HubEmailAddressUnavailableError
 >;
+
+const HubEmailChangeInProgressError = #{
+  type: "vetchium-problem-details/hub-email-change-in-progress",
+  title: "Email change in progress",
+  status: 409,
+  detail: "Another email change is already in progress for this account",
+};
+alias HubEmailChangeInProgressErrorResponse = Response<
+  409,
+  typeof HubEmailChangeInProgressError
+>;
+
+/** The global reservation for this change lapsed before it could be applied,
+ * most likely from a sustained coordinator outage. Retryable: request a new
+ * code and confirm again. */
+const HubEmailChangeUnavailableError = #{
+  type: "vetchium-problem-details/hub-email-change-unavailable",
+  title: "Email change unavailable",
+  status: 503,
+  detail: "The email change could not be completed and must be retried",
+};
+alias HubEmailChangeUnavailableErrorResponse = Response<
+  503,
+  typeof HubEmailChangeUnavailableError
+>;

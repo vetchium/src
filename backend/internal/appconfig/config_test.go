@@ -78,6 +78,12 @@ func TestLoadFile(t *testing.T) {
 			cfg.Workers.ReconcileHubSignupTimer,
 		)
 	}
+	if cfg.Workers.ReconcileHubEmailChangeTimer != time.Minute {
+		t.Fatalf(
+			"reconcile Hub email change timer = %s, want 1m",
+			cfg.Workers.ReconcileHubEmailChangeTimer,
+		)
+	}
 	if cfg.SMTP.Host != "mailpit" || cfg.SMTP.Port != 1025 ||
 		cfg.SMTP.StartTLS != StartTLSDisabled {
 		t.Fatalf("SMTP config = %+v", cfg.SMTP)
@@ -374,6 +380,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
     "reconcileHubSignupTimer": "1m",
+    "reconcileHubEmailChangeTimer": "1m",
     "deliverOrgEmailTimer": "1s",
     "orgEmailLeaseTTL": "1m",
     "orgEmailMaxAttempts": 5,
@@ -742,6 +749,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
     "reconcileHubSignupTimer": "1m",
+    "reconcileHubEmailChangeTimer": "1m",
     "deliverOrgEmailTimer": "1s",
     "orgEmailLeaseTTL": "1m",
     "orgEmailMaxAttempts": 5,

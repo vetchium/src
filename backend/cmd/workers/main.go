@@ -10,6 +10,7 @@ import (
 	"backend/internal/dnsverify"
 	"backend/internal/email"
 	hubauthn "backend/internal/hub/auth"
+	"backend/internal/hub/emailchange"
 	"backend/internal/hub/signupcompletion"
 	"backend/internal/identitydigest"
 	"backend/internal/objectstorage"
@@ -94,6 +95,12 @@ func run(log *slog.Logger) error {
 		),
 		digestKey, nil,
 	)
+	emailChangeRecovery := emailchange.New(
+		pool, directory, cfg.TenantID,
+		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "email-change-code"),
+		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "outbox"),
+		digestKey, nil,
+	)
 	worker := workers.New(
 		pool, log, cfg.TenantID, cfg.Workers,
 		&workers.HubEmailDelivery{
@@ -107,6 +114,7 @@ func run(log *slog.Logger) error {
 			MaxAttempts: cfg.Workers.HubEmailMaxAttempts,
 		},
 		signupRecovery,
+		emailChangeRecovery,
 	)
 	orgsCredentialSecret, err := appconfig.OrgsCredentialSecret()
 	if err != nil {

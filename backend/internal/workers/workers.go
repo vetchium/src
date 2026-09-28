@@ -22,30 +22,36 @@ type HubSignupRecovery interface {
 	Recover(context.Context) (int, error)
 }
 
+type HubEmailChangeRecovery interface {
+	Recover(context.Context) (int, error)
+}
+
 // Worker owns the dependencies and periodic jobs for the worker process.
 type Worker struct {
-	queries                   sqlc.Querier
-	hubEmailQueries           hubEmailQueries
-	hubEmailDelivery          *HubEmailDelivery
-	hubSignupRecovery         HubSignupRecovery
-	pictureQueries            pictureDeletionQueries
-	pictureStore              PictureStore
-	pictureDeletionInterval   time.Duration
-	aliasReleaseQueries       aliasReleaseQueries
-	aliasReleaseDirectory     AliasReleaseDirectory
-	aliasReleaseInterval      time.Duration
-	aliasChangeDB             *pgxpool.Pool
-	aliasChangeQueries        aliasChangeQueries
-	subscriptionTransactions  subscriptionTransactions
-	hubSubscriptionNow        func() time.Time
-	subscriptionExpiryQueries subscriptionExpiryQueries
-	orgQueries                orgEmailQueries
-	orgs                      *orgJobs
-	hubSubscriptionExpiryNow  func() time.Time
-	log                       *slog.Logger
-	tenantID                  string
-	retryBackoffLimit         time.Duration
-	jobs                      []periodicJob
+	queries                      sqlc.Querier
+	hubEmailQueries              hubEmailQueries
+	hubEmailDelivery             *HubEmailDelivery
+	hubSignupRecovery            HubSignupRecovery
+	hubEmailChangeRecovery       HubEmailChangeRecovery
+	reconcileHubEmailChangeTimer time.Duration
+	pictureQueries               pictureDeletionQueries
+	pictureStore                 PictureStore
+	pictureDeletionInterval      time.Duration
+	aliasReleaseQueries          aliasReleaseQueries
+	aliasReleaseDirectory        AliasReleaseDirectory
+	aliasReleaseInterval         time.Duration
+	aliasChangeDB                *pgxpool.Pool
+	aliasChangeQueries           aliasChangeQueries
+	subscriptionTransactions     subscriptionTransactions
+	hubSubscriptionNow           func() time.Time
+	subscriptionExpiryQueries    subscriptionExpiryQueries
+	orgQueries                   orgEmailQueries
+	orgs                         *orgJobs
+	hubSubscriptionExpiryNow     func() time.Time
+	log                          *slog.Logger
+	tenantID                     string
+	retryBackoffLimit            time.Duration
+	jobs                         []periodicJob
 }
 
 func New(
@@ -55,24 +61,27 @@ func New(
 	config appconfig.Workers,
 	hubEmailDelivery *HubEmailDelivery,
 	hubSignupRecovery HubSignupRecovery,
+	hubEmailChangeRecovery HubEmailChangeRecovery,
 ) *Worker {
 	queries := sqlc.New(db)
 	w := &Worker{
-		queries:                   queries,
-		hubEmailQueries:           queries,
-		log:                       log,
-		tenantID:                  tenantID,
-		retryBackoffLimit:         config.RetryBackoffLimit,
-		subscriptionTransactions:  poolSubscriptionTransactions{db: db},
-		hubSignupRecovery:         hubSignupRecovery,
-		pictureQueries:            queries,
-		pictureDeletionInterval:   config.PruneEphemeralDataTimer,
-		aliasReleaseQueries:       queries,
-		aliasReleaseInterval:      config.ReconcileHubSignupTimer,
-		aliasChangeDB:             db,
-		aliasChangeQueries:        queries,
-		subscriptionExpiryQueries: queries,
-		orgQueries:                queries,
+		queries:                      queries,
+		hubEmailQueries:              queries,
+		log:                          log,
+		tenantID:                     tenantID,
+		retryBackoffLimit:            config.RetryBackoffLimit,
+		subscriptionTransactions:     poolSubscriptionTransactions{db: db},
+		hubSignupRecovery:            hubSignupRecovery,
+		hubEmailChangeRecovery:       hubEmailChangeRecovery,
+		reconcileHubEmailChangeTimer: config.ReconcileHubEmailChangeTimer,
+		pictureQueries:               queries,
+		pictureDeletionInterval:      config.PruneEphemeralDataTimer,
+		aliasReleaseQueries:          queries,
+		aliasReleaseInterval:         config.ReconcileHubSignupTimer,
+		aliasChangeDB:                db,
+		aliasChangeQueries:           queries,
+		subscriptionExpiryQueries:    queries,
+		orgQueries:                   queries,
 	}
 	w.jobs = []periodicJob{
 		{
@@ -116,6 +125,13 @@ func New(
 		w.jobs = append(w.jobs, periodicJob{
 			name: "reconcile-hub-signup", interval: config.ReconcileHubSignupTimer,
 			run: w.reconcileHubSignup,
+		})
+	}
+	if hubEmailChangeRecovery != nil {
+		w.jobs = append(w.jobs, periodicJob{
+			name:     "reconcile-hub-email-change",
+			interval: w.reconcileHubEmailChangeTimer,
+			run:      w.reconcileHubEmailChange,
 		})
 	}
 	return w

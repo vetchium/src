@@ -11,15 +11,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const confirmHubEmailChange = `-- name: ConfirmHubEmailChange :one
+const acceptHubEmailChange = `-- name: AcceptHubEmailChange :one
 WITH candidate AS (
     SELECT
-        c.challenge_id,
-        c.hub_user_did,
-        c.new_email_address,
-        c.code_hash,
-        u.email_address AS previous_email_address,
-        u.preferred_language
+        c.challenge_id, c.hub_user_did, c.new_email_address, c.code_hash,
+        u.email_digest AS old_email_digest
     FROM vetchium.hub_email_change_challenges AS c
     JOIN vetchium.hub_users AS u USING (hub_user_did)
     WHERE c.challenge_id = $1
@@ -41,45 +37,172 @@ WITH candidate AS (
     WHERE c.challenge_id = candidate.challenge_id
     RETURNING
         c.challenge_id,
-        c.attempt_count,
         candidate.hub_user_did,
         candidate.new_email_address,
-        candidate.previous_email_address,
-        candidate.preferred_language,
+        candidate.old_email_digest,
         candidate.code_hash = $4 AS verified
-), changed AS (
-    UPDATE vetchium.hub_users AS u
-    SET email_address = a.new_email_address,
-        updated_at = now()
+), inserted_operation AS (
+    INSERT INTO vetchium.federation_operations (
+        operation_id, command_id, kind, target_authority, aggregate_id,
+        owner_principal_type, owner_principal_id, idempotency_key,
+        request_digest, payload_bytes, expires_at
+    )
+    SELECT
+        $5, $6,
+        'hub-account-email-change', 'global-directory',
+        a.hub_user_did::text, 'hub_user', a.hub_user_did::text,
+        $7, $8,
+        $9, $10
     FROM attempted AS a
-    WHERE u.hub_user_did = a.hub_user_did
-      AND a.verified
+    WHERE a.verified
+    RETURNING operation_id
+), inserted_change AS (
+    INSERT INTO vetchium.hub_account_email_changes (
+        operation_id, hub_user_did, new_email_address, new_email_digest,
+        old_email_digest, confirming_session_id, reserve_command_id,
+        finalize_command_id, abandon_command_id, not_after
+    )
+    SELECT
+        io.operation_id, a.hub_user_did, a.new_email_address,
+        $11, a.old_email_digest,
+        $3, $12,
+        $13, $14,
+        $15
+    FROM attempted AS a
+    CROSS JOIN inserted_operation AS io
+    RETURNING operation_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        $16,
+        CASE WHEN a.verified THEN 'hub.email-change.accepted'
+             ELSE 'hub.email-change.verification-failed' END,
+        'hub_user', a.hub_user_did::text, 'hub_user', a.hub_user_did::text,
+        'hub-api', $7,
+        CASE WHEN a.verified
+            THEN jsonb_build_object(
+                'challenge_id', a.challenge_id::text,
+                'operation_id', $5
+            )
+            ELSE jsonb_build_object('challenge_id', a.challenge_id::text)
+        END
+    FROM attempted AS a
+)
+SELECT
+    a.challenge_id, a.verified,
+    (SELECT operation_id FROM inserted_change) AS operation_id
+FROM attempted AS a
+`
+
+type AcceptHubEmailChangeParams struct {
+	ChallengeID        pgtype.UUID        `json:"challenge_id"`
+	HubUserDid         pgtype.UUID        `json:"hub_user_did"`
+	HubSessionID       pgtype.UUID        `json:"hub_session_id"`
+	CodeHash           []byte             `json:"code_hash"`
+	OperationID        pgtype.UUID        `json:"operation_id"`
+	CommandID          pgtype.UUID        `json:"command_id"`
+	IdempotencyKey     string             `json:"idempotency_key"`
+	RequestDigest      []byte             `json:"request_digest"`
+	PayloadBytes       []byte             `json:"payload_bytes"`
+	OperationExpiresAt pgtype.Timestamptz `json:"operation_expires_at"`
+	NewEmailDigest     []byte             `json:"new_email_digest"`
+	ReserveCommandID   pgtype.UUID        `json:"reserve_command_id"`
+	FinalizeCommandID  pgtype.UUID        `json:"finalize_command_id"`
+	AbandonCommandID   pgtype.UUID        `json:"abandon_command_id"`
+	NotAfter           pgtype.Timestamptz `json:"not_after"`
+	TenantID           string             `json:"tenant_id"`
+}
+
+type AcceptHubEmailChangeRow struct {
+	ChallengeID pgtype.UUID `json:"challenge_id"`
+	Verified    bool        `json:"verified"`
+	OperationID pgtype.UUID `json:"operation_id"`
+}
+
+// Replaces the old ConfirmHubEmailChange (GU-ECH-002): a correct code no
+// longer applies the change directly. It creates the durable operation
+// (federation_operations, pollable, payload holds only the operation id)
+// and the richer hub_account_email_changes saga row in the same statement.
+// A unique violation on hub_account_email_changes_one_live (the caller
+// already has a live change) maps to the in-progress problem.
+func (q *Queries) AcceptHubEmailChange(ctx context.Context, arg AcceptHubEmailChangeParams) (AcceptHubEmailChangeRow, error) {
+	row := q.db.QueryRow(ctx, acceptHubEmailChange,
+		arg.ChallengeID,
+		arg.HubUserDid,
+		arg.HubSessionID,
+		arg.CodeHash,
+		arg.OperationID,
+		arg.CommandID,
+		arg.IdempotencyKey,
+		arg.RequestDigest,
+		arg.PayloadBytes,
+		arg.OperationExpiresAt,
+		arg.NewEmailDigest,
+		arg.ReserveCommandID,
+		arg.FinalizeCommandID,
+		arg.AbandonCommandID,
+		arg.NotAfter,
+		arg.TenantID,
+	)
+	var i AcceptHubEmailChangeRow
+	err := row.Scan(&i.ChallengeID, &i.Verified, &i.OperationID)
+	return i, err
+}
+
+const applyHubAccountEmailChange = `-- name: ApplyHubAccountEmailChange :one
+WITH locked_change AS (
+    SELECT change.operation_id, change.hub_user_did,
+        change.new_email_address, change.new_email_digest,
+        change.confirming_session_id
+    FROM vetchium.hub_account_email_changes AS change
+    WHERE change.operation_id = $1
+      AND change.state = 'reserved'
+    FOR UPDATE
+), previous_user AS (
+    SELECT hub_user_did, email_address, preferred_language
+    FROM vetchium.hub_users
+    WHERE hub_user_did = (SELECT hub_user_did FROM locked_change)
+), changed_user AS (
+    UPDATE vetchium.hub_users AS u
+    SET email_address = lc.new_email_address,
+        email_digest = lc.new_email_digest, updated_at = now()
+    FROM locked_change AS lc
+    WHERE u.hub_user_did = lc.hub_user_did
     RETURNING u.hub_user_did
+), updated_change AS (
+    UPDATE vetchium.hub_account_email_changes AS change
+    SET state = 'applied', updated_at = now()
+    FROM changed_user
+    WHERE change.operation_id = $1
+      AND change.state = 'reserved'
+      AND change.hub_user_did = changed_user.hub_user_did
+    RETURNING change.operation_id
 ), sessions AS (
     DELETE FROM vetchium.hub_sessions
-    WHERE hub_user_did IN (SELECT hub_user_did FROM changed)
-      AND hub_session_id <> $3
+    WHERE hub_user_did IN (SELECT hub_user_did FROM changed_user)
+      AND hub_session_id <>
+          (SELECT confirming_session_id FROM locked_change)
 ), login_challenges AS (
     UPDATE vetchium.hub_login_challenges
     SET active = false
-    WHERE hub_user_did IN (SELECT hub_user_did FROM changed)
+    WHERE hub_user_did IN (SELECT hub_user_did FROM changed_user)
       AND active
 ), resets AS (
     UPDATE vetchium.hub_password_reset_tokens
     SET active = false
-    WHERE hub_user_did IN (SELECT hub_user_did FROM changed)
+    WHERE hub_user_did IN (SELECT hub_user_did FROM changed_user)
       AND active
 ), notice AS (
     INSERT INTO vetchium.hub_email_outbox (
         kind, recipient_email_address, preferred_language, payload_ciphertext
     )
-    SELECT
-        'email-changed',
-        a.previous_email_address,
-        a.preferred_language,
-        $5
-    FROM attempted AS a
-    WHERE a.hub_user_did IN (SELECT hub_user_did FROM changed)
+    SELECT 'email-changed', pu.email_address, pu.preferred_language,
+        $2
+    FROM previous_user AS pu
+    WHERE EXISTS (SELECT 1 FROM changed_user)
     RETURNING hub_email_outbox_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
@@ -87,69 +210,164 @@ WITH candidate AS (
         source, idempotency_key, payload
     )
     SELECT
-        $6,
-        CASE
-            WHEN a.verified THEN 'hub.email.changed'
-            ELSE 'hub.email-change.verification-failed'
-        END,
-        'hub_user',
-        a.hub_user_did::text,
-        'hub_user',
-        a.hub_user_did::text,
-        'hub-api',
-        $7,
-        CASE
-            WHEN a.verified THEN jsonb_build_object(
-                'challenge_id', a.challenge_id::text,
-                'changed_fields', jsonb_build_array('email_address'),
-                'other_sessions_revoked', true,
-                'previous_address_notified', EXISTS (SELECT 1 FROM notice)
-            )
-            ELSE jsonb_build_object(
-                'challenge_id', a.challenge_id::text,
-                'attempt_count', a.attempt_count
-            )
-        END
-    FROM attempted AS a
+        $3, 'hub.email.changed', 'hub_user',
+        cu.hub_user_did::text, 'hub_user', cu.hub_user_did::text,
+        $4, $5,
+        jsonb_build_object(
+            'changed_fields', jsonb_build_array('email_address'),
+            'other_sessions_revoked', true,
+            'previous_address_notified', EXISTS (SELECT 1 FROM notice)
+        )
+    FROM changed_user AS cu
 )
-SELECT
-    a.challenge_id,
-    a.attempt_count,
-    a.verified
-FROM attempted AS a
+SELECT operation_id FROM updated_change
 `
 
-type ConfirmHubEmailChangeParams struct {
-	ChallengeID             pgtype.UUID `json:"challenge_id"`
-	HubUserDid              pgtype.UUID `json:"hub_user_did"`
-	HubSessionID            pgtype.UUID `json:"hub_session_id"`
-	CodeHash                []byte      `json:"code_hash"`
+type ApplyHubAccountEmailChangeParams struct {
+	OperationID             pgtype.UUID `json:"operation_id"`
 	NoticePayloadCiphertext []byte      `json:"notice_payload_ciphertext"`
 	TenantID                string      `json:"tenant_id"`
+	Source                  string      `json:"source"`
 	IdempotencyKey          pgtype.Text `json:"idempotency_key"`
 }
 
-type ConfirmHubEmailChangeRow struct {
-	ChallengeID  pgtype.UUID `json:"challenge_id"`
-	AttemptCount int32       `json:"attempt_count"`
-	Verified     bool        `json:"verified"`
-}
-
-// A taken address fails the whole statement on hub_users_email_address_key;
-// the caller maps that unique violation to the unavailable-address problem.
-func (q *Queries) ConfirmHubEmailChange(ctx context.Context, arg ConfirmHubEmailChangeParams) (ConfirmHubEmailChangeRow, error) {
-	row := q.db.QueryRow(ctx, confirmHubEmailChange,
-		arg.ChallengeID,
-		arg.HubUserDid,
-		arg.HubSessionID,
-		arg.CodeHash,
+// Applies the change locally: this is today's ConfirmHubEmailChange effects,
+// minus the code check, reading everything from hub_account_email_changes.
+// The confirming session is preserved unless it no longer exists, in which
+// case every session is revoked (GU-ECH-002a).
+func (q *Queries) ApplyHubAccountEmailChange(ctx context.Context, arg ApplyHubAccountEmailChangeParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, applyHubAccountEmailChange,
+		arg.OperationID,
 		arg.NoticePayloadCiphertext,
 		arg.TenantID,
+		arg.Source,
 		arg.IdempotencyKey,
 	)
-	var i ConfirmHubEmailChangeRow
-	err := row.Scan(&i.ChallengeID, &i.AttemptCount, &i.Verified)
+	var operation_id pgtype.UUID
+	err := row.Scan(&operation_id)
+	return operation_id, err
+}
+
+const failHubAccountEmailChangeDirectly = `-- name: FailHubAccountEmailChangeDirectly :execrows
+UPDATE vetchium.hub_account_email_changes
+SET state = 'failed', failure_reason = $1,
+    completed_at = now(), updated_at = now()
+WHERE operation_id = $2
+  AND state = 'accepted'
+`
+
+type FailHubAccountEmailChangeDirectlyParams struct {
+	FailureReason pgtype.Text `json:"failure_reason"`
+	OperationID   pgtype.UUID `json:"operation_id"`
+}
+
+// The reserve-time email-claim-conflict path (GU-ECH-003): fails directly,
+// skipping 'cancelling', since nothing was reserved globally to undo. The
+// caller resolves the sibling federation_operations row with the existing
+// generic ResolveFederationOperation in the same transaction.
+func (q *Queries) FailHubAccountEmailChangeDirectly(ctx context.Context, arg FailHubAccountEmailChangeDirectlyParams) (int64, error) {
+	result, err := q.db.Exec(ctx, failHubAccountEmailChangeDirectly, arg.FailureReason, arg.OperationID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const getHubAccountEmailChangeByOperationID = `-- name: GetHubAccountEmailChangeByOperationID :one
+SELECT
+    operation_id, hub_user_did, new_email_address, new_email_digest,
+    old_email_digest, confirming_session_id, state, failure_reason,
+    reserve_command_id, finalize_command_id, abandon_command_id, not_after
+FROM vetchium.hub_account_email_changes
+WHERE operation_id = $1
+  AND hub_user_did = $2
+`
+
+type GetHubAccountEmailChangeByOperationIDParams struct {
+	OperationID pgtype.UUID `json:"operation_id"`
+	HubUserDid  pgtype.UUID `json:"hub_user_did"`
+}
+
+type GetHubAccountEmailChangeByOperationIDRow struct {
+	OperationID         pgtype.UUID                        `json:"operation_id"`
+	HubUserDid          pgtype.UUID                        `json:"hub_user_did"`
+	NewEmailAddress     string                             `json:"new_email_address"`
+	NewEmailDigest      []byte                             `json:"new_email_digest"`
+	OldEmailDigest      []byte                             `json:"old_email_digest"`
+	ConfirmingSessionID pgtype.UUID                        `json:"confirming_session_id"`
+	State               VetchiumHubAccountEmailChangeState `json:"state"`
+	FailureReason       pgtype.Text                        `json:"failure_reason"`
+	ReserveCommandID    pgtype.UUID                        `json:"reserve_command_id"`
+	FinalizeCommandID   pgtype.UUID                        `json:"finalize_command_id"`
+	AbandonCommandID    pgtype.UUID                        `json:"abandon_command_id"`
+	NotAfter            pgtype.Timestamptz                 `json:"not_after"`
+}
+
+func (q *Queries) GetHubAccountEmailChangeByOperationID(ctx context.Context, arg GetHubAccountEmailChangeByOperationIDParams) (GetHubAccountEmailChangeByOperationIDRow, error) {
+	row := q.db.QueryRow(ctx, getHubAccountEmailChangeByOperationID, arg.OperationID, arg.HubUserDid)
+	var i GetHubAccountEmailChangeByOperationIDRow
+	err := row.Scan(
+		&i.OperationID,
+		&i.HubUserDid,
+		&i.NewEmailAddress,
+		&i.NewEmailDigest,
+		&i.OldEmailDigest,
+		&i.ConfirmingSessionID,
+		&i.State,
+		&i.FailureReason,
+		&i.ReserveCommandID,
+		&i.FinalizeCommandID,
+		&i.AbandonCommandID,
+		&i.NotAfter,
+	)
 	return i, err
+}
+
+const getHubEmailChangeChallengeAddress = `-- name: GetHubEmailChangeChallengeAddress :one
+SELECT new_email_address
+FROM vetchium.hub_email_change_challenges
+WHERE challenge_id = $1
+  AND hub_user_did = $2
+  AND hub_session_id = $3
+  AND consumed_at IS NULL
+  AND superseded_at IS NULL
+  AND expires_at > now()
+`
+
+type GetHubEmailChangeChallengeAddressParams struct {
+	ChallengeID  pgtype.UUID `json:"challenge_id"`
+	HubUserDid   pgtype.UUID `json:"hub_user_did"`
+	HubSessionID pgtype.UUID `json:"hub_session_id"`
+}
+
+// Read-only lookup so the caller can compute the new address's global digest
+// (identitydigest lives in Go, not SQL) before calling AcceptHubEmailChange.
+// That statement re-validates every one of these conditions itself with
+// FOR UPDATE, so a plain read here cannot introduce a race: the address on
+// an already-created challenge row never changes.
+func (q *Queries) GetHubEmailChangeChallengeAddress(ctx context.Context, arg GetHubEmailChangeChallengeAddressParams) (string, error) {
+	row := q.db.QueryRow(ctx, getHubEmailChangeChallengeAddress, arg.ChallengeID, arg.HubUserDid, arg.HubSessionID)
+	var new_email_address string
+	err := row.Scan(&new_email_address)
+	return new_email_address, err
+}
+
+const hubAccountEmailChangeInProgress = `-- name: HubAccountEmailChangeInProgress :one
+SELECT EXISTS (
+    SELECT 1 FROM vetchium.hub_account_email_changes
+    WHERE hub_user_did = $1
+      AND state NOT IN ('succeeded', 'failed')
+) AS in_progress
+`
+
+// While a live (non-terminal) account-email-change durable operation exists
+// for this user, request-email-change and confirm-email-change both refuse
+// outright (GU-ECH-001): neither issues nor supersedes a challenge.
+func (q *Queries) HubAccountEmailChangeInProgress(ctx context.Context, hubUserDid pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, hubAccountEmailChangeInProgress, hubUserDid)
+	var in_progress bool
+	err := row.Scan(&in_progress)
+	return in_progress, err
 }
 
 const issueHubEmailChangeChallenge = `-- name: IssueHubEmailChangeChallenge :one
@@ -206,6 +424,7 @@ WITH account AS (
     FROM eligible AS e
     WHERE EXISTS (SELECT 1 FROM inserted)
       AND NOT EXISTS (SELECT 1 FROM existing_user)
+      AND NOT $7::boolean
     RETURNING hub_email_outbox_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
@@ -213,14 +432,14 @@ WITH account AS (
         source, idempotency_key, payload
     )
     SELECT
-        $7,
+        $8,
         'hub.email-change.requested',
         'hub_user',
         i.hub_user_did::text,
         'hub_user',
         i.hub_user_did::text,
         'hub-api',
-        $8,
+        $9,
         jsonb_build_object(
             'challenge_id', i.challenge_id::text,
             'code_queued', EXISTS (SELECT 1 FROM outbox)
@@ -237,14 +456,15 @@ SELECT
 `
 
 type IssueHubEmailChangeChallengeParams struct {
-	HubUserDid        pgtype.UUID `json:"hub_user_did"`
-	HubSessionID      pgtype.UUID `json:"hub_session_id"`
-	NewEmailAddress   string      `json:"new_email_address"`
-	ChallengeID       pgtype.UUID `json:"challenge_id"`
-	CodeHash          []byte      `json:"code_hash"`
-	PayloadCiphertext []byte      `json:"payload_ciphertext"`
-	TenantID          string      `json:"tenant_id"`
-	IdempotencyKey    pgtype.Text `json:"idempotency_key"`
+	HubUserDid         pgtype.UUID `json:"hub_user_did"`
+	HubSessionID       pgtype.UUID `json:"hub_session_id"`
+	NewEmailAddress    string      `json:"new_email_address"`
+	ChallengeID        pgtype.UUID `json:"challenge_id"`
+	CodeHash           []byte      `json:"code_hash"`
+	PayloadCiphertext  []byte      `json:"payload_ciphertext"`
+	GloballyRegistered bool        `json:"globally_registered"`
+	TenantID           string      `json:"tenant_id"`
+	IdempotencyKey     pgtype.Text `json:"idempotency_key"`
 }
 
 type IssueHubEmailChangeChallengeRow struct {
@@ -252,8 +472,9 @@ type IssueHubEmailChangeChallengeRow struct {
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 }
 
-// An address that already belongs to an account still gets a challenge, so
-// rate limits and the response are identical, but no code is queued for it.
+// An address that already belongs to an account locally or globally still
+// gets a challenge, so rate limits and the response are identical, but no
+// code is queued for it (GU-ECH-001).
 func (q *Queries) IssueHubEmailChangeChallenge(ctx context.Context, arg IssueHubEmailChangeChallengeParams) (IssueHubEmailChangeChallengeRow, error) {
 	row := q.db.QueryRow(ctx, issueHubEmailChangeChallenge,
 		arg.HubUserDid,
@@ -262,12 +483,214 @@ func (q *Queries) IssueHubEmailChangeChallenge(ctx context.Context, arg IssueHub
 		arg.ChallengeID,
 		arg.CodeHash,
 		arg.PayloadCiphertext,
+		arg.GloballyRegistered,
 		arg.TenantID,
 		arg.IdempotencyKey,
 	)
 	var i IssueHubEmailChangeChallengeRow
 	err := row.Scan(&i.Result, &i.ExpiresAt)
 	return i, err
+}
+
+const listRecoverableHubAccountEmailChanges = `-- name: ListRecoverableHubAccountEmailChanges :many
+SELECT operation_id, hub_user_did, new_email_address, new_email_digest,
+    old_email_digest, confirming_session_id, state, failure_reason,
+    reserve_command_id, finalize_command_id, abandon_command_id, not_after
+FROM vetchium.hub_account_email_changes
+WHERE state NOT IN ('succeeded', 'failed')
+ORDER BY created_at
+LIMIT $1
+`
+
+type ListRecoverableHubAccountEmailChangesRow struct {
+	OperationID         pgtype.UUID                        `json:"operation_id"`
+	HubUserDid          pgtype.UUID                        `json:"hub_user_did"`
+	NewEmailAddress     string                             `json:"new_email_address"`
+	NewEmailDigest      []byte                             `json:"new_email_digest"`
+	OldEmailDigest      []byte                             `json:"old_email_digest"`
+	ConfirmingSessionID pgtype.UUID                        `json:"confirming_session_id"`
+	State               VetchiumHubAccountEmailChangeState `json:"state"`
+	FailureReason       pgtype.Text                        `json:"failure_reason"`
+	ReserveCommandID    pgtype.UUID                        `json:"reserve_command_id"`
+	FinalizeCommandID   pgtype.UUID                        `json:"finalize_command_id"`
+	AbandonCommandID    pgtype.UUID                        `json:"abandon_command_id"`
+	NotAfter            pgtype.Timestamptz                 `json:"not_after"`
+}
+
+func (q *Queries) ListRecoverableHubAccountEmailChanges(ctx context.Context, batchSize int32) ([]ListRecoverableHubAccountEmailChangesRow, error) {
+	rows, err := q.db.Query(ctx, listRecoverableHubAccountEmailChanges, batchSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRecoverableHubAccountEmailChangesRow
+	for rows.Next() {
+		var i ListRecoverableHubAccountEmailChangesRow
+		if err := rows.Scan(
+			&i.OperationID,
+			&i.HubUserDid,
+			&i.NewEmailAddress,
+			&i.NewEmailDigest,
+			&i.OldEmailDigest,
+			&i.ConfirmingSessionID,
+			&i.State,
+			&i.FailureReason,
+			&i.ReserveCommandID,
+			&i.FinalizeCommandID,
+			&i.AbandonCommandID,
+			&i.NotAfter,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockHubAccountEmailChange = `-- name: LockHubAccountEmailChange :one
+SELECT
+    operation_id, hub_user_did, new_email_address, new_email_digest,
+    old_email_digest, confirming_session_id, state, failure_reason,
+    reserve_command_id, finalize_command_id, abandon_command_id, not_after
+FROM vetchium.hub_account_email_changes
+WHERE operation_id = $1
+FOR UPDATE
+`
+
+type LockHubAccountEmailChangeRow struct {
+	OperationID         pgtype.UUID                        `json:"operation_id"`
+	HubUserDid          pgtype.UUID                        `json:"hub_user_did"`
+	NewEmailAddress     string                             `json:"new_email_address"`
+	NewEmailDigest      []byte                             `json:"new_email_digest"`
+	OldEmailDigest      []byte                             `json:"old_email_digest"`
+	ConfirmingSessionID pgtype.UUID                        `json:"confirming_session_id"`
+	State               VetchiumHubAccountEmailChangeState `json:"state"`
+	FailureReason       pgtype.Text                        `json:"failure_reason"`
+	ReserveCommandID    pgtype.UUID                        `json:"reserve_command_id"`
+	FinalizeCommandID   pgtype.UUID                        `json:"finalize_command_id"`
+	AbandonCommandID    pgtype.UUID                        `json:"abandon_command_id"`
+	NotAfter            pgtype.Timestamptz                 `json:"not_after"`
+}
+
+func (q *Queries) LockHubAccountEmailChange(ctx context.Context, operationID pgtype.UUID) (LockHubAccountEmailChangeRow, error) {
+	row := q.db.QueryRow(ctx, lockHubAccountEmailChange, operationID)
+	var i LockHubAccountEmailChangeRow
+	err := row.Scan(
+		&i.OperationID,
+		&i.HubUserDid,
+		&i.NewEmailAddress,
+		&i.NewEmailDigest,
+		&i.OldEmailDigest,
+		&i.ConfirmingSessionID,
+		&i.State,
+		&i.FailureReason,
+		&i.ReserveCommandID,
+		&i.FinalizeCommandID,
+		&i.AbandonCommandID,
+		&i.NotAfter,
+	)
+	return i, err
+}
+
+const markHubAccountEmailChangeCancelling = `-- name: MarkHubAccountEmailChangeCancelling :execrows
+UPDATE vetchium.hub_account_email_changes
+SET state = 'cancelling', failure_reason = $1,
+    updated_at = now()
+WHERE operation_id = $2
+  AND state IN ('accepted', 'reserved')
+`
+
+type MarkHubAccountEmailChangeCancellingParams struct {
+	FailureReason pgtype.Text `json:"failure_reason"`
+	OperationID   pgtype.UUID `json:"operation_id"`
+}
+
+func (q *Queries) MarkHubAccountEmailChangeCancelling(ctx context.Context, arg MarkHubAccountEmailChangeCancellingParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markHubAccountEmailChangeCancelling, arg.FailureReason, arg.OperationID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const markHubAccountEmailChangeFailed = `-- name: MarkHubAccountEmailChangeFailed :execrows
+WITH updated_change AS (
+    UPDATE vetchium.hub_account_email_changes
+    SET state = 'failed', completed_at = now(), updated_at = now()
+    WHERE operation_id = $6
+      AND state = 'cancelling'
+    RETURNING operation_id
+)
+INSERT INTO vetchium.audit_events (
+    tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+    source, idempotency_key, payload
+)
+SELECT
+    $1, 'hub.email-change.rejected', 'hub_user',
+    $2::text, 'hub_user',
+    $2::text, $3,
+    $4,
+    jsonb_build_object('reason', $5::text)
+FROM updated_change
+`
+
+type MarkHubAccountEmailChangeFailedParams struct {
+	TenantID       string      `json:"tenant_id"`
+	HubUserDid     string      `json:"hub_user_did"`
+	Source         string      `json:"source"`
+	IdempotencyKey pgtype.Text `json:"idempotency_key"`
+	FailureReason  string      `json:"failure_reason"`
+	OperationID    pgtype.UUID `json:"operation_id"`
+}
+
+func (q *Queries) MarkHubAccountEmailChangeFailed(ctx context.Context, arg MarkHubAccountEmailChangeFailedParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markHubAccountEmailChangeFailed,
+		arg.TenantID,
+		arg.HubUserDid,
+		arg.Source,
+		arg.IdempotencyKey,
+		arg.FailureReason,
+		arg.OperationID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const markHubAccountEmailChangeReserved = `-- name: MarkHubAccountEmailChangeReserved :execrows
+UPDATE vetchium.hub_account_email_changes
+SET state = 'reserved', updated_at = now()
+WHERE operation_id = $1
+  AND state = 'accepted'
+`
+
+func (q *Queries) MarkHubAccountEmailChangeReserved(ctx context.Context, operationID pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, markHubAccountEmailChangeReserved, operationID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const markHubAccountEmailChangeSucceeded = `-- name: MarkHubAccountEmailChangeSucceeded :execrows
+UPDATE vetchium.hub_account_email_changes
+SET state = 'succeeded', completed_at = now(), updated_at = now()
+WHERE operation_id = $1
+  AND state = 'applied'
+`
+
+// The caller resolves the sibling federation_operations row with the
+// existing generic ResolveFederationOperation in the same transaction.
+func (q *Queries) MarkHubAccountEmailChangeSucceeded(ctx context.Context, operationID pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, markHubAccountEmailChangeSucceeded, operationID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const supersedeHubEmailChangeChallenges = `-- name: SupersedeHubEmailChangeChallenges :execrows
