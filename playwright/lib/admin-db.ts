@@ -1079,6 +1079,8 @@ export function cleanupHubUser(
     WHERE entity_type = 'hub_user' AND entity_id = ${did};
     DELETE FROM vetchium.audit_events
     WHERE actor_type = 'hub_user' AND actor_id = ${did};
+    DELETE FROM vetchium.hub_account_email_changes
+    WHERE hub_user_did = ${did}::uuid;
     DELETE FROM vetchium.federation_operations
     WHERE aggregate_id = ${did} OR
           (owner_principal_type = 'hub_user' AND owner_principal_id = ${did});

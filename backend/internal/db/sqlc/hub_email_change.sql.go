@@ -37,6 +37,7 @@ WITH candidate AS (
     WHERE c.challenge_id = candidate.challenge_id
     RETURNING
         c.challenge_id,
+        c.attempt_count,
         candidate.hub_user_did,
         candidate.new_email_address,
         candidate.old_email_digest,
@@ -87,7 +88,10 @@ WITH candidate AS (
                 'challenge_id', a.challenge_id::text,
                 'operation_id', $5
             )
-            ELSE jsonb_build_object('challenge_id', a.challenge_id::text)
+            ELSE jsonb_build_object(
+                'challenge_id', a.challenge_id::text,
+                'attempt_count', a.attempt_count
+            )
         END
     FROM attempted AS a
 )
@@ -249,16 +253,34 @@ func (q *Queries) ApplyHubAccountEmailChange(ctx context.Context, arg ApplyHubAc
 }
 
 const failHubAccountEmailChangeDirectly = `-- name: FailHubAccountEmailChangeDirectly :execrows
-UPDATE vetchium.hub_account_email_changes
-SET state = 'failed', failure_reason = $1,
-    completed_at = now(), updated_at = now()
-WHERE operation_id = $2
-  AND state = 'accepted'
+WITH updated_change AS (
+    UPDATE vetchium.hub_account_email_changes
+    SET state = 'failed', failure_reason = $5,
+        completed_at = now(), updated_at = now()
+    WHERE operation_id = $6
+      AND state = 'accepted'
+    RETURNING operation_id
+)
+INSERT INTO vetchium.audit_events (
+    tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+    source, idempotency_key, payload
+)
+SELECT
+    $1, 'hub.email-change.rejected', 'hub_user',
+    $2::text, 'hub_user',
+    $2::text, $3,
+    $4,
+    jsonb_build_object('reason', $5::text)
+FROM updated_change
 `
 
 type FailHubAccountEmailChangeDirectlyParams struct {
-	FailureReason pgtype.Text `json:"failure_reason"`
-	OperationID   pgtype.UUID `json:"operation_id"`
+	TenantID       string      `json:"tenant_id"`
+	HubUserDid     string      `json:"hub_user_did"`
+	Source         string      `json:"source"`
+	IdempotencyKey pgtype.Text `json:"idempotency_key"`
+	FailureReason  string      `json:"failure_reason"`
+	OperationID    pgtype.UUID `json:"operation_id"`
 }
 
 // The reserve-time email-claim-conflict path (GU-ECH-003): fails directly,
@@ -266,7 +288,14 @@ type FailHubAccountEmailChangeDirectlyParams struct {
 // caller resolves the sibling federation_operations row with the existing
 // generic ResolveFederationOperation in the same transaction.
 func (q *Queries) FailHubAccountEmailChangeDirectly(ctx context.Context, arg FailHubAccountEmailChangeDirectlyParams) (int64, error) {
-	result, err := q.db.Exec(ctx, failHubAccountEmailChangeDirectly, arg.FailureReason, arg.OperationID)
+	result, err := q.db.Exec(ctx, failHubAccountEmailChangeDirectly,
+		arg.TenantID,
+		arg.HubUserDid,
+		arg.Source,
+		arg.IdempotencyKey,
+		arg.FailureReason,
+		arg.OperationID,
+	)
 	if err != nil {
 		return 0, err
 	}

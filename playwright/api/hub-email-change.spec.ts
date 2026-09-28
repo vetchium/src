@@ -31,6 +31,7 @@ import {
   cleanupHubSignupDomain,
   cleanupHubUser,
   hubAuditEventsByIdempotencyKey,
+  hubAuditEventsForActor,
   seedHubSignupDomain,
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
@@ -234,35 +235,44 @@ test("a confirmed email change moves sign-in to the proven address and revokes o
     // request already proved that, and the code proves the new mailbox.
     ageHubSession(account.token);
 
-    const wrongKey = hubIdempotencyKey();
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      await expectProblem(
-        await confirmChange(
-          hub,
-          account.token,
-          { challenge_id: challenge.challenge_id, code: wrongCode },
-          wrongKey,
-        ),
-        400,
-        EmailChangeCodeRejectedError.type,
-      );
-    }
-    // The rejected attempt is committed, so its key cannot carry a new code.
+    // A wrong-code attempt no longer creates a durable operation (GU-ECH-002:
+    // only a correct code does), so unlike a completed change, it has
+    // nothing for a replay to conflict against. Each call with its own key
+    // genuinely re-attempts and bumps attempt_count independently — a
+    // deliberate M4 trade-off, see docs/global-uniqueness.md §10.
+    const wrongKey1 = hubIdempotencyKey();
     await expectProblem(
       await confirmChange(
         hub,
         account.token,
-        { challenge_id: challenge.challenge_id, code },
-        wrongKey,
+        { challenge_id: challenge.challenge_id, code: wrongCode },
+        wrongKey1,
       ),
-      409,
-      IdempotencyKeyConflictError.type,
+      400,
+      EmailChangeCodeRejectedError.type,
     );
-    const failedAudit = hubAuditEventsByIdempotencyKey(wrongKey);
-    expect(failedAudit).toHaveLength(1);
-    expect(failedAudit[0]).toMatchObject({
+    const wrongKey2 = hubIdempotencyKey();
+    await expectProblem(
+      await confirmChange(
+        hub,
+        account.token,
+        { challenge_id: challenge.challenge_id, code: wrongCode },
+        wrongKey2,
+      ),
+      400,
+      EmailChangeCodeRejectedError.type,
+    );
+    const failedAudit1 = hubAuditEventsByIdempotencyKey(wrongKey1);
+    expect(failedAudit1).toHaveLength(1);
+    expect(failedAudit1[0]).toMatchObject({
       action: "hub.email-change.verification-failed",
       payload: { attempt_count: 1 },
+    });
+    const failedAudit2 = hubAuditEventsByIdempotencyKey(wrongKey2);
+    expect(failedAudit2).toHaveLength(1);
+    expect(failedAudit2[0]).toMatchObject({
+      action: "hub.email-change.verification-failed",
+      payload: { attempt_count: 2 },
     });
 
     const confirmKey = hubIdempotencyKey();
@@ -274,21 +284,31 @@ test("a confirmed email change moves sign-in to the proven address and revokes o
     );
     expect(confirmed.status(), await confirmed.text()).toBe(204);
     expect(confirmed.headers()["cache-control"]).toBe("no-store");
+    // The client's idempotency key now only covers accepting the code
+    // (GU-ECH-002); the local apply that actually changes the address is a
+    // separate durable step keyed by the operation id, not the client's key.
     const confirmAudit = hubAuditEventsByIdempotencyKey(confirmKey);
     expect(confirmAudit).toHaveLength(1);
     expect(confirmAudit[0]).toMatchObject({
-      action: "hub.email.changed",
+      action: "hub.email-change.accepted",
       entity_type: "hub_user",
       entity_id: account.hubUserDID,
       actor_type: "hub_user",
       actor_id: account.hubUserDID,
+    });
+    const changedAudit = hubAuditEventsForActor(
+      account.hubUserDID,
+      "hub.email.changed",
+    );
+    expect(changedAudit).toHaveLength(1);
+    expect(changedAudit[0]).toMatchObject({
       payload: {
         changed_fields: ["email_address"],
         other_sessions_revoked: true,
         previous_address_notified: true,
       },
     });
-    expect(JSON.stringify(confirmAudit[0]?.payload)).not.toContain("@");
+    expect(JSON.stringify(changedAudit[0]?.payload)).not.toContain("@");
 
     const info = await myInfo(hub, account.token);
     expect(info.email_address).toBe(newAddress);
@@ -490,7 +510,26 @@ test("confirming after another account claimed the address keeps the old address
       409,
       EmailAddressUnavailableError.type,
     );
-    expect(hubAuditEventsByIdempotencyKey(key)).toEqual([]);
+    // The code was correct, so the durable operation was accepted before the
+    // global reserve rejected it (GU-ECH-002/003): the accept audit carries
+    // the client's idempotency key, and the terminal rejection is audited
+    // separately, keyed by the operation id it drives rather than the
+    // client's key.
+    const acceptedAudit = hubAuditEventsByIdempotencyKey(key);
+    expect(acceptedAudit).toHaveLength(1);
+    expect(acceptedAudit[0]).toMatchObject({
+      action: "hub.email-change.accepted",
+      entity_id: account.hubUserDID,
+      actor_id: account.hubUserDID,
+    });
+    const rejectedAudit = hubAuditEventsForActor(
+      account.hubUserDID,
+      "hub.email-change.rejected",
+    );
+    expect(rejectedAudit).toHaveLength(1);
+    expect(rejectedAudit[0]).toMatchObject({
+      payload: { reason: "address_unavailable" },
+    });
     expect((await myInfo(hub, account.token)).email_address).toBe(
       account.email,
     );

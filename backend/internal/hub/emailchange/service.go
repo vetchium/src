@@ -298,7 +298,7 @@ func (s *Service) Advance(
 				if outcome.Problem.Type ==
 					coordinatorproblem.DirectoryEmailClaimConflictError.Type {
 					updated, err := s.failDirectly(
-						ctx, change, "address_unavailable",
+						ctx, change, "address_unavailable", source,
 					)
 					if err != nil {
 						return Result{}, err
@@ -438,7 +438,7 @@ func (s *Service) markReserved(ctx context.Context, change Change) (Change, erro
 // failDirectly moves 'accepted' straight to 'failed' (GU-ECH-003 row 2):
 // nothing was reserved globally, so there is nothing to abandon.
 func (s *Service) failDirectly(
-	ctx context.Context, change Change, reason string,
+	ctx context.Context, change Change, reason, source string,
 ) (Change, error) {
 	status := failureStatus(reason)
 	tx, err := s.pool.Begin(ctx)
@@ -449,7 +449,11 @@ func (s *Service) failDirectly(
 	q := sqlc.New(tx)
 	rows, err := q.FailHubAccountEmailChangeDirectly(
 		ctx, sqlc.FailHubAccountEmailChangeDirectlyParams{
-			FailureReason: dbvalue.Text(reason), OperationID: change.OperationID,
+			TenantID: s.tenantID, HubUserDid: dbvalue.FormatUUID(change.HubUserDid),
+			Source: source, IdempotencyKey: dbvalue.Text(
+				dbvalue.FormatUUID(change.OperationID),
+			),
+			FailureReason: reason, OperationID: change.OperationID,
 		},
 	)
 	if err != nil {

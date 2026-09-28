@@ -152,6 +152,7 @@ WITH candidate AS (
     WHERE c.challenge_id = candidate.challenge_id
     RETURNING
         c.challenge_id,
+        c.attempt_count,
         candidate.hub_user_did,
         candidate.new_email_address,
         candidate.old_email_digest,
@@ -202,7 +203,10 @@ WITH candidate AS (
                 'challenge_id', a.challenge_id::text,
                 'operation_id', sqlc.arg(operation_id)
             )
-            ELSE jsonb_build_object('challenge_id', a.challenge_id::text)
+            ELSE jsonb_build_object(
+                'challenge_id', a.challenge_id::text,
+                'attempt_count', a.attempt_count
+            )
         END
     FROM attempted AS a
 )
@@ -240,11 +244,25 @@ WHERE operation_id = sqlc.arg(operation_id)
 -- caller resolves the sibling federation_operations row with the existing
 -- generic ResolveFederationOperation in the same transaction.
 -- name: FailHubAccountEmailChangeDirectly :execrows
-UPDATE vetchium.hub_account_email_changes
-SET state = 'failed', failure_reason = sqlc.arg(failure_reason),
-    completed_at = now(), updated_at = now()
-WHERE operation_id = sqlc.arg(operation_id)
-  AND state = 'accepted';
+WITH updated_change AS (
+    UPDATE vetchium.hub_account_email_changes
+    SET state = 'failed', failure_reason = sqlc.arg(failure_reason),
+        completed_at = now(), updated_at = now()
+    WHERE operation_id = sqlc.arg(operation_id)
+      AND state = 'accepted'
+    RETURNING operation_id
+)
+INSERT INTO vetchium.audit_events (
+    tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+    source, idempotency_key, payload
+)
+SELECT
+    sqlc.arg(tenant_id), 'hub.email-change.rejected', 'hub_user',
+    sqlc.arg(hub_user_did)::text, 'hub_user',
+    sqlc.arg(hub_user_did)::text, sqlc.arg(source),
+    sqlc.arg(idempotency_key),
+    jsonb_build_object('reason', sqlc.arg(failure_reason)::text)
+FROM updated_change;
 
 -- name: MarkHubAccountEmailChangeCancelling :execrows
 UPDATE vetchium.hub_account_email_changes
