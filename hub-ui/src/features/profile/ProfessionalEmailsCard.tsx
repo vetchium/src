@@ -3,9 +3,8 @@ import {
   ClockCircleOutlined,
   DeleteOutlined,
   PlusOutlined,
-  WarningOutlined,
 } from "@ant-design/icons";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   App,
@@ -22,7 +21,6 @@ import {
 } from "antd";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pending } from "typespec/hub/operations/operations";
 import {
   normalizeAddProfessionalEmailRequest,
   type ProfessionalEmail,
@@ -37,20 +35,6 @@ import {
   professionalEmailsQueryKey,
   useProfessionalEmailsQuery,
 } from "./queries";
-
-// GU-PEM-001: verified evidence is last_verified_at set AND superseded_at
-// unset. A superseded row must never be shown as verified, and never names
-// who holds the address now (GU-PEM-004).
-function isVerified(entry: ProfessionalEmail): boolean {
-  return (
-    entry.last_verified_at !== undefined && entry.superseded_at === undefined
-  );
-}
-function isSuperseded(entry: ProfessionalEmail): boolean {
-  return (
-    entry.last_verified_at !== undefined && entry.superseded_at !== undefined
-  );
-}
 
 function challengeStorageKey(ownerHandle: string, emailID: string): string {
   return `vetchium.hub.professional-email.${ownerHandle}.${emailID}`;
@@ -149,11 +133,6 @@ function ProfessionalEmailRow({
       void message.success(t("profileEmails.codeSent"));
     },
   });
-  // A 202 means the global directory hiccupped; poll the operation, then
-  // replay verify with the same (unrotated) idempotency key for the
-  // resolved typed result (GU-PEM-003), same as the email-change card's
-  // operation-polling helper.
-  const [operationID, setOperationID] = useState<string | null>(null);
   const verify = useMutation({
     mutationFn: () => {
       if (challenge === null) throw new Error("Missing verification challenge");
@@ -166,12 +145,7 @@ function ProfessionalEmailRow({
         verifyKey.current(),
       );
     },
-    onSuccess: async (result) => {
-      if (result !== undefined) {
-        setOperationID(result.operation_id);
-        return;
-      }
-      setOperationID(null);
+    onSuccess: async () => {
       verifyKey.rotate();
       lastCode.current = null;
       setCode("");
@@ -182,27 +156,6 @@ function ProfessionalEmailRow({
       });
       void message.success(t("profileEmails.verified"));
     },
-  });
-  useQuery({
-    queryKey: ["hub", "professional-email-operation", operationID],
-    queryFn: async () => {
-      if (operationID === null) throw new Error("Missing operation");
-      const status = await hubAPI.operationStatus({
-        operation_id: operationID,
-      });
-      if (status.state !== Pending) {
-        setOperationID(null);
-        try {
-          await verify.mutateAsync();
-        } catch {
-          // verify.error now carries the resolved typed problem, if any.
-        }
-      }
-      return status;
-    },
-    enabled: operationID !== null,
-    refetchInterval: 1000,
-    retry: false,
   });
   const remove = useMutation({
     mutationFn: () =>
@@ -222,11 +175,7 @@ function ProfessionalEmailRow({
     <Space orientation="vertical" size="middle">
       <Space orientation="vertical" size={2}>
         <Typography.Text strong>{entry.email_address}</Typography.Text>
-        {isSuperseded(entry) ? (
-          <Typography.Text type="warning">
-            {t("profileEmails.superseded")}
-          </Typography.Text>
-        ) : entry.last_verified_at === undefined ? (
+        {entry.last_verified_at === undefined ? (
           <Typography.Text type="secondary">
             {t("profileEmails.notVerifiedYet")}
           </Typography.Text>
@@ -241,16 +190,8 @@ function ProfessionalEmailRow({
           </Typography.Text>
         )}
       </Space>
-      {!isSuperseded(entry) && needsAnnualReminder(entry.last_verified_at) ? (
+      {needsAnnualReminder(entry.last_verified_at) ? (
         <Alert type="info" showIcon title={t("profileEmails.annualReminder")} />
-      ) : null}
-      {operationID !== null ? (
-        <Alert
-          type="info"
-          showIcon
-          title={t("profileEmails.applying")}
-          data-testid="professional-email-applying"
-        />
       ) : null}
       {challenge === null ? null : (
         <Space orientation="vertical" size="small">
@@ -267,17 +208,12 @@ function ProfessionalEmailRow({
               autoComplete="one-time-code"
               maxLength={6}
               style={{ width: 120 }}
-              disabled={operationID !== null}
               onChange={(event) => setCode(event.target.value)}
             />
             <Button
               type="primary"
               size="small"
-              disabled={
-                !/^[0-9]{6}$/.test(code) ||
-                verify.isPending ||
-                operationID !== null
-              }
+              disabled={!/^[0-9]{6}$/.test(code) || verify.isPending}
               loading={verify.isPending}
               onClick={() => verify.mutate()}
             >
@@ -474,18 +410,13 @@ export function ProfessionalEmailsCard({
         <Timeline
           items={list.data.emails.map((entry) => ({
             key: entry.id,
-            color: isSuperseded(entry)
-              ? "orange"
-              : isVerified(entry)
-                ? "green"
-                : "gray",
-            icon: isSuperseded(entry) ? (
-              <WarningOutlined />
-            ) : isVerified(entry) ? (
-              <CheckCircleOutlined />
-            ) : (
-              <ClockCircleOutlined />
-            ),
+            color: entry.last_verified_at === undefined ? "gray" : "green",
+            icon:
+              entry.last_verified_at === undefined ? (
+                <ClockCircleOutlined />
+              ) : (
+                <CheckCircleOutlined />
+              ),
             content: (
               <ProfessionalEmailRow entry={entry} ownerHandle={ownerHandle} />
             ),

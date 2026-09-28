@@ -237,14 +237,11 @@ export const de = {
     verifiedDates: "Erstmals bestätigt {{first}} · Zuletzt bestätigt {{last}}",
     annualReminder:
       "Die letzte Bestätigung ist ein Jahr her. Sie können einen neuen Code anfordern, wenn Sie die Adresse noch verwenden.",
-    superseded:
-      "Die Bestätigung wurde auf ein anderes Konto übertragen. Fordern Sie einen neuen Code an, wenn diese Adresse noch Ihnen gehört.",
     requestCode: "Bestätigungscode senden",
     codeSent: "Ein Bestätigungscode wurde an diese Adresse gesendet.",
     codeExpires: "Code läuft {{date}} ab",
     codeLabel: "Sechsstelliger Bestätigungscode",
     verify: "Adresse bestätigen",
-    applying: "Ihre Bestätigung wird übernommen …",
     verified: "Adresse bestätigt.",
     remove: "Adresse entfernen",
     confirmRemove: "Diese berufliche Adresse entfernen?",

@@ -27,21 +27,6 @@ paid retention, or cross-tenant ownership from an existing table or UI.
   UI-only: never email the account or professional address.
 - Professional-email evidence is private account data in this version; never add
   it to another Hub user's profile response or a federated profile payload.
-- A verified professional email is unique across every tenant (GU-PEM,
-  `docs/global-uniqueness.md`): the coordinator holds only a keyed digest of
-  the address, never the address itself (`identitydigest.Key.HubProfessionalEmail`),
-  and the newest proof of control always wins, even across tenants. A local
-  row's true verification status is `last_verified_at IS NOT NULL AND
-  superseded_at IS NULL` — never read `last_verified_at` alone. Verifying a
-  code no longer sets those columns directly; it creates a durable
-  `federation_operations` claim that `backend/internal/hub/professionalemail`
-  drives through the coordinator, mirroring `emailchange`'s Start/Advance
-  shape and its own local digest interface (GU-KEY-002). Two workers keep a
-  tenant's rows honest against the coordinator: one applies the coordinator's
-  per-tenant supersession feed as it arrives, the other periodically
-  reconciles every locally-verified row against the coordinator's holdings
-  check. Read `docs/hub-profile.md` PROF-WEM-014..016 for the product rules
-  this implements, and `docs/global-uniqueness.md` §3.6 for the design.
 - The owner's profile editor holds only what other users see (PROF-GEN-005).
   Private account data (sign-in email, language and job-search preferences,
   professional-email evidence) belongs on settings pages, never the profile page.

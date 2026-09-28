@@ -678,60 +678,6 @@ func (q *Queries) ListRecoverableHubAliasReleases(ctx context.Context, batchSize
 	return items, nil
 }
 
-const listRecoverableHubProfessionalEmailOperations = `-- name: ListRecoverableHubProfessionalEmailOperations :many
-SELECT operation_id, command_id, kind, target_authority, aggregate_id,
-    owner_principal_type, owner_principal_id, idempotency_key,
-    request_digest, payload_bytes, state, response_status,
-    response_ciphertext, attempt_count, next_attempt_at, last_error,
-    created_at, updated_at, completed_at, expires_at
-FROM vetchium.federation_operations
-WHERE kind IN ('hub-professional-email-claim', 'hub-professional-email-release')
-  AND state = 'pending' AND next_attempt_at <= now()
-ORDER BY next_attempt_at, created_at, operation_id
-LIMIT $1
-`
-
-func (q *Queries) ListRecoverableHubProfessionalEmailOperations(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error) {
-	rows, err := q.db.Query(ctx, listRecoverableHubProfessionalEmailOperations, batchSize)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []VetchiumFederationOperation
-	for rows.Next() {
-		var i VetchiumFederationOperation
-		if err := rows.Scan(
-			&i.OperationID,
-			&i.CommandID,
-			&i.Kind,
-			&i.TargetAuthority,
-			&i.AggregateID,
-			&i.OwnerPrincipalType,
-			&i.OwnerPrincipalID,
-			&i.IdempotencyKey,
-			&i.RequestDigest,
-			&i.PayloadBytes,
-			&i.State,
-			&i.ResponseStatus,
-			&i.ResponseCiphertext,
-			&i.AttemptCount,
-			&i.NextAttemptAt,
-			&i.LastError,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.CompletedAt,
-			&i.ExpiresAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const pruneExpiredFederationOperations = `-- name: PruneExpiredFederationOperations :execrows
 DELETE FROM vetchium.federation_operations
 WHERE state IN ('succeeded', 'failed') AND expires_at <= now()

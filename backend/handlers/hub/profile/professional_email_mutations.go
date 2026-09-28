@@ -52,11 +52,8 @@ func AddProfessionalEmail(s *hubruntime.Server) http.HandlerFunc {
 						ProfessionalEmailID: id,
 						EmailAddress:        string(request.EmailAddress),
 						Domain:              domain,
-						EmailDigest: s.DigestKey.HubProfessionalEmail(
-							string(request.EmailAddress),
-						),
-						TenantID:       s.TenantID,
-						IdempotencyKey: dbvalue.Text(string(key)),
+						TenantID:            s.TenantID,
+						IdempotencyKey:      dbvalue.Text(string(key)),
 					},
 				)
 				if professionalEmailConflict(err) {
@@ -71,8 +68,7 @@ func AddProfessionalEmail(s *hubruntime.Server) http.HandlerFunc {
 					Status: http.StatusCreated,
 					Body: professionalEmail(
 						row.ProfessionalEmailID, row.EmailAddress, row.Domain,
-						row.FirstVerifiedAt, row.LastVerifiedAt,
-						pgtype.Timestamptz{}, row.CreatedAt,
+						row.FirstVerifiedAt, row.LastVerifiedAt, row.CreatedAt,
 					),
 				}, nil, nil
 			},
@@ -102,28 +98,12 @@ func DeleteProfessionalEmail(s *hubruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return handlerauth.Result[struct{}]{}, nil, err
 				}
-				releaseOperationID, err := dbvalue.NewUUID()
-				if err != nil {
-					return handlerauth.Result[struct{}]{}, nil, err
-				}
-				releaseCommandID, err := dbvalue.NewUUID()
-				if err != nil {
-					return handlerauth.Result[struct{}]{}, nil, err
-				}
 				_, err = q.DeleteHubProfessionalEmail(
 					r.Context(), sqlc.DeleteHubProfessionalEmailParams{
 						ProfessionalEmailID: id,
 						HubUserDid:          identity.UserDID,
-						ReleaseOperationID:  releaseOperationID,
-						ReleaseCommandID:    releaseCommandID,
-						ReleaseIdempotencyKey: dbvalue.FormatUUID(
-							releaseOperationID,
-						),
-						ReleaseExpiresAt: dbvalue.Timestamp(
-							s.CurrentTime().Add(30 * 24 * time.Hour),
-						),
-						TenantID:       s.TenantID,
-						IdempotencyKey: dbvalue.Text(string(key)),
+						TenantID:            s.TenantID,
+						IdempotencyKey:      dbvalue.Text(string(key)),
 					},
 				)
 				if errors.Is(err, pgx.ErrNoRows) {
@@ -152,7 +132,7 @@ func professionalEmailConflict(err error) bool {
 
 func professionalEmail(
 	id pgtype.UUID, address, domain string,
-	first, last, superseded, created pgtype.Timestamptz,
+	first, last, created pgtype.Timestamptz,
 ) profilespec.ProfessionalEmail {
 	return profilespec.ProfessionalEmail{
 		ID:              profilespec.ProfileEntryID(dbvalue.FormatUUID(id)),
@@ -160,7 +140,6 @@ func professionalEmail(
 		Domain:          common.ProfessionalDomain(domain),
 		FirstVerifiedAt: dbvalue.TimePtr(first),
 		LastVerifiedAt:  dbvalue.TimePtr(last),
-		SupersededAt:    dbvalue.TimePtr(superseded),
 		CreatedAt:       created.Time.UTC(),
 	}
 }

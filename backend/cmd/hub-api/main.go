@@ -13,7 +13,6 @@ import (
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/hub/emailchange"
-	"backend/internal/hub/professionalemail"
 	"backend/internal/hub/signupcompletion"
 	"backend/internal/identitydigest"
 	"backend/internal/middleware"
@@ -117,27 +116,19 @@ func run(log *slog.Logger, address string) error {
 		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "outbox"),
 		digestKey, nil,
 	)
-	professionalEmail := professionalemail.New(
-		pool, globalDirectory, cfg.TenantID,
-		hubauthn.DeriveCredentialSubkey(
-			hubCredentialKey, "professional-email-code",
-		),
-		digestKey, nil,
-	)
 	s := &hubruntime.Server{
-		Runtime:           apiserver.New(pool, log),
-		Queries:           dbsqlc.New(pool),
-		RegionDirectory:   directory,
-		Directory:         globalDirectory,
-		Profiles:          profiles,
-		Pictures:          pictures,
-		SignupCompletion:  signupCompletion,
-		EmailChange:       emailChange,
-		ProfessionalEmail: professionalEmail,
-		DigestKey:         digestKey,
-		Regions:           catalog,
-		Signup:            cfg.HubAPIServer.Signup,
-		TenantID:          cfg.TenantID,
+		Runtime:          apiserver.New(pool, log),
+		Queries:          dbsqlc.New(pool),
+		RegionDirectory:  directory,
+		Directory:        globalDirectory,
+		Profiles:         profiles,
+		Pictures:         pictures,
+		SignupCompletion: signupCompletion,
+		EmailChange:      emailChange,
+		DigestKey:        digestKey,
+		Regions:          catalog,
+		Signup:           cfg.HubAPIServer.Signup,
+		TenantID:         cfg.TenantID,
 		SessionDurations: apiserver.SessionDurations{
 			Default:    cfg.HubAPIServer.SessionTTL,
 			Remembered: cfg.HubAPIServer.RememberedSessionTTL,

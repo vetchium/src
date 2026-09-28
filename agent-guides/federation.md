@@ -188,32 +188,6 @@ reservation/finalization state machine, not an outbox-only write.
     the newly claimed alias; never leave a paid slug attached to a downgraded
     profile. Downgrade cleanup and this compensation are both release requests
     using the same retryable operation protocol.
-- Hub account email and professional email are globally unique the same way
-  handles are, using keyed HMAC digests instead of raw addresses so the
-  coordinator never holds a reversible address
-  (`docs/global-uniqueness.md`). Account email change is a three-step
-  reserve/apply/finalize saga per change (`backend/internal/hub/emailchange`,
-  mirroring the alias-change shape above); a professional email claim is a
-  single coordinator call whose response is applied locally with a revision
-  check (`backend/internal/hub/professionalemail`), since "newest proof wins"
-  needs no multi-step reservation.
-- Professional-email supersession does not use tenant-to-tenant push: no
-  outbox dispatcher delivers `federation_outbox` today. Instead, the losing
-  tenant learns about a transfer by pulling a caller-scoped feed from the
-  coordinator (`pull-hub-professional-email-supersessions`), reusing the
-  existing tenant → mesh-api → coordinator channel. Three properties make
-  this safe without push delivery: sequences are allocated under a per-tenant
-  row lock, so commit order equals sequence order and a cursor can never skip
-  an entry; the coordinator deletes a feed row only after the tenant
-  acknowledges applying it (by passing back a higher `acknowledged_seq` on
-  its next pull), never by age, so a crash between apply and the next pull
-  re-delivers harmlessly instead of losing the row; and every apply is
-  fenced by a per-(user, digest) revision, so a replayed, reordered, or
-  very late supersession can never regress state a newer one already
-  applied. A periodic holdings-check sweep is the backstop: it independently
-  reconciles every locally-verified row against the coordinator's
-  authoritative answer, bounding the damage of any feed gap (including a
-  coordinator or tenant restore) to one sweep interval.
 - Principal migration freezes source writes, copies authoritative state plus both
   sides of the reliability ledgers, verifies the copy, performs one versioned
   global routing flip, and retains forwarding evidence for stale callers. Never

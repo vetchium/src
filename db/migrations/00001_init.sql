@@ -296,17 +296,8 @@ CREATE TABLE vetchium.hub_professional_emails (
         ON DELETE CASCADE,
     email_address text NOT NULL,
     domain vetchium.profile_domain NOT NULL,
-    email_digest bytea NOT NULL CHECK (octet_length(email_digest) = 32),
     first_verified_at timestamptz,
     last_verified_at timestamptz,
-    -- The global revision this row last applied (GU-PEM-001). NULL until the
-    -- first successful claim.
-    claim_revision bigint,
-    -- The highest superseded_by_revision this tenant has learned for this
-    -- (user, digest), recorded even while the row is unverified, so a claim
-    -- result that arrives late is still fenced against it.
-    superseded_revision bigint NOT NULL DEFAULT 0,
-    superseded_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT hub_professional_emails_user_domain_key UNIQUE (
@@ -324,15 +315,6 @@ CREATE TABLE vetchium.hub_professional_emails (
         (first_verified_at IS NULL AND last_verified_at IS NULL) OR
         (first_verified_at IS NOT NULL AND
             last_verified_at >= first_verified_at)
-    ),
-    -- A row is verified evidence iff last_verified_at IS NOT NULL AND
-    -- superseded_at IS NULL (GU-PEM-001); every reader of verification
-    -- status must use that predicate, not last_verified_at alone.
-    CONSTRAINT hub_professional_emails_supersession_check CHECK (
-        (superseded_at IS NOT NULL) = (
-            claim_revision IS NOT NULL AND
-            superseded_revision >= claim_revision
-        )
     ),
     CONSTRAINT hub_professional_emails_timestamps_check CHECK (
         updated_at >= created_at
@@ -928,25 +910,6 @@ CREATE TABLE vetchium.hub_account_email_changes (
 CREATE UNIQUE INDEX hub_account_email_changes_one_live
     ON vetchium.hub_account_email_changes (hub_user_did)
     WHERE state NOT IN ('succeeded', 'failed');
-
--- At most one pending claim operation per professional email row
--- (GU-PEM-002). A duplicate confirm while one is already in flight finds
--- the existing operation through this index instead of racing a second one.
-CREATE UNIQUE INDEX hub_professional_email_claims_one_live
-    ON vetchium.federation_operations (aggregate_id)
-    WHERE kind = 'hub-professional-email-claim' AND state = 'pending';
-
--- The tenant-side cursor for a pull feed it consumes from the global
--- coordinator (today, only hub-professional-email-supersessions).
--- last_seq is the highest sequence number already applied AND
--- acknowledged; GU-PEM-006 passes it back as the next pull's
--- acknowledged_seq, which is what lets the coordinator delete rows already
--- safely applied here.
-CREATE TABLE vetchium.global_feed_watermarks (
-    feed text PRIMARY KEY,
-    last_seq bigint NOT NULL DEFAULT 0 CHECK (last_seq >= 0),
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
 
 CREATE TABLE vetchium.hub_email_outbox (
     hub_email_outbox_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1719,7 +1682,6 @@ DROP TABLE IF EXISTS vetchium.hub_certifications;
 DROP TABLE IF EXISTS vetchium.hub_work_experiences;
 DROP TABLE IF EXISTS vetchium.hub_professional_email_challenges;
 DROP TABLE IF EXISTS vetchium.hub_professional_emails;
-DROP TABLE IF EXISTS vetchium.global_feed_watermarks;
 DROP TABLE IF EXISTS vetchium.hub_profile_picture_objects;
 DROP TYPE IF EXISTS vetchium.hub_profile_picture_state;
 DROP TYPE IF EXISTS vetchium.hub_profile_picture_format;

@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"os"
@@ -209,11 +208,9 @@ func TestHubProfileQueryLifecycleIntegration(t *testing.T) {
 	}
 
 	emailID := profileTestUUID(t)
-	professionalDigest := sha256.Sum256([]byte("person@example.org"))
 	_, err = q.CreateHubProfessionalEmail(ctx, sqlc.CreateHubProfessionalEmailParams{
 		HubUserDid: did, ProfessionalEmailID: emailID,
-		EmailAddress: "person@example.org", Domain: "example.org",
-		EmailDigest: professionalDigest[:], TenantID: "sgp",
+		EmailAddress: "person@example.org", Domain: "example.org", TenantID: "sgp",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -268,54 +265,37 @@ func TestHubProfileQueryLifecycleIntegration(t *testing.T) {
 		}); err != nil {
 		t.Fatal(err)
 	}
-	verifyChallenge := func(
-		challenge pgtype.UUID, hash []byte, idempotencyKey string,
-	) (sqlc.VerifyHubProfessionalEmailChallengeRow, error) {
-		operationID := profileTestUUID(t)
-		commandID := profileTestUUID(t)
-		digest := sha256.Sum256([]byte(idempotencyKey))
-		return q.VerifyHubProfessionalEmailChallenge(ctx,
-			sqlc.VerifyHubProfessionalEmailChallengeParams{
-				ChallengeID: challenge, ProfessionalEmailID: emailID,
-				HubUserDid: did, CodeHash: hash,
-				OperationID: operationID, CommandID: commandID,
-				IdempotencyKey: idempotencyKey, RequestDigest: digest[:],
-				PayloadBytes: []byte("{}"),
-				OperationExpiresAt: dbvalue.Timestamp(
-					time.Now().Add(7 * 24 * time.Hour),
-				),
-				TenantID: "sgp",
-			})
-	}
-	if _, err := verifyChallenge(
-		challengeID, codeHash, "professional-email-test-key-0",
-	); !errors.Is(err, pgx.ErrNoRows) {
+	if _, err := q.VerifyHubProfessionalEmailChallenge(ctx,
+		sqlc.VerifyHubProfessionalEmailChallengeParams{
+			ChallengeID: challengeID, ProfessionalEmailID: emailID,
+			HubUserDid: did, CodeHash: codeHash, TenantID: "sgp",
+		}); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("superseded challenge verification = %v, want no rows", err)
 	}
 	challengeID = newChallengeID
 	wrongHash := make([]byte, 32)
-	result, err := verifyChallenge(
-		challengeID, wrongHash, "professional-email-test-key-1",
-	)
+	result, err := q.VerifyHubProfessionalEmailChallenge(ctx,
+		sqlc.VerifyHubProfessionalEmailChallengeParams{
+			ChallengeID: challengeID, ProfessionalEmailID: emailID,
+			HubUserDid: did, CodeHash: wrongHash, TenantID: "sgp",
+		})
 	if err != nil || result.Verified || result.AttemptCount != 1 {
 		t.Fatalf("failed verification = %+v, %v", result, err)
 	}
-	result, err = verifyChallenge(
-		challengeID, codeHash, "professional-email-test-key-2",
-	)
-	if err != nil || !result.Verified || !result.OperationID.Valid {
+	result, err = q.VerifyHubProfessionalEmailChallenge(ctx,
+		sqlc.VerifyHubProfessionalEmailChallengeParams{
+			ChallengeID: challengeID, ProfessionalEmailID: emailID,
+			HubUserDid: did, CodeHash: codeHash, TenantID: "sgp",
+		})
+	if err != nil || !result.Verified || !result.FirstVerifiedAt.Valid ||
+		!result.LastVerifiedAt.Valid {
 		t.Fatalf("successful verification = %+v, %v", result, err)
 	}
-	var claimState string
-	if err := tx.QueryRow(ctx, `SELECT state::text
-        FROM vetchium.federation_operations
-        WHERE operation_id = $1 AND kind = 'hub-professional-email-claim'`,
-		result.OperationID).Scan(&claimState); err != nil || claimState != "pending" {
-		t.Fatalf("claim operation state = %q, %v", claimState, err)
-	}
-	_, err = verifyChallenge(
-		challengeID, codeHash, "professional-email-test-key-3",
-	)
+	_, err = q.VerifyHubProfessionalEmailChallenge(ctx,
+		sqlc.VerifyHubProfessionalEmailChallengeParams{
+			ChallengeID: challengeID, ProfessionalEmailID: emailID,
+			HubUserDid: did, CodeHash: codeHash, TenantID: "sgp",
+		})
 	if !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("replayed verification error = %v, want no rows", err)
 	}
@@ -905,17 +885,15 @@ func TestHubProfileConstraintsIntegration(t *testing.T) {
          (hub_user_did, title, credential_url)
          VALUES ($1, 'Certificate', 'https://user:password@example.org/cert')`, did)
 	_, err = tx.Exec(ctx, `INSERT INTO vetchium.hub_professional_emails
-        (hub_user_did, email_address, domain, email_digest)
-        VALUES ($1, 'first@example.org', 'example.org',
-                sha256(convert_to('first@example.org', 'UTF8')))`, did)
+        (hub_user_did, email_address, domain)
+        VALUES ($1, 'first@example.org', 'example.org')`, did)
 	if err != nil {
 		t.Fatal(err)
 	}
 	expectProfileConstraintError(t, ctx, tx,
 		`INSERT INTO vetchium.hub_professional_emails
-         (hub_user_did, email_address, domain, email_digest)
-         VALUES ($1, 'second@example.org', 'example.org',
-                 sha256(convert_to('second@example.org', 'UTF8')))`, did)
+         (hub_user_did, email_address, domain)
+         VALUES ($1, 'second@example.org', 'example.org')`, did)
 	futureMonth := time.Now().UTC().AddDate(1, 0, 0)
 	futureMonth = time.Date(futureMonth.Year(), futureMonth.Month(), 1,
 		0, 0, 0, 0, time.UTC)

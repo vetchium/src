@@ -15,7 +15,6 @@ import (
 	"backend/internal/directoryclient"
 	"backend/internal/hub/auth"
 	"backend/internal/hub/emailchange"
-	"backend/internal/hub/professionalemail"
 	"backend/internal/hub/signupcompletion"
 	"backend/internal/profileclient"
 	"backend/internal/profilepicture"
@@ -32,28 +31,22 @@ type PictureStorage interface {
 // global-coordinator and mesh-api also import for their own unrelated
 // routes, and identitydigest must never be linked into those binaries
 // (GU-KEY-002). Only backend/cmd/hub-api constructs the concrete key.
-//
-// It covers both digest namespaces (account and professional email):
-// handlers reach it as s.DigestKey for both CreateHubProfessionalEmail
-// (GU-PEM-001) and the account-email paths, so one field suffices.
 type AccountEmailDigester interface {
 	HubAccountEmail(address string) []byte
-	HubProfessionalEmail(address string) []byte
 	ID() string
 }
 
 type Server struct {
 	*apiserver.Runtime
-	Regions           *regions.Catalog
-	RegionDirectory   regions.Directory
-	Directory         *directoryclient.Client
-	Profiles          *profileclient.Client
-	Pictures          PictureStorage
-	SignupCompletion  *signupcompletion.Service
-	EmailChange       *emailchange.Service
-	ProfessionalEmail *professionalemail.Service
-	Signup            regions.Admission
-	Queries           sqlc.Querier
+	Regions          *regions.Catalog
+	RegionDirectory  regions.Directory
+	Directory        *directoryclient.Client
+	Profiles         *profileclient.Client
+	Pictures         PictureStorage
+	SignupCompletion *signupcompletion.Service
+	EmailChange      *emailchange.Service
+	Signup           regions.Admission
+	Queries          sqlc.Querier
 	// DigestKey computes the keyed digests the global directory holds claims
 	// for (GU-CFG-002); it never leaves hub-api and workers.
 	DigestKey AccountEmailDigester

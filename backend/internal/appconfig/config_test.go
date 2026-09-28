@@ -84,16 +84,6 @@ func TestLoadFile(t *testing.T) {
 			cfg.Workers.ReconcileHubEmailChangeTimer,
 		)
 	}
-	if cfg.Workers.CompleteHubProfessionalEmailClaimsTimer != time.Minute ||
-		cfg.Workers.SyncHubProfessionalEmailSupersessionsTimer != time.Minute ||
-		cfg.Workers.SweepHubProfessionalEmailHoldingsTimer != time.Minute {
-		t.Fatalf(
-			"professional email timers = %s, %s, %s, want 1m each",
-			cfg.Workers.CompleteHubProfessionalEmailClaimsTimer,
-			cfg.Workers.SyncHubProfessionalEmailSupersessionsTimer,
-			cfg.Workers.SweepHubProfessionalEmailHoldingsTimer,
-		)
-	}
 	if cfg.SMTP.Host != "mailpit" || cfg.SMTP.Port != 1025 ||
 		cfg.SMTP.StartTLS != StartTLSDisabled {
 		t.Fatalf("SMTP config = %+v", cfg.SMTP)
@@ -391,9 +381,6 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "advanceHubSubscriptionsTimer": "1m",
     "reconcileHubSignupTimer": "1m",
     "reconcileHubEmailChangeTimer": "1m",
-    "completeHubProfessionalEmailClaimsTimer": "1m",
-    "syncHubProfessionalEmailSupersessionsTimer": "1m",
-    "sweepHubProfessionalEmailHoldingsTimer": "1m",
     "deliverOrgEmailTimer": "1s",
     "orgEmailLeaseTTL": "1m",
     "orgEmailMaxAttempts": 5,
@@ -763,9 +750,6 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "advanceHubSubscriptionsTimer": "1m",
     "reconcileHubSignupTimer": "1m",
     "reconcileHubEmailChangeTimer": "1m",
-    "completeHubProfessionalEmailClaimsTimer": "1m",
-    "syncHubProfessionalEmailSupersessionsTimer": "1m",
-    "sweepHubProfessionalEmailHoldingsTimer": "1m",
     "deliverOrgEmailTimer": "1s",
     "orgEmailLeaseTTL": "1m",
     "orgEmailMaxAttempts": 5,

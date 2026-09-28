@@ -285,18 +285,14 @@ export const hubAPI = {
       `${base}/profile/professional-email/request-code`,
       { body, idempotencyKey },
     ),
-  // A 204 resolves the claim immediately (the common case); a 202 means the
-  // global directory hiccupped and the caller must poll operationStatus,
-  // then replay this same call with the same idempotency key for the
-  // resolved typed result (GU-PEM-003).
   verifyProfessionalEmail: (
     body: VerifyProfessionalEmailRequest,
     idempotencyKey: IdempotencyKey,
   ) =>
-    apiRequest<PendingOperation | undefined>(
-      `${base}/profile/professional-email/verify`,
-      { body, idempotencyKey },
-    ),
+    apiRequest<void>(`${base}/profile/professional-email/verify`, {
+      body,
+      idempotencyKey,
+    }),
   deleteProfessionalEmail: (
     body: ProfessionalEmailIDRequest,
     idempotencyKey: IdempotencyKey,

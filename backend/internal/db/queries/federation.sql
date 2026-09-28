@@ -62,18 +62,6 @@ WHERE kind = 'hub-alias-release'
 ORDER BY next_attempt_at, created_at, operation_id
 LIMIT sqlc.arg(batch_size);
 
--- name: ListRecoverableHubProfessionalEmailOperations :many
-SELECT operation_id, command_id, kind, target_authority, aggregate_id,
-    owner_principal_type, owner_principal_id, idempotency_key,
-    request_digest, payload_bytes, state, response_status,
-    response_ciphertext, attempt_count, next_attempt_at, last_error,
-    created_at, updated_at, completed_at, expires_at
-FROM vetchium.federation_operations
-WHERE kind IN ('hub-professional-email-claim', 'hub-professional-email-release')
-  AND state = 'pending' AND next_attempt_at <= now()
-ORDER BY next_attempt_at, created_at, operation_id
-LIMIT sqlc.arg(batch_size);
-
 -- name: GetHubFederationOperationStatus :one
 SELECT operation_id, state
 FROM vetchium.federation_operations

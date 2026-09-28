@@ -884,12 +884,6 @@ type VetchiumFederationOutbox struct {
 	LastError           pgtype.Text        `json:"last_error"`
 }
 
-type VetchiumGlobalFeedWatermark struct {
-	Feed      string             `json:"feed"`
-	LastSeq   int64              `json:"last_seq"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
 type VetchiumHubAccountEmailChange struct {
 	OperationID         pgtype.UUID                        `json:"operation_id"`
 	HubUserDid          pgtype.UUID                        `json:"hub_user_did"`
@@ -995,12 +989,8 @@ type VetchiumHubProfessionalEmail struct {
 	HubUserDid          pgtype.UUID        `json:"hub_user_did"`
 	EmailAddress        string             `json:"email_address"`
 	Domain              string             `json:"domain"`
-	EmailDigest         []byte             `json:"email_digest"`
 	FirstVerifiedAt     pgtype.Timestamptz `json:"first_verified_at"`
 	LastVerifiedAt      pgtype.Timestamptz `json:"last_verified_at"`
-	ClaimRevision       pgtype.Int8        `json:"claim_revision"`
-	SupersededRevision  int64              `json:"superseded_revision"`
-	SupersededAt        pgtype.Timestamptz `json:"superseded_at"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }

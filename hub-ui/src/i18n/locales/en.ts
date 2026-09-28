@@ -221,14 +221,11 @@ export const en = {
     verifiedDates: "First verified {{first}} · Last verified {{last}}",
     annualReminder:
       "It has been a year since you last verified this address. You may request a new code if you still control it.",
-    superseded:
-      "Verification moved to another account. Request a new code if this address is still yours.",
     requestCode: "Send verification code",
     codeSent: "A verification code was sent to this address.",
     codeExpires: "Code expires {{date}}",
     codeLabel: "Six-digit verification code",
     verify: "Verify address",
-    applying: "Applying your verification…",
     verified: "Address verified.",
     remove: "Remove address",
     confirmRemove: "Remove this professional address?",

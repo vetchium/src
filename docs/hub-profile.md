@@ -123,9 +123,7 @@ they appear in bold.
   another code and **MUST NOT** request more than five codes in a rolling hour.
 - **PROF-WEM-007:** The first successful verification **MUST** set exact
   `first_verified_at` and `last_verified_at` instants. A later successful
-  verification **MUST** update `last_verified_at` and, if the row was
-  superseded, clear that state: a fresh proof of control always retakes the
-  address (see PROF-WEM-014).
+  verification **MUST** update only `last_verified_at`.
 - **PROF-WEM-008:** Verification evidence **MUST NOT** be described as valid,
   invalid, active, expired, or revoked merely because time has passed. Gaps
   between verifications are allowed.
@@ -149,25 +147,6 @@ they appear in bold.
   addresses in descending `last_verified_at` order. Pending addresses **MUST**
   follow them in descending creation order, with a stable identifier as the
   final deterministic tie-breaker.
-- **PROF-WEM-014:** A verified professional email address **MUST** be held by
-  at most one Hub user globally, across every tenant. Between two proofs of
-  control of the same address, the newer proof **MUST** always win, whether
-  the previous holder was in this tenant or another one, and regardless of
-  which tenant the newer proof was submitted to.
-- **PROF-WEM-015:** When a proof elsewhere takes an address this tenant's user
-  had verified, that user's row **MUST** stop counting as verified evidence
-  everywhere it is read (PROF-WEM-011's domain display included), without a
-  message being sent and without revealing who holds the address now. The
-  owner's private view **MUST** show that verification moved to another
-  account, using PROF-WEM-008's non-judgmental wording, with an action to
-  verify the address again if it is still theirs.
-- **PROF-WEM-016:** This global reconciliation **MAY** lag briefly behind a
-  transfer that happened at another tenant; the private view need not update
-  faster than the sync interval `agent-guides/hub-profile.md` documents.
-  During a global-directory outage, an affected tenant's data **MUST NOT** be
-  lost: the transfer applies once connectivity returns, and a periodic
-  reconciliation independently repairs any row that a lost update would
-  otherwise leave stale.
 
 ## 6. Work experience
 
