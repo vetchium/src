@@ -314,6 +314,9 @@ type mutation[R any] struct {
 	entityID         string
 	auditAction      string
 	eventType        string
+	// auditPayload replaces the default {schema_version, principal: response}
+	// audit payload when the response alone does not identify the change.
+	auditPayload any
 	// outboxEvents replaces the default single principal-versioned event for
 	// commands whose change is versioned by another aggregate.
 	outboxEvents []outboxEvent
@@ -463,10 +466,14 @@ func appendChangeRecords[R any](
 	ctx context.Context, q *sqlc.Queries, commandID pgtype.UUID,
 	caller directoryspec.TenantID, change mutation[R],
 ) error {
-	payload, err := json.Marshal(struct {
+	var auditPayload any = struct {
 		SchemaVersion int `json:"schema_version"`
 		Principal     R   `json:"principal"`
-	}{SchemaVersion: 1, Principal: change.response})
+	}{SchemaVersion: 1, Principal: change.response}
+	if change.auditPayload != nil {
+		auditPayload = change.auditPayload
+	}
+	payload, err := json.Marshal(auditPayload)
 	if err != nil {
 		return fmt.Errorf("encode directory change record: %w", err)
 	}

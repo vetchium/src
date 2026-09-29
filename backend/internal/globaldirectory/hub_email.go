@@ -68,15 +68,26 @@ func (s *Service) PruneTerminalHubAccountEmailChangeReservations(
 	}
 }
 
-// reservationChanged reports a reservation transition. A reservation is
-// written once and changes state at most once afterwards, so its outbox
-// version is 1 when written and 2 after that terminal transition. Neither the
-// audit nor the outbox payload carries a digest.
+// reservationChanged reports a reservation transition, plus any stale
+// reservations a reserve cancelled on the way. A reservation is written once
+// and changes state at most once afterwards, so its outbox version is 1 when
+// written and 2 after that terminal transition. The audit event names every
+// reservation the command changed, so the audit trail alone reconstructs the
+// transitions. Neither the audit nor the outbox payload carries a digest.
 func reservationChanged(
 	changeID directoryspec.CommandID, did hub.HubUserDID,
 	state directoryspec.EmailChangeReservationState, version int64,
-	auditAction string, extra ...outboxEvent,
+	auditAction string, cancelled ...string,
 ) emailChangeMutation {
+	events := []outboxEvent{reservationEvent(string(changeID), did, state, version)}
+	for _, staleID := range cancelled {
+		events = append(events, reservationEvent(
+			staleID, did, directoryspec.EmailChangeCancelled, 2,
+		))
+	}
+	if cancelled == nil {
+		cancelled = []string{}
+	}
 	return emailChangeMutation{
 		response: directoryspec.HubAccountEmailChangeReservationResponse{
 			State: state,
@@ -84,10 +95,16 @@ func reservationChanged(
 		changed:    true,
 		entityType: "hub_account_email_claim", entityID: string(did),
 		auditAction: auditAction,
-		outboxEvents: append(
-			[]outboxEvent{reservationEvent(string(changeID), did, state, version)},
-			extra...,
-		),
+		auditPayload: struct {
+			SchemaVersion      int                                       `json:"schema_version"`
+			ChangeID           directoryspec.CommandID                   `json:"change_id"`
+			State              directoryspec.EmailChangeReservationState `json:"state"`
+			CancelledChangeIDs []string                                  `json:"cancelled_change_ids"`
+		}{
+			SchemaVersion: 1, ChangeID: changeID, State: state,
+			CancelledChangeIDs: cancelled,
+		},
+		outboxEvents: events,
 	}
 }
 
@@ -256,12 +273,9 @@ func (s *Service) ReserveHubAccountEmailChange(
 					"reserve Hub account email change: %w", err,
 				)
 			}
-			stale := make([]outboxEvent, 0, len(row.StaleChangeIds))
+			stale := make([]string, 0, len(row.StaleChangeIds))
 			for _, staleID := range row.StaleChangeIds {
-				stale = append(stale, reservationEvent(
-					dbvalue.FormatUUID(staleID), request.HubUserDID,
-					directoryspec.EmailChangeCancelled, 2,
-				))
+				stale = append(stale, dbvalue.FormatUUID(staleID))
 			}
 			return reservationChanged(
 				request.ChangeID, request.HubUserDID,

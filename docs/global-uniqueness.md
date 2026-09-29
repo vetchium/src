@@ -681,9 +681,14 @@ started.
 - `appconfig`: the new secret reader and timers.
 - `architecture`: GU-KEY-002.
 - `globaldirectory` integration tests (`service_integration_test.go` and
-  `org_integration_test.go` style, new `hub_email_integration_test.go`). Each
-  case asserts the ledger, audit and outbox rows, and that no digest appears in
-  audit JSON:
+  `org_integration_test.go` style, new `hub_email_integration_test.go`).
+  `TestHubAccountEmailChangeChangeRecords` asserts the ledger, audit and
+  outbox rows of reserve, finalize, abandon, and a stale cancellation, that no
+  digest appears in audit or outbox JSON, and that a replay writes nothing;
+  `TestHubAccountEmailChangeAuditFailureRollsBack` asserts that a failed
+  audit insert rolls back the whole command; the reaper and prune tests
+  assert their audit events. The remaining cases assert directory state and
+  problem types:
   - reserve with a free and a taken email
   - the email conflict is distinct from a handle conflict
   - activate promotes the claim
@@ -883,14 +888,15 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
 
 ## 10. Progress log
 
-**Current milestone:** complete. M1–M4 and M6 (account-email scope) are
-verified by a green full `make test` (402 Playwright tests passed).
+**Current milestone:** complete. M1–M4, M6 (account-email scope), and the
+review fixes below are verified by a green full `make test` (433 Playwright
+tests passed at the review fixes; 402 at M6's first close-out).
 M5 (professional email claims) was fully implemented, then reverted whole:
 the product owner decided against global uniqueness for professional emails
-after the M5 commits landed (see §1's "Dropped" note for the rationale).
-Continuing M6 now, scoped to account-email only (signup and email change);
-professional-email Playwright/doc items §4.2/§4.3/§5 originally listed are
-dropped along with GU-PEM.
+after the M5 commits landed (see §1's "Dropped" note for the rationale). M6
+was therefore finished in account-email scope only (signup and email
+change); the professional-email Playwright/doc items §4.2/§4.3/§5
+originally listed are dropped along with GU-PEM.
 
 M4 delivered: schema, queries, the `emailchange` service and worker, the
 handlers, the TypeSpec contracts (`.tsp`/`.go`/`.ts` companions), the
@@ -946,7 +952,11 @@ and tested:
   tenant. Email-change commands write outbox events on the
   `hub_account_email_change_reservation` aggregate (version 1 when written,
   2 after its one terminal transition), including the stale reservation a
-  newer reserve cancels, which satisfies PROF-XTN-002. The Org reaper's
+  newer reserve cancels, which satisfies PROF-XTN-002. Each email-change
+  audit event carries `{schema_version, change_id, state,
+  cancelled_change_ids}`, so the audit trail alone reconstructs every
+  reservation transition, including the stale one a reserve cancels. The
+  Org reaper's
   `:execrows` over a trailing `SELECT count(*)` always reported one row; both
   reapers now return the deleted count.
 - `RequestEmailChange` resolved the address inside `RunIdempotent`'s open
@@ -957,6 +967,9 @@ and tested:
 - Playwright now covers the four coordinator and four mesh email-directory
   routes (authentication, validation, and every declared non-5xx problem) and
   the confirm in-progress 409 and reservation-expired 503.
+- Remaining coverage gaps in the API report (`/api/orgs/complete-signup`
+  403 and `/api/orgs/request-signup`'s `org-signup-unavailable`) belong to
+  Org signup, which this branch does not change.
 
 **Design decisions already validated against a real disposable PostgreSQL
 container** (a scratch `postgres:17-alpine` container, not part of the repo;

@@ -572,10 +572,11 @@ func TestHubAccountEmailChangeRejectsAnotherUsersReservation(t *testing.T) {
 	}
 }
 
-// Every reservation transition writes a versioned, digest-free outbox event
-// in the command's transaction (PROF-XTN-002), including the stale
-// reservation a newer reserve cancels.
-func TestHubAccountEmailChangeOutboxEvents(t *testing.T) {
+// Every email-change command writes its ledger row, one audit event naming
+// each reservation it changed, and a versioned outbox event per transition in
+// one transaction (PROF-XTN-002), including the stale reservation a newer
+// reserve cancels. No record carries a digest, and a replay adds none.
+func TestHubAccountEmailChangeChangeRecords(t *testing.T) {
 	pool := newHubEmailTestPool(t)
 	service := New(pool, testDigestKeyID)
 	ctx := context.Background()
@@ -655,6 +656,194 @@ func TestHubAccountEmailChangeOutboxEvents(t *testing.T) {
 		if !got[event] {
 			t.Fatalf("missing outbox event %s in %v", event, got)
 		}
+	}
+
+	type auditRecord struct {
+		action, changeID, state, cancelled, entity, actor, commandID string
+	}
+	auditRows, err := pool.Query(ctx, `SELECT action,
+            payload ->> 'change_id', payload ->> 'state',
+            (payload -> 'cancelled_change_ids')::text,
+            entity_type || '/' || entity_id, actor_tenant_id,
+            command_id::text, payload::text
+        FROM vetchium.global_audit_events
+        WHERE action LIKE 'global_directory.hub_account_email_change%'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer auditRows.Close()
+	audits := map[string]auditRecord{}
+	for auditRows.Next() {
+		var record auditRecord
+		var payload string
+		if err := auditRows.Scan(
+			&record.action, &record.changeID, &record.state, &record.cancelled,
+			&record.entity, &record.actor, &record.commandID, &payload,
+		); err != nil {
+			t.Fatal(err)
+		}
+		for _, change := range []directoryspec.CommandID{stale, live, fenced} {
+			if strings.Contains(payload, string(digestFor("address-"+string(change)))) {
+				t.Fatalf("audit payload carries a digest: %s", payload)
+			}
+		}
+		audits[record.commandID] = record
+	}
+	if err := auditRows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	entity := "hub_account_email_claim/" + string(did)
+	record := func(
+		action, commandLabel string, change directoryspec.CommandID,
+		state, cancelled string,
+	) auditRecord {
+		return auditRecord{
+			action: "global_directory." + action, changeID: string(change),
+			state: state, cancelled: cancelled, entity: entity, actor: "sgp",
+			commandID: uuidFor(commandLabel),
+		}
+	}
+	wantAudits := []auditRecord{
+		record("hub_account_email_change_reserved", "reserve-"+string(stale),
+			stale, "reserved", "[]"),
+		record("hub_account_email_change_reserved", "reserve-"+string(live),
+			live, "reserved", `["`+string(stale)+`"]`),
+		record("hub_account_email_changed", "outbox-finalize",
+			live, "finalized", "[]"),
+		record("hub_account_email_change_abandoned", "outbox-abandon",
+			fenced, "cancelled", "[]"),
+	}
+	// The LIKE above also matches hub_account_email_changed.
+	if len(audits) != len(wantAudits) {
+		t.Fatalf("audit events = %+v, want %+v", audits, wantAudits)
+	}
+	for _, want := range wantAudits {
+		if audits[want.commandID] != want {
+			t.Fatalf("audit = %+v, want %+v", audits[want.commandID], want)
+		}
+	}
+
+	var ledger int
+	if err := pool.QueryRow(ctx, `SELECT count(*)
+        FROM vetchium.global_command_ledger
+        WHERE command_id = ANY($1::uuid[]) AND response_status = 200`,
+		[]string{
+			uuidFor("reserve-" + string(stale)), uuidFor("reserve-" + string(live)),
+			uuidFor("outbox-finalize"), uuidFor("outbox-abandon"),
+		},
+	).Scan(&ledger); err != nil || ledger != 4 {
+		t.Fatalf("ledger rows = %d, %v", ledger, err)
+	}
+
+	// Replaying a stored command returns its result and writes nothing new.
+	counts := func() string {
+		t.Helper()
+		var total string
+		if err := pool.QueryRow(ctx, `SELECT
+                (SELECT count(*) FROM vetchium.global_command_ledger) || '/' ||
+                (SELECT count(*) FROM vetchium.global_audit_events) || '/' ||
+                (SELECT count(*) FROM vetchium.global_outbox_events)`,
+		).Scan(&total); err != nil {
+			t.Fatal(err)
+		}
+		return total
+	}
+	before := counts()
+	if outcome, err := service.FinalizeHubAccountEmailChange(
+		ctx, "sgp", directoryspec.FinalizeHubAccountEmailChangeRequest{
+			CommandID: directoryspec.CommandID(uuidFor("outbox-finalize")),
+			ChangeID:  live, HubUserDID: did,
+		},
+	); err != nil || outcome.Problem != nil {
+		t.Fatalf("finalize replay: outcome=%+v err=%v", outcome, err)
+	}
+	if after := counts(); after != before {
+		t.Fatalf("replay wrote records: ledger/audit/outbox %s -> %s", before, after)
+	}
+}
+
+// A failed audit insert rolls back the whole command: the new reservation,
+// its claim, the stale cancellation, the outbox events, and the ledger row.
+// The identical command then succeeds once the audit can be written.
+func TestHubAccountEmailChangeAuditFailureRollsBack(t *testing.T) {
+	pool := newHubEmailTestPool(t)
+	service := New(pool, testDigestKeyID)
+	ctx := context.Background()
+	did := activateTestPrincipal(t, service, "sgp", "audit-failure")
+	notAfter := time.Now().UTC().Add(time.Hour)
+	stale := directoryspec.ReserveHubAccountEmailChangeRequest{
+		CommandID:  directoryspec.CommandID(uuidFor("audit-failure-stale-cmd")),
+		ChangeID:   directoryspec.CommandID(uuidFor("audit-failure-stale")),
+		HubUserDID: did, NewEmailDigest: digestFor("audit-failure-stale"),
+		NotAfter: notAfter, DigestKeyID: testDigestKeyID,
+	}
+	if outcome, err := service.ReserveHubAccountEmailChange(ctx, "sgp", stale); err != nil || outcome.Problem != nil {
+		t.Fatalf("stale reserve: outcome=%+v err=%v", outcome, err)
+	}
+
+	// The trigger lives only in this test's disposable database.
+	if _, err := pool.Exec(ctx, `
+        CREATE FUNCTION vetchium.test_reject_email_change_audit()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+            RAISE EXCEPTION 'injected audit failure';
+        END;
+        $$;
+        CREATE TRIGGER test_reject_email_change_audit
+        BEFORE INSERT ON vetchium.global_audit_events
+        FOR EACH ROW
+        WHEN (NEW.action = 'global_directory.hub_account_email_change_reserved')
+        EXECUTE FUNCTION vetchium.test_reject_email_change_audit();`,
+	); err != nil {
+		t.Fatal(err)
+	}
+	dropTrigger := func() {
+		if _, err := pool.Exec(ctx, `
+            DROP TRIGGER IF EXISTS test_reject_email_change_audit
+                ON vetchium.global_audit_events;
+            DROP FUNCTION IF EXISTS vetchium.test_reject_email_change_audit();`,
+		); err != nil {
+			t.Error(err)
+		}
+	}
+	t.Cleanup(dropTrigger)
+
+	replacement := directoryspec.ReserveHubAccountEmailChangeRequest{
+		CommandID:  directoryspec.CommandID(uuidFor("audit-failure-cmd")),
+		ChangeID:   directoryspec.CommandID(uuidFor("audit-failure-change")),
+		HubUserDID: did, NewEmailDigest: digestFor("audit-failure-new"),
+		NotAfter: notAfter, DigestKeyID: testDigestKeyID,
+	}
+	if _, err := service.ReserveHubAccountEmailChange(ctx, "sgp", replacement); err == nil {
+		t.Fatal("reserve succeeded despite the audit failure")
+	}
+	var reservations, pendingDigest, ledger, events string
+	if err := pool.QueryRow(ctx, `SELECT
+            (SELECT string_agg(change_id::text || ':' || state::text, ',')
+             FROM vetchium.hub_account_email_change_reservations),
+            (SELECT encode(email_digest, 'hex')
+             FROM vetchium.hub_account_email_claims
+             WHERE hub_user_did = $1 AND state = 'pending_change'),
+            (SELECT count(*)::text FROM vetchium.global_command_ledger
+             WHERE command_id = $2),
+            (SELECT count(*)::text FROM vetchium.global_outbox_events
+             WHERE aggregate_id = $3)`,
+		string(did), string(replacement.CommandID), string(replacement.ChangeID),
+	).Scan(&reservations, &pendingDigest, &ledger, &events); err != nil {
+		t.Fatal(err)
+	}
+	if reservations != string(stale.ChangeID)+":reserved" ||
+		pendingDigest != string(stale.NewEmailDigest) ||
+		ledger != "0" || events != "0" {
+		t.Fatalf("after failed audit: reservations=%s pending=%s ledger=%s outbox=%s",
+			reservations, pendingDigest, ledger, events)
+	}
+
+	dropTrigger()
+	outcome, err := service.ReserveHubAccountEmailChange(ctx, "sgp", replacement)
+	if err != nil || outcome.Problem != nil ||
+		outcome.Reservation.State != directoryspec.EmailChangeReserved {
+		t.Fatalf("retry: outcome=%+v err=%v", outcome, err)
 	}
 }
 
