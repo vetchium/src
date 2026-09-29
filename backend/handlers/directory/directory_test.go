@@ -12,6 +12,7 @@ import (
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	"github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/orgs"
+	"github.com/vetchium/src/typespec/problem"
 	coordinatorproblem "github.com/vetchium/src/typespec/problem/global-coordinator"
 
 	"backend/internal/apiserver"
@@ -20,20 +21,26 @@ import (
 )
 
 const (
-	testDID       = "018f7e32-7b5a-7d31-8fd0-f7e2a852f144"
-	testCommandID = "4569b853-4778-4e67-a635-5f41b06585f5"
-	testHandle    = "abcde000-0123456789a"
+	testDID         = "018f7e32-7b5a-7d31-8fd0-f7e2a852f144"
+	testCommandID   = "4569b853-4778-4e67-a635-5f41b06585f5"
+	testHandle      = "abcde000-0123456789a"
+	testEmailDigest = "bee57e69a23d800d7718d0e79b2be1519e131232967431dba85e2737b6621f6e"
 )
 
+const testDigestKeyID = "909577e87ebd5395"
+
 type fakeService struct {
-	resolveResponse directoryspec.ResolveProfileSlugResponse
-	resolveErr      error
-	outcome         globaldirectory.Outcome
-	orgResolve      directoryspec.ResolveOrgDomainResponse
-	orgOutcome      globaldirectory.OrgOutcome
-	commandErr      error
-	caller          directoryspec.TenantID
-	command         string
+	resolveResponse      directoryspec.ResolveProfileSlugResponse
+	resolveErr           error
+	outcome              globaldirectory.Outcome
+	orgResolve           directoryspec.ResolveOrgDomainResponse
+	orgOutcome           globaldirectory.OrgOutcome
+	emailChangeOutcome   globaldirectory.EmailChangeOutcome
+	resolveEmailResponse directoryspec.ResolveHubAccountEmailResponse
+	resolveEmailProblem  *problem.Details
+	commandErr           error
+	caller               directoryspec.TenantID
+	command              string
 }
 
 func (f *fakeService) ResolveProfileSlug(
@@ -102,6 +109,36 @@ func (f *fakeService) ClaimOrgDomain(
 ) (globaldirectory.OrgOutcome, error) {
 	f.caller, f.command = caller, "claim-org-domain"
 	return f.orgOutcome, f.commandErr
+}
+
+func (f *fakeService) ResolveHubAccountEmail(
+	context.Context, directoryspec.ResolveHubAccountEmailRequest,
+) (directoryspec.ResolveHubAccountEmailResponse, *problem.Details, error) {
+	return f.resolveEmailResponse, f.resolveEmailProblem, f.resolveErr
+}
+
+func (f *fakeService) ReserveHubAccountEmailChange(
+	_ context.Context, caller directoryspec.TenantID,
+	_ directoryspec.ReserveHubAccountEmailChangeRequest,
+) (globaldirectory.EmailChangeOutcome, error) {
+	f.caller, f.command = caller, "reserve-email-change"
+	return f.emailChangeOutcome, f.commandErr
+}
+
+func (f *fakeService) FinalizeHubAccountEmailChange(
+	_ context.Context, caller directoryspec.TenantID,
+	_ directoryspec.FinalizeHubAccountEmailChangeRequest,
+) (globaldirectory.EmailChangeOutcome, error) {
+	f.caller, f.command = caller, "finalize-email-change"
+	return f.emailChangeOutcome, f.commandErr
+}
+
+func (f *fakeService) AbandonHubAccountEmailChange(
+	_ context.Context, caller directoryspec.TenantID,
+	_ directoryspec.AbandonHubAccountEmailChangeRequest,
+) (globaldirectory.EmailChangeOutcome, error) {
+	f.caller, f.command = caller, "abandon-email-change"
+	return f.emailChangeOutcome, f.commandErr
 }
 
 func TestResolveProfileSlugHandler(t *testing.T) {
@@ -184,7 +221,9 @@ func TestCommandHandlers(t *testing.T) {
 				`"hub_user_did":"` + testDID + `",` +
 				`"handle":"` + testHandle + `",` +
 				`"home_tenant_id":"ind1",` +
-				`"provisioning_expires_at":"2030-01-01T00:00:00Z"}`,
+				`"provisioning_expires_at":"2030-01-01T00:00:00Z",` +
+				`"account_email_digest":"` + testEmailDigest + `",` +
+				`"digest_key_id":"` + testDigestKeyID + `"}`,
 			handler: ReserveHubPrincipal,
 		},
 		{
@@ -373,5 +412,120 @@ func TestOrgCommandHandlers(t *testing.T) {
 	)
 	if recorder.Code != http.StatusConflict {
 		t.Fatalf("claim conflict status = %d", recorder.Code)
+	}
+}
+
+func TestResolveHubAccountEmailHandler(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name       string
+		authorized bool
+		err        error
+		problem    *problem.Details
+		status     int
+	}{
+		{name: "success", authorized: true, status: 200},
+		{
+			name: "missing", authorized: true,
+			err: globaldirectory.ErrNotFound, status: 404,
+		},
+		{name: "unauthenticated", status: 401},
+		{
+			name: "digest key mismatch", authorized: true,
+			problem: &coordinatorproblem.DirectoryDigestKeyMismatchError,
+			status:  409,
+		},
+		{
+			name: "database failure", authorized: true,
+			err: fmt.Errorf("offline"), status: 500,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			service := &fakeService{
+				resolveEmailResponse: directoryspec.ResolveHubAccountEmailResponse{
+					HomeTenantID: "ind1",
+				},
+				resolveEmailProblem: test.problem, resolveErr: test.err,
+			}
+			body := `{"email_digest":"` + testEmailDigest + `",` +
+				`"digest_key_id":"` + testDigestKeyID + `"}`
+			recorder := serve(
+				t, test.authorized, body,
+				ResolveHubAccountEmail(testRuntime(), service),
+			)
+			if recorder.Code != test.status {
+				t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body)
+			}
+		})
+	}
+}
+
+func TestEmailChangeCommandHandlers(t *testing.T) {
+	t.Parallel()
+	response := directoryspec.HubAccountEmailChangeReservationResponse{
+		State: directoryspec.EmailChangeReserved,
+	}
+	reserveBody := `{"command_id":"` + testCommandID + `",` +
+		`"change_id":"` + testCommandID + `",` +
+		`"hub_user_did":"` + testDID + `",` +
+		`"new_email_digest":"` + testEmailDigest + `",` +
+		`"not_after":"2030-01-01T00:00:00Z",` +
+		`"digest_key_id":"` + testDigestKeyID + `"}`
+	simpleBody := `{"command_id":"` + testCommandID + `",` +
+		`"change_id":"` + testCommandID + `",` +
+		`"hub_user_did":"` + testDID + `"}`
+	abandonBody := `{"command_id":"` + testCommandID + `",` +
+		`"change_id":"` + testCommandID + `",` +
+		`"hub_user_did":"` + testDID + `",` +
+		`"not_after":"2030-01-01T00:00:00Z"}`
+	for _, test := range []struct {
+		name, body, wantCommand string
+		handler                 func(*apiserver.Runtime, Service) http.HandlerFunc
+	}{
+		{
+			name: "reserve", wantCommand: "reserve-email-change",
+			body: reserveBody, handler: ReserveHubAccountEmailChange,
+		},
+		{
+			name: "finalize", wantCommand: "finalize-email-change",
+			body: simpleBody, handler: FinalizeHubAccountEmailChange,
+		},
+		{
+			name: "abandon", wantCommand: "abandon-email-change",
+			body: abandonBody, handler: AbandonHubAccountEmailChange,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			service := &fakeService{
+				emailChangeOutcome: globaldirectory.EmailChangeOutcome{
+					Status: http.StatusOK, Reservation: &response,
+				},
+			}
+			recorder := serve(
+				t, true, test.body, test.handler(testRuntime(), service),
+			)
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body)
+			}
+			if service.command != test.wantCommand || service.caller != "ind1" {
+				t.Fatalf(
+					"command = %q, caller = %q", service.command, service.caller,
+				)
+			}
+		})
+	}
+
+	conflict := &fakeService{emailChangeOutcome: globaldirectory.EmailChangeOutcome{
+		Status:  409,
+		Problem: &coordinatorproblem.DirectoryReservationExpiredError,
+	}}
+	recorder := serve(
+		t, true, reserveBody,
+		ReserveHubAccountEmailChange(testRuntime(), conflict),
+	)
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("reservation-expired status = %d", recorder.Code)
 	}
 }

@@ -51,10 +51,10 @@ func newWebsiteHarness(t *testing.T, handle string) *websiteHarness {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO vetchium.hub_users
-        (hub_user_did, handle, email_address, display_name, password_hash,
-         resident_country, hub_plan_oid)
-        VALUES ($1, $2, $3, 'Website Test', 'test-hash', 'SG',
-                'hub-free-tier')`,
+        (hub_user_did, handle, email_address, email_digest, display_name,
+         password_hash, resident_country, hub_plan_oid)
+        VALUES ($1, $2, $3, sha256(convert_to($3, 'UTF8')), 'Website Test',
+                'test-hash', 'SG', 'hub-free-tier')`,
 		did, handle,
 		fmt.Sprintf("website-test-%s@example.com", dbvalue.FormatUUID(did)),
 	); err != nil {
@@ -305,10 +305,10 @@ func websiteTestOwner(
 		t.Fatal(err)
 	}
 	if _, err := h.tx.Exec(h.ctx, `INSERT INTO vetchium.hub_users
-        (hub_user_did, handle, email_address, display_name, password_hash,
-         resident_country, hub_plan_oid)
-        VALUES ($1, $2, $3, 'Other Owner', 'test-hash', 'SG',
-                'hub-free-tier')`,
+        (hub_user_did, handle, email_address, email_digest, display_name,
+         password_hash, resident_country, hub_plan_oid)
+        VALUES ($1, $2, $3, sha256(convert_to($3, 'UTF8')), 'Other Owner',
+                'test-hash', 'SG', 'hub-free-tier')`,
 		did, handle,
 		fmt.Sprintf("website-other-%s@example.com", dbvalue.FormatUUID(did)),
 	); err != nil {
@@ -501,10 +501,10 @@ func TestHubWebsiteRacingWritesKeepInvariantsIntegration(t *testing.T) {
             WHERE hub_user_did = $1`, did)
 	}()
 	if _, err := pool.Exec(ctx, `INSERT INTO vetchium.hub_users
-        (hub_user_did, handle, email_address, display_name, password_hash,
-         resident_country, hub_plan_oid)
-        VALUES ($1, 'pweb6000-0123456789a', $2, 'Race Test', 'test-hash', 'SG',
-                'hub-free-tier')`,
+        (hub_user_did, handle, email_address, email_digest, display_name,
+         password_hash, resident_country, hub_plan_oid)
+        VALUES ($1, 'pweb6000-0123456789a', $2, sha256(convert_to($2, 'UTF8')),
+                'Race Test', 'test-hash', 'SG', 'hub-free-tier')`,
 		did, "website-race-"+dbvalue.FormatUUID(did)+"@example.com",
 	); err != nil {
 		t.Fatal(err)

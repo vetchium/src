@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   App,
@@ -14,13 +14,20 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { normalizeEmailAddress } from "typespec/common/common";
+import { isIdempotencyKey } from "typespec/common/idempotency";
 import {
   type EmailChangeChallenge,
   isHubEmailChangeChallengeID,
   normalizeRequestEmailChangeRequest,
   validateRequestEmailChangeRequest,
 } from "typespec/hub/auth/email_change";
-import { isRecentAuthenticationRequired } from "../../api/client";
+import { isOperationID, Pending } from "typespec/hub/operations/operations";
+import { EmailChangeUnavailableError } from "typespec/problem/hub/email";
+import {
+  APIError,
+  isProblem,
+  isRecentAuthenticationRequired,
+} from "../../api/client";
 import { hubAPI } from "../../api/hub";
 import { useIdempotencyKey } from "../../api/idempotency";
 import { usePendingOperations } from "../../app/PendingOperationContext";
@@ -32,8 +39,66 @@ interface PendingChange extends EmailChangeChallenge {
   new_email_address: string;
 }
 
+/** A confirm the API answered with 202. Replaying the same body under the same
+ * idempotency key returns its typed result, however long after the code's own
+ * expiry the operation settles. The code was consumed when the change was
+ * accepted, so keeping it only makes that replay possible. */
+interface AcceptedChange {
+  operation_id: string;
+  challenge_id: string;
+  code: string;
+  idempotency_key: string;
+}
+
 function storageKey(handle: string): string {
   return `vetchium.hub.email-change.${handle}`;
+}
+
+function acceptedStorageKey(handle: string): string {
+  return `vetchium.hub.email-change-accepted.${handle}`;
+}
+
+function readAcceptedChange(key: string): AcceptedChange | null {
+  try {
+    const stored = sessionStorage.getItem(key);
+    if (stored === null) return null;
+    const value = JSON.parse(stored) as Partial<AcceptedChange>;
+    if (
+      typeof value.operation_id === "string" &&
+      isOperationID(value.operation_id) &&
+      typeof value.challenge_id === "string" &&
+      isHubEmailChangeChallengeID(value.challenge_id) &&
+      typeof value.code === "string" &&
+      /^[0-9]{6}$/.test(value.code) &&
+      typeof value.idempotency_key === "string" &&
+      isIdempotencyKey(value.idempotency_key)
+    ) {
+      return value as AcceptedChange;
+    }
+    sessionStorage.removeItem(key);
+  } catch {
+    // Browser privacy settings may disable session storage.
+  }
+  return null;
+}
+
+/** Whether a replay's error is the accepted change's final result. A transport
+ * failure, a server fault, or a lapsed session leaves the change accepted:
+ * the replay does not depend on the session, so polling or the next sign-in
+ * in this tab replays it again. */
+function settlesAcceptedChange(error: unknown): boolean {
+  if (!(error instanceof APIError)) return false;
+  if (isProblem(error, EmailChangeUnavailableError.type)) return true;
+  return error.status < 500 && error.status !== 401;
+}
+
+function storeAcceptedChange(key: string, value: AcceptedChange | null) {
+  try {
+    if (value === null) sessionStorage.removeItem(key);
+    else sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // The in-memory change still resolves while this page stays open.
+  }
 }
 
 function readPendingChange(key: string): PendingChange | null {
@@ -78,7 +143,11 @@ export function EmailAddressCard({
   const queryClient = useQueryClient();
   const { hold } = usePendingOperations();
   const key = storageKey(handle);
+  const acceptedKey = acceptedStorageKey(handle);
   const [pending, setPending] = useState(() => readPendingChange(key));
+  const [accepted, setAccepted] = useState(() =>
+    readAcceptedChange(acceptedKey),
+  );
   const [editing, setEditing] = useState(false);
   const [code, setCode] = useState("");
   const [addressForm] = Form.useForm<{ new_email_address: string }>();
@@ -92,6 +161,10 @@ export function EmailAddressCard({
     storePendingChange(key, null);
     setCode("");
     lastCode.current = null;
+  };
+  const remember = (change: AcceptedChange | null) => {
+    setAccepted(change);
+    storeAcceptedChange(acceptedKey, change);
   };
 
   useEffect(() => {
@@ -135,29 +208,85 @@ export function EmailAddressCard({
       setEditing(false);
     },
   });
+  // A 202 means the global directory hiccupped; poll the operation, then
+  // replay confirm with the same idempotency key and body for the resolved
+  // typed result (GU-ECH-005, GU-ECH-007). The accepted change is kept apart
+  // from the challenge, whose expiry no longer matters once it is accepted.
   const confirm = useMutation({
-    mutationFn: async () => {
-      if (pending === null) throw new Error("Missing email change challenge");
-      if (lastCode.current !== null && lastCode.current !== code) {
-        confirmKey.rotate();
+    mutationFn: async (replay: AcceptedChange | null) => {
+      let sent: Omit<AcceptedChange, "operation_id">;
+      if (replay !== null) {
+        sent = replay;
+      } else {
+        if (pending === null) {
+          throw new Error("Missing email change challenge");
+        }
+        if (lastCode.current !== null && lastCode.current !== code) {
+          confirmKey.rotate();
+        }
+        lastCode.current = code;
+        sent = {
+          challenge_id: pending.challenge_id,
+          code,
+          idempotency_key: confirmKey.current(),
+        };
       }
-      lastCode.current = code;
       const release = hold();
       try {
-        await hubAPI.confirmEmailChange(
-          { challenge_id: pending.challenge_id, code },
-          confirmKey.current(),
+        const result = await hubAPI.confirmEmailChange(
+          { challenge_id: sent.challenge_id, code: sent.code },
+          sent.idempotency_key,
         );
+        return { result, sent };
       } finally {
         release();
       }
     },
-    onSuccess: async () => {
+    onSuccess: async ({ result, sent }, replay) => {
+      if (result !== undefined) {
+        if (replay === null) {
+          remember({ ...sent, operation_id: result.operation_id });
+          confirmKey.rotate();
+          forget();
+        }
+        return;
+      }
+      remember(null);
       confirmKey.rotate();
       forget();
       await queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
       void message.success(t("emailChange.changed"));
     },
+    onError: (error, replay) => {
+      if (replay !== null && settlesAcceptedChange(error)) remember(null);
+    },
+  });
+  useQuery({
+    queryKey: ["hub", "email-change-operation", accepted?.operation_id],
+    queryFn: async () => {
+      if (accepted === null) throw new Error("Missing operation");
+      let settled = true;
+      try {
+        const status = await hubAPI.operationStatus({
+          operation_id: accepted.operation_id,
+        });
+        settled = status.state !== Pending;
+      } catch (error) {
+        // An operation this session cannot find is answered by the replay.
+        if (!(error instanceof APIError && error.status === 404)) throw error;
+      }
+      if (settled) {
+        try {
+          await confirm.mutateAsync(accepted);
+        } catch {
+          // confirm.error now carries the resolved typed problem, if any.
+        }
+      }
+      return settled;
+    },
+    enabled: accepted !== null && !confirm.isPending,
+    refetchInterval: 1000,
+    retry: false,
   });
 
   const sendCode = (address: string) => {
@@ -207,7 +336,14 @@ export function EmailAddressCard({
         ) : (
           <APIErrorAlert error={error} />
         )}
-        {pending !== null ? (
+        {accepted !== null ? (
+          <Alert
+            type="info"
+            showIcon
+            title={t("emailChange.applying")}
+            data-testid="email-change-applying"
+          />
+        ) : pending !== null ? (
           <Space orientation="vertical" size="middle" className="full-width">
             <Alert
               type="info"
@@ -221,7 +357,7 @@ export function EmailAddressCard({
             <Form
               layout="vertical"
               className="settings-form"
-              onFinish={() => confirm.mutate()}
+              onFinish={() => confirm.mutate(null)}
             >
               <Form.Item
                 label={t("emailChange.codeLabel")}

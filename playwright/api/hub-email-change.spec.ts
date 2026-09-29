@@ -1,10 +1,11 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 import type {
   ConfirmEmailChangeRequest,
   EmailChangeChallenge,
   RequestEmailChangeRequest,
 } from "typespec/hub/auth/email_change";
+import { Pending } from "typespec/hub/operations/operations";
 import type { MyInfoResponse } from "typespec/hub/users/profile";
 import {
   IdempotencyKeyConflictError,
@@ -23,6 +24,8 @@ import {
 import {
   EmailAddressUnavailableError,
   EmailChangeCodeRejectedError,
+  EmailChangeInProgressError,
+  EmailChangeUnavailableError,
 } from "typespec/problem/hub/email";
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
 import {
@@ -31,7 +34,14 @@ import {
   cleanupHubSignupDomain,
   cleanupHubUser,
   hubAuditEventsByIdempotencyKey,
+  hubAuditEventsForActor,
+  seedActiveHubUser,
+  seedHubSession,
   seedHubSignupDomain,
+  seedLiveHubEmailChange,
+  sqlLiteral,
+  sqlScalarForTenant,
+  type TestTenant,
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { HubAPI, hubIdempotencyKey, MAILPIT_ORIGIN } from "../lib/hub-api.ts";
@@ -58,9 +68,10 @@ async function createAccount(
   request: APIRequestContext,
   domain: string,
   keys: string[],
+  tenant: TestTenant = "sgp",
 ): Promise<Account> {
   const email = addressAt(domain);
-  const user = await signup(request, "sgp", email, keys, {
+  const user = await signup(request, tenant, email, keys, {
     displayName: "Email Changer",
   });
   return {
@@ -68,7 +79,7 @@ async function createAccount(
     password: user.password,
     handle: user.handle,
     hubUserDID: user.hubUserDID,
-    token: await login(request, "sgp", email, user.password),
+    token: await login(request, tenant, email, user.password),
   };
 }
 
@@ -234,35 +245,44 @@ test("a confirmed email change moves sign-in to the proven address and revokes o
     // request already proved that, and the code proves the new mailbox.
     ageHubSession(account.token);
 
-    const wrongKey = hubIdempotencyKey();
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      await expectProblem(
-        await confirmChange(
-          hub,
-          account.token,
-          { challenge_id: challenge.challenge_id, code: wrongCode },
-          wrongKey,
-        ),
-        400,
-        EmailChangeCodeRejectedError.type,
-      );
-    }
-    // The rejected attempt is committed, so its key cannot carry a new code.
+    // A wrong-code attempt no longer creates a durable operation (GU-ECH-002:
+    // only a correct code does), so unlike a completed change, it has
+    // nothing for a replay to conflict against. Each call with its own key
+    // genuinely re-attempts and bumps attempt_count independently — a
+    // deliberate M4 trade-off, see docs/global-uniqueness.md §10.
+    const wrongKey1 = hubIdempotencyKey();
     await expectProblem(
       await confirmChange(
         hub,
         account.token,
-        { challenge_id: challenge.challenge_id, code },
-        wrongKey,
+        { challenge_id: challenge.challenge_id, code: wrongCode },
+        wrongKey1,
       ),
-      409,
-      IdempotencyKeyConflictError.type,
+      400,
+      EmailChangeCodeRejectedError.type,
     );
-    const failedAudit = hubAuditEventsByIdempotencyKey(wrongKey);
-    expect(failedAudit).toHaveLength(1);
-    expect(failedAudit[0]).toMatchObject({
+    const wrongKey2 = hubIdempotencyKey();
+    await expectProblem(
+      await confirmChange(
+        hub,
+        account.token,
+        { challenge_id: challenge.challenge_id, code: wrongCode },
+        wrongKey2,
+      ),
+      400,
+      EmailChangeCodeRejectedError.type,
+    );
+    const failedAudit1 = hubAuditEventsByIdempotencyKey(wrongKey1);
+    expect(failedAudit1).toHaveLength(1);
+    expect(failedAudit1[0]).toMatchObject({
       action: "hub.email-change.verification-failed",
       payload: { attempt_count: 1 },
+    });
+    const failedAudit2 = hubAuditEventsByIdempotencyKey(wrongKey2);
+    expect(failedAudit2).toHaveLength(1);
+    expect(failedAudit2[0]).toMatchObject({
+      action: "hub.email-change.verification-failed",
+      payload: { attempt_count: 2 },
     });
 
     const confirmKey = hubIdempotencyKey();
@@ -274,21 +294,31 @@ test("a confirmed email change moves sign-in to the proven address and revokes o
     );
     expect(confirmed.status(), await confirmed.text()).toBe(204);
     expect(confirmed.headers()["cache-control"]).toBe("no-store");
+    // The client's idempotency key now only covers accepting the code
+    // (GU-ECH-002); the local apply that actually changes the address is a
+    // separate durable step keyed by the operation id, not the client's key.
     const confirmAudit = hubAuditEventsByIdempotencyKey(confirmKey);
     expect(confirmAudit).toHaveLength(1);
     expect(confirmAudit[0]).toMatchObject({
-      action: "hub.email.changed",
+      action: "hub.email-change.accepted",
       entity_type: "hub_user",
       entity_id: account.hubUserDID,
       actor_type: "hub_user",
       actor_id: account.hubUserDID,
+    });
+    const changedAudit = hubAuditEventsForActor(
+      account.hubUserDID,
+      "hub.email.changed",
+    );
+    expect(changedAudit).toHaveLength(1);
+    expect(changedAudit[0]).toMatchObject({
       payload: {
         changed_fields: ["email_address"],
         other_sessions_revoked: true,
         previous_address_notified: true,
       },
     });
-    expect(JSON.stringify(confirmAudit[0]?.payload)).not.toContain("@");
+    expect(JSON.stringify(changedAudit[0]?.payload)).not.toContain("@");
 
     const info = await myInfo(hub, account.token);
     expect(info.email_address).toBe(newAddress);
@@ -490,7 +520,26 @@ test("confirming after another account claimed the address keeps the old address
       409,
       EmailAddressUnavailableError.type,
     );
-    expect(hubAuditEventsByIdempotencyKey(key)).toEqual([]);
+    // The code was correct, so the durable operation was accepted before the
+    // global reserve rejected it (GU-ECH-002/003): the accept audit carries
+    // the client's idempotency key, and the terminal rejection is audited
+    // separately, keyed by the operation id it drives rather than the
+    // client's key.
+    const acceptedAudit = hubAuditEventsByIdempotencyKey(key);
+    expect(acceptedAudit).toHaveLength(1);
+    expect(acceptedAudit[0]).toMatchObject({
+      action: "hub.email-change.accepted",
+      entity_id: account.hubUserDID,
+      actor_id: account.hubUserDID,
+    });
+    const rejectedAudit = hubAuditEventsForActor(
+      account.hubUserDID,
+      "hub.email-change.rejected",
+    );
+    expect(rejectedAudit).toHaveLength(1);
+    expect(rejectedAudit[0]).toMatchObject({
+      payload: { reason: "address_unavailable" },
+    });
     expect((await myInfo(hub, account.token)).email_address).toBe(
       account.email,
     );
@@ -585,5 +634,388 @@ test("confirming an email change validates the session and body", async ({
     );
   } finally {
     cleanup(domain, account === undefined ? [] : [account.email], keys, hub);
+  }
+});
+
+test("the address of a usa1 user sends no code and the same response from sgp", async ({
+  request,
+}) => {
+  const domain = testDomain();
+  const keys: string[] = [];
+  const hub = new HubAPI(request, "sgp");
+  let changer: Account | undefined;
+  let owner: Account | undefined;
+  try {
+    seedHubSignupDomain(domain, "sgp");
+    seedHubSignupDomain(domain, "usa1");
+    changer = await createAccount(request, domain, keys, "sgp");
+    owner = await createAccount(request, domain, keys, "usa1");
+
+    const key = hubIdempotencyKey();
+    const requested = await requestChange(
+      hub,
+      changer.token,
+      { new_email_address: owner.email },
+      key,
+    );
+    expect(requested.status(), await requested.text()).toBe(202);
+    const challenge = await responseJSON<EmailChangeChallenge>(requested);
+    expect(hubAuditEventsByIdempotencyKey(key)[0]).toMatchObject({
+      action: "hub.email-change.requested",
+      payload: { code_queued: false },
+    });
+
+    await expectProblem(
+      await confirmChange(hub, changer.token, {
+        challenge_id: challenge.challenge_id,
+        code: "123456",
+      }),
+      400,
+      EmailChangeCodeRejectedError.type,
+    );
+    expect((await myInfo(hub, changer.token)).email_address).toBe(
+      changer.email,
+    );
+  } finally {
+    if (changer !== undefined) cleanupHubUser(changer.email, "sgp");
+    if (owner !== undefined) cleanupHubUser(owner.email, "usa1");
+    cleanupHubIdempotency(keys, "sgp");
+    cleanupHubIdempotency(keys, "usa1");
+    cleanupHubSignupDomain(domain, "sgp");
+    cleanupHubSignupDomain(domain, "usa1");
+  }
+});
+
+test("confirming after the address is claimed by a usa1 signup keeps the old address", async ({
+  request,
+}) => {
+  const domain = testDomain();
+  const keys: string[] = [];
+  const hub = new HubAPI(request, "sgp");
+  const contested = addressAt(domain);
+  let account: Account | undefined;
+  try {
+    seedHubSignupDomain(domain, "sgp");
+    seedHubSignupDomain(domain, "usa1");
+    account = await createAccount(request, domain, keys, "sgp");
+    const requested = await requestChange(hub, account.token, {
+      new_email_address: contested,
+    });
+    expect(requested.status(), await requested.text()).toBe(202);
+    const challenge = await responseJSON<EmailChangeChallenge>(requested);
+    const code = await emailChangeCode(request, contested);
+
+    // Claimed at another tenant, not the changer's own: the reserve step's
+    // rejection comes from the global directory, not a local unique index.
+    await signup(request, "usa1", contested, keys, {
+      displayName: "Faster Claimant Elsewhere",
+    });
+
+    const key = hubIdempotencyKey();
+    await expectProblem(
+      await confirmChange(
+        hub,
+        account.token,
+        { challenge_id: challenge.challenge_id, code },
+        key,
+      ),
+      409,
+      EmailAddressUnavailableError.type,
+    );
+    const acceptedAudit = hubAuditEventsByIdempotencyKey(key);
+    expect(acceptedAudit).toHaveLength(1);
+    expect(acceptedAudit[0]).toMatchObject({
+      action: "hub.email-change.accepted",
+      entity_id: account.hubUserDID,
+      actor_id: account.hubUserDID,
+    });
+    const rejectedAudit = hubAuditEventsForActor(
+      account.hubUserDID,
+      "hub.email-change.rejected",
+    );
+    expect(rejectedAudit).toHaveLength(1);
+    expect(rejectedAudit[0]).toMatchObject({
+      payload: { reason: "address_unavailable" },
+    });
+    expect((await myInfo(hub, account.token)).email_address).toBe(
+      account.email,
+    );
+  } finally {
+    if (account !== undefined) cleanupHubUser(account.email, "sgp");
+    cleanupHubUser(contested, "sgp");
+    cleanupHubUser(contested, "usa1");
+    cleanupHubIdempotency(keys, "sgp");
+    cleanupHubIdempotency(keys, "usa1");
+    cleanupHubSignupDomain(domain, "sgp");
+    cleanupHubSignupDomain(domain, "usa1");
+  }
+});
+
+test("after a successful change the old address frees up elsewhere and the new one is protected there", async ({
+  request,
+}) => {
+  const domain = testDomain();
+  const keys: string[] = [];
+  const hub = new HubAPI(request, "sgp");
+  const newAddress = addressAt(domain);
+  let account: Account | undefined;
+  try {
+    seedHubSignupDomain(domain, "sgp");
+    seedHubSignupDomain(domain, "usa1");
+    account = await createAccount(request, domain, keys, "sgp");
+    const oldAddress = account.email;
+    const requested = await requestChange(hub, account.token, {
+      new_email_address: newAddress,
+    });
+    expect(requested.status(), await requested.text()).toBe(202);
+    const challenge = await responseJSON<EmailChangeChallenge>(requested);
+    const code = await emailChangeCode(request, newAddress);
+    const confirmed = await confirmChange(hub, account.token, {
+      challenge_id: challenge.challenge_id,
+      code,
+    });
+    expect(confirmed.status(), await confirmed.text()).toBe(204);
+
+    // Finalizing the change released the old address's global claim, so a
+    // brand-new signup elsewhere can now claim it.
+    await signup(request, "usa1", oldAddress, keys, {
+      displayName: "New Owner Of The Old Address",
+    });
+
+    // The new address now belongs to the sgp account, so a signup attempt
+    // anywhere else gets the registered-elsewhere notice instead of a link.
+    const usa1 = new HubAPI(request, "usa1");
+    const elsewhereKey = hubIdempotencyKey();
+    keys.push(elsewhereKey);
+    const elsewhereRequested = await usa1.post(
+      "/request-signup",
+      {
+        email_address: newAddress,
+        display_name: "Too Late",
+        preferred_language: "en-US",
+        resident_country: "US",
+      },
+      { idempotencyKey: elsewhereKey },
+    );
+    expect(elsewhereRequested.status(), await elsewhereRequested.text()).toBe(
+      202,
+    );
+    const mail = await latestMail(
+      request,
+      newAddress,
+      "already have an account",
+    );
+    expect(mail).toContain("sgp region");
+    expect(mail).not.toContain("complete-signup");
+  } finally {
+    if (account !== undefined) {
+      cleanupHubUser(account.email, "sgp");
+      cleanupHubUser(account.email, "usa1");
+    }
+    cleanupHubUser(newAddress, "sgp");
+    cleanupHubUser(newAddress, "usa1");
+    cleanupHubIdempotency(keys, "sgp");
+    cleanupHubIdempotency(keys, "usa1");
+    cleanupHubSignupDomain(domain, "sgp");
+    cleanupHubSignupDomain(domain, "usa1");
+  }
+});
+
+test("a pending confirm on ind1 changes nothing yet, blocks a new request, replays deterministically, and survives logout", async ({
+  request,
+}) => {
+  const domain = testDomain();
+  const keys: string[] = [];
+  const hub = new HubAPI(request, "ind1");
+  const email = addressAt(domain);
+  const newAddress = addressAt(domain);
+  // ind1's coordinator path is deliberately broken in CI, so signup can
+  // never reach `completed` there (see hub-global-email.spec.ts); the
+  // account under test is seeded directly instead of signed up.
+  const seeded = seedActiveHubUser("ind1", email, "Ind1 Email Changer");
+  const otherSession = seedHubSession("ind1", seeded.hubUserDID);
+  try {
+    const requested = await requestChange(hub, seeded.sessionToken, {
+      new_email_address: newAddress,
+    });
+    expect(requested.status(), await requested.text()).toBe(202);
+    const challenge = await responseJSON<EmailChangeChallenge>(requested);
+    const code = await emailChangeCode(request, newAddress);
+
+    const confirmKey = hubIdempotencyKey();
+    const confirmed = await confirmChange(
+      hub,
+      seeded.sessionToken,
+      { challenge_id: challenge.challenge_id, code },
+      confirmKey,
+    );
+    expect(confirmed.status(), await confirmed.text()).toBe(202);
+    const pending = await responseJSON<{ operation_id: string }>(confirmed);
+    expect(pending.operation_id).toBeTruthy();
+
+    // The reserve step never reached its answer, so nothing local changed:
+    // every session still sees the old address.
+    expect((await myInfo(hub, seeded.sessionToken)).email_address).toBe(email);
+    expect((await myInfo(hub, otherSession)).email_address).toBe(email);
+
+    await expectProblem(
+      await requestChange(hub, seeded.sessionToken, {
+        new_email_address: addressAt(domain),
+      }),
+      409,
+      EmailChangeInProgressError.type,
+    );
+
+    // A replay with the same idempotency key reaches the same pending
+    // result rather than re-deriving it (GU-ECH-005/007).
+    const replay = await confirmChange(
+      hub,
+      seeded.sessionToken,
+      { challenge_id: challenge.challenge_id, code },
+      confirmKey,
+    );
+    expect(replay.status(), await replay.text()).toBe(202);
+    expect(await responseJSON<{ operation_id: string }>(replay)).toEqual(
+      pending,
+    );
+    await expectProblem(
+      await confirmChange(
+        hub,
+        seeded.sessionToken,
+        {
+          challenge_id: challenge.challenge_id,
+          code: code === "000000" ? "111111" : "000000",
+        },
+        confirmKey,
+      ),
+      409,
+      IdempotencyKeyConflictError.type,
+    );
+
+    // Logging out and back in touches only the session, never the durable
+    // change row, which stays pollable under a fresh session.
+    await hub.post("/logout", undefined, { token: seeded.sessionToken });
+    const status = await hub.operationStatus(
+      { operation_id: pending.operation_id },
+      otherSession,
+    );
+    expect(status.status(), await status.text()).toBe(200);
+    expect((await responseJSON<{ state: string }>(status)).state).toBe(Pending);
+    expect(
+      sqlScalarForTenant(
+        "ind1",
+        `SELECT count(*)::text FROM vetchium.hub_account_email_changes
+         WHERE hub_user_did = ${sqlLiteral(seeded.hubUserDID)}::uuid;`,
+      ),
+    ).toBe("1");
+  } finally {
+    cleanupHubUser(email, "ind1");
+    cleanupHubUser(newAddress, "ind1");
+    cleanupHubIdempotency(keys, "ind1");
+  }
+});
+
+test("a correct code confirmed after another change went live reports the change in progress", async ({
+  request,
+}) => {
+  const domain = testDomain();
+  const hub = new HubAPI(request, "ind1");
+  const email = addressAt(domain);
+  const newAddress = addressAt(domain);
+  // ind1 cannot reach the directory in CI, so the live change seeded below
+  // stays live for the whole test instead of being driven to completion.
+  const seeded = seedActiveHubUser("ind1", email, "Ind1 Racing Confirmer");
+  try {
+    const requested = await requestChange(hub, seeded.sessionToken, {
+      new_email_address: newAddress,
+    });
+    expect(requested.status(), await requested.text()).toBe(202);
+    const challenge = await responseJSON<EmailChangeChallenge>(requested);
+    const code = await emailChangeCode(request, newAddress);
+
+    // Another confirm commits its change between this challenge's issue and
+    // its confirmation, the one window the request-time check cannot close.
+    const live = seedLiveHubEmailChange("ind1", seeded.hubUserDID, {
+      idempotencyKey: hubIdempotencyKey(),
+      requestDigestHex: createHash("sha256").update(randomUUID()).digest("hex"),
+      notAfterSQL: "now() + interval '1 day'",
+    });
+
+    await expectProblem(
+      await confirmChange(hub, seeded.sessionToken, {
+        challenge_id: challenge.challenge_id,
+        code,
+      }),
+      409,
+      EmailChangeInProgressError.type,
+    );
+    expect((await myInfo(hub, seeded.sessionToken)).email_address).toBe(email);
+    expect(
+      sqlScalarForTenant(
+        "ind1",
+        `SELECT string_agg(operation_id::text, ',')
+         FROM vetchium.hub_account_email_changes
+         WHERE hub_user_did = ${sqlLiteral(seeded.hubUserDID)}::uuid;`,
+      ),
+    ).toBe(live);
+  } finally {
+    cleanupHubUser(email, "ind1");
+    cleanupHubUser(newAddress, "ind1");
+    cleanupHubIdempotency([...hub.idempotencyKeys], "ind1");
+  }
+});
+
+test("a change whose reservation deadline lapsed fails as unavailable and keeps the old address", async ({
+  request,
+}) => {
+  const domain = testDomain();
+  const keys: string[] = [];
+  const hub = new HubAPI(request, "sgp");
+  let account: Account | undefined;
+  try {
+    seedHubSignupDomain(domain, "sgp");
+    account = await createAccount(request, domain, keys);
+    // Setup stands in for a confirm accepted a day ago whose reserve never
+    // got an answer. Its replay is identified by the same idempotency key and
+    // the digest of the identical request body.
+    const body: ConfirmEmailChangeRequest = {
+      challenge_id: randomUUID(),
+      code: "123456",
+    };
+    const key = hubIdempotencyKey();
+    seedLiveHubEmailChange("sgp", account.hubUserDID, {
+      idempotencyKey: key,
+      requestDigestHex: createHash("sha256")
+        .update(JSON.stringify(body))
+        .digest("hex"),
+      notAfterSQL: "now() - interval '1 minute'",
+    });
+
+    // Replaying cancels the lapsed change, abandons its reservation at the
+    // global directory, and reports the retryable failure (GU-ECH-004/005).
+    await expectProblem(
+      await confirmChange(hub, account.token, body, key),
+      503,
+      EmailChangeUnavailableError.type,
+    );
+    const rejectedAudit = hubAuditEventsForActor(
+      account.hubUserDID,
+      "hub.email-change.rejected",
+    );
+    expect(rejectedAudit).toHaveLength(1);
+    expect(rejectedAudit[0]).toMatchObject({
+      payload: { reason: "reservation_expired" },
+    });
+    expect((await myInfo(hub, account.token)).email_address).toBe(
+      account.email,
+    );
+
+    // The failed change is terminal, so a new change may begin.
+    const next = await requestChange(hub, account.token, {
+      new_email_address: addressAt(domain),
+    });
+    expect(next.status(), await next.text()).toBe(202);
+  } finally {
+    cleanup(domain, [account?.email ?? addressAt(domain)], keys, hub);
   }
 });

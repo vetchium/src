@@ -159,7 +159,7 @@ func (q *Queries) LockOrgPrincipal(ctx context.Context, orgDid pgtype.UUID) (Loc
 	return i, err
 }
 
-const reapExpiredOrgPrincipalReservations = `-- name: ReapExpiredOrgPrincipalReservations :execrows
+const reapExpiredOrgPrincipalReservations = `-- name: ReapExpiredOrgPrincipalReservations :one
 WITH candidates AS MATERIALIZED (
     SELECT org_did, home_tenant_id, provisioning_operation_id
     FROM vetchium.org_principals
@@ -207,11 +207,10 @@ SELECT count(*) FROM deleted
 // The coordinator reaps a reservation its home tenant never activated. The
 // audit event names that tenant, whose signup the reservation belonged to.
 func (q *Queries) ReapExpiredOrgPrincipalReservations(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, reapExpiredOrgPrincipalReservations)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+	row := q.db.QueryRow(ctx, reapExpiredOrgPrincipalReservations)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const recordOrgDomainChange = `-- name: RecordOrgDomainChange :one

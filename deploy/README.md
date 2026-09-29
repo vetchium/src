@@ -40,9 +40,40 @@ The Makefile initializes Swarm when necessary and creates the tenant and global
 database secrets on first use, as well as each tenant's
 `<region>_admin_credential_key`, `<region>_orgs_credential_key`, and
 `<region>_mesh_credential`. The Org credential key is mounted only into
-`orgs-api` and `workers`. It also creates three tenant-specific SeaweedFS
-S3 secrets together: the gateway identity configuration and its access and
-secret keys. A partial set stops deployment. Do not replace just one of these
+`orgs-api` and `workers`.
+
+Unlike those per-region keys, `<region>_identity_digest_key` must hold the
+*identical* secret in every region: it derives the shared key the global
+directory's Hub email digests are keyed with, and a tenant with a different
+secret would silently stop enforcing global uniqueness instead of failing
+loudly. `deploy` never generates it; it is created only from the file named by
+`IDENTITY_DIGEST_KEY_FILE`, which the operator must supply, unchanged, on
+every region's `make deploy` invocation:
+
+```bash
+make deploy REGION=sgp TAG=v1.2.3 IDENTITY_DIGEST_KEY_FILE=/path/to/identity_digest_key
+```
+
+The coordinator never holds this secret; it only compares the id each
+directory request carries against its own configured
+`identityDigestKeyId` (`deploy/global-coordinator/config.json`), rejecting a
+mismatch. Compute the id from the same key file before deploying the
+coordinator:
+
+```bash
+secret=$(cat /path/to/identity_digest_key)
+root=$(printf 'vetchium-identity-digest-root\x00%s' "$secret" | openssl dgst -sha256 -binary | xxd -p -c 256)
+printf 'vetchium/identity-digest/key-id/v1' | \
+  openssl dgst -sha256 -mac hmac -macopt hexkey:$root -binary | xxd -p -c 256 | cut -c1-16
+```
+
+and put the result in `identityDigestKeyId` before deploying or rotating the
+key. `make deploy-global-coordinator` and the coordinator's startup check both
+refuse the checked-in placeholder.
+
+The Makefile also creates three tenant-specific SeaweedFS S3 secrets together:
+the gateway identity configuration and its access and secret keys. A partial
+set stops deployment. Do not replace just one of these
 secrets; rotate all three as a coordinated change and roll the gateway and its
 clients together. Only `hub-api`, `mesh-api`, and `workers` receive the S3 client
 keys; only the gateway receives the identity configuration. Tags must be

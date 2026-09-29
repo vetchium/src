@@ -38,12 +38,20 @@ model ResolveProfileSlugResponse {
   routing_version: int64;
 }
 
+@pattern("^[0-9a-f]{64}$")
+scalar EmailDigest extends string;
+
+@pattern("^[0-9a-f]{16}$")
+scalar DigestKeyID extends string;
+
 model ReserveHubPrincipalRequest {
   command_id: CommandID;
   hub_user_did: Vetchium.Hub.HubUserDID;
   handle: Vetchium.Hub.HubHandle;
   home_tenant_id: TenantID;
   provisioning_expires_at: utcDateTime;
+  account_email_digest: EmailDigest;
+  digest_key_id: DigestKeyID;
 }
 
 model ActivateHubPrincipalRequest {
@@ -125,6 +133,42 @@ model OrgPrincipalCommandResponse {
   state: "provisioning" | "active";
 }
 
+model ResolveHubAccountEmailRequest {
+  email_digest: EmailDigest;
+  digest_key_id: DigestKeyID;
+}
+
+/** Never reveals the DID (GU-DIR-001). */
+model ResolveHubAccountEmailResponse {
+  home_tenant_id: TenantID;
+}
+
+model ReserveHubAccountEmailChangeRequest {
+  command_id: CommandID;
+  change_id: CommandID;
+  hub_user_did: Vetchium.Hub.HubUserDID;
+  new_email_digest: EmailDigest;
+  not_after: utcDateTime;
+  digest_key_id: DigestKeyID;
+}
+
+model FinalizeHubAccountEmailChangeRequest {
+  command_id: CommandID;
+  change_id: CommandID;
+  hub_user_did: Vetchium.Hub.HubUserDID;
+}
+
+model AbandonHubAccountEmailChangeRequest {
+  command_id: CommandID;
+  change_id: CommandID;
+  hub_user_did: Vetchium.Hub.HubUserDID;
+  not_after: utcDateTime;
+}
+
+model HubAccountEmailChangeReservationResponse {
+  state: "reserved" | "cancelled" | "finalized";
+}
+
 alias ReadResponseBase =
   | {
       @statusCode status_code: 200;
@@ -157,6 +201,48 @@ alias CommandResponseBase =
 alias ClaimCommandResponseBase =
   | CommandResponseBase
   | Vetchium.Problem.DirectoryClaimConflictErrorResponse;
+
+/**
+ * The email digest is checked first, so a digest already claimed elsewhere
+ * never burns a handle-rotation attempt: directory-email-claim-conflict is
+ * distinct from directory-claim-conflict, which is the handle collision.
+ */
+alias ReserveHubPrincipalResponseBase =
+  | ClaimCommandResponseBase
+  | Vetchium.Problem.DirectoryEmailClaimConflictErrorResponse
+  | Vetchium.Problem.DirectoryDigestKeyMismatchErrorResponse;
+
+alias ResolveHubAccountEmailResponseBase =
+  | {
+      @statusCode status_code: 200;
+      @header("Cache-Control") cache_control: "no-store";
+      @body body: ResolveHubAccountEmailResponse;
+    }
+  | Vetchium.Problem.InvalidJSONErrorResponse
+  | Vetchium.Problem.ValidationFailedErrorResponse
+  | Vetchium.Problem.DirectoryEntryNotFoundErrorResponse
+  | Vetchium.Problem.DirectoryDigestKeyMismatchErrorResponse
+  | Vetchium.Problem.InternalServerErrorResponse;
+
+alias EmailChangeCommandResponseBase =
+  | {
+      @statusCode status_code: 200;
+      @header("Cache-Control") cache_control: "no-store";
+      @body body: HubAccountEmailChangeReservationResponse;
+    }
+  | Vetchium.Problem.InvalidJSONErrorResponse
+  | Vetchium.Problem.ValidationFailedErrorResponse
+  | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
+  | Vetchium.Problem.DirectoryStateConflictErrorResponse
+  | Vetchium.Problem.DirectoryCallerTenantMismatchErrorResponse
+  | Vetchium.Problem.InternalServerErrorResponse;
+
+alias ReserveHubAccountEmailChangeResponseBase =
+  | EmailChangeCommandResponseBase
+  | Vetchium.Problem.DirectoryEmailClaimConflictErrorResponse
+  | Vetchium.Problem.DirectoryDigestKeyMismatchErrorResponse
+  | Vetchium.Problem.DirectoryReservationExpiredErrorResponse
+  | Vetchium.Problem.DirectoryReservationCancelledErrorResponse;
 
 alias OrgReadResponseBase =
   | {
@@ -234,6 +320,34 @@ alias MeshClaimCommandResponse =
   | ClaimCommandResponseBase
   | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
 
+alias ReserveHubPrincipalResponse =
+  | ReserveHubPrincipalResponseBase
+  | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
+alias MeshReserveHubPrincipalResponse =
+  | ReserveHubPrincipalResponseBase
+  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+
+alias ResolveHubAccountEmailResult =
+  | ResolveHubAccountEmailResponseBase
+  | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
+alias MeshResolveHubAccountEmailResult =
+  | ResolveHubAccountEmailResponseBase
+  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+
+alias ReserveHubAccountEmailChangeResult =
+  | ReserveHubAccountEmailChangeResponseBase
+  | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
+alias MeshReserveHubAccountEmailChangeResult =
+  | ReserveHubAccountEmailChangeResponseBase
+  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+
+alias EmailChangeCommandResult =
+  | EmailChangeCommandResponseBase
+  | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
+alias MeshEmailChangeCommandResult =
+  | EmailChangeCommandResponseBase
+  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+
 @route("/api/global-coordinator/directory")
 @tag("Global directory")
 @useAuth(Vetchium.Authentication.MutualTLSAuth)
@@ -246,7 +360,7 @@ interface Operations {
   @post
   reserveHubPrincipal(
     @body request: ReserveHubPrincipalRequest,
-  ): ClaimCommandResponse;
+  ): ReserveHubPrincipalResponse;
 
   @route("/activate-hub-principal")
   @post
@@ -257,6 +371,30 @@ interface Operations {
   @route("/set-hub-alias")
   @post
   setHubAlias(@body request: SetHubAliasRequest): ClaimCommandResponse;
+
+  @route("/resolve-hub-account-email")
+  @post
+  resolveHubAccountEmail(
+    @body request: ResolveHubAccountEmailRequest,
+  ): ResolveHubAccountEmailResult;
+
+  @route("/reserve-hub-account-email-change")
+  @post
+  reserveHubAccountEmailChange(
+    @body request: ReserveHubAccountEmailChangeRequest,
+  ): ReserveHubAccountEmailChangeResult;
+
+  @route("/finalize-hub-account-email-change")
+  @post
+  finalizeHubAccountEmailChange(
+    @body request: FinalizeHubAccountEmailChangeRequest,
+  ): EmailChangeCommandResult;
+
+  @route("/abandon-hub-account-email-change")
+  @post
+  abandonHubAccountEmailChange(
+    @body request: AbandonHubAccountEmailChangeRequest,
+  ): EmailChangeCommandResult;
 
   @route("/resolve-org-domain")
   @post
@@ -297,7 +435,7 @@ interface MeshOperations {
   @post
   reserveHubPrincipal(
     @body request: ReserveHubPrincipalRequest,
-  ): MeshClaimCommandResponse;
+  ): MeshReserveHubPrincipalResponse;
 
   @route("/activate-hub-principal")
   @post
@@ -308,6 +446,30 @@ interface MeshOperations {
   @route("/set-hub-alias")
   @post
   setHubAlias(@body request: SetHubAliasRequest): MeshClaimCommandResponse;
+
+  @route("/resolve-hub-account-email")
+  @post
+  resolveHubAccountEmail(
+    @body request: ResolveHubAccountEmailRequest,
+  ): MeshResolveHubAccountEmailResult;
+
+  @route("/reserve-hub-account-email-change")
+  @post
+  reserveHubAccountEmailChange(
+    @body request: ReserveHubAccountEmailChangeRequest,
+  ): MeshReserveHubAccountEmailChangeResult;
+
+  @route("/finalize-hub-account-email-change")
+  @post
+  finalizeHubAccountEmailChange(
+    @body request: FinalizeHubAccountEmailChangeRequest,
+  ): MeshEmailChangeCommandResult;
+
+  @route("/abandon-hub-account-email-change")
+  @post
+  abandonHubAccountEmailChange(
+    @body request: AbandonHubAccountEmailChangeRequest,
+  ): MeshEmailChangeCommandResult;
 
   @route("/resolve-org-domain")
   @post

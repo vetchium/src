@@ -23,15 +23,29 @@ func (q *Queries) AcquireCommandLock(ctx context.Context, commandID string) erro
 }
 
 const activateHubPrincipal = `-- name: ActivateHubPrincipal :one
-UPDATE vetchium.hub_principals
-SET state = 'active', provisioning_expires_at = NULL,
-    activated_at = now(), updated_at = now(),
-    directory_version = directory_version + 1
-WHERE hub_user_did = $1
-  AND home_tenant_id = $2
-  AND state = 'provisioning'
-  AND provisioning_expires_at > now()
-RETURNING hub_user_did, directory_version
+WITH activated_principal AS (
+    UPDATE vetchium.hub_principals
+    SET state = 'active', provisioning_expires_at = NULL,
+        activated_at = now(), updated_at = now(),
+        directory_version = directory_version + 1
+    WHERE hub_principals.hub_user_did = $1
+      AND home_tenant_id = $2
+      AND state = 'provisioning'
+      AND provisioning_expires_at > now()
+    RETURNING hub_user_did, directory_version
+), activated_claim AS (
+    UPDATE vetchium.hub_account_email_claims AS claim
+    SET state = 'active', updated_at = now()
+    FROM activated_principal
+    WHERE claim.hub_user_did = activated_principal.hub_user_did
+      AND claim.state = 'provisioning'
+    RETURNING claim.email_digest
+)
+SELECT
+    p.hub_user_did,
+    p.directory_version,
+    (SELECT count(*) FROM activated_claim) AS activated_claim_count
+FROM activated_principal AS p
 `
 
 type ActivateHubPrincipalParams struct {
@@ -40,14 +54,19 @@ type ActivateHubPrincipalParams struct {
 }
 
 type ActivateHubPrincipalRow struct {
-	HubUserDid       pgtype.UUID `json:"hub_user_did"`
-	DirectoryVersion int64       `json:"directory_version"`
+	HubUserDid          pgtype.UUID `json:"hub_user_did"`
+	DirectoryVersion    int64       `json:"directory_version"`
+	ActivatedClaimCount int64       `json:"activated_claim_count"`
 }
 
+// Activates the principal and, in the same statement, its provisioning
+// account email claim (GU-DIR-003). The claim update depends on
+// activated_principal via a real FROM reference, so the claim's transition
+// trigger sees the principal already active.
 func (q *Queries) ActivateHubPrincipal(ctx context.Context, arg ActivateHubPrincipalParams) (ActivateHubPrincipalRow, error) {
 	row := q.db.QueryRow(ctx, activateHubPrincipal, arg.HubUserDid, arg.CallerTenantID)
 	var i ActivateHubPrincipalRow
-	err := row.Scan(&i.HubUserDid, &i.DirectoryVersion)
+	err := row.Scan(&i.HubUserDid, &i.DirectoryVersion, &i.ActivatedClaimCount)
 	return i, err
 }
 
@@ -330,9 +349,9 @@ func (q *Queries) LockPrincipalForAlias(ctx context.Context, hubUserDid pgtype.U
 	return i, err
 }
 
-const reapExpiredHubPrincipalReservations = `-- name: ReapExpiredHubPrincipalReservations :execrows
+const reapExpiredHubPrincipalReservations = `-- name: ReapExpiredHubPrincipalReservations :one
 WITH candidates AS MATERIALIZED (
-    SELECT hub_user_did
+    SELECT hub_user_did, home_tenant_id, provisioning_operation_id
     FROM vetchium.hub_principals
     WHERE state = 'provisioning'
       AND provisioning_expires_at <= now()
@@ -344,22 +363,52 @@ WITH candidates AS MATERIALIZED (
     USING candidates
     WHERE slug.hub_user_did = candidates.hub_user_did
     RETURNING slug.hub_user_did
+), deleted_claims AS (
+    DELETE FROM vetchium.hub_account_email_claims AS claim
+    USING candidates
+    WHERE claim.hub_user_did = candidates.hub_user_did
+    RETURNING claim.hub_user_did
+), deleted AS (
+    DELETE FROM vetchium.hub_principals AS principal
+    USING candidates
+    WHERE principal.hub_user_did = candidates.hub_user_did
+      AND EXISTS (
+          SELECT 1 FROM deleted_slugs
+          WHERE deleted_slugs.hub_user_did = principal.hub_user_did
+      )
+    RETURNING principal.hub_user_did
+), audit AS (
+    INSERT INTO vetchium.global_audit_events (
+        action, entity_type, entity_id, actor_tenant_id, command_id, payload
+    )
+    SELECT
+        'global_directory.hub_principal_reservation_expired',
+        'hub_principal',
+        c.hub_user_did::text,
+        c.home_tenant_id,
+        c.provisioning_operation_id,
+        jsonb_build_object(
+            'schema_version', 1,
+            'actor', 'global-coordinator',
+            'email_claim_released', EXISTS (
+                SELECT 1 FROM deleted_claims AS dc
+                WHERE dc.hub_user_did = c.hub_user_did
+            )
+        )
+    FROM candidates AS c
+    INNER JOIN deleted AS removed ON removed.hub_user_did = c.hub_user_did
 )
-DELETE FROM vetchium.hub_principals AS principal
-USING candidates
-WHERE principal.hub_user_did = candidates.hub_user_did
-  AND EXISTS (
-      SELECT 1 FROM deleted_slugs
-      WHERE deleted_slugs.hub_user_did = principal.hub_user_did
-  )
+SELECT count(*) FROM deleted
 `
 
+// The coordinator reaps a reservation its home tenant never activated,
+// together with its provisioning account-email claim (GU-DIR-010). The audit
+// event names that tenant, whose signup the reservation belonged to.
 func (q *Queries) ReapExpiredHubPrincipalReservations(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, reapExpiredHubPrincipalReservations)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+	row := q.db.QueryRow(ctx, reapExpiredHubPrincipalReservations)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const recordHubAliasChange = `-- name: RecordHubAliasChange :one
@@ -396,9 +445,19 @@ WITH principal AS (
     )
     RETURNING hub_user_did, home_tenant_id, routing_version,
         directory_version, state
+), claim AS (
+    INSERT INTO vetchium.hub_account_email_claims (
+        email_digest, hub_user_did, state, command_id
+    )
+    SELECT $5, hub_user_did, 'provisioning',
+        $3
+    FROM principal
+    RETURNING email_digest
 ), handle AS (
     INSERT INTO vetchium.hub_profile_slugs (slug, hub_user_did, kind)
-    SELECT $5, hub_user_did, 'handle' FROM principal
+    SELECT $6, principal.hub_user_did, 'handle'
+    FROM principal
+    INNER JOIN claim ON TRUE
     RETURNING slug
 )
 SELECT
@@ -413,6 +472,7 @@ type ReserveHubPrincipalParams struct {
 	HomeTenantID          string             `json:"home_tenant_id"`
 	CommandID             pgtype.UUID        `json:"command_id"`
 	ProvisioningExpiresAt pgtype.Timestamptz `json:"provisioning_expires_at"`
+	AccountEmailDigest    []byte             `json:"account_email_digest"`
 	Handle                string             `json:"handle"`
 }
 
@@ -426,12 +486,16 @@ type ReserveHubPrincipalRow struct {
 	State            VetchiumGlobalPrincipalState `json:"state"`
 }
 
+// The claim is inserted before the handle, and its failure aborts the whole
+// statement before the handle insert even runs, so a digest already claimed
+// elsewhere never burns a handle-rotation attempt (GU-DIR-002).
 func (q *Queries) ReserveHubPrincipal(ctx context.Context, arg ReserveHubPrincipalParams) (ReserveHubPrincipalRow, error) {
 	row := q.db.QueryRow(ctx, reserveHubPrincipal,
 		arg.HubUserDid,
 		arg.HomeTenantID,
 		arg.CommandID,
 		arg.ProvisioningExpiresAt,
+		arg.AccountEmailDigest,
 		arg.Handle,
 	)
 	var i ReserveHubPrincipalRow

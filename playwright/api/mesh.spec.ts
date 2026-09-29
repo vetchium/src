@@ -1,8 +1,14 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type {
+  AbandonHubAccountEmailChangeRequest,
   ActivateHubPrincipalRequest,
+  FinalizeHubAccountEmailChangeRequest,
+  HubAccountEmailChangeReservationResponse,
   PrincipalCommandResponse,
+  ReserveHubAccountEmailChangeRequest,
   ReserveHubPrincipalRequest,
+  ResolveHubAccountEmailRequest,
+  ResolveHubAccountEmailResponse,
   ResolveProfileSlugRequest,
   ResolveProfileSlugResponse,
   SetHubAliasRequest,
@@ -57,6 +63,16 @@ function randomAlias(): string {
   return `e2e-${randomSuffix(20)}`;
 }
 
+// config/ci/global-coordinator.json's identityDigestKeyId; ReserveHubPrincipal
+// rejects any other key id outright (GU-KEY-002), before ever looking at the
+// digest itself, so every reservation here must send it. The digest value
+// need not be a real HMAC output: the coordinator only stores and uniques it.
+const DIGEST_KEY_ID = "909577e87ebd5395";
+
+function randomEmailDigest(): string {
+  return randomBytes(32).toString("hex");
+}
+
 function freshReservation(
   homeTenantID: string,
   overrides: Partial<ReserveHubPrincipalRequest> = {},
@@ -67,6 +83,8 @@ function freshReservation(
     handle: randomHubHandle(),
     home_tenant_id: homeTenantID,
     provisioning_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    account_email_digest: randomEmailDigest(),
+    digest_key_id: DIGEST_KEY_ID,
     ...overrides,
   };
 }
@@ -85,6 +103,22 @@ const DIRECTORY_ROUTES = [
     path: "/mesh/directory/activate-hub-principal",
   },
   { name: "set-hub-alias", path: "/mesh/directory/set-hub-alias" },
+  {
+    name: "resolve-hub-account-email",
+    path: "/mesh/directory/resolve-hub-account-email",
+  },
+  {
+    name: "reserve-hub-account-email-change",
+    path: "/mesh/directory/reserve-hub-account-email-change",
+  },
+  {
+    name: "finalize-hub-account-email-change",
+    path: "/mesh/directory/finalize-hub-account-email-change",
+  },
+  {
+    name: "abandon-hub-account-email-change",
+    path: "/mesh/directory/abandon-hub-account-email-change",
+  },
 ] as const;
 
 // A structurally valid body for each route, used as the base for the 400
@@ -106,6 +140,26 @@ function baseBody(
         hub_user_did: randomHubUserDID(),
         profile_alias: randomAlias(),
       };
+    case "/mesh/directory/resolve-hub-account-email":
+      return {
+        email_digest: randomEmailDigest(),
+        digest_key_id: DIGEST_KEY_ID,
+      };
+    case "/mesh/directory/reserve-hub-account-email-change":
+      return { ...freshEmailChange(randomHubUserDID()) };
+    case "/mesh/directory/finalize-hub-account-email-change":
+      return {
+        command_id: randomUUID(),
+        change_id: randomUUID(),
+        hub_user_did: randomHubUserDID(),
+      };
+    case "/mesh/directory/abandon-hub-account-email-change":
+      return {
+        command_id: randomUUID(),
+        change_id: randomUUID(),
+        hub_user_did: randomHubUserDID(),
+        not_after: new Date(Date.now() + 60_000).toISOString(),
+      };
   }
 }
 
@@ -121,7 +175,124 @@ function invalidFieldBody(
       return { ...base, command_id: "not-a-command-id" };
     case "/mesh/directory/set-hub-alias":
       return { ...base, profile_alias: "ab" };
+    case "/mesh/directory/resolve-hub-account-email":
+      return { ...base, email_digest: "not-a-digest" };
+    case "/mesh/directory/reserve-hub-account-email-change":
+      return { ...base, new_email_digest: "not-a-digest" };
+    case "/mesh/directory/finalize-hub-account-email-change":
+    case "/mesh/directory/abandon-hub-account-email-change":
+      return { ...base, change_id: "not-a-change-id" };
   }
+}
+
+function freshEmailChange(
+  hubUserDID: string,
+  overrides: Partial<ReserveHubAccountEmailChangeRequest> = {},
+): ReserveHubAccountEmailChangeRequest {
+  return {
+    command_id: randomUUID(),
+    change_id: randomUUID(),
+    hub_user_did: hubUserDID,
+    new_email_digest: randomEmailDigest(),
+    not_after: new Date(Date.now() + 60 * 60_000).toISOString(),
+    digest_key_id: DIGEST_KEY_ID,
+    ...overrides,
+  };
+}
+
+function resolveHubAccountEmail(
+  tenant: TestTenant,
+  request: ResolveHubAccountEmailRequest,
+  observations: APIObservation[],
+): MeshResponse {
+  return meshRelayRequest(
+    tenant,
+    "/mesh/directory/resolve-hub-account-email",
+    request,
+    observations,
+  );
+}
+
+function reserveEmailChange(
+  tenant: TestTenant,
+  request: ReserveHubAccountEmailChangeRequest,
+  observations: APIObservation[],
+): MeshResponse {
+  return meshRelayRequest(
+    tenant,
+    "/mesh/directory/reserve-hub-account-email-change",
+    request,
+    observations,
+  );
+}
+
+function finalizeEmailChange(
+  tenant: TestTenant,
+  request: FinalizeHubAccountEmailChangeRequest,
+  observations: APIObservation[],
+): MeshResponse {
+  return meshRelayRequest(
+    tenant,
+    "/mesh/directory/finalize-hub-account-email-change",
+    request,
+    observations,
+  );
+}
+
+function abandonEmailChange(
+  tenant: TestTenant,
+  request: AbandonHubAccountEmailChangeRequest,
+  observations: APIObservation[],
+): MeshResponse {
+  return meshRelayRequest(
+    tenant,
+    "/mesh/directory/abandon-hub-account-email-change",
+    request,
+    observations,
+  );
+}
+
+function expectReservationState(
+  response: MeshResponse,
+  state: HubAccountEmailChangeReservationResponse["state"],
+) {
+  expect(response.status, JSON.stringify(response.body)).toBe(200);
+  expect(response.body).toEqual({
+    state,
+  } satisfies HubAccountEmailChangeReservationResponse);
+}
+
+function expectDirectoryProblem(
+  response: MeshResponse,
+  status: number,
+  type: string,
+) {
+  expect(response.status, JSON.stringify(response.body)).toBe(status);
+  expect(response.body).toMatchObject({
+    type: `vetchium-problem-details/${type}`,
+    status,
+  });
+}
+
+/** Reserve and activate a fresh principal through the mesh relay, returning
+ * its DID and the account email digest it holds. */
+function activeMeshEmailPrincipal(
+  tenant: TestTenant,
+  observations: APIObservation[],
+): { hubUserDID: string; emailDigest: string } {
+  const reservation = freshReservation(tenant);
+  const reserved = reserveHubPrincipal(tenant, reservation, observations);
+  expect(reserved.status, JSON.stringify(reserved.body)).toBe(200);
+  const activated = activateHubPrincipal(
+    tenant,
+    { command_id: randomUUID(), hub_user_did: reservation.hub_user_did },
+    observations,
+  );
+  expect(activated.status, JSON.stringify(activated.body)).toBe(200);
+  return {
+    hubUserDID: reservation.hub_user_did,
+    emailDigest: reservation.account_email_digest,
+  };
 }
 
 function resolveProfileSlug(
@@ -364,6 +535,42 @@ test("reserve-hub-principal rejects a competing handle claim over the mesh relay
     type: "vetchium-problem-details/directory-claim-conflict",
     status: 409,
   });
+});
+
+test("reserve-hub-principal rejects a held account email and a foreign digest key over the mesh relay", async ({
+  apiCoverage,
+}) => {
+  const first = freshReservation("sgp");
+  const reserved = reserveHubPrincipal("sgp", first, apiCoverage);
+  expect(reserved.status, JSON.stringify(reserved.body)).toBe(200);
+
+  const competing = freshReservation("sgp", {
+    account_email_digest: first.account_email_digest,
+  });
+  expectDirectoryProblem(
+    reserveHubPrincipal("sgp", competing, apiCoverage),
+    409,
+    "directory-email-claim-conflict",
+  );
+  expectDirectoryProblem(
+    reserveHubPrincipal(
+      "sgp",
+      freshReservation("sgp", { digest_key_id: "0000000000000000" }),
+      apiCoverage,
+    ),
+    409,
+    "directory-digest-key-mismatch",
+  );
+  const corrected = reserveHubPrincipal(
+    "sgp",
+    {
+      ...competing,
+      command_id: randomUUID(),
+      account_email_digest: randomEmailDigest(),
+    },
+    apiCoverage,
+  );
+  expect(corrected.status, JSON.stringify(corrected.body)).toBe(200);
 });
 
 test("reserve-hub-principal rejects a provisioning window that has already expired over the mesh relay", async ({
@@ -638,6 +845,225 @@ test("set-hub-alias rejects a principal that has not been activated over the mes
     type: "vetchium-problem-details/directory-state-conflict",
     status: 409,
   });
+});
+
+test("resolve-hub-account-email names only the home tenant of a held address over the mesh relay", async ({
+  apiCoverage,
+}) => {
+  const { emailDigest } = activeMeshEmailPrincipal("sgp", apiCoverage);
+  const request: ResolveHubAccountEmailRequest = {
+    email_digest: emailDigest,
+    digest_key_id: DIGEST_KEY_ID,
+  };
+  const resolved = resolveHubAccountEmail("sgp", request, apiCoverage);
+  expect(resolved.status, JSON.stringify(resolved.body)).toBe(200);
+  expect(resolved.body).toEqual({
+    home_tenant_id: "sgp",
+  } satisfies ResolveHubAccountEmailResponse);
+
+  expectDirectoryProblem(
+    resolveHubAccountEmail(
+      "sgp",
+      { email_digest: randomEmailDigest(), digest_key_id: DIGEST_KEY_ID },
+      apiCoverage,
+    ),
+    404,
+    "directory-entry-not-found",
+  );
+  expectDirectoryProblem(
+    resolveHubAccountEmail(
+      "sgp",
+      { ...request, digest_key_id: "0000000000000000" },
+      apiCoverage,
+    ),
+    409,
+    "directory-digest-key-mismatch",
+  );
+});
+
+test("an email change reserves, finalizes, and rejects conflicting commands over the mesh relay", async ({
+  apiCoverage,
+}) => {
+  const owner = activeMeshEmailPrincipal("sgp", apiCoverage);
+  const other = activeMeshEmailPrincipal("sgp", apiCoverage);
+  const change = freshEmailChange(owner.hubUserDID);
+  expectReservationState(
+    reserveEmailChange("sgp", change, apiCoverage),
+    "reserved",
+  );
+  expectDirectoryProblem(
+    reserveEmailChange(
+      "sgp",
+      { ...change, new_email_digest: randomEmailDigest() },
+      apiCoverage,
+    ),
+    409,
+    "idempotency-key-conflict",
+  );
+  expectDirectoryProblem(
+    reserveEmailChange(
+      "sgp",
+      freshEmailChange(other.hubUserDID, {
+        new_email_digest: change.new_email_digest,
+      }),
+      apiCoverage,
+    ),
+    409,
+    "directory-email-claim-conflict",
+  );
+  expectDirectoryProblem(
+    reserveEmailChange(
+      "sgp",
+      freshEmailChange(other.hubUserDID, {
+        digest_key_id: "0000000000000000",
+      }),
+      apiCoverage,
+    ),
+    409,
+    "directory-digest-key-mismatch",
+  );
+  expectDirectoryProblem(
+    reserveEmailChange(
+      "sgp",
+      freshEmailChange(other.hubUserDID, {
+        not_after: new Date(Date.now() - 60_000).toISOString(),
+      }),
+      apiCoverage,
+    ),
+    409,
+    "directory-reservation-expired",
+  );
+  expectDirectoryProblem(
+    reserveEmailChange(
+      "sgp",
+      freshEmailChange(randomHubUserDID()),
+      apiCoverage,
+    ),
+    409,
+    "directory-state-conflict",
+  );
+  // usa1, not ind1: the mismatch must come from a healthy coordinator
+  // connection rather than ind1's deliberately broken one.
+  expectDirectoryProblem(
+    reserveEmailChange("usa1", freshEmailChange(other.hubUserDID), apiCoverage),
+    403,
+    "directory-caller-tenant-mismatch",
+  );
+
+  const finalize: FinalizeHubAccountEmailChangeRequest = {
+    command_id: randomUUID(),
+    change_id: change.change_id,
+    hub_user_did: owner.hubUserDID,
+  };
+  expectDirectoryProblem(
+    finalizeEmailChange(
+      "usa1",
+      { ...finalize, command_id: randomUUID() },
+      apiCoverage,
+    ),
+    403,
+    "directory-caller-tenant-mismatch",
+  );
+  expectDirectoryProblem(
+    finalizeEmailChange(
+      "sgp",
+      { ...finalize, command_id: randomUUID(), hub_user_did: other.hubUserDID },
+      apiCoverage,
+    ),
+    409,
+    "directory-state-conflict",
+  );
+  expectReservationState(
+    finalizeEmailChange("sgp", finalize, apiCoverage),
+    "finalized",
+  );
+  expectDirectoryProblem(
+    finalizeEmailChange(
+      "sgp",
+      { ...finalize, change_id: randomUUID() },
+      apiCoverage,
+    ),
+    409,
+    "idempotency-key-conflict",
+  );
+  const moved = resolveHubAccountEmail(
+    "sgp",
+    { email_digest: change.new_email_digest, digest_key_id: DIGEST_KEY_ID },
+    apiCoverage,
+  );
+  expect(moved.status, JSON.stringify(moved.body)).toBe(200);
+});
+
+test("abandon-hub-account-email-change fences a late reserve and refuses a finalized change over the mesh relay", async ({
+  apiCoverage,
+}) => {
+  const owner = activeMeshEmailPrincipal("sgp", apiCoverage);
+  const fenced = freshEmailChange(owner.hubUserDID);
+  const abandon: AbandonHubAccountEmailChangeRequest = {
+    command_id: randomUUID(),
+    change_id: fenced.change_id,
+    hub_user_did: owner.hubUserDID,
+    not_after: fenced.not_after,
+  };
+  expectDirectoryProblem(
+    abandonEmailChange(
+      "usa1",
+      { ...abandon, command_id: randomUUID() },
+      apiCoverage,
+    ),
+    403,
+    "directory-caller-tenant-mismatch",
+  );
+  expectReservationState(
+    abandonEmailChange("sgp", abandon, apiCoverage),
+    "cancelled",
+  );
+  expectDirectoryProblem(
+    abandonEmailChange(
+      "sgp",
+      { ...abandon, change_id: randomUUID() },
+      apiCoverage,
+    ),
+    409,
+    "idempotency-key-conflict",
+  );
+  expectDirectoryProblem(
+    reserveEmailChange("sgp", fenced, apiCoverage),
+    409,
+    "directory-reservation-cancelled",
+  );
+
+  const applied = freshEmailChange(owner.hubUserDID);
+  expectReservationState(
+    reserveEmailChange("sgp", applied, apiCoverage),
+    "reserved",
+  );
+  expectReservationState(
+    finalizeEmailChange(
+      "sgp",
+      {
+        command_id: randomUUID(),
+        change_id: applied.change_id,
+        hub_user_did: owner.hubUserDID,
+      },
+      apiCoverage,
+    ),
+    "finalized",
+  );
+  expectDirectoryProblem(
+    abandonEmailChange(
+      "sgp",
+      {
+        command_id: randomUUID(),
+        change_id: applied.change_id,
+        hub_user_did: owner.hubUserDID,
+        not_after: applied.not_after,
+      },
+      apiCoverage,
+    ),
+    409,
+    "directory-state-conflict",
+  );
 });
 
 test("mesh relay lists signup regions for a healthy tenant", async ({

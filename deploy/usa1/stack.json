@@ -276,6 +276,7 @@
       "secrets": [
         "app_postgres_password",
         "hub_credential_key",
+        "identity_digest_key",
         "mesh_credential",
         "seaweed_s3_access_key",
         "seaweed_s3_secret_key"
@@ -478,6 +479,7 @@
       "secrets": [
         "app_postgres_password",
         "hub_credential_key",
+        "identity_digest_key",
         "mesh_credential",
         "orgs_credential_key",
         "smtp_username",
@@ -957,6 +959,10 @@
     "hub_credential_key": {
       "external": true,
       "name": "usa1_hub_credential_key"
+    },
+    "identity_digest_key": {
+      "external": true,
+      "name": "usa1_identity_digest_key"
     },
     "orgs_credential_key": {
       "external": true,

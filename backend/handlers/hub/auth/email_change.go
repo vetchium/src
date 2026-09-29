@@ -1,15 +1,15 @@
 package auth
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-
+	directoryspec "github.com/vetchium/src/typespec/directory"
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
+	operationspec "github.com/vetchium/src/typespec/hub/operations"
 	"github.com/vetchium/src/typespec/problem"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
@@ -20,10 +20,9 @@ import (
 	"backend/internal/handlerauth"
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
+	"backend/internal/hub/emailchange"
 	"backend/internal/middleware"
 )
-
-const emailChangeCodeSubkey = "email-change-code"
 
 type emailChangeCodePayload struct {
 	Code string `json:"code"`
@@ -41,6 +40,21 @@ func RequestEmailChange(s *hubruntime.Server) http.HandlerFunc {
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
 		address := string(request.NewEmailAddress)
+		// Resolved globally, including this tenant, so an address registered
+		// anywhere gets the same response but no message (GU-ECH-001). This
+		// network call runs before the idempotent transaction opens, so a slow
+		// directory never holds a connection or the idempotency lock. A
+		// resolve error still sends the code: the authoritative check happens
+		// at reserve time, and confirm fails closed.
+		_, details, err := s.Directory.ResolveHubAccountEmail(
+			r.Context(), directoryspec.ResolveHubAccountEmailRequest{
+				EmailDigest: directoryspec.EmailDigest(
+					hex.EncodeToString(s.DigestKey.HubAccountEmail(address)),
+				),
+				DigestKeyID: directoryspec.DigestKeyID(s.DigestKey.ID()),
+			},
+		)
+		globallyRegistered := err == nil && details == nil
 		handlerauth.RunIdempotent(
 			s, w, r, "hub:request-email-change",
 			dbvalue.FormatUUID(identity.UserDID), key, request,
@@ -50,6 +64,19 @@ func RequestEmailChange(s *hubruntime.Server) http.HandlerFunc {
 				*handlerauth.Problem, error,
 			) {
 				zero := handlerauth.Result[hubauth.EmailChangeChallenge]{}
+				// While a live change is in flight, neither issue nor
+				// supersede a challenge for it (GU-ECH-001).
+				inProgress, err := q.HubAccountEmailChangeInProgress(
+					r.Context(), identity.UserDID,
+				)
+				if err != nil {
+					return zero, nil, err
+				}
+				if inProgress {
+					return handlerauth.Failure[hubauth.EmailChangeChallenge](
+						hubproblem.EmailChangeInProgressError,
+					)
+				}
 				challengeID, err := dbvalue.NewUUID()
 				if err != nil {
 					return zero, nil, err
@@ -75,17 +102,15 @@ func RequestEmailChange(s *hubruntime.Server) http.HandlerFunc {
 				}
 				issued, err := q.IssueHubEmailChangeChallenge(
 					r.Context(), sqlc.IssueHubEmailChangeChallengeParams{
-						HubUserDid:      identity.UserDID,
-						HubSessionID:    identity.SessionID,
-						NewEmailAddress: address,
-						ChallengeID:     challengeID,
-						CodeHash: credentials.VerificationCodeHash(
-							s.CredentialSubkey(emailChangeCodeSubkey),
-							dbvalue.FormatUUID(challengeID), code,
-						),
-						PayloadCiphertext: ciphertext,
-						TenantID:          s.TenantID,
-						IdempotencyKey:    dbvalue.Text(string(key)),
+						HubUserDid:         identity.UserDID,
+						HubSessionID:       identity.SessionID,
+						NewEmailAddress:    address,
+						ChallengeID:        challengeID,
+						CodeHash:           s.EmailChange.CodeHash(challengeID, code),
+						PayloadCiphertext:  ciphertext,
+						GloballyRegistered: globallyRegistered,
+						TenantID:           s.TenantID,
+						IdempotencyKey:     dbvalue.Text(string(key)),
 					},
 				)
 				if err != nil {
@@ -128,69 +153,32 @@ func ConfirmEmailChange(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		handlerauth.RunIdempotent(
-			s, w, r, "hub:confirm-email-change",
-			dbvalue.FormatUUID(identity.UserDID), key, request,
-			s.CurrentTime().Add(24*time.Hour),
-			func(q *sqlc.Queries) (
-				handlerauth.Result[struct{}], *handlerauth.Problem, error,
-			) {
-				zero := handlerauth.Result[struct{}]{}
-				challengeID, err := dbvalue.ParseUUID(string(request.ChallengeID))
-				if err != nil {
-					return zero, nil, err
-				}
-				notice, err := credentials.Encrypt(
-					s.CredentialSubkey("outbox"), []byte("{}"),
-				)
-				if err != nil {
-					return zero, nil, err
-				}
-				result, err := q.ConfirmHubEmailChange(
-					r.Context(), sqlc.ConfirmHubEmailChangeParams{
-						ChallengeID:  challengeID,
-						HubUserDid:   identity.UserDID,
-						HubSessionID: identity.SessionID,
-						CodeHash: credentials.VerificationCodeHash(
-							s.CredentialSubkey(emailChangeCodeSubkey),
-							dbvalue.FormatUUID(challengeID), request.Code,
-						),
-						NoticePayloadCiphertext: notice,
-						TenantID:                s.TenantID,
-						IdempotencyKey:          dbvalue.Text(string(key)),
-					},
-				)
-				if errors.Is(err, pgx.ErrNoRows) {
-					return handlerauth.Failure[struct{}](
-						hubproblem.EmailChangeCodeRejectedError,
-					)
-				}
-				if isAccountEmailTaken(err) {
-					return handlerauth.Failure[struct{}](
-						hubproblem.EmailAddressUnavailableError,
-					)
-				}
-				if err != nil {
-					return zero, nil, err
-				}
-				if !result.Verified {
-					return handlerauth.CommittedFailure[struct{}](
-						hubproblem.EmailChangeCodeRejectedError,
-					), nil, nil
-				}
-				return handlerauth.Result[struct{}]{
-					Status: http.StatusNoContent,
-				}, nil, nil
-			},
+		result, err := s.EmailChange.Start(
+			r.Context(), identity.UserDID, identity.SessionID, request, key,
 		)
+		switch {
+		case errors.Is(err, emailchange.ErrCodeRejected):
+			s.Problem(r.Context(), w, hubproblem.EmailChangeCodeRejectedError)
+		case errors.Is(err, emailchange.ErrInProgress):
+			s.Problem(r.Context(), w, hubproblem.EmailChangeInProgressError)
+		case errors.Is(err, emailchange.ErrAddressUnavailable):
+			s.Problem(r.Context(), w, hubproblem.EmailAddressUnavailableError)
+		case errors.Is(err, emailchange.ErrUnavailable):
+			s.Problem(r.Context(), w, hubproblem.EmailChangeUnavailableError)
+		case errors.Is(err, emailchange.ErrIdempotencyConflict):
+			s.Problem(r.Context(), w, problem.IdempotencyKeyConflictError)
+		case errors.Is(err, emailchange.ErrPending):
+			w.Header().Set("Cache-Control", "no-store")
+			s.JSON(r.Context(), w, http.StatusAccepted,
+				operationspec.PendingOperation{
+					OperationID: operationspec.OperationID(result.OperationID),
+				},
+			)
+		case err != nil:
+			s.InternalError(r.Context(), w, "confirm Hub email change", err)
+		default:
+			w.Header().Set("Cache-Control", "no-store")
+			s.Empty(r.Context(), w, http.StatusNoContent)
+		}
 	}
-}
-
-// Another account can take the address between the code request and its
-// confirmation, for example by completing signup with it.
-func isAccountEmailTaken(err error) bool {
-	var databaseError *pgconn.PgError
-	return errors.As(err, &databaseError) &&
-		databaseError.Code == "23505" &&
-		databaseError.ConstraintName == "hub_users_email_address_key"
 }

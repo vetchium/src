@@ -1,3 +1,5 @@
+import { isCountryCode } from "../../common/countries.ts";
+import type { CountryCode } from "../../common/localization.ts";
 import type { Details } from "../details.ts";
 
 export const SignupDomainNotAllowedError: Readonly<Details> = {
@@ -21,3 +23,26 @@ export const SignupUnavailableError: Readonly<Details> = {
   detail:
     "This region is not accepting signup for your resident country. Choose another region.",
 };
+
+export const HubAccountHomedElsewhereErrorType =
+  "vetchium-problem-details/hub-account-homed-elsewhere";
+
+export interface HubAccountHomedElsewhereDetails extends Details {
+  type: typeof HubAccountHomedElsewhereErrorType;
+  tenant_id: string;
+  hosting_country: CountryCode;
+  hub_url: string;
+}
+
+export function isHubAccountHomedElsewhereProblem(
+  value: unknown,
+): value is HubAccountHomedElsewhereDetails {
+  if (typeof value !== "object" || value === null) return false;
+  const problem = value as Record<string, unknown>;
+  return (
+    problem.type === HubAccountHomedElsewhereErrorType &&
+    typeof problem.tenant_id === "string" &&
+    isCountryCode(problem.hosting_country) &&
+    typeof problem.hub_url === "string"
+  );
+}

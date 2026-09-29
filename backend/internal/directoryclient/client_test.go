@@ -161,3 +161,47 @@ func TestResolveOrgDomainPreservesNotFound(t *testing.T) {
 		t.Fatalf("details = %+v, err = %v", details, err)
 	}
 }
+
+func TestResolveHubAccountEmailDecodesResponse(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/directory/resolve-hub-account-email" {
+				t.Errorf("path = %s", r.URL.Path)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"home_tenant_id":"sgp"}`))
+		},
+	))
+	defer server.Close()
+	client := New(server.URL, "/directory", "secret", time.Second)
+	response, details, err := client.ResolveHubAccountEmail(
+		context.Background(), directoryspec.ResolveHubAccountEmailRequest{
+			EmailDigest: "bee57e69a23d800d7718d0e79b2be1519e131232967431dba85e2737b6621f6e",
+			DigestKeyID: "909577e87ebd5395",
+		},
+	)
+	if err != nil || details != nil || response.HomeTenantID != "sgp" {
+		t.Fatalf("response = %+v, details = %+v, err = %v", response, details, err)
+	}
+}
+
+func TestReserveHubAccountEmailChangeDecodesAndValidates(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"state":"reserved"}`))
+		},
+	))
+	defer server.Close()
+	client := New(server.URL, "", "secret", time.Second)
+	outcome, err := client.ReserveHubAccountEmailChange(
+		context.Background(),
+		directoryspec.ReserveHubAccountEmailChangeRequest{},
+	)
+	if err != nil || outcome.Reservation == nil ||
+		outcome.Reservation.State != directoryspec.EmailChangeReserved {
+		t.Fatalf("outcome = %+v, err = %v", outcome, err)
+	}
+}

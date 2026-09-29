@@ -15,12 +15,17 @@ ADMIN_CREDENTIAL_KEY  ?= dev_admin_credential_key
 HUB_CREDENTIAL_KEY    ?= dev_hub_credential_key
 ORGS_CREDENTIAL_KEY   ?= dev_orgs_credential_key
 MESH_CREDENTIAL       ?= dev_mesh_credential_at_least_32_bytes
+# Shared by every tenant, unlike the per-region credential keys above: it
+# derives the global identity-digest key, so every tenant must compute the
+# same digest for the same address.
+IDENTITY_DIGEST_KEY   ?= dev_identity_digest_key
 DEV_SECRETS_DIR       := .dev-secrets
 APP_PASSWORD_FILE     := $(DEV_SECRETS_DIR)/app_postgres_password
 GLOBAL_APP_PASSWORD_FILE := $(DEV_SECRETS_DIR)/global_app_postgres_password
 ADMIN_KEY_FILE        := $(DEV_SECRETS_DIR)/admin_credential_key
 HUB_KEY_FILE          := $(DEV_SECRETS_DIR)/hub_credential_key
 ORGS_KEY_FILE         := $(DEV_SECRETS_DIR)/orgs_credential_key
+IDENTITY_DIGEST_KEY_FILE := $(DEV_SECRETS_DIR)/identity_digest_key
 MESH_KEY_FILE         := $(DEV_SECRETS_DIR)/mesh_credential
 MESH_CA_FILE          := $(DEV_SECRETS_DIR)/mesh_ca_certificate
 SQLC                   := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
@@ -206,6 +211,13 @@ dev-secrets:
 			{ echo "MESH_CREDENTIAL differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
 	else \
 		umask 077; printf '%s' "$$MESH_CREDENTIAL" > "$(MESH_KEY_FILE)"; \
+	fi
+	@if [ -f "$(IDENTITY_DIGEST_KEY_FILE)" ]; then \
+		current=$$(cat "$(IDENTITY_DIGEST_KEY_FILE)"); \
+		test "$$current" = "$$IDENTITY_DIGEST_KEY" || \
+			{ echo "IDENTITY_DIGEST_KEY differs from the initialized development secret; run make clean before changing it"; exit 1; }; \
+	else \
+		umask 077; printf '%s' "$$IDENTITY_DIGEST_KEY" > "$(IDENTITY_DIGEST_KEY_FILE)"; \
 	fi
 
 sqlc:

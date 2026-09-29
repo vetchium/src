@@ -10,6 +10,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	directoryspec "github.com/vetchium/src/typespec/directory"
 )
 
 const defaultConfigPath = "/etc/vetchium/global-coordinator.json"
@@ -19,6 +21,13 @@ type Config struct {
 	Environment       string
 	Database          Database
 	TLS               TLS
+	// IdentityDigestKeyID identifies the shared secret every tenant's
+	// hub-api and workers derive their identitydigest.Key from. The
+	// coordinator never holds that secret; it only compares this id against
+	// the one each directory request carries, to reject a tenant
+	// misconfigured with a different secret (GU-KEY-004) instead of
+	// silently breaking global email uniqueness.
+	IdentityDigestKeyID string
 }
 
 type TLS struct {
@@ -40,10 +49,11 @@ type Database struct {
 }
 
 type fileConfig struct {
-	SignupRegionsFile string   `json:"signupRegionsFile"`
-	Environment       string   `json:"env"`
-	Database          Database `json:"database"`
-	TLS               TLS      `json:"tls"`
+	SignupRegionsFile   string   `json:"signupRegionsFile"`
+	Environment         string   `json:"env"`
+	Database            Database `json:"database"`
+	TLS                 TLS      `json:"tls"`
+	IdentityDigestKeyID string   `json:"identityDigestKeyId"`
 }
 
 func LoadConfig() (Config, error) {
@@ -106,6 +116,15 @@ func LoadConfigFile(path string) (Config, error) {
 		raw.TLS.HealthKeyFile == "" || raw.TLS.HealthServerName == "" {
 		return Config{}, fmt.Errorf(
 			"global coordinator config %q: TLS fields must not be empty", path,
+		)
+	}
+	// The checked-in production file holds a placeholder until the operator
+	// computes the id (deploy/README.md); starting with it would reject every
+	// digest-bearing directory request while still reporting healthy.
+	if !directoryspec.IsDigestKeyID(directoryspec.DigestKeyID(raw.IdentityDigestKeyID)) {
+		return Config{}, fmt.Errorf(
+			"global coordinator config %q: identityDigestKeyId must be the 16 lowercase hex characters of the identity digest key id",
+			path,
 		)
 	}
 	return Config(raw), nil

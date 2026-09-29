@@ -8,6 +8,7 @@
     "user": "vetchium_app"
   },
   "env": "dev",
+  "identityDigestKeyId": "909577e87ebd5395",
   "signupRegionsFile": "/etc/vetchium/signup-regions.json",
   "tls": {
     "certificateFile": "/run/secrets/global_coordinator_tls_certificate",

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { isHubAccountHomedElsewhereProblem } from "../problem/hub/signup.ts";
 
 import {
   normalizeRequestEmailChangeRequest,
@@ -217,4 +218,27 @@ test("Hub email change normalizes without mutating and validates each field", ()
     }),
     [],
   );
+});
+
+test("the homed-elsewhere guard requires every extension member", () => {
+  const problem = {
+    type: "vetchium-problem-details/hub-account-homed-elsewhere",
+    title: "Hub account homed in another region",
+    status: 409,
+    detail: "This Hub account signs in at another region's Hub portal",
+    tenant_id: "usa1",
+    hosting_country: "US",
+    hub_url: "https://hub.usa1.example",
+  };
+  assert.equal(isHubAccountHomedElsewhereProblem(problem), true);
+  for (const field of ["tenant_id", "hosting_country", "hub_url"] as const) {
+    const missing: Record<string, unknown> = { ...problem };
+    delete missing[field];
+    assert.equal(isHubAccountHomedElsewhereProblem(missing), false, field);
+  }
+  assert.equal(
+    isHubAccountHomedElsewhereProblem({ ...problem, hosting_country: "us" }),
+    false,
+  );
+  assert.equal(isHubAccountHomedElsewhereProblem(null), false);
 });

@@ -44,6 +44,18 @@ type Directory interface {
 	ClaimOrgDomain(
 		context.Context, directoryspec.ClaimOrgDomainRequest,
 	) (directoryclient.OrgOutcome, error)
+	ResolveHubAccountEmail(
+		context.Context, directoryspec.ResolveHubAccountEmailRequest,
+	) (directoryspec.ResolveHubAccountEmailResponse, *problem.Details, error)
+	ReserveHubAccountEmailChange(
+		context.Context, directoryspec.ReserveHubAccountEmailChangeRequest,
+	) (directoryclient.EmailChangeOutcome, error)
+	FinalizeHubAccountEmailChange(
+		context.Context, directoryspec.FinalizeHubAccountEmailChangeRequest,
+	) (directoryclient.EmailChangeOutcome, error)
+	AbandonHubAccountEmailChange(
+		context.Context, directoryspec.AbandonHubAccountEmailChangeRequest,
+	) (directoryclient.EmailChangeOutcome, error)
 }
 
 func ResolveProfileSlug(
@@ -147,6 +159,36 @@ func ClaimOrgDomain(
 	)
 }
 
+func ResolveHubAccountEmail(
+	runtime *apiserver.Runtime, directory Directory, credential string,
+) http.HandlerFunc {
+	return relayRead(runtime, credential, directory.ResolveHubAccountEmail)
+}
+
+func ReserveHubAccountEmailChange(
+	runtime *apiserver.Runtime, directory Directory, credential string,
+) http.HandlerFunc {
+	return directoryCommand[directoryspec.ReserveHubAccountEmailChangeRequest](
+		runtime, credential, emailChangeCommand(directory.ReserveHubAccountEmailChange),
+	)
+}
+
+func FinalizeHubAccountEmailChange(
+	runtime *apiserver.Runtime, directory Directory, credential string,
+) http.HandlerFunc {
+	return directoryCommand[directoryspec.FinalizeHubAccountEmailChangeRequest](
+		runtime, credential, emailChangeCommand(directory.FinalizeHubAccountEmailChange),
+	)
+}
+
+func AbandonHubAccountEmailChange(
+	runtime *apiserver.Runtime, directory Directory, credential string,
+) http.HandlerFunc {
+	return directoryCommand[directoryspec.AbandonHubAccountEmailChangeRequest](
+		runtime, credential, emailChangeCommand(directory.AbandonHubAccountEmailChange),
+	)
+}
+
 // relayOutcome is a relayed command result independent of the principal kind
 // whose response it carries.
 type relayOutcome struct {
@@ -174,6 +216,18 @@ func orgCommand[T any](
 		outcome, err := command(ctx, request)
 		return relayOutcome{
 			status: outcome.Status, body: outcome.Org, problem: outcome.Problem,
+		}, err
+	}
+}
+
+func emailChangeCommand[T any](
+	command func(context.Context, T) (directoryclient.EmailChangeOutcome, error),
+) func(context.Context, T) (relayOutcome, error) {
+	return func(ctx context.Context, request T) (relayOutcome, error) {
+		outcome, err := command(ctx, request)
+		return relayOutcome{
+			status: outcome.Status, body: outcome.Reservation,
+			problem: outcome.Problem,
 		}, err
 	}
 }

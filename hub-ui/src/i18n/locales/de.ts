@@ -99,6 +99,12 @@ export const de = {
     pending:
       "Ihr Konto wird fertiggestellt. Diese Seite prüft den Fortschritt weiter.",
     success: "Ihr Konto ist bereit. Ihr Handle lautet {{handle}}.",
+    homedElsewhere: {
+      title: "Sie haben bereits ein Vetchium-Konto in {{region}}",
+      description:
+        "Diese E-Mail-Adresse ist in einer anderen Vetchium-Region registriert. Melden Sie sich dort an.",
+      action: "Zur Anmeldung",
+    },
   },
   forgotPassword: {
     documentTitle: "Passwort vergessen | Vetchium",
@@ -184,6 +190,10 @@ export const de = {
       "Dieser Code wurde nicht akzeptiert. Prüfen Sie ihn oder senden Sie einen neuen Code.",
     emailAddressUnavailable:
       "Ein anderes Vetchium-Konto verwendet diese Adresse bereits.",
+    emailChangeInProgress:
+      "Es läuft bereits eine andere Änderung der E-Mail-Adresse.",
+    emailChangeUnavailable:
+      "Die Änderung der E-Mail-Adresse konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
     planRequired:
       "Für diese Funktion ist ein kostenpflichtiger Tarif erforderlich.",
   },
@@ -479,6 +489,7 @@ export const de = {
     confirm: "Neue Adresse bestätigen",
     resend: "Neuen Code senden",
     cancel: "Abbrechen",
+    applying: "Ihre neue E-Mail-Adresse wird übernommen …",
     changed:
       "Ihre E-Mail-Adresse wurde geändert. Andere Browser wurden abgemeldet.",
   },

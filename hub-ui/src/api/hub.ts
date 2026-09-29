@@ -139,11 +139,15 @@ export const hubAPI = {
       body,
       idempotencyKey,
     }),
+  // A 204 resolves the change immediately (the common case); a 202 means the
+  // global directory hiccupped and the caller must poll operationStatus,
+  // then replay this same call with the same idempotency key for the
+  // resolved typed result (GU-ECH-005).
   confirmEmailChange: (
     body: ConfirmEmailChangeRequest,
     idempotencyKey: IdempotencyKey,
   ) =>
-    apiRequest<void>(`${base}/confirm-email-change`, {
+    apiRequest<PendingOperation | undefined>(`${base}/confirm-email-change`, {
       body,
       idempotencyKey,
     }),

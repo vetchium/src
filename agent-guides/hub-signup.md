@@ -15,12 +15,24 @@ profile locality. Compose with [`federation.md`](federation.md).
   allowlist in SQL at both initiation and completion, and recheck region
   eligibility at completion. Approval in another tenant never counts, and there
   is no any-domain bypass.
+- Once a completion has spent a signup token, it owns that request until it
+  completes, fails, or is abandoned. A new request for the same address must
+  not replace it: that would strand the completion's global reservation and
+  its local user.
 - A policy refusal creates no Hub user. A replay of an already completed
   idempotent request keeps its original result rather than applying current
   policy retroactively.
-- The same email may identify independent accounts in different tenants. Never
-  infer an account merge or cross-tenant authorization from equal emails; global
-  identity comes only from the DID directory.
+- The account email is globally unique through a keyed digest claim in the
+  global directory (`federation.md`): the coordinator never holds addresses,
+  only `HMAC-SHA256(identity_digest_key, label || normalized_address)`. The
+  request-time answer stays generic — the same `202` whether the address is
+  free, already registered at this tenant, or registered at another tenant —
+  so it can never be used to test whether an address is registered anywhere.
+  Only completion, after the caller has proven mailbox control by reading a
+  code sent to that address, may reveal the home region, and only via a `409`
+  naming that region's Hub URL. There is no unauthenticated homed-elsewhere
+  answer at login: an unauthenticated "this email lives in region X" response
+  would be an account-enumeration oracle.
 
 ## Identity and profile locality
 

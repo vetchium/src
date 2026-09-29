@@ -1,3 +1,4 @@
+import "../../common/localization.tsp";
 import "../details.tsp";
 
 namespace Vetchium.Problem;
@@ -33,4 +34,27 @@ const HubSignupUnavailableError = #{
 alias HubSignupUnavailableErrorResponse = Response<
   403,
   typeof HubSignupUnavailableError
+>;
+
+/** The account email is already registered at another tenant. Revealed only
+ * at completion, once the caller has proven mailbox control: the request-time
+ * response never distinguishes this from an unregistered address (GU-SIG-005).
+ */
+model HubAccountHomedElsewhereDetails {
+  type: "vetchium-problem-details/hub-account-homed-elsewhere";
+  title: "Hub account homed in another region";
+  status: 409;
+  detail: "This Hub account signs in at another region's Hub portal";
+  tenant_id: string;
+
+  /** Where the home region is hosted, so a portal can name it in the
+   * viewer's language. */
+  hosting_country: Vetchium.CountryCode;
+
+  hub_url: url;
+  instance?: string;
+}
+alias HubAccountHomedElsewhereErrorResponse = Response<
+  409,
+  HubAccountHomedElsewhereDetails
 >;

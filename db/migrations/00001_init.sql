@@ -94,6 +94,9 @@ CREATE TABLE vetchium.hub_users (
     hub_user_did uuid PRIMARY KEY,
     handle text NOT NULL,
     email_address text NOT NULL,
+    -- Keyed digest of email_address (GU-SIG-001), the same one the global
+    -- directory holds a claim for; the key never reaches this database.
+    email_digest bytea NOT NULL CHECK (octet_length(email_digest) = 32),
     display_name text NOT NULL,
     biography text,
     profile_alias text,
@@ -129,6 +132,7 @@ CREATE TABLE vetchium.hub_users (
     updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT hub_users_handle_key UNIQUE (handle),
     CONSTRAINT hub_users_email_address_key UNIQUE (email_address),
+    CONSTRAINT hub_users_email_digest_key UNIQUE (email_digest),
     CONSTRAINT hub_users_did_uuidv7_check CHECK (
         substring(hub_user_did::text FROM 15 FOR 1) = '7'
     ),
@@ -756,12 +760,25 @@ CREATE TABLE vetchium.hub_signup_completions (
     token_hash bytea NOT NULL UNIQUE CHECK (octet_length(token_hash) = 32),
     idempotency_key text NOT NULL,
     request_digest bytea NOT NULL CHECK (octet_length(request_digest) = 32),
+    -- Computed once at prepare time; also written to hub_users.email_digest
+    -- when the local account is created (GU-SIG-004).
+    account_email_digest bytea NOT NULL CHECK (
+        octet_length(account_email_digest) = 32
+    ),
     hub_user_did uuid NOT NULL UNIQUE,
     handle text NOT NULL,
     reserve_command_id uuid NOT NULL UNIQUE,
     activate_command_id uuid NOT NULL UNIQUE,
     payload_ciphertext bytea NOT NULL,
     state vetchium.hub_signup_completion_state NOT NULL DEFAULT 'prepared',
+    failure_reason text CHECK (
+        failure_reason IN ('expired', 'email_registered_elsewhere')
+    ),
+    -- Set only for the email_registered_elsewhere failure, and only when the
+    -- coordinator's resolve-hub-account-email lookup itself succeeded.
+    conflicting_home_tenant_id text CHECK (
+        conflicting_home_tenant_id ~ '^[a-z][a-z0-9]{2,15}$'
+    ),
     provisioning_expires_at timestamptz NOT NULL,
     attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
     next_attempt_at timestamptz NOT NULL DEFAULT now(),
@@ -775,6 +792,13 @@ CREATE TABLE vetchium.hub_signup_completions (
     ),
     CONSTRAINT hub_signup_completions_handle_check CHECK (
         handle ~ '^[a-z0-9]{8}-[0-9a-hjkmnp-tv-z]{11}$'
+    ),
+    CONSTRAINT hub_signup_completions_failure_check CHECK (
+        (state = 'failed') = (failure_reason IS NOT NULL)
+    ),
+    CONSTRAINT hub_signup_completions_conflicting_tenant_check CHECK (
+        conflicting_home_tenant_id IS NULL
+        OR failure_reason = 'email_registered_elsewhere'
     ),
     CONSTRAINT hub_signup_completions_times_check CHECK (
         updated_at >= created_at
@@ -838,10 +862,60 @@ CREATE UNIQUE INDEX hub_email_change_challenges_active_user_idx
     ON vetchium.hub_email_change_challenges (hub_user_did)
     WHERE consumed_at IS NULL AND superseded_at IS NULL AND attempt_count < 5;
 
+CREATE TYPE vetchium.hub_account_email_change_state AS ENUM (
+    'accepted', 'reserved', 'applied', 'cancelling', 'succeeded', 'failed'
+);
+
+-- The durable account-email-change saga (GU-ECH-002a). Independent of
+-- hub_email_change_challenges, which cascades away with its session: logout
+-- during a pending change must not destroy the address the change needs.
+CREATE TABLE vetchium.hub_account_email_changes (
+    operation_id uuid PRIMARY KEY
+        REFERENCES vetchium.federation_operations (operation_id),
+    hub_user_did uuid NOT NULL
+        REFERENCES vetchium.hub_users (hub_user_did) ON DELETE CASCADE,
+    new_email_address text NOT NULL,
+    new_email_digest bytea NOT NULL CHECK (octet_length(new_email_digest) = 32),
+    old_email_digest bytea NOT NULL CHECK (octet_length(old_email_digest) = 32),
+    -- Deliberately no FK: the session may end while the change is pending.
+    confirming_session_id uuid NOT NULL,
+    state vetchium.hub_account_email_change_state NOT NULL DEFAULT 'accepted',
+    failure_reason text CHECK (
+        failure_reason IN ('address_unavailable', 'reservation_expired')
+    ),
+    reserve_command_id uuid NOT NULL UNIQUE,
+    finalize_command_id uuid NOT NULL UNIQUE,
+    abandon_command_id uuid NOT NULL UNIQUE,
+    -- accepted_at + 24h; sent to the coordinator as the reservation deadline.
+    not_after timestamptz NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    completed_at timestamptz,
+    CONSTRAINT hub_account_email_changes_address_check CHECK (
+        new_email_address = lower(btrim(new_email_address)) AND
+        length(new_email_address) > 0
+    ),
+    CONSTRAINT hub_account_email_changes_completed_check CHECK (
+        (state IN ('succeeded', 'failed')) = (completed_at IS NOT NULL)
+    ),
+    -- The reason is set on entering 'cancelling' and kept through 'failed'.
+    CONSTRAINT hub_account_email_changes_failure_check CHECK (
+        (state IN ('cancelling', 'failed')) = (failure_reason IS NOT NULL)
+    ),
+    CONSTRAINT hub_account_email_changes_timestamps_check CHECK (
+        updated_at >= created_at
+    )
+);
+
+CREATE UNIQUE INDEX hub_account_email_changes_one_live
+    ON vetchium.hub_account_email_changes (hub_user_did)
+    WHERE state NOT IN ('succeeded', 'failed');
+
 CREATE TABLE vetchium.hub_email_outbox (
     hub_email_outbox_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     kind text NOT NULL CHECK (kind IN (
         'signup',
+        'signup-registered-elsewhere',
         'password-reset',
         'professional-email-verification',
         'subscription-ending',
@@ -1587,6 +1661,8 @@ DROP TABLE IF EXISTS vetchium.org_plans;
 DROP TABLE IF EXISTS vetchium.federation_inbox;
 DROP TABLE IF EXISTS vetchium.federation_outbox;
 DROP TABLE IF EXISTS vetchium.federation_command_ledger;
+DROP TABLE IF EXISTS vetchium.hub_account_email_changes;
+DROP TYPE IF EXISTS vetchium.hub_account_email_change_state;
 DROP TABLE IF EXISTS vetchium.federation_operations;
 DROP TYPE IF EXISTS vetchium.federation_operation_state;
 DROP TABLE IF EXISTS vetchium.hub_email_outbox;

@@ -10,7 +10,9 @@ import (
 	"backend/internal/dnsverify"
 	"backend/internal/email"
 	hubauthn "backend/internal/hub/auth"
+	"backend/internal/hub/emailchange"
 	"backend/internal/hub/signupcompletion"
+	"backend/internal/identitydigest"
 	"backend/internal/objectstorage"
 	orgsauthn "backend/internal/orgs/auth"
 	"backend/internal/orgs/domainverification"
@@ -59,6 +61,11 @@ func run(log *slog.Logger) error {
 	hubCredentialKey := hubauthn.DeriveCredentialKey(
 		cfg.TenantID, hubCredentialSecret,
 	)
+	digestSecret, err := appconfig.IdentityDigestSecret()
+	if err != nil {
+		return err
+	}
+	digestKey := identitydigest.NewKey(digestSecret)
 	meshCredential, err := cfg.MeshAPIServer.Credential()
 	if err != nil {
 		return err
@@ -86,7 +93,13 @@ func run(log *slog.Logger) error {
 		hubauthn.DeriveCredentialSubkey(
 			hubCredentialKey, "signup-provisioning",
 		),
-		nil,
+		digestKey, log, nil,
+	)
+	emailChangeRecovery := emailchange.New(
+		pool, directory, cfg.TenantID,
+		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "email-change-code"),
+		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "outbox"),
+		digestKey, log, nil,
 	)
 	worker := workers.New(
 		pool, log, cfg.TenantID, cfg.Workers,
@@ -101,6 +114,7 @@ func run(log *slog.Logger) error {
 			MaxAttempts: cfg.Workers.HubEmailMaxAttempts,
 		},
 		signupRecovery,
+		emailChangeRecovery,
 	)
 	orgsCredentialSecret, err := appconfig.OrgsCredentialSecret()
 	if err != nil {

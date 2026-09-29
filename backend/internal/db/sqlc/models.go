@@ -96,6 +96,52 @@ func (ns NullVetchiumFederationOperationState) Value() (driver.Value, error) {
 	return string(ns.VetchiumFederationOperationState), nil
 }
 
+type VetchiumHubAccountEmailChangeState string
+
+const (
+	VetchiumHubAccountEmailChangeStateAccepted   VetchiumHubAccountEmailChangeState = "accepted"
+	VetchiumHubAccountEmailChangeStateReserved   VetchiumHubAccountEmailChangeState = "reserved"
+	VetchiumHubAccountEmailChangeStateApplied    VetchiumHubAccountEmailChangeState = "applied"
+	VetchiumHubAccountEmailChangeStateCancelling VetchiumHubAccountEmailChangeState = "cancelling"
+	VetchiumHubAccountEmailChangeStateSucceeded  VetchiumHubAccountEmailChangeState = "succeeded"
+	VetchiumHubAccountEmailChangeStateFailed     VetchiumHubAccountEmailChangeState = "failed"
+)
+
+func (e *VetchiumHubAccountEmailChangeState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumHubAccountEmailChangeState(s)
+	case string:
+		*e = VetchiumHubAccountEmailChangeState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumHubAccountEmailChangeState: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumHubAccountEmailChangeState struct {
+	VetchiumHubAccountEmailChangeState VetchiumHubAccountEmailChangeState `json:"vetchium_hub_account_email_change_state"`
+	Valid                              bool                               `json:"valid"` // Valid is true if VetchiumHubAccountEmailChangeState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumHubAccountEmailChangeState) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumHubAccountEmailChangeState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumHubAccountEmailChangeState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumHubAccountEmailChangeState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumHubAccountEmailChangeState), nil
+}
+
 type VetchiumHubBillingInterval string
 
 const (
@@ -838,6 +884,24 @@ type VetchiumFederationOutbox struct {
 	LastError           pgtype.Text        `json:"last_error"`
 }
 
+type VetchiumHubAccountEmailChange struct {
+	OperationID         pgtype.UUID                        `json:"operation_id"`
+	HubUserDid          pgtype.UUID                        `json:"hub_user_did"`
+	NewEmailAddress     string                             `json:"new_email_address"`
+	NewEmailDigest      []byte                             `json:"new_email_digest"`
+	OldEmailDigest      []byte                             `json:"old_email_digest"`
+	ConfirmingSessionID pgtype.UUID                        `json:"confirming_session_id"`
+	State               VetchiumHubAccountEmailChangeState `json:"state"`
+	FailureReason       pgtype.Text                        `json:"failure_reason"`
+	ReserveCommandID    pgtype.UUID                        `json:"reserve_command_id"`
+	FinalizeCommandID   pgtype.UUID                        `json:"finalize_command_id"`
+	AbandonCommandID    pgtype.UUID                        `json:"abandon_command_id"`
+	NotAfter            pgtype.Timestamptz                 `json:"not_after"`
+	CreatedAt           pgtype.Timestamptz                 `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz                 `json:"updated_at"`
+	CompletedAt         pgtype.Timestamptz                 `json:"completed_at"`
+}
+
 type VetchiumHubCertification struct {
 	CertificationID pgtype.UUID        `json:"certification_id"`
 	HubUserDid      pgtype.UUID        `json:"hub_user_did"`
@@ -972,25 +1036,28 @@ type VetchiumHubSession struct {
 }
 
 type VetchiumHubSignupCompletion struct {
-	OperationID           pgtype.UUID                      `json:"operation_id"`
-	HubSignupRequestID    pgtype.UUID                      `json:"hub_signup_request_id"`
-	TokenHash             []byte                           `json:"token_hash"`
-	IdempotencyKey        string                           `json:"idempotency_key"`
-	RequestDigest         []byte                           `json:"request_digest"`
-	HubUserDid            pgtype.UUID                      `json:"hub_user_did"`
-	Handle                string                           `json:"handle"`
-	ReserveCommandID      pgtype.UUID                      `json:"reserve_command_id"`
-	ActivateCommandID     pgtype.UUID                      `json:"activate_command_id"`
-	PayloadCiphertext     []byte                           `json:"payload_ciphertext"`
-	State                 VetchiumHubSignupCompletionState `json:"state"`
-	ProvisioningExpiresAt pgtype.Timestamptz               `json:"provisioning_expires_at"`
-	AttemptCount          int32                            `json:"attempt_count"`
-	NextAttemptAt         pgtype.Timestamptz               `json:"next_attempt_at"`
-	LastError             pgtype.Text                      `json:"last_error"`
-	CreatedAt             pgtype.Timestamptz               `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz               `json:"updated_at"`
-	CompletedAt           pgtype.Timestamptz               `json:"completed_at"`
-	ExpiresAt             pgtype.Timestamptz               `json:"expires_at"`
+	OperationID             pgtype.UUID                      `json:"operation_id"`
+	HubSignupRequestID      pgtype.UUID                      `json:"hub_signup_request_id"`
+	TokenHash               []byte                           `json:"token_hash"`
+	IdempotencyKey          string                           `json:"idempotency_key"`
+	RequestDigest           []byte                           `json:"request_digest"`
+	AccountEmailDigest      []byte                           `json:"account_email_digest"`
+	HubUserDid              pgtype.UUID                      `json:"hub_user_did"`
+	Handle                  string                           `json:"handle"`
+	ReserveCommandID        pgtype.UUID                      `json:"reserve_command_id"`
+	ActivateCommandID       pgtype.UUID                      `json:"activate_command_id"`
+	PayloadCiphertext       []byte                           `json:"payload_ciphertext"`
+	State                   VetchiumHubSignupCompletionState `json:"state"`
+	FailureReason           pgtype.Text                      `json:"failure_reason"`
+	ConflictingHomeTenantID pgtype.Text                      `json:"conflicting_home_tenant_id"`
+	ProvisioningExpiresAt   pgtype.Timestamptz               `json:"provisioning_expires_at"`
+	AttemptCount            int32                            `json:"attempt_count"`
+	NextAttemptAt           pgtype.Timestamptz               `json:"next_attempt_at"`
+	LastError               pgtype.Text                      `json:"last_error"`
+	CreatedAt               pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz               `json:"updated_at"`
+	CompletedAt             pgtype.Timestamptz               `json:"completed_at"`
+	ExpiresAt               pgtype.Timestamptz               `json:"expires_at"`
 }
 
 type VetchiumHubSignupDomain struct {
@@ -1045,6 +1112,7 @@ type VetchiumHubUser struct {
 	HubUserDid                     pgtype.UUID                    `json:"hub_user_did"`
 	Handle                         string                         `json:"handle"`
 	EmailAddress                   string                         `json:"email_address"`
+	EmailDigest                    []byte                         `json:"email_digest"`
 	DisplayName                    string                         `json:"display_name"`
 	Biography                      pgtype.Text                    `json:"biography"`
 	ProfileAlias                   pgtype.Text                    `json:"profile_alias"`

@@ -25,3 +25,23 @@ var DirectoryCallerTenantMismatchError = problem.Details{
 	Title: "Directory caller tenant mismatch", Status: 403,
 	Detail: "The authenticated tenant does not own the requested global identity operation",
 }
+var DirectoryEmailClaimConflictError = problem.Details{
+	Type:  "vetchium-problem-details/directory-email-claim-conflict",
+	Title: "Directory email claim conflict", Status: 409,
+	Detail: "The email digest is already claimed by another Hub user",
+}
+var DirectoryDigestKeyMismatchError = problem.Details{
+	Type:  "vetchium-problem-details/directory-digest-key-mismatch",
+	Title: "Directory digest key mismatch", Status: 409,
+	Detail: "The caller's identity digest key id does not match the configured key",
+}
+var DirectoryReservationExpiredError = problem.Details{
+	Type:  "vetchium-problem-details/directory-reservation-expired",
+	Title: "Directory reservation expired", Status: 409,
+	Detail: "The email change reservation arrived after its deadline",
+}
+var DirectoryReservationCancelledError = problem.Details{
+	Type:  "vetchium-problem-details/directory-reservation-cancelled",
+	Title: "Directory reservation cancelled", Status: 409,
+	Detail: "The email change reservation was already abandoned",
+}

@@ -6,6 +6,12 @@ export type TenantID = string;
 export type CommandID = string;
 export type ProfileSlugKind = "handle" | "alias";
 export type PrincipalState = "provisioning" | "active";
+export type EmailDigest = string;
+export type DigestKeyID = string;
+export type EmailChangeReservationState =
+  | "reserved"
+  | "cancelled"
+  | "finalized";
 
 const reservedAliases = new Set([
   "api",
@@ -48,6 +54,12 @@ export function isCommandID(value: unknown): value is CommandID {
 export function isProfileSlug(value: unknown): value is string {
   return typeof value === "string" && (isHubHandle(value) || isHubAlias(value));
 }
+export function isEmailDigest(value: unknown): value is EmailDigest {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+export function isDigestKeyID(value: unknown): value is DigestKeyID {
+  return typeof value === "string" && /^[0-9a-f]{16}$/.test(value);
+}
 
 export interface ResolveProfileSlugRequest {
   slug: string;
@@ -70,6 +82,8 @@ export interface ReserveHubPrincipalRequest {
   handle: HubHandle;
   home_tenant_id: TenantID;
   provisioning_expires_at: string;
+  account_email_digest: EmailDigest;
+  digest_key_id: DigestKeyID;
 }
 export interface ActivateHubPrincipalRequest {
   command_id: CommandID;
@@ -125,4 +139,34 @@ export interface OrgPrincipalCommandResponse {
   home_tenant_id: TenantID;
   routing_version: number;
   state: PrincipalState;
+}
+
+export interface ResolveHubAccountEmailRequest {
+  email_digest: EmailDigest;
+  digest_key_id: DigestKeyID;
+}
+export interface ResolveHubAccountEmailResponse {
+  home_tenant_id: TenantID;
+}
+export interface ReserveHubAccountEmailChangeRequest {
+  command_id: CommandID;
+  change_id: CommandID;
+  hub_user_did: HubUserDID;
+  new_email_digest: EmailDigest;
+  not_after: string;
+  digest_key_id: DigestKeyID;
+}
+export interface FinalizeHubAccountEmailChangeRequest {
+  command_id: CommandID;
+  change_id: CommandID;
+  hub_user_did: HubUserDID;
+}
+export interface AbandonHubAccountEmailChangeRequest {
+  command_id: CommandID;
+  change_id: CommandID;
+  hub_user_did: HubUserDID;
+  not_after: string;
+}
+export interface HubAccountEmailChangeReservationResponse {
+  state: EmailChangeReservationState;
 }

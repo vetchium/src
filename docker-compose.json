@@ -370,6 +370,9 @@
     "hub_credential_key": {
       "file": "./.dev-secrets/hub_credential_key"
     },
+    "identity_digest_key": {
+      "file": "./.dev-secrets/identity_digest_key"
+    },
     "mesh_ca_certificate": {
       "file": "./.dev-secrets/mesh_ca_certificate"
     },
@@ -1511,6 +1514,10 @@
           "target": "/run/secrets/hub_credential_key"
         },
         {
+          "source": "identity_digest_key",
+          "target": "/run/secrets/identity_digest_key"
+        },
+        {
           "source": "mesh_credential",
           "target": "/run/secrets/mesh_credential"
         },
@@ -1572,6 +1579,10 @@
         {
           "source": "hub_credential_key",
           "target": "/run/secrets/hub_credential_key"
+        },
+        {
+          "source": "identity_digest_key",
+          "target": "/run/secrets/identity_digest_key"
         },
         {
           "source": "mesh_credential",
@@ -1637,6 +1648,10 @@
           "target": "/run/secrets/hub_credential_key"
         },
         {
+          "source": "identity_digest_key",
+          "target": "/run/secrets/identity_digest_key"
+        },
+        {
           "source": "mesh_credential",
           "target": "/run/secrets/mesh_credential"
         },
@@ -1698,6 +1713,10 @@
         {
           "source": "hub_credential_key",
           "target": "/run/secrets/hub_credential_key"
+        },
+        {
+          "source": "identity_digest_key",
+          "target": "/run/secrets/identity_digest_key"
         },
         {
           "source": "mesh_credential",
@@ -4043,6 +4062,10 @@
           "target": "/run/secrets/hub_credential_key"
         },
         {
+          "source": "identity_digest_key",
+          "target": "/run/secrets/identity_digest_key"
+        },
+        {
           "source": "mesh_credential",
           "target": "/run/secrets/mesh_credential"
         },
@@ -4104,6 +4127,10 @@
         {
           "source": "hub_credential_key",
           "target": "/run/secrets/hub_credential_key"
+        },
+        {
+          "source": "identity_digest_key",
+          "target": "/run/secrets/identity_digest_key"
         },
         {
           "source": "mesh_credential",
@@ -4169,6 +4196,10 @@
           "target": "/run/secrets/hub_credential_key"
         },
         {
+          "source": "identity_digest_key",
+          "target": "/run/secrets/identity_digest_key"
+        },
+        {
           "source": "mesh_credential",
           "target": "/run/secrets/mesh_credential"
         },
@@ -4230,6 +4261,10 @@
         {
           "source": "hub_credential_key",
           "target": "/run/secrets/hub_credential_key"
+        },
+        {
+          "source": "identity_digest_key",
+          "target": "/run/secrets/identity_digest_key"
         },
         {
           "source": "mesh_credential",

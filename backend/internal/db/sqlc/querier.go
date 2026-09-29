@@ -13,9 +13,21 @@ import (
 type Querier interface {
 	AbandonExpiredHubSignupCompletion(ctx context.Context, arg AbandonExpiredHubSignupCompletionParams) (AbandonExpiredHubSignupCompletionRow, error)
 	AbandonExpiredOrgSignupCompletion(ctx context.Context, arg AbandonExpiredOrgSignupCompletionParams) (AbandonExpiredOrgSignupCompletionRow, error)
+	// Replaces the old ConfirmHubEmailChange (GU-ECH-002): a correct code no
+	// longer applies the change directly. It creates the durable operation
+	// (federation_operations, pollable, payload holds only the operation id)
+	// and the richer hub_account_email_changes saga row in the same statement.
+	// A unique violation on hub_account_email_changes_one_live (the caller
+	// already has a live change) maps to the in-progress problem.
+	AcceptHubEmailChange(ctx context.Context, arg AcceptHubEmailChangeParams) (AcceptHubEmailChangeRow, error)
 	ActivateHubProfilePicture(ctx context.Context, arg ActivateHubProfilePictureParams) (ActivateHubProfilePictureRow, error)
 	AddHubLanguageAbility(ctx context.Context, arg AddHubLanguageAbilityParams) (AddHubLanguageAbilityRow, error)
 	AdminTOTPEnabled(ctx context.Context, adminUserID pgtype.UUID) (bool, error)
+	// Applies the change locally: this is today's ConfirmHubEmailChange effects,
+	// minus the code check, reading everything from hub_account_email_changes.
+	// The confirming session is preserved unless it no longer exists, in which
+	// case every session is revoked (GU-ECH-002a).
+	ApplyHubAccountEmailChange(ctx context.Context, arg ApplyHubAccountEmailChangeParams) (pgtype.UUID, error)
 	ApplyHubProfileAlias(ctx context.Context, arg ApplyHubProfileAliasParams) (ApplyHubProfileAliasRow, error)
 	AuthenticateAdminSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateAdminSessionRow, error)
 	AuthenticateHubSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateHubSessionRow, error)
@@ -58,9 +70,6 @@ type Querier interface {
 	CompleteProvisioningHubUser(ctx context.Context, arg CompleteProvisioningHubUserParams) (CompleteProvisioningHubUserRow, error)
 	CompleteProvisioningOrg(ctx context.Context, arg CompleteProvisioningOrgParams) (CompleteProvisioningOrgRow, error)
 	ConfirmAdminTOTPEnrollment(ctx context.Context, arg ConfirmAdminTOTPEnrollmentParams) (bool, error)
-	// A taken address fails the whole statement on hub_users_email_address_key;
-	// the caller maps that unique violation to the unavailable-address problem.
-	ConfirmHubEmailChange(ctx context.Context, arg ConfirmHubEmailChangeParams) (ConfirmHubEmailChangeRow, error)
 	ConfirmHubTOTPEnrollment(ctx context.Context, arg ConfirmHubTOTPEnrollmentParams) (bool, error)
 	ConfirmOrgTOTPEnrollment(ctx context.Context, arg ConfirmOrgTOTPEnrollmentParams) (bool, error)
 	CreateAdminInvitation(ctx context.Context, arg CreateAdminInvitationParams) (CreateAdminInvitationRow, error)
@@ -77,6 +86,10 @@ type Querier interface {
 	CreateHubProfessionalEmail(ctx context.Context, arg CreateHubProfessionalEmailParams) (CreateHubProfessionalEmailRow, error)
 	CreateHubSession(ctx context.Context, arg CreateHubSessionParams) (CreateHubSessionRow, error)
 	CreateHubSignupDomain(ctx context.Context, arg CreateHubSignupDomainParams) (CreateHubSignupDomainRow, error)
+	// The address is registered at another tenant (GU-SIG-002): no signup
+	// request is created here, so the response cannot distinguish this from an
+	// unregistered address, and the mailed notice names the home region instead
+	// of carrying a signup link.
 	// An attempt on an address that already has an account is answered with the
 	// same 202 as a fresh request, so that the response cannot be used to test
 	// whether an address is registered. This event is the only record that it
@@ -116,6 +129,17 @@ type Querier interface {
 	DisableHubTOTP(ctx context.Context, arg DisableHubTOTPParams) (bool, error)
 	DisableOrgTOTP(ctx context.Context, arg DisableOrgTOTPParams) (bool, error)
 	EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (string, error)
+	// The reserve-time email-claim-conflict path (GU-ECH-003): fails directly,
+	// skipping 'cancelling', since nothing was reserved globally to undo. The
+	// caller resolves the sibling federation_operations row with the existing
+	// generic ResolveFederationOperation in the same transaction.
+	FailHubAccountEmailChangeDirectly(ctx context.Context, arg FailHubAccountEmailChangeDirectlyParams) (int64, error)
+	// The reserve-hub-principal directory-email-claim-conflict path (GU-SIG-004):
+	// the address is already an account elsewhere, discovered only once the
+	// caller has proven mailbox control. conflicting_home_tenant_id is null when
+	// the coordinator's resolve-hub-account-email lookup itself failed; the
+	// completion still fails, just without naming a region.
+	FailHubSignupCompletionRegisteredElsewhere(ctx context.Context, arg FailHubSignupCompletionRegisteredElsewhereParams) (FailHubSignupCompletionRegisteredElsewhereRow, error)
 	// A definite claim conflict means the signup can never succeed, so the
 	// request is retired with the operation.
 	FailOrgSignupCompletionDomainOwned(ctx context.Context, arg FailOrgSignupCompletionDomainOwnedParams) (FailOrgSignupCompletionDomainOwnedRow, error)
@@ -129,8 +153,15 @@ type Querier interface {
 	GetFederationCommandResult(ctx context.Context, commandID pgtype.UUID) (VetchiumFederationCommandLedger, error)
 	GetFederationOperation(ctx context.Context, operationID pgtype.UUID) (VetchiumFederationOperation, error)
 	GetFederationOperationByIdempotency(ctx context.Context, arg GetFederationOperationByIdempotencyParams) (VetchiumFederationOperation, error)
+	GetHubAccountEmailChangeByOperationID(ctx context.Context, arg GetHubAccountEmailChangeByOperationIDParams) (GetHubAccountEmailChangeByOperationIDRow, error)
 	GetHubAliasMutationState(ctx context.Context, arg GetHubAliasMutationStateParams) (GetHubAliasMutationStateRow, error)
 	GetHubAliasState(ctx context.Context, arg GetHubAliasStateParams) (GetHubAliasStateRow, error)
+	// Read-only lookup so the caller can compute the new address's global digest
+	// (identitydigest lives in Go, not SQL) before calling AcceptHubEmailChange.
+	// That statement re-validates every one of these conditions itself with
+	// FOR UPDATE, so a plain read here cannot introduce a race: the address on
+	// an already-created challenge row never changes.
+	GetHubEmailChangeChallengeAddress(ctx context.Context, arg GetHubEmailChangeChallengeAddressParams) (string, error)
 	GetHubFederationOperationStatus(ctx context.Context, arg GetHubFederationOperationStatusParams) (GetHubFederationOperationStatusRow, error)
 	GetHubLoginChallenge(ctx context.Context, tokenHash []byte) (GetHubLoginChallengeRow, error)
 	GetHubMyInfo(ctx context.Context, arg GetHubMyInfoParams) (GetHubMyInfoRow, error)
@@ -155,11 +186,16 @@ type Querier interface {
 	// A suspended Org's users can still sign in, to restore the domain. When a
 	// released domain was claimed by another local Org, the current owner wins.
 	GetOrgUserForLogin(ctx context.Context, arg GetOrgUserForLoginParams) (GetOrgUserForLoginRow, error)
+	// While a live (non-terminal) account-email-change durable operation exists
+	// for this user, request-email-change and confirm-email-change both refuse
+	// outright (GU-ECH-001): neither issues nor supersedes a challenge.
+	HubAccountEmailChangeInProgress(ctx context.Context, hubUserDid pgtype.UUID) (bool, error)
 	HubAliasOperationPreflight(ctx context.Context, arg HubAliasOperationPreflightParams) (bool, error)
 	HubProfessionalEmailExistsForOwner(ctx context.Context, arg HubProfessionalEmailExistsForOwnerParams) (int32, error)
 	HubTOTPEnabled(ctx context.Context, hubUserDid pgtype.UUID) (bool, error)
-	// An address that already belongs to an account still gets a challenge, so
-	// rate limits and the response are identical, but no code is queued for it.
+	// An address that already belongs to an account locally or globally still
+	// gets a challenge, so rate limits and the response are identical, but no
+	// code is queued for it (GU-ECH-001).
 	IssueHubEmailChangeChallenge(ctx context.Context, arg IssueHubEmailChangeChallengeParams) (IssueHubEmailChangeChallengeRow, error)
 	IssueHubProfessionalEmailChallenge(ctx context.Context, arg IssueHubProfessionalEmailChallengeParams) (IssueHubProfessionalEmailChallengeRow, error)
 	ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) ([]ListAdminUsersRow, error)
@@ -180,6 +216,10 @@ type Querier interface {
 	ListOrgDomainsPastGrace(ctx context.Context, failingBefore pgtype.Timestamptz) ([]ListOrgDomainsPastGraceRow, error)
 	ListPendingOrgDomainCommands(ctx context.Context) ([]ListPendingOrgDomainCommandsRow, error)
 	ListRecoverableFederationOperations(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
+	// The sibling operation's retry schedule orders recovery, so a batch of
+	// changes stuck on an unreachable directory backs off instead of starving
+	// every later change.
+	ListRecoverableHubAccountEmailChanges(ctx context.Context, batchSize int32) ([]ListRecoverableHubAccountEmailChangesRow, error)
 	ListRecoverableHubAliasChanges(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
 	ListRecoverableHubAliasReleases(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
 	ListRecoverableHubSignupCompletions(ctx context.Context) ([]VetchiumHubSignupCompletion, error)
@@ -187,11 +227,18 @@ type Querier interface {
 	LocalOrgDomainExists(ctx context.Context, domain string) (bool, error)
 	LockAdminEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
 	LockAdminUserCredentialMutation(ctx context.Context, adminUserID pgtype.UUID) (pgtype.UUID, error)
+	LockHubAccountEmailChange(ctx context.Context, operationID pgtype.UUID) (LockHubAccountEmailChangeRow, error)
 	LockHubEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
 	LockHubSubscriptionForChange(ctx context.Context, hubUserDid pgtype.UUID) (LockHubSubscriptionForChangeRow, error)
 	LockHubUserCredentialMutation(ctx context.Context, hubUserDid pgtype.UUID) (pgtype.UUID, error)
 	LockIdempotency(ctx context.Context, dollar_1 string) error
 	LockOrgUserCredentialMutation(ctx context.Context, orgUserID pgtype.UUID) (pgtype.UUID, error)
+	MarkHubAccountEmailChangeCancelling(ctx context.Context, arg MarkHubAccountEmailChangeCancellingParams) (int64, error)
+	MarkHubAccountEmailChangeFailed(ctx context.Context, arg MarkHubAccountEmailChangeFailedParams) (int64, error)
+	MarkHubAccountEmailChangeReserved(ctx context.Context, operationID pgtype.UUID) (int64, error)
+	// The caller resolves the sibling federation_operations row with the
+	// existing generic ResolveFederationOperation in the same transaction.
+	MarkHubAccountEmailChangeSucceeded(ctx context.Context, operationID pgtype.UUID) (int64, error)
 	MarkHubEmailFailed(ctx context.Context, arg MarkHubEmailFailedParams) (bool, error)
 	MarkHubEmailSent(ctx context.Context, arg MarkHubEmailSentParams) (bool, error)
 	MarkHubSignupCompletionReserved(ctx context.Context, arg MarkHubSignupCompletionReservedParams) (VetchiumHubSignupCompletion, error)

@@ -52,6 +52,21 @@ type Service interface {
 		context.Context, directoryspec.TenantID,
 		directoryspec.ClaimOrgDomainRequest,
 	) (globaldirectory.OrgOutcome, error)
+	ResolveHubAccountEmail(
+		context.Context, directoryspec.ResolveHubAccountEmailRequest,
+	) (directoryspec.ResolveHubAccountEmailResponse, *problem.Details, error)
+	ReserveHubAccountEmailChange(
+		context.Context, directoryspec.TenantID,
+		directoryspec.ReserveHubAccountEmailChangeRequest,
+	) (globaldirectory.EmailChangeOutcome, error)
+	FinalizeHubAccountEmailChange(
+		context.Context, directoryspec.TenantID,
+		directoryspec.FinalizeHubAccountEmailChangeRequest,
+	) (globaldirectory.EmailChangeOutcome, error)
+	AbandonHubAccountEmailChange(
+		context.Context, directoryspec.TenantID,
+		directoryspec.AbandonHubAccountEmailChangeRequest,
+	) (globaldirectory.EmailChangeOutcome, error)
 }
 
 func ResolveProfileSlug(
@@ -156,6 +171,103 @@ func orgOutcome(
 	return commandOutcome{
 		status: outcome.Status, body: outcome.Org, problem: outcome.Problem,
 	}, err
+}
+
+func emailChangeOutcome(
+	outcome globaldirectory.EmailChangeOutcome, err error,
+) (commandOutcome, error) {
+	return commandOutcome{
+		status: outcome.Status, body: outcome.Reservation,
+		problem: outcome.Problem,
+	}, err
+}
+
+func ResolveHubAccountEmail(
+	runtime *apiserver.Runtime, service Service,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := authenticate(runtime, w, r); !ok {
+			return
+		}
+		var request directoryspec.ResolveHubAccountEmailRequest
+		if !apiserver.Decode(runtime, w, r, &request) {
+			return
+		}
+		response, details, err := service.ResolveHubAccountEmail(r.Context(), request)
+		if errors.Is(err, globaldirectory.ErrNotFound) {
+			runtime.Problem(
+				r.Context(), w, coordinatorproblem.DirectoryEntryNotFoundError,
+			)
+			return
+		}
+		if err != nil {
+			runtime.InternalError(r.Context(), w, "resolve Hub account email", err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		if details != nil {
+			runtime.Problem(r.Context(), w, *details)
+			return
+		}
+		runtime.JSON(r.Context(), w, http.StatusOK, response)
+	}
+}
+
+func ReserveHubAccountEmailChange(
+	runtime *apiserver.Runtime, service Service,
+) http.HandlerFunc {
+	return commandHandler[
+		directoryspec.ReserveHubAccountEmailChangeRequest,
+		*directoryspec.ReserveHubAccountEmailChangeRequest,
+	](
+		runtime,
+		func(
+			ctx context.Context, caller directoryspec.TenantID,
+			request directoryspec.ReserveHubAccountEmailChangeRequest,
+		) (commandOutcome, error) {
+			return emailChangeOutcome(
+				service.ReserveHubAccountEmailChange(ctx, caller, request),
+			)
+		},
+	)
+}
+
+func FinalizeHubAccountEmailChange(
+	runtime *apiserver.Runtime, service Service,
+) http.HandlerFunc {
+	return commandHandler[
+		directoryspec.FinalizeHubAccountEmailChangeRequest,
+		*directoryspec.FinalizeHubAccountEmailChangeRequest,
+	](
+		runtime,
+		func(
+			ctx context.Context, caller directoryspec.TenantID,
+			request directoryspec.FinalizeHubAccountEmailChangeRequest,
+		) (commandOutcome, error) {
+			return emailChangeOutcome(
+				service.FinalizeHubAccountEmailChange(ctx, caller, request),
+			)
+		},
+	)
+}
+
+func AbandonHubAccountEmailChange(
+	runtime *apiserver.Runtime, service Service,
+) http.HandlerFunc {
+	return commandHandler[
+		directoryspec.AbandonHubAccountEmailChangeRequest,
+		*directoryspec.AbandonHubAccountEmailChangeRequest,
+	](
+		runtime,
+		func(
+			ctx context.Context, caller directoryspec.TenantID,
+			request directoryspec.AbandonHubAccountEmailChangeRequest,
+		) (commandOutcome, error) {
+			return emailChangeOutcome(
+				service.AbandonHubAccountEmailChange(ctx, caller, request),
+			)
+		},
+	)
 }
 
 func ResolveOrgDomain(

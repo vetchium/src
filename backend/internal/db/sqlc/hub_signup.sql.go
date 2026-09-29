@@ -13,7 +13,7 @@ import (
 
 const abandonExpiredHubSignupCompletion = `-- name: AbandonExpiredHubSignupCompletion :one
 WITH locked_operation AS (
-    SELECT operation.operation_id, operation.hub_signup_request_id, operation.token_hash, operation.idempotency_key, operation.request_digest, operation.hub_user_did, operation.handle, operation.reserve_command_id, operation.activate_command_id, operation.payload_ciphertext, operation.state, operation.provisioning_expires_at, operation.attempt_count, operation.next_attempt_at, operation.last_error, operation.created_at, operation.updated_at, operation.completed_at, operation.expires_at
+    SELECT operation.operation_id, operation.hub_signup_request_id, operation.token_hash, operation.idempotency_key, operation.request_digest, operation.account_email_digest, operation.hub_user_did, operation.handle, operation.reserve_command_id, operation.activate_command_id, operation.payload_ciphertext, operation.state, operation.failure_reason, operation.conflicting_home_tenant_id, operation.provisioning_expires_at, operation.attempt_count, operation.next_attempt_at, operation.last_error, operation.created_at, operation.updated_at, operation.completed_at, operation.expires_at
     FROM vetchium.hub_signup_completions AS operation
     WHERE operation.operation_id = $1
       AND operation.state NOT IN ('completed', 'failed')
@@ -25,9 +25,16 @@ WITH locked_operation AS (
     WHERE hub_user.hub_user_did = operation.hub_user_did
       AND hub_user.hub_user_state = 'provisioning'
     RETURNING hub_user.hub_user_did
+), released_request AS (
+    UPDATE vetchium.hub_signup_requests AS request
+    SET active = false
+    FROM locked_operation AS operation
+    WHERE request.hub_signup_request_id = operation.hub_signup_request_id
+    RETURNING request.hub_signup_request_id
 ), updated AS (
     UPDATE vetchium.hub_signup_completions AS operation
     SET state = 'failed',
+        failure_reason = 'expired',
         completed_at = now(),
         updated_at = now(),
         next_attempt_at = now(),
@@ -35,7 +42,7 @@ WITH locked_operation AS (
         payload_ciphertext = '\\x'::bytea
     WHERE operation.operation_id = $1
       AND EXISTS (SELECT 1 FROM locked_operation)
-    RETURNING operation.operation_id, operation.hub_signup_request_id, operation.token_hash, operation.idempotency_key, operation.request_digest, operation.hub_user_did, operation.handle, operation.reserve_command_id, operation.activate_command_id, operation.payload_ciphertext, operation.state, operation.provisioning_expires_at, operation.attempt_count, operation.next_attempt_at, operation.last_error, operation.created_at, operation.updated_at, operation.completed_at, operation.expires_at
+    RETURNING operation.operation_id, operation.hub_signup_request_id, operation.token_hash, operation.idempotency_key, operation.request_digest, operation.account_email_digest, operation.hub_user_did, operation.handle, operation.reserve_command_id, operation.activate_command_id, operation.payload_ciphertext, operation.state, operation.failure_reason, operation.conflicting_home_tenant_id, operation.provisioning_expires_at, operation.attempt_count, operation.next_attempt_at, operation.last_error, operation.created_at, operation.updated_at, operation.completed_at, operation.expires_at
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, source,
@@ -61,12 +68,15 @@ SELECT
     token_hash,
     idempotency_key,
     request_digest,
+    account_email_digest,
     hub_user_did,
     handle,
     reserve_command_id,
     activate_command_id,
     payload_ciphertext,
     state,
+    failure_reason,
+    conflicting_home_tenant_id,
     provisioning_expires_at,
     attempt_count,
     next_attempt_at,
@@ -85,25 +95,28 @@ type AbandonExpiredHubSignupCompletionParams struct {
 }
 
 type AbandonExpiredHubSignupCompletionRow struct {
-	OperationID           pgtype.UUID                      `json:"operation_id"`
-	HubSignupRequestID    pgtype.UUID                      `json:"hub_signup_request_id"`
-	TokenHash             []byte                           `json:"token_hash"`
-	IdempotencyKey        string                           `json:"idempotency_key"`
-	RequestDigest         []byte                           `json:"request_digest"`
-	HubUserDid            pgtype.UUID                      `json:"hub_user_did"`
-	Handle                string                           `json:"handle"`
-	ReserveCommandID      pgtype.UUID                      `json:"reserve_command_id"`
-	ActivateCommandID     pgtype.UUID                      `json:"activate_command_id"`
-	PayloadCiphertext     []byte                           `json:"payload_ciphertext"`
-	State                 VetchiumHubSignupCompletionState `json:"state"`
-	ProvisioningExpiresAt pgtype.Timestamptz               `json:"provisioning_expires_at"`
-	AttemptCount          int32                            `json:"attempt_count"`
-	NextAttemptAt         pgtype.Timestamptz               `json:"next_attempt_at"`
-	LastError             pgtype.Text                      `json:"last_error"`
-	CreatedAt             pgtype.Timestamptz               `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz               `json:"updated_at"`
-	CompletedAt           pgtype.Timestamptz               `json:"completed_at"`
-	ExpiresAt             pgtype.Timestamptz               `json:"expires_at"`
+	OperationID             pgtype.UUID                      `json:"operation_id"`
+	HubSignupRequestID      pgtype.UUID                      `json:"hub_signup_request_id"`
+	TokenHash               []byte                           `json:"token_hash"`
+	IdempotencyKey          string                           `json:"idempotency_key"`
+	RequestDigest           []byte                           `json:"request_digest"`
+	AccountEmailDigest      []byte                           `json:"account_email_digest"`
+	HubUserDid              pgtype.UUID                      `json:"hub_user_did"`
+	Handle                  string                           `json:"handle"`
+	ReserveCommandID        pgtype.UUID                      `json:"reserve_command_id"`
+	ActivateCommandID       pgtype.UUID                      `json:"activate_command_id"`
+	PayloadCiphertext       []byte                           `json:"payload_ciphertext"`
+	State                   VetchiumHubSignupCompletionState `json:"state"`
+	FailureReason           pgtype.Text                      `json:"failure_reason"`
+	ConflictingHomeTenantID pgtype.Text                      `json:"conflicting_home_tenant_id"`
+	ProvisioningExpiresAt   pgtype.Timestamptz               `json:"provisioning_expires_at"`
+	AttemptCount            int32                            `json:"attempt_count"`
+	NextAttemptAt           pgtype.Timestamptz               `json:"next_attempt_at"`
+	LastError               pgtype.Text                      `json:"last_error"`
+	CreatedAt               pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz               `json:"updated_at"`
+	CompletedAt             pgtype.Timestamptz               `json:"completed_at"`
+	ExpiresAt               pgtype.Timestamptz               `json:"expires_at"`
 }
 
 func (q *Queries) AbandonExpiredHubSignupCompletion(ctx context.Context, arg AbandonExpiredHubSignupCompletionParams) (AbandonExpiredHubSignupCompletionRow, error) {
@@ -115,12 +128,15 @@ func (q *Queries) AbandonExpiredHubSignupCompletion(ctx context.Context, arg Aba
 		&i.TokenHash,
 		&i.IdempotencyKey,
 		&i.RequestDigest,
+		&i.AccountEmailDigest,
 		&i.HubUserDid,
 		&i.Handle,
 		&i.ReserveCommandID,
 		&i.ActivateCommandID,
 		&i.PayloadCiphertext,
 		&i.State,
+		&i.FailureReason,
+		&i.ConflictingHomeTenantID,
 		&i.ProvisioningExpiresAt,
 		&i.AttemptCount,
 		&i.NextAttemptAt,
@@ -280,7 +296,7 @@ func (q *Queries) CompleteHubSignup(ctx context.Context, arg CompleteHubSignupPa
 
 const completeProvisioningHubUser = `-- name: CompleteProvisioningHubUser :one
 WITH locked_operation AS (
-    SELECT operation.operation_id, operation.hub_signup_request_id, operation.token_hash, operation.idempotency_key, operation.request_digest, operation.hub_user_did, operation.handle, operation.reserve_command_id, operation.activate_command_id, operation.payload_ciphertext, operation.state, operation.provisioning_expires_at, operation.attempt_count, operation.next_attempt_at, operation.last_error, operation.created_at, operation.updated_at, operation.completed_at, operation.expires_at
+    SELECT operation.operation_id, operation.hub_signup_request_id, operation.token_hash, operation.idempotency_key, operation.request_digest, operation.account_email_digest, operation.hub_user_did, operation.handle, operation.reserve_command_id, operation.activate_command_id, operation.payload_ciphertext, operation.state, operation.failure_reason, operation.conflicting_home_tenant_id, operation.provisioning_expires_at, operation.attempt_count, operation.next_attempt_at, operation.last_error, operation.created_at, operation.updated_at, operation.completed_at, operation.expires_at
     FROM vetchium.hub_signup_completions AS operation
     WHERE operation.operation_id = $1
       AND operation.state = 'local_created'
@@ -302,7 +318,7 @@ WITH locked_operation AS (
         payload_ciphertext = '\\x'::bytea
     WHERE operation.operation_id = $1
       AND EXISTS (SELECT 1 FROM activated_user)
-    RETURNING operation_id, hub_signup_request_id, token_hash, idempotency_key, request_digest, hub_user_did, handle, reserve_command_id, activate_command_id, payload_ciphertext, state, provisioning_expires_at, attempt_count, next_attempt_at, last_error, created_at, updated_at, completed_at, expires_at
+    RETURNING operation_id, hub_signup_request_id, token_hash, idempotency_key, request_digest, account_email_digest, hub_user_did, handle, reserve_command_id, activate_command_id, payload_ciphertext, state, failure_reason, conflicting_home_tenant_id, provisioning_expires_at, attempt_count, next_attempt_at, last_error, created_at, updated_at, completed_at, expires_at
 ), user_audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, source,
@@ -342,12 +358,15 @@ SELECT
     token_hash,
     idempotency_key,
     request_digest,
+    account_email_digest,
     hub_user_did,
     handle,
     reserve_command_id,
     activate_command_id,
     payload_ciphertext,
     state,
+    failure_reason,
+    conflicting_home_tenant_id,
     provisioning_expires_at,
     attempt_count,
     next_attempt_at,
@@ -366,25 +385,28 @@ type CompleteProvisioningHubUserParams struct {
 }
 
 type CompleteProvisioningHubUserRow struct {
-	OperationID           pgtype.UUID                      `json:"operation_id"`
-	HubSignupRequestID    pgtype.UUID                      `json:"hub_signup_request_id"`
-	TokenHash             []byte                           `json:"token_hash"`
-	IdempotencyKey        string                           `json:"idempotency_key"`
-	RequestDigest         []byte                           `json:"request_digest"`
-	HubUserDid            pgtype.UUID                      `json:"hub_user_did"`
-	Handle                string                           `json:"handle"`
-	ReserveCommandID      pgtype.UUID                      `json:"reserve_command_id"`
-	ActivateCommandID     pgtype.UUID                      `json:"activate_command_id"`
-	PayloadCiphertext     []byte                           `json:"payload_ciphertext"`
-	State                 VetchiumHubSignupCompletionState `json:"state"`
-	ProvisioningExpiresAt pgtype.Timestamptz               `json:"provisioning_expires_at"`
-	AttemptCount          int32                            `json:"attempt_count"`
-	NextAttemptAt         pgtype.Timestamptz               `json:"next_attempt_at"`
-	LastError             pgtype.Text                      `json:"last_error"`
-	CreatedAt             pgtype.Timestamptz               `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz               `json:"updated_at"`
-	CompletedAt           pgtype.Timestamptz               `json:"completed_at"`
-	ExpiresAt             pgtype.Timestamptz               `json:"expires_at"`
+	OperationID             pgtype.UUID                      `json:"operation_id"`
+	HubSignupRequestID      pgtype.UUID                      `json:"hub_signup_request_id"`
+	TokenHash               []byte                           `json:"token_hash"`
+	IdempotencyKey          string                           `json:"idempotency_key"`
+	RequestDigest           []byte                           `json:"request_digest"`
+	AccountEmailDigest      []byte                           `json:"account_email_digest"`
+	HubUserDid              pgtype.UUID                      `json:"hub_user_did"`
+	Handle                  string                           `json:"handle"`
+	ReserveCommandID        pgtype.UUID                      `json:"reserve_command_id"`
+	ActivateCommandID       pgtype.UUID                      `json:"activate_command_id"`
+	PayloadCiphertext       []byte                           `json:"payload_ciphertext"`
+	State                   VetchiumHubSignupCompletionState `json:"state"`
+	FailureReason           pgtype.Text                      `json:"failure_reason"`
+	ConflictingHomeTenantID pgtype.Text                      `json:"conflicting_home_tenant_id"`
+	ProvisioningExpiresAt   pgtype.Timestamptz               `json:"provisioning_expires_at"`
+	AttemptCount            int32                            `json:"attempt_count"`
+	NextAttemptAt           pgtype.Timestamptz               `json:"next_attempt_at"`
+	LastError               pgtype.Text                      `json:"last_error"`
+	CreatedAt               pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz               `json:"updated_at"`
+	CompletedAt             pgtype.Timestamptz               `json:"completed_at"`
+	ExpiresAt               pgtype.Timestamptz               `json:"expires_at"`
 }
 
 func (q *Queries) CompleteProvisioningHubUser(ctx context.Context, arg CompleteProvisioningHubUserParams) (CompleteProvisioningHubUserRow, error) {
@@ -396,12 +418,15 @@ func (q *Queries) CompleteProvisioningHubUser(ctx context.Context, arg CompleteP
 		&i.TokenHash,
 		&i.IdempotencyKey,
 		&i.RequestDigest,
+		&i.AccountEmailDigest,
 		&i.HubUserDid,
 		&i.Handle,
 		&i.ReserveCommandID,
 		&i.ActivateCommandID,
 		&i.PayloadCiphertext,
 		&i.State,
+		&i.FailureReason,
+		&i.ConflictingHomeTenantID,
 		&i.ProvisioningExpiresAt,
 		&i.AttemptCount,
 		&i.NextAttemptAt,
@@ -444,6 +469,13 @@ WITH allowed_domain AS (
         $8
     WHERE EXISTS (SELECT 1 FROM allowed_domain)
       AND NOT EXISTS (SELECT 1 FROM existing_user)
+      AND $9::text IS NULL
+    -- A request whose token already started a completion stays with that
+    -- completion until it completes, fails, or is abandoned, each of which
+    -- deactivates it. Replacing it would strand the completion's global
+    -- reservation. The condition is on the conflicting row itself, so a
+    -- concurrent PrepareHubSignupCompletion that holds the row is waited for
+    -- and its consumed_at is seen.
     ON CONFLICT (email_address) WHERE active DO UPDATE
     SET hub_signup_request_id = EXCLUDED.hub_signup_request_id,
         display_name = EXCLUDED.display_name,
@@ -451,9 +483,8 @@ WITH allowed_domain AS (
         resident_country = EXCLUDED.resident_country,
         token_hash = EXCLUDED.token_hash,
         created_at = now(),
-        expires_at = EXCLUDED.expires_at,
-        consumed_at = NULL,
-        active = true
+        expires_at = EXCLUDED.expires_at
+    WHERE hub_signup_requests.consumed_at IS NULL
     RETURNING hub_signup_request_id
 ), outbox AS (
     INSERT INTO vetchium.hub_email_outbox (
@@ -466,9 +497,52 @@ WITH allowed_domain AS (
         'signup',
         $2,
         $5,
-        $9
+        $10
     FROM upserted
     RETURNING hub_email_outbox_id
+), elsewhere_outbox AS (
+    INSERT INTO vetchium.hub_email_outbox (
+        kind,
+        recipient_email_address,
+        preferred_language,
+        payload_ciphertext
+    )
+    SELECT
+        'signup-registered-elsewhere',
+        $2,
+        $5,
+        $11
+    WHERE EXISTS (SELECT 1 FROM allowed_domain)
+      AND NOT EXISTS (SELECT 1 FROM existing_user)
+      AND $9::text IS NOT NULL
+    RETURNING hub_email_outbox_id
+), elsewhere_audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id,
+        action,
+        entity_type,
+        entity_id,
+        actor_type,
+        source,
+        idempotency_key,
+        payload
+    )
+    SELECT
+        $12,
+        'hub.signup.rejected',
+        'hub_signup_request',
+        $3::text,
+        'anonymous',
+        'hub-api',
+        $13,
+        jsonb_build_object(
+            'reason', 'email_registered_elsewhere',
+            'home_tenant_id', $9::text,
+            'resident_country', $6::text
+        )
+    WHERE EXISTS (SELECT 1 FROM allowed_domain)
+      AND NOT EXISTS (SELECT 1 FROM existing_user)
+      AND $9::text IS NOT NULL
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id,
@@ -481,13 +555,13 @@ WITH allowed_domain AS (
         payload
     )
     SELECT
-        $10,
+        $12,
         'hub.signup.requested',
         'hub_signup_request',
         hub_signup_request_id::text,
         'anonymous',
         'hub-api',
-        $11,
+        $13,
         jsonb_build_object(
             'preferred_language', $5::text,
             'resident_country', $6::text,
@@ -507,19 +581,47 @@ existing_account_audit AS (
         payload
     )
     SELECT
-        $10,
+        $12,
         'hub.signup.rejected',
         'hub_signup_request',
         $3::text,
         'anonymous',
         'hub-api',
-        $11,
+        $13,
         jsonb_build_object(
             'reason', 'email_already_registered',
             'resident_country', $6::text
         )
     WHERE EXISTS (SELECT 1 FROM allowed_domain)
       AND EXISTS (SELECT 1 FROM existing_user)
+), completion_in_progress_audit AS (
+    -- Answered with the same generic 202 as every other outcome.
+    INSERT INTO vetchium.audit_events (
+        tenant_id,
+        action,
+        entity_type,
+        entity_id,
+        actor_type,
+        source,
+        idempotency_key,
+        payload
+    )
+    SELECT
+        $12,
+        'hub.signup.rejected',
+        'hub_signup_request',
+        $3::text,
+        'anonymous',
+        'hub-api',
+        $13,
+        jsonb_build_object(
+            'reason', 'signup_completion_in_progress',
+            'resident_country', $6::text
+        )
+    WHERE EXISTS (SELECT 1 FROM allowed_domain)
+      AND NOT EXISTS (SELECT 1 FROM existing_user)
+      AND $9::text IS NULL
+      AND NOT EXISTS (SELECT 1 FROM upserted)
 )
 SELECT CASE
     WHEN NOT EXISTS (SELECT 1 FROM allowed_domain) THEN 'domain_not_allowed'
@@ -528,19 +630,25 @@ END::text AS result
 `
 
 type CreateHubSignupRequestParams struct {
-	EmailDomain        string             `json:"email_domain"`
-	EmailAddress       string             `json:"email_address"`
-	HubSignupRequestID pgtype.UUID        `json:"hub_signup_request_id"`
-	DisplayName        string             `json:"display_name"`
-	PreferredLanguage  string             `json:"preferred_language"`
-	ResidentCountry    string             `json:"resident_country"`
-	TokenHash          []byte             `json:"token_hash"`
-	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
-	PayloadCiphertext  []byte             `json:"payload_ciphertext"`
-	TenantID           string             `json:"tenant_id"`
-	IdempotencyKey     pgtype.Text        `json:"idempotency_key"`
+	EmailDomain                 string             `json:"email_domain"`
+	EmailAddress                string             `json:"email_address"`
+	HubSignupRequestID          pgtype.UUID        `json:"hub_signup_request_id"`
+	DisplayName                 string             `json:"display_name"`
+	PreferredLanguage           string             `json:"preferred_language"`
+	ResidentCountry             string             `json:"resident_country"`
+	TokenHash                   []byte             `json:"token_hash"`
+	ExpiresAt                   pgtype.Timestamptz `json:"expires_at"`
+	RegisteredElsewhereTenantID pgtype.Text        `json:"registered_elsewhere_tenant_id"`
+	PayloadCiphertext           []byte             `json:"payload_ciphertext"`
+	ElsewherePayloadCiphertext  []byte             `json:"elsewhere_payload_ciphertext"`
+	TenantID                    string             `json:"tenant_id"`
+	IdempotencyKey              pgtype.Text        `json:"idempotency_key"`
 }
 
+// The address is registered at another tenant (GU-SIG-002): no signup
+// request is created here, so the response cannot distinguish this from an
+// unregistered address, and the mailed notice names the home region instead
+// of carrying a signup link.
 // An attempt on an address that already has an account is answered with the
 // same 202 as a fresh request, so that the response cannot be used to test
 // whether an address is registered. This event is the only record that it
@@ -555,7 +663,9 @@ func (q *Queries) CreateHubSignupRequest(ctx context.Context, arg CreateHubSignu
 		arg.ResidentCountry,
 		arg.TokenHash,
 		arg.ExpiresAt,
+		arg.RegisteredElsewhereTenantID,
 		arg.PayloadCiphertext,
+		arg.ElsewherePayloadCiphertext,
 		arg.TenantID,
 		arg.IdempotencyKey,
 	)
@@ -566,16 +676,25 @@ func (q *Queries) CreateHubSignupRequest(ctx context.Context, arg CreateHubSignu
 
 const createProvisioningHubUser = `-- name: CreateProvisioningHubUser :one
 WITH locked_operation AS (
-    SELECT operation.operation_id, operation.hub_signup_request_id, operation.token_hash, operation.idempotency_key, operation.request_digest, operation.hub_user_did, operation.handle, operation.reserve_command_id, operation.activate_command_id, operation.payload_ciphertext, operation.state, operation.provisioning_expires_at, operation.attempt_count, operation.next_attempt_at, operation.last_error, operation.created_at, operation.updated_at, operation.completed_at, operation.expires_at
+    SELECT operation.operation_id, operation.hub_signup_request_id, operation.token_hash, operation.idempotency_key, operation.request_digest, operation.account_email_digest, operation.hub_user_did, operation.handle, operation.reserve_command_id, operation.activate_command_id, operation.payload_ciphertext, operation.state, operation.failure_reason, operation.conflicting_home_tenant_id, operation.provisioning_expires_at, operation.attempt_count, operation.next_attempt_at, operation.last_error, operation.created_at, operation.updated_at, operation.completed_at, operation.expires_at
     FROM vetchium.hub_signup_completions AS operation
     WHERE operation.operation_id = $1
       AND operation.state = 'reserved'
+    FOR UPDATE
+), locked_request AS (
+    SELECT request.hub_signup_request_id
+    FROM vetchium.hub_signup_requests AS request
+    WHERE request.hub_signup_request_id = (
+        SELECT hub_signup_request_id FROM locked_operation
+    )
+      AND request.active
     FOR UPDATE
 ), inserted_user AS (
     INSERT INTO vetchium.hub_users (
         hub_user_did,
         handle,
         email_address,
+        email_digest,
         display_name,
         password_hash,
         hub_user_state,
@@ -588,6 +707,7 @@ WITH locked_operation AS (
         hub_user_did,
         handle,
         $2,
+        account_email_digest,
         $3,
         $4,
         'provisioning',
@@ -596,12 +716,13 @@ WITH locked_operation AS (
         ARRAY[$6]::text[],
         $7
     FROM locked_operation
+    WHERE EXISTS (SELECT 1 FROM locked_request)
     RETURNING hub_user_did
 ), consumed AS (
     UPDATE vetchium.hub_signup_requests
-    SET consumed_at = now(), active = false
-    WHERE hub_signup_request_id = (
-        SELECT hub_signup_request_id FROM locked_operation
+    SET active = false
+    WHERE hub_signup_request_id IN (
+        SELECT hub_signup_request_id FROM locked_request
     )
       AND EXISTS (SELECT 1 FROM inserted_user)
     RETURNING hub_signup_request_id
@@ -613,7 +734,7 @@ WITH locked_operation AS (
         last_error = NULL
     WHERE operation.operation_id = $1
       AND EXISTS (SELECT 1 FROM consumed)
-    RETURNING operation_id, hub_signup_request_id, token_hash, idempotency_key, request_digest, hub_user_did, handle, reserve_command_id, activate_command_id, payload_ciphertext, state, provisioning_expires_at, attempt_count, next_attempt_at, last_error, created_at, updated_at, completed_at, expires_at
+    RETURNING operation_id, hub_signup_request_id, token_hash, idempotency_key, request_digest, account_email_digest, hub_user_did, handle, reserve_command_id, activate_command_id, payload_ciphertext, state, failure_reason, conflicting_home_tenant_id, provisioning_expires_at, attempt_count, next_attempt_at, last_error, created_at, updated_at, completed_at, expires_at
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, source,
@@ -636,12 +757,15 @@ SELECT
     token_hash,
     idempotency_key,
     request_digest,
+    account_email_digest,
     hub_user_did,
     handle,
     reserve_command_id,
     activate_command_id,
     payload_ciphertext,
     state,
+    failure_reason,
+    conflicting_home_tenant_id,
     provisioning_expires_at,
     attempt_count,
     next_attempt_at,
@@ -666,25 +790,28 @@ type CreateProvisioningHubUserParams struct {
 }
 
 type CreateProvisioningHubUserRow struct {
-	OperationID           pgtype.UUID                      `json:"operation_id"`
-	HubSignupRequestID    pgtype.UUID                      `json:"hub_signup_request_id"`
-	TokenHash             []byte                           `json:"token_hash"`
-	IdempotencyKey        string                           `json:"idempotency_key"`
-	RequestDigest         []byte                           `json:"request_digest"`
-	HubUserDid            pgtype.UUID                      `json:"hub_user_did"`
-	Handle                string                           `json:"handle"`
-	ReserveCommandID      pgtype.UUID                      `json:"reserve_command_id"`
-	ActivateCommandID     pgtype.UUID                      `json:"activate_command_id"`
-	PayloadCiphertext     []byte                           `json:"payload_ciphertext"`
-	State                 VetchiumHubSignupCompletionState `json:"state"`
-	ProvisioningExpiresAt pgtype.Timestamptz               `json:"provisioning_expires_at"`
-	AttemptCount          int32                            `json:"attempt_count"`
-	NextAttemptAt         pgtype.Timestamptz               `json:"next_attempt_at"`
-	LastError             pgtype.Text                      `json:"last_error"`
-	CreatedAt             pgtype.Timestamptz               `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz               `json:"updated_at"`
-	CompletedAt           pgtype.Timestamptz               `json:"completed_at"`
-	ExpiresAt             pgtype.Timestamptz               `json:"expires_at"`
+	OperationID             pgtype.UUID                      `json:"operation_id"`
+	HubSignupRequestID      pgtype.UUID                      `json:"hub_signup_request_id"`
+	TokenHash               []byte                           `json:"token_hash"`
+	IdempotencyKey          string                           `json:"idempotency_key"`
+	RequestDigest           []byte                           `json:"request_digest"`
+	AccountEmailDigest      []byte                           `json:"account_email_digest"`
+	HubUserDid              pgtype.UUID                      `json:"hub_user_did"`
+	Handle                  string                           `json:"handle"`
+	ReserveCommandID        pgtype.UUID                      `json:"reserve_command_id"`
+	ActivateCommandID       pgtype.UUID                      `json:"activate_command_id"`
+	PayloadCiphertext       []byte                           `json:"payload_ciphertext"`
+	State                   VetchiumHubSignupCompletionState `json:"state"`
+	FailureReason           pgtype.Text                      `json:"failure_reason"`
+	ConflictingHomeTenantID pgtype.Text                      `json:"conflicting_home_tenant_id"`
+	ProvisioningExpiresAt   pgtype.Timestamptz               `json:"provisioning_expires_at"`
+	AttemptCount            int32                            `json:"attempt_count"`
+	NextAttemptAt           pgtype.Timestamptz               `json:"next_attempt_at"`
+	LastError               pgtype.Text                      `json:"last_error"`
+	CreatedAt               pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz               `json:"updated_at"`
+	CompletedAt             pgtype.Timestamptz               `json:"completed_at"`
+	ExpiresAt               pgtype.Timestamptz               `json:"expires_at"`
 }
 
 func (q *Queries) CreateProvisioningHubUser(ctx context.Context, arg CreateProvisioningHubUserParams) (CreateProvisioningHubUserRow, error) {
@@ -706,12 +833,152 @@ func (q *Queries) CreateProvisioningHubUser(ctx context.Context, arg CreateProvi
 		&i.TokenHash,
 		&i.IdempotencyKey,
 		&i.RequestDigest,
+		&i.AccountEmailDigest,
 		&i.HubUserDid,
 		&i.Handle,
 		&i.ReserveCommandID,
 		&i.ActivateCommandID,
 		&i.PayloadCiphertext,
 		&i.State,
+		&i.FailureReason,
+		&i.ConflictingHomeTenantID,
+		&i.ProvisioningExpiresAt,
+		&i.AttemptCount,
+		&i.NextAttemptAt,
+		&i.LastError,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const failHubSignupCompletionRegisteredElsewhere = `-- name: FailHubSignupCompletionRegisteredElsewhere :one
+WITH locked_operation AS (
+    SELECT operation.operation_id, operation.hub_signup_request_id, operation.token_hash, operation.idempotency_key, operation.request_digest, operation.account_email_digest, operation.hub_user_did, operation.handle, operation.reserve_command_id, operation.activate_command_id, operation.payload_ciphertext, operation.state, operation.failure_reason, operation.conflicting_home_tenant_id, operation.provisioning_expires_at, operation.attempt_count, operation.next_attempt_at, operation.last_error, operation.created_at, operation.updated_at, operation.completed_at, operation.expires_at
+    FROM vetchium.hub_signup_completions AS operation
+    WHERE operation.operation_id = $1
+      AND operation.state = 'prepared'
+    FOR UPDATE
+), deactivated_request AS (
+    UPDATE vetchium.hub_signup_requests AS request
+    SET consumed_at = now(), active = false
+    FROM locked_operation AS operation
+    WHERE request.hub_signup_request_id = operation.hub_signup_request_id
+    RETURNING request.hub_signup_request_id
+), updated AS (
+    UPDATE vetchium.hub_signup_completions AS operation
+    SET state = 'failed',
+        failure_reason = 'email_registered_elsewhere',
+        conflicting_home_tenant_id = $2,
+        completed_at = now(),
+        updated_at = now(),
+        next_attempt_at = now(),
+        last_error = 'global_email_claim_conflict',
+        payload_ciphertext = '\\x'::bytea
+    WHERE operation.operation_id = $1
+      AND EXISTS (SELECT 1 FROM locked_operation)
+    RETURNING operation.operation_id, operation.hub_signup_request_id, operation.token_hash, operation.idempotency_key, operation.request_digest, operation.account_email_digest, operation.hub_user_did, operation.handle, operation.reserve_command_id, operation.activate_command_id, operation.payload_ciphertext, operation.state, operation.failure_reason, operation.conflicting_home_tenant_id, operation.provisioning_expires_at, operation.attempt_count, operation.next_attempt_at, operation.last_error, operation.created_at, operation.updated_at, operation.completed_at, operation.expires_at
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, source,
+        idempotency_key, payload
+    )
+    SELECT
+        $3,
+        'hub.signup.rejected',
+        'hub_signup_completion',
+        operation_id::text,
+        'anonymous',
+        'hub-api',
+        idempotency_key,
+        jsonb_build_object(
+            'reason', 'email_registered_elsewhere',
+            'home_tenant_id', conflicting_home_tenant_id
+        )
+    FROM updated
+)
+SELECT
+    operation_id,
+    hub_signup_request_id,
+    token_hash,
+    idempotency_key,
+    request_digest,
+    account_email_digest,
+    hub_user_did,
+    handle,
+    reserve_command_id,
+    activate_command_id,
+    payload_ciphertext,
+    state,
+    failure_reason,
+    conflicting_home_tenant_id,
+    provisioning_expires_at,
+    attempt_count,
+    next_attempt_at,
+    last_error,
+    created_at,
+    updated_at,
+    completed_at,
+    expires_at
+FROM updated
+`
+
+type FailHubSignupCompletionRegisteredElsewhereParams struct {
+	OperationID             pgtype.UUID `json:"operation_id"`
+	ConflictingHomeTenantID pgtype.Text `json:"conflicting_home_tenant_id"`
+	TenantID                string      `json:"tenant_id"`
+}
+
+type FailHubSignupCompletionRegisteredElsewhereRow struct {
+	OperationID             pgtype.UUID                      `json:"operation_id"`
+	HubSignupRequestID      pgtype.UUID                      `json:"hub_signup_request_id"`
+	TokenHash               []byte                           `json:"token_hash"`
+	IdempotencyKey          string                           `json:"idempotency_key"`
+	RequestDigest           []byte                           `json:"request_digest"`
+	AccountEmailDigest      []byte                           `json:"account_email_digest"`
+	HubUserDid              pgtype.UUID                      `json:"hub_user_did"`
+	Handle                  string                           `json:"handle"`
+	ReserveCommandID        pgtype.UUID                      `json:"reserve_command_id"`
+	ActivateCommandID       pgtype.UUID                      `json:"activate_command_id"`
+	PayloadCiphertext       []byte                           `json:"payload_ciphertext"`
+	State                   VetchiumHubSignupCompletionState `json:"state"`
+	FailureReason           pgtype.Text                      `json:"failure_reason"`
+	ConflictingHomeTenantID pgtype.Text                      `json:"conflicting_home_tenant_id"`
+	ProvisioningExpiresAt   pgtype.Timestamptz               `json:"provisioning_expires_at"`
+	AttemptCount            int32                            `json:"attempt_count"`
+	NextAttemptAt           pgtype.Timestamptz               `json:"next_attempt_at"`
+	LastError               pgtype.Text                      `json:"last_error"`
+	CreatedAt               pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz               `json:"updated_at"`
+	CompletedAt             pgtype.Timestamptz               `json:"completed_at"`
+	ExpiresAt               pgtype.Timestamptz               `json:"expires_at"`
+}
+
+// The reserve-hub-principal directory-email-claim-conflict path (GU-SIG-004):
+// the address is already an account elsewhere, discovered only once the
+// caller has proven mailbox control. conflicting_home_tenant_id is null when
+// the coordinator's resolve-hub-account-email lookup itself failed; the
+// completion still fails, just without naming a region.
+func (q *Queries) FailHubSignupCompletionRegisteredElsewhere(ctx context.Context, arg FailHubSignupCompletionRegisteredElsewhereParams) (FailHubSignupCompletionRegisteredElsewhereRow, error) {
+	row := q.db.QueryRow(ctx, failHubSignupCompletionRegisteredElsewhere, arg.OperationID, arg.ConflictingHomeTenantID, arg.TenantID)
+	var i FailHubSignupCompletionRegisteredElsewhereRow
+	err := row.Scan(
+		&i.OperationID,
+		&i.HubSignupRequestID,
+		&i.TokenHash,
+		&i.IdempotencyKey,
+		&i.RequestDigest,
+		&i.AccountEmailDigest,
+		&i.HubUserDid,
+		&i.Handle,
+		&i.ReserveCommandID,
+		&i.ActivateCommandID,
+		&i.PayloadCiphertext,
+		&i.State,
+		&i.FailureReason,
+		&i.ConflictingHomeTenantID,
 		&i.ProvisioningExpiresAt,
 		&i.AttemptCount,
 		&i.NextAttemptAt,
@@ -766,12 +1033,15 @@ SELECT
     token_hash,
     idempotency_key,
     request_digest,
+    account_email_digest,
     hub_user_did,
     handle,
     reserve_command_id,
     activate_command_id,
     payload_ciphertext,
     state,
+    failure_reason,
+    conflicting_home_tenant_id,
     provisioning_expires_at,
     attempt_count,
     next_attempt_at,
@@ -794,12 +1064,15 @@ func (q *Queries) GetHubSignupCompletion(ctx context.Context, operationID pgtype
 		&i.TokenHash,
 		&i.IdempotencyKey,
 		&i.RequestDigest,
+		&i.AccountEmailDigest,
 		&i.HubUserDid,
 		&i.Handle,
 		&i.ReserveCommandID,
 		&i.ActivateCommandID,
 		&i.PayloadCiphertext,
 		&i.State,
+		&i.FailureReason,
+		&i.ConflictingHomeTenantID,
 		&i.ProvisioningExpiresAt,
 		&i.AttemptCount,
 		&i.NextAttemptAt,
@@ -819,12 +1092,15 @@ SELECT
     token_hash,
     idempotency_key,
     request_digest,
+    account_email_digest,
     hub_user_did,
     handle,
     reserve_command_id,
     activate_command_id,
     payload_ciphertext,
     state,
+    failure_reason,
+    conflicting_home_tenant_id,
     provisioning_expires_at,
     attempt_count,
     next_attempt_at,
@@ -847,12 +1123,15 @@ func (q *Queries) GetHubSignupCompletionByTokenHash(ctx context.Context, tokenHa
 		&i.TokenHash,
 		&i.IdempotencyKey,
 		&i.RequestDigest,
+		&i.AccountEmailDigest,
 		&i.HubUserDid,
 		&i.Handle,
 		&i.ReserveCommandID,
 		&i.ActivateCommandID,
 		&i.PayloadCiphertext,
 		&i.State,
+		&i.FailureReason,
+		&i.ConflictingHomeTenantID,
 		&i.ProvisioningExpiresAt,
 		&i.AttemptCount,
 		&i.NextAttemptAt,
@@ -872,12 +1151,15 @@ SELECT
     token_hash,
     idempotency_key,
     request_digest,
+    account_email_digest,
     hub_user_did,
     handle,
     reserve_command_id,
     activate_command_id,
     payload_ciphertext,
     state,
+    failure_reason,
+    conflicting_home_tenant_id,
     provisioning_expires_at,
     attempt_count,
     next_attempt_at,
@@ -908,12 +1190,15 @@ func (q *Queries) ListRecoverableHubSignupCompletions(ctx context.Context) ([]Ve
 			&i.TokenHash,
 			&i.IdempotencyKey,
 			&i.RequestDigest,
+			&i.AccountEmailDigest,
 			&i.HubUserDid,
 			&i.Handle,
 			&i.ReserveCommandID,
 			&i.ActivateCommandID,
 			&i.PayloadCiphertext,
 			&i.State,
+			&i.FailureReason,
+			&i.ConflictingHomeTenantID,
 			&i.ProvisioningExpiresAt,
 			&i.AttemptCount,
 			&i.NextAttemptAt,
@@ -943,7 +1228,7 @@ SET state = 'reserved',
 WHERE operation_id = $1
   AND state = 'prepared'
   AND reserve_command_id = $2
-RETURNING operation_id, hub_signup_request_id, token_hash, idempotency_key, request_digest, hub_user_did, handle, reserve_command_id, activate_command_id, payload_ciphertext, state, provisioning_expires_at, attempt_count, next_attempt_at, last_error, created_at, updated_at, completed_at, expires_at
+RETURNING operation_id, hub_signup_request_id, token_hash, idempotency_key, request_digest, account_email_digest, hub_user_did, handle, reserve_command_id, activate_command_id, payload_ciphertext, state, failure_reason, conflicting_home_tenant_id, provisioning_expires_at, attempt_count, next_attempt_at, last_error, created_at, updated_at, completed_at, expires_at
 `
 
 type MarkHubSignupCompletionReservedParams struct {
@@ -960,12 +1245,15 @@ func (q *Queries) MarkHubSignupCompletionReserved(ctx context.Context, arg MarkH
 		&i.TokenHash,
 		&i.IdempotencyKey,
 		&i.RequestDigest,
+		&i.AccountEmailDigest,
 		&i.HubUserDid,
 		&i.Handle,
 		&i.ReserveCommandID,
 		&i.ActivateCommandID,
 		&i.PayloadCiphertext,
 		&i.State,
+		&i.FailureReason,
+		&i.ConflictingHomeTenantID,
 		&i.ProvisioningExpiresAt,
 		&i.AttemptCount,
 		&i.NextAttemptAt,
@@ -1004,6 +1292,7 @@ WITH eligible_signup AS (
         token_hash,
         idempotency_key,
         request_digest,
+        account_email_digest,
         hub_user_did,
         handle,
         reserve_command_id,
@@ -1024,17 +1313,28 @@ WITH eligible_signup AS (
         $9,
         $10,
         $11,
-        $12
+        $12,
+        $13
     FROM eligible_signup
     ON CONFLICT DO NOTHING
-    RETURNING operation_id, hub_signup_request_id, token_hash, idempotency_key, request_digest, hub_user_did, handle, reserve_command_id, activate_command_id, payload_ciphertext, state, provisioning_expires_at, attempt_count, next_attempt_at, last_error, created_at, updated_at, completed_at, expires_at
+    RETURNING operation_id, hub_signup_request_id, token_hash, idempotency_key, request_digest, account_email_digest, hub_user_did, handle, reserve_command_id, activate_command_id, payload_ciphertext, state, failure_reason, conflicting_home_tenant_id, provisioning_expires_at, attempt_count, next_attempt_at, last_error, created_at, updated_at, completed_at, expires_at
+), consumed_request AS (
+    -- The token is spent once a completion owns it; the request stays
+    -- active, holding the address against replacement, until the completion
+    -- ends.
+    UPDATE vetchium.hub_signup_requests
+    SET consumed_at = now()
+    WHERE hub_signup_request_id IN (
+        SELECT hub_signup_request_id FROM inserted
+    )
+    RETURNING hub_signup_request_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, source,
         idempotency_key, payload
     )
     SELECT
-        $13,
+        $14,
         'hub.signup.completion_prepared',
         'hub_signup_completion',
         operation_id::text,
@@ -1047,7 +1347,7 @@ WITH eligible_signup AS (
         )
     FROM inserted
 )
-SELECT operation_id, hub_signup_request_id, token_hash, idempotency_key, request_digest, hub_user_did, handle, reserve_command_id, activate_command_id, payload_ciphertext, state, provisioning_expires_at, attempt_count, next_attempt_at, last_error, created_at, updated_at, completed_at, expires_at FROM inserted
+SELECT operation_id, hub_signup_request_id, token_hash, idempotency_key, request_digest, account_email_digest, hub_user_did, handle, reserve_command_id, activate_command_id, payload_ciphertext, state, failure_reason, conflicting_home_tenant_id, provisioning_expires_at, attempt_count, next_attempt_at, last_error, created_at, updated_at, completed_at, expires_at FROM inserted
 `
 
 type PrepareHubSignupCompletionParams struct {
@@ -1056,6 +1356,7 @@ type PrepareHubSignupCompletionParams struct {
 	OperationID           pgtype.UUID        `json:"operation_id"`
 	IdempotencyKey        string             `json:"idempotency_key"`
 	RequestDigest         []byte             `json:"request_digest"`
+	AccountEmailDigest    []byte             `json:"account_email_digest"`
 	HubUserDid            pgtype.UUID        `json:"hub_user_did"`
 	Handle                string             `json:"handle"`
 	ReserveCommandID      pgtype.UUID        `json:"reserve_command_id"`
@@ -1067,25 +1368,28 @@ type PrepareHubSignupCompletionParams struct {
 }
 
 type PrepareHubSignupCompletionRow struct {
-	OperationID           pgtype.UUID                      `json:"operation_id"`
-	HubSignupRequestID    pgtype.UUID                      `json:"hub_signup_request_id"`
-	TokenHash             []byte                           `json:"token_hash"`
-	IdempotencyKey        string                           `json:"idempotency_key"`
-	RequestDigest         []byte                           `json:"request_digest"`
-	HubUserDid            pgtype.UUID                      `json:"hub_user_did"`
-	Handle                string                           `json:"handle"`
-	ReserveCommandID      pgtype.UUID                      `json:"reserve_command_id"`
-	ActivateCommandID     pgtype.UUID                      `json:"activate_command_id"`
-	PayloadCiphertext     []byte                           `json:"payload_ciphertext"`
-	State                 VetchiumHubSignupCompletionState `json:"state"`
-	ProvisioningExpiresAt pgtype.Timestamptz               `json:"provisioning_expires_at"`
-	AttemptCount          int32                            `json:"attempt_count"`
-	NextAttemptAt         pgtype.Timestamptz               `json:"next_attempt_at"`
-	LastError             pgtype.Text                      `json:"last_error"`
-	CreatedAt             pgtype.Timestamptz               `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz               `json:"updated_at"`
-	CompletedAt           pgtype.Timestamptz               `json:"completed_at"`
-	ExpiresAt             pgtype.Timestamptz               `json:"expires_at"`
+	OperationID             pgtype.UUID                      `json:"operation_id"`
+	HubSignupRequestID      pgtype.UUID                      `json:"hub_signup_request_id"`
+	TokenHash               []byte                           `json:"token_hash"`
+	IdempotencyKey          string                           `json:"idempotency_key"`
+	RequestDigest           []byte                           `json:"request_digest"`
+	AccountEmailDigest      []byte                           `json:"account_email_digest"`
+	HubUserDid              pgtype.UUID                      `json:"hub_user_did"`
+	Handle                  string                           `json:"handle"`
+	ReserveCommandID        pgtype.UUID                      `json:"reserve_command_id"`
+	ActivateCommandID       pgtype.UUID                      `json:"activate_command_id"`
+	PayloadCiphertext       []byte                           `json:"payload_ciphertext"`
+	State                   VetchiumHubSignupCompletionState `json:"state"`
+	FailureReason           pgtype.Text                      `json:"failure_reason"`
+	ConflictingHomeTenantID pgtype.Text                      `json:"conflicting_home_tenant_id"`
+	ProvisioningExpiresAt   pgtype.Timestamptz               `json:"provisioning_expires_at"`
+	AttemptCount            int32                            `json:"attempt_count"`
+	NextAttemptAt           pgtype.Timestamptz               `json:"next_attempt_at"`
+	LastError               pgtype.Text                      `json:"last_error"`
+	CreatedAt               pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz               `json:"updated_at"`
+	CompletedAt             pgtype.Timestamptz               `json:"completed_at"`
+	ExpiresAt               pgtype.Timestamptz               `json:"expires_at"`
 }
 
 func (q *Queries) PrepareHubSignupCompletion(ctx context.Context, arg PrepareHubSignupCompletionParams) (PrepareHubSignupCompletionRow, error) {
@@ -1095,6 +1399,7 @@ func (q *Queries) PrepareHubSignupCompletion(ctx context.Context, arg PrepareHub
 		arg.OperationID,
 		arg.IdempotencyKey,
 		arg.RequestDigest,
+		arg.AccountEmailDigest,
 		arg.HubUserDid,
 		arg.Handle,
 		arg.ReserveCommandID,
@@ -1111,12 +1416,15 @@ func (q *Queries) PrepareHubSignupCompletion(ctx context.Context, arg PrepareHub
 		&i.TokenHash,
 		&i.IdempotencyKey,
 		&i.RequestDigest,
+		&i.AccountEmailDigest,
 		&i.HubUserDid,
 		&i.Handle,
 		&i.ReserveCommandID,
 		&i.ActivateCommandID,
 		&i.PayloadCiphertext,
 		&i.State,
+		&i.FailureReason,
+		&i.ConflictingHomeTenantID,
 		&i.ProvisioningExpiresAt,
 		&i.AttemptCount,
 		&i.NextAttemptAt,
@@ -1213,7 +1521,7 @@ SET handle = $1,
 WHERE operation_id = $3
   AND state = 'prepared'
   AND reserve_command_id = $4
-RETURNING operation_id, hub_signup_request_id, token_hash, idempotency_key, request_digest, hub_user_did, handle, reserve_command_id, activate_command_id, payload_ciphertext, state, provisioning_expires_at, attempt_count, next_attempt_at, last_error, created_at, updated_at, completed_at, expires_at
+RETURNING operation_id, hub_signup_request_id, token_hash, idempotency_key, request_digest, account_email_digest, hub_user_did, handle, reserve_command_id, activate_command_id, payload_ciphertext, state, failure_reason, conflicting_home_tenant_id, provisioning_expires_at, attempt_count, next_attempt_at, last_error, created_at, updated_at, completed_at, expires_at
 `
 
 type RotateHubSignupCompletionHandleParams struct {
@@ -1237,12 +1545,15 @@ func (q *Queries) RotateHubSignupCompletionHandle(ctx context.Context, arg Rotat
 		&i.TokenHash,
 		&i.IdempotencyKey,
 		&i.RequestDigest,
+		&i.AccountEmailDigest,
 		&i.HubUserDid,
 		&i.Handle,
 		&i.ReserveCommandID,
 		&i.ActivateCommandID,
 		&i.PayloadCiphertext,
 		&i.State,
+		&i.FailureReason,
+		&i.ConflictingHomeTenantID,
 		&i.ProvisioningExpiresAt,
 		&i.AttemptCount,
 		&i.NextAttemptAt,

@@ -1079,6 +1079,8 @@ export function cleanupHubUser(
     WHERE entity_type = 'hub_user' AND entity_id = ${did};
     DELETE FROM vetchium.audit_events
     WHERE actor_type = 'hub_user' AND actor_id = ${did};
+    DELETE FROM vetchium.hub_account_email_changes
+    WHERE hub_user_did = ${did}::uuid;
     DELETE FROM vetchium.federation_operations
     WHERE aggregate_id = ${did} OR
           (owner_principal_type = 'hub_user' AND owner_principal_id = ${did});
@@ -1088,6 +1090,115 @@ export function cleanupHubUser(
     WHERE binding_id = ${email};
   `,
   );
+}
+
+/** Seeds one more active session for an already-seeded Hub user, so a test
+ * can hold two independent bearer tokens for the same account. */
+export function seedHubSession(tenant: TestTenant, hubUserDID: string): string {
+  assertHubUserDID(hubUserDID);
+  const sessionToken = randomBytes(32).toString("hex");
+  const tokenHash = createHash("sha256").update(sessionToken).digest("hex");
+  sqlScalarForTenant(
+    tenant,
+    `INSERT INTO vetchium.hub_sessions (
+       hub_user_did, session_token_hash, expires_at
+     ) VALUES (
+       ${sqlLiteral(hubUserDID)}::uuid, decode(${sqlLiteral(tokenHash)}, 'hex'),
+       now() + interval '1 hour'
+     );`,
+  );
+  return sessionToken;
+}
+
+/**
+ * Seeds a durable, still-live account email change for a Hub user, as a
+ * confirm committed by another request would leave it. `notAfterSQL` sets its
+ * reservation deadline; a past deadline makes the next drive cancel it. A
+ * replay of confirm finds the change only when `idempotencyKey` and
+ * `requestDigestHex` match that replay. cleanupHubUser removes both rows.
+ */
+export function seedLiveHubEmailChange(
+  tenant: TestTenant,
+  hubUserDID: string,
+  options: {
+    idempotencyKey: string;
+    requestDigestHex: string;
+    notAfterSQL: string;
+  },
+): string {
+  assertHubUserDID(hubUserDID);
+  const did = sqlLiteral(hubUserDID);
+  return sqlScalarForTenant(
+    tenant,
+    `WITH operation AS (
+       INSERT INTO vetchium.federation_operations (
+         operation_id, command_id, kind, target_authority, aggregate_id,
+         owner_principal_type, owner_principal_id, idempotency_key,
+         request_digest, payload_bytes, expires_at
+       ) VALUES (
+         gen_random_uuid(), gen_random_uuid(), 'hub-account-email-change',
+         'global-directory', ${did}, 'hub_user', ${did},
+         ${sqlLiteral(options.idempotencyKey)},
+         decode(${sqlLiteral(options.requestDigestHex)}, 'hex'),
+         ''::bytea, now() + interval '7 days'
+       )
+       RETURNING operation_id
+     )
+     INSERT INTO vetchium.hub_account_email_changes (
+       operation_id, hub_user_did, new_email_address, new_email_digest,
+       old_email_digest, confirming_session_id, reserve_command_id,
+       finalize_command_id, abandon_command_id, not_after
+     )
+     SELECT
+       operation.operation_id, ${did}::uuid,
+       'e2e+' || gen_random_uuid() || '@seeded-change.example.test',
+       sha256(gen_random_uuid()::text::bytea), hub_user.email_digest,
+       gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+       gen_random_uuid(), ${options.notAfterSQL}
+     FROM operation
+     CROSS JOIN vetchium.hub_users AS hub_user
+     WHERE hub_user.hub_user_did = ${did}::uuid
+     RETURNING operation_id::text;`,
+  );
+}
+
+/**
+ * Directly seeds a fully active, loggable-in Hub user plus one authenticated
+ * session, bypassing the signup-completion saga entirely. The only way to
+ * get a real local account on a tenant whose global-coordinator path is
+ * deliberately broken in CI (ind1): signup can never reach `completed`
+ * there, so a test that needs to call authenticated local endpoints against
+ * ind1 (email change, for instance) cannot get one through `signup()`. The
+ * digest and password hash are synthetic — nothing exercised through a
+ * seeded user reads them back through the global directory or `/login`.
+ */
+export function seedActiveHubUser(
+  tenant: TestTenant,
+  emailAddress: string,
+  displayName: string,
+): { hubUserDID: string; handle: string; sessionToken: string } {
+  assertOwnedHubEmail(emailAddress);
+  const hubUserDID = `018f7e32-7b5a-7d31-8fd0-${randomBytes(6).toString("hex")}`;
+  const handle = `${randomBytes(4).toString("hex")}-${randomBytes(6)
+    .toString("hex")
+    .slice(0, 11)}`;
+  const digest = randomBytes(32).toString("hex");
+  sqlScalarForTenant(
+    tenant,
+    `INSERT INTO vetchium.hub_users (
+       hub_user_did, handle, email_address, email_digest, display_name,
+       password_hash, resident_country, hub_plan_oid
+     ) VALUES (
+       ${sqlLiteral(hubUserDID)}::uuid, ${sqlLiteral(handle)},
+       ${sqlLiteral(emailAddress)}, decode(${sqlLiteral(digest)}, 'hex'),
+       ${sqlLiteral(displayName)}, 'not-a-real-hash', 'US', 'hub-free-tier'
+     );`,
+  );
+  return {
+    hubUserDID,
+    handle,
+    sessionToken: seedHubSession(tenant, hubUserDID),
+  };
 }
 
 /** Browser APIs return only the public handle; tests that inspect database
@@ -1601,6 +1712,60 @@ export function hubSignupCompletionArtifactCounts(
     throw new Error(`invalid Hub signup completion counts: ${value}`);
   }
   return { activeSignupRequests, auditEvents, hubUsers, idempotencyRows };
+}
+
+/**
+ * The durable signup-completion saga's own state for a given signup
+ * request's email address, keyed via `hub_signup_requests` since
+ * `hub_signup_completions` carries no email column of its own (GU-SIG-004).
+ * Used to assert a registered-elsewhere failure left `attempt_count`
+ * untouched (it is only ever bumped by handle-collision rotation, a
+ * distinct code path) and that no local `hub_users` row was created.
+ */
+export function hubSignupCompletionState(
+  emailAddress: string,
+  tenant: TestTenant,
+): {
+  state: string;
+  attemptCount: number;
+  failureReason: string | null;
+  conflictingHomeTenantID: string | null;
+  localAccountCreated: boolean;
+} | null {
+  assertOwnedHubEmail(emailAddress);
+  const value = sqlScalarForTenant(
+    tenant,
+    `
+    SELECT COALESCE(
+      (SELECT c.state::text || '|' || c.attempt_count::text || '|' ||
+              coalesce(c.failure_reason, '') || '|' ||
+              coalesce(c.conflicting_home_tenant_id, '') || '|' ||
+              (EXISTS(
+                SELECT 1 FROM vetchium.hub_users AS u
+                WHERE u.email_address = r.email_address
+              ))::text
+       FROM vetchium.hub_signup_completions AS c
+       JOIN vetchium.hub_signup_requests AS r
+         ON r.hub_signup_request_id = c.hub_signup_request_id
+       WHERE r.email_address = ${sqlLiteral(emailAddress)}),
+      ''
+    );
+    `,
+  );
+  if (value === "") return null;
+  const [state, attemptCount, failureReason, conflictingHomeTenantID, exists] =
+    value.split("|");
+  if (state === undefined || attemptCount === undefined) {
+    throw new Error(`invalid Hub signup completion state: ${value}`);
+  }
+  return {
+    state,
+    attemptCount: Number(attemptCount),
+    failureReason: failureReason === "" ? null : (failureReason ?? null),
+    conflictingHomeTenantID:
+      conflictingHomeTenantID === "" ? null : (conflictingHomeTenantID ?? null),
+    localAccountCreated: exists === "t",
+  };
 }
 
 export function installHubAuditInsertFailure(match: {

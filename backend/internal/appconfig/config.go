@@ -24,6 +24,7 @@ const defaultPath = "/etc/vetchium/config.json"
 const defaultAdminCredentialKeyPath = "/run/secrets/admin_credential_key"
 const defaultHubCredentialKeyPath = "/run/secrets/hub_credential_key"
 const defaultOrgsCredentialKeyPath = "/run/secrets/orgs_credential_key"
+const defaultIdentityDigestKeyPath = "/run/secrets/identity_digest_key"
 
 type Config struct {
 	SignupRegionsFile     string
@@ -73,6 +74,7 @@ type Workers struct {
 	HubEmailMaxAttempts          int
 	AdvanceHubSubscriptionsTimer time.Duration
 	ReconcileHubSignupTimer      time.Duration
+	ReconcileHubEmailChangeTimer time.Duration
 	DeliverOrgEmailTimer         time.Duration
 	OrgEmailLeaseTTL             time.Duration
 	OrgEmailMaxAttempts          int
@@ -236,6 +238,7 @@ type fileWorkers struct {
 	HubEmailMaxAttempts          int    `json:"hubEmailMaxAttempts"`
 	AdvanceHubSubscriptionsTimer string `json:"advanceHubSubscriptionsTimer"`
 	ReconcileHubSignupTimer      string `json:"reconcileHubSignupTimer"`
+	ReconcileHubEmailChangeTimer string `json:"reconcileHubEmailChangeTimer"`
 	DeliverOrgEmailTimer         string `json:"deliverOrgEmailTimer"`
 	OrgEmailLeaseTTL             string `json:"orgEmailLeaseTTL"`
 	OrgEmailMaxAttempts          int    `json:"orgEmailMaxAttempts"`
@@ -593,6 +596,13 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	reconcileHubEmailChangeTimer, err := positiveDuration(
+		"workers.reconcileHubEmailChangeTimer",
+		raw.Workers.ReconcileHubEmailChangeTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	orgWorkers, err := parseOrgWorkers(raw.Workers)
 	if err != nil {
 		return Config{}, configError(path, err)
@@ -647,6 +657,7 @@ func LoadFile(path string) (Config, error) {
 			HubEmailMaxAttempts:          raw.Workers.HubEmailMaxAttempts,
 			AdvanceHubSubscriptionsTimer: advanceHubSubscriptionsTimer,
 			ReconcileHubSignupTimer:      reconcileHubSignupTimer,
+			ReconcileHubEmailChangeTimer: reconcileHubEmailChangeTimer,
 			DeliverOrgEmailTimer:         orgWorkers.DeliverOrgEmailTimer,
 			OrgEmailLeaseTTL:             orgWorkers.OrgEmailLeaseTTL,
 			OrgEmailMaxAttempts:          orgWorkers.OrgEmailMaxAttempts,
@@ -757,6 +768,18 @@ func OrgsCredentialSecret() (string, error) {
 		path = defaultOrgsCredentialKeyPath
 	}
 	return credentialSecret("orgs", path)
+}
+
+// IdentityDigestSecret is, unlike the per-portal credential secrets above,
+// identical in every tenant: it derives the shared identitydigest.Key so
+// every tenant computes the same digest for the same address. Only hub-api
+// and workers read it.
+func IdentityDigestSecret() (string, error) {
+	path := os.Getenv("IDENTITY_DIGEST_KEY_FILE")
+	if path == "" {
+		path = defaultIdentityDigestKeyPath
+	}
+	return credentialSecret("identity digest", path)
 }
 
 func credentialSecret(kind, path string) (string, error) {

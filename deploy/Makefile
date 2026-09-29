@@ -31,6 +31,8 @@ deploy-global-coordinator:
 	@test -n "$(GLOBAL_POSTGRES_USER)" || { echo "GLOBAL_POSTGRES_USER is required"; exit 1; }
 	@test -n "$(GLOBAL_POSTGRES_DB)" || { echo "GLOBAL_POSTGRES_DB is required"; exit 1; }
 	@test -n "$(GLOBAL_COORDINATOR_WIREGUARD_IP)" || { echo "GLOBAL_COORDINATOR_WIREGUARD_IP is required"; exit 1; }
+	@grep -Eq '"identityDigestKeyId": "[0-9a-f]{16}"' global-coordinator/config.json || \
+		{ echo "global-coordinator/config.json identityDigestKeyId must be the computed identity digest key id; see README.md"; exit 1; }
 	@case "$(WIREGUARD_INTERFACE)" in *[!A-Za-z0-9_.-]*|'') echo "WIREGUARD_INTERFACE is invalid"; exit 1;; esac
 	@ip link show dev "$(WIREGUARD_INTERFACE)" >/dev/null 2>&1 || \
 		{ echo "WireGuard interface $(WIREGUARD_INTERFACE) does not exist"; exit 1; }
@@ -194,6 +196,13 @@ deploy:
 	@if ! docker secret inspect "$(REGION)_mesh_credential" >/dev/null 2>&1; then \
 		printf '%s' "$$(openssl rand -hex 32)" | \
 			docker secret create "$(REGION)_mesh_credential" - >/dev/null; \
+	fi
+	@test -n "$(IDENTITY_DIGEST_KEY_FILE)" || \
+		{ echo "IDENTITY_DIGEST_KEY_FILE is required, e.g. IDENTITY_DIGEST_KEY_FILE=/path/to/identity_digest_key"; exit 1; }
+	@test -s "$(IDENTITY_DIGEST_KEY_FILE)" || \
+		{ echo "IDENTITY_DIGEST_KEY_FILE $(IDENTITY_DIGEST_KEY_FILE) is missing or empty"; exit 1; }
+	@if ! docker secret inspect "$(REGION)_identity_digest_key" >/dev/null 2>&1; then \
+		docker secret create "$(REGION)_identity_digest_key" "$(IDENTITY_DIGEST_KEY_FILE)" >/dev/null; \
 	fi
 	@set -e; \
 	config_secret=$(REGION)_seaweed_s3_config; \

@@ -34,6 +34,22 @@ func RegisterGlobalCoordinatorRoutes(
 		directory.SetHubAlias(s.Runtime, s.Directory),
 	)
 	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/resolve-hub-account-email",
+		directory.ResolveHubAccountEmail(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/reserve-hub-account-email-change",
+		directory.ReserveHubAccountEmailChange(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/finalize-hub-account-email-change",
+		directory.FinalizeHubAccountEmailChange(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/abandon-hub-account-email-change",
+		directory.AbandonHubAccountEmailChange(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
 		"POST /api/global-coordinator/directory/resolve-org-domain",
 		directory.ResolveOrgDomain(s.Runtime, s.Directory),
 	)

@@ -4,14 +4,62 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
 import { isNewPassword } from "typespec/common/authentication";
+import { isHubAccountHomedElsewhereProblem } from "typespec/problem/hub/signup";
+import { APIError } from "../api/client";
 import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
 import { usePendingOperations } from "../app/PendingOperationContext";
+import { usePreferences } from "../app/PreferencesContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import { countryName } from "../i18n/countries";
 
 interface PasswordValues {
   password: string;
   confirm_password: string;
+}
+
+/** The other tenant's Hub sign-in page, or null when the API supplied a URL
+ * this portal will not navigate to. */
+function homeTenantSignIn(hubURL: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(hubURL);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+  return `${hubURL.replace(/\/+$/, "")}/login`;
+}
+
+function HomedElsewhere({ error }: { error: unknown }) {
+  const { t } = useTranslation();
+  const preferences = usePreferences();
+  const problem = error instanceof APIError ? error.problem : undefined;
+  if (!isHubAccountHomedElsewhereProblem(problem)) return null;
+  const destination = homeTenantSignIn(problem.hub_url);
+  return (
+    <div data-testid="complete-signup-homed-elsewhere">
+      <Alert
+        type="info"
+        showIcon
+        title={t("completeSignup.homedElsewhere.title", {
+          region: countryName(problem.hosting_country, preferences.language),
+        })}
+        description={t("completeSignup.homedElsewhere.description")}
+        action={
+          destination === null ? undefined : (
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => window.location.assign(destination)}
+            >
+              {t("completeSignup.homedElsewhere.action")}
+            </Button>
+          )
+        }
+      />
+    </div>
+  );
 }
 
 export function CompleteSignupPage() {
@@ -76,6 +124,13 @@ export function CompleteSignupPage() {
             />
             <Link to="/login">{t("common.continueToSignin")}</Link>
           </>
+        ) : complete.isError &&
+          isHubAccountHomedElsewhereProblem(
+            complete.error instanceof APIError
+              ? complete.error.problem
+              : undefined,
+          ) ? (
+          <HomedElsewhere error={complete.error} />
         ) : (
           <>
             <APIErrorAlert error={complete.error} />

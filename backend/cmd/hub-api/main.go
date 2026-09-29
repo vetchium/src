@@ -12,7 +12,9 @@ import (
 	"backend/internal/directoryclient"
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
+	"backend/internal/hub/emailchange"
 	"backend/internal/hub/signupcompletion"
+	"backend/internal/identitydigest"
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
 	"backend/internal/profileclient"
@@ -39,6 +41,11 @@ func run(log *slog.Logger, address string) error {
 	if err != nil {
 		return err
 	}
+	digestSecret, err := appconfig.IdentityDigestSecret()
+	if err != nil {
+		return err
+	}
+	digestKey := identitydigest.NewKey(digestSecret)
 	catalog, err := regions.Load(cfg.SignupRegionsFile)
 	if err != nil {
 		return err
@@ -97,13 +104,17 @@ func run(log *slog.Logger, address string) error {
 		return err
 	}
 
+	hubCredentialKey := hubauthn.DeriveCredentialKey(cfg.TenantID, credentialSecret)
 	signupCompletion := signupcompletion.New(
 		pool, globalDirectory, cfg.TenantID,
-		hubauthn.DeriveCredentialSubkey(
-			hubauthn.DeriveCredentialKey(cfg.TenantID, credentialSecret),
-			"signup-provisioning",
-		),
-		nil,
+		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "signup-provisioning"),
+		digestKey, log, nil,
+	)
+	emailChange := emailchange.New(
+		pool, globalDirectory, cfg.TenantID,
+		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "email-change-code"),
+		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "outbox"),
+		digestKey, log, nil,
 	)
 	s := &hubruntime.Server{
 		Runtime:          apiserver.New(pool, log),
@@ -113,6 +124,8 @@ func run(log *slog.Logger, address string) error {
 		Profiles:         profiles,
 		Pictures:         pictures,
 		SignupCompletion: signupCompletion,
+		EmailChange:      emailChange,
+		DigestKey:        digestKey,
 		Regions:          catalog,
 		Signup:           cfg.HubAPIServer.Signup,
 		TenantID:         cfg.TenantID,
@@ -121,10 +134,8 @@ func run(log *slog.Logger, address string) error {
 			Remembered: cfg.HubAPIServer.RememberedSessionTTL,
 		},
 		PublicBaseURL: cfg.HubAPIServer.PublicBaseURL,
-		CredentialKey: hubauthn.DeriveCredentialKey(
-			cfg.TenantID, credentialSecret,
-		),
-		OfferedPlans: cfg.HubAPIServer.OfferedPlans,
+		CredentialKey: hubCredentialKey,
+		OfferedPlans:  cfg.HubAPIServer.OfferedPlans,
 	}
 	mux := http.NewServeMux()
 	routes.RegisterHubRoutes(mux, s)

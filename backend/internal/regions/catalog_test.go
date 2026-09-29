@@ -132,3 +132,16 @@ func TestCatalogSignupEnabledIgnoresCountryRestrictions(t *testing.T) {
 		t.Fatal("country restriction ignored by Allows")
 	}
 }
+
+func TestCatalogRegionLooksUpOneTenant(t *testing.T) {
+	catalog := testCatalog(t, 3)
+	region, ok := catalog.Region(catalog.Regions[1].TenantID)
+	if !ok || region.TenantID != catalog.Regions[1].TenantID ||
+		region.HostingCountry != catalog.Regions[1].HostingCountry ||
+		region.HubURL != catalog.Regions[1].HubURL {
+		t.Fatalf("Region() = %+v, %v", region, ok)
+	}
+	if _, ok := catalog.Region("absent"); ok {
+		t.Fatal("Region() found an absent tenant")
+	}
+}
