@@ -305,8 +305,7 @@ func (s *Service) SetHubAlias(
 }
 
 // mutation is what one command's work reports: the response, and whether a
-// directory change happened that needs an audit record (and, unless
-// skipOutbox, an outbox record).
+// directory change happened that needs its audit and outbox records.
 type mutation[R any] struct {
 	response         R
 	changed          bool
@@ -315,18 +314,17 @@ type mutation[R any] struct {
 	entityID         string
 	auditAction      string
 	eventType        string
-	// skipOutbox is set by commands whose entity has no routing/version
-	// concept to attach to an outbox row (the Hub email claim tables): audit
-	// GU-DIR-* commands still record their audit event, but never write
-	// global_outbox_events, since nothing consumes it for these entities yet
-	// and doing so would need either a digest in the payload (forbidden) or
-	// an artificial principal-version bump the existing
-	// enforce_principal_transition trigger rejects.
-	skipOutbox bool
-	// auditPayload overrides the default {schema_version, principal:
-	// response} audit and outbox payload. Hub email claim commands set this
-	// to a minimal, digest-free payload such as {transferred: bool}.
-	auditPayload any
+	// outboxEvents replaces the default single principal-versioned event for
+	// commands whose change is versioned by another aggregate.
+	outboxEvents []outboxEvent
+}
+
+type outboxEvent struct {
+	aggregateType string
+	aggregateID   string
+	version       int64
+	eventType     string
+	payload       any
 }
 
 type hubMutation = mutation[directoryspec.PrincipalCommandResponse]
@@ -465,14 +463,10 @@ func appendChangeRecords[R any](
 	ctx context.Context, q *sqlc.Queries, commandID pgtype.UUID,
 	caller directoryspec.TenantID, change mutation[R],
 ) error {
-	auditPayload := change.auditPayload
-	if auditPayload == nil {
-		auditPayload = struct {
-			SchemaVersion int `json:"schema_version"`
-			Principal     R   `json:"principal"`
-		}{SchemaVersion: 1, Principal: change.response}
-	}
-	payload, err := json.Marshal(auditPayload)
+	payload, err := json.Marshal(struct {
+		SchemaVersion int `json:"schema_version"`
+		Principal     R   `json:"principal"`
+	}{SchemaVersion: 1, Principal: change.response})
 	if err != nil {
 		return fmt.Errorf("encode directory change record: %w", err)
 	}
@@ -485,17 +479,28 @@ func appendChangeRecords[R any](
 	); err != nil {
 		return fmt.Errorf("insert global directory audit event: %w", err)
 	}
-	if change.skipOutbox {
-		return nil
+	events := change.outboxEvents
+	if events == nil {
+		events = []outboxEvent{{
+			aggregateType: change.entityType, aggregateID: change.entityID,
+			version: change.directoryVersion, eventType: change.eventType,
+			payload: json.RawMessage(payload),
+		}}
 	}
-	if err := q.InsertGlobalOutboxEvent(
-		ctx, sqlc.InsertGlobalOutboxEventParams{
-			AggregateType: change.entityType, AggregateID: change.entityID,
-			AggregateVersion: change.directoryVersion,
-			EventType:        change.eventType, Payload: payload,
-		},
-	); err != nil {
-		return fmt.Errorf("insert global directory outbox event: %w", err)
+	for _, event := range events {
+		eventPayload, err := json.Marshal(event.payload)
+		if err != nil {
+			return fmt.Errorf("encode directory outbox event: %w", err)
+		}
+		if err := q.InsertGlobalOutboxEvent(
+			ctx, sqlc.InsertGlobalOutboxEventParams{
+				AggregateType: event.aggregateType, AggregateID: event.aggregateID,
+				AggregateVersion: event.version, EventType: event.eventType,
+				Payload: eventPayload,
+			},
+		); err != nil {
+			return fmt.Errorf("insert global directory outbox event: %w", err)
+		}
 	}
 	return nil
 }

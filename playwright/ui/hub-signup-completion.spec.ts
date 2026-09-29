@@ -28,6 +28,7 @@ test("a signup completed elsewhere sends the user to their home region instead o
         status: 409,
         detail: "This Hub account signs in at another region's Hub portal",
         tenant_id: "sgp",
+        hosting_country: "SG",
         hub_url: "http://hub-ui.sgp.localhost",
       },
     });
@@ -41,7 +42,7 @@ test("a signup completed elsewhere sends the user to their home region instead o
   const notice = page.getByTestId("complete-signup-homed-elsewhere");
   await expect(notice).toBeVisible();
   await expect(
-    notice.getByText("You already have a Vetchium account in sgp"),
+    notice.getByText("You already have a Vetchium account in Singapore"),
   ).toBeVisible();
   await expect(page.getByLabel("New password")).toHaveCount(0);
   await expect(

@@ -9,7 +9,9 @@ import { APIError } from "../api/client";
 import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
 import { usePendingOperations } from "../app/PendingOperationContext";
+import { usePreferences } from "../app/PreferencesContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import { countryName } from "../i18n/countries";
 
 interface PasswordValues {
   password: string;
@@ -31,6 +33,7 @@ function homeTenantSignIn(hubURL: string): string | null {
 
 function HomedElsewhere({ error }: { error: unknown }) {
   const { t } = useTranslation();
+  const preferences = usePreferences();
   const problem = error instanceof APIError ? error.problem : undefined;
   if (!isHubAccountHomedElsewhereProblem(problem)) return null;
   const destination = homeTenantSignIn(problem.hub_url);
@@ -40,7 +43,7 @@ function HomedElsewhere({ error }: { error: unknown }) {
         type="info"
         showIcon
         title={t("completeSignup.homedElsewhere.title", {
-          region: problem.tenant_id,
+          region: countryName(problem.hosting_country, preferences.language),
         })}
         description={t("completeSignup.homedElsewhere.description")}
         action={

@@ -1,9 +1,15 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 import type {
+  AbandonHubAccountEmailChangeRequest,
   ActivateHubPrincipalRequest,
+  FinalizeHubAccountEmailChangeRequest,
+  HubAccountEmailChangeReservationResponse,
   PrincipalCommandResponse,
+  ReserveHubAccountEmailChangeRequest,
   ReserveHubPrincipalRequest,
+  ResolveHubAccountEmailRequest,
+  ResolveHubAccountEmailResponse,
   ResolveProfileSlugRequest,
   ResolveProfileSlugResponse,
   SetHubAliasRequest,
@@ -19,6 +25,19 @@ const ROUTES = [
   { name: "reserve-hub-principal", path: "/reserve-hub-principal" },
   { name: "activate-hub-principal", path: "/activate-hub-principal" },
   { name: "set-hub-alias", path: "/set-hub-alias" },
+  { name: "resolve-hub-account-email", path: "/resolve-hub-account-email" },
+  {
+    name: "reserve-hub-account-email-change",
+    path: "/reserve-hub-account-email-change",
+  },
+  {
+    name: "finalize-hub-account-email-change",
+    path: "/finalize-hub-account-email-change",
+  },
+  {
+    name: "abandon-hub-account-email-change",
+    path: "/abandon-hub-account-email-change",
+  },
 ] as const;
 
 // Crockford base32 without i, l, o, u, matching the Hub handle suffix shape.
@@ -70,6 +89,106 @@ function freshReservation(
     account_email_digest: randomEmailDigest(),
     digest_key_id: DIGEST_KEY_ID,
     ...overrides,
+  };
+}
+
+function freshEmailChange(
+  hubUserDID: string,
+  overrides: Partial<ReserveHubAccountEmailChangeRequest> = {},
+): ReserveHubAccountEmailChangeRequest {
+  return {
+    command_id: randomUUID(),
+    change_id: randomUUID(),
+    hub_user_did: hubUserDID,
+    new_email_digest: randomEmailDigest(),
+    not_after: new Date(Date.now() + 60 * 60_000).toISOString(),
+    digest_key_id: DIGEST_KEY_ID,
+    ...overrides,
+  };
+}
+
+async function resolveHubAccountEmail(
+  context: APIRequestContext,
+  request: ResolveHubAccountEmailRequest,
+) {
+  return context.post(`${coordinator}${DIRECTORY}/resolve-hub-account-email`, {
+    data: request,
+  });
+}
+
+async function reserveEmailChange(
+  context: APIRequestContext,
+  request: ReserveHubAccountEmailChangeRequest,
+) {
+  return context.post(
+    `${coordinator}${DIRECTORY}/reserve-hub-account-email-change`,
+    { data: request },
+  );
+}
+
+async function finalizeEmailChange(
+  context: APIRequestContext,
+  request: FinalizeHubAccountEmailChangeRequest,
+) {
+  return context.post(
+    `${coordinator}${DIRECTORY}/finalize-hub-account-email-change`,
+    { data: request },
+  );
+}
+
+async function abandonEmailChange(
+  context: APIRequestContext,
+  request: AbandonHubAccountEmailChangeRequest,
+) {
+  return context.post(
+    `${coordinator}${DIRECTORY}/abandon-hub-account-email-change`,
+    { data: request },
+  );
+}
+
+async function expectReservationState(
+  response: Awaited<ReturnType<APIRequestContext["post"]>>,
+  state: HubAccountEmailChangeReservationResponse["state"],
+) {
+  expect(response.status(), await response.text()).toBe(200);
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  expect(await response.json()).toEqual({
+    state,
+  } satisfies HubAccountEmailChangeReservationResponse);
+}
+
+async function expectDirectoryProblem(
+  response: Awaited<ReturnType<APIRequestContext["post"]>>,
+  status: number,
+  type: string,
+) {
+  expect(response.status(), await response.text()).toBe(status);
+  expect(response.headers()["content-type"]).toContain(
+    "application/problem+json",
+  );
+  expect(await response.json()).toMatchObject({
+    type: `vetchium-problem-details/${type}`,
+    status,
+  });
+}
+
+/** Reserve and activate a fresh principal that holds a known account email
+ * digest. */
+async function activeEmailPrincipal(
+  context: APIRequestContext,
+  homeTenantID: string,
+): Promise<{ hubUserDID: string; emailDigest: string }> {
+  const reservation = freshReservation(homeTenantID);
+  const reserved = await reserveHubPrincipal(context, reservation);
+  expect(reserved.status(), await reserved.text()).toBe(200);
+  const activated = await activateHubPrincipal(context, {
+    command_id: randomUUID(),
+    hub_user_did: reservation.hub_user_did,
+  });
+  expect(activated.status(), await activated.text()).toBe(200);
+  return {
+    hubUserDID: reservation.hub_user_did,
+    emailDigest: reservation.account_email_digest,
   };
 }
 
@@ -142,6 +261,26 @@ function baseBody(
         hub_user_did: randomHubUserDID(),
         profile_alias: randomAlias(),
       };
+    case "/resolve-hub-account-email":
+      return {
+        email_digest: randomEmailDigest(),
+        digest_key_id: DIGEST_KEY_ID,
+      };
+    case "/reserve-hub-account-email-change":
+      return { ...freshEmailChange(randomHubUserDID()) };
+    case "/finalize-hub-account-email-change":
+      return {
+        command_id: randomUUID(),
+        change_id: randomUUID(),
+        hub_user_did: randomHubUserDID(),
+      };
+    case "/abandon-hub-account-email-change":
+      return {
+        command_id: randomUUID(),
+        change_id: randomUUID(),
+        hub_user_did: randomHubUserDID(),
+        not_after: new Date(Date.now() + 60_000).toISOString(),
+      };
   }
 }
 
@@ -157,6 +296,17 @@ function invalidFieldBody(
       return { ...base, command_id: "not-a-command-id" };
     case "/set-hub-alias":
       return { ...base, profile_alias: "ab" };
+    case "/resolve-hub-account-email":
+    case "/reserve-hub-account-email-change":
+      return {
+        ...base,
+        ...(path === "/resolve-hub-account-email"
+          ? { email_digest: "not-a-digest" }
+          : { new_email_digest: "not-a-digest" }),
+      };
+    case "/finalize-hub-account-email-change":
+    case "/abandon-hub-account-email-change":
+      return { ...base, change_id: "not-a-change-id" };
   }
 }
 
@@ -420,6 +570,50 @@ test("reserve-hub-principal rejects a competing handle claim", async ({
       type: "vetchium-problem-details/directory-claim-conflict",
       status: 409,
     });
+  } finally {
+    await context.dispose();
+  }
+});
+
+test("reserve-hub-principal rejects a held account email and a foreign digest key", async ({
+  apiCoverage,
+  playwright,
+}) => {
+  const context = await coordinatorContext(
+    playwright.request,
+    "sgp",
+    apiCoverage,
+  );
+  try {
+    const first = freshReservation("sgp");
+    const reserved = await reserveHubPrincipal(context, first);
+    expect(reserved.status(), await reserved.text()).toBe(200);
+
+    // The email is checked before the handle, so a held address never
+    // burns a handle attempt (GU-DIR-002).
+    const competing = freshReservation("sgp", {
+      account_email_digest: first.account_email_digest,
+    });
+    await expectDirectoryProblem(
+      await reserveHubPrincipal(context, competing),
+      409,
+      "directory-email-claim-conflict",
+    );
+    await expectDirectoryProblem(
+      await reserveHubPrincipal(
+        context,
+        freshReservation("sgp", { digest_key_id: "0000000000000000" }),
+      ),
+      409,
+      "directory-digest-key-mismatch",
+    );
+    // Neither rejection claimed the competing handle.
+    const corrected = await reserveHubPrincipal(context, {
+      ...competing,
+      command_id: randomUUID(),
+      account_email_digest: randomEmailDigest(),
+    });
+    expect(corrected.status(), await corrected.text()).toBe(200);
   } finally {
     await context.dispose();
   }
@@ -766,5 +960,346 @@ test("set-hub-alias rejects an alias already claimed by another active principal
   } finally {
     cleanupHubAliasClaim(first.hubUserDID);
     await context.dispose();
+  }
+});
+
+test("resolve-hub-account-email names only the home tenant of a held address", async ({
+  apiCoverage,
+  playwright,
+}) => {
+  const context = await coordinatorContext(
+    playwright.request,
+    "sgp",
+    apiCoverage,
+  );
+  try {
+    // A provisioning claim already holds the address (GU-DIR-001).
+    const reservation = freshReservation("sgp");
+    const reserved = await reserveHubPrincipal(context, reservation);
+    expect(reserved.status(), await reserved.text()).toBe(200);
+    const request: ResolveHubAccountEmailRequest = {
+      email_digest: reservation.account_email_digest,
+      digest_key_id: DIGEST_KEY_ID,
+    };
+    const resolved = await resolveHubAccountEmail(context, request);
+    expect(resolved.status(), await resolved.text()).toBe(200);
+    expect(resolved.headers()["cache-control"]).toBe("no-store");
+    expect(await resolved.json()).toEqual({
+      home_tenant_id: "sgp",
+    } satisfies ResolveHubAccountEmailResponse);
+
+    await expectDirectoryProblem(
+      await resolveHubAccountEmail(context, {
+        email_digest: randomEmailDigest(),
+        digest_key_id: DIGEST_KEY_ID,
+      }),
+      404,
+      "directory-entry-not-found",
+    );
+    await expectDirectoryProblem(
+      await resolveHubAccountEmail(context, {
+        ...request,
+        digest_key_id: "0000000000000000",
+      }),
+      409,
+      "directory-digest-key-mismatch",
+    );
+  } finally {
+    await context.dispose();
+  }
+});
+
+test("an email change reserves the new address, finalizes it, and replays each command", async ({
+  apiCoverage,
+  playwright,
+}) => {
+  const context = await coordinatorContext(
+    playwright.request,
+    "sgp",
+    apiCoverage,
+  );
+  try {
+    const { hubUserDID, emailDigest } = await activeEmailPrincipal(
+      context,
+      "sgp",
+    );
+    const change = freshEmailChange(hubUserDID);
+    await expectReservationState(
+      await reserveEmailChange(context, change),
+      "reserved",
+    );
+    await expectReservationState(
+      await reserveEmailChange(context, change),
+      "reserved",
+    );
+    await expectDirectoryProblem(
+      await reserveEmailChange(context, {
+        ...change,
+        new_email_digest: randomEmailDigest(),
+      }),
+      409,
+      "idempotency-key-conflict",
+    );
+    // A pending address is held but does not resolve until finalized.
+    await expectDirectoryProblem(
+      await resolveHubAccountEmail(context, {
+        email_digest: change.new_email_digest,
+        digest_key_id: DIGEST_KEY_ID,
+      }),
+      404,
+      "directory-entry-not-found",
+    );
+
+    const finalize: FinalizeHubAccountEmailChangeRequest = {
+      command_id: randomUUID(),
+      change_id: change.change_id,
+      hub_user_did: hubUserDID,
+    };
+    await expectReservationState(
+      await finalizeEmailChange(context, finalize),
+      "finalized",
+    );
+    await expectReservationState(
+      await finalizeEmailChange(context, {
+        ...finalize,
+        command_id: randomUUID(),
+      }),
+      "finalized",
+    );
+    await expectDirectoryProblem(
+      await finalizeEmailChange(context, {
+        ...finalize,
+        change_id: randomUUID(),
+      }),
+      409,
+      "idempotency-key-conflict",
+    );
+
+    const moved = await resolveHubAccountEmail(context, {
+      email_digest: change.new_email_digest,
+      digest_key_id: DIGEST_KEY_ID,
+    });
+    expect(moved.status(), await moved.text()).toBe(200);
+    await expectDirectoryProblem(
+      await resolveHubAccountEmail(context, {
+        email_digest: emailDigest,
+        digest_key_id: DIGEST_KEY_ID,
+      }),
+      404,
+      "directory-entry-not-found",
+    );
+
+    // The tenant never abandons after applying locally.
+    await expectDirectoryProblem(
+      await abandonEmailChange(context, {
+        command_id: randomUUID(),
+        change_id: change.change_id,
+        hub_user_did: hubUserDID,
+        not_after: change.not_after,
+      }),
+      409,
+      "directory-state-conflict",
+    );
+  } finally {
+    await context.dispose();
+  }
+});
+
+test("reserve-hub-account-email-change rejects a held address, a stale or fenced change, and a foreign caller", async ({
+  apiCoverage,
+  playwright,
+}) => {
+  const sgp = await coordinatorContext(playwright.request, "sgp", apiCoverage);
+  const ind1 = await coordinatorContext(
+    playwright.request,
+    "ind1",
+    apiCoverage,
+  );
+  try {
+    const owner = await activeEmailPrincipal(sgp, "sgp");
+    const other = await activeEmailPrincipal(sgp, "sgp");
+
+    await expectDirectoryProblem(
+      await reserveEmailChange(
+        sgp,
+        freshEmailChange(other.hubUserDID, {
+          new_email_digest: owner.emailDigest,
+        }),
+      ),
+      409,
+      "directory-email-claim-conflict",
+    );
+    await expectDirectoryProblem(
+      await reserveEmailChange(
+        sgp,
+        freshEmailChange(other.hubUserDID, {
+          digest_key_id: "0000000000000000",
+        }),
+      ),
+      409,
+      "directory-digest-key-mismatch",
+    );
+    await expectDirectoryProblem(
+      await reserveEmailChange(
+        sgp,
+        freshEmailChange(other.hubUserDID, {
+          not_after: new Date(Date.now() - 60_000).toISOString(),
+        }),
+      ),
+      409,
+      "directory-reservation-expired",
+    );
+
+    // An abandon that overtakes its reserve leaves a tombstone that fences
+    // the late reserve (GU-DIR-006).
+    const fenced = freshEmailChange(other.hubUserDID);
+    await expectReservationState(
+      await abandonEmailChange(sgp, {
+        command_id: randomUUID(),
+        change_id: fenced.change_id,
+        hub_user_did: other.hubUserDID,
+        not_after: fenced.not_after,
+      }),
+      "cancelled",
+    );
+    await expectDirectoryProblem(
+      await reserveEmailChange(sgp, fenced),
+      409,
+      "directory-reservation-cancelled",
+    );
+
+    await expectDirectoryProblem(
+      await reserveEmailChange(ind1, freshEmailChange(other.hubUserDID)),
+      403,
+      "directory-caller-tenant-mismatch",
+    );
+    await expectDirectoryProblem(
+      await reserveEmailChange(sgp, freshEmailChange(randomHubUserDID())),
+      409,
+      "directory-state-conflict",
+    );
+
+    // None of the rejections moved the owner's address.
+    const held = await resolveHubAccountEmail(sgp, {
+      email_digest: owner.emailDigest,
+      digest_key_id: DIGEST_KEY_ID,
+    });
+    expect(held.status(), await held.text()).toBe(200);
+  } finally {
+    await sgp.dispose();
+    await ind1.dispose();
+  }
+});
+
+test("finalize and abandon act only on the caller's own reservation", async ({
+  apiCoverage,
+  playwright,
+}) => {
+  const sgp = await coordinatorContext(playwright.request, "sgp", apiCoverage);
+  const ind1 = await coordinatorContext(
+    playwright.request,
+    "ind1",
+    apiCoverage,
+  );
+  try {
+    const victim = await activeEmailPrincipal(sgp, "sgp");
+    const attacker = await activeEmailPrincipal(sgp, "sgp");
+    const change = freshEmailChange(victim.hubUserDID);
+    await expectReservationState(
+      await reserveEmailChange(sgp, change),
+      "reserved",
+    );
+
+    // Naming another user's change id proves nothing about owning it.
+    await expectDirectoryProblem(
+      await abandonEmailChange(sgp, {
+        command_id: randomUUID(),
+        change_id: change.change_id,
+        hub_user_did: attacker.hubUserDID,
+        not_after: change.not_after,
+      }),
+      409,
+      "directory-state-conflict",
+    );
+    await expectDirectoryProblem(
+      await finalizeEmailChange(sgp, {
+        command_id: randomUUID(),
+        change_id: change.change_id,
+        hub_user_did: attacker.hubUserDID,
+      }),
+      409,
+      "directory-state-conflict",
+    );
+    for (const response of [
+      await finalizeEmailChange(ind1, {
+        command_id: randomUUID(),
+        change_id: change.change_id,
+        hub_user_did: victim.hubUserDID,
+      }),
+      await abandonEmailChange(ind1, {
+        command_id: randomUUID(),
+        change_id: change.change_id,
+        hub_user_did: victim.hubUserDID,
+        not_after: change.not_after,
+      }),
+    ]) {
+      await expectDirectoryProblem(
+        response,
+        403,
+        "directory-caller-tenant-mismatch",
+      );
+    }
+    await expectDirectoryProblem(
+      await finalizeEmailChange(sgp, {
+        command_id: randomUUID(),
+        change_id: randomUUID(),
+        hub_user_did: victim.hubUserDID,
+      }),
+      409,
+      "directory-state-conflict",
+    );
+
+    // The owner can still cancel it, which frees the address, and a later
+    // finalize of the cancelled change is refused.
+    const abandon: AbandonHubAccountEmailChangeRequest = {
+      command_id: randomUUID(),
+      change_id: change.change_id,
+      hub_user_did: victim.hubUserDID,
+      not_after: change.not_after,
+    };
+    await expectReservationState(
+      await abandonEmailChange(sgp, abandon),
+      "cancelled",
+    );
+    await expectReservationState(
+      await abandonEmailChange(sgp, { ...abandon, command_id: randomUUID() }),
+      "cancelled",
+    );
+    await expectDirectoryProblem(
+      await abandonEmailChange(sgp, { ...abandon, change_id: randomUUID() }),
+      409,
+      "idempotency-key-conflict",
+    );
+    await expectDirectoryProblem(
+      await finalizeEmailChange(sgp, {
+        command_id: randomUUID(),
+        change_id: change.change_id,
+        hub_user_did: victim.hubUserDID,
+      }),
+      409,
+      "directory-state-conflict",
+    );
+    await expectReservationState(
+      await reserveEmailChange(
+        sgp,
+        freshEmailChange(attacker.hubUserDID, {
+          new_email_digest: change.new_email_digest,
+        }),
+      ),
+      "reserved",
+    );
+  } finally {
+    await sgp.dispose();
+    await ind1.dispose();
   }
 });

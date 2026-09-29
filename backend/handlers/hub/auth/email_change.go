@@ -40,6 +40,21 @@ func RequestEmailChange(s *hubruntime.Server) http.HandlerFunc {
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
 		address := string(request.NewEmailAddress)
+		// Resolved globally, including this tenant, so an address registered
+		// anywhere gets the same response but no message (GU-ECH-001). This
+		// network call runs before the idempotent transaction opens, so a slow
+		// directory never holds a connection or the idempotency lock. A
+		// resolve error still sends the code: the authoritative check happens
+		// at reserve time, and confirm fails closed.
+		_, details, err := s.Directory.ResolveHubAccountEmail(
+			r.Context(), directoryspec.ResolveHubAccountEmailRequest{
+				EmailDigest: directoryspec.EmailDigest(
+					hex.EncodeToString(s.DigestKey.HubAccountEmail(address)),
+				),
+				DigestKeyID: directoryspec.DigestKeyID(s.DigestKey.ID()),
+			},
+		)
+		globallyRegistered := err == nil && details == nil
 		handlerauth.RunIdempotent(
 			s, w, r, "hub:request-email-change",
 			dbvalue.FormatUUID(identity.UserDID), key, request,
@@ -80,20 +95,6 @@ func RequestEmailChange(s *hubruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return zero, nil, err
 				}
-				// Resolved globally, including this tenant, so an address
-				// registered anywhere gets the same response but no message
-				// (GU-ECH-001). A resolve error still sends the code: the
-				// authoritative check happens at reserve time, and confirm
-				// would otherwise fail closed against a false negative here.
-				_, details, err := s.Directory.ResolveHubAccountEmail(
-					r.Context(), directoryspec.ResolveHubAccountEmailRequest{
-						EmailDigest: directoryspec.EmailDigest(
-							hex.EncodeToString(s.DigestKey.HubAccountEmail(address)),
-						),
-						DigestKeyID: directoryspec.DigestKeyID(s.DigestKey.ID()),
-					},
-				)
-				globallyRegistered := err == nil && details == nil
 				if _, err := q.SupersedeHubEmailChangeChallenges(
 					r.Context(), identity.UserDID,
 				); err != nil {
@@ -158,6 +159,8 @@ func ConfirmEmailChange(s *hubruntime.Server) http.HandlerFunc {
 		switch {
 		case errors.Is(err, emailchange.ErrCodeRejected):
 			s.Problem(r.Context(), w, hubproblem.EmailChangeCodeRejectedError)
+		case errors.Is(err, emailchange.ErrInProgress):
+			s.Problem(r.Context(), w, hubproblem.EmailChangeInProgressError)
 		case errors.Is(err, emailchange.ErrAddressUnavailable):
 			s.Problem(r.Context(), w, hubproblem.EmailAddressUnavailableError)
 		case errors.Is(err, emailchange.ErrUnavailable):

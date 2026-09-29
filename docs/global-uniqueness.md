@@ -1,6 +1,7 @@
 # Global Uniqueness of Hub Emails — Implementation Plan
 
-Status: accepted plan, not yet implemented. Branch: `cleanup/global-uniqueness`.
+Status: implemented on branch `cleanup/global-uniqueness`; §9 is the ledger
+and §10 records deviations and review fixes.
 
 This document is self-contained. An implementer with no prior conversation
 context should be able to finish the work from it plus the repository. Read
@@ -829,8 +830,8 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
 ## 9. Implementation ledger
 
 - [x] GU-KEY-001..005
-- [x] GU-GDB-001..002 (incl. 002a). Deviation: global_outbox_events is
-      deliberately not written for these tables; see §10.
+- [x] GU-GDB-001..002 (incl. 002a). Every email-change command writes a
+      digest-free outbox event versioned by its reservation; see §10.
       GU-GDB-003: **dropped**, see §1/§3.2.
 - [x] GU-DIR-001..006, GU-DIR-010 (the email-change-reservation half).
       GU-DIR-007..009, GU-DIR-011: **dropped**, see §1/§3.3.
@@ -878,6 +879,7 @@ phases need at least `make sqlc`, `go build ./...` and the relevant Go tests.
       GU-PEM-008 asked for is dropped), and `agent-guides/glossary.md`
       (*Account email* and *Identity digest*) are all updated.
 - [x] `make test` green
+- [x] Review fixes (2026-09-29); see "Review fixes" in §10.
 
 ## 10. Progress log
 
@@ -918,6 +920,43 @@ neither ever mentioned the old synchronous `ConfirmHubEmailChange` design or
 survived M5's revert with dangling references).
 
 See "M5 revert", "M6 progress", and "Exact next step" below.
+
+**Review fixes (2026-09-29).** A branch review found these; each is fixed
+and tested:
+
+- Reservation ownership. Finalize and abandon checked that the caller owns
+  the supplied Hub user but not that the locked reservation belongs to that
+  user, so another user's change id could be finalized or cancelled. All
+  three email-change commands now require the reservation's own
+  `hub_user_did` to match and otherwise return `directory-state-conflict`.
+  A reserve that reuses a change id with another digest is now the same
+  problem instead of a 500.
+- Recovery starvation. `ListRecoverableHubAccountEmailChanges` picked the
+  oldest 100 live changes on every run, so 100 stuck changes hid every newer
+  one. It now selects by the sibling `federation_operations.next_attempt_at`,
+  and `Recover` records each attempt (with the shared backoff) before driving
+  it and continues past a failing change.
+- A concurrent confirm that hits `hub_account_email_changes_one_live` now
+  returns `hub-email-change-in-progress` (409), as GU-ECH-002 requires,
+  instead of the code-rejected problem.
+- Audit and outbox. The Hub reaper deletes the claim explicitly and audits
+  each reaped principal in the same statement with `email_claim_released`,
+  following the Org reaper's precedent of naming the home tenant as actor.
+  Pruning runs in bounded batches and writes one summary audit event per home
+  tenant. Email-change commands write outbox events on the
+  `hub_account_email_change_reservation` aggregate (version 1 when written,
+  2 after its one terminal transition), including the stale reservation a
+  newer reserve cancels, which satisfies PROF-XTN-002. The Org reaper's
+  `:execrows` over a trailing `SELECT count(*)` always reported one row; both
+  reapers now return the deleted count.
+- `RequestEmailChange` resolved the address inside `RunIdempotent`'s open
+  transaction. It now resolves first, as signup does.
+- The completion page named the home region by tenant id. The
+  homed-elsewhere problem now carries `hosting_country`, and the page shows
+  its CLDR name in the viewer's language (GU-SIG-006).
+- Playwright now covers the four coordinator and four mesh email-directory
+  routes (authentication, validation, and every declared non-5xx problem) and
+  the confirm in-progress 409 and reservation-expired 503.
 
 **Design decisions already validated against a real disposable PostgreSQL
 container** (a scratch `postgres:17-alpine` container, not part of the repo;
@@ -980,7 +1019,8 @@ the commit message for the exact list) plus this log update.
   `config.IdentityDigestKeyID`) and both `_integration_test.go` files (pass
   the dev key id `"909577e87ebd5395"`).
 - `mutation[R]` (in `service.go`) gained `skipOutbox bool` and
-  `auditPayload any` fields. Every new Hub-email command sets
+  `auditPayload any` fields (both since replaced by explicit `outboxEvents`
+  in the review fixes). Every new Hub-email command sets
   `skipOutbox: true` (see the deviation note below) and, for professional
   email claims, a custom `auditPayload` of `{transferred: bool}` instead of
   the generic `{schema_version, principal: response}` shape (which would
@@ -1335,16 +1375,11 @@ audited separately under the operation's own key. All 6 cases in
 
 **Exact next step:** none; the plan is complete.
 
-**Known failing tests / open issues:** none identified by static checks.
-Every targeted `go test` passes (including `-race` on `emailchange` and
-`internal/architecture`), `go build`, `go vet`, `gofmt -l .`,
-`make sql-check`, `make typespec-check`, `playwright typecheck`, and
-`playwright format:check` are all clean. The full `make test` run (which
-also runs `playwright test:coverage-api`, `hub-ui-check`, and the actual
-Playwright suite against the live CI stack) is the one item left before this
-milestone can be marked complete. Open gap carried from M2: no
-`backend/handlers/mesh/directory_test.go` exists (pre-existing condition,
-not introduced by this plan) — see the M2 summary below.
+**Known failing tests / open issues:** none. After the review fixes, a full
+`make test` passes with no contract mismatches, and every response variant
+this plan added is observed by Playwright. The remaining deviation is the
+signup-registered-elsewhere email naming the home region by tenant id (see
+the M3 deviations below).
 
 **Deviations from the plan (M4, in addition to the M1/M2/M3 ones below):**
 
@@ -1395,18 +1430,10 @@ not introduced by this plan) — see the M2 summary below.
   any new import in any file reachable from `routes` leaks into those
   binaries regardless of which code path is actually reachable at runtime).
 - The `signup-registered-elsewhere` email template shows the raw tenant id
-  (e.g. "usa1") as the "region", not a localized country name. GU-SIG-006
-  asks the **hub-ui completion page** to get a friendly region name "the same
-  way as the Org signup region step (`Intl.DisplayNames`)" — but that
-  technique needs a country code, and neither `HubAccountHomedElsewhereDetails`
-  (only `tenant_id` and `hub_url`) nor the backend email path has one without
-  fetching the full, paginated region catalog (`hubAPI.listSignupRegions`,
-  up to 1000 regions) just to resolve one tenant id. The **hub-ui page**
-  implementation (this M3 work) also uses the raw tenant id for the same
-  reason, deferring a friendlier display name as a follow-up rather than
-  adding a catalog fetch to a page that otherwise doesn't need one. Backend
-  Go has no country-name-localization utility at all today (grepped); adding
-  one was judged out of scope for this plan.
+  (e.g. "usa1") as the "region", not a localized country name: backend Go has
+  no CLDR country-name source, and adding one was judged out of scope. The
+  hub-ui completion page originally did the same; the review fixes resolved
+  that half by adding `hosting_country` to the homed-elsewhere problem.
 - No dedicated `backend/handlers/mesh/directory_test.go` was added for the
   eight new mesh relay routes. This mirrors the pre-existing state (the mesh
   directory relay has never had its own handler-level test file for any
@@ -1414,28 +1441,12 @@ not introduced by this plan) — see the M2 summary below.
   mean the new mesh routes are currently verified only by `go build`/`go vet`
   (interface satisfaction) and will be verified behaviorally by the M6
   Playwright API suite, which exercises the mesh relay for real against the
-  CI stack. If a resumed session has spare time before M6, adding that test
-  file (mirroring `backend/handlers/directory/directory_test.go`'s
-  `fakeService` pattern, but for `mesh.Directory`) would close this gap
-  earlier.
-- Global `global_outbox_events` rows are skipped for every new table in this
-  plan (account email claims/reservations, professional email claims). See
-  the "next step" note above for the full reasoning. This does not weaken
-  any tested behavior today, since nothing consumes that table yet
-  (verified by grep), but a future federation change that adds an outbox
-  dispatcher must account for this gap for Hub email claims specifically.
-- The reaper's `email_claim_released` marker (GU-DIR-010) is added to the
-  existing structured *log* line in `backend/cmd/global-coordinator/main.go`,
-  not a new `global_audit_events` row, because the reaper currently writes
-  no audit event at all (confirmed by reading `service.go` and
-  `main.go` in full) and adding one would require deciding how a
-  system/job actor is represented in `global_audit_events.actor_tenant_id`,
-  which has a `CHECK` requiring the tenant-id pattern — there is no
-  precedent in the repo for a non-tenant actor there. That is a real gap
-  (database.md technically requires an audit event for any mutation) but is
-  pre-existing and broader than this plan; introducing a "system tenant"
-  convention unilaterally here felt like the wrong place to make that call.
-  Flagged for a follow-up design decision, not fixed.
+  CI stack. The review fixes added that Playwright coverage for all four
+  mesh routes.
+- Resolved by the review fixes: global outbox events were once skipped for
+  the email tables, and the reaper once recorded `email_claim_released` only
+  in a log line. The Org reaper already audited with the home tenant as
+  actor, which the Hub reaper and pruning now follow.
 - (Carried from the M1 checkpoint) GU-KEY-005 says "Update the `Tiltfile` if
   it enumerates secrets." It does not (it only calls `make dev-secrets` and
   never names an individual secret), so no Tiltfile change was made.

@@ -90,7 +90,7 @@ WHERE p.org_did = sqlc.arg(org_did);
 
 -- The coordinator reaps a reservation its home tenant never activated. The
 -- audit event names that tenant, whose signup the reservation belonged to.
--- name: ReapExpiredOrgPrincipalReservations :execrows
+-- name: ReapExpiredOrgPrincipalReservations :one
 WITH candidates AS MATERIALIZED (
     SELECT org_did, home_tenant_id, provisioning_operation_id
     FROM vetchium.org_principals

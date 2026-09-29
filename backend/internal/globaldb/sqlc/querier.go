@@ -44,7 +44,14 @@ type Querier interface {
 	LockHubAccountEmailChangeReservation(ctx context.Context, changeID pgtype.UUID) (LockHubAccountEmailChangeReservationRow, error)
 	LockOrgPrincipal(ctx context.Context, orgDid pgtype.UUID) (LockOrgPrincipalRow, error)
 	LockPrincipalForAlias(ctx context.Context, hubUserDid pgtype.UUID) (LockPrincipalForAliasRow, error)
-	PruneTerminalHubAccountEmailChangeReservations(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
+	// Terminal reservations no longer fence anything once their deadline has
+	// long passed (GU-DIR-010). Each batch writes one summary audit event per
+	// home tenant, since an audit actor must be a tenant and a batch can span
+	// several.
+	PruneTerminalHubAccountEmailChangeReservations(ctx context.Context, arg PruneTerminalHubAccountEmailChangeReservationsParams) (int64, error)
+	// The coordinator reaps a reservation its home tenant never activated,
+	// together with its provisioning account-email claim (GU-DIR-010). The audit
+	// event names that tenant, whose signup the reservation belonged to.
 	ReapExpiredHubPrincipalReservations(ctx context.Context) (int64, error)
 	// The coordinator reaps a reservation its home tenant never activated. The
 	// audit event names that tenant, whose signup the reservation belonged to.

@@ -277,6 +277,17 @@ func (c *Catalog) OrgsURL(tenant string) (string, bool) {
 	return "", false
 }
 
+// Region returns a tenant's catalog entry. Like HubURL, it serves only callers
+// that have proven control of a mailbox.
+func (c *Catalog) Region(tenant string) (Region, bool) {
+	for _, r := range c.Regions {
+		if r.TenantID == tenant {
+			return r, true
+		}
+	}
+	return Region{}, false
+}
+
 // HubURL resolves a tenant's Hub portal origin, used only after the caller
 // has proven control of a mailbox (signup completion, an emailed notice):
 // an unauthenticated caller must never learn a Hub account's home region.

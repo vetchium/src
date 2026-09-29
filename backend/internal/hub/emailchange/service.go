@@ -40,6 +40,7 @@ const (
 	operationTTL        = 7 * 24 * time.Hour
 	emailChangeCodeName = "email-change-code"
 	transitionLimit     = 8
+	maxRecoveryBatch    = 100
 )
 
 var (
@@ -52,6 +53,9 @@ var (
 	// ErrCodeRejected reports an unknown, expired, or already-consumed
 	// challenge, or a wrong code past its final attempt.
 	ErrCodeRejected = errors.New("email change code rejected")
+	// ErrInProgress reports a correct code for a user who already has a live
+	// change, committed after this challenge was issued (GU-ECH-002).
+	ErrInProgress = errors.New("email change in progress")
 	// ErrAddressUnavailable is the terminal address_unavailable failure
 	// (GU-ECH-003): another account holds the address, either globally at
 	// reserve time or, rarely, locally at apply time.
@@ -232,7 +236,7 @@ func (s *Service) Start(
 		},
 	)
 	if isEmailChangeInProgress(err) {
-		return Result{}, ErrCodeRejected
+		return Result{}, ErrInProgress
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Result{}, ErrCodeRejected
@@ -394,7 +398,11 @@ func (s *Service) Advance(
 	)
 }
 
-// Recover drives every non-terminal change once, for the periodic worker.
+// Recover drives each due change once, for the periodic worker. Each attempt
+// first pushes the change's next retry back, so a change whose directory call
+// keeps failing moves behind every change due sooner instead of holding the
+// front of the batch. A change that reaches a terminal state clears the
+// schedule along with its operation.
 func (s *Service) Recover(ctx context.Context) (int, error) {
 	rows, err := s.queries.ListRecoverableHubAccountEmailChanges(
 		ctx, maxRecoveryBatch,
@@ -405,22 +413,36 @@ func (s *Service) Recover(ctx context.Context) (int, error) {
 		)
 	}
 	completed := 0
+	var failures []error
 	for _, row := range rows {
-		change := Change(row)
-		result, err := s.Advance(ctx, change, "workers")
+		scheduled, err := s.queries.RecordFederationOperationRetry(
+			ctx, sqlc.RecordFederationOperationRetryParams{
+				OperationID: row.OperationID,
+				LastError:   "email change step outcome unknown",
+			},
+		)
+		if err != nil {
+			failures = append(failures, fmt.Errorf(
+				"schedule Hub account email change retry: %w", err,
+			))
+			continue
+		}
+		if scheduled == 0 {
+			continue
+		}
+		result, err := s.Advance(ctx, Change(row), "workers")
 		if err != nil && !errors.Is(err, ErrPending) &&
 			!errors.Is(err, ErrAddressUnavailable) &&
 			!errors.Is(err, ErrUnavailable) {
-			return completed, err
+			failures = append(failures, err)
+			continue
 		}
 		if result.Completed {
 			completed++
 		}
 	}
-	return completed, nil
+	return completed, errors.Join(failures...)
 }
-
-const maxRecoveryBatch = 100
 
 func (s *Service) markReserved(ctx context.Context, change Change) (Change, error) {
 	updated, err := s.reload(

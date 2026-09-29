@@ -418,11 +418,8 @@ func TestStartRejectsWhileAnotherChangeIsLive(t *testing.T) {
 		context.Background(), did, sessionID,
 		confirmRequest(secondChallenge, "555555"), secondKey,
 	)
-	if !errors.Is(err, ErrCodeRejected) {
-		t.Fatalf(
-			"second Start() error = %v, want ErrCodeRejected (one-live conflict)",
-			err,
-		)
+	if !errors.Is(err, ErrInProgress) {
+		t.Fatalf("second Start() error = %v, want ErrInProgress", err)
 	}
 }
 
@@ -550,5 +547,81 @@ func TestConcurrentAdvanceOnlyAppliesOnce(t *testing.T) {
 	}
 	if noticeCount != 1 {
 		t.Fatalf("email-changed notices = %d, want exactly 1", noticeCount)
+	}
+}
+
+// A change whose directory call keeps failing is pushed back on every
+// attempt, so it never holds the front of the recovery batch against a
+// change that is due.
+func TestRecoverBacksOffAStalledChange(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	directory := &fakeDirectory{reserveErr: errors.New("coordinator unreachable")}
+	service := newTestService(pool, directory)
+
+	start := func(label string) string {
+		t.Helper()
+		did, sessionID := seedHubUser(t, pool, label+"-test@example.com")
+		challengeID := seedChallenge(
+			t, pool, service, did, sessionID, label+"-new@example.com", "616161",
+		)
+		result, err := service.Start(
+			ctx, did, sessionID, confirmRequest(challengeID, "616161"),
+			common.IdempotencyKey("emailchange-test-key-"+label+"-0001"),
+		)
+		if !errors.Is(err, ErrPending) {
+			t.Fatalf("Start(%s) error = %v, want ErrPending", label, err)
+		}
+		return result.OperationID
+	}
+	schedule := func(operationID string) (int, bool) {
+		t.Helper()
+		var attempts int
+		var deferred bool
+		if err := pool.QueryRow(ctx, `SELECT attempt_count,
+                next_attempt_at > now()
+            FROM vetchium.federation_operations WHERE operation_id = $1`,
+			operationID,
+		).Scan(&attempts, &deferred); err != nil {
+			t.Fatal(err)
+		}
+		return attempts, deferred
+	}
+
+	stalled := start("recover-stalled")
+	if _, err := service.Recover(ctx); err != nil {
+		t.Fatalf("Recover() error = %v", err)
+	}
+	if attempts, deferred := schedule(stalled); attempts != 1 || !deferred {
+		t.Fatalf("stalled attempts = %d, deferred = %v", attempts, deferred)
+	}
+
+	// Stretch the stalled change's backoff past this test's runtime, as
+	// repeated failures would, and make a newer change due.
+	if _, err := pool.Exec(ctx, `UPDATE vetchium.federation_operations
+        SET next_attempt_at = now() + interval '1 hour'
+        WHERE operation_id = $1`, stalled); err != nil {
+		t.Fatal(err)
+	}
+	due := start("recover-due")
+	directory.reserveErr = nil
+	if _, err := service.Recover(ctx); err != nil {
+		t.Fatalf("Recover() error = %v", err)
+	}
+
+	var dueState, stalledState string
+	if err := pool.QueryRow(ctx, `SELECT
+            (SELECT state::text FROM vetchium.hub_account_email_changes
+             WHERE operation_id = $1),
+            (SELECT state::text FROM vetchium.hub_account_email_changes
+             WHERE operation_id = $2)`, due, stalled,
+	).Scan(&dueState, &stalledState); err != nil {
+		t.Fatal(err)
+	}
+	if dueState != "succeeded" || stalledState != "accepted" {
+		t.Fatalf("due = %s, stalled = %s", dueState, stalledState)
+	}
+	if attempts, _ := schedule(stalled); attempts != 1 {
+		t.Fatalf("stalled change retried early: attempts = %d", attempts)
 	}
 }

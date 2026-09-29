@@ -138,18 +138,60 @@ func (q *Queries) LockHubAccountEmailChangeReservation(ctx context.Context, chan
 	return i, err
 }
 
-const pruneTerminalHubAccountEmailChangeReservations = `-- name: PruneTerminalHubAccountEmailChangeReservations :execrows
-DELETE FROM vetchium.hub_account_email_change_reservations
-WHERE state IN ('cancelled', 'finalized')
-  AND not_after < $1
+const pruneTerminalHubAccountEmailChangeReservations = `-- name: PruneTerminalHubAccountEmailChangeReservations :one
+WITH candidates AS MATERIALIZED (
+    SELECT reservation.change_id, principal.home_tenant_id
+    FROM vetchium.hub_account_email_change_reservations AS reservation
+    INNER JOIN vetchium.hub_principals AS principal
+        ON principal.hub_user_did = reservation.hub_user_did
+    WHERE reservation.state IN ('cancelled', 'finalized')
+      AND reservation.not_after < $1
+    ORDER BY reservation.not_after, reservation.change_id
+    LIMIT $2
+    FOR UPDATE OF reservation SKIP LOCKED
+), pruned AS (
+    DELETE FROM vetchium.hub_account_email_change_reservations AS reservation
+    USING candidates
+    WHERE reservation.change_id = candidates.change_id
+    RETURNING reservation.change_id
+), per_tenant AS (
+    SELECT c.home_tenant_id, count(*) AS pruned_count
+    FROM candidates AS c
+    INNER JOIN pruned AS p ON p.change_id = c.change_id
+    GROUP BY c.home_tenant_id
+), audit AS (
+    INSERT INTO vetchium.global_audit_events (
+        action, entity_type, entity_id, actor_tenant_id, payload
+    )
+    SELECT
+        'global_directory.hub_account_email_change_reservations_pruned',
+        'hub_account_email_change_reservations',
+        t.home_tenant_id,
+        t.home_tenant_id,
+        jsonb_build_object(
+            'schema_version', 1,
+            'actor', 'global-coordinator',
+            'pruned_count', t.pruned_count
+        )
+    FROM per_tenant AS t
+)
+SELECT count(*) FROM pruned
 `
 
-func (q *Queries) PruneTerminalHubAccountEmailChangeReservations(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error) {
-	result, err := q.db.Exec(ctx, pruneTerminalHubAccountEmailChangeReservations, cutoff)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+type PruneTerminalHubAccountEmailChangeReservationsParams struct {
+	Cutoff    pgtype.Timestamptz `json:"cutoff"`
+	BatchSize int32              `json:"batch_size"`
+}
+
+// Terminal reservations no longer fence anything once their deadline has
+// long passed (GU-DIR-010). Each batch writes one summary audit event per
+// home tenant, since an audit actor must be a tenant and a batch can span
+// several.
+func (q *Queries) PruneTerminalHubAccountEmailChangeReservations(ctx context.Context, arg PruneTerminalHubAccountEmailChangeReservationsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, pruneTerminalHubAccountEmailChangeReservations, arg.Cutoff, arg.BatchSize)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const reserveHubAccountEmailChange = `-- name: ReserveHubAccountEmailChange :one
@@ -188,7 +230,8 @@ WITH stale_reservation AS (
 )
 SELECT
     (SELECT change_id FROM inserted_reservation) AS change_id,
-    (SELECT count(*) FROM inserted_claim) AS inserted_claim_count
+    (SELECT count(*) FROM inserted_claim) AS inserted_claim_count,
+    ARRAY(SELECT change_id FROM stale_reservation)::uuid[] AS stale_change_ids
 `
 
 type ReserveHubAccountEmailChangeParams struct {
@@ -200,8 +243,9 @@ type ReserveHubAccountEmailChangeParams struct {
 }
 
 type ReserveHubAccountEmailChangeRow struct {
-	ChangeID           pgtype.UUID `json:"change_id"`
-	InsertedClaimCount int64       `json:"inserted_claim_count"`
+	ChangeID           pgtype.UUID   `json:"change_id"`
+	InsertedClaimCount int64         `json:"inserted_claim_count"`
+	StaleChangeIds     []pgtype.UUID `json:"stale_change_ids"`
 }
 
 // Cancels any other reservation this user still has open and deletes its
@@ -217,7 +261,7 @@ func (q *Queries) ReserveHubAccountEmailChange(ctx context.Context, arg ReserveH
 		arg.CommandID,
 	)
 	var i ReserveHubAccountEmailChangeRow
-	err := row.Scan(&i.ChangeID, &i.InsertedClaimCount)
+	err := row.Scan(&i.ChangeID, &i.InsertedClaimCount, &i.StaleChangeIds)
 	return i, err
 }
 

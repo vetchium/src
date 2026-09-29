@@ -100,15 +100,9 @@ func reapExpiredReservations(
 				"event", "directory_reservation_reap_failed", "error", err,
 			)
 		} else if count > 0 {
-			// Reaping a provisioning Hub principal cascades its account
-			// email claim via ON DELETE CASCADE (GU-DIR-010); this reap
-			// loop is not scoped to Hub principals alone, so the flag only
-			// asserts that any Hub principals in this batch released their
-			// claim, not a precise count.
 			log.Info(
 				"expired directory reservations reaped",
 				"event", "directory_reservations_reaped", "count", count,
-				"email_claim_released", true,
 			)
 		}
 		select {

@@ -27,9 +27,12 @@ SELECT
 FROM vetchium.hub_principals
 WHERE hub_user_did = sqlc.arg(hub_user_did);
 
--- name: ReapExpiredHubPrincipalReservations :execrows
+-- The coordinator reaps a reservation its home tenant never activated,
+-- together with its provisioning account-email claim (GU-DIR-010). The audit
+-- event names that tenant, whose signup the reservation belonged to.
+-- name: ReapExpiredHubPrincipalReservations :one
 WITH candidates AS MATERIALIZED (
-    SELECT hub_user_did
+    SELECT hub_user_did, home_tenant_id, provisioning_operation_id
     FROM vetchium.hub_principals
     WHERE state = 'provisioning'
       AND provisioning_expires_at <= now()
@@ -41,14 +44,42 @@ WITH candidates AS MATERIALIZED (
     USING candidates
     WHERE slug.hub_user_did = candidates.hub_user_did
     RETURNING slug.hub_user_did
+), deleted_claims AS (
+    DELETE FROM vetchium.hub_account_email_claims AS claim
+    USING candidates
+    WHERE claim.hub_user_did = candidates.hub_user_did
+    RETURNING claim.hub_user_did
+), deleted AS (
+    DELETE FROM vetchium.hub_principals AS principal
+    USING candidates
+    WHERE principal.hub_user_did = candidates.hub_user_did
+      AND EXISTS (
+          SELECT 1 FROM deleted_slugs
+          WHERE deleted_slugs.hub_user_did = principal.hub_user_did
+      )
+    RETURNING principal.hub_user_did
+), audit AS (
+    INSERT INTO vetchium.global_audit_events (
+        action, entity_type, entity_id, actor_tenant_id, command_id, payload
+    )
+    SELECT
+        'global_directory.hub_principal_reservation_expired',
+        'hub_principal',
+        c.hub_user_did::text,
+        c.home_tenant_id,
+        c.provisioning_operation_id,
+        jsonb_build_object(
+            'schema_version', 1,
+            'actor', 'global-coordinator',
+            'email_claim_released', EXISTS (
+                SELECT 1 FROM deleted_claims AS dc
+                WHERE dc.hub_user_did = c.hub_user_did
+            )
+        )
+    FROM candidates AS c
+    INNER JOIN deleted AS removed ON removed.hub_user_did = c.hub_user_did
 )
-DELETE FROM vetchium.hub_principals AS principal
-USING candidates
-WHERE principal.hub_user_did = candidates.hub_user_did
-  AND EXISTS (
-      SELECT 1 FROM deleted_slugs
-      WHERE deleted_slugs.hub_user_did = principal.hub_user_did
-  );
+SELECT count(*) FROM deleted;
 
 -- name: GetCommandResult :one
 SELECT

@@ -1111,6 +1111,58 @@ export function seedHubSession(tenant: TestTenant, hubUserDID: string): string {
 }
 
 /**
+ * Seeds a durable, still-live account email change for a Hub user, as a
+ * confirm committed by another request would leave it. `notAfterSQL` sets its
+ * reservation deadline; a past deadline makes the next drive cancel it. A
+ * replay of confirm finds the change only when `idempotencyKey` and
+ * `requestDigestHex` match that replay. cleanupHubUser removes both rows.
+ */
+export function seedLiveHubEmailChange(
+  tenant: TestTenant,
+  hubUserDID: string,
+  options: {
+    idempotencyKey: string;
+    requestDigestHex: string;
+    notAfterSQL: string;
+  },
+): string {
+  assertHubUserDID(hubUserDID);
+  const did = sqlLiteral(hubUserDID);
+  return sqlScalarForTenant(
+    tenant,
+    `WITH operation AS (
+       INSERT INTO vetchium.federation_operations (
+         operation_id, command_id, kind, target_authority, aggregate_id,
+         owner_principal_type, owner_principal_id, idempotency_key,
+         request_digest, payload_bytes, expires_at
+       ) VALUES (
+         gen_random_uuid(), gen_random_uuid(), 'hub-account-email-change',
+         'global-directory', ${did}, 'hub_user', ${did},
+         ${sqlLiteral(options.idempotencyKey)},
+         decode(${sqlLiteral(options.requestDigestHex)}, 'hex'),
+         ''::bytea, now() + interval '7 days'
+       )
+       RETURNING operation_id
+     )
+     INSERT INTO vetchium.hub_account_email_changes (
+       operation_id, hub_user_did, new_email_address, new_email_digest,
+       old_email_digest, confirming_session_id, reserve_command_id,
+       finalize_command_id, abandon_command_id, not_after
+     )
+     SELECT
+       operation.operation_id, ${did}::uuid,
+       'e2e+' || gen_random_uuid() || '@seeded-change.example.test',
+       sha256(gen_random_uuid()::text::bytea), hub_user.email_digest,
+       gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+       gen_random_uuid(), ${options.notAfterSQL}
+     FROM operation
+     CROSS JOIN vetchium.hub_users AS hub_user
+     WHERE hub_user.hub_user_did = ${did}::uuid
+     RETURNING operation_id::text;`,
+  );
+}
+
+/**
  * Directly seeds a fully active, loggable-in Hub user plus one authenticated
  * session, bypassing the signup-completion saga entirely. The only way to
  * get a real local account on a tenant whose global-coordinator path is

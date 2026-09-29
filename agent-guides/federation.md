@@ -94,7 +94,10 @@ protocol per feature.
 3. Resolve the authoritative tenant, then send the command with the same command
    id and correlation id on every attempt.
 4. The authority rejects a reused command id with a different digest, and
-   replays the stored result for the same digest.
+   replays the stored result for the same digest. When a command names a
+   sub-resource by a caller-minted id (a reservation or change id), the
+   authority checks that the locked row belongs to the principal the caller
+   proved it owns; owning the principal says nothing about someone else's id.
 5. On first execution, the authority commits the business mutation, audit event,
    replayable command result, and any outgoing events in one local transaction.
 6. A definite success or deterministic `4xx` resolves the initiating operation.
@@ -102,8 +105,15 @@ protocol per feature.
    with the durable operation id. If no command was issued because routing or
    connection setup failed, return a retryable `503` or `504`.
 7. A recovery worker re-resolves the owner and re-drives the identical command
-   until it obtains the stored outcome. The client may poll the operation or
-   retry the original request with the same idempotency key.
+   until it obtains the stored outcome. It selects due work by the operation's
+   `next_attempt_at` and records the attempt, with backoff, before sending, so
+   operations stuck on an unreachable authority never hold the front of every
+   batch. The client may poll the operation or retry the original request with
+   the same idempotency key.
+
+Never hold a database transaction open across a directory or mesh call,
+including inside an idempotency helper's callback: resolve first, then open the
+transaction with the result.
 
 For Hub browser workflows, return the shared
 `Vetchium.Hub.Operations.PendingOperation` body with HTTP `202` when the outcome
@@ -128,6 +138,10 @@ availability and leave prepared work needing operator recovery.
 - Insert the outbox event in the same local transaction as the state change that
   caused it. Deliver at least once with bounded exponential backoff and
   operational alerting for sustained failure.
+- When the changed entity has no version of its own, version the event by a
+  smaller aggregate that does; never skip the event. Coordinator jobs that
+  change directory state without a command (reapers, pruning) audit in the same
+  statement, naming the affected home tenant as the actor.
 - The receiver inserts an inbox receipt and applies the effect in one local
   transaction. Duplicate event ids are no-ops; the same id with a different
   digest is a protocol error.

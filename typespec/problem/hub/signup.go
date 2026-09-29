@@ -1,6 +1,9 @@
 package hub
 
-import "github.com/vetchium/src/typespec/problem"
+import (
+	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/problem"
+)
 
 var SignupDomainNotAllowedError = problem.Details{
 	Type:   "vetchium-problem-details/hub-signup-domain-not-allowed",
@@ -26,12 +29,13 @@ var SignupUnavailableError = problem.Details{
 // HubAccountHomedElsewhereDetails.
 type HubAccountHomedElsewhereDetails struct {
 	problem.Details
-	TenantID string `json:"tenant_id"`
-	HubURL   string `json:"hub_url"`
+	TenantID       string             `json:"tenant_id"`
+	HostingCountry common.CountryCode `json:"hosting_country"`
+	HubURL         string             `json:"hub_url"`
 }
 
 func HubAccountHomedElsewhereError(
-	tenantID, hubURL string,
+	tenantID string, hostingCountry common.CountryCode, hubURL string,
 ) HubAccountHomedElsewhereDetails {
 	return HubAccountHomedElsewhereDetails{
 		Details: problem.Details{
@@ -40,6 +44,6 @@ func HubAccountHomedElsewhereError(
 			Status: 409,
 			Detail: "This Hub account signs in at another region's Hub portal",
 		},
-		TenantID: tenantID, HubURL: hubURL,
+		TenantID: tenantID, HostingCountry: hostingCountry, HubURL: hubURL,
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,8 +16,6 @@ import (
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	"github.com/vetchium/src/typespec/hub"
 	coordinatorproblem "github.com/vetchium/src/typespec/problem/global-coordinator"
-
-	"backend/internal/dbvalue"
 )
 
 const testDigestKeyID = "909577e87ebd5395"
@@ -465,9 +464,7 @@ func TestPruneTerminalHubAccountEmailChangeReservations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pruned, err := service.queries.PruneTerminalHubAccountEmailChangeReservations(
-		ctx, dbvalue.Timestamp(time.Now().UTC().Add(-7*24*time.Hour)),
-	)
+	pruned, err := service.PruneTerminalHubAccountEmailChangeReservations(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -482,5 +479,253 @@ func TestPruneTerminalHubAccountEmailChangeReservations(t *testing.T) {
 	}
 	if remaining != 1 {
 		t.Fatalf("remaining reservations = %d, want 1 (the recent one)", remaining)
+	}
+	var auditTenant, prunedCount string
+	if err := pool.QueryRow(ctx, `SELECT actor_tenant_id, payload ->> 'pruned_count'
+        FROM vetchium.global_audit_events
+        WHERE action = 'global_directory.hub_account_email_change_reservations_pruned'`,
+	).Scan(&auditTenant, &prunedCount); err != nil {
+		t.Fatal(err)
+	}
+	if auditTenant != "sgp" || prunedCount != "1" {
+		t.Fatalf("prune audit = %s/%s, want sgp/1", auditTenant, prunedCount)
+	}
+
+	// An idle prune writes no audit event.
+	if pruned, err := service.PruneTerminalHubAccountEmailChangeReservations(ctx); err != nil || pruned != 0 {
+		t.Fatalf("idle prune = %d, %v", pruned, err)
+	}
+	var audits int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM vetchium.global_audit_events
+        WHERE action = 'global_directory.hub_account_email_change_reservations_pruned'`,
+	).Scan(&audits); err != nil || audits != 1 {
+		t.Fatalf("prune audit events = %d, %v", audits, err)
+	}
+}
+
+// A change id names a reservation but proves nothing about its owner: the
+// caller's own principal must own the reservation it finalizes, abandons, or
+// replays.
+func TestHubAccountEmailChangeRejectsAnotherUsersReservation(t *testing.T) {
+	pool := newHubEmailTestPool(t)
+	service := New(pool, testDigestKeyID)
+	ctx := context.Background()
+	victim := activateTestPrincipal(t, service, "sgp", "owner-victim")
+	attacker := activateTestPrincipal(t, service, "sgp", "owner-attacker")
+	notAfter := time.Now().UTC().Add(time.Hour)
+	changeID := directoryspec.CommandID(uuidFor("owner-victim-change"))
+	reserve := directoryspec.ReserveHubAccountEmailChangeRequest{
+		CommandID: directoryspec.CommandID(uuidFor("owner-victim-reserve")),
+		ChangeID:  changeID, HubUserDID: victim,
+		NewEmailDigest: digestFor("owner-victim-new"),
+		NotAfter:       notAfter, DigestKeyID: testDigestKeyID,
+	}
+	if outcome, err := service.ReserveHubAccountEmailChange(ctx, "sgp", reserve); err != nil || outcome.Problem != nil {
+		t.Fatalf("victim reserve: outcome=%+v err=%v", outcome, err)
+	}
+
+	assertStateConflict := func(name string, outcome EmailChangeOutcome, err error) {
+		t.Helper()
+		if err != nil || outcome.Problem == nil ||
+			outcome.Problem.Type != coordinatorproblem.DirectoryStateConflictError.Type {
+			t.Fatalf("%s: outcome=%+v err=%v", name, outcome, err)
+		}
+	}
+	abandoned, err := service.AbandonHubAccountEmailChange(
+		ctx, "sgp", directoryspec.AbandonHubAccountEmailChangeRequest{
+			CommandID: directoryspec.CommandID(uuidFor("owner-attacker-abandon")),
+			ChangeID:  changeID, HubUserDID: attacker, NotAfter: notAfter,
+		},
+	)
+	assertStateConflict("abandon", abandoned, err)
+	finalized, err := service.FinalizeHubAccountEmailChange(
+		ctx, "sgp", directoryspec.FinalizeHubAccountEmailChangeRequest{
+			CommandID: directoryspec.CommandID(uuidFor("owner-attacker-finalize")),
+			ChangeID:  changeID, HubUserDID: attacker,
+		},
+	)
+	assertStateConflict("finalize", finalized, err)
+	replayed, err := service.ReserveHubAccountEmailChange(
+		ctx, "sgp", directoryspec.ReserveHubAccountEmailChangeRequest{
+			CommandID: directoryspec.CommandID(uuidFor("owner-attacker-reserve")),
+			ChangeID:  changeID, HubUserDID: attacker,
+			NewEmailDigest: reserve.NewEmailDigest,
+			NotAfter:       notAfter, DigestKeyID: testDigestKeyID,
+		},
+	)
+	assertStateConflict("reserve", replayed, err)
+
+	var reservationState, attackerDigest string
+	if err := pool.QueryRow(ctx, `SELECT reservation.state::text,
+            encode(claim.email_digest, 'hex')
+        FROM vetchium.hub_account_email_change_reservations AS reservation
+        CROSS JOIN vetchium.hub_account_email_claims AS claim
+        WHERE reservation.change_id = $1
+          AND claim.hub_user_did = $2 AND claim.state = 'active'`,
+		string(changeID), string(attacker),
+	).Scan(&reservationState, &attackerDigest); err != nil {
+		t.Fatal(err)
+	}
+	if reservationState != "reserved" ||
+		attackerDigest != string(digestFor("account-owner-attacker")) {
+		t.Fatalf("reservation = %s, attacker digest = %s", reservationState, attackerDigest)
+	}
+}
+
+// Every reservation transition writes a versioned, digest-free outbox event
+// in the command's transaction (PROF-XTN-002), including the stale
+// reservation a newer reserve cancels.
+func TestHubAccountEmailChangeOutboxEvents(t *testing.T) {
+	pool := newHubEmailTestPool(t)
+	service := New(pool, testDigestKeyID)
+	ctx := context.Background()
+	did := activateTestPrincipal(t, service, "sgp", "outbox")
+	notAfter := time.Now().UTC().Add(time.Hour)
+	stale := directoryspec.CommandID(uuidFor("outbox-stale"))
+	live := directoryspec.CommandID(uuidFor("outbox-live"))
+	fenced := directoryspec.CommandID(uuidFor("outbox-fenced"))
+	for _, change := range []directoryspec.CommandID{stale, live} {
+		if outcome, err := service.ReserveHubAccountEmailChange(
+			ctx, "sgp", directoryspec.ReserveHubAccountEmailChangeRequest{
+				CommandID: directoryspec.CommandID(uuidFor("reserve-" + string(change))),
+				ChangeID:  change, HubUserDID: did,
+				NewEmailDigest: digestFor("address-" + string(change)),
+				NotAfter:       notAfter, DigestKeyID: testDigestKeyID,
+			},
+		); err != nil || outcome.Problem != nil {
+			t.Fatalf("reserve %s: outcome=%+v err=%v", change, outcome, err)
+		}
+	}
+	if outcome, err := service.FinalizeHubAccountEmailChange(
+		ctx, "sgp", directoryspec.FinalizeHubAccountEmailChangeRequest{
+			CommandID: directoryspec.CommandID(uuidFor("outbox-finalize")),
+			ChangeID:  live, HubUserDID: did,
+		},
+	); err != nil || outcome.Problem != nil {
+		t.Fatalf("finalize: outcome=%+v err=%v", outcome, err)
+	}
+	if outcome, err := service.AbandonHubAccountEmailChange(
+		ctx, "sgp", directoryspec.AbandonHubAccountEmailChangeRequest{
+			CommandID: directoryspec.CommandID(uuidFor("outbox-abandon")),
+			ChangeID:  fenced, HubUserDID: did, NotAfter: notAfter,
+		},
+	); err != nil || outcome.Problem != nil {
+		t.Fatalf("abandon: outcome=%+v err=%v", outcome, err)
+	}
+
+	rows, err := pool.Query(ctx, `SELECT aggregate_id || '|' ||
+            aggregate_version || '|' || event_type || '|' ||
+            (payload ->> 'state') || '|' || (payload ->> 'hub_user_did'),
+            payload::text
+        FROM vetchium.global_outbox_events
+        WHERE aggregate_type = 'hub_account_email_change_reservation'
+        ORDER BY aggregate_id, aggregate_version`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	got := map[string]bool{}
+	for rows.Next() {
+		var summary, payload string
+		if err := rows.Scan(&summary, &payload); err != nil {
+			t.Fatal(err)
+		}
+		for _, change := range []directoryspec.CommandID{stale, live, fenced} {
+			digest := string(digestFor("address-" + string(change)))
+			if strings.Contains(payload, digest) {
+				t.Fatalf("outbox payload carries a digest: %s", payload)
+			}
+		}
+		got[summary] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		string(stale) + "|1|hub_account_email_change_reserved.v1|reserved|" + string(did),
+		string(stale) + "|2|hub_account_email_change_cancelled.v1|cancelled|" + string(did),
+		string(live) + "|1|hub_account_email_change_reserved.v1|reserved|" + string(did),
+		string(live) + "|2|hub_account_email_change_finalized.v1|finalized|" + string(did),
+		string(fenced) + "|1|hub_account_email_change_cancelled.v1|cancelled|" + string(did),
+	}
+	if len(got) != len(want) {
+		t.Fatalf("outbox events = %v, want %v", got, want)
+	}
+	for _, event := range want {
+		if !got[event] {
+			t.Fatalf("missing outbox event %s in %v", event, got)
+		}
+	}
+}
+
+// GU-DIR-010: reaping an expired provisioning principal releases its account
+// email claim and audits that release in the same statement.
+func TestReapExpiredHubPrincipalReleasesEmailClaim(t *testing.T) {
+	pool := newHubEmailTestPool(t)
+	service := New(pool, testDigestKeyID)
+	ctx := context.Background()
+	did := hub.HubUserDID(uuidFor("did-reap"))
+	reserve := directoryspec.ReserveHubPrincipalRequest{
+		CommandID:  directoryspec.CommandID(uuidFor("reserve-reap")),
+		HubUserDID: did, Handle: hub.HubHandle(handleFor("reap")),
+		HomeTenantID:          "usa1",
+		ProvisioningExpiresAt: time.Now().UTC().Add(time.Hour),
+		AccountEmailDigest:    digestFor("account-reap"),
+		DigestKeyID:           testDigestKeyID,
+	}
+	if outcome, err := service.ReserveHubPrincipal(ctx, "usa1", reserve); err != nil || outcome.Problem != nil {
+		t.Fatalf("reserve: outcome=%+v err=%v", outcome, err)
+	}
+	if reaped, err := service.ReapExpiredReservations(ctx); err != nil || reaped != 0 {
+		t.Fatalf("reap before expiry = %d, %v", reaped, err)
+	}
+	// Backdating the reservation rewrites its immutable creation time, which
+	// the transition trigger refuses; this setup alone skips triggers.
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(
+		ctx, "SET LOCAL session_replication_role = replica",
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE vetchium.hub_principals
+        SET created_at = now() - interval '2 hours',
+            updated_at = now() - interval '2 hours',
+            provisioning_expires_at = now() - interval '1 hour'
+        WHERE hub_user_did = $1`, string(did)); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if reaped, err := service.ReapExpiredReservations(ctx); err != nil || reaped != 1 {
+		t.Fatalf("reaped = %d, %v", reaped, err)
+	}
+	var claims int
+	if err := pool.QueryRow(ctx, `SELECT count(*)
+        FROM vetchium.hub_account_email_claims WHERE hub_user_did = $1`,
+		string(did)).Scan(&claims); err != nil || claims != 0 {
+		t.Fatalf("claims after reap = %d, %v", claims, err)
+	}
+	var audit string
+	if err := pool.QueryRow(ctx, `SELECT actor_tenant_id || '|' ||
+            (payload ->> 'email_claim_released') || '|' || command_id::text
+        FROM vetchium.global_audit_events
+        WHERE action = 'global_directory.hub_principal_reservation_expired'
+          AND entity_id = $1`, string(did)).Scan(&audit); err != nil {
+		t.Fatal(err)
+	}
+	if audit != "usa1|true|"+string(reserve.CommandID) {
+		t.Fatalf("reap audit = %q", audit)
+	}
+	_, _, err = service.ResolveHubAccountEmail(
+		ctx, directoryspec.ResolveHubAccountEmailRequest{
+			EmailDigest: reserve.AccountEmailDigest, DigestKeyID: testDigestKeyID,
+		},
+	)
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("reaped claim still resolves: %v", err)
 	}
 }

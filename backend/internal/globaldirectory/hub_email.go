@@ -1,6 +1,7 @@
 package globaldirectory
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -11,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
+	"github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/problem"
 	coordinatorproblem "github.com/vetchium/src/typespec/problem/global-coordinator"
 
@@ -26,6 +28,9 @@ const (
 	// terminalReservationLifetime is how long a cancelled or finalized
 	// reservation stays as a fencing tombstone before GU-DIR-010 prunes it.
 	terminalReservationLifetime = 7 * 24 * time.Hour
+	pruneBatchSize              = 1000
+
+	reservationAggregate = "hub_account_email_change_reservation"
 )
 
 type EmailChangeOutcome struct {
@@ -43,15 +48,74 @@ type emailChangeMutation = mutation[directoryspec.HubAccountEmailChangeReservati
 func (s *Service) PruneTerminalHubAccountEmailChangeReservations(
 	ctx context.Context,
 ) (int64, error) {
-	count, err := s.queries.PruneTerminalHubAccountEmailChangeReservations(
-		ctx, dbvalue.Timestamp(time.Now().Add(-terminalReservationLifetime)),
-	)
-	if err != nil {
-		return 0, fmt.Errorf(
-			"prune terminal Hub account email change reservations: %w", err,
+	cutoff := dbvalue.Timestamp(time.Now().Add(-terminalReservationLifetime))
+	var total int64
+	for {
+		count, err := s.queries.PruneTerminalHubAccountEmailChangeReservations(
+			ctx, sqlc.PruneTerminalHubAccountEmailChangeReservationsParams{
+				Cutoff: cutoff, BatchSize: pruneBatchSize,
+			},
 		)
+		total += count
+		if err != nil {
+			return total, fmt.Errorf(
+				"prune terminal Hub account email change reservations: %w", err,
+			)
+		}
+		if count < pruneBatchSize {
+			return total, nil
+		}
 	}
-	return count, nil
+}
+
+// reservationChanged reports a reservation transition. A reservation is
+// written once and changes state at most once afterwards, so its outbox
+// version is 1 when written and 2 after that terminal transition. Neither the
+// audit nor the outbox payload carries a digest.
+func reservationChanged(
+	changeID directoryspec.CommandID, did hub.HubUserDID,
+	state directoryspec.EmailChangeReservationState, version int64,
+	auditAction string, extra ...outboxEvent,
+) emailChangeMutation {
+	return emailChangeMutation{
+		response: directoryspec.HubAccountEmailChangeReservationResponse{
+			State: state,
+		},
+		changed:    true,
+		entityType: "hub_account_email_claim", entityID: string(did),
+		auditAction: auditAction,
+		outboxEvents: append(
+			[]outboxEvent{reservationEvent(string(changeID), did, state, version)},
+			extra...,
+		),
+	}
+}
+
+func reservationEvent(
+	changeID string, did hub.HubUserDID,
+	state directoryspec.EmailChangeReservationState, version int64,
+) outboxEvent {
+	return outboxEvent{
+		aggregateType: reservationAggregate, aggregateID: changeID,
+		version:   version,
+		eventType: "hub_account_email_change_" + string(state) + ".v1",
+		payload: struct {
+			SchemaVersion int                                       `json:"schema_version"`
+			ChangeID      string                                    `json:"change_id"`
+			HubUserDID    hub.HubUserDID                            `json:"hub_user_did"`
+			State         directoryspec.EmailChangeReservationState `json:"state"`
+		}{SchemaVersion: 1, ChangeID: changeID, HubUserDID: did, State: state},
+	}
+}
+
+func unchangedReservation(
+	state directoryspec.EmailChangeReservationState,
+) emailChangeMutation {
+	return emailChangeMutation{
+		response: directoryspec.HubAccountEmailChangeReservationResponse{
+			State: state,
+		},
+	}
 }
 
 // ResolveHubAccountEmail never reveals the DID (GU-DIR-001).
@@ -94,6 +158,30 @@ func (s *Service) emailChangeCommand(
 	}, err
 }
 
+// lockOwnedReservation locks a reservation and requires it to belong to did.
+// The caller has already proved it owns did, but a change id alone proves
+// nothing: without this check a tenant could finalize or cancel another
+// user's reservation by naming its change id.
+func lockOwnedReservation(
+	ctx context.Context, q *sqlc.Queries, changeID, did pgtype.UUID,
+) (sqlc.LockHubAccountEmailChangeReservationRow, bool, *problem.Details, error) {
+	existing, err := q.LockHubAccountEmailChangeReservation(ctx, changeID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return existing, false, nil, nil
+	}
+	if err != nil {
+		return existing, false, nil, fmt.Errorf(
+			"lock Hub account email change reservation: %w", err,
+		)
+	}
+	if existing.HubUserDid != did {
+		return existing, true, details(
+			coordinatorproblem.DirectoryStateConflictError,
+		), nil
+	}
+	return existing, true, nil, nil
+}
+
 // ReserveHubAccountEmailChange implements GU-DIR-004.
 func (s *Service) ReserveHubAccountEmailChange(
 	ctx context.Context, caller directoryspec.TenantID,
@@ -117,14 +205,11 @@ func (s *Service) ReserveHubAccountEmailChange(
 				return emailChangeMutation{}, nil, err
 			}
 
-			existing, err := q.LockHubAccountEmailChangeReservation(ctx, changeID)
-			found := true
-			if errors.Is(err, pgx.ErrNoRows) {
-				found = false
-			} else if err != nil {
-				return emailChangeMutation{}, nil, fmt.Errorf(
-					"lock Hub account email change reservation: %w", err,
-				)
+			existing, found, rejection, err := lockOwnedReservation(
+				ctx, q, changeID, did,
+			)
+			if rejection != nil || err != nil {
+				return emailChangeMutation{}, rejection, err
 			}
 
 			// Checked before the row's own state, and even when the row is
@@ -142,23 +227,16 @@ func (s *Service) ReserveHubAccountEmailChange(
 						coordinatorproblem.DirectoryReservationCancelledError,
 					), nil
 				}
-				sameDigest := existing.EmailDigest != nil &&
-					string(existing.EmailDigest) == string(newDigest)
-				if (existing.State == sqlc.VetchiumGlobalEmailChangeReservationStateReserved ||
-					existing.State == sqlc.VetchiumGlobalEmailChangeReservationStateFinalized) &&
-					existing.HubUserDid == did && sameDigest {
-					return emailChangeMutation{
-						response: directoryspec.HubAccountEmailChangeReservationResponse{
-							State: directoryspec.EmailChangeReservationState(existing.State),
-						},
-					}, nil, nil
+				// A change id is minted once per durable local operation, so
+				// the same id with another digest is a caller defect.
+				if !bytes.Equal(existing.EmailDigest, newDigest) {
+					return emailChangeMutation{}, details(
+						coordinatorproblem.DirectoryStateConflictError,
+					), nil
 				}
-				// A change id is minted once per durable local operation and
-				// should never be reused for a different user or digest.
-				return emailChangeMutation{}, nil, fmt.Errorf(
-					"email change reservation %s exists in state %s for a different user or digest",
-					request.ChangeID, existing.State,
-				)
+				return unchangedReservation(
+					directoryspec.EmailChangeReservationState(existing.State),
+				), nil, nil
 			}
 
 			row, err := q.ReserveHubAccountEmailChange(
@@ -178,15 +256,18 @@ func (s *Service) ReserveHubAccountEmailChange(
 					"reserve Hub account email change: %w", err,
 				)
 			}
-			_ = row
-			return emailChangeMutation{
-				response: directoryspec.HubAccountEmailChangeReservationResponse{
-					State: directoryspec.EmailChangeReserved,
-				},
-				changed: true, skipOutbox: true,
-				entityType: "hub_account_email_claim", entityID: string(request.HubUserDID),
-				auditAction: "global_directory.hub_account_email_change_reserved",
-			}, nil, nil
+			stale := make([]outboxEvent, 0, len(row.StaleChangeIds))
+			for _, staleID := range row.StaleChangeIds {
+				stale = append(stale, reservationEvent(
+					dbvalue.FormatUUID(staleID), request.HubUserDID,
+					directoryspec.EmailChangeCancelled, 2,
+				))
+			}
+			return reservationChanged(
+				request.ChangeID, request.HubUserDID,
+				directoryspec.EmailChangeReserved, 1,
+				"global_directory.hub_account_email_change_reserved", stale...,
+			), nil, nil
 		},
 	)
 }
@@ -204,24 +285,20 @@ func (s *Service) FinalizeHubAccountEmailChange(
 				return emailChangeMutation{}, rejection, err
 			}
 			changeID, _ := dbvalue.ParseUUID(string(request.ChangeID))
-			existing, err := q.LockHubAccountEmailChangeReservation(ctx, changeID)
-			if errors.Is(err, pgx.ErrNoRows) {
+			existing, found, rejection, err := lockOwnedReservation(
+				ctx, q, changeID, did,
+			)
+			if rejection != nil || err != nil {
+				return emailChangeMutation{}, rejection, err
+			}
+			if !found {
 				return emailChangeMutation{}, details(
 					coordinatorproblem.DirectoryStateConflictError,
 				), nil
 			}
-			if err != nil {
-				return emailChangeMutation{}, nil, fmt.Errorf(
-					"lock Hub account email change reservation: %w", err,
-				)
-			}
 			switch existing.State {
 			case sqlc.VetchiumGlobalEmailChangeReservationStateFinalized:
-				return emailChangeMutation{
-					response: directoryspec.HubAccountEmailChangeReservationResponse{
-						State: directoryspec.EmailChangeFinalized,
-					},
-				}, nil, nil
+				return unchangedReservation(directoryspec.EmailChangeFinalized), nil, nil
 			case sqlc.VetchiumGlobalEmailChangeReservationStateCancelled:
 				return emailChangeMutation{}, details(
 					coordinatorproblem.DirectoryStateConflictError,
@@ -236,14 +313,11 @@ func (s *Service) FinalizeHubAccountEmailChange(
 					"finalize Hub account email change: %w", err,
 				)
 			}
-			return emailChangeMutation{
-				response: directoryspec.HubAccountEmailChangeReservationResponse{
-					State: directoryspec.EmailChangeFinalized,
-				},
-				changed: true, skipOutbox: true,
-				entityType: "hub_account_email_claim", entityID: string(request.HubUserDID),
-				auditAction: "global_directory.hub_account_email_changed",
-			}, nil, nil
+			return reservationChanged(
+				request.ChangeID, request.HubUserDID,
+				directoryspec.EmailChangeFinalized, 2,
+				"global_directory.hub_account_email_changed",
+			), nil, nil
 		},
 	)
 }
@@ -257,12 +331,17 @@ func (s *Service) AbandonHubAccountEmailChange(
 		ctx, caller, abandonEmailChangeOperation, request.CommandID, request,
 		func(q *sqlc.Queries) (emailChangeMutation, *problem.Details, error) {
 			did, _ := dbvalue.ParseUUID(string(request.HubUserDID))
+			if rejection, err := requireActivePrincipal(ctx, q, caller, did); rejection != nil || err != nil {
+				return emailChangeMutation{}, rejection, err
+			}
 			changeID, _ := dbvalue.ParseUUID(string(request.ChangeID))
-			existing, err := q.LockHubAccountEmailChangeReservation(ctx, changeID)
-			if errors.Is(err, pgx.ErrNoRows) {
-				if rejection, err := requireActivePrincipal(ctx, q, caller, did); rejection != nil || err != nil {
-					return emailChangeMutation{}, rejection, err
-				}
+			existing, found, rejection, err := lockOwnedReservation(
+				ctx, q, changeID, did,
+			)
+			if rejection != nil || err != nil {
+				return emailChangeMutation{}, rejection, err
+			}
+			if !found {
 				if err := q.InsertAbandonedHubAccountEmailChangeTombstone(
 					ctx, sqlc.InsertAbandonedHubAccountEmailChangeTombstoneParams{
 						ChangeID: changeID, HubUserDid: did,
@@ -273,30 +352,15 @@ func (s *Service) AbandonHubAccountEmailChange(
 						"insert abandoned Hub account email change tombstone: %w", err,
 					)
 				}
-				return emailChangeMutation{
-					response: directoryspec.HubAccountEmailChangeReservationResponse{
-						State: directoryspec.EmailChangeCancelled,
-					},
-					changed: true, skipOutbox: true,
-					entityType: "hub_account_email_claim", entityID: string(request.HubUserDID),
-					auditAction: "global_directory.hub_account_email_change_abandoned",
-				}, nil, nil
-			}
-			if err != nil {
-				return emailChangeMutation{}, nil, fmt.Errorf(
-					"lock Hub account email change reservation: %w", err,
-				)
-			}
-			if rejection, err := requireActivePrincipal(ctx, q, caller, did); rejection != nil || err != nil {
-				return emailChangeMutation{}, rejection, err
+				return reservationChanged(
+					request.ChangeID, request.HubUserDID,
+					directoryspec.EmailChangeCancelled, 1,
+					"global_directory.hub_account_email_change_abandoned",
+				), nil, nil
 			}
 			switch existing.State {
 			case sqlc.VetchiumGlobalEmailChangeReservationStateCancelled:
-				return emailChangeMutation{
-					response: directoryspec.HubAccountEmailChangeReservationResponse{
-						State: directoryspec.EmailChangeCancelled,
-					},
-				}, nil, nil
+				return unchangedReservation(directoryspec.EmailChangeCancelled), nil, nil
 			case sqlc.VetchiumGlobalEmailChangeReservationStateFinalized:
 				// The tenant never abandons after applying locally; reaching
 				// here means a bug on the caller's side.
@@ -309,14 +373,11 @@ func (s *Service) AbandonHubAccountEmailChange(
 					"abandon reserved Hub account email change: %w", err,
 				)
 			}
-			return emailChangeMutation{
-				response: directoryspec.HubAccountEmailChangeReservationResponse{
-					State: directoryspec.EmailChangeCancelled,
-				},
-				changed: true, skipOutbox: true,
-				entityType: "hub_account_email_claim", entityID: string(request.HubUserDID),
-				auditAction: "global_directory.hub_account_email_change_abandoned",
-			}, nil, nil
+			return reservationChanged(
+				request.ChangeID, request.HubUserDID,
+				directoryspec.EmailChangeCancelled, 2,
+				"global_directory.hub_account_email_change_abandoned",
+			), nil, nil
 		},
 	)
 }

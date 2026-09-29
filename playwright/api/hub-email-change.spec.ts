@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 import type {
   ConfirmEmailChangeRequest,
@@ -25,6 +25,7 @@ import {
   EmailAddressUnavailableError,
   EmailChangeCodeRejectedError,
   EmailChangeInProgressError,
+  EmailChangeUnavailableError,
 } from "typespec/problem/hub/email";
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
 import {
@@ -37,6 +38,7 @@ import {
   seedActiveHubUser,
   seedHubSession,
   seedHubSignupDomain,
+  seedLiveHubEmailChange,
   sqlLiteral,
   sqlScalarForTenant,
   type TestTenant,
@@ -876,6 +878,19 @@ test("a pending confirm on ind1 changes nothing yet, blocks a new request, repla
     expect(await responseJSON<{ operation_id: string }>(replay)).toEqual(
       pending,
     );
+    await expectProblem(
+      await confirmChange(
+        hub,
+        seeded.sessionToken,
+        {
+          challenge_id: challenge.challenge_id,
+          code: code === "000000" ? "111111" : "000000",
+        },
+        confirmKey,
+      ),
+      409,
+      IdempotencyKeyConflictError.type,
+    );
 
     // Logging out and back in touches only the session, never the durable
     // change row, which stays pollable under a fresh session.
@@ -897,5 +912,110 @@ test("a pending confirm on ind1 changes nothing yet, blocks a new request, repla
     cleanupHubUser(email, "ind1");
     cleanupHubUser(newAddress, "ind1");
     cleanupHubIdempotency(keys, "ind1");
+  }
+});
+
+test("a correct code confirmed after another change went live reports the change in progress", async ({
+  request,
+}) => {
+  const domain = testDomain();
+  const hub = new HubAPI(request, "ind1");
+  const email = addressAt(domain);
+  const newAddress = addressAt(domain);
+  // ind1 cannot reach the directory in CI, so the live change seeded below
+  // stays live for the whole test instead of being driven to completion.
+  const seeded = seedActiveHubUser("ind1", email, "Ind1 Racing Confirmer");
+  try {
+    const requested = await requestChange(hub, seeded.sessionToken, {
+      new_email_address: newAddress,
+    });
+    expect(requested.status(), await requested.text()).toBe(202);
+    const challenge = await responseJSON<EmailChangeChallenge>(requested);
+    const code = await emailChangeCode(request, newAddress);
+
+    // Another confirm commits its change between this challenge's issue and
+    // its confirmation, the one window the request-time check cannot close.
+    const live = seedLiveHubEmailChange("ind1", seeded.hubUserDID, {
+      idempotencyKey: hubIdempotencyKey(),
+      requestDigestHex: createHash("sha256").update(randomUUID()).digest("hex"),
+      notAfterSQL: "now() + interval '1 day'",
+    });
+
+    await expectProblem(
+      await confirmChange(hub, seeded.sessionToken, {
+        challenge_id: challenge.challenge_id,
+        code,
+      }),
+      409,
+      EmailChangeInProgressError.type,
+    );
+    expect((await myInfo(hub, seeded.sessionToken)).email_address).toBe(email);
+    expect(
+      sqlScalarForTenant(
+        "ind1",
+        `SELECT string_agg(operation_id::text, ',')
+         FROM vetchium.hub_account_email_changes
+         WHERE hub_user_did = ${sqlLiteral(seeded.hubUserDID)}::uuid;`,
+      ),
+    ).toBe(live);
+  } finally {
+    cleanupHubUser(email, "ind1");
+    cleanupHubUser(newAddress, "ind1");
+    cleanupHubIdempotency([...hub.idempotencyKeys], "ind1");
+  }
+});
+
+test("a change whose reservation deadline lapsed fails as unavailable and keeps the old address", async ({
+  request,
+}) => {
+  const domain = testDomain();
+  const keys: string[] = [];
+  const hub = new HubAPI(request, "sgp");
+  let account: Account | undefined;
+  try {
+    seedHubSignupDomain(domain, "sgp");
+    account = await createAccount(request, domain, keys);
+    // Setup stands in for a confirm accepted a day ago whose reserve never
+    // got an answer. Its replay is identified by the same idempotency key and
+    // the digest of the identical request body.
+    const body: ConfirmEmailChangeRequest = {
+      challenge_id: randomUUID(),
+      code: "123456",
+    };
+    const key = hubIdempotencyKey();
+    seedLiveHubEmailChange("sgp", account.hubUserDID, {
+      idempotencyKey: key,
+      requestDigestHex: createHash("sha256")
+        .update(JSON.stringify(body))
+        .digest("hex"),
+      notAfterSQL: "now() - interval '1 minute'",
+    });
+
+    // Replaying cancels the lapsed change, abandons its reservation at the
+    // global directory, and reports the retryable failure (GU-ECH-004/005).
+    await expectProblem(
+      await confirmChange(hub, account.token, body, key),
+      503,
+      EmailChangeUnavailableError.type,
+    );
+    const rejectedAudit = hubAuditEventsForActor(
+      account.hubUserDID,
+      "hub.email-change.rejected",
+    );
+    expect(rejectedAudit).toHaveLength(1);
+    expect(rejectedAudit[0]).toMatchObject({
+      payload: { reason: "reservation_expired" },
+    });
+    expect((await myInfo(hub, account.token)).email_address).toBe(
+      account.email,
+    );
+
+    // The failed change is terminal, so a new change may begin.
+    const next = await requestChange(hub, account.token, {
+      new_email_address: addressAt(domain),
+    });
+    expect(next.status(), await next.text()).toBe(202);
+  } finally {
+    cleanup(domain, [account?.email ?? addressAt(domain)], keys, hub);
   }
 });

@@ -373,11 +373,21 @@ SELECT
     jsonb_build_object('reason', sqlc.arg(failure_reason)::text)
 FROM updated_change;
 
+-- The sibling operation's retry schedule orders recovery, so a batch of
+-- changes stuck on an unreachable directory backs off instead of starving
+-- every later change.
 -- name: ListRecoverableHubAccountEmailChanges :many
-SELECT operation_id, hub_user_did, new_email_address, new_email_digest,
-    old_email_digest, confirming_session_id, state, failure_reason,
-    reserve_command_id, finalize_command_id, abandon_command_id, not_after
-FROM vetchium.hub_account_email_changes
-WHERE state NOT IN ('succeeded', 'failed')
-ORDER BY created_at
+SELECT
+    change.operation_id, change.hub_user_did, change.new_email_address,
+    change.new_email_digest, change.old_email_digest,
+    change.confirming_session_id, change.state, change.failure_reason,
+    change.reserve_command_id, change.finalize_command_id,
+    change.abandon_command_id, change.not_after
+FROM vetchium.hub_account_email_changes AS change
+INNER JOIN vetchium.federation_operations AS operation
+    ON operation.operation_id = change.operation_id
+WHERE change.state NOT IN ('succeeded', 'failed')
+  AND operation.state = 'pending'
+  AND operation.next_attempt_at <= now()
+ORDER BY operation.next_attempt_at, operation.created_at, operation.operation_id
 LIMIT sqlc.arg(batch_size);

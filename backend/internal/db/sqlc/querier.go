@@ -216,6 +216,9 @@ type Querier interface {
 	ListOrgDomainsPastGrace(ctx context.Context, failingBefore pgtype.Timestamptz) ([]ListOrgDomainsPastGraceRow, error)
 	ListPendingOrgDomainCommands(ctx context.Context) ([]ListPendingOrgDomainCommandsRow, error)
 	ListRecoverableFederationOperations(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
+	// The sibling operation's retry schedule orders recovery, so a batch of
+	// changes stuck on an unreachable directory backs off instead of starving
+	// every later change.
 	ListRecoverableHubAccountEmailChanges(ctx context.Context, batchSize int32) ([]ListRecoverableHubAccountEmailChangesRow, error)
 	ListRecoverableHubAliasChanges(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
 	ListRecoverableHubAliasReleases(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)

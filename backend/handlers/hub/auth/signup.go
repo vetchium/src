@@ -23,6 +23,7 @@ import (
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/hub/signupcompletion"
+	"backend/internal/regions"
 )
 
 const signupTTL = 24 * time.Hour
@@ -219,10 +220,10 @@ func CompleteSignup(s *hubruntime.Server) http.HandlerFunc {
 			// completion time itself failed or named a tenant this catalog
 			// does not have a Hub URL for; either way there is nothing
 			// useful to redirect to (GU-SIG-005).
-			var hubURL string
+			var home regions.Region
 			var ok bool
 			if elsewhere.HomeTenantID != "" {
-				hubURL, ok = s.Regions.HubURL(elsewhere.HomeTenantID)
+				home, ok = s.Regions.Region(elsewhere.HomeTenantID)
 			}
 			if !ok {
 				s.AuthenticationProblem(
@@ -232,7 +233,7 @@ func CompleteSignup(s *hubruntime.Server) http.HandlerFunc {
 				return
 			}
 			s.Problem(r.Context(), w, hubproblem.HubAccountHomedElsewhereError(
-				elsewhere.HomeTenantID, hubURL,
+				elsewhere.HomeTenantID, home.HostingCountry, home.HubURL,
 			))
 		case errors.Is(err, signupcompletion.ErrIdempotencyConflict):
 			s.Problem(r.Context(), w, problem.IdempotencyKeyConflictError)

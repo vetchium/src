@@ -205,6 +205,7 @@ test("racing signups for the same address: the second completion is sent to the 
     );
     const lostBody = await responseJSON<HubAccountHomedElsewhereDetails>(lost);
     expect(lostBody.tenant_id).toBe("sgp");
+    expect(lostBody.hosting_country).toBe("SG");
     expect(lostBody.hub_url).toBe(originFor("sgp"));
 
     const state = hubSignupCompletionState(email, "usa1");

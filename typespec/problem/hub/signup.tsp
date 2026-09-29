@@ -1,3 +1,4 @@
+import "../../common/localization.tsp";
 import "../details.tsp";
 
 namespace Vetchium.Problem;
@@ -45,6 +46,11 @@ model HubAccountHomedElsewhereDetails {
   status: 409;
   detail: "This Hub account signs in at another region's Hub portal";
   tenant_id: string;
+
+  /** Where the home region is hosted, so a portal can name it in the
+   * viewer's language. */
+  hosting_country: Vetchium.CountryCode;
+
   hub_url: url;
   instance?: string;
 }
