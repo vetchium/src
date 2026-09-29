@@ -1,10 +1,12 @@
 package emailchange
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"os"
 	"sync"
 	"testing"
@@ -199,7 +201,7 @@ func seedChallenge(
 }
 
 func newTestService(pool *pgxpool.Pool, directory Directory) *Service {
-	return New(pool, directory, "sgp", testCodeKey(), testOutboxKey(), fakeDigester{}, nil)
+	return New(pool, directory, "sgp", testCodeKey(), testOutboxKey(), fakeDigester{}, slog.New(slog.DiscardHandler), nil)
 }
 
 func confirmRequest(challengeID pgtype.UUID, code string) hubauth.ConfirmEmailChangeRequest {
@@ -391,6 +393,48 @@ func TestStartReplaysSameIdempotencyKeyAfterTransientFailure(t *testing.T) {
 	}
 	if second.OperationID != first.OperationID {
 		t.Fatalf("replay operation id = %q, want %q", second.OperationID, first.OperationID)
+	}
+}
+
+// GU-ECH-006: a finalize state conflict is impossible by construction, so if
+// it happens the change keeps retrying from 'applied' and an operator is told
+// at error level.
+func TestFinalizeRefusalStaysAppliedAndLogsAnError(t *testing.T) {
+	pool := newTestPool(t)
+	did, sessionID := seedHubUser(t, pool, "finalize-refused-test@example.com")
+	directory := &fakeDirectory{
+		finalizeProblem: &coordinatorproblem.DirectoryStateConflictError,
+	}
+	var output bytes.Buffer
+	service := New(
+		pool, directory, "sgp", testCodeKey(), testOutboxKey(), fakeDigester{},
+		slog.New(slog.NewJSONHandler(&output, nil)), nil,
+	)
+	challengeID := seedChallenge(
+		t, pool, service, did, sessionID, "finalize-refused-new@example.com", "444444",
+	)
+
+	result, err := service.Start(
+		context.Background(), did, sessionID, confirmRequest(challengeID, "444444"),
+		common.IdempotencyKey("emailchange-test-key-finalize-refused"),
+	)
+	if !errors.Is(err, ErrPending) || result.Completed {
+		t.Fatalf("Start() = %+v, err = %v, want pending", result, err)
+	}
+	var state string
+	if err := pool.QueryRow(context.Background(), `
+        SELECT state::text FROM vetchium.hub_account_email_changes
+        WHERE hub_user_did = $1`, did,
+	).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	if state != "applied" {
+		t.Fatalf("state = %q, want applied", state)
+	}
+	if !bytes.Contains(output.Bytes(), []byte(`"level":"ERROR"`)) ||
+		!bytes.Contains(output.Bytes(), []byte(`"event":"hub_email_change_directory_refused"`)) ||
+		bytes.Contains(output.Bytes(), []byte("finalize-refused-new@example.com")) {
+		t.Fatalf("log output = %s, want an address-free error-level refusal", output.String())
 	}
 }
 

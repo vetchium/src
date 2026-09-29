@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -88,6 +89,7 @@ type Service struct {
 	tenantID   string
 	payloadKey [32]byte
 	digestKey  AccountEmailDigester
+	log        *slog.Logger
 	now        func() time.Time
 }
 
@@ -107,7 +109,8 @@ type Result struct {
 
 func New(
 	pool *pgxpool.Pool, directory Directory, tenantID string,
-	payloadKey [32]byte, digestKey AccountEmailDigester, now func() time.Time,
+	payloadKey [32]byte, digestKey AccountEmailDigester, log *slog.Logger,
+	now func() time.Time,
 ) *Service {
 	if now == nil {
 		now = time.Now
@@ -115,7 +118,7 @@ func New(
 	return &Service{
 		pool: pool, queries: sqlc.New(pool), directory: directory,
 		tenantID: tenantID, payloadKey: payloadKey, digestKey: digestKey,
-		now: now,
+		log: log, now: now,
 	}
 }
 
@@ -268,8 +271,7 @@ func (s *Service) Advance(
 				},
 			)
 			if err != nil {
-				s.recordRetry(ctx, operation.OperationID, err)
-				return pendingResult(operation), ErrPending
+				return s.directoryUnreachable(ctx, operation, "reserve", err)
 			}
 			if outcome.Problem != nil {
 				// Checked first and distinctly from the handle conflict
@@ -289,13 +291,14 @@ func (s *Service) Advance(
 					operation = rotated
 					continue
 				}
-				err := fmt.Errorf("reserve global principal: %s", outcome.Problem.Type)
-				s.recordRetry(ctx, operation.OperationID, err)
-				return pendingResult(operation), ErrPending
+				return s.directoryRefused(
+					ctx, operation, "reserve", outcome.Problem.Type,
+				)
 			}
 			if err := validatePrincipal(outcome.Principal, operation, s.tenantID, directoryspec.PrincipalProvisioning); err != nil {
-				s.recordRetry(ctx, operation.OperationID, err)
-				return pendingResult(operation), ErrPending
+				return s.directoryRefused(
+					ctx, operation, "reserve", "mismatched principal",
+				)
 			}
 			operation, err = s.queries.MarkHubSignupCompletionReserved(
 				ctx, sqlc.MarkHubSignupCompletionReservedParams{
@@ -315,6 +318,10 @@ func (s *Service) Advance(
 			created, err := s.createLocal(ctx, operation, source)
 			if errors.Is(err, pgx.ErrNoRows) {
 				operation, err = s.queries.GetHubSignupCompletion(ctx, operation.OperationID)
+				if err == nil &&
+					operation.State == sqlc.VetchiumHubSignupCompletionStateReserved {
+					return s.requestInactive(ctx, operation)
+				}
 			} else if err == nil {
 				operation = fromCreate(created)
 			}
@@ -331,8 +338,7 @@ func (s *Service) Advance(
 				},
 			)
 			if err != nil {
-				s.recordRetry(ctx, operation.OperationID, err)
-				return pendingResult(operation), ErrPending
+				return s.directoryUnreachable(ctx, operation, "activate", err)
 			}
 			if outcome.Problem != nil {
 				if outcome.Problem.Type == coordinatorproblem.DirectoryStateConflictError.Type &&
@@ -342,13 +348,14 @@ func (s *Service) Advance(
 					}
 					return pendingResult(operation), ErrExpired
 				}
-				err := fmt.Errorf("activate global principal: %s", outcome.Problem.Type)
-				s.recordRetry(ctx, operation.OperationID, err)
-				return pendingResult(operation), ErrPending
+				return s.directoryRefused(
+					ctx, operation, "activate", outcome.Problem.Type,
+				)
 			}
 			if err := validatePrincipal(outcome.Principal, operation, s.tenantID, directoryspec.PrincipalActive); err != nil {
-				s.recordRetry(ctx, operation.OperationID, err)
-				return pendingResult(operation), ErrPending
+				return s.directoryRefused(
+					ctx, operation, "activate", "mismatched principal",
+				)
 			}
 			completed, err := s.queries.CompleteProvisioningHubUser(
 				ctx, sqlc.CompleteProvisioningHubUserParams{
@@ -529,6 +536,63 @@ func (s *Service) rotateHandle(
 			PreviousReserveCommandID: operation.ReserveCommandID,
 		},
 	)
+}
+
+// directoryUnreachable schedules another attempt after a directory command
+// failed in transport, which is expected during a coordinator outage.
+func (s *Service) directoryUnreachable(
+	ctx context.Context, operation sqlc.VetchiumHubSignupCompletion,
+	command string, err error,
+) (Result, error) {
+	s.log.WarnContext(
+		ctx, "Hub signup completion directory command pending",
+		"event", "hub_signup_directory_pending",
+		"command", command,
+		"operationID", dbvalue.FormatUUID(operation.OperationID),
+		"error", err,
+	)
+	s.recordRetry(ctx, operation.OperationID, err)
+	return pendingResult(operation), ErrPending
+}
+
+// directoryRefused schedules another attempt after the directory answered
+// with something this saga has no transition for, such as a digest-key
+// mismatch. That will not clear by retrying alone, so it is logged at error
+// level for an operator, without the address or its digest.
+func (s *Service) directoryRefused(
+	ctx context.Context, operation sqlc.VetchiumHubSignupCompletion,
+	command, reason string,
+) (Result, error) {
+	s.log.ErrorContext(
+		ctx, "Hub signup completion directory command refused",
+		"event", "hub_signup_directory_refused",
+		"command", command,
+		"operationID", dbvalue.FormatUUID(operation.OperationID),
+		"reason", reason,
+	)
+	s.recordRetry(
+		ctx, operation.OperationID,
+		fmt.Errorf("%s global principal: %s", command, reason),
+	)
+	return pendingResult(operation), ErrPending
+}
+
+// requestInactive reports a reserved completion whose signup request is no
+// longer active, so creating the user would leave that request unconsumed.
+// Replacement and abandonment are built never to allow this; the completion
+// retries until its reservation expires and is abandoned.
+func (s *Service) requestInactive(
+	ctx context.Context, operation sqlc.VetchiumHubSignupCompletion,
+) (Result, error) {
+	s.log.ErrorContext(
+		ctx, "Hub signup completion lost its signup request",
+		"event", "hub_signup_request_inactive",
+		"operationID", dbvalue.FormatUUID(operation.OperationID),
+	)
+	s.recordRetry(
+		ctx, operation.OperationID, errors.New("signup request is not active"),
+	)
+	return pendingResult(operation), ErrPending
 }
 
 func (s *Service) recordRetry(ctx context.Context, operationID pgtype.UUID, err error) {

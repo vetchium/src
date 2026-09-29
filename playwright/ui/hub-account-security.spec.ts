@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Page, Request } from "@playwright/test";
+import type { Page, Request, Route } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import type {
   ConfirmEmailChangeRequest,
@@ -274,6 +274,147 @@ test("a confirm that comes back pending shows progress and resolves on its own",
   await expect(page.getByTestId("current-email-address")).toHaveText(
     "new@example.org",
   );
+});
+
+interface ConfirmCall {
+  body: ConfirmEmailChangeRequest;
+  idempotencyKey: string | null;
+}
+
+/** Answers the first confirm with 202 and every later one, a replay, with
+ * `settle`, recording what each call sent. */
+async function acceptConfirmThen(
+  page: Page,
+  settle: Parameters<Route["fulfill"]>[0],
+) {
+  const operationID = randomUUID();
+  const calls: ConfirmCall[] = [];
+  await page.route("**/api/hub/confirm-email-change", async (route) => {
+    calls.push({
+      body: route.request().postDataJSON() as ConfirmEmailChangeRequest,
+      idempotencyKey: await route.request().headerValue("Idempotency-Key"),
+    });
+    await route.fulfill(
+      calls.length === 1
+        ? { status: 202, json: { operation_id: operationID } }
+        : settle,
+    );
+  });
+  return { operationID, calls };
+}
+
+function expectSameReplay(calls: ConfirmCall[]) {
+  expect(calls).toHaveLength(2);
+  expect(calls[1]?.body).toEqual(calls[0]?.body);
+  expect(calls[1]?.idempotencyKey).toBe(calls[0]?.idempotencyKey);
+  expect(calls[0]?.idempotencyKey).not.toBeNull();
+}
+
+test("an accepted change survives a reload and replays the same confirm", async ({
+  page,
+}) => {
+  const account = await openAccountSecurity(page);
+  await acceptEmailChangeRequests(page);
+  const { operationID, calls } = await acceptConfirmThen(page, {
+    status: 204,
+  });
+  let settled = false;
+  await page.route("**/api/hub/operations/status", (route) =>
+    route.fulfill({
+      json: {
+        operation_id: operationID,
+        state: settled ? "succeeded" : "pending",
+      },
+    }),
+  );
+
+  await startChange(page, "new@example.org");
+  await page.getByLabel("Six-digit code").fill("123456");
+  await page.getByRole("button", { name: "Confirm new address" }).click();
+  await expect(page.getByTestId("email-change-applying")).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByTestId("email-change-applying")).toBeVisible();
+  await expect(page.getByLabel("Six-digit code")).toHaveCount(0);
+  account.me = { ...account.me, email_address: "new@example.org" };
+  settled = true;
+  await expect(
+    page.getByText("Your email address was changed.", { exact: false }),
+  ).toBeVisible();
+  expectSameReplay(calls);
+  await expect(page.getByTestId("current-email-address")).toHaveText(
+    "new@example.org",
+  );
+
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Change email address" }),
+  ).toBeVisible();
+  expect(calls).toHaveLength(2);
+});
+
+test("an accepted change outlives the expiry of its code", async ({ page }) => {
+  const account = await openAccountSecurity(page);
+  const issued = {
+    challenge_id: randomUUID(),
+    expires_at: new Date(Date.now() + 1_000).toISOString(),
+  };
+  await acceptEmailChangeRequests(page, issued);
+  const { operationID, calls } = await acceptConfirmThen(page, {
+    status: 204,
+  });
+  await page.route("**/api/hub/operations/status", (route) =>
+    route.fulfill({
+      json: {
+        operation_id: operationID,
+        state:
+          Date.now() > Date.parse(issued.expires_at) + 1_500
+            ? "succeeded"
+            : "pending",
+      },
+    }),
+  );
+
+  await startChange(page, "new@example.org");
+  await page.getByLabel("Six-digit code").fill("123456");
+  await page.getByRole("button", { name: "Confirm new address" }).click();
+  await expect(page.getByTestId("email-change-applying")).toBeVisible();
+  account.me = { ...account.me, email_address: "new@example.org" };
+  await expect(
+    page.getByText("Your email address was changed.", { exact: false }),
+  ).toBeVisible();
+  expect(Date.now()).toBeGreaterThan(Date.parse(issued.expires_at));
+  expectSameReplay(calls);
+});
+
+test("an accepted change that fails shows why and is forgotten", async ({
+  page,
+}) => {
+  await openAccountSecurity(page);
+  await acceptEmailChangeRequests(page);
+  const { operationID, calls } = await acceptConfirmThen(
+    page,
+    problem(EmailAddressUnavailableError),
+  );
+  await page.route("**/api/hub/operations/status", (route) =>
+    route.fulfill({ json: { operation_id: operationID, state: "failed" } }),
+  );
+
+  await startChange(page, "new@example.org");
+  await page.getByLabel("Six-digit code").fill("123456");
+  await page.getByRole("button", { name: "Confirm new address" }).click();
+  await expect(
+    page.getByText("Another Vetchium account already uses that address."),
+  ).toBeVisible();
+  await expect(page.getByTestId("email-change-applying")).toHaveCount(0);
+  expectSameReplay(calls);
+
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Change email address" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("email-change-applying")).toHaveCount(0);
+  expect(calls).toHaveLength(2);
 });
 
 test("a pending change survives a reload and cancel forgets it", async ({

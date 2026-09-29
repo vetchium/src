@@ -93,13 +93,13 @@ func run(log *slog.Logger) error {
 		hubauthn.DeriveCredentialSubkey(
 			hubCredentialKey, "signup-provisioning",
 		),
-		digestKey, nil,
+		digestKey, log, nil,
 	)
 	emailChangeRecovery := emailchange.New(
 		pool, directory, cfg.TenantID,
 		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "email-change-code"),
 		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "outbox"),
-		digestKey, nil,
+		digestKey, log, nil,
 	)
 	worker := workers.New(
 		pool, log, cfg.TenantID, cfg.Workers,

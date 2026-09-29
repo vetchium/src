@@ -452,6 +452,16 @@ Requirements:
   - A replay of a failed completion with this reason returns the same error.
   - `ErrExpired` stays for `failure_reason = 'expired'`.
   - `createLocal` writes `hub_users.email_digest`.
+  - A completion owns its signup request from prepare until it completes,
+    fails, or is abandoned. `PrepareHubSignupCompletion` sets the request's
+    `consumed_at` and leaves it active. `CreateHubSignupRequest` refuses to
+    replace a consumed active request (same `202`, audited
+    `hub.signup.rejected` `{reason: 'signup_completion_in_progress'}`, no
+    mail). Completion, the registered-elsewhere failure, and abandonment each
+    deactivate the request, so the address can sign up again.
+    `CreateProvisioningHubUser` inserts no user unless it also deactivates the
+    active request, so a user row never exists without its completion
+    reaching `local_created`.
 - **GU-SIG-005 Completion response:**
   - Add a `409` `HubAccountHomedElsewhereDetails` to `completeSignup`,
     modeled on `OrgHomedElsewhereDetails` in
@@ -636,6 +646,11 @@ Mirror them closely, including replay handling via
   - On `202`, poll `/api/hub/operations/status`, then replay confirm with the
     same idempotency key. Reuse whatever helper the alias editor uses.
   - Show "Applying your new email…" while pending.
+  - Keep the accepted change (operation id, idempotency key, and the confirm
+    body) in session storage apart from the challenge, so neither a reload nor
+    the code's ten-minute expiry loses the replay. Forget it only when a replay
+    returns the change's final result: `204` or a problem other than a lapsed
+    session or a server fault.
   - Add i18n in all locales.
 
 ### 3.6 Professional emails (tenant): dropped

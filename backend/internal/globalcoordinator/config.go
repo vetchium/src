@@ -10,6 +10,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	directoryspec "github.com/vetchium/src/typespec/directory"
 )
 
 const defaultConfigPath = "/etc/vetchium/global-coordinator.json"
@@ -116,9 +118,12 @@ func LoadConfigFile(path string) (Config, error) {
 			"global coordinator config %q: TLS fields must not be empty", path,
 		)
 	}
-	if raw.IdentityDigestKeyID == "" {
+	// The checked-in production file holds a placeholder until the operator
+	// computes the id (deploy/README.md); starting with it would reject every
+	// digest-bearing directory request while still reporting healthy.
+	if !directoryspec.IsDigestKeyID(directoryspec.DigestKeyID(raw.IdentityDigestKeyID)) {
 		return Config{}, fmt.Errorf(
-			"global coordinator config %q: identityDigestKeyId must not be empty",
+			"global coordinator config %q: identityDigestKeyId must be the 16 lowercase hex characters of the identity digest key id",
 			path,
 		)
 	}

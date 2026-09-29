@@ -68,9 +68,12 @@ printf 'vetchium/identity-digest/key-id/v1' | \
 ```
 
 and put the result in `identityDigestKeyId` before deploying or rotating the
-key. It also creates three tenant-specific SeaweedFS
-S3 secrets together: the gateway identity configuration and its access and
-secret keys. A partial set stops deployment. Do not replace just one of these
+key. `make deploy-global-coordinator` and the coordinator's startup check both
+refuse the checked-in placeholder.
+
+The Makefile also creates three tenant-specific SeaweedFS S3 secrets together:
+the gateway identity configuration and its access and secret keys. A partial
+set stops deployment. Do not replace just one of these
 secrets; rotate all three as a coordinated change and roll the gateway and its
 clients together. Only `hub-api`, `mesh-api`, and `workers` receive the S3 client
 keys; only the gateway receives the identity configuration. Tags must be

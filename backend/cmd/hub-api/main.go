@@ -108,13 +108,13 @@ func run(log *slog.Logger, address string) error {
 	signupCompletion := signupcompletion.New(
 		pool, globalDirectory, cfg.TenantID,
 		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "signup-provisioning"),
-		digestKey, nil,
+		digestKey, log, nil,
 	)
 	emailChange := emailchange.New(
 		pool, globalDirectory, cfg.TenantID,
 		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "email-change-code"),
 		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "outbox"),
-		digestKey, nil,
+		digestKey, log, nil,
 	)
 	s := &hubruntime.Server{
 		Runtime:          apiserver.New(pool, log),

@@ -25,6 +25,12 @@ WITH locked_operation AS (
     WHERE hub_user.hub_user_did = operation.hub_user_did
       AND hub_user.hub_user_state = 'provisioning'
     RETURNING hub_user.hub_user_did
+), released_request AS (
+    UPDATE vetchium.hub_signup_requests AS request
+    SET active = false
+    FROM locked_operation AS operation
+    WHERE request.hub_signup_request_id = operation.hub_signup_request_id
+    RETURNING request.hub_signup_request_id
 ), updated AS (
     UPDATE vetchium.hub_signup_completions AS operation
     SET state = 'failed',
@@ -464,6 +470,12 @@ WITH allowed_domain AS (
     WHERE EXISTS (SELECT 1 FROM allowed_domain)
       AND NOT EXISTS (SELECT 1 FROM existing_user)
       AND $9::text IS NULL
+    -- A request whose token already started a completion stays with that
+    -- completion until it completes, fails, or is abandoned, each of which
+    -- deactivates it. Replacing it would strand the completion's global
+    -- reservation. The condition is on the conflicting row itself, so a
+    -- concurrent PrepareHubSignupCompletion that holds the row is waited for
+    -- and its consumed_at is seen.
     ON CONFLICT (email_address) WHERE active DO UPDATE
     SET hub_signup_request_id = EXCLUDED.hub_signup_request_id,
         display_name = EXCLUDED.display_name,
@@ -471,9 +483,8 @@ WITH allowed_domain AS (
         resident_country = EXCLUDED.resident_country,
         token_hash = EXCLUDED.token_hash,
         created_at = now(),
-        expires_at = EXCLUDED.expires_at,
-        consumed_at = NULL,
-        active = true
+        expires_at = EXCLUDED.expires_at
+    WHERE hub_signup_requests.consumed_at IS NULL
     RETURNING hub_signup_request_id
 ), outbox AS (
     INSERT INTO vetchium.hub_email_outbox (
@@ -583,6 +594,34 @@ existing_account_audit AS (
         )
     WHERE EXISTS (SELECT 1 FROM allowed_domain)
       AND EXISTS (SELECT 1 FROM existing_user)
+), completion_in_progress_audit AS (
+    -- Answered with the same generic 202 as every other outcome.
+    INSERT INTO vetchium.audit_events (
+        tenant_id,
+        action,
+        entity_type,
+        entity_id,
+        actor_type,
+        source,
+        idempotency_key,
+        payload
+    )
+    SELECT
+        $12,
+        'hub.signup.rejected',
+        'hub_signup_request',
+        $3::text,
+        'anonymous',
+        'hub-api',
+        $13,
+        jsonb_build_object(
+            'reason', 'signup_completion_in_progress',
+            'resident_country', $6::text
+        )
+    WHERE EXISTS (SELECT 1 FROM allowed_domain)
+      AND NOT EXISTS (SELECT 1 FROM existing_user)
+      AND $9::text IS NULL
+      AND NOT EXISTS (SELECT 1 FROM upserted)
 )
 SELECT CASE
     WHEN NOT EXISTS (SELECT 1 FROM allowed_domain) THEN 'domain_not_allowed'
@@ -642,6 +681,14 @@ WITH locked_operation AS (
     WHERE operation.operation_id = $1
       AND operation.state = 'reserved'
     FOR UPDATE
+), locked_request AS (
+    SELECT request.hub_signup_request_id
+    FROM vetchium.hub_signup_requests AS request
+    WHERE request.hub_signup_request_id = (
+        SELECT hub_signup_request_id FROM locked_operation
+    )
+      AND request.active
+    FOR UPDATE
 ), inserted_user AS (
     INSERT INTO vetchium.hub_users (
         hub_user_did,
@@ -669,12 +716,13 @@ WITH locked_operation AS (
         ARRAY[$6]::text[],
         $7
     FROM locked_operation
+    WHERE EXISTS (SELECT 1 FROM locked_request)
     RETURNING hub_user_did
 ), consumed AS (
     UPDATE vetchium.hub_signup_requests
-    SET consumed_at = now(), active = false
-    WHERE hub_signup_request_id = (
-        SELECT hub_signup_request_id FROM locked_operation
+    SET active = false
+    WHERE hub_signup_request_id IN (
+        SELECT hub_signup_request_id FROM locked_request
     )
       AND EXISTS (SELECT 1 FROM inserted_user)
     RETURNING hub_signup_request_id
@@ -1270,6 +1318,16 @@ WITH eligible_signup AS (
     FROM eligible_signup
     ON CONFLICT DO NOTHING
     RETURNING operation_id, hub_signup_request_id, token_hash, idempotency_key, request_digest, account_email_digest, hub_user_did, handle, reserve_command_id, activate_command_id, payload_ciphertext, state, failure_reason, conflicting_home_tenant_id, provisioning_expires_at, attempt_count, next_attempt_at, last_error, created_at, updated_at, completed_at, expires_at
+), consumed_request AS (
+    -- The token is spent once a completion owns it; the request stays
+    -- active, holding the address against replacement, until the completion
+    -- ends.
+    UPDATE vetchium.hub_signup_requests
+    SET consumed_at = now()
+    WHERE hub_signup_request_id IN (
+        SELECT hub_signup_request_id FROM inserted
+    )
+    RETURNING hub_signup_request_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, source,

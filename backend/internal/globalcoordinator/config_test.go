@@ -94,10 +94,6 @@ func TestCheckedInConfigs(t *testing.T) {
 	}{
 		{filepath.Join(root, "config", "global-coordinator.json"), "dev"},
 		{filepath.Join(root, "config", "ci", "global-coordinator.json"), "ci"},
-		{
-			filepath.Join(root, "deploy", "global-coordinator", "config.json"),
-			"production",
-		},
 	} {
 		t.Run(test.path, func(t *testing.T) {
 			config, err := LoadConfigFile(test.path)
@@ -106,6 +102,76 @@ func TestCheckedInConfigs(t *testing.T) {
 			}
 			if config.Environment != test.environment {
 				t.Fatalf("environment = %q, want %q", config.Environment, test.environment)
+			}
+		})
+	}
+}
+
+// The checked-in production file carries a placeholder the operator replaces
+// with the computed key id (deploy/README.md). The coordinator must refuse
+// the placeholder, and the file must be valid once it is replaced.
+func TestCheckedInProductionConfigRequiresDigestKeyID(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "deploy", "global-coordinator", "config.json")
+	_, err := LoadConfigFile(path)
+	if err == nil || !strings.Contains(err.Error(), "identityDigestKeyId") {
+		t.Fatalf("LoadConfigFile() error = %v, want identityDigestKeyId error", err)
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const placeholder = "REPLACE_WITH_IDENTITY_DIGEST_KEY_ID_SEE_README"
+	if !strings.Contains(string(contents), placeholder) {
+		t.Fatalf("%s no longer holds the placeholder; update this test", path)
+	}
+	filled := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(filled, []byte(strings.Replace(
+		string(contents), placeholder, "909577e87ebd5395", 1,
+	)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	config, err := LoadConfigFile(filled)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Environment != "production" {
+		t.Fatalf("environment = %q, want production", config.Environment)
+	}
+}
+
+func TestLoadConfigFileRejectsMalformedDigestKeyID(t *testing.T) {
+	for _, value := range []string{
+		"", "909577e87ebd539", "909577E87EBD5395", "909577e87ebd53950",
+	} {
+		t.Run(value, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.json")
+			contents := `{
+  "database": {
+    "host": "global-db",
+    "port": 5432,
+    "user": "vetchium_app",
+    "name": "global_db",
+    "passwordFile": "/credential",
+    "sslMode": "disable"
+  },
+  "env": "dev",
+  "signupRegionsFile": "/regions",
+  "tls": {
+    "certificateFile": "/server.crt",
+    "keyFile": "/server.key",
+    "clientCAFile": "/ca.crt",
+    "healthCertificateFile": "/health.crt",
+    "healthKeyFile": "/health.key",
+    "healthServerName": "global-coordinator.mesh.vetchium.com"
+  },
+  "identityDigestKeyId": "` + value + `"
+}`
+			if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, err := LoadConfigFile(path)
+			if err == nil || !strings.Contains(err.Error(), "identityDigestKeyId") {
+				t.Fatalf("LoadConfigFile() error = %v, want identityDigestKeyId error", err)
 			}
 		})
 	}

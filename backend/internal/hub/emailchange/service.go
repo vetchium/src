@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -103,6 +104,7 @@ type Service struct {
 	codeKey   [32]byte
 	outboxKey [32]byte
 	digestKey AccountEmailDigester
+	log       *slog.Logger
 	now       func() time.Time
 }
 
@@ -114,7 +116,7 @@ type Result struct {
 func New(
 	pool *pgxpool.Pool, directory Directory, tenantID string,
 	codeKey, outboxKey [32]byte, digestKey AccountEmailDigester,
-	now func() time.Time,
+	log *slog.Logger, now func() time.Time,
 ) *Service {
 	if now == nil {
 		now = time.Now
@@ -122,7 +124,7 @@ func New(
 	return &Service{
 		pool: pool, queries: sqlc.New(pool), directory: directory,
 		tenantID: tenantID, codeKey: codeKey, outboxKey: outboxKey,
-		digestKey: digestKey, now: now,
+		digestKey: digestKey, log: log, now: now,
 	}
 }
 
@@ -296,7 +298,7 @@ func (s *Service) Advance(
 				},
 			)
 			if err != nil {
-				return pendingResult(change), ErrPending
+				return s.directoryUnreachable(ctx, change, "reserve", err)
 			}
 			if outcome.Problem != nil {
 				if outcome.Problem.Type ==
@@ -323,7 +325,7 @@ func (s *Service) Advance(
 					change = updated
 					continue
 				}
-				return pendingResult(change), ErrPending
+				return s.directoryRefused(ctx, change, "reserve", outcome.Problem.Type)
 			}
 			updated, err := s.markReserved(ctx, change)
 			if err != nil {
@@ -350,10 +352,15 @@ func (s *Service) Advance(
 					HubUserDID: hubUserDIDOf(change),
 				},
 			)
-			if err != nil || outcome.Problem != nil {
+			if err != nil {
+				return s.directoryUnreachable(ctx, change, "finalize", err)
+			}
+			if outcome.Problem != nil {
 				// GU-ECH-006: a DirectoryStateConflict here is impossible by
 				// construction; keep retrying either way.
-				return pendingResult(change), ErrPending
+				return s.directoryRefused(
+					ctx, change, "finalize", outcome.Problem.Type,
+				)
 			}
 			if err := s.succeed(ctx, change); err != nil {
 				return Result{}, err
@@ -373,8 +380,13 @@ func (s *Service) Advance(
 					NotAfter:   change.NotAfter.Time,
 				},
 			)
-			if err != nil || outcome.Problem != nil {
-				return pendingResult(change), ErrPending
+			if err != nil {
+				return s.directoryUnreachable(ctx, change, "abandon", err)
+			}
+			if outcome.Problem != nil {
+				return s.directoryRefused(
+					ctx, change, "abandon", outcome.Problem.Type,
+				)
 			}
 			if err := s.fail(ctx, change, source); err != nil {
 				return Result{}, err
@@ -442,6 +454,41 @@ func (s *Service) Recover(ctx context.Context) (int, error) {
 		}
 	}
 	return completed, errors.Join(failures...)
+}
+
+// directoryUnreachable leaves change for the next driver after a directory
+// command failed in transport, which is expected during a coordinator outage.
+func (s *Service) directoryUnreachable(
+	ctx context.Context, change Change, command string, err error,
+) (Result, error) {
+	s.log.WarnContext(
+		ctx, "Hub account email change directory command pending",
+		"event", "hub_email_change_directory_pending",
+		"command", command,
+		"operationID", dbvalue.FormatUUID(change.OperationID),
+		"state", string(change.State),
+		"error", err,
+	)
+	return pendingResult(change), ErrPending
+}
+
+// directoryRefused leaves change for the next driver after the directory
+// answered with a problem that has no transition of its own, such as a
+// digest-key mismatch or the finalize state conflict GU-ECH-006 calls
+// impossible. That will not clear by retrying alone, so it is logged at error
+// level for an operator, without the address or its digest.
+func (s *Service) directoryRefused(
+	ctx context.Context, change Change, command, problemType string,
+) (Result, error) {
+	s.log.ErrorContext(
+		ctx, "Hub account email change directory command refused",
+		"event", "hub_email_change_directory_refused",
+		"command", command,
+		"operationID", dbvalue.FormatUUID(change.OperationID),
+		"state", string(change.State),
+		"problemType", problemType,
+	)
+	return pendingResult(change), ErrPending
 }
 
 func (s *Service) markReserved(ctx context.Context, change Change) (Change, error) {

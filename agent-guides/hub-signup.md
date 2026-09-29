@@ -15,6 +15,10 @@ profile locality. Compose with [`federation.md`](federation.md).
   allowlist in SQL at both initiation and completion, and recheck region
   eligibility at completion. Approval in another tenant never counts, and there
   is no any-domain bypass.
+- Once a completion has spent a signup token, it owns that request until it
+  completes, fails, or is abandoned. A new request for the same address must
+  not replace it: that would strand the completion's global reservation and
+  its local user.
 - A policy refusal creates no Hub user. A replay of an already completed
   idempotent request keeps its original result rather than applying current
   policy retroactively.
