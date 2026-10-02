@@ -36,7 +36,7 @@ export function GoogleCallbackPage() {
     );
     const code = searchParams.get("code");
     const state = searchParams.get("state");
-    if (pending === null || !code || !state) {
+    if (pending === null || !code || !state || state !== pending.state) {
       setFailed(true);
       return;
     }

@@ -3,6 +3,9 @@ const storageKey = "vetchium.orgs.sso.google";
 export interface PendingGoogleSignIn {
   tenantId: string;
   returnTo: string;
+  /** The state this tab started with; a callback carrying another is not
+   * ours (a link planted to complete someone else's sign-in here). */
+  state: string;
 }
 
 type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -54,9 +57,15 @@ export function takeGoogleSignIn(
       "returnTo" in value &&
       typeof value.tenantId === "string" &&
       typeof value.returnTo === "string" &&
+      "state" in value &&
+      typeof value.state === "string" &&
       isRegion(value.tenantId)
     ) {
-      return { tenantId: value.tenantId, returnTo: value.returnTo };
+      return {
+        tenantId: value.tenantId,
+        returnTo: value.returnTo,
+        state: value.state,
+      };
     }
   } catch {
     return null;

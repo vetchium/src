@@ -71,7 +71,8 @@ export function LoginPage() {
       if (target.protocol !== "https:" && target.protocol !== "http:") {
         throw new Error("Unexpected authorization URL");
       }
-      if (!rememberGoogleSignIn({ tenantId, returnTo })) {
+      const state = target.searchParams.get("state");
+      if (!state || !rememberGoogleSignIn({ tenantId, returnTo, state })) {
         throw new Error("Session storage is unavailable");
       }
       // A top-level navigation: the provider's page is never framed or

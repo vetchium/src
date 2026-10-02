@@ -136,3 +136,27 @@ test("a callback with nothing pending fails without calling the API", async ({
   await expect(page.getByTestId("google-failed")).toBeVisible();
   expect(called).toBe(false);
 });
+
+test("a callback carrying a state this tab did not start fails without calling the API", async ({
+  page,
+}) => {
+  let called = false;
+  await page.route("**/api/orgs/sso/google/complete", async (route) => {
+    called = true;
+    await route.abort();
+  });
+  await page.goto(`${ORGS_PORTAL}/login`);
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      "vetchium.orgs.sso.google",
+      JSON.stringify({
+        tenantId: "sgp",
+        returnTo: "/",
+        state: "started-in-this-tab",
+      }),
+    ),
+  );
+  await page.goto(`${ORGS_PORTAL}/sso/google/callback?code=x&state=planted`);
+  await expect(page.getByTestId("google-failed")).toBeVisible();
+  expect(called).toBe(false);
+});

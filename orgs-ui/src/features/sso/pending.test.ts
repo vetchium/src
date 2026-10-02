@@ -16,26 +16,38 @@ const known = (tenantId: string) => tenantId === "sgp";
 test("an entry is taken once", () => {
   const store = memory();
   assert.equal(
-    rememberGoogleSignIn({ tenantId: "sgp", returnTo: "/members" }, store),
+    rememberGoogleSignIn(
+      { tenantId: "sgp", returnTo: "/members", state: "s1" },
+      store,
+    ),
     true,
   );
   assert.deepEqual(takeGoogleSignIn(known, store), {
     tenantId: "sgp",
     returnTo: "/members",
+    state: "s1",
   });
   assert.equal(takeGoogleSignIn(known, store), null);
 });
 
 test("an unknown region, malformed data, or no storage yields nothing", () => {
   const store = memory();
-  rememberGoogleSignIn({ tenantId: "mars", returnTo: "/" }, store);
+  rememberGoogleSignIn({ tenantId: "mars", returnTo: "/", state: "s" }, store);
   assert.equal(takeGoogleSignIn(known, store), null);
   store.setItem("vetchium.orgs.sso.google", "{not json");
   assert.equal(takeGoogleSignIn(known, store), null);
   store.setItem("vetchium.orgs.sso.google", JSON.stringify({ tenantId: 1 }));
   assert.equal(takeGoogleSignIn(known, store), null);
+  store.setItem(
+    "vetchium.orgs.sso.google",
+    JSON.stringify({ tenantId: "sgp", returnTo: "/" }),
+  );
+  assert.equal(takeGoogleSignIn(known, store), null);
   assert.equal(
-    rememberGoogleSignIn({ tenantId: "sgp", returnTo: "/" }, undefined),
+    rememberGoogleSignIn(
+      { tenantId: "sgp", returnTo: "/", state: "s" },
+      undefined,
+    ),
     false,
   );
 });
@@ -53,7 +65,10 @@ test("a failing store is treated as absent", () => {
     },
   };
   assert.equal(
-    rememberGoogleSignIn({ tenantId: "sgp", returnTo: "/" }, broken),
+    rememberGoogleSignIn(
+      { tenantId: "sgp", returnTo: "/", state: "s" },
+      broken,
+    ),
     false,
   );
   assert.equal(takeGoogleSignIn(known, broken), null);
