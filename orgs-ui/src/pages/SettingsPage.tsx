@@ -24,6 +24,7 @@ import { orgsAPI } from "../api/orgs";
 import { paths } from "../app/paths";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { myInfoQueryKey, useMyInfoQuery } from "../features/account/queries";
+import { GoogleSignInCard } from "../features/sso/GoogleSignInCard";
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -133,6 +134,7 @@ export function SettingsPage() {
           </Flex>
         </Flex>
       </Card>
+      <GoogleSignInCard />
     </Space>
   );
 }

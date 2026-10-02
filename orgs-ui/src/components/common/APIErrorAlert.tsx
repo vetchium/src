@@ -39,6 +39,10 @@ import {
   SignupDomainBlockedError,
   SignupUnavailableError,
 } from "typespec/problem/orgs/signup";
+import {
+  SSONotAvailableError,
+  SSOSignInFailedError,
+} from "typespec/problem/orgs/sso";
 import { OrgSuspendedError } from "typespec/problem/orgs/suspension";
 import {
   IncorrectRecoveryCodeError,
@@ -87,6 +91,8 @@ export const problemKeys: Readonly<Record<string, string>> = {
   [LogoInvalidError.type]: "errors.logoInvalid",
   [LogoTooLargeError.type]: "errors.logoTooLarge",
   [LogoConflictError.type]: "errors.logoConflict",
+  [SSOSignInFailedError.type]: "errors.ssoSignInFailed",
+  [SSONotAvailableError.type]: "errors.ssoNotAvailable",
   "vetchium-problem-details/org-plan-required": "errors.planRequired",
   [IncorrectPasswordError.type]: "errors.incorrectPassword",
   [InvalidLoginChallengeError.type]: "errors.expiredLoginChallenge",

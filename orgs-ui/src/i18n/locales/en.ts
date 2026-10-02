@@ -129,6 +129,9 @@ export const en = {
     logoTooLarge: "That image is larger than 2 MiB.",
     logoConflict:
       "The logo was changed by someone else at the same time. Try again.",
+    ssoSignInFailed:
+      "Google sign-in did not work. Check that you chose your organization's Google account, that your organization has Google sign-in turned on, and that you have been invited. You can sign in with your password instead.",
+    ssoNotAvailable: "Google sign-in is not available in this region.",
     planRequired: "This needs a higher plan.",
     permissionRequired: "Only a superadmin of your organization can do this.",
     recentAuthenticationRequired: "Sign in again to continue.",
@@ -214,6 +217,15 @@ export const en = {
     forgotPassword: "Forgot your password?",
     noAccount: "Organization not on Vetchium yet?",
     signUp: "Sign it up",
+    or: "or",
+    google: "Continue with Google",
+  },
+  googleCallback: {
+    documentTitle: "Google sign-in | Vetchium for organizations",
+    title: "Google sign-in",
+    failed:
+      "Google sign-in could not be completed. Start again, or sign in with your password.",
+    back: "Back to sign-in",
   },
   twoFactor: {
     documentTitle: "Two-factor verification | Vetchium for organizations",
@@ -513,6 +525,14 @@ export const en = {
       replace: "Replace logo",
       remove: "Remove logo",
       upgrade: "A logo needs the Silver plan or higher.",
+      seePlans: "See plans",
+    },
+    google: {
+      title: "Google sign-in",
+      help: "Let your users sign in with their Google Workspace accounts. Only users already in this organization can sign in, with an address on your domain verified by Google. Your Google administrator's 2-Step Verification replaces the authenticator code, and passwords keep working. While it is on, the user limit is lifted.",
+      on: "On",
+      off: "Off",
+      upgrade: "Google sign-in needs the Gold plan.",
       seePlans: "See plans",
     },
   },

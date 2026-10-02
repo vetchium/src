@@ -137,6 +137,10 @@ export const de = {
     logoTooLarge: "Dieses Bild ist größer als 2 MiB.",
     logoConflict:
       "Das Logo wurde gleichzeitig von jemand anderem geändert. Versuchen Sie es erneut.",
+    ssoSignInFailed:
+      "Die Anmeldung mit Google hat nicht funktioniert. Prüfen Sie, ob Sie das Google-Konto Ihrer Organisation gewählt haben, ob Ihre Organisation die Google-Anmeldung aktiviert hat und ob Sie eingeladen wurden. Sie können sich stattdessen mit Ihrem Passwort anmelden.",
+    ssoNotAvailable:
+      "Die Anmeldung mit Google ist in dieser Region nicht verfügbar.",
     planRequired: "Dafür ist ein höherer Tarif nötig.",
     permissionRequired: "Nur ein Superadmin Ihrer Organisation kann das tun.",
     recentAuthenticationRequired: "Melden Sie sich erneut an, um fortzufahren.",
@@ -225,6 +229,15 @@ export const de = {
     forgotPassword: "Passwort vergessen?",
     noAccount: "Ist Ihre Organisation noch nicht auf Vetchium?",
     signUp: "Jetzt registrieren",
+    or: "oder",
+    google: "Weiter mit Google",
+  },
+  googleCallback: {
+    documentTitle: "Google-Anmeldung | Vetchium für Organisationen",
+    title: "Google-Anmeldung",
+    failed:
+      "Die Anmeldung mit Google konnte nicht abgeschlossen werden. Beginnen Sie erneut oder melden Sie sich mit Ihrem Passwort an.",
+    back: "Zurück zur Anmeldung",
   },
   twoFactor: {
     documentTitle: "Zwei-Faktor-Prüfung | Vetchium für Organisationen",
@@ -531,6 +544,14 @@ export const de = {
       replace: "Logo ersetzen",
       remove: "Logo entfernen",
       upgrade: "Ein Logo erfordert den Tarif Silver oder höher.",
+      seePlans: "Tarife ansehen",
+    },
+    google: {
+      title: "Google-Anmeldung",
+      help: "Ihre Benutzer können sich mit ihren Google-Workspace-Konten anmelden. Es können sich nur Benutzer anmelden, die bereits zu dieser Organisation gehören, mit einer von Google bestätigten Adresse Ihrer Domain. Die Zwei-Faktor-Authentifizierung Ihres Google-Administrators ersetzt den Authenticator-Code, und Passwörter funktionieren weiter. Solange die Option aktiv ist, entfällt die Benutzergrenze.",
+      on: "An",
+      off: "Aus",
+      upgrade: "Die Google-Anmeldung erfordert den Tarif Gold.",
       seePlans: "Tarife ansehen",
     },
   },

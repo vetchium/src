@@ -24,6 +24,11 @@ import type {
   SignupDetailsResponse,
 } from "typespec/orgs/auth/signup";
 import type {
+  CompleteGoogleSignInRequest,
+  StartGoogleSignInRequest,
+  StartGoogleSignInResponse,
+} from "typespec/orgs/auth/sso";
+import type {
   ConfirmTOTPEnrollmentRequest,
   ConfirmTOTPEnrollmentResponse,
   RegenerateTOTPRecoveryCodesResponse,
@@ -33,6 +38,7 @@ import type {
 } from "typespec/orgs/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/orgs/auth/types";
 import type { ListPermissionsResponse } from "typespec/orgs/authorization/management";
+import type { SetGoogleSignInRequest } from "typespec/orgs/settings/google_sign_in";
 import type { LogoContentType } from "typespec/orgs/settings/logo";
 import type {
   ListInvoicesRequest,
@@ -91,6 +97,18 @@ export const orgsAPI = {
     ),
   login: (body: LoginRequest, tenantId: string) =>
     apiRequest<LoginResponse>("/login", { body, tenantId }),
+  startGoogleSignIn: (body: StartGoogleSignInRequest, tenantId: string) =>
+    apiRequest<StartGoogleSignInResponse>("/sso/google/start", {
+      body,
+      tenantId,
+    }),
+  completeGoogleSignIn: (body: CompleteGoogleSignInRequest, tenantId: string) =>
+    apiRequest<AuthenticatedSessionResponse>("/sso/google/complete", {
+      body,
+      tenantId,
+    }),
+  setGoogleSignIn: (body: SetGoogleSignInRequest) =>
+    apiRequest<void>("/set-google-sign-in", { body }),
   verifyTFA: (
     body: VerifyTFARequest,
     idempotencyKey: IdempotencyKey,

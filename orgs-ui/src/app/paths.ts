@@ -4,6 +4,7 @@ export const paths = {
   completeSignup: "/complete-signup",
   login: "/login",
   twoFactor: "/login/two-factor",
+  googleCallback: "/sso/google/callback",
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
   reauthenticate: "/reauthenticate",
