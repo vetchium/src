@@ -5,6 +5,7 @@ import type { LoginResponse } from "typespec/hub/auth/login";
 import type { CompleteSignupResponse } from "typespec/hub/auth/signup";
 import { hubUserDIDForHandle, type TestTenant } from "./admin-db.ts";
 import { hubIdempotencyKey, MAILPIT_ORIGIN } from "./hub-api.ts";
+import { apiOrigin, emailedLinkToken, HUB_PORTAL } from "./portals.ts";
 
 export interface SignedUpHubUser {
   hubUserDID: string;
@@ -13,7 +14,7 @@ export interface SignedUpHubUser {
 }
 
 /**
- * Signs up a new Hub user against a tenant's origin, following the email
+ * Signs up a new Hub user in a tenant, following the email
  * verification link through Mailpit, and returns the identifiers and
  * password the caller needs to log in and clean up. Every idempotency key
  * used is appended to `keys` for cleanup.
@@ -35,7 +36,7 @@ export async function signup(
   const signupKey = hubIdempotencyKey();
   const completeKey = hubIdempotencyKey();
   keys.push(signupKey, completeKey);
-  const origin = `http://hub-ui.${tenant}.localhost`;
+  const origin = apiOrigin(tenant);
   const response = await request.post(`${origin}/api/hub/request-signup`, {
     headers: { "Idempotency-Key": signupKey },
     data: {
@@ -57,8 +58,8 @@ export async function signup(
       },
       { timeout: 15000 },
     )
-    .toContain(`${origin}/complete-signup`);
-  const token = text.match(/complete-signup\?token=([0-9a-f]{64})/)?.[1];
+    .toContain(`${HUB_PORTAL}/complete-signup?region=${tenant}&token=`);
+  const token = emailedLinkToken(text, "/complete-signup", tenant);
   expect(token).toBeDefined();
   const password = `Password!${randomUUID()}`;
   const complete = await request.post(`${origin}/api/hub/complete-signup`, {
@@ -77,12 +78,11 @@ export async function signup(
 /** Logs in a signed-up Hub user and returns a bearer session token. */
 export async function login(
   request: APIRequestContext,
-  tenant: string,
+  tenant: TestTenant,
   email: string,
   password: string,
 ): Promise<string> {
-  const origin = `http://hub-ui.${tenant}.localhost`;
-  const response = await request.post(`${origin}/api/hub/login`, {
+  const response = await request.post(`${apiOrigin(tenant)}/api/hub/login`, {
     data: { email_address: email, password },
   });
   expect(response.status(), await response.text()).toBe(200);

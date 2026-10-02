@@ -10,21 +10,20 @@ import {
   orgEmailText,
   orgPassword,
   orgSQL,
-  orgsOrigin,
   recordValue,
   type SignedUpOrg,
   signupOrg,
   signupToken,
 } from "../lib/orgs-api.ts";
-
-const sgp = orgsOrigin("sgp");
+import { ORGS_PORTAL, rememberRegion } from "../lib/portals.ts";
 
 // Lifecycle tests wait for the CI re-verification timings (2s checks, 8s
 // grace), which is longer than the default budget.
 test.describe.configure({ timeout: 90_000 });
 
-async function signIn(page: Page, org: SignedUpOrg, origin = sgp) {
-  await page.goto(`${origin}/login?domain=${org.domain}`);
+/** Signs in from the login page, in the region the test's context remembers. */
+async function signIn(page: Page, org: SignedUpOrg) {
+  await page.goto(`${ORGS_PORTAL}/login?domain=${org.domain}`);
   await expect(page.getByLabel("Organization domain")).toHaveValue(org.domain);
   await page.getByLabel("Email address").fill(org.emailAddress);
   await page.getByLabel("Password", { exact: true }).fill(org.password);
@@ -32,13 +31,15 @@ async function signIn(page: Page, org: SignedUpOrg, origin = sgp) {
 }
 
 test("signs an Org up through region choice, DNS proof and sign-in", async ({
+  context,
   page,
   request,
 }) => {
   const domain = uniqueOrgDomain();
   const emailAddress = `it@${domain}`;
   try {
-    await page.goto(`${sgp}/signup`);
+    await rememberRegion(context, "orgs", "sgp");
+    await page.goto(`${ORGS_PORTAL}/signup`);
     const country = page.getByRole("combobox", { name: "Country" });
     await country.click();
     await country.fill("Singapore");
@@ -47,7 +48,9 @@ test("signs an Org up through region choice, DNS proof and sign-in", async ({
     await page
       .getByRole("button", { name: /Continue in Singapore \(sgp\)/ })
       .click();
-    await expect(page).toHaveURL(`${sgp}/signup/SG/en-US/details`);
+    await expect(page).toHaveURL(
+      `${ORGS_PORTAL}/signup/SG/en-US/details?region=sgp`,
+    );
     await expect(page.getByTestId("signup-region")).toContainText("sgp");
 
     await page.getByLabel("Work email address").fill(emailAddress);
@@ -58,10 +61,10 @@ test("signs an Org up through region choice, DNS proof and sign-in", async ({
     const value = recordValue(
       await orgEmailText(request, emailAddress, "DNS record"),
     );
-    const token = signupToken(
-      await orgEmailText(request, emailAddress, "Complete"),
-    );
-    await page.goto(`${sgp}/complete-signup?token=${token}`);
+    const linkEmail = await orgEmailText(request, emailAddress, "Complete");
+    const signupLink = `${ORGS_PORTAL}/complete-signup?region=sgp&token=${signupToken(linkEmail, "sgp")}`;
+    expect(linkEmail).toContain(signupLink);
+    await page.goto(signupLink);
     await expect(page.getByTestId("dns-record-name")).toHaveText(
       `_vetchium.${domain}`,
     );
@@ -81,10 +84,10 @@ test("signs an Org up through region choice, DNS proof and sign-in", async ({
 
     await setOrgVerificationRecord(domain, [value]);
     await submit.click();
-    await expect(page).toHaveURL(`${sgp}/login?domain=${domain}`);
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/login?domain=${domain}`);
 
     await signIn(page, { domain, emailAddress, password, value });
-    await expect(page).toHaveURL(`${sgp}/`);
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
     await expect(page.getByTestId("shell-org-name")).toHaveText("Browser Org");
     await expect(page.getByTestId("home-domain")).toHaveText(domain);
     await expect(page.getByTestId("home-domain-state")).toHaveAttribute(
@@ -98,18 +101,26 @@ test("signs an Org up through region choice, DNS proof and sign-in", async ({
 });
 
 test("sends a sign-in at the wrong region to the Org's own region", async ({
+  context,
   page,
   request,
 }) => {
   const org = await signupOrg(new OrgsAPI(request, "sgp"));
   try {
-    await signIn(page, org, orgsOrigin("usa1"));
+    await rememberRegion(context, "orgs", "usa1");
+    await signIn(page, org);
     const notice = page.getByTestId("login-homed-elsewhere");
     await expect(notice).toBeVisible();
     await notice
       .getByRole("button", { name: "Continue to that region" })
       .click();
-    await expect(page).toHaveURL(`${sgp}/login?domain=${org.domain}`);
+    await expect(notice).toBeHidden();
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/login?domain=${org.domain}`);
+    await expect(page.getByLabel("Organization domain")).toHaveValue(
+      org.domain,
+    );
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
   } finally {
     await deleteOrgVerificationRecord(org.domain);
     cleanupOrg(org.domain);
@@ -117,13 +128,15 @@ test("sends a sign-in at the wrong region to the Org's own region", async ({
 });
 
 test("a failing domain shows the record and recovers with check-now", async ({
+  context,
   page,
   request,
 }) => {
   const org = await signupOrg(new OrgsAPI(request));
   try {
+    await rememberRegion(context, "orgs", "sgp");
     await signIn(page, org);
-    await expect(page).toHaveURL(`${sgp}/`);
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
     await deleteOrgVerificationRecord(org.domain);
     const banner = page.getByTestId("domain-failing-banner");
     await expect(async () => {
@@ -146,11 +159,13 @@ test("a failing domain shows the record and recovers with check-now", async ({
 });
 
 test("a suspended Org can only restore its domain", async ({
+  context,
   page,
   request,
 }) => {
   const org = await signupOrg(new OrgsAPI(request));
   try {
+    await rememberRegion(context, "orgs", "sgp");
     await deleteOrgVerificationRecord(org.domain);
     await expect
       .poll(
@@ -165,14 +180,14 @@ test("a suspended Org can only restore its domain", async ({
       .toBe("suspended");
 
     await signIn(page, org);
-    await expect(page).toHaveURL(`${sgp}/restore-domain`);
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/restore-domain`);
     await expect(page.getByTestId("restore-domain")).toContainText(org.value);
-    await page.goto(`${sgp}/`);
-    await expect(page).toHaveURL(`${sgp}/restore-domain`);
+    await page.goto(`${ORGS_PORTAL}/`);
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/restore-domain`);
 
     await setOrgVerificationRecord(org.domain, [org.value]);
     await page.getByRole("button", { name: "Check now" }).click();
-    await expect(page).toHaveURL(`${sgp}/`);
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
     await expect(page.getByTestId("home-domain-state")).toHaveAttribute(
       "data-state",
       "verified",
@@ -184,14 +199,16 @@ test("a suspended Org can only restore its domain", async ({
 });
 
 test("the security page asks for the password when the session is old", async ({
+  context,
   page,
   request,
 }) => {
   const org = await signupOrg(new OrgsAPI(request));
   try {
+    await rememberRegion(context, "orgs", "sgp");
     await signIn(page, org);
-    await expect(page).toHaveURL(`${sgp}/`);
-    await page.goto(`${sgp}/security`);
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
+    await page.goto(`${ORGS_PORTAL}/security`);
     await expect(
       page.getByRole("button", { name: "Set up authenticator app" }),
     ).toBeVisible();
@@ -205,13 +222,13 @@ test("the security page asks for the password when the session is old", async ({
          WHERE email_address = '${org.emailAddress}'
        )`,
     );
-    await page.goto(`${sgp}/`);
+    await page.goto(`${ORGS_PORTAL}/`);
     await page.reload();
-    await page.goto(`${sgp}/security`);
+    await page.goto(`${ORGS_PORTAL}/security`);
     await expect(page).toHaveURL(/\/reauthenticate\?returnTo=/);
     await page.getByLabel("Password").fill(org.password);
     await page.getByRole("button", { name: "Continue" }).click();
-    await expect(page).toHaveURL(`${sgp}/security`);
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/security`);
   } finally {
     await deleteOrgVerificationRecord(org.domain);
     cleanupOrg(org.domain);

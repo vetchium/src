@@ -19,10 +19,7 @@ import {
 } from "./admin-db.ts";
 import { setOrgVerificationRecord, uniqueOrgDomain } from "./dev-dns.ts";
 import { MAILPIT_ORIGIN } from "./hub-api.ts";
-
-export function orgsOrigin(tenant: TestTenant = "sgp"): string {
-  return `http://orgs-ui.${tenant}.localhost`;
-}
+import { apiOrigin, emailedLinkToken } from "./portals.ts";
 
 export function orgsIdempotencyKey(): string {
   return `e2e-${randomBytes(30).toString("base64url")}`;
@@ -37,9 +34,9 @@ export class OrgsAPI {
 
   constructor(
     readonly request: APIRequestContext,
-    tenant: TestTenant = "sgp",
+    readonly tenant: TestTenant = "sgp",
   ) {
-    this.origin = orgsOrigin(tenant);
+    this.origin = apiOrigin(tenant);
   }
 
   post(
@@ -124,9 +121,9 @@ export function recordValue(dnsEmail: string): string {
   return value;
 }
 
-export function signupToken(linkEmail: string): string {
-  const token = linkEmail.match(/complete-signup\?token=([0-9a-f]{64})/)?.[1];
-  if (!token) throw new Error("signup link email carried no token");
+export function signupToken(linkEmail: string, tenant: TestTenant): string {
+  const token = emailedLinkToken(linkEmail, "/complete-signup", tenant);
+  if (!token) throw new Error(`signup link email carried no ${tenant} token`);
   return token;
 }
 
@@ -155,7 +152,7 @@ export async function requestOrgSignup(
   return {
     domain,
     emailAddress,
-    token: signupToken(link),
+    token: signupToken(link, api.tenant),
     value: recordValue(dns),
   };
 }

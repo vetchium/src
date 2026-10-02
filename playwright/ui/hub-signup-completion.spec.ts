@@ -1,8 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type { CompleteSignupRequest } from "typespec/hub/auth/signup";
+import { HUB_PORTAL } from "../lib/portals.ts";
 
-const origin =
-  process.env.PLAYWRIGHT_HUB_BASE_URL ?? "http://hub-ui.sgp.localhost";
 const password = "Str0ng!Passphrase2026";
 
 /**
@@ -33,7 +32,7 @@ test("a signup completed elsewhere sends the user to their home region instead o
     });
   });
 
-  await page.goto(`${origin}/complete-signup?token=${token}`);
+  await page.goto(`${HUB_PORTAL}/complete-signup?region=usa1&token=${token}`);
   await page.getByLabel("New password").fill(password);
   await page.getByLabel("Confirm password").fill(password);
   await page.getByRole("button", { name: "Complete signup" }).click();
@@ -45,6 +44,6 @@ test("a signup completed elsewhere sends the user to their home region instead o
   ).toBeVisible();
   await expect(page.getByLabel("New password")).toHaveCount(0);
   await expect(
-    notice.getByRole("button", { name: "Go to sign in" }),
-  ).toBeVisible();
+    notice.getByRole("link", { name: "Go to sign in" }),
+  ).toHaveAttribute("href", "/login?region=sgp");
 });

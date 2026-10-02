@@ -46,6 +46,7 @@ import {
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { HubAPI, hubIdempotencyKey, MAILPIT_ORIGIN } from "../lib/hub-api.ts";
 import { login, signup } from "../lib/hub-signup.ts";
+import { emailedLinkToken } from "../lib/portals.ts";
 
 interface Account {
   email: string;
@@ -179,9 +180,7 @@ test("a confirmed email change moves sign-in to the proven address and revokes o
       account.email,
       "reset-password",
     );
-    const resetToken = resetMail.match(
-      /reset-password\?token=([0-9a-f]{64})/,
-    )?.[1];
+    const resetToken = emailedLinkToken(resetMail, "/reset-password", "sgp");
     expect(resetToken).toBeDefined();
 
     const requestKey = hubIdempotencyKey();

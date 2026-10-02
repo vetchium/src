@@ -28,6 +28,7 @@ import {
   type SignedUpOrg,
   signupOrg,
 } from "../lib/orgs-api.ts";
+import { emailedLinkToken } from "../lib/portals.ts";
 
 const invalidCredentials = "vetchium-problem-details/org-invalid-credentials";
 const authenticationRequired =
@@ -274,9 +275,7 @@ test.describe("Org credentials", () => {
         expect(response.status()).toBe(202);
       }
       const email = await orgEmailText(request, org.emailAddress, "Reset");
-      const resetToken = email.match(
-        /reset-password\?token=([0-9a-f]{64})/,
-      )?.[1];
+      const resetToken = emailedLinkToken(email, "/reset-password", api.tenant);
       expect(resetToken).toBeDefined();
       const newPassword = orgPassword();
       const completed = await api.post(

@@ -19,6 +19,7 @@ import {
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { HubAPI, hubIdempotencyKey, MAILPIT_ORIGIN } from "../lib/hub-api.ts";
+import { emailedLinkToken } from "../lib/portals.ts";
 
 type ExpectedAuditEvent = Omit<
   AuditEvent,
@@ -48,9 +49,9 @@ async function latestEmailText(
 }
 
 function actionToken(body: string, path: string): string {
-  const match = body.match(new RegExp(`${path}\\?token=([0-9a-f]{64})`));
-  if (!match?.[1]) throw new Error(`email did not contain ${path} token`);
-  return match[1];
+  const token = emailedLinkToken(body, path, "sgp");
+  if (!token) throw new Error(`email did not contain an sgp ${path} token`);
+  return token;
 }
 
 function expectOneAuditEvent(

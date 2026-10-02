@@ -19,6 +19,7 @@ import {
   orgsIdempotencyKey,
   signupOrg,
 } from "../lib/orgs-api.ts";
+import { emailedLinkToken } from "../lib/portals.ts";
 
 // Request-signup's and complete-signup's 403 signup-unavailable need a tenant
 // with Org signup switched off, which the shared CI stack does not have.
@@ -144,7 +145,7 @@ test("a reused idempotency key with another body is a conflict", async ({
       { idempotencyKey: orgsIdempotencyKey() },
     );
     const email = await orgEmailText(request, org.emailAddress, "Reset");
-    const resetToken = email.match(/reset-password\?token=([0-9a-f]{64})/)?.[1];
+    const resetToken = emailedLinkToken(email, "/reset-password", api.tenant);
     const reset = orgsIdempotencyKey();
     org.password = orgPassword();
     const completed = await api.post(

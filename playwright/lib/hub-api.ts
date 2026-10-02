@@ -19,20 +19,14 @@ import type {
   SetPublicFieldsRequest,
 } from "typespec/hub/profile/public";
 import type { SetSubscriptionPlanRequest } from "typespec/hub/subscriptions/subscriptions";
+import type { TestTenant } from "./admin-db.ts";
+import { apiOrigin } from "./portals.ts";
 
-export const HUB_ORIGIN =
-  process.env.PLAYWRIGHT_HUB_BASE_URL ?? "http://hub-ui.sgp.localhost";
 export const MAILPIT_ORIGIN =
   process.env.PLAYWRIGHT_MAILPIT_BASE_URL ?? "http://127.0.0.1:18025";
 
 export function hubIdempotencyKey(): string {
   return `e2e-${randomBytes(30).toString("base64url")}`;
-}
-
-function originFor(tenant?: string): string {
-  return tenant === undefined
-    ? HUB_ORIGIN
-    : `http://hub-ui.${tenant}.localhost`;
 }
 
 export interface ProfileMutationOptions {
@@ -46,9 +40,9 @@ export class HubAPI {
 
   constructor(
     readonly request: APIRequestContext,
-    tenant?: string,
+    readonly tenant: TestTenant = "sgp",
   ) {
-    this.origin = originFor(tenant);
+    this.origin = apiOrigin(tenant);
   }
 
   post(

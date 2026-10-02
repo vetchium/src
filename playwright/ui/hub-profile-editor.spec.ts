@@ -5,9 +5,7 @@ import type { AliasState } from "typespec/hub/profile/alias";
 import type { ProfessionalEmail } from "typespec/hub/profile/professional_email";
 import type { PublicProfile } from "typespec/hub/profile/public";
 import type { HubSubscription } from "typespec/hub/subscriptions/subscriptions";
-
-const hubBaseURL =
-  process.env.PLAYWRIGHT_HUB_BASE_URL ?? "http://hub-ui.sgp.localhost";
+import { HUB_PORTAL } from "../lib/portals.ts";
 
 /** Drives the month picker through its year panel rather than typing, since
  * the masked text input does not reliably commit a value on `fill`/`Enter`.
@@ -71,12 +69,15 @@ async function openEditor(
       sessionStorage.setItem(
         "vetchium.hub.session",
         JSON.stringify({
-          session_token: "s".repeat(64),
-          session_expires_at: new Date(Date.now() + 60_000).toISOString(),
-          preferred_language: "en-US",
-          resident_country: "SG",
-          handle: userHandle,
-          remembered: false,
+          tenantId: "sgp",
+          session: {
+            session_token: "s".repeat(64),
+            session_expires_at: new Date(Date.now() + 60_000).toISOString(),
+            preferred_language: "en-US",
+            resident_country: "SG",
+            handle: userHandle,
+            remembered: false,
+          },
         }),
       );
     },
@@ -128,13 +129,13 @@ async function openEditor(
     }),
   );
   if (destination === "work-emails") {
-    await page.goto(`${hubBaseURL}/settings/work-emails`);
+    await page.goto(`${HUB_PORTAL}/settings/work-emails`);
     await expect(
       page.getByRole("heading", { name: "Professional emails", level: 1 }),
     ).toBeVisible();
     return profile;
   }
-  await page.goto(`${hubBaseURL}/settings/profile`);
+  await page.goto(`${HUB_PORTAL}/settings/profile`);
   await expect(page.getByRole("heading", { name: "My profile" })).toBeVisible();
   await expect(page.getByLabel("Biography")).toHaveValue("Original biography");
   return profile;
