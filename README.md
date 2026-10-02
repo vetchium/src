@@ -21,11 +21,13 @@ Docker with Compose, GNU Make, Go 1.27, Node.js 22.13 or newer. Optional:
 
 ```bash
 make dev        # clean, then start the full stack with all four regions
-make dev-seed   # after make dev: seed signup domains, Hub users, and Orgs
+make dev-seed   # clean, start the stack, then seed Hub users and Orgs
 make clean      # stop everything and delete volumes and dev secrets
 ```
 
-`make dev-seed` needs a fresh stack; rerunning it on a seeded stack fails.
+`make dev-seed` runs `make dev` itself, so it starts from a clean stack and can
+be run at any time; do not run `make dev` first. It prints each seeded Hub
+user's handle, email, region, and plan.
 
 | What | URL |
 | --- | --- |

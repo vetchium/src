@@ -167,7 +167,14 @@ func (c *hubProfileClient) seedUser(
 			return fmt.Errorf("upload picture: %w", err)
 		}
 	}
-	log.Printf("seeded Hub profile handle=%s email=%s region=%s", handle, user.Email, user.ResidentCountry)
+	plan := user.Plan
+	if user.BillingInterval != "" {
+		plan += "/" + user.BillingInterval
+	}
+	log.Printf(
+		"seeded Hub profile handle=%s email=%s region=%s plan=%s",
+		handle, user.Email, user.ResidentCountry, plan,
+	)
 	return nil
 }
 
