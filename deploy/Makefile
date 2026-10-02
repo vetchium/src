@@ -11,6 +11,7 @@ export
 
 REGISTRY  ?= ghcr.io/vetchium
 HTTP_PORT ?= 80
+HTTPS_PORT ?= 443
 MESH_API_PORT ?= 8443
 PGSSLMODE ?= disable
 WIREGUARD_INTERFACE ?= wg0
@@ -131,6 +132,7 @@ deploy:
 	@test -n "$(TAG)" || { echo "TAG is required, e.g. TAG=v1.2.3"; exit 1; }
 	@test -n "$(POSTGRES_USER)" || { echo "POSTGRES_USER is required"; exit 1; }
 	@test -n "$(POSTGRES_DB)" || { echo "POSTGRES_DB is required"; exit 1; }
+	@test -n "$(ACME_EMAIL)" || { echo "ACME_EMAIL is required for TLS certificates"; exit 1; }
 	@test -n "$(GLOBAL_COORDINATOR_WIREGUARD_IP)" || { echo "GLOBAL_COORDINATOR_WIREGUARD_IP is required"; exit 1; }
 	@test -n "$(MESH_API_WIREGUARD_IP)" || { echo "MESH_API_WIREGUARD_IP is required"; exit 1; }
 	@case "$(WIREGUARD_INTERFACE)" in *[!A-Za-z0-9_.-]*|'') echo "WIREGUARD_INTERFACE is invalid"; exit 1;; esac

@@ -73,7 +73,7 @@ serving_services = $$(docker compose -f $(1) config --services | \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
 	admin-ui-deps admin-ui-check admin-ui-check-ready \
-	hub-ui-deps hub-ui-check hub-ui-check-ready \
+	hub-ui-deps hub-ui-check hub-ui-check-ready portal-dist \
 	orgs-ui-deps orgs-ui-check orgs-ui-check-ready portal-ui-deps \
 	portal-ui-check portal-ui-check-ready typespec-deps \
 	typespec-check \
@@ -367,6 +367,18 @@ admin-ui-check-ready: admin-ui-deps
 	cd admin-ui && npm run build
 
 admin-ui-check: admin-ui-check-ready
+
+# Production Hub and Orgs bundles for the static host, one directory per
+# site, each with its generated _headers and _redirects. Upload these; the
+# portals are not deployed with the regional stacks.
+PORTAL_DIST_DIR := $(CURDIR)/portal-dist
+
+portal-dist: hub-ui-deps orgs-ui-deps
+	rm -rf "$(PORTAL_DIST_DIR)"
+	cd hub-ui && VITE_VETCHIUM_ENVIRONMENT=production npm run build -- \
+		--outDir "$(PORTAL_DIST_DIR)/hub" --emptyOutDir
+	cd orgs-ui && VITE_VETCHIUM_ENVIRONMENT=production npm run build -- \
+		--outDir "$(PORTAL_DIST_DIR)/orgs" --emptyOutDir
 
 hub-ui-deps:
 	cd hub-ui && npm ci

@@ -2,20 +2,23 @@
 
 The production files deploy one tenant per single-node Docker Swarm. Each
 tenant stack contains PostgreSQL, an isolated SeaweedFS master, volume server,
-filer, and authenticated S3 gateway, Traefik, three portals, and six backend
-services: `admin-api`, `hub-api`, `orgs-api`, `mesh-api`, `mcp-server`, and
-`workers`.
+filer, and authenticated S3 gateway, Traefik, the Admin portal, and six
+backend services: `admin-api`, `hub-api`, `orgs-api`, `mesh-api`,
+`mcp-server`, and `workers`. The Hub and Orgs portals are not part of any
+region: they are two static sites on a static-file host (see
+[Global portals](#global-portals)).
 
 `global-coordinator/stack.json` is a separate singleton deployment with its own
 PostgreSQL database and durable volume. The database contains only global
 principal routing, permanent handles, paid aliases, and the protocol ledgers
 needed to change them safely; tenant-owned profiles, credentials, and hiring
-data remain in tenant databases. The service also exposes authenticated region
-discovery. `signup-regions.json` is the region catalog shared by every stack,
-mounted read-only into `hub-api`, `orgs-api`, `mesh-api`, and the coordinator.
+data remain in tenant databases. `signup-regions.json` is the region catalog
+shared by every tenant stack, mounted read-only into `hub-api` and `orgs-api`,
+which use it for signup admission.
 
 Images are pulled from the configured registry. Nothing is built from this
-directory.
+directory; the static portal bundles come from `make portal-dist` at the
+repository root.
 
 ## Deploy
 
@@ -81,12 +84,16 @@ immutable; `latest` and `dev` are
 rejected. `POSTGRES_USER` and `POSTGRES_DB` are required for a tenant;
 `GLOBAL_POSTGRES_USER` and `GLOBAL_POSTGRES_DB` are required for the global
 stack. `REGISTRY` defaults to
-`ghcr.io/vetchium`, `HTTP_PORT` defaults to `80`, and `PGSSLMODE` defaults to
-`disable` until PostgreSQL TLS is configured. `ADMIN_UI_DEFAULT_LANGUAGE`,
-`HUB_UI_DEFAULT_LANGUAGE`, and `ORGS_UI_DEFAULT_LANGUAGE` select their portal's
-fallback locale after saved and browser preferences. Each variable is validated
-against its portal's own supported locale set; all currently accept `en-US`,
-`ta`, and `de-DE`. Each
+`ghcr.io/vetchium`, `HTTP_PORT` and `HTTPS_PORT` default to `80` and `443`, and
+`PGSSLMODE` defaults to `disable` until PostgreSQL TLS is configured.
+`ACME_EMAIL` is required: Traefik obtains this region's certificates from
+Let's Encrypt with the HTTP-01 challenge and keeps them in the `traefik-acme`
+volume, so no DNS credential lives on the host. `ADMIN_UI_DEFAULT_LANGUAGE`
+selects the Admin portal's fallback locale after saved and browser
+preferences, validated against `en-US`, `ta`, and `de-DE`. The Hub and Orgs
+portals fall back to `en-US`, compiled in; `HUB_UI_DEFAULT_LANGUAGE` and
+`ORGS_UI_DEFAULT_LANGUAGE` no longer exist and can be removed from `.env`.
+Each
 region's `config.json`
 contains the shared non-secret configuration for every backend program and is
 mounted read-only at `/etc/vetchium/config.json`. `POSTGRES_DB` and `PGSSLMODE`
@@ -126,12 +133,15 @@ the stack's external-secret mappings before the roll.
 
 `hubAPIServer.signup.enabled` must agree with the region's `signupEnabled` in
 `signup-regions.json`. `hub-api` compares them at startup and refuses to run if
-they disagree, because discovery would otherwise send visitors to a region that
-then refuses them. Changing either one means rolling the catalog and the
-region's config together. The same holds for `orgsAPIServer.signup.enabled` and
-the region's `orgSignupEnabled`, and for `orgsAPIServer.publicBaseURL` and the
-region's `orgsURL`: the catalog is advisory, and the tenant's own setting
-decides Org admission.
+they disagree, because the portals would otherwise offer a region that then
+refuses visitors. Changing either one means rolling the catalog and the
+region's config together and republishing the portals, whose region table
+carries the same flag. The same holds for `orgsAPIServer.signup.enabled` and
+the region's `orgSignupEnabled`: the catalog is advisory, and the tenant's own
+setting decides Org admission. `hubAPIServer.publicBaseURL` and
+`orgsAPIServer.publicBaseURL` are the global portals, `https://vetchium.com`
+and `https://orgs.vetchium.com`, in every region; emailed links add
+`region=<tenantId>`.
 
 `orgDomainVerification.resolverAddress` is the one resolver `orgs-api` and
 `workers` query for Org domain TXT records; there is no fallback to the host's
@@ -139,12 +149,13 @@ resolver. Production uses a public recursive resolver over plain DNS, so the
 host firewall must allow outbound UDP and TCP port 53 from the `dns_egress`
 network to that address.
 
-`hubAPIServer.offeredPlans` in each tenant's `config.json` must agree with
-`VETCHIUM_HUB_PLANS` for that tenant's `hub-ui` service in `stack.json`, and
-`tenantId` must agree with `VETCHIUM_TENANT_ID`. Nothing compares them at
-container startup, because `hub-ui` is a static nginx container; a
-repository test, `TestCheckedInHubPlansMatchPortalConfiguration` in
-`backend/internal/appconfig`, compares every checked-in environment instead.
+`hubAPIServer.offeredPlans` and `objectStorage.mediaBaseURL` in each tenant's
+`config.json` must agree with that region's entry in the Hub portal's
+compiled-in table, `hub-ui/src/app/regions/production.json`, and the catalog
+with `portal-ui/src/regions/production.json`. Nothing can compare them at
+startup, because the portals are static files; the repository test
+`TestPortalRegionTablesMatchCheckedInConfiguration` in
+`backend/internal/appconfig` compares every checked-in environment instead.
 When the two disagree, either the portal offers a plan the backend refuses
 (shown to the visitor as a translated error when they choose it), or the
 portal hides a plan the backend would otherwise accept. Simulated payments
@@ -152,12 +163,10 @@ are enabled in every environment, production included, so anyone who can
 sign up in production can take a paid plan without paying; there is no
 setting to disable simulation until a payment processor is integrated.
 Adding a plan means migrating the database first, then deploying `hub-api`
-and `workers` from the same release, and release `hub-ui` before listing the
-plan in `VETCHIUM_HUB_PLANS`: a database with a plan a running binary does not
-recognize causes that plan's rows to be skipped by the worker and rejected by
-`StateFromStored` until the new binaries are live, and `runtime-config.sh`
-hard-codes the plan list, so listing a new plan before releasing the image
-stops `hub-ui` from starting.
+and `workers` from the same release, and publishing the Hub portal with the
+plan in its region table last: a database with a plan a running binary does
+not recognize causes that plan's rows to be skipped by the worker and rejected
+by `StateFromStored` until the new binaries are live.
 
 For an existing tenant or global stack, its migrations run before
 `docker stack deploy`. A failed migration leaves the running stack untouched.
@@ -166,11 +175,55 @@ empty data volume, including the runtime role and access policy, before
 PostgreSQL becomes ready; the matching tenant or global migrations are then
 applied.
 
+## Global portals
+
+Hub (`https://vetchium.com`) and Orgs (`https://orgs.vetchium.com`) are one
+static site each, shared by every region. They hold no user data: the browser
+calls the chosen region's API directly. Build both with `make portal-dist` at
+the repository root; it writes `portal-dist/hub` and `portal-dist/orgs`, each
+with `_headers` (Content-Security-Policy listing every region's API and media
+origin, immutable `/assets/`, `X-Robots-Tag: noindex` on `/u/*` and `/org/*`)
+and `_redirects` (the single-page-app fallback). Both files use the format
+Cloudflare Pages and Netlify read; Cloudflare Pages ignores the fallback rule
+and serves the app for unknown paths by itself.
+
+Static-host setup, once:
+
+- Two sites, one per directory, with custom domains `vetchium.com` and
+  `orgs.vetchium.com` and the host's managed TLS.
+- Protect the account with hardware-key two-factor authentication. Its deploy
+  token can change the code every Hub and Orgs user runs, so give it only to
+  CI, deploy from the protected default branch only, and never upload by hand.
+
+DNS (Gandi):
+
+- `vetchium.com` and `orgs.vetchium.com` point at the static host. The apex
+  needs the provider's apex support (ALIAS/flattening or its published apex
+  addresses); confirm it with the chosen provider before switching.
+- `<region>.api.vetchium.com`, `media.<region>.vetchium.com`, and
+  `admin.<region>.vetchium.com` are A/AAAA records for that region's host only.
+  Each name resolves to exactly one host, which is what lets that host's
+  Traefik answer the HTTP-01 challenge.
+
+Host firewall: accept TCP `80` and `443` from anywhere on each tenant host.
+`80` must stay open after certificates are issued, for renewals.
+
+Release order (expand, then contract): one portal build talks to every region,
+and regions are upgraded one at a time. Deploy API additions to every region
+first, then publish the portals that use them, and remove old API behavior only
+after no published portal depends on it. Adding a region also means rebuilding
+and republishing both portals, because the region list, API origins, and media
+origins are compiled in.
+
 ## Runtime boundaries
 
-- Traefik is the only publicly exposed ingress. For each portal hostname it
-  sends `/api` to the matching `admin-api`, `hub-api`, or `orgs-api` over a
-  dedicated private access network; all other paths go to the static portal.
+- Traefik is the only publicly exposed ingress, on `:80` (ACME challenge and a
+  redirect to HTTPS) and `:443`. `<region>.api.vetchium.com` sends `/api/hub/`
+  to `hub-api` and `/api/orgs/` to `orgs-api`, each with a CORS policy allowing
+  exactly one origin (`https://vetchium.com` or `https://orgs.vetchium.com`);
+  `admin.<region>.vetchium.com` sends `/api` to `admin-api` and everything else
+  to the Admin portal; `media.<region>.vetchium.com` serves signed profile
+  pictures. Each reaches its service over a dedicated private access network.
 - `mesh-api`: private `mesh` and `backend`, plus `global_coordinator_egress`.
   Its local port `8080` is not published and accepts the tenant-local bearer
   relay. Its peer port `8443` is published in host mode only for WireGuard

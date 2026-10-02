@@ -11,6 +11,7 @@ import {
   nginxPortalInclude,
   type SecurityHeaderPolicy,
   staticHostHeaders,
+  staticHostRedirects,
 } from "./security-headers.ts";
 
 /**
@@ -41,9 +42,9 @@ interface AssetEmitter {
 }
 
 /**
- * A Vite plugin writing the static host's `_headers` into the bundle and the
- * nginx include for the container image into `nginxDirectory/portal.conf`,
- * outside the published files.
+ * A Vite plugin writing the static host's `_headers` and `_redirects` into the
+ * bundle and the nginx include for the container image into
+ * `nginxDirectory/portal.conf`, outside the published files.
  */
 export function securityHeadersPlugin(
   policy: SecurityHeaderPolicy,
@@ -57,6 +58,11 @@ export function securityHeadersPlugin(
         type: "asset",
         fileName: "_headers",
         source: staticHostHeaders(policy),
+      });
+      this.emitFile({
+        type: "asset",
+        fileName: "_redirects",
+        source: staticHostRedirects,
       });
     },
     closeBundle() {

@@ -14,8 +14,8 @@ COPY hub-ui/ ./
 # dev, ci, or production: selects the compiled-in region table. The build
 # fails when it is unset or unknown.
 ARG VITE_VETCHIUM_ENVIRONMENT
-# nginx serves the generated include instead of the static host's _headers.
-RUN npm run build && rm dist/_headers
+# nginx serves the generated include instead of the static host's files.
+RUN npm run build && rm dist/_headers dist/_redirects
 
 # nginx-unprivileged runs the master process as an unprivileged user and listens
 # on 8080; the stock nginx image needs root to bind :80, which this application

@@ -66,6 +66,11 @@ function commonHeaders(policy: SecurityHeaderPolicy): [string, string][] {
   ];
 }
 
+/** The `_redirects` file serving the single-page app for every path that is
+ * not a built file. Cloudflare Pages already does this when the bundle has no
+ * 404.html and ignores the rule; Netlify needs it. */
+export const staticHostRedirects = "/* /index.html 200\n";
+
 /** The `_headers` file static hosts such as Cloudflare Pages and Netlify
  * read; every matching rule applies, so path rules add to `/*`. */
 export function staticHostHeaders(policy: SecurityHeaderPolicy): string {
