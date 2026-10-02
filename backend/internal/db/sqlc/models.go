@@ -1324,6 +1324,9 @@ type VetchiumOrgUser struct {
 	OrgDid            pgtype.UUID          `json:"org_did"`
 	EmailAddress      string               `json:"email_address"`
 	OrgUserState      VetchiumOrgUserState `json:"org_user_state"`
+	DisabledReason    pgtype.Text          `json:"disabled_reason"`
+	DisabledAt        pgtype.Timestamptz   `json:"disabled_at"`
+	DisabledBy        pgtype.UUID          `json:"disabled_by"`
 	PreferredLanguage string               `json:"preferred_language"`
 	LastLoginAt       pgtype.Timestamptz   `json:"last_login_at"`
 	CreatedAt         pgtype.Timestamptz   `json:"created_at"`

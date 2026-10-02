@@ -3,9 +3,12 @@ package appconfig
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	orgsubscriptionspec "github.com/vetchium/src/typespec/orgs/subscriptions"
 
 	"backend/internal/regions"
 )
@@ -20,6 +23,7 @@ func TestLoadFileParsesOrgSettings(t *testing.T) {
 		Signup:        regions.Admission{Enabled: true},
 		SessionTTL:    12 * time.Hour,
 		SignupTTL:     168 * time.Hour,
+		InvitationTTL: 168 * time.Hour,
 		PublicBaseURL: "http://orgs.vetchium.localhost",
 	}) {
 		t.Fatalf("orgs API config = %+v", cfg.OrgsAPIServer)
@@ -34,6 +38,24 @@ func TestLoadFileParsesOrgSettings(t *testing.T) {
 		InconclusiveLimit:  168 * time.Hour,
 	}) {
 		t.Fatalf("org domain verification = %+v", cfg.OrgDomainVerification)
+	}
+	wantBilling := OrgBilling{
+		OfferedPlans: []orgsubscriptionspec.Plan{
+			orgsubscriptionspec.FreeTier, orgsubscriptionspec.SilverTier,
+			orgsubscriptionspec.GoldTier,
+		},
+		GracePeriod: 336 * time.Hour,
+		RetryOffsets: []time.Duration{
+			72 * time.Hour, 168 * time.Hour, 264 * time.Hour,
+		},
+		DueWarningLeads: []time.Duration{
+			168 * time.Hour, 72 * time.Hour, 24 * time.Hour,
+		},
+		DowngradeWarningLeads: []time.Duration{168 * time.Hour, 24 * time.Hour},
+		CheckInterval:         time.Minute,
+	}
+	if !reflect.DeepEqual(cfg.OrgBilling, wantBilling) {
+		t.Fatalf("org billing = %+v, want %+v", cfg.OrgBilling, wantBilling)
 	}
 	if cfg.Workers.DeliverOrgEmailTimer != time.Second ||
 		cfg.Workers.OrgEmailLeaseTTL != time.Minute ||
@@ -111,9 +133,107 @@ func TestLoadFileRejectsInvalidOrgSettings(t *testing.T) {
 			`"orgsAPIServer": {
     "sessionTTL": "12h",
     "signupTTL": "168h",
+    "invitationTTL": "168h",
     "publicBaseURL": "http://orgs.vetchium.localhost/"
   },`, ``,
 			"missing orgsAPIServer",
+		},
+		{
+			"missing invitation TTL", `"invitationTTL": "168h",`, ``,
+			"missing orgsAPIServer.invitationTTL",
+		},
+		{
+			"non-positive invitation TTL", `"invitationTTL": "168h"`,
+			`"invitationTTL": "0s"`,
+			"orgsAPIServer.invitationTTL must be positive",
+		},
+		{
+			"missing orgBilling",
+			`"orgBilling": {
+    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
+    "gracePeriod": "336h",
+    "retryOffsets": ["72h", "168h", "264h"],
+    "dueWarningLeads": ["168h", "72h", "24h"],
+    "downgradeWarningLeads": ["168h", "24h"],
+    "checkInterval": "1m"
+  },`, ``,
+			"missing orgBilling",
+		},
+		{
+			"empty offered plans",
+			`"offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]`,
+			`"offeredPlans": []`,
+			"orgBilling.offeredPlans must not be empty",
+		},
+		{
+			"unknown offered plan",
+			`"offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]`,
+			`"offeredPlans": ["org-free-tier", "org-platinum-tier"]`,
+			`orgBilling.offeredPlans: unknown plan "org-platinum-tier"`,
+		},
+		{
+			"hub plan is not an Org plan",
+			`"offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]`,
+			`"offeredPlans": ["org-free-tier", "hub-silver-tier"]`,
+			`orgBilling.offeredPlans: unknown plan "hub-silver-tier"`,
+		},
+		{
+			"duplicate offered plan",
+			`"offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]`,
+			`"offeredPlans": ["org-free-tier", "org-free-tier"]`,
+			`orgBilling.offeredPlans: duplicate plan "org-free-tier"`,
+		},
+		{
+			"free plan not offered",
+			`"offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]`,
+			`"offeredPlans": ["org-silver-tier"]`,
+			`orgBilling.offeredPlans must include "org-free-tier"`,
+		},
+		{
+			"missing grace period", `"gracePeriod": "336h",`, ``,
+			"missing orgBilling.gracePeriod",
+		},
+		{
+			"non-positive grace period", `"gracePeriod": "336h"`,
+			`"gracePeriod": "0s"`, "orgBilling.gracePeriod must be positive",
+		},
+		{
+			"non-positive check interval", `"checkInterval": "1m"`,
+			`"checkInterval": "0s"`, "orgBilling.checkInterval must be positive",
+		},
+		{
+			"empty retry offsets", `"retryOffsets": ["72h", "168h", "264h"]`,
+			`"retryOffsets": []`, "orgBilling.retryOffsets must not be empty",
+		},
+		{
+			"retry offsets not ascending",
+			`"retryOffsets": ["72h", "168h", "264h"]`,
+			`"retryOffsets": ["72h", "72h", "264h"]`,
+			"orgBilling.retryOffsets must be strictly ascending",
+		},
+		{
+			"retry offset past the deadline",
+			`"retryOffsets": ["72h", "168h", "264h"]`,
+			`"retryOffsets": ["72h", "168h", "336h"]`,
+			"orgBilling.retryOffsets: 336h must be shorter than",
+		},
+		{
+			"due warning leads not descending",
+			`"dueWarningLeads": ["168h", "72h", "24h"]`,
+			`"dueWarningLeads": ["24h", "72h", "168h"]`,
+			"orgBilling.dueWarningLeads must be strictly descending",
+		},
+		{
+			"due warning lead beyond grace",
+			`"dueWarningLeads": ["168h", "72h", "24h"]`,
+			`"dueWarningLeads": ["400h", "72h", "24h"]`,
+			"orgBilling.dueWarningLeads: 400h must be shorter than",
+		},
+		{
+			"unparsable downgrade lead",
+			`"downgradeWarningLeads": ["168h", "24h"]`,
+			`"downgradeWarningLeads": ["7d", "24h"]`,
+			"parse orgBilling.downgradeWarningLeads",
 		},
 		{
 			"missing orgDomainVerification",

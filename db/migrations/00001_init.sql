@@ -1218,7 +1218,8 @@ CREATE TABLE vetchium.org_plans (
         CHECK (org_plan_oid ~ '^org-[a-z0-9]+(-[a-z0-9]+)*$')
 );
 
-INSERT INTO vetchium.org_plans (org_plan_oid) VALUES ('org-free-tier');
+INSERT INTO vetchium.org_plans (org_plan_oid)
+VALUES ('org-free-tier'), ('org-silver-tier'), ('org-gold-tier');
 
 CREATE TYPE vetchium.org_state AS ENUM (
     'provisioning',
@@ -1318,11 +1319,27 @@ CREATE TABLE vetchium.org_users (
         ON DELETE CASCADE,
     email_address text NOT NULL,
     org_user_state vetchium.org_user_state NOT NULL DEFAULT 'provisioning',
+    -- Why and by whom a user is disabled; disabled_by is NULL for nonpayment,
+    -- which no user causes.
+    disabled_reason text,
+    disabled_at timestamptz,
+    disabled_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
     preferred_language vetchium.org_frontend_locale NOT NULL,
     last_login_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT org_users_org_email_key UNIQUE (org_did, email_address),
+    CONSTRAINT org_users_disabled_consistent CHECK (
+        CASE org_user_state
+            WHEN 'disabled' THEN
+                disabled_reason IN ('manual', 'nonpayment') AND
+                disabled_at IS NOT NULL AND
+                (disabled_reason = 'manual' OR disabled_by IS NULL)
+            ELSE disabled_reason IS NULL AND disabled_at IS NULL AND
+                disabled_by IS NULL
+        END
+    ),
     CONSTRAINT org_users_email_address_normalized CHECK (
         email_address = lower(btrim(email_address)) AND
         char_length(email_address) BETWEEN 3 AND 254
@@ -1357,7 +1374,7 @@ CREATE TABLE vetchium.org_permission_catalog (
 );
 
 INSERT INTO vetchium.org_permission_catalog (permission)
-VALUES ('org:superadmin');
+VALUES ('org:superadmin'), ('org:manage_users'), ('org:manage_billing');
 
 -- A grant of permission also confers implied_permission, resolved on read by
 -- vetchium.org_effective_permissions and never stored as a grant of its own.
@@ -1371,6 +1388,11 @@ CREATE TABLE vetchium.org_permission_implications (
         permission <> implied_permission
     )
 );
+
+INSERT INTO vetchium.org_permission_implications (permission, implied_permission)
+VALUES
+    ('org:superadmin', 'org:manage_users'),
+    ('org:superadmin', 'org:manage_billing');
 
 CREATE TABLE vetchium.org_user_permissions (
     org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)

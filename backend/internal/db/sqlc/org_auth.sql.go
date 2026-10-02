@@ -16,7 +16,14 @@ SELECT
     u.org_user_id,
     u.org_did,
     s.org_session_id,
-    s.authenticated_at
+    s.authenticated_at,
+    o.org_state,
+    ARRAY(
+        SELECT e.permission
+        FROM vetchium.org_effective_permissions AS e
+        WHERE e.org_user_id = u.org_user_id
+        ORDER BY e.permission
+    )::text[] AS permissions
 FROM vetchium.org_sessions AS s
 JOIN vetchium.org_users AS u USING (org_user_id)
 JOIN vetchium.orgs AS o ON o.org_did = u.org_did
@@ -31,6 +38,8 @@ type AuthenticateOrgSessionRow struct {
 	OrgDid          pgtype.UUID        `json:"org_did"`
 	OrgSessionID    pgtype.UUID        `json:"org_session_id"`
 	AuthenticatedAt pgtype.Timestamptz `json:"authenticated_at"`
+	OrgState        VetchiumOrgState   `json:"org_state"`
+	Permissions     []string           `json:"permissions"`
 }
 
 func (q *Queries) AuthenticateOrgSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateOrgSessionRow, error) {
@@ -41,6 +50,8 @@ func (q *Queries) AuthenticateOrgSession(ctx context.Context, sessionTokenHash [
 		&i.OrgDid,
 		&i.OrgSessionID,
 		&i.AuthenticatedAt,
+		&i.OrgState,
+		&i.Permissions,
 	)
 	return i, err
 }

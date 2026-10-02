@@ -293,7 +293,14 @@ SELECT
     u.org_user_id,
     u.org_did,
     s.org_session_id,
-    s.authenticated_at
+    s.authenticated_at,
+    o.org_state,
+    ARRAY(
+        SELECT e.permission
+        FROM vetchium.org_effective_permissions AS e
+        WHERE e.org_user_id = u.org_user_id
+        ORDER BY e.permission
+    )::text[] AS permissions
 FROM vetchium.org_sessions AS s
 JOIN vetchium.org_users AS u USING (org_user_id)
 JOIN vetchium.orgs AS o ON o.org_did = u.org_did

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
+	orgsubscriptionspec "github.com/vetchium/src/typespec/orgs/subscriptions"
 
 	"backend/internal/regions"
 )
@@ -40,6 +41,7 @@ type Config struct {
 	SMTP                  SMTP
 	OrgsAPIServer         OrgsAPIServer
 	OrgDomainVerification OrgDomainVerification
+	OrgBilling            OrgBilling
 	MCPServer             Server
 }
 
@@ -94,7 +96,29 @@ type OrgsAPIServer struct {
 	Signup        regions.Admission
 	SessionTTL    time.Duration
 	SignupTTL     time.Duration
+	InvitationTTL time.Duration
 	PublicBaseURL string
+}
+
+// OrgBilling sets which Org plans a tenant offers and times the dunning
+// lifecycle in agent-guides/org-subscriptions.md. Retry offsets and warning
+// leads are measured from the instant the invoice falls due, so every one
+// lies inside GracePeriod.
+type OrgBilling struct {
+	OfferedPlans []orgsubscriptionspec.Plan
+	// GracePeriod is how long service continues on the paid plan after a
+	// failed charge.
+	GracePeriod time.Duration
+	// RetryOffsets, ascending, are the delays after the failure at which the
+	// saved payment method is charged again.
+	RetryOffsets []time.Duration
+	// DueWarningLeads, descending, are how long before the deadline billing
+	// holders are warned.
+	DueWarningLeads []time.Duration
+	// DowngradeWarningLeads, descending, are how long before a scheduled
+	// downgrade takes effect billing holders are warned.
+	DowngradeWarningLeads []time.Duration
+	CheckInterval         time.Duration
 }
 
 // OrgDomainVerification sets how Org domain TXT records are looked up and how
@@ -186,6 +210,7 @@ type fileConfig struct {
 	SMTP                  *fileSMTP                  `json:"smtp"`
 	OrgsAPIServer         *fileOrgsAPIServer         `json:"orgsAPIServer"`
 	OrgDomainVerification *fileOrgDomainVerification `json:"orgDomainVerification"`
+	OrgBilling            *fileOrgBilling            `json:"orgBilling"`
 	MCPServer             *Server                    `json:"mcpServer"`
 }
 
@@ -258,7 +283,17 @@ type fileOrgsAPIServer struct {
 	Signup        *regions.Admission `json:"signup"`
 	SessionTTL    string             `json:"sessionTTL"`
 	SignupTTL     string             `json:"signupTTL"`
+	InvitationTTL string             `json:"invitationTTL"`
 	PublicBaseURL string             `json:"publicBaseURL"`
+}
+
+type fileOrgBilling struct {
+	OfferedPlans          []string `json:"offeredPlans"`
+	GracePeriod           string   `json:"gracePeriod"`
+	RetryOffsets          []string `json:"retryOffsets"`
+	DueWarningLeads       []string `json:"dueWarningLeads"`
+	DowngradeWarningLeads []string `json:"downgradeWarningLeads"`
+	CheckInterval         string   `json:"checkInterval"`
 }
 
 type fileOrgDomainVerification struct {
@@ -380,6 +415,10 @@ func LoadFile(path string) (Config, error) {
 	}
 	if raw.OrgDomainVerification == nil {
 		err := fmt.Errorf("missing orgDomainVerification")
+		return Config{}, configError(path, err)
+	}
+	if raw.OrgBilling == nil {
+		err := fmt.Errorf("missing orgBilling")
 		return Config{}, configError(path, err)
 	}
 	if raw.MCPServer == nil {
@@ -517,6 +556,10 @@ func LoadFile(path string) (Config, error) {
 	orgDomainVerification, err := parseOrgDomainVerification(
 		*raw.OrgDomainVerification,
 	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	orgBilling, err := parseOrgBilling(*raw.OrgBilling)
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
@@ -680,6 +723,7 @@ func LoadFile(path string) (Config, error) {
 		SMTP:                  smtp,
 		OrgsAPIServer:         orgsAPIServer,
 		OrgDomainVerification: orgDomainVerification,
+		OrgBilling:            orgBilling,
 		MCPServer:             Server{},
 	}, nil
 }
@@ -892,6 +936,12 @@ func parseOrgsAPIServer(raw fileOrgsAPIServer) (OrgsAPIServer, error) {
 	if err != nil {
 		return OrgsAPIServer{}, err
 	}
+	invitationTTL, err := positiveDuration(
+		"orgsAPIServer.invitationTTL", raw.InvitationTTL,
+	)
+	if err != nil {
+		return OrgsAPIServer{}, err
+	}
 	publicBaseURL, err := httpOrigin(
 		"orgsAPIServer.publicBaseURL", raw.PublicBaseURL,
 	)
@@ -902,8 +952,92 @@ func parseOrgsAPIServer(raw fileOrgsAPIServer) (OrgsAPIServer, error) {
 		Signup:        admission,
 		SessionTTL:    sessionTTL,
 		SignupTTL:     signupTTL,
+		InvitationTTL: invitationTTL,
 		PublicBaseURL: publicBaseURL,
 	}, nil
+}
+
+func parseOrgBilling(raw fileOrgBilling) (OrgBilling, error) {
+	const prefix = "orgBilling."
+	offeredPlans, err := parseOrgOfferedPlans(raw.OfferedPlans)
+	if err != nil {
+		return OrgBilling{}, err
+	}
+	gracePeriod, err := positiveDuration(prefix+"gracePeriod", raw.GracePeriod)
+	if err != nil {
+		return OrgBilling{}, err
+	}
+	checkInterval, err := positiveDuration(
+		prefix+"checkInterval", raw.CheckInterval,
+	)
+	if err != nil {
+		return OrgBilling{}, err
+	}
+	retryOffsets, err := durationList(
+		prefix+"retryOffsets", raw.RetryOffsets, true, gracePeriod,
+	)
+	if err != nil {
+		return OrgBilling{}, err
+	}
+	dueWarningLeads, err := durationList(
+		prefix+"dueWarningLeads", raw.DueWarningLeads, false, gracePeriod,
+	)
+	if err != nil {
+		return OrgBilling{}, err
+	}
+	downgradeWarningLeads, err := durationList(
+		prefix+"downgradeWarningLeads", raw.DowngradeWarningLeads, false, 0,
+	)
+	if err != nil {
+		return OrgBilling{}, err
+	}
+	return OrgBilling{
+		OfferedPlans:          offeredPlans,
+		GracePeriod:           gracePeriod,
+		RetryOffsets:          retryOffsets,
+		DueWarningLeads:       dueWarningLeads,
+		DowngradeWarningLeads: downgradeWarningLeads,
+		CheckInterval:         checkInterval,
+	}, nil
+}
+
+// durationList parses a non-empty list of positive durations that is strictly
+// ascending or descending. A positive limit bounds every entry from above
+// (exclusive).
+func durationList(
+	name string, values []string, ascending bool, limit time.Duration,
+) ([]time.Duration, error) {
+	if len(values) == 0 {
+		return nil, fmt.Errorf("%s must not be empty", name)
+	}
+	result := make([]time.Duration, 0, len(values))
+	for _, value := range values {
+		duration, err := positiveDuration(name, value)
+		if err != nil {
+			return nil, err
+		}
+		if limit > 0 && duration >= limit {
+			return nil, fmt.Errorf(
+				"%s: %s must be shorter than orgBilling.gracePeriod",
+				name, value,
+			)
+		}
+		if len(result) > 0 {
+			previous := result[len(result)-1]
+			if (ascending && duration <= previous) ||
+				(!ascending && duration >= previous) {
+				order := "descending"
+				if ascending {
+					order = "ascending"
+				}
+				return nil, fmt.Errorf(
+					"%s must be strictly %s", name, order,
+				)
+			}
+		}
+		result = append(result, duration)
+	}
+	return result, nil
 }
 
 func parseOrgDomainVerification(
@@ -1027,6 +1161,40 @@ func parseOfferedPlans(values []string) ([]subscriptionspec.Plan, error) {
 		return nil, fmt.Errorf(
 			"hubAPIServer.offeredPlans must include %q",
 			subscriptionspec.DefaultPlan,
+		)
+	}
+	return plans, nil
+}
+
+// parseOrgOfferedPlans has no silent default, for the same reason as
+// parseOfferedPlans.
+func parseOrgOfferedPlans(
+	values []string,
+) ([]orgsubscriptionspec.Plan, error) {
+	if len(values) == 0 {
+		return nil, fmt.Errorf("orgBilling.offeredPlans must not be empty")
+	}
+	plans := make([]orgsubscriptionspec.Plan, 0, len(values))
+	seen := make(map[orgsubscriptionspec.Plan]bool, len(values))
+	for _, value := range values {
+		plan := orgsubscriptionspec.Plan(value)
+		if !orgsubscriptionspec.IsPlan(orgsubscriptionspec.PlanOID(plan)) {
+			return nil, fmt.Errorf(
+				"orgBilling.offeredPlans: unknown plan %q", value,
+			)
+		}
+		if seen[plan] {
+			return nil, fmt.Errorf(
+				"orgBilling.offeredPlans: duplicate plan %q", value,
+			)
+		}
+		seen[plan] = true
+		plans = append(plans, plan)
+	}
+	if !slices.Contains(plans, orgsubscriptionspec.DefaultPlan) {
+		return nil, fmt.Errorf(
+			"orgBilling.offeredPlans must include %q",
+			orgsubscriptionspec.DefaultPlan,
 		)
 	}
 	return plans, nil

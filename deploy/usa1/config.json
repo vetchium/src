@@ -75,6 +75,7 @@
   "orgsAPIServer": {
     "sessionTTL": "24h",
     "signupTTL": "168h",
+    "invitationTTL": "168h",
     "publicBaseURL": "https://orgs.vetchium.com"
   },
   "orgDomainVerification": {
@@ -85,6 +86,14 @@
     "failingGracePeriod": "720h",
     "inconclusiveRetry": "1h",
     "inconclusiveLimit": "168h"
+  },
+  "orgBilling": {
+    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
+    "gracePeriod": "336h",
+    "retryOffsets": ["72h", "168h", "264h"],
+    "dueWarningLeads": ["168h", "72h", "24h"],
+    "downgradeWarningLeads": ["168h", "24h"],
+    "checkInterval": "1m"
   },
   "mcpServer": {}
 }
