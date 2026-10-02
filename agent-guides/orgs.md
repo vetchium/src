@@ -148,9 +148,11 @@ by the `workers` schedule and check-now.
 ## Suspended Orgs
 
 - A suspended Org's users may sign in, sign out, manage their own credentials,
-  read my-info, and run check-now. Every other Org route must refuse a
-  suspended Org with an Org-suspended problem, enforced in middleware from the
-  session's Org state, never only in orgs-ui.
+  read my-info, run check-now, and use the billing routes of
+  [`org-subscriptions.md`](org-subscriptions.md). Every other Org route must
+  refuse a suspended Org with an Org-suspended problem, enforced by
+  `middleware.RequireActiveOrg` from the session's Org state, never only in
+  orgs-ui.
 - A suspended Org whose released domain was claimed by another Org stays
   suspended until a later feature lets it prove another domain.
 
@@ -161,8 +163,11 @@ by the `workers` schedule and check-now.
   to locate or hint at a different sign-in region.
 - An unknown domain, unknown user, wrong region, and wrong password produce
   the same `org-invalid-credentials`.
-- Refuse a disabled Org user with `org-user-disabled`, following the Hub and
-  admin conventions.
+- Refuse a disabled Org user with `org-user-disabled`, or
+  `org-user-disabled-nonpayment` when the Org's lapsed subscription disabled
+  them, following the Hub and admin conventions.
+- Gold Orgs may also sign in with Google (`sso/google/start` and `complete`),
+  which skips Vetchium TOTP; see [`org-subscriptions.md`](org-subscriptions.md).
 - TOTP is optional and follows the Hub and admin flow: login challenge, TOTP or
   recovery-code verification, recovery codes, enrolment, and disabling.
 - Offer sign-out, my-info, forgot and reset password by emailed link, change
@@ -178,18 +183,22 @@ by the `workers` schedule and check-now.
 ## Permissions and plans
 
 - Org authorization follows the shared model in
-  [`authorization.md`](authorization.md). `org:superadmin` is the only
-  permission so far.
+  [`authorization.md`](authorization.md). The catalog holds `org:superadmin`,
+  `org:manage_users`, and `org:manage_billing`; the superadmin implies the
+  other two.
 - Org plans are seeded rows identified by plan OIDs, identical in every tenant.
-  Only `org-free-tier` exists; it is assigned at signup, with no plan selection
-  or plan UI.
+  A new Org starts on `org-free-tier`. Plans, billing, seats, user management,
+  the logo, and Google sign-in are in
+  [`org-subscriptions.md`](org-subscriptions.md).
 
 ## Portal
 
 - `orgs-ui` provides region choice, signup request, the private-link
   completion page, sign-in with a mandatory empty region picker, the TOTP
-  step, forgot and reset password, the signed-in shell, account security, the
-  failing banner, and the suspended (restore-domain) screen.
+  step, Google sign-in and its callback, forgot and reset password, the
+  signed-in shell, account security, the failing banner, and the suspended
+  (restore-domain) screen, plus members and invitations, plans and billing,
+  and settings (logo, Google sign-in).
 - Ship every user-visible string in every `orgs-ui` locale.
 
 ## Tests

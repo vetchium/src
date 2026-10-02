@@ -59,6 +59,7 @@ Read every guide that applies before changing files.
 | [`hub-profile.md`](agent-guides/hub-profile.md) | Hub profiles, evidence, aliases, pictures |
 | [`hub-subscriptions.md`](agent-guides/hub-subscriptions.md) | Hub plans, subscriptions, payments |
 | [`orgs.md`](agent-guides/orgs.md) | Org signup, sign-in, domain verification |
+| [`org-subscriptions.md`](agent-guides/org-subscriptions.md) | Org plans, billing, seats, user management, logo, Google sign-in |
 
 Guides compose: a handler using PostgreSQL needs `go.md`, `backend.md`, and
 `database.md`. A scoped `AGENTS.md` lists the baseline guides for its tree; the

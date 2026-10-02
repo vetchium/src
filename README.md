@@ -70,8 +70,10 @@ Hub portal: eight users per region, listed in `dev/hub-seed-profiles/<region>.js
 profiles and pictures; half are on the free plan. Sign in with the matching
 region selected.
 
-Orgs portal: one Org per region. Domain `<region>.example.com`, user
-`admin@<region>.example.com`.
+Orgs portal: three Orgs per region, one on each plan: `<region>.example.com`
+(Free), `silver.<region>.example.com`, and `gold.<region>.example.com`. Each has
+`admin@` (Superadmin), `finance@` (Finance), `users@` (User manager), and
+`member@` at its domain. A paid Org is on its plan with a simulated card.
 
 Hub signup accepts addresses at `<region>.example`; `sgp` also accepts
 `test1.example` to `test100.example`. Signup and reset emails arrive in Mailpit.
