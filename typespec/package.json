@@ -58,6 +58,7 @@
     "./orgs/authorization/types": "./orgs/authorization/types.ts",
     "./orgs/users/invitations": "./orgs/users/invitations.ts",
     "./orgs/users/management": "./orgs/users/management.ts",
+    "./orgs/subscriptions/billing": "./orgs/subscriptions/billing.ts",
     "./orgs/subscriptions/plans": "./orgs/subscriptions/plans.ts",
     "./problem/admin/authentication": "./problem/admin/authentication.ts",
     "./problem/admin/authorization": "./problem/admin/authorization.ts",

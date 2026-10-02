@@ -1221,6 +1221,10 @@ CREATE TABLE vetchium.org_plans (
 INSERT INTO vetchium.org_plans (org_plan_oid)
 VALUES ('org-free-tier'), ('org-silver-tier'), ('org-gold-tier');
 
+CREATE TYPE vetchium.org_billing_interval AS ENUM ('month', 'year');
+CREATE TYPE vetchium.org_subscription_source AS ENUM ('simulated');
+CREATE TYPE vetchium.org_billing_state AS ENUM ('current', 'past_due');
+
 CREATE TYPE vetchium.org_state AS ENUM (
     'provisioning',
     'active',
@@ -1232,6 +1236,17 @@ CREATE TABLE vetchium.orgs (
     display_name text NOT NULL,
     org_state vetchium.org_state NOT NULL DEFAULT 'provisioning',
     org_plan_oid text NOT NULL REFERENCES vetchium.org_plans (org_plan_oid),
+    org_billing_interval vetchium.org_billing_interval,
+    subscription_anchor_at timestamptz,
+    subscription_period_start timestamptz,
+    subscription_period_end timestamptz,
+    scheduled_org_plan_oid text REFERENCES vetchium.org_plans (org_plan_oid),
+    scheduled_billing_interval vetchium.org_billing_interval,
+    -- past_due means an invoice is open and the grace period is running; the
+    -- Org keeps its paid plan until the invoice is paid or voided.
+    billing_state vetchium.org_billing_state NOT NULL DEFAULT 'current',
+    subscription_source vetchium.org_subscription_source NOT NULL
+        DEFAULT 'simulated',
     suspended_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
@@ -1245,7 +1260,47 @@ CREATE TABLE vetchium.orgs (
     CONSTRAINT orgs_suspension_check CHECK (
         (org_state = 'suspended') = (suspended_at IS NOT NULL)
     ),
-    CONSTRAINT orgs_timestamps_ordered CHECK (updated_at >= created_at)
+    CONSTRAINT orgs_timestamps_ordered CHECK (updated_at >= created_at),
+    -- Two explicit branches, so a partially null row cannot pass as SQL
+    -- UNKNOWN.
+    CONSTRAINT orgs_free_plan_has_no_period CHECK (
+        (org_plan_oid = 'org-free-tier'
+            AND org_billing_interval IS NULL
+            AND subscription_anchor_at IS NULL
+            AND subscription_period_start IS NULL
+            AND subscription_period_end IS NULL)
+        OR (org_plan_oid <> 'org-free-tier'
+            AND org_billing_interval IS NOT NULL
+            AND subscription_anchor_at IS NOT NULL
+            AND subscription_period_start IS NOT NULL
+            AND subscription_period_end IS NOT NULL)
+    ),
+    -- On a free row every operand is null, so the expression is UNKNOWN and
+    -- the row passes; the presence constraint above governs free rows.
+    CONSTRAINT orgs_subscription_period_ordered CHECK (
+        subscription_anchor_at <= subscription_period_start
+        AND subscription_period_start < subscription_period_end
+    ),
+    -- No schedule; a scheduled cancellation on a paid plan; or a scheduled
+    -- paid change on a paid plan that differs from the current plan and
+    -- interval.
+    CONSTRAINT orgs_scheduled_plan_consistent CHECK (
+        (scheduled_org_plan_oid IS NULL
+            AND scheduled_billing_interval IS NULL)
+        OR (scheduled_org_plan_oid IS NOT NULL
+            AND scheduled_org_plan_oid = 'org-free-tier'
+            AND scheduled_billing_interval IS NULL
+            AND org_plan_oid <> 'org-free-tier')
+        OR (scheduled_org_plan_oid IS NOT NULL
+            AND scheduled_org_plan_oid <> 'org-free-tier'
+            AND scheduled_billing_interval IS NOT NULL
+            AND org_plan_oid <> 'org-free-tier'
+            AND (scheduled_org_plan_oid, scheduled_billing_interval)
+                IS DISTINCT FROM (org_plan_oid, org_billing_interval))
+    ),
+    CONSTRAINT orgs_past_due_is_paid CHECK (
+        billing_state = 'current' OR org_plan_oid <> 'org-free-tier'
+    )
 );
 
 -- verified and failing hold a global claim. releasing and reclaiming carry the
@@ -1444,6 +1499,93 @@ CREATE UNIQUE INDEX org_user_invitations_active_email_idx
     ON vetchium.org_user_invitations (org_did, email_address) WHERE active;
 CREATE INDEX org_user_invitations_expiry_idx
     ON vetchium.org_user_invitations (expires_at);
+
+CREATE TYPE vetchium.org_payment_method_kind AS ENUM (
+    'simulated-succeeds',
+    'simulated-declines'
+);
+CREATE TYPE vetchium.org_invoice_state AS ENUM ('paid', 'open', 'void');
+CREATE TYPE vetchium.org_invoice_reason AS ENUM ('upgrade', 'renewal');
+CREATE TYPE vetchium.org_invoice_failure AS ENUM (
+    'declined',
+    'no_payment_method'
+);
+
+-- At most one saved method per Org. The kinds are simulated test cards;
+-- no real card data exists in any environment.
+CREATE TABLE vetchium.org_payment_methods (
+    org_did uuid PRIMARY KEY REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    kind vetchium.org_payment_method_kind NOT NULL,
+    created_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Every charge leaves an invoice. Only a failed renewal leaves an open one;
+-- a refused upgrade creates none.
+CREATE TABLE vetchium.org_invoices (
+    -- Random, so the identifier reveals neither count nor time.
+    org_invoice_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    org_plan_oid text NOT NULL REFERENCES vetchium.org_plans (org_plan_oid),
+    billing_interval vetchium.org_billing_interval NOT NULL,
+    period_start timestamptz NOT NULL,
+    period_end timestamptz NOT NULL,
+    reason vetchium.org_invoice_reason NOT NULL,
+    invoice_state vetchium.org_invoice_state NOT NULL,
+    due_at timestamptz,
+    attempt_count integer NOT NULL DEFAULT 1 CHECK (attempt_count >= 1),
+    next_attempt_at timestamptz,
+    last_failure vetchium.org_invoice_failure,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    paid_at timestamptz,
+    paid_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    voided_at timestamptz,
+    CONSTRAINT org_invoices_period_ordered CHECK (period_start < period_end),
+    CONSTRAINT org_invoices_not_free CHECK (org_plan_oid <> 'org-free-tier'),
+    CONSTRAINT org_invoices_state_consistent CHECK (
+        (invoice_state = 'paid'
+            AND paid_at IS NOT NULL AND voided_at IS NULL
+            AND due_at IS NULL AND next_attempt_at IS NULL)
+        OR (invoice_state = 'open'
+            AND due_at IS NOT NULL AND last_failure IS NOT NULL
+            AND paid_at IS NULL AND voided_at IS NULL
+            AND paid_by IS NULL)
+        OR (invoice_state = 'void'
+            AND voided_at IS NOT NULL AND paid_at IS NULL
+            AND paid_by IS NULL AND next_attempt_at IS NULL)
+    )
+);
+
+-- The Org is past due exactly while an invoice is open.
+CREATE UNIQUE INDEX org_invoices_one_open_idx
+    ON vetchium.org_invoices (org_did) WHERE invoice_state = 'open';
+CREATE INDEX org_invoices_org_created_idx
+    ON vetchium.org_invoices (org_did, created_at DESC, org_invoice_id DESC);
+CREATE INDEX org_invoices_retry_idx
+    ON vetchium.org_invoices (next_attempt_at)
+    WHERE invoice_state = 'open' AND next_attempt_at IS NOT NULL;
+
+-- One row per (Org, notice, target instant, lead) ever warned. The unique key
+-- makes a warning idempotent under a repeated worker tick: the insert is
+-- attempted with ON CONFLICT DO NOTHING, not guarded by a preceding read.
+CREATE TABLE vetchium.org_billing_notices (
+    org_billing_notice_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    notice_kind text NOT NULL CHECK (
+        notice_kind IN ('payment-due', 'subscription-ending')
+    ),
+    target_at timestamptz NOT NULL,
+    lead_seconds bigint NOT NULL CHECK (lead_seconds > 0),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_billing_notices_key UNIQUE (
+        org_did, notice_kind, target_at, lead_seconds
+    )
+);
 
 -- The single definition of a seat: an active user, or an invitation that has
 -- not expired. Disabled users and expired invitations hold none. Callers hold
@@ -1713,6 +1855,13 @@ DROP TABLE IF EXISTS vetchium.org_password_reset_tokens;
 DROP TABLE IF EXISTS vetchium.org_totp_recovery_codes;
 DROP TABLE IF EXISTS vetchium.org_totp_enrollments;
 DROP TABLE IF EXISTS vetchium.org_login_challenges;
+DROP TABLE IF EXISTS vetchium.org_billing_notices;
+DROP TABLE IF EXISTS vetchium.org_invoices;
+DROP TABLE IF EXISTS vetchium.org_payment_methods;
+DROP TYPE IF EXISTS vetchium.org_invoice_failure;
+DROP TYPE IF EXISTS vetchium.org_invoice_reason;
+DROP TYPE IF EXISTS vetchium.org_invoice_state;
+DROP TYPE IF EXISTS vetchium.org_payment_method_kind;
 DROP FUNCTION IF EXISTS vetchium.org_seats_in_use(uuid);
 DROP TABLE IF EXISTS vetchium.org_user_invitations;
 DROP TABLE IF EXISTS vetchium.org_sessions;
@@ -1728,6 +1877,9 @@ DROP TABLE IF EXISTS vetchium.org_domains;
 DROP TYPE IF EXISTS vetchium.org_domain_state;
 DROP TABLE IF EXISTS vetchium.orgs;
 DROP TYPE IF EXISTS vetchium.org_state;
+DROP TYPE IF EXISTS vetchium.org_billing_state;
+DROP TYPE IF EXISTS vetchium.org_subscription_source;
+DROP TYPE IF EXISTS vetchium.org_billing_interval;
 DROP TABLE IF EXISTS vetchium.org_plans;
 DROP TABLE IF EXISTS vetchium.federation_inbox;
 DROP TABLE IF EXISTS vetchium.federation_outbox;
