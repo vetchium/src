@@ -35,6 +35,7 @@ SELECT
     o.scheduled_billing_interval,
     o.billing_state,
     o.org_state,
+    o.google_sign_in_enabled,
     pm.kind AS payment_method_kind,
     vetchium.org_seats_in_use(o.org_did)::bigint AS seats_in_use,
     oi.org_invoice_id AS open_invoice_id,
@@ -65,6 +66,7 @@ type GetOrgSubscriptionRow struct {
 	ScheduledBillingInterval   NullVetchiumOrgBillingInterval   `json:"scheduled_billing_interval"`
 	BillingState               VetchiumOrgBillingState          `json:"billing_state"`
 	OrgState                   VetchiumOrgState                 `json:"org_state"`
+	GoogleSignInEnabled        bool                             `json:"google_sign_in_enabled"`
 	PaymentMethodKind          NullVetchiumOrgPaymentMethodKind `json:"payment_method_kind"`
 	SeatsInUse                 int64                            `json:"seats_in_use"`
 	OpenInvoiceID              pgtype.UUID                      `json:"open_invoice_id"`
@@ -93,6 +95,7 @@ func (q *Queries) GetOrgSubscription(ctx context.Context, orgDid pgtype.UUID) (G
 		&i.ScheduledBillingInterval,
 		&i.BillingState,
 		&i.OrgState,
+		&i.GoogleSignInEnabled,
 		&i.PaymentMethodKind,
 		&i.SeatsInUse,
 		&i.OpenInvoiceID,
@@ -207,6 +210,7 @@ SELECT
     o.scheduled_billing_interval,
     o.billing_state,
     o.org_state,
+    o.google_sign_in_enabled,
     pm.kind AS payment_method_kind,
     vetchium.org_seats_in_use(o.org_did)::bigint AS seats_in_use,
     oi.org_invoice_id AS open_invoice_id,
@@ -238,6 +242,7 @@ type LockOrgSubscriptionForChangeRow struct {
 	ScheduledBillingInterval   NullVetchiumOrgBillingInterval   `json:"scheduled_billing_interval"`
 	BillingState               VetchiumOrgBillingState          `json:"billing_state"`
 	OrgState                   VetchiumOrgState                 `json:"org_state"`
+	GoogleSignInEnabled        bool                             `json:"google_sign_in_enabled"`
 	PaymentMethodKind          NullVetchiumOrgPaymentMethodKind `json:"payment_method_kind"`
 	SeatsInUse                 int64                            `json:"seats_in_use"`
 	OpenInvoiceID              pgtype.UUID                      `json:"open_invoice_id"`
@@ -268,6 +273,7 @@ func (q *Queries) LockOrgSubscriptionForChange(ctx context.Context, orgDid pgtyp
 		&i.ScheduledBillingInterval,
 		&i.BillingState,
 		&i.OrgState,
+		&i.GoogleSignInEnabled,
 		&i.PaymentMethodKind,
 		&i.SeatsInUse,
 		&i.OpenInvoiceID,
@@ -331,6 +337,9 @@ WITH updated AS (
         scheduled_billing_interval =
             $7::vetchium.org_billing_interval,
         billing_state = $8::vetchium.org_billing_state,
+        -- Leaving Gold turns Google sign-in off in the same statement.
+        google_sign_in_enabled = o.google_sign_in_enabled
+            AND $1::text = 'org-gold-tier',
         updated_at = now()
     WHERE o.org_did = $9
     RETURNING o.org_did

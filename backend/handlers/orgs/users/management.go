@@ -182,7 +182,8 @@ func UserSummary(s *orgsruntime.Server) http.HandlerFunc {
 			PermissionCounts:              make([]users.PermissionCount, 0, len(counts)),
 		}
 		if limit, unlimited := orgusers.SeatLimit(
-			subscriptionspec.PlanOID(summary.OrgPlanOid), nil, false,
+			subscriptionspec.PlanOID(summary.OrgPlanOid), nil,
+			summary.GoogleSignInEnabled,
 		); !unlimited {
 			value := int32(limit)
 			response.SeatLimit = &value
@@ -370,7 +371,10 @@ func enable(s *orgsruntime.Server, w http.ResponseWriter, r *http.Request, email
 			if refused := requireSuperadminForSuperadmins(identity, targets); refused != nil {
 				return refused, nil
 			}
-			limit, limitValue := seatLimit(policy.OrgPlanOid, policy.ScheduledOrgPlanOid)
+			limit, limitValue := seatLimit(
+				policy.OrgPlanOid, policy.ScheduledOrgPlanOid,
+				policy.GoogleSignInEnabled,
+			)
 			result, err := q.EnableOrgUsers(ctx, sqlc.EnableOrgUsersParams{
 				OrgDid:         identity.OrgDID,
 				OrgUserIds:     userIDs(targets),

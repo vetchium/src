@@ -262,11 +262,78 @@ export class OrgsAPI {
     return this.post("/logo/remove", undefined, { token, idempotencyKey });
   }
 
+  startGoogleSignIn(domain: string): Promise<APIResponse> {
+    return this.post("/sso/google/start", { domain });
+  }
+
+  completeGoogleSignIn(state: string, code: string): Promise<APIResponse> {
+    return this.post("/sso/google/complete", { state, code });
+  }
+
+  setGoogleSignIn(token: string, enabled: boolean): Promise<APIResponse> {
+    return this.post("/set-google-sign-in", { enabled }, { token });
+  }
+
   myInfo(token?: string): Promise<APIResponse> {
     return this.request.get(`${this.origin}/api/orgs/my-info`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
   }
+}
+
+/** What the development identity provider should say about the account that
+ * signs in. Everything but `email` defaults to a well-formed Workspace
+ * account of the Org's domain. */
+export interface GoogleAccount {
+  email: string;
+  hd?: string;
+  sub?: string;
+  emailVerified?: boolean;
+}
+
+/** Plays the browser at the provider: follows `authorizationUrl` for the
+ * chosen account without following the redirect back, and returns the code
+ * and state the callback would receive. */
+export async function googleAuthorize(
+  request: APIRequestContext,
+  authorizationUrl: string,
+  account: GoogleAccount,
+): Promise<{ code: string; state: string }> {
+  const target = new URL(authorizationUrl);
+  target.searchParams.set("login_hint", account.email);
+  if (account.hd !== undefined) target.searchParams.set("mock_hd", account.hd);
+  if (account.sub !== undefined) {
+    target.searchParams.set("mock_sub", account.sub);
+  }
+  if (account.emailVerified === false) {
+    target.searchParams.set("mock_email_verified", "false");
+  }
+  const response = await request.get(target.toString(), { maxRedirects: 0 });
+  expect(response.status(), await response.text()).toBe(302);
+  const redirect = new URL(response.headers().location ?? "");
+  return {
+    code: redirect.searchParams.get("code") ?? "",
+    state: redirect.searchParams.get("state") ?? "",
+  };
+}
+
+/** Signs in with Google as `account` and returns the completion response. */
+export async function googleSignIn(
+  api: OrgsAPI,
+  domain: string,
+  account: GoogleAccount,
+): Promise<APIResponse> {
+  const started = await api.startGoogleSignIn(domain);
+  expect(started.status(), await started.text()).toBe(200);
+  const { authorization_url } = (await started.json()) as {
+    authorization_url: string;
+  };
+  const { code, state } = await googleAuthorize(
+    api.request,
+    authorization_url,
+    { hd: domain, ...account },
+  );
+  return api.completeGoogleSignIn(state, code);
 }
 
 /** Waits for the newest message to `emailAddress` whose subject contains

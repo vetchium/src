@@ -39,8 +39,11 @@ func invoiceResponse(invoice billing.Invoice) subscriptionspec.OrgInvoice {
 }
 
 // responseFromState is the wire view of a subscription. The seat cap is the
-// lower of the current and any scheduled plan's, as for invitations.
-func responseFromState(state billing.State, seatsInUse int64) subscriptionspec.OrgSubscription {
+// lower of the current and any scheduled plan's, as for invitations, and is
+// lifted on a Gold Org with Google sign-in enabled.
+func responseFromState(
+	state billing.State, seatsInUse int64, googleSignIn bool,
+) subscriptionspec.OrgSubscription {
 	response := subscriptionspec.OrgSubscription{
 		PlanOID:           subscriptionspec.PlanOID(state.Plan),
 		CancelAtPeriodEnd: state.ScheduledPlan == subscriptionspec.FreeTier,
@@ -79,7 +82,7 @@ func responseFromState(state billing.State, seatsInUse int64) subscriptionspec.O
 		scheduled = &plan
 	}
 	if limit, unlimited := orgusers.SeatLimit(
-		subscriptionspec.PlanOID(state.Plan), scheduled, false,
+		subscriptionspec.PlanOID(state.Plan), scheduled, googleSignIn,
 	); !unlimited {
 		value := int32(limit)
 		response.SeatLimit = &value

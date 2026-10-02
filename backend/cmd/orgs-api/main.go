@@ -13,6 +13,7 @@ import (
 	"backend/internal/dnsverify"
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
+	"backend/internal/oidc"
 	orgsruntime "backend/internal/orgs"
 	orgsauthn "backend/internal/orgs/auth"
 	"backend/internal/orgs/billing"
@@ -129,6 +130,17 @@ func run(log *slog.Logger, address string) error {
 		},
 		Charger: billing.SimulatedCharger{},
 		Logos:   logos,
+	}
+	if google := cfg.OrgsAPIServer.GoogleSignIn; google != nil {
+		clientSecret, err := google.ClientSecret()
+		if err != nil {
+			return err
+		}
+		s.GoogleSignIn = oidc.New(oidc.Config{
+			Issuer: google.Issuer, DiscoveryURL: google.DiscoveryURL,
+			ClientID: google.ClientID, ClientSecret: clientSecret,
+			RedirectURI: google.RedirectURI,
+		})
 	}
 	mux := http.NewServeMux()
 	routes.RegisterOrgsRoutes(mux, s)

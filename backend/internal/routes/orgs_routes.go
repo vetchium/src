@@ -39,6 +39,10 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.HandleFunc(
 		"POST /api/orgs/login/recovery-code", orgsauth.VerifyRecoveryCode(s),
 	)
+	mux.HandleFunc("POST /api/orgs/sso/google/start", orgsauth.StartGoogleSignIn(s))
+	mux.HandleFunc(
+		"POST /api/orgs/sso/google/complete", orgsauth.CompleteGoogleSignIn(s),
+	)
 	mux.HandleFunc("POST /api/orgs/logout", orgsauth.Logout(s))
 	mux.Handle(
 		"POST /api/orgs/reauthenticate", orgAuth(orgsauth.Reauthenticate(s)),
@@ -169,4 +173,8 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	}
 	mux.Handle("POST /api/orgs/logo/upload", manageOrg(orgssettings.UploadLogo(s)))
 	mux.Handle("POST /api/orgs/logo/remove", manageOrg(orgssettings.RemoveLogo(s)))
+	mux.Handle(
+		"POST /api/orgs/set-google-sign-in",
+		manageOrg(recentAuth(orgssettings.SetGoogleSignIn(s))),
+	)
 }

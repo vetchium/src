@@ -5,6 +5,7 @@ SELECT
     o.display_name,
     o.org_state,
     o.org_plan_oid,
+    o.google_sign_in_enabled,
     d.domain,
     d.domain_state,
     d.verification_token,

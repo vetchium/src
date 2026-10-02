@@ -1247,6 +1247,9 @@ CREATE TABLE vetchium.orgs (
     billing_state vetchium.org_billing_state NOT NULL DEFAULT 'current',
     subscription_source vetchium.org_subscription_source NOT NULL
         DEFAULT 'simulated',
+    -- A superadmin's choice, honoured only on Gold. Leaving Gold clears it in
+    -- the transition's own statement.
+    google_sign_in_enabled boolean NOT NULL DEFAULT false,
     suspended_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
@@ -1300,6 +1303,9 @@ CREATE TABLE vetchium.orgs (
     ),
     CONSTRAINT orgs_past_due_is_paid CHECK (
         billing_state = 'current' OR org_plan_oid <> 'org-free-tier'
+    ),
+    CONSTRAINT orgs_google_sign_in_is_gold CHECK (
+        NOT google_sign_in_enabled OR org_plan_oid = 'org-gold-tier'
     )
 );
 
@@ -1683,6 +1689,36 @@ CREATE TABLE vetchium.org_login_challenges (
 CREATE UNIQUE INDEX org_login_challenges_active_user_idx
     ON vetchium.org_login_challenges (org_user_id) WHERE active;
 
+-- A federated sign-in credential. The provider's subject, not the email, is
+-- the stable key once linked, so a recycled address cannot inherit a login.
+CREATE TABLE vetchium.org_user_sso_identities (
+    org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
+    provider text NOT NULL CHECK (provider IN ('google')),
+    subject text NOT NULL CHECK (subject <> '' AND char_length(subject) <= 255),
+    linked_at timestamptz NOT NULL DEFAULT now(),
+    last_used_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (org_user_id, provider),
+    UNIQUE (provider, subject)
+);
+
+-- One row per started federated sign-in; consumed once by the callback.
+CREATE TABLE vetchium.org_sso_login_states (
+    state_hash bytea PRIMARY KEY CHECK (octet_length(state_hash) = 32),
+    provider text NOT NULL CHECK (provider IN ('google')),
+    domain vetchium.org_domain NOT NULL,
+    nonce_hash bytea NOT NULL CHECK (octet_length(nonce_hash) = 32),
+    verifier_ciphertext bytea NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL,
+    consumed_at timestamptz,
+    CONSTRAINT org_sso_login_states_expiry_check CHECK (
+        expires_at > created_at
+    )
+);
+CREATE INDEX org_sso_login_states_expiry_idx
+    ON vetchium.org_sso_login_states (expires_at);
+
 CREATE TABLE vetchium.org_totp_enrollments (
     org_totp_enrollment_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
@@ -1922,6 +1958,8 @@ DROP TYPE IF EXISTS vetchium.org_invoice_state;
 DROP TYPE IF EXISTS vetchium.org_payment_method_kind;
 DROP FUNCTION IF EXISTS vetchium.org_seats_in_use(uuid);
 DROP TABLE IF EXISTS vetchium.org_user_invitations;
+DROP TABLE IF EXISTS vetchium.org_sso_login_states;
+DROP TABLE IF EXISTS vetchium.org_user_sso_identities;
 DROP TABLE IF EXISTS vetchium.org_sessions;
 DROP VIEW IF EXISTS vetchium.org_effective_permissions;
 DROP TABLE IF EXISTS vetchium.org_user_permissions;

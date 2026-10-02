@@ -35,16 +35,18 @@ import (
 const invitationsPaginationPurpose = "orgs-list-invitations-v1"
 
 // seatLimit is the cap the statement checks under the Org row lock: the lower
-// of the current and any scheduled plan's (D13). Google sign-in enters here
-// when its milestone adds the column.
-func seatLimit(plan string, scheduled pgtype.Text) (pgtype.Int4, int32) {
+// of the current and any scheduled plan's (D13); Gold with Google sign-in
+// enabled is uncapped (D2a).
+func seatLimit(
+	plan string, scheduled pgtype.Text, googleSignIn bool,
+) (pgtype.Int4, int32) {
 	var scheduledPlan *subscriptionspec.Plan
 	if scheduled.Valid {
 		value := subscriptionspec.Plan(scheduled.String)
 		scheduledPlan = &value
 	}
 	limit, unlimited := orgusers.SeatLimit(
-		subscriptionspec.PlanOID(plan), scheduledPlan, false,
+		subscriptionspec.PlanOID(plan), scheduledPlan, googleSignIn,
 	)
 	if unlimited {
 		return pgtype.Int4{}, 0
@@ -105,7 +107,10 @@ func InviteUsers(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				limit, limitValue := seatLimit(policy.OrgPlanOid, policy.ScheduledOrgPlanOid)
+				limit, limitValue := seatLimit(
+					policy.OrgPlanOid, policy.ScheduledOrgPlanOid,
+					policy.GoogleSignInEnabled,
+				)
 
 				params := sqlc.InviteOrgUsersParams{
 					OrgDid:         identity.OrgDID,
@@ -294,7 +299,10 @@ func ResendInvitation(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				limit, limitValue := seatLimit(policy.OrgPlanOid, policy.ScheduledOrgPlanOid)
+				limit, limitValue := seatLimit(
+					policy.OrgPlanOid, policy.ScheduledOrgPlanOid,
+					policy.GoogleSignInEnabled,
+				)
 				token, tokenHash, err := credentials.NewToken()
 				if err != nil {
 					return result{}, nil, err
@@ -430,7 +438,10 @@ func AcceptInvitation(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				limit, limitValue := seatLimit(org.OrgPlanOid, org.ScheduledOrgPlanOid)
+				limit, limitValue := seatLimit(
+					org.OrgPlanOid, org.ScheduledOrgPlanOid,
+					org.GoogleSignInEnabled,
+				)
 				passwordHash, err := credentials.HashPassword(string(request.Password))
 				if err != nil {
 					return result{}, nil, err

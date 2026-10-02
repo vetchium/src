@@ -98,6 +98,24 @@ type OrgsAPIServer struct {
 	SignupTTL     time.Duration
 	InvitationTTL time.Duration
 	PublicBaseURL string
+	// GoogleSignIn is nil when the tenant does not offer Google sign-in.
+	GoogleSignIn *GoogleSignIn
+}
+
+// GoogleSignIn is the tenant's OAuth client at Google. DiscoveryURL is set
+// only where the provider is reached at a different address than the one it
+// signs into tokens, which is true of the development mock behind Docker
+// networks and never of Google.
+type GoogleSignIn struct {
+	Issuer           string
+	DiscoveryURL     string
+	ClientID         string
+	ClientSecretFile string
+	RedirectURI      string
+}
+
+func (g GoogleSignIn) ClientSecret() (string, error) {
+	return readTrimmedSecret("Google OIDC client secret", g.ClientSecretFile)
 }
 
 // OrgBilling sets which Org plans a tenant offers and times the dunning
@@ -285,6 +303,15 @@ type fileOrgsAPIServer struct {
 	SignupTTL     string             `json:"signupTTL"`
 	InvitationTTL string             `json:"invitationTTL"`
 	PublicBaseURL string             `json:"publicBaseURL"`
+	GoogleSignIn  *fileGoogleSignIn  `json:"googleSignIn"`
+}
+
+type fileGoogleSignIn struct {
+	Issuer           string `json:"issuer"`
+	DiscoveryURL     string `json:"discoveryURL"`
+	ClientID         string `json:"clientID"`
+	ClientSecretFile string `json:"clientSecretFile"`
+	RedirectURI      string `json:"redirectURI"`
 }
 
 type fileOrgBilling struct {
@@ -948,12 +975,57 @@ func parseOrgsAPIServer(raw fileOrgsAPIServer) (OrgsAPIServer, error) {
 	if err != nil {
 		return OrgsAPIServer{}, err
 	}
-	return OrgsAPIServer{
+	server := OrgsAPIServer{
 		Signup:        admission,
 		SessionTTL:    sessionTTL,
 		SignupTTL:     signupTTL,
 		InvitationTTL: invitationTTL,
 		PublicBaseURL: publicBaseURL,
+	}
+	if raw.GoogleSignIn != nil {
+		google, err := parseGoogleSignIn(*raw.GoogleSignIn)
+		if err != nil {
+			return OrgsAPIServer{}, err
+		}
+		server.GoogleSignIn = &google
+	}
+	return server, nil
+}
+
+func parseGoogleSignIn(raw fileGoogleSignIn) (GoogleSignIn, error) {
+	const prefix = "orgsAPIServer.googleSignIn."
+	issuer, err := httpOrigin(prefix+"issuer", raw.Issuer)
+	if err != nil {
+		return GoogleSignIn{}, err
+	}
+	discoveryURL := ""
+	if raw.DiscoveryURL != "" {
+		discoveryURL, err = httpOrigin(prefix+"discoveryURL", raw.DiscoveryURL)
+		if err != nil {
+			return GoogleSignIn{}, err
+		}
+	}
+	if err := required(prefix+"clientID", raw.ClientID); err != nil {
+		return GoogleSignIn{}, err
+	}
+	if err := required(
+		prefix+"clientSecretFile", raw.ClientSecretFile,
+	); err != nil {
+		return GoogleSignIn{}, err
+	}
+	redirect, err := url.Parse(raw.RedirectURI)
+	if err != nil || redirect.Host == "" || redirect.User != nil ||
+		(redirect.Scheme != "http" && redirect.Scheme != "https") ||
+		redirect.RawQuery != "" || redirect.Fragment != "" ||
+		redirect.Path == "" || redirect.Path == "/" {
+		return GoogleSignIn{}, fmt.Errorf(
+			"%sredirectURI must be an absolute HTTP(S) URL with a path",
+			prefix,
+		)
+	}
+	return GoogleSignIn{
+		Issuer: issuer, DiscoveryURL: discoveryURL, ClientID: raw.ClientID,
+		ClientSecretFile: raw.ClientSecretFile, RedirectURI: raw.RedirectURI,
 	}, nil
 }
 

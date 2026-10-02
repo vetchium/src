@@ -436,6 +436,9 @@
     "mesh_server_usa1_key": {
       "file": "./.dev-secrets/mesh_server_usa1_key"
     },
+    "google_oidc_client_secret": {
+      "file": "./.dev-secrets/google_oidc_client_secret"
+    },
     "orgs_credential_key": {
       "file": "./.dev-secrets/orgs_credential_key"
     },
@@ -2507,6 +2510,51 @@
       "restart": "no",
       "security_opt": ["no-new-privileges:true"]
     },
+    "oidc-dev": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "oidc-dev"
+      },
+      "environment": {
+        "OIDC_CLIENT_ID": "vetchium-dev.apps.googleusercontent.com",
+        "OIDC_CLIENT_SECRET_FILE": "/run/secrets/google_oidc_client_secret",
+        "OIDC_INTERNAL_URL": "http://oidc-dev:8080",
+        "OIDC_PUBLIC_URL": "http://oidc.vetchium.localhost",
+        "OIDC_REDIRECT_URI": "http://orgs.vetchium.localhost/sso/google/callback"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
+      "networks": {
+        "deu_backend": {
+          "aliases": ["oidc-dev"]
+        },
+        "ind1_backend": {
+          "aliases": ["oidc-dev"]
+        },
+        "portal_access": null,
+        "sgp_backend": {
+          "aliases": ["oidc-dev"]
+        },
+        "usa1_backend": {
+          "aliases": ["oidc-dev"]
+        }
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "google_oidc_client_secret",
+          "target": "/run/secrets/google_oidc_client_secret"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"]
+    },
     "orgs-api-deu": {
       "build": {
         "context": ".",
@@ -2562,6 +2610,10 @@
         {
           "source": "orgs_credential_key",
           "target": "/run/secrets/orgs_credential_key"
+        },
+        {
+          "source": "google_oidc_client_secret",
+          "target": "/run/secrets/google_oidc_client_secret"
         },
         {
           "source": "seaweed_s3_deu_access_key",
@@ -2631,6 +2683,10 @@
           "target": "/run/secrets/orgs_credential_key"
         },
         {
+          "source": "google_oidc_client_secret",
+          "target": "/run/secrets/google_oidc_client_secret"
+        },
+        {
           "source": "seaweed_s3_ind1_access_key",
           "target": "/run/secrets/seaweed_s3_access_key"
         },
@@ -2698,6 +2754,10 @@
           "target": "/run/secrets/orgs_credential_key"
         },
         {
+          "source": "google_oidc_client_secret",
+          "target": "/run/secrets/google_oidc_client_secret"
+        },
+        {
           "source": "seaweed_s3_sgp_access_key",
           "target": "/run/secrets/seaweed_s3_access_key"
         },
@@ -2763,6 +2823,10 @@
         {
           "source": "orgs_credential_key",
           "target": "/run/secrets/orgs_credential_key"
+        },
+        {
+          "source": "google_oidc_client_secret",
+          "target": "/run/secrets/google_oidc_client_secret"
         },
         {
           "source": "seaweed_s3_usa1_access_key",

@@ -86,6 +86,7 @@ LIMIT sqlc.arg(page_limit);
 -- name: GetOrgUserSummary :one
 SELECT
     o.org_plan_oid,
+    o.google_sign_in_enabled,
     vetchium.org_seats_in_use(o.org_did)::bigint AS seats_in_use,
     count(*) FILTER (WHERE u.org_user_state = 'active')::bigint
         AS active_users,
@@ -106,7 +107,7 @@ FROM vetchium.orgs AS o
 LEFT JOIN vetchium.org_users AS u
     ON u.org_did = o.org_did AND u.org_user_state <> 'provisioning'
 WHERE o.org_did = sqlc.arg(org_did)
-GROUP BY o.org_did, o.org_plan_oid;
+GROUP BY o.org_did, o.org_plan_oid, o.google_sign_in_enabled;
 
 -- Active users holding each directly granted permission.
 -- name: ListOrgPermissionCounts :many

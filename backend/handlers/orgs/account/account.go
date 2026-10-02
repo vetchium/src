@@ -70,7 +70,9 @@ func MyInfo(s *orgsruntime.Server) http.HandlerFunc {
 			Org:                    summary(s, info),
 			PlanOID:                plan,
 			LogoURL:                logoURL,
-			BillingNotice:          notice,
+			GoogleSignInEnabled: info.GoogleSignInEnabled &&
+				plan == subscriptions.PlanOID(subscriptions.GoldTier),
+			BillingNotice: notice,
 		})
 	}
 }

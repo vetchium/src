@@ -141,7 +141,8 @@ WITH targets AS (
         HAVING count(*) > 0
     ) AS changed
 )
--- OS-M10 removes the Org logo here; OS-M11 turns Google sign-in off here.
+-- The logo and Google sign-in go with the plan: SaveOrgSubscription moves the
+-- Org to Free in the same transaction and clears both.
 SELECT
     (SELECT count(*) FROM disabled)::bigint AS disabled_count,
     (SELECT count(*) FROM cancelled)::bigint AS cancelled_count,

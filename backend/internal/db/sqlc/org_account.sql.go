@@ -18,6 +18,7 @@ SELECT
     o.display_name,
     o.org_state,
     o.org_plan_oid,
+    o.google_sign_in_enabled,
     d.domain,
     d.domain_state,
     d.verification_token,
@@ -51,6 +52,7 @@ type GetOrgMyInfoRow struct {
 	DisplayName            string                 `json:"display_name"`
 	OrgState               VetchiumOrgState       `json:"org_state"`
 	OrgPlanOid             string                 `json:"org_plan_oid"`
+	GoogleSignInEnabled    bool                   `json:"google_sign_in_enabled"`
 	Domain                 string                 `json:"domain"`
 	DomainState            VetchiumOrgDomainState `json:"domain_state"`
 	VerificationToken      string                 `json:"verification_token"`
@@ -70,6 +72,7 @@ func (q *Queries) GetOrgMyInfo(ctx context.Context, orgUserID pgtype.UUID) (GetO
 		&i.DisplayName,
 		&i.OrgState,
 		&i.OrgPlanOid,
+		&i.GoogleSignInEnabled,
 		&i.Domain,
 		&i.DomainState,
 		&i.VerificationToken,

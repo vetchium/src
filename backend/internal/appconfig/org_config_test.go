@@ -437,3 +437,119 @@ func editConfig(t *testing.T, old, replacement string) string {
 	}
 	return path
 }
+
+const googleSignInBlock = `"publicBaseURL": "http://orgs.vetchium.localhost/",
+    "googleSignIn": {
+      "issuer": "https://accounts.google.com",
+      "clientID": "client.apps.googleusercontent.com",
+      "clientSecretFile": "/run/secrets/google_oidc_client_secret",
+      "redirectURI": "https://orgs.vetchium.com/sso/google/callback"
+    }`
+
+func TestLoadFileParsesGoogleSignIn(t *testing.T) {
+	t.Parallel()
+	cfg, err := LoadFile(editConfig(
+		t, `"publicBaseURL": "http://orgs.vetchium.localhost/"`,
+		googleSignInBlock,
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := GoogleSignIn{
+		Issuer:           "https://accounts.google.com",
+		ClientID:         "client.apps.googleusercontent.com",
+		ClientSecretFile: "/run/secrets/google_oidc_client_secret",
+		RedirectURI:      "https://orgs.vetchium.com/sso/google/callback",
+	}
+	if cfg.OrgsAPIServer.GoogleSignIn == nil ||
+		*cfg.OrgsAPIServer.GoogleSignIn != want {
+		t.Fatalf("googleSignIn = %+v, want %+v", cfg.OrgsAPIServer.GoogleSignIn, want)
+	}
+	plain, err := LoadFile(writeConfig(t, "password-not-read", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plain.OrgsAPIServer.GoogleSignIn != nil {
+		t.Fatal("a tenant without the block must not offer Google sign-in")
+	}
+}
+
+func TestLoadFileRejectsInvalidGoogleSignIn(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct{ name, old, replacement, wantError string }{
+		{
+			"missing issuer", `"issuer": "https://accounts.google.com",`, ``,
+			"orgsAPIServer.googleSignIn.issuer must be an HTTP(S) origin",
+		},
+		{
+			"issuer with a path", `"https://accounts.google.com"`,
+			`"https://accounts.google.com/x"`,
+			"orgsAPIServer.googleSignIn.issuer must be an HTTP(S) origin",
+		},
+		{
+			"discovery URL that is not an origin", `"issuer": "https://accounts.google.com",`,
+			`"issuer": "https://accounts.google.com", "discoveryURL": "oidc-dev",`,
+			"orgsAPIServer.googleSignIn.discoveryURL must be an HTTP(S) origin",
+		},
+		{
+			"missing client ID", `"clientID": "client.apps.googleusercontent.com",`, ``,
+			"missing orgsAPIServer.googleSignIn.clientID",
+		},
+		{
+			"missing secret file", `"clientSecretFile": "/run/secrets/google_oidc_client_secret",`, ``,
+			"missing orgsAPIServer.googleSignIn.clientSecretFile",
+		},
+		{
+			"redirect without a path", `"https://orgs.vetchium.com/sso/google/callback"`,
+			`"https://orgs.vetchium.com"`,
+			"orgsAPIServer.googleSignIn.redirectURI must be an absolute HTTP(S) URL with a path",
+		},
+		{
+			"redirect with a fragment", `"https://orgs.vetchium.com/sso/google/callback"`,
+			`"https://orgs.vetchium.com/sso/google/callback#x"`,
+			"orgsAPIServer.googleSignIn.redirectURI must be an absolute HTTP(S) URL with a path",
+		},
+		{
+			"unknown field", `"clientID":`, `"bypass": true, "clientID":`,
+			"unknown field",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			path := editConfig(
+				t, `"publicBaseURL": "http://orgs.vetchium.localhost/"`,
+				googleSignInBlock,
+			)
+			contents, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Count(string(contents), test.old) != 1 {
+				t.Fatalf("configuration lacks %q exactly once", test.old)
+			}
+			edited := strings.Replace(string(contents), test.old, test.replacement, 1)
+			if err := os.WriteFile(path, []byte(edited), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, err = LoadFile(path)
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("LoadFile() error = %v, want %q", err, test.wantError)
+			}
+		})
+	}
+}
+
+func TestGoogleClientSecretReadsTheFile(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(path, []byte("shh\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	secret, err := GoogleSignIn{ClientSecretFile: path}.ClientSecret()
+	if err != nil || secret != "shh" {
+		t.Fatalf("ClientSecret() = %q, %v", secret, err)
+	}
+	if _, err := (GoogleSignIn{ClientSecretFile: path + ".missing"}).ClientSecret(); err == nil {
+		t.Fatal("ClientSecret() accepted a missing file")
+	}
+}

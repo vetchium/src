@@ -76,6 +76,7 @@ type MyInfoResponse struct {
 	Org                    OrgSummary                      `json:"org"`
 	PlanOID                subscriptions.PlanOID           `json:"plan_oid"`
 	LogoURL                *string                         `json:"logo_url,omitempty"`
+	GoogleSignInEnabled    bool                            `json:"google_sign_in_enabled"`
 	BillingNotice          *BillingNotice                  `json:"billing_notice,omitempty"`
 }
 

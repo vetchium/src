@@ -14,6 +14,7 @@ import (
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/imagesanitize"
+	"backend/internal/oidc"
 	"backend/internal/orgs/auth"
 	"backend/internal/orgs/billing"
 	"backend/internal/orgs/domainverification"
@@ -56,6 +57,18 @@ type Server struct {
 
 	// Logos is the tenant's object store for Org logos.
 	Logos LogoStorage
+
+	// GoogleSignIn is nil when the tenant does not offer Google sign-in.
+	GoogleSignIn SSOProvider
+}
+
+// SSOProvider is the OpenID Connect client for one identity provider.
+type SSOProvider interface {
+	NewVerifier() string
+	AuthorizationURL(
+		ctx context.Context, state, nonce, verifier, hostedDomain string,
+	) (string, error)
+	Exchange(ctx context.Context, code, verifier string) (oidc.Claims, error)
 }
 
 // LogoStorage stores Org logos and signs short-lived read URLs for them.

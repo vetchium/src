@@ -1564,6 +1564,7 @@ type VetchiumOrg struct {
 	ScheduledBillingInterval NullVetchiumOrgBillingInterval `json:"scheduled_billing_interval"`
 	BillingState             VetchiumOrgBillingState        `json:"billing_state"`
 	SubscriptionSource       VetchiumOrgSubscriptionSource  `json:"subscription_source"`
+	GoogleSignInEnabled      bool                           `json:"google_sign_in_enabled"`
 	SuspendedAt              pgtype.Timestamptz             `json:"suspended_at"`
 	CreatedAt                pgtype.Timestamptz             `json:"created_at"`
 	UpdatedAt                pgtype.Timestamptz             `json:"updated_at"`
@@ -1742,6 +1743,17 @@ type VetchiumOrgSignupRequest struct {
 	Active             bool               `json:"active"`
 }
 
+type VetchiumOrgSsoLoginState struct {
+	StateHash          []byte             `json:"state_hash"`
+	Provider           string             `json:"provider"`
+	Domain             string             `json:"domain"`
+	NonceHash          []byte             `json:"nonce_hash"`
+	VerifierCiphertext []byte             `json:"verifier_ciphertext"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt         pgtype.Timestamptz `json:"consumed_at"`
+}
+
 type VetchiumOrgTotpEnrollment struct {
 	OrgTotpEnrollmentID pgtype.UUID        `json:"org_totp_enrollment_id"`
 	OrgUserID           pgtype.UUID        `json:"org_user_id"`
@@ -1798,6 +1810,14 @@ type VetchiumOrgUserPermission struct {
 	OrgUserID  pgtype.UUID        `json:"org_user_id"`
 	Permission string             `json:"permission"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type VetchiumOrgUserSsoIdentity struct {
+	OrgUserID  pgtype.UUID        `json:"org_user_id"`
+	Provider   string             `json:"provider"`
+	Subject    string             `json:"subject"`
+	LinkedAt   pgtype.Timestamptz `json:"linked_at"`
+	LastUsedAt pgtype.Timestamptz `json:"last_used_at"`
 }
 
 type VetchiumOrgUserTotpCredential struct {

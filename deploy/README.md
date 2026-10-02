@@ -103,6 +103,42 @@ deploy checks that its coordinator route uses the WireGuard interface.
 - Payments are simulated in every environment, production included: anyone can
   take a paid plan without paying until a processor is integrated.
 
+## Google sign-in for Gold Orgs
+
+Dormant until configured: without `orgsAPIServer.googleSignIn` the region
+answers `org-sso-not-available` and no Org can turn the feature on. The
+repository ships no client ID, because the OAuth client belongs to the operator.
+
+1. In Google Cloud, create an OAuth client of type **Web application** with
+   the authorized redirect URI `https://orgs.vetchium.com/sso/google/callback`.
+   One client serves every region: the portal is global and sends the user's
+   region back to the right API.
+2. Create the external secret `<region>_google_oidc_client_secret` from the
+   client secret, and mount it in the `orgs-api` service as
+   `google_oidc_client_secret`.
+3. Add to each region's `orgsAPIServer` in `deploy/<region>/config.json`:
+
+   ```json
+   "googleSignIn": {
+     "issuer": "https://accounts.google.com",
+     "clientID": "<client id>.apps.googleusercontent.com",
+     "clientSecretFile": "/run/secrets/google_oidc_client_secret",
+     "redirectURI": "https://orgs.vetchium.com/sso/google/callback"
+   }
+   ```
+
+   Leave out `discoveryURL`; it exists only for the development provider.
+4. `orgs-api` fetches Google's discovery document, keys and token endpoint over
+   HTTPS, so attach it to a network with outbound access. Create an overlay
+   network `google_egress` (not `internal`, like `smtp_egress`), add it to
+   `orgs-api`'s networks, and allow outbound TCP 443 from it to
+   `accounts.google.com`, `oauth2.googleapis.com` and `www.googleapis.com`.
+   The browser's own visit to Google is not routed through the region.
+
+A Google Workspace administrator's 2-Step Verification is the second factor for
+this sign-in, so Vetchium asks for no TOTP code. Rotate the client secret by
+creating a new versioned secret and rolling `orgs-api`.
+
 ## Global portals
 
 ```bash

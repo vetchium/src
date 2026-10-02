@@ -9,6 +9,7 @@ SELECT
     o.scheduled_billing_interval,
     o.billing_state,
     o.org_state,
+    o.google_sign_in_enabled,
     pm.kind AS payment_method_kind,
     vetchium.org_seats_in_use(o.org_did)::bigint AS seats_in_use,
     oi.org_invoice_id AS open_invoice_id,
@@ -41,6 +42,7 @@ SELECT
     o.scheduled_billing_interval,
     o.billing_state,
     o.org_state,
+    o.google_sign_in_enabled,
     pm.kind AS payment_method_kind,
     vetchium.org_seats_in_use(o.org_did)::bigint AS seats_in_use,
     oi.org_invoice_id AS open_invoice_id,
@@ -78,6 +80,9 @@ WITH updated AS (
         scheduled_billing_interval =
             sqlc.narg(scheduled_billing_interval)::vetchium.org_billing_interval,
         billing_state = sqlc.arg(billing_state)::vetchium.org_billing_state,
+        -- Leaving Gold turns Google sign-in off in the same statement.
+        google_sign_in_enabled = o.google_sign_in_enabled
+            AND sqlc.arg(org_plan_oid)::text = 'org-gold-tier',
         updated_at = now()
     WHERE o.org_did = sqlc.arg(org_did)
     RETURNING o.org_did

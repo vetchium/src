@@ -85,6 +85,8 @@ type Querier interface {
 	ConfirmAdminTOTPEnrollment(ctx context.Context, arg ConfirmAdminTOTPEnrollmentParams) (bool, error)
 	ConfirmHubTOTPEnrollment(ctx context.Context, arg ConfirmHubTOTPEnrollmentParams) (bool, error)
 	ConfirmOrgTOTPEnrollment(ctx context.Context, arg ConfirmOrgTOTPEnrollmentParams) (bool, error)
+	// A state redeems once and only before it expires; a replay finds nothing.
+	ConsumeOrgSSOLoginState(ctx context.Context, arg ConsumeOrgSSOLoginStateParams) (ConsumeOrgSSOLoginStateRow, error)
 	CreateAdminInvitation(ctx context.Context, arg CreateAdminInvitationParams) (CreateAdminInvitationRow, error)
 	CreateAdminLoginChallenge(ctx context.Context, arg CreateAdminLoginChallengeParams) (CreateAdminLoginChallengeRow, error)
 	CreateAdminPasswordReset(ctx context.Context, arg CreateAdminPasswordResetParams) (bool, error)
@@ -114,6 +116,12 @@ type Querier interface {
 	CreateIdempotency(ctx context.Context, arg CreateIdempotencyParams) error
 	CreateOrgLoginChallenge(ctx context.Context, arg CreateOrgLoginChallengeParams) (CreateOrgLoginChallengeRow, error)
 	CreateOrgPasswordReset(ctx context.Context, arg CreateOrgPasswordResetParams) (bool, error)
+	CreateOrgSSOLoginState(ctx context.Context, arg CreateOrgSSOLoginStateParams) error
+	// Links the subject on first use, then signs in. Every condition is read
+	// again here, so a plan change, a disablement or a competing link that lands
+	// after GetOrgUserForSSO leaves no row. The Google sign-in skips Vetchium
+	// TOTP by design (D23), which is why this does not use CreateOrgSession.
+	CreateOrgSSOSession(ctx context.Context, arg CreateOrgSSOSessionParams) (CreateOrgSSOSessionRow, error)
 	CreateOrgSession(ctx context.Context, arg CreateOrgSessionParams) (CreateOrgSessionRow, error)
 	CreateOrgSignupRequest(ctx context.Context, arg CreateOrgSignupRequestParams) (string, error)
 	CreateOrgTOTPEnrollment(ctx context.Context, arg CreateOrgTOTPEnrollmentParams) (CreateOrgTOTPEnrollmentRow, error)
@@ -154,7 +162,8 @@ type Querier interface {
 	// reason nonpayment and end their sessions, cancel every pending invitation,
 	// and queue one email to each disabled user. Disabled users keep their data
 	// and can be re-enabled one at a time.
-	// OS-M10 removes the Org logo here; OS-M11 turns Google sign-in off here.
+	// The logo and Google sign-in go with the plan: SaveOrgSubscription moves the
+	// Org to Free in the same transaction and clears both.
 	EnforceOrgDeadline(ctx context.Context, arg EnforceOrgDeadlineParams) (EnforceOrgDeadlineRow, error)
 	// The reserve-time email-claim-conflict path (GU-ECH-003): fails directly,
 	// skipping 'cancelling', since nothing was reserved globally to undo. The
@@ -221,6 +230,10 @@ type Querier interface {
 	// A suspended Org's users can still sign in, to restore the domain. When a
 	// released domain was claimed by another local Org, the current owner wins.
 	GetOrgUserForLogin(ctx context.Context, arg GetOrgUserForLoginParams) (GetOrgUserForLoginRow, error)
+	// The user a verified Google identity names, with everything the sign-in
+	// decision reads. Resolved like GetOrgUserForLogin: if a released domain was
+	// claimed by another local Org, the current owner wins.
+	GetOrgUserForSSO(ctx context.Context, arg GetOrgUserForSSOParams) (GetOrgUserForSSORow, error)
 	GetOrgUserSummary(ctx context.Context, orgDid pgtype.UUID) (GetOrgUserSummaryRow, error)
 	// Reads the users a change targets, in request order, once the caller holds
 	// the Org row lock. A missing address is simply absent from the result.
@@ -290,6 +303,7 @@ type Querier interface {
 	LockHubSubscriptionForChange(ctx context.Context, hubUserDid pgtype.UUID) (LockHubSubscriptionForChangeRow, error)
 	LockHubUserCredentialMutation(ctx context.Context, hubUserDid pgtype.UUID) (pgtype.UUID, error)
 	LockIdempotency(ctx context.Context, dollar_1 string) error
+	LockOrgForGoogleSignIn(ctx context.Context, orgDid pgtype.UUID) (LockOrgForGoogleSignInRow, error)
 	// Locks the invitation's Org so acceptance is serialized with every other
 	// seat-consuming statement, and returns the plan the cap derives from.
 	LockOrgForInvitation(ctx context.Context, tokenHash []byte) (LockOrgForInvitationRow, error)
@@ -423,6 +437,7 @@ type Querier interface {
 	SetHubPreferredLanguage(ctx context.Context, arg SetHubPreferredLanguageParams) (bool, error)
 	SetHubPublicProfile(ctx context.Context, arg SetHubPublicProfileParams) (SetHubPublicProfileRow, error)
 	SetHubResidentCountry(ctx context.Context, arg SetHubResidentCountryParams) (bool, error)
+	SetOrgGoogleSignIn(ctx context.Context, arg SetOrgGoogleSignInParams) error
 	SetOrgPaymentMethod(ctx context.Context, arg SetOrgPaymentMethodParams) error
 	// Replaces the direct grants of every target with one set. After the change
 	// the Org must still have an active superadmin: one outside the set, or a

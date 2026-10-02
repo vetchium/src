@@ -54,7 +54,9 @@ func MySubscription(s *orgsruntime.Server) http.HandlerFunc {
 			state, billing.Instant(s.CurrentTime()), s.Billing, s.Charger,
 		)
 		w.Header().Set("Cache-Control", "no-store")
-		s.JSON(r.Context(), w, http.StatusOK, responseFromState(advanced, row.SeatsInUse))
+		s.JSON(r.Context(), w, http.StatusOK, responseFromState(
+			advanced, row.SeatsInUse, row.GoogleSignInEnabled,
+		))
 	}
 }
 
@@ -170,7 +172,9 @@ func SetSubscriptionPlan(s *orgsruntime.Server) http.HandlerFunc {
 				if len(transitions) == 0 && decision.Outcome == billing.Unchanged {
 					return result{
 						Status: http.StatusOK,
-						Body:   responseFromState(advanced, seats),
+						Body: responseFromState(
+							advanced, seats, locked.GoogleSignInEnabled,
+						),
 					}, nil, nil
 				}
 				if err := billingdb.Save(ctx, q, change(
@@ -181,7 +185,9 @@ func SetSubscriptionPlan(s *orgsruntime.Server) http.HandlerFunc {
 				}
 				return result{
 					Status: http.StatusOK,
-					Body:   responseFromState(decision.State, seats),
+					Body: responseFromState(
+						decision.State, seats, locked.GoogleSignInEnabled,
+					),
 				}, nil, nil
 			},
 		)
@@ -262,7 +268,9 @@ func PayInvoice(s *orgsruntime.Server) http.HandlerFunc {
 				}
 				return result{
 					Status: http.StatusOK,
-					Body:   responseFromState(paid, seats),
+					Body: responseFromState(
+						paid, seats, locked.GoogleSignInEnabled,
+					),
 				}, nil, nil
 			},
 		)

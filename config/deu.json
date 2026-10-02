@@ -79,6 +79,13 @@
     "signupTTL": "168h",
     "invitationTTL": "168h",
     "publicBaseURL": "http://orgs.vetchium.localhost",
+    "googleSignIn": {
+      "issuer": "http://oidc.vetchium.localhost",
+      "discoveryURL": "http://oidc-dev:8080",
+      "clientID": "vetchium-dev.apps.googleusercontent.com",
+      "clientSecretFile": "/run/secrets/google_oidc_client_secret",
+      "redirectURI": "http://orgs.vetchium.localhost/sso/google/callback"
+    },
     "signup": {
       "enabled": true
     }

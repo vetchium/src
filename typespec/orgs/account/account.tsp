@@ -94,6 +94,9 @@ model MyInfoResponse {
    */
   logo_url?: string;
 
+  /** Whether Google sign-in is on for the Org; only a Gold Org can have it. */
+  google_sign_in_enabled: boolean;
+
   /** Present while the Org is past due, and for a billing holder while a
    * plan-lowering change is scheduled. */
   billing_notice?: OrgBillingNotice;

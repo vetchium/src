@@ -183,6 +183,7 @@ func (q *Queries) EnableOrgUsers(ctx context.Context, arg EnableOrgUsersParams) 
 const getOrgUserSummary = `-- name: GetOrgUserSummary :one
 SELECT
     o.org_plan_oid,
+    o.google_sign_in_enabled,
     vetchium.org_seats_in_use(o.org_did)::bigint AS seats_in_use,
     count(*) FILTER (WHERE u.org_user_state = 'active')::bigint
         AS active_users,
@@ -203,11 +204,12 @@ FROM vetchium.orgs AS o
 LEFT JOIN vetchium.org_users AS u
     ON u.org_did = o.org_did AND u.org_user_state <> 'provisioning'
 WHERE o.org_did = $1
-GROUP BY o.org_did, o.org_plan_oid
+GROUP BY o.org_did, o.org_plan_oid, o.google_sign_in_enabled
 `
 
 type GetOrgUserSummaryRow struct {
 	OrgPlanOid                    string `json:"org_plan_oid"`
+	GoogleSignInEnabled           bool   `json:"google_sign_in_enabled"`
 	SeatsInUse                    int64  `json:"seats_in_use"`
 	ActiveUsers                   int64  `json:"active_users"`
 	DisabledManualUsers           int64  `json:"disabled_manual_users"`
@@ -220,6 +222,7 @@ func (q *Queries) GetOrgUserSummary(ctx context.Context, orgDid pgtype.UUID) (Ge
 	var i GetOrgUserSummaryRow
 	err := row.Scan(
 		&i.OrgPlanOid,
+		&i.GoogleSignInEnabled,
 		&i.SeatsInUse,
 		&i.ActiveUsers,
 		&i.DisabledManualUsers,

@@ -172,7 +172,8 @@ type EnforceOrgDeadlineRow struct {
 // reason nonpayment and end their sessions, cancel every pending invitation,
 // and queue one email to each disabled user. Disabled users keep their data
 // and can be re-enabled one at a time.
-// OS-M10 removes the Org logo here; OS-M11 turns Google sign-in off here.
+// The logo and Google sign-in go with the plan: SaveOrgSubscription moves the
+// Org to Free in the same transaction and clears both.
 func (q *Queries) EnforceOrgDeadline(ctx context.Context, arg EnforceOrgDeadlineParams) (EnforceOrgDeadlineRow, error) {
 	row := q.db.QueryRow(ctx, enforceOrgDeadline,
 		arg.OrgDid,
