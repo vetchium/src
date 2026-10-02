@@ -60,7 +60,9 @@ type Invoice struct {
 	NextAttemptAt time.Time
 	LastFailure   subscriptionspec.InvoiceFailure
 
-	PaidAt time.Time
+	CreatedAt time.Time
+	PaidAt    time.Time
+	VoidedAt  time.Time
 }
 
 // Stored is the database-free input to StateFromStored. Interval and

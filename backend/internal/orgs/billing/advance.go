@@ -157,6 +157,7 @@ func charge(
 		PeriodStart: next.PeriodStart,
 		PeriodEnd:   next.PeriodEnd,
 		Reason:      reason,
+		CreatedAt:   Instant(now),
 	}
 	result := charger.Charge(next.PaymentMethod)
 	if result == ChargePaid {
@@ -210,6 +211,7 @@ func advancePastDue(
 			PaymentMethod: state.PaymentMethod,
 		}
 		open.State = subscriptionspec.InvoiceVoid
+		open.VoidedAt = Instant(now)
 		open.NextAttemptAt = time.Time{}
 		return ended, &Transition{
 			Kind: KindDeadlineEnforced, After: ended,

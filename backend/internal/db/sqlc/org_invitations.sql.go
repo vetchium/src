@@ -505,7 +505,7 @@ func (q *Queries) ListOrgInvitations(ctx context.Context, arg ListOrgInvitations
 }
 
 const lockOrgForInvitation = `-- name: LockOrgForInvitation :one
-SELECT o.org_did, o.org_plan_oid
+SELECT o.org_did, o.org_plan_oid, o.scheduled_org_plan_oid
 FROM vetchium.org_user_invitations AS i
 JOIN vetchium.orgs AS o ON o.org_did = i.org_did
 WHERE i.token_hash = $1
@@ -517,8 +517,9 @@ FOR UPDATE OF o
 `
 
 type LockOrgForInvitationRow struct {
-	OrgDid     pgtype.UUID `json:"org_did"`
-	OrgPlanOid string      `json:"org_plan_oid"`
+	OrgDid              pgtype.UUID `json:"org_did"`
+	OrgPlanOid          string      `json:"org_plan_oid"`
+	ScheduledOrgPlanOid pgtype.Text `json:"scheduled_org_plan_oid"`
 }
 
 // Locks the invitation's Org so acceptance is serialized with every other
@@ -526,12 +527,12 @@ type LockOrgForInvitationRow struct {
 func (q *Queries) LockOrgForInvitation(ctx context.Context, tokenHash []byte) (LockOrgForInvitationRow, error) {
 	row := q.db.QueryRow(ctx, lockOrgForInvitation, tokenHash)
 	var i LockOrgForInvitationRow
-	err := row.Scan(&i.OrgDid, &i.OrgPlanOid)
+	err := row.Scan(&i.OrgDid, &i.OrgPlanOid, &i.ScheduledOrgPlanOid)
 	return i, err
 }
 
 const lockOrgSeatPolicy = `-- name: LockOrgSeatPolicy :one
-SELECT o.org_plan_oid, d.domain::text AS domain
+SELECT o.org_plan_oid, o.scheduled_org_plan_oid, d.domain::text AS domain
 FROM vetchium.orgs AS o
 JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
 WHERE o.org_did = $1
@@ -540,15 +541,16 @@ FOR UPDATE OF o
 `
 
 type LockOrgSeatPolicyRow struct {
-	OrgPlanOid string `json:"org_plan_oid"`
-	Domain     string `json:"domain"`
+	OrgPlanOid          string      `json:"org_plan_oid"`
+	ScheduledOrgPlanOid pgtype.Text `json:"scheduled_org_plan_oid"`
+	Domain              string      `json:"domain"`
 }
 
 // Takes the Org row lock that serializes every statement consuming a seat.
 func (q *Queries) LockOrgSeatPolicy(ctx context.Context, orgDid pgtype.UUID) (LockOrgSeatPolicyRow, error) {
 	row := q.db.QueryRow(ctx, lockOrgSeatPolicy, orgDid)
 	var i LockOrgSeatPolicyRow
-	err := row.Scan(&i.OrgPlanOid, &i.Domain)
+	err := row.Scan(&i.OrgPlanOid, &i.ScheduledOrgPlanOid, &i.Domain)
 	return i, err
 }
 

@@ -2,6 +2,7 @@ import type { TOTPRecoveryCodeCount } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
 import type { DisplayName } from "../../common/localization.ts";
 import type { OrgPermissionID } from "../authorization/types.ts";
+import type { OrgPlanOID } from "../subscriptions/plans.ts";
 import type { FrontendLocale, OrgDomain } from "../types.ts";
 
 export const OrgActive = "active" as const;
@@ -32,6 +33,24 @@ export interface OrgSummary {
   domain: DomainStatus;
 }
 
+export const billingNoticeKindValues = [
+  "past-due",
+  "subscription-ending",
+] as const;
+
+export type BillingNoticeKind = (typeof billingNoticeKindValues)[number];
+
+export interface BillingNotice {
+  kind: BillingNoticeKind;
+  /** The deadline for past-due; the end of the period for
+   * subscription-ending. */
+  at: string;
+  /** Set only for subscription-ending. */
+  scheduled_plan_oid?: OrgPlanOID;
+  /** True inside the final-week window; always true for past-due. */
+  banner: boolean;
+}
+
 export interface MyInfoResponse {
   email_address: EmailAddress;
   preferred_language: FrontendLocale;
@@ -40,6 +59,8 @@ export interface MyInfoResponse {
   recovery_codes_remaining: TOTPRecoveryCodeCount;
   session_authenticated_at: string;
   org: OrgSummary;
+  plan_oid: OrgPlanOID;
+  billing_notice?: BillingNotice;
 }
 
 export const CheckPresent = "present" as const;

@@ -34,12 +34,17 @@ import (
 
 const invitationsPaginationPurpose = "orgs-list-invitations-v1"
 
-// seatLimit is the cap the statement checks under the Org row lock. Scheduled
-// downgrades and Google sign-in enter here when their milestones add the
-// columns; until then the cap is the current plan's.
-func seatLimit(plan string) (pgtype.Int4, int32) {
+// seatLimit is the cap the statement checks under the Org row lock: the lower
+// of the current and any scheduled plan's (D13). Google sign-in enters here
+// when its milestone adds the column.
+func seatLimit(plan string, scheduled pgtype.Text) (pgtype.Int4, int32) {
+	var scheduledPlan *subscriptionspec.Plan
+	if scheduled.Valid {
+		value := subscriptionspec.Plan(scheduled.String)
+		scheduledPlan = &value
+	}
 	limit, unlimited := orgusers.SeatLimit(
-		subscriptionspec.PlanOID(plan), nil, false,
+		subscriptionspec.PlanOID(plan), scheduledPlan, false,
 	)
 	if unlimited {
 		return pgtype.Int4{}, 0
@@ -100,7 +105,7 @@ func InviteUsers(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				limit, limitValue := seatLimit(policy.OrgPlanOid)
+				limit, limitValue := seatLimit(policy.OrgPlanOid, policy.ScheduledOrgPlanOid)
 
 				params := sqlc.InviteOrgUsersParams{
 					OrgDid:         identity.OrgDID,
@@ -289,7 +294,7 @@ func ResendInvitation(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				limit, limitValue := seatLimit(policy.OrgPlanOid)
+				limit, limitValue := seatLimit(policy.OrgPlanOid, policy.ScheduledOrgPlanOid)
 				token, tokenHash, err := credentials.NewToken()
 				if err != nil {
 					return result{}, nil, err
@@ -425,7 +430,7 @@ func AcceptInvitation(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				limit, limitValue := seatLimit(org.OrgPlanOid)
+				limit, limitValue := seatLimit(org.OrgPlanOid, org.ScheduledOrgPlanOid)
 				passwordHash, err := credentials.HashPassword(string(request.Password))
 				if err != nil {
 					return result{}, nil, err

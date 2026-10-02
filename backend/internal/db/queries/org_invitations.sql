@@ -1,6 +1,6 @@
 -- Takes the Org row lock that serializes every statement consuming a seat.
 -- name: LockOrgSeatPolicy :one
-SELECT o.org_plan_oid, d.domain::text AS domain
+SELECT o.org_plan_oid, o.scheduled_org_plan_oid, d.domain::text AS domain
 FROM vetchium.orgs AS o
 JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
 WHERE o.org_did = sqlc.arg(org_did)
@@ -305,7 +305,7 @@ WHERE i.token_hash = sqlc.arg(token_hash)
 -- Locks the invitation's Org so acceptance is serialized with every other
 -- seat-consuming statement, and returns the plan the cap derives from.
 -- name: LockOrgForInvitation :one
-SELECT o.org_did, o.org_plan_oid
+SELECT o.org_did, o.org_plan_oid, o.scheduled_org_plan_oid
 FROM vetchium.org_user_invitations AS i
 JOIN vetchium.orgs AS o ON o.org_did = i.org_did
 WHERE i.token_hash = sqlc.arg(token_hash)

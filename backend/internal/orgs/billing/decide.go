@@ -135,6 +135,7 @@ func upgrade(
 		PeriodEnd:   next.PeriodEnd,
 		Reason:      subscriptionspec.ReasonUpgrade,
 		State:       subscriptionspec.InvoicePaid,
+		CreatedAt:   at,
 		PaidAt:      at,
 	}
 	return Decision{

@@ -4,6 +4,7 @@ SELECT
     u.preferred_language,
     o.display_name,
     o.org_state,
+    o.org_plan_oid,
     d.domain,
     d.domain_state,
     d.verification_token,

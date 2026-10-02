@@ -5,6 +5,7 @@ import (
 
 	orgsaccount "backend/handlers/orgs/account"
 	orgsauth "backend/handlers/orgs/auth"
+	orgssubscriptions "backend/handlers/orgs/subscriptions"
 	orgsusers "backend/handlers/orgs/users"
 	"backend/handlers/portal"
 	"backend/internal/apiserver"
@@ -124,5 +125,39 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	)
 	mux.Handle(
 		"GET /api/orgs/list-permissions", orgAuth(orgsusers.ListPermissions(s)),
+	)
+
+	// Billing stays open to a suspended Org so it can still pay (D27), except
+	// for choosing a plan.
+	manageBilling := func(next http.Handler) http.Handler {
+		return orgAuth(middleware.RequireOrgPermission(
+			s, orgsauthorization.ManageBilling,
+		)(next))
+	}
+	mux.Handle(
+		"GET /api/orgs/my-subscription",
+		manageBilling(orgssubscriptions.MySubscription(s)),
+	)
+	mux.Handle(
+		"POST /api/orgs/set-subscription-plan",
+		orgAuth(activeOrg(middleware.RequireOrgPermission(
+			s, orgsauthorization.ManageBilling,
+		)(orgssubscriptions.SetSubscriptionPlan(s)))),
+	)
+	mux.Handle(
+		"POST /api/orgs/set-payment-method",
+		manageBilling(orgssubscriptions.SetPaymentMethod(s)),
+	)
+	mux.Handle(
+		"POST /api/orgs/remove-payment-method",
+		manageBilling(orgssubscriptions.RemovePaymentMethod(s)),
+	)
+	mux.Handle(
+		"POST /api/orgs/list-invoices",
+		manageBilling(orgssubscriptions.ListInvoices(s)),
+	)
+	mux.Handle(
+		"POST /api/orgs/pay-invoice",
+		manageBilling(orgssubscriptions.PayInvoice(s)),
 	)
 }

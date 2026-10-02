@@ -191,9 +191,13 @@ type Querier interface {
 	GetOrgLoginChallenge(ctx context.Context, tokenHash []byte) (GetOrgLoginChallengeRow, error)
 	GetOrgMyInfo(ctx context.Context, orgUserID pgtype.UUID) (GetOrgMyInfoRow, error)
 	GetOrgPasswordForReauthentication(ctx context.Context, arg GetOrgPasswordForReauthenticationParams) (string, error)
+	// Read after the Org row lock is held: a function inside the locking statement
+	// would count against the statement's older snapshot.
+	GetOrgSeatsInUse(ctx context.Context, orgDid pgtype.UUID) (int64, error)
 	GetOrgSignupCompletion(ctx context.Context, operationID pgtype.UUID) (VetchiumOrgSignupCompletion, error)
 	GetOrgSignupCompletionByTokenHash(ctx context.Context, tokenHash []byte) (VetchiumOrgSignupCompletion, error)
 	GetOrgSignupDetails(ctx context.Context, tokenHash []byte) (GetOrgSignupDetailsRow, error)
+	GetOrgSubscription(ctx context.Context, orgDid pgtype.UUID) (GetOrgSubscriptionRow, error)
 	GetOrgTOTPEnrollment(ctx context.Context, arg GetOrgTOTPEnrollmentParams) (GetOrgTOTPEnrollmentRow, error)
 	// A suspended Org's users can still sign in, to restore the domain. When a
 	// released domain was claimed by another local Org, the current owner wins.
@@ -235,6 +239,7 @@ type Querier interface {
 	ListHubUsersWithEndingSubscriptions(ctx context.Context, arg ListHubUsersWithEndingSubscriptionsParams) ([]ListHubUsersWithEndingSubscriptionsRow, error)
 	ListOrgDomainsPastGrace(ctx context.Context, failingBefore pgtype.Timestamptz) ([]ListOrgDomainsPastGraceRow, error)
 	ListOrgInvitations(ctx context.Context, arg ListOrgInvitationsParams) ([]ListOrgInvitationsRow, error)
+	ListOrgInvoices(ctx context.Context, arg ListOrgInvoicesParams) ([]ListOrgInvoicesRow, error)
 	ListOrgPermissionCatalog(ctx context.Context) ([]ListOrgPermissionCatalogRow, error)
 	// Active users holding each directly granted permission.
 	ListOrgPermissionCounts(ctx context.Context, orgDid pgtype.UUID) ([]ListOrgPermissionCountsRow, error)
@@ -264,6 +269,9 @@ type Querier interface {
 	LockOrgForInvitation(ctx context.Context, tokenHash []byte) (LockOrgForInvitationRow, error)
 	// Takes the Org row lock that serializes every statement consuming a seat.
 	LockOrgSeatPolicy(ctx context.Context, orgDid pgtype.UUID) (LockOrgSeatPolicyRow, error)
+	// Takes the Org row lock that serializes every billing, seat, and permission
+	// decision (D28). The open invoice is read under the same lock.
+	LockOrgSubscriptionForChange(ctx context.Context, orgDid pgtype.UUID) (LockOrgSubscriptionForChangeRow, error)
 	LockOrgUserCredentialMutation(ctx context.Context, orgUserID pgtype.UUID) (pgtype.UUID, error)
 	MarkHubAccountEmailChangeCancelling(ctx context.Context, arg MarkHubAccountEmailChangeCancellingParams) (int64, error)
 	MarkHubAccountEmailChangeFailed(ctx context.Context, arg MarkHubAccountEmailChangeFailedParams) (int64, error)
@@ -331,6 +339,7 @@ type Querier interface {
 	RegenerateOrgTOTPRecoveryCodes(ctx context.Context, arg RegenerateOrgTOTPRecoveryCodesParams) (bool, error)
 	RejectOrgDomainReclaim(ctx context.Context, arg RejectOrgDomainReclaimParams) (bool, error)
 	RemoveHubProfilePicture(ctx context.Context, arg RemoveHubProfilePictureParams) (RemoveHubProfilePictureRow, error)
+	RemoveOrgPaymentMethod(ctx context.Context, arg RemoveOrgPaymentMethodParams) error
 	// Rotates the token and restarts the lifetime. An expired invitation holds no
 	// seat, so resending it must fit the cap again.
 	ResendOrgInvitation(ctx context.Context, arg ResendOrgInvitationParams) (ResendOrgInvitationRow, error)
@@ -355,6 +364,11 @@ type Querier interface {
 	// columns from jsonb_to_recordset's column-definition-list form, and parallel
 	// unnest arrays would read worse with eight state columns.
 	SaveHubSubscriptionStates(ctx context.Context, arg SaveHubSubscriptionStatesParams) (SaveHubSubscriptionStatesRow, error)
+	// The single write statement for a subscription change. invoice_changes and
+	// events are jsonb arrays (see backend/internal/orgs/billing): the changes are
+	// already folded, so no change refers to a row another change in the same
+	// statement creates.
+	SaveOrgSubscription(ctx context.Context, arg SaveOrgSubscriptionParams) (SaveOrgSubscriptionRow, error)
 	ScheduleHubEmailRetry(ctx context.Context, arg ScheduleHubEmailRetryParams) (bool, error)
 	ScheduleOrgEmailRetry(ctx context.Context, arg ScheduleOrgEmailRetryParams) (bool, error)
 	SetAdminDisplayName(ctx context.Context, arg SetAdminDisplayNameParams) (int64, error)
@@ -367,6 +381,7 @@ type Querier interface {
 	SetHubPreferredLanguage(ctx context.Context, arg SetHubPreferredLanguageParams) (bool, error)
 	SetHubPublicProfile(ctx context.Context, arg SetHubPublicProfileParams) (SetHubPublicProfileRow, error)
 	SetHubResidentCountry(ctx context.Context, arg SetHubResidentCountryParams) (bool, error)
+	SetOrgPaymentMethod(ctx context.Context, arg SetOrgPaymentMethodParams) error
 	// Replaces the direct grants of every target with one set. After the change
 	// the Org must still have an active superadmin: one outside the set, or a
 	// target that keeps the grant.

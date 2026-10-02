@@ -233,7 +233,7 @@ type change struct {
 	// in request order.
 	apply func(
 		ctx context.Context, q *sqlc.Queries, identity middleware.OrgIdentity,
-		plan string, targets []sqlc.GetOrgUsersForChangeRow,
+		policy sqlc.LockOrgSeatPolicyRow, targets []sqlc.GetOrgUsersForChangeRow,
 	) (problem.Body, error)
 }
 
@@ -279,7 +279,7 @@ func runChange(
 				}
 			}
 		}
-		return c.apply(ctx, q, identity, policy.OrgPlanOid, targets)
+		return c.apply(ctx, q, identity, policy, targets)
 	}()
 	if err != nil {
 		s.InternalError(ctx, w, "change Org users", err)
@@ -338,7 +338,7 @@ func disable(s *orgsruntime.Server, w http.ResponseWriter, r *http.Request, emai
 		emails: emails, refuseSelf: true,
 		apply: func(
 			ctx context.Context, q *sqlc.Queries, identity middleware.OrgIdentity,
-			_ string, targets []sqlc.GetOrgUsersForChangeRow,
+			_ sqlc.LockOrgSeatPolicyRow, targets []sqlc.GetOrgUsersForChangeRow,
 		) (problem.Body, error) {
 			if refused := requireSuperadminForSuperadmins(identity, targets); refused != nil {
 				return refused, nil
@@ -365,12 +365,12 @@ func enable(s *orgsruntime.Server, w http.ResponseWriter, r *http.Request, email
 		emails: emails,
 		apply: func(
 			ctx context.Context, q *sqlc.Queries, identity middleware.OrgIdentity,
-			plan string, targets []sqlc.GetOrgUsersForChangeRow,
+			policy sqlc.LockOrgSeatPolicyRow, targets []sqlc.GetOrgUsersForChangeRow,
 		) (problem.Body, error) {
 			if refused := requireSuperadminForSuperadmins(identity, targets); refused != nil {
 				return refused, nil
 			}
-			limit, limitValue := seatLimit(plan)
+			limit, limitValue := seatLimit(policy.OrgPlanOid, policy.ScheduledOrgPlanOid)
 			result, err := q.EnableOrgUsers(ctx, sqlc.EnableOrgUsersParams{
 				OrgDid:         identity.OrgDID,
 				OrgUserIds:     userIDs(targets),
@@ -402,7 +402,7 @@ func setPermissions(
 		emails: emails, refuseSelf: true,
 		apply: func(
 			ctx context.Context, q *sqlc.Queries, identity middleware.OrgIdentity,
-			_ string, targets []sqlc.GetOrgUsersForChangeRow,
+			_ sqlc.LockOrgSeatPolicyRow, targets []sqlc.GetOrgUsersForChangeRow,
 		) (problem.Body, error) {
 			// Granting and revoking are both delegated: the grants that
 			// differ between what a user holds and what it will hold must be

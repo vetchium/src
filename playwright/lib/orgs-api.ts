@@ -8,6 +8,12 @@ import { expect } from "@playwright/test";
 import type { MyInfoResponse } from "typespec/orgs/account/account";
 import type { LoginResponse } from "typespec/orgs/auth/login";
 import type { CompleteSignupResponse } from "typespec/orgs/auth/signup";
+import type {
+  ListInvoicesRequest,
+  PayInvoiceRequest,
+  SetPaymentMethodRequest,
+  SetSubscriptionPlanRequest,
+} from "typespec/orgs/subscriptions/subscriptions";
 import type { OrgDomain } from "typespec/orgs/types";
 import type {
   AcceptInvitationRequest,
@@ -188,6 +194,49 @@ export class OrgsAPI {
     return this.request.get(`${this.origin}/api/orgs/list-permissions`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
+  }
+
+  mySubscription(token?: string): Promise<APIResponse> {
+    return this.request.get(`${this.origin}/api/orgs/my-subscription`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  }
+
+  setSubscriptionPlan(
+    token: string,
+    request: SetSubscriptionPlanRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/set-subscription-plan", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  setPaymentMethod(
+    token: string,
+    request: SetPaymentMethodRequest,
+  ): Promise<APIResponse> {
+    return this.post("/set-payment-method", request, { token });
+  }
+
+  removePaymentMethod(token: string): Promise<APIResponse> {
+    return this.post("/remove-payment-method", undefined, { token });
+  }
+
+  listInvoices(
+    token: string,
+    request: ListInvoicesRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-invoices", request, { token });
+  }
+
+  payInvoice(
+    token: string,
+    request: PayInvoiceRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/pay-invoice", request, { token, idempotencyKey });
   }
 
   myInfo(token?: string): Promise<APIResponse> {

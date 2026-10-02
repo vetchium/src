@@ -2,15 +2,18 @@ package orgs
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
+	subscriptionspec "github.com/vetchium/src/typespec/orgs/subscriptions"
 	"github.com/vetchium/src/typespec/problem"
 
 	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/orgs/auth"
+	"backend/internal/orgs/billing"
 	"backend/internal/orgs/domainverification"
 	"backend/internal/orgs/signupcompletion"
 	"backend/internal/regions"
@@ -41,6 +44,18 @@ type Server struct {
 	PublicBaseURL string
 	CredentialKey [32]byte
 	Now           func() time.Time
+
+	// OfferedPlans are the plans this tenant sells; Free is always among
+	// them. Billing times the dunning lifecycle. Charger collects payment and
+	// is the simulated one in every environment.
+	OfferedPlans []subscriptionspec.Plan
+	Billing      billing.Config
+	Charger      billing.Charger
+}
+
+// Offers reports whether this tenant offers plan.
+func (s *Server) Offers(plan subscriptionspec.Plan) bool {
+	return slices.Contains(s.OfferedPlans, plan)
 }
 
 func (s *Server) CurrentTime() time.Time {

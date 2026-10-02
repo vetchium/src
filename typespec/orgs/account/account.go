@@ -7,6 +7,7 @@ import (
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/authorization"
+	"github.com/vetchium/src/typespec/orgs/subscriptions"
 )
 
 type OrgState string
@@ -40,6 +41,31 @@ type OrgSummary struct {
 	Domain      DomainStatus       `json:"domain"`
 }
 
+type BillingNoticeKind string
+
+const (
+	// NoticePastDue is shown to every user while an invoice is unpaid.
+	NoticePastDue BillingNoticeKind = "past-due"
+	// NoticeSubscriptionEnding is shown to billing holders while a scheduled
+	// change will lower the plan.
+	NoticeSubscriptionEnding BillingNoticeKind = "subscription-ending"
+)
+
+type BillingNotice struct {
+	Kind BillingNoticeKind `json:"kind"`
+
+	// At is the deadline for past-due, and the end of the period for
+	// subscription-ending.
+	At time.Time `json:"at"`
+
+	// ScheduledPlanOID is set only for subscription-ending.
+	ScheduledPlanOID *subscriptions.PlanOID `json:"scheduled_plan_oid,omitempty"`
+
+	// Banner is true when the notice is inside its final-week window. It is
+	// always true for past-due.
+	Banner bool `json:"banner"`
+}
+
 type MyInfoResponse struct {
 	EmailAddress           common.EmailAddress             `json:"email_address"`
 	PreferredLanguage      orgs.FrontendLocale             `json:"preferred_language"`
@@ -48,6 +74,8 @@ type MyInfoResponse struct {
 	RecoveryCodesRemaining common.TOTPRecoveryCodeCount    `json:"recovery_codes_remaining"`
 	SessionAuthenticatedAt time.Time                       `json:"session_authenticated_at"`
 	Org                    OrgSummary                      `json:"org"`
+	PlanOID                subscriptions.PlanOID           `json:"plan_oid"`
+	BillingNotice          *BillingNotice                  `json:"billing_notice,omitempty"`
 }
 
 type DomainCheckResult string
