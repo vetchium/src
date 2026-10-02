@@ -1,0 +1,24 @@
+{
+  "regions": [
+    {
+      "tenantId": "deu",
+      "mediaOrigin": "http://media.deu.localhost",
+      "hubPlans": ["hub-free-tier", "hub-silver-tier"]
+    },
+    {
+      "tenantId": "ind1",
+      "mediaOrigin": "http://media.ind1.localhost",
+      "hubPlans": ["hub-free-tier", "hub-silver-tier"]
+    },
+    {
+      "tenantId": "sgp",
+      "mediaOrigin": "http://media.sgp.localhost",
+      "hubPlans": ["hub-free-tier", "hub-silver-tier"]
+    },
+    {
+      "tenantId": "usa1",
+      "mediaOrigin": "http://media.usa1.localhost",
+      "hubPlans": ["hub-free-tier", "hub-silver-tier"]
+    }
+  ]
+}

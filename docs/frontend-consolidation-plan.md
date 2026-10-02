@@ -102,8 +102,9 @@ table in the same commit.
 ### Region tables (D3, D12)
 
 - **Shared region data** lives in `portal-ui/src/regions/`, one JSON file per
-  build environment: `local.json` for dev and CI, `production.json` for
-  production. If FC-M1 finds that dev and CI hostnames differ, add `ci.json`.
+  build environment, named after the backend's `env`: `dev.json`, `ci.json`,
+  and `production.json`. Dev and CI share hostnames but not data (CI turns off
+  Hub signup in `deu` and offers only the free plan in `usa1`).
   - Each entry: `tenantId`, `hostingCountry`, `apiOrigin`, `signupEnabled`,
     `orgSignupEnabled`, `allowedCountries`.
   - Plus `recommendations` and `defaultTenant`, taken from
@@ -112,8 +113,10 @@ table in the same commit.
   `mediaOrigin` and `hubPlans` per `tenantId`. This follows
   `change-design.md`: a shared mechanism holds the shared list, and the owner
   holds its own policy.
-- **Build environment selection:** `VITE_VETCHIUM_ENVIRONMENT` set to `local`
-  or `production`. The build fails when it is unset or unknown.
+- **Build environment selection:** `VITE_VETCHIUM_ENVIRONMENT` set to `dev`,
+  `ci`, or `production`, through `loadRegionTable` in
+  `@vetchium/portal-ui/regions`. Each portal's `vite.config.ts` must call it
+  so the build fails when the value is unset or unknown.
 - **Security headers are generated at build time** from these tables: CSP
   `connect-src` with every `apiOrigin`, and `img-src` with every media origin.
   - One generator writes both the static host's `dist/_headers` and the nginx
@@ -336,7 +339,8 @@ pass. The full suite is required at FC-M11 and FC-M12.
 - **Steps:** edit the compose JSON with a short script, not by hand, in both
   compose files.
   1. Replace the eight `hub-ui-<r>`/`orgs-ui-<r>` services with one `hub-ui`
-     and one `orgs-ui` service, built with `VITE_VETCHIUM_ENVIRONMENT=local`.
+     and one `orgs-ui` service, built with `VITE_VETCHIUM_ENVIRONMENT=dev` in
+     `docker-compose.json` and `ci` in `docker-compose-ci.json`.
   2. In the edge configuration, route `vetchium.localhost` and
      `orgs.vetchium.localhost` to those two services.
   3. Remove the regional Hub and Orgs portal routers, and the old
@@ -507,7 +511,7 @@ pass. The full suite is required at FC-M11 and FC-M12.
 
 - [x] FC-M0 — Decision record and plan
 - [x] FC-M1 — Regional API host with CORS (additive)
-- [ ] FC-M2 — Region tables and consistency test
+- [x] FC-M2 — Region tables and consistency test
 - [ ] FC-M3 — Shared region mechanism in portal-ui
 - [ ] FC-M4 — Hub UI goes global
 - [ ] FC-M5 — Orgs UI goes global
@@ -525,3 +529,4 @@ One line per finished milestone: date, short sha, deviations or limitations.
 
 - 2026-10-02 — FC-M0 — decision record and plan committed.
 - 2026-10-02 — FC-M1 — `<r>.api.vetchium.localhost` routes `/api/hub/` and `/api/orgs/` with Traefik CORS (GET, POST; `Authorization`, `Content-Type`, `Idempotency-Key`; max-age 86400). The §3 dev hostnames resolve for curl and Node; no change. The preflight, wrong-origin, and cross-portal-origin checks passed for all four regions, and the old portal hosts still serve.
+- 2026-10-02 — FC-M2 — tables are `dev`/`ci`/`production`, not `local`/`production`, because CI data differs from dev; §3 and FC-M7 updated. `TestPortalRegionTablesMatchCheckedInConfiguration` checks both tables against configs and catalogs (mutation-checked). `loadRegionTable` exists but no portal calls it yet: FC-M4 and FC-M5 wire it into `vite.config.ts` to fail the build. All three tables are bundled; tree-shaking to the selected one is left to FC-M4.
