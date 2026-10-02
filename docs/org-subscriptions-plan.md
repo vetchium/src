@@ -702,7 +702,7 @@ narrow checks; run `make test` (in the background) as the last Done check.
 | Milestone | Done | Commit |
 | --- | --- | --- |
 | OS-M0 Plan | [x] | OS-M0 commit |
-| OS-M1 Billing-period extraction | [ ] | |
+| OS-M1 Billing-period extraction | [x] | a6eae7e |
 | OS-M2 Permissions, plan contract, schema foundation | [ ] | |
 | OS-M3 Invitations API | [ ] | |
 | OS-M4 User management API | [ ] | |
@@ -723,7 +723,7 @@ One line per finished milestone: `YYYY-MM-DD <sha> OS-Mx — deviation or "as
 planned"`.
 
 - 2026-10-02 OS-M0 — as planned (the plan commit itself).
-- 2026-10-03 OS-M1 — `billingperiod` takes a month count; `hub/billing` keeps thin wrappers (`Boundary`, `PeriodContaining`, `Instant`) so callers are unchanged.
+- 2026-10-03 a6eae7e OS-M1 — `billingperiod` takes a month count; `hub/billing` keeps thin wrappers (`Boundary`, `PeriodContaining`, `Instant`) so callers are unchanged.
 
 ## 9. Open questions
 
