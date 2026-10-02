@@ -703,7 +703,7 @@ narrow checks; run `make test` (in the background) as the last Done check.
 | --- | --- | --- |
 | OS-M0 Plan | [x] | OS-M0 commit |
 | OS-M1 Billing-period extraction | [x] | a6eae7e |
-| OS-M2 Permissions, plan contract, schema foundation | [x] | see log |
+| OS-M2 Permissions, plan contract, schema foundation | [x] | 41a84c6 |
 | OS-M3 Invitations API | [ ] | |
 | OS-M4 User management API | [ ] | |
 | OS-M5 User management UI | [ ] | |
@@ -724,7 +724,7 @@ planned"`.
 
 - 2026-10-02 OS-M0 — as planned (the plan commit itself).
 - 2026-10-03 a6eae7e OS-M1 — `billingperiod` takes a month count; `hub/billing` keeps thin wrappers (`Boundary`, `PeriodContaining`, `Instant`) so callers are unchanged.
-- 2026-10-03 OS-M2 — reused `org-permission-required` (already in `problem/orgs/authentication.*`); added `org-suspended` in `problem/orgs/suspension.*`. `AuthenticateOrgSession` now returns `org_state` and effective permissions, carried on `OrgIdentity`. Entitlements also published as `x-vetchium-plan-entitlements` and checked against the TS constants in `openapi-extensions.test.ts`. Existing Playwright expectations updated (superadmin `my-info` lists implied permissions; the disabled-user SQL helper sets the reason).
+- 2026-10-03 41a84c6 OS-M2 — reused `org-permission-required` (already in `problem/orgs/authentication.*`); added `org-suspended` in `problem/orgs/suspension.*`. `AuthenticateOrgSession` now returns `org_state` and effective permissions, carried on `OrgIdentity`. Entitlements also published as `x-vetchium-plan-entitlements` and checked against the TS constants in `openapi-extensions.test.ts`. Existing Playwright expectations updated (superadmin `my-info` lists implied permissions; the disabled-user SQL helper sets the reason).
 
 ## 9. Open questions
 
