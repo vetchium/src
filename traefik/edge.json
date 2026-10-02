@@ -1,6 +1,16 @@
 {
   "http": {
     "routers": {
+      "hub-ui": {
+        "rule": "Host(`vetchium.localhost`)",
+        "service": "hub-ui",
+        "entryPoints": ["web"]
+      },
+      "orgs-ui": {
+        "rule": "Host(`orgs.vetchium.localhost`)",
+        "service": "orgs-ui",
+        "entryPoints": ["web"]
+      },
       "sgp-api": {
         "rule": "Host(`sgp.api.vetchium.localhost`)",
         "service": "sgp",
@@ -43,6 +53,24 @@
       }
     },
     "services": {
+      "hub-ui": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://hub-ui:8080"
+            }
+          ]
+        }
+      },
+      "orgs-ui": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://orgs-ui:8080"
+            }
+          ]
+        }
+      },
       "sgp": {
         "loadBalancer": {
           "servers": [

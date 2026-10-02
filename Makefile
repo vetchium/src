@@ -119,9 +119,9 @@ dev: clean
 	docker compose -f docker-compose.json up -d --wait \
 		--wait-timeout $(WAIT_TIMEOUT) $(call serving_services,docker-compose.json)
 	@echo
-	@for t in sgp usa1 deu ind1; do \
-		for p in orgs hub admin; do echo "  http://$$p-ui.$$t.localhost/"; done; \
-	done
+	@echo "  http://vetchium.localhost/"
+	@echo "  http://orgs.vetchium.localhost/"
+	@for t in sgp usa1 deu ind1; do echo "  http://admin-ui.$$t.localhost/"; done
 
 # The single entry point for developer data seeding. It brings up a fresh
 # stack, then runs every seed target that must go through a portal API
@@ -139,13 +139,13 @@ dev-seed: dev
 # log in, then write every profile section the tenant's fixture file
 # supplies. Fixture data, including the avatars paid-tier users reference,
 # lives in dev/hub-seed-profiles/ and is meant to be hand-edited. Runs from
-# the host against the Traefik-exposed hub-ui origins `dev` already prints,
-# so it does not need dev-secrets or a container of its own.
+# the host against each tenant's Traefik-exposed API host, so it does not
+# need dev-secrets or a container of its own.
 dev-seed-hub-profiles:
 	@for t in sgp usa1 deu ind1; do \
 		echo "==> hub profiles $$t"; \
 		(cd backend && DEV_SEED_MODE=hub-profiles \
-			DEV_SEED_HUB_ORIGIN="http://hub-ui.$$t.localhost" \
+			DEV_SEED_HUB_ORIGIN="http://$$t.api.vetchium.localhost" \
 			DEV_SEED_MAILPIT_URL="$(DEV_SEED_MAILPIT_URL)" \
 			DEV_SEED_HUB_PROFILES_FILE="$(CURDIR)/dev/hub-seed-profiles/$$t.json" \
 			go run ./cmd/dev-seed) || exit $$?; \
@@ -159,7 +159,7 @@ dev-seed-orgs:
 	@for t in sgp usa1 deu ind1; do \
 		echo "==> orgs $$t"; \
 		(cd backend && DEV_SEED_MODE=orgs DEV_SEED_TENANT=$$t \
-			DEV_SEED_ORGS_ORIGIN="http://orgs-ui.$$t.localhost" \
+			DEV_SEED_ORGS_ORIGIN="http://$$t.api.vetchium.localhost" \
 			DEV_SEED_MAILPIT_URL="$(DEV_SEED_MAILPIT_URL)" \
 			DEV_SEED_DNS_URL="$(DEV_SEED_DNS_URL)" \
 			go run ./cmd/dev-seed) || exit $$?; \

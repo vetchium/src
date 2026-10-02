@@ -16,7 +16,8 @@
 
 COMPOSE_FILE = 'docker-compose.json'
 ALL_TENANTS = ['sgp', 'usa1', 'deu', 'ind1']
-PORTALS = ['orgs', 'hub', 'admin']
+# Admin is regional; Hub and Orgs are one global portal each.
+REGIONAL_PORTALS = ['admin']
 
 config.define_string_list('tenants',
                           usage='tenants to run; repeatable (default: all of %s)' % ALL_TENANTS)
@@ -51,14 +52,19 @@ mailpit_port = os.getenv('MAILPIT_PORT', '18025')
 mailpit_bind = os.getenv('MAILPIT_BIND', '127.0.0.1')
 mailpit_host = '127.0.0.1' if mailpit_bind == '0.0.0.0' else mailpit_bind
 
-def portal_link(portal, tenant):
-    host = '%s-ui.%s.localhost' % (portal, tenant)
+def portal_link(host):
     return link('http://%s%s/' % (host, edge_suffix), host)
 
 # Every resource carries its tenant and its role as labels, so the UI can be
 # sliced either way: one tenant's whole stack, or every tenant's hub-api.
-enabled = ['edge', 'mailpit', 'dns-dev', 'global-db', 'global-migrate', 'global-coordinator']
+enabled = ['edge', 'mailpit', 'dns-dev', 'global-db', 'global-migrate', 'global-coordinator',
+           'hub-ui', 'orgs-ui']
 portal_links = []
+
+for service, host in [('hub-ui', 'vetchium.localhost'), ('orgs-ui', 'orgs.vetchium.localhost')]:
+    links = [portal_link(host)]
+    dc_resource(service, labels=['shared', 'ui'], trigger_mode=trigger, links=links)
+    portal_links.extend(links)
 
 for tenant in tenants:
     roles = {
@@ -77,9 +83,9 @@ for tenant in tenants:
             dc_resource(service, labels=[tenant, role], trigger_mode=trigger)
             enabled.append(service)
 
-    for portal in PORTALS:
+    for portal in REGIONAL_PORTALS:
         service = '%s-ui-%s' % (portal, tenant)
-        links = [portal_link(portal, tenant)]
+        links = [portal_link('%s-ui.%s.localhost' % (portal, tenant))]
         dc_resource(service, labels=[tenant, 'ui'], trigger_mode=trigger, links=links)
         enabled.append(service)
         portal_links.extend(links)
@@ -99,7 +105,7 @@ dc_resource('global-coordinator', labels=['shared'], trigger_mode=trigger)
 # tenant subset has to disable the rest explicitly. Tilt re-enables whatever
 # the remaining resources depend on, which keeps every tenant's Traefik running
 # because `edge` waits on all four; only the excluded tenants' databases, APIs,
-# workers, and portals stay down.
+# workers, and Admin portals stay down.
 if len(tenants) != len(ALL_TENANTS):
     config.set_enabled_resources(enabled)
 

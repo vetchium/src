@@ -343,6 +343,15 @@
           }
         ]
       }
+    },
+    "portal_access": {
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.34.0/24"
+          }
+        ]
+      }
     }
   },
   "secrets": {
@@ -1295,6 +1304,14 @@
         "--accesslog=true"
       ],
       "depends_on": {
+        "hub-ui": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "orgs-ui": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "traefik-deu": {
           "condition": "service_healthy",
           "required": true
@@ -1323,6 +1340,7 @@
       "networks": {
         "deu_ingress": null,
         "ind1_ingress": null,
+        "portal_access": null,
         "sgp_ingress": null,
         "usa1_ingress": null
       },
@@ -1729,70 +1747,16 @@
       ],
       "security_opt": ["no-new-privileges:true"]
     },
-    "hub-ui-deu": {
+    "hub-ui": {
       "build": {
+        "args": {
+          "VITE_VETCHIUM_ENVIRONMENT": "dev"
+        },
         "context": ".",
         "dockerfile": "hub-ui/Dockerfile"
       },
-      "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_DEU_DEFAULT_LANGUAGE:-de-DE}",
-        "VETCHIUM_TENANT_ID": "deu",
-        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier",
-        "VETCHIUM_MEDIA_ORIGINS": "http://media.deu.localhost,http://media.ind1.localhost,http://media.sgp.localhost,http://media.usa1.localhost"
-      },
       "networks": {
-        "deu_ingress": null
-      },
-      "restart": "unless-stopped",
-      "security_opt": ["no-new-privileges:true"]
-    },
-    "hub-ui-ind1": {
-      "build": {
-        "context": ".",
-        "dockerfile": "hub-ui/Dockerfile"
-      },
-      "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_IND1_DEFAULT_LANGUAGE:-en-US}",
-        "VETCHIUM_TENANT_ID": "ind1",
-        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier",
-        "VETCHIUM_MEDIA_ORIGINS": "http://media.deu.localhost,http://media.ind1.localhost,http://media.sgp.localhost,http://media.usa1.localhost"
-      },
-      "networks": {
-        "ind1_ingress": null
-      },
-      "restart": "unless-stopped",
-      "security_opt": ["no-new-privileges:true"]
-    },
-    "hub-ui-sgp": {
-      "build": {
-        "context": ".",
-        "dockerfile": "hub-ui/Dockerfile"
-      },
-      "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_SGP_DEFAULT_LANGUAGE:-en-US}",
-        "VETCHIUM_TENANT_ID": "sgp",
-        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier",
-        "VETCHIUM_MEDIA_ORIGINS": "http://media.deu.localhost,http://media.ind1.localhost,http://media.sgp.localhost,http://media.usa1.localhost"
-      },
-      "networks": {
-        "sgp_ingress": null
-      },
-      "restart": "unless-stopped",
-      "security_opt": ["no-new-privileges:true"]
-    },
-    "hub-ui-usa1": {
-      "build": {
-        "context": ".",
-        "dockerfile": "hub-ui/Dockerfile"
-      },
-      "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${HUB_UI_USA1_DEFAULT_LANGUAGE:-en-US}",
-        "VETCHIUM_TENANT_ID": "usa1",
-        "VETCHIUM_HUB_PLANS": "hub-free-tier,hub-silver-tier",
-        "VETCHIUM_MEDIA_ORIGINS": "http://media.deu.localhost,http://media.ind1.localhost,http://media.sgp.localhost,http://media.usa1.localhost"
-      },
-      "networks": {
-        "usa1_ingress": null
+        "portal_access": null
       },
       "restart": "unless-stopped",
       "security_opt": ["no-new-privileges:true"]
@@ -2779,58 +2743,16 @@
       ],
       "security_opt": ["no-new-privileges:true"]
     },
-    "orgs-ui-deu": {
+    "orgs-ui": {
       "build": {
+        "args": {
+          "VITE_VETCHIUM_ENVIRONMENT": "dev"
+        },
         "context": ".",
         "dockerfile": "orgs-ui/Dockerfile"
       },
-      "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${ORGS_UI_DEU_DEFAULT_LANGUAGE:-de-DE}"
-      },
       "networks": {
-        "deu_ingress": null
-      },
-      "restart": "unless-stopped",
-      "security_opt": ["no-new-privileges:true"]
-    },
-    "orgs-ui-ind1": {
-      "build": {
-        "context": ".",
-        "dockerfile": "orgs-ui/Dockerfile"
-      },
-      "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${ORGS_UI_IND1_DEFAULT_LANGUAGE:-en-US}"
-      },
-      "networks": {
-        "ind1_ingress": null
-      },
-      "restart": "unless-stopped",
-      "security_opt": ["no-new-privileges:true"]
-    },
-    "orgs-ui-sgp": {
-      "build": {
-        "context": ".",
-        "dockerfile": "orgs-ui/Dockerfile"
-      },
-      "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${ORGS_UI_SGP_DEFAULT_LANGUAGE:-en-US}"
-      },
-      "networks": {
-        "sgp_ingress": null
-      },
-      "restart": "unless-stopped",
-      "security_opt": ["no-new-privileges:true"]
-    },
-    "orgs-ui-usa1": {
-      "build": {
-        "context": ".",
-        "dockerfile": "orgs-ui/Dockerfile"
-      },
-      "environment": {
-        "VETCHIUM_DEFAULT_LANGUAGE": "${ORGS_UI_USA1_DEFAULT_LANGUAGE:-en-US}"
-      },
-      "networks": {
-        "usa1_ingress": null
+        "portal_access": null
       },
       "restart": "unless-stopped",
       "security_opt": ["no-new-privileges:true"]

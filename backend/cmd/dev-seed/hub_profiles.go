@@ -40,7 +40,7 @@ const (
 )
 
 var signupTokenPattern = regexp.MustCompile(
-	`complete-signup\?token=([0-9a-f]{64})`,
+	`complete-signup\?region=[a-z0-9-]+&token=([0-9a-f]{64})`,
 )
 
 type hubProfileSettings struct {
@@ -202,7 +202,7 @@ func (c *hubProfileClient) awaitSignupToken(
 		"%s/view/latest.txt?query=%s",
 		c.mailpitOrigin, url.QueryEscape("to:"+email),
 	)
-	expectedLink := c.hubOrigin + "/complete-signup"
+	expectedLink := "/complete-signup?region="
 	deadline := time.Now().Add(mailpitPollTimeout)
 	for {
 		if body, ok := c.fetchMailbox(ctx, mailbox); ok &&

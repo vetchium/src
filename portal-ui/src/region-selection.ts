@@ -1,4 +1,5 @@
 import type { PortalRegion, RegionTable } from "./regions.ts";
+import { createRememberedSessionStorage } from "./session.ts";
 
 export function findRegion(
   table: RegionTable,
@@ -122,4 +123,42 @@ export function createRegionalAPIOrigin({
     }
     return region.apiOrigin;
   };
+}
+
+export interface RegionalSession<Session> {
+  tenantId: string;
+  session: Session;
+}
+
+/**
+ * Stores a session together with the region that issued it. A stored session
+ * naming no region, or one missing from the compiled-in table, reads as no
+ * session: its token is only meaningful to the region that issued it.
+ */
+export function createRegionalSessionStorage<Session>({
+  key,
+  table,
+  parse,
+}: {
+  key: string;
+  table: RegionTable;
+  parse: (value: unknown) => Session | null;
+}) {
+  return createRememberedSessionStorage<RegionalSession<Session>>({
+    key,
+    parse: (value) => {
+      if (!value) return null;
+      try {
+        const stored: unknown = JSON.parse(value);
+        if (typeof stored !== "object" || stored === null) return null;
+        const { tenantId, session } = stored as Record<string, unknown>;
+        const region = findRegion(table, tenantId);
+        const parsed = parse(session);
+        if (region === undefined || parsed === null) return null;
+        return { tenantId: region.tenantId, session: parsed };
+      } catch {
+        return null;
+      }
+    },
+  });
 }

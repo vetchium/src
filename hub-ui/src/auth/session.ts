@@ -1,4 +1,4 @@
-import { createRegionalSessionStorage } from "@vetchium/portal-ui/session";
+import { createRegionalSessionStorage } from "@vetchium/portal-ui/region-selection";
 import { isOpaqueToken } from "typespec/common/authentication";
 import { isCountryCode } from "typespec/common/countries";
 import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";

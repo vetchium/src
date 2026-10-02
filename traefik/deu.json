@@ -19,28 +19,6 @@
         "entryPoints": ["web"],
         "priority": 100
       },
-      "orgs-api": {
-        "rule": "Host(`orgs-ui.deu.localhost`) && (Path(`/api`) || PathPrefix(`/api/`))",
-        "service": "orgs-api",
-        "entryPoints": ["web"],
-        "priority": 100
-      },
-      "orgs-ui": {
-        "rule": "Host(`orgs-ui.deu.localhost`)",
-        "service": "orgs-ui",
-        "entryPoints": ["web"]
-      },
-      "hub-api": {
-        "rule": "Host(`hub-ui.deu.localhost`) && (Path(`/api`) || PathPrefix(`/api/`))",
-        "service": "hub-api",
-        "entryPoints": ["web"],
-        "priority": 100
-      },
-      "hub-ui": {
-        "rule": "Host(`hub-ui.deu.localhost`)",
-        "service": "hub-ui",
-        "entryPoints": ["web"]
-      },
       "admin-api": {
         "rule": "Host(`admin-ui.deu.localhost`) && (Path(`/api`) || PathPrefix(`/api/`))",
         "service": "admin-api",
@@ -113,34 +91,6 @@
               "url": "http://admin-api-deu:8080"
             }
           ]
-        }
-      },
-      "orgs-ui": {
-        "loadBalancer": {
-          "servers": [
-            {
-              "url": "http://orgs-ui-deu:8080"
-            }
-          ],
-          "healthCheck": {
-            "path": "/healthz",
-            "interval": "10s",
-            "timeout": "3s"
-          }
-        }
-      },
-      "hub-ui": {
-        "loadBalancer": {
-          "servers": [
-            {
-              "url": "http://hub-ui-deu:8080"
-            }
-          ],
-          "healthCheck": {
-            "path": "/healthz",
-            "interval": "10s",
-            "timeout": "3s"
-          }
         }
       },
       "admin-ui": {

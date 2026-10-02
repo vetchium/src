@@ -3,12 +3,12 @@ import test from "node:test";
 import { createPortalAPIClient } from "./api.ts";
 import {
   createRegionalAPIOrigin,
+  createRegionalSessionStorage,
   createRegionStore,
   initialRegion,
   regionFromSearchParams,
 } from "./region-selection.ts";
 import { parseRegionTable } from "./regions.ts";
-import { createRegionalSessionStorage } from "./session.ts";
 
 const table = parseRegionTable(
   {

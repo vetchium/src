@@ -19,28 +19,6 @@
         "entryPoints": ["web"],
         "priority": 100
       },
-      "orgs-api": {
-        "rule": "Host(`orgs-ui.sgp.localhost`) && (Path(`/api`) || PathPrefix(`/api/`))",
-        "service": "orgs-api",
-        "entryPoints": ["web"],
-        "priority": 100
-      },
-      "orgs-ui": {
-        "rule": "Host(`orgs-ui.sgp.localhost`)",
-        "service": "orgs-ui",
-        "entryPoints": ["web"]
-      },
-      "hub-api": {
-        "rule": "Host(`hub-ui.sgp.localhost`) && (Path(`/api`) || PathPrefix(`/api/`))",
-        "service": "hub-api",
-        "entryPoints": ["web"],
-        "priority": 100
-      },
-      "hub-ui": {
-        "rule": "Host(`hub-ui.sgp.localhost`)",
-        "service": "hub-ui",
-        "entryPoints": ["web"]
-      },
       "admin-api": {
         "rule": "Host(`admin-ui.sgp.localhost`) && (Path(`/api`) || PathPrefix(`/api/`))",
         "service": "admin-api",
@@ -113,34 +91,6 @@
               "url": "http://admin-api-sgp:8080"
             }
           ]
-        }
-      },
-      "orgs-ui": {
-        "loadBalancer": {
-          "servers": [
-            {
-              "url": "http://orgs-ui-sgp:8080"
-            }
-          ],
-          "healthCheck": {
-            "path": "/healthz",
-            "interval": "10s",
-            "timeout": "3s"
-          }
-        }
-      },
-      "hub-ui": {
-        "loadBalancer": {
-          "servers": [
-            {
-              "url": "http://hub-ui-sgp:8080"
-            }
-          ],
-          "healthCheck": {
-            "path": "/healthz",
-            "interval": "10s",
-            "timeout": "3s"
-          }
         }
       },
       "admin-ui": {
