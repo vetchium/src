@@ -2,7 +2,7 @@
 
 -- Local-only administrators, one for each combination of access and account
 -- state a portal has to present. Their shared password is documented in
--- db/README.md. The temporary table keeps the two writes below driven by one
+-- README.md. The temporary table keeps the two writes below driven by one
 -- list, so seeding another administrator is one row.
 -- Playwright reserves this tenant for the tenant-wide invariant that an
 -- administrator able to manage administrators always remains, so exactly one

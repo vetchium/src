@@ -1,6 +1,10 @@
 import { useMutation } from "@tanstack/react-query";
 import { safeReturnTo } from "@vetchium/portal-ui/navigation";
 import { usePendingOperations } from "@vetchium/portal-ui/pending-operations";
+import {
+  findRegion,
+  regionFromSearchParams,
+} from "@vetchium/portal-ui/region-selection";
 import { Alert, App, Button, Card, Flex, Form, Input, Typography } from "antd";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,14 +16,22 @@ import {
   validateLoginRequest,
 } from "typespec/orgs/auth/login";
 import { isOrgDomain, normalizeOrgDomain } from "typespec/orgs/types";
-import { isHomedElsewhereProblem } from "typespec/problem/orgs/authentication";
+import {
+  InvalidCredentialsError,
+  isHomedElsewhereProblem,
+} from "typespec/problem/orgs/authentication";
 import { APIError } from "../api/client";
 import { orgsAPI } from "../api/orgs";
 import { paths } from "../app/paths";
+import { regionTable } from "../app/regions";
 
 import type { LoginAttempt } from "../auth/AuthContext";
 import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import {
+  RegionField,
+  useSelectedRegion,
+} from "../features/regions/RegionField";
 
 function forgotPasswordPath(domain: string): string {
   const normalized = normalizeOrgDomain(domain);
@@ -28,24 +40,21 @@ function forgotPasswordPath(domain: string): string {
     : paths.forgotPassword;
 }
 
-/** The other tenant's sign-in page, or null when the API supplied a URL this
- * portal will not navigate to. */
-function homeTenantLogin(orgsURL: string, domain: string): string | null {
-  let parsed: URL;
-  try {
-    parsed = new URL(orgsURL);
-  } catch {
-    return null;
-  }
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
-  return `${orgsURL.replace(/\/+$/, "")}/login?domain=${encodeURIComponent(domain)}`;
-}
-
-function HomedElsewhere({ error, domain }: { error: unknown; domain: string }) {
+/** Offers to switch the picker to the Org's home region, keeping what the
+ * user entered, when that region is one this portal knows. */
+function HomedElsewhere({
+  error,
+  domain,
+  onSwitch,
+}: {
+  error: unknown;
+  domain: string;
+  onSwitch: (tenantId: string) => void;
+}) {
   const { t } = useTranslation();
   const problem = error instanceof APIError ? error.problem : undefined;
   if (!isHomedElsewhereProblem(problem)) return null;
-  const destination = homeTenantLogin(problem.orgs_url, domain);
+  const home = findRegion(regionTable, problem.tenant_id);
   return (
     <div data-testid="login-homed-elsewhere">
       <Alert
@@ -54,11 +63,11 @@ function HomedElsewhere({ error, domain }: { error: unknown; domain: string }) {
         title={t("login.homedElsewhere.title", { domain })}
         description={t("login.homedElsewhere.description")}
         action={
-          destination === null ? undefined : (
+          home === undefined ? undefined : (
             <Button
               type="primary"
               size="small"
-              onClick={() => window.location.assign(destination)}
+              onClick={() => onSwitch(home.tenantId)}
             >
               {t("login.homedElsewhere.action")}
             </Button>
@@ -76,7 +85,18 @@ export function LoginPage() {
   const auth = useAuth();
   const returnTo = safeReturnTo(searchParams.get("returnTo"));
   const prefilledDomain = normalizeOrgDomain(searchParams.get("domain") ?? "");
-  const mutation = useMutation({ mutationFn: orgsAPI.login });
+  const mutation = useMutation({
+    mutationFn: ({
+      request,
+      tenantId,
+    }: {
+      request: LoginRequest;
+      tenantId: string;
+    }) => orgsAPI.login(request, tenantId),
+  });
+  const [region, setRegion] = useSelectedRegion(
+    regionFromSearchParams(regionTable, searchParams),
+  );
   const [form] = Form.useForm<LoginRequest>();
   const enteredDomain = Form.useWatch("domain", form) ?? "";
   const { message } = App.useApp();
@@ -107,23 +127,28 @@ export function LoginPage() {
     if (supersedingBlocked()) return;
     const request = normalizeLoginRequest(values);
     if (validateLoginRequest(request).length !== 0) return;
+    // The region the request is sent to also issues the session, so it is
+    // captured once rather than re-read after the response.
+    const tenantId = region;
     // Claimed before the request so that a response arriving after the user
     // has started another sign-in is discarded rather than replacing it.
     const attempt = auth.beginAttempt();
     unhandedAttempt.current = attempt;
     let response: Awaited<ReturnType<typeof orgsAPI.login>>;
     try {
-      response = await mutation.mutateAsync(request);
+      response = await mutation.mutateAsync({ request, tenantId });
     } catch {
       return;
     }
     if (response.authentication_state === AuthenticationStateTOTPRequired) {
-      if (!auth.beginChallenge(response, undefined, attempt)) return;
+      if (!auth.beginChallenge(response, { tenantId }, attempt)) return;
       unhandedAttempt.current = null;
       navigate(`${paths.twoFactor}?returnTo=${encodeURIComponent(returnTo)}`);
       return;
     }
-    if (!auth.completeAuthentication(response, undefined, { attempt })) return;
+    if (!auth.completeAuthentication(response, { tenantId }, { attempt })) {
+      return;
+    }
     unhandedAttempt.current = null;
     navigate(returnTo, { replace: true });
   };
@@ -145,17 +170,35 @@ export function LoginPage() {
         {homedElsewhere && mutation.variables !== undefined ? (
           <HomedElsewhere
             error={mutation.error}
-            domain={normalizeOrgDomain(mutation.variables.domain)}
+            domain={normalizeOrgDomain(mutation.variables.request.domain)}
+            onSwitch={(tenantId) => {
+              mutation.reset();
+              setRegion(tenantId);
+            }}
           />
         ) : (
           <APIErrorAlert error={mutation.error} />
         )}
+        {mutation.error instanceof APIError &&
+          mutation.error.problem?.type === InvalidCredentialsError.type && (
+            <Typography.Text type="secondary">
+              {t("login.wrongRegionHint")}
+            </Typography.Text>
+          )}
         <Form<LoginRequest>
           form={form}
           layout="vertical"
           initialValues={{ domain: prefilledDomain }}
           onFinish={(values) => void submit(values)}
         >
+          <RegionField
+            value={region}
+            onChange={(value) => {
+              mutation.reset();
+              setRegion(value);
+            }}
+            disabled={mutation.isPending}
+          />
           <Form.Item
             name="domain"
             label={t("fields.domain")}

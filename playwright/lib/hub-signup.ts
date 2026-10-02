@@ -5,6 +5,7 @@ import type { LoginResponse } from "typespec/hub/auth/login";
 import type { CompleteSignupResponse } from "typespec/hub/auth/signup";
 import { hubUserDIDForHandle, type TestTenant } from "./admin-db.ts";
 import { hubIdempotencyKey, MAILPIT_ORIGIN } from "./hub-api.ts";
+import { apiOrigin, emailedLinkToken, HUB_PORTAL } from "./portals.ts";
 
 export interface SignedUpHubUser {
   hubUserDID: string;
@@ -13,11 +14,31 @@ export interface SignedUpHubUser {
 }
 
 /**
- * Signs up a new Hub user against a tenant's origin, following the email
+ * Signs up a new Hub user in a tenant, following the email
  * verification link through Mailpit, and returns the identifiers and
  * password the caller needs to log in and clean up. Every idempotency key
  * used is appended to `keys` for cleanup.
  */
+/**
+ * The text of every message to `email`, newest first. An address can receive
+ * other mail around a signup, such as an email-change notice, so callers look
+ * for the message they expect rather than trusting the latest one. Mailpit is
+ * called with plain fetch so API-coverage tracking ignores it.
+ */
+async function mailTexts(email: string): Promise<string[]> {
+  const search = await fetch(
+    `${MAILPIT_ORIGIN}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`,
+  );
+  if (!search.ok) return [];
+  const { messages } = (await search.json()) as { messages: { ID: string }[] };
+  return Promise.all(
+    messages.map(async ({ ID }) => {
+      const message = await fetch(`${MAILPIT_ORIGIN}/view/${ID}.txt`);
+      return message.ok ? message.text() : "";
+    }),
+  );
+}
+
 export async function signup(
   request: APIRequestContext,
   tenant: TestTenant,
@@ -35,7 +56,7 @@ export async function signup(
   const signupKey = hubIdempotencyKey();
   const completeKey = hubIdempotencyKey();
   keys.push(signupKey, completeKey);
-  const origin = `http://hub-ui.${tenant}.localhost`;
+  const origin = apiOrigin(tenant);
   const response = await request.post(`${origin}/api/hub/request-signup`, {
     headers: { "Idempotency-Key": signupKey },
     data: {
@@ -46,19 +67,19 @@ export async function signup(
     },
   });
   expect(response.status(), await response.text()).toBe(202);
-  const mailbox = `${MAILPIT_ORIGIN}/view/latest.txt?query=${encodeURIComponent(`to:${email}`)}`;
+  const link = `${HUB_PORTAL}/complete-signup?region=${tenant}&token=`;
   let text = "";
   await expect
     .poll(
       async () => {
-        const mail = await request.get(mailbox);
-        text = mail.ok() ? await mail.text() : "";
+        text =
+          (await mailTexts(email)).find((body) => body.includes(link)) ?? "";
         return text;
       },
       { timeout: 15000 },
     )
-    .toContain(`${origin}/complete-signup`);
-  const token = text.match(/complete-signup\?token=([0-9a-f]{64})/)?.[1];
+    .toContain(link);
+  const token = emailedLinkToken(text, "/complete-signup", tenant);
   expect(token).toBeDefined();
   const password = `Password!${randomUUID()}`;
   const complete = await request.post(`${origin}/api/hub/complete-signup`, {
@@ -77,12 +98,11 @@ export async function signup(
 /** Logs in a signed-up Hub user and returns a bearer session token. */
 export async function login(
   request: APIRequestContext,
-  tenant: string,
+  tenant: TestTenant,
   email: string,
   password: string,
 ): Promise<string> {
-  const origin = `http://hub-ui.${tenant}.localhost`;
-  const response = await request.post(`${origin}/api/hub/login`, {
+  const response = await request.post(`${apiOrigin(tenant)}/api/hub/login`, {
     data: { email_address: email, password },
   });
   expect(response.status(), await response.text()).toBe(200);

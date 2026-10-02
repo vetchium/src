@@ -1,6 +1,36 @@
 {
   "http": {
     "routers": {
+      "hub-ui": {
+        "rule": "Host(`vetchium.localhost`)",
+        "service": "hub-ui",
+        "entryPoints": ["web"]
+      },
+      "orgs-ui": {
+        "rule": "Host(`orgs.vetchium.localhost`)",
+        "service": "orgs-ui",
+        "entryPoints": ["web"]
+      },
+      "sgp-api": {
+        "rule": "Host(`sgp.api.vetchium.localhost`)",
+        "service": "sgp",
+        "entryPoints": ["web"]
+      },
+      "usa1-api": {
+        "rule": "Host(`usa1.api.vetchium.localhost`)",
+        "service": "usa1",
+        "entryPoints": ["web"]
+      },
+      "deu-api": {
+        "rule": "Host(`deu.api.vetchium.localhost`)",
+        "service": "deu",
+        "entryPoints": ["web"]
+      },
+      "ind1-api": {
+        "rule": "Host(`ind1.api.vetchium.localhost`)",
+        "service": "ind1",
+        "entryPoints": ["web"]
+      },
       "sgp": {
         "rule": "HostRegexp(`^[a-z-]+\\.sgp\\.[a-z0-9.-]+$`)",
         "service": "sgp",
@@ -23,6 +53,24 @@
       }
     },
     "services": {
+      "hub-ui": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://hub-ui:8080"
+            }
+          ]
+        }
+      },
+      "orgs-ui": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://orgs-ui:8080"
+            }
+          ]
+        }
+      },
       "sgp": {
         "loadBalancer": {
           "servers": [

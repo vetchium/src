@@ -13,9 +13,8 @@ import {
   EmailAddressUnavailableError,
   EmailChangeCodeRejectedError,
 } from "typespec/problem/hub/email";
+import { HUB_PORTAL } from "../lib/portals.ts";
 
-const hubBaseURL =
-  process.env.PLAYWRIGHT_HUB_BASE_URL ?? "http://hub-ui.sgp.localhost";
 const handle = "accou000-00000000001";
 const currentAddress = "person@example.com";
 
@@ -41,12 +40,15 @@ async function openAccountSecurity(page: Page): Promise<Account> {
     sessionStorage.setItem(
       "vetchium.hub.session",
       JSON.stringify({
-        session_token: "s".repeat(64),
-        session_expires_at: new Date(Date.now() + 600_000).toISOString(),
-        preferred_language: "en-US",
-        resident_country: "SG",
-        handle: userHandle,
-        remembered: false,
+        tenantId: "sgp",
+        session: {
+          session_token: "s".repeat(64),
+          session_expires_at: new Date(Date.now() + 600_000).toISOString(),
+          preferred_language: "en-US",
+          resident_country: "SG",
+          handle: userHandle,
+          remembered: false,
+        },
       }),
     );
   }, handle);
@@ -58,7 +60,7 @@ async function openAccountSecurity(page: Page): Promise<Account> {
       json: { plan_oid: "hub-free-tier", cancel_at_period_end: false },
     }),
   );
-  await page.goto(`${hubBaseURL}/settings/security`);
+  await page.goto(`${HUB_PORTAL}/settings/security`);
   await expect(
     page.getByRole("heading", { name: "Account & security", level: 1 }),
   ).toBeVisible();
@@ -526,7 +528,7 @@ test("the preferences page changes the display language", async ({ page }) => {
     await route.fulfill({ status: 204 });
   });
   await page.getByRole("menuitem", { name: "Preferences" }).click();
-  await expect(page).toHaveURL(`${hubBaseURL}/settings/preferences`);
+  await expect(page).toHaveURL(`${HUB_PORTAL}/settings/preferences`);
   await page.getByRole("combobox", { name: "Language", exact: true }).click();
   await page.getByText("Deutsch (Deutschland)", { exact: true }).click();
   await expect(

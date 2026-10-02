@@ -68,66 +68,79 @@ import type {
   SetPreferredLanguageRequest,
   SetResidentCountryRequest,
 } from "typespec/hub/users/profile";
-import type {
-  ListSignupRegionsRequest,
-  ListSignupRegionsResponse,
-} from "typespec/regions/regions";
 import { apiRequest } from "./client";
 
 const base = "/api/hub";
 
 export const hubAPI = {
-  listSignupRegions: (body: ListSignupRegionsRequest) =>
-    apiRequest<ListSignupRegionsResponse>(`${base}/list-signup-regions`, {
+  requestSignup: (
+    body: RequestSignupRequest,
+    idempotencyKey: IdempotencyKey,
+    tenantId: string,
+  ) =>
+    apiRequest<void>(`${base}/request-signup`, {
       body,
+      idempotencyKey,
+      tenantId,
     }),
-  requestSignup: (body: RequestSignupRequest, idempotencyKey: IdempotencyKey) =>
-    apiRequest<void>(`${base}/request-signup`, { body, idempotencyKey }),
   completeSignup: (
     body: CompleteSignupRequest,
     idempotencyKey: IdempotencyKey,
+    tenantId: string,
   ) =>
     apiRequest<CompleteSignupResponse | SignupCompletionPendingResponse>(
       `${base}/complete-signup`,
       {
         body,
         idempotencyKey,
+        tenantId,
       },
     ),
-  login: (body: LoginRequest) =>
-    apiRequest<LoginResponse>(`${base}/login`, { body }),
-  verifyTFA: (body: VerifyTFARequest, idempotencyKey: IdempotencyKey) =>
+  login: (body: LoginRequest, tenantId: string) =>
+    apiRequest<LoginResponse>(`${base}/login`, { body, tenantId }),
+  verifyTFA: (
+    body: VerifyTFARequest,
+    idempotencyKey: IdempotencyKey,
+    tenantId: string,
+  ) =>
     apiRequest<AuthenticatedSessionResponse>(`${base}/login/tfa`, {
       body,
       idempotencyKey,
+      tenantId,
     }),
   verifyRecoveryCode: (
     body: VerifyRecoveryCodeRequest,
     idempotencyKey: IdempotencyKey,
+    tenantId: string,
   ) =>
     apiRequest<VerifyRecoveryCodeResponse>(`${base}/login/recovery-code`, {
       body,
       idempotencyKey,
+      tenantId,
     }),
-  logout: (token: string) =>
-    apiRequest<void>(`${base}/logout`, { method: "POST", token }),
+  logout: (token: string, tenantId: string) =>
+    apiRequest<void>(`${base}/logout`, { method: "POST", token, tenantId }),
   reauthenticate: (body: ReauthenticateRequest) =>
     apiRequest<ReauthenticateResponse>(`${base}/reauthenticate`, { body }),
   requestPasswordReset: (
     body: RequestPasswordResetRequest,
     idempotencyKey: IdempotencyKey,
+    tenantId: string,
   ) =>
     apiRequest<void>(`${base}/request-password-reset`, {
       body,
       idempotencyKey,
+      tenantId,
     }),
   completePasswordReset: (
     body: CompletePasswordResetRequest,
     idempotencyKey: IdempotencyKey,
+    tenantId: string,
   ) =>
     apiRequest<void>(`${base}/complete-password-reset`, {
       body,
       idempotencyKey,
+      tenantId,
     }),
   changePassword: (body: ChangePasswordRequest) =>
     apiRequest<void>(`${base}/change-password`, { body }),

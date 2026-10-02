@@ -31,6 +31,7 @@ import { expect, test } from "../lib/admin-fixtures.ts";
 import { boundary, boundaryPairEndingAt } from "../lib/billing-periods.ts";
 import { HubAPI, hubIdempotencyKey, MAILPIT_ORIGIN } from "../lib/hub-api.ts";
 import { login, signup } from "../lib/hub-signup.ts";
+import { emailedLinkToken, HUB_PORTAL } from "../lib/portals.ts";
 
 interface SetupUser {
   hubUserDID: string;
@@ -200,8 +201,8 @@ test("signup rollback on subscription audit failure leaves no user", async ({
         },
         { timeout: 15000 },
       )
-      .toContain(`${hub.origin}/complete-signup`);
-    const token = text.match(/complete-signup\?token=([0-9a-f]{64})/)?.[1];
+      .toContain(`${HUB_PORTAL}/complete-signup?region=${hub.tenant}&token=`);
+    const token = emailedLinkToken(text, "/complete-signup", hub.tenant);
     expect(token).toBeDefined();
 
     removeFailure = installHubAuditInsertFailure({

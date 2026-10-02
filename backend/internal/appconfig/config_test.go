@@ -1,7 +1,6 @@
 package appconfig
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -54,7 +53,7 @@ func TestLoadFile(t *testing.T) {
 	}
 	if cfg.HubAPIServer.SessionTTL != 24*time.Hour ||
 		cfg.HubAPIServer.RememberedSessionTTL != 6360*time.Hour ||
-		cfg.HubAPIServer.PublicBaseURL != "http://hub-ui.sgp.localhost" {
+		cfg.HubAPIServer.PublicBaseURL != "http://vetchium.localhost" {
 		t.Fatalf("hub API config = %+v", cfg.HubAPIServer)
 	}
 	if !slices.Equal(cfg.HubAPIServer.OfferedPlans, []subscriptionspec.Plan{
@@ -414,7 +413,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
   "hubAPIServer": {
     "sessionTTL": "24h",
     "rememberedSessionTTL": "6360h",
-    "publicBaseURL": "http://hub-ui.sgp.localhost",
+    "publicBaseURL": "http://vetchium.localhost",
     "offeredPlans": ["hub-free-tier", "hub-silver-tier"]
   },
   "objectStorage": {
@@ -436,7 +435,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
   "orgsAPIServer": {
     "sessionTTL": "12h",
     "signupTTL": "168h",
-    "publicBaseURL": "http://orgs-ui.sgp.localhost/"
+    "publicBaseURL": "http://orgs.vetchium.localhost/"
   },
   "orgDomainVerification": {
     "resolverAddress": "dns-dev:53",
@@ -596,135 +595,6 @@ func TestCheckedInConfigs(t *testing.T) {
 	}
 }
 
-// TestCheckedInHubPlansMatchPortalConfiguration compares each tenant's
-// backend offeredPlans and tenantId with the literal hub-ui portal
-// environment values in the matching compose or stack file, and compares
-// VETCHIUM_MEDIA_ORIGINS against every tenant's objectStorage.mediaBaseURL
-// for that environment: a federated profile read renders the picture
-// owner's home tenant's signed media URL directly in the browser, so every
-// tenant's hub-ui must allow every tenant's media origin, not only its own.
-// Nothing can compare them at process startup because hub-ui is a static
-// nginx container, so this repository test is what catches drift before
-// deployment.
-func TestCheckedInHubPlansMatchPortalConfiguration(t *testing.T) {
-	root := filepath.Join("..", "..", "..")
-	regions := []string{"deu", "ind1", "sgp", "usa1"}
-	for _, env := range []struct {
-		name        string
-		configPath  func(region string) string
-		composePath func(region string) string
-		serviceName func(region string) string
-	}{
-		{
-			"dev",
-			func(region string) string {
-				return filepath.Join(root, "config", region+".json")
-			},
-			func(string) string { return filepath.Join(root, "docker-compose.json") },
-			func(region string) string { return "hub-ui-" + region },
-		},
-		{
-			"ci",
-			func(region string) string {
-				return filepath.Join(root, "config", "ci", region+".json")
-			},
-			func(string) string { return filepath.Join(root, "docker-compose-ci.json") },
-			func(region string) string { return "hub-ui-" + region },
-		},
-		{
-			"production",
-			func(region string) string {
-				return filepath.Join(root, "deploy", region, "config.json")
-			},
-			func(region string) string {
-				return filepath.Join(root, "deploy", region, "stack.json")
-			},
-			func(string) string { return "hub-ui" },
-		},
-	} {
-		t.Run(env.name, func(t *testing.T) {
-			cfgs := make(map[string]Config, len(regions))
-			wantMediaOrigins := make([]string, 0, len(regions))
-			for _, region := range regions {
-				cfg, err := LoadFile(env.configPath(region))
-				if err != nil {
-					t.Fatal(err)
-				}
-				cfgs[region] = cfg
-				wantMediaOrigins = append(wantMediaOrigins, cfg.ObjectStorage.MediaBaseURL)
-			}
-			slices.Sort(wantMediaOrigins)
-
-			for _, region := range regions {
-				t.Run(region, func(t *testing.T) {
-					cfg := cfgs[region]
-					composePath := env.composePath(region)
-					tenantID, plans, mediaOrigins := hubUIPortalEnvironment(
-						t, composePath, env.serviceName(region),
-					)
-					if tenantID != cfg.TenantID {
-						t.Fatalf(
-							"%s VETCHIUM_TENANT_ID = %q, want %q (tenantId)",
-							composePath, tenantID, cfg.TenantID,
-						)
-					}
-					wantPlans := make([]string, len(cfg.HubAPIServer.OfferedPlans))
-					for i, plan := range cfg.HubAPIServer.OfferedPlans {
-						wantPlans[i] = string(plan)
-					}
-					slices.Sort(wantPlans)
-					slices.Sort(plans)
-					if !slices.Equal(plans, wantPlans) {
-						t.Fatalf(
-							"%s VETCHIUM_HUB_PLANS = %v, want %v (offeredPlans)",
-							composePath, plans, wantPlans,
-						)
-					}
-					slices.Sort(mediaOrigins)
-					if !slices.Equal(mediaOrigins, wantMediaOrigins) {
-						t.Fatalf(
-							"%s VETCHIUM_MEDIA_ORIGINS = %v, want %v (every region's objectStorage.mediaBaseURL)",
-							composePath, mediaOrigins, wantMediaOrigins,
-						)
-					}
-				})
-			}
-		})
-	}
-}
-
-func hubUIPortalEnvironment(
-	t *testing.T, composePath, serviceName string,
-) (string, []string, []string) {
-	t.Helper()
-	contents, err := os.ReadFile(composePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var compose struct {
-		Services map[string]struct {
-			Environment map[string]string `json:"environment"`
-		} `json:"services"`
-	}
-	if err := json.Unmarshal(contents, &compose); err != nil {
-		t.Fatal(err)
-	}
-	service, ok := compose.Services[serviceName]
-	if !ok {
-		t.Fatalf("%s: service %q not found", composePath, serviceName)
-	}
-	tenantID := service.Environment["VETCHIUM_TENANT_ID"]
-	hubPlans := service.Environment["VETCHIUM_HUB_PLANS"]
-	mediaOrigins := service.Environment["VETCHIUM_MEDIA_ORIGINS"]
-	if tenantID == "" || hubPlans == "" || mediaOrigins == "" {
-		t.Fatalf(
-			"%s: service %q is missing VETCHIUM_TENANT_ID, VETCHIUM_HUB_PLANS, or VETCHIUM_MEDIA_ORIGINS",
-			composePath, serviceName,
-		)
-	}
-	return tenantID, strings.Split(hubPlans, ","), strings.Split(mediaOrigins, ",")
-}
-
 func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "config.json")
@@ -783,7 +653,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
   "hubAPIServer": {
     "sessionTTL": "24h",
     "rememberedSessionTTL": "6360h",
-    "publicBaseURL": "http://hub-ui.sgp.localhost",
+    "publicBaseURL": "http://vetchium.localhost",
     "offeredPlans": ["hub-free-tier", "hub-silver-tier"]
   },
   "objectStorage": {
@@ -805,7 +675,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
   "orgsAPIServer": {
     "sessionTTL": "12h",
     "signupTTL": "168h",
-    "publicBaseURL": "http://orgs-ui.sgp.localhost/"
+    "publicBaseURL": "http://orgs.vetchium.localhost/"
   },
   "orgDomainVerification": {
     "resolverAddress": "dns-dev:53",

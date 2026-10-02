@@ -12,10 +12,11 @@ prices, and payment integration. Nothing here defines Org plans.
   offering. A tenant may offer only a subset of other known plans.
 - Backend tenant configuration is authoritative for offered plans and rejects
   unknown plans, a missing free tier, and changes to an unoffered plan.
-- `hub-ui` receives its offered plans in runtime configuration. It is a static
-  nginx container, so it cannot compare its list with the backend at startup.
-  Keep every checked-in backend and portal configuration synchronized; the
-  repository consistency test enforces this.
+- `hub-ui` compiles each region's offered plans from `hubPlans` in
+  `hub-ui/src/app/regions/<environment>.json`. The static portal cannot compare
+  them with the backend, so keep them equal to the checked-in tenant
+  configurations; `backend/internal/appconfig/portal_regions_test.go` enforces
+  this.
 - The portal owns simulated-payment display prices, keyed by home tenant, plan,
   and interval. Currency follows the home tenant, not residence; annual price is
   eleven monthly payments; listed prices include tax. Hide a paid plan when
@@ -77,12 +78,23 @@ prices, and payment integration. Nothing here defines Org plans.
   downgrade drops below Silver, remove the picture reference and alias
   entitlement in the subscription transition transaction, and enqueue retryable
   deletion of the picture object and release of the global alias. Neither may
-  remain usable by the downgraded account while asynchronous cleanup runs.
-- A generated handle is unaffected by plan changes; alias rules are in
-  `hub-signup.md` and `federation.md`.
-- When paid access is known not to renew, show an in-app warning and email the
-  account address seven days and one day before period end. Send no warnings
-  while renewal is configured and expected to succeed.
+  remain usable by the downgraded account while asynchronous cleanup runs. A
+  later upgrade restores neither; the user uploads and claims again.
+- A generated handle is unaffected by plan changes. Alias and picture rules are
+  in [`hub-profile.md`](hub-profile.md),
+  [`object-storage.md`](object-storage.md), and
+  [`federation.md`](federation.md).
+
+## Ending-entitlement notices
+
+- **PROF-SUB-001** Warn only when the scheduled change lowers the plan rank. A
+  renewal, interval change, or same-plan reselection gets no warning.
+- Show the in-portal warning for the final seven days of the period.
+- Email the account address once at seven days and once at one day before
+  period end, recorded per period end. Inside the one-day window send only the
+  one-day notice, never a stale seven-day one.
+- Send these notices only to the account email, never to a professional
+  address — they are unrelated to professional-email verification.
 
 ## Real payment integration
 

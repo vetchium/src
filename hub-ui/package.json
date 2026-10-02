@@ -12,7 +12,7 @@
     "format": "biome check --write --config-path=../biome.json .",
     "format:check": "biome check --config-path=../biome.json .",
     "preview": "vite preview",
-    "test": "node --test scripts/*.test.mjs",
+    "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
     "typecheck": "tsc -b"
   },
   "dependencies": {

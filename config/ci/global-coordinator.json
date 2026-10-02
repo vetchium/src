@@ -9,7 +9,6 @@
   },
   "env": "ci",
   "identityDigestKeyId": "909577e87ebd5395",
-  "signupRegionsFile": "/etc/vetchium/signup-regions.json",
   "tls": {
     "certificateFile": "/run/secrets/global_coordinator_tls_certificate",
     "keyFile": "/run/secrets/global_coordinator_tls_key",

@@ -1,12 +1,20 @@
 import { useMutation } from "@tanstack/react-query";
+import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
 import { Button, Card, Checkbox, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import type { LoginRequest } from "typespec/hub/auth/login";
+import { InvalidCredentialsError } from "typespec/problem/hub/authentication";
+import { isProblem } from "../api/client";
 import { hubAPI } from "../api/hub";
+import { regionTable } from "../app/regions";
 import { useAuth } from "../auth/AuthContext";
 import { safeReturnTo } from "../auth/navigation";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import {
+  RegionField,
+  useSelectedRegion,
+} from "../features/regions/RegionField";
 
 export function LoginPage() {
   const { t } = useTranslation();
@@ -14,27 +22,41 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [search] = useSearchParams();
   const returnTo = safeReturnTo(search.get("returnTo"));
-  const mutation = useMutation({ mutationFn: hubAPI.login });
+  const mutation = useMutation({
+    mutationFn: ({
+      request,
+      tenantId,
+    }: {
+      request: LoginRequest;
+      tenantId: string;
+    }) => hubAPI.login(request, tenantId),
+  });
+  const [region, setRegion] = useSelectedRegion(
+    regionFromSearchParams(regionTable, search),
+  );
   if (auth.authenticated) return <Navigate replace to={returnTo} />;
 
   const submit = async (request: LoginRequest) => {
+    // The region the request is sent to also issues the session, so it is
+    // captured once rather than re-read after the response.
+    const tenantId = region;
     const attempt = auth.beginAttempt();
     let response: Awaited<ReturnType<typeof hubAPI.login>>;
     try {
-      response = await mutation.mutateAsync(request);
+      response = await mutation.mutateAsync({ request, tenantId });
     } catch {
       return;
     }
-    const remembered = request.remember_me ?? false;
+    const metadata = { remembered: request.remember_me ?? false, tenantId };
     if (response.authentication_state === "totp_required") {
-      if (auth.beginChallenge(response, remembered, attempt)) {
+      if (auth.beginChallenge(response, metadata, attempt)) {
         navigate(`/login/two-factor?returnTo=${encodeURIComponent(returnTo)}`, {
           replace: true,
         });
       }
       return;
     }
-    if (auth.completeAuthentication(response, remembered, { attempt })) {
+    if (auth.completeAuthentication(response, metadata, { attempt })) {
       navigate(returnTo, { replace: true });
     }
   };
@@ -49,11 +71,24 @@ export function LoginPage() {
           </Typography.Text>
         </div>
         <APIErrorAlert error={mutation.error} />
+        {isProblem(mutation.error, InvalidCredentialsError.type) && (
+          <Typography.Text type="secondary">
+            {t("login.wrongRegionHint")}
+          </Typography.Text>
+        )}
         <Form<LoginRequest>
           layout="vertical"
           initialValues={{ remember_me: false }}
           onFinish={(values) => void submit(values)}
         >
+          <RegionField
+            value={region}
+            onChange={(value) => {
+              mutation.reset();
+              setRegion(value);
+            }}
+            disabled={mutation.isPending}
+          />
           <Form.Item
             name="email_address"
             label={t("fields.email")}

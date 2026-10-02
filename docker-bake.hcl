@@ -21,8 +21,6 @@ group "default" {
     "global-coordinator",
     "global-migrate",
     "migrate",
-    "orgs-ui",
-    "hub-ui",
     "admin-ui",
   ]
 }
@@ -92,20 +90,6 @@ target "global-migrate" {
   inherits = ["_common"]
   context = "db/global-migrations"
   tags    = ["${REGISTRY}/global-migrate:${TAG}"]
-}
-
-target "orgs-ui" {
-  inherits = ["_common"]
-  context = "."
-  dockerfile = "orgs-ui/Dockerfile"
-  tags    = ["${REGISTRY}/orgs-ui:${TAG}"]
-}
-
-target "hub-ui" {
-  inherits = ["_common"]
-  context = "."
-  dockerfile = "hub-ui/Dockerfile"
-  tags    = ["${REGISTRY}/hub-ui:${TAG}"]
 }
 
 target "admin-ui" {

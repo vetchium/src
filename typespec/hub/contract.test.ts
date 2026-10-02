@@ -225,13 +225,12 @@ test("the homed-elsewhere guard requires every extension member", () => {
     type: "vetchium-problem-details/hub-account-homed-elsewhere",
     title: "Hub account homed in another region",
     status: 409,
-    detail: "This Hub account signs in at another region's Hub portal",
+    detail: "This Hub account signs in at another region",
     tenant_id: "usa1",
     hosting_country: "US",
-    hub_url: "https://hub.usa1.example",
   };
   assert.equal(isHubAccountHomedElsewhereProblem(problem), true);
-  for (const field of ["tenant_id", "hosting_country", "hub_url"] as const) {
+  for (const field of ["tenant_id", "hosting_country"] as const) {
     const missing: Record<string, unknown> = { ...problem };
     delete missing[field];
     assert.equal(isHubAccountHomedElsewhereProblem(missing), false, field);

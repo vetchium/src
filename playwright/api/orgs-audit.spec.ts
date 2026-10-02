@@ -37,6 +37,7 @@ import {
   signupOrg,
   signupToken,
 } from "../lib/orgs-api.ts";
+import { emailedLinkToken } from "../lib/portals.ts";
 
 test.describe.configure({ timeout: 90_000 });
 
@@ -134,6 +135,7 @@ test("signup writes commit exactly one audit event each and roll back with it", 
     const dns = await orgEmailText(request, emailAddress, "DNS record");
     const token = signupToken(
       await orgEmailText(request, emailAddress, "Complete"),
+      api.tenant,
     );
     secrets.push(token);
     await setOrgVerificationRecord(domain, [recordValue(dns)]);
@@ -379,7 +381,7 @@ test("sign-in and password writes are audited and roll back with their event", a
     const email = await orgEmailText(request, org.emailAddress, "Reset");
     expect(await orgEmailCount(org.emailAddress)).toBe(emailsBefore + 1);
     const resetToken =
-      email.match(/reset-password\?token=([0-9a-f]{64})/)?.[1] ?? "";
+      emailedLinkToken(email, "/reset-password", api.tenant) ?? "";
 
     const reset = orgPassword();
     const removeResetFault = installOrgAuditInsertFailure({

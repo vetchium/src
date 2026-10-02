@@ -1,0 +1,62 @@
+{
+  "defaultTenant": "sgp",
+  "recommendations": {
+    "IN": "ind1",
+    "US": "usa1",
+    "CA": "usa1",
+    "MX": "usa1",
+    "DE": "deu",
+    "FR": "deu",
+    "GB": "deu",
+    "IE": "deu",
+    "ES": "deu",
+    "IT": "deu",
+    "NL": "deu",
+    "BE": "deu",
+    "CH": "deu",
+    "AT": "deu",
+    "PL": "deu",
+    "PT": "deu",
+    "SE": "deu",
+    "NO": "deu",
+    "FI": "deu",
+    "DK": "deu",
+    "AU": "sgp",
+    "NZ": "sgp",
+    "SG": "sgp"
+  },
+  "regions": [
+    {
+      "tenantId": "deu",
+      "hostingCountry": "DE",
+      "apiOrigin": "http://deu.api.vetchium.localhost",
+      "signupEnabled": true,
+      "orgSignupEnabled": true,
+      "allowedCountries": []
+    },
+    {
+      "tenantId": "ind1",
+      "hostingCountry": "IN",
+      "apiOrigin": "http://ind1.api.vetchium.localhost",
+      "signupEnabled": true,
+      "orgSignupEnabled": true,
+      "allowedCountries": []
+    },
+    {
+      "tenantId": "sgp",
+      "hostingCountry": "SG",
+      "apiOrigin": "http://sgp.api.vetchium.localhost",
+      "signupEnabled": true,
+      "orgSignupEnabled": true,
+      "allowedCountries": []
+    },
+    {
+      "tenantId": "usa1",
+      "hostingCountry": "US",
+      "apiOrigin": "http://usa1.api.vetchium.localhost",
+      "signupEnabled": true,
+      "orgSignupEnabled": true,
+      "allowedCountries": []
+    }
+  ]
+}

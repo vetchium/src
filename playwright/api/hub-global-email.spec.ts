@@ -21,6 +21,7 @@ import {
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { HubAPI, hubIdempotencyKey, MAILPIT_ORIGIN } from "../lib/hub-api.ts";
 import { signup } from "../lib/hub-signup.ts";
+import { emailedLinkToken, HUB_PORTAL } from "../lib/portals.ts";
 
 /** Each test owns an allowlisted domain and removes everything it created. */
 function testDomain(): string {
@@ -29,10 +30,6 @@ function testDomain(): string {
 
 function addressAt(domain: string): string {
   return `e2e+${randomUUID()}@${domain}`;
-}
-
-function originFor(tenant: TestTenant): string {
-  return `http://hub-ui.${tenant}.localhost`;
 }
 
 async function latestMail(
@@ -85,9 +82,12 @@ async function requestSignupAndGetToken(
     },
   );
   expect(requested.status(), await requested.text()).toBe(202);
-  const origin = originFor(tenant);
-  const mail = await latestMail(request, email, `${origin}/complete-signup`);
-  const token = mail.match(/complete-signup\?token=([0-9a-f]{64})/)?.[1];
+  const mail = await latestMail(
+    request,
+    email,
+    `${HUB_PORTAL}/complete-signup?region=${tenant}&token=`,
+  );
+  const token = emailedLinkToken(mail, "/complete-signup", tenant);
   expect(token).toBeDefined();
   return token as string;
 }
@@ -118,6 +118,7 @@ test("a signup request for an address already registered elsewhere sends no link
 
     const mail = await latestMail(request, email, "already have an account");
     expect(mail).toContain("sgp region");
+    expect(mail).toContain(`${HUB_PORTAL}/login?region=sgp`);
     expect(mail).not.toContain("complete-signup");
 
     const audit = auditEventJSONForTenant(
@@ -206,7 +207,7 @@ test("racing signups for the same address: the second completion is sent to the 
     const lostBody = await responseJSON<HubAccountHomedElsewhereDetails>(lost);
     expect(lostBody.tenant_id).toBe("sgp");
     expect(lostBody.hosting_country).toBe("SG");
-    expect(lostBody.hub_url).toBe(originFor("sgp"));
+    expect(lostBody).not.toHaveProperty("hub_url");
 
     const state = hubSignupCompletionState(email, "usa1");
     expect(state).toMatchObject({

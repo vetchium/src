@@ -1,16 +1,20 @@
 import type { Details } from "typespec/problem/details";
 
 export class APIError extends Error {
-  constructor(
-    readonly status: number,
-    readonly problem?: Details,
-  ) {
+  readonly status: number;
+  readonly problem?: Details;
+
+  constructor(status: number, problem?: Details) {
     super(problem?.detail ?? `HTTP ${status}`);
     this.name = "APIError";
+    this.status = status;
+    this.problem = problem;
   }
 }
 
 export interface PortalAPIClientConfiguration {
+  /** Scheme and host of the API, or omitted for the portal's own origin. */
+  origin?: () => string;
   apiPrefix: string;
   authenticationProblemType: string;
   recentAuthenticationProblemType: string;
@@ -23,6 +27,11 @@ export interface PortalRequestOptions {
   body?: unknown;
   headers?: HeadersInit;
   method?: "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
+  /** Sends the request to this origin instead of the configured one: a
+   * signed-out flow names the region it talks to. Such a request carries no
+   * stored session token unless `token` is given, because the token belongs
+   * to the region that issued it. */
+  origin?: string;
   token?: string | null;
 }
 
@@ -75,10 +84,15 @@ export function createPortalAPIClient(config: PortalAPIClientConfiguration) {
       headers.set(name, value);
     }
     const token =
-      options.token === undefined ? config.readToken() : options.token;
+      options.token !== undefined
+        ? options.token
+        : options.origin !== undefined
+          ? null
+          : config.readToken();
     if (token !== null) headers.set("Authorization", `Bearer ${token}`);
 
-    const response = await fetch(`${config.apiPrefix}${path}`, {
+    const origin = options.origin ?? config.origin?.() ?? "";
+    const response = await fetch(`${origin}${config.apiPrefix}${path}`, {
       method: options.method ?? (options.body === undefined ? "GET" : "POST"),
       headers,
       body:

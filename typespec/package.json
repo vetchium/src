@@ -73,9 +73,7 @@
     "./problem/hub/totp": "./problem/hub/totp.ts",
     "./problem/orgs/authentication": "./problem/orgs/authentication.ts",
     "./problem/orgs/signup": "./problem/orgs/signup.ts",
-    "./problem/orgs/totp": "./problem/orgs/totp.ts",
-    "./problem/regions/discovery": "./problem/regions/discovery.ts",
-    "./regions/regions": "./regions/regions.ts"
+    "./problem/orgs/totp": "./problem/orgs/totp.ts"
   },
   "files": [
     "admin/**/*.ts",
@@ -95,7 +93,7 @@
     "format:check": "biome check --config-path=../biome.json .",
     "test:contract-files": "node --test scripts/check-contract-files.test.mjs",
     "test:openapi": "node --experimental-strip-types --test scripts/openapi-extensions.test.ts",
-    "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts directory/*.test.ts hub/*.test.ts hub/operations/*.test.ts hub/profile/*.test.ts orgs/*.test.ts regions/*.test.ts",
+    "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts directory/*.test.ts hub/*.test.ts hub/operations/*.test.ts hub/profile/*.test.ts orgs/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

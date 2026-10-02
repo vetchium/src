@@ -46,6 +46,7 @@ import {
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { HubAPI, hubIdempotencyKey, MAILPIT_ORIGIN } from "../lib/hub-api.ts";
 import { login, signup } from "../lib/hub-signup.ts";
+import { emailedLinkToken } from "../lib/portals.ts";
 
 interface Account {
   email: string;
@@ -179,9 +180,7 @@ test("a confirmed email change moves sign-in to the proven address and revokes o
       account.email,
       "reset-password",
     );
-    const resetToken = resetMail.match(
-      /reset-password\?token=([0-9a-f]{64})/,
-    )?.[1];
+    const resetToken = emailedLinkToken(resetMail, "/reset-password", "sgp");
     expect(resetToken).toBeDefined();
 
     const requestKey = hubIdempotencyKey();
@@ -245,11 +244,9 @@ test("a confirmed email change moves sign-in to the proven address and revokes o
     // request already proved that, and the code proves the new mailbox.
     ageHubSession(account.token);
 
-    // A wrong-code attempt no longer creates a durable operation (GU-ECH-002:
-    // only a correct code does), so unlike a completed change, it has
-    // nothing for a replay to conflict against. Each call with its own key
-    // genuinely re-attempts and bumps attempt_count independently — a
-    // deliberate M4 trade-off, see docs/global-uniqueness.md §10.
+    // A wrong code creates no durable operation, so each key genuinely
+    // re-attempts and bumps attempt_count (agent-guides/hub-signup.md,
+    // "Account email changes").
     const wrongKey1 = hubIdempotencyKey();
     await expectProblem(
       await confirmChange(

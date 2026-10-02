@@ -107,7 +107,6 @@ export const en = {
     regionOption: "{{region}} ({{tenant}})",
     continueRegion: "Continue in {{region}} ({{tenant}})",
     continue: "Continue",
-    retryRegions: "Try again",
     noRegions: "No region accepts organization signups right now.",
     hosting: "Your organization will be kept in {{region}} ({{tenant}}).",
     changeRegion: "Choose another region",
@@ -162,6 +161,11 @@ export const en = {
     name: "Name",
     value: "Value",
   },
+  region: {
+    label: "Region",
+    help: "Your organization's account lives in one region. Choose the region where it signed up.",
+    option: "{{country}} ({{tenantId}})",
+  },
   login: {
     documentTitle: "Sign in | Vetchium for organizations",
     title: "Sign in",
@@ -171,6 +175,8 @@ export const en = {
     forgotPassword: "Forgot your password?",
     noAccount: "Organization not on Vetchium yet?",
     signUp: "Sign it up",
+    wrongRegionHint:
+      "If the domain, email, and password are right, check that the selected region is the one where your organization signed up.",
     homedElsewhere: {
       title: "{{domain}} signs in at another region",
       description:

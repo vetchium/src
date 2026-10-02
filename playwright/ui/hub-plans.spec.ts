@@ -2,9 +2,8 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import type { PublicProfile } from "typespec/hub/profile/public";
 import type { HubSubscription } from "typespec/hub/subscriptions/subscriptions";
+import { HUB_PORTAL } from "../lib/portals.ts";
 
-const hubBaseURL =
-  process.env.PLAYWRIGHT_HUB_BASE_URL ?? "http://hub-ui.sgp.localhost";
 const sessionKey = "vetchium.hub.session";
 const sessionToken = "s".repeat(64);
 const handle = "perso000-00000000001";
@@ -23,21 +22,25 @@ function myInfo(preferredLanguage = "en-US") {
   };
 }
 
-async function provideStoredSession(page: Page) {
+/** Stores a session issued by `tenantId`, whose plans the page offers. */
+async function provideStoredSession(page: Page, tenantId = "sgp") {
   await page.addInitScript(
-    ({ key, sessionToken, handle }) =>
+    ({ key, sessionToken, handle, tenantId }) =>
       sessionStorage.setItem(
         key,
         JSON.stringify({
-          session_token: sessionToken,
-          session_expires_at: new Date(Date.now() + 60_000).toISOString(),
-          preferred_language: "en-US",
-          resident_country: "SG",
-          handle,
-          remembered: false,
+          tenantId,
+          session: {
+            session_token: sessionToken,
+            session_expires_at: new Date(Date.now() + 60_000).toISOString(),
+            preferred_language: "en-US",
+            resident_country: "SG",
+            handle,
+            remembered: false,
+          },
         }),
       ),
-    { key: sessionKey, sessionToken, handle },
+    { key: sessionKey, sessionToken, handle, tenantId },
   );
 }
 
@@ -92,46 +95,23 @@ async function provideMySubscription(
   });
 }
 
-async function provideRuntimeConfig(
-  page: Page,
-  options: { tenantId?: string; hubPlans?: string[]; language?: string } = {},
-) {
-  const tenantId = options.tenantId ?? "sgp";
-  const hubPlans = options.hubPlans ?? ["hub-free-tier", "hub-silver-tier"];
-  const language = options.language ?? "en-US";
-  await page.route("**/runtime-config.js", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/javascript",
-      body: `globalThis.__VETCHIUM_CONFIG__ = Object.freeze({ defaultLanguage: ${JSON.stringify(
-        language,
-      )}, tenantId: ${JSON.stringify(tenantId)}, hubPlans: Object.freeze(${JSON.stringify(
-        hubPlans,
-      )}) });`,
-    });
-  });
-}
-
 async function gotoPlanPage(
   page: Page,
-  options: { tenantId?: string; hubPlans?: string[]; language?: string } = {},
+  options: { tenantId?: string; language?: string } = {},
 ) {
-  await provideRuntimeConfig(page, options);
-  await provideStoredSession(page);
+  await provideStoredSession(page, options.tenantId);
   await provideMyInfo(page, options.language ?? "en-US");
-  await page.goto(`${hubBaseURL}/plan`);
+  await page.goto(`${HUB_PORTAL}/plan`);
 }
 
 test("the plan page requires a session", async ({ page }) => {
-  await provideRuntimeConfig(page);
-  await page.goto(`${hubBaseURL}/plan`);
+  await page.goto(`${HUB_PORTAL}/plan`);
   await expect(page).toHaveURL(/\/login/);
 });
 
 test("a held subscription request shows a loading skeleton with no actions", async ({
   page,
 }) => {
-  await provideRuntimeConfig(page);
   await provideStoredSession(page);
   await provideMyInfo(page);
   let release: (() => void) | undefined;
@@ -146,7 +126,7 @@ test("a held subscription request shows a loading skeleton with no actions", asy
       body: JSON.stringify(freeSubscription()),
     });
   });
-  await page.goto(`${hubBaseURL}/plan`);
+  await page.goto(`${HUB_PORTAL}/plan`);
   await expect(
     page.getByRole("status", { name: "Loading your subscription" }),
   ).toBeVisible();
@@ -160,7 +140,6 @@ test("a held subscription request shows a loading skeleton with no actions", asy
 test("a load failure shows the generic error with a working retry", async ({
   page,
 }) => {
-  await provideRuntimeConfig(page);
   await provideStoredSession(page);
   await provideMyInfo(page);
   let fail = true;
@@ -183,7 +162,7 @@ test("a load failure shows the generic error with a working retry", async ({
       body: JSON.stringify(freeSubscription()),
     });
   });
-  await page.goto(`${hubBaseURL}/plan`);
+  await page.goto(`${HUB_PORTAL}/plan`);
   await expect(
     page.getByText("Something went wrong. Please try again."),
   ).toBeVisible();
@@ -197,11 +176,10 @@ test("a load failure shows the generic error with a working retry", async ({
 test("a session-expiry failure clears the session and shows sign-in", async ({
   page,
 }) => {
-  await provideRuntimeConfig(page);
   await provideStoredSession(page);
   await provideMyInfo(page);
   await provideMySubscription(page, "unauthorized");
-  await page.goto(`${hubBaseURL}/plan`);
+  await page.goto(`${HUB_PORTAL}/plan`);
   await expect(page).toHaveURL(/\/login/);
   expect(
     await page.evaluate((key) => sessionStorage.getItem(key), sessionKey),
@@ -260,8 +238,9 @@ test("the plan comparison fits a narrow viewport", async ({ page }) => {
   expect(viewport.scrollWidth).toBeLessThanOrEqual(viewport.clientWidth);
 });
 
+// The CI region table offers only the free plan in usa1, so its USD prices
+// have no Silver plan to appear on.
 for (const [tenant, currency, monthly, annual] of [
-  ["usa1", "USD", 10, 110],
   ["deu", "EUR", 10, 110],
   ["sgp", "SGD", 10, 110],
   ["ind1", "INR", 1000, 11000],
@@ -291,23 +270,18 @@ for (const [tenant, currency, monthly, annual] of [
   });
 }
 
-test("an unrecognized tenant hides the silver plan", async ({ page }) => {
-  await provideMySubscription(page);
-  await gotoPlanPage(page, { tenantId: "zz9" });
-  await expect(page.getByText("Free", { exact: true }).last()).toBeVisible();
-  await expect(page.getByText("Silver", { exact: true })).toHaveCount(0);
-  await expect(
-    page.getByText(
-      "The paid plans will support the development of the Vetchium FOSS project.",
-    ),
-  ).toHaveCount(0);
-});
-
-test("a runtime configuration offering only the free plan hides silver", async ({
+test("a session from an unrecognized region reads as signed out", async ({
   page,
 }) => {
   await provideMySubscription(page);
-  await gotoPlanPage(page, { hubPlans: ["hub-free-tier"] });
+  await gotoPlanPage(page, { tenantId: "zz9" });
+  await expect(page).toHaveURL(/\/login/);
+  await expect(page.getByText("Silver", { exact: true })).toHaveCount(0);
+});
+
+test("a region offering only the free plan hides silver", async ({ page }) => {
+  await provideMySubscription(page);
+  await gotoPlanPage(page, { tenantId: "usa1" });
   await expect(page.getByText("Free", { exact: true }).last()).toBeVisible();
   await expect(page.getByText("Silver", { exact: true })).toHaveCount(0);
   await expect(
@@ -659,7 +633,6 @@ async function gotoHomePage(
     totpEnabled?: boolean;
   } = {},
 ) {
-  await provideRuntimeConfig(page);
   await provideStoredSession(page);
   await page.route("**/api/hub/my-info", async (route) => {
     await route.fulfill({
@@ -679,7 +652,7 @@ async function gotoHomePage(
     });
   });
   await provideMySubscription(page, options.subscription ?? freeSubscription());
-  await page.goto(hubBaseURL);
+  await page.goto(HUB_PORTAL);
   await expect(
     page.getByRole("heading", { name: "Welcome back, Example Person" }),
   ).toBeVisible();
@@ -695,7 +668,7 @@ test("the home page invites a free-tier user to support Vetchium", async ({
     }),
   ).toBeVisible();
   await page.getByRole("link", { name: "See plans" }).click();
-  await expect(page).toHaveURL(`${hubBaseURL}/plan`);
+  await expect(page).toHaveURL(`${HUB_PORTAL}/plan`);
 });
 
 test("the home page shows no plan invitation on a paid plan", async ({
@@ -736,7 +709,7 @@ test("the home page lists the profile sections still to fill in", async ({
     await expect(page.getByText(item, { exact: true })).toBeVisible();
   }
   await page.getByRole("link", { name: "Edit my profile" }).click();
-  await expect(page).toHaveURL(`${hubBaseURL}/settings/profile`);
+  await expect(page).toHaveURL(`${HUB_PORTAL}/settings/profile`);
 });
 
 test("the home page confirms a complete profile without a checklist", async ({
@@ -781,7 +754,7 @@ test("the home page suggests two-factor authentication only while it is off", as
   await page
     .getByRole("link", { name: "Set up two-factor authentication" })
     .click();
-  await expect(page).toHaveURL(`${hubBaseURL}/settings/security`);
+  await expect(page).toHaveURL(`${HUB_PORTAL}/settings/security`);
 });
 
 test("the home page omits the two-factor suggestion once it is on", async ({
@@ -851,7 +824,7 @@ for (const [locale, title, payments] of [
       (lang) => localStorage.setItem("vetchium.language", lang),
       locale,
     );
-    await page.goto(`${hubBaseURL}/terms`);
+    await page.goto(`${HUB_PORTAL}/terms`);
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
     await expect(page.getByRole("heading", { name: payments })).toBeVisible();
   });
@@ -860,16 +833,15 @@ for (const [locale, title, payments] of [
 test("terms is reachable signed in and linked from signup", async ({
   page,
 }) => {
-  await provideRuntimeConfig(page);
   await provideStoredSession(page);
   await provideMyInfo(page);
   await provideMySubscription(page);
-  await page.goto(`${hubBaseURL}/terms`);
+  await page.goto(`${HUB_PORTAL}/terms`);
   await expect(
     page.getByRole("heading", { name: "Terms and Conditions" }),
   ).toBeVisible();
 
-  await page.goto(`${hubBaseURL}/signup`);
+  await page.goto(`${HUB_PORTAL}/signup`);
   await expect(
     page.getByRole("link", { name: "Terms and Conditions" }),
   ).toBeVisible();

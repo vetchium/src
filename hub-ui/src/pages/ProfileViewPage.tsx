@@ -36,6 +36,7 @@ import {
 } from "typespec/hub/profile/public";
 import { usePreferences } from "../app/PreferencesContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import { NoIndex } from "../components/common/NoIndex";
 import { ProfileAvatar } from "../components/common/ProfileAvatar";
 import { canonicalProfileURL } from "../features/profile/canonical";
 import {
@@ -351,6 +352,15 @@ function ProfileContents({ profile }: { profile: PublicProfile }) {
 }
 
 export function ProfileViewPage() {
+  return (
+    <>
+      <NoIndex />
+      <ProfileView />
+    </>
+  );
+}
+
+function ProfileView() {
   const { t } = useTranslation();
   const address = useParams().address ?? "";
   const validAddress = isProfileAddress(address);

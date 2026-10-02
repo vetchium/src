@@ -1,12 +1,10 @@
 import { expect, test } from "@playwright/test";
-
-const orgsBaseURL =
-  process.env.PLAYWRIGHT_ORGS_BASE_URL ?? "http://orgs-ui.sgp.localhost";
+import { ORGS_PORTAL } from "../lib/portals.ts";
 
 test("a visitor without a session enters through sign in", async ({ page }) => {
-  await page.goto(orgsBaseURL);
+  await page.goto(ORGS_PORTAL);
 
-  await expect(page).toHaveURL(`${orgsBaseURL}/login`);
+  await expect(page).toHaveURL(`${ORGS_PORTAL}/login`);
   const headings = page.getByRole("heading", { level: 1 });
   await expect(headings).toHaveCount(1);
   await expect(headings).toHaveText("Sign in");
@@ -20,17 +18,17 @@ test("a visitor without a session enters through sign in", async ({ page }) => {
 });
 
 test("an unknown route offers a way back home", async ({ page }) => {
-  await page.goto(`${orgsBaseURL}/no-such-page`);
+  await page.goto(`${ORGS_PORTAL}/no-such-page`);
 
   await expect(page.getByText("Page not found")).toBeVisible();
   await page.getByRole("link", { name: "Go to home" }).click();
 
   // Home needs a session, so a visitor lands on sign in.
-  await expect(page).toHaveURL(`${orgsBaseURL}/login`);
+  await expect(page).toHaveURL(`${ORGS_PORTAL}/login`);
 });
 
 test("language and theme choices survive a reload", async ({ page }) => {
-  await page.goto(orgsBaseURL);
+  await page.goto(ORGS_PORTAL);
   await page.getByRole("switch", { name: "Switch light or dark mode" }).click();
   await page.getByRole("combobox", { name: "Select language" }).click();
   await page.getByRole("option", { name: "Deutsch (Deutschland)" }).click();
@@ -50,7 +48,7 @@ test("language and theme choices survive a reload", async ({ page }) => {
 
 test("the header fits a 320px viewport", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
-  await page.goto(orgsBaseURL);
+  await page.goto(ORGS_PORTAL);
 
   await expect(
     page.getByRole("combobox", { name: "Select language" }),

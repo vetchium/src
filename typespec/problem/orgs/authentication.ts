@@ -71,7 +71,6 @@ export const OrgHomedElsewhereErrorType =
 export interface HomedElsewhereDetails extends Details {
   type: typeof OrgHomedElsewhereErrorType;
   tenant_id: string;
-  orgs_url: string;
 }
 
 export function isHomedElsewhereProblem(
@@ -81,7 +80,6 @@ export function isHomedElsewhereProblem(
   const problem = value as Record<string, unknown>;
   return (
     problem.type === OrgHomedElsewhereErrorType &&
-    typeof problem.tenant_id === "string" &&
-    typeof problem.orgs_url === "string"
+    typeof problem.tenant_id === "string"
   );
 }

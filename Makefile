@@ -73,7 +73,7 @@ serving_services = $$(docker compose -f $(1) config --services | \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
 	admin-ui-deps admin-ui-check admin-ui-check-ready \
-	hub-ui-deps hub-ui-check hub-ui-check-ready \
+	hub-ui-deps hub-ui-check hub-ui-check-ready portal-dist \
 	orgs-ui-deps orgs-ui-check orgs-ui-check-ready portal-ui-deps \
 	portal-ui-check portal-ui-check-ready typespec-deps \
 	typespec-check \
@@ -119,9 +119,9 @@ dev: clean
 	docker compose -f docker-compose.json up -d --wait \
 		--wait-timeout $(WAIT_TIMEOUT) $(call serving_services,docker-compose.json)
 	@echo
-	@for t in sgp usa1 deu ind1; do \
-		for p in orgs hub admin; do echo "  http://$$p-ui.$$t.localhost/"; done; \
-	done
+	@echo "  http://vetchium.localhost/"
+	@echo "  http://orgs.vetchium.localhost/"
+	@for t in sgp usa1 deu ind1; do echo "  http://admin-ui.$$t.localhost/"; done
 
 # The single entry point for developer data seeding. It brings up a fresh
 # stack, then runs every seed target that must go through a portal API
@@ -139,13 +139,13 @@ dev-seed: dev
 # log in, then write every profile section the tenant's fixture file
 # supplies. Fixture data, including the avatars paid-tier users reference,
 # lives in dev/hub-seed-profiles/ and is meant to be hand-edited. Runs from
-# the host against the Traefik-exposed hub-ui origins `dev` already prints,
-# so it does not need dev-secrets or a container of its own.
+# the host against each tenant's Traefik-exposed API host, so it does not
+# need dev-secrets or a container of its own.
 dev-seed-hub-profiles:
 	@for t in sgp usa1 deu ind1; do \
 		echo "==> hub profiles $$t"; \
 		(cd backend && DEV_SEED_MODE=hub-profiles \
-			DEV_SEED_HUB_ORIGIN="http://hub-ui.$$t.localhost" \
+			DEV_SEED_HUB_ORIGIN="http://$$t.api.vetchium.localhost" \
 			DEV_SEED_MAILPIT_URL="$(DEV_SEED_MAILPIT_URL)" \
 			DEV_SEED_HUB_PROFILES_FILE="$(CURDIR)/dev/hub-seed-profiles/$$t.json" \
 			go run ./cmd/dev-seed) || exit $$?; \
@@ -159,7 +159,7 @@ dev-seed-orgs:
 	@for t in sgp usa1 deu ind1; do \
 		echo "==> orgs $$t"; \
 		(cd backend && DEV_SEED_MODE=orgs DEV_SEED_TENANT=$$t \
-			DEV_SEED_ORGS_ORIGIN="http://orgs-ui.$$t.localhost" \
+			DEV_SEED_ORGS_ORIGIN="http://$$t.api.vetchium.localhost" \
 			DEV_SEED_MAILPIT_URL="$(DEV_SEED_MAILPIT_URL)" \
 			DEV_SEED_DNS_URL="$(DEV_SEED_DNS_URL)" \
 			go run ./cmd/dev-seed) || exit $$?; \
@@ -368,6 +368,21 @@ admin-ui-check-ready: admin-ui-deps
 
 admin-ui-check: admin-ui-check-ready
 
+# Production Hub and Orgs bundles for the static host, one directory per
+# site, each with its generated _headers and _redirects. Upload these; the
+# portals are not deployed with the regional stacks.
+PORTAL_DIST_DIR := $(CURDIR)/portal-dist
+
+portal-dist: hub-ui-deps orgs-ui-deps
+	rm -rf "$(PORTAL_DIST_DIR)"
+	cd hub-ui && VITE_VETCHIUM_ENVIRONMENT=production npm run build -- \
+		--outDir "$(PORTAL_DIST_DIR)/hub" --emptyOutDir
+	cd orgs-ui && VITE_VETCHIUM_ENVIRONMENT=production npm run build -- \
+		--outDir "$(PORTAL_DIST_DIR)/orgs" --emptyOutDir
+	@! grep -rlE 'vetchium\.localhost|[a-z]+-ui\.[a-z0-9]+\.localhost' \
+		"$(PORTAL_DIST_DIR)" || { \
+		echo "a production portal bundle names a development host"; exit 1; }
+
 hub-ui-deps:
 	cd hub-ui && npm ci
 
@@ -376,7 +391,7 @@ hub-ui-check-ready: hub-ui-deps
 	cd hub-ui && npm run typecheck
 	cd hub-ui && npm test
 	cd hub-ui && npm audit --audit-level=high
-	cd hub-ui && npm run build
+	cd hub-ui && VITE_VETCHIUM_ENVIRONMENT=production npm run build
 
 hub-ui-check: hub-ui-check-ready
 
@@ -386,9 +401,8 @@ orgs-ui-deps:
 orgs-ui-check-ready: orgs-ui-deps
 	cd orgs-ui && npm run format:check
 	cd orgs-ui && npm run typecheck
-	cd orgs-ui && npm test
 	cd orgs-ui && npm audit --audit-level=high
-	cd orgs-ui && npm run build
+	cd orgs-ui && VITE_VETCHIUM_ENVIRONMENT=production npm run build
 
 orgs-ui-check: orgs-ui-check-ready
 

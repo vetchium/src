@@ -24,6 +24,9 @@ const LoginPage = lazy(() =>
     default: LoginPage,
   })),
 );
+const OrgPage = lazy(() =>
+  import("../pages/OrgPage").then(({ OrgPage }) => ({ default: OrgPage })),
+);
 const NotFoundPage = lazy(() =>
   import("../pages/NotFoundPage").then(({ NotFoundPage }) => ({
     default: NotFoundPage,
@@ -148,6 +151,14 @@ export function App() {
           element={
             <Page>
               <TermsPage />
+            </Page>
+          }
+        />
+        <Route
+          path="org/:domain"
+          element={
+            <Page>
+              <OrgPage />
             </Page>
           }
         />

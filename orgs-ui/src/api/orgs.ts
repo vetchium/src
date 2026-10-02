@@ -32,53 +32,74 @@ import type {
   VerifyRecoveryCodeResponse,
 } from "typespec/orgs/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/orgs/auth/types";
-import type {
-  ListOrgSignupRegionsRequest,
-  ListOrgSignupRegionsResponse,
-} from "typespec/regions/regions";
 import { apiRequest } from "./client";
 
 export const orgsAPI = {
-  listSignupRegions: (body: ListOrgSignupRegionsRequest) =>
-    apiRequest<ListOrgSignupRegionsResponse>("/list-signup-regions", { body }),
-  requestSignup: (body: RequestSignupRequest, idempotencyKey: IdempotencyKey) =>
-    apiRequest<void>("/request-signup", { body, idempotencyKey }),
-  getSignupDetails: (body: GetSignupDetailsRequest) =>
-    apiRequest<SignupDetailsResponse>("/get-signup-details", { body }),
+  requestSignup: (
+    body: RequestSignupRequest,
+    idempotencyKey: IdempotencyKey,
+    tenantId: string,
+  ) => apiRequest<void>("/request-signup", { body, idempotencyKey, tenantId }),
+  getSignupDetails: (body: GetSignupDetailsRequest, tenantId: string) =>
+    apiRequest<SignupDetailsResponse>("/get-signup-details", {
+      body,
+      tenantId,
+    }),
   completeSignup: (
     body: CompleteSignupRequest,
     idempotencyKey: IdempotencyKey,
+    tenantId: string,
   ) =>
     apiRequest<CompleteSignupResponse | SignupCompletionPendingResponse>(
       "/complete-signup",
-      { body, idempotencyKey },
+      { body, idempotencyKey, tenantId },
     ),
-  login: (body: LoginRequest) => apiRequest<LoginResponse>("/login", { body }),
-  verifyTFA: (body: VerifyTFARequest, idempotencyKey: IdempotencyKey) =>
+  login: (body: LoginRequest, tenantId: string) =>
+    apiRequest<LoginResponse>("/login", { body, tenantId }),
+  verifyTFA: (
+    body: VerifyTFARequest,
+    idempotencyKey: IdempotencyKey,
+    tenantId: string,
+  ) =>
     apiRequest<AuthenticatedSessionResponse>("/login/tfa", {
       body,
       idempotencyKey,
+      tenantId,
     }),
   verifyRecoveryCode: (
     body: VerifyRecoveryCodeRequest,
     idempotencyKey: IdempotencyKey,
+    tenantId: string,
   ) =>
     apiRequest<VerifyRecoveryCodeResponse>("/login/recovery-code", {
       body,
       idempotencyKey,
+      tenantId,
     }),
-  logout: (token: string) =>
-    apiRequest<void>("/logout", { method: "POST", token }),
+  logout: (token: string, tenantId: string) =>
+    apiRequest<void>("/logout", { method: "POST", token, tenantId }),
   reauthenticate: (body: ReauthenticateRequest) =>
     apiRequest<ReauthenticateResponse>("/reauthenticate", { body }),
   requestPasswordReset: (
     body: RequestPasswordResetRequest,
     idempotencyKey: IdempotencyKey,
-  ) => apiRequest<void>("/request-password-reset", { body, idempotencyKey }),
+    tenantId: string,
+  ) =>
+    apiRequest<void>("/request-password-reset", {
+      body,
+      idempotencyKey,
+      tenantId,
+    }),
   completePasswordReset: (
     body: CompletePasswordResetRequest,
     idempotencyKey: IdempotencyKey,
-  ) => apiRequest<void>("/complete-password-reset", { body, idempotencyKey }),
+    tenantId: string,
+  ) =>
+    apiRequest<void>("/complete-password-reset", {
+      body,
+      idempotencyKey,
+      tenantId,
+    }),
   changePassword: (body: ChangePasswordRequest) =>
     apiRequest<void>("/change-password", { body }),
   startTOTPEnrollment: (idempotencyKey: IdempotencyKey) =>

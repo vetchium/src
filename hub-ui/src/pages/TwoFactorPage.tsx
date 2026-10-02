@@ -34,6 +34,7 @@ export function TwoFactorPage() {
               totp_code: code,
             },
             totpKey.current(),
+            challenge.tenantId,
           )
         : hubAPI.verifyRecoveryCode(
             {
@@ -41,6 +42,7 @@ export function TwoFactorPage() {
               recovery_code: code,
             },
             recoveryKey.current(),
+            challenge.tenantId,
           );
     },
   });
@@ -60,9 +62,13 @@ export function TwoFactorPage() {
     try {
       const session = await mutation.mutateAsync(values);
       if (
-        auth.completeAuthentication(session, challenge.remembered, {
-          challenge: challenge.login_challenge_token,
-        })
+        auth.completeAuthentication(
+          session,
+          { remembered: challenge.remembered, tenantId: challenge.tenantId },
+          {
+            challenge: challenge.login_challenge_token,
+          },
+        )
       ) {
         navigate(safeReturnTo(search.get("returnTo")), { replace: true });
       }

@@ -5,13 +5,18 @@ import { Link } from "react-router";
 import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import {
+  RegionField,
+  useSelectedRegion,
+} from "../features/regions/RegionField";
 
 export function ForgotPasswordPage() {
   const { t } = useTranslation();
   const key = useIdempotencyKey();
+  const [region, setRegion] = useSelectedRegion();
   const request = useMutation({
     mutationFn: (body: { email_address: string }) =>
-      hubAPI.requestPasswordReset(body, key.current()),
+      hubAPI.requestPasswordReset(body, key.current(), region),
     onSuccess: () => key.rotate(),
   });
   return (
@@ -37,6 +42,11 @@ export function ForgotPasswordPage() {
               layout="vertical"
               onFinish={(values) => request.mutate(values)}
             >
+              <RegionField
+                value={region}
+                onChange={setRegion}
+                disabled={request.isPending}
+              />
               <Form.Item
                 name="email_address"
                 label={t("fields.email")}

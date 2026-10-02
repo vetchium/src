@@ -108,7 +108,6 @@ export const ta = {
     regionOption: "{{region}} ({{tenant}})",
     continueRegion: "{{region}} ({{tenant}}) இல் தொடரவும்",
     continue: "தொடரவும்",
-    retryRegions: "மீண்டும் முயலவும்",
     noRegions: "தற்போது எந்தப் பிராந்தியமும் நிறுவனப் பதிவுசெய்தல்களை ஏற்கவில்லை.",
     hosting: "உங்கள் நிறுவனம் {{region}} ({{tenant}}) இல் வைக்கப்படும்.",
     changeRegion: "வேறு பிராந்தியத்தைத் தேர்ந்தெடுக்கவும்",
@@ -162,6 +161,11 @@ export const ta = {
     name: "பெயர்",
     value: "மதிப்பு",
   },
+  region: {
+    label: "பகுதி",
+    help: "உங்கள் நிறுவனக் கணக்கு ஒரே ஒரு பகுதியில் உள்ளது. நிறுவனம் பதிவுசெய்த பகுதியைத் தேர்ந்தெடுக்கவும்.",
+    option: "{{country}} ({{tenantId}})",
+  },
   login: {
     documentTitle: "உள்நுழை | நிறுவனங்களுக்கான Vetchium",
     title: "உள்நுழை",
@@ -171,6 +175,8 @@ export const ta = {
     forgotPassword: "கடவுச்சொல் மறந்துவிட்டதா?",
     noAccount: "உங்கள் நிறுவனம் இன்னும் Vetchium-இல் இல்லையா?",
     signUp: "பதிவுசெய்யவும்",
+    wrongRegionHint:
+      "டொமைன், மின்னஞ்சல், கடவுச்சொல் சரியானவை என்றால், தேர்ந்தெடுத்த பகுதி உங்கள் நிறுவனம் பதிவுசெய்த பகுதிதானா என்று சரிபார்க்கவும்.",
     homedElsewhere: {
       title: "{{domain}} வேறொரு பகுதியில் உள்நுழைகிறது",
       description:

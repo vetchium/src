@@ -43,6 +43,9 @@ networks. Trust and protocol rules are in [`federation.md`](federation.md).
   itself is refused.
 - The relay's callers are the tenant's own API servers and workers on the backend
   network.
+- CI `ind1` points its coordinator URL at an unreachable address
+  (`config/ci/ind1.json`) to exercise fail-closed and pending paths. Never give
+  an `ind1` fixture anything that needs a global claim.
 - `make dev-secrets` generates development WireGuard keypairs.
 - Each isolated network gets a distinct `/24` within `10.231.0.0/16`. The
   four-tenant topology exceeds Docker's default address-pool capacity on some

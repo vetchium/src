@@ -20,7 +20,7 @@ func TestLoadFileParsesOrgSettings(t *testing.T) {
 		Signup:        regions.Admission{Enabled: true},
 		SessionTTL:    12 * time.Hour,
 		SignupTTL:     168 * time.Hour,
-		PublicBaseURL: "http://orgs-ui.sgp.localhost",
+		PublicBaseURL: "http://orgs.vetchium.localhost",
 	}) {
 		t.Fatalf("orgs API config = %+v", cfg.OrgsAPIServer)
 	}
@@ -47,8 +47,8 @@ func TestLoadFileParsesOrgSettings(t *testing.T) {
 func TestLoadFileReadsOrgSignupSwitch(t *testing.T) {
 	t.Parallel()
 	path := editConfig(t,
-		`"publicBaseURL": "http://orgs-ui.sgp.localhost/"`,
-		`"publicBaseURL": "http://orgs-ui.sgp.localhost/",
+		`"publicBaseURL": "http://orgs.vetchium.localhost/"`,
+		`"publicBaseURL": "http://orgs.vetchium.localhost/",
     "signup": {"enabled": false}`,
 	)
 	cfg, err := LoadFile(path)
@@ -80,25 +80,25 @@ func TestLoadFileRejectsInvalidOrgSettings(t *testing.T) {
 		{
 			"missing orgs public URL",
 			`,
-    "publicBaseURL": "http://orgs-ui.sgp.localhost/"`, ``,
+    "publicBaseURL": "http://orgs.vetchium.localhost/"`, ``,
 			"orgsAPIServer.publicBaseURL must be an HTTP(S) origin",
 		},
 		{
 			"orgs public URL with path",
-			`"http://orgs-ui.sgp.localhost/"`,
-			`"http://orgs-ui.sgp.localhost/app"`,
+			`"http://orgs.vetchium.localhost/"`,
+			`"http://orgs.vetchium.localhost/app"`,
 			"orgsAPIServer.publicBaseURL must be an HTTP(S) origin",
 		},
 		{
 			"orgs public URL with credentials",
-			`"http://orgs-ui.sgp.localhost/"`,
-			`"http://user@orgs-ui.sgp.localhost"`,
+			`"http://orgs.vetchium.localhost/"`,
+			`"http://user@orgs.vetchium.localhost"`,
 			"orgsAPIServer.publicBaseURL must be an HTTP(S) origin",
 		},
 		{
 			"orgs public URL with another scheme",
-			`"http://orgs-ui.sgp.localhost/"`,
-			`"ftp://orgs-ui.sgp.localhost"`,
+			`"http://orgs.vetchium.localhost/"`,
+			`"ftp://orgs.vetchium.localhost"`,
 			"orgsAPIServer.publicBaseURL must be an HTTP(S) origin",
 		},
 		{
@@ -111,7 +111,7 @@ func TestLoadFileRejectsInvalidOrgSettings(t *testing.T) {
 			`"orgsAPIServer": {
     "sessionTTL": "12h",
     "signupTTL": "168h",
-    "publicBaseURL": "http://orgs-ui.sgp.localhost/"
+    "publicBaseURL": "http://orgs.vetchium.localhost/"
   },`, ``,
 			"missing orgsAPIServer",
 		},

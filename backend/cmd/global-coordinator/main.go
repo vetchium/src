@@ -12,7 +12,6 @@ import (
 	"backend/internal/globaldirectory"
 	"backend/internal/meshtls"
 	"backend/internal/middleware"
-	"backend/internal/regions"
 	"backend/internal/routes"
 	"backend/internal/service"
 )
@@ -43,10 +42,6 @@ func run(log *slog.Logger, address string) error {
 	if err != nil {
 		return err
 	}
-	catalog, err := regions.Load(config.SignupRegionsFile)
-	if err != nil {
-		return err
-	}
 	databaseURL, err := config.Database.URL()
 	if err != nil {
 		return err
@@ -71,7 +66,6 @@ func run(log *slog.Logger, address string) error {
 	directory := globaldirectory.New(pool, config.IdentityDigestKeyID)
 	server := &globalcoordinator.Server{
 		Runtime:   runtime,
-		Regions:   catalog,
 		Directory: directory,
 	}
 	mux := http.NewServeMux()

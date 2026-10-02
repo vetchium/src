@@ -44,14 +44,15 @@ model HubAccountHomedElsewhereDetails {
   type: "vetchium-problem-details/hub-account-homed-elsewhere";
   title: "Hub account homed in another region";
   status: 409;
-  detail: "This Hub account signs in at another region's Hub portal";
+  detail: "This Hub account signs in at another region";
+
+  /** The home region, which the portal selects for sign-in. */
   tenant_id: string;
 
   /** Where the home region is hosted, so a portal can name it in the
    * viewer's language. */
   hosting_country: Vetchium.CountryCode;
 
-  hub_url: url;
   instance?: string;
 }
 alias HubAccountHomedElsewhereErrorResponse = Response<

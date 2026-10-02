@@ -9,7 +9,6 @@ import (
 	hubsubscriptions "backend/handlers/hub/subscriptions"
 	hubusers "backend/handlers/hub/users"
 	"backend/handlers/portal"
-	"backend/handlers/regions"
 	"backend/internal/apiserver"
 	hubruntime "backend/internal/hub"
 	"backend/internal/middleware"
@@ -17,7 +16,6 @@ import (
 
 func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
-	mux.HandleFunc("POST /api/hub/list-signup-regions", regions.Handler(s.Runtime, s.Regions, s.RegionDirectory, ""))
 	mux.HandleFunc(
 		"GET /api/hub/ping", portal.Ping(s.Runtime, s.Queries, "hub", s.TenantID),
 	)

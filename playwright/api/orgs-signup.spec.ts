@@ -3,7 +3,6 @@ import type {
   CompleteSignupResponse,
   SignupDetailsResponse,
 } from "typespec/orgs/auth/signup";
-import type { ListOrgSignupRegionsResponse } from "typespec/regions/regions";
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import {
@@ -30,51 +29,6 @@ const domainOwned = "vetchium-problem-details/org-domain-already-owned";
 const domainBlocked = "vetchium-problem-details/org-signup-domain-blocked";
 const invalidToken = "vetchium-problem-details/org-invalid-signup-token";
 const recordNotFound = "vetchium-problem-details/org-dns-record-not-found";
-
-test.describe("Org signup regions", () => {
-  test("lists Org-enabled regions with the recommendation", async ({
-    request,
-  }) => {
-    const api = new OrgsAPI(request);
-    const response = await api.post("/list-signup-regions", { country: "DE" });
-    expect(response.status()).toBe(200);
-    expect(response.headers()["cache-control"]).toBe("no-store");
-    const body = await responseJSON<ListOrgSignupRegionsResponse>(response);
-    expect(body.regions.map((region) => region.tenant_id)).toEqual([
-      "deu",
-      "ind1",
-      "sgp",
-      "usa1",
-    ]);
-    const recommended = body.regions.filter((region) => region.recommended);
-    expect(recommended.map((region) => region.tenant_id)).toEqual(["deu"]);
-    expect(recommended[0]?.orgs_url).toBe("http://orgs-ui.deu.localhost");
-    expect(body.next_pagination_key).toBeNull();
-  });
-
-  test("rejects malformed requests", async ({ request }) => {
-    const api = new OrgsAPI(request);
-    await expectProblem(
-      await api.post("/list-signup-regions", { country: "de" }),
-      400,
-      validationFailed,
-      ["country"],
-    );
-    await expectProblem(
-      await api.post("/list-signup-regions", {
-        country: "DE",
-        pagination_key: "bm90LWEtY3Vyc29y",
-      }),
-      400,
-      "vetchium-problem-details/invalid-pagination-key",
-    );
-    await expectProblem(
-      await api.postRaw("/list-signup-regions", "{"),
-      400,
-      invalidJSON,
-    );
-  });
-});
 
 test.describe("Org signup request", () => {
   test("queues forwardable DNS instructions and a private link", async ({

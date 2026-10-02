@@ -1,9 +1,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import type { PublicProfile } from "typespec/hub/profile/public";
-
-const hubBaseURL =
-  process.env.PLAYWRIGHT_HUB_BASE_URL ?? "http://hub-ui.sgp.localhost";
+import { HUB_PORTAL } from "../lib/portals.ts";
 
 const profile: PublicProfile = {
   display_name: "Remote Colleague",
@@ -48,12 +46,15 @@ async function signedIn(page: Page) {
     sessionStorage.setItem(
       "vetchium.hub.session",
       JSON.stringify({
-        session_token: "s".repeat(64),
-        session_expires_at: new Date(Date.now() + 60_000).toISOString(),
-        preferred_language: "en-US",
-        resident_country: "SG",
-        handle: "local000-00000000001",
-        remembered: false,
+        tenantId: "sgp",
+        session: {
+          session_token: "s".repeat(64),
+          session_expires_at: new Date(Date.now() + 60_000).toISOString(),
+          preferred_language: "en-US",
+          resident_country: "SG",
+          handle: "local000-00000000001",
+          remembered: false,
+        },
       }),
     );
   });
@@ -100,7 +101,7 @@ test("authenticated users can view a remote profile through an alias", async ({
       body: JSON.stringify(profile),
     });
   });
-  await page.goto(`${hubBaseURL}/u/shared-name`);
+  await page.goto(`${HUB_PORTAL}/u/shared-name`);
   await expect(
     page.getByRole("heading", { name: "Remote Colleague" }),
   ).toBeVisible();
@@ -136,7 +137,7 @@ test("a very long display name wraps inside the header instead of breaking the l
   );
   for (const width of [1280, 375]) {
     await page.setViewportSize({ width, height: 800 });
-    await page.goto(`${hubBaseURL}/u/shared-name`);
+    await page.goto(`${HUB_PORTAL}/u/shared-name`);
     const heading = page.getByRole("heading", { name: longName });
     await expect(heading).toBeVisible();
     const share = page.getByRole("button", { name: "Share profile" });
@@ -175,19 +176,19 @@ test("a profile without a picture shows the display name initial as the avatar",
   const avatar = page.locator("main .ant-avatar").first();
 
   await show("élodie Martin");
-  await page.goto(`${hubBaseURL}/u/shared-name`);
+  await page.goto(`${HUB_PORTAL}/u/shared-name`);
   await expect(avatar).toHaveText("É");
 
   // An emoji is one user-perceived character, not a lone surrogate half.
   await show("🚀 Rocket Co");
-  await page.goto(`${hubBaseURL}/u/shared-name`);
+  await page.goto(`${HUB_PORTAL}/u/shared-name`);
   await expect(avatar).toHaveText("🚀");
 
   await show(
     "Remote Colleague",
     "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
   );
-  await page.goto(`${hubBaseURL}/u/shared-name`);
+  await page.goto(`${HUB_PORTAL}/u/shared-name`);
   await expect(avatar.locator("img")).toBeVisible();
   await expect(avatar).not.toHaveText("R");
 });
@@ -208,16 +209,16 @@ test("the owner viewing their own profile can jump to editing it", async ({
       }),
     }),
   );
-  await page.goto(`${hubBaseURL}/u/local000-00000000001`);
+  await page.goto(`${HUB_PORTAL}/u/local000-00000000001`);
   await expect(
     page.getByRole("heading", { name: "Local Viewer" }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Edit my profile" }).click();
-  await expect(page).toHaveURL(`${hubBaseURL}/settings/profile`);
+  await expect(page).toHaveURL(`${HUB_PORTAL}/settings/profile`);
 });
 
 test("profile viewing requires a signed-in Hub user", async ({ page }) => {
-  await page.goto(`${hubBaseURL}/u/shared-name`);
+  await page.goto(`${HUB_PORTAL}/u/shared-name`);
   await expect(page).toHaveURL(/\/login\?returnTo=/);
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 });
@@ -231,7 +232,7 @@ test("invalid profile addresses do not trigger a profile API request", async ({
     requested = true;
     await route.abort();
   });
-  await page.goto(`${hubBaseURL}/u/invalid--alias`);
+  await page.goto(`${HUB_PORTAL}/u/invalid--alias`);
   await expect(
     page.getByText("This profile address is not valid."),
   ).toBeVisible();
@@ -253,7 +254,7 @@ test("profile lookup errors are visible without exposing another profile", async
       }),
     }),
   );
-  await page.goto(`${hubBaseURL}/u/shared-name`);
+  await page.goto(`${HUB_PORTAL}/u/shared-name`);
   await expect(page.getByText("This profile was not found.")).toBeVisible();
   await expect(page.getByText("Remote Colleague")).toHaveCount(0);
 });
@@ -273,7 +274,7 @@ test("a remote-profile outage has a localized retry message", async ({
       }),
     }),
   );
-  await page.goto(`${hubBaseURL}/u/shared-name`);
+  await page.goto(`${HUB_PORTAL}/u/shared-name`);
   await expect(
     page.getByText("This profile is temporarily unavailable. Try again."),
   ).toBeVisible();
@@ -298,7 +299,7 @@ test("websites are icon links in the header card, under the biography", async ({
   page.on("request", (request) => {
     if (request.resourceType() === "image") imageRequests.push(request.url());
   });
-  await page.goto(`${hubBaseURL}/u/shared-name`);
+  await page.goto(`${HUB_PORTAL}/u/shared-name`);
 
   const websites = page.getByRole("list", { name: "Websites" });
   await expect(websites.getByRole("listitem")).toHaveCount(4);
@@ -348,7 +349,7 @@ test("websites are icon links in the header card, under the biography", async ({
 test("a profile without websites shows no website list", async ({ page }) => {
   await signedIn(page);
   await showProfile(page, { websites: [] });
-  await page.goto(`${hubBaseURL}/u/shared-name`);
+  await page.goto(`${HUB_PORTAL}/u/shared-name`);
   await expect(
     page.getByRole("heading", { name: "Remote Colleague" }),
   ).toBeVisible();
@@ -373,7 +374,7 @@ test("the kind comes from the exact host, so look-alike hosts stay generic websi
       site(6, "https://linkedin.com.example.org/in/octocat"),
     ],
   });
-  await page.goto(`${hubBaseURL}/u/shared-name`);
+  await page.goto(`${HUB_PORTAL}/u/shared-name`);
   await expect(
     page.getByRole("list", { name: "Websites" }).getByRole("link"),
   ).toHaveText([
@@ -406,7 +407,7 @@ test("a website value that is not an HTTPS URL is shown as text and never linked
       },
     ],
   });
-  await page.goto(`${hubBaseURL}/u/shared-name`);
+  await page.goto(`${HUB_PORTAL}/u/shared-name`);
   const websites = page.getByRole("list", { name: "Websites" });
   await expect(websites.getByRole("listitem")).toHaveCount(3);
   await expect(websites.getByRole("link")).toHaveText(["safe.example"]);
@@ -434,7 +435,7 @@ test("very long website hosts wrap instead of widening the page", async ({
   });
   for (const width of [1280, 375]) {
     await page.setViewportSize({ width, height: 800 });
-    await page.goto(`${hubBaseURL}/u/shared-name`);
+    await page.goto(`${HUB_PORTAL}/u/shared-name`);
     await expect(page.getByRole("link", { name: longHost })).toBeVisible();
     const overflow = await page.evaluate(
       () =>

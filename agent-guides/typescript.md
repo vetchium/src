@@ -1,48 +1,22 @@
 # TypeScript
 
-Applies to hand-maintained TypeScript anywhere in the repository, including wire
-types under `typespec/` and tests under `playwright/`.
+Applies to hand-written TypeScript, including `typespec/` wire types and
+`playwright/`.
 
-## Types and imports
-
-- Strict TypeScript stays on. No `any`; use `unknown` and narrow it when a test
-  deliberately sends an invalid payload.
-- Import request, response, enum, and problem types from `typespec/<path>`; never
-  reconstruct a wire type in a UI, API client, fixture, or test.
-- Use `import type` for imports erased at runtime.
-- Preserve JSON names, casing, required fields, optionality, nullability, and
-  array shapes exactly as TypeSpec declares them.
-- `utcDateTime` values are RFC 3339 strings in wire types; convert to `Date` only
-  in application code that needs date operations.
-
-## Implementation
-
-- Normalization and validation are pure: return a new value, never mutate
-  caller-owned input. Report failures with JSON member names.
-- Prefer small exported interfaces and literal unions. No UI-only or test-only
-  convenience fields on shared wire types.
-
-## Workspaces
-
-- Every npm workspace is scoped `@vetchium/` (`@vetchium/admin-ui`,
-  `@vetchium/hub-ui`, `@vetchium/portal-ui`, `@vetchium/playwright`). The
-  contract package is the exception: it is named `typespec` because that is the
-  bare specifier every consumer imports, and renaming it would rewrite every
-  contract import.
-- Keep `engines`, `packageManager`, and shared tool versions aligned across
-  workspaces; a workspace on a different Biome or TypeScript accepts code its
-  siblings reject.
-
-## Formatting
-
-- Biome formats every `.ts` and `.tsx` file; no Prettier or anything else.
-- Use the shared `biome.json`; add a nested configuration only when a package
-  genuinely needs different rules.
-- Every Node package owning TypeScript pins `@biomejs/biome` in `devDependencies`
-  and exposes `format` and `format:check` scripts.
-- Keep Biome's recommended rules on, including its React and test domains, so
-  Hooks, JSX, and test correctness are checked.
-- Run the owning package's `npm run format` after editing and before
-  verification. It runs `biome check --write`, which also organizes imports and
-  applies safe lint fixes. Do not call `biome format` directly or hand-format
-  around its output.
+- Strict mode; no `any`. Use `unknown` and narrow it, for example when a test
+  sends an invalid payload.
+- Import wire types from `typespec/<path>`; never redefine them in a portal,
+  client, fixture, or test. Use `import type` for type-only imports.
+- Keep JSON names, optionality, nullability, and array shapes exactly as
+  TypeSpec declares. `utcDateTime` stays a string; convert to `Date` only where
+  date math is needed.
+- Normalization and validation are pure: return new values, report failures by
+  JSON member name.
+- No UI-only or test-only fields on shared wire types.
+- Packages are scoped `@vetchium/` (`admin-ui`, `hub-ui`, `orgs-ui`,
+  `portal-ui`, `playwright`), except `typespec`, the bare import name. Keep
+  `engines`, `packageManager`, and tool versions aligned across packages.
+- Biome is the only formatter, with the root `biome.json` and recommended rules
+  (React and test domains on). Every package pins `@biomejs/biome` and has
+  `format` and `format:check` scripts. Run the package's `npm run format` after
+  editing; never hand-format around it.

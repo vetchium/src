@@ -53,7 +53,7 @@
   "hubAPIServer": {
     "sessionTTL": "24h",
     "rememberedSessionTTL": "6360h",
-    "publicBaseURL": "https://hub.deu.vetchium.com",
+    "publicBaseURL": "https://vetchium.com",
     "offeredPlans": ["hub-free-tier", "hub-silver-tier"]
   },
   "objectStorage": {
@@ -75,7 +75,7 @@
   "orgsAPIServer": {
     "sessionTTL": "24h",
     "signupTTL": "168h",
-    "publicBaseURL": "https://orgs.deu.vetchium.com"
+    "publicBaseURL": "https://orgs.vetchium.com"
   },
   "orgDomainVerification": {
     "resolverAddress": "1.1.1.1:53",

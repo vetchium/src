@@ -31,7 +31,6 @@ export interface HubAccountHomedElsewhereDetails extends Details {
   type: typeof HubAccountHomedElsewhereErrorType;
   tenant_id: string;
   hosting_country: CountryCode;
-  hub_url: string;
 }
 
 export function isHubAccountHomedElsewhereProblem(
@@ -42,7 +41,6 @@ export function isHubAccountHomedElsewhereProblem(
   return (
     problem.type === HubAccountHomedElsewhereErrorType &&
     typeof problem.tenant_id === "string" &&
-    isCountryCode(problem.hosting_country) &&
-    typeof problem.hub_url === "string"
+    isCountryCode(problem.hosting_country)
   );
 }

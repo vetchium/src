@@ -11,6 +11,7 @@ export
 
 REGISTRY  ?= ghcr.io/vetchium
 HTTP_PORT ?= 80
+HTTPS_PORT ?= 443
 MESH_API_PORT ?= 8443
 PGSSLMODE ?= disable
 WIREGUARD_INTERFACE ?= wg0
@@ -71,10 +72,8 @@ deploy-global-coordinator:
 		printf '%s' "$$app_pw" | docker secret create "$$app_secret" - >/dev/null; \
 	fi
 	@config_hash=$$(sha256sum global-coordinator/config.json | cut -c1-12); \
-	signup_regions_hash=$$(sha256sum signup-regions.json | cut -c1-12); \
 	deploy_stack() { \
 		GLOBAL_COORDINATOR_CONFIG_HASH=$$config_hash REGISTRY=$(REGISTRY) TAG=$(TAG) \
-			SIGNUP_REGIONS_HASH=$$signup_regions_hash \
 			GLOBAL_COORDINATOR_PORT=$(GLOBAL_COORDINATOR_PORT) \
 			GLOBAL_POSTGRES_USER=$(GLOBAL_POSTGRES_USER) \
 			GLOBAL_POSTGRES_DB=$(GLOBAL_POSTGRES_DB) PGSSLMODE=$(PGSSLMODE) \
@@ -133,6 +132,7 @@ deploy:
 	@test -n "$(TAG)" || { echo "TAG is required, e.g. TAG=v1.2.3"; exit 1; }
 	@test -n "$(POSTGRES_USER)" || { echo "POSTGRES_USER is required"; exit 1; }
 	@test -n "$(POSTGRES_DB)" || { echo "POSTGRES_DB is required"; exit 1; }
+	@test -n "$(ACME_EMAIL)" || { echo "ACME_EMAIL is required for TLS certificates"; exit 1; }
 	@test -n "$(GLOBAL_COORDINATOR_WIREGUARD_IP)" || { echo "GLOBAL_COORDINATOR_WIREGUARD_IP is required"; exit 1; }
 	@test -n "$(MESH_API_WIREGUARD_IP)" || { echo "MESH_API_WIREGUARD_IP is required"; exit 1; }
 	@case "$(WIREGUARD_INTERFACE)" in *[!A-Za-z0-9_.-]*|'') echo "WIREGUARD_INTERFACE is invalid"; exit 1;; esac

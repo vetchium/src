@@ -1,33 +1,43 @@
-import { useQuery } from "@tanstack/react-query";
 import { frontendLocaleOptions } from "@vetchium/portal-ui/localization";
-import {
-  Alert,
-  Button,
-  Card,
-  Flex,
-  Form,
-  Select,
-  Spin,
-  Typography,
-} from "antd";
+import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
+import { Alert, Button, Card, Flex, Form, Select, Typography } from "antd";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, Navigate, useNavigate, useParams } from "react-router";
+import {
+  Link,
+  Navigate,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
 import { countryCodeValues, isCountryCode } from "typespec/common/countries";
-import type { OrgSignupRegion } from "typespec/regions/regions";
-import { orgsAPI } from "../api/orgs";
+import type { CountryCode } from "typespec/common/localization";
 import { paths } from "../app/paths";
 import {
   type FrontendLocale,
   isFrontendLocale,
   usePreferences,
 } from "../app/preferences";
+import { regionTable } from "../app/regions";
 import { useAuth } from "../auth/AuthContext";
-import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { SignupRequestForm } from "../features/signup/SignupRequestForm";
 
-// Pages hold 50 regions, so this bounds discovery at 1000 regions.
-const maxRegionPages = 20;
+/** Regions accepting Org signup. allowedCountries is Hub residency policy,
+ * so an Org's country only selects the recommendation: the country's, else
+ * the default, else the first region accepting Org signup. */
+const orgSignupRegions = regionTable.regions.filter(
+  (region) => region.orgSignupEnabled,
+);
+
+function recommendedRegion(country: string): string | undefined {
+  const preferred =
+    regionTable.recommendations[country as CountryCode] ??
+    regionTable.defaultTenant;
+  return (
+    orgSignupRegions.find((region) => region.tenantId === preferred) ??
+    orgSignupRegions[0]
+  )?.tenantId;
+}
 
 function countryName(country: string, locale: FrontendLocale): string {
   return (
@@ -65,37 +75,18 @@ function SignupFlow() {
     }
   }, [params.language, language, preferences]);
 
-  const catalog = useQuery({
-    queryKey: ["org-signup-regions", country],
-    enabled: isCountryCode(country),
-    retry: false,
-    queryFn: async () => {
-      const regions: OrgSignupRegion[] = [];
-      let cursor: string | undefined;
-      const seen = new Set<string>();
-      for (let page = 0; page < maxRegionPages; page += 1) {
-        const result = await orgsAPI.listSignupRegions({
-          country,
-          pagination_key: cursor,
-        });
-        regions.push(...result.regions);
-        cursor = result.next_pagination_key ?? undefined;
-        if (!cursor) return regions;
-        if (seen.has(cursor)) throw new Error("Repeated region cursor");
-        seen.add(cursor);
-      }
-      throw new Error("Too many region pages");
-    },
-  });
-  const options = catalog.data ?? [];
+  const [search] = useSearchParams();
+  const options = isCountryCode(country) ? orgSignupRegions : [];
+  const recommended = recommendedRegion(country);
   const selected =
-    options.find((region) => region.tenant_id === selectedTenant) ??
-    options.find((region) => region.recommended) ??
+    options.find((region) => region.tenantId === selectedTenant) ??
+    options.find((region) => region.tenantId === recommended) ??
     options[0];
-  const local = options.find(
-    (region) => new URL(region.orgs_url).origin === window.location.origin,
+  const destinationTenant = regionFromSearchParams(regionTable, search);
+  const destination = orgSignupRegions.find(
+    (region) => region.tenantId === destinationTenant,
   );
-  const details = params.step === "details" && local !== undefined;
+  const details = params.step === "details" && destination !== undefined;
   const collator = new Intl.Collator(language);
   const countries = countryCodeValues
     .map((value) => ({ value, label: countryName(value, language) }))
@@ -103,12 +94,8 @@ function SignupFlow() {
 
   function continueSignup() {
     if (!selected) return;
-    const path = `${paths.signup}/${country}/${language}/details`;
-    if (new URL(selected.orgs_url).origin === window.location.origin) {
-      navigate(path);
-      return;
-    }
-    window.location.assign(new URL(path, selected.orgs_url).href);
+    const query = new URLSearchParams({ region: selected.tenantId });
+    navigate(`${paths.signup}/${country}/${language}/details?${query}`);
   }
 
   return (
@@ -131,11 +118,11 @@ function SignupFlow() {
               showIcon
               data-testid="signup-region"
               title={t("signup.hosting", {
-                region: countryName(local.hosting_country, language),
-                tenant: local.tenant_id,
+                region: countryName(destination.hostingCountry, language),
+                tenant: destination.tenantId,
               })}
             />
-            <SignupRequestForm />
+            <SignupRequestForm tenantId={destination.tenantId} />
             <Button onClick={() => navigate(`${paths.signup}/${country}`)}>
               {t("signup.changeRegion")}
             </Button>
@@ -164,30 +151,23 @@ function SignupFlow() {
                 }
               />
             </Form.Item>
-            <APIErrorAlert error={catalog.error} />
-            {catalog.isFetching && <Spin />}
-            {catalog.isError && (
-              <Button onClick={() => void catalog.refetch()}>
-                {t("signup.retryRegions")}
-              </Button>
-            )}
-            {catalog.isSuccess && options.length === 0 && (
+            {isCountryCode(country) && options.length === 0 && (
               <Alert type="info" title={t("signup.noRegions")} />
             )}
             {options.length > 0 && (
               <Form.Item label={t("signup.regionLabel")} required>
                 <Select
                   aria-label={t("signup.regionLabel")}
-                  value={selected?.tenant_id}
+                  value={selected?.tenantId}
                   options={options.map((region) => ({
-                    value: region.tenant_id,
+                    value: region.tenantId,
                     label: t(
-                      region.recommended
+                      region.tenantId === recommended
                         ? "signup.recommendedRegion"
                         : "signup.regionOption",
                       {
-                        region: countryName(region.hosting_country, language),
-                        tenant: region.tenant_id,
+                        region: countryName(region.hostingCountry, language),
+                        tenant: region.tenantId,
                       },
                     ),
                   }))}
@@ -195,16 +175,11 @@ function SignupFlow() {
                 />
               </Form.Item>
             )}
-            <Button
-              type="primary"
-              htmlType="submit"
-              block
-              disabled={!selected || catalog.isFetching || catalog.isError}
-            >
+            <Button type="primary" htmlType="submit" block disabled={!selected}>
               {selected
                 ? t("signup.continueRegion", {
-                    region: countryName(selected.hosting_country, language),
-                    tenant: selected.tenant_id,
+                    region: countryName(selected.hostingCountry, language),
+                    tenant: selected.tenantId,
                   })
                 : t("signup.continue")}
             </Button>

@@ -98,7 +98,7 @@ type OrgsAPIServer struct {
 }
 
 // OrgDomainVerification sets how Org domain TXT records are looked up and how
-// the re-verification lifecycle in docs/org-signup.md section 7 is timed.
+// the re-verification lifecycle in agent-guides/orgs.md is timed.
 type OrgDomainVerification struct {
 	// ResolverAddress is the only resolver queried; there is no fallback to
 	// the system resolver.

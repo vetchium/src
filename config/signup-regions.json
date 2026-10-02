@@ -1,5 +1,4 @@
 {
-  "version": "3",
   "defaultTenant": "sgp",
   "recommendations": {
     "IN": "ind1",
@@ -30,37 +29,29 @@
     {
       "tenantId": "deu",
       "hostingCountry": "DE",
-      "hubURL": "http://hub-ui.deu.localhost",
       "signupEnabled": true,
       "allowedCountries": [],
-      "orgsURL": "http://orgs-ui.deu.localhost",
       "orgSignupEnabled": true
     },
     {
       "tenantId": "ind1",
       "hostingCountry": "IN",
-      "hubURL": "http://hub-ui.ind1.localhost",
       "signupEnabled": true,
       "allowedCountries": [],
-      "orgsURL": "http://orgs-ui.ind1.localhost",
       "orgSignupEnabled": true
     },
     {
       "tenantId": "sgp",
       "hostingCountry": "SG",
-      "hubURL": "http://hub-ui.sgp.localhost",
       "signupEnabled": true,
       "allowedCountries": [],
-      "orgsURL": "http://orgs-ui.sgp.localhost",
       "orgSignupEnabled": true
     },
     {
       "tenantId": "usa1",
       "hostingCountry": "US",
-      "hubURL": "http://hub-ui.usa1.localhost",
       "signupEnabled": true,
       "allowedCountries": [],
-      "orgsURL": "http://orgs-ui.usa1.localhost",
       "orgSignupEnabled": true
     }
   ]

@@ -19,7 +19,6 @@ func TestLoadConfigFile(t *testing.T) {
     "sslMode": "disable"
   },
   "env": "dev",
-  "signupRegionsFile": "/etc/vetchium/signup-regions.json",
   "tls": {
     "certificateFile": "/run/secrets/server.crt",
     "keyFile": "/run/secrets/server.key",
@@ -37,7 +36,7 @@ func TestLoadConfigFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config.Environment != "dev" || config.SignupRegionsFile == "" ||
+	if config.Environment != "dev" ||
 		config.Database.Host != "global-db" ||
 		config.TLS.CertificateFile == "" {
 		t.Fatalf("config = %+v, want populated development config", config)
@@ -56,7 +55,6 @@ func TestLoadConfigFileRejectsUnknownFields(t *testing.T) {
     "sslMode": "disable"
   },
   "env": "dev",
-  "signupRegionsFile": "/regions",
   "forbidden": true
 }`
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
@@ -155,7 +153,6 @@ func TestLoadConfigFileRejectsMalformedDigestKeyID(t *testing.T) {
     "sslMode": "disable"
   },
   "env": "dev",
-  "signupRegionsFile": "/regions",
   "tls": {
     "certificateFile": "/server.crt",
     "keyFile": "/server.key",

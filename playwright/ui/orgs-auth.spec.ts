@@ -10,11 +10,15 @@ import {
   OrgsAPI,
   orgEmailText,
   orgPassword,
-  orgsOrigin,
   signupOrg,
 } from "../lib/orgs-api.ts";
+import {
+  emailedLinkToken,
+  ORGS_PORTAL,
+  rememberRegion,
+} from "../lib/portals.ts";
+import { cleanupPasswordResetLedger } from "../lib/region-ui.ts";
 
-const sgp = orgsOrigin("sgp");
 const token = "a".repeat(64);
 const domain = "mocked.example";
 
@@ -29,7 +33,7 @@ async function openCompletion(page: Page) {
       },
     }),
   );
-  await page.goto(`${sgp}/complete-signup?token=${token}`);
+  await page.goto(`${ORGS_PORTAL}/complete-signup?region=sgp&token=${token}`);
   const password = orgPassword();
   await page.getByLabel("Organization name").fill("Mocked Org");
   await page.getByLabel("New password").fill(password);
@@ -56,7 +60,7 @@ test("a pending completion is retried with the same key until created", async ({
   });
   const submit = await openCompletion(page);
   await submit.click();
-  await expect(page).toHaveURL(`${sgp}/login?domain=${domain}`, {
+  await expect(page).toHaveURL(`${ORGS_PORTAL}/login?domain=${domain}`, {
     timeout: 15_000,
   });
   expect(keys.length).toBeGreaterThanOrEqual(2);
@@ -91,29 +95,34 @@ for (const refusal of [
 }
 
 test("an incomplete signup link explains itself", async ({ page }) => {
-  await page.goto(`${sgp}/complete-signup`);
+  await page.goto(`${ORGS_PORTAL}/complete-signup`);
   await expect(
     page.getByText("This signup link is incomplete", { exact: false }),
   ).toBeVisible();
 });
 
 test("a forgotten password is reset from the emailed link", async ({
+  context,
   page,
   request,
 }) => {
   const api = new OrgsAPI(request);
   const org = await signupOrg(api);
+  let resetToken: string | undefined;
   try {
-    await page.goto(`${sgp}/forgot-password?domain=${org.domain}`);
+    await rememberRegion(context, "orgs", api.tenant);
+    await page.goto(`${ORGS_PORTAL}/forgot-password?domain=${org.domain}`);
     await page.getByLabel("Email address").fill(org.emailAddress);
     await page.getByRole("button", { name: "Send reset link" }).click();
     await expect(page.getByTestId("forgot-password-sent")).toBeVisible();
 
     const email = await orgEmailText(request, org.emailAddress, "Reset");
-    const resetToken = email.match(/reset-password\?token=([0-9a-f]{64})/)?.[1];
+    resetToken = emailedLinkToken(email, "/reset-password", api.tenant);
     expect(resetToken).toBeDefined();
+    const resetLink = `${ORGS_PORTAL}/reset-password?region=${api.tenant}&token=${resetToken}`;
+    expect(email).toContain(resetLink);
     const newPassword = orgPassword();
-    await page.goto(`${sgp}/reset-password?token=${resetToken}`);
+    await page.goto(resetLink);
     await page.getByLabel("New password").fill(newPassword);
     await page.getByLabel("Confirm password").fill(newPassword);
     await page.getByRole("button", { name: "Change password" }).click();
@@ -121,7 +130,7 @@ test("a forgotten password is reset from the emailed link", async ({
     await loginOrg(api, { ...org, password: newPassword });
 
     // The link is spent now.
-    await page.goto(`${sgp}/reset-password?token=${resetToken}`);
+    await page.goto(resetLink);
     const another = orgPassword();
     await page.getByLabel("New password").fill(another);
     await page.getByLabel("Confirm password").fill(another);
@@ -130,23 +139,31 @@ test("a forgotten password is reset from the emailed link", async ({
       page.getByRole("link", { name: "Request a new reset link" }),
     ).toBeVisible();
   } finally {
+    // The browser's idempotency keys are not test-prefixed, so its ledger
+    // rows are found by the reset token instead.
+    if (resetToken !== undefined) {
+      cleanupPasswordResetLedger("orgs", api.tenant, resetToken);
+    }
     await deleteOrgVerificationRecord(org.domain);
     cleanupOrg(org.domain);
   }
 });
 
 test("a wrong password is refused without leaving the sign-in page", async ({
+  context,
   page,
   request,
 }) => {
-  const org = await signupOrg(new OrgsAPI(request));
+  const api = new OrgsAPI(request);
+  const org = await signupOrg(api);
   try {
-    await page.goto(`${sgp}/login?domain=${org.domain}`);
+    await rememberRegion(context, "orgs", api.tenant);
+    await page.goto(`${ORGS_PORTAL}/login?domain=${org.domain}`);
     await page.getByLabel("Email address").fill(org.emailAddress);
     await page.getByLabel("Password", { exact: true }).fill(orgPassword());
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByRole("alert")).toBeVisible();
-    await expect(page).toHaveURL(`${sgp}/login?domain=${org.domain}`);
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/login?domain=${org.domain}`);
   } finally {
     await deleteOrgVerificationRecord(org.domain);
     cleanupOrg(org.domain);

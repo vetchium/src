@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -78,10 +77,11 @@ func RequestSignup(s *hubruntime.Server) http.HandlerFunc {
 		}
 		var elsewhereCiphertext []byte
 		if registeredElsewhereTenantID != "" {
-			if signInURL, ok := s.Regions.HubURL(registeredElsewhereTenantID); ok {
+			if _, ok := s.Regions.Region(registeredElsewhereTenantID); ok {
 				elsewhereCiphertext, err = encryptElsewherePayload(
 					s, string(request.DisplayName),
-					registeredElsewhereTenantID, signInURL,
+					registeredElsewhereTenantID,
+					handlerauth.EmailLink(s.PublicBaseURL, "/login", registeredElsewhereTenantID, ""),
 				)
 				if err != nil {
 					s.InternalError(
@@ -119,8 +119,9 @@ func RequestSignup(s *hubruntime.Server) http.HandlerFunc {
 				expiresAt := now.Add(signupTTL)
 				payload, err := json.Marshal(signupEmailPayload{
 					DisplayName: string(request.DisplayName),
-					VerificationURL: s.PublicBaseURL +
-						"/complete-signup?token=" + url.QueryEscape(token),
+					VerificationURL: handlerauth.EmailLink(
+						s.PublicBaseURL, "/complete-signup", s.TenantID, token,
+					),
 					ExpiresAt: expiresAt,
 				})
 				if err != nil {
@@ -218,8 +219,8 @@ func CompleteSignup(s *hubruntime.Server) http.HandlerFunc {
 		case errors.As(err, &elsewhere):
 			// The home tenant is unknown only when the coordinator lookup at
 			// completion time itself failed or named a tenant this catalog
-			// does not have a Hub URL for; either way there is nothing
-			// useful to redirect to (GU-SIG-005).
+			// does not have; either way there is no region to offer
+			// (GU-SIG-005).
 			var home regions.Region
 			var ok bool
 			if elsewhere.HomeTenantID != "" {
@@ -233,7 +234,7 @@ func CompleteSignup(s *hubruntime.Server) http.HandlerFunc {
 				return
 			}
 			s.Problem(r.Context(), w, hubproblem.HubAccountHomedElsewhereError(
-				elsewhere.HomeTenantID, home.HostingCountry, home.HubURL,
+				elsewhere.HomeTenantID, home.HostingCountry,
 			))
 		case errors.Is(err, signupcompletion.ErrIdempotencyConflict):
 			s.Problem(r.Context(), w, problem.IdempotencyKeyConflictError)

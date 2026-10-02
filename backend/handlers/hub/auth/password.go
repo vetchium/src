@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -54,8 +53,9 @@ func RequestPasswordReset(s *hubruntime.Server) http.HandlerFunc {
 				}
 				expiresAt := now.Add(passwordResetTTL)
 				payload, err := json.Marshal(passwordResetEmailPayload{
-					ResetURL: s.PublicBaseURL + "/reset-password?token=" +
-						url.QueryEscape(token),
+					ResetURL: handlerauth.EmailLink(
+						s.PublicBaseURL, "/reset-password", s.TenantID, token,
+					),
 					ExpiresAt: expiresAt,
 				})
 				if err != nil {

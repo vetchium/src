@@ -6,7 +6,6 @@ import (
 	orgsaccount "backend/handlers/orgs/account"
 	orgsauth "backend/handlers/orgs/auth"
 	"backend/handlers/portal"
-	"backend/handlers/regions"
 	"backend/internal/apiserver"
 	"backend/internal/middleware"
 	orgsruntime "backend/internal/orgs"
@@ -17,10 +16,6 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.HandleFunc(
 		"GET /api/orgs/ping",
 		portal.Ping(s.Runtime, s.Queries, "orgs", s.TenantID),
-	)
-	mux.HandleFunc(
-		"POST /api/orgs/list-signup-regions",
-		regions.OrgHandler(s.Runtime, s.Regions),
 	)
 
 	orgAuth := middleware.OrgAuth(s)

@@ -1,33 +1,23 @@
 {
   "http": {
     "routers": {
+      "api-hub": {
+        "rule": "Host(`usa1.api.vetchium.localhost`) && PathPrefix(`/api/hub/`)",
+        "service": "hub-api",
+        "middlewares": ["cors-hub"],
+        "entryPoints": ["web"]
+      },
+      "api-orgs": {
+        "rule": "Host(`usa1.api.vetchium.localhost`) && PathPrefix(`/api/orgs/`)",
+        "service": "orgs-api",
+        "middlewares": ["cors-orgs"],
+        "entryPoints": ["web"]
+      },
       "media": {
         "rule": "Host(`media.usa1.localhost`) && (Method(`GET`) || Method(`HEAD`)) && PathRegexp(`^/hub-profile-pictures/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
         "service": "media",
         "entryPoints": ["web"],
         "priority": 100
-      },
-      "orgs-api": {
-        "rule": "Host(`orgs-ui.usa1.localhost`) && (Path(`/api`) || PathPrefix(`/api/`))",
-        "service": "orgs-api",
-        "entryPoints": ["web"],
-        "priority": 100
-      },
-      "orgs-ui": {
-        "rule": "Host(`orgs-ui.usa1.localhost`)",
-        "service": "orgs-ui",
-        "entryPoints": ["web"]
-      },
-      "hub-api": {
-        "rule": "Host(`hub-ui.usa1.localhost`) && (Path(`/api`) || PathPrefix(`/api/`))",
-        "service": "hub-api",
-        "entryPoints": ["web"],
-        "priority": 100
-      },
-      "hub-ui": {
-        "rule": "Host(`hub-ui.usa1.localhost`)",
-        "service": "hub-ui",
-        "entryPoints": ["web"]
       },
       "admin-api": {
         "rule": "Host(`admin-ui.usa1.localhost`) && (Path(`/api`) || PathPrefix(`/api/`))",
@@ -39,6 +29,34 @@
         "rule": "Host(`admin-ui.usa1.localhost`)",
         "service": "admin-ui",
         "entryPoints": ["web"]
+      }
+    },
+    "middlewares": {
+      "cors-hub": {
+        "headers": {
+          "accessControlAllowOriginList": ["http://vetchium.localhost"],
+          "accessControlAllowMethods": ["GET", "POST"],
+          "accessControlAllowHeaders": [
+            "Authorization",
+            "Content-Type",
+            "Idempotency-Key"
+          ],
+          "accessControlMaxAge": 86400,
+          "addVaryHeader": true
+        }
+      },
+      "cors-orgs": {
+        "headers": {
+          "accessControlAllowOriginList": ["http://orgs.vetchium.localhost"],
+          "accessControlAllowMethods": ["GET", "POST"],
+          "accessControlAllowHeaders": [
+            "Authorization",
+            "Content-Type",
+            "Idempotency-Key"
+          ],
+          "accessControlMaxAge": 86400,
+          "addVaryHeader": true
+        }
       }
     },
     "services": {
@@ -73,34 +91,6 @@
               "url": "http://admin-api-usa1:8080"
             }
           ]
-        }
-      },
-      "orgs-ui": {
-        "loadBalancer": {
-          "servers": [
-            {
-              "url": "http://orgs-ui-usa1:8080"
-            }
-          ],
-          "healthCheck": {
-            "path": "/healthz",
-            "interval": "10s",
-            "timeout": "3s"
-          }
-        }
-      },
-      "hub-ui": {
-        "loadBalancer": {
-          "servers": [
-            {
-              "url": "http://hub-ui-usa1:8080"
-            }
-          ],
-          "healthCheck": {
-            "path": "/healthz",
-            "interval": "10s",
-            "timeout": "3s"
-          }
         }
       },
       "admin-ui": {

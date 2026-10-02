@@ -11,7 +11,11 @@ WORKDIR /app/orgs-ui
 RUN --mount=type=cache,target=/root/.npm npm ci
 
 COPY orgs-ui/ ./
-RUN npm run build
+# dev, ci, or production: selects the compiled-in region table. The build
+# fails when it is unset or unknown.
+ARG VITE_VETCHIUM_ENVIRONMENT
+# nginx serves the generated include instead of the static host's files.
+RUN npm run build && rm dist/_headers dist/_redirects
 
 # nginx-unprivileged runs the master process as an unprivileged user and listens
 # on 8080; the stock nginx image needs root to bind :80, which this static site
@@ -20,7 +24,7 @@ RUN npm run build
 FROM nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6
 
 COPY --chown=nginx:nginx orgs-ui/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --chmod=755 orgs-ui/runtime-config.sh /docker-entrypoint.d/40-vetchium-runtime-config.sh
+COPY --from=build --chown=nginx:nginx /app/orgs-ui/dist-nginx/portal.conf /etc/nginx/vetchium/portal.conf
 COPY --from=build --chown=nginx:nginx /app/orgs-ui/dist/ /usr/share/nginx/html/
 
 EXPOSE 8080

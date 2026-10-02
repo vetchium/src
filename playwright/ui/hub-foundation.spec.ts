@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { HUB_PORTAL, rememberRegion } from "../lib/portals.ts";
 
-const hubBaseURL =
-  process.env.PLAYWRIGHT_HUB_BASE_URL ?? "http://hub-ui.sgp.localhost";
 const sessionKey = "vetchium.hub.session";
 const sessionToken = "s".repeat(64);
 const handle = "perso000-00000000001";
@@ -80,13 +79,16 @@ async function provideStoredSession(
       sessionStorage.setItem(
         key,
         JSON.stringify({
-          session_token: sessionToken,
-          session_expires_at: new Date(Date.now() + 60_000).toISOString(),
-          preferred_language: "en-US",
-          resident_country: "SG",
-          handle,
-          remembered: false,
-          ...extra,
+          tenantId: "sgp",
+          session: {
+            session_token: sessionToken,
+            session_expires_at: new Date(Date.now() + 60_000).toISOString(),
+            preferred_language: "en-US",
+            resident_country: "SG",
+            handle,
+            remembered: false,
+            ...extra,
+          },
         }),
       ),
     { key: sessionKey, sessionToken, handle, extra },
@@ -94,9 +96,9 @@ async function provideStoredSession(
 }
 
 test("a visitor without a session enters through sign in", async ({ page }) => {
-  await page.goto(hubBaseURL);
+  await page.goto(HUB_PORTAL);
 
-  await expect(page).toHaveURL(`${hubBaseURL}/login`);
+  await expect(page).toHaveURL(`${HUB_PORTAL}/login`);
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   await expect(
     page.getByRole("textbox", { name: "Email address" }),
@@ -114,9 +116,9 @@ test("a visitor with a stored session lands on a personal home page", async ({
   await provideStoredSession(page);
   await provideMyInfo(page);
   await provideMySubscription(page);
-  await page.goto(`${hubBaseURL}/login`);
+  await page.goto(`${HUB_PORTAL}/login`);
 
-  await expect(page).toHaveURL(`${hubBaseURL}/`);
+  await expect(page).toHaveURL(`${HUB_PORTAL}/`);
   await expect(
     page.getByRole("heading", { name: "Welcome back, Example Person" }),
   ).toBeVisible();
@@ -140,7 +142,7 @@ test("a session stored by an older portal keeps working and drops the retired DI
   await page.route("**/api/hub/set-preferred-language", async (route) => {
     await route.fulfill({ status: 204 });
   });
-  await page.goto(hubBaseURL);
+  await page.goto(HUB_PORTAL);
   await expect(
     page.getByRole("heading", { name: "Welcome back, Example Person" }),
   ).toBeVisible();
@@ -153,14 +155,14 @@ test("a session stored by an older portal keeps working and drops the retired DI
         (key) => sessionStorage.getItem(key),
         sessionKey,
       );
-      return value === null ? undefined : JSON.parse(value);
+      return value === null ? undefined : JSON.parse(value).session;
     })
     .toEqual(expect.objectContaining({ preferred_language: "de-DE" }));
   const stored = await page.evaluate(
     (key) => sessionStorage.getItem(key),
     sessionKey,
   );
-  expect(JSON.parse(stored ?? "{}")).not.toHaveProperty("hub_user_did");
+  expect(JSON.parse(stored ?? "{}").session).not.toHaveProperty("hub_user_did");
 });
 
 test("an authenticated language change reaches the server and updates the session", async ({
@@ -172,7 +174,7 @@ test("an authenticated language change reaches the server and updates the sessio
   await page.route("**/api/hub/set-preferred-language", async (route) => {
     await route.fulfill({ status: 204 });
   });
-  await page.goto(hubBaseURL);
+  await page.goto(HUB_PORTAL);
 
   const languageRequest = page.waitForRequest(
     "**/api/hub/set-preferred-language",
@@ -194,8 +196,11 @@ test("an authenticated language change reaches the server and updates the sessio
       );
       return value === null
         ? undefined
-        : (JSON.parse(value) as { preferred_language?: unknown })
-            .preferred_language;
+        : (
+            JSON.parse(value) as {
+              session?: { preferred_language?: unknown };
+            }
+          ).session?.preferred_language;
     })
     .toBe("de-DE");
 });
@@ -217,7 +222,7 @@ test("a rejected authenticated language change keeps the current language", asyn
       }),
     });
   });
-  await page.goto(hubBaseURL);
+  await page.goto(HUB_PORTAL);
 
   await page.getByRole("combobox", { name: "Select language" }).click();
   await page.getByRole("option", { name: "Deutsch (Deutschland)" }).click();
@@ -234,8 +239,11 @@ test("a rejected authenticated language change keeps the current language", asyn
   );
   expect(storedSession).not.toBeNull();
   expect(
-    (JSON.parse(storedSession ?? "{}") as { preferred_language?: unknown })
-      .preferred_language,
+    (
+      JSON.parse(storedSession ?? "{}") as {
+        session?: { preferred_language?: unknown };
+      }
+    ).session?.preferred_language,
   ).toBe("en-US");
 });
 
@@ -248,10 +256,10 @@ test("sign out clears the stored session and returns to sign in", async ({
   await page.route("**/api/hub/logout", async (route) => {
     await route.fulfill({ status: 204 });
   });
-  await page.goto(hubBaseURL);
+  await page.goto(HUB_PORTAL);
   await page.getByRole("button", { name: "Sign out" }).click();
 
-  await expect(page).toHaveURL(`${hubBaseURL}/login`);
+  await expect(page).toHaveURL(`${HUB_PORTAL}/login`);
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   expect(
     await page.evaluate((key) => sessionStorage.getItem(key), sessionKey),
@@ -265,7 +273,7 @@ test("the single home entry remains usable on a narrow viewport", async ({
   await provideMyInfo(page);
   await provideMySubscription(page);
   await page.setViewportSize({ width: 320, height: 720 });
-  await page.goto(hubBaseURL);
+  await page.goto(HUB_PORTAL);
 
   const header = page.getByRole("banner");
   await expect(
@@ -295,7 +303,7 @@ test("the single home entry remains usable on a narrow viewport", async ({
   }
   await expect(navigation.getByText("Settings", { exact: true })).toBeVisible();
   await navigation.getByRole("menuitem", { name: "Preferences" }).click();
-  await expect(page).toHaveURL(`${hubBaseURL}/settings/preferences`);
+  await expect(page).toHaveURL(`${HUB_PORTAL}/settings/preferences`);
   await expect(
     page.getByRole("heading", { name: "Preferences", level: 1 }),
   ).toBeVisible();
@@ -304,7 +312,7 @@ test("the single home entry remains usable on a narrow viewport", async ({
 test("signup offers only supported languages and ISO resident countries", async ({
   page,
 }) => {
-  await page.goto(`${hubBaseURL}/signup`);
+  await page.goto(`${HUB_PORTAL}/signup`);
   await expect(
     page.getByRole("heading", { name: "Create your account" }),
   ).toBeVisible();
@@ -342,7 +350,7 @@ test("signup localizes CLDR country names", async ({ page }) => {
   await page.addInitScript(() =>
     localStorage.setItem("vetchium.language", "de-DE"),
   );
-  await page.goto(`${hubBaseURL}/signup`);
+  await page.goto(`${HUB_PORTAL}/signup`);
   const residentCountry = page.getByLabel("Wohnsitzland");
   await residentCountry.fill("Singapur");
   await expect(
@@ -353,8 +361,10 @@ test("signup localizes CLDR country names", async ({ page }) => {
 });
 
 test("password sign in stores the returned session and opens the home page", async ({
+  context,
   page,
 }) => {
+  await rememberRegion(context, "hub", "sgp");
   await provideOwnProfile(page);
   await provideMyInfo(page);
   await provideMySubscription(page);
@@ -372,13 +382,13 @@ test("password sign in stores the returned session and opens the home page", asy
       }),
     });
   });
-  await page.goto(`${hubBaseURL}/login`);
+  await page.goto(`${HUB_PORTAL}/login`);
   await page
     .getByRole("textbox", { name: "Email address" })
     .fill("person@example.com");
   await page.getByLabel("Password", { exact: true }).fill("a valid password");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(`${hubBaseURL}/`);
+  await expect(page).toHaveURL(`${HUB_PORTAL}/`);
   await expect(
     page.getByRole("heading", { name: "Welcome back" }),
   ).toBeVisible();
@@ -402,7 +412,7 @@ test("an API authentication failure clears the matching session", async ({
       }),
     });
   });
-  await page.goto(`${hubBaseURL}/settings/profile`);
+  await page.goto(`${HUB_PORTAL}/settings/profile`);
   await expect(page).toHaveURL(/\/login\?returnTo=/);
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   expect(
@@ -416,7 +426,7 @@ test("an old session asks for password confirmation before security settings", a
   await provideStoredSession(page);
   await provideMyInfo(page, new Date(Date.now() - 10 * 60_000).toISOString());
   await provideMySubscription(page);
-  await page.goto(`${hubBaseURL}/settings/security`);
+  await page.goto(`${HUB_PORTAL}/settings/security`);
   await expect(page).toHaveURL(/\/reauthenticate\?returnTo=/);
   await expect(
     page.getByRole("heading", { name: "Confirm your password" }),
@@ -424,8 +434,10 @@ test("an old session asks for password confirmation before security settings", a
 });
 
 test("recovery-code sign in uses text input and can restart", async ({
+  context,
   page,
 }) => {
+  await rememberRegion(context, "hub", "sgp");
   await page.route("**/api/hub/login", async (route) => {
     await route.fulfill({
       status: 200,
@@ -437,7 +449,7 @@ test("recovery-code sign in uses text input and can restart", async ({
       }),
     });
   });
-  await page.goto(`${hubBaseURL}/login`);
+  await page.goto(`${HUB_PORTAL}/login`);
   await page
     .getByRole("textbox", { name: "Email address" })
     .fill("person@example.com");
@@ -448,11 +460,11 @@ test("recovery-code sign in uses text input and can restart", async ({
   const code = page.getByRole("textbox", { name: "Recovery code" });
   await expect(code).toHaveAttribute("inputmode", "text");
   await page.getByRole("button", { name: "Start sign in again" }).click();
-  await expect(page).toHaveURL(`${hubBaseURL}/login`);
+  await expect(page).toHaveURL(`${HUB_PORTAL}/login`);
 });
 
 test("unknown routes show a useful not-found page", async ({ page }) => {
-  await page.goto(`${hubBaseURL}/does-not-exist`);
+  await page.goto(`${HUB_PORTAL}/does-not-exist`);
   await expect(page.getByText("Page not found", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Go to home" })).toBeVisible();
 });
@@ -465,7 +477,7 @@ test("signup defaults to the current interface language", async ({ page }) => {
       get: () => ["de-AT"],
     });
   });
-  await page.goto(`${hubBaseURL}/signup`);
+  await page.goto(`${HUB_PORTAL}/signup`);
   await expect(
     page.getByRole("main").getByText("தமிழ்", { exact: true }),
   ).toBeVisible();
@@ -478,7 +490,7 @@ test("a first visit matches the browser's BCP 47 locale", async ({ page }) => {
       get: () => ["de-AT", "en-US"],
     });
   });
-  await page.goto(`${hubBaseURL}/signup`);
+  await page.goto(`${HUB_PORTAL}/signup`);
   await expect(
     page.getByRole("heading", { name: "Erstellen Sie Ihr Konto" }),
   ).toBeVisible();
@@ -505,7 +517,7 @@ test("job countries update independently of residence", async ({ page }) => {
     countries = ["SG", "FR"];
     await route.fulfill({ status: 204 });
   });
-  await page.goto(`${hubBaseURL}/settings/preferences`);
+  await page.goto(`${HUB_PORTAL}/settings/preferences`);
   const jobs = page.getByRole("combobox", { name: "Preferred job countries" });
   await jobs.fill("France");
   await jobs.press("Enter");

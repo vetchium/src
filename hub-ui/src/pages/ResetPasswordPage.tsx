@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
 import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
@@ -6,6 +7,7 @@ import { isNewPassword } from "typespec/common/authentication";
 import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
 import { usePendingOperations } from "../app/PendingOperationContext";
+import { regionStore, regionTable } from "../app/regions";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 
 interface ResetValues {
@@ -17,6 +19,7 @@ export function ResetPasswordPage() {
   const { t } = useTranslation();
   const [search] = useSearchParams();
   const token = search.get("token") ?? "";
+  const region = regionFromSearchParams(regionTable, search);
   const key = useIdempotencyKey(`hub-password-reset:${token}`);
   const { hold } = usePendingOperations();
   const reset = useMutation({
@@ -29,12 +32,16 @@ export function ResetPasswordPage() {
             new_password: values.new_password,
           },
           key.current(),
+          region ?? "",
         );
       } finally {
         release();
       }
     },
-    onSuccess: () => key.rotate(),
+    onSuccess: () => {
+      key.rotate();
+      if (region !== null) regionStore.remember(region);
+    },
   });
   return (
     <Card className="auth-card">
@@ -43,7 +50,7 @@ export function ResetPasswordPage() {
         <Typography.Title level={1}>
           {t("resetPassword.title")}
         </Typography.Title>
-        {token.length === 0 ? (
+        {token.length === 0 || region === null ? (
           // A truncated link must say so. A form whose submit
           // button is disabled explains nothing.
           <Alert

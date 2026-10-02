@@ -41,6 +41,11 @@ export const en = {
     twoFactor: "Two-factor authentication",
     recoveryCodes: "Recovery codes remaining",
   },
+  region: {
+    label: "Region",
+    help: "Your account lives in one region. Choose the region where you created it.",
+    option: "{{country}} ({{tenantId}})",
+  },
   login: {
     documentTitle: "Sign in | Vetchium",
     title: "Sign in",
@@ -54,6 +59,8 @@ export const en = {
     forgotPassword: "Forgot your password?",
     noAccount: "New to Vetchium?",
     signup: "Create an account",
+    wrongRegionHint:
+      "If your email and password are right, check that the selected region is the one where you created your account.",
   },
   twoFactor: {
     documentTitle: "Two-factor verification | Vetchium",
@@ -70,7 +77,6 @@ export const en = {
     regionLabel: "Account region",
     continueRegion: "Continue in {{region}} ({{tenant}})",
     changeRegion: "Change country or region",
-    retryRegions: "Try loading regions again",
     noRegions: "No regions are accepting signup for this country.",
     recommendedRegion: "{{region}} ({{tenant}}) — recommended",
     regionOption: "{{region}} ({{tenant}})",
@@ -163,8 +169,6 @@ export const en = {
     totpAlreadyEnabled: "Two-factor authentication is already enabled.",
     totpNotEnabled: "Two-factor authentication is not enabled.",
     invalidEnrollment: "This authenticator setup expired. Start again.",
-    regionDiscoveryUnavailable:
-      "Regions could not be loaded just now. Try again.",
     planNotOffered: "This plan is not available for your account.",
     profileNotFound: "This profile was not found.",
     profileUnavailable: "This profile is temporarily unavailable. Try again.",
@@ -536,6 +540,13 @@ export const en = {
       "Each code works once. Existing recovery codes have been replaced and cannot be shown again.",
     copyAll: "Copy all recovery codes",
     saved: "I saved these codes",
+  },
+  orgPage: {
+    documentTitle: "Organization | Vetchium",
+    title: "Organization pages are not available yet",
+    description:
+      "Information about {{domain}} will be shown here in the future.",
+    action: "Go to home",
   },
   notFound: {
     title: "Page not found",

@@ -27,7 +27,7 @@ const devDNSAPIKey = "vetchium-dev-dns-api-key"
 
 var (
 	orgSignupTokenPattern = regexp.MustCompile(
-		`complete-signup\?token=([0-9a-f]{64})`,
+		`complete-signup\?region=[a-z0-9-]+&token=([0-9a-f]{64})`,
 	)
 	orgRecordValuePattern = regexp.MustCompile(`vetchium-verify=[a-z2-7]{26}`)
 )
