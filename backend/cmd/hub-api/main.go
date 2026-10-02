@@ -19,7 +19,6 @@ import (
 	"backend/internal/objectstorage"
 	"backend/internal/profileclient"
 	"backend/internal/regions"
-	"backend/internal/regionsclient"
 	"backend/internal/routes"
 	"backend/internal/service"
 )
@@ -50,12 +49,10 @@ func run(log *slog.Logger, address string) error {
 	if err != nil {
 		return err
 	}
-	if !catalog.HasOrigin(cfg.TenantID, cfg.HubAPIServer.PublicBaseURL) {
-		return fmt.Errorf("tenant origin missing from signup catalog")
-	}
-	// The catalog decides which regions discovery offers; this setting decides
-	// whether signup is actually served. Disagreement would route visitors to a
-	// region that then refuses them, so refuse to start instead.
+	// The catalog, mirrored in the portals' region table, decides which
+	// regions are offered; this setting decides whether signup is actually
+	// served. Disagreement would send visitors to a region that then refuses
+	// them, so refuse to start instead.
 	if catalog.SignupEnabled(cfg.TenantID) != cfg.HubAPIServer.Signup.Enabled {
 		return fmt.Errorf(
 			"signup catalog says enabled=%t for %q but hubAPIServer.signup.enabled is %t",
@@ -67,10 +64,6 @@ func run(log *slog.Logger, address string) error {
 	if err != nil {
 		return err
 	}
-	directory := regionsclient.New(
-		cfg.MeshAPIServer.BaseURL, regionsclient.MeshPath,
-		meshCredential, cfg.MeshAPIServer.RequestTimeout,
-	)
 	globalDirectory := directoryclient.New(
 		cfg.MeshAPIServer.BaseURL, directoryclient.MeshPrefix,
 		meshCredential, cfg.MeshAPIServer.RequestTimeout,
@@ -119,7 +112,6 @@ func run(log *slog.Logger, address string) error {
 	s := &hubruntime.Server{
 		Runtime:          apiserver.New(pool, log),
 		Queries:          dbsqlc.New(pool),
-		RegionDirectory:  directory,
 		Directory:        globalDirectory,
 		Profiles:         profiles,
 		Pictures:         pictures,

@@ -179,8 +179,6 @@ export const de = {
       "Die Zwei-Faktor-Authentifizierung ist bereits aktiviert.",
     totpNotEnabled: "Die Zwei-Faktor-Authentifizierung ist nicht aktiviert.",
     invalidEnrollment: "Diese Einrichtung ist abgelaufen. Beginnen Sie erneut.",
-    regionDiscoveryUnavailable:
-      "Regionen konnten gerade nicht geladen werden. Versuchen Sie es erneut.",
     planNotOffered: "Dieser Tarif ist für Ihr Konto nicht verfügbar.",
     profileNotFound: "Dieses Profil wurde nicht gefunden.",
     profileUnavailable:

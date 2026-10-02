@@ -18,7 +18,6 @@
     "directory/**/*.ts",
     "problem/**/*.ts",
     "hub/**/*.ts",
-    "regions/**/*.ts",
     "scripts/**/*.ts"
   ],
   "exclude": ["node_modules", "tsp-output"]

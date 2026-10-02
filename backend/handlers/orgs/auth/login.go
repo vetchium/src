@@ -99,9 +99,9 @@ func unknownLogin(
 			s.Problem(r.Context(), w, orgsproblem.DirectoryUnavailableError)
 			return
 		case details == nil && string(owner.HomeTenantID) != s.TenantID:
-			if orgsURL, ok := s.Regions.OrgsURL(string(owner.HomeTenantID)); ok {
+			if _, ok := s.Regions.Region(string(owner.HomeTenantID)); ok {
 				s.Problem(r.Context(), w, orgsproblem.HomedElsewhereError(
-					string(owner.HomeTenantID), orgsURL,
+					string(owner.HomeTenantID),
 				))
 				return
 			}

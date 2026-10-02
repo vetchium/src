@@ -30,37 +30,29 @@
     {
       "tenantId": "deu",
       "hostingCountry": "DE",
-      "hubURL": "https://hub.deu.vetchium.com",
       "signupEnabled": true,
       "allowedCountries": [],
-      "orgsURL": "https://orgs.deu.vetchium.com",
       "orgSignupEnabled": true
     },
     {
       "tenantId": "ind1",
       "hostingCountry": "IN",
-      "hubURL": "https://hub.ind1.vetchium.com",
       "signupEnabled": true,
       "allowedCountries": [],
-      "orgsURL": "https://orgs.ind1.vetchium.com",
       "orgSignupEnabled": true
     },
     {
       "tenantId": "sgp",
       "hostingCountry": "SG",
-      "hubURL": "https://hub.sgp.vetchium.com",
       "signupEnabled": true,
       "allowedCountries": [],
-      "orgsURL": "https://orgs.sgp.vetchium.com",
       "orgSignupEnabled": true
     },
     {
       "tenantId": "usa1",
       "hostingCountry": "US",
-      "hubURL": "https://hub.usa1.vetchium.com",
       "signupEnabled": true,
       "allowedCountries": [],
-      "orgsURL": "https://orgs.usa1.vetchium.com",
       "orgSignupEnabled": true
     }
   ]

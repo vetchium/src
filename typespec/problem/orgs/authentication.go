@@ -70,18 +70,16 @@ var RecentAuthenticationRequiredError = problem.Details{
 type HomedElsewhereDetails struct {
 	problem.Details
 	TenantID string `json:"tenant_id"`
-	OrgsURL  string `json:"orgs_url"`
 }
 
-func HomedElsewhereError(tenantID, orgsURL string) HomedElsewhereDetails {
+func HomedElsewhereError(tenantID string) HomedElsewhereDetails {
 	return HomedElsewhereDetails{
 		Details: problem.Details{
 			Type:   "vetchium-problem-details/org-homed-elsewhere",
 			Title:  "Org homed in another region",
 			Status: 409,
-			Detail: "This Org signs in at another region's Org portal",
+			Detail: "This Org signs in at another region",
 		},
 		TenantID: tenantID,
-		OrgsURL:  orgsURL,
 	}
 }

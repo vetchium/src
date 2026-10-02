@@ -52,7 +52,7 @@
   "hubAPIServer": {
     "sessionTTL": "24h",
     "rememberedSessionTTL": "6360h",
-    "publicBaseURL": "http://hub-ui.sgp.localhost",
+    "publicBaseURL": "http://vetchium.localhost",
     "signup": {
       "enabled": true
     },
@@ -77,7 +77,7 @@
   "orgsAPIServer": {
     "sessionTTL": "30s",
     "signupTTL": "168h",
-    "publicBaseURL": "http://orgs-ui.sgp.localhost",
+    "publicBaseURL": "http://orgs.vetchium.localhost",
     "signup": {
       "enabled": true
     }

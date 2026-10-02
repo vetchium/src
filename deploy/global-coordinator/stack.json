@@ -63,10 +63,6 @@
         {
           "source": "global_coordinator_config",
           "target": "/etc/vetchium/global-coordinator.json"
-        },
-        {
-          "source": "signup_regions",
-          "target": "/etc/vetchium/signup-regions.json"
         }
       ],
       "environment": {
@@ -137,10 +133,6 @@
     "global_coordinator_config": {
       "file": "./config.json",
       "name": "global-coordinator-${GLOBAL_COORDINATOR_CONFIG_HASH:?run via make}"
-    },
-    "signup_regions": {
-      "file": "../signup-regions.json",
-      "name": "global-coordinator-signup-regions-${SIGNUP_REGIONS_HASH:?run via make}"
     }
   },
   "networks": {

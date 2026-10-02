@@ -155,7 +155,7 @@ test.describe("Org sign-in", () => {
       );
       const body = await responseJSON<HomedElsewhereDetails>(response);
       expect(body.tenant_id).toBe("sgp");
-      expect(body.orgs_url).toBe("http://orgs-ui.sgp.localhost");
+      expect(body).not.toHaveProperty("orgs_url");
     } finally {
       await deleteOrgVerificationRecord(org.domain);
       cleanupOrg(org.domain);

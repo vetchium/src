@@ -4,11 +4,19 @@ import { useTranslation } from "react-i18next";
 import type { createRegionStore } from "./region-selection.ts";
 import type { PortalRegion } from "./regions.ts";
 
-/** The region selected on a page, remembered in `store` on change. */
+/**
+ * The region selected on a page, remembered in `store` on change. `initial`,
+ * such as a validated `region` link parameter, is selected for this page
+ * without being remembered until the user signs in or changes it.
+ */
 export function useRegionSelection(
   store: ReturnType<typeof createRegionStore>,
+  initial?: string | null,
 ) {
-  const [tenantId, setTenantId] = useState(store.read);
+  const [tenantId, setTenantId] = useState(() => {
+    if (initial) store.select(initial);
+    return store.read();
+  });
   const select = (value: string) => {
     store.remember(value);
     setTenantId(value);

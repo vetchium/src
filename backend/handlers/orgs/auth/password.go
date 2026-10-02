@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -51,8 +50,9 @@ func RequestPasswordReset(s *orgsruntime.Server) http.HandlerFunc {
 				payload, err := orgmail.Encrypt(
 					s.CredentialSubkey("outbox"), orgmail.Payload{
 						Domain: string(request.Domain),
-						ActionURL: s.PublicBaseURL + "/reset-password?token=" +
-							url.QueryEscape(token),
+						ActionURL: handlerauth.EmailLink(
+							s.PublicBaseURL, "/reset-password", s.TenantID, token,
+						),
 						ExpiresAt: expiresAt,
 					},
 				)

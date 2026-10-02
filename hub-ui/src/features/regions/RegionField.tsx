@@ -10,8 +10,8 @@ const translations = {
   option: "region.option",
 } as const;
 
-export function useSelectedRegion() {
-  return useRegionSelection(regionStore);
+export function useSelectedRegion(initial?: string | null) {
+  return useRegionSelection(regionStore, initial);
 }
 
 export function RegionField({

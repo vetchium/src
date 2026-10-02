@@ -14,8 +14,6 @@ import (
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
 	"backend/internal/profileclient"
-	"backend/internal/regions"
-	"backend/internal/regionsclient"
 	"backend/internal/routes"
 	"backend/internal/service"
 )
@@ -30,10 +28,6 @@ func run(log *slog.Logger, address string) error {
 		return err
 	}
 	databaseURL, err := cfg.Database.URL()
-	if err != nil {
-		return err
-	}
-	catalog, err := regions.Load(cfg.SignupRegionsFile)
 	if err != nil {
 		return err
 	}
@@ -61,11 +55,6 @@ func run(log *slog.Logger, address string) error {
 	if err != nil {
 		return err
 	}
-	regionDirectory := regionsclient.NewMutualTLS(
-		cfg.GlobalCoordinator.BaseURL, regionsclient.CoordinatorPath,
-		"", cfg.GlobalCoordinator.RequestTimeout,
-		coordinatorTLS,
-	)
 	directory := directoryclient.NewMutualTLS(
 		cfg.GlobalCoordinator.BaseURL, directoryclient.CoordinatorPrefix,
 		cfg.GlobalCoordinator.RequestTimeout, coordinatorTLS,
@@ -96,15 +85,13 @@ func run(log *slog.Logger, address string) error {
 	defer pool.Close()
 
 	s := &meshapi.Server{
-		Runtime:         apiserver.New(pool, log),
-		TenantID:        cfg.TenantID,
-		Regions:         catalog,
-		RegionDirectory: regionDirectory,
-		Directory:       directory,
-		Profiles:        profiles,
-		Pictures:        pictures,
-		Queries:         sqlc.New(pool),
-		Credential:      credential,
+		Runtime:    apiserver.New(pool, log),
+		TenantID:   cfg.TenantID,
+		Directory:  directory,
+		Profiles:   profiles,
+		Pictures:   pictures,
+		Queries:    sqlc.New(pool),
+		Credential: credential,
 	}
 	mux := http.NewServeMux()
 	routes.RegisterMeshRoutes(mux, s)

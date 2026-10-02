@@ -3,7 +3,6 @@ package auth
 import (
 	"errors"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -118,8 +117,9 @@ func createSignupRequest(
 	}
 	linkPayload, err := orgmail.Encrypt(outboxKey, orgmail.Payload{
 		Domain: domain,
-		ActionURL: s.PublicBaseURL + "/complete-signup?token=" +
-			url.QueryEscape(linkToken),
+		ActionURL: handlerauth.EmailLink(
+			s.PublicBaseURL, "/complete-signup", s.TenantID, linkToken,
+		),
 		ExpiresAt: expiresAt,
 	})
 	if err != nil {

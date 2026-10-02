@@ -18,10 +18,6 @@ import type {
   RelayReadProfileRequest,
 } from "typespec/hub/profile/federation";
 import type { PublicProfile } from "typespec/hub/profile/public";
-import type {
-  ListSignupRegionsRequest,
-  ListSignupRegionsResponse,
-} from "typespec/regions/regions";
 import type { TestTenant } from "../lib/admin-db.ts";
 import {
   cleanupGlobalHubPrincipal,
@@ -1064,123 +1060,6 @@ test("abandon-hub-account-email-change fences a late reserve and refuses a final
     409,
     "directory-state-conflict",
   );
-});
-
-test("mesh relay lists signup regions for a healthy tenant", async ({
-  apiCoverage,
-}) => {
-  const body: ListSignupRegionsRequest = { resident_country: "IN" };
-  const response = meshRelayRequest(
-    "sgp",
-    "/mesh/list-signup-regions",
-    body,
-    apiCoverage,
-  );
-  expect(response.status, JSON.stringify(response.body)).toBe(200);
-  const parsed = response.body as ListSignupRegionsResponse;
-  expect(parsed.regions.map((region) => region.tenant_id)).toEqual([
-    "ind1",
-    "sgp",
-    "usa1",
-  ]);
-  expect(parsed.next_pagination_key).toBeNull();
-});
-
-test("mesh relay rejects an invalid request for list-signup-regions", async ({
-  apiCoverage,
-}) => {
-  const invalid = meshRelayRequest(
-    "sgp",
-    "/mesh/list-signup-regions",
-    { resident_country: "ZZ" },
-    apiCoverage,
-  );
-  expect(invalid.status, JSON.stringify(invalid.body)).toBe(400);
-  expect(invalid.body).toMatchObject({
-    type: "vetchium-problem-details/validation-failed",
-    status: 400,
-  });
-
-  const malformed = meshRelayRequest(
-    "sgp",
-    "/mesh/list-signup-regions",
-    { resident_country: "IN", extra: true },
-    apiCoverage,
-  );
-  expect(malformed.status, JSON.stringify(malformed.body)).toBe(400);
-  expect(malformed.body).toMatchObject({
-    type: "vetchium-problem-details/invalid-json",
-    status: 400,
-  });
-
-  // "invalid" is a well-formed pagination_key string but not a real cursor,
-  // so it passes wire validation and fails only once the directory tries to
-  // decode it.
-  const badCursor = meshRelayRequest(
-    "sgp",
-    "/mesh/list-signup-regions",
-    { resident_country: "IN", pagination_key: "invalid" },
-    apiCoverage,
-  );
-  expect(badCursor.status, JSON.stringify(badCursor.body)).toBe(400);
-  expect(badCursor.body).toMatchObject({
-    type: "vetchium-problem-details/invalid-pagination-key",
-    status: 400,
-  });
-});
-
-test("mesh relay rejects a missing or incorrect credential for list-signup-regions", async ({
-  apiCoverage,
-}) => {
-  const missing = meshRelayRequest(
-    "sgp",
-    "/mesh/list-signup-regions",
-    { resident_country: "IN" },
-    apiCoverage,
-    { authorization: null },
-  );
-  expect(missing.status, JSON.stringify(missing.body)).toBe(401);
-  expect(missing.body).toMatchObject({
-    type: "vetchium-problem-details/mesh-relay-authentication-required",
-    status: 401,
-  });
-
-  const wrong = meshRelayRequest(
-    "sgp",
-    "/mesh/list-signup-regions",
-    { resident_country: "IN" },
-    apiCoverage,
-    { authorization: "wrong-credential" },
-  );
-  expect(wrong.status, JSON.stringify(wrong.body)).toBe(401);
-  expect(wrong.body).toMatchObject({
-    type: "vetchium-problem-details/mesh-relay-authentication-required",
-    status: 401,
-  });
-});
-
-// ind1 deliberately cannot reach the global coordinator in the CI config
-// (config/ci/ind1.json), so its bundled catalog answers list-signup-regions
-// requests. A cursor bound to a different catalog cannot be continued from
-// that fallback, and the outage is reported rather than blamed on the caller.
-test("mesh relay reports region discovery unavailable for a foreign cursor on the offline tenant", async ({
-  apiCoverage,
-}) => {
-  const response = meshRelayRequest(
-    "ind1",
-    "/mesh/list-signup-regions",
-    {
-      resident_country: "IN",
-      pagination_key:
-        "eyJjb3VudHJ5IjoiSU4iLCJ2ZXJzaW9uIjoiZGVhZGJlZWYiLCJsYXN0Ijoic2dwIn0",
-    },
-    apiCoverage,
-  );
-  expect(response.status, JSON.stringify(response.body)).toBe(503);
-  expect(response.body).toMatchObject({
-    type: "vetchium-problem-details/region-discovery-unavailable",
-    status: 503,
-  });
 });
 
 test("mesh profile relay reads a Hub user's own local profile by handle", async ({

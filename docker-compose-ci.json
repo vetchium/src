@@ -1249,10 +1249,6 @@
       },
       "configs": [
         {
-          "source": "signup_regions",
-          "target": "/etc/vetchium/signup-regions.json"
-        },
-        {
           "source": "global_coordinator_config",
           "target": "/etc/vetchium/global-coordinator.json"
         }
@@ -2071,10 +2067,6 @@
       },
       "configs": [
         {
-          "source": "signup_regions",
-          "target": "/etc/vetchium/signup-regions.json"
-        },
-        {
           "source": "app_config_deu",
           "target": "/etc/vetchium/config.json"
         }
@@ -2150,10 +2142,6 @@
         "target": "mesh-api"
       },
       "configs": [
-        {
-          "source": "signup_regions",
-          "target": "/etc/vetchium/signup-regions.json"
-        },
         {
           "source": "app_config_ind1",
           "target": "/etc/vetchium/config.json"
@@ -2231,10 +2219,6 @@
       },
       "configs": [
         {
-          "source": "signup_regions",
-          "target": "/etc/vetchium/signup-regions.json"
-        },
-        {
           "source": "app_config_sgp",
           "target": "/etc/vetchium/config.json"
         }
@@ -2310,10 +2294,6 @@
         "target": "mesh-api"
       },
       "configs": [
-        {
-          "source": "signup_regions",
-          "target": "/etc/vetchium/signup-regions.json"
-        },
         {
           "source": "app_config_usa1",
           "target": "/etc/vetchium/config.json"

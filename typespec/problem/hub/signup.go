@@ -31,19 +31,18 @@ type HubAccountHomedElsewhereDetails struct {
 	problem.Details
 	TenantID       string             `json:"tenant_id"`
 	HostingCountry common.CountryCode `json:"hosting_country"`
-	HubURL         string             `json:"hub_url"`
 }
 
 func HubAccountHomedElsewhereError(
-	tenantID string, hostingCountry common.CountryCode, hubURL string,
+	tenantID string, hostingCountry common.CountryCode,
 ) HubAccountHomedElsewhereDetails {
 	return HubAccountHomedElsewhereDetails{
 		Details: problem.Details{
 			Type:   "vetchium-problem-details/hub-account-homed-elsewhere",
 			Title:  "Hub account homed in another region",
 			Status: 409,
-			Detail: "This Hub account signs in at another region's Hub portal",
+			Detail: "This Hub account signs in at another region",
 		},
-		TenantID: tenantID, HostingCountry: hostingCountry, HubURL: hubURL,
+		TenantID: tenantID, HostingCountry: hostingCountry,
 	}
 }

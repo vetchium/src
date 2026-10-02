@@ -39,7 +39,6 @@ type AccountEmailDigester interface {
 type Server struct {
 	*apiserver.Runtime
 	Regions          *regions.Catalog
-	RegionDirectory  regions.Directory
 	Directory        *directoryclient.Client
 	Profiles         *profileclient.Client
 	Pictures         PictureStorage

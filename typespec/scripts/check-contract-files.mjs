@@ -10,7 +10,6 @@ const exportedDirectories = [
   "hub",
   "orgs",
   "problem",
-  "regions",
 ];
 
 export function packageExportProblems(actualExports, expectedExports) {

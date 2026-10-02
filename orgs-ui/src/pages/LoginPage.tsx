@@ -1,6 +1,10 @@
 import { useMutation } from "@tanstack/react-query";
 import { safeReturnTo } from "@vetchium/portal-ui/navigation";
 import { usePendingOperations } from "@vetchium/portal-ui/pending-operations";
+import {
+  findRegion,
+  regionFromSearchParams,
+} from "@vetchium/portal-ui/region-selection";
 import { Alert, App, Button, Card, Flex, Form, Input, Typography } from "antd";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -19,6 +23,7 @@ import {
 import { APIError } from "../api/client";
 import { orgsAPI } from "../api/orgs";
 import { paths } from "../app/paths";
+import { regionTable } from "../app/regions";
 
 import type { LoginAttempt } from "../auth/AuthContext";
 import { useAuth } from "../auth/AuthContext";
@@ -35,10 +40,21 @@ function forgotPasswordPath(domain: string): string {
     : paths.forgotPassword;
 }
 
-function HomedElsewhere({ error, domain }: { error: unknown; domain: string }) {
+/** Offers to switch the picker to the Org's home region, keeping what the
+ * user entered, when that region is one this portal knows. */
+function HomedElsewhere({
+  error,
+  domain,
+  onSwitch,
+}: {
+  error: unknown;
+  domain: string;
+  onSwitch: (tenantId: string) => void;
+}) {
   const { t } = useTranslation();
   const problem = error instanceof APIError ? error.problem : undefined;
   if (!isHomedElsewhereProblem(problem)) return null;
+  const home = findRegion(regionTable, problem.tenant_id);
   return (
     <div data-testid="login-homed-elsewhere">
       <Alert
@@ -46,6 +62,17 @@ function HomedElsewhere({ error, domain }: { error: unknown; domain: string }) {
         showIcon
         title={t("login.homedElsewhere.title", { domain })}
         description={t("login.homedElsewhere.description")}
+        action={
+          home === undefined ? undefined : (
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => onSwitch(home.tenantId)}
+            >
+              {t("login.homedElsewhere.action")}
+            </Button>
+          )
+        }
       />
     </div>
   );
@@ -59,7 +86,9 @@ export function LoginPage() {
   const returnTo = safeReturnTo(searchParams.get("returnTo"));
   const prefilledDomain = normalizeOrgDomain(searchParams.get("domain") ?? "");
   const mutation = useMutation({ mutationFn: orgsAPI.login });
-  const [region, setRegion] = useSelectedRegion();
+  const [region, setRegion] = useSelectedRegion(
+    regionFromSearchParams(regionTable, searchParams),
+  );
   const [form] = Form.useForm<LoginRequest>();
   const enteredDomain = Form.useWatch("domain", form) ?? "";
   const { message } = App.useApp();
@@ -129,6 +158,10 @@ export function LoginPage() {
           <HomedElsewhere
             error={mutation.error}
             domain={normalizeOrgDomain(mutation.variables.domain)}
+            onSwitch={(tenantId) => {
+              mutation.reset();
+              setRegion(tenantId);
+            }}
           />
         ) : (
           <APIErrorAlert error={mutation.error} />

@@ -71,10 +71,8 @@ deploy-global-coordinator:
 		printf '%s' "$$app_pw" | docker secret create "$$app_secret" - >/dev/null; \
 	fi
 	@config_hash=$$(sha256sum global-coordinator/config.json | cut -c1-12); \
-	signup_regions_hash=$$(sha256sum signup-regions.json | cut -c1-12); \
 	deploy_stack() { \
 		GLOBAL_COORDINATOR_CONFIG_HASH=$$config_hash REGISTRY=$(REGISTRY) TAG=$(TAG) \
-			SIGNUP_REGIONS_HASH=$$signup_regions_hash \
 			GLOBAL_COORDINATOR_PORT=$(GLOBAL_COORDINATOR_PORT) \
 			GLOBAL_POSTGRES_USER=$(GLOBAL_POSTGRES_USER) \
 			GLOBAL_POSTGRES_DB=$(GLOBAL_POSTGRES_DB) PGSSLMODE=$(PGSSLMODE) \

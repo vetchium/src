@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
 import { Button, Card, Checkbox, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
@@ -6,6 +7,7 @@ import type { LoginRequest } from "typespec/hub/auth/login";
 import { InvalidCredentialsError } from "typespec/problem/hub/authentication";
 import { isProblem } from "../api/client";
 import { hubAPI } from "../api/hub";
+import { regionTable } from "../app/regions";
 import { useAuth } from "../auth/AuthContext";
 import { safeReturnTo } from "../auth/navigation";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
@@ -21,7 +23,9 @@ export function LoginPage() {
   const [search] = useSearchParams();
   const returnTo = safeReturnTo(search.get("returnTo"));
   const mutation = useMutation({ mutationFn: hubAPI.login });
-  const [region, setRegion] = useSelectedRegion();
+  const [region, setRegion] = useSelectedRegion(
+    regionFromSearchParams(regionTable, search),
+  );
   if (auth.authenticated) return <Navigate replace to={returnTo} />;
 
   const submit = async (request: LoginRequest) => {

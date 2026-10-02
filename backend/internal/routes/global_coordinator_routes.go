@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"backend/handlers/directory"
-	"backend/handlers/regions"
 	"backend/internal/apiserver"
 	"backend/internal/globalcoordinator"
 )
@@ -13,10 +12,6 @@ func RegisterGlobalCoordinatorRoutes(
 	mux *http.ServeMux, s *globalcoordinator.Server,
 ) {
 	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
-	mux.HandleFunc(
-		"POST /api/global-coordinator/list-signup-regions",
-		regions.GlobalHandler(s.Runtime, s.Regions),
-	)
 	mux.HandleFunc(
 		"POST /api/global-coordinator/directory/resolve-profile-slug",
 		directory.ResolveProfileSlug(s.Runtime, s.Directory),

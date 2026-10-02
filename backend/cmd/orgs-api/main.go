@@ -42,11 +42,9 @@ func run(log *slog.Logger, address string) error {
 	if err != nil {
 		return err
 	}
-	if !catalog.HasOrgsOrigin(cfg.TenantID, cfg.OrgsAPIServer.PublicBaseURL) {
-		return fmt.Errorf("tenant Org origin missing from signup catalog")
-	}
-	// Discovery advertises what the catalog says; this setting decides
-	// whether Org signup is served. Refuse to start when they disagree.
+	// The portals' region table offers what the catalog says; this setting
+	// decides whether Org signup is served. Refuse to start when they
+	// disagree.
 	if catalog.OrgSignupEnabled(cfg.TenantID) !=
 		cfg.OrgsAPIServer.Signup.Enabled {
 		return fmt.Errorf(

@@ -92,6 +92,11 @@ test("the store remembers only known regions", async () => {
     storage.setItem("test.region", "usa1");
     const fresh = createRegionStore({ key: "test.region", table });
     assert.equal(fresh.read(), "sgp");
+    fresh.select("deu");
+    assert.equal(fresh.read(), "deu");
+    assert.equal(storage.getItem("test.region"), "usa1");
+    fresh.select("usa1");
+    assert.equal(fresh.read(), "deu");
   });
 });
 

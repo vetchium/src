@@ -38,9 +38,9 @@ export function initialRegion(
 }
 
 /**
- * Holds the chosen region and remembers it per browser under the caller's
- * storage key. Storage may be unavailable or cleared, so the choice is also
- * kept in memory for this page, and a fresh page falls back to
+ * Holds the region sign-in requests go to. `select` sets it for this page;
+ * `remember` also keeps it for this browser under the caller's storage key.
+ * Storage may be unavailable or cleared, so a fresh page falls back to
  * `initialRegion`'s other sources.
  */
 export function createRegionStore({
@@ -51,7 +51,15 @@ export function createRegionStore({
   table: RegionTable;
 }) {
   let selected: string | null = null;
+  const select = (tenantId: string): boolean => {
+    if (findRegion(table, tenantId) === undefined) return false;
+    selected = tenantId;
+    return true;
+  };
   return {
+    select: (tenantId: string): void => {
+      select(tenantId);
+    },
     read: (): string => {
       if (selected !== null) return selected;
       let remembered: string | null = null;
@@ -67,8 +75,7 @@ export function createRegionStore({
       );
     },
     remember: (tenantId: string): void => {
-      if (findRegion(table, tenantId) === undefined) return;
-      selected = tenantId;
+      if (!select(tenantId)) return;
       try {
         globalThis.localStorage?.setItem(key, tenantId);
       } catch {

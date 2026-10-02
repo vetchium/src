@@ -366,10 +366,6 @@
         {
           "source": "app_config",
           "target": "/etc/vetchium/config.json"
-        },
-        {
-          "source": "signup_regions",
-          "target": "/etc/vetchium/signup-regions.json"
         }
       ],
       "environment": {

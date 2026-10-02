@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/vetchium/src/typespec/common"
-	regionspec "github.com/vetchium/src/typespec/regions"
 )
 
 func testCatalog(t *testing.T, count int) *Catalog {
@@ -18,9 +17,7 @@ func testCatalog(t *testing.T, count int) *Catalog {
 		c.Regions = append(c.Regions, Region{
 			TenantID:         fmt.Sprintf("region%03d", i),
 			HostingCountry:   "SG",
-			HubURL:           fmt.Sprintf("https://region%03d.example.com", i),
 			SignupEnabled:    true,
-			OrgsURL:          fmt.Sprintf("https://orgs.region%03d.example.com", i),
 			OrgSignupEnabled: true,
 		})
 	}
@@ -42,63 +39,18 @@ func loadTestCatalog(t *testing.T, c Catalog) *Catalog {
 	}
 	return result
 }
-func TestCatalogKeysetAndEligibility(t *testing.T) {
-	t.Parallel()
-	c := testCatalog(t, 53)
-	c.Regions[0].AllowedCountries = []common.CountryCode{"DE"}
-	c.Regions[2].SignupEnabled = false
-	if c.Allows("region000", "IN") || c.Allows("region002", "IN") || c.Allows("unknown", "IN") {
-		t.Fatal("ineligible region allowed")
-	}
-	request := regionspec.ListSignupRegionsRequest{ResidentCountry: "IN"}
-	first, err := c.List(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(first.Regions) != 50 || first.NextPaginationKey == nil || !first.Regions[0].Recommended {
-		t.Fatalf("unexpected first page: %+v", first)
-	}
-	request.PaginationKey = first.NextPaginationKey
-	second, err := c.List(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(second.Regions) != 1 || second.NextPaginationKey != nil || second.Regions[0].TenantID <= first.Regions[49].TenantID {
-		t.Fatalf("unexpected second page: %+v", second)
-	}
-	request.ResidentCountry = "DE"
-	if _, err := c.List(request); err == nil {
-		t.Fatal("cross-country cursor accepted")
-	}
-	request.ResidentCountry = "IN"
-	c.fingerprint = "changed"
-	if _, err := c.List(request); err == nil {
-		t.Fatal("old-catalog cursor accepted")
-	}
-}
 func TestCatalogValidation(t *testing.T) {
 	t.Parallel()
 	for _, change := range []func(*Catalog){
 		func(c *Catalog) { c.Version = "" },
 		func(c *Catalog) { c.DefaultTenant = "missing" },
-		func(c *Catalog) { c.Regions[0].HubURL = "https://trusted.example@evil.example" },
-		func(c *Catalog) { c.Regions[0].HubURL = "javascript:alert(1)" },
-		func(c *Catalog) { c.Regions[0].HubURL = "https://example.com/path" },
-		func(c *Catalog) { c.Regions[0].HubURL = "https://example.com?" },
+		func(c *Catalog) { c.Regions[0].TenantID = "Region000" },
+		func(c *Catalog) { c.Regions[0].HostingCountry = "ZZ" },
 		func(c *Catalog) { c.Regions[0].AllowedCountries = []common.CountryCode{"ZZ"} },
 		func(c *Catalog) { c.Regions[0].AllowedCountries = []common.CountryCode{"IN", "IN"} },
 		func(c *Catalog) { c.Regions[1].TenantID = c.Regions[0].TenantID },
-		func(c *Catalog) { c.Regions[1].HubURL = c.Regions[0].HubURL },
 		func(c *Catalog) { c.Recommendations["ZZ"] = "region000" },
-		func(c *Catalog) { c.Regions[0].OrgsURL = "" },
-		func(c *Catalog) { c.Regions[0].OrgsURL = "https://trusted.example@evil.example" },
-		func(c *Catalog) { c.Regions[0].OrgsURL = "javascript:alert(1)" },
-		func(c *Catalog) { c.Regions[0].OrgsURL = "https://orgs.example.com/path" },
-		func(c *Catalog) { c.Regions[0].OrgsURL = "https://orgs.example.com/" },
-		func(c *Catalog) { c.Regions[1].OrgsURL = c.Regions[0].OrgsURL },
-		func(c *Catalog) { c.Regions[0].OrgsURL = c.Regions[0].HubURL },
-		func(c *Catalog) { c.Regions[1].OrgsURL = c.Regions[0].HubURL },
-		func(c *Catalog) { c.Regions[0].HubURL = c.Regions[1].OrgsURL },
+		func(c *Catalog) { c.Recommendations["DE"] = "missing" },
 	} {
 		c := testCatalog(t, 2)
 		change(c)
@@ -137,11 +89,40 @@ func TestCatalogRegionLooksUpOneTenant(t *testing.T) {
 	catalog := testCatalog(t, 3)
 	region, ok := catalog.Region(catalog.Regions[1].TenantID)
 	if !ok || region.TenantID != catalog.Regions[1].TenantID ||
-		region.HostingCountry != catalog.Regions[1].HostingCountry ||
-		region.HubURL != catalog.Regions[1].HubURL {
+		region.HostingCountry != catalog.Regions[1].HostingCountry {
 		t.Fatalf("Region() = %+v, %v", region, ok)
 	}
 	if _, ok := catalog.Region("absent"); ok {
 		t.Fatal("Region() found an absent tenant")
+	}
+}
+
+func TestOrgSignupEnabledFollowsTheCatalogFlag(t *testing.T) {
+	t.Parallel()
+	c := testCatalog(t, 2)
+	c.Regions[1].OrgSignupEnabled = false
+	c.Regions[1].AllowedCountries = []common.CountryCode{"DE"}
+	if !c.OrgSignupEnabled("region000") || c.OrgSignupEnabled("region001") ||
+		c.OrgSignupEnabled("unknown") {
+		t.Fatal("OrgSignupEnabled does not follow the catalog flag")
+	}
+}
+
+// The portal URLs moved into the portals' region tables; a catalog still
+// naming one must fail to load rather than silently carry stale hosts.
+func TestLoadRejectsPortalURLs(t *testing.T) {
+	t.Parallel()
+	for _, member := range []string{"hubURL", "orgsURL"} {
+		path := filepath.Join(t.TempDir(), "regions.json")
+		contents := fmt.Sprintf(`{"version":"1","defaultTenant":"sgp",
+"recommendations":{},"regions":[{"tenantId":"sgp","hostingCountry":"SG",
+"signupEnabled":true,"allowedCountries":[],"orgSignupEnabled":true,
+%q:"https://sgp.example.com"}]}`, member)
+		if err := os.WriteFile(path, []byte(contents), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Load(path); err == nil {
+			t.Fatalf("catalog with %s loaded", member)
+		}
 	}
 }

@@ -1,5 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
-import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
+import {
+  findRegion,
+  regionFromSearchParams,
+} from "@vetchium/portal-ui/region-selection";
 import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -35,7 +38,15 @@ function HomedElsewhere({ error }: { error: unknown }) {
         })}
         description={t("completeSignup.homedElsewhere.description")}
         action={
-          <Link to="/login">{t("completeSignup.homedElsewhere.action")}</Link>
+          <Link
+            to={
+              findRegion(regionTable, problem.tenant_id) === undefined
+                ? "/login"
+                : `/login?${new URLSearchParams({ region: problem.tenant_id })}`
+            }
+          >
+            {t("completeSignup.homedElsewhere.action")}
+          </Link>
         }
       />
     </div>

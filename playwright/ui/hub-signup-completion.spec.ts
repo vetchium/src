@@ -26,10 +26,9 @@ test("a signup completed elsewhere sends the user to their home region instead o
         type: "vetchium-problem-details/hub-account-homed-elsewhere",
         title: "Hub account homed in another region",
         status: 409,
-        detail: "This Hub account signs in at another region's Hub portal",
+        detail: "This Hub account signs in at another region",
         tenant_id: "sgp",
         hosting_country: "SG",
-        hub_url: "http://hub-ui.sgp.localhost",
       },
     });
   });

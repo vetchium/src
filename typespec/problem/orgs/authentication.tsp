@@ -102,15 +102,14 @@ alias OrgAuthenticationOrRecentRequiredErrorResponse = AuthenticationResponse<
   OrgAuthenticationOrRecentRequiredErrorBody
 >;
 
-/** The Org owning the domain is homed in another tenant. The client offers to
- * continue at that tenant's Org portal. */
+/** The Org owning the domain is homed in another tenant. The portal offers to
+ * switch to that region and sign in there. */
 model OrgHomedElsewhereDetails {
   type: "vetchium-problem-details/org-homed-elsewhere";
   title: "Org homed in another region";
   status: 409;
-  detail: "This Org signs in at another region's Org portal";
+  detail: "This Org signs in at another region";
   tenant_id: string;
-  orgs_url: url;
   instance?: string;
 }
 
