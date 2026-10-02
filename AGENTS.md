@@ -14,17 +14,18 @@ images; `dev-seed` is development-only, absent from `docker-bake.hcl`, and
 never deployed.
 
 - `admin-api`, `hub-api`, `orgs-api` — stateless portal browser APIs. Traefik
-  routes each portal hostname's `/api` to its own API over a dedicated private
-  network.
+  routes each region's API host (`<region>.api.vetchium.com`) `/api/hub/` and
+  `/api/orgs/` to `hub-api` and `orgs-api`, answering CORS for the one global
+  portal origin each allows, and the regional Admin hostname's `/api` to
+  `admin-api`, each over a dedicated private network.
 - `mesh-api` — stateless tenant-to-tenant API. Attached only to the private
   mesh and tenant backend networks; publishes no host port.
 - `mcp-server` — stateless MCP `2026-07-28` over Streamable HTTP, on its own
   access network so an authenticated public route can be added without putting
   it on portal ingress.
 - `workers` — periodic background work; one replica per tenant.
-- `global-coordinator` — singleton service outside the tenant stacks. Today it
-  serves region discovery from a bundled catalog. Federation work expands it
-  with a global PostgreSQL directory for principal routing, globally unique Hub
+- `global-coordinator` — singleton service outside the tenant stacks. It owns
+  the global PostgreSQL directory for principal routing, globally unique Hub
   handles, and paid aliases. It remains mesh-internal and stores no credentials
   or tenant-owned business data. See `agent-guides/federation.md`.
 - `dev-seed` — local fixtures that must go through a portal API. Table-content
@@ -40,16 +41,18 @@ secret file referenced by that JSON. The global coordinator instead reads
 
 ## Frontend
 
-- `admin-ui` — the admin portal for the tenant's administrators. Talks only to
-  its own tenant's `admin-api`.
+- `admin-ui` — the admin portal for the tenant's administrators. Deployed per
+  tenant and talks only to its own tenant's `admin-api`, on the same origin.
 - `hub-ui` — the portal for Hub Users, the platform's individuals: posts,
-  applications, connections, the hiring process. Talks to `hub-api`.
-- `orgs-ui` — the portal for Organizations: posts, openings, hiring. Talks to
-  `orgs-api`.
+  applications, connections, the hiring process. One global static site
+  (`vetchium.com`) for every region; it calls the chosen region's `hub-api`.
+- `orgs-ui` — the portal for Organizations: posts, openings, hiring. One global
+  static site (`orgs.vetchium.com`) calling the chosen region's `orgs-api`.
 - `portal-ui` — not a portal. The workspace package holding React behavior the
   portals share: shell, authentication, session storage, preferences,
-  idempotency, error presentation, account security cards. Portal-agnostic,
-  with no API of its own.
+  idempotency, error presentation, account security cards, and the region
+  table, picker, and build-time security headers of the global portals.
+  Portal-agnostic, with no API of its own.
 
 ## Guides
 
@@ -71,7 +74,7 @@ before changing files:
 | [`mesh-topology.md`](agent-guides/mesh-topology.md) | mesh/coordinator deployment, certificates and rotation, WireGuard, dev/CI networks |
 | [`object-storage.md`](agent-guides/object-storage.md) | SeaweedFS, tenant blobs, signed media, object lifecycle |
 | [`hub-profile.md`](agent-guides/hub-profile.md) | Hub profiles, professional claims, work-email evidence, aliases, pictures |
-| [`hub-signup.md`](agent-guides/hub-signup.md) | Hub signup, region discovery, identity claims, locality |
+| [`hub-signup.md`](agent-guides/hub-signup.md) | Hub signup, region selection, identity claims, locality |
 | [`hub-subscriptions.md`](agent-guides/hub-subscriptions.md) | Hub plans, subscriptions, billing periods, payment integration |
 | [`orgs.md`](agent-guides/orgs.md) | Org signup, Org user authentication, domain verification and re-verification |
 | [`typespec.md`](agent-guides/typespec.md) | contracts and matching wire types |

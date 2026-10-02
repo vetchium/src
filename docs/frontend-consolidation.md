@@ -1,15 +1,13 @@
 # Frontend Consolidation: Global Hub and Orgs Portals
 
-> **Status: research and accepted direction. Not implemented yet.**
+> **Status: implemented** on `feature/frontend-consolidation`.
 >
 > The evaluation took place with the product owner from 2026-09-30 to
 > 2026-10-02.
 >
 > - The implementation plan and progress ledger are in
 >   [`frontend-consolidation-plan.md`](frontend-consolidation-plan.md).
-> - Until that plan's ledger shows completion, the current per-region portals
->   remain the implemented behavior, and `agent-guides/` remains
->   authoritative.
+> - `agent-guides/` is authoritative for how the implementation works.
 
 ## 1. Decision
 

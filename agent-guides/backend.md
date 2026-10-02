@@ -82,6 +82,15 @@ for anything touching PostgreSQL, [`database.md`](database.md).
 - Source rate limits, request-size limits, and proxy trust belong in Traefik. No
   public rate limits from process-local maps; add application-level ingress
   controls only when the task or contract requires them.
+- CORS for the global Hub and Orgs portals also belongs in Traefik's headers
+  middleware on each region's API host: exactly one allowed origin per API
+  prefix, only the methods and headers the portals send, no credentials mode.
+  Go handlers never answer preflights.
+- One portal build talks to every region, and regions are upgraded one at a
+  time. Expand, then contract: ship an API addition to every region before the
+  portal uses it, and remove old behavior only after no published portal
+  depends on it. Problems and emailed links name a region by tenant id, never
+  by portal URL.
 - No speculative infrastructure, security mechanisms, configuration, problems,
   or responses.
 - `docker-compose.json` and `docker-compose-ci.json` stay separate files with

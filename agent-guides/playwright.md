@@ -40,6 +40,19 @@ an isolation defect.
   or tenant no parallel test shares. If the product offers no such boundary,
   raise the limitation rather than weakening the parallel configuration.
 
+## Hosts and regions
+
+- UI tests open the global portals, `HUB_PORTAL` and `ORGS_PORTAL`, and API
+  tests call a region's API host, `apiOrigin(tenant)`, all from
+  `playwright/lib/portals.ts`. Admin keeps its regional `admin-ui.<region>`
+  host.
+- A test that signs in through a portal pins its region with
+  `rememberRegion(context, portal, tenant)` before the first navigation; only
+  tests of the region picker choose it on the page. The browser locale would
+  otherwise pick the region.
+- Parse emailed links with `emailedLinkToken`, which also checks the link's
+  `region=`, and open them exactly as emailed.
+
 ## Assertions
 
 - Use the request fixture for API tests and the per-test browser context for UI

@@ -106,11 +106,6 @@ section 11). Each needs its own specification first.
 
 Deferred from [`global-uniqueness.md`](global-uniqueness.md), section 1.
 
-- Hub login does not redirect to the account's home region. Deliberately not
-  built: an unauthenticated "this email lives in region X" answer would be an
-  account-enumeration oracle. Only a flow where the caller has proven mailbox
-  control (a signup completion, an emailed notice) may reveal the home
-  region.
 - Hub account deletion does not exist yet. When it is built it must release
   the global account-email claim.
 - Digest key rotation has no procedure yet, only the key id hook
@@ -126,3 +121,17 @@ Deferred from [`global-uniqueness.md`](global-uniqueness.md), section 1.
   across accounts is an abuse signal, not an identity invariant. Add a later
   admin feature that detects and blocks abuse where many accounts verify the
   same professional address or domain.
+
+## Global portals follow-ups
+
+Deferred from [`frontend-consolidation.md`](frontend-consolidation.md).
+
+- `vetchium.com/org/<domain>` shows only a reserved "not available yet" page.
+  Org information pages, public openings URLs, anonymous profile viewing, and
+  search indexing are not built. Indexing would need server-side rendering in
+  the home region, never at the static host's edge.
+- The Hub and Orgs Vite dev servers cannot call the regional APIs: CORS allows
+  only `http://vetchium.localhost` and `http://orgs.vetchium.localhost`. Work on
+  the portals through `make dev` or Tilt, or decide on a dev-server origin.
+- Production TLS issuance and the static-host deployment have not been
+  exercised; only the rendered stacks and the built artefacts were checked.

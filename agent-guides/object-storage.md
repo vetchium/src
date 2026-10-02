@@ -68,6 +68,10 @@ object lifecycle work.
   administrative request.
 - Render external media with no credentials and no referrer. A future CDN may
   front the same media origin without changing profile contracts.
+- Every region's media origin must appear in the Hub portal's region table
+  (`hub-ui/src/app/regions/<environment>.json`). The build generates the
+  portal's CSP `img-src` from it, so a remote profile's picture is blocked when
+  its home region's origin is missing.
 - Replacing or deleting an object rotates the opaque reference. Existing signed
   URLs work only until their short expiry or the delete completes.
 

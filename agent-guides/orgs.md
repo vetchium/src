@@ -26,6 +26,16 @@ superadmin; never describe them as a founder or owner in code, text, or tests.
   `org_user_totp_credentials`) so another credential kind, such as enterprise
   SSO, can be added without reshaping Org users.
 
+## Sign-in region
+
+- The Orgs portal is one global site; the user picks the region before the
+  domain and credentials (`ui.md`). An Org domain is a business identifier, so
+  a login naming a domain homed elsewhere may answer `org-homed-elsewhere` with
+  the home `tenant_id`; the portal switches its region picker in place and
+  keeps what the user entered.
+- Org signup ignores `allowedCountries` (Hub residency policy); the country
+  only selects the recommendation.
+
 ## Domain verification
 
 - Proof of control is a TXT record `_vetchium.<domain>` with value

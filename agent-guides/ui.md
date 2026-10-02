@@ -93,3 +93,41 @@ Applies to the portal applications under `admin-ui/`, `hub-ui/`, and
   shared adapter only after repeated use proves the common behavior.
 - Keep API data in its wire shape at the transport boundary; convert dates and
   other values only where the UI needs application-specific behavior.
+
+## Global portals and regions
+
+Hub and Orgs are one static build each, served to every region from a static
+host; Admin stays regional on the same origin as its API.
+
+- The region list is compiled in: `portal-ui/src/regions/<environment>.json`
+  (API origins, signup flags, recommendations) and the Hub's own
+  `hub-ui/src/app/regions/<environment>.json` (media origins, offered plans).
+  `VITE_VETCHIUM_ENVIRONMENT` (`dev`, `ci`, `production`) selects them; the
+  build fails without it. `TestPortalRegionTablesMatchCheckedInConfiguration`
+  keeps the tables equal to each environment's configs and catalog, so change
+  them together. Adding a region means rebuilding both portals.
+- Sign-in and forgot-password pages show the region picker
+  (`@vetchium/portal-ui/region-picker`) before any personal data; signup offers
+  the table's eligible regions for the chosen country. The browser remembers
+  the sign-in region; the default is the remembered region, then the
+  recommendation for the first language tag that names a country, then the
+  table default.
+- A stored session records the region that issued it, and every request with
+  that session goes to that region, never the picker's. Use
+  `createRegionalAPIOrigin` and `createRegionalSessionStorage` from
+  `@vetchium/portal-ui/region-selection`.
+- An emailed link carries `region=<tenantId>`. Read it only through
+  `regionFromSearchParams`, send the link's request to that region, and show the
+  page's invalid-link state for a missing or unknown region; never fall back to
+  another region.
+- Security headers are generated at build time by
+  `@vetchium/portal-ui/portal-build` from the same tables: the static host's
+  `_headers` and `_redirects`, and the nginx include dev and CI serve. Never
+  hand-write a CSP or a noindex rule for these portals; change the policy the
+  portal's `vite.config.ts` passes. Vite configs may import only the import-free
+  modules `portal-build`, `portal-environment`, and `security-headers`, because
+  Node loads them where portal-ui's dependencies are not installed.
+- Pages under `/u/` and `/org/` render `<meta name="robots" content="noindex">`
+  in addition to the generated `X-Robots-Tag`.
+- API changes follow expand, then contract (`backend.md`): a published portal
+  must keep working against every region during a rolling upgrade.

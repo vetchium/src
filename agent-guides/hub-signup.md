@@ -1,6 +1,6 @@
 # Hub Signup and Locality
 
-Applies to Hub signup, signup-region discovery, global identity claims, and
+Applies to Hub signup, signup-region selection, global identity claims, and
 profile locality. Compose with [`federation.md`](federation.md).
 
 ## Signup ownership
@@ -30,7 +30,7 @@ profile locality. Compose with [`federation.md`](federation.md).
   so it can never be used to test whether an address is registered anywhere.
   Only completion, after the caller has proven mailbox control by reading a
   code sent to that address, may reveal the home region, and only via a `409`
-  naming that region's Hub URL. There is no unauthenticated homed-elsewhere
+  naming that region's tenant id. There is no unauthenticated homed-elsewhere
   answer at login: an unauthenticated "this email lives in region X" response
   would be an account-enumeration oracle.
 
@@ -71,25 +71,23 @@ profile locality. Compose with [`federation.md`](federation.md).
   and password reset links (delivered to the old address), and notifies the old
   address. Audit that the address changed, never the addresses themselves.
 
-## Region discovery
+## Region selection
 
-Path: browser → tenant Hub API → tenant mesh API → global coordinator.
+The Hub portal is one global site, so the visitor picks the region in the
+browser before entering anything personal; see `ui.md` for the mechanism.
 
-- Region discovery remains deployment-catalog behavior. The same global service
-  may also front the separate global PostgreSQL directory in `federation.md`, but
-  catalog fallback never substitutes for an identity-routing or uniqueness
-  decision.
-- Hub and mesh processes each use a mounted, versioned local catalog. Bound
-  remote calls with timeouts and fall back to the caller's local catalog so cold
-  start and outage do not block discovery.
-- Catalogs are deployment configuration, not live replicated policy; restart to
-  reload. A stale recommendation may reach a tenant that then refuses signup;
-  destination admission stays authoritative.
-- `allowedCountries: []` means every country. Exclude disabled regions, reject
-  unknown tenant IDs at admission, and keep tenant IDs open strings, not a
-  four-tenant enum.
-- Paginate catalog results by tenant-ID keysets bound to the country filter and
-  catalog contents.
+- The eligible regions come from the portal's compiled-in region table, kept
+  equal to each environment's `signup-regions.json` by a repository test. There
+  is no discovery API; the browser never asks any region which regions exist.
+- Eligible means `signupEnabled` and an empty or matching `allowedCountries`.
+  The country's recommendation preselects a region and never forces placement.
+- The table and catalog are deployment configuration, not live policy. A stale
+  portal may offer a region that then refuses signup; destination admission
+  stays authoritative and rechecks the catalog and its own setting.
+- `allowedCountries: []` means every country. Reject unknown tenant IDs at
+  admission, and keep tenant IDs open strings, not a four-tenant enum.
+- Wrong-region sign-in fails exactly like a wrong password. The chosen region
+  never consults another region or the coordinator to redirect a Hub login.
 
 ## Federation and migration
 
