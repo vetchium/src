@@ -117,7 +117,7 @@ export function HomePage() {
                         {me.permissions.map((permission) => (
                           <Tag key={permission}>
                             {isDefinedPermission(permission)
-                              ? t(`permissions.${permission}`)
+                              ? t(`permissions.${permission}.name`)
                               : permission}
                           </Tag>
                         ))}

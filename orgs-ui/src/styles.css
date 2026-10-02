@@ -4,3 +4,7 @@
 .shell-banner {
   margin-bottom: 24px;
 }
+
+.member-search {
+  width: min(100%, 320px);
+}

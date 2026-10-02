@@ -32,6 +32,31 @@ import type {
   VerifyRecoveryCodeResponse,
 } from "typespec/orgs/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/orgs/auth/types";
+import type { ListPermissionsResponse } from "typespec/orgs/authorization/management";
+import type {
+  AcceptInvitationRequest,
+  AcceptInvitationResponse,
+  CancelInvitationsRequest,
+  GetInvitationDetailsRequest,
+  InvitationDetailsResponse,
+  InviteUsersRequest,
+  InviteUsersResponse,
+  ListInvitationsRequest,
+  ListInvitationsResponse,
+  ResendInvitationRequest,
+  ResendInvitationResponse,
+} from "typespec/orgs/users/invitations";
+import type {
+  BulkDisableUsersRequest,
+  BulkEnableUsersRequest,
+  BulkSetUserPermissionsRequest,
+  DisableUserRequest,
+  EnableUserRequest,
+  ListUsersRequest,
+  ListUsersResponse,
+  SetUserPermissionsRequest,
+  UserSummaryResponse,
+} from "typespec/orgs/users/management";
 import { apiRequest } from "./client";
 
 export const orgsAPI = {
@@ -122,6 +147,53 @@ export const orgsAPI = {
       { method: "POST", idempotencyKey },
     ),
   myInfo: () => apiRequest<MyInfoResponse>("/my-info"),
+  listPermissions: () =>
+    apiRequest<ListPermissionsResponse>("/list-permissions"),
+  listUsers: (body: ListUsersRequest) =>
+    apiRequest<ListUsersResponse>("/list-users", { body }),
+  userSummary: () =>
+    apiRequest<UserSummaryResponse>("/user-summary", { method: "POST" }),
+  disableUser: (body: DisableUserRequest) =>
+    apiRequest<void>("/disable-user", { body }),
+  bulkDisableUsers: (body: BulkDisableUsersRequest) =>
+    apiRequest<void>("/bulk-disable-users", { body }),
+  enableUser: (body: EnableUserRequest) =>
+    apiRequest<void>("/enable-user", { body }),
+  bulkEnableUsers: (body: BulkEnableUsersRequest) =>
+    apiRequest<void>("/bulk-enable-users", { body }),
+  setUserPermissions: (body: SetUserPermissionsRequest) =>
+    apiRequest<void>("/set-user-permissions", { body }),
+  bulkSetUserPermissions: (body: BulkSetUserPermissionsRequest) =>
+    apiRequest<void>("/bulk-set-user-permissions", { body }),
+  inviteUsers: (body: InviteUsersRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<InviteUsersResponse>("/invite-users", { body, idempotencyKey }),
+  listInvitations: (body: ListInvitationsRequest) =>
+    apiRequest<ListInvitationsResponse>("/list-invitations", { body }),
+  resendInvitation: (
+    body: ResendInvitationRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ResendInvitationResponse>("/resend-invitation", {
+      body,
+      idempotencyKey,
+    }),
+  cancelInvitations: (body: CancelInvitationsRequest) =>
+    apiRequest<void>("/cancel-invitations", { body }),
+  getInvitationDetails: (body: GetInvitationDetailsRequest, tenantId: string) =>
+    apiRequest<InvitationDetailsResponse>("/get-invitation-details", {
+      body,
+      tenantId,
+    }),
+  acceptInvitation: (
+    body: AcceptInvitationRequest,
+    idempotencyKey: IdempotencyKey,
+    tenantId: string,
+  ) =>
+    apiRequest<AcceptInvitationResponse>("/accept-invitation", {
+      body,
+      idempotencyKey,
+      tenantId,
+    }),
   checkDomain: () =>
     apiRequest<CheckDomainResponse>("/check-domain", { method: "POST" }),
 };

@@ -1,15 +1,27 @@
 import { Spin } from "antd";
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router";
+import { ManageUsers } from "typespec/orgs/authorization/types";
 import { AppShell } from "../components/common/AppShell";
 import {
   ActiveOrgRoute,
+  PermissionRoute,
   ProtectedRoute,
 } from "../components/common/ProtectedRoute";
 import { PublicShell } from "../components/common/PublicShell";
 import { RecentAuthenticationRoute } from "../components/common/RecentAuthenticationRoute";
 import { paths } from "./paths";
 
+const AcceptInvitationPage = lazy(() =>
+  import("../pages/AcceptInvitationPage").then(({ AcceptInvitationPage }) => ({
+    default: AcceptInvitationPage,
+  })),
+);
+const MembersPage = lazy(() =>
+  import("../pages/MembersPage").then(({ MembersPage }) => ({
+    default: MembersPage,
+  })),
+);
 const CompleteSignupPage = lazy(() =>
   import("../pages/CompleteSignupPage").then(({ CompleteSignupPage }) => ({
     default: CompleteSignupPage,
@@ -115,6 +127,14 @@ export function App() {
           }
         />
         <Route
+          path={paths.acceptInvitation}
+          element={
+            <Page>
+              <AcceptInvitationPage />
+            </Page>
+          }
+        />
+        <Route
           path={paths.resetPassword}
           element={
             <Page>
@@ -154,6 +174,16 @@ export function App() {
             }
           />
           <Route element={<ActiveOrgRoute />}>
+            <Route element={<PermissionRoute permission={ManageUsers} />}>
+              <Route
+                path={paths.members}
+                element={
+                  <Page>
+                    <MembersPage />
+                  </Page>
+                }
+              />
+            </Route>
             <Route
               index
               element={

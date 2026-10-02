@@ -1,6 +1,7 @@
 import {
   HomeOutlined,
   SafetyOutlined,
+  TeamOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
 import { PortalShell } from "@vetchium/portal-ui/shell";
@@ -9,7 +10,11 @@ import type { ItemType } from "antd/es/menu/interface.js";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router";
 import { DomainFailing, OrgSuspended } from "typespec/orgs/account/account";
-import { holds, Superadmin } from "typespec/orgs/authorization/types";
+import {
+  holds,
+  ManageUsers,
+  Superadmin,
+} from "typespec/orgs/authorization/types";
 import { paths } from "../../app/paths";
 import { localeConfiguration } from "../../app/preferences";
 import { useAuth } from "../../auth/AuthContext";
@@ -42,6 +47,15 @@ export function AppShell() {
           icon: <HomeOutlined />,
           label: t("navigation.home"),
         },
+        ...(me !== undefined && holds(me.permissions, ManageUsers)
+          ? [
+              {
+                key: paths.members,
+                icon: <TeamOutlined />,
+                label: t("navigation.members"),
+              },
+            ]
+          : []),
         {
           key: paths.security,
           icon: <SafetyOutlined />,
@@ -51,7 +65,11 @@ export function AppShell() {
   const selectedKey =
     navigationItems
       .map((item) => String(item?.key))
-      .find((key) => location.pathname.startsWith(key)) ?? "";
+      .find(
+        (key) =>
+          location.pathname === key ||
+          (key !== paths.home && location.pathname.startsWith(`${key}/`)),
+      ) ?? "";
 
   const banner =
     me === undefined ? null : (

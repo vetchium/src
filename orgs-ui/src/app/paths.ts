@@ -9,6 +9,8 @@ export const paths = {
   reauthenticate: "/reauthenticate",
   security: "/security",
   restoreDomain: "/restore-domain",
+  members: "/members",
+  acceptInvitation: "/accept-invitation",
 } as const;
 
 /** Sign-in with the Org domain prefilled, as emailed links and completed

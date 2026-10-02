@@ -1,5 +1,3 @@
-import { Superadmin } from "typespec/orgs/authorization/types";
-
 export const en = {
   shell: {
     documentTitle: "Vetchium for organizations",
@@ -15,6 +13,7 @@ export const en = {
     menu: "Navigation",
     openMenu: "Open navigation",
     home: "Home",
+    members: "Members",
     security: "Security",
     restoreDomain: "Restore domain",
   },
@@ -26,6 +25,10 @@ export const en = {
     changeError: "The language could not be changed. Please try again.",
   },
   common: {
+    done: "Done",
+    next: "Next",
+    previous: "Previous",
+    save: "Save",
     backToSignIn: "Back to sign in",
     cancel: "Cancel",
     confirm: "Confirm",
@@ -91,6 +94,23 @@ export const en = {
     incorrectRecoveryCode: "The recovery code was not accepted.",
     invalidResetToken:
       "This password reset link is invalid, has expired, or was already used.",
+    userDisabledNonpayment:
+      "Your account was disabled because your organization's subscription was not paid. Contact your organization's administrator.",
+    invalidInvitation:
+      "This invitation is invalid, has expired, was cancelled, or was already used. Ask for a new one.",
+    invitationNotFound:
+      "There is no pending invitation for an address in the request.",
+    userAlreadyExists:
+      "A user with this address already exists in the organization.",
+    selfChange:
+      "You cannot disable yourself or change your own permissions. Ask another administrator.",
+    lastSuperadmin:
+      "The organization must keep at least one active superadmin.",
+    userNotFound: "{{email}} is not a user of this organization.",
+    superadminRequired:
+      "Only a superadmin can change {{email}} or these permissions.",
+    userLimitReached:
+      "The organization has no free seat: its plan allows {{limit}} users, counting pending invitations.",
     permissionRequired: "Only a superadmin of your organization can do this.",
     recentAuthenticationRequired: "Sign in again to continue.",
     totpAlreadyEnabled: "Two-factor authentication is already on.",
@@ -228,7 +248,26 @@ export const en = {
     noPermissions: "No permissions",
   },
   permissions: {
-    [Superadmin]: "SUPERADMIN",
+    "org:superadmin": {
+      name: "SUPERADMIN",
+      description:
+        "Everything in the organization, including billing and users, and the organization's settings.",
+    },
+    "org:manage_users": {
+      name: "MANAGE_USERS",
+      description:
+        "Invite, disable and re-enable users, and change what they can do, except the superadmin and billing permissions.",
+    },
+    "org:manage_billing": {
+      name: "MANAGE_BILLING",
+      description:
+        "Choose the organization's plan, pay for it, and review invoices.",
+    },
+    unknown: {
+      description:
+        "This permission was added after this portal was built. It is kept as it is unless you turn it off.",
+    },
+    includedBy: "Included by {{permission}}",
   },
   domain: {
     states: {
@@ -318,6 +357,159 @@ export const en = {
         "Replace your recovery codes? The current codes will stop working.",
       regenerated: "New recovery codes were created.",
     },
+  },
+  roles: {
+    superadmin: "Superadmin",
+    finance: "Finance",
+    userManager: "User manager",
+    member: "Member",
+    custom: "Custom",
+  },
+  users: {
+    documentTitle: "Members | Vetchium for organizations",
+    title: "Members",
+    description:
+      "Invite people, choose what each can do, and turn accounts off when they leave.",
+    tabs: { members: "Members", invitations: "Invitations" },
+    role: "Role",
+    roleOf: "Role of {{email}}",
+    permissionGranted: "Granted",
+    you: "you",
+    never: "Never",
+    actionsFor: "Actions for {{email}}",
+    searchPlaceholder: "Search by email address",
+    clearFilters: "Clear filters",
+    page: "Page {{page}}",
+    empty: {
+      default: "No members yet.",
+      filtered: "No members match these filters.",
+    },
+    columns: {
+      state: "State",
+      joined: "Joined",
+      lastSignIn: "Last sign-in",
+      actions: "Actions",
+    },
+    state: {
+      active: "Active",
+      disabledManual: "Disabled",
+      disabledNonpayment: "Disabled, unpaid subscription",
+    },
+    filters: { state: "State", role: "Role" },
+    filterState: {
+      active: "Active",
+      "disabled-manual": "Disabled",
+      "disabled-nonpayment": "Disabled, unpaid subscription",
+    },
+    sort: {
+      label: "Sort by",
+      email: "Email address",
+      joined: "Join date",
+      ascending: "Ascending",
+      descending: "Descending",
+    },
+    summary: {
+      seats:
+        "{{used}} of {{limit}} seats used (members and pending invitations)",
+      seatsUnlimited: "{{used}} seats used (no limit)",
+      roles: "Roles:",
+      states: "States:",
+      role: {
+        superadmin: "{{count}} superadmin",
+        finance: "{{count}} finance",
+        userManager: "{{count}} user managers",
+        member: "{{count}} members",
+      },
+      state: {
+        active: "{{count}} active",
+        "disabled-manual": "{{count}} disabled",
+        "disabled-nonpayment": "{{count}} unpaid",
+      },
+    },
+    bulk: {
+      selected: "{{count}} selected",
+      limit: "At most {{count}} can be selected at once.",
+      setRole: "Set role",
+      disable: "Disable",
+      enable: "Enable",
+      clear: "Clear selection",
+    },
+    roleChange: {
+      confirm: "Make {{count}} selected user(s) {{role}}?",
+      effect:
+        "The new role applies on their next request. Sign-ins stay active.",
+      action: "Change role",
+      saved: "The role was changed.",
+    },
+    disable: {
+      confirm: "Disable {{count}} user(s)?",
+      effect:
+        "They are signed out at once and cannot sign in until re-enabled. Their seat is freed.",
+      action: "Disable",
+      done: "The users were disabled.",
+    },
+    enable: {
+      confirm: "Enable {{count}} user(s)?",
+      effect: "They can sign in again. This uses a seat each.",
+      action: "Enable",
+      done: "The users were enabled.",
+    },
+    custom: {
+      option: "Custom…",
+      title: "Custom permissions",
+      hint: "Choose exactly what this user may do. A role is only a shortcut for a set of these.",
+    },
+    invite: {
+      open: "Invite people",
+      title: "Invite people",
+      action: "Send invitations",
+      addresses: "Email addresses",
+      addressesHelp:
+        "Paste addresses separated by commas, spaces or new lines, or choose a CSV file. They must be at your organization's domain.",
+      chooseFile: "Choose CSV file",
+      count: "{{count}} addresses",
+      batches: "Sent in {{count}} requests of up to 100 each.",
+      results: "{{invited}} of {{total}} invitations were sent.",
+      outcome: "Result",
+      outcomes: {
+        invited: "Invited",
+        "already-member": "Already a member",
+        "already-invited": "Already invited",
+        "domain-mismatch": "Not at your domain",
+        invalid: "Not an email address",
+      },
+    },
+    export: {
+      action: "Export CSV",
+      progress: "Exported {{count}}…",
+      failed: "The export could not be completed.",
+    },
+  },
+  invitations: {
+    search: "Search invitations by email address",
+    empty: "No pending invitations.",
+    invitedBy: "Invited by",
+    expires: "Expires",
+    expired: "Expired",
+    resend: "Resend",
+    resendFor: "Resend the invitation to {{email}}",
+    resent: "The invitation was sent again.",
+    cancelAction: "Cancel",
+    cancelFor: "Cancel the invitation to {{email}}",
+    cancelSelected: "Cancel selected",
+    cancelConfirm: "Cancel {{count}} invitation(s)?",
+    cancelEffect:
+      "The links in those emails stop working and the seats are freed.",
+    cancelled: "The invitations were cancelled.",
+  },
+  acceptInvitation: {
+    documentTitle: "Accept invitation | Vetchium for organizations",
+    title: "Join your organization",
+    missingToken:
+      "This invitation link is incomplete. Open the full link from the email.",
+    expires: "Invitation expires",
+    action: "Create account",
+    success: "Your account is ready. Sign in to continue.",
   },
   notFound: {
     title: "Page not found",
