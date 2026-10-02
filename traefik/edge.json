@@ -1,6 +1,26 @@
 {
   "http": {
     "routers": {
+      "sgp-api": {
+        "rule": "Host(`sgp.api.vetchium.localhost`)",
+        "service": "sgp",
+        "entryPoints": ["web"]
+      },
+      "usa1-api": {
+        "rule": "Host(`usa1.api.vetchium.localhost`)",
+        "service": "usa1",
+        "entryPoints": ["web"]
+      },
+      "deu-api": {
+        "rule": "Host(`deu.api.vetchium.localhost`)",
+        "service": "deu",
+        "entryPoints": ["web"]
+      },
+      "ind1-api": {
+        "rule": "Host(`ind1.api.vetchium.localhost`)",
+        "service": "ind1",
+        "entryPoints": ["web"]
+      },
       "sgp": {
         "rule": "HostRegexp(`^[a-z-]+\\.sgp\\.[a-z0-9.-]+$`)",
         "service": "sgp",

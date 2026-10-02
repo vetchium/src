@@ -1,6 +1,6 @@
 # Frontend Consolidation — Implementation Plan
 
-Status: **not started**. The ledger is §6. The decision record and rationale
+Status: **in progress**. The ledger is §6. The decision record and rationale
 are in [`frontend-consolidation.md`](frontend-consolidation.md). Branch:
 `feature/frontend-consolidation`.
 
@@ -506,7 +506,7 @@ pass. The full suite is required at FC-M11 and FC-M12.
 ## 6. Ledger
 
 - [x] FC-M0 — Decision record and plan
-- [ ] FC-M1 — Regional API host with CORS (additive)
+- [x] FC-M1 — Regional API host with CORS (additive)
 - [ ] FC-M2 — Region tables and consistency test
 - [ ] FC-M3 — Shared region mechanism in portal-ui
 - [ ] FC-M4 — Hub UI goes global
@@ -524,3 +524,4 @@ pass. The full suite is required at FC-M11 and FC-M12.
 One line per finished milestone: date, short sha, deviations or limitations.
 
 - 2026-10-02 — FC-M0 — decision record and plan committed.
+- 2026-10-02 — FC-M1 — `<r>.api.vetchium.localhost` routes `/api/hub/` and `/api/orgs/` with Traefik CORS (GET, POST; `Authorization`, `Content-Type`, `Idempotency-Key`; max-age 86400). The §3 dev hostnames resolve for curl and Node; no change. The preflight, wrong-origin, and cross-portal-origin checks passed for all four regions, and the old portal hosts still serve.

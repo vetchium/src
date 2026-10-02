@@ -1,6 +1,18 @@
 {
   "http": {
     "routers": {
+      "api-hub": {
+        "rule": "Host(`usa1.api.vetchium.localhost`) && PathPrefix(`/api/hub/`)",
+        "service": "hub-api",
+        "middlewares": ["cors-hub"],
+        "entryPoints": ["web"]
+      },
+      "api-orgs": {
+        "rule": "Host(`usa1.api.vetchium.localhost`) && PathPrefix(`/api/orgs/`)",
+        "service": "orgs-api",
+        "middlewares": ["cors-orgs"],
+        "entryPoints": ["web"]
+      },
       "media": {
         "rule": "Host(`media.usa1.localhost`) && (Method(`GET`) || Method(`HEAD`)) && PathRegexp(`^/hub-profile-pictures/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
         "service": "media",
@@ -39,6 +51,34 @@
         "rule": "Host(`admin-ui.usa1.localhost`)",
         "service": "admin-ui",
         "entryPoints": ["web"]
+      }
+    },
+    "middlewares": {
+      "cors-hub": {
+        "headers": {
+          "accessControlAllowOriginList": ["http://vetchium.localhost"],
+          "accessControlAllowMethods": ["GET", "POST"],
+          "accessControlAllowHeaders": [
+            "Authorization",
+            "Content-Type",
+            "Idempotency-Key"
+          ],
+          "accessControlMaxAge": 86400,
+          "addVaryHeader": true
+        }
+      },
+      "cors-orgs": {
+        "headers": {
+          "accessControlAllowOriginList": ["http://orgs.vetchium.localhost"],
+          "accessControlAllowMethods": ["GET", "POST"],
+          "accessControlAllowHeaders": [
+            "Authorization",
+            "Content-Type",
+            "Idempotency-Key"
+          ],
+          "accessControlMaxAge": 86400,
+          "addVaryHeader": true
+        }
       }
     },
     "services": {
