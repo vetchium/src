@@ -24,14 +24,11 @@ them. Ask the product owner only when the repository contradicts a decision.
    1. Tick the ledger.
    2. Append one line to §7 with the date, commit, and any deviation.
    3. Commit.
-7. **At a CHECKPOINT, stop.** Do not start the next milestone in the same
-   turn. Reply with exactly:
-
-   > Milestone FC-Mx done (`<sha>`). Please run `/compact`, then send:
-   > `Resume docs/frontend-consolidation-plan.md`
-
-   Claude cannot run `/compact` itself: it is a user command. The checkpoint
-   exists so the user can compact at a clean, committed boundary.
+7. **At a CHECKPOINT, continue.** The milestone is committed and recorded in
+   §6 and §7, so the session's automatic context compaction can happen at any
+   point without losing work. Do not stop or ask the user to run `/compact`;
+   start the next milestone. Stop only when the ledger is complete, or for a
+   question only the product owner can answer.
 
 ## 1. Token economy rules
 
