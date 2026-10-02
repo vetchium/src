@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
 import { useHoldNavigation } from "@vetchium/portal-ui/pending-operations";
+import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
 import {
   Alert,
   App,
@@ -32,6 +33,7 @@ import {
 import { getProblemType, isDefiniteRefusal } from "../api/client";
 import { orgsAPI } from "../api/orgs";
 import { loginPath, paths } from "../app/paths";
+import { regionStore, regionTable } from "../app/regions";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { useDateTimeFormat } from "../components/common/useDateTimeFormat";
 import { DnsRecord } from "../features/domain/DnsRecord";
@@ -75,8 +77,10 @@ export function CompleteSignupPage() {
   const formatDateTime = useDateTimeFormat();
   const [search] = useSearchParams();
   const token = search.get("token") ?? "";
+  const region = regionFromSearchParams(regionTable, search);
   const tokenPresent =
-    validateGetSignupDetailsRequest({ signup_token: token }).length === 0;
+    validateGetSignupDetailsRequest({ signup_token: token }).length === 0 &&
+    region !== null;
   // Persisted per link so that a reload during an unresolved completion
   // replays the same request instead of starting a second one.
   const key = useIdempotencyKey(`orgs-complete-signup:${token}`);
@@ -84,20 +88,22 @@ export function CompleteSignupPage() {
   const [awaitingResult, setAwaitingResult] = useState(false);
 
   const details = useQuery({
-    queryKey: ["orgs", "signup-details", token],
-    queryFn: () => orgsAPI.getSignupDetails({ signup_token: token }),
+    queryKey: ["orgs", "signup-details", region, token],
+    queryFn: () =>
+      orgsAPI.getSignupDetails({ signup_token: token }, region ?? ""),
     enabled: tokenPresent,
     retry: false,
     staleTime: Number.POSITIVE_INFINITY,
   });
   const complete = useMutation({
     mutationFn: ({ request, idempotencyKey }: Submission) =>
-      orgsAPI.completeSignup(request, idempotencyKey),
+      orgsAPI.completeSignup(request, idempotencyKey, region ?? ""),
     onSuccess: (result) => {
       setAwaitingResult("operation_id" in result);
       if ("domain" in result) {
         key.rotate();
         void message.success(t("completeSignup.success"));
+        if (region !== null) regionStore.remember(region);
         navigate(loginPath(result.domain), { replace: true });
       }
     },

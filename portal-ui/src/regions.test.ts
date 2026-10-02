@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import ci from "./regions/ci.json" with { type: "json" };
+import dev from "./regions/dev.json" with { type: "json" };
+import production from "./regions/production.json" with { type: "json" };
 import {
-  loadRegionTable,
   type PortalEnvironment,
+  parsePortalEnvironment,
   parseRegionTable,
-  portalEnvironments,
 } from "./regions.ts";
 
 function validTable() {
@@ -33,15 +35,16 @@ function validTable() {
 }
 
 test("every checked-in environment table is valid", () => {
-  for (const environment of portalEnvironments) {
-    assert.ok(loadRegionTable(environment).regions.length > 0);
+  for (const [environment, table] of Object.entries({ dev, ci, production })) {
+    const name = parsePortalEnvironment(environment);
+    assert.ok(parseRegionTable(table, name).regions.length > 0);
   }
 });
 
 test("an unknown or unset environment fails", () => {
   for (const environment of [undefined, "", "local", "Production"]) {
     assert.throws(
-      () => loadRegionTable(environment),
+      () => parsePortalEnvironment(environment),
       /VITE_VETCHIUM_ENVIRONMENT must be one of/,
     );
   }

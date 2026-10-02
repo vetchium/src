@@ -11,7 +11,7 @@ import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
 import { usePendingOperations } from "../app/PendingOperationContext";
 import { usePreferences } from "../app/PreferencesContext";
-import { regionTable } from "../app/regions";
+import { regionStore, regionTable } from "../app/regions";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { countryName } from "../i18n/countries";
 
@@ -63,7 +63,9 @@ export function CompleteSignupPage() {
       }
     },
     onSuccess: (result) => {
-      if ("handle" in result) key.rotate();
+      if (!("handle" in result)) return;
+      key.rotate();
+      if (region !== null) regionStore.remember(region);
     },
   });
 

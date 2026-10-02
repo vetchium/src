@@ -7,7 +7,7 @@ import { isNewPassword } from "typespec/common/authentication";
 import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
 import { usePendingOperations } from "../app/PendingOperationContext";
-import { regionTable } from "../app/regions";
+import { regionStore, regionTable } from "../app/regions";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 
 interface ResetValues {
@@ -38,7 +38,10 @@ export function ResetPasswordPage() {
         release();
       }
     },
-    onSuccess: () => key.rotate(),
+    onSuccess: () => {
+      key.rotate();
+      if (region !== null) regionStore.remember(region);
+    },
   });
   return (
     <Card className="auth-card">

@@ -25,9 +25,9 @@ function isValidSignupEmail(email: string, request: RequestSignupRequest) {
   }).includes("email_address");
 }
 
-/** Asks for the DNS instructions and the private signup link. Region choice,
- * once discovery exists for Orgs, happens before this form. */
-export function SignupRequestForm() {
+/** Asks the chosen region for the DNS instructions and the private signup
+ * link. */
+export function SignupRequestForm({ tenantId }: { tenantId: string }) {
   const { t } = useTranslation();
   const { language } = usePreferences();
   const [form] = Form.useForm<RequestValues>();
@@ -35,7 +35,7 @@ export function SignupRequestForm() {
   const key = useIdempotencyKey();
   const signup = useMutation({
     mutationFn: (request: RequestSignupRequest) =>
-      orgsAPI.requestSignup(request, key.current()),
+      orgsAPI.requestSignup(request, key.current(), tenantId),
     onSuccess: () => key.rotate(),
     onError: (error) => {
       if (isDefiniteRefusal(error)) key.rotate();

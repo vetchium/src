@@ -1,6 +1,20 @@
 import { Form, Select } from "antd";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { createRegionStore } from "./region-selection.ts";
 import type { PortalRegion } from "./regions.ts";
+
+/** The region selected on a page, remembered in `store` on change. */
+export function useRegionSelection(
+  store: ReturnType<typeof createRegionStore>,
+) {
+  const [tenantId, setTenantId] = useState(store.read);
+  const select = (value: string) => {
+    store.remember(value);
+    setTenantId(value);
+  };
+  return [tenantId, select] as const;
+}
 
 export interface RegionPickerTranslations {
   /** Field label. */

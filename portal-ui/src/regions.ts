@@ -1,12 +1,6 @@
 import { isCountryCode } from "typespec/common/countries";
 import type { CountryCode } from "typespec/common/localization";
-import {
-  type PortalEnvironment,
-  parsePortalEnvironment,
-} from "./portal-environment.ts";
-import ci from "./regions/ci.json" with { type: "json" };
-import dev from "./regions/dev.json" with { type: "json" };
-import production from "./regions/production.json" with { type: "json" };
+import type { PortalEnvironment } from "./portal-environment.ts";
 
 export {
   type PortalEnvironment,
@@ -29,8 +23,6 @@ export interface RegionTable {
   readonly regions: readonly PortalRegion[];
 }
 
-const tables: Record<PortalEnvironment, unknown> = { dev, ci, production };
-
 // Mirrors the backend's tenant id rule so the UI cannot hold a region the
 // backend would refuse to name.
 const tenantIdPattern = /^[a-z][a-z0-9-]{0,62}$/;
@@ -44,17 +36,6 @@ const regionMembers = [
   "allowedCountries",
 ];
 const tableMembers = ["defaultTenant", "recommendations", "regions"];
-
-/**
- * Returns the validated region table compiled in for `environment`, the
- * caller's `VITE_VETCHIUM_ENVIRONMENT`. Throws on an unknown environment or
- * an invalid table, so a portal build that evaluates it fails rather than
- * shipping a portal that cannot reach any region.
- */
-export function loadRegionTable(environment: unknown): RegionTable {
-  const name = parsePortalEnvironment(environment);
-  return parseRegionTable(tables[name], name);
-}
 
 export function parseRegionTable(
   raw: unknown,

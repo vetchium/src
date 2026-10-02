@@ -12,12 +12,17 @@ import { isDefiniteRefusal } from "../api/client";
 import { orgsAPI } from "../api/orgs";
 import { loginPath } from "../app/paths";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import {
+  RegionField,
+  useSelectedRegion,
+} from "../features/regions/RegionField";
 
 export function ForgotPasswordPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const prefilledDomain = normalizeOrgDomain(searchParams.get("domain") ?? "");
   const key = useIdempotencyKey();
+  const [region, setRegion] = useSelectedRegion();
   const request = useMutation({
     mutationFn: (body: RequestPasswordResetRequest) =>
       orgsAPI.requestPasswordReset(body, key.current()),
@@ -56,6 +61,11 @@ export function ForgotPasswordPage() {
                 request.mutate(normalizeRequestPasswordResetRequest(values))
               }
             >
+              <RegionField
+                value={region}
+                onChange={setRegion}
+                disabled={request.isPending}
+              />
               <Form.Item
                 name="domain"
                 label={t("fields.domain")}

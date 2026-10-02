@@ -14,6 +14,7 @@
     "./localization": "./src/localization.ts",
     "./navigation": "./src/navigation.ts",
     "./pending-operations": "./src/pending-operations.tsx",
+    "./portal-build": "./src/portal-build.ts",
     "./portal-environment": "./src/portal-environment.ts",
     "./preferences": "./src/preferences.tsx",
     "./providers": "./src/providers.tsx",

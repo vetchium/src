@@ -115,7 +115,6 @@ export const de = {
     regionOption: "{{region}} ({{tenant}})",
     continueRegion: "Weiter in {{region}} ({{tenant}})",
     continue: "Weiter",
-    retryRegions: "Erneut versuchen",
     noRegions:
       "Derzeit nimmt keine Region Registrierungen von Organisationen an.",
     hosting: "Ihre Organisation wird in {{region}} ({{tenant}}) gespeichert.",
@@ -172,6 +171,11 @@ export const de = {
     name: "Name",
     value: "Wert",
   },
+  region: {
+    label: "Region",
+    help: "Das Konto Ihrer Organisation befindet sich in genau einer Region. Wählen Sie die Region, in der sie sich registriert hat.",
+    option: "{{country}} ({{tenantId}})",
+  },
   login: {
     documentTitle: "Anmelden | Vetchium für Organisationen",
     title: "Anmelden",
@@ -181,6 +185,8 @@ export const de = {
     forgotPassword: "Passwort vergessen?",
     noAccount: "Ist Ihre Organisation noch nicht auf Vetchium?",
     signUp: "Jetzt registrieren",
+    wrongRegionHint:
+      "Wenn Domain, E-Mail-Adresse und Passwort stimmen, prüfen Sie, ob die ausgewählte Region die ist, in der sich Ihre Organisation registriert hat.",
     homedElsewhere: {
       title: "{{domain}} meldet sich in einer anderen Region an",
       description:

@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
 import { usePendingOperations } from "@vetchium/portal-ui/pending-operations";
+import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
 import { Alert, Button, Card, Flex, Form, Input, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
@@ -9,6 +10,7 @@ import { InvalidPasswordResetTokenError } from "typespec/problem/orgs/authentica
 import { getProblemType, isDefiniteRefusal } from "../api/client";
 import { orgsAPI } from "../api/orgs";
 import { paths } from "../app/paths";
+import { regionStore, regionTable } from "../app/regions";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 
 interface ResetValues {
@@ -20,6 +22,7 @@ export function ResetPasswordPage() {
   const { t } = useTranslation();
   const [search] = useSearchParams();
   const token = search.get("token") ?? "";
+  const region = regionFromSearchParams(regionTable, search);
   // Persisted per link so that a retry after a lost response replays the
   // reset rather than failing on a token the first attempt already spent.
   const key = useIdempotencyKey(`orgs-password-reset:${token}`);
@@ -31,12 +34,16 @@ export function ResetPasswordPage() {
         return await orgsAPI.completePasswordReset(
           { reset_token: token, new_password: values.new_password },
           key.current(),
+          region ?? "",
         );
       } finally {
         release();
       }
     },
-    onSuccess: () => key.rotate(),
+    onSuccess: () => {
+      key.rotate();
+      if (region !== null) regionStore.remember(region);
+    },
     onError: (error) => {
       if (isDefiniteRefusal(error)) key.rotate();
     },
@@ -51,7 +58,7 @@ export function ResetPasswordPage() {
         <Typography.Title level={1}>
           {t("resetPassword.title")}
         </Typography.Title>
-        {!isOpaqueToken(token) ? (
+        {!isOpaqueToken(token) || region === null ? (
           // A truncated link must say so. A form whose submit button is
           // disabled explains nothing.
           <>
