@@ -1,16 +1,20 @@
 import type { Details } from "typespec/problem/details";
 
 export class APIError extends Error {
-  constructor(
-    readonly status: number,
-    readonly problem?: Details,
-  ) {
+  readonly status: number;
+  readonly problem?: Details;
+
+  constructor(status: number, problem?: Details) {
     super(problem?.detail ?? `HTTP ${status}`);
     this.name = "APIError";
+    this.status = status;
+    this.problem = problem;
   }
 }
 
 export interface PortalAPIClientConfiguration {
+  /** Scheme and host of the API, or omitted for the portal's own origin. */
+  origin?: () => string;
   apiPrefix: string;
   authenticationProblemType: string;
   recentAuthenticationProblemType: string;
@@ -23,6 +27,9 @@ export interface PortalRequestOptions {
   body?: unknown;
   headers?: HeadersInit;
   method?: "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
+  /** Overrides the configured origin, for a request an emailed link has
+   * already bound to a region. */
+  origin?: string;
   token?: string | null;
 }
 
@@ -78,7 +85,8 @@ export function createPortalAPIClient(config: PortalAPIClientConfiguration) {
       options.token === undefined ? config.readToken() : options.token;
     if (token !== null) headers.set("Authorization", `Bearer ${token}`);
 
-    const response = await fetch(`${config.apiPrefix}${path}`, {
+    const origin = options.origin ?? config.origin?.() ?? "";
+    const response = await fetch(`${origin}${config.apiPrefix}${path}`, {
       method: options.method ?? (options.body === undefined ? "GET" : "POST"),
       headers,
       body:

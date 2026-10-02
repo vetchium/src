@@ -512,7 +512,7 @@ pass. The full suite is required at FC-M11 and FC-M12.
 - [x] FC-M0 — Decision record and plan
 - [x] FC-M1 — Regional API host with CORS (additive)
 - [x] FC-M2 — Region tables and consistency test
-- [ ] FC-M3 — Shared region mechanism in portal-ui
+- [x] FC-M3 — Shared region mechanism in portal-ui
 - [ ] FC-M4 — Hub UI goes global
 - [ ] FC-M5 — Orgs UI goes global
 - [ ] FC-M6 — Backend and contracts
@@ -530,3 +530,4 @@ One line per finished milestone: date, short sha, deviations or limitations.
 - 2026-10-02 — FC-M0 — decision record and plan committed.
 - 2026-10-02 — FC-M1 — `<r>.api.vetchium.localhost` routes `/api/hub/` and `/api/orgs/` with Traefik CORS (GET, POST; `Authorization`, `Content-Type`, `Idempotency-Key`; max-age 86400). The §3 dev hostnames resolve for curl and Node; no change. The preflight, wrong-origin, and cross-portal-origin checks passed for all four regions, and the old portal hosts still serve.
 - 2026-10-02 — FC-M2 — tables are `dev`/`ci`/`production`, not `local`/`production`, because CI data differs from dev; §3 and FC-M7 updated. `TestPortalRegionTablesMatchCheckedInConfiguration` checks both tables against configs and catalogs (mutation-checked). `loadRegionTable` exists but no portal calls it yet: FC-M4 and FC-M5 wire it into `vite.config.ts` to fail the build. All three tables are bundled; tree-shaking to the selected one is left to FC-M4.
+- 2026-10-02 — FC-M3 — `@vetchium/portal-ui/region-selection` (store, default order, `region=` parsing, session-first `createRegionalAPIOrigin`), `createRegionalSessionStorage` in `session`, an optional `origin` provider plus a per-request `origin` override in `api` (for emailed-link pages), and `@vetchium/portal-ui/region-picker`. The default uses only an explicit region subtag of the first language tag that has one; no country is inferred from a bare language. The store remembers on `remember()`; the portals decide when to call it. `APIError` dropped parameter properties so Node can test `api.ts`.

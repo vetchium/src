@@ -17,6 +17,8 @@
     "./preferences": "./src/preferences.tsx",
     "./providers": "./src/providers.tsx",
     "./recovery-codes": "./src/recovery-codes.tsx",
+    "./region-picker": "./src/region-picker.tsx",
+    "./region-selection": "./src/region-selection.ts",
     "./regions": "./src/regions.ts",
     "./runtime-config": "./src/runtime-config.ts",
     "./security": "./src/security.tsx",
