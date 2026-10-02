@@ -73,6 +73,12 @@ Each item: what is not done, and what must be decided first.
   legal entity); remembered Org sessions; enterprise SSO; Org migration between
   regions; openings and every other hiring feature.
 
+- Gold ticket-based support: after Org plans and user management
+  (`docs/org-subscriptions-plan.md`) land, give Gold Org users a way to raise
+  and track support tickets, gated on the plan's ticket-support entitlement.
+  Decide between building tickets into the portals and integrating a ticketing
+  SaaS, and settle who may open tickets, data residency, and response targets.
+
 ## Global portals
 
 - `vetchium.com/org/<domain>` is a reserved placeholder. Not built: Org
