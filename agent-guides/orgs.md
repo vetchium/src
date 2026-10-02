@@ -157,12 +157,10 @@ by the `workers` schedule and check-now.
 ## Sign-in and account security
 
 - Sign-in takes the domain, email address, and password.
-- When no local Org knows the domain, resolve it in the global directory before
-  checking any password. If another tenant owns it, answer
-  `org-homed-elsewhere` with the home `tenant_id`; the portal switches its
-  region picker in place and keeps what the user entered.
-- An unknown domain, unknown user, and wrong password produce the same
-  `org-invalid-credentials`.
+- Authenticate only in the selected region; never resolve the domain globally
+  to locate or hint at a different sign-in region.
+- An unknown domain, unknown user, wrong region, and wrong password produce
+  the same `org-invalid-credentials`.
 - Refuse a disabled Org user with `org-user-disabled`, following the Hub and
   admin conventions.
 - TOTP is optional and follows the Hub and admin flow: login challenge, TOTP or
@@ -189,7 +187,7 @@ by the `workers` schedule and check-now.
 ## Portal
 
 - `orgs-ui` provides region choice, signup request, the private-link
-  completion page, sign-in with the homed-elsewhere region switch, the TOTP
+  completion page, sign-in with a mandatory empty region picker, the TOTP
   step, forgot and reset password, the signed-in shell, account security, the
   failing banner, and the suspended (restore-domain) screen.
 - Ship every user-visible string in every `orgs-ui` locale.

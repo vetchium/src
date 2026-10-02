@@ -19,7 +19,7 @@ export function RegionField({
   onChange,
   disabled,
 }: {
-  value: string;
+  value: string | undefined;
   onChange: (tenantId: string) => void;
   disabled?: boolean;
 }) {

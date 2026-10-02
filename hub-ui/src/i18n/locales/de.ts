@@ -62,8 +62,6 @@ export const de = {
     forgotPassword: "Passwort vergessen?",
     noAccount: "Neu bei Vetchium?",
     signup: "Konto erstellen",
-    wrongRegionHint:
-      "Wenn E-Mail-Adresse und Passwort stimmen, prüfen Sie, ob die ausgewählte Region die ist, in der Sie Ihr Konto erstellt haben.",
   },
   twoFactor: {
     documentTitle: "Zwei-Faktor-Prüfung | Vetchium",
@@ -156,7 +154,8 @@ export const de = {
     signupUnavailable:
       "Diese Region nimmt derzeit keine Registrierungen aus Ihrem Land an. Wählen Sie eine andere Region.",
     generic: "Ein Fehler ist aufgetreten. Versuchen Sie es erneut.",
-    invalidCredentials: "E-Mail-Adresse oder Passwort ist falsch.",
+    invalidCredentials:
+      "Die E-Mail-Adresse oder das Passwort ist falsch, oder die falsche Region wurde ausgewählt.",
     userDisabled:
       "Dieses Konto wurde deaktiviert. Wenden Sie sich an Ihre Vetchium-Administration.",
     signupDomainNotAllowed:

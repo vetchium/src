@@ -16,17 +16,23 @@ import {
   signupToken,
 } from "../lib/orgs-api.ts";
 import { ORGS_PORTAL, rememberRegion } from "../lib/portals.ts";
+import { chooseRegion } from "../lib/region-ui.ts";
 
 // Lifecycle tests wait for the CI re-verification timings (2s checks, 8s
 // grace), which is longer than the default budget.
 test.describe.configure({ timeout: 90_000 });
 
-/** Signs in from the login page, in the region the test's context remembers. */
-async function signIn(page: Page, org: SignedUpOrg) {
+/** Signs in using an explicit region choice. */
+async function signIn(
+  page: Page,
+  org: SignedUpOrg,
+  region: "sgp" | "usa1" = "sgp",
+) {
   await page.goto(`${ORGS_PORTAL}/login?domain=${org.domain}`);
   await expect(page.getByLabel("Organization domain")).toHaveValue(org.domain);
   await page.getByLabel("Email address").fill(org.emailAddress);
   await page.getByLabel("Password", { exact: true }).fill(org.password);
+  await chooseRegion(page, region);
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
@@ -100,7 +106,7 @@ test("signs an Org up through region choice, DNS proof and sign-in", async ({
   }
 });
 
-test("sends a sign-in at the wrong region to the Org's own region", async ({
+test("requires the user to correct a wrong sign-in region", async ({
   context,
   page,
   request,
@@ -108,13 +114,11 @@ test("sends a sign-in at the wrong region to the Org's own region", async ({
   const org = await signupOrg(new OrgsAPI(request, "sgp"));
   try {
     await rememberRegion(context, "orgs", "usa1");
-    await signIn(page, org);
-    const notice = page.getByTestId("login-homed-elsewhere");
-    await expect(notice).toBeVisible();
-    await notice
-      .getByRole("button", { name: "Continue to that region" })
-      .click();
-    await expect(notice).toBeHidden();
+    await signIn(page, org, "usa1");
+    await expect(page.getByRole("alert")).toContainText(
+      "the selected region is wrong",
+    );
+    await chooseRegion(page, "sgp");
     await expect(page).toHaveURL(`${ORGS_PORTAL}/login?domain=${org.domain}`);
     await expect(page.getByLabel("Organization domain")).toHaveValue(
       org.domain,

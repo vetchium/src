@@ -17,7 +17,7 @@ import {
   ORGS_PORTAL,
   rememberRegion,
 } from "../lib/portals.ts";
-import { cleanupPasswordResetLedger } from "../lib/region-ui.ts";
+import { chooseRegion, cleanupPasswordResetLedger } from "../lib/region-ui.ts";
 
 const token = "a".repeat(64);
 const domain = "mocked.example";
@@ -161,6 +161,7 @@ test("a wrong password is refused without leaving the sign-in page", async ({
     await page.goto(`${ORGS_PORTAL}/login?domain=${org.domain}`);
     await page.getByLabel("Email address").fill(org.emailAddress);
     await page.getByLabel("Password", { exact: true }).fill(orgPassword());
+    await chooseRegion(page, "sgp");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByRole("alert")).toBeVisible();
     await expect(page).toHaveURL(`${ORGS_PORTAL}/login?domain=${org.domain}`);

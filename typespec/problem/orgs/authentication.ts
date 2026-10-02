@@ -64,22 +64,3 @@ export const RecentAuthenticationRequiredError: Readonly<Details> = {
   detail:
     "Full authentication must have completed within the preceding five minutes",
 };
-
-export const OrgHomedElsewhereErrorType =
-  "vetchium-problem-details/org-homed-elsewhere";
-
-export interface HomedElsewhereDetails extends Details {
-  type: typeof OrgHomedElsewhereErrorType;
-  tenant_id: string;
-}
-
-export function isHomedElsewhereProblem(
-  value: unknown,
-): value is HomedElsewhereDetails {
-  if (typeof value !== "object" || value === null) return false;
-  const problem = value as Record<string, unknown>;
-  return (
-    problem.type === OrgHomedElsewhereErrorType &&
-    typeof problem.tenant_id === "string"
-  );
-}

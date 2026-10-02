@@ -47,8 +47,8 @@ count. Any test may run at any moment, on any worker, repeatedly.
   `apiOrigin(tenant)` (`lib/portals.ts`). Admin stays at
   `admin-ui.<region>.localhost`, the config `baseURL` (`PLAYWRIGHT_BASE_URL`
   overrides it).
-- A test signing in through a portal calls `rememberRegion(context, portal,
-  tenant)` before the first navigation; only picker tests choose on the page.
+- A test signing in through a portal explicitly chooses its region on the page.
+  `rememberRegion` sets preferences only for flows that use preselection.
 - Read emailed links with `emailedLinkToken` (checks `region=`) and open them as
   emailed.
 

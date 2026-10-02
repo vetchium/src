@@ -573,23 +573,6 @@ func (q *Queries) GetOrgUserForLogin(ctx context.Context, arg GetOrgUserForLogin
 	return i, err
 }
 
-const localOrgDomainExists = `-- name: LocalOrgDomainExists :one
-SELECT EXISTS (
-    SELECT 1
-    FROM vetchium.org_domains AS d
-    JOIN vetchium.orgs AS o ON o.org_did = d.org_did
-    WHERE d.domain = $1
-      AND o.org_state IN ('active', 'suspended')
-) AS known
-`
-
-func (q *Queries) LocalOrgDomainExists(ctx context.Context, domain string) (bool, error) {
-	row := q.db.QueryRow(ctx, localOrgDomainExists, domain)
-	var known bool
-	err := row.Scan(&known)
-	return known, err
-}
-
 const lockOrgUserCredentialMutation = `-- name: LockOrgUserCredentialMutation :one
 SELECT org_user_id
 FROM vetchium.org_users

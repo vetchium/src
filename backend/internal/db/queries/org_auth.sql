@@ -22,15 +22,6 @@ WHERE d.domain = sqlc.arg(domain)
 ORDER BY (d.domain_state = 'released'), d.created_at DESC
 LIMIT 1;
 
--- name: LocalOrgDomainExists :one
-SELECT EXISTS (
-    SELECT 1
-    FROM vetchium.org_domains AS d
-    JOIN vetchium.orgs AS o ON o.org_did = d.org_did
-    WHERE d.domain = sqlc.arg(domain)
-      AND o.org_state IN ('active', 'suspended')
-) AS known;
-
 -- name: CreateOrgSession :one
 WITH updated_user AS (
     UPDATE vetchium.org_users AS u

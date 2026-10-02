@@ -11,7 +11,6 @@ import type {
   VerifyRecoveryCodeResponse,
 } from "typespec/orgs/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/orgs/auth/types";
-import type { HomedElsewhereDetails } from "typespec/problem/orgs/authentication";
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
 import { currentTOTP } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
@@ -138,25 +137,28 @@ test.describe("Org sign-in", () => {
     }
   });
 
-  test("sends an Org homed elsewhere to its own region", async ({
+  test("rejects an Org in another region without revealing its home", async ({
     request,
   }) => {
     const sgp = new OrgsAPI(request, "sgp");
     const org = await signupOrg(sgp);
     try {
-      const response = await new OrgsAPI(request, "usa1").post("/login", {
-        domain: org.domain,
-        email_address: org.emailAddress,
-        password: "not-checked-here",
-      });
-      await expectProblem(
-        response,
-        409,
-        "vetchium-problem-details/org-homed-elsewhere",
-      );
-      const body = await responseJSON<HomedElsewhereDetails>(response);
-      expect(body.tenant_id).toBe("sgp");
-      expect(body).not.toHaveProperty("orgs_url");
+      for (const tenant of ["usa1", "ind1"] as const) {
+        for (const password of [org.password, "wrong-password"]) {
+          const response = await new OrgsAPI(request, tenant).post("/login", {
+            domain: org.domain,
+            email_address: org.emailAddress,
+            password,
+          });
+          await expectProblem(response, 401, invalidCredentials);
+          expect(response.headers()["www-authenticate"]).toBe(
+            'VetchiumLogin realm="orgs"',
+          );
+          const body = await responseJSON<Record<string, unknown>>(response);
+          expect(body).not.toHaveProperty("tenant_id");
+          expect(body).not.toHaveProperty("orgs_url");
+        }
+      }
     } finally {
       await deleteOrgVerificationRecord(org.domain);
       cleanupOrg(org.domain);

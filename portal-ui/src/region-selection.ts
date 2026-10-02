@@ -9,8 +9,8 @@ export function findRegion(
 }
 
 /**
- * The region pre-selected on a sign-in page: the one this browser last chose,
- * else the one recommended for the country in the browser's first language
+ * The region pre-selected on a recovery or signup page: the one this browser
+ * last chose, else the one recommended for the country in the browser's first language
  * tag that names one, else the table's default. Only an explicit region
  * subtag counts; inferring a country from a bare language would place, for
  * example, every "en" speaker in the United States.

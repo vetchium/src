@@ -22,6 +22,11 @@ export function useRegionSelection(
   return [tenantId, select] as const;
 }
 
+/** Sign-in requires a fresh choice, independent of saved preferences or links. */
+export function useExplicitRegionSelection() {
+  return useState<string | undefined>();
+}
+
 export interface RegionPickerTranslations {
   /** Field label. */
   label: string;
@@ -48,7 +53,7 @@ export function RegionPicker({
 }: {
   id: string;
   regions: readonly PortalRegion[];
-  value: string;
+  value: string | undefined;
   onChange: (tenantId: string) => void;
   disabled?: boolean;
   translations: RegionPickerTranslations;
@@ -67,6 +72,7 @@ export function RegionPicker({
     >
       <Select
         id={id}
+        aria-required="true"
         value={value}
         onChange={onChange}
         disabled={disabled}

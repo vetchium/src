@@ -15,7 +15,6 @@ import { emailedLinkToken, HUB_PORTAL } from "../lib/portals.ts";
 import {
   chooseOption,
   expect,
-  expectSelectedRegion,
   recordRegionalAPIHosts,
   test,
 } from "../lib/region-ui.ts";
@@ -157,7 +156,7 @@ test("a signup is requested from, and completed at, the chosen region", async ({
 
     const next = await context.newPage();
     await next.goto(`${HUB_PORTAL}/login`);
-    await expectSelectedRegion(next, "usa1");
+    await expect(next.getByRole("button", { name: "Sign in" })).toBeDisabled();
   } finally {
     cleanupHubUser(email, "usa1");
     cleanupHubSignupDomain(domain, "usa1");
@@ -207,6 +206,6 @@ for (const home of [
     await expect(signIn).toHaveAttribute("href", home.login);
     await signIn.click();
     await expect(page).toHaveURL(`${HUB_PORTAL}${home.login}`);
-    if (home.tenantID === "deu") await expectSelectedRegion(page, "deu");
+    await expect(page.getByRole("button", { name: "Sign in" })).toBeDisabled();
   });
 }

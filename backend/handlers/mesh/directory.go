@@ -17,9 +17,6 @@ import (
 )
 
 type Directory interface {
-	ResolveProfileSlug(
-		context.Context, directoryspec.ResolveProfileSlugRequest,
-	) (directoryspec.ResolveProfileSlugResponse, *problem.Details, error)
 	ReserveHubPrincipal(
 		context.Context, directoryspec.ReserveHubPrincipalRequest,
 	) (directoryclient.Outcome, error)
@@ -56,12 +53,6 @@ type Directory interface {
 	AbandonHubAccountEmailChange(
 		context.Context, directoryspec.AbandonHubAccountEmailChangeRequest,
 	) (directoryclient.EmailChangeOutcome, error)
-}
-
-func ResolveProfileSlug(
-	runtime *apiserver.Runtime, directory Directory, credential string,
-) http.HandlerFunc {
-	return relayRead(runtime, credential, directory.ResolveProfileSlug)
 }
 
 func ResolveOrgDomain(

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { HUB_PORTAL, rememberRegion } from "../lib/portals.ts";
+import { chooseRegion } from "../lib/region-ui.ts";
 
 const sessionKey = "vetchium.hub.session";
 const sessionToken = "s".repeat(64);
@@ -387,6 +388,7 @@ test("password sign in stores the returned session and opens the home page", asy
     .getByRole("textbox", { name: "Email address" })
     .fill("person@example.com");
   await page.getByLabel("Password", { exact: true }).fill("a valid password");
+  await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(`${HUB_PORTAL}/`);
   await expect(
@@ -454,6 +456,7 @@ test("recovery-code sign in uses text input and can restart", async ({
     .getByRole("textbox", { name: "Email address" })
     .fill("person@example.com");
   await page.getByLabel("Password", { exact: true }).fill("a valid password");
+  await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/login\/two-factor/);
   await page.getByText("Recovery code", { exact: true }).click();

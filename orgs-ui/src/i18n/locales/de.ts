@@ -88,7 +88,7 @@ export const de = {
     directoryUnavailable:
       "Die Inhaberschaft der Domain kann gerade nicht geprüft werden. Versuchen Sie es in einigen Minuten erneut.",
     invalidCredentials:
-      "Domain, E-Mail-Adresse oder Passwort wurden nicht akzeptiert.",
+      "Die Organisationsdomain, E-Mail-Adresse oder das Passwort ist falsch, oder die falsche Region wurde ausgewählt.",
     userDisabled:
       "Dieses Konto ist deaktiviert. Wenden Sie sich an einen Superadmin Ihrer Organisation.",
     incorrectPassword: "Das Passwort wurde nicht akzeptiert.",
@@ -185,14 +185,6 @@ export const de = {
     forgotPassword: "Passwort vergessen?",
     noAccount: "Ist Ihre Organisation noch nicht auf Vetchium?",
     signUp: "Jetzt registrieren",
-    wrongRegionHint:
-      "Wenn Domain, E-Mail-Adresse und Passwort stimmen, prüfen Sie, ob die ausgewählte Region die ist, in der sich Ihre Organisation registriert hat.",
-    homedElsewhere: {
-      title: "{{domain}} meldet sich in einer anderen Region an",
-      description:
-        "Das Konto Ihrer Organisation wird in einer anderen Vetchium-Region geführt. Melden Sie sich dort an.",
-      action: "Weiter zu dieser Region",
-    },
   },
   twoFactor: {
     documentTitle: "Zwei-Faktor-Prüfung | Vetchium für Organisationen",

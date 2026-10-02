@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 
-	directoryspec "github.com/vetchium/src/typespec/directory"
 	"github.com/vetchium/src/typespec/orgs"
 	orgsauth "github.com/vetchium/src/typespec/orgs/auth"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
@@ -38,7 +37,8 @@ func Login(s *orgsruntime.Server) http.HandlerFunc {
 			},
 		)
 		if errors.Is(err, pgx.ErrNoRows) {
-			unknownLogin(s, w, r, request)
+			credentials.CompareUnknownPassword(string(request.Password))
+			invalidCredentials(s, w, r)
 			return
 		}
 		if err != nil {
@@ -66,54 +66,6 @@ func Login(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		loginWithoutTOTP(s, w, r, user)
 	}
-}
-
-// unknownLogin answers a sign-in that matched no local Org user. A domain
-// that no local Org knows may belong to another tenant, and the user is sent
-// there before any password is checked; domain ownership is already public
-// through its TXT record.
-func unknownLogin(
-	s *orgsruntime.Server, w http.ResponseWriter, r *http.Request,
-	request orgsauth.LoginRequest,
-) {
-	known, err := s.Queries.LocalOrgDomainExists(
-		r.Context(), string(request.Domain),
-	)
-	if err != nil {
-		s.InternalError(r.Context(), w, "check local Org domain", err)
-		return
-	}
-	if !known {
-		owner, details, err := s.Directory.ResolveOrgDomain(
-			r.Context(), directoryspec.ResolveOrgDomainRequest{
-				Domain: request.Domain,
-			},
-		)
-		switch {
-		case err != nil || (details != nil &&
-			details.Status != http.StatusNotFound):
-			s.WarnContext(
-				r.Context(), "global directory unavailable",
-				"event", "org_directory_unavailable", "error", err,
-			)
-			s.Problem(r.Context(), w, orgsproblem.DirectoryUnavailableError)
-			return
-		case details == nil && string(owner.HomeTenantID) != s.TenantID:
-			if _, ok := s.Regions.Region(string(owner.HomeTenantID)); ok {
-				s.Problem(r.Context(), w, orgsproblem.HomedElsewhereError(
-					string(owner.HomeTenantID),
-				))
-				return
-			}
-			s.WarnContext(
-				r.Context(), "Org home tenant missing from region catalog",
-				"event", "org_home_tenant_unknown",
-				"tenantID", owner.HomeTenantID,
-			)
-		}
-	}
-	credentials.CompareUnknownPassword(string(request.Password))
-	invalidCredentials(s, w, r)
 }
 
 func invalidCredentials(

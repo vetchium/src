@@ -82,7 +82,7 @@ export const en = {
     directoryUnavailable:
       "Domain ownership cannot be checked right now. Try again in a few minutes.",
     invalidCredentials:
-      "The domain, email address, or password was not accepted.",
+      "The organization domain, email address, or password is incorrect, or the selected region is wrong.",
     userDisabled:
       "This account is disabled. Contact a superadmin of your organization.",
     incorrectPassword: "The password was not accepted.",
@@ -175,14 +175,6 @@ export const en = {
     forgotPassword: "Forgot your password?",
     noAccount: "Organization not on Vetchium yet?",
     signUp: "Sign it up",
-    wrongRegionHint:
-      "If the domain, email, and password are right, check that the selected region is the one where your organization signed up.",
-    homedElsewhere: {
-      title: "{{domain}} signs in at another region",
-      description:
-        "Your organization's account is kept in a different Vetchium region. Continue there to sign in.",
-      action: "Continue to that region",
-    },
   },
   twoFactor: {
     documentTitle: "Two-factor verification | Vetchium for organizations",

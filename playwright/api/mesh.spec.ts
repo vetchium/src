@@ -9,8 +9,6 @@ import type {
   ReserveHubPrincipalRequest,
   ResolveHubAccountEmailRequest,
   ResolveHubAccountEmailResponse,
-  ResolveProfileSlugRequest,
-  ResolveProfileSlugResponse,
   SetHubAliasRequest,
 } from "typespec/directory/directory";
 import type {
@@ -87,10 +85,6 @@ function freshReservation(
 
 const DIRECTORY_ROUTES = [
   {
-    name: "resolve-profile-slug",
-    path: "/mesh/directory/resolve-profile-slug",
-  },
-  {
     name: "reserve-hub-principal",
     path: "/mesh/directory/reserve-hub-principal",
   },
@@ -124,8 +118,6 @@ function baseBody(
   path: (typeof DIRECTORY_ROUTES)[number]["path"],
 ): Record<string, unknown> {
   switch (path) {
-    case "/mesh/directory/resolve-profile-slug":
-      return { slug: randomHubHandle() };
     case "/mesh/directory/reserve-hub-principal":
       return { ...freshReservation("sgp") };
     case "/mesh/directory/activate-hub-principal":
@@ -164,8 +156,6 @@ function invalidFieldBody(
 ): Record<string, unknown> {
   const base = baseBody(path);
   switch (path) {
-    case "/mesh/directory/resolve-profile-slug":
-      return { ...base, slug: "ab" };
     case "/mesh/directory/reserve-hub-principal":
     case "/mesh/directory/activate-hub-principal":
       return { ...base, command_id: "not-a-command-id" };
@@ -291,20 +281,6 @@ function activeMeshEmailPrincipal(
   };
 }
 
-function resolveProfileSlug(
-  tenant: TestTenant,
-  slug: string,
-  observations: APIObservation[],
-): MeshResponse {
-  const body: ResolveProfileSlugRequest = { slug };
-  return meshRelayRequest(
-    tenant,
-    "/mesh/directory/resolve-profile-slug",
-    body,
-    observations,
-  );
-}
-
 function reserveHubPrincipal(
   tenant: TestTenant,
   request: ReserveHubPrincipalRequest,
@@ -425,40 +401,6 @@ for (const route of DIRECTORY_ROUTES) {
     });
   });
 }
-
-test("resolve-profile-slug resolves an active principal's handle over the mesh relay", async ({
-  apiCoverage,
-}) => {
-  const { hubUserDID, handle } = activeMeshPrincipal("sgp", "sgp", apiCoverage);
-  const response = resolveProfileSlug("sgp", handle, apiCoverage);
-  expect(response.status, JSON.stringify(response.body)).toBe(200);
-  expect(response.body).toEqual({
-    hub_user_did: hubUserDID,
-    slug: handle,
-    kind: "handle",
-    home_tenant_id: "sgp",
-    routing_version: 1,
-  } satisfies ResolveProfileSlugResponse);
-});
-
-test("resolve-profile-slug reports not-found for an unknown or not-yet-active slug over the mesh relay", async ({
-  apiCoverage,
-}) => {
-  const reservation = freshReservation("sgp");
-  const reserved = reserveHubPrincipal("sgp", reservation, apiCoverage);
-  expect(reserved.status, JSON.stringify(reserved.body)).toBe(200);
-
-  // A provisioning handle is not yet public, and a slug never reserved
-  // behaves identically: both are indistinguishable "not found" responses.
-  for (const slug of [reservation.handle, randomHubHandle()]) {
-    const response = resolveProfileSlug("sgp", slug, apiCoverage);
-    expect(response.status, JSON.stringify(response.body)).toBe(404);
-    expect(response.body).toMatchObject({
-      type: "vetchium-problem-details/directory-entry-not-found",
-      status: 404,
-    });
-  }
-});
 
 test("reserve-hub-principal deduplicates a repeated command and rejects a changed digest over the mesh relay", async ({
   apiCoverage,
@@ -583,7 +525,7 @@ test("reserve-hub-principal rejects a provisioning window that has already expir
   });
 });
 
-test("activate-hub-principal activates a reserved principal and makes it resolvable over the mesh relay", async ({
+test("activate-hub-principal activates a reserved principal over the mesh relay", async ({
   apiCoverage,
 }) => {
   const reservation = freshReservation("sgp");
@@ -604,9 +546,6 @@ test("activate-hub-principal activates a reserved principal and makes it resolva
     routing_version: 1,
     state: "active",
   } satisfies PrincipalCommandResponse);
-
-  const resolved = resolveProfileSlug("sgp", reservation.handle, apiCoverage);
-  expect(resolved.status, JSON.stringify(resolved.body)).toBe(200);
 });
 
 test("activate-hub-principal rejects a caller outside the principal's home tenant over the mesh relay", async ({
@@ -735,10 +674,6 @@ test("set-hub-alias claims an alias for an active principal and rejects a change
     expect((claimed.body as PrincipalCommandResponse).profile_alias).toBe(
       alias,
     );
-
-    const resolved = resolveProfileSlug("sgp", alias, apiCoverage);
-    expect(resolved.status, JSON.stringify(resolved.body)).toBe(200);
-    expect((resolved.body as ResolveProfileSlugResponse).kind).toBe("alias");
 
     // Reusing the command_id with a different alias changes the stored
     // request digest.

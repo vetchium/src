@@ -7,7 +7,6 @@ import "../../common/idempotency.tsp";
 import "../../problem/common.tsp";
 import "../../problem/details.tsp";
 import "../../problem/orgs/authentication.tsp";
-import "../../problem/orgs/signup.tsp";
 import "./types.tsp";
 
 using TypeSpec.Http;
@@ -66,8 +65,7 @@ union OptionalOrgBearerAuth {
 @route("/api/orgs")
 @tag("Org authentication")
 interface LoginOperations {
-  /** A domain owned by an Org of another tenant is answered with that
-   * tenant's id before any password is checked. */
+  /** Authenticate only in the explicitly selected region. */
   @route("/login")
   @post
   login(@body request: LoginRequest):
@@ -80,10 +78,8 @@ interface LoginOperations {
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.InvalidOrgCredentialsErrorResponse
     | Vetchium.Problem.OrgUserDisabledErrorResponse
-    | Vetchium.Problem.OrgHomedElsewhereErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
-    | Vetchium.Problem.InternalServerErrorResponse
-    | Vetchium.Problem.OrgDirectoryUnavailableErrorResponse;
+    | Vetchium.Problem.InternalServerErrorResponse;
 
   @route("/reauthenticate")
   @post

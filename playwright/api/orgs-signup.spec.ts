@@ -352,7 +352,7 @@ test.describe("Org signup completion", () => {
 
 // ind1 deliberately cannot reach the global coordinator in the CI
 // configuration, so every decision that needs domain ownership fails closed.
-test("fails closed when the global directory is unreachable", async ({
+test("signup fails closed while login stays local when the directory is unreachable", async ({
   request,
 }) => {
   const api = new OrgsAPI(request, "ind1");
@@ -375,8 +375,8 @@ test("fails closed when the global directory is unreachable", async ({
         email_address: `it@${domain}`,
         password: orgPassword(),
       }),
-      503,
-      directoryUnavailable,
+      401,
+      "vetchium-problem-details/org-invalid-credentials",
     );
 
     const token = randomBytes(32).toString("hex");

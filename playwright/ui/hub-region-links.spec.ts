@@ -5,7 +5,6 @@ import { emailedLinkToken, HUB_PORTAL } from "../lib/portals.ts";
 import {
   cleanupPasswordResetLedger,
   expect,
-  expectSelectedRegion,
   recordRegionalAPIHosts,
   test,
 } from "../lib/region-ui.ts";
@@ -94,10 +93,10 @@ test("an emailed Hub reset link resets the password at the region it names", asy
     expect(new Set(hosts)).toEqual(new Set(["sgp.api.vetchium.localhost"]));
     await login(request, "sgp", user.email, password);
 
-    // Completing the reset remembers the link's region for the next sign-in.
+    // Even a completed reset does not preselect the next sign-in region.
     const next = await context.newPage();
     await next.goto(`${HUB_PORTAL}/login`);
-    await expectSelectedRegion(next, "sgp");
+    await expect(next.getByRole("button", { name: "Sign in" })).toBeDisabled();
   } finally {
     cleanupPasswordResetLedger("hub", "sgp", resetToken);
   }

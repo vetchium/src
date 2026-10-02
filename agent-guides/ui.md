@@ -80,8 +80,12 @@ Applies to `admin-ui/`, `hub-ui/`, `orgs-ui/`, and `portal-ui/`.
   `en-US`.
 - The region is chosen before any personal data: sign-in and forgot-password
   show `RegionPicker` first; signup offers the eligible regions for the chosen
-  country. Pre-selection: remembered region, else the recommendation for the
-  first language tag naming a country, else the table default.
+  country. Sign-in starts empty, ignores remembered and link regions, and
+  requires an explicit choice before submission. Forgot-password preselects
+  the remembered region, else the browser-country recommendation, else the
+  table default.
+- Sign-in failures name invalid credentials or a possibly wrong region together;
+  never identify or suggest the account's home region.
 - A session token belongs to the region that issued it; the stored and
   in-memory session carry that region, and session requests go only there
   (`createSessionAPIOrigin`, `createRegionalSessionStorage`).

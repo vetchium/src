@@ -64,22 +64,3 @@ var RecentAuthenticationRequiredError = problem.Details{
 	Status: 401,
 	Detail: "Full authentication must have completed within the preceding five minutes",
 }
-
-// HomedElsewhereDetails is the Go companion of TypeSpec's
-// OrgHomedElsewhereDetails.
-type HomedElsewhereDetails struct {
-	problem.Details
-	TenantID string `json:"tenant_id"`
-}
-
-func HomedElsewhereError(tenantID string) HomedElsewhereDetails {
-	return HomedElsewhereDetails{
-		Details: problem.Details{
-			Type:   "vetchium-problem-details/org-homed-elsewhere",
-			Title:  "Org homed in another region",
-			Status: 409,
-			Detail: "This Org signs in at another region",
-		},
-		TenantID: tenantID,
-	}
-}

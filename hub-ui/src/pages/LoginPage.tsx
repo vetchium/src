@@ -1,20 +1,14 @@
 import { useMutation } from "@tanstack/react-query";
-import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
+import { useExplicitRegionSelection } from "@vetchium/portal-ui/region-picker";
 import { Button, Card, Checkbox, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import type { LoginRequest } from "typespec/hub/auth/login";
-import { InvalidCredentialsError } from "typespec/problem/hub/authentication";
-import { isProblem } from "../api/client";
 import { hubAPI } from "../api/hub";
-import { regionTable } from "../app/regions";
 import { useAuth } from "../auth/AuthContext";
 import { safeReturnTo } from "../auth/navigation";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
-import {
-  RegionField,
-  useSelectedRegion,
-} from "../features/regions/RegionField";
+import { RegionField } from "../features/regions/RegionField";
 
 export function LoginPage() {
   const { t } = useTranslation();
@@ -31,14 +25,13 @@ export function LoginPage() {
       tenantId: string;
     }) => hubAPI.login(request, tenantId),
   });
-  const [region, setRegion] = useSelectedRegion(
-    regionFromSearchParams(regionTable, search),
-  );
+  const [region, setRegion] = useExplicitRegionSelection();
   if (auth.authenticated) return <Navigate replace to={returnTo} />;
 
   const submit = async (request: LoginRequest) => {
     // The region the request is sent to also issues the session, so it is
     // captured once rather than re-read after the response.
+    if (region === undefined) return;
     const tenantId = region;
     const attempt = auth.beginAttempt();
     let response: Awaited<ReturnType<typeof hubAPI.login>>;
@@ -71,11 +64,6 @@ export function LoginPage() {
           </Typography.Text>
         </div>
         <APIErrorAlert error={mutation.error} />
-        {isProblem(mutation.error, InvalidCredentialsError.type) && (
-          <Typography.Text type="secondary">
-            {t("login.wrongRegionHint")}
-          </Typography.Text>
-        )}
         <Form<LoginRequest>
           layout="vertical"
           initialValues={{ remember_me: false }}
@@ -112,6 +100,7 @@ export function LoginPage() {
             type="primary"
             htmlType="submit"
             block
+            disabled={region === undefined}
             loading={mutation.isPending}
           >
             {t("login.action")}

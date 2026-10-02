@@ -1,11 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { safeReturnTo } from "@vetchium/portal-ui/navigation";
 import { usePendingOperations } from "@vetchium/portal-ui/pending-operations";
-import {
-  findRegion,
-  regionFromSearchParams,
-} from "@vetchium/portal-ui/region-selection";
-import { Alert, App, Button, Card, Flex, Form, Input, Typography } from "antd";
+import { useExplicitRegionSelection } from "@vetchium/portal-ui/region-picker";
+import { App, Button, Card, Flex, Form, Input, Typography } from "antd";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
@@ -16,66 +13,19 @@ import {
   validateLoginRequest,
 } from "typespec/orgs/auth/login";
 import { isOrgDomain, normalizeOrgDomain } from "typespec/orgs/types";
-import {
-  InvalidCredentialsError,
-  isHomedElsewhereProblem,
-} from "typespec/problem/orgs/authentication";
-import { APIError } from "../api/client";
 import { orgsAPI } from "../api/orgs";
 import { paths } from "../app/paths";
-import { regionTable } from "../app/regions";
 
 import type { LoginAttempt } from "../auth/AuthContext";
 import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
-import {
-  RegionField,
-  useSelectedRegion,
-} from "../features/regions/RegionField";
+import { RegionField } from "../features/regions/RegionField";
 
 function forgotPasswordPath(domain: string): string {
   const normalized = normalizeOrgDomain(domain);
   return isOrgDomain(normalized)
     ? `${paths.forgotPassword}?domain=${encodeURIComponent(normalized)}`
     : paths.forgotPassword;
-}
-
-/** Offers to switch the picker to the Org's home region, keeping what the
- * user entered, when that region is one this portal knows. */
-function HomedElsewhere({
-  error,
-  domain,
-  onSwitch,
-}: {
-  error: unknown;
-  domain: string;
-  onSwitch: (tenantId: string) => void;
-}) {
-  const { t } = useTranslation();
-  const problem = error instanceof APIError ? error.problem : undefined;
-  if (!isHomedElsewhereProblem(problem)) return null;
-  const home = findRegion(regionTable, problem.tenant_id);
-  return (
-    <div data-testid="login-homed-elsewhere">
-      <Alert
-        type="info"
-        showIcon
-        title={t("login.homedElsewhere.title", { domain })}
-        description={t("login.homedElsewhere.description")}
-        action={
-          home === undefined ? undefined : (
-            <Button
-              type="primary"
-              size="small"
-              onClick={() => onSwitch(home.tenantId)}
-            >
-              {t("login.homedElsewhere.action")}
-            </Button>
-          )
-        }
-      />
-    </div>
-  );
 }
 
 export function LoginPage() {
@@ -94,9 +44,7 @@ export function LoginPage() {
       tenantId: string;
     }) => orgsAPI.login(request, tenantId),
   });
-  const [region, setRegion] = useSelectedRegion(
-    regionFromSearchParams(regionTable, searchParams),
-  );
+  const [region, setRegion] = useExplicitRegionSelection();
   const [form] = Form.useForm<LoginRequest>();
   const enteredDomain = Form.useWatch("domain", form) ?? "";
   const { message } = App.useApp();
@@ -129,6 +77,7 @@ export function LoginPage() {
     if (validateLoginRequest(request).length !== 0) return;
     // The region the request is sent to also issues the session, so it is
     // captured once rather than re-read after the response.
+    if (region === undefined) return;
     const tenantId = region;
     // Claimed before the request so that a response arriving after the user
     // has started another sign-in is discarded rather than replacing it.
@@ -153,10 +102,6 @@ export function LoginPage() {
     navigate(returnTo, { replace: true });
   };
 
-  const homedElsewhere =
-    mutation.error instanceof APIError &&
-    isHomedElsewhereProblem(mutation.error.problem);
-
   return (
     <Card className="auth-card">
       <title>{t("login.documentTitle")}</title>
@@ -167,24 +112,7 @@ export function LoginPage() {
             {t("login.description")}
           </Typography.Text>
         </div>
-        {homedElsewhere && mutation.variables !== undefined ? (
-          <HomedElsewhere
-            error={mutation.error}
-            domain={normalizeOrgDomain(mutation.variables.request.domain)}
-            onSwitch={(tenantId) => {
-              mutation.reset();
-              setRegion(tenantId);
-            }}
-          />
-        ) : (
-          <APIErrorAlert error={mutation.error} />
-        )}
-        {mutation.error instanceof APIError &&
-          mutation.error.problem?.type === InvalidCredentialsError.type && (
-            <Typography.Text type="secondary">
-              {t("login.wrongRegionHint")}
-            </Typography.Text>
-          )}
+        <APIErrorAlert error={mutation.error} />
         <Form<LoginRequest>
           form={form}
           layout="vertical"
@@ -246,6 +174,7 @@ export function LoginPage() {
             type="primary"
             htmlType="submit"
             block
+            disabled={region === undefined}
             loading={mutation.isPending}
           >
             {t("login.action")}

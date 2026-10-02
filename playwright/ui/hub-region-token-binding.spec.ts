@@ -17,6 +17,7 @@ import {
 
 async function signInAtSgp(page: Page, user: HubTestUser): Promise<void> {
   await page.goto(`${HUB_PORTAL}/login`);
+  await chooseRegion(page, "sgp");
   await page.getByLabel("Email address").fill(user.email);
   await page.getByLabel("Password", { exact: true }).fill(user.password);
   await page.getByRole("button", { name: "Sign in" }).click();

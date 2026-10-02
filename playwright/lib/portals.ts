@@ -10,7 +10,7 @@ export function apiOrigin(tenant: TestTenant): string {
   return `http://${tenant}.api.vetchium.localhost`;
 }
 
-// The storage keys the portals remember the sign-in region under.
+// Regional preferences used by signup and password recovery.
 const regionKeys = {
   hub: "vetchium.hub.region",
   orgs: "vetchium.orgs.region",
@@ -18,8 +18,7 @@ const regionKeys = {
 
 /**
  * Starts every page in `context` with `tenant` remembered as the portal's
- * sign-in region, as a returning visitor would have it. Tests of the region
- * picker itself choose the region on the page instead.
+ * preference. Sign-in ignores this preference and requires a choice on the page.
  */
 export async function rememberRegion(
   context: BrowserContext,

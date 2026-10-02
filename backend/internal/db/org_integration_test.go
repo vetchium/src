@@ -139,9 +139,6 @@ func TestOrgSignupAndDomainLifecycleIntegration(t *testing.T) {
 		user.OrgUserState != sqlc.VetchiumOrgUserStateActive {
 		t.Fatalf("login user = %+v, %v", user, err)
 	}
-	if known, err := q.LocalOrgDomainExists(ctx, domain); err != nil || !known {
-		t.Fatalf("local domain known = %t, %v", known, err)
-	}
 	held, err := q.OrgUserHoldsPermission(ctx, sqlc.OrgUserHoldsPermissionParams{
 		OrgUserID: user.OrgUserID, Permission: "org:superadmin",
 	})

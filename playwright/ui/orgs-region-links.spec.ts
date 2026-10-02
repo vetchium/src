@@ -9,7 +9,6 @@ import { emailedLinkToken, ORGS_PORTAL } from "../lib/portals.ts";
 import {
   cleanupPasswordResetLedger,
   expect,
-  expectSelectedRegion,
   recordRegionalAPIHosts,
   test,
 } from "../lib/region-ui.ts";
@@ -83,7 +82,7 @@ test("an emailed Orgs reset link resets the password at the region it names", as
 
     const next = await context.newPage();
     await next.goto(`${ORGS_PORTAL}/login`);
-    await expectSelectedRegion(next, "sgp");
+    await expect(next.getByRole("button", { name: "Sign in" })).toBeDisabled();
   } finally {
     cleanupPasswordResetLedger("orgs", "sgp", resetToken);
   }

@@ -308,10 +308,6 @@ alias MeshOrgClaimCommandResponse =
   | OrgClaimCommandResponseBase
   | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
 
-alias MeshReadResponse =
-  | ReadResponseBase
-  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
-
 alias MeshCommandResponse =
   | CommandResponseBase
   | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
@@ -425,12 +421,6 @@ interface Operations {
 @tag("Mesh global-directory relay")
 @useAuth(BearerAuth)
 interface MeshOperations {
-  @route("/resolve-profile-slug")
-  @post
-  resolveProfileSlug(
-    @body request: ResolveProfileSlugRequest,
-  ): MeshReadResponse;
-
   @route("/reserve-hub-principal")
   @post
   reserveHubPrincipal(

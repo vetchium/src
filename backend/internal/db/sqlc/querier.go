@@ -224,7 +224,6 @@ type Querier interface {
 	ListRecoverableHubAliasReleases(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
 	ListRecoverableHubSignupCompletions(ctx context.Context) ([]VetchiumHubSignupCompletion, error)
 	ListRecoverableOrgSignupCompletions(ctx context.Context) ([]VetchiumOrgSignupCompletion, error)
-	LocalOrgDomainExists(ctx context.Context, domain string) (bool, error)
 	LockAdminEmailCredentialMutation(ctx context.Context, emailAddress string) (pgtype.UUID, error)
 	LockAdminUserCredentialMutation(ctx context.Context, adminUserID pgtype.UUID) (pgtype.UUID, error)
 	LockHubAccountEmailChange(ctx context.Context, operationID pgtype.UUID) (LockHubAccountEmailChangeRow, error)

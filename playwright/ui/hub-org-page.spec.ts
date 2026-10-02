@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { HUB_PORTAL } from "../lib/portals.ts";
-import { expect, test } from "../lib/region-ui.ts";
+import { chooseRegion, expect, test } from "../lib/region-ui.ts";
 
 async function expectNotAvailable(page: Page, domain: string) {
   const main = page.getByRole("main");
@@ -30,6 +30,7 @@ test("a signed-in Hub user sees the same not-available Organization page", async
   await page.goto(`${HUB_PORTAL}/login?region=sgp`);
   await page.getByLabel("Email address").fill(user.email);
   await page.getByLabel("Password", { exact: true }).fill(user.password);
+  await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(
     page.getByRole("heading", { name: `Welcome back, ${user.displayName}` }),

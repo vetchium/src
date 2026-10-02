@@ -11,10 +11,6 @@ import (
 func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
 	mux.HandleFunc(
-		"POST /mesh/directory/resolve-profile-slug",
-		mesh.ResolveProfileSlug(s.Runtime, s.Directory, s.Credential),
-	)
-	mux.HandleFunc(
 		"POST /mesh/directory/reserve-hub-principal",
 		mesh.ReserveHubPrincipal(s.Runtime, s.Directory, s.Credential),
 	)
