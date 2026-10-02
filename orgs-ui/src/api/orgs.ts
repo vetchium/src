@@ -34,6 +34,15 @@ import type {
 import type { AuthenticatedSessionResponse } from "typespec/orgs/auth/types";
 import type { ListPermissionsResponse } from "typespec/orgs/authorization/management";
 import type {
+  ListInvoicesRequest,
+  ListInvoicesResponse,
+  OrgPaymentMethod,
+  OrgSubscription,
+  PayInvoiceRequest,
+  SetPaymentMethodRequest,
+  SetSubscriptionPlanRequest,
+} from "typespec/orgs/subscriptions/subscriptions";
+import type {
   AcceptInvitationRequest,
   AcceptInvitationResponse,
   CancelInvitationsRequest,
@@ -147,6 +156,23 @@ export const orgsAPI = {
       { method: "POST", idempotencyKey },
     ),
   myInfo: () => apiRequest<MyInfoResponse>("/my-info"),
+  mySubscription: () => apiRequest<OrgSubscription>("/my-subscription"),
+  setSubscriptionPlan: (
+    body: SetSubscriptionPlanRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<OrgSubscription>("/set-subscription-plan", {
+      body,
+      idempotencyKey,
+    }),
+  setPaymentMethod: (body: SetPaymentMethodRequest) =>
+    apiRequest<OrgPaymentMethod>("/set-payment-method", { body }),
+  removePaymentMethod: () =>
+    apiRequest<void>("/remove-payment-method", { method: "POST" }),
+  listInvoices: (body: ListInvoicesRequest) =>
+    apiRequest<ListInvoicesResponse>("/list-invoices", { body }),
+  payInvoice: (body: PayInvoiceRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<OrgSubscription>("/pay-invoice", { body, idempotencyKey }),
   listPermissions: () =>
     apiRequest<ListPermissionsResponse>("/list-permissions"),
   listUsers: (body: ListUsersRequest) =>

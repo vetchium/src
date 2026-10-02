@@ -35,6 +35,13 @@ type hubRegionTable struct {
 	} `json:"regions"`
 }
 
+type orgRegionTable struct {
+	Regions []struct {
+		TenantID string   `json:"tenantId"`
+		OrgPlans []string `json:"orgPlans"`
+	} `json:"regions"`
+}
+
 // TestPortalRegionTablesMatchCheckedInConfiguration keeps the region tables
 // compiled into the global Hub and Orgs portals equal to each environment's
 // tenant configs and signup-regions catalog. The portals are static files
@@ -87,6 +94,11 @@ func TestPortalRegionTablesMatchCheckedInConfiguration(t *testing.T) {
 			decodeStrict(t, filepath.Join(
 				root, "hub-ui", "src", "app", "regions", env.name+".json",
 			), &hub)
+
+			var org orgRegionTable
+			decodeStrict(t, filepath.Join(
+				root, "orgs-ui", "src", "app", "regions", env.name+".json",
+			), &org)
 
 			wantTenants := slices.Sorted(maps.Keys(configs))
 			catalogTenants := make([]string, 0, len(catalog.Regions))
@@ -184,6 +196,32 @@ func TestPortalRegionTablesMatchCheckedInConfiguration(t *testing.T) {
 					)
 				}
 			}
+			orgTenants := make([]string, 0, len(org.Regions))
+			for _, got := range org.Regions {
+				orgTenants = append(orgTenants, got.TenantID)
+				cfg, ok := configs[got.TenantID]
+				if !ok {
+					continue
+				}
+				wantPlans := make([]string, len(cfg.OrgBilling.OfferedPlans))
+				for i, plan := range cfg.OrgBilling.OfferedPlans {
+					wantPlans[i] = string(plan)
+				}
+				if !slices.Equal(got.OrgPlans, wantPlans) {
+					t.Errorf(
+						"org region %q orgPlans = %v, want offeredPlans %v",
+						got.TenantID, got.OrgPlans, wantPlans,
+					)
+				}
+			}
+			slices.Sort(orgTenants)
+			if !slices.Equal(orgTenants, wantTenants) {
+				t.Errorf(
+					"org regions = %v, want config tenants %v",
+					orgTenants, wantTenants,
+				)
+			}
+
 			slices.Sort(hubTenants)
 			if !slices.Equal(hubTenants, wantTenants) {
 				t.Errorf(

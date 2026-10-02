@@ -14,6 +14,7 @@ export const en = {
     openMenu: "Open navigation",
     home: "Home",
     members: "Members",
+    plans: "Plan and billing",
     security: "Security",
     restoreDomain: "Restore domain",
   },
@@ -111,6 +112,17 @@ export const en = {
       "Only a superadmin can change {{email}} or these permissions.",
     userLimitReached:
       "The organization has no free seat: its plan allows {{limit}} users, counting pending invitations.",
+    planNotOffered: "This region does not offer that plan.",
+    billingPastDue:
+      "The plan cannot be changed while an invoice is unpaid. Pay the open invoice first.",
+    paymentMethodRequired: "Save a payment method first.",
+    paymentDeclined:
+      "The saved payment method was declined. Nothing was changed.",
+    invoiceNotOpen: "That invoice is no longer open for payment.",
+    orgSuspended:
+      "Your organization is suspended. Restore its domain to continue.",
+    userLimitExceedsTarget:
+      "Your organization has {{seats}} users and pending invitations, and this plan allows {{limit}}. Disable users or cancel invitations first.",
     permissionRequired: "Only a superadmin of your organization can do this.",
     recentAuthenticationRequired: "Sign in again to continue.",
     totpAlreadyEnabled: "Two-factor authentication is already on.",
@@ -356,6 +368,129 @@ export const en = {
       regenerateConfirm:
         "Replace your recovery codes? The current codes will stop working.",
       regenerated: "New recovery codes were created.",
+    },
+  },
+  billing: {
+    banner: {
+      pastDue: "Your organization's payment is overdue",
+      pastDueDetail:
+        "Users beyond the Free plan's limit may be disabled after {{deadline}} unless the invoice is paid.",
+      ending: "Your plan changes to {{plan}} on {{date}}",
+      endingDetail:
+        "The features of the current plan end then. Choose the current plan again to keep it.",
+      managePlan: "Manage plan",
+      noMethod: "No payment method is saved",
+      noMethodDetail:
+        "Save one so that the next renewal can be collected and your organization stays on its plan.",
+      addMethod: "Add payment method",
+    },
+  },
+  plans: {
+    documentTitle: "Plan and billing | Vetchium for organizations",
+    title: "Plan and billing",
+    description:
+      "Choose the plan for your organization, manage how it is paid for, and review its invoices.",
+    loadingLabel: "Loading plans",
+    names: {
+      "org-free-tier": "Free",
+      "org-silver-tier": "Silver",
+      "org-gold-tier": "Gold",
+    },
+    current: {
+      title: "Current plan",
+      plan: "Plan",
+      state: "Billing",
+      renews: "Renews on",
+      ends: "Plan ends on",
+      scheduled: "Changes to",
+      seatsLabel: "Users",
+      seats: "{{used}} of {{limit}} seats used (users and pending invitations)",
+      seatsUnlimited: "{{used}} seats used (no limit)",
+      pastDue: "An invoice is overdue",
+      pastDueDetail:
+        "Pay it before {{deadline}} or users beyond the Free plan's limit are disabled.",
+      payNow: "Pay now",
+    },
+    billingState: { current: "Up to date", "past-due": "Past due" },
+    unknownPlanTitle: "Unrecognized plan",
+    unknownPlanDescription:
+      "This organization is on {{plan}}, which this version of the portal does not know. Plan changes are turned off until the portal is updated.",
+    interval: { month: "Monthly", year: "Annual" },
+    pricePeriod: { month: "per month", year: "per year" },
+    billingIntervalLabel: "Billing interval",
+    annualSaving: "One month free",
+    pricingNote: "Prices are per organization, not per user, and include tax.",
+    introductoryPricing: "Introductory pricing",
+    fossNote:
+      "Paid plans fund the development of Vetchium, a free and open-source project.",
+    planCardLabel: "{{plan}} plan",
+    currentBadge: "Current",
+    yourPlan: "Your plan",
+    recommended: "Recommended",
+    freePrice: "Free",
+    freePriceCaption: "always",
+    comingSoon: "Coming soon",
+    yes: "Included",
+    no: "Not included",
+    features: {
+      users: "Up to {{count}} users",
+      usersWithGoogle: "Up to {{count}} users, unlimited with Google sign-in",
+      openings: "{{count}} job openings per year",
+      logo: "Organization logo",
+      googleSignIn: "Google sign-in",
+      ticketSupport: "Ticket-based support",
+      mcp: "MCP support",
+    },
+    comparison: {
+      feature: "Feature",
+      users: "Users",
+      openings: "Job openings per year",
+      logo: "Organization logo",
+      googleSignIn: "Google sign-in",
+      ticketSupport: "Ticket-based support",
+      mcp: "MCP support",
+    },
+    actions: {
+      current: "Current plan",
+      keep: "Keep this plan",
+      upgrade: "Upgrade",
+      switchToAnnual: "Switch to annual",
+      switchToFree: "Switch to Free at period end",
+      switchAtPeriodEnd: "Switch at period end",
+    },
+    confirmTitle: "Change the plan at the end of the period?",
+    confirmDescription:
+      "Your organization keeps its current plan until {{date}}, then moves to the new one.",
+    confirmDescriptionNoDate:
+      "Your organization keeps its current plan until the end of the period, then moves to the new one.",
+    confirmBack: "Go back",
+    lockedPastDue: "Pay the overdue invoice before changing the plan.",
+    lockedSuspended:
+      "The plan cannot be changed while the organization is suspended.",
+    payment: {
+      title: "Payment method",
+      simulated:
+        "Payments are simulated: no real card is used and nothing is charged. The card you pick decides whether a payment succeeds.",
+      none: "No payment method is saved.",
+      saved: "Saved: {{card}}",
+      choose: "Payment method",
+      save: "Save payment method",
+      remove: "Remove",
+      kinds: {
+        "simulated-succeeds": "Test card ending 4242 (payments succeed)",
+        "simulated-declines": "Test card ending 0002 (payments are declined)",
+      },
+    },
+    invoices: {
+      title: "Invoices",
+      period: "Period",
+      plan: "Plan",
+      reason: "Reason",
+      state: "State",
+      actions: "Actions",
+      empty: "No invoices yet.",
+      reasons: { upgrade: "Upgrade", renewal: "Renewal" },
+      states: { paid: "Paid", open: "Open", void: "Void" },
     },
   },
   roles: {

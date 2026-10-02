@@ -1,4 +1,5 @@
 import {
+  CreditCardOutlined,
   HomeOutlined,
   SafetyOutlined,
   TeamOutlined,
@@ -12,20 +13,23 @@ import { useLocation } from "react-router";
 import { DomainFailing, OrgSuspended } from "typespec/orgs/account/account";
 import {
   holds,
+  ManageBilling,
   ManageUsers,
   Superadmin,
 } from "typespec/orgs/authorization/types";
 import { paths } from "../../app/paths";
-import { localeConfiguration } from "../../app/preferences";
+import { localeConfiguration, usePreferences } from "../../app/preferences";
 import { useAuth } from "../../auth/AuthContext";
 import { useMyInfoQuery } from "../../features/account/queries";
 import { DomainFailingBanner } from "../../features/domain/DomainFailingBanner";
+import { BillingBanners } from "../../features/subscriptions/BillingBanners";
 
 export function AppShell() {
   const { t } = useTranslation();
   const location = useLocation();
   const auth = useAuth();
   const { data: me } = useMyInfoQuery();
+  const { language } = usePreferences();
   const suspended = me?.org.org_state === OrgSuspended;
 
   const navigationItems: ItemType[] = suspended
@@ -53,6 +57,15 @@ export function AppShell() {
                 key: paths.members,
                 icon: <TeamOutlined />,
                 label: t("navigation.members"),
+              },
+            ]
+          : []),
+        ...(me !== undefined && holds(me.permissions, ManageBilling)
+          ? [
+              {
+                key: paths.plans,
+                icon: <CreditCardOutlined />,
+                label: t("navigation.plans"),
               },
             ]
           : []),
@@ -88,6 +101,7 @@ export function AppShell() {
             {me.email_address}
           </Typography.Text>
         </Flex>
+        <BillingBanners me={me} locale={language} />
         {me.org.domain.state === DomainFailing ? (
           <DomainFailingBanner
             domain={me.org.domain}

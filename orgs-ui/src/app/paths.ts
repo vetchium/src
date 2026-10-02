@@ -10,6 +10,7 @@ export const paths = {
   security: "/security",
   restoreDomain: "/restore-domain",
   members: "/members",
+  plans: "/plans",
   acceptInvitation: "/accept-invitation",
 } as const;
 

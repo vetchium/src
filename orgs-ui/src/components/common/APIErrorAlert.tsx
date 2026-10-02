@@ -19,6 +19,14 @@ import {
   RecentAuthenticationRequiredError,
 } from "typespec/problem/orgs/authentication";
 import {
+  BillingPastDueError,
+  InvoiceNotOpenError,
+  isUserLimitExceedsTargetProblem,
+  PaymentDeclinedError,
+  PaymentMethodRequiredError,
+  PlanNotOfferedError,
+} from "typespec/problem/orgs/billing";
+import {
   DirectoryUnavailableError,
   DNSRecordNotFoundError,
   DomainAlreadyOwnedError,
@@ -26,6 +34,7 @@ import {
   SignupDomainBlockedError,
   SignupUnavailableError,
 } from "typespec/problem/orgs/signup";
+import { OrgSuspendedError } from "typespec/problem/orgs/suspension";
 import {
   IncorrectRecoveryCodeError,
   InvalidTOTPEnrollmentError,
@@ -64,6 +73,12 @@ export const problemKeys: Readonly<Record<string, string>> = {
   [UserAlreadyExistsError.type]: "errors.userAlreadyExists",
   [SelfChangeForbiddenError.type]: "errors.selfChange",
   [LastSuperadminError.type]: "errors.lastSuperadmin",
+  [PlanNotOfferedError.type]: "errors.planNotOffered",
+  [BillingPastDueError.type]: "errors.billingPastDue",
+  [PaymentMethodRequiredError.type]: "errors.paymentMethodRequired",
+  [PaymentDeclinedError.type]: "errors.paymentDeclined",
+  [InvoiceNotOpenError.type]: "errors.invoiceNotOpen",
+  [OrgSuspendedError.type]: "errors.orgSuspended",
   [IncorrectPasswordError.type]: "errors.incorrectPassword",
   [InvalidLoginChallengeError.type]: "errors.expiredLoginChallenge",
   [IncorrectTOTPCodeError.type]: "errors.incorrectTOTP",
@@ -97,6 +112,12 @@ export function problemMessage(t: TFunction, error: unknown): string {
   }
   if (isSuperadminRequiredProblem(problem)) {
     return t("errors.superadminRequired", { email: problem.email_address });
+  }
+  if (isUserLimitExceedsTargetProblem(problem)) {
+    return t("errors.userLimitExceedsTarget", {
+      limit: problem.limit,
+      seats: problem.seats_in_use,
+    });
   }
   if (isUserLimitReachedProblem(problem)) {
     return t("errors.userLimitReached", { limit: problem.limit });

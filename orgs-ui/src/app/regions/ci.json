@@ -1,0 +1,20 @@
+{
+  "regions": [
+    {
+      "tenantId": "deu",
+      "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
+    },
+    {
+      "tenantId": "ind1",
+      "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
+    },
+    {
+      "tenantId": "sgp",
+      "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
+    },
+    {
+      "tenantId": "usa1",
+      "orgPlans": ["org-free-tier", "org-silver-tier"]
+    }
+  ]
+}

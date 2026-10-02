@@ -401,6 +401,7 @@ orgs-ui-deps:
 orgs-ui-check-ready: orgs-ui-deps
 	cd orgs-ui && npm run format:check
 	cd orgs-ui && npm run typecheck
+	cd orgs-ui && npm test
 	cd orgs-ui && npm audit --audit-level=high
 	cd orgs-ui && VITE_VETCHIUM_ENVIRONMENT=production npm run build
 

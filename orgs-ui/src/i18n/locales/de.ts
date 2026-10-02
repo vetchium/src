@@ -17,6 +17,7 @@ export const de = {
     openMenu: "Navigation öffnen",
     home: "Startseite",
     members: "Mitglieder",
+    plans: "Tarif und Abrechnung",
     security: "Sicherheit",
     restoreDomain: "Domain wiederherstellen",
   },
@@ -119,6 +120,17 @@ export const de = {
       "Nur ein Superadmin kann {{email}} oder diese Berechtigungen ändern.",
     userLimitReached:
       "Die Organisation hat keinen freien Platz mehr: Ihr Tarif erlaubt {{limit}} Benutzer, offene Einladungen eingerechnet.",
+    planNotOffered: "Dieser Tarif wird in dieser Region nicht angeboten.",
+    billingPastDue:
+      "Der Tarif kann nicht geändert werden, solange eine Rechnung unbezahlt ist. Bezahlen Sie zuerst die offene Rechnung.",
+    paymentMethodRequired: "Speichern Sie zuerst eine Zahlungsmethode.",
+    paymentDeclined:
+      "Die gespeicherte Zahlungsmethode wurde abgelehnt. Es wurde nichts geändert.",
+    invoiceNotOpen: "Diese Rechnung ist nicht mehr zur Zahlung offen.",
+    orgSuspended:
+      "Ihre Organisation ist gesperrt. Stellen Sie ihre Domain wieder her, um fortzufahren.",
+    userLimitExceedsTarget:
+      "Ihre Organisation hat {{seats}} Benutzer und offene Einladungen, dieser Tarif erlaubt {{limit}}. Deaktivieren Sie zuerst Benutzer oder widerrufen Sie Einladungen.",
     permissionRequired: "Nur ein Superadmin Ihrer Organisation kann das tun.",
     recentAuthenticationRequired: "Melden Sie sich erneut an, um fortzufahren.",
     totpAlreadyEnabled: "Die Zwei-Faktor-Authentifizierung ist bereits aktiv.",
@@ -368,6 +380,135 @@ export const de = {
       regenerateConfirm:
         "Wiederherstellungscodes ersetzen? Die aktuellen Codes werden ungültig.",
       regenerated: "Neue Wiederherstellungscodes wurden erstellt.",
+    },
+  },
+  billing: {
+    banner: {
+      pastDue: "Die Zahlung Ihrer Organisation ist überfällig",
+      pastDueDetail:
+        "Benutzer über der Grenze des Free-Tarifs können nach dem {{deadline}} deaktiviert werden, wenn die Rechnung nicht bezahlt wird.",
+      ending: "Ihr Tarif wechselt am {{date}} zu {{plan}}",
+      endingDetail:
+        "Dann enden die Funktionen des aktuellen Tarifs. Wählen Sie den aktuellen Tarif erneut, um ihn zu behalten.",
+      managePlan: "Tarif verwalten",
+      noMethod: "Es ist keine Zahlungsmethode gespeichert",
+      noMethodDetail:
+        "Speichern Sie eine, damit die nächste Verlängerung eingezogen werden kann und Ihre Organisation im Tarif bleibt.",
+      addMethod: "Zahlungsmethode hinzufügen",
+    },
+  },
+  plans: {
+    documentTitle: "Tarif und Abrechnung | Vetchium für Organisationen",
+    title: "Tarif und Abrechnung",
+    description:
+      "Wählen Sie den Tarif Ihrer Organisation, verwalten Sie die Bezahlung und prüfen Sie die Rechnungen.",
+    loadingLabel: "Tarife werden geladen",
+    names: {
+      "org-free-tier": "Free",
+      "org-silver-tier": "Silver",
+      "org-gold-tier": "Gold",
+    },
+    current: {
+      title: "Aktueller Tarif",
+      plan: "Tarif",
+      state: "Abrechnung",
+      renews: "Verlängerung am",
+      ends: "Tarif endet am",
+      scheduled: "Wechsel zu",
+      seatsLabel: "Benutzer",
+      seats:
+        "{{used}} von {{limit}} Plätzen belegt (Benutzer und offene Einladungen)",
+      seatsUnlimited: "{{used}} Plätze belegt (ohne Begrenzung)",
+      pastDue: "Eine Rechnung ist überfällig",
+      pastDueDetail:
+        "Bezahlen Sie sie vor dem {{deadline}}, sonst werden Benutzer über der Grenze des Free-Tarifs deaktiviert.",
+      payNow: "Jetzt bezahlen",
+    },
+    billingState: { current: "Aktuell", "past-due": "Überfällig" },
+    unknownPlanTitle: "Unbekannter Tarif",
+    unknownPlanDescription:
+      "Diese Organisation hat den Tarif {{plan}}, den diese Version des Portals nicht kennt. Tarifänderungen sind deaktiviert, bis das Portal aktualisiert wird.",
+    interval: { month: "Monatlich", year: "Jährlich" },
+    pricePeriod: { month: "pro Monat", year: "pro Jahr" },
+    billingIntervalLabel: "Abrechnungszeitraum",
+    annualSaving: "Ein Monat gratis",
+    pricingNote:
+      "Preise gelten pro Organisation, nicht pro Benutzer, und enthalten Steuern.",
+    introductoryPricing: "Einführungspreis",
+    fossNote:
+      "Kostenpflichtige Tarife finanzieren die Entwicklung von Vetchium, einem freien Open-Source-Projekt.",
+    planCardLabel: "Tarif {{plan}}",
+    currentBadge: "Aktuell",
+    yourPlan: "Ihr Tarif",
+    recommended: "Empfohlen",
+    freePrice: "Kostenlos",
+    freePriceCaption: "immer",
+    comingSoon: "Demnächst",
+    yes: "Enthalten",
+    no: "Nicht enthalten",
+    features: {
+      users: "Bis zu {{count}} Benutzer",
+      usersWithGoogle:
+        "Bis zu {{count}} Benutzer, unbegrenzt mit Google-Anmeldung",
+      openings: "{{count}} Stellenausschreibungen pro Jahr",
+      logo: "Logo der Organisation",
+      googleSignIn: "Google-Anmeldung",
+      ticketSupport: "Support per Ticket",
+      mcp: "MCP-Unterstützung",
+    },
+    comparison: {
+      feature: "Funktion",
+      users: "Benutzer",
+      openings: "Stellenausschreibungen pro Jahr",
+      logo: "Logo der Organisation",
+      googleSignIn: "Google-Anmeldung",
+      ticketSupport: "Support per Ticket",
+      mcp: "MCP-Unterstützung",
+    },
+    actions: {
+      current: "Aktueller Tarif",
+      keep: "Diesen Tarif behalten",
+      upgrade: "Upgrade",
+      switchToAnnual: "Auf jährlich wechseln",
+      switchToFree: "Zum Periodenende auf Free wechseln",
+      switchAtPeriodEnd: "Zum Periodenende wechseln",
+    },
+    confirmTitle: "Den Tarif zum Ende des Zeitraums ändern?",
+    confirmDescription:
+      "Ihre Organisation behält den aktuellen Tarif bis zum {{date}} und wechselt dann zum neuen.",
+    confirmDescriptionNoDate:
+      "Ihre Organisation behält den aktuellen Tarif bis zum Ende des Zeitraums und wechselt dann zum neuen.",
+    confirmBack: "Zurück",
+    lockedPastDue:
+      "Bezahlen Sie die überfällige Rechnung, bevor Sie den Tarif ändern.",
+    lockedSuspended:
+      "Der Tarif kann nicht geändert werden, solange die Organisation gesperrt ist.",
+    payment: {
+      title: "Zahlungsmethode",
+      simulated:
+        "Zahlungen sind simuliert: Es wird keine echte Karte verwendet und nichts abgebucht. Die gewählte Karte entscheidet, ob eine Zahlung gelingt.",
+      none: "Es ist keine Zahlungsmethode gespeichert.",
+      saved: "Gespeichert: {{card}}",
+      choose: "Zahlungsmethode",
+      save: "Zahlungsmethode speichern",
+      remove: "Entfernen",
+      kinds: {
+        "simulated-succeeds":
+          "Testkarte mit Endziffern 4242 (Zahlungen gelingen)",
+        "simulated-declines":
+          "Testkarte mit Endziffern 0002 (Zahlungen werden abgelehnt)",
+      },
+    },
+    invoices: {
+      title: "Rechnungen",
+      period: "Zeitraum",
+      plan: "Tarif",
+      reason: "Grund",
+      state: "Status",
+      actions: "Aktionen",
+      empty: "Noch keine Rechnungen.",
+      reasons: { upgrade: "Upgrade", renewal: "Verlängerung" },
+      states: { paid: "Bezahlt", open: "Offen", void: "Storniert" },
     },
   },
   roles: {
