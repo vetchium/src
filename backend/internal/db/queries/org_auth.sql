@@ -5,6 +5,7 @@ SELECT
     u.org_user_id,
     u.org_did,
     u.org_user_state,
+    u.disabled_reason,
     u.preferred_language,
     p.password_hash,
     (t.org_user_id IS NOT NULL)::boolean AS totp_enabled

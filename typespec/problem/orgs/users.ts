@@ -39,3 +39,55 @@ export const UserAlreadyExistsError: Readonly<Details> = {
   status: 409,
   detail: "An Org user already exists for the invited address",
 };
+
+export interface UserNotFoundDetails extends Details {
+  type: "vetchium-problem-details/org-user-not-found";
+  email_address: string;
+}
+
+export const UserNotFoundErrorType =
+  "vetchium-problem-details/org-user-not-found";
+
+export function isUserNotFoundProblem(
+  value: unknown,
+): value is UserNotFoundDetails {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { type?: unknown }).type === UserNotFoundErrorType &&
+    typeof (value as { email_address?: unknown }).email_address === "string"
+  );
+}
+
+export const SelfChangeForbiddenError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-self-change-forbidden",
+  title: "Org user cannot change itself",
+  status: 409,
+  detail: "An Org user cannot disable itself or change its own permissions",
+};
+
+export const LastSuperadminError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-last-superadmin",
+  title: "Last Org superadmin",
+  status: 409,
+  detail: "At least one active Org user must keep org:superadmin",
+};
+
+export interface SuperadminRequiredDetails extends Details {
+  type: "vetchium-problem-details/org-superadmin-required";
+  email_address: string;
+}
+
+export const SuperadminRequiredErrorType =
+  "vetchium-problem-details/org-superadmin-required";
+
+export function isSuperadminRequiredProblem(
+  value: unknown,
+): value is SuperadminRequiredDetails {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { type?: unknown }).type === SuperadminRequiredErrorType &&
+    typeof (value as { email_address?: unknown }).email_address === "string"
+  );
+}

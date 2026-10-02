@@ -50,3 +50,54 @@ alias OrgUserAlreadyExistsErrorResponse = Response<
   409,
   typeof OrgUserAlreadyExistsError
 >;
+
+model OrgUserNotFoundDetails {
+  type: "vetchium-problem-details/org-user-not-found";
+  title: "Org user not found";
+  status: 404;
+  detail: "No Org user exists for an address in the request";
+
+  /** The first address in the request that has no user. */
+  email_address: string;
+
+  instance?: string;
+}
+alias OrgUserNotFoundErrorResponse = Response<404, OrgUserNotFoundDetails>;
+
+const OrgSelfChangeForbiddenError = #{
+  type: "vetchium-problem-details/org-self-change-forbidden",
+  title: "Org user cannot change itself",
+  status: 409,
+  detail: "An Org user cannot disable itself or change its own permissions",
+};
+alias OrgSelfChangeForbiddenErrorResponse = Response<
+  409,
+  typeof OrgSelfChangeForbiddenError
+>;
+
+const OrgLastSuperadminError = #{
+  type: "vetchium-problem-details/org-last-superadmin",
+  title: "Last Org superadmin",
+  status: 409,
+  detail: "At least one active Org user must keep org:superadmin",
+};
+alias OrgLastSuperadminErrorResponse = Response<
+  409,
+  typeof OrgLastSuperadminError
+>;
+
+model OrgSuperadminRequiredDetails {
+  type: "vetchium-problem-details/org-superadmin-required";
+  title: "Org superadmin required";
+  status: 403;
+  detail: "Only an Org superadmin may change this user or these permissions";
+
+  /** The first address in the request whose change needs a superadmin. */
+  email_address: string;
+
+  instance?: string;
+}
+alias OrgSuperadminRequiredErrorResponse = Response<
+  403,
+  OrgSuperadminRequiredDetails
+>;

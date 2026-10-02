@@ -18,6 +18,15 @@ import type {
   ListInvitationsRequest,
   ResendInvitationRequest,
 } from "typespec/orgs/users/invitations";
+import type {
+  BulkDisableUsersRequest,
+  BulkEnableUsersRequest,
+  BulkSetUserPermissionsRequest,
+  DisableUserRequest,
+  EnableUserRequest,
+  ListUsersRequest,
+  SetUserPermissionsRequest,
+} from "typespec/orgs/users/management";
 import {
   AUDIT_FAULT_LOCK,
   type AuditEvent,
@@ -123,6 +132,62 @@ export class OrgsAPI {
     idempotencyKey: string = orgsIdempotencyKey(),
   ): Promise<APIResponse> {
     return this.post("/accept-invitation", request, { idempotencyKey });
+  }
+
+  listUsers(
+    token: string,
+    request: ListUsersRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-users", request, { token });
+  }
+
+  userSummary(token: string): Promise<APIResponse> {
+    return this.post("/user-summary", undefined, { token });
+  }
+
+  disableUser(
+    token: string,
+    request: DisableUserRequest,
+  ): Promise<APIResponse> {
+    return this.post("/disable-user", request, { token });
+  }
+
+  bulkDisableUsers(
+    token: string,
+    request: BulkDisableUsersRequest,
+  ): Promise<APIResponse> {
+    return this.post("/bulk-disable-users", request, { token });
+  }
+
+  enableUser(token: string, request: EnableUserRequest): Promise<APIResponse> {
+    return this.post("/enable-user", request, { token });
+  }
+
+  bulkEnableUsers(
+    token: string,
+    request: BulkEnableUsersRequest,
+  ): Promise<APIResponse> {
+    return this.post("/bulk-enable-users", request, { token });
+  }
+
+  setUserPermissions(
+    token: string,
+    request: SetUserPermissionsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/set-user-permissions", request, { token });
+  }
+
+  bulkSetUserPermissions(
+    token: string,
+    request: BulkSetUserPermissionsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/bulk-set-user-permissions", request, { token });
+  }
+
+  listPermissions(token?: string): Promise<APIResponse> {
+    return this.request.get(`${this.origin}/api/orgs/list-permissions`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
   }
 
   myInfo(token?: string): Promise<APIResponse> {

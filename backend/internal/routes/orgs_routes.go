@@ -102,4 +102,27 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.HandleFunc(
 		"POST /api/orgs/accept-invitation", orgsusers.AcceptInvitation(s),
 	)
+	mux.Handle("POST /api/orgs/list-users", manageUsers(orgsusers.ListUsers(s)))
+	mux.Handle("POST /api/orgs/user-summary", manageUsers(orgsusers.UserSummary(s)))
+	mux.Handle("POST /api/orgs/disable-user", manageUsers(orgsusers.DisableUser(s)))
+	mux.Handle(
+		"POST /api/orgs/bulk-disable-users",
+		manageUsers(orgsusers.BulkDisableUsers(s)),
+	)
+	mux.Handle("POST /api/orgs/enable-user", manageUsers(orgsusers.EnableUser(s)))
+	mux.Handle(
+		"POST /api/orgs/bulk-enable-users",
+		manageUsers(orgsusers.BulkEnableUsers(s)),
+	)
+	mux.Handle(
+		"POST /api/orgs/set-user-permissions",
+		manageUsers(recentAuth(orgsusers.SetUserPermissions(s))),
+	)
+	mux.Handle(
+		"POST /api/orgs/bulk-set-user-permissions",
+		manageUsers(recentAuth(orgsusers.BulkSetUserPermissions(s))),
+	)
+	mux.Handle(
+		"GET /api/orgs/list-permissions", orgAuth(orgsusers.ListPermissions(s)),
+	)
 }

@@ -536,6 +536,7 @@ SELECT
     u.org_user_id,
     u.org_did,
     u.org_user_state,
+    u.disabled_reason,
     u.preferred_language,
     p.password_hash,
     (t.org_user_id IS NOT NULL)::boolean AS totp_enabled
@@ -563,6 +564,7 @@ type GetOrgUserForLoginRow struct {
 	OrgUserID         pgtype.UUID          `json:"org_user_id"`
 	OrgDid            pgtype.UUID          `json:"org_did"`
 	OrgUserState      VetchiumOrgUserState `json:"org_user_state"`
+	DisabledReason    pgtype.Text          `json:"disabled_reason"`
 	PreferredLanguage string               `json:"preferred_language"`
 	PasswordHash      string               `json:"password_hash"`
 	TotpEnabled       bool                 `json:"totp_enabled"`
@@ -577,6 +579,7 @@ func (q *Queries) GetOrgUserForLogin(ctx context.Context, arg GetOrgUserForLogin
 		&i.OrgUserID,
 		&i.OrgDid,
 		&i.OrgUserState,
+		&i.DisabledReason,
 		&i.PreferredLanguage,
 		&i.PasswordHash,
 		&i.TotpEnabled,

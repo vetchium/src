@@ -132,7 +132,14 @@ type Querier interface {
 	DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (string, error)
 	DisableHubTOTP(ctx context.Context, arg DisableHubTOTPParams) (bool, error)
 	DisableOrgTOTP(ctx context.Context, arg DisableOrgTOTPParams) (bool, error)
+	// Disables every active target, or none: the Org must keep an active
+	// superadmin outside the set. Sessions and unfinished credential flows end
+	// with the account.
+	DisableOrgUsers(ctx context.Context, arg DisableOrgUsersParams) (string, error)
 	EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (string, error)
+	// Re-enables disabled targets (either reason) when the whole batch fits the
+	// cap; seat_limit is NULL for an unlimited Org.
+	EnableOrgUsers(ctx context.Context, arg EnableOrgUsersParams) (string, error)
 	// The reserve-time email-claim-conflict path (GU-ECH-003): fails directly,
 	// skipping 'cancelling', since nothing was reserved globally to undo. The
 	// caller resolves the sibling federation_operations row with the existing
@@ -191,6 +198,10 @@ type Querier interface {
 	// A suspended Org's users can still sign in, to restore the domain. When a
 	// released domain was claimed by another local Org, the current owner wins.
 	GetOrgUserForLogin(ctx context.Context, arg GetOrgUserForLoginParams) (GetOrgUserForLoginRow, error)
+	GetOrgUserSummary(ctx context.Context, orgDid pgtype.UUID) (GetOrgUserSummaryRow, error)
+	// Reads the users a change targets, in request order, once the caller holds
+	// the Org row lock. A missing address is simply absent from the result.
+	GetOrgUsersForChange(ctx context.Context, arg GetOrgUsersForChangeParams) ([]GetOrgUsersForChangeRow, error)
 	// While a live (non-terminal) account-email-change durable operation exists
 	// for this user, request-email-change and confirm-email-change both refuse
 	// outright (GU-ECH-001): neither issues nor supersedes a challenge.
@@ -224,6 +235,13 @@ type Querier interface {
 	ListHubUsersWithEndingSubscriptions(ctx context.Context, arg ListHubUsersWithEndingSubscriptionsParams) ([]ListHubUsersWithEndingSubscriptionsRow, error)
 	ListOrgDomainsPastGrace(ctx context.Context, failingBefore pgtype.Timestamptz) ([]ListOrgDomainsPastGraceRow, error)
 	ListOrgInvitations(ctx context.Context, arg ListOrgInvitationsParams) ([]ListOrgInvitationsRow, error)
+	ListOrgPermissionCatalog(ctx context.Context) ([]ListOrgPermissionCatalogRow, error)
+	// Active users holding each directly granted permission.
+	ListOrgPermissionCounts(ctx context.Context, orgDid pgtype.UUID) ([]ListOrgPermissionCountsRow, error)
+	// Keyset-paginated member list. The sort key is the address, or the join date
+	// with the address as tie-breaker. The permission filter matches a direct
+	// grant, which is what the role label and the summary counts are built from.
+	ListOrgUsers(ctx context.Context, arg ListOrgUsersParams) ([]ListOrgUsersRow, error)
 	ListPendingOrgDomainCommands(ctx context.Context) ([]ListPendingOrgDomainCommandsRow, error)
 	ListRecoverableFederationOperations(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
 	// The sibling operation's retry schedule orders recovery, so a batch of
@@ -349,6 +367,10 @@ type Querier interface {
 	SetHubPreferredLanguage(ctx context.Context, arg SetHubPreferredLanguageParams) (bool, error)
 	SetHubPublicProfile(ctx context.Context, arg SetHubPublicProfileParams) (SetHubPublicProfileRow, error)
 	SetHubResidentCountry(ctx context.Context, arg SetHubResidentCountryParams) (bool, error)
+	// Replaces the direct grants of every target with one set. After the change
+	// the Org must still have an active superadmin: one outside the set, or a
+	// target that keeps the grant.
+	SetOrgUserPermissions(ctx context.Context, arg SetOrgUserPermissionsParams) (string, error)
 	// Call before IssueHubEmailChangeChallenge in the same transaction.
 	// Sibling data-modifying CTEs cannot reliably vacate the active-user index.
 	SupersedeHubEmailChangeChallenges(ctx context.Context, hubUserDid pgtype.UUID) (int64, error)

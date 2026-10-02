@@ -23,6 +23,13 @@ var OrgUserDisabledError = problem.Details{
 	Detail: "The Org user is disabled",
 }
 
+var OrgUserDisabledNonpaymentError = problem.Details{
+	Type:   "vetchium-problem-details/org-user-disabled-nonpayment",
+	Title:  "Org user disabled for nonpayment",
+	Status: 403,
+	Detail: "The Org user was disabled because the Org's subscription was not paid",
+}
+
 var AuthenticationRequiredError = problem.Details{
 	Type:   "vetchium-problem-details/org-authentication-required",
 	Title:  "Org authentication required",
