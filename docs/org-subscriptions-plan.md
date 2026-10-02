@@ -723,6 +723,7 @@ One line per finished milestone: `YYYY-MM-DD <sha> OS-Mx — deviation or "as
 planned"`.
 
 - 2026-10-02 OS-M0 — as planned (the plan commit itself).
+- 2026-10-03 OS-M1 — `billingperiod` takes a month count; `hub/billing` keeps thin wrappers (`Boundary`, `PeriodContaining`, `Instant`) so callers are unchanged.
 
 ## 9. Open questions
 
