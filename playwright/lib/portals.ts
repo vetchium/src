@@ -2,7 +2,7 @@ import type { BrowserContext } from "@playwright/test";
 import type { TestTenant } from "./admin-db.ts";
 
 // One global Hub and Orgs portal serve every region; each region's API lives
-// on its own host. See docs/frontend-consolidation.md.
+// on its own host. See agent-guides/ui.md.
 export const HUB_PORTAL = "http://vetchium.localhost";
 export const ORGS_PORTAL = "http://orgs.vetchium.localhost";
 

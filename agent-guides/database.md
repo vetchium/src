@@ -1,133 +1,108 @@
 # Database
 
-Applies to backend database access and the whole `backend/internal/db/` tree:
-hand-maintained queries, generated sqlc code, and transaction boundaries.
+Applies to PostgreSQL access, `backend/internal/db/`, migrations, and seeds.
 
 ## Ownership
 
-- Backend code reaches PostgreSQL through the sqlc query interface, never ad hoc
-  SQL in a handler or middleware. The one exception is a fixed minimal query that
-  probes the raw connection.
-- `backend/internal/db/queries/` is the source of truth for queries;
-  `backend/internal/db/sqlc/` is generated and never hand-edited, not even to
-  reformat or wrap a line. `backend/sqlc.yaml` owns generator settings.
-- Schema changes originate in `db/migrations/`.
-- Scope a constraint to the owner of the invariant. Do not give two portal
-  capabilities one domain or check constraint because their allowed values are
-  equal today; shared domains are for rules that must change in lockstep.
+- Reach PostgreSQL only through sqlc queries; no ad hoc SQL in handlers or
+  middleware (except a fixed connection probe).
+- `backend/internal/db/queries/` is the source; `backend/internal/db/sqlc/` is
+  generated and never edited, not even to wrap a line. `backend/sqlc.yaml`
+  holds generator settings.
+- Schema changes go in `db/migrations/` (tenant) or `db/global-migrations/`
+  (coordinator).
+- Scope a constraint to the owner of its rule; two portals with equal allowed
+  values today get separate constraints.
 
 ## Queries
 
-- Annotate cardinality: `-- name: QueryName :one`, `:many`, `:exec`,
-  `:execrows`. Names become exported Go API names; keep them descriptive and
-  stable.
-- Pass values as PostgreSQL parameters; never interpolate.
-- Keep authorization, tenant, state, and expiry predicates inside the query
-  whenever correctness depends on an atomic database decision.
-- Select explicit columns so a schema addition cannot silently change generated
-  models or scan behavior.
-- Update affected queries when a migration changes generated types or method
-  signatures.
-
-## Reads
-
-- Fetch everything one operation needs in a single read where reasonably
-  expressible: joins, CTEs, correlated subqueries, bulk parameters.
-- Never call the database in a loop. Use arrays, `ANY`, `unnest`, a join, or a
-  CTE; fold dependent lookups into one query or one bulk lookup. No N+1.
-- Unbounded list APIs use keyset pagination with a stable, deterministic
-  tie-breaker. `OFFSET` only for an explicitly bounded dataset with the tradeoff
-  documented.
-- Keep query predicates compatible with the intended index order.
+- Annotate `:one`, `:many`, `:exec`, or `:execrows`; query names become stable
+  Go API names.
+- Parameters only; never interpolate.
+- Keep authorization, tenant, state, and expiry predicates in the query when
+  correctness depends on an atomic decision.
+- Select explicit columns.
+- One read per operation (joins, CTEs, bulk parameters). Never query in a loop;
+  use arrays, `ANY`, `unnest`, or joins.
+- Lists use keyset pagination with a deterministic tie-breaker. `OFFSET` only
+  for an explicitly bounded set, with the reason documented.
+- Write predicates the intended index order can serve.
 
 ## Writes and transactions
 
-- Store instants in `timestamptz`, with every connection's session timezone set
-  to UTC. Never persist local wall-clock timestamps or offsets instead. Plain
-  `timestamp` is only for a domain value that is deliberately not an instant.
-- Perform all writes of one logical operation in one sqlc call whenever
-  PostgreSQL can express it clearly: an atomic statement with CTEs, state
-  predicates, and `RETURNING` (not a read-after-write).
-- If more than one write call is unavoidable, run them in one transaction begun
-  at the database or service boundary, bind queries with `Queries.WithTx`, and
-  propagate errors so it rolls back. Never commit one part before attempting the
-  next.
-- Treat affected-row counts and `pgx.ErrNoRows` as concurrency or state signals;
-  do not replace them with a preceding check (time-of-check/time-of-use race).
+- Instants are `timestamptz` with session time zone UTC. Plain `timestamp`
+  only for a value that is deliberately not an instant.
+- One logical operation is one statement where PostgreSQL can express it
+  (CTEs, state predicates, `RETURNING`), not read-after-write.
+- When several statements are unavoidable, run them in one transaction opened
+  at the service boundary with `Queries.WithTx`; never commit part of an
+  operation.
+- Treat affected-row counts and `pgx.ErrNoRows` as state signals; never replace
+  them with a preceding check.
 
 ## Audit trail
 
-Every logical operation that commits an `INSERT`, `UPDATE`, or `DELETE` of
-persistent application data appends one or more durable audit events, whatever
-its origin: admin, hub, orgs, or mesh API, a worker, or any internal process.
-
-Exempt: the audit table's own inserts, schema migrations, and the idempotency
-ledger (protocol state making a guarded operation replay-safe; that operation
-audits the state change it commits).
-
-Record in typed columns wherever authorization, filtering, or deterministic
-keyset pagination needs the dimension, rather than leaving it in payload JSON:
-
-- **Identity** — immutable event id, database-generated event time, tenant or
-  cell.
-- **Subject** — stable action name, primary entity type and id, and useful
-  parent or related ids (the Org of an Opening, the Candidacy of a hiring-stage
-  change).
-- **Actor** — actor type and stable id, distinguishing Hub Users, Org Users,
-  administrators, services, workers, and cross-tenant callers. Under delegation
-  or impersonation keep both the authenticated and effective actor. For
-  automated work, the service or job and, when known, the causing principal or
-  operation.
-- **Correlation** — source portal or service, request or trace id, idempotency
-  or distributed-operation id when present, and an operator-supplied reason,
-  ticket, or case id when the workflow collects one; never an invented
-  placeholder.
-- **Change** — changed field names with appropriate before/after values, or a
-  domain summary with an explicit payload schema version. For creates and
-  deletes, the minimum useful snapshot. Prefer stable domain vocabulary over UI
-  labels.
-
-Rules:
-
-- Write the event in the same transaction as the state change; if either fails,
-  roll back both. A log, metric, asynchronous job, or best-effort write is not a
-  substitute.
-- Audit the logical operation, not each SQL statement. A bulk operation may use
-  one event naming the complete affected set, or a bounded summary plus a stable
-  operation id; use per-entity events when history will be queried by entity.
-  Always keep the ability to answer who changed an entity, what, when, from
-  where, and as part of which operation.
-- Never store passwords, authentication or recovery secrets, session tokens,
-  private keys, raw authorization headers, or secret configuration. Minimize
-  personal data and large free-form content: redact, hash, or record only that a
-  sensitive field changed. Never copy whole request bodies or rows.
-- Events are append-only; application paths never update or delete them. Any
-  retention, export, redaction, or legally required erasure mechanism needs an
-  explicit design keeping the remaining history intact and interpretable.
-- A retry or idempotent replay adds no second event for a state change that did
-  not happen again. A write affecting no rows claims no change; put required
-  security-relevant rejected attempts in operational or security telemetry.
-- Test both sides on every write path: success commits its expected audit data,
-  and failure of either write rolls back both. Cover actor and correlation
-  propagation, sensitive-data exclusion, bulk behavior, and idempotent retries
-  where they apply.
+- Every operation that commits an insert, update, or delete of application
+  data writes at least one audit event in the same transaction, whatever the
+  caller (portal API, mesh, worker). Exempt: the audit table itself,
+  migrations, and the idempotency ledger.
+- Typed columns for everything used to authorize, filter, or paginate:
+  - identity: event id, database-generated time, tenant;
+  - subject: action name, entity type and id, useful parent ids;
+  - actor: actor type and id (Hub user, Org user, admin, service, worker,
+    cross-tenant caller); both authenticated and effective actor under
+    delegation; the job and causing principal for automated work;
+  - correlation: source, request id, idempotency or operation id, and an
+    operator reason when the workflow collects one;
+  - change: changed fields with before/after, or a summary with a payload
+    schema version; a minimal snapshot for creates and deletes.
+- Audit the logical operation, not each statement. A bulk change may use one
+  event with the affected set or a bounded summary plus an operation id.
+- Never store secrets, tokens, raw authorization headers, or whole request
+  bodies or rows; minimize personal data (record that a sensitive field
+  changed).
+- Events are append-only. A replay adds no event for a change that did not
+  happen again; a write that changed no rows claims no change.
+- Test success (expected audit data) and failure of either write (both roll
+  back), plus actor and correlation, sensitive-data exclusion, bulk, and
+  replays where they apply.
 
 ## Generation
 
-- The root Makefile pins sqlc to `v1.29.0`; never generate with an unpinned
-  local version.
-- After changing queries, migrations, or generator settings, run `make sqlc`
-  from the repository root and commit the output with its source change.
-- Committed sqlc output serves local builds and editor support only. Docker
-  builds exclude it, remove residual output, and regenerate from migrations,
-  queries, and `backend/sqlc.yaml`; never make a Docker build trust committed
-  generated files.
-- Overlong lines emitted by sqlc are acceptable; do not edit generated output to
-  satisfy hand-maintained Go style.
+- sqlc is pinned to `v1.29.0` in the Makefile. After changing queries,
+  migrations, or settings, run `make sqlc` and commit the output with the
+  source.
+- Docker builds regenerate sqlc from source and ignore committed output.
+- Long generated lines are fine.
 
 ## Avoid
 
-- No `ALTER TABLE` or data-migration `UPDATE`s. The project is pre-production;
-  when the schema changes, existing data may be thrown away if cleaner.
-- No performance indexes; queries will be profiled before production. An index
-  that is the only way to enforce a constraint is exempt.
+- No `ALTER TABLE` or data-fixing `UPDATE` migrations: pre-production, data
+  may be thrown away when the schema changes.
+- No performance indexes until profiling; an index that enforces a constraint
+  is fine.
+
+## Bootstrap
+
+On an empty volume, the PostgreSQL image runs `initdb`, then
+`db/bootstrap/entrypoint.sh` (reads `APP_POSTGRES_PASSWORD_FILE`), then
+`db/bootstrap/init.sql` as `POSTGRES_USER`: it creates the `vetchium_app`
+login and `vetchium` schema, hardens schema access, and sets default
+privileges. A separate container then runs the Goose migrations.
+
+- Bootstrap never reruns; a `db/bootstrap/` change needs an explicit upgrade
+  procedure for existing databases.
+- Changing the password secret does not change the role; rotate both together.
+
+## Development fixtures
+
+- No production data in the repository; no fixtures in migrations.
+- `db/db-seed/<tenant>.sql`: plain table content, re-runnable (restores
+  fixture passwords, keeps granted access and state).
+- `backend/cmd/dev-seed`: fixtures that must pass API validation,
+  authorization, or audit. It signs in as an administrator `db-seed` created.
+  `DEV_SEED_MODE` is `domains` (Hub signup allowlist; default), `hub-profiles`
+  (`dev/hub-seed-profiles/`), or `orgs`. The last two need a fresh stack. Org
+  TXT records do not survive a `dns-dev` restart.
+- `deu` has no `manager@deu.example` on purpose: Playwright provokes the
+  last-manager refusal there.

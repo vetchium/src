@@ -1,7 +1,7 @@
 // Package domainverification keeps proving that each Org still controls its
-// domain (docs/org-signup.md section 7). The scheduled worker and a
-// superadmin's check-now share it, and every state write is guarded by the
-// state that was read, so the two can never apply a stale result.
+// domain (agent-guides/orgs.md). The scheduled worker and a superadmin's
+// check-now share it, and every state write is guarded by the state that was
+// read, so the two can never apply a stale result.
 package domainverification
 
 import (

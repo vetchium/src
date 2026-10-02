@@ -7,72 +7,93 @@
 - [**The Vetchi flower**](https://ta.wikipedia.org/wiki/%E0%AE%B5%E0%AF%86%E0%AE%9F%E0%AF%8D%E0%AE%9A%E0%AE%BF), identified with [Ixora](https://en.wikipedia.org/wiki/Ixora), a flowering shrub native to Southern India.
 - [**வெட்சித் திணை** (_Vetchi thinai_)](https://ta.wikipedia.org/wiki/%E0%AE%B5%E0%AF%86%E0%AE%9F%E0%AF%8D%E0%AE%9A%E0%AE%BF%E0%AE%A4%E0%AF%8D_%E0%AE%A4%E0%AE%BF%E0%AE%A3%E0%AF%88), **`ஆநிரை கவர்தல் வெட்சி`** a theme in classical Tamil _puram_ poetry in which warriors seize Cattle (Wealth) from a rival land.
 
-## Request paths and networks
+A professional networking and jobs platform. Each region (`sgp`, `usa1`, `deu`,
+`ind1`) runs an isolated stack: database, object store, APIs, workers, and the
+Admin portal. The Hub and Orgs portals are one static site each, shared by all
+regions; the user picks the region at sign-in.
 
-```text
-Internet/browser
-       |
-     edge
-       |
- tenant Traefik
-       |-- portal hostname, /api/* --> matching portal API --> PostgreSQL
-       `-- portal hostname, other paths --> portal nginx (static files)
+## Requirements
 
-WireGuard mesh --> mesh-api --> PostgreSQL
+Docker with Compose, GNU Make, Go 1.27, Node.js 22.13 or newer. Optional:
+[Tilt](https://tilt.dev).
 
-optional authenticated MCP route --> mcp-server --> PostgreSQL
-
-workers --> PostgreSQL
-```
-
-Traefik is the only publicly exposed ingress. MCP is not public yet.
-
-## Development
-
-Clean and bring up the development environment:
+## Run locally
 
 ```bash
-make [dev]
+make dev        # clean, then start the full stack with all four regions
+make dev-seed   # after make dev: seed signup domains, Hub users, and Orgs
+make clean      # stop everything and delete volumes and dev secrets
 ```
 
-Seed development fixtures — Hub signup domains, and Hub user profiles with
-work history, education, and pictures — once that stack is up:
+`make dev-seed` needs a fresh stack; rerunning it on a seeded stack fails.
+
+| What | URL |
+| --- | --- |
+| Hub portal | http://vetchium.localhost |
+| Orgs portal | http://orgs.vetchium.localhost |
+| Admin portal | http://admin-ui.`<region>`.localhost |
+| Region API | http://`<region>`.api.vetchium.localhost |
+| Mailpit (all outgoing mail) | http://127.0.0.1:18025 |
+
+`EDGE_PORT` and `MAILPIT_PORT` change the published ports.
+
+Tilt runs the same stack with per-service logs and incremental rebuilds:
 
 ```bash
-make dev-seed
+tilt up                     # all regions
+tilt up -- --tenants sgp    # one region (repeat the flag for more)
+tilt up -- --manual         # build once, rebuild on demand
+tilt down                   # stop; volumes and secrets survive
 ```
 
-[Tilt](https://tilt.dev) is an optional front end for that same
-`docker-compose.json` stack. It creates the development secrets through
-`make dev-secrets`, keeps every service's log stream separately addressable,
-and rebuilds only what a change touched instead of recreating the stack the way
-`make dev` does:
+Every backend service builds from one Dockerfile, so a backend change rebuilds
+all of them; use `--manual` or one region when that is too slow.
+
+## Seeded accounts
+
+Every seeded account uses the password `DevPassword123$`.
+
+Admin portal, in every region (`<region>` is `sgp`, `usa1`, `deu`, or `ind1`):
+
+| Email | Access | State |
+| --- | --- | --- |
+| `admin@<region>.example` | manage users, manage Hub signup domains | active |
+| `manager@<region>.example` (not in `deu`) | manage users, manage Hub signup domains | active |
+| `viewer@<region>.example` | view users | active |
+| `newcomer@<region>.example` | none | active |
+| `retired@<region>.example` | view users | disabled |
+
+Hub portal: eight users per region, listed in `dev/hub-seed-profiles/<region>.json`
+(for example `wei.tan@sgp.example`). Half are on the Silver plan with full
+profiles and pictures; half are on the free plan. Sign in with the matching
+region selected.
+
+Orgs portal: one Org per region. Domain `<region>.example.com`, user
+`admin@<region>.example.com`.
+
+Hub signup accepts addresses at `<region>.example`; `sgp` also accepts
+`test1.example` to `test100.example`. Signup and reset emails arrive in Mailpit.
+
+## Test
 
 ```bash
-tilt up                     # every tenant, rebuilding on source changes
-tilt up -- --tenants sgp    # one tenant (repeat the flag for more)
-tilt up -- --manual         # build once, then rebuild only on demand
-tilt logs -f hub-api-sgp    # follow one service outside the UI
-tilt down                   # stop the stack; volumes and secrets survive
+make test             # every check, the CI stack, and all Playwright tests
+make playwright-test  # only Playwright, with the same setup
+make fmt              # apply every formatter
 ```
 
-Every backend service is built from the same `backend/Dockerfile` and the same
-repository-root context, so one backend change invalidates all of them. Use
-`--manual`, or a single tenant, when that fan-out costs more than it saves.
-`make clean` remains the full teardown.
+`make test` leaves the CI stack running for inspection and prints Go coverage
+and API contract coverage. Narrower targets per area: `make test-go`,
+`make typespec-check`, `make hub-ui-check`, `make orgs-ui-check`,
+`make admin-ui-check`, `make portal-ui-check`, `make playwright-check`,
+`make sql-check`.
 
-Clean and bring up the test environment, run every check and test suite, and
-report coverage; the stack is left running afterward for inspection:
+## Publish
 
 ```bash
-make test
+make docker                 # build every image
+make publish TAG=v1.2.3     # build and push images
+make portal-dist            # build the Hub and Orgs static sites into portal-dist/
 ```
 
-## Publishing
-
-```bash
-make docker
-make publish TAG=v1.2.3
-```
-
-Production deployment instructions live in [`deploy/`](deploy/README.md).
+Production deployment: [`deploy/README.md`](deploy/README.md).

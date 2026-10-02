@@ -1,97 +1,113 @@
 # Object Storage
 
-Applies to tenant-owned blobs, S3-compatible storage, signed media delivery, and
-object lifecycle work.
+Applies to tenant-owned blobs, SeaweedFS, signed media delivery, object
+lifecycle, and profile-picture storage.
 
 ## Tenant isolation and deployment
 
-- Each tenant owns an isolated SeaweedFS deployment and credentials. Never share
-  a bucket, access key, volume, or administrative endpoint across tenants.
-- No object store is deployed yet. The first implementation depending on it must
-  add the tenant-local master, volume, filer, and authenticated S3 gateway to
-  `docker-compose.json`, `docker-compose-ci.json`, the root `Tiltfile`, and every
-  `deploy/<tenant>/stack.json`, configuration, secret, health check, and
-  persistent-volume definition the topology requires.
-- Pin the SeaweedFS image to a reviewed version, never `latest`. Mount data on
-  explicit tenant-scoped persistent volumes and document backup and restore
-  before treating production objects as durable.
-- Enable S3 authentication explicitly. SeaweedFS allows unauthenticated access
-  when no identity is configured, so a missing or empty credential configuration
-  must fail startup rather than open the store.
-- The private S3 write/list/delete endpoint is reachable only from the tenant
-  backend network. Never publish administrative, filer, master, volume, metrics,
-  profiling, or IAM endpoints to the internet.
+- Each tenant has its own SeaweedFS master, volume, filer, and authenticated S3
+  gateway, plus an nginx media proxy, with its own credentials, volumes, and
+  networks. Never share a bucket, access key, volume, or administrative endpoint
+  across tenants.
+- A new tenant or topology change updates `docker-compose.json`,
+  `docker-compose-ci.json`, the root `Tiltfile`, and every
+  `deploy/<tenant>/stack.json`, with their configuration, secrets, health
+  checks, and persistent volumes.
+  `backend/internal/appconfig/object_storage_topology_test.go` checks the
+  topology and media-proxy isolation.
+- Pin the SeaweedFS image by version and digest, never `latest`. Keep data on
+  tenant-scoped persistent volumes; backup and restore are in
+  `deploy/README.md`.
+- SeaweedFS allows anonymous access when no identity is configured, so the S3
+  gateway refuses to start on a missing or unsafe credential file
+  (`dev/seaweedfs-s3-entrypoint.sh`).
+- The S3 write/list/delete endpoint is reachable only on the tenant backend
+  network. Never publish administrative, filer, master, volume, metrics,
+  profiling, or IAM endpoints.
 
 ## Ownership and references
 
-- The tenant database owns blob metadata and lifecycle state; SeaweedFS owns
-  bytes. Use an opaque, unguessable object id and storage key, never a plain or
-  publicly derivable handle, DID, email address, or original filename.
-- A database row never claims a new object until upload and validation succeed.
+- **PROF-PIC-006** The tenant database owns blob metadata and lifecycle state;
+  the tenant's SeaweedFS owns the bytes. Use an opaque, unguessable object id
+  and storage key, never a handle, DID, email address, original filename, or
+  other derivable value.
+- A row never claims an object until upload and validation succeed.
   Replacement commits the new reference and a deletion-outbox record for the old
-  object in one transaction. A failed database commit schedules cleanup of the
+  object in one transaction. A failed commit schedules cleanup of the
   unreferenced new object.
-- Deletion is immediately authoritative in the database. Byte removal is an
-  idempotent outbox task retried until confirmed. Sweep unreferenced objects so a
-  crash between upload and database commit cannot leak storage forever.
-- Deletion events contain only opaque storage identifiers, never user text or
+- Deletion is authoritative in the database at once. Byte removal is an
+  idempotent outbox task retried until confirmed. Sweep unreferenced objects so
+  a crash between upload and commit cannot leak storage.
+- Deletion events carry only opaque storage identifiers, never user text or
   credentials.
-- Profile-picture upload: commit an audited `uploading` row and pending
-  idempotency entry before putting bytes. Derive the opaque UUID-shaped object
-  key with a tenant-secret HMAC over the owner DID and idempotency key, so a
-  retry after a crash finds the same staged object without a predictable key.
-  Bind the ledger to the exact content type and source bytes. Bound S3 Put to 30
-  seconds; activate the new row, retire the old reference, audit, and complete
-  idempotency in one later database transaction. An abandoned staged row expires
-  into the retryable deletion queue. Delay every picture-byte deletion by one
-  minute, longer than the maximum in-flight Put, since a concurrent replay may
-  still be writing after activation, removal, or downgrade. The database
-  reference disappears immediately; old signed media URLs expire or fail when
-  byte deletion finishes.
+
+## Profile-picture upload lifecycle
+
+- Commit an audited `uploading` row and a pending idempotency entry before
+  putting bytes.
+- Derive the UUID-shaped object key with a tenant-secret HMAC over the owner DID
+  and idempotency key, so a retry after a crash finds the same staged object
+  without a predictable key. Bind the ledger to the exact content type and
+  source bytes.
+- Bound the S3 Put to 30 seconds. In one later transaction, activate the new
+  row, retire the old reference, audit, and complete idempotency.
+- An abandoned staged row expires into the retryable deletion queue.
+- Delay every picture-byte deletion by one minute, longer than the maximum
+  in-flight Put — a concurrent replay may still be writing after activation,
+  removal, or downgrade. The database reference disappears at once; old signed
+  URLs expire or fail when byte deletion finishes.
 
 ## Browser delivery
 
-- Keep buckets private. An authorized API response may contain a short-lived,
-  read-only signed URL for one object; a non-predictable key alone is not
+- Keep buckets private. An authorized API response may carry a short-lived,
+  read-only signed URL for one object; an unguessable key alone is not
   authorization.
-- Profile-picture URLs expire after ten minutes and allow only `GET`/`HEAD`.
-  Generate them from the picture owner's tenant so remote profile reads return a
-  browser-direct URL without proxying bytes through either Hub API.
+- Profile-picture URLs expire after ten minutes and allow only `GET` and `HEAD`.
+  Sign them in the picture owner's tenant, so a remote profile read returns a
+  browser-direct URL and no Hub API proxies bytes.
 - Publish only the signed read path, through a tenant-specific HTTPS media
-  origin. Keep S3 mutation and listing paths private. Set the storage gateway's
-  external host so S3 signature verification uses the browser-visible host.
-- Use the pinned MinIO Go S3-compatible client, with separate instances for the
-  private write/delete endpoint and the browser-visible read signer. The media
-  proxy must preserve the browser Host header (SigV4 signs it; signing an
-  internal hostname and rewriting the URL afterward is invalid), admit only
-  GET/HEAD on the picture bucket, and reject every mutation, bucket-listing, and
-  administrative request.
-- Render external media with no credentials and no referrer. A future CDN may
-  front the same media origin without changing profile contracts.
-- Every region's media origin must appear in the Hub portal's region table
-  (`hub-ui/src/app/regions/<environment>.json`). The build generates the
-  portal's CSP `img-src` from it, so a remote profile's picture is blocked when
-  its home region's origin is missing.
+  origin. Set the storage gateway's external host so signature verification
+  uses the browser-visible host.
+- Use the pinned MinIO Go client (`backend/internal/objectstorage`), with
+  separate instances for the private write/delete endpoint and the
+  browser-visible read signer.
+- The media proxy preserves the browser `Host` header — SigV4 signs it, so
+  signing an internal host and rewriting the URL is invalid. It admits only
+  `GET`/`HEAD` on the picture bucket and rejects mutation, listing, and
+  administrative requests.
+- Render external media with no credentials and no referrer. A CDN may later
+  front the same media origin without changing profile identity, contracts, or
+  object ownership.
+- List every region's media origin in
+  `hub-ui/src/app/regions/<environment>.json`. The build generates the portal's
+  CSP `img-src` from it, so a missing origin blocks that region's pictures.
 - Replacing or deleting an object rotates the opaque reference. Existing signed
-  URLs work only until their short expiry or the delete completes.
+  URLs work only until their expiry or the delete completes.
 
 ## Profile pictures
 
-- Reject the HTTP request before decoding when its body exceeds 8 MiB. Decode
-  within the contract's dimension and pixel-count limits, accept only JPEG and
-  non-animated PNG, re-encode once in the same format to remove metadata, reject
-  a sanitized result above 8 MiB, and discard the original bytes.
-- No cropping, resizing, format conversion, or multiple renditions until a
-  measured product or performance need justifies them.
-- Plan gating and downgrade cleanup follow
-  [`hub-subscriptions.md`](hub-subscriptions.md); a free user cannot retain,
-  upload, or replace a picture.
+- **PROF-PIC-001** A user on `hub-silver-tier` or higher may add, replace, and
+  remove a picture; a lower plan cannot upload or replace one and gets
+  `hub-plan-required`. Removal is open to every plan. Downgrade cleanup follows
+  [`hub-subscriptions.md`](hub-subscriptions.md); a later upgrade needs a new
+  upload.
+- **PROF-PIC-003** Reject a body above 8 MiB (8,388,608 bytes) with
+  `hub-profile-picture-too-large` before decoding. Accept only decoded JPEG and
+  non-animated PNG (`image/jpeg`, `image/png`); check for APNG chunks, which the
+  standard decoder ignores.
+- **PROF-PIC-004** Both dimensions are at least 400 pixels; the longest at most
+  7,680, the shortest at most 4,320, and the total at most 33,177,600 pixels.
+  Decode within these limits.
+- **PROF-PIC-005** Re-encode once in the same format to strip metadata, reject a
+  sanitized result above 8 MiB, and discard the source bytes.
+- Store one rendition: no cropping, resizing, format conversion, or responsive
+  variants until a measured need justifies them.
 
 ## Verification
 
-- Cover oversized bodies before decode, decompression limits, disguised content,
-  animation, malformed images, metadata removal, object-store failure, database
-  rollback, replacement cleanup, downgrade cleanup, expired and tampered URLs,
-  cross-tenant isolation, and retry-safe deletion.
-- Deployment tests must prove an omitted or invalid S3 credential does not
-  produce anonymous access and no private SeaweedFS port is published.
+- Cover oversized bodies before decode, decompression limits, disguised
+  content, animation, malformed images, metadata removal, object-store failure,
+  database rollback, replacement cleanup, downgrade cleanup, expired and
+  tampered URLs, cross-tenant isolation, and retry-safe deletion.
+- Deployment tests prove an omitted or invalid S3 credential gives no anonymous
+  access and no private SeaweedFS port is published.

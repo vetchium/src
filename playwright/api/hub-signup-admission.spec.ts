@@ -59,11 +59,8 @@ test("online tenants claim global handles while an offline tenant remains pendin
   request,
 }) => {
   const domain = `e2e-${randomUUID()}.example.test`;
-  // A distinct address per tenant: the Hub account email is now globally
-  // unique (docs/global-uniqueness.md), so the same address could no longer
-  // complete signup at both sgp and usa1 the way this test originally
-  // assumed — that scenario is covered on its own by
-  // hub-global-email.spec.ts's signup-race test.
+  // A distinct address per tenant: the Hub account email is globally unique
+  // (agent-guides/hub-signup.md); hub-global-email.spec.ts covers the race.
   const indiaEmail = `e2e+${randomUUID()}@${domain}`;
   const singaporeEmail = `e2e+${randomUUID()}@${domain}`;
   const usaEmail = `e2e+${randomUUID()}@${domain}`;

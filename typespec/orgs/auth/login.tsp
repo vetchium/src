@@ -67,7 +67,7 @@ union OptionalOrgBearerAuth {
 @tag("Org authentication")
 interface LoginOperations {
   /** A domain owned by an Org of another tenant is answered with that
-   * tenant's Org portal before any password is checked. */
+   * tenant's id before any password is checked. */
   @route("/login")
   @post
   login(@body request: LoginRequest):

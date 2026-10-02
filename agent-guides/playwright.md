@@ -1,96 +1,86 @@
 # Playwright
 
-Applies to the API and UI tests under `playwright/`. Read
-[`typescript.md`](typescript.md) as well.
+Applies to `playwright/`: API tests in `api/`, browser tests in `ui/`.
 
-## Layout
+## Writing tests
 
-- API tests in `playwright/api/`, browser tests in `playwright/ui/`.
-- Import every wire type from `typespec`, and read the matching `.tsp` and `.ts`
-  files before writing requests or response assertions.
-- Give each API client a typed method for valid payloads. Where validation
-  behavior needs malformed input, add a clearly named raw method taking
-  `unknown` or `Record<string, unknown>`.
+- Import wire types from `typespec`; read the `.tsp` and `.ts` before writing
+  requests or assertions.
+- API clients get a typed method for valid payloads; malformed input goes
+  through a clearly named raw method taking `unknown`.
+- Use the `request` and `page` fixtures of the `test` exported by
+  `lib/admin-fixtures.ts`; only they record API coverage.
+- Locate by role, label, or test id, not CSS structure or translated text.
+- Retrying assertions or explicit waits only; never a fixed sleep.
+- Assert observable API or UI behavior. Database helpers are for setup and
+  cleanup only.
 
-## Parallel isolation
+## Isolation
 
-The runner is `fullyParallel`: assume every test can start at the same moment, on
-another worker, in any order, and repeatedly via retries. The worker count is
-capped because the suite shares one resource-heavy local container stack, and
-host CPU count does not measure its database and container capacity. Keep the cap
-parallel; change it only with evidence from a clean full-suite run, never to hide
-an isolation defect.
+The suite is `fullyParallel` against one shared stack, with a capped worker
+count. Any test may run at any moment, on any worker, repeatedly.
 
-- Generate a UUID-backed identifier for every email, domain, tenant, user, and
-  mutable resource a test creates; a timestamp, worker index, or fixed suffix is
-  not unique enough. Use `uniqueTestID` and `uniqueTestEmail` from
-  `playwright/lib/test-id.ts` when no domain-specific factory exists.
-- Each test owns its setup and cleanup, and deletes everything it created through
-  an automatic fixture or `try`/`finally`, including partial setup left by a
-  failed assertion.
-- No test depends on another's mutations. No sharing mutable resources through
-  module globals, `beforeAll`, or ordered `describe` blocks.
-- Never use `serial`, `workers: 1`, project dependencies, or a global setup
-  script to paper over shared-state coupling; redesign the data setup.
-- Development seed records are read-only: create dedicated records for mutation
-  tests and never delete shared seed data.
-- Scope mailbox, audit-log, and list queries to the test's unique identifiers;
-  never assert against the newest or only global record.
-- A test changing singleton configuration restores it safely and uses a namespace
-  or tenant no parallel test shares. If the product offers no such boundary,
-  raise the limitation rather than weakening the parallel configuration.
+- Give every created email, domain, user, and resource a UUID-backed id
+  (`uniqueTestID`, `uniqueTestEmail` in `lib/test-id.ts`, or a domain
+  factory).
+- Each test creates and deletes its own data through a fixture or
+  `try`/`finally`, including partial setup after a failure.
+- No shared mutable state: no module globals, `beforeAll`, ordered `describe`,
+  `serial`, `workers: 1`, project dependencies, or global setup. Change the
+  worker cap only with evidence from a clean full run.
+- Seed data is read-only. CI loads `db-seed` but not `dev-seed`; never depend
+  on `dev-seed` fixtures.
+- Tenant-wide admin invariants run only in `ISOLATED_TENANT` (`deu`); never
+  create administrators there.
+- Scope mailbox, audit, and list queries to the test's own ids. An address can
+  receive several messages: search for the expected one, never trust the
+  newest.
+- Fault-injection triggers on shared tables take `AUDIT_FAULT_LOCK`
+  (`lib/admin-db.ts`) in the same transaction; parallel DDL deadlocks without
+  it.
+- A test changing singleton configuration restores it and uses a tenant or
+  namespace no other test shares; if none exists, raise it.
 
 ## Hosts and regions
 
-- UI tests open the global portals, `HUB_PORTAL` and `ORGS_PORTAL`, and API
-  tests call a region's API host, `apiOrigin(tenant)`, all from
-  `playwright/lib/portals.ts`. Admin keeps its regional `admin-ui.<region>`
-  host.
-- A test that signs in through a portal pins its region with
-  `rememberRegion(context, portal, tenant)` before the first navigation; only
-  tests of the region picker choose it on the page. The browser locale would
-  otherwise pick the region.
-- Parse emailed links with `emailedLinkToken`, which also checks the link's
-  `region=`, and open them exactly as emailed.
-
-## Assertions
-
-- Use the request fixture for API tests and the per-test browser context for UI
-  tests.
-- Prefer role, label, and test-id locators over CSS structure or locale-dependent
-  visible text.
-- Use retrying assertions or explicit event waits, never a fixed sleep.
-- Assert externally observable API or UI behavior. Direct database helpers are for
-  isolated setup and cleanup only, never a stand-in for the behavior under test.
+- UI tests open `HUB_PORTAL` and `ORGS_PORTAL`; API tests call
+  `apiOrigin(tenant)` (`lib/portals.ts`). Admin stays at
+  `admin-ui.<region>.localhost`, the config `baseURL` (`PLAYWRIGHT_BASE_URL`
+  overrides it).
+- A test signing in through a portal calls `rememberRegion(context, portal,
+  tenant)` before the first navigation; only picker tests choose on the page.
+- Read emailed links with `emailedLinkToken` (checks `region=`) and open them as
+  emailed.
 
 ## Required coverage
 
-- Every new or changed API implementation updates `playwright/api/` in the same
-  change. Exercise every non-`5xx` response in the TypeSpec response union and
-  assert status, stable problem type, required headers, and body. A shared
-  table-driven test counts only when it enumerates the endpoint explicitly. Add a
-  `5xx` case when the failure can be injected reliably without weakening
-  isolation. A response owned by planned ingress middleware stays in the
-  contract: note why it cannot be exercised yet and add coverage once that
-  middleware is in the test topology.
-- API tests cover the successful state transition and important negative
-  invariants, such as preserving an existing session or leaving persistent state
-  unchanged after a rejection. Handler unit tests are not enough: they do not
-  verify routing, middleware, encoding, or deployed database predicates.
-- Every new or changed UI behavior updates `playwright/ui/` in the same change:
-  the primary success path plus every applicable validation, server-error,
-  cancel/back, route-guard, session-state, and security-boundary path. Test both
-  sides of a time or permission boundary with a safe margin so wall-clock
-  scheduling cannot cause flakiness.
-- Before declaring completion, walk the contract and changed UI as a
-  response/behavior matrix and account for every row with a named test. Total
-  test count is not evidence of coverage.
+- A new or changed API updates `api/` in the same change: every non-`5xx`
+  response in the contract's union, asserting status, problem type, required
+  headers, and body; `5xx` where it can be injected safely. A table-driven test
+  counts only if it names the endpoint. Responses owned by planned ingress
+  middleware stay in the contract with a note.
+- Cover the success transition and negative invariants (an existing session
+  kept, state unchanged after a rejection). Handler unit tests do not cover
+  routing, middleware, encoding, or database predicates.
+- A new or changed UI behavior updates `ui/`: success plus every validation,
+  server error, cancel or back, route guard, session state, and security
+  boundary. Test both sides of a time or permission boundary with a margin.
+- Before calling it done, map every contract response and UI behavior to a
+  named test; a test count is not coverage.
 
-## CI Compose topology
+## Coverage report
 
-- `docker-compose-ci.json` is a standalone duplicate of the full local topology.
-  Never turn it into an overlay, include, extension, generated file, or template
-  derived from `docker-compose.json`; synchronize service, network, secret, and
-  health-check changes between the two files explicitly.
-- CI application configs live under `config/ci/` and use the `ci` environment
-  with intentionally short session and worker timings.
+Commands are in [`verification.md`](verification.md).
+
+- Fails on any response the contract does not declare: an unknown operation
+  (any status, `404` included), an undeclared status or problem type, or a
+  problem response without a type. Missing coverage is listed, not failed.
+- `429` and `500` are excluded. Exempt a declared variant only via
+  `PLAYWRIGHT_UNTESTABLE_VARIANTS` in `scripts/api-coverage-report.ts`.
+
+## CI stack
+
+- `docker-compose-ci.json` is a standalone copy of the local topology, never
+  an overlay, include, or generated file. Sync services, networks, secrets, and
+  health checks by hand.
+- CI configs live in `config/ci/` (`ci` environment, short timings).

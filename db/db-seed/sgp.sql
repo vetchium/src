@@ -2,7 +2,7 @@
 
 -- Local-only administrators, one for each combination of access and account
 -- state a portal has to present. Their shared password is documented in
--- db/README.md. The temporary table keeps the two writes below driven by one
+-- README.md. The temporary table keeps the two writes below driven by one
 -- list, so seeding another administrator is one row.
 CREATE TEMP TABLE seeded_admins (
     email_address text PRIMARY KEY,

@@ -244,11 +244,9 @@ test("a confirmed email change moves sign-in to the proven address and revokes o
     // request already proved that, and the code proves the new mailbox.
     ageHubSession(account.token);
 
-    // A wrong-code attempt no longer creates a durable operation (GU-ECH-002:
-    // only a correct code does), so unlike a completed change, it has
-    // nothing for a replay to conflict against. Each call with its own key
-    // genuinely re-attempts and bumps attempt_count independently — a
-    // deliberate M4 trade-off, see docs/global-uniqueness.md §10.
+    // A wrong code creates no durable operation, so each key genuinely
+    // re-attempts and bumps attempt_count (agent-guides/hub-signup.md,
+    // "Account email changes").
     const wrongKey1 = hubIdempotencyKey();
     await expectProblem(
       await confirmChange(

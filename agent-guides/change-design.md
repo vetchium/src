@@ -1,73 +1,48 @@
-# Change Design
+# Change design
 
-Applies before implementing any change. A change can be internally consistent
-and still encode the wrong product rule, ownership boundary, security property,
-or deployment assumption.
+Applies to every change, before implementing.
 
-## Establish facts
+## Facts
 
-- Read the request, applicable contracts and guides, current code, tests,
+- Read the request, the contracts and guides that apply, the code, tests,
   configuration, and recent commits in the area.
 - Evidence rank: request > contract > code > tests > commit message. An
   implementation detail is not a requirement.
-- Label each claim as requested behavior, repository fact, or inference. An
-  inference that moves product policy, data ownership, privacy, security, tenant
-  isolation, or externally visible behavior needs unambiguous repository
-  evidence or user direction.
-- Equal current values are not a shared invariant. Portals, tenants, roles,
-  endpoints, or environments can hold identical configuration and still own it
-  independently.
-- A representation standard is not product policy. BCP 47 defines language tags,
-  not which translations a portal ships; ISO 3166 defines country codes, not
-  admission or placement.
-- Take syntax, identifiers, and display data from standards and maintained
-  libraries. Keep allowlists, capabilities, defaults, and authorization in the
-  boundary that owns them.
+- An inference that changes product policy, data ownership, privacy, security,
+  tenant isolation, or external behavior needs clear evidence or the user's
+  decision. Ask; do not assume.
+- Equal values today are not a shared rule: two portals, tenants, roles, or
+  environments may hold the same setting and still own it separately.
+- A standard is not policy: BCP 47 defines tags, not which locales a portal
+  ships; ISO 3166 defines countries, not who may sign up.
+- Take formats and display data from standards and maintained libraries; keep
+  allowlists, defaults, and authorization in the boundary that owns them.
 
-## Map ownership and impact
+## Ownership
 
-For a cross-layer or cross-portal change, list the affected owners before
-editing: portal or caller; TypeSpec namespace and wire types; backend command,
-handler, worker, or internal package; database table, constraint, and
-transaction; development, CI, and production configuration; runtime image or
-entrypoint; fixtures, generated artifacts, tests, and documentation.
-
-- Mark each concern shared or owner-specific. Shared packages hold mechanism
-  that accepts owner-supplied policy or capability data. A closed vocabulary
-  stays owner-specific unless the product requires every owner to change in
-  lockstep.
+- For a cross-layer change, list every owner first: caller, contract, backend
+  command and package, table and transaction, dev/CI/production config, image,
+  fixtures, generated files, tests, docs.
+- Shared packages hold mechanism; owners supply policy. A closed vocabulary
+  stays with its owner unless the product requires lockstep change.
 - Trace each changed value through input, validation, transport, storage,
-  retrieval, background processing, display, and startup/deployment inputs, so
-  checked-in configurations stay runnable.
+  background work, display, and startup config; every checked-in config must
+  still run.
 
-## Challenge the design
+## Challenge
 
-- Find a counterexample for every shared abstraction: a portal with a different
-  locale, a tenant with different policy, an unavailable service, a value valid
-  by standard but unsupported by the product.
-- Check whether public values leak private or time-correlated identifiers.
-- Check failure, retry, concurrency, pagination, and bounded-work behavior.
-- Check for duplicate authorities, switches, catalogs, credentials, or services
-  that can disagree or become unreachable.
-- Take the smallest design that satisfies the request and keeps existing
-  invariants: no speculative modes, no wider permissions, credentials, policy,
-  or deployment scope.
+- Find a counterexample for every shared abstraction (another locale, tenant,
+  policy, or an unavailable service).
+- Check that public values leak no private or time-correlated identifier.
+- Check failure, retry, concurrency, pagination, and bounded work.
+- Look for two authorities (switches, catalogs, credentials) that can disagree.
+- Choose the smallest design that meets the request and keeps invariants. No
+  speculative modes, wider permissions, or extra deployment scope.
 
-## Corrections invalidate assumptions
+## Corrections
 
-- A user correction outranks code, tests, documentation, and commit messages.
-  Do not defend the assumption it contradicts.
-- Fix every artifact derived from that assumption across the whole value flow:
-  abstractions, contracts, validators, schema constraints, configuration,
-  fixtures, tests, docs, review prompts.
-- Rewrite tests that asserted the wrong requirement; bending the implementation
-  around them repeats the mistake.
-- Read nearby correction commits and their predecessors for the reasoning
-  failure, not the changed lines. Turn a recurring failure into one rule in the
-  right guide, not incident-specific prose.
-- Give the reviewer the original request and the correction, and ask whether any
-  part of the rejected assumption survives.
-
-Passing tests prove only the assertions written. Before review, compare the
-finished behavior against the request and ownership map again
-([`review.md`](review.md)).
+- A user correction outranks code, tests, docs, and commits. Fix everything
+  built on the wrong assumption: abstractions, contracts, validators,
+  constraints, config, fixtures, tests, docs.
+- Rewrite tests that asserted the wrong requirement; do not bend code to them.
+- Turn a recurring mistake into one rule in the right guide.

@@ -29,7 +29,7 @@ import (
 
 // devSeedHubUserPassword is the shared fixture password every seeded Hub user
 // account uses. It matches the length and shape of the administrator fixture
-// password documented in db/README.md, so a developer can log in to any
+// password documented in README.md, so a developer can log in to any
 // seeded profile in hub-ui with one known, documented password.
 const devSeedHubUserPassword = "DevPassword123$"
 
