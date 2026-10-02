@@ -3,10 +3,16 @@ import { Button, Card, Checkbox, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import type { LoginRequest } from "typespec/hub/auth/login";
+import { InvalidCredentialsError } from "typespec/problem/hub/authentication";
+import { isProblem } from "../api/client";
 import { hubAPI } from "../api/hub";
 import { useAuth } from "../auth/AuthContext";
 import { safeReturnTo } from "../auth/navigation";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import {
+  RegionField,
+  useSelectedRegion,
+} from "../features/regions/RegionField";
 
 export function LoginPage() {
   const { t } = useTranslation();
@@ -15,6 +21,7 @@ export function LoginPage() {
   const [search] = useSearchParams();
   const returnTo = safeReturnTo(search.get("returnTo"));
   const mutation = useMutation({ mutationFn: hubAPI.login });
+  const [region, setRegion] = useSelectedRegion();
   if (auth.authenticated) return <Navigate replace to={returnTo} />;
 
   const submit = async (request: LoginRequest) => {
@@ -49,11 +56,24 @@ export function LoginPage() {
           </Typography.Text>
         </div>
         <APIErrorAlert error={mutation.error} />
+        {isProblem(mutation.error, InvalidCredentialsError.type) && (
+          <Typography.Text type="secondary">
+            {t("login.wrongRegionHint")}
+          </Typography.Text>
+        )}
         <Form<LoginRequest>
           layout="vertical"
           initialValues={{ remember_me: false }}
           onFinish={(values) => void submit(values)}
         >
+          <RegionField
+            value={region}
+            onChange={(value) => {
+              mutation.reset();
+              setRegion(value);
+            }}
+            disabled={mutation.isPending}
+          />
           <Form.Item
             name="email_address"
             label={t("fields.email")}

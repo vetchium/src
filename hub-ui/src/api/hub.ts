@@ -68,30 +68,32 @@ import type {
   SetPreferredLanguageRequest,
   SetResidentCountryRequest,
 } from "typespec/hub/users/profile";
-import type {
-  ListSignupRegionsRequest,
-  ListSignupRegionsResponse,
-} from "typespec/regions/regions";
 import { apiRequest } from "./client";
 
 const base = "/api/hub";
 
 export const hubAPI = {
-  listSignupRegions: (body: ListSignupRegionsRequest) =>
-    apiRequest<ListSignupRegionsResponse>(`${base}/list-signup-regions`, {
+  requestSignup: (
+    body: RequestSignupRequest,
+    idempotencyKey: IdempotencyKey,
+    tenantId: string,
+  ) =>
+    apiRequest<void>(`${base}/request-signup`, {
       body,
+      idempotencyKey,
+      tenantId,
     }),
-  requestSignup: (body: RequestSignupRequest, idempotencyKey: IdempotencyKey) =>
-    apiRequest<void>(`${base}/request-signup`, { body, idempotencyKey }),
   completeSignup: (
     body: CompleteSignupRequest,
     idempotencyKey: IdempotencyKey,
+    tenantId: string,
   ) =>
     apiRequest<CompleteSignupResponse | SignupCompletionPendingResponse>(
       `${base}/complete-signup`,
       {
         body,
         idempotencyKey,
+        tenantId,
       },
     ),
   login: (body: LoginRequest) =>
@@ -124,10 +126,12 @@ export const hubAPI = {
   completePasswordReset: (
     body: CompletePasswordResetRequest,
     idempotencyKey: IdempotencyKey,
+    tenantId: string,
   ) =>
     apiRequest<void>(`${base}/complete-password-reset`, {
       body,
       idempotencyKey,
+      tenantId,
     }),
   changePassword: (body: ChangePasswordRequest) =>
     apiRequest<void>(`${base}/change-password`, { body }),

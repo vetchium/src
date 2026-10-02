@@ -1,11 +1,18 @@
 import { isCountryCode } from "typespec/common/countries";
 import type { CountryCode } from "typespec/common/localization";
+import {
+  type PortalEnvironment,
+  parsePortalEnvironment,
+} from "./portal-environment.ts";
 import ci from "./regions/ci.json" with { type: "json" };
 import dev from "./regions/dev.json" with { type: "json" };
 import production from "./regions/production.json" with { type: "json" };
 
-export const portalEnvironments = ["dev", "ci", "production"] as const;
-export type PortalEnvironment = (typeof portalEnvironments)[number];
+export {
+  type PortalEnvironment,
+  parsePortalEnvironment,
+  portalEnvironments,
+} from "./portal-environment.ts";
 
 export interface PortalRegion {
   readonly tenantId: string;
@@ -37,16 +44,6 @@ const regionMembers = [
   "allowedCountries",
 ];
 const tableMembers = ["defaultTenant", "recommendations", "regions"];
-
-export function parsePortalEnvironment(value: unknown): PortalEnvironment {
-  const environment = portalEnvironments.find((name) => name === value);
-  if (environment === undefined) {
-    throw new Error(
-      `VITE_VETCHIUM_ENVIRONMENT must be one of ${portalEnvironments.join(", ")}; got ${JSON.stringify(value)}`,
-    );
-  }
-  return environment;
-}
 
 /**
  * Returns the validated region table compiled in for `environment`, the

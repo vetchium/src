@@ -10,6 +10,7 @@ import {
   clearSession,
   readSession,
   type StoredSession,
+  sessionTenant,
   storeSession,
 } from "./session";
 
@@ -38,7 +39,11 @@ const auth = createPortalAuth<
   challengeToken: (challenge) => challenge.login_challenge_token,
   pendingChallenge: (challenge, remembered) => ({ ...challenge, remembered }),
   updateSession: (session, updates) =>
-    storeSession({ ...session, ...updates }, session.remembered),
+    storeSession(
+      { ...session, ...updates },
+      session.remembered,
+      sessionTenant() ?? undefined,
+    ),
 });
 
 export const AuthProvider = auth.AuthProvider;

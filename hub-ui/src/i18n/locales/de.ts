@@ -44,6 +44,11 @@ export const de = {
     twoFactor: "Zwei-Faktor-Authentifizierung",
     recoveryCodes: "Verbleibende Wiederherstellungscodes",
   },
+  region: {
+    label: "Region",
+    help: "Ihr Konto befindet sich in genau einer Region. Wählen Sie die Region, in der Sie es erstellt haben.",
+    option: "{{country}} ({{tenantId}})",
+  },
   login: {
     documentTitle: "Anmelden | Vetchium",
     title: "Anmelden",
@@ -57,6 +62,8 @@ export const de = {
     forgotPassword: "Passwort vergessen?",
     noAccount: "Neu bei Vetchium?",
     signup: "Konto erstellen",
+    wrongRegionHint:
+      "Wenn E-Mail-Adresse und Passwort stimmen, prüfen Sie, ob die ausgewählte Region die ist, in der Sie Ihr Konto erstellt haben.",
   },
   twoFactor: {
     documentTitle: "Zwei-Faktor-Prüfung | Vetchium",
@@ -74,7 +81,6 @@ export const de = {
     regionLabel: "Kontoregion",
     continueRegion: "In {{region}} ({{tenant}}) fortfahren",
     changeRegion: "Land oder Region ändern",
-    retryRegions: "Regionen erneut laden",
     noRegions: "Für dieses Land ist derzeit keine Registrierung verfügbar.",
     recommendedRegion: "{{region}} ({{tenant}}) — empfohlen",
     regionOption: "{{region}} ({{tenant}})",
@@ -564,6 +570,12 @@ export const de = {
       "Jeder Code funktioniert einmal. Vorhandene Codes wurden ersetzt und können nicht erneut angezeigt werden.",
     copyAll: "Alle Wiederherstellungscodes kopieren",
     saved: "Ich habe die Codes gespeichert",
+  },
+  orgPage: {
+    documentTitle: "Organisation | Vetchium",
+    title: "Organisationsseiten sind noch nicht verfügbar",
+    description: "Informationen zu {{domain}} werden hier künftig angezeigt.",
+    action: "Zur Startseite",
   },
   notFound: {
     title: "Seite nicht gefunden",

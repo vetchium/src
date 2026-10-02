@@ -87,13 +87,15 @@ test("the store remembers only known regions", async () => {
     store.remember("ind1");
     assert.equal(store.read(), "ind1");
     store.remember("usa1");
+    assert.equal(store.read(), "ind1");
     assert.equal(storage.getItem("test.region"), "ind1");
     storage.setItem("test.region", "usa1");
-    assert.equal(store.read(), "sgp");
+    const fresh = createRegionStore({ key: "test.region", table });
+    assert.equal(fresh.read(), "sgp");
   });
 });
 
-test("the store falls back when storage throws", async () => {
+test("the store keeps the choice in memory when storage throws", async () => {
   const throwing = {
     getItem: () => {
       throw new Error("blocked");
@@ -104,8 +106,9 @@ test("the store falls back when storage throws", async () => {
   };
   await withGlobal("localStorage", throwing, () => {
     const store = createRegionStore({ key: "test.region", table });
-    store.remember("deu");
     assert.equal(store.read(), "sgp");
+    store.remember("deu");
+    assert.equal(store.read(), "deu");
   });
 });
 

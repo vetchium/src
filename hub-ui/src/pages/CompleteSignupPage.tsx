@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
 import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,6 +11,7 @@ import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
 import { usePendingOperations } from "../app/PendingOperationContext";
 import { usePreferences } from "../app/PreferencesContext";
+import { regionTable } from "../app/regions";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { countryName } from "../i18n/countries";
 
@@ -18,25 +20,11 @@ interface PasswordValues {
   confirm_password: string;
 }
 
-/** The other tenant's Hub sign-in page, or null when the API supplied a URL
- * this portal will not navigate to. */
-function homeTenantSignIn(hubURL: string): string | null {
-  let parsed: URL;
-  try {
-    parsed = new URL(hubURL);
-  } catch {
-    return null;
-  }
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
-  return `${hubURL.replace(/\/+$/, "")}/login`;
-}
-
 function HomedElsewhere({ error }: { error: unknown }) {
   const { t } = useTranslation();
   const preferences = usePreferences();
   const problem = error instanceof APIError ? error.problem : undefined;
   if (!isHubAccountHomedElsewhereProblem(problem)) return null;
-  const destination = homeTenantSignIn(problem.hub_url);
   return (
     <div data-testid="complete-signup-homed-elsewhere">
       <Alert
@@ -47,15 +35,7 @@ function HomedElsewhere({ error }: { error: unknown }) {
         })}
         description={t("completeSignup.homedElsewhere.description")}
         action={
-          destination === null ? undefined : (
-            <Button
-              type="primary"
-              size="small"
-              onClick={() => window.location.assign(destination)}
-            >
-              {t("completeSignup.homedElsewhere.action")}
-            </Button>
-          )
+          <Link to="/login">{t("completeSignup.homedElsewhere.action")}</Link>
         }
       />
     </div>
@@ -66,6 +46,7 @@ export function CompleteSignupPage() {
   const { t } = useTranslation();
   const [search] = useSearchParams();
   const token = search.get("token") ?? "";
+  const region = regionFromSearchParams(regionTable, search);
   const key = useIdempotencyKey(`hub-complete-signup:${token}`);
   const { hold } = usePendingOperations();
   const complete = useMutation({
@@ -75,6 +56,7 @@ export function CompleteSignupPage() {
         return await hubAPI.completeSignup(
           { signup_token: token, password: values.password },
           key.current(),
+          region ?? "",
         );
       } finally {
         release();
@@ -103,7 +85,7 @@ export function CompleteSignupPage() {
         <Typography.Title level={1}>
           {t("completeSignup.title")}
         </Typography.Title>
-        {token.length === 0 ? (
+        {token.length === 0 || region === null ? (
           // A truncated link must say so. A form whose submit
           // button is disabled explains nothing.
           <Alert

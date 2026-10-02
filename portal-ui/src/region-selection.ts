@@ -38,8 +38,9 @@ export function initialRegion(
 }
 
 /**
- * Remembers the chosen region per browser under the caller's storage key.
- * Storage may be unavailable or cleared, so every read falls back to
+ * Holds the chosen region and remembers it per browser under the caller's
+ * storage key. Storage may be unavailable or cleared, so the choice is also
+ * kept in memory for this page, and a fresh page falls back to
  * `initialRegion`'s other sources.
  */
 export function createRegionStore({
@@ -49,8 +50,10 @@ export function createRegionStore({
   key: string;
   table: RegionTable;
 }) {
+  let selected: string | null = null;
   return {
     read: (): string => {
+      if (selected !== null) return selected;
       let remembered: string | null = null;
       try {
         remembered = globalThis.localStorage?.getItem(key) ?? null;
@@ -65,10 +68,11 @@ export function createRegionStore({
     },
     remember: (tenantId: string): void => {
       if (findRegion(table, tenantId) === undefined) return;
+      selected = tenantId;
       try {
         globalThis.localStorage?.setItem(key, tenantId);
       } catch {
-        // The selection still applies to this page.
+        // The in-memory choice still applies to this page.
       }
     },
   };

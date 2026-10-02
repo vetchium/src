@@ -376,7 +376,7 @@ hub-ui-check-ready: hub-ui-deps
 	cd hub-ui && npm run typecheck
 	cd hub-ui && npm test
 	cd hub-ui && npm audit --audit-level=high
-	cd hub-ui && npm run build
+	cd hub-ui && VITE_VETCHIUM_ENVIRONMENT=production npm run build
 
 hub-ui-check: hub-ui-check-ready
 
