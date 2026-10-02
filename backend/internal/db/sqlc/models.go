@@ -1333,6 +1333,19 @@ type VetchiumOrgUser struct {
 	UpdatedAt         pgtype.Timestamptz   `json:"updated_at"`
 }
 
+type VetchiumOrgUserInvitation struct {
+	OrgInvitationID pgtype.UUID        `json:"org_invitation_id"`
+	OrgDid          pgtype.UUID        `json:"org_did"`
+	EmailAddress    string             `json:"email_address"`
+	TokenHash       []byte             `json:"token_hash"`
+	Permissions     []string           `json:"permissions"`
+	InvitedBy       pgtype.UUID        `json:"invited_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt      pgtype.Timestamptz `json:"consumed_at"`
+	Active          bool               `json:"active"`
+}
+
 type VetchiumOrgUserPassword struct {
 	OrgUserID    pgtype.UUID        `json:"org_user_id"`
 	PasswordHash string             `json:"password_hash"`

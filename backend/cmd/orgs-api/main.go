@@ -102,6 +102,7 @@ func run(log *slog.Logger, address string) error {
 		TenantID:      cfg.TenantID,
 		SessionTTL:    cfg.OrgsAPIServer.SessionTTL,
 		SignupTTL:     cfg.OrgsAPIServer.SignupTTL,
+		InvitationTTL: cfg.OrgsAPIServer.InvitationTTL,
 		PublicBaseURL: cfg.OrgsAPIServer.PublicBaseURL,
 		CredentialKey: credentialKey,
 	}

@@ -96,7 +96,8 @@ func TestOrgRendererLoadsEveryLocalizedTemplate(t *testing.T) {
 			if strings.Contains(message.HTMLBody, "<token>") {
 				t.Errorf("render %s/%s did not HTML-escape the record", locale, kind)
 			}
-			link := kind == OrgSignupLink || kind == OrgPasswordReset
+			link := kind == OrgSignupLink || kind == OrgPasswordReset ||
+				kind == OrgInvitation
 			if link != strings.Contains(message.TextBody, data.ActionURL) {
 				t.Errorf("render %s/%s link presence = %t", locale, kind, !link)
 			}

@@ -68,6 +68,17 @@ WITH sessions AS (
         LIMIT 1000
     )
     RETURNING s.org_signup_request_id
+), invitations AS (
+    DELETE FROM vetchium.org_user_invitations AS i
+    WHERE i.org_invitation_id IN (
+        SELECT candidate.org_invitation_id
+        FROM vetchium.org_user_invitations AS candidate
+        WHERE candidate.expires_at <= now()
+           OR NOT candidate.active
+        ORDER BY candidate.created_at
+        LIMIT 1000
+    )
+    RETURNING i.org_invitation_id
 ),
 outbox AS (
     DELETE FROM vetchium.org_email_outbox AS o
@@ -87,6 +98,7 @@ outbox AS (
         (SELECT count(*) FROM enrollments)::bigint AS enrollments,
         (SELECT count(*) FROM resets)::bigint AS resets,
         (SELECT count(*) FROM signups)::bigint AS signups,
+        (SELECT count(*) FROM invitations)::bigint AS invitations,
         (SELECT count(*) FROM outbox)::bigint AS outbox
 ), audit AS (
     INSERT INTO vetchium.audit_events (
@@ -103,10 +115,10 @@ outbox AS (
         'workers',
         to_jsonb(summary)
     FROM summary
-    WHERE sessions + challenges + enrollments + resets + signups + outbox > 0
+    WHERE sessions + challenges + enrollments + resets + signups + invitations + outbox > 0
 )
 SELECT
-    (sessions + challenges + enrollments + resets + signups + outbox)::bigint
+    (sessions + challenges + enrollments + resets + signups + invitations + outbox)::bigint
         AS deleted_count
 FROM summary
 `

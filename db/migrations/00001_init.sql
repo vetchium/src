@@ -1413,6 +1413,52 @@ FROM vetchium.org_user_permissions AS p
 JOIN vetchium.org_permission_implications AS i
     ON i.permission = p.permission;
 
+-- A pending seat. Exactly one active invitation may exist per address in an
+-- Org; an expired one is overwritten by a new invitation.
+CREATE TABLE vetchium.org_user_invitations (
+    org_invitation_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    email_address text NOT NULL CHECK (
+        email_address = lower(btrim(email_address)) AND
+        char_length(email_address) BETWEEN 3 AND 254
+    ),
+    token_hash bytea NOT NULL UNIQUE CHECK (octet_length(token_hash) = 32),
+    -- An array cannot carry a foreign key, so membership is enforced when the
+    -- grants are inserted at acceptance.
+    permissions text[] NOT NULL DEFAULT '{}'::text[],
+    invited_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL,
+    consumed_at timestamptz,
+    active boolean NOT NULL DEFAULT true,
+    CONSTRAINT org_user_invitations_expiry_check CHECK (
+        expires_at > created_at
+    ),
+    CONSTRAINT org_user_invitations_consumed_inactive CHECK (
+        consumed_at IS NULL OR NOT active
+    )
+);
+
+CREATE UNIQUE INDEX org_user_invitations_active_email_idx
+    ON vetchium.org_user_invitations (org_did, email_address) WHERE active;
+CREATE INDEX org_user_invitations_expiry_idx
+    ON vetchium.org_user_invitations (expires_at);
+
+-- The single definition of a seat: an active user, or an invitation that has
+-- not expired. Disabled users and expired invitations hold none. Callers hold
+-- the Org row lock (SELECT ... FOR UPDATE) so the count and the statement that
+-- consumes a seat see one serialized history.
+CREATE FUNCTION vetchium.org_seats_in_use(p_org_did uuid) RETURNS bigint
+LANGUAGE sql STABLE AS $$
+    SELECT
+        (SELECT count(*) FROM vetchium.org_users AS u
+         WHERE u.org_did = p_org_did AND u.org_user_state = 'active') +
+        (SELECT count(*) FROM vetchium.org_user_invitations AS i
+         WHERE i.org_did = p_org_did AND i.active AND i.consumed_at IS NULL
+           AND i.expires_at > now())
+$$;
+
 CREATE TABLE vetchium.org_sessions (
     org_session_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
@@ -1616,7 +1662,8 @@ CREATE TABLE vetchium.org_email_outbox (
         'signup-link',
         'password-reset',
         'domain-failing',
-        'org-suspended'
+        'org-suspended',
+        'invitation'
     )),
     recipient_email_address text NOT NULL,
     preferred_language vetchium.org_frontend_locale NOT NULL,
@@ -1666,6 +1713,8 @@ DROP TABLE IF EXISTS vetchium.org_password_reset_tokens;
 DROP TABLE IF EXISTS vetchium.org_totp_recovery_codes;
 DROP TABLE IF EXISTS vetchium.org_totp_enrollments;
 DROP TABLE IF EXISTS vetchium.org_login_challenges;
+DROP FUNCTION IF EXISTS vetchium.org_seats_in_use(uuid);
+DROP TABLE IF EXISTS vetchium.org_user_invitations;
 DROP TABLE IF EXISTS vetchium.org_sessions;
 DROP VIEW IF EXISTS vetchium.org_effective_permissions;
 DROP TABLE IF EXISTS vetchium.org_user_permissions;

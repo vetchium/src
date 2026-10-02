@@ -5,10 +5,13 @@ import (
 
 	orgsaccount "backend/handlers/orgs/account"
 	orgsauth "backend/handlers/orgs/auth"
+	orgsusers "backend/handlers/orgs/users"
 	"backend/handlers/portal"
 	"backend/internal/apiserver"
 	"backend/internal/middleware"
 	orgsruntime "backend/internal/orgs"
+
+	orgsauthorization "github.com/vetchium/src/typespec/orgs/authorization"
 )
 
 func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
@@ -69,5 +72,34 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("GET /api/orgs/my-info", orgAuth(orgsaccount.MyInfo(s)))
 	mux.Handle(
 		"POST /api/orgs/check-domain", orgAuth(orgsaccount.CheckDomain(s)),
+	)
+
+	// A suspended Org is refused on every route below; the account and billing
+	// routes it keeps do not compose activeOrg.
+	activeOrg := middleware.RequireActiveOrg(s)
+	manageUsers := func(next http.Handler) http.Handler {
+		return orgAuth(activeOrg(
+			middleware.RequireOrgPermission(
+				s, orgsauthorization.ManageUsers,
+			)(next),
+		))
+	}
+	mux.Handle("POST /api/orgs/invite-users", manageUsers(orgsusers.InviteUsers(s)))
+	mux.Handle(
+		"POST /api/orgs/list-invitations", manageUsers(orgsusers.ListInvitations(s)),
+	)
+	mux.Handle(
+		"POST /api/orgs/resend-invitation",
+		manageUsers(orgsusers.ResendInvitation(s)),
+	)
+	mux.Handle(
+		"POST /api/orgs/cancel-invitations",
+		manageUsers(orgsusers.CancelInvitations(s)),
+	)
+	mux.HandleFunc(
+		"POST /api/orgs/get-invitation-details", orgsusers.GetInvitationDetails(s),
+	)
+	mux.HandleFunc(
+		"POST /api/orgs/accept-invitation", orgsusers.AcceptInvitation(s),
 	)
 }

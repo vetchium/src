@@ -20,6 +20,7 @@ type Querier interface {
 	// A unique violation on hub_account_email_changes_one_live (the caller
 	// already has a live change) maps to the in-progress problem.
 	AcceptHubEmailChange(ctx context.Context, arg AcceptHubEmailChangeParams) (AcceptHubEmailChangeRow, error)
+	AcceptOrgInvitation(ctx context.Context, arg AcceptOrgInvitationParams) (AcceptOrgInvitationRow, error)
 	ActivateHubProfilePicture(ctx context.Context, arg ActivateHubProfilePictureParams) (ActivateHubProfilePictureRow, error)
 	AddHubLanguageAbility(ctx context.Context, arg AddHubLanguageAbilityParams) (AddHubLanguageAbilityRow, error)
 	AdminTOTPEnabled(ctx context.Context, adminUserID pgtype.UUID) (bool, error)
@@ -36,6 +37,9 @@ type Querier interface {
 	// Suspends the Org locally before the global release is sent, so the Org is
 	// never treated as owning a domain the directory may already have released.
 	BeginOrgDomainRelease(ctx context.Context, arg BeginOrgDomainReleaseParams) (bool, error)
+	// All or nothing: nothing is cancelled unless every address has a pending
+	// invitation.
+	CancelOrgInvitations(ctx context.Context, arg CancelOrgInvitationsParams) (bool, error)
 	ChangeAdminPassword(ctx context.Context, arg ChangeAdminPasswordParams) (bool, error)
 	ChangeHubPassword(ctx context.Context, arg ChangeHubPasswordParams) (bool, error)
 	ChangeOrgPassword(ctx context.Context, arg ChangeOrgPasswordParams) (bool, error)
@@ -176,6 +180,7 @@ type Querier interface {
 	GetHubUserForLogin(ctx context.Context, emailAddress string) (GetHubUserForLoginRow, error)
 	GetIdempotency(ctx context.Context, arg GetIdempotencyParams) (GetIdempotencyRow, error)
 	GetOrgDomainForCheck(ctx context.Context, orgDid pgtype.UUID) (GetOrgDomainForCheckRow, error)
+	GetOrgInvitationDetails(ctx context.Context, tokenHash []byte) (GetOrgInvitationDetailsRow, error)
 	GetOrgLoginChallenge(ctx context.Context, tokenHash []byte) (GetOrgLoginChallengeRow, error)
 	GetOrgMyInfo(ctx context.Context, orgUserID pgtype.UUID) (GetOrgMyInfoRow, error)
 	GetOrgPasswordForReauthentication(ctx context.Context, arg GetOrgPasswordForReauthenticationParams) (string, error)
@@ -193,6 +198,10 @@ type Querier interface {
 	HubAliasOperationPreflight(ctx context.Context, arg HubAliasOperationPreflightParams) (bool, error)
 	HubProfessionalEmailExistsForOwner(ctx context.Context, arg HubProfessionalEmailExistsForOwnerParams) (int32, error)
 	HubTOTPEnabled(ctx context.Context, hubUserDid pgtype.UUID) (bool, error)
+	// One outcome per supplied address, in request order. When the new
+	// invitations would exceed seat_limit (NULL means unlimited) none is created
+	// and every would-be invitation is reported as 'limit-reached'.
+	InviteOrgUsers(ctx context.Context, arg InviteOrgUsersParams) ([]InviteOrgUsersRow, error)
 	// An address that already belongs to an account locally or globally still
 	// gets a challenge, so rate limits and the response are identical, but no
 	// code is queued for it (GU-ECH-001).
@@ -214,6 +223,7 @@ type Querier interface {
 	// looked at, without needing to lock or mutate hub_users.
 	ListHubUsersWithEndingSubscriptions(ctx context.Context, arg ListHubUsersWithEndingSubscriptionsParams) ([]ListHubUsersWithEndingSubscriptionsRow, error)
 	ListOrgDomainsPastGrace(ctx context.Context, failingBefore pgtype.Timestamptz) ([]ListOrgDomainsPastGraceRow, error)
+	ListOrgInvitations(ctx context.Context, arg ListOrgInvitationsParams) ([]ListOrgInvitationsRow, error)
 	ListPendingOrgDomainCommands(ctx context.Context) ([]ListPendingOrgDomainCommandsRow, error)
 	ListRecoverableFederationOperations(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
 	// The sibling operation's retry schedule orders recovery, so a batch of
@@ -231,6 +241,11 @@ type Querier interface {
 	LockHubSubscriptionForChange(ctx context.Context, hubUserDid pgtype.UUID) (LockHubSubscriptionForChangeRow, error)
 	LockHubUserCredentialMutation(ctx context.Context, hubUserDid pgtype.UUID) (pgtype.UUID, error)
 	LockIdempotency(ctx context.Context, dollar_1 string) error
+	// Locks the invitation's Org so acceptance is serialized with every other
+	// seat-consuming statement, and returns the plan the cap derives from.
+	LockOrgForInvitation(ctx context.Context, tokenHash []byte) (LockOrgForInvitationRow, error)
+	// Takes the Org row lock that serializes every statement consuming a seat.
+	LockOrgSeatPolicy(ctx context.Context, orgDid pgtype.UUID) (LockOrgSeatPolicyRow, error)
 	LockOrgUserCredentialMutation(ctx context.Context, orgUserID pgtype.UUID) (pgtype.UUID, error)
 	MarkHubAccountEmailChangeCancelling(ctx context.Context, arg MarkHubAccountEmailChangeCancellingParams) (int64, error)
 	MarkHubAccountEmailChangeFailed(ctx context.Context, arg MarkHubAccountEmailChangeFailedParams) (int64, error)
@@ -298,6 +313,9 @@ type Querier interface {
 	RegenerateOrgTOTPRecoveryCodes(ctx context.Context, arg RegenerateOrgTOTPRecoveryCodesParams) (bool, error)
 	RejectOrgDomainReclaim(ctx context.Context, arg RejectOrgDomainReclaimParams) (bool, error)
 	RemoveHubProfilePicture(ctx context.Context, arg RemoveHubProfilePictureParams) (RemoveHubProfilePictureRow, error)
+	// Rotates the token and restarts the lifetime. An expired invitation holds no
+	// seat, so resending it must fit the cap again.
+	ResendOrgInvitation(ctx context.Context, arg ResendOrgInvitationParams) (ResendOrgInvitationRow, error)
 	ResolveAdminLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveAdminPasswordResetUser(ctx context.Context, resetTokenHash []byte) (pgtype.UUID, error)
 	ResolveFederationOperation(ctx context.Context, arg ResolveFederationOperationParams) (VetchiumFederationOperation, error)

@@ -55,6 +55,7 @@
     "./orgs/auth/totp": "./orgs/auth/totp.ts",
     "./orgs/auth/types": "./orgs/auth/types.ts",
     "./orgs/authorization/types": "./orgs/authorization/types.ts",
+    "./orgs/users/invitations": "./orgs/users/invitations.ts",
     "./orgs/subscriptions/plans": "./orgs/subscriptions/plans.ts",
     "./problem/admin/authentication": "./problem/admin/authentication.ts",
     "./problem/admin/authorization": "./problem/admin/authorization.ts",
@@ -74,6 +75,7 @@
     "./problem/hub/totp": "./problem/hub/totp.ts",
     "./problem/orgs/authentication": "./problem/orgs/authentication.ts",
     "./problem/orgs/signup": "./problem/orgs/signup.ts",
+    "./problem/orgs/users": "./problem/orgs/users.ts",
     "./problem/orgs/suspension": "./problem/orgs/suspension.ts",
     "./problem/orgs/totp": "./problem/orgs/totp.ts"
   },

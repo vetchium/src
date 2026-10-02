@@ -704,7 +704,7 @@ narrow checks; run `make test` (in the background) as the last Done check.
 | OS-M0 Plan | [x] | OS-M0 commit |
 | OS-M1 Billing-period extraction | [x] | a6eae7e |
 | OS-M2 Permissions, plan contract, schema foundation | [x] | 41a84c6 |
-| OS-M3 Invitations API | [ ] | |
+| OS-M3 Invitations API | [x] | see log |
 | OS-M4 User management API | [ ] | |
 | OS-M5 User management UI | [ ] | |
 | OS-M6 Subscription schema and billing policy | [ ] | |
@@ -725,6 +725,7 @@ planned"`.
 - 2026-10-02 OS-M0 — as planned (the plan commit itself).
 - 2026-10-03 a6eae7e OS-M1 — `billingperiod` takes a month count; `hub/billing` keeps thin wrappers (`Boundary`, `PeriodContaining`, `Instant`) so callers are unchanged.
 - 2026-10-03 41a84c6 OS-M2 — reused `org-permission-required` (already in `problem/orgs/authentication.*`); added `org-suspended` in `problem/orgs/suspension.*`. `AuthenticateOrgSession` now returns `org_state` and effective permissions, carried on `OrgIdentity`. Entitlements also published as `x-vetchium-plan-entitlements` and checked against the TS constants in `openapi-extensions.test.ts`. Existing Playwright expectations updated (superadmin `my-info` lists implied permissions; the disabled-user SQL helper sets the reason).
+- 2026-10-03 OS-M3 — added `org-invitation-not-found` (404; resend and all-or-nothing cancel) and the security effects `create/rotate/cancel/consume-org-invitation`, `queue-org-invitation-email`; `org-invitee-domain-mismatch` is not needed (D34 reports `domain-mismatch` per address). `org_seats_in_use()` SQL function is the one seat definition; `LockOrgSeatPolicy`/`LockOrgForInvitation` take the Org row lock before each seat-consuming statement. Invitee language is the inviter's. `accept-invitation` takes `invitation_token`, `password`, `preferred_language`. Search uses `strpos` on the lowercased address (bounded to the Org), no trigram index. Validation failures are HTTP 400 in this codebase.
 
 ## 9. Open questions
 

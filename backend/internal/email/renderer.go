@@ -31,6 +31,7 @@ const (
 	OrgPasswordReset         Kind = "org-password-reset"
 	OrgDomainFailing         Kind = "org-domain-failing"
 	OrgSuspended             Kind = "org-suspended"
+	OrgInvitation            Kind = "org-invitation"
 )
 
 var hubKinds = []Kind{
@@ -41,7 +42,7 @@ var hubKinds = []Kind{
 
 var orgKinds = []Kind{
 	OrgSignupDNSInstructions, OrgSignupLink, OrgPasswordReset,
-	OrgDomainFailing, OrgSuspended,
+	OrgDomainFailing, OrgSuspended, OrgInvitation,
 }
 
 //go:embed templates/*/*

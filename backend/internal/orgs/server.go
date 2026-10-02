@@ -37,6 +37,7 @@ type Server struct {
 	TenantID      string
 	SessionTTL    time.Duration
 	SignupTTL     time.Duration
+	InvitationTTL time.Duration
 	PublicBaseURL string
 	CredentialKey [32]byte
 	Now           func() time.Time

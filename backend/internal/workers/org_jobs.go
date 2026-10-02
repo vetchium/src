@@ -267,6 +267,11 @@ func orgEmailKind(kind string, payload orgmail.Payload) (email.Kind, error) {
 			return "", fmt.Errorf("domain failing email is incomplete")
 		}
 		return email.OrgDomainFailing, nil
+	case "invitation":
+		if payload.ActionURL == "" || payload.ExpiresAt.IsZero() {
+			return "", fmt.Errorf("invitation email is incomplete")
+		}
+		return email.OrgInvitation, nil
 	case "org-suspended":
 		if !hasRecord {
 			return "", fmt.Errorf("suspension email is incomplete")

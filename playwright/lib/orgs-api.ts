@@ -9,6 +9,15 @@ import type { MyInfoResponse } from "typespec/orgs/account/account";
 import type { LoginResponse } from "typespec/orgs/auth/login";
 import type { CompleteSignupResponse } from "typespec/orgs/auth/signup";
 import type { OrgDomain } from "typespec/orgs/types";
+import type {
+  AcceptInvitationRequest,
+  AcceptInvitationResponse,
+  CancelInvitationsRequest,
+  GetInvitationDetailsRequest,
+  InviteUsersRequest,
+  ListInvitationsRequest,
+  ResendInvitationRequest,
+} from "typespec/orgs/users/invitations";
 import {
   AUDIT_FAULT_LOCK,
   type AuditEvent,
@@ -73,6 +82,49 @@ export class OrgsAPI {
     });
   }
 
+  inviteUsers(
+    token: string,
+    request: InviteUsersRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/invite-users", request, { token, idempotencyKey });
+  }
+
+  listInvitations(
+    token: string,
+    request: ListInvitationsRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-invitations", request, { token });
+  }
+
+  resendInvitation(
+    token: string,
+    request: ResendInvitationRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/resend-invitation", request, { token, idempotencyKey });
+  }
+
+  cancelInvitations(
+    token: string,
+    request: CancelInvitationsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/cancel-invitations", request, { token });
+  }
+
+  getInvitationDetails(
+    request: GetInvitationDetailsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-invitation-details", request);
+  }
+
+  acceptInvitation(
+    request: AcceptInvitationRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/accept-invitation", request, { idempotencyKey });
+  }
+
   myInfo(token?: string): Promise<APIResponse> {
     return this.request.get(`${this.origin}/api/orgs/my-info`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -126,6 +178,60 @@ export function signupToken(linkEmail: string, tenant: TestTenant): string {
   const token = emailedLinkToken(linkEmail, "/complete-signup", tenant);
   if (!token) throw new Error(`signup link email carried no ${tenant} token`);
   return token;
+}
+
+/** Reads the newest invitation email to `emailAddress` and returns its
+ * token. */
+export async function invitationToken(
+  request: APIRequestContext,
+  emailAddress: string,
+  tenant: TestTenant = "sgp",
+): Promise<string> {
+  const text = await orgEmailText(request, emailAddress, "invited to join");
+  const token = emailedLinkToken(text, "/accept-invitation", tenant);
+  if (!token) throw new Error(`invitation email carried no ${tenant} token`);
+  return token;
+}
+
+/** An invitee on an Org's domain, with a unique local part. */
+export function inviteeAddress(domain: string, local = "member"): string {
+  return `${local}-${randomUUID().slice(0, 8)}@${domain}`;
+}
+
+export interface OrgMember {
+  domain: OrgDomain;
+  emailAddress: string;
+  password: string;
+  token: string;
+}
+
+/** Invites `emailAddress` with `permissions`, accepts the invitation, and
+ * signs the new user in. */
+export async function addOrgMember(
+  api: OrgsAPI,
+  ownerToken: string,
+  domain: OrgDomain,
+  emailAddress: string,
+  permissions: string[] = [],
+): Promise<OrgMember> {
+  const invited = await api.inviteUsers(ownerToken, {
+    email_addresses: [emailAddress],
+    permissions,
+  });
+  expect(invited.status(), await invited.text()).toBe(200);
+  const password = orgPassword();
+  const accepted = await api.acceptInvitation({
+    invitation_token: await invitationToken(
+      api.request,
+      emailAddress,
+      api.tenant,
+    ),
+    password,
+    preferred_language: "en-US",
+  });
+  expect(accepted.status(), await accepted.text()).toBe(201);
+  const token = await loginOrg(api, { domain, emailAddress, password });
+  return { domain, emailAddress, password, token };
 }
 
 export interface PendingOrgSignup {
@@ -276,6 +382,9 @@ export function cleanupOrg(domain: string, tenant: TestTenant = "sgp"): void {
          WHERE domain = ${value}
          UNION SELECT org_email_outbox_id::text FROM vetchium.org_email_outbox
          WHERE recipient_email_address LIKE ${pattern}
+         UNION SELECT org_invitation_id::text
+         FROM vetchium.org_user_invitations
+         WHERE email_address LIKE ${pattern}
          UNION SELECT t.org_password_reset_token_id::text
          FROM vetchium.org_password_reset_tokens AS t
          JOIN vetchium.org_users AS u USING (org_user_id)
@@ -287,7 +396,10 @@ export function cleanupOrg(domain: string, tenant: TestTenant = "sgp"): void {
     DELETE FROM vetchium.org_email_outbox
     WHERE recipient_email_address LIKE ${pattern};
     DELETE FROM vetchium.idempotency_ledger
-    WHERE binding_id LIKE ${pattern} OR binding_id LIKE ${sqlLiteral(`${domain}/%`)};
+    WHERE binding_id IN (
+      SELECT org_user_id::text FROM vetchium.org_users
+      WHERE email_address LIKE ${pattern}
+    ) OR binding_id LIKE ${pattern} OR binding_id LIKE ${sqlLiteral(`${domain}/%`)};
     DELETE FROM vetchium.orgs WHERE ${hasDID("org_did::text")};
     `,
   );

@@ -1,6 +1,7 @@
 import "./types.tsp";
 import "./authorization/types.tsp";
 import "./subscriptions/plans.tsp";
+import "./users/invitations.tsp";
 import "../problem/orgs/suspension.tsp";
 import "./auth/types.tsp";
 import "./auth/signup.tsp";
