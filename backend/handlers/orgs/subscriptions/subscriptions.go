@@ -1,10 +1,8 @@
 package subscriptions
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -60,87 +58,19 @@ func MySubscription(s *orgsruntime.Server) http.HandlerFunc {
 	}
 }
 
-// save writes the final state, the net invoice writes, and one audit event
-// per transition, in the caller's transaction. system are the transitions
-// that were due ahead of the request, decided the request's own effect.
-func save(
-	ctx context.Context, s *orgsruntime.Server, q *sqlc.Queries,
-	orgDID pgtype.UUID, before, advanced, final billing.State,
+// change names what one request writes: the transitions that fell due ahead
+// of it, and its own effect, credited to the Org user.
+func change(
+	s *orgsruntime.Server, orgDID pgtype.UUID, before, advanced, final billing.State,
 	system []billing.Transition, decided *billing.Transition,
 	actor billing.Actor, paidBy pgtype.UUID, key common.IdempotencyKey,
-) error {
-	all := append([]billing.Transition{}, system...)
-	events := billing.TransitionEvents(before, system, billing.SystemRenewalActor)
-	if decided != nil {
-		all = append(all, *decided)
-		if event := billing.DecisionEvent(advanced, decided, actor); event != nil {
-			events = append(events, *event)
-		}
+) billingdb.Change {
+	return billingdb.Change{
+		OrgDID: orgDID, Before: before, Advanced: advanced, Final: final,
+		System: system, Decided: decided, Actor: actor,
+		SystemActor: billing.SystemRenewalActor, PaidBy: paidBy, Key: key,
+		TenantID: s.TenantID, Source: billing.SourceOrgsAPI,
 	}
-	changes := billing.FoldInvoiceChanges(all)
-	for _, change := range changes {
-		if !change.Valid() {
-			return fmt.Errorf("incomplete %s invoice change", change.Op)
-		}
-	}
-	changesJSON, err := billing.InvoiceChangesJSON(changes)
-	if err != nil {
-		return err
-	}
-	eventsJSON, err := billing.EventsJSON(events)
-	if err != nil {
-		return err
-	}
-	params := sqlc.SaveOrgSubscriptionParams{
-		OrgPlanOid:     string(final.Plan),
-		BillingState:   sqlc.VetchiumOrgBillingStateCurrent,
-		OrgDid:         orgDID,
-		InvoiceChanges: changesJSON,
-		PaidBy:         paidBy,
-		TenantID:       s.TenantID,
-		Source:         billing.SourceOrgsAPI,
-		IdempotencyKey: dbvalue.Text(string(key)),
-		Events:         eventsJSON,
-	}
-	if final.PastDue() {
-		params.BillingState = sqlc.VetchiumOrgBillingStatePastDue
-	}
-	if final.Plan != subscriptionspec.FreeTier {
-		params.OrgBillingInterval = sqlc.NullVetchiumOrgBillingInterval{
-			VetchiumOrgBillingInterval: sqlc.VetchiumOrgBillingInterval(final.Interval),
-			Valid:                      true,
-		}
-		params.SubscriptionAnchorAt = dbvalue.Timestamp(final.AnchorAt)
-		params.SubscriptionPeriodStart = dbvalue.Timestamp(final.PeriodStart)
-		params.SubscriptionPeriodEnd = dbvalue.Timestamp(final.PeriodEnd)
-	}
-	if final.HasSchedule() {
-		params.ScheduledOrgPlanOid = dbvalue.Text(string(final.ScheduledPlan))
-		if final.ScheduledPlan != subscriptionspec.FreeTier {
-			params.ScheduledBillingInterval = sqlc.NullVetchiumOrgBillingInterval{
-				VetchiumOrgBillingInterval: sqlc.VetchiumOrgBillingInterval(
-					final.ScheduledInterval,
-				),
-				Valid: true,
-			}
-		}
-	}
-	saved, err := q.SaveOrgSubscription(ctx, params)
-	if err != nil {
-		return err
-	}
-	written := saved.CreatedCount + saved.PaidCount + saved.FailedCount +
-		saved.VoidedCount
-	if saved.UpdatedCount != 1 || saved.AuditedCount != int64(len(events)) ||
-		written != int64(len(changes)) {
-		return fmt.Errorf(
-			"save Org subscription: updated=%d audited=%d written=%d, "+
-				"want updated=1 audited=%d written=%d",
-			saved.UpdatedCount, saved.AuditedCount, written,
-			len(events), len(changes),
-		)
-	}
-	return nil
 }
 
 func refusalProblem(decision billing.Decision, seats int64) problem.Body {
@@ -229,10 +159,10 @@ func SetSubscriptionPlan(s *orgsruntime.Server) http.HandlerFunc {
 					// A due transition (a failed renewal, say) happened whether
 					// or not the request was allowed, so it commits with the
 					// refusal.
-					if err := save(
-						ctx, s, q, identity.OrgDID, state, advanced, advanced,
+					if err := billingdb.Save(ctx, q, change(
+						s, identity.OrgDID, state, advanced, advanced,
 						transitions, nil, actor, pgtype.UUID{}, key,
-					); err != nil {
+					)); err != nil {
 						return result{}, nil, err
 					}
 					return handlerauth.CommittedFailure[subscriptionspec.OrgSubscription](details), nil, nil
@@ -243,10 +173,10 @@ func SetSubscriptionPlan(s *orgsruntime.Server) http.HandlerFunc {
 						Body:   responseFromState(advanced, seats),
 					}, nil, nil
 				}
-				if err := save(
-					ctx, s, q, identity.OrgDID, state, advanced, decision.State,
+				if err := billingdb.Save(ctx, q, change(
+					s, identity.OrgDID, state, advanced, decision.State,
 					transitions, decision.Transition, actor, pgtype.UUID{}, key,
-				); err != nil {
+				)); err != nil {
 					return result{}, nil, err
 				}
 				return result{
@@ -306,10 +236,10 @@ func PayInvoice(s *orgsruntime.Server) http.HandlerFunc {
 					if len(transitions) == 0 {
 						return handlerauth.Failure[subscriptionspec.OrgSubscription](details)
 					}
-					if err := save(
-						ctx, s, q, identity.OrgDID, state, advanced, advanced,
+					if err := billingdb.Save(ctx, q, change(
+						s, identity.OrgDID, state, advanced, advanced,
 						transitions, nil, actor, pgtype.UUID{}, key,
-					); err != nil {
+					)); err != nil {
 						return result{}, nil, err
 					}
 					return handlerauth.CommittedFailure[subscriptionspec.OrgSubscription](details), nil, nil
@@ -324,10 +254,10 @@ func PayInvoice(s *orgsruntime.Server) http.HandlerFunc {
 				case billing.ChargeDeclined:
 					return refuse(orgsproblem.PaymentDeclinedError)
 				}
-				if err := save(
-					ctx, s, q, identity.OrgDID, state, advanced, paid,
+				if err := billingdb.Save(ctx, q, change(
+					s, identity.OrgDID, state, advanced, paid,
 					transitions, paidTransition, actor, identity.UserID, key,
-				); err != nil {
+				)); err != nil {
 					return result{}, nil, err
 				}
 				return result{

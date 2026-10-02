@@ -1805,7 +1805,12 @@ CREATE TABLE vetchium.org_email_outbox (
         'password-reset',
         'domain-failing',
         'org-suspended',
-        'invitation'
+        'invitation',
+        'payment-failed',
+        'payment-due',
+        'subscription-ending',
+        'users-disabled-nonpayment',
+        'moved-to-free'
     )),
     recipient_email_address text NOT NULL,
     preferred_language vetchium.org_frontend_locale NOT NULL,

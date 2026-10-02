@@ -57,6 +57,8 @@ type OrgWork struct {
 	Email   OrgEmailDelivery
 	Signup  OrgSignupRecovery
 	Domains OrgDomainVerification
+	// Billing enables the subscription jobs when set.
+	Billing *OrgBillingWork
 }
 
 type orgJobs struct {
@@ -97,6 +99,20 @@ func (w *Worker) EnableOrgs(config appconfig.Workers, work OrgWork) {
 			run:      w.pruneOrgEphemeralData,
 		},
 	)
+	if work.Billing != nil {
+		w.jobs = append(w.jobs,
+			periodicJob{
+				name:     "advance-org-subscriptions",
+				interval: work.Billing.Interval,
+				run:      w.advanceOrgSubscriptions,
+			},
+			periodicJob{
+				name:     "warn-org-billing",
+				interval: work.Billing.Interval,
+				run:      w.warnOrgBilling,
+			},
+		)
+	}
 }
 
 func (w *Worker) pruneOrgEphemeralData(ctx context.Context) error {
@@ -272,6 +288,15 @@ func orgEmailKind(kind string, payload orgmail.Payload) (email.Kind, error) {
 			return "", fmt.Errorf("invitation email is incomplete")
 		}
 		return email.OrgInvitation, nil
+	case "payment-failed", "payment-due", "subscription-ending":
+		if payload.ExpiresAt.IsZero() {
+			return "", fmt.Errorf("%s email has no deadline", kind)
+		}
+		return email.Kind("org-" + kind), nil
+	case "users-disabled-nonpayment":
+		return email.OrgUsersDisabled, nil
+	case "moved-to-free":
+		return email.OrgMovedToFree, nil
 	case "org-suspended":
 		if !hasRecord {
 			return "", fmt.Errorf("suspension email is incomplete")

@@ -32,6 +32,11 @@ const (
 	OrgDomainFailing         Kind = "org-domain-failing"
 	OrgSuspended             Kind = "org-suspended"
 	OrgInvitation            Kind = "org-invitation"
+	OrgPaymentFailed         Kind = "org-payment-failed"
+	OrgPaymentDue            Kind = "org-payment-due"
+	OrgSubscriptionEnding    Kind = "org-subscription-ending"
+	OrgUsersDisabled         Kind = "org-users-disabled"
+	OrgMovedToFree           Kind = "org-moved-to-free"
 )
 
 var hubKinds = []Kind{
@@ -42,7 +47,8 @@ var hubKinds = []Kind{
 
 var orgKinds = []Kind{
 	OrgSignupDNSInstructions, OrgSignupLink, OrgPasswordReset,
-	OrgDomainFailing, OrgSuspended, OrgInvitation,
+	OrgDomainFailing, OrgSuspended, OrgInvitation, OrgPaymentFailed,
+	OrgPaymentDue, OrgSubscriptionEnding, OrgUsersDisabled, OrgMovedToFree,
 }
 
 //go:embed templates/*/*

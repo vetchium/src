@@ -565,6 +565,23 @@ export function orgAuditEventsByKey(
   );
 }
 
+/** The subscription audit actions recorded for an Org, oldest first, whoever
+ * wrote them: a request, or the worker that runs every second in CI. */
+export function orgSubscriptionActions(
+  domain: string,
+  tenant: TestTenant = "sgp",
+): string[] {
+  const list = sqlScalarForTenant(
+    tenant,
+    `SELECT COALESCE(string_agg(action, ',' ORDER BY created_at, audit_event_id), '')
+     FROM vetchium.audit_events
+     WHERE action LIKE 'org.subscription.%'
+       AND entity_id = (SELECT org_did::text FROM vetchium.org_domains
+                        WHERE domain = ${sqlLiteral(domain)})`,
+  );
+  return list === "" ? [] : list.split(",");
+}
+
 export function orgUserID(emailAddress: string, tenant: TestTenant = "sgp") {
   return sqlScalarForTenant(
     tenant,

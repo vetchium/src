@@ -48,6 +48,12 @@ type Querier interface {
 	// encodes a nil Go slice as SQL NULL, and `x <> ALL (NULL)` is never true, so
 	// the COALESCE also guards a caller that does pass nil.
 	ClaimDueHubSubscriptions(ctx context.Context, arg ClaimDueHubSubscriptionsParams) ([]ClaimDueHubSubscriptionsRow, error)
+	// Claims one Org whose subscription needs the worker: a renewal or scheduled
+	// change at period end, or a retry or the deadline of an open invoice. The
+	// claim holds the row until the transaction ends, so a request that locks it
+	// waits and a second worker skips it. skipped_org_dids holds Orgs this run
+	// already found unreadable.
+	ClaimDueOrgSubscription(ctx context.Context, arg ClaimDueOrgSubscriptionParams) (ClaimDueOrgSubscriptionRow, error)
 	ClaimFederationOutboxEvent(ctx context.Context, leaseToken pgtype.UUID) (ClaimFederationOutboxEventRow, error)
 	ClaimHubEmail(ctx context.Context, arg ClaimHubEmailParams) (ClaimHubEmailRow, error)
 	ClaimHubProfilePictureDeletion(ctx context.Context, leaseToken pgtype.UUID) (ClaimHubProfilePictureDeletionRow, error)
@@ -140,6 +146,13 @@ type Querier interface {
 	// Re-enables disabled targets (either reason) when the whole batch fits the
 	// cap; seat_limit is NULL for an unlimited Org.
 	EnableOrgUsers(ctx context.Context, arg EnableOrgUsersParams) (string, error)
+	// The deadline's effect on people, in the transaction that voids the invoice
+	// and drops the Org to Free: disable the users beyond the keep set with
+	// reason nonpayment and end their sessions, cancel every pending invitation,
+	// and queue one email to each disabled user. Disabled users keep their data
+	// and can be re-enabled one at a time.
+	// OS-M10 removes the Org logo here; OS-M11 turns Google sign-in off here.
+	EnforceOrgDeadline(ctx context.Context, arg EnforceOrgDeadlineParams) (EnforceOrgDeadlineRow, error)
 	// The reserve-time email-claim-conflict path (GU-ECH-003): fails directly,
 	// skipping 'cancelling', since nothing was reserved globally to undo. The
 	// caller resolves the sibling federation_operations row with the existing
@@ -237,9 +250,16 @@ type Querier interface {
 	// lets one run walk multiple batches without re-selecting rows it already
 	// looked at, without needing to lock or mutate hub_users.
 	ListHubUsersWithEndingSubscriptions(ctx context.Context, arg ListHubUsersWithEndingSubscriptionsParams) ([]ListHubUsersWithEndingSubscriptionsRow, error)
+	// Orgs whose payment deadline or scheduled plan change is within max_lead of
+	// at. The caller decides which lead, if any, has opened; this only narrows
+	// the scan. skipped_org_dids keeps a batch from re-selecting an Org this run
+	// already decided.
+	ListOrgBillingNoticeCandidates(ctx context.Context, arg ListOrgBillingNoticeCandidatesParams) ([]ListOrgBillingNoticeCandidatesRow, error)
 	ListOrgDomainsPastGrace(ctx context.Context, failingBefore pgtype.Timestamptz) ([]ListOrgDomainsPastGraceRow, error)
 	ListOrgInvitations(ctx context.Context, arg ListOrgInvitationsParams) ([]ListOrgInvitationsRow, error)
 	ListOrgInvoices(ctx context.Context, arg ListOrgInvoicesParams) ([]ListOrgInvoicesRow, error)
+	// The active users considered when an Org drops to Free.
+	ListOrgKeepCandidates(ctx context.Context, arg ListOrgKeepCandidatesParams) ([]ListOrgKeepCandidatesRow, error)
 	ListOrgPermissionCatalog(ctx context.Context) ([]ListOrgPermissionCatalogRow, error)
 	// Active users holding each directly granted permission.
 	ListOrgPermissionCounts(ctx context.Context, orgDid pgtype.UUID) ([]ListOrgPermissionCountsRow, error)
@@ -312,6 +332,10 @@ type Querier interface {
 	// for a day after delivery ends, whether it succeeded or not.
 	PruneOrgEphemeralData(ctx context.Context, tenantID string) (int64, error)
 	QueueExpiredHubProfilePictureUploads(ctx context.Context, tenantID string) (int32, error)
+	// Queues one email to every active user holding billing_permission. Used for
+	// a failed payment and for the move to Free, where the holders are the users
+	// who remain active.
+	QueueOrgBillingHolderEmail(ctx context.Context, arg QueueOrgBillingHolderEmailParams) (int64, error)
 	ReauthenticateAdminSession(ctx context.Context, arg ReauthenticateAdminSessionParams) (pgtype.Timestamptz, error)
 	ReauthenticateHubSession(ctx context.Context, arg ReauthenticateHubSessionParams) (pgtype.Timestamptz, error)
 	ReauthenticateOrgSession(ctx context.Context, arg ReauthenticateOrgSessionParams) (pgtype.Timestamptz, error)
@@ -324,6 +348,10 @@ type Querier interface {
 	// no-op: when the notice already exists, the outbox and audit CTEs have
 	// nothing to select from and queued comes back false.
 	RecordHubSubscriptionExpiryNotice(ctx context.Context, arg RecordHubSubscriptionExpiryNoticeParams) (bool, error)
+	// Records that a warning was due, and queues it to the billing holders, only
+	// the first time: a repeated or concurrent tick finds the row and queues
+	// nothing.
+	RecordOrgBillingNotice(ctx context.Context, arg RecordOrgBillingNoticeParams) (RecordOrgBillingNoticeRow, error)
 	// Reaching the failure threshold moves a verified domain to failing and
 	// queues one notice to each active superadmin in the same transaction, so the
 	// notice is sent exactly once per failing period.

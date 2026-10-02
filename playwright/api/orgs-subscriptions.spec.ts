@@ -19,6 +19,7 @@ import {
   orgAuditEventsByKey,
   orgInfo,
   orgSQL,
+  orgSubscriptionActions,
   orgsIdempotencyKey,
   type SignedUpOrg,
   signupOrg,
@@ -586,32 +587,24 @@ test.describe("renewal, dunning, and pay-invoice through the API", () => {
       const dueAt = justEnded();
       setPeriod(org, "month", dueAt);
 
-      // The read shows what would happen without writing it.
-      const preview = await subscription(api, owner);
-      expect(preview.billing_state).toBe("past-due");
-      expect(
-        orgSQL(
-          `SELECT count(*) FROM vetchium.org_invoices
-           WHERE org_did = (SELECT org_did FROM vetchium.org_domains
-                            WHERE domain = '${org.domain}')
-             AND invoice_state = 'open'`,
-        ),
-      ).toBe("0");
+      // Whoever looks first - this read, the next request, or the worker that
+      // runs every second in CI - sees the same failed renewal.
+      expect((await subscription(api, owner)).billing_state).toBe("past-due");
 
-      // A change request persists the due renewal, then is refused.
-      const key = orgsIdempotencyKey();
+      // A change request is refused while the renewal is unpaid.
       await expectProblem(
-        await api.setSubscriptionPlan(
-          owner,
-          { plan_oid: "org-gold-tier", billing_interval: "month" },
-          key,
-        ),
+        await api.setSubscriptionPlan(owner, {
+          plan_oid: "org-gold-tier",
+          billing_interval: "month",
+        }),
         409,
         pastDue,
       );
-      expect(orgAuditEventsByKey(key).map((event) => event.action)).toEqual([
-        "org.subscription.renewal-failed",
-      ]);
+      expect(
+        orgSubscriptionActions(org.domain).filter(
+          (action) => action === "org.subscription.renewal-failed",
+        ),
+      ).toHaveLength(1);
       stabilizeOpenInvoice(org);
       const current = await subscription(api, owner);
       expect(current).toMatchObject({
@@ -669,27 +662,21 @@ test.describe("renewal, dunning, and pay-invoice through the API", () => {
     });
   });
 
-  test("a successful renewal is applied by the next request", async ({
-    request,
-  }) => {
+  test("a successful renewal starts the next period", async ({ request }) => {
     await withOrg(request, async ({ api, org, owner }) => {
       await saveCard(api, owner, "simulated-succeeds");
       await choose(api, owner, "org-silver-tier", "month");
       const end = new Date(Date.now() - 60 * 60 * 1000);
       setPeriod(org, "month", end);
-      const key = orgsIdempotencyKey();
-      const response = await api.setSubscriptionPlan(
-        owner,
-        { plan_oid: "org-silver-tier", billing_interval: "month" },
-        key,
-      );
-      expect(response.status()).toBe(200);
-      const body = await responseJSON<OrgSubscription>(response);
-      expect(body.current_period_start).toBe(end.toISOString());
+      // The request applies the renewal if the worker has not already.
+      const body = await choose(api, owner, "org-silver-tier", "month");
+      expect(Date.parse(body.current_period_start ?? "")).toBe(end.getTime());
       expect(body.billing_state).toBe("current");
-      expect(orgAuditEventsByKey(key).map((event) => event.action)).toEqual([
-        "org.subscription.renewed",
-      ]);
+      expect(
+        orgSubscriptionActions(org.domain).filter(
+          (action) => action === "org.subscription.renewed",
+        ),
+      ).toHaveLength(1);
       const listed = await invoices(api, owner);
       expect(listed.invoices.map((invoice) => invoice.reason)).toEqual([
         "renewal",
