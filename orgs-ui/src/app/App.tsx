@@ -1,7 +1,11 @@
 import { Spin } from "antd";
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router";
-import { ManageBilling, ManageUsers } from "typespec/orgs/authorization/types";
+import {
+  ManageBilling,
+  ManageUsers,
+  Superadmin,
+} from "typespec/orgs/authorization/types";
 import { AppShell } from "../components/common/AppShell";
 import {
   ActiveOrgRoute,
@@ -15,6 +19,11 @@ import { paths } from "./paths";
 const AcceptInvitationPage = lazy(() =>
   import("../pages/AcceptInvitationPage").then(({ AcceptInvitationPage }) => ({
     default: AcceptInvitationPage,
+  })),
+);
+const SettingsPage = lazy(() =>
+  import("../pages/SettingsPage").then(({ SettingsPage }) => ({
+    default: SettingsPage,
   })),
 );
 const PlansPage = lazy(() =>
@@ -179,6 +188,16 @@ export function App() {
             }
           />
           <Route element={<ActiveOrgRoute />}>
+            <Route element={<PermissionRoute permission={Superadmin} />}>
+              <Route
+                path={paths.settings}
+                element={
+                  <Page>
+                    <SettingsPage />
+                  </Page>
+                }
+              />
+            </Route>
             <Route element={<PermissionRoute permission={ManageBilling} />}>
               <Route
                 path={paths.plans}

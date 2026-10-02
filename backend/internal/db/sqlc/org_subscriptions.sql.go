@@ -394,22 +394,45 @@ WITH updated AS (
       AND i.org_did = $9
       AND i.invoice_state = 'open'
     RETURNING i.org_invoice_id
+), logos_queued AS (
+    -- A plan that does not include the logo takes it away in this same
+    -- transaction; the object bytes are removed by a retried worker task.
+    UPDATE vetchium.org_logo_objects AS l
+    SET state = 'pending_delete', upload_expires_at = NULL,
+        delete_requested_at = now(),
+        next_attempt_at = now() + interval '1 minute'
+    WHERE l.org_did = $9
+      AND l.state IN ('active', 'uploading')
+      AND NOT ($1 = ANY($12::text[]))
+    RETURNING l.object_id
+), logo_audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        $13, 'org.logo.removed_by_plan', 'org_logo',
+        q.object_id::text, 'system', 'subscription-renewal',
+        $14, $15,
+        jsonb_build_object('org_plan_oid', $1::text)
+    FROM logos_queued AS q
+    RETURNING audit_event_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, idempotency_key, payload
     )
     SELECT
-        $12,
+        $13,
         (e.elem ->> 'action')::text,
         'org',
         $9::text,
         (e.elem ->> 'actor_type')::text,
         (e.elem ->> 'actor_id')::text,
-        $13,
         $14,
+        $15,
         e.elem -> 'payload'
-    FROM jsonb_array_elements($15::jsonb) AS e(elem)
+    FROM jsonb_array_elements($16::jsonb) AS e(elem)
     RETURNING audit_event_id
 )
 SELECT
@@ -418,7 +441,9 @@ SELECT
     (SELECT count(*) FROM paid)::bigint AS paid_count,
     (SELECT count(*) FROM failed)::bigint AS failed_count,
     (SELECT count(*) FROM voided)::bigint AS voided_count,
-    (SELECT count(*) FROM audit)::bigint AS audited_count
+    (SELECT count(*) FROM audit)::bigint AS audited_count,
+    (SELECT count(*) FROM logos_queued)::bigint AS logos_queued_count,
+    (SELECT count(*) FROM logo_audit)::bigint AS logos_audited_count
 `
 
 type SaveOrgSubscriptionParams struct {
@@ -433,6 +458,7 @@ type SaveOrgSubscriptionParams struct {
 	OrgDid                   pgtype.UUID                    `json:"org_did"`
 	InvoiceChanges           []byte                         `json:"invoice_changes"`
 	PaidBy                   pgtype.UUID                    `json:"paid_by"`
+	LogoPlanOids             []string                       `json:"logo_plan_oids"`
 	TenantID                 string                         `json:"tenant_id"`
 	Source                   string                         `json:"source"`
 	IdempotencyKey           pgtype.Text                    `json:"idempotency_key"`
@@ -440,12 +466,14 @@ type SaveOrgSubscriptionParams struct {
 }
 
 type SaveOrgSubscriptionRow struct {
-	UpdatedCount int64 `json:"updated_count"`
-	CreatedCount int64 `json:"created_count"`
-	PaidCount    int64 `json:"paid_count"`
-	FailedCount  int64 `json:"failed_count"`
-	VoidedCount  int64 `json:"voided_count"`
-	AuditedCount int64 `json:"audited_count"`
+	UpdatedCount      int64 `json:"updated_count"`
+	CreatedCount      int64 `json:"created_count"`
+	PaidCount         int64 `json:"paid_count"`
+	FailedCount       int64 `json:"failed_count"`
+	VoidedCount       int64 `json:"voided_count"`
+	AuditedCount      int64 `json:"audited_count"`
+	LogosQueuedCount  int64 `json:"logos_queued_count"`
+	LogosAuditedCount int64 `json:"logos_audited_count"`
 }
 
 // The single write statement for a subscription change. invoice_changes and
@@ -465,6 +493,7 @@ func (q *Queries) SaveOrgSubscription(ctx context.Context, arg SaveOrgSubscripti
 		arg.OrgDid,
 		arg.InvoiceChanges,
 		arg.PaidBy,
+		arg.LogoPlanOids,
 		arg.TenantID,
 		arg.Source,
 		arg.IdempotencyKey,
@@ -478,6 +507,8 @@ func (q *Queries) SaveOrgSubscription(ctx context.Context, arg SaveOrgSubscripti
 		&i.FailedCount,
 		&i.VoidedCount,
 		&i.AuditedCount,
+		&i.LogosQueuedCount,
+		&i.LogosAuditedCount,
 	)
 	return i, err
 }

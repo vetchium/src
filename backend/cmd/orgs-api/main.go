@@ -12,6 +12,7 @@ import (
 	"backend/internal/directoryclient"
 	"backend/internal/dnsverify"
 	"backend/internal/middleware"
+	"backend/internal/objectstorage"
 	orgsruntime "backend/internal/orgs"
 	orgsauthn "backend/internal/orgs/auth"
 	"backend/internal/orgs/billing"
@@ -77,6 +78,21 @@ func run(log *slog.Logger, address string) error {
 	}
 	defer pool.Close()
 
+	accessKey, secretKey, err := cfg.ObjectStorage.Credentials()
+	if err != nil {
+		return err
+	}
+	logos, err := objectstorage.New(
+		cfg.ObjectStorage.PrivateBaseURL, cfg.ObjectStorage.MediaBaseURL,
+		accessKey, secretKey,
+	)
+	if err != nil {
+		return err
+	}
+	if err := logos.EnsureBucket(ctx); err != nil {
+		return err
+	}
+
 	credentialKey := orgsauthn.DeriveCredentialKey(
 		cfg.TenantID, credentialSecret,
 	)
@@ -112,6 +128,7 @@ func run(log *slog.Logger, address string) error {
 			RetryOffsets: cfg.OrgBilling.RetryOffsets,
 		},
 		Charger: billing.SimulatedCharger{},
+		Logos:   logos,
 	}
 	mux := http.NewServeMux()
 	routes.RegisterOrgsRoutes(mux, s)

@@ -75,6 +75,7 @@ type MyInfoResponse struct {
 	SessionAuthenticatedAt time.Time                       `json:"session_authenticated_at"`
 	Org                    OrgSummary                      `json:"org"`
 	PlanOID                subscriptions.PlanOID           `json:"plan_oid"`
+	LogoURL                *string                         `json:"logo_url,omitempty"`
 	BillingNotice          *BillingNotice                  `json:"billing_notice,omitempty"`
 }
 

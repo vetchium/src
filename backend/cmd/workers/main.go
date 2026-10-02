@@ -163,6 +163,7 @@ func run(log *slog.Logger) error {
 		),
 	})
 	worker.EnablePictureDeletion(pictures)
+	worker.EnableOrgLogoDeletion(pictures)
 	worker.EnableAliasOperations(directory)
 	worker.Run(ctx)
 	<-ctx.Done()

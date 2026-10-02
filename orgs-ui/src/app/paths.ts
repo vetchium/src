@@ -11,6 +11,7 @@ export const paths = {
   restoreDomain: "/restore-domain",
   members: "/members",
   plans: "/plans",
+  settings: "/settings",
   acceptInvitation: "/accept-invitation",
 } as const;
 

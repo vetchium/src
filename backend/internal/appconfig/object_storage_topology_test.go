@@ -58,7 +58,7 @@ func TestTenantObjectStorageTopology(t *testing.T) {
 						t.Errorf("%s lacks tenant S3 identity secret", name)
 					}
 				}
-				for _, role := range []string{"hub-api", "mesh-api", "workers"} {
+				for _, role := range []string{"hub-api", "mesh-api", "orgs-api", "workers"} {
 					name := role + "-" + tenant
 					var service struct {
 						Secrets []struct {

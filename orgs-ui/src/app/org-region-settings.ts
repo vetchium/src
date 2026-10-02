@@ -6,6 +6,8 @@ import {
 } from "typespec/orgs/subscriptions/plans";
 
 export interface OrgRegionSettings {
+  /** Where this region's signed logo URLs are served from. */
+  readonly mediaOrigin: string;
   readonly orgPlans: readonly OrgPlan[];
 }
 
@@ -25,13 +27,19 @@ export function parseOrgRegionSettings(
   const settings = new Map<string, OrgRegionSettings>();
   for (const [index, entry] of entries.entries()) {
     const at = `regions[${index}]`;
-    const { tenantId, orgPlans } = (entry ?? {}) as Record<string, unknown>;
+    const { tenantId, mediaOrigin, orgPlans } = (entry ?? {}) as Record<
+      string,
+      unknown
+    >;
     if (
       typeof tenantId !== "string" ||
       !tenantIds.includes(tenantId) ||
       settings.has(tenantId)
     ) {
       throw new Error(`${at}.tenantId must be a unique region in the table`);
+    }
+    if (typeof mediaOrigin !== "string" || !isOrigin(mediaOrigin)) {
+      throw new Error(`${at}.mediaOrigin must be an origin`);
     }
     if (
       !Array.isArray(orgPlans) ||
@@ -44,6 +52,7 @@ export function parseOrgRegionSettings(
       );
     }
     settings.set(tenantId, {
+      mediaOrigin,
       orgPlans: plans.filter((plan) => orgPlans.includes(plan)),
     });
   }
@@ -52,4 +61,16 @@ export function parseOrgRegionSettings(
     throw new Error(`region ${missing} has no Org settings`);
   }
   return settings;
+}
+
+function isOrigin(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.origin === value &&
+      (url.protocol === "https:" || url.protocol === "http:")
+    );
+  } catch {
+    return false;
+  }
 }

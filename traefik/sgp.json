@@ -14,7 +14,7 @@
         "entryPoints": ["web"]
       },
       "media": {
-        "rule": "Host(`media.sgp.localhost`) && (Method(`GET`) || Method(`HEAD`)) && PathRegexp(`^/hub-profile-pictures/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
+        "rule": "Host(`media.sgp.localhost`) && (Method(`GET`) || Method(`HEAD`)) && PathRegexp(`^/(hub-profile-pictures|org-logos)/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
         "service": "media",
         "entryPoints": ["web"],
         "priority": 100

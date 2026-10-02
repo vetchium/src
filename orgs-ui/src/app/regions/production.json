@@ -2,19 +2,23 @@
   "regions": [
     {
       "tenantId": "deu",
-      "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
+      "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
+      "mediaOrigin": "https://media.deu.vetchium.com"
     },
     {
       "tenantId": "ind1",
-      "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
+      "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
+      "mediaOrigin": "https://media.ind1.vetchium.com"
     },
     {
       "tenantId": "sgp",
-      "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
+      "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
+      "mediaOrigin": "https://media.sgp.vetchium.com"
     },
     {
       "tenantId": "usa1",
-      "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
+      "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
+      "mediaOrigin": "https://media.usa1.vetchium.com"
     }
   ]
 }

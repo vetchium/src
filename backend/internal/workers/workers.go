@@ -36,6 +36,8 @@ type Worker struct {
 	reconcileHubEmailChangeTimer time.Duration
 	pictureQueries               pictureDeletionQueries
 	pictureStore                 PictureStore
+	logoStore                    LogoStore
+	logoQueries                  logoDeletionQueries
 	pictureDeletionInterval      time.Duration
 	aliasReleaseQueries          aliasReleaseQueries
 	aliasReleaseDirectory        AliasReleaseDirectory
@@ -77,6 +79,7 @@ func New(
 		hubEmailChangeRecovery:       hubEmailChangeRecovery,
 		reconcileHubEmailChangeTimer: config.ReconcileHubEmailChangeTimer,
 		pictureQueries:               queries,
+		logoQueries:                  queries,
 		pictureDeletionInterval:      config.PruneEphemeralDataTimer,
 		aliasReleaseQueries:          queries,
 		aliasReleaseInterval:         config.ReconcileHubSignupTimer,

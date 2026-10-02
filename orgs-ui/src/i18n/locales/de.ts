@@ -18,6 +18,7 @@ export const de = {
     home: "Startseite",
     members: "Mitglieder",
     plans: "Tarif und Abrechnung",
+    settings: "Organisationseinstellungen",
     security: "Sicherheit",
     restoreDomain: "Domain wiederherstellen",
   },
@@ -131,6 +132,12 @@ export const de = {
       "Ihre Organisation ist gesperrt. Stellen Sie ihre Domain wieder her, um fortzufahren.",
     userLimitExceedsTarget:
       "Ihre Organisation hat {{seats}} Benutzer und offene Einladungen, dieser Tarif erlaubt {{limit}}. Deaktivieren Sie zuerst Benutzer oder widerrufen Sie Einladungen.",
+    logoInvalid:
+      "Dieses Bild kann nicht verwendet werden. Wählen Sie ein nicht animiertes PNG oder JPEG, dessen Seiten jeweils zwischen 128 und 4.096 Pixel lang sind.",
+    logoTooLarge: "Dieses Bild ist größer als 2 MiB.",
+    logoConflict:
+      "Das Logo wurde gleichzeitig von jemand anderem geändert. Versuchen Sie es erneut.",
+    planRequired: "Dafür ist ein höherer Tarif nötig.",
     permissionRequired: "Nur ein Superadmin Ihrer Organisation kann das tun.",
     recentAuthenticationRequired: "Melden Sie sich erneut an, um fortzufahren.",
     totpAlreadyEnabled: "Die Zwei-Faktor-Authentifizierung ist bereits aktiv.",
@@ -509,6 +516,22 @@ export const de = {
       empty: "Noch keine Rechnungen.",
       reasons: { upgrade: "Upgrade", renewal: "Verlängerung" },
       states: { paid: "Bezahlt", open: "Offen", void: "Storniert" },
+    },
+  },
+  settings: {
+    documentTitle: "Organisationseinstellungen | Vetchium für Organisationen",
+    title: "Organisationseinstellungen",
+    description: "Einstellungen, die nur ein Superadmin ändern kann.",
+    logo: {
+      title: "Logo",
+      help: "Wird neben dem Namen Ihrer Organisation angezeigt. Verwenden Sie ein nicht animiertes PNG oder JPEG bis 2 MiB, dessen Seiten jeweils zwischen 128 und 4.096 Pixel lang sind. Das Bild wird neu kodiert und seine Metadaten werden entfernt.",
+      none: "Es ist kein Logo festgelegt.",
+      alt: "Logo von {{name}}",
+      upload: "Logo hochladen",
+      replace: "Logo ersetzen",
+      remove: "Logo entfernen",
+      upgrade: "Ein Logo erfordert den Tarif Silver oder höher.",
+      seePlans: "Tarife ansehen",
     },
   },
   roles: {

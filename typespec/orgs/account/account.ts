@@ -60,6 +60,8 @@ export interface MyInfoResponse {
   session_authenticated_at: string;
   org: OrgSummary;
   plan_oid: OrgPlanOID;
+  /** A short-lived signed URL, present only while a logo is set. */
+  logo_url?: string;
   billing_notice?: BillingNotice;
 }
 

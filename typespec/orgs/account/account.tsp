@@ -88,6 +88,12 @@ model MyInfoResponse {
   org: OrgSummary;
   plan_oid: OrgPlanOID;
 
+  /**
+   * A short-lived signed URL for the Org logo, present only while a logo is
+   * set. The image is served from the region's media origin.
+   */
+  logo_url?: string;
+
   /** Present while the Org is past due, and for a billing holder while a
    * plan-lowering change is scheduled. */
   billing_notice?: OrgBillingNotice;

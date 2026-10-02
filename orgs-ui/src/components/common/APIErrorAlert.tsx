@@ -27,6 +27,11 @@ import {
   PlanNotOfferedError,
 } from "typespec/problem/orgs/billing";
 import {
+  LogoConflictError,
+  LogoInvalidError,
+  LogoTooLargeError,
+} from "typespec/problem/orgs/logo";
+import {
   DirectoryUnavailableError,
   DNSRecordNotFoundError,
   DomainAlreadyOwnedError,
@@ -79,6 +84,10 @@ export const problemKeys: Readonly<Record<string, string>> = {
   [PaymentDeclinedError.type]: "errors.paymentDeclined",
   [InvoiceNotOpenError.type]: "errors.invoiceNotOpen",
   [OrgSuspendedError.type]: "errors.orgSuspended",
+  [LogoInvalidError.type]: "errors.logoInvalid",
+  [LogoTooLargeError.type]: "errors.logoTooLarge",
+  [LogoConflictError.type]: "errors.logoConflict",
+  "vetchium-problem-details/org-plan-required": "errors.planRequired",
   [IncorrectPasswordError.type]: "errors.incorrectPassword",
   [InvalidLoginChallengeError.type]: "errors.expiredLoginChallenge",
   [IncorrectTOTPCodeError.type]: "errors.incorrectTOTP",

@@ -781,6 +781,91 @@ func (ns NullVetchiumOrgInvoiceState) Value() (driver.Value, error) {
 	return string(ns.VetchiumOrgInvoiceState), nil
 }
 
+type VetchiumOrgLogoFormat string
+
+const (
+	VetchiumOrgLogoFormatJpeg VetchiumOrgLogoFormat = "jpeg"
+	VetchiumOrgLogoFormatPng  VetchiumOrgLogoFormat = "png"
+)
+
+func (e *VetchiumOrgLogoFormat) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumOrgLogoFormat(s)
+	case string:
+		*e = VetchiumOrgLogoFormat(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumOrgLogoFormat: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumOrgLogoFormat struct {
+	VetchiumOrgLogoFormat VetchiumOrgLogoFormat `json:"vetchium_org_logo_format"`
+	Valid                 bool                  `json:"valid"` // Valid is true if VetchiumOrgLogoFormat is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumOrgLogoFormat) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumOrgLogoFormat, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumOrgLogoFormat.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumOrgLogoFormat) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumOrgLogoFormat), nil
+}
+
+type VetchiumOrgLogoState string
+
+const (
+	VetchiumOrgLogoStateUploading     VetchiumOrgLogoState = "uploading"
+	VetchiumOrgLogoStateActive        VetchiumOrgLogoState = "active"
+	VetchiumOrgLogoStatePendingDelete VetchiumOrgLogoState = "pending_delete"
+)
+
+func (e *VetchiumOrgLogoState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VetchiumOrgLogoState(s)
+	case string:
+		*e = VetchiumOrgLogoState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VetchiumOrgLogoState: %T", src)
+	}
+	return nil
+}
+
+type NullVetchiumOrgLogoState struct {
+	VetchiumOrgLogoState VetchiumOrgLogoState `json:"vetchium_org_logo_state"`
+	Valid                bool                 `json:"valid"` // Valid is true if VetchiumOrgLogoState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVetchiumOrgLogoState) Scan(value interface{}) error {
+	if value == nil {
+		ns.VetchiumOrgLogoState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VetchiumOrgLogoState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVetchiumOrgLogoState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VetchiumOrgLogoState), nil
+}
+
 type VetchiumOrgPaymentMethodKind string
 
 const (
@@ -1557,6 +1642,25 @@ type VetchiumOrgLoginChallenge struct {
 	ExpiresAt           pgtype.Timestamptz `json:"expires_at"`
 	ConsumedAt          pgtype.Timestamptz `json:"consumed_at"`
 	Active              bool               `json:"active"`
+}
+
+type VetchiumOrgLogoObject struct {
+	ObjectID          pgtype.UUID           `json:"object_id"`
+	OrgDid            pgtype.UUID           `json:"org_did"`
+	Format            VetchiumOrgLogoFormat `json:"format"`
+	ByteSize          int32                 `json:"byte_size"`
+	Width             int32                 `json:"width"`
+	Height            int32                 `json:"height"`
+	ContentSha256     []byte                `json:"content_sha256"`
+	State             VetchiumOrgLogoState  `json:"state"`
+	AttemptCount      int32                 `json:"attempt_count"`
+	NextAttemptAt     pgtype.Timestamptz    `json:"next_attempt_at"`
+	LeaseToken        pgtype.UUID           `json:"lease_token"`
+	LeasedUntil       pgtype.Timestamptz    `json:"leased_until"`
+	LastError         pgtype.Text           `json:"last_error"`
+	CreatedAt         pgtype.Timestamptz    `json:"created_at"`
+	UploadExpiresAt   pgtype.Timestamptz    `json:"upload_expires_at"`
+	DeleteRequestedAt pgtype.Timestamptz    `json:"delete_requested_at"`
 }
 
 type VetchiumOrgPasswordResetToken struct {

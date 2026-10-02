@@ -37,8 +37,9 @@ type hubRegionTable struct {
 
 type orgRegionTable struct {
 	Regions []struct {
-		TenantID string   `json:"tenantId"`
-		OrgPlans []string `json:"orgPlans"`
+		TenantID    string   `json:"tenantId"`
+		MediaOrigin string   `json:"mediaOrigin"`
+		OrgPlans    []string `json:"orgPlans"`
 	} `json:"regions"`
 }
 
@@ -206,6 +207,13 @@ func TestPortalRegionTablesMatchCheckedInConfiguration(t *testing.T) {
 				wantPlans := make([]string, len(cfg.OrgBilling.OfferedPlans))
 				for i, plan := range cfg.OrgBilling.OfferedPlans {
 					wantPlans[i] = string(plan)
+				}
+				if got.MediaOrigin != cfg.ObjectStorage.MediaBaseURL {
+					t.Errorf(
+						"org region %q mediaOrigin = %q, want mediaBaseURL %q",
+						got.TenantID, got.MediaOrigin,
+						cfg.ObjectStorage.MediaBaseURL,
+					)
 				}
 				if !slices.Equal(got.OrgPlans, wantPlans) {
 					t.Errorf(

@@ -75,7 +75,14 @@ func Save(ctx context.Context, q SaveQueries, change Change) error {
 		return err
 	}
 	final := change.Final
+	logoPlans := make([]string, 0, len(subscriptionspec.Plans()))
+	for _, plan := range subscriptionspec.Plans() {
+		if subscriptionspec.AllowsLogo(plan) {
+			logoPlans = append(logoPlans, string(plan))
+		}
+	}
 	params := sqlc.SaveOrgSubscriptionParams{
+		LogoPlanOids:   logoPlans,
 		OrgPlanOid:     string(final.Plan),
 		BillingState:   sqlc.VetchiumOrgBillingStateCurrent,
 		OrgDid:         change.OrgDID,

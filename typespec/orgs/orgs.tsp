@@ -1,11 +1,13 @@
 import "./types.tsp";
 import "./authorization/types.tsp";
 import "./subscriptions/billing.tsp";
+import "./settings/logo.tsp";
 import "./subscriptions/plans.tsp";
 import "./subscriptions/subscriptions.tsp";
 import "./authorization/management.tsp";
 import "./users/invitations.tsp";
 import "./users/management.tsp";
+import "../problem/orgs/logo.tsp";
 import "../problem/orgs/suspension.tsp";
 import "./auth/types.tsp";
 import "./auth/signup.tsp";

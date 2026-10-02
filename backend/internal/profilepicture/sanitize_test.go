@@ -1,6 +1,7 @@
 package profilepicture
 
 import (
+	"backend/internal/imagesanitize"
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -86,7 +87,7 @@ func TestValidDimensions(t *testing.T) {
 		{7680, 4321, false},
 		{6000, 6000, false},
 	} {
-		if validDimensions(dimensions.width, dimensions.height) != dimensions.valid {
+		if imagesanitize.ValidDimensions(limits, dimensions.width, dimensions.height) != dimensions.valid {
 			t.Errorf("dimensions %dx%d: expected valid=%t",
 				dimensions.width, dimensions.height, dimensions.valid)
 		}

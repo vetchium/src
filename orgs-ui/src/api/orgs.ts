@@ -33,6 +33,7 @@ import type {
 } from "typespec/orgs/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/orgs/auth/types";
 import type { ListPermissionsResponse } from "typespec/orgs/authorization/management";
+import type { LogoContentType } from "typespec/orgs/settings/logo";
 import type {
   ListInvoicesRequest,
   ListInvoicesResponse,
@@ -156,6 +157,18 @@ export const orgsAPI = {
       { method: "POST", idempotencyKey },
     ),
   myInfo: () => apiRequest<MyInfoResponse>("/my-info"),
+  uploadLogo: (
+    image: Blob,
+    contentType: LogoContentType,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<void>("/logo/upload", {
+      body: image,
+      contentType,
+      idempotencyKey,
+    }),
+  removeLogo: (idempotencyKey: IdempotencyKey) =>
+    apiRequest<void>("/logo/remove", { method: "POST", idempotencyKey }),
   mySubscription: () => apiRequest<OrgSubscription>("/my-subscription"),
   setSubscriptionPlan: (
     body: SetSubscriptionPlanRequest,

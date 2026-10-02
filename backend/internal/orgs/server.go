@@ -5,6 +5,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	subscriptionspec "github.com/vetchium/src/typespec/orgs/subscriptions"
 	"github.com/vetchium/src/typespec/problem"
@@ -12,6 +13,7 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/imagesanitize"
 	"backend/internal/orgs/auth"
 	"backend/internal/orgs/billing"
 	"backend/internal/orgs/domainverification"
@@ -51,6 +53,16 @@ type Server struct {
 	OfferedPlans []subscriptionspec.Plan
 	Billing      billing.Config
 	Charger      billing.Charger
+
+	// Logos is the tenant's object store for Org logos.
+	Logos LogoStorage
+}
+
+// LogoStorage stores Org logos and signs short-lived read URLs for them.
+type LogoStorage interface {
+	PutLogo(context.Context, pgtype.UUID, imagesanitize.Image) error
+	DeleteLogo(context.Context, pgtype.UUID) error
+	SignLogoGet(context.Context, pgtype.UUID) (string, error)
 }
 
 // Offers reports whether this tenant offers plan.

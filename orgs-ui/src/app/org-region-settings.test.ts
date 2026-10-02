@@ -3,6 +3,7 @@ import test from "node:test";
 import { parseOrgRegionSettings } from "./org-region-settings.ts";
 
 const tenants = ["sgp", "usa1"];
+const media = "https://media.example";
 
 test("orders plans by rank and requires every region", () => {
   const settings = parseOrgRegionSettings(
@@ -10,9 +11,10 @@ test("orders plans by rank and requires every region", () => {
       regions: [
         {
           tenantId: "sgp",
+          mediaOrigin: media,
           orgPlans: ["org-gold-tier", "org-free-tier", "org-silver-tier"],
         },
-        { tenantId: "usa1", orgPlans: ["org-free-tier"] },
+        { tenantId: "usa1", mediaOrigin: media, orgPlans: ["org-free-tier"] },
       ],
     },
     tenants,
@@ -27,25 +29,41 @@ test("orders plans by rank and requires every region", () => {
 
 test("rejects a table a build must not ship", () => {
   for (const bad of [
-    { regions: [{ tenantId: "sgp", orgPlans: ["org-silver-tier"] }] },
     {
       regions: [
-        { tenantId: "sgp", orgPlans: ["org-free-tier", "org-platinum-tier"] },
-        { tenantId: "usa1", orgPlans: ["org-free-tier"] },
+        { tenantId: "sgp", mediaOrigin: media, orgPlans: ["org-silver-tier"] },
       ],
     },
     {
       regions: [
-        { tenantId: "sgp", orgPlans: ["org-free-tier", "org-free-tier"] },
-        { tenantId: "usa1", orgPlans: ["org-free-tier"] },
+        {
+          tenantId: "sgp",
+          mediaOrigin: media,
+          orgPlans: ["org-free-tier", "org-platinum-tier"],
+        },
+        { tenantId: "usa1", mediaOrigin: media, orgPlans: ["org-free-tier"] },
       ],
     },
-    { regions: [{ tenantId: "sgp", orgPlans: ["org-free-tier"] }] },
     {
       regions: [
-        { tenantId: "mars", orgPlans: ["org-free-tier"] },
-        { tenantId: "sgp", orgPlans: ["org-free-tier"] },
-        { tenantId: "usa1", orgPlans: ["org-free-tier"] },
+        {
+          tenantId: "sgp",
+          mediaOrigin: media,
+          orgPlans: ["org-free-tier", "org-free-tier"],
+        },
+        { tenantId: "usa1", mediaOrigin: media, orgPlans: ["org-free-tier"] },
+      ],
+    },
+    {
+      regions: [
+        { tenantId: "sgp", mediaOrigin: media, orgPlans: ["org-free-tier"] },
+      ],
+    },
+    {
+      regions: [
+        { tenantId: "mars", mediaOrigin: media, orgPlans: ["org-free-tier"] },
+        { tenantId: "sgp", mediaOrigin: media, orgPlans: ["org-free-tier"] },
+        { tenantId: "usa1", mediaOrigin: media, orgPlans: ["org-free-tier"] },
       ],
     },
     {},

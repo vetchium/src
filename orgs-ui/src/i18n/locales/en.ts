@@ -15,6 +15,7 @@ export const en = {
     home: "Home",
     members: "Members",
     plans: "Plan and billing",
+    settings: "Organization settings",
     security: "Security",
     restoreDomain: "Restore domain",
   },
@@ -123,6 +124,12 @@ export const en = {
       "Your organization is suspended. Restore its domain to continue.",
     userLimitExceedsTarget:
       "Your organization has {{seats}} users and pending invitations, and this plan allows {{limit}}. Disable users or cancel invitations first.",
+    logoInvalid:
+      "That image cannot be used. Choose a PNG or JPEG that is not animated, with each side between 128 and 4,096 pixels.",
+    logoTooLarge: "That image is larger than 2 MiB.",
+    logoConflict:
+      "The logo was changed by someone else at the same time. Try again.",
+    planRequired: "This needs a higher plan.",
     permissionRequired: "Only a superadmin of your organization can do this.",
     recentAuthenticationRequired: "Sign in again to continue.",
     totpAlreadyEnabled: "Two-factor authentication is already on.",
@@ -491,6 +498,22 @@ export const en = {
       empty: "No invoices yet.",
       reasons: { upgrade: "Upgrade", renewal: "Renewal" },
       states: { paid: "Paid", open: "Open", void: "Void" },
+    },
+  },
+  settings: {
+    documentTitle: "Organization settings | Vetchium for organizations",
+    title: "Organization settings",
+    description: "Settings that only a superadmin can change.",
+    logo: {
+      title: "Logo",
+      help: "Shown next to your organization's name. Use a PNG or JPEG that is not animated, up to 2 MiB, with each side between 128 and 4,096 pixels. The image is re-encoded and its metadata removed.",
+      none: "No logo is set.",
+      alt: "Logo of {{name}}",
+      upload: "Upload logo",
+      replace: "Replace logo",
+      remove: "Remove logo",
+      upgrade: "A logo needs the Silver plan or higher.",
+      seePlans: "See plans",
     },
   },
   roles: {

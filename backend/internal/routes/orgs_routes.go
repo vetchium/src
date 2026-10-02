@@ -5,6 +5,7 @@ import (
 
 	orgsaccount "backend/handlers/orgs/account"
 	orgsauth "backend/handlers/orgs/auth"
+	orgssettings "backend/handlers/orgs/settings"
 	orgssubscriptions "backend/handlers/orgs/subscriptions"
 	orgsusers "backend/handlers/orgs/users"
 	"backend/handlers/portal"
@@ -160,4 +161,12 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 		"POST /api/orgs/pay-invoice",
 		manageBilling(orgssubscriptions.PayInvoice(s)),
 	)
+
+	manageOrg := func(next http.Handler) http.Handler {
+		return orgAuth(activeOrg(middleware.RequireOrgPermission(
+			s, orgsauthorization.Superadmin,
+		)(next)))
+	}
+	mux.Handle("POST /api/orgs/logo/upload", manageOrg(orgssettings.UploadLogo(s)))
+	mux.Handle("POST /api/orgs/logo/remove", manageOrg(orgssettings.RemoveLogo(s)))
 }

@@ -2,6 +2,7 @@ import {
   CreditCardOutlined,
   HomeOutlined,
   SafetyOutlined,
+  SettingOutlined,
   TeamOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
@@ -60,6 +61,15 @@ export function AppShell() {
               },
             ]
           : []),
+        ...(me !== undefined && holds(me.permissions, Superadmin)
+          ? [
+              {
+                key: paths.settings,
+                icon: <SettingOutlined />,
+                label: t("navigation.settings"),
+              },
+            ]
+          : []),
         ...(me !== undefined && holds(me.permissions, ManageBilling)
           ? [
               {
@@ -94,6 +104,16 @@ export function AppShell() {
           aria-label={t("shell.signedInAs")}
           role="group"
         >
+          {me.logo_url === undefined ? null : (
+            <img
+              src={me.logo_url}
+              alt=""
+              width={24}
+              height={24}
+              referrerPolicy="no-referrer"
+              data-testid="shell-org-logo"
+            />
+          )}
           <Typography.Text strong data-testid="shell-org-name">
             {me.org.display_name}
           </Typography.Text>

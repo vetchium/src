@@ -22,6 +22,7 @@ type Querier interface {
 	AcceptHubEmailChange(ctx context.Context, arg AcceptHubEmailChangeParams) (AcceptHubEmailChangeRow, error)
 	AcceptOrgInvitation(ctx context.Context, arg AcceptOrgInvitationParams) (AcceptOrgInvitationRow, error)
 	ActivateHubProfilePicture(ctx context.Context, arg ActivateHubProfilePictureParams) (ActivateHubProfilePictureRow, error)
+	ActivateOrgLogo(ctx context.Context, arg ActivateOrgLogoParams) (pgtype.UUID, error)
 	AddHubLanguageAbility(ctx context.Context, arg AddHubLanguageAbilityParams) (AddHubLanguageAbilityRow, error)
 	AdminTOTPEnabled(ctx context.Context, adminUserID pgtype.UUID) (bool, error)
 	// Applies the change locally: this is today's ConfirmHubEmailChange effects,
@@ -58,6 +59,7 @@ type Querier interface {
 	ClaimHubEmail(ctx context.Context, arg ClaimHubEmailParams) (ClaimHubEmailRow, error)
 	ClaimHubProfilePictureDeletion(ctx context.Context, leaseToken pgtype.UUID) (ClaimHubProfilePictureDeletionRow, error)
 	ClaimOrgEmail(ctx context.Context, arg ClaimOrgEmailParams) (ClaimOrgEmailRow, error)
+	ClaimOrgLogoDeletion(ctx context.Context, leaseToken pgtype.UUID) (ClaimOrgLogoDeletionRow, error)
 	CompleteAdminPasswordReset(ctx context.Context, arg CompleteAdminPasswordResetParams) (bool, error)
 	CompleteAdminRecoveryCodeLogin(ctx context.Context, arg CompleteAdminRecoveryCodeLoginParams) (CompleteAdminRecoveryCodeLoginRow, error)
 	CompleteAdminSetup(ctx context.Context, arg CompleteAdminSetupParams) (CompleteAdminSetupRow, error)
@@ -74,6 +76,7 @@ type Querier interface {
 	CompleteIdempotency(ctx context.Context, arg CompleteIdempotencyParams) error
 	CompleteOrgDomainReclaim(ctx context.Context, arg CompleteOrgDomainReclaimParams) (bool, error)
 	CompleteOrgDomainRelease(ctx context.Context, arg CompleteOrgDomainReleaseParams) (bool, error)
+	CompleteOrgLogoDeletion(ctx context.Context, arg CompleteOrgLogoDeletionParams) (pgtype.UUID, error)
 	CompleteOrgPasswordReset(ctx context.Context, arg CompleteOrgPasswordResetParams) (bool, error)
 	CompleteOrgRecoveryCodeLogin(ctx context.Context, arg CompleteOrgRecoveryCodeLoginParams) (CompleteOrgRecoveryCodeLoginRow, error)
 	CompleteOrgTOTPLogin(ctx context.Context, arg CompleteOrgTOTPLoginParams) (CompleteOrgTOTPLoginRow, error)
@@ -169,6 +172,8 @@ type Querier interface {
 	FailOrgSignupCompletionDomainOwned(ctx context.Context, arg FailOrgSignupCompletionDomainOwnedParams) (FailOrgSignupCompletionDomainOwnedRow, error)
 	FindHubSignupForCompletion(ctx context.Context, tokenHash []byte) (FindHubSignupForCompletionRow, error)
 	FindOrgSignupForCompletion(ctx context.Context, tokenHash []byte) (FindOrgSignupForCompletionRow, error)
+	// The active logo, which my-info signs a read URL for.
+	GetActiveOrgLogo(ctx context.Context, orgDid pgtype.UUID) (pgtype.UUID, error)
 	GetAdminLoginChallenge(ctx context.Context, tokenHash []byte) (GetAdminLoginChallengeRow, error)
 	GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) (GetAdminMyInfoRow, error)
 	GetAdminPasswordForReauthentication(ctx context.Context, arg GetAdminPasswordForReauthenticationParams) (string, error)
@@ -202,6 +207,7 @@ type Querier interface {
 	GetOrgDomainForCheck(ctx context.Context, orgDid pgtype.UUID) (GetOrgDomainForCheckRow, error)
 	GetOrgInvitationDetails(ctx context.Context, tokenHash []byte) (GetOrgInvitationDetailsRow, error)
 	GetOrgLoginChallenge(ctx context.Context, tokenHash []byte) (GetOrgLoginChallengeRow, error)
+	GetOrgLogoUpload(ctx context.Context, arg GetOrgLogoUploadParams) (GetOrgLogoUploadRow, error)
 	GetOrgMyInfo(ctx context.Context, orgUserID pgtype.UUID) (GetOrgMyInfoRow, error)
 	GetOrgPasswordForReauthentication(ctx context.Context, arg GetOrgPasswordForReauthenticationParams) (string, error)
 	// Read after the Org row lock is held: a function inside the locking statement
@@ -310,6 +316,7 @@ type Querier interface {
 	PingDatabase(ctx context.Context) (PingDatabaseRow, error)
 	PrepareHubProfilePictureUpload(ctx context.Context, arg PrepareHubProfilePictureUploadParams) (PrepareHubProfilePictureUploadRow, error)
 	PrepareHubSignupCompletion(ctx context.Context, arg PrepareHubSignupCompletionParams) (PrepareHubSignupCompletionRow, error)
+	PrepareOrgLogoUpload(ctx context.Context, arg PrepareOrgLogoUploadParams) (pgtype.UUID, error)
 	PrepareOrgSignupCompletion(ctx context.Context, arg PrepareOrgSignupCompletionParams) (PrepareOrgSignupCompletionRow, error)
 	// Outbox ciphertext is retained no longer than the maximum usable lifetime of
 	// the credential it contains, whether delivery succeeded or not.
@@ -332,6 +339,7 @@ type Querier interface {
 	// for a day after delivery ends, whether it succeeded or not.
 	PruneOrgEphemeralData(ctx context.Context, tenantID string) (int64, error)
 	QueueExpiredHubProfilePictureUploads(ctx context.Context, tenantID string) (int32, error)
+	QueueExpiredOrgLogoUploads(ctx context.Context, tenantID string) (int32, error)
 	// Queues one email to every active user holding billing_permission. Used for
 	// a failed payment and for the move to Free, where the holders are the users
 	// who remain active.
@@ -367,6 +375,7 @@ type Querier interface {
 	RegenerateOrgTOTPRecoveryCodes(ctx context.Context, arg RegenerateOrgTOTPRecoveryCodesParams) (bool, error)
 	RejectOrgDomainReclaim(ctx context.Context, arg RejectOrgDomainReclaimParams) (bool, error)
 	RemoveHubProfilePicture(ctx context.Context, arg RemoveHubProfilePictureParams) (RemoveHubProfilePictureRow, error)
+	RemoveOrgLogo(ctx context.Context, arg RemoveOrgLogoParams) (pgtype.UUID, error)
 	RemoveOrgPaymentMethod(ctx context.Context, arg RemoveOrgPaymentMethodParams) error
 	// Rotates the token and restarts the lifetime. An expired invitation holds no
 	// seat, so resending it must fit the cap again.
@@ -383,8 +392,13 @@ type Querier interface {
 	// does not order sibling data-modifying CTEs, so a single statement cannot
 	// reliably vacate the active-user unique index before activating the new row.
 	RetireHubProfilePictureForReplacement(ctx context.Context, arg RetireHubProfilePictureForReplacementParams) ([]pgtype.UUID, error)
+	// Call before ActivateOrgLogo in the same transaction. PostgreSQL does not
+	// order sibling data-modifying CTEs, so one statement cannot reliably vacate
+	// the active-Org unique index before activating the new row.
+	RetireOrgLogoForReplacement(ctx context.Context, arg RetireOrgLogoForReplacementParams) ([]pgtype.UUID, error)
 	RetryFederationOutboxEvent(ctx context.Context, arg RetryFederationOutboxEventParams) (int64, error)
 	RetryHubProfilePictureDeletion(ctx context.Context, arg RetryHubProfilePictureDeletionParams) (int64, error)
+	RetryOrgLogoDeletion(ctx context.Context, arg RetryOrgLogoDeletionParams) (int64, error)
 	RotateHubSignupCompletionHandle(ctx context.Context, arg RotateHubSignupCompletionHandleParams) (VetchiumHubSignupCompletion, error)
 	// The single write statement shared by the set-plan handler and the worker.
 	// A jsonb array with explicit `->>`/`->` field extraction lets one statement
@@ -423,6 +437,9 @@ type Querier interface {
 	// An in-flight PutObject is bounded to 30 seconds; delay deletion for one
 	// minute so a superseded upload cannot recreate bytes after the worker deletes.
 	SupersedeHubProfilePictureUploads(ctx context.Context, arg SupersedeHubProfilePictureUploadsParams) (int32, error)
+	// An in-flight PutObject is bounded to 30 seconds; delay deletion for one
+	// minute so a superseded upload cannot recreate bytes after the worker deletes.
+	SupersedeOrgLogoUploads(ctx context.Context, arg SupersedeOrgLogoUploadsParams) (int32, error)
 	UpdateHubCertification(ctx context.Context, arg UpdateHubCertificationParams) (UpdateHubCertificationRow, error)
 	UpdateHubEducationalQualification(ctx context.Context, arg UpdateHubEducationalQualificationParams) (UpdateHubEducationalQualificationRow, error)
 	UpdateHubSignupDomain(ctx context.Context, arg UpdateHubSignupDomainParams) (UpdateHubSignupDomainRow, error)

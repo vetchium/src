@@ -141,6 +141,29 @@ WITH updated AS (
       AND i.org_did = sqlc.arg(org_did)
       AND i.invoice_state = 'open'
     RETURNING i.org_invoice_id
+), logos_queued AS (
+    -- A plan that does not include the logo takes it away in this same
+    -- transaction; the object bytes are removed by a retried worker task.
+    UPDATE vetchium.org_logo_objects AS l
+    SET state = 'pending_delete', upload_expires_at = NULL,
+        delete_requested_at = now(),
+        next_attempt_at = now() + interval '1 minute'
+    WHERE l.org_did = sqlc.arg(org_did)
+      AND l.state IN ('active', 'uploading')
+      AND NOT (sqlc.arg(org_plan_oid) = ANY(sqlc.arg(logo_plan_oids)::text[]))
+    RETURNING l.object_id
+), logo_audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id), 'org.logo.removed_by_plan', 'org_logo',
+        q.object_id::text, 'system', 'subscription-renewal',
+        sqlc.arg(source), sqlc.arg(idempotency_key),
+        jsonb_build_object('org_plan_oid', sqlc.arg(org_plan_oid)::text)
+    FROM logos_queued AS q
+    RETURNING audit_event_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, actor_id,
@@ -165,7 +188,9 @@ SELECT
     (SELECT count(*) FROM paid)::bigint AS paid_count,
     (SELECT count(*) FROM failed)::bigint AS failed_count,
     (SELECT count(*) FROM voided)::bigint AS voided_count,
-    (SELECT count(*) FROM audit)::bigint AS audited_count;
+    (SELECT count(*) FROM audit)::bigint AS audited_count,
+    (SELECT count(*) FROM logos_queued)::bigint AS logos_queued_count,
+    (SELECT count(*) FROM logo_audit)::bigint AS logos_audited_count;
 
 -- name: SetOrgPaymentMethod :exec
 WITH upserted AS (

@@ -1500,6 +1500,56 @@ CREATE UNIQUE INDEX org_user_invitations_active_email_idx
 CREATE INDEX org_user_invitations_expiry_idx
     ON vetchium.org_user_invitations (expires_at);
 
+CREATE TYPE vetchium.org_logo_format AS ENUM ('jpeg', 'png');
+CREATE TYPE vetchium.org_logo_state AS ENUM (
+    'uploading',
+    'active',
+    'pending_delete'
+);
+
+-- The tenant database owns logo metadata and lifecycle; the tenant's object
+-- store owns the bytes. The active row is the Org's logo reference. A row is
+-- never active until its bytes are stored, and deletion is authoritative here
+-- at once while byte removal is an idempotent, retried outbox task.
+CREATE TABLE vetchium.org_logo_objects (
+    object_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    format vetchium.org_logo_format NOT NULL,
+    byte_size integer NOT NULL CHECK (byte_size BETWEEN 1 AND 2097152),
+    width integer NOT NULL CHECK (width BETWEEN 128 AND 4096),
+    height integer NOT NULL CHECK (height BETWEEN 128 AND 4096),
+    content_sha256 bytea NOT NULL CHECK (octet_length(content_sha256) = 32),
+    state vetchium.org_logo_state NOT NULL DEFAULT 'uploading',
+    attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    next_attempt_at timestamptz NOT NULL DEFAULT now(),
+    lease_token uuid,
+    leased_until timestamptz,
+    last_error text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    upload_expires_at timestamptz,
+    delete_requested_at timestamptz,
+    CONSTRAINT org_logo_objects_state_check CHECK (
+        (state = 'uploading' AND upload_expires_at IS NOT NULL AND
+            delete_requested_at IS NULL) OR
+        (state = 'active' AND upload_expires_at IS NULL AND
+            delete_requested_at IS NULL) OR
+        (state = 'pending_delete' AND upload_expires_at IS NULL AND
+            delete_requested_at IS NOT NULL)
+    ),
+    CONSTRAINT org_logo_objects_lease_check CHECK (
+        (lease_token IS NULL) = (leased_until IS NULL)
+    )
+);
+
+CREATE UNIQUE INDEX org_logo_objects_active_org_idx
+    ON vetchium.org_logo_objects (org_did) WHERE state = 'active';
+CREATE UNIQUE INDEX org_logo_objects_uploading_org_idx
+    ON vetchium.org_logo_objects (org_did) WHERE state = 'uploading';
+CREATE INDEX org_logo_objects_deletion_idx
+    ON vetchium.org_logo_objects (next_attempt_at)
+    WHERE state = 'pending_delete';
+
 CREATE TYPE vetchium.org_payment_method_kind AS ENUM (
     'simulated-succeeds',
     'simulated-declines'
@@ -1861,6 +1911,9 @@ DROP TABLE IF EXISTS vetchium.org_totp_recovery_codes;
 DROP TABLE IF EXISTS vetchium.org_totp_enrollments;
 DROP TABLE IF EXISTS vetchium.org_login_challenges;
 DROP TABLE IF EXISTS vetchium.org_billing_notices;
+DROP TABLE IF EXISTS vetchium.org_logo_objects;
+DROP TYPE IF EXISTS vetchium.org_logo_state;
+DROP TYPE IF EXISTS vetchium.org_logo_format;
 DROP TABLE IF EXISTS vetchium.org_invoices;
 DROP TABLE IF EXISTS vetchium.org_payment_methods;
 DROP TYPE IF EXISTS vetchium.org_invoice_failure;

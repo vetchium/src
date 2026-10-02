@@ -239,6 +239,29 @@ export class OrgsAPI {
     return this.post("/pay-invoice", request, { token, idempotencyKey });
   }
 
+  uploadLogo(
+    token: string,
+    contentType: string,
+    body: Buffer,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.request.post(`${this.origin}/api/orgs/logo/upload`, {
+      data: body,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": contentType,
+        "Idempotency-Key": idempotencyKey,
+      },
+    });
+  }
+
+  removeLogo(
+    token: string,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/logo/remove", undefined, { token, idempotencyKey });
+  }
+
   myInfo(token?: string): Promise<APIResponse> {
     return this.request.get(`${this.origin}/api/orgs/my-info`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},

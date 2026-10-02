@@ -53,6 +53,11 @@ func MyInfo(s *orgsruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "get Org billing view", err)
 			return
 		}
+		logoURL, err := logoReadURL(r.Context(), s, identity.OrgDID)
+		if err != nil {
+			s.InternalError(r.Context(), w, "sign Org logo URL", err)
+			return
+		}
 		s.JSON(r.Context(), w, http.StatusOK, orgsaccount.MyInfoResponse{
 			EmailAddress:      common.EmailAddress(info.EmailAddress),
 			PreferredLanguage: orgs.FrontendLocale(info.PreferredLanguage),
@@ -64,9 +69,32 @@ func MyInfo(s *orgsruntime.Server) http.HandlerFunc {
 			SessionAuthenticatedAt: identity.AuthenticatedAt.UTC(),
 			Org:                    summary(s, info),
 			PlanOID:                plan,
+			LogoURL:                logoURL,
 			BillingNotice:          notice,
 		})
 	}
+}
+
+// logoReadURL signs a short-lived read URL for the Org's logo, or returns nil
+// when it has none or the object store is not configured.
+func logoReadURL(
+	ctx context.Context, s *orgsruntime.Server, orgDID pgtype.UUID,
+) (*string, error) {
+	if s.Logos == nil {
+		return nil, nil
+	}
+	objectID, err := s.Queries.GetActiveOrgLogo(ctx, orgDID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	signed, err := s.Logos.SignLogoGet(ctx, objectID)
+	if err != nil {
+		return nil, err
+	}
+	return &signed, nil
 }
 
 // billingView is the plan the Org is on now and the billing notice the user

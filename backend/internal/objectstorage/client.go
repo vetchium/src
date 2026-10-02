@@ -13,12 +13,14 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	"backend/internal/dbvalue"
+	"backend/internal/imagesanitize"
 	"backend/internal/profilepicture"
 )
 
 const (
-	bucketName = "hub-profile-pictures"
-	readURLTTL = 10 * time.Minute
+	bucketName     = "hub-profile-pictures"
+	logoBucketName = "org-logos"
+	readURLTTL     = 10 * time.Minute
 )
 
 type Client struct {
@@ -56,23 +58,33 @@ func New(privateOrigin, mediaOrigin, accessKey, secretKey string) (*Client, erro
 	return &Client{private: private, media: media}, nil
 }
 
+// EnsureBucket creates every bucket this tenant uses if it is missing.
 func (c *Client) EnsureBucket(ctx context.Context) error {
-	exists, err := c.private.BucketExists(ctx, bucketName)
+	for _, bucket := range []string{bucketName, logoBucketName} {
+		if err := c.ensureBucket(ctx, bucket); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Client) ensureBucket(ctx context.Context, bucket string) error {
+	exists, err := c.private.BucketExists(ctx, bucket)
 	if err != nil {
-		return fmt.Errorf("check profile-picture bucket: %w", err)
+		return fmt.Errorf("check %s bucket: %w", bucket, err)
 	}
 	if exists {
 		return nil
 	}
-	if err := c.private.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{
+	if err := c.private.MakeBucket(ctx, bucket, minio.MakeBucketOptions{
 		Region: "us-east-1",
 	}); err != nil {
 		// Another tenant-local process may create the same bucket after our
 		// existence check. Only an actual follow-up existence check is success.
-		if exists, checkErr := c.private.BucketExists(ctx, bucketName); checkErr == nil && exists {
+		if exists, checkErr := c.private.BucketExists(ctx, bucket); checkErr == nil && exists {
 			return nil
 		}
-		return fmt.Errorf("create profile-picture bucket: %w", err)
+		return fmt.Errorf("create %s bucket: %w", bucket, err)
 	}
 	return nil
 }
@@ -115,6 +127,46 @@ func (c *Client) SignGet(ctx context.Context, id pgtype.UUID) (string, error) {
 	)
 	if err != nil {
 		return "", fmt.Errorf("sign profile-picture read URL: %w", err)
+	}
+	return signed.String(), nil
+}
+
+// PutLogo stores a sanitized Org logo.
+func (c *Client) PutLogo(ctx context.Context, id pgtype.UUID, logo imagesanitize.Image) error {
+	if !id.Valid || len(logo.Bytes) == 0 {
+		return fmt.Errorf("invalid Org logo object")
+	}
+	_, err := c.private.PutObject(
+		ctx, logoBucketName, dbvalue.FormatUUID(id), bytes.NewReader(logo.Bytes),
+		int64(len(logo.Bytes)), minio.PutObjectOptions{ContentType: logo.ContentType},
+	)
+	if err != nil {
+		return fmt.Errorf("store Org logo: %w", err)
+	}
+	return nil
+}
+
+func (c *Client) DeleteLogo(ctx context.Context, id pgtype.UUID) error {
+	if !id.Valid {
+		return fmt.Errorf("invalid Org logo object id")
+	}
+	if err := c.private.RemoveObject(ctx, logoBucketName, dbvalue.FormatUUID(id),
+		minio.RemoveObjectOptions{}); err != nil {
+		return fmt.Errorf("delete Org logo: %w", err)
+	}
+	return nil
+}
+
+// SignLogoGet signs a short-lived read URL for the browser-visible origin.
+func (c *Client) SignLogoGet(ctx context.Context, id pgtype.UUID) (string, error) {
+	if !id.Valid {
+		return "", fmt.Errorf("invalid Org logo object id")
+	}
+	signed, err := c.media.PresignedGetObject(
+		ctx, logoBucketName, dbvalue.FormatUUID(id), readURLTTL, nil,
+	)
+	if err != nil {
+		return "", fmt.Errorf("sign Org logo read URL: %w", err)
 	}
 	return signed.String(), nil
 }

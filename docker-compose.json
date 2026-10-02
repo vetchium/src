@@ -2562,6 +2562,14 @@
         {
           "source": "orgs_credential_key",
           "target": "/run/secrets/orgs_credential_key"
+        },
+        {
+          "source": "seaweed_s3_deu_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_deu_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -2621,6 +2629,14 @@
         {
           "source": "orgs_credential_key",
           "target": "/run/secrets/orgs_credential_key"
+        },
+        {
+          "source": "seaweed_s3_ind1_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_ind1_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -2680,6 +2696,14 @@
         {
           "source": "orgs_credential_key",
           "target": "/run/secrets/orgs_credential_key"
+        },
+        {
+          "source": "seaweed_s3_sgp_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_sgp_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
@@ -2739,6 +2763,14 @@
         {
           "source": "orgs_credential_key",
           "target": "/run/secrets/orgs_credential_key"
+        },
+        {
+          "source": "seaweed_s3_usa1_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_usa1_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
         }
       ],
       "security_opt": ["no-new-privileges:true"]
