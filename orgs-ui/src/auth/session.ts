@@ -3,6 +3,13 @@ import { isOpaqueToken } from "typespec/common/authentication";
 import type { OrgSessionToken } from "typespec/orgs/auth/types";
 import { regionStore, regionTable } from "../app/regions";
 
+/** A session token and the region that issued it. Every request made with
+ * the token goes to that region. */
+export interface OrgSession {
+  token: OrgSessionToken;
+  tenantId: string;
+}
+
 const storage = createRegionalSessionStorage<OrgSessionToken>({
   key: "vetchium.orgs.session",
   table: regionTable,
@@ -12,24 +19,25 @@ const storage = createRegionalSessionStorage<OrgSessionToken>({
       : null,
 });
 
-export function readSessionToken(): OrgSessionToken | null {
-  return storage.read()?.session ?? null;
+export function readSession(): OrgSession | null {
+  const stored = storage.read();
+  return stored === null
+    ? null
+    : { token: stored.session, tenantId: stored.tenantId };
 }
 
-/** The region that issued the stored session's token. */
-export function sessionTenant(): string | null {
-  return storage.read()?.tenantId ?? null;
-}
-
-/** Stores a token from the region the sign-in was just sent to. Remembered
- * Org sessions are not offered, so the token lives only as long as the
- * browser tab. */
-export function storeSessionToken(token: OrgSessionToken): void {
-  const tenantId = regionStore.read();
+/** Stores a token issued by `tenantId` and remembers that region for the next
+ * sign-in page. Remembered Org sessions are not offered, so the token lives
+ * only as long as the browser tab. */
+export function storeSession(
+  token: OrgSessionToken,
+  tenantId: string,
+): OrgSession {
   storage.store({ tenantId, session: token }, false);
   regionStore.remember(tenantId);
+  return { token, tenantId };
 }
 
-export function clearSessionToken(): void {
+export function clearSession(): void {
   storage.clear();
 }

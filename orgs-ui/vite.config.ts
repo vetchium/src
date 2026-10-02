@@ -9,7 +9,7 @@ import { defineConfig, loadEnv, type PluginOption } from "vite";
 export default defineConfig(({ command, mode }) => {
   const plugins: PluginOption[] = [react()];
   if (command === "build") {
-    const { apiOrigins } = buildRegions(
+    const { environment, apiOrigins } = buildRegions(
       loadEnv(mode, import.meta.dirname, "VITE_").VITE_VETCHIUM_ENVIRONMENT,
     );
     plugins.push(
@@ -18,6 +18,7 @@ export default defineConfig(({ command, mode }) => {
           connectSources: apiOrigins,
           imageSources: [],
           noindexPathPrefixes: [],
+          strictTransportSecurity: environment === "production",
         },
         path.resolve(import.meta.dirname, "dist-nginx"),
       ),

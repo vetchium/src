@@ -27,8 +27,10 @@ export interface PortalRequestOptions {
   body?: unknown;
   headers?: HeadersInit;
   method?: "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
-  /** Overrides the configured origin, for a request an emailed link has
-   * already bound to a region. */
+  /** Sends the request to this origin instead of the configured one: a
+   * signed-out flow names the region it talks to. Such a request carries no
+   * stored session token unless `token` is given, because the token belongs
+   * to the region that issued it. */
   origin?: string;
   token?: string | null;
 }
@@ -82,7 +84,11 @@ export function createPortalAPIClient(config: PortalAPIClientConfiguration) {
       headers.set(name, value);
     }
     const token =
-      options.token === undefined ? config.readToken() : options.token;
+      options.token !== undefined
+        ? options.token
+        : options.origin !== undefined
+          ? null
+          : config.readToken();
     if (token !== null) headers.set("Authorization", `Bearer ${token}`);
 
     const origin = options.origin ?? config.origin?.() ?? "";

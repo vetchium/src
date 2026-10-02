@@ -25,7 +25,7 @@ export function ForgotPasswordPage() {
   const [region, setRegion] = useSelectedRegion();
   const request = useMutation({
     mutationFn: (body: RequestPasswordResetRequest) =>
-      orgsAPI.requestPasswordReset(body, key.current()),
+      orgsAPI.requestPasswordReset(body, key.current(), region),
     onSuccess: () => key.rotate(),
     onError: (error) => {
       if (isDefiniteRefusal(error)) key.rotate();

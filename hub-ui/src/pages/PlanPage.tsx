@@ -2,8 +2,8 @@ import { Button, Flex, Skeleton, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { FreeTier, isHubPlan } from "typespec/hub/subscriptions/plans";
 import { usePreferences } from "../app/PreferencesContext";
-import { hubRegionSettings, regionStore } from "../app/regions";
-import { sessionTenant } from "../auth/session";
+import { hubRegionSettings } from "../app/regions";
+import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { CurrentSubscriptionCard } from "../features/subscriptions/CurrentSubscriptionCard";
 import { PlanOptions } from "../features/subscriptions/PlanOptions";
@@ -13,7 +13,9 @@ export function PlanPage() {
   const { t } = useTranslation();
   const preferences = usePreferences();
   const subscription = useMySubscriptionQuery();
-  const tenantID = sessionTenant() ?? regionStore.read();
+  // The plans are those the session's own region offers.
+  const tenantID = useAuth().session?.tenantId;
+  if (tenantID === undefined) return null;
   const onPaidPlan =
     subscription.isSuccess &&
     isHubPlan(subscription.data.plan_oid) &&

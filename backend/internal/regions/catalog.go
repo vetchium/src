@@ -26,7 +26,6 @@ type Region struct {
 	OrgSignupEnabled bool `json:"orgSignupEnabled"`
 }
 type Catalog struct {
-	Version         string                        `json:"version"`
 	DefaultTenant   string                        `json:"defaultTenant"`
 	Recommendations map[common.CountryCode]string `json:"recommendations"`
 	Regions         []Region                      `json:"regions"`
@@ -57,12 +56,12 @@ func Load(path string) (*Catalog, error) {
 	return &c, nil
 }
 func (c *Catalog) Validate() error {
-	if c.Version == "" || len(c.Regions) == 0 {
-		return fmt.Errorf("region catalog requires version and regions")
+	if len(c.Regions) == 0 {
+		return fmt.Errorf("region catalog requires regions")
 	}
 	seen := map[string]bool{}
 	for _, r := range c.Regions {
-		if !IsTenantID(r.TenantID) || seen[r.TenantID] ||
+		if !isTenantID(r.TenantID) || seen[r.TenantID] ||
 			!common.IsCountryCode(r.HostingCountry) {
 			return fmt.Errorf("invalid or duplicate region %q", r.TenantID)
 		}
@@ -132,6 +131,6 @@ func (c *Catalog) Region(tenant string) (Region, bool) {
 	return Region{}, false
 }
 
-func IsTenantID(value string) bool {
+func isTenantID(value string) bool {
 	return tenantPattern.MatchString(value)
 }

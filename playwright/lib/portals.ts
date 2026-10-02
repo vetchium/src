@@ -3,10 +3,8 @@ import type { TestTenant } from "./admin-db.ts";
 
 // One global Hub and Orgs portal serve every region; each region's API lives
 // on its own host. See docs/frontend-consolidation.md.
-export const HUB_PORTAL =
-  process.env.PLAYWRIGHT_HUB_BASE_URL ?? "http://vetchium.localhost";
-export const ORGS_PORTAL =
-  process.env.PLAYWRIGHT_ORGS_BASE_URL ?? "http://orgs.vetchium.localhost";
+export const HUB_PORTAL = "http://vetchium.localhost";
+export const ORGS_PORTAL = "http://orgs.vetchium.localhost";
 
 export function apiOrigin(tenant: TestTenant): string {
   return `http://${tenant}.api.vetchium.localhost`;

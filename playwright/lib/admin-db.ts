@@ -44,6 +44,14 @@ export function sqlLiteral(value: string): string {
 
 export type TestTenant = "deu" | "sgp" | "ind1" | "usa1";
 
+// Parallel tests install and remove audit-failure triggers on the same
+// table. Each change takes AccessExclusiveLock on it, and two concurrent
+// trigger-and-function drops can deadlock, so every such change first takes
+// this transaction-scoped lock (psql runs a multi-statement -c string as one
+// transaction).
+export const AUDIT_FAULT_LOCK =
+  "SELECT pg_advisory_xact_lock(hashtext('vetchium-e2e-audit-faults'));";
+
 export function sqlScalarForTenant(tenant: TestTenant, sql: string): string {
   return execFileSync(
     "docker",
@@ -1579,6 +1587,7 @@ export function installAdminAuditInsertFailure(match: {
     );
   }
   sqlScalar(`
+    ${AUDIT_FAULT_LOCK}
     CREATE FUNCTION vetchium.${functionName}()
     RETURNS trigger
     LANGUAGE plpgsql
@@ -1598,6 +1607,7 @@ export function installAdminAuditInsertFailure(match: {
   return () => {
     if (!installed) return;
     sqlScalar(`
+      ${AUDIT_FAULT_LOCK}
       DROP TRIGGER ${triggerName} ON vetchium.audit_events;
       DROP FUNCTION vetchium.${functionName}();
     `);
@@ -1795,6 +1805,7 @@ export function installHubAuditInsertFailure(match: {
     );
   }
   sqlScalar(`
+    ${AUDIT_FAULT_LOCK}
     CREATE FUNCTION vetchium.${functionName}()
     RETURNS trigger
     LANGUAGE plpgsql
@@ -1814,6 +1825,7 @@ export function installHubAuditInsertFailure(match: {
   return () => {
     if (!installed) return;
     sqlScalar(`
+      ${AUDIT_FAULT_LOCK}
       DROP TRIGGER ${triggerName} ON vetchium.audit_events;
       DROP FUNCTION vetchium.${functionName}();
     `);

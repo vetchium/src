@@ -51,6 +51,7 @@ export function TwoFactorPage() {
             totp_code: code,
           },
           totpKey.current(),
+          challenge.tenantId,
         );
       }
       return orgsAPI.verifyRecoveryCode(
@@ -59,6 +60,7 @@ export function TwoFactorPage() {
           recovery_code: code.trim(),
         },
         recoveryKey.current(),
+        challenge.tenantId,
       );
     },
   });
@@ -94,9 +96,13 @@ export function TwoFactorPage() {
     // The user may have restarted, or begun a second sign-in, while this was
     // in flight. That flow now owns the portal, so this response is discarded.
     if (
-      !auth.completeAuthentication(session, undefined, {
-        challenge: challenge.login_challenge_token,
-      })
+      !auth.completeAuthentication(
+        session,
+        { tenantId: challenge.tenantId },
+        {
+          challenge: challenge.login_challenge_token,
+        },
+      )
     ) {
       return;
     }

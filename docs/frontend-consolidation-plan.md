@@ -1,6 +1,6 @@
 # Frontend Consolidation — Implementation Plan
 
-Status: **in progress**. The ledger is §6. The decision record and rationale
+Status: **implemented**. The ledger is §6. The decision record and rationale
 are in [`frontend-consolidation.md`](frontend-consolidation.md). Branch:
 `feature/frontend-consolidation`.
 
@@ -518,7 +518,7 @@ pass. The full suite is required at FC-M11 and FC-M12.
 - [x] FC-M9 — Production artefacts
 - [x] FC-M10 — Guides and documentation
 - [x] FC-M11 — Full verification
-- [ ] FC-M12 — Independent review and close-out
+- [x] FC-M12 — Independent review and close-out
 
 ## 7. Progress log
 
@@ -536,3 +536,21 @@ One line per finished milestone: date, short sha, deviations or limitations.
 - 2026-10-02 — FC-M9 — tenant stacks drop `hub-ui`/`orgs-ui`; Traefik adds `websecure` :443 with an ACME HTTP-01 resolver (`ACME_EMAIL` required, `traefik-acme` volume, `HTTPS_PORT`), and :80 redirects to HTTPS. `deploy/<r>/traefik.json` routes `<r>.api.vetchium.com` with CORS for `https://vetchium.com` and `https://orgs.vetchium.com`, plus media and Admin, all on TLS. The bake targets are gone. `make portal-dist` writes `portal-dist/{hub,orgs}` with `_headers` and `_redirects` (the shared plugin now emits `_redirects`; the images delete both). README: global-portal runbook, DNS, firewall, release order, removed language variables. Checks: every tenant stack and the coordinator stack render with `docker stack config`; a Traefik container loads the new dynamic config and redirects :80; the production bundles hold no dev hosts. Limitation: production TLS issuance and the static-host upload cannot be exercised locally.
 - 2026-10-02 — FC-M10 — `AGENTS.md` (`CLAUDE.md` links to it): API host routing, coordinator role, portal descriptions. `ui.md`: new Global portals and regions section. `playwright.md`: hosts and region pinning. `hub-signup.md`: region selection replaces discovery; problems name tenant ids. `orgs.md`: sign-in region. `object-storage.md`: media origins feed the generated CSP. `backend.md`: CORS in Traefik, expand-then-contract. `federation.md` named no portal URLs, so it is unchanged. `docs/todo.md` drops the Hub home-region redirect item and adds global-portal follow-ups (deferred pages and indexing, dev-server CORS, unexercised production TLS). The decision record says implemented. The guide grep's only hit is the word "orgs-ui." ending a sentence in `orgs.md`, not a host.
 - 2026-10-02 — FC-M11 — `make fmt` was clean; `make test` passed with no fixes needed: Go, static and UI checks, the CI stack, 495 Playwright tests, no contract mismatches, no new warnings. The only coverage gaps are the Orgs signup-unavailable 403s, which predate this branch.
+- 2026-10-02 — FC-M12 — an independent subagent reviewed `git diff main...HEAD` against the original requirements, plan §2, `review.md`, and `change-design.md`. Findings and resolutions:
+  - Critical: requests a link bound to another region still carried the stored session token, so a crafted `region=` link could send an sgp token to deu. FC-M8's "no product bugs found" missed it. Fixed: an explicit-region request carries no token unless one is passed (`portal-ui/src/api.ts`); signed-in requests go only to the session's region (`createSessionAPIOrigin`, which fails without a session); every signed-out flow names its region; and the region travels from the login form through the TOTP challenge to the stored and in-memory session, which logout and updates use (Hub and Orgs `AuthContext`). A new Playwright spec (`ui/hub-region-token-binding.spec.ts`) proves a signed-in sgp user sends no `Authorization` to deu from a reset link or the forgot-password picker.
+  - High, picker ignored when signed in, and medium, divergence across tabs and in-memory region: resolved by the same change, since the picker and storage no longer decide where requests go.
+  - Medium, consistency test: it now ties each region's Traefik host rule to `apiOrigin`, and the CORS allow-lists to `publicBaseURL` (mutation-checked).
+  - Low, all fixed:
+    - Hub signup recommends `defaultTenant` when the country has no eligible recommendation.
+    - `make portal-dist` fails if a dev host leaks into a production bundle.
+    - HSTS on the production TLS routers and in the production `_headers`.
+    - The unused catalog `version` is gone and `isTenantID` is unexported.
+    - The Playwright host overrides are removed.
+    - Superseded notes are added to `docs/org-signup.md` and `docs/global-uniqueness.md`.
+    - `safeReturnTo` rejects backslashes (pre-existing).
+  - Declined: a signed-in redirect on Hub signup (reviewer suggestion) changed tested behavior and is unnecessary now that signup requests carry no token, so it was reverted.
+  - Kept: `portal-ui` preferences still read `runtimeConfigValue("defaultLanguage")`, which Admin uses; Hub and Orgs simply have no runtime config.
+  - Pre-existing flakes surfaced by the final runs, fixed:
+    - The Hub `signup` helper read only the newest message to an address and lost a race with an email-change notice; it now searches Mailpit for the signup link.
+    - Concurrent audit-fault trigger drops deadlocked; all fault DDL now takes a shared advisory lock (`AUDIT_FAULT_LOCK`).
+  - Commands passed: `make fmt`; the portal-ui, admin-ui, hub-ui, orgs-ui, playwright, and repository-json checks; `test-go-static`; `portal-dist`; and `make test` (497 Playwright tests, no contract mismatches; only the pre-existing Orgs signup-unavailable 403 gaps remain).

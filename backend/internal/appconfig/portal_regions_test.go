@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"testing"
 
@@ -45,21 +46,31 @@ func TestPortalRegionTablesMatchCheckedInConfiguration(t *testing.T) {
 		name        string
 		configGlob  string
 		catalogPath string
+		traefikPath func(tenant string) string
 	}{
 		{
 			"dev",
 			filepath.Join(root, "config", "*.json"),
 			filepath.Join(root, "config", "signup-regions.json"),
+			func(tenant string) string {
+				return filepath.Join(root, "traefik", tenant+".json")
+			},
 		},
 		{
 			"ci",
 			filepath.Join(root, "config", "ci", "*.json"),
 			filepath.Join(root, "config", "ci", "signup-regions.json"),
+			func(tenant string) string {
+				return filepath.Join(root, "traefik", tenant+".json")
+			},
 		},
 		{
 			"production",
 			filepath.Join(root, "deploy", "*", "config.json"),
 			filepath.Join(root, "deploy", "signup-regions.json"),
+			func(tenant string) string {
+				return filepath.Join(root, "deploy", tenant, "traefik.json")
+			},
 		},
 	} {
 		t.Run(env.name, func(t *testing.T) {
@@ -134,6 +145,11 @@ func TestPortalRegionTablesMatchCheckedInConfiguration(t *testing.T) {
 					)
 				}
 				apiOrigins[got.APIOrigin] = true
+				if cfg, ok := configs[got.TenantID]; ok {
+					checkRegionalIngress(
+						t, env.traefikPath(got.TenantID), got.APIOrigin, cfg,
+					)
+				}
 			}
 			slices.Sort(portalTenants)
 			if !slices.Equal(portalTenants, wantTenants) {
@@ -242,4 +258,72 @@ func isAPIOrigin(value string, requireHTTPS bool) bool {
 		return u.Scheme == "https"
 	}
 	return u.Scheme == "https" || u.Scheme == "http"
+}
+
+var traefikHost = regexp.MustCompile("Host\\(`([^`]+)`\\)")
+
+// checkRegionalIngress ties a region's table entry to the ingress that serves
+// it: the API routers answer exactly the table's API host, and each CORS
+// policy allows exactly the portal origin the region's emailed links use. A
+// swapped or mistyped origin would otherwise send a portal's credentials to
+// the wrong region, and only the environment's own table would notice.
+func checkRegionalIngress(
+	t *testing.T, path, apiOrigin string, cfg Config,
+) {
+	t.Helper()
+	var ingress struct {
+		HTTP struct {
+			Routers map[string]struct {
+				Rule        string   `json:"rule"`
+				Middlewares []string `json:"middlewares"`
+			} `json:"routers"`
+			Middlewares map[string]struct {
+				Headers struct {
+					AllowOrigins []string `json:"accessControlAllowOriginList"`
+				} `json:"headers"`
+			} `json:"middlewares"`
+		} `json:"http"`
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(contents, &ingress); err != nil {
+		t.Fatalf("%s: %v", path, err)
+	}
+	u, err := url.Parse(apiOrigin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, api := range []struct{ router, portal string }{
+		{"api-hub", cfg.HubAPIServer.PublicBaseURL},
+		{"api-orgs", cfg.OrgsAPIServer.PublicBaseURL},
+	} {
+		router, ok := ingress.HTTP.Routers[api.router]
+		if !ok {
+			t.Errorf("%s: router %q missing", path, api.router)
+			continue
+		}
+		match := traefikHost.FindStringSubmatch(router.Rule)
+		if match == nil || match[1] != u.Host {
+			t.Errorf(
+				"%s: router %q rule %q, want host %q (apiOrigin)",
+				path, api.router, router.Rule, u.Host,
+			)
+		}
+		if len(router.Middlewares) != 1 {
+			t.Errorf(
+				"%s: router %q middlewares = %v, want one CORS policy",
+				path, api.router, router.Middlewares,
+			)
+			continue
+		}
+		origins := ingress.HTTP.Middlewares[router.Middlewares[0]].Headers.AllowOrigins
+		if !slices.Equal(origins, []string{api.portal}) {
+			t.Errorf(
+				"%s: router %q allows origins %v, want [%s] (publicBaseURL)",
+				path, api.router, origins, api.portal,
+			)
+		}
+	}
 }

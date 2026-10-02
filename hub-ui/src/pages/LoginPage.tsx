@@ -22,30 +22,41 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [search] = useSearchParams();
   const returnTo = safeReturnTo(search.get("returnTo"));
-  const mutation = useMutation({ mutationFn: hubAPI.login });
+  const mutation = useMutation({
+    mutationFn: ({
+      request,
+      tenantId,
+    }: {
+      request: LoginRequest;
+      tenantId: string;
+    }) => hubAPI.login(request, tenantId),
+  });
   const [region, setRegion] = useSelectedRegion(
     regionFromSearchParams(regionTable, search),
   );
   if (auth.authenticated) return <Navigate replace to={returnTo} />;
 
   const submit = async (request: LoginRequest) => {
+    // The region the request is sent to also issues the session, so it is
+    // captured once rather than re-read after the response.
+    const tenantId = region;
     const attempt = auth.beginAttempt();
     let response: Awaited<ReturnType<typeof hubAPI.login>>;
     try {
-      response = await mutation.mutateAsync(request);
+      response = await mutation.mutateAsync({ request, tenantId });
     } catch {
       return;
     }
-    const remembered = request.remember_me ?? false;
+    const metadata = { remembered: request.remember_me ?? false, tenantId };
     if (response.authentication_state === "totp_required") {
-      if (auth.beginChallenge(response, remembered, attempt)) {
+      if (auth.beginChallenge(response, metadata, attempt)) {
         navigate(`/login/two-factor?returnTo=${encodeURIComponent(returnTo)}`, {
           replace: true,
         });
       }
       return;
     }
-    if (auth.completeAuthentication(response, remembered, { attempt })) {
+    if (auth.completeAuthentication(response, metadata, { attempt })) {
       navigate(returnTo, { replace: true });
     }
   };

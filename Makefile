@@ -379,6 +379,9 @@ portal-dist: hub-ui-deps orgs-ui-deps
 		--outDir "$(PORTAL_DIST_DIR)/hub" --emptyOutDir
 	cd orgs-ui && VITE_VETCHIUM_ENVIRONMENT=production npm run build -- \
 		--outDir "$(PORTAL_DIST_DIR)/orgs" --emptyOutDir
+	@! grep -rlE 'vetchium\.localhost|[a-z]+-ui\.[a-z0-9]+\.localhost' \
+		"$(PORTAL_DIST_DIR)" || { \
+		echo "a production portal bundle names a development host"; exit 1; }
 
 hub-ui-deps:
 	cd hub-ui && npm ci

@@ -8,23 +8,23 @@ import type {
 import { hubAPI } from "../api/hub";
 import {
   clearSession,
+  type HubSession,
   readSession,
-  type StoredSession,
-  sessionTenant,
+  type SessionMetadata,
   storeSession,
 } from "./session";
 
-interface PendingChallenge extends LoginTOTPRequiredResponse {
-  remembered: boolean;
-}
+/** A TOTP challenge and the sign-in it continues, including the region that
+ * issued it: verification must go back to that region. */
+interface PendingChallenge extends LoginTOTPRequiredResponse, SessionMetadata {}
 
 const auth = createPortalAuth<
   AuthenticatedSessionResponse,
-  StoredSession,
+  HubSession,
   LoginTOTPRequiredResponse,
   PendingChallenge,
-  boolean,
-  boolean,
+  SessionMetadata,
+  SessionMetadata,
   HubSessionToken,
   HubLoginChallengeToken
 >({
@@ -34,15 +34,14 @@ const auth = createPortalAuth<
   clearSession,
   sessionToken: (session) => session.session_token,
   preferredLanguage: (session) => session.preferred_language,
-  logout: (session) => hubAPI.logout(session.session_token),
+  logout: (session) => hubAPI.logout(session.session_token, session.tenantId),
   ignoreLogoutFailure: true,
   challengeToken: (challenge) => challenge.login_challenge_token,
-  pendingChallenge: (challenge, remembered) => ({ ...challenge, remembered }),
+  pendingChallenge: (challenge, metadata) => ({ ...challenge, ...metadata }),
   updateSession: (session, updates) =>
     storeSession(
       { ...session, ...updates },
-      session.remembered,
-      sessionTenant() ?? undefined,
+      { remembered: session.remembered, tenantId: session.tenantId },
     ),
 });
 

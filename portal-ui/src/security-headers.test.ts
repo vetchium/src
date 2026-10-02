@@ -10,6 +10,7 @@ const policy = {
   connectSources: ["https://b.api.example.com", "https://a.api.example.com"],
   imageSources: ["https://media.a.example.com"],
   noindexPathPrefixes: ["/u/", "/org/"],
+  strictTransportSecurity: false,
 };
 
 test("the policy lists every API and media origin", () => {
@@ -60,4 +61,12 @@ test("every nginx location repeats the security headers", () => {
     assert.match(location, /Content-Security-Policy/);
     assert.match(location, /X-Frame-Options/);
   }
+});
+
+test("only an HTTPS-only site sends Strict-Transport-Security", () => {
+  assert.doesNotMatch(staticHostHeaders(policy), /Strict-Transport-Security/);
+  assert.match(
+    staticHostHeaders({ ...policy, strictTransportSecurity: true }),
+    /^ {2}Strict-Transport-Security: max-age=31536000; includeSubDomains$/m,
+  );
 });

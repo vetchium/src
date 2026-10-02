@@ -224,6 +224,8 @@ origins are compiled in.
   `admin.<region>.vetchium.com` sends `/api` to `admin-api` and everything else
   to the Admin portal; `media.<region>.vetchium.com` serves signed profile
   pictures. Each reaches its service over a dedicated private access network.
+  Every TLS router sends `Strict-Transport-Security` (one year, subdomains
+  included), as does the static host through the generated `_headers`.
 - `mesh-api`: private `mesh` and `backend`, plus `global_coordinator_egress`.
   Its local port `8080` is not published and accepts the tenant-local bearer
   relay. Its peer port `8443` is published in host mode only for WireGuard

@@ -16,7 +16,7 @@ export function ForgotPasswordPage() {
   const [region, setRegion] = useSelectedRegion();
   const request = useMutation({
     mutationFn: (body: { email_address: string }) =>
-      hubAPI.requestPasswordReset(body, key.current()),
+      hubAPI.requestPasswordReset(body, key.current(), region),
     onSuccess: () => key.rotate(),
   });
   return (

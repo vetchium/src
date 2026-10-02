@@ -112,10 +112,14 @@ host; Admin stays regional on the same origin as its API.
   the sign-in region; the default is the remembered region, then the
   recommendation for the first language tag that names a country, then the
   table default.
-- A stored session records the region that issued it, and every request with
-  that session goes to that region, never the picker's. Use
-  `createRegionalAPIOrigin` and `createRegionalSessionStorage` from
-  `@vetchium/portal-ui/region-selection`.
+- A session token belongs to the region that issued it. The stored and
+  in-memory session record that region, and requests made with the session go
+  only there (`createSessionAPIOrigin`, `createRegionalSessionStorage`). Every
+  signed-out flow (sign-in, TOTP, forgot and reset password, signup, emailed
+  links) passes its region explicitly, which sends the request without the
+  token; a sign-in carries its region through the challenge to the stored
+  session. Never let the picker, a link, or another tab's choice decide where a
+  token goes.
 - An emailed link carries `region=<tenantId>`. Read it only through
   `regionFromSearchParams`, send the link's request to that region, and show the
   page's invalid-link state for a missing or unknown region; never fall back to

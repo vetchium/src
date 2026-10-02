@@ -16,22 +16,31 @@
       "media": {
         "rule": "Host(`media.deu.vetchium.com`) && (Method(`GET`) || Method(`HEAD`)) && PathRegexp(`^/hub-profile-pictures/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
         "service": "media",
+        "middlewares": ["hsts"],
         "entryPoints": ["websecure"],
         "priority": 100
       },
       "admin-api": {
         "rule": "Host(`admin.deu.vetchium.com`) && (Path(`/api`) || PathPrefix(`/api/`))",
         "service": "admin-api",
+        "middlewares": ["hsts"],
         "entryPoints": ["websecure"],
         "priority": 100
       },
       "admin-ui": {
         "rule": "Host(`admin.deu.vetchium.com`)",
         "service": "admin-ui",
+        "middlewares": ["hsts"],
         "entryPoints": ["websecure"]
       }
     },
     "middlewares": {
+      "hsts": {
+        "headers": {
+          "stsSeconds": 31536000,
+          "stsIncludeSubdomains": true
+        }
+      },
       "cors-hub": {
         "headers": {
           "accessControlAllowOriginList": ["https://vetchium.com"],
@@ -42,7 +51,9 @@
             "Idempotency-Key"
           ],
           "accessControlMaxAge": 86400,
-          "addVaryHeader": true
+          "addVaryHeader": true,
+          "stsSeconds": 31536000,
+          "stsIncludeSubdomains": true
         }
       },
       "cors-orgs": {
@@ -55,7 +66,9 @@
             "Idempotency-Key"
           ],
           "accessControlMaxAge": 86400,
-          "addVaryHeader": true
+          "addVaryHeader": true,
+          "stsSeconds": 31536000,
+          "stsIncludeSubdomains": true
         }
       }
     },

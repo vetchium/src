@@ -39,10 +39,10 @@ export function initialRegion(
 }
 
 /**
- * Holds the region sign-in requests go to. `select` sets it for this page;
- * `remember` also keeps it for this browser under the caller's storage key.
- * Storage may be unavailable or cleared, so a fresh page falls back to
- * `initialRegion`'s other sources.
+ * Remembers the region this browser last chose or signed in to, under the
+ * caller's storage key, to pre-select it on the next sign-in page. Storage may
+ * be unavailable or cleared, so the choice is also kept in memory for this
+ * page. Requests never read it: each page sends its own selection.
  */
 export function createRegionStore({
   key,
@@ -52,15 +52,7 @@ export function createRegionStore({
   table: RegionTable;
 }) {
   let selected: string | null = null;
-  const select = (tenantId: string): boolean => {
-    if (findRegion(table, tenantId) === undefined) return false;
-    selected = tenantId;
-    return true;
-  };
   return {
-    select: (tenantId: string): void => {
-      select(tenantId);
-    },
     read: (): string => {
       if (selected !== null) return selected;
       let remembered: string | null = null;
@@ -76,7 +68,8 @@ export function createRegionStore({
       );
     },
     remember: (tenantId: string): void => {
-      if (!select(tenantId)) return;
+      if (findRegion(table, tenantId) === undefined) return;
+      selected = tenantId;
       try {
         globalThis.localStorage?.setItem(key, tenantId);
       } catch {
@@ -102,24 +95,27 @@ export function regionFromSearchParams(
 }
 
 /**
- * Builds the API origin provider for a regional portal. A signed-in session
- * is bound to the region that issued its token, so its region wins over the
- * picker: changing the picker must never send that token to another region.
+ * The API origin for requests made with the stored session: the region that
+ * issued its token. A request without a session must name its region
+ * explicitly, so neither the picker nor a link can redirect a token, and a
+ * request with no region at all fails instead of guessing one.
  */
-export function createRegionalAPIOrigin({
+export function createSessionAPIOrigin({
   table,
   sessionTenant,
-  selectedTenant,
 }: {
   table: RegionTable;
   sessionTenant: () => string | null;
-  selectedTenant: () => string;
 }): () => string {
   return () => {
-    const tenantId = sessionTenant() ?? selectedTenant();
+    const tenantId = sessionTenant();
     const region = findRegion(table, tenantId);
     if (region === undefined) {
-      throw new Error(`unknown region ${JSON.stringify(tenantId)}`);
+      throw new Error(
+        tenantId === null
+          ? "a request without a session must name its region"
+          : `unknown region ${JSON.stringify(tenantId)}`,
+      );
     }
     return region.apiOrigin;
   };

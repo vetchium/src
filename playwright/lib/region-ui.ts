@@ -98,6 +98,25 @@ export function cleanupPasswordResetLedger(
   );
 }
 
+/**
+ * Deletes ledger rows a browser request left under its own idempotency key,
+ * which is not test-prefixed. Pass only keys read from this test's own
+ * requests, scoped by operation, so no other test's rows can match.
+ */
+export function cleanupBrowserIdempotency(
+  tenant: TestTenant,
+  operation: string,
+  keys: readonly string[],
+): void {
+  if (keys.length === 0) return;
+  sqlScalarForTenant(
+    tenant,
+    `DELETE FROM vetchium.idempotency_ledger
+     WHERE operation = ${sqlLiteral(operation)}
+       AND idempotency_key IN (${keys.map(sqlLiteral).join(", ")});`,
+  );
+}
+
 export interface HubTestUser {
   tenant: TestTenant;
   email: string;

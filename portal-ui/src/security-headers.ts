@@ -13,6 +13,9 @@ export interface SecurityHeaderPolicy {
   readonly imageSources: readonly string[];
   /** Path prefixes, ending in "/", whose responses must not be indexed. */
   readonly noindexPathPrefixes: readonly string[];
+  /** Whether the site is served only over HTTPS, so browsers may be told
+   * never to use plain HTTP for it or its subdomains. */
+  readonly strictTransportSecurity: boolean;
 }
 
 const immutableAssets = "public, max-age=31536000, immutable";
@@ -58,12 +61,19 @@ export function contentSecurityPolicy(policy: SecurityHeaderPolicy): string {
 }
 
 function commonHeaders(policy: SecurityHeaderPolicy): [string, string][] {
-  return [
+  const headers: [string, string][] = [
     ["Content-Security-Policy", contentSecurityPolicy(policy)],
     ["X-Content-Type-Options", "nosniff"],
     ["X-Frame-Options", "SAMEORIGIN"],
     ["Referrer-Policy", "strict-origin-when-cross-origin"],
   ];
+  if (policy.strictTransportSecurity) {
+    headers.push([
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains",
+    ]);
+  }
+  return headers;
 }
 
 /** The `_redirects` file serving the single-page app for every path that is

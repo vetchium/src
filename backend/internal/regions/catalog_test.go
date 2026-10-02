@@ -12,7 +12,7 @@ import (
 
 func testCatalog(t *testing.T, count int) *Catalog {
 	t.Helper()
-	c := Catalog{Version: "1", DefaultTenant: "region000", Recommendations: map[common.CountryCode]string{"IN": "region001"}}
+	c := Catalog{DefaultTenant: "region000", Recommendations: map[common.CountryCode]string{"IN": "region001"}}
 	for i := 0; i < count; i++ {
 		c.Regions = append(c.Regions, Region{
 			TenantID:         fmt.Sprintf("region%03d", i),
@@ -42,7 +42,7 @@ func loadTestCatalog(t *testing.T, c Catalog) *Catalog {
 func TestCatalogValidation(t *testing.T) {
 	t.Parallel()
 	for _, change := range []func(*Catalog){
-		func(c *Catalog) { c.Version = "" },
+		func(c *Catalog) { c.Regions = nil },
 		func(c *Catalog) { c.DefaultTenant = "missing" },
 		func(c *Catalog) { c.Regions[0].TenantID = "Region000" },
 		func(c *Catalog) { c.Regions[0].HostingCountry = "ZZ" },
@@ -114,7 +114,7 @@ func TestLoadRejectsPortalURLs(t *testing.T) {
 	t.Parallel()
 	for _, member := range []string{"hubURL", "orgsURL"} {
 		path := filepath.Join(t.TempDir(), "regions.json")
-		contents := fmt.Sprintf(`{"version":"1","defaultTenant":"sgp",
+		contents := fmt.Sprintf(`{"defaultTenant":"sgp",
 "recommendations":{},"regions":[{"tenantId":"sgp","hostingCountry":"SG",
 "signupEnabled":true,"allowedCountries":[],"orgSignupEnabled":true,
 %q:"https://sgp.example.com"}]}`, member)

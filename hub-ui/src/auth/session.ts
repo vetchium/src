@@ -44,28 +44,41 @@ const storage = createRegionalSessionStorage<StoredSession>({
   parse: parseSession,
 });
 
-export function readSession(): StoredSession | null {
-  return storage.read()?.session ?? null;
+/** A stored session and the region that issued its token. Every request
+ * made with the token goes to that region. */
+export interface HubSession extends StoredSession {
+  tenantId: string;
 }
 
-/** The region that issued the stored session's token. */
-export function sessionTenant(): string | null {
-  return storage.read()?.tenantId ?? null;
+export interface SessionMetadata {
+  remembered: boolean;
+  tenantId: string;
 }
 
-/**
- * Stores a session for `tenantId`, which defaults to the region a sign-in
- * was just sent to: the one selected on the sign-in page.
- */
+export function readSession(): HubSession | null {
+  const stored = storage.read();
+  return stored === null
+    ? null
+    : { ...stored.session, tenantId: stored.tenantId };
+}
+
+/** Stores a session issued by `tenantId`, the region the sign-in was sent
+ * to, and remembers that region for the next sign-in page. */
 export function storeSession(
   session: AuthenticatedSessionResponse,
-  remembered: boolean,
-  tenantId: string = regionStore.read(),
-): StoredSession {
-  const stored = { ...session, remembered };
+  { remembered, tenantId }: SessionMetadata,
+): HubSession {
+  const stored: StoredSession = {
+    session_token: session.session_token,
+    session_expires_at: session.session_expires_at,
+    preferred_language: session.preferred_language,
+    resident_country: session.resident_country,
+    handle: session.handle,
+    remembered,
+  };
   storage.store({ tenantId, session: stored }, remembered);
   regionStore.remember(tenantId);
-  return stored;
+  return { ...stored, tenantId };
 }
 
 export function clearSession(): void {

@@ -66,8 +66,13 @@ function SignupFlow() {
   const [search] = useSearchParams();
   const key = useIdempotencyKey();
   const options = eligibleRegions(country);
-  const recommended =
-    regionTable.recommendations[country as CountryCode] ?? undefined;
+  // The country's recommendation, else the table default, when it is eligible.
+  const preferred =
+    regionTable.recommendations[country as CountryCode] ??
+    regionTable.defaultTenant;
+  const recommended = options.find(
+    (region) => region.tenantId === preferred,
+  )?.tenantId;
   const selected =
     options.find((region) => region.tenantId === selectedTenant) ??
     options.find((region) => region.tenantId === recommended) ??

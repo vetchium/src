@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createPortalAPIClient } from "./api.ts";
 import {
-  createRegionalAPIOrigin,
   createRegionalSessionStorage,
   createRegionStore,
+  createSessionAPIOrigin,
   initialRegion,
   regionFromSearchParams,
 } from "./region-selection.ts";
@@ -92,11 +92,6 @@ test("the store remembers only known regions", async () => {
     storage.setItem("test.region", "usa1");
     const fresh = createRegionStore({ key: "test.region", table });
     assert.equal(fresh.read(), "sgp");
-    fresh.select("deu");
-    assert.equal(fresh.read(), "deu");
-    assert.equal(storage.getItem("test.region"), "usa1");
-    fresh.select("usa1");
-    assert.equal(fresh.read(), "deu");
   });
 });
 
@@ -128,16 +123,15 @@ test("a link's region parameter must name exactly one known region", () => {
   assert.equal(read("region=deu&region=sgp"), null);
 });
 
-test("the signed-in session's region wins over the picker", () => {
+test("session requests go to the session's region and nowhere else", () => {
   let session: string | null = "deu";
-  const origin = createRegionalAPIOrigin({
+  const origin = createSessionAPIOrigin({
     table,
     sessionTenant: () => session,
-    selectedTenant: () => "ind1",
   });
   assert.equal(origin(), "https://deu.api.example.com");
   session = null;
-  assert.equal(origin(), "https://ind1.api.example.com");
+  assert.throws(origin, /must name its region/);
   session = "usa1";
   assert.throws(origin, /unknown region/);
 });
@@ -171,9 +165,12 @@ test("a stored session is bound to a known region", async () => {
 });
 
 test("requests go to the configured origin unless one is given", async () => {
-  const urls: string[] = [];
-  const fetchStub = async (input: RequestInfo | URL) => {
-    urls.push(String(input));
+  const requests: [string, string | null][] = [];
+  const fetchStub = async (input: RequestInfo | URL, init?: RequestInit) => {
+    requests.push([
+      String(input),
+      new Headers(init?.headers).get("Authorization"),
+    ]);
     return new Response("{}", { status: 200 });
   };
   await withGlobal("fetch", fetchStub, async () => {
@@ -182,7 +179,7 @@ test("requests go to the configured origin unless one is given", async () => {
       authenticationProblemType: "auth",
       recentAuthenticationProblemType: "recent",
       sessionExpiredEvent: "expired",
-      readToken: () => null,
+      readToken: () => "session-token",
       clearSession: () => {},
     };
     await createPortalAPIClient(configuration).request("/ping");
@@ -192,10 +189,16 @@ test("requests go to the configured origin unless one is given", async () => {
     });
     await regional.request("/ping");
     await regional.request("/ping", { origin: "https://sgp.api.example.com" });
+    await regional.request("/logout", {
+      origin: "https://sgp.api.example.com",
+      token: "explicit-token",
+    });
   });
-  assert.deepEqual(urls, [
-    "/api/hub/ping",
-    "https://deu.api.example.com/api/hub/ping",
-    "https://sgp.api.example.com/api/hub/ping",
+  assert.deepEqual(requests, [
+    ["/api/hub/ping", "Bearer session-token"],
+    ["https://deu.api.example.com/api/hub/ping", "Bearer session-token"],
+    // A region named by the caller never receives the stored session's token.
+    ["https://sgp.api.example.com/api/hub/ping", null],
+    ["https://sgp.api.example.com/api/hub/logout", "Bearer explicit-token"],
   ]);
 });

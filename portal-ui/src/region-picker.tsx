@@ -6,17 +6,15 @@ import type { PortalRegion } from "./regions.ts";
 
 /**
  * The region selected on a page, remembered in `store` on change. `initial`,
- * such as a validated `region` link parameter, is selected for this page
- * without being remembered until the user signs in or changes it.
+ * such as a validated `region` link parameter, pre-selects without being
+ * remembered until the user signs in or changes it. The page passes the
+ * selection to every request it makes; nothing else reads it.
  */
 export function useRegionSelection(
   store: ReturnType<typeof createRegionStore>,
   initial?: string | null,
 ) {
-  const [tenantId, setTenantId] = useState(() => {
-    if (initial) store.select(initial);
-    return store.read();
-  });
+  const [tenantId, setTenantId] = useState(() => initial ?? store.read());
   const select = (value: string) => {
     store.remember(value);
     setTenantId(value);

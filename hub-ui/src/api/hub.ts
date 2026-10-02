@@ -96,32 +96,41 @@ export const hubAPI = {
         tenantId,
       },
     ),
-  login: (body: LoginRequest) =>
-    apiRequest<LoginResponse>(`${base}/login`, { body }),
-  verifyTFA: (body: VerifyTFARequest, idempotencyKey: IdempotencyKey) =>
+  login: (body: LoginRequest, tenantId: string) =>
+    apiRequest<LoginResponse>(`${base}/login`, { body, tenantId }),
+  verifyTFA: (
+    body: VerifyTFARequest,
+    idempotencyKey: IdempotencyKey,
+    tenantId: string,
+  ) =>
     apiRequest<AuthenticatedSessionResponse>(`${base}/login/tfa`, {
       body,
       idempotencyKey,
+      tenantId,
     }),
   verifyRecoveryCode: (
     body: VerifyRecoveryCodeRequest,
     idempotencyKey: IdempotencyKey,
+    tenantId: string,
   ) =>
     apiRequest<VerifyRecoveryCodeResponse>(`${base}/login/recovery-code`, {
       body,
       idempotencyKey,
+      tenantId,
     }),
-  logout: (token: string) =>
-    apiRequest<void>(`${base}/logout`, { method: "POST", token }),
+  logout: (token: string, tenantId: string) =>
+    apiRequest<void>(`${base}/logout`, { method: "POST", token, tenantId }),
   reauthenticate: (body: ReauthenticateRequest) =>
     apiRequest<ReauthenticateResponse>(`${base}/reauthenticate`, { body }),
   requestPasswordReset: (
     body: RequestPasswordResetRequest,
     idempotencyKey: IdempotencyKey,
+    tenantId: string,
   ) =>
     apiRequest<void>(`${base}/request-password-reset`, {
       body,
       idempotencyKey,
+      tenantId,
     }),
   completePasswordReset: (
     body: CompletePasswordResetRequest,

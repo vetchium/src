@@ -1,5 +1,12 @@
 # Org Signup and Org User Sign-in Requirements
 
+> **Partly superseded** by [`frontend-consolidation.md`](frontend-consolidation.md):
+> the Hub and Orgs portals are now one global site each, the browser picks the
+> region from a compiled-in table instead of a discovery API, the region
+> catalog no longer carries portal URLs, and homed-elsewhere problems carry
+> only `tenant_id` (no `hub_url` or `orgs_url`). Where this document says
+> otherwise, that document and `agent-guides/` win.
+
 Status: Accepted for implementation
 
 Last updated: 2026-09-27

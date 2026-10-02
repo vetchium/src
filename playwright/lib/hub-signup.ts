@@ -19,6 +19,26 @@ export interface SignedUpHubUser {
  * password the caller needs to log in and clean up. Every idempotency key
  * used is appended to `keys` for cleanup.
  */
+/**
+ * The text of every message to `email`, newest first. An address can receive
+ * other mail around a signup, such as an email-change notice, so callers look
+ * for the message they expect rather than trusting the latest one. Mailpit is
+ * called with plain fetch so API-coverage tracking ignores it.
+ */
+async function mailTexts(email: string): Promise<string[]> {
+  const search = await fetch(
+    `${MAILPIT_ORIGIN}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`,
+  );
+  if (!search.ok) return [];
+  const { messages } = (await search.json()) as { messages: { ID: string }[] };
+  return Promise.all(
+    messages.map(async ({ ID }) => {
+      const message = await fetch(`${MAILPIT_ORIGIN}/view/${ID}.txt`);
+      return message.ok ? message.text() : "";
+    }),
+  );
+}
+
 export async function signup(
   request: APIRequestContext,
   tenant: TestTenant,
@@ -47,18 +67,18 @@ export async function signup(
     },
   });
   expect(response.status(), await response.text()).toBe(202);
-  const mailbox = `${MAILPIT_ORIGIN}/view/latest.txt?query=${encodeURIComponent(`to:${email}`)}`;
+  const link = `${HUB_PORTAL}/complete-signup?region=${tenant}&token=`;
   let text = "";
   await expect
     .poll(
       async () => {
-        const mail = await request.get(mailbox);
-        text = mail.ok() ? await mail.text() : "";
+        text =
+          (await mailTexts(email)).find((body) => body.includes(link)) ?? "";
         return text;
       },
       { timeout: 15000 },
     )
-    .toContain(`${HUB_PORTAL}/complete-signup?region=${tenant}&token=`);
+    .toContain(link);
   const token = emailedLinkToken(text, "/complete-signup", tenant);
   expect(token).toBeDefined();
   const password = `Password!${randomUUID()}`;

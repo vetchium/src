@@ -24,6 +24,7 @@ export default defineConfig(({ command, mode }) => {
           connectSources: apiOrigins,
           imageSources: hub.regions.map((region) => String(region.mediaOrigin)),
           noindexPathPrefixes: ["/u/", "/org/"],
+          strictTransportSecurity: environment === "production",
         },
         path.resolve(import.meta.dirname, "dist-nginx"),
       ),

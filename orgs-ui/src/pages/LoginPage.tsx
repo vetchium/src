@@ -85,7 +85,15 @@ export function LoginPage() {
   const auth = useAuth();
   const returnTo = safeReturnTo(searchParams.get("returnTo"));
   const prefilledDomain = normalizeOrgDomain(searchParams.get("domain") ?? "");
-  const mutation = useMutation({ mutationFn: orgsAPI.login });
+  const mutation = useMutation({
+    mutationFn: ({
+      request,
+      tenantId,
+    }: {
+      request: LoginRequest;
+      tenantId: string;
+    }) => orgsAPI.login(request, tenantId),
+  });
   const [region, setRegion] = useSelectedRegion(
     regionFromSearchParams(regionTable, searchParams),
   );
@@ -119,23 +127,28 @@ export function LoginPage() {
     if (supersedingBlocked()) return;
     const request = normalizeLoginRequest(values);
     if (validateLoginRequest(request).length !== 0) return;
+    // The region the request is sent to also issues the session, so it is
+    // captured once rather than re-read after the response.
+    const tenantId = region;
     // Claimed before the request so that a response arriving after the user
     // has started another sign-in is discarded rather than replacing it.
     const attempt = auth.beginAttempt();
     unhandedAttempt.current = attempt;
     let response: Awaited<ReturnType<typeof orgsAPI.login>>;
     try {
-      response = await mutation.mutateAsync(request);
+      response = await mutation.mutateAsync({ request, tenantId });
     } catch {
       return;
     }
     if (response.authentication_state === AuthenticationStateTOTPRequired) {
-      if (!auth.beginChallenge(response, undefined, attempt)) return;
+      if (!auth.beginChallenge(response, { tenantId }, attempt)) return;
       unhandedAttempt.current = null;
       navigate(`${paths.twoFactor}?returnTo=${encodeURIComponent(returnTo)}`);
       return;
     }
-    if (!auth.completeAuthentication(response, undefined, { attempt })) return;
+    if (!auth.completeAuthentication(response, { tenantId }, { attempt })) {
+      return;
+    }
     unhandedAttempt.current = null;
     navigate(returnTo, { replace: true });
   };
@@ -157,7 +170,7 @@ export function LoginPage() {
         {homedElsewhere && mutation.variables !== undefined ? (
           <HomedElsewhere
             error={mutation.error}
-            domain={normalizeOrgDomain(mutation.variables.domain)}
+            domain={normalizeOrgDomain(mutation.variables.request.domain)}
             onSwitch={(tenantId) => {
               mutation.reset();
               setRegion(tenantId);

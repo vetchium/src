@@ -10,6 +10,7 @@ import type { LoginResponse } from "typespec/orgs/auth/login";
 import type { CompleteSignupResponse } from "typespec/orgs/auth/signup";
 import type { OrgDomain } from "typespec/orgs/types";
 import {
+  AUDIT_FAULT_LOCK,
   type AuditEvent,
   auditEventJSONForTenant,
   globalSQLScalar,
@@ -391,6 +392,7 @@ export function installOrgAuditInsertFailure(
   sqlScalarForTenant(
     tenant,
     `
+    ${AUDIT_FAULT_LOCK}
     CREATE FUNCTION vetchium.${name}() RETURNS trigger LANGUAGE plpgsql
     AS $function$ BEGIN RAISE EXCEPTION 'injected Org audit failure'; END
     $function$;
@@ -404,7 +406,8 @@ export function installOrgAuditInsertFailure(
     if (!installed) return;
     sqlScalarForTenant(
       tenant,
-      `DROP TRIGGER ${name} ON vetchium.audit_events;
+      `${AUDIT_FAULT_LOCK}
+       DROP TRIGGER ${name} ON vetchium.audit_events;
        DROP FUNCTION vetchium.${name}();`,
     );
     installed = false;
