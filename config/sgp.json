@@ -100,12 +100,7 @@
     "inconclusiveLimit": "1h"
   },
   "orgBilling": {
-    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
-    "gracePeriod": "1h",
-    "retryOffsets": ["10m", "20m", "40m"],
-    "dueWarningLeads": ["30m", "15m", "5m"],
-    "downgradeWarningLeads": ["168h", "24h"],
-    "checkInterval": "10s"
+    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
   },
   "mcpServer": {},
   "signupRegionsFile": "/etc/vetchium/signup-regions.json"

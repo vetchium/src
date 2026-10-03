@@ -38,15 +38,11 @@ import type {
 } from "typespec/orgs/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/orgs/auth/types";
 import type { ListPermissionsResponse } from "typespec/orgs/authorization/management";
+import type { SetCompanyNameRequest } from "typespec/orgs/settings/company";
 import type { SetGoogleSignInRequest } from "typespec/orgs/settings/google_sign_in";
 import type { LogoContentType } from "typespec/orgs/settings/logo";
 import type {
-  ListInvoicesRequest,
-  ListInvoicesResponse,
-  OrgPaymentMethod,
   OrgSubscription,
-  PayInvoiceRequest,
-  SetPaymentMethodRequest,
   SetSubscriptionPlanRequest,
 } from "typespec/orgs/subscriptions/subscriptions";
 import type {
@@ -196,14 +192,8 @@ export const orgsAPI = {
       body,
       idempotencyKey,
     }),
-  setPaymentMethod: (body: SetPaymentMethodRequest) =>
-    apiRequest<OrgPaymentMethod>("/set-payment-method", { body }),
-  removePaymentMethod: () =>
-    apiRequest<void>("/remove-payment-method", { method: "POST" }),
-  listInvoices: (body: ListInvoicesRequest) =>
-    apiRequest<ListInvoicesResponse>("/list-invoices", { body }),
-  payInvoice: (body: PayInvoiceRequest, idempotencyKey: IdempotencyKey) =>
-    apiRequest<OrgSubscription>("/pay-invoice", { body, idempotencyKey }),
+  setCompanyName: (body: SetCompanyNameRequest) =>
+    apiRequest<void>("/set-company-name", { body }),
   listPermissions: () =>
     apiRequest<ListPermissionsResponse>("/list-permissions"),
   listUsers: (body: ListUsersRequest) =>

@@ -1,7 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expectProblem } from "../lib/admin-api.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { boundaryPairEndingAt } from "../lib/billing-periods.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
 import { makeJPEG128, makePNG, withTextChunk } from "../lib/logo-fixtures.ts";
 import {
@@ -42,11 +41,6 @@ async function withOrg(
 }
 
 async function onSilver(api: OrgsAPI, owner: string): Promise<void> {
-  expect(
-    (
-      await api.setPaymentMethod(owner, { kind: "simulated-succeeds" })
-    ).status(),
-  ).toBe(200);
   expect(
     (
       await api.setSubscriptionPlan(owner, {
@@ -330,19 +324,6 @@ test.describe("logo removal and plan changes", () => {
           await api.setSubscriptionPlan(owner, { plan_oid: "org-free-tier" })
         ).status(),
       ).toBe(200);
-      // Scheduled: the logo stays until the period ends.
-      expect(await logoURL(api, owner)).toBeDefined();
-      const pair = boundaryPairEndingAt(new Date(Date.now() - 1000), "month");
-      orgSQL(
-        `UPDATE vetchium.orgs
-         SET subscription_anchor_at = '${pair.anchor.toISOString()}',
-             subscription_period_start = '${pair.start.toISOString()}',
-             subscription_period_end = '${pair.end.toISOString()}'
-         WHERE org_did = (SELECT org_did FROM vetchium.org_domains
-                          WHERE domain = '${org.domain}')`,
-      );
-      // Whoever applies the cancellation - a request or the worker - removes
-      // the logo in the same transaction.
       await expect
         .poll(() => logoURL(api, owner), { timeout: 20_000 })
         .toBeUndefined();

@@ -16,9 +16,7 @@ async function signInWithPassword(page: Page, user: SignedUpOrg) {
   await page.getByLabel("Password", { exact: true }).fill(user.password);
   await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByTestId("shell-user-email")).toHaveText(
-    user.emailAddress,
-  );
+  await expect(page.getByTestId("shell-org-name")).toBeVisible();
 }
 
 /** The development provider has no account chooser, so the test plays the
@@ -48,15 +46,10 @@ test("a superadmin turns Google sign-in on, and a user signs in through it", asy
     const owner = await loginOrg(api, org);
     await signInWithPassword(page, org);
 
-    await page.goto(`${ORGS_PORTAL}/settings`);
+    await page.goto(`${ORGS_PORTAL}/organization-security`);
     await expect(page.getByTestId("google-upgrade")).toContainText("Gold plan");
     await expect(page.getByTestId("google-switch")).toBeDisabled();
 
-    expect(
-      (
-        await api.setPaymentMethod(owner, { kind: "simulated-succeeds" })
-      ).status(),
-    ).toBe(200);
     expect(
       (
         await api.setSubscriptionPlan(owner, {
@@ -71,6 +64,10 @@ test("a superadmin turns Google sign-in on, and a user signs in through it", asy
     await expect(toggle).toBeEnabled();
     await expect(toggle).not.toBeChecked();
     await toggle.click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "OK", exact: true })
+      .click();
     await expect(toggle).toBeChecked();
     await page.reload();
     await expect(page.getByTestId("google-switch")).toBeChecked();
@@ -81,9 +78,7 @@ test("a superadmin turns Google sign-in on, and a user signs in through it", asy
       const visitor = await context.newPage();
       await chooseGoogleAccount(visitor, org.emailAddress);
       await startGoogleSignIn(visitor, org.domain);
-      await expect(visitor.getByTestId("shell-user-email")).toHaveText(
-        org.emailAddress,
-      );
+      await expect(visitor.getByTestId("shell-org-name")).toBeVisible();
       expect(new URL(visitor.url()).pathname).toBe("/");
     } finally {
       await context.close();
@@ -108,6 +103,10 @@ test("a superadmin turns Google sign-in on, and a user signs in through it", asy
 
     // Turning it off ends the option for the next visitor.
     await page.getByTestId("google-switch").click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "OK", exact: true })
+      .click();
     await expect(page.getByTestId("google-switch")).not.toBeChecked();
     const later = await browser.newContext();
     try {

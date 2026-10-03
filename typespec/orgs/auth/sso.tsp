@@ -73,7 +73,6 @@ interface GoogleSignInOperations {
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.OrgSSOSignInFailedErrorResponse
     | Vetchium.Problem.OrgUserDisabledErrorResponse
-    | Vetchium.Problem.OrgUserDisabledNonpaymentErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 }

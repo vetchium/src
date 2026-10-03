@@ -1,118 +1,35 @@
 # Org Subscriptions
 
-Applies to Org plans, subscriptions, billing, seats, user management, the Org
-logo, and Google sign-in. Compose with [`orgs.md`](orgs.md),
-[`authorization.md`](authorization.md), and
-[`hub-subscriptions.md`](hub-subscriptions.md), whose period and concurrency
-rules Orgs follow. Nothing here defines Hub plans.
+Applies to Org plans, seats, user management, company identity, logo, and
+Google sign-in. Compose with `orgs.md` and `authorization.md`.
 
-## Plans and entitlements
+## Plans and changes
 
-- Plans are `org-free-tier` (rank 1000), `org-silver-tier` (2000), and
-  `org-gold-tier` (3000): seeded rows, identical in every tenant. A higher rank
-  includes everything a lower rank allows.
-- Entitlements are constants in `typespec/orgs/subscriptions/plans.*` (TypeSpec
-  extension, Go, TypeScript). Never restate one elsewhere.
-
-  | | Free | Silver | Gold |
-  | --- | --- | --- | --- |
-  | Users (seats) | 5 | 50 | 1000, none with Google sign-in on |
-  | Openings per rolling 365 days | 25 | 250 | 2500 |
-  | Org logo | no | yes | yes |
-  | Google sign-in | no | no | yes |
-  | Ticket-based support | no | no | yes (not built) |
-
-- `orgBilling.offeredPlans` in each tenant's config must include
-  `org-free-tier`; `orgs-ui` compiles the same list as `orgPlans` in
-  `orgs-ui/src/app/regions/<environment>.json`, and
-  `TestPortalRegionTablesMatchCheckedInConfiguration` keeps them equal.
-- The portal owns the simulated display prices (flat per plan and interval,
-  annual is eleven months, tax included, labelled "Introductory pricing").
-  Gold's comparison lists Ticket-based support and MCP support as "Coming
-  soon"; neither has an entry point.
-- Payments are simulated everywhere: one saved card per Org, either
-  `simulated-succeeds` or `simulated-declines`. No real card data exists.
-
-## Changes and periods
-
-- An upgrade (higher rank, or the same plan going monthly to annual) charges at
-  once and starts a new period. A refusal (no card, a decline) changes nothing.
-  A downgrade or cancellation is scheduled for period end. Choosing the current
-  plan and interval clears a schedule.
-- `backend/internal/orgs/billing.Advance` is the only period-end rule, with
-  `Decide`, `Pay`, and `KeepSet` beside it. It is pure and moves one step at a
-  time. Requests and the worker persist due transitions through
-  `billingdb.Save` (`SaveOrgSubscription`), one statement that writes the
-  state, the folded invoice changes, and the audit events. A request persists a
-  due transition even when it then refuses (`CommittedFailure`). Reads compute
-  in memory and write nothing.
-- After saving system transitions, call `billingdb.ApplyEffects` in the same
-  transaction, from the worker and from every request alike: it applies the
-  deadline to people and emails billing holders about a failed charge. Whoever
-  persists the deadline first must disable the users, or the Org sits on Free
-  with every user active and nothing left due.
-- Lock the `orgs` row `FOR UPDATE` before any billing, seat, or permission
-  decision (`LockOrgForBilling`, `LockOrgSeatPolicy`, `LockOrgForInvitation`,
-  `LockOrgForGoogleSignIn`). Billing locks with `LockOrgForBilling` and reads
-  with `GetOrgSubscription` in the next statement, so a request that waited
-  sees the invoice and seats the lock holder committed.
-- Workers claim with `FOR NO KEY UPDATE SKIP LOCKED`, one Org per transaction,
-  then read the subscription in a separate statement.
-- The portal rotates a billing idempotency key after any decided outcome
-  (success or a definite refusal) and keeps it only across uncertain ones. A
-  refusal that committed due transitions is stored for its key, so reusing
-  the key after the user fixed the cause would replay the refusal.
-- Billing holders reach the plan page while the Org is suspended, since it is
-  still billed; plan changes stay locked there.
-
-## Failed payment
-
-- A failed renewal (or no card) advances the period, opens an invoice with
-  `due_at = period_end + gracePeriod`, and marks the Org past due. Service
-  continues on the paid plan. The saved card is retried at the configured
-  offsets, measured from the period boundary.
-- While past due, a billing holder may pay the invoice, replace or remove the
-  card, and read billing; choosing a plan is refused with
-  `org-billing-past-due`.
-- At the deadline, in one transaction: the invoice is voided, the Org drops to
-  `org-free-tier` with its schedule cleared, every invitation is cancelled,
-  active users beyond the keep set are disabled with reason `nonpayment` and
-  their sessions revoked, the logo is removed, and Google sign-in is turned
-  off. Emails go to the disabled users and the kept billing holders. Paying
-  afterwards is a fresh upgrade.
-- The keep set is five active users: `org:superadmin` holders first, then
-  `org:manage_billing` holders, then the oldest `created_at`, then
-  `org_user_id`. It always keeps a superadmin.
-- Re-enabling is manual, one user at a time, within the cap. Nothing re-enables
-  after payment. A user disabled for nonpayment who signs in gets
-  `org-user-disabled-nonpayment`.
-- Warnings: billing holders are emailed on every failed charge and at the
-  `dueWarningLeads` before the deadline; a rank-lowering schedule warns at
-  `downgradeWarningLeads` (banner in the final 7 days). Every signed-in user
-  sees the past-due banner, carried by `my-info`.
-
-  | `orgBilling` key | Production | Development | CI |
-  | --- | --- | --- | --- |
-  | `gracePeriod` | `336h` | `1h` | `12s` |
-  | `retryOffsets` | `72h`, `168h`, `264h` | `10m`, `20m`, `40m` | `3s`, `6s`, `9s` |
-  | `dueWarningLeads` | `168h`, `72h`, `24h` | `30m`, `15m`, `5m` | `9s`, `6s`, `3s` |
-  | `downgradeWarningLeads` | `168h`, `24h` | same | same |
-  | `checkInterval` | `1m` | `10s` | `1s` |
-
-  `usa1` offers only Free and Silver in CI, to exercise `org-plan-not-offered`.
-  Every duration is a config key; parse each without a silent default.
-- The CI worker acts every second. A test that needs a stable past-due state
-  sets it in SQL and asserts what holds whichever of request or worker acts.
+- Plans are `org-free-tier`, `org-silver-tier`, and `org-gold-tier`, ordered by
+  rank. Take entitlements from `typespec/orgs/subscriptions/plans.*` only.
+- Every plan change is free and immediate in every environment during
+  development. Monthly/annual records a display choice; Free has no interval.
+- `orgBilling.offeredPlans` includes Free and matches the portal's compiled
+  `orgPlans`. CI `usa1` offers only Free and Silver.
+- Display prices belong to the portal until real payments are integrated.
+  Mark them as not charged during development. Launch requires real payments
+  (`docs/todo.md`).
+- Lock the Org row, then read seats in a separate statement. Refuse a target
+  whose cap is below seats in use; compute its cap with the current Google
+  sign-in choice. An unchanged plan and interval succeeds without a write.
+- Save plan, interval, entitlement effects, and audit in one transaction.
+  Leaving Gold disables Google sign-in. A target without logos retires the
+  logo; Gold to Silver preserves it. Upgrading restores neither setting.
+- Keep idempotency across uncertain outcomes. A replay writes no audit event.
+- Billing needs `org:manage_billing`; confirm every change with its immediate
+  effects and concrete losses. Interval-only changes are not upgrades.
 
 ## Seats and users
 
 - A seat is an active user or an unexpired pending invitation, defined once in
   the SQL function `org_seats_in_use`. Disabled users hold none.
-- The cap is the lower of the current and any scheduled plan's
-  (`orgusers.SeatLimit`), so a transition never finds excess users. Invite,
-  accept, and re-enable check it under the Org lock. Scheduling a downgrade
-  while seats exceed the target cap is refused with
-  `org-user-limit-exceeds-target`.
+- Check the current plan's seat cap under the Org lock on invite, accept,
+  and re-enable. A Gold Org with Google sign-in is uncapped.
 - Roles are permissions: `org:manage_users` and `org:manage_billing` are
   catalog permissions, and `org:superadmin` implies both. Billing is separate
   from member administration.
@@ -143,10 +60,7 @@ rules Orgs follow. Nothing here defines Hub plans.
 
 ## Suspended Orgs
 
-- A suspended Org keeps billing reads, `set-payment-method`,
-  `remove-payment-method`, and `pay-invoice` besides the account routes of
-  [`orgs.md`](orgs.md). Compose `middleware.RequireActiveOrg` on every other
-  route. The worker bills suspended Orgs too: they can pay.
+- Billing reads stay available; plan changes require an active Org.
 
 ## Logo
 
@@ -203,7 +117,7 @@ rules Orgs follow. Nothing here defines Hub plans.
 
 - Every state change writes an audit event in its own transaction.
 - Plan, seat, and permission cases belong in `playwright/api/orgs-*.spec.ts`;
-  the end-to-end lifecycle is `orgs-billing-worker.spec.ts`. After changing the
+  immediate plan changes belong in `orgs-subscriptions.spec.ts`. After changing the
   schema, run `make clean` before `make test-stack`, or the tenant databases
   keep their old constraints.
 - `make dev-seed` creates a Free, Silver, and Gold Org per region, each with a

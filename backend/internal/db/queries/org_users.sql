@@ -34,9 +34,6 @@ WHERE u.org_did = sqlc.arg(org_did)
           AND u.org_user_state = 'active')
       OR (sqlc.narg(state_filter)::text = 'disabled-manual'
           AND u.org_user_state = 'disabled' AND u.disabled_reason = 'manual')
-      OR (sqlc.narg(state_filter)::text = 'disabled-nonpayment'
-          AND u.org_user_state = 'disabled'
-          AND u.disabled_reason = 'nonpayment')
   )
   AND (
       sqlc.narg(permission_filter)::text IS NULL
@@ -93,10 +90,6 @@ SELECT
     count(*) FILTER (
         WHERE u.org_user_state = 'disabled' AND u.disabled_reason = 'manual'
     )::bigint AS disabled_manual_users,
-    count(*) FILTER (
-        WHERE u.org_user_state = 'disabled'
-          AND u.disabled_reason = 'nonpayment'
-    )::bigint AS disabled_nonpayment_users,
     count(*) FILTER (
         WHERE u.org_user_state = 'active' AND NOT EXISTS (
             SELECT 1 FROM vetchium.org_user_permissions AS g

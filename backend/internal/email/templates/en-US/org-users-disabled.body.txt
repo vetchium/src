@@ -1,1 +1,0 @@
-Your account at {{.Domain}} was disabled because the organization's subscription was not paid. Contact your organization's administrator.

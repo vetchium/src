@@ -448,12 +448,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "inconclusiveLimit": "168h"
   },
   "orgBilling": {
-    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
-    "gracePeriod": "336h",
-    "retryOffsets": ["72h", "168h", "264h"],
-    "dueWarningLeads": ["168h", "72h", "24h"],
-    "downgradeWarningLeads": ["168h", "24h"],
-    "checkInterval": "1m"
+    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
   },
   "mcpServer": {}
 }`, passwordFile)
@@ -697,12 +692,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "inconclusiveLimit": "168h"
   },
   "orgBilling": {
-    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
-    "gracePeriod": "336h",
-    "retryOffsets": ["72h", "168h", "264h"],
-    "dueWarningLeads": ["168h", "72h", "24h"],
-    "downgradeWarningLeads": ["168h", "24h"],
-    "checkInterval": "1m"
+    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
   },
   "mcpServer": {}
 }`, passwordFile, extraWorkerField)

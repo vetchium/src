@@ -64,13 +64,8 @@ func SetGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 				s.InternalError(ctx, w, "count Org seats", err)
 				return
 			}
-			var scheduled *subscriptionspec.Plan
-			if locked.ScheduledOrgPlanOid.Valid {
-				plan := subscriptionspec.Plan(locked.ScheduledOrgPlanOid.String)
-				scheduled = &plan
-			}
 			limit, unlimited := orgusers.SeatLimit(
-				subscriptionspec.PlanOID(locked.OrgPlanOid), scheduled, false,
+				subscriptionspec.PlanOID(locked.OrgPlanOid), false,
 			)
 			if !unlimited && seats > int64(limit) {
 				s.Problem(ctx, w, orgsproblem.UserLimitExceedsTargetError(

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ReauthenticationAlert } from "@vetchium/portal-ui/shell";
-import { Alert, Card, Flex, Switch, Typography } from "antd";
+import { App, Card, Flex, Switch, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { holds, ManageBilling } from "typespec/orgs/authorization/types";
@@ -15,6 +15,7 @@ import { userSummaryQueryKey } from "../users/queries";
 
 export function GoogleSignInCard() {
   const { t } = useTranslation();
+  const { modal } = App.useApp();
   const queryClient = useQueryClient();
   const { data: me } = useMyInfoQuery();
   const mutation = useMutation({
@@ -36,22 +37,17 @@ export function GoogleSignInCard() {
 
   return (
     <Card title={t("settings.google.title")} data-testid="google-card">
-      <Flex orientation="vertical" gap="middle">
+      <Flex orientation="vertical" gap="middle" align="start">
         <Typography.Paragraph type="secondary">
           {t("settings.google.help")}
         </Typography.Paragraph>
         {entitled ? null : (
-          <Alert
-            type="info"
-            showIcon
-            data-testid="google-upgrade"
-            title={t("settings.google.upgrade")}
-            action={
-              holds(me.permissions, ManageBilling) ? (
-                <Link to={paths.plans}>{t("settings.google.seePlans")}</Link>
-              ) : undefined
-            }
-          />
+          <Typography.Text type="secondary" data-testid="google-upgrade">
+            {t("settings.google.upgrade")}{" "}
+            {holds(me.permissions, ManageBilling) ? (
+              <Link to={paths.plans}>{t("settings.google.seePlans")}</Link>
+            ) : null}
+          </Typography.Text>
         )}
         {stepUp ? <ReauthenticationAlert /> : null}
         {stepUp ? null : <APIErrorAlert error={mutation.error} />}
@@ -63,7 +59,15 @@ export function GoogleSignInCard() {
           loading={mutation.isPending}
           checkedChildren={t("settings.google.on")}
           unCheckedChildren={t("settings.google.off")}
-          onChange={(checked) => mutation.mutate(checked)}
+          onChange={(checked) =>
+            modal.confirm({
+              title: t("company.confirmGoogle"),
+              content: t(
+                checked ? "company.enableGoogle" : "company.disableGoogle",
+              ),
+              onOk: () => mutation.mutateAsync(checked),
+            })
+          }
         />
       </Flex>
     </Card>

@@ -1,6 +1,6 @@
 import "./types.tsp";
 import "./authorization/types.tsp";
-import "./subscriptions/billing.tsp";
+import "./settings/company.tsp";
 import "./settings/logo.tsp";
 import "./settings/google_sign_in.tsp";
 import "./subscriptions/plans.tsp";

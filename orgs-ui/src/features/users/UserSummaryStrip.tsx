@@ -35,7 +35,6 @@ export function UserSummaryStrip({ onRole, onState }: UserSummaryStripProps) {
   const states: Array<[UserStateFilter, number]> = [
     ["active", summary.active_users],
     ["disabled-manual", summary.disabled_manual_users],
-    ["disabled-nonpayment", summary.disabled_nonpayment_users],
   ];
   return (
     <Card size="small">

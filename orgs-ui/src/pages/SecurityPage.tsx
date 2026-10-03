@@ -1,4 +1,4 @@
-import { Flex, Typography } from "antd";
+import { Card, Descriptions, Flex, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { useMyInfoQuery } from "../features/account/queries";
 import { ChangePasswordCard } from "../features/security/ChangePasswordCard";
@@ -14,9 +14,21 @@ export function SecurityPage() {
       <div>
         <Typography.Title level={1}>{t("security.title")}</Typography.Title>
         <Typography.Text type="secondary">
-          {t("security.description", { email: me.email_address })}
+          {t("security.description")}
         </Typography.Text>
       </div>
+      <Card>
+        <Descriptions
+          column={1}
+          items={[
+            {
+              key: "email",
+              label: t("fields.email"),
+              children: me.email_address,
+            },
+          ]}
+        />
+      </Card>
       <ChangePasswordCard />
       <TwoFactorCard
         totpEnabled={me.totp_enabled}

@@ -8,7 +8,6 @@ import type {
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
 import { currentTOTP } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { boundaryPairEndingAt } from "../lib/billing-periods.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
 import {
   addOrgMember,
@@ -32,8 +31,6 @@ const recentRequired =
   "vetchium-problem-details/org-recent-authentication-required";
 const limitExceeds = "vetchium-problem-details/org-user-limit-exceeds-target";
 const userDisabled = "vetchium-problem-details/org-user-disabled";
-const userDisabledNonpayment =
-  "vetchium-problem-details/org-user-disabled-nonpayment";
 const validationFailed = "vetchium-problem-details/validation-failed";
 
 async function withOrg(
@@ -51,11 +48,6 @@ async function withOrg(
 }
 
 async function onGold(api: OrgsAPI, owner: string): Promise<void> {
-  expect(
-    (
-      await api.setPaymentMethod(owner, { kind: "simulated-succeeds" })
-    ).status(),
-  ).toBe(200);
   const upgraded = await api.setSubscriptionPlan(owner, {
     plan_oid: "org-gold-tier",
     billing_interval: "month",
@@ -474,16 +466,6 @@ test.describe("refusals", () => {
         403,
         userDisabled,
       );
-      orgSQL(
-        `UPDATE vetchium.org_users
-         SET disabled_reason = 'nonpayment', disabled_by = NULL
-         WHERE email_address = '${member.emailAddress}'`,
-      );
-      await expectProblem(
-        await googleSignIn(api, org.domain, { email: member.emailAddress }),
-        403,
-        userDisabledNonpayment,
-      );
       // A refused disabled user is not linked.
       expect(identityRows(org)).toBe(0);
     });
@@ -586,20 +568,6 @@ test.describe("settings", () => {
           await api.setSubscriptionPlan(owner, { plan_oid: "org-free-tier" })
         ).status(),
       ).toBe(200);
-      // Scheduled: still on until the period ends.
-      expect((await orgInfo(api, owner)).google_sign_in_enabled).toBe(true);
-      const pair = boundaryPairEndingAt(new Date(Date.now() - 1000), "month");
-      orgSQL(
-        `UPDATE vetchium.orgs
-         SET subscription_anchor_at = '${pair.anchor.toISOString()}',
-             subscription_period_start = '${pair.start.toISOString()}',
-             subscription_period_end = '${pair.end.toISOString()}'
-         WHERE org_did = (SELECT org_did FROM vetchium.org_domains
-                          WHERE domain = '${org.domain}')`,
-      );
-      // Whoever applies the cancellation, a request or the worker, writes the
-      // plan and the flag in one statement; a read before that computes the
-      // transition in memory and agrees.
       expect((await orgInfo(api, owner)).google_sign_in_enabled).toBe(false);
       const stored = `SELECT org_plan_oid || ',' || google_sign_in_enabled
            FROM vetchium.orgs

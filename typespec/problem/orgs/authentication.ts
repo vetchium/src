@@ -21,14 +21,6 @@ export const OrgUserDisabledError: Readonly<Details> = {
   detail: "The Org user is disabled",
 };
 
-export const OrgUserDisabledNonpaymentError: Readonly<Details> = {
-  type: "vetchium-problem-details/org-user-disabled-nonpayment",
-  title: "Org user disabled for nonpayment",
-  status: 403,
-  detail:
-    "The Org user was disabled because the Org's subscription was not paid",
-};
-
 export const AuthenticationRequiredError: Readonly<Details> = {
   type: "vetchium-problem-details/org-authentication-required",
   title: "Org authentication required",

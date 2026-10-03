@@ -1,5 +1,4 @@
 import type { LocaleResource } from "./en";
-
 export const de = {
   shell: {
     documentTitle: "Vetchium für Organisationen",
@@ -15,12 +14,13 @@ export const de = {
   navigation: {
     menu: "Navigation",
     openMenu: "Navigation öffnen",
-    home: "Startseite",
-    members: "Mitglieder",
-    plans: "Tarif und Abrechnung",
-    settings: "Organisationseinstellungen",
-    security: "Sicherheit",
+    home: "Übersicht",
+    members: "Personen",
+    plans: "Abrechnung",
+    settings: "Unternehmen",
+    security: "Mein Konto",
     restoreDomain: "Domain wiederherstellen",
+    organizationSecurity: "Organisationssicherheit",
   },
   theme: {
     toggleLabel: "Zwischen hellem und dunklem Modus wechseln",
@@ -104,8 +104,6 @@ export const de = {
     incorrectRecoveryCode: "Der Wiederherstellungscode wurde nicht akzeptiert.",
     invalidResetToken:
       "Dieser Link zum Zurücksetzen des Passworts ist ungültig, abgelaufen oder wurde bereits verwendet.",
-    userDisabledNonpayment:
-      "Ihr Konto wurde deaktiviert, weil das Abonnement Ihrer Organisation nicht bezahlt wurde. Wenden Sie sich an die Administratoren Ihrer Organisation.",
     invalidInvitation:
       "Diese Einladung ist ungültig, abgelaufen, widerrufen oder bereits verwendet. Fordern Sie eine neue an.",
     invitationNotFound:
@@ -122,12 +120,6 @@ export const de = {
     userLimitReached:
       "Die Organisation hat keinen freien Platz mehr: Ihr Tarif erlaubt {{limit}} Benutzer, offene Einladungen eingerechnet.",
     planNotOffered: "Dieser Tarif wird in dieser Region nicht angeboten.",
-    billingPastDue:
-      "Der Tarif kann nicht geändert werden, solange eine Rechnung unbezahlt ist. Bezahlen Sie zuerst die offene Rechnung.",
-    paymentMethodRequired: "Speichern Sie zuerst eine Zahlungsmethode.",
-    paymentDeclined:
-      "Die gespeicherte Zahlungsmethode wurde abgelehnt. Es wurde nichts geändert.",
-    invoiceNotOpen: "Diese Rechnung ist nicht mehr zur Zahlung offen.",
     orgSuspended:
       "Ihre Organisation ist gesperrt. Stellen Sie ihre Domain wieder her, um fortzufahren.",
     userLimitExceedsTarget:
@@ -287,8 +279,9 @@ export const de = {
     documentTitle: "Startseite | Vetchium für Organisationen",
     description: "Ihre Organisation auf Vetchium.",
     domainCard: "Domain",
-    accountCard: "Ihr Konto",
+    accountCard: "Ihr Zugriff",
     noPermissions: "Keine Berechtigungen",
+    title: "Übersicht",
   },
   permissions: {
     "org:superadmin": {
@@ -304,7 +297,7 @@ export const de = {
     "org:manage_billing": {
       name: "MANAGE_BILLING",
       description:
-        "Den Tarif der Organisation wählen, bezahlen und Rechnungen einsehen.",
+        "Den Tarif und das Abrechnungsintervall der Organisation auswählen.",
     },
     unknown: {
       description:
@@ -354,9 +347,10 @@ export const de = {
       "Hat eine andere Organisation {{domain}} nach der Freigabe übernommen, kann die Domain nicht für diese Organisation wiederhergestellt werden.",
   },
   security: {
-    documentTitle: "Sicherheit | Vetchium für Organisationen",
-    title: "Sicherheit",
-    description: "Anmeldeeinstellungen für {{email}}.",
+    documentTitle: "Mein Konto | Vetchium",
+    title: "Mein Konto",
+    description:
+      "Verwalten Sie Ihre persönlichen Anmelde- und Sicherheitseinstellungen.",
     password: {
       title: "Passwort",
       description:
@@ -402,26 +396,11 @@ export const de = {
       regenerated: "Neue Wiederherstellungscodes wurden erstellt.",
     },
   },
-  billing: {
-    banner: {
-      pastDue: "Die Zahlung Ihrer Organisation ist überfällig",
-      pastDueDetail:
-        "Benutzer über der Grenze des Free-Tarifs können nach dem {{deadline}} deaktiviert werden, wenn die Rechnung nicht bezahlt wird.",
-      ending: "Ihr Tarif wechselt am {{date}} zu {{plan}}",
-      endingDetail:
-        "Dann enden die Funktionen des aktuellen Tarifs. Wählen Sie den aktuellen Tarif erneut, um ihn zu behalten.",
-      managePlan: "Tarif verwalten",
-      noMethod: "Es ist keine Zahlungsmethode gespeichert",
-      noMethodDetail:
-        "Speichern Sie eine, damit die nächste Verlängerung eingezogen werden kann und Ihre Organisation im Tarif bleibt.",
-      addMethod: "Zahlungsmethode hinzufügen",
-    },
-  },
   plans: {
     documentTitle: "Tarif und Abrechnung | Vetchium für Organisationen",
-    title: "Tarif und Abrechnung",
+    title: "Abrechnung",
     description:
-      "Wählen Sie den Tarif Ihrer Organisation, verwalten Sie die Bezahlung und prüfen Sie die Rechnungen.",
+      "Verwalten Sie den Tarif und die verfügbaren Plätze Ihrer Organisation.",
     loadingLabel: "Tarife werden geladen",
     names: {
       "org-free-tier": "Free",
@@ -431,25 +410,22 @@ export const de = {
     current: {
       title: "Aktueller Tarif",
       plan: "Tarif",
-      state: "Abrechnung",
-      renews: "Verlängerung am",
-      ends: "Tarif endet am",
-      scheduled: "Wechsel zu",
       seatsLabel: "Benutzer",
       seats:
         "{{used}} von {{limit}} Plätzen belegt (Benutzer und offene Einladungen)",
       seatsUnlimited: "{{used}} Plätze belegt (ohne Begrenzung)",
-      pastDue: "Eine Rechnung ist überfällig",
-      pastDueDetail:
-        "Bezahlen Sie sie vor dem {{deadline}}, sonst werden Benutzer über der Grenze des Free-Tarifs deaktiviert.",
-      payNow: "Jetzt bezahlen",
     },
-    billingState: { current: "Aktuell", "past-due": "Überfällig" },
     unknownPlanTitle: "Unbekannter Tarif",
     unknownPlanDescription:
       "Diese Organisation hat den Tarif {{plan}}, den diese Version des Portals nicht kennt. Tarifänderungen sind deaktiviert, bis das Portal aktualisiert wird.",
-    interval: { month: "Monatlich", year: "Jährlich" },
-    pricePeriod: { month: "pro Monat", year: "pro Jahr" },
+    interval: {
+      month: "Monatlich",
+      year: "Jährlich",
+    },
+    pricePeriod: {
+      month: "pro Monat",
+      year: "pro Jahr",
+    },
     billingIntervalLabel: "Abrechnungszeitraum",
     annualSaving: "Ein Monat gratis",
     pricingNote:
@@ -459,8 +435,6 @@ export const de = {
       "Kostenpflichtige Tarife finanzieren die Entwicklung von Vetchium, einem freien Open-Source-Projekt.",
     planCardLabel: "Tarif {{plan}}",
     currentBadge: "Aktuell",
-    yourPlan: "Ihr Tarif",
-    recommended: "Empfohlen",
     freePrice: "Kostenlos",
     freePriceCaption: "immer",
     comingSoon: "Demnächst",
@@ -487,54 +461,33 @@ export const de = {
     },
     actions: {
       current: "Aktueller Tarif",
-      keep: "Diesen Tarif behalten",
       upgrade: "Upgrade",
-      switchToAnnual: "Auf jährlich wechseln",
-      switchToFree: "Zum Periodenende auf Free wechseln",
-      switchAtPeriodEnd: "Zum Periodenende wechseln",
+      switchToFree: "Zu Free wechseln",
+      interval: "Abrechnungsintervall ändern",
+      downgrade: "Herabstufen",
     },
-    confirmTitle: "Den Tarif zum Ende des Zeitraums ändern?",
-    confirmDescription:
-      "Ihre Organisation behält den aktuellen Tarif bis zum {{date}} und wechselt dann zum neuen.",
-    confirmDescriptionNoDate:
-      "Ihre Organisation behält den aktuellen Tarif bis zum Ende des Zeitraums und wechselt dann zum neuen.",
+    confirmTitle: "Zu {{plan}} wechseln?",
     confirmBack: "Zurück",
-    lockedPastDue:
-      "Bezahlen Sie die überfällige Rechnung, bevor Sie den Tarif ändern.",
     lockedSuspended:
       "Der Tarif kann nicht geändert werden, solange die Organisation gesperrt ist.",
-    payment: {
-      title: "Zahlungsmethode",
-      simulated:
-        "Zahlungen sind simuliert: Es wird keine echte Karte verwendet und nichts abgebucht. Die gewählte Karte entscheidet, ob eine Zahlung gelingt.",
-      none: "Es ist keine Zahlungsmethode gespeichert.",
-      saved: "Gespeichert: {{card}}",
-      choose: "Zahlungsmethode",
-      save: "Zahlungsmethode speichern",
-      remove: "Entfernen",
-      kinds: {
-        "simulated-succeeds":
-          "Testkarte mit Endziffern 4242 (Zahlungen gelingen)",
-        "simulated-declines":
-          "Testkarte mit Endziffern 0002 (Zahlungen werden abgelehnt)",
-      },
-    },
-    invoices: {
-      title: "Rechnungen",
-      period: "Zeitraum",
-      plan: "Tarif",
-      reason: "Grund",
-      state: "Status",
-      actions: "Aktionen",
-      empty: "Noch keine Rechnungen.",
-      reasons: { upgrade: "Upgrade", renewal: "Verlängerung" },
-      states: { paid: "Bezahlt", open: "Offen", void: "Storniert" },
-    },
+    change: "Tarif ändern",
+    back: "Zurück zur Abrechnung",
+    development:
+      "Entwicklung: Diese Preise werden noch nicht berechnet. Tarifwechsel sind kostenlos und gelten sofort.",
+    compare: "Alle Funktionen vergleichen",
+    immediate: "Diese Änderung gilt sofort. Es wird nichts berechnet.",
+    changed: "Tarif aktualisiert",
+    losesLogo:
+      "Ihr Logo wird entfernt. Ein späteres Upgrade stellt es nicht wieder her.",
+    losesGoogle:
+      "Die Google-Anmeldung wird deaktiviert. Ein späteres Upgrade aktiviert sie nicht wieder.",
+    excessSeats:
+      "{{used}} Plätze sind belegt; der Zieltarif erlaubt {{limit}}. Deaktivieren Sie zuerst Benutzer oder stornieren Sie Einladungen.",
   },
   settings: {
-    documentTitle: "Organisationseinstellungen | Vetchium für Organisationen",
-    title: "Organisationseinstellungen",
-    description: "Einstellungen, die nur ein Superadmin ändern kann.",
+    documentTitle: "Unternehmen | Vetchium",
+    title: "Unternehmen",
+    description: "Verwalten Sie den Namen und das Logo Ihres Unternehmens.",
     logo: {
       title: "Logo",
       help: "Wird neben dem Namen Ihrer Organisation angezeigt. Verwenden Sie ein nicht animiertes PNG oder JPEG bis 2 MiB, dessen Seiten jeweils zwischen 128 und 4.096 Pixel lang sind. Das Bild wird neu kodiert und seine Metadaten werden entfernt.",
@@ -564,10 +517,13 @@ export const de = {
   },
   users: {
     documentTitle: "Mitglieder | Vetchium für Organisationen",
-    title: "Mitglieder",
+    title: "Personen",
     description:
       "Laden Sie Personen ein, legen Sie fest, was sie tun dürfen, und schalten Sie Konten ab, wenn sie gehen.",
-    tabs: { members: "Mitglieder", invitations: "Einladungen" },
+    tabs: {
+      members: "Mitglieder",
+      invitations: "Einladungen",
+    },
     role: "Rolle",
     roleOf: "Rolle von {{email}}",
     permissionGranted: "Erteilt",
@@ -590,13 +546,15 @@ export const de = {
     state: {
       active: "Aktiv",
       disabledManual: "Deaktiviert",
-      disabledNonpayment: "Deaktiviert, Abonnement nicht bezahlt",
+      "disabled-manual": "Deaktiviert",
     },
-    filters: { state: "Status", role: "Rolle" },
+    filters: {
+      state: "Status",
+      role: "Rolle",
+    },
     filterState: {
       active: "Aktiv",
       "disabled-manual": "Deaktiviert",
-      "disabled-nonpayment": "Deaktiviert, Abonnement nicht bezahlt",
     },
     sort: {
       label: "Sortieren nach",
@@ -620,7 +578,6 @@ export const de = {
       state: {
         active: "{{count}} aktiv",
         "disabled-manual": "{{count}} deaktiviert",
-        "disabled-nonpayment": "{{count}} unbezahlt",
       },
     },
     bulk: {
@@ -714,4 +671,25 @@ export const de = {
     description: "Die angeforderte Seite existiert nicht.",
     action: "Zur Startseite",
   },
-} as const satisfies LocaleResource;
+  company: {
+    identity: "Unternehmensidentität",
+    name: "Unternehmensname",
+    saved: "Unternehmensname gespeichert",
+    invalidName: "Geben Sie einen Namen mit 1 bis 200 Zeichen ein.",
+    securityTitle: "Organisationssicherheit | Vetchium",
+    confirmGoogle: "Google-Anmeldung ändern?",
+    enableGoogle:
+      "Mitglieder können sich mit ihren Google-Workspace-Konten anmelden. Es gelten die Sicherheitsrichtlinien von Workspace.",
+    disableGoogle:
+      "Mitglieder benötigen ihr Passwort und gegebenenfalls die Zwei-Faktor-Authentifizierung zur Anmeldung.",
+  },
+  people: {
+    manage: "Verwalten",
+    member: "Mitgliedsdetails",
+    self: "Sie können Ihren eigenen Zugriff nicht ändern.",
+    restricted: "Nur ein Superadmin kann geschützte Berechtigungen ändern.",
+    selection:
+      "Nur angekreuzte Zeilen sind ausgewählt, auch auf anderen Seiten. Höchstens {{count}}.",
+    full: "Alle Plätze sind belegt. Deaktivieren Sie einen Benutzer oder stornieren Sie eine Einladung, bevor Sie weitere Personen einladen.",
+  },
+} satisfies LocaleResource;

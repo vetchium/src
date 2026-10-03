@@ -102,11 +102,6 @@ export function HomePage() {
               column={1}
               items={[
                 {
-                  key: "email",
-                  label: t("fields.email"),
-                  children: me.email_address,
-                },
-                {
                   key: "permissions",
                   label: t("fields.permissions"),
                   children:

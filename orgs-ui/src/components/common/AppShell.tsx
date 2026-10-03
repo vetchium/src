@@ -19,18 +19,16 @@ import {
   Superadmin,
 } from "typespec/orgs/authorization/types";
 import { paths } from "../../app/paths";
-import { localeConfiguration, usePreferences } from "../../app/preferences";
+import { localeConfiguration } from "../../app/preferences";
 import { useAuth } from "../../auth/AuthContext";
 import { useMyInfoQuery } from "../../features/account/queries";
 import { DomainFailingBanner } from "../../features/domain/DomainFailingBanner";
-import { BillingBanners } from "../../features/subscriptions/BillingBanners";
 
 export function AppShell() {
   const { t } = useTranslation();
   const location = useLocation();
   const auth = useAuth();
   const { data: me } = useMyInfoQuery();
-  const { language } = usePreferences();
   const suspended = me?.org.org_state === OrgSuspended;
 
   const navigationItems: ItemType[] = suspended
@@ -76,6 +74,11 @@ export function AppShell() {
                 key: paths.settings,
                 icon: <SettingOutlined />,
                 label: t("navigation.settings"),
+              },
+              {
+                key: paths.organizationSecurity,
+                icon: <SafetyOutlined />,
+                label: t("navigation.organizationSecurity"),
               },
             ]
           : []),
@@ -126,11 +129,7 @@ export function AppShell() {
           <Typography.Text strong data-testid="shell-org-name">
             {me.org.display_name}
           </Typography.Text>
-          <Typography.Text type="secondary" data-testid="shell-user-email">
-            {me.email_address}
-          </Typography.Text>
         </Flex>
-        <BillingBanners me={me} locale={language} />
         {me.org.domain.state === DomainFailing ? (
           <DomainFailingBanner
             domain={me.org.domain}

@@ -1,6 +1,6 @@
 import { Spin } from "antd";
 import { lazy, Suspense } from "react";
-import { Route, Routes } from "react-router";
+import { Navigate, Route, Routes } from "react-router";
 import {
   ManageBilling,
   ManageUsers,
@@ -14,6 +14,7 @@ import {
 } from "../components/common/ProtectedRoute";
 import { PublicShell } from "../components/common/PublicShell";
 import { RecentAuthenticationRoute } from "../components/common/RecentAuthenticationRoute";
+import { OrganizationSecurityPage } from "../pages/OrganizationSecurityPage";
 import { paths } from "./paths";
 
 const AcceptInvitationPage = lazy(() =>
@@ -170,6 +171,14 @@ export function App() {
           }
         />
       </Route>
+      <Route
+        path="/settings"
+        element={<Navigate to={paths.settings} replace />}
+      />
+      <Route
+        path="/security"
+        element={<Navigate to={paths.security} replace />}
+      />
       <Route element={<ProtectedRoute />}>
         <Route element={<PublicShell />}>
           <Route
@@ -200,8 +209,7 @@ export function App() {
               </Page>
             }
           />
-          {/* A suspended Org is still billed, so billing holders keep this page
-              to pay and fix the card; it locks plan changes while suspended. */}
+          {/* A suspended Org may read its plan, but cannot change it. */}
           <Route element={<PermissionRoute permission={ManageBilling} />}>
             <Route
               path={paths.plans}
@@ -214,6 +222,14 @@ export function App() {
           </Route>
           <Route element={<ActiveOrgRoute />}>
             <Route element={<PermissionRoute permission={Superadmin} />}>
+              <Route
+                path={paths.organizationSecurity}
+                element={
+                  <Page>
+                    <OrganizationSecurityPage />
+                  </Page>
+                }
+              />
               <Route
                 path={paths.settings}
                 element={

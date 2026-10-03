@@ -14,8 +14,8 @@ interface TenantPrices {
 }
 
 /**
- * Simulated display prices, keyed by tenant, plan, and interval; the portal
- * owns them while payments are simulated. A price is flat per plan and
+ * Development display prices, keyed by tenant, plan, and interval; the portal
+ * owns them until a real payment integration. A price is flat per plan and
  * interval, not per seat. The currency follows the Org's home tenant. The
  * annual price is eleven monthly payments and prices include tax.
  * `org-free-tier` has no entry: it has no price.

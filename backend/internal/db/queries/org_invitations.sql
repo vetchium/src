@@ -1,7 +1,7 @@
 -- Takes the Org row lock that serializes every statement consuming a seat.
 -- name: LockOrgSeatPolicy :one
 SELECT
-    o.org_plan_oid, o.scheduled_org_plan_oid, o.google_sign_in_enabled,
+    o.org_plan_oid, o.google_sign_in_enabled,
     d.domain::text AS domain
 FROM vetchium.orgs AS o
 JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
@@ -308,7 +308,7 @@ WHERE i.token_hash = sqlc.arg(token_hash)
 -- seat-consuming statement, and returns the plan the cap derives from.
 -- name: LockOrgForInvitation :one
 SELECT
-    o.org_did, o.org_plan_oid, o.scheduled_org_plan_oid,
+    o.org_did, o.org_plan_oid,
     o.google_sign_in_enabled
 FROM vetchium.org_user_invitations AS i
 JOIN vetchium.orgs AS o ON o.org_did = i.org_did
