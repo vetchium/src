@@ -7,6 +7,17 @@ VALUES (
     sqlc.arg(nonce_hash), sqlc.arg(verifier_ciphertext), sqlc.arg(expires_at)
 );
 
+-- Reads a live state without spending it, so the provider exchange happens
+-- outside any transaction; ConsumeOrgSSOLoginState spends it afterwards, in
+-- the refusal's write or in the sign-in transaction.
+-- name: GetOrgSSOLoginState :one
+SELECT t.domain::text AS domain, t.nonce_hash, t.verifier_ciphertext
+FROM vetchium.org_sso_login_states AS t
+WHERE t.state_hash = sqlc.arg(state_hash)
+  AND t.provider = sqlc.arg(provider)
+  AND t.consumed_at IS NULL
+  AND t.expires_at > now();
+
 -- A state redeems once and only before it expires; a replay finds nothing.
 -- name: ConsumeOrgSSOLoginState :one
 UPDATE vetchium.org_sso_login_states AS t

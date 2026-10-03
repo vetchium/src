@@ -90,6 +90,11 @@ func StartGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 // CompleteGoogleSignIn applies D22 in order and D23 (no Vetchium TOTP). Every
 // refusal before the user is known to be a member of the Org with the feature
 // on is the same generic problem; the reason goes to the log only.
+//
+// The state is read, not spent, before the provider exchange, so no
+// transaction is open across that call. Each request then commits once: a
+// refusal spends the state in a write of its own, and a success spends it and
+// creates the session in one transaction. A state is single use either way.
 func CompleteGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -101,27 +106,41 @@ func CompleteGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 			s.Problem(ctx, w, orgsproblem.SSONotAvailableError)
 			return
 		}
+		consume := sqlc.ConsumeOrgSSOLoginStateParams{
+			StateHash: credentials.TokenHash(string(request.State)),
+			Provider:  googleProvider,
+		}
+		// spend uses the state up after a refusal. A state a racing
+		// completion already spent needs nothing more.
+		spend := func() bool {
+			_, err := s.Queries.ConsumeOrgSSOLoginState(ctx, consume)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				s.InternalError(ctx, w, "consume SSO login state", err)
+				return false
+			}
+			return true
+		}
 		refuse := func(reason string, err error) {
 			s.WarnContext(ctx, "Org Google sign-in refused",
 				"event", "org_sso_refused", "reason", reason, "error", err)
+			if !spend() {
+				return
+			}
 			s.AuthenticationProblem(
 				ctx, w, orgsproblem.SSOSignInFailedError,
 				orgsauthn.LoginChallenge,
 			)
 		}
 
-		login, err := s.Queries.ConsumeOrgSSOLoginState(
-			ctx, sqlc.ConsumeOrgSSOLoginStateParams{
-				StateHash: credentials.TokenHash(string(request.State)),
-				Provider:  googleProvider,
-			},
+		login, err := s.Queries.GetOrgSSOLoginState(
+			ctx, sqlc.GetOrgSSOLoginStateParams(consume),
 		)
 		if errors.Is(err, pgx.ErrNoRows) {
 			refuse("unknown, replayed or expired state", nil)
 			return
 		}
 		if err != nil {
-			s.InternalError(ctx, w, "consume SSO login state", err)
+			s.InternalError(ctx, w, "read SSO login state", err)
 			return
 		}
 		verifier, err := credentials.Decrypt(
@@ -189,6 +208,9 @@ func CompleteGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		if user.OrgUserState != sqlc.VetchiumOrgUserStateActive {
+			if !spend() {
+				return
+			}
 			if user.DisabledReason.String == "nonpayment" {
 				s.Problem(ctx, w, orgsproblem.OrgUserDisabledNonpaymentError)
 				return
@@ -203,7 +225,24 @@ func CompleteGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		expiresAt := s.CurrentTime().Add(s.SessionTTL)
-		session, err := s.Queries.CreateOrgSSOSession(
+		tx, err := s.DB.Begin(ctx)
+		if err != nil {
+			s.InternalError(ctx, w, "begin Org SSO sign-in", err)
+			return
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+		q := sqlc.New(tx)
+		if _, err := q.ConsumeOrgSSOLoginState(ctx, consume); errors.Is(
+			err, pgx.ErrNoRows,
+		) {
+			_ = tx.Rollback(ctx)
+			refuse("state spent by a concurrent completion", nil)
+			return
+		} else if err != nil {
+			s.InternalError(ctx, w, "consume SSO login state", err)
+			return
+		}
+		session, err := q.CreateOrgSSOSession(
 			ctx, sqlc.CreateOrgSSOSessionParams{
 				OrgUserID: user.OrgUserID,
 				GoogleSignInPlanOids: entitlements.PlanOIDs(
@@ -220,11 +259,18 @@ func CompleteGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 		var pgErr *pgconn.PgError
 		if errors.Is(err, pgx.ErrNoRows) ||
 			(errors.As(err, &pgErr) && pgErr.Code == "23505") {
+			// The failed statement aborted the transaction; spend the state
+			// in a write of its own.
+			_ = tx.Rollback(ctx)
 			refuse("sign-in conditions changed", err)
 			return
 		}
 		if err != nil {
 			s.InternalError(ctx, w, "create Org SSO session", err)
+			return
+		}
+		if err := tx.Commit(ctx); err != nil {
+			s.InternalError(ctx, w, "commit Org SSO sign-in", err)
 			return
 		}
 		if session.ExpiresAt.Valid {

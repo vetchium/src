@@ -540,8 +540,12 @@ WITH targets AS (
         )
     ) AS ok
 ), deleted AS (
-    DELETE FROM vetchium.org_user_permissions
-    WHERE org_user_id IN (SELECT org_user_id FROM targets)
+    -- Sibling data-modifying CTEs run in no guaranteed order, so the two
+    -- writes never touch the same key: drop only grants that go, add only
+    -- grants that are new, and leave the ones that stay alone.
+    DELETE FROM vetchium.org_user_permissions AS p
+    WHERE p.org_user_id IN (SELECT org_user_id FROM targets)
+      AND p.permission <> ALL($3::text[])
       AND (SELECT ok FROM keeps_superadmin)
 ), inserted AS (
     INSERT INTO vetchium.org_user_permissions (org_user_id, permission)
@@ -549,6 +553,7 @@ WITH targets AS (
     FROM targets AS t
     CROSS JOIN unnest($3::text[]) AS requested(permission)
     WHERE (SELECT ok FROM keeps_superadmin)
+    ON CONFLICT (org_user_id, permission) DO NOTHING
     RETURNING org_user_id
 ), touched AS (
     UPDATE vetchium.org_users AS u

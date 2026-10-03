@@ -52,11 +52,18 @@ rules Orgs follow. Nothing here defines Hub plans.
   persists the deadline first must disable the users, or the Org sits on Free
   with every user active and nothing left due.
 - Lock the `orgs` row `FOR UPDATE` before any billing, seat, or permission
-  decision (`LockOrgSubscriptionForChange`, `LockOrgSeatPolicy`,
-  `LockOrgForInvitation`, `LockOrgForGoogleSignIn`). Read seats in a separate
-  statement after the lock; a function inside the locking statement counts
-  against the older snapshot.
-- Workers claim with `FOR NO KEY UPDATE SKIP LOCKED`, one Org per transaction.
+  decision (`LockOrgForBilling`, `LockOrgSeatPolicy`, `LockOrgForInvitation`,
+  `LockOrgForGoogleSignIn`). Billing locks with `LockOrgForBilling` and reads
+  with `GetOrgSubscription` in the next statement, so a request that waited
+  sees the invoice and seats the lock holder committed.
+- Workers claim with `FOR NO KEY UPDATE SKIP LOCKED`, one Org per transaction,
+  then read the subscription in a separate statement.
+- The portal rotates a billing idempotency key after any decided outcome
+  (success or a definite refusal) and keeps it only across uncertain ones. A
+  refusal that committed due transitions is stored for its key, so reusing
+  the key after the user fixed the cause would replay the refusal.
+- Billing holders reach the plan page while the Org is suspended, since it is
+  still billed; plan changes stay locked there.
 
 ## Failed payment
 

@@ -7,6 +7,7 @@ import type {
   OrgSubscription,
   SetSubscriptionPlanRequest,
 } from "typespec/orgs/subscriptions/subscriptions";
+import { isDefiniteRefusal } from "../../api/client";
 import { orgsAPI } from "../../api/orgs";
 import { myInfoQueryKey } from "../account/queries";
 
@@ -53,9 +54,12 @@ function useRefreshBilling() {
 }
 
 /**
- * Rotates the idempotency key after the server decides and whenever the chosen
- * target changes, so a retry of one choice replays the same request while a
- * new choice gets a new key.
+ * Rotates the idempotency key whenever the server has decided (a success or a
+ * definite refusal) and whenever the chosen target changes. Only an uncertain
+ * outcome (no response, a 5xx, 429) keeps the key, so that retry replays the
+ * same request. A refusal must not keep it: the server stores a refusal that
+ * committed due billing transitions, and reusing the key after the user fixed
+ * the cause would replay that refusal instead of deciding again.
  */
 export function useSetSubscriptionPlan() {
   const refresh = useRefreshBilling();
@@ -76,10 +80,17 @@ export function useSetSubscriptionPlan() {
       lastTarget.current = null;
       refresh(subscription);
     },
-    onError: () => refresh(),
+    onError: (error) => {
+      if (isDefiniteRefusal(error)) {
+        key.rotate();
+        lastTarget.current = null;
+      }
+      refresh();
+    },
   });
 }
 
+/** Keeps its key only across uncertain outcomes, like useSetSubscriptionPlan. */
 export function usePayInvoice() {
   const refresh = useRefreshBilling();
   const key = useIdempotencyKey();
@@ -90,7 +101,10 @@ export function usePayInvoice() {
       key.rotate();
       refresh(subscription);
     },
-    onError: () => refresh(),
+    onError: (error) => {
+      if (isDefiniteRefusal(error)) key.rotate();
+      refresh();
+    },
   });
 }
 

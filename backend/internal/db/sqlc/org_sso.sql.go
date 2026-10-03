@@ -178,6 +178,36 @@ func (q *Queries) CreateOrgSSOSession(ctx context.Context, arg CreateOrgSSOSessi
 	return i, err
 }
 
+const getOrgSSOLoginState = `-- name: GetOrgSSOLoginState :one
+SELECT t.domain::text AS domain, t.nonce_hash, t.verifier_ciphertext
+FROM vetchium.org_sso_login_states AS t
+WHERE t.state_hash = $1
+  AND t.provider = $2
+  AND t.consumed_at IS NULL
+  AND t.expires_at > now()
+`
+
+type GetOrgSSOLoginStateParams struct {
+	StateHash []byte `json:"state_hash"`
+	Provider  string `json:"provider"`
+}
+
+type GetOrgSSOLoginStateRow struct {
+	Domain             string `json:"domain"`
+	NonceHash          []byte `json:"nonce_hash"`
+	VerifierCiphertext []byte `json:"verifier_ciphertext"`
+}
+
+// Reads a live state without spending it, so the provider exchange happens
+// outside any transaction; ConsumeOrgSSOLoginState spends it afterwards, in
+// the refusal's write or in the sign-in transaction.
+func (q *Queries) GetOrgSSOLoginState(ctx context.Context, arg GetOrgSSOLoginStateParams) (GetOrgSSOLoginStateRow, error) {
+	row := q.db.QueryRow(ctx, getOrgSSOLoginState, arg.StateHash, arg.Provider)
+	var i GetOrgSSOLoginStateRow
+	err := row.Scan(&i.Domain, &i.NonceHash, &i.VerifierCiphertext)
+	return i, err
+}
+
 const getOrgUserForSSO = `-- name: GetOrgUserForSSO :one
 SELECT
     u.org_user_id,

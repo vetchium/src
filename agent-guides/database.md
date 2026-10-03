@@ -39,6 +39,16 @@ Applies to PostgreSQL access, `backend/internal/db/`, migrations, and seeds.
   operation.
 - Treat affected-row counts and `pgx.ErrNoRows` as state signals; never replace
   them with a preceding check.
+- Sibling data-modifying CTEs run in no guaranteed order and do not see each
+  other's rows. Never let two of them write the same key: to replace a set,
+  delete only the rows that go and insert only the new ones
+  (`ON CONFLICT DO NOTHING`), never delete-all and reinsert.
+- A statement that waits on `FOR UPDATE` re-reads only the locked rows;
+  whatever else it joins stays as it was before the wait. When a decision
+  reads other tables, lock in one statement and read in the next.
+- A handler commits once per request. Two commits only where an external call
+  must sit between them (an object-store upload, an identity-provider
+  exchange), and then never hold a transaction open across that call.
 
 ## Audit trail
 

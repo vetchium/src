@@ -965,6 +965,68 @@ test.describe("set-user-permissions and bulk-set-user-permissions", () => {
     });
   });
 
+  test("keeps a held grant while adding another, singly and in a batch", async ({
+    request,
+  }) => {
+    await withOrg(request, async ({ api, org, owner }) => {
+      const both = ["org:manage_billing", "org:manage_users"];
+      const holder = await addOrgMember(
+        api,
+        owner,
+        org.domain,
+        inviteeAddress(org.domain),
+        ["org:manage_users"],
+      );
+      const single = await api.setUserPermissions(owner, {
+        email_address: holder.emailAddress,
+        permissions: both,
+      });
+      expect(single.status(), await single.text()).toBe(204);
+      const granted = async (emailAddress: string) =>
+        (await listed(api, owner, { filter_search: emailAddress })).users[0]
+          ?.granted_permissions;
+      expect(await granted(holder.emailAddress)).toEqual(both);
+
+      // A batch whose targets already hold some of the grants.
+      const overlapping = await addOrgMember(
+        api,
+        owner,
+        org.domain,
+        inviteeAddress(org.domain),
+        ["org:manage_billing"],
+      );
+      const fresh = await addOrgMember(
+        api,
+        owner,
+        org.domain,
+        inviteeAddress(org.domain),
+        [],
+      );
+      const batch = await api.bulkSetUserPermissions(owner, {
+        email_addresses: [
+          holder.emailAddress,
+          overlapping.emailAddress,
+          fresh.emailAddress,
+        ],
+        permissions: both,
+      });
+      expect(batch.status(), await batch.text()).toBe(204);
+      for (const member of [holder, overlapping, fresh]) {
+        expect(await granted(member.emailAddress)).toEqual(both);
+      }
+
+      // Dropping one grant keeps the other.
+      const narrowed = await api.setUserPermissions(owner, {
+        email_address: holder.emailAddress,
+        permissions: ["org:manage_billing"],
+      });
+      expect(narrowed.status(), await narrowed.text()).toBe(204);
+      expect(await granted(holder.emailAddress)).toEqual([
+        "org:manage_billing",
+      ]);
+    });
+  });
+
   test("applies one set to a batch, audited once", async ({ request }) => {
     await withOrg(request, async ({ api, org, owner }) => {
       const first = await addOrgMember(

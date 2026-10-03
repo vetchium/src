@@ -533,6 +533,37 @@ test.describe("Admin access management", () => {
     expect(viewer.users[0]?.permissions).toEqual(["admin:view_users"]);
   });
 
+  test("a manager keeps a held permission while adding another", async ({
+    adminAPI,
+    createAdmin,
+    managerToken,
+  }) => {
+    const target = await createAdmin();
+    const set = (permissions: string[]) =>
+      adminAPI.post(
+        "/set-user-permissions",
+        { admin_user_id: target.adminUserID, permissions },
+        { token: managerToken },
+      );
+    expect((await set(["admin:view_users"])).status()).toBe(204);
+    const kept = await set([
+      "admin:view_hub_signup_domains",
+      "admin:view_users",
+    ]);
+    expect(kept.status(), await kept.text()).toBe(204);
+    const listed = await responseJSON<ListUsersResponse>(
+      await adminAPI.post(
+        "/list-users",
+        { filter_search: target.emailAddress },
+        { token: managerToken },
+      ),
+    );
+    expect(listed.users[0]?.permissions).toEqual([
+      "admin:view_hub_signup_domains",
+      "admin:view_users",
+    ]);
+  });
+
   test("access changes require manager permission and recent authentication", async ({
     adminAPI,
     createAdmin,

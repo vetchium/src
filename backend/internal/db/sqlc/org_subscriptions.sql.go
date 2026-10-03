@@ -203,100 +203,24 @@ func (q *Queries) ListOrgInvoices(ctx context.Context, arg ListOrgInvoicesParams
 	return items, nil
 }
 
-const lockOrgSubscriptionForChange = `-- name: LockOrgSubscriptionForChange :one
-SELECT
-    o.org_plan_oid,
-    o.org_billing_interval,
-    o.subscription_anchor_at,
-    o.subscription_period_start,
-    o.subscription_period_end,
-    o.scheduled_org_plan_oid,
-    o.scheduled_billing_interval,
-    o.billing_state,
-    o.org_state,
-    o.google_sign_in_enabled,
-    pm.kind AS payment_method_kind,
-    vetchium.org_seats_in_use(o.org_did)::bigint AS seats_in_use,
-    oi.org_invoice_id AS open_invoice_id,
-    oi.org_plan_oid AS open_invoice_plan_oid,
-    oi.billing_interval AS open_invoice_billing_interval,
-    oi.period_start AS open_invoice_period_start,
-    oi.period_end AS open_invoice_period_end,
-    oi.reason AS open_invoice_reason,
-    oi.due_at AS open_invoice_due_at,
-    oi.attempt_count AS open_invoice_attempt_count,
-    oi.next_attempt_at AS open_invoice_next_attempt_at,
-    oi.last_failure AS open_invoice_last_failure,
-    oi.created_at AS open_invoice_created_at,
-    d.domain::text AS domain
+const lockOrgForBilling = `-- name: LockOrgForBilling :one
+SELECT o.org_did
 FROM vetchium.orgs AS o
-JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
-LEFT JOIN vetchium.org_payment_methods AS pm ON pm.org_did = o.org_did
-LEFT JOIN vetchium.org_invoices AS oi
-    ON oi.org_did = o.org_did AND oi.invoice_state = 'open'
 WHERE o.org_did = $1
-FOR UPDATE OF o
+FOR UPDATE
 `
 
-type LockOrgSubscriptionForChangeRow struct {
-	OrgPlanOid                 string                           `json:"org_plan_oid"`
-	OrgBillingInterval         NullVetchiumOrgBillingInterval   `json:"org_billing_interval"`
-	SubscriptionAnchorAt       pgtype.Timestamptz               `json:"subscription_anchor_at"`
-	SubscriptionPeriodStart    pgtype.Timestamptz               `json:"subscription_period_start"`
-	SubscriptionPeriodEnd      pgtype.Timestamptz               `json:"subscription_period_end"`
-	ScheduledOrgPlanOid        pgtype.Text                      `json:"scheduled_org_plan_oid"`
-	ScheduledBillingInterval   NullVetchiumOrgBillingInterval   `json:"scheduled_billing_interval"`
-	BillingState               VetchiumOrgBillingState          `json:"billing_state"`
-	OrgState                   VetchiumOrgState                 `json:"org_state"`
-	GoogleSignInEnabled        bool                             `json:"google_sign_in_enabled"`
-	PaymentMethodKind          NullVetchiumOrgPaymentMethodKind `json:"payment_method_kind"`
-	SeatsInUse                 int64                            `json:"seats_in_use"`
-	OpenInvoiceID              pgtype.UUID                      `json:"open_invoice_id"`
-	OpenInvoicePlanOid         pgtype.Text                      `json:"open_invoice_plan_oid"`
-	OpenInvoiceBillingInterval NullVetchiumOrgBillingInterval   `json:"open_invoice_billing_interval"`
-	OpenInvoicePeriodStart     pgtype.Timestamptz               `json:"open_invoice_period_start"`
-	OpenInvoicePeriodEnd       pgtype.Timestamptz               `json:"open_invoice_period_end"`
-	OpenInvoiceReason          NullVetchiumOrgInvoiceReason     `json:"open_invoice_reason"`
-	OpenInvoiceDueAt           pgtype.Timestamptz               `json:"open_invoice_due_at"`
-	OpenInvoiceAttemptCount    pgtype.Int4                      `json:"open_invoice_attempt_count"`
-	OpenInvoiceNextAttemptAt   pgtype.Timestamptz               `json:"open_invoice_next_attempt_at"`
-	OpenInvoiceLastFailure     NullVetchiumOrgInvoiceFailure    `json:"open_invoice_last_failure"`
-	OpenInvoiceCreatedAt       pgtype.Timestamptz               `json:"open_invoice_created_at"`
-	Domain                     string                           `json:"domain"`
-}
-
 // Takes the Org row lock that serializes every billing, seat, and permission
-// decision (D28). The open invoice is read under the same lock.
-func (q *Queries) LockOrgSubscriptionForChange(ctx context.Context, orgDid pgtype.UUID) (LockOrgSubscriptionForChangeRow, error) {
-	row := q.db.QueryRow(ctx, lockOrgSubscriptionForChange, orgDid)
-	var i LockOrgSubscriptionForChangeRow
-	err := row.Scan(
-		&i.OrgPlanOid,
-		&i.OrgBillingInterval,
-		&i.SubscriptionAnchorAt,
-		&i.SubscriptionPeriodStart,
-		&i.SubscriptionPeriodEnd,
-		&i.ScheduledOrgPlanOid,
-		&i.ScheduledBillingInterval,
-		&i.BillingState,
-		&i.OrgState,
-		&i.GoogleSignInEnabled,
-		&i.PaymentMethodKind,
-		&i.SeatsInUse,
-		&i.OpenInvoiceID,
-		&i.OpenInvoicePlanOid,
-		&i.OpenInvoiceBillingInterval,
-		&i.OpenInvoicePeriodStart,
-		&i.OpenInvoicePeriodEnd,
-		&i.OpenInvoiceReason,
-		&i.OpenInvoiceDueAt,
-		&i.OpenInvoiceAttemptCount,
-		&i.OpenInvoiceNextAttemptAt,
-		&i.OpenInvoiceLastFailure,
-		&i.OpenInvoiceCreatedAt,
-		&i.Domain,
-	)
-	return i, err
+// decision (D28), and reads nothing else. A statement that waits for the lock
+// re-reads only the locked row; anything it joins keeps the snapshot from
+// before the wait, so a renewal committed meanwhile would pair past_due with
+// no open invoice. Read the subscription with GetOrgSubscription afterwards,
+// in its own statement and so its own snapshot.
+func (q *Queries) LockOrgForBilling(ctx context.Context, orgDid pgtype.UUID) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, lockOrgForBilling, orgDid)
+	var org_did pgtype.UUID
+	err := row.Scan(&org_did)
+	return org_did, err
 }
 
 const removeOrgPaymentMethod = `-- name: RemoveOrgPaymentMethod :exec

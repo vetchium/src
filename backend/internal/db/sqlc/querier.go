@@ -220,6 +220,10 @@ type Querier interface {
 	GetOrgLogoUpload(ctx context.Context, arg GetOrgLogoUploadParams) (GetOrgLogoUploadRow, error)
 	GetOrgMyInfo(ctx context.Context, orgUserID pgtype.UUID) (GetOrgMyInfoRow, error)
 	GetOrgPasswordForReauthentication(ctx context.Context, arg GetOrgPasswordForReauthenticationParams) (string, error)
+	// Reads a live state without spending it, so the provider exchange happens
+	// outside any transaction; ConsumeOrgSSOLoginState spends it afterwards, in
+	// the refusal's write or in the sign-in transaction.
+	GetOrgSSOLoginState(ctx context.Context, arg GetOrgSSOLoginStateParams) (GetOrgSSOLoginStateRow, error)
 	// Read after the Org row lock is held: a function inside the locking statement
 	// would count against the statement's older snapshot.
 	GetOrgSeatsInUse(ctx context.Context, orgDid pgtype.UUID) (int64, error)
@@ -305,15 +309,19 @@ type Querier interface {
 	LockHubSubscriptionForChange(ctx context.Context, hubUserDid pgtype.UUID) (LockHubSubscriptionForChangeRow, error)
 	LockHubUserCredentialMutation(ctx context.Context, hubUserDid pgtype.UUID) (pgtype.UUID, error)
 	LockIdempotency(ctx context.Context, dollar_1 string) error
+	// Takes the Org row lock that serializes every billing, seat, and permission
+	// decision (D28), and reads nothing else. A statement that waits for the lock
+	// re-reads only the locked row; anything it joins keeps the snapshot from
+	// before the wait, so a renewal committed meanwhile would pair past_due with
+	// no open invoice. Read the subscription with GetOrgSubscription afterwards,
+	// in its own statement and so its own snapshot.
+	LockOrgForBilling(ctx context.Context, orgDid pgtype.UUID) (pgtype.UUID, error)
 	LockOrgForGoogleSignIn(ctx context.Context, orgDid pgtype.UUID) (LockOrgForGoogleSignInRow, error)
 	// Locks the invitation's Org so acceptance is serialized with every other
 	// seat-consuming statement, and returns the plan the cap derives from.
 	LockOrgForInvitation(ctx context.Context, tokenHash []byte) (LockOrgForInvitationRow, error)
 	// Takes the Org row lock that serializes every statement consuming a seat.
 	LockOrgSeatPolicy(ctx context.Context, orgDid pgtype.UUID) (LockOrgSeatPolicyRow, error)
-	// Takes the Org row lock that serializes every billing, seat, and permission
-	// decision (D28). The open invoice is read under the same lock.
-	LockOrgSubscriptionForChange(ctx context.Context, orgDid pgtype.UUID) (LockOrgSubscriptionForChangeRow, error)
 	LockOrgUserCredentialMutation(ctx context.Context, orgUserID pgtype.UUID) (pgtype.UUID, error)
 	MarkHubAccountEmailChangeCancelling(ctx context.Context, arg MarkHubAccountEmailChangeCancellingParams) (int64, error)
 	MarkHubAccountEmailChangeFailed(ctx context.Context, arg MarkHubAccountEmailChangeFailedParams) (int64, error)

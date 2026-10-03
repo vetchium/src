@@ -56,8 +56,8 @@ type orgBillingQueries interface {
 	ClaimDueOrgSubscription(
 		context.Context, sqlc.ClaimDueOrgSubscriptionParams,
 	) (sqlc.ClaimDueOrgSubscriptionRow, error)
-	LockOrgSubscriptionForChange(context.Context, pgtype.UUID) (
-		sqlc.LockOrgSubscriptionForChangeRow, error,
+	GetOrgSubscription(context.Context, pgtype.UUID) (
+		sqlc.GetOrgSubscriptionRow, error,
 	)
 }
 
@@ -129,13 +129,15 @@ func (w *Worker) advanceOrgSubscriptions(ctx context.Context) error {
 						"reason", reason,
 					)
 				}
-				locked, err := q.LockOrgSubscriptionForChange(ctx, claimed.OrgDid)
+				// The claim holds the Org lock without having waited for it, so
+				// this separate read sees every commit that preceded it.
+				row, err := q.GetOrgSubscription(ctx, claimed.OrgDid)
 				if err != nil {
-					return fmt.Errorf("lock Org subscription: %w", err)
+					return fmt.Errorf("read Org subscription: %w", err)
 				}
-				state, err := billing.StateFromStored(billingdb.StoredFromRow(
-					claimed.OrgDid, sqlc.GetOrgSubscriptionRow(locked),
-				))
+				state, err := billing.StateFromStored(
+					billingdb.StoredFromRow(claimed.OrgDid, row),
+				)
 				if err != nil {
 					skip(err.Error())
 					return nil

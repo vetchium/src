@@ -115,7 +115,7 @@ test("only a superadmin reaches the settings page", async ({
     );
     await signIn(page, member);
     await expect(
-      page.getByRole("link", { name: "Organization settings" }),
+      page.getByRole("menuitem", { name: /Organization settings/ }),
     ).toHaveCount(0);
     await page.goto(`${ORGS_PORTAL}/settings`);
     await expect(page).toHaveURL(`${ORGS_PORTAL}/`);

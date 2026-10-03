@@ -34,13 +34,18 @@ WITH target AS (
             'admin:manage_users' = ANY($2::text[])
        OR NOT EXISTS (SELECT 1 FROM managers)
 ), deleted AS (
-    DELETE FROM vetchium.admin_permissions
-    WHERE admin_user_id IN (SELECT admin_user_id FROM permitted)
+    -- Sibling data-modifying CTEs run in no guaranteed order, so the two
+    -- writes never touch the same key: drop only grants that go, add only
+    -- grants that are new, and leave the ones that stay alone.
+    DELETE FROM vetchium.admin_permissions AS p
+    WHERE p.admin_user_id IN (SELECT admin_user_id FROM permitted)
+      AND p.permission <> ALL($2::text[])
 ), inserted AS (
     INSERT INTO vetchium.admin_permissions (admin_user_id, permission)
     SELECT permitted.admin_user_id, requested.permission
     FROM permitted
     CROSS JOIN unnest($2::text[]) AS requested(permission)
+    ON CONFLICT (admin_user_id, permission) DO NOTHING
     RETURNING admin_user_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (

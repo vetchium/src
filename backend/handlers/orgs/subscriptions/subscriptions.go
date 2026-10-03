@@ -76,6 +76,18 @@ func change(
 	}
 }
 
+// lockAndRead takes the Org lock, then reads the subscription in a separate
+// statement. Reading in the locking statement would pair the Org row as of
+// the lock with an invoice as of before the wait.
+func lockAndRead(
+	ctx context.Context, q *sqlc.Queries, orgDID pgtype.UUID,
+) (sqlc.GetOrgSubscriptionRow, error) {
+	if _, err := q.LockOrgForBilling(ctx, orgDID); err != nil {
+		return sqlc.GetOrgSubscriptionRow{}, err
+	}
+	return q.GetOrgSubscription(ctx, orgDID)
+}
+
 // applyDue does what the due transitions a request just saved mean for
 // people, exactly as the worker would have, so a deadline a request reaches
 // first still disables the users beyond the keep set.
@@ -149,7 +161,7 @@ func SetSubscriptionPlan(s *orgsruntime.Server) http.HandlerFunc {
 						orgsproblem.PlanNotOfferedError,
 					)
 				}
-				locked, err := q.LockOrgSubscriptionForChange(ctx, identity.OrgDID)
+				locked, err := lockAndRead(ctx, q, identity.OrgDID)
 				if errors.Is(err, pgx.ErrNoRows) {
 					return handlerauth.AuthenticationFailure[subscriptionspec.OrgSubscription](
 						orgsproblem.AuthenticationRequiredError,
@@ -164,12 +176,9 @@ func SetSubscriptionPlan(s *orgsruntime.Server) http.HandlerFunc {
 						orgsproblem.OrgSuspendedError,
 					)
 				}
-				seats, err := q.GetOrgSeatsInUse(ctx, identity.OrgDID)
-				if err != nil {
-					return result{}, nil, err
-				}
+				seats := locked.SeatsInUse
 				state, err := billing.StateFromStored(
-					billingdb.StoredFromRow(identity.OrgDID, sqlc.GetOrgSubscriptionRow(locked)),
+					billingdb.StoredFromRow(identity.OrgDID, locked),
 				)
 				if err != nil {
 					return result{}, nil, err
@@ -265,7 +274,7 @@ func PayInvoice(s *orgsruntime.Server) http.HandlerFunc {
 			s.CurrentTime().Add(24*time.Hour),
 			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
 				ctx := r.Context()
-				locked, err := q.LockOrgSubscriptionForChange(ctx, identity.OrgDID)
+				locked, err := lockAndRead(ctx, q, identity.OrgDID)
 				if errors.Is(err, pgx.ErrNoRows) {
 					return handlerauth.AuthenticationFailure[subscriptionspec.OrgSubscription](
 						orgsproblem.AuthenticationRequiredError,
@@ -275,12 +284,9 @@ func PayInvoice(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				seats, err := q.GetOrgSeatsInUse(ctx, identity.OrgDID)
-				if err != nil {
-					return result{}, nil, err
-				}
+				seats := locked.SeatsInUse
 				state, err := billing.StateFromStored(
-					billingdb.StoredFromRow(identity.OrgDID, sqlc.GetOrgSubscriptionRow(locked)),
+					billingdb.StoredFromRow(identity.OrgDID, locked),
 				)
 				if err != nil {
 					return result{}, nil, err

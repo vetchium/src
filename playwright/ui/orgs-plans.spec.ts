@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { openTenantSession } from "../lib/admin-db.ts";
 import { boundaryPairEndingAt } from "../lib/billing-periods.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
 import {
@@ -222,7 +223,7 @@ test("everyone sees an unpaid invoice; a billing holder pays it", async ({
         0,
       );
       await expect(
-        memberPage.getByRole("link", { name: "Plan and billing" }),
+        memberPage.getByRole("menuitem", { name: /Plan and billing/ }),
       ).toHaveCount(0);
     } finally {
       await memberContext.close();
@@ -262,6 +263,127 @@ test("everyone sees an unpaid invoice; a billing holder pays it", async ({
     await expect(
       page.getByTestId("invoices").getByTestId("invoice-state").first(),
     ).toHaveText("Paid");
+  });
+});
+
+test("a suspended Org's billing holder keeps billing but cannot change the plan", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    await silverWithCard(api, owner);
+    orgSQL(
+      `UPDATE vetchium.orgs SET org_state = 'suspended', suspended_at = now()
+       WHERE org_did = (SELECT org_did FROM vetchium.org_domains
+                        WHERE domain = '${org.domain}')`,
+    );
+    await signIn(page, org);
+    await page.getByRole("menuitem", { name: /Plan and billing/ }).click();
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/plans`);
+    await expect(page.getByTestId("current-plan")).toHaveText(
+      "Silver · Monthly",
+    );
+    await expect(
+      page.getByText(
+        "The plan cannot be changed while the organization is suspended.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByTestId("plan-card-org-gold-tier")
+        .getByRole("button", { name: "Upgrade" }),
+    ).toBeDisabled();
+
+    // The card can still be fixed, since a suspended Org is still billed.
+    const card = page.getByTestId("payment-method");
+    await card.getByRole("radio", { name: /ending 0002/ }).check();
+    await card.getByRole("button", { name: "Save payment method" }).click();
+    await expect(page.getByTestId("payment-method-saved")).toContainText(
+      "ending 0002",
+    );
+  });
+});
+
+test("after a refusal that committed a failed renewal, fixing it and choosing again succeeds", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    await silverWithCard(api, owner);
+    expect(
+      (
+        await api.setPaymentMethod(owner, { kind: "simulated-declines" })
+      ).status(),
+    ).toBe(200);
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/plans`);
+    await expect(page.getByTestId("current-plan")).toHaveText(
+      "Silver · Monthly",
+    );
+
+    // End the period while holding the Org lock, so the plan change waits
+    // and then runs the due renewal itself; the worker's SKIP LOCKED claim
+    // passes the Org by. The declined renewal commits with the refusal.
+    const orgDID = `(SELECT org_did FROM vetchium.org_domains
+                     WHERE domain = '${org.domain}')`;
+    const pair = boundaryPairEndingAt(new Date(Date.now() - 1000), "month");
+    const session = await openTenantSession("sgp");
+    try {
+      await session.run(
+        `BEGIN;
+         SELECT org_did FROM vetchium.orgs WHERE org_did = ${orgDID} FOR UPDATE;
+         UPDATE vetchium.orgs
+         SET subscription_anchor_at = '${pair.anchor.toISOString()}',
+             subscription_period_start = '${pair.start.toISOString()}',
+             subscription_period_end = '${pair.end.toISOString()}'
+         WHERE org_did = ${orgDID};`,
+      );
+      await page
+        .getByTestId("plan-card-org-gold-tier")
+        .getByRole("button", { name: "Upgrade" })
+        .click();
+      await expect
+        .poll(() =>
+          Number(
+            orgSQL(
+              `SELECT count(*) FROM pg_stat_activity
+               WHERE ${session.pid} = ANY(pg_blocking_pids(pid))`,
+            ),
+          ),
+        )
+        .toBeGreaterThan(0);
+      await session.run("COMMIT;");
+    } finally {
+      await session.close();
+    }
+    await expect(
+      page.getByText(
+        "The plan cannot be changed while an invoice is unpaid. Pay the open invoice first.",
+      ),
+    ).toBeVisible();
+    stabilizeOpenInvoice(org);
+
+    // Fix the cause without reloading: a good card, then pay the invoice.
+    const card = page.getByTestId("payment-method");
+    await card.getByRole("radio", { name: /ending 4242/ }).check();
+    await card.getByRole("button", { name: "Save payment method" }).click();
+    await expect(page.getByTestId("payment-method-saved")).toContainText(
+      "ending 4242",
+    );
+    await page
+      .getByTestId("invoices")
+      .getByRole("button", { name: "Pay now" })
+      .click();
+    await expect(page.getByTestId("current-subscription")).toContainText(
+      "Up to date",
+    );
+
+    // The same choice is decided afresh, not replayed as the old refusal.
+    await page
+      .getByTestId("plan-card-org-gold-tier")
+      .getByRole("button", { name: "Upgrade" })
+      .click();
+    await expect(page.getByTestId("current-plan")).toHaveText("Gold · Monthly");
   });
 });
 

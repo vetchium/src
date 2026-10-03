@@ -32,40 +32,16 @@ LEFT JOIN vetchium.org_invoices AS oi
 WHERE o.org_did = sqlc.arg(org_did);
 
 -- Takes the Org row lock that serializes every billing, seat, and permission
--- decision (D28). The open invoice is read under the same lock.
--- name: LockOrgSubscriptionForChange :one
-SELECT
-    o.org_plan_oid,
-    o.org_billing_interval,
-    o.subscription_anchor_at,
-    o.subscription_period_start,
-    o.subscription_period_end,
-    o.scheduled_org_plan_oid,
-    o.scheduled_billing_interval,
-    o.billing_state,
-    o.org_state,
-    o.google_sign_in_enabled,
-    pm.kind AS payment_method_kind,
-    vetchium.org_seats_in_use(o.org_did)::bigint AS seats_in_use,
-    oi.org_invoice_id AS open_invoice_id,
-    oi.org_plan_oid AS open_invoice_plan_oid,
-    oi.billing_interval AS open_invoice_billing_interval,
-    oi.period_start AS open_invoice_period_start,
-    oi.period_end AS open_invoice_period_end,
-    oi.reason AS open_invoice_reason,
-    oi.due_at AS open_invoice_due_at,
-    oi.attempt_count AS open_invoice_attempt_count,
-    oi.next_attempt_at AS open_invoice_next_attempt_at,
-    oi.last_failure AS open_invoice_last_failure,
-    oi.created_at AS open_invoice_created_at,
-    d.domain::text AS domain
+-- decision (D28), and reads nothing else. A statement that waits for the lock
+-- re-reads only the locked row; anything it joins keeps the snapshot from
+-- before the wait, so a renewal committed meanwhile would pair past_due with
+-- no open invoice. Read the subscription with GetOrgSubscription afterwards,
+-- in its own statement and so its own snapshot.
+-- name: LockOrgForBilling :one
+SELECT o.org_did
 FROM vetchium.orgs AS o
-JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
-LEFT JOIN vetchium.org_payment_methods AS pm ON pm.org_did = o.org_did
-LEFT JOIN vetchium.org_invoices AS oi
-    ON oi.org_did = o.org_did AND oi.invoice_state = 'open'
 WHERE o.org_did = sqlc.arg(org_did)
-FOR UPDATE OF o;
+FOR UPDATE;
 
 -- The single write statement for a subscription change. invoice_changes and
 -- events are jsonb arrays (see backend/internal/orgs/billing): the changes are

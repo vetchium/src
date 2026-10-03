@@ -1,12 +1,12 @@
 import { randomBytes } from "node:crypto";
-import type { Page } from "@playwright/test";
+import type { APIResponse, Page } from "@playwright/test";
 import type { OrgPlan } from "typespec/orgs/subscriptions/plans";
 import type {
   ListInvoicesResponse,
   OrgSubscription,
 } from "typespec/orgs/subscriptions/subscriptions";
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
-import type { TestTenant } from "../lib/admin-db.ts";
+import { openTenantSession, type TestTenant } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { boundary, boundaryPairEndingAt } from "../lib/billing-periods.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
@@ -981,6 +981,96 @@ test.describe("set-subscription-plan and pay-invoice validation", () => {
         403,
         orgSuspended,
       );
+    });
+  });
+});
+
+// A request that waits for the Org lock must read the subscription as the
+// lock holder committed it, never the locked row paired with an invoice from
+// before the wait (which decodes as an impossible state).
+test.describe("a billing request waiting behind a commit", () => {
+  function orgDID(org: SignedUpOrg): string {
+    return `(SELECT org_did FROM vetchium.org_domains
+             WHERE domain = '${org.domain}')`;
+  }
+
+  async function whileHeld(
+    org: SignedUpOrg,
+    send: () => Promise<APIResponse>,
+    commit: string,
+  ): Promise<APIResponse> {
+    const session = await openTenantSession("sgp");
+    try {
+      await session.run(
+        `BEGIN; SELECT org_did FROM vetchium.orgs
+         WHERE org_did = ${orgDID(org)} FOR UPDATE;`,
+      );
+      const pending = send();
+      await expect
+        .poll(() =>
+          Number(
+            orgSQL(
+              `SELECT count(*) FROM pg_stat_activity
+               WHERE ${session.pid} = ANY(pg_blocking_pids(pid))`,
+            ),
+          ),
+        )
+        .toBeGreaterThan(0);
+      await session.run(`${commit} COMMIT;`);
+      return await pending;
+    } finally {
+      await session.close();
+    }
+  }
+
+  test("sees a renewal that failed while it waited", async ({ request }) => {
+    await withOrg(request, async ({ api, org, owner }) => {
+      await saveCard(api, owner, "simulated-succeeds");
+      await choose(api, owner, "org-silver-tier", "month");
+      const response = await whileHeld(
+        org,
+        () =>
+          api.setSubscriptionPlan(owner, {
+            plan_oid: "org-gold-tier",
+            billing_interval: "month",
+          }),
+        `UPDATE vetchium.orgs SET billing_state = 'past_due'
+         WHERE org_did = ${orgDID(org)};
+         INSERT INTO vetchium.org_invoices (
+           org_did, org_plan_oid, billing_interval, period_start, period_end,
+           reason, invoice_state, due_at, last_failure
+         )
+         SELECT org_did, org_plan_oid, org_billing_interval,
+                subscription_period_start, subscription_period_end,
+                'renewal', 'open', now() + interval '1 hour', 'declined'
+         FROM vetchium.orgs WHERE org_did = ${orgDID(org)};`,
+      );
+      await expectProblem(response, 409, pastDue);
+    });
+  });
+
+  test("sees an invoice settled while it waited", async ({ request }) => {
+    await withOrg(request, async ({ api, org, owner }) => {
+      await saveCard(api, owner, "simulated-succeeds");
+      await choose(api, owner, "org-silver-tier", "month");
+      await saveCard(api, owner, "simulated-declines");
+      setPeriod(org, "month", justEnded());
+      // Persists the failed renewal; the plan change itself is refused.
+      await api.setSubscriptionPlan(owner, { plan_oid: "org-free-tier" });
+      stabilizeOpenInvoice(org);
+      const open = (await subscription(api, owner)).open_invoice;
+      expect(open).toBeDefined();
+      const response = await whileHeld(
+        org,
+        () => api.payInvoice(owner, { invoice_id: open?.invoice_id ?? "" }),
+        `UPDATE vetchium.org_invoices
+         SET invoice_state = 'paid', paid_at = now(), due_at = NULL,
+             next_attempt_at = NULL
+         WHERE invoice_state = 'open' AND org_did = ${orgDID(org)};
+         UPDATE vetchium.orgs SET billing_state = 'current'
+         WHERE org_did = ${orgDID(org)};`,
+      );
+      await expectProblem(response, 409, invoiceNotOpen);
     });
   });
 });

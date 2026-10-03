@@ -40,6 +40,15 @@ export function AppShell() {
           icon: <WarningOutlined />,
           label: t("navigation.restoreDomain"),
         },
+        ...(me !== undefined && holds(me.permissions, ManageBilling)
+          ? [
+              {
+                key: paths.plans,
+                icon: <CreditCardOutlined />,
+                label: t("navigation.plans"),
+              },
+            ]
+          : []),
         {
           key: paths.security,
           icon: <SafetyOutlined />,

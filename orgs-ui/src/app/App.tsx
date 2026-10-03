@@ -200,6 +200,18 @@ export function App() {
               </Page>
             }
           />
+          {/* A suspended Org is still billed, so billing holders keep this page
+              to pay and fix the card; it locks plan changes while suspended. */}
+          <Route element={<PermissionRoute permission={ManageBilling} />}>
+            <Route
+              path={paths.plans}
+              element={
+                <Page>
+                  <PlansPage />
+                </Page>
+              }
+            />
+          </Route>
           <Route element={<ActiveOrgRoute />}>
             <Route element={<PermissionRoute permission={Superadmin} />}>
               <Route
@@ -207,16 +219,6 @@ export function App() {
                 element={
                   <Page>
                     <SettingsPage />
-                  </Page>
-                }
-              />
-            </Route>
-            <Route element={<PermissionRoute permission={ManageBilling} />}>
-              <Route
-                path={paths.plans}
-                element={
-                  <Page>
-                    <PlansPage />
                   </Page>
                 }
               />

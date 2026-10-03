@@ -35,7 +35,7 @@ func (c fixedOrgCharger) Charge(subscriptionspec.PaymentMethodKind) billing.Char
 type fakeOrgBilling struct {
 	orgDID     pgtype.UUID
 	domain     string
-	row        sqlc.LockOrgSubscriptionForChangeRow
+	row        sqlc.GetOrgSubscriptionRow
 	candidates []sqlc.ListOrgKeepCandidatesRow
 	noticeRows []sqlc.ListOrgBillingNoticeCandidatesRow
 
@@ -69,12 +69,6 @@ func (f *fakeOrgBilling) ClaimDueOrgSubscription(
 	}
 	f.claimed = true
 	return sqlc.ClaimDueOrgSubscriptionRow{OrgDid: f.orgDID, Domain: f.domain}, nil
-}
-
-func (f *fakeOrgBilling) LockOrgSubscriptionForChange(
-	context.Context, pgtype.UUID,
-) (sqlc.LockOrgSubscriptionForChangeRow, error) {
-	return f.row, nil
 }
 
 func (f *fakeOrgBilling) SaveOrgSubscription(
@@ -131,7 +125,7 @@ func (f *fakeOrgBilling) ListOrgBillingNoticeCandidates(
 func (f *fakeOrgBilling) GetOrgSubscription(
 	context.Context, pgtype.UUID,
 ) (sqlc.GetOrgSubscriptionRow, error) {
-	return sqlc.GetOrgSubscriptionRow(f.row), nil
+	return f.row, nil
 }
 
 func (f *fakeOrgBilling) RecordOrgBillingNotice(
@@ -141,9 +135,9 @@ func (f *fakeOrgBilling) RecordOrgBillingNotice(
 	return sqlc.RecordOrgBillingNoticeRow{Recorded: true}, nil
 }
 
-func monthlyRow(periodEnd time.Time) sqlc.LockOrgSubscriptionForChangeRow {
+func monthlyRow(periodEnd time.Time) sqlc.GetOrgSubscriptionRow {
 	anchor := periodEnd.AddDate(0, -1, 0)
-	return sqlc.LockOrgSubscriptionForChangeRow{
+	return sqlc.GetOrgSubscriptionRow{
 		OrgPlanOid: "org-silver-tier",
 		OrgBillingInterval: sqlc.NullVetchiumOrgBillingInterval{
 			VetchiumOrgBillingInterval: sqlc.VetchiumOrgBillingIntervalMonth, Valid: true,
