@@ -634,6 +634,7 @@ export const en = {
     },
     custom: {
       option: "Custom…",
+      edit: "Edit permissions…",
       title: "Custom permissions",
       hint: "Choose exactly what this user may do. A role is only a shortcut for a set of these.",
     },

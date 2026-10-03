@@ -653,6 +653,7 @@ export const de = {
     },
     custom: {
       option: "Benutzerdefiniert …",
+      edit: "Berechtigungen bearbeiten …",
       title: "Benutzerdefinierte Berechtigungen",
       hint: "Legen Sie genau fest, was dieser Benutzer tun darf. Eine Rolle ist nur eine Abkürzung für eine Auswahl davon.",
     },

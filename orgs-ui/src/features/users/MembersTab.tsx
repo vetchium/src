@@ -229,7 +229,10 @@ export function MembersTab({
               })),
               { value: "custom" as Role, label: t("users.custom.option") },
             ]}
-            onChange={(next) => {
+            // onSelect, not onChange: choosing "Custom…" again for a user who
+            // already has a custom role changes no value but must still open
+            // the editor.
+            onSelect={(next) => {
               if (next === "custom") setCustomUser(user);
               else if (next !== role) confirmRole([user.email_address], next);
             }}
@@ -284,6 +287,13 @@ export function MembersTab({
             menu={{
               items: [
                 {
+                  key: "permissions",
+                  disabled:
+                    isViewer(user) ||
+                    (!viewerIsSuperadmin && holdsSuperadmin(user)),
+                  label: t("users.custom.edit"),
+                },
+                {
                   key: "state",
                   danger: active,
                   disabled:
@@ -294,7 +304,10 @@ export function MembersTab({
                   ),
                 },
               ],
-              onClick: () => confirmState([user.email_address], !active),
+              onClick: ({ key }) => {
+                if (key === "permissions") setCustomUser(user);
+                else confirmState([user.email_address], !active);
+              },
             }}
           >
             <Button

@@ -238,13 +238,21 @@ test("everyone sees an unpaid invoice; a billing holder pays it", async ({
     await expect(page.getByTestId("current-subscription")).toContainText(
       "Past due",
     );
+    // Both Pay now buttons say why a payment failed, next to themselves.
+    await page
+      .getByTestId("current-subscription")
+      .getByRole("button", { name: "Pay now" })
+      .click();
+    await expect(page.getByTestId("pay-now-error")).toContainText(
+      "The saved payment method was declined.",
+    );
     await page
       .getByTestId("invoices")
       .getByRole("button", { name: "Pay now" })
       .click();
-    await expect(
-      page.getByText("The saved payment method was declined."),
-    ).toBeVisible();
+    await expect(page.getByTestId("invoices")).toContainText(
+      "The saved payment method was declined.",
+    );
 
     const card = page.getByTestId("payment-method");
     await card.getByRole("radio", { name: /ending 4242/ }).check();

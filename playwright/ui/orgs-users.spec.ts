@@ -205,6 +205,25 @@ test("changes roles from the row, the custom drawer, and in bulk after step-up",
       memberRow(page, second.emailAddress).getByTitle("Custom"),
     ).toBeVisible();
 
+    // A user who already has a custom role reopens the editor by choosing
+    // "Custom…" again, or from the row's actions, and sees the held grants.
+    await expect(drawer).toBeHidden();
+    await chooseOption(page, secondRole, "Custom…");
+    await expect(
+      drawer.getByRole("switch", { name: "MANAGE_BILLING" }),
+    ).toBeChecked();
+    await drawer.getByRole("button", { name: "Cancel" }).click();
+    await expect(drawer).toBeHidden();
+    await page
+      .getByRole("button", { name: `Actions for ${second.emailAddress}` })
+      .click();
+    await page.getByRole("menuitem", { name: "Edit permissions…" }).click();
+    await expect(
+      drawer.getByRole("switch", { name: "MANAGE_USERS" }),
+    ).toBeChecked();
+    await drawer.getByRole("button", { name: "Cancel" }).click();
+    await expect(drawer).toBeHidden();
+
     // A bulk change needs a recent sign-in; confirming the password returns
     // here and the change then goes through.
     ageSessions(org.emailAddress);

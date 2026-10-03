@@ -2,6 +2,7 @@ import { Alert, Button, Card, Descriptions, Tag } from "antd";
 import { useTranslation } from "react-i18next";
 import { isOrgPlan } from "typespec/orgs/subscriptions/plans";
 import type { OrgSubscription } from "typespec/orgs/subscriptions/subscriptions";
+import { APIErrorAlert } from "../../components/common/APIErrorAlert";
 import { formatDate, formatDateTime } from "./format";
 import { planLabel } from "./labels";
 import { usePayInvoice } from "./queries";
@@ -45,6 +46,11 @@ export function CurrentSubscriptionCard({
             </Button>
           }
         />
+      )}
+      {open === undefined || pay.error === null ? null : (
+        <div style={{ marginBottom: 16 }} data-testid="pay-now-error">
+          <APIErrorAlert error={pay.error} />
+        </div>
       )}
       <Descriptions
         column={1}
