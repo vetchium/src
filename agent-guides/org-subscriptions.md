@@ -47,9 +47,6 @@ Google sign-in. Compose with `orgs.md` and `authorization.md`.
   must be on the Org's domain; invitations last `orgsAPIServer.invitationTTL`.
   An expired invitation stays listed and resendable for 30 days before
   housekeeping prunes it; a cancelled or accepted one is pruned at once.
-- Scheduling a downgrade checks the target's cap with the Org's Google sign-in
-  setting, so a Gold Org with Google sign-in stays uncapped when it only
-  changes interval.
 - Member lists are server-side: case-insensitive substring search (two
   characters at least), state and permission filters, keyset pagination (100
   at most), and a summary. Bulk operations take at most 100 targets, run in one
@@ -61,6 +58,13 @@ Google sign-in. Compose with `orgs.md` and `authorization.md`.
 ## Suspended Orgs
 
 - Billing reads stay available; plan changes require an active Org.
+
+## Company identity
+
+- Company name and logo edits require a superadmin and an active Org.
+- Normalize and validate the name as at signup (1–200 Unicode code points).
+  Lock the Org and audit a changed name in the same transaction; omit its
+  value from the audit payload. An unchanged name writes no event.
 
 ## Logo
 
@@ -75,7 +79,7 @@ Google sign-in. Compose with `orgs.md` and `authorization.md`.
 
 ## Google sign-in
 
-- Gold only, switched on by a superadmin (step-up) in settings. Turning it off
+- Gold only, switched on by a superadmin (step-up) in Organization security. Turning it off
   runs under the Org lock and is refused with `org-user-limit-exceeds-target`
   while seats exceed the plain Gold cap. Leaving Gold clears it in the
   transition statement, and a CHECK keeps the column false off Gold.

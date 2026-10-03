@@ -65,7 +65,7 @@ export function GoogleSignInCard() {
               content: t(
                 checked ? "company.enableGoogle" : "company.disableGoogle",
               ),
-              onOk: () => mutation.mutateAsync(checked),
+              onOk: () => mutation.mutateAsync(checked).catch(() => {}),
             })
           }
         />

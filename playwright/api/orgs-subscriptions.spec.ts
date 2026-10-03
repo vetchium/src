@@ -3,11 +3,13 @@ import type { OrgPlan } from "typespec/orgs/subscriptions/plans";
 import type { OrgSubscription } from "typespec/orgs/subscriptions/subscriptions";
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
 import type { TestTenant } from "../lib/admin-db.ts";
+import { openTenantSession } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
 import {
   addOrgMember,
   cleanupOrg,
+  installOrgAuditInsertFailure,
   inviteeAddress,
   loginOrg,
   OrgsAPI,
@@ -314,5 +316,68 @@ test("plan writes validate input, authorization and suspension", async ({
       403,
       orgSuspended,
     );
+  });
+});
+
+test("a plan change reads seats committed while waiting for the Org lock", async ({
+  request,
+}) => {
+  await withOrg(request, async ({ api, org, owner }) => {
+    await choose(api, owner, "org-gold-tier", "month");
+    const session = await openTenantSession("sgp");
+    try {
+      const did = `(SELECT org_did FROM vetchium.org_domains WHERE domain='${org.domain}')`;
+      await session.run(
+        `BEGIN; SELECT org_did FROM vetchium.orgs WHERE org_did=${did} FOR UPDATE;`,
+      );
+      const pending = api.setSubscriptionPlan(owner, {
+        plan_oid: "org-free-tier",
+      });
+      await expect
+        .poll(() =>
+          Number(
+            orgSQL(
+              `SELECT count(*) FROM pg_stat_activity WHERE ${session.pid}=ANY(pg_blocking_pids(pid))`,
+            ),
+          ),
+        )
+        .toBeGreaterThan(0);
+      await session.run(
+        `INSERT INTO vetchium.org_users(org_user_id,org_did,email_address,org_user_state,preferred_language) SELECT gen_random_uuid(),${did},'lock-'||n||'@${org.domain}','active','en-US' FROM generate_series(1,5) n; COMMIT;`,
+      );
+      await expectProblem(await pending, 409, exceedsTarget);
+      expect((await subscription(api, owner)).plan_oid).toBe("org-gold-tier");
+    } finally {
+      await session.close();
+    }
+  });
+});
+
+test("plan changes roll back if their audit cannot be written", async ({
+  request,
+}) => {
+  await withOrg(request, async ({ api, org, owner }) => {
+    const key = orgsIdempotencyKey();
+    const removeFault = installOrgAuditInsertFailure({
+      action: "org.subscription.changed",
+      idempotencyKey: key,
+    });
+    try {
+      expect(
+        (
+          await api.setSubscriptionPlan(
+            owner,
+            { plan_oid: "org-gold-tier", billing_interval: "month" },
+            key,
+          )
+        ).status(),
+      ).toBe(500);
+    } finally {
+      removeFault();
+    }
+    expect((await subscription(api, owner)).plan_oid).toBe("org-free-tier");
+    expect(orgSubscriptionActions(org.domain)).toHaveLength(0);
+    await choose(api, owner, "org-gold-tier", "month", key);
+    expect(orgSubscriptionActions(org.domain)).toHaveLength(1);
   });
 });

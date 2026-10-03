@@ -196,7 +196,10 @@ by the `workers` schedule and check-now.
   step, Google sign-in and its callback, forgot and reset password, the
   signed-in shell, account security, the failing banner, and the suspended
   (restore-domain) screen, plus members and invitations, plans and billing,
-  and settings (logo, Google sign-in).
+  Company (name and logo), and Organization security (Google sign-in).
+- Show the signed-in email in My account and authorized People administration,
+  not in the shell or Overview. Redirect `/settings` to `/company` and
+  `/security` to `/account`.
 - Ship every user-visible string in every `orgs-ui` locale.
 
 ## Tests

@@ -17,12 +17,15 @@ using TypeSpec.Http;
 namespace Vetchium.Orgs;
 
 model OrgSubscription {
- plan_oid: OrgPlanOID;
- /** Absent on Free. */
- billing_interval?: OrgBillingInterval;
- seats_in_use: int32;
- /** Absent when uncapped. */
- seat_limit?: int32;
+  plan_oid: OrgPlanOID;
+
+  /** Absent on Free. */
+  billing_interval?: OrgBillingInterval;
+
+  seats_in_use: int32;
+
+  /** Absent when uncapped. */
+  seat_limit?: int32;
 }
 
 model SetSubscriptionPlanRequest {
@@ -81,5 +84,4 @@ interface SubscriptionOperations {
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
-
 }

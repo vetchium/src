@@ -115,7 +115,9 @@ export function PlanOptions({
   };
   return (
     <Flex orientation="vertical" gap="large">
-      <Button onClick={onDone}>{t("plans.back")}</Button>
+      <Flex>
+        <Button onClick={onDone}>{t("plans.back")}</Button>
+      </Flex>
       {!known ? (
         <Alert
           type="warning"

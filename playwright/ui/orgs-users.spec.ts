@@ -157,7 +157,7 @@ test("an invitation link that cannot be used says so", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("changes roles from the row, the custom drawer, and in bulk after step-up", async ({
+test("changes roles in the member drawer and in bulk after step-up", async ({
   page,
   request,
 }) => {
@@ -179,6 +179,17 @@ test("changes roles from the row, the custom drawer, and in bulk after step-up",
     await openMembers(page, org);
 
     const drawer = page.getByRole("dialog", { name: "Member details" });
+    await memberRow(page, org.emailAddress).getByRole("button").click();
+    await expect(
+      drawer.getByRole("button", { name: "Save", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      drawer.getByRole("button", { name: "Disable", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      drawer.getByRole("radio", { name: "Finance", exact: true }),
+    ).toBeDisabled();
+    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
     await memberRow(page, first.emailAddress).getByRole("button").click();
     await drawer.getByRole("radio", { name: "Finance", exact: true }).check();
     await drawer.getByRole("button", { name: "Save", exact: true }).click();
@@ -362,15 +373,17 @@ test("manages pending invitations: resend, cancel, and bulk cancel", async ({
     }
 
     await page
-      .getByRole("button", { name: `Resend the invitation to ${addresses[0]}` })
+      .getByRole("button", { name: `Actions for ${addresses[0]}` })
       .click();
+    await page.getByRole("menuitem", { name: "Resend" }).click();
     await expect(
       page.getByText("The invitation was sent again."),
     ).toBeVisible();
 
     await page
-      .getByRole("button", { name: `Cancel the invitation to ${addresses[0]}` })
+      .getByRole("button", { name: `Actions for ${addresses[0]}` })
       .click();
+    await page.getByRole("menuitem", { name: "Cancel" }).click();
     await page
       .getByRole("dialog")
       .getByRole("button", { name: "Cancel" })

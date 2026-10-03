@@ -24,7 +24,8 @@ import (
 
 func response(row sqlc.GetOrgSubscriptionRow) subscriptionspec.OrgSubscription {
 	result := subscriptionspec.OrgSubscription{
-		PlanOID: subscriptionspec.PlanOID(row.OrgPlanOid), SeatsInUse: int32(row.SeatsInUse),
+		PlanOID:    subscriptionspec.PlanOID(row.OrgPlanOid),
+		SeatsInUse: int32(row.SeatsInUse),
 	}
 	if row.OrgBillingInterval.Valid {
 		interval := subscriptionspec.BillingInterval(row.OrgBillingInterval.VetchiumOrgBillingInterval)
@@ -82,19 +83,31 @@ func SetSubscriptionPlan(s *orgsruntime.Server) http.HandlerFunc {
 				if row.OrgState != sqlc.VetchiumOrgStateActive {
 					return handlerauth.Failure[subscriptionspec.OrgSubscription](orgsproblem.OrgSuspendedError)
 				}
-				if row.OrgPlanOid == string(request.PlanOID) && string(row.OrgBillingInterval.VetchiumOrgBillingInterval) == string(request.BillingInterval.Value) {
+				currentInterval := row.OrgBillingInterval.VetchiumOrgBillingInterval
+				if row.OrgPlanOid == string(request.PlanOID) &&
+					string(currentInterval) == string(request.BillingInterval.Value) {
 					return result{Status: http.StatusOK, Body: response(row)}, nil, nil
 				}
 				limit, unlimited := subscriptionspec.MaxUsers(request.PlanOID, row.GoogleSignInEnabled)
 				if !unlimited && row.SeatsInUse > int64(limit) {
 					return handlerauth.Failure[subscriptionspec.OrgSubscription](orgsproblem.UserLimitExceedsTargetError(int32(limit), int32(row.SeatsInUse)))
 				}
-				interval := sqlc.NullVetchiumOrgBillingInterval{VetchiumOrgBillingInterval: sqlc.VetchiumOrgBillingInterval(request.BillingInterval.Value), Valid: request.BillingInterval.Present}
+				interval := sqlc.NullVetchiumOrgBillingInterval{
+					VetchiumOrgBillingInterval: sqlc.VetchiumOrgBillingInterval(request.BillingInterval.Value),
+					Valid:                      request.BillingInterval.Present,
+				}
 				err = q.SaveOrgSubscription(ctx, sqlc.SaveOrgSubscriptionParams{
-					OrgDid: identity.OrgDID, OrgPlanOid: string(request.PlanOID), OrgBillingInterval: pgtype.Text{String: string(request.BillingInterval.Value), Valid: request.BillingInterval.Present},
+					OrgDid:     identity.OrgDID,
+					OrgPlanOid: string(request.PlanOID),
+					OrgBillingInterval: pgtype.Text{
+						String: string(request.BillingInterval.Value),
+						Valid:  request.BillingInterval.Present,
+					},
 					GoogleSignInPlanOids: entitlements.PlanOIDs(subscriptionspec.AllowsGoogleSignIn),
-					LogoPlanOids:         entitlements.PlanOIDs(subscriptionspec.AllowsLogo), TenantID: s.TenantID,
-					ActorOrgUserID: identity.UserID, IdempotencyKey: pgtype.Text{String: string(key), Valid: true},
+					LogoPlanOids:         entitlements.PlanOIDs(subscriptionspec.AllowsLogo),
+					TenantID:             s.TenantID,
+					ActorOrgUserID:       identity.UserID,
+					IdempotencyKey:       pgtype.Text{String: string(key), Valid: true},
 				})
 				if err != nil {
 					return result{}, nil, err

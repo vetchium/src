@@ -312,6 +312,25 @@ test.describe("logo removal and plan changes", () => {
     });
   });
 
+  test("Gold to Silver preserves the company logo", async ({ request }) => {
+    await withOrg(request, async (api, _org, owner) => {
+      await api.setSubscriptionPlan(owner, {
+        plan_oid: "org-gold-tier",
+        billing_interval: "month",
+      });
+      await api.uploadLogo(owner, "image/png", makePNG(200, 200));
+      const before = await logoURL(api, owner);
+      expect(before).toBeDefined();
+      const response = await api.setSubscriptionPlan(owner, {
+        plan_oid: "org-silver-tier",
+        billing_interval: "month",
+      });
+      expect(response.status()).toBe(200);
+      expect(await logoURL(api, owner)).toBe(before);
+      expect((await fetch(before ?? "")).status).toBe(200);
+    });
+  });
+
   test("a downgrade below Silver takes the logo away in its transaction", async ({
     request,
   }) => {

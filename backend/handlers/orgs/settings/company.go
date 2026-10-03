@@ -1,13 +1,15 @@
 package settings
 
 import (
+	"net/http"
+
+	settingsspec "github.com/vetchium/src/typespec/orgs/settings"
+	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
+
 	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
 	"backend/internal/middleware"
 	orgsruntime "backend/internal/orgs"
-	settingsspec "github.com/vetchium/src/typespec/orgs/settings"
-	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
-	"net/http"
 )
 
 func SetCompanyName(s *orgsruntime.Server) http.HandlerFunc {
@@ -38,7 +40,12 @@ func SetCompanyName(s *orgsruntime.Server) http.HandlerFunc {
 			s.Problem(ctx, w, orgsproblem.OrgSuspendedError)
 			return
 		}
-		if err = q.SetOrgCompanyName(ctx, sqlc.SetOrgCompanyNameParams{OrgDid: identity.OrgDID, DisplayName: string(request.DisplayName), TenantID: s.TenantID, ActorOrgUserID: identity.UserID}); err != nil {
+		if err = q.SetOrgCompanyName(ctx, sqlc.SetOrgCompanyNameParams{
+			OrgDid:         identity.OrgDID,
+			DisplayName:    string(request.DisplayName),
+			TenantID:       s.TenantID,
+			ActorOrgUserID: identity.UserID,
+		}); err != nil {
 			s.InternalError(ctx, w, "set company name", err)
 			return
 		}

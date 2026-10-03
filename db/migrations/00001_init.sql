@@ -1331,8 +1331,6 @@ CREATE TABLE vetchium.org_users (
         ON DELETE CASCADE,
     email_address text NOT NULL,
     org_user_state vetchium.org_user_state NOT NULL DEFAULT 'provisioning',
-    -- Why and by whom a user is disabled;
-    -- which no user causes.
     disabled_reason text,
     disabled_at timestamptz,
     disabled_by uuid REFERENCES vetchium.org_users (org_user_id)
@@ -1345,7 +1343,7 @@ CREATE TABLE vetchium.org_users (
     CONSTRAINT org_users_disabled_consistent CHECK (
         CASE org_user_state
             WHEN 'disabled' THEN
-                disabled_reason = 'manual' AND
+                disabled_reason IS NOT NULL AND disabled_reason = 'manual' AND
                 disabled_at IS NOT NULL
             ELSE disabled_reason IS NULL AND disabled_at IS NULL AND
                 disabled_by IS NULL

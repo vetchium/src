@@ -127,6 +127,7 @@ export function MemberDrawer({
             type="primary"
             loading={mutation.isPending}
             disabled={
+              busy ||
               unchanged ||
               self ||
               !mayChange(
@@ -193,9 +194,11 @@ export function MemberDrawer({
               { value: "custom", label: t("roles.custom") },
             ]}
           />
-          <Typography.Text type="secondary">
-            {t("people.restricted")}
-          </Typography.Text>
+          {viewerPermissions.includes(Superadmin) ? null : (
+            <Typography.Text type="secondary">
+              {t("people.restricted")}
+            </Typography.Text>
+          )}
           <Typography.Paragraph type="secondary">
             {t("users.custom.hint")}
           </Typography.Paragraph>
@@ -232,7 +235,7 @@ export function MemberDrawer({
                   enable ? "users.enable.action" : "users.disable.action",
                 ),
                 okButtonProps: { danger: !enable },
-                onOk: () => stateMutation.mutateAsync(enable),
+                onOk: () => stateMutation.mutateAsync(enable).catch(() => {}),
               });
             }}
           >
