@@ -15,6 +15,7 @@ import (
 	"backend/internal/identitydigest"
 	"backend/internal/objectstorage"
 	orgsauthn "backend/internal/orgs/auth"
+	"backend/internal/orgs/billing"
 	"backend/internal/orgs/domainverification"
 	orgsignup "backend/internal/orgs/signupcompletion"
 	"backend/internal/service"
@@ -138,6 +139,16 @@ func run(log *slog.Logger) error {
 			LeaseTTL:    cfg.Workers.OrgEmailLeaseTTL,
 			MaxAttempts: cfg.Workers.OrgEmailMaxAttempts,
 		},
+		Billing: &workers.OrgBillingWork{
+			Config: billing.Config{
+				GracePeriod:  cfg.OrgBilling.GracePeriod,
+				RetryOffsets: cfg.OrgBilling.RetryOffsets,
+			},
+			Charger:            billing.SimulatedCharger{},
+			DueWarningLeads:    cfg.OrgBilling.DueWarningLeads,
+			EndingWarningLeads: cfg.OrgBilling.DowngradeWarningLeads,
+			Interval:           cfg.OrgBilling.CheckInterval,
+		},
 		Signup: orgsignup.New(
 			pool, directory, checker, cfg.TenantID,
 			orgsauthn.DeriveCredentialSubkey(
@@ -152,6 +163,7 @@ func run(log *slog.Logger) error {
 		),
 	})
 	worker.EnablePictureDeletion(pictures)
+	worker.EnableOrgLogoDeletion(pictures)
 	worker.EnableAliasOperations(directory)
 	worker.Run(ctx)
 	<-ctx.Done()

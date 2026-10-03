@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="de-DE">
+  <body>
+    <p>Sie wurden eingeladen, der Organisation {{.Domain}} auf Vetchium beizutreten. Legen Sie mit diesem privaten Link Ihr Passwort fest und aktivieren Sie Ihr Konto:</p>
+    <p><a href="{{.ActionURL}}">Einladung annehmen</a></p>
+    <p>Leiten Sie diese E-Mail nicht weiter. Wer diesen Link hat, kann die Einladung annehmen.</p>
+    <p>Diese Einladung ist bis zum {{.ExpiresAt.UTC.Format "02.01.2006 um 15:04 UTC"}} gültig. Falls Sie sie nicht erwartet haben, können Sie diese E-Mail ignorieren.</p>
+  </body>
+</html>

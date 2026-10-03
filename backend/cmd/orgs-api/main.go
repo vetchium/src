@@ -12,8 +12,11 @@ import (
 	"backend/internal/directoryclient"
 	"backend/internal/dnsverify"
 	"backend/internal/middleware"
+	"backend/internal/objectstorage"
+	"backend/internal/oidc"
 	orgsruntime "backend/internal/orgs"
 	orgsauthn "backend/internal/orgs/auth"
+	"backend/internal/orgs/billing"
 	"backend/internal/orgs/domainverification"
 	"backend/internal/orgs/signupcompletion"
 	"backend/internal/regions"
@@ -76,6 +79,21 @@ func run(log *slog.Logger, address string) error {
 	}
 	defer pool.Close()
 
+	accessKey, secretKey, err := cfg.ObjectStorage.Credentials()
+	if err != nil {
+		return err
+	}
+	logos, err := objectstorage.New(
+		cfg.ObjectStorage.PrivateBaseURL, cfg.ObjectStorage.MediaBaseURL,
+		accessKey, secretKey,
+	)
+	if err != nil {
+		return err
+	}
+	if err := logos.EnsureBucket(ctx); err != nil {
+		return err
+	}
+
 	credentialKey := orgsauthn.DeriveCredentialKey(
 		cfg.TenantID, credentialSecret,
 	)
@@ -102,8 +120,27 @@ func run(log *slog.Logger, address string) error {
 		TenantID:      cfg.TenantID,
 		SessionTTL:    cfg.OrgsAPIServer.SessionTTL,
 		SignupTTL:     cfg.OrgsAPIServer.SignupTTL,
+		InvitationTTL: cfg.OrgsAPIServer.InvitationTTL,
 		PublicBaseURL: cfg.OrgsAPIServer.PublicBaseURL,
 		CredentialKey: credentialKey,
+		OfferedPlans:  cfg.OrgBilling.OfferedPlans,
+		Billing: billing.Config{
+			GracePeriod:  cfg.OrgBilling.GracePeriod,
+			RetryOffsets: cfg.OrgBilling.RetryOffsets,
+		},
+		Charger: billing.SimulatedCharger{},
+		Logos:   logos,
+	}
+	if google := cfg.OrgsAPIServer.GoogleSignIn; google != nil {
+		clientSecret, err := google.ClientSecret()
+		if err != nil {
+			return err
+		}
+		s.GoogleSignIn = oidc.New(oidc.Config{
+			Issuer: google.Issuer, DiscoveryURL: google.DiscoveryURL,
+			ClientID: google.ClientID, ClientSecret: clientSecret,
+			RedirectURI: google.RedirectURI,
+		})
 	}
 	mux := http.NewServeMux()
 	routes.RegisterOrgsRoutes(mux, s)

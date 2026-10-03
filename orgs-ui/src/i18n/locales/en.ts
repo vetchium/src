@@ -1,5 +1,3 @@
-import { Superadmin } from "typespec/orgs/authorization/types";
-
 export const en = {
   shell: {
     documentTitle: "Vetchium for organizations",
@@ -15,6 +13,9 @@ export const en = {
     menu: "Navigation",
     openMenu: "Open navigation",
     home: "Home",
+    members: "Members",
+    plans: "Plan and billing",
+    settings: "Organization settings",
     security: "Security",
     restoreDomain: "Restore domain",
   },
@@ -26,6 +27,10 @@ export const en = {
     changeError: "The language could not be changed. Please try again.",
   },
   common: {
+    done: "Done",
+    next: "Next",
+    previous: "Previous",
+    save: "Save",
     backToSignIn: "Back to sign in",
     cancel: "Cancel",
     confirm: "Confirm",
@@ -91,6 +96,43 @@ export const en = {
     incorrectRecoveryCode: "The recovery code was not accepted.",
     invalidResetToken:
       "This password reset link is invalid, has expired, or was already used.",
+    userDisabledNonpayment:
+      "Your account was disabled because your organization's subscription was not paid. Contact your organization's administrator.",
+    invalidInvitation:
+      "This invitation is invalid, has expired, was cancelled, or was already used. Ask for a new one.",
+    invitationNotFound:
+      "There is no pending invitation for an address in the request.",
+    userAlreadyExists:
+      "A user with this address already exists in the organization.",
+    selfChange:
+      "You cannot disable yourself or change your own permissions. Ask another administrator.",
+    lastSuperadmin:
+      "The organization must keep at least one active superadmin.",
+    userNotFound: "{{email}} is not a user of this organization.",
+    superadminRequired:
+      "Only a superadmin can change {{email}} or these permissions.",
+    userLimitReached:
+      "The organization has no free seat: its plan allows {{limit}} users, counting pending invitations.",
+    planNotOffered: "This region does not offer that plan.",
+    billingPastDue:
+      "The plan cannot be changed while an invoice is unpaid. Pay the open invoice first.",
+    paymentMethodRequired: "Save a payment method first.",
+    paymentDeclined:
+      "The saved payment method was declined. Nothing was changed.",
+    invoiceNotOpen: "That invoice is no longer open for payment.",
+    orgSuspended:
+      "Your organization is suspended. Restore its domain to continue.",
+    userLimitExceedsTarget:
+      "Your organization has {{seats}} users and pending invitations, and this plan allows {{limit}}. Disable users or cancel invitations first.",
+    logoInvalid:
+      "That image cannot be used. Choose a PNG or JPEG that is not animated, with each side between 128 and 4,096 pixels.",
+    logoTooLarge: "That image is larger than 2 MiB.",
+    logoConflict:
+      "The logo was changed by someone else at the same time. Try again.",
+    ssoSignInFailed:
+      "Google sign-in did not work. Check that you chose your organization's Google account, that your organization has Google sign-in turned on, and that you have been invited. You can sign in with your password instead.",
+    ssoNotAvailable: "Google sign-in is not available in this region.",
+    planRequired: "This needs a higher plan.",
     permissionRequired: "Only a superadmin of your organization can do this.",
     recentAuthenticationRequired: "Sign in again to continue.",
     totpAlreadyEnabled: "Two-factor authentication is already on.",
@@ -175,6 +217,15 @@ export const en = {
     forgotPassword: "Forgot your password?",
     noAccount: "Organization not on Vetchium yet?",
     signUp: "Sign it up",
+    or: "or",
+    google: "Continue with Google",
+  },
+  googleCallback: {
+    documentTitle: "Google sign-in | Vetchium for organizations",
+    title: "Google sign-in",
+    failed:
+      "Google sign-in could not be completed. Start again, or sign in with your password.",
+    back: "Back to sign-in",
   },
   twoFactor: {
     documentTitle: "Two-factor verification | Vetchium for organizations",
@@ -228,7 +279,26 @@ export const en = {
     noPermissions: "No permissions",
   },
   permissions: {
-    [Superadmin]: "SUPERADMIN",
+    "org:superadmin": {
+      name: "SUPERADMIN",
+      description:
+        "Everything in the organization, including billing and users, and the organization's settings.",
+    },
+    "org:manage_users": {
+      name: "MANAGE_USERS",
+      description:
+        "Invite, disable and re-enable users, and change what they can do, except the superadmin and billing permissions.",
+    },
+    "org:manage_billing": {
+      name: "MANAGE_BILLING",
+      description:
+        "Choose the organization's plan, pay for it, and review invoices.",
+    },
+    unknown: {
+      description:
+        "This permission was added after this portal was built. It is kept as it is unless you turn it off.",
+    },
+    includedBy: "Included by {{permission}}",
   },
   domain: {
     states: {
@@ -318,6 +388,307 @@ export const en = {
         "Replace your recovery codes? The current codes will stop working.",
       regenerated: "New recovery codes were created.",
     },
+  },
+  billing: {
+    banner: {
+      pastDue: "Your organization's payment is overdue",
+      pastDueDetail:
+        "Users beyond the Free plan's limit may be disabled after {{deadline}} unless the invoice is paid.",
+      ending: "Your plan changes to {{plan}} on {{date}}",
+      endingDetail:
+        "The features of the current plan end then. Choose the current plan again to keep it.",
+      managePlan: "Manage plan",
+      noMethod: "No payment method is saved",
+      noMethodDetail:
+        "Save one so that the next renewal can be collected and your organization stays on its plan.",
+      addMethod: "Add payment method",
+    },
+  },
+  plans: {
+    documentTitle: "Plan and billing | Vetchium for organizations",
+    title: "Plan and billing",
+    description:
+      "Choose the plan for your organization, manage how it is paid for, and review its invoices.",
+    loadingLabel: "Loading plans",
+    names: {
+      "org-free-tier": "Free",
+      "org-silver-tier": "Silver",
+      "org-gold-tier": "Gold",
+    },
+    current: {
+      title: "Current plan",
+      plan: "Plan",
+      state: "Billing",
+      renews: "Renews on",
+      ends: "Plan ends on",
+      scheduled: "Changes to",
+      seatsLabel: "Users",
+      seats: "{{used}} of {{limit}} seats used (users and pending invitations)",
+      seatsUnlimited: "{{used}} seats used (no limit)",
+      pastDue: "An invoice is overdue",
+      pastDueDetail:
+        "Pay it before {{deadline}} or users beyond the Free plan's limit are disabled.",
+      payNow: "Pay now",
+    },
+    billingState: { current: "Up to date", "past-due": "Past due" },
+    unknownPlanTitle: "Unrecognized plan",
+    unknownPlanDescription:
+      "This organization is on {{plan}}, which this version of the portal does not know. Plan changes are turned off until the portal is updated.",
+    interval: { month: "Monthly", year: "Annual" },
+    pricePeriod: { month: "per month", year: "per year" },
+    billingIntervalLabel: "Billing interval",
+    annualSaving: "One month free",
+    pricingNote: "Prices are per organization, not per user, and include tax.",
+    introductoryPricing: "Introductory pricing",
+    fossNote:
+      "Paid plans fund the development of Vetchium, a free and open-source project.",
+    planCardLabel: "{{plan}} plan",
+    currentBadge: "Current",
+    yourPlan: "Your plan",
+    recommended: "Recommended",
+    freePrice: "Free",
+    freePriceCaption: "always",
+    comingSoon: "Coming soon",
+    yes: "Included",
+    no: "Not included",
+    features: {
+      users: "Up to {{count}} users",
+      usersWithGoogle: "Up to {{count}} users, unlimited with Google sign-in",
+      openings: "{{count}} job openings per year",
+      logo: "Organization logo",
+      googleSignIn: "Google sign-in",
+      ticketSupport: "Ticket-based support",
+      mcp: "MCP support",
+    },
+    comparison: {
+      feature: "Feature",
+      users: "Users",
+      openings: "Job openings per year",
+      logo: "Organization logo",
+      googleSignIn: "Google sign-in",
+      ticketSupport: "Ticket-based support",
+      mcp: "MCP support",
+    },
+    actions: {
+      current: "Current plan",
+      keep: "Keep this plan",
+      upgrade: "Upgrade",
+      switchToAnnual: "Switch to annual",
+      switchToFree: "Switch to Free at period end",
+      switchAtPeriodEnd: "Switch at period end",
+    },
+    confirmTitle: "Change the plan at the end of the period?",
+    confirmDescription:
+      "Your organization keeps its current plan until {{date}}, then moves to the new one.",
+    confirmDescriptionNoDate:
+      "Your organization keeps its current plan until the end of the period, then moves to the new one.",
+    confirmBack: "Go back",
+    lockedPastDue: "Pay the overdue invoice before changing the plan.",
+    lockedSuspended:
+      "The plan cannot be changed while the organization is suspended.",
+    payment: {
+      title: "Payment method",
+      simulated:
+        "Payments are simulated: no real card is used and nothing is charged. The card you pick decides whether a payment succeeds.",
+      none: "No payment method is saved.",
+      saved: "Saved: {{card}}",
+      choose: "Payment method",
+      save: "Save payment method",
+      remove: "Remove",
+      kinds: {
+        "simulated-succeeds": "Test card ending 4242 (payments succeed)",
+        "simulated-declines": "Test card ending 0002 (payments are declined)",
+      },
+    },
+    invoices: {
+      title: "Invoices",
+      period: "Period",
+      plan: "Plan",
+      reason: "Reason",
+      state: "State",
+      actions: "Actions",
+      empty: "No invoices yet.",
+      reasons: { upgrade: "Upgrade", renewal: "Renewal" },
+      states: { paid: "Paid", open: "Open", void: "Void" },
+    },
+  },
+  settings: {
+    documentTitle: "Organization settings | Vetchium for organizations",
+    title: "Organization settings",
+    description: "Settings that only a superadmin can change.",
+    logo: {
+      title: "Logo",
+      help: "Shown next to your organization's name. Use a PNG or JPEG that is not animated, up to 2 MiB, with each side between 128 and 4,096 pixels. The image is re-encoded and its metadata removed.",
+      none: "No logo is set.",
+      alt: "Logo of {{name}}",
+      upload: "Upload logo",
+      replace: "Replace logo",
+      remove: "Remove logo",
+      upgrade: "A logo needs the Silver plan or higher.",
+      seePlans: "See plans",
+    },
+    google: {
+      title: "Google sign-in",
+      help: "Let your users sign in with their Google Workspace accounts. Only users already in this organization can sign in, with an address on your domain verified by Google. Your Google administrator's 2-Step Verification replaces the authenticator code, and passwords keep working. While it is on, the user limit is lifted.",
+      on: "On",
+      off: "Off",
+      upgrade: "Google sign-in needs the Gold plan.",
+      seePlans: "See plans",
+    },
+  },
+  roles: {
+    superadmin: "Superadmin",
+    finance: "Finance",
+    userManager: "User manager",
+    member: "Member",
+    custom: "Custom",
+  },
+  users: {
+    documentTitle: "Members | Vetchium for organizations",
+    title: "Members",
+    description:
+      "Invite people, choose what each can do, and turn accounts off when they leave.",
+    tabs: { members: "Members", invitations: "Invitations" },
+    role: "Role",
+    roleOf: "Role of {{email}}",
+    permissionGranted: "Granted",
+    you: "you",
+    never: "Never",
+    actionsFor: "Actions for {{email}}",
+    searchPlaceholder: "Search by email address",
+    clearFilters: "Clear filters",
+    page: "Page {{page}}",
+    empty: {
+      default: "No members yet.",
+      filtered: "No members match these filters.",
+    },
+    columns: {
+      state: "State",
+      joined: "Joined",
+      lastSignIn: "Last sign-in",
+      actions: "Actions",
+    },
+    state: {
+      active: "Active",
+      disabledManual: "Disabled",
+      disabledNonpayment: "Disabled, unpaid subscription",
+    },
+    filters: { state: "State", role: "Role" },
+    filterState: {
+      active: "Active",
+      "disabled-manual": "Disabled",
+      "disabled-nonpayment": "Disabled, unpaid subscription",
+    },
+    sort: {
+      label: "Sort by",
+      email: "Email address",
+      joined: "Join date",
+      ascending: "Ascending",
+      descending: "Descending",
+    },
+    summary: {
+      seats:
+        "{{used}} of {{limit}} seats used (members and pending invitations)",
+      seatsUnlimited: "{{used}} seats used (no limit)",
+      roles: "Roles:",
+      states: "States:",
+      role: {
+        superadmin: "{{count}} superadmin",
+        finance: "{{count}} finance",
+        userManager: "{{count}} user managers",
+        member: "{{count}} members",
+      },
+      state: {
+        active: "{{count}} active",
+        "disabled-manual": "{{count}} disabled",
+        "disabled-nonpayment": "{{count}} unpaid",
+      },
+    },
+    bulk: {
+      selected: "{{count}} selected",
+      limit: "At most {{count}} can be selected at once.",
+      setRole: "Set role",
+      disable: "Disable",
+      enable: "Enable",
+      clear: "Clear selection",
+    },
+    roleChange: {
+      confirm: "Make {{count}} selected user(s) {{role}}?",
+      effect:
+        "The new role applies on their next request. Sign-ins stay active.",
+      action: "Change role",
+      saved: "The role was changed.",
+    },
+    disable: {
+      confirm: "Disable {{count}} user(s)?",
+      effect:
+        "They are signed out at once and cannot sign in until re-enabled. Their seat is freed.",
+      action: "Disable",
+      done: "The users were disabled.",
+    },
+    enable: {
+      confirm: "Enable {{count}} user(s)?",
+      effect: "They can sign in again. This uses a seat each.",
+      action: "Enable",
+      done: "The users were enabled.",
+    },
+    custom: {
+      option: "Custom…",
+      edit: "Edit permissions…",
+      title: "Custom permissions",
+      hint: "Choose exactly what this user may do. A role is only a shortcut for a set of these.",
+    },
+    invite: {
+      open: "Invite people",
+      title: "Invite people",
+      action: "Send invitations",
+      addresses: "Email addresses",
+      addressesHelp:
+        "Paste addresses separated by commas, spaces or new lines, or choose a CSV file. They must be at your organization's domain.",
+      chooseFile: "Choose CSV file",
+      count: "{{count}} addresses",
+      batches: "Sent in {{count}} requests of up to 100 each.",
+      results: "{{invited}} of {{total}} invitations were sent.",
+      outcome: "Result",
+      outcomes: {
+        invited: "Invited",
+        "already-member": "Already a member",
+        "already-invited": "Already invited",
+        "domain-mismatch": "Not at your domain",
+        invalid: "Not an email address",
+      },
+    },
+    export: {
+      action: "Export CSV",
+      progress: "Exported {{count}}…",
+      failed: "The export could not be completed.",
+    },
+  },
+  invitations: {
+    search: "Search invitations by email address",
+    empty: "No pending invitations.",
+    invitedBy: "Invited by",
+    expires: "Expires",
+    expired: "Expired",
+    resend: "Resend",
+    resendFor: "Resend the invitation to {{email}}",
+    resent: "The invitation was sent again.",
+    cancelAction: "Cancel",
+    cancelFor: "Cancel the invitation to {{email}}",
+    cancelSelected: "Cancel selected",
+    cancelConfirm: "Cancel {{count}} invitation(s)?",
+    cancelEffect:
+      "The links in those emails stop working and the seats are freed.",
+    cancelled: "The invitations were cancelled.",
+  },
+  acceptInvitation: {
+    documentTitle: "Accept invitation | Vetchium for organizations",
+    title: "Join your organization",
+    missingToken:
+      "This invitation link is incomplete. Open the full link from the email.",
+    expires: "Invitation expires",
+    action: "Create account",
+    success: "Your account is ready. Sign in to continue.",
   },
   notFound: {
     title: "Page not found",

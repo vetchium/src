@@ -1,7 +1,7 @@
 # Object Storage
 
 Applies to tenant-owned blobs, SeaweedFS, signed media delivery, object
-lifecycle, and profile-picture storage.
+lifecycle, and profile-picture and Org logo storage.
 
 ## Tenant isolation and deployment
 
@@ -102,6 +102,20 @@ lifecycle, and profile-picture storage.
   sanitized result above 8 MiB, and discard the source bytes.
 - Store one rendition: no cropping, resizing, format conversion, or responsive
   variants until a measured need justifies them.
+
+## Org logos
+
+- Silver and above, in the separate `org-logos` bucket of the same tenant
+  gateway; orgs-api and workers hold the S3 credentials, and the media proxy
+  serves `hub-profile-pictures` and `org-logos` paths.
+- The lifecycle is the profile picture's: staged `uploading` row with an
+  idempotency-ledger entry, HMAC object id, 30 s Put, activation that retires
+  the old object, one-minute delayed retryable deletion, signed ten-minute
+  `GET`/`HEAD` URL from `my-info`.
+- Only the limits differ: PNG or JPEG, each side 128 to 4096 pixels, at most
+  2 MiB, sanitized by the shared `internal/imagesanitize` with the limits as a
+  parameter. Downgrading below Silver removes the reference in the
+  subscription transition ([`org-subscriptions.md`](org-subscriptions.md)).
 
 ## Verification
 

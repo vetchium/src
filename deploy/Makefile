@@ -221,7 +221,7 @@ deploy:
 		secret_key=$$(openssl rand -hex 32); \
 		printf '%s' "$$access_key" | docker secret create "$$access_secret" - >/dev/null; \
 		printf '%s' "$$secret_key" | docker secret create "$$secret_secret" - >/dev/null; \
-		printf '{"identities":[{"name":"vetchium-hub-media","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin:hub-profile-pictures","Read:hub-profile-pictures","List:hub-profile-pictures","Write:hub-profile-pictures"]}]}' \
+		printf '{"identities":[{"name":"vetchium-hub-media","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin:hub-profile-pictures","Read:hub-profile-pictures","List:hub-profile-pictures","Write:hub-profile-pictures","Admin:org-logos","Read:org-logos","List:org-logos","Write:org-logos"]}]}' \
 			"$$access_key" "$$secret_key" | \
 			docker secret create "$$config_secret" - >/dev/null; \
 	fi

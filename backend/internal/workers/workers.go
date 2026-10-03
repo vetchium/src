@@ -36,6 +36,8 @@ type Worker struct {
 	reconcileHubEmailChangeTimer time.Duration
 	pictureQueries               pictureDeletionQueries
 	pictureStore                 PictureStore
+	logoStore                    LogoStore
+	logoQueries                  logoDeletionQueries
 	pictureDeletionInterval      time.Duration
 	aliasReleaseQueries          aliasReleaseQueries
 	aliasReleaseDirectory        AliasReleaseDirectory
@@ -46,6 +48,8 @@ type Worker struct {
 	hubSubscriptionNow           func() time.Time
 	subscriptionExpiryQueries    subscriptionExpiryQueries
 	orgQueries                   orgEmailQueries
+	orgBillingTransactions       orgBillingTransactions
+	orgNoticeQueries             orgNoticeQueries
 	orgs                         *orgJobs
 	hubSubscriptionExpiryNow     func() time.Time
 	log                          *slog.Logger
@@ -75,6 +79,7 @@ func New(
 		hubEmailChangeRecovery:       hubEmailChangeRecovery,
 		reconcileHubEmailChangeTimer: config.ReconcileHubEmailChangeTimer,
 		pictureQueries:               queries,
+		logoQueries:                  queries,
 		pictureDeletionInterval:      config.PruneEphemeralDataTimer,
 		aliasReleaseQueries:          queries,
 		aliasReleaseInterval:         config.ReconcileHubSignupTimer,
@@ -82,6 +87,8 @@ func New(
 		aliasChangeQueries:           queries,
 		subscriptionExpiryQueries:    queries,
 		orgQueries:                   queries,
+		orgBillingTransactions:       poolOrgBillingTransactions{db: db},
+		orgNoticeQueries:             queries,
 	}
 	w.jobs = []periodicJob{
 		{

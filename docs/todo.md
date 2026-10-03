@@ -55,10 +55,6 @@ Each item: what is not done, and what must be decided first.
 
 ## Orgs
 
-- Suspended-Org enforcement exists only in `orgs-ui`. The first Org route
-  beyond account management must add the middleware (`orgs.md`).
-- No writer enforces that an active Org keeps an active superadmin; the first
-  Org user management statement must.
 - Production DNS verification uses `1.1.1.1:53`. Confirm it, or run a
   validating resolver per region, before launch.
 - Org check-now is meant to be rate-limited at ingress, but no Traefik rate
@@ -66,12 +62,31 @@ Each item: what is not done, and what must be decided first.
 - Org password, TOTP, and login contracts declare no
   `x-vetchium-security-effects`, unlike their admin and Hub counterparts.
   Decide whether every credential operation must declare them.
-- Not built: Org user invitation, listing, disabling, and permission
-  management; admin management of blocked signup domains and of Orgs; extra
-  domains, primary-domain change, and domain transfer; Org plan selection and
-  billing; Org terms acceptance; Org profile metadata (logo, description,
-  legal entity); remembered Org sessions; enterprise SSO; Org migration between
-  regions; openings and every other hiring feature.
+- Not built: admin management of blocked signup domains and of Orgs; extra
+  domains, primary-domain change, and domain transfer; Org terms acceptance;
+  Org profile metadata beyond the logo (description, legal entity); remembered
+  Org sessions; Org migration between regions; openings and every other hiring
+  feature.
+- Org payments: plans run on simulated cards everywhere, production included.
+  Integrate a real processor before charging, and decide tax, proration,
+  refunds, invoice PDFs, and billing contacts outside the Org
+  (`org-subscriptions.md`).
+- Openings enforcement: only the quota constants and the counting rule exist
+  (`internal/orgs/entitlements`). The publish statement must apply it under the
+  Org lock.
+- Org user management at scale: groups, custom roles beyond the catalog, SCIM
+  provisioning (the expected next step for large Google sign-in Orgs), invite
+  links, domain auto-join, and an Org-facing audit log viewer.
+- Single sign-on beyond Google: SAML and other OIDC providers (the credential
+  table and `internal/oidc` are provider-neutral), just-in-time provisioning,
+  and enforcing SSO-only sign-in for an Org.
+- MCP support for Gold Orgs is shown as "Coming soon" in the plan comparison
+  and has no contract value until it is built.
+- Gold ticket-based support: give Gold Org users a way to raise and track
+  support tickets, gated on the plan's ticket-support entitlement
+  (`org-subscriptions.md`). Decide between building tickets into the portals
+  and integrating a ticketing SaaS, and settle who may open tickets, data
+  residency, and response targets.
 
 ## Global portals
 

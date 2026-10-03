@@ -7,6 +7,7 @@ import "../../problem/common.tsp";
 import "../../problem/details.tsp";
 import "../../problem/orgs/authentication.tsp";
 import "../authorization/types.tsp";
+import "../subscriptions/plans.tsp";
 import "../types.tsp";
 
 using TypeSpec.Http;
@@ -47,6 +48,29 @@ model OrgSummary {
   domain: DomainStatus;
 }
 
+enum OrgBillingNoticeKind {
+  /** An invoice is unpaid; users may be disabled at `at`. Shown to everyone. */
+  PastDue: "past-due",
+
+  /** A scheduled change will lower the plan at `at`. Billing holders only. */
+  SubscriptionEnding: "subscription-ending",
+}
+
+model OrgBillingNotice {
+  kind: OrgBillingNoticeKind;
+
+  /** The deadline for `past-due`; the end of the period for
+   * `subscription-ending`. */
+  at: utcDateTime;
+
+  /** The plan that takes effect at `at`. Only for `subscription-ending`. */
+  scheduled_plan_oid?: OrgPlanOID;
+
+  /** True when the notice is inside its final-week banner window. Always true
+   * for `past-due`. */
+  banner: boolean;
+}
+
 model MyInfoResponse {
   email_address: EmailAddress;
   preferred_language: FrontendLocale;
@@ -62,6 +86,20 @@ model MyInfoResponse {
   session_authenticated_at: utcDateTime;
 
   org: OrgSummary;
+  plan_oid: OrgPlanOID;
+
+  /**
+   * A short-lived signed URL for the Org logo, present only while a logo is
+   * set. The image is served from the region's media origin.
+   */
+  logo_url?: string;
+
+  /** Whether Google sign-in is on for the Org; only a Gold Org can have it. */
+  google_sign_in_enabled: boolean;
+
+  /** Present while the Org is past due, and for a billing holder while a
+   * plan-lowering change is scheduled. */
+  billing_notice?: OrgBillingNotice;
 }
 
 /** The outcome of this lookup. inconclusive means the DNS query failed and

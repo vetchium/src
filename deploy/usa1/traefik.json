@@ -14,7 +14,7 @@
         "entryPoints": ["websecure"]
       },
       "media": {
-        "rule": "Host(`media.usa1.vetchium.com`) && (Method(`GET`) || Method(`HEAD`)) && PathRegexp(`^/hub-profile-pictures/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
+        "rule": "Host(`media.usa1.vetchium.com`) && (Method(`GET`) || Method(`HEAD`)) && PathRegexp(`^/(hub-profile-pictures|org-logos)/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
         "service": "media",
         "middlewares": ["hsts"],
         "entryPoints": ["websecure"],

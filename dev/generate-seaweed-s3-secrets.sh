@@ -25,6 +25,6 @@ for tenant do
     secret_key=$(openssl rand -hex 32)
     printf '%s' "$access_key" > "$access_file"
     printf '%s' "$secret_key" > "$secret_file"
-    printf '{"identities":[{"name":"vetchium-hub-media","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin:hub-profile-pictures","Read:hub-profile-pictures","List:hub-profile-pictures","Write:hub-profile-pictures"]}]}' \
+    printf '{"identities":[{"name":"vetchium-hub-media","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin:hub-profile-pictures","Read:hub-profile-pictures","List:hub-profile-pictures","Write:hub-profile-pictures","Admin:org-logos","Read:org-logos","List:org-logos","Write:org-logos"]}]}' \
         "$access_key" "$secret_key" > "$config_file"
 done

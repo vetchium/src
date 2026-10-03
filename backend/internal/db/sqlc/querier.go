@@ -20,7 +20,9 @@ type Querier interface {
 	// A unique violation on hub_account_email_changes_one_live (the caller
 	// already has a live change) maps to the in-progress problem.
 	AcceptHubEmailChange(ctx context.Context, arg AcceptHubEmailChangeParams) (AcceptHubEmailChangeRow, error)
+	AcceptOrgInvitation(ctx context.Context, arg AcceptOrgInvitationParams) (AcceptOrgInvitationRow, error)
 	ActivateHubProfilePicture(ctx context.Context, arg ActivateHubProfilePictureParams) (ActivateHubProfilePictureRow, error)
+	ActivateOrgLogo(ctx context.Context, arg ActivateOrgLogoParams) (pgtype.UUID, error)
 	AddHubLanguageAbility(ctx context.Context, arg AddHubLanguageAbilityParams) (AddHubLanguageAbilityRow, error)
 	AdminTOTPEnabled(ctx context.Context, adminUserID pgtype.UUID) (bool, error)
 	// Applies the change locally: this is today's ConfirmHubEmailChange effects,
@@ -36,6 +38,9 @@ type Querier interface {
 	// Suspends the Org locally before the global release is sent, so the Org is
 	// never treated as owning a domain the directory may already have released.
 	BeginOrgDomainRelease(ctx context.Context, arg BeginOrgDomainReleaseParams) (bool, error)
+	// All or nothing: nothing is cancelled unless every address has a pending
+	// invitation.
+	CancelOrgInvitations(ctx context.Context, arg CancelOrgInvitationsParams) (bool, error)
 	ChangeAdminPassword(ctx context.Context, arg ChangeAdminPasswordParams) (bool, error)
 	ChangeHubPassword(ctx context.Context, arg ChangeHubPasswordParams) (bool, error)
 	ChangeOrgPassword(ctx context.Context, arg ChangeOrgPasswordParams) (bool, error)
@@ -44,10 +49,17 @@ type Querier interface {
 	// encodes a nil Go slice as SQL NULL, and `x <> ALL (NULL)` is never true, so
 	// the COALESCE also guards a caller that does pass nil.
 	ClaimDueHubSubscriptions(ctx context.Context, arg ClaimDueHubSubscriptionsParams) ([]ClaimDueHubSubscriptionsRow, error)
+	// Claims one Org whose subscription needs the worker: a renewal or scheduled
+	// change at period end, or a retry or the deadline of an open invoice. The
+	// claim holds the row until the transaction ends, so a request that locks it
+	// waits and a second worker skips it. skipped_org_dids holds Orgs this run
+	// already found unreadable.
+	ClaimDueOrgSubscription(ctx context.Context, arg ClaimDueOrgSubscriptionParams) (ClaimDueOrgSubscriptionRow, error)
 	ClaimFederationOutboxEvent(ctx context.Context, leaseToken pgtype.UUID) (ClaimFederationOutboxEventRow, error)
 	ClaimHubEmail(ctx context.Context, arg ClaimHubEmailParams) (ClaimHubEmailRow, error)
 	ClaimHubProfilePictureDeletion(ctx context.Context, leaseToken pgtype.UUID) (ClaimHubProfilePictureDeletionRow, error)
 	ClaimOrgEmail(ctx context.Context, arg ClaimOrgEmailParams) (ClaimOrgEmailRow, error)
+	ClaimOrgLogoDeletion(ctx context.Context, leaseToken pgtype.UUID) (ClaimOrgLogoDeletionRow, error)
 	CompleteAdminPasswordReset(ctx context.Context, arg CompleteAdminPasswordResetParams) (bool, error)
 	CompleteAdminRecoveryCodeLogin(ctx context.Context, arg CompleteAdminRecoveryCodeLoginParams) (CompleteAdminRecoveryCodeLoginRow, error)
 	CompleteAdminSetup(ctx context.Context, arg CompleteAdminSetupParams) (CompleteAdminSetupRow, error)
@@ -64,6 +76,7 @@ type Querier interface {
 	CompleteIdempotency(ctx context.Context, arg CompleteIdempotencyParams) error
 	CompleteOrgDomainReclaim(ctx context.Context, arg CompleteOrgDomainReclaimParams) (bool, error)
 	CompleteOrgDomainRelease(ctx context.Context, arg CompleteOrgDomainReleaseParams) (bool, error)
+	CompleteOrgLogoDeletion(ctx context.Context, arg CompleteOrgLogoDeletionParams) (pgtype.UUID, error)
 	CompleteOrgPasswordReset(ctx context.Context, arg CompleteOrgPasswordResetParams) (bool, error)
 	CompleteOrgRecoveryCodeLogin(ctx context.Context, arg CompleteOrgRecoveryCodeLoginParams) (CompleteOrgRecoveryCodeLoginRow, error)
 	CompleteOrgTOTPLogin(ctx context.Context, arg CompleteOrgTOTPLoginParams) (CompleteOrgTOTPLoginRow, error)
@@ -72,6 +85,8 @@ type Querier interface {
 	ConfirmAdminTOTPEnrollment(ctx context.Context, arg ConfirmAdminTOTPEnrollmentParams) (bool, error)
 	ConfirmHubTOTPEnrollment(ctx context.Context, arg ConfirmHubTOTPEnrollmentParams) (bool, error)
 	ConfirmOrgTOTPEnrollment(ctx context.Context, arg ConfirmOrgTOTPEnrollmentParams) (bool, error)
+	// A state redeems once and only before it expires; a replay finds nothing.
+	ConsumeOrgSSOLoginState(ctx context.Context, arg ConsumeOrgSSOLoginStateParams) (ConsumeOrgSSOLoginStateRow, error)
 	CreateAdminInvitation(ctx context.Context, arg CreateAdminInvitationParams) (CreateAdminInvitationRow, error)
 	CreateAdminLoginChallenge(ctx context.Context, arg CreateAdminLoginChallengeParams) (CreateAdminLoginChallengeRow, error)
 	CreateAdminPasswordReset(ctx context.Context, arg CreateAdminPasswordResetParams) (bool, error)
@@ -101,6 +116,12 @@ type Querier interface {
 	CreateIdempotency(ctx context.Context, arg CreateIdempotencyParams) error
 	CreateOrgLoginChallenge(ctx context.Context, arg CreateOrgLoginChallengeParams) (CreateOrgLoginChallengeRow, error)
 	CreateOrgPasswordReset(ctx context.Context, arg CreateOrgPasswordResetParams) (bool, error)
+	CreateOrgSSOLoginState(ctx context.Context, arg CreateOrgSSOLoginStateParams) error
+	// Links the subject on first use, then signs in. Every condition is read
+	// again here, so a plan change, a disablement or a competing link that lands
+	// after GetOrgUserForSSO leaves no row. The Google sign-in skips Vetchium
+	// TOTP by design (D23), which is why this does not use CreateOrgSession.
+	CreateOrgSSOSession(ctx context.Context, arg CreateOrgSSOSessionParams) (CreateOrgSSOSessionRow, error)
 	CreateOrgSession(ctx context.Context, arg CreateOrgSessionParams) (CreateOrgSessionRow, error)
 	CreateOrgSignupRequest(ctx context.Context, arg CreateOrgSignupRequestParams) (string, error)
 	CreateOrgTOTPEnrollment(ctx context.Context, arg CreateOrgTOTPEnrollmentParams) (CreateOrgTOTPEnrollmentRow, error)
@@ -128,7 +149,23 @@ type Querier interface {
 	DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (string, error)
 	DisableHubTOTP(ctx context.Context, arg DisableHubTOTPParams) (bool, error)
 	DisableOrgTOTP(ctx context.Context, arg DisableOrgTOTPParams) (bool, error)
+	// Disables every active target, or none: the Org must keep an active
+	// superadmin outside the set. Sessions and unfinished credential flows end
+	// with the account.
+	DisableOrgUsers(ctx context.Context, arg DisableOrgUsersParams) (string, error)
 	EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (string, error)
+	// Re-enables disabled targets (either reason) when the whole batch fits the
+	// cap; seat_limit is NULL for an unlimited Org.
+	EnableOrgUsers(ctx context.Context, arg EnableOrgUsersParams) (string, error)
+	// The deadline's effect on people, in the transaction that voids the invoice
+	// and drops the Org to Free, whichever of the worker or a request persisted
+	// it: disable the users beyond the keep set with reason nonpayment and end
+	// their sessions, cancel every pending invitation, and queue one email to each
+	// disabled user. Disabled users keep their data and can be re-enabled one at a
+	// time.
+	// The logo and Google sign-in go with the plan: SaveOrgSubscription moves the
+	// Org to Free in the same transaction and clears both.
+	EnforceOrgDeadline(ctx context.Context, arg EnforceOrgDeadlineParams) (EnforceOrgDeadlineRow, error)
 	// The reserve-time email-claim-conflict path (GU-ECH-003): fails directly,
 	// skipping 'cancelling', since nothing was reserved globally to undo. The
 	// caller resolves the sibling federation_operations row with the existing
@@ -145,6 +182,8 @@ type Querier interface {
 	FailOrgSignupCompletionDomainOwned(ctx context.Context, arg FailOrgSignupCompletionDomainOwnedParams) (FailOrgSignupCompletionDomainOwnedRow, error)
 	FindHubSignupForCompletion(ctx context.Context, tokenHash []byte) (FindHubSignupForCompletionRow, error)
 	FindOrgSignupForCompletion(ctx context.Context, tokenHash []byte) (FindOrgSignupForCompletionRow, error)
+	// The active logo, which my-info signs a read URL for.
+	GetActiveOrgLogo(ctx context.Context, orgDid pgtype.UUID) (pgtype.UUID, error)
 	GetAdminLoginChallenge(ctx context.Context, tokenHash []byte) (GetAdminLoginChallengeRow, error)
 	GetAdminMyInfo(ctx context.Context, arg GetAdminMyInfoParams) (GetAdminMyInfoRow, error)
 	GetAdminPasswordForReauthentication(ctx context.Context, arg GetAdminPasswordForReauthenticationParams) (string, error)
@@ -176,16 +215,35 @@ type Querier interface {
 	GetHubUserForLogin(ctx context.Context, emailAddress string) (GetHubUserForLoginRow, error)
 	GetIdempotency(ctx context.Context, arg GetIdempotencyParams) (GetIdempotencyRow, error)
 	GetOrgDomainForCheck(ctx context.Context, orgDid pgtype.UUID) (GetOrgDomainForCheckRow, error)
+	GetOrgInvitationDetails(ctx context.Context, tokenHash []byte) (GetOrgInvitationDetailsRow, error)
 	GetOrgLoginChallenge(ctx context.Context, tokenHash []byte) (GetOrgLoginChallengeRow, error)
+	GetOrgLogoUpload(ctx context.Context, arg GetOrgLogoUploadParams) (GetOrgLogoUploadRow, error)
 	GetOrgMyInfo(ctx context.Context, orgUserID pgtype.UUID) (GetOrgMyInfoRow, error)
 	GetOrgPasswordForReauthentication(ctx context.Context, arg GetOrgPasswordForReauthenticationParams) (string, error)
+	// Reads a live state without spending it, so the provider exchange happens
+	// outside any transaction; ConsumeOrgSSOLoginState spends it afterwards, in
+	// the refusal's write or in the sign-in transaction.
+	GetOrgSSOLoginState(ctx context.Context, arg GetOrgSSOLoginStateParams) (GetOrgSSOLoginStateRow, error)
+	// Read after the Org row lock is held: a function inside the locking statement
+	// would count against the statement's older snapshot.
+	GetOrgSeatsInUse(ctx context.Context, orgDid pgtype.UUID) (int64, error)
 	GetOrgSignupCompletion(ctx context.Context, operationID pgtype.UUID) (VetchiumOrgSignupCompletion, error)
 	GetOrgSignupCompletionByTokenHash(ctx context.Context, tokenHash []byte) (VetchiumOrgSignupCompletion, error)
 	GetOrgSignupDetails(ctx context.Context, tokenHash []byte) (GetOrgSignupDetailsRow, error)
+	GetOrgSubscription(ctx context.Context, orgDid pgtype.UUID) (GetOrgSubscriptionRow, error)
 	GetOrgTOTPEnrollment(ctx context.Context, arg GetOrgTOTPEnrollmentParams) (GetOrgTOTPEnrollmentRow, error)
 	// A suspended Org's users can still sign in, to restore the domain. When a
 	// released domain was claimed by another local Org, the current owner wins.
 	GetOrgUserForLogin(ctx context.Context, arg GetOrgUserForLoginParams) (GetOrgUserForLoginRow, error)
+	// The user a verified Google identity names, with everything the sign-in
+	// decision reads. Google sign-in trusts the hosted-domain claim, so only an
+	// Org that still holds the domain qualifies: a released or re-claiming domain
+	// proves nothing, and the claimed-domain index makes the match unique.
+	GetOrgUserForSSO(ctx context.Context, arg GetOrgUserForSSOParams) (GetOrgUserForSSORow, error)
+	GetOrgUserSummary(ctx context.Context, orgDid pgtype.UUID) (GetOrgUserSummaryRow, error)
+	// Reads the users a change targets, in request order, once the caller holds
+	// the Org row lock. A missing address is simply absent from the result.
+	GetOrgUsersForChange(ctx context.Context, arg GetOrgUsersForChangeParams) ([]GetOrgUsersForChangeRow, error)
 	// While a live (non-terminal) account-email-change durable operation exists
 	// for this user, request-email-change and confirm-email-change both refuse
 	// outright (GU-ECH-001): neither issues nor supersedes a challenge.
@@ -193,6 +251,10 @@ type Querier interface {
 	HubAliasOperationPreflight(ctx context.Context, arg HubAliasOperationPreflightParams) (bool, error)
 	HubProfessionalEmailExistsForOwner(ctx context.Context, arg HubProfessionalEmailExistsForOwnerParams) (int32, error)
 	HubTOTPEnabled(ctx context.Context, hubUserDid pgtype.UUID) (bool, error)
+	// One outcome per supplied address, in request order. When the new
+	// invitations would exceed seat_limit (NULL means unlimited) none is created
+	// and every would-be invitation is reported as 'limit-reached'.
+	InviteOrgUsers(ctx context.Context, arg InviteOrgUsersParams) ([]InviteOrgUsersRow, error)
 	// An address that already belongs to an account locally or globally still
 	// gets a challenge, so rate limits and the response are identical, but no
 	// code is queued for it (GU-ECH-001).
@@ -213,7 +275,23 @@ type Querier interface {
 	// lets one run walk multiple batches without re-selecting rows it already
 	// looked at, without needing to lock or mutate hub_users.
 	ListHubUsersWithEndingSubscriptions(ctx context.Context, arg ListHubUsersWithEndingSubscriptionsParams) ([]ListHubUsersWithEndingSubscriptionsRow, error)
+	// Orgs whose payment deadline or scheduled plan change is within max_lead of
+	// at. The caller decides which lead, if any, has opened; this only narrows
+	// the scan. skipped_org_dids keeps a batch from re-selecting an Org this run
+	// already decided.
+	ListOrgBillingNoticeCandidates(ctx context.Context, arg ListOrgBillingNoticeCandidatesParams) ([]ListOrgBillingNoticeCandidatesRow, error)
 	ListOrgDomainsPastGrace(ctx context.Context, failingBefore pgtype.Timestamptz) ([]ListOrgDomainsPastGraceRow, error)
+	ListOrgInvitations(ctx context.Context, arg ListOrgInvitationsParams) ([]ListOrgInvitationsRow, error)
+	ListOrgInvoices(ctx context.Context, arg ListOrgInvoicesParams) ([]ListOrgInvoicesRow, error)
+	// The active users considered when an Org drops to Free.
+	ListOrgKeepCandidates(ctx context.Context, arg ListOrgKeepCandidatesParams) ([]ListOrgKeepCandidatesRow, error)
+	ListOrgPermissionCatalog(ctx context.Context) ([]ListOrgPermissionCatalogRow, error)
+	// Active users holding each directly granted permission.
+	ListOrgPermissionCounts(ctx context.Context, orgDid pgtype.UUID) ([]ListOrgPermissionCountsRow, error)
+	// Keyset-paginated member list. The sort key is the address, or the join date
+	// with the address as tie-breaker. The permission filter matches a direct
+	// grant, which is what the role label and the summary counts are built from.
+	ListOrgUsers(ctx context.Context, arg ListOrgUsersParams) ([]ListOrgUsersRow, error)
 	ListPendingOrgDomainCommands(ctx context.Context) ([]ListPendingOrgDomainCommandsRow, error)
 	ListRecoverableFederationOperations(ctx context.Context, batchSize int32) ([]VetchiumFederationOperation, error)
 	// The sibling operation's retry schedule orders recovery, so a batch of
@@ -231,6 +309,19 @@ type Querier interface {
 	LockHubSubscriptionForChange(ctx context.Context, hubUserDid pgtype.UUID) (LockHubSubscriptionForChangeRow, error)
 	LockHubUserCredentialMutation(ctx context.Context, hubUserDid pgtype.UUID) (pgtype.UUID, error)
 	LockIdempotency(ctx context.Context, dollar_1 string) error
+	// Takes the Org row lock that serializes every billing, seat, and permission
+	// decision (D28), and reads nothing else. A statement that waits for the lock
+	// re-reads only the locked row; anything it joins keeps the snapshot from
+	// before the wait, so a renewal committed meanwhile would pair past_due with
+	// no open invoice. Read the subscription with GetOrgSubscription afterwards,
+	// in its own statement and so its own snapshot.
+	LockOrgForBilling(ctx context.Context, orgDid pgtype.UUID) (pgtype.UUID, error)
+	LockOrgForGoogleSignIn(ctx context.Context, orgDid pgtype.UUID) (LockOrgForGoogleSignInRow, error)
+	// Locks the invitation's Org so acceptance is serialized with every other
+	// seat-consuming statement, and returns the plan the cap derives from.
+	LockOrgForInvitation(ctx context.Context, tokenHash []byte) (LockOrgForInvitationRow, error)
+	// Takes the Org row lock that serializes every statement consuming a seat.
+	LockOrgSeatPolicy(ctx context.Context, orgDid pgtype.UUID) (LockOrgSeatPolicyRow, error)
 	LockOrgUserCredentialMutation(ctx context.Context, orgUserID pgtype.UUID) (pgtype.UUID, error)
 	MarkHubAccountEmailChangeCancelling(ctx context.Context, arg MarkHubAccountEmailChangeCancellingParams) (int64, error)
 	MarkHubAccountEmailChangeFailed(ctx context.Context, arg MarkHubAccountEmailChangeFailedParams) (int64, error)
@@ -249,6 +340,7 @@ type Querier interface {
 	PingDatabase(ctx context.Context) (PingDatabaseRow, error)
 	PrepareHubProfilePictureUpload(ctx context.Context, arg PrepareHubProfilePictureUploadParams) (PrepareHubProfilePictureUploadRow, error)
 	PrepareHubSignupCompletion(ctx context.Context, arg PrepareHubSignupCompletionParams) (PrepareHubSignupCompletionRow, error)
+	PrepareOrgLogoUpload(ctx context.Context, arg PrepareOrgLogoUploadParams) (pgtype.UUID, error)
 	PrepareOrgSignupCompletion(ctx context.Context, arg PrepareOrgSignupCompletionParams) (PrepareOrgSignupCompletionRow, error)
 	// Outbox ciphertext is retained no longer than the maximum usable lifetime of
 	// the credential it contains, whether delivery succeeded or not.
@@ -271,6 +363,11 @@ type Querier interface {
 	// for a day after delivery ends, whether it succeeded or not.
 	PruneOrgEphemeralData(ctx context.Context, tenantID string) (int64, error)
 	QueueExpiredHubProfilePictureUploads(ctx context.Context, tenantID string) (int32, error)
+	QueueExpiredOrgLogoUploads(ctx context.Context, tenantID string) (int32, error)
+	// Queues one email to every active user holding billing_permission. Used for
+	// a failed payment and for the move to Free, where the holders are the users
+	// who remain active.
+	QueueOrgBillingHolderEmail(ctx context.Context, arg QueueOrgBillingHolderEmailParams) (int64, error)
 	ReauthenticateAdminSession(ctx context.Context, arg ReauthenticateAdminSessionParams) (pgtype.Timestamptz, error)
 	ReauthenticateHubSession(ctx context.Context, arg ReauthenticateHubSessionParams) (pgtype.Timestamptz, error)
 	ReauthenticateOrgSession(ctx context.Context, arg ReauthenticateOrgSessionParams) (pgtype.Timestamptz, error)
@@ -283,6 +380,10 @@ type Querier interface {
 	// no-op: when the notice already exists, the outbox and audit CTEs have
 	// nothing to select from and queued comes back false.
 	RecordHubSubscriptionExpiryNotice(ctx context.Context, arg RecordHubSubscriptionExpiryNoticeParams) (bool, error)
+	// Records that a warning was due, and queues it to the billing holders, only
+	// the first time: a repeated or concurrent tick finds the row and queues
+	// nothing.
+	RecordOrgBillingNotice(ctx context.Context, arg RecordOrgBillingNoticeParams) (RecordOrgBillingNoticeRow, error)
 	// Reaching the failure threshold moves a verified domain to failing and
 	// queues one notice to each active superadmin in the same transaction, so the
 	// notice is sent exactly once per failing period.
@@ -298,6 +399,11 @@ type Querier interface {
 	RegenerateOrgTOTPRecoveryCodes(ctx context.Context, arg RegenerateOrgTOTPRecoveryCodesParams) (bool, error)
 	RejectOrgDomainReclaim(ctx context.Context, arg RejectOrgDomainReclaimParams) (bool, error)
 	RemoveHubProfilePicture(ctx context.Context, arg RemoveHubProfilePictureParams) (RemoveHubProfilePictureRow, error)
+	RemoveOrgLogo(ctx context.Context, arg RemoveOrgLogoParams) (pgtype.UUID, error)
+	RemoveOrgPaymentMethod(ctx context.Context, arg RemoveOrgPaymentMethodParams) error
+	// Rotates the token and restarts the lifetime. An expired invitation holds no
+	// seat, so resending it must fit the cap again.
+	ResendOrgInvitation(ctx context.Context, arg ResendOrgInvitationParams) (ResendOrgInvitationRow, error)
 	ResolveAdminLoginChallengeUser(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	ResolveAdminPasswordResetUser(ctx context.Context, resetTokenHash []byte) (pgtype.UUID, error)
 	ResolveFederationOperation(ctx context.Context, arg ResolveFederationOperationParams) (VetchiumFederationOperation, error)
@@ -310,8 +416,13 @@ type Querier interface {
 	// does not order sibling data-modifying CTEs, so a single statement cannot
 	// reliably vacate the active-user unique index before activating the new row.
 	RetireHubProfilePictureForReplacement(ctx context.Context, arg RetireHubProfilePictureForReplacementParams) ([]pgtype.UUID, error)
+	// Call before ActivateOrgLogo in the same transaction. PostgreSQL does not
+	// order sibling data-modifying CTEs, so one statement cannot reliably vacate
+	// the active-Org unique index before activating the new row.
+	RetireOrgLogoForReplacement(ctx context.Context, arg RetireOrgLogoForReplacementParams) ([]pgtype.UUID, error)
 	RetryFederationOutboxEvent(ctx context.Context, arg RetryFederationOutboxEventParams) (int64, error)
 	RetryHubProfilePictureDeletion(ctx context.Context, arg RetryHubProfilePictureDeletionParams) (int64, error)
+	RetryOrgLogoDeletion(ctx context.Context, arg RetryOrgLogoDeletionParams) (int64, error)
 	RotateHubSignupCompletionHandle(ctx context.Context, arg RotateHubSignupCompletionHandleParams) (VetchiumHubSignupCompletion, error)
 	// The single write statement shared by the set-plan handler and the worker.
 	// A jsonb array with explicit `->>`/`->` field extraction lets one statement
@@ -319,6 +430,11 @@ type Querier interface {
 	// columns from jsonb_to_recordset's column-definition-list form, and parallel
 	// unnest arrays would read worse with eight state columns.
 	SaveHubSubscriptionStates(ctx context.Context, arg SaveHubSubscriptionStatesParams) (SaveHubSubscriptionStatesRow, error)
+	// The single write statement for a subscription change. invoice_changes and
+	// events are jsonb arrays (see backend/internal/orgs/billing): the changes are
+	// already folded, so no change refers to a row another change in the same
+	// statement creates.
+	SaveOrgSubscription(ctx context.Context, arg SaveOrgSubscriptionParams) (SaveOrgSubscriptionRow, error)
 	ScheduleHubEmailRetry(ctx context.Context, arg ScheduleHubEmailRetryParams) (bool, error)
 	ScheduleOrgEmailRetry(ctx context.Context, arg ScheduleOrgEmailRetryParams) (bool, error)
 	SetAdminDisplayName(ctx context.Context, arg SetAdminDisplayNameParams) (int64, error)
@@ -331,6 +447,12 @@ type Querier interface {
 	SetHubPreferredLanguage(ctx context.Context, arg SetHubPreferredLanguageParams) (bool, error)
 	SetHubPublicProfile(ctx context.Context, arg SetHubPublicProfileParams) (SetHubPublicProfileRow, error)
 	SetHubResidentCountry(ctx context.Context, arg SetHubResidentCountryParams) (bool, error)
+	SetOrgGoogleSignIn(ctx context.Context, arg SetOrgGoogleSignInParams) error
+	SetOrgPaymentMethod(ctx context.Context, arg SetOrgPaymentMethodParams) error
+	// Replaces the direct grants of every target with one set. After the change
+	// the Org must still have an active superadmin: one outside the set, or a
+	// target that keeps the grant.
+	SetOrgUserPermissions(ctx context.Context, arg SetOrgUserPermissionsParams) (string, error)
 	// Call before IssueHubEmailChangeChallenge in the same transaction.
 	// Sibling data-modifying CTEs cannot reliably vacate the active-user index.
 	SupersedeHubEmailChangeChallenges(ctx context.Context, hubUserDid pgtype.UUID) (int64, error)
@@ -340,6 +462,9 @@ type Querier interface {
 	// An in-flight PutObject is bounded to 30 seconds; delay deletion for one
 	// minute so a superseded upload cannot recreate bytes after the worker deletes.
 	SupersedeHubProfilePictureUploads(ctx context.Context, arg SupersedeHubProfilePictureUploadsParams) (int32, error)
+	// An in-flight PutObject is bounded to 30 seconds; delay deletion for one
+	// minute so a superseded upload cannot recreate bytes after the worker deletes.
+	SupersedeOrgLogoUploads(ctx context.Context, arg SupersedeOrgLogoUploadsParams) (int32, error)
 	UpdateHubCertification(ctx context.Context, arg UpdateHubCertificationParams) (UpdateHubCertificationRow, error)
 	UpdateHubEducationalQualification(ctx context.Context, arg UpdateHubEducationalQualificationParams) (UpdateHubEducationalQualificationRow, error)
 	UpdateHubSignupDomain(ctx context.Context, arg UpdateHubSignupDomainParams) (UpdateHubSignupDomainRow, error)

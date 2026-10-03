@@ -2,15 +2,21 @@ package orgs
 
 import (
 	"context"
+	"slices"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	directoryspec "github.com/vetchium/src/typespec/directory"
+	subscriptionspec "github.com/vetchium/src/typespec/orgs/subscriptions"
 	"github.com/vetchium/src/typespec/problem"
 
 	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/imagesanitize"
+	"backend/internal/oidc"
 	"backend/internal/orgs/auth"
+	"backend/internal/orgs/billing"
 	"backend/internal/orgs/domainverification"
 	"backend/internal/orgs/signupcompletion"
 	"backend/internal/regions"
@@ -37,9 +43,44 @@ type Server struct {
 	TenantID      string
 	SessionTTL    time.Duration
 	SignupTTL     time.Duration
+	InvitationTTL time.Duration
 	PublicBaseURL string
 	CredentialKey [32]byte
 	Now           func() time.Time
+
+	// OfferedPlans are the plans this tenant sells; Free is always among
+	// them. Billing times the dunning lifecycle. Charger collects payment and
+	// is the simulated one in every environment.
+	OfferedPlans []subscriptionspec.Plan
+	Billing      billing.Config
+	Charger      billing.Charger
+
+	// Logos is the tenant's object store for Org logos.
+	Logos LogoStorage
+
+	// GoogleSignIn is nil when the tenant does not offer Google sign-in.
+	GoogleSignIn SSOProvider
+}
+
+// SSOProvider is the OpenID Connect client for one identity provider.
+type SSOProvider interface {
+	NewVerifier() string
+	AuthorizationURL(
+		ctx context.Context, state, nonce, verifier, hostedDomain string,
+	) (string, error)
+	Exchange(ctx context.Context, code, verifier string) (oidc.Claims, error)
+}
+
+// LogoStorage stores Org logos and signs short-lived read URLs for them.
+type LogoStorage interface {
+	PutLogo(context.Context, pgtype.UUID, imagesanitize.Image) error
+	DeleteLogo(context.Context, pgtype.UUID) error
+	SignLogoGet(context.Context, pgtype.UUID) (string, error)
+}
+
+// Offers reports whether this tenant offers plan.
+func (s *Server) Offers(plan subscriptionspec.Plan) bool {
+	return slices.Contains(s.OfferedPlans, plan)
 }
 
 func (s *Server) CurrentTime() time.Time {

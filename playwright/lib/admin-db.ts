@@ -52,6 +52,102 @@ export type TestTenant = "deu" | "sgp" | "ind1" | "usa1";
 export const AUDIT_FAULT_LOCK =
   "SELECT pg_advisory_xact_lock(hashtext('vetchium-e2e-audit-faults'));";
 
+/**
+ * A psql session on a tenant database that stays open between statements, so
+ * a test can hold a lock while an API request waits on it, then commit.
+ */
+export interface HeldTenantSession {
+  /** The session's backend pid, to find requests blocked on it. */
+  pid: number;
+  /** Runs `sql` and resolves once psql has finished it. */
+  run(sql: string): Promise<void>;
+  /** Ends the session; a transaction still open is rolled back. */
+  close(): Promise<void>;
+}
+
+export async function openTenantSession(
+  tenant: TestTenant,
+): Promise<HeldTenantSession> {
+  const session = spawn(
+    "docker",
+    [
+      "compose",
+      "-f",
+      resolve(repositoryRoot, "docker-compose-ci.json"),
+      "exec",
+      "-T",
+      `db-${tenant}`,
+      "env",
+      "PGPASSWORD=pgpassword",
+      "psql",
+      "-X",
+      "-q",
+      "-A",
+      "-t",
+      "-U",
+      "pguser",
+      "-d",
+      "tenant_db",
+      "-v",
+      "ON_ERROR_STOP=1",
+    ],
+    { cwd: repositoryRoot, stdio: ["pipe", "pipe", "pipe"] },
+  );
+  let stdout = "";
+  let stderr = "";
+  session.stdout.setEncoding("utf8");
+  session.stderr.setEncoding("utf8");
+  session.stdout.on("data", (chunk: string) => {
+    stdout += chunk;
+  });
+  session.stderr.on("data", (chunk: string) => {
+    stderr += chunk;
+  });
+  const exited = new Promise<number | null>((resolvePromise) => {
+    session.once("exit", resolvePromise);
+  });
+  const run = (sql: string): Promise<string> => {
+    const marker = `held_session_${randomBytes(8).toString("hex")}`;
+    const start = stdout.length;
+    session.stdin.write(`${sql}\nSELECT '${marker}';\n`);
+    return new Promise((resolvePromise, reject) => {
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error(`held SQL session timed out: ${stderr}`));
+      }, 30_000);
+      const onData = () => {
+        const index = stdout.indexOf(marker, start);
+        if (index >= 0) {
+          cleanup();
+          resolvePromise(stdout.slice(start, index).trim());
+        }
+      };
+      const onExit = () => {
+        cleanup();
+        reject(new Error(`held SQL session exited: ${stderr}`));
+      };
+      const cleanup = () => {
+        clearTimeout(timeout);
+        session.stdout.off("data", onData);
+        session.off("exit", onExit);
+      };
+      session.stdout.on("data", onData);
+      session.once("exit", onExit);
+    });
+  };
+  const pid = Number(await run("SELECT pg_backend_pid();"));
+  return {
+    pid,
+    run: async (sql) => {
+      await run(sql);
+    },
+    close: async () => {
+      session.stdin.end();
+      await exited;
+    },
+  };
+}
+
 export function sqlScalarForTenant(tenant: TestTenant, sql: string): string {
   return execFileSync(
     "docker",

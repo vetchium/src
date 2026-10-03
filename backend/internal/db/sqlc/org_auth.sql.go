@@ -16,7 +16,14 @@ SELECT
     u.org_user_id,
     u.org_did,
     s.org_session_id,
-    s.authenticated_at
+    s.authenticated_at,
+    o.org_state,
+    ARRAY(
+        SELECT e.permission
+        FROM vetchium.org_effective_permissions AS e
+        WHERE e.org_user_id = u.org_user_id
+        ORDER BY e.permission
+    )::text[] AS permissions
 FROM vetchium.org_sessions AS s
 JOIN vetchium.org_users AS u USING (org_user_id)
 JOIN vetchium.orgs AS o ON o.org_did = u.org_did
@@ -31,6 +38,8 @@ type AuthenticateOrgSessionRow struct {
 	OrgDid          pgtype.UUID        `json:"org_did"`
 	OrgSessionID    pgtype.UUID        `json:"org_session_id"`
 	AuthenticatedAt pgtype.Timestamptz `json:"authenticated_at"`
+	OrgState        VetchiumOrgState   `json:"org_state"`
+	Permissions     []string           `json:"permissions"`
 }
 
 func (q *Queries) AuthenticateOrgSession(ctx context.Context, sessionTokenHash []byte) (AuthenticateOrgSessionRow, error) {
@@ -41,6 +50,8 @@ func (q *Queries) AuthenticateOrgSession(ctx context.Context, sessionTokenHash [
 		&i.OrgDid,
 		&i.OrgSessionID,
 		&i.AuthenticatedAt,
+		&i.OrgState,
+		&i.Permissions,
 	)
 	return i, err
 }
@@ -525,6 +536,7 @@ SELECT
     u.org_user_id,
     u.org_did,
     u.org_user_state,
+    u.disabled_reason,
     u.preferred_language,
     p.password_hash,
     (t.org_user_id IS NOT NULL)::boolean AS totp_enabled
@@ -552,6 +564,7 @@ type GetOrgUserForLoginRow struct {
 	OrgUserID         pgtype.UUID          `json:"org_user_id"`
 	OrgDid            pgtype.UUID          `json:"org_did"`
 	OrgUserState      VetchiumOrgUserState `json:"org_user_state"`
+	DisabledReason    pgtype.Text          `json:"disabled_reason"`
 	PreferredLanguage string               `json:"preferred_language"`
 	PasswordHash      string               `json:"password_hash"`
 	TotpEnabled       bool                 `json:"totp_enabled"`
@@ -566,6 +579,7 @@ func (q *Queries) GetOrgUserForLogin(ctx context.Context, arg GetOrgUserForLogin
 		&i.OrgUserID,
 		&i.OrgDid,
 		&i.OrgUserState,
+		&i.DisabledReason,
 		&i.PreferredLanguage,
 		&i.PasswordHash,
 		&i.TotpEnabled,

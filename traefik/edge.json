@@ -11,6 +11,11 @@
         "service": "orgs-ui",
         "entryPoints": ["web"]
       },
+      "oidc-dev": {
+        "rule": "Host(`oidc.vetchium.localhost`)",
+        "service": "oidc-dev",
+        "entryPoints": ["web"]
+      },
       "sgp-api": {
         "rule": "Host(`sgp.api.vetchium.localhost`)",
         "service": "sgp",
@@ -53,6 +58,15 @@
       }
     },
     "services": {
+      "oidc-dev": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://oidc-dev:8080"
+            }
+          ]
+        }
+      },
       "hub-ui": {
         "loadBalancer": {
           "servers": [

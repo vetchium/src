@@ -44,7 +44,10 @@ the same shape rather than invent a second one.
   `DirectPermissions` before writing.
 - Build screens from the catalog, never a fixed list of access levels — a tier
   such as "manager" or "viewer" stops meaning anything once a second unrelated
-  permission exists.
+  permission exists. The one exception is the Org role presets (Superadmin,
+  Finance, User manager, Member): a preset only pre-ticks the catalog
+  checkboxes, which stay authoritative, and a member whose grants match no
+  preset is labelled Custom. The label is derived in the portal, never stored.
 - Label a defined permission with its translated name, as uppercase
   underscore-separated jargon such as `MANAGE_ADMINISTRATORS` wherever the
   language has uppercase forms. Label an undefined one with its raw identifier.
@@ -57,8 +60,9 @@ the same shape rather than invent a second one.
 - Enforce it as a predicate inside the statement that removes a grant or
   disables a user, never as a handler pre-check. `SetAdminPermissions` and
   `DisableAdminUser` in `backend/internal/db/queries/` are the examples; both
-  report the refusal through the same problem type. No Org statement can remove
-  the grant yet; the first one must enforce it.
+  report the refusal through the same problem type. Every Org statement that
+  disables a user or replaces grants (`DisableOrgUsers`,
+  `SetOrgUserPermissions`, and their bulk forms) enforces it the same way.
 - Concurrent demotions of different users each see the other still qualifying,
   so the predicate does not close that race; closing it needs a deferred
   constraint trigger or a serializable transaction.
@@ -67,10 +71,20 @@ the same shape rather than invent a second one.
   handler branch, and record in the operation's documentation why Playwright
   cannot exercise it.
 
+## Delegation
+
+- A permission that lets a user manage others must not let them grant
+  themselves more. In Orgs, `org:manage_users` may not grant or revoke
+  `org:superadmin` or `org:manage_billing`, nor disable or re-enable a
+  superadmin; refuse with a problem that names the target. Enforce it in the
+  statement or in the handler before it, for every target of a bulk request.
+- No one changes their own grants or disables themselves.
+
 ## Step-up authentication
 
 - Require recent authentication to change a password, enroll or disable a
   second factor, regenerate recovery codes, or change what a user may do.
+- It also guards turning Org Google sign-in on or off.
 - Do not require it for ordinary administration (inviting or disabling a user,
   reading a list) — the permission check is the control, and routine prompts
   train users to re-enter credentials without reading.

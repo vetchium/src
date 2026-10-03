@@ -34,6 +34,8 @@ interface RequestOptions {
   body?: unknown;
   idempotencyKey?: IdempotencyKey;
   method?: "GET" | "POST";
+  /** The media type of a binary body the caller already encoded. */
+  contentType?: string;
   /** The region a signed-out flow talks to: the page's picker or an emailed
    * link. Such a request carries no session token unless `token` is given. */
   tenantId?: string;
@@ -51,6 +53,9 @@ export function apiRequest<Response>(
   const headers: Record<string, string> = {};
   if (options.idempotencyKey !== undefined) {
     headers["Idempotency-Key"] = options.idempotencyKey;
+  }
+  if (options.contentType !== undefined) {
+    headers["Content-Type"] = options.contentType;
   }
   let origin: string | undefined;
   if (options.tenantId !== undefined) {

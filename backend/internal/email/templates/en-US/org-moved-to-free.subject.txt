@@ -1,0 +1,1 @@
+{{.Domain}} moved to the Free plan on Vetchium

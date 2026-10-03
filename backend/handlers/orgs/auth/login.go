@@ -56,6 +56,12 @@ func Login(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		if user.OrgUserState != sqlc.VetchiumOrgUserStateActive {
+			if user.DisabledReason.String == "nonpayment" {
+				s.Problem(
+					r.Context(), w, orgsproblem.OrgUserDisabledNonpaymentError,
+				)
+				return
+			}
 			s.Problem(r.Context(), w, orgsproblem.OrgUserDisabledError)
 			return
 		}

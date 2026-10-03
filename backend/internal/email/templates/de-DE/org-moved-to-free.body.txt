@@ -1,0 +1,1 @@
+Die Rechnung der Organisation {{.Domain}} blieb unbezahlt, daher wechselte die Organisation in den Free-Tarif und Benutzer über dessen Grenze hinaus wurden deaktiviert. Wechseln Sie im Vetchium-Portal für Organisationen wieder auf einen höheren Tarif und aktivieren Sie die Benutzer dann auf der Seite „Mitglieder“ wieder.

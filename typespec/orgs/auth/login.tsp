@@ -78,6 +78,7 @@ interface LoginOperations {
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.InvalidOrgCredentialsErrorResponse
     | Vetchium.Problem.OrgUserDisabledErrorResponse
+    | Vetchium.Problem.OrgUserDisabledNonpaymentErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 

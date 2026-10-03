@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en-US">
+  <body>
+    <p>You have been invited to join the {{.Domain}} Org on Vetchium. Use this private link to set your password and activate your account:</p>
+    <p><a href="{{.ActionURL}}">Accept the invitation</a></p>
+    <p>Do not forward this email. Anyone with this link can accept the invitation.</p>
+    <p>This invitation expires at {{.ExpiresAt.UTC.Format "02 Jan 2006 15:04 UTC"}}. If you were not expecting it, you can ignore this email.</p>
+  </body>
+</html>

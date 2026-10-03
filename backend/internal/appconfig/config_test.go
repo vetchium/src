@@ -435,6 +435,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
   "orgsAPIServer": {
     "sessionTTL": "12h",
     "signupTTL": "168h",
+    "invitationTTL": "168h",
     "publicBaseURL": "http://orgs.vetchium.localhost/"
   },
   "orgDomainVerification": {
@@ -445,6 +446,14 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "failingGracePeriod": "720h",
     "inconclusiveRetry": "1h",
     "inconclusiveLimit": "168h"
+  },
+  "orgBilling": {
+    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
+    "gracePeriod": "336h",
+    "retryOffsets": ["72h", "168h", "264h"],
+    "dueWarningLeads": ["168h", "72h", "24h"],
+    "downgradeWarningLeads": ["168h", "24h"],
+    "checkInterval": "1m"
   },
   "mcpServer": {}
 }`, passwordFile)
@@ -675,6 +684,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
   "orgsAPIServer": {
     "sessionTTL": "12h",
     "signupTTL": "168h",
+    "invitationTTL": "168h",
     "publicBaseURL": "http://orgs.vetchium.localhost/"
   },
   "orgDomainVerification": {
@@ -685,6 +695,14 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "failingGracePeriod": "720h",
     "inconclusiveRetry": "1h",
     "inconclusiveLimit": "168h"
+  },
+  "orgBilling": {
+    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
+    "gracePeriod": "336h",
+    "retryOffsets": ["72h", "168h", "264h"],
+    "dueWarningLeads": ["168h", "72h", "24h"],
+    "downgradeWarningLeads": ["168h", "24h"],
+    "checkInterval": "1m"
   },
   "mcpServer": {}
 }`, passwordFile, extraWorkerField)

@@ -77,7 +77,15 @@
   "orgsAPIServer": {
     "sessionTTL": "24h",
     "signupTTL": "168h",
+    "invitationTTL": "168h",
     "publicBaseURL": "http://orgs.vetchium.localhost",
+    "googleSignIn": {
+      "issuer": "http://oidc.vetchium.localhost",
+      "discoveryURL": "http://oidc-dev:8080",
+      "clientID": "vetchium-dev.apps.googleusercontent.com",
+      "clientSecretFile": "/run/secrets/google_oidc_client_secret",
+      "redirectURI": "http://orgs.vetchium.localhost/sso/google/callback"
+    },
     "signup": {
       "enabled": true
     }
@@ -90,6 +98,14 @@
     "failingGracePeriod": "1h",
     "inconclusiveRetry": "1m",
     "inconclusiveLimit": "1h"
+  },
+  "orgBilling": {
+    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
+    "gracePeriod": "1h",
+    "retryOffsets": ["10m", "20m", "40m"],
+    "dueWarningLeads": ["30m", "15m", "5m"],
+    "downgradeWarningLeads": ["168h", "24h"],
+    "checkInterval": "10s"
   },
   "mcpServer": {},
   "signupRegionsFile": "/etc/vetchium/signup-regions.json"

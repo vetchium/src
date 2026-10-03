@@ -1,15 +1,19 @@
 package account
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs"
 	orgsaccount "github.com/vetchium/src/typespec/orgs/account"
 	"github.com/vetchium/src/typespec/orgs/authorization"
+	"github.com/vetchium/src/typespec/orgs/subscriptions"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
 	"backend/internal/db/sqlc"
@@ -18,6 +22,8 @@ import (
 	"backend/internal/middleware"
 	orgsruntime "backend/internal/orgs"
 	orgsauthn "backend/internal/orgs/auth"
+	"backend/internal/orgs/billing"
+	"backend/internal/orgs/billingdb"
 	"backend/internal/orgs/domainverification"
 )
 
@@ -39,6 +45,19 @@ func MyInfo(s *orgsruntime.Server) http.HandlerFunc {
 				permissions, authorization.OrgPermissionID(permission),
 			)
 		}
+		plan, notice, err := billingView(
+			r.Context(), s, identity.OrgDID,
+			slices.Contains(info.Permissions, string(authorization.ManageBilling)),
+		)
+		if err != nil {
+			s.InternalError(r.Context(), w, "get Org billing view", err)
+			return
+		}
+		logoURL, err := logoReadURL(r.Context(), s, identity.OrgDID)
+		if err != nil {
+			s.InternalError(r.Context(), w, "sign Org logo URL", err)
+			return
+		}
 		s.JSON(r.Context(), w, http.StatusOK, orgsaccount.MyInfoResponse{
 			EmailAddress:      common.EmailAddress(info.EmailAddress),
 			PreferredLanguage: orgs.FrontendLocale(info.PreferredLanguage),
@@ -49,8 +68,69 @@ func MyInfo(s *orgsruntime.Server) http.HandlerFunc {
 			),
 			SessionAuthenticatedAt: identity.AuthenticatedAt.UTC(),
 			Org:                    summary(s, info),
+			PlanOID:                plan,
+			LogoURL:                logoURL,
+			GoogleSignInEnabled: info.GoogleSignInEnabled &&
+				plan == subscriptions.PlanOID(subscriptions.GoldTier),
+			BillingNotice: notice,
 		})
 	}
+}
+
+// logoReadURL signs a short-lived read URL for the Org's logo, or returns nil
+// when it has none or the object store is not configured.
+func logoReadURL(
+	ctx context.Context, s *orgsruntime.Server, orgDID pgtype.UUID,
+) (*string, error) {
+	if s.Logos == nil {
+		return nil, nil
+	}
+	objectID, err := s.Queries.GetActiveOrgLogo(ctx, orgDID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	signed, err := s.Logos.SignLogoGet(ctx, objectID)
+	if err != nil {
+		return nil, err
+	}
+	return &signed, nil
+}
+
+// billingView is the plan the Org is on now and the billing notice the user
+// sees. A due transition is computed in memory, as for my-subscription.
+func billingView(
+	ctx context.Context, s *orgsruntime.Server, orgDID pgtype.UUID,
+	billingHolder bool,
+) (subscriptions.PlanOID, *orgsaccount.BillingNotice, error) {
+	row, err := s.Queries.GetOrgSubscription(ctx, orgDID)
+	if err != nil {
+		return "", nil, err
+	}
+	state, err := billing.StateFromStored(billingdb.StoredFromRow(orgDID, row))
+	if err != nil {
+		return "", nil, err
+	}
+	now := billing.Instant(s.CurrentTime())
+	advanced, _ := billing.Advance(state, now, s.Billing, s.Charger)
+	banner := billing.NoticeFor(advanced, now, billingHolder)
+	if banner == nil {
+		return subscriptions.PlanOID(advanced.Plan), nil, nil
+	}
+	notice := &orgsaccount.BillingNotice{
+		At: banner.At.UTC(), Banner: banner.Banner,
+	}
+	switch banner.Kind {
+	case billing.NoticePaymentDue:
+		notice.Kind = orgsaccount.NoticePastDue
+	default:
+		notice.Kind = orgsaccount.NoticeSubscriptionEnding
+		plan := subscriptions.PlanOID(banner.ScheduledPlan)
+		notice.ScheduledPlanOID = &plan
+	}
+	return subscriptions.PlanOID(advanced.Plan), notice, nil
 }
 
 // CheckDomain looks up the Org's TXT record now. Only a superadmin may, since

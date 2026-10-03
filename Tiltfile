@@ -57,7 +57,7 @@ def portal_link(host):
 
 # Every resource carries its tenant and its role as labels, so the UI can be
 # sliced either way: one tenant's whole stack, or every tenant's hub-api.
-enabled = ['edge', 'mailpit', 'dns-dev', 'global-db', 'global-migrate', 'global-coordinator',
+enabled = ['edge', 'mailpit', 'dns-dev', 'oidc-dev', 'global-db', 'global-migrate', 'global-coordinator',
            'hub-ui', 'orgs-ui']
 portal_links = []
 
@@ -97,6 +97,9 @@ dc_resource('mailpit', labels=['shared'], trigger_mode=trigger,
 # The development DNS server publishes only its record-management API, which
 # needs an API key, so there is no page worth linking.
 dc_resource('dns-dev', labels=['shared'], trigger_mode=trigger)
+# The stand-in for Google sign-in has no page of its own; browsers reach it
+# through the edge as oidc.vetchium.localhost during a sign-in.
+dc_resource('oidc-dev', labels=['shared'], trigger_mode=trigger)
 dc_resource('global-db', labels=['shared', 'database'], trigger_mode=trigger)
 dc_resource('global-migrate', labels=['shared', 'database'], trigger_mode=trigger)
 dc_resource('global-coordinator', labels=['shared'], trigger_mode=trigger)

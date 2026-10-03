@@ -25,6 +25,7 @@ GLOBAL_APP_PASSWORD_FILE := $(DEV_SECRETS_DIR)/global_app_postgres_password
 ADMIN_KEY_FILE        := $(DEV_SECRETS_DIR)/admin_credential_key
 HUB_KEY_FILE          := $(DEV_SECRETS_DIR)/hub_credential_key
 ORGS_KEY_FILE         := $(DEV_SECRETS_DIR)/orgs_credential_key
+GOOGLE_OIDC_SECRET_FILE := $(DEV_SECRETS_DIR)/google_oidc_client_secret
 IDENTITY_DIGEST_KEY_FILE := $(DEV_SECRETS_DIR)/identity_digest_key
 MESH_KEY_FILE         := $(DEV_SECRETS_DIR)/mesh_credential
 MESH_CA_FILE          := $(DEV_SECRETS_DIR)/mesh_ca_certificate
@@ -205,6 +206,8 @@ dev-secrets:
 	else \
 		umask 077; printf '%s' "$$ORGS_CREDENTIAL_KEY" > "$(ORGS_KEY_FILE)"; \
 	fi
+	@test -f "$(GOOGLE_OIDC_SECRET_FILE)" || \
+		{ umask 077; printf '%s' dev-google-oidc-client-secret > "$(GOOGLE_OIDC_SECRET_FILE)"; }
 	@if [ -f "$(MESH_KEY_FILE)" ]; then \
 		current=$$(cat "$(MESH_KEY_FILE)"); \
 		test "$$current" = "$$MESH_CREDENTIAL" || \
@@ -401,6 +404,7 @@ orgs-ui-deps:
 orgs-ui-check-ready: orgs-ui-deps
 	cd orgs-ui && npm run format:check
 	cd orgs-ui && npm run typecheck
+	cd orgs-ui && npm test
 	cd orgs-ui && npm audit --audit-level=high
 	cd orgs-ui && VITE_VETCHIUM_ENVIRONMENT=production npm run build
 

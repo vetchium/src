@@ -11,8 +11,9 @@
 //   - "hub-profiles" seeds Hub user profiles from a hand-edited fixture file
 //     under dev/hub-seed-profiles/. It runs on demand, from the host, via
 //     `make dev-seed-hub-profiles`.
-//   - "orgs" signs one Org up per tenant through the Org signup API, with its
-//     TXT record published in the development DNS server. It runs on demand,
+//   - "orgs" creates an Org per plan in each tenant through the Org APIs (signup
+//     with its TXT record published in the development DNS server, a simulated
+//     card, the plan, and one invited user per role preset). It runs on demand,
 //     from the host, via `make dev-seed-orgs`.
 //
 // It is never built into a production image and never deployed.

@@ -1,15 +1,41 @@
 import { Spin } from "antd";
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router";
+import {
+  ManageBilling,
+  ManageUsers,
+  Superadmin,
+} from "typespec/orgs/authorization/types";
 import { AppShell } from "../components/common/AppShell";
 import {
   ActiveOrgRoute,
+  PermissionRoute,
   ProtectedRoute,
 } from "../components/common/ProtectedRoute";
 import { PublicShell } from "../components/common/PublicShell";
 import { RecentAuthenticationRoute } from "../components/common/RecentAuthenticationRoute";
 import { paths } from "./paths";
 
+const AcceptInvitationPage = lazy(() =>
+  import("../pages/AcceptInvitationPage").then(({ AcceptInvitationPage }) => ({
+    default: AcceptInvitationPage,
+  })),
+);
+const SettingsPage = lazy(() =>
+  import("../pages/SettingsPage").then(({ SettingsPage }) => ({
+    default: SettingsPage,
+  })),
+);
+const PlansPage = lazy(() =>
+  import("../pages/PlansPage").then(({ PlansPage }) => ({
+    default: PlansPage,
+  })),
+);
+const MembersPage = lazy(() =>
+  import("../pages/MembersPage").then(({ MembersPage }) => ({
+    default: MembersPage,
+  })),
+);
 const CompleteSignupPage = lazy(() =>
   import("../pages/CompleteSignupPage").then(({ CompleteSignupPage }) => ({
     default: CompleteSignupPage,
@@ -18,6 +44,11 @@ const CompleteSignupPage = lazy(() =>
 const ForgotPasswordPage = lazy(() =>
   import("../pages/ForgotPasswordPage").then(({ ForgotPasswordPage }) => ({
     default: ForgotPasswordPage,
+  })),
+);
+const GoogleCallbackPage = lazy(() =>
+  import("../pages/GoogleCallbackPage").then(({ GoogleCallbackPage }) => ({
+    default: GoogleCallbackPage,
   })),
 );
 const HomePage = lazy(() =>
@@ -99,6 +130,14 @@ export function App() {
           }
         />
         <Route
+          path={paths.googleCallback}
+          element={
+            <Page>
+              <GoogleCallbackPage />
+            </Page>
+          }
+        />
+        <Route
           path={paths.twoFactor}
           element={
             <Page>
@@ -111,6 +150,14 @@ export function App() {
           element={
             <Page>
               <ForgotPasswordPage />
+            </Page>
+          }
+        />
+        <Route
+          path={paths.acceptInvitation}
+          element={
+            <Page>
+              <AcceptInvitationPage />
             </Page>
           }
         />
@@ -153,7 +200,39 @@ export function App() {
               </Page>
             }
           />
+          {/* A suspended Org is still billed, so billing holders keep this page
+              to pay and fix the card; it locks plan changes while suspended. */}
+          <Route element={<PermissionRoute permission={ManageBilling} />}>
+            <Route
+              path={paths.plans}
+              element={
+                <Page>
+                  <PlansPage />
+                </Page>
+              }
+            />
+          </Route>
           <Route element={<ActiveOrgRoute />}>
+            <Route element={<PermissionRoute permission={Superadmin} />}>
+              <Route
+                path={paths.settings}
+                element={
+                  <Page>
+                    <SettingsPage />
+                  </Page>
+                }
+              />
+            </Route>
+            <Route element={<PermissionRoute permission={ManageUsers} />}>
+              <Route
+                path={paths.members}
+                element={
+                  <Page>
+                    <MembersPage />
+                  </Page>
+                }
+              />
+            </Route>
             <Route
               index
               element={

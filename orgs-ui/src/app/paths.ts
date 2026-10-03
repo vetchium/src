@@ -4,11 +4,16 @@ export const paths = {
   completeSignup: "/complete-signup",
   login: "/login",
   twoFactor: "/login/two-factor",
+  googleCallback: "/sso/google/callback",
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
   reauthenticate: "/reauthenticate",
   security: "/security",
   restoreDomain: "/restore-domain",
+  members: "/members",
+  plans: "/plans",
+  settings: "/settings",
+  acceptInvitation: "/accept-invitation",
 } as const;
 
 /** Sign-in with the Org domain prefilled, as emailed links and completed

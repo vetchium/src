@@ -6,4 +6,5 @@ const (
 	LoginTokenChallenge    = `VetchiumLoginChallenge realm="orgs"`
 	SignupChallenge        = `VetchiumSignup realm="orgs"`
 	PasswordResetChallenge = `VetchiumPasswordReset realm="orgs"`
+	InvitationChallenge    = `VetchiumInvitation realm="orgs"`
 )

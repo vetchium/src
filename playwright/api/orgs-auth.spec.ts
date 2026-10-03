@@ -68,7 +68,11 @@ test.describe("Org sign-in", () => {
       const info = await orgInfo(api, login.session_token);
       expect(info).toMatchObject({
         email_address: org.emailAddress,
-        permissions: ["org:superadmin"],
+        permissions: [
+          "org:manage_billing",
+          "org:manage_users",
+          "org:superadmin",
+        ],
         totp_enabled: false,
         recovery_codes_remaining: 0,
         org: {
@@ -172,7 +176,8 @@ test.describe("Org sign-in", () => {
     const org = await signupOrg(api);
     try {
       orgSQL(
-        `UPDATE vetchium.org_users SET org_user_state = 'disabled'
+        `UPDATE vetchium.org_users SET org_user_state = 'disabled',
+           disabled_reason = 'manual', disabled_at = now()
          WHERE email_address = '${org.emailAddress}'`,
       );
       await expectProblem(

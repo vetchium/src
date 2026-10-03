@@ -8,7 +8,31 @@ import { expect } from "@playwright/test";
 import type { MyInfoResponse } from "typespec/orgs/account/account";
 import type { LoginResponse } from "typespec/orgs/auth/login";
 import type { CompleteSignupResponse } from "typespec/orgs/auth/signup";
+import type {
+  ListInvoicesRequest,
+  PayInvoiceRequest,
+  SetPaymentMethodRequest,
+  SetSubscriptionPlanRequest,
+} from "typespec/orgs/subscriptions/subscriptions";
 import type { OrgDomain } from "typespec/orgs/types";
+import type {
+  AcceptInvitationRequest,
+  AcceptInvitationResponse,
+  CancelInvitationsRequest,
+  GetInvitationDetailsRequest,
+  InviteUsersRequest,
+  ListInvitationsRequest,
+  ResendInvitationRequest,
+} from "typespec/orgs/users/invitations";
+import type {
+  BulkDisableUsersRequest,
+  BulkEnableUsersRequest,
+  BulkSetUserPermissionsRequest,
+  DisableUserRequest,
+  EnableUserRequest,
+  ListUsersRequest,
+  SetUserPermissionsRequest,
+} from "typespec/orgs/users/management";
 import {
   AUDIT_FAULT_LOCK,
   type AuditEvent,
@@ -73,11 +97,243 @@ export class OrgsAPI {
     });
   }
 
+  inviteUsers(
+    token: string,
+    request: InviteUsersRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/invite-users", request, { token, idempotencyKey });
+  }
+
+  listInvitations(
+    token: string,
+    request: ListInvitationsRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-invitations", request, { token });
+  }
+
+  resendInvitation(
+    token: string,
+    request: ResendInvitationRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/resend-invitation", request, { token, idempotencyKey });
+  }
+
+  cancelInvitations(
+    token: string,
+    request: CancelInvitationsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/cancel-invitations", request, { token });
+  }
+
+  getInvitationDetails(
+    request: GetInvitationDetailsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-invitation-details", request);
+  }
+
+  acceptInvitation(
+    request: AcceptInvitationRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/accept-invitation", request, { idempotencyKey });
+  }
+
+  listUsers(
+    token: string,
+    request: ListUsersRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-users", request, { token });
+  }
+
+  userSummary(token: string): Promise<APIResponse> {
+    return this.post("/user-summary", undefined, { token });
+  }
+
+  disableUser(
+    token: string,
+    request: DisableUserRequest,
+  ): Promise<APIResponse> {
+    return this.post("/disable-user", request, { token });
+  }
+
+  bulkDisableUsers(
+    token: string,
+    request: BulkDisableUsersRequest,
+  ): Promise<APIResponse> {
+    return this.post("/bulk-disable-users", request, { token });
+  }
+
+  enableUser(token: string, request: EnableUserRequest): Promise<APIResponse> {
+    return this.post("/enable-user", request, { token });
+  }
+
+  bulkEnableUsers(
+    token: string,
+    request: BulkEnableUsersRequest,
+  ): Promise<APIResponse> {
+    return this.post("/bulk-enable-users", request, { token });
+  }
+
+  setUserPermissions(
+    token: string,
+    request: SetUserPermissionsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/set-user-permissions", request, { token });
+  }
+
+  bulkSetUserPermissions(
+    token: string,
+    request: BulkSetUserPermissionsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/bulk-set-user-permissions", request, { token });
+  }
+
+  listPermissions(token?: string): Promise<APIResponse> {
+    return this.request.get(`${this.origin}/api/orgs/list-permissions`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  }
+
+  mySubscription(token?: string): Promise<APIResponse> {
+    return this.request.get(`${this.origin}/api/orgs/my-subscription`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  }
+
+  setSubscriptionPlan(
+    token: string,
+    request: SetSubscriptionPlanRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/set-subscription-plan", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  setPaymentMethod(
+    token: string,
+    request: SetPaymentMethodRequest,
+  ): Promise<APIResponse> {
+    return this.post("/set-payment-method", request, { token });
+  }
+
+  removePaymentMethod(token: string): Promise<APIResponse> {
+    return this.post("/remove-payment-method", undefined, { token });
+  }
+
+  listInvoices(
+    token: string,
+    request: ListInvoicesRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-invoices", request, { token });
+  }
+
+  payInvoice(
+    token: string,
+    request: PayInvoiceRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/pay-invoice", request, { token, idempotencyKey });
+  }
+
+  uploadLogo(
+    token: string,
+    contentType: string,
+    body: Buffer,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.request.post(`${this.origin}/api/orgs/logo/upload`, {
+      data: body,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": contentType,
+        "Idempotency-Key": idempotencyKey,
+      },
+    });
+  }
+
+  removeLogo(
+    token: string,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/logo/remove", undefined, { token, idempotencyKey });
+  }
+
+  startGoogleSignIn(domain: string): Promise<APIResponse> {
+    return this.post("/sso/google/start", { domain });
+  }
+
+  completeGoogleSignIn(state: string, code: string): Promise<APIResponse> {
+    return this.post("/sso/google/complete", { state, code });
+  }
+
+  setGoogleSignIn(token: string, enabled: boolean): Promise<APIResponse> {
+    return this.post("/set-google-sign-in", { enabled }, { token });
+  }
+
   myInfo(token?: string): Promise<APIResponse> {
     return this.request.get(`${this.origin}/api/orgs/my-info`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
   }
+}
+
+/** What the development identity provider should say about the account that
+ * signs in. Everything but `email` defaults to a well-formed Workspace
+ * account of the Org's domain. */
+export interface GoogleAccount {
+  email: string;
+  hd?: string;
+  sub?: string;
+  emailVerified?: boolean;
+}
+
+/** Plays the browser at the provider: follows `authorizationUrl` for the
+ * chosen account without following the redirect back, and returns the code
+ * and state the callback would receive. */
+export async function googleAuthorize(
+  request: APIRequestContext,
+  authorizationUrl: string,
+  account: GoogleAccount,
+): Promise<{ code: string; state: string }> {
+  const target = new URL(authorizationUrl);
+  target.searchParams.set("login_hint", account.email);
+  if (account.hd !== undefined) target.searchParams.set("mock_hd", account.hd);
+  if (account.sub !== undefined) {
+    target.searchParams.set("mock_sub", account.sub);
+  }
+  if (account.emailVerified === false) {
+    target.searchParams.set("mock_email_verified", "false");
+  }
+  const response = await request.get(target.toString(), { maxRedirects: 0 });
+  expect(response.status(), await response.text()).toBe(302);
+  const redirect = new URL(response.headers().location ?? "");
+  return {
+    code: redirect.searchParams.get("code") ?? "",
+    state: redirect.searchParams.get("state") ?? "",
+  };
+}
+
+/** Signs in with Google as `account` and returns the completion response. */
+export async function googleSignIn(
+  api: OrgsAPI,
+  domain: string,
+  account: GoogleAccount,
+): Promise<APIResponse> {
+  const started = await api.startGoogleSignIn(domain);
+  expect(started.status(), await started.text()).toBe(200);
+  const { authorization_url } = (await started.json()) as {
+    authorization_url: string;
+  };
+  const { code, state } = await googleAuthorize(
+    api.request,
+    authorization_url,
+    { hd: domain, ...account },
+  );
+  return api.completeGoogleSignIn(state, code);
 }
 
 /** Waits for the newest message to `emailAddress` whose subject contains
@@ -126,6 +382,60 @@ export function signupToken(linkEmail: string, tenant: TestTenant): string {
   const token = emailedLinkToken(linkEmail, "/complete-signup", tenant);
   if (!token) throw new Error(`signup link email carried no ${tenant} token`);
   return token;
+}
+
+/** Reads the newest invitation email to `emailAddress` and returns its
+ * token. */
+export async function invitationToken(
+  request: APIRequestContext,
+  emailAddress: string,
+  tenant: TestTenant = "sgp",
+): Promise<string> {
+  const text = await orgEmailText(request, emailAddress, "invited to join");
+  const token = emailedLinkToken(text, "/accept-invitation", tenant);
+  if (!token) throw new Error(`invitation email carried no ${tenant} token`);
+  return token;
+}
+
+/** An invitee on an Org's domain, with a unique local part. */
+export function inviteeAddress(domain: string, local = "member"): string {
+  return `${local}-${randomUUID().slice(0, 8)}@${domain}`;
+}
+
+export interface OrgMember {
+  domain: OrgDomain;
+  emailAddress: string;
+  password: string;
+  token: string;
+}
+
+/** Invites `emailAddress` with `permissions`, accepts the invitation, and
+ * signs the new user in. */
+export async function addOrgMember(
+  api: OrgsAPI,
+  ownerToken: string,
+  domain: OrgDomain,
+  emailAddress: string,
+  permissions: string[] = [],
+): Promise<OrgMember> {
+  const invited = await api.inviteUsers(ownerToken, {
+    email_addresses: [emailAddress],
+    permissions,
+  });
+  expect(invited.status(), await invited.text()).toBe(200);
+  const password = orgPassword();
+  const accepted = await api.acceptInvitation({
+    invitation_token: await invitationToken(
+      api.request,
+      emailAddress,
+      api.tenant,
+    ),
+    password,
+    preferred_language: "en-US",
+  });
+  expect(accepted.status(), await accepted.text()).toBe(201);
+  const token = await loginOrg(api, { domain, emailAddress, password });
+  return { domain, emailAddress, password, token };
 }
 
 export interface PendingOrgSignup {
@@ -276,6 +586,9 @@ export function cleanupOrg(domain: string, tenant: TestTenant = "sgp"): void {
          WHERE domain = ${value}
          UNION SELECT org_email_outbox_id::text FROM vetchium.org_email_outbox
          WHERE recipient_email_address LIKE ${pattern}
+         UNION SELECT org_invitation_id::text
+         FROM vetchium.org_user_invitations
+         WHERE email_address LIKE ${pattern}
          UNION SELECT t.org_password_reset_token_id::text
          FROM vetchium.org_password_reset_tokens AS t
          JOIN vetchium.org_users AS u USING (org_user_id)
@@ -287,7 +600,10 @@ export function cleanupOrg(domain: string, tenant: TestTenant = "sgp"): void {
     DELETE FROM vetchium.org_email_outbox
     WHERE recipient_email_address LIKE ${pattern};
     DELETE FROM vetchium.idempotency_ledger
-    WHERE binding_id LIKE ${pattern} OR binding_id LIKE ${sqlLiteral(`${domain}/%`)};
+    WHERE binding_id IN (
+      SELECT org_user_id::text FROM vetchium.org_users
+      WHERE email_address LIKE ${pattern}
+    ) OR binding_id LIKE ${pattern} OR binding_id LIKE ${sqlLiteral(`${domain}/%`)};
     DELETE FROM vetchium.orgs WHERE ${hasDID("org_did::text")};
     `,
   );
@@ -337,6 +653,23 @@ export function orgAuditEventsByKey(
     tenant,
     `idempotency_key = ${sqlLiteral(key)}`,
   );
+}
+
+/** The subscription audit actions recorded for an Org, oldest first, whoever
+ * wrote them: a request, or the worker that runs every second in CI. */
+export function orgSubscriptionActions(
+  domain: string,
+  tenant: TestTenant = "sgp",
+): string[] {
+  const list = sqlScalarForTenant(
+    tenant,
+    `SELECT COALESCE(string_agg(action, ',' ORDER BY created_at, audit_event_id), '')
+     FROM vetchium.audit_events
+     WHERE action LIKE 'org.subscription.%'
+       AND entity_id = (SELECT org_did::text FROM vetchium.org_domains
+                        WHERE domain = ${sqlLiteral(domain)})`,
+  );
+  return list === "" ? [] : list.split(",");
 }
 
 export function orgUserID(emailAddress: string, tenant: TestTenant = "sgp") {
