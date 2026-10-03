@@ -67,10 +67,24 @@ Each item: what is not done, and what must be decided first.
   Org profile metadata beyond the logo (description, legal entity); remembered
   Org sessions; Org migration between regions; openings and every other hiring
   feature.
-- Org payments: plans run on simulated cards everywhere, production included.
-  Integrate a real processor before charging, and decide tax, proration,
-  refunds, invoice PDFs, and billing contacts outside the Org
-  (`org-subscriptions.md`).
+- Org payments: launch is blocked on a real provider integration. The provider
+  should own renewals, retries, payment methods, and invoices; Vetchium keeps
+  entitlements and a webhook-fed projection, never card data. Decide provider
+  (per region if needed), proration, when paid entitlements start, tax,
+  refunds, billing contacts, and nonpayment consequences.
+- Approved Org administration redesign, remaining milestones:
+  - M1: remove simulated Org billing; apply free immediate plan changes with
+    seat checks, entitlement effects, authorization, audit, and idempotency.
+  - M2: compact Billing summary, separate comparison, and confirmation of
+    every change. Interval-only changes are labelled as such.
+  - M3: Company name and logo, Organization security, My account, navigation
+    and old-route compatibility; remove incidental email display.
+  - M4: People table and member drawer, permission explanations, bulk actions,
+    and consistent invitations. Preserve bounded server-side operations.
+  - M5: regression, browser/accessibility/locale review, documentation, and
+    full verification. Commit and push verified milestone checkpoints.
+  Rich company fields/maps, real payments, groups/SCIM, and measured enterprise
+  performance are excluded from these milestones.
 - Openings enforcement: only the quota constants and the counting rule exist
   (`internal/orgs/entitlements`). The publish statement must apply it under the
   Org lock.
