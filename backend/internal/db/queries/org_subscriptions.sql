@@ -22,8 +22,10 @@ SELECT
     oi.attempt_count AS open_invoice_attempt_count,
     oi.next_attempt_at AS open_invoice_next_attempt_at,
     oi.last_failure AS open_invoice_last_failure,
-    oi.created_at AS open_invoice_created_at
+    oi.created_at AS open_invoice_created_at,
+    d.domain::text AS domain
 FROM vetchium.orgs AS o
+JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
 LEFT JOIN vetchium.org_payment_methods AS pm ON pm.org_did = o.org_did
 LEFT JOIN vetchium.org_invoices AS oi
     ON oi.org_did = o.org_did AND oi.invoice_state = 'open'
@@ -55,8 +57,10 @@ SELECT
     oi.attempt_count AS open_invoice_attempt_count,
     oi.next_attempt_at AS open_invoice_next_attempt_at,
     oi.last_failure AS open_invoice_last_failure,
-    oi.created_at AS open_invoice_created_at
+    oi.created_at AS open_invoice_created_at,
+    d.domain::text AS domain
 FROM vetchium.orgs AS o
+JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
 LEFT JOIN vetchium.org_payment_methods AS pm ON pm.org_did = o.org_did
 LEFT JOIN vetchium.org_invoices AS oi
     ON oi.org_did = o.org_did AND oi.invoice_state = 'open'
@@ -68,7 +72,13 @@ FOR UPDATE OF o;
 -- already folded, so no change refers to a row another change in the same
 -- statement creates.
 -- name: SaveOrgSubscription :one
-WITH updated AS (
+WITH previous AS (
+    -- Every sub-statement reads the snapshot taken before the UPDATE, so this
+    -- is the Google sign-in setting the change may turn off.
+    SELECT o.google_sign_in_enabled
+    FROM vetchium.orgs AS o
+    WHERE o.org_did = sqlc.arg(org_did)
+), updated AS (
     UPDATE vetchium.orgs AS o
     SET org_plan_oid = sqlc.arg(org_plan_oid),
         org_billing_interval =
@@ -80,9 +90,11 @@ WITH updated AS (
         scheduled_billing_interval =
             sqlc.narg(scheduled_billing_interval)::vetchium.org_billing_interval,
         billing_state = sqlc.arg(billing_state)::vetchium.org_billing_state,
-        -- Leaving Gold turns Google sign-in off in the same statement.
+        -- Leaving the plans that include Google sign-in turns it off in the
+        -- same statement.
         google_sign_in_enabled = o.google_sign_in_enabled
-            AND sqlc.arg(org_plan_oid)::text = 'org-gold-tier',
+            AND sqlc.arg(org_plan_oid)::text
+                = ANY(sqlc.arg(google_sign_in_plan_oids)::text[]),
         updated_at = now()
     WHERE o.org_did = sqlc.arg(org_did)
     RETURNING o.org_did
@@ -169,6 +181,21 @@ WITH updated AS (
         jsonb_build_object('org_plan_oid', sqlc.arg(org_plan_oid)::text)
     FROM logos_queued AS q
     RETURNING audit_event_id
+), google_audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id), 'org.google_sign_in.disabled_by_plan', 'org',
+        sqlc.arg(org_did)::text, 'system', 'subscription-renewal',
+        sqlc.arg(source), sqlc.arg(idempotency_key),
+        jsonb_build_object('org_plan_oid', sqlc.arg(org_plan_oid)::text)
+    FROM previous AS p
+    WHERE p.google_sign_in_enabled
+      AND NOT (sqlc.arg(org_plan_oid)::text
+          = ANY(sqlc.arg(google_sign_in_plan_oids)::text[]))
+    RETURNING audit_event_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, actor_id,
@@ -195,7 +222,8 @@ SELECT
     (SELECT count(*) FROM voided)::bigint AS voided_count,
     (SELECT count(*) FROM audit)::bigint AS audited_count,
     (SELECT count(*) FROM logos_queued)::bigint AS logos_queued_count,
-    (SELECT count(*) FROM logo_audit)::bigint AS logos_audited_count;
+    (SELECT count(*) FROM logo_audit)::bigint AS logos_audited_count,
+    (SELECT count(*) FROM google_audit)::bigint AS google_audited_count;
 
 -- name: SetOrgPaymentMethod :exec
 WITH upserted AS (

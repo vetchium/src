@@ -158,10 +158,11 @@ type Querier interface {
 	// cap; seat_limit is NULL for an unlimited Org.
 	EnableOrgUsers(ctx context.Context, arg EnableOrgUsersParams) (string, error)
 	// The deadline's effect on people, in the transaction that voids the invoice
-	// and drops the Org to Free: disable the users beyond the keep set with
-	// reason nonpayment and end their sessions, cancel every pending invitation,
-	// and queue one email to each disabled user. Disabled users keep their data
-	// and can be re-enabled one at a time.
+	// and drops the Org to Free, whichever of the worker or a request persisted
+	// it: disable the users beyond the keep set with reason nonpayment and end
+	// their sessions, cancel every pending invitation, and queue one email to each
+	// disabled user. Disabled users keep their data and can be re-enabled one at a
+	// time.
 	// The logo and Google sign-in go with the plan: SaveOrgSubscription moves the
 	// Org to Free in the same transaction and clears both.
 	EnforceOrgDeadline(ctx context.Context, arg EnforceOrgDeadlineParams) (EnforceOrgDeadlineRow, error)
@@ -231,8 +232,9 @@ type Querier interface {
 	// released domain was claimed by another local Org, the current owner wins.
 	GetOrgUserForLogin(ctx context.Context, arg GetOrgUserForLoginParams) (GetOrgUserForLoginRow, error)
 	// The user a verified Google identity names, with everything the sign-in
-	// decision reads. Resolved like GetOrgUserForLogin: if a released domain was
-	// claimed by another local Org, the current owner wins.
+	// decision reads. Google sign-in trusts the hosted-domain claim, so only an
+	// Org that still holds the domain qualifies: a released or re-claiming domain
+	// proves nothing, and the claimed-domain index makes the match unique.
 	GetOrgUserForSSO(ctx context.Context, arg GetOrgUserForSSOParams) (GetOrgUserForSSORow, error)
 	GetOrgUserSummary(ctx context.Context, orgDid pgtype.UUID) (GetOrgUserSummaryRow, error)
 	// Reads the users a change targets, in request order, once the caller holds

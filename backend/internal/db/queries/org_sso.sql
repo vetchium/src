@@ -18,8 +18,9 @@ WHERE t.state_hash = sqlc.arg(state_hash)
 RETURNING t.domain::text AS domain, t.nonce_hash, t.verifier_ciphertext;
 
 -- The user a verified Google identity names, with everything the sign-in
--- decision reads. Resolved like GetOrgUserForLogin: if a released domain was
--- claimed by another local Org, the current owner wins.
+-- decision reads. Google sign-in trusts the hosted-domain claim, so only an
+-- Org that still holds the domain qualifies: a released or re-claiming domain
+-- proves nothing, and the claimed-domain index makes the match unique.
 -- name: GetOrgUserForSSO :one
 SELECT
     u.org_user_id,
@@ -44,10 +45,9 @@ JOIN vetchium.org_users AS u
     ON u.org_did = o.org_did
    AND u.email_address = sqlc.arg(email_address)
 WHERE d.domain = sqlc.arg(domain)
+  AND d.domain_state IN ('verified', 'failing', 'releasing')
   AND o.org_state IN ('active', 'suspended')
-  AND u.org_user_state IN ('active', 'disabled')
-ORDER BY (d.domain_state = 'released'), d.created_at DESC
-LIMIT 1;
+  AND u.org_user_state IN ('active', 'disabled');
 
 -- Links the subject on first use, then signs in. Every condition is read
 -- again here, so a plan change, a disablement or a competing link that lands
@@ -58,11 +58,14 @@ WITH eligible AS (
     SELECT u.org_user_id
     FROM vetchium.org_users AS u
     JOIN vetchium.orgs AS o ON o.org_did = u.org_did
+    JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
     WHERE u.org_user_id = sqlc.arg(org_user_id)
       AND u.org_user_state = 'active'
       AND o.org_state IN ('active', 'suspended')
-      AND o.org_plan_oid = 'org-gold-tier'
+      AND o.org_plan_oid = ANY(sqlc.arg(google_sign_in_plan_oids)::text[])
       AND o.google_sign_in_enabled
+      AND d.domain = sqlc.arg(domain)
+      AND d.domain_state IN ('verified', 'failing', 'releasing')
     FOR UPDATE OF u
 ), linked AS (
     INSERT INTO vetchium.org_user_sso_identities (org_user_id, provider, subject)

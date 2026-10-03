@@ -166,6 +166,12 @@ func TestDecideBlocksADowngradeUntilTheOrgFits(t *testing.T) {
 	now := date(2027, time.January, 10, 0)
 	gold := monthlySilver()
 	gold.Plan = subscriptionspec.GoldTier
+	annualGold := gold
+	annualGold.Interval = subscriptionspec.Year
+	withGoogle := func(r Request) Request {
+		r.GoogleSignInEnabled = true
+		return r
+	}
 	cases := []struct {
 		name      string
 		start     State
@@ -173,6 +179,24 @@ func TestDecideBlocksADowngradeUntilTheOrgFits(t *testing.T) {
 		wantLimit int
 		blocked   bool
 	}{
+		{
+			"gold annual to monthly, 1001 seats, Google sign-in on",
+			annualGold,
+			withGoogle(request(subscriptionspec.GoldTier, subscriptionspec.Month, 1001)),
+			0, false,
+		},
+		{
+			"gold annual to monthly, 1001 seats, Google sign-in off",
+			annualGold,
+			request(subscriptionspec.GoldTier, subscriptionspec.Month, 1001),
+			1000, true,
+		},
+		{
+			"gold to silver, 51 seats, Google sign-in on",
+			gold,
+			withGoogle(request(subscriptionspec.SilverTier, subscriptionspec.Month, 51)),
+			50, true,
+		},
 		{"silver to free, 6 seats", monthlySilver(), request(subscriptionspec.FreeTier, "", 6), 5, true},
 		{"silver to free, 5 seats", monthlySilver(), request(subscriptionspec.FreeTier, "", 5), 5, false},
 		{"gold to silver, 51 seats", gold, request(subscriptionspec.SilverTier, subscriptionspec.Month, 51), 50, true},

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	orgsauth "github.com/vetchium/src/typespec/orgs/auth"
+	subscriptionspec "github.com/vetchium/src/typespec/orgs/subscriptions"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
 	"backend/internal/apiserver"
@@ -19,6 +20,7 @@ import (
 	"backend/internal/dbvalue"
 	orgsruntime "backend/internal/orgs"
 	orgsauthn "backend/internal/orgs/auth"
+	"backend/internal/orgs/entitlements"
 )
 
 const (
@@ -171,8 +173,10 @@ func CompleteGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		switch {
-		case user.OrgPlanOid != "org-gold-tier":
-			refuse("Org is not on Gold", nil)
+		case !subscriptionspec.AllowsGoogleSignIn(
+			subscriptionspec.Plan(user.OrgPlanOid),
+		):
+			refuse("Org plan does not include Google sign-in", nil)
 			return
 		case !user.GoogleSignInEnabled:
 			refuse("Google sign-in is off for the Org", nil)
@@ -201,7 +205,11 @@ func CompleteGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 		expiresAt := s.CurrentTime().Add(s.SessionTTL)
 		session, err := s.Queries.CreateOrgSSOSession(
 			ctx, sqlc.CreateOrgSSOSessionParams{
-				OrgUserID:        user.OrgUserID,
+				OrgUserID: user.OrgUserID,
+				GoogleSignInPlanOids: entitlements.PlanOIDs(
+					subscriptionspec.AllowsGoogleSignIn,
+				),
+				Domain:           login.Domain,
 				Provider:         googleProvider,
 				Subject:          claims.Subject,
 				SessionTokenHash: tokenHash,

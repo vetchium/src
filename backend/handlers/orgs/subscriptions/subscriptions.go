@@ -1,6 +1,7 @@
 package subscriptions
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -73,6 +74,38 @@ func change(
 		SystemActor: billing.SystemRenewalActor, PaidBy: paidBy, Key: key,
 		TenantID: s.TenantID, Source: billing.SourceOrgsAPI,
 	}
+}
+
+// applyDue does what the due transitions a request just saved mean for
+// people, exactly as the worker would have, so a deadline a request reaches
+// first still disables the users beyond the keep set.
+func applyDue(
+	ctx context.Context, s *orgsruntime.Server, q *sqlc.Queries,
+	orgDID pgtype.UUID, domain string, advanced billing.State,
+	transitions []billing.Transition,
+) (billingdb.EffectResult, error) {
+	return billingdb.ApplyEffects(ctx, q, billingdb.Effects{
+		OrgDID:      orgDID,
+		Domain:      domain,
+		Advanced:    advanced,
+		Transitions: transitions,
+		OutboxKey:   s.CredentialSubkey("outbox"),
+		TenantID:    s.TenantID,
+		Actor:       billing.SystemRenewalActor,
+		Source:      billing.SourceOrgsAPI,
+	})
+}
+
+// seatsAfter re-reads seats when the due transitions disabled users, so the
+// response does not report the count from before the deadline.
+func seatsAfter(
+	ctx context.Context, q *sqlc.Queries, orgDID pgtype.UUID,
+	effects billingdb.EffectResult, seats int64,
+) (int64, error) {
+	if !effects.Enforced {
+		return seats, nil
+	}
+	return q.GetOrgSeatsInUse(ctx, orgDID)
 }
 
 func refusalProblem(decision billing.Decision, seats int64) problem.Body {
@@ -148,9 +181,10 @@ func SetSubscriptionPlan(s *orgsruntime.Server) http.HandlerFunc {
 				at := billing.Instant(s.CurrentTime())
 				advanced, transitions := billing.Advance(state, at, s.Billing, s.Charger)
 				decision := billing.Decide(advanced, billing.Request{
-					Plan:     request.PlanOID,
-					Interval: request.BillingInterval.Value,
-					Seats:    int(seats),
+					Plan:                request.PlanOID,
+					Interval:            request.BillingInterval.Value,
+					Seats:               int(seats),
+					GoogleSignInEnabled: locked.GoogleSignInEnabled,
 				}, at, s.Charger)
 
 				if decision.Outcome == billing.Refused {
@@ -167,6 +201,12 @@ func SetSubscriptionPlan(s *orgsruntime.Server) http.HandlerFunc {
 					)); err != nil {
 						return result{}, nil, err
 					}
+					if _, err := applyDue(
+						ctx, s, q, identity.OrgDID, locked.Domain, advanced,
+						transitions,
+					); err != nil {
+						return result{}, nil, err
+					}
 					return handlerauth.CommittedFailure[subscriptionspec.OrgSubscription](details), nil, nil
 				}
 				if len(transitions) == 0 && decision.Outcome == billing.Unchanged {
@@ -181,6 +221,18 @@ func SetSubscriptionPlan(s *orgsruntime.Server) http.HandlerFunc {
 					s, identity.OrgDID, state, advanced, decision.State,
 					transitions, decision.Transition, actor, pgtype.UUID{}, key,
 				)); err != nil {
+					return result{}, nil, err
+				}
+				effects, err := applyDue(
+					ctx, s, q, identity.OrgDID, locked.Domain, advanced,
+					transitions,
+				)
+				if err != nil {
+					return result{}, nil, err
+				}
+				if seats, err = seatsAfter(
+					ctx, q, identity.OrgDID, effects, seats,
+				); err != nil {
 					return result{}, nil, err
 				}
 				return result{
@@ -248,6 +300,12 @@ func PayInvoice(s *orgsruntime.Server) http.HandlerFunc {
 					)); err != nil {
 						return result{}, nil, err
 					}
+					if _, err := applyDue(
+						ctx, s, q, identity.OrgDID, locked.Domain, advanced,
+						transitions,
+					); err != nil {
+						return result{}, nil, err
+					}
 					return handlerauth.CommittedFailure[subscriptionspec.OrgSubscription](details), nil, nil
 				}
 				if !advanced.PastDue() || advanced.Open.ID != request.InvoiceID {
@@ -266,6 +324,9 @@ func PayInvoice(s *orgsruntime.Server) http.HandlerFunc {
 				)); err != nil {
 					return result{}, nil, err
 				}
+				// No applyDue: a passed deadline leaves nothing to pay, so the
+				// due transitions here can only be a failed retry, which this
+				// payment has just settled.
 				return result{
 					Status: http.StatusOK,
 					Body: responseFromState(

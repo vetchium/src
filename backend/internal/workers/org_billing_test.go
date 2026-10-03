@@ -297,6 +297,11 @@ func TestAdvanceOrgSubscriptionsEnforcesTheDeadlineWithTheKeepSet(t *testing.T) 
 	if len(fake.enforced) != 1 {
 		t.Fatalf("enforced = %d", len(fake.enforced))
 	}
+	if enforced := fake.enforced[0]; enforced.ActorType != "worker" ||
+		enforced.ActorID != "subscription-renewal" || enforced.Source != "workers" {
+		t.Fatalf("actor = %s/%s from %s",
+			enforced.ActorType, enforced.ActorID, enforced.Source)
+	}
 	// Keep: the superadmin (7), the billing holder (6), then the three
 	// longest-standing (0, 1, 2). Disable 3, 4, 5.
 	disabled := map[pgtype.UUID]bool{}

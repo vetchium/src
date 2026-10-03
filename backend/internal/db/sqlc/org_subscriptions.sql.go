@@ -48,8 +48,10 @@ SELECT
     oi.attempt_count AS open_invoice_attempt_count,
     oi.next_attempt_at AS open_invoice_next_attempt_at,
     oi.last_failure AS open_invoice_last_failure,
-    oi.created_at AS open_invoice_created_at
+    oi.created_at AS open_invoice_created_at,
+    d.domain::text AS domain
 FROM vetchium.orgs AS o
+JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
 LEFT JOIN vetchium.org_payment_methods AS pm ON pm.org_did = o.org_did
 LEFT JOIN vetchium.org_invoices AS oi
     ON oi.org_did = o.org_did AND oi.invoice_state = 'open'
@@ -80,6 +82,7 @@ type GetOrgSubscriptionRow struct {
 	OpenInvoiceNextAttemptAt   pgtype.Timestamptz               `json:"open_invoice_next_attempt_at"`
 	OpenInvoiceLastFailure     NullVetchiumOrgInvoiceFailure    `json:"open_invoice_last_failure"`
 	OpenInvoiceCreatedAt       pgtype.Timestamptz               `json:"open_invoice_created_at"`
+	Domain                     string                           `json:"domain"`
 }
 
 func (q *Queries) GetOrgSubscription(ctx context.Context, orgDid pgtype.UUID) (GetOrgSubscriptionRow, error) {
@@ -109,6 +112,7 @@ func (q *Queries) GetOrgSubscription(ctx context.Context, orgDid pgtype.UUID) (G
 		&i.OpenInvoiceNextAttemptAt,
 		&i.OpenInvoiceLastFailure,
 		&i.OpenInvoiceCreatedAt,
+		&i.Domain,
 	)
 	return i, err
 }
@@ -223,8 +227,10 @@ SELECT
     oi.attempt_count AS open_invoice_attempt_count,
     oi.next_attempt_at AS open_invoice_next_attempt_at,
     oi.last_failure AS open_invoice_last_failure,
-    oi.created_at AS open_invoice_created_at
+    oi.created_at AS open_invoice_created_at,
+    d.domain::text AS domain
 FROM vetchium.orgs AS o
+JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
 LEFT JOIN vetchium.org_payment_methods AS pm ON pm.org_did = o.org_did
 LEFT JOIN vetchium.org_invoices AS oi
     ON oi.org_did = o.org_did AND oi.invoice_state = 'open'
@@ -256,6 +262,7 @@ type LockOrgSubscriptionForChangeRow struct {
 	OpenInvoiceNextAttemptAt   pgtype.Timestamptz               `json:"open_invoice_next_attempt_at"`
 	OpenInvoiceLastFailure     NullVetchiumOrgInvoiceFailure    `json:"open_invoice_last_failure"`
 	OpenInvoiceCreatedAt       pgtype.Timestamptz               `json:"open_invoice_created_at"`
+	Domain                     string                           `json:"domain"`
 }
 
 // Takes the Org row lock that serializes every billing, seat, and permission
@@ -287,6 +294,7 @@ func (q *Queries) LockOrgSubscriptionForChange(ctx context.Context, orgDid pgtyp
 		&i.OpenInvoiceNextAttemptAt,
 		&i.OpenInvoiceLastFailure,
 		&i.OpenInvoiceCreatedAt,
+		&i.Domain,
 	)
 	return i, err
 }
@@ -325,27 +333,35 @@ func (q *Queries) RemoveOrgPaymentMethod(ctx context.Context, arg RemoveOrgPayme
 }
 
 const saveOrgSubscription = `-- name: SaveOrgSubscription :one
-WITH updated AS (
+WITH previous AS (
+    -- Every sub-statement reads the snapshot taken before the UPDATE, so this
+    -- is the Google sign-in setting the change may turn off.
+    SELECT o.google_sign_in_enabled
+    FROM vetchium.orgs AS o
+    WHERE o.org_did = $1
+), updated AS (
     UPDATE vetchium.orgs AS o
-    SET org_plan_oid = $1,
+    SET org_plan_oid = $2,
         org_billing_interval =
-            $2::vetchium.org_billing_interval,
-        subscription_anchor_at = $3,
-        subscription_period_start = $4,
-        subscription_period_end = $5,
-        scheduled_org_plan_oid = $6,
+            $3::vetchium.org_billing_interval,
+        subscription_anchor_at = $4,
+        subscription_period_start = $5,
+        subscription_period_end = $6,
+        scheduled_org_plan_oid = $7,
         scheduled_billing_interval =
-            $7::vetchium.org_billing_interval,
-        billing_state = $8::vetchium.org_billing_state,
-        -- Leaving Gold turns Google sign-in off in the same statement.
+            $8::vetchium.org_billing_interval,
+        billing_state = $9::vetchium.org_billing_state,
+        -- Leaving the plans that include Google sign-in turns it off in the
+        -- same statement.
         google_sign_in_enabled = o.google_sign_in_enabled
-            AND $1::text = 'org-gold-tier',
+            AND $2::text
+                = ANY($10::text[]),
         updated_at = now()
-    WHERE o.org_did = $9
+    WHERE o.org_did = $1
     RETURNING o.org_did
 ), changes AS (
     SELECT elem
-    FROM jsonb_array_elements($10::jsonb) AS elem
+    FROM jsonb_array_elements($11::jsonb) AS elem
 ), created AS (
     INSERT INTO vetchium.org_invoices (
         org_did, org_plan_oid, billing_interval, period_start, period_end,
@@ -353,7 +369,7 @@ WITH updated AS (
         last_failure, paid_at, voided_at, paid_by
     )
     SELECT
-        $9,
+        $1,
         (c.elem ->> 'plan_oid')::text,
         (c.elem ->> 'billing_interval')::vetchium.org_billing_interval,
         (c.elem ->> 'period_start')::timestamptz,
@@ -367,7 +383,7 @@ WITH updated AS (
         (c.elem ->> 'paid_at')::timestamptz,
         (c.elem ->> 'voided_at')::timestamptz,
         CASE WHEN c.elem ->> 'state' = 'paid'
-            THEN $11::uuid END
+            THEN $12::uuid END
     FROM changes AS c
     WHERE c.elem ->> 'op' = 'create'
     RETURNING org_invoice_id
@@ -375,12 +391,12 @@ WITH updated AS (
     UPDATE vetchium.org_invoices AS i
     SET invoice_state = 'paid',
         paid_at = (c.elem ->> 'paid_at')::timestamptz,
-        paid_by = $11::uuid,
+        paid_by = $12::uuid,
         due_at = NULL,
         next_attempt_at = NULL
     FROM changes AS c
     WHERE c.elem ->> 'op' = 'pay'
-      AND i.org_did = $9
+      AND i.org_did = $1
       AND i.invoice_state = 'open'
     RETURNING i.org_invoice_id
 ), failed AS (
@@ -390,7 +406,7 @@ WITH updated AS (
         last_failure = (c.elem ->> 'last_failure')::vetchium.org_invoice_failure
     FROM changes AS c
     WHERE c.elem ->> 'op' = 'record-failure'
-      AND i.org_did = $9
+      AND i.org_did = $1
       AND i.invoice_state = 'open'
     RETURNING i.org_invoice_id
 ), voided AS (
@@ -400,7 +416,7 @@ WITH updated AS (
         next_attempt_at = NULL
     FROM changes AS c
     WHERE c.elem ->> 'op' = 'void'
-      AND i.org_did = $9
+      AND i.org_did = $1
       AND i.invoice_state = 'open'
     RETURNING i.org_invoice_id
 ), logos_queued AS (
@@ -410,9 +426,9 @@ WITH updated AS (
     SET state = 'pending_delete', upload_expires_at = NULL,
         delete_requested_at = now(),
         next_attempt_at = now() + interval '1 minute'
-    WHERE l.org_did = $9
+    WHERE l.org_did = $1
       AND l.state IN ('active', 'uploading')
-      AND NOT ($1 = ANY($12::text[]))
+      AND NOT ($2 = ANY($13::text[]))
     RETURNING l.object_id
 ), logo_audit AS (
     INSERT INTO vetchium.audit_events (
@@ -420,11 +436,26 @@ WITH updated AS (
         source, idempotency_key, payload
     )
     SELECT
-        $13, 'org.logo.removed_by_plan', 'org_logo',
+        $14, 'org.logo.removed_by_plan', 'org_logo',
         q.object_id::text, 'system', 'subscription-renewal',
-        $14, $15,
-        jsonb_build_object('org_plan_oid', $1::text)
+        $15, $16,
+        jsonb_build_object('org_plan_oid', $2::text)
     FROM logos_queued AS q
+    RETURNING audit_event_id
+), google_audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        $14, 'org.google_sign_in.disabled_by_plan', 'org',
+        $1::text, 'system', 'subscription-renewal',
+        $15, $16,
+        jsonb_build_object('org_plan_oid', $2::text)
+    FROM previous AS p
+    WHERE p.google_sign_in_enabled
+      AND NOT ($2::text
+          = ANY($10::text[]))
     RETURNING audit_event_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
@@ -432,16 +463,16 @@ WITH updated AS (
         source, idempotency_key, payload
     )
     SELECT
-        $13,
+        $14,
         (e.elem ->> 'action')::text,
         'org',
-        $9::text,
+        $1::text,
         (e.elem ->> 'actor_type')::text,
         (e.elem ->> 'actor_id')::text,
-        $14,
         $15,
+        $16,
         e.elem -> 'payload'
-    FROM jsonb_array_elements($16::jsonb) AS e(elem)
+    FROM jsonb_array_elements($17::jsonb) AS e(elem)
     RETURNING audit_event_id
 )
 SELECT
@@ -452,10 +483,12 @@ SELECT
     (SELECT count(*) FROM voided)::bigint AS voided_count,
     (SELECT count(*) FROM audit)::bigint AS audited_count,
     (SELECT count(*) FROM logos_queued)::bigint AS logos_queued_count,
-    (SELECT count(*) FROM logo_audit)::bigint AS logos_audited_count
+    (SELECT count(*) FROM logo_audit)::bigint AS logos_audited_count,
+    (SELECT count(*) FROM google_audit)::bigint AS google_audited_count
 `
 
 type SaveOrgSubscriptionParams struct {
+	OrgDid                   pgtype.UUID                    `json:"org_did"`
 	OrgPlanOid               string                         `json:"org_plan_oid"`
 	OrgBillingInterval       NullVetchiumOrgBillingInterval `json:"org_billing_interval"`
 	SubscriptionAnchorAt     pgtype.Timestamptz             `json:"subscription_anchor_at"`
@@ -464,7 +497,7 @@ type SaveOrgSubscriptionParams struct {
 	ScheduledOrgPlanOid      pgtype.Text                    `json:"scheduled_org_plan_oid"`
 	ScheduledBillingInterval NullVetchiumOrgBillingInterval `json:"scheduled_billing_interval"`
 	BillingState             VetchiumOrgBillingState        `json:"billing_state"`
-	OrgDid                   pgtype.UUID                    `json:"org_did"`
+	GoogleSignInPlanOids     []string                       `json:"google_sign_in_plan_oids"`
 	InvoiceChanges           []byte                         `json:"invoice_changes"`
 	PaidBy                   pgtype.UUID                    `json:"paid_by"`
 	LogoPlanOids             []string                       `json:"logo_plan_oids"`
@@ -475,14 +508,15 @@ type SaveOrgSubscriptionParams struct {
 }
 
 type SaveOrgSubscriptionRow struct {
-	UpdatedCount      int64 `json:"updated_count"`
-	CreatedCount      int64 `json:"created_count"`
-	PaidCount         int64 `json:"paid_count"`
-	FailedCount       int64 `json:"failed_count"`
-	VoidedCount       int64 `json:"voided_count"`
-	AuditedCount      int64 `json:"audited_count"`
-	LogosQueuedCount  int64 `json:"logos_queued_count"`
-	LogosAuditedCount int64 `json:"logos_audited_count"`
+	UpdatedCount       int64 `json:"updated_count"`
+	CreatedCount       int64 `json:"created_count"`
+	PaidCount          int64 `json:"paid_count"`
+	FailedCount        int64 `json:"failed_count"`
+	VoidedCount        int64 `json:"voided_count"`
+	AuditedCount       int64 `json:"audited_count"`
+	LogosQueuedCount   int64 `json:"logos_queued_count"`
+	LogosAuditedCount  int64 `json:"logos_audited_count"`
+	GoogleAuditedCount int64 `json:"google_audited_count"`
 }
 
 // The single write statement for a subscription change. invoice_changes and
@@ -491,6 +525,7 @@ type SaveOrgSubscriptionRow struct {
 // statement creates.
 func (q *Queries) SaveOrgSubscription(ctx context.Context, arg SaveOrgSubscriptionParams) (SaveOrgSubscriptionRow, error) {
 	row := q.db.QueryRow(ctx, saveOrgSubscription,
+		arg.OrgDid,
 		arg.OrgPlanOid,
 		arg.OrgBillingInterval,
 		arg.SubscriptionAnchorAt,
@@ -499,7 +534,7 @@ func (q *Queries) SaveOrgSubscription(ctx context.Context, arg SaveOrgSubscripti
 		arg.ScheduledOrgPlanOid,
 		arg.ScheduledBillingInterval,
 		arg.BillingState,
-		arg.OrgDid,
+		arg.GoogleSignInPlanOids,
 		arg.InvoiceChanges,
 		arg.PaidBy,
 		arg.LogoPlanOids,
@@ -518,6 +553,7 @@ func (q *Queries) SaveOrgSubscription(ctx context.Context, arg SaveOrgSubscripti
 		&i.AuditedCount,
 		&i.LogosQueuedCount,
 		&i.LogosAuditedCount,
+		&i.GoogleAuditedCount,
 	)
 	return i, err
 }

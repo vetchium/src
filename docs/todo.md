@@ -82,15 +82,11 @@ Each item: what is not done, and what must be decided first.
   and enforcing SSO-only sign-in for an Org.
 - MCP support for Gold Orgs is shown as "Coming soon" in the plan comparison
   and has no contract value until it is built.
-- The `orgs-invitations` test "revives an expired invitation only when a seat
-  is free" can fail when the CI prune job deletes the expired row before the
-  resend. Make the test insensitive to housekeeping.
-
-- Gold ticket-based support: now that Org plans and user management exist
-  (`org-subscriptions.md`), give Gold Org users a way to raise
-  and track support tickets, gated on the plan's ticket-support entitlement.
-  Decide between building tickets into the portals and integrating a ticketing
-  SaaS, and settle who may open tickets, data residency, and response targets.
+- Gold ticket-based support: give Gold Org users a way to raise and track
+  support tickets, gated on the plan's ticket-support entitlement
+  (`org-subscriptions.md`). Decide between building tickets into the portals
+  and integrating a ticketing SaaS, and settle who may open tickets, data
+  residency, and response targets.
 
 ## Global portals
 

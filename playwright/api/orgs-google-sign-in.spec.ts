@@ -301,6 +301,30 @@ test.describe("refusals", () => {
     });
   });
 
+  test("an Org that no longer holds its domain refuses", async ({
+    request,
+  }) => {
+    await withOrg(request, async (api, org, owner) => {
+      await withGoogle(api, owner);
+      // A released domain proves nothing about the hosted-domain claim. The
+      // record is removed and the next check postponed so the domain
+      // verification worker cannot re-claim it during the test.
+      await deleteOrgVerificationRecord(org.domain);
+      orgSQL(
+        `UPDATE vetchium.org_domains
+         SET domain_state = 'released', failing_since = NULL,
+             released_at = now(), next_check_at = now() + interval '1 hour'
+         WHERE domain = '${org.domain}'`,
+      );
+      await expectProblem(
+        await googleSignIn(api, org.domain, { email: org.emailAddress }),
+        401,
+        ssoFailed,
+      );
+      expect(identityRows(org)).toBe(0);
+    });
+  });
+
   test("a subject cannot move between users, and a user cannot change subject", async ({
     request,
   }) => {

@@ -69,11 +69,13 @@ WITH sessions AS (
     )
     RETURNING s.org_signup_request_id
 ), invitations AS (
+    -- An expired invitation stays listed so it can be resent; it is pruned
+    -- only after a month, never in the window a manager may still act on it.
     DELETE FROM vetchium.org_user_invitations AS i
     WHERE i.org_invitation_id IN (
         SELECT candidate.org_invitation_id
         FROM vetchium.org_user_invitations AS candidate
-        WHERE candidate.expires_at <= now()
+        WHERE candidate.expires_at <= now() - interval '30 days'
            OR NOT candidate.active
         ORDER BY candidate.created_at
         LIMIT 1000

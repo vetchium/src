@@ -52,21 +52,13 @@ func (w OrgBillingWork) now() time.Time {
 // testable with a stub instead of a live transaction.
 type orgBillingQueries interface {
 	billingdb.SaveQueries
+	billingdb.EffectQueries
 	ClaimDueOrgSubscription(
 		context.Context, sqlc.ClaimDueOrgSubscriptionParams,
 	) (sqlc.ClaimDueOrgSubscriptionRow, error)
 	LockOrgSubscriptionForChange(context.Context, pgtype.UUID) (
 		sqlc.LockOrgSubscriptionForChangeRow, error,
 	)
-	ListOrgKeepCandidates(
-		context.Context, sqlc.ListOrgKeepCandidatesParams,
-	) ([]sqlc.ListOrgKeepCandidatesRow, error)
-	EnforceOrgDeadline(
-		context.Context, sqlc.EnforceOrgDeadlineParams,
-	) (sqlc.EnforceOrgDeadlineRow, error)
-	QueueOrgBillingHolderEmail(
-		context.Context, sqlc.QueueOrgBillingHolderEmailParams,
-	) (int64, error)
 }
 
 type orgNoticeQueries interface {
@@ -176,91 +168,33 @@ func (w *Worker) advanceOrgSubscriptions(ctx context.Context) error {
 	return nil
 }
 
-// afterOrgTransitions does what a transition means for people: tells billing
-// holders a payment failed, and at the deadline disables the users beyond the
-// keep set, cancels invitations, and tells everyone concerned.
+// afterOrgTransitions does what a transition means for people; the same
+// rule runs when a request persists a due transition.
 func (w *Worker) afterOrgTransitions(
 	ctx context.Context, q orgBillingQueries,
 	claimed sqlc.ClaimDueOrgSubscriptionRow, advanced billing.State,
 	transitions []billing.Transition,
 ) error {
-	failed, enforced := false, false
-	for _, transition := range transitions {
-		failed = failed || transition.PaymentFailed()
-		enforced = enforced || transition.Kind == billing.KindDeadlineEnforced
+	result, err := billingdb.ApplyEffects(ctx, q, billingdb.Effects{
+		OrgDID:      claimed.OrgDid,
+		Domain:      claimed.Domain,
+		Advanced:    advanced,
+		Transitions: transitions,
+		OutboxKey:   w.orgs.work.Email.OutboxKey,
+		TenantID:    w.tenantID,
+		Actor:       billing.WorkerRenewalActor,
+		Source:      billing.SourceWorkers,
+	})
+	if err != nil {
+		return err
 	}
-	outboxKey := w.orgs.work.Email.OutboxKey
-	if enforced {
-		candidates, err := q.ListOrgKeepCandidates(ctx, sqlc.ListOrgKeepCandidatesParams{
-			OrgDid:               claimed.OrgDid,
-			SuperadminPermission: string(authorization.Superadmin),
-			BillingPermission:    string(authorization.ManageBilling),
-		})
-		if err != nil {
-			return fmt.Errorf("list Org keep candidates: %w", err)
-		}
-		keep := make([]billing.KeepCandidate, len(candidates))
-		for index, candidate := range candidates {
-			keep[index] = billing.KeepCandidate{
-				ID:            dbvalue.FormatUUID(candidate.OrgUserID),
-				Superadmin:    candidate.Superadmin,
-				ManageBilling: candidate.ManageBilling,
-				JoinedAt:      candidate.CreatedAt.Time,
-			}
-		}
-		_, disable := billing.KeepSet(keep)
-		disableIDs := make([]pgtype.UUID, 0, len(disable))
-		for _, id := range disable {
-			parsed, err := dbvalue.ParseUUID(id)
-			if err != nil {
-				return err
-			}
-			disableIDs = append(disableIDs, parsed)
-		}
-		payload, err := orgmail.Encrypt(outboxKey, orgmail.Payload{Domain: claimed.Domain})
-		if err != nil {
-			return err
-		}
-		if _, err := q.EnforceOrgDeadline(ctx, sqlc.EnforceOrgDeadlineParams{
-			OrgDid:            claimed.OrgDid,
-			DisableOrgUserIds: disableIDs,
-			PayloadCiphertext: payload,
-			TenantID:          w.tenantID,
-		}); err != nil {
-			return fmt.Errorf("enforce Org deadline: %w", err)
-		}
-		// The holders still active are exactly those the keep set retained.
-		if _, err := q.QueueOrgBillingHolderEmail(ctx, sqlc.QueueOrgBillingHolderEmailParams{
-			Kind:              "moved-to-free",
-			PayloadCiphertext: payload,
-			OrgDid:            claimed.OrgDid,
-			BillingPermission: string(authorization.ManageBilling),
-		}); err != nil {
-			return fmt.Errorf("queue moved-to-free email: %w", err)
-		}
+	if result.Enforced {
 		w.log.Info(
 			"Org dropped to the Free plan for nonpayment",
 			"event", "org_deadline_enforced",
 			"orgDID", dbvalue.FormatUUID(claimed.OrgDid),
-			"disabledUsers", len(disableIDs),
+			"disabledUsers", result.DisabledUsers,
 		)
-		return nil
-	}
-	if failed && advanced.Open != nil {
-		payload, err := orgmail.Encrypt(outboxKey, orgmail.Payload{
-			Domain: claimed.Domain, ExpiresAt: advanced.Open.DueAt,
-		})
-		if err != nil {
-			return err
-		}
-		if _, err := q.QueueOrgBillingHolderEmail(ctx, sqlc.QueueOrgBillingHolderEmailParams{
-			Kind:              "payment-failed",
-			PayloadCiphertext: payload,
-			OrgDid:            claimed.OrgDid,
-			BillingPermission: string(authorization.ManageBilling),
-		}); err != nil {
-			return fmt.Errorf("queue payment-failed email: %w", err)
-		}
 	}
 	return nil
 }

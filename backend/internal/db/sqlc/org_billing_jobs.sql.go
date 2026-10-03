@@ -113,9 +113,9 @@ WITH targets AS (
         'org.users.disabled_nonpayment',
         'org',
         $1::text,
-        'worker',
-        'subscription-renewal',
-        'workers',
+        $5::text,
+        $6::text,
+        $7::text,
         jsonb_build_object(
             'email_addresses', changed.email_addresses,
             'reason', 'nonpayment',
@@ -137,9 +137,9 @@ WITH targets AS (
         'org.invitations.cancelled_nonpayment',
         'org',
         $1::text,
-        'worker',
-        'subscription-renewal',
-        'workers',
+        $5::text,
+        $6::text,
+        $7::text,
         jsonb_build_object('email_addresses', changed.email_addresses)
     FROM (
         SELECT jsonb_agg(c.email_address ORDER BY c.email_address)
@@ -159,6 +159,9 @@ type EnforceOrgDeadlineParams struct {
 	DisableOrgUserIds []pgtype.UUID `json:"disable_org_user_ids"`
 	PayloadCiphertext []byte        `json:"payload_ciphertext"`
 	TenantID          string        `json:"tenant_id"`
+	ActorType         string        `json:"actor_type"`
+	ActorID           string        `json:"actor_id"`
+	Source            string        `json:"source"`
 }
 
 type EnforceOrgDeadlineRow struct {
@@ -168,10 +171,11 @@ type EnforceOrgDeadlineRow struct {
 }
 
 // The deadline's effect on people, in the transaction that voids the invoice
-// and drops the Org to Free: disable the users beyond the keep set with
-// reason nonpayment and end their sessions, cancel every pending invitation,
-// and queue one email to each disabled user. Disabled users keep their data
-// and can be re-enabled one at a time.
+// and drops the Org to Free, whichever of the worker or a request persisted
+// it: disable the users beyond the keep set with reason nonpayment and end
+// their sessions, cancel every pending invitation, and queue one email to each
+// disabled user. Disabled users keep their data and can be re-enabled one at a
+// time.
 // The logo and Google sign-in go with the plan: SaveOrgSubscription moves the
 // Org to Free in the same transaction and clears both.
 func (q *Queries) EnforceOrgDeadline(ctx context.Context, arg EnforceOrgDeadlineParams) (EnforceOrgDeadlineRow, error) {
@@ -180,6 +184,9 @@ func (q *Queries) EnforceOrgDeadline(ctx context.Context, arg EnforceOrgDeadline
 		arg.DisableOrgUserIds,
 		arg.PayloadCiphertext,
 		arg.TenantID,
+		arg.ActorType,
+		arg.ActorID,
+		arg.Source,
 	)
 	var i EnforceOrgDeadlineRow
 	err := row.Scan(&i.DisabledCount, &i.CancelledCount, &i.EmailedCount)

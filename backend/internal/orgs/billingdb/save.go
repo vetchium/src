@@ -12,6 +12,7 @@ import (
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
 	"backend/internal/orgs/billing"
+	"backend/internal/orgs/entitlements"
 )
 
 // SaveQueries is the one write a subscription change makes.
@@ -75,14 +76,11 @@ func Save(ctx context.Context, q SaveQueries, change Change) error {
 		return err
 	}
 	final := change.Final
-	logoPlans := make([]string, 0, len(subscriptionspec.Plans()))
-	for _, plan := range subscriptionspec.Plans() {
-		if subscriptionspec.AllowsLogo(plan) {
-			logoPlans = append(logoPlans, string(plan))
-		}
-	}
 	params := sqlc.SaveOrgSubscriptionParams{
-		LogoPlanOids:   logoPlans,
+		LogoPlanOids: entitlements.PlanOIDs(subscriptionspec.AllowsLogo),
+		GoogleSignInPlanOids: entitlements.PlanOIDs(
+			subscriptionspec.AllowsGoogleSignIn,
+		),
 		OrgPlanOid:     string(final.Plan),
 		BillingState:   sqlc.VetchiumOrgBillingStateCurrent,
 		OrgDid:         change.OrgDID,

@@ -30,11 +30,14 @@ const (
 
 // Request is a billing holder's chosen plan and interval. Interval is empty
 // for the Free plan. Seats is the count of active users plus unexpired
-// invitations at the moment of the decision.
+// invitations at the moment of the decision. GoogleSignInEnabled is the Org's
+// setting, which lifts the target's cap only if the target keeps Google
+// sign-in (an annual-to-monthly change within Gold, say).
 type Request struct {
-	Plan     subscriptionspec.Plan
-	Interval subscriptionspec.BillingInterval
-	Seats    int
+	Plan                subscriptionspec.Plan
+	Interval            subscriptionspec.BillingInterval
+	Seats               int
+	GoogleSignInEnabled bool
 }
 
 type Decision struct {
@@ -89,7 +92,10 @@ func Decide(
 		return Decision{State: current, Outcome: Unchanged}
 	}
 
-	if limit, _ := subscriptionspec.MaxUsers(request.Plan, false); request.Seats > limit {
+	limit, unlimited := subscriptionspec.MaxUsers(
+		request.Plan, request.GoogleSignInEnabled,
+	)
+	if !unlimited && request.Seats > limit {
 		decision := refuse(current, RefusalSeatLimit)
 		decision.TargetLimit = limit
 		return decision

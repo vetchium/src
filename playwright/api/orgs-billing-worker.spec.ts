@@ -239,6 +239,66 @@ test("a declined renewal runs the dunning lifecycle to the deadline, then the Or
   });
 });
 
+test("a request that reaches the deadline first disables users as the worker would", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, org, owner) => {
+    await upgradeToSilver(api, owner);
+    const members: OrgMember[] = [];
+    for (let index = 1; index <= 6; index++) {
+      members.push(
+        await addOrgMember(
+          api,
+          owner,
+          org.domain,
+          inviteeAddress(org.domain, `m${index}`),
+          [],
+        ),
+      );
+    }
+    expect(
+      (
+        await api.setPaymentMethod(owner, { kind: "simulated-declines" })
+      ).status(),
+    ).toBe(200);
+    setPeriodEnd(org, new Date(Date.now() - 1000));
+    await waitForAction(org, "org.subscription.renewal-failed");
+    const open = (await subscription(api, owner)).open_invoice;
+    expect(open).toBeDefined();
+
+    // Pass the deadline and ask at once, so the request usually persists it
+    // before the worker's next tick. Whichever acts, the outcome must match.
+    orgSQL(
+      `UPDATE vetchium.org_invoices
+       SET due_at = now() - interval '1 second', next_attempt_at = NULL
+       WHERE invoice_state = 'open'
+         AND org_did = (SELECT org_did FROM vetchium.org_domains
+                        WHERE domain = '${org.domain}')`,
+    );
+    await expectProblem(
+      await api.payInvoice(owner, { invoice_id: open?.invoice_id ?? "" }),
+      409,
+      "vetchium-problem-details/org-invoice-not-open",
+    );
+    // The deadline and its effect on people commit in one transaction.
+    await waitForAction(org, "org.subscription.deadline-enforced");
+
+    const states = await userStates(api, owner);
+    const active = [...states.values()].filter(
+      (user) => user.state === "active",
+    );
+    expect(active.map((user) => user.email_address).sort()).toEqual(
+      [org, ...members.slice(0, 4)].map((kept) => kept.emailAddress).sort(),
+    );
+    for (const disabled of members.slice(4)) {
+      expect(states.get(disabled.emailAddress)).toMatchObject({
+        state: "disabled",
+        disabled_reason: "nonpayment",
+      });
+    }
+  });
+});
+
 test("paying the open invoice before the deadline keeps the plan and every user", async ({
   request,
 }) => {

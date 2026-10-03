@@ -44,10 +44,11 @@ WHERE u.org_did = sqlc.arg(org_did)
   AND u.org_user_state = 'active';
 
 -- The deadline's effect on people, in the transaction that voids the invoice
--- and drops the Org to Free: disable the users beyond the keep set with
--- reason nonpayment and end their sessions, cancel every pending invitation,
--- and queue one email to each disabled user. Disabled users keep their data
--- and can be re-enabled one at a time.
+-- and drops the Org to Free, whichever of the worker or a request persisted
+-- it: disable the users beyond the keep set with reason nonpayment and end
+-- their sessions, cancel every pending invitation, and queue one email to each
+-- disabled user. Disabled users keep their data and can be re-enabled one at a
+-- time.
 -- name: EnforceOrgDeadline :one
 WITH targets AS (
     SELECT u.org_user_id, u.email_address, u.preferred_language
@@ -106,9 +107,9 @@ WITH targets AS (
         'org.users.disabled_nonpayment',
         'org',
         sqlc.arg(org_did)::text,
-        'worker',
-        'subscription-renewal',
-        'workers',
+        sqlc.arg(actor_type)::text,
+        sqlc.arg(actor_id)::text,
+        sqlc.arg(source)::text,
         jsonb_build_object(
             'email_addresses', changed.email_addresses,
             'reason', 'nonpayment',
@@ -130,9 +131,9 @@ WITH targets AS (
         'org.invitations.cancelled_nonpayment',
         'org',
         sqlc.arg(org_did)::text,
-        'worker',
-        'subscription-renewal',
-        'workers',
+        sqlc.arg(actor_type)::text,
+        sqlc.arg(actor_id)::text,
+        sqlc.arg(source)::text,
         jsonb_build_object('email_addresses', changed.email_addresses)
     FROM (
         SELECT jsonb_agg(c.email_address ORDER BY c.email_address)

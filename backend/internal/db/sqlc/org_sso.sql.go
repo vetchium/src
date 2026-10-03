@@ -76,15 +76,18 @@ WITH eligible AS (
     SELECT u.org_user_id
     FROM vetchium.org_users AS u
     JOIN vetchium.orgs AS o ON o.org_did = u.org_did
+    JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
     WHERE u.org_user_id = $1
       AND u.org_user_state = 'active'
       AND o.org_state IN ('active', 'suspended')
-      AND o.org_plan_oid = 'org-gold-tier'
+      AND o.org_plan_oid = ANY($2::text[])
       AND o.google_sign_in_enabled
+      AND d.domain = $3
+      AND d.domain_state IN ('verified', 'failing', 'releasing')
     FOR UPDATE OF u
 ), linked AS (
     INSERT INTO vetchium.org_user_sso_identities (org_user_id, provider, subject)
-    SELECT org_user_id, $2, $3
+    SELECT org_user_id, $4, $5
     FROM eligible
     ON CONFLICT (org_user_id, provider) DO UPDATE
     SET last_used_at = now()
@@ -105,9 +108,9 @@ WITH eligible AS (
         authenticated_at
     )
     SELECT
-        $4,
+        $6,
         org_user_id,
-        $5,
+        $7,
         now()
     FROM updated_user
     RETURNING org_session_id, org_user_id, created_at, expires_at,
@@ -118,14 +121,14 @@ WITH eligible AS (
         source, payload
     )
     SELECT
-        $6,
+        $8,
         'org.session.created',
         'org_session',
         org_session_id::text,
         'org_user',
         org_user_id::text,
         'orgs-api',
-        jsonb_build_object('method', $2::text)
+        jsonb_build_object('method', $4::text)
     FROM session
 )
 SELECT org_session_id, created_at, expires_at, authenticated_at
@@ -133,12 +136,14 @@ FROM session
 `
 
 type CreateOrgSSOSessionParams struct {
-	OrgUserID        pgtype.UUID        `json:"org_user_id"`
-	Provider         string             `json:"provider"`
-	Subject          string             `json:"subject"`
-	SessionTokenHash []byte             `json:"session_token_hash"`
-	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
-	TenantID         string             `json:"tenant_id"`
+	OrgUserID            pgtype.UUID        `json:"org_user_id"`
+	GoogleSignInPlanOids []string           `json:"google_sign_in_plan_oids"`
+	Domain               string             `json:"domain"`
+	Provider             string             `json:"provider"`
+	Subject              string             `json:"subject"`
+	SessionTokenHash     []byte             `json:"session_token_hash"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	TenantID             string             `json:"tenant_id"`
 }
 
 type CreateOrgSSOSessionRow struct {
@@ -155,6 +160,8 @@ type CreateOrgSSOSessionRow struct {
 func (q *Queries) CreateOrgSSOSession(ctx context.Context, arg CreateOrgSSOSessionParams) (CreateOrgSSOSessionRow, error) {
 	row := q.db.QueryRow(ctx, createOrgSSOSession,
 		arg.OrgUserID,
+		arg.GoogleSignInPlanOids,
+		arg.Domain,
 		arg.Provider,
 		arg.Subject,
 		arg.SessionTokenHash,
@@ -195,10 +202,9 @@ JOIN vetchium.org_users AS u
     ON u.org_did = o.org_did
    AND u.email_address = $3
 WHERE d.domain = $4
+  AND d.domain_state IN ('verified', 'failing', 'releasing')
   AND o.org_state IN ('active', 'suspended')
   AND u.org_user_state IN ('active', 'disabled')
-ORDER BY (d.domain_state = 'released'), d.created_at DESC
-LIMIT 1
 `
 
 type GetOrgUserForSSOParams struct {
@@ -220,8 +226,9 @@ type GetOrgUserForSSORow struct {
 }
 
 // The user a verified Google identity names, with everything the sign-in
-// decision reads. Resolved like GetOrgUserForLogin: if a released domain was
-// claimed by another local Org, the current owner wins.
+// decision reads. Google sign-in trusts the hosted-domain claim, so only an
+// Org that still holds the domain qualifies: a released or re-claiming domain
+// proves nothing, and the claimed-domain index makes the match unique.
 func (q *Queries) GetOrgUserForSSO(ctx context.Context, arg GetOrgUserForSSOParams) (GetOrgUserForSSORow, error) {
 	row := q.db.QueryRow(ctx, getOrgUserForSSO,
 		arg.Provider,

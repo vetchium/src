@@ -46,6 +46,11 @@ rules Orgs follow. Nothing here defines Hub plans.
   state, the folded invoice changes, and the audit events. A request persists a
   due transition even when it then refuses (`CommittedFailure`). Reads compute
   in memory and write nothing.
+- After saving system transitions, call `billingdb.ApplyEffects` in the same
+  transaction, from the worker and from every request alike: it applies the
+  deadline to people and emails billing holders about a failed charge. Whoever
+  persists the deadline first must disable the users, or the Org sits on Free
+  with every user active and nothing left due.
 - Lock the `orgs` row `FOR UPDATE` before any billing, seat, or permission
   decision (`LockOrgSubscriptionForChange`, `LockOrgSeatPolicy`,
   `LockOrgForInvitation`, `LockOrgForGoogleSignIn`). Read seats in a separate
@@ -116,6 +121,11 @@ rules Orgs follow. Nothing here defines Hub plans.
   session at once. Users are never deleted.
 - Identify an Org user on the wire by email address within the Org. Invitees
   must be on the Org's domain; invitations last `orgsAPIServer.invitationTTL`.
+  An expired invitation stays listed and resendable for 30 days before
+  housekeeping prunes it; a cancelled or accepted one is pruned at once.
+- Scheduling a downgrade checks the target's cap with the Org's Google sign-in
+  setting, so a Gold Org with Google sign-in stays uncapped when it only
+  changes interval.
 - Member lists are server-side: case-insensitive substring search (two
   characters at least), state and permission filters, keyset pagination (100
   at most), and a summary. Bulk operations take at most 100 targets, run in one
@@ -157,9 +167,10 @@ rules Orgs follow. Nothing here defines Hub plans.
 - `sso/google/start` answers alike for every domain. `sso/google/complete`
   succeeds only when the state is unused and unexpired, the ID token verifies
   (issuer, audience, expiry, nonce), `email_verified` is true, `hd` and the
-  address's domain equal the Org domain, the address is an existing active
-  user, the Org is on Gold with the switch on, and the subject is unlinked or
-  already that user's. The first success links the subject.
+  address's domain equal the Org domain, the Org still holds the domain
+  (`verified`, `failing`, or `releasing`; a released domain proves nothing),
+  the address is an existing active user, the Org is on Gold with the switch
+  on, and the subject is unlinked or already that user's. The first success links the subject.
   `CreateOrgSSOSession` re-checks all of it in the statement that links and
   signs in.
 - Every refusal before the user is a known member is `org-sso-sign-in-failed`;
