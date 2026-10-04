@@ -8,6 +8,7 @@ import type { MyInfoResponse } from "typespec/orgs/account/account";
 import type { ReauthenticateRequest } from "typespec/orgs/auth/login";
 import { validateReauthenticateRequest } from "typespec/orgs/auth/login";
 import { orgsAPI } from "../api/orgs";
+import { paths } from "../app/paths";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { myInfoQueryKey, useMyInfoQuery } from "../features/account/queries";
 
@@ -92,7 +93,7 @@ export function ReauthenticatePage() {
             <Button
               block
               disabled={mutation.isPending}
-              onClick={() => navigate(returnTo, { replace: true })}
+              onClick={() => navigate(paths.home, { replace: true })}
             >
               {t("common.cancel")}
             </Button>

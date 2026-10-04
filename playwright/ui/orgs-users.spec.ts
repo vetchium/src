@@ -225,6 +225,24 @@ test("changes roles in the member drawer and in bulk after step-up", async ({
       .click();
     await page.getByRole("button", { name: "Confirm password" }).click();
     await expect(page).toHaveURL(/\/reauthenticate/);
+    // Cancelling abandons the guarded action; it must not bounce back here.
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
+    await page.goto(`${ORGS_PORTAL}/members`);
+    for (const user of [first, second]) {
+      await memberRow(page, user.emailAddress).getByRole("checkbox").check();
+    }
+    await chooseOption(
+      page,
+      page.getByRole("combobox", { name: "Set role" }),
+      "Member",
+    );
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Change role" })
+      .click();
+    await page.getByRole("button", { name: "Confirm password" }).click();
+    await expect(page).toHaveURL(/\/reauthenticate/);
     await page.getByLabel("Password").fill(org.password);
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(page).toHaveURL(`${ORGS_PORTAL}/members`);
