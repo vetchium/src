@@ -169,7 +169,8 @@ test("billing explains a seat-blocked downgrade and treats interval changes sepa
     ).toBeDisabled();
     await expect(dialog.getByRole("link", { name: "People" })).toBeVisible();
     await dialog.getByRole("button", { name: "Go back" }).click();
-    await page.getByRole("radio", { name: "Annual", exact: true }).check();
+    await page.getByRole("radio", { name: "Annual", exact: true }).focus();
+    await page.keyboard.press("Space");
     await page
       .getByTestId("plan-org-silver-tier")
       .getByRole("button", { name: "Change billing interval" })

@@ -64,7 +64,7 @@ Each item: what is not done, and what must be decided first.
   Decide whether every credential operation must declare them.
 - Not built: admin management of blocked signup domains and of Orgs; extra
   domains, primary-domain change, and domain transfer; Org terms acceptance;
-  Org profile metadata beyond the logo (description, legal entity); remembered
+  Org profile metadata beyond name and logo (description, legal entity); remembered
   Org sessions; Org migration between regions; openings and every other hiring
   feature.
 - Org payments: launch is blocked on a real provider integration. The provider
@@ -72,10 +72,12 @@ Each item: what is not done, and what must be decided first.
   entitlements and a webhook-fed projection, never card data. Decide provider
   (per region if needed), proration, when paid entitlements start, tax,
   refunds, billing contacts, and nonpayment consequences.
-- Org administration redesign verification: finish the full regression suite
-  and desktop, phone, keyboard, and locale review, then commit and push the
-  verified checkpoint. Company fields/maps, real payments, groups/SCIM, and
-  measured enterprise performance remain separate work.
+- Org administration redesign verification: complete the full integration
+  suite and coverage reports after restoring the local test environment.
+  Blockers: localhost port 80 connection failures and a missing Playwright
+  worker module. Resolve the environment before rerunning; do not treat the
+  partial runs as full sign-off. Company fields/maps and measured enterprise
+  performance remain separate work.
 - Openings enforcement: only the quota constants and the counting rule exist
   (`internal/orgs/entitlements`). The publish statement must apply it under the
   Org lock.
