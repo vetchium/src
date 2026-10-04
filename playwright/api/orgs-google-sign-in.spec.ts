@@ -653,3 +653,29 @@ test.describe("seat cap", () => {
     });
   });
 });
+
+test("Google sign-in settings require an explicit boolean and refuse suspended Orgs", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, org, owner) => {
+    await withGoogle(api, owner);
+    for (const body of [{}, { enabled: null }]) {
+      await expectProblem(
+        await api.post("/set-google-sign-in", body, { token: owner }),
+        400,
+        validationFailed,
+        ["enabled"],
+      );
+      expect((await orgInfo(api, owner)).google_sign_in_enabled).toBe(true);
+    }
+    orgSQL(
+      `UPDATE vetchium.orgs SET org_state='suspended', suspended_at=now() WHERE org_did=(SELECT org_did FROM vetchium.org_domains WHERE domain='${org.domain}')`,
+    );
+    await expectProblem(
+      await api.setGoogleSignIn(owner, false),
+      403,
+      "vetchium-problem-details/org-suspended",
+    );
+    expect((await orgInfo(api, owner)).google_sign_in_enabled).toBe(true);
+  });
+});

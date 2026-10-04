@@ -7,7 +7,11 @@ import type { APIRequestContext, APIResponse } from "@playwright/test";
 import { expect } from "@playwright/test";
 import type { MyInfoResponse } from "typespec/orgs/account/account";
 import type { LoginResponse } from "typespec/orgs/auth/login";
-import type { CompleteSignupResponse } from "typespec/orgs/auth/signup";
+import type {
+  CompleteSignupRequest,
+  CompleteSignupResponse,
+  RequestSignupRequest,
+} from "typespec/orgs/auth/signup";
 import type { SetCompanyNameRequest } from "typespec/orgs/settings/company";
 import type { SetSubscriptionPlanRequest } from "typespec/orgs/subscriptions/subscriptions";
 import type { OrgDomain } from "typespec/orgs/types";
@@ -55,8 +59,9 @@ export class OrgsAPI {
   constructor(
     readonly request: APIRequestContext,
     readonly tenant: TestTenant = "sgp",
+    origin: string = apiOrigin(tenant),
   ) {
-    this.origin = apiOrigin(tenant);
+    this.origin = origin;
   }
 
   post(
@@ -90,6 +95,20 @@ export class OrgsAPI {
       data: body,
       headers,
     });
+  }
+
+  requestSignup(
+    request: RequestSignupRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/request-signup", request, { idempotencyKey });
+  }
+
+  completeSignup(
+    request: CompleteSignupRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/complete-signup", request, { idempotencyKey });
   }
 
   inviteUsers(

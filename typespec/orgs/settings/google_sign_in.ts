@@ -3,7 +3,7 @@ export interface SetGoogleSignInRequest {
 }
 
 export function validateSetGoogleSignInRequest(
-  _request: SetGoogleSignInRequest,
+  request: SetGoogleSignInRequest,
 ): string[] {
-  return [];
+  return typeof request.enabled === "boolean" ? [] : ["enabled"];
 }

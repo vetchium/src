@@ -27,7 +27,6 @@ Each item: what is not done, and what must be decided first.
 - Go contract tests for `typespec/hub/auth` and `typespec/hub/users`.
 - `backend/handlers/mesh` directory relays have no Go tests; only the
   Playwright API suite exercises them.
-- Org signup-unavailable (403) is untested: no CI region has Org signup off.
 
 ## Hub
 
@@ -72,12 +71,9 @@ Each item: what is not done, and what must be decided first.
   entitlements and a webhook-fed projection, never card data. Decide provider
   (per region if needed), proration, when paid entitlements start, tax,
   refunds, billing contacts, and nonpayment consequences.
-- Org administration redesign verification: complete the full integration
-  suite and coverage reports after restoring the local test environment.
-  Blockers: localhost port 80 connection failures and a missing Playwright
-  worker module. Resolve the environment before rerunning; do not treat the
-  partial runs as full sign-off. Company fields/maps and measured enterprise
-  performance remain separate work.
+- Org administration coverage: run the full suite and coverage report after
+  adding the unavailable-service fixture and the missing Org error-path tests.
+  Company fields/maps and measured enterprise performance remain separate work.
 - Openings enforcement: only the quota constants and the counting rule exist
   (`internal/orgs/entitlements`). The publish statement must apply it under the
   Org lock.

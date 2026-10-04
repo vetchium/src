@@ -7,12 +7,14 @@ import "../../problem/details.tsp";
 import "../../problem/orgs/authentication.tsp";
 import "../../problem/orgs/billing.tsp";
 import "../../problem/orgs/suspension.tsp";
+import "../../problem/orgs/sso.tsp";
 
 using TypeSpec.Http;
 
 namespace Vetchium.Orgs.Settings;
 
 model SetGoogleSignInRequest {
+  /** Required, including when turning sign-in off. Missing or null is invalid. */
   enabled: boolean;
 }
 
@@ -41,6 +43,7 @@ interface GoogleSignInSettingsOperations {
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.OrgAuthenticationOrRecentRequiredErrorResponse
     | Vetchium.Problem.OrgPermissionRequiredErrorResponse
+    | Vetchium.Problem.OrgSSONotAvailableErrorResponse
     | Vetchium.Problem.OrgSuspendedErrorResponse
     | Vetchium.Problem.OrgPlanRequiredErrorResponse
     | Vetchium.Problem.OrgUserLimitExceedsTargetErrorResponse

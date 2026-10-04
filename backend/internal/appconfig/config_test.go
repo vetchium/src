@@ -701,3 +701,14 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
 	}
 	return path
 }
+
+func TestOrgUnavailableFixtureConfiguration(t *testing.T) {
+	t.Parallel()
+	cfg, err := LoadFile(filepath.Join("..", "..", "..", "config", "ci", "fixtures", "orgs-unavailable.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Env != EnvironmentCI || cfg.TenantID != "sgp" || cfg.OrgsAPIServer.Signup.Enabled || cfg.OrgsAPIServer.GoogleSignIn != nil {
+		t.Fatal("Org unavailable fixture must be a CI sgp instance with signup and Google sign-in unavailable")
+	}
+}

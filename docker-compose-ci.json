@@ -18,6 +18,9 @@
     },
     "app_config_usa1": {
       "file": "./config/ci/usa1.json"
+    },
+    "orgs_unavailable_config": {
+      "file": "./config/ci/fixtures/orgs-unavailable.json"
     }
   },
   "networks": {
@@ -4182,6 +4185,74 @@
         }
       ],
       "security_opt": ["no-new-privileges:true"]
+    },
+    "orgs-api-unavailable": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "orgs-api"
+      },
+      "depends_on": {
+        "dns-dev": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "db-seed-sgp": {
+          "condition": "service_completed_successfully",
+          "required": true
+        }
+      },
+      "configs": [
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        },
+        {
+          "source": "orgs_unavailable_config",
+          "target": "/etc/vetchium/config.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "${POSTGRES_DB:-tenant_db}",
+        "PGSSLMODE": "${PGSSLMODE:-disable}"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
+      "networks": {
+        "sgp_backend": null,
+        "sgp_orgs_api_access": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "secrets": [
+        {
+          "source": "app_postgres_password",
+          "target": "/run/secrets/app_postgres_password"
+        },
+        {
+          "source": "mesh_credential",
+          "target": "/run/secrets/mesh_credential"
+        },
+        {
+          "source": "orgs_credential_key",
+          "target": "/run/secrets/orgs_credential_key"
+        },
+        {
+          "source": "seaweed_s3_sgp_access_key",
+          "target": "/run/secrets/seaweed_s3_access_key"
+        },
+        {
+          "source": "seaweed_s3_sgp_secret_key",
+          "target": "/run/secrets/seaweed_s3_secret_key"
+        }
+      ],
+      "security_opt": ["no-new-privileges:true"],
+      "ports": ["127.0.0.1:18084:8080"]
     }
   },
   "volumes": {

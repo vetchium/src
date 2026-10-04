@@ -29,7 +29,7 @@ func SetGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
-		if request.Enabled && s.GoogleSignIn == nil {
+		if *request.Enabled && s.GoogleSignIn == nil {
 			s.Problem(ctx, w, orgsproblem.SSONotAvailableError)
 			return
 		}
@@ -52,11 +52,11 @@ func SetGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		gold := subscriptionspec.PlanOID(subscriptionspec.GoldTier)
-		if request.Enabled && subscriptionspec.PlanOID(locked.OrgPlanOid) != gold {
+		if *request.Enabled && subscriptionspec.PlanOID(locked.OrgPlanOid) != gold {
 			s.Problem(ctx, w, orgsproblem.PlanRequiredError(subscriptionspec.GoldTier))
 			return
 		}
-		if !request.Enabled && locked.GoogleSignInEnabled {
+		if !*request.Enabled && locked.GoogleSignInEnabled {
 			// Seats are read after the lock, in their own statement, so the
 			// count reflects every commit that preceded it.
 			seats, err := q.GetOrgSeatsInUse(ctx, identity.OrgDID)
@@ -75,7 +75,7 @@ func SetGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 			}
 		}
 		if err := q.SetOrgGoogleSignIn(ctx, sqlc.SetOrgGoogleSignInParams{
-			Enabled:  request.Enabled,
+			Enabled:  *request.Enabled,
 			OrgDid:   identity.OrgDID,
 			TenantID: s.TenantID,
 			ActorID:  dbvalue.FormatUUID(identity.UserID),

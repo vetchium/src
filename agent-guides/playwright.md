@@ -84,3 +84,8 @@ Commands are in [`verification.md`](verification.md).
   an overlay, include, or generated file. Sync services, networks, secrets, and
   health checks by hand.
 - CI configs live in `config/ci/` (`ci` environment, short timings).
+
+- CI-only `orgs-api-unavailable` listens on `127.0.0.1:18084`, shares the sgp
+  test database, and uses `config/ci/fixtures/orgs-unavailable.json` with Org
+  signup disabled and no Google provider. Use it for unavailable-service
+  responses; never toggle a shared running tenant's configuration in tests.

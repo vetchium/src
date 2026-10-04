@@ -6,6 +6,7 @@ import { makeJPEG128, makePNG, withTextChunk } from "../lib/logo-fixtures.ts";
 import {
   addOrgMember,
   cleanupOrg,
+  installOrgAuditInsertFailure,
   inviteeAddress,
   loginOrg,
   OrgsAPI,
@@ -352,5 +353,41 @@ test.describe("logo removal and plan changes", () => {
       await onSilver(api, owner);
       expect(await logoURL(api, owner)).toBeUndefined();
     });
+  });
+});
+
+test("a superseded unfinished logo upload cannot replace the newer logo on retry", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, _org, owner) => {
+    await onSilver(api, owner);
+    const key = orgsIdempotencyKey();
+    const first = makePNG(200, 200);
+    const removeFault = installOrgAuditInsertFailure({
+      action: "org.logo.activated",
+      idempotencyKey: key,
+    });
+    try {
+      expect(
+        (await api.uploadLogo(owner, "image/png", first, key)).status(),
+      ).toBe(500);
+    } finally {
+      removeFault();
+    }
+    expect(await logoURL(api, owner)).toBeUndefined();
+    expect(
+      (await api.uploadLogo(owner, "image/png", makePNG(220, 220))).status(),
+    ).toBe(204);
+    const current = await fetch((await logoURL(api, owner)) ?? "");
+    expect(current.status).toBe(200);
+    const bytes = Buffer.from(await current.arrayBuffer());
+    await expectProblem(
+      await api.uploadLogo(owner, "image/png", first, key),
+      409,
+      "vetchium-problem-details/org-logo-conflict",
+    );
+    const after = await fetch((await logoURL(api, owner)) ?? "");
+    expect(after.status).toBe(200);
+    expect(Buffer.from(await after.arrayBuffer())).toEqual(bytes);
   });
 });
