@@ -233,11 +233,26 @@ FROM vetchium.hub_account_email_changes
 WHERE operation_id = sqlc.arg(operation_id)
 FOR UPDATE;
 
+-- The final SELECT's row count is the affected-row count.
 -- name: MarkHubAccountEmailChangeReserved :execrows
-UPDATE vetchium.hub_account_email_changes
-SET state = 'reserved', updated_at = now()
-WHERE operation_id = sqlc.arg(operation_id)
-  AND state = 'accepted';
+WITH changed AS (
+    UPDATE vetchium.hub_account_email_changes
+    SET state = 'reserved', updated_at = now()
+    WHERE operation_id = sqlc.arg(operation_id)
+      AND state = 'accepted'
+    RETURNING operation_id, hub_user_did
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id), 'hub.email-change.reserved', 'hub_user',
+        c.hub_user_did::text, 'hub_user', c.hub_user_did::text,
+        sqlc.arg(source), c.operation_id::text, '{}'::jsonb
+    FROM changed AS c
+)
+SELECT c.operation_id FROM changed AS c;
 
 -- The reserve-time email-claim-conflict path (GU-ECH-003): fails directly,
 -- skipping 'cancelling', since nothing was reserved globally to undo. The
@@ -264,12 +279,27 @@ SELECT
     jsonb_build_object('reason', sqlc.arg(failure_reason)::text)
 FROM updated_change;
 
+-- The final SELECT's row count is the affected-row count.
 -- name: MarkHubAccountEmailChangeCancelling :execrows
-UPDATE vetchium.hub_account_email_changes
-SET state = 'cancelling', failure_reason = sqlc.arg(failure_reason),
-    updated_at = now()
-WHERE operation_id = sqlc.arg(operation_id)
-  AND state IN ('accepted', 'reserved');
+WITH changed AS (
+    UPDATE vetchium.hub_account_email_changes
+    SET state = 'cancelling', failure_reason = sqlc.arg(failure_reason),
+        updated_at = now()
+    WHERE operation_id = sqlc.arg(operation_id)
+      AND state IN ('accepted', 'reserved')
+    RETURNING operation_id, hub_user_did, failure_reason
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id), 'hub.email-change.cancelling', 'hub_user',
+        c.hub_user_did::text, 'hub_user', c.hub_user_did::text,
+        sqlc.arg(source), c.operation_id::text, jsonb_build_object('reason', c.failure_reason)
+    FROM changed AS c
+)
+SELECT c.operation_id FROM changed AS c;
 
 -- Applies the change locally: this is today's ConfirmHubEmailChange effects,
 -- minus the code check, reading everything from hub_account_email_changes.
@@ -347,11 +377,26 @@ SELECT operation_id FROM updated_change;
 
 -- The caller resolves the sibling federation_operations row with the
 -- existing generic ResolveFederationOperation in the same transaction.
+-- The final SELECT's row count is the affected-row count.
 -- name: MarkHubAccountEmailChangeSucceeded :execrows
-UPDATE vetchium.hub_account_email_changes
-SET state = 'succeeded', completed_at = now(), updated_at = now()
-WHERE operation_id = sqlc.arg(operation_id)
-  AND state = 'applied';
+WITH changed AS (
+    UPDATE vetchium.hub_account_email_changes
+    SET state = 'succeeded', completed_at = now(), updated_at = now()
+    WHERE operation_id = sqlc.arg(operation_id)
+      AND state = 'applied'
+    RETURNING operation_id, hub_user_did
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id), 'hub.email-change.succeeded', 'hub_user',
+        c.hub_user_did::text, 'hub_user', c.hub_user_did::text,
+        sqlc.arg(source), c.operation_id::text, '{}'::jsonb
+    FROM changed AS c
+)
+SELECT c.operation_id FROM changed AS c;
 
 -- name: MarkHubAccountEmailChangeFailed :execrows
 WITH updated_change AS (

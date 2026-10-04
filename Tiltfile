@@ -37,6 +37,9 @@ trigger = TRIGGER_MODE_MANUAL if cfg.get('manual') else TRIGGER_MODE_AUTO
 # value an already initialized stack is using, so defer to it rather than
 # duplicating the defaults here.
 local('make dev-secrets', echo_off=True)
+# The images generate their own sqlc output; this local copy, like the one
+# `make dev` writes, is for editors and host-side Go commands.
+local('make sqlc', echo_off=True)
 
 # docker-compose.json names the project `vetchium`; Tilt would otherwise infer
 # the project name from this directory and run a second, parallel stack that

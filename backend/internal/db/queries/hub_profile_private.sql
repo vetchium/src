@@ -465,6 +465,15 @@ WITH candidate AS (
         p.height, p.content_sha256, p.state, p.attempt_count,
         p.next_attempt_at, p.lease_token, p.leased_until, p.last_error,
         p.created_at, p.upload_expires_at, p.delete_requested_at
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'hub.profile.picture-deletion-claimed', 'hub_profile_picture',
+        c.object_id::text, 'worker', NULL, 'workers',
+        jsonb_build_object('hub_user_did', c.hub_user_did, 'attempt', c.attempt_count)
+    FROM claimed AS c
 )
 SELECT object_id, hub_user_did, format, byte_size, width, height,
     content_sha256, state, attempt_count, next_attempt_at, lease_token,
@@ -472,17 +481,31 @@ SELECT object_id, hub_user_did, format, byte_size, width, height,
     delete_requested_at
 FROM claimed;
 
+-- The final SELECT's row count is the affected-row count.
 -- name: RetryHubProfilePictureDeletion :execrows
-UPDATE vetchium.hub_profile_picture_objects
-SET lease_token = NULL, leased_until = NULL,
-    next_attempt_at = now() + LEAST(
-        interval '5 minutes',
-        interval '1 second' * power(2, LEAST(attempt_count, 8))
-    ),
-    last_error = left(sqlc.arg(last_error), 200)
-WHERE object_id = sqlc.arg(object_id)
-  AND state = 'pending_delete'
-  AND lease_token = sqlc.arg(lease_token);
+WITH retried AS (
+    UPDATE vetchium.hub_profile_picture_objects
+    SET lease_token = NULL, leased_until = NULL,
+        next_attempt_at = now() + LEAST(
+            interval '5 minutes',
+            interval '1 second' * power(2, LEAST(attempt_count, 8))
+        ),
+        last_error = left(sqlc.arg(last_error), 200)
+    WHERE object_id = sqlc.arg(object_id)
+      AND state = 'pending_delete'
+      AND lease_token = sqlc.arg(lease_token)
+    RETURNING object_id, hub_user_did, attempt_count
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'hub.profile.picture-deletion-retry-scheduled', 'hub_profile_picture',
+        c.object_id::text, 'worker', NULL, 'workers',
+        jsonb_build_object('hub_user_did', c.hub_user_did, 'attempt', c.attempt_count)
+    FROM retried AS c
+)
+SELECT r.object_id FROM retried AS r;
 
 -- name: CompleteHubProfilePictureDeletion :one
 WITH deleted AS (

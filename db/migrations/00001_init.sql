@@ -1331,7 +1331,6 @@ CREATE TABLE vetchium.org_users (
         ON DELETE CASCADE,
     email_address text NOT NULL,
     org_user_state vetchium.org_user_state NOT NULL DEFAULT 'provisioning',
-    disabled_reason text,
     disabled_at timestamptz,
     disabled_by uuid REFERENCES vetchium.org_users (org_user_id)
         ON DELETE SET NULL,
@@ -1342,11 +1341,8 @@ CREATE TABLE vetchium.org_users (
     CONSTRAINT org_users_org_email_key UNIQUE (org_did, email_address),
     CONSTRAINT org_users_disabled_consistent CHECK (
         CASE org_user_state
-            WHEN 'disabled' THEN
-                disabled_reason IS NOT NULL AND disabled_reason = 'manual' AND
-                disabled_at IS NOT NULL
-            ELSE disabled_reason IS NULL AND disabled_at IS NULL AND
-                disabled_by IS NULL
+            WHEN 'disabled' THEN disabled_at IS NOT NULL
+            ELSE disabled_at IS NULL AND disabled_by IS NULL
         END
     ),
     CONSTRAINT org_users_email_address_normalized CHECK (
@@ -1791,6 +1787,79 @@ CREATE TABLE vetchium.idempotency_ledger (
 CREATE INDEX idempotency_expiry_idx
     ON vetchium.idempotency_ledger (expires_at);
 
+-- Every application transaction that changes a row also writes an audit
+-- event. Inserting an audit event marks the transaction; a deferred trigger
+-- on every other table checks the mark at commit and refuses the commit
+-- without it. Sessions of the table owner (migrations, fixtures, operators)
+-- are not application writes. Exempt: idempotency_ledger, the replay
+-- ledger, which records responses rather than changes.
+-- +goose StatementBegin
+CREATE FUNCTION vetchium.mark_transaction_audited()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM pg_catalog.set_config('vetchium.audited', 'on', true);
+    RETURN NULL;
+END;
+$$;
+-- +goose StatementEnd
+
+-- +goose StatementBegin
+CREATE FUNCTION vetchium.require_audit()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF pg_catalog.current_setting('vetchium.audited', true) = 'on'
+        OR TG_TABLE_NAME = 'idempotency_ledger' THEN
+        RETURN NULL;
+    END IF;
+    IF pg_catalog.pg_has_role(
+        current_user,
+        (SELECT c.relowner FROM pg_catalog.pg_class AS c WHERE c.oid = TG_RELID),
+        'MEMBER'
+    ) THEN
+        RETURN NULL;
+    END IF;
+    RAISE EXCEPTION 'transaction changed %.% without an audit event',
+        TG_TABLE_SCHEMA, TG_TABLE_NAME
+        USING ERRCODE = 'integrity_constraint_violation';
+END;
+$$;
+-- +goose StatementEnd
+
+CREATE TRIGGER audit_marks_transaction
+AFTER INSERT ON vetchium.audit_events
+FOR EACH ROW EXECUTE FUNCTION vetchium.mark_transaction_audited();
+
+-- Audit events are append-only for the application.
+REVOKE UPDATE, DELETE, TRUNCATE ON vetchium.audit_events FROM vetchium_app;
+
+-- +goose StatementBegin
+DO $$
+DECLARE
+    audited regclass;
+BEGIN
+    FOR audited IN
+        SELECT c.oid::regclass
+        FROM pg_catalog.pg_class AS c
+        WHERE c.relnamespace = 'vetchium'::regnamespace
+          AND c.relkind = 'r'
+          AND c.relname <> 'audit_events'
+    LOOP
+        EXECUTE pg_catalog.format(
+            'CREATE CONSTRAINT TRIGGER audit_required '
+            'AFTER INSERT OR UPDATE OR DELETE ON %s '
+            'DEFERRABLE INITIALLY DEFERRED '
+            'FOR EACH ROW EXECUTE FUNCTION vetchium.require_audit()',
+            audited
+        );
+    END LOOP;
+END;
+$$;
+-- +goose StatementEnd
+
 -- +goose Down
 DROP TABLE IF EXISTS vetchium.idempotency_ledger;
 DROP TABLE IF EXISTS vetchium.org_email_outbox;
@@ -1839,6 +1908,7 @@ DROP TABLE IF EXISTS vetchium.hub_signup_requests;
 DROP TABLE IF EXISTS vetchium.hub_totp_recovery_codes;
 DROP TABLE IF EXISTS vetchium.hub_totp_enrollments;
 DROP TABLE IF EXISTS vetchium.hub_login_challenges;
+DROP TABLE IF EXISTS vetchium.hub_email_change_challenges;
 DROP TABLE IF EXISTS vetchium.hub_sessions;
 DROP TABLE IF EXISTS vetchium.hub_educational_qualifications;
 DROP TABLE IF EXISTS vetchium.hub_language_abilities;
@@ -1881,3 +1951,5 @@ DROP DOMAIN IF EXISTS vetchium.hub_frontend_locale;
 DROP DOMAIN IF EXISTS vetchium.profile_domain;
 DROP FUNCTION IF EXISTS vetchium.enforce_hub_profile_entry_limit();
 DROP FUNCTION IF EXISTS vetchium.array_is_distinct(text[]);
+DROP FUNCTION IF EXISTS vetchium.require_audit();
+DROP FUNCTION IF EXISTS vetchium.mark_transaction_audited();

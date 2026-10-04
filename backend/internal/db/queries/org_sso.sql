@@ -1,11 +1,28 @@
+-- The audit names the domain and provider, never the state or nonce hash.
 -- name: CreateOrgSSOLoginState :exec
-INSERT INTO vetchium.org_sso_login_states (
-    state_hash, provider, domain, nonce_hash, verifier_ciphertext, expires_at
+WITH created AS (
+    INSERT INTO vetchium.org_sso_login_states (
+        state_hash, provider, domain, nonce_hash, verifier_ciphertext,
+        expires_at
+    )
+    VALUES (
+        sqlc.arg(state_hash), sqlc.arg(provider), sqlc.arg(domain),
+        sqlc.arg(nonce_hash), sqlc.arg(verifier_ciphertext),
+        sqlc.arg(expires_at)
+    )
+    RETURNING domain, provider
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id), 'org.sso.login-started', 'org_domain', c.domain::text,
+        'anonymous', NULL, 'orgs-api',
+        jsonb_build_object('provider', c.provider)
+    FROM created AS c
 )
-VALUES (
-    sqlc.arg(state_hash), sqlc.arg(provider), sqlc.arg(domain),
-    sqlc.arg(nonce_hash), sqlc.arg(verifier_ciphertext), sqlc.arg(expires_at)
-);
+SELECT 1;
 
 -- Reads a live state without spending it, so the provider exchange happens
 -- outside any transaction; ConsumeOrgSSOLoginState spends it afterwards, in
@@ -20,13 +37,27 @@ WHERE t.state_hash = sqlc.arg(state_hash)
 
 -- A state redeems once and only before it expires; a replay finds nothing.
 -- name: ConsumeOrgSSOLoginState :one
-UPDATE vetchium.org_sso_login_states AS t
-SET consumed_at = now()
-WHERE t.state_hash = sqlc.arg(state_hash)
-  AND t.provider = sqlc.arg(provider)
-  AND t.consumed_at IS NULL
-  AND t.expires_at > now()
-RETURNING t.domain::text AS domain, t.nonce_hash, t.verifier_ciphertext;
+WITH consumed AS (
+    UPDATE vetchium.org_sso_login_states AS t
+    SET consumed_at = now()
+    WHERE t.state_hash = sqlc.arg(state_hash)
+      AND t.provider = sqlc.arg(provider)
+      AND t.consumed_at IS NULL
+      AND t.expires_at > now()
+    RETURNING t.domain, t.provider, t.nonce_hash, t.verifier_ciphertext
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id), 'org.sso.login-state-consumed', 'org_domain', c.domain::text,
+        'anonymous', NULL, 'orgs-api',
+        jsonb_build_object('provider', c.provider)
+    FROM consumed AS c
+)
+SELECT c.domain::text AS domain, c.nonce_hash, c.verifier_ciphertext
+FROM consumed AS c;
 
 -- The user a verified Google identity names, with everything the sign-in
 -- decision reads. Google sign-in trusts the hosted-domain claim, so only an
@@ -36,7 +67,6 @@ RETURNING t.domain::text AS domain, t.nonce_hash, t.verifier_ciphertext;
 SELECT
     u.org_user_id,
     u.org_user_state,
-    u.disabled_reason,
     u.preferred_language,
     o.org_plan_oid,
     o.google_sign_in_enabled,

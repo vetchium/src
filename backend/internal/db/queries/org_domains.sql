@@ -9,7 +9,8 @@ SELECT
     d.verification_token,
     d.domain_state,
     d.last_conclusive_at,
-    d.consecutive_inconclusive
+    d.consecutive_inconclusive,
+    d.directory_command_id
 FROM vetchium.org_domains AS d
 JOIN vetchium.orgs AS o ON o.org_did = d.org_did
 WHERE d.next_check_at <= now()
@@ -25,7 +26,8 @@ SELECT
     d.verification_token,
     d.domain_state,
     d.last_conclusive_at,
-    d.consecutive_inconclusive
+    d.consecutive_inconclusive,
+    d.directory_command_id
 FROM vetchium.org_domains AS d
 JOIN vetchium.orgs AS o ON o.org_did = d.org_did
 WHERE d.org_did = sqlc.arg(org_did)

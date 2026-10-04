@@ -27,8 +27,8 @@
 !dev/wireguard/
 !dev/wireguard/**
 
-# Backend images regenerate this package from SQL sources. Never copy the
-# committed editor-friendly output into the build context.
+# Backend images regenerate these packages from SQL sources. Never copy a
+# developer's local `make sqlc` output into the build context.
 backend/internal/db/sqlc/
 backend/internal/globaldb/sqlc/
 admin-ui/node_modules/

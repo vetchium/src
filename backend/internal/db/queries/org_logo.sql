@@ -212,21 +212,44 @@ WITH candidate AS (
         leased_until = now() + interval '1 minute',
         attempt_count = attempt_count + 1
     WHERE l.object_id = (SELECT object_id FROM candidate)
-    RETURNING l.object_id, l.org_did
+    RETURNING l.object_id, l.org_did, l.attempt_count
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'org.logo.deletion-claimed', 'org_logo',
+        c.object_id::text, 'worker', NULL, 'workers',
+        jsonb_build_object('org_did', c.org_did, 'attempt', c.attempt_count)
+    FROM claimed AS c
 )
-SELECT object_id, org_did FROM claimed;
+SELECT c.object_id, c.org_did FROM claimed AS c;
 
+-- The final SELECT's row count is the affected-row count.
 -- name: RetryOrgLogoDeletion :execrows
-UPDATE vetchium.org_logo_objects
-SET lease_token = NULL, leased_until = NULL,
-    next_attempt_at = now() + LEAST(
-        interval '5 minutes',
-        interval '1 second' * power(2, LEAST(attempt_count, 8))
-    ),
-    last_error = left(sqlc.arg(last_error), 200)
-WHERE object_id = sqlc.arg(object_id)
-  AND state = 'pending_delete'
-  AND lease_token = sqlc.arg(lease_token);
+WITH retried AS (
+    UPDATE vetchium.org_logo_objects
+    SET lease_token = NULL, leased_until = NULL,
+        next_attempt_at = now() + LEAST(
+            interval '5 minutes',
+            interval '1 second' * power(2, LEAST(attempt_count, 8))
+        ),
+        last_error = left(sqlc.arg(last_error), 200)
+    WHERE object_id = sqlc.arg(object_id)
+      AND state = 'pending_delete'
+      AND lease_token = sqlc.arg(lease_token)
+    RETURNING object_id, org_did, attempt_count
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'org.logo.deletion-retry-scheduled', 'org_logo',
+        c.object_id::text, 'worker', NULL, 'workers',
+        jsonb_build_object('org_did', c.org_did, 'attempt', c.attempt_count)
+    FROM retried AS c
+)
+SELECT r.object_id FROM retried AS r;
 
 -- name: CompleteOrgLogoDeletion :one
 WITH deleted AS (

@@ -18,9 +18,8 @@ COPY db/global-migrations /src/db/global-migrations
 COPY db/migrations /src/db/migrations
 
 # Generated database access is always rebuilt from the SQL sources in this
-# image. The committed output is excluded by .dockerignore; removing the
-# directory here as well prevents stale files from surviving if the build
-# context changes later.
+# image. A developer's local output is excluded by .dockerignore; removing the
+# directory here as well keeps it out if the build context changes later.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     rm -rf internal/db/sqlc internal/globaldb/sqlc && \

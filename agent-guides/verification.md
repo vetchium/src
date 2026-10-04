@@ -18,8 +18,9 @@ the coverage reports. `make fmt` applies every formatter.
 
 - Results must be clean with no new warnings. Never weaken a rule or exclude
   changed code to pass.
-- Commit generated output with its source, and read the generated diff for
-  unexpected signatures, nullability, or models.
+- Commit generated output with its source (except sqlc output, which is
+  never committed), and read the generated diff for unexpected signatures,
+  nullability, or models.
 - Run `git diff --check` and read `git status` before committing.
 
 ## Playwright

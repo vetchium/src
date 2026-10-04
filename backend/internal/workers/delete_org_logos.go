@@ -22,7 +22,8 @@ type LogoStore interface {
 
 type logoDeletionQueries interface {
 	QueueExpiredOrgLogoUploads(context.Context, string) (int32, error)
-	ClaimOrgLogoDeletion(context.Context, pgtype.UUID) (
+	ClaimOrgLogoDeletion(context.Context,
+		sqlc.ClaimOrgLogoDeletionParams) (
 		sqlc.ClaimOrgLogoDeletionRow, error,
 	)
 	RetryOrgLogoDeletion(context.Context, sqlc.RetryOrgLogoDeletionParams) (int64, error)
@@ -52,7 +53,10 @@ func (w *Worker) deleteOrgLogos(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		row, err := w.logoQueries.ClaimOrgLogoDeletion(ctx, leaseToken)
+		row, err := w.logoQueries.ClaimOrgLogoDeletion(ctx,
+			sqlc.ClaimOrgLogoDeletionParams{
+				LeaseToken: leaseToken, TenantID: w.tenantID,
+			})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -70,6 +74,7 @@ func (w *Worker) deleteOrgLogos(ctx context.Context) error {
 				ctx, sqlc.RetryOrgLogoDeletionParams{
 					ObjectID: row.ObjectID, LeaseToken: leaseToken,
 					LastError: "object-store deletion failed",
+					TenantID:  w.tenantID,
 				},
 			)
 			if err != nil {

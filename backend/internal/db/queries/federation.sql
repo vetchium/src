@@ -1,21 +1,40 @@
 -- name: CreateFederationOperation :one
-INSERT INTO vetchium.federation_operations (
-    operation_id, command_id, kind, target_authority, aggregate_id,
-    owner_principal_type, owner_principal_id, idempotency_key,
-    request_digest, payload_bytes, expires_at
+WITH created AS (
+    INSERT INTO vetchium.federation_operations (
+        operation_id, command_id, kind, target_authority, aggregate_id,
+        owner_principal_type, owner_principal_id, idempotency_key,
+        request_digest, payload_bytes, expires_at
+    )
+    VALUES (
+        sqlc.arg(operation_id), sqlc.arg(command_id), sqlc.arg(kind),
+        sqlc.arg(target_authority), sqlc.arg(aggregate_id),
+        sqlc.arg(owner_principal_type), sqlc.arg(owner_principal_id),
+        sqlc.arg(idempotency_key), sqlc.arg(request_digest),
+        sqlc.arg(payload_bytes), sqlc.arg(expires_at)
+    )
+    RETURNING operation_id, command_id, kind, target_authority, aggregate_id,
+        owner_principal_type, owner_principal_id, idempotency_key,
+        request_digest, payload_bytes, state, response_status,
+        response_ciphertext, attempt_count, next_attempt_at, last_error,
+        created_at, updated_at, completed_at, expires_at
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id), 'federation.operation.created', 'federation_operation',
+        o.operation_id::text, sqlc.arg(actor_type), sqlc.narg(actor_id),
+        sqlc.arg(source), o.idempotency_key,
+        jsonb_build_object('kind', o.kind, 'aggregate_id', o.aggregate_id)
+    FROM created AS o
 )
-VALUES (
-    sqlc.arg(operation_id), sqlc.arg(command_id), sqlc.arg(kind),
-    sqlc.arg(target_authority), sqlc.arg(aggregate_id),
-    sqlc.arg(owner_principal_type), sqlc.arg(owner_principal_id),
-    sqlc.arg(idempotency_key), sqlc.arg(request_digest),
-    sqlc.arg(payload_bytes), sqlc.arg(expires_at)
-)
-RETURNING operation_id, command_id, kind, target_authority, aggregate_id,
+SELECT operation_id, command_id, kind, target_authority, aggregate_id,
     owner_principal_type, owner_principal_id, idempotency_key,
     request_digest, payload_bytes, state, response_status,
     response_ciphertext, attempt_count, next_attempt_at, last_error,
-    created_at, updated_at, completed_at, expires_at;
+    created_at, updated_at, completed_at, expires_at
+FROM created;
 
 -- name: GetFederationOperation :one
 SELECT operation_id, command_id, kind, target_authority, aggregate_id,
@@ -70,36 +89,74 @@ WHERE operation_id = sqlc.arg(operation_id)
   AND owner_principal_id = sqlc.arg(owner_principal_id)
   AND expires_at > now();
 
+-- Steps after creation are keyed by the operation id, like the other durable
+-- steps an operation drives; only creation carries the caller's key.
+-- The final SELECT's row count is the affected-row count.
 -- name: RecordFederationOperationRetry :execrows
-UPDATE vetchium.federation_operations
-SET attempt_count = attempt_count + 1,
-    next_attempt_at = now() + LEAST(
-        interval '5 minutes',
-        interval '1 second' * power(2, LEAST(attempt_count, 8))
-    ),
-    last_error = left(sqlc.arg(last_error), 200),
-    updated_at = now()
-WHERE operation_id = sqlc.arg(operation_id) AND state = 'pending';
+WITH updated AS (
+    UPDATE vetchium.federation_operations
+    SET attempt_count = attempt_count + 1,
+        next_attempt_at = now() + LEAST(
+            interval '5 minutes',
+            interval '1 second' * power(2, LEAST(attempt_count, 8))
+        ),
+        last_error = left(sqlc.arg(last_error), 200),
+        updated_at = now()
+    WHERE operation_id = sqlc.arg(operation_id) AND state = 'pending'
+    RETURNING operation_id, idempotency_key, kind, attempt_count
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id), 'federation.operation.retry-scheduled',
+        'federation_operation',
+        o.operation_id::text, sqlc.arg(actor_type), sqlc.narg(actor_id),
+        sqlc.arg(source), o.operation_id::text,
+        jsonb_build_object('kind', o.kind, 'attempt', o.attempt_count)
+    FROM updated AS o
+)
+SELECT u.operation_id FROM updated AS u;
 
 -- name: ResolveFederationOperation :one
-UPDATE vetchium.federation_operations
-SET state = sqlc.arg(state),
-    response_status = sqlc.arg(response_status),
-    response_ciphertext = sqlc.arg(response_ciphertext),
-    payload_bytes = decode('', 'hex'),
-    completed_at = now(),
-    updated_at = now(),
-    last_error = NULL
-WHERE operation_id = sqlc.arg(operation_id)
-  AND state = 'pending'
-  AND sqlc.arg(state)::vetchium.federation_operation_state IN (
-      'succeeded', 'failed'
-  )
-RETURNING operation_id, command_id, kind, target_authority, aggregate_id,
+WITH resolved AS (
+    UPDATE vetchium.federation_operations
+    SET state = sqlc.arg(state),
+        response_status = sqlc.arg(response_status),
+        response_ciphertext = sqlc.arg(response_ciphertext),
+        payload_bytes = decode('', 'hex'),
+        completed_at = now(),
+        updated_at = now(),
+        last_error = NULL
+    WHERE operation_id = sqlc.arg(operation_id)
+      AND state = 'pending'
+      AND sqlc.arg(state)::vetchium.federation_operation_state IN (
+          'succeeded', 'failed'
+      )
+    RETURNING operation_id, command_id, kind, target_authority, aggregate_id,
+        owner_principal_type, owner_principal_id, idempotency_key,
+        request_digest, payload_bytes, state, response_status,
+        response_ciphertext, attempt_count, next_attempt_at, last_error,
+        created_at, updated_at, completed_at, expires_at
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id), 'federation.operation.resolved', 'federation_operation',
+        o.operation_id::text, sqlc.arg(actor_type), sqlc.narg(actor_id),
+        sqlc.arg(source), o.operation_id::text,
+        jsonb_build_object('kind', o.kind, 'state', o.state, 'response_status', o.response_status)
+    FROM resolved AS o
+)
+SELECT operation_id, command_id, kind, target_authority, aggregate_id,
     owner_principal_type, owner_principal_id, idempotency_key,
     request_digest, payload_bytes, state, response_status,
     response_ciphertext, attempt_count, next_attempt_at, last_error,
-    created_at, updated_at, completed_at, expires_at;
+    created_at, updated_at, completed_at, expires_at
+FROM resolved;
 
 -- name: PruneExpiredFederationOperations :execrows
 DELETE FROM vetchium.federation_operations

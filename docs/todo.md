@@ -16,35 +16,27 @@ Each item: what is not done, and what must be decided first.
   setting enables debug. Add a process-wide level first; then decide what the
   level keys off (route, problem type, or status) and where it is configured.
   Keep one record per handler exit.
-- The tenant migration's down section fails: `hub_email_change_challenges` is
-  not dropped before `hub_sessions`. No test runs the down path.
-- `make sqlc` and `make sql-check` leave generated files whose query source
-  was deleted; `internal/db/sqlc/org_billing_jobs.sql.go` still queries the
-  dropped invoice and notice tables. Delete it and make the check fail on
-  orphans.
-- Org subscription and company code drifts from its neighbours: unwrapped Go
-  calls in `handlers/orgs/subscriptions`, one-space indentation in
-  `org_subscriptions.sql` and `org_company.sql`, the interval built twice in
-  `SetSubscriptionPlan`. `SetCompanyName` borrows `LockOrgForBilling` and
-  `GetOrgSubscription` (which counts seats) only to read `org_state`.
 - `orgs-ui` `PlanOptions`: the `mcp` comparison row falls through to the
   ticket-support entitlement, and a label ternary is a no-op.
   `users.state.disabledManual` is unused in every locale.
-- `org_users_disabled_consistent` tests `disabled_reason IS NOT NULL` before
-  `= 'manual'`; with one reason left, decide whether the column stays.
+- Federation tables without a production caller: `federation_outbox`,
+  `federation_inbox`, and `federation_command_ledger` are written only by
+  `internal/db` integration tests, and `PruneExpiredFederationOperations` and
+  `RetryFederationOutboxEvent` have no caller. Their writes carry no audit
+  event. Decide whether cross-tenant commands will use them; then wire them
+  with audit CTEs or delete them.
 
 ## Test coverage
 
-- Admin concurrent password resets: `api/admin-password.spec.ts` receives 401
-  instead of 204 when completing the token selected by `emailCredential` after
-  two successful concurrent requests. Determine whether token selection or
-  reset ordering is wrong before changing the assertion.
 - Hub browser paths: signup completion success, TOTP sign-in and management,
   reauthentication success, and the profile fields and failures not yet
   covered.
 - Go contract tests for `typespec/hub/auth` and `typespec/hub/users`.
 - `backend/handlers/mesh` directory relays have no Go tests; only the
   Playwright API suite exercises them.
+- The database integration tests (`TENANT_DATABASE_URL`,
+  `GLOBAL_DATABASE_URL`) run in no make target. Decide where they run (a
+  scratch database like `make migration-check`, or the CI stack).
 
 ## Hub
 

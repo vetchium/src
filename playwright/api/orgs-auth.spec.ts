@@ -177,7 +177,7 @@ test.describe("Org sign-in", () => {
     try {
       orgSQL(
         `UPDATE vetchium.org_users SET org_user_state = 'disabled',
-           disabled_reason = 'manual', disabled_at = now()
+           disabled_at = now()
          WHERE email_address = '${org.emailAddress}'`,
       );
       await expectProblem(

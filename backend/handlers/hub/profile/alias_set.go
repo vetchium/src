@@ -108,6 +108,11 @@ func SetAlias(s *hubruntime.Server) http.HandlerFunc {
 						IdempotencyKey:     string(key),
 						RequestDigest:      digest[:], PayloadBytes: payload,
 						ExpiresAt: dbvalue.Timestamp(s.CurrentTime().Add(30 * 24 * time.Hour)),
+						TenantID:  s.TenantID, ActorType: "hub_user",
+						ActorID: dbvalue.Text(
+							dbvalue.FormatUUID(identity.UserDID),
+						),
+						Source: "hub-api",
 					})
 				if err != nil {
 					return result, nil, err

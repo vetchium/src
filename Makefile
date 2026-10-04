@@ -70,7 +70,7 @@ serving_services = $$(docker compose -f $(1) config --services | \
 	grep -vE '^(workers|dev-seed)-')
 
 .PHONY: check fmt backend dev dev-secrets dev-seed dev-seed-hub-profiles dev-seed-orgs sqlc sqlc-vet \
-	sqlc-verify sql-lint sql-check \
+	sql-lint migration-check sql-check \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
 	admin-ui-deps admin-ui-check admin-ui-check-ready \
@@ -111,10 +111,13 @@ repository-json-check: repository-json-check-ready
 # Compiles every Go program under backend/cmd/ with the local Go toolchain,
 # skipping the Docker image builds for a much faster compile-error feedback
 # loop.
-backend:
+backend: sqlc
 	cd backend && go build ./...
 
+# The images generate their own sqlc output; the local copy is for editors and
+# the host-side `go run` seed steps.
 dev: clean
+	$(MAKE) --no-print-directory sqlc
 	$(MAKE) --no-print-directory dev-secrets
 	docker compose -f docker-compose.json up --build -d --remove-orphans
 	docker compose -f docker-compose.json up -d --wait \
@@ -142,7 +145,7 @@ dev-seed: dev
 # lives in dev/hub-seed-profiles/ and is meant to be hand-edited. Runs from
 # the host against each tenant's Traefik-exposed API host, so it does not
 # need dev-secrets or a container of its own.
-dev-seed-hub-profiles:
+dev-seed-hub-profiles: sqlc
 	@for t in sgp usa1 deu ind1; do \
 		echo "==> hub profiles $$t"; \
 		(cd backend && DEV_SEED_MODE=hub-profiles \
@@ -156,7 +159,7 @@ dev-seed-hub-profiles:
 # admin@ that domain) through the Org signup API: it follows the DNS
 # instructions Mailpit captured, publishes the TXT record in the development
 # DNS server, then completes signup from the private link.
-dev-seed-orgs:
+dev-seed-orgs: sqlc
 	@for t in sgp usa1 deu ind1; do \
 		echo "==> orgs $$t"; \
 		(cd backend && DEV_SEED_MODE=orgs DEV_SEED_TENANT=$$t \
@@ -223,33 +226,16 @@ dev-secrets:
 		umask 077; printf '%s' "$$IDENTITY_DIGEST_KEY" > "$(IDENTITY_DIGEST_KEY_FILE)"; \
 	fi
 
+# Generated code is never committed. Regenerating into empty directories keeps
+# output whose query source was deleted from surviving.
 sqlc:
+	rm -rf backend/internal/db/sqlc backend/internal/globaldb/sqlc
 	cd backend && $(SQLC) generate
 	cd backend && $(SQLC) generate -f sqlc-global.yaml
 
 sqlc-vet:
 	cd backend && $(SQLC) vet
 	cd backend && $(SQLC) vet -f sqlc-global.yaml
-
-sqlc-verify:
-	@set -e; \
-	verification_dir=$$(mktemp -d); \
-	trap 'rm -rf "$$verification_dir"' EXIT; \
-	cp -R backend/internal/db/sqlc/. "$$verification_dir/"; \
-	global_verification_dir=$$(mktemp -d); \
-	trap 'rm -rf "$$verification_dir" "$$global_verification_dir"' EXIT; \
-	if [ -d backend/internal/globaldb/sqlc ]; then \
-		cp -R backend/internal/globaldb/sqlc/. "$$global_verification_dir/"; \
-	fi; \
-	$(MAKE) --no-print-directory sqlc; \
-	diff -ru "$$verification_dir" backend/internal/db/sqlc || { \
-		echo "generated sqlc code is stale; run 'make sqlc' and commit it"; \
-		exit 1; \
-	}; \
-	diff -ru "$$global_verification_dir" backend/internal/globaldb/sqlc || { \
-		echo "generated global sqlc code is stale; run 'make sqlc' and commit it"; \
-		exit 1; \
-	}
 
 # sqlc owns PostgreSQL syntax validation. SQLFluff does not understand every
 # PostgreSQL and sqlc construct used here, so it supplies complementary
@@ -259,7 +245,17 @@ sql-lint:
 		$(SQLFLUFF_IMAGE) lint --dialect postgres --ignore parsing \
 		--rules AM04,ST03 $(SQL_DIRS)
 
-sql-check: sqlc-vet sqlc-verify sql-lint
+# Every database uses the one PostgreSQL image the CI stack pins.
+migration-check:
+	@image=$$(docker compose -f docker-compose-ci.json config --images | \
+		grep '^postgres:' | sort -u); \
+	test "$$(printf '%s\n' "$$image" | wc -l)" -eq 1 || { \
+		echo "docker-compose-ci.json must pin exactly one postgres image"; \
+		exit 1; \
+	}; \
+	./db/check-migrations.sh "$$image"
+
+sql-check: sqlc-vet sqlc sql-lint migration-check
 
 test: clean
 	$(MAKE) --no-print-directory sql-check
@@ -298,7 +294,7 @@ test-stack: dev-secrets
 # Unit tests for every Go module; no database or running stack needed.
 # Race detection is always enabled. Pass extra flags with, for example,
 # make test-go GOTESTFLAGS='-count=1'.
-test-go: typespec-deps
+test-go: typespec-deps sqlc
 	@mkdir -p "$(COVERAGE_DIR)"
 	@for m in $(GO_MODULES); do \
 		echo "==> $$m"; \
@@ -307,7 +303,7 @@ test-go: typespec-deps
 			-coverprofile="$$profile" ./...) || exit $$?; \
 	done
 
-test-go-static: typespec-deps
+test-go-static: typespec-deps sqlc
 	@unformatted=$$(find $(GO_MODULES) -type f -name '*.go' -print0 | \
 		xargs -0 gofmt -l); \
 	test -z "$$unformatted" || { \
@@ -319,14 +315,16 @@ test-go-static: typespec-deps
 		echo "==> go vet $$m"; \
 		(cd "$$m" && go vet ./...) || exit $$?; \
 	done
+	@echo "==> singlecommit backend"
+	@cd backend && go tool singlecommit ./...
 
-test-go-lint: typespec-deps
+test-go-lint: typespec-deps sqlc
 	@for m in $(GO_MODULES); do \
 		echo "==> golangci-lint $$m"; \
 		(cd "$$m" && $(GOLANGCI_LINT) run) || exit $$?; \
 	done
 
-test-go-vuln: typespec-deps
+test-go-vuln: typespec-deps sqlc
 	@for m in $(GO_MODULES); do \
 		echo "==> govulncheck $$m"; \
 		(cd "$$m" && $(GOVULNCHECK) -test ./...) || exit $$?; \

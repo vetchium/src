@@ -128,6 +128,38 @@ test("after the grace period the domain is released and the Org restored by proo
   }
 });
 
+test("a check during an in-flight re-claim restores the Org", async ({
+  request,
+}) => {
+  const api = new OrgsAPI(request);
+  const org = await signupOrg(api);
+  try {
+    const token = await loginOrg(api, org);
+    await deleteOrgVerificationRecord(org.domain);
+    await waitForDomain(
+      api,
+      token,
+      (info) => info.org.org_state === "suspended",
+    );
+    const again = await loginOrg(api, org);
+    await setOrgVerificationRecord(org.domain, [org.value]);
+    // The worker's own check can begin the re-claim just before the user's.
+    orgSQL(
+      `UPDATE vetchium.org_domains
+       SET domain_state = 'reclaiming', directory_command_id = gen_random_uuid()
+       WHERE domain = '${org.domain}' AND domain_state = 'released'`,
+    );
+    const restored = await checkDomain(api, again);
+    expect(restored.check_result).toBe("present");
+    expect(restored.org.org_state).toBe("active");
+    expect(restored.org.domain.state).toBe("verified");
+    expect(globallyOwned(org.domain)).toBe(true);
+  } finally {
+    await deleteOrgVerificationRecord(org.domain);
+    cleanupOrg(org.domain);
+  }
+});
+
 test("a released domain claimed by another Org cannot be restored", async ({
   request,
 }) => {

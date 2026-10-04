@@ -481,7 +481,10 @@ func TestHubProfileQueryLifecycleIntegration(t *testing.T) {
 	for i := 0; i < 100 &&
 		(!deletedPictures[objectID] || !deletedPictures[replacementID]); i++ {
 		leaseToken := profileTestUUID(t)
-		claimed, err := q.ClaimHubProfilePictureDeletion(ctx, leaseToken)
+		claimed, err := q.ClaimHubProfilePictureDeletion(ctx,
+			sqlc.ClaimHubProfilePictureDeletionParams{
+				LeaseToken: leaseToken, TenantID: "sgp",
+			})
 		if err != nil {
 			t.Fatalf("claim picture deletion: %v", err)
 		}
@@ -581,6 +584,7 @@ func TestHubAliasMutationLifecycleIntegration(t *testing.T) {
 	commandID := profileTestUUID(t)
 	_, err = q.CreateFederationOperation(ctx,
 		sqlc.CreateFederationOperationParams{
+			TenantID: "sgp", ActorType: "worker", Source: "workers",
 			OperationID: operationID, CommandID: commandID,
 			Kind: "hub-alias-change", TargetAuthority: "global-directory",
 			AggregateID:        dbvalue.FormatUUID(did),
@@ -695,6 +699,7 @@ func TestHubProfileFederationRecoveryIntegration(t *testing.T) {
 	digest := make([]byte, 32)
 	created, err := q.CreateFederationOperation(ctx,
 		sqlc.CreateFederationOperationParams{
+			TenantID: "sgp", ActorType: "worker", Source: "workers",
 			OperationID: operationID, CommandID: commandID,
 			Kind: "profile-test", TargetAuthority: "deu",
 			AggregateID: "profile-test", OwnerPrincipalType: "hub_user",
@@ -727,6 +732,7 @@ func TestHubProfileFederationRecoveryIntegration(t *testing.T) {
 	otherCommandID := profileTestUUID(t)
 	_, err = q.CreateFederationOperation(ctx,
 		sqlc.CreateFederationOperationParams{
+			TenantID: "sgp", ActorType: "worker", Source: "workers",
 			OperationID: otherPortalID, CommandID: otherCommandID,
 			Kind: "profile-test-other-portal", TargetAuthority: "deu",
 			AggregateID:        "profile-test-other-portal",
@@ -757,12 +763,14 @@ func TestHubProfileFederationRecoveryIntegration(t *testing.T) {
 	}
 	if rows, err := q.RecordFederationOperationRetry(ctx,
 		sqlc.RecordFederationOperationRetryParams{
+			TenantID: "sgp", ActorType: "worker", Source: "workers",
 			OperationID: operationID, LastError: "temporary failure",
 		}); err != nil || rows != 1 {
 		t.Fatalf("retry operation = %d, %v", rows, err)
 	}
 	resolved, err := q.ResolveFederationOperation(ctx,
 		sqlc.ResolveFederationOperationParams{
+			TenantID: "sgp", ActorType: "worker", Source: "workers",
 			OperationID:        operationID,
 			State:              sqlc.VetchiumFederationOperationStateSucceeded,
 			ResponseStatus:     pgtype.Int4{Int32: 200, Valid: true},
@@ -774,6 +782,7 @@ func TestHubProfileFederationRecoveryIntegration(t *testing.T) {
 	}
 	if _, err := q.ResolveFederationOperation(ctx,
 		sqlc.ResolveFederationOperationParams{
+			TenantID: "sgp", ActorType: "worker", Source: "workers",
 			OperationID:        operationID,
 			State:              sqlc.VetchiumFederationOperationStateSucceeded,
 			ResponseStatus:     pgtype.Int4{Int32: 200, Valid: true},

@@ -21,7 +21,8 @@ type PictureStore interface {
 
 type pictureDeletionQueries interface {
 	QueueExpiredHubProfilePictureUploads(context.Context, string) (int32, error)
-	ClaimHubProfilePictureDeletion(context.Context, pgtype.UUID) (
+	ClaimHubProfilePictureDeletion(context.Context,
+		sqlc.ClaimHubProfilePictureDeletionParams) (
 		sqlc.ClaimHubProfilePictureDeletionRow, error,
 	)
 	RetryHubProfilePictureDeletion(context.Context,
@@ -39,7 +40,10 @@ func (w *Worker) deleteHubProfilePictures(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		row, err := w.pictureQueries.ClaimHubProfilePictureDeletion(ctx, leaseToken)
+		row, err := w.pictureQueries.ClaimHubProfilePictureDeletion(ctx,
+			sqlc.ClaimHubProfilePictureDeletionParams{
+				LeaseToken: leaseToken, TenantID: w.tenantID,
+			})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -57,6 +61,7 @@ func (w *Worker) deleteHubProfilePictures(ctx context.Context) error {
 				ctx, sqlc.RetryHubProfilePictureDeletionParams{
 					ObjectID: row.ObjectID, LeaseToken: leaseToken,
 					LastError: "object-store deletion failed",
+					TenantID:  w.tenantID,
 				},
 			)
 			if err != nil {

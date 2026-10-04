@@ -3,6 +3,7 @@ package domainverification
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"testing"
@@ -26,11 +27,18 @@ type fakeQueries struct {
 	calls   []string
 	absent  sqlc.RecordOrgDomainAbsentParams
 	retryAt time.Time
+	// lostBegin makes BeginOrgDomainReclaim lose a race to this row, which
+	// later reads return.
+	lostBegin *sqlc.GetOrgDomainForCheckRow
+	completed pgtype.UUID
 }
 
 func (f *fakeQueries) GetOrgDomainForCheck(
 	context.Context, pgtype.UUID,
 ) (sqlc.GetOrgDomainForCheckRow, error) {
+	if f.lostBegin != nil && len(f.calls) > 0 {
+		return *f.lostBegin, nil
+	}
 	return f.row, nil
 }
 
@@ -68,13 +76,14 @@ func (f *fakeQueries) BeginOrgDomainReclaim(
 	context.Context, sqlc.BeginOrgDomainReclaimParams,
 ) (bool, error) {
 	f.calls = append(f.calls, "begin-reclaim")
-	return true, nil
+	return f.lostBegin == nil, nil
 }
 
 func (f *fakeQueries) CompleteOrgDomainReclaim(
-	context.Context, sqlc.CompleteOrgDomainReclaimParams,
+	_ context.Context, params sqlc.CompleteOrgDomainReclaimParams,
 ) (bool, error) {
 	f.calls = append(f.calls, "complete-reclaim")
+	f.completed = params.DirectoryCommandID
 	return true, nil
 }
 
@@ -279,6 +288,58 @@ func TestReclaimOutcomes(t *testing.T) {
 				if queries.calls[index] != test.want[index] {
 					t.Fatalf("calls = %v, want %v", queries.calls, test.want)
 				}
+			}
+		})
+	}
+}
+
+// A check that finds the record while another check's re-claim is in flight
+// finishes that re-claim with its stored command, rather than reporting the
+// Org still suspended.
+func TestPresentDuringReclaimFinishesIt(t *testing.T) {
+	t.Parallel()
+	domain := orgs.OrgDomain("example.com")
+	claimed := fakeDirectory{claim: directoryclient.OrgOutcome{
+		Status: 200, Org: &directoryspec.OrgPrincipalCommandResponse{
+			Domain: &domain,
+		},
+	}}
+	inFlight := domainRowIn(sqlc.VetchiumOrgDomainStateReclaiming, testNow, 0)
+	inFlight.DirectoryCommandID = pgtype.UUID{Bytes: [16]byte{7}, Valid: true}
+	for _, test := range []struct {
+		name    string
+		queries *fakeQueries
+		want    []string
+	}{
+		{
+			"already reclaiming",
+			&fakeQueries{row: inFlight},
+			[]string{"complete-reclaim"},
+		},
+		{
+			"lost the race to begin",
+			&fakeQueries{
+				row: domainRowIn(
+					sqlc.VetchiumOrgDomainStateReleased, testNow, 0,
+				),
+				lostBegin: &inFlight,
+			},
+			[]string{"begin-reclaim", "complete-reclaim"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if _, err := testService(
+				test.queries, fakeChecker{result: dnsverify.Present}, claimed,
+			).CheckNow(context.Background(), pgtype.UUID{}, Worker); err != nil {
+				t.Fatal(err)
+			}
+			if fmt.Sprint(test.queries.calls) != fmt.Sprint(test.want) {
+				t.Fatalf("calls = %v, want %v", test.queries.calls, test.want)
+			}
+			if test.queries.completed != inFlight.DirectoryCommandID {
+				t.Fatalf("completed command = %v, want the stored one",
+					test.queries.completed)
 			}
 		})
 	}

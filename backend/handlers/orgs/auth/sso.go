@@ -75,6 +75,7 @@ func StartGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 				NonceHash:          nonceHash,
 				VerifierCiphertext: sealed,
 				ExpiresAt:          dbvalue.Timestamp(s.CurrentTime().Add(ssoStateTTL)),
+				TenantID:           s.TenantID,
 			},
 		); err != nil {
 			s.InternalError(r.Context(), w, "store SSO login state", err)
@@ -109,6 +110,7 @@ func CompleteGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 		consume := sqlc.ConsumeOrgSSOLoginStateParams{
 			StateHash: credentials.TokenHash(string(request.State)),
 			Provider:  googleProvider,
+			TenantID:  s.TenantID,
 		}
 		// spend uses the state up after a refusal. A state a racing
 		// completion already spent needs nothing more.
@@ -133,7 +135,9 @@ func CompleteGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 		}
 
 		login, err := s.Queries.GetOrgSSOLoginState(
-			ctx, sqlc.GetOrgSSOLoginStateParams(consume),
+			ctx, sqlc.GetOrgSSOLoginStateParams{
+				StateHash: consume.StateHash, Provider: consume.Provider,
+			},
 		)
 		if errors.Is(err, pgx.ErrNoRows) {
 			refuse("unknown, replayed or expired state", nil)

@@ -2135,28 +2135,53 @@ function decryptPayload(encodedCiphertext: string): Record<string, string> {
   return JSON.parse(plaintext.toString("utf8")) as Record<string, string>;
 }
 
+// Two concurrent requests each queue an email, and their outbox timestamps
+// are transaction start times, so the newest email can carry a token the
+// later commit already replaced. Prefer the email whose token is active.
 export function emailCredential(
   emailAddress: string,
   kind: "invitation" | "password-reset",
   property: "invitation_token" | "reset_token",
 ): string {
   assertOwnedEmail(emailAddress);
-  const encoded = sqlScalar(`
-    SELECT encode(payload_ciphertext, 'base64')
+  const email = sqlLiteral(emailAddress);
+  const ciphertexts = sqlScalar(`
+    SELECT encode(payload_ciphertext, 'hex')
     FROM vetchium.admin_email_outbox
-    WHERE recipient_email_address = ${sqlLiteral(emailAddress)}
+    WHERE recipient_email_address = ${email}
       AND kind = ${sqlLiteral(kind)}
-    ORDER BY created_at DESC, admin_email_outbox_id DESC
-    LIMIT 1;
-  `);
-  if (encoded.length === 0) {
+    ORDER BY created_at DESC, admin_email_outbox_id DESC;
+  `)
+    .split("\n")
+    .filter((line) => line.length > 0);
+  if (ciphertexts.length === 0) {
     throw new Error(`no ${kind} outbox item for ${emailAddress}`);
   }
-  const value = decryptPayload(encoded)[property];
-  if (value === undefined) {
-    throw new Error(`${kind} payload did not contain ${property}`);
-  }
-  return value;
+  const activeHash = sqlScalar(
+    kind === "invitation"
+      ? `SELECT encode(token_hash, 'hex')
+         FROM vetchium.admin_invitations
+         WHERE email_address = ${email} AND active;`
+      : `SELECT encode(t.token_hash, 'hex')
+         FROM vetchium.admin_password_reset_tokens AS t
+         JOIN vetchium.admin_users AS u USING (admin_user_id)
+         WHERE u.email_address = ${email} AND t.active;`,
+  );
+  const values = ciphertexts.map((ciphertext) => {
+    const value = decryptPayload(
+      Buffer.from(ciphertext, "hex").toString("base64"),
+    )[property];
+    if (value === undefined) {
+      throw new Error(`${kind} payload did not contain ${property}`);
+    }
+    return value;
+  });
+  return (
+    values.find(
+      (value) =>
+        createHash("sha256").update(value).digest("hex") === activeHash,
+    ) ?? (values[0] as string)
+  );
 }
 
 function decodeBase32(value: string): Buffer {

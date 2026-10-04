@@ -11,6 +11,9 @@ Applies to PostgreSQL access, `backend/internal/db/`, migrations, and seeds.
   holds generator settings.
 - Schema changes go in `db/migrations/` (tenant) or `db/global-migrations/`
   (coordinator).
+- A down section drops everything its up section creates, dependents first;
+  `make migration-check` applies, resets, and reapplies each set on a scratch
+  database and fails on leftover objects.
 - Scope a constraint to the owner of its rule; two portals with equal allowed
   values today get separate constraints.
 
@@ -49,13 +52,34 @@ Applies to PostgreSQL access, `backend/internal/db/`, migrations, and seeds.
 - A handler commits once per request. Two commits only where an external call
   must sit between them (an object-store upload, an identity-provider
   exchange), and then never hold a transaction open across that call.
+- `go tool singlecommit` (a `tool` in `backend/go.mod`, run by
+  `make test-go-static`) enforces this: it reports a handler under
+  `backend/handlers/` that, directly or through what it calls, can commit
+  more than once (a pool `Begin`, a write query through pool-bound Queries,
+  or a call that commits). The only escape is a
+  `//vetchium:multiple-commits <reason>` line in the doc comment of the
+  function whose external call forces the split; never use it to save a
+  transaction.
+- Background work (workers, coordinator jobs) commits once per item; each
+  item is one logical operation.
 
 ## Audit trail
 
 - Every operation that commits an insert, update, or delete of application
   data writes at least one audit event in the same transaction, whatever the
   caller (portal API, mesh, worker). Exempt: the audit table itself,
-  migrations, and the idempotency ledger.
+  migrations, and the replay ledgers (`idempotency_ledger`,
+  `global_command_ledger`).
+- PostgreSQL enforces this. An insert into `audit_events`
+  (`global_audit_events` in the coordinator) marks the transaction; the
+  deferred `audit_required` constraint trigger on every other table refuses
+  the commit when the application role changed rows without the mark. The
+  table owner (migrations, `db-seed`, Playwright fixtures) is exempt; the
+  replay ledgers are named in `vetchium.require_audit()`. Every table needs
+  the trigger: the loop at the end of each `00001_init.sql` adds it to the
+  tables above it, and `make migration-check` fails on a table without it.
+- A write query that can run in a transaction of its own carries its audit
+  CTE; one that only ever runs beside an audited statement may rely on it.
 - Typed columns for everything used to authorize, filter, or paginate:
   - identity: event id, database-generated time, tenant;
   - subject: action name, entity type and id, useful parent ids;
@@ -79,11 +103,14 @@ Applies to PostgreSQL access, `backend/internal/db/`, migrations, and seeds.
 
 ## Generation
 
-- sqlc is pinned to `v1.29.0` in the Makefile. After changing queries,
-  migrations, or settings, run `make sqlc` and commit the output with the
-  source.
-- Docker builds regenerate sqlc from source and ignore committed output.
-- Long generated lines are fine.
+- sqlc is pinned to `v1.29.0` in the Makefile. Its output
+  (`backend/internal/db/sqlc/`, `backend/internal/globaldb/sqlc/`) is
+  git-ignored and never committed.
+- `make sqlc` empties both directories and regenerates them; `make dev`,
+  `make backend`, the seed targets, and every Go test target run it first.
+  Run it after changing queries, migrations, or settings.
+- Docker builds regenerate sqlc from source; `.dockerignore` keeps local
+  output out of the build context.
 
 ## Avoid
 

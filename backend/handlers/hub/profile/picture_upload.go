@@ -31,6 +31,7 @@ import (
 
 const pictureUploadOperation = "hub:profile:upload-picture"
 
+//vetchium:multiple-commits stages the picture, stores its bytes in object storage, then activates it
 func UploadPicture(s *hubruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key, ok := handlerauth.IdempotencyKey(s, w, r)

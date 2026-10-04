@@ -33,7 +33,7 @@ type aliasReleaseQueries interface {
 	RecordFederationOperationRetry(context.Context,
 		sqlc.RecordFederationOperationRetryParams) (int64, error)
 	ResolveFederationOperation(context.Context,
-		sqlc.ResolveFederationOperationParams) (sqlc.VetchiumFederationOperation, error)
+		sqlc.ResolveFederationOperationParams) (sqlc.ResolveFederationOperationRow, error)
 }
 
 func (w *Worker) releaseDowngradedHubAliases(ctx context.Context) error {
@@ -95,6 +95,8 @@ func (w *Worker) releaseDowngradedHubAlias(
 			OperationID: operation.OperationID, State: state,
 			ResponseStatus:     pgtype.Int4{Int32: int32(outcome.Status), Valid: true},
 			ResponseCiphertext: []byte{},
+			TenantID:           w.tenantID, ActorType: "worker",
+			ActorID: aliasReleaseActor, Source: "workers",
 		}); err != nil {
 		return fmt.Errorf("resolve Hub alias release: %w", err)
 	}
@@ -113,6 +115,8 @@ func (w *Worker) retryAliasRelease(
 	updated, err := w.aliasReleaseQueries.RecordFederationOperationRetry(ctx,
 		sqlc.RecordFederationOperationRetryParams{
 			OperationID: operationID, LastError: reason,
+			TenantID: w.tenantID, ActorType: "worker",
+			ActorID: aliasReleaseActor, Source: "workers",
 		})
 	if err != nil {
 		return fmt.Errorf("retry Hub alias release: %w", err)
