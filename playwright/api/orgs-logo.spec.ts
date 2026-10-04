@@ -322,13 +322,25 @@ test.describe("logo removal and plan changes", () => {
       await api.uploadLogo(owner, "image/png", makePNG(200, 200));
       const before = await logoURL(api, owner);
       expect(before).toBeDefined();
+      const beforeResponse = await fetch(before ?? "");
+      expect(beforeResponse.status).toBe(200);
+      const beforeBytes = Buffer.from(await beforeResponse.arrayBuffer());
       const response = await api.setSubscriptionPlan(owner, {
         plan_oid: "org-silver-tier",
         billing_interval: "month",
       });
       expect(response.status()).toBe(200);
-      expect(await logoURL(api, owner)).toBe(before);
-      expect((await fetch(before ?? "")).status).toBe(200);
+      const after = await logoURL(api, owner);
+      expect(after).toBeDefined();
+      // Each response signs a fresh URL; its expiry is not logo identity.
+      expect(new URL(after ?? "").pathname).toBe(
+        new URL(before ?? "").pathname,
+      );
+      const afterResponse = await fetch(after ?? "");
+      expect(afterResponse.status).toBe(200);
+      expect(Buffer.from(await afterResponse.arrayBuffer())).toEqual(
+        beforeBytes,
+      );
     });
   });
 

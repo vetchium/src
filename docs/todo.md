@@ -21,6 +21,10 @@ Each item: what is not done, and what must be decided first.
 
 ## Test coverage
 
+- Admin concurrent password resets: `api/admin-password.spec.ts` receives 401
+  instead of 204 when completing the token selected by `emailCredential` after
+  two successful concurrent requests. Determine whether token selection or
+  reset ordering is wrong before changing the assertion.
 - Hub browser paths: signup completion success, TOTP sign-in and management,
   reauthentication success, and the profile fields and failures not yet
   covered.
@@ -71,9 +75,6 @@ Each item: what is not done, and what must be decided first.
   entitlements and a webhook-fed projection, never card data. Decide provider
   (per region if needed), proration, when paid entitlements start, tax,
   refunds, billing contacts, and nonpayment consequences.
-- Org administration coverage: run the full suite and coverage report after
-  adding the unavailable-service fixture and the missing Org error-path tests.
-  Company fields/maps and measured enterprise performance remain separate work.
 - Openings enforcement: only the quota constants and the counting rule exist
   (`internal/orgs/entitlements`). The publish statement must apply it under the
   Org lock.

@@ -27,6 +27,7 @@
     }
   },
   "networks": {
+    "orgs_fixture_access": {},
     "deu_admin_api_access": {
       "internal": true,
       "ipam": {
@@ -4227,6 +4228,7 @@
         "timeout": "2s"
       },
       "networks": {
+        "orgs_fixture_access": null,
         "sgp_backend": null,
         "sgp_orgs_api_access": null
       },
