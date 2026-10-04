@@ -662,13 +662,13 @@ test("domain checks and the lifecycle are audited by whoever caused them", async
       .poll(
         () =>
           (orgInfo(api, token) as Promise<MyInfoResponse>).then(
-            (info) => info.org.org_state,
+            (info) => `${info.org.org_state} ${info.org.domain.state}`,
           ),
         {
           timeout: 45_000,
         },
       )
-      .toBe("suspended");
+      .toBe("suspended released");
     await setOrgVerificationRecord(org.domain, [org.value]);
     const restored = await api.post("/check-domain", undefined, {
       token: await loginOrg(api, org),

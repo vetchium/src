@@ -131,13 +131,16 @@ type OrgBilling struct {
 type OrgDomainVerification struct {
 	// ResolverAddress is the only resolver queried; there is no fallback to
 	// the system resolver.
-	ResolverAddress    string
-	LookupTimeout      time.Duration
-	CheckInterval      time.Duration
-	FailureThreshold   int
-	FailingGracePeriod time.Duration
-	InconclusiveRetry  time.Duration
-	InconclusiveLimit  time.Duration
+	ResolverAddress string
+	// TrustReservedDomains makes every name under the reserved .test and
+	// .example TLDs verify without a lookup. Only development and CI set it.
+	TrustReservedDomains bool
+	LookupTimeout        time.Duration
+	CheckInterval        time.Duration
+	FailureThreshold     int
+	FailingGracePeriod   time.Duration
+	InconclusiveRetry    time.Duration
+	InconclusiveLimit    time.Duration
 }
 
 type ObjectStorage struct {
@@ -307,13 +310,14 @@ type fileOrgBilling struct {
 }
 
 type fileOrgDomainVerification struct {
-	ResolverAddress    string `json:"resolverAddress"`
-	LookupTimeout      string `json:"lookupTimeout"`
-	CheckInterval      string `json:"checkInterval"`
-	FailureThreshold   int    `json:"failureThreshold"`
-	FailingGracePeriod string `json:"failingGracePeriod"`
-	InconclusiveRetry  string `json:"inconclusiveRetry"`
-	InconclusiveLimit  string `json:"inconclusiveLimit"`
+	ResolverAddress      string `json:"resolverAddress"`
+	TrustReservedDomains bool   `json:"trustReservedDomains"`
+	LookupTimeout        string `json:"lookupTimeout"`
+	CheckInterval        string `json:"checkInterval"`
+	FailureThreshold     int    `json:"failureThreshold"`
+	FailingGracePeriod   string `json:"failingGracePeriod"`
+	InconclusiveRetry    string `json:"inconclusiveRetry"`
+	InconclusiveLimit    string `json:"inconclusiveLimit"`
 }
 
 type fileObjectStorage struct {
@@ -1023,8 +1027,9 @@ func parseOrgDomainVerification(
 ) (OrgDomainVerification, error) {
 	const prefix = "orgDomainVerification."
 	result := OrgDomainVerification{
-		ResolverAddress:  raw.ResolverAddress,
-		FailureThreshold: raw.FailureThreshold,
+		ResolverAddress:      raw.ResolverAddress,
+		TrustReservedDomains: raw.TrustReservedDomains,
+		FailureThreshold:     raw.FailureThreshold,
 	}
 	if err := validateResolverAddress(
 		prefix+"resolverAddress", raw.ResolverAddress,

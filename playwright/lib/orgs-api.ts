@@ -525,7 +525,7 @@ export async function orgInfo(
 }
 
 function assertOwnedOrgDomain(domain: string): void {
-  if (!/^org-[0-9a-f-]+\.(example|test)$/.test(domain)) {
+  if (!/^org-[0-9a-f-]+\.(example\.com|example|test)$/.test(domain)) {
     throw new Error(`refusing Org cleanup for non-test domain: ${domain}`);
   }
 }

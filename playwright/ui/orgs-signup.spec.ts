@@ -38,12 +38,12 @@ async function signIn(
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
-test("signs a .test Org up through region choice, DNS proof and sign-in", async ({
+test("signs an Org up through region choice, DNS proof and sign-in", async ({
   context,
   page,
   request,
 }) => {
-  const domain = uniqueOrgDomain("test");
+  const domain = uniqueOrgDomain();
   const emailAddress = `it@${domain}`;
   try {
     await rememberRegion(context, "orgs", "sgp");
@@ -270,13 +270,13 @@ test("a suspended Org can only restore its domain", async ({
       .poll(
         () =>
           orgSQL(
-            `SELECT o.org_state FROM vetchium.orgs o
+            `SELECT o.org_state || ' ' || d.domain_state FROM vetchium.orgs o
              JOIN vetchium.org_domains d USING (org_did)
              WHERE d.domain = '${org.domain}'`,
           ),
         { timeout: 45_000 },
       )
-      .toBe("suspended");
+      .toBe("suspended released");
 
     await signIn(page, org);
     await expect(page).toHaveURL(`${ORGS_PORTAL}/restore-domain`);

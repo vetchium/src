@@ -93,6 +93,7 @@
   },
   "orgDomainVerification": {
     "resolverAddress": "dns-dev:53",
+    "trustReservedDomains": true,
     "lookupTimeout": "2s",
     "checkInterval": "2s",
     "failureThreshold": 2,

@@ -67,6 +67,9 @@ func run(log *slog.Logger, address string) error {
 	checker := dnsverify.New(
 		verification.ResolverAddress, verification.LookupTimeout,
 	)
+	if verification.TrustReservedDomains {
+		checker.TrustReservedTLDs()
+	}
 	log = service.WithTenant(log, cfg.TenantID)
 
 	ctx, stop := service.SignalContext()

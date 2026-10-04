@@ -110,11 +110,17 @@ invariant).
   data, or no matching value), or `inconclusive` (timeout, SERVFAIL, an answer
   neither authoritative nor recursive, or any other error). Only `absent`
   counts against a domain.
-- Never add an environment bypass. Development and CI publish real records in
+- The only environment bypass is `orgDomainVerification.trustReservedDomains`:
+  `dnsverify.Checker` answers `present` without a lookup for `test`, `example`,
+  and every `*.test` and `*.example` name. `example.com` is not covered. Only
+  `config/` and `config/ci/` set it; production leaves it `false`. The
+  browser-side DoH advisory still queries and may warn for those names;
+  completion and re-verification ignore it.
+- Every other name gets the real lookup. Development and CI publish records in
   the `dns-dev` server under the reserved zones `example`, `example.com`, and
   `test` (`playwright/lib/dev-dns.ts`, `make dev-seed-orgs`). Seeds use
-  `<tenant>.example.com`; tests use unique `*.example` domains, or `*.test`
-  through `uniqueOrgDomain("test")`.
+  `<tenant>.example.com`; tests that need a real lookup use the default
+  `uniqueOrgDomain()`, a unique `*.example.com`.
 - `cmd/doh-dev` (`internal/devdoh`) forwards RFC 8484 GET queries to `dns-dev`
   over TCP for browsers, at `doh.vetchium.localhost` through the edge. It is
   never published or deployed.

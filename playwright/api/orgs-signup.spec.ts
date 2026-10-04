@@ -31,6 +31,32 @@ const domainBlocked = "vetchium-problem-details/org-signup-domain-blocked";
 const invalidToken = "vetchium-problem-details/org-invalid-signup-token";
 const recordNotFound = "vetchium-problem-details/org-dns-record-not-found";
 
+test.describe("Org signup in reserved TLDs", () => {
+  for (const zone of ["test", "example"] as const) {
+    test(`completes a .${zone} domain with no published record`, async ({
+      request,
+    }) => {
+      const api = new OrgsAPI(request);
+      const domain = uniqueOrgDomain(zone);
+      try {
+        const pending = await requestOrgSignup(api, domain);
+        const response = await api.post(
+          "/complete-signup",
+          {
+            signup_token: pending.token,
+            org_display_name: "Unchecked Org",
+            password: orgPassword(),
+          },
+          { idempotencyKey: orgsIdempotencyKey() },
+        );
+        expect(response.status(), await response.text()).toBe(201);
+      } finally {
+        cleanupOrg(domain);
+      }
+    });
+  }
+});
+
 test.describe("Org signup request", () => {
   test("queues forwardable DNS instructions and a private link", async ({
     request,

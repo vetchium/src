@@ -6,7 +6,7 @@ const baseURL =
 export default defineConfig({
   testDir: ".",
   fullyParallel: true,
-  workers: 2,
+  workers: "100%",
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [["html", { open: "never" }], ["list"]] : "list",

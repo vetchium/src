@@ -131,6 +131,9 @@ func run(log *slog.Logger) error {
 	checker := dnsverify.New(
 		verification.ResolverAddress, verification.LookupTimeout,
 	)
+	if verification.TrustReservedDomains {
+		checker.TrustReservedTLDs()
+	}
 	orgOutboxKey := orgsauthn.DeriveCredentialSubkey(orgsCredentialKey, "outbox")
 	worker.EnableOrgs(cfg.Workers, workers.OrgWork{
 		Email: workers.OrgEmailDelivery{

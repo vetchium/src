@@ -26,6 +26,8 @@ async function pickMonth(
   }
   await yearCell.click();
   await panel.getByText(monthAbbreviation, { exact: true }).click();
+  // The next field's click would otherwise land on this panel while it fades.
+  await expect(page.locator(".ant-picker-dropdown:visible")).toHaveCount(0);
 }
 
 const freeSubscription: HubSubscription = {

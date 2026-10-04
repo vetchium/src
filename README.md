@@ -83,6 +83,15 @@ Orgs portal: three Orgs per region, one on each plan: `<region>.example.com`
 Hub signup accepts addresses at `<region>.example`; `sgp` also accepts
 `test1.example` to `test100.example`. Signup and reset emails arrive in Mailpit.
 
+### Org signup domains
+
+Org signup proves domain ownership with a DNS TXT record. In development and CI
+the tenants skip that check for any domain ending in `.test` or `.example`
+(`google.test`, `acme.example`): signup completes with no record published.
+`example.com` and its subdomains, which the seeded Orgs use, and every other
+domain still get the real lookup against the local `dns-dev` server. Production
+never skips it.
+
 ## Test
 
 ```bash

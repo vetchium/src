@@ -405,3 +405,28 @@ func pack(query dnsmessage.Message, r reply) []byte {
 	packed, _ := response.Pack()
 	return packed
 }
+
+func TestTrustReservedTLDsSkipsLookup(t *testing.T) {
+	// 127.0.0.1:1 refuses connections, so any real lookup is inconclusive.
+	token, err := NewToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	trusting := New("127.0.0.1:1", time.Second).TrustReservedTLDs()
+	for _, domain := range []string{"google.test", "a.b.test", "test", "x.example", "example"} {
+		result, err := trusting.Check(context.Background(), domain, token)
+		if result != Present || err != nil {
+			t.Errorf("%s: got %s, %v; want present", domain, result, err)
+		}
+	}
+	for _, domain := range []string{"google.example.com", "contest", "notest.com", "myexample"} {
+		result, _ := trusting.Check(context.Background(), domain, token)
+		if result == Present {
+			t.Errorf("%s: trusted outside the reserved TLDs", domain)
+		}
+	}
+	plain := New("127.0.0.1:1", time.Second)
+	if result, _ := plain.Check(context.Background(), "google.test", token); result == Present {
+		t.Error("default checker trusted a .test domain")
+	}
+}

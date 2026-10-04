@@ -105,12 +105,15 @@ test("after the grace period the domain is released and the Org restored by proo
   try {
     const token = await loginOrg(api, org);
     await deleteOrgVerificationRecord(org.domain);
+    // The Org is suspended before the directory release completes, and the
+    // domain reads as failing until it does.
     const suspended = await waitForDomain(
       api,
       token,
-      (info) => info.org.org_state === "suspended",
+      (info) =>
+        info.org.org_state === "suspended" &&
+        info.org.domain.state === "released",
     );
-    expect(suspended.org.domain.state).toBe("released");
     expect(globallyOwned(org.domain)).toBe(false);
     await orgEmailText(request, org.emailAddress, "suspended");
 
@@ -139,7 +142,9 @@ test("a check during an in-flight re-claim restores the Org", async ({
     await waitForDomain(
       api,
       token,
-      (info) => info.org.org_state === "suspended",
+      (info) =>
+        info.org.org_state === "suspended" &&
+        info.org.domain.state === "released",
     );
     const again = await loginOrg(api, org);
     await setOrgVerificationRecord(org.domain, [org.value]);
@@ -172,7 +177,9 @@ test("a released domain claimed by another Org cannot be restored", async ({
     await waitForDomain(
       sgp,
       token,
-      (info) => info.org.org_state === "suspended",
+      (info) =>
+        info.org.org_state === "suspended" &&
+        info.org.domain.state === "released",
     );
     const rival = await requestOrgSignup(deu, first.domain, "newowner");
     // Both TXT values are published: the first Org's proof is still valid,

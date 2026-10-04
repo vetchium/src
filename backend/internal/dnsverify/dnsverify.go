@@ -69,12 +69,31 @@ func IsToken(token string) bool {
 }
 
 type Checker struct {
-	resolverAddress string
-	timeout         time.Duration
+	resolverAddress   string
+	timeout           time.Duration
+	trustReservedTLDs bool
 }
 
 func New(resolverAddress string, timeout time.Duration) *Checker {
 	return &Checker{resolverAddress: resolverAddress, timeout: timeout}
+}
+
+// TrustReservedTLDs makes Check answer Present for every name under the
+// reserved .test and .example TLDs without querying, so development and CI need
+// no published record. example.com is deliberately not covered: it stays a real
+// lookup for tests and seeds.
+func (c *Checker) TrustReservedTLDs() *Checker {
+	c.trustReservedTLDs = true
+	return c
+}
+
+func underReservedTLD(domain string) bool {
+	for _, tld := range []string{"test", "example"} {
+		if domain == tld || strings.HasSuffix(domain, "."+tld) {
+			return true
+		}
+	}
+	return false
 }
 
 // Check never returns Present on error. The error explains an Inconclusive
@@ -84,6 +103,9 @@ func (c *Checker) Check(
 ) (Result, error) {
 	if !IsToken(token) {
 		return Inconclusive, errors.New("malformed DNS verification token")
+	}
+	if c.trustReservedTLDs && underReservedTLD(domain) {
+		return Present, nil
 	}
 	name, err := dnsmessage.NewName(
 		strings.TrimSuffix(RecordName(domain), ".") + ".",
