@@ -12,14 +12,10 @@ import { maxBulk } from "./invitations.ts";
 export const orgUserStateValues = ["active", "disabled"] as const;
 export type OrgUserState = (typeof orgUserStateValues)[number];
 
-export const disabledReasonValues = ["manual", "nonpayment"] as const;
+export const disabledReasonValues = ["manual"] as const;
 export type DisabledReason = (typeof disabledReasonValues)[number];
 
-export const userStateFilterValues = [
-  "active",
-  "disabled-manual",
-  "disabled-nonpayment",
-] as const;
+export const userStateFilterValues = ["active", "disabled-manual"] as const;
 export type UserStateFilter = (typeof userStateFilterValues)[number];
 
 export const userSortValues = ["email", "joined"] as const;
@@ -111,7 +107,6 @@ export interface UserSummaryResponse {
   seat_limit?: number;
   active_users: number;
   disabled_manual_users: number;
-  disabled_nonpayment_users: number;
   active_users_without_permissions: number;
   permission_counts: PermissionCount[];
 }

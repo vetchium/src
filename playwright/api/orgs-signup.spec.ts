@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type {
+  CompleteSignupRequest,
   CompleteSignupResponse,
   SignupDetailsResponse,
 } from "typespec/orgs/auth/signup";
@@ -405,5 +406,36 @@ test("signup fails closed while login stays local when the directory is unreacha
     );
   } finally {
     cleanupOrg(domain, "ind1");
+  }
+});
+
+test("completion rechecks whether the requested domain has been blocked", async ({
+  request,
+}) => {
+  const api = new OrgsAPI(request);
+  const domain = uniqueOrgDomain();
+  try {
+    const pending = await requestOrgSignup(api, domain);
+    await setOrgVerificationRecord(domain, [pending.value]);
+    orgSQL(
+      `INSERT INTO vetchium.org_signup_blocked_domains(domain) VALUES ('${domain}')`,
+    );
+    const body: CompleteSignupRequest = {
+      signup_token: pending.token,
+      org_display_name: "Blocked after request",
+      password: orgPassword(),
+    };
+    await expectProblem(await api.completeSignup(body), 403, domainBlocked);
+    // Refusal does not consume the signup token.
+    orgSQL(
+      `DELETE FROM vetchium.org_signup_blocked_domains WHERE domain='${domain}'`,
+    );
+    expect((await api.completeSignup(body)).status()).toBe(201);
+  } finally {
+    orgSQL(
+      `DELETE FROM vetchium.org_signup_blocked_domains WHERE domain='${domain}'`,
+    );
+    await deleteOrgVerificationRecord(domain);
+    cleanupOrg(domain);
   }
 });

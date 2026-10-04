@@ -32,16 +32,6 @@ const OrgUserDisabledError = #{
 };
 alias OrgUserDisabledErrorResponse = Response<403, typeof OrgUserDisabledError>;
 
-const OrgUserDisabledNonpaymentError = #{
-  type: "vetchium-problem-details/org-user-disabled-nonpayment",
-  title: "Org user disabled for nonpayment",
-  status: 403,
-  detail: "The Org user was disabled because the Org's subscription was not paid",
-};
-alias OrgUserDisabledNonpaymentErrorResponse = Response<
-  403,
-  typeof OrgUserDisabledNonpaymentError
->;
 
 const OrgAuthenticationRequiredError = #{
   type: "vetchium-problem-details/org-authentication-required",

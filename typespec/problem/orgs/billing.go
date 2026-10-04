@@ -31,35 +31,6 @@ func PlanRequiredError(required subscriptions.Plan) PlanRequiredDetails {
 	}
 }
 
-var BillingPastDueError = problem.Details{
-	Type:   "vetchium-problem-details/org-billing-past-due",
-	Title:  "Org billing past due",
-	Status: 409,
-	Detail: "The plan cannot be changed while an invoice is unpaid. " +
-		"Pay the open invoice first.",
-}
-
-var PaymentMethodRequiredError = problem.Details{
-	Type:   "vetchium-problem-details/org-payment-method-required",
-	Title:  "Org payment method required",
-	Status: 409,
-	Detail: "Save a payment method before this charge",
-}
-
-var PaymentDeclinedError = problem.Details{
-	Type:   "vetchium-problem-details/org-payment-declined",
-	Title:  "Org payment declined",
-	Status: 402,
-	Detail: "The saved payment method was declined. Nothing was changed.",
-}
-
-var InvoiceNotOpenError = problem.Details{
-	Type:   "vetchium-problem-details/org-invoice-not-open",
-	Title:  "Org invoice not open",
-	Status: 409,
-	Detail: "The invoice is not open for payment",
-}
-
 // UserLimitExceedsTargetDetails is the Go companion of TypeSpec's
 // OrgUserLimitExceedsTargetDetails.
 type UserLimitExceedsTargetDetails struct {

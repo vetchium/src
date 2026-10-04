@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"slices"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -22,8 +21,6 @@ import (
 	"backend/internal/middleware"
 	orgsruntime "backend/internal/orgs"
 	orgsauthn "backend/internal/orgs/auth"
-	"backend/internal/orgs/billing"
-	"backend/internal/orgs/billingdb"
 	"backend/internal/orgs/domainverification"
 )
 
@@ -45,14 +42,7 @@ func MyInfo(s *orgsruntime.Server) http.HandlerFunc {
 				permissions, authorization.OrgPermissionID(permission),
 			)
 		}
-		plan, notice, err := billingView(
-			r.Context(), s, identity.OrgDID,
-			slices.Contains(info.Permissions, string(authorization.ManageBilling)),
-		)
-		if err != nil {
-			s.InternalError(r.Context(), w, "get Org billing view", err)
-			return
-		}
+		plan := subscriptions.PlanOID(info.OrgPlanOid)
 		logoURL, err := logoReadURL(r.Context(), s, identity.OrgDID)
 		if err != nil {
 			s.InternalError(r.Context(), w, "sign Org logo URL", err)
@@ -72,7 +62,6 @@ func MyInfo(s *orgsruntime.Server) http.HandlerFunc {
 			LogoURL:                logoURL,
 			GoogleSignInEnabled: info.GoogleSignInEnabled &&
 				plan == subscriptions.PlanOID(subscriptions.GoldTier),
-			BillingNotice: notice,
 		})
 	}
 }
@@ -97,40 +86,6 @@ func logoReadURL(
 		return nil, err
 	}
 	return &signed, nil
-}
-
-// billingView is the plan the Org is on now and the billing notice the user
-// sees. A due transition is computed in memory, as for my-subscription.
-func billingView(
-	ctx context.Context, s *orgsruntime.Server, orgDID pgtype.UUID,
-	billingHolder bool,
-) (subscriptions.PlanOID, *orgsaccount.BillingNotice, error) {
-	row, err := s.Queries.GetOrgSubscription(ctx, orgDID)
-	if err != nil {
-		return "", nil, err
-	}
-	state, err := billing.StateFromStored(billingdb.StoredFromRow(orgDID, row))
-	if err != nil {
-		return "", nil, err
-	}
-	now := billing.Instant(s.CurrentTime())
-	advanced, _ := billing.Advance(state, now, s.Billing, s.Charger)
-	banner := billing.NoticeFor(advanced, now, billingHolder)
-	if banner == nil {
-		return subscriptions.PlanOID(advanced.Plan), nil, nil
-	}
-	notice := &orgsaccount.BillingNotice{
-		At: banner.At.UTC(), Banner: banner.Banner,
-	}
-	switch banner.Kind {
-	case billing.NoticePaymentDue:
-		notice.Kind = orgsaccount.NoticePastDue
-	default:
-		notice.Kind = orgsaccount.NoticeSubscriptionEnding
-		plan := subscriptions.PlanOID(banner.ScheduledPlan)
-		notice.ScheduledPlanOID = &plan
-	}
-	return subscriptions.PlanOID(advanced.Plan), notice, nil
 }
 
 // CheckDomain looks up the Org's TXT record now. Only a superadmin may, since

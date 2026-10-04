@@ -1,18 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
 import { useRef } from "react";
-import type { PaginationKey } from "typespec/common/pagination";
 import type {
-  OrgInvoice,
   OrgSubscription,
   SetSubscriptionPlanRequest,
 } from "typespec/orgs/subscriptions/subscriptions";
 import { isDefiniteRefusal } from "../../api/client";
 import { orgsAPI } from "../../api/orgs";
 import { myInfoQueryKey } from "../account/queries";
+import { userSummaryQueryKey } from "../users/queries";
 
 export const mySubscriptionQueryKey = ["orgs", "my-subscription"] as const;
-export const invoicesQueryKey = ["orgs", "invoices"] as const;
 
 export function useMySubscriptionQuery(enabled = true) {
   return useQuery({
@@ -20,18 +18,6 @@ export function useMySubscriptionQuery(enabled = true) {
     queryFn: orgsAPI.mySubscription,
     retry: false,
     enabled,
-  });
-}
-
-export function useInvoicesQuery(key: PaginationKey | undefined) {
-  return useQuery({
-    queryKey: [...invoicesQueryKey, key ?? null],
-    queryFn: () =>
-      orgsAPI.listInvoices({
-        limit: 10,
-        ...(key === undefined ? {} : { pagination_key: key }),
-      }),
-    placeholderData: (previous) => previous,
   });
 }
 
@@ -48,19 +34,12 @@ function useRefreshBilling() {
     } else {
       void queryClient.invalidateQueries({ queryKey: mySubscriptionQueryKey });
     }
-    void queryClient.invalidateQueries({ queryKey: invoicesQueryKey });
     void queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
+    void queryClient.invalidateQueries({ queryKey: userSummaryQueryKey });
   };
 }
 
-/**
- * Rotates the idempotency key whenever the server has decided (a success or a
- * definite refusal) and whenever the chosen target changes. Only an uncertain
- * outcome (no response, a 5xx, 429) keeps the key, so that retry replays the
- * same request. A refusal must not keep it: the server stores a refusal that
- * committed due billing transitions, and reusing the key after the user fixed
- * the cause would replay that refusal instead of deciding again.
- */
+/** Keep the same key across uncertain outcomes and rotate when the target changes. */
 export function useSetSubscriptionPlan() {
   const refresh = useRefreshBilling();
   const key = useIdempotencyKey();
@@ -87,39 +66,5 @@ export function useSetSubscriptionPlan() {
       }
       refresh();
     },
-  });
-}
-
-/** Keeps its key only across uncertain outcomes, like useSetSubscriptionPlan. */
-export function usePayInvoice() {
-  const refresh = useRefreshBilling();
-  const key = useIdempotencyKey();
-  return useMutation({
-    mutationFn: (invoice: OrgInvoice) =>
-      orgsAPI.payInvoice({ invoice_id: invoice.invoice_id }, key.current()),
-    onSuccess: (subscription) => {
-      key.rotate();
-      refresh(subscription);
-    },
-    onError: (error) => {
-      if (isDefiniteRefusal(error)) key.rotate();
-      refresh();
-    },
-  });
-}
-
-export function useSetPaymentMethod() {
-  const refresh = useRefreshBilling();
-  return useMutation({
-    mutationFn: orgsAPI.setPaymentMethod,
-    onSuccess: () => refresh(),
-  });
-}
-
-export function useRemovePaymentMethod() {
-  const refresh = useRefreshBilling();
-  return useMutation({
-    mutationFn: orgsAPI.removePaymentMethod,
-    onSuccess: () => refresh(),
   });
 }

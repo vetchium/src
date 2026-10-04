@@ -15,8 +15,13 @@ import {
 } from "antd";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 import type { OrgPermissionID } from "typespec/orgs/authorization/types";
-import { directPermissions } from "typespec/orgs/authorization/types";
+import {
+  directPermissions,
+  holds,
+  ManageBilling,
+} from "typespec/orgs/authorization/types";
 import type {
   InviteOutcome,
   InviteResult,
@@ -24,10 +29,15 @@ import type {
 import { maxBulk } from "typespec/orgs/users/invitations";
 import { isDefiniteRefusal } from "../../api/client";
 import { orgsAPI } from "../../api/orgs";
+import { paths } from "../../app/paths";
 import { APIErrorAlert } from "../../components/common/APIErrorAlert";
 import { chunk, parseAddresses } from "./csv";
 import { PermissionTable } from "./PermissionTable";
-import { invitationsQueryKey, userSummaryQueryKey } from "./queries";
+import {
+  invitationsQueryKey,
+  userSummaryQueryKey,
+  useUserSummaryQuery,
+} from "./queries";
 import {
   mayGrant,
   presetGrants,
@@ -57,6 +67,10 @@ export function InviteUsersModal({
 }: InviteUsersModalProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { data: summary } = useUserSummaryQuery();
+  const full =
+    summary?.seat_limit !== undefined &&
+    summary.seats_in_use >= summary.seat_limit;
   const [text, setText] = useState("");
   const [grants, setGrants] = useState<OrgPermissionID[]>([]);
   const [running, setRunning] = useState(false);
@@ -140,6 +154,17 @@ export function InviteUsersModal({
       onCancel={close}
     >
       <Space orientation="vertical" size="large" className="full-width">
+        {full ? (
+          <Alert
+            type="info"
+            title={t("people.full")}
+            action={
+              holds(viewerPermissions, ManageBilling) ? (
+                <Link to={paths.plans}>{t("navigation.plans")}</Link>
+              ) : undefined
+            }
+          />
+        ) : null}
         {results.length === 0 ? (
           <>
             <Flex orientation="vertical" gap="small">

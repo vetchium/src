@@ -54,11 +54,6 @@ Applies to product terms in prompts, specifications, code, and UI text.
 - Offered plans — the plans a tenant sells, configured in both the backend and `hub-ui`.
 - Org plan — `org-free-tier`, `org-silver-tier`, or `org-gold-tier`, with entitlements (seats, Openings per year, logo, Google sign-in) defined once in the contract.
 - Seat — an active Org user or an unexpired pending invitation; the plan's user cap counts seats.
-- Invoice — the record of one charge attempt series for a period; `open` until paid or voided.
-- Past due — an open invoice exists and the grace period is running; the Org keeps its paid plan.
-- Grace period — the time between an invoice falling due and the deadline (`orgBilling.gracePeriod`).
-- Deadline — when the grace period ends with the invoice still open; the Org drops to Free and surplus users are disabled.
-- Keep set — the five active users who stay enabled at the deadline: superadmins first, then billing holders, then the oldest.
 - Preset — a role label in the Orgs portal (Superadmin, Finance, User manager, Member) that pre-ticks permission checkboxes; not stored.
 - Google sign-in — a Gold Org's optional sign-in with its members' Google Workspace accounts; skips Vetchium TOTP.
 

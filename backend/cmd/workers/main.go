@@ -15,7 +15,6 @@ import (
 	"backend/internal/identitydigest"
 	"backend/internal/objectstorage"
 	orgsauthn "backend/internal/orgs/auth"
-	"backend/internal/orgs/billing"
 	"backend/internal/orgs/domainverification"
 	orgsignup "backend/internal/orgs/signupcompletion"
 	"backend/internal/service"
@@ -138,16 +137,6 @@ func run(log *slog.Logger) error {
 			Renderer: orgRenderer, Sender: sender, OutboxKey: orgOutboxKey,
 			LeaseTTL:    cfg.Workers.OrgEmailLeaseTTL,
 			MaxAttempts: cfg.Workers.OrgEmailMaxAttempts,
-		},
-		Billing: &workers.OrgBillingWork{
-			Config: billing.Config{
-				GracePeriod:  cfg.OrgBilling.GracePeriod,
-				RetryOffsets: cfg.OrgBilling.RetryOffsets,
-			},
-			Charger:            billing.SimulatedCharger{},
-			DueWarningLeads:    cfg.OrgBilling.DueWarningLeads,
-			EndingWarningLeads: cfg.OrgBilling.DowngradeWarningLeads,
-			Interval:           cfg.OrgBilling.CheckInterval,
 		},
 		Signup: orgsignup.New(
 			pool, directory, checker, cfg.TenantID,

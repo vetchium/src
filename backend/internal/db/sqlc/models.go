@@ -567,48 +567,6 @@ func (ns NullVetchiumOrgBillingInterval) Value() (driver.Value, error) {
 	return string(ns.VetchiumOrgBillingInterval), nil
 }
 
-type VetchiumOrgBillingState string
-
-const (
-	VetchiumOrgBillingStateCurrent VetchiumOrgBillingState = "current"
-	VetchiumOrgBillingStatePastDue VetchiumOrgBillingState = "past_due"
-)
-
-func (e *VetchiumOrgBillingState) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = VetchiumOrgBillingState(s)
-	case string:
-		*e = VetchiumOrgBillingState(s)
-	default:
-		return fmt.Errorf("unsupported scan type for VetchiumOrgBillingState: %T", src)
-	}
-	return nil
-}
-
-type NullVetchiumOrgBillingState struct {
-	VetchiumOrgBillingState VetchiumOrgBillingState `json:"vetchium_org_billing_state"`
-	Valid                   bool                    `json:"valid"` // Valid is true if VetchiumOrgBillingState is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullVetchiumOrgBillingState) Scan(value interface{}) error {
-	if value == nil {
-		ns.VetchiumOrgBillingState, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.VetchiumOrgBillingState.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullVetchiumOrgBillingState) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.VetchiumOrgBillingState), nil
-}
-
 type VetchiumOrgDomainState string
 
 const (
@@ -652,133 +610,6 @@ func (ns NullVetchiumOrgDomainState) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.VetchiumOrgDomainState), nil
-}
-
-type VetchiumOrgInvoiceFailure string
-
-const (
-	VetchiumOrgInvoiceFailureDeclined        VetchiumOrgInvoiceFailure = "declined"
-	VetchiumOrgInvoiceFailureNoPaymentMethod VetchiumOrgInvoiceFailure = "no_payment_method"
-)
-
-func (e *VetchiumOrgInvoiceFailure) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = VetchiumOrgInvoiceFailure(s)
-	case string:
-		*e = VetchiumOrgInvoiceFailure(s)
-	default:
-		return fmt.Errorf("unsupported scan type for VetchiumOrgInvoiceFailure: %T", src)
-	}
-	return nil
-}
-
-type NullVetchiumOrgInvoiceFailure struct {
-	VetchiumOrgInvoiceFailure VetchiumOrgInvoiceFailure `json:"vetchium_org_invoice_failure"`
-	Valid                     bool                      `json:"valid"` // Valid is true if VetchiumOrgInvoiceFailure is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullVetchiumOrgInvoiceFailure) Scan(value interface{}) error {
-	if value == nil {
-		ns.VetchiumOrgInvoiceFailure, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.VetchiumOrgInvoiceFailure.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullVetchiumOrgInvoiceFailure) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.VetchiumOrgInvoiceFailure), nil
-}
-
-type VetchiumOrgInvoiceReason string
-
-const (
-	VetchiumOrgInvoiceReasonUpgrade VetchiumOrgInvoiceReason = "upgrade"
-	VetchiumOrgInvoiceReasonRenewal VetchiumOrgInvoiceReason = "renewal"
-)
-
-func (e *VetchiumOrgInvoiceReason) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = VetchiumOrgInvoiceReason(s)
-	case string:
-		*e = VetchiumOrgInvoiceReason(s)
-	default:
-		return fmt.Errorf("unsupported scan type for VetchiumOrgInvoiceReason: %T", src)
-	}
-	return nil
-}
-
-type NullVetchiumOrgInvoiceReason struct {
-	VetchiumOrgInvoiceReason VetchiumOrgInvoiceReason `json:"vetchium_org_invoice_reason"`
-	Valid                    bool                     `json:"valid"` // Valid is true if VetchiumOrgInvoiceReason is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullVetchiumOrgInvoiceReason) Scan(value interface{}) error {
-	if value == nil {
-		ns.VetchiumOrgInvoiceReason, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.VetchiumOrgInvoiceReason.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullVetchiumOrgInvoiceReason) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.VetchiumOrgInvoiceReason), nil
-}
-
-type VetchiumOrgInvoiceState string
-
-const (
-	VetchiumOrgInvoiceStatePaid VetchiumOrgInvoiceState = "paid"
-	VetchiumOrgInvoiceStateOpen VetchiumOrgInvoiceState = "open"
-	VetchiumOrgInvoiceStateVoid VetchiumOrgInvoiceState = "void"
-)
-
-func (e *VetchiumOrgInvoiceState) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = VetchiumOrgInvoiceState(s)
-	case string:
-		*e = VetchiumOrgInvoiceState(s)
-	default:
-		return fmt.Errorf("unsupported scan type for VetchiumOrgInvoiceState: %T", src)
-	}
-	return nil
-}
-
-type NullVetchiumOrgInvoiceState struct {
-	VetchiumOrgInvoiceState VetchiumOrgInvoiceState `json:"vetchium_org_invoice_state"`
-	Valid                   bool                    `json:"valid"` // Valid is true if VetchiumOrgInvoiceState is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullVetchiumOrgInvoiceState) Scan(value interface{}) error {
-	if value == nil {
-		ns.VetchiumOrgInvoiceState, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.VetchiumOrgInvoiceState.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullVetchiumOrgInvoiceState) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.VetchiumOrgInvoiceState), nil
 }
 
 type VetchiumOrgLogoFormat string
@@ -864,48 +695,6 @@ func (ns NullVetchiumOrgLogoState) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.VetchiumOrgLogoState), nil
-}
-
-type VetchiumOrgPaymentMethodKind string
-
-const (
-	VetchiumOrgPaymentMethodKindSimulatedSucceeds VetchiumOrgPaymentMethodKind = "simulated-succeeds"
-	VetchiumOrgPaymentMethodKindSimulatedDeclines VetchiumOrgPaymentMethodKind = "simulated-declines"
-)
-
-func (e *VetchiumOrgPaymentMethodKind) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = VetchiumOrgPaymentMethodKind(s)
-	case string:
-		*e = VetchiumOrgPaymentMethodKind(s)
-	default:
-		return fmt.Errorf("unsupported scan type for VetchiumOrgPaymentMethodKind: %T", src)
-	}
-	return nil
-}
-
-type NullVetchiumOrgPaymentMethodKind struct {
-	VetchiumOrgPaymentMethodKind VetchiumOrgPaymentMethodKind `json:"vetchium_org_payment_method_kind"`
-	Valid                        bool                         `json:"valid"` // Valid is true if VetchiumOrgPaymentMethodKind is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullVetchiumOrgPaymentMethodKind) Scan(value interface{}) error {
-	if value == nil {
-		ns.VetchiumOrgPaymentMethodKind, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.VetchiumOrgPaymentMethodKind.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullVetchiumOrgPaymentMethodKind) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.VetchiumOrgPaymentMethodKind), nil
 }
 
 type VetchiumOrgSignupCompletionState string
@@ -994,47 +783,6 @@ func (ns NullVetchiumOrgState) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.VetchiumOrgState), nil
-}
-
-type VetchiumOrgSubscriptionSource string
-
-const (
-	VetchiumOrgSubscriptionSourceSimulated VetchiumOrgSubscriptionSource = "simulated"
-)
-
-func (e *VetchiumOrgSubscriptionSource) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = VetchiumOrgSubscriptionSource(s)
-	case string:
-		*e = VetchiumOrgSubscriptionSource(s)
-	default:
-		return fmt.Errorf("unsupported scan type for VetchiumOrgSubscriptionSource: %T", src)
-	}
-	return nil
-}
-
-type NullVetchiumOrgSubscriptionSource struct {
-	VetchiumOrgSubscriptionSource VetchiumOrgSubscriptionSource `json:"vetchium_org_subscription_source"`
-	Valid                         bool                          `json:"valid"` // Valid is true if VetchiumOrgSubscriptionSource is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullVetchiumOrgSubscriptionSource) Scan(value interface{}) error {
-	if value == nil {
-		ns.VetchiumOrgSubscriptionSource, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.VetchiumOrgSubscriptionSource.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullVetchiumOrgSubscriptionSource) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.VetchiumOrgSubscriptionSource), nil
 }
 
 type VetchiumOrgUserState string
@@ -1552,31 +1300,15 @@ type VetchiumIdempotencyLedger struct {
 }
 
 type VetchiumOrg struct {
-	OrgDid                   pgtype.UUID                    `json:"org_did"`
-	DisplayName              string                         `json:"display_name"`
-	OrgState                 VetchiumOrgState               `json:"org_state"`
-	OrgPlanOid               string                         `json:"org_plan_oid"`
-	OrgBillingInterval       NullVetchiumOrgBillingInterval `json:"org_billing_interval"`
-	SubscriptionAnchorAt     pgtype.Timestamptz             `json:"subscription_anchor_at"`
-	SubscriptionPeriodStart  pgtype.Timestamptz             `json:"subscription_period_start"`
-	SubscriptionPeriodEnd    pgtype.Timestamptz             `json:"subscription_period_end"`
-	ScheduledOrgPlanOid      pgtype.Text                    `json:"scheduled_org_plan_oid"`
-	ScheduledBillingInterval NullVetchiumOrgBillingInterval `json:"scheduled_billing_interval"`
-	BillingState             VetchiumOrgBillingState        `json:"billing_state"`
-	SubscriptionSource       VetchiumOrgSubscriptionSource  `json:"subscription_source"`
-	GoogleSignInEnabled      bool                           `json:"google_sign_in_enabled"`
-	SuspendedAt              pgtype.Timestamptz             `json:"suspended_at"`
-	CreatedAt                pgtype.Timestamptz             `json:"created_at"`
-	UpdatedAt                pgtype.Timestamptz             `json:"updated_at"`
-}
-
-type VetchiumOrgBillingNotice struct {
-	OrgBillingNoticeID pgtype.UUID        `json:"org_billing_notice_id"`
-	OrgDid             pgtype.UUID        `json:"org_did"`
-	NoticeKind         string             `json:"notice_kind"`
-	TargetAt           pgtype.Timestamptz `json:"target_at"`
-	LeadSeconds        int64              `json:"lead_seconds"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	OrgDid              pgtype.UUID                    `json:"org_did"`
+	DisplayName         string                         `json:"display_name"`
+	OrgState            VetchiumOrgState               `json:"org_state"`
+	OrgPlanOid          string                         `json:"org_plan_oid"`
+	OrgBillingInterval  NullVetchiumOrgBillingInterval `json:"org_billing_interval"`
+	GoogleSignInEnabled bool                           `json:"google_sign_in_enabled"`
+	SuspendedAt         pgtype.Timestamptz             `json:"suspended_at"`
+	CreatedAt           pgtype.Timestamptz             `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz             `json:"updated_at"`
 }
 
 type VetchiumOrgDomain struct {
@@ -1616,25 +1348,6 @@ type VetchiumOrgEmailOutbox struct {
 	FailedAt              pgtype.Timestamptz `json:"failed_at"`
 }
 
-type VetchiumOrgInvoice struct {
-	OrgInvoiceID    pgtype.UUID                   `json:"org_invoice_id"`
-	OrgDid          pgtype.UUID                   `json:"org_did"`
-	OrgPlanOid      string                        `json:"org_plan_oid"`
-	BillingInterval VetchiumOrgBillingInterval    `json:"billing_interval"`
-	PeriodStart     pgtype.Timestamptz            `json:"period_start"`
-	PeriodEnd       pgtype.Timestamptz            `json:"period_end"`
-	Reason          VetchiumOrgInvoiceReason      `json:"reason"`
-	InvoiceState    VetchiumOrgInvoiceState       `json:"invoice_state"`
-	DueAt           pgtype.Timestamptz            `json:"due_at"`
-	AttemptCount    int32                         `json:"attempt_count"`
-	NextAttemptAt   pgtype.Timestamptz            `json:"next_attempt_at"`
-	LastFailure     NullVetchiumOrgInvoiceFailure `json:"last_failure"`
-	CreatedAt       pgtype.Timestamptz            `json:"created_at"`
-	PaidAt          pgtype.Timestamptz            `json:"paid_at"`
-	PaidBy          pgtype.UUID                   `json:"paid_by"`
-	VoidedAt        pgtype.Timestamptz            `json:"voided_at"`
-}
-
 type VetchiumOrgLoginChallenge struct {
 	OrgLoginChallengeID pgtype.UUID        `json:"org_login_challenge_id"`
 	OrgUserID           pgtype.UUID        `json:"org_user_id"`
@@ -1672,13 +1385,6 @@ type VetchiumOrgPasswordResetToken struct {
 	ExpiresAt               pgtype.Timestamptz `json:"expires_at"`
 	ConsumedAt              pgtype.Timestamptz `json:"consumed_at"`
 	Active                  bool               `json:"active"`
-}
-
-type VetchiumOrgPaymentMethod struct {
-	OrgDid    pgtype.UUID                  `json:"org_did"`
-	Kind      VetchiumOrgPaymentMethodKind `json:"kind"`
-	CreatedBy pgtype.UUID                  `json:"created_by"`
-	CreatedAt pgtype.Timestamptz           `json:"created_at"`
 }
 
 type VetchiumOrgPermissionCatalog struct {

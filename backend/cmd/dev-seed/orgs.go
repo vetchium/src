@@ -164,14 +164,6 @@ func (s *orgSeeder) seedOrg(
 	bearer := string(session.SessionToken)
 	if plan != subscriptionspec.FreeTier {
 		if err := s.post(
-			ctx, "/api/orgs/set-payment-method",
-			subscriptionspec.SetPaymentMethodRequest{
-				Kind: subscriptionspec.SimulatedSucceeds,
-			}, bearer, http.StatusOK, nil,
-		); err != nil {
-			return fmt.Errorf("save the simulated card: %w", err)
-		}
-		if err := s.post(
 			ctx, "/api/orgs/set-subscription-plan",
 			subscriptionspec.SetSubscriptionPlanRequest{
 				PlanOID: plan,

@@ -15,8 +15,6 @@ const getOrgSeatsInUse = `-- name: GetOrgSeatsInUse :one
 SELECT vetchium.org_seats_in_use($1)::bigint AS seats_in_use
 `
 
-// Read after the Org row lock is held: a function inside the locking statement
-// would count against the statement's older snapshot.
 func (q *Queries) GetOrgSeatsInUse(ctx context.Context, orgDid pgtype.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, getOrgSeatsInUse, orgDid)
 	var seats_in_use int64
@@ -25,64 +23,18 @@ func (q *Queries) GetOrgSeatsInUse(ctx context.Context, orgDid pgtype.UUID) (int
 }
 
 const getOrgSubscription = `-- name: GetOrgSubscription :one
-SELECT
-    o.org_plan_oid,
-    o.org_billing_interval,
-    o.subscription_anchor_at,
-    o.subscription_period_start,
-    o.subscription_period_end,
-    o.scheduled_org_plan_oid,
-    o.scheduled_billing_interval,
-    o.billing_state,
-    o.org_state,
+SELECT o.org_plan_oid, o.org_billing_interval, o.org_state,
     o.google_sign_in_enabled,
-    pm.kind AS payment_method_kind,
-    vetchium.org_seats_in_use(o.org_did)::bigint AS seats_in_use,
-    oi.org_invoice_id AS open_invoice_id,
-    oi.org_plan_oid AS open_invoice_plan_oid,
-    oi.billing_interval AS open_invoice_billing_interval,
-    oi.period_start AS open_invoice_period_start,
-    oi.period_end AS open_invoice_period_end,
-    oi.reason AS open_invoice_reason,
-    oi.due_at AS open_invoice_due_at,
-    oi.attempt_count AS open_invoice_attempt_count,
-    oi.next_attempt_at AS open_invoice_next_attempt_at,
-    oi.last_failure AS open_invoice_last_failure,
-    oi.created_at AS open_invoice_created_at,
-    d.domain::text AS domain
-FROM vetchium.orgs AS o
-JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
-LEFT JOIN vetchium.org_payment_methods AS pm ON pm.org_did = o.org_did
-LEFT JOIN vetchium.org_invoices AS oi
-    ON oi.org_did = o.org_did AND oi.invoice_state = 'open'
-WHERE o.org_did = $1
+    vetchium.org_seats_in_use(o.org_did)::bigint AS seats_in_use
+FROM vetchium.orgs AS o WHERE o.org_did = $1
 `
 
 type GetOrgSubscriptionRow struct {
-	OrgPlanOid                 string                           `json:"org_plan_oid"`
-	OrgBillingInterval         NullVetchiumOrgBillingInterval   `json:"org_billing_interval"`
-	SubscriptionAnchorAt       pgtype.Timestamptz               `json:"subscription_anchor_at"`
-	SubscriptionPeriodStart    pgtype.Timestamptz               `json:"subscription_period_start"`
-	SubscriptionPeriodEnd      pgtype.Timestamptz               `json:"subscription_period_end"`
-	ScheduledOrgPlanOid        pgtype.Text                      `json:"scheduled_org_plan_oid"`
-	ScheduledBillingInterval   NullVetchiumOrgBillingInterval   `json:"scheduled_billing_interval"`
-	BillingState               VetchiumOrgBillingState          `json:"billing_state"`
-	OrgState                   VetchiumOrgState                 `json:"org_state"`
-	GoogleSignInEnabled        bool                             `json:"google_sign_in_enabled"`
-	PaymentMethodKind          NullVetchiumOrgPaymentMethodKind `json:"payment_method_kind"`
-	SeatsInUse                 int64                            `json:"seats_in_use"`
-	OpenInvoiceID              pgtype.UUID                      `json:"open_invoice_id"`
-	OpenInvoicePlanOid         pgtype.Text                      `json:"open_invoice_plan_oid"`
-	OpenInvoiceBillingInterval NullVetchiumOrgBillingInterval   `json:"open_invoice_billing_interval"`
-	OpenInvoicePeriodStart     pgtype.Timestamptz               `json:"open_invoice_period_start"`
-	OpenInvoicePeriodEnd       pgtype.Timestamptz               `json:"open_invoice_period_end"`
-	OpenInvoiceReason          NullVetchiumOrgInvoiceReason     `json:"open_invoice_reason"`
-	OpenInvoiceDueAt           pgtype.Timestamptz               `json:"open_invoice_due_at"`
-	OpenInvoiceAttemptCount    pgtype.Int4                      `json:"open_invoice_attempt_count"`
-	OpenInvoiceNextAttemptAt   pgtype.Timestamptz               `json:"open_invoice_next_attempt_at"`
-	OpenInvoiceLastFailure     NullVetchiumOrgInvoiceFailure    `json:"open_invoice_last_failure"`
-	OpenInvoiceCreatedAt       pgtype.Timestamptz               `json:"open_invoice_created_at"`
-	Domain                     string                           `json:"domain"`
+	OrgPlanOid          string                         `json:"org_plan_oid"`
+	OrgBillingInterval  NullVetchiumOrgBillingInterval `json:"org_billing_interval"`
+	OrgState            VetchiumOrgState               `json:"org_state"`
+	GoogleSignInEnabled bool                           `json:"google_sign_in_enabled"`
+	SeatsInUse          int64                          `json:"seats_in_use"`
 }
 
 func (q *Queries) GetOrgSubscription(ctx context.Context, orgDid pgtype.UUID) (GetOrgSubscriptionRow, error) {
@@ -91,131 +43,19 @@ func (q *Queries) GetOrgSubscription(ctx context.Context, orgDid pgtype.UUID) (G
 	err := row.Scan(
 		&i.OrgPlanOid,
 		&i.OrgBillingInterval,
-		&i.SubscriptionAnchorAt,
-		&i.SubscriptionPeriodStart,
-		&i.SubscriptionPeriodEnd,
-		&i.ScheduledOrgPlanOid,
-		&i.ScheduledBillingInterval,
-		&i.BillingState,
 		&i.OrgState,
 		&i.GoogleSignInEnabled,
-		&i.PaymentMethodKind,
 		&i.SeatsInUse,
-		&i.OpenInvoiceID,
-		&i.OpenInvoicePlanOid,
-		&i.OpenInvoiceBillingInterval,
-		&i.OpenInvoicePeriodStart,
-		&i.OpenInvoicePeriodEnd,
-		&i.OpenInvoiceReason,
-		&i.OpenInvoiceDueAt,
-		&i.OpenInvoiceAttemptCount,
-		&i.OpenInvoiceNextAttemptAt,
-		&i.OpenInvoiceLastFailure,
-		&i.OpenInvoiceCreatedAt,
-		&i.Domain,
 	)
 	return i, err
 }
 
-const listOrgInvoices = `-- name: ListOrgInvoices :many
-SELECT
-    i.org_invoice_id,
-    i.org_plan_oid,
-    i.billing_interval,
-    i.period_start,
-    i.period_end,
-    i.reason,
-    i.invoice_state,
-    i.created_at,
-    i.due_at,
-    i.paid_at,
-    i.last_failure,
-    i.attempt_count
-FROM vetchium.org_invoices AS i
-WHERE i.org_did = $1
-  AND (
-      $2::timestamptz IS NULL
-      OR (i.created_at, i.org_invoice_id) <
-          ($2::timestamptz,
-           $3::uuid)
-  )
-ORDER BY i.created_at DESC, i.org_invoice_id DESC
-LIMIT $4
-`
-
-type ListOrgInvoicesParams struct {
-	OrgDid             pgtype.UUID        `json:"org_did"`
-	BeforeCreatedAt    pgtype.Timestamptz `json:"before_created_at"`
-	BeforeOrgInvoiceID pgtype.UUID        `json:"before_org_invoice_id"`
-	PageLimit          int32              `json:"page_limit"`
-}
-
-type ListOrgInvoicesRow struct {
-	OrgInvoiceID    pgtype.UUID                   `json:"org_invoice_id"`
-	OrgPlanOid      string                        `json:"org_plan_oid"`
-	BillingInterval VetchiumOrgBillingInterval    `json:"billing_interval"`
-	PeriodStart     pgtype.Timestamptz            `json:"period_start"`
-	PeriodEnd       pgtype.Timestamptz            `json:"period_end"`
-	Reason          VetchiumOrgInvoiceReason      `json:"reason"`
-	InvoiceState    VetchiumOrgInvoiceState       `json:"invoice_state"`
-	CreatedAt       pgtype.Timestamptz            `json:"created_at"`
-	DueAt           pgtype.Timestamptz            `json:"due_at"`
-	PaidAt          pgtype.Timestamptz            `json:"paid_at"`
-	LastFailure     NullVetchiumOrgInvoiceFailure `json:"last_failure"`
-	AttemptCount    int32                         `json:"attempt_count"`
-}
-
-func (q *Queries) ListOrgInvoices(ctx context.Context, arg ListOrgInvoicesParams) ([]ListOrgInvoicesRow, error) {
-	rows, err := q.db.Query(ctx, listOrgInvoices,
-		arg.OrgDid,
-		arg.BeforeCreatedAt,
-		arg.BeforeOrgInvoiceID,
-		arg.PageLimit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListOrgInvoicesRow
-	for rows.Next() {
-		var i ListOrgInvoicesRow
-		if err := rows.Scan(
-			&i.OrgInvoiceID,
-			&i.OrgPlanOid,
-			&i.BillingInterval,
-			&i.PeriodStart,
-			&i.PeriodEnd,
-			&i.Reason,
-			&i.InvoiceState,
-			&i.CreatedAt,
-			&i.DueAt,
-			&i.PaidAt,
-			&i.LastFailure,
-			&i.AttemptCount,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const lockOrgForBilling = `-- name: LockOrgForBilling :one
-SELECT o.org_did
-FROM vetchium.orgs AS o
-WHERE o.org_did = $1
-FOR UPDATE
+SELECT org_did FROM vetchium.orgs
+WHERE org_did = $1 FOR UPDATE
 `
 
-// Takes the Org row lock that serializes every billing, seat, and permission
-// decision (D28), and reads nothing else. A statement that waits for the lock
-// re-reads only the locked row; anything it joins keeps the snapshot from
-// before the wait, so a renewal committed meanwhile would pair past_due with
-// no open invoice. Read the subscription with GetOrgSubscription afterwards,
-// in its own statement and so its own snapshot.
+// Lock first, then read seats in a new statement snapshot.
 func (q *Queries) LockOrgForBilling(ctx context.Context, orgDid pgtype.UUID) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, lockOrgForBilling, orgDid)
 	var org_did pgtype.UUID
@@ -223,126 +63,19 @@ func (q *Queries) LockOrgForBilling(ctx context.Context, orgDid pgtype.UUID) (pg
 	return org_did, err
 }
 
-const removeOrgPaymentMethod = `-- name: RemoveOrgPaymentMethod :exec
-WITH removed AS (
-    DELETE FROM vetchium.org_payment_methods
-    WHERE org_did = $3
-    RETURNING org_did, kind
-)
-INSERT INTO vetchium.audit_events (
-    tenant_id, action, entity_type, entity_id, actor_type, actor_id,
-    source, payload
-)
-SELECT
-    $1,
-    'org.payment_method.removed',
-    'org',
-    org_did::text,
-    'org_user',
-    $2::uuid::text,
-    'orgs-api',
-    jsonb_build_object('kind', kind::text)
-FROM removed
-`
-
-type RemoveOrgPaymentMethodParams struct {
-	TenantID       string      `json:"tenant_id"`
-	ActorOrgUserID pgtype.UUID `json:"actor_org_user_id"`
-	OrgDid         pgtype.UUID `json:"org_did"`
-}
-
-func (q *Queries) RemoveOrgPaymentMethod(ctx context.Context, arg RemoveOrgPaymentMethodParams) error {
-	_, err := q.db.Exec(ctx, removeOrgPaymentMethod, arg.TenantID, arg.ActorOrgUserID, arg.OrgDid)
-	return err
-}
-
-const saveOrgSubscription = `-- name: SaveOrgSubscription :one
+const saveOrgSubscription = `-- name: SaveOrgSubscription :exec
 WITH previous AS (
-    -- Every sub-statement reads the snapshot taken before the UPDATE, so this
-    -- is the Google sign-in setting the change may turn off.
-    SELECT o.google_sign_in_enabled
-    FROM vetchium.orgs AS o
-    WHERE o.org_did = $1
+ SELECT o.org_plan_oid, o.org_billing_interval, o.google_sign_in_enabled
+ FROM vetchium.orgs o WHERE o.org_did = $6
 ), updated AS (
-    UPDATE vetchium.orgs AS o
-    SET org_plan_oid = $2,
-        org_billing_interval =
-            $3::vetchium.org_billing_interval,
-        subscription_anchor_at = $4,
-        subscription_period_start = $5,
-        subscription_period_end = $6,
-        scheduled_org_plan_oid = $7,
-        scheduled_billing_interval =
-            $8::vetchium.org_billing_interval,
-        billing_state = $9::vetchium.org_billing_state,
-        -- Leaving the plans that include Google sign-in turns it off in the
-        -- same statement.
-        google_sign_in_enabled = o.google_sign_in_enabled
-            AND $2::text
-                = ANY($10::text[]),
-        updated_at = now()
-    WHERE o.org_did = $1
-    RETURNING o.org_did
-), changes AS (
-    SELECT elem
-    FROM jsonb_array_elements($11::jsonb) AS elem
-), created AS (
-    INSERT INTO vetchium.org_invoices (
-        org_did, org_plan_oid, billing_interval, period_start, period_end,
-        reason, invoice_state, due_at, attempt_count, next_attempt_at,
-        last_failure, paid_at, voided_at, paid_by
-    )
-    SELECT
-        $1,
-        (c.elem ->> 'plan_oid')::text,
-        (c.elem ->> 'billing_interval')::vetchium.org_billing_interval,
-        (c.elem ->> 'period_start')::timestamptz,
-        (c.elem ->> 'period_end')::timestamptz,
-        (c.elem ->> 'reason')::vetchium.org_invoice_reason,
-        (c.elem ->> 'state')::vetchium.org_invoice_state,
-        (c.elem ->> 'due_at')::timestamptz,
-        COALESCE((c.elem ->> 'attempt_count')::integer, 1),
-        (c.elem ->> 'next_attempt_at')::timestamptz,
-        (c.elem ->> 'last_failure')::vetchium.org_invoice_failure,
-        (c.elem ->> 'paid_at')::timestamptz,
-        (c.elem ->> 'voided_at')::timestamptz,
-        CASE WHEN c.elem ->> 'state' = 'paid'
-            THEN $12::uuid END
-    FROM changes AS c
-    WHERE c.elem ->> 'op' = 'create'
-    RETURNING org_invoice_id
-), paid AS (
-    UPDATE vetchium.org_invoices AS i
-    SET invoice_state = 'paid',
-        paid_at = (c.elem ->> 'paid_at')::timestamptz,
-        paid_by = $12::uuid,
-        due_at = NULL,
-        next_attempt_at = NULL
-    FROM changes AS c
-    WHERE c.elem ->> 'op' = 'pay'
-      AND i.org_did = $1
-      AND i.invoice_state = 'open'
-    RETURNING i.org_invoice_id
-), failed AS (
-    UPDATE vetchium.org_invoices AS i
-    SET attempt_count = (c.elem ->> 'attempt_count')::integer,
-        next_attempt_at = (c.elem ->> 'next_attempt_at')::timestamptz,
-        last_failure = (c.elem ->> 'last_failure')::vetchium.org_invoice_failure
-    FROM changes AS c
-    WHERE c.elem ->> 'op' = 'record-failure'
-      AND i.org_did = $1
-      AND i.invoice_state = 'open'
-    RETURNING i.org_invoice_id
-), voided AS (
-    UPDATE vetchium.org_invoices AS i
-    SET invoice_state = 'void',
-        voided_at = (c.elem ->> 'voided_at')::timestamptz,
-        next_attempt_at = NULL
-    FROM changes AS c
-    WHERE c.elem ->> 'op' = 'void'
-      AND i.org_did = $1
-      AND i.invoice_state = 'open'
-    RETURNING i.org_invoice_id
+ UPDATE vetchium.orgs o SET
+ org_plan_oid = $4,
+ org_billing_interval = $5::vetchium.org_billing_interval,
+ google_sign_in_enabled = o.google_sign_in_enabled
+     AND $4::text = ANY($7::text[]),
+ updated_at = now()
+ WHERE o.org_did = $6
+ RETURNING o.org_did
 ), logos_queued AS (
     -- A plan that does not include the logo takes it away in this same
     -- transaction; the object bytes are removed by a retried worker task.
@@ -350,9 +83,9 @@ WITH previous AS (
     SET state = 'pending_delete', upload_expires_at = NULL,
         delete_requested_at = now(),
         next_attempt_at = now() + interval '1 minute'
-    WHERE l.org_did = $1
+    WHERE l.org_did = $6
       AND l.state IN ('active', 'uploading')
-      AND NOT ($2 = ANY($13::text[]))
+      AND NOT ($4 = ANY($8::text[]))
     RETURNING l.object_id
 ), logo_audit AS (
     INSERT INTO vetchium.audit_events (
@@ -360,10 +93,10 @@ WITH previous AS (
         source, idempotency_key, payload
     )
     SELECT
-        $14, 'org.logo.removed_by_plan', 'org_logo',
-        q.object_id::text, 'system', 'subscription-renewal',
-        $15, $16,
-        jsonb_build_object('org_plan_oid', $2::text)
+        $1, 'org.logo.removed_by_plan', 'org_logo',
+        q.object_id::text, 'org_user', $2::uuid::text,
+        'orgs-api', $3,
+        jsonb_build_object('org_plan_oid', $4::text)
     FROM logos_queued AS q
     RETURNING audit_event_id
 ), google_audit AS (
@@ -372,159 +105,50 @@ WITH previous AS (
         source, idempotency_key, payload
     )
     SELECT
-        $14, 'org.google_sign_in.disabled_by_plan', 'org',
-        $1::text, 'system', 'subscription-renewal',
-        $15, $16,
-        jsonb_build_object('org_plan_oid', $2::text)
+        $1, 'org.google_sign_in.disabled_by_plan', 'org',
+        $6::text, 'org_user', $2::uuid::text,
+        'orgs-api', $3,
+        jsonb_build_object('org_plan_oid', $4::text)
     FROM previous AS p
     WHERE p.google_sign_in_enabled
-      AND NOT ($2::text
-          = ANY($10::text[]))
-    RETURNING audit_event_id
-), audit AS (
-    INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
-        source, idempotency_key, payload
-    )
-    SELECT
-        $14,
-        (e.elem ->> 'action')::text,
-        'org',
-        $1::text,
-        (e.elem ->> 'actor_type')::text,
-        (e.elem ->> 'actor_id')::text,
-        $15,
-        $16,
-        e.elem -> 'payload'
-    FROM jsonb_array_elements($17::jsonb) AS e(elem)
+      AND NOT ($4::text
+          = ANY($7::text[]))
     RETURNING audit_event_id
 )
-SELECT
-    (SELECT count(*) FROM updated)::bigint AS updated_count,
-    (SELECT count(*) FROM created)::bigint AS created_count,
-    (SELECT count(*) FROM paid)::bigint AS paid_count,
-    (SELECT count(*) FROM failed)::bigint AS failed_count,
-    (SELECT count(*) FROM voided)::bigint AS voided_count,
-    (SELECT count(*) FROM audit)::bigint AS audited_count,
-    (SELECT count(*) FROM logos_queued)::bigint AS logos_queued_count,
-    (SELECT count(*) FROM logo_audit)::bigint AS logos_audited_count,
-    (SELECT count(*) FROM google_audit)::bigint AS google_audited_count
+INSERT INTO vetchium.audit_events (
+ tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+ source, idempotency_key, payload
+)
+SELECT $1, 'org.subscription.changed', 'org',
+ u.org_did::text, 'org_user', $2::uuid::text,
+ 'orgs-api', $3,
+ jsonb_build_object('before_plan', p.org_plan_oid,
+ 'before_interval', p.org_billing_interval, 'plan', $4::text,
+ 'interval', $5::text)
+FROM updated u CROSS JOIN previous p
 `
 
 type SaveOrgSubscriptionParams struct {
-	OrgDid                   pgtype.UUID                    `json:"org_did"`
-	OrgPlanOid               string                         `json:"org_plan_oid"`
-	OrgBillingInterval       NullVetchiumOrgBillingInterval `json:"org_billing_interval"`
-	SubscriptionAnchorAt     pgtype.Timestamptz             `json:"subscription_anchor_at"`
-	SubscriptionPeriodStart  pgtype.Timestamptz             `json:"subscription_period_start"`
-	SubscriptionPeriodEnd    pgtype.Timestamptz             `json:"subscription_period_end"`
-	ScheduledOrgPlanOid      pgtype.Text                    `json:"scheduled_org_plan_oid"`
-	ScheduledBillingInterval NullVetchiumOrgBillingInterval `json:"scheduled_billing_interval"`
-	BillingState             VetchiumOrgBillingState        `json:"billing_state"`
-	GoogleSignInPlanOids     []string                       `json:"google_sign_in_plan_oids"`
-	InvoiceChanges           []byte                         `json:"invoice_changes"`
-	PaidBy                   pgtype.UUID                    `json:"paid_by"`
-	LogoPlanOids             []string                       `json:"logo_plan_oids"`
-	TenantID                 string                         `json:"tenant_id"`
-	Source                   string                         `json:"source"`
-	IdempotencyKey           pgtype.Text                    `json:"idempotency_key"`
-	Events                   []byte                         `json:"events"`
+	TenantID             string      `json:"tenant_id"`
+	ActorOrgUserID       pgtype.UUID `json:"actor_org_user_id"`
+	IdempotencyKey       pgtype.Text `json:"idempotency_key"`
+	OrgPlanOid           string      `json:"org_plan_oid"`
+	OrgBillingInterval   pgtype.Text `json:"org_billing_interval"`
+	OrgDid               pgtype.UUID `json:"org_did"`
+	GoogleSignInPlanOids []string    `json:"google_sign_in_plan_oids"`
+	LogoPlanOids         []string    `json:"logo_plan_oids"`
 }
 
-type SaveOrgSubscriptionRow struct {
-	UpdatedCount       int64 `json:"updated_count"`
-	CreatedCount       int64 `json:"created_count"`
-	PaidCount          int64 `json:"paid_count"`
-	FailedCount        int64 `json:"failed_count"`
-	VoidedCount        int64 `json:"voided_count"`
-	AuditedCount       int64 `json:"audited_count"`
-	LogosQueuedCount   int64 `json:"logos_queued_count"`
-	LogosAuditedCount  int64 `json:"logos_audited_count"`
-	GoogleAuditedCount int64 `json:"google_audited_count"`
-}
-
-// The single write statement for a subscription change. invoice_changes and
-// events are jsonb arrays (see backend/internal/orgs/billing): the changes are
-// already folded, so no change refers to a row another change in the same
-// statement creates.
-func (q *Queries) SaveOrgSubscription(ctx context.Context, arg SaveOrgSubscriptionParams) (SaveOrgSubscriptionRow, error) {
-	row := q.db.QueryRow(ctx, saveOrgSubscription,
-		arg.OrgDid,
-		arg.OrgPlanOid,
-		arg.OrgBillingInterval,
-		arg.SubscriptionAnchorAt,
-		arg.SubscriptionPeriodStart,
-		arg.SubscriptionPeriodEnd,
-		arg.ScheduledOrgPlanOid,
-		arg.ScheduledBillingInterval,
-		arg.BillingState,
-		arg.GoogleSignInPlanOids,
-		arg.InvoiceChanges,
-		arg.PaidBy,
-		arg.LogoPlanOids,
-		arg.TenantID,
-		arg.Source,
-		arg.IdempotencyKey,
-		arg.Events,
-	)
-	var i SaveOrgSubscriptionRow
-	err := row.Scan(
-		&i.UpdatedCount,
-		&i.CreatedCount,
-		&i.PaidCount,
-		&i.FailedCount,
-		&i.VoidedCount,
-		&i.AuditedCount,
-		&i.LogosQueuedCount,
-		&i.LogosAuditedCount,
-		&i.GoogleAuditedCount,
-	)
-	return i, err
-}
-
-const setOrgPaymentMethod = `-- name: SetOrgPaymentMethod :exec
-WITH upserted AS (
-    INSERT INTO vetchium.org_payment_methods (org_did, kind, created_by)
-    VALUES (
-        $4,
-        $3::text::vetchium.org_payment_method_kind,
-        $2
-    )
-    ON CONFLICT (org_did) DO UPDATE
-    SET kind = EXCLUDED.kind,
-        created_by = EXCLUDED.created_by,
-        created_at = now()
-    RETURNING org_did
-)
-INSERT INTO vetchium.audit_events (
-    tenant_id, action, entity_type, entity_id, actor_type, actor_id,
-    source, payload
-)
-SELECT
-    $1,
-    'org.payment_method.set',
-    'org',
-    org_did::text,
-    'org_user',
-    $2::uuid::text,
-    'orgs-api',
-    jsonb_build_object('kind', $3::text)
-FROM upserted
-`
-
-type SetOrgPaymentMethodParams struct {
-	TenantID       string      `json:"tenant_id"`
-	ActorOrgUserID pgtype.UUID `json:"actor_org_user_id"`
-	Kind           string      `json:"kind"`
-	OrgDid         pgtype.UUID `json:"org_did"`
-}
-
-func (q *Queries) SetOrgPaymentMethod(ctx context.Context, arg SetOrgPaymentMethodParams) error {
-	_, err := q.db.Exec(ctx, setOrgPaymentMethod,
+func (q *Queries) SaveOrgSubscription(ctx context.Context, arg SaveOrgSubscriptionParams) error {
+	_, err := q.db.Exec(ctx, saveOrgSubscription,
 		arg.TenantID,
 		arg.ActorOrgUserID,
-		arg.Kind,
+		arg.IdempotencyKey,
+		arg.OrgPlanOid,
+		arg.OrgBillingInterval,
 		arg.OrgDid,
+		arg.GoogleSignInPlanOids,
+		arg.LogoPlanOids,
 	)
 	return err
 }

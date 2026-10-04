@@ -163,9 +163,7 @@ by the `workers` schedule and check-now.
   to locate or hint at a different sign-in region.
 - An unknown domain, unknown user, wrong region, and wrong password produce
   the same `org-invalid-credentials`.
-- Refuse a disabled Org user with `org-user-disabled`, or
-  `org-user-disabled-nonpayment` when the Org's lapsed subscription disabled
-  them, following the Hub and admin conventions.
+- Refuse a disabled Org user with `org-user-disabled`.
 - Gold Orgs may also sign in with Google (`sso/google/start` and `complete`),
   which skips Vetchium TOTP; see [`org-subscriptions.md`](org-subscriptions.md).
 - TOTP is optional and follows the Hub and admin flow: login challenge, TOTP or
@@ -198,7 +196,10 @@ by the `workers` schedule and check-now.
   step, Google sign-in and its callback, forgot and reset password, the
   signed-in shell, account security, the failing banner, and the suspended
   (restore-domain) screen, plus members and invitations, plans and billing,
-  and settings (logo, Google sign-in).
+  Company (name and logo), and Organization security (Google sign-in).
+- Show the signed-in email in My account and authorized People administration,
+  not in the shell or Overview. Redirect `/settings` to `/company` and
+  `/security` to `/account`.
 - Ship every user-visible string in every `orgs-ui` locale.
 
 ## Tests

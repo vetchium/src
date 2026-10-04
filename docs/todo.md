@@ -18,16 +18,33 @@ Each item: what is not done, and what must be decided first.
   Keep one record per handler exit.
 - The tenant migration's down section fails: `hub_email_change_challenges` is
   not dropped before `hub_sessions`. No test runs the down path.
+- `make sqlc` and `make sql-check` leave generated files whose query source
+  was deleted; `internal/db/sqlc/org_billing_jobs.sql.go` still queries the
+  dropped invoice and notice tables. Delete it and make the check fail on
+  orphans.
+- Org subscription and company code drifts from its neighbours: unwrapped Go
+  calls in `handlers/orgs/subscriptions`, one-space indentation in
+  `org_subscriptions.sql` and `org_company.sql`, the interval built twice in
+  `SetSubscriptionPlan`. `SetCompanyName` borrows `LockOrgForBilling` and
+  `GetOrgSubscription` (which counts seats) only to read `org_state`.
+- `orgs-ui` `PlanOptions`: the `mcp` comparison row falls through to the
+  ticket-support entitlement, and a label ternary is a no-op.
+  `users.state.disabledManual` is unused in every locale.
+- `org_users_disabled_consistent` tests `disabled_reason IS NOT NULL` before
+  `= 'manual'`; with one reason left, decide whether the column stays.
 
 ## Test coverage
 
+- Admin concurrent password resets: `api/admin-password.spec.ts` receives 401
+  instead of 204 when completing the token selected by `emailCredential` after
+  two successful concurrent requests. Determine whether token selection or
+  reset ordering is wrong before changing the assertion.
 - Hub browser paths: signup completion success, TOTP sign-in and management,
   reauthentication success, and the profile fields and failures not yet
   covered.
 - Go contract tests for `typespec/hub/auth` and `typespec/hub/users`.
 - `backend/handlers/mesh` directory relays have no Go tests; only the
   Playwright API suite exercises them.
-- Org signup-unavailable (403) is untested: no CI region has Org signup off.
 
 ## Hub
 
@@ -64,13 +81,14 @@ Each item: what is not done, and what must be decided first.
   Decide whether every credential operation must declare them.
 - Not built: admin management of blocked signup domains and of Orgs; extra
   domains, primary-domain change, and domain transfer; Org terms acceptance;
-  Org profile metadata beyond the logo (description, legal entity); remembered
+  Org profile metadata beyond name and logo (description, legal entity); remembered
   Org sessions; Org migration between regions; openings and every other hiring
   feature.
-- Org payments: plans run on simulated cards everywhere, production included.
-  Integrate a real processor before charging, and decide tax, proration,
-  refunds, invoice PDFs, and billing contacts outside the Org
-  (`org-subscriptions.md`).
+- Org payments: launch is blocked on a real provider integration. The provider
+  should own renewals, retries, payment methods, and invoices; Vetchium keeps
+  entitlements and a webhook-fed projection, never card data. Decide provider
+  (per region if needed), proration, when paid entitlements start, tax,
+  refunds, billing contacts, and nonpayment consequences.
 - Openings enforcement: only the quota constants and the counting rule exist
   (`internal/orgs/entitlements`). The publish statement must apply it under the
   Org lock.

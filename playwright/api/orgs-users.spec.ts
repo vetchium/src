@@ -33,8 +33,6 @@ const userNotFound = "vetchium-problem-details/org-user-not-found";
 const selfChange = "vetchium-problem-details/org-self-change-forbidden";
 const lastSuperadmin = "vetchium-problem-details/org-last-superadmin";
 const userDisabled = "vetchium-problem-details/org-user-disabled";
-const userDisabledNonpayment =
-  "vetchium-problem-details/org-user-disabled-nonpayment";
 const validationFailed = "vetchium-problem-details/validation-failed";
 const invalidJSON = "vetchium-problem-details/invalid-json";
 const invalidPaginationKey = "vetchium-problem-details/invalid-pagination-key";
@@ -229,20 +227,17 @@ test.describe("list-users and user-summary", () => {
       ).toBe(204);
       orgSQL(
         `UPDATE vetchium.org_users
-         SET org_user_state = 'disabled', disabled_reason = 'nonpayment',
+         SET org_user_state = 'disabled', disabled_reason = 'manual',
              disabled_at = now()
          WHERE email_address = '${unpaid.emailAddress}'`,
       );
       const manualOnly = await listed(api, owner, {
         filter_state: "disabled-manual",
       });
-      expect(emails(manualOnly)).toEqual([manual.emailAddress]);
+      expect(emails(manualOnly).sort()).toEqual(
+        [manual.emailAddress, unpaid.emailAddress].sort(),
+      );
       expect(manualOnly.users[0]?.disabled_reason).toBe("manual");
-      const unpaidOnly = await listed(api, owner, {
-        filter_state: "disabled-nonpayment",
-      });
-      expect(emails(unpaidOnly)).toEqual([unpaid.emailAddress]);
-      expect(unpaidOnly.users[0]?.disabled_reason).toBe("nonpayment");
       expect(
         emails(await listed(api, owner, { filter_state: "active" })),
       ).toEqual([org.emailAddress]);
@@ -254,8 +249,7 @@ test.describe("list-users and user-summary", () => {
         seats_in_use: 1,
         seat_limit: 5,
         active_users: 1,
-        disabled_manual_users: 1,
-        disabled_nonpayment_users: 1,
+        disabled_manual_users: 2,
         active_users_without_permissions: 0,
         permission_counts: [{ permission: "org:superadmin", users: 1 }],
       });
@@ -285,7 +279,6 @@ test.describe("list-users and user-summary", () => {
         seat_limit: 5,
         active_users: 3,
         disabled_manual_users: 0,
-        disabled_nonpayment_users: 0,
         active_users_without_permissions: 1,
         permission_counts: [
           { permission: "org:manage_users", users: 1 },
@@ -649,7 +642,9 @@ test.describe("disable-user and bulk-disable-users", () => {
 });
 
 test.describe("enable-user and bulk-enable-users", () => {
-  test("re-enables either kind of disabled user", async ({ request }) => {
+  test("re-enables disabled users individually and in bulk", async ({
+    request,
+  }) => {
     await withOrg(request, async ({ api, org, owner }) => {
       const manual = await addOrgMember(
         api,
@@ -668,7 +663,7 @@ test.describe("enable-user and bulk-enable-users", () => {
       await api.disableUser(owner, { email_address: manual.emailAddress });
       orgSQL(
         `UPDATE vetchium.org_users
-         SET org_user_state = 'disabled', disabled_reason = 'nonpayment',
+         SET org_user_state = 'disabled', disabled_reason = 'manual',
              disabled_at = now()
          WHERE email_address = '${unpaid.emailAddress}'`,
       );
@@ -679,7 +674,7 @@ test.describe("enable-user and bulk-enable-users", () => {
           password: unpaid.password,
         }),
         403,
-        userDisabledNonpayment,
+        userDisabled,
       );
 
       const single = await api.enableUser(owner, {

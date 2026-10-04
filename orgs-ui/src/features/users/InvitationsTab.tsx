@@ -1,9 +1,10 @@
-import { SearchOutlined } from "@ant-design/icons";
+import { MoreOutlined, SearchOutlined } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   App,
   Button,
+  Dropdown,
   Flex,
   Input,
   Space,
@@ -105,7 +106,9 @@ export function InvitationsTab() {
       title: t("users.role"),
       key: "role",
       width: 160,
-      render: (_, invitation) => t(`roles.${roleOf(invitation.permissions)}`),
+      render: (_, invitation) => (
+        <Tag>{t(`roles.${roleOf(invitation.permissions)}`)}</Tag>
+      ),
     },
     {
       title: t("invitations.invitedBy"),
@@ -127,33 +130,33 @@ export function InvitationsTab() {
     {
       title: t("users.columns.actions"),
       key: "actions",
-      width: 240,
+      width: 100,
       render: (_, invitation) => (
-        <Space>
+        <Dropdown
+          trigger={["click"]}
+          menu={{
+            items: [
+              { key: "resend", label: t("invitations.resend") },
+              {
+                key: "cancel",
+                label: t("invitations.cancelAction"),
+                danger: true,
+              },
+            ],
+            onClick: ({ key }) => {
+              if (key === "resend") resend.mutate(invitation.email_address);
+              else confirmCancel([invitation.email_address]);
+            },
+          }}
+        >
           <Button
-            size="small"
-            loading={
-              resend.isPending && resend.variables === invitation.email_address
-            }
-            disabled={resend.isPending}
-            onClick={() => resend.mutate(invitation.email_address)}
-            aria-label={t("invitations.resendFor", {
+            icon={<MoreOutlined />}
+            disabled={resend.isPending || cancel.isPending}
+            aria-label={t("users.actionsFor", {
               email: invitation.email_address,
             })}
-          >
-            {t("invitations.resend")}
-          </Button>
-          <Button
-            size="small"
-            danger
-            onClick={() => confirmCancel([invitation.email_address])}
-            aria-label={t("invitations.cancelFor", {
-              email: invitation.email_address,
-            })}
-          >
-            {t("invitations.cancelAction")}
-          </Button>
-        </Space>
+          />
+        </Dropdown>
       ),
     },
   ];
@@ -188,6 +191,11 @@ export function InvitationsTab() {
           </>
         ) : null}
       </Flex>
+      {selected.length > 0 ? (
+        <Typography.Text type="secondary">
+          {t("people.selection", { count: maxBulk })}
+        </Typography.Text>
+      ) : null}
       {query.isError ? (
         <Alert type="error" title={t("common.loadError")} />
       ) : null}

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"backend/internal/regions"
 	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
 )
 
@@ -448,12 +449,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "inconclusiveLimit": "168h"
   },
   "orgBilling": {
-    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
-    "gracePeriod": "336h",
-    "retryOffsets": ["72h", "168h", "264h"],
-    "dueWarningLeads": ["168h", "72h", "24h"],
-    "downgradeWarningLeads": ["168h", "24h"],
-    "checkInterval": "1m"
+    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
   },
   "mcpServer": {}
 }`, passwordFile)
@@ -697,12 +693,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "inconclusiveLimit": "168h"
   },
   "orgBilling": {
-    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
-    "gracePeriod": "336h",
-    "retryOffsets": ["72h", "168h", "264h"],
-    "dueWarningLeads": ["168h", "72h", "24h"],
-    "downgradeWarningLeads": ["168h", "24h"],
-    "checkInterval": "1m"
+    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
   },
   "mcpServer": {}
 }`, passwordFile, extraWorkerField)
@@ -710,4 +701,22 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func TestOrgUnavailableFixtureConfiguration(t *testing.T) {
+	t.Parallel()
+	cfg, err := LoadFile(filepath.Join("..", "..", "..", "config", "ci", "fixtures", "orgs-unavailable.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Env != EnvironmentCI || cfg.TenantID != "sgp" || cfg.OrgsAPIServer.Signup.Enabled || cfg.OrgsAPIServer.GoogleSignIn != nil {
+		t.Fatal("Org unavailable fixture must be a CI sgp instance with signup and Google sign-in unavailable")
+	}
+	catalog, err := regions.Load(filepath.Join("..", "..", "..", "config", "ci", "fixtures", "orgs-unavailable-regions.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if catalog.OrgSignupEnabled(cfg.TenantID) != cfg.OrgsAPIServer.Signup.Enabled {
+		t.Fatal("fixture signup catalog and API must agree")
+	}
 }

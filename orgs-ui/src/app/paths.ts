@@ -8,11 +8,12 @@ export const paths = {
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
   reauthenticate: "/reauthenticate",
-  security: "/security",
+  security: "/account",
   restoreDomain: "/restore-domain",
   members: "/members",
   plans: "/plans",
-  settings: "/settings",
+  settings: "/company",
+  organizationSecurity: "/organization-security",
   acceptInvitation: "/accept-invitation",
 } as const;
 

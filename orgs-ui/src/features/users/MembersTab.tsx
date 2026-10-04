@@ -1,11 +1,10 @@
-import { MoreOutlined, SearchOutlined } from "@ant-design/icons";
+import { SearchOutlined } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ReauthenticationAlert } from "@vetchium/portal-ui/shell";
 import {
   Alert,
   App,
   Button,
-  Dropdown,
   Flex,
   Input,
   Select,
@@ -21,26 +20,23 @@ import type { PaginationKey } from "typespec/common/pagination";
 import {
   directPermissions,
   type OrgPermissionID,
-  Superadmin,
 } from "typespec/orgs/authorization/types";
 import { maxBulk } from "typespec/orgs/users/invitations";
 import type {
   OrgUserSummary,
-  UserSort,
   UserStateFilter,
 } from "typespec/orgs/users/management";
 import { isRecentAuthenticationRequired } from "../../api/client";
 import { orgsAPI } from "../../api/orgs";
 import { problemMessage } from "../../components/common/APIErrorAlert";
 import { useDateTimeFormat } from "../../components/common/useDateTimeFormat";
-import { CustomRoleDrawer } from "./CustomRoleDrawer";
 import { ExportButton } from "./ExportButton";
 import { filtersToRequest, hasFilters, type MemberFilters } from "./filters";
+import { MemberDrawer } from "./MemberDrawer";
 import { userSummaryQueryKey, usersQueryKey, useUsersQuery } from "./queries";
 import {
   mayChange,
   presetGrants,
-  type Role,
   type RolePreset,
   roleOf,
   rolePresets,
@@ -186,14 +182,18 @@ export function MembersTab({
     });
 
   const isViewer = (user: OrgUserSummary) => user.email_address === viewerEmail;
-  const holdsSuperadmin = (user: OrgUserSummary) =>
-    user.granted_permissions.includes(Superadmin);
-  const viewerIsSuperadmin = viewerPermissions.includes(Superadmin);
 
   const columns: ColumnsType<OrgUserSummary> = [
     {
       title: t("fields.email"),
       key: "email",
+      sorter: true,
+      sortOrder:
+        filters.sort === "email"
+          ? filters.descending
+            ? "descend"
+            : "ascend"
+          : null,
       render: (_, user) => (
         <Typography.Text strong={isViewer(user)}>
           {user.email_address}
@@ -205,40 +205,9 @@ export function MembersTab({
       title: t("users.role"),
       key: "role",
       width: 220,
-      render: (_, user) => {
-        const role: Role = roleOf(user.granted_permissions);
-        return (
-          <Select<Role>
-            className="full-width"
-            value={role}
-            aria-label={t("users.roleOf", { email: user.email_address })}
-            disabled={
-              isViewer(user) ||
-              setRole.isPending ||
-              (!viewerIsSuperadmin && holdsSuperadmin(user))
-            }
-            options={[
-              ...rolePresets.map(({ preset, grants }) => ({
-                value: preset as Role,
-                label: t(`roles.${preset}`),
-                disabled: !mayChange(
-                  viewerPermissions,
-                  user.granted_permissions,
-                  grants,
-                ),
-              })),
-              { value: "custom" as Role, label: t("users.custom.option") },
-            ]}
-            // onSelect, not onChange: choosing "Custom…" again for a user who
-            // already has a custom role changes no value but must still open
-            // the editor.
-            onSelect={(next) => {
-              if (next === "custom") setCustomUser(user);
-              else if (next !== role) confirmRole([user.email_address], next);
-            }}
-          />
-        );
-      },
+      render: (_, user) => (
+        <Tag>{t(`roles.${roleOf(user.granted_permissions)}`)}</Tag>
+      ),
     },
     {
       title: t("users.columns.state"),
@@ -248,18 +217,19 @@ export function MembersTab({
         user.state === "active" ? (
           <Tag color="green">{t("users.state.active")}</Tag>
         ) : (
-          <Tag>
-            {t(
-              user.disabled_reason === "nonpayment"
-                ? "users.state.disabledNonpayment"
-                : "users.state.disabledManual",
-            )}
-          </Tag>
+          <Tag>{t("users.state.disabled-manual")}</Tag>
         ),
     },
     {
       title: t("users.columns.joined"),
       key: "joined",
+      sorter: true,
+      sortOrder:
+        filters.sort === "joined"
+          ? filters.descending
+            ? "descend"
+            : "ascend"
+          : null,
       width: 190,
       responsive: ["lg"],
       render: (_, user) => formatDateTime(user.joined_at),
@@ -279,45 +249,17 @@ export function MembersTab({
       key: "actions",
       width: 88,
       align: "center",
-      render: (_, user) => {
-        const active = user.state === "active";
-        return (
-          <Dropdown
-            trigger={["click"]}
-            menu={{
-              items: [
-                {
-                  key: "permissions",
-                  disabled:
-                    isViewer(user) ||
-                    (!viewerIsSuperadmin && holdsSuperadmin(user)),
-                  label: t("users.custom.edit"),
-                },
-                {
-                  key: "state",
-                  danger: active,
-                  disabled:
-                    (active && isViewer(user)) ||
-                    (!viewerIsSuperadmin && holdsSuperadmin(user)),
-                  label: t(
-                    active ? "users.disable.action" : "users.enable.action",
-                  ),
-                },
-              ],
-              onClick: ({ key }) => {
-                if (key === "permissions") setCustomUser(user);
-                else confirmState([user.email_address], !active);
-              },
-            }}
-          >
-            <Button
-              type="text"
-              icon={<MoreOutlined />}
-              aria-label={t("users.actionsFor", { email: user.email_address })}
-            />
-          </Dropdown>
-        );
-      },
+      render: (_, user) => (
+        <Button
+          onClick={(event) => {
+            event.stopPropagation();
+            setCustomUser(user);
+          }}
+          aria-label={t("users.actionsFor", { email: user.email_address })}
+        >
+          {t("people.manage")}
+        </Button>
+      ),
     },
   ];
 
@@ -348,9 +290,7 @@ export function MembersTab({
           value={filters.state}
           placeholder={t("users.filters.state")}
           aria-label={t("users.filters.state")}
-          options={(
-            ["active", "disabled-manual", "disabled-nonpayment"] as const
-          ).map((value) => ({
+          options={(["active", "disabled-manual"] as const).map((value) => ({
             value,
             label: t(`users.filterState.${value}`),
           }))}
@@ -368,28 +308,6 @@ export function MembersTab({
           }))}
           onChange={(role) => onFilters({ ...filters, role })}
         />
-        <Select<UserSort>
-          className="filter-select"
-          value={filters.sort}
-          aria-label={t("users.sort.label")}
-          options={[
-            { value: "email", label: t("users.sort.email") },
-            { value: "joined", label: t("users.sort.joined") },
-          ]}
-          onChange={(sort) => onFilters({ ...filters, sort })}
-        />
-        <Button
-          aria-pressed={filters.descending}
-          onClick={() =>
-            onFilters({ ...filters, descending: !filters.descending })
-          }
-        >
-          {t(
-            filters.descending
-              ? "users.sort.descending"
-              : "users.sort.ascending",
-          )}
-        </Button>
         {hasFilters(filters) ? (
           <Button type="link" onClick={reset}>
             {t("users.clearFilters")}
@@ -404,9 +322,9 @@ export function MembersTab({
           <Typography.Text strong>
             {t("users.bulk.selected", { count: selected.length })}
           </Typography.Text>
-          {selected.length >= maxBulk ? (
+          {selected.length > 0 ? (
             <Typography.Text type="secondary">
-              {t("users.bulk.limit", { count: maxBulk })}
+              {t("people.selection", { count: maxBulk })}
             </Typography.Text>
           ) : null}
           <Select<RolePreset>
@@ -438,12 +356,22 @@ export function MembersTab({
       ) : null}
       <Table<OrgUserSummary>
         rowKey="email_address"
+        onRow={(user) => ({ onClick: () => setCustomUser(user) })}
+        onChange={(_, __, sorter) => {
+          const order = Array.isArray(sorter) ? sorter[0] : sorter;
+          onFilters({
+            ...filters,
+            sort: order?.columnKey === "joined" ? "joined" : "email",
+            descending: order?.order === "descend",
+          });
+        }}
         columns={columns}
         dataSource={users}
         loading={query.isPending || query.isFetching}
         pagination={false}
         scroll={{ x: 760 }}
         rowSelection={{
+          onCell: () => ({ onClick: (event) => event.stopPropagation() }),
           selectedRowKeys: selected,
           preserveSelectedRowKeys: true,
           onChange: (keys) => {
@@ -483,10 +411,11 @@ export function MembersTab({
           {t("common.next")}
         </Button>
       </Flex>
-      <CustomRoleDrawer
+      <MemberDrawer
         key={customUser?.email_address ?? "closed"}
         user={customUser}
         viewerPermissions={viewerPermissions}
+        viewerEmail={viewerEmail}
         onClose={() => setCustomUser(null)}
       />
     </Space>

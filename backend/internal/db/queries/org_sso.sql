@@ -129,7 +129,7 @@ FROM session;
 
 -- name: LockOrgForGoogleSignIn :one
 SELECT
-    o.org_plan_oid, o.scheduled_org_plan_oid, o.google_sign_in_enabled
+    o.org_plan_oid, o.google_sign_in_enabled
 FROM vetchium.orgs AS o
 WHERE o.org_did = sqlc.arg(org_did)
   AND o.org_state = 'active'

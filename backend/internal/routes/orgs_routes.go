@@ -132,8 +132,7 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 		"GET /api/orgs/list-permissions", orgAuth(orgsusers.ListPermissions(s)),
 	)
 
-	// Billing stays open to a suspended Org so it can still pay (D27), except
-	// for choosing a plan.
+	// A suspended Org may read its plan but cannot change it.
 	manageBilling := func(next http.Handler) http.Handler {
 		return orgAuth(middleware.RequireOrgPermission(
 			s, orgsauthorization.ManageBilling,
@@ -149,28 +148,13 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 			s, orgsauthorization.ManageBilling,
 		)(orgssubscriptions.SetSubscriptionPlan(s)))),
 	)
-	mux.Handle(
-		"POST /api/orgs/set-payment-method",
-		manageBilling(orgssubscriptions.SetPaymentMethod(s)),
-	)
-	mux.Handle(
-		"POST /api/orgs/remove-payment-method",
-		manageBilling(orgssubscriptions.RemovePaymentMethod(s)),
-	)
-	mux.Handle(
-		"POST /api/orgs/list-invoices",
-		manageBilling(orgssubscriptions.ListInvoices(s)),
-	)
-	mux.Handle(
-		"POST /api/orgs/pay-invoice",
-		manageBilling(orgssubscriptions.PayInvoice(s)),
-	)
 
 	manageOrg := func(next http.Handler) http.Handler {
 		return orgAuth(activeOrg(middleware.RequireOrgPermission(
 			s, orgsauthorization.Superadmin,
 		)(next)))
 	}
+	mux.Handle("POST /api/orgs/set-company-name", manageOrg(orgssettings.SetCompanyName(s)))
 	mux.Handle("POST /api/orgs/logo/upload", manageOrg(orgssettings.UploadLogo(s)))
 	mux.Handle("POST /api/orgs/logo/remove", manageOrg(orgssettings.RemoveLogo(s)))
 	mux.Handle(

@@ -7,17 +7,16 @@ import type { APIRequestContext, APIResponse } from "@playwright/test";
 import { expect } from "@playwright/test";
 import type { MyInfoResponse } from "typespec/orgs/account/account";
 import type { LoginResponse } from "typespec/orgs/auth/login";
-import type { CompleteSignupResponse } from "typespec/orgs/auth/signup";
 import type {
-  ListInvoicesRequest,
-  PayInvoiceRequest,
-  SetPaymentMethodRequest,
-  SetSubscriptionPlanRequest,
-} from "typespec/orgs/subscriptions/subscriptions";
+  CompleteSignupRequest,
+  CompleteSignupResponse,
+  RequestSignupRequest,
+} from "typespec/orgs/auth/signup";
+import type { SetCompanyNameRequest } from "typespec/orgs/settings/company";
+import type { SetSubscriptionPlanRequest } from "typespec/orgs/subscriptions/subscriptions";
 import type { OrgDomain } from "typespec/orgs/types";
 import type {
   AcceptInvitationRequest,
-  AcceptInvitationResponse,
   CancelInvitationsRequest,
   GetInvitationDetailsRequest,
   InviteUsersRequest,
@@ -60,8 +59,9 @@ export class OrgsAPI {
   constructor(
     readonly request: APIRequestContext,
     readonly tenant: TestTenant = "sgp",
+    origin: string = apiOrigin(tenant),
   ) {
-    this.origin = apiOrigin(tenant);
+    this.origin = origin;
   }
 
   post(
@@ -95,6 +95,20 @@ export class OrgsAPI {
       data: body,
       headers,
     });
+  }
+
+  requestSignup(
+    request: RequestSignupRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/request-signup", request, { idempotencyKey });
+  }
+
+  completeSignup(
+    request: CompleteSignupRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/complete-signup", request, { idempotencyKey });
   }
 
   inviteUsers(
@@ -213,30 +227,11 @@ export class OrgsAPI {
     });
   }
 
-  setPaymentMethod(
+  setCompanyName(
     token: string,
-    request: SetPaymentMethodRequest,
+    request: SetCompanyNameRequest,
   ): Promise<APIResponse> {
-    return this.post("/set-payment-method", request, { token });
-  }
-
-  removePaymentMethod(token: string): Promise<APIResponse> {
-    return this.post("/remove-payment-method", undefined, { token });
-  }
-
-  listInvoices(
-    token: string,
-    request: ListInvoicesRequest = {},
-  ): Promise<APIResponse> {
-    return this.post("/list-invoices", request, { token });
-  }
-
-  payInvoice(
-    token: string,
-    request: PayInvoiceRequest,
-    idempotencyKey: string = orgsIdempotencyKey(),
-  ): Promise<APIResponse> {
-    return this.post("/pay-invoice", request, { token, idempotencyKey });
+    return this.post("/set-company-name", request, { token });
   }
 
   uploadLogo(

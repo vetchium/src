@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
 import {
   addOrgMember,
@@ -35,12 +36,10 @@ async function signIn(
 
 async function openMembers(page: Page, user: Parameters<typeof signIn>[1]) {
   await signIn(page, user);
-  await expect(page.getByTestId("shell-user-email")).toHaveText(
-    user.emailAddress,
-  );
+  await expect(page.getByTestId("shell-org-name")).toBeVisible();
   await page.goto(`${ORGS_PORTAL}/members`);
   await expect(
-    page.getByRole("heading", { name: "Members", level: 1 }),
+    page.getByRole("heading", { name: "People", level: 1 }),
   ).toBeVisible();
 }
 
@@ -158,7 +157,7 @@ test("an invitation link that cannot be used says so", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("changes roles from the row, the custom drawer, and in bulk after step-up", async ({
+test("changes roles in the member drawer and in bulk after step-up", async ({
   page,
   request,
 }) => {
@@ -179,50 +178,33 @@ test("changes roles from the row, the custom drawer, and in bulk after step-up",
     );
     await openMembers(page, org);
 
-    // The row dropdown applies a preset.
-    const firstRole = page.getByRole("combobox", {
-      name: `Role of ${first.emailAddress}`,
-    });
-    await chooseOption(page, firstRole, "Finance");
-    await page
-      .getByRole("dialog")
-      .getByRole("button", { name: "Change role" })
-      .click();
+    const drawer = page.getByRole("dialog", { name: "Member details" });
+    await memberRow(page, org.emailAddress).getByRole("button").click();
     await expect(
-      memberRow(page, first.emailAddress).getByTitle("Finance"),
-    ).toBeVisible();
-
-    // Custom opens the catalog checkboxes, which stay authoritative.
-    const secondRole = page.getByRole("combobox", {
-      name: `Role of ${second.emailAddress}`,
-    });
-    await chooseOption(page, secondRole, "Custom…");
-    const drawer = page.getByRole("dialog", { name: "Custom permissions" });
+      drawer.getByRole("button", { name: "Save", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      drawer.getByRole("button", { name: "Disable", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      drawer.getByRole("radio", { name: "Finance", exact: true }),
+    ).toBeDisabled();
+    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
+    await memberRow(page, first.emailAddress).getByRole("button").click();
+    await drawer.getByRole("radio", { name: "Finance", exact: true }).check();
+    await drawer.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(memberRow(page, first.emailAddress)).toContainText("Finance");
+    await memberRow(page, second.emailAddress).getByRole("button").click();
+    await drawer.getByRole("radio", { name: "Custom", exact: true }).check();
     await drawer.getByRole("switch", { name: "MANAGE_USERS" }).click();
     await drawer.getByRole("switch", { name: "MANAGE_BILLING" }).click();
-    await drawer.getByRole("button", { name: "Save" }).click();
-    await expect(
-      memberRow(page, second.emailAddress).getByTitle("Custom"),
-    ).toBeVisible();
-
-    // A user who already has a custom role reopens the editor by choosing
-    // "Custom…" again, or from the row's actions, and sees the held grants.
-    await expect(drawer).toBeHidden();
-    await chooseOption(page, secondRole, "Custom…");
+    await drawer.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(memberRow(page, second.emailAddress)).toContainText("Custom");
+    await memberRow(page, second.emailAddress).getByRole("button").click();
     await expect(
       drawer.getByRole("switch", { name: "MANAGE_BILLING" }),
     ).toBeChecked();
-    await drawer.getByRole("button", { name: "Cancel" }).click();
-    await expect(drawer).toBeHidden();
-    await page
-      .getByRole("button", { name: `Actions for ${second.emailAddress}` })
-      .click();
-    await page.getByRole("menuitem", { name: "Edit permissions…" }).click();
-    await expect(
-      drawer.getByRole("switch", { name: "MANAGE_USERS" }),
-    ).toBeChecked();
-    await drawer.getByRole("button", { name: "Cancel" }).click();
-    await expect(drawer).toBeHidden();
+    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
 
     // A bulk change needs a recent sign-in; confirming the password returns
     // here and the change then goes through.
@@ -259,10 +241,10 @@ test("changes roles from the row, the custom drawer, and in bulk after step-up",
       .getByRole("button", { name: "Change role" })
       .click();
     await expect(
-      memberRow(page, first.emailAddress).getByTitle("Member"),
+      memberRow(page, first.emailAddress).getByText("Member", { exact: true }),
     ).toBeVisible();
     await expect(
-      memberRow(page, second.emailAddress).getByTitle("Member"),
+      memberRow(page, second.emailAddress).getByText("Member", { exact: true }),
     ).toBeVisible();
   });
 });
@@ -309,10 +291,14 @@ test("narrows the list by search, summary links, and state, and disables and ena
     await page
       .getByRole("button", { name: `Actions for ${member.emailAddress}` })
       .click();
-    await page.getByRole("menuitem", { name: "Disable" }).click();
+    await page
+      .getByRole("dialog", { name: "Member details" })
+      .getByRole("button", { name: "Disable", exact: true })
+      .click();
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Disable" })
+      .last()
+      .getByRole("button", { name: "Disable", exact: true })
       .click();
     await expect(page.getByTestId("summary-state-disabled-manual")).toHaveText(
       "1 disabled",
@@ -326,10 +312,14 @@ test("narrows the list by search, summary links, and state, and disables and ena
     await page
       .getByRole("button", { name: `Actions for ${member.emailAddress}` })
       .click();
-    await page.getByRole("menuitem", { name: "Enable" }).click();
+    await page
+      .getByRole("dialog", { name: "Member details" })
+      .getByRole("button", { name: "Enable", exact: true })
+      .click();
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Enable" })
+      .last()
+      .getByRole("button", { name: "Enable", exact: true })
       .click();
     await expect(page.getByTestId("summary-state-disabled-manual")).toHaveText(
       "0 disabled",
@@ -383,15 +373,17 @@ test("manages pending invitations: resend, cancel, and bulk cancel", async ({
     }
 
     await page
-      .getByRole("button", { name: `Resend the invitation to ${addresses[0]}` })
+      .getByRole("button", { name: `Actions for ${addresses[0]}` })
       .click();
+    await page.getByRole("menuitem", { name: "Resend" }).click();
     await expect(
       page.getByText("The invitation was sent again."),
     ).toBeVisible();
 
     await page
-      .getByRole("button", { name: `Cancel the invitation to ${addresses[0]}` })
+      .getByRole("button", { name: `Actions for ${addresses[0]}` })
       .click();
+    await page.getByRole("menuitem", { name: "Cancel" }).click();
     await page
       .getByRole("dialog")
       .getByRole("button", { name: "Cancel" })
@@ -412,10 +404,7 @@ test("manages pending invitations: resend, cancel, and bulk cancel", async ({
   });
 });
 
-test("a user disabled for nonpayment is told why at sign-in", async ({
-  page,
-  request,
-}) => {
+test("a disabled user cannot sign in", async ({ page, request }) => {
   await withOrg(request, async (org, api, owner) => {
     const member = await addOrgMember(
       api,
@@ -426,20 +415,11 @@ test("a user disabled for nonpayment is told why at sign-in", async ({
     );
     orgSQL(
       `UPDATE vetchium.org_users
-       SET org_user_state = 'disabled', disabled_reason = 'nonpayment',
+       SET org_user_state = 'disabled', disabled_reason = 'manual',
            disabled_at = now()
        WHERE email_address = '${member.emailAddress}'`,
     );
     await signIn(page, member);
-    await expect(
-      page.getByText("subscription was not paid", { exact: false }),
-    ).toBeVisible();
-    orgSQL(
-      `UPDATE vetchium.org_users
-       SET disabled_reason = 'manual'
-       WHERE email_address = '${member.emailAddress}'`,
-    );
-    await page.getByRole("button", { name: "Sign in" }).click();
     await expect(
       page.getByText("This account is disabled", { exact: false }),
     ).toBeVisible();

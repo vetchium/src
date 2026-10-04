@@ -21,8 +21,6 @@ import {
 } from "../lib/orgs-api.ts";
 import { emailedLinkToken } from "../lib/portals.ts";
 
-// Request-signup's and complete-signup's 403 signup-unavailable need a tenant
-// with Org signup switched off, which the shared CI stack does not have.
 // Complete-signup's 202 is produced in orgs-audit.spec.ts by failing the
 // final activation audit event.
 
@@ -63,6 +61,8 @@ test("malformed bodies are refused on every Org JSON route", async ({
   try {
     const token = await loginOrg(api, org);
     for (const path of [
+      "/sso/google/start",
+      "/sso/google/complete",
       "/get-signup-details",
       "/request-password-reset",
       "/complete-password-reset",

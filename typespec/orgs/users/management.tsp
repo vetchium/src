@@ -23,13 +23,11 @@ enum OrgUserState {
 
 enum OrgUserDisabledReason {
   Manual: "manual",
-  Nonpayment: "nonpayment",
 }
 
 enum OrgUserStateFilter {
   Active: "active",
   DisabledManual: "disabled-manual",
-  DisabledNonpayment: "disabled-nonpayment",
 }
 
 enum OrgUserSort {
@@ -105,7 +103,6 @@ model UserSummaryResponse {
 
   active_users: int32;
   disabled_manual_users: int32;
-  disabled_nonpayment_users: int32;
 
   /** Active users with no direct grant. */
   active_users_without_permissions: int32;

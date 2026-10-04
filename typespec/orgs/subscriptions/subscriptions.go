@@ -1,63 +1,12 @@
 package subscriptions
 
-import (
-	"encoding/json"
-	"time"
-
-	"github.com/vetchium/src/typespec/common"
-)
-
-type ScheduledPlanChange struct {
-	PlanOID PlanOID `json:"plan_oid"`
-
-	// Absent when the scheduled plan is FreeTier.
-	BillingInterval *BillingInterval `json:"billing_interval,omitempty"`
-}
-
-// OrgInvoice is a charge for one period. It carries no amount: while
-// payments are simulated the portal owns the display prices.
-type OrgInvoice struct {
-	InvoiceID       string          `json:"invoice_id"`
-	PlanOID         PlanOID         `json:"plan_oid"`
-	BillingInterval BillingInterval `json:"billing_interval"`
-	PeriodStart     time.Time       `json:"period_start"`
-	PeriodEnd       time.Time       `json:"period_end"`
-	Reason          InvoiceReason   `json:"reason"`
-	State           InvoiceState    `json:"state"`
-	CreatedAt       time.Time       `json:"created_at"`
-
-	// DueAt and LastFailure are present while the invoice is open.
-	DueAt       *time.Time      `json:"due_at,omitempty"`
-	PaidAt      *time.Time      `json:"paid_at,omitempty"`
-	LastFailure *InvoiceFailure `json:"last_failure,omitempty"`
-
-	AttemptCount int32 `json:"attempt_count"`
-}
-
-type OrgPaymentMethod struct {
-	Kind PaymentMethodKind `json:"kind"`
-}
+import "encoding/json"
 
 type OrgSubscription struct {
-	PlanOID PlanOID `json:"plan_oid"`
-
-	// Present exactly when the plan is paid.
-	BillingInterval    *BillingInterval `json:"billing_interval,omitempty"`
-	CurrentPeriodStart *time.Time       `json:"current_period_start,omitempty"`
-	CurrentPeriodEnd   *time.Time       `json:"current_period_end,omitempty"`
-
-	CancelAtPeriodEnd bool                 `json:"cancel_at_period_end"`
-	ScheduledChange   *ScheduledPlanChange `json:"scheduled_change,omitempty"`
-	BillingState      BillingState         `json:"billing_state"`
-
-	// OpenInvoice is present exactly when the Org is past due.
-	OpenInvoice   *OrgInvoice       `json:"open_invoice,omitempty"`
-	PaymentMethod *OrgPaymentMethod `json:"payment_method,omitempty"`
-
-	SeatsInUse int32 `json:"seats_in_use"`
-
-	// SeatLimit is absent while the Org has no seat cap.
-	SeatLimit *int32 `json:"seat_limit,omitempty"`
+	PlanOID         PlanOID          `json:"plan_oid"`
+	BillingInterval *BillingInterval `json:"billing_interval,omitempty"`
+	SeatsInUse      int32            `json:"seats_in_use"`
+	SeatLimit       *int32           `json:"seat_limit,omitempty"`
 }
 
 // OptionalBillingInterval distinguishes an absent billing_interval member
@@ -125,82 +74,4 @@ func (r SetSubscriptionPlanRequest) Validate() []string {
 		fields = append(fields, "billing_interval")
 	}
 	return fields
-}
-
-type SetPaymentMethodRequest struct {
-	Kind PaymentMethodKind `json:"kind"`
-}
-
-func (r *SetPaymentMethodRequest) Normalize() {}
-
-func (r SetPaymentMethodRequest) Validate() []string {
-	if !IsPaymentMethodKind(r.Kind) {
-		return []string{"kind"}
-	}
-	return []string{}
-}
-
-type ListInvoicesRequest struct {
-	Limit         *common.PageSize      `json:"limit,omitempty"`
-	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
-}
-
-func (r ListInvoicesRequest) EffectiveLimit() common.PageSize {
-	if r.Limit == nil {
-		return 50
-	}
-	return *r.Limit
-}
-
-func (r *ListInvoicesRequest) Normalize() {}
-
-func (r ListInvoicesRequest) Validate() []string {
-	fields := make([]string, 0, 2)
-	if !common.IsPageSize(r.EffectiveLimit()) {
-		fields = append(fields, "limit")
-	}
-	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
-		fields = append(fields, "pagination_key")
-	}
-	return fields
-}
-
-type ListInvoicesResponse struct {
-	Invoices          []OrgInvoice          `json:"invoices"`
-	NextPaginationKey *common.PaginationKey `json:"next_pagination_key,omitempty"`
-}
-
-type PayInvoiceRequest struct {
-	InvoiceID string `json:"invoice_id"`
-}
-
-func (r *PayInvoiceRequest) Normalize() {}
-
-func (r PayInvoiceRequest) Validate() []string {
-	if !IsInvoiceID(r.InvoiceID) {
-		return []string{"invoice_id"}
-	}
-	return []string{}
-}
-
-// IsInvoiceID reports whether value is a canonical lowercase UUID.
-func IsInvoiceID(value string) bool {
-	if len(value) != 36 {
-		return false
-	}
-	for index, char := range value {
-		switch index {
-		case 8, 13, 18, 23:
-			if char != '-' {
-				return false
-			}
-		default:
-			isDigit := char >= '0' && char <= '9'
-			isLowerHex := char >= 'a' && char <= 'f'
-			if !isDigit && !isLowerHex {
-				return false
-			}
-		}
-	}
-	return true
 }

@@ -1,0 +1,58 @@
+{
+  "defaultTenant": "sgp",
+  "recommendations": {
+    "IN": "ind1",
+    "US": "usa1",
+    "CA": "usa1",
+    "MX": "usa1",
+    "DE": "deu",
+    "FR": "deu",
+    "GB": "deu",
+    "IE": "deu",
+    "ES": "deu",
+    "IT": "deu",
+    "NL": "deu",
+    "BE": "deu",
+    "CH": "deu",
+    "AT": "deu",
+    "PL": "deu",
+    "PT": "deu",
+    "SE": "deu",
+    "NO": "deu",
+    "FI": "deu",
+    "DK": "deu",
+    "AU": "sgp",
+    "NZ": "sgp",
+    "SG": "sgp"
+  },
+  "regions": [
+    {
+      "tenantId": "deu",
+      "hostingCountry": "DE",
+      "signupEnabled": false,
+      "allowedCountries": [],
+      "orgSignupEnabled": true
+    },
+    {
+      "tenantId": "ind1",
+      "hostingCountry": "IN",
+      "signupEnabled": true,
+      "allowedCountries": [],
+      "orgSignupEnabled": true
+    },
+    {
+      "tenantId": "sgp",
+      "hostingCountry": "SG",
+      "signupEnabled": true,
+      "allowedCountries": [],
+      "orgSignupEnabled": false
+    },
+    {
+      "tenantId": "usa1",
+      "hostingCountry": "US",
+      "signupEnabled": true,
+      "allowedCountries": [],
+      "orgSignupEnabled": true
+    }
+  ]
+}

@@ -16,7 +16,6 @@ import (
 	"backend/internal/imagesanitize"
 	"backend/internal/oidc"
 	"backend/internal/orgs/auth"
-	"backend/internal/orgs/billing"
 	"backend/internal/orgs/domainverification"
 	"backend/internal/orgs/signupcompletion"
 	"backend/internal/regions"
@@ -48,12 +47,8 @@ type Server struct {
 	CredentialKey [32]byte
 	Now           func() time.Time
 
-	// OfferedPlans are the plans this tenant sells; Free is always among
-	// them. Billing times the dunning lifecycle. Charger collects payment and
-	// is the simulated one in every environment.
+	// OfferedPlans are the plans available in this tenant.
 	OfferedPlans []subscriptionspec.Plan
-	Billing      billing.Config
-	Charger      billing.Charger
 
 	// Logos is the tenant's object store for Org logos.
 	Logos LogoStorage

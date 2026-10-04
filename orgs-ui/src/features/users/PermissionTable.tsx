@@ -45,6 +45,11 @@ export function PermissionTable({
               ? t(permissionDescriptionKey(row.permission))
               : t("permissions.unknown.description")}
           </Typography.Text>
+          {locked?.(row.permission) ? (
+            <Typography.Text type="secondary">
+              {t("people.restricted")}
+            </Typography.Text>
+          ) : null}
           {row.impliedBy.length === 0 ? null : (
             <Tag color="blue">
               {t("permissions.includedBy", {

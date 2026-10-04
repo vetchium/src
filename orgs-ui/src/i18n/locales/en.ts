@@ -12,12 +12,13 @@ export const en = {
   navigation: {
     menu: "Navigation",
     openMenu: "Open navigation",
-    home: "Home",
-    members: "Members",
-    plans: "Plan and billing",
-    settings: "Organization settings",
-    security: "Security",
+    home: "Overview",
+    members: "People",
+    plans: "Billing",
+    settings: "Company",
+    security: "My account",
     restoreDomain: "Restore domain",
+    organizationSecurity: "Organization security",
   },
   theme: {
     toggleLabel: "Switch light or dark mode",
@@ -96,8 +97,6 @@ export const en = {
     incorrectRecoveryCode: "The recovery code was not accepted.",
     invalidResetToken:
       "This password reset link is invalid, has expired, or was already used.",
-    userDisabledNonpayment:
-      "Your account was disabled because your organization's subscription was not paid. Contact your organization's administrator.",
     invalidInvitation:
       "This invitation is invalid, has expired, was cancelled, or was already used. Ask for a new one.",
     invitationNotFound:
@@ -114,12 +113,6 @@ export const en = {
     userLimitReached:
       "The organization has no free seat: its plan allows {{limit}} users, counting pending invitations.",
     planNotOffered: "This region does not offer that plan.",
-    billingPastDue:
-      "The plan cannot be changed while an invoice is unpaid. Pay the open invoice first.",
-    paymentMethodRequired: "Save a payment method first.",
-    paymentDeclined:
-      "The saved payment method was declined. Nothing was changed.",
-    invoiceNotOpen: "That invoice is no longer open for payment.",
     orgSuspended:
       "Your organization is suspended. Restore its domain to continue.",
     userLimitExceedsTarget:
@@ -275,8 +268,9 @@ export const en = {
     documentTitle: "Home | Vetchium for organizations",
     description: "Your organization on Vetchium.",
     domainCard: "Domain",
-    accountCard: "Your account",
+    accountCard: "Your access",
     noPermissions: "No permissions",
+    title: "Overview",
   },
   permissions: {
     "org:superadmin": {
@@ -291,8 +285,7 @@ export const en = {
     },
     "org:manage_billing": {
       name: "MANAGE_BILLING",
-      description:
-        "Choose the organization's plan, pay for it, and review invoices.",
+      description: "Choose the organization's plan and billing interval.",
     },
     unknown: {
       description:
@@ -342,9 +335,9 @@ export const en = {
       "If another organization has claimed {{domain}} since it was released, it cannot be restored to this organization.",
   },
   security: {
-    documentTitle: "Security | Vetchium for organizations",
-    title: "Security",
-    description: "Sign-in settings for {{email}}.",
+    documentTitle: "My account | Vetchium",
+    title: "My account",
+    description: "Manage your personal sign-in and security settings.",
     password: {
       title: "Password",
       description: "Changing your password signs out your other sessions.",
@@ -389,26 +382,10 @@ export const en = {
       regenerated: "New recovery codes were created.",
     },
   },
-  billing: {
-    banner: {
-      pastDue: "Your organization's payment is overdue",
-      pastDueDetail:
-        "Users beyond the Free plan's limit may be disabled after {{deadline}} unless the invoice is paid.",
-      ending: "Your plan changes to {{plan}} on {{date}}",
-      endingDetail:
-        "The features of the current plan end then. Choose the current plan again to keep it.",
-      managePlan: "Manage plan",
-      noMethod: "No payment method is saved",
-      noMethodDetail:
-        "Save one so that the next renewal can be collected and your organization stays on its plan.",
-      addMethod: "Add payment method",
-    },
-  },
   plans: {
     documentTitle: "Plan and billing | Vetchium for organizations",
-    title: "Plan and billing",
-    description:
-      "Choose the plan for your organization, manage how it is paid for, and review its invoices.",
+    title: "Billing",
+    description: "Manage your organization’s plan and seat allowance.",
     loadingLabel: "Loading plans",
     names: {
       "org-free-tier": "Free",
@@ -418,24 +395,21 @@ export const en = {
     current: {
       title: "Current plan",
       plan: "Plan",
-      state: "Billing",
-      renews: "Renews on",
-      ends: "Plan ends on",
-      scheduled: "Changes to",
       seatsLabel: "Users",
       seats: "{{used}} of {{limit}} seats used (users and pending invitations)",
       seatsUnlimited: "{{used}} seats used (no limit)",
-      pastDue: "An invoice is overdue",
-      pastDueDetail:
-        "Pay it before {{deadline}} or users beyond the Free plan's limit are disabled.",
-      payNow: "Pay now",
     },
-    billingState: { current: "Up to date", "past-due": "Past due" },
     unknownPlanTitle: "Unrecognized plan",
     unknownPlanDescription:
       "This organization is on {{plan}}, which this version of the portal does not know. Plan changes are turned off until the portal is updated.",
-    interval: { month: "Monthly", year: "Annual" },
-    pricePeriod: { month: "per month", year: "per year" },
+    interval: {
+      month: "Monthly",
+      year: "Annual",
+    },
+    pricePeriod: {
+      month: "per month",
+      year: "per year",
+    },
     billingIntervalLabel: "Billing interval",
     annualSaving: "One month free",
     pricingNote: "Prices are per organization, not per user, and include tax.",
@@ -444,8 +418,6 @@ export const en = {
       "Paid plans fund the development of Vetchium, a free and open-source project.",
     planCardLabel: "{{plan}} plan",
     currentBadge: "Current",
-    yourPlan: "Your plan",
-    recommended: "Recommended",
     freePrice: "Free",
     freePriceCaption: "always",
     comingSoon: "Coming soon",
@@ -471,51 +443,33 @@ export const en = {
     },
     actions: {
       current: "Current plan",
-      keep: "Keep this plan",
       upgrade: "Upgrade",
-      switchToAnnual: "Switch to annual",
-      switchToFree: "Switch to Free at period end",
-      switchAtPeriodEnd: "Switch at period end",
+      switchToFree: "Switch to Free",
+      interval: "Change billing interval",
+      downgrade: "Downgrade",
     },
-    confirmTitle: "Change the plan at the end of the period?",
-    confirmDescription:
-      "Your organization keeps its current plan until {{date}}, then moves to the new one.",
-    confirmDescriptionNoDate:
-      "Your organization keeps its current plan until the end of the period, then moves to the new one.",
+    confirmTitle: "Change to {{plan}}?",
     confirmBack: "Go back",
-    lockedPastDue: "Pay the overdue invoice before changing the plan.",
     lockedSuspended:
       "The plan cannot be changed while the organization is suspended.",
-    payment: {
-      title: "Payment method",
-      simulated:
-        "Payments are simulated: no real card is used and nothing is charged. The card you pick decides whether a payment succeeds.",
-      none: "No payment method is saved.",
-      saved: "Saved: {{card}}",
-      choose: "Payment method",
-      save: "Save payment method",
-      remove: "Remove",
-      kinds: {
-        "simulated-succeeds": "Test card ending 4242 (payments succeed)",
-        "simulated-declines": "Test card ending 0002 (payments are declined)",
-      },
-    },
-    invoices: {
-      title: "Invoices",
-      period: "Period",
-      plan: "Plan",
-      reason: "Reason",
-      state: "State",
-      actions: "Actions",
-      empty: "No invoices yet.",
-      reasons: { upgrade: "Upgrade", renewal: "Renewal" },
-      states: { paid: "Paid", open: "Open", void: "Void" },
-    },
+    change: "Change plan",
+    back: "Back to billing",
+    development:
+      "Development: these prices are not charged. Plan changes are free and immediate.",
+    compare: "Compare all features",
+    immediate: "This change applies immediately. Nothing is charged.",
+    changed: "Plan updated",
+    losesLogo:
+      "Your logo will be removed. Upgrading again will not restore it.",
+    losesGoogle:
+      "Google sign-in will be turned off. Upgrading again will not turn it back on.",
+    excessSeats:
+      "{{used}} seats are in use; the target plan allows {{limit}}. Disable users or cancel invitations first.",
   },
   settings: {
-    documentTitle: "Organization settings | Vetchium for organizations",
-    title: "Organization settings",
-    description: "Settings that only a superadmin can change.",
+    documentTitle: "Company | Vetchium",
+    title: "Company",
+    description: "Manage your company name and logo.",
     logo: {
       title: "Logo",
       help: "Shown next to your organization's name. Use a PNG or JPEG that is not animated, up to 2 MiB, with each side between 128 and 4,096 pixels. The image is re-encoded and its metadata removed.",
@@ -545,10 +499,13 @@ export const en = {
   },
   users: {
     documentTitle: "Members | Vetchium for organizations",
-    title: "Members",
+    title: "People",
     description:
       "Invite people, choose what each can do, and turn accounts off when they leave.",
-    tabs: { members: "Members", invitations: "Invitations" },
+    tabs: {
+      members: "Members",
+      invitations: "Invitations",
+    },
     role: "Role",
     roleOf: "Role of {{email}}",
     permissionGranted: "Granted",
@@ -571,13 +528,15 @@ export const en = {
     state: {
       active: "Active",
       disabledManual: "Disabled",
-      disabledNonpayment: "Disabled, unpaid subscription",
+      "disabled-manual": "Disabled",
     },
-    filters: { state: "State", role: "Role" },
+    filters: {
+      state: "State",
+      role: "Role",
+    },
     filterState: {
       active: "Active",
       "disabled-manual": "Disabled",
-      "disabled-nonpayment": "Disabled, unpaid subscription",
     },
     sort: {
       label: "Sort by",
@@ -601,7 +560,6 @@ export const en = {
       state: {
         active: "{{count}} active",
         "disabled-manual": "{{count}} disabled",
-        "disabled-nonpayment": "{{count}} unpaid",
       },
     },
     bulk: {
@@ -695,8 +653,28 @@ export const en = {
     description: "The page you requested does not exist.",
     action: "Go to home",
   },
+  company: {
+    identity: "Company identity",
+    name: "Company name",
+    saved: "Company name saved",
+    invalidName: "Enter a name of 1 to 200 characters.",
+    securityTitle: "Organization security | Vetchium",
+    confirmGoogle: "Change Google sign-in?",
+    enableGoogle:
+      "Members can sign in with their Google Workspace accounts. Workspace security policies apply.",
+    disableGoogle:
+      "Members will need their password and any configured two-factor authentication to sign in.",
+  },
+  people: {
+    manage: "Manage",
+    member: "Member details",
+    self: "You cannot change your own access.",
+    restricted: "Only a superadmin can change restricted permissions.",
+    selection:
+      "Only checked rows are selected, including other pages. Maximum {{count}}.",
+    full: "All available seats are in use. Disable a user or cancel an invitation before inviting more people.",
+  },
 } as const;
-
 type TranslationShape<Resource> = {
   readonly [Key in keyof Resource]: Resource[Key] extends string
     ? string

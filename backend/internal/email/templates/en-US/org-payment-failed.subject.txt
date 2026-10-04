@@ -1,1 +1,0 @@
-Payment failed for {{.Domain}} on Vetchium

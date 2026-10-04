@@ -211,10 +211,6 @@ func CompleteGoogleSignIn(s *orgsruntime.Server) http.HandlerFunc {
 			if !spend() {
 				return
 			}
-			if user.DisabledReason.String == "nonpayment" {
-				s.Problem(ctx, w, orgsproblem.OrgUserDisabledNonpaymentError)
-				return
-			}
 			s.Problem(ctx, w, orgsproblem.OrgUserDisabledError)
 			return
 		}

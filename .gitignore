@@ -1,3 +1,14 @@
 .dev-secrets/
 .coverage/
 /portal-dist/
+
+# go build outputs from backend/
+/backend/admin-api
+/backend/dev-seed
+/backend/global-coordinator
+/backend/hub-api
+/backend/mcp-server
+/backend/mesh-api
+/backend/oidc-dev
+/backend/orgs-api
+/backend/workers

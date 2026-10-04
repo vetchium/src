@@ -1,4 +1,5 @@
 import { Button, Flex, Skeleton, Space, Typography } from "antd";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { OrgSuspended } from "typespec/orgs/account/account";
 import { usePreferences } from "../app/preferences";
@@ -7,13 +8,12 @@ import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { useMyInfoQuery } from "../features/account/queries";
 import { CurrentSubscriptionCard } from "../features/subscriptions/CurrentSubscriptionCard";
-import { InvoicesCard } from "../features/subscriptions/InvoicesCard";
-import { PaymentMethodCard } from "../features/subscriptions/PaymentMethodCard";
 import { PlanOptions } from "../features/subscriptions/PlanOptions";
 import { useMySubscriptionQuery } from "../features/subscriptions/queries";
 
 export function PlansPage() {
   const { t } = useTranslation();
+  const [changing, setChanging] = useState(false);
   const { language } = usePreferences();
   const subscription = useMySubscriptionQuery();
   const { data: me } = useMyInfoQuery();
@@ -41,22 +41,21 @@ export function PlansPage() {
             {t("common.retry")}
           </Button>
         </Space>
+      ) : !changing ? (
+        <CurrentSubscriptionCard
+          subscription={subscription.data}
+          locked={me.org.org_state === OrgSuspended}
+          onChange={() => setChanging(true)}
+        />
       ) : (
-        <>
-          <CurrentSubscriptionCard
-            subscription={subscription.data}
-            locale={language}
-          />
-          <PlanOptions
-            subscription={subscription.data}
-            tenantID={tenantID}
-            configuredPlans={orgRegionSettings(tenantID).orgPlans}
-            locale={language}
-            changesLocked={me.org.org_state === OrgSuspended}
-          />
-          <PaymentMethodCard subscription={subscription.data} />
-          <InvoicesCard locale={language} />
-        </>
+        <PlanOptions
+          subscription={subscription.data}
+          tenantID={tenantID}
+          configuredPlans={orgRegionSettings(tenantID).orgPlans}
+          locale={language}
+          changesLocked={me.org.org_state === OrgSuspended}
+          onDone={() => setChanging(false)}
+        />
       )}
     </Space>
   );

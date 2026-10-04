@@ -23,8 +23,8 @@ import { allowsLogo } from "typespec/orgs/subscriptions/plans";
 import { orgsAPI } from "../api/orgs";
 import { paths } from "../app/paths";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import { CompanyNameForm } from "../features/account/CompanyNameForm";
 import { myInfoQueryKey, useMyInfoQuery } from "../features/account/queries";
-import { GoogleSignInCard } from "../features/sso/GoogleSignInCard";
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -54,8 +54,9 @@ export function SettingsPage() {
           {t("settings.description")}
         </Typography.Text>
       </div>
-      <Card title={t("settings.logo.title")} data-testid="logo-card">
+      <Card title={t("company.identity")} data-testid="logo-card">
         <Flex orientation="vertical" gap="middle">
+          <CompanyNameForm name={me.org.display_name} />
           <Typography.Paragraph type="secondary">
             {t("settings.logo.help")}
           </Typography.Paragraph>
@@ -74,17 +75,12 @@ export function SettingsPage() {
             />
           )}
           {entitled ? null : (
-            <Alert
-              type="info"
-              showIcon
-              data-testid="logo-upgrade"
-              title={t("settings.logo.upgrade")}
-              action={
-                holds(me.permissions, ManageBilling) ? (
-                  <Link to={paths.plans}>{t("settings.logo.seePlans")}</Link>
-                ) : undefined
-              }
-            />
+            <Typography.Text type="secondary" data-testid="logo-upgrade">
+              {t("settings.logo.upgrade")}{" "}
+              {holds(me.permissions, ManageBilling) ? (
+                <Link to={paths.plans}>{t("settings.logo.seePlans")}</Link>
+              ) : null}
+            </Typography.Text>
           )}
           {localError === null ? null : (
             <Alert type="error" showIcon title={t(localError)} />
@@ -134,7 +130,6 @@ export function SettingsPage() {
           </Flex>
         </Flex>
       </Card>
-      <GoogleSignInCard />
     </Space>
   );
 }

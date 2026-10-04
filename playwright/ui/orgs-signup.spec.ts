@@ -232,7 +232,7 @@ test("the security page asks for the password when the session is old", async ({
     await expect(page).toHaveURL(/\/reauthenticate\?returnTo=/);
     await page.getByLabel("Password").fill(org.password);
     await page.getByRole("button", { name: "Continue" }).click();
-    await expect(page).toHaveURL(`${ORGS_PORTAL}/security`);
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/account`);
   } finally {
     await deleteOrgVerificationRecord(org.domain);
     cleanupOrg(org.domain);

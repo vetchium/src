@@ -1,12 +1,12 @@
 import type { Page } from "@playwright/test";
 import { expectProblem } from "../lib/admin-api.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { boundaryPairEndingAt } from "../lib/billing-periods.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
 import { makeJPEG128, makePNG, withTextChunk } from "../lib/logo-fixtures.ts";
 import {
   addOrgMember,
   cleanupOrg,
+  installOrgAuditInsertFailure,
   inviteeAddress,
   loginOrg,
   OrgsAPI,
@@ -42,11 +42,6 @@ async function withOrg(
 }
 
 async function onSilver(api: OrgsAPI, owner: string): Promise<void> {
-  expect(
-    (
-      await api.setPaymentMethod(owner, { kind: "simulated-succeeds" })
-    ).status(),
-  ).toBe(200);
   expect(
     (
       await api.setSubscriptionPlan(owner, {
@@ -318,6 +313,37 @@ test.describe("logo removal and plan changes", () => {
     });
   });
 
+  test("Gold to Silver preserves the company logo", async ({ request }) => {
+    await withOrg(request, async (api, _org, owner) => {
+      await api.setSubscriptionPlan(owner, {
+        plan_oid: "org-gold-tier",
+        billing_interval: "month",
+      });
+      await api.uploadLogo(owner, "image/png", makePNG(200, 200));
+      const before = await logoURL(api, owner);
+      expect(before).toBeDefined();
+      const beforeResponse = await fetch(before ?? "");
+      expect(beforeResponse.status).toBe(200);
+      const beforeBytes = Buffer.from(await beforeResponse.arrayBuffer());
+      const response = await api.setSubscriptionPlan(owner, {
+        plan_oid: "org-silver-tier",
+        billing_interval: "month",
+      });
+      expect(response.status()).toBe(200);
+      const after = await logoURL(api, owner);
+      expect(after).toBeDefined();
+      // Each response signs a fresh URL; its expiry is not logo identity.
+      expect(new URL(after ?? "").pathname).toBe(
+        new URL(before ?? "").pathname,
+      );
+      const afterResponse = await fetch(after ?? "");
+      expect(afterResponse.status).toBe(200);
+      expect(Buffer.from(await afterResponse.arrayBuffer())).toEqual(
+        beforeBytes,
+      );
+    });
+  });
+
   test("a downgrade below Silver takes the logo away in its transaction", async ({
     request,
   }) => {
@@ -330,19 +356,6 @@ test.describe("logo removal and plan changes", () => {
           await api.setSubscriptionPlan(owner, { plan_oid: "org-free-tier" })
         ).status(),
       ).toBe(200);
-      // Scheduled: the logo stays until the period ends.
-      expect(await logoURL(api, owner)).toBeDefined();
-      const pair = boundaryPairEndingAt(new Date(Date.now() - 1000), "month");
-      orgSQL(
-        `UPDATE vetchium.orgs
-         SET subscription_anchor_at = '${pair.anchor.toISOString()}',
-             subscription_period_start = '${pair.start.toISOString()}',
-             subscription_period_end = '${pair.end.toISOString()}'
-         WHERE org_did = (SELECT org_did FROM vetchium.org_domains
-                          WHERE domain = '${org.domain}')`,
-      );
-      // Whoever applies the cancellation - a request or the worker - removes
-      // the logo in the same transaction.
       await expect
         .poll(() => logoURL(api, owner), { timeout: 20_000 })
         .toBeUndefined();
@@ -352,5 +365,41 @@ test.describe("logo removal and plan changes", () => {
       await onSilver(api, owner);
       expect(await logoURL(api, owner)).toBeUndefined();
     });
+  });
+});
+
+test("a superseded unfinished logo upload cannot replace the newer logo on retry", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, _org, owner) => {
+    await onSilver(api, owner);
+    const key = orgsIdempotencyKey();
+    const first = makePNG(200, 200);
+    const removeFault = installOrgAuditInsertFailure({
+      action: "org.logo.activated",
+      idempotencyKey: key,
+    });
+    try {
+      expect(
+        (await api.uploadLogo(owner, "image/png", first, key)).status(),
+      ).toBe(500);
+    } finally {
+      removeFault();
+    }
+    expect(await logoURL(api, owner)).toBeUndefined();
+    expect(
+      (await api.uploadLogo(owner, "image/png", makePNG(220, 220))).status(),
+    ).toBe(204);
+    const current = await fetch((await logoURL(api, owner)) ?? "");
+    expect(current.status).toBe(200);
+    const bytes = Buffer.from(await current.arrayBuffer());
+    await expectProblem(
+      await api.uploadLogo(owner, "image/png", first, key),
+      409,
+      "vetchium-problem-details/org-logo-conflict",
+    );
+    const after = await fetch((await logoURL(api, owner)) ?? "");
+    expect(after.status).toBe(200);
+    expect(Buffer.from(await after.arrayBuffer())).toEqual(bytes);
   });
 });

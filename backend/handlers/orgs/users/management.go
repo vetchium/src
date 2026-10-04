@@ -177,12 +177,11 @@ func UserSummary(s *orgsruntime.Server) http.HandlerFunc {
 			SeatsInUse:                    int32(summary.SeatsInUse),
 			ActiveUsers:                   int32(summary.ActiveUsers),
 			DisabledManualUsers:           int32(summary.DisabledManualUsers),
-			DisabledNonpaymentUsers:       int32(summary.DisabledNonpaymentUsers),
 			ActiveUsersWithoutPermissions: int32(summary.ActiveUsersWithoutPermissions),
 			PermissionCounts:              make([]users.PermissionCount, 0, len(counts)),
 		}
 		if limit, unlimited := orgusers.SeatLimit(
-			subscriptionspec.PlanOID(summary.OrgPlanOid), nil,
+			subscriptionspec.PlanOID(summary.OrgPlanOid),
 			summary.GoogleSignInEnabled,
 		); !unlimited {
 			value := int32(limit)
@@ -372,7 +371,7 @@ func enable(s *orgsruntime.Server, w http.ResponseWriter, r *http.Request, email
 				return refused, nil
 			}
 			limit, limitValue := seatLimit(
-				policy.OrgPlanOid, policy.ScheduledOrgPlanOid,
+				policy.OrgPlanOid,
 				policy.GoogleSignInEnabled,
 			)
 			result, err := q.EnableOrgUsers(ctx, sqlc.EnableOrgUsersParams{

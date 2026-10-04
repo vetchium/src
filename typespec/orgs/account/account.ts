@@ -33,24 +33,6 @@ export interface OrgSummary {
   domain: DomainStatus;
 }
 
-export const billingNoticeKindValues = [
-  "past-due",
-  "subscription-ending",
-] as const;
-
-export type BillingNoticeKind = (typeof billingNoticeKindValues)[number];
-
-export interface BillingNotice {
-  kind: BillingNoticeKind;
-  /** The deadline for past-due; the end of the period for
-   * subscription-ending. */
-  at: string;
-  /** Set only for subscription-ending. */
-  scheduled_plan_oid?: OrgPlanOID;
-  /** True inside the final-week window; always true for past-due. */
-  banner: boolean;
-}
-
 export interface MyInfoResponse {
   email_address: EmailAddress;
   preferred_language: FrontendLocale;
@@ -63,7 +45,6 @@ export interface MyInfoResponse {
   /** A short-lived signed URL, present only while a logo is set. */
   logo_url?: string;
   google_sign_in_enabled: boolean;
-  billing_notice?: BillingNotice;
 }
 
 export const CheckPresent = "present" as const;

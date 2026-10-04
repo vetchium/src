@@ -191,10 +191,6 @@ SELECT
         WHERE u.org_user_state = 'disabled' AND u.disabled_reason = 'manual'
     )::bigint AS disabled_manual_users,
     count(*) FILTER (
-        WHERE u.org_user_state = 'disabled'
-          AND u.disabled_reason = 'nonpayment'
-    )::bigint AS disabled_nonpayment_users,
-    count(*) FILTER (
         WHERE u.org_user_state = 'active' AND NOT EXISTS (
             SELECT 1 FROM vetchium.org_user_permissions AS g
             WHERE g.org_user_id = u.org_user_id
@@ -213,7 +209,6 @@ type GetOrgUserSummaryRow struct {
 	SeatsInUse                    int64  `json:"seats_in_use"`
 	ActiveUsers                   int64  `json:"active_users"`
 	DisabledManualUsers           int64  `json:"disabled_manual_users"`
-	DisabledNonpaymentUsers       int64  `json:"disabled_nonpayment_users"`
 	ActiveUsersWithoutPermissions int64  `json:"active_users_without_permissions"`
 }
 
@@ -226,7 +221,6 @@ func (q *Queries) GetOrgUserSummary(ctx context.Context, orgDid pgtype.UUID) (Ge
 		&i.SeatsInUse,
 		&i.ActiveUsers,
 		&i.DisabledManualUsers,
-		&i.DisabledNonpaymentUsers,
 		&i.ActiveUsersWithoutPermissions,
 	)
 	return i, err
@@ -398,9 +392,6 @@ WHERE u.org_did = $1
           AND u.org_user_state = 'active')
       OR ($3::text = 'disabled-manual'
           AND u.org_user_state = 'disabled' AND u.disabled_reason = 'manual')
-      OR ($3::text = 'disabled-nonpayment'
-          AND u.org_user_state = 'disabled'
-          AND u.disabled_reason = 'nonpayment')
   )
   AND (
       $4::text IS NULL

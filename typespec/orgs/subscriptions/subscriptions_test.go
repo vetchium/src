@@ -51,24 +51,3 @@ func TestOptionalBillingIntervalOmitsWhenAbsent(t *testing.T) {
 		t.Fatalf("encoded = %s, %v", encoded, err)
 	}
 }
-
-func TestPaymentAndInvoiceRequests(t *testing.T) {
-	t.Parallel()
-	if got := (SetPaymentMethodRequest{Kind: SimulatedDeclines}).Validate(); len(got) != 0 {
-		t.Fatalf("valid kind = %v", got)
-	}
-	if got := (SetPaymentMethodRequest{Kind: "visa"}).Validate(); !slices.Equal(got, []string{"kind"}) {
-		t.Fatalf("invalid kind = %v", got)
-	}
-	if got := (PayInvoiceRequest{InvoiceID: "0190a3b2-0000-4000-8000-000000000000"}).Validate(); len(got) != 0 {
-		t.Fatalf("valid invoice = %v", got)
-	}
-	for _, invalid := range []string{"", "nope", "0190A3B2-0000-4000-8000-000000000000", "0190a3b2000040008000000000000000"} {
-		if got := (PayInvoiceRequest{InvoiceID: invalid}).Validate(); !slices.Equal(got, []string{"invoice_id"}) {
-			t.Fatalf("invoice %q = %v", invalid, got)
-		}
-	}
-	if got := (ListInvoicesRequest{}).Validate(); len(got) != 0 {
-		t.Fatalf("defaults = %v", got)
-	}
-}

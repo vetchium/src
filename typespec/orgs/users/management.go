@@ -17,16 +17,14 @@ const (
 type DisabledReason string
 
 const (
-	DisabledManual     DisabledReason = "manual"
-	DisabledNonpayment DisabledReason = "nonpayment"
+	DisabledManual DisabledReason = "manual"
 )
 
 type UserStateFilter string
 
 const (
-	FilterActive             UserStateFilter = "active"
-	FilterDisabledManual     UserStateFilter = "disabled-manual"
-	FilterDisabledNonpayment UserStateFilter = "disabled-nonpayment"
+	FilterActive         UserStateFilter = "active"
+	FilterDisabledManual UserStateFilter = "disabled-manual"
 )
 
 type UserSort string
@@ -101,8 +99,7 @@ func IsUserFilterText(value UserFilterText) bool {
 }
 
 func isUserStateFilter(value UserStateFilter) bool {
-	return value == FilterActive || value == FilterDisabledManual ||
-		value == FilterDisabledNonpayment
+	return value == FilterActive || value == FilterDisabledManual
 }
 
 type OrgUserSummary struct {
@@ -130,7 +127,6 @@ type UserSummaryResponse struct {
 	SeatLimit                     *int32            `json:"seat_limit,omitempty"`
 	ActiveUsers                   int32             `json:"active_users"`
 	DisabledManualUsers           int32             `json:"disabled_manual_users"`
-	DisabledNonpaymentUsers       int32             `json:"disabled_nonpayment_users"`
 	ActiveUsersWithoutPermissions int32             `json:"active_users_without_permissions"`
 	PermissionCounts              []PermissionCount `json:"permission_counts"`
 }

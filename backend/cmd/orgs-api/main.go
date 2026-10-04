@@ -16,7 +16,6 @@ import (
 	"backend/internal/oidc"
 	orgsruntime "backend/internal/orgs"
 	orgsauthn "backend/internal/orgs/auth"
-	"backend/internal/orgs/billing"
 	"backend/internal/orgs/domainverification"
 	"backend/internal/orgs/signupcompletion"
 	"backend/internal/regions"
@@ -124,12 +123,7 @@ func run(log *slog.Logger, address string) error {
 		PublicBaseURL: cfg.OrgsAPIServer.PublicBaseURL,
 		CredentialKey: credentialKey,
 		OfferedPlans:  cfg.OrgBilling.OfferedPlans,
-		Billing: billing.Config{
-			GracePeriod:  cfg.OrgBilling.GracePeriod,
-			RetryOffsets: cfg.OrgBilling.RetryOffsets,
-		},
-		Charger: billing.SimulatedCharger{},
-		Logos:   logos,
+		Logos:         logos,
 	}
 	if google := cfg.OrgsAPIServer.GoogleSignIn; google != nil {
 		clientSecret, err := google.ClientSecret()

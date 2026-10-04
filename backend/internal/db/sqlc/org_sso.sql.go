@@ -282,7 +282,7 @@ func (q *Queries) GetOrgUserForSSO(ctx context.Context, arg GetOrgUserForSSOPara
 
 const lockOrgForGoogleSignIn = `-- name: LockOrgForGoogleSignIn :one
 SELECT
-    o.org_plan_oid, o.scheduled_org_plan_oid, o.google_sign_in_enabled
+    o.org_plan_oid, o.google_sign_in_enabled
 FROM vetchium.orgs AS o
 WHERE o.org_did = $1
   AND o.org_state = 'active'
@@ -290,15 +290,14 @@ FOR UPDATE OF o
 `
 
 type LockOrgForGoogleSignInRow struct {
-	OrgPlanOid          string      `json:"org_plan_oid"`
-	ScheduledOrgPlanOid pgtype.Text `json:"scheduled_org_plan_oid"`
-	GoogleSignInEnabled bool        `json:"google_sign_in_enabled"`
+	OrgPlanOid          string `json:"org_plan_oid"`
+	GoogleSignInEnabled bool   `json:"google_sign_in_enabled"`
 }
 
 func (q *Queries) LockOrgForGoogleSignIn(ctx context.Context, orgDid pgtype.UUID) (LockOrgForGoogleSignInRow, error) {
 	row := q.db.QueryRow(ctx, lockOrgForGoogleSignIn, orgDid)
 	var i LockOrgForGoogleSignInRow
-	err := row.Scan(&i.OrgPlanOid, &i.ScheduledOrgPlanOid, &i.GoogleSignInEnabled)
+	err := row.Scan(&i.OrgPlanOid, &i.GoogleSignInEnabled)
 	return i, err
 }
 

@@ -118,25 +118,9 @@ func (g GoogleSignIn) ClientSecret() (string, error) {
 	return readTrimmedSecret("Google OIDC client secret", g.ClientSecretFile)
 }
 
-// OrgBilling sets which Org plans a tenant offers and times the dunning
-// lifecycle in agent-guides/org-subscriptions.md. Retry offsets and warning
-// leads are measured from the instant the invoice falls due, so every one
-// lies inside GracePeriod.
+// OrgBilling sets which Org plans a tenant offers.
 type OrgBilling struct {
 	OfferedPlans []orgsubscriptionspec.Plan
-	// GracePeriod is how long service continues on the paid plan after a
-	// failed charge.
-	GracePeriod time.Duration
-	// RetryOffsets, ascending, are the delays after the failure at which the
-	// saved payment method is charged again.
-	RetryOffsets []time.Duration
-	// DueWarningLeads, descending, are how long before the deadline billing
-	// holders are warned.
-	DueWarningLeads []time.Duration
-	// DowngradeWarningLeads, descending, are how long before a scheduled
-	// downgrade takes effect billing holders are warned.
-	DowngradeWarningLeads []time.Duration
-	CheckInterval         time.Duration
 }
 
 // OrgDomainVerification sets how Org domain TXT records are looked up and how
@@ -315,12 +299,7 @@ type fileGoogleSignIn struct {
 }
 
 type fileOrgBilling struct {
-	OfferedPlans          []string `json:"offeredPlans"`
-	GracePeriod           string   `json:"gracePeriod"`
-	RetryOffsets          []string `json:"retryOffsets"`
-	DueWarningLeads       []string `json:"dueWarningLeads"`
-	DowngradeWarningLeads []string `json:"downgradeWarningLeads"`
-	CheckInterval         string   `json:"checkInterval"`
+	OfferedPlans []string `json:"offeredPlans"`
 }
 
 type fileOrgDomainVerification struct {
@@ -1030,86 +1009,8 @@ func parseGoogleSignIn(raw fileGoogleSignIn) (GoogleSignIn, error) {
 }
 
 func parseOrgBilling(raw fileOrgBilling) (OrgBilling, error) {
-	const prefix = "orgBilling."
-	offeredPlans, err := parseOrgOfferedPlans(raw.OfferedPlans)
-	if err != nil {
-		return OrgBilling{}, err
-	}
-	gracePeriod, err := positiveDuration(prefix+"gracePeriod", raw.GracePeriod)
-	if err != nil {
-		return OrgBilling{}, err
-	}
-	checkInterval, err := positiveDuration(
-		prefix+"checkInterval", raw.CheckInterval,
-	)
-	if err != nil {
-		return OrgBilling{}, err
-	}
-	retryOffsets, err := durationList(
-		prefix+"retryOffsets", raw.RetryOffsets, true, gracePeriod,
-	)
-	if err != nil {
-		return OrgBilling{}, err
-	}
-	dueWarningLeads, err := durationList(
-		prefix+"dueWarningLeads", raw.DueWarningLeads, false, gracePeriod,
-	)
-	if err != nil {
-		return OrgBilling{}, err
-	}
-	downgradeWarningLeads, err := durationList(
-		prefix+"downgradeWarningLeads", raw.DowngradeWarningLeads, false, 0,
-	)
-	if err != nil {
-		return OrgBilling{}, err
-	}
-	return OrgBilling{
-		OfferedPlans:          offeredPlans,
-		GracePeriod:           gracePeriod,
-		RetryOffsets:          retryOffsets,
-		DueWarningLeads:       dueWarningLeads,
-		DowngradeWarningLeads: downgradeWarningLeads,
-		CheckInterval:         checkInterval,
-	}, nil
-}
-
-// durationList parses a non-empty list of positive durations that is strictly
-// ascending or descending. A positive limit bounds every entry from above
-// (exclusive).
-func durationList(
-	name string, values []string, ascending bool, limit time.Duration,
-) ([]time.Duration, error) {
-	if len(values) == 0 {
-		return nil, fmt.Errorf("%s must not be empty", name)
-	}
-	result := make([]time.Duration, 0, len(values))
-	for _, value := range values {
-		duration, err := positiveDuration(name, value)
-		if err != nil {
-			return nil, err
-		}
-		if limit > 0 && duration >= limit {
-			return nil, fmt.Errorf(
-				"%s: %s must be shorter than orgBilling.gracePeriod",
-				name, value,
-			)
-		}
-		if len(result) > 0 {
-			previous := result[len(result)-1]
-			if (ascending && duration <= previous) ||
-				(!ascending && duration >= previous) {
-				order := "descending"
-				if ascending {
-					order = "ascending"
-				}
-				return nil, fmt.Errorf(
-					"%s must be strictly %s", name, order,
-				)
-			}
-		}
-		result = append(result, duration)
-	}
-	return result, nil
+	plans, err := parseOrgOfferedPlans(raw.OfferedPlans)
+	return OrgBilling{OfferedPlans: plans}, err
 }
 
 func parseOrgDomainVerification(
