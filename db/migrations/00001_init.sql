@@ -1331,7 +1331,6 @@ CREATE TABLE vetchium.org_users (
         ON DELETE CASCADE,
     email_address text NOT NULL,
     org_user_state vetchium.org_user_state NOT NULL DEFAULT 'provisioning',
-    disabled_reason text,
     disabled_at timestamptz,
     disabled_by uuid REFERENCES vetchium.org_users (org_user_id)
         ON DELETE SET NULL,
@@ -1342,11 +1341,8 @@ CREATE TABLE vetchium.org_users (
     CONSTRAINT org_users_org_email_key UNIQUE (org_did, email_address),
     CONSTRAINT org_users_disabled_consistent CHECK (
         CASE org_user_state
-            WHEN 'disabled' THEN
-                disabled_reason IS NOT NULL AND disabled_reason = 'manual' AND
-                disabled_at IS NOT NULL
-            ELSE disabled_reason IS NULL AND disabled_at IS NULL AND
-                disabled_by IS NULL
+            WHEN 'disabled' THEN disabled_at IS NOT NULL
+            ELSE disabled_at IS NULL AND disabled_by IS NULL
         END
     ),
     CONSTRAINT org_users_email_address_normalized CHECK (
@@ -1839,6 +1835,7 @@ DROP TABLE IF EXISTS vetchium.hub_signup_requests;
 DROP TABLE IF EXISTS vetchium.hub_totp_recovery_codes;
 DROP TABLE IF EXISTS vetchium.hub_totp_enrollments;
 DROP TABLE IF EXISTS vetchium.hub_login_challenges;
+DROP TABLE IF EXISTS vetchium.hub_email_change_challenges;
 DROP TABLE IF EXISTS vetchium.hub_sessions;
 DROP TABLE IF EXISTS vetchium.hub_educational_qualifications;
 DROP TABLE IF EXISTS vetchium.hub_language_abilities;

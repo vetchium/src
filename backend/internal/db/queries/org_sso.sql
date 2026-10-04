@@ -36,7 +36,6 @@ RETURNING t.domain::text AS domain, t.nonce_hash, t.verifier_ciphertext;
 SELECT
     u.org_user_id,
     u.org_user_state,
-    u.disabled_reason,
     u.preferred_language,
     o.org_plan_oid,
     o.google_sign_in_enabled,

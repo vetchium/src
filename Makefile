@@ -70,7 +70,7 @@ serving_services = $$(docker compose -f $(1) config --services | \
 	grep -vE '^(workers|dev-seed)-')
 
 .PHONY: check fmt backend dev dev-secrets dev-seed dev-seed-hub-profiles dev-seed-orgs sqlc sqlc-vet \
-	sql-lint sql-check \
+	sql-lint migration-check sql-check \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
 	admin-ui-deps admin-ui-check admin-ui-check-ready \
@@ -245,7 +245,17 @@ sql-lint:
 		$(SQLFLUFF_IMAGE) lint --dialect postgres --ignore parsing \
 		--rules AM04,ST03 $(SQL_DIRS)
 
-sql-check: sqlc-vet sqlc sql-lint
+# Every database uses the one PostgreSQL image the CI stack pins.
+migration-check:
+	@image=$$(docker compose -f docker-compose-ci.json config --images | \
+		grep '^postgres:' | sort -u); \
+	test "$$(printf '%s\n' "$$image" | wc -l)" -eq 1 || { \
+		echo "docker-compose-ci.json must pin exactly one postgres image"; \
+		exit 1; \
+	}; \
+	./db/check-migrations.sh "$$image"
+
+sql-check: sqlc-vet sqlc sql-lint migration-check
 
 test: clean
 	$(MAKE) --no-print-directory sql-check

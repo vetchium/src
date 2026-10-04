@@ -133,8 +133,9 @@ func ListUsers(s *orgsruntime.Server) http.HandlerFunc {
 				JoinedAt:             row.CreatedAt.Time.UTC(),
 				LastLoginAt:          dbvalue.TimePtr(row.LastLoginAt),
 			}
-			if row.DisabledReason.Valid {
-				reason := users.DisabledReason(row.DisabledReason.String)
+			// Manual disabling is the only reason that exists.
+			if row.OrgUserState == sqlc.VetchiumOrgUserStateDisabled {
+				reason := users.DisabledManual
 				summary.DisabledReason = &reason
 			}
 			response.Users = append(response.Users, summary)

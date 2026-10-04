@@ -227,8 +227,7 @@ test.describe("list-users and user-summary", () => {
       ).toBe(204);
       orgSQL(
         `UPDATE vetchium.org_users
-         SET org_user_state = 'disabled', disabled_reason = 'manual',
-             disabled_at = now()
+         SET org_user_state = 'disabled', disabled_at = now()
          WHERE email_address = '${unpaid.emailAddress}'`,
       );
       const manualOnly = await listed(api, owner, {
@@ -663,8 +662,7 @@ test.describe("enable-user and bulk-enable-users", () => {
       await api.disableUser(owner, { email_address: manual.emailAddress });
       orgSQL(
         `UPDATE vetchium.org_users
-         SET org_user_state = 'disabled', disabled_reason = 'manual',
-             disabled_at = now()
+         SET org_user_state = 'disabled', disabled_at = now()
          WHERE email_address = '${unpaid.emailAddress}'`,
       );
       await expectProblem(

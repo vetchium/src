@@ -11,6 +11,9 @@ Applies to PostgreSQL access, `backend/internal/db/`, migrations, and seeds.
   holds generator settings.
 - Schema changes go in `db/migrations/` (tenant) or `db/global-migrations/`
   (coordinator).
+- A down section drops everything its up section creates, dependents first;
+  `make migration-check` applies, resets, and reapplies each set on a scratch
+  database and fails on leftover objects.
 - Scope a constraint to the owner of its rule; two portals with equal allowed
   values today get separate constraints.
 

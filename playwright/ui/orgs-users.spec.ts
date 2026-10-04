@@ -433,8 +433,7 @@ test("a disabled user cannot sign in", async ({ page, request }) => {
     );
     orgSQL(
       `UPDATE vetchium.org_users
-       SET org_user_state = 'disabled', disabled_reason = 'manual',
-           disabled_at = now()
+       SET org_user_state = 'disabled', disabled_at = now()
        WHERE email_address = '${member.emailAddress}'`,
     );
     await signIn(page, member);

@@ -6,7 +6,6 @@ SELECT
     u.org_user_id,
     u.email_address,
     u.org_user_state,
-    u.disabled_reason,
     u.created_at,
     u.last_login_at,
     ARRAY(
@@ -33,7 +32,7 @@ WHERE u.org_did = sqlc.arg(org_did)
       OR (sqlc.narg(state_filter)::text = 'active'
           AND u.org_user_state = 'active')
       OR (sqlc.narg(state_filter)::text = 'disabled-manual'
-          AND u.org_user_state = 'disabled' AND u.disabled_reason = 'manual')
+          AND u.org_user_state = 'disabled')
   )
   AND (
       sqlc.narg(permission_filter)::text IS NULL
@@ -88,7 +87,7 @@ SELECT
     count(*) FILTER (WHERE u.org_user_state = 'active')::bigint
         AS active_users,
     count(*) FILTER (
-        WHERE u.org_user_state = 'disabled' AND u.disabled_reason = 'manual'
+        WHERE u.org_user_state = 'disabled'
     )::bigint AS disabled_manual_users,
     count(*) FILTER (
         WHERE u.org_user_state = 'active' AND NOT EXISTS (
@@ -167,7 +166,6 @@ WITH targets AS (
 ), updated AS (
     UPDATE vetchium.org_users AS u
     SET org_user_state = 'disabled',
-        disabled_reason = 'manual',
         disabled_at = now(),
         disabled_by = sqlc.arg(actor_org_user_id),
         updated_at = now()
@@ -239,7 +237,6 @@ WITH disabled AS (
 ), updated AS (
     UPDATE vetchium.org_users AS u
     SET org_user_state = 'active',
-        disabled_reason = NULL,
         disabled_at = NULL,
         disabled_by = NULL,
         updated_at = now()
