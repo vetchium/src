@@ -79,11 +79,14 @@ Applies to PostgreSQL access, `backend/internal/db/`, migrations, and seeds.
 
 ## Generation
 
-- sqlc is pinned to `v1.29.0` in the Makefile. After changing queries,
-  migrations, or settings, run `make sqlc` and commit the output with the
-  source.
-- Docker builds regenerate sqlc from source and ignore committed output.
-- Long generated lines are fine.
+- sqlc is pinned to `v1.29.0` in the Makefile. Its output
+  (`backend/internal/db/sqlc/`, `backend/internal/globaldb/sqlc/`) is
+  git-ignored and never committed.
+- `make sqlc` empties both directories and regenerates them; `make dev`,
+  `make backend`, the seed targets, and every Go test target run it first.
+  Run it after changing queries, migrations, or settings.
+- Docker builds regenerate sqlc from source; `.dockerignore` keeps local
+  output out of the build context.
 
 ## Avoid
 

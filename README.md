@@ -25,6 +25,11 @@ make dev-seed   # clean, start the stack, then seed Hub users and Orgs
 make clean      # stop everything and delete volumes and dev secrets
 ```
 
+Generated database code (`backend/internal/db/sqlc/` and
+`backend/internal/globaldb/sqlc/`) is not committed. `make dev`, `make backend`,
+`tilt up`, and the test targets generate it; run `make sqlc` after changing SQL
+queries or migrations so your editor sees the new code.
+
 `make dev-seed` runs `make dev` itself, so it starts from a clean stack and can
 be run at any time; do not run `make dev` first. It prints each seeded Hub
 user's handle, email, region, and plan.
