@@ -18,6 +18,20 @@ Each item: what is not done, and what must be decided first.
   Keep one record per handler exit.
 - The tenant migration's down section fails: `hub_email_change_challenges` is
   not dropped before `hub_sessions`. No test runs the down path.
+- `make sqlc` and `make sql-check` leave generated files whose query source
+  was deleted; `internal/db/sqlc/org_billing_jobs.sql.go` still queries the
+  dropped invoice and notice tables. Delete it and make the check fail on
+  orphans.
+- Org subscription and company code drifts from its neighbours: unwrapped Go
+  calls in `handlers/orgs/subscriptions`, one-space indentation in
+  `org_subscriptions.sql` and `org_company.sql`, the interval built twice in
+  `SetSubscriptionPlan`. `SetCompanyName` borrows `LockOrgForBilling` and
+  `GetOrgSubscription` (which counts seats) only to read `org_state`.
+- `orgs-ui` `PlanOptions`: the `mcp` comparison row falls through to the
+  ticket-support entitlement, and a label ternary is a no-op.
+  `users.state.disabledManual` is unused in every locale.
+- `org_users_disabled_consistent` tests `disabled_reason IS NOT NULL` before
+  `= 'manual'`; with one reason left, decide whether the column stays.
 
 ## Test coverage
 
