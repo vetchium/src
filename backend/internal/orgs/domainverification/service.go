@@ -244,6 +244,9 @@ type domain struct {
 	state             sqlc.VetchiumOrgDomainState
 	lastConclusiveAt  time.Time
 	inconclusiveCount int32
+	// commandID is the stored directory command of a release or re-claim in
+	// flight.
+	commandID pgtype.UUID
 }
 
 func domainRow(row sqlc.ListDueOrgDomainsRow) domain {
@@ -255,6 +258,7 @@ func fromCheckRow(row sqlc.GetOrgDomainForCheckRow) domain {
 		orgDID: row.OrgDid, name: row.Domain, token: row.VerificationToken,
 		state: row.DomainState, lastConclusiveAt: row.LastConclusiveAt.Time,
 		inconclusiveCount: row.ConsecutiveInconclusive,
+		commandID:         row.DirectoryCommandID,
 	}
 }
 
@@ -312,10 +316,29 @@ func (s *Service) apply(
 				ActorID: actorID, Source: actor.Source,
 			},
 		)
-		if err != nil || !started {
+		if err != nil {
 			return result, wrap("begin Org domain reclaim", err)
 		}
-		return result, s.reclaim(ctx, d.orgDID, d.name, commandID, actor)
+		if started {
+			return result, s.reclaim(ctx, d.orgDID, d.name, commandID, actor)
+		}
+		// A concurrent check began the re-claim first; finish it.
+		row, err := s.queries.GetOrgDomainForCheck(ctx, d.orgDID)
+		if err != nil {
+			return result, wrap("reload Org domain", err)
+		}
+		if row.DomainState != sqlc.VetchiumOrgDomainStateReclaiming {
+			return result, nil
+		}
+		return result, s.reclaim(
+			ctx, d.orgDID, d.name, row.DirectoryCommandID, actor,
+		)
+	case d.state == sqlc.VetchiumOrgDomainStateReclaiming &&
+		result == dnsverify.Present:
+		// The directory replays a command by its id, so this finishes the
+		// re-claim another check began instead of reporting the Org still
+		// suspended while it completes.
+		return result, s.reclaim(ctx, d.orgDID, d.name, d.commandID, actor)
 	case d.state == sqlc.VetchiumOrgDomainStateReleased:
 		_, err := s.queries.RecordReleasedOrgDomainAbsent(
 			ctx, sqlc.RecordReleasedOrgDomainAbsentParams{
