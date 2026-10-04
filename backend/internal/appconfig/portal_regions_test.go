@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 
 	"backend/internal/regions"
@@ -36,10 +37,12 @@ type hubRegionTable struct {
 }
 
 type orgRegionTable struct {
-	Regions []struct {
-		TenantID    string   `json:"tenantId"`
-		MediaOrigin string   `json:"mediaOrigin"`
-		OrgPlans    []string `json:"orgPlans"`
+	DNSOverHTTPS string `json:"dnsOverHTTPS"`
+	Regions      []struct {
+		TenantID               string   `json:"tenantId"`
+		AllowSpecialUseDomains bool     `json:"allowSpecialUseDomains"`
+		MediaOrigin            string   `json:"mediaOrigin"`
+		OrgPlans               []string `json:"orgPlans"`
 	} `json:"regions"`
 }
 
@@ -221,6 +224,23 @@ func TestPortalRegionTablesMatchCheckedInConfiguration(t *testing.T) {
 						got.TenantID, got.OrgPlans, wantPlans,
 					)
 				}
+				if got.AllowSpecialUseDomains !=
+					cfg.OrgsAPIServer.AllowSpecialUseDomains {
+					t.Errorf(
+						"org region %q allowSpecialUseDomains = %t, want %t",
+						got.TenantID, got.AllowSpecialUseDomains,
+						cfg.OrgsAPIServer.AllowSpecialUseDomains,
+					)
+				}
+			}
+			// Production must not hand the domain being proven to a
+			// resolver over plain HTTP.
+			if env.name == "production" &&
+				!strings.HasPrefix(org.DNSOverHTTPS, "https://") {
+				t.Errorf(
+					"orgs dnsOverHTTPS = %q, want an HTTPS URL",
+					org.DNSOverHTTPS,
+				)
 			}
 			slices.Sort(orgTenants)
 			if !slices.Equal(orgTenants, wantTenants) {

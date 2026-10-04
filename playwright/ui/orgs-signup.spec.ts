@@ -11,12 +11,14 @@ import {
   orgPassword,
   orgSQL,
   recordValue,
+  requestOrgSignup,
   type SignedUpOrg,
   signupOrg,
   signupToken,
 } from "../lib/orgs-api.ts";
 import { ORGS_PORTAL, rememberRegion } from "../lib/portals.ts";
 import { chooseRegion } from "../lib/region-ui.ts";
+import { uniqueTestID } from "../lib/test-id.ts";
 
 // Lifecycle tests wait for the CI re-verification timings (2s checks, 8s
 // grace), which is longer than the default budget.
@@ -36,12 +38,12 @@ async function signIn(
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
-test("signs an Org up through region choice, DNS proof and sign-in", async ({
+test("signs a .test Org up through region choice, DNS proof and sign-in", async ({
   context,
   page,
   request,
 }) => {
-  const domain = uniqueOrgDomain();
+  const domain = uniqueOrgDomain("test");
   const emailAddress = `it@${domain}`;
   try {
     await rememberRegion(context, "orgs", "sgp");
@@ -59,10 +61,22 @@ test("signs an Org up through region choice, DNS proof and sign-in", async ({
     );
     await expect(page.getByTestId("signup-region")).toContainText("sgp");
 
-    await page.getByLabel("Work email address").fill(emailAddress);
-    await expect(page.getByTestId("signup-domain")).toContainText(domain);
+    // The steps explain the DNS proof before anything is sent.
+    await expect(page.getByTestId("signup-steps")).toContainText(
+      "Publish the TXT record",
+    );
+    const localPart = page.getByLabel("Your email address");
+    await expect(localPart).toBeDisabled();
+    await page.getByLabel("Organization domain").fill(domain.toUpperCase());
+    await expect(page.getByTestId("signup-email-domain")).toHaveText(
+      `@${domain}`,
+    );
+    await expect(page.getByTestId("signup-steps")).toContainText(domain);
+    await localPart.fill("it");
     await page.getByRole("button", { name: "Send signup emails" }).click();
-    await expect(page.getByTestId("signup-sent")).toBeVisible();
+    const sent = page.getByTestId("signup-sent");
+    await expect(sent).toContainText(emailAddress);
+    await expect(sent.getByRole("button")).toHaveCount(0);
 
     const value = recordValue(
       await orgEmailText(request, emailAddress, "DNS record"),
@@ -76,6 +90,9 @@ test("signs an Org up through region choice, DNS proof and sign-in", async ({
     );
     await expect(page.getByTestId("dns-record-value")).toHaveText(value);
 
+    // The browser's lookup only advises; submitting stays possible.
+    const recordCheck = page.getByTestId("signup-record-check");
+    await expect(recordCheck).toHaveAttribute("data-result", "absent");
     const password = orgPassword();
     await page.getByLabel("Organization name").fill("Browser Org");
     await page.getByLabel("New password").fill(password);
@@ -89,6 +106,8 @@ test("signs an Org up through region choice, DNS proof and sign-in", async ({
     ).toBeVisible();
 
     await setOrgVerificationRecord(domain, [value]);
+    await recordCheck.getByRole("button", { name: "Check again" }).click();
+    await expect(recordCheck).toHaveAttribute("data-result", "present");
     await submit.click();
     await expect(page).toHaveURL(`${ORGS_PORTAL}/login?domain=${domain}`);
 
@@ -100,6 +119,82 @@ test("signs an Org up through region choice, DNS proof and sign-in", async ({
       "data-state",
       "verified",
     );
+  } finally {
+    await deleteOrgVerificationRecord(domain);
+    cleanupOrg(domain);
+  }
+});
+
+test("the signup form validates the domain and the address's local part", async ({
+  page,
+}) => {
+  await page.goto(`${ORGS_PORTAL}/signup/SG/en-US/details?region=sgp`);
+  const domain = page.getByLabel("Organization domain");
+  const localPart = page.getByLabel("Your email address");
+  const send = page.getByRole("button", { name: "Send signup emails" });
+
+  await send.click();
+  await expect(page.getByText("This field is required.").first()).toBeVisible();
+
+  await domain.fill("https://www.example.com");
+  await expect(
+    page.getByText("Enter a domain such as example.com", { exact: false }),
+  ).toBeVisible();
+  await expect(localPart).toBeDisabled();
+
+  await domain.fill(uniqueOrgDomain());
+  await expect(localPart).toBeEnabled();
+  await localPart.fill("it@elsewhere.example");
+  await expect(
+    page.getByText("Enter only the part before the @."),
+  ).toBeVisible();
+  await localPart.fill("it..ops");
+  await expect(page.getByText("Enter a valid email address.")).toBeVisible();
+  await localPart.fill("it");
+  await expect(page.getByText("Enter a valid email address.")).toBeHidden();
+});
+
+test("the signup form shows a domain the region refuses", async ({ page }) => {
+  await page.goto(`${ORGS_PORTAL}/signup/SG/en-US/details?region=sgp`);
+  await page.getByLabel("Organization domain").fill("gmail.com");
+  await page.getByLabel("Your email address").fill(uniqueTestID("it"));
+  await page.getByRole("button", { name: "Send signup emails" }).click();
+  await expect(
+    page.getByText("This domain cannot sign an organization up", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await expect(page.getByTestId("signup-sent")).toHaveCount(0);
+});
+
+test("the completion page still submits when the browser cannot check DNS", async ({
+  page,
+  request,
+}) => {
+  const domain = uniqueOrgDomain();
+  try {
+    const { token, value } = await requestOrgSignup(
+      new OrgsAPI(request),
+      domain,
+    );
+    await page.route("http://doh.vetchium.localhost/**", (route) =>
+      route.fulfill({ status: 502 }),
+    );
+    await page.goto(`${ORGS_PORTAL}/complete-signup?region=sgp&token=${token}`);
+    await expect(page.getByTestId("signup-record-check")).toHaveAttribute(
+      "data-result",
+      "inconclusive",
+    );
+
+    await setOrgVerificationRecord(domain, [value]);
+    const password = orgPassword();
+    await page.getByLabel("Organization name").fill("Unchecked Org");
+    await page.getByLabel("New password").fill(password);
+    await page.getByLabel("Confirm password").fill(password);
+    await page
+      .getByRole("button", { name: "Verify domain and create organization" })
+      .click();
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/login?domain=${domain}`);
   } finally {
     await deleteOrgVerificationRecord(domain);
     cleanupOrg(domain);

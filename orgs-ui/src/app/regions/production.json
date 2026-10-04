@@ -1,22 +1,27 @@
 {
+  "dnsOverHTTPS": "https://cloudflare-dns.com/dns-query",
   "regions": [
     {
       "tenantId": "deu",
+      "allowSpecialUseDomains": false,
       "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
       "mediaOrigin": "https://media.deu.vetchium.com"
     },
     {
       "tenantId": "ind1",
+      "allowSpecialUseDomains": false,
       "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
       "mediaOrigin": "https://media.ind1.vetchium.com"
     },
     {
       "tenantId": "sgp",
+      "allowSpecialUseDomains": false,
       "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
       "mediaOrigin": "https://media.sgp.vetchium.com"
     },
     {
       "tenantId": "usa1",
+      "allowSpecialUseDomains": false,
       "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
       "mediaOrigin": "https://media.usa1.vetchium.com"
     }

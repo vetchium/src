@@ -27,3 +27,30 @@ export function isOrgDomain(value: OrgDomain): boolean {
   }
   return /[a-z]/.test(value.slice(value.lastIndexOf(".") + 1));
 }
+
+/** Names reserved for testing, documentation, and local networks (RFC 2606,
+ * RFC 6761, RFC 6762, RFC 7686, RFC 8375, RFC 9476, and ICANN's internal).
+ * Nobody can publish a public DNS record under them. */
+const specialUseDomains = [
+  "alt",
+  "example",
+  "example.com",
+  "example.net",
+  "example.org",
+  "home.arpa",
+  "internal",
+  "invalid",
+  "local",
+  "localhost",
+  "onion",
+  "test",
+];
+
+/** Whether a normalized Org domain is, or is under, a special-use name.
+ * Whether such a domain may sign up is tenant policy, so this is not part of
+ * isOrgDomain. */
+export function isSpecialUseDomain(value: OrgDomain): boolean {
+  return specialUseDomains.some(
+    (reserved) => value === reserved || value.endsWith(`.${reserved}`),
+  );
+}

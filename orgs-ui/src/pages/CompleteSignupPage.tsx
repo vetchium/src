@@ -37,6 +37,7 @@ import { regionStore, regionTable } from "../app/regions";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { useDateTimeFormat } from "../components/common/useDateTimeFormat";
 import { DnsRecord } from "../features/domain/DnsRecord";
+import { SignupRecordCheck } from "../features/signup/SignupRecordCheck";
 
 interface CompleteValues {
   org_display_name: string;
@@ -223,6 +224,10 @@ export function CompleteSignupPage() {
                 ]}
               />
               <DnsRecord
+                name={details.data.dns_record_name}
+                value={details.data.dns_record_value}
+              />
+              <SignupRecordCheck
                 name={details.data.dns_record_name}
                 value={details.data.dns_record_value}
               />

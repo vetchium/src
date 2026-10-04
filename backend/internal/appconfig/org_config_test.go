@@ -73,6 +73,22 @@ func TestLoadFileReadsOrgSignupSwitch(t *testing.T) {
 	}
 }
 
+func TestLoadFileReadsSpecialUseDomainSwitch(t *testing.T) {
+	t.Parallel()
+	path := editConfig(t,
+		`"publicBaseURL": "http://orgs.vetchium.localhost/"`,
+		`"publicBaseURL": "http://orgs.vetchium.localhost/",
+    "allowSpecialUseDomains": true`,
+	)
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.OrgsAPIServer.AllowSpecialUseDomains {
+		t.Fatal("orgsAPIServer.allowSpecialUseDomains = false, want true")
+	}
+}
+
 func TestLoadFileRejectsInvalidOrgSettings(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {

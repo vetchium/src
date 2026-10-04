@@ -13,7 +13,7 @@ var SignupDomainBlockedError = problem.Details{
 	Type:   "vetchium-problem-details/org-signup-domain-blocked",
 	Title:  "Org signup domain blocked",
 	Status: 403,
-	Detail: "Orgs cannot sign up with a public email provider's domain",
+	Detail: "This domain cannot be used for Org signup",
 }
 
 var DomainAlreadyOwnedError = problem.Details{

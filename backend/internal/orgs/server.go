@@ -37,6 +37,8 @@ type Server struct {
 	SignupCompletion *signupcompletion.Service
 	Domains          *domainverification.Service
 	Signup           regions.Admission
+	// AllowSpecialUseDomains admits signups for names such as acme.test.
+	AllowSpecialUseDomains bool
 
 	// Values below come from the shared application config.
 	TenantID      string

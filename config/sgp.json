@@ -88,7 +88,8 @@
     },
     "signup": {
       "enabled": true
-    }
+    },
+    "allowSpecialUseDomains": true
   },
   "orgDomainVerification": {
     "resolverAddress": "dns-dev:53",

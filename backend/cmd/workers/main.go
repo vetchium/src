@@ -140,6 +140,7 @@ func run(log *slog.Logger) error {
 		},
 		Signup: orgsignup.New(
 			pool, directory, checker, cfg.TenantID,
+			cfg.OrgsAPIServer.AllowSpecialUseDomains,
 			orgsauthn.DeriveCredentialSubkey(
 				orgsCredentialKey, "signup-provisioning",
 			),

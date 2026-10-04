@@ -1169,7 +1169,7 @@
         "/bin/sh",
         "-eu",
         "-c",
-        "cp /var/lib/powerdns/pdns.sqlite3 /tmp/pdns.sqlite3\nprintf '%s\\n' launch=gsqlite3 gsqlite3-database=/tmp/pdns.sqlite3 socket-dir=/tmp local-address=0.0.0.0 security-poll-suffix= api=yes api-key=vetchium-dev-dns-api-key webserver=yes webserver-address=0.0.0.0 webserver-port=8081 webserver-allow-from=0.0.0.0/0 > /tmp/pdns.conf\npdnsutil --config-dir=/tmp zone create example ns1.example\npdnsutil --config-dir=/tmp zone create example.com ns1.example.com\nexec pdns_server --config-dir=/tmp --disable-syslog"
+        "cp /var/lib/powerdns/pdns.sqlite3 /tmp/pdns.sqlite3\nprintf '%s\\n' launch=gsqlite3 gsqlite3-database=/tmp/pdns.sqlite3 socket-dir=/tmp local-address=0.0.0.0 security-poll-suffix= api=yes api-key=vetchium-dev-dns-api-key webserver=yes webserver-address=0.0.0.0 webserver-port=8081 webserver-allow-from=0.0.0.0/0 > /tmp/pdns.conf\npdnsutil --config-dir=/tmp zone create example ns1.example\npdnsutil --config-dir=/tmp zone create example.com ns1.example.com\npdnsutil --config-dir=/tmp zone create test ns1.test\nexec pdns_server --config-dir=/tmp --disable-syslog"
       ],
       "healthcheck": {
         "interval": "5s",
@@ -1177,7 +1177,7 @@
         "start_period": "5s",
         "test": [
           "CMD-SHELL",
-          "sdig 127.0.0.1 53 example SOA | grep -q 'Rcode: 0 .*AA: 1' && sdig 127.0.0.1 53 example.com SOA | grep -q 'Rcode: 0 .*AA: 1'"
+          "sdig 127.0.0.1 53 example SOA | grep -q 'Rcode: 0 .*AA: 1' && sdig 127.0.0.1 53 example.com SOA | grep -q 'Rcode: 0 .*AA: 1' && sdig 127.0.0.1 53 test SOA | grep -q 'Rcode: 0 .*AA: 1'"
         ],
         "timeout": "2s"
       },
@@ -1203,6 +1203,36 @@
       "restart": "unless-stopped",
       "security_opt": ["no-new-privileges:true"],
       "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=64m"]
+    },
+    "doh-dev": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "doh-dev"
+      },
+      "depends_on": {
+        "dns-dev": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "environment": {
+        "DOH_DEV_UPSTREAM": "dns-dev:53"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
+      "networks": {
+        "dns_dev_access": null,
+        "portal_access": null
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
     },
     "edge": {
       "command": [

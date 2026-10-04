@@ -58,3 +58,24 @@ func IsOrgDomain(value OrgDomain) bool {
 	text := string(value)
 	return letterPattern.MatchString(text[strings.LastIndexByte(text, '.')+1:])
 }
+
+// specialUseDomains are names reserved for testing, documentation, and local
+// networks (RFC 2606, RFC 6761, RFC 6762, RFC 7686, RFC 8375, RFC 9476, and
+// ICANN's internal). Nobody can publish a public DNS record under them.
+var specialUseDomains = []string{
+	"alt", "example", "example.com", "example.net", "example.org",
+	"home.arpa", "internal", "invalid", "local", "localhost", "onion", "test",
+}
+
+// IsSpecialUseDomain reports whether a normalized Org domain is, or is under,
+// a special-use name. Whether such a domain may sign up is tenant policy, so
+// this is not part of IsOrgDomain.
+func IsSpecialUseDomain(value OrgDomain) bool {
+	for _, reserved := range specialUseDomains {
+		if string(value) == reserved ||
+			strings.HasSuffix(string(value), "."+reserved) {
+			return true
+		}
+	}
+	return false
+}

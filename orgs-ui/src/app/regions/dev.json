@@ -1,22 +1,27 @@
 {
+  "dnsOverHTTPS": "http://doh.vetchium.localhost/dns-query",
   "regions": [
     {
       "tenantId": "deu",
+      "allowSpecialUseDomains": true,
       "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
       "mediaOrigin": "http://media.deu.localhost"
     },
     {
       "tenantId": "ind1",
+      "allowSpecialUseDomains": true,
       "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
       "mediaOrigin": "http://media.ind1.localhost"
     },
     {
       "tenantId": "sgp",
+      "allowSpecialUseDomains": true,
       "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
       "mediaOrigin": "http://media.sgp.localhost"
     },
     {
       "tenantId": "usa1",
+      "allowSpecialUseDomains": true,
       "orgPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"],
       "mediaOrigin": "http://media.usa1.localhost"
     }

@@ -9,6 +9,7 @@ import devRegions from "@vetchium/portal-ui/regions/dev.json";
 import productionRegions from "@vetchium/portal-ui/regions/production.json";
 import {
   type OrgRegionSettings,
+  parseDNSOverHTTPS,
   parseOrgRegionSettings,
 } from "./org-region-settings";
 import ciOrg from "./regions/ci.json";
@@ -34,6 +35,8 @@ const orgSettings = parseOrgRegionSettings(
   tables.org,
   regionTable.regions.map((region) => region.tenantId),
 );
+
+export const dnsOverHTTPS = parseDNSOverHTTPS(tables.org);
 
 export function orgRegionSettings(tenantId: string): OrgRegionSettings {
   const settings = orgSettings.get(tenantId);

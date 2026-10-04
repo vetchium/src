@@ -17,7 +17,7 @@ const OrgSignupDomainBlockedError = #{
   type: "vetchium-problem-details/org-signup-domain-blocked",
   title: "Org signup domain blocked",
   status: 403,
-  detail: "Orgs cannot sign up with a public email provider's domain",
+  detail: "This domain cannot be used for Org signup",
 };
 alias OrgSignupDomainBlockedErrorResponse = Response<
   403,

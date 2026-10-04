@@ -69,14 +69,15 @@ type Checker interface {
 }
 
 type Service struct {
-	pool          *pgxpool.Pool
-	queries       *sqlc.Queries
-	directory     Directory
-	checker       Checker
-	tenantID      string
-	payloadKey    [32]byte
-	checkInterval time.Duration
-	now           func() time.Time
+	pool            *pgxpool.Pool
+	queries         *sqlc.Queries
+	directory       Directory
+	checker         Checker
+	tenantID        string
+	allowSpecialUse bool
+	payloadKey      [32]byte
+	checkInterval   time.Duration
+	now             func() time.Time
 }
 
 type payload struct {
@@ -93,16 +94,20 @@ type Result struct {
 	Response    orgsauth.CompleteSignupResponse
 }
 
+// New builds the saga. allowSpecialUse is the tenant's
+// orgsAPIServer.allowSpecialUseDomains.
 func New(
 	pool *pgxpool.Pool, directory Directory, checker Checker, tenantID string,
-	payloadKey [32]byte, checkInterval time.Duration, now func() time.Time,
+	allowSpecialUse bool, payloadKey [32]byte, checkInterval time.Duration,
+	now func() time.Time,
 ) *Service {
 	if now == nil {
 		now = time.Now
 	}
 	return &Service{
 		pool: pool, queries: sqlc.New(pool), directory: directory,
-		checker: checker, tenantID: tenantID, payloadKey: payloadKey,
+		checker: checker, tenantID: tenantID,
+		allowSpecialUse: allowSpecialUse, payloadKey: payloadKey,
 		checkInterval: checkInterval, now: now,
 	}
 }
@@ -251,6 +256,9 @@ func (s *Service) admit(ctx context.Context, domain string) error {
 }
 
 func (s *Service) admitLocally(ctx context.Context, domain string) error {
+	if !s.allowSpecialUse && orgs.IsSpecialUseDomain(orgs.OrgDomain(domain)) {
+		return ErrDomainBlocked
+	}
 	admission, err := s.queries.CheckOrgDomainAdmission(ctx, domain)
 	if err != nil {
 		return fmt.Errorf("check Org domain admission: %w", err)

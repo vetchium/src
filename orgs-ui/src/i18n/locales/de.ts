@@ -57,7 +57,6 @@ export const de = {
     recoveryCode: "Wiederherstellungscode",
     releaseAfter: "Freigabe nach",
     totpCode: "Sechsstelliger Code",
-    workEmail: "Geschäftliche E-Mail-Adresse",
   },
   validation: {
     displayName: "Verwenden Sie einen Namen mit 1 bis 200 Zeichen.",
@@ -69,8 +68,9 @@ export const de = {
     recoveryCode: "Geben Sie einen gültigen Wiederherstellungscode ein.",
     required: "Dieses Feld ist erforderlich.",
     totpCode: "Geben Sie den sechsstelligen Code ein.",
-    workEmail:
-      "Geben Sie eine E-Mail-Adresse unter der eigenen Domain Ihrer Organisation ein, etwa name@example.com.",
+    specialUseDomain:
+      "Reservierte Namen wie .test oder .example können sich nicht registrieren. Geben Sie die echte Domain Ihrer Organisation ein.",
+    localPart: "Geben Sie nur den Teil vor dem @ ein.",
   },
   errors: {
     generic:
@@ -84,7 +84,7 @@ export const de = {
     signupUnavailable:
       "Diese Region nimmt derzeit keine Registrierungen von Organisationen an.",
     signupDomainBlocked:
-      "Mit Adressen öffentlicher E-Mail-Anbieter kann keine Organisation registriert werden. Verwenden Sie eine Adresse unter der eigenen Domain Ihrer Organisation.",
+      "Mit dieser Domain kann keine Organisation registriert werden. Öffentliche E-Mail-Anbieter und reservierte Namen wie .test oder .example werden nicht akzeptiert. Verwenden Sie die eigene Domain Ihrer Organisation.",
     domainAlreadyOwned:
       "Diese Domain gehört bereits einer anderen Organisation auf Vetchium.",
     invalidSignupToken:
@@ -161,9 +161,30 @@ export const de = {
       "Ihre Organisation wird über ihre Domain erkannt. Um zu belegen, dass sie die Domain verwaltet, veröffentlichen Sie einen DNS-Eintrag, den wir Ihnen senden.",
     requester:
       "Das sollte die Person übernehmen, die die Domain für die Organisation verwaltet, meist die IT. Wer die Registrierung abschließt, wird der erste Superadmin der Organisation.",
+    domainHelp:
+      "Die Domain in den E-Mail-Adressen Ihrer Organisation, etwa example.com, ohne www oder https.",
+    emailLabel: "Ihre E-Mail-Adresse",
     emailHelp:
-      "Verwenden Sie Ihre Adresse unter der Domain, mit der sich die Organisation registriert.",
-    derivedDomain: "Zu registrierende Domain: {{domain}}",
+      "Sie müssen E-Mails an diese Adresse lesen können. Sie werden der erste Superadmin der Organisation.",
+    steps: {
+      title: "So geht es weiter",
+      yourDomain: "Ihre Domain",
+      emails: {
+        title: "Wir senden Ihnen zwei E-Mails",
+        content:
+          "Eine enthält einen DNS-TXT-Eintrag für {{domain}}; Sie können sie an die Person weiterleiten, die das DNS der Domain verwaltet. Die andere enthält Ihren privaten Registrierungslink; leiten Sie sie nicht weiter.",
+      },
+      record: {
+        title: "TXT-Eintrag veröffentlichen",
+        content:
+          "Fügen Sie den Eintrag dem DNS von {{domain}} hinzu. Damit belegen Sie, dass Ihre Organisation die Domain verwaltet. DNS-Änderungen können einige Stunden brauchen, bis sie sichtbar sind.",
+      },
+      complete: {
+        title: "Privaten Link öffnen und Passwort festlegen",
+        content:
+          "Sobald der Eintrag sichtbar ist, öffnen Sie den Link, benennen die Organisation und legen Ihr Passwort fest. Beim Absenden wird der Eintrag erneut geprüft.",
+      },
+    },
     action: "Registrierungs-E-Mails senden",
     haveAccount: "Bereits registriert?",
     signIn: "Anmelden",
@@ -178,7 +199,6 @@ export const de = {
       linkBody:
         "Leiten Sie diese E-Mail nicht weiter. Jeder, der den Link hat, kann die Registrierung abschließen.",
       next: "Öffnen Sie den privaten Link, sobald der Eintrag veröffentlicht ist, um die Organisation zu benennen und Ihr Passwort festzulegen.",
-      again: "Andere E-Mail-Adresse verwenden",
     },
   },
   completeSignup: {
@@ -198,6 +218,24 @@ export const de = {
     stillPending:
       "Die Organisation wird noch angelegt. Prüfen Sie in einigen Minuten erneut.",
     checkAgain: "Erneut prüfen",
+    recordCheck: {
+      checking: "Eintrag wird im öffentlichen DNS gesucht…",
+      again: "Erneut prüfen",
+      present: {
+        title: "Der Eintrag ist im öffentlichen DNS sichtbar.",
+        description: "Sie können die Registrierung jetzt abschließen.",
+      },
+      absent: {
+        title: "Der Eintrag ist noch nicht sichtbar.",
+        description:
+          "DNS-Änderungen können einige Stunden brauchen, bis sie sichtbar sind. Wir empfehlen, zu warten und vor dem Absenden erneut zu prüfen. Sie können trotzdem jetzt absenden, aber die Registrierung gelingt erst, wenn der Eintrag sichtbar ist.",
+      },
+      inconclusive: {
+        title: "Der Eintrag konnte in Ihrem Browser nicht geprüft werden.",
+        description:
+          "Sie können trotzdem absenden. Der Eintrag wird dann geprüft.",
+      },
+    },
     success:
       "Ihre Organisation ist bereit. Melden Sie sich an, um fortzufahren.",
   },

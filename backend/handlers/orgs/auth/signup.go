@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
+	"github.com/vetchium/src/typespec/orgs"
 	orgsauth "github.com/vetchium/src/typespec/orgs/auth"
 	"github.com/vetchium/src/typespec/problem"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
@@ -38,6 +39,11 @@ func RequestSignup(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		if !s.Signup.Enabled {
 			s.Problem(r.Context(), w, orgsproblem.SignupUnavailableError)
+			return
+		}
+		if !s.AllowSpecialUseDomains &&
+			orgs.IsSpecialUseDomain(request.Domain()) {
+			s.Problem(r.Context(), w, orgsproblem.SignupDomainBlockedError)
 			return
 		}
 		emailAddress := string(request.EmailAddress)

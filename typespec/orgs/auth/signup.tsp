@@ -16,7 +16,10 @@ namespace Vetchium.Orgs;
 
 scalar OrgSignupToken extends Vetchium.Authentication.OpaqueToken;
 
-/** The claimed domain is exactly the email address's domain. */
+/** The claimed domain is exactly the email address's domain. A domain that
+ * is, or is under, a public mailbox provider's domain is refused with
+ * org-signup-domain-blocked; so is a special-use name (such as `.test` or
+ * `.example`) in a tenant that does not allow them for development. */
 model RequestSignupRequest {
   email_address: EmailAddress;
   preferred_language: FrontendLocale;

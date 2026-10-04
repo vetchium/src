@@ -16,6 +16,11 @@
         "service": "oidc-dev",
         "entryPoints": ["web"]
       },
+      "doh-dev": {
+        "rule": "Host(`doh.vetchium.localhost`)",
+        "service": "doh-dev",
+        "entryPoints": ["web"]
+      },
       "sgp-api": {
         "rule": "Host(`sgp.api.vetchium.localhost`)",
         "service": "sgp",
@@ -63,6 +68,15 @@
           "servers": [
             {
               "url": "http://oidc-dev:8080"
+            }
+          ]
+        }
+      },
+      "doh-dev": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://doh-dev:8080"
             }
           ]
         }

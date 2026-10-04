@@ -54,7 +54,6 @@ export const en = {
     recoveryCode: "Recovery code",
     releaseAfter: "Released after",
     totpCode: "Six-digit code",
-    workEmail: "Work email address",
   },
   validation: {
     displayName: "Use a name of 1 to 200 characters.",
@@ -65,8 +64,9 @@ export const en = {
     recoveryCode: "Enter a valid recovery code.",
     required: "This field is required.",
     totpCode: "Enter the six-digit code.",
-    workEmail:
-      "Enter an email address at your organization's own domain, such as name@example.com.",
+    specialUseDomain:
+      "Reserved names such as .test or .example cannot sign up. Enter your organization's real domain.",
+    localPart: "Enter only the part before the @.",
   },
   errors: {
     generic: "The request could not be completed. Please try again.",
@@ -78,7 +78,7 @@ export const en = {
     signupUnavailable:
       "This region is not accepting organization signups right now.",
     signupDomainBlocked:
-      "Addresses at public email providers cannot sign an organization up. Use an address at your organization's own domain.",
+      "This domain cannot sign an organization up. Public email providers and reserved names such as .test or .example are not accepted. Use your organization's own domain.",
     domainAlreadyOwned:
       "Another organization on Vetchium already owns this domain.",
     invalidSignupToken:
@@ -151,9 +151,30 @@ export const en = {
       "Your organization is identified by its domain. To prove that it controls the domain, you publish a DNS record we send you.",
     requester:
       "Whoever manages the domain for the organization, usually IT staff, should do this. The person who completes signup becomes the organization's first superadmin.",
+    domainHelp:
+      "The domain in your organization's email addresses, such as example.com, without www or https.",
+    emailLabel: "Your email address",
     emailHelp:
-      "Use your address at the domain the organization will sign up with.",
-    derivedDomain: "Domain to sign up: {{domain}}",
+      "You must be able to read mail at this address. You become the organization's first superadmin.",
+    steps: {
+      title: "What happens next",
+      yourDomain: "your domain",
+      emails: {
+        title: "We send you two emails",
+        content:
+          "One holds a DNS TXT record for {{domain}}; you can forward it to whoever manages the domain's DNS. The other holds your private signup link; do not forward it.",
+      },
+      record: {
+        title: "Publish the TXT record",
+        content:
+          "Add the record to the DNS for {{domain}}. This proves that your organization controls the domain. DNS changes can take a few hours to appear.",
+      },
+      complete: {
+        title: "Open the private link and set your password",
+        content:
+          "Once the record is visible, open the link, name the organization, and choose your password. The record is checked again when you submit.",
+      },
+    },
     action: "Send signup emails",
     haveAccount: "Already signed up?",
     signIn: "Sign in",
@@ -168,7 +189,6 @@ export const en = {
       linkBody:
         "Do not forward this email. Anyone with the link can complete the signup.",
       next: "After the record is published, open the private link to name the organization and choose your password.",
-      again: "Use a different email address",
     },
   },
   completeSignup: {
@@ -188,6 +208,23 @@ export const en = {
     stillPending:
       "The organization is still being created. Check again in a few minutes.",
     checkAgain: "Check again",
+    recordCheck: {
+      checking: "Looking the record up in public DNS…",
+      again: "Check again",
+      present: {
+        title: "The record is visible in public DNS.",
+        description: "You can complete the signup now.",
+      },
+      absent: {
+        title: "The record is not visible yet.",
+        description:
+          "DNS changes can take a few hours to appear. We recommend waiting and checking again before you submit. You can still submit now, but the signup only succeeds once the record is visible.",
+      },
+      inconclusive: {
+        title: "The record could not be checked from your browser.",
+        description: "You can still submit. The record is checked when you do.",
+      },
+    },
     success: "Your organization is ready. Sign in to continue.",
   },
   dnsRecord: {

@@ -5,6 +5,7 @@
 # go build outputs from backend/
 /backend/admin-api
 /backend/dev-seed
+/backend/doh-dev
 /backend/global-coordinator
 /backend/hub-api
 /backend/mcp-server

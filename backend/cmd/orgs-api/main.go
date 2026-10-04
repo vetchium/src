@@ -104,6 +104,7 @@ func run(log *slog.Logger, address string) error {
 		Regions:   catalog,
 		SignupCompletion: signupcompletion.New(
 			pool, globalDirectory, checker, cfg.TenantID,
+			cfg.OrgsAPIServer.AllowSpecialUseDomains,
 			orgsauthn.DeriveCredentialSubkey(
 				credentialKey, "signup-provisioning",
 			),
@@ -115,15 +116,16 @@ func run(log *slog.Logger, address string) error {
 			cfg.TenantID,
 			orgsauthn.DeriveCredentialSubkey(credentialKey, "outbox"), log,
 		),
-		Signup:        cfg.OrgsAPIServer.Signup,
-		TenantID:      cfg.TenantID,
-		SessionTTL:    cfg.OrgsAPIServer.SessionTTL,
-		SignupTTL:     cfg.OrgsAPIServer.SignupTTL,
-		InvitationTTL: cfg.OrgsAPIServer.InvitationTTL,
-		PublicBaseURL: cfg.OrgsAPIServer.PublicBaseURL,
-		CredentialKey: credentialKey,
-		OfferedPlans:  cfg.OrgBilling.OfferedPlans,
-		Logos:         logos,
+		Signup:                 cfg.OrgsAPIServer.Signup,
+		AllowSpecialUseDomains: cfg.OrgsAPIServer.AllowSpecialUseDomains,
+		TenantID:               cfg.TenantID,
+		SessionTTL:             cfg.OrgsAPIServer.SessionTTL,
+		SignupTTL:              cfg.OrgsAPIServer.SignupTTL,
+		InvitationTTL:          cfg.OrgsAPIServer.InvitationTTL,
+		PublicBaseURL:          cfg.OrgsAPIServer.PublicBaseURL,
+		CredentialKey:          credentialKey,
+		OfferedPlans:           cfg.OrgBilling.OfferedPlans,
+		Logos:                  logos,
 	}
 	if google := cfg.OrgsAPIServer.GoogleSignIn; google != nil {
 		clientSecret, err := google.ClientSecret()

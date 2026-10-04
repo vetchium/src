@@ -45,6 +45,14 @@ invariant).
   public mailbox providers.
 - Refuse at request a domain any Org in any tenant owns
   (`org-domain-already-owned`). There is no takeover.
+- Refuse a special-use domain (`orgs.IsSpecialUseDomain`: `test`, `example`,
+  `example.com`, `localhost`, and the rest of that list, or a subdomain) at
+  request and completion with `org-signup-domain-blocked`, unless the tenant's
+  `orgsAPIServer.allowSpecialUseDomains` is true. Only `config/` and
+  `config/ci/` set it; production leaves the default `false`.
+- `orgs-ui/src/app/regions/<env>.json` mirrors that switch per region
+  (`allowSpecialUseDomains`) so the form refuses early;
+  `TestPortalRegionTablesMatchCheckedInConfiguration` keeps them equal.
 
 ## Signup
 
@@ -64,6 +72,12 @@ invariant).
   enough for a separate DNS team to act.
 - The link page (`get-signup-details`) shows the domain, the record, and the
   expiry.
+- The link page also looks the record up from the browser through the build's
+  DNS-over-HTTPS resolver (`dnsOverHTTPS` in
+  `orgs-ui/src/app/regions/<env>.json`: Cloudflare in production, `doh-dev`
+  in development and CI), sending no credentials and no referrer. It warns
+  when the record is absent and never blocks submission: completion's own
+  lookup decides.
 - Completion takes the link token, the Org display name, and a new password.
   Collect no personal name; identify an Org user by email address.
 - The Org display name follows the Hub display-name rules (1 to 200 code points
@@ -97,9 +111,13 @@ invariant).
   neither authoritative nor recursive, or any other error). Only `absent`
   counts against a domain.
 - Never add an environment bypass. Development and CI publish real records in
-  the `dns-dev` server under the reserved zones `example` and `example.com`
-  (`playwright/lib/dev-dns.ts`, `make dev-seed-orgs`). Seeds use
-  `<tenant>.example.com`; tests use unique `*.example` domains.
+  the `dns-dev` server under the reserved zones `example`, `example.com`, and
+  `test` (`playwright/lib/dev-dns.ts`, `make dev-seed-orgs`). Seeds use
+  `<tenant>.example.com`; tests use unique `*.example` domains, or `*.test`
+  through `uniqueOrgDomain("test")`.
+- `cmd/doh-dev` (`internal/devdoh`) forwards RFC 8484 GET queries to `dns-dev`
+  over TCP for browsers, at `doh.vetchium.localhost` through the edge. It is
+  never published or deployed.
 
 ## Domain re-verification
 
@@ -191,6 +209,10 @@ by the `workers` schedule and check-now.
 
 ## Portal
 
+- The signup request form asks for the domain first, then only the address's
+  local part with that domain fixed, and explains the two emails, the TXT
+  record, and the private link before submission. The sent state offers no
+  way to change the address.
 - `orgs-ui` provides region choice, signup request, the private-link
   completion page, sign-in with a mandatory empty region picker, the TOTP
   step, Google sign-in and its callback, forgot and reset password, the

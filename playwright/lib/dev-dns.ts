@@ -5,9 +5,12 @@ import { uniqueTestID } from "./test-id.ts";
  * The development PowerDNS server is authoritative for these reserved zones
  * only, and every tenant resolves Org verification records through it. A
  * domain outside them gets REFUSED, which the backend treats as inconclusive.
- * Seeded Orgs live under example.com; tests use unique names under example.
+ * Seeded Orgs live under example.com; tests use unique names under example,
+ * or under test where a test needs that zone.
  */
-export const DEV_DNS_ZONES = ["example.com", "example"] as const;
+export const DEV_DNS_ZONES = ["example.com", "example", "test"] as const;
+
+type TestZone = Exclude<(typeof DEV_DNS_ZONES)[number], "example.com">;
 
 function zoneOf(domain: OrgDomain): string {
   const zone = DEV_DNS_ZONES.find((candidate) =>
@@ -26,9 +29,9 @@ export const DEV_DNS_ORIGIN =
 // loopback-only development server, not production data.
 const DEV_DNS_API_KEY = "vetchium-dev-dns-api-key";
 
-/** Return a domain under the development zone that no other test uses. */
-export function uniqueOrgDomain(): OrgDomain {
-  return `${uniqueTestID("org")}.example`;
+/** Return a domain under a development zone that no other test uses. */
+export function uniqueOrgDomain(zone: TestZone = "example"): OrgDomain {
+  return `${uniqueTestID("org")}.${zone}`;
 }
 
 /**

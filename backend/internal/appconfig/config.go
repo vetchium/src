@@ -93,11 +93,14 @@ type HubAPIServer struct {
 }
 
 type OrgsAPIServer struct {
-	Signup        regions.Admission
-	SessionTTL    time.Duration
-	SignupTTL     time.Duration
-	InvitationTTL time.Duration
-	PublicBaseURL string
+	Signup regions.Admission
+	// AllowSpecialUseDomains admits signups for names such as acme.test,
+	// which only development and CI DNS can serve.
+	AllowSpecialUseDomains bool
+	SessionTTL             time.Duration
+	SignupTTL              time.Duration
+	InvitationTTL          time.Duration
+	PublicBaseURL          string
 	// GoogleSignIn is nil when the tenant does not offer Google sign-in.
 	GoogleSignIn *GoogleSignIn
 }
@@ -282,12 +285,13 @@ type fileHubAPIServer struct {
 }
 
 type fileOrgsAPIServer struct {
-	Signup        *regions.Admission `json:"signup"`
-	SessionTTL    string             `json:"sessionTTL"`
-	SignupTTL     string             `json:"signupTTL"`
-	InvitationTTL string             `json:"invitationTTL"`
-	PublicBaseURL string             `json:"publicBaseURL"`
-	GoogleSignIn  *fileGoogleSignIn  `json:"googleSignIn"`
+	Signup                 *regions.Admission `json:"signup"`
+	AllowSpecialUseDomains bool               `json:"allowSpecialUseDomains"`
+	SessionTTL             string             `json:"sessionTTL"`
+	SignupTTL              string             `json:"signupTTL"`
+	InvitationTTL          string             `json:"invitationTTL"`
+	PublicBaseURL          string             `json:"publicBaseURL"`
+	GoogleSignIn           *fileGoogleSignIn  `json:"googleSignIn"`
 }
 
 type fileGoogleSignIn struct {
@@ -955,11 +959,12 @@ func parseOrgsAPIServer(raw fileOrgsAPIServer) (OrgsAPIServer, error) {
 		return OrgsAPIServer{}, err
 	}
 	server := OrgsAPIServer{
-		Signup:        admission,
-		SessionTTL:    sessionTTL,
-		SignupTTL:     signupTTL,
-		InvitationTTL: invitationTTL,
-		PublicBaseURL: publicBaseURL,
+		Signup:                 admission,
+		AllowSpecialUseDomains: raw.AllowSpecialUseDomains,
+		SessionTTL:             sessionTTL,
+		SignupTTL:              signupTTL,
+		InvitationTTL:          invitationTTL,
+		PublicBaseURL:          publicBaseURL,
 	}
 	if raw.GoogleSignIn != nil {
 		google, err := parseGoogleSignIn(*raw.GoogleSignIn)

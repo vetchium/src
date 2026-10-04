@@ -15,13 +15,19 @@ export default defineConfig(({ command, mode }) => {
     const { environment, apiOrigins } = buildRegions(
       loadEnv(mode, import.meta.dirname, "VITE_").VITE_VETCHIUM_ENVIRONMENT,
     );
-    const org: { regions: { mediaOrigin?: unknown }[] } = require(
-      `./src/app/regions/${environment}.json`,
-    );
+    const org: {
+      dnsOverHTTPS?: unknown;
+      regions: { mediaOrigin?: unknown }[];
+    } = require(`./src/app/regions/${environment}.json`);
     plugins.push(
       securityHeadersPlugin(
         {
-          connectSources: apiOrigins,
+          // The signup completion page checks its TXT record through the
+          // resolver before the region's API checks it again.
+          connectSources: [
+            ...apiOrigins,
+            new URL(String(org.dnsOverHTTPS)).origin,
+          ],
           imageSources: org.regions.map((region) => String(region.mediaOrigin)),
           noindexPathPrefixes: [],
           strictTransportSecurity: environment === "production",
