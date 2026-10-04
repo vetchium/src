@@ -30,7 +30,7 @@ func (s *pictureQueriesStub) QueueExpiredHubProfilePictureUploads(_ context.Cont
 }
 
 func (s *pictureQueriesStub) ClaimHubProfilePictureDeletion(
-	_ context.Context, _ pgtype.UUID,
+	_ context.Context, _ sqlc.ClaimHubProfilePictureDeletionParams,
 ) (sqlc.ClaimHubProfilePictureDeletionRow, error) {
 	if len(s.claims) == 0 {
 		return sqlc.ClaimHubProfilePictureDeletionRow{}, pgx.ErrNoRows

@@ -226,7 +226,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       hubSignupCompletionArtifactCounts(emailAddress, completeSignupKey),
     ).toEqual({
       activeSignupRequests: 0,
-      auditEvents: 2,
+      auditEvents: 4,
       hubUsers: 1,
       idempotencyRows: 0,
     });
@@ -264,10 +264,12 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       "vetchium-problem-details/idempotency-key-conflict",
     );
     const completionEvents = hubAuditEventsByIdempotencyKey(completeSignupKey);
-    expect(completionEvents).toHaveLength(4);
+    expect(completionEvents).toHaveLength(6);
     expect(completionEvents.map((event) => event.action)).toEqual(
       expect.arrayContaining([
         "hub.signup.completion_prepared",
+        "hub.signup.completion_reserved",
+        "hub.signup.completion_retry_scheduled",
         "hub.user.provisioning",
         "hub.user.created",
         "hub.subscription.created",

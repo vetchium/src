@@ -124,9 +124,6 @@ func run(pass *analysis.Pass) (any, error) {
 		if fact.Units > 0 || len(fact.ParamWrites) > 0 {
 			pass.ExportObjectFact(fn, fact)
 		}
-		if !reported {
-			continue
-		}
 		file := pass.Fset.File(decl.Pos())
 		if file == nil || strings.HasSuffix(file.Name(), "_test.go") {
 			continue
@@ -136,6 +133,9 @@ func run(pass *analysis.Pass) (any, error) {
 				pass.Reportf(decl.Name.Pos(),
 					"%s needs a reason after %s", decl.Name.Name, directive)
 			}
+			continue
+		}
+		if !reported {
 			continue
 		}
 		result := a.function(decl)

@@ -32,8 +32,14 @@ type aliasChangeQueries interface {
 	RecordFederationOperationRetry(context.Context,
 		sqlc.RecordFederationOperationRetryParams) (int64, error)
 	ResolveFederationOperation(context.Context,
-		sqlc.ResolveFederationOperationParams) (sqlc.VetchiumFederationOperation, error)
+		sqlc.ResolveFederationOperationParams) (sqlc.ResolveFederationOperationRow, error)
 }
+
+// The worker identities recorded as the actor of alias operation changes.
+var (
+	aliasChangeActor  = dbvalue.Text("hub-alias-change")
+	aliasReleaseActor = dbvalue.Text("hub-alias-release")
+)
 
 func (w *Worker) completeHubAliasChanges(ctx context.Context) error {
 	operations, err := w.aliasChangeQueries.ListRecoverableHubAliasChanges(
@@ -79,6 +85,8 @@ func (w *Worker) completeHubAliasChange(
 		sqlc.RecordFederationOperationRetryParams{
 			OperationID: operation.OperationID,
 			LastError:   "directory command outcome unknown",
+			TenantID:    w.tenantID, ActorType: "worker",
+			ActorID: aliasChangeActor, Source: "workers",
 		})
 	if err != nil {
 		return fmt.Errorf("mark Hub alias dispatch: %w", err)
@@ -159,7 +167,9 @@ func (w *Worker) finalizeAliasChange(
 		state = sqlc.VetchiumFederationOperationStateFailed
 		status = http.StatusConflict
 		if payload.ProfileAlias != nil {
-			if err := queueAliasCompensation(ctx, q, operation, payload); err != nil {
+			if err := queueAliasCompensation(
+				ctx, q, w.tenantID, operation, payload,
+			); err != nil {
 				return err
 			}
 		}
@@ -171,6 +181,8 @@ func (w *Worker) finalizeAliasChange(
 			OperationID: operation.OperationID, State: state,
 			ResponseStatus:     pgtype.Int4{Int32: int32(status), Valid: true},
 			ResponseCiphertext: []byte{},
+			TenantID:           w.tenantID, ActorType: "worker",
+			ActorID: aliasChangeActor, Source: "workers",
 		})
 	if err != nil {
 		return fmt.Errorf("resolve Hub alias operation: %w", err)
@@ -192,7 +204,7 @@ func (w *Worker) finalizeAliasChange(
 }
 
 func queueAliasCompensation(
-	ctx context.Context, q *sqlc.Queries,
+	ctx context.Context, q *sqlc.Queries, tenantID string,
 	operation sqlc.VetchiumFederationOperation, payload aliaschange.Payload,
 ) error {
 	operationID, err := dbvalue.NewUUID()
@@ -224,6 +236,8 @@ func queueAliasCompensation(
 		IdempotencyKey:     dbvalue.FormatUUID(operationID),
 		RequestDigest:      digest, PayloadBytes: commandPayload,
 		ExpiresAt: dbvalue.Timestamp(time.Now().Add(30 * 24 * time.Hour)),
+		TenantID:  tenantID, ActorType: "worker", ActorID: aliasChangeActor,
+		Source: "workers",
 	})
 	if err != nil {
 		return fmt.Errorf("queue Hub alias compensation: %w", err)
@@ -240,6 +254,8 @@ func (w *Worker) resolveAliasChange(
 			OperationID: operationID, State: state,
 			ResponseStatus:     pgtype.Int4{Int32: int32(status), Valid: true},
 			ResponseCiphertext: []byte{},
+			TenantID:           w.tenantID, ActorType: "worker",
+			ActorID: aliasChangeActor, Source: "workers",
 		})
 	if err != nil {
 		return fmt.Errorf("resolve Hub alias change: %w", err)

@@ -68,7 +68,18 @@ Applies to PostgreSQL access, `backend/internal/db/`, migrations, and seeds.
 - Every operation that commits an insert, update, or delete of application
   data writes at least one audit event in the same transaction, whatever the
   caller (portal API, mesh, worker). Exempt: the audit table itself,
-  migrations, and the idempotency ledger.
+  migrations, and the replay ledgers (`idempotency_ledger`,
+  `global_command_ledger`).
+- PostgreSQL enforces this. An insert into `audit_events`
+  (`global_audit_events` in the coordinator) marks the transaction; the
+  deferred `audit_required` constraint trigger on every other table refuses
+  the commit when the application role changed rows without the mark. The
+  table owner (migrations, `db-seed`, Playwright fixtures) is exempt; the
+  replay ledgers are named in `vetchium.require_audit()`. Every table needs
+  the trigger: the loop at the end of each `00001_init.sql` adds it to the
+  tables above it, and `make migration-check` fails on a table without it.
+- A write query that can run in a transaction of its own carries its audit
+  CTE; one that only ever runs beside an audited statement may rely on it.
 - Typed columns for everything used to authorize, filter, or paginate:
   - identity: event id, database-generated time, tenant;
   - subject: action name, entity type and id, useful parent ids;

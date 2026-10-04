@@ -53,9 +53,9 @@ func (s *aliasChangeQueriesStub) RecordFederationOperationRetry(
 
 func (s *aliasChangeQueriesStub) ResolveFederationOperation(
 	_ context.Context, arg sqlc.ResolveFederationOperationParams,
-) (sqlc.VetchiumFederationOperation, error) {
+) (sqlc.ResolveFederationOperationRow, error) {
 	s.state, s.status = arg.State, arg.ResponseStatus.Int32
-	return sqlc.VetchiumFederationOperation{}, nil
+	return sqlc.ResolveFederationOperationRow{}, nil
 }
 
 type aliasChangeDirectoryStub struct {

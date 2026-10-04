@@ -275,7 +275,7 @@ func (s *Service) Advance(
 		case sqlc.VetchiumHubAccountEmailChangeStateAccepted:
 			if !s.now().UTC().Before(change.NotAfter.Time) {
 				updated, err := s.cancel(
-					ctx, change, "reservation_expired",
+					ctx, change, "reservation_expired", source,
 				)
 				if err != nil {
 					return Result{}, err
@@ -319,7 +319,7 @@ func (s *Service) Advance(
 					outcome.Problem.Type ==
 						coordinatorproblem.DirectoryReservationCancelledError.Type {
 					updated, err := s.cancel(
-						ctx, change, "reservation_expired",
+						ctx, change, "reservation_expired", source,
 					)
 					if err != nil {
 						return Result{}, err
@@ -329,7 +329,7 @@ func (s *Service) Advance(
 				}
 				return s.directoryRefused(ctx, change, "reserve", outcome.Problem.Type)
 			}
-			updated, err := s.markReserved(ctx, change)
+			updated, err := s.markReserved(ctx, change, source)
 			if err != nil {
 				return Result{}, err
 			}
@@ -364,7 +364,7 @@ func (s *Service) Advance(
 					ctx, change, "finalize", outcome.Problem.Type,
 				)
 			}
-			if err := s.succeed(ctx, change); err != nil {
+			if err := s.succeed(ctx, change, source); err != nil {
 				return Result{}, err
 			}
 			return completedResult(change), nil
@@ -433,6 +433,9 @@ func (s *Service) Recover(ctx context.Context) (int, error) {
 			ctx, sqlc.RecordFederationOperationRetryParams{
 				OperationID: row.OperationID,
 				LastError:   "email change step outcome unknown",
+				TenantID:    s.tenantID, ActorType: "hub_user",
+				ActorID: dbvalue.Text(dbvalue.FormatUUID(row.HubUserDid)),
+				Source:  "workers",
 			},
 		)
 		if err != nil {
@@ -493,11 +496,18 @@ func (s *Service) directoryRefused(
 	return pendingResult(change), ErrPending
 }
 
-func (s *Service) markReserved(ctx context.Context, change Change) (Change, error) {
+func (s *Service) markReserved(
+	ctx context.Context, change Change, source string,
+) (Change, error) {
 	updated, err := s.reload(
 		ctx, change,
 		func(q *sqlc.Queries) (int64, error) {
-			return q.MarkHubAccountEmailChangeReserved(ctx, change.OperationID)
+			return q.MarkHubAccountEmailChangeReserved(
+				ctx, sqlc.MarkHubAccountEmailChangeReservedParams{
+					OperationID: change.OperationID,
+					TenantID:    s.tenantID, Source: source,
+				},
+			)
 		},
 	)
 	if err != nil {
@@ -541,6 +551,11 @@ func (s *Service) failDirectly(
 					Int32: int32(status), Valid: true,
 				},
 				ResponseCiphertext: []byte{},
+				TenantID:           s.tenantID, ActorType: "hub_user",
+				ActorID: dbvalue.Text(
+					dbvalue.FormatUUID(change.HubUserDid),
+				),
+				Source: source,
 			},
 		); err != nil {
 			return change, fmt.Errorf(
@@ -557,7 +572,7 @@ func (s *Service) failDirectly(
 // cancel moves 'accepted' or 'reserved' into 'cancelling', durably recording
 // why before the abandon call goes out (GU-ECH-003 row 3).
 func (s *Service) cancel(
-	ctx context.Context, change Change, reason string,
+	ctx context.Context, change Change, reason, source string,
 ) (Change, error) {
 	return s.reload(
 		ctx, change,
@@ -566,6 +581,7 @@ func (s *Service) cancel(
 				ctx, sqlc.MarkHubAccountEmailChangeCancellingParams{
 					FailureReason: dbvalue.Text(reason),
 					OperationID:   change.OperationID,
+					TenantID:      s.tenantID, Source: source,
 				},
 			)
 		},
@@ -588,7 +604,7 @@ func (s *Service) apply(ctx context.Context, change Change, source string) (Chan
 		},
 	)
 	if isAccountEmailTaken(err) {
-		return s.cancel(ctx, change, "address_unavailable")
+		return s.cancel(ctx, change, "address_unavailable", source)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s.reget(ctx, change)
@@ -599,14 +615,21 @@ func (s *Service) apply(ctx context.Context, change Change, source string) (Chan
 	return s.reget(ctx, change)
 }
 
-func (s *Service) succeed(ctx context.Context, change Change) error {
+func (s *Service) succeed(
+	ctx context.Context, change Change, source string,
+) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := sqlc.New(tx)
-	rows, err := q.MarkHubAccountEmailChangeSucceeded(ctx, change.OperationID)
+	rows, err := q.MarkHubAccountEmailChangeSucceeded(
+		ctx, sqlc.MarkHubAccountEmailChangeSucceededParams{
+			OperationID: change.OperationID,
+			TenantID:    s.tenantID, Source: source,
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("mark Hub account email change succeeded: %w", err)
 	}
@@ -619,6 +642,11 @@ func (s *Service) succeed(ctx context.Context, change Change) error {
 					Int32: 204, Valid: true,
 				},
 				ResponseCiphertext: []byte{},
+				TenantID:           s.tenantID, ActorType: "hub_user",
+				ActorID: dbvalue.Text(
+					dbvalue.FormatUUID(change.HubUserDid),
+				),
+				Source: source,
 			},
 		); err != nil {
 			return fmt.Errorf(
@@ -659,6 +687,11 @@ func (s *Service) fail(ctx context.Context, change Change, source string) error 
 					Int32: int32(status), Valid: true,
 				},
 				ResponseCiphertext: []byte{},
+				TenantID:           s.tenantID, ActorType: "hub_user",
+				ActorID: dbvalue.Text(
+					dbvalue.FormatUUID(change.HubUserDid),
+				),
+				Source: source,
 			},
 		); err != nil {
 			return fmt.Errorf(

@@ -435,6 +435,79 @@ CREATE TABLE vetchium.global_outbox_events (
     )
 );
 
+-- Every application transaction that changes a row also writes an audit
+-- event. Inserting an audit event marks the transaction; a deferred trigger
+-- on every other table checks the mark at commit and refuses the commit
+-- without it. Sessions of the table owner (migrations, fixtures, operators)
+-- are not application writes. Exempt: global_command_ledger, the replay
+-- ledger, which records responses rather than changes.
+-- +goose StatementBegin
+CREATE FUNCTION vetchium.mark_transaction_audited()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM pg_catalog.set_config('vetchium.audited', 'on', true);
+    RETURN NULL;
+END;
+$$;
+-- +goose StatementEnd
+
+-- +goose StatementBegin
+CREATE FUNCTION vetchium.require_audit()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF pg_catalog.current_setting('vetchium.audited', true) = 'on'
+        OR TG_TABLE_NAME = 'global_command_ledger' THEN
+        RETURN NULL;
+    END IF;
+    IF pg_catalog.pg_has_role(
+        current_user,
+        (SELECT c.relowner FROM pg_catalog.pg_class AS c WHERE c.oid = TG_RELID),
+        'MEMBER'
+    ) THEN
+        RETURN NULL;
+    END IF;
+    RAISE EXCEPTION 'transaction changed %.% without an audit event',
+        TG_TABLE_SCHEMA, TG_TABLE_NAME
+        USING ERRCODE = 'integrity_constraint_violation';
+END;
+$$;
+-- +goose StatementEnd
+
+CREATE TRIGGER audit_marks_transaction
+AFTER INSERT ON vetchium.global_audit_events
+FOR EACH ROW EXECUTE FUNCTION vetchium.mark_transaction_audited();
+
+-- Audit events are append-only for the application.
+REVOKE UPDATE, DELETE, TRUNCATE ON vetchium.global_audit_events FROM vetchium_app;
+
+-- +goose StatementBegin
+DO $$
+DECLARE
+    audited regclass;
+BEGIN
+    FOR audited IN
+        SELECT c.oid::regclass
+        FROM pg_catalog.pg_class AS c
+        WHERE c.relnamespace = 'vetchium'::regnamespace
+          AND c.relkind = 'r'
+          AND c.relname <> 'global_audit_events'
+    LOOP
+        EXECUTE pg_catalog.format(
+            'CREATE CONSTRAINT TRIGGER audit_required '
+            'AFTER INSERT OR UPDATE OR DELETE ON %s '
+            'DEFERRABLE INITIALLY DEFERRED '
+            'FOR EACH ROW EXECUTE FUNCTION vetchium.require_audit()',
+            audited
+        );
+    END LOOP;
+END;
+$$;
+-- +goose StatementEnd
+
 -- +goose Down
 DROP TABLE IF EXISTS vetchium.global_outbox_events;
 DROP TABLE IF EXISTS vetchium.global_command_ledger;
@@ -458,3 +531,5 @@ DROP TABLE IF EXISTS vetchium.hub_principals;
 DROP FUNCTION IF EXISTS vetchium.enforce_principal_transition();
 DROP TYPE IF EXISTS vetchium.global_profile_slug_kind;
 DROP TYPE IF EXISTS vetchium.global_principal_state;
+DROP FUNCTION IF EXISTS vetchium.require_audit();
+DROP FUNCTION IF EXISTS vetchium.mark_transaction_audited();

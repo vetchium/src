@@ -19,6 +19,12 @@ Each item: what is not done, and what must be decided first.
 - `orgs-ui` `PlanOptions`: the `mcp` comparison row falls through to the
   ticket-support entitlement, and a label ternary is a no-op.
   `users.state.disabledManual` is unused in every locale.
+- Federation tables without a production caller: `federation_outbox`,
+  `federation_inbox`, and `federation_command_ledger` are written only by
+  `internal/db` integration tests, and `PruneExpiredFederationOperations` and
+  `RetryFederationOutboxEvent` have no caller. Their writes carry no audit
+  event. Decide whether cross-tenant commands will use them; then wire them
+  with audit CTEs or delete them.
 
 ## Test coverage
 
@@ -28,6 +34,9 @@ Each item: what is not done, and what must be decided first.
 - Go contract tests for `typespec/hub/auth` and `typespec/hub/users`.
 - `backend/handlers/mesh` directory relays have no Go tests; only the
   Playwright API suite exercises them.
+- The database integration tests (`TENANT_DATABASE_URL`,
+  `GLOBAL_DATABASE_URL`) run in no make target. Decide where they run (a
+  scratch database like `make migration-check`, or the CI stack).
 
 ## Hub
 

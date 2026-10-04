@@ -362,41 +362,143 @@ WITH eligible_signup AS (
 SELECT * FROM inserted;
 
 -- name: RotateHubSignupCompletionHandle :one
-UPDATE vetchium.hub_signup_completions
-SET handle = sqlc.arg(handle),
-    reserve_command_id = sqlc.arg(new_reserve_command_id),
-    attempt_count = attempt_count + 1,
-    updated_at = now(),
-    next_attempt_at = now(),
-    last_error = 'global_handle_conflict'
-WHERE operation_id = sqlc.arg(operation_id)
-  AND state = 'prepared'
-  AND reserve_command_id = sqlc.arg(previous_reserve_command_id)
-RETURNING *;
+WITH updated AS (
+    UPDATE vetchium.hub_signup_completions
+    SET handle = sqlc.arg(handle),
+        reserve_command_id = sqlc.arg(new_reserve_command_id),
+        attempt_count = attempt_count + 1,
+        updated_at = now(),
+        next_attempt_at = now(),
+        last_error = 'global_handle_conflict'
+    WHERE operation_id = sqlc.arg(operation_id)
+      AND state = 'prepared'
+      AND reserve_command_id = sqlc.arg(previous_reserve_command_id)
+    RETURNING *
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, source,
+        idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'hub.signup.completion_handle_rotated',
+        'hub_signup_completion',
+        operation_id::text,
+        'system',
+        sqlc.arg(source),
+        idempotency_key,
+        jsonb_build_object('hub_user_did', hub_user_did, 'handle', handle)
+    FROM updated
+)
+SELECT
+    operation_id,
+    hub_signup_request_id,
+    token_hash,
+    idempotency_key,
+    request_digest,
+    account_email_digest,
+    hub_user_did,
+    handle,
+    reserve_command_id,
+    activate_command_id,
+    payload_ciphertext,
+    state,
+    failure_reason,
+    conflicting_home_tenant_id,
+    provisioning_expires_at,
+    attempt_count,
+    next_attempt_at,
+    last_error,
+    created_at,
+    updated_at,
+    completed_at,
+    expires_at
+FROM updated;
 
 -- name: MarkHubSignupCompletionReserved :one
-UPDATE vetchium.hub_signup_completions
-SET state = 'reserved',
-    attempt_count = attempt_count + 1,
-    updated_at = now(),
-    next_attempt_at = now(),
-    last_error = NULL
-WHERE operation_id = sqlc.arg(operation_id)
-  AND state = 'prepared'
-  AND reserve_command_id = sqlc.arg(reserve_command_id)
-RETURNING *;
+WITH updated AS (
+    UPDATE vetchium.hub_signup_completions
+    SET state = 'reserved',
+        attempt_count = attempt_count + 1,
+        updated_at = now(),
+        next_attempt_at = now(),
+        last_error = NULL
+    WHERE operation_id = sqlc.arg(operation_id)
+      AND state = 'prepared'
+      AND reserve_command_id = sqlc.arg(reserve_command_id)
+    RETURNING *
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, source,
+        idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'hub.signup.completion_reserved',
+        'hub_signup_completion',
+        operation_id::text,
+        'system',
+        sqlc.arg(source),
+        idempotency_key,
+        jsonb_build_object('hub_user_did', hub_user_did, 'handle', handle)
+    FROM updated
+)
+SELECT
+    operation_id,
+    hub_signup_request_id,
+    token_hash,
+    idempotency_key,
+    request_digest,
+    account_email_digest,
+    hub_user_did,
+    handle,
+    reserve_command_id,
+    activate_command_id,
+    payload_ciphertext,
+    state,
+    failure_reason,
+    conflicting_home_tenant_id,
+    provisioning_expires_at,
+    attempt_count,
+    next_attempt_at,
+    last_error,
+    created_at,
+    updated_at,
+    completed_at,
+    expires_at
+FROM updated;
 
 -- name: RecordHubSignupCompletionRetry :exec
-UPDATE vetchium.hub_signup_completions
-SET attempt_count = attempt_count + 1,
-    updated_at = now(),
-    next_attempt_at = now() + LEAST(
-        interval '5 minutes',
-        interval '1 second' * power(2, LEAST(attempt_count, 8))
-    ),
-    last_error = left(sqlc.arg(last_error), 200)
-WHERE operation_id = sqlc.arg(operation_id)
-  AND state <> 'completed';
+WITH updated AS (
+    UPDATE vetchium.hub_signup_completions
+    SET attempt_count = attempt_count + 1,
+        updated_at = now(),
+        next_attempt_at = now() + LEAST(
+            interval '5 minutes',
+            interval '1 second' * power(2, LEAST(attempt_count, 8))
+        ),
+        last_error = left(sqlc.arg(last_error), 200)
+    WHERE operation_id = sqlc.arg(operation_id)
+      AND state <> 'completed'
+    RETURNING operation_id, idempotency_key, attempt_count, next_attempt_at
+)
+INSERT INTO vetchium.audit_events (
+    tenant_id, action, entity_type, entity_id, actor_type, source,
+    idempotency_key, payload
+)
+SELECT
+    sqlc.arg(tenant_id),
+    'hub.signup.completion_retry_scheduled',
+    'hub_signup_completion',
+    operation_id::text,
+    'system',
+    sqlc.arg(source),
+    idempotency_key,
+    jsonb_build_object(
+        'attempt_count', attempt_count,
+        'next_attempt_at', next_attempt_at
+    )
+FROM updated;
 
 -- name: CreateProvisioningHubUser :one
 WITH locked_operation AS (
@@ -764,10 +866,32 @@ WHERE state NOT IN ('completed', 'failed')
 ORDER BY next_attempt_at, created_at
 LIMIT 25;
 
--- name: PruneExpiredHubSignupCompletions :execrows
-DELETE FROM vetchium.hub_signup_completions
-WHERE state IN ('completed', 'failed')
-  AND expires_at <= now();
+-- name: PruneExpiredHubSignupCompletions :one
+WITH deleted AS (
+    DELETE FROM vetchium.hub_signup_completions
+    WHERE state IN ('completed', 'failed')
+      AND expires_at <= now()
+    RETURNING operation_id
+), summary AS (
+    SELECT count(*)::bigint AS deleted_count FROM deleted
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'hub.housekeeping.signup-completions-pruned',
+        'housekeeping_batch',
+        gen_random_uuid()::text,
+        'worker',
+        'workers',
+        'workers',
+        jsonb_build_object('deleted_count', deleted_count)
+    FROM summary
+    WHERE deleted_count > 0
+)
+SELECT deleted_count FROM summary;
 
 -- name: CompleteHubSignup :one
 WITH eligible_signup AS (

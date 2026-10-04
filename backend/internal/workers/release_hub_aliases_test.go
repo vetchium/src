@@ -43,12 +43,12 @@ func (s *aliasReleaseQueriesStub) RecordFederationOperationRetry(
 
 func (s *aliasReleaseQueriesStub) ResolveFederationOperation(
 	_ context.Context, arg sqlc.ResolveFederationOperationParams,
-) (sqlc.VetchiumFederationOperation, error) {
+) (sqlc.ResolveFederationOperationRow, error) {
 	s.state, s.status = arg.State, arg.ResponseStatus.Int32
 	if !arg.ResponseStatus.Valid || arg.ResponseCiphertext == nil {
-		return sqlc.VetchiumFederationOperation{}, errors.New("missing durable outcome")
+		return sqlc.ResolveFederationOperationRow{}, errors.New("missing durable outcome")
 	}
-	return sqlc.VetchiumFederationOperation{}, nil
+	return sqlc.ResolveFederationOperationRow{}, nil
 }
 
 type aliasReleaseDirectoryStub struct {

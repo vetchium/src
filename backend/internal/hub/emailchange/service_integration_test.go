@@ -488,6 +488,7 @@ func seedReservedChange(
 	oldDigest := fakeDigester{}.HubAccountEmail("concurrent-apply-test@example.com")
 	newDigest := fakeDigester{}.HubAccountEmail(newAddress)
 	if _, err := q.CreateFederationOperation(ctx, sqlc.CreateFederationOperationParams{
+		TenantID: "sgp", ActorType: "worker", Source: "workers",
 		OperationID: operationID, CommandID: commandID,
 		Kind: "hub-account-email-change", TargetAuthority: "global-directory",
 		AggregateID:        dbvalue.FormatUUID(hubUserDID),

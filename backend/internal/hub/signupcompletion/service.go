@@ -272,7 +272,9 @@ func (s *Service) Advance(
 				},
 			)
 			if err != nil {
-				return s.directoryUnreachable(ctx, operation, "reserve", err)
+				return s.directoryUnreachable(
+					ctx, operation, "reserve", err, source,
+				)
 			}
 			if outcome.Problem != nil {
 				// Checked first and distinctly from the handle conflict
@@ -285,7 +287,7 @@ func (s *Service) Advance(
 				}
 				if outcome.Problem.Type == coordinatorproblem.DirectoryClaimConflictError.Type &&
 					operation.AttemptCount < handleAttempts {
-					rotated, rotateErr := s.rotateHandle(ctx, operation)
+					rotated, rotateErr := s.rotateHandle(ctx, operation, source)
 					if rotateErr != nil {
 						return Result{}, rotateErr
 					}
@@ -293,25 +295,32 @@ func (s *Service) Advance(
 					continue
 				}
 				return s.directoryRefused(
-					ctx, operation, "reserve", outcome.Problem.Type,
+					ctx, operation, "reserve", outcome.Problem.Type, source,
 				)
 			}
 			if err := validatePrincipal(outcome.Principal, operation, s.tenantID, directoryspec.PrincipalProvisioning); err != nil {
 				return s.directoryRefused(
-					ctx, operation, "reserve", "mismatched principal",
+					ctx, operation, "reserve", "mismatched principal", source,
 				)
 			}
-			operation, err = s.queries.MarkHubSignupCompletionReserved(
+			reserved, err := s.queries.MarkHubSignupCompletionReserved(
 				ctx, sqlc.MarkHubSignupCompletionReservedParams{
 					OperationID:      operation.OperationID,
 					ReserveCommandID: operation.ReserveCommandID,
+					TenantID:         s.tenantID, Source: source,
 				},
 			)
+			next := sqlc.VetchiumHubSignupCompletion(reserved)
 			if errors.Is(err, pgx.ErrNoRows) {
-				operation, err = s.queries.GetHubSignupCompletion(ctx, operation.OperationID)
+				next, err = s.queries.GetHubSignupCompletion(
+					ctx, operation.OperationID,
+				)
+			}
+			if err == nil {
+				operation = next
 			}
 			if err != nil {
-				s.recordRetry(ctx, operation.OperationID, err)
+				s.recordRetry(ctx, operation.OperationID, err, source)
 				return pendingResult(operation), ErrPending
 			}
 
@@ -321,13 +330,13 @@ func (s *Service) Advance(
 				operation, err = s.queries.GetHubSignupCompletion(ctx, operation.OperationID)
 				if err == nil &&
 					operation.State == sqlc.VetchiumHubSignupCompletionStateReserved {
-					return s.requestInactive(ctx, operation)
+					return s.requestInactive(ctx, operation, source)
 				}
 			} else if err == nil {
 				operation = fromCreate(created)
 			}
 			if err != nil {
-				s.recordRetry(ctx, operation.OperationID, err)
+				s.recordRetry(ctx, operation.OperationID, err, source)
 				return pendingResult(operation), ErrPending
 			}
 
@@ -339,7 +348,9 @@ func (s *Service) Advance(
 				},
 			)
 			if err != nil {
-				return s.directoryUnreachable(ctx, operation, "activate", err)
+				return s.directoryUnreachable(
+					ctx, operation, "activate", err, source,
+				)
 			}
 			if outcome.Problem != nil {
 				if outcome.Problem.Type == coordinatorproblem.DirectoryStateConflictError.Type &&
@@ -350,12 +361,12 @@ func (s *Service) Advance(
 					return pendingResult(operation), ErrExpired
 				}
 				return s.directoryRefused(
-					ctx, operation, "activate", outcome.Problem.Type,
+					ctx, operation, "activate", outcome.Problem.Type, source,
 				)
 			}
 			if err := validatePrincipal(outcome.Principal, operation, s.tenantID, directoryspec.PrincipalActive); err != nil {
 				return s.directoryRefused(
-					ctx, operation, "activate", "mismatched principal",
+					ctx, operation, "activate", "mismatched principal", source,
 				)
 			}
 			completed, err := s.queries.CompleteProvisioningHubUser(
@@ -370,7 +381,7 @@ func (s *Service) Advance(
 				operation = fromComplete(completed)
 			}
 			if err != nil {
-				s.recordRetry(ctx, operation.OperationID, err)
+				s.recordRetry(ctx, operation.OperationID, err, source)
 				return pendingResult(operation), ErrPending
 			}
 
@@ -409,7 +420,9 @@ func (s *Service) Recover(ctx context.Context) (int, error) {
 			completed++
 		}
 	}
-	if _, err := s.queries.PruneExpiredHubSignupCompletions(ctx); err != nil {
+	if _, err := s.queries.PruneExpiredHubSignupCompletions(
+		ctx, s.tenantID,
+	); err != nil {
 		return completed, fmt.Errorf("prune expired signup completions: %w", err)
 	}
 	return completed, nil
@@ -513,6 +526,7 @@ func (s *Service) createLocal(
 
 func (s *Service) rotateHandle(
 	ctx context.Context, operation sqlc.VetchiumHubSignupCompletion,
+	source string,
 ) (sqlc.VetchiumHubSignupCompletion, error) {
 	plaintext, err := credentials.Decrypt(s.payloadKey, operation.PayloadCiphertext)
 	if err != nil {
@@ -530,20 +544,22 @@ func (s *Service) rotateHandle(
 	if err != nil {
 		return operation, err
 	}
-	return s.queries.RotateHubSignupCompletionHandle(
+	rotated, err := s.queries.RotateHubSignupCompletionHandle(
 		ctx, sqlc.RotateHubSignupCompletionHandleParams{
 			Handle: string(handle), NewReserveCommandID: commandID,
 			OperationID:              operation.OperationID,
 			PreviousReserveCommandID: operation.ReserveCommandID,
+			TenantID:                 s.tenantID, Source: source,
 		},
 	)
+	return sqlc.VetchiumHubSignupCompletion(rotated), err
 }
 
 // directoryUnreachable schedules another attempt after a directory command
 // failed in transport, which is expected during a coordinator outage.
 func (s *Service) directoryUnreachable(
 	ctx context.Context, operation sqlc.VetchiumHubSignupCompletion,
-	command string, err error,
+	command string, err error, source string,
 ) (Result, error) {
 	s.log.WarnContext(
 		ctx, "Hub signup completion directory command pending",
@@ -552,7 +568,7 @@ func (s *Service) directoryUnreachable(
 		"operationID", dbvalue.FormatUUID(operation.OperationID),
 		"error", err,
 	)
-	s.recordRetry(ctx, operation.OperationID, err)
+	s.recordRetry(ctx, operation.OperationID, err, source)
 	return pendingResult(operation), ErrPending
 }
 
@@ -562,7 +578,7 @@ func (s *Service) directoryUnreachable(
 // level for an operator, without the address or its digest.
 func (s *Service) directoryRefused(
 	ctx context.Context, operation sqlc.VetchiumHubSignupCompletion,
-	command, reason string,
+	command, reason, source string,
 ) (Result, error) {
 	s.log.ErrorContext(
 		ctx, "Hub signup completion directory command refused",
@@ -573,7 +589,7 @@ func (s *Service) directoryRefused(
 	)
 	s.recordRetry(
 		ctx, operation.OperationID,
-		fmt.Errorf("%s global principal: %s", command, reason),
+		fmt.Errorf("%s global principal: %s", command, reason), source,
 	)
 	return pendingResult(operation), ErrPending
 }
@@ -584,6 +600,7 @@ func (s *Service) directoryRefused(
 // retries until its reservation expires and is abandoned.
 func (s *Service) requestInactive(
 	ctx context.Context, operation sqlc.VetchiumHubSignupCompletion,
+	source string,
 ) (Result, error) {
 	s.log.ErrorContext(
 		ctx, "Hub signup completion lost its signup request",
@@ -592,14 +609,18 @@ func (s *Service) requestInactive(
 	)
 	s.recordRetry(
 		ctx, operation.OperationID, errors.New("signup request is not active"),
+		source,
 	)
 	return pendingResult(operation), ErrPending
 }
 
-func (s *Service) recordRetry(ctx context.Context, operationID pgtype.UUID, err error) {
+func (s *Service) recordRetry(
+	ctx context.Context, operationID pgtype.UUID, err error, source string,
+) {
 	_ = s.queries.RecordHubSignupCompletionRetry(
 		ctx, sqlc.RecordHubSignupCompletionRetryParams{
 			OperationID: operationID, LastError: err.Error(),
+			TenantID: s.tenantID, Source: source,
 		},
 	)
 }

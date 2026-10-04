@@ -83,6 +83,7 @@ func TestHubAliasCompletionAndCompensationIntegration(t *testing.T) {
 			q := sqlc.New(pool)
 			operation, err := q.CreateFederationOperation(ctx,
 				sqlc.CreateFederationOperationParams{
+					TenantID: "sgp", ActorType: "worker", Source: "workers",
 					OperationID: operationID, CommandID: commandID,
 					Kind: "hub-alias-change", TargetAuthority: "global-directory",
 					AggregateID:        dbvalue.FormatUUID(did),
@@ -113,7 +114,9 @@ func TestHubAliasCompletionAndCompensationIntegration(t *testing.T) {
 				aliasChangeDB: pool, tenantID: "sgp",
 				log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 			}
-			if err := worker.finalizeAliasChange(ctx, operation, payload, did); err != nil {
+			if err := worker.finalizeAliasChange(
+				ctx, sqlc.VetchiumFederationOperation(operation), payload, did,
+			); err != nil {
 				t.Fatal(err)
 			}
 			resolved, err := q.GetFederationOperation(ctx, operationID)

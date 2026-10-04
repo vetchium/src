@@ -33,3 +33,7 @@ func (s *Service) Saga(ctx context.Context) { // want Saga:"commits 1"
 	_ = s.Queries.SaveUser(ctx)
 	_ = s.Queries.UpsertUser(ctx)
 }
+
+//vetchium:multiple-commits
+func Unexplained(ctx context.Context, s *Service) { // want `Unexplained needs a reason after //vetchium:multiple-commits`
+}
