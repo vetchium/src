@@ -32,6 +32,16 @@ WITH owner AS (
 )
 SELECT object_id FROM inserted;
 
+-- name: LockOrgForLogoChange :exec
+-- Run before the logo statements in each upload transaction. They lock the
+-- owner inside CTEs that the planner may never scan (when no logo row matches),
+-- and a statement that does wait keeps its pre-wait snapshot, missing a
+-- concurrent upload's staged row.
+SELECT 1
+FROM vetchium.orgs
+WHERE org_did = sqlc.arg(org_did)
+FOR UPDATE;
+
 -- name: GetOrgLogoUpload :one
 WITH owner AS MATERIALIZED (
     SELECT o.org_did, o.org_plan_oid

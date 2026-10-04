@@ -1,5 +1,10 @@
-import type { Page } from "@playwright/test";
+import type { APIResponse, Page } from "@playwright/test";
 import { expectProblem } from "../lib/admin-api.ts";
+import {
+  type HeldOrgRowLock,
+  holdOrgRowLock,
+  waitForBlockedBy,
+} from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
 import { makeJPEG128, makePNG, withTextChunk } from "../lib/logo-fixtures.ts";
@@ -10,6 +15,7 @@ import {
   inviteeAddress,
   loginOrg,
   OrgsAPI,
+  orgDID,
   orgInfo,
   orgSQL,
   orgsIdempotencyKey,
@@ -401,5 +407,44 @@ test("a superseded unfinished logo upload cannot replace the newer logo on retry
     const after = await fetch((await logoURL(api, owner)) ?? "");
     expect(after.status).toBe(200);
     expect(Buffer.from(await after.arrayBuffer())).toEqual(bytes);
+  });
+});
+
+test("two concurrent logo uploads race to activate, and the one that loses the race reports a logo conflict", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, org, owner) => {
+    await onSilver(api, owner);
+    let lock: HeldOrgRowLock | undefined;
+    let uploadA: Promise<APIResponse> | undefined;
+    let uploadB: Promise<APIResponse> | undefined;
+    try {
+      // Both uploads queue behind the Org row lock, so the second to stage
+      // supersedes the first's staged row before the first can activate.
+      lock = await holdOrgRowLock(orgDID(org.domain), "sgp");
+      uploadA = api.uploadLogo(owner, "image/png", makePNG(200, 200));
+      uploadB = api.uploadLogo(owner, "image/png", makePNG(220, 220));
+      await waitForBlockedBy("sgp", lock.holderPID, 2);
+      await lock.release();
+      lock = undefined;
+
+      const [responseA, responseB] = await Promise.all([uploadA, uploadB]);
+      uploadA = undefined;
+      uploadB = undefined;
+      const statuses = [responseA.status(), responseB.status()].sort(
+        (a, b) => a - b,
+      );
+      expect(statuses).toEqual([204, 409]);
+      await expectProblem(
+        responseA.status() === 409 ? responseA : responseB,
+        409,
+        "vetchium-problem-details/org-logo-conflict",
+      );
+      expect(await logoURL(api, owner)).toBeDefined();
+      expect(logoRows(org, "active")).toBe(1);
+    } finally {
+      if (lock !== undefined) await lock.release();
+      await Promise.allSettled([uploadA, uploadB]);
+    }
   });
 });

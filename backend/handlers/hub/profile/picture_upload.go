@@ -163,6 +163,9 @@ func preparePictureUpload(
 	} else {
 		return false, nil, err
 	}
+	if err := q.LockHubUserForPictureChange(ctx, did); err != nil {
+		return false, nil, err
+	}
 	staged, err := q.GetHubProfilePictureUpload(ctx,
 		sqlc.GetHubProfilePictureUploadParams{
 			ObjectID: objectID, HubUserDid: did,
@@ -243,6 +246,9 @@ func activatePictureUpload(
 			return nil, fmt.Errorf("unexpected picture replay status %d", stored.ResponseStatus.Int32)
 		}
 		return nil, tx.Commit(ctx)
+	}
+	if err := q.LockHubUserForPictureChange(ctx, did); err != nil {
+		return nil, err
 	}
 	if _, err := q.RetireHubProfilePictureForReplacement(ctx,
 		sqlc.RetireHubProfilePictureForReplacementParams{

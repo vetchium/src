@@ -226,7 +226,7 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       hubSignupCompletionArtifactCounts(emailAddress, completeSignupKey),
     ).toEqual({
       activeSignupRequests: 0,
-      auditEvents: 4,
+      apiAuditEvents: 4,
       hubUsers: 1,
       idempotencyRows: 0,
     });

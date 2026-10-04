@@ -57,9 +57,10 @@ export function PreferencesPage() {
               aria-label={t("fields.language")}
               value={me.preferred_language}
               loading={language.isPending}
-              disabled={language.isPending}
               options={frontendLocaleOptions(preferences.supportedLocales)}
-              onChange={(value) => language.mutate(value)}
+              onChange={(value) => {
+                if (!language.isPending) language.mutate(value);
+              }}
             />
           </Form.Item>
         </Form>
@@ -78,9 +79,10 @@ export function PreferencesPage() {
               showSearch={{ optionFilterProp: "label" }}
               value={me.preferred_job_countries}
               loading={jobs.isPending}
-              disabled={jobs.isPending}
               options={countryOptions(preferences.language)}
-              onChange={(value: CountryCode[]) => jobs.mutate(value)}
+              onChange={(value: CountryCode[]) => {
+                if (!jobs.isPending) jobs.mutate(value);
+              }}
             />
           </Form.Item>
         </Form>

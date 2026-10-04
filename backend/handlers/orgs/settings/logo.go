@@ -180,6 +180,9 @@ func prepareUpload(
 	} else {
 		return false, nil, err
 	}
+	if err := q.LockOrgForLogoChange(ctx, identity.OrgDID); err != nil {
+		return false, nil, err
+	}
 	staged, err := q.GetOrgLogoUpload(ctx, sqlc.GetOrgLogoUploadParams{
 		ObjectID: objectID, OrgDid: identity.OrgDID,
 	})
@@ -260,6 +263,9 @@ func activateUpload(
 			return nil, fmt.Errorf("unexpected logo replay status %d", stored.ResponseStatus.Int32)
 		}
 		return nil, tx.Commit(ctx)
+	}
+	if err := q.LockOrgForLogoChange(ctx, identity.OrgDID); err != nil {
+		return nil, err
 	}
 	if _, err := q.RetireOrgLogoForReplacement(ctx, sqlc.RetireOrgLogoForReplacementParams{
 		OrgDid: identity.OrgDID, EntitledPlanOids: entitledPlans(), ObjectID: objectID,

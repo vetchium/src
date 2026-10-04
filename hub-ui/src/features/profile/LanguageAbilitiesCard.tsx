@@ -102,6 +102,7 @@ function AbilitySection({
   const abilityLabel = t(`profileLanguages.abilities.${ability}`);
 
   const handleChange = (next: LanguageTag[]) => {
+    if (busy) return;
     const current = new Set(tags);
     const nextSet = new Set(next);
     const added = next.find((tag) => !current.has(tag));
@@ -133,7 +134,10 @@ function AbilitySection({
         placeholder={t("profileLanguages.selectPlaceholder")}
         showSearch
         optionFilterProp="label"
-        disabled={busy}
+        // Disabling the focused input would drop the Enter keyup that
+        // rc-select needs to unlock Enter, swallowing the next keyboard
+        // selection; changes made while saving are ignored instead.
+        loading={busy}
         maxCount={languageLimit}
         maxTagCount="responsive"
         value={value}

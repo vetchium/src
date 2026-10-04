@@ -267,6 +267,16 @@ SELECT object_id, hub_user_did, format, byte_size, width, height,
     delete_requested_at
 FROM inserted;
 
+-- name: LockHubUserForPictureChange :exec
+-- Run before the picture statements in each upload transaction. They lock the
+-- owner inside CTEs that the planner may never scan (when no picture row
+-- matches), and a statement that does wait keeps its pre-wait snapshot, missing
+-- a concurrent upload's staged row.
+SELECT 1
+FROM vetchium.hub_users
+WHERE hub_user_did = sqlc.arg(hub_user_did)
+FOR UPDATE;
+
 -- name: GetHubProfilePictureUpload :one
 WITH owner AS MATERIALIZED (
     SELECT hub_user_did, hub_plan_oid

@@ -49,6 +49,9 @@ Applies to PostgreSQL access, `backend/internal/db/`, migrations, and seeds.
 - A statement that waits on `FOR UPDATE` re-reads only the locked rows;
   whatever else it joins stays as it was before the wait. When a decision
   reads other tables, lock in one statement and read in the next.
+- A `FOR UPDATE` CTE locks only if the plan reads it; a join whose other side
+  finds no rows can skip it. Take a lock that must always happen in a plain
+  `SELECT ... FOR UPDATE` of its own.
 - A handler commits once per request. Two commits only where an external call
   must sit between them (an object-store upload, an identity-provider
   exchange), and then never hold a transaction open across that call.

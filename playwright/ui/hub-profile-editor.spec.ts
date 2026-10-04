@@ -479,9 +479,16 @@ test("a language can be added then removed within one ability", async ({
   });
   const speaking = page.getByRole("combobox", { name: "Speaking" });
   await speaking.fill("French");
-  await speaking.press("Enter");
+  // A person releases Enter after the save has started; that keyup must still
+  // reach the select, or it keeps Enter locked and ignores the removal below.
+  const addRequest = page.waitForRequest("**/api/hub/profile/add-language");
+  await page.keyboard.down("Enter");
+  await addRequest;
+  await page.keyboard.up("Enter");
   await page.keyboard.press("Escape");
-  await expect(page.getByText("French", { exact: true })).toBeVisible();
+  // The still-focused select also announces "French" in a live region, so
+  // match the selected tag by its title.
+  await expect(page.getByTitle("French", { exact: true })).toBeVisible();
   await expect(page.getByText("1/25")).toBeVisible();
 
   await page.route("**/api/hub/profile/delete-language", async (route) => {

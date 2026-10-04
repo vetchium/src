@@ -1783,12 +1783,16 @@ export function hubSignupArtifactCounts(
   return { auditEvents, idempotencyRows, outboxItems, signupRequests };
 }
 
+/**
+ * What a signup completion request committed. `apiAuditEvents` leaves out the
+ * workers' saga retries, which add their own events on their own schedule.
+ */
 export function hubSignupCompletionArtifactCounts(
   emailAddress: string,
   key: string,
 ): {
   activeSignupRequests: number;
-  auditEvents: number;
+  apiAuditEvents: number;
   hubUsers: number;
   idempotencyRows: number;
 } {
@@ -1800,24 +1804,24 @@ export function hubSignupCompletionArtifactCounts(
         WHERE email_address = ${sqlLiteral(emailAddress)}
           AND active AND consumed_at IS NULL)::text || '|' ||
       (SELECT count(*) FROM vetchium.audit_events
-        WHERE idempotency_key = ${sqlLiteral(key)})::text || '|' ||
+        WHERE idempotency_key = ${sqlLiteral(key)}
+          AND source = 'hub-api')::text || '|' ||
       (SELECT count(*) FROM vetchium.hub_users
         WHERE email_address = ${sqlLiteral(emailAddress)})::text || '|' ||
       (SELECT count(*) FROM vetchium.idempotency_ledger
         WHERE idempotency_key = ${sqlLiteral(key)})::text;
   `);
-  const [activeSignupRequests, auditEvents, hubUsers, idempotencyRows] = value
-    .split("|")
-    .map(Number);
+  const [activeSignupRequests, apiAuditEvents, hubUsers, idempotencyRows] =
+    value.split("|").map(Number);
   if (
     activeSignupRequests === undefined ||
-    auditEvents === undefined ||
+    apiAuditEvents === undefined ||
     hubUsers === undefined ||
     idempotencyRows === undefined
   ) {
     throw new Error(`invalid Hub signup completion counts: ${value}`);
   }
-  return { activeSignupRequests, auditEvents, hubUsers, idempotencyRows };
+  return { activeSignupRequests, apiAuditEvents, hubUsers, idempotencyRows };
 }
 
 /**
@@ -2323,6 +2327,12 @@ export interface HeldRowLock {
   release: (period?: SubscriptionPeriod) => Promise<void>;
 }
 
+export interface HeldOrgRowLock {
+  holderPID: number;
+  /** Idempotent: does nothing once the session has exited. */
+  release: () => Promise<void>;
+}
+
 /**
  * Holds a `FOR NO KEY UPDATE` lock on one Hub user's row in a spawned psql
  * session, following the pattern `credentialRefreshPruneRace` uses.
@@ -2335,6 +2345,49 @@ export async function holdHubUserRowLock(
   tenant: TestTenant,
 ): Promise<HeldRowLock> {
   assertHubUserDID(did);
+  const lock = await holdRowLock(
+    tenant,
+    `SELECT 1 FROM vetchium.hub_users
+     WHERE hub_user_did = ${sqlLiteral(did)}::uuid FOR NO KEY UPDATE;`,
+  );
+  return {
+    ...lock,
+    release: (period) =>
+      lock.release(
+        period === undefined ? undefined : subscriptionPeriodSQL(did, period),
+      ),
+  };
+}
+
+/** Holds a `FOR NO KEY UPDATE` lock on one Org's row, as `holdHubUserRowLock`
+ * does for a Hub user. */
+export async function holdOrgRowLock(
+  orgDID: string,
+  tenant: TestTenant,
+): Promise<HeldOrgRowLock> {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+      orgDID,
+    )
+  ) {
+    throw new Error(`refusing to lock malformed Org DID: ${orgDID}`);
+  }
+  const lock = await holdRowLock(
+    tenant,
+    `SELECT 1 FROM vetchium.orgs
+     WHERE org_did = ${sqlLiteral(orgDID)}::uuid FOR NO KEY UPDATE;`,
+  );
+  return { holderPID: lock.holderPID, release: () => lock.release() };
+}
+
+async function holdRowLock(
+  tenant: TestTenant,
+  lockStatement: string,
+): Promise<{
+  holderPID: number;
+  lockedAt: Date;
+  release: (beforeCommit?: string) => Promise<void>;
+}> {
   const marker = `row_lock_ready_${randomBytes(8).toString("hex")}`;
   const session = spawn(
     "docker",
@@ -2411,8 +2464,7 @@ export async function holdHubUserRowLock(
   );
   session.stdin.write(`
     BEGIN;
-    SELECT 1 FROM vetchium.hub_users
-    WHERE hub_user_did = ${sqlLiteral(did)}::uuid FOR NO KEY UPDATE;
+    ${lockStatement}
     SELECT pg_backend_pid()::text || '|' ||
       extract(epoch FROM clock_timestamp())::text;
     SELECT '${marker}';
@@ -2422,12 +2474,10 @@ export async function holdHubUserRowLock(
   return {
     holderPID: pid,
     lockedAt,
-    release: async (period) => {
+    release: async (beforeCommit) => {
       if (released || sessionExited) return;
       released = true;
-      if (period !== undefined) {
-        session.stdin.write(subscriptionPeriodSQL(did, period));
-      }
+      if (beforeCommit !== undefined) session.stdin.write(beforeCommit);
       session.stdin.write("COMMIT;\n\\q\n");
       await exited.catch(() => {});
     },

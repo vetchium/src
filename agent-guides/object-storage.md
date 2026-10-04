@@ -51,6 +51,9 @@ lifecycle, and profile-picture and Org logo storage.
   source bytes.
 - Bound the S3 Put to 30 seconds. In one later transaction, activate the new
   row, retire the old reference, audit, and complete idempotency.
+- Both transactions lock the owner row in their own statement before reading
+  picture rows, so concurrent uploads serialize and the later one supersedes
+  the earlier staged row.
 - An abandoned staged row expires into the retryable deletion queue.
 - Delay every picture-byte deletion by one minute, longer than the maximum
   in-flight Put — a concurrent replay may still be writing after activation,

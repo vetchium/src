@@ -218,7 +218,7 @@ test("signup rollback on subscription audit failure leaves no user", async ({
 
     expect(hubSignupCompletionArtifactCounts(email, completeKey)).toEqual({
       activeSignupRequests: 0,
-      auditEvents: 4,
+      apiAuditEvents: 4,
       hubUsers: 1,
       idempotencyRows: 0,
     });

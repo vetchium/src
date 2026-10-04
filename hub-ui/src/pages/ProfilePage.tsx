@@ -54,9 +54,10 @@ function ResidentCountryCard({
             showSearch={{ optionFilterProp: "label" }}
             value={residentCountry}
             loading={country.isPending}
-            disabled={country.isPending}
             options={countryOptions(preferences.language)}
-            onChange={(value) => country.mutate(value)}
+            onChange={(value) => {
+              if (!country.isPending) country.mutate(value);
+            }}
           />
         </Form.Item>
       </Form>
