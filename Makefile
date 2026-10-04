@@ -315,6 +315,8 @@ test-go-static: typespec-deps sqlc
 		echo "==> go vet $$m"; \
 		(cd "$$m" && go vet ./...) || exit $$?; \
 	done
+	@echo "==> singlecommit backend"
+	@cd backend && go tool singlecommit ./...
 
 test-go-lint: typespec-deps sqlc
 	@for m in $(GO_MODULES); do \

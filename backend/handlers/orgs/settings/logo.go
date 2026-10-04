@@ -44,6 +44,7 @@ var limits = imagesanitize.Limits{
 		int64(settingsspec.MaxLogoDimension),
 }
 
+//vetchium:multiple-commits stages the logo, stores its bytes in object storage, then activates it
 func UploadLogo(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key, ok := handlerauth.IdempotencyKey(s, w, r)

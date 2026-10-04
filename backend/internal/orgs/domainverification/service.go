@@ -157,6 +157,8 @@ func (s *Service) CheckDue(ctx context.Context) error {
 }
 
 // CheckNow checks one Org's domain immediately, whatever its schedule.
+//
+//vetchium:multiple-commits a re-claim commits its start, calls the global coordinator, then commits the outcome
 func (s *Service) CheckNow(
 	ctx context.Context, orgDID pgtype.UUID, actor Actor,
 ) (dnsverify.Result, error) {

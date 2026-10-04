@@ -107,6 +107,7 @@ func New(
 	}
 }
 
+//vetchium:multiple-commits commits each step of the signup around its global-coordinator call
 func (s *Service) Start(
 	ctx context.Context, request orgsauth.CompleteSignupRequest,
 	key common.IdempotencyKey,

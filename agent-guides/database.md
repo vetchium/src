@@ -52,6 +52,16 @@ Applies to PostgreSQL access, `backend/internal/db/`, migrations, and seeds.
 - A handler commits once per request. Two commits only where an external call
   must sit between them (an object-store upload, an identity-provider
   exchange), and then never hold a transaction open across that call.
+- `go tool singlecommit` (a `tool` in `backend/go.mod`, run by
+  `make test-go-static`) enforces this: it reports a handler under
+  `backend/handlers/` that, directly or through what it calls, can commit
+  more than once (a pool `Begin`, a write query through pool-bound Queries,
+  or a call that commits). The only escape is a
+  `//vetchium:multiple-commits <reason>` line in the doc comment of the
+  function whose external call forces the split; never use it to save a
+  transaction.
+- Background work (workers, coordinator jobs) commits once per item; each
+  item is one logical operation.
 
 ## Audit trail
 

@@ -139,6 +139,8 @@ func (s *Service) CodeHash(challengeID pgtype.UUID, code string) []byte {
 // Start accepts a confirm-email-change request, or replays one already
 // accepted under the same idempotency key, then drives it (GU-ECH-002,
 // GU-ECH-004).
+//
+//vetchium:multiple-commits commits each step of the change around its global-coordinator call
 func (s *Service) Start(
 	ctx context.Context, hubUserDID, sessionID pgtype.UUID,
 	request hubauth.ConfirmEmailChangeRequest, key common.IdempotencyKey,
