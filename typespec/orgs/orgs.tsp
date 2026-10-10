@@ -8,6 +8,8 @@ import "./subscriptions/subscriptions.tsp";
 import "./authorization/management.tsp";
 import "./users/invitations.tsp";
 import "./users/management.tsp";
+import "./openings/types.tsp";
+import "./openings/openings.tsp";
 import "../problem/orgs/logo.tsp";
 import "../problem/orgs/sso.tsp";
 import "../problem/orgs/suspension.tsp";

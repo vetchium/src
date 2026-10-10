@@ -62,6 +62,8 @@
     "./orgs/authorization/types": "./orgs/authorization/types.ts",
     "./orgs/users/invitations": "./orgs/users/invitations.ts",
     "./orgs/users/management": "./orgs/users/management.ts",
+    "./orgs/openings/types": "./orgs/openings/types.ts",
+    "./orgs/openings/openings": "./orgs/openings/openings.ts",
     "./orgs/settings/google_sign_in": "./orgs/settings/google_sign_in.ts",
     "./orgs/settings/company": "./orgs/settings/company.ts",
     "./orgs/settings/logo": "./orgs/settings/logo.ts",
@@ -89,6 +91,7 @@
     "./problem/orgs/signup": "./problem/orgs/signup.ts",
     "./problem/orgs/sso": "./problem/orgs/sso.ts",
     "./problem/orgs/users": "./problem/orgs/users.ts",
+    "./problem/orgs/openings": "./problem/orgs/openings.ts",
     "./problem/orgs/suspension": "./problem/orgs/suspension.ts",
     "./problem/orgs/totp": "./problem/orgs/totp.ts",
     "./admin/audit-logs/events": "./admin/audit-logs/events.ts"

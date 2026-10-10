@@ -1,13 +1,13 @@
 # Openings build progress
 
-current: T03
+current: T04
 phase: implement
 
 ## Tasks
 
 T01 done Shared Opening content contract and catalogs
 T02 done Openings schema and permissions
-T03 todo Orgs API for drafts and working copies
+T03 done Orgs API for drafts and working copies
 T04 todo Orgs API for requests and approvals
 T05 todo Opening expiry worker
 T06 todo Hub and mesh reads of published Openings

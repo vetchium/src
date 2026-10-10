@@ -5,6 +5,7 @@ import (
 
 	orgsaccount "backend/handlers/orgs/account"
 	orgsauth "backend/handlers/orgs/auth"
+	orgsopenings "backend/handlers/orgs/openings"
 	orgssettings "backend/handlers/orgs/settings"
 	orgssubscriptions "backend/handlers/orgs/subscriptions"
 	orgsusers "backend/handlers/orgs/users"
@@ -83,6 +84,24 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	// A suspended Org is refused on every route below; the account and billing
 	// routes it keeps do not compose activeOrg.
 	activeOrg := middleware.RequireActiveOrg(s)
+	readOpening := func(next http.Handler) http.Handler {
+		return orgAuth(activeOrg(next))
+	}
+	manageOpenings := func(next http.Handler) http.Handler {
+		return orgAuth(activeOrg(middleware.RequireOrgPermission(
+			s, orgsauthorization.ManageOpenings,
+		)(next)))
+	}
+	mux.Handle("POST /api/orgs/create-opening", manageOpenings(orgsopenings.CreateOpening(s)))
+	mux.Handle("POST /api/orgs/duplicate-opening", manageOpenings(orgsopenings.DuplicateOpening(s)))
+	mux.Handle("POST /api/orgs/save-opening-working-copy", manageOpenings(orgsopenings.SaveOpeningWorkingCopy(s)))
+	mux.Handle("POST /api/orgs/discard-opening-working-copy", manageOpenings(orgsopenings.DiscardOpeningWorkingCopy(s)))
+	mux.Handle("POST /api/orgs/set-opening-team", manageOpenings(orgsopenings.SetOpeningTeam(s)))
+	mux.Handle("POST /api/orgs/discard-opening", manageOpenings(orgsopenings.DiscardOpening(s)))
+	mux.Handle("POST /api/orgs/get-opening", readOpening(orgsopenings.GetOpening(s)))
+	mux.Handle("POST /api/orgs/list-openings", readOpening(orgsopenings.ListOpenings(s)))
+	mux.Handle("POST /api/orgs/opening-summary", readOpening(orgsopenings.OpeningSummary(s)))
+	mux.Handle("POST /api/orgs/list-opening-history", readOpening(orgsopenings.ListOpeningHistory(s)))
 	manageUsers := func(next http.Handler) http.Handler {
 		return orgAuth(activeOrg(
 			middleware.RequireOrgPermission(

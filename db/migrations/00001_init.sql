@@ -1812,7 +1812,8 @@ CREATE TYPE vetchium.org_opening_request_state AS ENUM (
     'pending', 'approved', 'rejected', 'withdrawn', 'superseded', 'cancelled'
 );
 CREATE TYPE vetchium.org_opening_history_action AS ENUM (
-    'created', 'duplicated', 'team_changed', 'revision_discarded',
+    'created', 'duplicated', 'working_copy_saved', 'team_changed',
+    'revision_discarded',
     'discarded', 'requested', 'approved', 'self_approved', 'rejected',
     'withdrawn', 'superseded', 'cancelled', 'expired'
 );
@@ -1825,10 +1826,13 @@ CREATE TABLE vetchium.org_openings (
     opening_state vetchium.org_opening_state NOT NULL DEFAULT 'draft',
     version integer NOT NULL DEFAULT 1 CHECK (version >= 1),
     revision integer NOT NULL DEFAULT 0 CHECK (revision >= 0),
-    hiring_manager_id uuid REFERENCES vetchium.org_users (org_user_id),
-    recruiter_id uuid REFERENCES vetchium.org_users (org_user_id),
+    hiring_manager_id uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    recruiter_id uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
     internal_notes text,
-    created_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id),
+    created_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     first_published_at timestamptz,
@@ -1904,7 +1908,8 @@ CREATE TABLE vetchium.org_opening_contents (
     salary_min bigint,
     salary_max bigint,
     salary_period vetchium.org_opening_salary_period,
-    updated_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id),
+    updated_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
     updated_at timestamptz NOT NULL DEFAULT now(),
     complete boolean GENERATED ALWAYS AS (
         title IS NOT NULL AND description IS NOT NULL
@@ -1979,7 +1984,8 @@ CREATE TABLE vetchium.org_opening_contents (
 CREATE TABLE vetchium.org_opening_team_members (
     org_opening_id uuid NOT NULL REFERENCES vetchium.org_openings
         (org_opening_id) ON DELETE CASCADE,
-    org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id),
+    org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
     PRIMARY KEY (org_opening_id, org_user_id)
 );
 CREATE INDEX org_opening_team_members_user_idx
@@ -1991,10 +1997,12 @@ CREATE TABLE vetchium.org_opening_requests (
         (org_opening_id) ON DELETE CASCADE,
     request_kind vetchium.org_opening_request_kind NOT NULL,
     request_state vetchium.org_opening_request_state NOT NULL DEFAULT 'pending',
-    requested_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id),
+    requested_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
     requested_at timestamptz NOT NULL DEFAULT now(),
     request_note text,
-    decided_by uuid REFERENCES vetchium.org_users (org_user_id),
+    decided_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
     decided_at timestamptz,
     decision_note text,
     self_approved boolean NOT NULL DEFAULT false,
@@ -2027,9 +2035,10 @@ CREATE TABLE vetchium.org_opening_history (
     org_opening_id uuid NOT NULL REFERENCES vetchium.org_openings
         (org_opening_id) ON DELETE CASCADE,
     action vetchium.org_opening_history_action NOT NULL,
-    actor_org_user_id uuid REFERENCES vetchium.org_users (org_user_id),
+    actor_org_user_id uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
     org_opening_request_id uuid REFERENCES vetchium.org_opening_requests
-        (org_opening_request_id),
+        (org_opening_request_id) ON DELETE CASCADE,
     request_kind vetchium.org_opening_request_kind,
     request_state vetchium.org_opening_request_state,
     opening_version integer NOT NULL CHECK (opening_version >= 1),

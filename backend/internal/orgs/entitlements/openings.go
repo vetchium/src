@@ -1,6 +1,5 @@
 // Package entitlements turns an Org plan's contract constants into the
-// decisions features make. Openings are not built yet; this fixes the rule
-// they must follow so the first implementation cannot invent another.
+// decisions features make.
 package entitlements
 
 import (
@@ -35,7 +34,7 @@ func OpeningQuota(plan subscriptionspec.PlanOID) int {
 	return subscriptionspec.OpeningsPerYear(subscriptionspec.Plan(plan))
 }
 
-// WindowStart is the earliest publication time that still counts at now.
+// WindowStart is the earliest creation time that still counts at now.
 func WindowStart(now time.Time) time.Time {
 	return now.UTC().Add(-QuotaWindow)
 }
