@@ -30,7 +30,12 @@ Applies to product terms in prompts, specifications, code, and UI text.
 
 ## Hiring
 
-- Opening — a job post owned by an org; numbered per (org, country).
+- Opening — a job post owned by an org; numbered per org.
+- Working copy — an Opening's editable content: the draft before first publication, a revision after it.
+- Opening request — a pending publish, revise, pause, reopen, or close of one Opening, awaiting an approver; at most one per Opening.
+- Approver — an org user holding `org:approve_openings`; their own requests apply at once.
+- Hiring team — the hiring manager, recruiter, and team members named on an Opening; internal, never shown to Hub users.
+- Employing country — the one country of the entity hiring for an Opening.
 - Application — a Hub user applying to an opening; authoritative in the org's tenant.
 - Candidacy — an application advanced into the interview pipeline.
 - Interview — a scheduled event under a candidacy, with interviewers, RSVP, and feedback.

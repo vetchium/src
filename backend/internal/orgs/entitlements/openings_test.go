@@ -22,16 +22,16 @@ func TestOpeningQuotaFollowsThePlan(t *testing.T) {
 	}
 }
 
-func TestCanPublishStopsAtTheQuota(t *testing.T) {
+func TestCanCreateStopsAtTheQuota(t *testing.T) {
 	t.Parallel()
 	free := subscriptionspec.PlanOID("org-free-tier")
-	if !CanPublish(free, 24) {
+	if !CanCreate(free, 24) {
 		t.Error("the 25th Opening must be allowed")
 	}
-	if CanPublish(free, 25) {
+	if CanCreate(free, 25) {
 		t.Error("the 26th Opening must be refused")
 	}
-	if CanPublish("org-unknown", 0) {
+	if CanCreate("org-unknown", 0) {
 		t.Error("an unknown plan must publish nothing")
 	}
 }

@@ -112,10 +112,8 @@ Google sign-in. Compose with `orgs.md` and `authorization.md`.
 
 ## Openings quota
 
-- Openings are not built. `internal/orgs/entitlements.OpeningQuota` and its
-  comment state the counting rule: count Openings published in the last 365
-  days whatever their state now, check the count in the publishing statement
-  under the Org lock, and refuse a plan that cannot publish another.
+- `internal/orgs/entitlements.OpeningQuota` and its comment state the
+  counting rule; [`openings.md`](openings.md) says where it applies.
 
 ## Audit and tests
 
