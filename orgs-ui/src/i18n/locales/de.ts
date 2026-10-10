@@ -143,18 +143,12 @@ export const de = {
   },
   signup: {
     regionDescription:
-      "Wählen Sie, wo die Daten Ihrer Organisation gespeichert werden. Wählen Sie das Land, in dem Ihre Organisation hauptsächlich tätig ist, um die empfohlene Region zu sehen.",
-    country: "Land",
-    language: "Sprache",
+      "Wählen Sie, wo die Daten Ihrer Organisation gespeichert werden. Geben Sie anschließend Ihre Domain und E-Mail-Adresse ein.",
+    selectRegion: "Region auswählen",
     regionLabel: "Region",
-    recommendedRegion: "{{region}} ({{tenant}}), empfohlen",
     regionOption: "{{region}} ({{tenant}})",
-    continueRegion: "Weiter in {{region}} ({{tenant}})",
-    continue: "Weiter",
     noRegions:
       "Derzeit nimmt keine Region Registrierungen von Organisationen an.",
-    hosting: "Ihre Organisation wird in {{region}} ({{tenant}}) gespeichert.",
-    changeRegion: "Andere Region wählen",
     documentTitle: "Registrieren | Vetchium für Organisationen",
     title: "Organisation registrieren",
     description:

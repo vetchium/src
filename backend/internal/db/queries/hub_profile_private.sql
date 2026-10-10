@@ -445,10 +445,10 @@ WITH expired AS (
     RETURNING object_id, hub_user_did
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, payload
     )
-    SELECT sqlc.arg(tenant_id), 'hub.profile.picture-upload-expired',
+    SELECT hub_user_did, sqlc.arg(tenant_id), 'hub.profile.picture-upload-expired',
         'hub_profile_picture', object_id::text, 'worker', NULL,
         'workers', jsonb_build_object('hub_user_did', hub_user_did)
     FROM expired
@@ -477,10 +477,10 @@ WITH candidate AS (
         p.created_at, p.upload_expires_at, p.delete_requested_at
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, payload
     )
-    SELECT sqlc.arg(tenant_id), 'hub.profile.picture-deletion-claimed', 'hub_profile_picture',
+    SELECT c.hub_user_did, sqlc.arg(tenant_id), 'hub.profile.picture-deletion-claimed', 'hub_profile_picture',
         c.object_id::text, 'worker', NULL, 'workers',
         jsonb_build_object('hub_user_did', c.hub_user_did, 'attempt', c.attempt_count)
     FROM claimed AS c
@@ -507,10 +507,10 @@ WITH retried AS (
     RETURNING object_id, hub_user_did, attempt_count
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, payload
     )
-    SELECT sqlc.arg(tenant_id), 'hub.profile.picture-deletion-retry-scheduled', 'hub_profile_picture',
+    SELECT c.hub_user_did, sqlc.arg(tenant_id), 'hub.profile.picture-deletion-retry-scheduled', 'hub_profile_picture',
         c.object_id::text, 'worker', NULL, 'workers',
         jsonb_build_object('hub_user_did', c.hub_user_did, 'attempt', c.attempt_count)
     FROM retried AS c
@@ -526,10 +526,10 @@ WITH deleted AS (
     RETURNING object_id, hub_user_did
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, payload
     )
-    SELECT sqlc.arg(tenant_id), 'hub.profile.picture-object-deleted',
+    SELECT hub_user_did, sqlc.arg(tenant_id), 'hub.profile.picture-object-deleted',
         'hub_profile_picture', object_id::text, 'worker', NULL,
         'workers', jsonb_build_object('hub_user_did', hub_user_did)
     FROM deleted

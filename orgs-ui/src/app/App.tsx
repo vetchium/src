@@ -107,12 +107,16 @@ export function App() {
     <Routes>
       <Route element={<PublicShell />}>
         <Route
-          path={`${paths.signup}/:country?/:language?/:step?`}
+          path={paths.signup}
           element={
             <Page>
               <SignupPage />
             </Page>
           }
+        />
+        <Route
+          path={`${paths.signup}/*`}
+          element={<Navigate replace to={paths.signup} />}
         />
         <Route
           path={paths.completeSignup}

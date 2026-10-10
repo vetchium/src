@@ -227,11 +227,11 @@ WITH eligible_signup AS (
     RETURNING *
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, source,
+        subject_org_did, tenant_id, action, entity_type, entity_id, actor_type, source,
         idempotency_key, payload
     )
     SELECT
-        sqlc.arg(tenant_id),
+        org_did, sqlc.arg(tenant_id),
         'org.signup.completion_prepared',
         'org_signup_completion',
         operation_id::text,
@@ -278,11 +278,11 @@ WITH updated AS (
     RETURNING *
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, source,
+        subject_org_did, tenant_id, action, entity_type, entity_id, actor_type, source,
         idempotency_key, payload
     )
     SELECT
-        sqlc.arg(tenant_id),
+        org_did, sqlc.arg(tenant_id),
         'org.signup.completion_reserved',
         'org_signup_completion',
         operation_id::text,
@@ -338,11 +338,11 @@ WITH updated AS (
       AND s.active
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, source,
+        subject_org_did, tenant_id, action, entity_type, entity_id, actor_type, source,
         idempotency_key, payload
     )
     SELECT
-        sqlc.arg(tenant_id),
+        org_did, sqlc.arg(tenant_id),
         'org.signup.completion_rejected',
         'org_signup_completion',
         operation_id::text,
@@ -387,14 +387,14 @@ WITH updated AS (
         last_error = left(sqlc.arg(last_error), 200)
     WHERE operation_id = sqlc.arg(operation_id)
       AND state NOT IN ('completed', 'failed')
-    RETURNING operation_id, idempotency_key, attempt_count, next_attempt_at
+    RETURNING operation_id, org_did, idempotency_key, attempt_count, next_attempt_at
 )
 INSERT INTO vetchium.audit_events (
-    tenant_id, action, entity_type, entity_id, actor_type, source,
+    subject_org_did, tenant_id, action, entity_type, entity_id, actor_type, source,
     idempotency_key, payload
 )
 SELECT
-    sqlc.arg(tenant_id),
+    org_did, sqlc.arg(tenant_id),
     'org.signup.completion_retry_scheduled',
     'org_signup_completion',
     operation_id::text,
@@ -642,11 +642,11 @@ WITH locked_operation AS (
     RETURNING operation.*
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, source,
+        subject_org_did, tenant_id, action, entity_type, entity_id, actor_type, source,
         idempotency_key, payload
     )
     SELECT
-        sqlc.arg(tenant_id),
+        org_did, sqlc.arg(tenant_id),
         'org.signup.completion_abandoned',
         'org_signup_completion',
         operation_id::text,

@@ -18,6 +18,7 @@ import {
   isAdminPermission,
   ManageHubSignupDomains,
   ManageUsers,
+  ViewAuditLogs,
   ViewHubSignupDomains,
   ViewUsers,
 } from "./authorization/types.ts";
@@ -191,7 +192,13 @@ test("display-name request normalization is immutable", () => {
 test("permission implications resolve the same way in every consumer", () => {
   assert.deepEqual(
     [...AdminPermissions],
-    [ViewUsers, ManageUsers, ViewHubSignupDomains, ManageHubSignupDomains],
+    [
+      ViewAuditLogs,
+      ViewUsers,
+      ManageUsers,
+      ViewHubSignupDomains,
+      ManageHubSignupDomains,
+    ],
   );
   assert.ok(isAdminPermission(ManageUsers));
   assert.ok(!isAdminPermission("admin:manage_domains"));

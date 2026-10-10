@@ -4,6 +4,7 @@ import {
   type APIResponse,
   expect,
 } from "@playwright/test";
+import type { ListRequest as AuditListRequest } from "typespec/admin/audit-logs/events";
 import {
   AuthenticationStateAuthenticated,
   type LoginResponse,
@@ -70,6 +71,25 @@ export class AdminAPI {
       }
     }
     return this.request.post(`${ADMIN_PATH}${path}`, { data, headers });
+  }
+
+  listAuditEvents(
+    request: AuditListRequest,
+    token?: string,
+  ): Promise<APIResponse> {
+    return this.post(
+      "/list-audit-events",
+      request,
+      token === undefined ? {} : { token },
+    );
+  }
+
+  listAuditEventsRaw(request: unknown, token?: string): Promise<APIResponse> {
+    return this.post(
+      "/list-audit-events",
+      request,
+      token === undefined ? {} : { token },
+    );
   }
 
   get(path: string, token?: string): Promise<APIResponse> {

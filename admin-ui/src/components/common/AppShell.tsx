@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router";
 import {
+  ViewAuditLogs,
   ViewHubSignupDomains,
   ViewUsers,
 } from "typespec/admin/authorization/types";
@@ -44,17 +45,22 @@ export function AppShell() {
   const canViewUsers = me?.permissions.includes(ViewUsers) === true;
   const canViewHubSignupDomains =
     me?.permissions.includes(ViewHubSignupDomains) === true;
-  const selectedKey = location.pathname.startsWith("/users")
-    ? "/users"
-    : location.pathname.startsWith("/hub-signup-domains")
-      ? "/hub-signup-domains"
-      : location.pathname.startsWith("/settings/profile")
-        ? "/settings/profile"
-        : location.pathname.startsWith("/settings/security")
-          ? "/settings/security"
-          : "/";
+  const selectedKey = location.pathname.startsWith("/audit-logs")
+    ? "/audit-logs"
+    : location.pathname.startsWith("/users")
+      ? "/users"
+      : location.pathname.startsWith("/hub-signup-domains")
+        ? "/hub-signup-domains"
+        : location.pathname.startsWith("/settings/profile")
+          ? "/settings/profile"
+          : location.pathname.startsWith("/settings/security")
+            ? "/settings/security"
+            : "/";
   const navigationItems = [
     { key: "/", label: t("navigation.overview") },
+    ...(me?.permissions.includes(ViewAuditLogs)
+      ? [{ key: "/audit-logs", label: t("auditLogs.title") }]
+      : []),
     ...(canViewUsers ? [{ key: "/users", label: t("navigation.users") }] : []),
     ...(canViewHubSignupDomains
       ? [

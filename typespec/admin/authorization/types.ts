@@ -1,10 +1,12 @@
 export type AdminPermission =
+  | "admin:view_audit_logs"
   | "admin:view_users"
   | "admin:manage_users"
   | "admin:view_hub_signup_domains"
   | "admin:manage_hub_signup_domains";
 export type AdminPermissionID = string;
 
+export const ViewAuditLogs: AdminPermission = "admin:view_audit_logs";
 export const ViewUsers: AdminPermission = "admin:view_users";
 export const ManageUsers: AdminPermission = "admin:manage_users";
 export const ViewHubSignupDomains: AdminPermission =
@@ -17,6 +19,7 @@ export const ManageHubSignupDomains: AdminPermission =
  * permission and the permissions it implies stay adjacent.
  */
 export const AdminPermissions: readonly AdminPermission[] = [
+  ViewAuditLogs,
   ViewUsers,
   ManageUsers,
   ViewHubSignupDomains,
@@ -26,6 +29,7 @@ export const AdminPermissions: readonly AdminPermission[] = [
 const permissionImplications: Readonly<
   Record<AdminPermission, readonly AdminPermission[]>
 > = {
+  "admin:view_audit_logs": [],
   "admin:view_users": [],
   "admin:manage_users": [ViewUsers],
   "admin:view_hub_signup_domains": [],

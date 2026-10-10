@@ -19,7 +19,11 @@ INSERT INTO seeded_admins (
     email_address, display_name, admin_user_state, permissions
 ) VALUES
     ('admin@deu.example', 'deu Administrator', 'active',
-        ARRAY['admin:manage_users', 'admin:manage_hub_signup_domains']),
+        ARRAY(SELECT c.permission FROM vetchium.admin_permission_catalog AS c
+              WHERE NOT EXISTS (
+                  SELECT 1 FROM vetchium.admin_permission_implications AS i
+                  WHERE i.implied_permission = c.permission
+              ) ORDER BY c.permission)),
     ('viewer@deu.example', 'deu Access Reviewer', 'active',
         ARRAY['admin:view_users']),
     ('newcomer@deu.example', 'deu Unassigned Administrator', 'active',

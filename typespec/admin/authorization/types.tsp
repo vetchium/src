@@ -4,6 +4,7 @@ namespace Vetchium.Admin;
 
 /** Permissions currently recognized by the admin portal. */
 enum AdminPermission {
+  ViewAuditLogs: "admin:view_audit_logs",
   ViewUsers: "admin:view_users",
   ManageUsers: "admin:manage_users",
   ViewHubSignupDomains: "admin:view_hub_signup_domains",
@@ -24,6 +25,7 @@ enum AdminPermission {
 @TypeSpec.OpenAPI.extension(
   "x-vetchium-known-values",
   #[
+    "admin:view_audit_logs",
     "admin:view_users",
     "admin:manage_users",
     "admin:view_hub_signup_domains",

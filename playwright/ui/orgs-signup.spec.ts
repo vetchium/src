@@ -24,6 +24,27 @@ import { uniqueTestID } from "../lib/test-id.ts";
 // grace), which is longer than the default budget.
 test.describe.configure({ timeout: 90_000 });
 
+test("old two-step signup links open the single signup page", async ({
+  page,
+}) => {
+  await page.goto(`${ORGS_PORTAL}/signup/IN/en-US/details?region=ind1`);
+  await expect(page).toHaveURL(`${ORGS_PORTAL}/signup`);
+  await expect(page.getByRole("button", { name: /Continue in/ })).toHaveCount(
+    0,
+  );
+  await expect(page.getByLabel("Organization domain")).toBeDisabled();
+});
+
+test("sign-in focuses the required region before credentials", async ({
+  page,
+}) => {
+  await page.goto(`${ORGS_PORTAL}/login`);
+  await expect(page.getByRole("combobox", { name: "Region" })).toBeFocused();
+
+  await page.goto(`${ORGS_PORTAL}/login?domain=example.com`);
+  await expect(page.getByRole("combobox", { name: "Region" })).toBeFocused();
+});
+
 /** Signs in using an explicit region choice. */
 async function signIn(
   page: Page,
@@ -38,7 +59,7 @@ async function signIn(
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
-test("signs an Org up through region choice, DNS proof and sign-in", async ({
+test("signs an Org up on one request page, then proves DNS and signs in", async ({
   context,
   page,
   request,
@@ -48,18 +69,8 @@ test("signs an Org up through region choice, DNS proof and sign-in", async ({
   try {
     await rememberRegion(context, "orgs", "sgp");
     await page.goto(`${ORGS_PORTAL}/signup`);
-    const country = page.getByRole("combobox", { name: "Country" });
-    await country.click();
-    await country.fill("Singapore");
-    await country.press("Enter");
-    await expect(page.getByText("Singapore (sgp), recommended")).toBeVisible();
-    await page
-      .getByRole("button", { name: /Continue in Singapore \(sgp\)/ })
-      .click();
-    await expect(page).toHaveURL(
-      `${ORGS_PORTAL}/signup/SG/en-US/details?region=sgp`,
-    );
-    await expect(page.getByTestId("signup-region")).toContainText("sgp");
+    const region = page.getByRole("combobox", { name: "Region" });
+    await expect(page.getByText("Select a region")).toBeVisible();
 
     // The steps explain the DNS proof before anything is sent.
     await expect(page.getByTestId("signup-steps")).toContainText(
@@ -67,7 +78,12 @@ test("signs an Org up through region choice, DNS proof and sign-in", async ({
     );
     const localPart = page.getByLabel("Your email address");
     await expect(localPart).toBeDisabled();
-    await page.getByLabel("Organization domain").fill(domain.toUpperCase());
+    await region.click();
+    await page.getByText("Singapore (sgp)", { exact: true }).click();
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/signup`);
+    const domainField = page.getByLabel("Organization domain");
+    await expect(domainField).toBeEnabled();
+    await domainField.fill(domain.toUpperCase());
     await expect(page.getByTestId("signup-email-domain")).toHaveText(
       `@${domain}`,
     );
@@ -77,6 +93,7 @@ test("signs an Org up through region choice, DNS proof and sign-in", async ({
     const sent = page.getByTestId("signup-sent");
     await expect(sent).toContainText(emailAddress);
     await expect(sent.getByRole("button")).toHaveCount(0);
+    await expect(region).toHaveCount(0);
 
     const value = recordValue(
       await orgEmailText(request, emailAddress, "DNS record"),
@@ -128,7 +145,9 @@ test("signs an Org up through region choice, DNS proof and sign-in", async ({
 test("the signup form validates the domain and the address's local part", async ({
   page,
 }) => {
-  await page.goto(`${ORGS_PORTAL}/signup/SG/en-US/details?region=sgp`);
+  await page.goto(`${ORGS_PORTAL}/signup`);
+  await page.getByRole("combobox", { name: "Region" }).click();
+  await page.getByText("Singapore (sgp)", { exact: true }).click();
   const domain = page.getByLabel("Organization domain");
   const localPart = page.getByLabel("Your email address");
   const send = page.getByRole("button", { name: "Send signup emails" });
@@ -155,7 +174,9 @@ test("the signup form validates the domain and the address's local part", async 
 });
 
 test("the signup form shows a domain the region refuses", async ({ page }) => {
-  await page.goto(`${ORGS_PORTAL}/signup/SG/en-US/details?region=sgp`);
+  await page.goto(`${ORGS_PORTAL}/signup`);
+  await page.getByRole("combobox", { name: "Region" }).click();
+  await page.getByText("Singapore (sgp)", { exact: true }).click();
   await page.getByLabel("Organization domain").fill("gmail.com");
   await page.getByLabel("Your email address").fill(uniqueTestID("it"));
   await page.getByRole("button", { name: "Send signup emails" }).click();

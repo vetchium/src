@@ -64,7 +64,7 @@ Admin portal, in every region (`<region>` is `sgp`, `usa1`, `deu`, or `ind1`):
 
 | Email | Access | State |
 | --- | --- | --- |
-| `admin@<region>.example` | manage users, manage Hub signup domains | active |
+| `admin@<region>.example` | every Admin permission | active |
 | `manager@<region>.example` (not in `deu`) | manage users, manage Hub signup domains | active |
 | `viewer@<region>.example` | view users | active |
 | `newcomer@<region>.example` | none | active |

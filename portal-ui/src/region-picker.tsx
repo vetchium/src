@@ -49,6 +49,7 @@ export function RegionPicker({
   value,
   onChange,
   disabled,
+  autoFocus,
   translations,
 }: {
   id: string;
@@ -56,6 +57,7 @@ export function RegionPicker({
   value: string | undefined;
   onChange: (tenantId: string) => void;
   disabled?: boolean;
+  autoFocus?: boolean;
   translations: RegionPickerTranslations;
 }) {
   const { t, i18n } = useTranslation();
@@ -76,6 +78,7 @@ export function RegionPicker({
         value={value}
         onChange={onChange}
         disabled={disabled}
+        autoFocus={autoFocus}
         options={regions.map((region) => ({
           value: region.tenantId,
           label: t(translations.option, {

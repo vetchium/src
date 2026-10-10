@@ -6,6 +6,12 @@ import { ProtectedRoute } from "../components/common/ProtectedRoute";
 import { PublicShell } from "../components/common/PublicShell";
 import { RecentAuthenticationRoute } from "../components/common/RecentAuthenticationRoute";
 
+const AuditLogsPage = lazy(() =>
+  import("../pages/AuditLogsPage").then(({ AuditLogsPage }) => ({
+    default: AuditLogsPage,
+  })),
+);
+
 const CompleteSetupPage = lazy(() =>
   import("../pages/CompleteSetupPage").then(({ CompleteSetupPage }) => ({
     default: CompleteSetupPage,
@@ -128,6 +134,14 @@ export function App() {
           />
         </Route>
         <Route element={<AppShell />}>
+          <Route
+            path="audit-logs"
+            element={
+              <Page>
+                <AuditLogsPage />
+              </Page>
+            }
+          />
           <Route
             index
             element={

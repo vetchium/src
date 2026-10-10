@@ -171,6 +171,7 @@ export function LoginPage() {
         >
           <RegionField
             value={region}
+            autoFocus
             onChange={(value) => {
               mutation.reset();
               googleMutation.reset();
@@ -198,7 +199,6 @@ export function LoginPage() {
               autoComplete="organization"
               autoCapitalize="none"
               spellCheck={false}
-              autoFocus={prefilledDomain === ""}
             />
           </Form.Item>
           <Form.Item
@@ -208,11 +208,7 @@ export function LoginPage() {
               { required: true, type: "email", message: t("validation.email") },
             ]}
           >
-            <Input
-              autoComplete="username"
-              inputMode="email"
-              autoFocus={prefilledDomain !== ""}
-            />
+            <Input autoComplete="username" inputMode="email" />
           </Form.Item>
           <Form.Item
             name="password"

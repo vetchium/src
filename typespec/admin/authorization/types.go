@@ -7,6 +7,7 @@ type AdminPermission string
 type AdminPermissionID string
 
 const (
+	ViewAuditLogs          AdminPermission = "admin:view_audit_logs"
 	ViewUsers              AdminPermission = "admin:view_users"
 	ManageUsers            AdminPermission = "admin:manage_users"
 	ViewHubSignupDomains   AdminPermission = "admin:view_hub_signup_domains"
@@ -16,6 +17,7 @@ const (
 // adminPermissions is ordered the way portals present permissions rather than
 // lexically, so a permission and the permissions it implies stay adjacent.
 var adminPermissions = []AdminPermission{
+	ViewAuditLogs,
 	ViewUsers,
 	ManageUsers,
 	ViewHubSignupDomains,

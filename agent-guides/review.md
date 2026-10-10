@@ -26,6 +26,9 @@ Applies to every change, before calling it done.
   unrelated edits. Comments only for non-obvious intent.
 - UI: accessibility, keyboard use, loading and error states, layout, every
   supported locale.
+- For a permission-gated feature, verify a representative intended account can
+  obtain the permission in each environment and reach the screen from the
+  normal navigation; test the account without granting access in test setup.
 
 ## Tests
 

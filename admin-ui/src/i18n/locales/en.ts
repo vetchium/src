@@ -1,4 +1,31 @@
 export const en = {
+  auditLogs: {
+    title: "Audit logs",
+    scope:
+      "Hub and Org events from this instance only. All identity filters must match.",
+    timezone:
+      "Dates and times use your browser timezone: {{timezone}}. The maximum range is 31 elapsed days.",
+    hubHandle: "Hub handle",
+    hubEmail: "Hub account email",
+    orgDomain: "Org domain",
+    orgUserEmail: "Org user email",
+    start: "Start date and time",
+    end: "End date and time",
+    search: "Search",
+    identityRequired: "Enter at least one Hub or Org identity.",
+    invalidIdentity: "Enter a valid exact handle, email address, or domain.",
+    invalidDates: "Choose an ordered date range no longer than 31 days.",
+    time: "Time",
+    action: "Action",
+    entity: "Affected entity",
+    actor: "Actor",
+    source: "Source",
+    empty: "No matching events.",
+    prompt: "Enter an identity and date range to view events.",
+    details: "Event details",
+    collapse: "Collapse details",
+    noDetails: "No additional displayable details.",
+  },
   shell: {
     documentTitle: "Vetchium Admin",
     brand: "Vetchium",
@@ -89,6 +116,10 @@ export const en = {
   },
   states: { active: "Active", disabled: "Disabled" },
   permissions: {
+    "admin:view_audit_logs": {
+      name: "AUDIT_LOG_VIEWER",
+      description: "View Hub and Org audit events in this instance.",
+    },
     "admin:view_users": {
       name: "VIEW_ADMINISTRATORS",
       description:

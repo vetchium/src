@@ -1,6 +1,34 @@
 import type { LocaleResource } from "./en";
 
 export const de = {
+  auditLogs: {
+    title: "Auditprotokoll",
+    scope:
+      "Nur Hub- und Org-Ereignisse dieser Instanz. Alle Identitätsfilter müssen übereinstimmen.",
+    timezone:
+      "Datum und Uhrzeit verwenden die Browser-Zeitzone: {{timezone}}. Der Zeitraum darf höchstens 31 verstrichene Tage umfassen.",
+    hubHandle: "Hub-Kennung",
+    hubEmail: "Hub-Konto-E-Mail",
+    orgDomain: "Org-Domäne",
+    orgUserEmail: "Org-Benutzer-E-Mail",
+    start: "Startdatum und Uhrzeit",
+    end: "Enddatum und Uhrzeit",
+    search: "Suchen",
+    identityRequired: "Mindestens eine Hub- oder Org-Identität eingeben.",
+    invalidIdentity:
+      "Eine gültige, genaue Kennung, E-Mail-Adresse oder Domäne eingeben.",
+    invalidDates: "Einen aufsteigenden Zeitraum von höchstens 31 Tagen wählen.",
+    time: "Zeit",
+    action: "Aktion",
+    entity: "Betroffene Entität",
+    actor: "Akteur",
+    source: "Quelle",
+    empty: "Keine passenden Ereignisse.",
+    prompt: "Identität und Zeitraum eingeben, um Ereignisse anzuzeigen.",
+    details: "Ereignisdetails",
+    collapse: "Details zuklappen",
+    noDetails: "Keine weiteren anzeigbaren Details.",
+  },
   shell: {
     documentTitle: "Vetchium-Administration",
     brand: "Vetchium",
@@ -93,6 +121,10 @@ export const de = {
   },
   states: { active: "Aktiv", disabled: "Deaktiviert" },
   permissions: {
+    "admin:view_audit_logs": {
+      name: "AUDITPROTOKOLL_BETRACHTER",
+      description: "Hub- und Org-Auditereignisse dieser Instanz anzeigen.",
+    },
     "admin:view_users": {
       name: "ADMINISTRATOREN_ANZEIGEN",
       description:

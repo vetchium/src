@@ -134,17 +134,11 @@ export const en = {
   },
   signup: {
     regionDescription:
-      "Choose where your organization's data is kept. Pick the country your organization mainly operates in to see the recommended region.",
-    country: "Country",
-    language: "Language",
+      "Choose where your organization's data will be kept, then enter your domain and email address.",
+    selectRegion: "Select a region",
     regionLabel: "Region",
-    recommendedRegion: "{{region}} ({{tenant}}), recommended",
     regionOption: "{{region}} ({{tenant}})",
-    continueRegion: "Continue in {{region}} ({{tenant}})",
-    continue: "Continue",
     noRegions: "No region accepts organization signups right now.",
-    hosting: "Your organization will be kept in {{region}} ({{tenant}}).",
-    changeRegion: "Choose another region",
     documentTitle: "Sign up | Vetchium for organizations",
     title: "Sign up your organization",
     description:

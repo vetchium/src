@@ -87,7 +87,8 @@
     "./problem/orgs/sso": "./problem/orgs/sso.ts",
     "./problem/orgs/users": "./problem/orgs/users.ts",
     "./problem/orgs/suspension": "./problem/orgs/suspension.ts",
-    "./problem/orgs/totp": "./problem/orgs/totp.ts"
+    "./problem/orgs/totp": "./problem/orgs/totp.ts",
+    "./admin/audit-logs/events": "./admin/audit-logs/events.ts"
   },
   "files": [
     "admin/**/*.ts",

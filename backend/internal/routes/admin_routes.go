@@ -5,6 +5,7 @@ import (
 
 	"github.com/vetchium/src/typespec/admin/authorization"
 
+	"backend/handlers/admin/auditlogs"
 	adminauth "backend/handlers/admin/auth"
 	adminauthorization "backend/handlers/admin/authorization"
 	adminsignupdomains "backend/handlers/admin/hubsignupdomains"
@@ -34,6 +35,9 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *adminruntime.Server) {
 		s, string(authorization.ManageHubSignupDomains),
 	)
 
+	mux.Handle("POST /api/admin/list-audit-events",
+		adminAuth(middleware.RequireAdminPermission(s, string(authorization.ViewAuditLogs))(auditlogs.ListAuditEvents(s))),
+	)
 	mux.HandleFunc("POST /api/admin/login", adminauth.Login(s))
 	mux.Handle(
 		"POST /api/admin/reauthenticate",

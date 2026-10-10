@@ -191,11 +191,11 @@ WITH targets AS (
     WHERE org_user_id IN (SELECT org_user_id FROM updated) AND active
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_org_user_ids, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, payload
     )
     SELECT
-        sqlc.arg(tenant_id),
+        changed.user_ids, sqlc.arg(tenant_id),
         'org.users.disabled',
         'org',
         sqlc.arg(org_did)::text,
@@ -208,7 +208,8 @@ WITH targets AS (
             'sessions_revoked', true
         )
     FROM (
-        SELECT jsonb_agg(u.email_address ORDER BY u.email_address)
+        SELECT array_agg(u.org_user_id ORDER BY u.org_user_id) AS user_ids,
+            jsonb_agg(u.email_address ORDER BY u.email_address)
             AS email_addresses
         FROM updated AS u
         HAVING count(*) > 0
@@ -245,11 +246,11 @@ WITH disabled AS (
     RETURNING u.org_user_id, u.email_address
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_org_user_ids, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, payload
     )
     SELECT
-        sqlc.arg(tenant_id),
+        changed.user_ids, sqlc.arg(tenant_id),
         'org.users.enabled',
         'org',
         sqlc.arg(org_did)::text,
@@ -258,7 +259,8 @@ WITH disabled AS (
         'orgs-api',
         jsonb_build_object('email_addresses', changed.email_addresses)
     FROM (
-        SELECT jsonb_agg(u.email_address ORDER BY u.email_address)
+        SELECT array_agg(u.org_user_id ORDER BY u.org_user_id) AS user_ids,
+            jsonb_agg(u.email_address ORDER BY u.email_address)
             AS email_addresses
         FROM updated AS u
         HAVING count(*) > 0
@@ -317,14 +319,14 @@ WITH targets AS (
     SET updated_at = now()
     WHERE u.org_user_id IN (SELECT org_user_id FROM targets)
       AND (SELECT ok FROM keeps_superadmin)
-    RETURNING u.email_address
+    RETURNING u.org_user_id, u.email_address
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_org_user_ids, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, payload
     )
     SELECT
-        sqlc.arg(tenant_id),
+        changed.user_ids, sqlc.arg(tenant_id),
         'org.users.permissions_set',
         'org',
         sqlc.arg(org_did)::text,
@@ -336,7 +338,8 @@ WITH targets AS (
             'permissions', to_jsonb(sqlc.arg(permissions)::text[])
         )
     FROM (
-        SELECT jsonb_agg(t.email_address ORDER BY t.email_address)
+        SELECT array_agg(t.org_user_id ORDER BY t.org_user_id) AS user_ids,
+            jsonb_agg(t.email_address ORDER BY t.email_address)
             AS email_addresses
         FROM touched AS t
         HAVING count(*) > 0

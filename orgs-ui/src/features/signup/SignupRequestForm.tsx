@@ -38,10 +38,21 @@ const localPartID = "signup-local-part";
 /** Asks the chosen region for the DNS instructions and the private signup
  * link. The domain comes first and fixes the address's domain, because the
  * signup claims exactly the address's domain. */
-export function SignupRequestForm({ tenantId }: { tenantId: string }) {
+export function SignupRequestForm({
+  tenantId,
+  onSent,
+  onSubmittingChange,
+}: {
+  tenantId: string | undefined;
+  onSent: () => void;
+  onSubmittingChange: (submitting: boolean) => void;
+}) {
   const { t } = useTranslation();
   const { language } = usePreferences();
-  const { allowSpecialUseDomains } = orgRegionSettings(tenantId);
+  const allowSpecialUseDomains =
+    tenantId === undefined
+      ? false
+      : orgRegionSettings(tenantId).allowSpecialUseDomains;
   const [form] = Form.useForm<RequestValues>();
   const admittedDomain = (value: string): string | null => {
     const normalized = normalizeOrgDomain(value);
@@ -53,12 +64,19 @@ export function SignupRequestForm({ tenantId }: { tenantId: string }) {
   const domain = admittedDomain(Form.useWatch("domain", form) ?? "");
   const key = useIdempotencyKey();
   const signup = useMutation({
-    mutationFn: (request: RequestSignupRequest) =>
-      orgsAPI.requestSignup(request, key.current(), tenantId),
-    onSuccess: () => key.rotate(),
+    mutationFn: (request: RequestSignupRequest) => {
+      if (tenantId === undefined) throw new Error("Region is required");
+      onSubmittingChange(true);
+      return orgsAPI.requestSignup(request, key.current(), tenantId);
+    },
+    onSuccess: () => {
+      key.rotate();
+      onSent();
+    },
     onError: (error) => {
       if (isDefiniteRefusal(error)) key.rotate();
     },
+    onSettled: () => onSubmittingChange(false),
   });
 
   const request = (values: RequestValues): RequestSignupRequest =>
@@ -103,6 +121,7 @@ export function SignupRequestForm({ tenantId }: { tenantId: string }) {
       <Form<RequestValues>
         form={form}
         layout="vertical"
+        disabled={tenantId === undefined}
         onFinish={(values) => signup.mutate(request(values))}
       >
         <Form.Item

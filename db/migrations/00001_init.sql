@@ -57,6 +57,10 @@ CREATE TABLE vetchium.audit_events (
     entity_id text NOT NULL,
     actor_type text NOT NULL,
     actor_id text,
+    -- Historical subjects survive deletion of temporary and application rows.
+    subject_hub_user_did uuid,
+    subject_org_did uuid,
+    subject_org_user_ids uuid[] NOT NULL DEFAULT '{}',
     source text NOT NULL,
     idempotency_key text,
     payload jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -1009,6 +1013,7 @@ CREATE TABLE vetchium.admin_permission_catalog (
 
 INSERT INTO vetchium.admin_permission_catalog (permission)
 VALUES
+    ('admin:view_audit_logs'),
     ('admin:view_users'),
     ('admin:manage_users'),
     ('admin:view_hub_signup_domains'),

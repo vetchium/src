@@ -38,10 +38,10 @@ WITH eligible_user AS (
     RETURNING hub_email_outbox_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, idempotency_key, payload
     )
-    SELECT
+    SELECT hub_user_did,
         sqlc.arg(tenant_id),
         'hub.password-reset.requested',
         'hub_password_reset',

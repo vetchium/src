@@ -18,10 +18,10 @@ WITH owner AS (
     RETURNING object_id, org_did, format, byte_size, width, height
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_org_did, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, idempotency_key, payload
     )
-    SELECT sqlc.arg(tenant_id), 'org.logo.upload-prepared', 'org_logo',
+    SELECT org_did, sqlc.arg(tenant_id), 'org.logo.upload-prepared', 'org_logo',
         object_id::text, 'org_user', sqlc.arg(actor_org_user_id)::text,
         'orgs-api', sqlc.arg(idempotency_key),
         jsonb_build_object(
@@ -79,10 +79,10 @@ WITH owner AS (
     RETURNING l.object_id, l.org_did
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_org_did, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, idempotency_key, payload
     )
-    SELECT sqlc.arg(tenant_id), 'org.logo.upload-superseded', 'org_logo',
+    SELECT org_did, sqlc.arg(tenant_id), 'org.logo.upload-superseded', 'org_logo',
         object_id::text, 'org_user', sqlc.arg(actor_org_user_id)::text,
         'orgs-api', sqlc.arg(idempotency_key),
         jsonb_build_object('org_did', org_did)
@@ -142,10 +142,10 @@ WITH owner AS (
     RETURNING l.object_id, l.org_did
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_org_did, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, idempotency_key, payload
     )
-    SELECT sqlc.arg(tenant_id), 'org.logo.activated', 'org_logo',
+    SELECT org_did, sqlc.arg(tenant_id), 'org.logo.activated', 'org_logo',
         object_id::text, 'org_user', sqlc.arg(actor_org_user_id)::text,
         'orgs-api', sqlc.arg(idempotency_key),
         jsonb_build_object('org_did', org_did)
@@ -169,10 +169,10 @@ WITH owner AS (
     RETURNING l.object_id, l.org_did
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_org_did, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, idempotency_key, payload
     )
-    SELECT sqlc.arg(tenant_id), 'org.logo.removed', 'org_logo',
+    SELECT org_did, sqlc.arg(tenant_id), 'org.logo.removed', 'org_logo',
         object_id::text, 'org_user', sqlc.arg(actor_org_user_id)::text,
         'orgs-api', sqlc.arg(idempotency_key),
         jsonb_build_object('org_did', org_did)
@@ -196,10 +196,10 @@ WITH expired AS (
     RETURNING object_id, org_did
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_org_did, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, payload
     )
-    SELECT sqlc.arg(tenant_id), 'org.logo.upload-expired', 'org_logo',
+    SELECT org_did, sqlc.arg(tenant_id), 'org.logo.upload-expired', 'org_logo',
         object_id::text, 'worker', NULL, 'workers',
         jsonb_build_object('org_did', org_did)
     FROM expired
@@ -225,10 +225,10 @@ WITH candidate AS (
     RETURNING l.object_id, l.org_did, l.attempt_count
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_org_did, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, payload
     )
-    SELECT sqlc.arg(tenant_id), 'org.logo.deletion-claimed', 'org_logo',
+    SELECT c.org_did, sqlc.arg(tenant_id), 'org.logo.deletion-claimed', 'org_logo',
         c.object_id::text, 'worker', NULL, 'workers',
         jsonb_build_object('org_did', c.org_did, 'attempt', c.attempt_count)
     FROM claimed AS c
@@ -251,10 +251,10 @@ WITH retried AS (
     RETURNING object_id, org_did, attempt_count
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_org_did, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, payload
     )
-    SELECT sqlc.arg(tenant_id), 'org.logo.deletion-retry-scheduled', 'org_logo',
+    SELECT c.org_did, sqlc.arg(tenant_id), 'org.logo.deletion-retry-scheduled', 'org_logo',
         c.object_id::text, 'worker', NULL, 'workers',
         jsonb_build_object('org_did', c.org_did, 'attempt', c.attempt_count)
     FROM retried AS c
@@ -270,10 +270,10 @@ WITH deleted AS (
     RETURNING object_id, org_did
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_org_did, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, payload
     )
-    SELECT sqlc.arg(tenant_id), 'org.logo.object-deleted', 'org_logo',
+    SELECT org_did, sqlc.arg(tenant_id), 'org.logo.object-deleted', 'org_logo',
         object_id::text, 'worker', NULL, 'workers',
         jsonb_build_object('org_did', org_did)
     FROM deleted

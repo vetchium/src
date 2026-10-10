@@ -18,10 +18,12 @@ export function RegionField({
   value,
   onChange,
   disabled,
+  autoFocus,
 }: {
   value: string | undefined;
   onChange: (tenantId: string) => void;
   disabled?: boolean;
+  autoFocus?: boolean;
 }) {
   return (
     <RegionPicker
@@ -30,6 +32,7 @@ export function RegionField({
       value={value}
       onChange={onChange}
       disabled={disabled}
+      autoFocus={autoFocus}
       translations={translations}
     />
   );

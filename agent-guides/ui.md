@@ -79,8 +79,9 @@ Applies to `admin-ui/`, `hub-ui/`, `orgs-ui/`, and `portal-ui/`.
 - Hub and Orgs read no runtime config; the fallback locale is build-time
   `en-US`.
 - The region is chosen before any personal data: sign-in and forgot-password
-  show `RegionPicker` first; signup offers the eligible regions for the chosen
-  country. Sign-in starts empty, ignores remembered and link regions, and
+  show `RegionPicker` first; Hub signup offers eligible regions for the chosen
+  country, and Orgs signup lists eligible regions directly. Sign-in starts
+  empty, ignores remembered and link regions, and
   requires an explicit choice before submission. Forgot-password preselects
   the remembered region, else the browser-country recommendation, else the
   table default.

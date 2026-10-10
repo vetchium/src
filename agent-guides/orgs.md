@@ -31,9 +31,9 @@ invariant).
 
 ## Home tenant and admission
 
-- The Orgs portal is one global site; the user picks the region before the
-  domain and credentials ([`ui.md`](ui.md)). On signup the chosen country only
-  selects the recommended region and is never stored on the Org.
+- The Orgs portal is one global site; signup lists eligible regions on the
+  same page as the domain and email fields. Require a region selection before
+  entering the domain and email ([`ui.md`](ui.md)).
 - Org signup ignores `allowedCountries` (Hub residency policy).
 - The region table's `orgSignupEnabled` is advisory. The destination tenant's
   `orgsAPIServer.signup.enabled` is authoritative; check it at request and at

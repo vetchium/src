@@ -1,4 +1,8 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import {
+  AdminPermissions,
+  directPermissions,
+} from "typespec/admin/authorization/types";
 import type {
   CompleteSetupResponse,
   InviteUserResponse,
@@ -878,19 +882,13 @@ test.describe("Admin management continuity", () => {
         );
       }
 
-      expect(seededManagerGrants(ISOLATED_TENANT)).toEqual([
-        "admin:manage_hub_signup_domains",
-        "admin:manage_users",
-      ]);
+      expect(seededManagerGrants(ISOLATED_TENANT)).toEqual(
+        directPermissions(AdminPermissions),
+      );
       const retained = await responseJSON<MyInfoResponse>(
         await isolatedAPI.get("/my-info", token),
       );
-      expect(retained.permissions).toEqual([
-        "admin:manage_hub_signup_domains",
-        "admin:manage_users",
-        "admin:view_hub_signup_domains",
-        "admin:view_users",
-      ]);
+      expect(retained.permissions).toEqual([...AdminPermissions].sort());
     } finally {
       await isolatedAPI.post("/logout", undefined, { token });
       await context.dispose();

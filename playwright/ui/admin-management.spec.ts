@@ -1,4 +1,8 @@
 import type { Page } from "@playwright/test";
+import {
+  AdminPermissions,
+  directPermissions,
+} from "typespec/admin/authorization/types";
 import type { ListUsersResponse } from "typespec/admin/users/management";
 import { responseJSON } from "../lib/admin-api.ts";
 import {
@@ -387,10 +391,9 @@ test("the last manager is warned about, and stopped from, removing their own acc
       "At least one active administrator has to keep the permission to manage administrators.",
     ),
   ).toBeVisible();
-  expect(seededManagerGrants(ISOLATED_TENANT)).toEqual([
-    "admin:manage_hub_signup_domains",
-    "admin:manage_users",
-  ]);
+  expect(seededManagerGrants(ISOLATED_TENANT)).toEqual(
+    directPermissions(AdminPermissions),
+  );
 
   await accessDialog.getByRole("button", { name: "Cancel" }).click();
   await expect(accessDialog).not.toBeVisible();

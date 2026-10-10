@@ -45,10 +45,10 @@ WITH eligible_user AS (
     RETURNING org_email_outbox_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_org_user_ids, tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, idempotency_key, payload
     )
-    SELECT
+    SELECT ARRAY[org_user_id],
         sqlc.arg(tenant_id),
         'org.password-reset.requested',
         'org_password_reset',
