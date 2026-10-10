@@ -1,4 +1,5 @@
 import {
+  ApproveOpenings,
   directPermissions,
   effectivePermissions,
   impliedPermissions,
@@ -56,7 +57,11 @@ export function presetGrants(preset: RolePreset): OrgPermissionID[] {
 
 /** Only a superadmin hands out these; the API enforces it, this only hides
  * what it would refuse. */
-const reserved: readonly OrgPermissionID[] = [Superadmin, ManageBilling];
+const reserved: readonly OrgPermissionID[] = [
+  Superadmin,
+  ManageBilling,
+  ApproveOpenings,
+];
 
 export function mayGrant(
   viewer: readonly OrgPermissionID[],

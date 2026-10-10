@@ -312,11 +312,23 @@ export const en = {
     "org:manage_users": {
       name: "MANAGE_USERS",
       description:
-        "Invite, disable and re-enable users, and change what they can do, except the superadmin and billing permissions.",
+        "Invite, disable and re-enable users, and change what they can do, except superadmin, billing, and Opening approval permissions.",
     },
     "org:manage_billing": {
       name: "MANAGE_BILLING",
       description: "Choose the organization's plan and billing interval.",
+    },
+    "org:view_openings": {
+      name: "VIEW_OPENINGS",
+      description: "See every Opening of the organization, including drafts.",
+    },
+    "org:manage_openings": {
+      name: "MANAGE_OPENINGS",
+      description: "Create and edit Openings and submit requests for approval.",
+    },
+    "org:approve_openings": {
+      name: "APPROVE_OPENINGS",
+      description: "Approve or reject requests that change published Openings.",
     },
     unknown: {
       description:

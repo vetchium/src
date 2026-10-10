@@ -9,12 +9,15 @@ import {
   validateRequestSignupRequest,
 } from "./auth/signup.ts";
 import {
+  ApproveOpenings,
   directPermissions,
   effectivePermissions,
   holds,
   ManageBilling,
+  ManageOpenings,
   ManageUsers,
   Superadmin,
+  ViewOpenings,
 } from "./authorization/types.ts";
 import { frontendLocaleValues, isFrontendLocale } from "./types.ts";
 import {
@@ -129,14 +132,35 @@ test("Org invitations validate bulk bounds, permissions, and passwords", () => {
   );
 });
 
-test("Org permissions: superadmin implies both manage permissions", () => {
+test("Org permissions include one-hop Opening implications", () => {
   assert.deepEqual(effectivePermissions([Superadmin]), [
+    ApproveOpenings,
     ManageBilling,
+    ManageOpenings,
     ManageUsers,
     Superadmin,
+    ViewOpenings,
   ]);
   assert.deepEqual(
-    directPermissions([ManageBilling, ManageUsers, Superadmin]),
+    directPermissions([
+      ApproveOpenings,
+      ManageBilling,
+      ManageOpenings,
+      ManageUsers,
+      Superadmin,
+      ViewOpenings,
+    ]),
     [Superadmin],
   );
+  assert.deepEqual(effectivePermissions([ManageOpenings]), [
+    ManageOpenings,
+    ViewOpenings,
+  ]);
+  assert.deepEqual(effectivePermissions([ApproveOpenings]), [
+    ApproveOpenings,
+    ViewOpenings,
+  ]);
+  assert.deepEqual(directPermissions([ManageOpenings, ViewOpenings]), [
+    ManageOpenings,
+  ]);
 });

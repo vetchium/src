@@ -312,11 +312,24 @@ export const ta = {
     "org:manage_users": {
       name: "MANAGE_USERS",
       description:
-        "பயனர்களை அழைக்கவும், முடக்கவும், மீண்டும் இயக்கவும், superadmin மற்றும் பில்லிங் அனுமதிகளைத் தவிர மற்றவற்றை மாற்றவும்.",
+        "பயனர்களை அழைக்கவும், முடக்கவும், மீண்டும் இயக்கவும், superadmin, பில்லிங் மற்றும் வேலைவாய்ப்பு ஒப்புதல் அனுமதிகளைத் தவிர மற்றவற்றை மாற்றவும்.",
     },
     "org:manage_billing": {
       name: "MANAGE_BILLING",
       description: "நிறுவனத்தின் திட்டத்தையும் கட்டண இடைவெளியையும் தேர்ந்தெடுக்கவும்.",
+    },
+    "org:view_openings": {
+      name: "VIEW_OPENINGS",
+      description: "வரைவுகள் உட்பட நிறுவனத்தின் அனைத்து வேலைவாய்ப்புகளையும் பார்க்கவும்.",
+    },
+    "org:manage_openings": {
+      name: "MANAGE_OPENINGS",
+      description: "வேலைவாய்ப்புகளை உருவாக்கவும், திருத்தவும், ஒப்புதலுக்கு சமர்ப்பிக்கவும்.",
+    },
+    "org:approve_openings": {
+      name: "APPROVE_OPENINGS",
+      description:
+        "வெளியிடப்பட்ட வேலைவாய்ப்புகளின் மாற்றங்களை ஒப்புக்கொள்ளவும் அல்லது நிராகரிக்கவும்.",
     },
     unknown: {
       description:

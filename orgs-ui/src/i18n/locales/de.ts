@@ -324,12 +324,27 @@ export const de = {
     "org:manage_users": {
       name: "MANAGE_USERS",
       description:
-        "Benutzer einladen, deaktivieren und wieder aktivieren und ihre Berechtigungen ändern, außer Superadmin und Abrechnung.",
+        "Benutzer einladen, deaktivieren und wieder aktivieren und ihre Berechtigungen ändern, außer Superadmin, Abrechnung und Freigabe von Stellenanzeigen.",
     },
     "org:manage_billing": {
       name: "MANAGE_BILLING",
       description:
         "Den Tarif und das Abrechnungsintervall der Organisation auswählen.",
+    },
+    "org:view_openings": {
+      name: "VIEW_OPENINGS",
+      description:
+        "Alle Stellenanzeigen der Organisation sehen, auch Entwürfe.",
+    },
+    "org:manage_openings": {
+      name: "MANAGE_OPENINGS",
+      description:
+        "Stellenanzeigen erstellen, bearbeiten und zur Freigabe einreichen.",
+    },
+    "org:approve_openings": {
+      name: "APPROVE_OPENINGS",
+      description:
+        "Änderungen an veröffentlichten Stellenanzeigen freigeben oder ablehnen.",
     },
     unknown: {
       description:

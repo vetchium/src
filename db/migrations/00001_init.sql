@@ -1243,6 +1243,8 @@ CREATE TABLE vetchium.orgs (
     -- A superadmin's choice, honoured only on Gold. Leaving Gold clears it in
     -- the transition's own statement.
     google_sign_in_enabled boolean NOT NULL DEFAULT false,
+    next_opening_number integer NOT NULL DEFAULT 1
+        CHECK (next_opening_number >= 1),
     suspended_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
@@ -1384,7 +1386,13 @@ CREATE TABLE vetchium.org_permission_catalog (
 );
 
 INSERT INTO vetchium.org_permission_catalog (permission)
-VALUES ('org:superadmin'), ('org:manage_users'), ('org:manage_billing');
+VALUES
+    ('org:superadmin'),
+    ('org:manage_users'),
+    ('org:manage_billing'),
+    ('org:view_openings'),
+    ('org:manage_openings'),
+    ('org:approve_openings');
 
 -- A grant of permission also confers implied_permission, resolved on read by
 -- vetchium.org_effective_permissions and never stored as a grant of its own.
@@ -1402,7 +1410,12 @@ CREATE TABLE vetchium.org_permission_implications (
 INSERT INTO vetchium.org_permission_implications (permission, implied_permission)
 VALUES
     ('org:superadmin', 'org:manage_users'),
-    ('org:superadmin', 'org:manage_billing');
+    ('org:superadmin', 'org:manage_billing'),
+    ('org:superadmin', 'org:view_openings'),
+    ('org:superadmin', 'org:manage_openings'),
+    ('org:superadmin', 'org:approve_openings'),
+    ('org:manage_openings', 'org:view_openings'),
+    ('org:approve_openings', 'org:view_openings');
 
 CREATE TABLE vetchium.org_user_permissions (
     org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
@@ -1773,6 +1786,260 @@ CREATE TABLE vetchium.org_email_outbox (
     )
 );
 
+CREATE TYPE vetchium.org_opening_state AS ENUM (
+    'draft', 'discarded', 'published', 'paused', 'closed', 'expired'
+);
+CREATE TYPE vetchium.org_opening_work_arrangement AS ENUM (
+    'on_site', 'hybrid', 'remote'
+);
+CREATE TYPE vetchium.org_opening_remote_eligibility AS ENUM (
+    'worldwide', 'countries'
+);
+CREATE TYPE vetchium.org_opening_employment_type AS ENUM (
+    'full_time', 'part_time', 'contract', 'internship'
+);
+CREATE TYPE vetchium.org_opening_education AS ENUM (
+    'secondary', 'bachelor', 'master', 'doctorate'
+);
+CREATE TYPE vetchium.org_opening_salary_period AS ENUM (
+    'hour', 'day', 'month', 'year'
+);
+CREATE TYPE vetchium.org_opening_content_slot AS ENUM ('live', 'working');
+CREATE TYPE vetchium.org_opening_request_kind AS ENUM (
+    'publish', 'revise', 'pause', 'reopen', 'close'
+);
+CREATE TYPE vetchium.org_opening_request_state AS ENUM (
+    'pending', 'approved', 'rejected', 'withdrawn', 'superseded', 'cancelled'
+);
+CREATE TYPE vetchium.org_opening_history_action AS ENUM (
+    'created', 'duplicated', 'team_changed', 'revision_discarded',
+    'discarded', 'requested', 'approved', 'self_approved', 'rejected',
+    'withdrawn', 'superseded', 'cancelled', 'expired'
+);
+
+CREATE TABLE vetchium.org_openings (
+    org_opening_id uuid PRIMARY KEY,
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    opening_number integer NOT NULL CHECK (opening_number >= 1),
+    opening_state vetchium.org_opening_state NOT NULL DEFAULT 'draft',
+    version integer NOT NULL DEFAULT 1 CHECK (version >= 1),
+    revision integer NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    hiring_manager_id uuid REFERENCES vetchium.org_users (org_user_id),
+    recruiter_id uuid REFERENCES vetchium.org_users (org_user_id),
+    internal_notes text,
+    created_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    first_published_at timestamptz,
+    expires_at timestamptz,
+    last_revised_at timestamptz,
+    ended_at timestamptz,
+    CONSTRAINT org_openings_org_number_key UNIQUE (org_did, opening_number),
+    CONSTRAINT org_openings_notes_check CHECK (
+        internal_notes IS NULL OR (
+            internal_notes = btrim(internal_notes)
+            AND char_length(internal_notes) BETWEEN 1 AND 2000
+        )
+    ),
+    CONSTRAINT org_openings_published_at_check CHECK (
+        (first_published_at IS NULL)
+        = (opening_state IN ('draft', 'discarded'))
+    ),
+    CONSTRAINT org_openings_expiry_check CHECK (
+        (first_published_at IS NULL AND expires_at IS NULL)
+        OR (first_published_at IS NOT NULL AND expires_at IS NOT NULL
+            AND expires_at = first_published_at + interval '180 days')
+    ),
+    CONSTRAINT org_openings_ended_at_check CHECK (
+        (ended_at IS NOT NULL)
+        = (opening_state IN ('discarded', 'closed', 'expired'))
+    ),
+    CONSTRAINT org_openings_discarded_empty_check CHECK (
+        opening_state <> 'discarded'
+        OR (hiring_manager_id IS NULL AND recruiter_id IS NULL
+            AND internal_notes IS NULL)
+    ),
+    CONSTRAINT org_openings_last_revised_check CHECK (
+        (last_revised_at IS NULL) = (revision = 0)
+    ),
+    CONSTRAINT org_openings_timestamps_check CHECK (
+        updated_at >= created_at
+        AND (first_published_at IS NULL OR first_published_at >= created_at)
+    )
+);
+
+CREATE INDEX org_openings_quota_idx
+    ON vetchium.org_openings (org_did, created_at);
+CREATE INDEX org_openings_expiry_idx
+    ON vetchium.org_openings (expires_at)
+    WHERE opening_state IN ('published', 'paused');
+CREATE INDEX org_openings_list_idx
+    ON vetchium.org_openings (org_did, updated_at DESC, opening_number DESC);
+CREATE INDEX org_openings_hiring_manager_idx
+    ON vetchium.org_openings (hiring_manager_id);
+CREATE INDEX org_openings_recruiter_idx
+    ON vetchium.org_openings (recruiter_id);
+
+-- Keep these constraints in step with common.OpeningContent.Validate. A draft
+-- may be incomplete; only the live slot must be complete.
+CREATE TABLE vetchium.org_opening_contents (
+    org_opening_id uuid NOT NULL REFERENCES vetchium.org_openings
+        (org_opening_id) ON DELETE CASCADE,
+    slot vetchium.org_opening_content_slot NOT NULL,
+    title text,
+    description text,
+    language text,
+    employing_country text,
+    work_arrangement vetchium.org_opening_work_arrangement,
+    location_details text,
+    remote_eligibility vetchium.org_opening_remote_eligibility,
+    remote_countries text[],
+    employment_type vetchium.org_opening_employment_type,
+    positions integer,
+    experience_min integer,
+    experience_max integer,
+    minimum_education vetchium.org_opening_education,
+    salary_currency text,
+    salary_min bigint,
+    salary_max bigint,
+    salary_period vetchium.org_opening_salary_period,
+    updated_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    complete boolean GENERATED ALWAYS AS (
+        title IS NOT NULL AND description IS NOT NULL
+        AND language IS NOT NULL AND employing_country IS NOT NULL
+        AND work_arrangement IS NOT NULL AND employment_type IS NOT NULL
+        AND positions IS NOT NULL
+        AND (work_arrangement <> 'remote' OR remote_eligibility IS NOT NULL)
+    ) STORED,
+    PRIMARY KEY (org_opening_id, slot),
+    CONSTRAINT org_opening_contents_title_check CHECK (
+        title IS NULL OR (title = btrim(title)
+            AND char_length(title) BETWEEN 1 AND 200)
+    ),
+    CONSTRAINT org_opening_contents_description_check CHECK (
+        description IS NULL OR (description = btrim(description)
+            AND char_length(description) BETWEEN 1 AND 20000)
+    ),
+    CONSTRAINT org_opening_contents_language_check CHECK (
+        language IS NULL OR language ~ '^[a-z]{2,3}$'
+    ),
+    CONSTRAINT org_opening_contents_country_check CHECK (
+        employing_country IS NULL
+        OR employing_country ~ '^[A-Z]{2}$'
+    ),
+    CONSTRAINT org_opening_contents_location_check CHECK (
+        location_details IS NULL OR (location_details = btrim(location_details)
+            AND char_length(location_details) <= 2000)
+    ),
+    CONSTRAINT org_opening_contents_remote_check CHECK (
+        (remote_eligibility IS NULL AND remote_countries IS NULL)
+        OR (remote_eligibility IS NOT NULL
+            AND work_arrangement = 'remote' AND (
+            (remote_eligibility = 'worldwide' AND remote_countries IS NULL)
+            OR (remote_eligibility = 'countries'
+                AND remote_countries IS NOT NULL
+                AND cardinality(remote_countries) > 0
+                AND array_position(remote_countries, NULL) IS NULL
+                AND vetchium.array_is_distinct(remote_countries)
+                AND array_to_string(remote_countries, ',')
+                    ~ '^([A-Z]{2})(,[A-Z]{2})*$'
+                AND (employing_country IS NULL
+                    OR employing_country = ANY(remote_countries)))
+        ))
+    ),
+    CONSTRAINT org_opening_contents_remote_arrangement_check CHECK (
+        remote_eligibility IS NULL OR (
+            work_arrangement IS NOT NULL AND work_arrangement = 'remote')
+    ),
+    CONSTRAINT org_opening_contents_positions_check CHECK (
+        positions IS NULL OR positions BETWEEN 1 AND 10
+    ),
+    CONSTRAINT org_opening_contents_experience_check CHECK (
+        (experience_min IS NULL OR experience_min BETWEEN 0 AND 50)
+        AND (experience_max IS NULL OR experience_max BETWEEN 0 AND 50)
+        AND (experience_min IS NULL OR experience_max IS NULL
+            OR experience_min <= experience_max)
+    ),
+    CONSTRAINT org_opening_contents_salary_check CHECK (
+        (salary_currency IS NULL AND salary_min IS NULL
+            AND salary_max IS NULL AND salary_period IS NULL)
+        OR (salary_currency IS NOT NULL AND salary_min IS NOT NULL
+            AND salary_max IS NOT NULL AND salary_period IS NOT NULL
+            AND salary_currency ~ '^[A-Z]{3}$'
+            AND salary_min >= 0 AND salary_min <= salary_max
+            AND salary_max >= 1)
+    ),
+    CONSTRAINT org_opening_contents_live_complete_check CHECK (
+        slot <> 'live' OR complete
+    )
+);
+
+CREATE TABLE vetchium.org_opening_team_members (
+    org_opening_id uuid NOT NULL REFERENCES vetchium.org_openings
+        (org_opening_id) ON DELETE CASCADE,
+    org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id),
+    PRIMARY KEY (org_opening_id, org_user_id)
+);
+CREATE INDEX org_opening_team_members_user_idx
+    ON vetchium.org_opening_team_members (org_user_id);
+
+CREATE TABLE vetchium.org_opening_requests (
+    org_opening_request_id uuid PRIMARY KEY,
+    org_opening_id uuid NOT NULL REFERENCES vetchium.org_openings
+        (org_opening_id) ON DELETE CASCADE,
+    request_kind vetchium.org_opening_request_kind NOT NULL,
+    request_state vetchium.org_opening_request_state NOT NULL DEFAULT 'pending',
+    requested_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id),
+    requested_at timestamptz NOT NULL DEFAULT now(),
+    request_note text,
+    decided_by uuid REFERENCES vetchium.org_users (org_user_id),
+    decided_at timestamptz,
+    decision_note text,
+    self_approved boolean NOT NULL DEFAULT false,
+    CONSTRAINT org_opening_requests_pending_check CHECK (
+        (request_state = 'pending') = (decided_at IS NULL)
+    ),
+    CONSTRAINT org_opening_requests_rejected_note_check CHECK (
+        request_state <> 'rejected' OR decision_note IS NOT NULL
+    ),
+    CONSTRAINT org_opening_requests_decider_check CHECK (
+        (request_state IN ('approved', 'rejected', 'withdrawn'))
+        = (decided_by IS NOT NULL)
+    ),
+    CONSTRAINT org_opening_requests_self_approved_check CHECK (
+        NOT self_approved OR request_state = 'approved'
+    ),
+    CONSTRAINT org_opening_requests_notes_check CHECK (
+        (request_note IS NULL OR (request_note = btrim(request_note)
+            AND char_length(request_note) BETWEEN 1 AND 2000))
+        AND (decision_note IS NULL OR (decision_note = btrim(decision_note)
+            AND char_length(decision_note) BETWEEN 1 AND 2000))
+    )
+);
+CREATE UNIQUE INDEX org_opening_requests_one_pending_idx
+    ON vetchium.org_opening_requests (org_opening_id)
+    WHERE request_state = 'pending';
+
+CREATE TABLE vetchium.org_opening_history (
+    org_opening_history_id uuid PRIMARY KEY,
+    org_opening_id uuid NOT NULL REFERENCES vetchium.org_openings
+        (org_opening_id) ON DELETE CASCADE,
+    action vetchium.org_opening_history_action NOT NULL,
+    actor_org_user_id uuid REFERENCES vetchium.org_users (org_user_id),
+    org_opening_request_id uuid REFERENCES vetchium.org_opening_requests
+        (org_opening_request_id),
+    request_kind vetchium.org_opening_request_kind,
+    request_state vetchium.org_opening_request_state,
+    opening_version integer NOT NULL CHECK (opening_version >= 1),
+    source_opening_number integer CHECK (source_opening_number >= 1),
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX org_opening_history_list_idx
+    ON vetchium.org_opening_history
+    (org_opening_id, created_at DESC, org_opening_history_id DESC);
+
 CREATE TABLE vetchium.idempotency_ledger (
     operation text NOT NULL,
     binding_id text NOT NULL,
@@ -1867,6 +2134,21 @@ $$;
 
 -- +goose Down
 DROP TABLE IF EXISTS vetchium.idempotency_ledger;
+DROP TABLE IF EXISTS vetchium.org_opening_history;
+DROP TABLE IF EXISTS vetchium.org_opening_requests;
+DROP TABLE IF EXISTS vetchium.org_opening_team_members;
+DROP TABLE IF EXISTS vetchium.org_opening_contents;
+DROP TABLE IF EXISTS vetchium.org_openings;
+DROP TYPE IF EXISTS vetchium.org_opening_history_action;
+DROP TYPE IF EXISTS vetchium.org_opening_request_state;
+DROP TYPE IF EXISTS vetchium.org_opening_request_kind;
+DROP TYPE IF EXISTS vetchium.org_opening_content_slot;
+DROP TYPE IF EXISTS vetchium.org_opening_salary_period;
+DROP TYPE IF EXISTS vetchium.org_opening_education;
+DROP TYPE IF EXISTS vetchium.org_opening_employment_type;
+DROP TYPE IF EXISTS vetchium.org_opening_remote_eligibility;
+DROP TYPE IF EXISTS vetchium.org_opening_work_arrangement;
+DROP TYPE IF EXISTS vetchium.org_opening_state;
 DROP TABLE IF EXISTS vetchium.org_email_outbox;
 DROP TABLE IF EXISTS vetchium.org_signup_completions;
 DROP TYPE IF EXISTS vetchium.org_signup_completion_state;

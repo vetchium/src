@@ -206,8 +206,9 @@ by the `workers` schedule and check-now.
 
 - Org authorization follows the shared model in
   [`authorization.md`](authorization.md). The catalog holds `org:superadmin`,
-  `org:manage_users`, and `org:manage_billing`; the superadmin implies the
-  other two.
+  `org:manage_users`, `org:manage_billing`, `org:view_openings`,
+  `org:manage_openings`, and `org:approve_openings`. The superadmin implies
+  every other permission; manage and approve Openings each imply view.
 - Org plans are seeded rows identified by plan OIDs, identical in every tenant.
   A new Org starts on `org-free-tier`. Plans, billing, seats, user management,
   the logo, and Google sign-in are in
