@@ -21,7 +21,10 @@ type ProfileLocation string
 type EducationSupportingText string
 type CredentialURL string
 type WebsiteURL string
-type LanguageTag string
+type LanguageTag = common.LanguageTag
+
+func SupportedLanguageTags() []LanguageTag { return common.SupportedLanguageTags() }
+
 type LanguageAbility string
 
 // MaxWebsites is the most websites one profile may list.
@@ -133,8 +136,7 @@ func IsLanguageAbility(value LanguageAbility) bool {
 }
 
 func IsLanguageTag(value LanguageTag) bool {
-	_, ok := languageCatalogSet[value]
-	return ok
+	return common.IsLanguageTag(value)
 }
 
 type WorkExperience struct {

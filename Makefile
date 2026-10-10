@@ -31,10 +31,10 @@ MESH_KEY_FILE         := $(DEV_SECRETS_DIR)/mesh_credential
 MESH_CA_FILE          := $(DEV_SECRETS_DIR)/mesh_ca_certificate
 SQLC                   := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
 GOVULNCHECK             := go run golang.org/x/vuln/cmd/govulncheck@v1.7.0
-# The v2.12.2 image was built with Go 1.26 and rejects Go 1.27 modules. Build
-# the same pinned release with the project's Go toolchain until upstream ships
-# an official Go 1.27-compatible release.
-GOLANGCI_LINT           := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+# golangci-lint decodes export data with the golang.org/x/tools version its own
+# go.mod pins, not the toolchain's. Go 1.27 writes export data V5, which needs
+# x/tools v0.50.0 or later; v2.14.0 is the first release that pins it.
+GOLANGCI_LINT           := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 SQLFLUFF_IMAGE          := sqlfluff/sqlfluff:4.2.2@sha256:7e8f4f1bc8f70c6ab7da3094c3ca0ff0c66f3d721896d79c3731e549ea1921fb
 GO_MODULES             := backend typespec
 JS_WORKSPACES          := admin-ui hub-ui orgs-ui portal-ui typespec playwright
@@ -424,6 +424,7 @@ typespec-deps:
 
 typespec-check-ready: typespec-deps
 	cd typespec && npm run check:language-catalog
+	cd typespec && npm run check:currency-catalog
 	cd typespec && npm run check:contract-files
 	cd typespec && npm run test:contract-files
 	cd typespec && npm run format:check

@@ -1,4 +1,4 @@
-package profile
+package common
 
 import (
 	_ "embed"
@@ -8,6 +8,8 @@ import (
 
 //go:embed language_catalog.json
 var languageCatalogJSON []byte
+
+type LanguageTag string
 
 var languageCatalog = func() []LanguageTag {
 	var tags []LanguageTag
@@ -27,4 +29,9 @@ var languageCatalogSet = func() map[LanguageTag]struct{} {
 
 func SupportedLanguageTags() []LanguageTag {
 	return append([]LanguageTag(nil), languageCatalog...)
+}
+
+func IsLanguageTag(value LanguageTag) bool {
+	_, ok := languageCatalogSet[value]
+	return ok
 }

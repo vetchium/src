@@ -40,7 +40,7 @@ source-specific fields to it.
 | --- | --- |
 | `title` | 1–200 code points after trimming |
 | `description` | Markdown subset (below), 1–20,000 code points |
-| `language` | tag from the language catalog (`typespec/hub/profile/language_catalog.json`, moved to `typespec/common/`), defaulting to the author's portal language |
+| `language` | tag from the language catalog (`typespec/common/language_catalog.json`), defaulting to the author's portal language |
 | `employing_country` | `CountryCode` (ISO 3166-1 alpha-2) of the employing entity |
 | `work_arrangement` | `on_site`, `hybrid`, `remote` |
 | `location_details` | optional plain text, at most 2,000 code points: cities, offices, travel, time zones |
