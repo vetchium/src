@@ -24,12 +24,11 @@ Guides: `review.md`, `verification.md`, and every guide edited below.
    failures this branch caused.
 4. Read `git diff main --stat` and confirm no generated file, debug code,
    or unrelated change is present.
-5. Delete the build tooling except what the commit step needs:
-   `git rm -r .claude/skills/openings-build .claude/openings-build/tasks`
-   and `git rm .claude/agents/openings-implementer.md
-   .claude/agents/openings-reviewer.md`. Leave
-   `.claude/openings-build/progress.md` and `commit.sh`; the commit step
-   removes them.
+5. Delete the build tooling except what the commit step needs: remove the
+   "Openings build" section from `AGENTS.md`, and
+   `git rm -r .openings-build/tasks .openings-build/RUNBOOK.md`. Leave
+   `.openings-build/progress.md` and `commit.sh`; the commit step removes
+   them.
 
 ## Acceptance
 

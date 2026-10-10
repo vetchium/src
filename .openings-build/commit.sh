@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Commits the reviewed work of the current Openings build task and advances
-# progress.md to the next task. Run only by the openings-build skill.
+# progress.md to the next task. Run as the RUNBOOK.md commit phase says.
 set -euo pipefail
 
 root=$(git rev-parse --show-toplevel)
 cd "$root"
-dir=.claude/openings-build
+dir=.openings-build
 progress=$dir/progress.md
 
 current=$(awk '/^current: /{print $2; exit}' "$progress")
