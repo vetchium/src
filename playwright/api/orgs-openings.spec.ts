@@ -693,6 +693,21 @@ test("writes bind idempotency keys and suspended Orgs cannot read or write", asy
         write: true,
       },
       {
+        path: "/request-opening-change",
+        body: { opening_number: 1, version: 1, kind: "publish" },
+        write: true,
+      },
+      {
+        path: "/decide-opening-request",
+        body: { opening_number: 1, version: 1, decision: "approve" },
+        write: true,
+      },
+      {
+        path: "/withdraw-opening-request",
+        body: { opening_number: 1, version: 1 },
+        write: true,
+      },
+      {
         path: "/list-opening-history",
         body: { opening_number: 1 },
         write: false,
@@ -752,6 +767,21 @@ test("writes bind idempotency keys and suspended Orgs cannot read or write", asy
         write: true,
       },
       {
+        path: "/request-opening-change",
+        body: { opening_number: 1, version: 1, kind: "unknown" },
+        write: true,
+      },
+      {
+        path: "/decide-opening-request",
+        body: { opening_number: 1, version: 1, decision: "reject" },
+        write: true,
+      },
+      {
+        path: "/withdraw-opening-request",
+        body: { opening_number: 1, version: 0 },
+        write: true,
+      },
+      {
         path: "/list-opening-history",
         body: { opening_number: 0 },
         write: false,
@@ -788,6 +818,9 @@ test("writes bind idempotency keys and suspended Orgs cannot read or write", asy
         "/discard-opening-working-copy",
         "/set-opening-team",
         "/discard-opening",
+        "/request-opening-change",
+        "/decide-opening-request",
+        "/withdraw-opening-request",
         "/list-opening-history",
       ].includes(item.path),
     )) {

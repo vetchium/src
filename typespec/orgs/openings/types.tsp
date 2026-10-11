@@ -36,6 +36,11 @@ enum OpeningRequestState {
   Cancelled: "cancelled",
 }
 
+enum OpeningDecision {
+  Approve: "approve",
+  Reject: "reject",
+}
+
 enum OpeningHistoryAction {
   Created: "created",
   Duplicated: "duplicated",

@@ -19,6 +19,14 @@ WITH visible AS (
               WHERE tm.org_opening_id = o.org_opening_id
                 AND tm.org_user_id = sqlc.arg(viewer_id)
           )
+          OR (sqlc.arg(include_requester)::boolean AND EXISTS (
+              SELECT 1 FROM vetchium.org_opening_requests AS r
+              WHERE r.org_opening_id = o.org_opening_id
+                AND r.requested_by = sqlc.arg(viewer_id)
+                AND (r.request_state = 'pending'
+                    OR (r.request_state = 'withdrawn'
+                        AND r.decided_by = sqlc.arg(viewer_id)))
+          ))
       )
 )
 SELECT jsonb_strip_nulls(jsonb_build_object(
@@ -170,6 +178,15 @@ WHERE o.org_did = sqlc.arg(org_did)
       AND o.opening_state::text = ANY(sqlc.narg(states)::text[]))
       OR (sqlc.narg(states)::text[] IS NULL
       AND o.opening_state <> 'discarded'))
+  AND (sqlc.narg(pending_request_kinds)::text[] IS NULL
+      OR pending.request_kind::text = ANY(sqlc.narg(pending_request_kinds)::text[]))
+  AND (NOT sqlc.arg(awaiting_my_approval)::boolean
+      OR (pending.org_opening_request_id IS NOT NULL
+          AND EXISTS (
+              SELECT 1 FROM vetchium.org_effective_permissions AS ep
+              WHERE ep.org_user_id = sqlc.arg(viewer_id)
+                AND ep.permission = 'org:approve_openings'
+          )))
   AND (sqlc.narg(hiring_manager_email)::text IS NULL
       OR manager.email_address = sqlc.narg(hiring_manager_email)::text)
   AND (sqlc.narg(recruiter_email)::text IS NULL

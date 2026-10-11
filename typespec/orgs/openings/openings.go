@@ -133,15 +133,17 @@ func (r GetOpeningRequest) Validate() []string {
 }
 
 type ListOpeningsRequest struct {
-	States             []OpeningState                 `json:"states,omitempty"`
-	HiringManagerEmail *common.EmailAddress           `json:"hiring_manager_email,omitempty"`
-	RecruiterEmail     *common.EmailAddress           `json:"recruiter_email,omitempty"`
-	EmployingCountry   *common.CountryCode            `json:"employing_country,omitempty"`
-	WorkArrangement    *common.OpeningWorkArrangement `json:"work_arrangement,omitempty"`
-	EmploymentType     *common.OpeningEmploymentType  `json:"employment_type,omitempty"`
-	TitleQuery         *OpeningTitleQuery             `json:"title_query,omitempty"`
-	PaginationKey      *common.PaginationKey          `json:"pagination_key,omitempty"`
-	Limit              *common.PageSize               `json:"limit,omitempty"`
+	States              []OpeningState                 `json:"states,omitempty"`
+	PendingRequestKinds []OpeningRequestKind           `json:"pending_request_kinds,omitempty"`
+	AwaitingMyApproval  *bool                          `json:"awaiting_my_approval,omitempty"`
+	HiringManagerEmail  *common.EmailAddress           `json:"hiring_manager_email,omitempty"`
+	RecruiterEmail      *common.EmailAddress           `json:"recruiter_email,omitempty"`
+	EmployingCountry    *common.CountryCode            `json:"employing_country,omitempty"`
+	WorkArrangement     *common.OpeningWorkArrangement `json:"work_arrangement,omitempty"`
+	EmploymentType      *common.OpeningEmploymentType  `json:"employment_type,omitempty"`
+	TitleQuery          *OpeningTitleQuery             `json:"title_query,omitempty"`
+	PaginationKey       *common.PaginationKey          `json:"pagination_key,omitempty"`
+	Limit               *common.PageSize               `json:"limit,omitempty"`
 }
 
 func (r *ListOpeningsRequest) Normalize() {
@@ -177,6 +179,20 @@ func (r ListOpeningsRequest) Validate() []string {
 					break
 				}
 				seen[state] = true
+			}
+		}
+	}
+	if r.PendingRequestKinds != nil {
+		if len(r.PendingRequestKinds) == 0 || len(r.PendingRequestKinds) > 5 {
+			fields = append(fields, "pending_request_kinds")
+		} else {
+			seen := map[OpeningRequestKind]bool{}
+			for _, kind := range r.PendingRequestKinds {
+				if !IsOpeningRequestKind(kind) || seen[kind] {
+					fields = append(fields, "pending_request_kinds")
+					break
+				}
+				seen[kind] = true
 			}
 		}
 	}
@@ -284,6 +300,54 @@ func (r SetOpeningTeamRequest) Validate() []string {
 type DiscardOpeningRequest struct {
 	OpeningNumber OpeningNumber  `json:"opening_number"`
 	Version       OpeningVersion `json:"version"`
+}
+
+type RequestOpeningChangeRequest struct {
+	OpeningNumber OpeningNumber      `json:"opening_number"`
+	Version       OpeningVersion     `json:"version"`
+	Kind          OpeningRequestKind `json:"kind"`
+	Note          *string            `json:"note,omitempty"`
+}
+
+func (r *RequestOpeningChangeRequest) Normalize() { r.Note = normalizeNotes(r.Note) }
+func (r RequestOpeningChangeRequest) Validate() []string {
+	fields := validateNumberVersion(r.OpeningNumber, r.Version)
+	if !IsOpeningRequestKind(r.Kind) {
+		fields = append(fields, "kind")
+	}
+	if !validNotes(r.Note) {
+		fields = append(fields, "note")
+	}
+	return fields
+}
+
+type DecideOpeningRequestRequest struct {
+	OpeningNumber OpeningNumber   `json:"opening_number"`
+	Version       OpeningVersion  `json:"version"`
+	Decision      OpeningDecision `json:"decision"`
+	Note          *string         `json:"note,omitempty"`
+}
+
+func (r *DecideOpeningRequestRequest) Normalize() { r.Note = normalizeNotes(r.Note) }
+func (r DecideOpeningRequestRequest) Validate() []string {
+	fields := validateNumberVersion(r.OpeningNumber, r.Version)
+	if r.Decision != ApproveDecision && r.Decision != RejectDecision {
+		fields = append(fields, "decision")
+	}
+	if !validNotes(r.Note) || (r.Decision == RejectDecision && r.Note == nil) {
+		fields = append(fields, "note")
+	}
+	return fields
+}
+
+type WithdrawOpeningRequestRequest struct {
+	OpeningNumber OpeningNumber  `json:"opening_number"`
+	Version       OpeningVersion `json:"version"`
+}
+
+func (r *WithdrawOpeningRequestRequest) Normalize() {}
+func (r WithdrawOpeningRequestRequest) Validate() []string {
+	return validateNumberVersion(r.OpeningNumber, r.Version)
 }
 
 func (r *DiscardOpeningRequest) Normalize() {}

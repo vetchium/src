@@ -48,6 +48,13 @@ model ListOpeningsRequest {
   @TypeSpec.OpenAPI.extension("x-vetchium-unique-items", true)
   states?: OpeningState[];
 
+  @minItems(1)
+  @maxItems(5)
+  @TypeSpec.OpenAPI.extension("x-vetchium-unique-items", true)
+  pending_request_kinds?: OpeningRequestKind[];
+
+  awaiting_my_approval?: boolean;
+
   hiring_manager_email?: Vetchium.EmailAddress;
   recruiter_email?: Vetchium.EmailAddress;
   employing_country?: Vetchium.CountryCode;
@@ -97,6 +104,31 @@ model SetOpeningTeamRequest {
 }
 
 model DiscardOpeningRequest {
+  opening_number: OpeningNumber;
+  version: OpeningVersion;
+}
+
+model RequestOpeningChangeRequest {
+  opening_number: OpeningNumber;
+  version: OpeningVersion;
+  kind: OpeningRequestKind;
+
+  @minLength(1)
+  @maxLength(2000)
+  note?: string;
+}
+
+model DecideOpeningRequestRequest {
+  opening_number: OpeningNumber;
+  version: OpeningVersion;
+  decision: OpeningDecision;
+
+  @minLength(1)
+  @maxLength(2000)
+  note?: string;
+}
+
+model WithdrawOpeningRequestRequest {
   opening_number: OpeningNumber;
   version: OpeningVersion;
 }
@@ -368,6 +400,58 @@ interface OpeningOperations {
     | Vetchium.Problem.OrgOpeningNotFoundErrorResponse
     | Vetchium.Problem.OrgOpeningVersionConflictErrorResponse
     | Vetchium.Problem.OrgOpeningRequestPendingErrorResponse
+    | Vetchium.Problem.OrgOpeningStateConflictErrorResponse;
+
+  @route("/request-opening-change")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-required-permission", "org:manage_openings")
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-binding", #["operation", "authenticated-principal", "canonical-request-digest", "idempotency-key"])
+  requestOpeningChange(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: RequestOpeningChangeRequest,
+  ):
+    | { @statusCode status_code: 200; @header("Cache-Control") cache_control: "no-store"; @body body: OrgOpening; }
+    | OpeningWriteErrors
+    | Vetchium.Problem.OrgOpeningNotFoundErrorResponse
+    | Vetchium.Problem.OrgOpeningVersionConflictErrorResponse
+    | Vetchium.Problem.OrgOpeningRequestPendingErrorResponse
+    | Vetchium.Problem.OrgOpeningStateConflictErrorResponse
+    | Vetchium.Problem.OrgOpeningIncompleteErrorResponse
+    | Vetchium.Problem.OrgOpeningHiringTeamInvalidErrorResponse;
+
+  @route("/decide-opening-request")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-required-permission", "org:approve_openings")
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-binding", #["operation", "authenticated-principal", "canonical-request-digest", "idempotency-key"])
+  decideOpeningRequest(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: DecideOpeningRequestRequest,
+  ):
+    | { @statusCode status_code: 200; @header("Cache-Control") cache_control: "no-store"; @body body: OrgOpening; }
+    | OpeningWriteErrors
+    | Vetchium.Problem.OrgOpeningNotFoundErrorResponse
+    | Vetchium.Problem.OrgOpeningVersionConflictErrorResponse
+    | Vetchium.Problem.OrgOpeningStateConflictErrorResponse
+    | Vetchium.Problem.OrgOpeningIncompleteErrorResponse
+    | Vetchium.Problem.OrgOpeningHiringTeamInvalidErrorResponse;
+
+  @route("/withdraw-opening-request")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-binding", #["operation", "authenticated-principal", "canonical-request-digest", "idempotency-key"])
+  withdrawOpeningRequest(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: WithdrawOpeningRequestRequest,
+  ):
+    | { @statusCode status_code: 200; @header("Cache-Control") cache_control: "no-store"; @body body: OrgOpening; }
+    | OpeningWriteErrors
+    | Vetchium.Problem.OrgOpeningNotFoundErrorResponse
+    | Vetchium.Problem.OrgOpeningVersionConflictErrorResponse
     | Vetchium.Problem.OrgOpeningStateConflictErrorResponse;
 
   @route("/list-opening-history")

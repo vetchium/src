@@ -43,6 +43,10 @@ func TestOpeningRequestValidation(t *testing.T) {
 		{"invalid number", GetOpeningRequest{}.Validate(), []string{"opening_number"}},
 		{"empty state filter", ListOpeningsRequest{States: []OpeningState{}}.Validate(), []string{"states"}},
 		{"duplicate state filter", ListOpeningsRequest{States: []OpeningState{Draft, Draft}}.Validate(), []string{"states"}},
+		{"duplicate request kind filter", ListOpeningsRequest{PendingRequestKinds: []OpeningRequestKind{PauseRequest, PauseRequest}}.Validate(), []string{"pending_request_kinds"}},
+		{"unknown request kind", RequestOpeningChangeRequest{OpeningNumber: 1, Version: 1}.Validate(), []string{"kind"}},
+		{"missing rejection note", DecideOpeningRequestRequest{OpeningNumber: 1, Version: 1, Decision: RejectDecision}.Validate(), []string{"note"}},
+		{"approval needs no note", DecideOpeningRequestRequest{OpeningNumber: 1, Version: 1, Decision: ApproveDecision}.Validate(), []string{}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

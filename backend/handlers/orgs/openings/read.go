@@ -37,9 +37,16 @@ func loadOpening(
 	ctx context.Context, q sqlc.Querier, identity middleware.OrgIdentity,
 	number openings.OpeningNumber,
 ) (openings.OrgOpening, error) {
+	return loadOpeningWithRequester(ctx, q, identity, number, false)
+}
+
+func loadOpeningWithRequester(
+	ctx context.Context, q sqlc.Querier, identity middleware.OrgIdentity,
+	number openings.OpeningNumber, includeRequester bool,
+) (openings.OrgOpening, error) {
 	data, err := q.GetOrgOpening(ctx, sqlc.GetOrgOpeningParams{
 		OrgDid: identity.OrgDID, OpeningNumber: int32(number),
-		ViewerID: identity.UserID,
+		ViewerID: identity.UserID, IncludeRequester: includeRequester,
 	})
 	if err != nil {
 		return openings.OrgOpening{}, err
@@ -120,6 +127,15 @@ func ListOpenings(s *orgsruntime.Server) http.HandlerFunc {
 			for index, state := range request.States {
 				params.States[index] = string(state)
 			}
+		}
+		if request.PendingRequestKinds != nil {
+			params.PendingRequestKinds = make([]string, len(request.PendingRequestKinds))
+			for index, kind := range request.PendingRequestKinds {
+				params.PendingRequestKinds[index] = string(kind)
+			}
+		}
+		if request.AwaitingMyApproval != nil {
+			params.AwaitingMyApproval = *request.AwaitingMyApproval
 		}
 		if request.EmployingCountry != nil {
 			params.EmployingCountry = dbvalue.Text(string(*request.EmployingCountry))

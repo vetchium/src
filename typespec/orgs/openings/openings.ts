@@ -14,15 +14,17 @@ import {
 import type { PageSize, PaginationKey } from "../../common/pagination.ts";
 import { isPageSize, isPaginationKey } from "../../common/pagination.ts";
 import type {
+  OpeningDecision,
   OpeningHistoryEntry,
   OpeningNumber,
   OpeningQuotaUsage,
+  OpeningRequestKind,
   OpeningState,
   OpeningStateCount,
   OpeningVersion,
   OrgOpeningSummary,
 } from "./types.ts";
-import { openingStates } from "./types.ts";
+import { openingRequestKinds, openingStates } from "./types.ts";
 
 export interface CreateOpeningRequest {
   content: OpeningContent;
@@ -41,6 +43,8 @@ export interface GetOpeningRequest {
 
 export interface ListOpeningsRequest {
   states?: OpeningState[];
+  pending_request_kinds?: OpeningRequestKind[];
+  awaiting_my_approval?: boolean;
   hiring_manager_email?: EmailAddress;
   recruiter_email?: EmailAddress;
   employing_country?: CountryCode;
@@ -83,6 +87,25 @@ export interface SetOpeningTeamRequest {
 }
 
 export interface DiscardOpeningRequest {
+  opening_number: OpeningNumber;
+  version: OpeningVersion;
+}
+
+export interface RequestOpeningChangeRequest {
+  opening_number: OpeningNumber;
+  version: OpeningVersion;
+  kind: OpeningRequestKind;
+  note?: string;
+}
+
+export interface DecideOpeningRequestRequest {
+  opening_number: OpeningNumber;
+  version: OpeningVersion;
+  decision: OpeningDecision;
+  note?: string;
+}
+
+export interface WithdrawOpeningRequestRequest {
   opening_number: OpeningNumber;
   version: OpeningVersion;
 }
@@ -233,6 +256,17 @@ export function validateListOpeningsRequest(
   )
     fields.push("states");
   if (
+    r.pending_request_kinds !== undefined &&
+    (r.pending_request_kinds.length < 1 ||
+      r.pending_request_kinds.length > 5 ||
+      new Set(r.pending_request_kinds).size !==
+        r.pending_request_kinds.length ||
+      !r.pending_request_kinds.every((kind) =>
+        openingRequestKinds.includes(kind),
+      ))
+  )
+    fields.push("pending_request_kinds");
+  if (
     r.hiring_manager_email !== undefined &&
     !isEmailAddress(r.hiring_manager_email)
   )
@@ -303,6 +337,56 @@ export function validateSetOpeningTeamRequest(
 
 export function validateDiscardOpeningRequest(
   request: DiscardOpeningRequest,
+): string[] {
+  return validateNumberVersion(request.opening_number, request.version);
+}
+
+function validNote(note: string | undefined): boolean {
+  return (
+    note === undefined || ([...note].length >= 1 && [...note].length <= 2000)
+  );
+}
+
+export function normalizeRequestOpeningChangeRequest(
+  request: RequestOpeningChangeRequest,
+): RequestOpeningChangeRequest {
+  return {
+    ...request,
+    ...(request.note !== undefined && { note: request.note.trim() }),
+  };
+}
+export function validateRequestOpeningChangeRequest(
+  request: RequestOpeningChangeRequest,
+): string[] {
+  const r = normalizeRequestOpeningChangeRequest(request);
+  const fields = validateNumberVersion(r.opening_number, r.version);
+  if (!openingRequestKinds.includes(r.kind)) fields.push("kind");
+  if (!validNote(r.note)) fields.push("note");
+  return fields;
+}
+
+export function normalizeDecideOpeningRequestRequest(
+  request: DecideOpeningRequestRequest,
+): DecideOpeningRequestRequest {
+  return {
+    ...request,
+    ...(request.note !== undefined && { note: request.note.trim() }),
+  };
+}
+export function validateDecideOpeningRequestRequest(
+  request: DecideOpeningRequestRequest,
+): string[] {
+  const r = normalizeDecideOpeningRequestRequest(request);
+  const fields = validateNumberVersion(r.opening_number, r.version);
+  if (r.decision !== "approve" && r.decision !== "reject")
+    fields.push("decision");
+  if (!validNote(r.note) || (r.decision === "reject" && r.note === undefined))
+    fields.push("note");
+  return fields;
+}
+
+export function validateWithdrawOpeningRequestRequest(
+  request: WithdrawOpeningRequestRequest,
 ): string[] {
   return validateNumberVersion(request.opening_number, request.version);
 }

@@ -14,14 +14,17 @@ import type {
 } from "typespec/orgs/auth/signup";
 import type {
   CreateOpeningRequest,
+  DecideOpeningRequestRequest,
   DiscardOpeningRequest,
   DiscardOpeningWorkingCopyRequest,
   DuplicateOpeningRequest,
   GetOpeningRequest,
   ListOpeningHistoryRequest,
   ListOpeningsRequest,
+  RequestOpeningChangeRequest,
   SaveOpeningWorkingCopyRequest,
   SetOpeningTeamRequest,
+  WithdrawOpeningRequestRequest,
 } from "typespec/orgs/openings/openings";
 import type { SetCompanyNameRequest } from "typespec/orgs/settings/company";
 import type { SetSubscriptionPlanRequest } from "typespec/orgs/subscriptions/subscriptions";
@@ -160,6 +163,39 @@ export class OrgsAPI {
     idempotencyKey: string = orgsIdempotencyKey(),
   ): Promise<APIResponse> {
     return this.post("/discard-opening", request, { token, idempotencyKey });
+  }
+
+  requestOpeningChange(
+    token: string,
+    request: RequestOpeningChangeRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/request-opening-change", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  decideOpeningRequest(
+    token: string,
+    request: DecideOpeningRequestRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/decide-opening-request", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  withdrawOpeningRequest(
+    token: string,
+    request: WithdrawOpeningRequestRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/withdraw-opening-request", request, {
+      token,
+      idempotencyKey,
+    });
   }
 
   getOpening(token: string, request: GetOpeningRequest): Promise<APIResponse> {

@@ -12,6 +12,7 @@ type OpeningVersion int32
 type OpeningState string
 type OpeningRequestKind string
 type OpeningRequestState string
+type OpeningDecision string
 type OpeningHistoryAction string
 
 const (
@@ -35,6 +36,9 @@ const (
 	RequestSuperseded OpeningRequestState = "superseded"
 	RequestCancelled  OpeningRequestState = "cancelled"
 
+	ApproveDecision OpeningDecision = "approve"
+	RejectDecision  OpeningDecision = "reject"
+
 	HistoryCreated           OpeningHistoryAction = "created"
 	HistoryDuplicated        OpeningHistoryAction = "duplicated"
 	HistoryWorkingCopySaved  OpeningHistoryAction = "working_copy_saved"
@@ -54,6 +58,15 @@ const (
 func IsOpeningState(value OpeningState) bool {
 	switch value {
 	case Draft, Discarded, Published, Paused, Closed, Expired:
+		return true
+	default:
+		return false
+	}
+}
+
+func IsOpeningRequestKind(value OpeningRequestKind) bool {
+	switch value {
+	case PublishRequest, ReviseRequest, PauseRequest, ReopenRequest, CloseRequest:
 		return true
 	default:
 		return false

@@ -38,6 +38,9 @@ export const openingRequestStates = [
 ] as const;
 export type OpeningRequestState = (typeof openingRequestStates)[number];
 
+export const openingDecisions = ["approve", "reject"] as const;
+export type OpeningDecision = (typeof openingDecisions)[number];
+
 export const openingHistoryActions = [
   "created",
   "duplicated",
