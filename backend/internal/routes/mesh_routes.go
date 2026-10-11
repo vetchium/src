@@ -59,6 +59,8 @@ func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 		mesh.ClaimOrgDomain(s.Runtime, s.Directory, s.Credential),
 	)
 	mux.HandleFunc("POST /mesh/profile/read", mesh.RelayReadProfile(s))
+	mux.HandleFunc("POST /mesh/org-openings/list", mesh.RelayListOrgOpenings(s))
+	mux.HandleFunc("POST /mesh/org-openings/get", mesh.RelayGetOrgOpening(s))
 }
 
 // RegisterMeshPeerRoutes is deliberately separate from the tenant-local relay.
@@ -67,4 +69,6 @@ func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 func RegisterMeshPeerRoutes(mux *http.ServeMux, s *meshapi.Server) {
 	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
 	mux.HandleFunc("POST /api/mesh/profile/read", mesh.PeerReadProfile(s))
+	mux.HandleFunc("POST /api/mesh/org-openings/list", mesh.PeerListOrgOpenings(s))
+	mux.HandleFunc("POST /api/mesh/org-openings/get", mesh.PeerGetOrgOpening(s))
 }

@@ -73,7 +73,8 @@ function request(
       `status=$(curl -s -o ${scratch}.response -w '%{http_code}' ` +
       `-X POST ${headerArguments} ${extra} ` +
       `--data @${scratch}.request ${JSON.stringify(url)}); ` +
-      `printf '%s\\n' "$status"; cat ${scratch}.response; ` +
+      `printf '%s\\n' "$status"; ` +
+      `if [ -f ${scratch}.response ]; then cat ${scratch}.response; fi; ` +
       `rm -f ${scratch}.request ${scratch}.response`,
     [`MESH_BODY=${JSON.stringify(body)}`, ...env],
   );
@@ -141,18 +142,25 @@ export function meshPeerRequest(
   to: TestTenant,
   body: unknown,
   observations: APIObservation[],
-  options: { rawBody?: string } = {},
+  options: {
+    rawBody?: string;
+    path?: string;
+    withoutCertificate?: boolean;
+  } = {},
 ): MeshResponse {
+  const path = options.path ?? "/api/mesh/profile/read";
   return request(
     from,
-    `https://${to}.mesh.vetchium.com:8443/api/mesh/profile/read`,
+    `https://${to}.mesh.vetchium.com:8443${path}`,
     options.rawBody ?? body,
     ["Content-Type: application/json"],
-    "--cert /run/secrets/mesh_client_certificate " +
-      "--key /run/secrets/mesh_client_key " +
+    (options.withoutCertificate
+      ? ""
+      : "--cert /run/secrets/mesh_client_certificate " +
+        "--key /run/secrets/mesh_client_key ") +
       "--cacert /run/secrets/mesh_ca_certificate",
     [],
     observations,
-    "/api/mesh/profile/read",
+    path,
   );
 }

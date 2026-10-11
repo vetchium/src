@@ -1,0 +1,6 @@
+package openings
+
+type RelayListOrgOpeningsRequest = ListOrgOpeningsRequest
+type RelayGetOrgOpeningRequest = GetOrgOpeningRequest
+type PeerListOrgOpeningsRequest = ListOrgOpeningsRequest
+type PeerGetOrgOpeningRequest = GetOrgOpeningRequest

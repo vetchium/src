@@ -18,6 +18,8 @@ import (
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
 	"backend/internal/profileclient"
+	"backend/internal/publicopeningclient"
+	"backend/internal/publicopenings"
 	"backend/internal/regions"
 	"backend/internal/routes"
 	"backend/internal/service"
@@ -72,6 +74,10 @@ func run(log *slog.Logger, address string) error {
 		cfg.MeshAPIServer.BaseURL, meshCredential,
 		cfg.MeshAPIServer.RequestTimeout,
 	)
+	openings := publicopeningclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
+	)
 	accessKey, secretKey, err := cfg.ObjectStorage.Credentials()
 	if err != nil {
 		return err
@@ -110,10 +116,14 @@ func run(log *slog.Logger, address string) error {
 		digestKey, log, nil,
 	)
 	s := &hubruntime.Server{
-		Runtime:          apiserver.New(pool, log),
-		Queries:          dbsqlc.New(pool),
-		Directory:        globalDirectory,
-		Profiles:         profiles,
+		Runtime:   apiserver.New(pool, log),
+		Queries:   dbsqlc.New(pool),
+		Directory: globalDirectory,
+		Profiles:  profiles,
+		Openings:  openings,
+		PublicOpenings: publicopenings.Reader{
+			Queries: dbsqlc.New(pool), Logos: pictures,
+		},
 		Pictures:         pictures,
 		SignupCompletion: signupCompletion,
 		EmailChange:      emailChange,
