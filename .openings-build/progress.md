@@ -1,6 +1,6 @@
 # Openings build progress
 
-current: T10
+current: T11
 phase: implement
 
 ## Tasks
@@ -14,7 +14,7 @@ T06 done Hub and mesh reads of published Openings
 T07 done Orgs portal Openings list, editor, and detail
 T08 done Orgs portal requests, approvals, and presets
 T09 done Hub portal Org and Opening pages
-T10 todo Development fixtures for Openings
+T10 done Development fixtures for Openings
 T11 todo Guides, full verification, and plan removal
 
 ## Notes

@@ -70,14 +70,16 @@ var seededOrgs = []struct {
 	{"Gold", "gold.", subscriptionspec.GoldTier},
 }
 
-// seededUsers hold the role presets of the Orgs portal (the first, the
-// requester, is the Superadmin preset).
+// The requester is Superadmin; these invited users exercise the remaining
+// account and Opening permissions.
 var seededUsers = []struct {
 	local       string
 	permissions []authorization.OrgPermissionID
 }{
 	{"finance", []authorization.OrgPermissionID{authorization.OrgPermissionID(authorization.ManageBilling)}},
 	{"users", []authorization.OrgPermissionID{authorization.OrgPermissionID(authorization.ManageUsers)}},
+	{"recruiter", []authorization.OrgPermissionID{authorization.OrgPermissionID(authorization.ManageOpenings)}},
+	{"approver", []authorization.OrgPermissionID{authorization.OrgPermissionID(authorization.ApproveOpenings)}},
 	{"member", nil},
 }
 
@@ -176,6 +178,9 @@ func (s *orgSeeder) seedOrg(
 		}
 	}
 	for _, user := range seededUsers {
+		if plan == subscriptionspec.FreeTier && user.local == "member" {
+			continue
+		}
 		address := user.local + "@" + string(domain)
 		if err := s.post(
 			ctx, "/api/orgs/invite-users", orgsusers.InviteUsersRequest{
@@ -205,8 +210,15 @@ func (s *orgSeeder) seedOrg(
 			return fmt.Errorf("accept the invitation of %s: %w", address, err)
 		}
 	}
-	log.Printf("seeded %s Org domain=%s superadmin=%s users=finance,users,member",
-		plan, domain, email)
+	if err := s.seedOrgOpenings(ctx, domain, bearer); err != nil {
+		return fmt.Errorf("seed Openings: %w", err)
+	}
+	users := "finance,users,recruiter,approver"
+	if plan != subscriptionspec.FreeTier {
+		users += ",member"
+	}
+	log.Printf("seeded %s Org domain=%s superadmin=%s users=%s openings=10",
+		plan, domain, email, users)
 	return nil
 }
 
