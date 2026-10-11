@@ -47,6 +47,7 @@ type Worker struct {
 	subscriptionTransactions     subscriptionTransactions
 	hubSubscriptionNow           func() time.Time
 	subscriptionExpiryQueries    subscriptionExpiryQueries
+	openingExpiryQueries         openingExpiryQueries
 	orgQueries                   orgEmailQueries
 	orgs                         *orgJobs
 	hubSubscriptionExpiryNow     func() time.Time
@@ -84,6 +85,7 @@ func New(
 		aliasChangeDB:                db,
 		aliasChangeQueries:           queries,
 		subscriptionExpiryQueries:    queries,
+		openingExpiryQueries:         queries,
 		orgQueries:                   queries,
 	}
 	w.jobs = []periodicJob{
@@ -106,6 +108,11 @@ func New(
 			name:     "advance-hub-subscriptions",
 			interval: config.AdvanceHubSubscriptionsTimer,
 			run:      w.advanceHubSubscriptions,
+		},
+		{
+			name:     "expire-org-openings",
+			interval: config.ExpireOrgOpeningsTimer,
+			run:      w.expireOrgOpenings,
 		},
 	}
 	if hubEmailDelivery != nil {
