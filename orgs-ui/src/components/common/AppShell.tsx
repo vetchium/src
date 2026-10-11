@@ -1,5 +1,6 @@
 import {
   CreditCardOutlined,
+  FileTextOutlined,
   HomeOutlined,
   SafetyOutlined,
   SettingOutlined,
@@ -68,6 +69,11 @@ export function AppShell() {
               },
             ]
           : []),
+        {
+          key: paths.openings,
+          icon: <FileTextOutlined />,
+          label: t("navigation.openings"),
+        },
         ...(me !== undefined && holds(me.permissions, Superadmin)
           ? [
               {

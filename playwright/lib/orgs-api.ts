@@ -284,6 +284,17 @@ export class OrgsAPI {
     return this.post("/list-users", request, { token });
   }
 
+  lookupOpeningTeamMember(
+    token: string,
+    emailAddress: string,
+  ): Promise<APIResponse> {
+    return this.post(
+      "/lookup-opening-team-member",
+      { email_address: emailAddress },
+      { token },
+    );
+  }
+
   userSummary(token: string): Promise<APIResponse> {
     return this.post("/user-summary", undefined, { token });
   }

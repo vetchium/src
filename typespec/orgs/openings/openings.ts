@@ -21,6 +21,7 @@ import type {
   OpeningRequestKind,
   OpeningState,
   OpeningStateCount,
+  OpeningTeamUser,
   OpeningVersion,
   OrgOpeningSummary,
 } from "./types.ts";
@@ -64,6 +65,28 @@ export type OpeningSummaryRequest = Record<string, never>;
 export interface OpeningSummaryResponse {
   counts: OpeningStateCount[];
   quota: OpeningQuotaUsage;
+}
+
+export interface LookupOpeningTeamMemberRequest {
+  email_address: EmailAddress;
+}
+
+export interface LookupOpeningTeamMemberResponse {
+  member?: OpeningTeamUser;
+}
+
+export function normalizeLookupOpeningTeamMemberRequest(
+  request: LookupOpeningTeamMemberRequest,
+): LookupOpeningTeamMemberRequest {
+  return { email_address: normalizeEmailAddress(request.email_address) };
+}
+
+export function validateLookupOpeningTeamMemberRequest(
+  request: LookupOpeningTeamMemberRequest,
+): string[] {
+  return isEmailAddress(normalizeEmailAddress(request.email_address))
+    ? []
+    : ["email_address"];
 }
 
 export interface SaveOpeningWorkingCopyRequest {

@@ -104,6 +104,7 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/get-opening", readOpening(orgsopenings.GetOpening(s)))
 	mux.Handle("POST /api/orgs/list-openings", readOpening(orgsopenings.ListOpenings(s)))
 	mux.Handle("POST /api/orgs/opening-summary", readOpening(orgsopenings.OpeningSummary(s)))
+	mux.Handle("POST /api/orgs/lookup-opening-team-member", manageOpenings(orgsopenings.LookupOpeningTeamMember(s)))
 	mux.Handle("POST /api/orgs/list-opening-history", readOpening(orgsopenings.ListOpeningHistory(s)))
 	manageUsers := func(next http.Handler) http.Handler {
 		return orgAuth(activeOrg(

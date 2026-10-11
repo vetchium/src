@@ -38,6 +38,23 @@ import type {
 } from "typespec/orgs/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/orgs/auth/types";
 import type { ListPermissionsResponse } from "typespec/orgs/authorization/management";
+import type {
+  CreateOpeningRequest,
+  DiscardOpeningRequest,
+  DiscardOpeningWorkingCopyRequest,
+  DuplicateOpeningRequest,
+  GetOpeningRequest,
+  ListOpeningHistoryRequest,
+  ListOpeningHistoryResponse,
+  ListOpeningsRequest,
+  ListOpeningsResponse,
+  LookupOpeningTeamMemberRequest,
+  LookupOpeningTeamMemberResponse,
+  OpeningSummaryResponse,
+  SaveOpeningWorkingCopyRequest,
+  SetOpeningTeamRequest,
+} from "typespec/orgs/openings/openings";
+import type { OrgOpening } from "typespec/orgs/openings/types";
 import type { SetCompanyNameRequest } from "typespec/orgs/settings/company";
 import type { SetGoogleSignInRequest } from "typespec/orgs/settings/google_sign_in";
 import type { LogoContentType } from "typespec/orgs/settings/logo";
@@ -72,6 +89,48 @@ import type {
 import { apiRequest } from "./client";
 
 export const orgsAPI = {
+  createOpening: (body: CreateOpeningRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<OrgOpening>("/create-opening", { body, idempotencyKey }),
+  duplicateOpening: (
+    body: DuplicateOpeningRequest,
+    idempotencyKey: IdempotencyKey,
+  ) => apiRequest<OrgOpening>("/duplicate-opening", { body, idempotencyKey }),
+  getOpening: (body: GetOpeningRequest) =>
+    apiRequest<OrgOpening>("/get-opening", { body }),
+  listOpenings: (body: ListOpeningsRequest) =>
+    apiRequest<ListOpeningsResponse>("/list-openings", { body }),
+  openingSummary: () =>
+    apiRequest<OpeningSummaryResponse>("/opening-summary", { body: {} }),
+  lookupOpeningTeamMember: (body: LookupOpeningTeamMemberRequest) =>
+    apiRequest<LookupOpeningTeamMemberResponse>("/lookup-opening-team-member", {
+      body,
+    }),
+  saveOpeningWorkingCopy: (
+    body: SaveOpeningWorkingCopyRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<OrgOpening>("/save-opening-working-copy", {
+      body,
+      idempotencyKey,
+    }),
+  discardOpeningWorkingCopy: (
+    body: DiscardOpeningWorkingCopyRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<OrgOpening>("/discard-opening-working-copy", {
+      body,
+      idempotencyKey,
+    }),
+  setOpeningTeam: (
+    body: SetOpeningTeamRequest,
+    idempotencyKey: IdempotencyKey,
+  ) => apiRequest<OrgOpening>("/set-opening-team", { body, idempotencyKey }),
+  discardOpening: (
+    body: DiscardOpeningRequest,
+    idempotencyKey: IdempotencyKey,
+  ) => apiRequest<OrgOpening>("/discard-opening", { body, idempotencyKey }),
+  listOpeningHistory: (body: ListOpeningHistoryRequest) =>
+    apiRequest<ListOpeningHistoryResponse>("/list-opening-history", { body }),
   requestSignup: (
     body: RequestSignupRequest,
     idempotencyKey: IdempotencyKey,

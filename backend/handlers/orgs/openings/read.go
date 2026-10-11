@@ -79,6 +79,31 @@ func GetOpening(s *orgsruntime.Server) http.HandlerFunc {
 	}
 }
 
+func LookupOpeningTeamMember(s *orgsruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request openings.LookupOpeningTeamMemberRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		identity, _ := middleware.OrgIdentityFromContext(r.Context())
+		email, err := s.Queries.LookupOpeningTeamMember(r.Context(), sqlc.LookupOpeningTeamMemberParams{
+			OrgDid: identity.OrgDID, EmailAddress: string(request.EmailAddress),
+		})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			s.InternalError(r.Context(), w, "lookup Opening team member", err)
+			return
+		}
+		response := openings.LookupOpeningTeamMemberResponse{}
+		if err == nil {
+			response.Member = &openings.OpeningTeamUser{
+				Email: common.EmailAddress(email), Active: true,
+			}
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, response)
+	}
+}
+
 type openingsCursor struct {
 	AfterUpdatedAt     time.Time `json:"after_updated_at"`
 	AfterOpeningNumber int32     `json:"after_opening_number"`

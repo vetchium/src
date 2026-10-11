@@ -3,12 +3,14 @@ import test from "node:test";
 
 import {
   normalizeCreateOpeningRequest,
+  normalizeLookupOpeningTeamMemberRequest,
   normalizeRequestOpeningChangeRequest,
   validateCreateOpeningRequest,
   validateDecideOpeningRequestRequest,
   validateDiscardOpeningRequest,
   validateGetOpeningRequest,
   validateListOpeningsRequest,
+  validateLookupOpeningTeamMemberRequest,
   validateRequestOpeningChangeRequest,
 } from "./openings/openings.ts";
 
@@ -24,6 +26,19 @@ test("Opening create normalization leaves the caller's values intact", () => {
   assert.deepEqual(normalized.team_member_emails, ["person@example.com"]);
   assert.equal(request.content.title, "  Engineer  ");
   assert.equal(request.team_member_emails[0], " PERSON@EXAMPLE.COM ");
+});
+
+test("Opening team lookup normalizes an address and rejects invalid input", () => {
+  const request = { email_address: " MEMBER@EXAMPLE.COM " };
+  assert.deepEqual(normalizeLookupOpeningTeamMemberRequest(request), {
+    email_address: "member@example.com",
+  });
+  assert.equal(request.email_address, " MEMBER@EXAMPLE.COM ");
+  assert.deepEqual(validateLookupOpeningTeamMemberRequest(request), []);
+  assert.deepEqual(
+    validateLookupOpeningTeamMemberRequest({ email_address: "missing-at" }),
+    ["email_address"],
+  );
 });
 
 test("Opening lifecycle requests validate kinds, decisions, notes, and approval filters", () => {

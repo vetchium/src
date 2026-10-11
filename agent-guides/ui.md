@@ -6,7 +6,8 @@ Applies to `admin-ui/`, `hub-ui/`, `orgs-ui/`, and `portal-ui/`.
 
 - React 19, Vite, strict TypeScript, Ant Design 6 (the only component library
   without explicit approval), TanStack Query for server state, React Router,
-  react-i18next, Ajv when an API supplies a JSON Schema.
+  react-i18next, react-markdown 10.1.0 (approved for Opening descriptions),
+  Ajv when an API supplies a JSON Schema.
 - Import wire types from `typespec/<path>`.
 - Every user-visible string goes through react-i18next, including titles,
   placeholders, validation, empty and loading states, alt text, and

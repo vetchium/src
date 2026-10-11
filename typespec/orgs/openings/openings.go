@@ -238,6 +238,25 @@ type OpeningSummaryResponse struct {
 	Quota  OpeningQuotaUsage   `json:"quota"`
 }
 
+type LookupOpeningTeamMemberRequest struct {
+	EmailAddress common.EmailAddress `json:"email_address"`
+}
+
+func (r *LookupOpeningTeamMemberRequest) Normalize() {
+	r.EmailAddress = common.NormalizeEmailAddress(r.EmailAddress)
+}
+
+func (r LookupOpeningTeamMemberRequest) Validate() []string {
+	if !common.IsEmailAddress(r.EmailAddress) {
+		return []string{"email_address"}
+	}
+	return []string{}
+}
+
+type LookupOpeningTeamMemberResponse struct {
+	Member *OpeningTeamUser `json:"member,omitempty"`
+}
+
 type SaveOpeningWorkingCopyRequest struct {
 	OpeningNumber OpeningNumber          `json:"opening_number"`
 	Version       OpeningVersion         `json:"version"`

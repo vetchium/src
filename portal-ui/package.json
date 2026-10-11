@@ -13,6 +13,7 @@
     "./idempotency": "./src/idempotency.ts",
     "./localization": "./src/localization.ts",
     "./navigation": "./src/navigation.ts",
+    "./openings": "./src/openings/index.ts",
     "./pending-operations": "./src/pending-operations.tsx",
     "./portal-build": "./src/portal-build.ts",
     "./portal-environment": "./src/portal-environment.ts",
@@ -41,6 +42,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-i18next": "17.0.11",
+    "react-markdown": "10.1.0",
     "react-router": "8.3.0",
     "typespec": "0.1.0"
   },
@@ -56,6 +58,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-i18next": "17.0.11",
+    "react-markdown": "10.1.0",
     "react-router": "8.3.0",
     "typescript": "7.0.2",
     "typespec": "file:../typespec"

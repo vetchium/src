@@ -821,6 +821,13 @@ WHERE o.org_did = sqlc.arg(org_did)
       OR EXISTS (SELECT 1 FROM visible)
   );
 
+-- name: LookupOpeningTeamMember :one
+SELECT u.email_address
+FROM vetchium.org_users AS u
+WHERE u.org_did = sqlc.arg(org_did)
+  AND u.email_address = sqlc.arg(email_address)
+  AND u.org_user_state = 'active';
+
 -- name: ListOrgOpeningHistory :many
 WITH visible AS (
     SELECT o.org_opening_id

@@ -41,6 +41,7 @@ func TestOpeningRequestValidation(t *testing.T) {
 		{"duplicate team rejected", CreateOpeningRequest{Content: &common.OpeningContent{}, TeamMemberEmails: []common.EmailAddress{"a@example.com", "a@example.com"}}.Validate(), []string{"team_member_emails"}},
 		{"invalid version", DiscardOpeningRequest{OpeningNumber: 1}.Validate(), []string{"version"}},
 		{"invalid number", GetOpeningRequest{}.Validate(), []string{"opening_number"}},
+		{"invalid team lookup email", LookupOpeningTeamMemberRequest{EmailAddress: "not-an-email"}.Validate(), []string{"email_address"}},
 		{"empty state filter", ListOpeningsRequest{States: []OpeningState{}}.Validate(), []string{"states"}},
 		{"duplicate state filter", ListOpeningsRequest{States: []OpeningState{Draft, Draft}}.Validate(), []string{"states"}},
 		{"duplicate request kind filter", ListOpeningsRequest{PendingRequestKinds: []OpeningRequestKind{PauseRequest, PauseRequest}}.Validate(), []string{"pending_request_kinds"}},
@@ -54,5 +55,14 @@ func TestOpeningRequestValidation(t *testing.T) {
 				t.Fatalf("fields = %v, want %v", test.fields, test.want)
 			}
 		})
+	}
+}
+
+func TestLookupOpeningTeamMemberNormalizes(t *testing.T) {
+	t.Parallel()
+	request := LookupOpeningTeamMemberRequest{EmailAddress: " MEMBER@EXAMPLE.COM "}
+	request.Normalize()
+	if request.EmailAddress != "member@example.com" {
+		t.Fatalf("normalized email = %q", request.EmailAddress)
 	}
 }

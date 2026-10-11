@@ -486,6 +486,14 @@ test("Opening reads and writes enforce visibility and permissions", async ({
     });
     expect(denied.status(), await denied.text()).toBe(403);
     expect((await denied.json()).type).toContain("org-permission-required");
+    const deniedLookup = await api.lookupOpeningTeamMember(
+      reader.token,
+      org.emailAddress,
+    );
+    expect(deniedLookup.status(), await deniedLookup.text()).toBe(403);
+    expect((await deniedLookup.json()).type).toContain(
+      "org-permission-required",
+    );
     for (const [path, body] of [
       [
         "/create-opening",
@@ -564,12 +572,36 @@ test("Opening reads and writes enforce visibility and permissions", async ({
       `manager@${org.domain}`,
       ["org:manage_openings"],
     );
+    const found = await api.lookupOpeningTeamMember(
+      manager.token,
+      ` ${reader.emailAddress.toUpperCase()} `,
+    );
+    expect(found.status(), await found.text()).toBe(200);
+    expect(await found.json()).toEqual({
+      member: { email: reader.emailAddress, active: true },
+    });
+    const absent = await api.lookupOpeningTeamMember(
+      manager.token,
+      `missing@${org.domain}`,
+    );
+    expect(absent.status(), await absent.text()).toBe(200);
+    expect(await absent.json()).toEqual({});
     const managed = await api.setOpeningTeam(manager.token, {
       opening_number: 1,
       version: 2,
       team_member_emails: [reader.emailAddress],
     });
     expect(managed.status(), await managed.text()).toBe(200);
+    const disabled = await api.disableUser(owner, {
+      email_address: reader.emailAddress,
+    });
+    expect(disabled.status(), await disabled.text()).toBe(204);
+    const inactive = await api.lookupOpeningTeamMember(
+      manager.token,
+      reader.emailAddress,
+    );
+    expect(inactive.status(), await inactive.text()).toBe(200);
+    expect(await inactive.json()).toEqual({});
   } finally {
     await deleteOrgVerificationRecord(org.domain);
     cleanupOrg(org.domain);
@@ -673,6 +705,11 @@ test("writes bind idempotency keys and suspended Orgs cannot read or write", asy
       { path: "/list-openings", body: {}, write: false },
       { path: "/opening-summary", body: {}, write: false },
       {
+        path: "/lookup-opening-team-member",
+        body: { email_address: org.emailAddress },
+        write: false,
+      },
+      {
         path: "/save-opening-working-copy",
         body: { opening_number: 1, version: 1, content: {} },
         write: true,
@@ -746,6 +783,11 @@ test("writes bind idempotency keys and suspended Orgs cannot read or write", asy
       { path: "/duplicate-opening", body: { opening_number: 0 }, write: true },
       { path: "/get-opening", body: { opening_number: 0 }, write: false },
       { path: "/list-openings", body: { title_query: "x" }, write: false },
+      {
+        path: "/lookup-opening-team-member",
+        body: { email_address: "invalid" },
+        write: false,
+      },
       {
         path: "/save-opening-working-copy",
         body: { opening_number: 1, version: 0, content: {} },

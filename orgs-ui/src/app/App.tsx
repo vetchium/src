@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import {
   ManageBilling,
+  ManageOpenings,
   ManageUsers,
   Superadmin,
 } from "typespec/orgs/authorization/types";
@@ -35,6 +36,26 @@ const PlansPage = lazy(() =>
 const MembersPage = lazy(() =>
   import("../pages/MembersPage").then(({ MembersPage }) => ({
     default: MembersPage,
+  })),
+);
+const OpeningsPage = lazy(() =>
+  import("../pages/OpeningsPage").then(({ OpeningsPage }) => ({
+    default: OpeningsPage,
+  })),
+);
+const OpeningDetailPage = lazy(() =>
+  import("../pages/OpeningDetailPage").then(({ OpeningDetailPage }) => ({
+    default: OpeningDetailPage,
+  })),
+);
+const OpeningEditorPage = lazy(() =>
+  import("../pages/OpeningEditorPage").then(({ OpeningEditorPage }) => ({
+    default: OpeningEditorPage,
+  })),
+);
+const OpeningEditor = lazy(() =>
+  import("../features/openings/OpeningEditor").then(({ OpeningEditor }) => ({
+    default: OpeningEditor,
   })),
 );
 const CompleteSignupPage = lazy(() =>
@@ -225,6 +246,40 @@ export function App() {
             />
           </Route>
           <Route element={<ActiveOrgRoute />}>
+            <Route
+              path={paths.openings}
+              element={
+                <Page>
+                  <OpeningsPage />
+                </Page>
+              }
+            />
+            <Route
+              path="/openings/:number"
+              element={
+                <Page>
+                  <OpeningDetailPage />
+                </Page>
+              }
+            />
+            <Route element={<PermissionRoute permission={ManageOpenings} />}>
+              <Route
+                path={paths.newOpening}
+                element={
+                  <Page>
+                    <OpeningEditor />
+                  </Page>
+                }
+              />
+              <Route
+                path="/openings/:number/edit"
+                element={
+                  <Page>
+                    <OpeningEditorPage />
+                  </Page>
+                }
+              />
+            </Route>
             <Route element={<PermissionRoute permission={Superadmin} />}>
               <Route
                 path={paths.organizationSecurity}

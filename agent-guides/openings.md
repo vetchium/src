@@ -82,9 +82,9 @@ source-specific fields to it.
 - **OPN-TEAM-002** Internal notes are optional plain text of at most 2,000 code
   points.
 - **OPN-TEAM-003** Users with `org:manage_openings` edit the hiring team and
-  internal notes directly, without approval, in any state but `closed` and
-  `expired`. These fields never reach the Hub, so approval guards only what
-  candidates see.
+  internal notes directly, without approval, in `draft`, `published`, or
+  `paused` state. These fields never reach the Hub, so approval guards only
+  what candidates see.
 - **OPN-TEAM-004** Disabling a user leaves the Openings that name them
   unchanged. The Orgs portal flags a disabled hiring manager or recruiter, and
   approving a publish or revise request refuses with
