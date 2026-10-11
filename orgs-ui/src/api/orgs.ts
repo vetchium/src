@@ -40,6 +40,7 @@ import type { AuthenticatedSessionResponse } from "typespec/orgs/auth/types";
 import type { ListPermissionsResponse } from "typespec/orgs/authorization/management";
 import type {
   CreateOpeningRequest,
+  DecideOpeningRequestRequest,
   DiscardOpeningRequest,
   DiscardOpeningWorkingCopyRequest,
   DuplicateOpeningRequest,
@@ -51,8 +52,10 @@ import type {
   LookupOpeningTeamMemberRequest,
   LookupOpeningTeamMemberResponse,
   OpeningSummaryResponse,
+  RequestOpeningChangeRequest,
   SaveOpeningWorkingCopyRequest,
   SetOpeningTeamRequest,
+  WithdrawOpeningRequestRequest,
 } from "typespec/orgs/openings/openings";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import type { SetCompanyNameRequest } from "typespec/orgs/settings/company";
@@ -129,6 +132,24 @@ export const orgsAPI = {
     body: DiscardOpeningRequest,
     idempotencyKey: IdempotencyKey,
   ) => apiRequest<OrgOpening>("/discard-opening", { body, idempotencyKey }),
+  requestOpeningChange: (
+    body: RequestOpeningChangeRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<OrgOpening>("/request-opening-change", { body, idempotencyKey }),
+  decideOpeningRequest: (
+    body: DecideOpeningRequestRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<OrgOpening>("/decide-opening-request", { body, idempotencyKey }),
+  withdrawOpeningRequest: (
+    body: WithdrawOpeningRequestRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<OrgOpening>("/withdraw-opening-request", {
+      body,
+      idempotencyKey,
+    }),
   listOpeningHistory: (body: ListOpeningHistoryRequest) =>
     apiRequest<ListOpeningHistoryResponse>("/list-opening-history", { body }),
   requestSignup: (

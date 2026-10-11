@@ -195,9 +195,14 @@ export function MemberDrawer({
             ]}
           />
           {viewerPermissions.includes(Superadmin) ? null : (
-            <Typography.Text type="secondary">
-              {t("people.restricted")}
-            </Typography.Text>
+            <Space orientation="vertical" size={0}>
+              <Typography.Text type="secondary">
+                {t("people.restricted")}
+              </Typography.Text>
+              <Typography.Text type="secondary">
+                {t("people.approvalRestricted")}
+              </Typography.Text>
+            </Space>
           )}
           <Typography.Paragraph type="secondary">
             {t("users.custom.hint")}

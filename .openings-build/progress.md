@@ -1,6 +1,6 @@
 # Openings build progress
 
-current: T08
+current: T09
 phase: implement
 
 ## Tasks
@@ -12,7 +12,7 @@ T04 done Orgs API for requests and approvals
 T05 done Opening expiry worker
 T06 done Hub and mesh reads of published Openings
 T07 done Orgs portal Openings list, editor, and detail
-T08 todo Orgs portal requests, approvals, and presets
+T08 done Orgs portal requests, approvals, and presets
 T09 todo Hub portal Org and Opening pages
 T10 todo Development fixtures for Openings
 T11 todo Guides, full verification, and plan removal

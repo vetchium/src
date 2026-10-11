@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import type { OpeningContent } from "typespec/common/openings";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
@@ -13,6 +14,41 @@ import {
 } from "../lib/orgs-api.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 import { chooseOption, chooseRegion } from "../lib/region-ui.ts";
+
+const completeContent: OpeningContent = {
+  title: "Opening engineer",
+  description: "Build reliable services",
+  language: "en",
+  employing_country: "SG",
+  work_arrangement: "on_site",
+  employment_type: "full_time",
+  positions: 1,
+};
+
+async function createCompleteOpening(
+  api: OrgsAPI,
+  token: string,
+  teamEmail: string,
+) {
+  const response = await api.createOpening(token, {
+    content: completeContent,
+    hiring_manager_email: teamEmail,
+    recruiter_email: teamEmail,
+    team_member_emails: [],
+  });
+  expect(response.status(), await response.text()).toBe(201);
+  return (await response.json()) as OrgOpening;
+}
+
+async function confirmOpeningAction(page: Page, name: string, note?: string) {
+  await page.getByRole("button", { name, exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  if (note !== undefined)
+    await dialog.getByRole("textbox", { name: "Note" }).fill(note);
+  await dialog
+    .getByRole("button", { name: /^(Confirm|Submit for approval)$/ })
+    .click();
+}
 
 test.describe.configure({ timeout: 90_000 });
 
@@ -351,5 +387,298 @@ test("list exposes loading and retry states and remains usable by keyboard", asy
       .fill("Engineer");
     await page.getByRole("searchbox", { name: "Search title" }).press("Enter");
     await expect(page.getByRole("table")).toBeVisible();
+  });
+});
+
+test("manager submits publication and approver finds and approves it", async ({
+  browser,
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    const manager = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      `manager@${org.domain}`,
+      ["org:manage_openings"],
+    );
+    await createCompleteOpening(api, manager.token, manager.emailAddress);
+    const managerPage = await browser.newPage();
+    let releaseRequest = () => {};
+    try {
+      await signIn(managerPage, manager);
+      await managerPage.goto(`${ORGS_PORTAL}/openings/1`);
+      let markRequestStarted = () => {};
+      const requestStarted = new Promise<void>((resolve) => {
+        markRequestStarted = resolve;
+      });
+      const requestGate = new Promise<void>((release) => {
+        releaseRequest = release;
+      });
+      await managerPage.route(
+        "**/api/orgs/request-opening-change",
+        async (route) => {
+          markRequestStarted();
+          await requestGate;
+          await route.continue();
+        },
+      );
+      await confirmOpeningAction(
+        managerPage,
+        "Submit for approval: Publish",
+        "Ready for review",
+      );
+      await requestStarted;
+      const actionDialog = managerPage.getByRole("dialog");
+      await expect(
+        actionDialog.getByRole("button", { name: "Cancel" }),
+      ).toBeDisabled();
+      await expect(
+        actionDialog.getByRole("textbox", { name: "Note" }),
+      ).toBeDisabled();
+      releaseRequest();
+      await expect(managerPage.getByText("Ready for review")).toBeVisible();
+      await signIn(page, org);
+      await page.goto(`${ORGS_PORTAL}/openings`);
+      await expect(
+        page.getByRole("button", { name: "Awaiting my approval: 1" }),
+      ).toBeVisible();
+      await page
+        .getByRole("button", { name: "Awaiting my approval: 1" })
+        .click();
+      await expect(
+        page.getByRole("row").filter({ hasText: "Opening engineer" }),
+      ).toBeVisible();
+      await page.goto(`${ORGS_PORTAL}/openings/1`);
+      await expect(page.getByText(manager.emailAddress).first()).toBeVisible();
+      await confirmOpeningAction(page, "Approve");
+      await expect(
+        page.getByText("Published", { exact: true }).first(),
+      ).toBeVisible();
+      await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(
+        0,
+      );
+    } finally {
+      releaseRequest();
+      await managerPage.close();
+    }
+  });
+});
+
+test("rejection requires a note, then manager withdraws and resubmits", async ({
+  browser,
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    const manager = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      `manager@${org.domain}`,
+      ["org:manage_openings"],
+    );
+    await createCompleteOpening(api, manager.token, manager.emailAddress);
+    const managerPage = await browser.newPage();
+    try {
+      await signIn(managerPage, manager);
+      await signIn(page, org);
+      await managerPage.goto(`${ORGS_PORTAL}/openings/1`);
+      await confirmOpeningAction(managerPage, "Submit for approval: Publish");
+      await page.goto(`${ORGS_PORTAL}/openings/1`);
+      await page.getByRole("button", { name: "Reject" }).click();
+      const dialog = page.getByRole("dialog");
+      await expect(
+        dialog.getByRole("button", { name: "Confirm" }),
+      ).toBeDisabled();
+      await dialog
+        .getByRole("textbox", { name: "Note" })
+        .fill("Please add detail");
+      await dialog.getByRole("button", { name: "Confirm" }).click();
+      await expect(page.getByText("Please add detail")).toBeVisible();
+      await managerPage.reload();
+      await confirmOpeningAction(managerPage, "Submit for approval: Publish");
+      await expect(
+        managerPage.getByRole("button", { name: "Withdraw request" }),
+      ).toBeVisible();
+      await managerPage
+        .getByRole("button", { name: "Withdraw request" })
+        .click();
+      await expect(
+        managerPage.getByRole("button", {
+          name: "Submit for approval: Publish",
+        }),
+      ).toBeVisible();
+      await confirmOpeningAction(managerPage, "Submit for approval: Publish");
+      await expect(
+        managerPage.getByRole("button", { name: "Withdraw request" }),
+      ).toBeVisible();
+    } finally {
+      await managerPage.close();
+    }
+  });
+});
+
+test("approver directly publishes, revises, pauses, reopens, and closes over a pending request", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    await createCompleteOpening(api, owner, org.emailAddress);
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings/1`);
+    await confirmOpeningAction(page, "Publish");
+    await expect(
+      page.getByText("Published", { exact: true }).first(),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.getByRole("textbox", { name: "Title" }).fill("Revised engineer");
+    await page.getByRole("button", { name: "Save content" }).click();
+    await expect(page.getByText("Revised engineer").first()).toBeVisible();
+    await confirmOpeningAction(page, "Publish revision");
+    await expect(page.getByText("Revised engineer").first()).toBeVisible();
+    await confirmOpeningAction(page, "Pause");
+    await expect(
+      page.getByText("Paused", { exact: true }).first(),
+    ).toBeVisible();
+    await confirmOpeningAction(page, "Reopen");
+    await expect(
+      page.getByText("Published", { exact: true }).first(),
+    ).toBeVisible();
+    const read = await api.getOpening(owner, { opening_number: 1 });
+    const current = (await read.json()) as OrgOpening;
+    const manager = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      `manager@${org.domain}`,
+      ["org:manage_openings"],
+    );
+    const pending = await api.requestOpeningChange(manager.token, {
+      opening_number: 1,
+      version: current.version,
+      kind: "pause",
+    });
+    expect(pending.status(), await pending.text()).toBe(200);
+    await page.reload();
+    await expect(page.getByText("Pending request").first()).toBeVisible();
+    await confirmOpeningAction(page, "Close");
+    await expect(
+      page.getByText("Closed", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(page.getByText("Superseded")).toBeVisible();
+  });
+});
+
+test("revision review shows live and working copies and reports a version conflict", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    const created = await createCompleteOpening(api, owner, org.emailAddress);
+    const publishedResponse = await api.requestOpeningChange(owner, {
+      opening_number: 1,
+      version: created.version,
+      kind: "publish",
+    });
+    const published = (await publishedResponse.json()) as OrgOpening;
+    const savedResponse = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: 1,
+      version: published.version,
+      content: { title: "New revision" },
+    });
+    const saved = (await savedResponse.json()) as OrgOpening;
+    const manager = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      `manager@${org.domain}`,
+      ["org:manage_openings"],
+    );
+    const requested = await api.requestOpeningChange(manager.token, {
+      opening_number: 1,
+      version: saved.version,
+      kind: "revise",
+      note: "Review this change",
+    });
+    expect(requested.status(), await requested.text()).toBe(200);
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings/1`);
+    await expect(page.getByText("Live content", { exact: true })).toBeVisible();
+    await expect(page.getByText("Working copy", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Review this change", { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Approve" }).click();
+    const read = await api.getOpening(owner, { opening_number: 1 });
+    const current = (await read.json()) as OrgOpening;
+    const changed = await api.setOpeningTeam(owner, {
+      opening_number: 1,
+      version: current.version,
+      team_member_emails: [],
+      internal_notes: "New internal note",
+    });
+    expect(changed.status(), await changed.text()).toBe(200);
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Confirm" })
+      .click();
+    await expect(page.getByText(/This Opening changed/).first()).toBeVisible();
+  });
+});
+
+test("manager requests pause, reopen, and close and approver confirms each effect", async ({
+  browser,
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    const created = await createCompleteOpening(api, owner, org.emailAddress);
+    const published = await api.requestOpeningChange(owner, {
+      opening_number: 1,
+      version: created.version,
+      kind: "publish",
+    });
+    expect(published.status(), await published.text()).toBe(200);
+    const manager = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      `manager@${org.domain}`,
+      ["org:manage_openings"],
+    );
+    const managerPage = await browser.newPage();
+    try {
+      await signIn(managerPage, manager);
+      await signIn(page, org);
+      for (const [kind, effect, state] of [
+        ["pause", "Pause", "Paused"],
+        ["reopen", "Reopen", "Published"],
+        ["close", "Close", "Closed"],
+      ] as const) {
+        await managerPage.goto(`${ORGS_PORTAL}/openings/1`);
+        await confirmOpeningAction(
+          managerPage,
+          `Submit for approval: ${effect}`,
+        );
+        await page.goto(`${ORGS_PORTAL}/openings/1`);
+        await page.getByRole("button", { name: "Approve" }).click();
+        if (kind === "pause" || kind === "close") {
+          await expect(
+            page.getByRole("dialog").getByRole("alert"),
+          ).toBeVisible();
+        }
+        await page
+          .getByRole("dialog")
+          .getByRole("button", { name: "Confirm" })
+          .click();
+        await expect(
+          page.getByText(state, { exact: true }).first(),
+        ).toBeVisible();
+      }
+    } finally {
+      await managerPage.close();
+    }
   });
 });

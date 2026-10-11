@@ -17,7 +17,11 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { countryCodeValues } from "typespec/common/countries";
 import type { PaginationKey } from "typespec/common/pagination";
-import { holds, ManageOpenings } from "typespec/orgs/authorization/types";
+import {
+  ApproveOpenings,
+  holds,
+  ManageOpenings,
+} from "typespec/orgs/authorization/types";
 import type { ListOpeningsRequest } from "typespec/orgs/openings/openings";
 import {
   type OrgOpeningSummary,
@@ -46,6 +50,11 @@ export function OpeningsPage() {
   ]);
   const [pageIndex, setPageIndex] = useState(0);
   const summary = useOpeningSummaryQuery();
+  const canApprove = me !== undefined && holds(me.permissions, ApproveOpenings);
+  const awaiting = useOpeningsQuery(
+    { awaiting_my_approval: true, limit: 100 },
+    canApprove,
+  );
   const query = useOpeningsQuery({
     ...filters,
     limit: pageSize,
@@ -81,6 +90,14 @@ export function OpeningsPage() {
       title: t("openings.fields.state"),
       dataIndex: "state",
       render: (state: string) => <Tag>{t(`openings.states.${state}`)}</Tag>,
+    },
+    {
+      title: t("openings.pendingRequest"),
+      dataIndex: "pending_request_kind",
+      render: (kind?: string) =>
+        kind ? (
+          <Tag color="gold">{t(`openings.requestKinds.${kind}`)}</Tag>
+        ) : null,
     },
     {
       title: t("openings.fields.country"),
@@ -150,6 +167,22 @@ export function OpeningsPage() {
                 {t(`openings.states.${state}`)}: {count}
               </Typography.Text>
             ))}
+            {canApprove && !awaiting.isError && (
+              <Button
+                type={filters.awaiting_my_approval ? "primary" : "default"}
+                onClick={() =>
+                  setFilter(
+                    "awaiting_my_approval",
+                    filters.awaiting_my_approval ? undefined : true,
+                  )
+                }
+              >
+                {t("openings.filters.awaitingApproval")}:{" "}
+                {awaiting.isLoading
+                  ? t("common.loading")
+                  : `${awaiting.data?.openings.length ?? 0}${awaiting.data?.next_pagination_key ? "+" : ""}`}
+              </Button>
+            )}
           </Flex>
         </Card>
       )}
@@ -184,17 +217,19 @@ export function OpeningsPage() {
           style={{ minWidth: 190 }}
           allowClear
         />
-        <Select
-          aria-label={t("openings.filters.awaitingApproval")}
-          placeholder={t("openings.filters.awaitingApproval")}
-          value={filters.awaiting_my_approval}
-          onChange={(value) => setFilter("awaiting_my_approval", value)}
-          options={[
-            { value: true, label: t("openings.filters.awaitingApproval") },
-          ]}
-          style={{ minWidth: 190 }}
-          allowClear
-        />
+        {canApprove && (
+          <Select
+            aria-label={t("openings.filters.awaitingApproval")}
+            placeholder={t("openings.filters.awaitingApproval")}
+            value={filters.awaiting_my_approval}
+            onChange={(value) => setFilter("awaiting_my_approval", value)}
+            options={[
+              { value: true, label: t("openings.filters.awaitingApproval") },
+            ]}
+            style={{ minWidth: 190 }}
+            allowClear
+          />
+        )}
         <Input.Search
           aria-label={t("openings.filters.hiringManager")}
           placeholder={t("openings.filters.hiringManager")}

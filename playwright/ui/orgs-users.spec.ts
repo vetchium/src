@@ -267,6 +267,63 @@ test("changes roles in the member drawer and in bulk after step-up", async ({
   });
 });
 
+test("Opening presets appear in the member drawer and approval is superadmin-only", async ({
+  browser,
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    const target = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      inviteeAddress(org.domain, "target"),
+      [],
+    );
+    const userManager = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      inviteeAddress(org.domain, "manager"),
+      ["org:manage_users"],
+    );
+    await openMembers(page, org);
+    await memberRow(page, target.emailAddress).getByRole("button").click();
+    const drawer = page.getByRole("dialog", { name: "Member details" });
+    await expect(
+      drawer.getByRole("radio", { name: "Recruiter" }),
+    ).toBeEnabled();
+    await expect(
+      drawer.getByRole("radio", { name: "Hiring approver" }),
+    ).toBeEnabled();
+    await drawer.getByRole("radio", { name: "Recruiter" }).check();
+    await drawer.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(memberRow(page, target.emailAddress)).toContainText(
+      "Recruiter",
+    );
+    const managerPage = await browser.newPage();
+    try {
+      await openMembers(managerPage, userManager);
+      await memberRow(managerPage, target.emailAddress)
+        .getByRole("button")
+        .click();
+      const restrictedDrawer = managerPage.getByRole("dialog", {
+        name: "Member details",
+      });
+      await expect(
+        restrictedDrawer.getByRole("radio", { name: "Hiring approver" }),
+      ).toBeDisabled();
+      await expect(
+        restrictedDrawer.getByText(
+          "Only a superadmin can grant or revoke Opening approval.",
+        ),
+      ).toBeVisible();
+    } finally {
+      await managerPage.close();
+    }
+  });
+});
+
 test("narrows the list by search, summary links, and state, and disables and enables", async ({
   page,
   request,

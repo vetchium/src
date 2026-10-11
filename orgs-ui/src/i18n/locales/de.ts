@@ -560,6 +560,8 @@ export const de = {
     superadmin: "Superadmin",
     finance: "Finanzen",
     userManager: "Benutzerverwaltung",
+    recruiter: "Recruiter",
+    hiringApprover: "Freigabe für Stellenanzeigen",
     member: "Mitglied",
     custom: "Benutzerdefiniert",
   },
@@ -736,6 +738,8 @@ export const de = {
     member: "Mitgliedsdetails",
     self: "Sie können Ihren eigenen Zugriff nicht ändern.",
     restricted: "Nur ein Superadmin kann geschützte Berechtigungen ändern.",
+    approvalRestricted:
+      "Nur ein Superadmin kann die Freigabe von Stellenanzeigen erteilen oder entziehen.",
     selection:
       "Nur angekreuzte Zeilen sind ausgewählt, auch auf anderen Seiten. Höchstens {{count}}.",
     full: "Alle Plätze sind belegt. Deaktivieren Sie einen Benutzer oder stornieren Sie eine Einladung, bevor Sie weitere Personen einladen.",
@@ -837,6 +841,35 @@ export const de = {
     revision: "Revision",
     expiresAt: "Läuft ab",
     pendingRequest: "Ausstehender Antrag",
+    actions: {
+      title: "Aktionen für Stellenanzeigen",
+      effects: {
+        publish: "Veröffentlichen",
+        revise: "Überarbeitung veröffentlichen",
+        pause: "Pausieren",
+        reopen: "Wieder öffnen",
+        close: "Schließen",
+      },
+      submitForApproval: "Zur Genehmigung einreichen: {{action}}",
+      submit: "Zur Genehmigung einreichen",
+      approve: "Genehmigen",
+      reject: "Ablehnen",
+      withdraw: "Antrag zurückziehen",
+      withdrawn: "Antrag zurückgezogen.",
+      saved: "Stellenanzeige aktualisiert.",
+      requestKind: "Beantragte Änderung",
+      requester: "Beantragt von",
+      requestedAt: "Beantragt am",
+      note: "Notiz",
+      optionalNote: "Optionale Notiz hinzufügen (bis zu 2.000 Zeichen).",
+      rejectNote: "Geben Sie einen Grund für die Ablehnung an.",
+      consequences: {
+        pause:
+          "Während der Pause ist diese Stellenanzeige für Bewerbende nicht sichtbar.",
+        close:
+          "Schließen beendet diese Stellenanzeige dauerhaft. Für eine neue Einstellung duplizieren Sie sie als Entwurf.",
+      },
+    },
     publicURL: "Öffentliche Hub-URL",
     copyURL: "URL kopieren",
     copied: "URL kopiert.",

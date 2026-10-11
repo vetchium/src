@@ -538,6 +538,8 @@ export const en = {
     superadmin: "Superadmin",
     finance: "Finance",
     userManager: "User manager",
+    recruiter: "Recruiter",
+    hiringApprover: "Hiring approver",
     member: "Member",
     custom: "Custom",
   },
@@ -714,6 +716,8 @@ export const en = {
     member: "Member details",
     self: "You cannot change your own access.",
     restricted: "Only a superadmin can change restricted permissions.",
+    approvalRestricted:
+      "Only a superadmin can grant or revoke Opening approval.",
     selection:
       "Only checked rows are selected, including other pages. Maximum {{count}}.",
     full: "All available seats are in use. Disable a user or cancel an invitation before inviting more people.",
@@ -814,6 +818,35 @@ export const en = {
     revision: "Revision",
     expiresAt: "Expires",
     pendingRequest: "Pending request",
+    actions: {
+      title: "Opening actions",
+      effects: {
+        publish: "Publish",
+        revise: "Publish revision",
+        pause: "Pause",
+        reopen: "Reopen",
+        close: "Close",
+      },
+      submitForApproval: "Submit for approval: {{action}}",
+      submit: "Submit for approval",
+      approve: "Approve",
+      reject: "Reject",
+      withdraw: "Withdraw request",
+      withdrawn: "Request withdrawn.",
+      saved: "Opening updated.",
+      requestKind: "Requested change",
+      requester: "Requested by",
+      requestedAt: "Requested at",
+      note: "Note",
+      optionalNote: "Add an optional note (up to 2,000 characters).",
+      rejectNote: "Give a reason for rejecting this request.",
+      consequences: {
+        pause:
+          "Pausing hides this Opening from candidates until it is reopened.",
+        close:
+          "Closing ends this Opening permanently. To hire again, duplicate it as a new draft.",
+      },
+    },
     publicURL: "Public Hub URL",
     copyURL: "Copy URL",
     copied: "URL copied.",

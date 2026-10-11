@@ -5,6 +5,7 @@ import {
   impliedPermissions,
   isOrgPermission,
   ManageBilling,
+  ManageOpenings,
   ManageUsers,
   type OrgPermissionID,
   orgPermissions,
@@ -15,7 +16,13 @@ import {
  * A preset only pre-ticks permissions. The grants stay the stored truth; the
  * role shown for a user is derived from them and never stored.
  */
-export type RolePreset = "superadmin" | "finance" | "userManager" | "member";
+export type RolePreset =
+  | "superadmin"
+  | "finance"
+  | "userManager"
+  | "recruiter"
+  | "hiringApprover"
+  | "member";
 
 export const rolePresets: ReadonlyArray<{
   preset: RolePreset;
@@ -24,6 +31,8 @@ export const rolePresets: ReadonlyArray<{
   { preset: "superadmin", grants: [Superadmin] },
   { preset: "finance", grants: [ManageBilling] },
   { preset: "userManager", grants: [ManageUsers] },
+  { preset: "recruiter", grants: [ManageOpenings] },
+  { preset: "hiringApprover", grants: [ApproveOpenings] },
   { preset: "member", grants: [] },
 ];
 
