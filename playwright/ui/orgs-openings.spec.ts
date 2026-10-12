@@ -586,7 +586,7 @@ test("revision review shows live and working copies and reports a version confli
     const savedResponse = await api.saveOpeningWorkingCopy(owner, {
       opening_number: 1,
       version: published.version,
-      content: { title: "New revision" },
+      content: { ...published.live_content, title: "New revision" },
     });
     const saved = (await savedResponse.json()) as OrgOpening;
     const manager = await addOrgMember(

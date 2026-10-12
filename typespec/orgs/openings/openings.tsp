@@ -88,6 +88,8 @@ model LookupOpeningTeamMemberResponse {
 model SaveOpeningWorkingCopyRequest {
   opening_number: OpeningNumber;
   version: OpeningVersion;
+
+  /** Replaces the whole working copy; an omitted field is cleared. */
   content: Vetchium.OpeningContent;
 }
 

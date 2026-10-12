@@ -161,7 +161,7 @@ test("a manager requests publication and an approver decides it", async ({
     const revision = await api.saveOpeningWorkingCopy(manager.token, {
       opening_number: current.opening_number,
       version: current.version,
-      content: { title: "Senior Engineer" },
+      content: { ...current.live_content, title: "Senior Engineer" },
     });
     expect(revision.status(), await revision.text()).toBe(200);
     current = (await revision.json()) as OrgOpening;
@@ -227,7 +227,7 @@ test("an approver applies every request kind at once", async ({ request }) => {
     const revision = await api.saveOpeningWorkingCopy(owner, {
       opening_number: opening.opening_number,
       version: opening.version,
-      content: { title: "Senior Engineer" },
+      content: { ...opening.live_content, title: "Senior Engineer" },
     });
     expect(revision.status(), await revision.text()).toBe(200);
     opening = (await revision.json()) as OrgOpening;
@@ -275,6 +275,62 @@ test("an approver applies every request kind at once", async ({ request }) => {
   }
 });
 
+test("a revision can change remote work to on-site and clear optional fields", async ({
+  request,
+}) => {
+  const api = new OrgsAPI(request);
+  const org = await signupOrg(api);
+  try {
+    const owner = await loginOrg(api, org);
+    const remoteContent: OpeningContent = {
+      ...completeContent,
+      work_arrangement: "remote",
+      remote_eligibility: { kind: "worldwide" },
+      location_details: "Any time zone",
+      salary: { currency: "SGD", min: 5000, max: 7000, period: "month" },
+    };
+    const createdResponse = await api.createOpening(owner, {
+      content: remoteContent,
+      hiring_manager_email: org.emailAddress,
+      recruiter_email: org.emailAddress,
+      team_member_emails: [],
+    });
+    expect(createdResponse.status(), await createdResponse.text()).toBe(201);
+    let opening = (await createdResponse.json()) as OrgOpening;
+    const published = await api.requestOpeningChange(owner, {
+      opening_number: opening.opening_number,
+      version: opening.version,
+      kind: "publish",
+    });
+    expect(published.status(), await published.text()).toBe(200);
+    opening = (await published.json()) as OrgOpening;
+    expect(opening.live_content).toEqual(remoteContent);
+
+    const saved = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: opening.opening_number,
+      version: opening.version,
+      content: completeContent,
+    });
+    expect(saved.status(), await saved.text()).toBe(200);
+    opening = (await saved.json()) as OrgOpening;
+    expect(opening.working_content).toEqual(completeContent);
+    expect(opening.live_content).toEqual(remoteContent);
+
+    const revised = await api.requestOpeningChange(owner, {
+      opening_number: opening.opening_number,
+      version: opening.version,
+      kind: "revise",
+    });
+    expect(revised.status(), await revised.text()).toBe(200);
+    opening = (await revised.json()) as OrgOpening;
+    expect(opening.live_content).toEqual(completeContent);
+    expect(opening.working_content).toBeUndefined();
+  } finally {
+    cleanupOrg(org.domain);
+    await deleteOrgVerificationRecord(org.domain);
+  }
+});
+
 test("an approver closes over a pending request and records supersession", async ({
   request,
 }) => {
@@ -309,7 +365,7 @@ test("an approver closes over a pending request and records supersession", async
     const revisionResponse = await api.saveOpeningWorkingCopy(owner, {
       opening_number: published.opening_number,
       version: published.version,
-      content: { title: "Future revision" },
+      content: { ...published.live_content, title: "Future revision" },
     });
     expect(revisionResponse.status(), await revisionResponse.text()).toBe(200);
     const revision = (await revisionResponse.json()) as OrgOpening;
@@ -478,7 +534,7 @@ test("every kind can be rejected or withdrawn without applying it", async ({
     const saved = await api.saveOpeningWorkingCopy(owner, {
       opening_number: opening.opening_number,
       version: opening.version,
-      content: { title: "Revised title" },
+      content: { ...opening.live_content, title: "Revised title" },
     });
     expect(saved.status(), await saved.text()).toBe(200);
     opening = (await saved.json()) as OrgOpening;

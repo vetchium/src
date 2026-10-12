@@ -363,14 +363,12 @@ test("revision copies can be saved and discarded without changing live content",
     expect(saved).toMatchObject({
       state: "published",
       version: 2,
-      live_content: { title: "Live job" },
-      working_content: {
-        title: "Revision",
-        employing_country: "SG",
-        work_arrangement: "on_site",
-        employment_type: "full_time",
-        positions: 1,
-      },
+      live_content: { title: "Live job", employing_country: "SG" },
+    });
+    // The first revision save replaces, not merges: omitted fields are cleared.
+    expect(saved.working_content).toEqual({
+      title: "Revision",
+      description: "Private salary $123",
     });
     expect(orgAuditEventsByKey(key)).toHaveLength(1);
     expect(JSON.stringify(orgAuditEventsByKey(key))).not.toContain(

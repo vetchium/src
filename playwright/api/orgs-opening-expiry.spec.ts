@@ -57,7 +57,7 @@ test("the worker expires a suspended Org Opening and cancels its request", async
     const savedResponse = await api.saveOpeningWorkingCopy(owner, {
       opening_number: created.opening_number,
       version: published.version,
-      content: { title: "Unapproved revision" },
+      content: { ...published.live_content, title: "Unapproved revision" },
     });
     expect(savedResponse.status(), await savedResponse.text()).toBe(200);
     const saved = (await savedResponse.json()) as OrgOpening;

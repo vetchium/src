@@ -9,9 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs/openings"
-	"github.com/vetchium/src/typespec/problem"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
 	"backend/internal/apiserver"
@@ -41,46 +39,6 @@ func changeFailure(q *sqlc.Queries, r *http.Request, identity middleware.OrgIden
 	return handlerauth.Failure[openings.OrgOpening](orgsproblem.OpeningStateConflictError)
 }
 
-func fillOpeningContent(values, live common.OpeningContent) common.OpeningContent {
-	if values.Title == nil {
-		values.Title = live.Title
-	}
-	if values.Description == nil {
-		values.Description = live.Description
-	}
-	if values.Language == nil {
-		values.Language = live.Language
-	}
-	if values.EmployingCountry == nil {
-		values.EmployingCountry = live.EmployingCountry
-	}
-	if values.WorkArrangement == nil {
-		values.WorkArrangement = live.WorkArrangement
-	}
-	if values.LocationDetails == nil {
-		values.LocationDetails = live.LocationDetails
-	}
-	if values.RemoteEligibility == nil {
-		values.RemoteEligibility = live.RemoteEligibility
-	}
-	if values.EmploymentType == nil {
-		values.EmploymentType = live.EmploymentType
-	}
-	if values.Positions == nil {
-		values.Positions = live.Positions
-	}
-	if values.ExperienceYears == nil {
-		values.ExperienceYears = live.ExperienceYears
-	}
-	if values.MinimumEducation == nil {
-		values.MinimumEducation = live.MinimumEducation
-	}
-	if values.Salary == nil {
-		values.Salary = live.Salary
-	}
-	return values
-}
-
 func SaveOpeningWorkingCopy(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request openings.SaveOpeningWorkingCopyRequest
@@ -97,26 +55,7 @@ func SaveOpeningWorkingCopy(s *orgsruntime.Server) http.HandlerFunc {
 		handlerauth.RunIdempotent(s, w, r, "orgs:save-opening-working-copy",
 			dbvalue.FormatUUID(identity.UserID), key, request, now.Add(24*time.Hour),
 			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
-				values := *request.Content
-				current, err := loadOpening(r.Context(), q, identity, request.OpeningNumber)
-				if errors.Is(err, pgx.ErrNoRows) {
-					return handlerauth.Failure[openings.OrgOpening](orgsproblem.OpeningNotFoundError)
-				}
-				if err != nil {
-					return result{}, nil, err
-				}
-				if current.WorkingContent == nil && current.LiveContent != nil {
-					values = fillOpeningContent(values, *current.LiveContent)
-					if fields := values.Validate(); len(fields) > 0 {
-						for index := range fields {
-							fields[index] = "content." + fields[index]
-						}
-						details := problem.ValidationFailedError
-						details.Fields = fields
-						return handlerauth.Failure[openings.OrgOpening](details)
-					}
-				}
-				content, err := json.Marshal(values)
+				content, err := json.Marshal(request.Content)
 				if err != nil {
 					return result{}, nil, err
 				}

@@ -35,17 +35,3 @@ func TestOpeningFiltersHashExcludesPagePosition(t *testing.T) {
 		t.Fatal("different filters share a pagination binding")
 	}
 }
-
-func TestFillOpeningContentPreservesExistingRevisionValues(t *testing.T) {
-	liveTitle, editedTitle := "Original", "Edited"
-	liveDescription := "Description"
-	liveCountry := common.CountryCode("SG")
-	content := fillOpeningContent(common.OpeningContent{Title: &editedTitle},
-		common.OpeningContent{Title: &liveTitle, Description: &liveDescription,
-			EmployingCountry: &liveCountry})
-	if content.Title == nil || *content.Title != editedTitle ||
-		content.Description == nil || *content.Description != liveDescription ||
-		content.EmployingCountry == nil || *content.EmployingCountry != liveCountry {
-		t.Fatal("first revision failed to preserve the live content")
-	}
-}
