@@ -45,9 +45,10 @@ the same shape rather than invent a second one.
 - Build screens from the catalog, never a fixed list of access levels — a tier
   such as "manager" or "viewer" stops meaning anything once a second unrelated
   permission exists. The one exception is the Org role presets (Superadmin,
-  Finance, User manager, Member): a preset only pre-ticks the catalog
-  checkboxes, which stay authoritative, and a member whose grants match no
-  preset is labelled Custom. The label is derived in the portal, never stored.
+  Finance, User manager, Recruiter, Hiring approver, Member): a preset only
+  pre-ticks the catalog checkboxes, which stay authoritative. A member whose
+  grants match no preset is labelled Custom. The label is derived in the
+  portal, never stored.
 - Label a defined permission with its translated name, as uppercase
   underscore-separated jargon such as `MANAGE_ADMINISTRATORS` wherever the
   language has uppercase forms. Label an undefined one with its raw identifier.

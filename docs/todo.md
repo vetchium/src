@@ -96,7 +96,6 @@ Each item: what is not done, and what must be decided first.
 
 ## Openings
 
-- Openings are specified in `agent-guides/openings.md` and not yet built.
 - Not specified: applications and the rest of hiring; watchers and email
   notifications for requests and decisions (decide recipients, batching, and
   opt-out); tags (seeded opening-tag OIDs) and cost centers; multi-step or

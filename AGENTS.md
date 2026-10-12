@@ -85,8 +85,3 @@ nearest one wins on conflict, and a specific guide wins over a general one.
   - `docs/` holds only `todo.md`, the deferred-work list.
 - Write guides tersely: imperative bullets, exact values, a reason only when a
   rule would otherwise be misapplied. No history, plans, or ledgers.
-
-## Openings build
-
-When the user's whole message is `resume` (or `start`), follow
-[`.openings-build/RUNBOOK.md`](.openings-build/RUNBOOK.md).

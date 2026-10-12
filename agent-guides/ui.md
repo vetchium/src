@@ -105,6 +105,6 @@ Applies to `admin-ui/`, `hub-ui/`, `orgs-ui/`, and `portal-ui/`.
   `security-headers`, which have no dependencies.
 - `/u/` and `/org/` responses send `X-Robots-Tag: noindex` and render
   `NoIndex`; never disallow them in `robots.txt` (crawlers must fetch to see
-  noindex). `/org/<domain>` is a placeholder.
+  noindex). Org and Opening pages require a signed-in Hub user.
 - Expand, then contract ([`backend.md`](backend.md)): a published portal must
   work against every region during a rolling upgrade.
