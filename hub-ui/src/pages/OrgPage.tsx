@@ -167,10 +167,14 @@ export function OrgPage() {
                     )?.label ?? opening.employing_country}
                   </Typography.Text>
                   <Typography.Text>
-                    {t(`orgPage.workArrangements.${opening.work_arrangement}`)}
+                    {t(`orgPage.workArrangements.${opening.work_arrangement}`, {
+                      defaultValue: opening.work_arrangement,
+                    })}
                   </Typography.Text>
                   <Typography.Text>
-                    {t(`orgPage.employmentTypes.${opening.employment_type}`)}
+                    {t(`orgPage.employmentTypes.${opening.employment_type}`, {
+                      defaultValue: opening.employment_type,
+                    })}
                   </Typography.Text>
                 </Space>
               </Card>

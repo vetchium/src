@@ -1974,7 +1974,7 @@ CREATE TABLE vetchium.org_opening_contents (
             AND salary_max IS NOT NULL AND salary_period IS NOT NULL
             AND salary_currency ~ '^[A-Z]{3}$'
             AND salary_min >= 0 AND salary_min <= salary_max
-            AND salary_max >= 1)
+            AND salary_max BETWEEN 1 AND 1000000000000)
     ),
     CONSTRAINT org_opening_contents_live_complete_check CHECK (
         slot <> 'live' OR complete

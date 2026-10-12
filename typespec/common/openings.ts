@@ -56,6 +56,8 @@ export interface OpeningExperienceYears {
   min?: number;
   max?: number;
 }
+/** Keeps every salary exact as a JavaScript number. */
+export const MaxOpeningSalary = 1_000_000_000_000;
 export interface OpeningSalary {
   currency: CurrencyCode;
   min: number;
@@ -230,7 +232,11 @@ export function validateOpeningContent(content: OpeningContent): string[] {
       salary.min > salary.max
     )
       fields.push("salary.min");
-    if (!Number.isInteger(salary.max) || salary.max < 1)
+    if (
+      !Number.isInteger(salary.max) ||
+      salary.max < 1 ||
+      salary.max > MaxOpeningSalary
+    )
       fields.push("salary.max");
     if (
       ![OpeningHour, OpeningDay, OpeningMonth, OpeningYear].includes(

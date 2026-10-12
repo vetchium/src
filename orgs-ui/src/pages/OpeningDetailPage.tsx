@@ -428,7 +428,9 @@ export function OpeningDetailPage() {
           {
             key: "state",
             label: t("openings.fields.state"),
-            children: t(`openings.states.${opening.state}`),
+            children: t(`openings.states.${opening.state}`, {
+              defaultValue: opening.state,
+            }),
           },
           {
             key: "revision",
@@ -446,7 +448,7 @@ export function OpeningDetailPage() {
             key: "request",
             label: t("openings.pendingRequest"),
             children: opening.pending_request
-              ? `${t(`openings.requestKinds.${opening.pending_request.kind}`)} — ${opening.pending_request.requested_by_email} · ${formatDateTime(opening.pending_request.requested_at)}`
+              ? `${t(`openings.requestKinds.${opening.pending_request.kind}`, { defaultValue: opening.pending_request.kind })} — ${opening.pending_request.requested_by_email} · ${formatDateTime(opening.pending_request.requested_at)}`
               : t("openings.notSet"),
           },
         ]}
@@ -551,7 +553,7 @@ export function OpeningDetailPage() {
         )}
         <ol>
           {history.data?.entries.map((entry) => (
-            <li key={`${entry.version}-${entry.created_at}`}>
+            <li key={`${entry.created_at}-${entry.version}-${entry.action}`}>
               <Typography.Text>
                 {formatDateTime(entry.created_at)} ·{" "}
                 {t(`openings.historyActions.${entry.action}`, {
@@ -559,10 +561,10 @@ export function OpeningDetailPage() {
                 })}{" "}
                 · {entry.actor_email ?? t("openings.systemActor")}
                 {entry.request_kind
-                  ? ` · ${t(`openings.requestKinds.${entry.request_kind}`)}`
+                  ? ` · ${t(`openings.requestKinds.${entry.request_kind}`, { defaultValue: entry.request_kind })}`
                   : ""}
                 {entry.request_state
-                  ? ` · ${t(`openings.requestStates.${entry.request_state}`)}`
+                  ? ` · ${t(`openings.requestStates.${entry.request_state}`, { defaultValue: entry.request_state })}`
                   : ""}
                 {entry.request_note ? ` · ${entry.request_note}` : ""}
                 {entry.decision_note ? ` · ${entry.decision_note}` : ""}

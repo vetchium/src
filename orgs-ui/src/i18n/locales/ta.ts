@@ -807,7 +807,6 @@ export const ta = {
     backToList: "அனைத்து வேலை வாய்ப்புகள்",
     saved: "வேலை வாய்ப்பு உள்ளடக்கம் சேமிக்கப்பட்டது.",
     created: "வரைவு உருவாக்கப்பட்டது.",
-    teamSaved: "பணியமர்த்தல் குழு சேமிக்கப்பட்டது.",
     discardedWorking: "திருத்த வரைவு கைவிடப்பட்டது.",
     discardedDraft: "வரைவு கைவிடப்பட்டது.",
     revision: "திருத்தம்",
@@ -875,9 +874,8 @@ export const ta = {
       salaryMax: "அதிகபட்ச ஊதியம்",
       salaryPeriod: "ஊதியக் காலம்",
       preview: "விண்ணப்பதாரர் முன்னோட்டம்",
-      saveContent: "உள்ளடக்கத்தைச் சேமி",
+      save: "சேமி",
       createDraft: "வரைவை உருவாக்கு",
-      saveTeam: "குழு மற்றும் குறிப்புகளைச் சேமி",
     },
     errors: {
       versionConflict:

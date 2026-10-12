@@ -812,7 +812,6 @@ export const en = {
     backToList: "All Openings",
     saved: "Opening content saved.",
     created: "Draft created.",
-    teamSaved: "Hiring team saved.",
     discardedWorking: "Working copy discarded.",
     discardedDraft: "Draft discarded.",
     revision: "Revision",
@@ -880,9 +879,8 @@ export const en = {
       salaryMax: "Maximum salary",
       salaryPeriod: "Salary period",
       preview: "Candidate preview",
-      saveContent: "Save content",
+      save: "Save",
       createDraft: "Create draft",
-      saveTeam: "Save team and notes",
     },
     errors: {
       versionConflict:

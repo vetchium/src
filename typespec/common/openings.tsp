@@ -43,10 +43,18 @@ model OpeningExperienceYears {
   max?: int32;
 }
 
+/** Whole currency units, at most 10^12 so every value is exact in JavaScript. */
 model OpeningSalary {
   currency: string;
+
+  @minValue(0)
+  @maxValue(1000000000000)
   min: int64;
+
+  @minValue(1)
+  @maxValue(1000000000000)
   max: int64;
+
   period: OpeningSalaryPeriod;
 }
 

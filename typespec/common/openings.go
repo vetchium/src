@@ -42,6 +42,9 @@ type OpeningExperienceYears struct {
 	Max *int32 `json:"max,omitempty"`
 }
 
+// MaxOpeningSalary keeps every salary exact as a JavaScript number.
+const MaxOpeningSalary = 1_000_000_000_000
+
 type OpeningSalary struct {
 	Currency CurrencyCode        `json:"currency"`
 	Min      int64               `json:"min"`
@@ -181,7 +184,7 @@ func (c OpeningContent) Validate() []string {
 		if s.Min < 0 || s.Min > s.Max {
 			fields = append(fields, "salary.min")
 		}
-		if s.Max < 1 {
+		if s.Max < 1 || s.Max > MaxOpeningSalary {
 			fields = append(fields, "salary.max")
 		}
 		if s.Period != OpeningHour && s.Period != OpeningDay && s.Period != OpeningMonth && s.Period != OpeningYear {

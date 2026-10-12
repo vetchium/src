@@ -49,7 +49,7 @@ source-specific fields to it.
 | `positions` | 1–10 |
 | `experience_years` | optional `min` and `max`, each 0–50, `min ≤ max` |
 | `minimum_education` | optional `secondary`, `bachelor`, `master`, `doctorate` |
-| `salary` | optional `currency` (active ISO 4217), whole-unit `min` and `max` (0 ≤ min ≤ max, max ≥ 1), `period` (`hour`, `day`, `month`, `year`) |
+| `salary` | optional `currency` (active ISO 4217), whole-unit `min` and `max` (0 ≤ min ≤ max, 1 ≤ max ≤ 10^12), `period` (`hour`, `day`, `month`, `year`) |
 
 - **OPN-CNT-001** Declare each vocabulary in TypeSpec as an extensible value on
   responses ([`typespec.md`](typespec.md)) so a portal older than its API shows
@@ -297,5 +297,7 @@ transition takes or returns one.
   another tenant, a suspended Org, a released domain, and `ind1` failing closed
   with `hub-org-unavailable`. Assert that no internal field appears in any Hub
   or mesh response.
-- **OPN-TST-003** `make dev-seed` gives each seeded Org Openings in every state,
-  a pending request of each kind, and Recruiter and Hiring approver users.
+- **OPN-TST-003** `make dev-seed` gives each seeded Org Openings in every state
+  except `expired` (only time reaches it, and fixtures go through the portal
+  APIs), a pending request of each kind, and Recruiter and Hiring approver
+  users.

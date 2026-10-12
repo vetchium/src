@@ -36,21 +36,24 @@ export function openingContentPresentation(
     formatters: {
       language: (value) => displayName(languages, value),
       country: (value) => displayName(countries, value),
-      workArrangement: (value) => t(`orgPage.workArrangements.${value}`),
+      workArrangement: (value) =>
+        t(`orgPage.workArrangements.${value}`, { defaultValue: value }),
       remoteEligibility: (kind, values) =>
         kind === "worldwide"
           ? t("orgPage.remoteWorldwide")
           : values.map((value) => displayName(countries, value)).join(", "),
-      employmentType: (value) => t(`orgPage.employmentTypes.${value}`),
+      employmentType: (value) =>
+        t(`orgPage.employmentTypes.${value}`, { defaultValue: value }),
       experienceYears: (min, max) =>
         min !== undefined && max !== undefined
           ? t("orgPage.experienceRange", { min, max })
           : min !== undefined
             ? t("orgPage.experienceMin", { min })
             : t("orgPage.experienceMax", { max }),
-      minimumEducation: (value) => t(`orgPage.education.${value}`),
+      minimumEducation: (value) =>
+        t(`orgPage.education.${value}`, { defaultValue: value }),
       salary: (code, min, max, period) =>
-        `${code} ${numbers.format(min)}–${numbers.format(max)} ${t(`orgPage.salaryPeriods.${period}`)}`,
+        `${code} ${numbers.format(min)}–${numbers.format(max)} ${t(`orgPage.salaryPeriods.${period}`, { defaultValue: period })}`,
     },
   };
 }

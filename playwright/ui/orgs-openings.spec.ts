@@ -112,7 +112,7 @@ test("creates a partial draft, previews Markdown, edits, duplicates, and discard
 
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByRole("textbox", { name: "Title" }).fill("Edited engineer");
-    await page.getByRole("button", { name: "Save content" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page).toHaveURL(/\/openings\/1$/);
     await expect(
       page.getByRole("heading", { name: /Edited engineer/, level: 1 }),
@@ -324,7 +324,7 @@ test("team edits flag invalid addresses and save valid members", async ({
     await page
       .getByRole("combobox", { name: "Hiring manager" })
       .fill(`unknown@${org.domain}`);
-    await page.getByRole("button", { name: "Save team and notes" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(
       page.getByText(/not active members of this organization/).first(),
     ).toBeVisible();
@@ -334,9 +334,14 @@ test("team edits flag invalid addresses and save valid members", async ({
     await page
       .getByRole("textbox", { name: "Internal notes" })
       .fill("Private note");
-    await page.getByRole("button", { name: "Save team and notes" }).click();
+    // One save keeps both sections' edits.
+    await page.getByRole("textbox", { name: "Title" }).fill("Team editor v2");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page).toHaveURL(/\/openings\/1$/);
     await expect(page.getByText("Private note")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Team editor v2/, level: 1 }),
+    ).toBeVisible();
   });
 });
 
@@ -534,7 +539,7 @@ test("approver directly publishes, revises, pauses, reopens, and closes over a p
     ).toBeVisible();
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByRole("textbox", { name: "Title" }).fill("Revised engineer");
-    await page.getByRole("button", { name: "Save content" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("Revised engineer").first()).toBeVisible();
     await confirmOpeningAction(page, "Publish revision");
     await expect(page.getByText("Revised engineer").first()).toBeVisible();

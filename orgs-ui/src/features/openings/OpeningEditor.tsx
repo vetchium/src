@@ -7,6 +7,7 @@ import {
   AutoComplete,
   Button,
   Card,
+  ConfigProvider,
   Flex,
   Form,
   Input,
@@ -22,7 +23,10 @@ import { isEmailAddress, normalizeEmailAddress } from "typespec/common/common";
 import { countryCodeValues } from "typespec/common/countries";
 import { currencyCatalog } from "typespec/common/currency_catalog";
 import { languageCatalog } from "typespec/common/language_catalog";
-import type { OpeningContent } from "typespec/common/openings";
+import {
+  MaxOpeningSalary,
+  type OpeningContent,
+} from "typespec/common/openings";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { APIError, isDefiniteRefusal } from "../../api/client";
 import { orgsAPI } from "../../api/orgs";
@@ -86,6 +90,34 @@ function cleanContent(input: OpeningContent | undefined): OpeningContent {
   )
     result.salary = content.salary;
   return result;
+}
+
+/** Compares values whose object keys may arrive in any order. */
+function sameValue(left: unknown, right: unknown): boolean {
+  const canonical = (value: unknown): unknown =>
+    Array.isArray(value)
+      ? value.map(canonical)
+      : value !== null && typeof value === "object"
+        ? Object.fromEntries(
+            Object.entries(value)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([key, entry]) => [key, canonical(entry)]),
+          )
+        : value;
+  return JSON.stringify(canonical(left)) === JSON.stringify(canonical(right));
+}
+
+function teamRequest(values: EditorValues) {
+  const email = (value: string | undefined) =>
+    value?.trim() ? normalizeEmailAddress(value) : undefined;
+  return {
+    hiring_manager_email: email(values.hiring_manager_email),
+    recruiter_email: email(values.recruiter_email),
+    team_member_emails: (values.team_member_emails ?? []).map((value) =>
+      normalizeEmailAddress(value),
+    ),
+    internal_notes: values.internal_notes?.trim() || undefined,
+  };
 }
 
 export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
@@ -219,63 +251,86 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
     if (isDefiniteRefusal(cause)) rotateKey();
   };
 
-  const submitContent = async (values: EditorValues) => {
-    setError(undefined);
-    try {
-      const nextContent = cleanContent(values.content);
-      if (opening) {
-        await save.mutateAsync({
+  const saveExisting = async (current: OrgOpening, values: EditorValues) => {
+    const nextContent = cleanContent(values.content);
+    const contentChanged =
+      !contentLocked &&
+      !sameValue(
+        nextContent,
+        cleanContent(current.working_content ?? current.live_content),
+      );
+    const nextTeam = teamRequest(values);
+    const teamChanged = !sameValue(
+      {
+        ...nextTeam,
+        team_member_emails: [...nextTeam.team_member_emails].sort(),
+      },
+      {
+        hiring_manager_email: current.hiring_manager?.email,
+        recruiter_email: current.recruiter?.email,
+        team_member_emails: current.team_members
+          .map((member) => member.email)
+          .sort(),
+        internal_notes: current.internal_notes,
+      },
+    );
+    let version = current.version;
+    if (contentChanged) {
+      try {
+        const saved = await save.mutateAsync({
           request: {
-            opening_number: opening.opening_number,
-            version: opening.version,
+            opening_number: current.opening_number,
+            version,
             content: nextContent,
           },
           key: contentKey.current(),
         });
         contentKey.rotate();
-        void message.success(t("openings.saved"));
-        navigate(paths.openingDetail(opening.opening_number));
-      } else {
-        const created = await create.mutateAsync({
-          request: {
-            content: nextContent,
-            hiring_manager_email: values.hiring_manager_email || undefined,
-            recruiter_email: values.recruiter_email || undefined,
-            team_member_emails: values.team_member_emails ?? [],
-            internal_notes: values.internal_notes || undefined,
-          },
-          key: contentKey.current(),
-        });
-        contentKey.rotate();
-        void message.success(t("openings.created"));
-        navigate(paths.openingDetail(created.opening_number));
+        version = saved.version;
+      } catch (cause) {
+        handleError(cause, contentKey.rotate);
+        return;
       }
-    } catch (cause) {
-      handleError(cause, contentKey.rotate);
     }
+    if (teamChanged) {
+      try {
+        await saveTeam.mutateAsync({
+          request: {
+            opening_number: current.opening_number,
+            version,
+            ...nextTeam,
+          },
+          key: teamKey.current(),
+        });
+        teamKey.rotate();
+      } catch (cause) {
+        handleError(cause, teamKey.rotate);
+        return;
+      }
+    }
+    void message.success(t("openings.saved"));
+    navigate(paths.openingDetail(current.opening_number));
   };
 
-  const submitTeam = async () => {
-    if (!opening) return;
+  const submit = async (values: EditorValues) => {
     setError(undefined);
-    const values = form.getFieldsValue();
+    if (opening) {
+      await saveExisting(opening, values);
+      return;
+    }
     try {
-      await saveTeam.mutateAsync({
+      const created = await create.mutateAsync({
         request: {
-          opening_number: opening.opening_number,
-          version: opening.version,
-          hiring_manager_email: values.hiring_manager_email || undefined,
-          recruiter_email: values.recruiter_email || undefined,
-          team_member_emails: values.team_member_emails ?? [],
-          internal_notes: values.internal_notes || undefined,
+          content: cleanContent(values.content),
+          ...teamRequest(values),
         },
-        key: teamKey.current(),
+        key: contentKey.current(),
       });
-      teamKey.rotate();
-      void message.success(t("openings.teamSaved"));
-      navigate(paths.openingDetail(opening.opening_number));
+      contentKey.rotate();
+      void message.success(t("openings.created"));
+      navigate(paths.openingDetail(created.opening_number));
     } catch (cause) {
-      handleError(cause, teamKey.rotate);
+      handleError(cause, contentKey.rotate);
     }
   };
 
@@ -301,183 +356,188 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
           <Form
             form={form}
             layout="vertical"
-            onFinish={(values) => void submitContent(values)}
+            onFinish={(values) => void submit(values)}
             initialValues={{ content: {}, team_member_emails: [] }}
           >
-            <Form.Item
-              name={["content", "title"]}
-              label={t("openings.fields.title")}
-            >
-              <Input maxLength={200} />
-            </Form.Item>
-            <Form.Item
-              name={["content", "description"]}
-              label={t("openings.fields.description")}
-            >
-              <Input.TextArea rows={8} maxLength={20000} />
-            </Form.Item>
-            <Form.Item
-              name={["content", "language"]}
-              label={t("openings.fields.language")}
-            >
-              <Select
-                showSearch
-                optionFilterProp="label"
-                options={languageOptions}
-                allowClear
-              />
-            </Form.Item>
-            <Form.Item
-              name={["content", "employing_country"]}
-              label={t("openings.fields.country")}
-            >
-              <Select
-                showSearch
-                optionFilterProp="label"
-                options={countryOptions}
-                allowClear
-              />
-            </Form.Item>
-            <Form.Item
-              name={["content", "work_arrangement"]}
-              label={t("openings.fields.workArrangement")}
-            >
-              <Select
-                options={["on_site", "hybrid", "remote"].map((value) => ({
-                  value,
-                  label: t(`openings.workArrangements.${value}`),
-                }))}
-                allowClear
-              />
-            </Form.Item>
-            <Form.Item
-              name={["content", "location_details"]}
-              label={t("openings.fields.locationDetails")}
-            >
-              <Input.TextArea rows={2} maxLength={2000} />
-            </Form.Item>
-            {arrangement === "remote" && (
-              <>
-                <Form.Item
-                  name={["content", "remote_eligibility", "kind"]}
-                  label={t("openings.fields.remoteEligibility")}
-                >
-                  <Select
-                    options={["worldwide", "countries"].map((value) => ({
-                      value,
-                      label: t(`openings.remote.${value}`),
-                    }))}
-                    allowClear
-                  />
-                </Form.Item>
-                {eligibilityKind === "countries" && (
-                  <Form.Item
-                    name={["content", "remote_eligibility", "countries"]}
-                    label={t("openings.remote.countries")}
-                  >
-                    <Select
-                      mode="multiple"
-                      showSearch
-                      optionFilterProp="label"
-                      options={countryOptions}
-                    />
-                  </Form.Item>
-                )}
-              </>
-            )}
-            <Form.Item
-              name={["content", "employment_type"]}
-              label={t("openings.fields.employmentType")}
-            >
-              <Select
-                options={[
-                  "full_time",
-                  "part_time",
-                  "contract",
-                  "internship",
-                ].map((value) => ({
-                  value,
-                  label: t(`openings.employmentTypes.${value}`),
-                }))}
-                allowClear
-              />
-            </Form.Item>
-            <Form.Item
-              name={["content", "positions"]}
-              label={t("openings.fields.positions")}
-            >
-              <InputNumber min={1} max={10} className="full-width" />
-            </Form.Item>
-            <Flex gap="middle">
+            <ConfigProvider componentDisabled={contentLocked}>
+              {contentLocked && (
+                <Alert type="info" title={t("openings.errors.contentLocked")} />
+              )}
               <Form.Item
-                name={["content", "experience_years", "min"]}
-                label={t("openings.editor.minimumYears")}
+                name={["content", "title"]}
+                label={t("openings.fields.title")}
               >
-                <InputNumber min={0} max={50} />
+                <Input maxLength={200} />
               </Form.Item>
               <Form.Item
-                name={["content", "experience_years", "max"]}
-                label={t("openings.editor.maximumYears")}
+                name={["content", "description"]}
+                label={t("openings.fields.description")}
               >
-                <InputNumber min={0} max={50} />
+                <Input.TextArea rows={8} maxLength={20000} />
               </Form.Item>
-            </Flex>
-            <Form.Item
-              name={["content", "minimum_education"]}
-              label={t("openings.fields.minimumEducation")}
-            >
-              <Select
-                options={["secondary", "bachelor", "master", "doctorate"].map(
-                  (value) => ({
-                    value,
-                    label: t(`openings.education.${value}`),
-                  }),
-                )}
-                allowClear
-              />
-            </Form.Item>
-            <Typography.Title level={4}>
-              {t("openings.fields.salary")}
-            </Typography.Title>
-            <Flex gap="middle" wrap>
               <Form.Item
-                name={["content", "salary", "currency"]}
-                label={t("openings.editor.currency")}
+                name={["content", "language"]}
+                label={t("openings.fields.language")}
               >
                 <Select
                   showSearch
-                  options={currencyCatalog.map((value) => ({
-                    value,
-                    label: value,
-                  }))}
-                  style={{ width: 120 }}
+                  optionFilterProp="label"
+                  options={languageOptions}
+                  allowClear
                 />
               </Form.Item>
               <Form.Item
-                name={["content", "salary", "min"]}
-                label={t("openings.editor.salaryMin")}
-              >
-                <InputNumber min={0} />
-              </Form.Item>
-              <Form.Item
-                name={["content", "salary", "max"]}
-                label={t("openings.editor.salaryMax")}
-              >
-                <InputNumber min={1} />
-              </Form.Item>
-              <Form.Item
-                name={["content", "salary", "period"]}
-                label={t("openings.editor.salaryPeriod")}
+                name={["content", "employing_country"]}
+                label={t("openings.fields.country")}
               >
                 <Select
-                  options={["hour", "day", "month", "year"].map((value) => ({
-                    value,
-                    label: t(`openings.salaryPeriods.${value}`),
-                  }))}
-                  style={{ width: 130 }}
+                  showSearch
+                  optionFilterProp="label"
+                  options={countryOptions}
+                  allowClear
                 />
               </Form.Item>
-            </Flex>
+              <Form.Item
+                name={["content", "work_arrangement"]}
+                label={t("openings.fields.workArrangement")}
+              >
+                <Select
+                  options={["on_site", "hybrid", "remote"].map((value) => ({
+                    value,
+                    label: t(`openings.workArrangements.${value}`),
+                  }))}
+                  allowClear
+                />
+              </Form.Item>
+              <Form.Item
+                name={["content", "location_details"]}
+                label={t("openings.fields.locationDetails")}
+              >
+                <Input.TextArea rows={2} maxLength={2000} />
+              </Form.Item>
+              {arrangement === "remote" && (
+                <>
+                  <Form.Item
+                    name={["content", "remote_eligibility", "kind"]}
+                    label={t("openings.fields.remoteEligibility")}
+                  >
+                    <Select
+                      options={["worldwide", "countries"].map((value) => ({
+                        value,
+                        label: t(`openings.remote.${value}`),
+                      }))}
+                      allowClear
+                    />
+                  </Form.Item>
+                  {eligibilityKind === "countries" && (
+                    <Form.Item
+                      name={["content", "remote_eligibility", "countries"]}
+                      label={t("openings.remote.countries")}
+                    >
+                      <Select
+                        mode="multiple"
+                        showSearch
+                        optionFilterProp="label"
+                        options={countryOptions}
+                      />
+                    </Form.Item>
+                  )}
+                </>
+              )}
+              <Form.Item
+                name={["content", "employment_type"]}
+                label={t("openings.fields.employmentType")}
+              >
+                <Select
+                  options={[
+                    "full_time",
+                    "part_time",
+                    "contract",
+                    "internship",
+                  ].map((value) => ({
+                    value,
+                    label: t(`openings.employmentTypes.${value}`),
+                  }))}
+                  allowClear
+                />
+              </Form.Item>
+              <Form.Item
+                name={["content", "positions"]}
+                label={t("openings.fields.positions")}
+              >
+                <InputNumber min={1} max={10} className="full-width" />
+              </Form.Item>
+              <Flex gap="middle">
+                <Form.Item
+                  name={["content", "experience_years", "min"]}
+                  label={t("openings.editor.minimumYears")}
+                >
+                  <InputNumber min={0} max={50} />
+                </Form.Item>
+                <Form.Item
+                  name={["content", "experience_years", "max"]}
+                  label={t("openings.editor.maximumYears")}
+                >
+                  <InputNumber min={0} max={50} />
+                </Form.Item>
+              </Flex>
+              <Form.Item
+                name={["content", "minimum_education"]}
+                label={t("openings.fields.minimumEducation")}
+              >
+                <Select
+                  options={["secondary", "bachelor", "master", "doctorate"].map(
+                    (value) => ({
+                      value,
+                      label: t(`openings.education.${value}`),
+                    }),
+                  )}
+                  allowClear
+                />
+              </Form.Item>
+              <Typography.Title level={4}>
+                {t("openings.fields.salary")}
+              </Typography.Title>
+              <Flex gap="middle" wrap>
+                <Form.Item
+                  name={["content", "salary", "currency"]}
+                  label={t("openings.editor.currency")}
+                >
+                  <Select
+                    showSearch
+                    options={currencyCatalog.map((value) => ({
+                      value,
+                      label: value,
+                    }))}
+                    style={{ width: 120 }}
+                  />
+                </Form.Item>
+                <Form.Item
+                  name={["content", "salary", "min"]}
+                  label={t("openings.editor.salaryMin")}
+                >
+                  <InputNumber min={0} max={MaxOpeningSalary} />
+                </Form.Item>
+                <Form.Item
+                  name={["content", "salary", "max"]}
+                  label={t("openings.editor.salaryMax")}
+                >
+                  <InputNumber min={1} max={MaxOpeningSalary} />
+                </Form.Item>
+                <Form.Item
+                  name={["content", "salary", "period"]}
+                  label={t("openings.editor.salaryPeriod")}
+                >
+                  <Select
+                    options={["hour", "day", "month", "year"].map((value) => ({
+                      value,
+                      label: t(`openings.salaryPeriods.${value}`),
+                    }))}
+                    style={{ width: 130 }}
+                  />
+                </Form.Item>
+              </Flex>
+            </ConfigProvider>
             <Typography.Title level={4}>
               {t("openings.editor.team")}
             </Typography.Title>
@@ -517,31 +577,17 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
             >
               <Input.TextArea rows={3} maxLength={2000} />
             </Form.Item>
-            {contentLocked && (
-              <Alert type="info" title={t("openings.errors.contentLocked")} />
-            )}
-            <Flex gap="small">
-              <Button
-                type="primary"
-                htmlType="submit"
-                disabled={contentLocked}
-                loading={create.isPending || save.isPending}
-              >
-                {t(
-                  opening
-                    ? "openings.editor.saveContent"
-                    : "openings.editor.createDraft",
-                )}
-              </Button>
-              {opening && (
-                <Button
-                  onClick={() => void submitTeam()}
-                  loading={saveTeam.isPending}
-                >
-                  {t("openings.editor.saveTeam")}
-                </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={create.isPending || save.isPending || saveTeam.isPending}
+            >
+              {t(
+                opening
+                  ? "openings.editor.save"
+                  : "openings.editor.createDraft",
               )}
-            </Flex>
+            </Button>
           </Form>
         </Card>
         <Card

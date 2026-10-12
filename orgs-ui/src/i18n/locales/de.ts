@@ -835,7 +835,6 @@ export const de = {
     backToList: "Alle Stellenanzeigen",
     saved: "Inhalt gespeichert.",
     created: "Entwurf erstellt.",
-    teamSaved: "Einstellungsteam gespeichert.",
     discardedWorking: "Arbeitskopie verworfen.",
     discardedDraft: "Entwurf verworfen.",
     revision: "Revision",
@@ -903,9 +902,8 @@ export const de = {
       salaryMax: "Höchstgehalt",
       salaryPeriod: "Gehaltszeitraum",
       preview: "Vorschau für Bewerbende",
-      saveContent: "Inhalt speichern",
+      save: "Speichern",
       createDraft: "Entwurf erstellen",
-      saveTeam: "Team und Notizen speichern",
     },
     errors: {
       versionConflict:

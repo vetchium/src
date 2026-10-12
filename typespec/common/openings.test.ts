@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  MaxOpeningSalary,
   missingForPublication,
   normalizeOpeningContent,
   type OpeningContent,
@@ -210,17 +211,28 @@ test("normalization keeps an explicitly empty worldwide country list", () => {
   );
 });
 
-test("whole-unit int64 salary above JavaScript's safe integer remains valid", () => {
+test("salary accepts the cap and refuses one unit above it", () => {
   assert.deepEqual(
     validateOpeningContent({
       ...valid(),
       salary: {
         currency: "USD",
-        min: 9007199254740992,
-        max: 9007199254740992,
+        min: MaxOpeningSalary,
+        max: MaxOpeningSalary,
         period: "year",
       },
     }),
     [],
+  );
+  assert.ok(
+    validateOpeningContent({
+      ...valid(),
+      salary: {
+        currency: "USD",
+        min: 0,
+        max: MaxOpeningSalary + 1,
+        period: "year",
+      },
+    }).includes("salary.max"),
   );
 });

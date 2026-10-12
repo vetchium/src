@@ -89,14 +89,18 @@ export function OpeningsPage() {
     {
       title: t("openings.fields.state"),
       dataIndex: "state",
-      render: (state: string) => <Tag>{t(`openings.states.${state}`)}</Tag>,
+      render: (state: string) => (
+        <Tag>{t(`openings.states.${state}`, { defaultValue: state })}</Tag>
+      ),
     },
     {
       title: t("openings.pendingRequest"),
       dataIndex: "pending_request_kind",
       render: (kind?: string) =>
         kind ? (
-          <Tag color="gold">{t(`openings.requestKinds.${kind}`)}</Tag>
+          <Tag color="gold">
+            {t(`openings.requestKinds.${kind}`, { defaultValue: kind })}
+          </Tag>
         ) : null,
     },
     {
@@ -164,7 +168,8 @@ export function OpeningsPage() {
             </Typography.Text>
             {summary.data.counts.map(({ state, count }) => (
               <Typography.Text key={state}>
-                {t(`openings.states.${state}`)}: {count}
+                {t(`openings.states.${state}`, { defaultValue: state })}:{" "}
+                {count}
               </Typography.Text>
             ))}
             {canApprove && !awaiting.isError && (

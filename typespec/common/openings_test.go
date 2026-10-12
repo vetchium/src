@@ -75,6 +75,9 @@ func TestOpeningContentValidation(t *testing.T) {
 		{"salary max zero", "salary.max", func(c *OpeningContent) {
 			c.Salary = &OpeningSalary{Currency: "USD", Min: 0, Max: 0, Period: OpeningYear}
 		}},
+		{"salary max above cap", "salary.max", func(c *OpeningContent) {
+			c.Salary = &OpeningSalary{Currency: "USD", Min: 0, Max: MaxOpeningSalary + 1, Period: OpeningYear}
+		}},
 		{"salary period invalid", "salary.period", func(c *OpeningContent) { c.Salary = &OpeningSalary{Currency: "USD", Min: 0, Max: 1, Period: "week"} }},
 	}
 	for _, tc := range cases {
@@ -155,10 +158,10 @@ func TestOpeningNormalizationKeepsExplicitEmptyCountries(t *testing.T) {
 	}
 }
 
-func TestOpeningSalaryInt64AboveJavaScriptSafeInteger(t *testing.T) {
+func TestOpeningSalaryAcceptsTheCap(t *testing.T) {
 	t.Parallel()
 	c := validOpening()
-	c.Salary = &OpeningSalary{Currency: "USD", Min: 9007199254740992, Max: 9007199254740992, Period: OpeningYear}
+	c.Salary = &OpeningSalary{Currency: "USD", Min: MaxOpeningSalary, Max: MaxOpeningSalary, Period: OpeningYear}
 	if fields := c.Validate(); len(fields) != 0 {
 		t.Fatal(fields)
 	}
