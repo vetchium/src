@@ -1,5 +1,6 @@
 import { SearchOutlined } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { ReauthenticationAlert } from "@vetchium/portal-ui/shell";
 import {
   Alert,
@@ -29,7 +30,6 @@ import type {
 import { isRecentAuthenticationRequired } from "../../api/client";
 import { orgsAPI } from "../../api/orgs";
 import { problemMessage } from "../../components/common/APIErrorAlert";
-import { useDateTimeFormat } from "../../components/common/useDateTimeFormat";
 import { ExportButton } from "./ExportButton";
 import { filtersToRequest, hasFilters, type MemberFilters } from "./filters";
 import { MemberDrawer } from "./MemberDrawer";
@@ -60,7 +60,7 @@ export function MembersTab({
   const { t } = useTranslation();
   const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
-  const formatDateTime = useDateTimeFormat();
+  const { dateTime: formatDateTime } = useDateTimeFormat();
   const [search, setSearch] = useState(filters.search);
   const [pageKeys, setPageKeys] = useState<Array<PaginationKey | undefined>>([
     undefined,

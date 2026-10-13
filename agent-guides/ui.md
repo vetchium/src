@@ -58,6 +58,17 @@ Applies to `admin-ui/`, `hub-ui/`, `orgs-ui/`, and `portal-ui/`.
   abstractions.
 - Keep API data in wire shape; convert only where the UI needs it.
 
+## Dates and times
+
+- Format every wire timestamp with `useDateTimeFormat` from
+  `@vetchium/portal-ui/date-time`; never `toLocaleString` or an ad hoc
+  `Intl.DateTimeFormat`.
+- A moment shows the browser's time zone and names it (`dateTime`, `time`,
+  `preciseDateTime`). A date alone (`date`) omits the zone.
+- The formatting locale is the browser's first preferred locale of the portal
+  language (en-GB conventions in the English portal), else the portal language.
+- Calendar months (`YYYY-MM`) are not moments: format them in `UTC`.
+
 ## Global portals and regions
 
 - Hub (`vetchium.com`) and Orgs (`orgs.vetchium.com`) are one static build

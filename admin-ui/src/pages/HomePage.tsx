@@ -1,3 +1,4 @@
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { languageName } from "@vetchium/portal-ui/localization";
 import { Card, Descriptions, Grid, Space, Tag, Typography } from "antd";
 import { useTranslation } from "react-i18next";
@@ -8,7 +9,8 @@ import {
 import { useMyInfoQuery } from "../features/profile/queries";
 
 export function HomePage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const { dateTime } = useDateTimeFormat();
   const screens = Grid.useBreakpoint();
   const { data: me } = useMyInfoQuery();
   if (me === undefined) return null;
@@ -89,10 +91,7 @@ export function HomePage() {
             {
               key: "expires",
               label: t("fields.sessionExpires"),
-              children: new Intl.DateTimeFormat(i18n.language, {
-                dateStyle: "medium",
-                timeStyle: "short",
-              }).format(new Date(me.session_expires_at)),
+              children: dateTime(me.session_expires_at),
             },
           ]}
         />

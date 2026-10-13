@@ -421,6 +421,36 @@ test("an incomplete draft names the fields that block publication", async ({
   });
 });
 
+test.describe("in a British browser in India", () => {
+  test.use({ locale: "en-GB", timezoneId: "Asia/Kolkata" });
+
+  test("Opening times follow the browser's conventions and name its time zone", async ({
+    page,
+    request,
+  }) => {
+    await withOrg(request, async (org, api, owner) => {
+      const created = await api.createOpening(owner, {
+        content: { title: "Timed engineer" },
+        team_member_emails: [],
+      });
+      expect(created.status(), await created.text()).toBe(201);
+      await signIn(page, org);
+      await page.goto(`${ORGS_PORTAL}/openings`);
+      const moment = /\d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2} GMT\+5:30/;
+      await expect(
+        page
+          .getByRole("row")
+          .filter({ hasText: "Timed engineer" })
+          .getByRole("cell", { name: moment }),
+      ).toBeVisible();
+      await page.goto(`${ORGS_PORTAL}/openings/1`);
+      await expect(
+        page.getByRole("listitem").filter({ hasText: moment }),
+      ).toBeVisible();
+    });
+  });
+});
+
 test("a suspended organization cannot open Opening pages", async ({
   page,
   request,

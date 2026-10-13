@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Alert,
   App,
@@ -138,7 +139,8 @@ export function EmailAddressCard({
   handle: string;
   currentAddress: string;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const { time } = useDateTimeFormat();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const { hold } = usePendingOperations();
@@ -304,12 +306,7 @@ export function EmailAddressCard({
     confirm.reset();
   };
   const error = request.error ?? confirm.error;
-  const expiresAt =
-    pending === null
-      ? ""
-      : new Intl.DateTimeFormat(i18n.language, { timeStyle: "short" }).format(
-          new Date(pending.expires_at),
-        );
+  const expiresAt = pending === null ? "" : time(pending.expires_at);
 
   return (
     <Card title={t("emailChange.title")}>

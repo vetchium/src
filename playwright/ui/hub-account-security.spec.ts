@@ -155,6 +155,21 @@ test("an email change sends a code to the new address and confirms it", async ({
   await expect(page.getByLabel("Six-digit code")).toHaveCount(0);
 });
 
+test.describe("in a British browser in India", () => {
+  test.use({ locale: "en-GB", timezoneId: "Asia/Kolkata" });
+
+  test("the code expiry time names the browser's time zone", async ({
+    page,
+  }) => {
+    await openAccountSecurity(page);
+    await acceptEmailChangeRequests(page);
+    await startChange(page, "new@example.org");
+    await expect(
+      page.getByText(/It expires at \d{2}:\d{2} GMT\+5:30\.$/),
+    ).toBeVisible();
+  });
+});
+
 test("an email change is checked locally before any request", async ({
   page,
 }) => {

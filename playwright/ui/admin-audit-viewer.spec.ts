@@ -167,9 +167,9 @@ test("audit viewer displays local times and safe details with next and previous 
         exact: true,
       }),
     ).toHaveCount(25);
-    await expect(page.getByRole("cell", { name: /5:30:00 PM/ })).toHaveCount(
-      25,
-    );
+    await expect(
+      page.getByRole("cell", { name: /5:30:00\sPM GMT\+5:30$/ }),
+    ).toHaveCount(25);
     await page
       .getByRole("button", { name: "Event details", exact: true })
       .first()

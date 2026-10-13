@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Alert,
   App,
@@ -60,7 +61,8 @@ function AliasForm({
   alias: HubAlias | null;
   nextChangeAt: string | undefined;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const { dateTime } = useDateTimeFormat();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [form] = Form.useForm<AliasForm>();
@@ -110,10 +112,7 @@ function AliasForm({
           type="info"
           showIcon
           title={t("profileAlias.cooldown", {
-            date: new Intl.DateTimeFormat(i18n.language, {
-              dateStyle: "medium",
-              timeStyle: "short",
-            }).format(cooldownUntil),
+            date: dateTime(cooldownUntil),
           })}
         />
       ) : null}

@@ -1,3 +1,4 @@
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { Alert, Button } from "antd";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -10,7 +11,8 @@ import { useMySubscriptionQuery } from "./queries";
 const WARNING_WINDOW_DAYS = 7;
 
 export function SubscriptionEndingAlert() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const { date } = useDateTimeFormat();
   const navigate = useNavigate();
   const { data } = useMySubscriptionQuery();
   if (data === undefined || data.current_period_end === undefined) return null;
@@ -31,9 +33,7 @@ export function SubscriptionEndingAlert() {
       showIcon
       closable
       title={t("plans.endingSoon", {
-        date: new Intl.DateTimeFormat(i18n.language, {
-          dateStyle: "long",
-        }).format(endsAt),
+        date: date(endsAt, "long"),
       })}
       description={t("plans.endingSoonDetail")}
       action={

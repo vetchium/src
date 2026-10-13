@@ -1,3 +1,4 @@
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { Alert, Card, Descriptions } from "antd";
 import { useTranslation } from "react-i18next";
 import { FreeTier } from "typespec/hub/subscriptions/plans";
@@ -6,13 +7,11 @@ import { planLabel } from "./labels";
 
 export function CurrentSubscriptionCard({
   subscription,
-  locale,
 }: {
   subscription: HubSubscription;
-  locale: string;
 }) {
   const { t } = useTranslation();
-  const dateFormatter = new Intl.DateTimeFormat(locale, { dateStyle: "long" });
+  const { date } = useDateTimeFormat();
 
   if (
     subscription.plan_oid === FreeTier &&
@@ -43,10 +42,8 @@ export function CurrentSubscriptionCard({
       key: "period",
       label: t("plans.currentPeriod"),
       children: t("plans.periodRange", {
-        start: dateFormatter.format(
-          new Date(subscription.current_period_start),
-        ),
-        end: dateFormatter.format(new Date(subscription.current_period_end)),
+        start: date(subscription.current_period_start, "long"),
+        end: date(subscription.current_period_end, "long"),
       }),
     });
   }
@@ -56,9 +53,7 @@ export function CurrentSubscriptionCard({
     if (change === undefined || subscription.current_period_end === undefined) {
       return undefined;
     }
-    const effective = dateFormatter.format(
-      new Date(subscription.current_period_end),
-    );
+    const effective = date(subscription.current_period_end, "long");
     if (subscription.cancel_at_period_end) {
       return t("plans.scheduledCancellation", { date: effective });
     }

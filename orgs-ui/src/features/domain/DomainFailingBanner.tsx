@@ -1,7 +1,7 @@
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { Alert, Flex, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import type { DomainStatus } from "typespec/orgs/account/account";
-import { useDateTimeFormat } from "../../components/common/useDateTimeFormat";
 import { DnsRecord } from "./DnsRecord";
 import { DomainCheck } from "./DomainCheck";
 
@@ -13,7 +13,7 @@ export function DomainFailingBanner({
   canCheck: boolean;
 }) {
   const { t } = useTranslation();
-  const formatDateTime = useDateTimeFormat();
+  const { dateTime: formatDateTime } = useDateTimeFormat();
   return (
     <section
       aria-label={t("domain.failing.region")}

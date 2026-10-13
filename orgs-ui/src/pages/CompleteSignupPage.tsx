@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
 import { useHoldNavigation } from "@vetchium/portal-ui/pending-operations";
 import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
@@ -35,7 +36,6 @@ import { orgsAPI } from "../api/orgs";
 import { loginPath, paths } from "../app/paths";
 import { regionStore, regionTable } from "../app/regions";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
-import { useDateTimeFormat } from "../components/common/useDateTimeFormat";
 import { DnsRecord } from "../features/domain/DnsRecord";
 import { SignupRecordCheck } from "../features/signup/SignupRecordCheck";
 
@@ -75,7 +75,7 @@ export function CompleteSignupPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { message } = App.useApp();
-  const formatDateTime = useDateTimeFormat();
+  const { dateTime: formatDateTime } = useDateTimeFormat();
   const [search] = useSearchParams();
   const token = search.get("token") ?? "";
   const region = regionFromSearchParams(regionTable, search);

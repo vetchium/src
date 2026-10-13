@@ -9,6 +9,7 @@
   "exports": {
     "./api": "./src/api.ts",
     "./auth": "./src/auth.tsx",
+    "./date-time": "./src/date-time.ts",
     "./errors": "./src/errors.tsx",
     "./idempotency": "./src/idempotency.ts",
     "./localization": "./src/localization.ts",

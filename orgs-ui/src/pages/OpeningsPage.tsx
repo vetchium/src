@@ -1,4 +1,5 @@
 import { PlusOutlined } from "@ant-design/icons";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Alert,
   Button,
@@ -40,6 +41,7 @@ const pageSize = 25;
 
 export function OpeningsPage() {
   const { t } = useTranslation();
+  const { dateTime } = useDateTimeFormat();
   const { data: me } = useMyInfoQuery();
   const [filters, setFilters] = useState<ListOpeningsRequest>({});
   const [titleInput, setTitleInput] = useState("");
@@ -122,7 +124,7 @@ export function OpeningsPage() {
     {
       title: t("openings.fields.updated"),
       dataIndex: "updated_at",
-      render: (value: string) => new Date(value).toLocaleString(),
+      render: (value: string) => dateTime(value),
     },
   ];
 

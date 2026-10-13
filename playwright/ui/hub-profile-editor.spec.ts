@@ -598,6 +598,32 @@ test("an alias inside the seven-day cooldown cannot be changed", async ({
   expect(writes).toBe(0);
 });
 
+test.describe("in a British browser in India", () => {
+  test.use({ locale: "en-GB", timezoneId: "Asia/Kolkata" });
+
+  test("the alias cooldown ends at a time in the browser's conventions and zone", async ({
+    page,
+  }) => {
+    await openEditor(
+      page,
+      [],
+      {},
+      {
+        subscription: silverSubscription,
+        aliasState: {
+          profile_alias: "ada-lovelace",
+          next_change_at: "2099-01-15T10:15:00Z",
+        },
+      },
+    );
+    await expect(
+      page.getByText(
+        "You can change your alias again after 15 Jan 2099, 15:45 GMT+5:30.",
+      ),
+    ).toBeVisible();
+  });
+});
+
 test("an oversized or wrongly typed picture never reaches the API", async ({
   page,
 }) => {

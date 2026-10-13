@@ -17,6 +17,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { IdempotencyKey } from "typespec/common/idempotency";
+import { useDateTimeFormat } from "./date-time";
 import { APIErrorAlert } from "./errors";
 import { useIdempotencyKey } from "./idempotency";
 import { usePendingOperations } from "./pending-operations";
@@ -218,7 +219,7 @@ export function TwoFactorCard({
   fallbackProblemKey: string;
   translations: TwoFactorTranslations;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { message } = App.useApp();
   const { hold, pending } = usePendingOperations();
   const [enrollment, setEnrollment] = useState<TOTPEnrollment | null>(null);
@@ -313,10 +314,7 @@ export function TwoFactorCard({
       release();
     }
   };
-  const dateTime = new Intl.DateTimeFormat(i18n.language, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  const { dateTime } = useDateTimeFormat();
   return (
     <Card title={t(translations.title)}>
       <Space orientation="vertical" size="middle" className="full-width">
@@ -438,7 +436,7 @@ export function TwoFactorCard({
                 {
                   key: "expires",
                   label: t(translations.expires),
-                  children: dateTime.format(new Date(enrollment.expires_at)),
+                  children: dateTime(enrollment.expires_at),
                 },
               ]}
             />

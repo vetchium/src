@@ -1,4 +1,5 @@
 import { CopyOutlined, DeleteOutlined, EditOutlined } from "@ant-design/icons";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
 import { OpeningContentView } from "@vetchium/portal-ui/openings";
 import {
@@ -30,7 +31,6 @@ import type {
 import { isDefiniteRefusal } from "../api/client";
 import { paths } from "../app/paths";
 import { problemMessage } from "../components/common/APIErrorAlert";
-import { useDateTimeFormat } from "../components/common/useDateTimeFormat";
 import { useMyInfoQuery } from "../features/account/queries";
 import { openingContentPresentation } from "../features/openings/presentation";
 import { openingProblem } from "../features/openings/problems";
@@ -92,7 +92,7 @@ export function OpeningDetailPage() {
   const { t, i18n } = useTranslation();
   const { message, modal } = App.useApp();
   const navigate = useNavigate();
-  const formatDateTime = useDateTimeFormat();
+  const { dateTime: formatDateTime } = useDateTimeFormat();
   const [pageKeys, setPageKeys] = useState<Array<PaginationKey | undefined>>([
     undefined,
   ]);
