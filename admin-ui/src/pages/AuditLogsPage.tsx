@@ -194,7 +194,7 @@ export function AuditLogsPage() {
           loading={query.isFetching}
           pagination={false}
           locale={{
-            emptyText: t(request ? "auditLogs.empty" : "auditLogs.prompt"),
+            emptyText: t(query.data ? "auditLogs.empty" : "auditLogs.prompt"),
             expand: t("auditLogs.details"),
             collapse: t("auditLogs.collapse"),
           }}
