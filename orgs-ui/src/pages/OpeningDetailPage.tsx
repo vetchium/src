@@ -35,6 +35,10 @@ import { useMyInfoQuery } from "../features/account/queries";
 import { openingContentPresentation } from "../features/openings/presentation";
 import { openingProblem } from "../features/openings/problems";
 import {
+  publicationFieldLabels,
+  publicationGaps,
+} from "../features/openings/publication";
+import {
   useDecideOpeningRequestMutation,
   useDiscardOpeningMutation,
   useDiscardOpeningWorkingCopyMutation,
@@ -44,6 +48,39 @@ import {
   useRequestOpeningChangeMutation,
   useWithdrawOpeningRequestMutation,
 } from "../features/openings/queries";
+
+interface PageError {
+  title: string;
+  items?: string[];
+}
+
+function ItemList({ items }: { items: readonly string[] }) {
+  return (
+    <ul>
+      {items.map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ul>
+  );
+}
+
+function ErrorAlert({
+  error,
+  onClose,
+}: {
+  error: PageError;
+  onClose: () => void;
+}) {
+  return (
+    <Alert
+      type="error"
+      title={error.title}
+      description={error.items && <ItemList items={error.items} />}
+      closable
+      onClose={onClose}
+    />
+  );
+}
 
 type OpeningAction =
   | { kind: "request"; requestKind: OpeningRequestKind }
@@ -60,7 +97,7 @@ export function OpeningDetailPage() {
     undefined,
   ]);
   const [pageIndex, setPageIndex] = useState(0);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<PageError>();
   const [action, setAction] = useState<OpeningAction>();
   const [actionNote, setActionNote] = useState("");
   const { data: me } = useMyInfoQuery();
@@ -109,16 +146,27 @@ export function OpeningDetailPage() {
     const problem = openingProblem(cause);
     if (problem.kind === "version-conflict") {
       void query.refetch();
-      setError(t("openings.errors.versionConflict"));
+      setError({ title: t("openings.errors.versionConflict") });
     } else if (problem.kind === "quota-exceeded") {
-      setError(
-        t("openings.errors.quota", {
+      setError({
+        title: t("openings.errors.quota", {
           quota: problem.quota,
           count: problem.count,
         }),
-      );
+      });
+    } else if (problem.kind === "incomplete") {
+      setError({
+        title: t("openings.errors.incomplete"),
+        items: publicationFieldLabels(t, problem.fields),
+      });
+    } else if (problem.kind === "hiring-team-invalid") {
+      setError({
+        title: t("openings.errors.invalidTeam", {
+          addresses: problem.emailAddresses.join(", "),
+        }),
+      });
     } else {
-      setError(problemMessage(t, cause));
+      setError({ title: problemMessage(t, cause) });
     }
     if (isDefiniteRefusal(cause)) rotate();
   };
@@ -194,6 +242,10 @@ export function OpeningDetailPage() {
       ? (["close"] as OpeningRequestKind[])
       : []
     : requestKinds;
+  const missingForPublication =
+    opening && canManage && opening.pending_request === undefined
+      ? publicationFieldLabels(t, publicationGaps(opening))
+      : [];
   const openAction = (next: OpeningAction) => {
     setAction(next);
     setActionNote("");
@@ -332,60 +384,65 @@ export function OpeningDetailPage() {
             )}
         </Flex>
       </Flex>
-      {error && (
-        <Alert
-          type="error"
-          title={error}
-          closable
-          onClose={() => setError(undefined)}
-        />
+      {error && action === undefined && (
+        <ErrorAlert error={error} onClose={() => setError(undefined)} />
       )}
       {(canManage || canApprove) && (
         <Card title={t("openings.actions.title")}>
-          <Flex gap="small" wrap>
-            {canManage &&
-              availableKinds.map((kind) => (
-                <Button
-                  key={kind}
-                  onClick={() =>
-                    openAction({ kind: "request", requestKind: kind })
-                  }
-                  disabled={actionBusy}
-                >
-                  {canApprove
-                    ? t(`openings.actions.effects.${kind}`)
-                    : t("openings.actions.submitForApproval", {
-                        action: t(`openings.actions.effects.${kind}`),
-                      })}
-                </Button>
-              ))}
-            {opening.pending_request && canApprove && (
-              <>
-                <Button
-                  type="primary"
-                  onClick={() => openAction({ kind: "approve" })}
-                  disabled={actionBusy}
-                >
-                  {t("openings.actions.approve")}
-                </Button>
-                <Button
-                  danger
-                  onClick={() => openAction({ kind: "reject" })}
-                  disabled={actionBusy}
-                >
-                  {t("openings.actions.reject")}
-                </Button>
-              </>
+          <Flex vertical gap="middle">
+            {missingForPublication.length > 0 && (
+              <Alert
+                type="warning"
+                showIcon
+                title={t("openings.publicationMissing")}
+                description={<ItemList items={missingForPublication} />}
+              />
             )}
-            {opening.pending_request && canManage && (
-              <Button
-                onClick={() => void doWithdraw()}
-                loading={withdraw.isPending}
-                disabled={actionBusy}
-              >
-                {t("openings.actions.withdraw")}
-              </Button>
-            )}
+            <Flex gap="small" wrap>
+              {canManage &&
+                availableKinds.map((kind) => (
+                  <Button
+                    key={kind}
+                    onClick={() =>
+                      openAction({ kind: "request", requestKind: kind })
+                    }
+                    disabled={actionBusy}
+                  >
+                    {canApprove
+                      ? t(`openings.actions.effects.${kind}`)
+                      : t("openings.actions.submitForApproval", {
+                          action: t(`openings.actions.effects.${kind}`),
+                        })}
+                  </Button>
+                ))}
+              {opening.pending_request && canApprove && (
+                <>
+                  <Button
+                    type="primary"
+                    onClick={() => openAction({ kind: "approve" })}
+                    disabled={actionBusy}
+                  >
+                    {t("openings.actions.approve")}
+                  </Button>
+                  <Button
+                    danger
+                    onClick={() => openAction({ kind: "reject" })}
+                    disabled={actionBusy}
+                  >
+                    {t("openings.actions.reject")}
+                  </Button>
+                </>
+              )}
+              {opening.pending_request && canManage && (
+                <Button
+                  onClick={() => void doWithdraw()}
+                  loading={withdraw.isPending}
+                  disabled={actionBusy}
+                >
+                  {t("openings.actions.withdraw")}
+                </Button>
+              )}
+            </Flex>
           </Flex>
         </Card>
       )}
@@ -627,12 +684,7 @@ export function OpeningDetailPage() {
         destroyOnHidden
       >
         {error && (
-          <Alert
-            type="error"
-            title={error}
-            closable
-            onClose={() => setError(undefined)}
-          />
+          <ErrorAlert error={error} onClose={() => setError(undefined)} />
         )}
         {((action?.kind === "request" &&
           ["pause", "close"].includes(action.requestKind)) ||

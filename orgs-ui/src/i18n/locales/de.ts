@@ -840,6 +840,7 @@ export const de = {
     revision: "Revision",
     expiresAt: "Läuft ab",
     pendingRequest: "Ausstehender Antrag",
+    publicationMissing: "Füllen Sie vor der Veröffentlichung diese Felder aus:",
     actions: {
       title: "Aktionen für Stellenanzeigen",
       effects: {
@@ -913,6 +914,8 @@ export const de = {
       invalidTeam:
         "Diese Adressen gehören keinen aktiven Mitgliedern dieser Organisation: {{addresses}}.",
       invalidField: "Prüfen Sie dieses Feld.",
+      incomplete:
+        "Diese Stellenanzeige ist unvollständig. Füllen Sie diese Felder aus und versuchen Sie es erneut:",
       notEditable:
         "Diese Stellenanzeige kann in ihrem aktuellen Zustand nicht bearbeitet werden.",
       contentLocked:

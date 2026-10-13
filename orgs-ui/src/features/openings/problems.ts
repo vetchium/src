@@ -4,6 +4,7 @@ export type OpeningProblem =
   | { kind: "version-conflict" }
   | { kind: "quota-exceeded"; quota: number; count: number }
   | { kind: "hiring-team-invalid"; emailAddresses: string[] }
+  | { kind: "incomplete"; fields: string[] }
   | { kind: "other"; error: unknown };
 
 export function openingProblem(error: unknown): OpeningProblem {
@@ -26,6 +27,15 @@ export function openingProblem(error: unknown): OpeningProblem {
       addresses.every((item) => typeof item === "string")
     ) {
       return { kind: "hiring-team-invalid", emailAddresses: addresses };
+    }
+  }
+  if (type === "vetchium-problem-details/org-opening-incomplete") {
+    const fields = Reflect.get(problem ?? {}, "fields");
+    if (
+      Array.isArray(fields) &&
+      fields.every((item) => typeof item === "string")
+    ) {
+      return { kind: "incomplete", fields };
     }
   }
   return { kind: "other", error };

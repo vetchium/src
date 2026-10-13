@@ -345,6 +345,82 @@ test("team edits flag invalid addresses and save valid members", async ({
   });
 });
 
+test("an incomplete draft names the fields that block publication", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    const created = await api.createOpening(owner, {
+      content: { title: "Incomplete engineer" },
+      hiring_manager_email: org.emailAddress,
+      team_member_emails: [],
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings/1`);
+    const gaps = page
+      .getByRole("alert")
+      .filter({ hasText: "Complete these fields before publishing" });
+    await expect(gaps).toBeVisible();
+    for (const label of [
+      "Description",
+      "Employing country",
+      "Work arrangement",
+      "Employment type",
+      "Positions",
+      "Recruiter",
+    ]) {
+      await expect(
+        gaps.getByRole("listitem").filter({ hasText: label }),
+      ).toBeVisible();
+    }
+    await expect(
+      gaps.getByRole("listitem").filter({ hasText: "Title" }),
+    ).toHaveCount(0);
+    await expect(
+      gaps.getByRole("listitem").filter({ hasText: "Hiring manager" }),
+    ).toHaveCount(0);
+
+    // The page's hint does not stop the request; the API's refusal names the
+    // same fields.
+    await confirmOpeningAction(page, "Publish");
+    const refusal = page
+      .getByRole("dialog")
+      .getByRole("alert")
+      .filter({ hasText: "This Opening is incomplete" });
+    await expect(refusal).toBeVisible();
+    await expect(
+      refusal.getByRole("listitem").filter({ hasText: "Employing country" }),
+    ).toBeVisible();
+    await expect(
+      refusal.getByRole("listitem").filter({ hasText: "Recruiter" }),
+    ).toBeVisible();
+    const unchanged = await api.getOpening(owner, { opening_number: 1 });
+    const current = (await unchanged.json()) as OrgOpening;
+    expect(current.state).toBe("draft");
+
+    const saved = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: 1,
+      version: current.version,
+      content: completeContent,
+    });
+    expect(saved.status(), await saved.text()).toBe(200);
+    const team = await api.setOpeningTeam(owner, {
+      opening_number: 1,
+      version: ((await saved.json()) as OrgOpening).version,
+      hiring_manager_email: org.emailAddress,
+      recruiter_email: org.emailAddress,
+      team_member_emails: [],
+    });
+    expect(team.status(), await team.text()).toBe(200);
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "Publish", exact: true }),
+    ).toBeVisible();
+    await expect(gaps).toHaveCount(0);
+  });
+});
+
 test("a suspended organization cannot open Opening pages", async ({
   page,
   request,

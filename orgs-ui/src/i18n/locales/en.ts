@@ -817,6 +817,7 @@ export const en = {
     revision: "Revision",
     expiresAt: "Expires",
     pendingRequest: "Pending request",
+    publicationMissing: "Complete these fields before publishing:",
     actions: {
       title: "Opening actions",
       effects: {
@@ -890,6 +891,8 @@ export const en = {
       invalidTeam:
         "These addresses are not active members of this organization: {{addresses}}.",
       invalidField: "Check this field.",
+      incomplete:
+        "This Opening is incomplete. Complete these fields and try again:",
       notEditable: "This Opening cannot be edited in its current state.",
       contentLocked:
         "Content is frozen while a publish or revise request is pending. Withdraw the request to edit it.",
