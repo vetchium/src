@@ -18,6 +18,8 @@ export default defineConfig({
     baseURL,
     screenshot: "only-on-failure",
     trace: "on-first-retry",
+    // Portals turn off Ant Design motion for this preference (ui.md).
+    contextOptions: { reducedMotion: "reduce" },
   },
   projects: [
     {

@@ -12,6 +12,9 @@ Applies to `playwright/`: API tests in `api/`, browser tests in `ui/`.
   `lib/admin-fixtures.ts`; only they record API coverage.
 - Locate by role, label, or test id, not CSS structure or translated text.
 - Retrying assertions or explicit waits only; never a fixed sleep.
+- The config sets `contextOptions.reducedMotion: "reduce"`, which stops
+  portal animations; never override it. Playwright hit-tests only the press, so a click on a
+  moving element can miss while the action still passes.
 - Assert observable API or UI behavior. Database helpers are for setup and
   cleanup only.
 

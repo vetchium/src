@@ -26,6 +26,8 @@ Applies to `admin-ui/`, `hub-ui/`, `orgs-ui/`, and `portal-ui/`.
 - Never restyle cards, typography, spacing, colors, or responsiveness in
   one-off CSS, and never target `.ant-*` selectors. Custom CSS only for small
   app structure or branding.
+- `PortalProviders` turns off Ant Design motion (`token.motion`) while the
+  browser prefers reduced motion; never animate outside Ant Design motion.
 
 ## Shared package (`portal-ui`)
 

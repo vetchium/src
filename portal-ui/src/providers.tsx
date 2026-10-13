@@ -3,10 +3,22 @@ import { App as AntApp, ConfigProvider, theme } from "antd";
 import type { Locale as ComponentLocale } from "antd/es/locale";
 import type { i18n } from "i18next";
 import type { ComponentType, PropsWithChildren } from "react";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import type { PortalLocaleConfiguration } from "./localization";
 import { PendingOperationProvider } from "./pending-operations";
 import { PreferencesProvider, usePreferences } from "./preferences";
+
+const reducedMotionQuery = "(prefers-reduced-motion: reduce)";
+
+function subscribeToReducedMotion(onChange: () => void): () => void {
+  const query = window.matchMedia(reducedMotionQuery);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia(reducedMotionQuery).matches;
+}
 
 function ThemedApplication<Locale extends string>({
   children,
@@ -23,13 +35,17 @@ function ThemedApplication<Locale extends string>({
   RecoveryCodesProvider: ComponentType<PropsWithChildren>;
 }>) {
   const { language, themeMode } = usePreferences(localization);
+  const reducedMotion = useSyncExternalStore(
+    subscribeToReducedMotion,
+    prefersReducedMotion,
+  );
   return (
     <ConfigProvider
       locale={componentLocales[language]}
       theme={{
         algorithm:
           themeMode === "dark" ? theme.darkAlgorithm : theme.defaultAlgorithm,
-        token: { colorPrimary: primaryColor },
+        token: { colorPrimary: primaryColor, motion: !reducedMotion },
       }}
     >
       <AntApp>
