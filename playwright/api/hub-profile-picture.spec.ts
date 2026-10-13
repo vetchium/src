@@ -15,6 +15,8 @@ import {
   cleanupHubUser,
   type HeldRowLock,
   holdHubUserRowLock,
+  type QueuedAdvisoryLock,
+  queueBehindAdvisoryLock,
   seedHubSignupDomain,
   waitForBlockedBy,
 } from "../lib/admin-db.ts";
@@ -273,7 +275,7 @@ test("picture upload and removal require authentication, and a replayed upload k
   }
 });
 
-test("two concurrent uploads race to activate, and the one that loses the race reports a profile conflict", async ({
+test("an upload superseded by a later upload before it activates reports a profile conflict", async ({
   request,
 }) => {
   const accountDomain = `e2e-${randomUUID()}.example.test`;
@@ -281,8 +283,8 @@ test("two concurrent uploads race to activate, and the one that loses the race r
   const keys: string[] = [];
   const hub = new HubAPI(request, "sgp");
   let lock: HeldRowLock | undefined;
+  let gate: QueuedAdvisoryLock | undefined;
   let uploadA: ReturnType<HubAPI["uploadPicture"]> | undefined;
-  let uploadB: ReturnType<HubAPI["uploadPicture"]> | undefined;
   try {
     seedHubSignupDomain(accountDomain, "sgp");
     const user = await signup(request, "sgp", accountEmail, keys, {
@@ -298,14 +300,12 @@ test("two concurrent uploads race to activate, and the one that loses the race r
     );
     expect(upgraded.status(), await upgraded.text()).toBe(200);
 
-    // Prepare, supersede, and activate all take the same hub_users row
-    // lock (object-storage.md). Holding it first forces both uploads to
-    // queue behind it, so whichever request's staged row commits first is
-    // guaranteed to be superseded by the other's supersede step before it
-    // reaches activation — deterministically producing one conflict,
-    // regardless of which request's bytes finish uploading first.
+    // Both upload transactions take the request's idempotency advisory lock
+    // before the hub_users row lock. Holding the row stops A while it stages
+    // with its advisory lock held; a session queued for that lock takes it
+    // when A's staging commits, so A's activation waits while B stages,
+    // supersedes A's staged row, and activates.
     lock = await holdHubUserRowLock(user.hubUserDID, "sgp");
-
     const keyA = hubIdempotencyKey();
     const keyB = hubIdempotencyKey();
     keys.push(keyA, keyB);
@@ -313,29 +313,31 @@ test("two concurrent uploads race to activate, and the one that loses the race r
       token,
       idempotencyKey: keyA,
     });
-    uploadB = hub.uploadPicture(PicturePNG, makePNG(500, 500), {
+    const [stagingA] = await waitForBlockedBy("sgp", lock.holderPID, 1);
+    if (stagingA === undefined) throw new Error("upload A is not staging");
+    gate = await queueBehindAdvisoryLock("sgp", stagingA);
+    await lock.release();
+    lock = undefined;
+    await gate.acquired;
+
+    const responseB = await hub.uploadPicture(PicturePNG, makePNG(500, 500), {
       token,
       idempotencyKey: keyB,
     });
-    await waitForBlockedBy("sgp", lock.holderPID, 2);
-    await lock.release();
-    lock = undefined;
-
-    const [responseA, responseB] = await Promise.all([uploadA, uploadB]);
+    expect(responseB.status(), await responseB.text()).toBe(204);
+    await gate.release();
+    gate = undefined;
+    const responseA = await uploadA;
     uploadA = undefined;
-    uploadB = undefined;
-    const statuses = [responseA.status(), responseB.status()].sort(
-      (a, b) => a - b,
-    );
-    expect(statuses).toEqual([204, 409]);
-    const conflicted = responseA.status() === 409 ? responseA : responseB;
-    expect((await conflicted.json()).type).toBe(ProfileConflictError.type);
+    expect(responseA.status()).toBe(409);
+    expect((await responseA.json()).type).toBe(ProfileConflictError.type);
 
     const profile = await readProfile(hub, user.handle, token);
     expect(profile.profile_picture_url).toBeDefined();
   } finally {
     if (lock !== undefined) await lock.release();
-    await Promise.allSettled([uploadA, uploadB]);
+    if (gate !== undefined) await gate.release();
+    await Promise.allSettled([uploadA]);
     cleanupHubUser(accountEmail, "sgp");
     cleanupHubIdempotency(keys, "sgp");
     cleanupHubSignupDomain(accountDomain, "sgp");
