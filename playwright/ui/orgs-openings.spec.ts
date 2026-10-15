@@ -13,7 +13,7 @@ import {
   signupOrg,
 } from "../lib/orgs-api.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
-import { chooseOption, chooseRegion } from "../lib/region-ui.ts";
+import { chooseRegion } from "../lib/region-ui.ts";
 
 const completeContent: OpeningContent = {
   title: "Opening engineer",
@@ -92,6 +92,7 @@ test("creates a partial draft, previews Markdown, edits, duplicates, and discard
     await page
       .getByRole("textbox", { name: "Location details" })
       .fill("<script>plain</script>");
+    await page.getByRole("tab", { name: "Candidate preview" }).click();
     await expect(page.getByText("Important", { exact: true })).toBeVisible();
     await expect(
       page.getByText("Important <script>bad</script>"),
@@ -183,11 +184,7 @@ test("list filters and keyset pagination show only requested states", async ({
     await expect(page.getByRole("row").filter({ hasText: "#18" })).toHaveCount(
       0,
     );
-    await chooseOption(
-      page,
-      page.getByRole("combobox", { name: "States" }),
-      "Discarded",
-    );
+    await page.getByRole("tab", { name: "Discarded (1)" }).click();
     await expect(
       page.getByRole("row").filter({ hasText: "#18" }),
     ).toBeVisible();
@@ -553,11 +550,16 @@ test("manager submits publication and approver finds and approves it", async ({
       await signIn(page, org);
       await page.goto(`${ORGS_PORTAL}/openings`);
       await expect(
-        page.getByRole("button", { name: "Awaiting my approval: 1" }),
+        page
+          .locator(".ant-statistic")
+          .filter({ hasText: "Awaiting my approval" }),
+      ).toContainText("1");
+      await page.getByRole("button", { name: "Review requests" }).click();
+      await expect(
+        page.getByText(
+          "Showing Openings with a request awaiting your approval.",
+        ),
       ).toBeVisible();
-      await page
-        .getByRole("button", { name: "Awaiting my approval: 1" })
-        .click();
       await expect(
         page.getByRole("row").filter({ hasText: "Opening engineer" }),
       ).toBeVisible();

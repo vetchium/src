@@ -723,10 +723,22 @@ export const en = {
     full: "All available seats are in use. Disable a user or cancel an invitation before inviting more people.",
   },
   openings: {
+    intro:
+      "Create Openings, send them for approval, and track every Opening your organization runs.",
+    breadcrumbOpening: "{{title}} #{{number}}",
+    pendingTag: "Pending: {{kind}}",
+    columns: { opening: "Opening" },
+    tabs: { all: "All", withCount: "{{state}} ({{count}})" },
+    stats: {
+      quota: "Opening quota",
+      published: "Published",
+      publishedHelp: "Visible to candidates on Vetchium now.",
+      review: "Review requests",
+      showAll: "Show all Openings",
+    },
     documentTitle: "Openings | Vetchium",
     title: "Openings",
     new: "New Opening",
-    number: "Number",
     untitled: "Untitled draft",
     empty: "No Openings are available to you for these filters.",
     quota: "Openings created in the last 365 days: {{used}} of {{limit}}",
@@ -748,7 +760,8 @@ export const en = {
       salary: "Salary",
     },
     filters: {
-      states: "States",
+      more: "More filters",
+      awaitingActive: "Showing Openings with a request awaiting your approval.",
       pendingKinds: "Pending request types",
       awaitingApproval: "Awaiting my approval",
       hiringManager: "Hiring manager email",
@@ -809,7 +822,6 @@ export const en = {
     editTitle: "Edit Opening",
     newTitle: "New Opening",
     detailTitle: "Opening #{{number}} | Vetchium",
-    backToList: "All Openings",
     saved: "Opening content saved.",
     created: "Draft created.",
     discardedWorking: "Working copy discarded.",
@@ -868,7 +880,62 @@ export const en = {
     history: "History",
     systemActor: "System",
     editor: {
-      content: "Opening content",
+      optional: "Optional",
+      newIntro:
+        "Describe the role for candidates. You can save an incomplete draft and finish it later.",
+      editIntro:
+        "Update this Opening. Switch to Candidate preview to see it as candidates will.",
+      tabs: { edit: "Edit" },
+      sections: {
+        basics: "Basics",
+        location: "Location",
+        role: "Role and requirements",
+      },
+      help: {
+        title: "The job title candidates search for, such as Backend engineer.",
+        description:
+          "Markdown works here: headings, lists, bold, italics, and links. Check Candidate preview for the result.",
+        language: "The language this Opening is written in.",
+        country: "The country where the person hired will be employed.",
+        remoteEligibility:
+          "Where candidates may live. A country list must include the employing country.",
+        locationDetails:
+          "Optional. City, office address, or travel expectations.",
+        positions: "How many people you will hire, from 1 to 10.",
+        salary:
+          "Optional. To show a salary, fill in all four fields; otherwise leave them all empty.",
+        hiringManager:
+          "Required to publish. Must be an active member of your organization.",
+        recruiter:
+          "Required to publish. May be the same person as the hiring manager.",
+        teamMembers:
+          "Optional. Up to 20 active members who help with this Opening.",
+        internalNotes:
+          "Only your organization sees these notes. Candidates never do.",
+      },
+      previewHelp:
+        "This is how candidates will see this Opening once it is published.",
+      previewEmpty:
+        "Nothing to preview yet. Add a title and description on the Edit tab.",
+      actions: {
+        title: "Actions",
+        newHelp:
+          "Creating a draft takes one slot of your Opening quota. Drafts stay private to your organization.",
+        draftHelp:
+          "Saving updates this draft. Candidates see nothing until it is published.",
+        revisionHelp:
+          "Changes are saved as a revision. Candidates keep seeing the live Opening until the revision is published.",
+        nextStep:
+          "After saving, publish the Opening or submit it for approval from its page.",
+      },
+      checklist: {
+        title: "Publication checklist",
+        progress: "{{done}}/{{total}}",
+        help: "You can save at any time. Publishing needs every item below.",
+        ready: "Everything needed to publish is in place.",
+        done: "Complete",
+        missing: "Not complete",
+      },
       team: "Hiring team and notes",
       recruiter: "Recruiter",
       teamMembers: "Team members",

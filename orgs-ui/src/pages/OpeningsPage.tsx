@@ -1,21 +1,35 @@
-import { PlusOutlined } from "@ant-design/icons";
+import {
+  ClockCircleOutlined,
+  FilterOutlined,
+  LeftOutlined,
+  PlusOutlined,
+  RightOutlined,
+} from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Alert,
+  Badge,
   Button,
   Card,
+  Col,
+  Empty,
   Flex,
+  Form,
   Input,
+  Progress,
+  Row,
   Select,
   Space,
+  Statistic,
   Table,
+  Tabs,
   Tag,
   Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { countryCodeValues } from "typespec/common/countries";
 import type { PaginationKey } from "typespec/common/pagination";
 import {
@@ -25,6 +39,7 @@ import {
 } from "typespec/orgs/authorization/types";
 import type { ListOpeningsRequest } from "typespec/orgs/openings/openings";
 import {
+  type OpeningState,
   type OrgOpeningSummary,
   openingRequestKinds,
   openingStates,
@@ -39,10 +54,36 @@ import {
 
 const pageSize = 25;
 
+// Discarded Openings are listed only when asked for, so their tab comes last.
+const stateTabs = [
+  ...openingStates.filter((state) => state !== "discarded"),
+  "discarded",
+] as const;
+
+const stateColors: Readonly<Record<OpeningState, string | undefined>> = {
+  draft: "processing",
+  published: "success",
+  paused: "warning",
+  closed: undefined,
+  expired: undefined,
+  discarded: "error",
+};
+
+const advancedFilterKeys = [
+  "pending_request_kinds",
+  "hiring_manager_email",
+  "recruiter_email",
+  "employing_country",
+  "work_arrangement",
+  "employment_type",
+] as const satisfies readonly (keyof ListOpeningsRequest)[];
+
 export function OpeningsPage() {
   const { t } = useTranslation();
   const { dateTime } = useDateTimeFormat();
+  const navigate = useNavigate();
   const { data: me } = useMyInfoQuery();
+  const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<ListOpeningsRequest>({});
   const [titleInput, setTitleInput] = useState("");
   const [managerInput, setManagerInput] = useState("");
@@ -75,51 +116,86 @@ export function OpeningsPage() {
     applyFilters({ ...filters, [key]: value || undefined });
   };
   const countryNames = new Intl.DisplayNames(undefined, { type: "region" });
+  const countryName = (code: string) => {
+    try {
+      return countryNames.of(code) ?? code;
+    } catch {
+      return code;
+    }
+  };
+  const countOf = (state: string) =>
+    summary.data?.counts.find((entry) => entry.state === state)?.count ?? 0;
+  const activeState = filters.states?.[0] ?? "all";
+  const advancedCount = advancedFilterKeys.filter(
+    (key) => filters[key] !== undefined,
+  ).length;
+  const anyFilter = Object.values(filters).some((value) => value !== undefined);
+  const awaitingCount = awaiting.data
+    ? `${awaiting.data.openings.length}${awaiting.data.next_pagination_key ? "+" : ""}`
+    : undefined;
+  const clearFilters = () => {
+    setTitleInput("");
+    setManagerInput("");
+    setRecruiterInput("");
+    applyFilters({});
+  };
+
   const columns: ColumnsType<OrgOpeningSummary> = [
     {
-      title: t("openings.number"),
-      dataIndex: "opening_number",
-      render: (number: number) => (
-        <Link to={paths.openingDetail(number)}>#{number}</Link>
+      title: t("openings.columns.opening"),
+      key: "opening",
+      render: (_, opening) => (
+        <Flex vertical>
+          <Link to={paths.openingDetail(opening.opening_number)}>
+            {opening.title ?? t("openings.untitled")}
+          </Link>
+          <Typography.Text type="secondary">
+            {[
+              `#${opening.opening_number}`,
+              ...(opening.employing_country
+                ? [countryName(opening.employing_country)]
+                : []),
+            ].join(" · ")}
+          </Typography.Text>
+        </Flex>
       ),
-    },
-    {
-      title: t("openings.fields.title"),
-      dataIndex: "title",
-      render: (title?: string) => title ?? t("openings.untitled"),
     },
     {
       title: t("openings.fields.state"),
-      dataIndex: "state",
-      render: (state: string) => (
-        <Tag>{t(`openings.states.${state}`, { defaultValue: state })}</Tag>
-      ),
-    },
-    {
-      title: t("openings.pendingRequest"),
-      dataIndex: "pending_request_kind",
-      render: (kind?: string) =>
-        kind ? (
-          <Tag color="gold">
-            {t(`openings.requestKinds.${kind}`, { defaultValue: kind })}
+      key: "state",
+      render: (_, opening) => (
+        <Flex gap="small" wrap>
+          <Tag color={stateColors[opening.state]}>
+            {t(`openings.states.${opening.state}`, {
+              defaultValue: opening.state,
+            })}
           </Tag>
-        ) : null,
-    },
-    {
-      title: t("openings.fields.country"),
-      dataIndex: "employing_country",
-      render: (code?: string) => {
-        if (!code) return "";
-        try {
-          return countryNames.of(code) ?? code;
-        } catch {
-          return code;
-        }
-      },
+          {opening.pending_request_kind && (
+            <Tag color="gold" icon={<ClockCircleOutlined aria-hidden />}>
+              {t("openings.pendingTag", {
+                kind: t(
+                  `openings.requestKinds.${opening.pending_request_kind}`,
+                  {
+                    defaultValue: opening.pending_request_kind,
+                  },
+                ),
+              })}
+            </Tag>
+          )}
+        </Flex>
+      ),
     },
     {
       title: t("openings.fields.hiringManager"),
       dataIndex: "hiring_manager_email",
+      render: (email?: string) =>
+        email ? (
+          <Typography.Text>{email}</Typography.Text>
+        ) : (
+          <Typography.Text type="secondary">
+            {t("openings.notSet")}
+          </Typography.Text>
+        ),
     },
     {
       title: t("openings.fields.updated"),
@@ -128,21 +204,129 @@ export function OpeningsPage() {
     },
   ];
 
+  const advancedFilters = (
+    <Card size="small" type="inner">
+      <Form layout="vertical" component="div">
+        <Row gutter={16}>
+          <Col xs={24} sm={12} lg={8}>
+            <Form.Item label={t("openings.filters.pendingKinds")}>
+              <Select
+                mode="multiple"
+                aria-label={t("openings.filters.pendingKinds")}
+                value={filters.pending_request_kinds}
+                onChange={(value) =>
+                  setFilter(
+                    "pending_request_kinds",
+                    value.length ? value : undefined,
+                  )
+                }
+                options={openingRequestKinds.map((value) => ({
+                  value,
+                  label: t(`openings.requestKinds.${value}`),
+                }))}
+                allowClear
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12} lg={8}>
+            <Form.Item label={t("openings.filters.hiringManager")}>
+              <Input.Search
+                aria-label={t("openings.filters.hiringManager")}
+                value={managerInput}
+                onChange={(event) => setManagerInput(event.target.value)}
+                onSearch={(value) =>
+                  setFilter("hiring_manager_email", value.trim() || undefined)
+                }
+                allowClear
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12} lg={8}>
+            <Form.Item label={t("openings.filters.recruiter")}>
+              <Input.Search
+                aria-label={t("openings.filters.recruiter")}
+                value={recruiterInput}
+                onChange={(event) => setRecruiterInput(event.target.value)}
+                onSearch={(value) =>
+                  setFilter("recruiter_email", value.trim() || undefined)
+                }
+                allowClear
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12} lg={8}>
+            <Form.Item label={t("openings.fields.country")}>
+              <Select
+                showSearch
+                aria-label={t("openings.fields.country")}
+                value={filters.employing_country}
+                onChange={(value) => setFilter("employing_country", value)}
+                options={countryCodeValues.map((value) => ({
+                  value,
+                  label: countryName(value),
+                }))}
+                optionFilterProp="label"
+                allowClear
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12} lg={8}>
+            <Form.Item label={t("openings.fields.workArrangement")}>
+              <Select
+                aria-label={t("openings.fields.workArrangement")}
+                value={filters.work_arrangement}
+                onChange={(value) => setFilter("work_arrangement", value)}
+                options={["on_site", "hybrid", "remote"].map((value) => ({
+                  value,
+                  label: t(`openings.workArrangements.${value}`),
+                }))}
+                allowClear
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12} lg={8}>
+            <Form.Item label={t("openings.fields.employmentType")}>
+              <Select
+                aria-label={t("openings.fields.employmentType")}
+                value={filters.employment_type}
+                onChange={(value) => setFilter("employment_type", value)}
+                options={[
+                  "full_time",
+                  "part_time",
+                  "contract",
+                  "internship",
+                ].map((value) => ({
+                  value,
+                  label: t(`openings.employmentTypes.${value}`),
+                }))}
+                allowClear
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+      </Form>
+    </Card>
+  );
+
   return (
     <Space orientation="vertical" size="large" className="full-width">
       <title>{t("openings.documentTitle")}</title>
       <Flex align="center" justify="space-between" wrap gap="middle">
-        <Typography.Title level={1}>{t("openings.title")}</Typography.Title>
+        <div>
+          <Typography.Title level={1}>{t("openings.title")}</Typography.Title>
+          <Typography.Text type="secondary">
+            {t("openings.intro")}
+          </Typography.Text>
+        </div>
         {me && holds(me.permissions, ManageOpenings) && (
-          <Link to={paths.newOpening}>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              aria-label={t("openings.new")}
-            >
-              {t("openings.new")}
-            </Button>
-          </Link>
+          <Button
+            type="primary"
+            size="large"
+            icon={<PlusOutlined aria-hidden />}
+            onClick={() => navigate(paths.newOpening)}
+          >
+            {t("openings.new")}
+          </Button>
         )}
       </Flex>
       {summary.isError &&
@@ -160,205 +344,195 @@ export function OpeningsPage() {
           />
         )}
       {summary.data && (
-        <Card loading={summary.isLoading}>
-          <Flex gap="large" wrap>
-            <Typography.Text>
-              {t("openings.quota", {
-                used: summary.data.quota.used,
-                limit: summary.data.quota.limit,
-              })}
-            </Typography.Text>
-            {summary.data.counts.map(({ state, count }) => (
-              <Typography.Text key={state}>
-                {t(`openings.states.${state}`, { defaultValue: state })}:{" "}
-                {count}
-              </Typography.Text>
-            ))}
-            {canApprove && !awaiting.isError && (
-              <Button
-                type={filters.awaiting_my_approval ? "primary" : "default"}
-                onClick={() =>
-                  setFilter(
-                    "awaiting_my_approval",
-                    filters.awaiting_my_approval ? undefined : true,
-                  )
+        <Row gutter={[16, 16]} align="stretch">
+          <Col xs={24} md={canApprove ? 8 : 12} style={{ display: "flex" }}>
+            <Card className="full-width">
+              <Statistic
+                title={t("openings.stats.quota")}
+                value={summary.data.quota.used}
+                suffix={`/ ${summary.data.quota.limit}`}
+              />
+              <Progress
+                percent={Math.min(
+                  100,
+                  Math.round(
+                    (summary.data.quota.used /
+                      Math.max(summary.data.quota.limit, 1)) *
+                      100,
+                  ),
+                )}
+                status={
+                  summary.data.quota.used >= summary.data.quota.limit
+                    ? "exception"
+                    : "normal"
                 }
+                showInfo={false}
+              />
+              <Typography.Text type="secondary">
+                {t("openings.quota", {
+                  used: summary.data.quota.used,
+                  limit: summary.data.quota.limit,
+                })}
+              </Typography.Text>
+            </Card>
+          </Col>
+          <Col xs={24} md={canApprove ? 8 : 12} style={{ display: "flex" }}>
+            <Card className="full-width">
+              <Statistic
+                title={t("openings.stats.published")}
+                value={countOf("published")}
+              />
+              <Typography.Text type="secondary">
+                {t("openings.stats.publishedHelp")}
+              </Typography.Text>
+            </Card>
+          </Col>
+          {canApprove && !awaiting.isError && (
+            <Col xs={24} md={8} style={{ display: "flex" }}>
+              <Card className="full-width">
+                <Statistic
+                  title={t("openings.filters.awaitingApproval")}
+                  value={awaitingCount ?? t("common.loading")}
+                />
+                <Button
+                  type={filters.awaiting_my_approval ? "default" : "primary"}
+                  ghost={!filters.awaiting_my_approval}
+                  disabled={
+                    !filters.awaiting_my_approval && awaitingCount === "0"
+                  }
+                  onClick={() =>
+                    setFilter(
+                      "awaiting_my_approval",
+                      filters.awaiting_my_approval ? undefined : true,
+                    )
+                  }
+                >
+                  {t(
+                    filters.awaiting_my_approval
+                      ? "openings.stats.showAll"
+                      : "openings.stats.review",
+                  )}
+                </Button>
+              </Card>
+            </Col>
+          )}
+        </Row>
+      )}
+      <Card>
+        <Flex vertical gap="middle">
+          <Tabs
+            activeKey={activeState}
+            onChange={(key) =>
+              setFilter(
+                "states",
+                key === "all" ? undefined : [key as OpeningState],
+              )
+            }
+            items={[
+              {
+                key: "all",
+                label: t("openings.tabs.all"),
+              },
+              ...stateTabs.map((state) => ({
+                key: state,
+                label: summary.data
+                  ? t("openings.tabs.withCount", {
+                      state: t(`openings.states.${state}`),
+                      count: countOf(state),
+                    })
+                  : t(`openings.states.${state}`),
+              })),
+            ]}
+          />
+          <Flex gap="small" wrap align="center">
+            <Input.Search
+              className="toolbar-search"
+              aria-label={t("openings.filters.title")}
+              placeholder={t("openings.filters.title")}
+              value={titleInput}
+              onChange={(event) => setTitleInput(event.target.value)}
+              onSearch={(value) =>
+                setFilter(
+                  "title_query",
+                  value.trim().length >= 2 ? value.trim() : undefined,
+                )
+              }
+              allowClear
+            />
+            <Badge count={advancedCount} size="small">
+              <Button
+                icon={<FilterOutlined aria-hidden />}
+                aria-expanded={showFilters}
+                onClick={() => setShowFilters(!showFilters)}
               >
-                {t("openings.filters.awaitingApproval")}:{" "}
-                {awaiting.isLoading
-                  ? t("common.loading")
-                  : `${awaiting.data?.openings.length ?? 0}${awaiting.data?.next_pagination_key ? "+" : ""}`}
+                {t("openings.filters.more")}
+              </Button>
+            </Badge>
+            {anyFilter && (
+              <Button type="link" onClick={clearFilters}>
+                {t("openings.filters.clear")}
               </Button>
             )}
           </Flex>
-        </Card>
-      )}
-      <Flex gap="small" wrap>
-        <Select
-          mode="multiple"
-          aria-label={t("openings.filters.states")}
-          placeholder={t("openings.filters.states")}
-          value={filters.states}
-          onChange={(value) =>
-            setFilter("states", value.length ? value : undefined)
-          }
-          options={openingStates.map((value) => ({
-            value,
-            label: t(`openings.states.${value}`),
-          }))}
-          style={{ minWidth: 180 }}
-          allowClear
-        />
-        <Select
-          mode="multiple"
-          aria-label={t("openings.filters.pendingKinds")}
-          placeholder={t("openings.filters.pendingKinds")}
-          value={filters.pending_request_kinds}
-          onChange={(value) =>
-            setFilter("pending_request_kinds", value.length ? value : undefined)
-          }
-          options={openingRequestKinds.map((value) => ({
-            value,
-            label: t(`openings.requestKinds.${value}`),
-          }))}
-          style={{ minWidth: 190 }}
-          allowClear
-        />
-        {canApprove && (
-          <Select
-            aria-label={t("openings.filters.awaitingApproval")}
-            placeholder={t("openings.filters.awaitingApproval")}
-            value={filters.awaiting_my_approval}
-            onChange={(value) => setFilter("awaiting_my_approval", value)}
-            options={[
-              { value: true, label: t("openings.filters.awaitingApproval") },
-            ]}
-            style={{ minWidth: 190 }}
-            allowClear
-          />
-        )}
-        <Input.Search
-          aria-label={t("openings.filters.hiringManager")}
-          placeholder={t("openings.filters.hiringManager")}
-          value={managerInput}
-          onChange={(event) => setManagerInput(event.target.value)}
-          onSearch={(value) =>
-            setFilter("hiring_manager_email", value.trim() || undefined)
-          }
-          style={{ width: 190 }}
-        />
-        <Input.Search
-          aria-label={t("openings.filters.recruiter")}
-          placeholder={t("openings.filters.recruiter")}
-          value={recruiterInput}
-          onChange={(event) => setRecruiterInput(event.target.value)}
-          onSearch={(value) =>
-            setFilter("recruiter_email", value.trim() || undefined)
-          }
-          style={{ width: 190 }}
-        />
-        <Select
-          showSearch
-          aria-label={t("openings.fields.country")}
-          placeholder={t("openings.fields.country")}
-          value={filters.employing_country}
-          onChange={(value) => setFilter("employing_country", value)}
-          options={countryCodeValues.map((value) => ({
-            value,
-            label: countryNames.of(value) ?? value,
-          }))}
-          optionFilterProp="label"
-          style={{ minWidth: 180 }}
-          allowClear
-        />
-        <Select
-          aria-label={t("openings.fields.workArrangement")}
-          placeholder={t("openings.fields.workArrangement")}
-          value={filters.work_arrangement}
-          onChange={(value) => setFilter("work_arrangement", value)}
-          options={["on_site", "hybrid", "remote"].map((value) => ({
-            value,
-            label: t(`openings.workArrangements.${value}`),
-          }))}
-          style={{ minWidth: 180 }}
-          allowClear
-        />
-        <Select
-          aria-label={t("openings.fields.employmentType")}
-          placeholder={t("openings.fields.employmentType")}
-          value={filters.employment_type}
-          onChange={(value) => setFilter("employment_type", value)}
-          options={["full_time", "part_time", "contract", "internship"].map(
-            (value) => ({
-              value,
-              label: t(`openings.employmentTypes.${value}`),
-            }),
+          {showFilters && advancedFilters}
+          {filters.awaiting_my_approval && (
+            <Alert
+              type="info"
+              showIcon
+              title={t("openings.filters.awaitingActive")}
+            />
           )}
-          style={{ minWidth: 180 }}
-          allowClear
-        />
-        <Input.Search
-          aria-label={t("openings.filters.title")}
-          placeholder={t("openings.filters.title")}
-          value={titleInput}
-          onChange={(event) => setTitleInput(event.target.value)}
-          onSearch={(value) =>
-            setFilter(
-              "title_query",
-              value.trim().length >= 2 ? value.trim() : undefined,
-            )
-          }
-          style={{ width: 220 }}
-        />
-        <Button
-          onClick={() => {
-            setTitleInput("");
-            setManagerInput("");
-            setRecruiterInput("");
-            applyFilters({});
-          }}
-        >
-          {t("openings.filters.clear")}
-        </Button>
-      </Flex>
-      {query.isError && (
-        <Alert
-          type="error"
-          title={t("common.loadError")}
-          action={
-            <Button onClick={() => void query.refetch()}>
-              {t("common.retry")}
+          {query.isError && (
+            <Alert
+              type="error"
+              title={t("common.loadError")}
+              action={
+                <Button onClick={() => void query.refetch()}>
+                  {t("common.retry")}
+                </Button>
+              }
+            />
+          )}
+          <Table
+            rowKey="opening_number"
+            loading={query.isLoading}
+            dataSource={query.data?.openings ?? []}
+            columns={columns}
+            pagination={false}
+            scroll={{ x: "max-content" }}
+            locale={{
+              emptyText: (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={t("openings.empty")}
+                />
+              ),
+            }}
+          />
+          <Flex justify="end" gap="small">
+            <Button
+              icon={<LeftOutlined aria-hidden />}
+              disabled={pageIndex === 0 || query.isFetching}
+              onClick={() => setPageIndex(pageIndex - 1)}
+            >
+              {t("common.previous")}
             </Button>
-          }
-        />
-      )}
-      <Table
-        rowKey="opening_number"
-        loading={query.isLoading}
-        dataSource={query.data?.openings ?? []}
-        columns={columns}
-        pagination={false}
-        locale={{ emptyText: t("openings.empty") }}
-      />
-      <Flex justify="end" gap="small">
-        <Button
-          disabled={pageIndex === 0 || query.isFetching}
-          onClick={() => setPageIndex(pageIndex - 1)}
-        >
-          {t("common.previous")}
-        </Button>
-        <Button
-          disabled={!query.data?.next_pagination_key || query.isFetching}
-          onClick={() => {
-            const key = query.data?.next_pagination_key;
-            if (!key) return;
-            setPageKeys((old) => [...old.slice(0, pageIndex + 1), key]);
-            setPageIndex(pageIndex + 1);
-          }}
-        >
-          {t("common.next")}
-        </Button>
-      </Flex>
+            <Button
+              icon={<RightOutlined aria-hidden />}
+              iconPlacement="end"
+              disabled={!query.data?.next_pagination_key || query.isFetching}
+              onClick={() => {
+                const key = query.data?.next_pagination_key;
+                if (!key) return;
+                setPageKeys((old) => [...old.slice(0, pageIndex + 1), key]);
+                setPageIndex(pageIndex + 1);
+              }}
+            >
+              {t("common.next")}
+            </Button>
+          </Flex>
+        </Flex>
+      </Card>
     </Space>
   );
 }

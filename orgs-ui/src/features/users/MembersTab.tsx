@@ -276,7 +276,7 @@ export function MembersTab({
     <Space orientation="vertical" size="middle" className="full-width">
       <Flex gap="middle" wrap align="center">
         <Input
-          className="member-search"
+          className="toolbar-search"
           allowClear
           value={search}
           prefix={<SearchOutlined aria-hidden />}

@@ -745,10 +745,22 @@ export const de = {
     full: "Alle Plätze sind belegt. Deaktivieren Sie einen Benutzer oder stornieren Sie eine Einladung, bevor Sie weitere Personen einladen.",
   },
   openings: {
+    intro:
+      "Erstellen Sie Stellenanzeigen, reichen Sie sie zur Genehmigung ein und behalten Sie alle Stellenanzeigen Ihrer Organisation im Blick.",
+    breadcrumbOpening: "{{title}} #{{number}}",
+    pendingTag: "Ausstehend: {{kind}}",
+    columns: { opening: "Stellenanzeige" },
+    tabs: { all: "Alle", withCount: "{{state}} ({{count}})" },
+    stats: {
+      quota: "Kontingent für Stellenanzeigen",
+      published: "Veröffentlicht",
+      publishedHelp: "Jetzt für Bewerbende auf Vetchium sichtbar.",
+      review: "Anfragen prüfen",
+      showAll: "Alle Stellenanzeigen anzeigen",
+    },
     documentTitle: "Stellenanzeigen | Vetchium",
     title: "Stellenanzeigen",
     new: "Neue Stellenanzeige",
-    number: "Nummer",
     untitled: "Entwurf ohne Titel",
     empty: "Für diese Filter sind keine Stellenanzeigen verfügbar.",
     quota:
@@ -771,7 +783,9 @@ export const de = {
       salary: "Gehalt",
     },
     filters: {
-      states: "Status",
+      more: "Weitere Filter",
+      awaitingActive:
+        "Angezeigt werden Stellenanzeigen mit einer Anfrage, die auf Ihre Genehmigung wartet.",
       pendingKinds: "Ausstehende Antragsarten",
       awaitingApproval: "Wartet auf meine Genehmigung",
       hiringManager: "E-Mail der einstellungsverantwortlichen Person",
@@ -832,7 +846,6 @@ export const de = {
     editTitle: "Stellenanzeige bearbeiten",
     newTitle: "Neue Stellenanzeige",
     detailTitle: "Stellenanzeige #{{number}} | Vetchium",
-    backToList: "Alle Stellenanzeigen",
     saved: "Inhalt gespeichert.",
     created: "Entwurf erstellt.",
     discardedWorking: "Arbeitskopie verworfen.",
@@ -891,7 +904,62 @@ export const de = {
     history: "Verlauf",
     systemActor: "System",
     editor: {
-      content: "Inhalt der Stellenanzeige",
+      optional: "Optional",
+      newIntro:
+        "Beschreiben Sie die Stelle für Bewerbende. Sie können einen unvollständigen Entwurf speichern und später fertigstellen.",
+      editIntro:
+        "Bearbeiten Sie diese Stellenanzeige. Wechseln Sie zur Vorschau für Bewerbende, um sie so zu sehen wie Bewerbende.",
+      tabs: { edit: "Bearbeiten" },
+      sections: {
+        basics: "Grundlagen",
+        location: "Standort",
+        role: "Stelle und Anforderungen",
+      },
+      help: {
+        title:
+          "Die Stellenbezeichnung, nach der Bewerbende suchen, etwa Backend-Entwicklung.",
+        description:
+          "Markdown wird unterstützt: Überschriften, Listen, Fett- und Kursivschrift sowie Links. Das Ergebnis zeigt die Vorschau für Bewerbende.",
+        language: "Die Sprache, in der diese Stellenanzeige verfasst ist.",
+        country: "Das Land, in dem die eingestellte Person beschäftigt wird.",
+        remoteEligibility:
+          "Wo Bewerbende wohnen dürfen. Eine Länderliste muss das Beschäftigungsland enthalten.",
+        locationDetails: "Optional. Stadt, Büroadresse oder Reiseerwartungen.",
+        positions: "Wie viele Personen Sie einstellen, von 1 bis 10.",
+        salary:
+          "Optional. Um ein Gehalt anzuzeigen, füllen Sie alle vier Felder aus; andernfalls lassen Sie alle leer.",
+        hiringManager:
+          "Zum Veröffentlichen erforderlich. Muss ein aktives Mitglied Ihrer Organisation sein.",
+        recruiter:
+          "Zum Veröffentlichen erforderlich. Darf dieselbe Person wie die einstellungsverantwortliche Person sein.",
+        teamMembers:
+          "Optional. Bis zu 20 aktive Mitglieder, die bei dieser Stellenanzeige helfen.",
+        internalNotes:
+          "Nur Ihre Organisation sieht diese Notizen, Bewerbende nie.",
+      },
+      previewHelp:
+        "So sehen Bewerbende diese Stellenanzeige, sobald sie veröffentlicht ist.",
+      previewEmpty:
+        "Noch nichts in der Vorschau. Fügen Sie im Tab Bearbeiten einen Titel und eine Beschreibung hinzu.",
+      actions: {
+        title: "Aktionen",
+        newHelp:
+          "Ein Entwurf belegt einen Platz Ihres Kontingents für Stellenanzeigen. Entwürfe bleiben innerhalb Ihrer Organisation.",
+        draftHelp:
+          "Speichern aktualisiert diesen Entwurf. Bewerbende sehen nichts, bis er veröffentlicht ist.",
+        revisionHelp:
+          "Änderungen werden als Revision gespeichert. Bewerbende sehen weiter die veröffentlichte Fassung, bis die Revision veröffentlicht ist.",
+        nextStep:
+          "Veröffentlichen Sie die Stellenanzeige nach dem Speichern auf ihrer Seite oder reichen Sie sie dort zur Genehmigung ein.",
+      },
+      checklist: {
+        title: "Checkliste zur Veröffentlichung",
+        progress: "{{done}}/{{total}}",
+        help: "Sie können jederzeit speichern. Zum Veröffentlichen ist jeder Punkt unten nötig.",
+        ready: "Alles für die Veröffentlichung ist vorhanden.",
+        done: "Erledigt",
+        missing: "Nicht erledigt",
+      },
       team: "Einstellungsteam und Notizen",
       recruiter: "Rekrutierende Person",
       teamMembers: "Teammitglieder",

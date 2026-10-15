@@ -32,6 +32,10 @@ import { isDefiniteRefusal } from "../api/client";
 import { paths } from "../app/paths";
 import { problemMessage } from "../components/common/APIErrorAlert";
 import { useMyInfoQuery } from "../features/account/queries";
+import {
+  OpeningsBreadcrumb,
+  openingTitle,
+} from "../features/openings/OpeningsBreadcrumb";
 import { openingContentPresentation } from "../features/openings/presentation";
 import { openingProblem } from "../features/openings/problems";
 import {
@@ -336,13 +340,11 @@ export function OpeningDetailPage() {
   return (
     <Space orientation="vertical" size="large" className="full-width">
       <title>{t("openings.detailTitle", { number })}</title>
+      <OpeningsBreadcrumb opening={opening} />
       <Flex justify="space-between" align="center" wrap gap="small">
         <div>
-          <Link to={paths.openings}>{t("openings.backToList")}</Link>
           <Typography.Title level={1}>
-            {opening.working_content?.title ??
-              opening.live_content?.title ??
-              t("openings.untitled")}{" "}
+            {openingTitle(opening) ?? t("openings.untitled")}{" "}
             <Typography.Text type="secondary">#{number}</Typography.Text>
           </Typography.Title>
         </div>
