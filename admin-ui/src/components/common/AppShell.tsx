@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router";
 import {
+  ViewAIUsage,
   ViewAuditLogs,
   ViewHubSignupDomains,
   ViewUsers,
@@ -51,11 +52,13 @@ export function AppShell() {
       ? "/users"
       : location.pathname.startsWith("/hub-signup-domains")
         ? "/hub-signup-domains"
-        : location.pathname.startsWith("/settings/profile")
-          ? "/settings/profile"
-          : location.pathname.startsWith("/settings/security")
-            ? "/settings/security"
-            : "/";
+        : location.pathname.startsWith("/ai-usage")
+          ? "/ai-usage"
+          : location.pathname.startsWith("/settings/profile")
+            ? "/settings/profile"
+            : location.pathname.startsWith("/settings/security")
+              ? "/settings/security"
+              : "/";
   const navigationItems = [
     { key: "/", label: t("navigation.overview") },
     ...(me?.permissions.includes(ViewAuditLogs)
@@ -69,6 +72,9 @@ export function AppShell() {
             label: t("navigation.hubSignupDomains"),
           },
         ]
+      : []),
+    ...(me?.permissions.includes(ViewAIUsage)
+      ? [{ key: "/ai-usage", label: t("navigation.aiUsage") }]
       : []),
     { key: "/settings/profile", label: t("navigation.profile") },
     { key: "/settings/security", label: t("navigation.security") },

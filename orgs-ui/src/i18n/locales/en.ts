@@ -16,6 +16,7 @@ export const en = {
     members: "People",
     openings: "Openings",
     plans: "Billing",
+    ai: "AI",
     settings: "Company",
     security: "My account",
     restoreDomain: "Restore domain",
@@ -463,6 +464,173 @@ export const en = {
       regenerated: "New recovery codes were created.",
     },
   },
+  ai: {
+    documentTitle: "AI · Vetchium",
+    title: "AI",
+    description:
+      "Turn AI assistance on, choose the models each AI feature may use, manage AI credits, and review how AI was used.",
+    loading: "Loading AI settings",
+    unavailable:
+      "AI assistance is not offered in your organization's region yet.",
+    tabs: {
+      settings: "Settings",
+      credits: "Credits",
+      usage: "Usage",
+    },
+    operations: {
+      "org-opening-draft": "Opening drafting",
+    },
+    draft: {
+      button: "Draft with AI",
+      title: "Draft with AI",
+      help: "Describe the role or what to change. The draft fills the editor; nothing is saved until you save.",
+      instructionLabel: "What should the AI write?",
+      placeholder:
+        "For example: a senior backend engineer for our payments team in Singapore, hybrid, five years of Go",
+      modelLabel: "Model",
+      modelOption: "{{name}} ({{vendor}})",
+      estimate:
+        "About {{credits}} credits for this draft. {{available}} credits available.",
+      generate: "Generate draft",
+      review: "AI can be wrong. Review every field before you save.",
+      applied:
+        "Draft filled in. {{credits}} credits used. Review it, then save.",
+      dropped:
+        "Some fields the AI suggested were not valid and were left out: {{fields}}",
+      unavailable: {
+        notEnabled:
+          "AI assistance is off for your organization. Someone with MANAGE_AI can turn it on in AI settings.",
+        planRequired:
+          "AI assistance needs the Gold plan, or AI credits your organization bought earlier.",
+        noCredits: "Your organization has no AI credits left.",
+        noModel: "No AI model is available for drafting.",
+      },
+      errors: {
+        notEnabled: "AI assistance is off for your organization.",
+        planRequired:
+          "AI assistance needs the Gold plan, or AI credits your organization bought earlier.",
+        noCredits:
+          "Your organization does not have enough AI credits for this draft.",
+        modelNotAllowed:
+          "Your organization no longer allows that model. Choose another one.",
+        inProgress: "This draft is still being written. Wait a moment.",
+        modelFailed:
+          "The AI model did not answer. No credits were used. Try again.",
+        unusable:
+          "The AI's answer could not be used. No credits were used. Try rewording your request.",
+      },
+    },
+    settings: {
+      title: "AI assistance",
+      planNotice:
+        "AI assistance, its monthly credits, and credit purchases need the Gold plan. Credits bought earlier stay usable on any plan.",
+      unavailableModels:
+        "This region no longer offers some models your organization chose: {{models}}. The region's default is used instead.",
+      enabled: "AI assistance",
+      on: "On",
+      off: "Off",
+      termsAccepted: "AI terms version {{version}} accepted on {{date}}.",
+      modelsTitle: "Models for each AI feature",
+      allowAll: "Allow every model this region offers",
+      allowedModels: "Allowed models",
+      defaultModel: "Preselected model",
+      saved: "AI settings saved.",
+      errors: {
+        termsRequired: "Accept the current AI terms to turn AI assistance on.",
+        modelNotOffered: "This region does not offer: {{models}}",
+      },
+    },
+    terms: {
+      title: "AI terms",
+      p1: "Placeholder text: replace it with the reviewed AI terms before launch.",
+      p2: "AI features send the text you write, and the content they work on, to the AI models of your organization's region. Models run in that region.",
+      p3: "Vetchium keeps each prompt and answer for a limited time for support and abuse review. People in your organization with MANAGE_AI, and Vetchium administrators with a dedicated permission, can read them; every administrator read is recorded.",
+      p4: "AI output can be wrong or incomplete. People in your organization review it before it is saved or published.",
+      accept:
+        "I accept the AI terms (version {{version}}) for my organization.",
+    },
+    models: {
+      title: "Models in this region",
+      name: "Model",
+      vendor: "Vendor",
+      licence: "Licence",
+      rates: "Credits per million tokens",
+      rateValue: "{{input}} input, {{output}} output",
+      status: "Availability",
+      offered: "Offered",
+      withdraws: "Offered until {{date}}",
+    },
+    credits: {
+      balanceTitle: "Balance",
+      available: "Available now",
+      monthlyRemaining: "Monthly credits left",
+      lapses: "Lapse on {{date}}",
+      purchasedRemaining: "Purchased credits left",
+      reserved: "Held by AI requests in progress",
+      grantIncluded:
+        "Your plan includes {{credits}} AI credits each month. They are used first and lapse at the end of the month.",
+      grantNotIncluded: "Your plan includes no monthly AI credits.",
+      packsTitle: "Buy credits",
+      simulated:
+        "Payments are simulated during development: buying a pack adds its credits without charging you. Purchased credits expire twelve months after purchase.",
+      goldOnly: "Buying credits needs the Gold plan.",
+      packCredits: "{{credits}} credits",
+      buy: "Buy",
+      buyTitle: "Buy {{credits}} credits?",
+      buySimulated:
+        "The listed price is {{price}}. Payments are simulated during development, so you will not be charged.",
+      bought: "Credits added.",
+      lotsTitle: "Credit history",
+      noLots: "No credits yet",
+      kind: "Source",
+      kinds: {
+        grant: "Monthly credits",
+        purchase: "Purchase",
+      },
+      granted: "Credits",
+      remaining: "Left",
+      added: "Added",
+      expires: "Expires",
+    },
+    usage: {
+      title: "AI usage",
+      help: "Every AI request, newest first. Prompts and answers are kept for a limited time.",
+      empty: "No AI requests yet",
+      when: "When",
+      operation: "Feature",
+      model: "Model",
+      user: "User",
+      outcome: "Outcome",
+      states: {
+        reserved: "In progress",
+        settled: "Completed",
+        released: "Failed",
+        abandoned: "Abandoned",
+      },
+      failures: {
+        model_failed: "Model failed",
+        unusable_output: "Unusable answer",
+        abandoned: "Abandoned",
+      },
+      tokens: "Tokens",
+      tokenValue: "{{input}} in, {{output}} out",
+      credits: "Credits",
+      text: "Prompt and answer",
+      view: "View",
+      viewFor: "View the prompt and answer from {{time}}",
+      deleted: "Deleted",
+      textTitle: "Prompt and answer",
+      textUnreadable:
+        "You cannot read this prompt: it is about Openings, and you cannot view the organization's Openings.",
+      textExpires: "Kept until {{date}}.",
+      roles: {
+        system: "Instructions",
+        user: "Request",
+      },
+      answer: "Answer",
+      noAnswer: "The model gave no answer.",
+    },
+  },
   plans: {
     documentTitle: "Plan and billing | Vetchium for organizations",
     title: "Billing",
@@ -512,6 +680,7 @@ export const en = {
       googleSignIn: "Google sign-in",
       ticketSupport: "Ticket-based support",
       mcp: "MCP support",
+      aiCredits: "{{count}} AI credits a month",
     },
     comparison: {
       feature: "Feature",
@@ -519,6 +688,7 @@ export const en = {
       openings: "Job openings per year",
       logo: "Organization logo",
       googleSignIn: "Google sign-in",
+      ai: "AI assistance",
       ticketSupport: "Ticket-based support",
       mcp: "MCP support",
     },

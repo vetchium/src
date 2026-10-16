@@ -18,6 +18,7 @@ export const de = {
     members: "Personen",
     openings: "Stellenanzeigen",
     plans: "Abrechnung",
+    ai: "KI",
     settings: "Unternehmen",
     security: "Mein Konto",
     restoreDomain: "Domain wiederherstellen",
@@ -482,6 +483,177 @@ export const de = {
       regenerated: "Neue Wiederherstellungscodes wurden erstellt.",
     },
   },
+  ai: {
+    documentTitle: "KI · Vetchium",
+    title: "KI",
+    description:
+      "KI-Unterstützung einschalten, die Modelle jeder KI-Funktion festlegen, KI-Guthaben verwalten und die KI-Nutzung prüfen.",
+    loading: "KI-Einstellungen werden geladen",
+    unavailable:
+      "In der Region Ihrer Organisation wird noch keine KI-Unterstützung angeboten.",
+    tabs: {
+      settings: "Einstellungen",
+      credits: "Guthaben",
+      usage: "Nutzung",
+    },
+    operations: {
+      "org-opening-draft": "Entwürfe für Stellenausschreibungen",
+    },
+    draft: {
+      button: "Mit KI entwerfen",
+      title: "Mit KI entwerfen",
+      help: "Beschreiben Sie die Stelle oder was geändert werden soll. Der Entwurf füllt den Editor; gespeichert wird erst, wenn Sie speichern.",
+      instructionLabel: "Was soll die KI schreiben?",
+      placeholder:
+        "Zum Beispiel: eine erfahrene Backend-Entwicklerin für unser Zahlungsteam in Berlin, hybrid, fünf Jahre Go",
+      modelLabel: "Modell",
+      modelOption: "{{name}} ({{vendor}})",
+      estimate:
+        "Etwa {{credits}} Guthabenpunkte für diesen Entwurf. {{available}} verfügbar.",
+      generate: "Entwurf erstellen",
+      review: "KI kann sich irren. Prüfen Sie jedes Feld, bevor Sie speichern.",
+      applied:
+        "Entwurf eingefügt. {{credits}} Guthabenpunkte verbraucht. Prüfen und dann speichern.",
+      dropped:
+        "Einige von der KI vorgeschlagene Felder waren ungültig und wurden weggelassen: {{fields}}",
+      unavailable: {
+        notEnabled:
+          "Die KI-Unterstützung ist für Ihre Organisation ausgeschaltet. Jemand mit MANAGE_AI kann sie in den KI-Einstellungen einschalten.",
+        planRequired:
+          "Die KI-Unterstützung erfordert den Gold-Tarif oder früher gekauftes KI-Guthaben.",
+        noCredits: "Ihre Organisation hat kein KI-Guthaben mehr.",
+        noModel: "Für Entwürfe ist kein KI-Modell verfügbar.",
+      },
+      errors: {
+        notEnabled:
+          "Die KI-Unterstützung ist für Ihre Organisation ausgeschaltet.",
+        planRequired:
+          "Die KI-Unterstützung erfordert den Gold-Tarif oder früher gekauftes KI-Guthaben.",
+        noCredits:
+          "Ihre Organisation hat nicht genug KI-Guthaben für diesen Entwurf.",
+        modelNotAllowed:
+          "Ihre Organisation erlaubt dieses Modell nicht mehr. Wählen Sie ein anderes.",
+        inProgress:
+          "Dieser Entwurf wird noch geschrieben. Bitte warten Sie kurz.",
+        modelFailed:
+          "Das KI-Modell hat nicht geantwortet. Es wurde kein Guthaben verbraucht. Versuchen Sie es erneut.",
+        unusable:
+          "Die Antwort der KI war nicht verwendbar. Es wurde kein Guthaben verbraucht. Formulieren Sie Ihre Anfrage anders.",
+      },
+    },
+    settings: {
+      title: "KI-Unterstützung",
+      planNotice:
+        "KI-Unterstützung, ihr monatliches Guthaben und Guthabenkäufe erfordern den Gold-Tarif. Früher gekauftes Guthaben bleibt in jedem Tarif nutzbar.",
+      unavailableModels:
+        "Diese Region bietet einige von Ihrer Organisation gewählte Modelle nicht mehr an: {{models}}. Stattdessen gilt die Vorgabe der Region.",
+      enabled: "KI-Unterstützung",
+      on: "Ein",
+      off: "Aus",
+      termsAccepted:
+        "KI-Bedingungen Version {{version}} akzeptiert am {{date}}.",
+      modelsTitle: "Modelle je KI-Funktion",
+      allowAll: "Alle Modelle dieser Region erlauben",
+      allowedModels: "Erlaubte Modelle",
+      defaultModel: "Vorausgewähltes Modell",
+      saved: "KI-Einstellungen gespeichert.",
+      errors: {
+        termsRequired:
+          "Akzeptieren Sie die aktuellen KI-Bedingungen, um die KI-Unterstützung einzuschalten.",
+        modelNotOffered: "Diese Region bietet nicht an: {{models}}",
+      },
+    },
+    terms: {
+      title: "KI-Bedingungen",
+      p1: "Platzhaltertext: vor dem Start durch die geprüften KI-Bedingungen ersetzen.",
+      p2: "KI-Funktionen senden den Text, den Sie schreiben, und die bearbeiteten Inhalte an die KI-Modelle der Region Ihrer Organisation. Die Modelle laufen in dieser Region.",
+      p3: "Vetchium bewahrt jede Eingabe und Antwort für begrenzte Zeit für Support und Missbrauchsprüfung auf. Personen Ihrer Organisation mit MANAGE_AI und Vetchium-Administratoren mit einer eigenen Berechtigung können sie lesen; jeder Lesezugriff von Administratoren wird festgehalten.",
+      p4: "KI-Ausgaben können falsch oder unvollständig sein. Personen Ihrer Organisation prüfen sie, bevor sie gespeichert oder veröffentlicht werden.",
+      accept:
+        "Ich akzeptiere die KI-Bedingungen (Version {{version}}) für meine Organisation.",
+    },
+    models: {
+      title: "Modelle in dieser Region",
+      name: "Modell",
+      vendor: "Anbieter",
+      licence: "Lizenz",
+      rates: "Guthaben pro Million Tokens",
+      rateValue: "{{input}} Eingabe, {{output}} Ausgabe",
+      status: "Verfügbarkeit",
+      offered: "Angeboten",
+      withdraws: "Angeboten bis {{date}}",
+    },
+    credits: {
+      balanceTitle: "Kontostand",
+      available: "Jetzt verfügbar",
+      monthlyRemaining: "Verbleibendes Monatsguthaben",
+      lapses: "Verfällt am {{date}}",
+      purchasedRemaining: "Verbleibendes gekauftes Guthaben",
+      reserved: "Von laufenden KI-Anfragen reserviert",
+      grantIncluded:
+        "Ihr Tarif enthält jeden Monat {{credits}} KI-Guthabenpunkte. Sie werden zuerst verbraucht und verfallen am Monatsende.",
+      grantNotIncluded: "Ihr Tarif enthält kein monatliches KI-Guthaben.",
+      packsTitle: "Guthaben kaufen",
+      simulated:
+        "Zahlungen werden während der Entwicklung simuliert: Ein Paketkauf schreibt das Guthaben gut, ohne Sie zu belasten. Gekauftes Guthaben verfällt zwölf Monate nach dem Kauf.",
+      goldOnly: "Der Kauf von Guthaben erfordert den Gold-Tarif.",
+      packCredits: "{{credits}} Guthabenpunkte",
+      buy: "Kaufen",
+      buyTitle: "{{credits}} Guthabenpunkte kaufen?",
+      buySimulated:
+        "Der angegebene Preis beträgt {{price}}. Zahlungen werden während der Entwicklung simuliert, Sie werden nicht belastet.",
+      bought: "Guthaben gutgeschrieben.",
+      lotsTitle: "Guthabenverlauf",
+      noLots: "Noch kein Guthaben",
+      kind: "Herkunft",
+      kinds: {
+        grant: "Monatsguthaben",
+        purchase: "Kauf",
+      },
+      granted: "Guthaben",
+      remaining: "Übrig",
+      added: "Hinzugefügt",
+      expires: "Verfällt",
+    },
+    usage: {
+      title: "KI-Nutzung",
+      help: "Alle KI-Anfragen, neueste zuerst. Eingaben und Antworten werden für begrenzte Zeit aufbewahrt.",
+      empty: "Noch keine KI-Anfragen",
+      when: "Zeitpunkt",
+      operation: "Funktion",
+      model: "Modell",
+      user: "Benutzer",
+      outcome: "Ergebnis",
+      states: {
+        reserved: "Läuft",
+        settled: "Abgeschlossen",
+        released: "Fehlgeschlagen",
+        abandoned: "Abgebrochen",
+      },
+      failures: {
+        model_failed: "Modell fehlgeschlagen",
+        unusable_output: "Unbrauchbare Antwort",
+        abandoned: "Abgebrochen",
+      },
+      tokens: "Tokens",
+      tokenValue: "{{input}} ein, {{output}} aus",
+      credits: "Guthaben",
+      text: "Eingabe und Antwort",
+      view: "Ansehen",
+      viewFor: "Eingabe und Antwort von {{time}} ansehen",
+      deleted: "Gelöscht",
+      textTitle: "Eingabe und Antwort",
+      textUnreadable:
+        "Sie können diese Eingabe nicht lesen: Sie betrifft Stellenausschreibungen, die Sie nicht einsehen dürfen.",
+      textExpires: "Aufbewahrt bis {{date}}.",
+      roles: {
+        system: "Anweisungen",
+        user: "Anfrage",
+      },
+      answer: "Antwort",
+      noAnswer: "Das Modell hat nicht geantwortet.",
+    },
+  },
   plans: {
     documentTitle: "Tarif und Abrechnung | Vetchium für Organisationen",
     title: "Abrechnung",
@@ -535,6 +707,7 @@ export const de = {
       googleSignIn: "Google-Anmeldung",
       ticketSupport: "Support per Ticket",
       mcp: "MCP-Unterstützung",
+      aiCredits: "{{count}} KI-Guthabenpunkte pro Monat",
     },
     comparison: {
       feature: "Funktion",
@@ -542,6 +715,7 @@ export const de = {
       openings: "Stellenausschreibungen pro Jahr",
       logo: "Logo der Organisation",
       googleSignIn: "Google-Anmeldung",
+      ai: "KI-Unterstützung",
       ticketSupport: "Support per Ticket",
       mcp: "MCP-Unterstützung",
     },

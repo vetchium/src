@@ -28,33 +28,41 @@ WITH requested AS (
         )::text[] AS allowed_models,
         e.policy ->> 'default_model' AS default_model
     FROM jsonb_array_elements(sqlc.arg(policies)::jsonb) AS e (policy)
+), existing AS (
+    SELECT
+        current_settings.accepted_terms_version,
+        current_settings.accepted_terms_by,
+        current_settings.accepted_terms_at
+    FROM vetchium.org_ai_settings AS current_settings
+    WHERE current_settings.org_did = sqlc.arg(org_did)
 ), saved AS (
+    -- PostgreSQL checks the proposed row before it resolves the conflict, so
+    -- the proposal already carries an earlier acceptance that is kept.
     INSERT INTO vetchium.org_ai_settings AS s (
         org_did, enabled, accepted_terms_version, accepted_terms_by,
         accepted_terms_at, updated_by, updated_at
     )
-    VALUES (
-        sqlc.arg(org_did), sqlc.arg(enabled),
-        sqlc.narg(accept_terms_version),
-        CASE WHEN sqlc.narg(accept_terms_version)::text IS NULL THEN NULL
-            ELSE sqlc.arg(actor_org_user_id)::uuid END,
-        CASE WHEN sqlc.narg(accept_terms_version)::text IS NULL THEN NULL
-            ELSE now() END,
-        sqlc.arg(actor_org_user_id), now()
-    )
+    SELECT
+        sqlc.arg(org_did)::uuid AS org_did,
+        sqlc.arg(enabled)::boolean AS enabled,
+        COALESCE(
+            sqlc.narg(accept_terms_version)::text, e.accepted_terms_version
+        ) AS accepted_terms_version,
+        CASE WHEN sqlc.narg(accept_terms_version)::text IS NULL
+            THEN e.accepted_terms_by
+            ELSE sqlc.arg(actor_org_user_id)::uuid END AS accepted_terms_by,
+        CASE WHEN sqlc.narg(accept_terms_version)::text IS NULL
+            THEN e.accepted_terms_at
+            ELSE now() END AS accepted_terms_at,
+        sqlc.arg(actor_org_user_id)::uuid AS updated_by,
+        now() AS updated_at
+    FROM (SELECT 1 AS seed) AS seed
+    LEFT JOIN existing AS e ON true
     ON CONFLICT (org_did) DO UPDATE SET
         enabled = EXCLUDED.enabled,
-        accepted_terms_version = COALESCE(
-            EXCLUDED.accepted_terms_version, s.accepted_terms_version
-        ),
-        accepted_terms_by = CASE
-            WHEN EXCLUDED.accepted_terms_version IS NULL
-                THEN s.accepted_terms_by
-            ELSE EXCLUDED.accepted_terms_by END,
-        accepted_terms_at = CASE
-            WHEN EXCLUDED.accepted_terms_version IS NULL
-                THEN s.accepted_terms_at
-            ELSE EXCLUDED.accepted_terms_at END,
+        accepted_terms_version = EXCLUDED.accepted_terms_version,
+        accepted_terms_by = EXCLUDED.accepted_terms_by,
+        accepted_terms_at = EXCLUDED.accepted_terms_at,
         updated_by = EXCLUDED.updated_by,
         updated_at = now()
     RETURNING s.org_did

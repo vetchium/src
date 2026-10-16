@@ -64,7 +64,10 @@ test("settings requests validate terms and policies like the Go companion", () =
     ["accept_terms_version"],
   );
   assert.deepEqual(
-    validateSetAISettingsRequest({ enabled: false, policies: [policy, policy] }),
+    validateSetAISettingsRequest({
+      enabled: false,
+      policies: [policy, policy],
+    }),
     ["policies.1.operation"],
   );
   assert.deepEqual(

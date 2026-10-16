@@ -4,6 +4,22 @@ import type {
   MyInfoResponse,
 } from "typespec/orgs/account/account";
 import type {
+  AICreditsResponse,
+  AIOptions,
+  AISettingsResponse,
+  BuyAICreditPackRequest,
+  DraftOpeningRequest,
+  DraftOpeningResponse,
+  GetAIOptionsRequest,
+  GetAIUsageTextRequest,
+  ListAICreditLotsRequest,
+  ListAICreditLotsResponse,
+  ListAIUsageRequest,
+  ListAIUsageResponse,
+  SetAISettingsRequest,
+} from "typespec/orgs/ai/ai";
+import type { AIUsageText } from "typespec/orgs/ai/types";
+import type {
   LoginRequest,
   LoginResponse,
   ReauthenticateRequest,
@@ -323,4 +339,35 @@ export const orgsAPI = {
     }),
   checkDomain: () =>
     apiRequest<CheckDomainResponse>("/check-domain", { method: "POST" }),
+  getAIOptions: (body: GetAIOptionsRequest) =>
+    apiRequest<AIOptions>("/get-ai-options", { body }),
+  aiSettings: () => apiRequest<AISettingsResponse>("/ai-settings"),
+  setAISettings: (body: SetAISettingsRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<AISettingsResponse>("/set-ai-settings", {
+      body,
+      idempotencyKey,
+    }),
+  aiCredits: () => apiRequest<AICreditsResponse>("/ai-credits"),
+  listAICreditLots: (body: ListAICreditLotsRequest) =>
+    apiRequest<ListAICreditLotsResponse>("/list-ai-credit-lots", { body }),
+  buyAICreditPack: (
+    body: BuyAICreditPackRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<AICreditsResponse>("/buy-ai-credit-pack", {
+      body,
+      idempotencyKey,
+    }),
+  listAIUsage: (body: ListAIUsageRequest) =>
+    apiRequest<ListAIUsageResponse>("/list-ai-usage", { body }),
+  getAIUsageText: (body: GetAIUsageTextRequest) =>
+    apiRequest<AIUsageText>("/get-ai-usage-text", { body }),
+  draftOpeningWithAI: (
+    body: DraftOpeningRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<DraftOpeningResponse>("/draft-opening-with-ai", {
+      body,
+      idempotencyKey,
+    }),
 };

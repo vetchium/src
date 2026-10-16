@@ -15,6 +15,7 @@ import { useLocation } from "react-router";
 import { DomainFailing, OrgSuspended } from "typespec/orgs/account/account";
 import {
   holds,
+  ManageAI,
   ManageBilling,
   ManageUsers,
   Superadmin,
@@ -23,6 +24,7 @@ import { paths } from "../../app/paths";
 import { localeConfiguration } from "../../app/preferences";
 import { useAuth } from "../../auth/AuthContext";
 import { useMyInfoQuery } from "../../features/account/queries";
+import { VetchiumAIIcon } from "../../features/ai/VetchiumAIIcon";
 import { DomainFailingBanner } from "../../features/domain/DomainFailingBanner";
 
 export function AppShell() {
@@ -80,6 +82,15 @@ export function AppShell() {
           icon: <FileTextOutlined />,
           label: t("navigation.openings"),
         },
+        ...(me !== undefined && holds(me.permissions, ManageAI)
+          ? [
+              {
+                key: paths.ai,
+                icon: <VetchiumAIIcon />,
+                label: t("navigation.ai"),
+              },
+            ]
+          : []),
         ...(me !== undefined && holds(me.permissions, Superadmin)
           ? [
               {

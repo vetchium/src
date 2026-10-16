@@ -49,12 +49,14 @@ import {
   missingForPublication,
   type OpeningContent,
 } from "typespec/common/openings";
+import type { DraftOpeningResponse } from "typespec/orgs/ai/ai";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { APIError, isDefiniteRefusal } from "../../api/client";
 import { orgsAPI } from "../../api/orgs";
 import { paths } from "../../app/paths";
 import { problemMessage } from "../../components/common/APIErrorAlert";
 import { useMyInfoQuery } from "../account/queries";
+import { DraftWithAIButton } from "../ai/DraftWithAIButton";
 import { OpeningsBreadcrumb } from "./OpeningsBreadcrumb";
 import { openingContentPresentation } from "./presentation";
 import { openingProblem } from "./problems";
@@ -451,6 +453,35 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       navigate(paths.openingDetail(created.opening_number));
     } catch (cause) {
       handleError(cause, contentKey.rotate);
+    }
+  };
+
+  // A draft replaces each field it returns and keeps the rest of the form, so
+  // nothing is saved until the user saves.
+  const applyDraft = (draft: DraftOpeningResponse) => {
+    for (const field of Object.keys(draft.content) as Array<
+      keyof OpeningContent
+    >) {
+      form.setFieldValue(["content", field], draft.content[field]);
+    }
+    setActiveTab("edit");
+    if (draft.content.salary) setOpenSections(editorSections);
+    void message.success(
+      t("ai.draft.applied", {
+        credits: new Intl.NumberFormat(i18n.language).format(
+          draft.usage.credits_charged,
+        ),
+      }),
+    );
+    if (draft.dropped_fields.length > 0) {
+      void message.warning(
+        t("ai.draft.dropped", {
+          fields: publicationFieldLabels(
+            t,
+            draft.dropped_fields.map((field) => `content.${field}`),
+          ).join(", "),
+        }),
+      );
     }
   };
 
@@ -945,6 +976,15 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
             <Tabs
               activeKey={activeTab}
               onChange={setActiveTab}
+              tabBarExtraContent={
+                <DraftWithAIButton
+                  currentContent={() =>
+                    cleanContent(form.getFieldValue("content"))
+                  }
+                  onDrafted={applyDraft}
+                  disabled={contentLocked || pending}
+                />
+              }
               items={[
                 {
                   key: "edit",

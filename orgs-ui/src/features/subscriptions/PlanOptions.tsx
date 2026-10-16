@@ -89,6 +89,7 @@ export function PlanOptions({
     "openings",
     "logo",
     "googleSignIn",
+    "ai",
     "ticketSupport",
     "mcp",
   ] as const;
@@ -109,6 +110,12 @@ export function PlanOptions({
         return t(held.allowsLogo ? "plans.yes" : "plans.no");
       case "googleSignIn":
         return t(held.allowsGoogleSignIn ? "plans.yes" : "plans.no");
+      case "ai":
+        return held.allowsAI
+          ? t("plans.features.aiCredits", {
+              count: number.format(held.aiCreditsPerMonth),
+            })
+          : t("plans.no");
       default:
         return t(held.includesTicketSupport ? "plans.comingSoon" : "plans.no");
     }

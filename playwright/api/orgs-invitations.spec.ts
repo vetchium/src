@@ -278,6 +278,7 @@ test.describe("invite-users", () => {
       for (const permission of [
         "org:superadmin",
         "org:manage_billing",
+        "org:manage_ai",
         "org:approve_openings",
       ]) {
         await expectProblem(

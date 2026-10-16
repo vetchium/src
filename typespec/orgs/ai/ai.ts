@@ -189,10 +189,7 @@ export function validateDraftOpeningRequest(
 ): string[] {
   const normalized = normalizeDraftOpeningRequest(request);
   const fields: string[] = [];
-  if (
-    normalized.model_oid !== undefined &&
-    !isAIModelOID(normalized.model_oid)
-  )
+  if (normalized.model_oid !== undefined && !isAIModelOID(normalized.model_oid))
     fields.push("model_oid");
   const length = [...normalized.instruction].length;
   if (length < 1 || length > MaxDraftInstructionLength)

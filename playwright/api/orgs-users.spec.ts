@@ -129,6 +129,7 @@ test.describe("list-users and user-summary", () => {
       expect(owned?.granted_permissions).toEqual(["org:superadmin"]);
       expect(owned?.effective_permissions).toEqual([
         "org:approve_openings",
+        "org:manage_ai",
         "org:manage_billing",
         "org:manage_openings",
         "org:manage_users",
@@ -361,6 +362,7 @@ test.describe("list-permissions", () => {
             permission: "org:approve_openings",
             implies: ["org:view_openings"],
           },
+          { permission: "org:manage_ai", implies: [] },
           { permission: "org:manage_billing", implies: [] },
           { permission: "org:manage_openings", implies: ["org:view_openings"] },
           { permission: "org:manage_users", implies: [] },
@@ -368,6 +370,7 @@ test.describe("list-permissions", () => {
             permission: "org:superadmin",
             implies: [
               "org:approve_openings",
+              "org:manage_ai",
               "org:manage_billing",
               "org:manage_openings",
               "org:manage_users",
@@ -1067,6 +1070,7 @@ test.describe("set-user-permissions and bulk-set-user-permissions", () => {
       expect(row?.granted_permissions).toEqual(["org:superadmin"]);
       expect(row?.effective_permissions).toEqual([
         "org:approve_openings",
+        "org:manage_ai",
         "org:manage_billing",
         "org:manage_openings",
         "org:manage_users",
@@ -1209,6 +1213,14 @@ test.describe("set-user-permissions and bulk-set-user-permissions", () => {
         permissions: ["org:superadmin"],
       });
       await expectProblem(grant, 403, superadminRequired);
+      await expectProblem(
+        await api.setUserPermissions(manager.token, {
+          email_address: member.emailAddress,
+          permissions: ["org:manage_ai"],
+        }),
+        403,
+        superadminRequired,
+      );
       expect((await grant.json()).email_address).toBe(member.emailAddress);
       await expectProblem(
         await api.setUserPermissions(manager.token, {

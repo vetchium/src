@@ -121,7 +121,7 @@
         "baseURL": "http://ai-dev:8080/engines/v1",
         "hostModel": "ai/qwen3:1.7b",
         "jsonSchemaOutput": true,
-        "chatTemplateKwargs": {"enable_thinking": false},
+        "chatTemplateKwargs": { "enable_thinking": false },
         "maxOutputTokens": 3072,
         "inputCreditsPerMillionTokens": 20000,
         "outputCreditsPerMillionTokens": 60000
@@ -141,8 +141,18 @@
     ],
     "operationDefaults": { "org-opening-draft": "qwen3-1-7b" },
     "creditPacks": [
-      { "id": "credits-100k", "credits": 100000, "priceCurrency": "USD", "priceAmountMinor": 1000 },
-      { "id": "credits-500k", "credits": 500000, "priceCurrency": "USD", "priceAmountMinor": 4500 }
+      {
+        "id": "credits-100k",
+        "credits": 100000,
+        "priceCurrency": "USD",
+        "priceAmountMinor": 1000
+      },
+      {
+        "id": "credits-500k",
+        "credits": 500000,
+        "priceCurrency": "USD",
+        "priceAmountMinor": 4500
+      }
     ]
   },
   "signupRegionsFile": "/etc/vetchium/signup-regions.json"

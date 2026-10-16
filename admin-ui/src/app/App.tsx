@@ -6,6 +6,12 @@ import { ProtectedRoute } from "../components/common/ProtectedRoute";
 import { PublicShell } from "../components/common/PublicShell";
 import { RecentAuthenticationRoute } from "../components/common/RecentAuthenticationRoute";
 
+const AIUsagePage = lazy(() =>
+  import("../pages/AIUsagePage").then(({ AIUsagePage }) => ({
+    default: AIUsagePage,
+  })),
+);
+
 const AuditLogsPage = lazy(() =>
   import("../pages/AuditLogsPage").then(({ AuditLogsPage }) => ({
     default: AuditLogsPage,
@@ -155,6 +161,14 @@ export function App() {
             element={
               <Page>
                 <UsersPage />
+              </Page>
+            }
+          />
+          <Route
+            path="ai-usage"
+            element={
+              <Page>
+                <AIUsagePage />
               </Page>
             }
           />

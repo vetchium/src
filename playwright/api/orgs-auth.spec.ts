@@ -70,6 +70,7 @@ test.describe("Org sign-in", () => {
         email_address: org.emailAddress,
         permissions: [
           "org:approve_openings",
+          "org:manage_ai",
           "org:manage_billing",
           "org:manage_openings",
           "org:manage_users",
