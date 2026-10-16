@@ -7,6 +7,9 @@ enum OrgPermission {
   Superadmin: "org:superadmin",
   ManageUsers: "org:manage_users",
   ManageBilling: "org:manage_billing",
+  ViewOpenings: "org:view_openings",
+  ManageOpenings: "org:manage_openings",
+  ApproveOpenings: "org:approve_openings",
 }
 
 /**
@@ -20,10 +23,27 @@ enum OrgPermission {
 @format("vetchium-org-permission")
 @TypeSpec.OpenAPI.extension(
   "x-vetchium-known-values",
-  #["org:superadmin", "org:manage_users", "org:manage_billing"]
+  #[
+    "org:superadmin",
+    "org:manage_users",
+    "org:manage_billing",
+    "org:view_openings",
+    "org:manage_openings",
+    "org:approve_openings"
+  ]
 )
 @TypeSpec.OpenAPI.extension(
   "x-vetchium-permission-implications",
-  #{ `org:superadmin`: #["org:manage_users", "org:manage_billing"] }
+  #{
+    `org:superadmin`: #[
+      "org:manage_users",
+      "org:manage_billing",
+      "org:view_openings",
+      "org:manage_openings",
+      "org:approve_openings"
+    ],
+    `org:manage_openings`: #["org:view_openings"],
+    `org:approve_openings`: #["org:view_openings"],
+  }
 )
 scalar OrgPermissionID extends string;

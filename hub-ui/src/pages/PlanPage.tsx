@@ -43,10 +43,7 @@ export function PlanPage() {
         </Space>
       ) : (
         <>
-          <CurrentSubscriptionCard
-            subscription={subscription.data}
-            locale={preferences.language}
-          />
+          <CurrentSubscriptionCard subscription={subscription.data} />
           <PlanOptions
             subscription={subscription.data}
             tenantID={tenantID}

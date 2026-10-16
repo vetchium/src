@@ -3,6 +3,8 @@ import { expectProblem } from "../lib/admin-api.ts";
 import {
   type HeldOrgRowLock,
   holdOrgRowLock,
+  type QueuedAdvisoryLock,
+  queueBehindAdvisoryLock,
   waitForBlockedBy,
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
@@ -410,33 +412,41 @@ test("a superseded unfinished logo upload cannot replace the newer logo on retry
   });
 });
 
-test("two concurrent logo uploads race to activate, and the one that loses the race reports a logo conflict", async ({
+test("a logo upload superseded by a later upload before it activates reports a logo conflict", async ({
   request,
 }) => {
   await withOrg(request, async (api, org, owner) => {
     await onSilver(api, owner);
     let lock: HeldOrgRowLock | undefined;
+    let gate: QueuedAdvisoryLock | undefined;
     let uploadA: Promise<APIResponse> | undefined;
-    let uploadB: Promise<APIResponse> | undefined;
     try {
-      // Both uploads queue behind the Org row lock, so the second to stage
-      // supersedes the first's staged row before the first can activate.
+      // Both upload transactions take the request's idempotency advisory
+      // lock before the Org row lock. Holding the row stops A while it stages
+      // with its advisory lock held; a session queued for that lock takes it
+      // when A's staging commits, so A's activation waits while B stages,
+      // supersedes A's staged row, and activates.
       lock = await holdOrgRowLock(orgDID(org.domain), "sgp");
       uploadA = api.uploadLogo(owner, "image/png", makePNG(200, 200));
-      uploadB = api.uploadLogo(owner, "image/png", makePNG(220, 220));
-      await waitForBlockedBy("sgp", lock.holderPID, 2);
+      const [stagingA] = await waitForBlockedBy("sgp", lock.holderPID, 1);
+      if (stagingA === undefined) throw new Error("upload A is not staging");
+      gate = await queueBehindAdvisoryLock("sgp", stagingA);
       await lock.release();
       lock = undefined;
+      await gate.acquired;
 
-      const [responseA, responseB] = await Promise.all([uploadA, uploadB]);
-      uploadA = undefined;
-      uploadB = undefined;
-      const statuses = [responseA.status(), responseB.status()].sort(
-        (a, b) => a - b,
+      const responseB = await api.uploadLogo(
+        owner,
+        "image/png",
+        makePNG(220, 220),
       );
-      expect(statuses).toEqual([204, 409]);
+      expect(responseB.status(), await responseB.text()).toBe(204);
+      await gate.release();
+      gate = undefined;
+      const responseA = await uploadA;
+      uploadA = undefined;
       await expectProblem(
-        responseA.status() === 409 ? responseA : responseB,
+        responseA,
         409,
         "vetchium-problem-details/org-logo-conflict",
       );
@@ -444,7 +454,8 @@ test("two concurrent logo uploads race to activate, and the one that loses the r
       expect(logoRows(org, "active")).toBe(1);
     } finally {
       if (lock !== undefined) await lock.release();
-      await Promise.allSettled([uploadA, uploadB]);
+      if (gate !== undefined) await gate.release();
+      await Promise.allSettled([uploadA]);
     }
   });
 });

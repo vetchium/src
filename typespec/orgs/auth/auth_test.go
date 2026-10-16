@@ -51,15 +51,22 @@ func TestCompleteSignupValidation(t *testing.T) {
 	t.Parallel()
 	token := OrgSignupToken(strings.Repeat("a", 64))
 	request := CompleteSignupRequest{
-		SignupToken: token, OrgDisplayName: "  Acme Corp  ",
-		Password: "a sufficiently long passphrase",
+		SignupToken: token, OrgDisplayName: "  Acme Corp  ", OrgCountry: "DE",
+		AcceptedTermsVersion: CurrentTermsVersion,
+		Password:             "a sufficiently long passphrase",
 	}
 	request.Normalize()
 	if request.OrgDisplayName != "Acme Corp" || len(request.Validate()) != 0 {
 		t.Fatalf("valid completion rejected: %+v %v", request, request.Validate())
 	}
-	invalid := CompleteSignupRequest{SignupToken: "short", Password: "short"}
-	want := []string{"signup_token", "org_display_name", "password"}
+	invalid := CompleteSignupRequest{
+		SignupToken: "short", OrgCountry: "de",
+		AcceptedTermsVersion: "2020-01-01", Password: "short",
+	}
+	want := []string{
+		"signup_token", "org_display_name", "org_country",
+		"accepted_terms_version", "password",
+	}
 	if got := invalid.Validate(); !slices.Equal(got, want) {
 		t.Fatalf("Validate() = %v, want %v", got, want)
 	}

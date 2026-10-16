@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Alert,
   Button,
@@ -40,7 +41,8 @@ interface Filters {
 }
 
 export function AuditLogsPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const { preciseDateTime } = useDateTimeFormat();
   const { data: me } = useMyInfoQuery();
   const allowed = me?.permissions.includes(ViewAuditLogs) === true;
   const [request, setRequest] = useState<ListRequest>();
@@ -105,11 +107,7 @@ export function AuditLogsPage() {
     {
       title: t("auditLogs.time"),
       dataIndex: "created_at",
-      render: (value: string) =>
-        new Intl.DateTimeFormat(i18n.language, {
-          dateStyle: "medium",
-          timeStyle: "long",
-        }).format(new Date(value)),
+      render: (value: string) => preciseDateTime(value),
     },
     { title: t("auditLogs.action"), dataIndex: "action" },
     { title: t("auditLogs.entity"), dataIndex: "entity_type" },
@@ -196,7 +194,7 @@ export function AuditLogsPage() {
           loading={query.isFetching}
           pagination={false}
           locale={{
-            emptyText: t(request ? "auditLogs.empty" : "auditLogs.prompt"),
+            emptyText: t(query.data ? "auditLogs.empty" : "auditLogs.prompt"),
             expand: t("auditLogs.details"),
             collapse: t("auditLogs.collapse"),
           }}

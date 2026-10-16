@@ -2,7 +2,8 @@ import type { NewPassword } from "../../common/authentication.ts";
 import { isNewPassword, isOpaqueToken } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
 import { isEmailAddress, normalizeEmailAddress } from "../../common/common.ts";
-import type { DisplayName } from "../../common/localization.ts";
+import { isCountryCode } from "../../common/countries.ts";
+import type { CountryCode, DisplayName } from "../../common/localization.ts";
 import {
   isDisplayName,
   normalizeDisplayName,
@@ -15,6 +16,10 @@ import {
 } from "../types.ts";
 
 export type OrgSignupToken = string;
+
+/** Changing the Org terms text means a new version. */
+export const currentTermsVersion = "2026-10-16-placeholder" as const;
+export type OrgTermsVersion = typeof currentTermsVersion;
 
 export interface RequestSignupRequest {
   email_address: EmailAddress;
@@ -73,6 +78,8 @@ export interface SignupDetailsResponse {
 export interface CompleteSignupRequest {
   signup_token: OrgSignupToken;
   org_display_name: DisplayName;
+  org_country: CountryCode;
+  accepted_terms_version: OrgTermsVersion;
   password: NewPassword;
 }
 
@@ -93,6 +100,10 @@ export function validateCompleteSignupRequest(
   if (!isOpaqueToken(normalized.signup_token)) fields.push("signup_token");
   if (!isDisplayName(normalized.org_display_name)) {
     fields.push("org_display_name");
+  }
+  if (!isCountryCode(normalized.org_country)) fields.push("org_country");
+  if (normalized.accepted_terms_version !== currentTermsVersion) {
+    fields.push("accepted_terms_version");
   }
   if (!isNewPassword(normalized.password)) fields.push("password");
   return fields;

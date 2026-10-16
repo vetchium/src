@@ -18,6 +18,8 @@ import (
 	"backend/internal/hub/signupcompletion"
 	"backend/internal/profileclient"
 	"backend/internal/profilepicture"
+	"backend/internal/publicopeningclient"
+	"backend/internal/publicopenings"
 	"backend/internal/regions"
 )
 
@@ -41,6 +43,8 @@ type Server struct {
 	Regions          *regions.Catalog
 	Directory        *directoryclient.Client
 	Profiles         *profileclient.Client
+	Openings         *publicopeningclient.Client
+	PublicOpenings   publicopenings.Reader
 	Pictures         PictureStorage
 	SignupCompletion *signupcompletion.Service
 	EmailChange      *emailchange.Service

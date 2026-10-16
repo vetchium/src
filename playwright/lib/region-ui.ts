@@ -50,6 +50,20 @@ export async function chooseOption(
     .click();
 }
 
+/** Types into a searchable antd Select, so an option far down a long,
+ * virtualized list is rendered before it is picked. */
+export async function searchAndChooseOption(
+  page: Page,
+  combobox: Locator,
+  title: string,
+): Promise<void> {
+  await combobox.fill(title);
+  await page
+    .locator(".ant-select-dropdown:visible")
+    .getByTitle(title, { exact: true })
+    .click();
+}
+
 export function chooseRegion(page: Page, tenant: TestTenant): Promise<void> {
   return chooseOption(page, regionPicker(page), REGION_LABELS[tenant]);
 }

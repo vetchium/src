@@ -3,6 +3,10 @@ import {
   isProfessionalDomain,
   normalizeProfessionalDomain,
 } from "../../common/domain.ts";
+import {
+  isLanguageTag as isCommonLanguageTag,
+  languageCatalog,
+} from "../../common/language_catalog.ts";
 import type { CountryCode, DisplayName } from "../../common/localization.ts";
 import {
   isDisplayName,
@@ -10,7 +14,6 @@ import {
 } from "../../common/localization.ts";
 import { type HubAlias, isProfileSlug } from "../../directory/directory.ts";
 import type { HubHandle } from "../types.ts";
-import tags from "./language_catalog.json" with { type: "json" };
 
 export type ProfileAddress = string;
 export type ProfileEntryID = string;
@@ -21,7 +24,9 @@ export type ProfileLocation = string;
 export type EducationSupportingText = string;
 export type CredentialURL = string;
 export type WebsiteURL = string;
-export type LanguageTag = string;
+export type { LanguageTag } from "../../common/language_catalog.ts";
+
+import type { LanguageTag } from "../../common/language_catalog.ts";
 
 /** The most websites one profile may list. */
 export const MaxWebsites = 10;
@@ -118,11 +123,10 @@ export function isLanguageAbility(value: string): value is LanguageAbility {
 }
 
 export function isLanguageTag(value: LanguageTag): boolean {
-  return languageCatalogSet.has(value);
+  return isCommonLanguageTag(value);
 }
 
-export const languageCatalog: readonly LanguageTag[] = tags;
-const languageCatalogSet = new Set<string>(languageCatalog);
+export { languageCatalog };
 
 export interface WorkExperience {
   id: ProfileEntryID;

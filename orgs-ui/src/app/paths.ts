@@ -11,10 +11,15 @@ export const paths = {
   security: "/account",
   restoreDomain: "/restore-domain",
   members: "/members",
+  openings: "/openings",
+  newOpening: "/openings/new",
+  openingDetail: (number: number) => `/openings/${number}`,
+  openingEdit: (number: number) => `/openings/${number}/edit`,
   plans: "/plans",
   settings: "/company",
   organizationSecurity: "/organization-security",
   acceptInvitation: "/accept-invitation",
+  terms: "/terms",
 } as const;
 
 /** Sign-in with the Org domain prefilled, as emailed links and completed

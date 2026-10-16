@@ -16,6 +16,7 @@ export const de = {
     openMenu: "Navigation öffnen",
     home: "Übersicht",
     members: "Personen",
+    openings: "Stellenanzeigen",
     plans: "Abrechnung",
     settings: "Unternehmen",
     security: "Mein Konto",
@@ -52,6 +53,7 @@ export const de = {
     lastVerified: "Zuletzt verifiziert",
     newPassword: "Neues Passwort",
     orgDisplayName: "Name der Organisation",
+    orgCountry: "Land",
     password: "Passwort",
     permissions: "Berechtigungen",
     recoveryCode: "Wiederherstellungscode",
@@ -195,6 +197,31 @@ export const de = {
       next: "Öffnen Sie den privaten Link, sobald der Eintrag veröffentlicht ist, um die Organisation zu benennen und Ihr Passwort festzulegen.",
     },
   },
+  terms: {
+    documentTitle: "Bedingungen für Organisationen | Vetchium",
+    title: "Bedingungen für Organisationen",
+    version: "Version {{version}}",
+    placeholder:
+      "Platzhaltertext: Dies sind nicht die Bedingungen von Vetchium für Organisationen. Die endgültigen Bedingungen ersetzen diese Seite vor dem Start.",
+    sections: {
+      service: {
+        title: "Nutzung von Vetchium",
+        body: "Eine Organisation nutzt Vetchium, um Stellenanzeigen zu veröffentlichen und Einstellungen zu verwalten. Die Person, die die Registrierung abschließt, akzeptiert diese Bedingungen im Namen der Organisation.",
+      },
+      accounts: {
+        title: "Domain und Konten",
+        body: "Die Organisation hält ihre Domain verifiziert und ist für die Personen verantwortlich, die sie einlädt, und für die Berechtigungen, die sie ihnen erteilt.",
+      },
+      openings: {
+        title: "Stellenanzeigen",
+        body: "Vetchium prüft den Inhalt von Stellenanzeigen nicht. Es kann eine Stellenanzeige entfernen, die es für rechtswidrig, diskriminierend, irreführend oder missbräuchlich hält.",
+      },
+      changes: {
+        title: "Änderungen dieser Bedingungen",
+        body: "Wenn sich diese Bedingungen ändern, ändert sich ihre Version, und die Organisation kann aufgefordert werden, die neue Version zu akzeptieren.",
+      },
+    },
+  },
   completeSignup: {
     documentTitle: "Registrierung abschließen | Vetchium für Organisationen",
     title: "Registrierung Ihrer Organisation abschließen",
@@ -206,6 +233,13 @@ export const de = {
     expires: "Link läuft ab",
     displayNameHelp:
       "Wird auf Vetchium angezeigt. Der Name muss nicht eindeutig sein.",
+    countryHelp:
+      "Wo die Organisation ihren Sitz hat. Neue Stellenanzeigen übernehmen es als Land der Beschäftigung.",
+    acceptTerms:
+      "Ich akzeptiere die Bedingungen für Organisationen im Namen dieser Organisation.",
+    readTerms: "Bedingungen für Organisationen lesen (öffnet in neuem Tab)",
+    termsRequired:
+      "Akzeptieren Sie die Bedingungen, um die Organisation anzulegen.",
     action: "Domain verifizieren und Organisation anlegen",
     pending:
       "Die Domain ist verifiziert und die Organisation wird angelegt. Diese Seite prüft automatisch erneut.",
@@ -324,12 +358,27 @@ export const de = {
     "org:manage_users": {
       name: "MANAGE_USERS",
       description:
-        "Benutzer einladen, deaktivieren und wieder aktivieren und ihre Berechtigungen ändern, außer Superadmin und Abrechnung.",
+        "Benutzer einladen, deaktivieren und wieder aktivieren und ihre Berechtigungen ändern, außer Superadmin, Abrechnung und Freigabe von Stellenanzeigen.",
     },
     "org:manage_billing": {
       name: "MANAGE_BILLING",
       description:
         "Den Tarif und das Abrechnungsintervall der Organisation auswählen.",
+    },
+    "org:view_openings": {
+      name: "VIEW_OPENINGS",
+      description:
+        "Alle Stellenanzeigen der Organisation sehen, auch Entwürfe.",
+    },
+    "org:manage_openings": {
+      name: "MANAGE_OPENINGS",
+      description:
+        "Stellenanzeigen erstellen, bearbeiten und zur Freigabe einreichen.",
+    },
+    "org:approve_openings": {
+      name: "APPROVE_OPENINGS",
+      description:
+        "Änderungen an veröffentlichten Stellenanzeigen freigeben oder ablehnen.",
     },
     unknown: {
       description:
@@ -544,6 +593,8 @@ export const de = {
     superadmin: "Superadmin",
     finance: "Finanzen",
     userManager: "Benutzerverwaltung",
+    recruiter: "Recruiter",
+    hiringApprover: "Freigabe für Stellenanzeigen",
     member: "Mitglied",
     custom: "Benutzerdefiniert",
   },
@@ -706,7 +757,13 @@ export const de = {
   company: {
     identity: "Unternehmensidentität",
     name: "Unternehmensname",
-    saved: "Unternehmensname gespeichert",
+    saved: "Unternehmensdaten gespeichert",
+    country: "Land",
+    countryHelp:
+      "Wo das Unternehmen seinen Sitz hat. Neue Stellenanzeigen übernehmen es als Land der Beschäftigung.",
+    defaultLanguage: "Standardsprache",
+    defaultLanguageHelp:
+      "Wird für Einladungen und als Ausgangssprache neuer Stellenanzeigen verwendet. Jedes Mitglied erhält eigene E-Mails weiterhin in seiner eigenen Sprache.",
     invalidName: "Geben Sie einen Namen mit 1 bis 200 Zeichen ein.",
     securityTitle: "Organisationssicherheit | Vetchium",
     confirmGoogle: "Google-Anmeldung ändern?",
@@ -720,8 +777,272 @@ export const de = {
     member: "Mitgliedsdetails",
     self: "Sie können Ihren eigenen Zugriff nicht ändern.",
     restricted: "Nur ein Superadmin kann geschützte Berechtigungen ändern.",
+    approvalRestricted:
+      "Nur ein Superadmin kann die Freigabe von Stellenanzeigen erteilen oder entziehen.",
     selection:
       "Nur angekreuzte Zeilen sind ausgewählt, auch auf anderen Seiten. Höchstens {{count}}.",
     full: "Alle Plätze sind belegt. Deaktivieren Sie einen Benutzer oder stornieren Sie eine Einladung, bevor Sie weitere Personen einladen.",
+  },
+  openings: {
+    intro:
+      "Erstellen Sie Stellenanzeigen, reichen Sie sie zur Genehmigung ein und behalten Sie alle Stellenanzeigen Ihrer Organisation im Blick.",
+    breadcrumbOpening: "{{title}} #{{number}}",
+    pendingTag: "Ausstehend: {{kind}}",
+    columns: { opening: "Stellenanzeige" },
+    tabs: { all: "Alle", withCount: "{{state}} ({{count}})" },
+    stats: {
+      quota: "Kontingent für Stellenanzeigen",
+      published: "Veröffentlicht",
+      publishedHelp: "Jetzt für Bewerbende auf Vetchium sichtbar.",
+      review: "Anfragen prüfen",
+      showAll: "Alle Stellenanzeigen anzeigen",
+    },
+    documentTitle: "Stellenanzeigen | Vetchium",
+    title: "Stellenanzeigen",
+    new: "Neue Stellenanzeige",
+    untitled: "Entwurf ohne Titel",
+    empty: "Für diese Filter sind keine Stellenanzeigen verfügbar.",
+    quota:
+      "In den letzten 365 Tagen erstellte Stellenanzeigen: {{used}} von {{limit}}",
+    fields: {
+      title: "Titel",
+      description: "Beschreibung",
+      language: "Sprache",
+      state: "Status",
+      country: "Beschäftigungsland",
+      hiringManager: "Einstellungsverantwortliche Person",
+      updated: "Aktualisiert",
+      workArrangement: "Arbeitsmodell",
+      locationDetails: "Standortdetails",
+      remoteEligibility: "Remote-Berechtigung",
+      employmentType: "Beschäftigungsart",
+      positions: "Stellen",
+      experienceYears: "Erfahrung in Jahren",
+      minimumEducation: "Mindestabschluss",
+      salary: "Gehalt",
+    },
+    filters: {
+      more: "Weitere Filter",
+      awaitingActive:
+        "Angezeigt werden Stellenanzeigen mit einer Anfrage, die auf Ihre Genehmigung wartet.",
+      pendingKinds: "Ausstehende Antragsarten",
+      awaitingApproval: "Wartet auf meine Genehmigung",
+      hiringManager: "E-Mail der einstellungsverantwortlichen Person",
+      recruiter: "E-Mail der rekrutierenden Person",
+      title: "Titel suchen",
+      clear: "Filter löschen",
+    },
+    states: {
+      draft: "Entwurf",
+      discarded: "Verworfen",
+      published: "Veröffentlicht",
+      paused: "Pausiert",
+      closed: "Geschlossen",
+      expired: "Abgelaufen",
+    },
+    requestKinds: {
+      publish: "Veröffentlichen",
+      revise: "Überarbeiten",
+      pause: "Pausieren",
+      reopen: "Wieder öffnen",
+      close: "Schließen",
+    },
+    requestStates: {
+      pending: "Ausstehend",
+      approved: "Genehmigt",
+      rejected: "Abgelehnt",
+      withdrawn: "Zurückgezogen",
+      superseded: "Ersetzt",
+      cancelled: "Storniert",
+    },
+    workArrangements: {
+      on_site: "Vor Ort",
+      hybrid: "Hybrid",
+      remote: "Remote",
+    },
+    employmentTypes: {
+      full_time: "Vollzeit",
+      part_time: "Teilzeit",
+      contract: "Vertrag",
+      internship: "Praktikum",
+    },
+    remote: { worldwide: "Weltweit", countries: "Ausgewählte Länder" },
+    education: {
+      secondary: "Sekundarabschluss",
+      bachelor: "Bachelor",
+      master: "Master",
+      doctorate: "Promotion",
+    },
+    salaryPeriods: {
+      hour: "pro Stunde",
+      day: "pro Tag",
+      month: "pro Monat",
+      year: "pro Jahr",
+    },
+    experienceRange: "{{min}}–{{max}} Jahre",
+    experienceMin: "Ab {{min}} Jahren",
+    experienceMax: "Bis {{max}} Jahre",
+    editTitle: "Stellenanzeige bearbeiten",
+    newTitle: "Neue Stellenanzeige",
+    detailTitle: "Stellenanzeige #{{number}} | Vetchium",
+    saved: "Inhalt gespeichert.",
+    created: "Entwurf erstellt.",
+    discardedWorking: "Arbeitskopie verworfen.",
+    discardedDraft: "Entwurf verworfen.",
+    revision: "Revision",
+    expiresAt: "Läuft ab",
+    pendingRequest: "Ausstehender Antrag",
+    publicationMissing: "Füllen Sie vor der Veröffentlichung diese Felder aus:",
+    actions: {
+      title: "Aktionen für Stellenanzeigen",
+      effects: {
+        publish: "Veröffentlichen",
+        revise: "Überarbeitung veröffentlichen",
+        pause: "Pausieren",
+        reopen: "Wieder öffnen",
+        close: "Schließen",
+      },
+      submitForApproval: "Zur Genehmigung einreichen: {{action}}",
+      submit: "Zur Genehmigung einreichen",
+      approve: "Genehmigen",
+      reject: "Ablehnen",
+      withdraw: "Antrag zurückziehen",
+      withdrawn: "Antrag zurückgezogen.",
+      saved: "Stellenanzeige aktualisiert.",
+      requestKind: "Beantragte Änderung",
+      requester: "Beantragt von",
+      requestedAt: "Beantragt am",
+      note: "Notiz",
+      optionalNote: "Optionale Notiz hinzufügen (bis zu 2.000 Zeichen).",
+      rejectNote: "Geben Sie einen Grund für die Ablehnung an.",
+      consequences: {
+        pause:
+          "Während der Pause ist diese Stellenanzeige für Bewerbende nicht sichtbar.",
+        close:
+          "Schließen beendet diese Stellenanzeige dauerhaft. Für eine neue Einstellung duplizieren Sie sie als Entwurf.",
+      },
+    },
+    publicURL: "Öffentliche Hub-URL",
+    copyURL: "URL kopieren",
+    copied: "URL kopiert.",
+    copyFailed: "Die URL konnte nicht kopiert werden.",
+    liveContent: "Veröffentlichter Inhalt",
+    draftContent: "Entwurfsinhalt",
+    workingContent: "Arbeitskopie",
+    notSet: "Nicht festgelegt",
+    notFound: "Stellenanzeige nicht gefunden oder nicht verfügbar.",
+    edit: "Bearbeiten",
+    editTeam: "Team und Notizen bearbeiten",
+    duplicate: "Duplizieren",
+    discardDraft: "Entwurf verwerfen",
+    discardWorking: "Arbeitskopie verwerfen",
+    confirmDiscardDraft: "Diesen Entwurf und seinen Inhalt verwerfen?",
+    confirmDiscardWorking:
+      "Diese Arbeitskopie verwerfen? Der veröffentlichte Inhalt bleibt bestehen.",
+    disabledMember: "Deaktiviert",
+    history: "Verlauf",
+    systemActor: "System",
+    editor: {
+      optional: "Optional",
+      newIntro:
+        "Beschreiben Sie die Stelle für Bewerbende. Sie können einen unvollständigen Entwurf speichern und später fertigstellen.",
+      editIntro:
+        "Bearbeiten Sie diese Stellenanzeige. Wechseln Sie zur Vorschau für Bewerbende, um sie so zu sehen wie Bewerbende.",
+      tabs: { edit: "Bearbeiten" },
+      sections: {
+        basics: "Grundlagen",
+        location: "Standort",
+        role: "Stelle und Anforderungen",
+      },
+      help: {
+        title:
+          "Die Stellenbezeichnung, nach der Bewerbende suchen, etwa Backend-Entwicklung.",
+        description:
+          "Markdown wird unterstützt: Überschriften, Listen, Fett- und Kursivschrift sowie Links. Das Ergebnis zeigt die Vorschau für Bewerbende.",
+        language: "Die Sprache, in der diese Stellenanzeige verfasst ist.",
+        country: "Das Land, in dem die eingestellte Person beschäftigt wird.",
+        remoteEligibility:
+          "Wo Bewerbende wohnen dürfen. Eine Länderliste muss das Beschäftigungsland enthalten.",
+        locationDetails: "Optional. Stadt, Büroadresse oder Reiseerwartungen.",
+        positions: "Wie viele Personen Sie einstellen, von 1 bis 10.",
+        salary:
+          "Optional. Um ein Gehalt anzuzeigen, füllen Sie alle vier Felder aus; andernfalls lassen Sie alle leer.",
+        hiringManager:
+          "Zum Veröffentlichen erforderlich. Muss ein aktives Mitglied Ihrer Organisation sein.",
+        recruiter:
+          "Zum Veröffentlichen erforderlich. Darf dieselbe Person wie die einstellungsverantwortliche Person sein.",
+        teamMembers:
+          "Optional. Bis zu 20 aktive Mitglieder, die bei dieser Stellenanzeige helfen.",
+        internalNotes:
+          "Nur Ihre Organisation sieht diese Notizen, Bewerbende nie.",
+      },
+      previewHelp:
+        "So sehen Bewerbende diese Stellenanzeige, sobald sie veröffentlicht ist.",
+      previewEmpty:
+        "Noch nichts in der Vorschau. Fügen Sie im Tab Bearbeiten einen Titel und eine Beschreibung hinzu.",
+      actions: {
+        title: "Aktionen",
+        newHelp:
+          "Ein Entwurf belegt einen Platz Ihres Kontingents für Stellenanzeigen. Entwürfe bleiben innerhalb Ihrer Organisation.",
+        draftHelp:
+          "Speichern aktualisiert diesen Entwurf. Bewerbende sehen nichts, bis er veröffentlicht ist.",
+        revisionHelp:
+          "Änderungen werden als Revision gespeichert. Bewerbende sehen weiter die veröffentlichte Fassung, bis die Revision veröffentlicht ist.",
+        nextStep:
+          "Veröffentlichen Sie die Stellenanzeige nach dem Speichern auf ihrer Seite oder reichen Sie sie dort zur Genehmigung ein.",
+      },
+      checklist: {
+        title: "Checkliste zur Veröffentlichung",
+        progress: "{{done}}/{{total}}",
+        help: "Sie können jederzeit speichern. Zum Veröffentlichen ist jeder Punkt unten nötig.",
+        ready: "Alles für die Veröffentlichung ist vorhanden.",
+        done: "Erledigt",
+        missing: "Nicht erledigt",
+      },
+      team: "Einstellungsteam und Notizen",
+      recruiter: "Rekrutierende Person",
+      teamMembers: "Teammitglieder",
+      internalNotes: "Interne Notizen",
+      minimumYears: "Mindestjahre",
+      maximumYears: "Höchstjahre",
+      currency: "Währung",
+      salaryMin: "Mindestgehalt",
+      salaryMax: "Höchstgehalt",
+      salaryPeriod: "Gehaltszeitraum",
+      preview: "Vorschau für Bewerbende",
+      save: "Speichern",
+      createDraft: "Entwurf erstellen",
+    },
+    errors: {
+      versionConflict:
+        "Diese Stellenanzeige wurde geändert. Die neueste Version wurde geladen. Prüfen Sie sie und versuchen Sie es erneut.",
+      quota:
+        "Das Kontingent ist ausgeschöpft: {{count}} von {{quota}} Plätzen sind belegt.",
+      invalidTeam:
+        "Diese Adressen gehören keinen aktiven Mitgliedern dieser Organisation: {{addresses}}.",
+      invalidField: "Prüfen Sie dieses Feld.",
+      incomplete:
+        "Diese Stellenanzeige ist unvollständig. Füllen Sie diese Felder aus und versuchen Sie es erneut:",
+      notEditable:
+        "Diese Stellenanzeige kann in ihrem aktuellen Zustand nicht bearbeitet werden.",
+      contentLocked:
+        "Der Inhalt ist während eines ausstehenden Veröffentlichungs- oder Änderungsantrags gesperrt. Ziehen Sie den Antrag zurück, um ihn zu bearbeiten.",
+    },
+    historyActions: {
+      created: "Erstellt",
+      duplicated: "Dupliziert",
+      working_copy_saved: "Arbeitskopie gespeichert",
+      team_changed: "Team geändert",
+      revision_discarded: "Revision verworfen",
+      discarded: "Verworfen",
+      requested: "Beantragt",
+      approved: "Genehmigt",
+      self_approved: "Vom Antragsteller genehmigt",
+      rejected: "Abgelehnt",
+      withdrawn: "Zurückgezogen",
+      superseded: "Ersetzt",
+      cancelled: "Storniert",
+      expired: "Abgelaufen",
+    },
   },
 } satisfies LocaleResource;

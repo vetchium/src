@@ -14,6 +14,7 @@ export const en = {
     openMenu: "Open navigation",
     home: "Overview",
     members: "People",
+    openings: "Openings",
     plans: "Billing",
     settings: "Company",
     security: "My account",
@@ -49,6 +50,7 @@ export const en = {
     lastVerified: "Last verified",
     newPassword: "New password",
     orgDisplayName: "Organization name",
+    orgCountry: "Country",
     password: "Password",
     permissions: "Permissions",
     recoveryCode: "Recovery code",
@@ -185,6 +187,31 @@ export const en = {
       next: "After the record is published, open the private link to name the organization and choose your password.",
     },
   },
+  terms: {
+    documentTitle: "Terms for organizations | Vetchium",
+    title: "Terms for organizations",
+    version: "Version {{version}}",
+    placeholder:
+      "Placeholder text: these are not Vetchium's terms for organizations. The final terms will replace this page before launch.",
+    sections: {
+      service: {
+        title: "Using Vetchium",
+        body: "An organization uses Vetchium to publish Openings and manage hiring. The person who completes signup accepts these terms on the organization's behalf.",
+      },
+      accounts: {
+        title: "Domain and accounts",
+        body: "The organization keeps its domain verified and is responsible for the people it invites and the permissions it grants them.",
+      },
+      openings: {
+        title: "Openings",
+        body: "Vetchium does not verify Opening content. It may remove an Opening it finds unlawful, discriminatory, misleading, or abusive.",
+      },
+      changes: {
+        title: "Changes to these terms",
+        body: "When these terms change, their version changes, and the organization may be asked to accept the new version.",
+      },
+    },
+  },
   completeSignup: {
     documentTitle: "Complete signup | Vetchium for organizations",
     title: "Complete your organization's signup",
@@ -196,6 +223,12 @@ export const en = {
     expires: "Link expires",
     displayNameHelp:
       "Shown to people on Vetchium. It does not have to be unique.",
+    countryHelp:
+      "Where the organization is based. New Openings start with it as the employing country.",
+    acceptTerms:
+      "I accept the terms for organizations on this organization's behalf.",
+    readTerms: "Read the terms for organizations (opens in a new tab)",
+    termsRequired: "Accept the terms to create the organization.",
     action: "Verify domain and create organization",
     pending:
       "The domain is verified and the organization is being created. This page checks again automatically.",
@@ -312,11 +345,23 @@ export const en = {
     "org:manage_users": {
       name: "MANAGE_USERS",
       description:
-        "Invite, disable and re-enable users, and change what they can do, except the superadmin and billing permissions.",
+        "Invite, disable and re-enable users, and change what they can do, except superadmin, billing, and Opening approval permissions.",
     },
     "org:manage_billing": {
       name: "MANAGE_BILLING",
       description: "Choose the organization's plan and billing interval.",
+    },
+    "org:view_openings": {
+      name: "VIEW_OPENINGS",
+      description: "See every Opening of the organization, including drafts.",
+    },
+    "org:manage_openings": {
+      name: "MANAGE_OPENINGS",
+      description: "Create and edit Openings and submit requests for approval.",
+    },
+    "org:approve_openings": {
+      name: "APPROVE_OPENINGS",
+      description: "Approve or reject requests that change published Openings.",
     },
     unknown: {
       description:
@@ -525,6 +570,8 @@ export const en = {
     superadmin: "Superadmin",
     finance: "Finance",
     userManager: "User manager",
+    recruiter: "Recruiter",
+    hiringApprover: "Hiring approver",
     member: "Member",
     custom: "Custom",
   },
@@ -687,7 +734,13 @@ export const en = {
   company: {
     identity: "Company identity",
     name: "Company name",
-    saved: "Company name saved",
+    saved: "Company details saved",
+    country: "Country",
+    countryHelp:
+      "Where the company is based. New Openings start with it as the employing country.",
+    defaultLanguage: "Default language",
+    defaultLanguageHelp:
+      "Used for invitations and as the starting language of new Openings. Each member still receives their own emails in their own language.",
     invalidName: "Enter a name of 1 to 200 characters.",
     securityTitle: "Organization security | Vetchium",
     confirmGoogle: "Change Google sign-in?",
@@ -701,9 +754,270 @@ export const en = {
     member: "Member details",
     self: "You cannot change your own access.",
     restricted: "Only a superadmin can change restricted permissions.",
+    approvalRestricted:
+      "Only a superadmin can grant or revoke Opening approval.",
     selection:
       "Only checked rows are selected, including other pages. Maximum {{count}}.",
     full: "All available seats are in use. Disable a user or cancel an invitation before inviting more people.",
+  },
+  openings: {
+    intro:
+      "Create Openings, send them for approval, and track every Opening your organization runs.",
+    breadcrumbOpening: "{{title}} #{{number}}",
+    pendingTag: "Pending: {{kind}}",
+    columns: { opening: "Opening" },
+    tabs: { all: "All", withCount: "{{state}} ({{count}})" },
+    stats: {
+      quota: "Opening quota",
+      published: "Published",
+      publishedHelp: "Visible to candidates on Vetchium now.",
+      review: "Review requests",
+      showAll: "Show all Openings",
+    },
+    documentTitle: "Openings | Vetchium",
+    title: "Openings",
+    new: "New Opening",
+    untitled: "Untitled draft",
+    empty: "No Openings are available to you for these filters.",
+    quota: "Openings created in the last 365 days: {{used}} of {{limit}}",
+    fields: {
+      title: "Title",
+      description: "Description",
+      language: "Language",
+      state: "State",
+      country: "Employing country",
+      hiringManager: "Hiring manager",
+      updated: "Updated",
+      workArrangement: "Work arrangement",
+      locationDetails: "Location details",
+      remoteEligibility: "Remote eligibility",
+      employmentType: "Employment type",
+      positions: "Positions",
+      experienceYears: "Experience in years",
+      minimumEducation: "Minimum education",
+      salary: "Salary",
+    },
+    filters: {
+      more: "More filters",
+      awaitingActive: "Showing Openings with a request awaiting your approval.",
+      pendingKinds: "Pending request types",
+      awaitingApproval: "Awaiting my approval",
+      hiringManager: "Hiring manager email",
+      recruiter: "Recruiter email",
+      title: "Search title",
+      clear: "Clear filters",
+    },
+    states: {
+      draft: "Draft",
+      discarded: "Discarded",
+      published: "Published",
+      paused: "Paused",
+      closed: "Closed",
+      expired: "Expired",
+    },
+    requestKinds: {
+      publish: "Publish",
+      revise: "Revise",
+      pause: "Pause",
+      reopen: "Reopen",
+      close: "Close",
+    },
+    requestStates: {
+      pending: "Pending",
+      approved: "Approved",
+      rejected: "Rejected",
+      withdrawn: "Withdrawn",
+      superseded: "Superseded",
+      cancelled: "Cancelled",
+    },
+    workArrangements: {
+      on_site: "On site",
+      hybrid: "Hybrid",
+      remote: "Remote",
+    },
+    employmentTypes: {
+      full_time: "Full time",
+      part_time: "Part time",
+      contract: "Contract",
+      internship: "Internship",
+    },
+    remote: { worldwide: "Worldwide", countries: "Selected countries" },
+    education: {
+      secondary: "Secondary",
+      bachelor: "Bachelor's",
+      master: "Master's",
+      doctorate: "Doctorate",
+    },
+    salaryPeriods: {
+      hour: "per hour",
+      day: "per day",
+      month: "per month",
+      year: "per year",
+    },
+    experienceRange: "{{min}}–{{max}} years",
+    experienceMin: "From {{min}} years",
+    experienceMax: "Up to {{max}} years",
+    editTitle: "Edit Opening",
+    newTitle: "New Opening",
+    detailTitle: "Opening #{{number}} | Vetchium",
+    saved: "Opening content saved.",
+    created: "Draft created.",
+    discardedWorking: "Working copy discarded.",
+    discardedDraft: "Draft discarded.",
+    revision: "Revision",
+    expiresAt: "Expires",
+    pendingRequest: "Pending request",
+    publicationMissing: "Complete these fields before publishing:",
+    actions: {
+      title: "Opening actions",
+      effects: {
+        publish: "Publish",
+        revise: "Publish revision",
+        pause: "Pause",
+        reopen: "Reopen",
+        close: "Close",
+      },
+      submitForApproval: "Submit for approval: {{action}}",
+      submit: "Submit for approval",
+      approve: "Approve",
+      reject: "Reject",
+      withdraw: "Withdraw request",
+      withdrawn: "Request withdrawn.",
+      saved: "Opening updated.",
+      requestKind: "Requested change",
+      requester: "Requested by",
+      requestedAt: "Requested at",
+      note: "Note",
+      optionalNote: "Add an optional note (up to 2,000 characters).",
+      rejectNote: "Give a reason for rejecting this request.",
+      consequences: {
+        pause:
+          "Pausing hides this Opening from candidates until it is reopened.",
+        close:
+          "Closing ends this Opening permanently. To hire again, duplicate it as a new draft.",
+      },
+    },
+    publicURL: "Public Hub URL",
+    copyURL: "Copy URL",
+    copied: "URL copied.",
+    copyFailed: "Could not copy the URL.",
+    liveContent: "Live content",
+    draftContent: "Draft content",
+    workingContent: "Working copy",
+    notSet: "Not set",
+    notFound: "Opening not found or unavailable.",
+    edit: "Edit",
+    editTeam: "Edit team and notes",
+    duplicate: "Duplicate",
+    discardDraft: "Discard draft",
+    discardWorking: "Discard working copy",
+    confirmDiscardDraft: "Discard this draft and its content?",
+    confirmDiscardWorking:
+      "Discard this working copy? Live content stays published.",
+    disabledMember: "Disabled",
+    history: "History",
+    systemActor: "System",
+    editor: {
+      optional: "Optional",
+      newIntro:
+        "Describe the role for candidates. You can save an incomplete draft and finish it later.",
+      editIntro:
+        "Update this Opening. Switch to Candidate preview to see it as candidates will.",
+      tabs: { edit: "Edit" },
+      sections: {
+        basics: "Basics",
+        location: "Location",
+        role: "Role and requirements",
+      },
+      help: {
+        title: "The job title candidates search for, such as Backend engineer.",
+        description:
+          "Markdown works here: headings, lists, bold, italics, and links. Check Candidate preview for the result.",
+        language: "The language this Opening is written in.",
+        country: "The country where the person hired will be employed.",
+        remoteEligibility:
+          "Where candidates may live. A country list must include the employing country.",
+        locationDetails:
+          "Optional. City, office address, or travel expectations.",
+        positions: "How many people you will hire, from 1 to 10.",
+        salary:
+          "Optional. To show a salary, fill in all four fields; otherwise leave them all empty.",
+        hiringManager:
+          "Required to publish. Must be an active member of your organization.",
+        recruiter:
+          "Required to publish. May be the same person as the hiring manager.",
+        teamMembers:
+          "Optional. Up to 20 active members who help with this Opening.",
+        internalNotes:
+          "Only your organization sees these notes. Candidates never do.",
+      },
+      previewHelp:
+        "This is how candidates will see this Opening once it is published.",
+      previewEmpty:
+        "Nothing to preview yet. Add a title and description on the Edit tab.",
+      actions: {
+        title: "Actions",
+        newHelp:
+          "Creating a draft takes one slot of your Opening quota. Drafts stay private to your organization.",
+        draftHelp:
+          "Saving updates this draft. Candidates see nothing until it is published.",
+        revisionHelp:
+          "Changes are saved as a revision. Candidates keep seeing the live Opening until the revision is published.",
+        nextStep:
+          "After saving, publish the Opening or submit it for approval from its page.",
+      },
+      checklist: {
+        title: "Publication checklist",
+        progress: "{{done}}/{{total}}",
+        help: "You can save at any time. Publishing needs every item below.",
+        ready: "Everything needed to publish is in place.",
+        done: "Complete",
+        missing: "Not complete",
+      },
+      team: "Hiring team and notes",
+      recruiter: "Recruiter",
+      teamMembers: "Team members",
+      internalNotes: "Internal notes",
+      minimumYears: "Minimum years",
+      maximumYears: "Maximum years",
+      currency: "Currency",
+      salaryMin: "Minimum salary",
+      salaryMax: "Maximum salary",
+      salaryPeriod: "Salary period",
+      preview: "Candidate preview",
+      save: "Save",
+      createDraft: "Create draft",
+    },
+    errors: {
+      versionConflict:
+        "This Opening changed. Its latest version has been loaded; review it and try again.",
+      quota:
+        "The Opening quota is full: {{count}} of {{quota}} slots are used.",
+      invalidTeam:
+        "These addresses are not active members of this organization: {{addresses}}.",
+      invalidField: "Check this field.",
+      incomplete:
+        "This Opening is incomplete. Complete these fields and try again:",
+      notEditable: "This Opening cannot be edited in its current state.",
+      contentLocked:
+        "Content is frozen while a publish or revise request is pending. Withdraw the request to edit it.",
+    },
+    historyActions: {
+      created: "Created",
+      duplicated: "Duplicated",
+      working_copy_saved: "Working copy saved",
+      team_changed: "Team changed",
+      revision_discarded: "Revision discarded",
+      discarded: "Discarded",
+      requested: "Requested",
+      approved: "Approved",
+      self_approved: "Approved by requester",
+      rejected: "Rejected",
+      withdrawn: "Withdrawn",
+      superseded: "Superseded",
+      cancelled: "Cancelled",
+      expired: "Expired",
+    },
   },
 } as const;
 type TranslationShape<Resource> = {

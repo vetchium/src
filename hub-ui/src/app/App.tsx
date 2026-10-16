@@ -27,6 +27,11 @@ const LoginPage = lazy(() =>
 const OrgPage = lazy(() =>
   import("../pages/OrgPage").then(({ OrgPage }) => ({ default: OrgPage })),
 );
+const OrgOpeningPage = lazy(() =>
+  import("../pages/OrgOpeningPage").then(({ OrgOpeningPage }) => ({
+    default: OrgOpeningPage,
+  })),
+);
 const NotFoundPage = lazy(() =>
   import("../pages/NotFoundPage").then(({ NotFoundPage }) => ({
     default: NotFoundPage,
@@ -154,14 +159,6 @@ export function App() {
             </Page>
           }
         />
-        <Route
-          path="org/:domain"
-          element={
-            <Page>
-              <OrgPage />
-            </Page>
-          }
-        />
       </Route>
       <Route element={<ProtectedRoute />}>
         <Route element={<PublicShell />}>
@@ -175,6 +172,22 @@ export function App() {
           />
         </Route>
         <Route element={<AppShell />}>
+          <Route
+            path="org/:domain"
+            element={
+              <Page>
+                <OrgPage />
+              </Page>
+            }
+          />
+          <Route
+            path="org/:domain/openings/:number"
+            element={
+              <Page>
+                <OrgOpeningPage />
+              </Page>
+            }
+          />
           <Route
             index
             element={

@@ -1,5 +1,6 @@
 import { EditOutlined, PlusOutlined } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Alert,
   App,
@@ -69,7 +70,8 @@ const mutationProblems = {
 };
 
 export function HubSignupDomainsPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const { dateTime } = useDateTimeFormat();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const { data: me } = useMyInfoQuery();
@@ -201,11 +203,7 @@ export function HubSignupDomainsPage() {
       key: "updated_at",
       width: 200,
       responsive: ["md"],
-      render: (value: string) =>
-        new Intl.DateTimeFormat(i18n.language, {
-          dateStyle: "medium",
-          timeStyle: "short",
-        }).format(new Date(value)),
+      render: (value: string) => dateTime(value),
     },
     {
       title: t("hubSignupDomains.form.disabledCommentLabel"),

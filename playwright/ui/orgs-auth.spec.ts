@@ -17,7 +17,11 @@ import {
   ORGS_PORTAL,
   rememberRegion,
 } from "../lib/portals.ts";
-import { chooseRegion, cleanupPasswordResetLedger } from "../lib/region-ui.ts";
+import {
+  chooseRegion,
+  cleanupPasswordResetLedger,
+  searchAndChooseOption,
+} from "../lib/region-ui.ts";
 
 const token = "a".repeat(64);
 const domain = "mocked.example";
@@ -36,6 +40,16 @@ async function openCompletion(page: Page) {
   await page.goto(`${ORGS_PORTAL}/complete-signup?region=sgp&token=${token}`);
   const password = orgPassword();
   await page.getByLabel("Organization name").fill("Mocked Org");
+  await searchAndChooseOption(
+    page,
+    page.getByRole("combobox", { name: "Country" }),
+    "Singapore",
+  );
+  await page
+    .getByRole("checkbox", {
+      name: "I accept the terms for organizations on this organization's behalf.",
+    })
+    .check();
   await page.getByLabel("New password").fill(password);
   await page.getByLabel("Confirm password").fill(password);
   return page.getByRole("button", {

@@ -1,6 +1,7 @@
-import type {
-  CompleteSignupRequest,
-  RequestSignupRequest,
+import {
+  type CompleteSignupRequest,
+  currentTermsVersion,
+  type RequestSignupRequest,
 } from "typespec/orgs/auth/signup";
 import { expectProblem } from "../lib/admin-api.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
@@ -35,6 +36,8 @@ test("disabled Org signup refuses both requesting and completing signup", async 
   const completion: CompleteSignupRequest = {
     signup_token: "a".repeat(64),
     org_display_name: "Unavailable",
+    org_country: "SG",
+    accepted_terms_version: currentTermsVersion,
     password: orgPassword(),
   };
   try {

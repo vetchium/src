@@ -3,6 +3,7 @@ import type {
   LoginResponse,
   LoginTOTPRequiredResponse,
 } from "typespec/orgs/auth/login";
+import { currentTermsVersion } from "typespec/orgs/auth/signup";
 import type {
   ConfirmTOTPEnrollmentResponse,
   StartTOTPEnrollmentResponse,
@@ -144,6 +145,8 @@ test("signup writes commit exactly one audit event each and roll back with it", 
     const completion = {
       signup_token: token,
       org_display_name: "Audited Org",
+      org_country: "SG",
+      accepted_terms_version: currentTermsVersion,
       password,
     };
 
@@ -219,6 +222,10 @@ test("signup writes commit exactly one audit event each and roll back with it", 
       entity_type: "org",
       entity_id: did,
       source: expect.stringMatching(/^(orgs-api|workers)$/),
+    });
+    expect(only(saga, "org.provisioning").payload).toMatchObject({
+      domain,
+      terms_version: currentTermsVersion,
     });
     expect(only(saga, "org.created").payload).toEqual({
       domain,
@@ -728,6 +735,8 @@ test("a rejected or refused signup records no state and no event", async ({
       {
         signup_token: pending.token,
         org_display_name: "No Record",
+        org_country: "SG",
+        accepted_terms_version: currentTermsVersion,
         password: orgPassword(),
       },
       { idempotencyKey: key },

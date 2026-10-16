@@ -48,8 +48,12 @@ func TestCanGrant(t *testing.T) {
 	}{
 		{"superadmin grants superadmin", superadmin, []authorization.OrgPermissionID{"org:superadmin"}, true},
 		{"superadmin grants billing", superadmin, []authorization.OrgPermissionID{"org:manage_billing"}, true},
+		{"superadmin grants approval", superadmin, []authorization.OrgPermissionID{"org:approve_openings"}, true},
 		{"manager grants nothing", manager, nil, true},
 		{"manager grants manage_users", manager, []authorization.OrgPermissionID{"org:manage_users"}, true},
+		{"manager grants view openings", manager, []authorization.OrgPermissionID{"org:view_openings"}, true},
+		{"manager grants manage openings", manager, []authorization.OrgPermissionID{"org:manage_openings"}, true},
+		{"manager cannot grant approve openings", manager, []authorization.OrgPermissionID{"org:approve_openings"}, false},
 		{"manager cannot grant superadmin", manager, []authorization.OrgPermissionID{"org:superadmin"}, false},
 		{"manager cannot grant billing", manager, []authorization.OrgPermissionID{"org:manage_billing"}, false},
 		{

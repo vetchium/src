@@ -14,6 +14,8 @@ import (
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
 	"backend/internal/profileclient"
+	"backend/internal/publicopeningclient"
+	"backend/internal/publicopenings"
 	"backend/internal/routes"
 	"backend/internal/service"
 )
@@ -62,6 +64,9 @@ func run(log *slog.Logger, address string) error {
 	profiles := profileclient.NewPeer(
 		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
 	)
+	openings := publicopeningclient.NewPeer(
+		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+	)
 	accessKey, secretKey, err := cfg.ObjectStorage.Credentials()
 	if err != nil {
 		return err
@@ -85,10 +90,14 @@ func run(log *slog.Logger, address string) error {
 	defer pool.Close()
 
 	s := &meshapi.Server{
-		Runtime:    apiserver.New(pool, log),
-		TenantID:   cfg.TenantID,
-		Directory:  directory,
-		Profiles:   profiles,
+		Runtime:   apiserver.New(pool, log),
+		TenantID:  cfg.TenantID,
+		Directory: directory,
+		Profiles:  profiles,
+		Openings:  openings,
+		PublicOpenings: publicopenings.Reader{
+			Queries: sqlc.New(pool), Logos: pictures,
+		},
 		Pictures:   pictures,
 		Queries:    sqlc.New(pool),
 		Credential: credential,

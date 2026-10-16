@@ -1,4 +1,5 @@
 import { CheckCircleFilled } from "@ant-design/icons";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Alert,
   App,
@@ -50,6 +51,7 @@ export function PlanOptions({
   locale: string;
 }) {
   const { t } = useTranslation();
+  const { date } = useDateTimeFormat();
   const { modal } = App.useApp();
   const { token } = theme.useToken();
   const mutation = useSetSubscriptionPlan();
@@ -76,9 +78,7 @@ export function PlanOptions({
   const onPaidPlan = currentPlanKnown && currentPlan !== FreeTier;
   const effectiveDate =
     subscription.current_period_end !== undefined
-      ? new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(
-          new Date(subscription.current_period_end),
-        )
+      ? date(subscription.current_period_end, "long")
       : undefined;
 
   function select(plan: HubPlan, interval: BillingInterval | undefined) {

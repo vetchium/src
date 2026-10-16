@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { ReauthenticationAlert } from "@vetchium/portal-ui/shell";
 import {
   Alert,
@@ -22,7 +23,6 @@ import type { OrgUserSummary } from "typespec/orgs/users/management";
 import { isRecentAuthenticationRequired } from "../../api/client";
 import { orgsAPI } from "../../api/orgs";
 import { APIErrorAlert } from "../../components/common/APIErrorAlert";
-import { useDateTimeFormat } from "../../components/common/useDateTimeFormat";
 import { PermissionTable } from "./PermissionTable";
 import { userSummaryQueryKey, usersQueryKey } from "./queries";
 import {
@@ -50,7 +50,7 @@ export function MemberDrawer({
 }: MemberDrawerProps) {
   const { t } = useTranslation();
   const { message, modal } = App.useApp();
-  const formatDateTime = useDateTimeFormat();
+  const { dateTime: formatDateTime } = useDateTimeFormat();
   const self = user?.email_address === viewerEmail;
   const [custom, setCustom] = useState(
     user !== null && roleOf(user.granted_permissions) === "custom",
@@ -195,9 +195,14 @@ export function MemberDrawer({
             ]}
           />
           {viewerPermissions.includes(Superadmin) ? null : (
-            <Typography.Text type="secondary">
-              {t("people.restricted")}
-            </Typography.Text>
+            <Space orientation="vertical" size={0}>
+              <Typography.Text type="secondary">
+                {t("people.restricted")}
+              </Typography.Text>
+              <Typography.Text type="secondary">
+                {t("people.approvalRestricted")}
+              </Typography.Text>
+            </Space>
           )}
           <Typography.Paragraph type="secondary">
             {t("users.custom.hint")}

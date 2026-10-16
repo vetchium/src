@@ -1,7 +1,10 @@
 import { Space, Switch, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useTranslation } from "react-i18next";
-import type { OrgPermissionID } from "typespec/orgs/authorization/types";
+import {
+  ApproveOpenings,
+  type OrgPermissionID,
+} from "typespec/orgs/authorization/types";
 import {
   type PermissionRow,
   permissionDescriptionKey,
@@ -47,7 +50,11 @@ export function PermissionTable({
           </Typography.Text>
           {locked?.(row.permission) ? (
             <Typography.Text type="secondary">
-              {t("people.restricted")}
+              {t(
+                row.permission === ApproveOpenings
+                  ? "people.approvalRestricted"
+                  : "people.restricted",
+              )}
             </Typography.Text>
           ) : null}
           {row.impliedBy.length === 0 ? null : (

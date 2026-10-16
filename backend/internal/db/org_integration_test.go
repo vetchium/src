@@ -117,8 +117,9 @@ func TestOrgSignupAndDomainLifecycleIntegration(t *testing.T) {
 		t.Fatalf("mark reserved: %v", err)
 	}
 	if _, err := q.CreateProvisioningOrg(ctx, sqlc.CreateProvisioningOrgParams{
-		OperationID: prepared.OperationID, DisplayName: "Acme",
-		OrgPlanOid: "org-free-tier", VerificationToken: strings.Repeat("d", 26),
+		OperationID: prepared.OperationID, DisplayName: "Acme", Country: "DE",
+		TermsVersion: "2026-10-16-placeholder",
+		OrgPlanOid:   "org-free-tier", VerificationToken: strings.Repeat("d", 26),
 		NextCheckAt:  dbvalue.Timestamp(time.Now().Add(time.Hour)),
 		EmailAddress: email, PreferredLanguage: "en-US", PasswordHash: "hash",
 		TenantID: "sgp", Source: "orgs-api",
@@ -144,6 +145,16 @@ func TestOrgSignupAndDomainLifecycleIntegration(t *testing.T) {
 	})
 	if err != nil || !held {
 		t.Fatalf("first user superadmin = %t, %v", held, err)
+	}
+	var acceptedBy pgtype.UUID
+	var termsVersion string
+	if err := tx.QueryRow(ctx, `SELECT a.terms_version, a.accepted_by
+        FROM vetchium.org_terms_acceptances AS a
+        JOIN vetchium.org_signup_completions AS c ON c.org_did = a.org_did
+        WHERE c.operation_id = $1 AND a.accepted_at = c.created_at`,
+		prepared.OperationID).Scan(&termsVersion, &acceptedBy); err != nil ||
+		termsVersion != "2026-10-16-placeholder" || acceptedBy != user.OrgUserID {
+		t.Fatalf("terms acceptance = %q by %v, %v", termsVersion, acceptedBy, err)
 	}
 
 	// The domain is now owned locally: new requests and the other pending
@@ -208,7 +219,8 @@ func TestOrgSignupAndDomainLifecycleIntegration(t *testing.T) {
 
 	info, err := q.GetOrgMyInfo(ctx, user.OrgUserID)
 	if err != nil || info.DomainState != sqlc.VetchiumOrgDomainStateFailing ||
-		!info.FailingSince.Valid || len(info.Permissions) != 1 {
+		!info.FailingSince.Valid || len(info.Permissions) != 1 ||
+		info.Country != "DE" || info.DefaultLanguage != "en-US" {
 		t.Fatalf("my info = %+v, %v", info, err)
 	}
 
@@ -391,12 +403,21 @@ func TestOrgSchemaConstraintsIntegration(t *testing.T) {
             vetchium.org_signup_blocked_domains (domain)
             VALUES ('example.123')`,
 		"org DID must be UUIDv7": `INSERT INTO vetchium.orgs
-            (org_did, display_name, org_plan_oid)
-            VALUES (gen_random_uuid(), 'Acme', 'org-free-tier')`,
+            (org_did, display_name, country, default_language, org_plan_oid)
+            VALUES (gen_random_uuid(), 'Acme', 'DE', 'de-DE', 'org-free-tier')`,
 		"suspension timestamp matches state": `INSERT INTO vetchium.orgs
-            (org_did, display_name, org_state, org_plan_oid)
-            VALUES ('018f7e32-7b5a-7d31-8fd0-f7e2a852f144', 'Acme',
-            'suspended', 'org-free-tier')`,
+            (org_did, display_name, country, default_language, org_state,
+            org_plan_oid)
+            VALUES ('018f7e32-7b5a-7d31-8fd0-f7e2a852f144', 'Acme', 'DE',
+            'de-DE', 'suspended', 'org-free-tier')`,
+		"Org country is an alpha-2 code": `INSERT INTO vetchium.orgs
+            (org_did, display_name, country, default_language, org_plan_oid)
+            VALUES ('018f7e32-7b5a-7d31-8fd0-f7e2a852f145', 'Acme', 'de',
+            'de-DE', 'org-free-tier')`,
+		"Org default language is a portal locale": `INSERT INTO vetchium.orgs
+            (org_did, display_name, country, default_language, org_plan_oid)
+            VALUES ('018f7e32-7b5a-7d31-8fd0-f7e2a852f146', 'Acme', 'DE',
+            'fr-FR', 'org-free-tier')`,
 		"only catalog permissions can be granted": `INSERT INTO
             vetchium.org_permission_catalog (permission)
             VALUES ('admin:view_users')`,

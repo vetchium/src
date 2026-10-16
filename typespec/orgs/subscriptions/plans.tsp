@@ -19,7 +19,8 @@ enum OrgPlan {
  * `x-vetchium-plan-entitlements` is the single authority for what a plan
  * allows. `max_users` is the seat cap; `max_users_with_google_sign_in` replaces
  * it while the Org has Google sign-in enabled, and `null` means unlimited.
- * `openings_per_year` counts openings published in the last 365 days.
+ * `openings_per_year` counts openings created in the last 365 days, drafts
+ * included.
  */
 @format("vetchium-org-plan-oid")
 @TypeSpec.OpenAPI.extension(

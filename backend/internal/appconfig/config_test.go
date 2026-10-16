@@ -72,6 +72,10 @@ func TestLoadFile(t *testing.T) {
 			cfg.Workers.AdvanceHubSubscriptionsTimer,
 		)
 	}
+	if cfg.Workers.ExpireOrgOpeningsTimer != time.Minute {
+		t.Fatalf("expire Org Openings timer = %s, want 1m",
+			cfg.Workers.ExpireOrgOpeningsTimer)
+	}
 	if cfg.Workers.ReconcileHubSignupTimer != time.Minute {
 		t.Fatalf(
 			"reconcile Hub signup timer = %s, want 1m",
@@ -379,6 +383,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
+    "expireOrgOpeningsTimer": "1m",
     "reconcileHubSignupTimer": "1m",
     "reconcileHubEmailChangeTimer": "1m",
     "deliverOrgEmailTimer": "1s",
@@ -486,6 +491,29 @@ func TestLoadFileRequiresPositiveAdvanceHubSubscriptionsTimer(t *testing.T) {
 	if err == nil || !strings.Contains(
 		err.Error(), "workers.advanceHubSubscriptionsTimer must be positive",
 	) {
+		t.Fatalf("LoadFile() error = %v, want positive timer error", err)
+	}
+}
+
+func TestLoadFileRequiresPositiveExpireOrgOpeningsTimer(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	path := writeConfig(t, passwordFile, "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(
+		string(contents),
+		`"expireOrgOpeningsTimer": "1m"`,
+		`"expireOrgOpeningsTimer": "0s"`,
+		1,
+	))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LoadFile(path)
+	if err == nil || !strings.Contains(err.Error(),
+		"workers.expireOrgOpeningsTimer must be positive") {
 		t.Fatalf("LoadFile() error = %v, want positive timer error", err)
 	}
 }
@@ -623,6 +651,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
+    "expireOrgOpeningsTimer": "1m",
     "reconcileHubSignupTimer": "1m",
     "reconcileHubEmailChangeTimer": "1m",
     "deliverOrgEmailTimer": "1s",

@@ -206,8 +206,10 @@ test("audit viewer finds Org domain, acting user, affected bulk user and anonymo
   try {
     const org = await signupOrg(api, domain);
     const token = await loginOrg(api, org);
-    const name = await api.setCompanyName(token, {
+    const name = await api.setCompanyDetails(token, {
       display_name: "Audit Company",
+      country: "SG",
+      default_language: "en-US",
     });
     expect(name.status(), await name.text()).toBe(204);
     const otherEmail = `member@${domain}`;
@@ -239,7 +241,7 @@ test("audit viewer finds Org domain, acting user, affected bulk user and anonymo
     const events = (await responseJSON<ListResponse>(listed)).events;
     expect(events.map((event) => event.action)).toContain("org.users.disabled");
     expect(events.map((event) => event.action)).not.toContain(
-      "org.company.name_changed",
+      "org.company.details_changed",
     );
     const actor = await responseJSON<ListResponse>(
       await adminAPI.listAuditEvents(
@@ -248,7 +250,7 @@ test("audit viewer finds Org domain, acting user, affected bulk user and anonymo
       ),
     );
     expect(actor.events.map((event) => event.action)).toContain(
-      "org.company.name_changed",
+      "org.company.details_changed",
     );
     expect(actor.events.map((event) => event.action)).toContain(
       "org.users.disabled",

@@ -23,7 +23,7 @@ const tags = [
 // none of these tags had both Deprecated and Preferred-Value fields.
 const output = `${JSON.stringify(tags, null, 2)}\n`;
 const path = fileURLToPath(
-  new URL("../hub/profile/language_catalog.json", import.meta.url),
+  new URL("../common/language_catalog.json", import.meta.url),
 );
 
 if (process.argv.includes("--check")) {

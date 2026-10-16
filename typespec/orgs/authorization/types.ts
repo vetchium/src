@@ -1,11 +1,17 @@
 export const Superadmin = "org:superadmin" as const;
 export const ManageUsers = "org:manage_users" as const;
 export const ManageBilling = "org:manage_billing" as const;
+export const ViewOpenings = "org:view_openings" as const;
+export const ManageOpenings = "org:manage_openings" as const;
+export const ApproveOpenings = "org:approve_openings" as const;
 
 export type OrgPermission =
   | typeof Superadmin
   | typeof ManageUsers
-  | typeof ManageBilling;
+  | typeof ManageBilling
+  | typeof ViewOpenings
+  | typeof ManageOpenings
+  | typeof ApproveOpenings;
 
 /** Open identifier: a newer API may return permissions this portal does not
  * define yet. */
@@ -19,14 +25,26 @@ export const orgPermissions: readonly OrgPermission[] = [
   Superadmin,
   ManageUsers,
   ManageBilling,
+  ViewOpenings,
+  ManageOpenings,
+  ApproveOpenings,
 ];
 
 const permissionImplications: Readonly<
   Record<OrgPermission, readonly OrgPermission[]>
 > = {
-  "org:superadmin": [ManageUsers, ManageBilling],
+  "org:superadmin": [
+    ManageUsers,
+    ManageBilling,
+    ViewOpenings,
+    ManageOpenings,
+    ApproveOpenings,
+  ],
   "org:manage_users": [],
   "org:manage_billing": [],
+  "org:view_openings": [],
+  "org:manage_openings": [ViewOpenings],
+  "org:approve_openings": [ViewOpenings],
 };
 
 export function isOrgPermission(

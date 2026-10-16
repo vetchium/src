@@ -1,6 +1,6 @@
 import type { TOTPRecoveryCodeCount } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
-import type { DisplayName } from "../../common/localization.ts";
+import type { CountryCode, DisplayName } from "../../common/localization.ts";
 import type { OrgPermissionID } from "../authorization/types.ts";
 import type { OrgPlanOID } from "../subscriptions/plans.ts";
 import type { FrontendLocale, OrgDomain } from "../types.ts";
@@ -29,6 +29,8 @@ export interface DomainStatus {
 
 export interface OrgSummary {
   display_name: DisplayName;
+  country: CountryCode;
+  default_language: FrontendLocale;
   org_state: OrgState;
   domain: DomainStatus;
 }

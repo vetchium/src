@@ -1,5 +1,6 @@
 import { MoreOutlined, SearchOutlined } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Alert,
   App,
@@ -22,7 +23,6 @@ import {
 } from "typespec/orgs/users/invitations";
 import { orgsAPI } from "../../api/orgs";
 import { problemMessage } from "../../components/common/APIErrorAlert";
-import { useDateTimeFormat } from "../../components/common/useDateTimeFormat";
 import {
   invitationsQueryKey,
   useInvitationsQuery,
@@ -36,7 +36,7 @@ export function InvitationsTab() {
   const { t } = useTranslation();
   const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
-  const formatDateTime = useDateTimeFormat();
+  const { dateTime: formatDateTime } = useDateTimeFormat();
   const [search, setSearch] = useState("");
   const [applied, setApplied] = useState("");
   const [pageKeys, setPageKeys] = useState<Array<PaginationKey | undefined>>([
@@ -172,7 +172,7 @@ export function InvitationsTab() {
     <Space orientation="vertical" size="middle" className="full-width">
       <Flex gap="middle" wrap align="center">
         <Input
-          className="member-search"
+          className="toolbar-search"
           allowClear
           value={search}
           prefix={<SearchOutlined aria-hidden />}

@@ -35,10 +35,10 @@ Google sign-in. Compose with `orgs.md` and `authorization.md`.
   from member administration.
 - Delegation: a `org:manage_users` holder may invite, list, disable, and
   re-enable users and grant or revoke `org:manage_users`. Only a superadmin may
-  grant or revoke `org:superadmin` or `org:manage_billing`, or disable or
-  re-enable a superadmin; the refusal names the target
-  (`org-superadmin-required`). Changing grants needs step-up; inviting and
-  disabling do not.
+  grant or revoke `org:superadmin`, `org:manage_billing`, or
+  `org:approve_openings`, or disable or re-enable a superadmin; the refusal
+  names the target (`org-superadmin-required`). Changing grants needs step-up;
+  inviting and disabling do not.
 - No one disables themselves or changes their own grants
   (`org-self-change-forbidden`). Grant changes apply on the user's next request
   because the guard reads the effective view each time. Disabling revokes every
@@ -112,10 +112,8 @@ Google sign-in. Compose with `orgs.md` and `authorization.md`.
 
 ## Openings quota
 
-- Openings are not built. `internal/orgs/entitlements.OpeningQuota` and its
-  comment state the counting rule: count Openings published in the last 365
-  days whatever their state now, check the count in the publishing statement
-  under the Org lock, and refuse a plan that cannot publish another.
+- `internal/orgs/entitlements.OpeningQuota` and its comment state the
+  counting rule; [`openings.md`](openings.md) says where it applies.
 
 ## Audit and tests
 
@@ -124,5 +122,6 @@ Google sign-in. Compose with `orgs.md` and `authorization.md`.
   immediate plan changes belong in `orgs-subscriptions.spec.ts`. After changing the
   schema, run `make clean` before `make test-stack`, or the tenant databases
   keep their old constraints.
-- `make dev-seed` creates a Free, Silver, and Gold Org per region, each with a
-  Superadmin, Finance, User manager, and Member user.
+- `make dev-seed` creates a Free, Silver, and Gold Org per region with
+  Superadmin, Finance, User manager, Recruiter, and Hiring approver users.
+  Silver and Gold also have a Member; Free uses its five seats.

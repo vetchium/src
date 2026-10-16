@@ -82,6 +82,8 @@ type Service struct {
 
 type payload struct {
 	DisplayName       string `json:"display_name"`
+	Country           string `json:"country"`
+	TermsVersion      string `json:"terms_version"`
 	EmailAddress      string `json:"email_address"`
 	PasswordHash      string `json:"password_hash"`
 	PreferredLanguage string `json:"preferred_language"`
@@ -168,6 +170,8 @@ func (s *Service) Start(
 	}
 	plaintext, err := json.Marshal(payload{
 		DisplayName:       string(request.OrgDisplayName),
+		Country:           string(request.OrgCountry),
+		TermsVersion:      string(request.AcceptedTermsVersion),
 		EmailAddress:      signup.EmailAddress,
 		PasswordHash:      passwordHash,
 		PreferredLanguage: signup.PreferredLanguage,
@@ -495,6 +499,8 @@ func (s *Service) createLocal(
 	return s.queries.CreateProvisioningOrg(
 		ctx, sqlc.CreateProvisioningOrgParams{
 			OperationID: operation.OperationID, DisplayName: data.DisplayName,
+			Country:           data.Country,
+			TermsVersion:      data.TermsVersion,
 			OrgPlanOid:        DefaultPlan,
 			VerificationToken: data.VerificationToken,
 			NextCheckAt: dbvalue.Timestamp(

@@ -23,7 +23,7 @@ import { allowsLogo } from "typespec/orgs/subscriptions/plans";
 import { orgsAPI } from "../api/orgs";
 import { paths } from "../app/paths";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
-import { CompanyNameForm } from "../features/account/CompanyNameForm";
+import { CompanyDetailsForm } from "../features/account/CompanyDetailsForm";
 import { myInfoQueryKey, useMyInfoQuery } from "../features/account/queries";
 
 export function SettingsPage() {
@@ -56,7 +56,7 @@ export function SettingsPage() {
       </div>
       <Card title={t("company.identity")} data-testid="logo-card">
         <Flex orientation="vertical" gap="middle">
-          <CompanyNameForm name={me.org.display_name} />
+          <CompanyDetailsForm org={me.org} />
           <Typography.Paragraph type="secondary">
             {t("settings.logo.help")}
           </Typography.Paragraph>

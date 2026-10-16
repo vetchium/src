@@ -4,6 +4,7 @@ import {
   UserAddOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Alert,
   App,
@@ -69,7 +70,8 @@ const stateProblems = {
 };
 
 export function UsersPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const { dateTime } = useDateTimeFormat();
   const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
   const { data: me } = useMyInfoQuery();
@@ -215,10 +217,7 @@ export function UsersPage() {
       render: (_, user) =>
         user.last_login_at === undefined
           ? t("common.never")
-          : new Intl.DateTimeFormat(i18n.language, {
-              dateStyle: "medium",
-              timeStyle: "short",
-            }).format(new Date(user.last_login_at)),
+          : dateTime(user.last_login_at),
     },
     ...(canManageUsers
       ? [

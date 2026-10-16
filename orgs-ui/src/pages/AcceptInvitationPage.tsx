@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
 import { usePendingOperations } from "@vetchium/portal-ui/pending-operations";
 import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
@@ -23,7 +24,6 @@ import { loginPath, paths } from "../app/paths";
 import { readPreferredLanguage } from "../app/preferences";
 import { regionStore, regionTable } from "../app/regions";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
-import { useDateTimeFormat } from "../components/common/useDateTimeFormat";
 
 interface AcceptValues {
   new_password: string;
@@ -32,7 +32,7 @@ interface AcceptValues {
 
 export function AcceptInvitationPage() {
   const { t } = useTranslation();
-  const formatDateTime = useDateTimeFormat();
+  const { dateTime: formatDateTime } = useDateTimeFormat();
   const [search] = useSearchParams();
   const token = search.get("token") ?? "";
   const region = regionFromSearchParams(regionTable, search);

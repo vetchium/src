@@ -264,17 +264,26 @@ test("Hub signup, sign-in, and password writes have atomic audit events", async 
       "vetchium-problem-details/idempotency-key-conflict",
     );
     const completionEvents = hubAuditEventsByIdempotencyKey(completeSignupKey);
-    expect(completionEvents).toHaveLength(6);
-    expect(completionEvents.map((event) => event.action)).toEqual(
-      expect.arrayContaining([
+    const completionActions = completionEvents.map((event) => event.action);
+    expect(
+      completionActions
+        .filter((action) => action !== "hub.signup.completion_retry_scheduled")
+        .sort(),
+    ).toEqual(
+      [
         "hub.signup.completion_prepared",
         "hub.signup.completion_reserved",
-        "hub.signup.completion_retry_scheduled",
         "hub.user.provisioning",
         "hub.user.created",
         "hub.subscription.created",
-      ]),
+      ].sort(),
     );
+    // The worker can schedule another retry before the API completes the signup.
+    expect(
+      completionActions.filter(
+        (action) => action === "hub.signup.completion_retry_scheduled",
+      ).length,
+    ).toBeGreaterThanOrEqual(1);
     const userCreated = completionEvents.find(
       (event) => event.action === "hub.user.created",
     );

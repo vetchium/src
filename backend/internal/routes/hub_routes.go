@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	hubauth "backend/handlers/hub/auth"
+	hubopenings "backend/handlers/hub/openings"
 	huboperations "backend/handlers/hub/operations"
 	hubprofile "backend/handlers/hub/profile"
 	hubsubscriptions "backend/handlers/hub/subscriptions"
@@ -116,6 +117,10 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(hubprofile.DeleteEducation(s)))
 	mux.Handle("POST /api/hub/profile/read",
 		hubAuth(hubprofile.Read(s)))
+	mux.Handle("POST /api/hub/list-org-openings",
+		hubAuth(hubopenings.List(s)))
+	mux.Handle("POST /api/hub/get-org-opening",
+		hubAuth(hubopenings.Get(s)))
 	mux.Handle("POST /api/hub/profile/professional-email/list",
 		hubAuth(hubprofile.ListProfessionalEmails(s)))
 	mux.Handle("POST /api/hub/profile/professional-email/add",

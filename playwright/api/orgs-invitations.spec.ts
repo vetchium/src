@@ -275,7 +275,11 @@ test.describe("invite-users", () => {
         inviteeAddress(org.domain, "manager"),
         ["org:manage_users"],
       );
-      for (const permission of ["org:superadmin", "org:manage_billing"]) {
+      for (const permission of [
+        "org:superadmin",
+        "org:manage_billing",
+        "org:approve_openings",
+      ]) {
         await expectProblem(
           await api.inviteUsers(manager.token, {
             email_addresses: [inviteeAddress(org.domain)],

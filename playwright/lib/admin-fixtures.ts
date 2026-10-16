@@ -6,6 +6,8 @@ import {
   type APIResponse,
   test as base,
   expect,
+  type Frame,
+  type Request,
   type Response,
 } from "@playwright/test";
 import type { AdminUserID } from "typespec/admin/types";
@@ -95,6 +97,7 @@ async function observeAPIResponse(
 async function observeBrowserResponse(
   observations: APIObservation[],
   response: Response,
+  documentReplaced: Promise<void>,
 ): Promise<void> {
   const path = recordPath(response.url());
   if (path === undefined) return;
@@ -105,10 +108,17 @@ async function observeBrowserResponse(
   };
   if (response.headers()["content-type"]?.includes("json")) {
     try {
-      const type = problemType(await response.json());
+      const body = await Promise.race([
+        response.json(),
+        documentReplaced.then(() => {
+          throw new Error("the requesting document was replaced");
+        }),
+      ]);
+      const type = problemType(body);
       if (type !== undefined) observation.problemType = type;
     } catch {
-      // The page may close before an optional response body is available.
+      // The page may close or navigate before an optional response body is
+      // available.
     }
   }
   observations.push(observation);
@@ -183,18 +193,50 @@ export const test = base.extend<AdminFixtures>({
     await use(trackedRequestContext(request, apiCoverage));
   },
   page: async ({ apiCoverage, page }, use) => {
+    // Chromium can drop the completion of a fetch whose document a navigation
+    // replaces, and Playwright then never settles that response's body. Each
+    // request remembers its document, and a body read gives up once a
+    // cross-document navigation (one with a navigation request) commits.
+    let replaceDocument = () => {};
+    let documentReplaced = new Promise<void>((resolve) => {
+      replaceDocument = resolve;
+    });
+    let navigating = false;
+    const documents = new WeakMap<Request, Promise<void>>();
+    const onRequest = (request: Request) => {
+      if (request.serviceWorker() !== null) return;
+      if (request.frame() !== page.mainFrame()) return;
+      if (request.isNavigationRequest()) navigating = true;
+      else documents.set(request, documentReplaced);
+    };
+    const onNavigated = (frame: Frame) => {
+      if (frame !== page.mainFrame() || !navigating) return;
+      navigating = false;
+      replaceDocument();
+      documentReplaced = new Promise<void>((resolve) => {
+        replaceDocument = resolve;
+      });
+    };
     const pending = new Set<Promise<void>>();
-    const listener = (response: Response) => {
-      const observation = observeBrowserResponse(apiCoverage, response);
+    const onResponse = (response: Response) => {
+      const observation = observeBrowserResponse(
+        apiCoverage,
+        response,
+        documents.get(response.request()) ?? new Promise<void>(() => {}),
+      );
       pending.add(observation);
       void observation.then(
         () => pending.delete(observation),
         () => pending.delete(observation),
       );
     };
-    page.on("response", listener);
+    page.on("request", onRequest);
+    page.on("framenavigated", onNavigated);
+    page.on("response", onResponse);
     await use(page);
-    page.off("response", listener);
+    page.off("request", onRequest);
+    page.off("framenavigated", onNavigated);
+    page.off("response", onResponse);
     await Promise.all(pending);
   },
   adminAPI: async ({ request }, use) => {

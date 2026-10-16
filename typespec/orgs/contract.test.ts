@@ -4,18 +4,27 @@ import test from "node:test";
 import { validateLoginRequest } from "./auth/login.ts";
 import { validateRequestPasswordResetRequest } from "./auth/password.ts";
 import {
+  type currentTermsVersion,
   signupDomain,
   validateCompleteSignupRequest,
   validateRequestSignupRequest,
 } from "./auth/signup.ts";
 import {
+  ApproveOpenings,
   directPermissions,
   effectivePermissions,
   holds,
   ManageBilling,
+  ManageOpenings,
   ManageUsers,
   Superadmin,
+  ViewOpenings,
 } from "./authorization/types.ts";
+import {
+  normalizeSetCompanyDetailsRequest,
+  type SetCompanyDetailsRequest,
+  validateSetCompanyDetailsRequest,
+} from "./settings/company.ts";
 import { frontendLocaleValues, isFrontendLocale } from "./types.ts";
 import {
   validateAcceptInvitationRequest,
@@ -51,9 +60,39 @@ test("Org signup claims exactly the email address's domain", () => {
     validateCompleteSignupRequest({
       signup_token: "short",
       org_display_name: "  ",
+      org_country: "ZZ",
+      accepted_terms_version: "2020-01-01" as typeof currentTermsVersion,
       password: "short",
     }),
-    ["signup_token", "org_display_name", "password"],
+    [
+      "signup_token",
+      "org_display_name",
+      "org_country",
+      "accepted_terms_version",
+      "password",
+    ],
+  );
+});
+
+test("company details trim the name and require a country and a portal locale", () => {
+  const request: SetCompanyDetailsRequest = {
+    display_name: "  Acme  ",
+    country: "IN",
+    default_language: "ta",
+  };
+  assert.deepEqual(normalizeSetCompanyDetailsRequest(request), {
+    ...request,
+    display_name: "Acme",
+  });
+  assert.equal(request.display_name, "  Acme  ");
+  assert.deepEqual(validateSetCompanyDetailsRequest(request), []);
+  assert.deepEqual(
+    validateSetCompanyDetailsRequest({
+      display_name: " ",
+      country: "in",
+      default_language: "fr-FR",
+    } as unknown as SetCompanyDetailsRequest),
+    ["display_name", "country", "default_language"],
   );
 });
 
@@ -129,14 +168,35 @@ test("Org invitations validate bulk bounds, permissions, and passwords", () => {
   );
 });
 
-test("Org permissions: superadmin implies both manage permissions", () => {
+test("Org permissions include one-hop Opening implications", () => {
   assert.deepEqual(effectivePermissions([Superadmin]), [
+    ApproveOpenings,
     ManageBilling,
+    ManageOpenings,
     ManageUsers,
     Superadmin,
+    ViewOpenings,
   ]);
   assert.deepEqual(
-    directPermissions([ManageBilling, ManageUsers, Superadmin]),
+    directPermissions([
+      ApproveOpenings,
+      ManageBilling,
+      ManageOpenings,
+      ManageUsers,
+      Superadmin,
+      ViewOpenings,
+    ]),
     [Superadmin],
   );
+  assert.deepEqual(effectivePermissions([ManageOpenings]), [
+    ManageOpenings,
+    ViewOpenings,
+  ]);
+  assert.deepEqual(effectivePermissions([ApproveOpenings]), [
+    ApproveOpenings,
+    ViewOpenings,
+  ]);
+  assert.deepEqual(directPermissions([ManageOpenings, ViewOpenings]), [
+    ManageOpenings,
+  ]);
 });

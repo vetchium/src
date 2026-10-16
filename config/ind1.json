@@ -17,6 +17,7 @@
     "hubEmailLeaseTTL": "1m",
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
+    "expireOrgOpeningsTimer": "1m",
     "reconcileHubSignupTimer": "10s",
     "reconcileHubEmailChangeTimer": "10s",
     "deliverOrgEmailTimer": "500ms",

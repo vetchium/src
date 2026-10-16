@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
 import { useHoldNavigation } from "@vetchium/portal-ui/pending-operations";
 import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
@@ -7,10 +8,12 @@ import {
   App,
   Button,
   Card,
+  Checkbox,
   Descriptions,
   Flex,
   Form,
   Input,
+  Select,
   Spin,
   Typography,
 } from "antd";
@@ -19,9 +22,10 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { isNewPassword } from "typespec/common/authentication";
 import type { IdempotencyKey } from "typespec/common/idempotency";
-import { isDisplayName } from "typespec/common/localization";
+import { type CountryCode, isDisplayName } from "typespec/common/localization";
 import {
   type CompleteSignupRequest,
+  currentTermsVersion,
   normalizeCompleteSignupRequest,
   validateCompleteSignupRequest,
   validateGetSignupDetailsRequest,
@@ -35,12 +39,14 @@ import { orgsAPI } from "../api/orgs";
 import { loginPath, paths } from "../app/paths";
 import { regionStore, regionTable } from "../app/regions";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
-import { useDateTimeFormat } from "../components/common/useDateTimeFormat";
+import { countryOptions } from "../features/account/countryOptions";
 import { DnsRecord } from "../features/domain/DnsRecord";
 import { SignupRecordCheck } from "../features/signup/SignupRecordCheck";
 
 interface CompleteValues {
   org_display_name: string;
+  org_country: CountryCode;
+  accept_terms: boolean;
   password: string;
   confirm_password: string;
 }
@@ -72,10 +78,10 @@ function predicateRule(valid: (value: string) => boolean, message: string) {
 }
 
 export function CompleteSignupPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { message } = App.useApp();
-  const formatDateTime = useDateTimeFormat();
+  const { dateTime: formatDateTime } = useDateTimeFormat();
   const [search] = useSearchParams();
   const token = search.get("token") ?? "";
   const region = regionFromSearchParams(regionTable, search);
@@ -139,6 +145,8 @@ export function CompleteSignupPage() {
     const request = normalizeCompleteSignupRequest({
       signup_token: token,
       org_display_name: values.org_display_name,
+      org_country: values.org_country,
+      accepted_terms_version: currentTermsVersion,
       password: values.password,
     });
     if (validateCompleteSignupRequest(request).length !== 0) return;
@@ -279,6 +287,20 @@ export function CompleteSignupPage() {
                   <Input autoComplete="organization" maxLength={200} />
                 </Form.Item>
                 <Form.Item
+                  name="org_country"
+                  label={t("fields.orgCountry")}
+                  extra={t("completeSignup.countryHelp")}
+                  rules={[
+                    { required: true, message: t("validation.required") },
+                  ]}
+                >
+                  <Select
+                    showSearch
+                    optionFilterProp="label"
+                    options={countryOptions(i18n.language)}
+                  />
+                </Form.Item>
+                <Form.Item
                   name="password"
                   label={t("fields.newPassword")}
                   rules={[
@@ -307,6 +329,27 @@ export function CompleteSignupPage() {
                   ]}
                 >
                   <Input.Password autoComplete="new-password" maxLength={128} />
+                </Form.Item>
+                <Form.Item
+                  name="accept_terms"
+                  valuePropName="checked"
+                  extra={
+                    <Link to={paths.terms} target="_blank" rel="noopener">
+                      {t("completeSignup.readTerms")}
+                    </Link>
+                  }
+                  rules={[
+                    {
+                      validator: (_, value: boolean | undefined) =>
+                        value === true
+                          ? Promise.resolve()
+                          : Promise.reject(
+                              new Error(t("completeSignup.termsRequired")),
+                            ),
+                    },
+                  ]}
+                >
+                  <Checkbox>{t("completeSignup.acceptTerms")}</Checkbox>
                 </Form.Item>
                 <Button
                   type="primary"

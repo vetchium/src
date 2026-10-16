@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { App, Form, Input, Modal } from "antd";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -37,7 +38,8 @@ const inviteProblems = {
 };
 
 export function InviteUserModal({ open, onClose }: InviteUserModalProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const { dateTime } = useDateTimeFormat();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [form] = Form.useForm<InviteFormValues>();
@@ -76,10 +78,7 @@ export function InviteUserModal({ open, onClose }: InviteUserModalProps) {
       void message.success(
         t("users.invite.sent", {
           email: request.email_address,
-          expiresAt: new Intl.DateTimeFormat(i18n.language, {
-            dateStyle: "medium",
-            timeStyle: "short",
-          }).format(new Date(response.expires_at)),
+          expiresAt: dateTime(response.expires_at),
         }),
       );
     } catch (error) {

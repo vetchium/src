@@ -32,6 +32,12 @@ import type {
 } from "typespec/hub/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";
 import type {
+  GetOrgOpeningRequest,
+  GetOrgOpeningResponse,
+  ListOrgOpeningsRequest,
+  ListOrgOpeningsResponse,
+} from "typespec/hub/openings/public";
+import type {
   GetOperationRequest,
   OperationStatus,
   PendingOperation,
@@ -169,6 +175,10 @@ export const hubAPI = {
   myInfo: () => apiRequest<MyInfoResponse>(`${base}/my-info`),
   readProfile: (body: ReadProfileRequest) =>
     apiRequest<PublicProfile>(`${base}/profile/read`, { body }),
+  listOrgOpenings: (body: ListOrgOpeningsRequest) =>
+    apiRequest<ListOrgOpeningsResponse>(`${base}/list-org-openings`, { body }),
+  getOrgOpening: (body: GetOrgOpeningRequest) =>
+    apiRequest<GetOrgOpeningResponse>(`${base}/get-org-opening`, { body }),
   setPublicFields: (
     body: SetPublicFieldsRequest,
     idempotencyKey: IdempotencyKey,

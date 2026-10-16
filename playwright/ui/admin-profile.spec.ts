@@ -70,6 +70,27 @@ test("an administrator updates the name shown throughout the portal", async ({
   ).toBeVisible();
 });
 
+test.describe("in a British browser in India", () => {
+  test.use({ locale: "en-GB", timezoneId: "Asia/Kolkata" });
+
+  test("the session expiry follows the browser's conventions and names its zone", async ({
+    createAdmin,
+    page,
+  }) => {
+    const admin = await createAdmin();
+    await page.addInitScript((sessionToken) => {
+      sessionStorage.setItem("vetchium.admin.session-token", sessionToken);
+    }, admin.sessionToken);
+    await page.goto("/");
+    await expect(
+      page
+        .getByRole("row")
+        .filter({ hasText: "Session expires" })
+        .getByText(/^\d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2} GMT\+5:30$/),
+    ).toBeVisible();
+  });
+});
+
 test("the profile form rejects a blank name", async ({ createAdmin, page }) => {
   const admin = await createAdmin();
   await page.addInitScript((sessionToken) => {

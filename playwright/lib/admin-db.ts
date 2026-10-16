@@ -2388,7 +2388,96 @@ async function holdRowLock(
   lockedAt: Date;
   release: (beforeCommit?: string) => Promise<void>;
 }> {
-  const marker = `row_lock_ready_${randomBytes(8).toString("hex")}`;
+  const session = openLockSession(tenant);
+  session.write(`
+    BEGIN;
+    ${lockStatement}
+    SELECT 'locked|' || pg_backend_pid() || '|' ||
+      extract(epoch FROM clock_timestamp())::text;
+  `);
+  const ready = await session.output(
+    /^locked\|(\d+)\|(\S+)$/m,
+    "row lock session did not become ready",
+  );
+  return {
+    holderPID: Number(ready[1]),
+    lockedAt: new Date(Number(ready[2]) * 1000),
+    release: session.commit,
+  };
+}
+
+export interface QueuedAdvisoryLock {
+  holderPID: number;
+  /** Resolves once the owner's transaction ends and this session holds the
+   * lock. */
+  acquired: Promise<void>;
+  /** Idempotent: does nothing once the session has exited. */
+  release: () => Promise<void>;
+}
+
+/**
+ * Queues a session for the one advisory lock that ownerPID's open transaction
+ * holds, and resolves once the session waits behind it. The session takes the
+ * lock when that transaction ends, so the owner's next transaction taking the
+ * same lock waits until `release`.
+ */
+export async function queueBehindAdvisoryLock(
+  tenant: TestTenant,
+  ownerPID: number,
+): Promise<QueuedAdvisoryLock> {
+  if (!/^\d+$/.test(String(ownerPID))) {
+    throw new Error(`invalid owner PID: ${ownerPID}`);
+  }
+  const session = openLockSession(tenant);
+  // \gset fails unless exactly one advisory lock is held, and a bigint key
+  // is held as its high and low halves in classid and objid.
+  session.write(`
+    BEGIN;
+    SELECT 'queued|' || pg_backend_pid();
+    SELECT (classid::bigint << 32) | objid::bigint AS advisory_key
+    FROM pg_locks
+    WHERE pid = ${ownerPID} AND locktype = 'advisory' AND granted \\gset
+    SELECT pg_advisory_xact_lock(:advisory_key);
+    SELECT 'acquired';
+  `);
+  const queued = await session.output(
+    /^queued\|(\d+)$/m,
+    "advisory lock session did not start",
+  );
+  const pid = Number(queued[1]);
+  const acquired = session
+    .output(/^acquired$/m, "advisory lock was not acquired", 60_000)
+    .then(() => undefined);
+  // Observed by the poll below until the caller awaits it.
+  acquired.catch(() => {});
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    if (session.exited()) await acquired;
+    const waiting = sqlScalarForTenant(
+      tenant,
+      `SELECT (${ownerPID} = ANY (pg_blocking_pids(${pid})))::text;`,
+    );
+    if (waiting === "true") {
+      return { holderPID: pid, acquired, release: () => session.commit() };
+    }
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+  }
+  await session.commit();
+  throw new Error(`advisory lock session ${pid} never waited for ${ownerPID}`);
+}
+
+/** A psql session that stays in one transaction until `commit`. */
+function openLockSession(tenant: TestTenant): {
+  write: (sql: string) => void;
+  output: (
+    pattern: RegExp,
+    failure: string,
+    timeoutMS?: number,
+  ) => Promise<RegExpMatchArray>;
+  exited: () => boolean;
+  /** Idempotent: does nothing once the session has exited. */
+  commit: (beforeCommit?: string) => Promise<void>;
+} {
   const session = spawn(
     "docker",
     [
@@ -2430,53 +2519,42 @@ async function holdRowLock(
     session.once("exit", (code) => {
       sessionExited = true;
       if (code === 0) resolvePromise();
-      else reject(new Error(`row lock session exited ${code}: ${stderr}`));
+      else reject(new Error(`lock session exited ${code}: ${stderr}`));
     });
   });
-  const ready = new Promise<{ pid: number; lockedAt: Date }>(
-    (resolvePromise, reject) => {
-      const timeout = setTimeout(
-        () =>
-          reject(
-            new Error(
-              `row lock session did not become ready: ${stdout} ${stderr}`,
-            ),
-          ),
-        10_000,
-      );
-      const onData = () => {
-        const match = stdout.match(/(\d+)\|([^\n]+)\n/);
-        if (match?.[1] !== undefined && match[2] !== undefined) {
-          clearTimeout(timeout);
-          session.stdout.off("data", onData);
-          resolvePromise({
-            pid: Number(match[1]),
-            lockedAt: new Date(Number(match[2]) * 1000),
-          });
-        }
-      };
-      session.stdout.on("data", onData);
-      session.once("exit", () => {
-        clearTimeout(timeout);
-        reject(new Error(`row lock session exited before ready: ${stderr}`));
-      });
-    },
-  );
-  session.stdin.write(`
-    BEGIN;
-    ${lockStatement}
-    SELECT pg_backend_pid()::text || '|' ||
-      extract(epoch FROM clock_timestamp())::text;
-    SELECT '${marker}';
-  `);
-  const { pid, lockedAt } = await ready;
-  let released = false;
+  let committed = false;
   return {
-    holderPID: pid,
-    lockedAt,
-    release: async (beforeCommit) => {
-      if (released || sessionExited) return;
-      released = true;
+    write: (sql) => {
+      session.stdin.write(sql);
+    },
+    output: (pattern, failure, timeoutMS = 10_000) =>
+      new Promise((resolvePromise, reject) => {
+        const settle = (match: RegExpMatchArray | null) => {
+          if (match === null && !sessionExited) return false;
+          clearTimeout(timeout);
+          session.stdout.off("data", check);
+          session.off("exit", check);
+          if (match === null) {
+            reject(new Error(`${failure}: session exited: ${stderr}`));
+          } else {
+            resolvePromise(match);
+          }
+          return true;
+        };
+        const check = () => settle(stdout.match(pattern));
+        const timeout = setTimeout(() => {
+          session.stdout.off("data", check);
+          session.off("exit", check);
+          reject(new Error(`${failure}: ${stdout} ${stderr}`));
+        }, timeoutMS);
+        if (check()) return;
+        session.stdout.on("data", check);
+        session.once("exit", check);
+      }),
+    exited: () => sessionExited,
+    commit: async (beforeCommit) => {
+      if (committed || sessionExited) return;
+      committed = true;
       if (beforeCommit !== undefined) session.stdin.write(beforeCommit);
       session.stdin.write("COMMIT;\n\\q\n");
       await exited.catch(() => {});
@@ -2652,22 +2730,21 @@ export function expectHubUserSubscriptionRejected(
 /**
  * Polls until at least n backends are transitively blocked by holderPID,
  * following the blocking chain so a second waiter queued behind the first
- * still counts toward the holder.
+ * still counts toward the holder, and returns their PIDs.
  */
 export async function waitForBlockedBy(
   tenant: TestTenant,
   holderPID: number,
   n: number,
-): Promise<void> {
+): Promise<number[]> {
   if (!/^\d+$/.test(String(holderPID))) {
     throw new Error(`invalid holder PID: ${holderPID}`);
   }
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
-    const count = Number(
-      sqlScalarForTenant(
-        tenant,
-        `
+    const blocked = sqlScalarForTenant(
+      tenant,
+      `
         WITH RECURSIVE blocked(pid) AS (
             SELECT pid FROM pg_stat_activity
             WHERE ${holderPID} = ANY (pg_blocking_pids(pid))
@@ -2675,11 +2752,11 @@ export async function waitForBlockedBy(
             SELECT a.pid FROM pg_stat_activity AS a
             JOIN blocked AS b ON b.pid = ANY (pg_blocking_pids(a.pid))
         )
-        SELECT count(*)::text FROM blocked;
+        SELECT coalesce(string_agg(pid::text, ','), '') FROM blocked;
       `,
-      ),
     );
-    if (count >= n) return;
+    const pids = blocked === "" ? [] : blocked.split(",").map(Number);
+    if (pids.length >= n) return pids;
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
   }
   throw new Error(`fewer than ${n} backends blocked by PID ${holderPID}`);

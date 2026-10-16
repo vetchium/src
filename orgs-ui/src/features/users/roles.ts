@@ -1,9 +1,11 @@
 import {
+  ApproveOpenings,
   directPermissions,
   effectivePermissions,
   impliedPermissions,
   isOrgPermission,
   ManageBilling,
+  ManageOpenings,
   ManageUsers,
   type OrgPermissionID,
   orgPermissions,
@@ -14,7 +16,13 @@ import {
  * A preset only pre-ticks permissions. The grants stay the stored truth; the
  * role shown for a user is derived from them and never stored.
  */
-export type RolePreset = "superadmin" | "finance" | "userManager" | "member";
+export type RolePreset =
+  | "superadmin"
+  | "finance"
+  | "userManager"
+  | "recruiter"
+  | "hiringApprover"
+  | "member";
 
 export const rolePresets: ReadonlyArray<{
   preset: RolePreset;
@@ -23,6 +31,8 @@ export const rolePresets: ReadonlyArray<{
   { preset: "superadmin", grants: [Superadmin] },
   { preset: "finance", grants: [ManageBilling] },
   { preset: "userManager", grants: [ManageUsers] },
+  { preset: "recruiter", grants: [ManageOpenings] },
+  { preset: "hiringApprover", grants: [ApproveOpenings] },
   { preset: "member", grants: [] },
 ];
 
@@ -56,7 +66,11 @@ export function presetGrants(preset: RolePreset): OrgPermissionID[] {
 
 /** Only a superadmin hands out these; the API enforces it, this only hides
  * what it would refuse. */
-const reserved: readonly OrgPermissionID[] = [Superadmin, ManageBilling];
+const reserved: readonly OrgPermissionID[] = [
+  Superadmin,
+  ManageBilling,
+  ApproveOpenings,
+];
 
 export function mayGrant(
   viewer: readonly OrgPermissionID[],

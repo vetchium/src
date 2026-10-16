@@ -6,7 +6,7 @@ const baseURL =
 export default defineConfig({
   testDir: ".",
   fullyParallel: true,
-  workers: "100%",
+  workers: "80%",
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [["html", { open: "never" }], ["list"]] : "list",
@@ -18,6 +18,8 @@ export default defineConfig({
     baseURL,
     screenshot: "only-on-failure",
     trace: "on-first-retry",
+    // Portals turn off Ant Design motion for this preference (ui.md).
+    contextOptions: { reducedMotion: "reduce" },
   },
   projects: [
     {

@@ -69,9 +69,12 @@ test.describe("Org sign-in", () => {
       expect(info).toMatchObject({
         email_address: org.emailAddress,
         permissions: [
+          "org:approve_openings",
           "org:manage_billing",
+          "org:manage_openings",
           "org:manage_users",
           "org:superadmin",
+          "org:view_openings",
         ],
         totp_enabled: false,
         recovery_codes_remaining: 0,

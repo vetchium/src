@@ -128,9 +128,12 @@ test.describe("list-users and user-summary", () => {
       const owned = all.users.find((u) => u.email_address === org.emailAddress);
       expect(owned?.granted_permissions).toEqual(["org:superadmin"]);
       expect(owned?.effective_permissions).toEqual([
+        "org:approve_openings",
         "org:manage_billing",
+        "org:manage_openings",
         "org:manage_users",
         "org:superadmin",
+        "org:view_openings",
       ]);
       expect(owned?.state).toBe("active");
       expect(owned?.disabled_reason).toBeUndefined();
@@ -354,18 +357,130 @@ test.describe("list-permissions", () => {
       expect(response.headers()["cache-control"]).toBe("no-store");
       expect(await responseJSON<ListPermissionsResponse>(response)).toEqual({
         permissions: [
+          {
+            permission: "org:approve_openings",
+            implies: ["org:view_openings"],
+          },
           { permission: "org:manage_billing", implies: [] },
+          { permission: "org:manage_openings", implies: ["org:view_openings"] },
           { permission: "org:manage_users", implies: [] },
           {
             permission: "org:superadmin",
-            implies: ["org:manage_billing", "org:manage_users"],
+            implies: [
+              "org:approve_openings",
+              "org:manage_billing",
+              "org:manage_openings",
+              "org:manage_users",
+              "org:view_openings",
+            ],
           },
+          { permission: "org:view_openings", implies: [] },
         ],
       });
       await expectProblem(
         await api.listPermissions(),
         401,
         authenticationRequired,
+      );
+    });
+  });
+
+  test("Opening permissions can be granted and revoked with one-hop implications", async ({
+    request,
+  }) => {
+    await withOrg(request, async ({ api, org, owner }) => {
+      const manager = await addOrgMember(
+        api,
+        owner,
+        org.domain,
+        inviteeAddress(org.domain, "mgr"),
+        ["org:manage_users"],
+      );
+      const member = await addOrgMember(
+        api,
+        owner,
+        org.domain,
+        inviteeAddress(org.domain, "mem"),
+        [],
+      );
+      const row = async () =>
+        (await listed(api, owner, { filter_search: member.emailAddress }))
+          .users[0];
+
+      for (const permission of [
+        "org:view_openings",
+        "org:manage_openings",
+        "org:approve_openings",
+      ] as const) {
+        expect(
+          (
+            await api.setUserPermissions(owner, {
+              email_address: member.emailAddress,
+              permissions: [permission],
+            })
+          ).status(),
+        ).toBe(204);
+        expect((await row())?.granted_permissions).toEqual([permission]);
+        expect((await row())?.effective_permissions).toEqual(
+          permission === "org:view_openings"
+            ? [permission]
+            : [permission, "org:view_openings"],
+        );
+        expect(
+          (
+            await api.setUserPermissions(owner, {
+              email_address: member.emailAddress,
+              permissions: [],
+            })
+          ).status(),
+        ).toBe(204);
+        expect((await row())?.granted_permissions).toEqual([]);
+      }
+
+      for (const permission of [
+        "org:view_openings",
+        "org:manage_openings",
+      ] as const) {
+        expect(
+          (
+            await api.setUserPermissions(manager.token, {
+              email_address: member.emailAddress,
+              permissions: [permission],
+            })
+          ).status(),
+        ).toBe(204);
+        expect(
+          (
+            await api.setUserPermissions(manager.token, {
+              email_address: member.emailAddress,
+              permissions: [],
+            })
+          ).status(),
+        ).toBe(204);
+      }
+      await expectProblem(
+        await api.setUserPermissions(manager.token, {
+          email_address: member.emailAddress,
+          permissions: ["org:approve_openings"],
+        }),
+        403,
+        superadminRequired,
+      );
+      expect(
+        (
+          await api.setUserPermissions(owner, {
+            email_address: member.emailAddress,
+            permissions: ["org:approve_openings"],
+          })
+        ).status(),
+      ).toBe(204);
+      await expectProblem(
+        await api.setUserPermissions(manager.token, {
+          email_address: member.emailAddress,
+          permissions: [],
+        }),
+        403,
+        superadminRequired,
       );
     });
   });
@@ -951,9 +1066,12 @@ test.describe("set-user-permissions and bulk-set-user-permissions", () => {
       ).users[0];
       expect(row?.granted_permissions).toEqual(["org:superadmin"]);
       expect(row?.effective_permissions).toEqual([
+        "org:approve_openings",
         "org:manage_billing",
+        "org:manage_openings",
         "org:manage_users",
         "org:superadmin",
+        "org:view_openings",
       ]);
     });
   });

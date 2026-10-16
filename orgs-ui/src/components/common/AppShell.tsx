@@ -1,5 +1,6 @@
 import {
   CreditCardOutlined,
+  FileTextOutlined,
   HomeOutlined,
   SafetyOutlined,
   SettingOutlined,
@@ -30,6 +31,12 @@ export function AppShell() {
   const auth = useAuth();
   const { data: me } = useMyInfoQuery();
   const suspended = me?.org.org_state === OrgSuspended;
+  // Every Opening shown is the signed-in Org's own, so the Org's name there
+  // only takes space from the list and the editor.
+  const showOrgIdentity = !(
+    location.pathname === paths.openings ||
+    location.pathname.startsWith(`${paths.openings}/`)
+  );
 
   const navigationItems: ItemType[] = suspended
     ? [
@@ -68,6 +75,11 @@ export function AppShell() {
               },
             ]
           : []),
+        {
+          key: paths.openings,
+          icon: <FileTextOutlined />,
+          label: t("navigation.openings"),
+        },
         ...(me !== undefined && holds(me.permissions, Superadmin)
           ? [
               {
@@ -107,29 +119,32 @@ export function AppShell() {
       ) ?? "";
 
   const banner =
-    me === undefined ? null : (
+    me === undefined ||
+    (!showOrgIdentity && me.org.domain.state !== DomainFailing) ? null : (
       <Flex orientation="vertical" gap="middle" className="shell-banner">
-        <Flex
-          gap="small"
-          wrap
-          align="baseline"
-          aria-label={t("shell.signedInAs")}
-          role="group"
-        >
-          {me.logo_url === undefined ? null : (
-            <img
-              src={me.logo_url}
-              alt=""
-              width={24}
-              height={24}
-              referrerPolicy="no-referrer"
-              data-testid="shell-org-logo"
-            />
-          )}
-          <Typography.Text strong data-testid="shell-org-name">
-            {me.org.display_name}
-          </Typography.Text>
-        </Flex>
+        {showOrgIdentity && (
+          <Flex
+            gap="small"
+            wrap
+            align="baseline"
+            aria-label={t("shell.signedInAs")}
+            role="group"
+          >
+            {me.logo_url === undefined ? null : (
+              <img
+                src={me.logo_url}
+                alt=""
+                width={24}
+                height={24}
+                referrerPolicy="no-referrer"
+                data-testid="shell-org-logo"
+              />
+            )}
+            <Typography.Text strong data-testid="shell-org-name">
+              {me.org.display_name}
+            </Typography.Text>
+          </Flex>
+        )}
         {me.org.domain.state === DomainFailing ? (
           <DomainFailingBanner
             domain={me.org.domain}

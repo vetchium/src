@@ -2,6 +2,7 @@ import "@typespec/http";
 import "@typespec/openapi3";
 
 import "./common/common.tsp";
+import "./common/openings.tsp";
 import "./admin/admin.tsp";
 import "./hub/hub.tsp";
 import "./orgs/orgs.tsp";

@@ -7,6 +7,8 @@ import "./auth/totp.tsp";
 import "./users/profile.tsp";
 import "./profile/public.tsp";
 import "./profile/federation.tsp";
+import "./openings/public.tsp";
+import "./openings/federation.tsp";
 import "./profile/professional_email.tsp";
 import "./profile/alias.tsp";
 import "./profile/picture.tsp";

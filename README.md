@@ -77,8 +77,12 @@ region selected.
 
 Orgs portal: three Orgs per region, one on each plan: `<region>.example.com`
 (Free), `silver.<region>.example.com`, and `gold.<region>.example.com`. Each has
-`admin@` (Superadmin), `finance@` (Finance), `users@` (User manager), and
-`member@` at its domain. A paid Org is on its plan with a simulated card.
+`admin@` (Superadmin), `finance@` (Finance), `users@` (User manager),
+`recruiter@` (Opening manager), and `approver@` (Opening approver) at its
+domain. Silver and Gold also have `member@`; the Free plan's five seats are
+filled by the other accounts. Each Org has ten Openings covering drafts,
+published, paused, closed, and pending changes. A paid Org is on its plan
+with a simulated card.
 
 Hub signup accepts addresses at `<region>.example`; `sgp` also accepts
 `test1.example` to `test100.example`. Signup and reset emails arrive in Mailpit.

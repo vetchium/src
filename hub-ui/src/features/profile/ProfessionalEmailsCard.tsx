@@ -5,6 +5,7 @@ import {
   PlusOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Alert,
   App,
@@ -84,7 +85,8 @@ function ProfessionalEmailRow({
   entry: ProfessionalEmail;
   ownerHandle: string;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const { date, dateTime } = useDateTimeFormat();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const storageKey = challengeStorageKey(ownerHandle, entry.id);
@@ -94,13 +96,6 @@ function ProfessionalEmailRow({
   const verifyKey = useIdempotencyKey();
   const deleteKey = useIdempotencyKey();
   const lastCode = useRef<string | null>(null);
-  const dateFormat = new Intl.DateTimeFormat(i18n.language, {
-    dateStyle: "medium",
-  });
-  const dateTimeFormat = new Intl.DateTimeFormat(i18n.language, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
 
   useEffect(() => {
     if (challenge === null) return;
@@ -169,7 +164,7 @@ function ProfessionalEmailRow({
       void message.success(t("profileEmails.removed"));
     },
   });
-  const formatDate = (value: string) => dateFormat.format(new Date(value));
+  const formatDate = (value: string) => date(value);
 
   return (
     <Space orientation="vertical" size="middle">
@@ -197,7 +192,7 @@ function ProfessionalEmailRow({
         <Space orientation="vertical" size="small">
           <Typography.Text type="secondary">
             {t("profileEmails.codeExpires", {
-              date: dateTimeFormat.format(new Date(challenge.expires_at)),
+              date: dateTime(challenge.expires_at),
             })}
           </Typography.Text>
           <Space wrap>

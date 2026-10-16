@@ -61,3 +61,44 @@ test("the header fits a 320px viewport", async ({ page }) => {
   );
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+for (const [reducedMotion, animates] of [
+  ["no-preference", true],
+  ["reduce", false],
+] as const) {
+  test.describe(`prefers-reduced-motion: ${reducedMotion}`, () => {
+    test.use({ contextOptions: { reducedMotion } });
+
+    test(`menus ${animates ? "animate" : "open without animation"}`, async ({
+      page,
+    }) => {
+      await page.goto(ORGS_PORTAL);
+      // Frozen animations stay observable however slowly the test runs.
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send("Animation.enable");
+      await cdp.send("Animation.setPlaybackRate", { playbackRate: 0 });
+      await page.getByRole("combobox", { name: "Select language" }).click();
+      const option = page.getByRole("option", {
+        name: "Deutsch (Deutschland)",
+      });
+      await expect(option).toBeAttached();
+      const animations = () =>
+        option.evaluate(
+          (element) =>
+            document
+              .getAnimations()
+              .filter(
+                (animation) =>
+                  animation.effect instanceof KeyframeEffect &&
+                  animation.effect.target?.contains(element) === true,
+              ).length,
+        );
+      if (animates) {
+        await expect.poll(animations).toBeGreaterThan(0);
+      } else {
+        await expect(option).toBeVisible();
+        expect(await animations()).toBe(0);
+      }
+    });
+  });
+}

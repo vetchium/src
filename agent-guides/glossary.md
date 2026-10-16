@@ -26,11 +26,17 @@ Applies to product terms in prompts, specifications, code, and UI text.
 - Requester — the person (typically domain IT staff) who requests and completes org signup and becomes its first superadmin; never call them founder or owner — they need not have started or own the company.
 - Superadmin — an org user holding `org:superadmin`; an active org always keeps at least one active superadmin.
 - Verified / failing domain — TXT record found at the last conclusive check / absent on consecutive periodic checks.
+- Org country — where an org is based, chosen at signup; unrelated to its home tenant.
 - Suspended org — an org whose only domain stayed failing past the grace period and was released; its users can sign in only to restore the domain.
 
 ## Hiring
 
-- Opening — a job post owned by an org; numbered per (org, country).
+- Opening — a job post owned by an org; numbered per org.
+- Working copy — an Opening's editable content: the draft before first publication, a revision after it.
+- Opening request — a pending publish, revise, pause, reopen, or close of one Opening, awaiting an approver; at most one per Opening.
+- Approver — an org user holding `org:approve_openings`; their own requests apply at once.
+- Hiring team — the hiring manager, recruiter, and team members named on an Opening; internal, never shown to Hub users.
+- Employing country — the one country of the entity hiring for an Opening.
 - Application — a Hub user applying to an opening; authoritative in the org's tenant.
 - Candidacy — an application advanced into the interview pipeline.
 - Interview — a scheduled event under a candidacy, with interviewers, RSVP, and feedback.
@@ -54,7 +60,7 @@ Applies to product terms in prompts, specifications, code, and UI text.
 - Offered plans — the plans a tenant sells, configured in both the backend and `hub-ui`.
 - Org plan — `org-free-tier`, `org-silver-tier`, or `org-gold-tier`, with entitlements (seats, Openings per year, logo, Google sign-in) defined once in the contract.
 - Seat — an active Org user or an unexpired pending invitation; the plan's user cap counts seats.
-- Preset — a role label in the Orgs portal (Superadmin, Finance, User manager, Member) that pre-ticks permission checkboxes; not stored.
+- Preset — a role label in the Orgs portal (Superadmin, Finance, User manager, Recruiter, Hiring approver, Member) that pre-ticks permission checkboxes; not stored.
 - Google sign-in — a Gold Org's optional sign-in with its members' Google Workspace accounts; skips Vetchium TOTP.
 
 ## Location

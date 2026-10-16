@@ -6,7 +6,8 @@ Applies to `admin-ui/`, `hub-ui/`, `orgs-ui/`, and `portal-ui/`.
 
 - React 19, Vite, strict TypeScript, Ant Design 6 (the only component library
   without explicit approval), TanStack Query for server state, React Router,
-  react-i18next, Ajv when an API supplies a JSON Schema.
+  react-i18next, react-markdown 10.1.0 (approved for Opening descriptions),
+  Ajv when an API supplies a JSON Schema.
 - Import wire types from `typespec/<path>`.
 - Every user-visible string goes through react-i18next, including titles,
   placeholders, validation, empty and loading states, alt text, and
@@ -25,6 +26,8 @@ Applies to `admin-ui/`, `hub-ui/`, `orgs-ui/`, and `portal-ui/`.
 - Never restyle cards, typography, spacing, colors, or responsiveness in
   one-off CSS, and never target `.ant-*` selectors. Custom CSS only for small
   app structure or branding.
+- `PortalProviders` turns off Ant Design motion (`token.motion`) while the
+  browser prefers reduced motion; never animate outside Ant Design motion.
 
 ## Shared package (`portal-ui`)
 
@@ -56,6 +59,17 @@ Applies to `admin-ui/`, `hub-ui/`, `orgs-ui/`, and `portal-ui/`.
 - Explicit `Form` and `Table` (server-side pagination) over generic CRUD
   abstractions.
 - Keep API data in wire shape; convert only where the UI needs it.
+
+## Dates and times
+
+- Format every wire timestamp with `useDateTimeFormat` from
+  `@vetchium/portal-ui/date-time`; never `toLocaleString` or an ad hoc
+  `Intl.DateTimeFormat`.
+- A moment shows the browser's time zone and names it (`dateTime`, `time`,
+  `preciseDateTime`). A date alone (`date`) omits the zone.
+- The formatting locale is the browser's first preferred locale of the portal
+  language (en-GB conventions in the English portal), else the portal language.
+- Calendar months (`YYYY-MM`) are not moments: format them in `UTC`.
 
 ## Global portals and regions
 
@@ -104,6 +118,6 @@ Applies to `admin-ui/`, `hub-ui/`, `orgs-ui/`, and `portal-ui/`.
   `security-headers`, which have no dependencies.
 - `/u/` and `/org/` responses send `X-Robots-Tag: noindex` and render
   `NoIndex`; never disallow them in `robots.txt` (crawlers must fetch to see
-  noindex). `/org/<domain>` is a placeholder.
+  noindex). Org and Opening pages require a signed-in Hub user.
 - Expand, then contract ([`backend.md`](backend.md)): a published portal must
   work against every region during a rolling upgrade.

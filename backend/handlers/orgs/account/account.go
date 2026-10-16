@@ -165,9 +165,11 @@ func summary(s *orgsruntime.Server, info sqlc.GetOrgMyInfoRow) orgsaccount.OrgSu
 		state = orgsaccount.OrgSuspended
 	}
 	return orgsaccount.OrgSummary{
-		DisplayName: common.DisplayName(info.DisplayName),
-		OrgState:    state,
-		Domain:      status,
+		DisplayName:     common.DisplayName(info.DisplayName),
+		Country:         common.CountryCode(info.Country),
+		DefaultLanguage: orgs.FrontendLocale(info.DefaultLanguage),
+		OrgState:        state,
+		Domain:          status,
 	}
 }
 

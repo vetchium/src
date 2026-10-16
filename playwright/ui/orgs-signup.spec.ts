@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { currentTermsVersion } from "typespec/orgs/auth/signup";
 import {
   deleteOrgVerificationRecord,
   setOrgVerificationRecord,
@@ -17,7 +18,7 @@ import {
   signupToken,
 } from "../lib/orgs-api.ts";
 import { ORGS_PORTAL, rememberRegion } from "../lib/portals.ts";
-import { chooseRegion } from "../lib/region-ui.ts";
+import { chooseRegion, searchAndChooseOption } from "../lib/region-ui.ts";
 import { uniqueTestID } from "../lib/test-id.ts";
 
 // Lifecycle tests wait for the CI re-verification timings (2s checks, 8s
@@ -117,6 +118,33 @@ test("signs an Org up on one request page, then proves DNS and signs in", async 
     const submit = page.getByRole("button", {
       name: "Verify domain and create organization",
     });
+    // The country is required, so nothing is sent until it is chosen.
+    const completions: string[] = [];
+    page.on("request", (sent) => {
+      if (sent.url().endsWith("/api/orgs/complete-signup"))
+        completions.push(sent.url());
+    });
+    await submit.click();
+    await expect(page.getByText("This field is required.")).toBeVisible();
+    await expect(
+      page.getByText("Accept the terms to create the organization."),
+    ).toBeVisible();
+    expect(completions).toHaveLength(0);
+    await searchAndChooseOption(
+      page,
+      page.getByRole("combobox", { name: "Country" }),
+      "Singapore",
+    );
+    const terms = page.getByRole("link", {
+      name: "Read the terms for organizations (opens in a new tab)",
+    });
+    await expect(terms).toHaveAttribute("href", "/terms");
+    await expect(terms).toHaveAttribute("target", "_blank");
+    await page
+      .getByRole("checkbox", {
+        name: "I accept the terms for organizations on this organization's behalf.",
+      })
+      .check();
     await submit.click();
     await expect(
       page.getByText("The TXT record is not visible yet", { exact: false }),
@@ -210,6 +238,16 @@ test("the completion page still submits when the browser cannot check DNS", asyn
     await setOrgVerificationRecord(domain, [value]);
     const password = orgPassword();
     await page.getByLabel("Organization name").fill("Unchecked Org");
+    await searchAndChooseOption(
+      page,
+      page.getByRole("combobox", { name: "Country" }),
+      "Singapore",
+    );
+    await page
+      .getByRole("checkbox", {
+        name: "I accept the terms for organizations on this organization's behalf.",
+      })
+      .check();
     await page.getByLabel("New password").fill(password);
     await page.getByLabel("Confirm password").fill(password);
     await page
@@ -353,4 +391,15 @@ test("the security page asks for the password when the session is old", async ({
     await deleteOrgVerificationRecord(org.domain);
     cleanupOrg(org.domain);
   }
+});
+
+test("the terms page shows the version a new Org accepts", async ({ page }) => {
+  await page.goto(`${ORGS_PORTAL}/terms`);
+  await expect(
+    page.getByRole("heading", { name: "Terms for organizations", level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByTestId("terms-version")).toHaveText(
+    `Version ${currentTermsVersion}`,
+  );
+  await expect(page.getByRole("alert")).toContainText("Placeholder text");
 });

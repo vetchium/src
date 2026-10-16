@@ -1,3 +1,4 @@
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { Card, Col, Descriptions, Flex, Row, Tag, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import {
@@ -11,7 +12,6 @@ import {
   type OrgPermissionID,
   orgPermissions,
 } from "typespec/orgs/authorization/types";
-import { useDateTimeFormat } from "../components/common/useDateTimeFormat";
 import { useMyInfoQuery } from "../features/account/queries";
 
 const stateColors: Record<DomainVerificationState, string> = {
@@ -26,7 +26,7 @@ function isDefinedPermission(value: OrgPermissionID): value is OrgPermission {
 
 export function HomePage() {
   const { t } = useTranslation();
-  const formatDateTime = useDateTimeFormat();
+  const { dateTime: formatDateTime } = useDateTimeFormat();
   const { data: me } = useMyInfoQuery();
   if (me === undefined) return null;
   const { org } = me;

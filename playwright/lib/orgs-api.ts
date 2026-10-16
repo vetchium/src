@@ -7,12 +7,27 @@ import type { APIRequestContext, APIResponse } from "@playwright/test";
 import { expect } from "@playwright/test";
 import type { MyInfoResponse } from "typespec/orgs/account/account";
 import type { LoginResponse } from "typespec/orgs/auth/login";
-import type {
-  CompleteSignupRequest,
-  CompleteSignupResponse,
-  RequestSignupRequest,
+import {
+  type CompleteSignupRequest,
+  type CompleteSignupResponse,
+  currentTermsVersion,
+  type RequestSignupRequest,
 } from "typespec/orgs/auth/signup";
-import type { SetCompanyNameRequest } from "typespec/orgs/settings/company";
+import type {
+  CreateOpeningRequest,
+  DecideOpeningRequestRequest,
+  DiscardOpeningRequest,
+  DiscardOpeningWorkingCopyRequest,
+  DuplicateOpeningRequest,
+  GetOpeningRequest,
+  ListOpeningHistoryRequest,
+  ListOpeningsRequest,
+  RequestOpeningChangeRequest,
+  SaveOpeningWorkingCopyRequest,
+  SetOpeningTeamRequest,
+  WithdrawOpeningRequestRequest,
+} from "typespec/orgs/openings/openings";
+import type { SetCompanyDetailsRequest } from "typespec/orgs/settings/company";
 import type { SetSubscriptionPlanRequest } from "typespec/orgs/subscriptions/subscriptions";
 import type { OrgDomain } from "typespec/orgs/types";
 import type {
@@ -97,6 +112,115 @@ export class OrgsAPI {
     });
   }
 
+  createOpening(
+    token: string,
+    request: CreateOpeningRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/create-opening", request, { token, idempotencyKey });
+  }
+
+  duplicateOpening(
+    token: string,
+    request: DuplicateOpeningRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/duplicate-opening", request, { token, idempotencyKey });
+  }
+
+  saveOpeningWorkingCopy(
+    token: string,
+    request: SaveOpeningWorkingCopyRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/save-opening-working-copy", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  discardOpeningWorkingCopy(
+    token: string,
+    request: DiscardOpeningWorkingCopyRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/discard-opening-working-copy", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  setOpeningTeam(
+    token: string,
+    request: SetOpeningTeamRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/set-opening-team", request, { token, idempotencyKey });
+  }
+
+  discardOpening(
+    token: string,
+    request: DiscardOpeningRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/discard-opening", request, { token, idempotencyKey });
+  }
+
+  requestOpeningChange(
+    token: string,
+    request: RequestOpeningChangeRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/request-opening-change", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  decideOpeningRequest(
+    token: string,
+    request: DecideOpeningRequestRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/decide-opening-request", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  withdrawOpeningRequest(
+    token: string,
+    request: WithdrawOpeningRequestRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/withdraw-opening-request", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  getOpening(token: string, request: GetOpeningRequest): Promise<APIResponse> {
+    return this.post("/get-opening", request, { token });
+  }
+
+  listOpenings(
+    token: string,
+    request: ListOpeningsRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-openings", request, { token });
+  }
+
+  openingSummary(token: string): Promise<APIResponse> {
+    return this.post("/opening-summary", {}, { token });
+  }
+
+  listOpeningHistory(
+    token: string,
+    request: ListOpeningHistoryRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-opening-history", request, { token });
+  }
+
   requestSignup(
     request: RequestSignupRequest,
     idempotencyKey: string = orgsIdempotencyKey(),
@@ -159,6 +283,17 @@ export class OrgsAPI {
     request: ListUsersRequest = {},
   ): Promise<APIResponse> {
     return this.post("/list-users", request, { token });
+  }
+
+  lookupOpeningTeamMember(
+    token: string,
+    emailAddress: string,
+  ): Promise<APIResponse> {
+    return this.post(
+      "/lookup-opening-team-member",
+      { email_address: emailAddress },
+      { token },
+    );
   }
 
   userSummary(token: string): Promise<APIResponse> {
@@ -227,11 +362,11 @@ export class OrgsAPI {
     });
   }
 
-  setCompanyName(
+  setCompanyDetails(
     token: string,
-    request: SetCompanyNameRequest,
+    request: SetCompanyDetailsRequest,
   ): Promise<APIResponse> {
-    return this.post("/set-company-name", request, { token });
+    return this.post("/set-company-details", request, { token });
   }
 
   uploadLogo(
@@ -483,6 +618,8 @@ export async function signupOrg(
     {
       signup_token: pending.token,
       org_display_name: "Playwright Org",
+      org_country: "SG",
+      accepted_terms_version: currentTermsVersion,
       password,
     },
     { idempotencyKey: orgsIdempotencyKey() },

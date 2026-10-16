@@ -1,5 +1,9 @@
 import { randomBytes } from "node:crypto";
 import type { APIRequestContext, APIResponse } from "@playwright/test";
+import type {
+  GetOrgOpeningRequest,
+  ListOrgOpeningsRequest,
+} from "typespec/hub/openings/public";
 import type { GetOperationRequest } from "typespec/hub/operations/operations";
 import type { SetAliasRequest } from "typespec/hub/profile/alias";
 import type {
@@ -98,6 +102,20 @@ export class HubAPI {
 
   readProfile(body: ReadProfileRequest, token: string): Promise<APIResponse> {
     return this.post("/profile/read", body, { token });
+  }
+
+  listOrgOpenings(
+    body: ListOrgOpeningsRequest,
+    token: string,
+  ): Promise<APIResponse> {
+    return this.post("/list-org-openings", body, { token });
+  }
+
+  getOrgOpening(
+    body: GetOrgOpeningRequest,
+    token: string,
+  ): Promise<APIResponse> {
+    return this.post("/get-org-opening", body, { token });
   }
 
   setPublicFields(

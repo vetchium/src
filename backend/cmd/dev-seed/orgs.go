@@ -59,6 +59,12 @@ func loadOrgSeedSettings() (orgSeedSettings, error) {
 	return s, nil
 }
 
+// seededOrgCountries gives each tenant's fixtures a plausible base country;
+// a real Org's country is unrelated to its tenant.
+var seededOrgCountries = map[string]common.CountryCode{
+	"sgp": "SG", "usa1": "US", "deu": "DE", "ind1": "IN",
+}
+
 // seededOrgs are the Orgs every tenant gets: one per plan, so every plan-gated
 // screen has an Org to open. The Free Org keeps the tenant's own domain.
 var seededOrgs = []struct {
@@ -70,14 +76,16 @@ var seededOrgs = []struct {
 	{"Gold", "gold.", subscriptionspec.GoldTier},
 }
 
-// seededUsers hold the role presets of the Orgs portal (the first, the
-// requester, is the Superadmin preset).
+// The requester is Superadmin; these invited users exercise the remaining
+// account and Opening permissions.
 var seededUsers = []struct {
 	local       string
 	permissions []authorization.OrgPermissionID
 }{
 	{"finance", []authorization.OrgPermissionID{authorization.OrgPermissionID(authorization.ManageBilling)}},
 	{"users", []authorization.OrgPermissionID{authorization.OrgPermissionID(authorization.ManageUsers)}},
+	{"recruiter", []authorization.OrgPermissionID{authorization.OrgPermissionID(authorization.ManageOpenings)}},
+	{"approver", []authorization.OrgPermissionID{authorization.OrgPermissionID(authorization.ApproveOpenings)}},
 	{"member", nil},
 }
 
@@ -102,7 +110,11 @@ func runOrgSeed() error {
 		displayName := fmt.Sprintf(
 			"Example %s %s Corp", strings.ToUpper(settings.tenantID), org.label,
 		)
-		if err := seeder.seedOrg(ctx, domain, displayName, org.plan); err != nil {
+		country, ok := seededOrgCountries[settings.tenantID]
+		if !ok {
+			return fmt.Errorf("no seeded Org country for tenant %q", settings.tenantID)
+		}
+		if err := seeder.seedOrg(ctx, domain, displayName, country, org.plan); err != nil {
 			return fmt.Errorf("seed %s Org %s: %w", org.label, domain, err)
 		}
 	}
@@ -111,7 +123,7 @@ func runOrgSeed() error {
 
 func (s *orgSeeder) seedOrg(
 	ctx context.Context, domain orgs.OrgDomain, displayName string,
-	plan subscriptionspec.Plan,
+	country common.CountryCode, plan subscriptionspec.Plan,
 ) error {
 	email := "admin@" + string(domain)
 	if err := s.post(
@@ -143,9 +155,11 @@ func (s *orgSeeder) seedOrg(
 	}
 	if err := s.post(
 		ctx, "/api/orgs/complete-signup", orgsauth.CompleteSignupRequest{
-			SignupToken:    orgsauth.OrgSignupToken(token[1]),
-			OrgDisplayName: common.DisplayName(displayName),
-			Password:       common.NewPassword(devSeedHubUserPassword),
+			SignupToken:          orgsauth.OrgSignupToken(token[1]),
+			OrgDisplayName:       common.DisplayName(displayName),
+			OrgCountry:           country,
+			AcceptedTermsVersion: orgsauth.CurrentTermsVersion,
+			Password:             common.NewPassword(devSeedHubUserPassword),
 		}, "", http.StatusCreated, nil,
 	); err != nil {
 		return fmt.Errorf("complete Org signup: %w", err)
@@ -176,6 +190,9 @@ func (s *orgSeeder) seedOrg(
 		}
 	}
 	for _, user := range seededUsers {
+		if plan == subscriptionspec.FreeTier && user.local == "member" {
+			continue
+		}
 		address := user.local + "@" + string(domain)
 		if err := s.post(
 			ctx, "/api/orgs/invite-users", orgsusers.InviteUsersRequest{
@@ -205,8 +222,15 @@ func (s *orgSeeder) seedOrg(
 			return fmt.Errorf("accept the invitation of %s: %w", address, err)
 		}
 	}
-	log.Printf("seeded %s Org domain=%s superadmin=%s users=finance,users,member",
-		plan, domain, email)
+	if err := s.seedOrgOpenings(ctx, domain, bearer); err != nil {
+		return fmt.Errorf("seed Openings: %w", err)
+	}
+	users := "finance,users,recruiter,approver"
+	if plan != subscriptionspec.FreeTier {
+		users += ",member"
+	}
+	log.Printf("seeded %s Org domain=%s superadmin=%s users=%s openings=10",
+		plan, domain, email, users)
 	return nil
 }
 

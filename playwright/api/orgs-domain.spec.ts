@@ -2,6 +2,7 @@ import type {
   CheckDomainResponse,
   MyInfoResponse,
 } from "typespec/orgs/account/account";
+import { currentTermsVersion } from "typespec/orgs/auth/signup";
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
 import { globalSQLScalar } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
@@ -107,7 +108,7 @@ test("after the grace period the domain is released and the Org restored by proo
     await deleteOrgVerificationRecord(org.domain);
     // The Org is suspended before the directory release completes, and the
     // domain reads as failing until it does.
-    const suspended = await waitForDomain(
+    await waitForDomain(
       api,
       token,
       (info) =>
@@ -190,6 +191,8 @@ test("a released domain claimed by another Org cannot be restored", async ({
       {
         signup_token: rival.token,
         org_display_name: "New Owner",
+        org_country: "SG",
+        accepted_terms_version: currentTermsVersion,
         password: first.password,
       },
       { idempotencyKey: `e2e-${crypto.randomUUID()}` },
