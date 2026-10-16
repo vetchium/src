@@ -41,7 +41,7 @@ source-specific fields to it.
 | `title` | 1–200 code points after trimming |
 | `description` | Markdown subset (below), 1–20,000 code points |
 | `language` | tag from the language catalog (`typespec/common/language_catalog.json`); a new Opening starts with the Org's default language |
-| `employing_country` | `CountryCode` (ISO 3166-1 alpha-2) of the employing entity; a new Opening starts with the Org's country |
+| `employing_country` | `CountryCode` (ISO 3166-1 alpha-2) of the employing entity; a new Opening starts with the Org's country unless the caller's remote country list excludes it |
 | `work_arrangement` | `on_site`, `hybrid`, `remote` |
 | `location_details` | optional plain text, at most 2,000 code points: cities, offices, travel, time zones |
 | `remote_eligibility` | required for `remote`, absent otherwise: where a candidate may live, either `worldwide` or `countries` with a list of unique `CountryCode`s that includes the employing country |

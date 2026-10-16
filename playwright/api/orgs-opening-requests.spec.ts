@@ -630,7 +630,7 @@ test("publication checks completeness and active hiring team at request and appr
     expect((await incomplete.json()).fields).toEqual(
       expect.arrayContaining([
         "content.description",
-        "content.employing_country",
+        "content.work_arrangement",
       ]),
     );
     const saved = await api.saveOpeningWorkingCopy(manager.token, {

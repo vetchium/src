@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -41,16 +42,24 @@ func CreateOpening(s *orgsruntime.Server) http.HandlerFunc {
 			s, w, r, "orgs:create-opening", dbvalue.FormatUUID(identity.UserID),
 			key, request, now.Add(24*time.Hour),
 			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
-				policy, err := q.LockOrgOpeningPolicy(r.Context(), sqlc.LockOrgOpeningPolicyParams{OrgDid: identity.OrgDID, ActorID: identity.UserID})
+				policy, err := q.LockOrgOpeningPolicy(r.Context(), identity.OrgDID)
 				if errors.Is(err, pgx.ErrNoRows) {
 					return handlerauth.Failure[openings.OrgOpening](orgsproblem.OrgSuspendedError)
 				}
 				if err != nil {
 					return result{}, nil, err
 				}
+				// A new Opening starts from the Org's default language and
+				// country. The country is left unset when it would contradict a
+				// remote country list the caller already chose.
 				if request.Content.Language == nil {
-					language := common.LanguageTag(strings.SplitN(string(policy.PreferredLanguage), "-", 2)[0])
+					language := common.LanguageTag(strings.SplitN(string(policy.DefaultLanguage), "-", 2)[0])
 					request.Content.Language = &language
+				}
+				country := common.CountryCode(policy.Country)
+				if remote := request.Content.RemoteEligibility; request.Content.EmployingCountry == nil &&
+					(remote == nil || len(remote.Countries) == 0 || slices.Contains(remote.Countries, country)) {
+					request.Content.EmployingCountry = &country
 				}
 				openingID, err := dbvalue.NewUUIDv7(now)
 				if err != nil {
@@ -136,7 +145,7 @@ func DuplicateOpening(s *orgsruntime.Server) http.HandlerFunc {
 			s, w, r, "orgs:duplicate-opening", dbvalue.FormatUUID(identity.UserID),
 			key, request, now.Add(24*time.Hour),
 			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
-				policy, err := q.LockOrgOpeningPolicy(r.Context(), sqlc.LockOrgOpeningPolicyParams{OrgDid: identity.OrgDID, ActorID: identity.UserID})
+				policy, err := q.LockOrgOpeningPolicy(r.Context(), identity.OrgDID)
 				if errors.Is(err, pgx.ErrNoRows) {
 					return handlerauth.Failure[openings.OrgOpening](orgsproblem.OrgSuspendedError)
 				}

@@ -108,7 +108,7 @@ test("after the grace period the domain is released and the Org restored by proo
     await deleteOrgVerificationRecord(org.domain);
     // The Org is suspended before the directory release completes, and the
     // domain reads as failing until it does.
-    const suspended = await waitForDomain(
+    await waitForDomain(
       api,
       token,
       (info) =>

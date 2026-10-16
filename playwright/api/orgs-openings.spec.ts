@@ -319,6 +319,53 @@ test("create-opening returns a numbered draft and its reads stay consistent", as
   }
 });
 
+test("a new Opening starts from the Org's default language and country", async ({
+  request,
+}) => {
+  const api = new OrgsAPI(request);
+  const org = await signupOrg(api);
+  try {
+    const owner = await loginOrg(api, org);
+    // The owner's own preferred language stays en-US; only the Org changes.
+    const details = await api.setCompanyDetails(owner, {
+      display_name: "Defaults Org",
+      country: "IN",
+      default_language: "ta",
+    });
+    expect(details.status(), await details.text()).toBe(204);
+    const create = async (content: OrgOpening["working_content"]) => {
+      const response = await api.createOpening(owner, {
+        content: content ?? {},
+        team_member_emails: [],
+      });
+      expect(response.status(), await response.text()).toBe(201);
+      return ((await response.json()) as OrgOpening).working_content;
+    };
+
+    expect(await create({ title: "Defaulted" })).toMatchObject({
+      language: "ta",
+      employing_country: "IN",
+    });
+    expect(
+      await create({ language: "de", employing_country: "DE" }),
+    ).toMatchObject({ language: "de", employing_country: "DE" });
+    const remote = await create({
+      work_arrangement: "remote",
+      remote_eligibility: { kind: "countries", countries: ["US"] },
+    });
+    expect(remote?.employing_country).toBeUndefined();
+    expect(
+      await create({
+        work_arrangement: "remote",
+        remote_eligibility: { kind: "countries", countries: ["US", "IN"] },
+      }),
+    ).toMatchObject({ employing_country: "IN" });
+  } finally {
+    await deleteOrgVerificationRecord(org.domain);
+    cleanupOrg(org.domain);
+  }
+});
+
 test("revision copies can be saved and discarded without changing live content", async ({
   request,
 }) => {

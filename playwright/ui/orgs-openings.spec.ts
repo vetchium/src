@@ -400,7 +400,6 @@ test("an incomplete draft names the fields that block publication", async ({
     await expect(gaps).toBeVisible();
     for (const label of [
       "Description",
-      "Employing country",
       "Work arrangement",
       "Employment type",
       "Positions",
@@ -410,9 +409,12 @@ test("an incomplete draft names the fields that block publication", async ({
         gaps.getByRole("listitem").filter({ hasText: label }),
       ).toBeVisible();
     }
-    await expect(
-      gaps.getByRole("listitem").filter({ hasText: "Title" }),
-    ).toHaveCount(0);
+    // The Org's country fills a new Opening's employing country.
+    for (const label of ["Title", "Employing country"]) {
+      await expect(
+        gaps.getByRole("listitem").filter({ hasText: label }),
+      ).toHaveCount(0);
+    }
     await expect(
       gaps.getByRole("listitem").filter({ hasText: "Hiring manager" }),
     ).toHaveCount(0);
@@ -426,7 +428,7 @@ test("an incomplete draft names the fields that block publication", async ({
       .filter({ hasText: "This Opening is incomplete" });
     await expect(refusal).toBeVisible();
     await expect(
-      refusal.getByRole("listitem").filter({ hasText: "Employing country" }),
+      refusal.getByRole("listitem").filter({ hasText: "Work arrangement" }),
     ).toBeVisible();
     await expect(
       refusal.getByRole("listitem").filter({ hasText: "Recruiter" }),

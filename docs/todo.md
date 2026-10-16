@@ -25,6 +25,10 @@ Each item: what is not done, and what must be decided first.
   `RetryFederationOutboxEvent` have no caller. Their writes carry no audit
   event. Decide whether cross-tenant commands will use them; then wire them
   with audit CTEs or delete them.
+- `public_org_openings.sql` hides the Org logo with a hard-coded
+  `org_plan_oid <> 'org-free-tier'`, a second authority beside
+  `subscriptions.AllowsLogo`. Rely on the downgrade removing the logo, or pass
+  the entitlement in from Go.
 
 ## Test coverage
 
@@ -120,6 +124,9 @@ Each item: what is not done, and what must be decided first.
 - Pay transparency: some jurisdictions (the EU Pay Transparency Directive,
   several US states) require a salary range. Decide whether `salary` becomes
   required by employing country and who maintains that country list.
+- Orgs portal Opening detail heading and breadcrumb show the working-copy
+  title before the live title, so a published Opening with an unapproved
+  revision is named by its draft. Decide which title names an Opening.
 - MCP for Gold Orgs: expose the Opening operations through `mcp-server`
   under the Org user's permissions, as `openings.md` OPN-GEN-005 allows.
 

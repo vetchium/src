@@ -209,12 +209,10 @@ LIMIT sqlc.arg(page_limit);
 -- Lock separately: after a concurrent creator releases it, the next
 -- statement sees the newly committed quota count and counter.
 -- name: LockOrgOpeningPolicy :one
-SELECT o.org_plan_oid, o.next_opening_number, u.preferred_language
+SELECT o.org_plan_oid, o.next_opening_number, o.country, o.default_language
 FROM vetchium.orgs AS o
-JOIN vetchium.org_users AS u ON u.org_did = o.org_did
-  AND u.org_user_id = sqlc.arg(actor_id)
 WHERE o.org_did = sqlc.arg(org_did) AND o.org_state = 'active'
-FOR UPDATE OF o;
+FOR UPDATE;
 
 -- name: CreateOrgOpening :one
 WITH usage AS (
