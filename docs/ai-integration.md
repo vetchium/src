@@ -68,6 +68,14 @@ Opening, an Org scoring candidates, a Hub user writing a blog post.
   Mistral; a future China tenant DeepSeek and Qwen (needs filing and labelling
   there). Any tenant may add Vetchium's own models. Exact versions and sizes
   follow GPU sizing (section 6).
+- Every model is `generative` (chat completions, metered in tokens) for now.
+  A future `decision` kind covers encoder models that answer typed questions
+  (choice, score, yes/no) without generating text, such as Laya
+  (`convaiinnovations/laya`, ModernBERT/mmBERT, Apache 2.0). It needs its own
+  inference server and protocol (safetensors for Transformers, no GGUF or chat
+  API) and a per-decision credit rate instead of token rates. Each operation
+  declares the kind it needs. Add the kind when an operation needs typed
+  decisions; credits, the ledger, and per-operation choice stay unchanged.
 
 ## 4. Operations
 
