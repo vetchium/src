@@ -76,7 +76,8 @@ the same shape rather than invent a second one.
 
 - A permission that lets a user manage others must not let them grant
   themselves more. In Orgs, `org:manage_users` may not grant or revoke
-  `org:superadmin`, `org:manage_billing`, or `org:approve_openings`, nor
+  `org:superadmin`, `org:manage_billing`, `org:manage_ai`, or
+  `org:approve_openings`, nor
   disable or re-enable a superadmin; refuse with a problem that names the
   target. Enforce it in the statement or in the handler before it, for every
   target of a bulk request.

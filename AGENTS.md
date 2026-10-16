@@ -61,6 +61,7 @@ Read every guide that applies before changing files.
 | [`orgs.md`](agent-guides/orgs.md) | Org signup, sign-in, domain verification |
 | [`org-subscriptions.md`](agent-guides/org-subscriptions.md) | Org plans, billing, seats, user management, logo, Google sign-in |
 | [`openings.md`](agent-guides/openings.md) | Openings: creation, approval, lifecycle, Org and Hub display |
+| [`ai.md`](agent-guides/ai.md) | AI operations, model catalog, AI credits, metering, kept prompts |
 
 Guides compose: a handler using PostgreSQL needs `go.md`, `backend.md`, and
 `database.md`. A scoped `AGENTS.md` lists the baseline guides for its tree; the

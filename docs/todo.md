@@ -132,8 +132,34 @@ Each item: what is not done, and what must be decided first.
 
 ## AI assistance
 
-Not built. The design is in [`ai-integration.md`](ai-integration.md)
-(temporary; distilled into `agent-guides/` at implementation).
+Org Opening drafting is built ([`agent-guides/ai.md`](../agent-guides/ai.md)).
+Not built:
+
+- Hub AI. Decided: the paid Hub plan gets a monthly grant and may buy packs
+  with the Org expiry rules, metered like Orgs in the Hub user's home tenant.
+  Decide the grant size, the first Hub operation, and where Hub users see
+  their usage and kept text.
+- Real payments for credit packs; purchases are simulated. Decide with the
+  Org payments integration: refunds, tax, invoices, and unused purchased
+  credits.
+- Production hosting: no `deploy/` tenant has an `ai` block. Decide GPU sizing
+  per region, model versions (DEU: DeepSeek and Mistral; USA1, SGP, IND1:
+  Gemma, whose licence is not open source), data processing agreements, and
+  credit prices.
+- AI terms: placeholder text in every `orgs-ui` locale. Replace it before
+  launch and decide whether Orgs must accept a later version.
+- Streaming answers (server-sent events through `http.ResponseController`);
+  answers are complete JSON.
+- Decision models (typed-answer classifiers such as Laya): a second model kind
+  with its own server and per-decision rates, added with the first operation
+  that needs typed decisions.
+- Frontier third-party models through in-region enterprise endpoints: the
+  catalog allows another host, none is offered.
+- Admin reading of kept text needs only `admin:view_ai_usage`; decide whether
+  it also needs step-up.
+- Candidate scoring or any operation that evaluates people: settle EU AI Act
+  high-risk duties (risk management, logging, human oversight) and NYC Local
+  Law 144 bias audits first.
 
 ## Global portals
 

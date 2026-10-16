@@ -8,7 +8,7 @@ import {
   type ListAIUsageResponse,
   OrgAITermsVersion,
 } from "typespec/orgs/ai/ai";
-import type { AIUsageText } from "typespec/orgs/ai/types";
+import type { AIOperationPolicy, AIUsageText } from "typespec/orgs/ai/types";
 import {
   IdempotencyKeyConflictError,
   InvalidPaginationKeyError,
@@ -400,15 +400,12 @@ test.describe("AI settings", () => {
           [{ ...valid, allowed_models: [qwen, qwen] }],
           ["policies.0.allowed_models"],
         ],
-      ] as const) {
+      ] satisfies Array<[AIOperationPolicy[], string[]]>) {
         await expectProblem(
-          await api.setAISettings(owner, {
-            enabled: false,
-            policies: [...policies],
-          }),
+          await api.setAISettings(owner, { enabled: false, policies }),
           400,
           ValidationFailedError.type,
-          [...fields],
+          fields,
         );
       }
       await expectProblem(
@@ -603,7 +600,7 @@ test.describe("AI credits", () => {
       expect(first.next_pagination_key).toBeDefined();
       response = await api.listAICreditLots(owner, {
         limit: 1,
-        pagination_key: first.next_pagination_key,
+        pagination_key: first.next_pagination_key ?? "missing",
       });
       const second = await responseJSON<ListAICreditLotsResponse>(response);
       expect(second.lots).toEqual([
@@ -1140,7 +1137,7 @@ test.describe("AI usage", () => {
         ]);
         response = await api.listAIUsage(owner, {
           limit: 1,
-          pagination_key: page.next_pagination_key,
+          pagination_key: page.next_pagination_key ?? "missing",
         });
         const next = await responseJSON<ListAIUsageResponse>(response);
         expect(next.entries.map((entry) => entry.usage_id)).toEqual([

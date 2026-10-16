@@ -56,6 +56,24 @@ tilt down                   # stop; volumes and secrets survive
 Every backend service builds from one Dockerfile, so a backend change rebuilds
 all of them; use `--manual` or one region when that is too slow.
 
+## AI models
+
+Drafting Openings with AI calls models through Docker Model Runner on your
+machine. Turn it on once and pull the two development models (about 4 GB):
+
+```bash
+docker desktop enable model-runner
+make dev-ai-models   # ai/qwen3:1.7b and ai/ministral3:3B-Q4_K_M
+```
+
+The stack's `ai-dev` service relays model calls to Model Runner, which the
+internal region networks cannot reach directly. Without Model Runner, a draft
+fails with "The AI model did not answer" and uses no credits. Tests never use
+Model Runner: the CI stack runs `ai-dev` as a fake model server.
+
+If longer drafts fail, raise a model's context window, for example
+`docker model configure --context-size 16384 ai/qwen3:1.7b`.
+
 ## Seeded accounts
 
 Every seeded account uses the password `DevPassword123$`.
@@ -82,7 +100,8 @@ Orgs portal: three Orgs per region, one on each plan: `<region>.example.com`
 domain. Silver and Gold also have `member@`; the Free plan's five seats are
 filled by the other accounts. Each Org has ten Openings covering drafts,
 published, paused, closed, and pending changes. A paid Org is on its plan
-with a simulated card.
+with a simulated card. The Gold Org has AI turned on, its monthly AI credits,
+and one purchased credit pack.
 
 Hub signup accepts addresses at `<region>.example`; `sgp` also accepts
 `test1.example` to `test100.example`. Signup and reset emails arrive in Mailpit.

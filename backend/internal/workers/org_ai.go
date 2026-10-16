@@ -35,7 +35,7 @@ type orgAIJobs struct {
 // AI.
 func (w *Worker) EnableOrgAI(config appconfig.AI) {
 	w.orgAI = &orgAIJobs{
-		queries:            sqlc.New(w.aliasChangeDB),
+		queries:            w.queries,
 		reservationTimeout: config.ReservationTimeout,
 		now:                time.Now,
 	}

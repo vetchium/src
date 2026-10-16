@@ -29,6 +29,9 @@ rest of hiring are not built ([`../docs/todo.md`](../docs/todo.md)).
   completeness, permissions, and the approval flow live in orgs-api, never only
   in orgs-ui, so a later MCP or AI-drafting client goes through the same
   operations.
+- **OPN-GEN-006** AI drafting (`draft-opening-with-ai`, [`ai.md`](ai.md))
+  returns `OpeningContent` and saves nothing; the editor fills its form and the
+  user saves through create or save-working-copy.
 
 ## Content
 
