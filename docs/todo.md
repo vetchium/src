@@ -72,9 +72,18 @@ Each item: what is not done, and what must be decided first.
   `x-vetchium-security-effects`, unlike their admin and Hub counterparts.
   Decide whether every credential operation must declare them.
 - Not built: admin management of blocked signup domains and of Orgs; extra
-  domains, primary-domain change, and domain transfer; Org terms acceptance;
-  Org profile metadata beyond name and logo (description, legal entity); remembered
-  Org sessions; Org migration between regions.
+  domains, primary-domain change, and domain transfer; remembered Org
+  sessions; Org migration between regions.
+- The Org terms page (`orgs-ui` `terms.*` strings, every locale) holds
+  placeholder text. Replace it and `OrgTermsVersion` before launch; decide
+  whether existing Orgs must accept a later version, and how.
+- Optional Org profile fields, edited after signup and shown on the Hub:
+  description, industry, size band, founding year, and office cities (cities
+  only, never street addresses). Prompt from the Orgs home page; never ask at
+  signup.
+- Legal entity name, registered address, and tax ID: collect only when Org
+  payments need them, through the payment provider's checkout, private and
+  never shown on the Hub. A home-office address is personal data.
 - Org payments: launch is blocked on a real provider integration. The provider
   should own renewals, retries, payment methods, and invoices; Vetchium keeps
   entitlements and a webhook-fed projection, never card data. Decide provider

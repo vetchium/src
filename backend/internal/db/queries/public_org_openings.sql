@@ -1,6 +1,6 @@
 -- name: ListPublicOrgOpenings :one
 WITH owning_org AS (
-    SELECT o.org_did, o.display_name, logo.object_id AS logo_object_id
+    SELECT o.org_did, o.display_name, o.country, logo.object_id AS logo_object_id
     FROM vetchium.org_domains AS d
     JOIN vetchium.orgs AS o ON o.org_did = d.org_did
     LEFT JOIN vetchium.org_logo_objects AS logo
@@ -10,7 +10,7 @@ WITH owning_org AS (
       AND d.domain_state IN ('verified', 'failing', 'releasing')
       AND o.org_state = 'active'
 )
-SELECT org.display_name, org.logo_object_id,
+SELECT org.display_name, org.country, org.logo_object_id,
     COALESCE(list.openings, '[]'::jsonb) AS openings
 FROM owning_org AS org
 LEFT JOIN LATERAL (
@@ -51,7 +51,7 @@ LEFT JOIN LATERAL (
 
 -- name: GetPublicOrgOpening :one
 WITH owning_org AS (
-    SELECT o.org_did, o.display_name, logo.object_id AS logo_object_id
+    SELECT o.org_did, o.display_name, o.country, logo.object_id AS logo_object_id
     FROM vetchium.org_domains AS d
     JOIN vetchium.orgs AS o ON o.org_did = d.org_did
     LEFT JOIN vetchium.org_logo_objects AS logo
@@ -61,7 +61,7 @@ WITH owning_org AS (
       AND d.domain_state IN ('verified', 'failing', 'releasing')
       AND o.org_state = 'active'
 )
-SELECT org.display_name, org.logo_object_id,
+SELECT org.display_name, org.country, org.logo_object_id,
     COALESCE(opening.body, 'null'::jsonb)::text AS opening_json
 FROM owning_org AS org
 LEFT JOIN LATERAL (

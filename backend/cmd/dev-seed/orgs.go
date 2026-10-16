@@ -59,6 +59,12 @@ func loadOrgSeedSettings() (orgSeedSettings, error) {
 	return s, nil
 }
 
+// seededOrgCountries gives each tenant's fixtures a plausible base country;
+// a real Org's country is unrelated to its tenant.
+var seededOrgCountries = map[string]common.CountryCode{
+	"sgp": "SG", "usa1": "US", "deu": "DE", "ind1": "IN",
+}
+
 // seededOrgs are the Orgs every tenant gets: one per plan, so every plan-gated
 // screen has an Org to open. The Free Org keeps the tenant's own domain.
 var seededOrgs = []struct {
@@ -104,7 +110,11 @@ func runOrgSeed() error {
 		displayName := fmt.Sprintf(
 			"Example %s %s Corp", strings.ToUpper(settings.tenantID), org.label,
 		)
-		if err := seeder.seedOrg(ctx, domain, displayName, org.plan); err != nil {
+		country, ok := seededOrgCountries[settings.tenantID]
+		if !ok {
+			return fmt.Errorf("no seeded Org country for tenant %q", settings.tenantID)
+		}
+		if err := seeder.seedOrg(ctx, domain, displayName, country, org.plan); err != nil {
 			return fmt.Errorf("seed %s Org %s: %w", org.label, domain, err)
 		}
 	}
@@ -113,7 +123,7 @@ func runOrgSeed() error {
 
 func (s *orgSeeder) seedOrg(
 	ctx context.Context, domain orgs.OrgDomain, displayName string,
-	plan subscriptionspec.Plan,
+	country common.CountryCode, plan subscriptionspec.Plan,
 ) error {
 	email := "admin@" + string(domain)
 	if err := s.post(
@@ -145,9 +155,11 @@ func (s *orgSeeder) seedOrg(
 	}
 	if err := s.post(
 		ctx, "/api/orgs/complete-signup", orgsauth.CompleteSignupRequest{
-			SignupToken:    orgsauth.OrgSignupToken(token[1]),
-			OrgDisplayName: common.DisplayName(displayName),
-			Password:       common.NewPassword(devSeedHubUserPassword),
+			SignupToken:          orgsauth.OrgSignupToken(token[1]),
+			OrgDisplayName:       common.DisplayName(displayName),
+			OrgCountry:           country,
+			AcceptedTermsVersion: orgsauth.CurrentTermsVersion,
+			Password:             common.NewPassword(devSeedHubUserPassword),
 		}, "", http.StatusCreated, nil,
 	); err != nil {
 		return fmt.Errorf("complete Org signup: %w", err)

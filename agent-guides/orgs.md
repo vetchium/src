@@ -78,8 +78,18 @@ invariant).
   in development and CI), sending no credentials and no referrer. It warns
   when the record is absent and never blocks submission: completion's own
   lookup decides.
-- Completion takes the link token, the Org display name, and a new password.
-  Collect no personal name; identify an Org user by email address.
+- Completion takes the link token, the Org display name, the Org's country,
+  the accepted Org terms version, and a new password. Collect no personal
+  name; identify an Org user by email address.
+- The accepted version must equal `OrgTermsVersion` in
+  `typespec/orgs/auth/signup.*`, the version the portal's `/terms` page shows.
+  Provisioning records it in `org_terms_acceptances` with the requester and
+  the completion time, in the same statement that creates the Org. Changing
+  the terms text means a new version.
+- The Org's country (`CountryCode`) is where it is based. Ask for it; never
+  derive it from the region, the domain, or the browser: a region hosts Orgs
+  from many countries.
+- The Org's default language is the signup request's `preferred_language`.
 - The Org display name follows the Hub display-name rules (1 to 200 code points
   after trimming) and is not unique.
 - Look the record up live at completion. Anything but present is refused with
@@ -221,12 +231,20 @@ by the `workers` schedule and check-now.
   record, and the private link before submission. The sent state offers no
   way to change the address.
 - `orgs-ui` provides region choice, signup request, the private-link
-  completion page, sign-in with a mandatory empty region picker, the TOTP
+  completion page (which requires accepting the terms), the public terms
+  page, sign-in with a mandatory empty region picker, the TOTP
   step, Google sign-in and its callback, forgot and reset password, the
   signed-in shell, account security, the failing banner, and the suspended
   (restore-domain) screen, plus members and invitations, plans and billing,
-  Company (name and logo), Organization security (Google sign-in), and
+  Company (name, country, default language, and logo), Organization security (Google sign-in), and
   Openings lists, editing, requests, approvals, and history.
+- The Company page edits the display name, country, and default language in
+  one `set-company-details` request (`org:superadmin`). It replaces all three,
+  writes no row and no audit event when nothing changed, and otherwise audits
+  `org.company.details_changed` with the changed field names, never values.
+- Mail to an Org user uses that user's `preferred_language`. Mail to an
+  address that is not yet a user (invitations and their resends) uses the
+  Org's default language.
 - Show the signed-in email in My account and authorized People administration,
   not in the shell or Overview. Redirect `/settings` to `/company` and
   `/security` to `/account`.

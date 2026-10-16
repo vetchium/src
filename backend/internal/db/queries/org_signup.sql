@@ -417,8 +417,12 @@ WITH locked_operation AS (
       AND operation.state = 'reserved'
     FOR UPDATE
 ), inserted_org AS (
-    INSERT INTO vetchium.orgs (org_did, display_name, org_plan_oid)
-    SELECT org_did, sqlc.arg(display_name), sqlc.arg(org_plan_oid)
+    INSERT INTO vetchium.orgs (
+        org_did, display_name, country, default_language, org_plan_oid
+    )
+    SELECT
+        org_did, sqlc.arg(display_name), sqlc.arg(country),
+        sqlc.arg(preferred_language), sqlc.arg(org_plan_oid)
     FROM locked_operation
     RETURNING org_did
 ), inserted_domain AS (
@@ -459,10 +463,22 @@ WITH locked_operation AS (
     SELECT org_user_id, sqlc.arg(password_hash)
     FROM inserted_user
     RETURNING org_user_id
+), accepted_terms AS (
+    -- The requester accepted the terms when submitting completion.
+    INSERT INTO vetchium.org_terms_acceptances (
+        org_did, terms_version, accepted_by, accepted_at
+    )
+    SELECT
+        u.org_did, sqlc.arg(terms_version), u.org_user_id, operation.created_at
+    FROM inserted_user AS u
+    CROSS JOIN locked_operation AS operation
+    WHERE EXISTS (SELECT 1 FROM inserted_password)
+    RETURNING org_did
 ), granted AS (
     INSERT INTO vetchium.org_user_permissions (org_user_id, permission)
     SELECT org_user_id, 'org:superadmin'
     FROM inserted_password
+    WHERE EXISTS (SELECT 1 FROM accepted_terms)
     RETURNING org_user_id
 ), consumed AS (
     UPDATE vetchium.org_signup_requests
@@ -494,7 +510,11 @@ WITH locked_operation AS (
         'anonymous',
         sqlc.arg(source),
         idempotency_key,
-        jsonb_build_object('domain', domain, 'operation_id', operation_id)
+        jsonb_build_object(
+            'domain', domain,
+            'operation_id', operation_id,
+            'terms_version', sqlc.arg(terms_version)::text
+        )
     FROM updated
 )
 SELECT

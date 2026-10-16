@@ -571,6 +571,7 @@ export const de = {
   orgPage: {
     documentTitle: "Organisation | Vetchium",
     openingDocumentTitle: "Stelle | Vetchium",
+    basedIn: "Sitz: {{country}}",
     openings: "Stellen",
     loading: "Organisation wird geladen",
     notFound: "Organisation nicht gefunden.",

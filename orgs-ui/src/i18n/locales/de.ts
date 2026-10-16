@@ -53,6 +53,7 @@ export const de = {
     lastVerified: "Zuletzt verifiziert",
     newPassword: "Neues Passwort",
     orgDisplayName: "Name der Organisation",
+    orgCountry: "Land",
     password: "Passwort",
     permissions: "Berechtigungen",
     recoveryCode: "Wiederherstellungscode",
@@ -196,6 +197,31 @@ export const de = {
       next: "Öffnen Sie den privaten Link, sobald der Eintrag veröffentlicht ist, um die Organisation zu benennen und Ihr Passwort festzulegen.",
     },
   },
+  terms: {
+    documentTitle: "Bedingungen für Organisationen | Vetchium",
+    title: "Bedingungen für Organisationen",
+    version: "Version {{version}}",
+    placeholder:
+      "Platzhaltertext: Dies sind nicht die Bedingungen von Vetchium für Organisationen. Die endgültigen Bedingungen ersetzen diese Seite vor dem Start.",
+    sections: {
+      service: {
+        title: "Nutzung von Vetchium",
+        body: "Eine Organisation nutzt Vetchium, um Stellenanzeigen zu veröffentlichen und Einstellungen zu verwalten. Die Person, die die Registrierung abschließt, akzeptiert diese Bedingungen im Namen der Organisation.",
+      },
+      accounts: {
+        title: "Domain und Konten",
+        body: "Die Organisation hält ihre Domain verifiziert und ist für die Personen verantwortlich, die sie einlädt, und für die Berechtigungen, die sie ihnen erteilt.",
+      },
+      openings: {
+        title: "Stellenanzeigen",
+        body: "Vetchium prüft den Inhalt von Stellenanzeigen nicht. Es kann eine Stellenanzeige entfernen, die es für rechtswidrig, diskriminierend, irreführend oder missbräuchlich hält.",
+      },
+      changes: {
+        title: "Änderungen dieser Bedingungen",
+        body: "Wenn sich diese Bedingungen ändern, ändert sich ihre Version, und die Organisation kann aufgefordert werden, die neue Version zu akzeptieren.",
+      },
+    },
+  },
   completeSignup: {
     documentTitle: "Registrierung abschließen | Vetchium für Organisationen",
     title: "Registrierung Ihrer Organisation abschließen",
@@ -207,6 +233,13 @@ export const de = {
     expires: "Link läuft ab",
     displayNameHelp:
       "Wird auf Vetchium angezeigt. Der Name muss nicht eindeutig sein.",
+    countryHelp:
+      "Wo die Organisation ihren Sitz hat. Neue Stellenanzeigen übernehmen es als Land der Beschäftigung.",
+    acceptTerms:
+      "Ich akzeptiere die Bedingungen für Organisationen im Namen dieser Organisation.",
+    readTerms: "Bedingungen für Organisationen lesen (öffnet in neuem Tab)",
+    termsRequired:
+      "Akzeptieren Sie die Bedingungen, um die Organisation anzulegen.",
     action: "Domain verifizieren und Organisation anlegen",
     pending:
       "Die Domain ist verifiziert und die Organisation wird angelegt. Diese Seite prüft automatisch erneut.",
@@ -724,7 +757,13 @@ export const de = {
   company: {
     identity: "Unternehmensidentität",
     name: "Unternehmensname",
-    saved: "Unternehmensname gespeichert",
+    saved: "Unternehmensdaten gespeichert",
+    country: "Land",
+    countryHelp:
+      "Wo das Unternehmen seinen Sitz hat. Neue Stellenanzeigen übernehmen es als Land der Beschäftigung.",
+    defaultLanguage: "Standardsprache",
+    defaultLanguageHelp:
+      "Wird für Einladungen und als Ausgangssprache neuer Stellenanzeigen verwendet. Jedes Mitglied erhält eigene E-Mails weiterhin in seiner eigenen Sprache.",
     invalidName: "Geben Sie einen Namen mit 1 bis 200 Zeichen ein.",
     securityTitle: "Organisationssicherheit | Vetchium",
     confirmGoogle: "Google-Anmeldung ändern?",

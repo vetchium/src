@@ -81,6 +81,11 @@ const LoginPage = lazy(() =>
     default: LoginPage,
   })),
 );
+const TermsPage = lazy(() =>
+  import("../pages/TermsPage").then(({ TermsPage }) => ({
+    default: TermsPage,
+  })),
+);
 const NotFoundPage = lazy(() =>
   import("../pages/NotFoundPage").then(({ NotFoundPage }) => ({
     default: NotFoundPage,
@@ -144,6 +149,14 @@ export function App() {
           element={
             <Page>
               <CompleteSignupPage />
+            </Page>
+          }
+        />
+        <Route
+          path={paths.terms}
+          element={
+            <Page>
+              <TermsPage />
             </Page>
           }
         />

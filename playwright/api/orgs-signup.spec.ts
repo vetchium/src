@@ -1,8 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
-import type {
-  CompleteSignupRequest,
-  CompleteSignupResponse,
-  SignupDetailsResponse,
+import {
+  type CompleteSignupRequest,
+  type CompleteSignupResponse,
+  currentTermsVersion,
+  type SignupDetailsResponse,
 } from "typespec/orgs/auth/signup";
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
@@ -45,6 +46,8 @@ test.describe("Org signup in reserved TLDs", () => {
           {
             signup_token: pending.token,
             org_display_name: "Unchecked Org",
+            org_country: "SG",
+            accepted_terms_version: currentTermsVersion,
             password: orgPassword(),
           },
           { idempotencyKey: orgsIdempotencyKey() },
@@ -205,6 +208,8 @@ test.describe("Org signup completion", () => {
       const completion = {
         signup_token: pending.token,
         org_display_name: "  Acme Test  ",
+        org_country: "SG",
+        accepted_terms_version: currentTermsVersion,
         password,
       };
       await expectProblem(
@@ -250,13 +255,23 @@ test.describe("Org signup completion", () => {
       );
       expect(
         orgSQL(
-          `SELECT o.display_name || '|' || o.org_state || '|' || u.org_user_state
+          `SELECT o.display_name || '|' || o.country || '|' ||
+             o.default_language || '|' || o.org_state || '|' || u.org_user_state
            FROM vetchium.orgs o
            JOIN vetchium.org_domains d USING (org_did)
            JOIN vetchium.org_users u USING (org_did)
            WHERE d.domain = '${domain}'`,
         ),
-      ).toBe("Acme Test|active|active");
+      ).toBe("Acme Test|SG|en-US|active|active");
+      expect(
+        orgSQL(
+          `SELECT a.terms_version || '|' || u.email_address
+           FROM vetchium.org_terms_acceptances a
+           JOIN vetchium.org_domains d USING (org_did)
+           JOIN vetchium.org_users u ON u.org_user_id = a.accepted_by
+           WHERE d.domain = '${domain}'`,
+        ),
+      ).toBe(`${currentTermsVersion}|${pending.emailAddress}`);
 
       // The link is spent: details no longer resolve it.
       await expectProblem(
@@ -287,6 +302,8 @@ test.describe("Org signup completion", () => {
           {
             signup_token: rival.token,
             org_display_name: "Rival",
+            org_country: "SG",
+            accepted_terms_version: currentTermsVersion,
             password: orgPassword(),
           },
           { idempotencyKey: orgsIdempotencyKey() },
@@ -331,6 +348,8 @@ test.describe("Org signup completion", () => {
           {
             signup_token: rival.token,
             org_display_name: "Rival",
+            org_country: "SG",
+            accepted_terms_version: currentTermsVersion,
             password: orgPassword(),
           },
           { idempotencyKey: orgsIdempotencyKey() },
@@ -352,6 +371,8 @@ test.describe("Org signup completion", () => {
       {
         signup_token: "b".repeat(64),
         org_display_name: "Acme",
+        org_country: "SG",
+        accepted_terms_version: currentTermsVersion,
         password: orgPassword(),
       },
       { idempotencyKey: orgsIdempotencyKey() },
@@ -360,12 +381,24 @@ test.describe("Org signup completion", () => {
     await expectProblem(
       await api.post(
         "/complete-signup",
-        { signup_token: "short", org_display_name: " ", password: "short" },
+        {
+          signup_token: "short",
+          org_display_name: " ",
+          org_country: "sg",
+          accepted_terms_version: "2020-01-01",
+          password: "short",
+        },
         { idempotencyKey: orgsIdempotencyKey() },
       ),
       400,
       validationFailed,
-      ["signup_token", "org_display_name", "password"],
+      [
+        "signup_token",
+        "org_display_name",
+        "org_country",
+        "accepted_terms_version",
+        "password",
+      ],
     );
     await expectProblem(
       await api.postRaw("/complete-signup", "{", {
@@ -423,6 +456,8 @@ test("signup fails closed while login stays local when the directory is unreacha
         {
           signup_token: token,
           org_display_name: "Offline",
+          org_country: "SG",
+          accepted_terms_version: currentTermsVersion,
           password: orgPassword(),
         },
         { idempotencyKey: orgsIdempotencyKey() },
@@ -449,6 +484,8 @@ test("completion rechecks whether the requested domain has been blocked", async 
     const body: CompleteSignupRequest = {
       signup_token: pending.token,
       org_display_name: "Blocked after request",
+      org_country: "SG",
+      accepted_terms_version: currentTermsVersion,
       password: orgPassword(),
     };
     await expectProblem(await api.completeSignup(body), 403, domainBlocked);

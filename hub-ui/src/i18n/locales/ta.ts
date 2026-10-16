@@ -549,6 +549,7 @@ export const ta = {
   orgPage: {
     documentTitle: "நிறுவனம் | Vetchium",
     openingDocumentTitle: "வேலைவாய்ப்பு | Vetchium",
+    basedIn: "அமைவிடம்: {{country}}",
     openings: "வேலைவாய்ப்புகள்",
     loading: "நிறுவனம் ஏற்றப்படுகிறது",
     notFound: "நிறுவனம் கிடைக்கவில்லை.",

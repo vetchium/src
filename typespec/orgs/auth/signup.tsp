@@ -4,6 +4,7 @@ import "@typespec/openapi";
 import "../../common/authentication.tsp";
 import "../../common/common.tsp";
 import "../../common/idempotency.tsp";
+import "../../common/localization.tsp";
 import "../../common/security-effects.tsp";
 import "../../problem/common.tsp";
 import "../../problem/details.tsp";
@@ -38,9 +39,23 @@ model SignupDetailsResponse {
   expires_at: utcDateTime;
 }
 
+/** The Org terms version a new Org accepts: the one the Orgs portal's terms
+ * page shows. Changing the terms text means a new version. */
+enum OrgTermsVersion {
+  Current: "2026-10-16-placeholder",
+}
+
+/** The Org's default language is the signup request's `preferred_language`. */
 model CompleteSignupRequest {
   signup_token: OrgSignupToken;
   org_display_name: DisplayName;
+
+  /** Where the Org is based, which is not necessarily its region. */
+  org_country: Vetchium.CountryCode;
+
+  /** The terms version the requester accepted; any other value is invalid. */
+  accepted_terms_version: OrgTermsVersion;
+
   password: Vetchium.Authentication.NewPassword;
 }
 

@@ -342,6 +342,45 @@ test("team edits flag invalid addresses and save valid members", async ({
   });
 });
 
+test("a new Opening starts from the Org's country and default language", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    const details = await api.setCompanyDetails(owner, {
+      display_name: "Playwright Org",
+      country: "DE",
+      default_language: "de-DE",
+    });
+    expect(details.status(), await details.text()).toBe(204);
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings`);
+    await expect(
+      page.getByRole("heading", { name: "Openings", level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByTestId("shell-org-name")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "New Opening" }).click();
+    await expect(page.getByText("Germany", { exact: true })).toBeVisible();
+    await expect(page.getByText("German", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("shell-org-name")).toHaveCount(0);
+    await page
+      .getByRole("textbox", { name: "Title" })
+      .fill("Prefilled engineer");
+    await page.getByRole("button", { name: "Create draft" }).click();
+    await expect(page).toHaveURL(/\/openings\/1$/);
+    const read = await api.getOpening(owner, { opening_number: 1 });
+    expect(read.status()).toBe(200);
+    expect((await read.json()) as OrgOpening).toMatchObject({
+      working_content: {
+        title: "Prefilled engineer",
+        language: "de",
+        employing_country: "DE",
+      },
+    });
+  });
+});
+
 test("an incomplete draft names the fields that block publication", async ({
   page,
   request,

@@ -10,6 +10,12 @@ import (
 
 type OrgSignupToken common.OpaqueToken
 
+// OrgTermsVersion names the Org terms a new Org accepts. Changing the terms
+// text means a new CurrentTermsVersion.
+type OrgTermsVersion string
+
+const CurrentTermsVersion OrgTermsVersion = "2026-10-16-placeholder"
+
 type RequestSignupRequest struct {
 	EmailAddress      common.EmailAddress `json:"email_address"`
 	PreferredLanguage orgs.FrontendLocale `json:"preferred_language"`
@@ -62,7 +68,10 @@ type SignupDetailsResponse struct {
 type CompleteSignupRequest struct {
 	SignupToken    OrgSignupToken     `json:"signup_token"`
 	OrgDisplayName common.DisplayName `json:"org_display_name"`
-	Password       common.NewPassword `json:"password"`
+	OrgCountry     common.CountryCode `json:"org_country"`
+	// AcceptedTermsVersion must be CurrentTermsVersion.
+	AcceptedTermsVersion OrgTermsVersion    `json:"accepted_terms_version"`
+	Password             common.NewPassword `json:"password"`
 }
 
 func (r *CompleteSignupRequest) Normalize() {
@@ -70,12 +79,18 @@ func (r *CompleteSignupRequest) Normalize() {
 }
 
 func (r CompleteSignupRequest) Validate() []string {
-	fields := make([]string, 0, 3)
+	fields := make([]string, 0, 5)
 	if !common.IsOpaqueToken(string(r.SignupToken)) {
 		fields = append(fields, "signup_token")
 	}
 	if !common.IsDisplayName(r.OrgDisplayName) {
 		fields = append(fields, "org_display_name")
+	}
+	if !common.IsCountryCode(r.OrgCountry) {
+		fields = append(fields, "org_country")
+	}
+	if r.AcceptedTermsVersion != CurrentTermsVersion {
+		fields = append(fields, "accepted_terms_version")
 	}
 	if !common.IsNewPassword(r.Password) {
 		fields = append(fields, "password")

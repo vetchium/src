@@ -150,6 +150,7 @@ test("Hub lists and reads local and remote Org Openings with only public fields"
     expect(localBody.org).toMatchObject({
       domain: localOrg.domain,
       display_name: "Playwright Org",
+      country: "SG",
     });
     expect(localBody.org.logo_url).toBeUndefined();
     expect(localBody.openings).toMatchObject([

@@ -29,9 +29,10 @@ import { isProblem } from "../api/client";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { NoIndex } from "../components/common/NoIndex";
 import { useOrgOpeningsQuery } from "../features/openings/queries";
-import { countryOptions } from "../i18n/countries";
+import { countryName, countryOptions } from "../i18n/countries";
 
 export function OrgHeader({ org }: { org: PublicOrg }) {
+  const { t, i18n } = useTranslation();
   return (
     <Space align="center">
       {org.logo_url && (
@@ -39,7 +40,17 @@ export function OrgHeader({ org }: { org: PublicOrg }) {
       )}
       <div>
         <Typography.Title level={1}>{org.display_name}</Typography.Title>
-        <Typography.Text type="secondary">{org.domain}</Typography.Text>
+        <Typography.Text type="secondary">
+          {[
+            org.domain,
+            t("orgPage.basedIn", {
+              country: countryName(
+                org.country,
+                i18n.language as FrontendLocale,
+              ),
+            }),
+          ].join(" · ")}
+        </Typography.Text>
       </div>
     </Space>
   );

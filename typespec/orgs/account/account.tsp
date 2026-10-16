@@ -3,6 +3,7 @@ import "@typespec/openapi";
 
 import "../../common/authentication.tsp";
 import "../../common/common.tsp";
+import "../../common/localization.tsp";
 import "../../problem/common.tsp";
 import "../../problem/details.tsp";
 import "../../problem/orgs/authentication.tsp";
@@ -44,6 +45,15 @@ model DomainStatus {
 
 model OrgSummary {
   display_name: DisplayName;
+
+  /** Where the Org is based; new Openings start with it as the employing
+   * country. */
+  country: Vetchium.CountryCode;
+
+  /** The language of mail addressed to the Org rather than to one of its
+   * users, such as invitations, and of a new Opening. */
+  default_language: FrontendLocale;
+
   org_state: OrgState;
   domain: DomainStatus;
 }
@@ -73,7 +83,6 @@ model MyInfoResponse {
 
   /** Whether Google sign-in is on for the Org; only a Gold Org can have it. */
   google_sign_in_enabled: boolean;
-
 }
 
 /** The outcome of this lookup. inconclusive means the DNS query failed and

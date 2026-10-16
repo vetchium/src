@@ -22,6 +22,7 @@ export type OpeningTitleQuery = string;
 export interface PublicOrg {
   domain: OrgDomain;
   display_name: string;
+  country: CountryCode;
   logo_url?: string;
 }
 

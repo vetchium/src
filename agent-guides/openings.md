@@ -40,8 +40,8 @@ source-specific fields to it.
 | --- | --- |
 | `title` | 1–200 code points after trimming |
 | `description` | Markdown subset (below), 1–20,000 code points |
-| `language` | tag from the language catalog (`typespec/common/language_catalog.json`), defaulting to the author's portal language |
-| `employing_country` | `CountryCode` (ISO 3166-1 alpha-2) of the employing entity |
+| `language` | tag from the language catalog (`typespec/common/language_catalog.json`); a new Opening starts with the Org's default language |
+| `employing_country` | `CountryCode` (ISO 3166-1 alpha-2) of the employing entity; a new Opening starts with the Org's country |
 | `work_arrangement` | `on_site`, `hybrid`, `remote` |
 | `location_details` | optional plain text, at most 2,000 code points: cities, offices, travel, time zones |
 | `remote_eligibility` | required for `remote`, absent otherwise: where a candidate may live, either `worldwide` or `countries` with a list of unique `CountryCode`s that includes the employing country |
@@ -232,6 +232,8 @@ transition takes or returns one.
   effect: "Submit for approval" without `org:approve_openings`, "Publish" with
   it.
 - **OPN-ORG-006** Ship every string in every `orgs-ui` locale.
+- **OPN-ORG-007** Openings pages omit the Org name and logo from the shell
+  banner; every Opening shown is the signed-in Org's own.
 
 ## Hub display
 
@@ -240,13 +242,13 @@ transition takes or returns one.
   returns there. Anonymous viewing and search indexing are in `docs/todo.md`.
   Keep `NoIndex` on these routes.
 - **OPN-HUB-002** `/org/<domain>` shows the Org's display name, logo (when its
-  plan allows one), domain, and its `published` Openings, with filters for
+  plan allows one), domain, country, and its `published` Openings, with filters for
   employing country, work arrangement, employment type, and title search, and
   keyset pagination (at most 50), ordered by first publication, newest first.
   `/org/<domain>/openings/<number>` shows one Opening.
 - **OPN-HUB-003** The Hub representation is `PublicOpening`: live content,
   number, state, first publication time, `last_revised_at`, and the Org's
-  domain, display name, and signed logo URL. Hiring team, internal notes,
+  domain, display name, country, and signed logo URL. Hiring team, internal notes,
   history, working copies, pending requests, version, and Org user addresses
   never reach the Hub API or cross the mesh.
 - **OPN-HUB-004** Serve an Org's Openings only while the Org is active and holds

@@ -40,7 +40,10 @@ import { useNavigate } from "react-router";
 import { isEmailAddress, normalizeEmailAddress } from "typespec/common/common";
 import { countryCodeValues } from "typespec/common/countries";
 import { currencyCatalog } from "typespec/common/currency_catalog";
-import { languageCatalog } from "typespec/common/language_catalog";
+import {
+  isLanguageTag,
+  languageCatalog,
+} from "typespec/common/language_catalog";
 import {
   MaxOpeningSalary,
   missingForPublication,
@@ -51,6 +54,7 @@ import { APIError, isDefiniteRefusal } from "../../api/client";
 import { orgsAPI } from "../../api/orgs";
 import { paths } from "../../app/paths";
 import { problemMessage } from "../../components/common/APIErrorAlert";
+import { useMyInfoQuery } from "../account/queries";
 import { OpeningsBreadcrumb } from "./OpeningsBreadcrumb";
 import { openingContentPresentation } from "./presentation";
 import { openingProblem } from "./problems";
@@ -221,6 +225,7 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
   ]);
   const screens = Grid.useBreakpoint();
   const summary = useOpeningSummaryQuery();
+  const { data: me } = useMyInfoQuery();
   const contentLocked = ["publish", "revise"].includes(
     opening?.pending_request?.kind ?? "",
   );
@@ -259,6 +264,30 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
     value,
     label: languageNames.of(value) ?? value,
   }));
+
+  // A new Opening starts from the Org's country and default language. my-info
+  // may arrive after the form, so fill only what the user has not touched.
+  const orgCountry = me?.org.country;
+  const orgLanguage = me && new Intl.Locale(me.org.default_language).language;
+  useEffect(() => {
+    if (opening) return;
+    const defaults = [
+      [["content", "employing_country"], orgCountry],
+      [
+        ["content", "language"],
+        orgLanguage && isLanguageTag(orgLanguage) ? orgLanguage : undefined,
+      ],
+    ] as const;
+    for (const [field, value] of defaults) {
+      if (
+        value === undefined ||
+        form.isFieldTouched([...field]) ||
+        form.getFieldValue([...field]) !== undefined
+      )
+        continue;
+      form.setFieldValue([...field], value);
+    }
+  }, [form, opening, orgCountry, orgLanguage]);
 
   useEffect(() => {
     if (!opening) return;

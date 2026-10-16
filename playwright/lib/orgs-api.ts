@@ -7,10 +7,11 @@ import type { APIRequestContext, APIResponse } from "@playwright/test";
 import { expect } from "@playwright/test";
 import type { MyInfoResponse } from "typespec/orgs/account/account";
 import type { LoginResponse } from "typespec/orgs/auth/login";
-import type {
-  CompleteSignupRequest,
-  CompleteSignupResponse,
-  RequestSignupRequest,
+import {
+  type CompleteSignupRequest,
+  type CompleteSignupResponse,
+  currentTermsVersion,
+  type RequestSignupRequest,
 } from "typespec/orgs/auth/signup";
 import type {
   CreateOpeningRequest,
@@ -26,7 +27,7 @@ import type {
   SetOpeningTeamRequest,
   WithdrawOpeningRequestRequest,
 } from "typespec/orgs/openings/openings";
-import type { SetCompanyNameRequest } from "typespec/orgs/settings/company";
+import type { SetCompanyDetailsRequest } from "typespec/orgs/settings/company";
 import type { SetSubscriptionPlanRequest } from "typespec/orgs/subscriptions/subscriptions";
 import type { OrgDomain } from "typespec/orgs/types";
 import type {
@@ -361,11 +362,11 @@ export class OrgsAPI {
     });
   }
 
-  setCompanyName(
+  setCompanyDetails(
     token: string,
-    request: SetCompanyNameRequest,
+    request: SetCompanyDetailsRequest,
   ): Promise<APIResponse> {
-    return this.post("/set-company-name", request, { token });
+    return this.post("/set-company-details", request, { token });
   }
 
   uploadLogo(
@@ -617,6 +618,8 @@ export async function signupOrg(
     {
       signup_token: pending.token,
       org_display_name: "Playwright Org",
+      org_country: "SG",
+      accepted_terms_version: currentTermsVersion,
       password,
     },
     { idempotencyKey: orgsIdempotencyKey() },

@@ -99,11 +99,12 @@ func textParam(value *string) pgtype.Text {
 }
 
 func (r Reader) publicOrg(
-	ctx context.Context, domain orgs.OrgDomain, displayName string,
+	ctx context.Context, domain orgs.OrgDomain, displayName, country string,
 	logoID pgtype.UUID,
 ) (openingsspec.PublicOrg, error) {
 	org := openingsspec.PublicOrg{
 		Domain: domain, DisplayName: common.DisplayName(displayName),
+		Country: common.CountryCode(country),
 	}
 	if logoID.Valid {
 		if r.Logos == nil {
@@ -165,7 +166,7 @@ func (r Reader) List(
 	if err != nil {
 		return openingsspec.ListOrgOpeningsResponse{}, err
 	}
-	org, err := r.publicOrg(ctx, request.Domain, row.DisplayName, row.LogoObjectID)
+	org, err := r.publicOrg(ctx, request.Domain, row.DisplayName, row.Country, row.LogoObjectID)
 	if err != nil {
 		return openingsspec.ListOrgOpeningsResponse{}, err
 	}
@@ -209,7 +210,7 @@ func (r Reader) Get(
 	if opening == nil {
 		return openingsspec.GetOrgOpeningResponse{}, ErrOpeningNotFound
 	}
-	org, err := r.publicOrg(ctx, request.Domain, row.DisplayName, row.LogoObjectID)
+	org, err := r.publicOrg(ctx, request.Domain, row.DisplayName, row.Country, row.LogoObjectID)
 	if err != nil {
 		return openingsspec.GetOrgOpeningResponse{}, err
 	}

@@ -36,9 +36,11 @@ type DomainStatus struct {
 }
 
 type OrgSummary struct {
-	DisplayName common.DisplayName `json:"display_name"`
-	OrgState    OrgState           `json:"org_state"`
-	Domain      DomainStatus       `json:"domain"`
+	DisplayName     common.DisplayName  `json:"display_name"`
+	Country         common.CountryCode  `json:"country"`
+	DefaultLanguage orgs.FrontendLocale `json:"default_language"`
+	OrgState        OrgState            `json:"org_state"`
+	Domain          DomainStatus        `json:"domain"`
 }
 
 type MyInfoResponse struct {

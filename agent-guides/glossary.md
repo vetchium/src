@@ -26,6 +26,7 @@ Applies to product terms in prompts, specifications, code, and UI text.
 - Requester — the person (typically domain IT staff) who requests and completes org signup and becomes its first superadmin; never call them founder or owner — they need not have started or own the company.
 - Superadmin — an org user holding `org:superadmin`; an active org always keeps at least one active superadmin.
 - Verified / failing domain — TXT record found at the last conclusive check / absent on consecutive periodic checks.
+- Org country — where an org is based, chosen at signup; unrelated to its home tenant.
 - Suspended org — an org whose only domain stayed failing past the grace period and was released; its users can sign in only to restore the domain.
 
 ## Hiring

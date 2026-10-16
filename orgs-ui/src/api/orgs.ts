@@ -58,7 +58,7 @@ import type {
   WithdrawOpeningRequestRequest,
 } from "typespec/orgs/openings/openings";
 import type { OrgOpening } from "typespec/orgs/openings/types";
-import type { SetCompanyNameRequest } from "typespec/orgs/settings/company";
+import type { SetCompanyDetailsRequest } from "typespec/orgs/settings/company";
 import type { SetGoogleSignInRequest } from "typespec/orgs/settings/google_sign_in";
 import type { LogoContentType } from "typespec/orgs/settings/logo";
 import type {
@@ -272,8 +272,8 @@ export const orgsAPI = {
       body,
       idempotencyKey,
     }),
-  setCompanyName: (body: SetCompanyNameRequest) =>
-    apiRequest<void>("/set-company-name", { body }),
+  setCompanyDetails: (body: SetCompanyDetailsRequest) =>
+    apiRequest<void>("/set-company-details", { body }),
   listPermissions: () =>
     apiRequest<ListPermissionsResponse>("/list-permissions"),
   listUsers: (body: ListUsersRequest) =>

@@ -80,14 +80,15 @@ func TestListPublicOrgOpeningsBindsPaginationToFilters(t *testing.T) {
 
 func TestListPublicOrgOpeningsSignsOnlyAvailableLogo(t *testing.T) {
 	stub := &queryStub{listRow: sqlc.ListPublicOrgOpeningsRow{
-		DisplayName: "Example", Openings: []byte(`[]`),
+		DisplayName: "Example", Country: "SG", Openings: []byte(`[]`),
 		LogoObjectID: pgtype.UUID{Valid: true},
 	}}
 	logo := &logoStub{}
 	reader := Reader{Queries: stub, Logos: logo}
 	response, err := reader.List(context.Background(),
 		openingsspec.ListOrgOpeningsRequest{Domain: "example.com"})
-	if err != nil || response.Org.LogoURL == nil || logo.calls != 1 {
+	if err != nil || response.Org.LogoURL == nil || logo.calls != 1 ||
+		response.Org.Country != "SG" {
 		t.Fatalf("signed Org = %+v, %v", response.Org, err)
 	}
 	stub.listRow.LogoObjectID = pgtype.UUID{}

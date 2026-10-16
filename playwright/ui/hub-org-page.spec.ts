@@ -94,7 +94,9 @@ test("Hub user browses a remote Org, filters Openings, and sees safe published a
   await expect(
     page.getByRole("heading", { name: "Playwright Org" }),
   ).toBeVisible();
-  await expect(page.getByText(remote.domain)).toBeVisible();
+  await expect(
+    page.getByText(`${remote.domain} · Based in Singapore`),
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Remote engineer" }),
   ).toBeVisible();
@@ -161,7 +163,11 @@ test("Opening list follows and returns through keyset pages", async ({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        org: { domain: "pages.example.com", display_name: "Page Org" },
+        org: {
+          domain: "pages.example.com",
+          display_name: "Page Org",
+          country: "SG",
+        },
         openings: [
           {
             opening_number: secondPage ? 2 : 1,

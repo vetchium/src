@@ -19,6 +19,7 @@ export const paths = {
   settings: "/company",
   organizationSecurity: "/organization-security",
   acceptInvitation: "/accept-invitation",
+  terms: "/terms",
 } as const;
 
 /** Sign-in with the Org domain prefilled, as emailed links and completed

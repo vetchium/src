@@ -3,6 +3,8 @@ SELECT
     u.email_address,
     u.preferred_language,
     o.display_name,
+    o.country,
+    o.default_language,
     o.org_state,
     o.org_plan_oid,
     o.google_sign_in_enabled,

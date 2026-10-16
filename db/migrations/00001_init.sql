@@ -1237,6 +1237,12 @@ CREATE TYPE vetchium.org_state AS ENUM (
 CREATE TABLE vetchium.orgs (
     org_did uuid PRIMARY KEY,
     display_name text NOT NULL,
+    -- Where the Org is based, which is not its tenant: a region hosts Orgs
+    -- from many countries.
+    country text NOT NULL CHECK (country ~ '^[A-Z]{2}$'),
+    -- For mail addressed to the Org rather than to one of its users, and the
+    -- starting language of a new Opening.
+    default_language vetchium.org_frontend_locale NOT NULL,
     org_state vetchium.org_state NOT NULL DEFAULT 'provisioning',
     org_plan_oid text NOT NULL REFERENCES vetchium.org_plans (org_plan_oid),
     org_billing_interval vetchium.org_billing_interval,
@@ -1357,6 +1363,19 @@ CREATE TABLE vetchium.org_users (
         char_length(email_address) BETWEEN 3 AND 254
     ),
     CONSTRAINT org_users_timestamps_ordered CHECK (updated_at >= created_at)
+);
+
+-- Which Org terms version an Org accepted, who accepted it, and when. A later
+-- version adds a row; accepted rows are never changed.
+CREATE TABLE vetchium.org_terms_acceptances (
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    terms_version text NOT NULL
+        CHECK (terms_version ~ '^[a-z0-9][a-z0-9-]{0,63}$'),
+    accepted_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
+    accepted_at timestamptz NOT NULL,
+    PRIMARY KEY (org_did, terms_version)
 );
 
 -- Credentials live apart from the Org user, so another credential kind such
@@ -2181,6 +2200,7 @@ DROP TABLE IF EXISTS vetchium.org_permission_implications;
 DROP TABLE IF EXISTS vetchium.org_permission_catalog;
 DROP TABLE IF EXISTS vetchium.org_user_totp_credentials;
 DROP TABLE IF EXISTS vetchium.org_user_passwords;
+DROP TABLE IF EXISTS vetchium.org_terms_acceptances;
 DROP TABLE IF EXISTS vetchium.org_users;
 DROP TYPE IF EXISTS vetchium.org_user_state;
 DROP TABLE IF EXISTS vetchium.org_domains;

@@ -50,6 +50,7 @@ export const en = {
     lastVerified: "Last verified",
     newPassword: "New password",
     orgDisplayName: "Organization name",
+    orgCountry: "Country",
     password: "Password",
     permissions: "Permissions",
     recoveryCode: "Recovery code",
@@ -186,6 +187,31 @@ export const en = {
       next: "After the record is published, open the private link to name the organization and choose your password.",
     },
   },
+  terms: {
+    documentTitle: "Terms for organizations | Vetchium",
+    title: "Terms for organizations",
+    version: "Version {{version}}",
+    placeholder:
+      "Placeholder text: these are not Vetchium's terms for organizations. The final terms will replace this page before launch.",
+    sections: {
+      service: {
+        title: "Using Vetchium",
+        body: "An organization uses Vetchium to publish Openings and manage hiring. The person who completes signup accepts these terms on the organization's behalf.",
+      },
+      accounts: {
+        title: "Domain and accounts",
+        body: "The organization keeps its domain verified and is responsible for the people it invites and the permissions it grants them.",
+      },
+      openings: {
+        title: "Openings",
+        body: "Vetchium does not verify Opening content. It may remove an Opening it finds unlawful, discriminatory, misleading, or abusive.",
+      },
+      changes: {
+        title: "Changes to these terms",
+        body: "When these terms change, their version changes, and the organization may be asked to accept the new version.",
+      },
+    },
+  },
   completeSignup: {
     documentTitle: "Complete signup | Vetchium for organizations",
     title: "Complete your organization's signup",
@@ -197,6 +223,12 @@ export const en = {
     expires: "Link expires",
     displayNameHelp:
       "Shown to people on Vetchium. It does not have to be unique.",
+    countryHelp:
+      "Where the organization is based. New Openings start with it as the employing country.",
+    acceptTerms:
+      "I accept the terms for organizations on this organization's behalf.",
+    readTerms: "Read the terms for organizations (opens in a new tab)",
+    termsRequired: "Accept the terms to create the organization.",
     action: "Verify domain and create organization",
     pending:
       "The domain is verified and the organization is being created. This page checks again automatically.",
@@ -702,7 +734,13 @@ export const en = {
   company: {
     identity: "Company identity",
     name: "Company name",
-    saved: "Company name saved",
+    saved: "Company details saved",
+    country: "Country",
+    countryHelp:
+      "Where the company is based. New Openings start with it as the employing country.",
+    defaultLanguage: "Default language",
+    defaultLanguageHelp:
+      "Used for invitations and as the starting language of new Openings. Each member still receives their own emails in their own language.",
     invalidName: "Enter a name of 1 to 200 characters.",
     securityTitle: "Organization security | Vetchium",
     confirmGoogle: "Change Google sign-in?",

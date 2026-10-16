@@ -177,7 +177,7 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 			s, orgsauthorization.Superadmin,
 		)(next)))
 	}
-	mux.Handle("POST /api/orgs/set-company-name", manageOrg(orgssettings.SetCompanyName(s)))
+	mux.Handle("POST /api/orgs/set-company-details", manageOrg(orgssettings.SetCompanyDetails(s)))
 	mux.Handle("POST /api/orgs/logo/upload", manageOrg(orgssettings.UploadLogo(s)))
 	mux.Handle("POST /api/orgs/logo/remove", manageOrg(orgssettings.RemoveLogo(s)))
 	mux.Handle(

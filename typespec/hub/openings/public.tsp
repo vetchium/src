@@ -27,6 +27,10 @@ scalar OpeningTitleQuery extends string;
 model PublicOrg {
   domain: Vetchium.Orgs.OrgDomain;
   display_name: Vetchium.DisplayName;
+
+  /** Where the Org is based. */
+  country: Vetchium.CountryCode;
+
   logo_url?: url;
 }
 

@@ -12,24 +12,26 @@ import (
 	orgsruntime "backend/internal/orgs"
 )
 
-func SetCompanyName(s *orgsruntime.Server) http.HandlerFunc {
+func SetCompanyDetails(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var request settingsspec.SetCompanyNameRequest
+		var request settingsspec.SetCompanyDetailsRequest
 		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
 		ctx := r.Context()
 		identity, _ := middleware.OrgIdentityFromContext(ctx)
-		state, err := s.Queries.SetOrgCompanyName(
-			ctx, sqlc.SetOrgCompanyNameParams{
-				OrgDid:         identity.OrgDID,
-				DisplayName:    string(request.DisplayName),
-				TenantID:       s.TenantID,
-				ActorOrgUserID: identity.UserID,
+		state, err := s.Queries.SetOrgCompanyDetails(
+			ctx, sqlc.SetOrgCompanyDetailsParams{
+				OrgDid:          identity.OrgDID,
+				DisplayName:     string(request.DisplayName),
+				Country:         string(request.Country),
+				DefaultLanguage: string(request.DefaultLanguage),
+				TenantID:        s.TenantID,
+				ActorOrgUserID:  identity.UserID,
 			},
 		)
 		if err != nil {
-			s.InternalError(ctx, w, "set company name", err)
+			s.InternalError(ctx, w, "set company details", err)
 			return
 		}
 		if state != sqlc.VetchiumOrgStateActive {

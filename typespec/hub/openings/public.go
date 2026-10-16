@@ -23,6 +23,7 @@ const (
 type PublicOrg struct {
 	Domain      orgs.OrgDomain     `json:"domain"`
 	DisplayName common.DisplayName `json:"display_name"`
+	Country     common.CountryCode `json:"country"`
 	LogoURL     *string            `json:"logo_url,omitempty"`
 }
 

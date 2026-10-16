@@ -13,16 +13,13 @@ FOR UPDATE OF o;
 -- invitations would exceed seat_limit (NULL means unlimited) none is created
 -- and every would-be invitation is reported as 'limit-reached'.
 -- name: InviteOrgUsers :many
+-- The invitee has no language of their own yet, so the email uses the Org's.
 WITH org AS (
-    SELECT o.org_did, d.domain::text AS domain
+    SELECT o.org_did, o.default_language, d.domain::text AS domain
     FROM vetchium.orgs AS o
     JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
     WHERE o.org_did = sqlc.arg(org_did)
       AND d.domain_state <> 'released'
-), inviter AS (
-    SELECT u.preferred_language
-    FROM vetchium.org_users AS u
-    WHERE u.org_user_id = sqlc.arg(invited_by)
 ), input AS (
     SELECT
         e.email_address,
@@ -109,11 +106,11 @@ WITH org AS (
     SELECT
         'invitation',
         c.email_address,
-        inviter.preferred_language,
+        org.default_language,
         c.payload_ciphertext
     FROM classified AS c
     JOIN upserted AS u ON u.email_address = c.email_address
-    CROSS JOIN inviter
+    CROSS JOIN org
     RETURNING org_email_outbox_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
@@ -211,11 +208,10 @@ WITH existing AS (
     SELECT
         'invitation',
         u.email_address,
-        actor.preferred_language,
+        o.default_language,
         sqlc.arg(payload_ciphertext)
     FROM updated AS u
-    JOIN vetchium.org_users AS actor
-        ON actor.org_user_id = sqlc.arg(actor_org_user_id)
+    JOIN vetchium.orgs AS o ON o.org_did = sqlc.arg(org_did)
     RETURNING org_email_outbox_id
 ), audit AS (
     INSERT INTO vetchium.audit_events (
@@ -228,7 +224,7 @@ WITH existing AS (
         'org_invitation',
         u.org_invitation_id::text,
         'org_user',
-        sqlc.arg(actor_org_user_id)::text,
+        sqlc.arg(actor_org_user_id)::uuid::text,
         'orgs-api',
         sqlc.arg(idempotency_key),
         jsonb_build_object(

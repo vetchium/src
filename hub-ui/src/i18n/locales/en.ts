@@ -543,6 +543,7 @@ export const en = {
   orgPage: {
     documentTitle: "Organization | Vetchium",
     openingDocumentTitle: "Opening | Vetchium",
+    basedIn: "Based in {{country}}",
     openings: "Openings",
     loading: "Loading organization",
     notFound: "Organization not found.",
