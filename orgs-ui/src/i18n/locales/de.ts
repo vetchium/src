@@ -358,12 +358,17 @@ export const de = {
     "org:manage_users": {
       name: "MANAGE_USERS",
       description:
-        "Benutzer einladen, deaktivieren und wieder aktivieren und ihre Berechtigungen ändern, außer Superadmin, Abrechnung und Freigabe von Stellenanzeigen.",
+        "Benutzer einladen, deaktivieren und wieder aktivieren und ihre Berechtigungen ändern, außer Superadmin, Abrechnung, KI-Verwaltung und Freigabe von Stellenanzeigen.",
     },
     "org:manage_billing": {
       name: "MANAGE_BILLING",
       description:
         "Den Tarif und das Abrechnungsintervall der Organisation auswählen.",
+    },
+    "org:manage_ai": {
+      name: "MANAGE_AI",
+      description:
+        "KI-Unterstützung ein- oder ausschalten, die Modelle jeder KI-Funktion festlegen, KI-Guthaben kaufen und die KI-Nutzung einsehen.",
     },
     "org:view_openings": {
       name: "VIEW_OPENINGS",

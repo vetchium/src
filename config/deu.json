@@ -106,5 +106,44 @@
     "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
   },
   "mcpServer": {},
+  "ai": {
+    "requestTimeout": "120s",
+    "reservationTimeout": "10m",
+    "textRetention": "4320h",
+    "grantCreditsInterval": "1m",
+    "releaseReservationsInterval": "1m",
+    "models": [
+      {
+        "oid": "qwen3-1-7b",
+        "displayName": "Qwen3 1.7B",
+        "vendor": "Alibaba Cloud Qwen",
+        "licence": "Apache-2.0",
+        "baseURL": "http://ai-dev:8080/engines/v1",
+        "hostModel": "ai/qwen3:1.7b",
+        "jsonSchemaOutput": true,
+        "chatTemplateKwargs": {"enable_thinking": false},
+        "maxOutputTokens": 3072,
+        "inputCreditsPerMillionTokens": 20000,
+        "outputCreditsPerMillionTokens": 60000
+      },
+      {
+        "oid": "ministral-3-3b",
+        "displayName": "Ministral 3 3B",
+        "vendor": "Mistral AI",
+        "licence": "Apache-2.0",
+        "baseURL": "http://ai-dev:8080/engines/v1",
+        "hostModel": "ai/ministral3:3B-Q4_K_M",
+        "jsonSchemaOutput": true,
+        "maxOutputTokens": 3072,
+        "inputCreditsPerMillionTokens": 30000,
+        "outputCreditsPerMillionTokens": 80000
+      }
+    ],
+    "operationDefaults": { "org-opening-draft": "qwen3-1-7b" },
+    "creditPacks": [
+      { "id": "credits-100k", "credits": 100000, "priceCurrency": "EUR", "priceAmountMinor": 900 },
+      { "id": "credits-500k", "credits": 500000, "priceCurrency": "EUR", "priceAmountMinor": 4000 }
+    ]
+  },
   "signupRegionsFile": "/etc/vetchium/signup-regions.json"
 }

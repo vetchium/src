@@ -40,6 +40,10 @@ type Entitlements struct {
 	AllowsLogo               bool
 	AllowsGoogleSignIn       bool
 	IncludesTicketSupport    bool
+	// AllowsAI gates AI operations, the monthly credit grant, and credit
+	// purchases. Credits bought earlier stay usable without it.
+	AllowsAI          bool
+	AICreditsPerMonth int64
 }
 
 func intPtr(value int) *int { return &value }
@@ -57,6 +61,7 @@ var entitlements = map[Plan]Entitlements{
 		MaxUsers: 1000, MaxUsersWithGoogleSignIn: nil,
 		OpeningsPerYear: 2500, AllowsLogo: true,
 		AllowsGoogleSignIn: true, IncludesTicketSupport: true,
+		AllowsAI: true, AICreditsPerMonth: 100_000,
 	},
 }
 
@@ -141,4 +146,10 @@ func AllowsGoogleSignIn(plan Plan) bool {
 
 func IncludesTicketSupport(plan Plan) bool {
 	return entitlements[plan].IncludesTicketSupport
+}
+
+func AllowsAI(plan Plan) bool { return entitlements[plan].AllowsAI }
+
+func AICreditsPerMonth(plan Plan) int64 {
+	return entitlements[plan].AICreditsPerMonth
 }

@@ -140,6 +140,11 @@ export const en = {
       description:
         "Add, edit, disable, and reactivate corporate email domains accepted for new Hub user signups.",
     },
+    "admin:view_ai_usage": {
+      name: "VIEW_AI_USAGE",
+      description:
+        "Review organizations' AI usage, including the prompts and outputs kept for support and abuse review. Every text you open is recorded in the audit log.",
+    },
     unknown: {
       description:
         "This permission was added after this portal was built. It is kept as it is unless you turn it off.",

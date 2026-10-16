@@ -9,6 +9,7 @@ enum AdminPermission {
   ManageUsers: "admin:manage_users",
   ViewHubSignupDomains: "admin:view_hub_signup_domains",
   ManageHubSignupDomains: "admin:manage_hub_signup_domains",
+  ViewAIUsage: "admin:view_ai_usage",
 }
 
 /**
@@ -29,7 +30,8 @@ enum AdminPermission {
     "admin:view_users",
     "admin:manage_users",
     "admin:view_hub_signup_domains",
-    "admin:manage_hub_signup_domains"
+    "admin:manage_hub_signup_domains",
+    "admin:view_ai_usage"
   ]
 )
 @TypeSpec.OpenAPI.extension(

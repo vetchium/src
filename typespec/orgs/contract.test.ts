@@ -14,6 +14,7 @@ import {
   directPermissions,
   effectivePermissions,
   holds,
+  ManageAI,
   ManageBilling,
   ManageOpenings,
   ManageUsers,
@@ -171,6 +172,7 @@ test("Org invitations validate bulk bounds, permissions, and passwords", () => {
 test("Org permissions include one-hop Opening implications", () => {
   assert.deepEqual(effectivePermissions([Superadmin]), [
     ApproveOpenings,
+    ManageAI,
     ManageBilling,
     ManageOpenings,
     ManageUsers,
@@ -180,6 +182,7 @@ test("Org permissions include one-hop Opening implications", () => {
   assert.deepEqual(
     directPermissions([
       ApproveOpenings,
+      ManageAI,
       ManageBilling,
       ManageOpenings,
       ManageUsers,

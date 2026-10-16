@@ -4,6 +4,7 @@ import {
   effectivePermissions,
   impliedPermissions,
   isOrgPermission,
+  ManageAI,
   ManageBilling,
   ManageOpenings,
   ManageUsers,
@@ -69,6 +70,7 @@ export function presetGrants(preset: RolePreset): OrgPermissionID[] {
 const reserved: readonly OrgPermissionID[] = [
   Superadmin,
   ManageBilling,
+  ManageAI,
   ApproveOpenings,
 ];
 

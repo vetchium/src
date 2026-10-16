@@ -12,6 +12,7 @@ const (
 	ManageUsers            AdminPermission = "admin:manage_users"
 	ViewHubSignupDomains   AdminPermission = "admin:view_hub_signup_domains"
 	ManageHubSignupDomains AdminPermission = "admin:manage_hub_signup_domains"
+	ViewAIUsage            AdminPermission = "admin:view_ai_usage"
 )
 
 // adminPermissions is ordered the way portals present permissions rather than
@@ -22,6 +23,7 @@ var adminPermissions = []AdminPermission{
 	ManageUsers,
 	ViewHubSignupDomains,
 	ManageHubSignupDomains,
+	ViewAIUsage,
 }
 
 var permissionImplications = map[AdminPermission][]AdminPermission{

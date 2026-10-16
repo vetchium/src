@@ -10,7 +10,7 @@ import (
 // holder of org:manage_users may delegate every other permission (D17).
 var reserved = []authorization.OrgPermission{
 	authorization.Superadmin, authorization.ManageBilling,
-	authorization.ApproveOpenings,
+	authorization.ManageAI, authorization.ApproveOpenings,
 }
 
 // CanGrant reports whether a caller holding the effective permissions may

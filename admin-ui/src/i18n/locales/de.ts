@@ -145,6 +145,11 @@ export const de = {
       description:
         "Unternehmensdomänen für neue Hub-Benutzeranmeldungen hinzufügen, bearbeiten, deaktivieren und reaktivieren.",
     },
+    "admin:view_ai_usage": {
+      name: "KI_NUTZUNG_EINSEHEN",
+      description:
+        "Die KI-Nutzung von Organisationen prüfen, einschließlich der für Support und Missbrauchsprüfung aufbewahrten Eingaben und Ausgaben. Jeder geöffnete Text wird im Audit-Protokoll festgehalten.",
+    },
     unknown: {
       description:
         "Diese Berechtigung kam nach diesem Portal hinzu. Sie bleibt erhalten, solange Sie sie nicht abschalten.",

@@ -34,6 +34,10 @@ export interface Entitlements {
   allowsLogo: boolean;
   allowsGoogleSignIn: boolean;
   includesTicketSupport: boolean;
+  /** Gates AI operations, the monthly credit grant, and credit purchases.
+   * Credits bought earlier stay usable without it. */
+  allowsAI: boolean;
+  aiCreditsPerMonth: number;
 }
 
 export const entitlements: Readonly<Record<OrgPlan, Entitlements>> = {
@@ -44,6 +48,8 @@ export const entitlements: Readonly<Record<OrgPlan, Entitlements>> = {
     allowsLogo: false,
     allowsGoogleSignIn: false,
     includesTicketSupport: false,
+    allowsAI: false,
+    aiCreditsPerMonth: 0,
   },
   "org-silver-tier": {
     maxUsers: 50,
@@ -52,6 +58,8 @@ export const entitlements: Readonly<Record<OrgPlan, Entitlements>> = {
     allowsLogo: true,
     allowsGoogleSignIn: false,
     includesTicketSupport: false,
+    allowsAI: false,
+    aiCreditsPerMonth: 0,
   },
   "org-gold-tier": {
     maxUsers: 1000,
@@ -60,6 +68,8 @@ export const entitlements: Readonly<Record<OrgPlan, Entitlements>> = {
     allowsLogo: true,
     allowsGoogleSignIn: true,
     includesTicketSupport: true,
+    allowsAI: true,
+    aiCreditsPerMonth: 100000,
   },
 };
 
@@ -147,4 +157,12 @@ export function allowsGoogleSignIn(plan: OrgPlanOID): boolean {
 
 export function includesTicketSupport(plan: OrgPlanOID): boolean {
   return isOrgPlan(plan) && entitlements[plan].includesTicketSupport;
+}
+
+export function allowsAI(plan: OrgPlanOID): boolean {
+  return isOrgPlan(plan) && entitlements[plan].allowsAI;
+}
+
+export function aiCreditsPerMonth(plan: OrgPlanOID): number {
+  return isOrgPlan(plan) ? entitlements[plan].aiCreditsPerMonth : 0;
 }

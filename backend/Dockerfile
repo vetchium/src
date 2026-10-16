@@ -37,6 +37,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/global-coordinator ./cmd/global-coordinator && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/dev-seed ./cmd/dev-seed && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/oidc-dev ./cmd/oidc-dev && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/ai-dev ./cmd/ai-dev && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/doh-dev ./cmd/doh-dev
 
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:f5b485ea962d9bd1186b2f6b3a061191539b905b82ec395de78cbfae51f20e35 AS runtime
@@ -80,6 +81,10 @@ HEALTHCHECK NONE
 # Development and CI identity provider only; never published or deployed.
 FROM runtime AS oidc-dev
 COPY --from=build /out/oidc-dev /service
+
+# Development and CI model server stand-in only; never published or deployed.
+FROM runtime AS ai-dev
+COPY --from=build /out/ai-dev /service
 
 # Development and CI DNS-over-HTTPS front for dns-dev only; never published or
 # deployed.
