@@ -51,6 +51,7 @@ Read every guide that applies before changing files.
 | [`database.md`](agent-guides/database.md) | PostgreSQL, queries, sqlc, transactions, seeds |
 | [`authorization.md`](agent-guides/authorization.md) | permissions and their screens |
 | [`ui.md`](agent-guides/ui.md) | portals, `portal-ui`, global portals and regions |
+| [`ux.md`](agent-guides/ux.md) | every portal screen, before designing it |
 | [`playwright.md`](agent-guides/playwright.md) | API and UI tests |
 | [`federation.md`](agent-guides/federation.md) | global directory, mesh trust, cross-tenant commands |
 | [`mesh-topology.md`](agent-guides/mesh-topology.md) | mesh and coordinator deployment, certificates, networks |
