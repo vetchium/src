@@ -466,12 +466,15 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
     }
     setActiveTab("edit");
     if (draft.content.salary) setOpenSections(editorSections);
+    const number = new Intl.NumberFormat(i18n.language);
     void message.success(
       t("ai.draft.applied", {
-        credits: new Intl.NumberFormat(i18n.language).format(
-          draft.usage.credits_charged,
-        ),
+        credits: number.format(draft.usage.credits_charged),
+        input: number.format(draft.usage.input_tokens),
+        output: number.format(draft.usage.output_tokens),
+        left: number.format(draft.balance_available),
       }),
+      8,
     );
     if (draft.dropped_fields.length > 0) {
       void message.warning(

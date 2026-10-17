@@ -23,14 +23,7 @@ import { useAICreditLotsQuery, useBuyAICreditPack } from "./queries";
 
 const pageSize = 25;
 
-export function AICreditsPanel({
-  credits,
-  typicalDraft,
-}: {
-  credits: AICreditsResponse;
-  /** A typical draft's cost with the preselected drafting model, if any. */
-  typicalDraft?: { credits: number; model: string };
-}) {
+export function AICreditsPanel({ credits }: { credits: AICreditsResponse }) {
   const { t, i18n } = useTranslation();
   const { message, modal } = App.useApp();
   const { date } = useDateTimeFormat();
@@ -115,16 +108,6 @@ export function AICreditsPanel({
                           pack.price_amount_minor,
                         )}
                       </Typography.Text>
-                      {typicalDraft === undefined ? null : (
-                        <Typography.Text type="secondary">
-                          {t("ai.credits.packDrafts", {
-                            drafts: number.format(
-                              Math.floor(pack.credits / typicalDraft.credits),
-                            ),
-                            model: typicalDraft.model,
-                          })}
-                        </Typography.Text>
-                      )}
                     </Flex>
                     <Button
                       onClick={() => purchase(pack)}

@@ -90,7 +90,7 @@ test("drafting with AI fills the new Opening form without saving it", async ({
       name: "What should the AI write?",
     });
     await expect(prompt).toBeVisible();
-    await expect(page.getByTestId("ai-draft-estimate")).toContainText(
+    await expect(page.getByTestId("ai-draft-balance")).toContainText(
       "credits available",
     );
     const generate = page.getByRole("button", { name: "Generate draft" });
@@ -105,7 +105,11 @@ test("drafting with AI fills the new Opening form without saving it", async ({
 
     await prompt.fill("Platform engineer");
     await generate.click();
-    await expect(page.getByText("Draft filled in.")).toBeVisible();
+    await expect(
+      page.getByText(
+        /^Draft filled in\. \d+ credits used \(\d+ input and \d+ output tokens\); [\d,]+ credits left\./,
+      ),
+    ).toBeVisible();
     await expect(page.getByLabel("Title")).toHaveValue(
       "Draft: Platform engineer",
     );
@@ -207,9 +211,6 @@ test("an AI manager turns AI on, buys credits, and reviews usage", async ({
       "aria-selected",
       "true",
     );
-    await expect(
-      page.getByText(/About [\d,]+ Opening drafts with/).first(),
-    ).toBeVisible();
     await page
       .getByRole("button", { name: "Buy", exact: true })
       .first()

@@ -32,7 +32,6 @@ import { PlanRequiredErrorType } from "typespec/problem/orgs/billing";
 import { APIError } from "../../api/client";
 import { orgsAPI } from "../../api/orgs";
 import { problemMessage } from "../../components/common/APIErrorAlert";
-import { estimateDraftCredits } from "./estimate";
 import { aiQueryKey, isAIUnavailable, useAIOptionsQuery } from "./queries";
 import { VetchiumAIIcon } from "./VetchiumAIIcon";
 
@@ -162,11 +161,8 @@ export function DraftWithAIButton({
         />
       ) : null}
       {ready && chosen !== undefined ? (
-        <Typography.Text type="secondary" data-testid="ai-draft-estimate">
-          {t("ai.draft.estimate", {
-            credits: number.format(
-              estimateDraftCredits(chosen, trimmed, currentContent()),
-            ),
+        <Typography.Text type="secondary" data-testid="ai-draft-balance">
+          {t("ai.draft.available", {
             available: number.format(data?.balance_available ?? 0),
           })}
         </Typography.Text>

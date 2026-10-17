@@ -1,13 +1,11 @@
 import { Alert, Button, Flex, Skeleton, Tabs, Tag, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
-import { OpeningDraft } from "typespec/orgs/ai/types";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { AICreditsPanel } from "../features/ai/AICreditsPanel";
 import { AISettingsPanel } from "../features/ai/AISettingsPanel";
 import { AIUsagePanel } from "../features/ai/AIUsagePanel";
 import { CreditSummary } from "../features/ai/CreditSummary";
-import { typicalDraftCredits } from "../features/ai/estimate";
 import {
   isAIUnavailable,
   useAICreditsQuery,
@@ -81,18 +79,6 @@ export function AIPage() {
         </Flex>
       );
     }
-    const draftPolicy = settings.data.settings.policies.find(
-      (policy) => policy.operation === OpeningDraft,
-    );
-    const draftModelOID =
-      draftPolicy === undefined
-        ? settings.data.operation_defaults.find(
-            (entry) => entry.operation === OpeningDraft,
-          )?.default_model
-        : draftPolicy.default_model;
-    const draftModel = settings.data.models.find(
-      (model) => model.model_oid === draftModelOID,
-    );
     return (
       <Flex vertical gap="large">
         {settings.data.settings.enabled ? null : (
@@ -124,19 +110,7 @@ export function AIPage() {
             {
               key: "credits",
               label: t("ai.tabs.credits"),
-              children: (
-                <AICreditsPanel
-                  credits={credits.data}
-                  {...(draftModel === undefined
-                    ? {}
-                    : {
-                        typicalDraft: {
-                          credits: typicalDraftCredits(draftModel),
-                          model: draftModel.display_name,
-                        },
-                      })}
-                />
-              ),
+              children: <AICreditsPanel credits={credits.data} />,
             },
             {
               key: "settings",

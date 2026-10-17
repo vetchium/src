@@ -512,12 +512,10 @@ export const de = {
         "Zum Beispiel: eine erfahrene Backend-Entwicklerin für unser Zahlungsteam in Berlin, hybrid, fünf Jahre Go",
       modelLabel: "Modell",
       modelOption: "{{name}} ({{vendor}})",
-      estimate:
-        "Etwa {{credits}} Guthabenpunkte für diesen Entwurf. {{available}} verfügbar.",
       generate: "Entwurf erstellen",
       review: "KI kann sich irren. Prüfen Sie jedes Feld, bevor Sie speichern.",
       applied:
-        "Entwurf eingefügt. {{credits}} Guthabenpunkte verbraucht. Prüfen und dann speichern.",
+        "Entwurf eingefügt. {{credits}} Guthaben verbraucht ({{input}} Eingabe- und {{output}} Ausgabe-Tokens); {{left}} übrig. Prüfen und dann speichern.",
       dropped:
         "Einige von der KI vorgeschlagene Felder waren ungültig und wurden weggelassen: {{fields}}",
       unavailable: {
@@ -548,6 +546,7 @@ export const de = {
         operationOff:
           "Ihre Organisation hat KI-Entwürfe für Stellenanzeigen ausgeschaltet.",
       },
+      available: "{{available}} Guthaben verfügbar.",
     },
     settings: {
       title: "KI-Unterstützung",
@@ -646,7 +645,6 @@ export const de = {
       remaining: "Übrig",
       added: "Hinzugefügt",
       expires: "Verfällt",
-      packDrafts: "Etwa {{drafts}} Entwürfe für Stellenanzeigen mit {{model}}",
     },
     usage: {
       title: "KI-Nutzung",

@@ -90,6 +90,9 @@ built; Hub AI is in [`../docs/todo.md`](../docs/todo.md).
   `purchased_total`, spent lots included) beside what remains. The portal
   shows one gauge per source and an overall alert from 80% used (held credits
   count as used) or when nothing is available, in theme colors.
+- Pricing is per token. Portals show no cost estimate before a call (output
+  length is unknown); after each call they show its credits and tokens and the
+  credits left, and the Usage tab lists every call's cost.
 - Payment is simulated: buying grants the lot at once and the audit records
   `payment: simulated`. Real payments follow
   [`org-subscriptions.md`](org-subscriptions.md).

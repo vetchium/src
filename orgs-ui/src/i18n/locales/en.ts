@@ -492,12 +492,10 @@ export const en = {
         "For example: a senior backend engineer for our payments team in Singapore, hybrid, five years of Go",
       modelLabel: "Model",
       modelOption: "{{name}} ({{vendor}})",
-      estimate:
-        "About {{credits}} credits for this draft. {{available}} credits available.",
       generate: "Generate draft",
       review: "AI can be wrong. Review every field before you save.",
       applied:
-        "Draft filled in. {{credits}} credits used. Review it, then save.",
+        "Draft filled in. {{credits}} credits used ({{input}} input and {{output}} output tokens); {{left}} credits left. Review it, then save.",
       dropped:
         "Some fields the AI suggested were not valid and were left out: {{fields}}",
       unavailable: {
@@ -526,6 +524,7 @@ export const en = {
         operationOff:
           "Your organization has turned off Opening drafting with AI.",
       },
+      available: "{{available}} credits available.",
     },
     settings: {
       title: "AI assistance",
@@ -620,7 +619,6 @@ export const en = {
       remaining: "Left",
       added: "Added",
       expires: "Expires",
-      packDrafts: "About {{drafts}} Opening drafts with {{model}}",
     },
     usage: {
       title: "AI usage",
