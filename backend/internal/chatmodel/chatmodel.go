@@ -138,8 +138,11 @@ func (c *Client) Complete(
 		return Response{}, fmt.Errorf("%w: read body: %w", ErrModelFailed, err)
 	}
 	if response.StatusCode != http.StatusOK {
+		// The host's error text names the cause (a grammar it cannot compile,
+		// an unknown model); it goes only to logs.
 		return Response{}, fmt.Errorf(
-			"%w: status %d", ErrModelFailed, response.StatusCode,
+			"%w: status %d: %.300s", ErrModelFailed, response.StatusCode,
+			bytes.TrimSpace(raw),
 		)
 	}
 	if len(raw) > maxResponseBytes {

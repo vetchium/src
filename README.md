@@ -63,7 +63,7 @@ machine. Turn it on once and pull the two development models (about 4 GB):
 
 ```bash
 docker desktop enable model-runner
-make dev-ai-models   # ai/qwen3:1.7b and ai/ministral3:3B-Q4_K_M
+make dev-ai-models   # ai/qwen3:1.7b and ai/ministral3:3B-Q4_K_M, 16k context
 ```
 
 The stack's `ai-dev` service relays model calls to Model Runner, which the
@@ -71,8 +71,9 @@ internal region networks cannot reach directly. Without Model Runner, a draft
 fails with "The AI model did not answer" and uses no credits. Tests never use
 Model Runner: the CI stack runs `ai-dev` as a fake model server.
 
-If longer drafts fail, raise a model's context window, for example
-`docker model configure --context-size 16384 ai/qwen3:1.7b`.
+If a draft fails, `docker model logs` shows Model Runner's reason. Rerun
+`make dev-ai-models` after restarting Docker Desktop if Ministral answers
+"Compute error" (out of GPU memory): it restores the 16k context size.
 
 ## Seeded accounts
 

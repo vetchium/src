@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -93,6 +94,17 @@ func TestCompleteFailures(t *testing.T) {
 				t.Fatalf("Complete() error = %v, want ErrModelFailed", err)
 			}
 		})
+	}
+}
+
+func TestCompleteFailureKeepsHostError(t *testing.T) {
+	t.Parallel()
+	base := serve(t, http.StatusBadRequest,
+		`{"error":{"message":"failed to parse grammar"}}`, nil)
+	_, err := New().Complete(context.Background(),
+		Endpoint{BaseURL: base, APIKey: "key"}, Request{})
+	if err == nil || !strings.Contains(err.Error(), "failed to parse grammar") {
+		t.Fatalf("Complete() error = %v, want the host's message", err)
 	}
 }
 

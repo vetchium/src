@@ -171,9 +171,13 @@ dev-seed-orgs: sqlc
 
 # The development models Docker Model Runner serves through ai-dev; keep them
 # equal to the hostModel values in config/*.json.
+# Ministral's default context (about 240k tokens) needs more GPU memory than a
+# laptop has; a draft needs about 10k.
 dev-ai-models:
 	docker model pull ai/qwen3:1.7b
 	docker model pull ai/ministral3:3B-Q4_K_M
+	docker model configure --context-size 16384 ai/qwen3:1.7b
+	docker model configure --context-size 16384 ai/ministral3:3B-Q4_K_M
 
 dev-secrets:
 	@install -d -m 700 "$(DEV_SECRETS_DIR)"
