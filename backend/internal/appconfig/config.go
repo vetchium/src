@@ -43,6 +43,8 @@ type Config struct {
 	OrgDomainVerification OrgDomainVerification
 	OrgBilling            OrgBilling
 	MCPServer             Server
+	// AI is nil when the tenant offers no AI.
+	AI *AI
 }
 
 type Environment string
@@ -221,6 +223,7 @@ type fileConfig struct {
 	OrgDomainVerification *fileOrgDomainVerification `json:"orgDomainVerification"`
 	OrgBilling            *fileOrgBilling            `json:"orgBilling"`
 	MCPServer             *Server                    `json:"mcpServer"`
+	AI                    *fileAI                    `json:"ai"`
 }
 
 type fileGlobalCoordinator struct {
@@ -579,6 +582,14 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	var aiConfig *AI
+	if raw.AI != nil {
+		parsed, err := parseAI(*raw.AI)
+		if err != nil {
+			return Config{}, configError(path, err)
+		}
+		aiConfig = &parsed
+	}
 	privateObjectURL, err := httpOrigin(
 		"objectStorage.privateBaseURL", raw.ObjectStorage.PrivateBaseURL,
 	)
@@ -747,6 +758,7 @@ func LoadFile(path string) (Config, error) {
 		OrgsAPIServer:         orgsAPIServer,
 		OrgDomainVerification: orgDomainVerification,
 		OrgBilling:            orgBilling,
+		AI:                    aiConfig,
 		MCPServer:             Server{},
 	}, nil
 }

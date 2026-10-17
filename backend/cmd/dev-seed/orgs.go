@@ -16,6 +16,7 @@ import (
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs"
+	aispec "github.com/vetchium/src/typespec/orgs/ai"
 	orgsauth "github.com/vetchium/src/typespec/orgs/auth"
 	"github.com/vetchium/src/typespec/orgs/authorization"
 	subscriptionspec "github.com/vetchium/src/typespec/orgs/subscriptions"
@@ -222,6 +223,11 @@ func (s *orgSeeder) seedOrg(
 			return fmt.Errorf("accept the invitation of %s: %w", address, err)
 		}
 	}
+	if subscriptionspec.AllowsAI(plan) {
+		if err := s.seedOrgAI(ctx, bearer); err != nil {
+			return fmt.Errorf("seed AI: %w", err)
+		}
+	}
 	if err := s.seedOrgOpenings(ctx, domain, bearer); err != nil {
 		return fmt.Errorf("seed Openings: %w", err)
 	}
@@ -229,8 +235,44 @@ func (s *orgSeeder) seedOrg(
 	if plan != subscriptionspec.FreeTier {
 		users += ",member"
 	}
-	log.Printf("seeded %s Org domain=%s superadmin=%s users=%s openings=10",
-		plan, domain, email, users)
+	log.Printf("seeded %s Org domain=%s superadmin=%s users=%s openings=10 ai=%t",
+		plan, domain, email, users, subscriptionspec.AllowsAI(plan))
+	return nil
+}
+
+// seedOrgAI turns AI on with every offered model allowed and buys the
+// region's first credit pack, as the Org's superadmin would.
+func (s *orgSeeder) seedOrgAI(ctx context.Context, bearer string) error {
+	terms := aispec.OrgAITermsVersion
+	if err := s.post(
+		ctx, "/api/orgs/set-ai-settings", aispec.SetAISettingsRequest{
+			Enabled: true, AcceptTermsVersion: &terms,
+			Policies: []aispec.AIOperationPolicy{},
+		}, bearer, http.StatusOK, nil,
+	); err != nil {
+		return fmt.Errorf("turn AI on: %w", err)
+	}
+	request, err := http.NewRequestWithContext(
+		ctx, http.MethodGet, s.settings.orgsOrigin+"/api/orgs/ai-credits", nil,
+	)
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Authorization", "Bearer "+bearer)
+	var credits aispec.AICreditsResponse
+	if err := s.do(request, http.StatusOK, &credits); err != nil {
+		return fmt.Errorf("read AI credits: %w", err)
+	}
+	if len(credits.Packs) == 0 {
+		return nil
+	}
+	if err := s.post(
+		ctx, "/api/orgs/buy-ai-credit-pack", aispec.BuyAICreditPackRequest{
+			PackID: credits.Packs[0].PackID,
+		}, bearer, http.StatusOK, nil,
+	); err != nil {
+		return fmt.Errorf("buy AI credits: %w", err)
+	}
 	return nil
 }
 

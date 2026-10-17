@@ -1,1 +1,6 @@
 @import "@vetchium/portal-ui/styles.css";
+
+/* Prompts and answers keep their line breaks. */
+.ai-usage-text {
+  white-space: pre-wrap;
+}

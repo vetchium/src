@@ -1,4 +1,32 @@
 export const en = {
+  aiUsage: {
+    title: "Org AI usage",
+    scope:
+      "One Org of this instance at a time. Opening a prompt and answer is recorded in the audit log under your name.",
+    orgDomain: "Org domain",
+    invalidDomain: "Enter the Org's exact domain.",
+    prompt: "Enter an Org domain to review its AI usage.",
+    orgNotFound: "No Org of this instance holds that domain.",
+    empty: "This Org has no AI usage.",
+    when: "When",
+    operation: "Feature",
+    model: "Model",
+    user: "Org user",
+    outcome: "Outcome",
+    credits: "Credits",
+    text: "Prompt and answer",
+    view: "View",
+    deleted: "Deleted",
+    textTitle: "Prompt and answer",
+    textUnavailable: "This prompt and answer are no longer kept.",
+    textExpires: "Kept until {{date}}.",
+    roles: {
+      system: "Instructions",
+      user: "Request",
+    },
+    answer: "Answer",
+    noAnswer: "The model gave no answer.",
+  },
   auditLogs: {
     title: "Audit logs",
     scope:
@@ -43,6 +71,7 @@ export const en = {
     overview: "Overview",
     users: "Administrators",
     hubSignupDomains: "Hub signup domains",
+    aiUsage: "Org AI usage",
     profile: "My profile",
     security: "Security",
   },
@@ -139,6 +168,11 @@ export const en = {
       name: "MANAGE_HUB_SIGNUP_DOMAINS",
       description:
         "Add, edit, disable, and reactivate corporate email domains accepted for new Hub user signups.",
+    },
+    "admin:view_ai_usage": {
+      name: "VIEW_AI_USAGE",
+      description:
+        "Review organizations' AI usage, including the prompts and outputs kept for support and abuse review. Every text you open is recorded in the audit log.",
     },
     unknown: {
       description:

@@ -56,6 +56,8 @@ func TestCanGrant(t *testing.T) {
 		{"manager cannot grant approve openings", manager, []authorization.OrgPermissionID{"org:approve_openings"}, false},
 		{"manager cannot grant superadmin", manager, []authorization.OrgPermissionID{"org:superadmin"}, false},
 		{"manager cannot grant billing", manager, []authorization.OrgPermissionID{"org:manage_billing"}, false},
+		{"manager cannot grant AI management", manager, []authorization.OrgPermissionID{"org:manage_ai"}, false},
+		{"superadmin grants AI management", superadmin, []authorization.OrgPermissionID{"org:manage_ai"}, true},
 		{
 			"a reserved grant hides in a mixed set", manager,
 			[]authorization.OrgPermissionID{"org:manage_users", "org:manage_billing"}, false,

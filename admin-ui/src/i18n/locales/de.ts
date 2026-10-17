@@ -1,6 +1,34 @@
 import type { LocaleResource } from "./en";
 
 export const de = {
+  aiUsage: {
+    title: "KI-Nutzung von Orgs",
+    scope:
+      "Jeweils eine Org dieser Instanz. Das Öffnen einer Eingabe und Antwort wird unter Ihrem Namen im Audit-Protokoll festgehalten.",
+    orgDomain: "Org-Domäne",
+    invalidDomain: "Geben Sie die genaue Domäne der Org ein.",
+    prompt: "Geben Sie eine Org-Domäne ein, um ihre KI-Nutzung zu prüfen.",
+    orgNotFound: "Keine Org dieser Instanz besitzt diese Domäne.",
+    empty: "Diese Org hat keine KI-Nutzung.",
+    when: "Zeitpunkt",
+    operation: "Funktion",
+    model: "Modell",
+    user: "Org-Benutzer",
+    outcome: "Ergebnis",
+    credits: "Guthaben",
+    text: "Eingabe und Antwort",
+    view: "Ansehen",
+    deleted: "Gelöscht",
+    textTitle: "Eingabe und Antwort",
+    textUnavailable: "Diese Eingabe und Antwort werden nicht mehr aufbewahrt.",
+    textExpires: "Aufbewahrt bis {{date}}.",
+    roles: {
+      system: "Anweisungen",
+      user: "Anfrage",
+    },
+    answer: "Antwort",
+    noAnswer: "Das Modell hat nicht geantwortet.",
+  },
   auditLogs: {
     title: "Auditprotokoll",
     scope:
@@ -46,6 +74,7 @@ export const de = {
     overview: "Übersicht",
     users: "Administratoren",
     hubSignupDomains: "Hub-Anmeldedomänen",
+    aiUsage: "KI-Nutzung von Orgs",
     profile: "Mein Profil",
     security: "Sicherheit",
   },
@@ -144,6 +173,11 @@ export const de = {
       name: "HUB_ANMELDEDOMÄNEN_VERWALTEN",
       description:
         "Unternehmensdomänen für neue Hub-Benutzeranmeldungen hinzufügen, bearbeiten, deaktivieren und reaktivieren.",
+    },
+    "admin:view_ai_usage": {
+      name: "KI_NUTZUNG_EINSEHEN",
+      description:
+        "Die KI-Nutzung von Organisationen prüfen, einschließlich der für Support und Missbrauchsprüfung aufbewahrten Eingaben und Ausgaben. Jeder geöffnete Text wird im Audit-Protokoll festgehalten.",
     },
     unknown: {
       description:

@@ -5,6 +5,7 @@ import (
 
 	"github.com/vetchium/src/typespec/admin/authorization"
 
+	adminaiusage "backend/handlers/admin/aiusage"
 	"backend/handlers/admin/auditlogs"
 	adminauth "backend/handlers/admin/auth"
 	adminauthorization "backend/handlers/admin/authorization"
@@ -35,6 +36,15 @@ func RegisterAdminRoutes(mux *http.ServeMux, s *adminruntime.Server) {
 		s, string(authorization.ManageHubSignupDomains),
 	)
 
+	viewAIUsage := middleware.RequireAdminPermission(
+		s, string(authorization.ViewAIUsage),
+	)
+	mux.Handle("POST /api/admin/list-org-ai-usage",
+		adminAuth(viewAIUsage(adminaiusage.ListOrgAIUsage(s))),
+	)
+	mux.Handle("POST /api/admin/get-org-ai-usage-text",
+		adminAuth(viewAIUsage(adminaiusage.GetOrgAIUsageText(s))),
+	)
 	mux.Handle("POST /api/admin/list-audit-events",
 		adminAuth(middleware.RequireAdminPermission(s, string(authorization.ViewAuditLogs))(auditlogs.ListAuditEvents(s))),
 	)

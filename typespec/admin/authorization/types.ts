@@ -3,7 +3,8 @@ export type AdminPermission =
   | "admin:view_users"
   | "admin:manage_users"
   | "admin:view_hub_signup_domains"
-  | "admin:manage_hub_signup_domains";
+  | "admin:manage_hub_signup_domains"
+  | "admin:view_ai_usage";
 export type AdminPermissionID = string;
 
 export const ViewAuditLogs: AdminPermission = "admin:view_audit_logs";
@@ -13,6 +14,7 @@ export const ViewHubSignupDomains: AdminPermission =
   "admin:view_hub_signup_domains";
 export const ManageHubSignupDomains: AdminPermission =
   "admin:manage_hub_signup_domains";
+export const ViewAIUsage: AdminPermission = "admin:view_ai_usage";
 
 /**
  * Ordered the way portals present permissions rather than lexically, so a
@@ -24,6 +26,7 @@ export const AdminPermissions: readonly AdminPermission[] = [
   ManageUsers,
   ViewHubSignupDomains,
   ManageHubSignupDomains,
+  ViewAIUsage,
 ];
 
 const permissionImplications: Readonly<
@@ -34,6 +37,7 @@ const permissionImplications: Readonly<
   "admin:manage_users": [ViewUsers],
   "admin:view_hub_signup_domains": [],
   "admin:manage_hub_signup_domains": [ViewHubSignupDomains],
+  "admin:view_ai_usage": [],
 };
 
 export interface AdminAuthorization {

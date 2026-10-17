@@ -69,7 +69,7 @@ DEV_SEED_DNS_URL ?= http://127.0.0.1:18081
 serving_services = $$(docker compose -f $(1) config --services | \
 	grep -vE '^(workers|dev-seed)-')
 
-.PHONY: check fmt backend dev dev-secrets dev-seed dev-seed-hub-profiles dev-seed-orgs sqlc sqlc-vet \
+.PHONY: check fmt backend dev dev-ai-models dev-secrets dev-seed dev-seed-hub-profiles dev-seed-orgs sqlc sqlc-vet \
 	sql-lint migration-check sql-check \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
@@ -168,6 +168,16 @@ dev-seed-orgs: sqlc
 			DEV_SEED_DNS_URL="$(DEV_SEED_DNS_URL)" \
 			go run ./cmd/dev-seed) || exit $$?; \
 	done
+
+# The development models Docker Model Runner serves through ai-dev; keep them
+# equal to the hostModel values in config/*.json.
+# Ministral's default context (about 240k tokens) needs more GPU memory than a
+# laptop has; a draft needs about 10k.
+dev-ai-models:
+	docker model pull ai/qwen3:1.7b
+	docker model pull ai/ministral3:3B-Q4_K_M
+	docker model configure --context-size 16384 ai/qwen3:1.7b
+	docker model configure --context-size 16384 ai/ministral3:3B-Q4_K_M
 
 dev-secrets:
 	@install -d -m 700 "$(DEV_SECRETS_DIR)"

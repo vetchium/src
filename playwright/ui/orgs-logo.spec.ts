@@ -23,7 +23,9 @@ async function signIn(
   await page.getByLabel("Password", { exact: true }).fill(user.password);
   await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("shell-org-name")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Sign out", exact: true }),
+  ).toBeVisible();
 }
 
 test("a Free Org is offered an upgrade; a Silver Org uploads and removes its logo", async ({
@@ -72,20 +74,18 @@ test("a Free Org is offered an upgrade; a Silver Org uploads and removes its log
       mimeType: "image/png",
       buffer: makePNG(200, 200),
     });
-    await expect(page.getByTestId("logo-image")).toBeVisible();
-    // The logo also appears in the shell, loaded from the media origin.
-    await expect(page.getByTestId("shell-org-logo")).toBeVisible();
+    // The logo loads from the media origin.
     await expect
       .poll(() =>
         page
-          .getByTestId("shell-org-logo")
+          .getByTestId("logo-image")
+          .locator("img")
           .evaluate((image: HTMLImageElement) => image.naturalWidth),
       )
       .toBe(200);
 
     await page.getByRole("button", { name: "Remove logo" }).click();
     await expect(page.getByTestId("logo-none")).toBeVisible();
-    await expect(page.getByTestId("shell-org-logo")).toHaveCount(0);
   } finally {
     await deleteOrgVerificationRecord(org.domain);
     cleanupOrg(org.domain);
@@ -136,10 +136,12 @@ test("company name, account privacy and old routes work together", async ({
       .getByLabel("Company name", { exact: true })
       .fill("Updated Company");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await expect(page.getByTestId("shell-org-name")).toHaveText(
-      "Updated Company",
-    );
-    await page.reload();
+    await expect(page.getByText("Company details saved")).toBeVisible();
+    await page.getByRole("menuitem", { name: "Overview" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Updated Company", level: 1 }),
+    ).toBeVisible();
+    await page.goto(`${ORGS_PORTAL}/company`);
     await expect(page.getByLabel("Company name", { exact: true })).toHaveValue(
       "Updated Company",
     );

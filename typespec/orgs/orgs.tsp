@@ -10,6 +10,8 @@ import "./users/invitations.tsp";
 import "./users/management.tsp";
 import "./openings/types.tsp";
 import "./openings/openings.tsp";
+import "./ai/types.tsp";
+import "./ai/ai.tsp";
 import "../problem/orgs/logo.tsp";
 import "../problem/orgs/sso.tsp";
 import "../problem/orgs/suspension.tsp";

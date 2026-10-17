@@ -1,6 +1,7 @@
 export const Superadmin = "org:superadmin" as const;
 export const ManageUsers = "org:manage_users" as const;
 export const ManageBilling = "org:manage_billing" as const;
+export const ManageAI = "org:manage_ai" as const;
 export const ViewOpenings = "org:view_openings" as const;
 export const ManageOpenings = "org:manage_openings" as const;
 export const ApproveOpenings = "org:approve_openings" as const;
@@ -9,6 +10,7 @@ export type OrgPermission =
   | typeof Superadmin
   | typeof ManageUsers
   | typeof ManageBilling
+  | typeof ManageAI
   | typeof ViewOpenings
   | typeof ManageOpenings
   | typeof ApproveOpenings;
@@ -25,6 +27,7 @@ export const orgPermissions: readonly OrgPermission[] = [
   Superadmin,
   ManageUsers,
   ManageBilling,
+  ManageAI,
   ViewOpenings,
   ManageOpenings,
   ApproveOpenings,
@@ -36,12 +39,14 @@ const permissionImplications: Readonly<
   "org:superadmin": [
     ManageUsers,
     ManageBilling,
+    ManageAI,
     ViewOpenings,
     ManageOpenings,
     ApproveOpenings,
   ],
   "org:manage_users": [],
   "org:manage_billing": [],
+  "org:manage_ai": [],
   "org:view_openings": [],
   "org:manage_openings": [ViewOpenings],
   "org:approve_openings": [ViewOpenings],

@@ -18,6 +18,7 @@ import {
   isAdminPermission,
   ManageHubSignupDomains,
   ManageUsers,
+  ViewAIUsage,
   ViewAuditLogs,
   ViewHubSignupDomains,
   ViewUsers,
@@ -198,6 +199,7 @@ test("permission implications resolve the same way in every consumer", () => {
       ManageUsers,
       ViewHubSignupDomains,
       ManageHubSignupDomains,
+      ViewAIUsage,
     ],
   );
   assert.ok(isAdminPermission(ManageUsers));

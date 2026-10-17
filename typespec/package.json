@@ -97,7 +97,12 @@
     "./problem/orgs/openings": "./problem/orgs/openings.ts",
     "./problem/orgs/suspension": "./problem/orgs/suspension.ts",
     "./problem/orgs/totp": "./problem/orgs/totp.ts",
-    "./admin/audit-logs/events": "./admin/audit-logs/events.ts"
+    "./admin/audit-logs/events": "./admin/audit-logs/events.ts",
+    "./orgs/ai/types": "./orgs/ai/types.ts",
+    "./orgs/ai/ai": "./orgs/ai/ai.ts",
+    "./admin/ai-usage/usage": "./admin/ai-usage/usage.ts",
+    "./problem/orgs/ai": "./problem/orgs/ai.ts",
+    "./problem/admin/ai-usage": "./problem/admin/ai-usage.ts"
   },
   "files": [
     "admin/**/*.ts",

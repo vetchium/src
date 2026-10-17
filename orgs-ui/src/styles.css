@@ -8,3 +8,17 @@
 .toolbar-search {
   width: min(100%, 320px);
 }
+
+.ai-draft-panel {
+  width: min(28rem, 80vw);
+}
+
+/* Prompts and answers keep their line breaks. */
+.ai-usage-text {
+  white-space: pre-wrap;
+}
+
+/* Side-by-side credit gauges keep equal heights. */
+.ai-credit-card {
+  height: 100%;
+}

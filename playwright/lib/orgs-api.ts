@@ -6,6 +6,15 @@ import {
 import type { APIRequestContext, APIResponse } from "@playwright/test";
 import { expect } from "@playwright/test";
 import type { MyInfoResponse } from "typespec/orgs/account/account";
+import type {
+  BuyAICreditPackRequest,
+  DraftOpeningRequest,
+  GetAIOptionsRequest,
+  GetAIUsageTextRequest,
+  ListAICreditLotsRequest,
+  ListAIUsageRequest,
+  SetAISettingsRequest,
+} from "typespec/orgs/ai/ai";
 import type { LoginResponse } from "typespec/orgs/auth/login";
 import {
   type CompleteSignupRequest,
@@ -98,11 +107,12 @@ export class OrgsAPI {
   postRaw(
     path: string,
     body: string,
-    options: { idempotencyKey?: string } = {},
+    options: { idempotencyKey?: string; token?: string } = {},
   ): Promise<APIResponse> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
+    if (options.token) headers.Authorization = `Bearer ${options.token}`;
     if (options.idempotencyKey) {
       headers["Idempotency-Key"] = options.idempotencyKey;
     }
@@ -409,6 +419,79 @@ export class OrgsAPI {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
   }
+
+  getAIOptions(
+    token: string | undefined,
+    request: GetAIOptionsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-ai-options", request, token ? { token } : {});
+  }
+
+  aiSettings(token?: string): Promise<APIResponse> {
+    return this.request.get(`${this.origin}/api/orgs/ai-settings`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  }
+
+  setAISettings(
+    token: string | undefined,
+    request: SetAISettingsRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/set-ai-settings", request, {
+      ...(token && { token }),
+      idempotencyKey,
+    });
+  }
+
+  aiCredits(token?: string): Promise<APIResponse> {
+    return this.request.get(`${this.origin}/api/orgs/ai-credits`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  }
+
+  listAICreditLots(
+    token: string | undefined,
+    request: ListAICreditLotsRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-ai-credit-lots", request, token ? { token } : {});
+  }
+
+  buyAICreditPack(
+    token: string | undefined,
+    request: BuyAICreditPackRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/buy-ai-credit-pack", request, {
+      ...(token && { token }),
+      idempotencyKey,
+    });
+  }
+
+  listAIUsage(
+    token: string | undefined,
+    request: ListAIUsageRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-ai-usage", request, token ? { token } : {});
+  }
+
+  getAIUsageText(
+    token: string | undefined,
+    request: GetAIUsageTextRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-ai-usage-text", request, token ? { token } : {});
+  }
+
+  draftOpeningWithAI(
+    token: string | undefined,
+    request: DraftOpeningRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/draft-opening-with-ai", request, {
+      ...(token && { token }),
+      idempotencyKey,
+    });
+  }
 }
 
 /** What the development identity provider should say about the account that
@@ -699,6 +782,7 @@ export function cleanupOrg(domain: string, tenant: TestTenant = "sgp"): void {
     `
     DELETE FROM vetchium.audit_events
     WHERE ${hasDID("entity_id")}
+       OR ${hasDID("subject_org_did::text")}
        OR entity_id IN (
          SELECT org_user_id::text FROM vetchium.org_users
          WHERE email_address LIKE ${pattern}

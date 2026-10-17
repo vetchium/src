@@ -158,6 +158,9 @@ func run(log *slog.Logger) error {
 	worker.EnablePictureDeletion(pictures)
 	worker.EnableOrgLogoDeletion(pictures)
 	worker.EnableAliasOperations(directory)
+	if cfg.AI != nil {
+		worker.EnableOrgAI(*cfg.AI)
+	}
 	worker.Run(ctx)
 	<-ctx.Done()
 	log.Info("shutdown requested", "event", "shutdown", "error", ctx.Err())

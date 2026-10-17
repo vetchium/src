@@ -51,6 +51,7 @@ Read every guide that applies before changing files.
 | [`database.md`](agent-guides/database.md) | PostgreSQL, queries, sqlc, transactions, seeds |
 | [`authorization.md`](agent-guides/authorization.md) | permissions and their screens |
 | [`ui.md`](agent-guides/ui.md) | portals, `portal-ui`, global portals and regions |
+| [`ux.md`](agent-guides/ux.md) | every portal screen, before designing it |
 | [`playwright.md`](agent-guides/playwright.md) | API and UI tests |
 | [`federation.md`](agent-guides/federation.md) | global directory, mesh trust, cross-tenant commands |
 | [`mesh-topology.md`](agent-guides/mesh-topology.md) | mesh and coordinator deployment, certificates, networks |
@@ -61,6 +62,7 @@ Read every guide that applies before changing files.
 | [`orgs.md`](agent-guides/orgs.md) | Org signup, sign-in, domain verification |
 | [`org-subscriptions.md`](agent-guides/org-subscriptions.md) | Org plans, billing, seats, user management, logo, Google sign-in |
 | [`openings.md`](agent-guides/openings.md) | Openings: creation, approval, lifecycle, Org and Hub display |
+| [`ai.md`](agent-guides/ai.md) | AI operations, model catalog, AI credits, metering, kept prompts |
 
 Guides compose: a handler using PostgreSQL needs `go.md`, `backend.md`, and
 `database.md`. A scoped `AGENTS.md` lists the baseline guides for its tree; the

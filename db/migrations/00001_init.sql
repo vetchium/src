@@ -1017,7 +1017,8 @@ VALUES
     ('admin:view_users'),
     ('admin:manage_users'),
     ('admin:view_hub_signup_domains'),
-    ('admin:manage_hub_signup_domains');
+    ('admin:manage_hub_signup_domains'),
+    ('admin:view_ai_usage');
 
 -- A grant of permission also confers implied_permission. Implications are
 -- resolved on read by vetchium.admin_effective_permissions and are never
@@ -1409,6 +1410,7 @@ VALUES
     ('org:superadmin'),
     ('org:manage_users'),
     ('org:manage_billing'),
+    ('org:manage_ai'),
     ('org:view_openings'),
     ('org:manage_openings'),
     ('org:approve_openings');
@@ -1430,6 +1432,7 @@ INSERT INTO vetchium.org_permission_implications (permission, implied_permission
 VALUES
     ('org:superadmin', 'org:manage_users'),
     ('org:superadmin', 'org:manage_billing'),
+    ('org:superadmin', 'org:manage_ai'),
     ('org:superadmin', 'org:view_openings'),
     ('org:superadmin', 'org:manage_openings'),
     ('org:superadmin', 'org:approve_openings'),
@@ -2068,6 +2071,160 @@ CREATE INDEX org_opening_history_list_idx
     ON vetchium.org_opening_history
     (org_opening_id, created_at DESC, org_opening_history_id DESC);
 
+-- AI assistance (agent-guides/ai.md). Model identifiers, prices, and packs
+-- belong to the tenant configuration, so none of these tables references a
+-- model catalog.
+CREATE TABLE vetchium.org_ai_settings (
+    org_did uuid PRIMARY KEY REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    enabled boolean NOT NULL DEFAULT false,
+    accepted_terms_version text
+        CHECK (accepted_terms_version ~ '^[a-z0-9][a-z0-9-]{0,63}$'),
+    accepted_terms_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    accepted_terms_at timestamptz,
+    updated_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_ai_settings_enabled_needs_terms CHECK (
+        NOT enabled OR accepted_terms_version IS NOT NULL
+    ),
+    CONSTRAINT org_ai_settings_terms_consistent CHECK (
+        (accepted_terms_version IS NULL) = (accepted_terms_at IS NULL)
+    )
+);
+
+CREATE TABLE vetchium.org_ai_operation_policies (
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    operation text NOT NULL
+        CHECK (operation ~ '^org-[a-z0-9]+(-[a-z0-9]+)*$'),
+    allowed_models text[] NOT NULL,
+    default_model text,
+    PRIMARY KEY (org_did, operation),
+    -- No allowed model turns the operation off for the Org.
+    CONSTRAINT org_ai_operation_policies_models_check CHECK (
+        (cardinality(allowed_models) = 0 AND default_model IS NULL)
+        OR (
+            cardinality(allowed_models) BETWEEN 1 AND 20
+            AND array_position(allowed_models, NULL) IS NULL
+            AND vetchium.array_is_distinct(allowed_models)
+            AND default_model = ANY(allowed_models)
+        )
+    )
+);
+
+CREATE TYPE vetchium.org_ai_credit_lot_kind AS ENUM ('grant', 'purchase');
+
+-- A grant lapses at the end of its UTC month and is usable only while the plan
+-- allows AI; a purchase expires twelve months after it and stays usable on any
+-- plan. Spending takes the grant first, then purchases by earliest expiry.
+CREATE TABLE vetchium.org_ai_credit_lots (
+    lot_id uuid PRIMARY KEY,
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    kind vetchium.org_ai_credit_lot_kind NOT NULL,
+    grant_month date,
+    pack_id text CHECK (pack_id ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+    purchased_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    credits_granted bigint NOT NULL CHECK (credits_granted > 0),
+    credits_remaining bigint NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL,
+    CONSTRAINT org_ai_credit_lots_remaining_check CHECK (
+        credits_remaining BETWEEN 0 AND credits_granted
+    ),
+    CONSTRAINT org_ai_credit_lots_kind_check CHECK (
+        CASE kind
+            WHEN 'grant' THEN grant_month IS NOT NULL
+                AND grant_month = date_trunc('month', grant_month)::date
+                AND pack_id IS NULL AND purchased_by IS NULL
+            ELSE grant_month IS NULL AND pack_id IS NOT NULL
+        END
+    ),
+    CONSTRAINT org_ai_credit_lots_expiry_check CHECK (expires_at > created_at),
+    CONSTRAINT org_ai_credit_lots_one_grant_per_month UNIQUE (
+        org_did, grant_month
+    )
+);
+-- Serves the history's keyset order and the balance's per-Org scan.
+CREATE INDEX org_ai_credit_lots_list_idx
+    ON vetchium.org_ai_credit_lots (org_did, created_at DESC, lot_id DESC);
+
+CREATE TYPE vetchium.org_ai_usage_state AS ENUM (
+    'reserved', 'settled', 'released', 'abandoned'
+);
+CREATE TYPE vetchium.org_ai_failure_reason AS ENUM (
+    'model_failed', 'unusable_output', 'abandoned'
+);
+
+-- One row per model call. The reservation holds credits_reserved against the
+-- balance while the call runs; settling charges at most that much.
+CREATE TABLE vetchium.org_ai_usage (
+    usage_id uuid PRIMARY KEY,
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
+    operation text NOT NULL
+        CHECK (operation ~ '^org-[a-z0-9]+(-[a-z0-9]+)*$'),
+    model_oid text NOT NULL CHECK (model_oid ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+    host_model text NOT NULL CHECK (length(host_model) BETWEEN 1 AND 200),
+    input_credits_per_million bigint NOT NULL
+        CHECK (input_credits_per_million >= 0),
+    output_credits_per_million bigint NOT NULL
+        CHECK (output_credits_per_million >= 0),
+    usage_state vetchium.org_ai_usage_state NOT NULL DEFAULT 'reserved',
+    failure_reason vetchium.org_ai_failure_reason,
+    credits_reserved bigint NOT NULL CHECK (credits_reserved > 0),
+    credits_charged bigint NOT NULL DEFAULT 0,
+    input_tokens integer CHECK (input_tokens >= 0),
+    output_tokens integer CHECK (output_tokens >= 0),
+    idempotency_key text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    finished_at timestamptz,
+    CONSTRAINT org_ai_usage_finished_check CHECK (
+        (usage_state = 'reserved') = (finished_at IS NULL)
+    ),
+    CONSTRAINT org_ai_usage_charge_check CHECK (
+        credits_charged BETWEEN 0 AND credits_reserved
+        AND (usage_state = 'settled' OR credits_charged = 0)
+    ),
+    CONSTRAINT org_ai_usage_failure_check CHECK (
+        (failure_reason IS NOT NULL)
+        = (usage_state IN ('released', 'abandoned'))
+    ),
+    CONSTRAINT org_ai_usage_tokens_check CHECK (
+        usage_state <> 'settled'
+        OR (input_tokens IS NOT NULL AND output_tokens IS NOT NULL)
+    )
+);
+-- A retry with the same key waits for, rather than doubles, a call in flight.
+CREATE UNIQUE INDEX org_ai_usage_one_reserved_per_key_idx
+    ON vetchium.org_ai_usage (org_user_id, idempotency_key)
+    WHERE usage_state = 'reserved';
+-- An Org may hold millions of calls; the usage list reads one keyset page.
+CREATE INDEX org_ai_usage_list_idx
+    ON vetchium.org_ai_usage (org_did, created_at DESC, usage_id DESC);
+-- Calls in flight are few, so the balance's held sum and the reaper's scan
+-- both read this small index rather than an Org's whole history.
+CREATE INDEX org_ai_usage_reserved_idx
+    ON vetchium.org_ai_usage (org_did, created_at, usage_id)
+    WHERE usage_state = 'reserved';
+
+-- The prompt sent and the answer received, deleted by a worker at expires_at.
+CREATE TABLE vetchium.org_ai_usage_texts (
+    usage_id uuid PRIMARY KEY REFERENCES vetchium.org_ai_usage (usage_id)
+        ON DELETE CASCADE,
+    request_messages jsonb NOT NULL
+        CHECK (jsonb_typeof(request_messages) = 'array'),
+    response_text text,
+    expires_at timestamptz NOT NULL
+);
+CREATE INDEX org_ai_usage_texts_expiry_idx
+    ON vetchium.org_ai_usage_texts (expires_at, usage_id);
+
 CREATE TABLE vetchium.idempotency_ledger (
     operation text NOT NULL,
     binding_id text NOT NULL,
@@ -2162,6 +2319,14 @@ $$;
 
 -- +goose Down
 DROP TABLE IF EXISTS vetchium.idempotency_ledger;
+DROP TABLE IF EXISTS vetchium.org_ai_usage_texts;
+DROP TABLE IF EXISTS vetchium.org_ai_usage;
+DROP TYPE IF EXISTS vetchium.org_ai_failure_reason;
+DROP TYPE IF EXISTS vetchium.org_ai_usage_state;
+DROP TABLE IF EXISTS vetchium.org_ai_credit_lots;
+DROP TYPE IF EXISTS vetchium.org_ai_credit_lot_kind;
+DROP TABLE IF EXISTS vetchium.org_ai_operation_policies;
+DROP TABLE IF EXISTS vetchium.org_ai_settings;
 DROP TABLE IF EXISTS vetchium.org_opening_history;
 DROP TABLE IF EXISTS vetchium.org_opening_requests;
 DROP TABLE IF EXISTS vetchium.org_opening_team_members;

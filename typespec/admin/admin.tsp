@@ -8,3 +8,4 @@ import "./users/invitations.tsp";
 import "./users/management.tsp";
 import "./users/profile.tsp";
 import "./audit-logs/events.tsp";
+import "./ai-usage/usage.tsp";

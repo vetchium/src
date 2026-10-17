@@ -16,7 +16,9 @@ async function signInWithPassword(page: Page, user: SignedUpOrg) {
   await page.getByLabel("Password", { exact: true }).fill(user.password);
   await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByTestId("shell-org-name")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Sign out", exact: true }),
+  ).toBeVisible();
 }
 
 /** The development provider has no account chooser, so the test plays the
@@ -78,7 +80,9 @@ test("a superadmin turns Google sign-in on, and a user signs in through it", asy
       const visitor = await context.newPage();
       await chooseGoogleAccount(visitor, org.emailAddress);
       await startGoogleSignIn(visitor, org.domain);
-      await expect(visitor.getByTestId("shell-org-name")).toBeVisible();
+      await expect(
+        visitor.getByRole("button", { name: "Sign out", exact: true }),
+      ).toBeVisible();
       expect(new URL(visitor.url()).pathname).toBe("/");
     } finally {
       await context.close();

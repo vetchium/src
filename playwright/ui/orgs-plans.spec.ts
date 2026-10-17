@@ -25,7 +25,9 @@ async function signIn(
   await page.getByLabel("Password", { exact: true }).fill(user.password);
   await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("shell-org-name")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Sign out", exact: true }),
+  ).toBeVisible();
 }
 
 async function withOrg(
@@ -134,9 +136,10 @@ test("billing and company forms work in German with keyboard navigation", async 
       .getByLabel("Unternehmensname", { exact: true })
       .fill("Beispiel GmbH");
     await page.getByRole("button", { name: "Speichern", exact: true }).click();
-    await expect(page.getByTestId("shell-org-name")).toHaveText(
-      "Beispiel GmbH",
-    );
+    await page.goto(`${ORGS_PORTAL}/`);
+    await expect(
+      page.getByRole("heading", { name: "Beispiel GmbH", level: 1 }),
+    ).toBeVisible();
   });
 });
 

@@ -344,6 +344,15 @@
         ]
       }
     },
+    "ai_dev_upstream": {
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.35.0/24"
+          }
+        ]
+      }
+    },
     "portal_access": {
       "ipam": {
         "config": [
@@ -2585,6 +2594,41 @@
       ],
       "security_opt": ["no-new-privileges:true"]
     },
+    "ai-dev": {
+      "build": {
+        "context": ".",
+        "dockerfile": "backend/Dockerfile",
+        "target": "ai-dev"
+      },
+      "environment": {
+        "AI_DEV_UPSTREAM": "http://model-runner.docker.internal"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": ["CMD", "/service", "healthcheck"],
+        "timeout": "2s"
+      },
+      "networks": {
+        "ai_dev_upstream": null,
+        "deu_backend": {
+          "aliases": ["ai-dev"]
+        },
+        "ind1_backend": {
+          "aliases": ["ai-dev"]
+        },
+        "sgp_backend": {
+          "aliases": ["ai-dev"]
+        },
+        "usa1_backend": {
+          "aliases": ["ai-dev"]
+        }
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
     "orgs-api-deu": {
       "build": {
         "context": ".",
@@ -2592,6 +2636,10 @@
         "target": "orgs-api"
       },
       "depends_on": {
+        "ai-dev": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "dns-dev": {
           "condition": "service_healthy",
           "required": true
@@ -2663,6 +2711,10 @@
         "target": "orgs-api"
       },
       "depends_on": {
+        "ai-dev": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "dns-dev": {
           "condition": "service_healthy",
           "required": true
@@ -2734,6 +2786,10 @@
         "target": "orgs-api"
       },
       "depends_on": {
+        "ai-dev": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "dns-dev": {
           "condition": "service_healthy",
           "required": true
@@ -2805,6 +2861,10 @@
         "target": "orgs-api"
       },
       "depends_on": {
+        "ai-dev": {
+          "condition": "service_healthy",
+          "required": true
+        },
         "dns-dev": {
           "condition": "service_healthy",
           "required": true
