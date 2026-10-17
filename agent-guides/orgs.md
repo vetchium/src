@@ -248,7 +248,8 @@ by the `workers` schedule and check-now.
   address that is not yet a user (invitations and their resends) uses the
   Org's default language.
 - Show the signed-in email in My account and authorized People administration,
-  not in the shell or Overview. Redirect `/settings` to `/company` and
+  not in the shell or Overview. The shell shows no Org name or logo either:
+  Overview's heading names the Org, and the Company page shows the logo. Redirect `/settings` to `/company` and
   `/security` to `/account`.
 - Ship every user-visible string in every `orgs-ui` locale.
 

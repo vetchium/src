@@ -89,6 +89,7 @@ export interface AICreditBalance {
   monthly_grant_expires_at?: string;
   purchased_remaining: number;
   reserved: number;
+  usable_total: number;
 }
 
 export interface AICreditPack {

@@ -48,6 +48,9 @@ built; Hub AI is in [`../docs/todo.md`](../docs/todo.md).
   data; the system prompt says so.
 - Prefer structured output (`jsonSchemaOutput`) and strip `<think>` blocks
   and Markdown fences from answers.
+- Keep output schemas compilable by llama.cpp's grammar: no `maxLength` or
+  other long repetition bounds (it answers 400 "failed to parse grammar");
+  the operation's validators enforce lengths.
 
 ## Org policy
 
@@ -75,6 +78,9 @@ built; Hub AI is in [`../docs/todo.md`](../docs/todo.md).
 - Running an operation needs AI on and either a plan with `allows_ai` or
   purchased credits left; otherwise `org-plan-required` naming Gold. Buying a
   pack needs `allows_ai`.
+- `usable_total` counts every usable lot's issued credits, spent or not. The
+  portal's share used is `(usable_total - available) / usable_total`; it
+  warns from 80% and alerts when nothing is available, in theme colors.
 - Payment is simulated: buying grants the lot at once and the audit records
   `payment: simulated`. Real payments follow
   [`org-subscriptions.md`](org-subscriptions.md).
@@ -126,4 +132,7 @@ built; Hub AI is in [`../docs/todo.md`](../docs/todo.md).
 - `orgs-api-unavailable` has no `ai` block; use it for
   `org-ai-unavailable`.
 - Keep the development models in `make dev-ai-models` equal to the
-  `hostModel` values in `config/*.json`.
+  `hostModel` values in `config/*.json`, each with a context size that fits
+  the operation's prompt plus maximum output.
+- The fake compiles no grammar and needs no memory; check a schema or prompt
+  change against Model Runner too.

@@ -57,7 +57,12 @@ export function AIPage() {
           {
             key: "usage",
             label: t("ai.tabs.usage"),
-            children: <AIUsagePanel />,
+            children: (
+              <AIUsagePanel
+                balance={credits.data.balance}
+                models={settings.data.models}
+              />
+            ),
           },
         ]}
       />

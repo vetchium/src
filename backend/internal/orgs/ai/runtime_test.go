@@ -76,7 +76,7 @@ func TestAvailability(t *testing.T) {
 	t.Parallel()
 	ready := Standing{
 		Enabled: true, TermsCurrent: true, PlanAllowsAI: true,
-		Balance: Balance(100, 0, 0, nil),
+		Balance: Balance(100, 0, 0, 100, nil),
 	}
 	cases := []struct {
 		name   string
@@ -88,14 +88,14 @@ func TestAvailability(t *testing.T) {
 		{"stale terms", func(s *Standing) { s.TermsCurrent = false }, aispec.NotEnabled},
 		{"no plan, no purchase", func(s *Standing) {
 			s.PlanAllowsAI = false
-			s.Balance = Balance(0, 0, 0, nil)
+			s.Balance = Balance(0, 0, 0, 0, nil)
 		}, aispec.PlanRequired},
 		{"no plan but purchased credits", func(s *Standing) {
 			s.PlanAllowsAI = false
-			s.Balance = Balance(0, 50, 0, nil)
+			s.Balance = Balance(0, 50, 0, 50, nil)
 		}, aispec.Ready},
 		{"all reserved", func(s *Standing) {
-			s.Balance = Balance(100, 0, 100, nil)
+			s.Balance = Balance(100, 0, 100, 100, nil)
 		}, aispec.NoCredits},
 	}
 	for _, testCase := range cases {
@@ -108,7 +108,7 @@ func TestAvailability(t *testing.T) {
 			}
 		})
 	}
-	if Balance(10, 5, 30, nil).Available != 0 {
+	if Balance(10, 5, 30, 15, nil).Available != 0 {
 		t.Fatal("available never goes negative")
 	}
 }

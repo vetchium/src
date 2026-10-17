@@ -499,6 +499,7 @@ test.describe("AI credits", () => {
           monthly_grant_remaining: 0,
           purchased_remaining: 0,
           reserved: 0,
+          usable_total: 0,
         },
         monthly_grant: 0,
         purchase_allowed: false,
@@ -546,6 +547,7 @@ test.describe("AI credits", () => {
         monthly_grant_expires_at: current.balance.monthly_grant_expires_at,
         purchased_remaining: 100000,
         reserved: 0,
+        usable_total: monthlyGrant + 100000,
       });
       const replay = await api.buyAICreditPack(
         owner,
@@ -1010,6 +1012,7 @@ test.describe("draft-opening-with-ai", () => {
           monthly_grant_remaining: 0,
           purchased_remaining: 100000,
           reserved: 0,
+          usable_total: 100000,
         });
         expect(after.purchase_allowed).toBe(false);
         expect((await options(api, owner)).availability).toBe("ready");
@@ -1019,9 +1022,12 @@ test.describe("draft-opening-with-ai", () => {
         expect(drafted.balance_available).toBe(
           100000 - drafted.usage.credits_charged,
         );
-        expect((await credits(api, owner)).balance.purchased_remaining).toBe(
+        const spent = (await credits(api, owner)).balance;
+        expect(spent.purchased_remaining).toBe(
           100000 - drafted.usage.credits_charged,
         );
+        // Spending leaves the total, so the share used grows.
+        expect(spent.usable_total).toBe(100000);
       },
       { gold: true, enabled: true },
     );

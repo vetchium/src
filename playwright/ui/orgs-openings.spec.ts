@@ -61,7 +61,9 @@ async function signIn(
   await page.getByLabel("Password", { exact: true }).fill(user.password);
   await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("shell-org-name")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Sign out", exact: true }),
+  ).toBeVisible();
 }
 
 async function withOrg(
@@ -358,12 +360,10 @@ test("a new Opening starts from the Org's country and default language", async (
     await expect(
       page.getByRole("heading", { name: "Openings", level: 1 }),
     ).toBeVisible();
-    await expect(page.getByTestId("shell-org-name")).toHaveCount(0);
 
     await page.getByRole("button", { name: "New Opening" }).click();
     await expect(page.getByText("Germany", { exact: true })).toBeVisible();
     await expect(page.getByText("German", { exact: true })).toBeVisible();
-    await expect(page.getByTestId("shell-org-name")).toHaveCount(0);
     await page
       .getByRole("textbox", { name: "Title" })
       .fill("Prefilled engineer");

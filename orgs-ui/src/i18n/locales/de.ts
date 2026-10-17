@@ -9,7 +9,6 @@ export const de = {
     logout: "Abmelden",
     operationInProgress:
       "Schließen Sie den laufenden Vorgang ab, bevor Sie die Seite verlassen.",
-    signedInAs: "Angemeldet als",
   },
   navigation: {
     menu: "Navigation",
@@ -578,7 +577,10 @@ export const de = {
       vendor: "Anbieter",
       licence: "Lizenz",
       rates: "Guthaben pro Million Tokens",
-      rateValue: "{{input}} Eingabe, {{output}} Ausgabe",
+      inputRate: "Eingabe-Tokens",
+      outputRate: "Ausgabe-Tokens",
+      tokensHelp:
+        "Modelle berechnen die Tokens, die sie lesen (Eingabe: die Anweisungen, Ihre Anfrage und der bearbeitete Inhalt), getrennt von den Tokens, die sie schreiben (Ausgabe). Ein Token entspricht etwa drei Vierteln eines englischen Wortes.",
       status: "Verfügbarkeit",
       offered: "Angeboten",
       withdraws: "Angeboten bis {{date}}",
@@ -636,7 +638,21 @@ export const de = {
         abandoned: "Abgebrochen",
       },
       tokens: "Tokens",
-      tokenValue: "{{input}} ein, {{output}} aus",
+      inputTokens: "Eingabe",
+      outputTokens: "Ausgabe",
+      creditsUsedTitle: "Verbrauchtes KI-Guthaben",
+      creditsUsedLabel: "Anteil des verbrauchten KI-Guthabens",
+      percentUsed: "{{percent}} % verbraucht",
+      underOnePercent: "Unter 1 % verbraucht",
+      creditsUsed: "Verbraucht",
+      creditsLeft: "Übrig",
+      creditsTotal: "Nutzbares Guthaben",
+      warning:
+        "{{percent}} % Ihres KI-Guthabens sind verbraucht. Kaufen Sie auf dem Tab „Guthaben“ nach, bevor es aufgebraucht ist.",
+      exhausted:
+        "Ihr KI-Guthaben ist aufgebraucht. KI-Funktionen stehen erst wieder zur Verfügung, wenn Sie Guthaben kaufen oder neues Monatsguthaben eintrifft.",
+      noUsableCredits:
+        "Ihre Organisation hat kein nutzbares KI-Guthaben. Der Gold-Tarif enthält monatliches Guthaben.",
       credits: "Guthaben",
       text: "Eingabe und Antwort",
       view: "Ansehen",

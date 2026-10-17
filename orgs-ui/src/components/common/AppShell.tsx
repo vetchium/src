@@ -8,7 +8,6 @@ import {
   WarningOutlined,
 } from "@ant-design/icons";
 import { PortalShell } from "@vetchium/portal-ui/shell";
-import { Flex, Typography } from "antd";
 import type { ItemType } from "antd/es/menu/interface.js";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router";
@@ -33,12 +32,6 @@ export function AppShell() {
   const auth = useAuth();
   const { data: me } = useMyInfoQuery();
   const suspended = me?.org.org_state === OrgSuspended;
-  // Every Opening shown is the signed-in Org's own, so the Org's name there
-  // only takes space from the list and the editor.
-  const showOrgIdentity = !(
-    location.pathname === paths.openings ||
-    location.pathname.startsWith(`${paths.openings}/`)
-  );
 
   const navigationItems: ItemType[] = suspended
     ? [
@@ -130,40 +123,14 @@ export function AppShell() {
       ) ?? "";
 
   const banner =
-    me === undefined ||
-    (!showOrgIdentity && me.org.domain.state !== DomainFailing) ? null : (
-      <Flex orientation="vertical" gap="middle" className="shell-banner">
-        {showOrgIdentity && (
-          <Flex
-            gap="small"
-            wrap
-            align="baseline"
-            aria-label={t("shell.signedInAs")}
-            role="group"
-          >
-            {me.logo_url === undefined ? null : (
-              <img
-                src={me.logo_url}
-                alt=""
-                width={24}
-                height={24}
-                referrerPolicy="no-referrer"
-                data-testid="shell-org-logo"
-              />
-            )}
-            <Typography.Text strong data-testid="shell-org-name">
-              {me.org.display_name}
-            </Typography.Text>
-          </Flex>
-        )}
-        {me.org.domain.state === DomainFailing ? (
-          <DomainFailingBanner
-            domain={me.org.domain}
-            canCheck={holds(me.permissions, Superadmin)}
-          />
-        ) : null}
-      </Flex>
-    );
+    me?.org.domain.state === DomainFailing ? (
+      <div className="shell-banner">
+        <DomainFailingBanner
+          domain={me.org.domain}
+          canCheck={holds(me.permissions, Superadmin)}
+        />
+      </div>
+    ) : null;
 
   return (
     <PortalShell

@@ -125,6 +125,7 @@ type AICreditBalance struct {
 	MonthlyGrantExpiresAt *time.Time `json:"monthly_grant_expires_at,omitempty"`
 	PurchasedRemaining    int64      `json:"purchased_remaining"`
 	Reserved              int64      `json:"reserved"`
+	UsableTotal           int64      `json:"usable_total"`
 }
 
 type AICreditPack struct {

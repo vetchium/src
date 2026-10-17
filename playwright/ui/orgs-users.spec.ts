@@ -36,7 +36,9 @@ async function signIn(
 
 async function openMembers(page: Page, user: Parameters<typeof signIn>[1]) {
   await signIn(page, user);
-  await expect(page.getByTestId("shell-org-name")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Sign out", exact: true }),
+  ).toBeVisible();
   await page.goto(`${ORGS_PORTAL}/members`);
   await expect(
     page.getByRole("heading", { name: "People", level: 1 }),

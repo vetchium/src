@@ -286,39 +286,51 @@ export function AISettingsPanel({
         </Form>
       </Card>
       <Card title={t("ai.models.title")}>
-        <Table<AIModel>
-          rowKey="model_oid"
-          pagination={false}
-          dataSource={settings.models}
-          scroll={{ x: 640 }}
-          columns={[
-            {
-              title: t("ai.models.name"),
-              dataIndex: "display_name",
-            },
-            { title: t("ai.models.vendor"), dataIndex: "vendor" },
-            { title: t("ai.models.licence"), dataIndex: "licence" },
-            {
-              title: t("ai.models.rates"),
-              render: (_, model) =>
-                t("ai.models.rateValue", {
-                  input: number.format(model.input_credits_per_million_tokens),
-                  output: number.format(
-                    model.output_credits_per_million_tokens,
-                  ),
-                }),
-            },
-            {
-              title: t("ai.models.status"),
-              render: (_, model) =>
-                model.withdraws_at === undefined
-                  ? t("ai.models.offered")
-                  : t("ai.models.withdraws", {
-                      date: dateTime(model.withdraws_at),
-                    }),
-            },
-          ]}
-        />
+        <Flex vertical gap="middle">
+          <Typography.Text type="secondary">
+            {t("ai.models.tokensHelp")}
+          </Typography.Text>
+          <Table<AIModel>
+            rowKey="model_oid"
+            pagination={false}
+            dataSource={settings.models}
+            scroll={{ x: 640 }}
+            columns={[
+              {
+                title: t("ai.models.name"),
+                dataIndex: "display_name",
+              },
+              { title: t("ai.models.vendor"), dataIndex: "vendor" },
+              { title: t("ai.models.licence"), dataIndex: "licence" },
+              {
+                title: t("ai.models.rates"),
+                children: [
+                  {
+                    title: t("ai.models.inputRate"),
+                    align: "end",
+                    render: (_, model) =>
+                      number.format(model.input_credits_per_million_tokens),
+                  },
+                  {
+                    title: t("ai.models.outputRate"),
+                    align: "end",
+                    render: (_, model) =>
+                      number.format(model.output_credits_per_million_tokens),
+                  },
+                ],
+              },
+              {
+                title: t("ai.models.status"),
+                render: (_, model) =>
+                  model.withdraws_at === undefined
+                    ? t("ai.models.offered")
+                    : t("ai.models.withdraws", {
+                        date: dateTime(model.withdraws_at),
+                      }),
+              },
+            ]}
+          />
+        </Flex>
       </Card>
     </Flex>
   );

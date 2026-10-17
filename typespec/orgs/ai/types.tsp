@@ -86,6 +86,13 @@ model AICreditBalance {
 
   /** Held by AI calls in progress. */
   reserved: int64;
+
+  /**
+   * Credits issued by every lot usable now, spent or not: this month's grant
+   * while the plan allows AI, and unexpired purchases. The share used is
+   * `(usable_total - available) / usable_total`.
+   */
+  usable_total: int64;
 }
 
 model AICreditPack {

@@ -8,6 +8,8 @@ import {
   inviteeAddress,
   loginOrg,
   OrgsAPI,
+  orgDID,
+  orgSQL,
   type SignedUpOrg,
   signupOrg,
 } from "../lib/orgs-api.ts";
@@ -25,7 +27,9 @@ async function signIn(
   await page.getByLabel("Password", { exact: true }).fill(user.password);
   await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("shell-org-name")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Sign out", exact: true }),
+  ).toBeVisible();
 }
 
 async function withOrg(
@@ -208,6 +212,50 @@ test("an AI manager turns AI on, buys credits, and reviews usage", async ({
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByText("Request:\nSupport lead")).toBeVisible();
     await expect(dialog.getByText(/Draft: Support lead/)).toBeVisible();
+    await dialog.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByRole("cell", { name: "Qwen3 1.7B" })).toBeVisible();
+    await expect(
+      page.getByRole("columnheader", { name: "Input", exact: true }),
+    ).toBeVisible();
+
+    // The gauge shows the share used and warns from 80 percent.
+    const gauge = page.getByRole("progressbar", {
+      name: "Share of AI credits used",
+    });
+    await expect(gauge).toBeVisible();
+    await expect
+      .poll(
+        async () =>
+          (
+            (await (await api.aiCredits(owner)).json()) as {
+              balance: { monthly_grant_remaining: number };
+            }
+          ).balance.monthly_grant_remaining,
+        { timeout: 15000 },
+      )
+      .toBeGreaterThan(0);
+    const leave = (percent: number) =>
+      orgSQL(
+        `UPDATE vetchium.org_ai_credit_lots
+         SET credits_remaining = credits_granted * ${percent} / 100
+         WHERE org_did = '${orgDID(org.domain)}'`,
+      );
+    leave(15);
+    await page.reload();
+    await page.getByRole("tab", { name: "Usage" }).click();
+    await expect(gauge).toHaveAttribute("aria-valuenow", "85");
+    await expect(page.getByText("85% used")).toBeVisible();
+    await expect(
+      page.getByRole("alert").filter({ hasText: "85% of your AI credits" }),
+    ).toBeVisible();
+
+    leave(0);
+    await page.reload();
+    await page.getByRole("tab", { name: "Usage" }).click();
+    await expect(gauge).toHaveAttribute("aria-valuenow", "100");
+    await expect(
+      page.getByRole("alert").filter({ hasText: "AI credits are used up" }),
+    ).toBeVisible();
   });
 });
 

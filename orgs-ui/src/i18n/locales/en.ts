@@ -7,7 +7,6 @@ export const en = {
     footer: "Vetchium for organizations",
     logout: "Sign out",
     operationInProgress: "Finish the operation in progress before leaving.",
-    signedInAs: "Signed in as",
   },
   navigation: {
     menu: "Navigation",
@@ -555,7 +554,10 @@ export const en = {
       vendor: "Vendor",
       licence: "Licence",
       rates: "Credits per million tokens",
-      rateValue: "{{input}} input, {{output}} output",
+      inputRate: "Input tokens",
+      outputRate: "Output tokens",
+      tokensHelp:
+        "Models charge separately for the tokens they read (input: the instructions, your request, and the content they work on) and the tokens they write (output). A token is about three quarters of an English word.",
       status: "Availability",
       offered: "Offered",
       withdraws: "Offered until {{date}}",
@@ -613,7 +615,21 @@ export const en = {
         abandoned: "Abandoned",
       },
       tokens: "Tokens",
-      tokenValue: "{{input}} in, {{output}} out",
+      inputTokens: "Input",
+      outputTokens: "Output",
+      creditsUsedTitle: "AI credits used",
+      creditsUsedLabel: "Share of AI credits used",
+      percentUsed: "{{percent}}% used",
+      underOnePercent: "Under 1% used",
+      creditsUsed: "Used",
+      creditsLeft: "Left",
+      creditsTotal: "Usable credits",
+      warning:
+        "{{percent}}% of your AI credits are used. Buy more on the Credits tab before they run out.",
+      exhausted:
+        "Your AI credits are used up. AI features stop until you buy credits or new monthly credits arrive.",
+      noUsableCredits:
+        "Your organization has no usable AI credits. The Gold plan includes monthly credits.",
       credits: "Credits",
       text: "Prompt and answer",
       view: "View",

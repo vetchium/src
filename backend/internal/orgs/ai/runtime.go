@@ -193,7 +193,7 @@ func (s Standing) Availability() aispec.AIAvailability {
 // Balance derives the reported balance. A grant counts only while the plan
 // allows AI; the query already excludes it otherwise.
 func Balance(
-	grantRemaining, purchasedRemaining, reserved int64,
+	grantRemaining, purchasedRemaining, reserved, usableTotal int64,
 	grantExpiresAt *time.Time,
 ) aispec.AICreditBalance {
 	return aispec.AICreditBalance{
@@ -202,5 +202,6 @@ func Balance(
 		MonthlyGrantExpiresAt: grantExpiresAt,
 		PurchasedRemaining:    purchasedRemaining,
 		Reserved:              reserved,
+		UsableTotal:           usableTotal,
 	}
 }

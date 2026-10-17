@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { AIModel } from "typespec/orgs/ai/types";
+import type { AICreditBalance, AIModel } from "typespec/orgs/ai/types";
+import { creditUse } from "./creditUse.ts";
 import { estimateDraftCredits } from "./estimate.ts";
 import { formatPrice } from "./format.ts";
 
@@ -39,4 +40,30 @@ test("prices use each currency's minor unit", () => {
   assert.equal(formatPrice("en-US", "USD", 1000), "$10.00");
   assert.equal(formatPrice("en-US", "JPY", 1000), "¥1,000");
   assert.equal(formatPrice("de-DE", "EUR", 900), "9,00\u00a0€");
+});
+
+test("credit use warns from 80 percent and when nothing is left", () => {
+  const balance = (available: number, total: number): AICreditBalance => ({
+    available,
+    monthly_grant_remaining: available,
+    purchased_remaining: 0,
+    reserved: 0,
+    usable_total: total,
+  });
+  assert.equal(creditUse(balance(0, 0)), undefined);
+  assert.deepEqual(creditUse(balance(1000, 1000)), {
+    used: 0,
+    total: 1000,
+    percent: 0,
+    level: "normal",
+  });
+  assert.equal(creditUse(balance(201, 1000))?.level, "normal");
+  assert.equal(creditUse(balance(200, 1000))?.level, "warning");
+  assert.equal(creditUse(balance(1, 1000))?.percent, 99);
+  assert.deepEqual(creditUse(balance(0, 1000)), {
+    used: 1000,
+    total: 1000,
+    percent: 100,
+    level: "exhausted",
+  });
 });

@@ -51,7 +51,7 @@ func balance(
 	}
 	return orgai.Balance(
 		row.GrantRemaining, row.PurchasedRemaining, row.Reserved,
-		dbvalue.TimePtr(row.GrantExpiresAt),
+		row.UsableTotal, dbvalue.TimePtr(row.GrantExpiresAt),
 	), nil
 }
 
