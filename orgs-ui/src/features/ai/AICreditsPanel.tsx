@@ -8,7 +8,6 @@ import {
   Col,
   Flex,
   Row,
-  Statistic,
   Table,
   Typography,
 } from "antd";
@@ -24,10 +23,17 @@ import { useAICreditLotsQuery, useBuyAICreditPack } from "./queries";
 
 const pageSize = 25;
 
-export function AICreditsPanel({ credits }: { credits: AICreditsResponse }) {
+export function AICreditsPanel({
+  credits,
+  typicalDraft,
+}: {
+  credits: AICreditsResponse;
+  /** A typical draft's cost with the preselected drafting model, if any. */
+  typicalDraft?: { credits: number; model: string };
+}) {
   const { t, i18n } = useTranslation();
   const { message, modal } = App.useApp();
-  const { date, dateTime } = useDateTimeFormat();
+  const { date } = useDateTimeFormat();
   const buy = useBuyAICreditPack();
   const key = useIdempotencyKey();
   const [pageKeys, setPageKeys] = useState<Array<PaginationKey | undefined>>([
@@ -36,7 +42,6 @@ export function AICreditsPanel({ credits }: { credits: AICreditsResponse }) {
   const [pageIndex, setPageIndex] = useState(0);
   const lots = useAICreditLotsQuery(pageSize, pageKeys[pageIndex]);
   const number = new Intl.NumberFormat(i18n.language);
-  const balance = credits.balance;
 
   const purchase = (pack: AICreditPack) => {
     modal.confirm({
@@ -79,50 +84,15 @@ export function AICreditsPanel({ credits }: { credits: AICreditsResponse }) {
 
   return (
     <Flex vertical gap="large">
-      <Card title={t("ai.credits.balanceTitle")}>
-        <Row gutter={[24, 24]}>
-          <Col xs={24} sm={12} lg={6}>
-            <Statistic
-              title={t("ai.credits.available")}
-              value={number.format(balance.available)}
-            />
-          </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <Statistic
-              title={t("ai.credits.monthlyRemaining")}
-              value={number.format(balance.monthly_grant_remaining)}
-            />
-            {balance.monthly_grant_expires_at ? (
-              <Typography.Text type="secondary">
-                {t("ai.credits.lapses", {
-                  date: date(balance.monthly_grant_expires_at),
-                })}
-              </Typography.Text>
-            ) : null}
-          </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <Statistic
-              title={t("ai.credits.purchasedRemaining")}
-              value={number.format(balance.purchased_remaining)}
-            />
-          </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <Statistic
-              title={t("ai.credits.reserved")}
-              value={number.format(balance.reserved)}
-            />
-          </Col>
-        </Row>
-        <Typography.Paragraph type="secondary">
-          {credits.monthly_grant > 0
-            ? t("ai.credits.grantIncluded", {
-                credits: number.format(credits.monthly_grant),
-              })
-            : t("ai.credits.grantNotIncluded")}
-        </Typography.Paragraph>
-      </Card>
       <Card title={t("ai.credits.packsTitle")}>
         <Flex vertical gap="middle">
+          <Typography.Text type="secondary">
+            {credits.monthly_grant > 0
+              ? t("ai.credits.grantIncluded", {
+                  credits: number.format(credits.monthly_grant),
+                })
+              : t("ai.credits.grantNotIncluded")}
+          </Typography.Text>
           <Alert type="info" showIcon title={t("ai.credits.simulated")} />
           {!credits.purchase_allowed ? (
             <Alert type="warning" showIcon title={t("ai.credits.goldOnly")} />
@@ -145,6 +115,16 @@ export function AICreditsPanel({ credits }: { credits: AICreditsResponse }) {
                           pack.price_amount_minor,
                         )}
                       </Typography.Text>
+                      {typicalDraft === undefined ? null : (
+                        <Typography.Text type="secondary">
+                          {t("ai.credits.packDrafts", {
+                            drafts: number.format(
+                              Math.floor(pack.credits / typicalDraft.credits),
+                            ),
+                            model: typicalDraft.model,
+                          })}
+                        </Typography.Text>
+                      )}
                     </Flex>
                     <Button
                       onClick={() => purchase(pack)}
@@ -179,19 +159,21 @@ export function AICreditsPanel({ credits }: { credits: AICreditsResponse }) {
               },
               {
                 title: t("ai.credits.granted"),
+                align: "end",
                 render: (_, lot) => number.format(lot.credits_granted),
               },
               {
                 title: t("ai.credits.remaining"),
+                align: "end",
                 render: (_, lot) => number.format(lot.credits_remaining),
               },
               {
                 title: t("ai.credits.added"),
-                render: (_, lot) => dateTime(lot.created_at),
+                render: (_, lot) => date(lot.created_at),
               },
               {
                 title: t("ai.credits.expires"),
-                render: (_, lot) => dateTime(lot.expires_at),
+                render: (_, lot) => date(lot.expires_at),
               },
             ]}
           />

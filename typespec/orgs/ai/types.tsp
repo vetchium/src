@@ -60,16 +60,18 @@ model AIModel {
   output_credits_per_million_tokens: int64;
 }
 
-/** An operation's allowed models and the one preselected for it. */
+/**
+ * An operation's allowed models and the one preselected for it. No allowed
+ * model turns the operation off for the Org.
+ */
 model AIOperationPolicy {
   operation: AIOperationOID;
 
-  @minItems(1)
   @maxItems(20)
   allowed_models: AIModelOID[];
 
-  /** One of allowed_models. */
-  default_model: AIModelOID;
+  /** One of allowed_models; absent exactly when none is allowed. */
+  default_model?: AIModelOID;
 }
 
 model AICreditBalance {
@@ -79,20 +81,23 @@ model AICreditBalance {
   /** This month's grant still unspent; usable only while the plan allows AI. */
   monthly_grant_remaining: int64;
 
+  /** This month's grant as issued; 0 without one or without an AI plan. */
+  monthly_grant_total: int64;
+
+  /** When this month's grant lapses and the next one is due. */
   monthly_grant_expires_at?: utcDateTime;
 
   /** Unexpired purchased credits still unspent. */
   purchased_remaining: int64;
 
+  /** Unexpired purchases as issued, spent or not. */
+  purchased_total: int64;
+
+  /** When the earliest purchase with credits left expires. */
+  purchased_next_expires_at?: utcDateTime;
+
   /** Held by AI calls in progress. */
   reserved: int64;
-
-  /**
-   * Credits issued by every lot usable now, spent or not: this month's grant
-   * while the plan allows AI, and unexpired purchases. The share used is
-   * `(usable_total - available) / usable_total`.
-   */
-  usable_total: int64;
 }
 
 model AICreditPack {

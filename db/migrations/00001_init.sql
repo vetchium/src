@@ -2100,13 +2100,17 @@ CREATE TABLE vetchium.org_ai_operation_policies (
     operation text NOT NULL
         CHECK (operation ~ '^org-[a-z0-9]+(-[a-z0-9]+)*$'),
     allowed_models text[] NOT NULL,
-    default_model text NOT NULL,
+    default_model text,
     PRIMARY KEY (org_did, operation),
+    -- No allowed model turns the operation off for the Org.
     CONSTRAINT org_ai_operation_policies_models_check CHECK (
-        cardinality(allowed_models) BETWEEN 1 AND 20
-        AND array_position(allowed_models, NULL) IS NULL
-        AND vetchium.array_is_distinct(allowed_models)
-        AND default_model = ANY(allowed_models)
+        (cardinality(allowed_models) = 0 AND default_model IS NULL)
+        OR (
+            cardinality(allowed_models) BETWEEN 1 AND 20
+            AND array_position(allowed_models, NULL) IS NULL
+            AND vetchium.array_is_distinct(allowed_models)
+            AND default_model = ANY(allowed_models)
+        )
     )
 );
 
@@ -2144,6 +2148,9 @@ CREATE TABLE vetchium.org_ai_credit_lots (
         org_did, grant_month
     )
 );
+-- Serves the history's keyset order and the balance's per-Org scan.
+CREATE INDEX org_ai_credit_lots_list_idx
+    ON vetchium.org_ai_credit_lots (org_did, created_at DESC, lot_id DESC);
 
 CREATE TYPE vetchium.org_ai_usage_state AS ENUM (
     'reserved', 'settled', 'released', 'abandoned'
@@ -2197,6 +2204,14 @@ CREATE TABLE vetchium.org_ai_usage (
 CREATE UNIQUE INDEX org_ai_usage_one_reserved_per_key_idx
     ON vetchium.org_ai_usage (org_user_id, idempotency_key)
     WHERE usage_state = 'reserved';
+-- An Org may hold millions of calls; the usage list reads one keyset page.
+CREATE INDEX org_ai_usage_list_idx
+    ON vetchium.org_ai_usage (org_did, created_at DESC, usage_id DESC);
+-- Calls in flight are few, so the balance's held sum and the reaper's scan
+-- both read this small index rather than an Org's whole history.
+CREATE INDEX org_ai_usage_reserved_idx
+    ON vetchium.org_ai_usage (org_did, created_at, usage_id)
+    WHERE usage_state = 'reserved';
 
 -- The prompt sent and the answer received, deleted by a worker at expires_at.
 CREATE TABLE vetchium.org_ai_usage_texts (
@@ -2207,6 +2222,8 @@ CREATE TABLE vetchium.org_ai_usage_texts (
     response_text text,
     expires_at timestamptz NOT NULL
 );
+CREATE INDEX org_ai_usage_texts_expiry_idx
+    ON vetchium.org_ai_usage_texts (expires_at, usage_id);
 
 CREATE TABLE vetchium.idempotency_ledger (
     operation text NOT NULL,

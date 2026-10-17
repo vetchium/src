@@ -31,6 +31,9 @@ enum AIAvailability {
   /** AI is off for the Org, or its current AI terms are not accepted. */
   NotEnabled: "not_enabled",
 
+  /** The Org's policy allows no model for the operation. */
+  OperationOff: "operation_off",
+
   /** The plan does not include AI and no purchased credits remain. */
   PlanRequired: "plan_required",
 
@@ -364,6 +367,7 @@ interface AIOperations {
     | Vetchium.Problem.OrgAINotEnabledErrorResponse
     | Vetchium.Problem.OrgPlanRequiredErrorResponse
     | Vetchium.Problem.OrgAIModelNotAllowedErrorResponse
+    | Vetchium.Problem.OrgAIOperationOffErrorResponse
     | Vetchium.Problem.OrgAICreditsInsufficientErrorResponse
     | Vetchium.Problem.OrgAIRequestInProgressErrorResponse
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse

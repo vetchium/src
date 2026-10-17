@@ -84,6 +84,21 @@ test("settings requests validate terms and policies like the Go companion", () =
     }),
     ["policies.0.operation"],
   );
+  // No allowed model turns the operation off, and then no default is allowed.
+  assert.deepEqual(
+    validateSetAISettingsRequest({
+      enabled: false,
+      policies: [{ operation: OpeningDraft, allowed_models: [] }],
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateSetAISettingsRequest({
+      enabled: false,
+      policies: [{ ...policy, allowed_models: [] }],
+    }),
+    ["policies.0.default_model"],
+  );
 });
 
 test("identifiers are lowercase slugs and UUIDs", () => {

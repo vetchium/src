@@ -17,6 +17,13 @@ var AINotEnabledError = problem.Details{
 		"terms are not accepted",
 }
 
+var AIOperationOffError = problem.Details{
+	Type:   "vetchium-problem-details/org-ai-operation-off",
+	Title:  "AI operation off",
+	Status: 409,
+	Detail: "The organization allows no model for this AI operation",
+}
+
 // AITermsRequiredDetails is the Go companion of TypeSpec's
 // OrgAITermsRequiredDetails.
 type AITermsRequiredDetails struct {

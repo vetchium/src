@@ -1,7 +1,7 @@
 import "antd/dist/reset.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router";
+import { createBrowserRouter, RouterProvider } from "react-router";
 import { App } from "./app/App";
 import { AppProviders } from "./app/AppProviders";
 import "./i18n";
@@ -13,12 +13,21 @@ if (root === null) {
   throw new Error("The application root element is missing");
 }
 
-createRoot(root).render(
-  <StrictMode>
-    <BrowserRouter>
+// A data router lets a page with unsaved edits block navigation; App still
+// declares its routes itself, below one catch-all route.
+const router = createBrowserRouter([
+  {
+    path: "*",
+    element: (
       <AppProviders>
         <App />
       </AppProviders>
-    </BrowserRouter>
+    ),
+  },
+]);
+
+createRoot(root).render(
+  <StrictMode>
+    <RouterProvider router={router} />
   </StrictMode>,
 );

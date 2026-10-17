@@ -15,6 +15,13 @@ export const AINotEnabledError: Readonly<Details> = {
     "AI assistance is off for this organization, or its current AI terms are not accepted",
 };
 
+export const AIOperationOffError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-ai-operation-off",
+  title: "AI operation off",
+  status: 409,
+  detail: "The organization allows no model for this AI operation",
+};
+
 export interface AITermsRequiredDetails extends Details {
   type: "vetchium-problem-details/org-ai-terms-required";
   terms_version: string;

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AICreditBalance, AIModel } from "typespec/orgs/ai/types";
-import { creditUse } from "./creditUse.ts";
-import { estimateDraftCredits } from "./estimate.ts";
+import { creditUse, overallCreditUse } from "./creditUse.ts";
+import { estimateDraftCredits, typicalDraftCredits } from "./estimate.ts";
 import { formatPrice } from "./format.ts";
 
 const model: AIModel = {
@@ -43,27 +43,44 @@ test("prices use each currency's minor unit", () => {
 });
 
 test("credit use warns from 80 percent and when nothing is left", () => {
-  const balance = (available: number, total: number): AICreditBalance => ({
-    available,
-    monthly_grant_remaining: available,
-    purchased_remaining: 0,
-    reserved: 0,
-    usable_total: total,
-  });
-  assert.equal(creditUse(balance(0, 0)), undefined);
-  assert.deepEqual(creditUse(balance(1000, 1000)), {
+  assert.equal(creditUse(0, 0), undefined);
+  assert.deepEqual(creditUse(1000, 1000), {
     used: 0,
+    left: 1000,
     total: 1000,
     percent: 0,
     level: "normal",
   });
-  assert.equal(creditUse(balance(201, 1000))?.level, "normal");
-  assert.equal(creditUse(balance(200, 1000))?.level, "warning");
-  assert.equal(creditUse(balance(1, 1000))?.percent, 99);
-  assert.deepEqual(creditUse(balance(0, 1000)), {
+  assert.equal(creditUse(1000, 201)?.level, "normal");
+  assert.equal(creditUse(1000, 200)?.level, "warning");
+  assert.equal(creditUse(1000, 1)?.percent, 99);
+  assert.deepEqual(creditUse(1000, -5), {
     used: 1000,
+    left: 0,
     total: 1000,
     percent: 100,
     level: "exhausted",
   });
+});
+
+test("overall credit use adds both sources and counts held credits as used", () => {
+  const balance: AICreditBalance = {
+    available: 150,
+    monthly_grant_remaining: 100,
+    monthly_grant_total: 400,
+    purchased_remaining: 100,
+    purchased_total: 600,
+    reserved: 50,
+  };
+  assert.deepEqual(overallCreditUse(balance), {
+    used: 850,
+    left: 150,
+    total: 1000,
+    percent: 85,
+    level: "warning",
+  });
+});
+
+test("a typical draft costs more than an empty one", () => {
+  assert.ok(typicalDraftCredits(model) > estimateDraftCredits(model, "", {}));
 });

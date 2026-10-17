@@ -17,3 +17,8 @@
 .ai-usage-text {
   white-space: pre-wrap;
 }
+
+/* Side-by-side credit gauges keep equal heights. */
+.ai-credit-card {
+  height: 100%;
+}

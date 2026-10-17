@@ -1,5 +1,8 @@
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
-import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import {
+  type IdempotencyKeyHolder,
+  useIdempotencyKey,
+} from "@vetchium/portal-ui/idempotency";
 import {
   Alert,
   App,
@@ -7,14 +10,15 @@ import {
   Card,
   Checkbox,
   Flex,
-  Form,
-  Select,
-  Space,
+  Modal,
+  Radio,
   Switch,
   Table,
+  Tag,
   Typography,
 } from "antd";
-import { useEffect, useState } from "react";
+import type { TFunction } from "i18next";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   AISettingsResponse,
@@ -32,51 +36,429 @@ import {
 } from "typespec/problem/orgs/ai";
 import { APIError, isDefiniteRefusal } from "../../api/client";
 import { problemMessage } from "../../components/common/APIErrorAlert";
+import { useUnsavedChangesGuard } from "../../components/common/useUnsavedChangesGuard";
 import { useSetAISettings } from "./queries";
 
-interface OperationChoice {
-  allowAll: boolean;
-  allowed: string[];
-  defaultModel?: string;
+type SaveSettings = ReturnType<typeof useSetAISettings>;
+
+/**
+ * The stored policies as a request may resend them. A model the region no
+ * longer offers would refuse the whole save, so it is dropped; a policy left
+ * with no offered model falls back to every model, as the API already treats
+ * it. A policy that is off stays off.
+ */
+function resendablePolicies(settings: AISettingsResponse): AIOperationPolicy[] {
+  const offered = new Set(settings.models.map((model) => model.model_oid));
+  return settings.settings.policies.flatMap((policy) => {
+    if (policy.allowed_models.length === 0) return [policy];
+    const allowed = policy.allowed_models.filter((oid) => offered.has(oid));
+    const [first] = allowed;
+    if (first === undefined) return [];
+    const preselected =
+      policy.default_model !== undefined &&
+      allowed.includes(policy.default_model)
+        ? policy.default_model
+        : first;
+    return [{ ...policy, allowed_models: allowed, default_model: preselected }];
+  });
 }
 
-type Choices = Record<AIOperation, OperationChoice>;
-
-function initialChoices(settings: AISettingsResponse): Choices {
-  const choices = {} as Choices;
-  for (const operation of aiOperationValues) {
-    const policy = settings.settings.policies.find(
-      (entry) => entry.operation === operation,
-    );
-    const regionDefault = settings.operation_defaults.find(
-      (entry) => entry.operation === operation,
-    )?.default_model;
-    choices[operation] =
-      policy === undefined
-        ? {
-            allowAll: true,
-            allowed: settings.models.map((model) => model.model_oid),
-            ...(regionDefault === undefined
-              ? {}
-              : { defaultModel: regionDefault }),
-          }
-        : {
-            allowAll: false,
-            allowed: [...policy.allowed_models],
-            defaultModel: policy.default_model,
-          };
+/** Saves the settings and returns a message for the user when it fails. */
+async function submitSettings(
+  t: TFunction,
+  save: SaveSettings,
+  key: IdempotencyKeyHolder,
+  request: SetAISettingsRequest,
+): Promise<string | undefined> {
+  try {
+    await save.mutateAsync({ request, key: key.current() });
+    key.rotate();
+    return undefined;
+  } catch (cause) {
+    if (isDefiniteRefusal(cause)) key.rotate();
+    const problem = cause instanceof APIError ? cause.problem : undefined;
+    if (problem?.type === AITermsRequiredErrorType) {
+      return t("ai.settings.errors.termsRequired");
+    }
+    if (isAIModelNotOfferedProblem(problem)) {
+      return t("ai.settings.errors.modelNotOffered", {
+        models: problem.model_oids.join(", "),
+      });
+    }
+    return problemMessage(t, cause);
   }
-  return choices;
 }
 
-function policies(choices: Choices): AIOperationPolicy[] {
-  return aiOperationValues
-    .filter((operation) => !choices[operation].allowAll)
-    .map((operation) => ({
-      operation,
-      allowed_models: choices[operation].allowed,
-      default_model: choices[operation].defaultModel ?? "",
-    }));
+function AIAssistanceCard({ settings }: { settings: AISettingsResponse }) {
+  const { t } = useTranslation();
+  const { message, modal } = App.useApp();
+  const { dateTime } = useDateTimeFormat();
+  const save = useSetAISettings();
+  const key = useIdempotencyKey();
+  const [termsOpen, setTermsOpen] = useState(false);
+  const [accept, setAccept] = useState(false);
+  const [error, setError] = useState<string>();
+  const enabled = settings.settings.enabled;
+  const termsCurrent =
+    settings.settings.accepted_terms_version === settings.current_terms_version;
+
+  const apply = async (next: boolean, acceptTerms: boolean) => {
+    setError(undefined);
+    const failure = await submitSettings(t, save, key, {
+      enabled: next,
+      policies: resendablePolicies(settings),
+      ...(acceptTerms
+        ? { accept_terms_version: settings.current_terms_version }
+        : {}),
+    });
+    if (failure !== undefined) {
+      setError(failure);
+      return false;
+    }
+    void message.success(
+      t(next ? "ai.settings.turnedOn" : "ai.settings.turnedOff"),
+    );
+    return true;
+  };
+
+  const change = (next: boolean) => {
+    if (next && termsCurrent) {
+      void apply(true, false);
+    } else if (next) {
+      setAccept(false);
+      setTermsOpen(true);
+    } else {
+      modal.confirm({
+        title: t("ai.settings.turnOffTitle"),
+        content: t("ai.settings.turnOffContent"),
+        okText: t("ai.settings.turnOff"),
+        okButtonProps: { danger: true },
+        cancelText: t("common.cancel"),
+        onOk: () => apply(false, false),
+      });
+    }
+  };
+
+  return (
+    <Card title={t("ai.settings.title")}>
+      <Flex vertical gap="middle">
+        <Flex gap="middle" align="center">
+          <Switch
+            checked={enabled}
+            loading={save.isPending}
+            onChange={change}
+            aria-label={t("ai.settings.enabled")}
+          />
+          <Flex vertical>
+            <Typography.Text strong>
+              {t(enabled ? "ai.settings.on" : "ai.settings.off")}
+            </Typography.Text>
+            <Typography.Text type="secondary">
+              {t(enabled ? "ai.settings.onHelp" : "ai.settings.offHelp")}
+            </Typography.Text>
+          </Flex>
+        </Flex>
+        {termsCurrent && settings.settings.accepted_terms_at ? (
+          <Typography.Text type="secondary">
+            {t("ai.settings.termsAccepted", {
+              version: settings.settings.accepted_terms_version,
+              date: dateTime(settings.settings.accepted_terms_at),
+            })}
+          </Typography.Text>
+        ) : null}
+        {error === undefined ? null : (
+          <Alert type="error" showIcon title={error} />
+        )}
+      </Flex>
+      <Modal
+        open={termsOpen}
+        title={t("ai.terms.title")}
+        okText={t("ai.terms.acceptAndTurnOn")}
+        cancelText={t("common.cancel")}
+        okButtonProps={{ disabled: !accept }}
+        confirmLoading={save.isPending}
+        onOk={async () => {
+          if (await apply(true, true)) setTermsOpen(false);
+        }}
+        onCancel={() => setTermsOpen(false)}
+      >
+        <Flex vertical gap="small">
+          {(["p1", "p2", "p3", "p4"] as const).map((paragraph) => (
+            <Typography.Paragraph key={paragraph}>
+              {t(`ai.terms.${paragraph}`)}
+            </Typography.Paragraph>
+          ))}
+          <Checkbox
+            checked={accept}
+            onChange={(event) => setAccept(event.target.checked)}
+          >
+            {t("ai.terms.accept", { version: settings.current_terms_version })}
+          </Checkbox>
+          {error === undefined ? null : (
+            <Alert type="error" showIcon title={error} />
+          )}
+        </Flex>
+      </Modal>
+    </Card>
+  );
+}
+
+type Mode = "all" | "selected" | "off";
+
+interface PolicyDraft {
+  mode: Mode;
+  /** Kept while another mode is chosen, so switching back restores it. */
+  allowed: string[];
+  preselected?: string;
+}
+
+function storedDraft(
+  settings: AISettingsResponse,
+  operation: AIOperation,
+): PolicyDraft {
+  const offered = settings.models.map((model) => model.model_oid);
+  const regionDefault = settings.operation_defaults.find(
+    (entry) => entry.operation === operation,
+  )?.default_model;
+  const everything: PolicyDraft = {
+    mode: "all",
+    allowed: offered,
+    ...(regionDefault === undefined ? {} : { preselected: regionDefault }),
+  };
+  const policy = resendablePolicies(settings).find(
+    (entry) => entry.operation === operation,
+  );
+  if (policy === undefined) return everything;
+  if (policy.allowed_models.length === 0) return { ...everything, mode: "off" };
+  return {
+    mode: "selected",
+    allowed: offered.filter((oid) => policy.allowed_models.includes(oid)),
+    ...(policy.default_model === undefined
+      ? {}
+      : { preselected: policy.default_model }),
+  };
+}
+
+function sameDraft(a: PolicyDraft, b: PolicyDraft): boolean {
+  if (a.mode !== b.mode) return false;
+  if (a.mode !== "selected") return true;
+  return (
+    a.preselected === b.preselected &&
+    a.allowed.length === b.allowed.length &&
+    a.allowed.every((oid, index) => b.allowed[index] === oid)
+  );
+}
+
+function FeaturePolicyCard({
+  settings,
+  operation,
+  onDirtyChange,
+}: {
+  settings: AISettingsResponse;
+  operation: AIOperation;
+  onDirtyChange: (operation: AIOperation, dirty: boolean) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const { message } = App.useApp();
+  const save = useSetAISettings();
+  const key = useIdempotencyKey();
+  const stored = storedDraft(settings, operation);
+  const [draft, setDraft] = useState<PolicyDraft>(stored);
+  const [error, setError] = useState<string>();
+  const number = new Intl.NumberFormat(i18n.language);
+  const feature = t(`ai.operations.${operation}`);
+  const modelName = (oid: string | undefined) =>
+    settings.models.find((model) => model.model_oid === oid)?.display_name ??
+    oid;
+  const dirty = !sameDraft(draft, stored);
+  const invalid = draft.mode === "selected" && draft.allowed.length === 0;
+
+  const edit = (next: PolicyDraft) => {
+    setDraft(next);
+    onDirtyChange(operation, !sameDraft(next, stored));
+  };
+
+  const toggle = (oid: string, allowed: boolean) => {
+    const offered = settings.models.map((model) => model.model_oid);
+    const next = offered.filter((candidate) =>
+      candidate === oid ? allowed : draft.allowed.includes(candidate),
+    );
+    const preselected =
+      draft.preselected !== undefined && next.includes(draft.preselected)
+        ? draft.preselected
+        : next[0];
+    edit({
+      mode: "selected",
+      allowed: next,
+      ...(preselected === undefined ? {} : { preselected }),
+    });
+  };
+
+  const submit = async () => {
+    setError(undefined);
+    const others = resendablePolicies(settings).filter(
+      (policy) => policy.operation !== operation,
+    );
+    const policy: AIOperationPolicy[] =
+      draft.mode === "all"
+        ? []
+        : draft.mode === "off"
+          ? [{ operation, allowed_models: [] }]
+          : [
+              {
+                operation,
+                allowed_models: draft.allowed,
+                ...(draft.preselected === undefined
+                  ? {}
+                  : { default_model: draft.preselected }),
+              },
+            ];
+    const failure = await submitSettings(t, save, key, {
+      enabled: settings.settings.enabled,
+      policies: [...others, ...policy],
+    });
+    if (failure === undefined) {
+      onDirtyChange(operation, false);
+      void message.success(t("ai.settings.saved", { feature }));
+    } else {
+      setError(failure);
+    }
+  };
+
+  return (
+    <Card
+      size="small"
+      title={feature}
+      extra={
+        dirty ? <Tag color="warning">{t("ai.settings.unsaved")}</Tag> : null
+      }
+    >
+      <Flex vertical gap="middle">
+        <Radio.Group
+          aria-label={t("ai.settings.modelsFor", { feature })}
+          value={draft.mode}
+          onChange={(event) => edit({ ...draft, mode: event.target.value })}
+        >
+          <Flex vertical gap="small">
+            <Radio value="all">
+              <Flex vertical>
+                <Typography.Text>{t("ai.settings.modeAll")}</Typography.Text>
+                <Typography.Text type="secondary">
+                  {t("ai.settings.modeAllHelp", {
+                    model: modelName(stored.preselected ?? draft.preselected),
+                  })}
+                </Typography.Text>
+              </Flex>
+            </Radio>
+            <Radio value="selected">
+              <Flex vertical>
+                <Typography.Text>
+                  {t("ai.settings.modeSelected")}
+                </Typography.Text>
+                <Typography.Text type="secondary">
+                  {t("ai.settings.modeSelectedHelp")}
+                </Typography.Text>
+              </Flex>
+            </Radio>
+            <Radio value="off">
+              <Flex vertical>
+                <Typography.Text>{t("ai.settings.modeOff")}</Typography.Text>
+                <Typography.Text type="secondary">
+                  {t("ai.settings.modeOffHelp", { feature })}
+                </Typography.Text>
+              </Flex>
+            </Radio>
+          </Flex>
+        </Radio.Group>
+        {draft.mode === "selected" ? (
+          <Table<AIModel>
+            rowKey="model_oid"
+            size="small"
+            pagination={false}
+            dataSource={settings.models}
+            scroll={{ x: 560 }}
+            columns={[
+              {
+                title: t("ai.settings.allow"),
+                width: 80,
+                render: (_, model) => (
+                  <Checkbox
+                    checked={draft.allowed.includes(model.model_oid)}
+                    onChange={(event) =>
+                      toggle(model.model_oid, event.target.checked)
+                    }
+                    aria-label={t("ai.settings.allowModel", {
+                      model: model.display_name,
+                    })}
+                  />
+                ),
+              },
+              { title: t("ai.models.name"), dataIndex: "display_name" },
+              {
+                title: t("ai.models.rates"),
+                children: [
+                  {
+                    title: t("ai.models.inputRate"),
+                    align: "end",
+                    render: (_, model) =>
+                      number.format(model.input_credits_per_million_tokens),
+                  },
+                  {
+                    title: t("ai.models.outputRate"),
+                    align: "end",
+                    render: (_, model) =>
+                      number.format(model.output_credits_per_million_tokens),
+                  },
+                ],
+              },
+              {
+                title: t("ai.settings.preselected"),
+                width: 120,
+                render: (_, model) => (
+                  <Radio
+                    checked={draft.preselected === model.model_oid}
+                    disabled={!draft.allowed.includes(model.model_oid)}
+                    onChange={() =>
+                      edit({ ...draft, preselected: model.model_oid })
+                    }
+                    aria-label={t("ai.settings.preselectModel", {
+                      model: model.display_name,
+                    })}
+                  />
+                ),
+              },
+            ]}
+          />
+        ) : null}
+        {invalid ? (
+          <Alert type="error" showIcon title={t("ai.settings.chooseModel")} />
+        ) : null}
+        {error === undefined ? null : (
+          <Alert type="error" showIcon title={error} />
+        )}
+        {dirty ? (
+          <Flex gap="small">
+            <Button
+              type="primary"
+              loading={save.isPending}
+              disabled={invalid}
+              onClick={() => void submit()}
+            >
+              {t("ai.settings.save", { feature })}
+            </Button>
+            <Button
+              onClick={() => {
+                setError(undefined);
+                edit(stored);
+              }}
+            >
+              {t("ai.settings.discard")}
+            </Button>
+          </Flex>
+        ) : null}
+      </Flex>
+    </Card>
+  );
 }
 
 export function AISettingsPanel({
@@ -85,74 +467,21 @@ export function AISettingsPanel({
   settings: AISettingsResponse;
 }) {
   const { t, i18n } = useTranslation();
-  const { message } = App.useApp();
   const { dateTime } = useDateTimeFormat();
-  const save = useSetAISettings();
-  const key = useIdempotencyKey();
-  const [enabled, setEnabled] = useState(settings.settings.enabled);
-  const [accept, setAccept] = useState(false);
-  const [choices, setChoices] = useState<Choices>(() =>
-    initialChoices(settings),
+  const [dirty, setDirty] = useState<ReadonlySet<AIOperation>>(new Set());
+  useUnsavedChangesGuard(dirty.size > 0);
+  const onDirtyChange = useCallback(
+    (operation: AIOperation, changed: boolean) =>
+      setDirty((current) => {
+        if (current.has(operation) === changed) return current;
+        const next = new Set(current);
+        if (changed) next.add(operation);
+        else next.delete(operation);
+        return next;
+      }),
+    [],
   );
-  const [error, setError] = useState<string>();
-  useEffect(() => {
-    setEnabled(settings.settings.enabled);
-    setChoices(initialChoices(settings));
-    setAccept(false);
-  }, [settings]);
-
   const number = new Intl.NumberFormat(i18n.language);
-  const termsCurrent =
-    settings.settings.accepted_terms_version === settings.current_terms_version;
-  const needsTerms = enabled && !termsCurrent;
-  const modelName = (oid: string) =>
-    settings.models.find((model) => model.model_oid === oid)?.display_name ??
-    oid;
-  const invalidChoice = aiOperationValues.some((operation) => {
-    const choice = choices[operation];
-    return (
-      !choice.allowAll &&
-      (choice.allowed.length === 0 ||
-        choice.defaultModel === undefined ||
-        !choice.allowed.includes(choice.defaultModel))
-    );
-  });
-
-  const submit = async () => {
-    setError(undefined);
-    const request: SetAISettingsRequest = {
-      enabled,
-      policies: policies(choices),
-      ...(needsTerms && accept
-        ? { accept_terms_version: settings.current_terms_version }
-        : {}),
-    };
-    try {
-      await save.mutateAsync({ request, key: key.current() });
-      key.rotate();
-      void message.success(t("ai.settings.saved"));
-    } catch (cause) {
-      if (isDefiniteRefusal(cause)) key.rotate();
-      const problem = cause instanceof APIError ? cause.problem : undefined;
-      if (problem?.type === AITermsRequiredErrorType) {
-        setError(t("ai.settings.errors.termsRequired"));
-      } else if (isAIModelNotOfferedProblem(problem)) {
-        setError(
-          t("ai.settings.errors.modelNotOffered", {
-            models: problem.model_oids.join(", "),
-          }),
-        );
-      } else {
-        setError(problemMessage(t, cause));
-      }
-    }
-  };
-
-  const update = (operation: AIOperation, change: Partial<OperationChoice>) =>
-    setChoices((current) => ({
-      ...current,
-      [operation]: { ...current[operation], ...change },
-    }));
 
   return (
     <Flex vertical gap="large">
@@ -168,122 +497,27 @@ export function AISettingsPanel({
           })}
         />
       ) : null}
-      <Card title={t("ai.settings.title")}>
-        <Form layout="vertical" onFinish={() => void submit()}>
-          <Flex vertical gap="middle">
-            <Form.Item label={t("ai.settings.enabled")}>
-              <Space>
-                <Switch
-                  checked={enabled}
-                  onChange={setEnabled}
-                  aria-label={t("ai.settings.enabled")}
-                />
-                <Typography.Text type="secondary">
-                  {t(enabled ? "ai.settings.on" : "ai.settings.off")}
-                </Typography.Text>
-              </Space>
-            </Form.Item>
-            {termsCurrent && settings.settings.accepted_terms_at ? (
-              <Typography.Paragraph type="secondary">
-                {t("ai.settings.termsAccepted", {
-                  version: settings.settings.accepted_terms_version,
-                  date: dateTime(settings.settings.accepted_terms_at),
-                })}
-              </Typography.Paragraph>
-            ) : null}
-            {needsTerms ? (
-              <Card size="small" title={t("ai.terms.title")}>
-                <Flex vertical gap="small">
-                  {(["p1", "p2", "p3", "p4"] as const).map((paragraph) => (
-                    <Typography.Paragraph key={paragraph}>
-                      {t(`ai.terms.${paragraph}`)}
-                    </Typography.Paragraph>
-                  ))}
-                  <Checkbox
-                    checked={accept}
-                    onChange={(event) => setAccept(event.target.checked)}
-                  >
-                    {t("ai.terms.accept", {
-                      version: settings.current_terms_version,
-                    })}
-                  </Checkbox>
-                </Flex>
-              </Card>
-            ) : null}
-            <Typography.Title level={4}>
-              {t("ai.settings.modelsTitle")}
-            </Typography.Title>
-            {aiOperationValues.map((operation) => {
-              const choice = choices[operation];
-              return (
-                <Card
-                  key={operation}
-                  size="small"
-                  title={t(`ai.operations.${operation}`)}
-                >
-                  <Flex vertical gap="middle">
-                    <Checkbox
-                      checked={choice.allowAll}
-                      onChange={(event) =>
-                        update(operation, { allowAll: event.target.checked })
-                      }
-                    >
-                      {t("ai.settings.allowAll")}
-                    </Checkbox>
-                    {!choice.allowAll ? (
-                      <Flex vertical gap="small">
-                        <Form.Item label={t("ai.settings.allowedModels")}>
-                          <Select
-                            mode="multiple"
-                            aria-label={t("ai.settings.allowedModels")}
-                            value={choice.allowed}
-                            onChange={(allowed: string[]) =>
-                              update(operation, {
-                                allowed,
-                                ...(choice.defaultModel !== undefined &&
-                                !allowed.includes(choice.defaultModel)
-                                  ? { defaultModel: allowed[0] }
-                                  : {}),
-                              })
-                            }
-                            options={settings.models.map((model) => ({
-                              value: model.model_oid,
-                              label: model.display_name,
-                            }))}
-                          />
-                        </Form.Item>
-                        <Form.Item label={t("ai.settings.defaultModel")}>
-                          <Select
-                            aria-label={t("ai.settings.defaultModel")}
-                            value={choice.defaultModel}
-                            onChange={(defaultModel: string) =>
-                              update(operation, { defaultModel })
-                            }
-                            options={choice.allowed.map((oid) => ({
-                              value: oid,
-                              label: modelName(oid),
-                            }))}
-                          />
-                        </Form.Item>
-                      </Flex>
-                    ) : null}
-                  </Flex>
-                </Card>
-              );
-            })}
-            {error !== undefined ? (
-              <Alert type="error" showIcon title={error} />
-            ) : null}
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={save.isPending}
-              disabled={(needsTerms && !accept) || invalidChoice}
-            >
-              {t("common.save")}
-            </Button>
-          </Flex>
-        </Form>
+      <AIAssistanceCard settings={settings} />
+      <Card title={t("ai.settings.modelsTitle")}>
+        <Flex vertical gap="middle">
+          <Typography.Text type="secondary">
+            {t("ai.settings.modelsHelp")}
+          </Typography.Text>
+          {aiOperationValues.map((operation) => (
+            <FeaturePolicyCard
+              // A saved policy remounts its card, so the card starts from
+              // what is stored while other cards keep their edits.
+              key={`${operation}:${JSON.stringify(
+                settings.settings.policies.find(
+                  (policy) => policy.operation === operation,
+                ) ?? null,
+              )}`}
+              settings={settings}
+              operation={operation}
+              onDirtyChange={onDirtyChange}
+            />
+          ))}
+        </Flex>
       </Card>
       <Card title={t("ai.models.title")}>
         <Flex vertical gap="middle">
@@ -296,10 +530,7 @@ export function AISettingsPanel({
             dataSource={settings.models}
             scroll={{ x: 640 }}
             columns={[
-              {
-                title: t("ai.models.name"),
-                dataIndex: "display_name",
-              },
+              { title: t("ai.models.name"), dataIndex: "display_name" },
               { title: t("ai.models.vendor"), dataIndex: "vendor" },
               { title: t("ai.models.licence"), dataIndex: "licence" },
               {

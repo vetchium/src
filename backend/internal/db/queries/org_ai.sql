@@ -123,24 +123,30 @@ SELECT
         WHERE l.kind = 'grant'
           AND o.org_plan_oid = ANY(sqlc.arg(ai_plan_oids)::text[])
     ), 0)::bigint AS grant_remaining,
+    COALESCE(sum(l.credits_granted) FILTER (
+        WHERE l.kind = 'grant'
+          AND o.org_plan_oid = ANY(sqlc.arg(ai_plan_oids)::text[])
+    ), 0)::bigint AS grant_total,
     min(l.expires_at) FILTER (
-        WHERE l.kind = 'grant' AND l.credits_remaining > 0
+        WHERE l.kind = 'grant'
           AND o.org_plan_oid = ANY(sqlc.arg(ai_plan_oids)::text[])
     )::timestamptz AS grant_expires_at,
     COALESCE(sum(l.credits_remaining) FILTER (
         WHERE l.kind = 'purchase'
     ), 0)::bigint AS purchased_remaining,
+    COALESCE(sum(l.credits_granted) FILTER (
+        WHERE l.kind = 'purchase'
+    ), 0)::bigint AS purchased_total,
+    min(l.expires_at) FILTER (
+        WHERE l.kind = 'purchase' AND l.credits_remaining > 0
+    )::timestamptz AS purchased_next_expires_at,
     (
         SELECT COALESCE(sum(u.credits_reserved), 0)
         FROM vetchium.org_ai_usage AS u
         WHERE u.org_did = o.org_did AND u.usage_state = 'reserved'
-    )::bigint AS reserved,
-    COALESCE(sum(l.credits_granted) FILTER (
-        WHERE l.kind = 'purchase'
-           OR o.org_plan_oid = ANY(sqlc.arg(ai_plan_oids)::text[])
-    ), 0)::bigint AS usable_total
+    )::bigint AS reserved
 FROM vetchium.orgs AS o
--- Spent lots stay joined so usable_total counts them.
+-- Spent lots stay joined so the totals count them.
 LEFT JOIN vetchium.org_ai_credit_lots AS l
     ON l.org_did = o.org_did
    AND l.expires_at > now()

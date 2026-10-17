@@ -43,12 +43,12 @@ func GetAIOptions(s *orgsruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "list AI policies", err)
 			return
 		}
+		policy := storedPolicies(rows)[request.Operation]
 		models, defaultModel := s.AI.Effective(
-			request.Operation, storedPolicies(rows)[request.Operation],
-			s.CurrentTime(),
+			request.Operation, policy, s.CurrentTime(),
 		)
 		response := aispec.AIOptions{
-			Availability:     standing.Availability(),
+			Availability:     availability(standing, policy),
 			Models:           make([]aispec.AIModel, 0, len(models)),
 			DefaultModel:     defaultModel,
 			BalanceAvailable: standing.Balance.Available,
@@ -59,6 +59,18 @@ func GetAIOptions(s *orgsruntime.Server) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, response)
 	}
+}
+
+// availability ranks an operation turned off below AI being off for the Org
+// and above the plan and credit checks, which it makes moot.
+func availability(
+	standing orgai.Standing, policy *orgai.Policy,
+) aispec.AIAvailability {
+	current := standing.Availability()
+	if current != aispec.NotEnabled && policy.Off() {
+		return aispec.OperationOff
+	}
+	return current
 }
 
 func effective(identity middleware.OrgIdentity) []authorization.OrgPermissionID {

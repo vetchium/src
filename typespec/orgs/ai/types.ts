@@ -56,7 +56,8 @@ export interface AIModel {
 export interface AIOperationPolicy {
   operation: AIOperationOID;
   allowed_models: AIModelOID[];
-  default_model: AIModelOID;
+  /** Absent exactly when no model is allowed, which turns the operation off. */
+  default_model?: AIModelOID;
 }
 
 /** Reports the policy's invalid fields, prefixed for its position in a
@@ -69,15 +70,19 @@ export function validateAIOperationPolicy(
   if (!isAIOperation(policy.operation)) fields.push(`${prefix}operation`);
   const models = policy.allowed_models;
   if (
-    models.length < 1 ||
+    !Array.isArray(models) ||
     models.length > MaxAllowedModels ||
     new Set(models).size !== models.length ||
     !models.every(isAIModelOID)
   )
     fields.push(`${prefix}allowed_models`);
+  const preselected = policy.default_model;
   if (
-    !isAIModelOID(policy.default_model) ||
-    !models.includes(policy.default_model)
+    models.length === 0
+      ? preselected !== undefined
+      : preselected === undefined ||
+        !isAIModelOID(preselected) ||
+        !models.includes(preselected)
   )
     fields.push(`${prefix}default_model`);
   return fields;
@@ -86,10 +91,12 @@ export function validateAIOperationPolicy(
 export interface AICreditBalance {
   available: number;
   monthly_grant_remaining: number;
+  monthly_grant_total: number;
   monthly_grant_expires_at?: string;
   purchased_remaining: number;
+  purchased_total: number;
+  purchased_next_expires_at?: string;
   reserved: number;
-  usable_total: number;
 }
 
 export interface AICreditPack {

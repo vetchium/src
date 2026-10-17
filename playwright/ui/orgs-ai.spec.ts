@@ -166,14 +166,22 @@ test("an AI manager turns AI on, buys credits, and reviews usage", async ({
     await expect(
       page.getByRole("heading", { name: "AI", level: 1 }),
     ).toBeVisible();
+    await expect(page.getByTestId("ai-status")).toHaveText("AI off");
+    await page.getByRole("button", { name: "Open settings" }).click();
+    await expect(page).toHaveURL(/[?&]tab=settings/);
     await expect(page.getByText("need the Gold plan")).toBeVisible();
 
+    // Turning AI on shows the terms; it saves once they are accepted.
     await page.getByRole("switch", { name: "AI assistance" }).click();
-    const save = page.getByRole("button", { name: "Save" });
-    await expect(save).toBeDisabled();
-    await page.getByRole("checkbox", { name: /I accept the AI terms/ }).check();
-    await save.click();
-    await expect(page.getByText("AI settings saved.")).toBeVisible();
+    const terms = page.getByRole("dialog", { name: "AI terms" });
+    const accept = terms.getByRole("button", { name: "Accept and turn on" });
+    await expect(accept).toBeDisabled();
+    await terms
+      .getByRole("checkbox", { name: /I accept the AI terms/ })
+      .check();
+    await accept.click();
+    await expect(page.getByText("AI assistance turned on.")).toBeVisible();
+    await expect(page.getByTestId("ai-status")).toHaveText("AI on");
     await expect(page.getByText(/AI terms version .* accepted/)).toBeVisible();
 
     await page.getByRole("tab", { name: "Credits" }).click();
@@ -181,8 +189,9 @@ test("an AI manager turns AI on, buys credits, and reviews usage", async ({
       page.getByText("Buying credits needs the Gold plan."),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Buy" }).first(),
+      page.getByRole("button", { name: "Buy", exact: true }).first(),
     ).toBeDisabled();
+    await expect(page.getByText("No purchased credits.")).toBeVisible();
 
     expect(
       (
@@ -192,13 +201,26 @@ test("an AI manager turns AI on, buys credits, and reviews usage", async ({
         })
       ).status(),
     ).toBe(200);
+    // The open tab survives a reload.
     await page.reload();
-    await page.getByRole("tab", { name: "Credits" }).click();
-    await page.getByRole("button", { name: "Buy" }).first().click();
+    await expect(page.getByRole("tab", { name: "Credits" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(
+      page.getByText(/About [\d,]+ Opening drafts with/).first(),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Buy", exact: true })
+      .first()
+      .click();
     await expect(page.getByText("you will not be charged")).toBeVisible();
     await page.getByRole("dialog").getByRole("button", { name: "Buy" }).click();
     await expect(page.getByText("Credits added.")).toBeVisible();
     await expect(page.getByRole("cell", { name: "Purchase" })).toBeVisible();
+    await expect(
+      page.getByText(/^100,000 of 100,000 left$/).first(),
+    ).toBeVisible();
 
     const drafted = await api.draftOpeningWithAI(owner, {
       instruction: "Support lead",
@@ -206,6 +228,10 @@ test("an AI manager turns AI on, buys credits, and reviews usage", async ({
     expect(drafted.status(), await drafted.text()).toBe(200);
     await page.getByRole("tab", { name: "Usage" }).click();
     await expect(page.getByRole("cell", { name: "Completed" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Qwen3 1.7B" })).toBeVisible();
+    await expect(
+      page.getByRole("columnheader", { name: "Input", exact: true }),
+    ).toBeVisible();
     await page
       .getByRole("button", { name: /^View the prompt and answer/ })
       .click();
@@ -213,24 +239,16 @@ test("an AI manager turns AI on, buys credits, and reviews usage", async ({
     await expect(dialog.getByText("Request:\nSupport lead")).toBeVisible();
     await expect(dialog.getByText(/Draft: Support lead/)).toBeVisible();
     await dialog.getByRole("button", { name: "Done" }).click();
-    await expect(page.getByRole("cell", { name: "Qwen3 1.7B" })).toBeVisible();
-    await expect(
-      page.getByRole("columnheader", { name: "Input", exact: true }),
-    ).toBeVisible();
 
-    // The gauge shows the share used and warns from 80 percent.
-    const gauge = page.getByRole("progressbar", {
-      name: "Share of AI credits used",
-    });
-    await expect(gauge).toBeVisible();
+    // Each source has its own gauge; the summary warns from 80 percent.
     await expect
       .poll(
         async () =>
           (
             (await (await api.aiCredits(owner)).json()) as {
-              balance: { monthly_grant_remaining: number };
+              balance: { monthly_grant_total: number };
             }
-          ).balance.monthly_grant_remaining,
+          ).balance.monthly_grant_total,
         { timeout: 15000 },
       )
       .toBeGreaterThan(0);
@@ -240,22 +258,132 @@ test("an AI manager turns AI on, buys credits, and reviews usage", async ({
          SET credits_remaining = credits_granted * ${percent} / 100
          WHERE org_did = '${orgDID(org.domain)}'`,
       );
+    const monthly = page.getByRole("progressbar", {
+      name: "This month's credits: share used",
+    });
+    const purchased = page.getByRole("progressbar", {
+      name: "Purchased credits: share used",
+    });
     leave(15);
     await page.reload();
-    await page.getByRole("tab", { name: "Usage" }).click();
-    await expect(gauge).toHaveAttribute("aria-valuenow", "85");
-    await expect(page.getByText("85% used")).toBeVisible();
+    await expect(monthly).toHaveAttribute("aria-valuenow", "85");
+    await expect(purchased).toHaveAttribute("aria-valuenow", "85");
     await expect(
       page.getByRole("alert").filter({ hasText: "85% of your AI credits" }),
     ).toBeVisible();
+    await page
+      .getByRole("alert")
+      .getByRole("button", { name: "Buy credits" })
+      .click();
+    await expect(page).toHaveURL(/[?&]tab=credits/);
 
     leave(0);
     await page.reload();
-    await page.getByRole("tab", { name: "Usage" }).click();
-    await expect(gauge).toHaveAttribute("aria-valuenow", "100");
+    await expect(monthly).toHaveAttribute("aria-valuenow", "100");
     await expect(
       page.getByRole("alert").filter({ hasText: "AI credits are used up" }),
     ).toBeVisible();
+
+    // Turning AI off asks first.
+    await page.getByRole("tab", { name: "Settings" }).click();
+    await page.getByRole("switch", { name: "AI assistance" }).click();
+    await page
+      .getByRole("dialog", { name: "Turn AI assistance off?" })
+      .getByRole("button", { name: "Turn off" })
+      .click();
+    await expect(page.getByText("AI assistance turned off.")).toBeVisible();
+    await expect(page.getByTestId("ai-status")).toHaveText("AI off");
+  });
+});
+
+test("each AI feature saves its own models, can be turned off, and guards unsaved edits", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    await goldWithAI(api, owner);
+    const policies = async () =>
+      (
+        (await (await api.aiSettings(owner)).json()) as {
+          settings: { policies: unknown[] };
+        }
+      ).settings.policies;
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/ai?tab=settings`);
+    const feature = page.getByRole("radiogroup", {
+      name: "Models for Opening drafting",
+    });
+    await expect(
+      feature.getByRole("radio", { name: /All models in this region/ }),
+    ).toBeChecked();
+    await expect(page.getByText("Unsaved changes")).toHaveCount(0);
+
+    await feature.getByRole("radio", { name: /^Off/ }).check();
+    await expect(page.getByText("Unsaved changes")).toBeVisible();
+    // Leaving with unsaved edits asks first; staying keeps them.
+    await page.getByRole("menuitem", { name: "Overview" }).click();
+    const leaving = page.getByRole("dialog", { name: "Leave without saving?" });
+    await leaving.getByRole("button", { name: "Stay" }).click();
+    await expect(page).toHaveURL(/\/ai\?tab=settings/);
+    await expect(feature.getByRole("radio", { name: /^Off/ })).toBeChecked();
+
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(
+      page.getByText("Opening drafting settings saved."),
+    ).toBeVisible();
+    await expect(page.getByText("Unsaved changes")).toHaveCount(0);
+    expect(await policies()).toEqual([
+      { operation: "org-opening-draft", allowed_models: [] },
+    ]);
+
+    await page.goto(`${ORGS_PORTAL}/openings/new`);
+    await page.getByTestId("draft-with-ai").click();
+    await expect(
+      page.getByText("Your organization has turned off Opening drafting"),
+    ).toBeVisible();
+
+    await page.goto(`${ORGS_PORTAL}/ai?tab=settings`);
+    await feature
+      .getByRole("radio", { name: /Only the models I choose/ })
+      .check();
+    const save = page.getByRole("button", { name: "Save", exact: true });
+    for (const name of ["Allow Qwen3 1.7B", "Allow Ministral 3 3B"]) {
+      await page.getByRole("checkbox", { name }).uncheck();
+    }
+    await expect(
+      page.getByText("Choose at least one model, or turn the feature off."),
+    ).toBeVisible();
+    await expect(save).toBeDisabled();
+    await page.getByRole("checkbox", { name: "Allow Ministral 3 3B" }).check();
+    await expect(
+      page.getByRole("radio", { name: "Preselect Ministral 3 3B" }),
+    ).toBeChecked();
+    await expect(
+      page.getByRole("radio", { name: "Preselect Qwen3 1.7B" }),
+    ).toBeDisabled();
+    await save.click();
+    await expect(
+      page.getByText("Opening drafting settings saved."),
+    ).toBeVisible();
+    expect(await policies()).toEqual([
+      {
+        operation: "org-opening-draft",
+        allowed_models: ["ministral-3-3b"],
+        default_model: "ministral-3-3b",
+      },
+    ]);
+
+    // Discard restores what is stored.
+    await feature
+      .getByRole("radio", { name: /All models in this region/ })
+      .check();
+    await page.getByRole("button", { name: "Discard" }).click();
+    await expect(
+      feature.getByRole("radio", { name: /Only the models I choose/ }),
+    ).toBeChecked();
+    await expect(page.getByText("Unsaved changes")).toHaveCount(0);
+    await page.getByRole("menuitem", { name: "Overview" }).click();
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
   });
 });
 

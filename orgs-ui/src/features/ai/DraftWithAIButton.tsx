@@ -24,6 +24,7 @@ import {
   AIModelFailedError,
   AIModelNotAllowedError,
   AINotEnabledError,
+  AIOperationOffError,
   AIOutputUnusableError,
   AIRequestInProgressError,
 } from "typespec/problem/orgs/ai";
@@ -37,6 +38,7 @@ import { VetchiumAIIcon } from "./VetchiumAIIcon";
 
 const problemKeys: Readonly<Record<string, string>> = {
   [AINotEnabledError.type]: "ai.draft.errors.notEnabled",
+  [AIOperationOffError.type]: "ai.draft.errors.operationOff",
   [PlanRequiredErrorType]: "ai.draft.errors.planRequired",
   [AICreditsInsufficientErrorType]: "ai.draft.errors.noCredits",
   [AIModelNotAllowedError.type]: "ai.draft.errors.modelNotAllowed",
@@ -102,13 +104,15 @@ export function DraftWithAIButton({
       ? undefined
       : data.availability === "not_enabled"
         ? t("ai.draft.unavailable.notEnabled")
-        : data.availability === "plan_required"
-          ? t("ai.draft.unavailable.planRequired")
-          : data.availability === "no_credits"
-            ? t("ai.draft.unavailable.noCredits")
-            : chosen === undefined
-              ? t("ai.draft.unavailable.noModel")
-              : undefined;
+        : data.availability === "operation_off"
+          ? t("ai.draft.unavailable.operationOff")
+          : data.availability === "plan_required"
+            ? t("ai.draft.unavailable.planRequired")
+            : data.availability === "no_credits"
+              ? t("ai.draft.unavailable.noCredits")
+              : chosen === undefined
+                ? t("ai.draft.unavailable.noModel")
+                : undefined;
   const errorMessage = (() => {
     if (draft.error === null) return undefined;
     const type =

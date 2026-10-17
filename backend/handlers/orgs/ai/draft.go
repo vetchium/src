@@ -211,21 +211,22 @@ func reserveDraft(
 	if err != nil {
 		return reservation{}, nil, nil, err
 	}
-	switch standing.Availability() {
-	case aispec.NotEnabled:
-		return reservation{}, nil, orgsproblem.AINotEnabledError, nil
-	case aispec.PlanRequired:
-		return reservation{}, nil,
-			orgsproblem.PlanRequiredError(subscriptionspec.GoldTier), nil
-	}
 	rows, err := q.ListOrgAIPolicies(ctx, identity.OrgDID)
 	if err != nil {
 		return reservation{}, nil, nil, err
 	}
+	policy := storedPolicies(rows)[aispec.OpeningDraft]
+	switch availability(standing, policy) {
+	case aispec.NotEnabled:
+		return reservation{}, nil, orgsproblem.AINotEnabledError, nil
+	case aispec.OperationOff:
+		return reservation{}, nil, orgsproblem.AIOperationOffError, nil
+	case aispec.PlanRequired:
+		return reservation{}, nil,
+			orgsproblem.PlanRequiredError(subscriptionspec.GoldTier), nil
+	}
 	now := s.CurrentTime()
-	allowed, defaultModel := s.AI.Effective(
-		aispec.OpeningDraft, storedPolicies(rows)[aispec.OpeningDraft], now,
-	)
+	allowed, defaultModel := s.AI.Effective(aispec.OpeningDraft, policy, now)
 	choice := request.ModelOID
 	if choice == nil {
 		choice = defaultModel

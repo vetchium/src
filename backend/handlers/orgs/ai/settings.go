@@ -167,7 +167,13 @@ func samePolicies(
 		index := slices.IndexFunc(rows, func(row sqlc.ListOrgAIPoliciesRow) bool {
 			return row.Operation == string(policy.Operation)
 		})
-		if index < 0 || rows[index].DefaultModel != string(policy.DefaultModel) ||
+		if index < 0 {
+			return false
+		}
+		stored := rows[index]
+		if stored.DefaultModel.Valid != (policy.DefaultModel != nil) ||
+			(policy.DefaultModel != nil &&
+				stored.DefaultModel.String != string(*policy.DefaultModel)) ||
 			!slices.EqualFunc(rows[index].AllowedModels, policy.AllowedModels,
 				func(stored string, model aispec.AIModelOID) bool {
 					return stored == string(model)

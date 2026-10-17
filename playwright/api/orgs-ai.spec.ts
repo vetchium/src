@@ -23,6 +23,7 @@ import {
   AIModelNotAllowedError,
   AIModelNotOfferedErrorType,
   AINotEnabledError,
+  AIOperationOffError,
   AIOutputUnusableError,
   AIPackNotOfferedError,
   AIRequestInProgressError,
@@ -400,6 +401,11 @@ test.describe("AI settings", () => {
           [{ ...valid, allowed_models: [qwen, qwen] }],
           ["policies.0.allowed_models"],
         ],
+        [[{ ...valid, allowed_models: [] }], ["policies.0.default_model"]],
+        [
+          [{ operation: draft, allowed_models: [qwen] }],
+          ["policies.0.default_model"],
+        ],
       ] satisfies Array<[AIOperationPolicy[], string[]]>) {
         await expectProblem(
           await api.setAISettings(owner, { enabled: false, policies }),
@@ -497,9 +503,10 @@ test.describe("AI credits", () => {
         balance: {
           available: 0,
           monthly_grant_remaining: 0,
+          monthly_grant_total: 0,
           purchased_remaining: 0,
+          purchased_total: 0,
           reserved: 0,
-          usable_total: 0,
         },
         monthly_grant: 0,
         purchase_allowed: false,
@@ -544,10 +551,12 @@ test.describe("AI credits", () => {
       expect(afterPurchase.balance).toEqual({
         available: monthlyGrant + 100000,
         monthly_grant_remaining: monthlyGrant,
+        monthly_grant_total: monthlyGrant,
         monthly_grant_expires_at: current.balance.monthly_grant_expires_at,
         purchased_remaining: 100000,
+        purchased_total: 100000,
+        purchased_next_expires_at: expect.stringMatching(/Z$/),
         reserved: 0,
-        usable_total: monthlyGrant + 100000,
       });
       const replay = await api.buyAICreditPack(
         owner,
@@ -981,6 +990,41 @@ test.describe("draft-opening-with-ai", () => {
           .model_oid,
       ).toBe(ministral);
 
+      // No allowed model turns drafting off, ahead of the plan and credits.
+      expect(
+        (
+          await api.setAISettings(owner, {
+            enabled: true,
+            policies: [{ operation: draft, allowed_models: [] }],
+          })
+        ).status(),
+      ).toBe(200);
+      const off = await options(api, owner);
+      expect(off.availability).toBe("operation_off");
+      expect(off.models).toEqual([]);
+      expect(off.default_model).toBeUndefined();
+      await expectProblem(
+        await api.draftOpeningWithAI(owner, body),
+        409,
+        AIOperationOffError.type,
+      );
+      const stored = (await (await api.aiSettings(owner)).json()) as {
+        settings: { policies: AIOperationPolicy[] };
+      };
+      expect(stored.settings.policies).toEqual([
+        { operation: draft, allowed_models: [] },
+      ]);
+      await api.setAISettings(owner, {
+        enabled: true,
+        policies: [
+          {
+            operation: draft,
+            allowed_models: [ministral],
+            default_model: ministral,
+          },
+        ],
+      });
+
       orgSQL(
         `UPDATE vetchium.org_ai_credit_lots SET credits_remaining = 10
          WHERE org_did = '${orgDID(org.domain)}'`,
@@ -1010,9 +1054,11 @@ test.describe("draft-opening-with-ai", () => {
         expect(after.balance).toEqual({
           available: 100000,
           monthly_grant_remaining: 0,
+          monthly_grant_total: 0,
           purchased_remaining: 100000,
+          purchased_total: 100000,
+          purchased_next_expires_at: expect.stringMatching(/Z$/),
           reserved: 0,
-          usable_total: 100000,
         });
         expect(after.purchase_allowed).toBe(false);
         expect((await options(api, owner)).availability).toBe("ready");
@@ -1027,7 +1073,7 @@ test.describe("draft-opening-with-ai", () => {
           100000 - drafted.usage.credits_charged,
         );
         // Spending leaves the total, so the share used grows.
-        expect(spent.usable_total).toBe(100000);
+        expect(spent.purchased_total).toBe(100000);
       },
       { gold: true, enabled: true },
     );

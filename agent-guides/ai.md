@@ -64,7 +64,15 @@ built; Hub AI is in [`../docs/todo.md`](../docs/todo.md).
   operation allows every offered model and preselects the region default. A
   stored model the region no longer offers drops out; a withdrawn default
   falls back to the region default.
+- A policy with no allowed model (and no default) turns the operation off:
+  `get-ai-options` reports `operation_off`, which outranks the plan and credit
+  states but not `not_enabled`, and running it is `org-ai-operation-off`.
 - Saving unchanged settings writes nothing.
+- The portal's AI switch saves at once (terms in a dialog when turning on, a
+  confirmation when turning off). Each operation's policy has its own Save
+  and Discard, shown only after a change; unsaved edits block leaving the
+  page. Every save resends the other stored policies, minus models the region
+  no longer offers.
 
 ## Credits
 
@@ -78,9 +86,10 @@ built; Hub AI is in [`../docs/todo.md`](../docs/todo.md).
 - Running an operation needs AI on and either a plan with `allows_ai` or
   purchased credits left; otherwise `org-plan-required` naming Gold. Buying a
   pack needs `allows_ai`.
-- `usable_total` counts every usable lot's issued credits, spent or not. The
-  portal's share used is `(usable_total - available) / usable_total`; it
-  warns from 80% and alerts when nothing is available, in theme colors.
+- The balance reports each source's issued total (`monthly_grant_total`,
+  `purchased_total`, spent lots included) beside what remains. The portal
+  shows one gauge per source and an overall alert from 80% used (held credits
+  count as used) or when nothing is available, in theme colors.
 - Payment is simulated: buying grants the lot at once and the audit records
   `payment: simulated`. Real payments follow
   [`org-subscriptions.md`](org-subscriptions.md).

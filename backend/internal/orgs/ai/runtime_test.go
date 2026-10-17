@@ -31,6 +31,20 @@ func oids(models []appconfig.AIModel) []aispec.AIModelOID {
 	return result
 }
 
+func TestEffectivePolicyOff(t *testing.T) {
+	t.Parallel()
+	off := &Policy{AllowedModels: []aispec.AIModelOID{}}
+	if !off.Off() || (*Policy)(nil).Off() {
+		t.Fatal("Off() misreports an empty or missing policy")
+	}
+	allowed, choice := testRuntime(nil).Effective(
+		aispec.OpeningDraft, off, time.Now(),
+	)
+	if len(allowed) != 0 || choice != nil {
+		t.Fatalf("Effective() = %v, %v, want no models", oids(allowed), choice)
+	}
+}
+
 func TestEffectivePolicy(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 10, 17, 0, 0, 0, 0, time.UTC)
@@ -76,7 +90,7 @@ func TestAvailability(t *testing.T) {
 	t.Parallel()
 	ready := Standing{
 		Enabled: true, TermsCurrent: true, PlanAllowsAI: true,
-		Balance: Balance(100, 0, 0, 100, nil),
+		Balance: Balance(Lots{GrantRemaining: 100, GrantTotal: 100}),
 	}
 	cases := []struct {
 		name   string
@@ -88,14 +102,14 @@ func TestAvailability(t *testing.T) {
 		{"stale terms", func(s *Standing) { s.TermsCurrent = false }, aispec.NotEnabled},
 		{"no plan, no purchase", func(s *Standing) {
 			s.PlanAllowsAI = false
-			s.Balance = Balance(0, 0, 0, 0, nil)
+			s.Balance = Balance(Lots{})
 		}, aispec.PlanRequired},
 		{"no plan but purchased credits", func(s *Standing) {
 			s.PlanAllowsAI = false
-			s.Balance = Balance(0, 50, 0, 50, nil)
+			s.Balance = Balance(Lots{PurchasedRemaining: 50, PurchasedTotal: 50})
 		}, aispec.Ready},
 		{"all reserved", func(s *Standing) {
-			s.Balance = Balance(100, 0, 100, 100, nil)
+			s.Balance = Balance(Lots{GrantRemaining: 100, GrantTotal: 100, Reserved: 100})
 		}, aispec.NoCredits},
 	}
 	for _, testCase := range cases {
@@ -108,7 +122,7 @@ func TestAvailability(t *testing.T) {
 			}
 		})
 	}
-	if Balance(10, 5, 30, 15, nil).Available != 0 {
+	if Balance(Lots{GrantRemaining: 10, PurchasedRemaining: 5, Reserved: 30}).Available != 0 {
 		t.Fatal("available never goes negative")
 	}
 }

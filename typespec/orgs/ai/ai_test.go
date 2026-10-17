@@ -69,10 +69,11 @@ func TestDraftOpeningNormalizeLeavesSourceUnchanged(t *testing.T) {
 
 func TestSetAISettingsRequestValidation(t *testing.T) {
 	t.Parallel()
+	model := func(oid AIModelOID) *AIModelOID { return &oid }
 	valid := AIOperationPolicy{
 		Operation:     AIOperationOID(OpeningDraft),
 		AllowedModels: []AIModelOID{"qwen3-1-7b", "ministral-3-3b"},
-		DefaultModel:  "qwen3-1-7b",
+		DefaultModel:  model("qwen3-1-7b"),
 	}
 	terms := OrgAITermsVersion
 	empty := ""
@@ -108,28 +109,47 @@ func TestSetAISettingsRequestValidation(t *testing.T) {
 		{
 			"default not allowed",
 			SetAISettingsRequest{Policies: []AIOperationPolicy{{
-				Operation: valid.Operation, AllowedModels: []AIModelOID{"ministral-3-3b"}, DefaultModel: "qwen3-1-7b",
+				Operation: valid.Operation, AllowedModels: []AIModelOID{"ministral-3-3b"}, DefaultModel: model("qwen3-1-7b"),
 			}}},
 			[]string{"policies.0.default_model"},
 		},
 		{
-			"no allowed models",
+			"off",
 			SetAISettingsRequest{Policies: []AIOperationPolicy{{
-				Operation: valid.Operation, AllowedModels: []AIModelOID{}, DefaultModel: "qwen3-1-7b",
+				Operation: valid.Operation, AllowedModels: []AIModelOID{},
 			}}},
-			[]string{"policies.0.allowed_models", "policies.0.default_model"},
+			nil,
+		},
+		{
+			"off with a default",
+			SetAISettingsRequest{Policies: []AIOperationPolicy{{
+				Operation: valid.Operation, AllowedModels: []AIModelOID{}, DefaultModel: model("qwen3-1-7b"),
+			}}},
+			[]string{"policies.0.default_model"},
+		},
+		{
+			"allowed models without a default",
+			SetAISettingsRequest{Policies: []AIOperationPolicy{{
+				Operation: valid.Operation, AllowedModels: valid.AllowedModels,
+			}}},
+			[]string{"policies.0.default_model"},
+		},
+		{
+			"missing allowed models",
+			SetAISettingsRequest{Policies: []AIOperationPolicy{{Operation: valid.Operation}}},
+			[]string{"policies.0.allowed_models"},
 		},
 		{
 			"duplicate allowed model",
 			SetAISettingsRequest{Policies: []AIOperationPolicy{{
-				Operation: valid.Operation, AllowedModels: []AIModelOID{"qwen3-1-7b", "qwen3-1-7b"}, DefaultModel: "qwen3-1-7b",
+				Operation: valid.Operation, AllowedModels: []AIModelOID{"qwen3-1-7b", "qwen3-1-7b"}, DefaultModel: model("qwen3-1-7b"),
 			}}},
 			[]string{"policies.0.allowed_models"},
 		},
 		{
 			"too many allowed models",
 			SetAISettingsRequest{Policies: []AIOperationPolicy{{
-				Operation: valid.Operation, AllowedModels: manyModels, DefaultModel: manyModels[0],
+				Operation: valid.Operation, AllowedModels: manyModels, DefaultModel: &manyModels[0],
 			}}},
 			[]string{"policies.0.allowed_models"},
 		},

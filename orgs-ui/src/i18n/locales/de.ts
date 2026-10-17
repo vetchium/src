@@ -43,6 +43,11 @@ export const de = {
     loadError: "Diese Informationen konnten nicht geladen werden.",
     loading: "Wird geladen",
     retry: "Erneut versuchen",
+    unsavedTitle: "Ohne Speichern verlassen?",
+    unsavedContent:
+      "Ihre Änderungen auf dieser Seite sind noch nicht gespeichert.",
+    unsavedLeave: "Verlassen",
+    unsavedStay: "Bleiben",
   },
   fields: {
     confirmPassword: "Passwort bestätigen",
@@ -483,7 +488,7 @@ export const de = {
     },
   },
   ai: {
-    documentTitle: "KI · Vetchium",
+    documentTitle: "KI | Vetchium für Organisationen",
     title: "KI",
     description:
       "KI-Unterstützung einschalten, die Modelle jeder KI-Funktion festlegen, KI-Guthaben verwalten und die KI-Nutzung prüfen.",
@@ -522,6 +527,8 @@ export const de = {
           "Die KI-Unterstützung erfordert den Gold-Tarif oder früher gekauftes KI-Guthaben.",
         noCredits: "Ihre Organisation hat kein KI-Guthaben mehr.",
         noModel: "Für Entwürfe ist kein KI-Modell verfügbar.",
+        operationOff:
+          "Ihre Organisation hat KI-Entwürfe für Stellenanzeigen ausgeschaltet. Jemand mit MANAGE_AI kann sie in den KI-Einstellungen wieder einschalten.",
       },
       errors: {
         notEnabled:
@@ -538,6 +545,8 @@ export const de = {
           "Das KI-Modell hat nicht geantwortet. Es wurde kein Guthaben verbraucht. Versuchen Sie es erneut.",
         unusable:
           "Die Antwort der KI war nicht verwendbar. Es wurde kein Guthaben verbraucht. Formulieren Sie Ihre Anfrage anders.",
+        operationOff:
+          "Ihre Organisation hat KI-Entwürfe für Stellenanzeigen ausgeschaltet.",
       },
     },
     settings: {
@@ -551,16 +560,42 @@ export const de = {
       off: "Aus",
       termsAccepted:
         "KI-Bedingungen Version {{version}} akzeptiert am {{date}}.",
-      modelsTitle: "Modelle je KI-Funktion",
-      allowAll: "Alle Modelle dieser Region erlauben",
-      allowedModels: "Erlaubte Modelle",
-      defaultModel: "Vorausgewähltes Modell",
-      saved: "KI-Einstellungen gespeichert.",
+      modelsTitle: "KI-Funktionen",
+      saved: "Einstellungen für {{feature}} gespeichert.",
       errors: {
         termsRequired:
           "Akzeptieren Sie die aktuellen KI-Bedingungen, um die KI-Unterstützung einzuschalten.",
         modelNotOffered: "Diese Region bietet nicht an: {{models}}",
       },
+      onHelp:
+        "Personen mit den nötigen Berechtigungen können KI-Funktionen nutzen.",
+      offHelp: "Niemand in Ihrer Organisation kann KI-Funktionen nutzen.",
+      turnedOn: "KI-Unterstützung eingeschaltet.",
+      turnedOff: "KI-Unterstützung ausgeschaltet.",
+      turnOffTitle: "KI-Unterstützung ausschalten?",
+      turnOffContent:
+        "Niemand in Ihrer Organisation kann KI-Funktionen nutzen, bis sie wieder eingeschaltet wird. Guthaben, Einstellungen und Nutzungsverlauf bleiben erhalten.",
+      turnOff: "Ausschalten",
+      modelsHelp:
+        "Legen Sie fest, welche Modelle jede KI-Funktion nutzen darf, oder schalten Sie eine Funktion aus. Jede Funktion wird einzeln gespeichert.",
+      modelsFor: "Modelle für {{feature}}",
+      modeAll: "Alle Modelle dieser Region",
+      modeAllHelp:
+        "Später hinzukommende Modelle sind ebenfalls erlaubt. {{model}} ist vorausgewählt.",
+      modeSelected: "Nur die von mir gewählten Modelle",
+      modeSelectedHelp:
+        "Wählen Sie die erlaubten Modelle und das vorausgewählte.",
+      modeOff: "Aus",
+      modeOffHelp: "Niemand in Ihrer Organisation kann {{feature}} nutzen.",
+      allow: "Erlauben",
+      allowModel: "{{model}} erlauben",
+      preselected: "Vorausgewählt",
+      preselectModel: "{{model}} vorauswählen",
+      chooseModel:
+        "Wählen Sie mindestens ein Modell oder schalten Sie die Funktion aus.",
+      unsaved: "Nicht gespeichert",
+      save: "Speichern",
+      discard: "Verwerfen",
     },
     terms: {
       title: "KI-Bedingungen",
@@ -570,6 +605,7 @@ export const de = {
       p4: "KI-Ausgaben können falsch oder unvollständig sein. Personen Ihrer Organisation prüfen sie, bevor sie gespeichert oder veröffentlicht werden.",
       accept:
         "Ich akzeptiere die KI-Bedingungen (Version {{version}}) für meine Organisation.",
+      acceptAndTurnOn: "Akzeptieren und einschalten",
     },
     models: {
       title: "Modelle in dieser Region",
@@ -586,12 +622,6 @@ export const de = {
       withdraws: "Angeboten bis {{date}}",
     },
     credits: {
-      balanceTitle: "Kontostand",
-      available: "Jetzt verfügbar",
-      monthlyRemaining: "Verbleibendes Monatsguthaben",
-      lapses: "Verfällt am {{date}}",
-      purchasedRemaining: "Verbleibendes gekauftes Guthaben",
-      reserved: "Von laufenden KI-Anfragen reserviert",
       grantIncluded:
         "Ihr Tarif enthält jeden Monat {{credits}} KI-Guthabenpunkte. Sie werden zuerst verbraucht und verfallen am Monatsende.",
       grantNotIncluded: "Ihr Tarif enthält kein monatliches KI-Guthaben.",
@@ -616,6 +646,7 @@ export const de = {
       remaining: "Übrig",
       added: "Hinzugefügt",
       expires: "Verfällt",
+      packDrafts: "Etwa {{drafts}} Entwürfe für Stellenanzeigen mit {{model}}",
     },
     usage: {
       title: "KI-Nutzung",
@@ -640,19 +671,6 @@ export const de = {
       tokens: "Tokens",
       inputTokens: "Eingabe",
       outputTokens: "Ausgabe",
-      creditsUsedTitle: "Verbrauchtes KI-Guthaben",
-      creditsUsedLabel: "Anteil des verbrauchten KI-Guthabens",
-      percentUsed: "{{percent}} % verbraucht",
-      underOnePercent: "Unter 1 % verbraucht",
-      creditsUsed: "Verbraucht",
-      creditsLeft: "Übrig",
-      creditsTotal: "Nutzbares Guthaben",
-      warning:
-        "{{percent}} % Ihres KI-Guthabens sind verbraucht. Kaufen Sie auf dem Tab „Guthaben“ nach, bevor es aufgebraucht ist.",
-      exhausted:
-        "Ihr KI-Guthaben ist aufgebraucht. KI-Funktionen stehen erst wieder zur Verfügung, wenn Sie Guthaben kaufen oder neues Monatsguthaben eintrifft.",
-      noUsableCredits:
-        "Ihre Organisation hat kein nutzbares KI-Guthaben. Der Gold-Tarif enthält monatliches Guthaben.",
       credits: "Guthaben",
       text: "Eingabe und Antwort",
       view: "Ansehen",
@@ -668,6 +686,34 @@ export const de = {
       },
       answer: "Antwort",
       noAnswer: "Das Modell hat nicht geantwortet.",
+    },
+    statusOn: "KI an",
+    statusOff: "KI aus",
+    offNotice:
+      "Die KI-Unterstützung ist ausgeschaltet, daher kann niemand in Ihrer Organisation KI-Funktionen nutzen.",
+    openSettings: "Einstellungen öffnen",
+    summary: {
+      monthlyTitle: "Guthaben dieses Monats",
+      purchasedTitle: "Gekauftes Guthaben",
+      percentUsed: "{{percent}} % verbraucht",
+      underOnePercent: "Unter 1 % verbraucht",
+      gaugeLabel: "{{title}}: verbrauchter Anteil",
+      left: "{{left}} von {{total}} übrig",
+      monthlyRenews:
+        "Erneuert sich am {{date}}. Nicht genutztes Guthaben verfällt dann.",
+      monthlyPending:
+        "Ihr Tarif enthält jeden Monat {{credits}} Guthaben. Das Guthaben dieses Monats trifft in Kürze ein.",
+      monthlyNone:
+        "Ihr Tarif enthält kein monatliches Guthaben. Der Gold-Tarif schon.",
+      purchasedExpires: "Der früheste Kauf verfällt am {{date}}.",
+      purchasedNone: "Kein gekauftes Guthaben.",
+      buy: "Guthaben kaufen",
+      warning:
+        "{{percent}} % Ihres KI-Guthabens sind verbraucht. Kaufen Sie nach, bevor es aufgebraucht ist.",
+      exhausted:
+        "Ihr KI-Guthaben ist aufgebraucht. KI-Funktionen stehen erst wieder zur Verfügung, wenn Sie Guthaben kaufen oder das Guthaben des nächsten Monats eintrifft.",
+      reserved:
+        "{{credits}} Guthaben sind von laufenden KI-Anfragen reserviert.",
     },
   },
   plans: {

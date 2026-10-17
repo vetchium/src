@@ -40,6 +40,10 @@ export const en = {
     loadError: "This information could not be loaded.",
     loading: "Loading",
     retry: "Try again",
+    unsavedTitle: "Leave without saving?",
+    unsavedContent: "Your changes on this page are not saved yet.",
+    unsavedLeave: "Leave",
+    unsavedStay: "Stay",
   },
   fields: {
     confirmPassword: "Confirm password",
@@ -464,7 +468,7 @@ export const en = {
     },
   },
   ai: {
-    documentTitle: "AI · Vetchium",
+    documentTitle: "AI | Vetchium for organizations",
     title: "AI",
     description:
       "Turn AI assistance on, choose the models each AI feature may use, manage AI credits, and review how AI was used.",
@@ -503,6 +507,8 @@ export const en = {
           "AI assistance needs the Gold plan, or AI credits your organization bought earlier.",
         noCredits: "Your organization has no AI credits left.",
         noModel: "No AI model is available for drafting.",
+        operationOff:
+          "Your organization has turned off Opening drafting with AI. Someone with MANAGE_AI can turn it back on in AI settings.",
       },
       errors: {
         notEnabled: "AI assistance is off for your organization.",
@@ -517,6 +523,8 @@ export const en = {
           "The AI model did not answer. No credits were used. Try again.",
         unusable:
           "The AI's answer could not be used. No credits were used. Try rewording your request.",
+        operationOff:
+          "Your organization has turned off Opening drafting with AI.",
       },
     },
     settings: {
@@ -529,15 +537,39 @@ export const en = {
       on: "On",
       off: "Off",
       termsAccepted: "AI terms version {{version}} accepted on {{date}}.",
-      modelsTitle: "Models for each AI feature",
-      allowAll: "Allow every model this region offers",
-      allowedModels: "Allowed models",
-      defaultModel: "Preselected model",
-      saved: "AI settings saved.",
+      modelsTitle: "AI features",
+      saved: "{{feature}} settings saved.",
       errors: {
         termsRequired: "Accept the current AI terms to turn AI assistance on.",
         modelNotOffered: "This region does not offer: {{models}}",
       },
+      onHelp: "People with the right permissions can use AI features.",
+      offHelp: "Nobody in your organization can use AI features.",
+      turnedOn: "AI assistance turned on.",
+      turnedOff: "AI assistance turned off.",
+      turnOffTitle: "Turn AI assistance off?",
+      turnOffContent:
+        "Nobody in your organization can use AI features until it is turned on again. Credits, settings, and usage history are kept.",
+      turnOff: "Turn off",
+      modelsHelp:
+        "Choose which models each AI feature may use, or turn a feature off. Each feature saves on its own.",
+      modelsFor: "Models for {{feature}}",
+      modeAll: "All models in this region",
+      modeAllHelp:
+        "Models added later are allowed too. {{model}} is preselected.",
+      modeSelected: "Only the models I choose",
+      modeSelectedHelp:
+        "Pick the allowed models and the one preselected for people.",
+      modeOff: "Off",
+      modeOffHelp: "Nobody in your organization can use {{feature}}.",
+      allow: "Allow",
+      allowModel: "Allow {{model}}",
+      preselected: "Preselected",
+      preselectModel: "Preselect {{model}}",
+      chooseModel: "Choose at least one model, or turn the feature off.",
+      unsaved: "Unsaved changes",
+      save: "Save",
+      discard: "Discard",
     },
     terms: {
       title: "AI terms",
@@ -547,6 +579,7 @@ export const en = {
       p4: "AI output can be wrong or incomplete. People in your organization review it before it is saved or published.",
       accept:
         "I accept the AI terms (version {{version}}) for my organization.",
+      acceptAndTurnOn: "Accept and turn on",
     },
     models: {
       title: "Models in this region",
@@ -563,12 +596,6 @@ export const en = {
       withdraws: "Offered until {{date}}",
     },
     credits: {
-      balanceTitle: "Balance",
-      available: "Available now",
-      monthlyRemaining: "Monthly credits left",
-      lapses: "Lapse on {{date}}",
-      purchasedRemaining: "Purchased credits left",
-      reserved: "Held by AI requests in progress",
       grantIncluded:
         "Your plan includes {{credits}} AI credits each month. They are used first and lapse at the end of the month.",
       grantNotIncluded: "Your plan includes no monthly AI credits.",
@@ -593,6 +620,7 @@ export const en = {
       remaining: "Left",
       added: "Added",
       expires: "Expires",
+      packDrafts: "About {{drafts}} Opening drafts with {{model}}",
     },
     usage: {
       title: "AI usage",
@@ -617,19 +645,6 @@ export const en = {
       tokens: "Tokens",
       inputTokens: "Input",
       outputTokens: "Output",
-      creditsUsedTitle: "AI credits used",
-      creditsUsedLabel: "Share of AI credits used",
-      percentUsed: "{{percent}}% used",
-      underOnePercent: "Under 1% used",
-      creditsUsed: "Used",
-      creditsLeft: "Left",
-      creditsTotal: "Usable credits",
-      warning:
-        "{{percent}}% of your AI credits are used. Buy more on the Credits tab before they run out.",
-      exhausted:
-        "Your AI credits are used up. AI features stop until you buy credits or new monthly credits arrive.",
-      noUsableCredits:
-        "Your organization has no usable AI credits. The Gold plan includes monthly credits.",
       credits: "Credits",
       text: "Prompt and answer",
       view: "View",
@@ -645,6 +660,31 @@ export const en = {
       },
       answer: "Answer",
       noAnswer: "The model gave no answer.",
+    },
+    statusOn: "AI on",
+    statusOff: "AI off",
+    offNotice:
+      "AI assistance is off, so nobody in your organization can use AI features.",
+    openSettings: "Open settings",
+    summary: {
+      monthlyTitle: "This month's credits",
+      purchasedTitle: "Purchased credits",
+      percentUsed: "{{percent}}% used",
+      underOnePercent: "Under 1% used",
+      gaugeLabel: "{{title}}: share used",
+      left: "{{left}} of {{total}} left",
+      monthlyRenews: "Renews on {{date}}. Unused credits lapse then.",
+      monthlyPending:
+        "Your plan includes {{credits}} credits each month. This month's credits arrive shortly.",
+      monthlyNone: "Your plan includes no monthly credits. The Gold plan does.",
+      purchasedExpires: "The earliest purchase expires on {{date}}.",
+      purchasedNone: "No purchased credits.",
+      buy: "Buy credits",
+      warning:
+        "{{percent}}% of your AI credits are used. Buy more before they run out.",
+      exhausted:
+        "Your AI credits are used up. AI features stop until you buy credits or next month's credits arrive.",
+      reserved: "{{credits}} credits are held by AI requests in progress.",
     },
   },
   plans: {

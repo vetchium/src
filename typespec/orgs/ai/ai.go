@@ -24,6 +24,7 @@ type AIAvailability string
 const (
 	Ready        AIAvailability = "ready"
 	NotEnabled   AIAvailability = "not_enabled"
+	OperationOff AIAvailability = "operation_off"
 	PlanRequired AIAvailability = "plan_required"
 	NoCredits    AIAvailability = "no_credits"
 )

@@ -102,12 +102,20 @@ type Policy struct {
 	DefaultModel  aispec.AIModelOID
 }
 
+// Off reports a stored policy that allows no model, which turns the operation
+// off; it stays off when models are added to the region.
+func (p *Policy) Off() bool { return p != nil && len(p.AllowedModels) == 0 }
+
 // Effective resolves what an operation may use now. Without a stored policy
 // every offered model is allowed. A stored policy keeps its offered models;
-// when its default is withdrawn, the region default takes its place.
+// when its default is withdrawn, the region default takes its place. An
+// operation that is off has no models.
 func (r *Runtime) Effective(
 	operation aispec.AIOperation, stored *Policy, now time.Time,
 ) ([]appconfig.AIModel, *aispec.AIModelOID) {
+	if stored.Off() {
+		return nil, nil
+	}
 	regionDefault := r.Config.OperationDefaults[operation]
 	if stored == nil {
 		offered := r.Offered(now)
@@ -190,18 +198,28 @@ func (s Standing) Availability() aispec.AIAvailability {
 	}
 }
 
+// Lots is an Org's usable credit lots, summed by kind.
+type Lots struct {
+	GrantRemaining, GrantTotal         int64
+	PurchasedRemaining, PurchasedTotal int64
+	Reserved                           int64
+	GrantExpiresAt                     *time.Time
+	PurchasedNextExpiresAt             *time.Time
+}
+
 // Balance derives the reported balance. A grant counts only while the plan
 // allows AI; the query already excludes it otherwise.
-func Balance(
-	grantRemaining, purchasedRemaining, reserved, usableTotal int64,
-	grantExpiresAt *time.Time,
-) aispec.AICreditBalance {
+func Balance(lots Lots) aispec.AICreditBalance {
 	return aispec.AICreditBalance{
-		Available:             max(grantRemaining+purchasedRemaining-reserved, 0),
-		MonthlyGrantRemaining: grantRemaining,
-		MonthlyGrantExpiresAt: grantExpiresAt,
-		PurchasedRemaining:    purchasedRemaining,
-		Reserved:              reserved,
-		UsableTotal:           usableTotal,
+		Available: max(
+			lots.GrantRemaining+lots.PurchasedRemaining-lots.Reserved, 0,
+		),
+		MonthlyGrantRemaining:  lots.GrantRemaining,
+		MonthlyGrantTotal:      lots.GrantTotal,
+		MonthlyGrantExpiresAt:  lots.GrantExpiresAt,
+		PurchasedRemaining:     lots.PurchasedRemaining,
+		PurchasedTotal:         lots.PurchasedTotal,
+		PurchasedNextExpiresAt: lots.PurchasedNextExpiresAt,
+		Reserved:               lots.Reserved,
 	}
 }

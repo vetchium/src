@@ -24,6 +24,17 @@ alias OrgAINotEnabledErrorResponse = Response<
   typeof OrgAINotEnabledError
 >;
 
+const OrgAIOperationOffError = #{
+  type: "vetchium-problem-details/org-ai-operation-off",
+  title: "AI operation off",
+  status: 409,
+  detail: "The organization allows no model for this AI operation",
+};
+alias OrgAIOperationOffErrorResponse = Response<
+  409,
+  typeof OrgAIOperationOffError
+>;
+
 model OrgAITermsRequiredDetails {
   type: "vetchium-problem-details/org-ai-terms-required";
   title: "AI terms required";

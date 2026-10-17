@@ -48,6 +48,7 @@ export function validateGetAIOptionsRequest(
 export type AIAvailability =
   | "ready"
   | "not_enabled"
+  | "operation_off"
   | "plan_required"
   | "no_credits";
 

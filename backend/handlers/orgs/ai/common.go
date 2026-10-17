@@ -49,10 +49,16 @@ func balance(
 	if err != nil {
 		return aispec.AICreditBalance{}, err
 	}
-	return orgai.Balance(
-		row.GrantRemaining, row.PurchasedRemaining, row.Reserved,
-		row.UsableTotal, dbvalue.TimePtr(row.GrantExpiresAt),
-	), nil
+	return orgai.Balance(orgai.Lots{
+		GrantRemaining: row.GrantRemaining, GrantTotal: row.GrantTotal,
+		PurchasedRemaining: row.PurchasedRemaining,
+		PurchasedTotal:     row.PurchasedTotal,
+		Reserved:           row.Reserved,
+		GrantExpiresAt:     dbvalue.TimePtr(row.GrantExpiresAt),
+		PurchasedNextExpiresAt: dbvalue.TimePtr(
+			row.PurchasedNextExpiresAt,
+		),
+	}), nil
 }
 
 func storedPolicies(
@@ -66,7 +72,7 @@ func storedPolicies(
 		}
 		policies[aispec.AIOperation(row.Operation)] = &orgai.Policy{
 			AllowedModels: allowed,
-			DefaultModel:  aispec.AIModelOID(row.DefaultModel),
+			DefaultModel:  aispec.AIModelOID(row.DefaultModel.String),
 		}
 	}
 	return policies
@@ -108,7 +114,10 @@ func settingsResponse(
 		policy := aispec.AIOperationPolicy{
 			Operation:     aispec.AIOperationOID(row.Operation),
 			AllowedModels: make([]aispec.AIModelOID, 0, len(row.AllowedModels)),
-			DefaultModel:  aispec.AIModelOID(row.DefaultModel),
+		}
+		if row.DefaultModel.Valid {
+			oid := aispec.AIModelOID(row.DefaultModel.String)
+			policy.DefaultModel = &oid
 		}
 		for _, model := range row.AllowedModels {
 			oid := aispec.AIModelOID(model)

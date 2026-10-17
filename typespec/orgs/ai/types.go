@@ -91,8 +91,11 @@ type AIModel struct {
 type AIOperationPolicy struct {
 	Operation     AIOperationOID `json:"operation"`
 	AllowedModels []AIModelOID   `json:"allowed_models"`
-	DefaultModel  AIModelOID     `json:"default_model"`
+	DefaultModel  *AIModelOID    `json:"default_model,omitempty"`
 }
+
+// Off reports a policy that allows no model, which turns the operation off.
+func (p AIOperationPolicy) Off() bool { return len(p.AllowedModels) == 0 }
 
 // Validate reports the policy's invalid fields, prefixed for its position in
 // a request.
@@ -102,7 +105,7 @@ func (p AIOperationPolicy) Validate(prefix string) []string {
 		fields = append(fields, prefix+"operation")
 	}
 	seen := make(map[AIModelOID]bool, len(p.AllowedModels))
-	valid := len(p.AllowedModels) >= 1 &&
+	valid := p.AllowedModels != nil &&
 		len(p.AllowedModels) <= MaxAllowedModels
 	for _, model := range p.AllowedModels {
 		if !IsAIModelOID(model) || seen[model] {
@@ -113,19 +116,26 @@ func (p AIOperationPolicy) Validate(prefix string) []string {
 	if !valid {
 		fields = append(fields, prefix+"allowed_models")
 	}
-	if !IsAIModelOID(p.DefaultModel) || !seen[p.DefaultModel] {
+	if p.Off() {
+		if p.DefaultModel != nil {
+			fields = append(fields, prefix+"default_model")
+		}
+	} else if p.DefaultModel == nil || !IsAIModelOID(*p.DefaultModel) ||
+		!seen[*p.DefaultModel] {
 		fields = append(fields, prefix+"default_model")
 	}
 	return fields
 }
 
 type AICreditBalance struct {
-	Available             int64      `json:"available"`
-	MonthlyGrantRemaining int64      `json:"monthly_grant_remaining"`
-	MonthlyGrantExpiresAt *time.Time `json:"monthly_grant_expires_at,omitempty"`
-	PurchasedRemaining    int64      `json:"purchased_remaining"`
-	Reserved              int64      `json:"reserved"`
-	UsableTotal           int64      `json:"usable_total"`
+	Available              int64      `json:"available"`
+	MonthlyGrantRemaining  int64      `json:"monthly_grant_remaining"`
+	MonthlyGrantTotal      int64      `json:"monthly_grant_total"`
+	MonthlyGrantExpiresAt  *time.Time `json:"monthly_grant_expires_at,omitempty"`
+	PurchasedRemaining     int64      `json:"purchased_remaining"`
+	PurchasedTotal         int64      `json:"purchased_total"`
+	PurchasedNextExpiresAt *time.Time `json:"purchased_next_expires_at,omitempty"`
+	Reserved               int64      `json:"reserved"`
 }
 
 type AICreditPack struct {
