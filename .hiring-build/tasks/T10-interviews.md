@@ -42,3 +42,12 @@ cancellation on leaving the pipeline.
 ## Acceptance
 
 In-house interviews run from scheduling to feedback, with Hub responses.
+
+## Carried over
+
+- Extend `vetchium.org_user_reads_applications` (T06) so an interviewer
+  without other access reads only the candidacies of their interviews
+  (HP-AUTH-003).
+- Add the HP-ORG-001 "pending applicant action" filter to
+  `list-applications` for interview responses; T11 extends it for consent
+  and T09's offer response if not already present.

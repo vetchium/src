@@ -34,3 +34,9 @@ decline from another region, check types, no result reaching the Hub.
 
 In-house assessment and background-check stages record results with consent
 gating.
+
+## Carried over
+
+- Extend the HP-ORG-001 "pending applicant action" filter on
+  `list-applications` (added in T10) with background-check consent and,
+  if missing, the offer response.

@@ -36,3 +36,8 @@ copy, end removing assignments, permissions.
 ## Acceptance
 
 Consumers attach providers to Openings and stages and route candidacies.
+
+## Carried over
+
+- Add the HP-ORG-001 "routed provider" filter to `list-applications`
+  (T06 left it out because routes did not exist).
