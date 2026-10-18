@@ -136,6 +136,8 @@ test("billing and company forms work in German with keyboard navigation", async 
       .getByLabel("Unternehmensname", { exact: true })
       .fill("Beispiel GmbH");
     await page.getByRole("button", { name: "Speichern", exact: true }).click();
+    // Leaving before the save answers would read the old name.
+    await expect(page.getByText("Unternehmensdaten gespeichert")).toBeVisible();
     await page.goto(`${ORGS_PORTAL}/`);
     await expect(
       page.getByRole("heading", { name: "Beispiel GmbH", level: 1 }),
