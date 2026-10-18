@@ -46,6 +46,7 @@ export const openingHistoryActions = [
   "duplicated",
   "working_copy_saved",
   "team_changed",
+  "pipeline_changed",
   "revision_discarded",
   "discarded",
   "requested",

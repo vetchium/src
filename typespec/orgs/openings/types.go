@@ -43,6 +43,7 @@ const (
 	HistoryDuplicated        OpeningHistoryAction = "duplicated"
 	HistoryWorkingCopySaved  OpeningHistoryAction = "working_copy_saved"
 	HistoryTeamChanged       OpeningHistoryAction = "team_changed"
+	HistoryPipelineChanged   OpeningHistoryAction = "pipeline_changed"
 	HistoryRevisionDiscarded OpeningHistoryAction = "revision_discarded"
 	HistoryDiscarded         OpeningHistoryAction = "discarded"
 	HistoryRequested         OpeningHistoryAction = "requested"

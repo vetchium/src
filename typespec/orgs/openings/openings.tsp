@@ -8,7 +8,9 @@ import "../../problem/common.tsp";
 import "../../problem/details.tsp";
 import "../../problem/orgs/authentication.tsp";
 import "../../problem/orgs/openings.tsp";
+import "../../problem/orgs/pipelines.tsp";
 import "../../problem/orgs/suspension.tsp";
+import "../hiring/pipelines.tsp";
 import "./types.tsp";
 
 using TypeSpec.Http;
@@ -31,10 +33,16 @@ model CreateOpeningRequest {
   @minLength(1)
   @maxLength(2000)
   internal_notes?: string;
+
+  /** The new Opening copies this template; omission gives one review stage. */
+  pipeline_template_id?: Vetchium.Orgs.Hiring.PipelineTemplateID;
 }
 
 model DuplicateOpeningRequest {
   opening_number: OpeningNumber;
+
+  /** Overrides the source Opening's pipeline, which is copied by default. */
+  pipeline_template_id?: Vetchium.Orgs.Hiring.PipelineTemplateID;
 }
 
 model GetOpeningRequest {
@@ -54,7 +62,6 @@ model ListOpeningsRequest {
   pending_request_kinds?: OpeningRequestKind[];
 
   awaiting_my_approval?: boolean;
-
   hiring_manager_email?: Vetchium.EmailAddress;
   recruiter_email?: Vetchium.EmailAddress;
   employing_country?: Vetchium.CountryCode;
@@ -207,6 +214,7 @@ interface OpeningOperations {
       }
     | OpeningWriteErrors
     | Vetchium.Problem.OrgOpeningHiringTeamInvalidErrorResponse
+    | Vetchium.Problem.OrgPipelineTemplateNotFoundErrorResponse
     | Vetchium.Problem.OrgOpeningsQuotaExceededErrorResponse;
 
   @route("/duplicate-opening")
@@ -238,6 +246,7 @@ interface OpeningOperations {
     | OpeningWriteErrors
     | Vetchium.Problem.OrgOpeningNotFoundErrorResponse
     | Vetchium.Problem.OrgOpeningStateConflictErrorResponse
+    | Vetchium.Problem.OrgPipelineTemplateNotFoundErrorResponse
     | Vetchium.Problem.OrgOpeningsQuotaExceededErrorResponse;
 
   @route("/get-opening")
@@ -431,14 +440,29 @@ interface OpeningOperations {
   @route("/request-opening-change")
   @post
   @useAuth(BearerAuth)
-  @TypeSpec.OpenAPI.extension("x-vetchium-required-permission", "org:manage_openings")
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-required-permission",
+    "org:manage_openings"
+  )
   @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
-  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-binding", #["operation", "authenticated-principal", "canonical-request-digest", "idempotency-key"])
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
   requestOpeningChange(
     @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
     @body request: RequestOpeningChangeRequest,
   ):
-    | { @statusCode status_code: 200; @header("Cache-Control") cache_control: "no-store"; @body body: OrgOpening; }
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: OrgOpening;
+      }
     | OpeningWriteErrors
     | Vetchium.Problem.OrgOpeningNotFoundErrorResponse
     | Vetchium.Problem.OrgOpeningVersionConflictErrorResponse
@@ -450,14 +474,29 @@ interface OpeningOperations {
   @route("/decide-opening-request")
   @post
   @useAuth(BearerAuth)
-  @TypeSpec.OpenAPI.extension("x-vetchium-required-permission", "org:approve_openings")
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-required-permission",
+    "org:approve_openings"
+  )
   @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
-  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-binding", #["operation", "authenticated-principal", "canonical-request-digest", "idempotency-key"])
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
   decideOpeningRequest(
     @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
     @body request: DecideOpeningRequestRequest,
   ):
-    | { @statusCode status_code: 200; @header("Cache-Control") cache_control: "no-store"; @body body: OrgOpening; }
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: OrgOpening;
+      }
     | OpeningWriteErrors
     | Vetchium.Problem.OrgOpeningNotFoundErrorResponse
     | Vetchium.Problem.OrgOpeningVersionConflictErrorResponse
@@ -469,12 +508,24 @@ interface OpeningOperations {
   @post
   @useAuth(BearerAuth)
   @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
-  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-binding", #["operation", "authenticated-principal", "canonical-request-digest", "idempotency-key"])
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
   withdrawOpeningRequest(
     @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
     @body request: WithdrawOpeningRequestRequest,
   ):
-    | { @statusCode status_code: 200; @header("Cache-Control") cache_control: "no-store"; @body body: OrgOpening; }
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: OrgOpening;
+      }
     | OpeningWriteErrors
     | Vetchium.Problem.OrgOpeningNotFoundErrorResponse
     | Vetchium.Problem.OrgOpeningVersionConflictErrorResponse

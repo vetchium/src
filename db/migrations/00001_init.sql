@@ -1910,7 +1910,7 @@ CREATE TYPE vetchium.org_opening_request_state AS ENUM (
 );
 CREATE TYPE vetchium.org_opening_history_action AS ENUM (
     'created', 'duplicated', 'working_copy_saved', 'team_changed',
-    'revision_discarded',
+    'pipeline_changed', 'revision_discarded',
     'discarded', 'requested', 'approved', 'self_approved', 'rejected',
     'withdrawn', 'superseded', 'cancelled', 'expired'
 );
@@ -2145,6 +2145,58 @@ CREATE TABLE vetchium.org_opening_history (
 CREATE INDEX org_opening_history_list_idx
     ON vetchium.org_opening_history
     (org_opening_id, created_at DESC, org_opening_history_id DESC);
+
+-- Hiring pipelines (agent-guides/hiring-pipeline.md). A template is a named
+-- stage list an Org copies into new Openings; editing one never changes an
+-- Opening. Stage positions are written 1..n from the submitted order.
+CREATE TABLE vetchium.org_pipeline_templates (
+    org_pipeline_template_id uuid PRIMARY KEY,
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    name text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_pipeline_templates_name_check CHECK (
+        name = btrim(name) AND char_length(name) BETWEEN 1 AND 100
+    ),
+    CONSTRAINT org_pipeline_templates_timestamps_check CHECK (
+        updated_at >= created_at
+    )
+);
+CREATE UNIQUE INDEX org_pipeline_templates_name_key
+    ON vetchium.org_pipeline_templates (org_did, lower(name));
+CREATE INDEX org_pipeline_templates_list_idx
+    ON vetchium.org_pipeline_templates
+    (org_did, lower(name), org_pipeline_template_id);
+
+CREATE TABLE vetchium.org_pipeline_template_stages (
+    org_pipeline_template_id uuid NOT NULL
+        REFERENCES vetchium.org_pipeline_templates
+        (org_pipeline_template_id) ON DELETE CASCADE,
+    position smallint NOT NULL CHECK (position BETWEEN 1 AND 15),
+    name text NOT NULL,
+    stage_kind vetchium.pipeline_stage_kind NOT NULL,
+    PRIMARY KEY (org_pipeline_template_id, position),
+    CONSTRAINT org_pipeline_template_stages_name_check CHECK (
+        name = btrim(name) AND char_length(name) BETWEEN 1 AND 100
+    )
+);
+
+-- An Opening owns its pipeline. The unique position is deferred so one
+-- statement can reorder stages.
+CREATE TABLE vetchium.org_opening_stages (
+    org_opening_stage_id uuid PRIMARY KEY,
+    org_opening_id uuid NOT NULL REFERENCES vetchium.org_openings
+        (org_opening_id) ON DELETE CASCADE,
+    position smallint NOT NULL CHECK (position BETWEEN 1 AND 15),
+    name text NOT NULL,
+    stage_kind vetchium.pipeline_stage_kind NOT NULL,
+    CONSTRAINT org_opening_stages_position_key
+        UNIQUE (org_opening_id, position) DEFERRABLE INITIALLY DEFERRED,
+    CONSTRAINT org_opening_stages_name_check CHECK (
+        name = btrim(name) AND char_length(name) BETWEEN 1 AND 100
+    )
+);
 
 -- AI assistance (agent-guides/ai.md). Model identifiers, prices, and packs
 -- belong to the tenant configuration, so none of these tables references a
@@ -2394,6 +2446,9 @@ $$;
 -- +goose StatementEnd
 
 -- +goose Down
+DROP TABLE IF EXISTS vetchium.org_opening_stages;
+DROP TABLE IF EXISTS vetchium.org_pipeline_template_stages;
+DROP TABLE IF EXISTS vetchium.org_pipeline_templates;
 DROP TABLE IF EXISTS vetchium.capabilities;
 DROP TYPE IF EXISTS vetchium.pipeline_stage_kind;
 DROP TABLE IF EXISTS vetchium.idempotency_ledger;

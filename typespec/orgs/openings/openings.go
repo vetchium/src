@@ -5,6 +5,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/orgs/hiring"
 )
 
 type OpeningTitleQuery string
@@ -84,6 +85,10 @@ type CreateOpeningRequest struct {
 	RecruiterEmail     *common.EmailAddress   `json:"recruiter_email,omitempty"`
 	TeamMemberEmails   []common.EmailAddress  `json:"team_member_emails"`
 	InternalNotes      *string                `json:"internal_notes,omitempty"`
+
+	// PipelineTemplateID names the template the new Opening copies; nil gives
+	// one review stage.
+	PipelineTemplateID *hiring.PipelineTemplateID `json:"pipeline_template_id,omitempty"`
 }
 
 func (r *CreateOpeningRequest) Normalize() {
@@ -105,19 +110,35 @@ func (r CreateOpeningRequest) Validate() []string {
 			fields = append(fields, "content."+field)
 		}
 	}
-	return append(fields, validateTeam(r.HiringManagerEmail, r.RecruiterEmail, r.TeamMemberEmails, r.InternalNotes)...)
+	fields = append(fields, validateTeam(r.HiringManagerEmail, r.RecruiterEmail, r.TeamMemberEmails, r.InternalNotes)...)
+	if !validTemplate(r.PipelineTemplateID) {
+		fields = append(fields, "pipeline_template_id")
+	}
+	return fields
+}
+
+func validTemplate(value *hiring.PipelineTemplateID) bool {
+	return value == nil || hiring.IsPipelineTemplateID(*value)
 }
 
 type DuplicateOpeningRequest struct {
 	OpeningNumber OpeningNumber `json:"opening_number"`
+
+	// PipelineTemplateID overrides the source Opening's pipeline, which the
+	// new Opening copies by default.
+	PipelineTemplateID *hiring.PipelineTemplateID `json:"pipeline_template_id,omitempty"`
 }
 
 func (r *DuplicateOpeningRequest) Normalize() {}
 func (r DuplicateOpeningRequest) Validate() []string {
+	fields := []string{}
 	if !validNumber(r.OpeningNumber) {
-		return []string{"opening_number"}
+		fields = append(fields, "opening_number")
 	}
-	return []string{}
+	if !validTemplate(r.PipelineTemplateID) {
+		fields = append(fields, "pipeline_template_id")
+	}
+	return fields
 }
 
 type GetOpeningRequest struct {

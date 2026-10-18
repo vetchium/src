@@ -23,6 +23,12 @@ import {
   type RequestSignupRequest,
 } from "typespec/orgs/auth/signup";
 import type {
+  CreatePipelineTemplateRequest,
+  DeletePipelineTemplateRequest,
+  ListPipelineTemplatesRequest,
+  UpdatePipelineTemplateRequest,
+} from "typespec/orgs/hiring/pipelines";
+import type {
   CreateOpeningRequest,
   DecideOpeningRequestRequest,
   DiscardOpeningRequest,
@@ -36,6 +42,10 @@ import type {
   SetOpeningTeamRequest,
   WithdrawOpeningRequestRequest,
 } from "typespec/orgs/openings/openings";
+import type {
+  GetOpeningPipelineRequest,
+  ReplaceOpeningPipelineRequest,
+} from "typespec/orgs/openings/pipeline";
 import type { GetOperationRequest } from "typespec/orgs/operations/operations";
 import type { SetCompanyDetailsRequest } from "typespec/orgs/settings/company";
 import type { SetSubscriptionPlanRequest } from "typespec/orgs/subscriptions/subscriptions";
@@ -167,6 +177,64 @@ export class OrgsAPI {
     idempotencyKey: string = orgsIdempotencyKey(),
   ): Promise<APIResponse> {
     return this.post("/set-opening-team", request, { token, idempotencyKey });
+  }
+
+  listPipelineTemplates(
+    token: string,
+    request: ListPipelineTemplatesRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-pipeline-templates", request, { token });
+  }
+
+  createPipelineTemplate(
+    token: string,
+    request: CreatePipelineTemplateRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/create-pipeline-template", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  updatePipelineTemplate(
+    token: string,
+    request: UpdatePipelineTemplateRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/update-pipeline-template", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  deletePipelineTemplate(
+    token: string,
+    request: DeletePipelineTemplateRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/delete-pipeline-template", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  getOpeningPipeline(
+    token: string,
+    request: GetOpeningPipelineRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-opening-pipeline", request, { token });
+  }
+
+  replaceOpeningPipeline(
+    token: string,
+    request: ReplaceOpeningPipelineRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/replace-opening-pipeline", request, {
+      token,
+      idempotencyKey,
+    });
   }
 
   discardOpening(

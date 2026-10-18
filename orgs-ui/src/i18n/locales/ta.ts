@@ -1274,6 +1274,7 @@ export const ta = {
       duplicated: "நகலாக்கப்பட்டது",
       working_copy_saved: "திருத்த வரைவு சேமிக்கப்பட்டது",
       team_changed: "குழு மாற்றப்பட்டது",
+      pipeline_changed: "செயல்முறை மாற்றப்பட்டது",
       revision_discarded: "திருத்தம் கைவிடப்பட்டது",
       discarded: "கைவிடப்பட்டது",
       requested: "கோரப்பட்டது",

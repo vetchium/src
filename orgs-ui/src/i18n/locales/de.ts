@@ -1318,6 +1318,7 @@ export const de = {
       duplicated: "Dupliziert",
       working_copy_saved: "Arbeitskopie gespeichert",
       team_changed: "Team geändert",
+      pipeline_changed: "Pipeline geändert",
       revision_discarded: "Revision verworfen",
       discarded: "Verworfen",
       requested: "Beantragt",

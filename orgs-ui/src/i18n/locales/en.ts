@@ -1281,6 +1281,7 @@ export const en = {
       duplicated: "Duplicated",
       working_copy_saved: "Working copy saved",
       team_changed: "Team changed",
+      pipeline_changed: "Pipeline changed",
       revision_discarded: "Revision discarded",
       discarded: "Discarded",
       requested: "Requested",

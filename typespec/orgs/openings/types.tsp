@@ -46,6 +46,7 @@ enum OpeningHistoryAction {
   Duplicated: "duplicated",
   WorkingCopySaved: "working_copy_saved",
   TeamChanged: "team_changed",
+  PipelineChanged: "pipeline_changed",
   RevisionDiscarded: "revision_discarded",
   Discarded: "discarded",
   Requested: "requested",

@@ -8,6 +8,7 @@ import (
 	orgsauth "backend/handlers/orgs/auth"
 	orgsopenings "backend/handlers/orgs/openings"
 	orgsoperations "backend/handlers/orgs/operations"
+	orgspipelines "backend/handlers/orgs/pipelines"
 	orgssettings "backend/handlers/orgs/settings"
 	orgssubscriptions "backend/handlers/orgs/subscriptions"
 	orgsusers "backend/handlers/orgs/users"
@@ -112,6 +113,12 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/opening-summary", readOpening(orgsopenings.OpeningSummary(s)))
 	mux.Handle("POST /api/orgs/lookup-opening-team-member", manageOpenings(orgsopenings.LookupOpeningTeamMember(s)))
 	mux.Handle("POST /api/orgs/list-opening-history", readOpening(orgsopenings.ListOpeningHistory(s)))
+	mux.Handle("POST /api/orgs/list-pipeline-templates", manageOpenings(orgspipelines.ListPipelineTemplates(s)))
+	mux.Handle("POST /api/orgs/create-pipeline-template", manageOpenings(orgspipelines.CreatePipelineTemplate(s)))
+	mux.Handle("POST /api/orgs/update-pipeline-template", manageOpenings(orgspipelines.UpdatePipelineTemplate(s)))
+	mux.Handle("POST /api/orgs/delete-pipeline-template", manageOpenings(orgspipelines.DeletePipelineTemplate(s)))
+	mux.Handle("POST /api/orgs/get-opening-pipeline", manageOpenings(orgspipelines.GetOpeningPipeline(s)))
+	mux.Handle("POST /api/orgs/replace-opening-pipeline", manageOpenings(orgspipelines.ReplaceOpeningPipeline(s)))
 	mux.Handle("POST /api/orgs/draft-opening-with-ai", manageOpenings(orgsai.DraftOpeningWithAI(s)))
 
 	// The options a caller may use depend on the operation, whose permission

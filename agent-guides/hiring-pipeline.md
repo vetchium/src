@@ -237,6 +237,8 @@ below.
 | `org-application-state-conflict` | 409 | the action is not allowed in the current state |
 | `org-pipeline-stage-in-use` | 409 | the stage holds a candidacy |
 | `org-pipeline-template-name-taken` | 409 | another template has the name |
+| `org-pipeline-template-not-found` | 404 | the Org has no template with the id |
+| `org-pipeline-template-limit-reached` | 409 | the Org already has 50 templates; carries `limit` |
 | `hub-application-exists` | 409 | the applicant already applied to the Opening |
 | `hub-opening-not-accepting` | 409 | the Opening is not `published` |
 | `hub-application-not-found` | 404 | unknown application, or not the caller's |
