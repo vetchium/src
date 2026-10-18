@@ -32,7 +32,8 @@ Frontend:
 - `portal-ui`: shared React package used by all three; not a portal.
 
 Contracts: `typespec/` (TypeSpec with hand-written Go and TypeScript
-companions). Tests: `playwright/`.
+companions). Tests: `playwright/`. Screen mockups of unbuilt specs:
+`mockups/`.
 
 ## Guides
 
