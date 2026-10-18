@@ -7,6 +7,7 @@ import "../../problem/common.tsp";
 import "../../problem/details.tsp";
 import "../../problem/orgs/authentication.tsp";
 import "../../problem/orgs/openings.tsp";
+import "../../problem/orgs/pipelines.tsp";
 import "../../problem/orgs/suspension.tsp";
 import "../hiring/pipelines.tsp";
 import "./types.tsp";
@@ -104,5 +105,6 @@ interface OpeningPipelineOperations {
       }
     | OpeningPipelineErrors
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
-    | Vetchium.Problem.OrgOpeningVersionConflictErrorResponse;
+    | Vetchium.Problem.OrgOpeningVersionConflictErrorResponse
+    | Vetchium.Problem.OrgPipelineStageInUseErrorResponse;
 }

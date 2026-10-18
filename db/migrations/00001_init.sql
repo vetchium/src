@@ -1923,6 +1923,9 @@ CREATE TABLE vetchium.org_openings (
     opening_state vetchium.org_opening_state NOT NULL DEFAULT 'draft',
     version integer NOT NULL DEFAULT 1 CHECK (version >= 1),
     revision integer NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    -- The next application number; hub-apply allocates it under the row lock.
+    next_application_number integer NOT NULL DEFAULT 1
+        CHECK (next_application_number >= 1),
     hiring_manager_id uuid REFERENCES vetchium.org_users (org_user_id)
         ON DELETE SET NULL,
     recruiter_id uuid REFERENCES vetchium.org_users (org_user_id)
@@ -2198,6 +2201,148 @@ CREATE TABLE vetchium.org_opening_stages (
     )
 );
 
+-- Applications (agent-guides/hiring-pipeline.md). They belong to the Opening's
+-- Org and are written only by the hub-apply command and the Org's own
+-- transitions. An applicant is one row per (Org, person); every other row
+-- references the applicant id, never the Hub user DID, which has no foreign
+-- key because the Hub user may live in another tenant.
+CREATE TYPE vetchium.org_applicant_kind AS ENUM ('hub_user');
+CREATE TYPE vetchium.org_application_state AS ENUM (
+    'submitted', 'in_pipeline', 'offered', 'offer_accepted', 'offer_declined',
+    'joined', 'did_not_join', 'not_progressing', 'withdrawn'
+);
+CREATE TYPE vetchium.org_application_stage_status AS ENUM (
+    'pending', 'completed', 'skipped'
+);
+CREATE TYPE vetchium.org_application_history_action AS ENUM (
+    'applied', 'shortlisted', 'stage_moved', 'offer_extended',
+    'offer_withdrawn', 'offer_accepted', 'offer_declined', 'joined',
+    'did_not_join', 'not_progressing', 'withdrawn'
+);
+CREATE TYPE vetchium.org_application_actor_kind AS ENUM (
+    'applicant', 'org_user', 'system'
+);
+
+CREATE TABLE vetchium.org_applicants (
+    org_applicant_id uuid PRIMARY KEY,
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    applicant_kind vetchium.org_applicant_kind NOT NULL,
+    hub_user_did uuid,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_applicants_kind_check CHECK (
+        applicant_kind <> 'hub_user' OR hub_user_did IS NOT NULL
+    ),
+    CONSTRAINT org_applicants_hub_user_key UNIQUE (org_did, hub_user_did)
+);
+
+-- A candidacy (in_pipeline, offered, offer_accepted) is always at a stage;
+-- removing a stage that holds one is refused by the pipeline statement, and
+-- ON DELETE SET NULL turns a concurrent race into a failed check instead of
+-- a candidate without a stage.
+CREATE TABLE vetchium.org_applications (
+    org_application_id uuid PRIMARY KEY,
+    org_opening_id uuid NOT NULL REFERENCES vetchium.org_openings
+        (org_opening_id) ON DELETE CASCADE,
+    application_number integer NOT NULL CHECK (application_number >= 1),
+    org_applicant_id uuid NOT NULL REFERENCES vetchium.org_applicants
+        (org_applicant_id) ON DELETE CASCADE,
+    application_state vetchium.org_application_state NOT NULL
+        DEFAULT 'submitted',
+    version integer NOT NULL DEFAULT 1 CHECK (version >= 1),
+    snapshot jsonb NOT NULL,
+    cover_note text,
+    current_stage_id uuid REFERENCES vetchium.org_opening_stages
+        (org_opening_stage_id) ON DELETE SET NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_applications_number_key
+        UNIQUE (org_opening_id, application_number),
+    CONSTRAINT org_applications_applicant_key
+        UNIQUE (org_opening_id, org_applicant_id),
+    CONSTRAINT org_applications_snapshot_check CHECK (
+        jsonb_typeof(snapshot) = 'object'
+        AND jsonb_typeof(snapshot -> 'display_name') = 'string'
+    ),
+    CONSTRAINT org_applications_cover_note_check CHECK (
+        cover_note IS NULL OR (
+            cover_note = btrim(cover_note)
+            AND char_length(cover_note) BETWEEN 1 AND 5000
+        )
+    ),
+    CONSTRAINT org_applications_stage_check CHECK (
+        application_state <> 'submitted' OR current_stage_id IS NULL
+    ),
+    CONSTRAINT org_applications_candidacy_stage_check CHECK (
+        application_state NOT IN ('in_pipeline', 'offered', 'offer_accepted')
+        OR current_stage_id IS NOT NULL
+    ),
+    CONSTRAINT org_applications_timestamps_check CHECK (
+        updated_at >= created_at
+    )
+);
+CREATE INDEX org_applications_stage_idx
+    ON vetchium.org_applications (current_stage_id)
+    WHERE current_stage_id IS NOT NULL;
+
+-- One row per stage of the Opening's pipeline for a candidacy, written when
+-- the applicant is shortlisted. Deleting a stage deletes its records.
+CREATE TABLE vetchium.org_application_stages (
+    org_application_id uuid NOT NULL REFERENCES vetchium.org_applications
+        (org_application_id) ON DELETE CASCADE,
+    org_opening_stage_id uuid NOT NULL REFERENCES vetchium.org_opening_stages
+        (org_opening_stage_id) ON DELETE CASCADE,
+    stage_status vetchium.org_application_stage_status NOT NULL
+        DEFAULT 'pending',
+    PRIMARY KEY (org_application_id, org_opening_stage_id)
+);
+CREATE INDEX org_application_stages_stage_idx
+    ON vetchium.org_application_stages (org_opening_stage_id);
+
+-- History holds numbers, actions, states, and dates, never notes, feedback,
+-- or snapshot text.
+CREATE TABLE vetchium.org_application_history (
+    org_application_history_id uuid PRIMARY KEY,
+    org_application_id uuid NOT NULL REFERENCES vetchium.org_applications
+        (org_application_id) ON DELETE CASCADE,
+    action vetchium.org_application_history_action NOT NULL,
+    actor_kind vetchium.org_application_actor_kind NOT NULL,
+    actor_org_user_id uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    application_state vetchium.org_application_state NOT NULL,
+    application_version integer NOT NULL CHECK (application_version >= 1),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_application_history_actor_check CHECK (
+        actor_org_user_id IS NULL OR actor_kind = 'org_user'
+    )
+);
+CREATE INDEX org_application_history_list_idx
+    ON vetchium.org_application_history
+    (org_application_id, created_at DESC, org_application_history_id DESC);
+
+-- Who may read an Opening's applications: the hiring manager, the recruiter,
+-- a hiring-team member, or a holder of org:manage_candidacies. org:view_openings
+-- grants none of it. Every Orgs application read applies this predicate in
+-- SQL so a revoked grant takes effect on a stale session.
+CREATE FUNCTION vetchium.org_user_reads_applications(
+    opening_id uuid, user_id uuid
+) RETURNS boolean
+LANGUAGE sql STABLE
+AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM vetchium.org_effective_permissions AS ep
+        WHERE ep.org_user_id = user_id
+          AND ep.permission = 'org:manage_candidacies'
+    ) OR EXISTS (
+        SELECT 1 FROM vetchium.org_openings AS o
+        WHERE o.org_opening_id = opening_id
+          AND (o.hiring_manager_id = user_id OR o.recruiter_id = user_id)
+    ) OR EXISTS (
+        SELECT 1 FROM vetchium.org_opening_team_members AS tm
+        WHERE tm.org_opening_id = opening_id AND tm.org_user_id = user_id
+    )
+$$;
+
 -- AI assistance (agent-guides/ai.md). Model identifiers, prices, and packs
 -- belong to the tenant configuration, so none of these tables references a
 -- model catalog.
@@ -2446,6 +2591,16 @@ $$;
 -- +goose StatementEnd
 
 -- +goose Down
+DROP FUNCTION IF EXISTS vetchium.org_user_reads_applications(uuid, uuid);
+DROP TABLE IF EXISTS vetchium.org_application_history;
+DROP TABLE IF EXISTS vetchium.org_application_stages;
+DROP TABLE IF EXISTS vetchium.org_applications;
+DROP TABLE IF EXISTS vetchium.org_applicants;
+DROP TYPE IF EXISTS vetchium.org_application_actor_kind;
+DROP TYPE IF EXISTS vetchium.org_application_history_action;
+DROP TYPE IF EXISTS vetchium.org_application_stage_status;
+DROP TYPE IF EXISTS vetchium.org_application_state;
+DROP TYPE IF EXISTS vetchium.org_applicant_kind;
 DROP TABLE IF EXISTS vetchium.org_opening_stages;
 DROP TABLE IF EXISTS vetchium.org_pipeline_template_stages;
 DROP TABLE IF EXISTS vetchium.org_pipeline_templates;

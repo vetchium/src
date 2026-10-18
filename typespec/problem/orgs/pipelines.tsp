@@ -36,3 +36,14 @@ alias OrgPipelineTemplateLimitReachedErrorResponse = Response<
   409,
   OrgPipelineTemplateLimitReachedDetails
 >;
+
+const OrgPipelineStageInUseError = #{
+  type: "vetchium-problem-details/org-pipeline-stage-in-use",
+  title: "Org pipeline stage in use",
+  status: 409,
+  detail: "A stage to remove holds a candidacy",
+};
+alias OrgPipelineStageInUseErrorResponse = Response<
+  409,
+  typeof OrgPipelineStageInUseError
+>;

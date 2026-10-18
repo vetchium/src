@@ -124,7 +124,7 @@ func ReplaceOpeningPipeline(s *orgsruntime.Server) http.HandlerFunc {
 					return result{}, nil, err
 				}
 				if row.Version == 0 {
-					return replaceFailure(r, q, identity, request, row.UnknownPositions)
+					return replaceFailure(r, q, identity, request, row.UnknownPositions, row.InUseStageIds)
 				}
 				if row.StageRows != int64(len(request.Stages)) || row.HistoryRows != 1 || row.AuditRows != 1 {
 					return result{}, nil, fmt.Errorf("incomplete Opening pipeline replacement")
@@ -140,10 +140,10 @@ func ReplaceOpeningPipeline(s *orgsruntime.Server) http.HandlerFunc {
 
 // replaceFailure picks the refusal after the guarded write changed nothing.
 // Version and state outrank an unknown stage id: a stale caller names ids
-// another edit has already removed.
+// another edit has already removed. A stage that holds a candidacy comes last.
 func replaceFailure(
 	r *http.Request, q *sqlc.Queries, identity middleware.OrgIdentity,
-	request openings.ReplaceOpeningPipelineRequest, unknownPositions []byte,
+	request openings.ReplaceOpeningPipelineRequest, unknownPositions, inUseStageIDs []byte,
 ) (handlerauth.Result[openings.OpeningPipeline], *handlerauth.Problem, error) {
 	type result = handlerauth.Result[openings.OpeningPipeline]
 	current, state, err := openingPipeline(r, q, identity, request.OpeningNumber)
@@ -167,7 +167,14 @@ func replaceFailure(
 		return result{}, nil, fmt.Errorf("decode unknown stage positions: %w", err)
 	}
 	if len(positions) == 0 {
-		return result{}, nil, errors.New("the Opening pipeline replacement changed nothing")
+		var inUse []string
+		if err := json.Unmarshal(inUseStageIDs, &inUse); err != nil {
+			return result{}, nil, fmt.Errorf("decode in-use stages: %w", err)
+		}
+		if len(inUse) == 0 {
+			return result{}, nil, errors.New("the Opening pipeline replacement changed nothing")
+		}
+		return handlerauth.Failure[openings.OpeningPipeline](orgsproblem.PipelineStageInUseError)
 	}
 	details := problem.ValidationFailedError
 	details.Fields = make([]string, len(positions))

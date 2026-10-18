@@ -6,6 +6,12 @@ import { fileURLToPath } from "node:url";
 
 import { planRank, plans } from "../hub/subscriptions/plans.ts";
 import {
+  applicationActorKindValues,
+  applicationHistoryActionValues,
+  applicationStateValues,
+  stageStatusValues,
+} from "../orgs/applications/applications.ts";
+import {
   impliedPermissions,
   orgPermissions,
 } from "../orgs/authorization/types.ts";
@@ -112,6 +118,24 @@ test("the compiled OpenAPI document carries the hiring vocabularies", async () =
     ],
     checkTypeValues,
   );
+});
+
+test("the compiled OpenAPI document carries the application vocabularies", async () => {
+  const expected = {
+    ApplicationState: applicationStateValues,
+    StageStatus: stageStatusValues,
+    ApplicationHistoryAction: applicationHistoryActionValues,
+    ApplicationActorKind: applicationActorKindValues,
+  };
+  for (const [name, values] of Object.entries(expected)) {
+    assert.deepEqual(
+      (await namespacedSchema(`Orgs.Applications.${name}`))[
+        "x-vetchium-known-values"
+      ],
+      values,
+      name,
+    );
+  }
 });
 
 test("the compiled OpenAPI document carries the Capability vocabulary", async () => {

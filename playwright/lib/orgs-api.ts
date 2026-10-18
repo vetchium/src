@@ -15,6 +15,12 @@ import type {
   ListAIUsageRequest,
   SetAISettingsRequest,
 } from "typespec/orgs/ai/ai";
+import type {
+  GetApplicationCountsRequest,
+  GetApplicationRequest,
+  ListApplicationHistoryRequest,
+  ListApplicationsRequest,
+} from "typespec/orgs/applications/applications";
 import type { LoginResponse } from "typespec/orgs/auth/login";
 import {
   type CompleteSignupRequest,
@@ -235,6 +241,34 @@ export class OrgsAPI {
       token,
       idempotencyKey,
     });
+  }
+
+  listApplications(
+    token: string,
+    request: ListApplicationsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-applications", request, { token });
+  }
+
+  getApplication(
+    token: string,
+    request: GetApplicationRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-application", request, { token });
+  }
+
+  getApplicationCounts(
+    token: string,
+    request: GetApplicationCountsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-application-counts", request, { token });
+  }
+
+  listApplicationHistory(
+    token: string,
+    request: ListApplicationHistoryRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-application-history", request, { token });
   }
 
   discardOpening(

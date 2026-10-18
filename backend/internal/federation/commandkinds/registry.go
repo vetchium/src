@@ -4,8 +4,13 @@
 // process, at a peer, and on recovery. Register a new kind here.
 package commandkinds
 
-import "backend/internal/federation/commands"
+import (
+	"backend/internal/federation/commands"
+	"backend/internal/hubapply"
+)
 
 func Registry() *commands.Registry {
-	return commands.NewRegistry()
+	registry := commands.NewRegistry()
+	hubapply.Register(registry)
+	return registry
 }

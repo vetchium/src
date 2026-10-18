@@ -32,3 +32,10 @@ func PipelineTemplateLimitReachedError(limit int32) PipelineTemplateLimitReached
 		Limit: limit,
 	}
 }
+
+var PipelineStageInUseError = problem.Details{
+	Type:   "vetchium-problem-details/org-pipeline-stage-in-use",
+	Title:  "Org pipeline stage in use",
+	Status: 409,
+	Detail: "A stage to remove holds a candidacy",
+}

@@ -9,7 +9,7 @@ import "./orgs/orgs.tsp";
 import "./directory/directory.tsp";
 import "./federation/commands.tsp";
 import "./federation/events.tsp";
-
+import "./federation/hiring.tsp";
 
 using TypeSpec.Http;
 

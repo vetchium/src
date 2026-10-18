@@ -5,6 +5,7 @@ import (
 
 	orgsaccount "backend/handlers/orgs/account"
 	orgsai "backend/handlers/orgs/ai"
+	orgsapplications "backend/handlers/orgs/applications"
 	orgsauth "backend/handlers/orgs/auth"
 	orgsopenings "backend/handlers/orgs/openings"
 	orgsoperations "backend/handlers/orgs/operations"
@@ -119,6 +120,13 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/delete-pipeline-template", manageOpenings(orgspipelines.DeletePipelineTemplate(s)))
 	mux.Handle("POST /api/orgs/get-opening-pipeline", manageOpenings(orgspipelines.GetOpeningPipeline(s)))
 	mux.Handle("POST /api/orgs/replace-opening-pipeline", manageOpenings(orgspipelines.ReplaceOpeningPipeline(s)))
+	// Application reads are authorized in SQL by the Opening's team or
+	// org:manage_candidacies; a caller without access gets the not-found an
+	// unknown number gets.
+	mux.Handle("POST /api/orgs/list-applications", readOpening(orgsapplications.ListApplications(s)))
+	mux.Handle("POST /api/orgs/get-application", readOpening(orgsapplications.GetApplication(s)))
+	mux.Handle("POST /api/orgs/get-application-counts", readOpening(orgsapplications.GetApplicationCounts(s)))
+	mux.Handle("POST /api/orgs/list-application-history", readOpening(orgsapplications.ListApplicationHistory(s)))
 	mux.Handle("POST /api/orgs/draft-opening-with-ai", manageOpenings(orgsai.DraftOpeningWithAI(s)))
 
 	// The options a caller may use depend on the operation, whose permission

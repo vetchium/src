@@ -71,6 +71,11 @@ Work performed by another Org is in [`marketplace.md`](marketplace.md).
 - **HP-APP-007** Only the Hub user applies, always for themselves. The apply
   page's "Referred by" choice is theirs alone
   ([`marketplace.md`](marketplace.md) MKT-SRC-002).
+- **HP-APP-008** The command kind is `hub-apply`; `typespec/federation/hiring`
+  defines its payload and `201` result, its authority is the Org, and its
+  aggregate id is the Opening number as decimal text. The handler is
+  `backend/internal/hubapply`: it locks the Opening row first, which
+  serializes numbering and `hub-application-exists` per Opening.
 
 ## States
 
@@ -183,6 +188,11 @@ below.
   `org:manage_openings`.
 - **HP-AUTH-006** Answer an application the caller may not read with
   `org-application-not-found`.
+- **HP-AUTH-007** Every application read applies
+  `vetchium.org_user_reads_applications(opening, user)` in its SQL; add a new
+  read path (HP-AUTH-003's interviewers) to that function. Answer a list,
+  count, or history for an Opening the caller may not read with the same
+  `org-application-not-found`, an unknown Opening included.
 
 ## Hub Applications pages
 

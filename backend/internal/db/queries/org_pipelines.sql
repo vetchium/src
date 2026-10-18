@@ -188,8 +188,9 @@ FROM vetchium.org_openings AS o
 WHERE o.org_did = sqlc.arg(org_did)
   AND o.opening_number = sqlc.arg(opening_number)::integer;
 
--- An id the caller marks as existing must already belong to this Opening; the
--- statement changes nothing otherwise and reports the offending positions.
+-- An id the caller marks as existing must already belong to this Opening, and
+-- a stage to remove must hold no candidacy; the statement changes nothing
+-- otherwise and reports the offending positions or stages.
 -- name: ReplaceOrgOpeningPipeline :one
 WITH input AS (
     SELECT (i.stage->>'id')::uuid AS id,
@@ -212,15 +213,28 @@ WITH input AS (
         WHERE s.org_opening_stage_id = input.id
           AND s.org_opening_id = target.org_opening_id
     )
+), in_use AS (
+    SELECT COALESCE(array_agg(s.org_opening_stage_id), ARRAY[]::uuid[]) AS ids
+    FROM vetchium.org_opening_stages AS s
+    JOIN target ON target.org_opening_id = s.org_opening_id
+    WHERE NOT EXISTS (
+        SELECT 1 FROM input WHERE input.id = s.org_opening_stage_id
+    ) AND EXISTS (
+        SELECT 1 FROM vetchium.org_applications AS a
+        WHERE a.current_stage_id = s.org_opening_stage_id
+          AND a.application_state IN
+              ('in_pipeline', 'offered', 'offer_accepted')
+    )
 ), updated AS (
     UPDATE vetchium.org_openings AS o
     SET version = o.version + 1, updated_at = now()
-    FROM unknown
+    FROM unknown, in_use
     WHERE o.org_did = sqlc.arg(org_did)
       AND o.opening_number = sqlc.arg(opening_number)::integer
       AND o.version = sqlc.arg(version)::integer
       AND o.opening_state IN ('draft', 'published', 'paused')
       AND cardinality(unknown.positions) = 0
+      AND cardinality(in_use.ids) = 0
     RETURNING o.org_opening_id, o.opening_number, o.version
 ), removed AS (
     DELETE FROM vetchium.org_opening_stages AS s
@@ -268,8 +282,9 @@ WITH input AS (
     RETURNING audit_event_id
 )
 SELECT to_jsonb(unknown.positions) AS unknown_positions,
+    to_jsonb(in_use.ids) AS in_use_stage_ids,
     COALESCE((SELECT version FROM updated), 0)::integer AS version,
     (SELECT count(*) FROM kept) AS stage_rows,
     (SELECT count(*) FROM history) AS history_rows,
     (SELECT count(*) FROM audit) AS audit_rows
-FROM unknown;
+FROM unknown CROSS JOIN in_use;
