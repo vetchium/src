@@ -1079,6 +1079,51 @@ test.describe("draft-opening-with-ai", () => {
     );
   });
 
+  test("a charge spends the grant first, then purchases by earliest expiry", async ({
+    request,
+  }) => {
+    await withOrg(
+      request,
+      async ({ api, org, owner }) => {
+        await waitForGrant(api, owner);
+        for (const pack_id of ["credits-100k", "credits-500k"]) {
+          expect((await api.buyAICreditPack(owner, { pack_id })).status()).toBe(
+            200,
+          );
+        }
+        // Leave one credit in the grant and two in the larger pack, which is
+        // made to expire first, so one call must drain both and reach the
+        // later pack.
+        const did = orgDID(org.domain);
+        orgSQL(
+          `UPDATE vetchium.org_ai_credit_lots SET credits_remaining = 1
+           WHERE org_did = '${did}' AND kind = 'grant'`,
+        );
+        orgSQL(
+          `UPDATE vetchium.org_ai_credit_lots
+           SET credits_remaining = 2, expires_at = now() + interval '1 month'
+           WHERE org_did = '${did}' AND pack_id = 'credits-500k'`,
+        );
+        const drafted = await draftJSON(
+          await api.draftOpeningWithAI(owner, { instruction: "Recruiter" }),
+        );
+        const charged = drafted.usage.credits_charged;
+        expect(charged).toBeGreaterThan(3);
+        expect(
+          orgSQL(
+            `SELECT string_agg(kind || ':' || COALESCE(pack_id, '-') || ':'
+               || credits_remaining, ',' ORDER BY kind, pack_id)
+             FROM vetchium.org_ai_credit_lots WHERE org_did = '${did}'`,
+          ),
+        ).toBe(
+          `grant:-:0,purchase:credits-100k:${100000 - (charged - 3)},purchase:credits-500k:0`,
+        );
+        expect(drafted.balance_available).toBe(100000 - (charged - 3));
+      },
+      { gold: true, enabled: true },
+    );
+  });
+
   test("validates the request and requires the drafting permission", async ({
     request,
   }) => {

@@ -37,31 +37,10 @@ import {
 import { APIError, isDefiniteRefusal } from "../../api/client";
 import { problemMessage } from "../../components/common/APIErrorAlert";
 import { useUnsavedChangesGuard } from "../../components/common/useUnsavedChangesGuard";
+import { resendablePolicies } from "./policies";
 import { useSetAISettings } from "./queries";
 
 type SaveSettings = ReturnType<typeof useSetAISettings>;
-
-/**
- * The stored policies as a request may resend them. A model the region no
- * longer offers would refuse the whole save, so it is dropped; a policy left
- * with no offered model falls back to every model, as the API already treats
- * it. A policy that is off stays off.
- */
-function resendablePolicies(settings: AISettingsResponse): AIOperationPolicy[] {
-  const offered = new Set(settings.models.map((model) => model.model_oid));
-  return settings.settings.policies.flatMap((policy) => {
-    if (policy.allowed_models.length === 0) return [policy];
-    const allowed = policy.allowed_models.filter((oid) => offered.has(oid));
-    const [first] = allowed;
-    if (first === undefined) return [];
-    const preselected =
-      policy.default_model !== undefined &&
-      allowed.includes(policy.default_model)
-        ? policy.default_model
-        : first;
-    return [{ ...policy, allowed_models: allowed, default_model: preselected }];
-  });
-}
 
 /** Saves the settings and returns a message for the user when it fails. */
 async function submitSettings(

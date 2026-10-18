@@ -71,8 +71,9 @@ built; Hub AI is in [`../docs/todo.md`](../docs/todo.md).
 - The portal's AI switch saves at once (terms in a dialog when turning on, a
   confirmation when turning off). Each operation's policy has its own Save
   and Discard, shown only after a change; unsaved edits block leaving the
-  page. Every save resends the other stored policies, minus models the region
-  no longer offers.
+  page. Every save resends the other stored policies as the API applies
+  them: minus models the region no longer offers, with a withdrawn default
+  replaced by the region default.
 
 ## Credits
 
@@ -117,7 +118,7 @@ built; Hub AI is in [`../docs/todo.md`](../docs/todo.md).
   model failure.
 - Charge nothing for a host error, timeout, missing usage, unusable output, or
   a reservation the reaper abandoned (`reservationTimeout`, which exceeds
-  `requestTimeout`).
+  `requestTimeout` plus `appconfig.AISettleTimeout`).
 - A replay returns the stored answer without charging. A failed attempt keeps
   its idempotency record incomplete, so the same key may retry; a second
   request while one is reserved is `org-ai-request-in-progress`.

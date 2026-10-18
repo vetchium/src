@@ -108,7 +108,7 @@
   "mcpServer": {},
   "ai": {
     "requestTimeout": "3s",
-    "reservationTimeout": "10s",
+    "reservationTimeout": "30s",
     "textRetention": "4320h",
     "grantCreditsInterval": "1s",
     "releaseReservationsInterval": "1s",

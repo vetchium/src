@@ -11,13 +11,17 @@ import (
 	aispec "github.com/vetchium/src/typespec/orgs/ai"
 )
 
+// AISettleTimeout bounds the transaction that closes a model call.
+const AISettleTimeout = 15 * time.Second
+
 // AI is the tenant's model catalog and AI credit policy. A tenant without it
 // offers no AI, and its portals hide AI features.
 type AI struct {
 	// RequestTimeout bounds one model call.
 	RequestTimeout time.Duration
 	// ReservationTimeout is when a reservation whose request never settled
-	// is released; it exceeds RequestTimeout so a live call is never reaped.
+	// is released; it exceeds RequestTimeout plus AISettleTimeout so a live
+	// call is never reaped.
 	ReservationTimeout time.Duration
 	// TextRetention is how long prompts and answers are kept.
 	TextRetention time.Duration
@@ -150,9 +154,10 @@ func parseAI(raw fileAI) (AI, error) {
 		}
 		*field.target = duration
 	}
-	if result.ReservationTimeout <= result.RequestTimeout {
+	if result.ReservationTimeout <= result.RequestTimeout+AISettleTimeout {
 		return AI{}, fmt.Errorf(
-			"%sreservationTimeout must exceed requestTimeout", prefix,
+			"%sreservationTimeout must exceed requestTimeout plus %s to settle",
+			prefix, AISettleTimeout,
 		)
 	}
 	if len(raw.Models) == 0 {

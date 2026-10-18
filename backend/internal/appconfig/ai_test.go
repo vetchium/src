@@ -56,6 +56,7 @@ func TestParseAIRejects(t *testing.T) {
 		want   string
 	}{
 		{"reservation not above request", func(a *fileAI) { a.ReservationTimeout = "120s" }, "reservationTimeout"},
+		{"reservation leaves no settle time", func(a *fileAI) { a.ReservationTimeout = "135s" }, "reservationTimeout"},
 		{"no models", func(a *fileAI) { a.Models = nil }, "models must not be empty"},
 		{"bad oid", func(a *fileAI) { a.Models[0].OID = "Qwen" }, "oid"},
 		{"duplicate model", func(a *fileAI) { a.Models = append(a.Models, a.Models[0]) }, "duplicate"},

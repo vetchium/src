@@ -103,6 +103,26 @@ test("drafting with AI fills the new Opening form without saving it", async ({
       page.getByText("The AI's answer could not be used."),
     ).toBeVisible();
 
+    // The server settles a draft whose answer is lost on the way back; a
+    // changed prompt must then go under a new key, not conflict with it.
+    let lost: () => void = () => {};
+    const answerLost = new Promise<void>((resolve) => {
+      lost = resolve;
+    });
+    await page.route(
+      "**/api/orgs/draft-opening-with-ai",
+      async (route) => {
+        await route.fetch();
+        await route.abort();
+        lost();
+      },
+      { times: 1 },
+    );
+    await prompt.fill("Recruiter");
+    await generate.click();
+    await answerLost;
+    await expect(prompt).toBeEnabled();
+
     await prompt.fill("Platform engineer");
     await generate.click();
     await expect(

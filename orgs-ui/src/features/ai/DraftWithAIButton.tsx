@@ -11,7 +11,7 @@ import {
   Tooltip,
   Typography,
 } from "antd";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { OpeningContent } from "typespec/common/openings";
 import {
@@ -65,29 +65,32 @@ export function DraftWithAIButton({
   const [instruction, setInstruction] = useState("");
   const [model, setModel] = useState<string>();
   const key = useIdempotencyKey();
+  const sent = useRef<string | null>(null);
   const options = useAIOptionsQuery(OpeningDraft);
   const number = new Intl.NumberFormat(i18n.language);
   const draft = useMutation({
-    mutationFn: (modelOID: string | undefined) =>
-      orgsAPI.draftOpeningWithAI(
-        {
-          instruction: instruction.trim(),
-          current_content: currentContent(),
-          ...(modelOID === undefined ? {} : { model_oid: modelOID }),
-        },
-        key.current(),
-      ),
+    mutationFn: (modelOID: string | undefined) => {
+      const request = {
+        instruction: instruction.trim(),
+        current_content: currentContent(),
+        ...(modelOID === undefined ? {} : { model_oid: modelOID }),
+      };
+      // The same key may retry only the identical request. After a network
+      // error the server may already hold this key, so a changed prompt,
+      // form, or model needs a new one.
+      const body = JSON.stringify(request);
+      if (sent.current !== body) key.rotate();
+      sent.current = body;
+      return orgsAPI.draftOpeningWithAI(request, key.current());
+    },
     onSuccess: (response) => {
-      key.rotate();
+      sent.current = null;
       void queryClient.invalidateQueries({ queryKey: aiQueryKey });
       setOpen(false);
       setInstruction("");
       onDrafted(response);
     },
-    onError: (error) => {
-      // The same key may retry only the identical request; a changed prompt
-      // needs a new one, so rotate after any answer from the server.
-      if (error instanceof APIError) key.rotate();
+    onError: () => {
       void queryClient.invalidateQueries({ queryKey: aiQueryKey });
     },
   });

@@ -35,10 +35,6 @@ import (
 
 const draftOperation = "orgs:draft-opening-with-ai"
 
-// settleTimeout bounds the closing transaction, which runs even after the
-// client has gone so a finished call is never left reserved.
-const settleTimeout = 15 * time.Second
-
 // reservation is what the first transaction hands to the model call.
 type reservation struct {
 	usageID  pgtype.UUID
@@ -99,8 +95,10 @@ func DraftOpeningWithAI(s *orgsruntime.Server) http.HandlerFunc {
 			})
 		cancel()
 
+		// The closing transaction runs even after the client has gone so a
+		// finished call is never left reserved.
 		closeCtx, cancelClose := context.WithTimeout(
-			context.WithoutCancel(r.Context()), settleTimeout,
+			context.WithoutCancel(r.Context()), appconfig.AISettleTimeout,
 		)
 		defer cancelClose()
 		if callErr != nil {
