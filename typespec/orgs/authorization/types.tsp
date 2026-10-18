@@ -11,6 +11,10 @@ enum OrgPermission {
   ViewOpenings: "org:view_openings",
   ManageOpenings: "org:manage_openings",
   ApproveOpenings: "org:approve_openings",
+  ManageCandidacies: "org:manage_candidacies",
+  ManageProviders: "org:manage_providers",
+  ManageListings: "org:manage_listings",
+  FulfilEngagements: "org:fulfil_engagements",
 }
 
 /**
@@ -31,7 +35,11 @@ enum OrgPermission {
     "org:manage_ai",
     "org:view_openings",
     "org:manage_openings",
-    "org:approve_openings"
+    "org:approve_openings",
+    "org:manage_candidacies",
+    "org:manage_providers",
+    "org:manage_listings",
+    "org:fulfil_engagements"
   ]
 )
 @TypeSpec.OpenAPI.extension(
@@ -43,7 +51,11 @@ enum OrgPermission {
       "org:manage_ai",
       "org:view_openings",
       "org:manage_openings",
-      "org:approve_openings"
+      "org:approve_openings",
+      "org:manage_candidacies",
+      "org:manage_providers",
+      "org:manage_listings",
+      "org:fulfil_engagements"
     ],
     `org:manage_openings`: #["org:view_openings"],
     `org:approve_openings`: #["org:view_openings"],

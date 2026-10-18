@@ -1413,7 +1413,11 @@ VALUES
     ('org:manage_ai'),
     ('org:view_openings'),
     ('org:manage_openings'),
-    ('org:approve_openings');
+    ('org:approve_openings'),
+    ('org:manage_candidacies'),
+    ('org:manage_providers'),
+    ('org:manage_listings'),
+    ('org:fulfil_engagements');
 
 -- A grant of permission also confers implied_permission, resolved on read by
 -- vetchium.org_effective_permissions and never stored as a grant of its own.
@@ -1436,6 +1440,10 @@ VALUES
     ('org:superadmin', 'org:view_openings'),
     ('org:superadmin', 'org:manage_openings'),
     ('org:superadmin', 'org:approve_openings'),
+    ('org:superadmin', 'org:manage_candidacies'),
+    ('org:superadmin', 'org:manage_providers'),
+    ('org:superadmin', 'org:manage_listings'),
+    ('org:superadmin', 'org:fulfil_engagements'),
     ('org:manage_openings', 'org:view_openings'),
     ('org:approve_openings', 'org:view_openings');
 

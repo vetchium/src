@@ -2,11 +2,14 @@ import {
   ApproveOpenings,
   directPermissions,
   effectivePermissions,
+  FulfilEngagements,
   impliedPermissions,
   isOrgPermission,
   ManageAI,
   ManageBilling,
+  ManageCandidacies,
   ManageOpenings,
+  ManageProviders,
   ManageUsers,
   type OrgPermissionID,
   orgPermissions,
@@ -23,6 +26,8 @@ export type RolePreset =
   | "userManager"
   | "recruiter"
   | "hiringApprover"
+  | "vendorManager"
+  | "providerStaff"
   | "member";
 
 export const rolePresets: ReadonlyArray<{
@@ -32,8 +37,10 @@ export const rolePresets: ReadonlyArray<{
   { preset: "superadmin", grants: [Superadmin] },
   { preset: "finance", grants: [ManageBilling] },
   { preset: "userManager", grants: [ManageUsers] },
-  { preset: "recruiter", grants: [ManageOpenings] },
+  { preset: "recruiter", grants: [ManageOpenings, ManageCandidacies] },
   { preset: "hiringApprover", grants: [ApproveOpenings] },
+  { preset: "vendorManager", grants: [ManageProviders] },
+  { preset: "providerStaff", grants: [FulfilEngagements] },
   { preset: "member", grants: [] },
 ];
 

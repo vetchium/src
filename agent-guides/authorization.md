@@ -45,7 +45,8 @@ the same shape rather than invent a second one.
 - Build screens from the catalog, never a fixed list of access levels — a tier
   such as "manager" or "viewer" stops meaning anything once a second unrelated
   permission exists. The one exception is the Org role presets (Superadmin,
-  Finance, User manager, Recruiter, Hiring approver, Member): a preset only
+  Finance, User manager, Recruiter, Hiring approver, Vendor manager,
+  Provider staff, Member): a preset only
   pre-ticks the catalog checkboxes, which stay authoritative. A member whose
   grants match no preset is labelled Custom. The label is derived in the
   portal, never stored.

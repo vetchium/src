@@ -5,6 +5,10 @@ export const ManageAI = "org:manage_ai" as const;
 export const ViewOpenings = "org:view_openings" as const;
 export const ManageOpenings = "org:manage_openings" as const;
 export const ApproveOpenings = "org:approve_openings" as const;
+export const ManageCandidacies = "org:manage_candidacies" as const;
+export const ManageProviders = "org:manage_providers" as const;
+export const ManageListings = "org:manage_listings" as const;
+export const FulfilEngagements = "org:fulfil_engagements" as const;
 
 export type OrgPermission =
   | typeof Superadmin
@@ -13,7 +17,11 @@ export type OrgPermission =
   | typeof ManageAI
   | typeof ViewOpenings
   | typeof ManageOpenings
-  | typeof ApproveOpenings;
+  | typeof ApproveOpenings
+  | typeof ManageCandidacies
+  | typeof ManageProviders
+  | typeof ManageListings
+  | typeof FulfilEngagements;
 
 /** Open identifier: a newer API may return permissions this portal does not
  * define yet. */
@@ -31,6 +39,10 @@ export const orgPermissions: readonly OrgPermission[] = [
   ViewOpenings,
   ManageOpenings,
   ApproveOpenings,
+  ManageCandidacies,
+  ManageProviders,
+  ManageListings,
+  FulfilEngagements,
 ];
 
 const permissionImplications: Readonly<
@@ -43,6 +55,10 @@ const permissionImplications: Readonly<
     ViewOpenings,
     ManageOpenings,
     ApproveOpenings,
+    ManageCandidacies,
+    ManageProviders,
+    ManageListings,
+    FulfilEngagements,
   ],
   "org:manage_users": [],
   "org:manage_billing": [],
@@ -50,6 +66,10 @@ const permissionImplications: Readonly<
   "org:view_openings": [],
   "org:manage_openings": [ViewOpenings],
   "org:approve_openings": [ViewOpenings],
+  "org:manage_candidacies": [],
+  "org:manage_providers": [],
+  "org:manage_listings": [],
+  "org:fulfil_engagements": [],
 };
 
 export function isOrgPermission(

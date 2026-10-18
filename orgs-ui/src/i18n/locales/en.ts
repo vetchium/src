@@ -373,6 +373,25 @@ export const en = {
       name: "APPROVE_OPENINGS",
       description: "Approve or reject requests that change published Openings.",
     },
+    "org:manage_candidacies": {
+      name: "MANAGE_CANDIDACIES",
+      description: "Read and act on the applications of every Opening.",
+    },
+    "org:manage_providers": {
+      name: "MANAGE_PROVIDERS",
+      description:
+        "Find providers, propose and end engagements, assign them, and read activity statements.",
+    },
+    "org:manage_listings": {
+      name: "MANAGE_LISTINGS",
+      description:
+        "Edit your Listings, accept or decline clients, and read activity statements.",
+    },
+    "org:fulfil_engagements": {
+      name: "FULFIL_ENGAGEMENTS",
+      description:
+        "Do the work assigned to you for clients, and use agency contacts and messages.",
+    },
     unknown: {
       description:
         "This permission was added after this portal was built. It is kept as it is unless you turn it off.",
@@ -823,6 +842,8 @@ export const en = {
     userManager: "User manager",
     recruiter: "Recruiter",
     hiringApprover: "Hiring approver",
+    vendorManager: "Vendor manager",
+    providerStaff: "Provider staff",
     member: "Member",
     custom: "Custom",
   },

@@ -391,6 +391,25 @@ export const de = {
       description:
         "Änderungen an veröffentlichten Stellenanzeigen freigeben oder ablehnen.",
     },
+    "org:manage_candidacies": {
+      name: "MANAGE_CANDIDACIES",
+      description: "Bewerbungen aller Stellenanzeigen lesen und bearbeiten.",
+    },
+    "org:manage_providers": {
+      name: "MANAGE_PROVIDERS",
+      description:
+        "Dienstleister finden, Aufträge vorschlagen und beenden, zuweisen und Tätigkeitsnachweise lesen.",
+    },
+    "org:manage_listings": {
+      name: "MANAGE_LISTINGS",
+      description:
+        "Eigene Einträge bearbeiten, Kunden annehmen oder ablehnen und Tätigkeitsnachweise lesen.",
+    },
+    "org:fulfil_engagements": {
+      name: "FULFIL_ENGAGEMENTS",
+      description:
+        "Zugewiesene Arbeit für Kunden erledigen sowie Agenturkontakte und Nachrichten nutzen.",
+    },
     unknown: {
       description:
         "Diese Berechtigung wurde nach der Erstellung dieses Portals hinzugefügt. Sie bleibt unverändert, solange Sie sie nicht ausschalten.",
@@ -857,6 +876,8 @@ export const de = {
     userManager: "Benutzerverwaltung",
     recruiter: "Recruiter",
     hiringApprover: "Freigabe für Stellenanzeigen",
+    vendorManager: "Anbieterverwaltung",
+    providerStaff: "Dienstleister-Team",
     member: "Mitglied",
     custom: "Benutzerdefiniert",
   },

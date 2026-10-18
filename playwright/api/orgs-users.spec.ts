@@ -129,9 +129,13 @@ test.describe("list-users and user-summary", () => {
       expect(owned?.granted_permissions).toEqual(["org:superadmin"]);
       expect(owned?.effective_permissions).toEqual([
         "org:approve_openings",
+        "org:fulfil_engagements",
         "org:manage_ai",
         "org:manage_billing",
+        "org:manage_candidacies",
+        "org:manage_listings",
         "org:manage_openings",
+        "org:manage_providers",
         "org:manage_users",
         "org:superadmin",
         "org:view_openings",
@@ -362,17 +366,25 @@ test.describe("list-permissions", () => {
             permission: "org:approve_openings",
             implies: ["org:view_openings"],
           },
+          { permission: "org:fulfil_engagements", implies: [] },
           { permission: "org:manage_ai", implies: [] },
           { permission: "org:manage_billing", implies: [] },
+          { permission: "org:manage_candidacies", implies: [] },
+          { permission: "org:manage_listings", implies: [] },
           { permission: "org:manage_openings", implies: ["org:view_openings"] },
+          { permission: "org:manage_providers", implies: [] },
           { permission: "org:manage_users", implies: [] },
           {
             permission: "org:superadmin",
             implies: [
               "org:approve_openings",
+              "org:fulfil_engagements",
               "org:manage_ai",
               "org:manage_billing",
+              "org:manage_candidacies",
+              "org:manage_listings",
               "org:manage_openings",
+              "org:manage_providers",
               "org:manage_users",
               "org:view_openings",
             ],
@@ -388,7 +400,7 @@ test.describe("list-permissions", () => {
     });
   });
 
-  test("Opening permissions can be granted and revoked with one-hop implications", async ({
+  test("Opening, candidacy, and marketplace permissions can be granted and revoked with one-hop implications", async ({
     request,
   }) => {
     await withOrg(request, async ({ api, org, owner }) => {
@@ -414,6 +426,10 @@ test.describe("list-permissions", () => {
         "org:view_openings",
         "org:manage_openings",
         "org:approve_openings",
+        "org:manage_candidacies",
+        "org:manage_providers",
+        "org:manage_listings",
+        "org:fulfil_engagements",
       ] as const) {
         expect(
           (
@@ -425,9 +441,10 @@ test.describe("list-permissions", () => {
         ).toBe(204);
         expect((await row())?.granted_permissions).toEqual([permission]);
         expect((await row())?.effective_permissions).toEqual(
-          permission === "org:view_openings"
-            ? [permission]
-            : [permission, "org:view_openings"],
+          permission === "org:manage_openings" ||
+            permission === "org:approve_openings"
+            ? [permission, "org:view_openings"]
+            : [permission],
         );
         expect(
           (
@@ -443,6 +460,10 @@ test.describe("list-permissions", () => {
       for (const permission of [
         "org:view_openings",
         "org:manage_openings",
+        "org:manage_candidacies",
+        "org:manage_providers",
+        "org:manage_listings",
+        "org:fulfil_engagements",
       ] as const) {
         expect(
           (
@@ -1070,9 +1091,13 @@ test.describe("set-user-permissions and bulk-set-user-permissions", () => {
       expect(row?.granted_permissions).toEqual(["org:superadmin"]);
       expect(row?.effective_permissions).toEqual([
         "org:approve_openings",
+        "org:fulfil_engagements",
         "org:manage_ai",
         "org:manage_billing",
+        "org:manage_candidacies",
+        "org:manage_listings",
         "org:manage_openings",
+        "org:manage_providers",
         "org:manage_users",
         "org:superadmin",
         "org:view_openings",
