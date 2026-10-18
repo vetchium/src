@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -222,7 +223,7 @@ func TestOrgSignupAndDomainLifecycleIntegration(t *testing.T) {
 
 	info, err := q.GetOrgMyInfo(ctx, user.OrgUserID)
 	if err != nil || info.DomainState != sqlc.VetchiumOrgDomainStateFailing ||
-		!info.FailingSince.Valid || len(info.Permissions) != 1 ||
+		!info.FailingSince.Valid || !slices.Contains(info.Permissions, "org:superadmin") ||
 		info.Country != "DE" || info.DefaultLanguage != "en-US" {
 		t.Fatalf("my info = %+v, %v", info, err)
 	}
