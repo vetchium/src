@@ -83,6 +83,33 @@ test("billing separates the summary and comparison and confirms immediate change
   });
 });
 
+test("the plan comparison shows which plans allow marketplace Listings", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org) => {
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/plans`);
+    await page
+      .getByRole("button", { name: "Change plan", exact: true })
+      .click();
+    await page.getByText("Compare all features", { exact: true }).click();
+    const row = page.getByRole("row", { name: /Marketplace Listings/ });
+    await expect(row).toContainText("Not included");
+    await expect(row).toContainText("Included");
+    await expect(
+      page
+        .getByTestId("plan-org-silver-tier")
+        .getByText("Marketplace Listings", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByTestId("plan-org-gold-tier")
+        .getByText("Marketplace Listings", { exact: true }),
+    ).toBeVisible();
+  });
+});
+
 test("billing requires permission and suspended organizations cannot change plans", async ({
   page,
   request,

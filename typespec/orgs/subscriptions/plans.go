@@ -44,6 +44,9 @@ type Entitlements struct {
 	// purchases. Credits bought earlier stay usable without it.
 	AllowsAI          bool
 	AICreditsPerMonth int64
+	// AllowsListings gates publishing marketplace Listings and receiving
+	// engagement proposals.
+	AllowsListings bool
 }
 
 func intPtr(value int) *int { return &value }
@@ -55,13 +58,14 @@ var entitlements = map[Plan]Entitlements{
 	},
 	SilverTier: {
 		MaxUsers: 50, MaxUsersWithGoogleSignIn: intPtr(50),
-		OpeningsPerYear: 250, AllowsLogo: true,
+		OpeningsPerYear: 250, AllowsLogo: true, AllowsListings: true,
 	},
 	GoldTier: {
 		MaxUsers: 1000, MaxUsersWithGoogleSignIn: nil,
 		OpeningsPerYear: 2500, AllowsLogo: true,
 		AllowsGoogleSignIn: true, IncludesTicketSupport: true,
 		AllowsAI: true, AICreditsPerMonth: 100_000,
+		AllowsListings: true,
 	},
 }
 
@@ -153,3 +157,5 @@ func AllowsAI(plan Plan) bool { return entitlements[plan].AllowsAI }
 func AICreditsPerMonth(plan Plan) int64 {
 	return entitlements[plan].AICreditsPerMonth
 }
+
+func AllowsListings(plan Plan) bool { return entitlements[plan].AllowsListings }

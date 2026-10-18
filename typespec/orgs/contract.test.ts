@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
 import { validateLoginRequest } from "./auth/login.ts";
 import { validateRequestPasswordResetRequest } from "./auth/password.ts";
 import {
@@ -26,10 +25,22 @@ import {
   ViewOpenings,
 } from "./authorization/types.ts";
 import {
+  checkTypeValues,
+  isCheckType,
+  isStageKind,
+  stageKindValues,
+} from "./hiring/vocabulary.ts";
+import {
+  capabilityStageKind,
+  capabilityValues,
+  isCapability,
+} from "./marketplace/capabilities.ts";
+import {
   normalizeSetCompanyDetailsRequest,
   type SetCompanyDetailsRequest,
   validateSetCompanyDetailsRequest,
 } from "./settings/company.ts";
+import { allowsListings } from "./subscriptions/plans.ts";
 import { frontendLocaleValues, isFrontendLocale } from "./types.ts";
 import {
   validateAcceptInvitationRequest,
@@ -222,4 +233,52 @@ test("Org permissions include one-hop Opening implications", () => {
   ]) {
     assert.deepEqual(effectivePermissions([permission]), [permission]);
   }
+});
+
+test("hiring vocabularies keep their members", () => {
+  assert.deepEqual(
+    [...stageKindValues],
+    ["review", "assessment", "interview", "background_check"],
+  );
+  assert.deepEqual(
+    [...checkTypeValues],
+    [
+      "identity",
+      "education",
+      "employment",
+      "criminal",
+      "address",
+      "credit",
+      "drug",
+    ],
+  );
+  assert.equal(isStageKind("interview"), true);
+  assert.equal(isStageKind("sourcing"), false);
+  assert.equal(isCheckType("drug"), true);
+  assert.equal(isCheckType(""), false);
+});
+
+test("Capabilities map stage Capabilities to the stage kind they perform", () => {
+  assert.deepEqual(
+    [...capabilityValues],
+    ["sourcing", "interviewing", "assessment", "background_check"],
+  );
+  assert.equal(isCapability("sourcing"), true);
+  assert.equal(isCapability("review"), false);
+  assert.equal(capabilityStageKind("sourcing"), undefined);
+  assert.equal(capabilityStageKind("interviewing"), "interview");
+  assert.equal(capabilityStageKind("assessment"), "assessment");
+  assert.equal(capabilityStageKind("background_check"), "background_check");
+  assert.equal(capabilityStageKind("review"), undefined);
+  for (const capability of capabilityValues) {
+    const kind = capabilityStageKind(capability);
+    assert.equal(kind === undefined || isStageKind(kind), true, capability);
+  }
+});
+
+test("only Silver and Gold allow Listings", () => {
+  assert.equal(allowsListings("org-free-tier"), false);
+  assert.equal(allowsListings("org-silver-tier"), true);
+  assert.equal(allowsListings("org-gold-tier"), true);
+  assert.equal(allowsListings("org-platinum-tier"), false);
 });

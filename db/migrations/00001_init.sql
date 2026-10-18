@@ -1227,6 +1227,28 @@ CREATE TABLE vetchium.org_plans (
 INSERT INTO vetchium.org_plans (org_plan_oid)
 VALUES ('org-free-tier'), ('org-silver-tier'), ('org-gold-tier');
 
+CREATE TYPE vetchium.pipeline_stage_kind AS ENUM (
+    'review',
+    'assessment',
+    'interview',
+    'background_check'
+);
+
+-- Capability OIDs, identical in every tenant. A stage Capability performs
+-- stages of one kind; sourcing works on whole Openings, so it has none.
+CREATE TABLE vetchium.capabilities (
+    capability_oid text PRIMARY KEY
+        CHECK (capability_oid ~ '^[a-z]+(_[a-z]+)*$'),
+    performs_stage_kind vetchium.pipeline_stage_kind
+);
+
+INSERT INTO vetchium.capabilities (capability_oid, performs_stage_kind)
+VALUES
+    ('sourcing', NULL),
+    ('interviewing', 'interview'),
+    ('assessment', 'assessment'),
+    ('background_check', 'background_check');
+
 CREATE TYPE vetchium.org_billing_interval AS ENUM ('month', 'year');
 
 CREATE TYPE vetchium.org_state AS ENUM (
@@ -2326,6 +2348,8 @@ $$;
 -- +goose StatementEnd
 
 -- +goose Down
+DROP TABLE IF EXISTS vetchium.capabilities;
+DROP TYPE IF EXISTS vetchium.pipeline_stage_kind;
 DROP TABLE IF EXISTS vetchium.idempotency_ledger;
 DROP TABLE IF EXISTS vetchium.org_ai_usage_texts;
 DROP TABLE IF EXISTS vetchium.org_ai_usage;

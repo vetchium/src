@@ -186,6 +186,10 @@ func TestEntitlementsGrowWithRank(t *testing.T) {
 		AICreditsPerMonth(SilverTier) != 0 || AICreditsPerMonth(GoldTier) <= 0 {
 		t.Fatal("AI and its monthly credits must be Gold only")
 	}
+	if AllowsListings(FreeTier) || !AllowsListings(SilverTier) ||
+		!AllowsListings(GoldTier) || AllowsListings("org-platinum-tier") {
+		t.Fatal("Listings must be Silver and above")
+	}
 	if AllowsLogo("org-platinum-tier") || OpeningsPerYear("") != 0 {
 		t.Fatal("unknown plan must have no entitlements")
 	}

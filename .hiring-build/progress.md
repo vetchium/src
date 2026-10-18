@@ -1,12 +1,12 @@
 # Hiring and marketplace build progress
 
-current: T02
+current: T03
 phase: implement
 
 ## Tasks
 
 T01 done Hiring: Candidacy and marketplace permissions and presets
-T02 todo Marketplace: Capability catalog and the listings entitlement
+T02 done Marketplace: Capability catalog and the listings entitlement
 T03 todo Federation: Durable commands between tenants
 T04 todo Federation: Outbox delivery and inbox between tenants
 T05 todo Hiring: Pipeline templates and Opening pipelines

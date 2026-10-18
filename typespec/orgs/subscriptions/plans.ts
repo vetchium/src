@@ -38,6 +38,9 @@ export interface Entitlements {
    * Credits bought earlier stay usable without it. */
   allowsAI: boolean;
   aiCreditsPerMonth: number;
+  /** Gates publishing marketplace Listings and receiving engagement
+   * proposals. */
+  allowsListings: boolean;
 }
 
 export const entitlements: Readonly<Record<OrgPlan, Entitlements>> = {
@@ -50,6 +53,7 @@ export const entitlements: Readonly<Record<OrgPlan, Entitlements>> = {
     includesTicketSupport: false,
     allowsAI: false,
     aiCreditsPerMonth: 0,
+    allowsListings: false,
   },
   "org-silver-tier": {
     maxUsers: 50,
@@ -60,6 +64,7 @@ export const entitlements: Readonly<Record<OrgPlan, Entitlements>> = {
     includesTicketSupport: false,
     allowsAI: false,
     aiCreditsPerMonth: 0,
+    allowsListings: true,
   },
   "org-gold-tier": {
     maxUsers: 1000,
@@ -70,6 +75,7 @@ export const entitlements: Readonly<Record<OrgPlan, Entitlements>> = {
     includesTicketSupport: true,
     allowsAI: true,
     aiCreditsPerMonth: 100000,
+    allowsListings: true,
   },
 };
 
@@ -165,4 +171,8 @@ export function allowsAI(plan: OrgPlanOID): boolean {
 
 export function aiCreditsPerMonth(plan: OrgPlanOID): number {
   return isOrgPlan(plan) ? entitlements[plan].aiCreditsPerMonth : 0;
+}
+
+export function allowsListings(plan: OrgPlanOID): boolean {
+  return isOrgPlan(plan) && entitlements[plan].allowsListings;
 }

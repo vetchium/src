@@ -776,6 +776,7 @@ export const en = {
       ticketSupport: "Ticket-based support",
       mcp: "MCP support",
       aiCredits: "{{count}} AI credits a month",
+      listings: "Marketplace Listings",
     },
     comparison: {
       feature: "Feature",
@@ -784,6 +785,7 @@ export const en = {
       logo: "Organization logo",
       googleSignIn: "Google sign-in",
       ai: "AI assistance",
+      listings: "Marketplace Listings",
       ticketSupport: "Ticket-based support",
       mcp: "MCP support",
     },

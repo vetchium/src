@@ -776,6 +776,7 @@ export const ta = {
       ticketSupport: "டிக்கெட் அடிப்படையிலான ஆதரவு",
       mcp: "MCP ஆதரவு",
       aiCredits: "மாதத்துக்கு {{count}} AI கிரெடிட்கள்",
+      listings: "சந்தையில் பட்டியல்கள்",
     },
     comparison: {
       feature: "அம்சம்",
@@ -784,6 +785,7 @@ export const ta = {
       logo: "நிறுவன சின்னம்",
       googleSignIn: "Google உள்நுழைவு",
       ai: "AI உதவி",
+      listings: "சந்தையில் பட்டியல்கள்",
       ticketSupport: "டிக்கெட் அடிப்படையிலான ஆதரவு",
       mcp: "MCP ஆதரவு",
     },

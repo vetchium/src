@@ -9,6 +9,8 @@ import {
   impliedPermissions,
   orgPermissions,
 } from "../orgs/authorization/types.ts";
+import { checkTypeValues, stageKindValues } from "../orgs/hiring/vocabulary.ts";
+import { capabilityValues } from "../orgs/marketplace/capabilities.ts";
 import {
   entitlements,
   planRank as orgPlanRank,
@@ -61,6 +63,7 @@ test("the compiled OpenAPI document carries the Org plan extensions", async () =
       includes_ticket_support: held.includesTicketSupport,
       allows_ai: held.allowsAI,
       ai_credits_per_month: held.aiCreditsPerMonth,
+      allows_listings: held.allowsListings,
     };
   }
   assert.deepEqual(schema["x-vetchium-plan-ranks"], wantRanks);
@@ -82,4 +85,41 @@ test("the compiled OpenAPI document carries the Org permission extensions", asyn
     schema["x-vetchium-permission-implications"],
     wantImplications,
   );
+});
+
+async function namespacedSchema(name: string) {
+  const document = JSON.parse(
+    await readFile(
+      path.join(root, "tsp-output", "schema", "openapi.json"),
+      "utf8",
+    ),
+  );
+  const schema = document.components.schemas[name];
+  assert.ok(schema, `components.schemas['${name}'] is missing`);
+  return schema;
+}
+
+test("the compiled OpenAPI document carries the hiring vocabularies", async () => {
+  assert.deepEqual(
+    (await namespacedSchema("Orgs.Hiring.StageKind"))[
+      "x-vetchium-known-values"
+    ],
+    stageKindValues,
+  );
+  assert.deepEqual(
+    (await namespacedSchema("Orgs.Hiring.CheckType"))[
+      "x-vetchium-known-values"
+    ],
+    checkTypeValues,
+  );
+});
+
+test("the compiled OpenAPI document carries the Capability vocabulary", async () => {
+  const schema = await namespacedSchema("Orgs.Marketplace.Capability");
+  assert.deepEqual(schema["x-vetchium-known-values"], capabilityValues);
+  assert.deepEqual(schema["x-vetchium-capability-stage-kinds"], {
+    interviewing: "interview",
+    assessment: "assessment",
+    background_check: "background_check",
+  });
 });

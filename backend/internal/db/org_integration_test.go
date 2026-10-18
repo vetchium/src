@@ -16,6 +16,9 @@ import (
 
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
+
+	"github.com/vetchium/src/typespec/orgs/hiring"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 )
 
 // Run against a migrated disposable tenant database. Every case runs in a
@@ -473,4 +476,38 @@ func orgDomainListed(rows []sqlc.ListOrgDomainsPastGraceRow, did pgtype.UUID) bo
 		}
 	}
 	return false
+}
+
+func TestSeededCapabilitiesMatchTheContractIntegration(t *testing.T) {
+	pool := orgTestPool(t)
+	rows, err := pool.Query(context.Background(), `SELECT capability_oid,
+        COALESCE(performs_stage_kind::text, '')
+        FROM vetchium.capabilities ORDER BY capability_oid`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	got := map[marketplace.Capability]hiring.StageKind{}
+	for rows.Next() {
+		var oid, kind string
+		if err := rows.Scan(&oid, &kind); err != nil {
+			t.Fatal(err)
+		}
+		got[marketplace.Capability(oid)] = hiring.StageKind(kind)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != len(marketplace.Capabilities()) {
+		t.Fatalf("seeded Capabilities = %v, want %v", got,
+			marketplace.Capabilities())
+	}
+	for _, capability := range marketplace.Capabilities() {
+		kind, performs := capability.StageKind()
+		seeded, ok := got[capability]
+		if !ok || seeded != kind || (seeded != "") != performs {
+			t.Fatalf("Capability %q seeded with stage kind %q, want %q",
+				capability, seeded, kind)
+		}
+	}
 }

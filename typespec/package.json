@@ -100,6 +100,8 @@
     "./admin/audit-logs/events": "./admin/audit-logs/events.ts",
     "./orgs/ai/types": "./orgs/ai/types.ts",
     "./orgs/ai/ai": "./orgs/ai/ai.ts",
+    "./orgs/hiring/vocabulary": "./orgs/hiring/vocabulary.ts",
+    "./orgs/marketplace/capabilities": "./orgs/marketplace/capabilities.ts",
     "./admin/ai-usage/usage": "./admin/ai-usage/usage.ts",
     "./problem/orgs/ai": "./problem/orgs/ai.ts",
     "./problem/admin/ai-usage": "./problem/admin/ai-usage.ts"

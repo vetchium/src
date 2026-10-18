@@ -12,6 +12,8 @@ import "./openings/types.tsp";
 import "./openings/openings.tsp";
 import "./ai/types.tsp";
 import "./ai/ai.tsp";
+import "./hiring/vocabulary.tsp";
+import "./marketplace/capabilities.tsp";
 import "../problem/orgs/logo.tsp";
 import "../problem/orgs/sso.tsp";
 import "../problem/orgs/suspension.tsp";

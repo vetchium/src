@@ -810,6 +810,7 @@ export const de = {
       ticketSupport: "Support per Ticket",
       mcp: "MCP-Unterstützung",
       aiCredits: "{{count}} KI-Guthabenpunkte pro Monat",
+      listings: "Angebote im Marktplatz",
     },
     comparison: {
       feature: "Funktion",
@@ -818,6 +819,7 @@ export const de = {
       logo: "Logo der Organisation",
       googleSignIn: "Google-Anmeldung",
       ai: "KI-Unterstützung",
+      listings: "Angebote im Marktplatz",
       ticketSupport: "Support per Ticket",
       mcp: "MCP-Unterstützung",
     },
