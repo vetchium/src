@@ -5,9 +5,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	directoryspec "github.com/vetchium/src/typespec/directory"
+	federationspec "github.com/vetchium/src/typespec/federation"
+
 	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
+	"backend/internal/federation/commands"
 	"backend/internal/profileclient"
 	"backend/internal/publicopeningclient"
 	"backend/internal/publicopenings"
@@ -15,6 +19,14 @@ import (
 
 type PictureSigner interface {
 	SignGet(context.Context, pgtype.UUID) (string, error)
+}
+
+// CommandPeers sends a command to another tenant's peer listener.
+type CommandPeers interface {
+	Execute(
+		context.Context, directoryspec.TenantID,
+		federationspec.ExecuteCommandRequest,
+	) (commands.PeerOutcome, error)
 }
 
 type Server struct {
@@ -29,4 +41,6 @@ type Server struct {
 	Pictures       PictureSigner
 	Queries        sqlc.Querier
 	Credential     string
+	Commands       *commands.Executor
+	CommandPeers   CommandPeers
 }

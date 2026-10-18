@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type {
   AbandonHubAccountEmailChangeRequest,
   ActivateHubPrincipalRequest,
@@ -12,6 +12,10 @@ import type {
   SetHubAliasRequest,
 } from "typespec/directory/directory";
 import type {
+  CommandResult,
+  ExecuteCommandRequest,
+} from "typespec/federation/commands";
+import type {
   PeerReadProfileRequest,
   RelayReadProfileRequest,
 } from "typespec/hub/profile/federation";
@@ -23,8 +27,11 @@ import {
   cleanupHubIdempotency,
   cleanupHubSignupDomain,
   cleanupHubUser,
+  seedActiveHubUser,
   seedGlobalHubPrincipal,
   seedHubSignupDomain,
+  sqlLiteral,
+  sqlScalarForTenant,
 } from "../lib/admin-db.ts";
 import { type APIObservation, expect, test } from "../lib/admin-fixtures.ts";
 import { signup } from "../lib/hub-signup.ts";
@@ -1236,4 +1243,276 @@ test("mesh peer profile read reports the profile unavailable when the receiving 
     type: "vetchium-problem-details/hub-profile-unavailable",
     status: 503,
   });
+});
+
+// Durable commands. No product command kind is registered yet, so a command
+// result is seeded into the authority's ledger exactly as its first execution
+// would store it; a delivery of that command then replays it.
+
+const COMMAND_RELAY = "/mesh/commands/execute";
+const COMMAND_PEER = "/api/mesh/commands/execute";
+
+function commandRequest(
+  authorityDID: string,
+  overrides: Partial<ExecuteCommandRequest> = {},
+): ExecuteCommandRequest {
+  return {
+    command_id: randomUUID(),
+    correlation_id: randomUUID(),
+    kind: "e2e-probe",
+    authority_principal_type: "hub_user",
+    authority_principal_did: authorityDID,
+    aggregate_id: `e2e-${randomUUID()}`,
+    payload: { probe: randomUUID() },
+    ...overrides,
+  };
+}
+
+// The authority's digest: the principal, then the payload re-encoded with
+// sorted keys, which JSON.stringify matches for a flat ASCII payload.
+function commandDigest(request: ExecuteCommandRequest): string {
+  return createHash("sha256")
+    .update(
+      `${request.authority_principal_type}\0${request.authority_principal_did}\0` +
+        JSON.stringify(request.payload),
+    )
+    .digest("hex");
+}
+
+function seedCommandResult(
+  tenant: TestTenant,
+  source: TestTenant,
+  request: ExecuteCommandRequest,
+): void {
+  sqlScalarForTenant(
+    tenant,
+    `INSERT INTO vetchium.federation_command_ledger (
+       command_id, source_tenant_id, kind, aggregate_id, request_digest,
+       response_status, response_body
+     ) VALUES (
+       ${sqlLiteral(request.command_id)}, ${sqlLiteral(source)},
+       ${sqlLiteral(request.kind)}, ${sqlLiteral(request.aggregate_id)},
+       decode(${sqlLiteral(commandDigest(request))}, 'hex'), 201,
+       convert_to('{"seeded":true}', 'UTF8')
+     )`,
+  );
+}
+
+function cleanupCommandResults(tenant: TestTenant, aggregateIDs: string[]) {
+  if (aggregateIDs.length === 0) return;
+  sqlScalarForTenant(
+    tenant,
+    `DELETE FROM vetchium.federation_command_ledger
+     WHERE aggregate_id IN (${aggregateIDs.map(sqlLiteral).join(", ")})`,
+  );
+}
+
+function commandAuthorityEmail(): string {
+  return `e2e+${randomUUID()}@e2e-mesh-commands.example.test`;
+}
+
+function expectCommandProblem(
+  response: MeshResponse,
+  status: number,
+  type: string,
+): void {
+  expect(response.status, JSON.stringify(response.body)).toBe(status);
+  expect(response.body).toMatchObject({
+    type: `vetchium-problem-details/${type}`,
+    status,
+  });
+}
+
+test("mesh command relay refuses callers without the relay credential", async ({
+  apiCoverage,
+}) => {
+  const body = commandRequest(randomHubUserDID());
+  for (const authorization of [null, "wrong-credential"]) {
+    const response = meshRelayRequest("sgp", COMMAND_RELAY, body, apiCoverage, {
+      authorization,
+    });
+    expectCommandProblem(response, 401, "mesh-relay-authentication-required");
+  }
+});
+
+test("mesh command relay rejects malformed JSON and an invalid field", async ({
+  apiCoverage,
+}) => {
+  const malformed = meshRelayRequest(
+    "sgp",
+    COMMAND_RELAY,
+    undefined,
+    apiCoverage,
+    { rawBody: "{not json" },
+  );
+  expectCommandProblem(malformed, 400, "invalid-json");
+  const invalid = meshRelayRequest(
+    "sgp",
+    COMMAND_RELAY,
+    commandRequest(randomHubUserDID(), { kind: "Not_A_Kind" }),
+    apiCoverage,
+  );
+  expectCommandProblem(invalid, 400, "validation-failed");
+  expect((invalid.body as { fields?: string[] }).fields).toEqual(["kind"]);
+});
+
+test("mesh command relay reports an authority principal the directory does not know", async ({
+  apiCoverage,
+}) => {
+  const response = meshRelayRequest(
+    "sgp",
+    COMMAND_RELAY,
+    commandRequest(randomHubUserDID()),
+    apiCoverage,
+  );
+  expectCommandProblem(response, 404, "federation-authority-not-found");
+});
+
+// config/ci/ind1.json points ind1 at an unreachable coordinator, so routing
+// fails before anything is sent.
+test("mesh command relay reports the authority unavailable when routing fails", async ({
+  apiCoverage,
+}) => {
+  const response = meshRelayRequest(
+    "ind1",
+    COMMAND_RELAY,
+    commandRequest(randomHubUserDID()),
+    apiCoverage,
+  );
+  expectCommandProblem(response, 503, "federation-authority-unavailable");
+});
+
+test("mesh command relay delivers to the authority's home tenant, which replays and refuses what it will not run", async ({
+  apiCoverage,
+}) => {
+  const email = commandAuthorityEmail();
+  const homed = seedActiveHubUser("usa1", email, "Command Authority");
+  const homedAlias = randomAlias();
+  const stale = randomHubUserDID();
+  const staleAlias = randomAlias();
+  const aggregates: string[] = [];
+  try {
+    seedGlobalHubPrincipal(homed.hubUserDID, "usa1", homedAlias);
+    seedGlobalHubPrincipal(stale, "usa1", staleAlias);
+    const seeded = commandRequest(homed.hubUserDID);
+    aggregates.push(seeded.aggregate_id);
+    seedCommandResult("usa1", "sgp", seeded);
+
+    const replayed = meshRelayRequest(
+      "sgp",
+      COMMAND_RELAY,
+      seeded,
+      apiCoverage,
+    );
+    expect(replayed.status, JSON.stringify(replayed.body)).toBe(200);
+    expect(replayed.body as CommandResult).toEqual({
+      status: 201,
+      body: { seeded: true },
+    });
+
+    const changed = meshRelayRequest(
+      "sgp",
+      COMMAND_RELAY,
+      { ...seeded, payload: { probe: randomUUID() } },
+      apiCoverage,
+    );
+    expectCommandProblem(changed, 409, "federation-command-conflict");
+
+    const unknownKind = commandRequest(homed.hubUserDID, {
+      kind: "e2e-unregistered",
+    });
+    aggregates.push(unknownKind.aggregate_id);
+    const refused = meshRelayRequest(
+      "sgp",
+      COMMAND_RELAY,
+      unknownKind,
+      apiCoverage,
+    );
+    expectCommandProblem(refused, 400, "validation-failed");
+    expect((refused.body as { fields?: string[] }).fields).toEqual(["kind"]);
+
+    // The directory homes this principal at usa1, which has no such user.
+    const misdirected = meshRelayRequest(
+      "sgp",
+      COMMAND_RELAY,
+      commandRequest(stale),
+      apiCoverage,
+    );
+    expectCommandProblem(misdirected, 421, "federation-authority-misdirected");
+  } finally {
+    cleanupCommandResults("usa1", aggregates);
+    cleanupGlobalHubPrincipal(homed.hubUserDID, homedAlias);
+    cleanupGlobalHubPrincipal(stale, staleAlias);
+    cleanupHubUser(email, "usa1");
+  }
+});
+
+test("mesh command peer refuses callers without a tenant mesh certificate", async ({
+  apiCoverage,
+}) => {
+  const body = commandRequest(randomHubUserDID());
+  const withoutCertificate = meshPeerRequest("sgp", "usa1", body, [], {
+    path: COMMAND_PEER,
+    withoutCertificate: true,
+  });
+  expect(withoutCertificate.status).toBe(0);
+  const health = meshPeerRequest("sgp", "usa1", body, apiCoverage, {
+    path: COMMAND_PEER,
+    certificate: "health",
+  });
+  expectCommandProblem(health, 401, "mesh-peer-authentication-required");
+});
+
+test("mesh command peer replays stored results for the calling tenant and refuses what it will not run", async ({
+  apiCoverage,
+}) => {
+  const email = commandAuthorityEmail();
+  const homed = seedActiveHubUser("usa1", email, "Command Peer Authority");
+  const aggregates: string[] = [];
+  try {
+    const seeded = commandRequest(homed.hubUserDID);
+    aggregates.push(seeded.aggregate_id);
+    seedCommandResult("usa1", "sgp", seeded);
+    const peer = (body: unknown, rawBody?: string) =>
+      meshPeerRequest("sgp", "usa1", body, apiCoverage, {
+        path: COMMAND_PEER,
+        ...(rawBody === undefined ? {} : { rawBody }),
+      });
+
+    const replayed = peer(seeded);
+    expect(replayed.status, JSON.stringify(replayed.body)).toBe(200);
+    expect(replayed.body as CommandResult).toEqual({
+      status: 201,
+      body: { seeded: true },
+    });
+    // The result belongs to the tenant that sent the command.
+    const otherCaller = meshPeerRequest("deu", "usa1", seeded, apiCoverage, {
+      path: COMMAND_PEER,
+    });
+    expectCommandProblem(otherCaller, 409, "federation-command-conflict");
+    expectCommandProblem(
+      peer({ ...seeded, payload: { probe: randomUUID() } }),
+      409,
+      "federation-command-conflict",
+    );
+    expectCommandProblem(
+      peer(commandRequest(randomHubUserDID())),
+      421,
+      "federation-authority-misdirected",
+    );
+    const unknownKind = commandRequest(homed.hubUserDID, {
+      kind: "e2e-unregistered",
+    });
+    aggregates.push(unknownKind.aggregate_id);
+    expectCommandProblem(peer(unknownKind), 400, "validation-failed");
+    expectCommandProblem(peer(undefined, "{not json"), 400, "invalid-json");
+    expectCommandProblem(
+      peer({ ...seeded, payload: ["not", "an", "object"] }),
+      400,
+      "validation-failed",
+    );
+  } finally {
+    cleanupCommandResults("usa1", aggregates);
+    cleanupHubUser(email, "usa1");
+  }
 });

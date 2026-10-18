@@ -26,6 +26,12 @@ type HubEmailChangeRecovery interface {
 	Recover(context.Context) (int, error)
 }
 
+// FederationCommandRecovery re-drives pending cross-tenant commands of every
+// kind.
+type FederationCommandRecovery interface {
+	Recover(context.Context) (int, error)
+}
+
 // Worker owns the dependencies and periodic jobs for the worker process.
 type Worker struct {
 	queries                      sqlc.Querier
@@ -34,6 +40,8 @@ type Worker struct {
 	hubSignupRecovery            HubSignupRecovery
 	hubEmailChangeRecovery       HubEmailChangeRecovery
 	reconcileHubEmailChangeTimer time.Duration
+	federationCommandTimer       time.Duration
+	federationCommands           FederationCommandRecovery
 	pictureQueries               pictureDeletionQueries
 	pictureStore                 PictureStore
 	logoStore                    LogoStore
@@ -78,6 +86,7 @@ func New(
 		hubSignupRecovery:            hubSignupRecovery,
 		hubEmailChangeRecovery:       hubEmailChangeRecovery,
 		reconcileHubEmailChangeTimer: config.ReconcileHubEmailChangeTimer,
+		federationCommandTimer:       config.DriveFederationCommandsTimer,
 		pictureQueries:               queries,
 		logoQueries:                  queries,
 		pictureDeletionInterval:      config.PruneEphemeralDataTimer,
@@ -153,6 +162,14 @@ func (w *Worker) EnablePictureDeletion(store PictureStore) {
 	w.jobs = append(w.jobs, periodicJob{
 		name: "delete-hub-profile-pictures", interval: w.pictureDeletionInterval,
 		run: w.deleteHubProfilePictures,
+	})
+}
+
+func (w *Worker) EnableFederationCommands(recovery FederationCommandRecovery) {
+	w.federationCommands = recovery
+	w.jobs = append(w.jobs, periodicJob{
+		name: "drive-federation-commands", interval: w.federationCommandTimer,
+		run: w.driveFederationCommands,
 	})
 }
 

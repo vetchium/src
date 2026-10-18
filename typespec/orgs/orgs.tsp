@@ -10,6 +10,7 @@ import "./users/invitations.tsp";
 import "./users/management.tsp";
 import "./openings/types.tsp";
 import "./openings/openings.tsp";
+import "./operations/operations.tsp";
 import "./ai/types.tsp";
 import "./ai/ai.tsp";
 import "./hiring/vocabulary.tsp";

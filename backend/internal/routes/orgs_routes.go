@@ -7,6 +7,7 @@ import (
 	orgsai "backend/handlers/orgs/ai"
 	orgsauth "backend/handlers/orgs/auth"
 	orgsopenings "backend/handlers/orgs/openings"
+	orgsoperations "backend/handlers/orgs/operations"
 	orgssettings "backend/handlers/orgs/settings"
 	orgssubscriptions "backend/handlers/orgs/subscriptions"
 	orgsusers "backend/handlers/orgs/users"
@@ -93,6 +94,10 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 			s, orgsauthorization.ManageOpenings,
 		)(next)))
 	}
+	mux.Handle(
+		"POST /api/orgs/operations/status",
+		orgAuth(activeOrg(orgsoperations.Status(s))),
+	)
 	mux.Handle("POST /api/orgs/create-opening", manageOpenings(orgsopenings.CreateOpening(s)))
 	mux.Handle("POST /api/orgs/duplicate-opening", manageOpenings(orgsopenings.DuplicateOpening(s)))
 	mux.Handle("POST /api/orgs/save-opening-working-copy", manageOpenings(orgsopenings.SaveOpeningWorkingCopy(s)))

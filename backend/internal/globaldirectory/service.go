@@ -620,3 +620,46 @@ func isConstraintViolation(err error, code, constraint string) bool {
 	return errors.As(err, &databaseError) && databaseError.Code == code &&
 		(constraint == "" || databaseError.ConstraintName == constraint)
 }
+
+// ResolvePrincipal returns the home tenant of an active Hub user or Org.
+func (s *Service) ResolvePrincipal(
+	ctx context.Context, request directoryspec.ResolvePrincipalRequest,
+) (directoryspec.ResolvePrincipalResponse, error) {
+	did, err := dbvalue.ParseUUID(string(request.PrincipalDID))
+	if err != nil {
+		return directoryspec.ResolvePrincipalResponse{}, ErrNotFound
+	}
+	var homeTenantID string
+	var routingVersion int64
+	switch request.PrincipalType {
+	case directoryspec.PrincipalHubUser:
+		row, err := s.queries.ResolveHubPrincipal(ctx, did)
+		if err != nil {
+			return directoryspec.ResolvePrincipalResponse{},
+				resolvePrincipalError(err)
+		}
+		homeTenantID, routingVersion = row.HomeTenantID, row.RoutingVersion
+	case directoryspec.PrincipalOrg:
+		row, err := s.queries.ResolveOrgPrincipal(ctx, did)
+		if err != nil {
+			return directoryspec.ResolvePrincipalResponse{},
+				resolvePrincipalError(err)
+		}
+		homeTenantID, routingVersion = row.HomeTenantID, row.RoutingVersion
+	default:
+		return directoryspec.ResolvePrincipalResponse{}, ErrNotFound
+	}
+	return directoryspec.ResolvePrincipalResponse{
+		PrincipalType:  request.PrincipalType,
+		PrincipalDID:   directoryspec.PrincipalDID(dbvalue.FormatUUID(did)),
+		HomeTenantID:   directoryspec.TenantID(homeTenantID),
+		RoutingVersion: routingVersion,
+	}, nil
+}
+
+func resolvePrincipalError(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	return fmt.Errorf("resolve principal: %w", err)
+}

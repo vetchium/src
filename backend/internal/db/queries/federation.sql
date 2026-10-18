@@ -16,7 +16,8 @@ WITH created AS (
         owner_principal_type, owner_principal_id, idempotency_key,
         request_digest, payload_bytes, state, response_status,
         response_ciphertext, attempt_count, next_attempt_at, last_error,
-        created_at, updated_at, completed_at, expires_at
+        created_at, updated_at, completed_at, expires_at,
+        authority_principal_type, authority_principal_did
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, actor_id,
@@ -33,7 +34,8 @@ SELECT operation_id, command_id, kind, target_authority, aggregate_id,
     owner_principal_type, owner_principal_id, idempotency_key,
     request_digest, payload_bytes, state, response_status,
     response_ciphertext, attempt_count, next_attempt_at, last_error,
-    created_at, updated_at, completed_at, expires_at
+    created_at, updated_at, completed_at, expires_at,
+    authority_principal_type, authority_principal_did
 FROM created;
 
 -- name: GetFederationOperation :one
@@ -41,7 +43,8 @@ SELECT operation_id, command_id, kind, target_authority, aggregate_id,
     owner_principal_type, owner_principal_id, idempotency_key,
     request_digest, payload_bytes, state, response_status,
     response_ciphertext, attempt_count, next_attempt_at, last_error,
-    created_at, updated_at, completed_at, expires_at
+    created_at, updated_at, completed_at, expires_at,
+    authority_principal_type, authority_principal_did
 FROM vetchium.federation_operations
 WHERE operation_id = sqlc.arg(operation_id)
   AND expires_at > now();
@@ -51,7 +54,8 @@ SELECT operation_id, command_id, kind, target_authority, aggregate_id,
     owner_principal_type, owner_principal_id, idempotency_key,
     request_digest, payload_bytes, state, response_status,
     response_ciphertext, attempt_count, next_attempt_at, last_error,
-    created_at, updated_at, completed_at, expires_at
+    created_at, updated_at, completed_at, expires_at,
+    authority_principal_type, authority_principal_did
 FROM vetchium.federation_operations
 WHERE kind = sqlc.arg(kind)
   AND aggregate_id = sqlc.arg(aggregate_id)
@@ -63,7 +67,8 @@ SELECT operation_id, command_id, kind, target_authority, aggregate_id,
     owner_principal_type, owner_principal_id, idempotency_key,
     request_digest, payload_bytes, state, response_status,
     response_ciphertext, attempt_count, next_attempt_at, last_error,
-    created_at, updated_at, completed_at, expires_at
+    created_at, updated_at, completed_at, expires_at,
+    authority_principal_type, authority_principal_did
 FROM vetchium.federation_operations
 WHERE state = 'pending' AND next_attempt_at <= now()
 ORDER BY next_attempt_at, created_at, operation_id
@@ -74,7 +79,8 @@ SELECT operation_id, command_id, kind, target_authority, aggregate_id,
     owner_principal_type, owner_principal_id, idempotency_key,
     request_digest, payload_bytes, state, response_status,
     response_ciphertext, attempt_count, next_attempt_at, last_error,
-    created_at, updated_at, completed_at, expires_at
+    created_at, updated_at, completed_at, expires_at,
+    authority_principal_type, authority_principal_did
 FROM vetchium.federation_operations
 WHERE kind = 'hub-alias-release'
   AND state = 'pending' AND next_attempt_at <= now()
@@ -138,7 +144,8 @@ WITH resolved AS (
         owner_principal_type, owner_principal_id, idempotency_key,
         request_digest, payload_bytes, state, response_status,
         response_ciphertext, attempt_count, next_attempt_at, last_error,
-        created_at, updated_at, completed_at, expires_at
+        created_at, updated_at, completed_at, expires_at,
+        authority_principal_type, authority_principal_did
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, actor_id,
@@ -155,12 +162,98 @@ SELECT operation_id, command_id, kind, target_authority, aggregate_id,
     owner_principal_type, owner_principal_id, idempotency_key,
     request_digest, payload_bytes, state, response_status,
     response_ciphertext, attempt_count, next_attempt_at, last_error,
-    created_at, updated_at, completed_at, expires_at
+    created_at, updated_at, completed_at, expires_at,
+    authority_principal_type, authority_principal_did
 FROM resolved;
 
 -- name: PruneExpiredFederationOperations :execrows
 DELETE FROM vetchium.federation_operations
 WHERE state IN ('succeeded', 'failed') AND expires_at <= now();
+
+-- A command for the home tenant of an authority principal. next_attempt_at
+-- starts in the future so recovery does not race the sender's first attempt.
+-- name: CreateFederationCommandOperation :one
+WITH created AS (
+    INSERT INTO vetchium.federation_operations (
+        operation_id, command_id, kind, target_authority, aggregate_id,
+        owner_principal_type, owner_principal_id, idempotency_key,
+        request_digest, payload_bytes, next_attempt_at, expires_at,
+        authority_principal_type, authority_principal_did
+    )
+    VALUES (
+        sqlc.arg(operation_id), sqlc.arg(command_id), sqlc.arg(kind),
+        'tenant', sqlc.arg(aggregate_id),
+        sqlc.arg(owner_principal_type), sqlc.arg(owner_principal_id),
+        sqlc.arg(idempotency_key), sqlc.arg(request_digest),
+        sqlc.arg(payload_bytes), sqlc.arg(next_attempt_at),
+        sqlc.arg(expires_at), sqlc.arg(authority_principal_type),
+        sqlc.arg(authority_principal_did)
+    )
+    RETURNING operation_id, command_id, kind, target_authority, aggregate_id,
+        owner_principal_type, owner_principal_id, idempotency_key,
+        request_digest, payload_bytes, state, response_status,
+        response_ciphertext, attempt_count, next_attempt_at, last_error,
+        created_at, updated_at, completed_at, expires_at,
+        authority_principal_type, authority_principal_did
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id), 'federation.operation.created', 'federation_operation',
+        o.operation_id::text, o.owner_principal_type, o.owner_principal_id,
+        sqlc.arg(source), o.idempotency_key,
+        jsonb_build_object(
+            'kind', o.kind, 'aggregate_id', o.aggregate_id,
+            'command_id', o.command_id,
+            'authority_principal_type', o.authority_principal_type,
+            'authority_principal_did', o.authority_principal_did
+        )
+    FROM created AS o
+)
+SELECT operation_id, command_id, kind, target_authority, aggregate_id,
+    owner_principal_type, owner_principal_id, idempotency_key,
+    request_digest, payload_bytes, state, response_status,
+    response_ciphertext, attempt_count, next_attempt_at, last_error,
+    created_at, updated_at, completed_at, expires_at,
+    authority_principal_type, authority_principal_did
+FROM created;
+
+-- Every tenant command kind, so no kind needs its own recovery job.
+-- name: ListRecoverableFederationCommands :many
+SELECT operation_id, command_id, kind, target_authority, aggregate_id,
+    owner_principal_type, owner_principal_id, idempotency_key,
+    request_digest, payload_bytes, state, response_status,
+    response_ciphertext, attempt_count, next_attempt_at, last_error,
+    created_at, updated_at, completed_at, expires_at,
+    authority_principal_type, authority_principal_did
+FROM vetchium.federation_operations
+WHERE state = 'pending' AND target_authority = 'tenant'
+  AND next_attempt_at <= now()
+ORDER BY next_attempt_at, created_at, operation_id
+LIMIT sqlc.arg(batch_size);
+
+-- name: GetOrgFederationOperationStatus :one
+SELECT operation_id, state
+FROM vetchium.federation_operations
+WHERE operation_id = sqlc.arg(operation_id)
+  AND owner_principal_type = 'org_user'
+  AND owner_principal_id = sqlc.arg(owner_principal_id)
+  AND expires_at > now();
+
+-- A principal row in this database means this tenant is its home.
+-- name: IsLocalFederationPrincipal :one
+SELECT CASE sqlc.arg(principal_type)::text
+    WHEN 'hub_user' THEN EXISTS (
+        SELECT 1 FROM vetchium.hub_users
+        WHERE hub_user_did = sqlc.arg(principal_did)
+    )
+    WHEN 'org' THEN EXISTS (
+        SELECT 1 FROM vetchium.orgs WHERE org_did = sqlc.arg(principal_did)
+    )
+    ELSE false
+END::boolean AS is_local;
 
 -- name: GetFederationCommandResult :one
 SELECT command_id, source_tenant_id, kind, aggregate_id, request_digest,
@@ -349,7 +442,8 @@ SELECT operation_id, command_id, kind, target_authority, aggregate_id,
     owner_principal_type, owner_principal_id, idempotency_key,
     request_digest, payload_bytes, state, response_status,
     response_ciphertext, attempt_count, next_attempt_at, last_error,
-    created_at, updated_at, completed_at, expires_at
+    created_at, updated_at, completed_at, expires_at,
+    authority_principal_type, authority_principal_did
 FROM vetchium.federation_operations
 WHERE kind = 'hub-alias-change'
   AND state = 'pending' AND next_attempt_at <= now()

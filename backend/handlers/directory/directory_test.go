@@ -34,6 +34,7 @@ type fakeService struct {
 	resolveErr           error
 	outcome              globaldirectory.Outcome
 	orgResolve           directoryspec.ResolveOrgDomainResponse
+	principalResolve     directoryspec.ResolvePrincipalResponse
 	orgOutcome           globaldirectory.OrgOutcome
 	emailChangeOutcome   globaldirectory.EmailChangeOutcome
 	resolveEmailResponse directoryspec.ResolveHubAccountEmailResponse
@@ -77,6 +78,12 @@ func (f *fakeService) ResolveOrgDomain(
 	context.Context, orgs.OrgDomain,
 ) (directoryspec.ResolveOrgDomainResponse, error) {
 	return f.orgResolve, f.resolveErr
+}
+
+func (f *fakeService) ResolvePrincipal(
+	context.Context, directoryspec.ResolvePrincipalRequest,
+) (directoryspec.ResolvePrincipalResponse, error) {
+	return f.principalResolve, f.resolveErr
 }
 
 func (f *fakeService) ReserveOrgPrincipal(
@@ -345,6 +352,58 @@ func TestResolveOrgDomainHandler(t *testing.T) {
 			)
 			if recorder.Code != test.status {
 				t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body)
+			}
+		})
+	}
+}
+
+func TestResolvePrincipalHandler(t *testing.T) {
+	t.Parallel()
+	body := `{"principal_type":"org","principal_did":"` + string(testDID) + `"}`
+	for _, test := range []struct {
+		name       string
+		authorized bool
+		body       string
+		err        error
+		status     int
+	}{
+		{name: "success", authorized: true, body: body, status: 200},
+		{
+			name: "missing", authorized: true, body: body,
+			err: globaldirectory.ErrNotFound, status: 404,
+		},
+		{
+			name: "invalid type", authorized: true,
+			body:   `{"principal_type":"admin","principal_did":"` + string(testDID) + `"}`,
+			status: 400,
+		},
+		{name: "malformed", authorized: true, body: `{`, status: 400},
+		{name: "unauthenticated", body: body, status: 401},
+		{
+			name: "database failure", authorized: true, body: body,
+			err: fmt.Errorf("offline"), status: 500,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			service := &fakeService{
+				principalResolve: directoryspec.ResolvePrincipalResponse{
+					PrincipalType: directoryspec.PrincipalOrg,
+					PrincipalDID:  directoryspec.PrincipalDID(testDID),
+					HomeTenantID:  "ind1", RoutingVersion: 1,
+				},
+				resolveErr: test.err,
+			}
+			recorder := serve(
+				t, test.authorized, test.body,
+				ResolvePrincipal(testRuntime(), service),
+			)
+			if recorder.Code != test.status {
+				t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body)
+			}
+			if test.status == 200 && (recorder.Header().Get("Cache-Control") !=
+				"no-store" || !strings.Contains(recorder.Body.String(), `"home_tenant_id":"ind1"`)) {
+				t.Fatalf("success = %v %s", recorder.Header(), recorder.Body)
 			}
 		})
 	}

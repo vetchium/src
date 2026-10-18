@@ -287,6 +287,53 @@ func orgCommandFields(commandID CommandID, orgDID orgs.OrgDID) []string {
 	return fields
 }
 
+type PrincipalType string
+type PrincipalDID string
+
+const (
+	PrincipalHubUser PrincipalType = "hub_user"
+	PrincipalOrg     PrincipalType = "org"
+)
+
+func IsPrincipalType(value PrincipalType) bool {
+	return value == PrincipalHubUser || value == PrincipalOrg
+}
+
+// IsPrincipal checks the DID against the syntax of its principal type.
+func IsPrincipal(principalType PrincipalType, did PrincipalDID) bool {
+	switch principalType {
+	case PrincipalHubUser:
+		return hub.IsHubUserDID(hub.HubUserDID(did))
+	case PrincipalOrg:
+		return orgs.IsOrgDID(orgs.OrgDID(did))
+	default:
+		return false
+	}
+}
+
+type ResolvePrincipalRequest struct {
+	PrincipalType PrincipalType `json:"principal_type"`
+	PrincipalDID  PrincipalDID  `json:"principal_did"`
+}
+
+func (r *ResolvePrincipalRequest) Normalize() {}
+func (r ResolvePrincipalRequest) Validate() []string {
+	if !IsPrincipalType(r.PrincipalType) {
+		return []string{"principal_type"}
+	}
+	if !IsPrincipal(r.PrincipalType, r.PrincipalDID) {
+		return []string{"principal_did"}
+	}
+	return []string{}
+}
+
+type ResolvePrincipalResponse struct {
+	PrincipalType  PrincipalType `json:"principal_type"`
+	PrincipalDID   PrincipalDID  `json:"principal_did"`
+	HomeTenantID   TenantID      `json:"home_tenant_id"`
+	RoutingVersion int64         `json:"routing_version"`
+}
+
 // ResolveHubAccountEmailRequest resolves a Hub account-email digest, never
 // revealing the DID (GU-DIR-001).
 type ResolveHubAccountEmailRequest struct {

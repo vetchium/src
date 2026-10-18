@@ -141,6 +141,38 @@ export interface OrgPrincipalCommandResponse {
   state: PrincipalState;
 }
 
+export const PrincipalHubUser = "hub_user" as const;
+export const PrincipalOrg = "org" as const;
+export type PrincipalType = typeof PrincipalHubUser | typeof PrincipalOrg;
+export type PrincipalDID = string;
+export function isPrincipalType(value: unknown): value is PrincipalType {
+  return value === PrincipalHubUser || value === PrincipalOrg;
+}
+/** Hub user and Org DIDs are both UUIDv7. */
+export function isPrincipalDID(value: unknown): value is PrincipalDID {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  );
+}
+export interface ResolvePrincipalRequest {
+  principal_type: PrincipalType;
+  principal_did: PrincipalDID;
+}
+export function validateResolvePrincipalRequest(
+  request: ResolvePrincipalRequest,
+): string[] {
+  if (!isPrincipalType(request.principal_type)) return ["principal_type"];
+  return isPrincipalDID(request.principal_did) ? [] : ["principal_did"];
+}
+export interface ResolvePrincipalResponse {
+  principal_type: PrincipalType;
+  principal_did: PrincipalDID;
+  home_tenant_id: TenantID;
+  routing_version: number;
+}
 export interface ResolveHubAccountEmailRequest {
   email_digest: EmailDigest;
   digest_key_id: DigestKeyID;

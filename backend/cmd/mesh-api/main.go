@@ -9,6 +9,8 @@ import (
 	"backend/internal/db"
 	"backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
+	"backend/internal/federation/commandkinds"
+	"backend/internal/federation/commands"
 	"backend/internal/meshapi"
 	"backend/internal/meshtls"
 	"backend/internal/middleware"
@@ -101,6 +103,13 @@ func run(log *slog.Logger, address string) error {
 		Pictures:   pictures,
 		Queries:    sqlc.New(pool),
 		Credential: credential,
+		Commands: commands.NewExecutor(commands.ExecutorConfig{
+			Pool: pool, TenantID: cfg.TenantID,
+			Registry: commandkinds.Registry(),
+		}),
+		CommandPeers: commands.NewPeer(
+			coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+		),
 	}
 	mux := http.NewServeMux()
 	routes.RegisterMeshRoutes(mux, s)

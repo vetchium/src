@@ -13,3 +13,10 @@ export const MeshRelayAuthenticationRequiredError: Readonly<Details> = {
   status: 401,
   detail: "A valid tenant-local mesh relay credential is required",
 };
+
+export const MeshPeerAuthenticationRequiredError: Readonly<Details> = {
+  type: "vetchium-problem-details/mesh-peer-authentication-required",
+  title: "Mesh peer authentication required",
+  status: 401,
+  detail: "A private-CA verified tenant mesh client certificate is required",
+};

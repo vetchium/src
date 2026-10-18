@@ -9,6 +9,8 @@ import (
 	"backend/internal/directoryclient"
 	"backend/internal/dnsverify"
 	"backend/internal/email"
+	"backend/internal/federation/commandkinds"
+	"backend/internal/federation/commands"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/hub/emailchange"
 	"backend/internal/hub/signupcompletion"
@@ -158,6 +160,26 @@ func run(log *slog.Logger) error {
 	worker.EnablePictureDeletion(pictures)
 	worker.EnableOrgLogoDeletion(pictures)
 	worker.EnableAliasOperations(directory)
+	worker.EnableFederationCommands(commands.NewSender(commands.SenderConfig{
+		Pool: pool, TenantID: cfg.TenantID, Source: "workers",
+		Executor: commands.NewExecutor(commands.ExecutorConfig{
+			Pool: pool, TenantID: cfg.TenantID,
+			Registry: commandkinds.Registry(),
+		}),
+		Relay: commands.NewRelay(
+			cfg.MeshAPIServer.BaseURL, meshCredential,
+			cfg.MeshAPIServer.RequestTimeout,
+		),
+		ResultKeys: map[commands.OwnerType][32]byte{
+			commands.OwnerHubUser: hubauthn.DeriveCredentialSubkey(
+				hubCredentialKey, commands.ResultKeyPurpose,
+			),
+			commands.OwnerOrgUser: orgsauthn.DeriveCredentialSubkey(
+				orgsCredentialKey, commands.ResultKeyPurpose,
+			),
+		},
+		Log: log,
+	}))
 	if cfg.AI != nil {
 		worker.EnableOrgAI(*cfg.AI)
 	}

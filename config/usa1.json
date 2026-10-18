@@ -20,6 +20,7 @@
     "expireOrgOpeningsTimer": "1m",
     "reconcileHubSignupTimer": "10s",
     "reconcileHubEmailChangeTimer": "10s",
+    "driveFederationCommandsTimer": "10s",
     "deliverOrgEmailTimer": "500ms",
     "orgEmailLeaseTTL": "1m",
     "orgEmailMaxAttempts": 5,

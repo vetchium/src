@@ -12,6 +12,8 @@ import (
 	dbsqlc "backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
 	"backend/internal/dnsverify"
+	"backend/internal/federation/commandkinds"
+	"backend/internal/federation/commands"
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
 	"backend/internal/oidc"
@@ -102,6 +104,23 @@ func run(log *slog.Logger, address string) error {
 		cfg.TenantID, credentialSecret,
 	)
 	queries := dbsqlc.New(pool)
+	federationCommands := commands.NewSender(commands.SenderConfig{
+		Pool: pool, TenantID: cfg.TenantID, Source: "orgs-api",
+		Executor: commands.NewExecutor(commands.ExecutorConfig{
+			Pool: pool, TenantID: cfg.TenantID,
+			Registry: commandkinds.Registry(),
+		}),
+		Relay: commands.NewRelay(
+			cfg.MeshAPIServer.BaseURL, meshCredential,
+			cfg.MeshAPIServer.RequestTimeout,
+		),
+		ResultKeys: map[commands.OwnerType][32]byte{
+			commands.OwnerOrgUser: orgsauthn.DeriveCredentialSubkey(
+				credentialKey, commands.ResultKeyPurpose,
+			),
+		},
+		Log: log,
+	})
 	s := &orgsruntime.Server{
 		Runtime:   apiserver.New(pool, log),
 		Queries:   queries,
@@ -121,6 +140,7 @@ func run(log *slog.Logger, address string) error {
 			cfg.TenantID,
 			orgsauthn.DeriveCredentialSubkey(credentialKey, "outbox"), log,
 		),
+		Commands:               federationCommands,
 		Signup:                 cfg.OrgsAPIServer.Signup,
 		AllowSpecialUseDomains: cfg.OrgsAPIServer.AllowSpecialUseDomains,
 		TenantID:               cfg.TenantID,

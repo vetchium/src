@@ -70,6 +70,9 @@ are in [`hub-signup.md`](hub-signup.md).
 - Every command checks the caller tenant against the principal's
   `home_tenant_id` (`directory-caller-tenant-mismatch`) and requires an active
   principal, unless its rule says otherwise.
+- `resolve-principal` (`{principal_type, principal_did}`, `hub_user` or
+  `org`) returns the home tenant and routing version of an active principal,
+  else `directory-entry-not-found`. It routes durable commands.
 
 ## Identity digest key
 
@@ -231,13 +234,44 @@ command-result ledger at the authority; no per-feature reliability protocol.
 - Never hold a database transaction open across a directory or mesh call,
   including inside an idempotency helper's callback: resolve first, then open
   the transaction.
+- `backend/internal/federation/commands` implements this protocol for every
+  tenant command; features add no ledger, routing, transport, or recovery
+  code. Register each kind with its authority `Handler` in
+  `backend/internal/federation/commandkinds`, which hub-api, orgs-api,
+  mesh-api, and workers all use, and initiate with `Sender.Send` after
+  authorizing the caller's own user.
+  - `Request.AggregateID`, kind, and idempotency key identify the operation;
+    `RequestDigest` covers the caller's request, not ids minted into the
+    payload.
+  - A local authority runs in process, in the transaction that creates and
+    resolves the operation. Otherwise the sender commits the pending operation
+    and posts to the relay `POST /mesh/commands/execute`, which resolves the
+    authority principal and executes in mesh-api for its own tenant or forwards
+    to that tenant's peer `POST /api/mesh/commands/execute`.
+  - A `Handler` gets the transaction; its writes, audit, and outbox events
+    commit with the command result. `Rejected` rolls back its writes and stores
+    the problem as the deterministic outcome.
+  - Outcomes: `StateSucceeded`/`StateFailed` carry the stored status and body;
+    `StatePending` is `202` with `PendingOperation`; `StateUnavailable` is a
+    retryable `503` and leaves the operation pending, so an exact replay or
+    recovery sends it later. A replay of a pending operation drives it again.
+  - The authority refuses an unknown kind (`400`), a principal it does not
+    home (`421 federation-authority-misdirected`, re-resolve and resend), and a
+    command id reused with another source tenant, kind, aggregate, or digest
+    (`409 federation-command-conflict`). The relay adds
+    `federation-authority-not-found` (`404`, deterministic),
+    `federation-authority-unavailable` (`503`, not sent), and
+    `federation-command-outcome-unknown` (`504`).
+  - The workers' `drive-federation-commands` job recovers every kind.
 - For uncertain Hub browser outcomes, return HTTP `202` with
   `Vetchium.Hub.Operations.PendingOperation`. The user polls
   `/api/hub/operations/status` (`pending`, `succeeded`, `failed`) and replays
   the original request with its original idempotency key for the typed result.
   The status endpoint authorizes operation ownership and returns no payloads or
   secrets. Reuse this shape for remote job applications rather than a
-  per-feature polling protocol.
+  per-feature polling protocol. Orgs uses the same shape:
+  `Vetchium.Orgs.Operations.PendingOperation` and `/api/orgs/operations/status`,
+  readable only by the initiating Org user of an active Org.
 - Never use PostgreSQL prepared transactions, an HTTP prepare/commit protocol,
   or a cross-database transaction — they couple availability and leave
   prepared work needing operator recovery.

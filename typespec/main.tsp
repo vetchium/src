@@ -7,6 +7,7 @@ import "./admin/admin.tsp";
 import "./hub/hub.tsp";
 import "./orgs/orgs.tsp";
 import "./directory/directory.tsp";
+import "./federation/commands.tsp";
 
 
 using TypeSpec.Http;

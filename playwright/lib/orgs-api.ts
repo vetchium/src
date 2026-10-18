@@ -36,6 +36,7 @@ import type {
   SetOpeningTeamRequest,
   WithdrawOpeningRequestRequest,
 } from "typespec/orgs/openings/openings";
+import type { GetOperationRequest } from "typespec/orgs/operations/operations";
 import type { SetCompanyDetailsRequest } from "typespec/orgs/settings/company";
 import type { SetSubscriptionPlanRequest } from "typespec/orgs/subscriptions/subscriptions";
 import type { OrgDomain } from "typespec/orgs/types";
@@ -229,6 +230,17 @@ export class OrgsAPI {
     request: ListOpeningHistoryRequest,
   ): Promise<APIResponse> {
     return this.post("/list-opening-history", request, { token });
+  }
+
+  operationStatus(
+    token: string | undefined,
+    request: GetOperationRequest,
+  ): Promise<APIResponse> {
+    return this.post(
+      "/operations/status",
+      request,
+      token === undefined ? {} : { token },
+    );
   }
 
   requestSignup(

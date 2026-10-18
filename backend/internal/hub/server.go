@@ -13,6 +13,7 @@ import (
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
+	"backend/internal/federation/commands"
 	"backend/internal/hub/auth"
 	"backend/internal/hub/emailchange"
 	"backend/internal/hub/signupcompletion"
@@ -48,8 +49,10 @@ type Server struct {
 	Pictures         PictureStorage
 	SignupCompletion *signupcompletion.Service
 	EmailChange      *emailchange.Service
-	Signup           regions.Admission
-	Queries          sqlc.Querier
+	// Commands sends durable commands to other tenants' aggregates.
+	Commands *commands.Sender
+	Signup   regions.Admission
+	Queries  sqlc.Querier
 	// DigestKey computes the keyed digests the global directory holds claims
 	// for (GU-CFG-002); it never leaves hub-api and workers.
 	DigestKey AccountEmailDigester

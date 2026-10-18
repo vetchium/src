@@ -72,7 +72,7 @@ Applies to PostgreSQL access, `backend/internal/db/`, migrations, and seeds.
   data writes at least one audit event in the same transaction, whatever the
   caller (portal API, mesh, worker). Exempt: the audit table itself,
   migrations, and the replay ledgers (`idempotency_ledger`,
-  `global_command_ledger`).
+  `federation_command_ledger`, `global_command_ledger`).
 - PostgreSQL enforces this. An insert into `audit_events`
   (`global_audit_events` in the coordinator) marks the transaction; the
   deferred `audit_required` constraint trigger on every other table refuses

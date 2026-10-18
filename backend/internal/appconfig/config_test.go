@@ -386,6 +386,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "expireOrgOpeningsTimer": "1m",
     "reconcileHubSignupTimer": "1m",
     "reconcileHubEmailChangeTimer": "1m",
+    "driveFederationCommandsTimer": "1m",
     "deliverOrgEmailTimer": "1s",
     "orgEmailLeaseTTL": "1m",
     "orgEmailMaxAttempts": 5,
@@ -514,6 +515,29 @@ func TestLoadFileRequiresPositiveExpireOrgOpeningsTimer(t *testing.T) {
 	_, err = LoadFile(path)
 	if err == nil || !strings.Contains(err.Error(),
 		"workers.expireOrgOpeningsTimer must be positive") {
+		t.Fatalf("LoadFile() error = %v, want positive timer error", err)
+	}
+}
+
+func TestLoadFileRequiresPositiveDriveFederationCommandsTimer(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	path := writeConfig(t, passwordFile, "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(
+		string(contents),
+		`"driveFederationCommandsTimer": "1m"`,
+		`"driveFederationCommandsTimer": "0s"`,
+		1,
+	))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LoadFile(path)
+	if err == nil || !strings.Contains(err.Error(),
+		"workers.driveFederationCommandsTimer must be positive") {
 		t.Fatalf("LoadFile() error = %v, want positive timer error", err)
 	}
 }
@@ -654,6 +678,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "expireOrgOpeningsTimer": "1m",
     "reconcileHubSignupTimer": "1m",
     "reconcileHubEmailChangeTimer": "1m",
+    "driveFederationCommandsTimer": "1m",
     "deliverOrgEmailTimer": "1s",
     "orgEmailLeaseTTL": "1m",
     "orgEmailMaxAttempts": 5,

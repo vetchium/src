@@ -158,6 +158,30 @@ func (c *Client) ResolveOrgDomain(
 	return result, details, err
 }
 
+func (c *Client) ResolvePrincipal(
+	ctx context.Context, request directoryspec.ResolvePrincipalRequest,
+) (directoryspec.ResolvePrincipalResponse, *problem.Details, error) {
+	var result directoryspec.ResolvePrincipalResponse
+	status, body, mediaType, err := c.do(ctx, "resolve-principal", request)
+	if err != nil {
+		return result, nil, err
+	}
+	if status == http.StatusOK && mediaType == "application/json" {
+		if err := decode(body, &result); err != nil {
+			return result, nil, err
+		}
+		if result.PrincipalType != request.PrincipalType ||
+			result.PrincipalDID != request.PrincipalDID ||
+			!directoryspec.IsTenantID(result.HomeTenantID) ||
+			result.RoutingVersion < 1 {
+			return result, nil, fmt.Errorf("%w: invalid principal lookup result", ErrInvalidResponse)
+		}
+		return result, nil, nil
+	}
+	details, err := decodeProblem(status, mediaType, body)
+	return result, details, err
+}
+
 func (c *Client) ReserveOrgPrincipal(
 	ctx context.Context, request directoryspec.ReserveOrgPrincipalRequest,
 ) (OrgOutcome, error) {

@@ -10,6 +10,8 @@ import (
 	"backend/internal/db"
 	dbsqlc "backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
+	"backend/internal/federation/commandkinds"
+	"backend/internal/federation/commands"
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/hub/emailchange"
@@ -115,6 +117,23 @@ func run(log *slog.Logger, address string) error {
 		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "outbox"),
 		digestKey, log, nil,
 	)
+	federationCommands := commands.NewSender(commands.SenderConfig{
+		Pool: pool, TenantID: cfg.TenantID, Source: "hub-api",
+		Executor: commands.NewExecutor(commands.ExecutorConfig{
+			Pool: pool, TenantID: cfg.TenantID,
+			Registry: commandkinds.Registry(),
+		}),
+		Relay: commands.NewRelay(
+			cfg.MeshAPIServer.BaseURL, meshCredential,
+			cfg.MeshAPIServer.RequestTimeout,
+		),
+		ResultKeys: map[commands.OwnerType][32]byte{
+			commands.OwnerHubUser: hubauthn.DeriveCredentialSubkey(
+				hubCredentialKey, commands.ResultKeyPurpose,
+			),
+		},
+		Log: log,
+	})
 	s := &hubruntime.Server{
 		Runtime:   apiserver.New(pool, log),
 		Queries:   dbsqlc.New(pool),
@@ -127,6 +146,7 @@ func run(log *slog.Logger, address string) error {
 		Pictures:         pictures,
 		SignupCompletion: signupCompletion,
 		EmailChange:      emailChange,
+		Commands:         federationCommands,
 		DigestKey:        digestKey,
 		Regions:          catalog,
 		Signup:           cfg.HubAPIServer.Signup,

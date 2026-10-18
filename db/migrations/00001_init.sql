@@ -567,9 +567,10 @@ CREATE TABLE vetchium.federation_operations (
     operation_id uuid PRIMARY KEY,
     command_id uuid NOT NULL UNIQUE,
     kind text NOT NULL CHECK (length(btrim(kind)) BETWEEN 1 AND 100),
+    -- 'tenant' commands go to the home tenant of the authority principal,
+    -- re-resolved on every attempt, so no tenant id is stored.
     target_authority text NOT NULL CHECK (
-        target_authority = 'global-directory' OR
-        target_authority ~ '^[a-z][a-z0-9]{2,15}$'
+        target_authority IN ('global-directory', 'tenant')
     ),
     aggregate_id text NOT NULL CHECK (length(btrim(aggregate_id)) > 0),
     owner_principal_type text NOT NULL CHECK (
@@ -591,6 +592,17 @@ CREATE TABLE vetchium.federation_operations (
     updated_at timestamptz NOT NULL DEFAULT now(),
     completed_at timestamptz,
     expires_at timestamptz NOT NULL,
+    authority_principal_type text CHECK (
+        authority_principal_type IN ('hub_user', 'org')
+    ),
+    authority_principal_did uuid,
+    CONSTRAINT federation_operations_authority_check CHECK (
+        (target_authority = 'tenant' AND authority_principal_type IS NOT NULL
+            AND authority_principal_did IS NOT NULL) OR
+        (target_authority = 'global-directory'
+            AND authority_principal_type IS NULL
+            AND authority_principal_did IS NULL)
+    ),
     CONSTRAINT federation_operations_idempotency_key UNIQUE (
         kind, aggregate_id, idempotency_key
     ),
@@ -604,6 +616,10 @@ CREATE TABLE vetchium.federation_operations (
         updated_at >= created_at AND expires_at > created_at
     )
 );
+
+CREATE INDEX federation_operations_recoverable_commands_idx
+    ON vetchium.federation_operations (next_attempt_at, created_at, operation_id)
+    WHERE state = 'pending' AND target_authority = 'tenant';
 
 CREATE TABLE vetchium.federation_command_ledger (
     command_id uuid PRIMARY KEY,
@@ -2278,8 +2294,9 @@ CREATE INDEX idempotency_expiry_idx
 -- event. Inserting an audit event marks the transaction; a deferred trigger
 -- on every other table checks the mark at commit and refuses the commit
 -- without it. Sessions of the table owner (migrations, fixtures, operators)
--- are not application writes. Exempt: idempotency_ledger, the replay
--- ledger, which records responses rather than changes.
+-- are not application writes. Exempt: idempotency_ledger and
+-- federation_command_ledger, the replay ledgers, which record responses
+-- rather than changes.
 -- +goose StatementBegin
 CREATE FUNCTION vetchium.mark_transaction_audited()
 RETURNS trigger
@@ -2299,7 +2316,7 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     IF pg_catalog.current_setting('vetchium.audited', true) = 'on'
-        OR TG_TABLE_NAME = 'idempotency_ledger' THEN
+        OR TG_TABLE_NAME IN ('idempotency_ledger', 'federation_command_ledger') THEN
         RETURN NULL;
     END IF;
     IF pg_catalog.pg_has_role(

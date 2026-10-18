@@ -15,3 +15,9 @@ var MeshRelayAuthenticationRequiredError = problem.Details{
 	Title: "Mesh relay authentication required", Status: 401,
 	Detail: "A valid tenant-local mesh relay credential is required",
 }
+
+var MeshPeerAuthenticationRequiredError = problem.Details{
+	Type:  "vetchium-problem-details/mesh-peer-authentication-required",
+	Title: "Mesh peer authentication required", Status: 401,
+	Detail: "A private-CA verified tenant mesh client certificate is required",
+}

@@ -17,6 +17,10 @@ func RegisterGlobalCoordinatorRoutes(
 		directory.ResolveProfileSlug(s.Runtime, s.Directory),
 	)
 	mux.HandleFunc(
+		"POST /api/global-coordinator/directory/resolve-principal",
+		directory.ResolvePrincipal(s.Runtime, s.Directory),
+	)
+	mux.HandleFunc(
 		"POST /api/global-coordinator/directory/reserve-hub-principal",
 		directory.ReserveHubPrincipal(s.Runtime, s.Directory),
 	)

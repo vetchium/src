@@ -13,6 +13,7 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/federation/commands"
 	"backend/internal/imagesanitize"
 	"backend/internal/oidc"
 	orgai "backend/internal/orgs/ai"
@@ -37,7 +38,9 @@ type Server struct {
 	Regions          *regions.Catalog
 	SignupCompletion *signupcompletion.Service
 	Domains          *domainverification.Service
-	Signup           regions.Admission
+	// Commands sends durable commands to other tenants' aggregates.
+	Commands *commands.Sender
+	Signup   regions.Admission
 	// AllowSpecialUseDomains admits signups for names such as acme.test.
 	AllowSpecialUseDomains bool
 

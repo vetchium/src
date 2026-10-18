@@ -36,6 +36,9 @@ type Service interface {
 	ResolveOrgDomain(
 		context.Context, orgs.OrgDomain,
 	) (directoryspec.ResolveOrgDomainResponse, error)
+	ResolvePrincipal(
+		context.Context, directoryspec.ResolvePrincipalRequest,
+	) (directoryspec.ResolvePrincipalResponse, error)
 	ReserveOrgPrincipal(
 		context.Context, directoryspec.TenantID,
 		directoryspec.ReserveOrgPrincipalRequest,
@@ -291,6 +294,34 @@ func ResolveOrgDomain(
 		}
 		if err != nil {
 			runtime.InternalError(r.Context(), w, "resolve Org domain", err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		runtime.JSON(r.Context(), w, http.StatusOK, response)
+	}
+}
+
+func ResolvePrincipal(
+	runtime *apiserver.Runtime, service Service,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := authenticate(runtime, w, r); !ok {
+			return
+		}
+		var request directoryspec.ResolvePrincipalRequest
+		if !apiserver.Decode(runtime, w, r, &request) {
+			return
+		}
+		response, err := service.ResolvePrincipal(r.Context(), request)
+		if errors.Is(err, globaldirectory.ErrNotFound) {
+			runtime.Problem(
+				r.Context(), w,
+				coordinatorproblem.DirectoryEntryNotFoundError,
+			)
+			return
+		}
+		if err != nil {
+			runtime.InternalError(r.Context(), w, "resolve principal", err)
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")

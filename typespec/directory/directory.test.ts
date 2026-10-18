@@ -6,6 +6,7 @@ import {
   isHubAlias,
   isProfileSlug,
   isTenantID,
+  validateResolvePrincipalRequest,
 } from "./directory.ts";
 
 test("directory identifiers enforce disjoint handle and alias syntax", () => {
@@ -29,4 +30,36 @@ test("email digest and digest key id are fixed-length lowercase hex", () => {
   assert.equal(isDigestKeyID(keyID), true);
   assert.equal(isDigestKeyID(keyID.toUpperCase()), false);
   assert.equal(isDigestKeyID("short"), false);
+});
+
+test("principal resolution requires a known type and a UUIDv7 DID", () => {
+  const did = "018f7e32-7b5a-7d31-8fd0-f7e2a852f144";
+  assert.deepEqual(
+    validateResolvePrincipalRequest({
+      principal_type: "hub_user",
+      principal_did: did,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateResolvePrincipalRequest({
+      principal_type: "org",
+      principal_did: did,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateResolvePrincipalRequest({
+      principal_type: "admin" as "org",
+      principal_did: did,
+    }),
+    ["principal_type"],
+  );
+  assert.deepEqual(
+    validateResolvePrincipalRequest({
+      principal_type: "org",
+      principal_did: "f4847331-5a4f-4eae-a5f4-cc131b0cd270",
+    }),
+    ["principal_did"],
+  );
 });

@@ -701,7 +701,7 @@ func TestHubProfileFederationRecoveryIntegration(t *testing.T) {
 		sqlc.CreateFederationOperationParams{
 			TenantID: "sgp", ActorType: "worker", Source: "workers",
 			OperationID: operationID, CommandID: commandID,
-			Kind: "profile-test", TargetAuthority: "deu",
+			Kind: "profile-test", TargetAuthority: "global-directory",
 			AggregateID: "profile-test", OwnerPrincipalType: "hub_user",
 			OwnerPrincipalID: dbvalue.FormatUUID(operationID),
 			IdempotencyKey:   "test-key",
@@ -734,7 +734,7 @@ func TestHubProfileFederationRecoveryIntegration(t *testing.T) {
 		sqlc.CreateFederationOperationParams{
 			TenantID: "sgp", ActorType: "worker", Source: "workers",
 			OperationID: otherPortalID, CommandID: otherCommandID,
-			Kind: "profile-test-other-portal", TargetAuthority: "deu",
+			Kind: "profile-test-other-portal", TargetAuthority: "global-directory",
 			AggregateID:        "profile-test-other-portal",
 			OwnerPrincipalType: "org_user",
 			OwnerPrincipalID:   dbvalue.FormatUUID(operationID),
