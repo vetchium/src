@@ -59,7 +59,8 @@ Applies to product terms in prompts, specifications, code, and UI text.
 - Route — the choice, per candidacy at a stage, of in-house or one assigned engagement.
 - Agency — an org whose `sourcing` Listing is listed.
 - Conversation — a chat an agency starts with one Hub user inside Vetchium; messages are authoritative in the agency's home tenant, and the Hub user's tenant holds a pointer; never exposes contact details.
-- Contact — an agency's own record of a Hub user it started a conversation with; never an applicant or candidate; future notes and matches attach to it.
+- Contact — an agency's own record of one Hub user, created by its first note or message about them; never an applicant or candidate; outlives the conversation.
+- Agency note — a private note an agency keeps on a Contact; never shown to the Hub user or any other Org.
 - Opening suggestion — an agency posting an Opening it is assigned to in a conversation; applying from it credits the agency.
 - Credit — the one `sourcing` engagement an applicant chooses as referrer when applying (one that suggested the Opening, or one named by primary domain), or none; fixed at apply time.
 - Activity statement — one engagement's billable facts for one month; never an invoice and never an amount.

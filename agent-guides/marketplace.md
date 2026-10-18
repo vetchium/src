@@ -2,10 +2,11 @@
 
 Applies to Capabilities, Listings, engagements between Orgs, assigning
 providers to Openings and stages, provider access and work, agency
-conversations and Contacts, the agency profile view, sourcing attribution,
-the Orgs and Hub marketplace pages, and activity statements. Compose with
-[`hiring-pipeline.md`](hiring-pipeline.md), [`openings.md`](openings.md),
-[`hub-profile.md`](hub-profile.md), [`federation.md`](federation.md), and
+conversations, Contacts, and notes, the agency profile view, sourcing
+attribution, the Orgs and Hub marketplace pages, and activity statements.
+Compose with [`hiring-pipeline.md`](hiring-pipeline.md),
+[`openings.md`](openings.md), [`hub-profile.md`](hub-profile.md),
+[`federation.md`](federation.md), and
 [`org-subscriptions.md`](org-subscriptions.md).
 
 ## Scope
@@ -47,8 +48,8 @@ the Orgs and Hub marketplace pages, and activity statements. Compose with
 | Application credit | consumer's | the apply command from the Hub user's tenant | nothing; the agency reads live |
 | Provider work: interviews, feedback, results, consent | consumer's | provider users' commands; the Hub user's commands for responses and consent | nothing |
 | Billable facts | consumer's | the transaction that records the fact | nothing; statements read live |
-| Contact, conversation, messages, suggestions, agency-side unread state | agency's | agency users locally; the Hub user's commands | Hub user: the conversation pointer |
-| Conversation pointer, Hub-side unread state, "Agencies may message me" | Hub user's home | the agency's outbox; the Hub user locally | agency: the messages-off state on each conversation |
+| Contact, notes, conversation, messages, suggestions, agency-side unread state | agency's | agency users locally; the Hub user's commands | Hub user: the agency pointer, without notes |
+| Agency pointer, Hub-side unread state, "Agencies may message me" | Hub user's home | the agency's outbox; the Hub user locally | agency: the messages-off state on each Contact |
 | Operation and idempotency ledgers | the initiating tenant | the initiating tenant | nothing |
 
 - **MKT-DAT-001** The initiating tenant authorizes its own user (session,
@@ -61,28 +62,33 @@ the Orgs and Hub marketplace pages, and activity statements. Compose with
   the provider's `allows_listings` from the provider's tenant, bounded by a
   deadline (`org-tenant-unavailable`). The provider's tenant re-checks both
   before sending its accept.
-- **MKT-DAT-003** The Hub user's tenant keeps one pointer per conversation:
-  the agency Org DID, the agency's recorded display name and primary domain,
-  last activity, Hub-side unread count, the read-only reason if any, and the
-  Opening suggestions (consumer domain, opening number, sent at). It never
-  holds message text. The agency's outbox creates, updates, and deletes it;
-  the new-message event also triggers the notification email (MKT-CNV-008).
+- **MKT-DAT-003** The Hub user's tenant keeps one agency pointer per
+  Contact, holding the agency Org DID and, while a conversation exists, the
+  agency's recorded display name and primary domain, last activity, Hub-side
+  unread count, the read-only reason if any, and the Opening suggestions
+  (consumer domain, opening number, sent at). It never holds message or note
+  text. The agency's outbox creates, updates, and deletes it; the new-message
+  event also triggers the notification email (MKT-CNV-008). A pointer
+  without a conversation exists only so the messages setting and deletion
+  notices reach the agency (MKT-DAT-006, MKT-DAT-012); no Hub API, page, or
+  email reveals it (MKT-CON-006).
 - **MKT-DAT-004** Starting a conversation: the agency's tenant resolves the
   handle or alias through the directory and reads, from the Hub user's tenant
   with a deadline, that the account exists and its messages setting
   (`org-hub-user-not-found`, `org-agency-messages-off`,
-  `org-tenant-unavailable`). It then checks the daily cap (MKT-CNV-003) under
-  the agency's Org lock and creates the Contact, the conversation, and the
-  first message in one transaction, whose outbox creates the pointer.
+  `org-tenant-unavailable`). It then checks the daily caps (MKT-CNV-003, and
+  MKT-CON-005 when no Contact exists) under the agency's Org lock and creates
+  the Contact if none exists, the conversation, and the first message in one
+  transaction, whose outbox creates or updates the pointer.
 - **MKT-DAT-005** The Hub user's reply and delete are durable commands from
   the Hub user's tenant to the agency's tenant, `202` `PendingOperation` when
-  uncertain (HP-GEN-009). The Hub conversation list comes from the pointers;
-  opening a conversation reads its messages live from the agency's tenant
-  with a deadline (`hub-org-unavailable`). Marking read writes only the
-  pointer.
+  uncertain (HP-GEN-009). The Hub conversation list comes from the pointers
+  that have a conversation; opening a conversation reads its messages live
+  from the agency's tenant with a deadline (`hub-org-unavailable`). Marking
+  read writes only the pointer.
 - **MKT-DAT-006** The Hub user's tenant owns "Agencies may message me". A
   change sends the new state through its outbox to the agency tenant of
-  every pointer, which stores it on the conversation and refuses agency
+  every pointer, which stores it on the Contact and refuses agency
   messages by it (MKT-CNV-006). Creating a pointer while the setting is off
   sends the off state at once, closing the race with the read in MKT-DAT-004.
 - **MKT-DAT-007** Opening suggestion: the agency's tenant confirms the
@@ -107,9 +113,18 @@ the Orgs and Hub marketplace pages, and activity statements. Compose with
   (`docs/todo.md`).
 - **MKT-DAT-012** Deleting a Hub account (not built) sends, in its outbox, a
   deletion notice to the agency tenant of every pointer, then deletes the
-  pointers. Deleting an agency Org (not built) sends a notice to the Hub
-  user's tenant of every Contact, which marks the pointer read-only.
-  MKT-CNV-011 then applies.
+  pointers. The agency's tenant deletes every note on that Contact at once,
+  and the Contact itself unless a conversation remains. Deleting an agency
+  Org (not built) deletes its notes at once and sends a notice to the Hub
+  user's tenant of every Contact, which marks the pointer read-only and
+  deletes a pointer without a conversation. MKT-CNV-011 then applies.
+- **MKT-DAT-013** Writing the first note on a person: the agency's tenant
+  resolves the handle or alias and reads that the account exists as the
+  profile view does (MKT-PRF-002), checks the Contact cap (MKT-CON-005) under
+  the agency's Org lock, and creates the Contact and the note in one
+  transaction, whose outbox creates the pointer. When the Hub user's tenant
+  finds no such account on creating the pointer, it answers with the
+  deletion notice of MKT-DAT-012, closing the race with account deletion.
 
 ## Capabilities
 
@@ -254,8 +269,9 @@ An agency is an active Org whose `sourcing` Listing is `listed`.
   Off makes every agency conversation read-only for both sides and refuses
   agency messages and new conversations with `org-agency-messages-off`; on
   restores them.
-- **MKT-CNV-007** The Hub user may delete a conversation; it is deleted for
-  both sides together with the agency's Contact (MKT-CON-004).
+- **MKT-CNV-007** The Hub user may delete a conversation; its messages and
+  suggestions are deleted for both sides. The agency's Contact and notes stay
+  (MKT-CON-004).
 - **MKT-CNV-008** The account email and professional addresses never reach
   the agency. The Hub user's home tenant sends notification emails that name
   the agency and never carry message content (HP-GEN-006). Agency users see
@@ -273,8 +289,8 @@ An agency is an active Org whose `sourcing` Listing is `listed`.
   "...: this agency no longer exists on Vetchium". Messages to it are
   refused with `org-conversation-party-deleted` or
   `hub-conversation-party-deleted`. A `workers` job in the agency's tenant
-  deletes it, with the
-  Contact, once the tenant config `marketplace.deletedPartyConversationRetention`
+  deletes it, with the Contact (whose notes MKT-DAT-012 already deleted),
+  once the tenant config `marketplace.deletedPartyConversationRetention`
   (a positive Go duration; `"8760h"` in every checked-in config, deploy
   included; startup refuses a missing or non-positive value) has passed
   since the deletion, or earlier by MKT-CNV-009.
@@ -287,21 +303,58 @@ An agency is an active Org whose `sourcing` Listing is `listed`.
 ## Agency contacts
 
 - **MKT-CON-001** A Contact is the agency's own record of one Hub user, one
-  per (agency, Hub user DID), authoritative in the agency's home tenant and
-  created with the conversation. It holds the DID, who created it and when,
-  and the conversation. It never copies the profile; pages read it live
+  per (agency, Hub user DID), authoritative in the agency's home tenant. The
+  agency's first note (MKT-NOTE) or first message (MKT-CNV-002) creates it,
+  whichever comes first. It holds the DID, the Hub user's display name and
+  handle as last read (refreshed on each profile view, note, and message, so
+  lists need no cross-tenant read), who created it and when, its notes, and
+  its conversation if any. Pages read the rest of the profile live
   (MKT-PRF).
 - **MKT-CON-002** A Contact is not an applicant or a candidate. Nothing an
   agency does creates an application; only the Hub user applies (HP-APP).
 - **MKT-CON-003** While the Hub user has turned agency messages off, the
   Contact shows that reason (MKT-CNV-010) beside the name
   and profile.
-- **MKT-CON-004** Deleting the conversation, by the Hub user or by
-  retention (MKT-CNV-009, MKT-CNV-011), deletes the Contact. When the Hub account is
-  deleted, the Contact stays with the recorded name, shows "Account deleted",
-  and offers no profile view.
-- **MKT-CON-005** Later agency notes, saved people, and AI matches attach to
-  the Contact; add nothing to it now beyond MKT-CON-001.
+- **MKT-CON-004** A Contact outlives its conversation: deleting the
+  conversation, by the Hub user (MKT-CNV-007) or by retention (MKT-CNV-009),
+  keeps the Contact and its notes. A Contact with neither notes nor a
+  conversation is deleted in the transaction that removes the last of them.
+  A `workers` job deletes a Contact with its notes 730 days after its last
+  note write or message. When the Hub account is deleted, its notes go at
+  once (MKT-DAT-012); a Contact with a conversation stays with the recorded
+  name, shows "Account deleted", and offers no profile view or notes until
+  MKT-CNV-011 deletes it.
+- **MKT-CON-005** At most 200 new Contacts per agency per UTC day, counting
+  those a conversation creates (`org-contact-limit-reached`). An agency
+  without a listed `sourcing` Listing creates none; its existing Contacts,
+  notes, and conversations continue.
+- **MKT-CON-006** Never tell the Hub user which agencies hold a Contact or
+  notes about them: no Hub page, API, or email reveals a Contact without a
+  conversation. The Hub terms disclose that agencies may keep private notes
+  about Hub users, deleted with the account.
+
+## Agency notes
+
+- **MKT-NOTE-001** A note is plain text of 1–5,000 code points on a Contact,
+  with its author (an agency user) and created and edited times. At most 200
+  notes per Contact (`org-contact-note-limit-reached`).
+- **MKT-NOTE-002** Every agency user with `org:fulfil_engagements` reads
+  every note of the agency and adds notes. The author edits their own notes
+  (`org-contact-note-not-author`); any of them deletes any note, for a
+  correction or the person's request. A disabled user's notes stay under
+  their display name.
+- **MKT-NOTE-003** Notes are private to the agency: no Hub, consumer, or
+  other-agency response, mesh payload to another tenant, statement, export,
+  or email carries them, and the Hub user cannot see or delete them.
+- **MKT-NOTE-004** Write a note from the profile view (MKT-PRF-005) or
+  Contact detail. The first note on a person creates the Contact
+  (MKT-DAT-013).
+- **MKT-NOTE-005** Vetchium never copies application, provider-work,
+  feedback, result, or offer data into a note, and offers no action that
+  does. The Org terms make the agency responsible for its notes' content,
+  including client data its contracts restrict.
+- **MKT-NOTE-006** Each note write appends an audit event with the Contact,
+  the note, and the action, never the text. An edit overwrites the text.
 
 ## Agency profile view
 
@@ -316,9 +369,12 @@ An agency is an active Org whose `sourcing` Listing is `listed`.
   profile is resolved
   through the directory and read over the mesh with a deadline
   (`org-tenant-unavailable`).
-- **MKT-PRF-003** Never record which agency viewed a profile.
+- **MKT-PRF-003** Never record which agency viewed a profile. Only a note or
+  a message creates a Contact.
 - **MKT-PRF-004** The professional-email settings page tells the owner that
   agencies see each verified domain with those months.
+- **MKT-PRF-005** The profile view shows the agency's notes on the person
+  when a Contact exists, with "Add note".
 
 ## Sourcing attribution
 
@@ -381,7 +437,7 @@ Navigation groups, each shown only when it applies (the API still decides):
 | --- | --- | --- |
 | Hiring | always | Openings (detail tabs: Applicants, Candidates, Pipeline, Providers), Pipeline templates, Find providers |
 | Provider | the Org has a Listing or a provider engagement | Listings, Clients, Work queue |
-| Agency | the Org has a `sourcing` Listing or engagement | Jobs, Contacts, Messages, Credited applications |
+| Agency | the Org has a `sourcing` Listing or engagement | Jobs, Contacts, Credited applications |
 
 - **MKT-UI-001** Find providers: Listing search (MKT-DIR) with Capability
   tabs, country and language filters, and an incomplete-results notice; a
@@ -401,15 +457,17 @@ Navigation groups, each shown only when it applies (the API still decides):
   client, title, employing country, state (default `published`), assigned
   date, and the agency's own credited count. Job detail shows the Opening as
   Hub users see it, its credited applications, the Contacts it was suggested
-  to, and "Suggest to a contact".
-- **MKT-UI-007** Contacts: the agency's Contacts with name, handle, resident
-  country, last activity, and credited count; search by name. Contact detail
-  shows the profile view (MKT-PRF), the conversation (the default tab),
-  suggested Openings, and credited applications.
-- **MKT-UI-008** Messages: the shared inbox ordered by last activity with an
-  unread filter and count in the navigation; a row opens Contact detail on
-  the conversation tab, so each thread has one page. "New message" takes a
-  handle or alias.
+  to, and "Suggest to a contact". Suggesting to a Contact without a
+  conversation starts one (MKT-CNV-002, MKT-CNV-003).
+- **MKT-UI-007** Contacts, also the shared inbox: every Contact ordered by
+  last activity, with name, handle, last activity, unread count, note count,
+  and credited count; tabs All, Unread (its count also in the navigation),
+  In conversation, and Not contacted; search by name. "New contact" takes a
+  handle or alias and opens the profile view to add a note or a first
+  message. There is no separate Messages page.
+- **MKT-UI-008** Contact detail is the one page per person: Conversation (the
+  default tab when one exists), Notes (the default otherwise), Profile
+  (MKT-PRF), Suggested Openings, and Credited applications.
 - **MKT-UI-009** Credited applications: every credit across clients with
   client, Opening, route, and Hub status filters.
 - **MKT-UI-010** Ship every string in every `orgs-ui` locale.
@@ -455,7 +513,7 @@ Billable facts, each recorded by the party that owns it:
 | --- | --- |
 | `org:manage_providers` | search Listings; propose, withdraw, and end engagements as consumer; set the consumer reference; assign engagements; read statements |
 | `org:manage_listings` | edit Listings; accept, decline, and end engagements as provider; set the provider reference; read statements |
-| `org:fulfil_engagements` | read and perform assigned work (MKT-ACC, MKT-SRC, MKT-WRK); Contacts, conversations, and the profile view (MKT-CON, MKT-CNV, MKT-PRF) |
+| `org:fulfil_engagements` | read and perform assigned work (MKT-ACC, MKT-SRC, MKT-WRK); Contacts, notes, conversations, and the profile view (MKT-CON, MKT-NOTE, MKT-CNV, MKT-PRF) |
 
 - **MKT-AUTH-001** Add the three to the Org catalog; `org:superadmin` implies
   all three. An `org:manage_users` holder may grant or revoke them.
@@ -483,6 +541,11 @@ Billable facts, each recorded by the party that owns it:
 | `org-engagement-capability-mismatch` | 422 | the engagement's Capability does not perform the stage kind |
 | `org-engagement-work-not-found` | 404 | the work item is not accessible to the provider |
 | `org-conversation-limit-reached` | 429 | daily new-conversation limit reached |
+| `org-contact-limit-reached` | 429 | daily new-Contact limit reached |
+| `org-contact-not-found` | 404 | unknown, deleted, or not the agency's |
+| `org-contact-note-limit-reached` | 409 | the Contact has 200 notes |
+| `org-contact-note-not-found` | 404 | unknown, deleted, or not the agency's |
+| `org-contact-note-not-author` | 403 | only the author edits a note |
 | `org-conversation-not-found` | 404 | unknown, deleted, or not the agency's |
 | `org-hub-user-not-found` | 404 | unknown handle or alias |
 | `org-agency-messages-off` | 403 | the Hub user does not accept messages from agencies |
@@ -504,9 +567,14 @@ Billable facts, each recorded by the party that owns it:
   changeable from a suggestion, two agencies suggesting one Opening, applying
   directly), conversations across tenants (limit, shared inbox, the
   messages switch refusing with its reason and leaving the profile view,
-  delete removing the Contact, either party's deletion leaving a read-only
-  conversation with the reason), the agency profile view (domains with months
-  only, no address in any response or mesh payload), consent gating,
+  delete keeping the Contact and notes, either party's deletion leaving a
+  read-only conversation with the reason), notes (shared reading, author-only
+  edits, any user's deletion, both caps, the first note creating a Contact
+  whose pointer no Hub response reveals, no note text in any Hub, consumer,
+  or mesh response, deleting the last note removing a Contact without a
+  conversation, retention, account deletion removing notes at once, and a
+  first note racing account deletion), the agency profile view (domains with
+  months only, no address in any response or mesh payload), consent gating,
   statement contents, and that no amount or payment field exists in any
   response.
 - **MKT-TST-002** Cover a tenant that does not answer during search, during a
@@ -516,5 +584,6 @@ Billable facts, each recorded by the party that owns it:
   flight.
 - **MKT-TST-003** `make dev-seed` gives each region a provider Org per
   Capability with a Listing, engagements in each state with consumers in
-  other regions, routed work, and agency Contacts and conversations with Hub
-  users in other regions.
+  other regions, routed work, and agency Contacts with notes and
+  conversations, including Contacts with notes only, with Hub users in other
+  regions.

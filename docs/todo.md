@@ -151,16 +151,14 @@ Specified in `hiring-pipeline.md` and `marketplace.md`; not built. Deferred:
 - Reference and endorsement stages.
 - Provider API credentials and webhooks for assessment and scoring tools
   (MKT-WRK-006).
-- Agency notes on Contacts, saving a person without messaging, searching Hub
-  profiles, and AI matching of people to assigned Openings with outreach
-  (MKT-CON-005). Decide notice to the Hub user about notes kept on them,
-  their access and erasure rights, which profiles matching may read and how
-  across tenants, and AI credit metering ([`ai.md`](../agent-guides/ai.md)).
-- Hub account and Org deletion (neither exists) must keep agency
-  conversations and Contacts read-only with the reason (MKT-CNV-011,
-  MKT-CON-004) until retention deletes them. Review
-  `marketplace.deletedPartyConversationRetention` (365 days) against erasure
-  law per region before launch.
+- Searching Hub profiles, and AI matching of people to assigned Openings
+  with outreach. Decide which profiles matching may read and how across
+  tenants, and AI credit metering ([`ai.md`](../agent-guides/ai.md)).
+- Hub account and Org deletion (neither exists) must delete agency notes at
+  once and keep agency conversations and Contacts read-only with the reason
+  (MKT-DAT-012, MKT-CNV-011, MKT-CON-004) until retention deletes them.
+  Review `marketplace.deletedPartyConversationRetention` (365 days) and the
+  730-day Contact retention against erasure law per region before launch.
 - Sourcing exclusivity per Opening, and a provider brief separate from the
   Opening's internal notes.
 - Pushing activity statements into a provider's own accounting tool, where
