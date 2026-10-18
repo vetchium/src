@@ -17,7 +17,7 @@ func TestHolds(t *testing.T) {
 
 func TestImpliesIsIndependentOfCallers(t *testing.T) {
 	t.Parallel()
-	want := []OrgPermission{ManageUsers, ManageBilling, ViewOpenings, ManageOpenings, ApproveOpenings}
+	want := []OrgPermission{ManageUsers, ManageBilling, ManageAI, ViewOpenings, ManageOpenings, ApproveOpenings}
 	implied := Implies(Superadmin)
 	if !slices.Equal(implied, want) {
 		t.Fatalf("Implies(Superadmin) = %v, want %v", implied, want)
@@ -27,6 +27,7 @@ func TestImpliesIsIndependentOfCallers(t *testing.T) {
 		t.Fatal("caller mutated the implication map")
 	}
 	if len(Implies(ManageUsers)) != 0 || len(Implies(ManageBilling)) != 0 ||
+		len(Implies(ManageAI)) != 0 ||
 		len(Implies(ViewOpenings)) != 0 ||
 		!slices.Equal(Implies(ManageOpenings), []OrgPermission{ViewOpenings}) ||
 		!slices.Equal(Implies(ApproveOpenings), []OrgPermission{ViewOpenings}) {
@@ -51,14 +52,14 @@ func TestEffectivePermissions(t *testing.T) {
 			"superadmin implies all",
 			[]OrgPermissionID{"org:superadmin"},
 			[]OrgPermissionID{
-				"org:approve_openings", "org:manage_billing", "org:manage_openings", "org:manage_users", "org:superadmin", "org:view_openings",
+				"org:approve_openings", "org:manage_ai", "org:manage_billing", "org:manage_openings", "org:manage_users", "org:superadmin", "org:view_openings",
 			},
 		},
 		{
 			"already expanded",
 			[]OrgPermissionID{"org:manage_users", "org:superadmin"},
 			[]OrgPermissionID{
-				"org:approve_openings", "org:manage_billing", "org:manage_openings", "org:manage_users", "org:superadmin", "org:view_openings",
+				"org:approve_openings", "org:manage_ai", "org:manage_billing", "org:manage_openings", "org:manage_users", "org:superadmin", "org:view_openings",
 			},
 		},
 		{
@@ -104,7 +105,7 @@ func TestDirectPermissionsDropsImpliedGrants(t *testing.T) {
 		{
 			"implied are not grants",
 			[]OrgPermissionID{
-				"org:approve_openings", "org:manage_billing", "org:manage_openings", "org:manage_users", "org:superadmin", "org:view_openings",
+				"org:approve_openings", "org:manage_ai", "org:manage_billing", "org:manage_openings", "org:manage_users", "org:superadmin", "org:view_openings",
 			},
 			[]OrgPermissionID{"org:superadmin"},
 		},
@@ -143,7 +144,7 @@ func TestValidatePermissionsRejectsUnknownAndDuplicate(t *testing.T) {
 		want   bool
 	}{
 		{"empty", nil, true},
-		{"defined", []OrgPermissionID{"org:manage_users", "org:manage_billing", "org:view_openings", "org:manage_openings", "org:approve_openings"}, true},
+		{"defined", []OrgPermissionID{"org:manage_users", "org:manage_billing", "org:manage_ai", "org:view_openings", "org:manage_openings", "org:approve_openings"}, true},
 		{"unknown", []OrgPermissionID{"org:future"}, false},
 		{"duplicate", []OrgPermissionID{"org:manage_users", "org:manage_users"}, false},
 	}

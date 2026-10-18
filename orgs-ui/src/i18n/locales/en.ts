@@ -7,7 +7,6 @@ export const en = {
     footer: "Vetchium for organizations",
     logout: "Sign out",
     operationInProgress: "Finish the operation in progress before leaving.",
-    signedInAs: "Signed in as",
   },
   navigation: {
     menu: "Navigation",
@@ -16,6 +15,7 @@ export const en = {
     members: "People",
     openings: "Openings",
     plans: "Billing",
+    ai: "AI",
     settings: "Company",
     security: "My account",
     restoreDomain: "Restore domain",
@@ -40,6 +40,10 @@ export const en = {
     loadError: "This information could not be loaded.",
     loading: "Loading",
     retry: "Try again",
+    unsavedTitle: "Leave without saving?",
+    unsavedContent: "Your changes on this page are not saved yet.",
+    unsavedLeave: "Leave",
+    unsavedStay: "Stay",
   },
   fields: {
     confirmPassword: "Confirm password",
@@ -345,11 +349,16 @@ export const en = {
     "org:manage_users": {
       name: "MANAGE_USERS",
       description:
-        "Invite, disable and re-enable users, and change what they can do, except superadmin, billing, and Opening approval permissions.",
+        "Invite, disable and re-enable users, and change what they can do, except superadmin, billing, AI management, and Opening approval permissions.",
     },
     "org:manage_billing": {
       name: "MANAGE_BILLING",
       description: "Choose the organization's plan and billing interval.",
+    },
+    "org:manage_ai": {
+      name: "MANAGE_AI",
+      description:
+        "Turn AI assistance on or off, choose which models each AI feature may use, buy AI credits, and review AI usage.",
     },
     "org:view_openings": {
       name: "VIEW_OPENINGS",
@@ -458,6 +467,224 @@ export const en = {
       regenerated: "New recovery codes were created.",
     },
   },
+  ai: {
+    documentTitle: "AI | Vetchium for organizations",
+    title: "AI",
+    description:
+      "Turn AI assistance on, choose the models each AI feature may use, manage AI credits, and review how AI was used.",
+    loading: "Loading AI settings",
+    unavailable:
+      "AI assistance is not offered in your organization's region yet.",
+    tabs: {
+      settings: "Settings",
+      credits: "Credits",
+      usage: "Usage",
+    },
+    operations: {
+      "org-opening-draft": "Opening drafting",
+    },
+    draft: {
+      button: "Draft with AI",
+      title: "Draft with AI",
+      help: "Describe the role or what to change. The draft fills the editor; nothing is saved until you save.",
+      instructionLabel: "What should the AI write?",
+      placeholder:
+        "For example: a senior backend engineer for our payments team in Singapore, hybrid, five years of Go",
+      modelLabel: "Model",
+      modelOption: "{{name}} ({{vendor}})",
+      generate: "Generate draft",
+      review: "AI can be wrong. Review every field before you save.",
+      applied:
+        "Draft filled in. {{credits}} credits used ({{input}} input and {{output}} output tokens); {{left}} credits left. Review it, then save.",
+      dropped:
+        "Some fields the AI suggested were not valid and were left out: {{fields}}",
+      unavailable: {
+        notEnabled:
+          "AI assistance is off for your organization. Someone with MANAGE_AI can turn it on in AI settings.",
+        planRequired:
+          "AI assistance needs the Gold plan, or AI credits your organization bought earlier.",
+        noCredits: "Your organization has no AI credits left.",
+        noModel: "No AI model is available for drafting.",
+        operationOff:
+          "Your organization has turned off Opening drafting with AI. Someone with MANAGE_AI can turn it back on in AI settings.",
+      },
+      errors: {
+        notEnabled: "AI assistance is off for your organization.",
+        planRequired:
+          "AI assistance needs the Gold plan, or AI credits your organization bought earlier.",
+        noCredits:
+          "Your organization does not have enough AI credits for this draft.",
+        modelNotAllowed:
+          "Your organization no longer allows that model. Choose another one.",
+        inProgress: "This draft is still being written. Wait a moment.",
+        modelFailed:
+          "The AI model did not answer. No credits were used. Try again.",
+        unusable:
+          "The AI's answer could not be used. No credits were used. Try rewording your request.",
+        operationOff:
+          "Your organization has turned off Opening drafting with AI.",
+      },
+      available: "{{available}} credits available.",
+    },
+    settings: {
+      title: "AI assistance",
+      planNotice:
+        "AI assistance, its monthly credits, and credit purchases need the Gold plan. Credits bought earlier stay usable on any plan.",
+      unavailableModels:
+        "This region no longer offers some models your organization chose: {{models}}. The region's default is used instead.",
+      enabled: "AI assistance",
+      on: "On",
+      off: "Off",
+      termsAccepted: "AI terms version {{version}} accepted on {{date}}.",
+      modelsTitle: "AI features",
+      saved: "{{feature}} settings saved.",
+      errors: {
+        termsRequired: "Accept the current AI terms to turn AI assistance on.",
+        modelNotOffered: "This region does not offer: {{models}}",
+      },
+      onHelp: "People with the right permissions can use AI features.",
+      offHelp: "Nobody in your organization can use AI features.",
+      turnedOn: "AI assistance turned on.",
+      turnedOff: "AI assistance turned off.",
+      turnOffTitle: "Turn AI assistance off?",
+      turnOffContent:
+        "Nobody in your organization can use AI features until it is turned on again. Credits, settings, and usage history are kept.",
+      turnOff: "Turn off",
+      modelsHelp:
+        "Choose which models each AI feature may use, or turn a feature off. Each feature saves on its own.",
+      modelsFor: "Models for {{feature}}",
+      modeAll: "All models in this region",
+      modeAllHelp:
+        "Models added later are allowed too. {{model}} is preselected.",
+      modeSelected: "Only the models I choose",
+      modeSelectedHelp:
+        "Pick the allowed models and the one preselected for people.",
+      modeOff: "Off",
+      modeOffHelp: "Nobody in your organization can use {{feature}}.",
+      allow: "Allow",
+      allowModel: "Allow {{model}}",
+      preselected: "Preselected",
+      preselectModel: "Preselect {{model}}",
+      chooseModel: "Choose at least one model, or turn the feature off.",
+      unsaved: "Unsaved changes",
+      save: "Save",
+      discard: "Discard",
+    },
+    terms: {
+      title: "AI terms",
+      p1: "Placeholder text: replace it with the reviewed AI terms before launch.",
+      p2: "AI features send the text you write, and the content they work on, to the AI models of your organization's region. Models run in that region.",
+      p3: "Vetchium keeps each prompt and answer for a limited time for support and abuse review. People in your organization with MANAGE_AI, and Vetchium administrators with a dedicated permission, can read them; every administrator read is recorded.",
+      p4: "AI output can be wrong or incomplete. People in your organization review it before it is saved or published.",
+      accept:
+        "I accept the AI terms (version {{version}}) for my organization.",
+      acceptAndTurnOn: "Accept and turn on",
+    },
+    models: {
+      title: "Models in this region",
+      name: "Model",
+      vendor: "Vendor",
+      licence: "Licence",
+      rates: "Credits per million tokens",
+      inputRate: "Input tokens",
+      outputRate: "Output tokens",
+      tokensHelp:
+        "Models charge separately for the tokens they read (input: the instructions, your request, and the content they work on) and the tokens they write (output). A token is about three quarters of an English word.",
+      status: "Availability",
+      offered: "Offered",
+      withdraws: "Offered until {{date}}",
+    },
+    credits: {
+      grantIncluded:
+        "Your plan includes {{credits}} AI credits each month. They are used first and lapse at the end of the month.",
+      grantNotIncluded: "Your plan includes no monthly AI credits.",
+      packsTitle: "Buy credits",
+      simulated:
+        "Payments are simulated during development: buying a pack adds its credits without charging you. Purchased credits expire twelve months after purchase.",
+      goldOnly: "Buying credits needs the Gold plan.",
+      packCredits: "{{credits}} credits",
+      buy: "Buy",
+      buyTitle: "Buy {{credits}} credits?",
+      buySimulated:
+        "The listed price is {{price}}. Payments are simulated during development, so you will not be charged.",
+      bought: "Credits added.",
+      lotsTitle: "Credit history",
+      noLots: "No credits yet",
+      kind: "Source",
+      kinds: {
+        grant: "Monthly credits",
+        purchase: "Purchase",
+      },
+      granted: "Credits",
+      remaining: "Left",
+      added: "Added",
+      expires: "Expires",
+    },
+    usage: {
+      title: "AI usage",
+      help: "Every AI request, newest first. Prompts and answers are kept for a limited time.",
+      empty: "No AI requests yet",
+      when: "When",
+      operation: "Feature",
+      model: "Model",
+      user: "User",
+      outcome: "Outcome",
+      states: {
+        reserved: "In progress",
+        settled: "Completed",
+        released: "Failed",
+        abandoned: "Abandoned",
+      },
+      failures: {
+        model_failed: "Model failed",
+        unusable_output: "Unusable answer",
+        abandoned: "Abandoned",
+      },
+      tokens: "Tokens",
+      inputTokens: "Input",
+      outputTokens: "Output",
+      credits: "Credits",
+      text: "Prompt and answer",
+      view: "View",
+      viewFor: "View the prompt and answer from {{time}}",
+      deleted: "Deleted",
+      textTitle: "Prompt and answer",
+      textUnreadable:
+        "You cannot read this prompt: it is about Openings, and you cannot view the organization's Openings.",
+      textExpires: "Kept until {{date}}.",
+      roles: {
+        system: "Instructions",
+        user: "Request",
+      },
+      answer: "Answer",
+      noAnswer: "The model gave no answer.",
+    },
+    statusOn: "AI on",
+    statusOff: "AI off",
+    offNotice:
+      "AI assistance is off, so nobody in your organization can use AI features.",
+    openSettings: "Open settings",
+    summary: {
+      monthlyTitle: "This month's credits",
+      purchasedTitle: "Purchased credits",
+      percentUsed: "{{percent}}% used",
+      underOnePercent: "Under 1% used",
+      gaugeLabel: "{{title}}: share used",
+      left: "{{left}} of {{total}} left",
+      monthlyRenews: "Renews on {{date}}. Unused credits lapse then.",
+      monthlyPending:
+        "Your plan includes {{credits}} credits each month. This month's credits arrive shortly.",
+      monthlyNone: "Your plan includes no monthly credits. The Gold plan does.",
+      purchasedExpires: "The earliest purchase expires on {{date}}.",
+      purchasedNone: "No purchased credits.",
+      buy: "Buy credits",
+      warning:
+        "{{percent}}% of your AI credits are used. Buy more before they run out.",
+      exhausted:
+        "Your AI credits are used up. AI features stop until you buy credits or next month's credits arrive.",
+      reserved: "{{credits}} credits are held by AI requests in progress.",
+    },
+  },
   plans: {
     documentTitle: "Plan and billing | Vetchium for organizations",
     title: "Billing",
@@ -507,6 +734,7 @@ export const en = {
       googleSignIn: "Google sign-in",
       ticketSupport: "Ticket-based support",
       mcp: "MCP support",
+      aiCredits: "{{count}} AI credits a month",
     },
     comparison: {
       feature: "Feature",
@@ -514,6 +742,7 @@ export const en = {
       openings: "Job openings per year",
       logo: "Organization logo",
       googleSignIn: "Google sign-in",
+      ai: "AI assistance",
       ticketSupport: "Ticket-based support",
       mcp: "MCP support",
     },

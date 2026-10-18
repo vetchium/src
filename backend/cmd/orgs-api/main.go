@@ -7,6 +7,7 @@ import (
 
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
+	"backend/internal/chatmodel"
 	"backend/internal/db"
 	dbsqlc "backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
@@ -15,6 +16,7 @@ import (
 	"backend/internal/objectstorage"
 	"backend/internal/oidc"
 	orgsruntime "backend/internal/orgs"
+	orgai "backend/internal/orgs/ai"
 	orgsauthn "backend/internal/orgs/auth"
 	"backend/internal/orgs/domainverification"
 	"backend/internal/orgs/signupcompletion"
@@ -140,6 +142,12 @@ func run(log *slog.Logger, address string) error {
 			ClientID: google.ClientID, ClientSecret: clientSecret,
 			RedirectURI: google.RedirectURI,
 		})
+	}
+	if cfg.AI != nil {
+		s.AI, err = orgai.NewRuntime(*cfg.AI, chatmodel.New())
+		if err != nil {
+			return err
+		}
 	}
 	mux := http.NewServeMux()
 	routes.RegisterOrgsRoutes(mux, s)

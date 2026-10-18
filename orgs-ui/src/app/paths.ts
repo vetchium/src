@@ -16,6 +16,7 @@ export const paths = {
   openingDetail: (number: number) => `/openings/${number}`,
   openingEdit: (number: number) => `/openings/${number}/edit`,
   plans: "/plans",
+  ai: "/ai",
   settings: "/company",
   organizationSecurity: "/organization-security",
   acceptInvitation: "/accept-invitation",

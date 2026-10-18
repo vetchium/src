@@ -63,6 +63,15 @@ Applies to product terms in prompts, specifications, code, and UI text.
 - Preset — a role label in the Orgs portal (Superadmin, Finance, User manager, Recruiter, Hiring approver, Member) that pre-ticks permission checkboxes; not stored.
 - Google sign-in — a Gold Org's optional sign-in with its members' Google Workspace accounts; skips Vetchium TOTP.
 
+## AI
+
+- AI operation — one AI feature, such as `org-opening-draft`, with its own permission, prompt, and output validation.
+- Model OID — Vetchium's stable name for a model a region offers, independent of the server hosting it.
+- AI credit — the whole unit AI usage is charged in; each model has credit rates per million input and output tokens.
+- Credit lot — credits from one monthly grant or one purchased pack, with its own expiry.
+- Reservation — credits held for a model call in progress; settling charges at most that much.
+- Kept text — a call's prompt and answer, kept for the region's retention period for support and abuse review.
+
 ## Location
 
 - Resident country — a Hub user's self-declared current country, independent of their home tenant.

@@ -15,6 +15,7 @@ import (
 	"backend/internal/db/sqlc"
 	"backend/internal/imagesanitize"
 	"backend/internal/oidc"
+	orgai "backend/internal/orgs/ai"
 	"backend/internal/orgs/auth"
 	"backend/internal/orgs/domainverification"
 	"backend/internal/orgs/signupcompletion"
@@ -57,6 +58,9 @@ type Server struct {
 
 	// GoogleSignIn is nil when the tenant does not offer Google sign-in.
 	GoogleSignIn SSOProvider
+
+	// AI is nil when the tenant offers no AI.
+	AI *orgai.Runtime
 }
 
 // SSOProvider is the OpenID Connect client for one identity provider.

@@ -1,6 +1,7 @@
 # UI
 
-Applies to `admin-ui/`, `hub-ui/`, `orgs-ui/`, and `portal-ui/`.
+Applies to `admin-ui/`, `hub-ui/`, `orgs-ui/`, and `portal-ui/`. Screen
+design (layout, saving, states, copy) is in [`ux.md`](ux.md).
 
 ## Stack
 

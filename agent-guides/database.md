@@ -119,8 +119,9 @@ Applies to PostgreSQL access, `backend/internal/db/`, migrations, and seeds.
 
 - No `ALTER TABLE` or data-fixing `UPDATE` migrations: pre-production, data
   may be thrown away when the schema changes.
-- No performance indexes until profiling; an index that enforces a constraint
-  is fine.
+- Index every list's keyset order and every worker's scan; no other
+  performance indexes until profiling. An index that enforces a constraint is
+  fine.
 
 ## Bootstrap
 

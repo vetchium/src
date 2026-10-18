@@ -24,8 +24,8 @@ Applies to every change, before calling it done.
   application check together.
 - No hand-edited generated files, dead code, leftover diagnostics, or
   unrelated edits. Comments only for non-obvious intent.
-- UI: accessibility, keyboard use, loading and error states, layout, every
-  supported locale.
+- UI: every rule and the screenshot check in [`ux.md`](ux.md),
+  accessibility, keyboard use, every supported locale.
 - For a permission-gated feature, verify a representative intended account can
   obtain the permission in each environment and reach the screen from the
   normal navigation; test the account without granting access in test setup.

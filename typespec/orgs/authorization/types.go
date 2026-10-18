@@ -10,6 +10,7 @@ const (
 	Superadmin      OrgPermission = "org:superadmin"
 	ManageUsers     OrgPermission = "org:manage_users"
 	ManageBilling   OrgPermission = "org:manage_billing"
+	ManageAI        OrgPermission = "org:manage_ai"
 	ViewOpenings    OrgPermission = "org:view_openings"
 	ManageOpenings  OrgPermission = "org:manage_openings"
 	ApproveOpenings OrgPermission = "org:approve_openings"
@@ -18,12 +19,12 @@ const (
 // orgPermissions is ordered the way portals present permissions rather than
 // lexically, so a permission and the permissions it implies stay adjacent.
 var orgPermissions = []OrgPermission{
-	Superadmin, ManageUsers, ManageBilling,
+	Superadmin, ManageUsers, ManageBilling, ManageAI,
 	ViewOpenings, ManageOpenings, ApproveOpenings,
 }
 
 var permissionImplications = map[OrgPermission][]OrgPermission{
-	Superadmin:      {ManageUsers, ManageBilling, ViewOpenings, ManageOpenings, ApproveOpenings},
+	Superadmin:      {ManageUsers, ManageBilling, ManageAI, ViewOpenings, ManageOpenings, ApproveOpenings},
 	ManageOpenings:  {ViewOpenings},
 	ApproveOpenings: {ViewOpenings},
 }

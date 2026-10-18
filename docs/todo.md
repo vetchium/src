@@ -132,44 +132,34 @@ Each item: what is not done, and what must be decided first.
 
 ## AI assistance
 
-Not built. Candidate features: a draft from a prompt, structuring a pasted job
-description, refining a section on instruction, and an inclusive-language
-review before submission. The current leaning is Gold only, with a daily cap
-per Org as a plan entitlement, behind a provider-neutral internal interface.
-Output only ever fills a working copy that a person reviews and submits; it
-passes the same validators, and the model gets no tool with side effects.
+Org Opening drafting is built ([`agent-guides/ai.md`](../agent-guides/ai.md)).
+Not built:
 
-Ways to reach a model:
-
-1. MCP first: the Org's own assistant (Claude, ChatGPT, Gemini, or another)
-   calls Vetchium's Opening operations through `mcp-server`. Vetchium stores no
-   provider key, pays no inference cost, and sends no data to a provider
-   itself.
-2. Vetchium-managed provider per tenant: a tenant config block names the
-   provider endpoint and key file, as `googleSignIn` does; a tenant without it
-   hides the feature. In-region endpoints (a cloud provider's regional model
-   hosting) keep data residency. Cost is bundled into the plan.
-3. Bring your own key per Org: a superadmin sets a provider, model, and API
-   key. The Org pays and picks the provider, but Vetchium holds third-party
-   secrets (encrypted at rest, write-only, rotatable) and must allowlist
-   provider hosts to prevent request forgery to arbitrary URLs. Quality and
-   structured-output support differ by provider.
-4. Gateway such as OpenRouter: one interface to many models, but another data
-   processor in the path. A self-hosted gateway avoids that at an operations
-   cost. A gateway is an implementation behind option 2 or 3, not a product
-   choice.
-5. Vetchium-hosted models per region: the most control over residency and
-   cost per call, and the largest investment.
-6. Reselling or partnering with model providers: a business decision that
-   changes billing, not the interface.
-
-Recommendation: build option 1 first, since it needs no keys and `mcp-server`
-already exists. Then add option 2 behind the provider-neutral interface for
-in-portal drafting, enabled per tenant. Offer option 3 later to Orgs with their
-own provider contracts, restricted to allowlisted hosts. Decide first: data
-processing agreements per region, prompt retention (recommended: none; audit
-records only that a generation happened), the daily caps, and how invalid model
-fields are reported to the user.
+- Hub AI. Decided: the paid Hub plan gets a monthly grant and may buy packs
+  with the Org expiry rules, metered like Orgs in the Hub user's home tenant.
+  Decide the grant size, the first Hub operation, and where Hub users see
+  their usage and kept text.
+- Real payments for credit packs; purchases are simulated. Decide with the
+  Org payments integration: refunds, tax, invoices, and unused purchased
+  credits.
+- Production hosting: no `deploy/` tenant has an `ai` block. Decide GPU sizing
+  per region, model versions (DEU: DeepSeek and Mistral; USA1, SGP, IND1:
+  Gemma, whose licence is not open source), data processing agreements, and
+  credit prices.
+- AI terms: placeholder text in every `orgs-ui` locale. Replace it before
+  launch and decide whether Orgs must accept a later version.
+- Streaming answers (server-sent events through `http.ResponseController`);
+  answers are complete JSON.
+- Decision models (typed-answer classifiers such as Laya): a second model kind
+  with its own server and per-decision rates, added with the first operation
+  that needs typed decisions.
+- Frontier third-party models through in-region enterprise endpoints: the
+  catalog allows another host, none is offered.
+- Admin reading of kept text needs only `admin:view_ai_usage`; decide whether
+  it also needs step-up.
+- Candidate scoring or any operation that evaluates people: settle EU AI Act
+  high-risk duties (risk management, logging, human oversight) and NYC Local
+  Law 144 bias audits first.
 
 ## Global portals
 

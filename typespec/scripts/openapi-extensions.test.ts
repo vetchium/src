@@ -59,6 +59,8 @@ test("the compiled OpenAPI document carries the Org plan extensions", async () =
       allows_logo: held.allowsLogo,
       allows_google_sign_in: held.allowsGoogleSignIn,
       includes_ticket_support: held.includesTicketSupport,
+      allows_ai: held.allowsAI,
+      ai_credits_per_month: held.aiCreditsPerMonth,
     };
   }
   assert.deepEqual(schema["x-vetchium-plan-ranks"], wantRanks);

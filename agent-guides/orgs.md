@@ -216,8 +216,9 @@ by the `workers` schedule and check-now.
 
 - Org authorization follows the shared model in
   [`authorization.md`](authorization.md). The catalog holds `org:superadmin`,
-  `org:manage_users`, `org:manage_billing`, `org:view_openings`,
-  `org:manage_openings`, and `org:approve_openings`. The superadmin implies
+  `org:manage_users`, `org:manage_billing`, `org:manage_ai`,
+  `org:view_openings`, `org:manage_openings`, and `org:approve_openings`. The
+  superadmin implies
   every other permission; manage and approve Openings each imply view.
 - Org plans are seeded rows identified by plan OIDs, identical in every tenant.
   A new Org starts on `org-free-tier`. Plans, billing, seats, user management,
@@ -236,8 +237,9 @@ by the `workers` schedule and check-now.
   step, Google sign-in and its callback, forgot and reset password, the
   signed-in shell, account security, the failing banner, and the suspended
   (restore-domain) screen, plus members and invitations, plans and billing,
-  Company (name, country, default language, and logo), Organization security (Google sign-in), and
-  Openings lists, editing, requests, approvals, and history.
+  Company (name, country, default language, and logo), Organization security (Google sign-in),
+  Openings lists, editing (with Draft with AI), requests, approvals, and
+  history, and AI (settings, credits, and usage; [`ai.md`](ai.md)).
 - The Company page edits the display name, country, and default language in
   one `set-company-details` request (`org:superadmin`). It replaces all three,
   writes no row and no audit event when nothing changed, and otherwise audits
@@ -246,7 +248,8 @@ by the `workers` schedule and check-now.
   address that is not yet a user (invitations and their resends) uses the
   Org's default language.
 - Show the signed-in email in My account and authorized People administration,
-  not in the shell or Overview. Redirect `/settings` to `/company` and
+  not in the shell or Overview. The shell shows no Org name or logo either:
+  Overview's heading names the Org, and the Company page shows the logo. Redirect `/settings` to `/company` and
   `/security` to `/account`.
 - Ship every user-visible string in every `orgs-ui` locale.
 

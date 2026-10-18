@@ -62,6 +62,17 @@ async function withGlobal<T>(
   }
 }
 
+// Node exposes the host's locale as navigator.languages; pin it so the
+// table default does not depend on the machine running the tests.
+function withBrowser<T>(
+  storage: unknown,
+  run: () => T | Promise<T>,
+): Promise<T> {
+  return withGlobal("navigator", { languages: [] }, () =>
+    withGlobal("localStorage", storage, run),
+  );
+}
+
 test("the initial region prefers remembered, then recommended, then default", () => {
   assert.equal(initialRegion(table, "deu", ["en-IN"]), "deu");
   assert.equal(initialRegion(table, null, ["en-IN"]), "ind1");
@@ -82,7 +93,7 @@ test("only the first language tag naming a country is consulted", () => {
 
 test("the store remembers only known regions", async () => {
   const storage = fakeStorage();
-  await withGlobal("localStorage", storage, () => {
+  await withBrowser(storage, () => {
     const store = createRegionStore({ key: "test.region", table });
     store.remember("ind1");
     assert.equal(store.read(), "ind1");
@@ -104,7 +115,7 @@ test("the store keeps the choice in memory when storage throws", async () => {
       throw new Error("blocked");
     },
   };
-  await withGlobal("localStorage", throwing, () => {
+  await withBrowser(throwing, () => {
     const store = createRegionStore({ key: "test.region", table });
     assert.equal(store.read(), "sgp");
     store.remember("deu");

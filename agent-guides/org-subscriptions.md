@@ -35,7 +35,7 @@ Google sign-in. Compose with `orgs.md` and `authorization.md`.
   from member administration.
 - Delegation: a `org:manage_users` holder may invite, list, disable, and
   re-enable users and grant or revoke `org:manage_users`. Only a superadmin may
-  grant or revoke `org:superadmin`, `org:manage_billing`, or
+  grant or revoke `org:superadmin`, `org:manage_billing`, `org:manage_ai`, or
   `org:approve_openings`, or disable or re-enable a superadmin; the refusal
   names the target (`org-superadmin-required`). Changing grants needs step-up;
   inviting and disabling do not.
@@ -109,6 +109,12 @@ Google sign-in. Compose with `orgs.md` and `authorization.md`.
   `login_hint` and may override `hd`, `sub`, and `email_verified`. There is no
   code bypass, and it is never in `deploy/`. Production setup is in
   `deploy/README.md`.
+
+## AI credits
+
+- `allows_ai` and `ai_credits_per_month` are plan entitlements (Gold only).
+  Their effect on AI operations, grants, and purchases is in
+  [`ai.md`](ai.md); a downgrade never removes purchased credits.
 
 ## Openings quota
 

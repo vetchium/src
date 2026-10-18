@@ -2,6 +2,7 @@ import { Spin } from "antd";
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import {
+  ManageAI,
   ManageBilling,
   ManageOpenings,
   ManageUsers,
@@ -26,6 +27,11 @@ const AcceptInvitationPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import("../pages/SettingsPage").then(({ SettingsPage }) => ({
     default: SettingsPage,
+  })),
+);
+const AIPage = lazy(() =>
+  import("../pages/AIPage").then(({ AIPage }) => ({
+    default: AIPage,
   })),
 );
 const PlansPage = lazy(() =>
@@ -307,6 +313,16 @@ export function App() {
                 element={
                   <Page>
                     <SettingsPage />
+                  </Page>
+                }
+              />
+            </Route>
+            <Route element={<PermissionRoute permission={ManageAI} />}>
+              <Route
+                path={paths.ai}
+                element={
+                  <Page>
+                    <AIPage />
                   </Page>
                 }
               />

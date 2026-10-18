@@ -50,6 +50,7 @@ type Worker struct {
 	openingExpiryQueries         openingExpiryQueries
 	orgQueries                   orgEmailQueries
 	orgs                         *orgJobs
+	orgAI                        *orgAIJobs
 	hubSubscriptionExpiryNow     func() time.Time
 	log                          *slog.Logger
 	tenantID                     string

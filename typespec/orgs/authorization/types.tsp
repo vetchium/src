@@ -7,6 +7,7 @@ enum OrgPermission {
   Superadmin: "org:superadmin",
   ManageUsers: "org:manage_users",
   ManageBilling: "org:manage_billing",
+  ManageAI: "org:manage_ai",
   ViewOpenings: "org:view_openings",
   ManageOpenings: "org:manage_openings",
   ApproveOpenings: "org:approve_openings",
@@ -27,6 +28,7 @@ enum OrgPermission {
     "org:superadmin",
     "org:manage_users",
     "org:manage_billing",
+    "org:manage_ai",
     "org:view_openings",
     "org:manage_openings",
     "org:approve_openings"
@@ -38,6 +40,7 @@ enum OrgPermission {
     `org:superadmin`: #[
       "org:manage_users",
       "org:manage_billing",
+      "org:manage_ai",
       "org:view_openings",
       "org:manage_openings",
       "org:approve_openings"

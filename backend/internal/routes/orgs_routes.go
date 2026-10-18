@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	orgsaccount "backend/handlers/orgs/account"
+	orgsai "backend/handlers/orgs/ai"
 	orgsauth "backend/handlers/orgs/auth"
 	orgsopenings "backend/handlers/orgs/openings"
 	orgssettings "backend/handlers/orgs/settings"
@@ -106,6 +107,23 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/opening-summary", readOpening(orgsopenings.OpeningSummary(s)))
 	mux.Handle("POST /api/orgs/lookup-opening-team-member", manageOpenings(orgsopenings.LookupOpeningTeamMember(s)))
 	mux.Handle("POST /api/orgs/list-opening-history", readOpening(orgsopenings.ListOpeningHistory(s)))
+	mux.Handle("POST /api/orgs/draft-opening-with-ai", manageOpenings(orgsai.DraftOpeningWithAI(s)))
+
+	// The options a caller may use depend on the operation, whose permission
+	// the handler checks.
+	mux.Handle("POST /api/orgs/get-ai-options", orgAuth(activeOrg(orgsai.GetAIOptions(s))))
+	manageAI := func(next http.Handler) http.Handler {
+		return orgAuth(activeOrg(middleware.RequireOrgPermission(
+			s, orgsauthorization.ManageAI,
+		)(next)))
+	}
+	mux.Handle("GET /api/orgs/ai-settings", manageAI(orgsai.GetAISettings(s)))
+	mux.Handle("POST /api/orgs/set-ai-settings", manageAI(orgsai.SetAISettings(s)))
+	mux.Handle("GET /api/orgs/ai-credits", manageAI(orgsai.GetAICredits(s)))
+	mux.Handle("POST /api/orgs/list-ai-credit-lots", manageAI(orgsai.ListAICreditLots(s)))
+	mux.Handle("POST /api/orgs/buy-ai-credit-pack", manageAI(orgsai.BuyAICreditPack(s)))
+	mux.Handle("POST /api/orgs/list-ai-usage", manageAI(orgsai.ListAIUsage(s)))
+	mux.Handle("POST /api/orgs/get-ai-usage-text", manageAI(orgsai.GetAIUsageText(s)))
 	manageUsers := func(next http.Handler) http.Handler {
 		return orgAuth(activeOrg(
 			middleware.RequireOrgPermission(
