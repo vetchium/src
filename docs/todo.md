@@ -109,7 +109,7 @@ Each item: what is not done, and what must be decided first.
 
 ## Openings
 
-- Not specified: applications and the rest of hiring; watchers and email
+- Not specified: watchers and email
   notifications for requests and decisions (decide recipients, batching, and
   opt-out); tags (seeded opening-tag OIDs) and cost centers; multi-step or
   per-Org approval chains; extending expiry without a new quota slot.
@@ -129,6 +129,51 @@ Each item: what is not done, and what must be decided first.
   revision is named by its draft. Decide which title names an Opening.
 - MCP for Gold Orgs: expose the Opening operations through `mcp-server`
   under the Org user's permissions, as `openings.md` OPN-GEN-005 allows.
+
+## Hiring pipeline and marketplace
+
+Specified in `hiring-pipeline.md` and `marketplace.md`; not built. Deferred:
+
+- Applicants without a Hub account (credited per MKT-SRC-008, or through an
+  Opening invite URL). Decide identity proof, consent
+  capture, and the applicant `kind`.
+- Unlisted Openings for confidential searches that take candidates only
+  through providers or invites. Decide what an invited person may see.
+- Résumé files on applications. Decide formats, size, scanning, and the
+  cross-tenant upload path (the browser reaches only its home tenant).
+- In-product messaging between an employing Org and an applicant (agency
+  conversations are specified), and Org-side questions on applications
+  (notice period, expected pay). Attachments and email notifications to Org
+  users for new messages.
+- Moving a candidacy back a stage and per-candidacy extra stages.
+- Offer approval chains; sharing offered compensation with a sourcing
+  provider.
+- Reference and endorsement stages.
+- Provider API credentials and webhooks for assessment and scoring tools
+  (MKT-WRK-006).
+- Agency notes on Contacts, saving a person without messaging, searching Hub
+  profiles, and AI matching of people to assigned Openings with outreach
+  (MKT-CON-005). Decide notice to the Hub user about notes kept on them,
+  their access and erasure rights, which profiles matching may read and how
+  across tenants, and AI credit metering ([`ai.md`](../agent-guides/ai.md)).
+- Hub account and Org deletion (neither exists) must keep agency
+  conversations and Contacts read-only with the reason (MKT-CNV-011,
+  MKT-CON-004) until retention deletes them. Review
+  `marketplace.deletedPartyConversationRetention` (365 days) against erasure
+  law per region before launch.
+- Sourcing exclusivity per Opening, and a provider brief separate from the
+  Opening's internal notes.
+- Pushing activity statements into a provider's own accounting tool, where
+  the provider issues the invoice.
+- Principal migration for marketplace data (MKT-DAT-011) and the deletion
+  notices between agency and Hub tenants (MKT-DAT-012).
+- Contract staffing and employer of record: timesheets and ongoing billing.
+- A Hub user blocking individual agencies (refused with its own reason, as
+  MKT-CNV-010 does for the messages setting), and reporting an agency's
+  messages to Admins; abuse limits beyond the daily conversation cap,
+  including probing which agencies work on an Opening through the referral
+  check (MKT-SRC-003).
+- Org terms text for the marketplace posture (MKT-GEN-001, MKT-GEN-002).
 
 ## AI assistance
 

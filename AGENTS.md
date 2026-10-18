@@ -62,6 +62,8 @@ Read every guide that applies before changing files.
 | [`orgs.md`](agent-guides/orgs.md) | Org signup, sign-in, domain verification |
 | [`org-subscriptions.md`](agent-guides/org-subscriptions.md) | Org plans, billing, seats, user management, logo, Google sign-in |
 | [`openings.md`](agent-guides/openings.md) | Openings: creation, approval, lifecycle, Org and Hub display |
+| [`hiring-pipeline.md`](agent-guides/hiring-pipeline.md) | Applications, pipelines, candidacies, interviews, offers, Hub Applications pages |
+| [`marketplace.md`](agent-guides/marketplace.md) | Capabilities, Listings, engagements, provider work, submissions, activity statements |
 | [`ai.md`](agent-guides/ai.md) | AI operations, model catalog, AI credits, metering, kept prompts |
 
 Guides compose: a handler using PostgreSQL needs `go.md`, `backend.md`, and
