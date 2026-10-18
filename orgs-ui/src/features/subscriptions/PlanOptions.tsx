@@ -1,3 +1,4 @@
+import { ArrowLeftOutlined, CheckCircleFilled } from "@ant-design/icons";
 import {
   Alert,
   App,
@@ -14,6 +15,7 @@ import {
   Table,
   Tag,
   Typography,
+  theme,
 } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -55,6 +57,7 @@ export function PlanOptions({
 }) {
   const { t } = useTranslation();
   const { message } = App.useApp();
+  const { token } = theme.useToken();
   const { data: me } = useMyInfoQuery();
   const mutation = useSetSubscriptionPlan();
   const [interval, setInterval] = useState<BillingInterval>(
@@ -62,6 +65,7 @@ export function PlanOptions({
   );
   const [target, setTarget] = useState<OrgPlan>();
   const known = isOrgPlan(subscription.plan_oid);
+  const onPaidPlan = known && subscription.plan_oid !== FreeTier;
   const options = presentablePlans(tenantID, configuredPlans);
   const number = new Intl.NumberFormat(locale);
   const targetLimit =
@@ -120,83 +124,171 @@ export function PlanOptions({
         return t(held.includesTicketSupport ? "plans.comingSoon" : "plans.no");
     }
   };
+  const included = (plan: OrgPlan): readonly string[] => {
+    const held = entitlements[plan];
+    return [
+      feature(plan, "users"),
+      feature(plan, "openings"),
+      ...(held.allowsLogo ? [t("plans.features.logo")] : []),
+      ...(held.allowsGoogleSignIn ? [t("plans.features.googleSignIn")] : []),
+      ...(held.allowsAI ? [feature(plan, "ai")] : []),
+    ];
+  };
+  // Matches the comparison table, where both rows follow ticket support.
+  const comingSoon = (plan: OrgPlan): readonly string[] =>
+    entitlements[plan].includesTicketSupport
+      ? [t("plans.features.ticketSupport"), t("plans.features.mcp")]
+      : [];
+
+  const planCard = (plan: OrgPlan) => {
+    const label = planLabel(t, plan);
+    const price =
+      plan === FreeTier ? undefined : planPrice(tenantID, plan, interval);
+    const isCurrentPlan = plan === subscription.plan_oid;
+    const current =
+      isCurrentPlan &&
+      (plan === FreeTier || subscription.billing_interval === interval);
+    const upgrade = known && planRank(plan) > planRank(subscription.plan_oid);
+    // A paying Org has already chosen: its plan leads, and Free stays
+    // available as a quieter downgrade option.
+    const highlighted = isCurrentPlan && plan !== FreeTier;
+    const deemphasized = onPaidPlan && plan === FreeTier;
+    const secondary = deemphasized ? "secondary" : undefined;
+    return (
+      <Card
+        role="region"
+        aria-label={t("plans.planCardLabel", { plan: label })}
+        data-testid={`plan-${plan}`}
+        variant={deemphasized ? "borderless" : "outlined"}
+        style={{
+          width: "100%",
+          ...(highlighted
+            ? { borderColor: token.colorPrimary, borderWidth: 2 }
+            : {}),
+          ...(deemphasized ? { background: token.colorFillQuaternary } : {}),
+        }}
+        styles={{ body: { height: "100%" } }}
+      >
+        <Flex orientation="vertical" gap="large" style={{ height: "100%" }}>
+          <Flex align="center" gap="small" wrap>
+            <Typography.Title level={2} type={secondary} style={{ margin: 0 }}>
+              {label}
+            </Typography.Title>
+            {isCurrentPlan ? (
+              <Tag color="blue">{t("plans.currentBadge")}</Tag>
+            ) : null}
+          </Flex>
+          <div>
+            <Flex align="baseline" gap="small" wrap>
+              <Typography.Title
+                level={3}
+                type={secondary}
+                style={{ margin: 0 }}
+              >
+                {price === undefined
+                  ? t("plans.freePrice")
+                  : formatPrice(price.amount, price.currency, locale)}
+              </Typography.Title>
+              <Typography.Text type="secondary">
+                {price === undefined
+                  ? t("plans.freePriceCaption")
+                  : t(`plans.pricePeriod.${interval}`)}
+              </Typography.Text>
+            </Flex>
+            <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
+              {t(`plans.descriptions.${plan}`)}
+            </Typography.Paragraph>
+          </div>
+          <Space orientation="vertical" size="middle">
+            <Typography.Text strong type={secondary}>
+              {t("plans.featuresTitle")}
+            </Typography.Text>
+            {included(plan).map((text) => (
+              <Flex key={text} align="start" gap="small">
+                <CheckCircleFilled
+                  aria-hidden
+                  style={{
+                    color: deemphasized
+                      ? token.colorTextQuaternary
+                      : token.colorSuccess,
+                    marginTop: 4,
+                  }}
+                />
+                <Typography.Text type={secondary}>{text}</Typography.Text>
+              </Flex>
+            ))}
+            {comingSoon(plan).map((text) => (
+              <Flex key={text} align="start" gap="small" wrap>
+                <Typography.Text type="secondary">{text}</Typography.Text>
+                <Tag>{t("plans.comingSoon")}</Tag>
+              </Flex>
+            ))}
+          </Space>
+          <Button
+            block
+            size={deemphasized ? "middle" : "large"}
+            type={deemphasized ? "text" : upgrade ? "primary" : "default"}
+            disabled={current || !known || changesLocked}
+            onClick={() => {
+              mutation.reset();
+              setTarget(plan);
+            }}
+            style={{ marginTop: "auto" }}
+          >
+            {action(plan)}
+          </Button>
+        </Flex>
+      </Card>
+    );
+  };
+
   return (
     <Flex orientation="vertical" gap="large">
       <Flex>
-        <Button onClick={onDone}>{t("plans.back")}</Button>
+        <Button icon={<ArrowLeftOutlined aria-hidden />} onClick={onDone}>
+          {t("plans.back")}
+        </Button>
       </Flex>
       {!known ? (
         <Alert
           type="warning"
+          showIcon
           title={t("plans.unknownPlanTitle")}
           description={t("plans.unknownPlanDescription", {
             plan: subscription.plan_oid,
           })}
         />
       ) : null}
-      <Space orientation="vertical">
-        <Segmented<BillingInterval>
-          aria-label={t("plans.billingIntervalLabel")}
-          value={interval}
-          options={[
-            { label: t("plans.interval.month"), value: "month" },
-            { label: t("plans.interval.year"), value: "year" },
-          ]}
-          onChange={setInterval}
-        />
-        <Typography.Text type="secondary">
+      <Flex orientation="vertical" align="center" gap="small">
+        <Flex align="center" justify="center" gap="small" wrap>
+          <Segmented<BillingInterval>
+            aria-label={t("plans.billingIntervalLabel")}
+            size="large"
+            shape="round"
+            value={interval}
+            options={[
+              { label: t("plans.interval.month"), value: "month" },
+              { label: t("plans.interval.year"), value: "year" },
+            ]}
+            onChange={setInterval}
+          />
+          <Tag color="green">{t("plans.annualSaving")}</Tag>
+        </Flex>
+        <Typography.Text type="secondary" style={{ textAlign: "center" }}>
+          {t("plans.pricingNote")}
+        </Typography.Text>
+        <Typography.Text type="secondary" style={{ textAlign: "center" }}>
           {t("plans.development")}
         </Typography.Text>
-      </Space>
-      <Row gutter={[16, 16]}>
-        {options.map((plan) => {
-          const price =
-            plan === FreeTier ? undefined : planPrice(tenantID, plan, interval);
-          const current =
-            plan === subscription.plan_oid &&
-            (plan === FreeTier || subscription.billing_interval === interval);
-          return (
-            <Col key={plan} xs={24} md={12} xl={8}>
-              <Card
-                title={planLabel(t, plan)}
-                extra={current ? <Tag>{t("plans.actions.current")}</Tag> : null}
-                data-testid={`plan-${plan}`}
-              >
-                <Flex orientation="vertical" gap="middle">
-                  <Typography.Title level={3}>
-                    {price === undefined
-                      ? t("plans.freePrice")
-                      : formatPrice(price.amount, price.currency, locale)}
-                  </Typography.Title>
-                  {price === undefined ? null : (
-                    <Typography.Text type="secondary">
-                      {t(`plans.pricePeriod.${interval}`)}
-                    </Typography.Text>
-                  )}
-                  <Typography.Text>{feature(plan, "users")}</Typography.Text>
-                  <Typography.Text>{feature(plan, "openings")}</Typography.Text>
-                  <Typography.Text>
-                    {t("plans.features.logo")}: {feature(plan, "logo")}
-                  </Typography.Text>
-                  <Typography.Text>
-                    {t("plans.features.googleSignIn")}:{" "}
-                    {feature(plan, "googleSignIn")}
-                  </Typography.Text>
-                  <Button
-                    disabled={current || !known || changesLocked}
-                    onClick={() => {
-                      mutation.reset();
-                      setTarget(plan);
-                    }}
-                  >
-                    {action(plan)}
-                  </Button>
-                </Flex>
-              </Card>
-            </Col>
-          );
-        })}
+      </Flex>
+      <Row align="stretch" gutter={[24, 24]} justify="center">
+        {options.map((plan) => (
+          <Col key={plan} xs={24} md={12} xl={8} style={{ display: "flex" }}>
+            {planCard(plan)}
+          </Col>
+        ))}
       </Row>
+      <Alert type="success" showIcon title={t("plans.fossNote")} />
       <Collapse
         items={[
           {

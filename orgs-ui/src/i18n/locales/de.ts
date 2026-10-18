@@ -767,6 +767,14 @@ export const de = {
     fossNote:
       "Kostenpflichtige Tarife finanzieren die Entwicklung von Vetchium, einem freien Open-Source-Projekt.",
     planCardLabel: "Tarif {{plan}}",
+    featuresTitle: "Enthalten",
+    descriptions: {
+      "org-free-tier": "Für kleine Teams, die mit der Personalsuche beginnen.",
+      "org-silver-tier":
+        "Für wachsende Teams, die regelmäßig unter eigener Marke einstellen.",
+      "org-gold-tier":
+        "Für größere Organisationen, die in großem Umfang einstellen, mit KI-Unterstützung und Google-Anmeldung.",
+    },
     currentBadge: "Aktuell",
     freePrice: "Kostenlos",
     freePriceCaption: "immer",

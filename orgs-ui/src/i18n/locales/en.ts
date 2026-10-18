@@ -734,6 +734,14 @@ export const en = {
     fossNote:
       "Paid plans fund the development of Vetchium, a free and open-source project.",
     planCardLabel: "{{plan}} plan",
+    featuresTitle: "What’s included",
+    descriptions: {
+      "org-free-tier": "For small teams getting started with hiring.",
+      "org-silver-tier":
+        "For growing teams that hire regularly under their own brand.",
+      "org-gold-tier":
+        "For larger organizations hiring at scale, with AI assistance and Google sign-in.",
+    },
     currentBadge: "Current",
     freePrice: "Free",
     freePriceCaption: "always",
