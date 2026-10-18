@@ -60,14 +60,26 @@ built; Hub AI is in [`../docs/todo.md`](../docs/todo.md).
 - Turning AI on needs `OrgAITermsVersion` accepted, now or earlier; a stale
   version is refused with `org-ai-terms-required`. Acceptance is recorded with
   who and when. Changing the terms text means a new version.
+- An Org is entitled to AI while its plan has `allows_ai` or purchased credits
+  remain. Turning AI on without entitlement is `org-plan-required` naming
+  Gold. Turning it off and editing policies stay open after a downgrade.
 - A policy lists allowed models and a default among them. Without a policy an
   operation allows every offered model and preselects the region default. A
   stored model the region no longer offers drops out; a withdrawn default
   falls back to the region default.
 - A policy with no allowed model (and no default) turns the operation off:
-  `get-ai-options` reports `operation_off`, which outranks the plan and credit
-  states but not `not_enabled`, and running it is `org-ai-operation-off`.
+  running it is `org-ai-operation-off`.
+- `get-ai-options` and running an operation rank refusals `plan_required`,
+  `not_enabled`, `operation_off`, `no_credits`: never tell an unentitled Org
+  to turn AI on.
 - Saving unchanged settings writes nothing.
+- Portals show an unentitled Org an upgrade nudge in place of AI controls:
+  no switch, policies, gauges, or drafting form. The AI page says what Gold
+  adds and links to Plans for `org:manage_billing` holders, else names whom
+  to ask; the editor's drafting prompt says how to upgrade without leaving
+  unsaved work. Usage history stays readable. An Org entitled only by
+  purchased credits keeps every control plus a notice that its plan no
+  longer includes AI.
 - The portal's AI switch saves at once (terms in a dialog when turning on, a
   confirmation when turning off). Each operation's policy has its own Save
   and Discard, shown only after a change; unsaved edits block leaving the
@@ -84,9 +96,8 @@ built; Hub AI is in [`../docs/todo.md`](../docs/todo.md).
   (lapses at month end, usable only while the plan has `allows_ai`), and a
   `purchase` per pack (expires twelve months after purchase, usable on any
   plan). Spend grants first, then purchases by earliest expiry.
-- Running an operation needs AI on and either a plan with `allows_ai` or
-  purchased credits left; otherwise `org-plan-required` naming Gold. Buying a
-  pack needs `allows_ai`.
+- Running an operation needs entitlement and AI on; without entitlement it
+  is `org-plan-required` naming Gold. Buying a pack needs `allows_ai`.
 - The balance reports each source's issued total (`monthly_grant_total`,
   `purchased_total`, spent lots included) beside what remains. The portal
   shows one gauge per source and an overall alert from 80% used (held credits

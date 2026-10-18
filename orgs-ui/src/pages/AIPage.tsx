@@ -4,12 +4,14 @@ import { useSearchParams } from "react-router";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { AICreditsPanel } from "../features/ai/AICreditsPanel";
 import { AISettingsPanel } from "../features/ai/AISettingsPanel";
-import { AIUsagePanel } from "../features/ai/AIUsagePanel";
+import { AIUpgradeCard, SeePlansButton } from "../features/ai/AIUpgrade";
+import { AIUsagePanel, usagePageSize } from "../features/ai/AIUsagePanel";
 import { CreditSummary } from "../features/ai/CreditSummary";
 import {
   isAIUnavailable,
   useAICreditsQuery,
   useAISettingsQuery,
+  useAIUsageQuery,
 } from "../features/ai/queries";
 
 const tabKeys = ["usage", "credits", "settings"] as const;
@@ -20,9 +22,18 @@ function isTabKey(value: string | null): value is TabKey {
 }
 
 export function AIPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const settings = useAISettingsQuery();
   const credits = useAICreditsQuery();
+  const number = new Intl.NumberFormat(i18n.language);
+  const entitled =
+    settings.data === undefined || credits.data === undefined
+      ? undefined
+      : settings.data.plan_allows_ai ||
+        credits.data.balance.purchased_remaining > 0;
+  // The usage list's first page, read only to know whether an Org without AI
+  // has history worth showing.
+  const usage = useAIUsageQuery(usagePageSize, undefined, entitled === false);
   const [search, setSearch] = useSearchParams();
   const requested = search.get("tab");
   const tab: TabKey = isTabKey(requested) ? requested : "usage";
@@ -40,16 +51,26 @@ export function AIPage() {
     <div>
       <Flex gap="middle" align="center" wrap>
         <Typography.Title level={1}>{t("ai.title")}</Typography.Title>
-        {settings.data === undefined ? null : (
+        {settings.data === undefined || entitled === undefined ? null : (
           <Tag
-            color={settings.data.settings.enabled ? "success" : "default"}
+            color={
+              entitled && settings.data.settings.enabled ? "success" : "default"
+            }
             data-testid="ai-status"
           >
-            {t(settings.data.settings.enabled ? "ai.statusOn" : "ai.statusOff")}
+            {t(
+              !entitled
+                ? "ai.statusNotInPlan"
+                : settings.data.settings.enabled
+                  ? "ai.statusOn"
+                  : "ai.statusOff",
+            )}
           </Tag>
         )}
       </Flex>
-      <Typography.Text type="secondary">{t("ai.description")}</Typography.Text>
+      <Typography.Text type="secondary">
+        {t(entitled === false ? "ai.descriptionNotInPlan" : "ai.description")}
+      </Typography.Text>
     </div>
   );
 
@@ -79,8 +100,29 @@ export function AIPage() {
         </Flex>
       );
     }
+    if (entitled === false) {
+      return (
+        <Flex vertical gap="large">
+          <AIUpgradeCard />
+          {usage.data !== undefined && usage.data.entries.length > 0 ? (
+            <AIUsagePanel models={settings.data.models} />
+          ) : null}
+        </Flex>
+      );
+    }
     return (
       <Flex vertical gap="large">
+        {settings.data.plan_allows_ai ? null : (
+          <Alert
+            type="warning"
+            showIcon
+            data-testid="ai-purchased-only"
+            title={t("ai.purchasedOnly", {
+              credits: number.format(credits.data.balance.purchased_remaining),
+            })}
+            action={<SeePlansButton small />}
+          />
+        )}
         {settings.data.settings.enabled ? null : (
           <Alert
             type="info"

@@ -185,12 +185,20 @@ type Standing struct {
 	Balance      aispec.AICreditBalance
 }
 
+// Entitled reports whether the Org may use AI at all: its plan includes AI,
+// or credits it bought earlier remain.
+func (s Standing) Entitled() bool {
+	return s.PlanAllowsAI || s.Balance.PurchasedRemaining > 0
+}
+
+// Availability ranks the plan first: turning AI on cannot help an Org that
+// is not entitled to it.
 func (s Standing) Availability() aispec.AIAvailability {
 	switch {
+	case !s.Entitled():
+		return aispec.PlanRequired
 	case !s.Enabled || !s.TermsCurrent:
 		return aispec.NotEnabled
-	case !s.PlanAllowsAI && s.Balance.PurchasedRemaining == 0:
-		return aispec.PlanRequired
 	case s.Balance.Available <= 0:
 		return aispec.NoCredits
 	default:

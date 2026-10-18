@@ -104,6 +104,11 @@ func TestAvailability(t *testing.T) {
 			s.PlanAllowsAI = false
 			s.Balance = Balance(Lots{})
 		}, aispec.PlanRequired},
+		{"no plan outranks off", func(s *Standing) {
+			s.Enabled = false
+			s.PlanAllowsAI = false
+			s.Balance = Balance(Lots{})
+		}, aispec.PlanRequired},
 		{"no plan but purchased credits", func(s *Standing) {
 			s.PlanAllowsAI = false
 			s.Balance = Balance(Lots{PurchasedRemaining: 50, PurchasedTotal: 50})

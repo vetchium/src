@@ -171,7 +171,7 @@ test.describe("get-ai-options", () => {
     await withOrg(request, async ({ api, org, owner }) => {
       let current = await options(api, owner);
       expect(current).toEqual({
-        availability: "not_enabled",
+        availability: "plan_required",
         models: [
           expect.objectContaining({ model_oid: qwen, status: "offered" }),
           expect.objectContaining({ model_oid: ministral, status: "offered" }),
@@ -188,9 +188,19 @@ test.describe("get-ai-options", () => {
         input_credits_per_million_tokens: 20000,
         output_credits_per_million_tokens: 60000,
       });
-      await enable(api, owner);
+      // The plan outranks AI being off and a feature turned off.
+      expect(
+        (
+          await api.setAISettings(owner, {
+            enabled: false,
+            policies: [{ operation: draft, allowed_models: [] }],
+          })
+        ).status(),
+      ).toBe(200);
       expect((await options(api, owner)).availability).toBe("plan_required");
       await choosePlan(api, owner, "org-gold-tier");
+      expect((await options(api, owner)).availability).toBe("not_enabled");
+      await enable(api, owner);
       await waitForGrant(api, owner);
       current = await options(api, owner);
       expect(current.availability).toBe("ready");
@@ -260,6 +270,7 @@ test.describe("AI settings", () => {
     request,
   }) => {
     await withOrg(request, async ({ api, owner }) => {
+      await choosePlan(api, owner, "org-gold-tier");
       let response = await api.aiSettings(owner);
       expect(response.status()).toBe(200);
       expect(response.headers()["cache-control"]).toBe("no-store");
@@ -272,7 +283,7 @@ test.describe("AI settings", () => {
         ],
         operation_defaults: [{ operation: draft, default_model: qwen }],
         current_terms_version: OrgAITermsVersion,
-        plan_allows_ai: false,
+        plan_allows_ai: true,
         unavailable_models: [],
       });
 
@@ -378,6 +389,74 @@ test.describe("AI settings", () => {
         (await responseJSON<AISettingsResponse>(response)).settings.policies,
       ).toEqual([]);
       expect((await options(api, owner)).models).toHaveLength(2);
+    });
+  });
+
+  test("turning AI on needs a plan with AI or purchased credits left", async ({
+    request,
+  }) => {
+    await withOrg(request, async ({ api, org, owner }) => {
+      // The plan is checked before the terms, which cannot help.
+      await expectProblem(
+        await api.setAISettings(owner, { enabled: true, policies: [] }),
+        403,
+        PlanRequiredErrorType,
+      );
+      const key = orgsIdempotencyKey();
+      const refused = await api.setAISettings(
+        owner,
+        {
+          enabled: true,
+          accept_terms_version: OrgAITermsVersion,
+          policies: [],
+        },
+        key,
+      );
+      await expectProblem(refused, 403, PlanRequiredErrorType);
+      expect((await refused.json()).plan_oid).toBe("org-gold-tier");
+      expect(orgAuditEventsByKey(key)).toEqual([]);
+      expect(
+        (await responseJSON<AISettingsResponse>(await api.aiSettings(owner)))
+          .settings,
+      ).toEqual({ enabled: false, policies: [] });
+
+      // Credits bought on Gold keep AI available after leaving it, until
+      // they are spent.
+      await choosePlan(api, owner, "org-gold-tier");
+      await enable(api, owner);
+      expect(
+        (
+          await api.buyAICreditPack(owner, { pack_id: "credits-100k" })
+        ).status(),
+      ).toBe(200);
+      await choosePlan(api, owner, "org-free-tier");
+      const off = { enabled: false, policies: [] };
+      expect((await api.setAISettings(owner, off)).status()).toBe(200);
+      expect(
+        (
+          await api.setAISettings(owner, { enabled: true, policies: [] })
+        ).status(),
+      ).toBe(200);
+      orgSQL(
+        `UPDATE vetchium.org_ai_credit_lots SET credits_remaining = 0
+         WHERE org_did = '${orgDID(org.domain)}'`,
+      );
+      // Only turning AI on is refused: staying on, editing policies, and
+      // turning off remain open.
+      expect(
+        (
+          await api.setAISettings(owner, {
+            enabled: true,
+            policies: [{ operation: draft, allowed_models: [] }],
+          })
+        ).status(),
+      ).toBe(200);
+      expect((await api.setAISettings(owner, off)).status()).toBe(200);
+      await expectProblem(
+        await api.setAISettings(owner, { enabled: true, policies: [] }),
+        403,
+        PlanRequiredErrorType,
+      );
     });
   });
 
@@ -944,25 +1023,25 @@ test.describe("draft-opening-with-ai", () => {
     );
   });
 
-  test("refuses when AI is off, the plan lacks AI, the model is not allowed, or credits run short", async ({
+  test("refuses when the plan lacks AI, AI is off, the model is not allowed, or credits run short", async ({
     request,
   }) => {
     await withOrg(request, async ({ api, org, owner }) => {
       const body = { instruction: "Product designer" };
-      await expectProblem(
-        await api.draftOpeningWithAI(owner, body),
-        409,
-        AINotEnabledError.type,
-      );
-      await enable(api, owner);
       const planRequired = await api.draftOpeningWithAI(owner, body);
       await expectProblem(planRequired, 403, PlanRequiredErrorType);
       expect((await planRequired.json()).plan_oid).toBe("org-gold-tier");
 
       await choosePlan(api, owner, "org-gold-tier");
+      await expectProblem(
+        await api.draftOpeningWithAI(owner, body),
+        409,
+        AINotEnabledError.type,
+      );
       await waitForGrant(api, owner);
       const settings = await api.setAISettings(owner, {
         enabled: true,
+        accept_terms_version: OrgAITermsVersion,
         policies: [
           {
             operation: draft,

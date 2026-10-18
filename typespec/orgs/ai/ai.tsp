@@ -24,6 +24,8 @@ model GetAIOptionsRequest {
   operation: AIOperation;
 }
 
+/** Reported in this order of precedence: plan_required, not_enabled,
+ * operation_off, no_credits, ready. */
 enum AIAvailability {
   /** The caller may run the operation now. */
   Ready: "ready",
@@ -88,7 +90,7 @@ model AISettingsResponse {
 }
 
 /** Replaces the settings. Turning AI on needs the current terms accepted, now
- * or earlier. */
+ * or earlier, and a plan that includes AI or purchased credits left. */
 model SetAISettingsRequest {
   enabled: boolean;
 
@@ -235,6 +237,7 @@ interface AIOperations {
     | Vetchium.Problem.OrgAIUnavailableErrorResponse
     | Vetchium.Problem.OrgAITermsRequiredErrorResponse
     | Vetchium.Problem.OrgAIModelNotOfferedErrorResponse
+    | Vetchium.Problem.OrgPlanRequiredErrorResponse
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse;
 
   @route("/ai-credits")

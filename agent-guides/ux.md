@@ -51,6 +51,9 @@ first version; a screen that needs a redesign pass missed a rule here.
   "Unsaved changes", and blocks leaving with `useUnsavedChangesGuard`.
 - Never disable an action silently: say why beside it (the invalid choice,
   the missing fields, the plan or permission needed) and how to fix it.
+- An Org whose plan lacks a feature sees what the plan adds and how to get
+  it in place of the feature's controls; never a notice beside controls that
+  still accept changes. Review every plan-gated screen on each plan.
 - Confirm destructive or costly actions in a dialog that names the
   consequence and what is kept; the button repeats the verb ("Turn off",
   "Buy"), `danger` when destructive.

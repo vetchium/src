@@ -61,13 +61,13 @@ func GetAIOptions(s *orgsruntime.Server) http.HandlerFunc {
 	}
 }
 
-// availability ranks an operation turned off below AI being off for the Org
-// and above the plan and credit checks, which it makes moot.
+// availability ranks an operation turned off below the plan and AI being off
+// for the Org, and above the credit check, which it makes moot.
 func availability(
 	standing orgai.Standing, policy *orgai.Policy,
 ) aispec.AIAvailability {
 	current := standing.Availability()
-	if current != aispec.NotEnabled && policy.Off() {
+	if (current == aispec.Ready || current == aispec.NoCredits) && policy.Off() {
 		return aispec.OperationOff
 	}
 	return current

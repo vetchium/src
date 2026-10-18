@@ -32,6 +32,7 @@ import { PlanRequiredErrorType } from "typespec/problem/orgs/billing";
 import { APIError } from "../../api/client";
 import { orgsAPI } from "../../api/orgs";
 import { problemMessage } from "../../components/common/APIErrorAlert";
+import { useCanChangePlan } from "./AIUpgrade";
 import { aiQueryKey, isAIUnavailable, useAIOptionsQuery } from "./queries";
 import { VetchiumAIIcon } from "./VetchiumAIIcon";
 
@@ -61,6 +62,7 @@ export function DraftWithAIButton({
 }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
+  const canChangePlan = useCanChangePlan();
   const [open, setOpen] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [model, setModel] = useState<string>();
@@ -101,20 +103,28 @@ export function DraftWithAIButton({
     data?.models.find((entry) => entry.model_oid === model) ??
     data?.models.find((entry) => entry.model_oid === data.default_model);
   const ready = data?.availability === "ready" && chosen !== undefined;
-  const unavailableReason =
-    data === undefined
+  // Why drafting cannot run and how to fix it. The fix is described, not
+  // linked: the editor has no unsaved-changes guard, so leaving it from here
+  // would discard the Opening being written.
+  const unavailable: { reason: string; hint?: string } | undefined =
+    data === undefined || ready
       ? undefined
-      : data.availability === "not_enabled"
-        ? t("ai.draft.unavailable.notEnabled")
-        : data.availability === "operation_off"
-          ? t("ai.draft.unavailable.operationOff")
-          : data.availability === "plan_required"
-            ? t("ai.draft.unavailable.planRequired")
+      : data.availability === "plan_required"
+        ? {
+            reason: t("ai.draft.unavailable.planRequired"),
+            hint: t(
+              canChangePlan
+                ? "ai.draft.unavailable.changePlan"
+                : "ai.upgrade.askBilling",
+            ),
+          }
+        : data.availability === "not_enabled"
+          ? { reason: t("ai.draft.unavailable.notEnabled") }
+          : data.availability === "operation_off"
+            ? { reason: t("ai.draft.unavailable.operationOff") }
             : data.availability === "no_credits"
-              ? t("ai.draft.unavailable.noCredits")
-              : chosen === undefined
-                ? t("ai.draft.unavailable.noModel")
-                : undefined;
+              ? { reason: t("ai.draft.unavailable.noCredits") }
+              : { reason: t("ai.draft.unavailable.noModel") };
   const errorMessage = (() => {
     if (draft.error === null) return undefined;
     const type =
@@ -126,18 +136,41 @@ export function DraftWithAIButton({
   })();
   const trimmed = instruction.trim();
 
-  const content = (
+  const close = (
+    <Button onClick={() => setOpen(false)} disabled={draft.isPending}>
+      {t("common.close")}
+    </Button>
+  );
+
+  // A form that cannot run is left out; the panel says why and how to fix it.
+  const content = options.isPending ? (
+    <Flex vertical gap="small" className="ai-draft-panel">
+      <Typography.Text type="secondary">{t("common.loading")}</Typography.Text>
+    </Flex>
+  ) : options.isError ? (
+    <Flex vertical gap="small" align="start" className="ai-draft-panel">
+      <Alert type="error" showIcon title={problemMessage(t, options.error)} />
+      {close}
+    </Flex>
+  ) : unavailable !== undefined ? (
+    <Flex
+      vertical
+      gap="small"
+      align="start"
+      className="ai-draft-panel"
+      data-testid="ai-draft-unavailable"
+    >
+      <Alert
+        type="info"
+        showIcon
+        title={unavailable.reason}
+        description={unavailable.hint}
+      />
+      {close}
+    </Flex>
+  ) : (
     <Flex vertical gap="small" className="ai-draft-panel">
       <Typography.Text type="secondary">{t("ai.draft.help")}</Typography.Text>
-      {options.isPending ? (
-        <Typography.Text type="secondary">
-          {t("common.loading")}
-        </Typography.Text>
-      ) : options.isError ? (
-        <Alert type="error" showIcon title={problemMessage(t, options.error)} />
-      ) : unavailableReason !== undefined ? (
-        <Alert type="info" showIcon title={unavailableReason} />
-      ) : null}
       <Input.TextArea
         aria-label={t("ai.draft.instructionLabel")}
         placeholder={t("ai.draft.placeholder")}
@@ -146,14 +179,14 @@ export function DraftWithAIButton({
         autoSize={{ minRows: 4, maxRows: 10 }}
         maxLength={MaxDraftInstructionLength}
         showCount
-        disabled={!ready || draft.isPending}
+        disabled={draft.isPending}
       />
       {data !== undefined && data.models.length > 1 ? (
         <Select
           aria-label={t("ai.draft.modelLabel")}
           value={chosen?.model_oid}
           onChange={setModel}
-          disabled={!ready || draft.isPending}
+          disabled={draft.isPending}
           options={data.models.map((entry) => ({
             value: entry.model_oid,
             label: t("ai.draft.modelOption", {
@@ -163,7 +196,7 @@ export function DraftWithAIButton({
           }))}
         />
       ) : null}
-      {ready && chosen !== undefined ? (
+      {chosen !== undefined ? (
         <Typography.Text type="secondary" data-testid="ai-draft-balance">
           {t("ai.draft.available", {
             available: number.format(data?.balance_available ?? 0),
@@ -178,7 +211,7 @@ export function DraftWithAIButton({
           type="primary"
           icon={<VetchiumAIIcon />}
           loading={draft.isPending}
-          disabled={!ready || trimmed === ""}
+          disabled={trimmed === ""}
           onClick={() => draft.mutate(chosen?.model_oid)}
         >
           {t("ai.draft.generate")}

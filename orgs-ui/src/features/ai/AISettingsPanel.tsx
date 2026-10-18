@@ -464,9 +464,6 @@ export function AISettingsPanel({
 
   return (
     <Flex vertical gap="large">
-      {!settings.plan_allows_ai ? (
-        <Alert type="info" showIcon title={t("ai.settings.planNotice")} />
-      ) : null}
       {settings.unavailable_models.length > 0 ? (
         <Alert
           type="warning"

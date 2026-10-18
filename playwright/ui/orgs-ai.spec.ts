@@ -154,29 +154,41 @@ test("drafting with AI fills the new Opening form without saving it", async ({
   });
 });
 
-test("the drafting prompt explains why AI cannot run", async ({
+test("the drafting prompt explains why AI cannot run and how to fix it", async ({
   page,
   request,
 }) => {
-  await withOrg(request, async (org) => {
+  await withOrg(request, async (org, api, owner) => {
     await signIn(page, org);
     await page.goto(`${ORGS_PORTAL}/openings/new`);
-    await page.getByTestId("draft-with-ai").click();
+    const open = page.getByTestId("draft-with-ai");
+    const unavailable = page.getByTestId("ai-draft-unavailable");
+    await open.click();
+    await expect(unavailable).toContainText(
+      "Drafting with AI comes with the Gold plan.",
+    );
+    await expect(unavailable).toContainText("change the plan under Billing");
+    // A form that cannot run is not shown, and nothing leaves the editor.
     await expect(
-      page.getByText("AI assistance is off for your organization."),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Generate draft" }),
-    ).toBeDisabled();
-    const prompt = page.getByRole("textbox", {
-      name: "What should the AI write?",
-    });
-    await page
-      .getByRole("tooltip")
-      .filter({ has: prompt })
-      .getByRole("button", { name: "Cancel" })
-      .click();
-    await expect(prompt).toBeHidden();
+      page.getByRole("textbox", { name: "What should the AI write?" }),
+    ).toHaveCount(0);
+    await expect(unavailable.getByRole("button")).toHaveText(["Close"]);
+    await unavailable.getByRole("button", { name: "Close" }).click();
+    await expect(unavailable).toBeHidden();
+
+    expect(
+      (
+        await api.setSubscriptionPlan(owner, {
+          plan_oid: "org-gold-tier",
+          billing_interval: "month",
+        })
+      ).status(),
+    ).toBe(200);
+    await page.reload();
+    await open.click();
+    await expect(unavailable).toContainText(
+      "AI assistance is off for your organization.",
+    );
   });
 });
 
@@ -190,10 +202,29 @@ test("an AI manager turns AI on, buys credits, and reviews usage", async ({
     await expect(
       page.getByRole("heading", { name: "AI", level: 1 }),
     ).toBeVisible();
+    // Without Gold the page offers the upgrade instead of AI controls.
+    await expect(page.getByTestId("ai-status")).toHaveText("Not in your plan");
+    const upgrade = page.getByTestId("ai-upgrade");
+    await expect(upgrade).toContainText("100,000 AI credits every month");
+    await expect(
+      page.getByRole("switch", { name: "AI assistance" }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("tab")).toHaveCount(0);
+    await upgrade.getByRole("button", { name: "See plans" }).click();
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/plans`);
+
+    expect(
+      (
+        await api.setSubscriptionPlan(owner, {
+          plan_oid: "org-gold-tier",
+          billing_interval: "month",
+        })
+      ).status(),
+    ).toBe(200);
+    await page.goto(`${ORGS_PORTAL}/ai`);
     await expect(page.getByTestId("ai-status")).toHaveText("AI off");
     await page.getByRole("button", { name: "Open settings" }).click();
     await expect(page).toHaveURL(/[?&]tab=settings/);
-    await expect(page.getByText("need the Gold plan")).toBeVisible();
 
     // Turning AI on shows the terms; it saves once they are accepted.
     await page.getByRole("switch", { name: "AI assistance" }).click();
@@ -209,22 +240,7 @@ test("an AI manager turns AI on, buys credits, and reviews usage", async ({
     await expect(page.getByText(/AI terms version .* accepted/)).toBeVisible();
 
     await page.getByRole("tab", { name: "Credits" }).click();
-    await expect(
-      page.getByText("Buying credits needs the Gold plan."),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Buy", exact: true }).first(),
-    ).toBeDisabled();
     await expect(page.getByText("No purchased credits.")).toBeVisible();
-
-    expect(
-      (
-        await api.setSubscriptionPlan(owner, {
-          plan_oid: "org-gold-tier",
-          billing_interval: "month",
-        })
-      ).status(),
-    ).toBe(200);
     // The open tab survives a reload.
     await page.reload();
     await expect(page.getByRole("tab", { name: "Credits" })).toHaveAttribute(
@@ -426,5 +442,63 @@ test("people without org:manage_ai see no AI page", async ({
     ).toHaveCount(0);
     await page.goto(`${ORGS_PORTAL}/ai`);
     await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
+
+    // Someone who cannot change the plan is told whom to ask.
+    await page.goto(`${ORGS_PORTAL}/openings/new`);
+    await page.getByTestId("draft-with-ai").click();
+    const unavailable = page.getByTestId("ai-draft-unavailable");
+    await expect(unavailable).toContainText(
+      "Ask someone who manages billing in your organization",
+    );
+    await expect(unavailable.getByRole("button")).toHaveText(["Close"]);
+  });
+});
+
+test("an Org that left Gold keeps its purchased credits, then sees the upgrade with its history", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    await goldWithAI(api, owner);
+    expect(
+      (await api.buyAICreditPack(owner, { pack_id: "credits-100k" })).status(),
+    ).toBe(200);
+    const drafted = await api.draftOpeningWithAI(owner, {
+      instruction: "Account manager",
+    });
+    expect(drafted.status(), await drafted.text()).toBe(200);
+    expect(
+      (
+        await api.setSubscriptionPlan(owner, { plan_oid: "org-free-tier" })
+      ).status(),
+    ).toBe(200);
+
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/ai?tab=credits`);
+    await expect(page.getByTestId("ai-status")).toHaveText("AI on");
+    await expect(page.getByTestId("ai-purchased-only")).toContainText(
+      "Your plan no longer includes AI.",
+    );
+    const goldOnly = page
+      .getByRole("alert")
+      .filter({ hasText: "Buying credits needs the Gold plan." });
+    await expect(
+      goldOnly.getByRole("button", { name: "See plans" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Buy", exact: true }).first(),
+    ).toBeDisabled();
+
+    orgSQL(
+      `UPDATE vetchium.org_ai_credit_lots SET credits_remaining = 0
+       WHERE org_did = '${orgDID(org.domain)}'`,
+    );
+    await page.reload();
+    await expect(page.getByTestId("ai-status")).toHaveText("Not in your plan");
+    await expect(page.getByTestId("ai-upgrade")).toBeVisible();
+    await expect(
+      page.getByRole("switch", { name: "AI assistance" }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("cell", { name: "Completed" })).toBeVisible();
   });
 });

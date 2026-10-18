@@ -8,7 +8,7 @@ import { AIUsageNotFoundError } from "typespec/problem/orgs/ai";
 import { APIError } from "../../api/client";
 import { useAIUsageQuery, useAIUsageTextQuery } from "./queries";
 
-const pageSize = 25;
+export const usagePageSize = 25;
 
 function UsageText({
   usageID,
@@ -77,7 +77,7 @@ export function AIUsagePanel({ models }: { models: AIModel[] }) {
   ]);
   const [pageIndex, setPageIndex] = useState(0);
   const [viewing, setViewing] = useState<AIUsageID>();
-  const usage = useAIUsageQuery(pageSize, pageKeys[pageIndex]);
+  const usage = useAIUsageQuery(usagePageSize, pageKeys[pageIndex]);
   const number = new Intl.NumberFormat(i18n.language);
 
   const next = () => {

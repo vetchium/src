@@ -33,6 +33,7 @@ export const de = {
   },
   common: {
     done: "Fertig",
+    close: "Schließen",
     next: "Weiter",
     previous: "Zurück",
     save: "Speichern",
@@ -492,6 +493,8 @@ export const de = {
     title: "KI",
     description:
       "KI-Unterstützung einschalten, die Modelle jeder KI-Funktion festlegen, KI-Guthaben verwalten und die KI-Nutzung prüfen.",
+    descriptionNotInPlan:
+      "Was KI-Unterstützung für Ihre Organisation leisten kann und wie Sie sie erhalten.",
     loading: "KI-Einstellungen werden geladen",
     unavailable:
       "In der Region Ihrer Organisation wird noch keine KI-Unterstützung angeboten.",
@@ -521,8 +524,9 @@ export const de = {
       unavailable: {
         notEnabled:
           "Die KI-Unterstützung ist für Ihre Organisation ausgeschaltet. Jemand mit MANAGE_AI kann sie in den KI-Einstellungen einschalten.",
-        planRequired:
-          "Die KI-Unterstützung erfordert den Gold-Tarif oder früher gekauftes KI-Guthaben.",
+        planRequired: "Das Entwerfen mit KI ist im Gold-Tarif enthalten.",
+        changePlan:
+          "Speichern Sie Ihre Arbeit und ändern Sie dann den Tarif auf der Seite „Abrechnung“.",
         noCredits: "Ihre Organisation hat kein KI-Guthaben mehr.",
         noModel: "Für Entwürfe ist kein KI-Modell verfügbar.",
         operationOff:
@@ -531,8 +535,7 @@ export const de = {
       errors: {
         notEnabled:
           "Die KI-Unterstützung ist für Ihre Organisation ausgeschaltet.",
-        planRequired:
-          "Die KI-Unterstützung erfordert den Gold-Tarif oder früher gekauftes KI-Guthaben.",
+        planRequired: "Das Entwerfen mit KI erfordert den Gold-Tarif.",
         noCredits:
           "Ihre Organisation hat nicht genug KI-Guthaben für diesen Entwurf.",
         modelNotAllowed:
@@ -550,8 +553,6 @@ export const de = {
     },
     settings: {
       title: "KI-Unterstützung",
-      planNotice:
-        "KI-Unterstützung, ihr monatliches Guthaben und Guthabenkäufe erfordern den Gold-Tarif. Früher gekauftes Guthaben bleibt in jedem Tarif nutzbar.",
       unavailableModels:
         "Diese Region bietet einige von Ihrer Organisation gewählte Modelle nicht mehr an: {{models}}. Stattdessen gilt die Vorgabe der Region.",
       enabled: "KI-Unterstützung",
@@ -687,9 +688,23 @@ export const de = {
     },
     statusOn: "KI an",
     statusOff: "KI aus",
+    statusNotInPlan: "Nicht in Ihrem Tarif",
     offNotice:
       "Die KI-Unterstützung ist ausgeschaltet, daher kann niemand in Ihrer Organisation KI-Funktionen nutzen.",
     openSettings: "Einstellungen öffnen",
+    purchasedOnly:
+      "Ihr Tarif enthält keine KI mehr. Ihre Organisation kann ihr gekauftes Guthaben von {{credits}} weiter nutzen, bis es aufgebraucht ist oder verfällt; weiteres Guthaben zu kaufen erfordert den Gold-Tarif.",
+    upgrade: {
+      title: "KI-Unterstützung ist im Gold-Tarif enthalten",
+      intro: "Mit Gold erhalten die Personen in Ihrer Organisation:",
+      drafting:
+        "Entwürfe für Stellenanzeigen, von KI aus einer kurzen Beschreibung geschrieben und bereit zur Prüfung",
+      monthly: "{{credits}} KI-Guthabenpunkte pro Monat",
+      packs: "Zusätzliches Guthaben zum Kaufen, wann immer Sie es brauchen",
+      seePlans: "Tarife ansehen",
+      askBilling:
+        "Bitten Sie eine Person, die in Ihrer Organisation die Abrechnung verwaltet, zum Gold-Tarif zu wechseln.",
+    },
     summary: {
       monthlyTitle: "Guthaben dieses Monats",
       purchasedTitle: "Gekauftes Guthaben",

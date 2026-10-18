@@ -18,6 +18,7 @@ import type { AICreditsResponse } from "typespec/orgs/ai/ai";
 import type { AICreditLot, AICreditPack } from "typespec/orgs/ai/types";
 import { isDefiniteRefusal } from "../../api/client";
 import { problemMessage } from "../../components/common/APIErrorAlert";
+import { SeePlansButton } from "./AIUpgrade";
 import { formatPrice } from "./format";
 import { useAICreditLotsQuery, useBuyAICreditPack } from "./queries";
 
@@ -88,7 +89,12 @@ export function AICreditsPanel({ credits }: { credits: AICreditsResponse }) {
           </Typography.Text>
           <Alert type="info" showIcon title={t("ai.credits.simulated")} />
           {!credits.purchase_allowed ? (
-            <Alert type="warning" showIcon title={t("ai.credits.goldOnly")} />
+            <Alert
+              type="warning"
+              showIcon
+              title={t("ai.credits.goldOnly")}
+              action={<SeePlansButton small />}
+            />
           ) : null}
           <Row gutter={[16, 16]}>
             {credits.packs.map((pack) => (

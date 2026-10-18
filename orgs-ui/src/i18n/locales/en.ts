@@ -30,6 +30,7 @@ export const en = {
   },
   common: {
     done: "Done",
+    close: "Close",
     next: "Next",
     previous: "Previous",
     save: "Save",
@@ -472,6 +473,8 @@ export const en = {
     title: "AI",
     description:
       "Turn AI assistance on, choose the models each AI feature may use, manage AI credits, and review how AI was used.",
+    descriptionNotInPlan:
+      "What AI assistance can do for your organization, and how to get it.",
     loading: "Loading AI settings",
     unavailable:
       "AI assistance is not offered in your organization's region yet.",
@@ -501,8 +504,8 @@ export const en = {
       unavailable: {
         notEnabled:
           "AI assistance is off for your organization. Someone with MANAGE_AI can turn it on in AI settings.",
-        planRequired:
-          "AI assistance needs the Gold plan, or AI credits your organization bought earlier.",
+        planRequired: "Drafting with AI comes with the Gold plan.",
+        changePlan: "Save your work, then change the plan under Billing.",
         noCredits: "Your organization has no AI credits left.",
         noModel: "No AI model is available for drafting.",
         operationOff:
@@ -510,8 +513,7 @@ export const en = {
       },
       errors: {
         notEnabled: "AI assistance is off for your organization.",
-        planRequired:
-          "AI assistance needs the Gold plan, or AI credits your organization bought earlier.",
+        planRequired: "Drafting with AI needs the Gold plan.",
         noCredits:
           "Your organization does not have enough AI credits for this draft.",
         modelNotAllowed:
@@ -528,8 +530,6 @@ export const en = {
     },
     settings: {
       title: "AI assistance",
-      planNotice:
-        "AI assistance, its monthly credits, and credit purchases need the Gold plan. Credits bought earlier stay usable on any plan.",
       unavailableModels:
         "This region no longer offers some models your organization chose: {{models}}. The region's default is used instead.",
       enabled: "AI assistance",
@@ -661,9 +661,23 @@ export const en = {
     },
     statusOn: "AI on",
     statusOff: "AI off",
+    statusNotInPlan: "Not in your plan",
     offNotice:
       "AI assistance is off, so nobody in your organization can use AI features.",
     openSettings: "Open settings",
+    purchasedOnly:
+      "Your plan no longer includes AI. Your organization can keep using its {{credits}} purchased credits until they run out or expire; buying more needs the Gold plan.",
+    upgrade: {
+      title: "AI assistance comes with the Gold plan",
+      intro: "With Gold, people in your organization get:",
+      drafting:
+        "Opening drafts written by AI from a short description, ready for review",
+      monthly: "{{credits}} AI credits every month",
+      packs: "More credits to buy whenever you need them",
+      seePlans: "See plans",
+      askBilling:
+        "Ask someone who manages billing in your organization to move to the Gold plan.",
+    },
     summary: {
       monthlyTitle: "This month's credits",
       purchasedTitle: "Purchased credits",

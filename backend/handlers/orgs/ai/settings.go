@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	aispec "github.com/vetchium/src/typespec/orgs/ai"
+	subscriptionspec "github.com/vetchium/src/typespec/orgs/subscriptions"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
 	"backend/internal/apiserver"
@@ -94,9 +95,16 @@ func SetAISettings(s *orgsruntime.Server) http.HandlerFunc {
 						orgsproblem.AITermsRequiredError(aispec.OrgAITermsVersion),
 					)
 				}
-				state, err := q.GetOrgAIState(ctx, identity.OrgDID)
+				standing, state, err := standing(ctx, q, identity.OrgDID)
 				if err != nil {
 					return result{}, nil, err
+				}
+				// Only turning AI on is refused, so an Org that left Gold can
+				// still turn AI off and edit its policies.
+				if request.Enabled && !state.Enabled && !standing.Entitled() {
+					return handlerauth.Failure[body](
+						orgsproblem.PlanRequiredError(subscriptionspec.GoldTier),
+					)
 				}
 				alreadyAccepted := state.AcceptedTermsVersion.Valid &&
 					state.AcceptedTermsVersion.String == aispec.OrgAITermsVersion

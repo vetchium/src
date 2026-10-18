@@ -100,6 +100,7 @@ export function useAICreditLotsQuery(
 export function useAIUsageQuery(
   limit: number,
   paginationKey: PaginationKey | undefined,
+  enabled = true,
 ) {
   return useQuery({
     queryKey: [...aiQueryKey, "usage", limit, paginationKey],
@@ -110,6 +111,7 @@ export function useAIUsageQuery(
           ? {}
           : { pagination_key: paginationKey }),
       }),
+    enabled,
   });
 }
 
