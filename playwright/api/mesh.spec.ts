@@ -16,6 +16,10 @@ import type {
   ExecuteCommandRequest,
 } from "typespec/federation/commands";
 import type {
+  DeliverEventRequest,
+  EventReceipt,
+} from "typespec/federation/events";
+import type {
   PeerReadProfileRequest,
   RelayReadProfileRequest,
 } from "typespec/hub/profile/federation";
@@ -1513,6 +1517,285 @@ test("mesh command peer replays stored results for the calling tenant and refuse
     );
   } finally {
     cleanupCommandResults("usa1", aggregates);
+    cleanupHubUser(email, "usa1");
+  }
+});
+
+// Outbox events. No product event kind is registered yet, so an inbox
+// receipt is seeded exactly as a first delivery would record it; a
+// redelivery of that event is then a duplicate.
+
+const EVENT_RELAY = "/mesh/events/deliver";
+const EVENT_PEER = "/api/mesh/events/deliver";
+
+function eventRequest(
+  destinationDID: string,
+  overrides: Partial<DeliverEventRequest> = {},
+): DeliverEventRequest {
+  return {
+    event_id: randomUUID(),
+    kind: "e2e-probe-projected",
+    destination_principal_type: "hub_user",
+    destination_principal_did: destinationDID,
+    aggregate_type: "e2e_probe",
+    aggregate_id: `e2e-${randomUUID()}`,
+    aggregate_version: 3,
+    payload: { probe: randomUUID() },
+    ...overrides,
+  };
+}
+
+// The receiver's digest: kind, destination, and aggregate, each followed by
+// NUL, the version as a big-endian int64, then the payload re-encoded with
+// sorted keys, which JSON.stringify matches for a flat ASCII payload.
+function eventDigest(request: DeliverEventRequest): string {
+  const version = Buffer.alloc(8);
+  version.writeBigInt64BE(BigInt(request.aggregate_version));
+  return createHash("sha256")
+    .update(
+      [
+        request.kind,
+        request.destination_principal_type,
+        request.destination_principal_did,
+        request.aggregate_type,
+        request.aggregate_id,
+      ]
+        .map((part) => `${part}\0`)
+        .join(""),
+    )
+    .update(version)
+    .update(JSON.stringify(request.payload))
+    .digest("hex");
+}
+
+function seedEventReceipt(
+  tenant: TestTenant,
+  source: TestTenant,
+  request: DeliverEventRequest,
+): void {
+  sqlScalarForTenant(
+    tenant,
+    `INSERT INTO vetchium.federation_inbox (
+       event_id, source_tenant_id, kind, aggregate_type, aggregate_id,
+       aggregate_version, payload_digest, applied
+     ) VALUES (
+       ${sqlLiteral(request.event_id)}, ${sqlLiteral(source)},
+       ${sqlLiteral(request.kind)}, ${sqlLiteral(request.aggregate_type)},
+       ${sqlLiteral(request.aggregate_id)}, ${request.aggregate_version},
+       decode(${sqlLiteral(eventDigest(request))}, 'hex'), true
+     )`,
+  );
+}
+
+function eventReceiptCount(tenant: TestTenant, aggregateID: string): string {
+  return sqlScalarForTenant(
+    tenant,
+    `SELECT count(*) FROM vetchium.federation_inbox
+     WHERE aggregate_id = ${sqlLiteral(aggregateID)}`,
+  );
+}
+
+function cleanupEventReceipts(tenant: TestTenant, aggregateIDs: string[]) {
+  if (aggregateIDs.length === 0) return;
+  sqlScalarForTenant(
+    tenant,
+    `DELETE FROM vetchium.federation_inbox
+     WHERE aggregate_id IN (${aggregateIDs.map(sqlLiteral).join(", ")})`,
+  );
+}
+
+function eventDestinationEmail(): string {
+  return `e2e+${randomUUID()}@e2e-mesh-events.example.test`;
+}
+
+test("mesh event relay refuses callers without the relay credential", async ({
+  apiCoverage,
+}) => {
+  const body = eventRequest(randomHubUserDID());
+  for (const authorization of [null, "wrong-credential"]) {
+    const response = meshRelayRequest("sgp", EVENT_RELAY, body, apiCoverage, {
+      authorization,
+    });
+    expectCommandProblem(response, 401, "mesh-relay-authentication-required");
+  }
+});
+
+test("mesh event relay rejects malformed JSON and an invalid field", async ({
+  apiCoverage,
+}) => {
+  const malformed = meshRelayRequest(
+    "sgp",
+    EVENT_RELAY,
+    undefined,
+    apiCoverage,
+    { rawBody: "{not json" },
+  );
+  expectCommandProblem(malformed, 400, "invalid-json");
+  const invalid = meshRelayRequest(
+    "sgp",
+    EVENT_RELAY,
+    eventRequest(randomHubUserDID(), { aggregate_version: 0 }),
+    apiCoverage,
+  );
+  expectCommandProblem(invalid, 400, "validation-failed");
+  expect((invalid.body as { fields?: string[] }).fields).toEqual([
+    "aggregate_version",
+  ]);
+});
+
+test("mesh event relay reports a destination principal the directory does not know", async ({
+  apiCoverage,
+}) => {
+  const response = meshRelayRequest(
+    "sgp",
+    EVENT_RELAY,
+    eventRequest(randomHubUserDID()),
+    apiCoverage,
+  );
+  expectCommandProblem(response, 404, "federation-destination-not-found");
+});
+
+// config/ci/ind1.json points ind1 at an unreachable coordinator, so routing
+// fails and delivery stays unconfirmed.
+test("mesh event relay reports the event undelivered when routing fails", async ({
+  apiCoverage,
+}) => {
+  const response = meshRelayRequest(
+    "ind1",
+    EVENT_RELAY,
+    eventRequest(randomHubUserDID()),
+    apiCoverage,
+  );
+  expectCommandProblem(response, 503, "federation-event-undelivered");
+});
+
+test("mesh event relay delivers to the destination's home tenant, which drops duplicates and refuses what it will not record", async ({
+  apiCoverage,
+}) => {
+  const email = eventDestinationEmail();
+  const homed = seedActiveHubUser("usa1", email, "Event Destination");
+  const homedAlias = randomAlias();
+  const stale = randomHubUserDID();
+  const staleAlias = randomAlias();
+  const aggregates: string[] = [];
+  try {
+    seedGlobalHubPrincipal(homed.hubUserDID, "usa1", homedAlias);
+    seedGlobalHubPrincipal(stale, "usa1", staleAlias);
+    const seeded = eventRequest(homed.hubUserDID);
+    aggregates.push(seeded.aggregate_id);
+    seedEventReceipt("usa1", "sgp", seeded);
+
+    const duplicate = meshRelayRequest("sgp", EVENT_RELAY, seeded, apiCoverage);
+    expect(duplicate.status, JSON.stringify(duplicate.body)).toBe(200);
+    expect(duplicate.body as EventReceipt).toEqual({ outcome: "duplicate" });
+
+    const changed = meshRelayRequest(
+      "sgp",
+      EVENT_RELAY,
+      { ...seeded, payload: { probe: randomUUID() } },
+      apiCoverage,
+    );
+    expectCommandProblem(changed, 409, "federation-event-conflict");
+
+    const unknownKind = eventRequest(homed.hubUserDID, {
+      kind: "e2e-unregistered",
+    });
+    aggregates.push(unknownKind.aggregate_id);
+    const refused = meshRelayRequest(
+      "sgp",
+      EVENT_RELAY,
+      unknownKind,
+      apiCoverage,
+    );
+    expectCommandProblem(refused, 400, "validation-failed");
+    expect((refused.body as { fields?: string[] }).fields).toEqual(["kind"]);
+
+    // The directory homes this principal at usa1, which has no such user.
+    const misdirected = meshRelayRequest(
+      "sgp",
+      EVENT_RELAY,
+      eventRequest(stale),
+      apiCoverage,
+    );
+    expectCommandProblem(
+      misdirected,
+      421,
+      "federation-destination-misdirected",
+    );
+    expect(eventReceiptCount("usa1", seeded.aggregate_id)).toBe("1");
+    expect(eventReceiptCount("usa1", unknownKind.aggregate_id)).toBe("0");
+  } finally {
+    cleanupEventReceipts("usa1", aggregates);
+    cleanupGlobalHubPrincipal(homed.hubUserDID, homedAlias);
+    cleanupGlobalHubPrincipal(stale, staleAlias);
+    cleanupHubUser(email, "usa1");
+  }
+});
+
+test("mesh event peer refuses callers without a tenant mesh certificate", async ({
+  apiCoverage,
+}) => {
+  const body = eventRequest(randomHubUserDID());
+  const withoutCertificate = meshPeerRequest("sgp", "usa1", body, [], {
+    path: EVENT_PEER,
+    withoutCertificate: true,
+  });
+  expect(withoutCertificate.status).toBe(0);
+  const health = meshPeerRequest("sgp", "usa1", body, apiCoverage, {
+    path: EVENT_PEER,
+    certificate: "health",
+  });
+  expectCommandProblem(health, 401, "mesh-peer-authentication-required");
+});
+
+test("mesh event peer drops duplicates from the sending tenant and refuses what it will not record", async ({
+  apiCoverage,
+}) => {
+  const email = eventDestinationEmail();
+  const homed = seedActiveHubUser("usa1", email, "Event Peer Destination");
+  const aggregates: string[] = [];
+  try {
+    const seeded = eventRequest(homed.hubUserDID);
+    aggregates.push(seeded.aggregate_id);
+    seedEventReceipt("usa1", "sgp", seeded);
+    const peer = (body: unknown, rawBody?: string) =>
+      meshPeerRequest("sgp", "usa1", body, apiCoverage, {
+        path: EVENT_PEER,
+        ...(rawBody === undefined ? {} : { rawBody }),
+      });
+
+    const duplicate = peer(seeded);
+    expect(duplicate.status, JSON.stringify(duplicate.body)).toBe(200);
+    expect(duplicate.body as EventReceipt).toEqual({ outcome: "duplicate" });
+    // The receipt belongs to the tenant that sent the event.
+    const otherCaller = meshPeerRequest("deu", "usa1", seeded, apiCoverage, {
+      path: EVENT_PEER,
+    });
+    expectCommandProblem(otherCaller, 409, "federation-event-conflict");
+    expectCommandProblem(
+      peer({ ...seeded, aggregate_version: 4 }),
+      409,
+      "federation-event-conflict",
+    );
+    expectCommandProblem(
+      peer(eventRequest(randomHubUserDID())),
+      421,
+      "federation-destination-misdirected",
+    );
+    const unknownKind = eventRequest(homed.hubUserDID, {
+      kind: "e2e-unregistered",
+    });
+    aggregates.push(unknownKind.aggregate_id);
+    expectCommandProblem(peer(unknownKind), 400, "validation-failed");
+    expectCommandProblem(peer(undefined, "{not json"), 400, "invalid-json");
+    expectCommandProblem(
+      peer({ ...seeded, payload: ["not", "an", "object"] }),
+      400,
+      "validation-failed",
+    );
+    expect(eventReceiptCount("usa1", unknownKind.aggregate_id)).toBe("0");
+  } finally {
+    cleanupEventReceipts("usa1", aggregates);
     cleanupHubUser(email, "usa1");
   }
 });

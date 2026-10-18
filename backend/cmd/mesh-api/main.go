@@ -11,6 +11,8 @@ import (
 	"backend/internal/directoryclient"
 	"backend/internal/federation/commandkinds"
 	"backend/internal/federation/commands"
+	"backend/internal/federation/eventkinds"
+	"backend/internal/federation/events"
 	"backend/internal/meshapi"
 	"backend/internal/meshtls"
 	"backend/internal/middleware"
@@ -108,6 +110,13 @@ func run(log *slog.Logger, address string) error {
 			Registry: commandkinds.Registry(),
 		}),
 		CommandPeers: commands.NewPeer(
+			coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+		),
+		Events: events.NewReceiver(events.ReceiverConfig{
+			Pool: pool, TenantID: cfg.TenantID, Source: "mesh-api",
+			Registry: eventkinds.Registry(),
+		}),
+		EventPeers: events.NewPeer(
 			coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
 		),
 	}

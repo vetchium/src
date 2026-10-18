@@ -399,37 +399,154 @@ func TestRemoteCommandOutcomesAndRecovery(t *testing.T) {
 		}
 	}
 
-	t.Run("not sent stays pending for recovery", func(t *testing.T) {
-		relay := &scriptedRelay{fallback: func() (Response, error) {
-			return Response{}, fmt.Errorf("%w: relay down", ErrNotSent)
-		}}
+	sentCommand := func(relay *scriptedRelay, commandID pgtype.UUID) int {
+		sent := 0
+		for _, request := range relay.sent() {
+			if request.CommandID == directoryspec.CommandID(
+				dbvalue.FormatUUID(commandID)) {
+				sent++
+			}
+		}
+		return sent
+	}
+	operationsForKey := func(key string) int {
+		return countRows(t, owner, `SELECT count(*)
+            FROM vetchium.federation_operations
+            WHERE kind = $1 AND aggregate_id = $2 AND idempotency_key = $3`,
+			string(testKind), dbvalue.FormatUUID(principal.DID), key)
+	}
+
+	t.Run("not sent is abandoned and the same key sends afresh", func(t *testing.T) {
+		relay := &scriptedRelay{
+			responses: []func() (Response, error){
+				func() (Response, error) {
+					return Response{}, fmt.Errorf("%w: relay down", ErrNotSent)
+				},
+			},
+			fallback: func() (Response, error) {
+				return Response{
+					Status: 201, Body: json.RawMessage(`{"display_name":"Later"}`),
+				}, nil
+			},
+		}
 		sender := newTestSender(app, executor, relay)
-		outcome, err := sender.Send(ctx,
-			renameRequest(principal, "Unsent", "remote-unsent-idempotency-key-1"))
+		const key = "remote-unsent-idempotency-key-1"
+		request := renameRequest(principal, "Later", key)
+		outcome, err := sender.Send(ctx, request)
 		if err != nil || outcome.State != StateUnavailable {
 			t.Fatalf("outcome = %+v, err = %v", outcome, err)
 		}
-		operation := operationRow(t, owner, outcome.OperationID)
-		if operation.State != sqlc.VetchiumFederationOperationStatePending ||
-			!operation.NextAttemptAt.Time.After(time.Now()) ||
-			operation.TargetAuthority != "tenant" ||
-			operation.AuthorityPrincipalDid != principal.DID {
-			t.Fatalf("operation = %+v", operation)
+		if count := operationsForKey(key); count != 0 {
+			t.Fatalf("unsent command left %d operations", count)
 		}
-		recoverDue(sender, outcome.OperationID)
-		retried := operationRow(t, owner, outcome.OperationID)
-		if retried.AttemptCount < 1 ||
-			!retried.NextAttemptAt.Time.After(time.Now()) ||
-			retried.State != sqlc.VetchiumFederationOperationStatePending {
-			t.Fatalf("after failed recovery = %+v", retried)
+		if count := countRows(t, owner, `SELECT count(*)
+            FROM vetchium.audit_events
+            WHERE action = 'federation.operation.abandoned'
+              AND entity_id = $1`,
+			dbvalue.FormatUUID(outcome.OperationID)); count != 1 {
+			t.Fatalf("abandon audit events = %d, want 1", count)
 		}
-		for _, request := range relay.sent() {
-			if request.CommandID != directoryspec.CommandID(
-				dbvalue.FormatUUID(operation.CommandID)) ||
-				request.CorrelationID != directoryspec.CommandID(
-					dbvalue.FormatUUID(outcome.OperationID)) {
-				t.Fatalf("an attempt changed identity: %+v", request)
+		firstCommand := relay.sent()[0].CommandID
+		if _, err := sender.Recover(ctx); err != nil {
+			t.Log(err)
+		}
+		for _, sent := range relay.sent()[1:] {
+			if sent.CommandID == firstCommand {
+				t.Fatal("recovery sent an abandoned command")
 			}
+		}
+
+		again, err := sender.Send(ctx, request)
+		if err != nil || again.State != StateSucceeded ||
+			again.Response.Status != 201 ||
+			again.OperationID == outcome.OperationID {
+			t.Fatalf("retry = %+v, err = %v", again, err)
+		}
+		retried := operationRow(t, owner, again.OperationID)
+		if directoryspec.CommandID(dbvalue.FormatUUID(retried.CommandID)) ==
+			firstCommand || sentCommand(relay, retried.CommandID) != 1 {
+			t.Fatalf("retry reused the abandoned command: %+v", retried)
+		}
+	})
+
+	t.Run("not sent after another recorded attempt stays pending", func(t *testing.T) {
+		var operationID pgtype.UUID
+		relay := &scriptedRelay{
+			responses: []func() (Response, error){
+				func() (Response, error) {
+					// A recovery attempt recorded while the first was in
+					// flight may have sent the command.
+					if _, err := owner.Exec(ctx, `UPDATE vetchium.federation_operations
+                        SET attempt_count = attempt_count + 1
+                        WHERE kind = $1 AND idempotency_key = $2`,
+						string(testKind), "remote-raced-idempotency-key-1"); err != nil {
+						t.Error(err)
+					}
+					return Response{}, fmt.Errorf("%w: relay down", ErrNotSent)
+				},
+			},
+		}
+		sender := newTestSender(app, executor, relay)
+		outcome, err := sender.Send(ctx, renameRequest(
+			principal, "Raced", "remote-raced-idempotency-key-1",
+		))
+		if err != nil || outcome.State != StatePending {
+			t.Fatalf("outcome = %+v, err = %v", outcome, err)
+		}
+		operationID = outcome.OperationID
+		if operationRow(t, owner, operationID).State !=
+			sqlc.VetchiumFederationOperationStatePending {
+			t.Fatal("possibly sent operation was abandoned")
+		}
+	})
+
+	t.Run("an expired operation is no longer driven and frees its key", func(t *testing.T) {
+		relay := &scriptedRelay{
+			responses: []func() (Response, error){
+				func() (Response, error) { return Response{}, ErrOutcomeUnknown },
+			},
+			fallback: func() (Response, error) {
+				return Response{
+					Status: 201, Body: json.RawMessage(`{"display_name":"Fresh"}`),
+				}, nil
+			},
+		}
+		sender := newTestSender(app, executor, relay)
+		const key = "remote-expired-idempotency-key-1"
+		request := renameRequest(principal, "Fresh", key)
+		outcome, err := sender.Send(ctx, request)
+		if err != nil || outcome.State != StatePending {
+			t.Fatalf("outcome = %+v, err = %v", outcome, err)
+		}
+		expired := operationRow(t, owner, outcome.OperationID)
+		if _, err := owner.Exec(ctx, `UPDATE vetchium.federation_operations
+            SET created_at = now() - interval '2 hours',
+                updated_at = now() - interval '2 hours',
+                next_attempt_at = now() - interval '1 second',
+                expires_at = now() - interval '1 second'
+            WHERE operation_id = $1`, outcome.OperationID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := sender.Recover(ctx); err != nil {
+			t.Log(err)
+		}
+		if sentCommand(relay, expired.CommandID) != 1 {
+			t.Fatal("recovery drove an expired operation")
+		}
+
+		again, err := sender.Send(ctx, request)
+		if err != nil || again.State != StateSucceeded ||
+			again.OperationID == outcome.OperationID {
+			t.Fatalf("reuse after expiry = %+v, err = %v", again, err)
+		}
+		if count := operationsForKey(key); count != 1 {
+			t.Fatalf("operations for the key = %d, want 1", count)
+		}
+		if count := countRows(t, owner, `SELECT count(*)
+            FROM vetchium.audit_events
+            WHERE action = 'federation.operation.expired' AND entity_id = $1`,
+			dbvalue.FormatUUID(outcome.OperationID)); count != 1 {
+			t.Fatalf("expiry audit events = %d, want 1", count)
 		}
 	})
 

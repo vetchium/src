@@ -633,16 +633,25 @@ CREATE TABLE vetchium.federation_command_ledger (
     completed_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Effects of committed authoritative changes, delivered at least once to the
+-- home tenant of the destination principal, re-resolved on every attempt.
+-- payload_bytes keeps the enqueued JSON byte for byte; jsonb would rewrite
+-- it.
 CREATE TABLE vetchium.federation_outbox (
     event_id uuid PRIMARY KEY,
-    destination_tenant_id text NOT NULL
-        CHECK (destination_tenant_id ~ '^[a-z][a-z0-9]{2,15}$'),
     kind text NOT NULL CHECK (length(btrim(kind)) BETWEEN 1 AND 100),
-    aggregate_type text NOT NULL CHECK (length(btrim(aggregate_type)) > 0),
-    aggregate_id text NOT NULL CHECK (length(btrim(aggregate_id)) > 0),
+    destination_principal_type text NOT NULL CHECK (
+        destination_principal_type IN ('hub_user', 'org')
+    ),
+    destination_principal_did uuid NOT NULL,
+    aggregate_type text NOT NULL CHECK (
+        length(btrim(aggregate_type)) BETWEEN 1 AND 100
+    ),
+    aggregate_id text NOT NULL CHECK (
+        length(btrim(aggregate_id)) BETWEEN 1 AND 200
+    ),
     aggregate_version bigint NOT NULL CHECK (aggregate_version > 0),
-    payload jsonb NOT NULL,
-    payload_digest bytea NOT NULL CHECK (octet_length(payload_digest) = 32),
+    payload_bytes bytea NOT NULL,
     attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
     next_attempt_at timestamptz NOT NULL DEFAULT now(),
     lease_token uuid,
@@ -659,6 +668,11 @@ CREATE TABLE vetchium.federation_outbox (
     )
 );
 
+CREATE INDEX federation_outbox_due_idx
+    ON vetchium.federation_outbox (next_attempt_at, created_at, event_id)
+    WHERE delivered_at IS NULL AND failed_at IS NULL;
+
+-- One receipt per event ever received, so a redelivery is a no-op.
 CREATE TABLE vetchium.federation_inbox (
     event_id uuid PRIMARY KEY,
     source_tenant_id text NOT NULL
@@ -668,8 +682,23 @@ CREATE TABLE vetchium.federation_inbox (
     aggregate_id text NOT NULL CHECK (length(btrim(aggregate_id)) > 0),
     aggregate_version bigint NOT NULL CHECK (aggregate_version > 0),
     payload_digest bytea NOT NULL CHECK (octet_length(payload_digest) = 32),
-    received_at timestamptz NOT NULL DEFAULT now(),
-    applied_at timestamptz NOT NULL DEFAULT now()
+    -- false when a newer version of the aggregate had already been applied.
+    applied boolean NOT NULL,
+    received_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- The newest aggregate version applied per event kind and destination
+-- principal, so an older event never overwrites newer state. Kind and
+-- destination are part of the key because one aggregate change may feed
+-- several projections.
+CREATE TABLE vetchium.federation_event_watermarks (
+    kind text NOT NULL CHECK (length(btrim(kind)) BETWEEN 1 AND 100),
+    destination_principal_did uuid NOT NULL,
+    aggregate_type text NOT NULL CHECK (length(btrim(aggregate_type)) > 0),
+    aggregate_id text NOT NULL CHECK (length(btrim(aggregate_id)) > 0),
+    aggregate_version bigint NOT NULL CHECK (aggregate_version > 0),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (kind, destination_principal_did, aggregate_type, aggregate_id)
 );
 
 CREATE TABLE vetchium.hub_sessions (
@@ -2423,6 +2452,7 @@ DROP TABLE IF EXISTS vetchium.orgs;
 DROP TYPE IF EXISTS vetchium.org_state;
 DROP TYPE IF EXISTS vetchium.org_billing_interval;
 DROP TABLE IF EXISTS vetchium.org_plans;
+DROP TABLE IF EXISTS vetchium.federation_event_watermarks;
 DROP TABLE IF EXISTS vetchium.federation_inbox;
 DROP TABLE IF EXISTS vetchium.federation_outbox;
 DROP TABLE IF EXISTS vetchium.federation_command_ledger;

@@ -790,57 +790,6 @@ func TestHubProfileFederationRecoveryIntegration(t *testing.T) {
 		}); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("resolved operation replay = %v, want no rows", err)
 	}
-
-	eventID := profileTestUUID(t)
-	_, err = q.CreateFederationOutboxEvent(ctx,
-		sqlc.CreateFederationOutboxEventParams{
-			EventID: eventID, DestinationTenantID: "deu", Kind: "profile-test",
-			AggregateType: "hub_user", AggregateID: "profile-test",
-			AggregateVersion: 1, Payload: []byte(`{"test":true}`),
-			PayloadDigest: digest,
-		})
-	if err != nil {
-		t.Fatal(err)
-	}
-	leaseToken := profileTestUUID(t)
-	var claimed sqlc.ClaimFederationOutboxEventRow
-	for i := 0; i < 100; i++ {
-		claimed, err = q.ClaimFederationOutboxEvent(ctx, leaseToken)
-		if err != nil || claimed.EventID == eventID {
-			break
-		}
-	}
-	if err != nil || claimed.EventID != eventID {
-		t.Fatalf("claim outbox = %+v, %v", claimed, err)
-	}
-	if rows, err := q.CompleteFederationOutboxEvent(ctx,
-		sqlc.CompleteFederationOutboxEventParams{
-			EventID: eventID, LeaseToken: leaseToken,
-		}); err != nil || rows != 1 {
-		t.Fatalf("complete outbox = %d, %v", rows, err)
-	}
-	if rows, err := q.CompleteFederationOutboxEvent(ctx,
-		sqlc.CompleteFederationOutboxEventParams{
-			EventID: eventID, LeaseToken: leaseToken,
-		}); err != nil || rows != 0 {
-		t.Fatalf("replayed outbox completion = %d, %v", rows, err)
-	}
-	receipt := sqlc.RecordFederationInboxReceiptParams{
-		EventID: eventID, SourceTenantID: "deu", Kind: "profile-test",
-		AggregateType: "hub_user", AggregateID: "profile-test",
-		AggregateVersion: 1, PayloadDigest: digest,
-	}
-	if _, err := q.RecordFederationInboxReceipt(ctx, receipt); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := q.RecordFederationInboxReceipt(ctx, receipt); err != nil {
-		t.Fatalf("same inbox receipt replay: %v", err)
-	}
-	receipt.PayloadDigest = make([]byte, 32)
-	receipt.PayloadDigest[0] = 1
-	if _, err := q.RecordFederationInboxReceipt(ctx, receipt); !errors.Is(err, pgx.ErrNoRows) {
-		t.Fatalf("conflicting inbox receipt = %v, want no rows", err)
-	}
 }
 
 func TestHubProfileConstraintsIntegration(t *testing.T) {

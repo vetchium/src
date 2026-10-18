@@ -12,6 +12,7 @@ import (
 	"backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
 	"backend/internal/federation/commands"
+	"backend/internal/federation/events"
 	"backend/internal/profileclient"
 	"backend/internal/publicopeningclient"
 	"backend/internal/publicopenings"
@@ -29,6 +30,14 @@ type CommandPeers interface {
 	) (commands.PeerOutcome, error)
 }
 
+// EventPeers delivers an outbox event to another tenant's peer listener.
+type EventPeers interface {
+	Deliver(
+		context.Context, directoryspec.TenantID,
+		federationspec.DeliverEventRequest,
+	) (events.Delivery, error)
+}
+
 type Server struct {
 	*apiserver.Runtime
 
@@ -43,4 +52,6 @@ type Server struct {
 	Credential     string
 	Commands       *commands.Executor
 	CommandPeers   CommandPeers
+	Events         *events.Receiver
+	EventPeers     EventPeers
 }

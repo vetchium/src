@@ -7,7 +7,7 @@ Applies to `typespec/`, the HTTP contract that backends and portals consume.
 - `common/` shared scalars and value types; `problem/` RFC 9457 base and the
   problem catalog; `admin/`, `hub/`, `orgs/` portal contracts; `directory/` the
   coordinator directory contract; `federation/` durable tenant-to-tenant
-  commands; `main.tsp` the compiler entry.
+  commands and outbox events; `main.tsp` the compiler entry.
 - Each contract `.tsp` has hand-written `.go` and `.ts` companions (never
   generated). Change all three together. `main.tsp` has no companions.
 - The module holds wire types, constants, normalization, and validation only;

@@ -21,6 +21,7 @@
     "reconcileHubSignupTimer": "1s",
     "reconcileHubEmailChangeTimer": "1s",
     "driveFederationCommandsTimer": "1s",
+    "deliverFederationEventsTimer": "250ms",
     "deliverOrgEmailTimer": "250ms",
     "orgEmailLeaseTTL": "10s",
     "orgEmailMaxAttempts": 5,

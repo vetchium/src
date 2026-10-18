@@ -387,6 +387,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "reconcileHubSignupTimer": "1m",
     "reconcileHubEmailChangeTimer": "1m",
     "driveFederationCommandsTimer": "1m",
+    "deliverFederationEventsTimer": "1m",
     "deliverOrgEmailTimer": "1s",
     "orgEmailLeaseTTL": "1m",
     "orgEmailMaxAttempts": 5,
@@ -542,6 +543,29 @@ func TestLoadFileRequiresPositiveDriveFederationCommandsTimer(t *testing.T) {
 	}
 }
 
+func TestLoadFileRequiresPositiveDeliverFederationEventsTimer(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	path := writeConfig(t, passwordFile, "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(
+		string(contents),
+		`"deliverFederationEventsTimer": "1m"`,
+		`"deliverFederationEventsTimer": "0s"`,
+		1,
+	))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LoadFile(path)
+	if err == nil || !strings.Contains(err.Error(),
+		"workers.deliverFederationEventsTimer must be positive") {
+		t.Fatalf("LoadFile() error = %v, want positive timer error", err)
+	}
+}
+
 func TestLoadFileRejectsOfferedPlansRules(t *testing.T) {
 	passwordFile := filepath.Join(t.TempDir(), "password")
 	for _, test := range []struct {
@@ -679,6 +703,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "reconcileHubSignupTimer": "1m",
     "reconcileHubEmailChangeTimer": "1m",
     "driveFederationCommandsTimer": "1m",
+    "deliverFederationEventsTimer": "1m",
     "deliverOrgEmailTimer": "1s",
     "orgEmailLeaseTTL": "1m",
     "orgEmailMaxAttempts": 5,

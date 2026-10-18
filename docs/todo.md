@@ -19,12 +19,10 @@ Each item: what is not done, and what must be decided first.
 - `orgs-ui` `PlanOptions`: the `mcp` comparison row falls through to the
   ticket-support entitlement, and a label ternary is a no-op.
   `users.state.disabledManual` is unused in every locale.
-- Federation tables without a production caller: `federation_outbox`,
-  `federation_inbox`, and `federation_command_ledger` are written only by
-  `internal/db` integration tests, and `PruneExpiredFederationOperations` and
-  `RetryFederationOutboxEvent` have no caller. Their writes carry no audit
-  event. Decide whether cross-tenant commands will use them; then wire them
-  with audit CTEs or delete them.
+- Federation retention: `PruneExpiredFederationOperations` has no caller, so
+  expired operations and delivered or failed `federation_outbox` rows are
+  never pruned. Decide retention for each (inbox receipts and watermarks must
+  outlive any possible redelivery), then prune in bounded, audited batches.
 - `public_org_openings.sql` hides the Org logo with a hard-coded
   `org_plan_oid <> 'org-free-tier'`, a second authority beside
   `subscriptions.AllowsLogo`. Rely on the downgrade removing the logo, or pass

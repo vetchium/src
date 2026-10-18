@@ -11,6 +11,8 @@ import (
 	"backend/internal/email"
 	"backend/internal/federation/commandkinds"
 	"backend/internal/federation/commands"
+	"backend/internal/federation/eventkinds"
+	"backend/internal/federation/events"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/hub/emailchange"
 	"backend/internal/hub/signupcompletion"
@@ -178,6 +180,18 @@ func run(log *slog.Logger) error {
 				orgsCredentialKey, commands.ResultKeyPurpose,
 			),
 		},
+		Log: log,
+	}))
+	worker.EnableFederationEvents(events.NewDeliverer(events.DelivererConfig{
+		Pool: pool, TenantID: cfg.TenantID,
+		Receiver: events.NewReceiver(events.ReceiverConfig{
+			Pool: pool, TenantID: cfg.TenantID, Source: "workers",
+			Registry: eventkinds.Registry(),
+		}),
+		Relay: events.NewRelay(
+			cfg.MeshAPIServer.BaseURL, meshCredential,
+			cfg.MeshAPIServer.RequestTimeout,
+		),
 		Log: log,
 	}))
 	if cfg.AI != nil {

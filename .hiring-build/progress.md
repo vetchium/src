@@ -1,6 +1,6 @@
 # Hiring and marketplace build progress
 
-current: T04
+current: T05
 phase: implement
 
 ## Tasks
@@ -8,7 +8,7 @@ phase: implement
 T01 done Hiring: Candidacy and marketplace permissions and presets
 T02 done Marketplace: Capability catalog and the listings entitlement
 T03 done Federation: Durable commands between tenants
-T04 todo Federation: Outbox delivery and inbox between tenants
+T04 done Federation: Outbox delivery and inbox between tenants
 T05 todo Hiring: Pipeline templates and Opening pipelines
 T06 todo Hiring: Applications at the Org tenant and Orgs reads
 T07 todo Hiring: Hub apply, withdraw, and the applications projection

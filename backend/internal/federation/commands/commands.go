@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -25,6 +24,7 @@ import (
 	"github.com/vetchium/src/typespec/problem"
 
 	"backend/internal/dbvalue"
+	"backend/internal/federation/meshwire"
 )
 
 // Principal is the Hub user or Org whose home tenant is the authority for
@@ -130,23 +130,17 @@ var (
 	ErrUnsupportedKind = errors.New("federation command kind not supported")
 	// ErrNotSent reports a routing or connection failure before the command
 	// was transmitted.
-	ErrNotSent = errors.New("federation command not sent")
+	ErrNotSent = meshwire.ErrNotSent
 	// ErrOutcomeUnknown reports a command that may have been transmitted
 	// without a definite outcome coming back.
-	ErrOutcomeUnknown = errors.New("federation command outcome unknown")
+	ErrOutcomeUnknown = meshwire.ErrOutcomeUnknown
 )
 
 // digest identifies a command's content at the authority. The payload is
 // re-encoded canonically (sorted keys, encoding/json escaping) so relaying
 // it never changes the digest.
 func digest(command Command) ([]byte, error) {
-	decoder := json.NewDecoder(strings.NewReader(string(command.Payload)))
-	decoder.UseNumber()
-	var value any
-	if err := decoder.Decode(&value); err != nil {
-		return nil, fmt.Errorf("decode federation command payload: %w", err)
-	}
-	canonical, err := json.Marshal(value)
+	canonical, err := meshwire.Canonical(command.Payload)
 	if err != nil {
 		return nil, err
 	}

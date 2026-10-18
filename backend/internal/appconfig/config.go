@@ -81,6 +81,7 @@ type Workers struct {
 	ReconcileHubSignupTimer      time.Duration
 	ReconcileHubEmailChangeTimer time.Duration
 	DriveFederationCommandsTimer time.Duration
+	DeliverFederationEventsTimer time.Duration
 	DeliverOrgEmailTimer         time.Duration
 	OrgEmailLeaseTTL             time.Duration
 	OrgEmailMaxAttempts          int
@@ -279,6 +280,7 @@ type fileWorkers struct {
 	ReconcileHubSignupTimer      string `json:"reconcileHubSignupTimer"`
 	ReconcileHubEmailChangeTimer string `json:"reconcileHubEmailChangeTimer"`
 	DriveFederationCommandsTimer string `json:"driveFederationCommandsTimer"`
+	DeliverFederationEventsTimer string `json:"deliverFederationEventsTimer"`
 	DeliverOrgEmailTimer         string `json:"deliverOrgEmailTimer"`
 	OrgEmailLeaseTTL             string `json:"orgEmailLeaseTTL"`
 	OrgEmailMaxAttempts          int    `json:"orgEmailMaxAttempts"`
@@ -688,6 +690,13 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	deliverFederationEventsTimer, err := positiveDuration(
+		"workers.deliverFederationEventsTimer",
+		raw.Workers.DeliverFederationEventsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	orgWorkers, err := parseOrgWorkers(raw.Workers)
 	if err != nil {
 		return Config{}, configError(path, err)
@@ -745,6 +754,7 @@ func LoadFile(path string) (Config, error) {
 			ReconcileHubSignupTimer:      reconcileHubSignupTimer,
 			ReconcileHubEmailChangeTimer: reconcileHubEmailChangeTimer,
 			DriveFederationCommandsTimer: driveFederationCommandsTimer,
+			DeliverFederationEventsTimer: deliverFederationEventsTimer,
 			DeliverOrgEmailTimer:         orgWorkers.DeliverOrgEmailTimer,
 			OrgEmailLeaseTTL:             orgWorkers.OrgEmailLeaseTTL,
 			OrgEmailMaxAttempts:          orgWorkers.OrgEmailMaxAttempts,

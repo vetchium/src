@@ -32,6 +32,12 @@ type FederationCommandRecovery interface {
 	Recover(context.Context) (int, error)
 }
 
+// FederationEventDelivery drains this tenant's outbox of events for every
+// destination principal, remote or local.
+type FederationEventDelivery interface {
+	Deliver(context.Context) (int, error)
+}
+
 // Worker owns the dependencies and periodic jobs for the worker process.
 type Worker struct {
 	queries                      sqlc.Querier
@@ -42,6 +48,8 @@ type Worker struct {
 	reconcileHubEmailChangeTimer time.Duration
 	federationCommandTimer       time.Duration
 	federationCommands           FederationCommandRecovery
+	federationEventTimer         time.Duration
+	federationEvents             FederationEventDelivery
 	pictureQueries               pictureDeletionQueries
 	pictureStore                 PictureStore
 	logoStore                    LogoStore
@@ -87,6 +95,7 @@ func New(
 		hubEmailChangeRecovery:       hubEmailChangeRecovery,
 		reconcileHubEmailChangeTimer: config.ReconcileHubEmailChangeTimer,
 		federationCommandTimer:       config.DriveFederationCommandsTimer,
+		federationEventTimer:         config.DeliverFederationEventsTimer,
 		pictureQueries:               queries,
 		logoQueries:                  queries,
 		pictureDeletionInterval:      config.PruneEphemeralDataTimer,
@@ -170,6 +179,14 @@ func (w *Worker) EnableFederationCommands(recovery FederationCommandRecovery) {
 	w.jobs = append(w.jobs, periodicJob{
 		name: "drive-federation-commands", interval: w.federationCommandTimer,
 		run: w.driveFederationCommands,
+	})
+}
+
+func (w *Worker) EnableFederationEvents(delivery FederationEventDelivery) {
+	w.federationEvents = delivery
+	w.jobs = append(w.jobs, periodicJob{
+		name: "deliver-federation-events", interval: w.federationEventTimer,
+		run: w.deliverFederationEvents,
 	})
 }
 

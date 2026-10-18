@@ -79,8 +79,8 @@ const (
 	// PendingOperation.
 	StatePending
 	// StateUnavailable means routing or connection setup failed before
-	// sending: answer a retryable 503. The operation stays pending, so an
-	// exact replay or recovery sends it later.
+	// sending: answer a retryable 503. Nothing happened: the operation was
+	// abandoned, so the same idempotency key starts a fresh send.
 	StateUnavailable
 )
 
@@ -179,6 +179,17 @@ func (s *Sender) Send(ctx context.Context, request Request) (Outcome, error) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := sqlc.New(tx)
+	if _, err := q.DeleteExpiredFederationCommandOperation(ctx,
+		sqlc.DeleteExpiredFederationCommandOperationParams{
+			Kind: string(request.Kind), AggregateID: request.AggregateID,
+			IdempotencyKey: string(request.IdempotencyKey),
+			TenantID:       s.config.TenantID,
+			ActorType:      string(request.Owner.Type),
+			ActorID:        dbvalue.Text(request.Owner.ID),
+			Source:         s.config.Source,
+		}); err != nil {
+		return Outcome{}, fmt.Errorf("delete expired federation operation: %w", err)
+	}
 	row, err := q.CreateFederationCommandOperation(ctx,
 		sqlc.CreateFederationCommandOperationParams{
 			OperationID: operationID, CommandID: commandID,
@@ -227,7 +238,7 @@ func (s *Sender) Send(ctx context.Context, request Request) (Outcome, error) {
 		if err := tx.Commit(ctx); err != nil {
 			return Outcome{}, fmt.Errorf("commit federation operation: %w", err)
 		}
-		return s.deliver(ctx, operation, command, actor)
+		return s.deliver(ctx, operation, command, actor, true)
 	}
 	if err != nil {
 		return Outcome{}, err
@@ -319,9 +330,29 @@ func (s *Sender) replay(
 	if operation.State != sqlc.VetchiumFederationOperationStatePending {
 		return s.stored(operation)
 	}
-	return s.drive(ctx, operation, auditActor{
+	actor := auditActor{
 		actorType: string(request.Owner.Type), actorID: request.Owner.ID,
-	})
+	}
+	// Recorded before sending, like a recovery attempt, so the sender's
+	// first attempt can no longer abandon an operation this one may send.
+	updated, err := s.queries.RecordFederationOperationRetry(ctx,
+		sqlc.RecordFederationOperationRetryParams{
+			OperationID: operation.OperationID,
+			LastError:   "federation command replayed while pending",
+			TenantID:    s.config.TenantID, ActorType: actor.actorType,
+			ActorID: dbvalue.Text(actor.actorID), Source: s.config.Source,
+		})
+	if err != nil {
+		return Outcome{}, fmt.Errorf("record federation operation attempt: %w", err)
+	}
+	if updated != 1 {
+		current, err := s.queries.GetFederationOperation(ctx, operation.OperationID)
+		if err != nil {
+			return Outcome{}, fmt.Errorf("reload federation operation: %w", err)
+		}
+		return s.stored(current)
+	}
+	return s.drive(ctx, operation, actor)
 }
 
 // drive attempts a pending operation: in process when this tenant now homes
@@ -342,7 +373,7 @@ func (s *Sender) drive(
 	response, err := s.config.Executor.executeInTx(ctx, tx, command)
 	if errors.Is(err, ErrMisdirected) {
 		_ = tx.Rollback(ctx)
-		return s.deliver(ctx, operation, command, actor)
+		return s.deliver(ctx, operation, command, actor, false)
 	}
 	if err != nil {
 		return Outcome{}, err
@@ -357,9 +388,11 @@ func (s *Sender) drive(
 	return outcome, nil
 }
 
+// deliver sends through the relay. first marks the sender's own attempt
+// right after creating the operation, the only one that may abandon it.
 func (s *Sender) deliver(
 	ctx context.Context, operation sqlc.VetchiumFederationOperation,
-	command Command, actor auditActor,
+	command Command, actor auditActor, first bool,
 ) (Outcome, error) {
 	response, err := s.config.Relay.Execute(ctx, wireRequest(command))
 	if errors.Is(err, ErrNotSent) {
@@ -367,8 +400,14 @@ func (s *Sender) deliver(
 			"event", "federation_command_not_sent",
 			"operationID", dbvalue.FormatUUID(operation.OperationID),
 			"kind", operation.Kind, "error", err)
+		if first && s.abandon(ctx, operation, actor) {
+			return Outcome{
+				OperationID: operation.OperationID, State: StateUnavailable,
+			}, nil
+		}
+		// An earlier or concurrent attempt may have been sent.
 		return Outcome{
-			OperationID: operation.OperationID, State: StateUnavailable,
+			OperationID: operation.OperationID, State: StatePending,
 		}, nil
 	}
 	if err != nil {
@@ -381,6 +420,29 @@ func (s *Sender) deliver(
 		}, nil
 	}
 	return s.resolve(ctx, s.queries, operation, response, actor)
+}
+
+// abandon removes an operation that was certainly never sent, releasing its
+// idempotency key, so the retryable answer means nothing happened. It fails
+// when another attempt was recorded, which may have sent the command.
+func (s *Sender) abandon(
+	ctx context.Context, operation sqlc.VetchiumFederationOperation,
+	actor auditActor,
+) bool {
+	removed, err := s.queries.AbandonUnsentFederationOperation(ctx,
+		sqlc.AbandonUnsentFederationOperationParams{
+			OperationID: operation.OperationID, TenantID: s.config.TenantID,
+			ActorType: actor.actorType, ActorID: dbvalue.Text(actor.actorID),
+			Source: s.config.Source,
+		})
+	if err != nil {
+		s.config.Log.Warn("federation operation not abandoned",
+			"event", "federation_command_abandon_failed",
+			"operationID", dbvalue.FormatUUID(operation.OperationID),
+			"kind", operation.Kind, "error", err)
+		return false
+	}
+	return removed == 1
 }
 
 // resolve records a definite outcome. If another driver already resolved

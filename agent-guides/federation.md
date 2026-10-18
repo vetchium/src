@@ -224,9 +224,12 @@ command-result ledger at the authority; no per-feature reliability protocol.
 6. A definite success or deterministic `4xx` resolves the initiating
    operation. If the command was sent but its outcome is unknown, return `202
    Accepted` with the operation id. If no command was issued because routing or
-   connection setup failed, return a retryable `503` or `504`.
+   connection setup failed, abandon the operation in the same flow — delete it,
+   releasing its idempotency key — and return a retryable `503`: nothing
+   happened, and a retry with the same key sends afresh.
 7. A recovery worker re-resolves the owner and re-drives the identical command
-   until it obtains the stored outcome. It selects due work by
+   until it obtains the stored outcome; only possibly-sent operations (sent, or
+   a crash between commit and send) remain to drive. It selects due work by
    `next_attempt_at` and records the attempt, with backoff, before sending, so
    operations stuck on an unreachable authority never hold the front of every
    batch.
@@ -253,8 +256,14 @@ command-result ledger at the authority; no per-feature reliability protocol.
     the problem as the deterministic outcome.
   - Outcomes: `StateSucceeded`/`StateFailed` carry the stored status and body;
     `StatePending` is `202` with `PendingOperation`; `StateUnavailable` is a
-    retryable `503` and leaves the operation pending, so an exact replay or
-    recovery sends it later. A replay of a pending operation drives it again.
+    retryable `503` after the sender abandoned the never-sent operation.
+  - Only the sender's first attempt may abandon, and only while
+    `attempt_count` is `0`: every other attempt (recovery, or a replay of a
+    pending operation, which drives it again) is recorded first, so a
+    not-sent later attempt stays pending and answers `202`.
+  - An operation past `expires_at` is no longer recovered, and its key is free
+    like any expired idempotency key: the next request with it deletes the
+    expired row in the transaction that creates a new operation.
   - The authority refuses an unknown kind (`400`), a principal it does not
     home (`421 federation-authority-misdirected`, re-resolve and resend), and a
     command id reused with another source tenant, kind, aggregate, or digest
@@ -295,6 +304,32 @@ command-result ledger at the authority; no per-feature reliability protocol.
 - A mutable projection carries a durable aggregate version, and the receiver
   keeps a per-aggregate watermark so an older event never overwrites newer
   state.
+- `backend/internal/federation/events` implements this for every event kind;
+  features add no outbox, routing, transport, or inbox code.
+  - Enqueue with `events.Enqueue(ctx, tx, Outgoing{...})` inside the write
+    transaction, beside that change's own audit event. An event names a
+    destination principal (Hub user or Org), whose home tenant is re-resolved
+    on every attempt, an aggregate type, id, and version, and a JSON-object
+    payload with no secret.
+  - Register each kind's receiver `Handler` in
+    `backend/internal/federation/eventkinds` (mesh-api and workers). It gets
+    the receiving transaction and runs only for an event newer than the
+    watermark; its writes commit with the inbox receipt, whose
+    `federation.event.received` audit event covers them. An error rolls back
+    and the event is redelivered.
+  - The workers' `deliver-federation-events` job claims due events with a
+    lease, applies a local destination in process in the transaction that
+    completes it, and otherwise posts to the relay `POST /mesh/events/deliver`,
+    which forwards to the home tenant's peer `POST /api/mesh/events/deliver`.
+    Retries back off from 2 seconds to 5 minutes; from the tenth attempt each
+    failure logs at error. `federation-event-conflict` (`409`) and
+    `federation-destination-not-found` (`404`) fail the event, with an error
+    log; everything else is retried.
+  - The watermark key is (kind, destination principal, aggregate type, id):
+    one change may feed several projections. An event at or below it is
+    recorded `superseded` and not applied; a redelivered id is `duplicate`,
+    even after its kind is withdrawn; the same id with any other field or
+    payload digest is `federation-event-conflict`.
 - A projection is rebuildable and never authoritative. Its absence must not
   turn an acknowledged operation into a false `404`; consult the operation
   ledger or authority while delivery is pending.

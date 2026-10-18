@@ -230,9 +230,58 @@ SELECT operation_id, command_id, kind, target_authority, aggregate_id,
     authority_principal_type, authority_principal_did
 FROM vetchium.federation_operations
 WHERE state = 'pending' AND target_authority = 'tenant'
-  AND next_attempt_at <= now()
+  AND next_attempt_at <= now() AND expires_at > now()
 ORDER BY next_attempt_at, created_at, operation_id
 LIMIT sqlc.arg(batch_size);
+
+-- An expired operation's key is free again, like any expired idempotency
+-- key; a pending one is no longer driven.
+-- The final SELECT's row count is the affected-row count.
+-- name: DeleteExpiredFederationCommandOperation :execrows
+WITH deleted AS (
+    DELETE FROM vetchium.federation_operations AS operation
+    WHERE operation.kind = sqlc.arg(kind)
+      AND operation.aggregate_id = sqlc.arg(aggregate_id)
+      AND operation.idempotency_key = sqlc.arg(idempotency_key)
+      AND operation.target_authority = 'tenant'
+      AND operation.expires_at <= now()
+    RETURNING operation.operation_id, operation.kind, operation.state
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'federation.operation.expired',
+        'federation_operation', operation_id::text, sqlc.arg(actor_type),
+        sqlc.narg(actor_id), sqlc.arg(source), operation_id::text,
+        jsonb_build_object('kind', kind, 'state', state)
+    FROM deleted
+)
+SELECT operation_id FROM deleted;
+
+-- Removes an operation whose only attempt was its sender's and was certainly
+-- not sent. Every other attempt is recorded first and increments
+-- attempt_count, so a zero count proves nothing else may have sent it.
+-- The final SELECT's row count is the affected-row count.
+-- name: AbandonUnsentFederationOperation :execrows
+WITH deleted AS (
+    DELETE FROM vetchium.federation_operations
+    WHERE operation_id = sqlc.arg(operation_id)
+      AND state = 'pending' AND target_authority = 'tenant'
+      AND attempt_count = 0
+    RETURNING operation_id, kind
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'federation.operation.abandoned',
+        'federation_operation', operation_id::text, sqlc.arg(actor_type),
+        sqlc.narg(actor_id), sqlc.arg(source), operation_id::text,
+        jsonb_build_object('kind', kind)
+    FROM deleted
+)
+SELECT operation_id FROM deleted;
 
 -- name: GetOrgFederationOperationStatus :one
 SELECT operation_id, state
@@ -286,20 +335,19 @@ WHERE vetchium.federation_command_ledger.source_tenant_id =
 RETURNING command_id, source_tenant_id, kind, aggregate_id, request_digest,
     response_status, response_body, completed_at;
 
--- name: CreateFederationOutboxEvent :one
+-- Runs only inside the write transaction whose own audit event covers the
+-- change the event reports.
+-- name: CreateFederationOutboxEvent :exec
 INSERT INTO vetchium.federation_outbox (
-    event_id, destination_tenant_id, kind, aggregate_type, aggregate_id,
-    aggregate_version, payload, payload_digest
+    event_id, kind, destination_principal_type, destination_principal_did,
+    aggregate_type, aggregate_id, aggregate_version, payload_bytes
 )
 VALUES (
-    sqlc.arg(event_id), sqlc.arg(destination_tenant_id), sqlc.arg(kind),
-    sqlc.arg(aggregate_type), sqlc.arg(aggregate_id),
-    sqlc.arg(aggregate_version), sqlc.arg(payload), sqlc.arg(payload_digest)
-)
-RETURNING event_id, destination_tenant_id, kind, aggregate_type,
-    aggregate_id, aggregate_version, payload, payload_digest, attempt_count,
-    next_attempt_at, lease_token, leased_until, created_at, delivered_at,
-    failed_at, last_error;
+    sqlc.arg(event_id), sqlc.arg(kind), sqlc.arg(destination_principal_type),
+    sqlc.arg(destination_principal_did), sqlc.arg(aggregate_type),
+    sqlc.arg(aggregate_id), sqlc.arg(aggregate_version),
+    sqlc.arg(payload_bytes)
+);
 
 -- name: ClaimFederationOutboxEvent :one
 WITH candidate AS (
@@ -314,62 +362,160 @@ WITH candidate AS (
 ), claimed AS (
     UPDATE vetchium.federation_outbox AS event
     SET lease_token = sqlc.arg(lease_token),
-        leased_until = now() + interval '1 minute',
+        leased_until = sqlc.arg(leased_until),
         attempt_count = attempt_count + 1
     WHERE event.event_id = (SELECT event_id FROM candidate)
-    RETURNING event.event_id, event.destination_tenant_id, event.kind,
-        event.aggregate_type, event.aggregate_id, event.aggregate_version,
-        event.payload, event.payload_digest, event.attempt_count,
-        event.next_attempt_at, event.lease_token, event.leased_until,
-        event.created_at, event.delivered_at, event.failed_at,
-        event.last_error
+    RETURNING event.event_id, event.kind, event.destination_principal_type,
+        event.destination_principal_did, event.aggregate_type,
+        event.aggregate_id, event.aggregate_version, event.payload_bytes,
+        event.attempt_count, event.created_at
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'federation.event.delivery-claimed',
+        'federation_event', event_id::text, 'worker', 'federation-events',
+        'workers', event_id::text,
+        jsonb_build_object('kind', kind, 'attempt', attempt_count)
+    FROM claimed
 )
-SELECT event_id, destination_tenant_id, kind, aggregate_type, aggregate_id,
-    aggregate_version, payload, payload_digest, attempt_count,
-    next_attempt_at, lease_token, leased_until, created_at, delivered_at,
-    failed_at, last_error
+SELECT event_id, kind, destination_principal_type, destination_principal_did,
+    aggregate_type, aggregate_id, aggregate_version, payload_bytes,
+    attempt_count, created_at
 FROM claimed;
 
+-- The final SELECT's row count is the affected-row count.
 -- name: CompleteFederationOutboxEvent :execrows
-UPDATE vetchium.federation_outbox
-SET delivered_at = now(), lease_token = NULL, leased_until = NULL,
-    last_error = NULL
-WHERE event_id = sqlc.arg(event_id)
-  AND lease_token = sqlc.arg(lease_token)
-  AND delivered_at IS NULL AND failed_at IS NULL;
+WITH completed AS (
+    UPDATE vetchium.federation_outbox
+    SET delivered_at = now(), lease_token = NULL, leased_until = NULL,
+        last_error = NULL
+    WHERE event_id = sqlc.arg(event_id)
+      AND lease_token = sqlc.arg(lease_token)
+      AND delivered_at IS NULL AND failed_at IS NULL
+    RETURNING event_id, kind, attempt_count
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'federation.event.delivered',
+        'federation_event', event_id::text, 'worker', 'federation-events',
+        'workers', event_id::text,
+        jsonb_build_object(
+            'kind', kind, 'attempt', attempt_count,
+            'outcome', sqlc.arg(outcome)::text
+        )
+    FROM completed
+)
+SELECT event_id FROM completed;
 
+-- The final SELECT's row count is the affected-row count.
 -- name: RetryFederationOutboxEvent :execrows
-UPDATE vetchium.federation_outbox
-SET lease_token = NULL, leased_until = NULL,
-    next_attempt_at = now() + LEAST(
-        interval '5 minutes',
-        interval '1 second' * power(2, LEAST(attempt_count, 8))
-    ),
-    last_error = left(sqlc.arg(last_error), 200)
-WHERE event_id = sqlc.arg(event_id)
-  AND lease_token = sqlc.arg(lease_token)
-  AND delivered_at IS NULL AND failed_at IS NULL;
+WITH retried AS (
+    UPDATE vetchium.federation_outbox
+    SET lease_token = NULL, leased_until = NULL,
+        next_attempt_at = now() + LEAST(
+            interval '5 minutes',
+            interval '1 second' * power(2, LEAST(attempt_count, 8))
+        ),
+        last_error = left(sqlc.arg(last_error), 200)
+    WHERE event_id = sqlc.arg(event_id)
+      AND lease_token = sqlc.arg(lease_token)
+      AND delivered_at IS NULL AND failed_at IS NULL
+    RETURNING event_id, kind, attempt_count
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'federation.event.retry-scheduled',
+        'federation_event', event_id::text, 'worker', 'federation-events',
+        'workers', event_id::text,
+        jsonb_build_object('kind', kind, 'attempt', attempt_count)
+    FROM retried
+)
+SELECT event_id FROM retried;
 
--- name: RecordFederationInboxReceipt :one
-INSERT INTO vetchium.federation_inbox (
-    event_id, source_tenant_id, kind, aggregate_type, aggregate_id,
-    aggregate_version, payload_digest
+-- The final SELECT's row count is the affected-row count.
+-- name: FailFederationOutboxEvent :execrows
+WITH failed AS (
+    UPDATE vetchium.federation_outbox
+    SET failed_at = now(), lease_token = NULL, leased_until = NULL,
+        last_error = left(sqlc.arg(last_error), 200)
+    WHERE event_id = sqlc.arg(event_id)
+      AND lease_token = sqlc.arg(lease_token)
+      AND delivered_at IS NULL AND failed_at IS NULL
+    RETURNING event_id, kind, attempt_count
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'federation.event.delivery-failed',
+        'federation_event', event_id::text, 'worker', 'federation-events',
+        'workers', event_id::text,
+        jsonb_build_object(
+            'kind', kind, 'attempt', attempt_count,
+            'reason', sqlc.arg(last_error)::text
+        )
+    FROM failed
+)
+SELECT event_id FROM failed;
+
+-- name: GetFederationInboxReceipt :one
+SELECT event_id, source_tenant_id, kind, aggregate_type, aggregate_id,
+    aggregate_version, payload_digest, applied, received_at
+FROM vetchium.federation_inbox
+WHERE event_id = sqlc.arg(event_id);
+
+-- Returns a row only when the event is newer than every version of its
+-- aggregate already applied for this kind and destination.
+-- name: AdvanceFederationEventWatermark :one
+INSERT INTO vetchium.federation_event_watermarks AS watermark (
+    kind, destination_principal_did, aggregate_type, aggregate_id,
+    aggregate_version
 )
 VALUES (
-    sqlc.arg(event_id), sqlc.arg(source_tenant_id), sqlc.arg(kind),
+    sqlc.arg(kind), sqlc.arg(destination_principal_did),
     sqlc.arg(aggregate_type), sqlc.arg(aggregate_id),
-    sqlc.arg(aggregate_version), sqlc.arg(payload_digest)
+    sqlc.arg(aggregate_version)
 )
-ON CONFLICT (event_id) DO UPDATE
-SET event_id = vetchium.federation_inbox.event_id
-WHERE vetchium.federation_inbox.source_tenant_id = EXCLUDED.source_tenant_id
-  AND vetchium.federation_inbox.kind = EXCLUDED.kind
-  AND vetchium.federation_inbox.aggregate_type = EXCLUDED.aggregate_type
-  AND vetchium.federation_inbox.aggregate_id = EXCLUDED.aggregate_id
-  AND vetchium.federation_inbox.aggregate_version = EXCLUDED.aggregate_version
-  AND vetchium.federation_inbox.payload_digest = EXCLUDED.payload_digest
-RETURNING event_id, source_tenant_id, kind, aggregate_type, aggregate_id,
-    aggregate_version, payload_digest, received_at, applied_at;
+ON CONFLICT (kind, destination_principal_did, aggregate_type, aggregate_id)
+DO UPDATE SET aggregate_version = EXCLUDED.aggregate_version,
+    updated_at = now()
+WHERE watermark.aggregate_version < EXCLUDED.aggregate_version
+RETURNING aggregate_version;
+
+-- name: RecordFederationInboxReceipt :exec
+WITH received AS (
+    INSERT INTO vetchium.federation_inbox (
+        event_id, source_tenant_id, kind, aggregate_type, aggregate_id,
+        aggregate_version, payload_digest, applied
+    )
+    VALUES (
+        sqlc.arg(event_id), sqlc.arg(source_tenant_id), sqlc.arg(kind),
+        sqlc.arg(aggregate_type), sqlc.arg(aggregate_id),
+        sqlc.arg(aggregate_version), sqlc.arg(payload_digest),
+        sqlc.arg(applied)
+    )
+    RETURNING event_id, source_tenant_id, kind, aggregate_type, aggregate_id,
+        aggregate_version, applied
+)
+INSERT INTO vetchium.audit_events (
+    tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+    source, idempotency_key, payload
+)
+SELECT sqlc.arg(tenant_id), 'federation.event.received', 'federation_event',
+    event_id::text, 'tenant', source_tenant_id, sqlc.arg(source),
+    event_id::text,
+    jsonb_build_object(
+        'kind', kind, 'aggregate_type', aggregate_type,
+        'aggregate_id', aggregate_id, 'aggregate_version', aggregate_version,
+        'applied', applied
+    )
+FROM received;
 
 -- name: ApplyHubProfileAlias :one
 WITH previous AS (
