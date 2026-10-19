@@ -38,3 +38,7 @@ Playwright API: everything MKT-TST-001 lists for referrals and attribution.
 ## Acceptance
 
 Applicants credit agencies; each side sees exactly its share.
+
+## Carried over
+
+- From T14: the credit/referral panel on the application detail page and the "Referred by" column on the Applicants tab.

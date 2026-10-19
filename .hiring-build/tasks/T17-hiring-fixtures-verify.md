@@ -33,3 +33,4 @@ portals.
 - From T11: seed an assessment stage with a result and a background-check stage with consent requests in each state (requested, given with results, declined).
 - From T12: fixtures must set the required `removed` field wherever they build Orgs application wire types; seed one removed application.
 - From T12: a stale `hub-application-changed` delivered after `hub-application-removed` can recreate the Hub projection row, because watermarks are per event kind. Make the Hub receiver keep a removal tombstone (or share the watermark across both kinds for the aggregate) so a removed application never reappears; add a Go test.
+- From T14: stabilize flaky UI specs under parallel load (`ui/orgs-openings.spec.ts:785`, `ui/orgs-pipelines.spec.ts:178`) and the slow `api/orgs-application-transitions.spec.ts` close-request test (~36 s, over the 30 s default; seed less or set a per-test timeout); `make test` must pass with default workers.
