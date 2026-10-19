@@ -49,3 +49,4 @@ than an offer in the portal.
 - From T10: the `pending_applicant_action` filter (`interview_response`, `offer_response`, and T11's consent) on the applications list.
 - From T11: add `background_check_consent` to the pending applicant action filter; show assessments and background checks in the detail and history.
 - From T12: removed applications (`removed: true`) read as a localized "Removed applicant"; the `removed` history action (actor `system`).
+- From T13: add the Applicants and Candidates tabs to the tab array in `orgs-ui/src/pages/OpeningDetailPage.tsx` with the mockup's stat cards and tab count badges (reuse `useStageCountsQuery` in `features/pipelines/queries.ts`). Also fix the Pipeline tab at 390px: the wrapped Save/Discard push the "Stages" card title out of view.

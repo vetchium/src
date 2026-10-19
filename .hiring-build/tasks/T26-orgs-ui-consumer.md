@@ -37,3 +37,7 @@ a statement.
 ## Acceptance
 
 A consumer finds, engages, assigns, and routes providers from the portal.
+
+## Carried over
+
+- From T13: add the Providers tab to the tab array in `orgs-ui/src/pages/OpeningDetailPage.tsx` and Find providers to the Hiring nav group in `AppShell.tsx`; add the Pipeline tab's "in-house only" / "provider assigned" notes beside stages from engagements data.
