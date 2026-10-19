@@ -8,9 +8,13 @@ import { applicationErrorMessage } from "./errors";
 import {
   useCompleteApplicationStageMutation,
   useRecordDidNotJoinMutation,
+  useWithdrawOfferMutation,
 } from "./queries";
 
-export type ConfirmAction = "complete-stage" | "did-not-join";
+export type ConfirmAction =
+  | "complete-stage"
+  | "did-not-join"
+  | "withdraw-offer";
 
 interface Props {
   action: ConfirmAction;
@@ -29,11 +33,13 @@ export function ConfirmActionDialog({
   const { message } = App.useApp();
   const complete = useCompleteApplicationStageMutation();
   const didNotJoin = useRecordDidNotJoinMutation();
+  const withdraw = useWithdrawOfferMutation();
   const key = useIdempotencyKey(
     `confirm-${action}:${openingNumber}:${detail.application_number}`,
   );
   const [error, setError] = useState<string>();
-  const pending = complete.isPending || didNotJoin.isPending;
+  const pending =
+    complete.isPending || didNotJoin.isPending || withdraw.isPending;
 
   const submit = async () => {
     if (pending) return;
@@ -46,6 +52,8 @@ export function ConfirmActionDialog({
     try {
       if (action === "complete-stage") {
         await complete.mutateAsync({ request, key: key.current() });
+      } else if (action === "withdraw-offer") {
+        await withdraw.mutateAsync({ request, key: key.current() });
       } else {
         await didNotJoin.mutateAsync({ request, key: key.current() });
       }
@@ -63,7 +71,7 @@ export function ConfirmActionDialog({
       open
       title={t(`applications.confirm.${action}.title`)}
       okText={t(`applications.confirm.${action}.confirm`)}
-      okButtonProps={{ danger: action === "did-not-join" }}
+      okButtonProps={{ danger: action !== "complete-stage" }}
       cancelText={t("common.cancel")}
       onCancel={() => {
         if (!pending) onClose();

@@ -26,12 +26,24 @@ import type {
   ApplicationJoinedOnRequest,
   ApplicationSeparatedOnRequest,
   ApplicationStageRequest,
+  CancelInterviewRequest,
+  ChangeInterviewRequest,
+  ExtendApplicationOfferRequest,
   GetApplicationCountsRequest,
   GetApplicationRequest,
   ListApplicationHistoryRequest,
   ListApplicationHistoryResponse,
   ListApplicationsRequest,
   ListApplicationsResponse,
+  ListMyInterviewsRequest,
+  ListMyInterviewsResponse,
+  OfferLetterUploaded,
+  RecordAssessmentResultRequest,
+  RecordBackgroundCheckResultRequest,
+  RecordInterviewOutcomeRequest,
+  RequestBackgroundCheckConsentRequest,
+  ScheduleInterviewRequest,
+  SubmitInterviewFeedbackRequest,
 } from "typespec/orgs/applications/applications";
 import type {
   LoginRequest,
@@ -251,6 +263,94 @@ export const orgsAPI = {
       body,
       idempotencyKey,
     }),
+  uploadOfferLetter: (letter: Blob, idempotencyKey: IdempotencyKey) =>
+    apiRequest<OfferLetterUploaded>("/upload-offer-letter", {
+      body: letter,
+      contentType: "application/pdf",
+      idempotencyKey,
+    }),
+  extendApplicationOffer: (
+    body: ExtendApplicationOfferRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/extend-application-offer", {
+      body,
+      idempotencyKey,
+    }),
+  withdrawApplicationOffer: (
+    body: ApplicationActionRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/withdraw-application-offer", {
+      body,
+      idempotencyKey,
+    }),
+  scheduleInterview: (
+    body: ScheduleInterviewRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/schedule-interview", {
+      body,
+      idempotencyKey,
+    }),
+  changeInterview: (
+    body: ChangeInterviewRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/change-interview", {
+      body,
+      idempotencyKey,
+    }),
+  cancelInterview: (
+    body: CancelInterviewRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/cancel-interview", {
+      body,
+      idempotencyKey,
+    }),
+  recordInterviewOutcome: (
+    body: RecordInterviewOutcomeRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/record-interview-outcome", {
+      body,
+      idempotencyKey,
+    }),
+  submitInterviewFeedback: (
+    body: SubmitInterviewFeedbackRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/submit-interview-feedback", {
+      body,
+      idempotencyKey,
+    }),
+  recordAssessmentResult: (
+    body: RecordAssessmentResultRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/record-assessment-result", {
+      body,
+      idempotencyKey,
+    }),
+  requestBackgroundCheckConsent: (
+    body: RequestBackgroundCheckConsentRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/request-background-check-consent", {
+      body,
+      idempotencyKey,
+    }),
+  recordBackgroundCheckResult: (
+    body: RecordBackgroundCheckResultRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/record-background-check-result", {
+      body,
+      idempotencyKey,
+    }),
+  listMyInterviews: (body: ListMyInterviewsRequest) =>
+    apiRequest<ListMyInterviewsResponse>("/list-my-interviews", { body }),
   createOpening: (body: CreateOpeningRequest, idempotencyKey: IdempotencyKey) =>
     apiRequest<OrgOpening>("/create-opening", { body, idempotencyKey }),
   duplicateOpening: (

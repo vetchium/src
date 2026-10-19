@@ -13,6 +13,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
 import { paths } from "../app/paths";
+import { useMyInfoQuery } from "../features/account/queries";
 import { ApplicationActions } from "../features/applications/ApplicationActions";
 import { useCanActOnApplications } from "../features/applications/access";
 import { HistoryCard } from "../features/applications/HistoryCard";
@@ -48,6 +49,7 @@ export function ApplicationDetailPage() {
   );
   const opening = useOpeningQuery(valid ? openingNumber : 0);
   const counts = useStageCountsQuery(valid ? openingNumber : 0);
+  const me = useMyInfoQuery();
   const canAct = useCanActOnApplications(opening.data);
   const detail = query.data;
 
@@ -94,6 +96,16 @@ export function ApplicationDetailPage() {
     t("applications.appliedOn", { date: date(detail.submitted_at) }),
   ].join(" · ");
   const stages = counts.data?.stages.map((entry) => entry.stage) ?? [];
+  const suggestions = [
+    ...new Set(
+      [
+        opening.data?.hiring_manager?.email,
+        opening.data?.recruiter?.email,
+        ...(opening.data?.team_members.map((member) => member.email) ?? []),
+        me.data?.email_address,
+      ].filter((email): email is string => email !== undefined),
+    ),
+  ];
 
   return (
     <Space orientation="vertical" size="large" className="full-width">
@@ -134,7 +146,12 @@ export function ApplicationDetailPage() {
         <Col xs={{ span: 24, order: 2 }} lg={{ span: 16, order: 1 }}>
           <Flex vertical gap="middle">
             <StageProgress detail={detail} stages={stages} />
-            <StageWork detail={detail} />
+            <StageWork
+              detail={detail}
+              openingNumber={openingNumber}
+              canAct={canAct}
+              suggestions={suggestions}
+            />
             <SnapshotCard detail={detail} />
             {detail.cover_note && !detail.removed && (
               <Card title={t("applications.coverNote")}>
@@ -156,6 +173,7 @@ export function ApplicationDetailPage() {
               openingNumber={openingNumber}
               stages={stages}
               canAct={canAct}
+              suggestions={suggestions}
             />
             <WaitingCard detail={detail} />
           </Flex>

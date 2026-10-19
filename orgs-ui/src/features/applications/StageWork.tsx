@@ -1,9 +1,45 @@
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
-import { Card, Descriptions, Flex, List, Tag, Typography } from "antd";
-import type { ReactNode } from "react";
+import {
+  Alert,
+  Button,
+  Card,
+  Descriptions,
+  Flex,
+  List,
+  Tag,
+  Typography,
+} from "antd";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { ApplicationDetail } from "typespec/orgs/applications/applications";
+import type {
+  ApplicationDetail,
+  Interview,
+} from "typespec/orgs/applications/applications";
+import type { CheckType } from "typespec/orgs/hiring/vocabulary";
+import { useMyInfoQuery } from "../account/queries";
+import { CheckResultDialog } from "./CheckResultDialog";
+import { InterviewDialog } from "./InterviewDialog";
+import { InterviewFeedbackDialog } from "./InterviewFeedbackDialog";
+import {
+  type InterviewStatusAction,
+  InterviewStatusDialog,
+} from "./InterviewStatusDialog";
 import { stageKindLabel, useCalendarDate } from "./presentation";
+
+type Dialog =
+  | { kind: "change"; interview: Interview }
+  | { kind: "status"; action: InterviewStatusAction; interview: Interview }
+  | { kind: "feedback"; interview: Interview }
+  | { kind: "check"; checkType: CheckType };
+
+interface Props {
+  detail: ApplicationDetail;
+  openingNumber: number;
+  /** The caller may act on every application of the Opening. */
+  canAct: boolean;
+  /** People offered when changing an interview's interviewers. */
+  suggestions: readonly string[];
+}
 
 function ExternalReport({ href, label }: { href: string; label: string }) {
   if (!href.startsWith("https://")) return <>{href}</>;
@@ -25,11 +61,19 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
  * may not read. Their actions (scheduling, recording, extending) belong
  * beside these blocks.
  */
-export function StageWork({ detail }: { detail: ApplicationDetail }) {
+export function StageWork({
+  detail,
+  openingNumber,
+  canAct,
+  suggestions,
+}: Props) {
   const { t } = useTranslation();
   const { dateTime } = useDateTimeFormat();
   const calendarDate = useCalendarDate();
+  const { data: me } = useMyInfoQuery();
+  const [dialog, setDialog] = useState<Dialog>();
   if (detail.removed) return null;
+  const now = Date.now();
   return (
     <>
       {detail.interviews.length > 0 && (
@@ -140,6 +184,19 @@ export function StageWork({ detail }: { detail: ApplicationDetail }) {
                       </Typography.Text>
                     </Flex>
                   ))}
+                  <InterviewRowActions
+                    interview={interview}
+                    now={now}
+                    canAct={canAct}
+                    myEmail={me?.email_address}
+                    onChange={() => setDialog({ kind: "change", interview })}
+                    onStatus={(action) =>
+                      setDialog({ kind: "status", action, interview })
+                    }
+                    onFeedback={() =>
+                      setDialog({ kind: "feedback", interview })
+                    }
+                  />
                 </Flex>
               </List.Item>
             )}
@@ -236,6 +293,20 @@ export function StageWork({ detail }: { detail: ApplicationDetail }) {
                               label={t("applications.work.report")}
                             />
                           )}
+                          {canAct &&
+                            !result &&
+                            check.consent_state === "given" &&
+                            detail.state === "in_pipeline" &&
+                            check.stage.id === detail.current_stage?.id && (
+                              <Button
+                                size="small"
+                                onClick={() =>
+                                  setDialog({ kind: "check", checkType: type })
+                                }
+                              >
+                                {t("applications.checkResult.action")}
+                              </Button>
+                            )}
                         </Flex>
                         {result?.notes && (
                           <Typography.Text type="secondary">
@@ -245,6 +316,11 @@ export function StageWork({ detail }: { detail: ApplicationDetail }) {
                       </Flex>
                     );
                   })}
+                  {check.consent_state === "requested" && (
+                    <Typography.Text type="secondary">
+                      {t("applications.work.consentAwaited")}
+                    </Typography.Text>
+                  )}
                   <Typography.Text type="secondary">
                     {t("applications.work.resultsNotDecided")}
                   </Typography.Text>
@@ -299,6 +375,114 @@ export function StageWork({ detail }: { detail: ApplicationDetail }) {
           />
         </Section>
       )}
+      {dialog?.kind === "change" && (
+        <InterviewDialog
+          detail={detail}
+          openingNumber={openingNumber}
+          interview={dialog.interview}
+          suggestions={suggestions}
+          onClose={() => setDialog(undefined)}
+        />
+      )}
+      {dialog?.kind === "status" && (
+        <InterviewStatusDialog
+          action={dialog.action}
+          detail={detail}
+          openingNumber={openingNumber}
+          interview={dialog.interview}
+          onClose={() => setDialog(undefined)}
+        />
+      )}
+      {dialog?.kind === "feedback" && (
+        <InterviewFeedbackDialog
+          detail={detail}
+          openingNumber={openingNumber}
+          interview={dialog.interview}
+          onClose={() => setDialog(undefined)}
+        />
+      )}
+      {dialog?.kind === "check" && (
+        <CheckResultDialog
+          detail={detail}
+          openingNumber={openingNumber}
+          checkType={dialog.checkType}
+          onClose={() => setDialog(undefined)}
+        />
+      )}
     </>
+  );
+}
+
+interface RowActionsProps {
+  interview: Interview;
+  now: number;
+  canAct: boolean;
+  myEmail: string | undefined;
+  onChange: () => void;
+  onStatus: (action: InterviewStatusAction) => void;
+  onFeedback: () => void;
+}
+
+/**
+ * What the caller may do to one interview, by its time and their part in it.
+ * Whoever acts on the Opening reschedules and cancels; they or an interviewer
+ * record the outcome once the interview started; an interviewer who has not
+ * given feedback does so after it is completed.
+ */
+function InterviewRowActions({
+  interview,
+  now,
+  canAct,
+  myEmail,
+  onChange,
+  onStatus,
+  onFeedback,
+}: RowActionsProps) {
+  const { t } = useTranslation();
+  const mine = interview.interviewers.find((entry) => entry.email === myEmail);
+  const started = new Date(interview.starts_at).getTime() <= now;
+  const upcoming = interview.state === "scheduled" && !started;
+  const needsOutcome =
+    interview.state === "scheduled" &&
+    started &&
+    (canAct || mine !== undefined);
+  const needsFeedback =
+    interview.state === "completed" &&
+    mine !== undefined &&
+    !mine.feedback_submitted;
+  if (!upcoming && !needsOutcome && !needsFeedback) return null;
+  return (
+    <Flex vertical gap="small">
+      {needsFeedback && (
+        <Alert type="info" showIcon title={t("applications.feedback.hidden")} />
+      )}
+      <Flex gap="small" wrap>
+        {upcoming && canAct && (
+          <>
+            <Button size="small" onClick={onChange}>
+              {t("applications.interview.change.action")}
+            </Button>
+            <Button size="small" danger onClick={() => onStatus("cancel")}>
+              {t("applications.interview.cancel.action")}
+            </Button>
+          </>
+        )}
+        {needsOutcome && (
+          <>
+            <Button size="small" onClick={() => onStatus("completed")}>
+              {t("applications.interview.completed.action")}
+            </Button>
+            <Button size="small" onClick={() => onStatus("no_show")}>
+              {t("applications.interview.no_show.action")}
+            </Button>
+          </>
+        )}
+        {needsFeedback && (
+          <Button size="small" type="primary" onClick={onFeedback}>
+            {t("applications.feedback.action")}
+          </Button>
+        )}
+      </Flex>
+    </Flex>
   );
 }

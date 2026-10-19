@@ -49,6 +49,11 @@ const OpeningsPage = lazy(() =>
     default: OpeningsPage,
   })),
 );
+const MyInterviewsPage = lazy(() =>
+  import("../pages/MyInterviewsPage").then(({ MyInterviewsPage }) => ({
+    default: MyInterviewsPage,
+  })),
+);
 const OpeningDetailPage = lazy(() =>
   import("../pages/OpeningDetailPage").then(({ OpeningDetailPage }) => ({
     default: OpeningDetailPage,
@@ -282,6 +287,14 @@ export function App() {
               element={
                 <Page>
                   <OpeningsPage />
+                </Page>
+              }
+            />
+            <Route
+              path={paths.myInterviews}
+              element={
+                <Page>
+                  <MyInterviewsPage />
                 </Page>
               }
             />

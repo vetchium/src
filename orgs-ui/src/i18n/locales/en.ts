@@ -22,6 +22,7 @@ export const en = {
     hiring: "Hiring",
     organization: "Organization",
     pipelineTemplates: "Pipeline templates",
+    myInterviews: "My interviews",
     organizationSecurity: "Organization security",
   },
   theme: {
@@ -1330,6 +1331,7 @@ export const en = {
   },
   applications: {
     removedApplicant: "Removed applicant",
+    optional: "Optional",
     search: "Search by name",
     searchTooShort_one: "Type at least {{count}} character.",
     searchTooShort_other: "Type at least {{count}} characters.",
@@ -1409,6 +1411,21 @@ export const en = {
       invalidStage: "That stage is not available for this application.",
       invalidDate:
         "That date is not allowed. Check it against the offer and the other dates.",
+      interviewNotFound:
+        "This interview no longer exists on the application. It was reloaded.",
+      interviewStateConflict:
+        "The interview's state or time no longer allows this action. It was reloaded.",
+      feedbackExists: "You already gave feedback on this interview.",
+      interviewLimit:
+        "A stage holds at most {{count}} interviews. Cancel one before scheduling another.",
+      interviewersInvalid:
+        "These people are not active users of your Org: {{emails}}.",
+      letterInvalid: "The offer letter must be a PDF file.",
+      letterTooLarge: "The offer letter must be 5 MB or smaller.",
+      letterConflict:
+        "That offer letter was already used for another offer. Choose the file again.",
+      invalidStart: "The interview must start in the future.",
+      invalidProposedDate: "The proposed joining date cannot be in the past.",
     },
     shortlist: {
       action: "Shortlist",
@@ -1447,6 +1464,13 @@ export const en = {
       completeReview: "Mark review completed",
     },
     confirm: {
+      "withdraw-offer": {
+        action: "Withdraw offer",
+        title: "Withdraw the offer?",
+        body: "The applicant can no longer answer it and the application returns to its stage. The letter stays in the history for your team.",
+        confirm: "Withdraw offer",
+        done: "Offer withdrawn.",
+      },
       "complete-stage": {
         action: "Mark review completed",
         title: "Mark review completed?",
@@ -1571,6 +1595,124 @@ export const en = {
         removed: "Applicant data removed",
       },
     },
+    interview: {
+      atStage: "Stage: {{stage}}",
+      start: "Start",
+      startHelp:
+        "In your time zone ({{zone}}). The applicant sees it in theirs.",
+      startPast: "Choose a time in the future.",
+      duration: "Duration",
+      minutes: "minutes",
+      videoUrl: "Meeting link",
+      videoUrlHelp: "An https link the applicant opens to join.",
+      location: "Location",
+      locationHelp:
+        "Where the applicant should go, for example an address and floor.",
+      interviewersHelp:
+        "Active users of your Org, by email address. Up to {{max}}; they can read this application and give feedback.",
+      interviewersPlaceholder: "Type or choose an email address",
+      limitReached:
+        "This stage already holds {{count}} interviews. Cancel one to schedule another.",
+      schedule: {
+        action: "Schedule interview",
+        title: "Schedule an interview",
+        confirm: "Schedule",
+        done: "Interview scheduled. The applicant is asked to respond.",
+      },
+      change: {
+        action: "Change",
+        title: "Change the interview",
+        confirm: "Save changes",
+        done: "Interview updated. A new time or place asks the applicant to respond again.",
+      },
+      cancel: {
+        action: "Cancel interview",
+        title: "Cancel interview {{number}}?",
+        body: "The applicant sees the interview as cancelled. Feedback already given is kept.",
+        confirm: "Cancel interview",
+        done: "Interview cancelled.",
+      },
+      completed: {
+        action: "Mark completed",
+        title: "Interview {{number}} took place?",
+        body: "Interviewers can then give feedback.",
+        confirm: "Mark completed",
+        done: "Interview marked as completed.",
+      },
+      no_show: {
+        action: "Mark no-show",
+        title: "Applicant did not attend interview {{number}}?",
+        body: "This records a no-show. It does not end the application.",
+        confirm: "Mark no-show",
+        done: "Interview marked as a no-show.",
+      },
+    },
+    feedback: {
+      action: "Give feedback",
+      title: "Feedback on interview {{number}}",
+      confirm: "Submit feedback",
+      done: "Feedback submitted. You can now read the other interviewers' feedback.",
+      rule: "You see other interviewers' feedback only after you submit yours, so theirs cannot sway you.",
+      hidden: "Give your feedback to read the other interviewers' feedback.",
+      recommendation: "Recommendation",
+      notes: "Notes",
+      notesHelp:
+        "What you saw and why you recommend this. Up to 10,000 characters.",
+      final: "You can submit feedback once; it cannot be edited afterwards.",
+    },
+    assessment: {
+      action: "Record assessment result",
+      title: "Assessment result: {{stage}}",
+      confirm: "Record result",
+      done: "Assessment result recorded. The stage is completed.",
+      outcome: "Outcome",
+      help: "Recording the result completes this stage and cannot be repeated.",
+      score: "Score (0–100)",
+      notes: "Notes",
+      link: "Report link",
+      linkHelp:
+        "An https link to the report held by whoever ran the assessment. Vetchium stores no files.",
+    },
+    consent: {
+      action: "Request background-check consent",
+      againAction: "Ask for consent again",
+      title: "Request background-check consent",
+      againTitle: "Ask for background-check consent again",
+      confirm: "Send request",
+      done: "Consent requested. The applicant is asked in Vetchium.",
+      rule: "Nothing can be recorded until the applicant agrees to these checks in Vetchium. If they decline, nothing is recorded and you decide what follows.",
+      checks: "Checks",
+      noFiles:
+        "Vetchium records each result and a link to the report. It stores no report files.",
+    },
+    checkResult: {
+      action: "Record result",
+      title: "Result: {{check}}",
+      confirm: "Record result",
+      done: "{{check}} result recorded.",
+      outcome: "Outcome",
+      link: "Report link",
+      linkHelp:
+        "An https link to the report held by whoever performed the check.",
+    },
+    offer: {
+      action: "Extend offer",
+      title: "Extend an offer",
+      confirm: "Extend offer",
+      done: "Offer extended. The applicant is asked to respond.",
+      overHiring:
+        "{{joined}} people have already joined against {{positions}} planned positions. You can still extend this offer.",
+      letter: "Offer letter",
+      letterHelp: "A PDF of up to 5 MB. The applicant reads it in Vetchium.",
+      chooseLetter: "Choose PDF",
+      replaceLetter: "Choose another PDF",
+      respondWithin: "Respond within",
+      respondHelp:
+        "The offer expires if the applicant has not answered by then.",
+      days: "days",
+      joiningDate: "Proposed joining date",
+      joiningHelp: "Optional. A date from today on, in UTC.",
+    },
     work: {
       interviews: "Interviews",
       interview: "Interview {{number}}",
@@ -1578,6 +1720,7 @@ export const en = {
       whenValue: "{{start}} · {{minutes}} min",
       mode: "Mode",
       modes: {
+        video: "Video call",
         in_person: "In person",
       },
       interviewers: "Interviewers",
@@ -1632,6 +1775,8 @@ export const en = {
         unable_to_verify: "Unable to verify",
       },
       checkPending: "Pending",
+      consentAwaited:
+        "Waiting for the applicant to answer in Vetchium. Results can be recorded once they consent.",
       resultsNotDecided:
         "Vetchium records results; it never decides what to do about them. That decision is yours.",
       offers: "Offers",
@@ -1647,6 +1792,24 @@ export const en = {
       offerDates: "Extended {{extended}} · respond by {{respondBy}}",
       proposedJoining: "Proposed joining date: {{date}}",
     },
+  },
+  myInterviews: {
+    documentTitle: "My interviews | Vetchium",
+    title: "My interviews",
+    description:
+      "Interviews you sit on, newest first. Open one to read the application and give feedback.",
+    empty: "You are not an interviewer on any interview yet.",
+    minutes: "{{minutes}} min",
+    columns: {
+      applicant: "Applicant",
+      when: "When",
+      mode: "Mode",
+      state: "Status",
+      feedback: "Your feedback",
+    },
+    feedbackGiven: "Submitted",
+    feedbackDue: "Due",
+    feedbackNotYet: "After the interview",
   },
   pipeline: {
     title: "Pipeline",

@@ -106,3 +106,24 @@ export function languageName(language: string, tag: string): string {
     return tag;
   }
 }
+
+/** The `datetime-local` text for a moment, in the viewer's zone. */
+export function toLocalInput(iso: string): string {
+  const moment = new Date(iso);
+  const shifted = new Date(
+    moment.getTime() - moment.getTimezoneOffset() * 60000,
+  );
+  return shifted.toISOString().slice(0, 16);
+}
+
+/** The moment a `datetime-local` value names in the viewer's zone, as the
+ * UTC instant the API takes; `undefined` while the field is incomplete. */
+export function fromLocalInput(value: string): string | undefined {
+  const moment = new Date(value);
+  return Number.isNaN(moment.getTime()) ? undefined : moment.toISOString();
+}
+
+/** The viewer's time zone name, shown beside time inputs. */
+export function localTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}

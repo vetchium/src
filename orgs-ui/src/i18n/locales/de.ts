@@ -24,6 +24,7 @@ export const de = {
     hiring: "Recruiting",
     organization: "Organisation",
     pipelineTemplates: "Pipeline-Vorlagen",
+    myInterviews: "Meine Interviews",
     organizationSecurity: "Organisationssicherheit",
   },
   theme: {
@@ -1368,6 +1369,7 @@ export const de = {
   },
   applications: {
     removedApplicant: "Entfernte Bewerberin bzw. entfernter Bewerber",
+    optional: "Optional",
     search: "Nach Namen suchen",
     searchTooShort_one: "Geben Sie mindestens {{count}} Zeichen ein.",
     searchTooShort_other: "Geben Sie mindestens {{count}} Zeichen ein.",
@@ -1449,6 +1451,22 @@ export const de = {
       invalidStage: "Diese Phase ist für diese Bewerbung nicht verfügbar.",
       invalidDate:
         "Dieses Datum ist nicht zulässig. Prüfen Sie es gegen das Angebot und die übrigen Daten.",
+      interviewNotFound:
+        "Dieses Interview existiert in der Bewerbung nicht mehr. Die Ansicht wurde neu geladen.",
+      interviewStateConflict:
+        "Status oder Zeitpunkt des Interviews erlauben diese Aktion nicht mehr. Die Ansicht wurde neu geladen.",
+      feedbackExists: "Sie haben zu diesem Interview bereits Feedback gegeben.",
+      interviewLimit:
+        "Eine Stufe enthält höchstens {{count}} Interviews. Sagen Sie eines ab, bevor Sie ein weiteres planen.",
+      interviewersInvalid:
+        "Diese Personen sind keine aktiven Nutzer Ihrer Organisation: {{emails}}.",
+      letterInvalid: "Das Angebotsschreiben muss eine PDF-Datei sein.",
+      letterTooLarge: "Das Angebotsschreiben darf höchstens 5 MB groß sein.",
+      letterConflict:
+        "Dieses Angebotsschreiben wurde bereits für ein anderes Angebot verwendet. Wählen Sie die Datei erneut aus.",
+      invalidStart: "Das Interview muss in der Zukunft beginnen.",
+      invalidProposedDate:
+        "Das vorgeschlagene Eintrittsdatum darf nicht in der Vergangenheit liegen.",
     },
     shortlist: {
       action: "In die engere Wahl",
@@ -1488,6 +1506,13 @@ export const de = {
       completeReview: "Prüfung als abgeschlossen markieren",
     },
     confirm: {
+      "withdraw-offer": {
+        action: "Angebot zurückziehen",
+        title: "Angebot zurückziehen?",
+        body: "Die Bewerbung kann nicht mehr antworten und kehrt zu ihrer Stufe zurück. Das Schreiben bleibt im Verlauf für Ihr Team erhalten.",
+        confirm: "Angebot zurückziehen",
+        done: "Angebot zurückgezogen.",
+      },
       "complete-stage": {
         action: "Prüfung als abgeschlossen markieren",
         title: "Prüfung als abgeschlossen markieren?",
@@ -1615,6 +1640,128 @@ export const de = {
         removed: "Bewerberdaten entfernt",
       },
     },
+    interview: {
+      atStage: "Stufe: {{stage}}",
+      start: "Beginn",
+      startHelp:
+        "In Ihrer Zeitzone ({{zone}}). Die Bewerbung sieht die Zeit in der eigenen Zeitzone.",
+      startPast: "Wählen Sie einen Zeitpunkt in der Zukunft.",
+      duration: "Dauer",
+      minutes: "Minuten",
+      videoUrl: "Meeting-Link",
+      videoUrlHelp:
+        "Ein https-Link, über den die Bewerberin bzw. der Bewerber beitritt.",
+      location: "Ort",
+      locationHelp:
+        "Wohin die Bewerberin bzw. der Bewerber kommen soll, zum Beispiel Adresse und Etage.",
+      interviewersHelp:
+        "Aktive Nutzer Ihrer Organisation, per E-Mail-Adresse. Bis zu {{max}}; sie können diese Bewerbung lesen und Feedback geben.",
+      interviewersPlaceholder: "E-Mail-Adresse eingeben oder auswählen",
+      limitReached:
+        "Diese Stufe enthält bereits {{count}} Interviews. Sagen Sie eines ab, um ein weiteres zu planen.",
+      schedule: {
+        action: "Interview planen",
+        title: "Interview planen",
+        confirm: "Planen",
+        done: "Interview geplant. Die Bewerbung wird um eine Antwort gebeten.",
+      },
+      change: {
+        action: "Ändern",
+        title: "Interview ändern",
+        confirm: "Änderungen speichern",
+        done: "Interview aktualisiert. Bei neuer Zeit oder neuem Ort wird erneut um eine Antwort gebeten.",
+      },
+      cancel: {
+        action: "Interview absagen",
+        title: "Interview {{number}} absagen?",
+        body: "Die Bewerbung sieht das Interview als abgesagt. Bereits gegebenes Feedback bleibt erhalten.",
+        confirm: "Interview absagen",
+        done: "Interview abgesagt.",
+      },
+      completed: {
+        action: "Als durchgeführt markieren",
+        title: "Interview {{number}} hat stattgefunden?",
+        body: "Danach können die Interviewenden Feedback geben.",
+        confirm: "Als durchgeführt markieren",
+        done: "Interview als durchgeführt markiert.",
+      },
+      no_show: {
+        action: "Als nicht erschienen markieren",
+        title: "Bewerbung ist zu Interview {{number}} nicht erschienen?",
+        body: "Das hält das Nichterscheinen fest. Die Bewerbung endet dadurch nicht.",
+        confirm: "Als nicht erschienen markieren",
+        done: "Interview als nicht wahrgenommen markiert.",
+      },
+    },
+    feedback: {
+      action: "Feedback geben",
+      title: "Feedback zu Interview {{number}}",
+      confirm: "Feedback senden",
+      done: "Feedback gesendet. Sie können nun das Feedback der anderen Interviewenden lesen.",
+      rule: "Das Feedback der anderen sehen Sie erst, nachdem Sie Ihres gesendet haben, damit es Sie nicht beeinflusst.",
+      hidden:
+        "Geben Sie Ihr Feedback, um das der anderen Interviewenden zu lesen.",
+      recommendation: "Empfehlung",
+      notes: "Notizen",
+      notesHelp:
+        "Was Sie gesehen haben und warum Sie dies empfehlen. Bis zu 10.000 Zeichen.",
+      final:
+        "Feedback lässt sich nur einmal senden und danach nicht mehr ändern.",
+    },
+    assessment: {
+      action: "Testergebnis erfassen",
+      title: "Testergebnis: {{stage}}",
+      confirm: "Ergebnis erfassen",
+      done: "Testergebnis erfasst. Die Stufe ist abgeschlossen.",
+      outcome: "Ergebnis",
+      help: "Das Erfassen schließt diese Stufe ab und lässt sich nicht wiederholen.",
+      score: "Punktzahl (0–100)",
+      notes: "Notizen",
+      link: "Link zum Bericht",
+      linkHelp:
+        "Ein https-Link zum Bericht bei der Stelle, die den Test durchgeführt hat. Vetchium speichert keine Dateien.",
+    },
+    consent: {
+      action: "Einwilligung für Hintergrundprüfung anfordern",
+      againAction: "Erneut um Einwilligung bitten",
+      title: "Einwilligung für Hintergrundprüfung anfordern",
+      againTitle: "Erneut um Einwilligung für die Hintergrundprüfung bitten",
+      confirm: "Anfrage senden",
+      done: "Einwilligung angefordert. Die Bewerbung wird in Vetchium gefragt.",
+      rule: "Es kann nichts erfasst werden, bevor die Bewerbung diesen Prüfungen in Vetchium zustimmt. Bei einer Ablehnung wird nichts erfasst, und Sie entscheiden, wie es weitergeht.",
+      checks: "Prüfungen",
+      noFiles:
+        "Vetchium erfasst jedes Ergebnis und einen Link zum Bericht. Berichtsdateien werden nicht gespeichert.",
+    },
+    checkResult: {
+      action: "Ergebnis erfassen",
+      title: "Ergebnis: {{check}}",
+      confirm: "Ergebnis erfassen",
+      done: "Ergebnis für {{check}} erfasst.",
+      outcome: "Ergebnis",
+      link: "Link zum Bericht",
+      linkHelp:
+        "Ein https-Link zum Bericht bei der Stelle, die die Prüfung durchgeführt hat.",
+    },
+    offer: {
+      action: "Angebot unterbreiten",
+      title: "Angebot unterbreiten",
+      confirm: "Angebot unterbreiten",
+      done: "Angebot unterbreitet. Die Bewerbung wird um eine Antwort gebeten.",
+      overHiring:
+        "{{joined}} Personen sind bereits eingetreten bei {{positions}} geplanten Stellen. Sie können dieses Angebot trotzdem unterbreiten.",
+      letter: "Angebotsschreiben",
+      letterHelp:
+        "Eine PDF-Datei bis 5 MB. Die Bewerbung liest sie in Vetchium.",
+      chooseLetter: "PDF auswählen",
+      replaceLetter: "Andere PDF auswählen",
+      respondWithin: "Antwort innerhalb von",
+      respondHelp:
+        "Das Angebot verfällt, wenn bis dahin keine Antwort vorliegt.",
+      days: "Tagen",
+      joiningDate: "Vorgeschlagenes Eintrittsdatum",
+      joiningHelp: "Optional. Ein Datum ab heute, in UTC.",
+    },
     work: {
       interviews: "Interviews",
       interview: "Interview {{number}}",
@@ -1622,6 +1769,7 @@ export const de = {
       whenValue: "{{start}} · {{minutes}} Min.",
       mode: "Art",
       modes: {
+        video: "Videoanruf",
         in_person: "Vor Ort",
       },
       interviewers: "Interviewende",
@@ -1676,6 +1824,8 @@ export const de = {
         unable_to_verify: "Nicht überprüfbar",
       },
       checkPending: "Ausstehend",
+      consentAwaited:
+        "Wir warten auf die Antwort der Bewerberin bzw. des Bewerbers in Vetchium. Ergebnisse lassen sich nach der Einwilligung erfassen.",
       resultsNotDecided:
         "Vetchium erfasst Ergebnisse und entscheidet nie, was daraus folgt. Diese Entscheidung liegt bei Ihnen.",
       offers: "Angebote",
@@ -1691,6 +1841,25 @@ export const de = {
       offerDates: "Gemacht am {{extended}} · Antwort bis {{respondBy}}",
       proposedJoining: "Vorgeschlagenes Eintrittsdatum: {{date}}",
     },
+  },
+  myInterviews: {
+    documentTitle: "Meine Interviews | Vetchium",
+    title: "Meine Interviews",
+    description:
+      "Interviews, an denen Sie teilnehmen, das neueste zuerst. Öffnen Sie eines, um die Bewerbung zu lesen und Feedback zu geben.",
+    empty:
+      "Sie sind noch bei keinem Interview als Interviewende bzw. Interviewender eingetragen.",
+    minutes: "{{minutes}} Min.",
+    columns: {
+      applicant: "Bewerbung",
+      when: "Wann",
+      mode: "Art",
+      state: "Status",
+      feedback: "Ihr Feedback",
+    },
+    feedbackGiven: "Gesendet",
+    feedbackDue: "Offen",
+    feedbackNotYet: "Nach dem Interview",
   },
   pipeline: {
     title: "Pipeline",

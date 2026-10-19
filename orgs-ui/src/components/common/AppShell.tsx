@@ -1,5 +1,6 @@
 import {
   BranchesOutlined,
+  CalendarOutlined,
   CreditCardOutlined,
   FileTextOutlined,
   HomeOutlined,
@@ -73,6 +74,11 @@ export function AppShell() {
               key: paths.openings,
               icon: <FileTextOutlined />,
               label: t("navigation.openings"),
+            },
+            {
+              key: paths.myInterviews,
+              icon: <CalendarOutlined />,
+              label: t("navigation.myInterviews"),
             },
             ...(me !== undefined && holds(me.permissions, ManageOpenings)
               ? [

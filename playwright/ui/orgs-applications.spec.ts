@@ -2,12 +2,16 @@ import type { Page } from "@playwright/test";
 import type { ApplicationDetail } from "typespec/orgs/applications/applications";
 import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { addOrgMember, type OrgsAPI, orgSQL } from "../lib/orgs-api.ts";
+import { addOrgMember, orgSQL } from "../lib/orgs-api.ts";
 import {
+  detailOf,
   orgDIDSQL,
   publishedOpening,
   seedApplication,
   seedSubmittedBatch,
+  shortlist,
+  stageOf,
+  utcDate,
 } from "../lib/orgs-applications.ts";
 import { signIn, withOrg } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
@@ -20,49 +24,6 @@ const fourStages = [
   { name: "Panel", kind: "interview" },
   { name: "Checks", kind: "background_check" },
 ] as const;
-
-function stageOf(stages: PipelineStage[], index: number): PipelineStage {
-  const stage = stages[index];
-  if (!stage) throw new Error(`expected stage ${index}`);
-  return stage;
-}
-
-function utcDate(days: number): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-async function shortlist(
-  api: OrgsAPI,
-  token: string,
-  opening: number,
-  application: number,
-  stage: PipelineStage,
-): Promise<ApplicationDetail> {
-  const response = await api.shortlistApplication(token, {
-    opening_number: opening,
-    application_number: application,
-    version: 1,
-    stage_id: stage.id,
-  });
-  expect(response.status(), await response.text()).toBe(200);
-  return (await response.json()) as ApplicationDetail;
-}
-
-async function detailOf(
-  api: OrgsAPI,
-  token: string,
-  opening: number,
-  application: number,
-): Promise<ApplicationDetail> {
-  const response = await api.getApplication(token, {
-    opening_number: opening,
-    application_number: application,
-  });
-  expect(response.status(), await response.text()).toBe(200);
-  return (await response.json()) as ApplicationDetail;
-}
 
 async function openingTab(
   page: Page,

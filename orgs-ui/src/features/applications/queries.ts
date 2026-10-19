@@ -11,7 +11,17 @@ import type {
   ApplicationJoinedOnRequest,
   ApplicationSeparatedOnRequest,
   ApplicationStageRequest,
+  CancelInterviewRequest,
+  ChangeInterviewRequest,
+  ExtendApplicationOfferRequest,
   ListApplicationsRequest,
+  ListMyInterviewsRequest,
+  RecordAssessmentResultRequest,
+  RecordBackgroundCheckResultRequest,
+  RecordInterviewOutcomeRequest,
+  RequestBackgroundCheckConsentRequest,
+  ScheduleInterviewRequest,
+  SubmitInterviewFeedbackRequest,
 } from "typespec/orgs/applications/applications";
 import { orgsAPI } from "../../api/orgs";
 import { openingsQueryKey } from "../openings/queries";
@@ -57,6 +67,9 @@ export function useApplicationQuery(
         application_number: applicationNumber,
       }),
     retry: false,
+    // Offer-letter links are signed for ten minutes; re-reading keeps the
+    // ones on screen openable.
+    refetchInterval: 4 * 60 * 1000,
   });
 }
 
@@ -139,3 +152,47 @@ export const useCorrectSeparatedOnMutation = () =>
   useApplicationMutation<ApplicationSeparatedOnRequest>(
     orgsAPI.correctApplicationSeparatedOn,
   );
+
+export const useExtendOfferMutation = () =>
+  useApplicationMutation<ExtendApplicationOfferRequest>(
+    orgsAPI.extendApplicationOffer,
+  );
+export const useWithdrawOfferMutation = () =>
+  useApplicationMutation<ApplicationActionRequest>(
+    orgsAPI.withdrawApplicationOffer,
+  );
+export const useScheduleInterviewMutation = () =>
+  useApplicationMutation<ScheduleInterviewRequest>(orgsAPI.scheduleInterview);
+export const useChangeInterviewMutation = () =>
+  useApplicationMutation<ChangeInterviewRequest>(orgsAPI.changeInterview);
+export const useCancelInterviewMutation = () =>
+  useApplicationMutation<CancelInterviewRequest>(orgsAPI.cancelInterview);
+export const useRecordInterviewOutcomeMutation = () =>
+  useApplicationMutation<RecordInterviewOutcomeRequest>(
+    orgsAPI.recordInterviewOutcome,
+  );
+export const useSubmitInterviewFeedbackMutation = () =>
+  useApplicationMutation<SubmitInterviewFeedbackRequest>(
+    orgsAPI.submitInterviewFeedback,
+  );
+export const useRecordAssessmentMutation = () =>
+  useApplicationMutation<RecordAssessmentResultRequest>(
+    orgsAPI.recordAssessmentResult,
+  );
+export const useRequestConsentMutation = () =>
+  useApplicationMutation<RequestBackgroundCheckConsentRequest>(
+    orgsAPI.requestBackgroundCheckConsent,
+  );
+export const useRecordCheckResultMutation = () =>
+  useApplicationMutation<RecordBackgroundCheckResultRequest>(
+    orgsAPI.recordBackgroundCheckResult,
+  );
+
+export function useMyInterviewsQuery(request: ListMyInterviewsRequest) {
+  return useQuery({
+    queryKey: [...applicationsQueryKey, "my-interviews", request],
+    queryFn: () => orgsAPI.listMyInterviews(request),
+    placeholderData: (previous) => previous,
+    retry: false,
+  });
+}

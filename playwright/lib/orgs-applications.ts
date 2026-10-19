@@ -1,6 +1,9 @@
 import { expect } from "@playwright/test";
 import type { OpeningContent } from "typespec/common/openings";
-import type { ApplicationState } from "typespec/orgs/applications/applications";
+import type {
+  ApplicationDetail,
+  ApplicationState,
+} from "typespec/orgs/applications/applications";
 import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { sqlLiteral } from "./admin-db.ts";
@@ -242,4 +245,50 @@ export function seedSubmittedBatch(
       FROM application RETURNING 1
     )
     SELECT count(*) FROM history, counter`);
+}
+
+/** The stage at `index`, which the test knows its pipeline has. */
+export function stageOf(stages: PipelineStage[], index: number): PipelineStage {
+  const stage = stages[index];
+  if (!stage) throw new Error(`expected stage ${index}`);
+  return stage;
+}
+
+/** The UTC calendar date `days` from today. */
+export function utcDate(days: number): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+/** Shortlists a submitted application (version 1) to `stage`. */
+export async function shortlist(
+  api: Api,
+  token: string,
+  opening: number,
+  application: number,
+  stage: PipelineStage,
+): Promise<ApplicationDetail> {
+  const response = await api.shortlistApplication(token, {
+    opening_number: opening,
+    application_number: application,
+    version: 1,
+    stage_id: stage.id,
+  });
+  expect(response.status(), await response.text()).toBe(200);
+  return (await response.json()) as ApplicationDetail;
+}
+
+export async function detailOf(
+  api: Api,
+  token: string,
+  opening: number,
+  application: number,
+): Promise<ApplicationDetail> {
+  const response = await api.getApplication(token, {
+    opening_number: opening,
+    application_number: application,
+  });
+  expect(response.status(), await response.text()).toBe(200);
+  return (await response.json()) as ApplicationDetail;
 }
