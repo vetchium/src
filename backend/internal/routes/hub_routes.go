@@ -152,6 +152,10 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(hubapplications.AcceptInterview(s)))
 	mux.Handle("POST /api/hub/request-application-interview-reschedule",
 		hubAuth(hubapplications.RequestInterviewReschedule(s)))
+	mux.Handle("POST /api/hub/give-application-background-check-consent",
+		hubAuth(hubapplications.GiveBackgroundCheckConsent(s)))
+	mux.Handle("POST /api/hub/decline-application-background-check-consent",
+		hubAuth(hubapplications.DeclineBackgroundCheckConsent(s)))
 	mux.Handle("POST /api/hub/list-my-applications",
 		hubAuth(hubapplications.List(s)))
 	mux.Handle("POST /api/hub/get-my-application",

@@ -76,7 +76,8 @@ SELECT (SELECT count(*) FROM changed) AS changed_rows,
     (SELECT count(*) FROM records) AS record_rows;
 
 -- Moving forward skips every unfinished stage before the target, the stage
--- left included. A stage added to the pipeline after the shortlist gets its
+-- left included, and ends a consent request still awaiting an answer there.
+-- A stage added to the pipeline after the shortlist gets its
 -- record here. The skipped rows exist already and the added ones do not, so
 -- the two statements never write one key.
 -- name: MoveOrgApplicationStage :one
@@ -126,8 +127,12 @@ WITH target AS (
     )
     ON CONFLICT DO NOTHING
     RETURNING org_application_id
+), consents AS (
+    SELECT vetchium.end_pending_consents(
+        ARRAY(SELECT org_application_id FROM changed)) AS ended
 )
-SELECT (SELECT count(*) FROM changed) AS changed_rows;
+SELECT (SELECT count(*) FROM changed) AS changed_rows,
+    COALESCE((SELECT ended FROM consents), 0)::integer AS ended_consents;
 
 -- name: CompleteOrgApplicationStage :one
 WITH changed AS (
@@ -179,7 +184,9 @@ WITH changed AS (
     RETURNING o.org_application_id
 ), cancelled AS (
     SELECT vetchium.cancel_upcoming_interviews(
-        ARRAY(SELECT org_application_id FROM changed)) AS interviews
+        ARRAY(SELECT org_application_id FROM changed)) AS interviews,
+        vetchium.end_pending_consents(
+        ARRAY(SELECT org_application_id FROM changed)) AS consents
 )
 SELECT count(*) AS changed_rows,
     COALESCE((SELECT interviews FROM cancelled), 0)::integer
@@ -198,7 +205,9 @@ WITH changed AS (
     RETURNING a.org_application_id
 ), cancelled AS (
     SELECT vetchium.cancel_upcoming_interviews(
-        ARRAY(SELECT org_application_id FROM changed)) AS interviews
+        ARRAY(SELECT org_application_id FROM changed)) AS interviews,
+        vetchium.end_pending_consents(
+        ARRAY(SELECT org_application_id FROM changed)) AS consents
 )
 SELECT changed.org_application_id
 FROM changed
@@ -215,7 +224,9 @@ WITH changed AS (
     RETURNING a.org_application_id
 ), cancelled AS (
     SELECT vetchium.cancel_upcoming_interviews(
-        ARRAY(SELECT org_application_id FROM changed)) AS interviews
+        ARRAY(SELECT org_application_id FROM changed)) AS interviews,
+        vetchium.end_pending_consents(
+        ARRAY(SELECT org_application_id FROM changed)) AS consents
 )
 SELECT changed.org_application_id
 FROM changed
@@ -350,7 +361,9 @@ WITH changed AS (
     RETURNING f.org_application_id
 ), cancelled AS (
     SELECT vetchium.cancel_upcoming_interviews(
-        ARRAY(SELECT org_application_id FROM changed)) AS interviews
+        ARRAY(SELECT org_application_id FROM changed)) AS interviews,
+        vetchium.end_pending_consents(
+        ARRAY(SELECT org_application_id FROM changed)) AS consents
 )
 SELECT changed.org_application_id
 FROM changed

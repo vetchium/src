@@ -9,7 +9,9 @@ import {
   HubApplicationChangedKind,
   HubApplyKind,
   type HubApplyPayload,
+  HubDeclineConsentKind,
   HubDeclineOfferKind,
+  HubGiveConsentKind,
   HubRescheduleInterviewKind,
   HubWithdrawKind,
   normalizeHubApplyPayload,
@@ -18,6 +20,7 @@ import {
   validateHubAcceptInterviewPayload,
   validateHubApplicationChangedPayload,
   validateHubApplyPayload,
+  validateHubBackgroundCheckConsentPayload,
   validateHubOfferResponsePayload,
   validateHubRescheduleInterviewPayload,
   validateHubWithdrawPayload,
@@ -180,5 +183,28 @@ test("interview responses are command kinds and validate their payloads", () => 
   assert.deepEqual(
     validateHubRescheduleInterviewPayload({ ...accept, note: "" }),
     ["note"],
+  );
+});
+
+test("consent answers are command kinds and validate their payload", () => {
+  assert.equal(HubGiveConsentKind, "hub-give-background-check-consent");
+  assert.equal(HubDeclineConsentKind, "hub-decline-background-check-consent");
+  assert.equal(isCommandKind(HubGiveConsentKind), true);
+  assert.equal(isCommandKind(HubDeclineConsentKind), true);
+  const payload = {
+    opening_number: 1,
+    application_number: 2,
+    check_number: 3,
+    applicant_did: "01900000-0000-7000-8000-000000000001",
+  };
+  assert.deepEqual(validateHubBackgroundCheckConsentPayload(payload), []);
+  assert.deepEqual(
+    validateHubBackgroundCheckConsentPayload({
+      opening_number: 0,
+      application_number: 0,
+      check_number: 0,
+      applicant_did: "x",
+    }),
+    ["opening_number", "application_number", "check_number", "applicant_did"],
   );
 });

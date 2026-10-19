@@ -105,7 +105,9 @@ Application states:
   one whose start passed stays to be recorded (HP-WRK-004). Every statement
   that ends a candidacy (not progressing, bulk close, applicant withdrawal,
   offer decline or expiry, joined, did not join) calls
-  `vetchium.cancel_upcoming_interviews` in the same statement.
+  `vetchium.cancel_upcoming_interviews` and `vetchium.end_pending_consents`
+  (HP-WRK-012) in the same statement; moving to another stage ends the
+  consent requests too.
 - **HP-STA-003** Moving forward records each passed-over stage as `skipped`.
   Moving back and per-candidacy extra stages are in `docs/todo.md`.
 - **HP-STA-004** An offer may be extended from any stage; unfinished stages
@@ -218,6 +220,33 @@ below.
   HTTPS link to the performer's report. Vetchium stores no report files.
 - **HP-WRK-007** Vetchium records results and never decides adverse action;
   that is the Org's responsibility.
+- **HP-WRK-012** In-house results run through `transition`
+  (`backend/handlers/orgs/applications/results.go`, who acts on the Opening's
+  applications): `record-assessment-result` (`in_pipeline` at a pending
+  `assessment` stage; once, because it completes the stage),
+  `request-background-check-consent` (check types 1–20, unique, known; at a
+  pending `background_check` stage with no active request, where `requested`
+  and `given` are active and a `declined` or `ended` request lets the Org ask
+  again; numbered per application as `check_number`), and
+  `record-background-check-result` (needs the `given` request of the current
+  stage; a type it did not name is `validation-failed` on `check_type`, one
+  already recorded or recorded before consent is
+  `org-application-state-conflict`; the result that completes the requested
+  set completes the stage in the same statement). Notes are optional, trimmed,
+  and blank means none. History holds the action and stage, never notes or
+  links. `ApplicationDetail.assessments` and `background_checks` are empty
+  for a reader who only interviews (HP-AUTH-003), as offers are.
+- **HP-WRK-013** The applicant answers a consent request through
+  `hub-give-background-check-consent` and
+  `hub-decline-background-check-consent` (`backend/internal/hubconsent`,
+  payload `HubBackgroundCheckConsentPayload` naming `check_number`), authority
+  the Org, aggregate id the Opening number. An unknown application or request
+  is `hub-application-not-found`; a request already answered or ended, or a
+  candidacy that left the pipeline, is `hub-application-state-conflict`.
+  `background_check_consent` is pending while a request is `requested`. The
+  Hub detail's `background_check_consent` holds the number, check types,
+  and the performer (`org`); it never holds the stage or any result.
+
 - **HP-WRK-008** Offer: an offer letter (PDF, at most 5 MiB, the
   object-storage pipeline of [`object-storage.md`](object-storage.md)), an
   optional proposed joining date, and a response deadline of 1–60 days. A
@@ -331,8 +360,8 @@ below.
   Candidates tab (candidacies by stage, then terminal ones under a state
   filter). Each lists server-side with filters for
   state, stage, routed provider, and pending applicant action
-  (`pending_applicant_action`: `interview_response`, `offer_response`; the
-  consent action joins it with background checks); display-name
+  (`pending_applicant_action`: `interview_response`,
+  `background_check_consent`, `offer_response`); display-name
   substring search (at least two characters); keyset pagination (at most
   100); and a count per stage.
 - **HP-ORG-002** Application detail shows the snapshot, cover note, stage

@@ -278,6 +278,12 @@ func buildDetail(
 	if detail.Interviews, err = interviews(row.Interviews); err != nil {
 		return detail, err
 	}
+	if detail.Assessments, err = assessments(row.Assessments); err != nil {
+		return detail, err
+	}
+	if detail.BackgroundChecks, err = backgroundChecks(row.BackgroundChecks); err != nil {
+		return detail, err
+	}
 	return detail, nil
 }
 

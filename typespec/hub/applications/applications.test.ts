@@ -14,6 +14,7 @@ import {
   validateAcceptInterviewRequest,
   validateApplicationReference,
   validateApplyToOpeningRequest,
+  validateBackgroundCheckConsentRequest,
   validateListMyApplicationsRequest,
   validateRequestInterviewRescheduleRequest,
   validateRespondToOfferRequest,
@@ -157,5 +158,23 @@ test("interview responses validate the reference, the number, and the note", () 
       note: "é".repeat(501),
     }),
     ["note"],
+  );
+});
+
+test("consent answers validate the reference and the check number", () => {
+  const request = {
+    domain: "example.com",
+    opening_number: 1,
+    application_number: 2,
+    check_number: 1,
+  };
+  assert.deepEqual(validateBackgroundCheckConsentRequest(request), []);
+  assert.deepEqual(
+    validateBackgroundCheckConsentRequest({
+      ...request,
+      application_number: 0,
+      check_number: 0,
+    }),
+    ["application_number", "check_number"],
   );
 });

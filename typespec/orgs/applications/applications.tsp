@@ -14,6 +14,7 @@ import "../../problem/orgs/applications.tsp";
 import "../../problem/orgs/authentication.tsp";
 import "../../problem/orgs/suspension.tsp";
 import "../hiring/pipelines.tsp";
+import "../hiring/vocabulary.tsp";
 import "../openings/types.tsp";
 
 using TypeSpec.Http;
@@ -132,13 +133,69 @@ enum InterviewOutcome {
 }
 
 /**
+ * How an assessment went. A portal older than its API shows an outcome it does
+ * not recognize as the raw value.
+ */
+@TypeSpec.OpenAPI.extension(
+  "x-vetchium-known-values",
+  #["pass", "fail", "inconclusive"]
+)
+scalar AssessmentOutcome extends string;
+
+@minValue(0)
+@maxValue(100)
+scalar AssessmentScore extends int32;
+
+/**
+ * The notes of an assessment or a background check, trimmed, at most 2,000
+ * code points. A blank note is no note.
+ */
+@minLength(1)
+@maxLength(2000)
+scalar ResultNotes extends string;
+
+/**
+ * What one background check found. A portal older than its API shows an
+ * outcome it does not recognize as the raw value.
+ */
+@TypeSpec.OpenAPI.extension(
+  "x-vetchium-known-values",
+  #["clear", "discrepancy", "unable_to_verify"]
+)
+scalar CheckOutcome extends string;
+
+/** Allocated per application from 1, in the order consent was requested. */
+@minValue(1)
+scalar BackgroundCheckNumber extends int32;
+
+/**
+ * Where a background-check consent request stands: `requested` awaits the
+ * applicant, `given` and `declined` are their answer, and `ended` is a request
+ * the Org's candidacy left the stage or the pipeline before it was answered. A
+ * portal older than its API shows a state it does not recognize as the raw
+ * value.
+ */
+@TypeSpec.OpenAPI.extension(
+  "x-vetchium-known-values",
+  #["requested", "given", "declined", "ended"]
+)
+scalar ConsentState extends string;
+
+/**
+ * Who performs a stage's work. Only the Org itself does so for now; a portal
+ * older than its API shows a performer it does not recognize as the raw value.
+ */
+@TypeSpec.OpenAPI.extension("x-vetchium-known-values", #["org"])
+scalar WorkPerformer extends string;
+
+/**
  * An action awaiting the applicant, for the `pending_applicant_action`
  * filter. A portal older than its API shows a value it does not recognize as
  * the raw value.
  */
 @TypeSpec.OpenAPI.extension(
   "x-vetchium-known-values",
-  #["interview_response", "offer_response"]
+  #["interview_response", "background_check_consent", "offer_response"]
 )
 scalar PendingApplicantAction extends string;
 
@@ -215,7 +272,12 @@ scalar StageStatus extends string;
     "interview_no_show",
     "interview_accepted",
     "interview_reschedule_requested",
-    "interview_feedback_submitted"
+    "interview_feedback_submitted",
+    "assessment_recorded",
+    "background_check_consent_requested",
+    "background_check_consent_given",
+    "background_check_consent_declined",
+    "background_check_result_recorded"
   ]
 )
 scalar ApplicationHistoryAction extends string;
@@ -318,6 +380,60 @@ model Interview {
   feedback: InterviewFeedback[];
 }
 
+/** The recorded result of an assessment stage. */
+model AssessmentResult {
+  stage: Vetchium.Orgs.Hiring.PipelineStage;
+  outcome: AssessmentOutcome;
+  score?: AssessmentScore;
+  notes?: ResultNotes;
+
+  /** A normalized HTTPS link to the performer's report. */
+  report_url?: Vetchium.Hub.Profile.WebsiteURL;
+
+  /** Present for an Org user who is still in the Org. */
+  recorded_by_email?: Vetchium.EmailAddress;
+
+  recorded_at: utcDateTime;
+}
+
+/** What one background check found. */
+model BackgroundCheckResult {
+  check_type: Vetchium.Orgs.Hiring.CheckType;
+  outcome: CheckOutcome;
+  notes?: ResultNotes;
+
+  /** A normalized HTTPS link to the performer's report. */
+  report_url?: Vetchium.Hub.Profile.WebsiteURL;
+
+  /** Present for an Org user who is still in the Org. */
+  recorded_by_email?: Vetchium.EmailAddress;
+
+  recorded_at: utcDateTime;
+}
+
+/**
+ * One consent request of a candidacy at a background-check stage, with the
+ * results recorded after consent. Nothing is recorded until the applicant
+ * gives consent.
+ */
+model BackgroundCheck {
+  check_number: BackgroundCheckNumber;
+  stage: Vetchium.Orgs.Hiring.PipelineStage;
+  consent_state: ConsentState;
+
+  /** The types the Org asked to run. */
+  check_types: Vetchium.Orgs.Hiring.CheckType[];
+
+  performer: WorkPerformer;
+  requested_at: utcDateTime;
+
+  /** Present once the applicant gave or declined consent. */
+  responded_at?: utcDateTime;
+
+  /** In the order recorded. */
+  results: BackgroundCheckResult[];
+}
+
 model ApplicationDetail {
   opening_number: Vetchium.Orgs.Openings.OpeningNumber;
   application_number: ApplicationNumber;
@@ -347,6 +463,18 @@ model ApplicationDetail {
 
   /** Every interview, earliest start first, as the caller may see it. */
   interviews: Interview[];
+
+  /**
+   * Assessment results in pipeline order. Empty for a caller who reads only
+   * the candidacies they interview.
+   */
+  assessments: AssessmentResult[];
+
+  /**
+   * Background-check requests, oldest first. Empty for a caller who reads
+   * only the candidacies they interview.
+   */
+  background_checks: BackgroundCheck[];
 
   submitted_at: utcDateTime;
   updated_at: utcDateTime;
@@ -561,6 +689,48 @@ model SubmitInterviewFeedbackRequest {
   ...InterviewReference;
   recommendation: InterviewRecommendation;
   notes: InterviewFeedbackNotes;
+}
+
+/** Records the assessment result of a candidacy at an assessment stage. */
+model RecordAssessmentResultRequest {
+  ...ApplicationReference;
+  outcome: AssessmentOutcome;
+  score?: AssessmentScore;
+
+  /** Trimmed; a blank note is no note. */
+  notes?: ResultNotes;
+
+  /** An HTTPS link, normalized. */
+  report_url?: Vetchium.Hub.Profile.WebsiteURL;
+}
+
+/**
+ * Asks the applicant to consent to the check types at the candidacy's
+ * background-check stage.
+ */
+model RequestBackgroundCheckConsentRequest {
+  ...ApplicationReference;
+
+  @minItems(1)
+  @maxItems(20)
+  @TypeSpec.OpenAPI.extension("x-vetchium-unique-items", true)
+  check_types: Vetchium.Orgs.Hiring.CheckType[];
+}
+
+/** Records one check's result after the applicant gave consent. */
+model RecordBackgroundCheckResultRequest {
+  ...ApplicationReference;
+
+  /** One of the types the consent request named. */
+  check_type: Vetchium.Orgs.Hiring.CheckType;
+
+  outcome: CheckOutcome;
+
+  /** Trimmed; a blank note is no note. */
+  notes?: ResultNotes;
+
+  /** An HTTPS link, normalized. */
+  report_url?: Vetchium.Hub.Profile.WebsiteURL;
 }
 
 model ListMyInterviewsRequest {
@@ -1131,6 +1301,94 @@ interface ApplicationOperations {
       }
     | InterviewWriteErrors
     | Vetchium.Problem.OrgInterviewFeedbackExistsErrorResponse;
+
+  /**
+   * Records the assessment result of a candidacy `in_pipeline` at an
+   * assessment stage that is still pending, and completes the stage. A result
+   * is recorded once.
+   */
+  @route("/record-assessment-result")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  recordAssessmentResult(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: RecordAssessmentResultRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors;
+
+  /**
+   * Asks the applicant for consent at the candidacy's pending
+   * background-check stage. One request is active per stage; after a declined
+   * or ended one the Org may ask again. The applicant answers in the Hub.
+   */
+  @route("/request-background-check-consent")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  requestBackgroundCheckConsent(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: RequestBackgroundCheckConsentRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors;
+
+  /**
+   * Records one check's result. Without the applicant's consent, for a type
+   * the request did not name (`validation-failed` on `check_type`), or for a
+   * type already recorded, nothing is recorded. The result that completes the
+   * requested set completes the stage.
+   */
+  @route("/record-background-check-result")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  recordBackgroundCheckResult(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: RecordBackgroundCheckResultRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors;
 
   /** Lists the interviews the caller is an interviewer of. */
   @route("/list-my-interviews")

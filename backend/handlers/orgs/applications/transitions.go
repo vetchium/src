@@ -286,7 +286,7 @@ func MoveApplicationStage(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return change{}, false, err
 				}
-				rows, err := q.MoveOrgApplicationStage(ctx, sqlc.MoveOrgApplicationStageParams{
+				row, err := q.MoveOrgApplicationStage(ctx, sqlc.MoveOrgApplicationStageParams{
 					ApplicationID: locked.OrgApplicationID, StageID: stageID,
 					Version: locked.Version,
 				})
@@ -296,7 +296,7 @@ func MoveApplicationStage(s *orgsruntime.Server) http.HandlerFunc {
 				return change{
 					action:  sqlc.VetchiumOrgApplicationHistoryActionStageMoved,
 					stageID: stageID,
-				}, rows == 1, nil
+				}, row.ChangedRows == 1, nil
 			},
 		}.run(s, w, r)
 	}

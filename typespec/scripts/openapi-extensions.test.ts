@@ -10,6 +10,9 @@ import {
   applicationActorKindValues,
   applicationHistoryActionValues,
   applicationStateValues,
+  assessmentOutcomeValues,
+  checkOutcomeValues,
+  consentStateValues,
   interviewModeValues,
   interviewRecommendationValues,
   interviewResponseValues,
@@ -17,6 +20,7 @@ import {
   offerStatusValues,
   pendingApplicantActionValues,
   stageStatusValues,
+  workPerformerValues,
 } from "../orgs/applications/applications.ts";
 import {
   impliedPermissions,
@@ -139,6 +143,10 @@ test("the compiled OpenAPI document carries the application vocabularies", async
     InterviewResponse: interviewResponseValues,
     InterviewRecommendation: interviewRecommendationValues,
     PendingApplicantAction: pendingApplicantActionValues,
+    AssessmentOutcome: assessmentOutcomeValues,
+    CheckOutcome: checkOutcomeValues,
+    ConsentState: consentStateValues,
+    WorkPerformer: workPerformerValues,
   };
   for (const [name, values] of Object.entries(expected)) {
     assert.deepEqual(

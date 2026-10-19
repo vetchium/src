@@ -1,6 +1,6 @@
 # Hiring and marketplace build progress
 
-current: T11
+current: T12
 phase: implement
 
 ## Tasks
@@ -15,7 +15,7 @@ T07 done Hiring: Hub apply, withdraw, and the applications projection
 T08 done Hiring: Shortlisting, stage moves, outcomes, and closing
 T09 done Hiring: Offers and offer letters
 T10 done Hiring: Interviews and feedback
-T11 todo Hiring: Assessment and background-check results and consent
+T11 done Hiring: Assessment and background-check results and consent
 T12 todo Hiring: Application retention and notification emails
 T13 todo Hiring: Orgs portal pipeline templates and Pipeline tab
 T14 todo Hiring: Orgs portal Applicants, Candidates, and application detail

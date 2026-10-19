@@ -201,3 +201,25 @@ func TestHubInterviewResponseKindsAndPayloads(t *testing.T) {
 		t.Fatalf("fields = %v", got)
 	}
 }
+
+func TestHubConsentKindsAndPayload(t *testing.T) {
+	t.Parallel()
+	if HubGiveConsentKind != "hub-give-background-check-consent" ||
+		HubDeclineConsentKind != "hub-decline-background-check-consent" ||
+		!IsCommandKind(HubGiveConsentKind) || !IsCommandKind(HubDeclineConsentKind) {
+		t.Fatal("consent kinds changed")
+	}
+	payload := HubBackgroundCheckConsentPayload{
+		OpeningNumber: 1, ApplicationNumber: 2, CheckNumber: 3,
+		ApplicantDID: "01900000-0000-7000-8000-000000000001",
+	}
+	if got := payload.Validate(); len(got) != 0 {
+		t.Fatalf("valid payload rejected: %v", got)
+	}
+	want := []string{
+		"opening_number", "application_number", "check_number", "applicant_did",
+	}
+	if got := (HubBackgroundCheckConsentPayload{ApplicantDID: "x"}).Validate(); !slices.Equal(got, want) {
+		t.Fatalf("fields = %v, want %v", got, want)
+	}
+}

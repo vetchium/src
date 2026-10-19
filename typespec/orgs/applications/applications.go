@@ -47,6 +47,13 @@ type InterviewResponse string
 type InterviewRecommendation string
 type InterviewOutcome string
 type PendingApplicantAction string
+type AssessmentOutcome string
+type AssessmentScore int32
+type ResultNotes string
+type CheckOutcome string
+type BackgroundCheckNumber int32
+type ConsentState string
+type WorkPerformer string
 
 // CalendarDate is a `YYYY-MM-DD` date with no time or zone.
 type CalendarDate string
@@ -102,6 +109,12 @@ const (
 	InterviewAcceptedAction   ApplicationHistoryAction = "interview_accepted"
 	InterviewRescheduleAction ApplicationHistoryAction = "interview_reschedule_requested"
 	InterviewFeedbackAction   ApplicationHistoryAction = "interview_feedback_submitted"
+
+	AssessmentRecordedAction    ApplicationHistoryAction = "assessment_recorded"
+	ConsentRequestedAction      ApplicationHistoryAction = "background_check_consent_requested"
+	ConsentGivenAction          ApplicationHistoryAction = "background_check_consent_given"
+	ConsentDeclinedAction       ApplicationHistoryAction = "background_check_consent_declined"
+	BackgroundCheckResultAction ApplicationHistoryAction = "background_check_result_recorded"
 )
 
 const (
@@ -150,8 +163,39 @@ const (
 )
 
 const (
-	InterviewResponseAction PendingApplicantAction = "interview_response"
-	OfferResponseAction     PendingApplicantAction = "offer_response"
+	InterviewResponseAction      PendingApplicantAction = "interview_response"
+	BackgroundCheckConsentAction PendingApplicantAction = "background_check_consent"
+	OfferResponseAction          PendingApplicantAction = "offer_response"
+)
+
+const (
+	AssessmentPass         AssessmentOutcome = "pass"
+	AssessmentFail         AssessmentOutcome = "fail"
+	AssessmentInconclusive AssessmentOutcome = "inconclusive"
+)
+
+const (
+	CheckClear          CheckOutcome = "clear"
+	CheckDiscrepancy    CheckOutcome = "discrepancy"
+	CheckUnableToVerify CheckOutcome = "unable_to_verify"
+)
+
+const (
+	ConsentRequested ConsentState = "requested"
+	ConsentGiven     ConsentState = "given"
+	ConsentDeclined  ConsentState = "declined"
+	ConsentEnded     ConsentState = "ended"
+)
+
+// PerformerOrg is the Org doing the stage's work itself.
+const PerformerOrg WorkPerformer = "org"
+
+const (
+	// MaxResultNotes bounds the notes of an assessment or a check in code
+	// points.
+	MaxResultNotes = 2000
+	// MaxAssessmentScore bounds an assessment score; the minimum is 0.
+	MaxAssessmentScore = 100
 )
 
 var (
@@ -167,9 +211,101 @@ var (
 		StrongYes, Yes, No, StrongNo,
 	}
 	pendingApplicantActions = []PendingApplicantAction{
-		InterviewResponseAction, OfferResponseAction,
+		InterviewResponseAction, BackgroundCheckConsentAction,
+		OfferResponseAction,
 	}
+	assessmentOutcomes = []AssessmentOutcome{
+		AssessmentPass, AssessmentFail, AssessmentInconclusive,
+	}
+	checkOutcomes = []CheckOutcome{
+		CheckClear, CheckDiscrepancy, CheckUnableToVerify,
+	}
+	consentStates = []ConsentState{
+		ConsentRequested, ConsentGiven, ConsentDeclined, ConsentEnded,
+	}
+	workPerformers = []WorkPerformer{PerformerOrg}
 )
+
+// AssessmentOutcomes returns every assessment outcome this contract version
+// defines.
+func AssessmentOutcomes() []AssessmentOutcome {
+	return slices.Clone(assessmentOutcomes)
+}
+
+// CheckOutcomes returns every background-check outcome this contract version
+// defines.
+func CheckOutcomes() []CheckOutcome { return slices.Clone(checkOutcomes) }
+
+// ConsentStates returns every consent state this contract version defines.
+func ConsentStates() []ConsentState { return slices.Clone(consentStates) }
+
+// WorkPerformers returns every performer this contract version defines.
+func WorkPerformers() []WorkPerformer { return slices.Clone(workPerformers) }
+
+func IsAssessmentOutcome(value AssessmentOutcome) bool {
+	return slices.Contains(assessmentOutcomes, value)
+}
+
+func IsCheckOutcome(value CheckOutcome) bool {
+	return slices.Contains(checkOutcomes, value)
+}
+
+func IsConsentState(value ConsentState) bool {
+	return slices.Contains(consentStates, value)
+}
+
+func IsWorkPerformer(value WorkPerformer) bool {
+	return slices.Contains(workPerformers, value)
+}
+
+func IsAssessmentScore(value AssessmentScore) bool {
+	return value >= 0 && value <= MaxAssessmentScore
+}
+
+func IsBackgroundCheckNumber(value BackgroundCheckNumber) bool {
+	return value >= 1
+}
+
+// IsResultNotes reports trimmed notes of 1 to 2,000 code points.
+func IsResultNotes(value ResultNotes) bool {
+	length := utf8.RuneCountInString(string(value))
+	return length >= 1 && length <= MaxResultNotes &&
+		string(value) == strings.TrimSpace(string(value))
+}
+
+// normalizedResultNotes trims the notes and drops blank ones, assigning a new
+// pointer and never mutating the caller's note.
+func normalizedResultNotes(notes *ResultNotes) *ResultNotes {
+	if notes == nil {
+		return nil
+	}
+	trimmed := ResultNotes(strings.TrimSpace(string(*notes)))
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
+func normalizedReportURL(link *profile.WebsiteURL) *profile.WebsiteURL {
+	if link == nil {
+		return nil
+	}
+	normalized := profile.NormalizeWebsiteURL(*link)
+	return &normalized
+}
+
+func validResultDetails(
+	notes *ResultNotes, link *profile.WebsiteURL,
+) []string {
+	fields := []string{}
+	if notes != nil && !IsResultNotes(*notes) {
+		fields = append(fields, "notes")
+	}
+	if link != nil && !profile.IsWebsiteURL(*link) {
+		fields = append(fields, "report_url")
+	}
+	return fields
+}
 
 // InterviewModes returns every mode this contract version defines.
 func InterviewModes() []InterviewMode { return slices.Clone(interviewModes) }
@@ -434,6 +570,40 @@ type Interview struct {
 	Feedback          []InterviewFeedback      `json:"feedback"`
 }
 
+// AssessmentResult is the recorded result of an assessment stage.
+type AssessmentResult struct {
+	Stage           hiring.PipelineStage `json:"stage"`
+	Outcome         AssessmentOutcome    `json:"outcome"`
+	Score           *AssessmentScore     `json:"score,omitempty"`
+	Notes           *ResultNotes         `json:"notes,omitempty"`
+	ReportURL       *profile.WebsiteURL  `json:"report_url,omitempty"`
+	RecordedByEmail *common.EmailAddress `json:"recorded_by_email,omitempty"`
+	RecordedAt      time.Time            `json:"recorded_at"`
+}
+
+// BackgroundCheckResult is what one background check found.
+type BackgroundCheckResult struct {
+	CheckType       hiring.CheckType     `json:"check_type"`
+	Outcome         CheckOutcome         `json:"outcome"`
+	Notes           *ResultNotes         `json:"notes,omitempty"`
+	ReportURL       *profile.WebsiteURL  `json:"report_url,omitempty"`
+	RecordedByEmail *common.EmailAddress `json:"recorded_by_email,omitempty"`
+	RecordedAt      time.Time            `json:"recorded_at"`
+}
+
+// BackgroundCheck is one consent request at a background-check stage with the
+// results recorded after consent.
+type BackgroundCheck struct {
+	CheckNumber  BackgroundCheckNumber   `json:"check_number"`
+	Stage        hiring.PipelineStage    `json:"stage"`
+	ConsentState ConsentState            `json:"consent_state"`
+	CheckTypes   []hiring.CheckType      `json:"check_types"`
+	Performer    WorkPerformer           `json:"performer"`
+	RequestedAt  time.Time               `json:"requested_at"`
+	RespondedAt  *time.Time              `json:"responded_at,omitempty"`
+	Results      []BackgroundCheckResult `json:"results"`
+}
+
 type ApplicationDetail struct {
 	OpeningNumber     openings.OpeningNumber    `json:"opening_number"`
 	ApplicationNumber ApplicationNumber         `json:"application_number"`
@@ -449,6 +619,8 @@ type ApplicationDetail struct {
 	JoinedCount       int32                     `json:"joined_count"`
 	Offers            []ApplicationOffer        `json:"offers"`
 	Interviews        []Interview               `json:"interviews"`
+	Assessments       []AssessmentResult        `json:"assessments"`
+	BackgroundChecks  []BackgroundCheck         `json:"background_checks"`
 	SubmittedAt       time.Time                 `json:"submitted_at"`
 	UpdatedAt         time.Time                 `json:"updated_at"`
 }
@@ -990,4 +1162,100 @@ type MyInterview struct {
 type ListMyInterviewsResponse struct {
 	Interviews        []MyInterview         `json:"interviews"`
 	NextPaginationKey *common.PaginationKey `json:"next_pagination_key,omitempty"`
+}
+
+// RecordAssessmentResultRequest records the result of an assessment stage.
+type RecordAssessmentResultRequest struct {
+	OpeningNumber     openings.OpeningNumber `json:"opening_number"`
+	ApplicationNumber ApplicationNumber      `json:"application_number"`
+	Version           ApplicationVersion     `json:"version"`
+	Outcome           AssessmentOutcome      `json:"outcome"`
+	Score             *AssessmentScore       `json:"score,omitempty"`
+	Notes             *ResultNotes           `json:"notes,omitempty"`
+	ReportURL         *profile.WebsiteURL    `json:"report_url,omitempty"`
+}
+
+// Normalize trims the notes, dropping blank ones, and normalizes the link. It
+// assigns new pointers and never mutates what the caller shares.
+func (r *RecordAssessmentResultRequest) Normalize() {
+	r.Notes = normalizedResultNotes(r.Notes)
+	r.ReportURL = normalizedReportURL(r.ReportURL)
+}
+
+func (r RecordAssessmentResultRequest) Validate() []string {
+	fields := ApplicationReference{
+		OpeningNumber: r.OpeningNumber, ApplicationNumber: r.ApplicationNumber,
+		Version: r.Version,
+	}.validate()
+	if !IsAssessmentOutcome(r.Outcome) {
+		fields = append(fields, "outcome")
+	}
+	if r.Score != nil && !IsAssessmentScore(*r.Score) {
+		fields = append(fields, "score")
+	}
+	return append(fields, validResultDetails(r.Notes, r.ReportURL)...)
+}
+
+// RequestBackgroundCheckConsentRequest asks the applicant to consent to the
+// check types.
+type RequestBackgroundCheckConsentRequest struct {
+	OpeningNumber     openings.OpeningNumber `json:"opening_number"`
+	ApplicationNumber ApplicationNumber      `json:"application_number"`
+	Version           ApplicationVersion     `json:"version"`
+	CheckTypes        []hiring.CheckType     `json:"check_types"`
+}
+
+func (r *RequestBackgroundCheckConsentRequest) Normalize() {}
+
+func (r RequestBackgroundCheckConsentRequest) Validate() []string {
+	fields := ApplicationReference{
+		OpeningNumber: r.OpeningNumber, ApplicationNumber: r.ApplicationNumber,
+		Version: r.Version,
+	}.validate()
+	valid := len(r.CheckTypes) >= 1 && len(r.CheckTypes) <= MaxCheckTypes
+	seen := make(map[hiring.CheckType]bool, len(r.CheckTypes))
+	for _, checkType := range r.CheckTypes {
+		if !hiring.IsCheckType(checkType) || seen[checkType] {
+			valid = false
+		}
+		seen[checkType] = true
+	}
+	if !valid {
+		fields = append(fields, "check_types")
+	}
+	return fields
+}
+
+// MaxCheckTypes bounds the types one consent request names.
+const MaxCheckTypes = 20
+
+// RecordBackgroundCheckResultRequest records one check's result.
+type RecordBackgroundCheckResultRequest struct {
+	OpeningNumber     openings.OpeningNumber `json:"opening_number"`
+	ApplicationNumber ApplicationNumber      `json:"application_number"`
+	Version           ApplicationVersion     `json:"version"`
+	CheckType         hiring.CheckType       `json:"check_type"`
+	Outcome           CheckOutcome           `json:"outcome"`
+	Notes             *ResultNotes           `json:"notes,omitempty"`
+	ReportURL         *profile.WebsiteURL    `json:"report_url,omitempty"`
+}
+
+// Normalize trims the notes, dropping blank ones, and normalizes the link.
+func (r *RecordBackgroundCheckResultRequest) Normalize() {
+	r.Notes = normalizedResultNotes(r.Notes)
+	r.ReportURL = normalizedReportURL(r.ReportURL)
+}
+
+func (r RecordBackgroundCheckResultRequest) Validate() []string {
+	fields := ApplicationReference{
+		OpeningNumber: r.OpeningNumber, ApplicationNumber: r.ApplicationNumber,
+		Version: r.Version,
+	}.validate()
+	if !hiring.IsCheckType(r.CheckType) {
+		fields = append(fields, "check_type")
+	}
+	if !IsCheckOutcome(r.Outcome) {
+		fields = append(fields, "outcome")
+	}
+	return append(fields, validResultDetails(r.Notes, r.ReportURL)...)
 }

@@ -6,6 +6,7 @@ import "../../common/common.tsp";
 import "../../common/idempotency.tsp";
 import "../../common/pagination.tsp";
 import "../../orgs/applications/applications.tsp";
+import "../../orgs/hiring/vocabulary.tsp";
 import "../../orgs/openings/types.tsp";
 import "../../orgs/types.tsp";
 import "../../problem/common.tsp";
@@ -145,10 +146,24 @@ model MyApplicationInterview {
   reschedule_note?: Vetchium.Orgs.Applications.InterviewRescheduleNote;
 }
 
+/**
+ * The background-check consent request awaiting the applicant: the check
+ * types, and who performs them. Nothing is recorded until they consent.
+ */
+model MyBackgroundCheckConsent {
+  check_number: Vetchium.Orgs.Applications.BackgroundCheckNumber;
+  check_types: Vetchium.Orgs.Hiring.CheckType[];
+  performer: Vetchium.Orgs.Applications.WorkPerformer;
+  requested_at: utcDateTime;
+}
+
 /** The live read of one application, with what the applicant may act on. */
 model MyApplicationDetail {
   ...MyApplication;
   offer?: MyApplicationOffer;
+
+  /** Present while consent awaits the applicant. */
+  background_check_consent?: MyBackgroundCheckConsent;
 
   /** Earliest start first; empty when none was scheduled. */
   interviews: MyApplicationInterview[];
@@ -169,6 +184,12 @@ model AcceptInterviewRequest {
 model RequestInterviewRescheduleRequest {
   ...InterviewReference;
   note: Vetchium.Orgs.Applications.InterviewRescheduleNote;
+}
+
+/** Answers the consent request the applicant read, named by its number. */
+model BackgroundCheckConsentRequest {
+  ...ApplicationReference;
+  check_number: Vetchium.Orgs.Applications.BackgroundCheckNumber;
 }
 
 /** Answers the offer the applicant read, named by its number. */
@@ -376,6 +397,49 @@ interface ApplicationOperations {
   requestInterviewReschedule(
     @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
     @body request: RequestInterviewRescheduleRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationReference;
+      }
+    | PendingApplicationResponse
+    | ApplicationWriteErrors
+    | Vetchium.Problem.HubApplicationNotFoundErrorResponse
+    | Vetchium.Problem.HubApplicationStateConflictErrorResponse;
+
+  /** Gives consent to the background-check request the body names, with the
+   * same outcomes as applying. A request that is unknown is
+   * `hub-application-not-found`; one already answered or ended, or an
+   * application that left the pipeline, is `hub-application-state-conflict`. */
+  @route("/give-application-background-check-consent")
+  @post
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 2592000)
+  @useAuth(BearerAuth)
+  giveBackgroundCheckConsent(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: BackgroundCheckConsentRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationReference;
+      }
+    | PendingApplicationResponse
+    | ApplicationWriteErrors
+    | Vetchium.Problem.HubApplicationNotFoundErrorResponse
+    | Vetchium.Problem.HubApplicationStateConflictErrorResponse;
+
+  /** Declines consent to the background-check request the body names, with
+   * the same outcomes and refusals as giving it. Declining completes
+   * nothing; the Org decides what follows. */
+  @route("/decline-application-background-check-consent")
+  @post
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 2592000)
+  @useAuth(BearerAuth)
+  declineBackgroundCheckConsent(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: BackgroundCheckConsentRequest,
   ):
     | {
         @statusCode status_code: 200;

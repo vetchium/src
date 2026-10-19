@@ -3,6 +3,7 @@ import type { APIRequestContext, APIResponse } from "@playwright/test";
 import type {
   AcceptInterviewRequest,
   ApplyToOpeningRequest,
+  BackgroundCheckConsentRequest,
   GetMyApplicationRequest,
   ListMyApplicationsRequest,
   RequestInterviewRescheduleRequest,
@@ -160,6 +161,28 @@ export class HubAPI {
     options: { token: string; idempotencyKey: string },
   ): Promise<APIResponse> {
     return this.post("/accept-application-interview", body, options);
+  }
+
+  giveApplicationBackgroundCheckConsent(
+    body: BackgroundCheckConsentRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post(
+      "/give-application-background-check-consent",
+      body,
+      options,
+    );
+  }
+
+  declineApplicationBackgroundCheckConsent(
+    body: BackgroundCheckConsentRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post(
+      "/decline-application-background-check-consent",
+      body,
+      options,
+    );
   }
 
   requestApplicationInterviewReschedule(

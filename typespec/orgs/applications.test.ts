@@ -3,13 +3,21 @@ import test from "node:test";
 
 import {
   applicationStateValues,
+  assessmentOutcomeValues,
+  checkOutcomeValues,
+  consentStateValues,
   interviewModeValues,
   interviewRecommendationValues,
   interviewResponseValues,
   interviewStateValues,
   isApplicantNameQuery,
   isApplicationCoverNote,
+  isAssessmentOutcome,
+  isAssessmentScore,
+  isBackgroundCheckNumber,
   isCandidacy,
+  isCheckOutcome,
+  isConsentState,
   isInterviewDurationMinutes,
   isInterviewFeedbackNotes,
   isInterviewLocation,
@@ -19,9 +27,13 @@ import {
   isOfferStatus,
   isPDF,
   isPendingApplicantAction,
+  isResultNotes,
+  isWorkPerformer,
   maxOfferLetterBytes,
   normalizeChangeInterviewRequest,
   normalizeListApplicationsRequest,
+  normalizeRecordAssessmentResultRequest,
+  normalizeRecordBackgroundCheckResultRequest,
   normalizeSubmitInterviewFeedbackRequest,
   offerStatusValues,
   validateApplicationActionRequest,
@@ -36,7 +48,10 @@ import {
   validateListApplicationHistoryRequest,
   validateListApplicationsRequest,
   validateListMyInterviewsRequest,
+  validateRecordAssessmentResultRequest,
+  validateRecordBackgroundCheckResultRequest,
   validateRecordInterviewOutcomeRequest,
+  validateRequestBackgroundCheckConsentRequest,
   validateScheduleInterviewRequest,
   validateSubmitInterviewFeedbackRequest,
 } from "./applications/applications.ts";
@@ -422,6 +437,13 @@ test("the candidates view accepts the pending applicant action filter", () => {
   };
   assert.deepEqual(validateListApplicationsRequest(request), []);
   assert.deepEqual(
+    validateListApplicationsRequest({
+      ...request,
+      pending_applicant_action: "background_check_consent",
+    }),
+    [],
+  );
+  assert.deepEqual(
     validateListApplicationsRequest({ ...request, view: "applicants" }),
     ["pending_applicant_action"],
   );
@@ -437,4 +459,131 @@ test("the candidates view accepts the pending applicant action filter", () => {
 test("my interviews validate pagination", () => {
   assert.deepEqual(validateListMyInterviewsRequest({}), []);
   assert.deepEqual(validateListMyInterviewsRequest({ limit: 0 }), ["limit"]);
+});
+
+const reference = { opening_number: 1, application_number: 2, version: 3 };
+
+test("result vocabularies match the contract and reject unknown values", () => {
+  assert.deepEqual(assessmentOutcomeValues, ["pass", "fail", "inconclusive"]);
+  assert.deepEqual(checkOutcomeValues, [
+    "clear",
+    "discrepancy",
+    "unable_to_verify",
+  ]);
+  assert.deepEqual(consentStateValues, [
+    "requested",
+    "given",
+    "declined",
+    "ended",
+  ]);
+  assert.equal(isAssessmentOutcome("pass"), true);
+  assert.equal(isAssessmentOutcome("x"), false);
+  assert.equal(isCheckOutcome("clear"), true);
+  assert.equal(isCheckOutcome("x"), false);
+  assert.equal(isConsentState("ended"), true);
+  assert.equal(isConsentState("x"), false);
+  assert.equal(isWorkPerformer("org"), true);
+  assert.equal(isWorkPerformer("provider"), false);
+  assert.equal(isPendingApplicantAction("background_check_consent"), true);
+});
+
+test("result bounds are inclusive", () => {
+  assert.deepEqual([-1, 0, 100, 101, 1.5].map(isAssessmentScore), [
+    false,
+    true,
+    true,
+    false,
+    false,
+  ]);
+  assert.equal(isResultNotes("é".repeat(2000)), true);
+  assert.equal(isResultNotes("é".repeat(2001)), false);
+  assert.equal(isResultNotes(" note"), false);
+  assert.equal(isResultNotes(""), false);
+  assert.equal(isBackgroundCheckNumber(1), true);
+  assert.equal(isBackgroundCheckNumber(0), false);
+});
+
+test("assessment results normalize a copy and validate every field", () => {
+  const request = {
+    ...reference,
+    outcome: "pass" as const,
+    notes: "  solid ",
+    report_url: "HTTPS://Reports.Example.com/a/",
+  };
+  const normalized = normalizeRecordAssessmentResultRequest(request);
+  assert.equal(normalized.notes, "solid");
+  assert.equal(normalized.report_url, "https://reports.example.com/a");
+  assert.equal(request.notes, "  solid ");
+  assert.equal(
+    normalizeRecordAssessmentResultRequest({ ...request, notes: " " }).notes,
+    undefined,
+  );
+  assert.deepEqual(validateRecordAssessmentResultRequest(request), []);
+  assert.deepEqual(
+    validateRecordAssessmentResultRequest({
+      opening_number: 0,
+      application_number: 0,
+      version: 0,
+      outcome: "maybe" as never,
+      score: 101,
+      notes: "x".repeat(2001),
+      report_url: "http://x.example.com",
+    }),
+    [
+      "opening_number",
+      "application_number",
+      "version",
+      "outcome",
+      "score",
+      "notes",
+      "report_url",
+    ],
+  );
+});
+
+test("consent requests name 1 to 20 unique known check types", () => {
+  const request = {
+    ...reference,
+    check_types: ["identity", "criminal"] as const,
+  };
+  assert.deepEqual(
+    validateRequestBackgroundCheckConsentRequest({
+      ...request,
+      check_types: [...request.check_types],
+    }),
+    [],
+  );
+  for (const types of [[], ["astrology"], ["identity", "identity"]]) {
+    assert.deepEqual(
+      validateRequestBackgroundCheckConsentRequest({
+        ...reference,
+        check_types: types as never,
+      }),
+      ["check_types"],
+    );
+  }
+});
+
+test("background-check results normalize a copy and validate", () => {
+  const request = {
+    ...reference,
+    check_type: "identity" as const,
+    outcome: "clear" as const,
+    notes: "  fine ",
+  };
+  assert.equal(
+    normalizeRecordBackgroundCheckResultRequest(request).notes,
+    "fine",
+  );
+  assert.equal(request.notes, "  fine ");
+  assert.deepEqual(validateRecordBackgroundCheckResultRequest(request), []);
+  assert.deepEqual(
+    validateRecordBackgroundCheckResultRequest({
+      ...request,
+      check_type: "astrology" as never,
+      outcome: "ok" as never,
+      report_url: "ftp://x.example.com",
+    }),
+    ["check_type", "outcome", "report_url"],
+  );
 });

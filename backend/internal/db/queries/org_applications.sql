@@ -112,6 +112,12 @@ LEFT JOIN vetchium.org_applications AS a
             SELECT 1 FROM vetchium.org_application_offers AS f
             WHERE f.org_application_id = a.org_application_id
               AND f.offer_status = 'extended' AND f.respond_by > now()
+        )) OR (
+        sqlc.narg(pending_action)::text = 'background_check_consent'
+        AND EXISTS (
+            SELECT 1 FROM vetchium.org_background_checks AS b
+            WHERE b.org_application_id = a.org_application_id
+              AND b.consent_state = 'requested'
         )))
     AND (sqlc.narg(stage_id)::uuid IS NULL
         OR a.current_stage_id = sqlc.narg(stage_id)::uuid)
@@ -222,7 +228,53 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
         JOIN vetchium.org_opening_stages AS s
             ON s.org_opening_stage_id = i.org_opening_stage_id
         WHERE i.org_application_id = a.org_application_id
-    ), '[]'::jsonb)::jsonb AS interviews
+    ), '[]'::jsonb)::jsonb AS interviews,
+    -- Results are for those who read all of the Opening's applications, as
+    -- offers are: an interviewer sees only the interviews of their candidacy.
+    COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+            'stage', jsonb_build_object('id', s.org_opening_stage_id,
+                'name', s.name, 'kind', s.stage_kind),
+            'outcome', x.outcome, 'score', x.score, 'notes', x.notes,
+            'report_url', x.report_url, 'recorded_by_email', u.email_address,
+            'recorded_at', x.recorded_at
+        ) ORDER BY s.position)
+        FROM vetchium.org_application_assessments AS x
+        JOIN vetchium.org_opening_stages AS s
+            ON s.org_opening_stage_id = x.org_opening_stage_id
+        LEFT JOIN vetchium.org_users AS u ON u.org_user_id = x.recorded_by
+        WHERE x.org_application_id = a.org_application_id
+          AND vetchium.org_user_reads_all_applications(o.org_opening_id,
+              sqlc.arg(viewer_id))
+    ), '[]'::jsonb)::jsonb AS assessments,
+    COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+            'check_number', b.check_number,
+            'stage', jsonb_build_object('id', s.org_opening_stage_id,
+                'name', s.name, 'kind', s.stage_kind),
+            'consent_state', b.consent_state,
+            'check_types', to_jsonb(b.check_types), 'performer', 'org',
+            'requested_at', b.requested_at, 'responded_at', b.responded_at,
+            'results', COALESCE((
+                SELECT jsonb_agg(jsonb_build_object(
+                    'check_type', r.check_type, 'outcome', r.outcome,
+                    'notes', r.notes, 'report_url', r.report_url,
+                    'recorded_by_email', ru.email_address,
+                    'recorded_at', r.recorded_at
+                ) ORDER BY r.recorded_at, r.check_type)
+                FROM vetchium.org_background_check_results AS r
+                LEFT JOIN vetchium.org_users AS ru
+                    ON ru.org_user_id = r.recorded_by
+                WHERE r.org_background_check_id = b.org_background_check_id
+            ), '[]'::jsonb)
+        ) ORDER BY b.check_number)
+        FROM vetchium.org_background_checks AS b
+        JOIN vetchium.org_opening_stages AS s
+            ON s.org_opening_stage_id = b.org_opening_stage_id
+        WHERE b.org_application_id = a.org_application_id
+          AND vetchium.org_user_reads_all_applications(o.org_opening_id,
+              sqlc.arg(viewer_id))
+    ), '[]'::jsonb)::jsonb AS background_checks
 FROM vetchium.org_openings AS o
 JOIN vetchium.org_applications AS a ON a.org_opening_id = o.org_opening_id
 LEFT JOIN vetchium.org_opening_stages AS stage
@@ -317,7 +369,12 @@ SELECT applicant.hub_user_did, o.org_did, d.domain::text AS org_domain,
         WHERE i.org_application_id = a.org_application_id
           AND i.interview_state = 'scheduled' AND i.starts_at > now()
           AND i.applicant_response = 'pending'
-    ) AS interview_awaits_response
+    ) AS interview_awaits_response,
+    EXISTS (
+        SELECT 1 FROM vetchium.org_background_checks AS b
+        WHERE b.org_application_id = a.org_application_id
+          AND b.consent_state = 'requested'
+    ) AS consent_awaits_response
 FROM vetchium.org_applications AS a
 JOIN vetchium.org_applicants AS applicant
     ON applicant.org_applicant_id = a.org_applicant_id
@@ -367,7 +424,9 @@ WITH withdrawn AS (
     RETURNING o.org_application_id
 ), cancelled AS (
     SELECT vetchium.cancel_upcoming_interviews(
-        ARRAY(SELECT org_application_id FROM withdrawn)) AS interviews
+        ARRAY(SELECT org_application_id FROM withdrawn)) AS interviews,
+        vetchium.end_pending_consents(
+        ARRAY(SELECT org_application_id FROM withdrawn)) AS consents
 ), history AS (
     INSERT INTO vetchium.org_application_history (
         org_application_history_id, org_application_id, action, actor_kind,
@@ -424,6 +483,21 @@ SELECT d.domain::text AS org_domain, org.display_name AS org_display_name,
           AND i.interview_state = 'scheduled' AND i.starts_at > now()
           AND i.applicant_response = 'pending'
     ) AS interview_awaits_response,
+    EXISTS (
+        SELECT 1 FROM vetchium.org_background_checks AS b
+        WHERE b.org_application_id = a.org_application_id
+          AND b.consent_state = 'requested'
+    ) AS consent_awaits_response,
+    -- The request the applicant is asked to answer; its result, if any, and
+    -- the stage it belongs to are the Org's alone.
+    (
+        SELECT jsonb_build_object('check_number', b.check_number,
+            'check_types', to_jsonb(b.check_types), 'performer', 'org',
+            'requested_at', b.requested_at)
+        FROM vetchium.org_background_checks AS b
+        WHERE b.org_application_id = a.org_application_id
+          AND b.consent_state = 'requested'
+    )::jsonb AS background_check,
     -- Cancelled interviews tell the applicant it will not happen; how a
     -- finished one went is the Org's alone (HP-HUB-001).
     COALESCE((

@@ -14,6 +14,7 @@ import {
 import type { ApplicantSnapshot } from "../../hub/profile/snapshot.ts";
 import type { PipelineStage, PipelineStageID } from "../hiring/pipelines.ts";
 import { isPipelineStageID } from "../hiring/pipelines.ts";
+import { type CheckType, isCheckType } from "../hiring/vocabulary.ts";
 import type { OpeningNumber } from "../openings/types.ts";
 
 /** The most code points an application's cover note holds. */
@@ -34,6 +35,15 @@ export type InterviewDurationMinutes = number;
 export type InterviewLocation = string;
 export type InterviewRescheduleNote = string;
 export type InterviewFeedbackNotes = string;
+export type AssessmentScore = number;
+export type ResultNotes = string;
+export type BackgroundCheckNumber = number;
+
+/** The most code points the notes of an assessment or a check hold. */
+export const maxResultNotes = 2000;
+export const maxAssessmentScore = 100;
+/** The most check types one consent request names. */
+export const maxCheckTypes = 20;
 
 /** The most interviews one candidacy holds at one stage, cancelled excepted. */
 export const maxInterviewsPerStage = 10;
@@ -75,8 +85,34 @@ export type InterviewRecommendation =
 export const interviewOutcomeValues = ["completed", "no_show"] as const;
 export type InterviewOutcome = (typeof interviewOutcomeValues)[number];
 
+export const assessmentOutcomeValues = [
+  "pass",
+  "fail",
+  "inconclusive",
+] as const;
+export type AssessmentOutcome = (typeof assessmentOutcomeValues)[number];
+
+export const checkOutcomeValues = [
+  "clear",
+  "discrepancy",
+  "unable_to_verify",
+] as const;
+export type CheckOutcome = (typeof checkOutcomeValues)[number];
+
+export const consentStateValues = [
+  "requested",
+  "given",
+  "declined",
+  "ended",
+] as const;
+export type ConsentState = (typeof consentStateValues)[number];
+
+export const workPerformerValues = ["org"] as const;
+export type WorkPerformer = (typeof workPerformerValues)[number];
+
 export const pendingApplicantActionValues = [
   "interview_response",
+  "background_check_consent",
   "offer_response",
 ] as const;
 export type PendingApplicantAction =
@@ -88,6 +124,36 @@ const interviewResponses = new Set<string>(interviewResponseValues);
 const interviewRecommendations = new Set<string>(interviewRecommendationValues);
 const interviewOutcomes = new Set<string>(interviewOutcomeValues);
 const pendingApplicantActions = new Set<string>(pendingApplicantActionValues);
+const assessmentOutcomes = new Set<string>(assessmentOutcomeValues);
+const checkOutcomes = new Set<string>(checkOutcomeValues);
+const consentStates = new Set<string>(consentStateValues);
+const workPerformers = new Set<string>(workPerformerValues);
+
+export function isAssessmentOutcome(
+  value: unknown,
+): value is AssessmentOutcome {
+  return typeof value === "string" && assessmentOutcomes.has(value);
+}
+
+export function isCheckOutcome(value: unknown): value is CheckOutcome {
+  return typeof value === "string" && checkOutcomes.has(value);
+}
+
+export function isConsentState(value: unknown): value is ConsentState {
+  return typeof value === "string" && consentStates.has(value);
+}
+
+export function isWorkPerformer(value: unknown): value is WorkPerformer {
+  return typeof value === "string" && workPerformers.has(value);
+}
+
+export function isAssessmentScore(value: AssessmentScore): boolean {
+  return Number.isInteger(value) && value >= 0 && value <= maxAssessmentScore;
+}
+
+export function isBackgroundCheckNumber(value: BackgroundCheckNumber): boolean {
+  return Number.isInteger(value) && value >= 1;
+}
 
 export function isInterviewMode(value: unknown): value is InterviewMode {
   return typeof value === "string" && interviewModes.has(value);
@@ -148,6 +214,11 @@ export function isInterviewRescheduleNote(
   value: InterviewRescheduleNote,
 ): boolean {
   return trimmedText(value, maxRescheduleNote);
+}
+
+/** Reports trimmed notes of 1 to 2,000 code points. */
+export function isResultNotes(value: ResultNotes): boolean {
+  return trimmedText(value, maxResultNotes);
 }
 
 /** Reports trimmed notes of 1 to 10,000 code points. */
@@ -266,6 +337,11 @@ export const applicationHistoryActionValues = [
   "interview_accepted",
   "interview_reschedule_requested",
   "interview_feedback_submitted",
+  "assessment_recorded",
+  "background_check_consent_requested",
+  "background_check_consent_given",
+  "background_check_consent_declined",
+  "background_check_result_recorded",
 ] as const;
 
 export type ApplicationHistoryAction =
@@ -388,6 +464,42 @@ export interface Interview {
   feedback: InterviewFeedback[];
 }
 
+/** The recorded result of an assessment stage. */
+export interface AssessmentResult {
+  stage: PipelineStage;
+  outcome: AssessmentOutcome;
+  score?: AssessmentScore;
+  notes?: ResultNotes;
+  report_url?: WebsiteURL;
+  recorded_by_email?: EmailAddress;
+  recorded_at: string;
+}
+
+/** What one background check found. */
+export interface BackgroundCheckResult {
+  check_type: CheckType;
+  outcome: CheckOutcome;
+  notes?: ResultNotes;
+  report_url?: WebsiteURL;
+  recorded_by_email?: EmailAddress;
+  recorded_at: string;
+}
+
+/**
+ * One consent request at a background-check stage with the results recorded
+ * after consent.
+ */
+export interface BackgroundCheck {
+  check_number: BackgroundCheckNumber;
+  stage: PipelineStage;
+  consent_state: ConsentState;
+  check_types: CheckType[];
+  performer: WorkPerformer;
+  requested_at: string;
+  responded_at?: string;
+  results: BackgroundCheckResult[];
+}
+
 export interface ApplicationDetail {
   opening_number: OpeningNumber;
   application_number: ApplicationNumber;
@@ -403,6 +515,8 @@ export interface ApplicationDetail {
   joined_count: number;
   offers: ApplicationOffer[];
   interviews: Interview[];
+  assessments: AssessmentResult[];
+  background_checks: BackgroundCheck[];
   submitted_at: string;
   updated_at: string;
 }
@@ -886,4 +1000,106 @@ export interface MyInterview {
 export interface ListMyInterviewsResponse {
   interviews: MyInterview[];
   next_pagination_key?: PaginationKey;
+}
+
+export interface RecordAssessmentResultRequest
+  extends ApplicationActionRequest {
+  outcome: AssessmentOutcome;
+  score?: AssessmentScore;
+  notes?: ResultNotes;
+  report_url?: WebsiteURL;
+}
+
+function normalizedResultDetails<
+  T extends { notes?: ResultNotes; report_url?: WebsiteURL },
+>(request: T): T {
+  const { notes, report_url: link, ...rest } = request;
+  const trimmed = notes?.trim();
+  return {
+    ...rest,
+    ...(trimmed ? { notes: trimmed } : {}),
+    ...(link === undefined ? {} : { report_url: normalizeWebsiteURL(link) }),
+  } as T;
+}
+
+function validateResultDetails(request: {
+  notes?: ResultNotes;
+  report_url?: WebsiteURL;
+}): string[] {
+  const fields: string[] = [];
+  if (request.notes !== undefined && !isResultNotes(request.notes)) {
+    fields.push("notes");
+  }
+  if (request.report_url !== undefined && !isWebsiteURL(request.report_url)) {
+    fields.push("report_url");
+  }
+  return fields;
+}
+
+/** Trims the notes, dropping blank ones, and normalizes the link, leaving the
+ * caller's value. */
+export function normalizeRecordAssessmentResultRequest(
+  request: RecordAssessmentResultRequest,
+): RecordAssessmentResultRequest {
+  return normalizedResultDetails(request);
+}
+
+export function validateRecordAssessmentResultRequest(
+  request: RecordAssessmentResultRequest,
+): string[] {
+  const normalized = normalizeRecordAssessmentResultRequest(request);
+  const fields = validateApplicationActionRequest(normalized);
+  if (!isAssessmentOutcome(normalized.outcome)) fields.push("outcome");
+  if (normalized.score !== undefined && !isAssessmentScore(normalized.score)) {
+    fields.push("score");
+  }
+  return fields.concat(validateResultDetails(normalized));
+}
+
+export interface RequestBackgroundCheckConsentRequest
+  extends ApplicationActionRequest {
+  check_types: CheckType[];
+}
+
+export function validateRequestBackgroundCheckConsentRequest(
+  request: RequestBackgroundCheckConsentRequest,
+): string[] {
+  const fields = validateApplicationActionRequest(request);
+  const types = request.check_types;
+  if (
+    !Array.isArray(types) ||
+    types.length < 1 ||
+    types.length > maxCheckTypes ||
+    !types.every(isCheckType) ||
+    new Set(types).size !== types.length
+  ) {
+    fields.push("check_types");
+  }
+  return fields;
+}
+
+export interface RecordBackgroundCheckResultRequest
+  extends ApplicationActionRequest {
+  check_type: CheckType;
+  outcome: CheckOutcome;
+  notes?: ResultNotes;
+  report_url?: WebsiteURL;
+}
+
+/** Trims the notes, dropping blank ones, and normalizes the link, leaving the
+ * caller's value. */
+export function normalizeRecordBackgroundCheckResultRequest(
+  request: RecordBackgroundCheckResultRequest,
+): RecordBackgroundCheckResultRequest {
+  return normalizedResultDetails(request);
+}
+
+export function validateRecordBackgroundCheckResultRequest(
+  request: RecordBackgroundCheckResultRequest,
+): string[] {
+  const normalized = normalizeRecordBackgroundCheckResultRequest(request);
+  const fields = validateApplicationActionRequest(normalized);
+  if (!isCheckType(normalized.check_type)) fields.push("check_type");
+  if (!isCheckOutcome(normalized.outcome)) fields.push("outcome");
+  return fields.concat(validateResultDetails(normalized));
 }

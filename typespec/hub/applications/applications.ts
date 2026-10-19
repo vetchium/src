@@ -6,6 +6,7 @@ import {
 import {
   type ApplicationCoverNote,
   type ApplicationNumber,
+  type BackgroundCheckNumber,
   type CalendarDate,
   type InterviewDurationMinutes,
   type InterviewLocation,
@@ -15,12 +16,15 @@ import {
   type InterviewResponse,
   isApplicationCoverNote,
   isApplicationNumber,
+  isBackgroundCheckNumber,
   isInterviewNumber,
   isInterviewRescheduleNote,
   isOfferNumber,
   type OfferNumber,
   type OfferStatus,
+  type WorkPerformer,
 } from "../../orgs/applications/applications.ts";
+import type { CheckType } from "../../orgs/hiring/vocabulary.ts";
 import type { OpeningNumber } from "../../orgs/openings/types.ts";
 import {
   isOrgDomain,
@@ -120,8 +124,17 @@ export interface MyApplicationInterview {
   reschedule_note?: InterviewRescheduleNote;
 }
 
+/** The consent request awaiting the applicant. */
+export interface MyBackgroundCheckConsent {
+  check_number: BackgroundCheckNumber;
+  check_types: CheckType[];
+  performer: WorkPerformer;
+  requested_at: string;
+}
+
 export interface MyApplicationDetail extends MyApplication {
   offer?: MyApplicationOffer;
+  background_check_consent?: MyBackgroundCheckConsent;
   interviews: MyApplicationInterview[];
 }
 
@@ -161,6 +174,20 @@ export function validateRequestInterviewRescheduleRequest(
   const normalized = normalizeRequestInterviewRescheduleRequest(request);
   const fields = validateAcceptInterviewRequest(normalized);
   if (!isInterviewRescheduleNote(normalized.note)) fields.push("note");
+  return fields;
+}
+
+export interface BackgroundCheckConsentRequest extends ApplicationReference {
+  check_number: BackgroundCheckNumber;
+}
+
+export function validateBackgroundCheckConsentRequest(
+  request: BackgroundCheckConsentRequest,
+): string[] {
+  const fields = validateApplicationReference(request);
+  if (!isBackgroundCheckNumber(request.check_number)) {
+    fields.push("check_number");
+  }
   return fields;
 }
 

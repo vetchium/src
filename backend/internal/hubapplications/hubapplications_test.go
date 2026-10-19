@@ -134,7 +134,7 @@ func TestProjectRefusesAnEventThatBreaksTheContract(t *testing.T) {
 	}
 }
 
-func TestPendingActionsAskForAnOpenOfferAndAnUnansweredInterview(t *testing.T) {
+func TestPendingActionsAskForWhatAwaitsTheApplicant(t *testing.T) {
 	t.Parallel()
 	for _, state := range []sqlc.VetchiumOrgApplicationState{
 		sqlc.VetchiumOrgApplicationStateSubmitted,
@@ -145,17 +145,22 @@ func TestPendingActionsAskForAnOpenOfferAndAnUnansweredInterview(t *testing.T) {
 	} {
 		for _, open := range []bool{false, true} {
 			for _, interview := range []bool{false, true} {
-				got := PendingActions(state, open, interview)
-				want := []hubspec.PendingActionKind{}
-				if interview {
-					want = append(want, hubspec.InterviewResponse)
-				}
-				if state == sqlc.VetchiumOrgApplicationStateOffered && open {
-					want = append(want, hubspec.OfferResponse)
-				}
-				if got == nil || !slices.Equal(got, want) {
-					t.Errorf("PendingActions(%s, %v, %v) = %v",
-						state, open, interview, got)
+				for _, consent := range []bool{false, true} {
+					got := PendingActions(state, open, interview, consent)
+					want := []hubspec.PendingActionKind{}
+					if interview {
+						want = append(want, hubspec.InterviewResponse)
+					}
+					if consent {
+						want = append(want, hubspec.BackgroundCheckConsent)
+					}
+					if state == sqlc.VetchiumOrgApplicationStateOffered && open {
+						want = append(want, hubspec.OfferResponse)
+					}
+					if got == nil || !slices.Equal(got, want) {
+						t.Errorf("PendingActions(%s, %v, %v, %v) = %v",
+							state, open, interview, consent, got)
+					}
 				}
 			}
 		}

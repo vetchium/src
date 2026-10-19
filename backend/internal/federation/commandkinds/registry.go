@@ -7,6 +7,7 @@ package commandkinds
 import (
 	"backend/internal/federation/commands"
 	"backend/internal/hubapply"
+	"backend/internal/hubconsent"
 	"backend/internal/hubinterview"
 	"backend/internal/huboffer"
 	"backend/internal/hubwithdraw"
@@ -18,5 +19,6 @@ func Registry() *commands.Registry {
 	hubwithdraw.Register(registry)
 	huboffer.Register(registry)
 	hubinterview.Register(registry)
+	hubconsent.Register(registry)
 	return registry
 }

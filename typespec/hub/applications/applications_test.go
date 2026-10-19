@@ -7,6 +7,7 @@ import (
 	"time"
 
 	orgapplications "github.com/vetchium/src/typespec/orgs/applications"
+	"github.com/vetchium/src/typespec/orgs/hiring"
 )
 
 func TestVocabulariesAreClosedAndCopied(t *testing.T) {
@@ -280,5 +281,60 @@ func TestInterviewResponseRequests(t *testing.T) {
 		"interview_number", "note",
 	}) {
 		t.Fatalf("fields = %v", got)
+	}
+}
+
+func TestMyBackgroundCheckConsentValidity(t *testing.T) {
+	t.Parallel()
+	detail := MyApplicationDetail{
+		MyApplication: MyApplication{
+			OrgDomain: "example.com", OrgDisplayName: "Example",
+			OpeningNumber: 1, OpeningTitle: "Engineer", ApplicationNumber: 1,
+			Status:         InReview,
+			PendingActions: []PendingActionKind{BackgroundCheckConsent},
+		},
+		BackgroundCheckConsent: &MyBackgroundCheckConsent{
+			CheckNumber: 1, CheckTypes: []hiring.CheckType{"identity", "drug"},
+			Performer: orgapplications.PerformerOrg, RequestedAt: time.Now(),
+		},
+		Interviews: []MyApplicationInterview{},
+	}
+	if !detail.Valid() {
+		t.Fatal("valid detail rejected")
+	}
+	for name, change := range map[string]func(*MyBackgroundCheckConsent){
+		"number":    func(c *MyBackgroundCheckConsent) { c.CheckNumber = 0 },
+		"no types":  func(c *MyBackgroundCheckConsent) { c.CheckTypes = nil },
+		"unknown":   func(c *MyBackgroundCheckConsent) { c.CheckTypes = []hiring.CheckType{"astrology"} },
+		"duplicate": func(c *MyBackgroundCheckConsent) { c.CheckTypes = []hiring.CheckType{"drug", "drug"} },
+		"performer": func(c *MyBackgroundCheckConsent) { c.Performer = "stranger" },
+		"requested": func(c *MyBackgroundCheckConsent) { c.RequestedAt = time.Time{} },
+	} {
+		consent := *detail.BackgroundCheckConsent
+		change(&consent)
+		changed := detail
+		changed.BackgroundCheckConsent = &consent
+		if changed.Valid() {
+			t.Errorf("%s: invalid consent accepted", name)
+		}
+	}
+}
+
+func TestBackgroundCheckConsentRequestValidation(t *testing.T) {
+	t.Parallel()
+	request := BackgroundCheckConsentRequest{
+		ApplicationReference: ApplicationReference{
+			Domain: " Example.COM ", OpeningNumber: 1, ApplicationNumber: 2,
+		},
+		CheckNumber: 1,
+	}
+	request.Normalize()
+	if request.Domain != "example.com" || len(request.Validate()) != 0 {
+		t.Fatalf("valid request: %q %v", request.Domain, request.Validate())
+	}
+	request.CheckNumber, request.ApplicationNumber = 0, 0
+	want := []string{"application_number", "check_number"}
+	if got := request.Validate(); !slices.Equal(got, want) {
+		t.Fatalf("fields = %v, want %v", got, want)
 	}
 }

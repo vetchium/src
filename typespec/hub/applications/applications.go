@@ -10,6 +10,7 @@ import (
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs"
 	orgapplications "github.com/vetchium/src/typespec/orgs/applications"
+	"github.com/vetchium/src/typespec/orgs/hiring"
 	"github.com/vetchium/src/typespec/orgs/openings"
 )
 
@@ -220,16 +221,43 @@ func (i MyApplicationInterview) Valid() bool {
 			orgapplications.IsInterviewRescheduleNote(*i.RescheduleNote))
 }
 
+// MyBackgroundCheckConsent is the consent request awaiting the applicant.
+type MyBackgroundCheckConsent struct {
+	CheckNumber orgapplications.BackgroundCheckNumber `json:"check_number"`
+	CheckTypes  []hiring.CheckType                    `json:"check_types"`
+	Performer   orgapplications.WorkPerformer         `json:"performer"`
+	RequestedAt time.Time                             `json:"requested_at"`
+}
+
+// Valid checks a peer's answer before it reaches the browser.
+func (c MyBackgroundCheckConsent) Valid() bool {
+	if !orgapplications.IsBackgroundCheckNumber(c.CheckNumber) ||
+		len(c.CheckTypes) < 1 || len(c.CheckTypes) > orgapplications.MaxCheckTypes ||
+		!orgapplications.IsWorkPerformer(c.Performer) || c.RequestedAt.IsZero() {
+		return false
+	}
+	seen := make(map[hiring.CheckType]bool, len(c.CheckTypes))
+	for _, checkType := range c.CheckTypes {
+		if !hiring.IsCheckType(checkType) || seen[checkType] {
+			return false
+		}
+		seen[checkType] = true
+	}
+	return true
+}
+
 // MyApplicationDetail is the live read of one application.
 type MyApplicationDetail struct {
 	MyApplication
-	Offer      *MyApplicationOffer      `json:"offer,omitempty"`
-	Interviews []MyApplicationInterview `json:"interviews"`
+	Offer                  *MyApplicationOffer       `json:"offer,omitempty"`
+	BackgroundCheckConsent *MyBackgroundCheckConsent `json:"background_check_consent,omitempty"`
+	Interviews             []MyApplicationInterview  `json:"interviews"`
 }
 
 // Valid checks a peer's answer before it reaches the browser.
 func (d MyApplicationDetail) Valid() bool {
 	if !d.MyApplication.Valid() || (d.Offer != nil && !d.Offer.Valid()) ||
+		(d.BackgroundCheckConsent != nil && !d.BackgroundCheckConsent.Valid()) ||
 		d.Interviews == nil {
 		return false
 	}
@@ -279,6 +307,24 @@ func (r RequestInterviewRescheduleRequest) Validate() []string {
 	fields := r.InterviewReference.Validate()
 	if !orgapplications.IsInterviewRescheduleNote(r.Note) {
 		fields = append(fields, "note")
+	}
+	return fields
+}
+
+// BackgroundCheckConsentRequest names the consent request the applicant read.
+type BackgroundCheckConsentRequest struct {
+	ApplicationReference
+	CheckNumber orgapplications.BackgroundCheckNumber `json:"check_number"`
+}
+
+func (r *BackgroundCheckConsentRequest) Normalize() {
+	r.ApplicationReference.Normalize()
+}
+
+func (r BackgroundCheckConsentRequest) Validate() []string {
+	fields := r.ApplicationReference.Validate()
+	if !orgapplications.IsBackgroundCheckNumber(r.CheckNumber) {
+		fields = append(fields, "check_number")
 	}
 	return fields
 }

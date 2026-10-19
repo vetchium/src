@@ -134,6 +134,36 @@ alias HubInterviewResponseRejections =
   | Vetchium.Problem.FederationInitiatorMismatchErrorResponse;
 
 /**
+ * The payload of the `hub-give-background-check-consent` and
+ * `hub-decline-background-check-consent` commands, whose authority principal
+ * is the Org and whose aggregate id is the Opening number as decimal text.
+ */
+model HubBackgroundCheckConsentPayload {
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  application_number: Vetchium.Orgs.Applications.ApplicationNumber;
+  check_number: Vetchium.Orgs.Applications.BackgroundCheckNumber;
+  applicant_did: Vetchium.Hub.HubUserDID;
+}
+
+/** The stored `200` result of both consent commands. */
+model HubBackgroundCheckConsentResult {
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  application_number: Vetchium.Orgs.Applications.ApplicationNumber;
+  check_number: Vetchium.Orgs.Applications.BackgroundCheckNumber;
+}
+
+/**
+ * The deterministic rejections of both consent commands: an application or
+ * consent request that is unknown or not the applicant's; a request already
+ * answered or ended, or a candidacy that left the pipeline; and an applicant
+ * the sending tenant does not home.
+ */
+alias HubBackgroundCheckConsentRejections =
+  | Vetchium.Problem.HubApplicationNotFoundErrorResponse
+  | Vetchium.Problem.HubApplicationStateConflictErrorResponse
+  | Vetchium.Problem.FederationInitiatorMismatchErrorResponse;
+
+/**
  * The payload of the `hub-application-changed` event the Org's tenant
  * enqueues on every change of an application, for the applicant Hub user's
  * home tenant to project. Its origin is the Org: the receiver applies it only

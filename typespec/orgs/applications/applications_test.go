@@ -265,7 +265,7 @@ func TestInterviewVocabulariesAreCopiesAndComplete(t *testing.T) {
 			"strong_yes", "yes", "no", "strong_no",
 		}) ||
 		!slices.Equal(PendingApplicantActions(), []PendingApplicantAction{
-			"interview_response", "offer_response",
+			"interview_response", "background_check_consent", "offer_response",
 		}) {
 		t.Fatal("an interview vocabulary changed")
 	}
@@ -473,5 +473,140 @@ func TestListMyInterviewsValidation(t *testing.T) {
 	}
 	if (ListMyInterviewsRequest{}).EffectiveLimit() != 50 {
 		t.Fatal("default limit")
+	}
+}
+
+func TestResultVocabulariesAreCopiesAndComplete(t *testing.T) {
+	t.Parallel()
+	if !slices.Equal(AssessmentOutcomes(), []AssessmentOutcome{
+		"pass", "fail", "inconclusive",
+	}) || !slices.Equal(CheckOutcomes(), []CheckOutcome{
+		"clear", "discrepancy", "unable_to_verify",
+	}) || !slices.Equal(ConsentStates(), []ConsentState{
+		"requested", "given", "declined", "ended",
+	}) || !slices.Equal(WorkPerformers(), []WorkPerformer{"org"}) {
+		t.Fatal("a result vocabulary changed")
+	}
+	AssessmentOutcomes()[0] = "changed"
+	CheckOutcomes()[0] = "changed"
+	if !IsAssessmentOutcome(AssessmentPass) || !IsCheckOutcome(CheckClear) {
+		t.Fatal("caller mutated a vocabulary")
+	}
+	if IsAssessmentOutcome("x") || IsCheckOutcome("x") ||
+		IsConsentState("x") || IsWorkPerformer("x") {
+		t.Fatal("an unknown value was accepted")
+	}
+}
+
+func TestResultBounds(t *testing.T) {
+	t.Parallel()
+	for score, want := range map[AssessmentScore]bool{
+		-1: false, 0: true, 100: true, 101: false,
+	} {
+		if IsAssessmentScore(score) != want {
+			t.Errorf("score %d = %v", score, !want)
+		}
+	}
+	long := strings.Repeat("é", 2000)
+	if !IsResultNotes(ResultNotes(long)) || IsResultNotes(ResultNotes(long+"x")) ||
+		IsResultNotes(" note") || IsResultNotes("") {
+		t.Fatal("notes bounds")
+	}
+	if !IsBackgroundCheckNumber(1) || IsBackgroundCheckNumber(0) {
+		t.Fatal("check number bound")
+	}
+}
+
+func resultReference() RecordAssessmentResultRequest {
+	return RecordAssessmentResultRequest{
+		OpeningNumber: 1, ApplicationNumber: 2, Version: 3, Outcome: AssessmentPass,
+	}
+}
+
+func TestRecordAssessmentResultNormalizesWithoutMutatingTheCaller(t *testing.T) {
+	t.Parallel()
+	notes := ResultNotes("  solid ")
+	link := profile.WebsiteURL("HTTPS://Reports.Example.com/a/")
+	request := resultReference()
+	request.Notes, request.ReportURL = &notes, &link
+	request.Normalize()
+	if *request.Notes != "solid" || *request.ReportURL != "https://reports.example.com/a" {
+		t.Fatalf("normalized = %q %q", *request.Notes, *request.ReportURL)
+	}
+	if notes != "  solid " || link != "HTTPS://Reports.Example.com/a/" {
+		t.Fatal("the caller's values changed")
+	}
+	blank := ResultNotes(" \n")
+	request.Notes = &blank
+	request.Normalize()
+	if request.Notes != nil {
+		t.Fatalf("blank notes kept: %q", *request.Notes)
+	}
+}
+
+func TestRecordAssessmentResultValidates(t *testing.T) {
+	t.Parallel()
+	if got := resultReference().Validate(); len(got) != 0 {
+		t.Fatalf("valid request rejected: %v", got)
+	}
+	score, link, notes := AssessmentScore(101), profile.WebsiteURL("http://x.example.com"), ResultNotes(strings.Repeat("x", 2001))
+	invalid := RecordAssessmentResultRequest{
+		Outcome: "maybe", Score: &score, Notes: &notes, ReportURL: &link,
+	}
+	want := []string{
+		"opening_number", "application_number", "version", "outcome", "score",
+		"notes", "report_url",
+	}
+	if got := invalid.Validate(); !slices.Equal(got, want) {
+		t.Fatalf("fields = %v, want %v", got, want)
+	}
+	for _, edge := range []AssessmentScore{0, 100} {
+		request := resultReference()
+		request.Score = &edge
+		if got := request.Validate(); len(got) != 0 {
+			t.Errorf("score %d rejected: %v", edge, got)
+		}
+	}
+}
+
+func TestRequestBackgroundCheckConsentValidatesTypes(t *testing.T) {
+	t.Parallel()
+	request := RequestBackgroundCheckConsentRequest{
+		OpeningNumber: 1, ApplicationNumber: 2, Version: 3,
+		CheckTypes: []hiring.CheckType{"identity", "criminal"},
+	}
+	if got := request.Validate(); len(got) != 0 {
+		t.Fatalf("valid request rejected: %v", got)
+	}
+	for name, types := range map[string][]hiring.CheckType{
+		"none": {}, "nil": nil, "unknown": {"astrology"},
+		"duplicate": {"identity", "identity"},
+	} {
+		request.CheckTypes = types
+		if got := request.Validate(); !slices.Equal(got, []string{"check_types"}) {
+			t.Errorf("%s: fields = %v", name, got)
+		}
+	}
+}
+
+func TestRecordBackgroundCheckResultNormalizesAndValidates(t *testing.T) {
+	t.Parallel()
+	notes := ResultNotes("  fine ")
+	request := RecordBackgroundCheckResultRequest{
+		OpeningNumber: 1, ApplicationNumber: 2, Version: 3,
+		CheckType: "identity", Outcome: CheckClear, Notes: &notes,
+	}
+	request.Normalize()
+	if *request.Notes != "fine" || notes != "  fine " {
+		t.Fatalf("notes = %q, caller %q", *request.Notes, notes)
+	}
+	if got := request.Validate(); len(got) != 0 {
+		t.Fatalf("valid request rejected: %v", got)
+	}
+	link := profile.WebsiteURL("ftp://x.example.com")
+	request.CheckType, request.Outcome, request.ReportURL = "astrology", "ok", &link
+	want := []string{"check_type", "outcome", "report_url"}
+	if got := request.Validate(); !slices.Equal(got, want) {
+		t.Fatalf("fields = %v, want %v", got, want)
 	}
 }

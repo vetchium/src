@@ -82,15 +82,19 @@ func Status(
 }
 
 // PendingActions lists what awaits the applicant: an upcoming interview they
-// have not answered, and an offer to answer while the application is offered
-// and its offer is still open (HP-HUB-003).
+// have not answered, a background-check consent request, and an offer to
+// answer while the application is offered and its offer is still open
+// (HP-HUB-003).
 func PendingActions(
 	state sqlc.VetchiumOrgApplicationState, offerAwaitsAnswer bool,
-	interviewAwaitsResponse bool,
+	interviewAwaitsResponse bool, consentAwaitsResponse bool,
 ) []hubspec.PendingActionKind {
 	actions := []hubspec.PendingActionKind{}
 	if interviewAwaitsResponse {
 		actions = append(actions, hubspec.InterviewResponse)
+	}
+	if consentAwaitsResponse {
+		actions = append(actions, hubspec.BackgroundCheckConsent)
 	}
 	if state == sqlc.VetchiumOrgApplicationStateOffered && offerAwaitsAnswer {
 		actions = append(actions, hubspec.OfferResponse)
@@ -158,7 +162,7 @@ func EnqueueChanges(
 				Status:            status,
 				PendingActions: PendingActions(
 					row.ApplicationState, row.OfferAwaitsAnswer,
-					row.InterviewAwaitsResponse,
+					row.InterviewAwaitsResponse, row.ConsentAwaitsResponse,
 				),
 				AppliedAt:      row.CreatedAt.Time.UTC(),
 				LastActivityAt: row.UpdatedAt.Time.UTC(),
@@ -207,7 +211,7 @@ func ReadForApplicant(
 			Status:            status,
 			PendingActions: PendingActions(
 				row.ApplicationState, row.OfferAwaitsAnswer,
-				row.InterviewAwaitsResponse,
+				row.InterviewAwaitsResponse, row.ConsentAwaitsResponse,
 			),
 		},
 		Interviews: []hubspec.MyApplicationInterview{},
@@ -217,6 +221,14 @@ func ReadForApplicant(
 	}
 	for index := range detail.Interviews {
 		detail.Interviews[index].StartsAt = detail.Interviews[index].StartsAt.UTC()
+	}
+	if len(row.BackgroundCheck) > 0 {
+		if err := json.Unmarshal(row.BackgroundCheck, &detail.BackgroundCheckConsent); err != nil {
+			return hubspec.MyApplicationDetail{}, fmt.Errorf("decode background check: %w", err)
+		}
+		if consent := detail.BackgroundCheckConsent; consent != nil {
+			consent.RequestedAt = consent.RequestedAt.UTC()
+		}
 	}
 	if !row.HasOffer {
 		return detail, nil

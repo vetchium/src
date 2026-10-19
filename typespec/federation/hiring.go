@@ -209,6 +209,48 @@ type HubInterviewResponseResult struct {
 	InterviewNumber   applications.InterviewNumber   `json:"interview_number"`
 }
 
+// HubGiveConsentKind and HubDeclineConsentKind are the commands a Hub user's
+// home tenant sends to the Org's tenant to answer a background-check consent
+// request. Their authority principal is the Org and their aggregate id is the
+// Opening number as decimal text.
+const (
+	HubGiveConsentKind    CommandKind = "hub-give-background-check-consent"
+	HubDeclineConsentKind CommandKind = "hub-decline-background-check-consent"
+)
+
+type HubBackgroundCheckConsentPayload struct {
+	OpeningNumber     openings.OpeningNumber             `json:"opening_number"`
+	ApplicationNumber applications.ApplicationNumber     `json:"application_number"`
+	CheckNumber       applications.BackgroundCheckNumber `json:"check_number"`
+	ApplicantDID      hub.HubUserDID                     `json:"applicant_did"`
+}
+
+func (p *HubBackgroundCheckConsentPayload) Normalize() {}
+
+func (p HubBackgroundCheckConsentPayload) Validate() []string {
+	fields := []string{}
+	if p.OpeningNumber < 1 {
+		fields = append(fields, "opening_number")
+	}
+	if !applications.IsApplicationNumber(p.ApplicationNumber) {
+		fields = append(fields, "application_number")
+	}
+	if !applications.IsBackgroundCheckNumber(p.CheckNumber) {
+		fields = append(fields, "check_number")
+	}
+	if !hub.IsHubUserDID(p.ApplicantDID) {
+		fields = append(fields, "applicant_did")
+	}
+	return fields
+}
+
+// HubBackgroundCheckConsentResult is the stored `200` body of both commands.
+type HubBackgroundCheckConsentResult struct {
+	OpeningNumber     openings.OpeningNumber             `json:"opening_number"`
+	ApplicationNumber applications.ApplicationNumber     `json:"application_number"`
+	CheckNumber       applications.BackgroundCheckNumber `json:"check_number"`
+}
+
 // HubApplicationChangedKind is the event the Org's tenant enqueues on every
 // change of an application for the applicant Hub user's home tenant, which
 // keeps one projection row per application.

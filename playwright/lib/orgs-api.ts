@@ -28,7 +28,10 @@ import type {
   ListApplicationHistoryRequest,
   ListApplicationsRequest,
   ListMyInterviewsRequest,
+  RecordAssessmentResultRequest,
+  RecordBackgroundCheckResultRequest,
   RecordInterviewOutcomeRequest,
+  RequestBackgroundCheckConsentRequest,
   ScheduleInterviewRequest,
   SubmitInterviewFeedbackRequest,
 } from "typespec/orgs/applications/applications";
@@ -480,6 +483,52 @@ export class OrgsAPI {
       token,
       idempotencyKey,
     });
+  }
+
+  recordAssessmentResult(
+    token: string,
+    request: RecordAssessmentResultRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-assessment-result", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  requestBackgroundCheckConsent(
+    token: string,
+    request: RequestBackgroundCheckConsentRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/request-background-check-consent", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordBackgroundCheckResult(
+    token: string,
+    request: RecordBackgroundCheckResultRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-background-check-result", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  /** Sends any JSON as a result write, for malformed requests. */
+  resultWriteRaw(
+    operation:
+      | "record-assessment-result"
+      | "request-background-check-consent"
+      | "record-background-check-result",
+    token: string,
+    request: unknown,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post(`/${operation}`, request, { token, idempotencyKey });
   }
 
   listMyInterviews(

@@ -2227,7 +2227,10 @@ CREATE TYPE vetchium.org_application_history_action AS ENUM (
     'separated', 'joined_corrected', 'separated_corrected',
     'interview_scheduled', 'interview_changed', 'interview_cancelled',
     'interview_completed', 'interview_no_show', 'interview_accepted',
-    'interview_reschedule_requested', 'interview_feedback_submitted'
+    'interview_reschedule_requested', 'interview_feedback_submitted',
+    'assessment_recorded', 'background_check_consent_requested',
+    'background_check_consent_given', 'background_check_consent_declined',
+    'background_check_result_recorded'
 );
 CREATE TYPE vetchium.org_application_actor_kind AS ENUM (
     'applicant', 'org_user', 'system'
@@ -2561,6 +2564,114 @@ AS $$
         RETURNING i.org_interview_id
     )
     SELECT count(*)::integer FROM cancelled
+$$;
+
+-- Assessment results (HP-WRK-005): one per candidacy and assessment stage.
+-- Recording completes the stage, so a second result finds the stage done.
+CREATE TYPE vetchium.org_assessment_outcome AS ENUM (
+    'pass', 'fail', 'inconclusive'
+);
+CREATE TABLE vetchium.org_application_assessments (
+    org_application_id uuid NOT NULL REFERENCES vetchium.org_applications
+        (org_application_id) ON DELETE CASCADE,
+    org_opening_stage_id uuid NOT NULL REFERENCES vetchium.org_opening_stages
+        (org_opening_stage_id) ON DELETE CASCADE,
+    outcome vetchium.org_assessment_outcome NOT NULL,
+    score smallint CHECK (score BETWEEN 0 AND 100),
+    notes text,
+    report_url text,
+    recorded_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    recorded_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (org_application_id, org_opening_stage_id),
+    CONSTRAINT org_application_assessments_notes_check CHECK (
+        notes IS NULL OR (
+            notes = btrim(notes) AND char_length(notes) BETWEEN 1 AND 2000
+        )
+    ),
+    CONSTRAINT org_application_assessments_report_url_check CHECK (
+        report_url IS NULL OR (
+            report_url ~ '^https://[!-~]+$' AND char_length(report_url) <= 2048
+        )
+    )
+);
+
+-- Background checks (HP-WRK-006): a consent request per candidacy and
+-- background_check stage, numbered per application. Nothing is recorded
+-- until the applicant gives consent. A request is active while requested or
+-- given; a declined or ended one lets the Org ask again. Ending happens when
+-- the candidacy leaves the pipeline or the stage.
+CREATE TYPE vetchium.org_consent_state AS ENUM (
+    'requested', 'given', 'declined', 'ended'
+);
+CREATE TYPE vetchium.org_check_outcome AS ENUM (
+    'clear', 'discrepancy', 'unable_to_verify'
+);
+CREATE TABLE vetchium.org_background_checks (
+    org_background_check_id uuid PRIMARY KEY,
+    org_application_id uuid NOT NULL REFERENCES vetchium.org_applications
+        (org_application_id) ON DELETE CASCADE,
+    check_number integer NOT NULL CHECK (check_number >= 1),
+    org_opening_stage_id uuid NOT NULL REFERENCES vetchium.org_opening_stages
+        (org_opening_stage_id) ON DELETE CASCADE,
+    check_types text[] NOT NULL,
+    consent_state vetchium.org_consent_state NOT NULL DEFAULT 'requested',
+    requested_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    requested_at timestamptz NOT NULL DEFAULT now(),
+    responded_at timestamptz,
+    CONSTRAINT org_background_checks_number_key
+        UNIQUE (org_application_id, check_number),
+    CONSTRAINT org_background_checks_types_check CHECK (
+        cardinality(check_types) BETWEEN 1 AND 20
+    ),
+    CONSTRAINT org_background_checks_responded_check CHECK (
+        (consent_state IN ('given', 'declined')) = (responded_at IS NOT NULL)
+    )
+);
+CREATE UNIQUE INDEX org_background_checks_active_idx
+    ON vetchium.org_background_checks (org_application_id, org_opening_stage_id)
+    WHERE consent_state IN ('requested', 'given');
+
+CREATE TABLE vetchium.org_background_check_results (
+    org_background_check_id uuid NOT NULL REFERENCES
+        vetchium.org_background_checks (org_background_check_id)
+        ON DELETE CASCADE,
+    check_type text NOT NULL,
+    outcome vetchium.org_check_outcome NOT NULL,
+    notes text,
+    report_url text,
+    recorded_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    recorded_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (org_background_check_id, check_type),
+    CONSTRAINT org_background_check_results_notes_check CHECK (
+        notes IS NULL OR (
+            notes = btrim(notes) AND char_length(notes) BETWEEN 1 AND 2000
+        )
+    ),
+    CONSTRAINT org_background_check_results_report_url_check CHECK (
+        report_url IS NULL OR (
+            report_url ~ '^https://[!-~]+$' AND char_length(report_url) <= 2048
+        )
+    )
+);
+
+-- Leaving the pipeline ends the consent requests still awaiting an answer,
+-- as it cancels the upcoming interviews (HP-STA-002). Every statement that
+-- ends a candidacy or moves it off a stage calls it in the same statement.
+CREATE FUNCTION vetchium.end_pending_consents(application_ids uuid[])
+RETURNS integer
+LANGUAGE sql VOLATILE
+AS $$
+    WITH ended AS (
+        UPDATE vetchium.org_background_checks AS b
+        SET consent_state = 'ended'
+        WHERE b.org_application_id = ANY(application_ids)
+          AND b.consent_state = 'requested'
+        RETURNING b.org_background_check_id
+    )
+    SELECT count(*)::integer FROM ended
 $$;
 
 -- Who may read all of an Opening's applications: the hiring manager, the
@@ -2916,8 +3027,15 @@ $$;
 DROP TABLE IF EXISTS vetchium.hub_application_projections;
 DROP FUNCTION IF EXISTS vetchium.org_user_acts_on_applications(uuid, uuid);
 DROP FUNCTION IF EXISTS vetchium.cancel_upcoming_interviews(uuid[]);
+DROP FUNCTION IF EXISTS vetchium.end_pending_consents(uuid[]);
 DROP FUNCTION IF EXISTS vetchium.org_user_reads_applications(uuid, uuid, uuid);
 DROP FUNCTION IF EXISTS vetchium.org_user_reads_all_applications(uuid, uuid);
+DROP TABLE IF EXISTS vetchium.org_background_check_results;
+DROP TABLE IF EXISTS vetchium.org_background_checks;
+DROP TYPE IF EXISTS vetchium.org_check_outcome;
+DROP TYPE IF EXISTS vetchium.org_consent_state;
+DROP TABLE IF EXISTS vetchium.org_application_assessments;
+DROP TYPE IF EXISTS vetchium.org_assessment_outcome;
 DROP TABLE IF EXISTS vetchium.org_interview_feedback;
 DROP TABLE IF EXISTS vetchium.org_interview_interviewers;
 DROP TABLE IF EXISTS vetchium.org_interviews;

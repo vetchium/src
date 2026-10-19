@@ -13,10 +13,12 @@ import { isHubUserDID } from "../hub/types.ts";
 import {
   type ApplicationCoverNote,
   type ApplicationNumber,
+  type BackgroundCheckNumber,
   type InterviewNumber,
   type InterviewRescheduleNote,
   isApplicationCoverNote,
   isApplicationNumber,
+  isBackgroundCheckNumber,
   isInterviewNumber,
   isInterviewRescheduleNote,
   isOfferNumber,
@@ -206,6 +208,46 @@ export interface HubInterviewResponseResult {
   opening_number: OpeningNumber;
   application_number: ApplicationNumber;
   interview_number: InterviewNumber;
+}
+
+/**
+ * The commands a Hub user's home tenant sends to the Org's tenant to answer a
+ * background-check consent request. Their authority principal is the Org and
+ * their aggregate id is the Opening number as decimal text.
+ */
+export const HubGiveConsentKind: CommandKind =
+  "hub-give-background-check-consent";
+export const HubDeclineConsentKind: CommandKind =
+  "hub-decline-background-check-consent";
+
+export interface HubBackgroundCheckConsentPayload {
+  opening_number: OpeningNumber;
+  application_number: ApplicationNumber;
+  check_number: BackgroundCheckNumber;
+  applicant_did: HubUserDID;
+}
+
+export function validateHubBackgroundCheckConsentPayload(
+  payload: HubBackgroundCheckConsentPayload,
+): string[] {
+  const fields: string[] = [];
+  if (!Number.isInteger(payload.opening_number) || payload.opening_number < 1) {
+    fields.push("opening_number");
+  }
+  if (!isApplicationNumber(payload.application_number)) {
+    fields.push("application_number");
+  }
+  if (!isBackgroundCheckNumber(payload.check_number)) {
+    fields.push("check_number");
+  }
+  if (!isHubUserDID(payload.applicant_did)) fields.push("applicant_did");
+  return fields;
+}
+
+export interface HubBackgroundCheckConsentResult {
+  opening_number: OpeningNumber;
+  application_number: ApplicationNumber;
+  check_number: BackgroundCheckNumber;
 }
 
 /**
