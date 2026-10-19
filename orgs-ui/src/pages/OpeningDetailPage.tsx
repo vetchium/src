@@ -5,13 +5,18 @@ import { OpeningContentView } from "@vetchium/portal-ui/openings";
 import {
   Alert,
   App,
+  Badge,
   Button,
   Card,
+  Checkbox,
+  Col,
   Descriptions,
   Flex,
   Input,
   Modal,
+  Row,
   Space,
+  Statistic,
   Tabs,
   Tag,
   Typography,
@@ -33,6 +38,11 @@ import { isDefiniteRefusal } from "../api/client";
 import { paths } from "../app/paths";
 import { problemMessage } from "../components/common/APIErrorAlert";
 import { useMyInfoQuery } from "../features/account/queries";
+import { ApplicantsTab } from "../features/applications/ApplicantsTab";
+import { useCanActOnApplications } from "../features/applications/access";
+import { CandidatesTab } from "../features/applications/CandidatesTab";
+import { listParams } from "../features/applications/listState";
+import { activeStates } from "../features/applications/presentation";
 import {
   OpeningsBreadcrumb,
   openingTitle,
@@ -54,9 +64,12 @@ import {
   useWithdrawOpeningRequestMutation,
 } from "../features/openings/queries";
 import { PipelineTab } from "../features/pipelines/PipelineTab";
+import { useStageCountsQuery } from "../features/pipelines/queries";
 
 const overviewTab = "overview";
 const pipelineTab = "pipeline";
+const applicantsTab = "applicants";
+const candidatesTab = "candidates";
 
 interface PageError {
   title: string;
@@ -102,7 +115,7 @@ export function OpeningDetailPage() {
   const { message, modal } = App.useApp();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { dateTime: formatDateTime } = useDateTimeFormat();
+  const { dateTime: formatDateTime, date: formatDate } = useDateTimeFormat();
   const [pageKeys, setPageKeys] = useState<Array<PaginationKey | undefined>>([
     undefined,
   ]);
@@ -110,8 +123,10 @@ export function OpeningDetailPage() {
   const [error, setError] = useState<PageError>();
   const [action, setAction] = useState<OpeningAction>();
   const [actionNote, setActionNote] = useState("");
+  const [markNotProgressing, setMarkNotProgressing] = useState(true);
   const { data: me } = useMyInfoQuery();
   const query = useOpeningQuery(number);
+  const counts = useStageCountsQuery(number);
   const history = useOpeningHistoryQuery({
     opening_number: number,
     limit: 25,
@@ -132,6 +147,7 @@ export function OpeningDetailPage() {
   const decideKey = useIdempotencyKey(`opening-decide:${number}`);
   const withdrawKey = useIdempotencyKey(`opening-withdraw:${number}`);
   const opening = query.data;
+  const canAct = useCanActOnApplications(opening);
   const canManage = me !== undefined && holds(me.permissions, ManageOpenings);
   const canApprove = me !== undefined && holds(me.permissions, ApproveOpenings);
   const actionBusy =
@@ -256,9 +272,20 @@ export function OpeningDetailPage() {
     opening && canManage && opening.pending_request === undefined
       ? publicationFieldLabels(t, publicationGaps(opening))
       : [];
+  const stateCount = (state: string) =>
+    counts.data?.states.find((entry) => entry.state === state)?.count ?? 0;
+  const applicantCount = stateCount("submitted");
+  const candidateCount = activeStates.reduce(
+    (sum, state) => sum + stateCount(state),
+    0,
+  );
+  const openApplications = applicantCount + candidateCount;
+  const positions = (opening?.live_content ?? opening?.working_content)
+    ?.positions;
   const openAction = (next: OpeningAction) => {
     setAction(next);
     setActionNote("");
+    setMarkNotProgressing(true);
     setError(undefined);
   };
   const submitAction = async () => {
@@ -277,6 +304,10 @@ export function OpeningDetailPage() {
             version: opening.version,
             kind: action.requestKind,
             ...(note && { note }),
+            ...(action.requestKind === "close" &&
+              openApplications > 0 && {
+                mark_applications_not_progressing: markNotProgressing,
+              }),
           },
           key: requestKey.current(),
         });
@@ -431,6 +462,22 @@ export function OpeningDetailPage() {
                 label: t("openings.actions.note"),
                 children: opening.pending_request.note ?? t("openings.notSet"),
               },
+              ...(opening.pending_request.kind === "close" &&
+              opening.pending_request.mark_applications_not_progressing !==
+                undefined
+                ? [
+                    {
+                      key: "applications",
+                      label: t("openings.actions.openApplications"),
+                      children: t(
+                        opening.pending_request
+                          .mark_applications_not_progressing
+                          ? "openings.actions.applicationsMarked"
+                          : "openings.actions.applicationsKept",
+                      ),
+                    },
+                  ]
+                : []),
             ]}
           />
         </Card>
@@ -611,12 +658,48 @@ export function OpeningDetailPage() {
     </Space>
   );
   // Later tasks add their tabs here, each shown only to who may use it.
-  const tabs: Array<{ key: string; label: string; children: ReactNode }> = [
+  const countedLabel = (text: string, count: number) => (
+    <span>
+      {text} <Badge count={count} showZero color="blue" size="small" />
+    </span>
+  );
+  const tabs: Array<{ key: string; label: ReactNode; children: ReactNode }> = [
     {
       key: overviewTab,
       label: t("openings.tabs.overview"),
       children: overview,
     },
+    ...(counts.data
+      ? [
+          {
+            key: applicantsTab,
+            label: countedLabel(t("openings.tabs.applicants"), applicantCount),
+            children: (
+              <Card>
+                <ApplicantsTab
+                  key={number}
+                  openingNumber={number}
+                  canAct={canAct}
+                  stages={counts.data.stages.map((entry) => entry.stage)}
+                />
+              </Card>
+            ),
+          },
+          {
+            key: candidatesTab,
+            label: countedLabel(t("openings.tabs.candidates"), candidateCount),
+            children: (
+              <Card>
+                <CandidatesTab
+                  key={number}
+                  openingNumber={number}
+                  counts={counts.data}
+                />
+              </Card>
+            ),
+          },
+        ]
+      : []),
     ...(canManage
       ? [
           {
@@ -690,6 +773,62 @@ export function OpeningDetailPage() {
       {error && action === undefined && (
         <ErrorAlert error={error} onClose={() => setError(undefined)} />
       )}
+      {counts.data && (
+        <Row gutter={[16, 16]} align="stretch">
+          <Col xs={12} lg={6} style={{ display: "flex" }}>
+            <Card className="full-width">
+              <Statistic
+                title={t("openings.stats.newApplicants")}
+                value={applicantCount}
+              />
+            </Card>
+          </Col>
+          <Col xs={12} lg={6} style={{ display: "flex" }}>
+            <Card className="full-width">
+              <Statistic
+                title={t("openings.stats.candidates")}
+                value={candidateCount}
+              />
+            </Card>
+          </Col>
+          <Col xs={12} lg={6} style={{ display: "flex" }}>
+            <Card className="full-width">
+              <Statistic
+                title={t("openings.stats.hired")}
+                value={stateCount("joined")}
+                suffix={
+                  positions === undefined
+                    ? undefined
+                    : t("openings.stats.ofPositions", { count: positions })
+                }
+              />
+              {positions !== undefined && (
+                <Typography.Text type="secondary" style={{ display: "block" }}>
+                  {t("openings.stats.positionsLabel", { count: positions })}
+                </Typography.Text>
+              )}
+              {positions !== undefined && stateCount("joined") > positions && (
+                <Typography.Text type="warning">
+                  {t("openings.stats.overHired")}
+                </Typography.Text>
+              )}
+            </Card>
+          </Col>
+          <Col xs={12} lg={6} style={{ display: "flex" }}>
+            <Card className="full-width">
+              <Statistic
+                title={t("openings.expiresAt")}
+                value={
+                  opening.expires_at
+                    ? formatDate(opening.expires_at)
+                    : t("openings.notSet")
+                }
+                styles={{ content: { fontSize: 20 } }}
+              />
+            </Card>
+          </Col>
+        </Row>
+      )}
       <Tabs
         activeKey={activeTab}
         onChange={(key) =>
@@ -698,6 +837,7 @@ export function OpeningDetailPage() {
               const next = new URLSearchParams(current);
               if (key === overviewTab) next.delete("tab");
               else next.set("tab", key);
+              for (const name of listParams) next.delete(name);
               return next;
             },
             { replace: true },
@@ -754,6 +894,38 @@ export function OpeningDetailPage() {
             )}
           />
         )}
+        {action?.kind === "request" &&
+          action.requestKind === "close" &&
+          openApplications > 0 && (
+            <Flex vertical gap="small" style={{ marginBottom: 16 }}>
+              <Checkbox
+                checked={markNotProgressing}
+                disabled={actionBusy}
+                onChange={(event) =>
+                  setMarkNotProgressing(event.target.checked)
+                }
+              >
+                {t("openings.actions.markNotProgressing", {
+                  count: openApplications,
+                  applicants: applicantCount,
+                  candidates: candidateCount,
+                })}
+              </Checkbox>
+              <Typography.Text type="secondary">
+                {t("openings.actions.markNotProgressingHelp")}
+              </Typography.Text>
+            </Flex>
+          )}
+        {action?.kind === "approve" &&
+          opening.pending_request?.kind === "close" &&
+          opening.pending_request.mark_applications_not_progressing && (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+              title={t("openings.actions.approveMarksApplications")}
+            />
+          )}
         <Typography.Paragraph>
           {t(
             action?.kind === "reject"

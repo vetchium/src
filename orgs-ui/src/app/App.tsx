@@ -54,6 +54,11 @@ const OpeningDetailPage = lazy(() =>
     default: OpeningDetailPage,
   })),
 );
+const ApplicationDetailPage = lazy(() =>
+  import("../pages/ApplicationDetailPage").then(
+    ({ ApplicationDetailPage }) => ({ default: ApplicationDetailPage }),
+  ),
+);
 const OpeningEditorPage = lazy(() =>
   import("../pages/OpeningEditorPage").then(({ OpeningEditorPage }) => ({
     default: OpeningEditorPage,
@@ -285,6 +290,14 @@ export function App() {
               element={
                 <Page>
                   <OpeningDetailPage />
+                </Page>
+              }
+            />
+            <Route
+              path="/openings/:number/applications/:application"
+              element={
+                <Page>
+                  <ApplicationDetailPage />
                 </Page>
               }
             />

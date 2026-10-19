@@ -6,48 +6,11 @@ import type {
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { sqlLiteral } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
-import {
-  addOrgMember,
-  cleanupOrg,
-  loginOrg,
-  OrgsAPI,
-  orgSQL,
-  type SignedUpOrg,
-  signupOrg,
-} from "../lib/orgs-api.ts";
+import { addOrgMember, type OrgsAPI, orgSQL } from "../lib/orgs-api.ts";
+import { signIn, withOrg } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
-import { chooseRegion } from "../lib/region-ui.ts";
 
 test.describe.configure({ timeout: 90_000 });
-
-async function signIn(
-  page: Page,
-  user: Pick<SignedUpOrg, "domain" | "emailAddress" | "password">,
-) {
-  await page.goto(`${ORGS_PORTAL}/login?domain=${user.domain}`);
-  await page.getByLabel("Email address").fill(user.emailAddress);
-  await page.getByLabel("Password", { exact: true }).fill(user.password);
-  await chooseRegion(page, "sgp");
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(
-    page.getByRole("button", { name: "Sign out", exact: true }),
-  ).toBeVisible();
-}
-
-async function withOrg(
-  request: ConstructorParameters<typeof OrgsAPI>[0],
-  body: (org: SignedUpOrg, api: OrgsAPI, owner: string) => Promise<void>,
-) {
-  const api = new OrgsAPI(request);
-  const org = await signupOrg(api);
-  try {
-    await body(org, api, await loginOrg(api, org));
-  } finally {
-    await deleteOrgVerificationRecord(org.domain);
-    cleanupOrg(org.domain);
-  }
-}
 
 async function createTemplate(
   api: OrgsAPI,

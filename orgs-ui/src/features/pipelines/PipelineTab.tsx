@@ -139,17 +139,17 @@ export function PipelineTab({ openingNumber, editable }: Props) {
   };
 
   return (
-    <Card
-      title={t("pipeline.stages")}
-      extra={
-        <Flex gap="small" align="center" wrap>
-          {dirty && <Tag color="warning">{t("pipeline.unsaved")}</Tag>}
-          {dirty && (
+    <Card title={t("pipeline.stages")}>
+      <Flex vertical gap="middle">
+        <Typography.Text type="secondary">
+          {t("pipeline.intro")}
+        </Typography.Text>
+        {dirty && (
+          <Flex gap="small" align="center" wrap>
+            <Tag color="warning">{t("pipeline.unsaved")}</Tag>
             <Button disabled={replace.isPending} onClick={discard}>
               {t("pipeline.discard")}
             </Button>
-          )}
-          {dirty && (
             <Button
               type="primary"
               loading={replace.isPending}
@@ -158,14 +158,8 @@ export function PipelineTab({ openingNumber, editable }: Props) {
             >
               {t("pipeline.save")}
             </Button>
-          )}
-        </Flex>
-      }
-    >
-      <Flex vertical gap="middle">
-        <Typography.Text type="secondary">
-          {t("pipeline.intro")}
-        </Typography.Text>
+          </Flex>
+        )}
         {!editable && (
           <Alert type="info" showIcon title={t("pipeline.readOnly")} />
         )}

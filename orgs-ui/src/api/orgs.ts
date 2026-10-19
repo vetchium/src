@@ -20,8 +20,18 @@ import type {
 } from "typespec/orgs/ai/ai";
 import type { AIUsageText } from "typespec/orgs/ai/types";
 import type {
+  ApplicationActionRequest,
   ApplicationCounts,
+  ApplicationDetail,
+  ApplicationJoinedOnRequest,
+  ApplicationSeparatedOnRequest,
+  ApplicationStageRequest,
   GetApplicationCountsRequest,
+  GetApplicationRequest,
+  ListApplicationHistoryRequest,
+  ListApplicationHistoryResponse,
+  ListApplicationsRequest,
+  ListApplicationsResponse,
 } from "typespec/orgs/applications/applications";
 import type {
   LoginRequest,
@@ -161,6 +171,86 @@ export const orgsAPI = {
     }),
   getApplicationCounts: (body: GetApplicationCountsRequest) =>
     apiRequest<ApplicationCounts>("/get-application-counts", { body }),
+  listApplications: (body: ListApplicationsRequest) =>
+    apiRequest<ListApplicationsResponse>("/list-applications", { body }),
+  getApplication: (body: GetApplicationRequest) =>
+    apiRequest<ApplicationDetail>("/get-application", { body }),
+  listApplicationHistory: (body: ListApplicationHistoryRequest) =>
+    apiRequest<ListApplicationHistoryResponse>("/list-application-history", {
+      body,
+    }),
+  shortlistApplication: (
+    body: ApplicationStageRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/shortlist-application", {
+      body,
+      idempotencyKey,
+    }),
+  moveApplicationStage: (
+    body: ApplicationStageRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/move-application-stage", {
+      body,
+      idempotencyKey,
+    }),
+  completeApplicationStage: (
+    body: ApplicationActionRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/complete-application-stage", {
+      body,
+      idempotencyKey,
+    }),
+  markApplicationNotProgressing: (
+    body: ApplicationActionRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/mark-application-not-progressing", {
+      body,
+      idempotencyKey,
+    }),
+  recordApplicationJoined: (
+    body: ApplicationJoinedOnRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/record-application-joined", {
+      body,
+      idempotencyKey,
+    }),
+  recordApplicationDidNotJoin: (
+    body: ApplicationActionRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/record-application-did-not-join", {
+      body,
+      idempotencyKey,
+    }),
+  recordApplicationSeparated: (
+    body: ApplicationSeparatedOnRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/record-application-separated", {
+      body,
+      idempotencyKey,
+    }),
+  correctApplicationJoinedOn: (
+    body: ApplicationJoinedOnRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/correct-application-joined-on", {
+      body,
+      idempotencyKey,
+    }),
+  correctApplicationSeparatedOn: (
+    body: ApplicationSeparatedOnRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/correct-application-separated-on", {
+      body,
+      idempotencyKey,
+    }),
   createOpening: (body: CreateOpeningRequest, idempotencyKey: IdempotencyKey) =>
     apiRequest<OrgOpening>("/create-opening", { body, idempotencyKey }),
   duplicateOpening: (
