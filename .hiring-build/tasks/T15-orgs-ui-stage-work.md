@@ -35,3 +35,8 @@ withdraw an offer with a letter, record joining.
 ## Acceptance
 
 Every stage's work and the offer run from the portal.
+
+## Carried over
+
+- From T09: the offer dialog is upload-then-extend: `upload-offer-letter` (raw PDF body, ≤ 5 MiB) returns `letter_id`, then `extend-application-offer` claims it. Map `org-offer-letter-invalid`, `org-offer-letter-too-large`, `org-offer-letter-conflict`.
+- From T09: show the over-hiring warning when `joined_count >= positions` before extending an offer; list letters from `ApplicationDetail.offers` (newest first, withdrawn ones included); signed links last ten minutes, so re-read before opening.
