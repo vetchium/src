@@ -48,3 +48,4 @@ than an offer in the portal.
   `request-opening-change`; show that choice on a pending close request.
 - From T10: the `pending_applicant_action` filter (`interview_response`, `offer_response`, and T11's consent) on the applications list.
 - From T11: add `background_check_consent` to the pending applicant action filter; show assessments and background checks in the detail and history.
+- From T12: removed applications (`removed: true`) read as a localized "Removed applicant"; the `removed` history action (actor `system`).

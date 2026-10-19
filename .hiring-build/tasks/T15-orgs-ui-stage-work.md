@@ -42,3 +42,4 @@ Every stage's work and the offer run from the portal.
 - From T09: show the over-hiring warning when `joined_count >= positions` before extending an offer; list letters from `ApplicationDetail.offers` (newest first, withdrawn ones included); signed links last ten minutes, so re-read before opening.
 - From T10: interviews from `ApplicationDetail.interviews` (schedule, change, cancel, record outcome, submit feedback; others' feedback hidden until the viewer submits). An interviewer-only "My interviews" page on `list-my-interviews`. Interviewers see no offers. Strings in en, de, ta.
 - From T11: record assessment result, request background-check consent (check types), record background-check results; re-ask after a declined or ended request. Interviewer-only readers see no results. Strings in en, de, ta.
+- From T12: removed applications have no offers, interviews, or results; hide the stage-work actions for them.

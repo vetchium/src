@@ -40,3 +40,7 @@ the pipeline, stage-in-use message, unsaved-changes guard, URL-kept tab.
 ## Acceptance
 
 Users manage templates and pipelines from the portal in every locale.
+
+## Carried over
+
+- From T12: when `removed` is true show a localized "Removed applicant" (en, de, ta) and ignore the placeholder `display_name`; snapshot, offers, interviews, and results are empty. Handle the `removed` history action (actor `system`).
