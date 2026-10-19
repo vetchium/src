@@ -136,6 +136,9 @@ func (d *Deliverer) deliverNext(ctx context.Context) (bool, bool, error) {
 	case delivery.Problem != nil && delivery.Problem.Type ==
 		federationproblem.DestinationNotFoundError.Type:
 		return false, true, d.fail(ctx, claim, "destination principal not found")
+	case delivery.Problem != nil && delivery.Problem.Type ==
+		federationproblem.EventOriginMismatchError.Type:
+		return false, true, d.fail(ctx, claim, "event origin refused at destination")
 	default:
 		return false, true, d.retry(ctx, claim, "relay gave no definite answer")
 	}
@@ -157,13 +160,16 @@ func (d *Deliverer) deliverLocally(
 		return true, false, fmt.Errorf("begin federation event: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	outcome, err := d.config.Receiver.receiveInTx(ctx, tx, event)
+	outcome, err := d.config.Receiver.receiveInTx(ctx, tx, event, nil)
 	switch {
 	case errors.Is(err, ErrMisdirected):
 		return false, false, nil
 	case errors.Is(err, ErrEventConflict):
 		_ = tx.Rollback(ctx)
 		return true, false, d.fail(ctx, claim, "event id conflict at destination")
+	case errors.Is(err, ErrOriginMismatch):
+		_ = tx.Rollback(ctx)
+		return true, false, d.fail(ctx, claim, "event origin not homed here")
 	case err != nil:
 		_ = tx.Rollback(ctx)
 		return true, false, d.retry(ctx, claim, err.Error())

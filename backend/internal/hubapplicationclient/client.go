@@ -21,7 +21,7 @@ var ErrInvalidResponse = errors.New("invalid Hub application response")
 
 // Outcome is the read application or the problem the other side answered.
 type Outcome struct {
-	Result  *hubspec.MyApplication
+	Result  *hubspec.MyApplicationDetail
 	Problem *problem.Details
 }
 
@@ -72,7 +72,7 @@ func (c *Client) get(
 	if err != nil {
 		return Outcome{}, err
 	}
-	var result hubspec.MyApplication
+	var result hubspec.MyApplicationDetail
 	if exchange.JSON(&result) {
 		if !result.Valid() || result.OrgDomain != request.Domain ||
 			result.OpeningNumber != request.OpeningNumber ||

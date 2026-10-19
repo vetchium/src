@@ -330,6 +330,12 @@ command-result ledger at the authority; no per-feature reliability protocol.
     failure logs at error. `federation-event-conflict` (`409`) and
     `federation-destination-not-found` (`404`) fail the event, with an error
     log; everything else is retried.
+  - Register each kind with an `Origin`: the principal the event reports on
+    (an Org for `hub-application-changed`). The handler runs only when the
+    source tenant homes it — this tenant's database for an in-process or
+    relay-local event, `resolve-principal` before the transaction for a
+    peer's — else the receiver records nothing and answers `403
+    federation-event-origin-mismatch`, which fails the event.
   - The watermark key is (kind, destination principal, aggregate type, id):
     one change may feed several projections. An event at or below it is
     recorded `superseded` and not applied; a redelivered id is `duplicate`,

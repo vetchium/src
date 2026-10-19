@@ -157,14 +157,26 @@ WITH changed AS (
 SELECT (SELECT count(*) FROM changed) AS changed_rows,
     (SELECT count(*) FROM completed) AS completed_rows;
 
--- name: MarkOrgApplicationNotProgressing :execrows
-UPDATE vetchium.org_applications AS a
-SET application_state = 'not_progressing', version = a.version + 1,
-    updated_at = now()
-WHERE a.org_application_id = sqlc.arg(application_id)
-  AND a.version = sqlc.arg(version)::integer
-  AND a.application_state IN
-      ('submitted', 'in_pipeline', 'offered', 'offer_accepted');
+-- Leaving an offered state withdraws the offer that awaited an answer.
+-- name: MarkOrgApplicationNotProgressing :one
+WITH changed AS (
+    UPDATE vetchium.org_applications AS a
+    SET application_state = 'not_progressing', version = a.version + 1,
+        updated_at = now()
+    WHERE a.org_application_id = sqlc.arg(application_id)
+      AND a.version = sqlc.arg(version)::integer
+      AND a.application_state IN
+          ('submitted', 'in_pipeline', 'offered', 'offer_accepted')
+    RETURNING a.org_application_id
+), ended AS (
+    UPDATE vetchium.org_application_offers AS o
+    SET offer_status = 'withdrawn', ended_at = now()
+    FROM changed
+    WHERE o.org_application_id = changed.org_application_id
+      AND o.offer_status = 'extended'
+    RETURNING o.org_application_id
+)
+SELECT count(*) AS changed_rows FROM changed;
 
 -- name: RecordOrgApplicationJoined :execrows
 UPDATE vetchium.org_applications AS a
@@ -277,23 +289,34 @@ SELECT (SELECT count(*) FROM subject) AS subject_rows,
 -- transaction that closed the Opening. Only the request that closed it
 -- qualifies: it was approved at the closing instant, which every statement of
 -- one transaction shares.
+-- Offers awaiting an answer are withdrawn with their applications.
 -- name: MarkClosedOpeningApplicationsNotProgressing :many
-UPDATE vetchium.org_applications AS a
-SET application_state = 'not_progressing', version = a.version + 1,
-    updated_at = now()
-FROM vetchium.org_openings AS o
-WHERE o.org_opening_id = a.org_opening_id
-  AND o.org_did = sqlc.arg(org_did)
-  AND o.opening_number = sqlc.arg(opening_number)::integer
-  AND o.opening_state = 'closed'
-  AND a.application_state IN
-      ('submitted', 'in_pipeline', 'offered', 'offer_accepted')
-  AND EXISTS (
-      SELECT 1 FROM vetchium.org_opening_requests AS r
-      WHERE r.org_opening_id = o.org_opening_id
-        AND r.request_kind = 'close'
-        AND r.request_state = 'approved'
-        AND r.mark_applications_not_progressing
-        AND r.decided_at = o.ended_at
-  )
-RETURNING a.org_application_id;
+WITH changed AS (
+    UPDATE vetchium.org_applications AS a
+    SET application_state = 'not_progressing', version = a.version + 1,
+        updated_at = now()
+    FROM vetchium.org_openings AS o
+    WHERE o.org_opening_id = a.org_opening_id
+      AND o.org_did = sqlc.arg(org_did)
+      AND o.opening_number = sqlc.arg(opening_number)::integer
+      AND o.opening_state = 'closed'
+      AND a.application_state IN
+          ('submitted', 'in_pipeline', 'offered', 'offer_accepted')
+      AND EXISTS (
+          SELECT 1 FROM vetchium.org_opening_requests AS r
+          WHERE r.org_opening_id = o.org_opening_id
+            AND r.request_kind = 'close'
+            AND r.request_state = 'approved'
+            AND r.mark_applications_not_progressing
+            AND r.decided_at = o.ended_at
+      )
+    RETURNING a.org_application_id
+), ended AS (
+    UPDATE vetchium.org_application_offers AS f
+    SET offer_status = 'withdrawn', ended_at = now()
+    FROM changed
+    WHERE f.org_application_id = changed.org_application_id
+      AND f.offer_status = 'extended'
+    RETURNING f.org_application_id
+)
+SELECT changed.org_application_id FROM changed;

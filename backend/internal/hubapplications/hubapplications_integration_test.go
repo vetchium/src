@@ -4,17 +4,21 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	federationspec "github.com/vetchium/src/typespec/federation"
 	hubspec "github.com/vetchium/src/typespec/hub/applications"
 	"github.com/vetchium/src/typespec/orgs"
+	"github.com/vetchium/src/typespec/problem"
+	coordinatorproblem "github.com/vetchium/src/typespec/problem/global-coordinator"
 
 	"backend/internal/dbvalue"
 	"backend/internal/federation/events"
@@ -74,12 +78,25 @@ func TestProjectionKeepsTheNewestChangeIntegration(t *testing.T) {
 	}()
 	registry := events.NewRegistry()
 	Register(registry)
+	var receive func(int64, hubspec.ApplicationStatus, time.Time) (
+		federationspec.EventDeliveryOutcome, error)
 	receiver := events.NewReceiver(events.ReceiverConfig{
-		Pool: app, TenantID: "sgp", Source: "workers", Registry: registry,
+		Pool: app, TenantID: "sgp", Source: "mesh-api", Registry: registry,
+		Directory: orgHome{did: orgDID, tenant: "usa1"},
 	})
 	applied := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	source := "usa1"
 	deliver := func(version int64, status hubspec.ApplicationStatus,
 		activity time.Time) federationspec.EventDeliveryOutcome {
+		t.Helper()
+		outcome, err := receive(version, status, activity)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return outcome
+	}
+	receive = func(version int64, status hubspec.ApplicationStatus,
+		activity time.Time) (federationspec.EventDeliveryOutcome, error) {
 		t.Helper()
 		eventID, _ := dbvalue.NewUUID()
 		payload, err := json.Marshal(federationspec.HubApplicationChangedPayload{
@@ -92,8 +109,8 @@ func TestProjectionKeepsTheNewestChangeIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		outcome, err := receiver.Receive(ctx, events.Event{
-			EventID: eventID, SourceTenantID: "usa1",
+		return receiver.Receive(ctx, events.Event{
+			EventID: eventID, SourceTenantID: source,
 			Kind: federationspec.HubApplicationChangedKind,
 			Destination: events.Principal{
 				Type: directoryspec.PrincipalHubUser, DID: did,
@@ -102,10 +119,6 @@ func TestProjectionKeepsTheNewestChangeIntegration(t *testing.T) {
 			AggregateID:   aggregate, AggregateVersion: version,
 			Payload: payload,
 		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		return outcome
 	}
 	row := func() (string, time.Time, int) {
 		t.Helper()
@@ -134,4 +147,34 @@ func TestProjectionKeepsTheNewestChangeIntegration(t *testing.T) {
 	if status != "withdrawn" || !activity.Equal(withdrawnAt) || rows != 1 {
 		t.Fatalf("projection = %s %s, %d rows", status, activity, rows)
 	}
+
+	// Another tenant cannot report on an Org it does not home.
+	source = "deu"
+	if _, err := receive(3, hubspec.Hired, withdrawnAt.Add(time.Hour)); !errors.Is(
+		err, events.ErrOriginMismatch,
+	) {
+		t.Fatalf("forged change err = %v", err)
+	}
+	if status, _, _ := row(); status != "withdrawn" {
+		t.Fatalf("a forged change projected %s", status)
+	}
+}
+
+// orgHome is a directory that homes one Org at one tenant.
+type orgHome struct {
+	did    pgtype.UUID
+	tenant string
+}
+
+func (h orgHome) ResolvePrincipal(
+	_ context.Context, request directoryspec.ResolvePrincipalRequest,
+) (directoryspec.ResolvePrincipalResponse, *problem.Details, error) {
+	if request.PrincipalType != directoryspec.PrincipalOrg ||
+		string(request.PrincipalDID) != dbvalue.FormatUUID(h.did) {
+		details := coordinatorproblem.DirectoryEntryNotFoundError
+		return directoryspec.ResolvePrincipalResponse{}, &details, nil
+	}
+	return directoryspec.ResolvePrincipalResponse{
+		HomeTenantID: directoryspec.TenantID(h.tenant), RoutingVersion: 1,
+	}, nil, nil
 }

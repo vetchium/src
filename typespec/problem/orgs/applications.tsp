@@ -34,3 +34,38 @@ alias OrgApplicationStateConflictErrorResponse = Response<
   409,
   typeof OrgApplicationStateConflictError
 >;
+
+const OrgOfferLetterTooLargeError = #{
+  type: "vetchium-problem-details/org-offer-letter-too-large",
+  title: "Org offer letter too large",
+  status: 413,
+  detail: "The offer letter exceeds the five-mebibyte limit",
+};
+alias OrgOfferLetterTooLargeErrorResponse = Response<
+  413,
+  typeof OrgOfferLetterTooLargeError
+>;
+
+const OrgOfferLetterInvalidError = #{
+  type: "vetchium-problem-details/org-offer-letter-invalid",
+  title: "Invalid Org offer letter",
+  status: 400,
+  detail: "The offer letter is not a PDF",
+};
+alias OrgOfferLetterInvalidErrorResponse = Response<
+  400,
+  typeof OrgOfferLetterInvalidError
+>;
+
+/** The staged letter of this upload was superseded by a newer upload or
+ * expired before it was stored. Upload again with a new idempotency key. */
+const OrgOfferLetterConflictError = #{
+  type: "vetchium-problem-details/org-offer-letter-conflict",
+  title: "Org offer letter conflict",
+  status: 409,
+  detail: "The upload was superseded or expired before it completed",
+};
+alias OrgOfferLetterConflictErrorResponse = Response<
+  409,
+  typeof OrgOfferLetterConflictError
+>;

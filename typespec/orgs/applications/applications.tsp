@@ -37,6 +37,32 @@ scalar ApplicationCoverNote extends string;
  */
 scalar CalendarDate extends plainDate;
 
+/** An offer letter uploaded by the caller and not yet claimed by an offer. */
+@format("uuid")
+scalar OfferLetterID extends string;
+
+/** Allocated per application from 1, in the order offers were extended. */
+@minValue(1)
+scalar OfferNumber extends int32;
+
+/** Days the applicant has to answer an offer. */
+@minValue(1)
+@maxValue(60)
+scalar OfferResponseDays extends int32;
+
+/**
+ * Where an offer stands: awaiting an answer (`extended`), answered
+ * (`accepted`, `declined`), unanswered by its deadline (`expired`), or ended
+ * by the Org or by the application leaving the pipeline (`withdrawn`). A
+ * portal older than its API shows a status it does not recognize as the raw
+ * value.
+ */
+@TypeSpec.OpenAPI.extension(
+  "x-vetchium-known-values",
+  #["extended", "accepted", "declined", "expired", "withdrawn"]
+)
+scalar OfferStatus extends string;
+
 /** A case-insensitive substring of the applicant's display name. */
 @minLength(2)
 @maxLength(100)
@@ -137,6 +163,28 @@ model ApplicationStageRecord {
   status: StageStatus;
 }
 
+/** One offer of an application, with a short-lived link to its letter. */
+model ApplicationOffer {
+  offer_number: OfferNumber;
+  status: OfferStatus;
+
+  /** A signed `GET` link to the PDF letter, valid for ten minutes. */
+  letter_url: url;
+
+  /** The letter's size in bytes. */
+  letter_byte_size: int32;
+
+  proposed_joining_date?: CalendarDate;
+
+  /** The applicant answers before this instant, or the offer expires. */
+  respond_by: utcDateTime;
+
+  extended_at: utcDateTime;
+
+  /** When the offer was answered, expired, or withdrawn. */
+  ended_at?: utcDateTime;
+}
+
 model ApplicationDetail {
   opening_number: Vetchium.Orgs.Openings.OpeningNumber;
   application_number: ApplicationNumber;
@@ -160,6 +208,9 @@ model ApplicationDetail {
 
   /** Applications of the Opening in `joined`, this one included. */
   joined_count: int32;
+
+  /** Every offer of the application, newest first, withdrawn ones included. */
+  offers: ApplicationOffer[];
 
   submitted_at: utcDateTime;
   updated_at: utcDateTime;
@@ -297,6 +348,23 @@ model ApplicationSeparatedOnRequest {
 
   /** After `joined_on`, within 365 days of it, and at most today. */
   separated_on: CalendarDate;
+}
+
+/** Extends an offer to an `in_pipeline` candidacy at any stage. */
+model ExtendApplicationOfferRequest {
+  ...ApplicationReference;
+
+  /** The caller's own letter from `upload-offer-letter`, not yet claimed. */
+  letter_id: OfferLetterID;
+
+  /** On or after today. */
+  proposed_joining_date?: CalendarDate;
+
+  respond_within_days: OfferResponseDays;
+}
+
+model OfferLetterUploaded {
+  letter_id: OfferLetterID;
 }
 
 /**
@@ -597,6 +665,86 @@ interface ApplicationOperations {
   correctApplicationSeparatedOn(
     @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
     @body request: ApplicationSeparatedOnRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors;
+
+  /**
+   * Stores a PDF offer letter for the caller's next offer. The body is the
+   * letter itself, at most 5,242,880 bytes, starting with `%PDF-`. The
+   * caller must act on some Opening's applications. The letter is claimable
+   * for one hour by `extend-application-offer`; a newer upload by the same
+   * user supersedes an unclaimed one.
+   */
+  @route("/upload-offer-letter")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  uploadOfferLetter(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @header("Content-Type") content_type: "application/pdf",
+    @body body: bytes,
+  ):
+    | {
+        @statusCode status_code: 201;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: OfferLetterUploaded;
+      }
+    | Vetchium.Problem.OrgAuthenticationRequiredErrorResponse
+    | Vetchium.Problem.OrgSuspendedErrorResponse
+    | Vetchium.Problem.OrgPermissionRequiredErrorResponse
+    | Vetchium.Problem.ValidationFailedErrorResponse
+    | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
+    | Vetchium.Problem.OrgOfferLetterInvalidErrorResponse
+    | Vetchium.Problem.OrgOfferLetterTooLargeErrorResponse
+    | Vetchium.Problem.OrgOfferLetterConflictErrorResponse
+    | Vetchium.Problem.RateLimitExceededErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
+
+  @route("/extend-application-offer")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  extendApplicationOffer(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: ExtendApplicationOfferRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors;
+
+  @route("/withdraw-application-offer")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  withdrawApplicationOffer(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: ApplicationActionRequest,
   ):
     | {
         @statusCode status_code: 200;

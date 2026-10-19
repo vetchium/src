@@ -107,9 +107,10 @@ func run(log *slog.Logger, address string) error {
 		PublicOpenings: publicopenings.Reader{
 			Queries: sqlc.New(pool), Logos: pictures,
 		},
-		Pictures:   pictures,
-		Queries:    sqlc.New(pool),
-		Credential: credential,
+		Pictures:     pictures,
+		OfferLetters: pictures,
+		Queries:      sqlc.New(pool),
+		Credential:   credential,
 		Commands: commands.NewExecutor(commands.ExecutorConfig{
 			Pool: pool, TenantID: cfg.TenantID,
 			Registry: commandkinds.Registry(), Directory: directory,
@@ -119,7 +120,7 @@ func run(log *slog.Logger, address string) error {
 		),
 		Events: events.NewReceiver(events.ReceiverConfig{
 			Pool: pool, TenantID: cfg.TenantID, Source: "mesh-api",
-			Registry: eventkinds.Registry(),
+			Registry: eventkinds.Registry(), Directory: directory,
 		}),
 		EventPeers: events.NewPeer(
 			coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,

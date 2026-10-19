@@ -23,6 +23,11 @@ type PictureSigner interface {
 	SignGet(context.Context, pgtype.UUID) (string, error)
 }
 
+// OfferLetterSigner signs a short-lived read URL for an offer letter.
+type OfferLetterSigner interface {
+	SignOfferLetterGet(context.Context, pgtype.UUID) (string, error)
+}
+
 // CommandPeers sends a command to another tenant's peer listener.
 type CommandPeers interface {
 	Execute(
@@ -50,6 +55,7 @@ type Server struct {
 	Applications   *hubapplicationclient.Client
 	PublicOpenings publicopenings.Reader
 	Pictures       PictureSigner
+	OfferLetters   OfferLetterSigner
 	Queries        sqlc.Querier
 	Credential     string
 	Commands       *commands.Executor

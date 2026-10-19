@@ -64,33 +64,48 @@ type Event struct {
 // returned error rolls everything back for a later redelivery.
 type Handler func(context.Context, pgx.Tx, Event) error
 
+// Origin names the principal an event reports on at its source, such as the
+// Org whose application changed. ok is false when the event names none; the
+// receiver then refuses it as an error, redelivered until fixed.
+type Origin func(Event) (Principal, bool)
+
+type registration struct {
+	handler Handler
+	origin  Origin
+}
+
 // Registry maps event kinds to their receiver handlers.
 type Registry struct {
-	handlers map[federationspec.EventKind]Handler
+	kinds map[federationspec.EventKind]registration
 }
 
 func NewRegistry() *Registry {
-	return &Registry{handlers: map[federationspec.EventKind]Handler{}}
+	return &Registry{kinds: map[federationspec.EventKind]registration{}}
 }
 
 // Register panics on an invalid or duplicate kind: both are programming
-// errors found at startup.
-func (r *Registry) Register(kind federationspec.EventKind, handler Handler) {
-	if !federationspec.IsEventKind(kind) || handler == nil {
+// errors found at startup. The receiver runs handler only once origin's
+// principal is proven homed at the tenant that sent the event.
+func (r *Registry) Register(
+	kind federationspec.EventKind, handler Handler, origin Origin,
+) {
+	if !federationspec.IsEventKind(kind) || handler == nil || origin == nil {
 		panic(fmt.Sprintf("invalid federation event registration %q", kind))
 	}
-	if _, exists := r.handlers[kind]; exists {
+	if _, exists := r.kinds[kind]; exists {
 		panic(fmt.Sprintf("duplicate federation event kind %q", kind))
 	}
-	r.handlers[kind] = handler
+	r.kinds[kind] = registration{handler: handler, origin: origin}
 }
 
-func (r *Registry) handler(kind federationspec.EventKind) (Handler, bool) {
+func (r *Registry) registration(
+	kind federationspec.EventKind,
+) (registration, bool) {
 	if r == nil {
-		return nil, false
+		return registration{}, false
 	}
-	handler, ok := r.handlers[kind]
-	return handler, ok
+	entry, ok := r.kinds[kind]
+	return entry, ok
 }
 
 // Outgoing is one event a write transaction enqueues.
@@ -154,6 +169,10 @@ var (
 	// ErrUnsupportedKind reports a kind this tenant has no handler for;
 	// nothing was recorded.
 	ErrUnsupportedKind = errors.New("federation event kind not supported")
+	// ErrOriginMismatch reports an event whose origin principal the sending
+	// tenant does not home: a refusal that redelivery cannot change; nothing
+	// was recorded.
+	ErrOriginMismatch = errors.New("federation event origin not homed at its source")
 )
 
 // digest identifies an event's content at the receiver. The payload is

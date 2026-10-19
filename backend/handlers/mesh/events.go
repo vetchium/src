@@ -101,6 +101,11 @@ func receiveEvent(
 		s.Problem(r.Context(), w, federationproblem.EventConflictError)
 	case errors.Is(err, events.ErrMisdirected):
 		s.Problem(r.Context(), w, federationproblem.DestinationMisdirectedError)
+	case errors.Is(err, events.ErrOriginMismatch):
+		s.WarnContext(r.Context(), "federation event origin refused",
+			"event", "federation_event_origin_mismatch",
+			"kind", request.Kind, "sourceTenant", sourceTenantID)
+		s.Problem(r.Context(), w, federationproblem.EventOriginMismatchError)
 	case errors.Is(err, events.ErrUnsupportedKind):
 		s.ValidationFailed(r.Context(), w, []string{"kind"})
 	case err != nil:
@@ -123,6 +128,7 @@ func writeEventReceipt(
 func peerEventProblem(details problem.Details) problem.Details {
 	for _, known := range []problem.Details{
 		federationproblem.EventConflictError,
+		federationproblem.EventOriginMismatchError,
 		federationproblem.DestinationMisdirectedError,
 		problem.InvalidJSONError,
 	} {

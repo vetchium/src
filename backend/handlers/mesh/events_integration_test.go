@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -29,6 +30,19 @@ import (
 	"backend/internal/meshapi"
 	"backend/internal/meshidentity"
 )
+
+// originDirectory homes every principal at one tenant.
+type originDirectory struct{ home string }
+
+func (d *originDirectory) ResolvePrincipal(
+	_ context.Context, request directoryspec.ResolvePrincipalRequest,
+) (directoryspec.ResolvePrincipalResponse, *problem.Details, error) {
+	return directoryspec.ResolvePrincipalResponse{
+		PrincipalType: request.PrincipalType,
+		PrincipalDID:  request.PrincipalDID,
+		HomeTenantID:  directoryspec.TenantID(d.home), RoutingVersion: 1,
+	}, nil, nil
+}
 
 type eventLocator bool
 
@@ -122,17 +136,24 @@ func TestOutboxEventAcrossTenantsIntegration(t *testing.T) {
 
 	var calls atomic.Int32
 	registry := events.NewRegistry()
+	// The event reports on its destination Org, which the receiver's
+	// directory homes at the sending tenant unless originHome changes.
 	registry.Register("test-org-projected",
 		func(context.Context, pgx.Tx, events.Event) error {
 			calls.Add(1)
 			return nil
+		},
+		func(event events.Event) (events.Principal, bool) {
+			return event.Destination, true
 		})
+	origins := &originDirectory{home: "sgp"}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	destination := &meshapi.Server{
 		Runtime: apiserver.New(app, log), TenantID: "usa1",
 		Events: events.NewReceiver(events.ReceiverConfig{
 			Pool: app, TenantID: "usa1", Source: "mesh-api",
 			Registry: registry, Locator: eventLocator(true),
+			Directory: origins,
 		}),
 	}
 	coordinator := httptest.NewServer(http.HandlerFunc(
@@ -200,6 +221,18 @@ func TestOutboxEventAcrossTenantsIntegration(t *testing.T) {
 	body, _ = json.Marshal(unknown)
 	if recorder := eventRelayCall(relay, string(body), testCredential); recorder.Code != 400 {
 		t.Fatalf("unknown kind = %d %s", recorder.Code, recorder.Body)
+	}
+
+	forged := wire
+	forged.EventID = "c0a3a3c4-5b6d-4e7f-8a9b-0c1d2e3f4a5d"
+	origins.home = "deu"
+	body, _ = json.Marshal(forged)
+	if recorder := eventRelayCall(relay, string(body), testCredential); recorder.Code != 403 ||
+		!strings.Contains(recorder.Body.String(), "federation-event-origin-mismatch") {
+		t.Fatalf("forged origin = %d %s", recorder.Code, recorder.Body)
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("a forged event applied: calls = %d", calls.Load())
 	}
 
 	misdirected := wire

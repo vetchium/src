@@ -170,10 +170,6 @@ Specified in `hiring-pipeline.md` and `marketplace.md`; not built. Deferred:
   including probing which agencies work on an Opening through the referral
   check (MKT-SRC-003).
 - Org terms text for the marketplace posture (MKT-GEN-001, MKT-GEN-002).
-- Outbox event origin: a receiver never checks that the sending tenant homes
-  the principal an event reports (an Org for `hub-application-changed`), as
-  the command executor does for initiators. Decide whether `federation/events`
-  takes an origin per kind and resolves it before the receiving transaction.
 
 ## AI assistance
 

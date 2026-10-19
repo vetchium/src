@@ -6,11 +6,16 @@ import {
   isApplicantNameQuery,
   isApplicationCoverNote,
   isCandidacy,
+  isOfferStatus,
+  isPDF,
+  maxOfferLetterBytes,
   normalizeListApplicationsRequest,
+  offerStatusValues,
   validateApplicationActionRequest,
   validateApplicationJoinedOnRequest,
   validateApplicationSeparatedOnRequest,
   validateApplicationStageRequest,
+  validateExtendApplicationOfferRequest,
   validateGetApplicationCountsRequest,
   validateGetApplicationRequest,
   validateListApplicationHistoryRequest,
@@ -178,5 +183,59 @@ test("the bulk choice belongs to a close request", () => {
       mark_applications_not_progressing: false,
     }),
     ["mark_applications_not_progressing"],
+  );
+});
+
+test("offer statuses, the letter limit, and the PDF signature match the contract", () => {
+  assert.deepEqual(offerStatusValues, [
+    "extended",
+    "accepted",
+    "declined",
+    "expired",
+    "withdrawn",
+  ]);
+  assert.equal(isOfferStatus("pending"), false);
+  assert.equal(maxOfferLetterBytes, 5242880);
+  const encode = (text: string) => new TextEncoder().encode(text);
+  assert.equal(isPDF(encode("%PDF-1.7\n")), true);
+  assert.equal(isPDF(encode("%PDF")), false);
+  assert.equal(isPDF(encode("GIF89a")), false);
+});
+
+test("extending an offer validates the letter, the date, and the deadline", () => {
+  const valid = {
+    opening_number: 1,
+    application_number: 2,
+    version: 3,
+    letter_id: "01900000-0000-4000-8000-000000000000",
+    proposed_joining_date: "2026-12-01",
+    respond_within_days: 60,
+  };
+  assert.deepEqual(validateExtendApplicationOfferRequest(valid), []);
+  const { proposed_joining_date: _, ...withoutDate } = valid;
+  assert.deepEqual(
+    validateExtendApplicationOfferRequest({
+      ...withoutDate,
+      respond_within_days: 1,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateExtendApplicationOfferRequest({
+      opening_number: 0,
+      application_number: 0,
+      version: 0,
+      letter_id: "01900000-0000-4000-8000-00000000000A",
+      proposed_joining_date: "2026-12-1",
+      respond_within_days: 61,
+    }),
+    [
+      "opening_number",
+      "application_number",
+      "version",
+      "letter_id",
+      "proposed_joining_date",
+      "respond_within_days",
+    ],
   );
 });

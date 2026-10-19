@@ -152,6 +152,57 @@ func (a MyApplication) Valid() bool {
 	return true
 }
 
+// MyApplicationOffer is the latest offer unless the Org withdrew it.
+type MyApplicationOffer struct {
+	OfferNumber         orgapplications.OfferNumber   `json:"offer_number"`
+	Status              orgapplications.OfferStatus   `json:"status"`
+	LetterURL           string                        `json:"letter_url"`
+	LetterByteSize      int32                         `json:"letter_byte_size"`
+	ProposedJoiningDate *orgapplications.CalendarDate `json:"proposed_joining_date,omitempty"`
+	RespondBy           time.Time                     `json:"respond_by"`
+	ExtendedAt          time.Time                     `json:"extended_at"`
+}
+
+// Valid reports a status the applicant may see and well-formed values.
+func (o MyApplicationOffer) Valid() bool {
+	return orgapplications.IsOfferNumber(o.OfferNumber) &&
+		orgapplications.IsOfferStatus(o.Status) &&
+		o.Status != orgapplications.OfferStatusWithdrawn &&
+		strings.HasPrefix(o.LetterURL, "http") && o.LetterByteSize >= 1 &&
+		(o.ProposedJoiningDate == nil ||
+			orgapplications.IsCalendarDate(*o.ProposedJoiningDate)) &&
+		!o.RespondBy.IsZero() && !o.ExtendedAt.IsZero()
+}
+
+// MyApplicationDetail is the live read of one application.
+type MyApplicationDetail struct {
+	MyApplication
+	Offer *MyApplicationOffer `json:"offer,omitempty"`
+}
+
+// Valid checks a peer's answer before it reaches the browser.
+func (d MyApplicationDetail) Valid() bool {
+	return d.MyApplication.Valid() && (d.Offer == nil || d.Offer.Valid())
+}
+
+// RespondToOfferRequest names the offer the applicant read.
+type RespondToOfferRequest struct {
+	ApplicationReference
+	OfferNumber orgapplications.OfferNumber `json:"offer_number"`
+}
+
+func (r *RespondToOfferRequest) Normalize() {
+	r.ApplicationReference.Normalize()
+}
+
+func (r RespondToOfferRequest) Validate() []string {
+	fields := r.ApplicationReference.Validate()
+	if !orgapplications.IsOfferNumber(r.OfferNumber) {
+		fields = append(fields, "offer_number")
+	}
+	return fields
+}
+
 type MyApplicationSummary struct {
 	MyApplication
 	AppliedAt      time.Time `json:"applied_at"`

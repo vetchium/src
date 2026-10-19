@@ -15,6 +15,8 @@ import {
   type ApplicationNumber,
   isApplicationCoverNote,
   isApplicationNumber,
+  isOfferNumber,
+  type OfferNumber,
 } from "../orgs/applications/applications.ts";
 import type { OpeningNumber } from "../orgs/openings/types.ts";
 import {
@@ -104,6 +106,43 @@ export function validateHubWithdrawPayload(
 export interface HubWithdrawResult {
   opening_number: OpeningNumber;
   application_number: ApplicationNumber;
+}
+
+/**
+ * The commands a Hub user's home tenant sends to the Org's tenant to answer
+ * the offer the user read. Their authority principal is the Org and their
+ * aggregate id is the Opening number as decimal text.
+ */
+export const HubAcceptOfferKind: CommandKind = "hub-accept-offer";
+export const HubDeclineOfferKind: CommandKind = "hub-decline-offer";
+
+export interface HubOfferResponsePayload {
+  opening_number: OpeningNumber;
+  application_number: ApplicationNumber;
+  offer_number: OfferNumber;
+  applicant_did: HubUserDID;
+}
+
+export function validateHubOfferResponsePayload(
+  payload: HubOfferResponsePayload,
+): string[] {
+  const fields: string[] = [];
+  if (!Number.isInteger(payload.opening_number) || payload.opening_number < 1) {
+    fields.push("opening_number");
+  }
+  if (!isApplicationNumber(payload.application_number)) {
+    fields.push("application_number");
+  }
+  if (!isOfferNumber(payload.offer_number)) fields.push("offer_number");
+  if (!isHubUserDID(payload.applicant_did)) fields.push("applicant_did");
+  return fields;
+}
+
+/** The stored `200` body of a successful offer answer. */
+export interface HubOfferResponseResult {
+  opening_number: OpeningNumber;
+  application_number: ApplicationNumber;
+  offer_number: OfferNumber;
 }
 
 /**

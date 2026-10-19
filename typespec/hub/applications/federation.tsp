@@ -27,7 +27,7 @@ alias MeshGetApplicationResult =
   | {
       @statusCode status_code: 200;
       @header("Cache-Control") cache_control: "no-store";
-      @body body: MyApplication;
+      @body body: MyApplicationDetail;
     }
   | Vetchium.Problem.InvalidJSONErrorResponse
   | Vetchium.Problem.ValidationFailedErrorResponse

@@ -21,7 +21,9 @@ import (
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	federationspec "github.com/vetchium/src/typespec/federation"
+	"github.com/vetchium/src/typespec/problem"
 	federationproblem "github.com/vetchium/src/typespec/problem/federation"
+	coordinatorproblem "github.com/vetchium/src/typespec/problem/global-coordinator"
 
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
@@ -134,6 +136,39 @@ func (l fixedLocator) IsLocal(
 	return bool(l), nil
 }
 
+// directoryStub homes principals by DID; an unknown one is not found.
+type directoryStub struct {
+	mu    sync.Mutex
+	homes map[string]string
+	err   error
+	calls int
+}
+
+func (d *directoryStub) ResolvePrincipal(
+	_ context.Context, request directoryspec.ResolvePrincipalRequest,
+) (directoryspec.ResolvePrincipalResponse, *problem.Details, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.calls++
+	if d.err != nil {
+		return directoryspec.ResolvePrincipalResponse{}, nil, d.err
+	}
+	home, ok := d.homes[string(request.PrincipalDID)]
+	if !ok {
+		details := coordinatorproblem.DirectoryEntryNotFoundError
+		return directoryspec.ResolvePrincipalResponse{}, &details, nil
+	}
+	return directoryspec.ResolvePrincipalResponse{
+		HomeTenantID: directoryspec.TenantID(home), RoutingVersion: 1,
+	}, nil, nil
+}
+
+func (d *directoryStub) home(principal Principal, tenant string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.homes[dbvalue.FormatUUID(principal.DID)] = tenant
+}
+
 // scriptedRelay answers with responses in order, then with fallback.
 type scriptedRelay struct {
 	mu        sync.Mutex
@@ -188,6 +223,10 @@ func peerRelay(t *testing.T, receiver *Receiver, source string) func(
 			details := federationproblem.EventConflictError
 			return Delivery{Problem: &details}, nil
 		}
+		if errors.Is(err, ErrOriginMismatch) {
+			details := federationproblem.EventOriginMismatchError
+			return Delivery{Problem: &details}, nil
+		}
 		if err != nil {
 			return Delivery{}, err
 		}
@@ -203,20 +242,28 @@ type harness struct {
 	calls    atomic.Int32
 	failures atomic.Int32
 	registry *Registry
+	// origin is what the test kind reports on: the destination user unless
+	// a test names another principal. The directory homes it at sgp.
+	origin    Principal
+	directory *directoryStub
 }
 
 func newHarness(t *testing.T) *harness {
 	owner, app := integrationPools(t)
 	h := &harness{t: t, owner: owner, app: app, user: seedHubUser(t, owner)}
+	h.origin = h.user
+	h.directory = &directoryStub{homes: map[string]string{}}
+	h.directory.home(h.user, "sgp")
 	h.registry = NewRegistry()
-	h.registry.Register(testKind, projectName(&h.calls, &h.failures))
+	h.registry.Register(testKind, projectName(&h.calls, &h.failures),
+		func(Event) (Principal, bool) { return h.origin, true })
 	return h
 }
 
 func (h *harness) receiver(tenant string, locator Locator) *Receiver {
 	return NewReceiver(ReceiverConfig{
 		Pool: h.app, TenantID: tenant, Source: "workers",
-		Registry: h.registry, Locator: locator,
+		Registry: h.registry, Locator: locator, Directory: h.directory,
 	})
 }
 
@@ -615,5 +662,78 @@ func TestUnknownDestinationFailsTheEvent(t *testing.T) {
 	if !state.failed || state.lastError != "destination principal not found" ||
 		h.displayName() != "Before" {
 		t.Fatalf("state = %+v", state)
+	}
+}
+
+func TestRemoteEventFromATenantNotHomingItsOriginIsRefused(t *testing.T) {
+	h := newHarness(t)
+	remote := h.receiver("usa1", fixedLocator(true))
+	relay := &scriptedRelay{fallback: peerRelay(t, remote, "sgp")}
+	var logs bytes.Buffer
+	d := h.deliverer(h.receiver("sgp", fixedLocator(false)), relay,
+		slog.New(slog.NewTextHandler(&logs, nil)))
+
+	// The directory homes the origin elsewhere, then not at all.
+	for name, arrange := range map[string]func(){
+		"homed elsewhere": func() { h.directory.home(h.origin, "deu") },
+		"unknown": func() {
+			h.origin = Principal{
+				Type: directoryspec.PrincipalOrg, DID: h.user.DID,
+			}
+			h.origin.DID.Bytes[0] ^= 0xff
+		},
+	} {
+		arrange()
+		eventID := h.enqueue(1, namePayload{DisplayName: "Forged"})
+		state := h.deliver(d, eventID)
+		if !state.failed ||
+			state.lastError != "event origin refused at destination" {
+			t.Fatalf("%s: state = %+v", name, state)
+		}
+		if h.displayName() != "Before" || h.calls.Load() != 0 ||
+			h.count(`SELECT count(*) FROM vetchium.federation_inbox
+                WHERE event_id = $1`, eventID) != 0 ||
+			h.count(`SELECT count(*) FROM vetchium.federation_event_watermarks
+                WHERE destination_principal_did = $1`, h.user.DID) != 0 {
+			t.Fatalf("%s: a refused event left effects", name)
+		}
+	}
+}
+
+func TestOriginLookupFailureIsRetried(t *testing.T) {
+	h := newHarness(t)
+	h.directory.err = errors.New("coordinator unreachable")
+	remote := h.receiver("usa1", fixedLocator(true))
+	eventID, err := dbvalue.NewUUID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = remote.Receive(context.Background(), Event{
+		EventID: eventID, SourceTenantID: "sgp", Kind: testKind,
+		Destination: h.user, AggregateType: "test_aggregate",
+		AggregateID: h.aggregateID(), AggregateVersion: 1,
+		Payload: json.RawMessage(`{"display_name":"Later"}`),
+	})
+	if err == nil || errors.Is(err, ErrOriginMismatch) {
+		t.Fatalf("err = %v, want a retryable error", err)
+	}
+	if h.displayName() != "Before" || h.count(`SELECT count(*)
+        FROM vetchium.federation_inbox WHERE event_id = $1`, eventID) != 0 {
+		t.Fatal("an unverified event applied")
+	}
+}
+
+func TestLocalEventWhoseOriginIsNotLocalFails(t *testing.T) {
+	h := newHarness(t)
+	h.origin = Principal{Type: directoryspec.PrincipalOrg, DID: h.user.DID}
+	h.origin.DID.Bytes[0] ^= 0xff
+	d := h.deliverer(h.receiver("sgp", nil), failingRelay(t),
+		slog.New(slog.NewTextHandler(io.Discard, nil)))
+	eventID := h.enqueue(1, namePayload{DisplayName: "Local forgery"})
+	state := h.deliver(d, eventID)
+	if !state.failed || state.lastError != "event origin not homed here" ||
+		h.displayName() != "Before" || h.calls.Load() != 0 ||
+		h.directory.calls != 0 {
+		t.Fatalf("state = %+v, directory calls = %d", state, h.directory.calls)
 	}
 }

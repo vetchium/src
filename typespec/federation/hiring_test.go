@@ -134,3 +134,31 @@ func TestHubApplicationChangedPayloadValidation(t *testing.T) {
 		t.Fatalf("fields = %v", got)
 	}
 }
+
+func TestHubOfferResponseKindsAndPayload(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []CommandKind{HubAcceptOfferKind, HubDeclineOfferKind} {
+		if !IsCommandKind(kind) {
+			t.Fatalf("kind %q is not a command kind", kind)
+		}
+	}
+	if HubAcceptOfferKind != "hub-accept-offer" ||
+		HubDeclineOfferKind != "hub-decline-offer" {
+		t.Fatal("offer answer kinds changed")
+	}
+	payload := HubOfferResponsePayload{
+		OpeningNumber: 1, ApplicationNumber: 2, OfferNumber: 3,
+		ApplicantDID: "01900000-0000-7000-8000-000000000001",
+	}
+	payload.Normalize()
+	if got := payload.Validate(); len(got) != 0 {
+		t.Fatalf("valid payload rejected: %v", got)
+	}
+	bad := HubOfferResponsePayload{ApplicantDID: "x"}
+	want := []string{
+		"opening_number", "application_number", "offer_number", "applicant_did",
+	}
+	if got := bad.Validate(); !slices.Equal(got, want) {
+		t.Fatalf("fields = %v, want %v", got, want)
+	}
+}

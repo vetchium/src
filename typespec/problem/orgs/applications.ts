@@ -20,3 +20,24 @@ export const ApplicationStateConflictError: Readonly<Details> = {
   status: 409,
   detail: "The action is not allowed in the application's current state",
 };
+
+export const OfferLetterTooLargeError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-offer-letter-too-large",
+  title: "Org offer letter too large",
+  status: 413,
+  detail: "The offer letter exceeds the five-mebibyte limit",
+};
+
+export const OfferLetterInvalidError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-offer-letter-invalid",
+  title: "Invalid Org offer letter",
+  status: 400,
+  detail: "The offer letter is not a PDF",
+};
+
+export const OfferLetterConflictError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-offer-letter-conflict",
+  title: "Org offer letter conflict",
+  status: 409,
+  detail: "The upload was superseded or expired before it completed",
+};

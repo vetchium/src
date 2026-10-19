@@ -150,6 +150,7 @@ func run(log *slog.Logger, address string) error {
 			Queries: dbsqlc.New(pool), Logos: pictures,
 		},
 		Pictures:         pictures,
+		OfferLetters:     pictures,
 		SignupCompletion: signupCompletion,
 		EmailChange:      emailChange,
 		Commands:         federationCommands,

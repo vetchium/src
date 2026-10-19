@@ -17,6 +17,61 @@ export type ApplicationNumber = number;
 export type ApplicationVersion = number;
 export type ApplicationCoverNote = string;
 export type ApplicantNameQuery = string;
+export type OfferLetterID = string;
+export type OfferNumber = number;
+export type OfferResponseDays = number;
+
+/** The most bytes an offer letter's PDF body holds. */
+export const maxOfferLetterBytes = 5 * 1024 * 1024;
+/** The only type an offer letter is uploaded as. */
+export const offerLetterContentType = "application/pdf" as const;
+const minOfferResponseDays = 1;
+const maxOfferResponseDays = 60;
+
+export const offerStatusValues = [
+  "extended",
+  "accepted",
+  "declined",
+  "expired",
+  "withdrawn",
+] as const;
+
+export type OfferStatus = (typeof offerStatusValues)[number];
+
+const offerStatuses = new Set<string>(offerStatusValues);
+
+export function isOfferStatus(value: unknown): value is OfferStatus {
+  return typeof value === "string" && offerStatuses.has(value);
+}
+
+export function isOfferNumber(value: OfferNumber): boolean {
+  return Number.isInteger(value) && value >= 1;
+}
+
+export function isOfferResponseDays(value: OfferResponseDays): boolean {
+  return (
+    Number.isInteger(value) &&
+    value >= minOfferResponseDays &&
+    value <= maxOfferResponseDays
+  );
+}
+
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** Reports whether body starts with the PDF signature `%PDF-`. */
+export function isPDF(body: Uint8Array): boolean {
+  const signature = [0x25, 0x50, 0x44, 0x46, 0x2d];
+  return (
+    body.length >= signature.length &&
+    signature.every((byte, index) => body[index] === byte)
+  );
+}
+
+/** Accepts the lowercase form the API returns. */
+export function isOfferLetterID(value: OfferLetterID): boolean {
+  return uuidPattern.test(value);
+}
 
 export const applicationStateValues = [
   "submitted",
@@ -146,6 +201,17 @@ export interface ApplicationStageRecord {
   status: StageStatus;
 }
 
+export interface ApplicationOffer {
+  offer_number: OfferNumber;
+  status: OfferStatus;
+  letter_url: string;
+  letter_byte_size: number;
+  proposed_joining_date?: CalendarDate;
+  respond_by: string;
+  extended_at: string;
+  ended_at?: string;
+}
+
 export interface ApplicationDetail {
   opening_number: OpeningNumber;
   application_number: ApplicationNumber;
@@ -159,6 +225,7 @@ export interface ApplicationDetail {
   separated_on?: CalendarDate;
   positions: number;
   joined_count: number;
+  offers: ApplicationOffer[];
   submitted_at: string;
   updated_at: string;
 }
@@ -397,4 +464,32 @@ export function validateApplicationSeparatedOnRequest(
   const fields = validateApplicationActionRequest(request);
   if (!isCalendarDate(request.separated_on)) fields.push("separated_on");
   return fields;
+}
+
+export interface ExtendApplicationOfferRequest
+  extends ApplicationActionRequest {
+  letter_id: OfferLetterID;
+  proposed_joining_date?: CalendarDate;
+  respond_within_days: OfferResponseDays;
+}
+
+export function validateExtendApplicationOfferRequest(
+  request: ExtendApplicationOfferRequest,
+): string[] {
+  const fields = validateApplicationActionRequest(request);
+  if (!isOfferLetterID(request.letter_id)) fields.push("letter_id");
+  if (
+    request.proposed_joining_date !== undefined &&
+    !isCalendarDate(request.proposed_joining_date)
+  ) {
+    fields.push("proposed_joining_date");
+  }
+  if (!isOfferResponseDays(request.respond_within_days)) {
+    fields.push("respond_within_days");
+  }
+  return fields;
+}
+
+export interface OfferLetterUploaded {
+  letter_id: OfferLetterID;
 }

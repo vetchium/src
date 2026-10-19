@@ -161,6 +161,7 @@ func run(log *slog.Logger) error {
 	})
 	worker.EnablePictureDeletion(pictures)
 	worker.EnableOrgLogoDeletion(pictures)
+	worker.EnableOfferLetterDeletion(pictures)
 	worker.EnableAliasOperations(directory)
 	worker.EnableFederationCommands(commands.NewSender(commands.SenderConfig{
 		Pool: pool, TenantID: cfg.TenantID, Source: "workers",

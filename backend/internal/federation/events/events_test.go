@@ -62,11 +62,13 @@ func TestRegistryRefusesInvalidAndDuplicateKinds(t *testing.T) {
 	t.Parallel()
 	handler := func(context.Context, pgx.Tx, Event) error { return nil }
 	registry := NewRegistry()
-	registry.Register("test-event", handler)
+	origin := func(Event) (Principal, bool) { return Principal{}, false }
+	registry.Register("test-event", handler, origin)
 	for name, register := range map[string]func(){
-		"duplicate":   func() { registry.Register("test-event", handler) },
-		"invalid":     func() { registry.Register("Test_Event", handler) },
-		"nil handler": func() { registry.Register("test-other", nil) },
+		"duplicate":   func() { registry.Register("test-event", handler, origin) },
+		"invalid":     func() { registry.Register("Test_Event", handler, origin) },
+		"nil handler": func() { registry.Register("test-other", nil, origin) },
+		"nil origin":  func() { registry.Register("test-other", handler, nil) },
 	} {
 		func() {
 			defer func() {
@@ -77,10 +79,10 @@ func TestRegistryRefusesInvalidAndDuplicateKinds(t *testing.T) {
 			register()
 		}()
 	}
-	if _, ok := registry.handler("test-event"); !ok {
+	if _, ok := registry.registration("test-event"); !ok {
 		t.Fatal("registered kind missing")
 	}
-	if _, ok := (*Registry)(nil).handler("test-event"); ok {
+	if _, ok := (*Registry)(nil).registration("test-event"); ok {
 		t.Fatal("nil registry found a handler")
 	}
 }
@@ -178,6 +180,11 @@ func TestRelayClientClassifiesAnswers(t *testing.T) {
 			writeProblem(w, federationproblem.EventConflictError)
 		}, func(d Delivery, err error) bool {
 			return err == nil && d.Problem != nil && d.Problem.Status == 409
+		}},
+		{"origin mismatch is definite", func(w http.ResponseWriter) {
+			writeProblem(w, federationproblem.EventOriginMismatchError)
+		}, func(d Delivery, err error) bool {
+			return err == nil && d.Problem != nil && d.Problem.Status == 403
 		}},
 		{"unknown destination is definite", func(w http.ResponseWriter) {
 			writeProblem(w, federationproblem.DestinationNotFoundError)

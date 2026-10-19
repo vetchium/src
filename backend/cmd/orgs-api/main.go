@@ -151,6 +151,7 @@ func run(log *slog.Logger, address string) error {
 		CredentialKey:          credentialKey,
 		OfferedPlans:           cfg.OrgBilling.OfferedPlans,
 		Logos:                  logos,
+		OfferLetters:           logos,
 	}
 	if google := cfg.OrgsAPIServer.GoogleSignIn; google != nil {
 		clientSecret, err := google.ClientSecret()

@@ -74,6 +74,7 @@ alias DeliveryErrors =
   | Vetchium.Problem.ValidationFailedErrorResponse
   | Vetchium.Problem.FederationEventConflictErrorResponse
   | Vetchium.Problem.FederationDestinationMisdirectedErrorResponse
+  | Vetchium.Problem.FederationEventOriginMismatchErrorResponse
   | Vetchium.Problem.InternalServerErrorResponse;
 
 /** Resolves the destination principal's home tenant, then delivers the event

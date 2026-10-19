@@ -12,6 +12,7 @@ import {
   validateApplicationReference,
   validateApplyToOpeningRequest,
   validateListMyApplicationsRequest,
+  validateRespondToOfferRequest,
 } from "./applications.ts";
 import { validateMeshGetApplicationRequest } from "./federation.ts";
 
@@ -100,4 +101,24 @@ test("list validation bounds the limit and defaults it to 50", () => {
   assert.deepEqual(validateListMyApplicationsRequest({ limit: 50 }), []);
   assert.deepEqual(validateListMyApplicationsRequest({ limit: 51 }), ["limit"]);
   assert.deepEqual(validateListMyApplicationsRequest({ limit: 0 }), ["limit"]);
+});
+
+test("offer answers name a positive offer number", () => {
+  const reference = {
+    domain: "example.com",
+    opening_number: 1,
+    application_number: 2,
+  };
+  assert.deepEqual(
+    validateRespondToOfferRequest({ ...reference, offer_number: 1 }),
+    [],
+  );
+  assert.deepEqual(
+    validateRespondToOfferRequest({
+      ...reference,
+      application_number: 0,
+      offer_number: 1.5,
+    }),
+    ["application_number", "offer_number"],
+  );
 });

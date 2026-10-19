@@ -139,6 +139,9 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/record-application-separated", readOpening(orgsapplications.RecordApplicationSeparated(s)))
 	mux.Handle("POST /api/orgs/correct-application-joined-on", readOpening(orgsapplications.CorrectApplicationJoinedOn(s)))
 	mux.Handle("POST /api/orgs/correct-application-separated-on", readOpening(orgsapplications.CorrectApplicationSeparatedOn(s)))
+	mux.Handle("POST /api/orgs/upload-offer-letter", readOpening(orgsapplications.UploadOfferLetter(s)))
+	mux.Handle("POST /api/orgs/extend-application-offer", readOpening(orgsapplications.ExtendApplicationOffer(s)))
+	mux.Handle("POST /api/orgs/withdraw-application-offer", readOpening(orgsapplications.WithdrawApplicationOffer(s)))
 	mux.Handle("POST /api/orgs/draft-opening-with-ai", manageOpenings(orgsai.DraftOpeningWithAI(s)))
 
 	// The options a caller may use depend on the operation, whose permission

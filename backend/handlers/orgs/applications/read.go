@@ -5,6 +5,7 @@
 package applications
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -190,7 +191,56 @@ func calendarDate(date pgtype.Date) *applications.CalendarDate {
 }
 
 // buildDetail maps the one row every application read and write returns.
+// storedOffer is one offer as GetOrgApplication aggregates it.
+type storedOffer struct {
+	OfferNumber         applications.OfferNumber   `json:"offer_number"`
+	Status              applications.OfferStatus   `json:"status"`
+	LetterObjectID      string                     `json:"letter_object_id"`
+	LetterByteSize      int32                      `json:"letter_byte_size"`
+	ProposedJoiningDate *applications.CalendarDate `json:"proposed_joining_date"`
+	RespondBy           time.Time                  `json:"respond_by"`
+	ExtendedAt          time.Time                  `json:"extended_at"`
+	EndedAt             *time.Time                 `json:"ended_at"`
+}
+
+// offers signs a fresh letter link for every offer, withdrawn ones included:
+// the Opening's readers keep every letter (HP-WRK-008).
+func offers(
+	ctx context.Context, letters orgsruntime.OfferLetterStorage,
+	stored json.RawMessage,
+) ([]applications.ApplicationOffer, error) {
+	var rows []storedOffer
+	if err := json.Unmarshal(stored, &rows); err != nil {
+		return nil, fmt.Errorf("decode offers: %w", err)
+	}
+	result := make([]applications.ApplicationOffer, 0, len(rows))
+	for _, row := range rows {
+		objectID, err := dbvalue.ParseUUID(row.LetterObjectID)
+		if err != nil {
+			return nil, err
+		}
+		letterURL, err := letters.SignOfferLetterGet(ctx, objectID)
+		if err != nil {
+			return nil, fmt.Errorf("sign offer letter: %w", err)
+		}
+		offer := applications.ApplicationOffer{
+			OfferNumber: row.OfferNumber, Status: row.Status,
+			LetterURL: letterURL, LetterByteSize: row.LetterByteSize,
+			ProposedJoiningDate: row.ProposedJoiningDate,
+			RespondBy:           row.RespondBy.UTC(),
+			ExtendedAt:          row.ExtendedAt.UTC(),
+		}
+		if row.EndedAt != nil {
+			ended := row.EndedAt.UTC()
+			offer.EndedAt = &ended
+		}
+		result = append(result, offer)
+	}
+	return result, nil
+}
+
 func buildDetail(
+	ctx context.Context, letters orgsruntime.OfferLetterStorage,
 	opening openings.OpeningNumber, row sqlc.GetOrgApplicationRow,
 ) (applications.ApplicationDetail, error) {
 	detail := applications.ApplicationDetail{
@@ -217,6 +267,11 @@ func buildDetail(
 	if err := json.Unmarshal(row.StageRecords, &detail.StageRecords); err != nil {
 		return detail, fmt.Errorf("decode stage records: %w", err)
 	}
+	list, err := offers(ctx, letters, row.Offers)
+	if err != nil {
+		return detail, err
+	}
+	detail.Offers = list
 	return detail, nil
 }
 
@@ -239,7 +294,8 @@ func GetApplication(s *orgsruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "get application", err)
 			return
 		}
-		detail, err := buildDetail(request.OpeningNumber, row)
+		detail, err := buildDetail(r.Context(), s.OfferLetters,
+			request.OpeningNumber, row)
 		if err != nil {
 			s.InternalError(r.Context(), w, "build application detail", err)
 			return

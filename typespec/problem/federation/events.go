@@ -29,3 +29,10 @@ var EventUndeliveredError = problem.Details{
 	Status: 503,
 	Detail: "The event could not be confirmed delivered",
 }
+
+var EventOriginMismatchError = problem.Details{
+	Type:   "vetchium-problem-details/federation-event-origin-mismatch",
+	Title:  "Federation event origin mismatch",
+	Status: 403,
+	Detail: "The event's origin principal is not homed at the sending tenant",
+}

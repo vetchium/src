@@ -136,7 +136,21 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
         JOIN vetchium.org_opening_stages AS s
             ON s.org_opening_stage_id = r.org_opening_stage_id
         WHERE r.org_application_id = a.org_application_id
-    ), '[]'::jsonb)::jsonb AS stage_records
+    ), '[]'::jsonb)::jsonb AS stage_records,
+    COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+            'offer_number', f.offer_number, 'status', f.offer_status,
+            'letter_object_id', f.letter_object_id,
+            'letter_byte_size', l.byte_size,
+            'proposed_joining_date', f.proposed_joining_date,
+            'respond_by', f.respond_by, 'extended_at', f.extended_at,
+            'ended_at', f.ended_at
+        ) ORDER BY f.offer_number DESC)
+        FROM vetchium.org_application_offers AS f
+        JOIN vetchium.org_offer_letter_objects AS l
+            ON l.object_id = f.letter_object_id
+        WHERE f.org_application_id = a.org_application_id
+    ), '[]'::jsonb)::jsonb AS offers
 FROM vetchium.org_openings AS o
 JOIN vetchium.org_applications AS a ON a.org_opening_id = o.org_opening_id
 LEFT JOIN vetchium.org_opening_stages AS stage
@@ -214,7 +228,12 @@ SELECT applicant.hub_user_did, o.org_did, d.domain::text AS org_domain,
     org.display_name AS org_display_name, o.opening_number,
     COALESCE(c.title, '')::text AS opening_title, a.application_number,
     a.application_state, stage.stage_kind, a.version, a.created_at,
-    a.updated_at
+    a.updated_at,
+    EXISTS (
+        SELECT 1 FROM vetchium.org_application_offers AS f
+        WHERE f.org_application_id = a.org_application_id
+          AND f.offer_status = 'extended' AND f.respond_by > now()
+    ) AS offer_awaits_answer
 FROM vetchium.org_applications AS a
 JOIN vetchium.org_applicants AS applicant
     ON applicant.org_applicant_id = a.org_applicant_id
@@ -243,7 +262,8 @@ WHERE o.org_did = sqlc.arg(org_did)
 FOR UPDATE OF a;
 
 -- The caller holds the application row lock from
--- LockOrgApplicationForApplicant.
+-- LockOrgApplicationForApplicant. An offer awaiting an answer is withdrawn
+-- with the application.
 -- name: WithdrawOrgApplication :one
 WITH withdrawn AS (
     UPDATE vetchium.org_applications AS a
@@ -254,6 +274,13 @@ WITH withdrawn AS (
       AND a.application_state IN
           ('submitted', 'in_pipeline', 'offered', 'offer_accepted')
     RETURNING a.org_application_id, a.application_number, a.version
+), ended AS (
+    UPDATE vetchium.org_application_offers AS o
+    SET offer_status = 'withdrawn', ended_at = now()
+    FROM withdrawn
+    WHERE o.org_application_id = withdrawn.org_application_id
+      AND o.offer_status = 'extended'
+    RETURNING o.org_application_id
 ), history AS (
     INSERT INTO vetchium.org_application_history (
         org_application_history_id, org_application_id, action, actor_kind,
@@ -288,11 +315,20 @@ SELECT (SELECT count(*) FROM withdrawn) AS withdrawn_rows,
     (SELECT count(*) FROM audit) AS audit_rows;
 
 -- The applicant's live read of their own application, addressed by the
--- Org's domain as the Hub sees it. Org suspension does not hide it.
+-- Org's domain as the Hub sees it. Org suspension does not hide it. The
+-- applicant sees the latest offer unless the Org withdrew it.
 -- name: GetOrgApplicationForApplicant :one
 SELECT d.domain::text AS org_domain, org.display_name AS org_display_name,
     o.opening_number, COALESCE(c.title, '')::text AS opening_title,
-    a.application_number, a.application_state, stage.stage_kind
+    a.application_number, a.application_state, stage.stage_kind,
+    (offer.offer_number IS NOT NULL)::boolean AS has_offer,
+    COALESCE(offer.offer_number, 0)::integer AS offer_number,
+    COALESCE(offer.offer_status::text, '')::text AS offer_status,
+    offer.letter_object_id,
+    COALESCE(offer.letter_byte_size, 0)::integer AS letter_byte_size,
+    offer.proposed_joining_date, offer.respond_by, offer.extended_at,
+    COALESCE(offer.offer_status = 'extended' AND offer.respond_by > now(),
+        false)::boolean AS offer_awaits_answer
 FROM vetchium.org_domains AS d
 JOIN vetchium.orgs AS org ON org.org_did = d.org_did
 JOIN vetchium.org_openings AS o ON o.org_did = d.org_did
@@ -303,6 +339,17 @@ JOIN vetchium.org_opening_contents AS c
     ON c.org_opening_id = o.org_opening_id AND c.slot = 'live'
 LEFT JOIN vetchium.org_opening_stages AS stage
     ON stage.org_opening_stage_id = a.current_stage_id
+LEFT JOIN LATERAL (
+    SELECT f.offer_number, f.offer_status, f.letter_object_id,
+        l.byte_size AS letter_byte_size, f.proposed_joining_date,
+        f.respond_by, f.extended_at
+    FROM vetchium.org_application_offers AS f
+    JOIN vetchium.org_offer_letter_objects AS l
+        ON l.object_id = f.letter_object_id
+    WHERE f.org_application_id = a.org_application_id
+    ORDER BY f.offer_number DESC
+    LIMIT 1
+) AS offer ON offer.offer_status <> 'withdrawn'
 WHERE d.domain = sqlc.arg(domain)
   AND d.domain_state IN ('verified', 'failing', 'releasing')
   AND o.opening_number = sqlc.arg(opening_number)::integer

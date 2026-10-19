@@ -67,9 +67,41 @@ alias HubWithdrawRejections =
   | Vetchium.Problem.FederationInitiatorMismatchErrorResponse;
 
 /**
+ * The payload of the `hub-accept-offer` and `hub-decline-offer` commands,
+ * whose authority principal is the Org and whose aggregate id is the Opening
+ * number as decimal text. `offer_number` is the offer the applicant read.
+ */
+model HubOfferResponsePayload {
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  application_number: Vetchium.Orgs.Applications.ApplicationNumber;
+  offer_number: Vetchium.Orgs.Applications.OfferNumber;
+  applicant_did: Vetchium.Hub.HubUserDID;
+}
+
+/** The stored `200` result of `hub-accept-offer` and `hub-decline-offer`. */
+model HubOfferResponseResult {
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  application_number: Vetchium.Orgs.Applications.ApplicationNumber;
+  offer_number: Vetchium.Orgs.Applications.OfferNumber;
+}
+
+/**
+ * The deterministic rejections of `hub-accept-offer` and
+ * `hub-decline-offer`: an application that is unknown or not the
+ * applicant's; one not `offered`, whose latest offer is not the named one,
+ * or whose deadline passed; and an applicant the sending tenant does not
+ * home.
+ */
+alias HubOfferResponseRejections =
+  | Vetchium.Problem.HubApplicationNotFoundErrorResponse
+  | Vetchium.Problem.HubApplicationStateConflictErrorResponse
+  | Vetchium.Problem.FederationInitiatorMismatchErrorResponse;
+
+/**
  * The payload of the `hub-application-changed` event the Org's tenant
  * enqueues on every change of an application, for the applicant Hub user's
- * home tenant to project. Its aggregate type is `org_application`, its
+ * home tenant to project. Its origin is the Org: the receiver applies it only
+ * when the directory homes `org_did` at the sending tenant. Its aggregate type is `org_application`, its
  * aggregate id `<org did>:<opening number>:<application number>`, and its
  * version the application's version. It carries no stage name, routing,
  * result, feedback, or Org user data.

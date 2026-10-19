@@ -20,6 +20,7 @@ import type {
   ApplicationJoinedOnRequest,
   ApplicationSeparatedOnRequest,
   ApplicationStageRequest,
+  ExtendApplicationOfferRequest,
   GetApplicationCountsRequest,
   GetApplicationRequest,
   ListApplicationHistoryRequest,
@@ -369,6 +370,57 @@ export class OrgsAPI {
     idempotencyKey: string = orgsIdempotencyKey(),
   ): Promise<APIResponse> {
     return this.post("/correct-application-separated-on", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  /** Uploads body as an offer letter with the given Content-Type. */
+  uploadOfferLetter(
+    token: string,
+    body: Buffer,
+    contentType = "application/pdf",
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.request.post(`${this.origin}/api/orgs/upload-offer-letter`, {
+      data: body,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": contentType,
+        "Idempotency-Key": idempotencyKey,
+      },
+    });
+  }
+
+  extendApplicationOffer(
+    token: string,
+    request: ExtendApplicationOfferRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/extend-application-offer", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  /** Sends any JSON as an offer extension, for malformed requests. */
+  extendApplicationOfferRaw(
+    token: string,
+    request: unknown,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/extend-application-offer", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  withdrawApplicationOffer(
+    token: string,
+    request: ApplicationActionRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/withdraw-application-offer", request, {
       token,
       idempotencyKey,
     });

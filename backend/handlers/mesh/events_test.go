@@ -81,6 +81,7 @@ func TestRelayDeliverEventRoutesAndClassifies(t *testing.T) {
 	receipt := federationspec.EventReceipt{Outcome: federationspec.EventApplied}
 	conflict := federationproblem.EventConflictError
 	misdirected := federationproblem.DestinationMisdirectedError
+	forged := federationproblem.EventOriginMismatchError
 	validation := problem.ValidationFailedError
 	validation.Fields = []string{"kind"}
 	teapot := problem.Details{Type: "x/other", Status: 418}
@@ -115,6 +116,11 @@ func TestRelayDeliverEventRoutesAndClassifies(t *testing.T) {
 			name: "peer conflict", did: testAuthorityDID,
 			peers:  &eventPeersStub{delivery: events.Delivery{Problem: &conflict}},
 			status: 409, problem: conflict.Type,
+		},
+		{
+			name: "peer refuses the origin", did: testAuthorityDID,
+			peers:  &eventPeersStub{delivery: events.Delivery{Problem: &forged}},
+			status: 403, problem: forged.Type,
 		},
 		{
 			name: "peer misdirected", did: testAuthorityDID,

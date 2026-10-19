@@ -6,8 +6,12 @@ import {
 import {
   type ApplicationCoverNote,
   type ApplicationNumber,
+  type CalendarDate,
   isApplicationCoverNote,
   isApplicationNumber,
+  isOfferNumber,
+  type OfferNumber,
+  type OfferStatus,
 } from "../../orgs/applications/applications.ts";
 import type { OpeningNumber } from "../../orgs/openings/types.ts";
 import {
@@ -73,6 +77,33 @@ export interface MyApplication {
   application_number: ApplicationNumber;
   status: ApplicationStatus;
   pending_actions: PendingActionKind[];
+}
+
+/** The latest offer unless the Org withdrew it. */
+export interface MyApplicationOffer {
+  offer_number: OfferNumber;
+  status: OfferStatus;
+  letter_url: string;
+  letter_byte_size: number;
+  proposed_joining_date?: CalendarDate;
+  respond_by: string;
+  extended_at: string;
+}
+
+export interface MyApplicationDetail extends MyApplication {
+  offer?: MyApplicationOffer;
+}
+
+export interface RespondToOfferRequest extends ApplicationReference {
+  offer_number: OfferNumber;
+}
+
+export function validateRespondToOfferRequest(
+  request: RespondToOfferRequest,
+): string[] {
+  const fields = validateApplicationReference(request);
+  if (!isOfferNumber(request.offer_number)) fields.push("offer_number");
+  return fields;
 }
 
 export interface MyApplicationSummary extends MyApplication {

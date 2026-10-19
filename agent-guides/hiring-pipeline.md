@@ -138,6 +138,29 @@ Application states:
   takes `mark_applications_not_progressing`, stored on the request and applied
   by `applicationchanges.MarkClosedOpeningNotProgressing` in the transaction
   that closes (self-approved or approved).
+- **HP-STA-011** Offers: `extend-application-offer` (`in_pipeline`, any
+  stage) claims the caller's uploaded letter (`letter_id`, from
+  `upload-offer-letter`), takes an optional `proposed_joining_date` (at least
+  today) and `respond_within_days` (1–60), numbers the offer per application
+  from 1, and sets `respond_by` and `offer_extended_at`;
+  `withdraw-application-offer` returns `offered` to `in_pipeline` at its
+  stage. Both run through transitions.go. Offer status: `extended`,
+  `accepted`, `declined`, `expired`, `withdrawn`; at most one `extended`.
+  Leaving `offered` any other way (not progressing, bulk close, applicant
+  withdrawal) withdraws the extended offer in the same statement.
+  `ApplicationDetail.offers` lists every offer, newest first, with a signed
+  letter link.
+- **HP-STA-012** The applicant answers through `hub-accept-offer` and
+  `hub-decline-offer` (`backend/internal/huboffer`, payload
+  `HubOfferResponsePayload`), authority the Org, aggregate id the Opening
+  number, naming the `offer_number` they read. Any state but `offered`, an
+  offer that is not the extended one, or a passed `respond_by` is
+  `hub-application-state-conflict`.
+- **HP-STA-013** The workers' `expire-application-offers` job locks a batch of
+  `offered` applications whose extended offer's `respond_by` passed, then
+  moves them to `offer_declined` (offer `expired`) in one state-guarded
+  statement with history (actor `system`) and audit, and enqueues their
+  projection events in the same transaction.
 
 ## Pipelines
 
@@ -244,6 +267,10 @@ below.
   application's `version`. `backend/internal/hubapplications` derives the Hub
   status and enqueues the event in every transaction that changes an
   application.
+- **HP-HUB-007** `get-my-application` returns `MyApplicationDetail`: the
+  latest offer unless the Org withdrew it, with a letter link signed in the
+  Org's tenant. `offer_response` is pending while the application is
+  `offered` and its extended offer's `respond_by` is ahead.
 
 ## Orgs Candidacies pages
 

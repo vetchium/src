@@ -2353,6 +2353,92 @@ CREATE INDEX org_application_history_list_idx
     ON vetchium.org_application_history
     (org_application_id, created_at DESC, org_application_history_id DESC);
 
+-- Offer letters (agent-guides/object-storage.md, Offer letters): the
+-- database owns their metadata and lifecycle, the tenant's object store the
+-- bytes. An Org user holds at most one unclaimed (uploading or uploaded)
+-- letter; an offer claims it (active), and an active letter is never queued
+-- for deletion while its offer references it.
+CREATE TYPE vetchium.org_offer_letter_state AS ENUM (
+    'uploading', 'uploaded', 'active', 'pending_delete'
+);
+CREATE TABLE vetchium.org_offer_letter_objects (
+    object_id uuid PRIMARY KEY,
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    uploaded_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    byte_size integer NOT NULL CHECK (byte_size BETWEEN 1 AND 5242880),
+    content_sha256 bytea NOT NULL CHECK (octet_length(content_sha256) = 32),
+    state vetchium.org_offer_letter_state NOT NULL DEFAULT 'uploading',
+    attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    next_attempt_at timestamptz NOT NULL DEFAULT now(),
+    lease_token uuid,
+    leased_until timestamptz,
+    last_error text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    upload_expires_at timestamptz,
+    delete_requested_at timestamptz,
+    CONSTRAINT org_offer_letter_objects_state_check CHECK (
+        (state IN ('uploading', 'uploaded') AND upload_expires_at IS NOT NULL
+            AND delete_requested_at IS NULL) OR
+        (state = 'active' AND upload_expires_at IS NULL AND
+            delete_requested_at IS NULL) OR
+        (state = 'pending_delete' AND upload_expires_at IS NULL AND
+            delete_requested_at IS NOT NULL)
+    ),
+    CONSTRAINT org_offer_letter_objects_lease_check CHECK (
+        (lease_token IS NULL) = (leased_until IS NULL)
+    )
+);
+CREATE UNIQUE INDEX org_offer_letter_objects_unclaimed_idx
+    ON vetchium.org_offer_letter_objects (uploaded_by)
+    WHERE state IN ('uploading', 'uploaded');
+CREATE INDEX org_offer_letter_objects_expiry_idx
+    ON vetchium.org_offer_letter_objects (upload_expires_at)
+    WHERE state IN ('uploading', 'uploaded');
+CREATE INDEX org_offer_letter_objects_deletion_idx
+    ON vetchium.org_offer_letter_objects (next_attempt_at)
+    WHERE state = 'pending_delete';
+
+-- Offers of an application, numbered per application. At most one awaits an
+-- answer (extended); every other status is final, with ended_at.
+CREATE TYPE vetchium.org_application_offer_status AS ENUM (
+    'extended', 'accepted', 'declined', 'expired', 'withdrawn'
+);
+CREATE TABLE vetchium.org_application_offers (
+    org_application_offer_id uuid PRIMARY KEY,
+    org_application_id uuid NOT NULL REFERENCES vetchium.org_applications
+        (org_application_id) ON DELETE CASCADE,
+    offer_number integer NOT NULL CHECK (offer_number >= 1),
+    -- Deferred: deleting an Org cascades to its letters and, through its
+    -- applications, to these offers within one statement.
+    letter_object_id uuid NOT NULL UNIQUE
+        REFERENCES vetchium.org_offer_letter_objects (object_id)
+        DEFERRABLE INITIALLY DEFERRED,
+    proposed_joining_date date,
+    respond_by timestamptz NOT NULL,
+    offer_status vetchium.org_application_offer_status NOT NULL
+        DEFAULT 'extended',
+    extended_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    extended_at timestamptz NOT NULL DEFAULT now(),
+    ended_at timestamptz,
+    CONSTRAINT org_application_offers_number_key
+        UNIQUE (org_application_id, offer_number),
+    CONSTRAINT org_application_offers_ended_check CHECK (
+        (offer_status = 'extended') = (ended_at IS NULL)
+    ),
+    CONSTRAINT org_application_offers_deadline_check CHECK (
+        respond_by > extended_at
+    )
+);
+CREATE UNIQUE INDEX org_application_offers_extended_idx
+    ON vetchium.org_application_offers (org_application_id)
+    WHERE offer_status = 'extended';
+CREATE INDEX org_application_offers_expiry_idx
+    ON vetchium.org_application_offers (respond_by)
+    WHERE offer_status = 'extended';
+
 -- Who may read an Opening's applications: the hiring manager, the recruiter,
 -- a hiring-team member, or a holder of org:manage_candidacies. org:view_openings
 -- grants none of it. Every Orgs application read applies this predicate in
@@ -2682,6 +2768,10 @@ $$;
 DROP TABLE IF EXISTS vetchium.hub_application_projections;
 DROP FUNCTION IF EXISTS vetchium.org_user_acts_on_applications(uuid, uuid);
 DROP FUNCTION IF EXISTS vetchium.org_user_reads_applications(uuid, uuid);
+DROP TABLE IF EXISTS vetchium.org_application_offers;
+DROP TYPE IF EXISTS vetchium.org_application_offer_status;
+DROP TABLE IF EXISTS vetchium.org_offer_letter_objects;
+DROP TYPE IF EXISTS vetchium.org_offer_letter_state;
 DROP TABLE IF EXISTS vetchium.org_application_history;
 DROP TABLE IF EXISTS vetchium.org_application_stages;
 DROP TABLE IF EXISTS vetchium.org_applications;

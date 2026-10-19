@@ -27,3 +27,10 @@ export const EventUndeliveredError: Readonly<Details> = {
   status: 503,
   detail: "The event could not be confirmed delivered",
 };
+
+export const EventOriginMismatchError: Readonly<Details> = {
+  type: "vetchium-problem-details/federation-event-origin-mismatch",
+  title: "Federation event origin mismatch",
+  status: 403,
+  detail: "The event's origin principal is not homed at the sending tenant",
+};

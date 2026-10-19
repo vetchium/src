@@ -4,14 +4,17 @@ import test from "node:test";
 import { isCommandKind } from "./commands.ts";
 import { isAggregateType, isEventKind } from "./events.ts";
 import {
+  HubAcceptOfferKind,
   HubApplicationChangedKind,
   HubApplyKind,
   type HubApplyPayload,
+  HubDeclineOfferKind,
   HubWithdrawKind,
   normalizeHubApplyPayload,
   OrgApplicationAggregate,
   validateHubApplicationChangedPayload,
   validateHubApplyPayload,
+  validateHubOfferResponsePayload,
   validateHubWithdrawPayload,
 } from "./hiring.ts";
 
@@ -105,5 +108,30 @@ test("hub-application-changed validates its projection payload", () => {
       last_activity_at: "2026-09-30T00:00:00Z",
     }),
     ["org_did", "status", "pending_actions", "last_activity_at"],
+  );
+});
+
+test("offer answers are valid command kinds and validate their payload", () => {
+  assert.equal(HubAcceptOfferKind, "hub-accept-offer");
+  assert.equal(HubDeclineOfferKind, "hub-decline-offer");
+  assert.equal(isCommandKind(HubAcceptOfferKind), true);
+  assert.equal(isCommandKind(HubDeclineOfferKind), true);
+  assert.deepEqual(
+    validateHubOfferResponsePayload({
+      opening_number: 1,
+      application_number: 2,
+      offer_number: 3,
+      applicant_did: "01900000-0000-7000-8000-000000000001",
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateHubOfferResponsePayload({
+      opening_number: 0,
+      application_number: 0,
+      offer_number: 0,
+      applicant_did: "x",
+    }),
+    ["opening_number", "application_number", "offer_number", "applicant_did"],
   );
 });

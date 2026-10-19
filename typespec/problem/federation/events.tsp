@@ -51,3 +51,17 @@ alias FederationEventUndeliveredErrorResponse = Response<
   503,
   typeof FederationEventUndeliveredError
 >;
+
+/** The principal the event reports on (an Org for
+ * `hub-application-changed`) is not homed at the sending tenant. Nothing was
+ * recorded or applied; redelivery cannot change the answer. */
+const FederationEventOriginMismatchError = #{
+  type: "vetchium-problem-details/federation-event-origin-mismatch",
+  title: "Federation event origin mismatch",
+  status: 403,
+  detail: "The event's origin principal is not homed at the sending tenant",
+};
+alias FederationEventOriginMismatchErrorResponse = Response<
+  403,
+  typeof FederationEventOriginMismatchError
+>;

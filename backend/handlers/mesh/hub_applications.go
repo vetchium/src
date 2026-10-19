@@ -106,7 +106,7 @@ func writeApplicantRead(
 	request hubspec.MeshGetApplicationRequest,
 ) {
 	application, err := hubapplications.ReadForApplicant(
-		r.Context(), s.Queries, request,
+		r.Context(), s.Queries, s.OfferLetters, request,
 	)
 	if errors.Is(err, hubapplications.ErrNotFound) {
 		s.Problem(r.Context(), w, hubproblem.ApplicationNotFoundError)

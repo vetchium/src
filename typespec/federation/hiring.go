@@ -98,6 +98,48 @@ type HubWithdrawResult struct {
 	ApplicationNumber applications.ApplicationNumber `json:"application_number"`
 }
 
+// HubAcceptOfferKind and HubDeclineOfferKind are the commands a Hub user's
+// home tenant sends to the Org's tenant to answer the offer the user read.
+// Their authority principal is the Org and their aggregate id is the Opening
+// number as decimal text.
+const (
+	HubAcceptOfferKind  CommandKind = "hub-accept-offer"
+	HubDeclineOfferKind CommandKind = "hub-decline-offer"
+)
+
+type HubOfferResponsePayload struct {
+	OpeningNumber     openings.OpeningNumber         `json:"opening_number"`
+	ApplicationNumber applications.ApplicationNumber `json:"application_number"`
+	OfferNumber       applications.OfferNumber       `json:"offer_number"`
+	ApplicantDID      hub.HubUserDID                 `json:"applicant_did"`
+}
+
+func (p *HubOfferResponsePayload) Normalize() {}
+
+func (p HubOfferResponsePayload) Validate() []string {
+	fields := []string{}
+	if p.OpeningNumber < 1 {
+		fields = append(fields, "opening_number")
+	}
+	if !applications.IsApplicationNumber(p.ApplicationNumber) {
+		fields = append(fields, "application_number")
+	}
+	if !applications.IsOfferNumber(p.OfferNumber) {
+		fields = append(fields, "offer_number")
+	}
+	if !hub.IsHubUserDID(p.ApplicantDID) {
+		fields = append(fields, "applicant_did")
+	}
+	return fields
+}
+
+// HubOfferResponseResult is the stored `200` body of a successful answer.
+type HubOfferResponseResult struct {
+	OpeningNumber     openings.OpeningNumber         `json:"opening_number"`
+	ApplicationNumber applications.ApplicationNumber `json:"application_number"`
+	OfferNumber       applications.OfferNumber       `json:"offer_number"`
+}
+
 // HubApplicationChangedKind is the event the Org's tenant enqueues on every
 // change of an application for the applicant Hub user's home tenant, which
 // keeps one projection row per application.

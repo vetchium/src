@@ -4,6 +4,7 @@ import type {
   ApplyToOpeningRequest,
   GetMyApplicationRequest,
   ListMyApplicationsRequest,
+  RespondToOfferRequest,
   WithdrawApplicationRequest,
 } from "typespec/hub/applications/applications";
 import type {
@@ -136,6 +137,20 @@ export class HubAPI {
     options: { token: string; idempotencyKey: string },
   ): Promise<APIResponse> {
     return this.post("/withdraw-application", body, options);
+  }
+
+  acceptApplicationOffer(
+    body: RespondToOfferRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post("/accept-application-offer", body, options);
+  }
+
+  declineApplicationOffer(
+    body: RespondToOfferRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post("/decline-application-offer", body, options);
   }
 
   listMyApplications(

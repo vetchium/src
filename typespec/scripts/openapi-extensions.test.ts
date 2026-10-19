@@ -9,6 +9,7 @@ import {
   applicationActorKindValues,
   applicationHistoryActionValues,
   applicationStateValues,
+  offerStatusValues,
   stageStatusValues,
 } from "../orgs/applications/applications.ts";
 import {
@@ -126,6 +127,7 @@ test("the compiled OpenAPI document carries the application vocabularies", async
     StageStatus: stageStatusValues,
     ApplicationHistoryAction: applicationHistoryActionValues,
     ApplicationActorKind: applicationActorKindValues,
+    OfferStatus: offerStatusValues,
   };
   for (const [name, values] of Object.entries(expected)) {
     assert.deepEqual(

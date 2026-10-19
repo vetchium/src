@@ -183,3 +183,59 @@ func TestWriteRequestsValidate(t *testing.T) {
 		t.Fatalf("valid separated_on = %v", got)
 	}
 }
+
+func TestOfferVocabularyAndLetterRules(t *testing.T) {
+	t.Parallel()
+	want := []OfferStatus{
+		"extended", "accepted", "declined", "expired", "withdrawn",
+	}
+	if got := OfferStatuses(); !slices.Equal(got, want) {
+		t.Fatalf("OfferStatuses() = %v", got)
+	}
+	OfferStatuses()[0] = "changed"
+	if OfferStatuses()[0] != OfferStatusExtended || IsOfferStatus("pending") {
+		t.Fatal("offer vocabulary is not closed and copied")
+	}
+	if !IsPDF([]byte("%PDF-1.7\n")) || IsPDF([]byte("%PDF")) ||
+		IsPDF([]byte("GIF89a")) || IsPDF(nil) {
+		t.Fatal("PDF signature check is wrong")
+	}
+	if MaxOfferLetterBytes != 5242880 {
+		t.Fatalf("letter limit = %d", MaxOfferLetterBytes)
+	}
+}
+
+func TestExtendApplicationOfferValidation(t *testing.T) {
+	t.Parallel()
+	date := CalendarDate("2026-12-01")
+	valid := ExtendApplicationOfferRequest{
+		OpeningNumber: 1, ApplicationNumber: 2, Version: 3,
+		LetterID:            "01900000-0000-4000-8000-000000000000",
+		ProposedJoiningDate: &date, RespondWithinDays: 60,
+	}
+	if got := valid.Validate(); len(got) != 0 {
+		t.Fatalf("valid request rejected: %v", got)
+	}
+	withoutDate := valid
+	withoutDate.ProposedJoiningDate = nil
+	withoutDate.RespondWithinDays = 1
+	if got := withoutDate.Validate(); len(got) != 0 {
+		t.Fatalf("request without a date rejected: %v", got)
+	}
+	bad := CalendarDate("2026-12-1")
+	invalid := ExtendApplicationOfferRequest{
+		LetterID: "01900000-0000-4000-8000-00000000000A", ProposedJoiningDate: &bad,
+		RespondWithinDays: 61,
+	}
+	want := []string{
+		"opening_number", "application_number", "version", "letter_id",
+		"proposed_joining_date", "respond_within_days",
+	}
+	if got := invalid.Validate(); !slices.Equal(got, want) {
+		t.Fatalf("fields = %v, want %v", got, want)
+	}
+	invalid.RespondWithinDays = 0
+	if got := invalid.Validate(); !slices.Contains(got, "respond_within_days") {
+		t.Fatalf("zero days accepted: %v", got)
+	}
+}

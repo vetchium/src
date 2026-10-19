@@ -81,6 +81,24 @@ func Status(
 	}
 }
 
+// PendingActions lists what awaits the applicant: an offer to answer while
+// the application is offered and its offer is still open (HP-HUB-003).
+func PendingActions(
+	state sqlc.VetchiumOrgApplicationState, offerAwaitsAnswer bool,
+) []hubspec.PendingActionKind {
+	actions := []hubspec.PendingActionKind{}
+	if state == sqlc.VetchiumOrgApplicationStateOffered && offerAwaitsAnswer {
+		actions = append(actions, hubspec.OfferResponse)
+	}
+	return actions
+}
+
+// LetterSigner signs a short-lived read URL for an offer letter in the Org's
+// tenant, where the letter is stored.
+type LetterSigner interface {
+	SignOfferLetterGet(context.Context, pgtype.UUID) (string, error)
+}
+
 // AggregateID names an application in hub-application-changed events.
 func AggregateID(
 	orgDID pgtype.UUID, opening int32, application int32,
@@ -133,9 +151,11 @@ func EnqueueChanges(
 				OpeningTitle:      row.OpeningTitle,
 				ApplicationNumber: orgapplications.ApplicationNumber(row.ApplicationNumber),
 				Status:            status,
-				PendingActions:    []hubspec.PendingActionKind{},
-				AppliedAt:         row.CreatedAt.Time.UTC(),
-				LastActivityAt:    row.UpdatedAt.Time.UTC(),
+				PendingActions: PendingActions(
+					row.ApplicationState, row.OfferAwaitsAnswer,
+				),
+				AppliedAt:      row.CreatedAt.Time.UTC(),
+				LastActivityAt: row.UpdatedAt.Time.UTC(),
 			},
 		}); err != nil {
 			return err
@@ -145,14 +165,14 @@ func EnqueueChanges(
 }
 
 // ReadForApplicant reads one application live at the Org's tenant, only if
-// it is the applicant's own.
+// it is the applicant's own, signing its offer letter's link there.
 func ReadForApplicant(
-	ctx context.Context, q sqlc.Querier,
+	ctx context.Context, q sqlc.Querier, letters LetterSigner,
 	request hubspec.MeshGetApplicationRequest,
-) (hubspec.MyApplication, error) {
+) (hubspec.MyApplicationDetail, error) {
 	applicant, err := dbvalue.ParseUUID(string(request.ApplicantDID))
 	if err != nil {
-		return hubspec.MyApplication{}, err
+		return hubspec.MyApplicationDetail{}, err
 	}
 	row, err := q.GetOrgApplicationForApplicant(ctx,
 		sqlc.GetOrgApplicationForApplicantParams{
@@ -162,29 +182,71 @@ func ReadForApplicant(
 			HubUserDid:        applicant,
 		})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return hubspec.MyApplication{}, ErrNotFound
+		return hubspec.MyApplicationDetail{}, ErrNotFound
 	}
 	if err != nil {
-		return hubspec.MyApplication{}, fmt.Errorf("read application: %w", err)
+		return hubspec.MyApplicationDetail{}, fmt.Errorf("read application: %w", err)
 	}
 	status, err := Status(row.ApplicationState, row.StageKind)
 	if err != nil {
-		return hubspec.MyApplication{}, err
+		return hubspec.MyApplicationDetail{}, err
 	}
-	return hubspec.MyApplication{
-		OrgDomain:         orgs.OrgDomain(row.OrgDomain),
-		OrgDisplayName:    common.DisplayName(row.OrgDisplayName),
-		OpeningNumber:     openings.OpeningNumber(row.OpeningNumber),
-		OpeningTitle:      row.OpeningTitle,
-		ApplicationNumber: orgapplications.ApplicationNumber(row.ApplicationNumber),
-		Status:            status,
-		PendingActions:    []hubspec.PendingActionKind{},
-	}, nil
+	detail := hubspec.MyApplicationDetail{
+		MyApplication: hubspec.MyApplication{
+			OrgDomain:         orgs.OrgDomain(row.OrgDomain),
+			OrgDisplayName:    common.DisplayName(row.OrgDisplayName),
+			OpeningNumber:     openings.OpeningNumber(row.OpeningNumber),
+			OpeningTitle:      row.OpeningTitle,
+			ApplicationNumber: orgapplications.ApplicationNumber(row.ApplicationNumber),
+			Status:            status,
+			PendingActions: PendingActions(
+				row.ApplicationState, row.OfferAwaitsAnswer,
+			),
+		},
+	}
+	if !row.HasOffer {
+		return detail, nil
+	}
+	letterURL, err := letters.SignOfferLetterGet(ctx, row.LetterObjectID)
+	if err != nil {
+		return hubspec.MyApplicationDetail{}, fmt.Errorf("sign offer letter: %w", err)
+	}
+	offer := hubspec.MyApplicationOffer{
+		OfferNumber:    orgapplications.OfferNumber(row.OfferNumber),
+		Status:         orgapplications.OfferStatus(row.OfferStatus),
+		LetterURL:      letterURL,
+		LetterByteSize: row.LetterByteSize,
+		RespondBy:      row.RespondBy.Time.UTC(),
+		ExtendedAt:     row.ExtendedAt.Time.UTC(),
+	}
+	if row.ProposedJoiningDate.Valid {
+		date := orgapplications.FormatCalendarDate(row.ProposedJoiningDate.Time)
+		offer.ProposedJoiningDate = &date
+	}
+	detail.Offer = &offer
+	return detail, nil
 }
 
 // Register adds the projection receiver to registry.
 func Register(registry *events.Registry) {
-	registry.Register(federationspec.HubApplicationChangedKind, Project)
+	registry.Register(federationspec.HubApplicationChangedKind, Project,
+		OrgOrigin)
+}
+
+// OrgOrigin is the origin of hub-application-changed: the Org whose
+// application changed, which only its home tenant may report on.
+func OrgOrigin(event events.Event) (events.Principal, bool) {
+	var payload struct {
+		OrgDID string `json:"org_did"`
+	}
+	if json.Unmarshal(event.Payload, &payload) != nil {
+		return events.Principal{}, false
+	}
+	did, err := dbvalue.ParseUUID(payload.OrgDID)
+	if err != nil {
+		return events.Principal{}, false
+	}
+	return events.Principal{Type: directoryspec.PrincipalOrg, DID: did}, true
 }
 
 // Project writes the applicant's projection row. The receiver calls it only

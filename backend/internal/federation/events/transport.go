@@ -43,8 +43,8 @@ func NewRelay(baseURL, credential string, timeout time.Duration) *RelayClient {
 	}
 }
 
-// Deliver returns a receipt, or the event-conflict or destination-not-found
-// problem; anything else is an error.
+// Deliver returns a receipt, or the event-conflict, origin-mismatch, or
+// destination-not-found problem; anything else is an error.
 func (c *RelayClient) Deliver(
 	ctx context.Context, request federationspec.DeliverEventRequest,
 ) (Delivery, error) {
@@ -60,6 +60,7 @@ func (c *RelayClient) Deliver(
 	details, ok := exchange.Problem()
 	switch {
 	case ok && (details.Type == federationproblem.EventConflictError.Type ||
+		details.Type == federationproblem.EventOriginMismatchError.Type ||
 		details.Type == federationproblem.DestinationNotFoundError.Type):
 		return Delivery{Problem: &details}, nil
 	case ok:

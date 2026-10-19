@@ -54,6 +54,9 @@ type Worker struct {
 	pictureStore                 PictureStore
 	logoStore                    LogoStore
 	logoQueries                  logoDeletionQueries
+	offerLetterStore             OfferLetterStore
+	offerLetterQueries           offerLetterDeletionQueries
+	offerExpiryDB                *pgxpool.Pool
 	pictureDeletionInterval      time.Duration
 	aliasReleaseQueries          aliasReleaseQueries
 	aliasReleaseDirectory        AliasReleaseDirectory
@@ -98,6 +101,8 @@ func New(
 		federationEventTimer:         config.DeliverFederationEventsTimer,
 		pictureQueries:               queries,
 		logoQueries:                  queries,
+		offerLetterQueries:           queries,
+		offerExpiryDB:                db,
 		pictureDeletionInterval:      config.PruneEphemeralDataTimer,
 		aliasReleaseQueries:          queries,
 		aliasReleaseInterval:         config.ReconcileHubSignupTimer,
@@ -132,6 +137,11 @@ func New(
 			name:     "expire-org-openings",
 			interval: config.ExpireOrgOpeningsTimer,
 			run:      w.expireOrgOpenings,
+		},
+		{
+			name:     "expire-application-offers",
+			interval: config.ExpireApplicationOffersTimer,
+			run:      w.expireApplicationOffers,
 		},
 	}
 	if hubEmailDelivery != nil {

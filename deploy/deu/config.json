@@ -19,6 +19,7 @@
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
     "expireOrgOpeningsTimer": "5m",
+    "expireApplicationOffersTimer": "5m",
     "reconcileHubSignupTimer": "10s",
     "reconcileHubEmailChangeTimer": "10s",
     "driveFederationCommandsTimer": "10s",

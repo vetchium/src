@@ -3,6 +3,7 @@
 package applications
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -31,6 +32,10 @@ type ApplicationView string
 type StageStatus string
 type ApplicationHistoryAction string
 type ApplicationActorKind string
+type OfferLetterID string
+type OfferNumber int32
+type OfferResponseDays int32
+type OfferStatus string
 
 // CalendarDate is a `YYYY-MM-DD` date with no time or zone.
 type CalendarDate string
@@ -84,6 +89,55 @@ const (
 	OrgUserActor   ApplicationActorKind = "org_user"
 	SystemActor    ApplicationActorKind = "system"
 )
+
+const (
+	OfferStatusExtended  OfferStatus = "extended"
+	OfferStatusAccepted  OfferStatus = "accepted"
+	OfferStatusDeclined  OfferStatus = "declined"
+	OfferStatusExpired   OfferStatus = "expired"
+	OfferStatusWithdrawn OfferStatus = "withdrawn"
+)
+
+const (
+	// MaxOfferLetterBytes bounds an offer letter's PDF body.
+	MaxOfferLetterBytes = 5 * 1024 * 1024
+	// OfferLetterContentType is the only type an offer letter is uploaded as.
+	OfferLetterContentType = "application/pdf"
+	minOfferResponseDays   = 1
+	maxOfferResponseDays   = 60
+)
+
+var offerStatuses = []OfferStatus{
+	OfferStatusExtended, OfferStatusAccepted, OfferStatusDeclined,
+	OfferStatusExpired, OfferStatusWithdrawn,
+}
+
+// OfferStatuses returns every offer status this contract version defines.
+func OfferStatuses() []OfferStatus { return slices.Clone(offerStatuses) }
+
+func IsOfferStatus(value OfferStatus) bool {
+	return slices.Contains(offerStatuses, value)
+}
+
+func IsOfferNumber(value OfferNumber) bool { return value >= 1 }
+
+func IsOfferResponseDays(value OfferResponseDays) bool {
+	return value >= minOfferResponseDays && value <= maxOfferResponseDays
+}
+
+var uuidPattern = regexp.MustCompile(
+	`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`,
+)
+
+// IsOfferLetterID accepts the lowercase form the API returns.
+func IsOfferLetterID(value OfferLetterID) bool {
+	return uuidPattern.MatchString(string(value))
+}
+
+// IsPDF reports whether body starts with the PDF signature.
+func IsPDF(body []byte) bool {
+	return len(body) >= 5 && string(body[:5]) == "%PDF-"
+}
 
 var applicationStates = []ApplicationState{
 	Submitted, InPipeline, Offered, OfferAccepted, OfferDeclined, Joined,
@@ -176,6 +230,17 @@ type ApplicationStageRecord struct {
 	Status StageStatus          `json:"status"`
 }
 
+type ApplicationOffer struct {
+	OfferNumber         OfferNumber   `json:"offer_number"`
+	Status              OfferStatus   `json:"status"`
+	LetterURL           string        `json:"letter_url"`
+	LetterByteSize      int32         `json:"letter_byte_size"`
+	ProposedJoiningDate *CalendarDate `json:"proposed_joining_date,omitempty"`
+	RespondBy           time.Time     `json:"respond_by"`
+	ExtendedAt          time.Time     `json:"extended_at"`
+	EndedAt             *time.Time    `json:"ended_at,omitempty"`
+}
+
 type ApplicationDetail struct {
 	OpeningNumber     openings.OpeningNumber    `json:"opening_number"`
 	ApplicationNumber ApplicationNumber         `json:"application_number"`
@@ -189,6 +254,7 @@ type ApplicationDetail struct {
 	SeparatedOn       *CalendarDate             `json:"separated_on,omitempty"`
 	Positions         int32                     `json:"positions"`
 	JoinedCount       int32                     `json:"joined_count"`
+	Offers            []ApplicationOffer        `json:"offers"`
 	SubmittedAt       time.Time                 `json:"submitted_at"`
 	UpdatedAt         time.Time                 `json:"updated_at"`
 }
@@ -452,4 +518,39 @@ func (r ApplicationSeparatedOnRequest) Validate() []string {
 		fields = append(fields, "separated_on")
 	}
 	return fields
+}
+
+// ExtendApplicationOfferRequest extends an offer with a letter the caller
+// uploaded. The rules that need the clock (the joining date at least today)
+// are the API's.
+type ExtendApplicationOfferRequest struct {
+	OpeningNumber       openings.OpeningNumber `json:"opening_number"`
+	ApplicationNumber   ApplicationNumber      `json:"application_number"`
+	Version             ApplicationVersion     `json:"version"`
+	LetterID            OfferLetterID          `json:"letter_id"`
+	ProposedJoiningDate *CalendarDate          `json:"proposed_joining_date,omitempty"`
+	RespondWithinDays   OfferResponseDays      `json:"respond_within_days"`
+}
+
+func (r *ExtendApplicationOfferRequest) Normalize() {}
+
+func (r ExtendApplicationOfferRequest) Validate() []string {
+	fields := ApplicationReference{
+		OpeningNumber: r.OpeningNumber, ApplicationNumber: r.ApplicationNumber,
+		Version: r.Version,
+	}.validate()
+	if !IsOfferLetterID(r.LetterID) {
+		fields = append(fields, "letter_id")
+	}
+	if r.ProposedJoiningDate != nil && !IsCalendarDate(*r.ProposedJoiningDate) {
+		fields = append(fields, "proposed_joining_date")
+	}
+	if !IsOfferResponseDays(r.RespondWithinDays) {
+		fields = append(fields, "respond_within_days")
+	}
+	return fields
+}
+
+type OfferLetterUploaded struct {
+	LetterID OfferLetterID `json:"letter_id"`
 }

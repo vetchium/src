@@ -59,6 +59,9 @@ type Server struct {
 	// Logos is the tenant's object store for Org logos.
 	Logos LogoStorage
 
+	// OfferLetters is the tenant's object store for offer letters.
+	OfferLetters OfferLetterStorage
+
 	// GoogleSignIn is nil when the tenant does not offer Google sign-in.
 	GoogleSignIn SSOProvider
 
@@ -80,6 +83,13 @@ type LogoStorage interface {
 	PutLogo(context.Context, pgtype.UUID, imagesanitize.Image) error
 	DeleteLogo(context.Context, pgtype.UUID) error
 	SignLogoGet(context.Context, pgtype.UUID) (string, error)
+}
+
+// OfferLetterStorage stores offer letters and signs short-lived read URLs
+// for them.
+type OfferLetterStorage interface {
+	PutOfferLetter(context.Context, pgtype.UUID, []byte) error
+	SignOfferLetterGet(context.Context, pgtype.UUID) (string, error)
 }
 
 // Offers reports whether this tenant offers plan.

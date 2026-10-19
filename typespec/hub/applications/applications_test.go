@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	orgapplications "github.com/vetchium/src/typespec/orgs/applications"
 )
@@ -134,5 +135,68 @@ func TestMyApplicationValidity(t *testing.T) {
 		if changed.Valid() {
 			t.Errorf("%s: invalid application accepted", name)
 		}
+	}
+}
+
+func TestMyApplicationDetailOfferValidity(t *testing.T) {
+	t.Parallel()
+	date := orgapplications.CalendarDate("2026-12-01")
+	detail := MyApplicationDetail{
+		MyApplication: MyApplication{
+			OrgDomain: "example.com", OrgDisplayName: "Example",
+			OpeningNumber: 1, OpeningTitle: "Engineer", ApplicationNumber: 1,
+			Status: Offer, PendingActions: []PendingActionKind{OfferResponse},
+		},
+		Offer: &MyApplicationOffer{
+			OfferNumber: 1, Status: orgapplications.OfferStatusExtended,
+			LetterURL:      "https://media.sgp.vetchium.com/org-offer-letters/x",
+			LetterByteSize: 10, ProposedJoiningDate: &date,
+			RespondBy: time.Now().Add(time.Hour), ExtendedAt: time.Now(),
+		},
+	}
+	if !detail.Valid() {
+		t.Fatal("valid detail rejected")
+	}
+	if !(MyApplicationDetail{MyApplication: detail.MyApplication}).Valid() {
+		t.Fatal("a detail without an offer was rejected")
+	}
+	bad := orgapplications.CalendarDate("2026-02-30")
+	for name, change := range map[string]func(*MyApplicationOffer){
+		"withdrawn":     func(o *MyApplicationOffer) { o.Status = "withdrawn" },
+		"unknown":       func(o *MyApplicationOffer) { o.Status = "pending" },
+		"number":        func(o *MyApplicationOffer) { o.OfferNumber = 0 },
+		"link":          func(o *MyApplicationOffer) { o.LetterURL = "" },
+		"size":          func(o *MyApplicationOffer) { o.LetterByteSize = 0 },
+		"date":          func(o *MyApplicationOffer) { o.ProposedJoiningDate = &bad },
+		"deadline":      func(o *MyApplicationOffer) { o.RespondBy = time.Time{} },
+		"extended time": func(o *MyApplicationOffer) { o.ExtendedAt = time.Time{} },
+	} {
+		offer := *detail.Offer
+		change(&offer)
+		changed := detail
+		changed.Offer = &offer
+		if changed.Valid() {
+			t.Errorf("%s: invalid offer accepted", name)
+		}
+	}
+}
+
+func TestRespondToOfferRequestValidation(t *testing.T) {
+	t.Parallel()
+	request := RespondToOfferRequest{
+		ApplicationReference: ApplicationReference{
+			Domain: " Example.COM ", OpeningNumber: 1, ApplicationNumber: 2,
+		},
+		OfferNumber: 1,
+	}
+	request.Normalize()
+	if request.Domain != "example.com" || len(request.Validate()) != 0 {
+		t.Fatalf("valid request: %+v %v", request, request.Validate())
+	}
+	request.OfferNumber = 0
+	request.ApplicationNumber = 0
+	if got := request.Validate(); !slices.Equal(got,
+		[]string{"application_number", "offer_number"}) {
+		t.Fatalf("fields = %v", got)
 	}
 }

@@ -133,7 +133,7 @@ func Get(s *hubruntime.Server) http.HandlerFunc {
 			string(request.Domain))
 		if err == nil {
 			application, err := hubapplications.ReadForApplicant(
-				r.Context(), s.Queries, read,
+				r.Context(), s.Queries, s.OfferLetters, read,
 			)
 			if errors.Is(err, hubapplications.ErrNotFound) {
 				s.Problem(r.Context(), w, hubproblem.ApplicationNotFoundError)

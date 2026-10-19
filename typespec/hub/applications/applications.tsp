@@ -90,6 +90,40 @@ model MyApplication {
   pending_actions: PendingActionKind[];
 }
 
+/**
+ * The application's latest offer, unless the Org withdrew it. Its letter
+ * link is signed by the Org's tenant and opens from any region.
+ */
+model MyApplicationOffer {
+  offer_number: Vetchium.Orgs.Applications.OfferNumber;
+
+  /** `extended`, `accepted`, `declined`, or `expired`; never `withdrawn`. */
+  status: Vetchium.Orgs.Applications.OfferStatus;
+
+  /** A signed `GET` link to the PDF letter, valid for ten minutes. */
+  letter_url: url;
+
+  letter_byte_size: int32;
+  proposed_joining_date?: Vetchium.Orgs.Applications.CalendarDate;
+
+  /** Answer before this instant; afterwards the offer counts as declined. */
+  respond_by: utcDateTime;
+
+  extended_at: utcDateTime;
+}
+
+/** The live read of one application, with what the applicant may act on. */
+model MyApplicationDetail {
+  ...MyApplication;
+  offer?: MyApplicationOffer;
+}
+
+/** Answers the offer the applicant read, named by its number. */
+model RespondToOfferRequest {
+  ...ApplicationReference;
+  offer_number: Vetchium.Orgs.Applications.OfferNumber;
+}
+
 /** A list entry, read from the applicant's home tenant's projection, which
  * may trail the Org's tenant briefly. */
 model MyApplicationSummary {
@@ -207,7 +241,7 @@ interface ApplicationOperations {
     | {
         @statusCode status_code: 200;
         @header("Cache-Control") cache_control: "no-store";
-        @body body: MyApplication;
+        @body body: MyApplicationDetail;
       }
     | Vetchium.Problem.InvalidJSONErrorResponse
     | Vetchium.Problem.ValidationFailedErrorResponse
@@ -215,4 +249,46 @@ interface ApplicationOperations {
     | Vetchium.Problem.HubApplicationNotFoundErrorResponse
     | Vetchium.Problem.HubOrgUnavailableErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
+
+  /** Accepts the offer the request names, moving the application to `offer_accepted`,
+   * with the same outcomes as applying. Another offer, a state other than
+   * `offered`, or a passed deadline is `hub-application-state-conflict`. */
+  @route("/accept-application-offer")
+  @post
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 2592000)
+  @useAuth(BearerAuth)
+  acceptOffer(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: RespondToOfferRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationReference;
+      }
+    | PendingApplicationResponse
+    | ApplicationWriteErrors
+    | Vetchium.Problem.HubApplicationNotFoundErrorResponse
+    | Vetchium.Problem.HubApplicationStateConflictErrorResponse;
+
+  /** Declines the offer the request names, moving the application to `offer_declined`,
+   * with the same outcomes as applying. Another offer, a state other than
+   * `offered`, or a passed deadline is `hub-application-state-conflict`. */
+  @route("/decline-application-offer")
+  @post
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 2592000)
+  @useAuth(BearerAuth)
+  declineOffer(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: RespondToOfferRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationReference;
+      }
+    | PendingApplicationResponse
+    | ApplicationWriteErrors
+    | Vetchium.Problem.HubApplicationNotFoundErrorResponse
+    | Vetchium.Problem.HubApplicationStateConflictErrorResponse;
 }

@@ -54,12 +54,14 @@ type transition struct {
 	) (change, bool, error)
 }
 
-// change is what the history entry and audit event record.
+// change is what the history entry and audit event record. A refusal is an
+// input the statement found unusable; the transaction rolls back.
 type change struct {
 	action      sqlc.VetchiumOrgApplicationHistoryAction
 	stageID     pgtype.UUID
 	joinedOn    pgtype.Date
 	separatedOn pgtype.Date
+	refusal     problem.Body
 }
 
 func (t transition) run(
@@ -112,6 +114,10 @@ func (t transition) run(
 			if err != nil {
 				return result{}, nil, err
 			}
+			if changed.refusal != nil {
+				return handlerauth.Failure[applications.ApplicationDetail](
+					changed.refusal)
+			}
 			if !applied {
 				// The row lock makes this unreachable unless check and the
 				// statement's guards disagree.
@@ -135,7 +141,7 @@ func (t transition) run(
 			if err != nil {
 				return result{}, nil, fmt.Errorf("read changed application: %w", err)
 			}
-			detail, err := buildDetail(t.opening, row)
+			detail, err := buildDetail(ctx, s.OfferLetters, t.opening, row)
 			if err != nil {
 				return result{}, nil, err
 			}
@@ -555,6 +561,98 @@ func CorrectApplicationSeparatedOn(s *orgsruntime.Server) http.HandlerFunc {
 					action:      sqlc.VetchiumOrgApplicationHistoryActionSeparatedCorrected,
 					separatedOn: separatedOn,
 				}, rows == 1, err
+			},
+		}.run(s, w, r)
+	}
+}
+
+// ExtendApplicationOffer claims the caller's uploaded letter and extends an
+// offer to an in_pipeline candidacy at any stage (HP-STA-004, HP-WRK-008).
+func ExtendApplicationOffer(s *orgsruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request applications.ExtendApplicationOfferRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		var proposed pgtype.Date
+		if request.ProposedJoiningDate != nil {
+			proposed = parseDate(*request.ProposedJoiningDate)
+		}
+		identity, _ := middleware.OrgIdentityFromContext(r.Context())
+		transition{
+			operation: "orgs:extend-application-offer", request: request,
+			opening: request.OpeningNumber, number: request.ApplicationNumber,
+			version: request.Version,
+			check: func(locked sqlc.LockOrgApplicationForWriteRow, now time.Time) problem.Body {
+				if details := stateConflict(
+					sqlc.VetchiumOrgApplicationStateInPipeline,
+				)(locked.ApplicationState); details != nil {
+					return details
+				}
+				if proposed.Valid && proposed.Time.Before(today(now)) {
+					return invalidFields("proposed_joining_date")
+				}
+				return nil
+			},
+			apply: func(ctx context.Context, q *sqlc.Queries, locked sqlc.LockOrgApplicationForWriteRow, _ time.Time) (change, bool, error) {
+				letterID, err := dbvalue.ParseUUID(string(request.LetterID))
+				if err != nil {
+					return change{}, false, err
+				}
+				claimed, err := q.ClaimOrgOfferLetter(ctx, sqlc.ClaimOrgOfferLetterParams{
+					ObjectID: letterID, OrgDid: identity.OrgDID,
+					OrgUserID: identity.UserID,
+				})
+				if errors.Is(err, pgx.ErrNoRows) {
+					return change{refusal: invalidFields("letter_id")}, false, nil
+				}
+				if err != nil {
+					return change{}, false, err
+				}
+				row, err := q.ExtendOrgApplicationOffer(ctx, sqlc.ExtendOrgApplicationOfferParams{
+					ApplicationID: locked.OrgApplicationID, Version: locked.Version,
+					LetterObjectID: claimed, ProposedJoiningDate: proposed,
+					RespondWithinDays: int32(request.RespondWithinDays),
+					ActorID:           identity.UserID,
+				})
+				if err != nil {
+					return change{}, false, err
+				}
+				if row.ChangedRows != row.OfferRows {
+					return change{}, false, fmt.Errorf("offer extension recorded no offer")
+				}
+				return change{
+					action: sqlc.VetchiumOrgApplicationHistoryActionOfferExtended,
+				}, row.ChangedRows == 1, nil
+			},
+		}.run(s, w, r)
+	}
+}
+
+// WithdrawApplicationOffer ends the offer awaiting an answer; the candidacy
+// returns to in_pipeline at its stage, and the letter stays for the Org.
+func WithdrawApplicationOffer(s *orgsruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request applications.ApplicationActionRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		transition{
+			operation: "orgs:withdraw-application-offer", request: request,
+			opening: request.OpeningNumber, number: request.ApplicationNumber,
+			version: request.Version,
+			check: func(locked sqlc.LockOrgApplicationForWriteRow, _ time.Time) problem.Body {
+				return stateConflict(
+					sqlc.VetchiumOrgApplicationStateOffered,
+				)(locked.ApplicationState)
+			},
+			apply: func(ctx context.Context, q *sqlc.Queries, locked sqlc.LockOrgApplicationForWriteRow, _ time.Time) (change, bool, error) {
+				row, err := q.WithdrawOrgApplicationOffer(ctx, sqlc.WithdrawOrgApplicationOfferParams{
+					ApplicationID: locked.OrgApplicationID, Version: locked.Version,
+				})
+				return change{
+					action: sqlc.VetchiumOrgApplicationHistoryActionOfferWithdrawn,
+				}, row.ChangedRows == 1, err
 			},
 		}.run(s, w, r)
 	}

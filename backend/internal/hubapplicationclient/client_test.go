@@ -54,6 +54,25 @@ func TestRelayGetReturnsOnlyTheRequestedValidApplication(t *testing.T) {
 	if err != nil || outcome.Result == nil || outcome.Problem != nil {
 		t.Fatalf("outcome = %+v, err = %v", outcome, err)
 	}
+	offered := hubspec.MyApplicationDetail{
+		MyApplication: application(),
+		Offer: &hubspec.MyApplicationOffer{
+			OfferNumber: 1, Status: "extended",
+			LetterURL:      "https://media.sgp.vetchium.com/org-offer-letters/x",
+			LetterByteSize: 1024, RespondBy: time.Now().Add(time.Hour),
+			ExtendedAt: time.Now(),
+		},
+	}
+	outcome, err = serve(t, 200, "application/json", offered).
+		RelayGet(context.Background(), request())
+	if err != nil || outcome.Result == nil || outcome.Result.Offer == nil ||
+		outcome.Result.Offer.OfferNumber != 1 {
+		t.Fatalf("offered outcome = %+v, err = %v", outcome, err)
+	}
+	withdrawn := offered
+	withdrawnOffer := *offered.Offer
+	withdrawnOffer.Status = "withdrawn"
+	withdrawn.Offer = &withdrawnOffer
 	other := application()
 	other.ApplicationNumber = 5
 	withStage := map[string]any{
@@ -64,6 +83,7 @@ func TestRelayGetReturnsOnlyTheRequestedValidApplication(t *testing.T) {
 	}
 	for name, body := range map[string]any{
 		"another application": other, "an unknown field": withStage,
+		"a withdrawn offer": withdrawn,
 	} {
 		if _, err := serve(t, 200, "application/json", body).
 			RelayGet(context.Background(), request()); !errors.Is(err, ErrInvalidResponse) {

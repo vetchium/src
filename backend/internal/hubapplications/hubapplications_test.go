@@ -3,6 +3,7 @@ package hubapplications
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"testing"
 	"time"
 
@@ -130,5 +131,42 @@ func TestProjectRefusesAnEventThatBreaksTheContract(t *testing.T) {
 		[]byte(`,"stage_name":"Panel"}`)...)
 	if err := Project(context.Background(), nil, extra); err == nil {
 		t.Fatal("an unknown field was projected")
+	}
+}
+
+func TestPendingActionsAskForAnOpenOfferOnly(t *testing.T) {
+	t.Parallel()
+	for _, state := range []sqlc.VetchiumOrgApplicationState{
+		sqlc.VetchiumOrgApplicationStateSubmitted,
+		sqlc.VetchiumOrgApplicationStateInPipeline,
+		sqlc.VetchiumOrgApplicationStateOffered,
+		sqlc.VetchiumOrgApplicationStateOfferAccepted,
+		sqlc.VetchiumOrgApplicationStateOfferDeclined,
+	} {
+		for _, open := range []bool{false, true} {
+			got := PendingActions(state, open)
+			want := []hubspec.PendingActionKind{}
+			if state == sqlc.VetchiumOrgApplicationStateOffered && open {
+				want = []hubspec.PendingActionKind{hubspec.OfferResponse}
+			}
+			if got == nil || !slices.Equal(got, want) {
+				t.Errorf("PendingActions(%s, %v) = %v", state, open, got)
+			}
+		}
+	}
+}
+
+func TestOrgOriginIsThePayloadsOrg(t *testing.T) {
+	t.Parallel()
+	orgDID, _ := dbvalue.NewUUIDv7(time.Now())
+	origin, ok := OrgOrigin(events.Event{Payload: []byte(
+		`{"org_did":"` + dbvalue.FormatUUID(orgDID) + `"}`)})
+	if !ok || origin.Type != directoryspec.PrincipalOrg || origin.DID != orgDID {
+		t.Fatalf("origin = %+v, %v", origin, ok)
+	}
+	for _, payload := range []string{`{}`, `{"org_did":"x"}`, `[`} {
+		if _, ok := OrgOrigin(events.Event{Payload: []byte(payload)}); ok {
+			t.Errorf("origin found in %s", payload)
+		}
 	}
 }

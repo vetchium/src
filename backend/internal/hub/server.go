@@ -40,15 +40,23 @@ type AccountEmailDigester interface {
 	ID() string
 }
 
+// OfferLetterSigner signs a short-lived read URL for an offer letter.
+type OfferLetterSigner interface {
+	SignOfferLetterGet(context.Context, pgtype.UUID) (string, error)
+}
+
 type Server struct {
 	*apiserver.Runtime
-	Regions          *regions.Catalog
-	Directory        *directoryclient.Client
-	Profiles         *profileclient.Client
-	Openings         *publicopeningclient.Client
-	Applications     *hubapplicationclient.Client
-	PublicOpenings   publicopenings.Reader
-	Pictures         PictureStorage
+	Regions        *regions.Catalog
+	Directory      *directoryclient.Client
+	Profiles       *profileclient.Client
+	Openings       *publicopeningclient.Client
+	Applications   *hubapplicationclient.Client
+	PublicOpenings publicopenings.Reader
+	Pictures       PictureStorage
+	// OfferLetters signs the letters of local Orgs' offers to this tenant's
+	// applicants.
+	OfferLetters     OfferLetterSigner
 	SignupCompletion *signupcompletion.Service
 	EmailChange      *emailchange.Service
 	// Commands sends durable commands to other tenants' aggregates.
