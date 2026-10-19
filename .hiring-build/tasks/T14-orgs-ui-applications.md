@@ -46,3 +46,4 @@ than an offer in the portal.
 - Over-hiring warning: `ApplicationDetail.joined_count > positions` (T08).
 - Close dialog sends `mark_applications_not_progressing` on
   `request-opening-change`; show that choice on a pending close request.
+- From T10: the `pending_applicant_action` filter (`interview_response`, `offer_response`, and T11's consent) on the applications list.

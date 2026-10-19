@@ -43,3 +43,6 @@ them.
 - From T09: remove offer letters through retention. `org_application_offers.letter_object_id` is NOT NULL and its FK to the letter row is `DEFERRABLE INITIALLY DEFERRED`, so drop or retire the offers' reference in the same transaction before deleting a letter row.
 - From T09: send the offer emails (extended, withdrawn, expiring, expired); no offer content in any email.
 - From T09: add a Go test for the `delete-offer-letters` worker (unclaimed staged letters).
+- From T10: retention deletes interviews, interviewers, and feedback with their application explicitly (do not rely on the cascade alone).
+- From T10: interview scheduled, changed, or cancelled emails to the Hub user, driven by the projection event.
+- From T10: the Hub list projection derives "upcoming"/"unanswered" interview pending actions only when an event is written (HP-HUB-007); add a time-based refresh so a passed, unanswered interview leaves the list's pending actions.

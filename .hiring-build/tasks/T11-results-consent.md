@@ -45,3 +45,4 @@ gating.
 - T08 refuses hand-completing non-review stages: recording the assessment
   result, and the last background-check outcome, must mark the stage
   `completed`.
+- From T10: `list-applications` already has `pending_applicant_action` (`interview_response`, `offer_response`); add the consent value there and in the Hub pending actions. Every pipeline exit already calls `cancel_upcoming_interviews`; end pending consent requests on the same exits.

@@ -47,3 +47,4 @@ A Hub user applies and handles every request from the Org in the portal.
 
 - From T09: offer card on the application page with accept/decline (`/api/hub/accept-application-offer`, `/api/hub/decline-application-offer`) sending `offer.offer_number`; handle 202 PendingOperation and `hub-application-state-conflict`. Show `offer_response` as a pending action.
 - From T09: the letter link expires after ten minutes; re-read `get-my-application` before opening it. Strings in en, de, ta.
+- From T10: interviews from `MyApplicationDetail.interviews` with accept (`accept-application-interview`) and request reschedule with a 1–500 note (`request-application-interview-reschedule`); handle 202 PendingOperation. Strings in en, de, ta.
