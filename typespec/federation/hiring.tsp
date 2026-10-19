@@ -183,4 +183,44 @@ model HubApplicationChangedPayload {
   pending_actions: Vetchium.Hub.Applications.PendingActionKind[];
   applied_at: utcDateTime;
   last_activity_at: utcDateTime;
+
+  /**
+   * What the event tells the applicant, when it needs an email (HP-GEN-006).
+   * Absent when the applicant caused the change or nothing needs them.
+   * `status_changed` emails only if the Hub status actually changed.
+   */
+  notice?: ApplicationNotice;
+}
+
+/**
+ * Why an application changed, for the applicant's notification email. It
+ * names no interview, offer, or result content.
+ */
+@TypeSpec.OpenAPI.extension(
+  "x-vetchium-known-values",
+  #[
+    "status_changed",
+    "interview_scheduled",
+    "interview_changed",
+    "interview_cancelled",
+    "consent_requested",
+    "offer_extended",
+    "offer_withdrawn",
+    "offer_expiring",
+    "offer_expired"
+  ]
+)
+scalar ApplicationNotice extends string;
+
+/**
+ * The payload of the `hub-application-removed` event the Org's tenant
+ * enqueues when retention removes an application (HP-RET-001), for the
+ * applicant's home tenant to delete the projection row. Origin, aggregate
+ * type, and aggregate id are those of `hub-application-changed`; its version
+ * is the application's version after removal.
+ */
+model HubApplicationRemovedPayload {
+  org_did: Vetchium.Orgs.OrgDID;
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  application_number: Vetchium.Orgs.Applications.ApplicationNumber;
 }

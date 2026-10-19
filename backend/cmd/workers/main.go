@@ -114,8 +114,9 @@ func run(log *slog.Logger) error {
 			OutboxKey: hubauthn.DeriveCredentialSubkey(
 				hubCredentialKey, "outbox",
 			),
-			LeaseTTL:    cfg.Workers.HubEmailLeaseTTL,
-			MaxAttempts: cfg.Workers.HubEmailMaxAttempts,
+			LeaseTTL:      cfg.Workers.HubEmailLeaseTTL,
+			MaxAttempts:   cfg.Workers.HubEmailMaxAttempts,
+			PublicBaseURL: cfg.HubAPIServer.PublicBaseURL,
 		},
 		signupRecovery,
 		emailChangeRecovery,

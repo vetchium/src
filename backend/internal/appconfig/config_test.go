@@ -76,6 +76,12 @@ func TestLoadFile(t *testing.T) {
 		t.Fatalf("ExpireApplicationOffersTimer = %s",
 			cfg.Workers.ExpireApplicationOffersTimer)
 	}
+	if cfg.Workers.RetainApplicationsTimer != time.Minute ||
+		cfg.Workers.RefreshHubApplicationsTimer != time.Minute {
+		t.Fatalf("application timers = %s, %s",
+			cfg.Workers.RetainApplicationsTimer,
+			cfg.Workers.RefreshHubApplicationsTimer)
+	}
 	if cfg.Workers.ExpireOrgOpeningsTimer != time.Minute {
 		t.Fatalf("expire Org Openings timer = %s, want 1m",
 			cfg.Workers.ExpireOrgOpeningsTimer)
@@ -389,6 +395,8 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "advanceHubSubscriptionsTimer": "1m",
     "expireOrgOpeningsTimer": "1m",
     "expireApplicationOffersTimer": "1m",
+    "retainApplicationsTimer": "1m",
+    "refreshHubApplicationsTimer": "1m",
     "reconcileHubSignupTimer": "1m",
     "reconcileHubEmailChangeTimer": "1m",
     "driveFederationCommandsTimer": "1m",
@@ -545,6 +553,30 @@ func TestLoadFileRequiresPositiveExpireApplicationOffersTimer(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(),
 		"workers.expireApplicationOffersTimer must be positive") {
 		t.Fatalf("LoadFile() error = %v, want positive timer error", err)
+	}
+}
+
+func TestLoadFileRequiresPositiveApplicationTimers(t *testing.T) {
+	for _, key := range []string{
+		"retainApplicationsTimer", "refreshHubApplicationsTimer",
+	} {
+		passwordFile := filepath.Join(t.TempDir(), "password")
+		path := writeConfig(t, passwordFile, "")
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		contents = []byte(strings.Replace(
+			string(contents), `"`+key+`": "1m"`, `"`+key+`": "0s"`, 1,
+		))
+		if err := os.WriteFile(path, contents, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, err = LoadFile(path)
+		if err == nil || !strings.Contains(err.Error(),
+			"workers."+key+" must be positive") {
+			t.Fatalf("%s: LoadFile() error = %v", key, err)
+		}
 	}
 }
 
@@ -729,6 +761,8 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "advanceHubSubscriptionsTimer": "1m",
     "expireOrgOpeningsTimer": "1m",
     "expireApplicationOffersTimer": "1m",
+    "retainApplicationsTimer": "1m",
+    "refreshHubApplicationsTimer": "1m",
     "reconcileHubSignupTimer": "1m",
     "reconcileHubEmailChangeTimer": "1m",
     "driveFederationCommandsTimer": "1m",

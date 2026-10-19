@@ -42,6 +42,9 @@ type HubEmailDelivery struct {
 	LeaseTTL    time.Duration
 	MaxAttempts int
 	Now         func() time.Time
+	// PublicBaseURL is the Hub portal's origin, which application notices
+	// link to.
+	PublicBaseURL string
 }
 
 type hubEmailPayload struct {
@@ -57,6 +60,11 @@ type hubEmailPayload struct {
 	// destination; unused by every other kind.
 	HomeTenant string `json:"home_tenant"`
 	SignInURL  string `json:"sign_in_url"`
+	// OrgName, OpeningTitle, and ApplicationURL carry an application
+	// notice's subject and link; unused by every other kind.
+	OrgName        string `json:"org_name"`
+	OpeningTitle   string `json:"opening_title"`
+	ApplicationURL string `json:"application_url"`
 }
 
 func (w *Worker) deliverHubEmail(ctx context.Context) error {
@@ -144,12 +152,14 @@ func (w *Worker) sendClaimedHubEmail(
 		kind,
 		row.PreferredLanguage,
 		email.TemplateData{
-			DisplayName: payload.DisplayName,
-			ActionURL:   actionURL,
-			ExpiresAt:   payload.ExpiresAt,
-			Code:        payload.Code,
-			LeadDays:    payload.LeadDays,
-			RegionLabel: payload.HomeTenant,
+			DisplayName:  payload.DisplayName,
+			ActionURL:    actionURL,
+			ExpiresAt:    payload.ExpiresAt,
+			Code:         payload.Code,
+			LeadDays:     payload.LeadDays,
+			RegionLabel:  payload.HomeTenant,
+			OrgName:      payload.OrgName,
+			OpeningTitle: payload.OpeningTitle,
 		},
 	)
 	if err != nil {
@@ -240,6 +250,16 @@ func hubEmailKind(
 			return "", "", fmt.Errorf("subscription ending lead is invalid")
 		}
 		return email.SubscriptionEnding, "", nil
+	case email.ApplicationStatusChanged, email.ApplicationInterviewScheduled,
+		email.ApplicationInterviewChanged, email.ApplicationInterviewCancelled,
+		email.ApplicationConsentRequested, email.ApplicationOfferExtended,
+		email.ApplicationOfferWithdrawn, email.ApplicationOfferExpiring,
+		email.ApplicationOfferExpired:
+		if payload.ApplicationURL == "" || payload.OrgName == "" ||
+			payload.OpeningTitle == "" {
+			return "", "", fmt.Errorf("%s email is missing its application", kind)
+		}
+		return email.Kind(kind), payload.ApplicationURL, nil
 	default:
 		return "", "", fmt.Errorf("unsupported email kind %q", kind)
 	}

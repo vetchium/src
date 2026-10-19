@@ -969,7 +969,16 @@ CREATE TABLE vetchium.hub_email_outbox (
         'professional-email-verification',
         'subscription-ending',
         'email-change-verification',
-        'email-changed'
+        'email-changed',
+        'application-status-changed',
+        'application-interview-scheduled',
+        'application-interview-changed',
+        'application-interview-cancelled',
+        'application-consent-requested',
+        'application-offer-extended',
+        'application-offer-withdrawn',
+        'application-offer-expiring',
+        'application-offer-expired'
     )),
     recipient_email_address text NOT NULL,
     preferred_language vetchium.hub_frontend_locale NOT NULL,
@@ -2230,7 +2239,7 @@ CREATE TYPE vetchium.org_application_history_action AS ENUM (
     'interview_reschedule_requested', 'interview_feedback_submitted',
     'assessment_recorded', 'background_check_consent_requested',
     'background_check_consent_given', 'background_check_consent_declined',
-    'background_check_result_recorded'
+    'background_check_result_recorded', 'removed'
 );
 CREATE TYPE vetchium.org_application_actor_kind AS ENUM (
     'applicant', 'org_user', 'system'
@@ -2276,6 +2285,15 @@ CREATE TABLE vetchium.org_applications (
     joined_recorded_at timestamptz,
     separated_on date,
     separated_recorded_at timestamptz,
+    -- Retention (HP-RET-001) replaces the snapshot with the display name
+    -- "Removed applicant" and clears everything personal; the numbers,
+    -- states, dates, and history stay.
+    removed_at timestamptz,
+    -- When the next unanswered interview starts: the instant the Hub
+    -- projection's interview_response action stops being true (HP-HUB-007).
+    -- Every projection event rewrites it; the refresh job re-reports the
+    -- application once it passes.
+    hub_refresh_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT org_applications_number_key
@@ -2317,6 +2335,16 @@ CREATE TABLE vetchium.org_applications (
 CREATE INDEX org_applications_stage_idx
     ON vetchium.org_applications (current_stage_id)
     WHERE current_stage_id IS NOT NULL;
+CREATE INDEX org_applications_hub_refresh_idx
+    ON vetchium.org_applications (hub_refresh_at)
+    WHERE hub_refresh_at IS NOT NULL;
+CREATE INDEX org_applications_retention_idx
+    ON vetchium.org_applications (updated_at)
+    WHERE removed_at IS NULL AND application_state IN
+        ('offer_declined', 'did_not_join', 'not_progressing', 'withdrawn');
+CREATE INDEX org_applications_joined_retention_idx
+    ON vetchium.org_applications (joined_on)
+    WHERE removed_at IS NULL AND application_state = 'joined';
 
 -- One row per stage of the Opening's pipeline for a candidacy, written when
 -- the applicant is shortlisted. Deleting a stage deletes its records.
@@ -2431,6 +2459,8 @@ CREATE TABLE vetchium.org_application_offers (
         ON DELETE SET NULL,
     extended_at timestamptz NOT NULL DEFAULT now(),
     ended_at timestamptz,
+    -- Set once the applicant was told the offer is about to expire.
+    expiring_notified_at timestamptz,
     CONSTRAINT org_application_offers_number_key
         UNIQUE (org_application_id, offer_number),
     CONSTRAINT org_application_offers_ended_check CHECK (
@@ -2776,6 +2806,26 @@ CREATE INDEX hub_application_projections_list_idx
     ON vetchium.hub_application_projections
     (hub_user_did, last_activity_at DESC, projection_id DESC);
 
+-- What a projection event tells the applicant (HP-GEN-006): one row per
+-- notification, written beside the projection and turned into an outbox
+-- email by the workers, which hold the outbox key. It names no interview,
+-- offer, or result content.
+CREATE TABLE vetchium.hub_application_notices (
+    notice_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
+        ON DELETE CASCADE,
+    notice text NOT NULL CHECK (notice IN (
+        'status_changed', 'interview_scheduled', 'interview_changed',
+        'interview_cancelled', 'consent_requested', 'offer_extended',
+        'offer_withdrawn', 'offer_expiring', 'offer_expired'
+    )),
+    org_display_name text NOT NULL CHECK (length(btrim(org_display_name)) > 0),
+    opening_title text NOT NULL CHECK (length(btrim(opening_title)) > 0),
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX hub_application_notices_queue_idx
+    ON vetchium.hub_application_notices (created_at, notice_id);
+
 -- AI assistance (agent-guides/ai.md). Model identifiers, prices, and packs
 -- belong to the tenant configuration, so none of these tables references a
 -- model catalog.
@@ -3024,6 +3074,7 @@ $$;
 -- +goose StatementEnd
 
 -- +goose Down
+DROP TABLE IF EXISTS vetchium.hub_application_notices;
 DROP TABLE IF EXISTS vetchium.hub_application_projections;
 DROP FUNCTION IF EXISTS vetchium.org_user_acts_on_applications(uuid, uuid);
 DROP FUNCTION IF EXISTS vetchium.cancel_upcoming_interviews(uuid[]);

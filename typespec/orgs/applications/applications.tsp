@@ -277,7 +277,8 @@ scalar StageStatus extends string;
     "background_check_consent_requested",
     "background_check_consent_given",
     "background_check_consent_declined",
-    "background_check_result_recorded"
+    "background_check_result_recorded",
+    "removed"
   ]
 )
 scalar ApplicationHistoryAction extends string;
@@ -298,6 +299,13 @@ model ApplicationSummary {
   version: ApplicationVersion;
   display_name: Vetchium.DisplayName;
   resident_country: Vetchium.CountryCode;
+
+  /**
+   * True once retention removed the applicant's personal data (HP-RET-001);
+   * `display_name` is then a placeholder the portal replaces with its own
+   * "Removed applicant" text, and `resident_country` is empty.
+   */
+  removed: boolean;
 
   /** The stage a candidacy is at. */
   current_stage?: Vetchium.Orgs.Hiring.PipelineStage;
@@ -440,6 +448,14 @@ model ApplicationDetail {
   state: ApplicationState;
   version: ApplicationVersion;
   snapshot: Vetchium.Hub.Profile.ApplicantSnapshot;
+
+  /**
+   * True once retention removed the personal data (HP-RET-001): the snapshot
+   * holds only a placeholder `display_name` (every other field empty), and
+   * the cover note, interviews, results, and offers are gone.
+   */
+  removed: boolean;
+
   cover_note?: ApplicationCoverNote;
   current_stage?: Vetchium.Orgs.Hiring.PipelineStage;
 

@@ -1,6 +1,7 @@
 package federation
 
 import (
+	"slices"
 	"strings"
 	"time"
 
@@ -274,6 +275,66 @@ type HubApplicationChangedPayload struct {
 	PendingActions    []hubapplications.PendingActionKind `json:"pending_actions"`
 	AppliedAt         time.Time                           `json:"applied_at"`
 	LastActivityAt    time.Time                           `json:"last_activity_at"`
+	// Notice asks for a notification email (HP-GEN-006); absent when the
+	// applicant caused the change.
+	Notice ApplicationNotice `json:"notice,omitempty"`
+}
+
+// ApplicationNotice is why an application changed, for the applicant's
+// notification email. It names no interview, offer, or result content.
+type ApplicationNotice string
+
+const (
+	NoticeStatusChanged      ApplicationNotice = "status_changed"
+	NoticeInterviewScheduled ApplicationNotice = "interview_scheduled"
+	NoticeInterviewChanged   ApplicationNotice = "interview_changed"
+	NoticeInterviewCancelled ApplicationNotice = "interview_cancelled"
+	NoticeConsentRequested   ApplicationNotice = "consent_requested"
+	NoticeOfferExtended      ApplicationNotice = "offer_extended"
+	NoticeOfferWithdrawn     ApplicationNotice = "offer_withdrawn"
+	NoticeOfferExpiring      ApplicationNotice = "offer_expiring"
+	NoticeOfferExpired       ApplicationNotice = "offer_expired"
+)
+
+var applicationNotices = []ApplicationNotice{
+	NoticeStatusChanged, NoticeInterviewScheduled, NoticeInterviewChanged,
+	NoticeInterviewCancelled, NoticeConsentRequested, NoticeOfferExtended,
+	NoticeOfferWithdrawn, NoticeOfferExpiring, NoticeOfferExpired,
+}
+
+// ApplicationNotices returns every notice this contract version defines.
+func ApplicationNotices() []ApplicationNotice {
+	return slices.Clone(applicationNotices)
+}
+
+func IsApplicationNotice(value ApplicationNotice) bool {
+	return slices.Contains(applicationNotices, value)
+}
+
+// HubApplicationRemovedKind is the event the Org's tenant enqueues when
+// retention removes an application, so the applicant's home tenant deletes
+// its projection row (HP-RET-001). Origin and aggregate are those of
+// HubApplicationChangedKind.
+const HubApplicationRemovedKind EventKind = "hub-application-removed"
+
+type HubApplicationRemovedPayload struct {
+	OrgDID            orgs.OrgDID                    `json:"org_did"`
+	OpeningNumber     openings.OpeningNumber         `json:"opening_number"`
+	ApplicationNumber applications.ApplicationNumber `json:"application_number"`
+}
+
+func (p HubApplicationRemovedPayload) Validate() []string {
+	fields := []string{}
+	if !orgs.IsOrgDID(p.OrgDID) {
+		fields = append(fields, "org_did")
+	}
+	if p.OpeningNumber < 1 {
+		fields = append(fields, "opening_number")
+	}
+	if !applications.IsApplicationNumber(p.ApplicationNumber) {
+		fields = append(fields, "application_number")
+	}
+	return fields
 }
 
 func (p HubApplicationChangedPayload) Validate() []string {
@@ -313,6 +374,9 @@ func (p HubApplicationChangedPayload) Validate() []string {
 	}
 	if p.LastActivityAt.Before(p.AppliedAt) {
 		fields = append(fields, "last_activity_at")
+	}
+	if p.Notice != "" && !IsApplicationNotice(p.Notice) {
+		fields = append(fields, "notice")
 	}
 	return fields
 }

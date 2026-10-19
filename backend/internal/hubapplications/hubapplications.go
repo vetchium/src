@@ -126,8 +126,44 @@ func EnqueueChange(
 }
 
 // EnqueueChanges is EnqueueChange for several applications, read together.
+// It asks for no email: use it for a change the applicant caused.
 func EnqueueChanges(
 	ctx context.Context, q sqlc.Querier, applicationIDs []pgtype.UUID,
+) error {
+	return EnqueueNotifiedChanges(ctx, q, applicationIDs, "")
+}
+
+// NoticeFor maps what an Org did to the email the applicant gets
+// (HP-GEN-006). Every action but the ones with their own email may change
+// the Hub status, which the applicant's tenant checks before it writes.
+func NoticeFor(
+	action sqlc.VetchiumOrgApplicationHistoryAction,
+) federationspec.ApplicationNotice {
+	switch action {
+	case sqlc.VetchiumOrgApplicationHistoryActionInterviewScheduled:
+		return federationspec.NoticeInterviewScheduled
+	case sqlc.VetchiumOrgApplicationHistoryActionInterviewChanged:
+		return federationspec.NoticeInterviewChanged
+	case sqlc.VetchiumOrgApplicationHistoryActionInterviewCancelled:
+		return federationspec.NoticeInterviewCancelled
+	case sqlc.VetchiumOrgApplicationHistoryActionBackgroundCheckConsentRequested:
+		return federationspec.NoticeConsentRequested
+	case sqlc.VetchiumOrgApplicationHistoryActionOfferExtended:
+		return federationspec.NoticeOfferExtended
+	case sqlc.VetchiumOrgApplicationHistoryActionOfferWithdrawn:
+		return federationspec.NoticeOfferWithdrawn
+	default:
+		return federationspec.NoticeStatusChanged
+	}
+}
+
+// EnqueueNotifiedChanges is EnqueueChanges asking the applicant's tenant to
+// email notice, if it is not empty. It also records when the next unanswered
+// interview starts, so the refresh job can re-report the application once
+// that time passes (HP-HUB-007).
+func EnqueueNotifiedChanges(
+	ctx context.Context, q sqlc.Querier, applicationIDs []pgtype.UUID,
+	notice federationspec.ApplicationNotice,
 ) error {
 	rows, err := q.GetHubApplicationChanges(ctx, applicationIDs)
 	if err != nil {
@@ -166,12 +202,51 @@ func EnqueueChanges(
 				),
 				AppliedAt:      row.CreatedAt.Time.UTC(),
 				LastActivityAt: row.UpdatedAt.Time.UTC(),
+				Notice:         notice,
 			},
 		}); err != nil {
 			return err
 		}
 	}
+	if err := q.SetHubApplicationRefreshTimes(ctx, applicationIDs); err != nil {
+		return fmt.Errorf("set application refresh times: %w", err)
+	}
 	return nil
+}
+
+// EnqueueRemoval tells each applicant's tenant to delete the projection of
+// an application retention just removed (HP-RET-001). Call it in the
+// transaction that removed them, with the versions they now have.
+func EnqueueRemoval(
+	ctx context.Context, q sqlc.Querier, removed Removal,
+) error {
+	_, err := events.Enqueue(ctx, q, events.Outgoing{
+		Kind: federationspec.HubApplicationRemovedKind,
+		Destination: events.Principal{
+			Type: directoryspec.PrincipalHubUser, DID: removed.HubUserDID,
+		},
+		AggregateType: federationspec.OrgApplicationAggregate,
+		AggregateID: AggregateID(
+			removed.OrgDID, removed.OpeningNumber, removed.ApplicationNumber,
+		),
+		AggregateVersion: int64(removed.Version),
+		Payload: federationspec.HubApplicationRemovedPayload{
+			OrgDID:        orgs.OrgDID(dbvalue.FormatUUID(removed.OrgDID)),
+			OpeningNumber: openings.OpeningNumber(removed.OpeningNumber),
+			ApplicationNumber: orgapplications.ApplicationNumber(
+				removed.ApplicationNumber),
+		},
+	})
+	return err
+}
+
+// Removal identifies an application retention removed.
+type Removal struct {
+	HubUserDID        pgtype.UUID
+	OrgDID            pgtype.UUID
+	OpeningNumber     int32
+	ApplicationNumber int32
+	Version           int32
 }
 
 // ReadForApplicant reads one application live at the Org's tenant, only if
@@ -257,6 +332,8 @@ func ReadForApplicant(
 func Register(registry *events.Registry) {
 	registry.Register(federationspec.HubApplicationChangedKind, Project,
 		OrgOrigin)
+	registry.Register(federationspec.HubApplicationRemovedKind, ProjectRemoval,
+		OrgOrigin)
 }
 
 // OrgOrigin is the origin of hub-application-changed: the Org whose
@@ -311,7 +388,18 @@ func Project(ctx context.Context, tx pgx.Tx, event events.Event) error {
 	for index, action := range payload.PendingActions {
 		actions[index] = string(action)
 	}
-	return sqlc.New(tx).UpsertHubApplicationProjection(ctx,
+	q := sqlc.New(tx)
+	previous, err := q.GetHubApplicationProjectionStatus(ctx,
+		sqlc.GetHubApplicationProjectionStatusParams{
+			HubUserDid: event.Destination.DID, OrgDid: orgDID,
+			OpeningNumber:     int32(payload.OpeningNumber),
+			ApplicationNumber: int32(payload.ApplicationNumber),
+		})
+	known := err == nil
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("read application projection: %w", err)
+	}
+	if err := q.UpsertHubApplicationProjection(ctx,
 		sqlc.UpsertHubApplicationProjectionParams{
 			ProjectionID: projectionID, HubUserDid: event.Destination.DID,
 			OrgDid: orgDID, OrgDomain: string(payload.OrgDomain),
@@ -323,5 +411,70 @@ func Project(ctx context.Context, tx pgx.Tx, event events.Event) error {
 			PendingActions:    actions,
 			AppliedAt:         dbvalue.Timestamp(payload.AppliedAt),
 			LastActivityAt:    dbvalue.Timestamp(payload.LastActivityAt),
+		}); err != nil {
+		return err
+	}
+	if !notifies(payload, known, previous) {
+		return nil
+	}
+	return q.InsertHubApplicationNotice(ctx,
+		sqlc.InsertHubApplicationNoticeParams{
+			HubUserDid: event.Destination.DID, Notice: string(payload.Notice),
+			OrgDisplayName: string(payload.OrgDisplayName),
+			OpeningTitle:   payload.OpeningTitle,
 		})
+}
+
+// notifies decides whether the event emails the applicant. A status_changed
+// notice emails only a real change of an application the applicant already
+// has, and never the applicant's own withdrawal.
+func notifies(
+	payload federationspec.HubApplicationChangedPayload, known bool,
+	previous string,
+) bool {
+	switch payload.Notice {
+	case "":
+		return false
+	case federationspec.NoticeStatusChanged:
+		return known && previous != string(payload.Status) &&
+			payload.Status != hubspec.Withdrawn
+	default:
+		return true
+	}
+}
+
+// ProjectRemoval deletes the applicant's projection row. A removal for a
+// row that is already gone is applied without effect.
+func ProjectRemoval(ctx context.Context, tx pgx.Tx, event events.Event) error {
+	if event.Destination.Type != directoryspec.PrincipalHubUser ||
+		event.AggregateType != federationspec.OrgApplicationAggregate {
+		return fmt.Errorf("hub-application-removed for %s %s",
+			event.Destination.Type, event.AggregateType)
+	}
+	var payload federationspec.HubApplicationRemovedPayload
+	decoder := json.NewDecoder(bytes.NewReader(event.Payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&payload); err != nil ||
+		decoder.Decode(&struct{}{}) != io.EOF {
+		return fmt.Errorf("decode hub-application-removed payload: %v", err)
+	}
+	if fields := payload.Validate(); len(fields) > 0 {
+		return fmt.Errorf("invalid hub-application-removed payload: %v", fields)
+	}
+	orgDID, err := dbvalue.ParseUUID(string(payload.OrgDID))
+	if err != nil {
+		return err
+	}
+	if event.AggregateID != AggregateID(orgDID,
+		int32(payload.OpeningNumber), int32(payload.ApplicationNumber)) {
+		return fmt.Errorf("hub-application-removed aggregate %q does not match its payload",
+			event.AggregateID)
+	}
+	_, err = sqlc.New(tx).DeleteHubApplicationProjection(ctx,
+		sqlc.DeleteHubApplicationProjectionParams{
+			HubUserDid: event.Destination.DID, OrgDid: orgDID,
+			OpeningNumber:     int32(payload.OpeningNumber),
+			ApplicationNumber: int32(payload.ApplicationNumber),
+		})
+	return err
 }

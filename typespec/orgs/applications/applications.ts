@@ -342,6 +342,7 @@ export const applicationHistoryActionValues = [
   "background_check_consent_given",
   "background_check_consent_declined",
   "background_check_result_recorded",
+  "removed",
 ] as const;
 
 export type ApplicationHistoryAction =
@@ -411,6 +412,8 @@ export interface ApplicationSummary {
   version: ApplicationVersion;
   display_name: DisplayName;
   resident_country: CountryCode;
+  /** Retention removed the applicant's personal data (HP-RET-001). */
+  removed: boolean;
   current_stage?: PipelineStage;
   submitted_at: string;
   updated_at: string;
@@ -506,6 +509,8 @@ export interface ApplicationDetail {
   state: ApplicationState;
   version: ApplicationVersion;
   snapshot: ApplicantSnapshot;
+  /** Retention removed the personal data (HP-RET-001). */
+  removed: boolean;
   cover_note?: ApplicationCoverNote;
   current_stage?: PipelineStage;
   stage_records: ApplicationStageRecord[];

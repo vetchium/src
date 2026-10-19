@@ -32,8 +32,20 @@ Work performed by another Org is in [`marketplace.md`](marketplace.md).
   conversations ([`marketplace.md`](marketplace.md) MKT-CNV).
 - **HP-GEN-006** The Hub user's home tenant sends their notification emails,
   triggered by projection events. An email names the Org and Opening title and
-  links to the application; it never carries interview, offer, or result
-  content.
+  links to the Hub Applications page; it never carries interview, offer, or
+  result content. The event's optional `notice` (`ApplicationNotice`) asks for
+  one: `applicationchanges.Record` derives it from the history action
+  (`hubapplications.NoticeFor`: interview scheduled, changed, cancelled;
+  consent requested; offer extended, withdrawn; any other Org action is
+  `status_changed`), the offer-expiry job sends `offer_expired`, and the
+  `refresh-hub-applications` job sends `offer_expiring` once, when a
+  `respond_by` more than a day after `extended_at` has under a day left.
+  Changes the applicant caused carry none. `Project` writes a
+  `hub_application_notices` row beside the projection; `status_changed`
+  counts only when the Hub status really changed and is not `withdrawn`. The
+  workers' `queue-hub-application-emails` job (they hold the outbox key)
+  turns each row into a `hub_email_outbox` row of kind
+  `application-<notice with hyphens>`, with templates in every Hub locale.
 - **HP-GEN-007** Every write appends a candidacy history entry and an audit
   event in the same transaction, carries the application's `version`
   (`org-application-version-conflict`), and takes an `Idempotency-Key`.
@@ -352,7 +364,12 @@ below.
   `offered` and its extended offer's `respond_by` is ahead. The detail also
   lists the interviews (HP-WRK-011). The list projection judges time when the
   event is written, so an interview or offer whose time passes unanswered
-  stays pending there until the next change; the live detail is exact.
+  stays pending there until the next change; the live detail is exact. An
+  offer's own expiry moves the application (HP-STA-013); for an interview,
+  `org_applications.hub_refresh_at` holds when the next unanswered interview
+  starts (every projection event rewrites it) and the workers'
+  `refresh-hub-applications` job re-reports the application then, bumping
+  `version` but not `updated_at`.
 
 ## Orgs Candidacies pages
 
@@ -378,8 +395,23 @@ below.
   feedback, results, notes, links, and offer letter, and through the outbox
   the Hub projection row. It keeps the applicant reference, numbers, states, dates, credit,
   and billable facts; portals show "Removed applicant".
+  "Becomes terminal" is `updated_at`, which a terminal application no longer
+  moves. The Hub projection goes by the `hub-application-removed` event
+  (`HubApplicationRemovedPayload`, origin and aggregate as
+  `hub-application-changed`, version the application's version after
+  removal); after it `get-my-application` answers `hub-application-not-found`.
 - **HP-RET-002** The deletion is one state-guarded statement per
-  application with audit, and enqueues the offer letter's object for deletion.
+  application (`RetainOrgApplication`) with history (`removed`, actor
+  `system`) and audit counts, and enqueues the offer letter's object for
+  deletion. It replaces the snapshot with `{"display_name": "Removed
+  applicant"}`, sets `removed_at`, bumps `version`, and deletes the
+  application's feedback, interviewers, interviews, assessments, background
+  check results and checks, and offers each by name, never by cascade alone.
+  Offers go with their letters (not kept); each letter becomes
+  `pending_delete` for `delete-offer-letters`. Readers return
+  `removed: true`, an empty `cover_note`, and no interviews, results, or
+  offers; the portals replace the placeholder name with their own localized
+  "Removed applicant". Name search skips removed applications.
 
 ## Problem types
 

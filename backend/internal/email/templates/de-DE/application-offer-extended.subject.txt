@@ -1,0 +1,1 @@
+{{.OrgName}} hat Ihnen ein Angebot gemacht

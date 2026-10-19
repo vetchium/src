@@ -1,0 +1,9 @@
+Hello {{.DisplayName}},
+
+{{.OrgName}} withdrew the offer for your application for "{{.OpeningTitle}}".
+
+Sign in to Vetchium to see the details.
+
+{{.ActionURL}}
+
+This email names no details on purpose; they are only shown after you sign in.

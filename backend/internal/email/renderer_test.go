@@ -121,3 +121,37 @@ func TestOrgRendererLoadsEveryLocalizedTemplate(t *testing.T) {
 		t.Fatal("the Hub renderer rendered an Org kind")
 	}
 }
+
+func TestApplicationNoticesNameOrgAndOpeningOnly(t *testing.T) {
+	renderer, err := NewRenderer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := TemplateData{
+		DisplayName: "Ada", OrgName: "Acme <Labs>", OpeningTitle: "Staff Engineer",
+		ActionURL: "https://hub.example/applications?region=sgp",
+	}
+	for _, locale := range hub.FrontendLocales() {
+		for _, kind := range []Kind{
+			ApplicationStatusChanged, ApplicationInterviewScheduled,
+			ApplicationInterviewChanged, ApplicationInterviewCancelled,
+			ApplicationConsentRequested, ApplicationOfferExtended,
+			ApplicationOfferWithdrawn, ApplicationOfferExpiring,
+			ApplicationOfferExpired,
+		} {
+			message, err := renderer.Render(kind, string(locale), data)
+			if err != nil {
+				t.Fatalf("render %s/%s: %v", locale, kind, err)
+			}
+			for _, part := range []string{message.TextBody, message.HTMLBody} {
+				if !strings.Contains(part, "Staff Engineer") ||
+					!strings.Contains(part, data.ActionURL) {
+					t.Errorf("%s/%s omitted the opening or link", locale, kind)
+				}
+			}
+			if !strings.Contains(message.HTMLBody, "Acme &lt;Labs&gt;") {
+				t.Errorf("%s/%s did not escape the Org name", locale, kind)
+			}
+		}
+	}
+}

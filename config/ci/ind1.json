@@ -19,6 +19,8 @@
     "advanceHubSubscriptionsTimer": "1s",
     "expireOrgOpeningsTimer": "1s",
     "expireApplicationOffersTimer": "1s",
+    "retainApplicationsTimer": "1s",
+    "refreshHubApplicationsTimer": "1s",
     "reconcileHubSignupTimer": "1s",
     "reconcileHubEmailChangeTimer": "1s",
     "driveFederationCommandsTimer": "1s",

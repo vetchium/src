@@ -58,7 +58,8 @@ func Record(
 		row.AuditRows != want {
 		return fmt.Errorf("incomplete application change record")
 	}
-	return hubapplications.EnqueueChanges(ctx, q, applicationIDs)
+	return hubapplications.EnqueueNotifiedChanges(ctx, q, applicationIDs,
+		hubapplications.NoticeFor(change.Action))
 }
 
 // MarkClosedOpeningNotProgressing applies a close request's bulk choice

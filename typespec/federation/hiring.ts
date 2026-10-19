@@ -270,6 +270,51 @@ export interface HubApplicationChangedPayload {
   pending_actions: PendingActionKind[];
   applied_at: string;
   last_activity_at: string;
+  /** Why the applicant gets an email (HP-GEN-006); absent when they caused it. */
+  notice?: ApplicationNotice;
+}
+
+export const applicationNoticeValues = [
+  "status_changed",
+  "interview_scheduled",
+  "interview_changed",
+  "interview_cancelled",
+  "consent_requested",
+  "offer_extended",
+  "offer_withdrawn",
+  "offer_expiring",
+  "offer_expired",
+] as const;
+
+export type ApplicationNotice = (typeof applicationNoticeValues)[number];
+
+export function isApplicationNotice(
+  value: unknown,
+): value is ApplicationNotice {
+  return (applicationNoticeValues as readonly unknown[]).includes(value);
+}
+
+/** The event retention enqueues so the projection row is deleted. */
+export const HubApplicationRemovedKind: EventKind = "hub-application-removed";
+
+export interface HubApplicationRemovedPayload {
+  org_did: OrgDID;
+  opening_number: OpeningNumber;
+  application_number: ApplicationNumber;
+}
+
+export function validateHubApplicationRemovedPayload(
+  payload: HubApplicationRemovedPayload,
+): string[] {
+  const fields: string[] = [];
+  if (!isOrgDID(payload.org_did)) fields.push("org_did");
+  if (!Number.isInteger(payload.opening_number) || payload.opening_number < 1) {
+    fields.push("opening_number");
+  }
+  if (!isApplicationNumber(payload.application_number)) {
+    fields.push("application_number");
+  }
+  return fields;
 }
 
 export function validateHubApplicationChangedPayload(
@@ -300,6 +345,9 @@ export function validateHubApplicationChangedPayload(
     Date.parse(payload.last_activity_at) < applied
   ) {
     fields.push("last_activity_at");
+  }
+  if (payload.notice !== undefined && !isApplicationNotice(payload.notice)) {
+    fields.push("notice");
   }
   return fields;
 }

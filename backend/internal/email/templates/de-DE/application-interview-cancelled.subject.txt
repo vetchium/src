@@ -1,0 +1,1 @@
+Ein Gespräch zu Ihrer Bewerbung bei {{.OrgName}} wurde abgesagt

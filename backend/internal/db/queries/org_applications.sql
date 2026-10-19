@@ -92,6 +92,7 @@ SELECT (SELECT count(*) FROM created) AS created_rows,
 SELECT a.application_number, a.application_state, a.version,
     COALESCE(a.snapshot ->> 'display_name', '')::text AS display_name,
     COALESCE(a.snapshot ->> 'resident_country', '')::text AS resident_country,
+    (a.removed_at IS NOT NULL)::boolean AS removed,
     stage.org_opening_stage_id AS stage_id, stage.name AS stage_name,
     stage.stage_kind, a.created_at, a.updated_at
 FROM vetchium.org_openings AS o
@@ -121,9 +122,10 @@ LEFT JOIN vetchium.org_applications AS a
         )))
     AND (sqlc.narg(stage_id)::uuid IS NULL
         OR a.current_stage_id = sqlc.narg(stage_id)::uuid)
-    AND (sqlc.narg(name_query)::text IS NULL
-        OR strpos(lower(a.snapshot ->> 'display_name'),
-            lower(sqlc.narg(name_query)::text)) > 0)
+    AND (sqlc.narg(name_query)::text IS NULL OR (
+        a.removed_at IS NULL
+        AND strpos(lower(a.snapshot ->> 'display_name'),
+            lower(sqlc.narg(name_query)::text)) > 0))
     AND (sqlc.narg(after_application_number)::integer IS NULL
         OR a.application_number < sqlc.narg(after_application_number)::integer)
 LEFT JOIN vetchium.org_opening_stages AS stage
@@ -138,7 +140,7 @@ LIMIT sqlc.arg(page_limit);
 -- for those who read all of the Opening's applications (HP-WRK-008).
 -- name: GetOrgApplication :one
 SELECT a.application_number, a.application_state, a.version, a.snapshot,
-    a.cover_note, stage.org_opening_stage_id AS stage_id,
+    (a.removed_at IS NOT NULL)::boolean AS removed, a.cover_note, stage.org_opening_stage_id AS stage_id,
     stage.name AS stage_name, stage.stage_kind, a.created_at, a.updated_at,
     a.joined_on, a.separated_on,
     COALESCE((
@@ -537,6 +539,7 @@ LEFT JOIN LATERAL (
 ) AS offer ON offer.offer_status <> 'withdrawn'
 WHERE d.domain = sqlc.arg(domain)
   AND d.domain_state IN ('verified', 'failing', 'releasing')
+  AND a.removed_at IS NULL
   AND o.opening_number = sqlc.arg(opening_number)::integer
   AND a.application_number = sqlc.arg(application_number)::integer
   AND applicant.hub_user_did = sqlc.arg(hub_user_did);
@@ -548,3 +551,19 @@ SELECT d.org_did
 FROM vetchium.org_domains AS d
 WHERE d.domain = sqlc.arg(domain)
   AND d.domain_state IN ('verified', 'failing', 'releasing');
+
+-- Records when the next unanswered interview starts, which is when the Hub
+-- projection's interview_response action stops being true (HP-HUB-007). It
+-- changes neither the version nor the update time, so it never conflicts with
+-- an Org user's write; call it beside the audited change that enqueued the
+-- projection event.
+-- name: SetHubApplicationRefreshTimes :exec
+UPDATE vetchium.org_applications AS a
+SET hub_refresh_at = (
+    SELECT min(i.starts_at)
+    FROM vetchium.org_interviews AS i
+    WHERE i.org_application_id = a.org_application_id
+      AND i.interview_state = 'scheduled' AND i.starts_at > now()
+      AND i.applicant_response = 'pending'
+)
+WHERE a.org_application_id = ANY(sqlc.arg(application_ids)::uuid[]);

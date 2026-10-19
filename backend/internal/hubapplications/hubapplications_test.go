@@ -181,3 +181,53 @@ func TestOrgOriginIsThePayloadsOrg(t *testing.T) {
 		}
 	}
 }
+
+func TestNoticeForMapsOrgActionsToEmails(t *testing.T) {
+	t.Parallel()
+	for action, want := range map[sqlc.VetchiumOrgApplicationHistoryAction]federationspec.ApplicationNotice{
+		sqlc.VetchiumOrgApplicationHistoryActionInterviewScheduled:              federationspec.NoticeInterviewScheduled,
+		sqlc.VetchiumOrgApplicationHistoryActionInterviewChanged:                federationspec.NoticeInterviewChanged,
+		sqlc.VetchiumOrgApplicationHistoryActionInterviewCancelled:              federationspec.NoticeInterviewCancelled,
+		sqlc.VetchiumOrgApplicationHistoryActionBackgroundCheckConsentRequested: federationspec.NoticeConsentRequested,
+		sqlc.VetchiumOrgApplicationHistoryActionOfferExtended:                   federationspec.NoticeOfferExtended,
+		sqlc.VetchiumOrgApplicationHistoryActionOfferWithdrawn:                  federationspec.NoticeOfferWithdrawn,
+		sqlc.VetchiumOrgApplicationHistoryActionShortlisted:                     federationspec.NoticeStatusChanged,
+		sqlc.VetchiumOrgApplicationHistoryActionNotProgressing:                  federationspec.NoticeStatusChanged,
+		sqlc.VetchiumOrgApplicationHistoryActionAssessmentRecorded:              federationspec.NoticeStatusChanged,
+	} {
+		if got := NoticeFor(action); got != want {
+			t.Errorf("NoticeFor(%s) = %q, want %q", action, got, want)
+		}
+		if !federationspec.IsApplicationNotice(NoticeFor(action)) {
+			t.Errorf("NoticeFor(%s) is not a contract notice", action)
+		}
+	}
+}
+
+func TestNotifiesOnlyForRealChangesTheApplicantDidNotCause(t *testing.T) {
+	t.Parallel()
+	status := func(notice federationspec.ApplicationNotice, status hubspec.ApplicationStatus) federationspec.HubApplicationChangedPayload {
+		return federationspec.HubApplicationChangedPayload{
+			Notice: notice, Status: status,
+		}
+	}
+	for _, test := range []struct {
+		name     string
+		payload  federationspec.HubApplicationChangedPayload
+		known    bool
+		previous string
+		want     bool
+	}{
+		{"no notice", status("", hubspec.InReview), true, "applied", false},
+		{"status changed", status(federationspec.NoticeStatusChanged, hubspec.InReview), true, "applied", true},
+		{"status repeated", status(federationspec.NoticeStatusChanged, hubspec.InReview), true, "in_review", false},
+		{"first projection", status(federationspec.NoticeStatusChanged, hubspec.InReview), false, "", false},
+		{"withdrawn", status(federationspec.NoticeStatusChanged, hubspec.Withdrawn), true, "applied", false},
+		{"interview", status(federationspec.NoticeInterviewScheduled, hubspec.Interviewing), true, "interviewing", true},
+		{"offer expiring", status(federationspec.NoticeOfferExpiring, hubspec.Offer), true, "offer", true},
+	} {
+		if got := notifies(test.payload, test.known, test.previous); got != test.want {
+			t.Errorf("%s: notifies = %v, want %v", test.name, got, test.want)
+		}
+	}
+}

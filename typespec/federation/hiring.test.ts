@@ -4,9 +4,11 @@ import test from "node:test";
 import { isCommandKind } from "./commands.ts";
 import { isAggregateType, isEventKind } from "./events.ts";
 import {
+  applicationNoticeValues,
   HubAcceptInterviewKind,
   HubAcceptOfferKind,
   HubApplicationChangedKind,
+  HubApplicationRemovedKind,
   HubApplyKind,
   type HubApplyPayload,
   HubDeclineConsentKind,
@@ -19,6 +21,7 @@ import {
   OrgApplicationAggregate,
   validateHubAcceptInterviewPayload,
   validateHubApplicationChangedPayload,
+  validateHubApplicationRemovedPayload,
   validateHubApplyPayload,
   validateHubBackgroundCheckConsentPayload,
   validateHubOfferResponsePayload,
@@ -116,6 +119,54 @@ test("hub-application-changed validates its projection payload", () => {
       last_activity_at: "2026-09-30T00:00:00Z",
     }),
     ["org_did", "status", "pending_actions", "last_activity_at"],
+  );
+});
+
+test("hub-application-changed validates its notice", () => {
+  const base = {
+    org_did: "01900000-0000-7000-8000-000000000002",
+    org_domain: "example.com",
+    org_display_name: "Example",
+    opening_number: 1,
+    opening_title: "Engineer",
+    application_number: 1,
+    status: "applied" as const,
+    pending_actions: [],
+    applied_at: "2026-10-01T00:00:00Z",
+    last_activity_at: "2026-10-01T00:00:00Z",
+  };
+  for (const notice of applicationNoticeValues) {
+    assert.deepEqual(
+      validateHubApplicationChangedPayload({ ...base, notice }),
+      [],
+    );
+  }
+  assert.deepEqual(
+    validateHubApplicationChangedPayload({
+      ...base,
+      notice: "offer_text" as never,
+    }),
+    ["notice"],
+  );
+});
+
+test("hub-application-removed validates its payload", () => {
+  assert.equal(isEventKind(HubApplicationRemovedKind), true);
+  assert.deepEqual(
+    validateHubApplicationRemovedPayload({
+      org_did: "01900000-0000-7000-8000-000000000002",
+      opening_number: 1,
+      application_number: 1,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateHubApplicationRemovedPayload({
+      org_did: "x",
+      opening_number: 0,
+      application_number: 0,
+    }),
+    ["org_did", "opening_number", "application_number"],
   );
 });
 

@@ -79,6 +79,8 @@ type Workers struct {
 	AdvanceHubSubscriptionsTimer time.Duration
 	ExpireOrgOpeningsTimer       time.Duration
 	ExpireApplicationOffersTimer time.Duration
+	RetainApplicationsTimer      time.Duration
+	RefreshHubApplicationsTimer  time.Duration
 	ReconcileHubSignupTimer      time.Duration
 	ReconcileHubEmailChangeTimer time.Duration
 	DriveFederationCommandsTimer time.Duration
@@ -279,6 +281,8 @@ type fileWorkers struct {
 	AdvanceHubSubscriptionsTimer string `json:"advanceHubSubscriptionsTimer"`
 	ExpireOrgOpeningsTimer       string `json:"expireOrgOpeningsTimer"`
 	ExpireApplicationOffersTimer string `json:"expireApplicationOffersTimer"`
+	RetainApplicationsTimer      string `json:"retainApplicationsTimer"`
+	RefreshHubApplicationsTimer  string `json:"refreshHubApplicationsTimer"`
 	ReconcileHubSignupTimer      string `json:"reconcileHubSignupTimer"`
 	ReconcileHubEmailChangeTimer string `json:"reconcileHubEmailChangeTimer"`
 	DriveFederationCommandsTimer string `json:"driveFederationCommandsTimer"`
@@ -678,6 +682,19 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	retainApplicationsTimer, err := positiveDuration(
+		"workers.retainApplicationsTimer", raw.Workers.RetainApplicationsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	refreshHubApplicationsTimer, err := positiveDuration(
+		"workers.refreshHubApplicationsTimer",
+		raw.Workers.RefreshHubApplicationsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	reconcileHubSignupTimer, err := positiveDuration(
 		"workers.reconcileHubSignupTimer",
 		raw.Workers.ReconcileHubSignupTimer,
@@ -761,6 +778,8 @@ func LoadFile(path string) (Config, error) {
 			AdvanceHubSubscriptionsTimer: advanceHubSubscriptionsTimer,
 			ExpireOrgOpeningsTimer:       expireOrgOpeningsTimer,
 			ExpireApplicationOffersTimer: expireApplicationOffersTimer,
+			RetainApplicationsTimer:      retainApplicationsTimer,
+			RefreshHubApplicationsTimer:  refreshHubApplicationsTimer,
 			ReconcileHubSignupTimer:      reconcileHubSignupTimer,
 			ReconcileHubEmailChangeTimer: reconcileHubEmailChangeTimer,
 			DriveFederationCommandsTimer: driveFederationCommandsTimer,

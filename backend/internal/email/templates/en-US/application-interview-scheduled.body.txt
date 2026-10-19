@@ -1,0 +1,9 @@
+Hello {{.DisplayName}},
+
+An interview was scheduled for your application for "{{.OpeningTitle}}" at {{.OrgName}}. Please respond to it.
+
+Sign in to Vetchium to see the details.
+
+{{.ActionURL}}
+
+This email names no details on purpose; they are only shown after you sign in.

@@ -1,0 +1,9 @@
+Hallo {{.DisplayName}},
+
+Ihr Angebot von {{.OrgName}} für „{{.OpeningTitle}}“ ist abgelaufen, weil es nicht rechtzeitig beantwortet wurde.
+
+Melden Sie sich bei Vetchium an, um die Einzelheiten zu sehen.
+
+{{.ActionURL}}
+
+Diese E-Mail nennt bewusst keine Einzelheiten; sie werden erst nach der Anmeldung angezeigt.

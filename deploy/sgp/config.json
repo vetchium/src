@@ -20,6 +20,8 @@
     "advanceHubSubscriptionsTimer": "1m",
     "expireOrgOpeningsTimer": "5m",
     "expireApplicationOffersTimer": "5m",
+    "retainApplicationsTimer": "1h",
+    "refreshHubApplicationsTimer": "5m",
     "reconcileHubSignupTimer": "10s",
     "reconcileHubEmailChangeTimer": "10s",
     "driveFederationCommandsTimer": "10s",

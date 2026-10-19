@@ -24,10 +24,12 @@ func TestNewUsesConfiguredJobInterval(t *testing.T) {
 		AdvanceHubSubscriptionsTimer: interval,
 		ExpireOrgOpeningsTimer:       interval,
 		ExpireApplicationOffersTimer: interval,
+		RetainApplicationsTimer:      interval,
+		RefreshHubApplicationsTimer:  interval,
 	}, nil, nil, nil)
 
-	if len(worker.jobs) != 6 {
-		t.Fatalf("jobs = %d, want 6", len(worker.jobs))
+	if len(worker.jobs) != 8 {
+		t.Fatalf("jobs = %d, want 8", len(worker.jobs))
 	}
 	for _, job := range worker.jobs {
 		if got := job.interval; got != interval {

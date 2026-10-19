@@ -84,6 +84,42 @@ func TestHubWithdrawAndProjectionKinds(t *testing.T) {
 	}
 }
 
+func TestHubApplicationNoticeAndRemovedPayload(t *testing.T) {
+	t.Parallel()
+	changed := HubApplicationChangedPayload{
+		OrgDID: "01900000-0000-7000-8000-000000000002", OrgDomain: "example.com",
+		OrgDisplayName: "Example", OpeningNumber: 1, OpeningTitle: "Engineer",
+		ApplicationNumber: 1, Status: hubapplications.Applied,
+		PendingActions: []hubapplications.PendingActionKind{},
+		AppliedAt:      time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC),
+		LastActivityAt: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC),
+	}
+	for _, notice := range append(ApplicationNotices(), "") {
+		changed.Notice = notice
+		if got := changed.Validate(); len(got) != 0 {
+			t.Fatalf("notice %q rejected: %v", notice, got)
+		}
+	}
+	changed.Notice = "offer_text"
+	if got := changed.Validate(); !slices.Equal(got, []string{"notice"}) {
+		t.Fatalf("unknown notice fields = %v", got)
+	}
+	if !IsEventKind(HubApplicationRemovedKind) {
+		t.Fatalf("kind = %q", HubApplicationRemovedKind)
+	}
+	removed := HubApplicationRemovedPayload{
+		OrgDID:        "01900000-0000-7000-8000-000000000002",
+		OpeningNumber: 1, ApplicationNumber: 1,
+	}
+	if got := removed.Validate(); len(got) != 0 {
+		t.Fatalf("valid removal rejected: %v", got)
+	}
+	want := []string{"org_did", "opening_number", "application_number"}
+	if got := (HubApplicationRemovedPayload{}).Validate(); !slices.Equal(got, want) {
+		t.Fatalf("fields = %v, want %v", got, want)
+	}
+}
+
 func TestHubWithdrawPayloadValidation(t *testing.T) {
 	t.Parallel()
 	good := HubWithdrawPayload{

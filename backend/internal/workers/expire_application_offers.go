@@ -7,6 +7,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	federationspec "github.com/vetchium/src/typespec/federation"
+
 	"backend/internal/db/sqlc"
 	"backend/internal/hubapplications"
 )
@@ -63,7 +65,9 @@ func expireOfferBatch(
 		ids = append(ids, row.OrgApplicationID)
 	}
 	if len(ids) > 0 {
-		if err := hubapplications.EnqueueChanges(ctx, q, ids); err != nil {
+		if err := hubapplications.EnqueueNotifiedChanges(
+			ctx, q, ids, federationspec.NoticeOfferExpired,
+		); err != nil {
 			return 0, err
 		}
 	}

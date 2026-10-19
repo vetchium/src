@@ -57,6 +57,7 @@ type Worker struct {
 	offerLetterStore             OfferLetterStore
 	offerLetterQueries           offerLetterDeletionQueries
 	offerExpiryDB                *pgxpool.Pool
+	applicationDB                *pgxpool.Pool
 	pictureDeletionInterval      time.Duration
 	aliasReleaseQueries          aliasReleaseQueries
 	aliasReleaseDirectory        AliasReleaseDirectory
@@ -103,6 +104,7 @@ func New(
 		logoQueries:                  queries,
 		offerLetterQueries:           queries,
 		offerExpiryDB:                db,
+		applicationDB:                db,
 		pictureDeletionInterval:      config.PruneEphemeralDataTimer,
 		aliasReleaseQueries:          queries,
 		aliasReleaseInterval:         config.ReconcileHubSignupTimer,
@@ -143,6 +145,16 @@ func New(
 			interval: config.ExpireApplicationOffersTimer,
 			run:      w.expireApplicationOffers,
 		},
+		{
+			name:     "retain-applications",
+			interval: config.RetainApplicationsTimer,
+			run:      w.retainApplications,
+		},
+		{
+			name:     "refresh-hub-applications",
+			interval: config.RefreshHubApplicationsTimer,
+			run:      w.refreshHubApplications,
+		},
 	}
 	if hubEmailDelivery != nil {
 		w.hubEmailDelivery = hubEmailDelivery
@@ -150,6 +162,11 @@ func New(
 			name:     "deliver-hub-email",
 			interval: config.DeliverHubEmailTimer,
 			run:      w.deliverHubEmail,
+		})
+		w.jobs = append(w.jobs, periodicJob{
+			name:     "queue-hub-application-emails",
+			interval: config.DeliverHubEmailTimer,
+			run:      w.queueHubApplicationEmails,
 		})
 		// Shares the subscription advance job's cadence: both are periodic
 		// Hub subscription bookkeeping, and this one also needs the outbox

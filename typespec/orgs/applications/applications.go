@@ -115,6 +115,8 @@ const (
 	ConsentGivenAction          ApplicationHistoryAction = "background_check_consent_given"
 	ConsentDeclinedAction       ApplicationHistoryAction = "background_check_consent_declined"
 	BackgroundCheckResultAction ApplicationHistoryAction = "background_check_result_recorded"
+
+	RemovedAction ApplicationHistoryAction = "removed"
 )
 
 const (
@@ -519,6 +521,7 @@ type ApplicationSummary struct {
 	Version           ApplicationVersion    `json:"version"`
 	DisplayName       common.DisplayName    `json:"display_name"`
 	ResidentCountry   common.CountryCode    `json:"resident_country"`
+	Removed           bool                  `json:"removed"`
 	CurrentStage      *hiring.PipelineStage `json:"current_stage,omitempty"`
 	SubmittedAt       time.Time             `json:"submitted_at"`
 	UpdatedAt         time.Time             `json:"updated_at"`
@@ -610,6 +613,7 @@ type ApplicationDetail struct {
 	State             ApplicationState          `json:"state"`
 	Version           ApplicationVersion        `json:"version"`
 	Snapshot          profile.ApplicantSnapshot `json:"snapshot"`
+	Removed           bool                      `json:"removed"`
 	CoverNote         *ApplicationCoverNote     `json:"cover_note,omitempty"`
 	CurrentStage      *hiring.PipelineStage     `json:"current_stage,omitempty"`
 	StageRecords      []ApplicationStageRecord  `json:"stage_records"`
