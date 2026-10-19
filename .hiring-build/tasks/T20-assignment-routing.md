@@ -41,3 +41,5 @@ Consumers attach providers to Openings and stages and route candidacies.
 
 - Add the HP-ORG-001 "routed provider" filter to `list-applications`
   (T06 left it out because routes did not exist).
+- Withdrawal (T07 `hub-withdraw`) and every other exit from the pipeline
+  must end provider access (HP-STA-002).

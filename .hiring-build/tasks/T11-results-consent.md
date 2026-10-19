@@ -40,3 +40,5 @@ gating.
 - Extend the HP-ORG-001 "pending applicant action" filter on
   `list-applications` (added in T10) with background-check consent and,
   if missing, the offer response.
+- Add background-check consent to the Hub pending actions (projection and
+  live detail).

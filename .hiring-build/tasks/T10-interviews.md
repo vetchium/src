@@ -51,3 +51,7 @@ In-house interviews run from scheduling to feedback, with Hub responses.
 - Add the HP-ORG-001 "pending applicant action" filter to
   `list-applications` for interview responses; T11 extends it for consent
   and T09's offer response if not already present.
+- Withdrawal (T07 `hub-withdraw`) and every other exit from the pipeline
+  must cancel upcoming interviews (HP-STA-002).
+- Add interview responses to the Hub pending actions (projection and live
+  detail).

@@ -42,3 +42,16 @@ and refused for others, Hub user in another region.
 ## Acceptance
 
 Offers run from extension to acceptance, decline, withdrawal, or expiry.
+
+## Carried over
+
+- Security (from T07): an event receiver never checks that the sending
+  tenant homes the principal the event is about, so a peer could forge
+  projection rows. Mirror T07's command `Initiator` check generically for
+  events in `backend/internal/federation/events`: each event kind names its
+  origin principal; the receiver verifies it is homed at the source tenant
+  (peer certificate, or local) through the directory before applying, and
+  refuses a mismatch deterministically. Apply it to
+  `hub-application-changed`, add one bullet to `federation.md`, test it, and
+  remove the related item T07 added to `docs/todo.md`.
+- Add `offer` to the Hub pending actions (projection and live detail).
