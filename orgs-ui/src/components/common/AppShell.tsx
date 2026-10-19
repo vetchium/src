@@ -1,4 +1,5 @@
 import {
+  BranchesOutlined,
   CreditCardOutlined,
   FileTextOutlined,
   HomeOutlined,
@@ -16,6 +17,7 @@ import {
   holds,
   ManageAI,
   ManageBilling,
+  ManageOpenings,
   ManageUsers,
   Superadmin,
 } from "typespec/orgs/authorization/types";
@@ -61,60 +63,90 @@ export function AppShell() {
           icon: <HomeOutlined />,
           label: t("navigation.home"),
         },
-        ...(me !== undefined && holds(me.permissions, ManageUsers)
-          ? [
-              {
-                key: paths.members,
-                icon: <TeamOutlined />,
-                label: t("navigation.members"),
-              },
-            ]
-          : []),
+        // Later hiring screens (such as Find providers) join this group.
         {
-          key: paths.openings,
-          icon: <FileTextOutlined />,
-          label: t("navigation.openings"),
+          type: "group",
+          key: "hiring",
+          label: t("navigation.hiring"),
+          children: [
+            {
+              key: paths.openings,
+              icon: <FileTextOutlined />,
+              label: t("navigation.openings"),
+            },
+            ...(me !== undefined && holds(me.permissions, ManageOpenings)
+              ? [
+                  {
+                    key: paths.pipelineTemplates,
+                    icon: <BranchesOutlined />,
+                    label: t("navigation.pipelineTemplates"),
+                  },
+                ]
+              : []),
+          ],
         },
-        ...(me !== undefined && holds(me.permissions, ManageAI)
-          ? [
-              {
-                key: paths.ai,
-                icon: <VetchiumAIIcon />,
-                label: t("navigation.ai"),
-              },
-            ]
-          : []),
-        ...(me !== undefined && holds(me.permissions, Superadmin)
-          ? [
-              {
-                key: paths.settings,
-                icon: <SettingOutlined />,
-                label: t("navigation.settings"),
-              },
-              {
-                key: paths.organizationSecurity,
-                icon: <SafetyOutlined />,
-                label: t("navigation.organizationSecurity"),
-              },
-            ]
-          : []),
-        ...(me !== undefined && holds(me.permissions, ManageBilling)
-          ? [
-              {
-                key: paths.plans,
-                icon: <CreditCardOutlined />,
-                label: t("navigation.plans"),
-              },
-            ]
-          : []),
         {
-          key: paths.security,
-          icon: <SafetyOutlined />,
-          label: t("navigation.security"),
+          type: "group",
+          key: "organization",
+          label: t("navigation.organization"),
+          children: [
+            ...(me !== undefined && holds(me.permissions, ManageUsers)
+              ? [
+                  {
+                    key: paths.members,
+                    icon: <TeamOutlined />,
+                    label: t("navigation.members"),
+                  },
+                ]
+              : []),
+            ...(me !== undefined && holds(me.permissions, ManageAI)
+              ? [
+                  {
+                    key: paths.ai,
+                    icon: <VetchiumAIIcon />,
+                    label: t("navigation.ai"),
+                  },
+                ]
+              : []),
+            ...(me !== undefined && holds(me.permissions, Superadmin)
+              ? [
+                  {
+                    key: paths.settings,
+                    icon: <SettingOutlined />,
+                    label: t("navigation.settings"),
+                  },
+                  {
+                    key: paths.organizationSecurity,
+                    icon: <SafetyOutlined />,
+                    label: t("navigation.organizationSecurity"),
+                  },
+                ]
+              : []),
+            ...(me !== undefined && holds(me.permissions, ManageBilling)
+              ? [
+                  {
+                    key: paths.plans,
+                    icon: <CreditCardOutlined />,
+                    label: t("navigation.plans"),
+                  },
+                ]
+              : []),
+            {
+              key: paths.security,
+              icon: <SafetyOutlined />,
+              label: t("navigation.security"),
+            },
+          ],
         },
       ];
+  const navigationKeys = navigationItems.flatMap((item) => {
+    if (item === null) return [];
+    const children =
+      "children" in item && Array.isArray(item.children) ? item.children : [];
+    return children.length > 0 ? children : [item];
+  });
   const selectedKey =
-    navigationItems
+    navigationKeys
       .map((item) => String(item?.key))
       .find(
         (key) =>

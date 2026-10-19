@@ -59,6 +59,13 @@ const OpeningEditorPage = lazy(() =>
     default: OpeningEditorPage,
   })),
 );
+const PipelineTemplatesPage = lazy(() =>
+  import("../pages/PipelineTemplatesPage").then(
+    ({ PipelineTemplatesPage }) => ({
+      default: PipelineTemplatesPage,
+    }),
+  ),
+);
 const OpeningEditor = lazy(() =>
   import("../features/openings/OpeningEditor").then(({ OpeningEditor }) => ({
     default: OpeningEditor,
@@ -295,6 +302,16 @@ export function App() {
                 element={
                   <Page>
                     <OpeningEditorPage />
+                  </Page>
+                }
+              />
+            </Route>
+            <Route element={<PermissionRoute permission={ManageOpenings} />}>
+              <Route
+                path={paths.pipelineTemplates}
+                element={
+                  <Page>
+                    <PipelineTemplatesPage />
                   </Page>
                 }
               />

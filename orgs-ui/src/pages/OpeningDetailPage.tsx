@@ -12,12 +12,13 @@ import {
   Input,
   Modal,
   Space,
+  Tabs,
   Tag,
   Typography,
 } from "antd";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import type { PaginationKey } from "typespec/common/pagination";
 import {
   ApproveOpenings,
@@ -52,6 +53,10 @@ import {
   useRequestOpeningChangeMutation,
   useWithdrawOpeningRequestMutation,
 } from "../features/openings/queries";
+import { PipelineTab } from "../features/pipelines/PipelineTab";
+
+const overviewTab = "overview";
+const pipelineTab = "pipeline";
 
 interface PageError {
   title: string;
@@ -96,6 +101,7 @@ export function OpeningDetailPage() {
   const { t, i18n } = useTranslation();
   const { message, modal } = App.useApp();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { dateTime: formatDateTime } = useDateTimeFormat();
   const [pageKeys, setPageKeys] = useState<Array<PaginationKey | undefined>>([
     undefined,
@@ -337,58 +343,8 @@ export function OpeningDetailPage() {
         }
       />
     );
-  return (
+  const overview = (
     <Space orientation="vertical" size="large" className="full-width">
-      <title>{t("openings.detailTitle", { number })}</title>
-      <OpeningsBreadcrumb opening={opening} />
-      <Flex justify="space-between" align="center" wrap gap="small">
-        <div>
-          <Typography.Title level={1}>
-            {openingTitle(opening) ?? t("openings.untitled")}{" "}
-            <Typography.Text type="secondary">#{number}</Typography.Text>
-          </Typography.Title>
-        </div>
-        <Flex gap="small" wrap>
-          {editable && (
-            <Link to={paths.openingEdit(number)}>
-              <Button icon={<EditOutlined />} aria-label={t("openings.edit")}>
-                {t("openings.edit")}
-              </Button>
-            </Link>
-          )}
-          {canManage && opening.state !== "discarded" && (
-            <Button
-              icon={<CopyOutlined />}
-              aria-label={t("openings.duplicate")}
-              onClick={() => void doDuplicate()}
-              loading={duplicate.isPending}
-            >
-              {t("openings.duplicate")}
-            </Button>
-          )}
-          {editable && discardable && opening.state === "draft" && (
-            <Button
-              danger
-              icon={<DeleteOutlined />}
-              aria-label={t("openings.discardDraft")}
-              onClick={() => confirmDiscard(false)}
-            >
-              {t("openings.discardDraft")}
-            </Button>
-          )}
-          {editable &&
-            opening.pending_request?.kind !== "revise" &&
-            opening.state !== "draft" &&
-            opening.working_content && (
-              <Button danger onClick={() => confirmDiscard(true)}>
-                {t("openings.discardWorking")}
-              </Button>
-            )}
-        </Flex>
-      </Flex>
-      {error && action === undefined && (
-        <ErrorAlert error={error} onClose={() => setError(undefined)} />
-      )}
       {(canManage || canApprove) && (
         <Card title={t("openings.actions.title")}>
           <Flex vertical gap="middle">
@@ -652,6 +608,103 @@ export function OpeningDetailPage() {
           </Button>
         </Flex>
       </Card>
+    </Space>
+  );
+  // Later tasks add their tabs here, each shown only to who may use it.
+  const tabs: Array<{ key: string; label: string; children: ReactNode }> = [
+    {
+      key: overviewTab,
+      label: t("openings.tabs.overview"),
+      children: overview,
+    },
+    ...(canManage
+      ? [
+          {
+            key: pipelineTab,
+            label: t("openings.tabs.pipeline"),
+            children: (
+              <PipelineTab
+                key={number}
+                openingNumber={number}
+                editable={teamEditable}
+              />
+            ),
+          },
+        ]
+      : []),
+  ];
+  const requestedTab = searchParams.get("tab");
+  const activeTab = tabs.some((tab) => tab.key === requestedTab)
+    ? (requestedTab as string)
+    : overviewTab;
+
+  return (
+    <Space orientation="vertical" size="large" className="full-width">
+      <title>{t("openings.detailTitle", { number })}</title>
+      <OpeningsBreadcrumb opening={opening} />
+      <Flex justify="space-between" align="center" wrap gap="small">
+        <div>
+          <Typography.Title level={1}>
+            {openingTitle(opening) ?? t("openings.untitled")}{" "}
+            <Typography.Text type="secondary">#{number}</Typography.Text>
+          </Typography.Title>
+        </div>
+        <Flex gap="small" wrap>
+          {editable && (
+            <Link to={paths.openingEdit(number)}>
+              <Button icon={<EditOutlined />} aria-label={t("openings.edit")}>
+                {t("openings.edit")}
+              </Button>
+            </Link>
+          )}
+          {canManage && opening.state !== "discarded" && (
+            <Button
+              icon={<CopyOutlined />}
+              aria-label={t("openings.duplicate")}
+              onClick={() => void doDuplicate()}
+              loading={duplicate.isPending}
+            >
+              {t("openings.duplicate")}
+            </Button>
+          )}
+          {editable && discardable && opening.state === "draft" && (
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              aria-label={t("openings.discardDraft")}
+              onClick={() => confirmDiscard(false)}
+            >
+              {t("openings.discardDraft")}
+            </Button>
+          )}
+          {editable &&
+            opening.pending_request?.kind !== "revise" &&
+            opening.state !== "draft" &&
+            opening.working_content && (
+              <Button danger onClick={() => confirmDiscard(true)}>
+                {t("openings.discardWorking")}
+              </Button>
+            )}
+        </Flex>
+      </Flex>
+      {error && action === undefined && (
+        <ErrorAlert error={error} onClose={() => setError(undefined)} />
+      )}
+      <Tabs
+        activeKey={activeTab}
+        onChange={(key) =>
+          setSearchParams(
+            (current) => {
+              const next = new URLSearchParams(current);
+              if (key === overviewTab) next.delete("tab");
+              else next.set("tab", key);
+              return next;
+            },
+            { replace: true },
+          )
+        }
+        items={tabs}
+      />
       <Modal
         title={
           action?.kind === "request"

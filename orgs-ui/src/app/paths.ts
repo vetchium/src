@@ -15,6 +15,7 @@ export const paths = {
   newOpening: "/openings/new",
   openingDetail: (number: number) => `/openings/${number}`,
   openingEdit: (number: number) => `/openings/${number}/edit`,
+  pipelineTemplates: "/pipeline-templates",
   plans: "/plans",
   ai: "/ai",
   settings: "/company",

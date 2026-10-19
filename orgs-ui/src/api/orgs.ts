@@ -20,6 +20,10 @@ import type {
 } from "typespec/orgs/ai/ai";
 import type { AIUsageText } from "typespec/orgs/ai/types";
 import type {
+  ApplicationCounts,
+  GetApplicationCountsRequest,
+} from "typespec/orgs/applications/applications";
+import type {
   LoginRequest,
   LoginResponse,
   ReauthenticateRequest,
@@ -55,6 +59,14 @@ import type {
 import type { AuthenticatedSessionResponse } from "typespec/orgs/auth/types";
 import type { ListPermissionsResponse } from "typespec/orgs/authorization/management";
 import type {
+  CreatePipelineTemplateRequest,
+  DeletePipelineTemplateRequest,
+  ListPipelineTemplatesRequest,
+  ListPipelineTemplatesResponse,
+  PipelineTemplate,
+  UpdatePipelineTemplateRequest,
+} from "typespec/orgs/hiring/pipelines";
+import type {
   CreateOpeningRequest,
   DecideOpeningRequestRequest,
   DiscardOpeningRequest,
@@ -73,6 +85,11 @@ import type {
   SetOpeningTeamRequest,
   WithdrawOpeningRequestRequest,
 } from "typespec/orgs/openings/openings";
+import type {
+  GetOpeningPipelineRequest,
+  OpeningPipeline,
+  ReplaceOpeningPipelineRequest,
+} from "typespec/orgs/openings/pipeline";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import type { SetCompanyDetailsRequest } from "typespec/orgs/settings/company";
 import type { SetGoogleSignInRequest } from "typespec/orgs/settings/google_sign_in";
@@ -108,6 +125,42 @@ import type {
 import { apiRequest } from "./client";
 
 export const orgsAPI = {
+  listPipelineTemplates: (body: ListPipelineTemplatesRequest) =>
+    apiRequest<ListPipelineTemplatesResponse>("/list-pipeline-templates", {
+      body,
+    }),
+  createPipelineTemplate: (
+    body: CreatePipelineTemplateRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<PipelineTemplate>("/create-pipeline-template", {
+      body,
+      idempotencyKey,
+    }),
+  updatePipelineTemplate: (
+    body: UpdatePipelineTemplateRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<PipelineTemplate>("/update-pipeline-template", {
+      body,
+      idempotencyKey,
+    }),
+  deletePipelineTemplate: (
+    body: DeletePipelineTemplateRequest,
+    idempotencyKey: IdempotencyKey,
+  ) => apiRequest<void>("/delete-pipeline-template", { body, idempotencyKey }),
+  getOpeningPipeline: (body: GetOpeningPipelineRequest) =>
+    apiRequest<OpeningPipeline>("/get-opening-pipeline", { body }),
+  replaceOpeningPipeline: (
+    body: ReplaceOpeningPipelineRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<OpeningPipeline>("/replace-opening-pipeline", {
+      body,
+      idempotencyKey,
+    }),
+  getApplicationCounts: (body: GetApplicationCountsRequest) =>
+    apiRequest<ApplicationCounts>("/get-application-counts", { body }),
   createOpening: (body: CreateOpeningRequest, idempotencyKey: IdempotencyKey) =>
     apiRequest<OrgOpening>("/create-opening", { body, idempotencyKey }),
   duplicateOpening: (

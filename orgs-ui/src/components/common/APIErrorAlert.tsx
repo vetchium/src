@@ -27,6 +27,11 @@ import {
   LogoTooLargeError,
 } from "typespec/problem/orgs/logo";
 import {
+  PipelineStageInUseError,
+  PipelineTemplateNameTakenError,
+  PipelineTemplateNotFoundError,
+} from "typespec/problem/orgs/pipelines";
+import {
   DirectoryUnavailableError,
   DNSRecordNotFoundError,
   DomainAlreadyOwnedError,
@@ -78,6 +83,9 @@ export const problemKeys: Readonly<Record<string, string>> = {
   [LastSuperadminError.type]: "errors.lastSuperadmin",
   [PlanNotOfferedError.type]: "errors.planNotOffered",
   [OrgSuspendedError.type]: "errors.orgSuspended",
+  [PipelineTemplateNotFoundError.type]: "errors.pipelineTemplateNotFound",
+  [PipelineTemplateNameTakenError.type]: "errors.pipelineTemplateNameTaken",
+  [PipelineStageInUseError.type]: "errors.pipelineStageInUse",
   [LogoInvalidError.type]: "errors.logoInvalid",
   [LogoTooLargeError.type]: "errors.logoTooLarge",
   [LogoConflictError.type]: "errors.logoConflict",

@@ -21,6 +21,9 @@ export const de = {
     settings: "Unternehmen",
     security: "Mein Konto",
     restoreDomain: "Domain wiederherstellen",
+    hiring: "Recruiting",
+    organization: "Organisation",
+    pipelineTemplates: "Pipeline-Vorlagen",
     organizationSecurity: "Organisationssicherheit",
   },
   theme: {
@@ -128,6 +131,12 @@ export const de = {
     userLimitReached:
       "Die Organisation hat keinen freien Platz mehr: Ihr Tarif erlaubt {{limit}} Benutzer, offene Einladungen eingerechnet.",
     planNotOffered: "Dieser Tarif wird in dieser Region nicht angeboten.",
+    pipelineTemplateNotFound:
+      "Diese Pipeline-Vorlage existiert nicht mehr. Laden Sie die Seite neu.",
+    pipelineTemplateNameTaken:
+      "Eine andere Pipeline-Vorlage hat bereits diesen Namen.",
+    pipelineStageInUse:
+      "Eine entfernte Phase enthält noch Kandidaten. Verschieben Sie diese zuerst in eine andere Phase.",
     orgSuspended:
       "Ihre Organisation ist gesperrt. Stellen Sie ihre Domain wieder her, um fortzufahren.",
     userLimitExceedsTarget:
@@ -1074,7 +1083,12 @@ export const de = {
     breadcrumbOpening: "{{title}} #{{number}}",
     pendingTag: "Ausstehend: {{kind}}",
     columns: { opening: "Stellenanzeige" },
-    tabs: { all: "Alle", withCount: "{{state}} ({{count}})" },
+    tabs: {
+      all: "Alle",
+      withCount: "{{state}} ({{count}})",
+      overview: "Übersicht",
+      pipeline: "Pipeline",
+    },
     stats: {
       quota: "Kontingent für Stellenanzeigen",
       published: "Veröffentlicht",
@@ -1329,6 +1343,111 @@ export const de = {
       superseded: "Ersetzt",
       cancelled: "Storniert",
       expired: "Abgelaufen",
+    },
+  },
+  pipeline: {
+    title: "Pipeline",
+    internal: "Intern",
+    startFrom: "Starten mit",
+    startFromHelp:
+      "Die Stellenanzeige erhält eine eigene Kopie. Ihre Phasen lassen sich jederzeit im Tab „Pipeline“ der Stellenanzeige ändern.",
+    defaultStart: "Eine Prüfungsphase",
+    templateOption: "{{name}} · {{count}} Phasen",
+    templatesLoadError:
+      "Ihre Pipeline-Vorlagen konnten nicht geladen werden. Die Stellenanzeige startet mit einer Prüfungsphase.",
+    stages: "Phasen",
+    unsaved: "Nicht gespeicherte Änderungen",
+    discard: "Verwerfen",
+    save: "Pipeline speichern",
+    saved: "Pipeline gespeichert.",
+    intro:
+      "Kandidaten durchlaufen diese Phasen der Reihe nach. Die Pipeline ist intern: Änderungen gelten sofort und brauchen keine Freigabe. Kandidaten sehen nur einen allgemeinen Status, nie Phasennamen.",
+    readOnly:
+      "Diese Stellenanzeige kann nicht mehr geändert werden, ihre Pipeline ist daher schreibgeschützt.",
+    problems: {
+      empty: "Eine Pipeline braucht mindestens eine Phase.",
+      tooMany: "Eine Pipeline hat höchstens 15 Phasen.",
+      name: "Geben Sie jeder Phase einen Namen mit 1 bis 100 Zeichen.",
+    },
+    errors: {
+      inUse:
+        "Einige entfernte Phasen enthalten Kandidaten, daher wurde die Pipeline nicht gespeichert. Verschieben Sie diese Kandidaten in eine andere Phase oder stellen Sie die Phasen wieder her.",
+      versionConflict:
+        "Diese Stellenanzeige hat sich seit dem Öffnen geändert. Ihre Änderungen bleiben erhalten; speichern Sie erneut, um sie auf die neueste Version anzuwenden.",
+      unavailable:
+        "Diese Stellenanzeige kann nicht mehr geändert werden, die Pipeline wurde daher nicht gespeichert.",
+      unknownStage:
+        "Eine Phase wurde anderswo entfernt. Verwerfen Sie Ihre Änderungen, um die aktuelle Pipeline zu laden.",
+    },
+    candidatesHere_one: "{{count}} Kandidat",
+    candidatesHere_other: "{{count}} Kandidaten",
+    removeHoldsCandidates:
+      "„{{name}}“ kann nicht entfernt werden, solange sie Kandidaten enthält. Verschieben Sie diese zuerst in eine andere Phase oder stellen Sie die Phase wieder her.",
+    removeRefused:
+      "„{{name}}“ kann nicht entfernt werden, weil sie Kandidaten enthält. Verschieben Sie diese zuerst in eine andere Phase oder stellen Sie die Phase wieder her.",
+    afterLast: "Nach der letzten Phase:",
+    after: {
+      offer: "Angebot",
+      offerAccepted: "Angebot angenommen",
+      joined: "Eingetreten",
+    },
+    offerAnywhere: "Ein Angebot können Sie aus jeder Phase machen.",
+    stageName: "Name von Phase {{number}}",
+    stageNameRemoved: "Name der entfernten Phase {{name}}",
+    stageNamePlaceholder: "Phasenname",
+    stageKind: "Art von Phase {{number}}",
+    stageKindRemoved: "Art der entfernten Phase {{name}}",
+    moveUp: "Phase {{number}} nach oben",
+    moveDown: "Phase {{number}} nach unten",
+    remove: "Phase {{number}} entfernen",
+    restore: "Wiederherstellen",
+    restoreStage: "Phase {{name}} wiederherstellen",
+    addStage: "Phase hinzufügen",
+    limitReached: "Eine Pipeline kann höchstens {{limit}} Phasen haben.",
+    stageCount: "{{count}} von {{limit}} Phasen",
+    minimumStage: "Eine Pipeline braucht mindestens eine Phase.",
+    kinds: {
+      review: "Prüfung",
+      assessment: "Assessment",
+      interview: "Interview",
+      background_check: "Hintergrundprüfung",
+    },
+    actions: "Aktionen",
+    template: {
+      documentTitle: "Pipeline-Vorlagen | Vetchium",
+      title: "Pipeline-Vorlagen",
+      intro:
+        "Gespeicherte Phasenlisten für neue Stellenanzeigen. Eine neue Stellenanzeige kopiert eine Vorlage; spätere Änderungen an der Vorlage ändern keine Stellenanzeigen, die sie genutzt haben.",
+      new: "Neue Vorlage",
+      newTitle: "Neue Vorlage",
+      editTitle: "Vorlage bearbeiten",
+      name: "Name",
+      nameHelp: "In Ihrer Organisation eindeutig.",
+      nameRequired: "Geben Sie einen Vorlagennamen mit 1 bis 100 Zeichen ein.",
+      stageNameRequired:
+        "Geben Sie jeder Phase einen Namen mit 1 bis 100 Zeichen.",
+      nameTaken: "Eine andere Vorlage hat bereits diesen Namen.",
+      limit:
+        "Ihre Organisation hat bereits die maximale Zahl an Vorlagen ({{limit}}). Löschen Sie eine, um eine weitere anzulegen.",
+      gone: "Diese Vorlage existiert nicht mehr. Laden Sie die Seite neu.",
+      stagesHelp:
+        "1 bis 15 Phasen, der Reihe nach. Prüfungsphasen erledigen Sie immer intern; andere können an Dienstleister gehen.",
+      save: "Vorlage speichern",
+      saved: "Vorlage „{{name}}“ gespeichert.",
+      deleteTitle: "„{{name}}“ löschen?",
+      deleteBody:
+        "Stellenanzeigen, die mit dieser Vorlage gestartet wurden, behalten ihre Phasen.",
+      delete: "Löschen",
+      deleted: "Vorlage „{{name}}“ gelöscht.",
+      edit: "Bearbeiten",
+      editNamed: "Vorlage {{name}} bearbeiten",
+      deleteNamed: "Vorlage {{name}} löschen",
+      updated: "Aktualisiert",
+      search: "Name suchen",
+      count: "{{count}} von {{limit}} Vorlagen",
+      empty:
+        "Noch keine Pipeline-Vorlagen. Legen Sie eine an, um neue Stellenanzeigen mit denselben Phasen zu starten.",
+      noMatch: "Keine Vorlage passt zu dieser Suche.",
     },
   },
 } satisfies LocaleResource;

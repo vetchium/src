@@ -19,6 +19,9 @@ export const en = {
     settings: "Company",
     security: "My account",
     restoreDomain: "Restore domain",
+    hiring: "Hiring",
+    organization: "Organization",
+    pipelineTemplates: "Pipeline templates",
     organizationSecurity: "Organization security",
   },
   theme: {
@@ -120,6 +123,12 @@ export const en = {
     userLimitReached:
       "The organization has no free seat: its plan allows {{limit}} users, counting pending invitations.",
     planNotOffered: "This region does not offer that plan.",
+    pipelineTemplateNotFound:
+      "This pipeline template no longer exists. Reload the page.",
+    pipelineTemplateNameTaken:
+      "Another pipeline template already has this name.",
+    pipelineStageInUse:
+      "A stage you removed still holds candidates. Move them to another stage first.",
     orgSuspended:
       "Your organization is suspended. Restore its domain to continue.",
     userLimitExceedsTarget:
@@ -1040,7 +1049,12 @@ export const en = {
     breadcrumbOpening: "{{title}} #{{number}}",
     pendingTag: "Pending: {{kind}}",
     columns: { opening: "Opening" },
-    tabs: { all: "All", withCount: "{{state}} ({{count}})" },
+    tabs: {
+      all: "All",
+      withCount: "{{state}} ({{count}})",
+      overview: "Overview",
+      pipeline: "Pipeline",
+    },
     stats: {
       quota: "Opening quota",
       published: "Published",
@@ -1292,6 +1306,110 @@ export const en = {
       superseded: "Superseded",
       cancelled: "Cancelled",
       expired: "Expired",
+    },
+  },
+  pipeline: {
+    title: "Pipeline",
+    internal: "Internal",
+    startFrom: "Start from",
+    startFromHelp:
+      "The Opening gets its own copy. You can change its stages any time from the Opening's Pipeline tab.",
+    defaultStart: "One review stage",
+    templateOption: "{{name}} · {{count}} stages",
+    templatesLoadError:
+      "Your pipeline templates could not be loaded. The Opening will start with one review stage.",
+    stages: "Stages",
+    unsaved: "Unsaved changes",
+    discard: "Discard",
+    save: "Save pipeline",
+    saved: "Pipeline saved.",
+    intro:
+      "Candidates move through these stages in order. The pipeline is internal: changes apply at once and never need approval. Candidates only see a general status, never stage names.",
+    readOnly:
+      "This Opening can no longer be changed, so its pipeline is read-only.",
+    problems: {
+      empty: "A pipeline needs at least one stage.",
+      tooMany: "A pipeline has at most 15 stages.",
+      name: "Give every stage a name of 1 to 100 characters.",
+    },
+    errors: {
+      inUse:
+        "Some stages you removed hold candidates, so the pipeline was not saved. Move those candidates to another stage, or restore the stages.",
+      versionConflict:
+        "This Opening changed since you opened it. Your edits are kept; save again to apply them to the latest version.",
+      unavailable:
+        "This Opening can no longer be changed, so the pipeline was not saved.",
+      unknownStage:
+        "A stage was removed elsewhere. Discard your changes to load the current pipeline.",
+    },
+    candidatesHere_one: "{{count}} candidate",
+    candidatesHere_other: "{{count}} candidates",
+    removeHoldsCandidates:
+      "Removing “{{name}}” will be refused while it holds candidates. Move them to another stage first, or restore it.",
+    removeRefused:
+      "“{{name}}” cannot be removed because it holds a candidate. Move them to another stage first, or restore it.",
+    afterLast: "After the last stage:",
+    after: {
+      offer: "Offer",
+      offerAccepted: "Offer accepted",
+      joined: "Joined",
+    },
+    offerAnywhere: "You can extend an offer from any stage.",
+    stageName: "Stage {{number}} name",
+    stageNameRemoved: "Name of removed stage {{name}}",
+    stageNamePlaceholder: "Stage name",
+    stageKind: "Stage {{number}} kind",
+    stageKindRemoved: "Kind of removed stage {{name}}",
+    moveUp: "Move stage {{number}} up",
+    moveDown: "Move stage {{number}} down",
+    remove: "Remove stage {{number}}",
+    restore: "Restore",
+    restoreStage: "Restore stage {{name}}",
+    addStage: "Add stage",
+    limitReached: "The most a pipeline can have is {{limit}} stages.",
+    stageCount: "{{count}} of {{limit}} stages",
+    minimumStage: "A pipeline needs at least one stage.",
+    kinds: {
+      review: "Review",
+      assessment: "Assessment",
+      interview: "Interview",
+      background_check: "Background check",
+    },
+    actions: "Actions",
+    template: {
+      documentTitle: "Pipeline templates | Vetchium",
+      title: "Pipeline templates",
+      intro:
+        "Saved stage lists for new Openings. A new Opening copies a template; editing a template later never changes Openings that used it.",
+      new: "New template",
+      newTitle: "New template",
+      editTitle: "Edit template",
+      name: "Name",
+      nameHelp: "Unique in your organization.",
+      nameRequired: "Enter a template name of 1 to 100 characters.",
+      stageNameRequired: "Give every stage a name of 1 to 100 characters.",
+      nameTaken: "Another template already has this name.",
+      limit:
+        "Your organization already has the most templates it can keep ({{limit}}). Delete one to add another.",
+      gone: "This template no longer exists. Reload the page.",
+      stagesHelp:
+        "1 to 15 stages, in order. Review stages are always done in-house; others can go to providers.",
+      save: "Save template",
+      saved: "Template “{{name}}” saved.",
+      deleteTitle: "Delete “{{name}}”?",
+      deleteBody:
+        "Openings that were started from this template keep their stages.",
+      delete: "Delete",
+      deleted: "Template “{{name}}” deleted.",
+      edit: "Edit",
+      editNamed: "Edit template {{name}}",
+      deleteNamed: "Delete template {{name}}",
+      updated: "Updated",
+      search: "Search name",
+      count: "{{count}} of {{limit}} templates",
+      empty:
+        "No pipeline templates yet. Create one to start new Openings with the same stages.",
+      noMatch: "No template matches this search.",
     },
   },
 } as const;
