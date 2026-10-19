@@ -5,7 +5,8 @@
 -- history and audit rows come from RecordOrgApplicationChanges in the same
 -- transaction.
 
--- The application row leads the lock, and the read predicate keeps an
+-- The application row leads the lock, and the read predicate (which admits an
+-- interviewer to the applications of their interviews only) keeps an
 -- unreadable application indistinguishable from an unknown number. A null
 -- target_position means the stage is not part of the Opening's pipeline.
 -- name: LockOrgApplicationForWrite :one
@@ -34,7 +35,7 @@ WHERE o.org_did = sqlc.arg(org_did)
   AND o.opening_number = sqlc.arg(opening_number)::integer
   AND a.application_number = sqlc.arg(application_number)::integer
   AND vetchium.org_user_reads_applications(o.org_opening_id,
-      sqlc.arg(viewer_id))
+      sqlc.arg(viewer_id), a.org_application_id)
 FOR UPDATE OF a;
 
 -- Shortlisting records every stage of the pipeline: the ones before the
@@ -157,7 +158,8 @@ WITH changed AS (
 SELECT (SELECT count(*) FROM changed) AS changed_rows,
     (SELECT count(*) FROM completed) AS completed_rows;
 
--- Leaving an offered state withdraws the offer that awaited an answer.
+-- Leaving an offered state withdraws the offer that awaited an answer, and
+-- leaving the pipeline cancels the upcoming interviews (HP-STA-002).
 -- name: MarkOrgApplicationNotProgressing :one
 WITH changed AS (
     UPDATE vetchium.org_applications AS a
@@ -175,24 +177,49 @@ WITH changed AS (
     WHERE o.org_application_id = changed.org_application_id
       AND o.offer_status = 'extended'
     RETURNING o.org_application_id
+), cancelled AS (
+    SELECT vetchium.cancel_upcoming_interviews(
+        ARRAY(SELECT org_application_id FROM changed)) AS interviews
 )
-SELECT count(*) AS changed_rows FROM changed;
+SELECT count(*) AS changed_rows,
+    COALESCE((SELECT interviews FROM cancelled), 0)::integer
+        AS cancelled_interviews
+FROM changed;
 
+-- Both end the candidacy, so they cancel its upcoming interviews too.
 -- name: RecordOrgApplicationJoined :execrows
-UPDATE vetchium.org_applications AS a
-SET application_state = 'joined', joined_on = sqlc.arg(joined_on)::date,
-    joined_recorded_at = now(), version = a.version + 1, updated_at = now()
-WHERE a.org_application_id = sqlc.arg(application_id)
-  AND a.version = sqlc.arg(version)::integer
-  AND a.application_state = 'offer_accepted';
+WITH changed AS (
+    UPDATE vetchium.org_applications AS a
+    SET application_state = 'joined', joined_on = sqlc.arg(joined_on)::date,
+        joined_recorded_at = now(), version = a.version + 1, updated_at = now()
+    WHERE a.org_application_id = sqlc.arg(application_id)
+      AND a.version = sqlc.arg(version)::integer
+      AND a.application_state = 'offer_accepted'
+    RETURNING a.org_application_id
+), cancelled AS (
+    SELECT vetchium.cancel_upcoming_interviews(
+        ARRAY(SELECT org_application_id FROM changed)) AS interviews
+)
+SELECT changed.org_application_id
+FROM changed
+WHERE EXISTS (SELECT 1 FROM cancelled);
 
 -- name: RecordOrgApplicationDidNotJoin :execrows
-UPDATE vetchium.org_applications AS a
-SET application_state = 'did_not_join', version = a.version + 1,
-    updated_at = now()
-WHERE a.org_application_id = sqlc.arg(application_id)
-  AND a.version = sqlc.arg(version)::integer
-  AND a.application_state = 'offer_accepted';
+WITH changed AS (
+    UPDATE vetchium.org_applications AS a
+    SET application_state = 'did_not_join', version = a.version + 1,
+        updated_at = now()
+    WHERE a.org_application_id = sqlc.arg(application_id)
+      AND a.version = sqlc.arg(version)::integer
+      AND a.application_state = 'offer_accepted'
+    RETURNING a.org_application_id
+), cancelled AS (
+    SELECT vetchium.cancel_upcoming_interviews(
+        ARRAY(SELECT org_application_id FROM changed)) AS interviews
+)
+SELECT changed.org_application_id
+FROM changed
+WHERE EXISTS (SELECT 1 FROM cancelled);
 
 -- name: RecordOrgApplicationSeparated :execrows
 UPDATE vetchium.org_applications AS a
@@ -248,14 +275,15 @@ WITH subject AS (
     INSERT INTO vetchium.org_application_history (
         org_application_history_id, org_application_id, action, actor_kind,
         actor_org_user_id, application_state, application_version,
-        org_opening_stage_id, joined_on, separated_on, created_at
+        org_opening_stage_id, joined_on, separated_on, interview_number,
+        created_at
     )
     SELECT gen_random_uuid(), subject.org_application_id,
         (sqlc.arg(action)::text)::vetchium.org_application_history_action,
         'org_user', sqlc.arg(actor_id), subject.application_state,
         subject.version, sqlc.narg(stage_id)::uuid,
         sqlc.narg(joined_on)::date, sqlc.narg(separated_on)::date,
-        clock_timestamp()
+        sqlc.narg(interview_number)::integer, clock_timestamp()
     FROM subject
     RETURNING org_application_id
 ), audit AS (
@@ -277,7 +305,8 @@ WITH subject AS (
             'version', subject.version,
             'stage_id', sqlc.narg(stage_id)::uuid,
             'joined_on', sqlc.narg(joined_on)::date,
-            'separated_on', sqlc.narg(separated_on)::date))
+            'separated_on', sqlc.narg(separated_on)::date,
+            'interview_number', sqlc.narg(interview_number)::integer))
     FROM subject
     RETURNING audit_event_id
 )
@@ -289,7 +318,8 @@ SELECT (SELECT count(*) FROM subject) AS subject_rows,
 -- transaction that closed the Opening. Only the request that closed it
 -- qualifies: it was approved at the closing instant, which every statement of
 -- one transaction shares.
--- Offers awaiting an answer are withdrawn with their applications.
+-- Offers awaiting an answer are withdrawn with their applications, and
+-- upcoming interviews are cancelled (HP-STA-002).
 -- name: MarkClosedOpeningApplicationsNotProgressing :many
 WITH changed AS (
     UPDATE vetchium.org_applications AS a
@@ -318,5 +348,10 @@ WITH changed AS (
     WHERE f.org_application_id = changed.org_application_id
       AND f.offer_status = 'extended'
     RETURNING f.org_application_id
+), cancelled AS (
+    SELECT vetchium.cancel_upcoming_interviews(
+        ARRAY(SELECT org_application_id FROM changed)) AS interviews
 )
-SELECT changed.org_application_id FROM changed;
+SELECT changed.org_application_id
+FROM changed
+WHERE EXISTS (SELECT 1 FROM cancelled);

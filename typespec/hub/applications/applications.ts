@@ -7,8 +7,16 @@ import {
   type ApplicationCoverNote,
   type ApplicationNumber,
   type CalendarDate,
+  type InterviewDurationMinutes,
+  type InterviewLocation,
+  type InterviewMode,
+  type InterviewNumber,
+  type InterviewRescheduleNote,
+  type InterviewResponse,
   isApplicationCoverNote,
   isApplicationNumber,
+  isInterviewNumber,
+  isInterviewRescheduleNote,
   isOfferNumber,
   type OfferNumber,
   type OfferStatus,
@@ -90,8 +98,70 @@ export interface MyApplicationOffer {
   extended_at: string;
 }
 
+export const myInterviewStateValues = ["scheduled", "cancelled"] as const;
+export type MyInterviewState = (typeof myInterviewStateValues)[number];
+
+const myInterviewStates = new Set<string>(myInterviewStateValues);
+
+export function isMyInterviewState(value: unknown): value is MyInterviewState {
+  return typeof value === "string" && myInterviewStates.has(value);
+}
+
+/** An interview without its stage name or interviewers. */
+export interface MyApplicationInterview {
+  interview_number: InterviewNumber;
+  state: MyInterviewState;
+  starts_at: string;
+  duration_minutes: InterviewDurationMinutes;
+  mode: InterviewMode;
+  video_url?: string;
+  location?: InterviewLocation;
+  response: InterviewResponse;
+  reschedule_note?: InterviewRescheduleNote;
+}
+
 export interface MyApplicationDetail extends MyApplication {
   offer?: MyApplicationOffer;
+  interviews: MyApplicationInterview[];
+}
+
+export interface InterviewReference extends ApplicationReference {
+  interview_number: InterviewNumber;
+}
+
+export type AcceptInterviewRequest = InterviewReference;
+
+export interface RequestInterviewRescheduleRequest extends InterviewReference {
+  note: InterviewRescheduleNote;
+}
+
+export function normalizeRequestInterviewRescheduleRequest(
+  request: RequestInterviewRescheduleRequest,
+): RequestInterviewRescheduleRequest {
+  return {
+    ...normalizeApplicationReference(request),
+    interview_number: request.interview_number,
+    note: request.note.trim(),
+  };
+}
+
+export function validateAcceptInterviewRequest(
+  request: AcceptInterviewRequest,
+): string[] {
+  const fields = validateApplicationReference(request);
+  if (!isInterviewNumber(request.interview_number)) {
+    fields.push("interview_number");
+  }
+  return fields;
+}
+
+export function validateRequestInterviewRescheduleRequest(
+  request: RequestInterviewRescheduleRequest,
+): string[] {
+  const normalized = normalizeRequestInterviewRescheduleRequest(request);
+  const fields = validateAcceptInterviewRequest(normalized);
+  if (!isInterviewRescheduleNote(normalized.note)) fields.push("note");
+  return fields;
 }
 
 export interface RespondToOfferRequest extends ApplicationReference {

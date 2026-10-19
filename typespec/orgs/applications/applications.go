@@ -36,6 +36,17 @@ type OfferLetterID string
 type OfferNumber int32
 type OfferResponseDays int32
 type OfferStatus string
+type InterviewNumber int32
+type InterviewDurationMinutes int32
+type InterviewLocation string
+type InterviewRescheduleNote string
+type InterviewFeedbackNotes string
+type InterviewMode string
+type InterviewState string
+type InterviewResponse string
+type InterviewRecommendation string
+type InterviewOutcome string
+type PendingApplicantAction string
 
 // CalendarDate is a `YYYY-MM-DD` date with no time or zone.
 type CalendarDate string
@@ -82,7 +93,159 @@ const (
 	SeparatedAction          ApplicationHistoryAction = "separated"
 	JoinedCorrectedAction    ApplicationHistoryAction = "joined_corrected"
 	SeparatedCorrectedAction ApplicationHistoryAction = "separated_corrected"
+
+	InterviewScheduledAction  ApplicationHistoryAction = "interview_scheduled"
+	InterviewChangedAction    ApplicationHistoryAction = "interview_changed"
+	InterviewCancelledAction  ApplicationHistoryAction = "interview_cancelled"
+	InterviewCompletedAction  ApplicationHistoryAction = "interview_completed"
+	InterviewNoShowAction     ApplicationHistoryAction = "interview_no_show"
+	InterviewAcceptedAction   ApplicationHistoryAction = "interview_accepted"
+	InterviewRescheduleAction ApplicationHistoryAction = "interview_reschedule_requested"
+	InterviewFeedbackAction   ApplicationHistoryAction = "interview_feedback_submitted"
 )
+
+const (
+	// MaxInterviewsPerStage bounds the interviews of one candidacy at one
+	// interview stage that are not cancelled (HP-WRK-002).
+	MaxInterviewsPerStage = 10
+	// MaxInterviewers bounds the interviewers of one interview.
+	MaxInterviewers = 10
+	// MaxInterviewLocation, MaxRescheduleNote, and MaxFeedbackNotes bound
+	// their texts in code points.
+	MaxInterviewLocation = 500
+	MaxRescheduleNote    = 500
+	MaxFeedbackNotes     = 10000
+	minInterviewDuration = 15
+	maxInterviewDuration = 480
+)
+
+const (
+	InterviewVideo    InterviewMode = "video"
+	InterviewInPerson InterviewMode = "in_person"
+)
+
+const (
+	InterviewScheduled InterviewState = "scheduled"
+	InterviewCompleted InterviewState = "completed"
+	InterviewNoShow    InterviewState = "no_show"
+	InterviewCancelled InterviewState = "cancelled"
+)
+
+const (
+	ResponsePending           InterviewResponse = "pending"
+	ResponseAccepted          InterviewResponse = "accepted"
+	ResponseRescheduleRequest InterviewResponse = "reschedule_requested"
+)
+
+const (
+	StrongYes InterviewRecommendation = "strong_yes"
+	Yes       InterviewRecommendation = "yes"
+	No        InterviewRecommendation = "no"
+	StrongNo  InterviewRecommendation = "strong_no"
+)
+
+const (
+	OutcomeCompleted InterviewOutcome = "completed"
+	OutcomeNoShow    InterviewOutcome = "no_show"
+)
+
+const (
+	InterviewResponseAction PendingApplicantAction = "interview_response"
+	OfferResponseAction     PendingApplicantAction = "offer_response"
+)
+
+var (
+	interviewModes  = []InterviewMode{InterviewVideo, InterviewInPerson}
+	interviewStates = []InterviewState{
+		InterviewScheduled, InterviewCompleted, InterviewNoShow,
+		InterviewCancelled,
+	}
+	interviewResponses = []InterviewResponse{
+		ResponsePending, ResponseAccepted, ResponseRescheduleRequest,
+	}
+	interviewRecommendations = []InterviewRecommendation{
+		StrongYes, Yes, No, StrongNo,
+	}
+	pendingApplicantActions = []PendingApplicantAction{
+		InterviewResponseAction, OfferResponseAction,
+	}
+)
+
+// InterviewModes returns every mode this contract version defines.
+func InterviewModes() []InterviewMode { return slices.Clone(interviewModes) }
+
+// InterviewStates returns every interview state this contract version
+// defines.
+func InterviewStates() []InterviewState { return slices.Clone(interviewStates) }
+
+// InterviewResponses returns every applicant response this contract version
+// defines.
+func InterviewResponses() []InterviewResponse {
+	return slices.Clone(interviewResponses)
+}
+
+// InterviewRecommendations returns every recommendation this contract
+// version defines.
+func InterviewRecommendations() []InterviewRecommendation {
+	return slices.Clone(interviewRecommendations)
+}
+
+// PendingApplicantActions returns every filter value this contract version
+// defines.
+func PendingApplicantActions() []PendingApplicantAction {
+	return slices.Clone(pendingApplicantActions)
+}
+
+func IsInterviewMode(value InterviewMode) bool {
+	return slices.Contains(interviewModes, value)
+}
+
+func IsInterviewState(value InterviewState) bool {
+	return slices.Contains(interviewStates, value)
+}
+
+func IsInterviewResponse(value InterviewResponse) bool {
+	return slices.Contains(interviewResponses, value)
+}
+
+func IsInterviewRecommendation(value InterviewRecommendation) bool {
+	return slices.Contains(interviewRecommendations, value)
+}
+
+func IsPendingApplicantAction(value PendingApplicantAction) bool {
+	return slices.Contains(pendingApplicantActions, value)
+}
+
+func IsInterviewOutcome(value InterviewOutcome) bool {
+	return value == OutcomeCompleted || value == OutcomeNoShow
+}
+
+func IsInterviewNumber(value InterviewNumber) bool { return value >= 1 }
+
+func IsInterviewDurationMinutes(value InterviewDurationMinutes) bool {
+	return value >= minInterviewDuration && value <= maxInterviewDuration
+}
+
+// IsInterviewLocation reports a trimmed place of 1 to 500 code points.
+func IsInterviewLocation(value InterviewLocation) bool {
+	length := utf8.RuneCountInString(string(value))
+	return length >= 1 && length <= MaxInterviewLocation &&
+		string(value) == strings.TrimSpace(string(value))
+}
+
+// IsInterviewRescheduleNote reports a trimmed note of 1 to 500 code points.
+func IsInterviewRescheduleNote(value InterviewRescheduleNote) bool {
+	length := utf8.RuneCountInString(string(value))
+	return length >= 1 && length <= MaxRescheduleNote &&
+		string(value) == strings.TrimSpace(string(value))
+}
+
+// IsInterviewFeedbackNotes reports trimmed notes of 1 to 10,000 code points.
+func IsInterviewFeedbackNotes(value InterviewFeedbackNotes) bool {
+	length := utf8.RuneCountInString(string(value))
+	return length >= 1 && length <= MaxFeedbackNotes &&
+		string(value) == strings.TrimSpace(string(value))
+}
 
 const (
 	ApplicantActor ApplicationActorKind = "applicant"
@@ -241,6 +404,36 @@ type ApplicationOffer struct {
 	EndedAt             *time.Time    `json:"ended_at,omitempty"`
 }
 
+type InterviewerStatus struct {
+	Email             common.EmailAddress `json:"email"`
+	FeedbackSubmitted bool                `json:"feedback_submitted"`
+}
+
+type InterviewFeedback struct {
+	InterviewerEmail common.EmailAddress     `json:"interviewer_email"`
+	Recommendation   InterviewRecommendation `json:"recommendation"`
+	Notes            InterviewFeedbackNotes  `json:"notes"`
+	SubmittedAt      time.Time               `json:"submitted_at"`
+}
+
+// Interview is one interview of a candidacy as the caller may see it:
+// Feedback holds the caller's own and, unless the caller is an interviewer
+// who has not submitted theirs, everyone's (HP-WRK-004).
+type Interview struct {
+	InterviewNumber   InterviewNumber          `json:"interview_number"`
+	Stage             hiring.PipelineStage     `json:"stage"`
+	StartsAt          time.Time                `json:"starts_at"`
+	DurationMinutes   InterviewDurationMinutes `json:"duration_minutes"`
+	Mode              InterviewMode            `json:"mode"`
+	VideoURL          *string                  `json:"video_url,omitempty"`
+	Location          *InterviewLocation       `json:"location,omitempty"`
+	State             InterviewState           `json:"state"`
+	ApplicantResponse InterviewResponse        `json:"applicant_response"`
+	RescheduleNote    *InterviewRescheduleNote `json:"reschedule_note,omitempty"`
+	Interviewers      []InterviewerStatus      `json:"interviewers"`
+	Feedback          []InterviewFeedback      `json:"feedback"`
+}
+
 type ApplicationDetail struct {
 	OpeningNumber     openings.OpeningNumber    `json:"opening_number"`
 	ApplicationNumber ApplicationNumber         `json:"application_number"`
@@ -255,6 +448,7 @@ type ApplicationDetail struct {
 	Positions         int32                     `json:"positions"`
 	JoinedCount       int32                     `json:"joined_count"`
 	Offers            []ApplicationOffer        `json:"offers"`
+	Interviews        []Interview               `json:"interviews"`
 	SubmittedAt       time.Time                 `json:"submitted_at"`
 	UpdatedAt         time.Time                 `json:"updated_at"`
 }
@@ -268,7 +462,9 @@ type ApplicationHistoryEntry struct {
 	Stage       *hiring.PipelineStage    `json:"stage,omitempty"`
 	JoinedOn    *CalendarDate            `json:"joined_on,omitempty"`
 	SeparatedOn *CalendarDate            `json:"separated_on,omitempty"`
-	CreatedAt   time.Time                `json:"created_at"`
+	// InterviewNumber is the interview an interview action concerns.
+	InterviewNumber *InterviewNumber `json:"interview_number,omitempty"`
+	CreatedAt       time.Time        `json:"created_at"`
 }
 
 type ApplicationStateCount struct {
@@ -293,8 +489,12 @@ type ListApplicationsRequest struct {
 	States        []ApplicationState      `json:"states,omitempty"`
 	StageID       *hiring.PipelineStageID `json:"stage_id,omitempty"`
 	NameQuery     *ApplicantNameQuery     `json:"name_query,omitempty"`
-	PaginationKey *common.PaginationKey   `json:"pagination_key,omitempty"`
-	Limit         *common.PageSize        `json:"limit,omitempty"`
+
+	// PendingApplicantAction (Candidates view) lists the candidacies with
+	// that action awaiting the applicant.
+	PendingApplicantAction *PendingApplicantAction `json:"pending_applicant_action,omitempty"`
+	PaginationKey          *common.PaginationKey   `json:"pagination_key,omitempty"`
+	Limit                  *common.PageSize        `json:"limit,omitempty"`
 }
 
 func (r *ListApplicationsRequest) Normalize() {
@@ -343,6 +543,10 @@ func (r ListApplicationsRequest) Validate() []string {
 	}
 	if r.NameQuery != nil && !IsApplicantNameQuery(*r.NameQuery) {
 		fields = append(fields, "name_query")
+	}
+	if r.PendingApplicantAction != nil &&
+		(!candidates || !IsPendingApplicantAction(*r.PendingApplicantAction)) {
+		fields = append(fields, "pending_applicant_action")
 	}
 	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
 		fields = append(fields, "pagination_key")
@@ -553,4 +757,237 @@ func (r ExtendApplicationOfferRequest) Validate() []string {
 
 type OfferLetterUploaded struct {
 	LetterID OfferLetterID `json:"letter_id"`
+}
+
+// InterviewDetails is what scheduling and changing an interview set.
+type InterviewDetails struct {
+	StartTime         time.Time                `json:"start_time"`
+	DurationMinutes   InterviewDurationMinutes `json:"duration_minutes"`
+	Mode              InterviewMode            `json:"mode"`
+	VideoURL          *profile.WebsiteURL      `json:"video_url,omitempty"`
+	Location          *InterviewLocation       `json:"location,omitempty"`
+	InterviewerEmails []common.EmailAddress    `json:"interviewer_emails"`
+}
+
+// normalized returns a copy with the link, location, and addresses
+// normalized, never mutating the caller's storage.
+func (d InterviewDetails) normalized() InterviewDetails {
+	d.StartTime = d.StartTime.UTC()
+	if d.VideoURL != nil {
+		link := profile.NormalizeWebsiteURL(*d.VideoURL)
+		d.VideoURL = &link
+	}
+	if d.Location != nil {
+		location := InterviewLocation(strings.TrimSpace(string(*d.Location)))
+		d.Location = &location
+	}
+	if d.InterviewerEmails != nil {
+		emails := make([]common.EmailAddress, len(d.InterviewerEmails))
+		for index, email := range d.InterviewerEmails {
+			emails[index] = common.NormalizeEmailAddress(email)
+		}
+		d.InterviewerEmails = emails
+	}
+	return d
+}
+
+// validate reports the invalid fields. A video interview names a link and no
+// location; an in-person interview a location and no link. That the start is
+// in the future is the API's rule, since it needs the clock.
+func (d InterviewDetails) validate() []string {
+	fields := []string{}
+	if d.StartTime.IsZero() {
+		fields = append(fields, "start_time")
+	}
+	if !IsInterviewDurationMinutes(d.DurationMinutes) {
+		fields = append(fields, "duration_minutes")
+	}
+	if !IsInterviewMode(d.Mode) {
+		fields = append(fields, "mode")
+	} else {
+		video := d.Mode == InterviewVideo
+		if (d.VideoURL != nil && !profile.IsWebsiteURL(*d.VideoURL)) ||
+			(video && d.VideoURL == nil) || (!video && d.VideoURL != nil) {
+			fields = append(fields, "video_url")
+		}
+		if (d.Location != nil && !IsInterviewLocation(*d.Location)) ||
+			(!video && d.Location == nil) || (video && d.Location != nil) {
+			fields = append(fields, "location")
+		}
+	}
+	if len(d.InterviewerEmails) < 1 || len(d.InterviewerEmails) > MaxInterviewers {
+		fields = append(fields, "interviewer_emails")
+		return fields
+	}
+	seen := make(map[common.EmailAddress]bool, len(d.InterviewerEmails))
+	for _, email := range d.InterviewerEmails {
+		if !common.IsEmailAddress(email) || seen[email] {
+			fields = append(fields, "interviewer_emails")
+			break
+		}
+		seen[email] = true
+	}
+	return fields
+}
+
+// ScheduleInterviewRequest schedules an interview for a candidacy.
+type ScheduleInterviewRequest struct {
+	OpeningNumber     openings.OpeningNumber `json:"opening_number"`
+	ApplicationNumber ApplicationNumber      `json:"application_number"`
+	Version           ApplicationVersion     `json:"version"`
+	InterviewDetails
+}
+
+func (r *ScheduleInterviewRequest) Normalize() {
+	r.InterviewDetails = r.normalized()
+}
+
+func (r ScheduleInterviewRequest) Validate() []string {
+	fields := ApplicationReference{
+		OpeningNumber: r.OpeningNumber, ApplicationNumber: r.ApplicationNumber,
+		Version: r.Version,
+	}.validate()
+	return append(fields, r.validate()...)
+}
+
+// ChangeInterviewRequest replaces the details of an upcoming interview.
+type ChangeInterviewRequest struct {
+	OpeningNumber     openings.OpeningNumber `json:"opening_number"`
+	ApplicationNumber ApplicationNumber      `json:"application_number"`
+	Version           ApplicationVersion     `json:"version"`
+	InterviewNumber   InterviewNumber        `json:"interview_number"`
+	InterviewDetails
+}
+
+func (r *ChangeInterviewRequest) Normalize() {
+	r.InterviewDetails = r.normalized()
+}
+
+func (r ChangeInterviewRequest) Validate() []string {
+	fields := ApplicationReference{
+		OpeningNumber: r.OpeningNumber, ApplicationNumber: r.ApplicationNumber,
+		Version: r.Version,
+	}.validate()
+	if !IsInterviewNumber(r.InterviewNumber) {
+		fields = append(fields, "interview_number")
+	}
+	return append(fields, r.validate()...)
+}
+
+// CancelInterviewRequest names the interview to cancel.
+type CancelInterviewRequest struct {
+	OpeningNumber     openings.OpeningNumber `json:"opening_number"`
+	ApplicationNumber ApplicationNumber      `json:"application_number"`
+	Version           ApplicationVersion     `json:"version"`
+	InterviewNumber   InterviewNumber        `json:"interview_number"`
+}
+
+func (r *CancelInterviewRequest) Normalize() {}
+
+func (r CancelInterviewRequest) Validate() []string {
+	fields := ApplicationReference{
+		OpeningNumber: r.OpeningNumber, ApplicationNumber: r.ApplicationNumber,
+		Version: r.Version,
+	}.validate()
+	if !IsInterviewNumber(r.InterviewNumber) {
+		fields = append(fields, "interview_number")
+	}
+	return fields
+}
+
+// RecordInterviewOutcomeRequest records completed or no_show after the
+// start time; the timing is the API's rule.
+type RecordInterviewOutcomeRequest struct {
+	OpeningNumber     openings.OpeningNumber `json:"opening_number"`
+	ApplicationNumber ApplicationNumber      `json:"application_number"`
+	Version           ApplicationVersion     `json:"version"`
+	InterviewNumber   InterviewNumber        `json:"interview_number"`
+	Outcome           InterviewOutcome       `json:"outcome"`
+}
+
+func (r *RecordInterviewOutcomeRequest) Normalize() {}
+
+func (r RecordInterviewOutcomeRequest) Validate() []string {
+	fields := CancelInterviewRequest{
+		OpeningNumber: r.OpeningNumber, ApplicationNumber: r.ApplicationNumber,
+		Version: r.Version, InterviewNumber: r.InterviewNumber,
+	}.Validate()
+	if !IsInterviewOutcome(r.Outcome) {
+		fields = append(fields, "outcome")
+	}
+	return fields
+}
+
+// SubmitInterviewFeedbackRequest is an interviewer's verdict and notes.
+type SubmitInterviewFeedbackRequest struct {
+	OpeningNumber     openings.OpeningNumber  `json:"opening_number"`
+	ApplicationNumber ApplicationNumber       `json:"application_number"`
+	Version           ApplicationVersion      `json:"version"`
+	InterviewNumber   InterviewNumber         `json:"interview_number"`
+	Recommendation    InterviewRecommendation `json:"recommendation"`
+	Notes             InterviewFeedbackNotes  `json:"notes"`
+}
+
+// Normalize trims the notes. It assigns a new value and never mutates
+// storage the caller shares.
+func (r *SubmitInterviewFeedbackRequest) Normalize() {
+	r.Notes = InterviewFeedbackNotes(strings.TrimSpace(string(r.Notes)))
+}
+
+func (r SubmitInterviewFeedbackRequest) Validate() []string {
+	fields := CancelInterviewRequest{
+		OpeningNumber: r.OpeningNumber, ApplicationNumber: r.ApplicationNumber,
+		Version: r.Version, InterviewNumber: r.InterviewNumber,
+	}.Validate()
+	if !IsInterviewRecommendation(r.Recommendation) {
+		fields = append(fields, "recommendation")
+	}
+	if !IsInterviewFeedbackNotes(r.Notes) {
+		fields = append(fields, "notes")
+	}
+	return fields
+}
+
+type ListMyInterviewsRequest struct {
+	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
+	Limit         *common.PageSize      `json:"limit,omitempty"`
+}
+
+func (r *ListMyInterviewsRequest) Normalize() {}
+
+func (r ListMyInterviewsRequest) EffectiveLimit() common.PageSize {
+	if r.Limit == nil {
+		return 50
+	}
+	return *r.Limit
+}
+
+func (r ListMyInterviewsRequest) Validate() []string {
+	fields := []string{}
+	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
+		fields = append(fields, "pagination_key")
+	}
+	if r.Limit != nil && !common.IsPageSize(*r.Limit) {
+		fields = append(fields, "limit")
+	}
+	return fields
+}
+
+// MyInterview is an interview the caller is an interviewer of.
+type MyInterview struct {
+	OpeningNumber     openings.OpeningNumber   `json:"opening_number"`
+	ApplicationNumber ApplicationNumber        `json:"application_number"`
+	DisplayName       common.DisplayName       `json:"display_name"`
+	InterviewNumber   InterviewNumber          `json:"interview_number"`
+	StartsAt          time.Time                `json:"starts_at"`
+	DurationMinutes   InterviewDurationMinutes `json:"duration_minutes"`
+	Mode              InterviewMode            `json:"mode"`
+	State             InterviewState           `json:"state"`
+	ApplicantResponse InterviewResponse        `json:"applicant_response"`
+	FeedbackSubmitted bool                     `json:"feedback_submitted"`
+}
+
+type ListMyInterviewsResponse struct {
+	Interviews        []MyInterview         `json:"interviews"`
+	NextPaginationKey *common.PaginationKey `json:"next_pagination_key,omitempty"`
 }

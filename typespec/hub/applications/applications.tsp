@@ -112,10 +112,63 @@ model MyApplicationOffer {
   extended_at: utcDateTime;
 }
 
+/**
+ * What the applicant sees of an interview: `scheduled`, or `cancelled` so a
+ * dropped interview is not mistaken for a pending one. How a finished
+ * interview went is the Org's alone and never reaches the Hub. A portal older
+ * than its API shows a state it does not recognize as the raw value.
+ */
+@TypeSpec.OpenAPI.extension(
+  "x-vetchium-known-values",
+  #["scheduled", "cancelled"]
+)
+scalar MyInterviewState extends string;
+
+/** An interview of the application, without stage name or interviewers. */
+model MyApplicationInterview {
+  interview_number: Vetchium.Orgs.Applications.InterviewNumber;
+  state: MyInterviewState;
+  starts_at: utcDateTime;
+  duration_minutes: Vetchium.Orgs.Applications.InterviewDurationMinutes;
+  mode: Vetchium.Orgs.Applications.InterviewMode;
+
+  /** `video` only. */
+  video_url?: string;
+
+  /** `in_person` only. */
+  location?: Vetchium.Orgs.Applications.InterviewLocation;
+
+  /** The applicant's answer; `pending` until they accept or ask to move it. */
+  response: Vetchium.Orgs.Applications.InterviewResponse;
+
+  /** Present while `response` is `reschedule_requested`. */
+  reschedule_note?: Vetchium.Orgs.Applications.InterviewRescheduleNote;
+}
+
 /** The live read of one application, with what the applicant may act on. */
 model MyApplicationDetail {
   ...MyApplication;
   offer?: MyApplicationOffer;
+
+  /** Earliest start first; empty when none was scheduled. */
+  interviews: MyApplicationInterview[];
+}
+
+/** Names an interview of the application, by its number. */
+model InterviewReference {
+  ...ApplicationReference;
+  interview_number: Vetchium.Orgs.Applications.InterviewNumber;
+}
+
+/** Accepts an upcoming interview. */
+model AcceptInterviewRequest {
+  ...InterviewReference;
+}
+
+/** Asks the Org to move an upcoming interview. */
+model RequestInterviewRescheduleRequest {
+  ...InterviewReference;
+  note: Vetchium.Orgs.Applications.InterviewRescheduleNote;
 }
 
 /** Answers the offer the applicant read, named by its number. */
@@ -281,6 +334,48 @@ interface ApplicationOperations {
   declineOffer(
     @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
     @body request: RespondToOfferRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationReference;
+      }
+    | PendingApplicationResponse
+    | ApplicationWriteErrors
+    | Vetchium.Problem.HubApplicationNotFoundErrorResponse
+    | Vetchium.Problem.HubApplicationStateConflictErrorResponse;
+
+  /** Accepts an upcoming interview, with the same outcomes as applying. An
+   * interview that is unknown or not the applicant's is
+   * `hub-application-not-found`; one that is cancelled, past, or already
+   * accepted is `hub-application-state-conflict`. */
+  @route("/accept-application-interview")
+  @post
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 2592000)
+  @useAuth(BearerAuth)
+  acceptInterview(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: AcceptInterviewRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationReference;
+      }
+    | PendingApplicationResponse
+    | ApplicationWriteErrors
+    | Vetchium.Problem.HubApplicationNotFoundErrorResponse
+    | Vetchium.Problem.HubApplicationStateConflictErrorResponse;
+
+  /** Asks the Org to reschedule an upcoming interview, with a note, and the
+   * same outcomes and refusals as accepting it. */
+  @route("/request-application-interview-reschedule")
+  @post
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 2592000)
+  @useAuth(BearerAuth)
+  requestInterviewReschedule(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: RequestInterviewRescheduleRequest,
   ):
     | {
         @statusCode status_code: 200;

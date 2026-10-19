@@ -101,6 +101,11 @@ Application states:
   `in_pipeline`, `offered`, or `offer_accepted`.
 - **HP-STA-002** Leaving the pipeline cancels its upcoming interviews and
   ends every provider's access ([`marketplace.md`](marketplace.md) MKT-ACC).
+  An interview is upcoming while it is `scheduled` and its start is ahead;
+  one whose start passed stays to be recorded (HP-WRK-004). Every statement
+  that ends a candidacy (not progressing, bulk close, applicant withdrawal,
+  offer decline or expiry, joined, did not join) calls
+  `vetchium.cancel_upcoming_interviews` in the same statement.
 - **HP-STA-003** Moving forward records each passed-over stage as `skipped`.
   Moving back and per-candidacy extra stages are in `docs/todo.md`.
 - **HP-STA-004** An offer may be extended from any stage; unfinished stages
@@ -218,6 +223,44 @@ below.
   optional proposed joining date, and a response deadline of 1–60 days. A
   withdrawn offer keeps its letter in history for the Org only.
 
+- **HP-WRK-009** The Org's interview writes are `schedule-interview`
+  (`in_pipeline` at an interview stage; at most 10 not `cancelled` per
+  candidacy and stage, else `org-interview-limit-reached`; a start in the
+  future; interviewers that are not all active users of the Org are
+  `org-interview-interviewers-invalid`), `change-interview` (replaces the
+  details and interviewers of an upcoming interview; a change of start,
+  duration, or mode details resets the response and its note, a change of
+  interviewers alone keeps them), `cancel-interview` (upcoming only),
+  `record-interview-outcome` (`completed` or `no_show` from `scheduled`, once
+  the start passed; an interviewer of that interview, or whoever acts on the
+  Opening's applications), and `submit-interview-feedback` (an interviewer of
+  that interview, once, on a `completed` interview; notes 1–10,000 code
+  points). `backend/handlers/orgs/applications/interviews.go` runs each
+  through `transition`: it locks the application, answers
+  `org-application-not-found`, `org-permission-required`, version conflict,
+  then the interview refusals (`org-interview-not-found`,
+  `org-interview-state-conflict`, `org-interview-feedback-exists`), then
+  `validation-failed`. Each write bumps the application `version`, appends a
+  history entry (`interview_*`, with `interview_number`, never notes), and
+  returns `ApplicationDetail`. Timing is judged by the database clock.
+- **HP-WRK-010** `ApplicationDetail.interviews` lists every interview with
+  its stage, interviewers (and whether each submitted), and feedback. The
+  query hides every other interviewer's feedback from an interviewer who has
+  not submitted their own. `list-my-interviews` is keyed by the caller and
+  paginates by interview id (a UUIDv7, so newest scheduled first).
+- **HP-WRK-011** The applicant answers an upcoming interview through
+  `hub-accept-interview` and `hub-request-interview-reschedule`
+  (`backend/internal/hubinterview`, payloads `HubAcceptInterviewPayload` and
+  `HubRescheduleInterviewPayload` with a note of 1–500 code points), authority
+  the Org, aggregate id the Opening number. An unknown application or
+  interview is `hub-application-not-found`; a cancelled, started, or
+  finished interview, a candidacy that left the pipeline, or repeating the
+  same answer is `hub-application-state-conflict`. `interview_response` is
+  pending while an upcoming `scheduled` interview's response is `pending`.
+  The Hub sees `scheduled` and `cancelled` interviews with time, duration,
+  mode, link or location, response, and note; never the stage, interviewers,
+  outcome, or feedback.
+
 ## Permissions
 
 | Permission | Allows |
@@ -232,14 +275,21 @@ below.
   them.
 - **HP-AUTH-003** An interviewer without other access reads only the
   candidacies of their interviews and acts only on their own interview.
+  `list-my-interviews` is how they find them. They see no offers: the
+  offers and their letters are for readers of all the Opening's applications
+  (`vetchium.org_user_reads_all_applications`).
 - **HP-AUTH-004** `org:view_openings` grants no access to applications.
 - **HP-AUTH-005** Pipeline templates and an Opening's pipeline need
   `org:manage_openings`.
 - **HP-AUTH-006** Answer an application the caller may not read with
   `org-application-not-found`.
 - **HP-AUTH-007** Every application read applies
-  `vetchium.org_user_reads_applications(opening, user)` in its SQL; add a new
-  read path (HP-AUTH-003's interviewers) to that function. Answer a list,
+  `vetchium.org_user_reads_applications(opening, user, application)` in its
+  SQL; add a new read path to that function. Called without the application
+  it answers whether the user may open the Opening at all (an interviewer of
+  any of its applications may); called with it, whether they read that
+  application. A list leads with the Opening call and keeps each row by the
+  application call; counts and history use the application call. Answer a list,
   count, or history for an Opening the caller may not read with the same
   `org-application-not-found`, an unknown Opening included.
 
@@ -270,14 +320,19 @@ below.
 - **HP-HUB-007** `get-my-application` returns `MyApplicationDetail`: the
   latest offer unless the Org withdrew it, with a letter link signed in the
   Org's tenant. `offer_response` is pending while the application is
-  `offered` and its extended offer's `respond_by` is ahead.
+  `offered` and its extended offer's `respond_by` is ahead. The detail also
+  lists the interviews (HP-WRK-011). The list projection judges time when the
+  event is written, so an interview or offer whose time passes unanswered
+  stays pending there until the next change; the live detail is exact.
 
 ## Orgs Candidacies pages
 
 - **HP-ORG-001** Opening detail has an Applicants tab (`submitted`) and a
   Candidates tab (candidacies by stage, then terminal ones under a state
   filter). Each lists server-side with filters for
-  state, stage, routed provider, and pending applicant action; display-name
+  state, stage, routed provider, and pending applicant action
+  (`pending_applicant_action`: `interview_response`, `offer_response`; the
+  consent action joins it with background checks); display-name
   substring search (at least two characters); keyset pagination (at most
   100); and a count per stage.
 - **HP-ORG-002** Application detail shows the snapshot, cover note, stage
@@ -310,6 +365,11 @@ below.
 | `org-pipeline-template-limit-reached` | 409 | the Org already has 50 templates; carries `limit` |
 | `hub-application-exists` | 409 | the applicant already applied to the Opening |
 | `hub-opening-not-accepting` | 409 | the Opening is not `published` |
+| `org-interview-not-found` | 404 | the application has no interview with the number |
+| `org-interview-state-conflict` | 409 | the interview's state or time does not allow the action |
+| `org-interview-feedback-exists` | 409 | the caller already submitted feedback on the interview |
+| `org-interview-limit-reached` | 409 | the stage holds the most interviews; carries `limit` |
+| `org-interview-interviewers-invalid` | 422 | a named interviewer is not an active user of the Org; carries `email_addresses` |
 | `hub-application-not-found` | 404 | unknown application, or not the caller's |
 | `hub-application-state-conflict` | 409 | the application's state does not allow the applicant's action |
 

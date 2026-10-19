@@ -4,12 +4,18 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { myInterviewStateValues } from "../hub/applications/applications.ts";
 import { planRank, plans } from "../hub/subscriptions/plans.ts";
 import {
   applicationActorKindValues,
   applicationHistoryActionValues,
   applicationStateValues,
+  interviewModeValues,
+  interviewRecommendationValues,
+  interviewResponseValues,
+  interviewStateValues,
   offerStatusValues,
+  pendingApplicantActionValues,
   stageStatusValues,
 } from "../orgs/applications/applications.ts";
 import {
@@ -128,6 +134,11 @@ test("the compiled OpenAPI document carries the application vocabularies", async
     ApplicationHistoryAction: applicationHistoryActionValues,
     ApplicationActorKind: applicationActorKindValues,
     OfferStatus: offerStatusValues,
+    InterviewMode: interviewModeValues,
+    InterviewState: interviewStateValues,
+    InterviewResponse: interviewResponseValues,
+    InterviewRecommendation: interviewRecommendationValues,
+    PendingApplicantAction: pendingApplicantActionValues,
   };
   for (const [name, values] of Object.entries(expected)) {
     assert.deepEqual(
@@ -138,6 +149,15 @@ test("the compiled OpenAPI document carries the application vocabularies", async
       name,
     );
   }
+});
+
+test("the compiled OpenAPI document carries the Hub interview states", async () => {
+  assert.deepEqual(
+    (await namespacedSchema("Hub.Applications.MyInterviewState"))[
+      "x-vetchium-known-values"
+    ],
+    myInterviewStateValues,
+  );
 });
 
 test("the compiled OpenAPI document carries the Capability vocabulary", async () => {

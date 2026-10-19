@@ -408,6 +408,7 @@ test("a Hub user applies to a local Org, reads, and withdraws with replays", asy
         application_number: created.application_number,
         status: "applied",
         pending_actions: [],
+        interviews: [],
       });
       await expectProjected(applicant, created, "applied");
       const listed = (await myApplications(applicant)).applications[0];

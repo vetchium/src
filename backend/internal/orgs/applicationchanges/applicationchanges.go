@@ -25,7 +25,9 @@ type Change struct {
 	StageID     pgtype.UUID
 	JoinedOn    pgtype.Date
 	SeparatedOn pgtype.Date
-	TenantID    string
+	// InterviewNumber is the interview an interview action concerns.
+	InterviewNumber pgtype.Int4
+	TenantID        string
 	// IdempotencyKey correlates the audit events with the request.
 	IdempotencyKey string
 }
@@ -45,7 +47,8 @@ func Record(
 			ApplicationIds: applicationIDs, Action: string(change.Action),
 			ActorID: change.ActorID, StageID: change.StageID,
 			JoinedOn: change.JoinedOn, SeparatedOn: change.SeparatedOn,
-			TenantID: change.TenantID, IdempotencyKey: dbvalue.Text(change.IdempotencyKey),
+			InterviewNumber: change.InterviewNumber,
+			TenantID:        change.TenantID, IdempotencyKey: dbvalue.Text(change.IdempotencyKey),
 		})
 	if err != nil {
 		return fmt.Errorf("record application changes: %w", err)

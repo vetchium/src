@@ -31,6 +31,12 @@ func application() hubspec.MyApplication {
 	}
 }
 
+func detail(application hubspec.MyApplication) hubspec.MyApplicationDetail {
+	return hubspec.MyApplicationDetail{
+		MyApplication: application, Interviews: []hubspec.MyApplicationInterview{},
+	}
+}
+
 func serve(t *testing.T, status int, mediaType string, body any) *Client {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(
@@ -49,13 +55,13 @@ func serve(t *testing.T, status int, mediaType string, body any) *Client {
 }
 
 func TestRelayGetReturnsOnlyTheRequestedValidApplication(t *testing.T) {
-	outcome, err := serve(t, 200, "application/json", application()).
+	outcome, err := serve(t, 200, "application/json", detail(application())).
 		RelayGet(context.Background(), request())
 	if err != nil || outcome.Result == nil || outcome.Problem != nil {
 		t.Fatalf("outcome = %+v, err = %v", outcome, err)
 	}
 	offered := hubspec.MyApplicationDetail{
-		MyApplication: application(),
+		MyApplication: application(), Interviews: []hubspec.MyApplicationInterview{},
 		Offer: &hubspec.MyApplicationOffer{
 			OfferNumber: 1, Status: "extended",
 			LetterURL:      "https://media.sgp.vetchium.com/org-offer-letters/x",
@@ -73,17 +79,35 @@ func TestRelayGetReturnsOnlyTheRequestedValidApplication(t *testing.T) {
 	withdrawnOffer := *offered.Offer
 	withdrawnOffer.Status = "withdrawn"
 	withdrawn.Offer = &withdrawnOffer
-	other := application()
+	other := detail(application())
 	other.ApplicationNumber = 5
 	withStage := map[string]any{
 		"org_domain": "example.com", "org_display_name": "Example",
 		"opening_number": 3, "opening_title": "Engineer",
 		"application_number": 4, "status": "applied",
-		"pending_actions": []string{}, "stage_name": "Panel",
+		"pending_actions": []string{}, "interviews": []string{},
+		"stage_name": "Panel",
 	}
+	link := "https://meet.example.com/room"
+	interviewing := detail(application())
+	interviewing.Interviews = []hubspec.MyApplicationInterview{{
+		InterviewNumber: 1, State: hubspec.MyInterviewScheduled,
+		StartsAt: time.Now(), DurationMinutes: 30, Mode: "video",
+		VideoURL: &link, Response: "pending",
+	}}
+	if outcome, err := serve(t, 200, "application/json", interviewing).
+		RelayGet(context.Background(), request()); err != nil ||
+		outcome.Result == nil || len(outcome.Result.Interviews) != 1 {
+		t.Fatalf("interview outcome = %+v, err = %v", outcome, err)
+	}
+	completed := interviewing
+	completed.Interviews = []hubspec.MyApplicationInterview{
+		interviewing.Interviews[0],
+	}
+	completed.Interviews[0].State = "completed"
 	for name, body := range map[string]any{
 		"another application": other, "an unknown field": withStage,
-		"a withdrawn offer": withdrawn,
+		"a withdrawn offer": withdrawn, "a finished interview": completed,
 	} {
 		if _, err := serve(t, 200, "application/json", body).
 			RelayGet(context.Background(), request()); !errors.Is(err, ErrInvalidResponse) {

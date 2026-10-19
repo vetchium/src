@@ -32,6 +32,10 @@ func TestFiltersHashExcludesPagePositionAndBindsFilters(t *testing.T) {
 			r.States = []applications.ApplicationState{applications.Joined}
 		},
 		"opening": func(r *applications.ListApplicationsRequest) { r.OpeningNumber = 2 },
+		"pending action": func(r *applications.ListApplicationsRequest) {
+			action := applications.InterviewResponseAction
+			r.PendingApplicantAction = &action
+		},
 		"name": func(r *applications.ListApplicationsRequest) {
 			other := applications.ApplicantNameQuery("bob")
 			r.NameQuery = &other

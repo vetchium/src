@@ -69,3 +69,65 @@ alias OrgOfferLetterConflictErrorResponse = Response<
   409,
   typeof OrgOfferLetterConflictError
 >;
+
+const OrgInterviewNotFoundError = #{
+  type: "vetchium-problem-details/org-interview-not-found",
+  title: "Org interview not found",
+  status: 404,
+  detail: "The application has no interview with the requested number",
+};
+alias OrgInterviewNotFoundErrorResponse = Response<
+  404,
+  typeof OrgInterviewNotFoundError
+>;
+
+const OrgInterviewStateConflictError = #{
+  type: "vetchium-problem-details/org-interview-state-conflict",
+  title: "Org interview state conflict",
+  status: 409,
+  detail: "The action is not allowed in the interview's current state or time",
+};
+alias OrgInterviewStateConflictErrorResponse = Response<
+  409,
+  typeof OrgInterviewStateConflictError
+>;
+
+const OrgInterviewFeedbackExistsError = #{
+  type: "vetchium-problem-details/org-interview-feedback-exists",
+  title: "Org interview feedback exists",
+  status: 409,
+  detail: "The caller already submitted feedback on the interview",
+};
+alias OrgInterviewFeedbackExistsErrorResponse = Response<
+  409,
+  typeof OrgInterviewFeedbackExistsError
+>;
+
+model OrgInterviewLimitReachedDetails {
+  type: "vetchium-problem-details/org-interview-limit-reached";
+  title: "Org interview limit reached";
+  status: 409;
+  detail: "The candidacy already has the most interviews it may hold at this stage";
+  limit: int32;
+  instance?: string;
+}
+alias OrgInterviewLimitReachedErrorResponse = Response<
+  409,
+  OrgInterviewLimitReachedDetails
+>;
+
+model OrgInterviewInterviewersInvalidDetails {
+  type: "vetchium-problem-details/org-interview-interviewers-invalid";
+  title: "Org interview interviewers invalid";
+  status: 422;
+  detail: "A named interviewer is not an active user of the Org";
+
+  @minItems(1)
+  email_addresses: string[];
+
+  instance?: string;
+}
+alias OrgInterviewInterviewersInvalidErrorResponse = Response<
+  422,
+  OrgInterviewInterviewersInvalidDetails
+>;

@@ -139,6 +139,16 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/record-application-separated", readOpening(orgsapplications.RecordApplicationSeparated(s)))
 	mux.Handle("POST /api/orgs/correct-application-joined-on", readOpening(orgsapplications.CorrectApplicationJoinedOn(s)))
 	mux.Handle("POST /api/orgs/correct-application-separated-on", readOpening(orgsapplications.CorrectApplicationSeparatedOn(s)))
+	// Interview writes: scheduling, changing, and cancelling need the right to
+	// act; recording an outcome and feedback also admit the interview's own
+	// interviewers, whom the handler checks against the interview. Anyone may
+	// list the interviews they interview on.
+	mux.Handle("POST /api/orgs/schedule-interview", readOpening(orgsapplications.ScheduleInterview(s)))
+	mux.Handle("POST /api/orgs/change-interview", readOpening(orgsapplications.ChangeInterview(s)))
+	mux.Handle("POST /api/orgs/cancel-interview", readOpening(orgsapplications.CancelInterview(s)))
+	mux.Handle("POST /api/orgs/record-interview-outcome", readOpening(orgsapplications.RecordInterviewOutcome(s)))
+	mux.Handle("POST /api/orgs/submit-interview-feedback", readOpening(orgsapplications.SubmitInterviewFeedback(s)))
+	mux.Handle("POST /api/orgs/list-my-interviews", readOpening(orgsapplications.ListMyInterviews(s)))
 	mux.Handle("POST /api/orgs/upload-offer-letter", readOpening(orgsapplications.UploadOfferLetter(s)))
 	mux.Handle("POST /api/orgs/extend-application-offer", readOpening(orgsapplications.ExtendApplicationOffer(s)))
 	mux.Handle("POST /api/orgs/withdraw-application-offer", readOpening(orgsapplications.WithdrawApplicationOffer(s)))

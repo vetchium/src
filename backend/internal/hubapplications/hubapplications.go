@@ -81,12 +81,17 @@ func Status(
 	}
 }
 
-// PendingActions lists what awaits the applicant: an offer to answer while
-// the application is offered and its offer is still open (HP-HUB-003).
+// PendingActions lists what awaits the applicant: an upcoming interview they
+// have not answered, and an offer to answer while the application is offered
+// and its offer is still open (HP-HUB-003).
 func PendingActions(
 	state sqlc.VetchiumOrgApplicationState, offerAwaitsAnswer bool,
+	interviewAwaitsResponse bool,
 ) []hubspec.PendingActionKind {
 	actions := []hubspec.PendingActionKind{}
+	if interviewAwaitsResponse {
+		actions = append(actions, hubspec.InterviewResponse)
+	}
 	if state == sqlc.VetchiumOrgApplicationStateOffered && offerAwaitsAnswer {
 		actions = append(actions, hubspec.OfferResponse)
 	}
@@ -153,6 +158,7 @@ func EnqueueChanges(
 				Status:            status,
 				PendingActions: PendingActions(
 					row.ApplicationState, row.OfferAwaitsAnswer,
+					row.InterviewAwaitsResponse,
 				),
 				AppliedAt:      row.CreatedAt.Time.UTC(),
 				LastActivityAt: row.UpdatedAt.Time.UTC(),
@@ -201,8 +207,16 @@ func ReadForApplicant(
 			Status:            status,
 			PendingActions: PendingActions(
 				row.ApplicationState, row.OfferAwaitsAnswer,
+				row.InterviewAwaitsResponse,
 			),
 		},
+		Interviews: []hubspec.MyApplicationInterview{},
+	}
+	if err := json.Unmarshal(row.Interviews, &detail.Interviews); err != nil {
+		return hubspec.MyApplicationDetail{}, fmt.Errorf("decode interviews: %w", err)
+	}
+	for index := range detail.Interviews {
+		detail.Interviews[index].StartsAt = detail.Interviews[index].StartsAt.UTC()
 	}
 	if !row.HasOffer {
 		return detail, nil

@@ -20,11 +20,17 @@ import type {
   ApplicationJoinedOnRequest,
   ApplicationSeparatedOnRequest,
   ApplicationStageRequest,
+  CancelInterviewRequest,
+  ChangeInterviewRequest,
   ExtendApplicationOfferRequest,
   GetApplicationCountsRequest,
   GetApplicationRequest,
   ListApplicationHistoryRequest,
   ListApplicationsRequest,
+  ListMyInterviewsRequest,
+  RecordInterviewOutcomeRequest,
+  ScheduleInterviewRequest,
+  SubmitInterviewFeedbackRequest,
 } from "typespec/orgs/applications/applications";
 import type { LoginResponse } from "typespec/orgs/auth/login";
 import {
@@ -413,6 +419,74 @@ export class OrgsAPI {
       token,
       idempotencyKey,
     });
+  }
+
+  scheduleInterview(
+    token: string,
+    request: ScheduleInterviewRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/schedule-interview", request, { token, idempotencyKey });
+  }
+
+  /** Sends any JSON as an interview write, for malformed requests. */
+  interviewWriteRaw(
+    operation:
+      | "schedule-interview"
+      | "change-interview"
+      | "cancel-interview"
+      | "record-interview-outcome"
+      | "submit-interview-feedback",
+    token: string,
+    request: unknown,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post(`/${operation}`, request, { token, idempotencyKey });
+  }
+
+  changeInterview(
+    token: string,
+    request: ChangeInterviewRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/change-interview", request, { token, idempotencyKey });
+  }
+
+  cancelInterview(
+    token: string,
+    request: CancelInterviewRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/cancel-interview", request, { token, idempotencyKey });
+  }
+
+  recordInterviewOutcome(
+    token: string,
+    request: RecordInterviewOutcomeRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-interview-outcome", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  submitInterviewFeedback(
+    token: string,
+    request: SubmitInterviewFeedbackRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/submit-interview-feedback", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  listMyInterviews(
+    token: string,
+    request: ListMyInterviewsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-my-interviews", request, { token });
   }
 
   withdrawApplicationOffer(

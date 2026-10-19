@@ -81,6 +81,11 @@ WITH changed AS (
     FROM changed
     WHERE o.org_application_offer_id = changed.org_application_offer_id
     RETURNING o.org_application_id
+), cancelled AS (
+    -- Declining ends the candidacy; accepting does not.
+    SELECT vetchium.cancel_upcoming_interviews(ARRAY(
+        SELECT org_application_id FROM changed
+        WHERE NOT sqlc.arg(accept)::boolean)) AS interviews
 ), history AS (
     INSERT INTO vetchium.org_application_history (
         org_application_history_id, org_application_id, action, actor_kind,
@@ -121,6 +126,8 @@ WITH changed AS (
 )
 SELECT (SELECT count(*) FROM changed) AS changed_rows,
     (SELECT count(*) FROM answered) AS answered_rows,
+    COALESCE((SELECT interviews FROM cancelled), 0)::integer
+        AS cancelled_interviews,
     (SELECT count(*) FROM history) AS history_rows,
     (SELECT count(*) FROM audit) AS audit_rows;
 
@@ -161,6 +168,9 @@ WITH changed AS (
     FROM changed
     WHERE o.org_application_offer_id = changed.org_application_offer_id
     RETURNING o.org_application_id
+), cancelled AS (
+    SELECT vetchium.cancel_upcoming_interviews(
+        ARRAY(SELECT org_application_id FROM changed)) AS interviews
 ), history AS (
     INSERT INTO vetchium.org_application_history (
         org_application_history_id, org_application_id, action, actor_kind,
@@ -191,6 +201,8 @@ WITH changed AS (
     RETURNING audit_event_id
 )
 SELECT changed.org_application_id,
+    COALESCE((SELECT interviews FROM cancelled), 0)::integer
+        AS cancelled_interviews,
     (SELECT count(*) FROM expired) AS expired_rows,
     (SELECT count(*) FROM history) AS history_rows,
     (SELECT count(*) FROM audit) AS audit_rows

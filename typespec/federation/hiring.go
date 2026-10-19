@@ -140,6 +140,75 @@ type HubOfferResponseResult struct {
 	OfferNumber       applications.OfferNumber       `json:"offer_number"`
 }
 
+// HubAcceptInterviewKind and HubRescheduleInterviewKind are the commands a
+// Hub user's home tenant sends to the Org's tenant to accept an interview or
+// ask for it to move. Their authority principal is the Org and their
+// aggregate id is the Opening number as decimal text.
+const (
+	HubAcceptInterviewKind     CommandKind = "hub-accept-interview"
+	HubRescheduleInterviewKind CommandKind = "hub-request-interview-reschedule"
+)
+
+type HubAcceptInterviewPayload struct {
+	OpeningNumber     openings.OpeningNumber         `json:"opening_number"`
+	ApplicationNumber applications.ApplicationNumber `json:"application_number"`
+	InterviewNumber   applications.InterviewNumber   `json:"interview_number"`
+	ApplicantDID      hub.HubUserDID                 `json:"applicant_did"`
+}
+
+func (p *HubAcceptInterviewPayload) Normalize() {}
+
+func (p HubAcceptInterviewPayload) Validate() []string {
+	fields := []string{}
+	if p.OpeningNumber < 1 {
+		fields = append(fields, "opening_number")
+	}
+	if !applications.IsApplicationNumber(p.ApplicationNumber) {
+		fields = append(fields, "application_number")
+	}
+	if !applications.IsInterviewNumber(p.InterviewNumber) {
+		fields = append(fields, "interview_number")
+	}
+	if !hub.IsHubUserDID(p.ApplicantDID) {
+		fields = append(fields, "applicant_did")
+	}
+	return fields
+}
+
+// HubRescheduleInterviewPayload adds the applicant's note.
+type HubRescheduleInterviewPayload struct {
+	OpeningNumber     openings.OpeningNumber               `json:"opening_number"`
+	ApplicationNumber applications.ApplicationNumber       `json:"application_number"`
+	InterviewNumber   applications.InterviewNumber         `json:"interview_number"`
+	ApplicantDID      hub.HubUserDID                       `json:"applicant_did"`
+	Note              applications.InterviewRescheduleNote `json:"note"`
+}
+
+// Normalize trims the note.
+func (p *HubRescheduleInterviewPayload) Normalize() {
+	p.Note = applications.InterviewRescheduleNote(
+		strings.TrimSpace(string(p.Note)),
+	)
+}
+
+func (p HubRescheduleInterviewPayload) Validate() []string {
+	fields := HubAcceptInterviewPayload{
+		OpeningNumber: p.OpeningNumber, ApplicationNumber: p.ApplicationNumber,
+		InterviewNumber: p.InterviewNumber, ApplicantDID: p.ApplicantDID,
+	}.Validate()
+	if !applications.IsInterviewRescheduleNote(p.Note) {
+		fields = append(fields, "note")
+	}
+	return fields
+}
+
+// HubInterviewResponseResult is the stored `200` body of both commands.
+type HubInterviewResponseResult struct {
+	OpeningNumber     openings.OpeningNumber         `json:"opening_number"`
+	ApplicationNumber applications.ApplicationNumber `json:"application_number"`
+	InterviewNumber   applications.InterviewNumber   `json:"interview_number"`
+}
+
 // HubApplicationChangedKind is the event the Org's tenant enqueues on every
 // change of an application for the applicant Hub user's home tenant, which
 // keeps one projection row per application.

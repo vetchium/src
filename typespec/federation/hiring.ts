@@ -13,8 +13,12 @@ import { isHubUserDID } from "../hub/types.ts";
 import {
   type ApplicationCoverNote,
   type ApplicationNumber,
+  type InterviewNumber,
+  type InterviewRescheduleNote,
   isApplicationCoverNote,
   isApplicationNumber,
+  isInterviewNumber,
+  isInterviewRescheduleNote,
   isOfferNumber,
   type OfferNumber,
 } from "../orgs/applications/applications.ts";
@@ -143,6 +147,65 @@ export interface HubOfferResponseResult {
   opening_number: OpeningNumber;
   application_number: ApplicationNumber;
   offer_number: OfferNumber;
+}
+
+/**
+ * The commands a Hub user's home tenant sends to the Org's tenant to accept
+ * an interview or ask for it to move. Their authority principal is the Org
+ * and their aggregate id is the Opening number as decimal text.
+ */
+export const HubAcceptInterviewKind: CommandKind = "hub-accept-interview";
+export const HubRescheduleInterviewKind: CommandKind =
+  "hub-request-interview-reschedule";
+
+export interface HubAcceptInterviewPayload {
+  opening_number: OpeningNumber;
+  application_number: ApplicationNumber;
+  interview_number: InterviewNumber;
+  applicant_did: HubUserDID;
+}
+
+export function validateHubAcceptInterviewPayload(
+  payload: HubAcceptInterviewPayload,
+): string[] {
+  const fields: string[] = [];
+  if (!Number.isInteger(payload.opening_number) || payload.opening_number < 1) {
+    fields.push("opening_number");
+  }
+  if (!isApplicationNumber(payload.application_number)) {
+    fields.push("application_number");
+  }
+  if (!isInterviewNumber(payload.interview_number)) {
+    fields.push("interview_number");
+  }
+  if (!isHubUserDID(payload.applicant_did)) fields.push("applicant_did");
+  return fields;
+}
+
+export interface HubRescheduleInterviewPayload
+  extends HubAcceptInterviewPayload {
+  note: InterviewRescheduleNote;
+}
+
+/** Trims the note, leaving the caller's value. */
+export function normalizeHubRescheduleInterviewPayload(
+  payload: HubRescheduleInterviewPayload,
+): HubRescheduleInterviewPayload {
+  return { ...payload, note: payload.note.trim() };
+}
+
+export function validateHubRescheduleInterviewPayload(
+  payload: HubRescheduleInterviewPayload,
+): string[] {
+  const fields = validateHubAcceptInterviewPayload(payload);
+  if (!isInterviewRescheduleNote(payload.note)) fields.push("note");
+  return fields;
+}
+
+export interface HubInterviewResponseResult {
+  opening_number: OpeningNumber;
+  application_number: ApplicationNumber;
+  interview_number: InterviewNumber;
 }
 
 /**

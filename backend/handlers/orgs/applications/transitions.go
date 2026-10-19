@@ -44,7 +44,12 @@ type transition struct {
 	version   applications.ApplicationVersion
 	// targetStage is the stage a shortlist or move names.
 	targetStage *hiring.PipelineStageID
-	// check refuses a state or an input the locked application cannot take.
+	// interviewerMayAct lets a reader who only interviews on the application
+	// reach apply, which then decides permission from the interview itself
+	// (HP-AUTH-003).
+	interviewerMayAct bool
+	// check refuses a state or an input the locked application cannot take;
+	// nil refuses nothing.
 	check func(locked sqlc.LockOrgApplicationForWriteRow, now time.Time) problem.Body
 	// apply runs the guarded statement and reports whether it changed the
 	// application. The change it returns carries what the history records.
@@ -61,7 +66,9 @@ type change struct {
 	stageID     pgtype.UUID
 	joinedOn    pgtype.Date
 	separatedOn pgtype.Date
-	refusal     problem.Body
+	// interviewNumber is the interview an interview action concerns.
+	interviewNumber pgtype.Int4
+	refusal         problem.Body
 }
 
 func (t transition) run(
@@ -99,7 +106,7 @@ func (t transition) run(
 			if err != nil {
 				return result{}, nil, err
 			}
-			if !locked.CanAct {
+			if !locked.CanAct && !t.interviewerMayAct {
 				return handlerauth.Failure[applications.ApplicationDetail](
 					orgsproblem.PermissionRequiredError)
 			}
@@ -107,8 +114,10 @@ func (t transition) run(
 				return handlerauth.Failure[applications.ApplicationDetail](
 					orgsproblem.ApplicationVersionConflictError)
 			}
-			if details := t.check(locked, now); details != nil {
-				return handlerauth.Failure[applications.ApplicationDetail](details)
+			if t.check != nil {
+				if details := t.check(locked, now); details != nil {
+					return handlerauth.Failure[applications.ApplicationDetail](details)
+				}
 			}
 			changed, applied, err := t.apply(ctx, q, locked, now)
 			if err != nil {
@@ -129,7 +138,8 @@ func (t transition) run(
 				applicationchanges.Change{
 					Action: changed.action, ActorID: identity.UserID,
 					StageID: changed.stageID, JoinedOn: changed.joinedOn,
-					SeparatedOn: changed.separatedOn, TenantID: s.TenantID,
+					SeparatedOn:     changed.separatedOn,
+					InterviewNumber: changed.interviewNumber, TenantID: s.TenantID,
 					IdempotencyKey: string(key),
 				}); err != nil {
 				return result{}, nil, err
@@ -355,12 +365,12 @@ func MarkApplicationNotProgressing(s *orgsruntime.Server) http.HandlerFunc {
 				)(locked.ApplicationState)
 			},
 			apply: func(ctx context.Context, q *sqlc.Queries, locked sqlc.LockOrgApplicationForWriteRow, _ time.Time) (change, bool, error) {
-				rows, err := q.MarkOrgApplicationNotProgressing(ctx, sqlc.MarkOrgApplicationNotProgressingParams{
+				row, err := q.MarkOrgApplicationNotProgressing(ctx, sqlc.MarkOrgApplicationNotProgressingParams{
 					ApplicationID: locked.OrgApplicationID, Version: locked.Version,
 				})
 				return change{
 					action: sqlc.VetchiumOrgApplicationHistoryActionNotProgressing,
-				}, rows == 1, err
+				}, row.ChangedRows == 1, err
 			},
 		}.run(s, w, r)
 	}

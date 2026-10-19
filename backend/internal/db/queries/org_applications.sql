@@ -84,9 +84,10 @@ SELECT (SELECT count(*) FROM created) AS created_rows,
     COALESCE((SELECT application_number FROM created), 0)::integer
         AS application_number;
 
--- The opening row leads, so a caller who may not read the Opening's
+-- The opening row leads, so a caller who may not read any of the Opening's
 -- applications gets no row at all, while one who may and finds nothing gets a
--- single row with a null application number.
+-- single row with a null application number. The join then keeps only the
+-- applications the caller reads: an interviewer sees just their candidacies.
 -- name: ListOrgApplications :many
 SELECT a.application_number, a.application_state, a.version,
     COALESCE(a.snapshot ->> 'display_name', '')::text AS display_name,
@@ -96,7 +97,22 @@ SELECT a.application_number, a.application_state, a.version,
 FROM vetchium.org_openings AS o
 LEFT JOIN vetchium.org_applications AS a
     ON a.org_opening_id = o.org_opening_id
+    AND vetchium.org_user_reads_applications(o.org_opening_id,
+        sqlc.arg(viewer_id), a.org_application_id)
     AND a.application_state::text = ANY(sqlc.arg(states)::text[])
+    AND (sqlc.narg(pending_action)::text IS NULL OR (
+        sqlc.narg(pending_action)::text = 'interview_response' AND EXISTS (
+            SELECT 1 FROM vetchium.org_interviews AS i
+            WHERE i.org_application_id = a.org_application_id
+              AND i.interview_state = 'scheduled' AND i.starts_at > now()
+              AND i.applicant_response = 'pending'
+        )) OR (
+        sqlc.narg(pending_action)::text = 'offer_response'
+        AND a.application_state = 'offered' AND EXISTS (
+            SELECT 1 FROM vetchium.org_application_offers AS f
+            WHERE f.org_application_id = a.org_application_id
+              AND f.offer_status = 'extended' AND f.respond_by > now()
+        )))
     AND (sqlc.narg(stage_id)::uuid IS NULL
         OR a.current_stage_id = sqlc.narg(stage_id)::uuid)
     AND (sqlc.narg(name_query)::text IS NULL
@@ -112,6 +128,8 @@ WHERE o.org_did = sqlc.arg(org_did)
 ORDER BY a.application_number DESC NULLS LAST
 LIMIT sqlc.arg(page_limit);
 
+-- An interviewer who reads only their candidacies sees no offers: a letter is
+-- for those who read all of the Opening's applications (HP-WRK-008).
 -- name: GetOrgApplication :one
 SELECT a.application_number, a.application_state, a.version, a.snapshot,
     a.cover_note, stage.org_opening_stage_id AS stage_id,
@@ -150,7 +168,61 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
         JOIN vetchium.org_offer_letter_objects AS l
             ON l.object_id = f.letter_object_id
         WHERE f.org_application_id = a.org_application_id
-    ), '[]'::jsonb)::jsonb AS offers
+          AND vetchium.org_user_reads_all_applications(o.org_opening_id,
+              sqlc.arg(viewer_id))
+    ), '[]'::jsonb)::jsonb AS offers,
+    -- Another interviewer's feedback stays hidden from an interviewer of the
+    -- interview until they submit their own (HP-WRK-004).
+    COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+            'interview_number', i.interview_number,
+            'stage', jsonb_build_object('id', s.org_opening_stage_id,
+                'name', s.name, 'kind', s.stage_kind),
+            'starts_at', i.starts_at,
+            'duration_minutes', i.duration_minutes,
+            'mode', i.interview_mode, 'video_url', i.video_url,
+            'location', i.location, 'state', i.interview_state,
+            'applicant_response', i.applicant_response,
+            'reschedule_note', i.reschedule_note,
+            'interviewers', COALESCE((
+                SELECT jsonb_agg(jsonb_build_object(
+                    'email', u.email_address,
+                    'feedback_submitted', f.org_user_id IS NOT NULL
+                ) ORDER BY u.email_address)
+                FROM vetchium.org_interview_interviewers AS iv
+                JOIN vetchium.org_users AS u ON u.org_user_id = iv.org_user_id
+                LEFT JOIN vetchium.org_interview_feedback AS f
+                    ON f.org_interview_id = iv.org_interview_id
+                   AND f.org_user_id = iv.org_user_id
+                WHERE iv.org_interview_id = i.org_interview_id
+            ), '[]'::jsonb),
+            'feedback', COALESCE((
+                SELECT jsonb_agg(jsonb_build_object(
+                    'interviewer_email', fu.email_address,
+                    'recommendation', fb.recommendation,
+                    'notes', fb.notes, 'submitted_at', fb.submitted_at
+                ) ORDER BY fb.submitted_at, fu.email_address)
+                FROM vetchium.org_interview_feedback AS fb
+                JOIN vetchium.org_users AS fu ON fu.org_user_id = fb.org_user_id
+                WHERE fb.org_interview_id = i.org_interview_id
+                  AND (fb.org_user_id = sqlc.arg(viewer_id) OR NOT EXISTS (
+                      SELECT 1
+                      FROM vetchium.org_interview_interviewers AS me
+                      WHERE me.org_interview_id = i.org_interview_id
+                        AND me.org_user_id = sqlc.arg(viewer_id)
+                        AND NOT EXISTS (
+                            SELECT 1 FROM vetchium.org_interview_feedback AS own
+                            WHERE own.org_interview_id = me.org_interview_id
+                              AND own.org_user_id = me.org_user_id
+                        )
+                  ))
+            ), '[]'::jsonb)
+        ) ORDER BY i.starts_at, i.interview_number)
+        FROM vetchium.org_interviews AS i
+        JOIN vetchium.org_opening_stages AS s
+            ON s.org_opening_stage_id = i.org_opening_stage_id
+        WHERE i.org_application_id = a.org_application_id
+    ), '[]'::jsonb)::jsonb AS interviews
 FROM vetchium.org_openings AS o
 JOIN vetchium.org_applications AS a ON a.org_opening_id = o.org_opening_id
 LEFT JOIN vetchium.org_opening_stages AS stage
@@ -158,7 +230,8 @@ LEFT JOIN vetchium.org_opening_stages AS stage
 WHERE o.org_did = sqlc.arg(org_did)
   AND o.opening_number = sqlc.arg(opening_number)::integer
   AND a.application_number = sqlc.arg(application_number)::integer
-  AND vetchium.org_user_reads_applications(o.org_opening_id, sqlc.arg(viewer_id));
+  AND vetchium.org_user_reads_applications(o.org_opening_id,
+      sqlc.arg(viewer_id), a.org_application_id);
 
 -- name: GetOrgApplicationCounts :one
 SELECT o.opening_number,
@@ -172,6 +245,8 @@ SELECT o.opening_number,
             SELECT a.application_state, count(*) AS applications
             FROM vetchium.org_applications AS a
             WHERE a.org_opening_id = o.org_opening_id
+              AND vetchium.org_user_reads_applications(o.org_opening_id,
+                  sqlc.arg(viewer_id), a.org_application_id)
             GROUP BY a.application_state
         ) AS c ON c.application_state = s.state
     )::jsonb AS states,
@@ -184,6 +259,8 @@ SELECT o.opening_number,
                 WHERE a.current_stage_id = st.org_opening_stage_id
                   AND a.application_state IN
                       ('in_pipeline', 'offered', 'offer_accepted')
+                  AND vetchium.org_user_reads_applications(o.org_opening_id,
+                      sqlc.arg(viewer_id), a.org_application_id)
             )
         ) ORDER BY st.position)
         FROM vetchium.org_opening_stages AS st
@@ -201,7 +278,7 @@ SELECT h.org_application_history_id, h.action, h.actor_kind,
     actor.email_address AS actor_email, h.application_state,
     h.application_version, h.created_at, h.joined_on, h.separated_on,
     hs.org_opening_stage_id AS stage_id, hs.name AS stage_name,
-    hs.stage_kind
+    hs.stage_kind, h.interview_number
 FROM vetchium.org_openings AS o
 JOIN vetchium.org_applications AS a ON a.org_opening_id = o.org_opening_id
 LEFT JOIN vetchium.org_application_history AS h
@@ -217,7 +294,8 @@ LEFT JOIN vetchium.org_opening_stages AS hs
 WHERE o.org_did = sqlc.arg(org_did)
   AND o.opening_number = sqlc.arg(opening_number)::integer
   AND a.application_number = sqlc.arg(application_number)::integer
-  AND vetchium.org_user_reads_applications(o.org_opening_id, sqlc.arg(viewer_id))
+  AND vetchium.org_user_reads_applications(o.org_opening_id,
+      sqlc.arg(viewer_id), a.org_application_id)
 ORDER BY h.created_at DESC NULLS LAST, h.org_application_history_id DESC NULLS LAST
 LIMIT sqlc.arg(page_limit);
 
@@ -233,7 +311,13 @@ SELECT applicant.hub_user_did, o.org_did, d.domain::text AS org_domain,
         SELECT 1 FROM vetchium.org_application_offers AS f
         WHERE f.org_application_id = a.org_application_id
           AND f.offer_status = 'extended' AND f.respond_by > now()
-    ) AS offer_awaits_answer
+    ) AS offer_awaits_answer,
+    EXISTS (
+        SELECT 1 FROM vetchium.org_interviews AS i
+        WHERE i.org_application_id = a.org_application_id
+          AND i.interview_state = 'scheduled' AND i.starts_at > now()
+          AND i.applicant_response = 'pending'
+    ) AS interview_awaits_response
 FROM vetchium.org_applications AS a
 JOIN vetchium.org_applicants AS applicant
     ON applicant.org_applicant_id = a.org_applicant_id
@@ -263,7 +347,7 @@ FOR UPDATE OF a;
 
 -- The caller holds the application row lock from
 -- LockOrgApplicationForApplicant. An offer awaiting an answer is withdrawn
--- with the application.
+-- with the application, and upcoming interviews are cancelled (HP-STA-002).
 -- name: WithdrawOrgApplication :one
 WITH withdrawn AS (
     UPDATE vetchium.org_applications AS a
@@ -281,6 +365,9 @@ WITH withdrawn AS (
     WHERE o.org_application_id = withdrawn.org_application_id
       AND o.offer_status = 'extended'
     RETURNING o.org_application_id
+), cancelled AS (
+    SELECT vetchium.cancel_upcoming_interviews(
+        ARRAY(SELECT org_application_id FROM withdrawn)) AS interviews
 ), history AS (
     INSERT INTO vetchium.org_application_history (
         org_application_history_id, org_application_id, action, actor_kind,
@@ -311,6 +398,8 @@ WITH withdrawn AS (
     RETURNING audit_event_id
 )
 SELECT (SELECT count(*) FROM withdrawn) AS withdrawn_rows,
+    COALESCE((SELECT interviews FROM cancelled), 0)::integer
+        AS cancelled_interviews,
     (SELECT count(*) FROM history) AS history_rows,
     (SELECT count(*) FROM audit) AS audit_rows;
 
@@ -328,7 +417,29 @@ SELECT d.domain::text AS org_domain, org.display_name AS org_display_name,
     COALESCE(offer.letter_byte_size, 0)::integer AS letter_byte_size,
     offer.proposed_joining_date, offer.respond_by, offer.extended_at,
     COALESCE(offer.offer_status = 'extended' AND offer.respond_by > now(),
-        false)::boolean AS offer_awaits_answer
+        false)::boolean AS offer_awaits_answer,
+    EXISTS (
+        SELECT 1 FROM vetchium.org_interviews AS i
+        WHERE i.org_application_id = a.org_application_id
+          AND i.interview_state = 'scheduled' AND i.starts_at > now()
+          AND i.applicant_response = 'pending'
+    ) AS interview_awaits_response,
+    -- Cancelled interviews tell the applicant it will not happen; how a
+    -- finished one went is the Org's alone (HP-HUB-001).
+    COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+            'interview_number', i.interview_number,
+            'state', i.interview_state, 'starts_at', i.starts_at,
+            'duration_minutes', i.duration_minutes,
+            'mode', i.interview_mode, 'video_url', i.video_url,
+            'location', i.location,
+            'response', i.applicant_response,
+            'reschedule_note', i.reschedule_note
+        ) ORDER BY i.starts_at, i.interview_number)
+        FROM vetchium.org_interviews AS i
+        WHERE i.org_application_id = a.org_application_id
+          AND i.interview_state IN ('scheduled', 'cancelled')
+    ), '[]'::jsonb)::jsonb AS interviews
 FROM vetchium.org_domains AS d
 JOIN vetchium.orgs AS org ON org.org_did = d.org_did
 JOIN vetchium.org_openings AS o ON o.org_did = d.org_did

@@ -6,12 +6,16 @@ import {
   effectiveListMyApplicationsLimit,
   isApplicationStatus,
   isPendingActionKind,
+  myInterviewStateValues,
   normalizeApplicationReference,
   normalizeApplyToOpeningRequest,
+  normalizeRequestInterviewRescheduleRequest,
   pendingActionKindValues,
+  validateAcceptInterviewRequest,
   validateApplicationReference,
   validateApplyToOpeningRequest,
   validateListMyApplicationsRequest,
+  validateRequestInterviewRescheduleRequest,
   validateRespondToOfferRequest,
 } from "./applications.ts";
 import { validateMeshGetApplicationRequest } from "./federation.ts";
@@ -120,5 +124,38 @@ test("offer answers name a positive offer number", () => {
       offer_number: 1.5,
     }),
     ["application_number", "offer_number"],
+  );
+});
+
+test("interview responses validate the reference, the number, and the note", () => {
+  assert.deepEqual(myInterviewStateValues, ["scheduled", "cancelled"]);
+  const accept = {
+    domain: "example.com",
+    opening_number: 1,
+    application_number: 2,
+    interview_number: 3,
+  };
+  assert.deepEqual(validateAcceptInterviewRequest(accept), []);
+  assert.deepEqual(
+    validateAcceptInterviewRequest({ ...accept, interview_number: 0 }),
+    ["interview_number"],
+  );
+  const reschedule = { ...accept, domain: " Example.COM", note: "  later " };
+  assert.equal(
+    normalizeRequestInterviewRescheduleRequest(reschedule).note,
+    "later",
+  );
+  assert.equal(reschedule.note, "  later ");
+  assert.deepEqual(validateRequestInterviewRescheduleRequest(reschedule), []);
+  assert.deepEqual(
+    validateRequestInterviewRescheduleRequest({ ...accept, note: " " }),
+    ["note"],
+  );
+  assert.deepEqual(
+    validateRequestInterviewRescheduleRequest({
+      ...accept,
+      note: "é".repeat(501),
+    }),
+    ["note"],
   );
 });

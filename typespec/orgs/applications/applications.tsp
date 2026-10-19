@@ -6,6 +6,7 @@ import "../../common/common.tsp";
 import "../../common/idempotency.tsp";
 import "../../common/localization.tsp";
 import "../../common/pagination.tsp";
+import "../../hub/profile/public.tsp";
 import "../../hub/profile/snapshot.tsp";
 import "../../problem/common.tsp";
 import "../../problem/details.tsp";
@@ -62,6 +63,84 @@ scalar OfferResponseDays extends int32;
   #["extended", "accepted", "declined", "expired", "withdrawn"]
 )
 scalar OfferStatus extends string;
+
+/** Allocated per application from 1, in the order interviews were scheduled. */
+@minValue(1)
+scalar InterviewNumber extends int32;
+
+@minValue(15)
+@maxValue(480)
+scalar InterviewDurationMinutes extends int32;
+
+/** An in-person interview's place, at most 500 code points. */
+@minLength(1)
+@maxLength(500)
+scalar InterviewLocation extends string;
+
+/** The applicant's reason for asking to reschedule, at most 500 code points. */
+@minLength(1)
+@maxLength(500)
+scalar InterviewRescheduleNote extends string;
+
+/** An interviewer's notes, at most 10,000 code points. */
+@minLength(1)
+@maxLength(10000)
+scalar InterviewFeedbackNotes extends string;
+
+/**
+ * How an interview is held: `video` with an HTTPS link, or `in_person` with a
+ * location. A portal older than its API shows a mode it does not recognize as
+ * the raw value.
+ */
+@TypeSpec.OpenAPI.extension("x-vetchium-known-values", #["video", "in_person"])
+scalar InterviewMode extends string;
+
+/**
+ * Where an interview stands. A portal older than its API shows a state it does
+ * not recognize as the raw value.
+ */
+@TypeSpec.OpenAPI.extension(
+  "x-vetchium-known-values",
+  #["scheduled", "completed", "no_show", "cancelled"]
+)
+scalar InterviewState extends string;
+
+/**
+ * The applicant's answer to an interview. A portal older than its API shows a
+ * response it does not recognize as the raw value.
+ */
+@TypeSpec.OpenAPI.extension(
+  "x-vetchium-known-values",
+  #["pending", "accepted", "reschedule_requested"]
+)
+scalar InterviewResponse extends string;
+
+/**
+ * An interviewer's verdict. A portal older than its API shows a value it does
+ * not recognize as the raw value.
+ */
+@TypeSpec.OpenAPI.extension(
+  "x-vetchium-known-values",
+  #["strong_yes", "yes", "no", "strong_no"]
+)
+scalar InterviewRecommendation extends string;
+
+/** What an interviewer or recruiter records after the start time. */
+enum InterviewOutcome {
+  Completed: "completed",
+  NoShow: "no_show",
+}
+
+/**
+ * An action awaiting the applicant, for the `pending_applicant_action`
+ * filter. A portal older than its API shows a value it does not recognize as
+ * the raw value.
+ */
+@TypeSpec.OpenAPI.extension(
+  "x-vetchium-known-values",
+  #["interview_response", "offer_response"]
+)
+scalar PendingApplicantAction extends string;
 
 /** A case-insensitive substring of the applicant's display name. */
 @minLength(2)
@@ -128,7 +207,15 @@ scalar StageStatus extends string;
     "stage_completed",
     "separated",
     "joined_corrected",
-    "separated_corrected"
+    "separated_corrected",
+    "interview_scheduled",
+    "interview_changed",
+    "interview_cancelled",
+    "interview_completed",
+    "interview_no_show",
+    "interview_accepted",
+    "interview_reschedule_requested",
+    "interview_feedback_submitted"
   ]
 )
 scalar ApplicationHistoryAction extends string;
@@ -185,6 +272,52 @@ model ApplicationOffer {
   ended_at?: utcDateTime;
 }
 
+/** One interviewer of an interview. */
+model InterviewerStatus {
+  email: Vetchium.EmailAddress;
+
+  /** Whether the interviewer has submitted feedback; never its content. */
+  feedback_submitted: boolean;
+}
+
+model InterviewFeedback {
+  interviewer_email: Vetchium.EmailAddress;
+  recommendation: InterviewRecommendation;
+  notes: InterviewFeedbackNotes;
+  submitted_at: utcDateTime;
+}
+
+/**
+ * One interview of a candidacy. `feedback` holds the caller's own feedback and,
+ * unless the caller is an interviewer who has not yet submitted theirs,
+ * everyone's.
+ */
+model Interview {
+  interview_number: InterviewNumber;
+
+  /** The stage the interview was scheduled at. */
+  stage: Vetchium.Orgs.Hiring.PipelineStage;
+
+  starts_at: utcDateTime;
+  duration_minutes: InterviewDurationMinutes;
+  mode: InterviewMode;
+
+  /** `video` only. */
+  video_url?: string;
+
+  /** `in_person` only. */
+  location?: InterviewLocation;
+
+  state: InterviewState;
+  applicant_response: InterviewResponse;
+
+  /** Present while the applicant's response is `reschedule_requested`. */
+  reschedule_note?: InterviewRescheduleNote;
+
+  interviewers: InterviewerStatus[];
+  feedback: InterviewFeedback[];
+}
+
 model ApplicationDetail {
   opening_number: Vetchium.Orgs.Openings.OpeningNumber;
   application_number: ApplicationNumber;
@@ -212,6 +345,9 @@ model ApplicationDetail {
   /** Every offer of the application, newest first, withdrawn ones included. */
   offers: ApplicationOffer[];
 
+  /** Every interview, earliest start first, as the caller may see it. */
+  interviews: Interview[];
+
   submitted_at: utcDateTime;
   updated_at: utcDateTime;
 }
@@ -236,6 +372,9 @@ model ApplicationHistoryEntry {
 
   /** The date a separation or its correction recorded. */
   separated_on?: CalendarDate;
+
+  /** The interview an interview action concerns. */
+  interview_number?: InterviewNumber;
 
   created_at: utcDateTime;
 }
@@ -279,6 +418,13 @@ model ListApplicationsRequest {
   stage_id?: Vetchium.Orgs.Hiring.PipelineStageID;
 
   name_query?: ApplicantNameQuery;
+
+  /**
+   * Candidates view only: candidacies with this action awaiting the
+   * applicant.
+   */
+  pending_applicant_action?: PendingApplicantAction;
+
   pagination_key?: Vetchium.PaginationKey;
 
   /** Defaults to 50. */
@@ -363,6 +509,88 @@ model ExtendApplicationOfferRequest {
   respond_within_days: OfferResponseDays;
 }
 
+/** The details of an interview, as scheduled and as changed. */
+model InterviewDetails {
+  /** In the future when scheduled or changed. */
+  start_time: utcDateTime;
+
+  duration_minutes: InterviewDurationMinutes;
+  mode: InterviewMode;
+
+  /** `video` only: a normalized HTTPS URL of at most 2,048 characters. */
+  video_url?: Vetchium.Hub.Profile.WebsiteURL;
+
+  /** `in_person` only. */
+  location?: InterviewLocation;
+
+  /** Active users of the Org. */
+  @minItems(1)
+  @maxItems(10)
+  @TypeSpec.OpenAPI.extension("x-vetchium-unique-items", true)
+  interviewer_emails: Vetchium.EmailAddress[];
+}
+
+/** Schedules an interview for an `in_pipeline` candidacy at an interview stage. */
+model ScheduleInterviewRequest {
+  ...ApplicationReference;
+  ...InterviewDetails;
+}
+
+/** Replaces the details of an upcoming interview. */
+model ChangeInterviewRequest {
+  ...ApplicationReference;
+  interview_number: InterviewNumber;
+  ...InterviewDetails;
+}
+
+model InterviewReference {
+  ...ApplicationReference;
+  interview_number: InterviewNumber;
+}
+
+model CancelInterviewRequest {
+  ...InterviewReference;
+}
+
+model RecordInterviewOutcomeRequest {
+  ...InterviewReference;
+  outcome: InterviewOutcome;
+}
+
+model SubmitInterviewFeedbackRequest {
+  ...InterviewReference;
+  recommendation: InterviewRecommendation;
+  notes: InterviewFeedbackNotes;
+}
+
+model ListMyInterviewsRequest {
+  pagination_key?: Vetchium.PaginationKey;
+
+  /** Defaults to 50. */
+  limit?: Vetchium.PageSize = 50;
+}
+
+/** An interview the caller is an interviewer of. */
+model MyInterview {
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  application_number: ApplicationNumber;
+  display_name: Vetchium.DisplayName;
+  interview_number: InterviewNumber;
+  starts_at: utcDateTime;
+  duration_minutes: InterviewDurationMinutes;
+  mode: InterviewMode;
+  state: InterviewState;
+  applicant_response: InterviewResponse;
+  feedback_submitted: boolean;
+}
+
+model ListMyInterviewsResponse {
+  /** Most recently scheduled first. */
+  interviews: MyInterview[];
+
+  next_pagination_key?: Vetchium.PaginationKey;
+}
+
 model OfferLetterUploaded {
   letter_id: OfferLetterID;
 }
@@ -391,6 +619,15 @@ alias ApplicationWriteErrors =
   | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
   | Vetchium.Problem.OrgApplicationVersionConflictErrorResponse
   | Vetchium.Problem.OrgApplicationStateConflictErrorResponse;
+
+/**
+ * An interview write also refuses an unknown interview number, and an action
+ * the interview's state or time does not allow.
+ */
+alias InterviewWriteErrors =
+  | ApplicationWriteErrors
+  | Vetchium.Problem.OrgInterviewNotFoundErrorResponse
+  | Vetchium.Problem.OrgInterviewStateConflictErrorResponse;
 
 @route("/api/orgs")
 @tag("Org Applications")
@@ -752,4 +989,172 @@ interface ApplicationOperations {
         @body body: ApplicationDetail;
       }
     | ApplicationWriteErrors;
+
+  /**
+   * Schedules an interview for a candidacy `in_pipeline` at an interview
+   * stage, at most ten per stage that are not cancelled.
+   */
+  @route("/schedule-interview")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  scheduleInterview(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: ScheduleInterviewRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors
+    | Vetchium.Problem.OrgInterviewLimitReachedErrorResponse
+    | Vetchium.Problem.OrgInterviewInterviewersInvalidErrorResponse;
+
+  /**
+   * Replaces an upcoming interview's details. A change of time, duration, or
+   * mode resets the applicant's response.
+   */
+  @route("/change-interview")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  changeInterview(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: ChangeInterviewRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | InterviewWriteErrors
+    | Vetchium.Problem.OrgInterviewInterviewersInvalidErrorResponse;
+
+  /** Cancels an upcoming interview. */
+  @route("/cancel-interview")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  cancelInterview(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: CancelInterviewRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | InterviewWriteErrors;
+
+  /**
+   * Records `completed` or `no_show` once the start time has passed. Done by
+   * an interviewer of the interview or by someone who acts on the Opening's
+   * applications.
+   */
+  @route("/record-interview-outcome")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  recordInterviewOutcome(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: RecordInterviewOutcomeRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | InterviewWriteErrors;
+
+  /**
+   * Stores the caller's feedback, once, on an interview recorded as
+   * `completed`. Only an interviewer of the interview may submit.
+   */
+  @route("/submit-interview-feedback")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  submitInterviewFeedback(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: SubmitInterviewFeedbackRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | InterviewWriteErrors
+    | Vetchium.Problem.OrgInterviewFeedbackExistsErrorResponse;
+
+  /** Lists the interviews the caller is an interviewer of. */
+  @route("/list-my-interviews")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-pagination-consistency",
+    "live-best-effort"
+  )
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-pagination-key-binds",
+    #["interview_id"]
+  )
+  listMyInterviews(@body request: ListMyInterviewsRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ListMyInterviewsResponse;
+      }
+    | Vetchium.Problem.InvalidJSONErrorResponse
+    | Vetchium.Problem.ValidationFailedErrorResponse
+    | Vetchium.Problem.OrgAuthenticationRequiredErrorResponse
+    | Vetchium.Problem.OrgSuspendedErrorResponse
+    | Vetchium.Problem.RateLimitExceededErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse
+    | Vetchium.Problem.InvalidPaginationKeyErrorResponse;
 }

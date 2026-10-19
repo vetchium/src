@@ -2224,7 +2224,10 @@ CREATE TYPE vetchium.org_application_history_action AS ENUM (
     'applied', 'shortlisted', 'stage_moved', 'offer_extended',
     'offer_withdrawn', 'offer_accepted', 'offer_declined', 'joined',
     'did_not_join', 'not_progressing', 'withdrawn', 'stage_completed',
-    'separated', 'joined_corrected', 'separated_corrected'
+    'separated', 'joined_corrected', 'separated_corrected',
+    'interview_scheduled', 'interview_changed', 'interview_cancelled',
+    'interview_completed', 'interview_no_show', 'interview_accepted',
+    'interview_reschedule_requested', 'interview_feedback_submitted'
 );
 CREATE TYPE vetchium.org_application_actor_kind AS ENUM (
     'applicant', 'org_user', 'system'
@@ -2344,6 +2347,8 @@ CREATE TABLE vetchium.org_application_history (
         (org_opening_stage_id) ON DELETE SET NULL,
     joined_on date,
     separated_on date,
+    -- The interview an interview action concerns.
+    interview_number integer CHECK (interview_number >= 1),
     created_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT org_application_history_actor_check CHECK (
         actor_org_user_id IS NULL OR actor_kind = 'org_user'
@@ -2439,11 +2444,129 @@ CREATE INDEX org_application_offers_expiry_idx
     ON vetchium.org_application_offers (respond_by)
     WHERE offer_status = 'extended';
 
--- Who may read an Opening's applications: the hiring manager, the recruiter,
--- a hiring-team member, or a holder of org:manage_candidacies. org:view_openings
--- grants none of it. Every Orgs application read applies this predicate in
--- SQL so a revoked grant takes effect on a stale session.
-CREATE FUNCTION vetchium.org_user_reads_applications(
+-- Interviews of a candidacy (HP-WRK-002 to HP-WRK-004), numbered per
+-- application. Every writer holds the application's row lock, which
+-- serializes numbering and the per-stage limit. Details, the applicant's
+-- response, and feedback are deleted by retention with the application.
+CREATE TYPE vetchium.org_interview_mode AS ENUM ('video', 'in_person');
+CREATE TYPE vetchium.org_interview_state AS ENUM (
+    'scheduled', 'completed', 'no_show', 'cancelled'
+);
+CREATE TYPE vetchium.org_interview_response AS ENUM (
+    'pending', 'accepted', 'reschedule_requested'
+);
+CREATE TYPE vetchium.org_interview_recommendation AS ENUM (
+    'strong_yes', 'yes', 'no', 'strong_no'
+);
+-- The id is a UUIDv7, so id order is scheduling order and serves the
+-- interviewer's list.
+CREATE TABLE vetchium.org_interviews (
+    org_interview_id uuid PRIMARY KEY,
+    org_application_id uuid NOT NULL REFERENCES vetchium.org_applications
+        (org_application_id) ON DELETE CASCADE,
+    interview_number integer NOT NULL CHECK (interview_number >= 1),
+    org_opening_stage_id uuid NOT NULL REFERENCES vetchium.org_opening_stages
+        (org_opening_stage_id) ON DELETE CASCADE,
+    starts_at timestamptz NOT NULL,
+    duration_minutes smallint NOT NULL
+        CHECK (duration_minutes BETWEEN 15 AND 480),
+    interview_mode vetchium.org_interview_mode NOT NULL,
+    video_url text,
+    location text,
+    interview_state vetchium.org_interview_state NOT NULL DEFAULT 'scheduled',
+    applicant_response vetchium.org_interview_response NOT NULL
+        DEFAULT 'pending',
+    reschedule_note text,
+    scheduled_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    -- When the interview was recorded, cancelled, or otherwise ended.
+    ended_at timestamptz,
+    CONSTRAINT org_interviews_number_key
+        UNIQUE (org_application_id, interview_number),
+    CONSTRAINT org_interviews_mode_check CHECK (
+        (interview_mode = 'video' AND video_url IS NOT NULL
+            AND location IS NULL) OR
+        (interview_mode = 'in_person' AND location IS NOT NULL
+            AND video_url IS NULL)
+    ),
+    CONSTRAINT org_interviews_video_url_check CHECK (
+        video_url IS NULL OR (
+            video_url ~ '^https://[!-~]+$' AND char_length(video_url) <= 2048
+        )
+    ),
+    CONSTRAINT org_interviews_location_check CHECK (
+        location IS NULL OR (
+            location = btrim(location) AND char_length(location) BETWEEN 1 AND 500
+        )
+    ),
+    CONSTRAINT org_interviews_reschedule_note_check CHECK (
+        (applicant_response = 'reschedule_requested') =
+            (reschedule_note IS NOT NULL)
+        AND (reschedule_note IS NULL OR (
+            reschedule_note = btrim(reschedule_note)
+            AND char_length(reschedule_note) BETWEEN 1 AND 500
+        ))
+    ),
+    CONSTRAINT org_interviews_ended_check CHECK (
+        (interview_state = 'scheduled') = (ended_at IS NULL)
+    ),
+    CONSTRAINT org_interviews_timestamps_check CHECK (
+        updated_at >= created_at
+    )
+);
+CREATE INDEX org_interviews_stage_idx
+    ON vetchium.org_interviews (org_opening_stage_id);
+
+CREATE TABLE vetchium.org_interview_interviewers (
+    org_interview_id uuid NOT NULL REFERENCES vetchium.org_interviews
+        (org_interview_id) ON DELETE CASCADE,
+    org_user_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE CASCADE,
+    PRIMARY KEY (org_interview_id, org_user_id)
+);
+CREATE INDEX org_interview_interviewers_user_idx
+    ON vetchium.org_interview_interviewers (org_user_id, org_interview_id DESC);
+
+-- Once per interviewer; only an interviewer of the interview can submit.
+CREATE TABLE vetchium.org_interview_feedback (
+    org_interview_id uuid NOT NULL,
+    org_user_id uuid NOT NULL,
+    recommendation vetchium.org_interview_recommendation NOT NULL,
+    notes text NOT NULL,
+    submitted_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (org_interview_id, org_user_id),
+    FOREIGN KEY (org_interview_id, org_user_id)
+        REFERENCES vetchium.org_interview_interviewers
+        (org_interview_id, org_user_id) ON DELETE CASCADE,
+    CONSTRAINT org_interview_feedback_notes_check CHECK (
+        notes = btrim(notes) AND char_length(notes) BETWEEN 1 AND 10000
+    )
+);
+
+-- Leaving the pipeline cancels the upcoming interviews of the applications
+-- (HP-STA-002). Every statement that ends a candidacy calls it in the same
+-- statement, so no exit can leave an interview scheduled.
+CREATE FUNCTION vetchium.cancel_upcoming_interviews(application_ids uuid[])
+RETURNS integer
+LANGUAGE sql VOLATILE
+AS $$
+    WITH cancelled AS (
+        UPDATE vetchium.org_interviews AS i
+        SET interview_state = 'cancelled', ended_at = now(), updated_at = now()
+        WHERE i.org_application_id = ANY(application_ids)
+          AND i.interview_state = 'scheduled'
+          AND i.starts_at > now()
+        RETURNING i.org_interview_id
+    )
+    SELECT count(*)::integer FROM cancelled
+$$;
+
+-- Who may read all of an Opening's applications: the hiring manager, the
+-- recruiter, a hiring-team member, or a holder of org:manage_candidacies.
+-- org:view_openings grants none of it.
+CREATE FUNCTION vetchium.org_user_reads_all_applications(
     opening_id uuid, user_id uuid
 ) RETURNS boolean
 LANGUAGE sql STABLE
@@ -2459,6 +2582,31 @@ AS $$
     ) OR EXISTS (
         SELECT 1 FROM vetchium.org_opening_team_members AS tm
         WHERE tm.org_opening_id = opening_id AND tm.org_user_id = user_id
+    )
+$$;
+
+-- Who may read an Opening's applications: those who read all of them, and an
+-- interviewer of one, who reads only the candidacies of their interviews
+-- (HP-AUTH-003): with application_id, that application; without it, the
+-- Opening as a whole, which an interviewer of any of its applications may
+-- open. Every Orgs application read applies this predicate in SQL so a
+-- revoked grant takes effect on a stale session.
+CREATE FUNCTION vetchium.org_user_reads_applications(
+    opening_id uuid, user_id uuid, application_id uuid DEFAULT NULL
+) RETURNS boolean
+LANGUAGE sql STABLE
+AS $$
+    SELECT vetchium.org_user_reads_all_applications(opening_id, user_id)
+    OR EXISTS (
+        SELECT 1
+        FROM vetchium.org_interview_interviewers AS iv
+        JOIN vetchium.org_interviews AS i
+            ON i.org_interview_id = iv.org_interview_id
+        JOIN vetchium.org_applications AS a
+            ON a.org_application_id = i.org_application_id
+        WHERE iv.org_user_id = user_id
+          AND a.org_opening_id = opening_id
+          AND (application_id IS NULL OR a.org_application_id = application_id)
     )
 $$;
 
@@ -2767,7 +2915,16 @@ $$;
 -- +goose Down
 DROP TABLE IF EXISTS vetchium.hub_application_projections;
 DROP FUNCTION IF EXISTS vetchium.org_user_acts_on_applications(uuid, uuid);
-DROP FUNCTION IF EXISTS vetchium.org_user_reads_applications(uuid, uuid);
+DROP FUNCTION IF EXISTS vetchium.cancel_upcoming_interviews(uuid[]);
+DROP FUNCTION IF EXISTS vetchium.org_user_reads_applications(uuid, uuid, uuid);
+DROP FUNCTION IF EXISTS vetchium.org_user_reads_all_applications(uuid, uuid);
+DROP TABLE IF EXISTS vetchium.org_interview_feedback;
+DROP TABLE IF EXISTS vetchium.org_interview_interviewers;
+DROP TABLE IF EXISTS vetchium.org_interviews;
+DROP TYPE IF EXISTS vetchium.org_interview_recommendation;
+DROP TYPE IF EXISTS vetchium.org_interview_response;
+DROP TYPE IF EXISTS vetchium.org_interview_state;
+DROP TYPE IF EXISTS vetchium.org_interview_mode;
 DROP TABLE IF EXISTS vetchium.org_application_offers;
 DROP TYPE IF EXISTS vetchium.org_application_offer_status;
 DROP TABLE IF EXISTS vetchium.org_offer_letter_objects;

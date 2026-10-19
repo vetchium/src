@@ -153,11 +153,14 @@ func TestMyApplicationDetailOfferValidity(t *testing.T) {
 			LetterByteSize: 10, ProposedJoiningDate: &date,
 			RespondBy: time.Now().Add(time.Hour), ExtendedAt: time.Now(),
 		},
+		Interviews: []MyApplicationInterview{},
 	}
 	if !detail.Valid() {
 		t.Fatal("valid detail rejected")
 	}
-	if !(MyApplicationDetail{MyApplication: detail.MyApplication}).Valid() {
+	if !(MyApplicationDetail{
+		MyApplication: detail.MyApplication, Interviews: []MyApplicationInterview{},
+	}).Valid() {
 		t.Fatal("a detail without an offer was rejected")
 	}
 	bad := orgapplications.CalendarDate("2026-02-30")
@@ -197,6 +200,85 @@ func TestRespondToOfferRequestValidation(t *testing.T) {
 	request.ApplicationNumber = 0
 	if got := request.Validate(); !slices.Equal(got,
 		[]string{"application_number", "offer_number"}) {
+		t.Fatalf("fields = %v", got)
+	}
+}
+
+func TestMyApplicationInterviewValidity(t *testing.T) {
+	t.Parallel()
+	link := "https://meet.example.com/room"
+	place := orgapplications.InterviewLocation("Room 4")
+	note := orgapplications.InterviewRescheduleNote("later")
+	good := MyApplicationInterview{
+		InterviewNumber: 1, State: MyInterviewScheduled,
+		StartsAt: time.Now(), DurationMinutes: 30,
+		Mode: orgapplications.InterviewVideo, VideoURL: &link,
+		Response: orgapplications.ResponsePending,
+	}
+	if !good.Valid() {
+		t.Fatal("a valid video interview was rejected")
+	}
+	inPerson := good
+	inPerson.Mode, inPerson.VideoURL, inPerson.Location =
+		orgapplications.InterviewInPerson, nil, &place
+	if !inPerson.Valid() {
+		t.Fatal("a valid in-person interview was rejected")
+	}
+	for name, mutate := range map[string]func(*MyApplicationInterview){
+		"unknown state":    func(i *MyApplicationInterview) { i.State = "completed" },
+		"video no link":    func(i *MyApplicationInterview) { i.VideoURL = nil },
+		"note unrequested": func(i *MyApplicationInterview) { i.RescheduleNote = &note },
+		"note missing": func(i *MyApplicationInterview) {
+			i.Response = orgapplications.ResponseRescheduleRequest
+		},
+		"short": func(i *MyApplicationInterview) { i.DurationMinutes = 5 },
+	} {
+		bad := good
+		mutate(&bad)
+		if bad.Valid() {
+			t.Errorf("%s accepted", name)
+		}
+	}
+	detail := MyApplicationDetail{
+		MyApplication: MyApplication{
+			OrgDomain: "example.com", OrgDisplayName: "Example",
+			OpeningNumber: 1, OpeningTitle: "Engineer", ApplicationNumber: 1,
+			Status: Applied, PendingActions: []PendingActionKind{},
+		},
+		Interviews: []MyApplicationInterview{good},
+	}
+	if !detail.Valid() {
+		t.Fatal("a valid detail was rejected")
+	}
+	detail.Interviews = nil
+	if detail.Valid() {
+		t.Fatal("a detail without an interviews array was accepted")
+	}
+}
+
+func TestInterviewResponseRequests(t *testing.T) {
+	t.Parallel()
+	reference := InterviewReference{
+		ApplicationReference: ApplicationReference{
+			Domain: " Example.COM", OpeningNumber: 1, ApplicationNumber: 2,
+		},
+		InterviewNumber: 3,
+	}
+	reschedule := RequestInterviewRescheduleRequest{
+		InterviewReference: reference, Note: "  later ",
+	}
+	reschedule.Normalize()
+	if reschedule.Domain != "example.com" || reschedule.Note != "later" ||
+		reference.Domain != " Example.COM" {
+		t.Fatalf("normalized = %+v", reschedule)
+	}
+	if got := reschedule.Validate(); len(got) != 0 {
+		t.Fatalf("valid request rejected: %v", got)
+	}
+	reschedule.Note, reschedule.InterviewNumber = "", 0
+	if got := reschedule.Validate(); !slices.Equal(got, []string{
+		"interview_number", "note",
+	}) {
 		t.Fatalf("fields = %v", got)
 	}
 }

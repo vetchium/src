@@ -1,7 +1,16 @@
-import type { EmailAddress } from "../../common/common.ts";
+import {
+  type EmailAddress,
+  isEmailAddress,
+  normalizeEmailAddress,
+} from "../../common/common.ts";
 import type { CountryCode, DisplayName } from "../../common/localization.ts";
 import type { PageSize, PaginationKey } from "../../common/pagination.ts";
 import { isPageSize, isPaginationKey } from "../../common/pagination.ts";
+import {
+  isWebsiteURL,
+  normalizeWebsiteURL,
+  type WebsiteURL,
+} from "../../hub/profile/public.ts";
 import type { ApplicantSnapshot } from "../../hub/profile/snapshot.ts";
 import type { PipelineStage, PipelineStageID } from "../hiring/pipelines.ts";
 import { isPipelineStageID } from "../hiring/pipelines.ts";
@@ -20,6 +29,133 @@ export type ApplicantNameQuery = string;
 export type OfferLetterID = string;
 export type OfferNumber = number;
 export type OfferResponseDays = number;
+export type InterviewNumber = number;
+export type InterviewDurationMinutes = number;
+export type InterviewLocation = string;
+export type InterviewRescheduleNote = string;
+export type InterviewFeedbackNotes = string;
+
+/** The most interviews one candidacy holds at one stage, cancelled excepted. */
+export const maxInterviewsPerStage = 10;
+/** The most interviewers of one interview. */
+export const maxInterviewers = 10;
+export const maxInterviewLocation = 500;
+export const maxRescheduleNote = 500;
+export const maxFeedbackNotes = 10000;
+const minInterviewDuration = 15;
+const maxInterviewDuration = 480;
+
+export const interviewModeValues = ["video", "in_person"] as const;
+export type InterviewMode = (typeof interviewModeValues)[number];
+
+export const interviewStateValues = [
+  "scheduled",
+  "completed",
+  "no_show",
+  "cancelled",
+] as const;
+export type InterviewState = (typeof interviewStateValues)[number];
+
+export const interviewResponseValues = [
+  "pending",
+  "accepted",
+  "reschedule_requested",
+] as const;
+export type InterviewResponse = (typeof interviewResponseValues)[number];
+
+export const interviewRecommendationValues = [
+  "strong_yes",
+  "yes",
+  "no",
+  "strong_no",
+] as const;
+export type InterviewRecommendation =
+  (typeof interviewRecommendationValues)[number];
+
+export const interviewOutcomeValues = ["completed", "no_show"] as const;
+export type InterviewOutcome = (typeof interviewOutcomeValues)[number];
+
+export const pendingApplicantActionValues = [
+  "interview_response",
+  "offer_response",
+] as const;
+export type PendingApplicantAction =
+  (typeof pendingApplicantActionValues)[number];
+
+const interviewModes = new Set<string>(interviewModeValues);
+const interviewStates = new Set<string>(interviewStateValues);
+const interviewResponses = new Set<string>(interviewResponseValues);
+const interviewRecommendations = new Set<string>(interviewRecommendationValues);
+const interviewOutcomes = new Set<string>(interviewOutcomeValues);
+const pendingApplicantActions = new Set<string>(pendingApplicantActionValues);
+
+export function isInterviewMode(value: unknown): value is InterviewMode {
+  return typeof value === "string" && interviewModes.has(value);
+}
+
+export function isInterviewState(value: unknown): value is InterviewState {
+  return typeof value === "string" && interviewStates.has(value);
+}
+
+export function isInterviewResponse(
+  value: unknown,
+): value is InterviewResponse {
+  return typeof value === "string" && interviewResponses.has(value);
+}
+
+export function isInterviewRecommendation(
+  value: unknown,
+): value is InterviewRecommendation {
+  return typeof value === "string" && interviewRecommendations.has(value);
+}
+
+export function isInterviewOutcome(value: unknown): value is InterviewOutcome {
+  return typeof value === "string" && interviewOutcomes.has(value);
+}
+
+export function isPendingApplicantAction(
+  value: unknown,
+): value is PendingApplicantAction {
+  return typeof value === "string" && pendingApplicantActions.has(value);
+}
+
+export function isInterviewNumber(value: InterviewNumber): boolean {
+  return Number.isInteger(value) && value >= 1;
+}
+
+export function isInterviewDurationMinutes(
+  value: InterviewDurationMinutes,
+): boolean {
+  return (
+    Number.isInteger(value) &&
+    value >= minInterviewDuration &&
+    value <= maxInterviewDuration
+  );
+}
+
+function trimmedText(value: string, max: number): boolean {
+  const length = Array.from(value).length;
+  return length >= 1 && length <= max && value === value.trim();
+}
+
+/** Reports a trimmed place of 1 to 500 code points. */
+export function isInterviewLocation(value: InterviewLocation): boolean {
+  return trimmedText(value, maxInterviewLocation);
+}
+
+/** Reports a trimmed note of 1 to 500 code points. */
+export function isInterviewRescheduleNote(
+  value: InterviewRescheduleNote,
+): boolean {
+  return trimmedText(value, maxRescheduleNote);
+}
+
+/** Reports trimmed notes of 1 to 10,000 code points. */
+export function isInterviewFeedbackNotes(
+  value: InterviewFeedbackNotes,
+): boolean {
+  return trimmedText(value, maxFeedbackNotes);
+}
 
 /** The most bytes an offer letter's PDF body holds. */
 export const maxOfferLetterBytes = 5 * 1024 * 1024;
@@ -122,6 +258,14 @@ export const applicationHistoryActionValues = [
   "separated",
   "joined_corrected",
   "separated_corrected",
+  "interview_scheduled",
+  "interview_changed",
+  "interview_cancelled",
+  "interview_completed",
+  "interview_no_show",
+  "interview_accepted",
+  "interview_reschedule_requested",
+  "interview_feedback_submitted",
 ] as const;
 
 export type ApplicationHistoryAction =
@@ -212,6 +356,38 @@ export interface ApplicationOffer {
   ended_at?: string;
 }
 
+export interface InterviewerStatus {
+  email: EmailAddress;
+  feedback_submitted: boolean;
+}
+
+export interface InterviewFeedback {
+  interviewer_email: EmailAddress;
+  recommendation: InterviewRecommendation;
+  notes: InterviewFeedbackNotes;
+  submitted_at: string;
+}
+
+/**
+ * One interview as the caller may see it: `feedback` holds the caller's own
+ * and, unless the caller is an interviewer who has not submitted theirs,
+ * everyone's.
+ */
+export interface Interview {
+  interview_number: InterviewNumber;
+  stage: PipelineStage;
+  starts_at: string;
+  duration_minutes: InterviewDurationMinutes;
+  mode: InterviewMode;
+  video_url?: string;
+  location?: InterviewLocation;
+  state: InterviewState;
+  applicant_response: InterviewResponse;
+  reschedule_note?: InterviewRescheduleNote;
+  interviewers: InterviewerStatus[];
+  feedback: InterviewFeedback[];
+}
+
 export interface ApplicationDetail {
   opening_number: OpeningNumber;
   application_number: ApplicationNumber;
@@ -226,6 +402,7 @@ export interface ApplicationDetail {
   positions: number;
   joined_count: number;
   offers: ApplicationOffer[];
+  interviews: Interview[];
   submitted_at: string;
   updated_at: string;
 }
@@ -239,6 +416,8 @@ export interface ApplicationHistoryEntry {
   stage?: PipelineStage;
   joined_on?: CalendarDate;
   separated_on?: CalendarDate;
+  /** The interview an interview action concerns. */
+  interview_number?: InterviewNumber;
   created_at: string;
 }
 
@@ -264,6 +443,8 @@ export interface ListApplicationsRequest {
   states?: ApplicationState[];
   stage_id?: PipelineStageID;
   name_query?: ApplicantNameQuery;
+  /** Candidates view only. */
+  pending_applicant_action?: PendingApplicantAction;
   pagination_key?: PaginationKey;
   limit?: PageSize;
 }
@@ -326,6 +507,12 @@ export function validateListApplicationsRequest(
     !isApplicantNameQuery(request.name_query)
   ) {
     fields.push("name_query");
+  }
+  if (
+    request.pending_applicant_action !== undefined &&
+    (!candidates || !isPendingApplicantAction(request.pending_applicant_action))
+  ) {
+    fields.push("pending_applicant_action");
   }
   if (
     request.pagination_key !== undefined &&
@@ -492,4 +679,211 @@ export function validateExtendApplicationOfferRequest(
 
 export interface OfferLetterUploaded {
   letter_id: OfferLetterID;
+}
+
+export interface InterviewDetails {
+  start_time: string;
+  duration_minutes: InterviewDurationMinutes;
+  mode: InterviewMode;
+  video_url?: WebsiteURL;
+  location?: InterviewLocation;
+  interviewer_emails: EmailAddress[];
+}
+
+function normalizeInterviewDetails<T extends InterviewDetails>(request: T): T {
+  const parsed = new Date(request.start_time);
+  return {
+    ...request,
+    ...(Number.isNaN(parsed.getTime())
+      ? {}
+      : { start_time: parsed.toISOString().replace(".000Z", "Z") }),
+    ...(request.video_url !== undefined && {
+      video_url: normalizeWebsiteURL(request.video_url),
+    }),
+    ...(request.location !== undefined && {
+      location: request.location.trim(),
+    }),
+    interviewer_emails: request.interviewer_emails.map(normalizeEmailAddress),
+  };
+}
+
+/**
+ * A video interview names a link and no location; an in-person interview a
+ * location and no link. That the start is in the future is the API's rule.
+ */
+function validateInterviewDetails(details: InterviewDetails): string[] {
+  const fields: string[] = [];
+  if (Number.isNaN(new Date(details.start_time).getTime())) {
+    fields.push("start_time");
+  }
+  if (!isInterviewDurationMinutes(details.duration_minutes)) {
+    fields.push("duration_minutes");
+  }
+  if (!isInterviewMode(details.mode)) {
+    fields.push("mode");
+  } else {
+    const video = details.mode === "video";
+    if (
+      (details.video_url !== undefined && !isWebsiteURL(details.video_url)) ||
+      (video && details.video_url === undefined) ||
+      (!video && details.video_url !== undefined)
+    ) {
+      fields.push("video_url");
+    }
+    if (
+      (details.location !== undefined &&
+        !isInterviewLocation(details.location)) ||
+      (!video && details.location === undefined) ||
+      (video && details.location !== undefined)
+    ) {
+      fields.push("location");
+    }
+  }
+  const emails = details.interviewer_emails;
+  if (emails.length < 1 || emails.length > maxInterviewers) {
+    fields.push("interviewer_emails");
+  } else if (
+    emails.some((email) => !isEmailAddress(email)) ||
+    new Set(emails).size !== emails.length
+  ) {
+    fields.push("interviewer_emails");
+  }
+  return fields;
+}
+
+export interface ScheduleInterviewRequest
+  extends ApplicationActionRequest,
+    InterviewDetails {}
+
+export function normalizeScheduleInterviewRequest(
+  request: ScheduleInterviewRequest,
+): ScheduleInterviewRequest {
+  return normalizeInterviewDetails(request);
+}
+
+export function validateScheduleInterviewRequest(
+  request: ScheduleInterviewRequest,
+): string[] {
+  const normalized = normalizeScheduleInterviewRequest(request);
+  return [
+    ...validateApplicationActionRequest(normalized),
+    ...validateInterviewDetails(normalized),
+  ];
+}
+
+export interface ChangeInterviewRequest
+  extends ApplicationActionRequest,
+    InterviewDetails {
+  interview_number: InterviewNumber;
+}
+
+export function normalizeChangeInterviewRequest(
+  request: ChangeInterviewRequest,
+): ChangeInterviewRequest {
+  return normalizeInterviewDetails(request);
+}
+
+export function validateChangeInterviewRequest(
+  request: ChangeInterviewRequest,
+): string[] {
+  const normalized = normalizeChangeInterviewRequest(request);
+  const fields = validateApplicationActionRequest(normalized);
+  if (!isInterviewNumber(normalized.interview_number)) {
+    fields.push("interview_number");
+  }
+  return [...fields, ...validateInterviewDetails(normalized)];
+}
+
+export interface CancelInterviewRequest extends ApplicationActionRequest {
+  interview_number: InterviewNumber;
+}
+
+export function validateCancelInterviewRequest(
+  request: CancelInterviewRequest,
+): string[] {
+  const fields = validateApplicationActionRequest(request);
+  if (!isInterviewNumber(request.interview_number)) {
+    fields.push("interview_number");
+  }
+  return fields;
+}
+
+export interface RecordInterviewOutcomeRequest extends CancelInterviewRequest {
+  outcome: InterviewOutcome;
+}
+
+export function validateRecordInterviewOutcomeRequest(
+  request: RecordInterviewOutcomeRequest,
+): string[] {
+  const fields = validateCancelInterviewRequest(request);
+  if (!isInterviewOutcome(request.outcome)) fields.push("outcome");
+  return fields;
+}
+
+export interface SubmitInterviewFeedbackRequest extends CancelInterviewRequest {
+  recommendation: InterviewRecommendation;
+  notes: InterviewFeedbackNotes;
+}
+
+export function normalizeSubmitInterviewFeedbackRequest(
+  request: SubmitInterviewFeedbackRequest,
+): SubmitInterviewFeedbackRequest {
+  return { ...request, notes: request.notes.trim() };
+}
+
+export function validateSubmitInterviewFeedbackRequest(
+  request: SubmitInterviewFeedbackRequest,
+): string[] {
+  const normalized = normalizeSubmitInterviewFeedbackRequest(request);
+  const fields = validateCancelInterviewRequest(normalized);
+  if (!isInterviewRecommendation(normalized.recommendation)) {
+    fields.push("recommendation");
+  }
+  if (!isInterviewFeedbackNotes(normalized.notes)) fields.push("notes");
+  return fields;
+}
+
+export interface ListMyInterviewsRequest {
+  pagination_key?: PaginationKey;
+  limit?: PageSize;
+}
+
+export function effectiveListMyInterviewsLimit(
+  request: ListMyInterviewsRequest,
+): PageSize {
+  return request.limit ?? 50;
+}
+
+export function validateListMyInterviewsRequest(
+  request: ListMyInterviewsRequest,
+): string[] {
+  const fields: string[] = [];
+  if (
+    request.pagination_key !== undefined &&
+    !isPaginationKey(request.pagination_key)
+  ) {
+    fields.push("pagination_key");
+  }
+  if (request.limit !== undefined && !isPageSize(request.limit)) {
+    fields.push("limit");
+  }
+  return fields;
+}
+
+export interface MyInterview {
+  opening_number: OpeningNumber;
+  application_number: ApplicationNumber;
+  display_name: DisplayName;
+  interview_number: InterviewNumber;
+  starts_at: string;
+  duration_minutes: InterviewDurationMinutes;
+  mode: InterviewMode;
+  state: InterviewState;
+  applicant_response: InterviewResponse;
+  feedback_submitted: boolean;
+}
+
+export interface ListMyInterviewsResponse {
+  interviews: MyInterview[];
+  next_pagination_key?: PaginationKey;
 }

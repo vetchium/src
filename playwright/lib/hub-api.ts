@@ -1,9 +1,11 @@
 import { randomBytes } from "node:crypto";
 import type { APIRequestContext, APIResponse } from "@playwright/test";
 import type {
+  AcceptInterviewRequest,
   ApplyToOpeningRequest,
   GetMyApplicationRequest,
   ListMyApplicationsRequest,
+  RequestInterviewRescheduleRequest,
   RespondToOfferRequest,
   WithdrawApplicationRequest,
 } from "typespec/hub/applications/applications";
@@ -151,6 +153,24 @@ export class HubAPI {
     options: { token: string; idempotencyKey: string },
   ): Promise<APIResponse> {
     return this.post("/decline-application-offer", body, options);
+  }
+
+  acceptApplicationInterview(
+    body: AcceptInterviewRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post("/accept-application-interview", body, options);
+  }
+
+  requestApplicationInterviewReschedule(
+    body: RequestInterviewRescheduleRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post(
+      "/request-application-interview-reschedule",
+      body,
+      options,
+    );
   }
 
   listMyApplications(

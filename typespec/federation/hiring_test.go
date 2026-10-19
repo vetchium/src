@@ -162,3 +162,42 @@ func TestHubOfferResponseKindsAndPayload(t *testing.T) {
 		t.Fatalf("fields = %v, want %v", got, want)
 	}
 }
+
+func TestHubInterviewResponseKindsAndPayloads(t *testing.T) {
+	t.Parallel()
+	if HubAcceptInterviewKind != "hub-accept-interview" ||
+		HubRescheduleInterviewKind != "hub-request-interview-reschedule" ||
+		!IsCommandKind(HubAcceptInterviewKind) ||
+		!IsCommandKind(HubRescheduleInterviewKind) {
+		t.Fatal("interview response kinds changed")
+	}
+	accept := HubAcceptInterviewPayload{
+		OpeningNumber: 1, ApplicationNumber: 2, InterviewNumber: 3,
+		ApplicantDID: "01900000-0000-7000-8000-000000000001",
+	}
+	if got := accept.Validate(); len(got) != 0 {
+		t.Fatalf("valid payload rejected: %v", got)
+	}
+	want := []string{
+		"opening_number", "application_number", "interview_number",
+		"applicant_did",
+	}
+	if got := (HubAcceptInterviewPayload{ApplicantDID: "x"}).Validate(); !slices.Equal(got, want) {
+		t.Fatalf("fields = %v, want %v", got, want)
+	}
+	reschedule := HubRescheduleInterviewPayload{
+		OpeningNumber: 1, ApplicationNumber: 2, InterviewNumber: 3,
+		ApplicantDID: accept.ApplicantDID, Note: "  later ",
+	}
+	reschedule.Normalize()
+	if reschedule.Note != "later" {
+		t.Fatalf("note = %q", reschedule.Note)
+	}
+	if got := reschedule.Validate(); len(got) != 0 {
+		t.Fatalf("valid payload rejected: %v", got)
+	}
+	reschedule.Note = ""
+	if got := reschedule.Validate(); !slices.Equal(got, []string{"note"}) {
+		t.Fatalf("fields = %v", got)
+	}
+}

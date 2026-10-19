@@ -174,15 +174,113 @@ func (o MyApplicationOffer) Valid() bool {
 		!o.RespondBy.IsZero() && !o.ExtendedAt.IsZero()
 }
 
+type MyInterviewState string
+
+const (
+	MyInterviewScheduled MyInterviewState = "scheduled"
+	MyInterviewCancelled MyInterviewState = "cancelled"
+)
+
+// MyInterviewStates returns every state this contract version defines.
+func MyInterviewStates() []MyInterviewState {
+	return []MyInterviewState{MyInterviewScheduled, MyInterviewCancelled}
+}
+
+func IsMyInterviewState(value MyInterviewState) bool {
+	return value == MyInterviewScheduled || value == MyInterviewCancelled
+}
+
+// MyApplicationInterview is an interview without its stage name or
+// interviewers: how a finished interview went is the Org's alone.
+type MyApplicationInterview struct {
+	InterviewNumber orgapplications.InterviewNumber          `json:"interview_number"`
+	State           MyInterviewState                         `json:"state"`
+	StartsAt        time.Time                                `json:"starts_at"`
+	DurationMinutes orgapplications.InterviewDurationMinutes `json:"duration_minutes"`
+	Mode            orgapplications.InterviewMode            `json:"mode"`
+	VideoURL        *string                                  `json:"video_url,omitempty"`
+	Location        *orgapplications.InterviewLocation       `json:"location,omitempty"`
+	Response        orgapplications.InterviewResponse        `json:"response"`
+	RescheduleNote  *orgapplications.InterviewRescheduleNote `json:"reschedule_note,omitempty"`
+}
+
+// Valid checks a peer's answer before it reaches the browser.
+func (i MyApplicationInterview) Valid() bool {
+	video := i.Mode == orgapplications.InterviewVideo
+	return orgapplications.IsInterviewNumber(i.InterviewNumber) &&
+		IsMyInterviewState(i.State) && !i.StartsAt.IsZero() &&
+		orgapplications.IsInterviewDurationMinutes(i.DurationMinutes) &&
+		orgapplications.IsInterviewMode(i.Mode) &&
+		(i.VideoURL != nil) == video && (i.Location != nil) == !video &&
+		(i.Location == nil || orgapplications.IsInterviewLocation(*i.Location)) &&
+		orgapplications.IsInterviewResponse(i.Response) &&
+		(i.RescheduleNote != nil) ==
+			(i.Response == orgapplications.ResponseRescheduleRequest) &&
+		(i.RescheduleNote == nil ||
+			orgapplications.IsInterviewRescheduleNote(*i.RescheduleNote))
+}
+
 // MyApplicationDetail is the live read of one application.
 type MyApplicationDetail struct {
 	MyApplication
-	Offer *MyApplicationOffer `json:"offer,omitempty"`
+	Offer      *MyApplicationOffer      `json:"offer,omitempty"`
+	Interviews []MyApplicationInterview `json:"interviews"`
 }
 
 // Valid checks a peer's answer before it reaches the browser.
 func (d MyApplicationDetail) Valid() bool {
-	return d.MyApplication.Valid() && (d.Offer == nil || d.Offer.Valid())
+	if !d.MyApplication.Valid() || (d.Offer != nil && !d.Offer.Valid()) ||
+		d.Interviews == nil {
+		return false
+	}
+	for _, interview := range d.Interviews {
+		if !interview.Valid() {
+			return false
+		}
+	}
+	return true
+}
+
+// InterviewReference names an interview of an application.
+type InterviewReference struct {
+	ApplicationReference
+	InterviewNumber orgapplications.InterviewNumber `json:"interview_number"`
+}
+
+func (r *InterviewReference) Normalize() {
+	r.ApplicationReference.Normalize()
+}
+
+func (r InterviewReference) Validate() []string {
+	fields := r.ApplicationReference.Validate()
+	if !orgapplications.IsInterviewNumber(r.InterviewNumber) {
+		fields = append(fields, "interview_number")
+	}
+	return fields
+}
+
+type AcceptInterviewRequest = InterviewReference
+
+// RequestInterviewRescheduleRequest asks the Org to move an interview.
+type RequestInterviewRescheduleRequest struct {
+	InterviewReference
+	Note orgapplications.InterviewRescheduleNote `json:"note"`
+}
+
+// Normalize lower-cases the domain and trims the note.
+func (r *RequestInterviewRescheduleRequest) Normalize() {
+	r.InterviewReference.Normalize()
+	r.Note = orgapplications.InterviewRescheduleNote(
+		strings.TrimSpace(string(r.Note)),
+	)
+}
+
+func (r RequestInterviewRescheduleRequest) Validate() []string {
+	fields := r.InterviewReference.Validate()
+	if !orgapplications.IsInterviewRescheduleNote(r.Note) {
+		fields = append(fields, "note")
+	}
+	return fields
 }
 
 // RespondToOfferRequest names the offer the applicant read.

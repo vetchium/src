@@ -41,3 +41,34 @@ export const OfferLetterConflictError: Readonly<Details> = {
   status: 409,
   detail: "The upload was superseded or expired before it completed",
 };
+
+export const InterviewNotFoundError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-interview-not-found",
+  title: "Org interview not found",
+  status: 404,
+  detail: "The application has no interview with the requested number",
+};
+
+export const InterviewStateConflictError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-interview-state-conflict",
+  title: "Org interview state conflict",
+  status: 409,
+  detail: "The action is not allowed in the interview's current state or time",
+};
+
+export const InterviewFeedbackExistsError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-interview-feedback-exists",
+  title: "Org interview feedback exists",
+  status: 409,
+  detail: "The caller already submitted feedback on the interview",
+};
+
+export interface InterviewLimitReachedDetails extends Details {
+  type: "vetchium-problem-details/org-interview-limit-reached";
+  limit: number;
+}
+
+export interface InterviewInterviewersInvalidDetails extends Details {
+  type: "vetchium-problem-details/org-interview-interviewers-invalid";
+  email_addresses: string[];
+}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/hub/profile"
 	"github.com/vetchium/src/typespec/orgs/hiring"
 )
 
@@ -237,5 +238,240 @@ func TestExtendApplicationOfferValidation(t *testing.T) {
 	invalid.RespondWithinDays = 0
 	if got := invalid.Validate(); !slices.Contains(got, "respond_within_days") {
 		t.Fatalf("zero days accepted: %v", got)
+	}
+}
+
+func interviewDetails() InterviewDetails {
+	link := profile.WebsiteURL("https://meet.example.com/room")
+	return InterviewDetails{
+		StartTime:         time.Date(2026, 12, 1, 9, 0, 0, 0, time.UTC),
+		DurationMinutes:   60,
+		Mode:              InterviewVideo,
+		VideoURL:          &link,
+		InterviewerEmails: []common.EmailAddress{"a@example.com", "b@example.com"},
+	}
+}
+
+func TestInterviewVocabulariesAreCopiesAndComplete(t *testing.T) {
+	t.Parallel()
+	if !slices.Equal(InterviewModes(), []InterviewMode{"video", "in_person"}) ||
+		!slices.Equal(InterviewStates(), []InterviewState{
+			"scheduled", "completed", "no_show", "cancelled",
+		}) ||
+		!slices.Equal(InterviewResponses(), []InterviewResponse{
+			"pending", "accepted", "reschedule_requested",
+		}) ||
+		!slices.Equal(InterviewRecommendations(), []InterviewRecommendation{
+			"strong_yes", "yes", "no", "strong_no",
+		}) ||
+		!slices.Equal(PendingApplicantActions(), []PendingApplicantAction{
+			"interview_response", "offer_response",
+		}) {
+		t.Fatal("an interview vocabulary changed")
+	}
+	InterviewModes()[0] = "changed"
+	InterviewStates()[0] = "changed"
+	if !IsInterviewMode(InterviewVideo) || !IsInterviewState(InterviewScheduled) {
+		t.Fatal("caller mutated a vocabulary")
+	}
+	if IsInterviewMode("x") || IsInterviewState("x") || IsInterviewResponse("x") ||
+		IsInterviewRecommendation("x") || IsPendingApplicantAction("x") ||
+		IsInterviewOutcome("cancelled") {
+		t.Fatal("an unknown value was accepted")
+	}
+}
+
+func TestInterviewBounds(t *testing.T) {
+	t.Parallel()
+	for minutes, want := range map[InterviewDurationMinutes]bool{
+		14: false, 15: true, 480: true, 481: false,
+	} {
+		if IsInterviewDurationMinutes(minutes) != want {
+			t.Errorf("duration %d = %v", minutes, !want)
+		}
+	}
+	long := strings.Repeat("é", 500)
+	if !IsInterviewLocation(InterviewLocation(long)) ||
+		IsInterviewLocation(InterviewLocation(long+"x")) ||
+		IsInterviewLocation(" room") || IsInterviewLocation("") {
+		t.Fatal("location bounds")
+	}
+	if !IsInterviewRescheduleNote(InterviewRescheduleNote(long)) ||
+		IsInterviewRescheduleNote(InterviewRescheduleNote(long+"x")) {
+		t.Fatal("reschedule note bounds")
+	}
+	notes := strings.Repeat("é", 10000)
+	if !IsInterviewFeedbackNotes(InterviewFeedbackNotes(notes)) ||
+		IsInterviewFeedbackNotes(InterviewFeedbackNotes(notes+"x")) ||
+		IsInterviewFeedbackNotes(" ") {
+		t.Fatal("feedback notes bounds")
+	}
+}
+
+func TestScheduleInterviewValidation(t *testing.T) {
+	t.Parallel()
+	valid := ScheduleInterviewRequest{
+		OpeningNumber: 1, ApplicationNumber: 2, Version: 3,
+		InterviewDetails: interviewDetails(),
+	}
+	if got := valid.Validate(); len(got) != 0 {
+		t.Fatalf("valid request rejected: %v", got)
+	}
+	place := InterviewLocation("Room 4")
+	inPerson := valid
+	inPerson.Mode, inPerson.VideoURL, inPerson.Location =
+		InterviewInPerson, nil, &place
+	if got := inPerson.Validate(); len(got) != 0 {
+		t.Fatalf("in-person request rejected: %v", got)
+	}
+	for name, mutate := range map[string]func(*ScheduleInterviewRequest){
+		"video without a link": func(r *ScheduleInterviewRequest) { r.VideoURL = nil },
+		"video with a place":   func(r *ScheduleInterviewRequest) { r.Location = &place },
+		"in person without a place": func(r *ScheduleInterviewRequest) {
+			r.Mode, r.VideoURL = InterviewInPerson, nil
+		},
+		"in person with a link": func(r *ScheduleInterviewRequest) {
+			r.Mode, r.Location = InterviewInPerson, &place
+		},
+		"http link": func(r *ScheduleInterviewRequest) {
+			link := profile.WebsiteURL("http://meet.example.com/room")
+			r.VideoURL = &link
+		},
+	} {
+		request := valid
+		mutate(&request)
+		if got := request.Validate(); len(got) == 0 {
+			t.Errorf("%s accepted", name)
+		}
+	}
+	invalid := ScheduleInterviewRequest{
+		InterviewDetails: InterviewDetails{
+			DurationMinutes: 5, Mode: "phone",
+			InterviewerEmails: []common.EmailAddress{"a@example.com", "a@example.com"},
+		},
+	}
+	want := []string{
+		"opening_number", "application_number", "version", "start_time",
+		"duration_minutes", "mode", "interviewer_emails",
+	}
+	if got := invalid.Validate(); !slices.Equal(got, want) {
+		t.Fatalf("fields = %v, want %v", got, want)
+	}
+	emails := make([]common.EmailAddress, 11)
+	for index := range emails {
+		emails[index] = common.EmailAddress("u" + string(rune('a'+index)) + "@example.com")
+	}
+	tooMany := valid
+	tooMany.InterviewerEmails = emails
+	if got := tooMany.Validate(); !slices.Contains(got, "interviewer_emails") {
+		t.Fatalf("eleven interviewers accepted: %v", got)
+	}
+	tooMany.InterviewerEmails = emails[:10]
+	if got := tooMany.Validate(); len(got) != 0 {
+		t.Fatalf("ten interviewers rejected: %v", got)
+	}
+	tooMany.InterviewerEmails = nil
+	if got := tooMany.Validate(); !slices.Contains(got, "interviewer_emails") {
+		t.Fatalf("no interviewer accepted: %v", got)
+	}
+}
+
+func TestInterviewDetailsNormalizeWithoutMutatingTheCaller(t *testing.T) {
+	t.Parallel()
+	link := profile.WebsiteURL(" HTTPS://Meet.Example.com/Room/ ")
+	place := InterviewLocation("  Room 4 ")
+	emails := []common.EmailAddress{" A@Example.com "}
+	request := ChangeInterviewRequest{
+		InterviewNumber: 1,
+		InterviewDetails: InterviewDetails{
+			StartTime: time.Date(2026, 12, 1, 9, 0, 0, 0, time.FixedZone("x", 3600)),
+			VideoURL:  &link, Location: &place, InterviewerEmails: emails,
+		},
+	}
+	request.Normalize()
+	if *request.VideoURL != "https://meet.example.com/Room" ||
+		*request.Location != "Room 4" ||
+		request.InterviewerEmails[0] != "a@example.com" ||
+		request.StartTime.Location() != time.UTC {
+		t.Fatalf("normalized = %+v", request)
+	}
+	if link != " HTTPS://Meet.Example.com/Room/ " || place != "  Room 4 " ||
+		emails[0] != " A@Example.com " {
+		t.Fatal("the caller's values were mutated")
+	}
+}
+
+func TestInterviewActionRequests(t *testing.T) {
+	t.Parallel()
+	cancel := CancelInterviewRequest{
+		OpeningNumber: 1, ApplicationNumber: 2, Version: 3, InterviewNumber: 4,
+	}
+	if got := cancel.Validate(); len(got) != 0 {
+		t.Fatalf("valid cancel rejected: %v", got)
+	}
+	if got := (CancelInterviewRequest{}).Validate(); !slices.Equal(got, []string{
+		"opening_number", "application_number", "version", "interview_number",
+	}) {
+		t.Fatalf("cancel fields = %v", got)
+	}
+	outcome := RecordInterviewOutcomeRequest{
+		OpeningNumber: 1, ApplicationNumber: 2, Version: 3, InterviewNumber: 4,
+		Outcome: OutcomeNoShow,
+	}
+	if got := outcome.Validate(); len(got) != 0 {
+		t.Fatalf("valid outcome rejected: %v", got)
+	}
+	outcome.Outcome = "cancelled"
+	if got := outcome.Validate(); !slices.Equal(got, []string{"outcome"}) {
+		t.Fatalf("outcome fields = %v", got)
+	}
+	feedback := SubmitInterviewFeedbackRequest{
+		OpeningNumber: 1, ApplicationNumber: 2, Version: 3, InterviewNumber: 4,
+		Recommendation: Yes, Notes: "  solid ",
+	}
+	feedback.Normalize()
+	if feedback.Notes != "solid" {
+		t.Fatalf("notes = %q", feedback.Notes)
+	}
+	if got := feedback.Validate(); len(got) != 0 {
+		t.Fatalf("valid feedback rejected: %v", got)
+	}
+	feedback.Recommendation, feedback.Notes = "maybe", ""
+	if got := feedback.Validate(); !slices.Equal(got, []string{
+		"recommendation", "notes",
+	}) {
+		t.Fatalf("feedback fields = %v", got)
+	}
+}
+
+func TestListApplicationsPendingApplicantAction(t *testing.T) {
+	t.Parallel()
+	action := InterviewResponseAction
+	request := ListApplicationsRequest{
+		OpeningNumber: 1, View: CandidatesView, PendingApplicantAction: &action,
+	}
+	if got := request.Validate(); len(got) != 0 {
+		t.Fatalf("filter rejected: %v", got)
+	}
+	request.View = ApplicantsView
+	if got := request.Validate(); !slices.Equal(got, []string{"pending_applicant_action"}) {
+		t.Fatalf("applicants view fields = %v", got)
+	}
+	unknown := PendingApplicantAction("sign")
+	request.View, request.PendingApplicantAction = CandidatesView, &unknown
+	if got := request.Validate(); !slices.Equal(got, []string{"pending_applicant_action"}) {
+		t.Fatalf("unknown fields = %v", got)
+	}
+}
+
+func TestListMyInterviewsValidation(t *testing.T) {
+	t.Parallel()
+	zero := common.PageSize(0)
+	request := ListMyInterviewsRequest{Limit: &zero}
+	if got := request.Validate(); !slices.Equal(got, []string{"limit"}) {
+		t.Fatalf("fields = %v", got)
+	}
+	if (ListMyInterviewsRequest{}).EffectiveLimit() != 50 {
+		t.Fatal("default limit")
 	}
 }

@@ -98,6 +98,42 @@ alias HubOfferResponseRejections =
   | Vetchium.Problem.FederationInitiatorMismatchErrorResponse;
 
 /**
+ * The payload of the `hub-accept-interview` command, whose authority
+ * principal is the Org and whose aggregate id is the Opening number as
+ * decimal text.
+ */
+model HubAcceptInterviewPayload {
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  application_number: Vetchium.Orgs.Applications.ApplicationNumber;
+  interview_number: Vetchium.Orgs.Applications.InterviewNumber;
+  applicant_did: Vetchium.Hub.HubUserDID;
+}
+
+/** The payload of `hub-request-interview-reschedule`: the same, with a note. */
+model HubRescheduleInterviewPayload {
+  ...HubAcceptInterviewPayload;
+  note: Vetchium.Orgs.Applications.InterviewRescheduleNote;
+}
+
+/** The stored `200` result of both interview-response commands. */
+model HubInterviewResponseResult {
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  application_number: Vetchium.Orgs.Applications.ApplicationNumber;
+  interview_number: Vetchium.Orgs.Applications.InterviewNumber;
+}
+
+/**
+ * The deterministic rejections of both interview-response commands: an
+ * application or interview that is unknown or not the applicant's; an
+ * interview that is cancelled, past, or already answered that way; and an
+ * applicant the sending tenant does not home.
+ */
+alias HubInterviewResponseRejections =
+  | Vetchium.Problem.HubApplicationNotFoundErrorResponse
+  | Vetchium.Problem.HubApplicationStateConflictErrorResponse
+  | Vetchium.Problem.FederationInitiatorMismatchErrorResponse;
+
+/**
  * The payload of the `hub-application-changed` event the Org's tenant
  * enqueues on every change of an application, for the applicant Hub user's
  * home tenant to project. Its origin is the Org: the receiver applies it only

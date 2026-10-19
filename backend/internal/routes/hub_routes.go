@@ -148,6 +148,10 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(hubapplications.AcceptOffer(s)))
 	mux.Handle("POST /api/hub/decline-application-offer",
 		hubAuth(hubapplications.DeclineOffer(s)))
+	mux.Handle("POST /api/hub/accept-application-interview",
+		hubAuth(hubapplications.AcceptInterview(s)))
+	mux.Handle("POST /api/hub/request-application-interview-reschedule",
+		hubAuth(hubapplications.RequestInterviewReschedule(s)))
 	mux.Handle("POST /api/hub/list-my-applications",
 		hubAuth(hubapplications.List(s)))
 	mux.Handle("POST /api/hub/get-my-application",

@@ -4,17 +4,22 @@ import test from "node:test";
 import { isCommandKind } from "./commands.ts";
 import { isAggregateType, isEventKind } from "./events.ts";
 import {
+  HubAcceptInterviewKind,
   HubAcceptOfferKind,
   HubApplicationChangedKind,
   HubApplyKind,
   type HubApplyPayload,
   HubDeclineOfferKind,
+  HubRescheduleInterviewKind,
   HubWithdrawKind,
   normalizeHubApplyPayload,
+  normalizeHubRescheduleInterviewPayload,
   OrgApplicationAggregate,
+  validateHubAcceptInterviewPayload,
   validateHubApplicationChangedPayload,
   validateHubApplyPayload,
   validateHubOfferResponsePayload,
+  validateHubRescheduleInterviewPayload,
   validateHubWithdrawPayload,
 } from "./hiring.ts";
 
@@ -133,5 +138,47 @@ test("offer answers are valid command kinds and validate their payload", () => {
       applicant_did: "x",
     }),
     ["opening_number", "application_number", "offer_number", "applicant_did"],
+  );
+});
+
+test("interview responses are command kinds and validate their payloads", () => {
+  assert.equal(HubAcceptInterviewKind, "hub-accept-interview");
+  assert.equal(HubRescheduleInterviewKind, "hub-request-interview-reschedule");
+  assert.equal(isCommandKind(HubAcceptInterviewKind), true);
+  assert.equal(isCommandKind(HubRescheduleInterviewKind), true);
+  const accept = {
+    opening_number: 1,
+    application_number: 2,
+    interview_number: 3,
+    applicant_did: "01900000-0000-7000-8000-000000000001",
+  };
+  assert.deepEqual(validateHubAcceptInterviewPayload(accept), []);
+  assert.deepEqual(
+    validateHubAcceptInterviewPayload({
+      opening_number: 0,
+      application_number: 0,
+      interview_number: 0,
+      applicant_did: "x",
+    }),
+    [
+      "opening_number",
+      "application_number",
+      "interview_number",
+      "applicant_did",
+    ],
+  );
+  const reschedule = { ...accept, note: "  later " };
+  assert.equal(
+    normalizeHubRescheduleInterviewPayload(reschedule).note,
+    "later",
+  );
+  assert.equal(reschedule.note, "  later ");
+  assert.deepEqual(
+    validateHubRescheduleInterviewPayload({ ...accept, note: "later" }),
+    [],
+  );
+  assert.deepEqual(
+    validateHubRescheduleInterviewPayload({ ...accept, note: "" }),
+    ["note"],
   );
 });

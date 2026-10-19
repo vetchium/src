@@ -112,6 +112,9 @@ func ListApplications(s *orgsruntime.Server) http.HandlerFunc {
 		if request.NameQuery != nil {
 			params.NameQuery = dbvalue.Text(string(*request.NameQuery))
 		}
+		if request.PendingApplicantAction != nil {
+			params.PendingAction = dbvalue.Text(string(*request.PendingApplicantAction))
+		}
 		if request.PaginationKey != nil {
 			payload, valid := credentials.VerifySignedValue(
 				s.CredentialSubkey("pagination"), listPaginationPurpose,
@@ -272,6 +275,9 @@ func buildDetail(
 		return detail, err
 	}
 	detail.Offers = list
+	if detail.Interviews, err = interviews(row.Interviews); err != nil {
+		return detail, err
+	}
 	return detail, nil
 }
 
@@ -402,14 +408,15 @@ func ListApplicationHistory(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		for _, row := range rows {
 			entry := applications.ApplicationHistoryEntry{
-				Action:      applications.ApplicationHistoryAction(row.Action.VetchiumOrgApplicationHistoryAction),
-				Actor:       applications.ApplicationActorKind(row.ActorKind.VetchiumOrgApplicationActorKind),
-				State:       applications.ApplicationState(row.ApplicationState.VetchiumOrgApplicationState),
-				Version:     applications.ApplicationVersion(row.ApplicationVersion.Int32),
-				Stage:       stagePointer(row.StageID, row.StageName, row.StageKind),
-				JoinedOn:    calendarDate(row.JoinedOn),
-				SeparatedOn: calendarDate(row.SeparatedOn),
-				CreatedAt:   row.CreatedAt.Time.UTC(),
+				Action:          applications.ApplicationHistoryAction(row.Action.VetchiumOrgApplicationHistoryAction),
+				Actor:           applications.ApplicationActorKind(row.ActorKind.VetchiumOrgApplicationActorKind),
+				State:           applications.ApplicationState(row.ApplicationState.VetchiumOrgApplicationState),
+				Version:         applications.ApplicationVersion(row.ApplicationVersion.Int32),
+				Stage:           stagePointer(row.StageID, row.StageName, row.StageKind),
+				InterviewNumber: interviewNumber(row.InterviewNumber),
+				JoinedOn:        calendarDate(row.JoinedOn),
+				SeparatedOn:     calendarDate(row.SeparatedOn),
+				CreatedAt:       row.CreatedAt.Time.UTC(),
 			}
 			if row.ActorEmail.Valid {
 				email := common.EmailAddress(row.ActorEmail.String)
