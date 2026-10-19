@@ -55,3 +55,7 @@ Offers run from extension to acceptance, decline, withdrawal, or expiry.
   `hub-application-changed`, add one bullet to `federation.md`, test it, and
   remove the related item T07 added to `docs/todo.md`.
 - Add `offer` to the Hub pending actions (projection and live detail).
+- Extending an offer must set `org_applications.offer_extended_at` (T08
+  bounds `joined_on` by it).
+- `offered` to `not_progressing` (T08, including bulk close) leaves the
+  offer record unchanged; end or withdraw the offer there too.

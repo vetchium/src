@@ -55,3 +55,6 @@ In-house interviews run from scheduling to feedback, with Hub responses.
   must cancel upcoming interviews (HP-STA-002).
 - Add interview responses to the Hub pending actions (projection and live
   detail).
+- T08 left the pipeline-exit hooks in `MarkOrgApplicationNotProgressing`
+  and `MarkClosedOpeningApplicationsNotProgressing`; cancel interviews
+  there and in `hub-withdraw`.

@@ -42,3 +42,6 @@ gating.
   if missing, the offer response.
 - Add background-check consent to the Hub pending actions (projection and
   live detail).
+- T08 refuses hand-completing non-review stages: recording the assessment
+  result, and the last background-check outcome, must mark the stage
+  `completed`.

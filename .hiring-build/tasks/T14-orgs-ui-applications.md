@@ -40,3 +40,9 @@ no actions.
 
 A recruiter can take an applicant from Applicants to a final outcome other
 than an offer in the portal.
+
+## Carried over
+
+- Over-hiring warning: `ApplicationDetail.joined_count > positions` (T08).
+- Close dialog sends `mark_applications_not_progressing` on
+  `request-opening-change`; show that choice on a pending close request.
