@@ -25,11 +25,13 @@ import (
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
 	"backend/internal/federation/commands"
+	"backend/internal/hubapplications"
 )
 
 // Register adds the hub-apply kind to registry.
 func Register(registry *commands.Registry) {
-	registry.Register(federationspec.HubApplyKind, Handle)
+	registry.Register(federationspec.HubApplyKind, Handle,
+		hubapplications.Applicant)
 }
 
 // Handle admits the application, or rejects it deterministically so a replay
@@ -107,6 +109,9 @@ func Handle(
 	if created.CreatedRows != 1 || created.CounterRows != 1 ||
 		created.HistoryRows != 1 || created.AuditRows != 1 {
 		return commands.Result{}, fmt.Errorf("incomplete application creation")
+	}
+	if err := hubapplications.EnqueueChange(ctx, tx, ids[1]); err != nil {
+		return commands.Result{}, err
 	}
 	return commands.Succeeded(201, federationspec.HubApplyResult{
 		OpeningNumber:     payload.OpeningNumber,

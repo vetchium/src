@@ -13,6 +13,7 @@ import (
 	"backend/internal/federation/commands"
 	"backend/internal/federation/eventkinds"
 	"backend/internal/federation/events"
+	"backend/internal/hubapplicationclient"
 	"backend/internal/meshapi"
 	"backend/internal/meshtls"
 	"backend/internal/middleware"
@@ -71,6 +72,9 @@ func run(log *slog.Logger, address string) error {
 	openings := publicopeningclient.NewPeer(
 		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
 	)
+	applications := hubapplicationclient.NewPeer(
+		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+	)
 	accessKey, secretKey, err := cfg.ObjectStorage.Credentials()
 	if err != nil {
 		return err
@@ -94,11 +98,12 @@ func run(log *slog.Logger, address string) error {
 	defer pool.Close()
 
 	s := &meshapi.Server{
-		Runtime:   apiserver.New(pool, log),
-		TenantID:  cfg.TenantID,
-		Directory: directory,
-		Profiles:  profiles,
-		Openings:  openings,
+		Runtime:      apiserver.New(pool, log),
+		TenantID:     cfg.TenantID,
+		Directory:    directory,
+		Profiles:     profiles,
+		Openings:     openings,
+		Applications: applications,
 		PublicOpenings: publicopenings.Reader{
 			Queries: sqlc.New(pool), Logos: pictures,
 		},
@@ -107,7 +112,7 @@ func run(log *slog.Logger, address string) error {
 		Credential: credential,
 		Commands: commands.NewExecutor(commands.ExecutorConfig{
 			Pool: pool, TenantID: cfg.TenantID,
-			Registry: commandkinds.Registry(),
+			Registry: commandkinds.Registry(), Directory: directory,
 		}),
 		CommandPeers: commands.NewPeer(
 			coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,

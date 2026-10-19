@@ -36,3 +36,10 @@ var CommandOutcomeUnknownError = problem.Details{
 	Status: 504,
 	Detail: "The command was sent but its outcome is unknown",
 }
+
+var InitiatorMismatchError = problem.Details{
+	Type:   "vetchium-problem-details/federation-initiator-mismatch",
+	Title:  "Federation initiator mismatch",
+	Status: 403,
+	Detail: "The initiating principal is not homed at the sending tenant",
+}

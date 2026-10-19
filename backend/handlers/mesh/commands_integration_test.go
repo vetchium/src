@@ -42,6 +42,20 @@ func (l fixedLocator) IsLocal(
 
 // peerHandlerStub delivers to an authority's real peer handler as the
 // calling tenant, as the mutual-TLS listener and its middleware would.
+// initiatorHomedAt is the authority's directory: it homes every initiator at
+// one tenant.
+type initiatorHomedAt directoryspec.TenantID
+
+func (home initiatorHomedAt) ResolvePrincipal(
+	_ context.Context, request directoryspec.ResolvePrincipalRequest,
+) (directoryspec.ResolvePrincipalResponse, *problem.Details, error) {
+	return directoryspec.ResolvePrincipalResponse{
+		PrincipalType: request.PrincipalType,
+		PrincipalDID:  request.PrincipalDID,
+		HomeTenantID:  directoryspec.TenantID(home), RoutingVersion: 1,
+	}, nil, nil
+}
+
 type peerHandlerStub struct {
 	authority *meshapi.Server
 	caller    directoryspec.TenantID
@@ -140,13 +154,17 @@ func TestDurableCommandAcrossTenantsIntegration(t *testing.T) {
 			return commands.Succeeded(201, map[string]string{
 				"noted_by": command.SourceTenantID,
 			}), nil
+		},
+		// The Org notes about itself, so it is also the initiator.
+		func(command commands.Command) (commands.Principal, bool) {
+			return command.Authority, true
 		})
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	authority := &meshapi.Server{
 		Runtime: apiserver.New(app, log), TenantID: "usa1",
 		Commands: commands.NewExecutor(commands.ExecutorConfig{
 			Pool: app, TenantID: "usa1", Registry: registry,
-			Locator: fixedLocator(true),
+			Locator: fixedLocator(true), Directory: initiatorHomedAt("sgp"),
 		}),
 	}
 	initiatorExecutor := commands.NewExecutor(commands.ExecutorConfig{
@@ -253,7 +271,7 @@ func TestDurableCommandAcrossTenantsIntegration(t *testing.T) {
 	misdirected.CommandID = "c0a3a3c4-5b6d-4e7f-8a9b-0c1d2e3f4a5b"
 	authority.Commands = commands.NewExecutor(commands.ExecutorConfig{
 		Pool: app, TenantID: "usa1", Registry: registry,
-		Locator: fixedLocator(false),
+		Locator: fixedLocator(false), Directory: initiatorHomedAt("sgp"),
 	})
 	body, _ = json.Marshal(misdirected)
 	if recorder := relayCall(relay, string(body), testCredential); recorder.Code != 421 {

@@ -15,3 +15,17 @@ var OpeningNotAcceptingError = problem.Details{
 	Status: 409,
 	Detail: "The Opening is not accepting applications",
 }
+
+var ApplicationNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/hub-application-not-found",
+	Title:  "Application not found",
+	Status: 404,
+	Detail: "The requested application was not found",
+}
+
+var ApplicationStateConflictError = problem.Details{
+	Type:   "vetchium-problem-details/hub-application-state-conflict",
+	Title:  "Application state conflict",
+	Status: 409,
+	Detail: "The application's current state does not allow this action",
+}

@@ -61,6 +61,7 @@ func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 	mux.HandleFunc("POST /mesh/profile/read", mesh.RelayReadProfile(s))
 	mux.HandleFunc("POST /mesh/org-openings/list", mesh.RelayListOrgOpenings(s))
 	mux.HandleFunc("POST /mesh/org-openings/get", mesh.RelayGetOrgOpening(s))
+	mux.HandleFunc("POST /mesh/hub-applications/get", mesh.RelayGetHubApplication(s))
 	mux.HandleFunc("POST /mesh/commands/execute", mesh.RelayExecuteCommand(s))
 	mux.HandleFunc("POST /mesh/events/deliver", mesh.RelayDeliverEvent(s))
 }
@@ -73,6 +74,7 @@ func RegisterMeshPeerRoutes(mux *http.ServeMux, s *meshapi.Server) {
 	mux.HandleFunc("POST /api/mesh/profile/read", mesh.PeerReadProfile(s))
 	mux.HandleFunc("POST /api/mesh/org-openings/list", mesh.PeerListOrgOpenings(s))
 	mux.HandleFunc("POST /api/mesh/org-openings/get", mesh.PeerGetOrgOpening(s))
+	mux.HandleFunc("POST /api/mesh/hub-applications/get", mesh.PeerGetHubApplication(s))
 	mux.HandleFunc("POST /api/mesh/commands/execute", mesh.PeerExecuteCommand(s))
 	mux.HandleFunc("POST /api/mesh/events/deliver", mesh.PeerDeliverEvent(s))
 }

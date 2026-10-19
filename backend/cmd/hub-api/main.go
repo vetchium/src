@@ -16,6 +16,7 @@ import (
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/hub/emailchange"
 	"backend/internal/hub/signupcompletion"
+	"backend/internal/hubapplicationclient"
 	"backend/internal/identitydigest"
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
@@ -80,6 +81,10 @@ func run(log *slog.Logger, address string) error {
 		cfg.MeshAPIServer.BaseURL, meshCredential,
 		cfg.MeshAPIServer.RequestTimeout,
 	)
+	applications := hubapplicationclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
+	)
 	accessKey, secretKey, err := cfg.ObjectStorage.Credentials()
 	if err != nil {
 		return err
@@ -135,11 +140,12 @@ func run(log *slog.Logger, address string) error {
 		Log: log,
 	})
 	s := &hubruntime.Server{
-		Runtime:   apiserver.New(pool, log),
-		Queries:   dbsqlc.New(pool),
-		Directory: globalDirectory,
-		Profiles:  profiles,
-		Openings:  openings,
+		Runtime:      apiserver.New(pool, log),
+		Queries:      dbsqlc.New(pool),
+		Directory:    globalDirectory,
+		Profiles:     profiles,
+		Openings:     openings,
+		Applications: applications,
 		PublicOpenings: publicopenings.Reader{
 			Queries: dbsqlc.New(pool), Logos: pictures,
 		},

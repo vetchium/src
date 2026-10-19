@@ -9,6 +9,8 @@ import "./profile/public.tsp";
 import "./profile/federation.tsp";
 import "./openings/public.tsp";
 import "./openings/federation.tsp";
+import "./applications/applications.tsp";
+import "./applications/federation.tsp";
 import "./profile/professional_email.tsp";
 import "./profile/alias.tsp";
 import "./profile/picture.tsp";

@@ -79,33 +79,48 @@ func Rejected(details problem.Body) Result {
 // back.
 type Handler func(context.Context, pgx.Tx, Command) (Result, error)
 
+// Initiator names the principal a command acts for: the Hub user who took
+// the action, or the Org of the Org user who did. ok is false when the
+// command names none; the executor then stores a validation rejection.
+type Initiator func(Command) (Principal, bool)
+
+type registration struct {
+	handler   Handler
+	initiator Initiator
+}
+
 // Registry maps command kinds to their authority handlers.
 type Registry struct {
-	handlers map[federationspec.CommandKind]Handler
+	kinds map[federationspec.CommandKind]registration
 }
 
 func NewRegistry() *Registry {
-	return &Registry{handlers: map[federationspec.CommandKind]Handler{}}
+	return &Registry{kinds: map[federationspec.CommandKind]registration{}}
 }
 
 // Register panics on an invalid or duplicate kind: both are programming
-// errors found at startup.
-func (r *Registry) Register(kind federationspec.CommandKind, handler Handler) {
-	if !federationspec.IsCommandKind(kind) || handler == nil {
+// errors found at startup. The executor runs handler only once initiator's
+// principal is proven homed at the tenant that sent the command.
+func (r *Registry) Register(
+	kind federationspec.CommandKind, handler Handler, initiator Initiator,
+) {
+	if !federationspec.IsCommandKind(kind) || handler == nil || initiator == nil {
 		panic(fmt.Sprintf("invalid federation command registration %q", kind))
 	}
-	if _, exists := r.handlers[kind]; exists {
+	if _, exists := r.kinds[kind]; exists {
 		panic(fmt.Sprintf("duplicate federation command kind %q", kind))
 	}
-	r.handlers[kind] = handler
+	r.kinds[kind] = registration{handler: handler, initiator: initiator}
 }
 
-func (r *Registry) handler(kind federationspec.CommandKind) (Handler, bool) {
+func (r *Registry) registration(
+	kind federationspec.CommandKind,
+) (registration, bool) {
 	if r == nil {
-		return nil, false
+		return registration{}, false
 	}
-	handler, ok := r.handlers[kind]
-	return handler, ok
+	entry, ok := r.kinds[kind]
+	return entry, ok
 }
 
 // Response is a command's stored outcome: a 2xx typed result or a 4xx

@@ -60,3 +60,17 @@ alias FederationCommandOutcomeUnknownErrorResponse = Response<
   504,
   typeof FederationCommandOutcomeUnknownError
 >;
+
+/** The command's initiating principal (the acting Hub user, or the acting Org
+ * user's Org) is not homed at the tenant that sent it. Stored as the command's
+ * deterministic outcome without running its handler. */
+const FederationInitiatorMismatchError = #{
+  type: "vetchium-problem-details/federation-initiator-mismatch",
+  title: "Federation initiator mismatch",
+  status: 403,
+  detail: "The initiating principal is not homed at the sending tenant",
+};
+alias FederationInitiatorMismatchErrorResponse = Response<
+  403,
+  typeof FederationInitiatorMismatchError
+>;

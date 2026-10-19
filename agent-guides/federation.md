@@ -254,6 +254,11 @@ command-result ledger at the authority; no per-feature reliability protocol.
   - A `Handler` gets the transaction; its writes, audit, and outbox events
     commit with the command result. `Rejected` rolls back its writes and stores
     the problem as the deterministic outcome.
+  - Register each kind with an `Initiator`: the acting Hub user, or the acting
+    Org user's Org. The handler runs only when the source tenant homes it —
+    this tenant's database for an in-process or relay-local command,
+    `resolve-principal` before the transaction for a peer's — else the stored
+    outcome is `403 federation-initiator-mismatch`.
   - Outcomes: `StateSucceeded`/`StateFailed` carry the stored status and body;
     `StatePending` is `202` with `PendingOperation`; `StateUnavailable` is a
     retryable `503` after the sender abandoned the never-sent operation.

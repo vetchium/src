@@ -2343,6 +2343,42 @@ AS $$
     )
 $$;
 
+-- The Hub user's non-authoritative projection of their applications, written
+-- only by hub-application-changed events from the Org's tenant (HP-GEN-004);
+-- the inbox watermark keeps an older event from overwriting a newer row. It
+-- holds no stage name, feedback, or Org user data. The Org may live in
+-- another tenant, so org_did has no foreign key.
+CREATE TABLE vetchium.hub_application_projections (
+    projection_id uuid PRIMARY KEY,
+    hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
+        ON DELETE CASCADE,
+    org_did uuid NOT NULL,
+    org_domain vetchium.org_domain NOT NULL,
+    org_display_name text NOT NULL CHECK (length(btrim(org_display_name)) > 0),
+    opening_number integer NOT NULL CHECK (opening_number >= 1),
+    opening_title text NOT NULL CHECK (length(btrim(opening_title)) > 0),
+    application_number integer NOT NULL CHECK (application_number >= 1),
+    hub_status text NOT NULL CHECK (hub_status IN (
+        'applied', 'in_review', 'interviewing', 'offer', 'hired',
+        'not_progressing', 'withdrawn'
+    )),
+    pending_actions text[] NOT NULL CHECK (
+        pending_actions <@ ARRAY['interview_response',
+            'background_check_consent', 'offer_response']::text[]
+    ),
+    applied_at timestamptz NOT NULL,
+    last_activity_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT hub_application_projections_application_key
+        UNIQUE (hub_user_did, org_did, opening_number, application_number),
+    CONSTRAINT hub_application_projections_activity_check CHECK (
+        last_activity_at >= applied_at
+    )
+);
+CREATE INDEX hub_application_projections_list_idx
+    ON vetchium.hub_application_projections
+    (hub_user_did, last_activity_at DESC, projection_id DESC);
+
 -- AI assistance (agent-guides/ai.md). Model identifiers, prices, and packs
 -- belong to the tenant configuration, so none of these tables references a
 -- model catalog.
@@ -2591,6 +2627,7 @@ $$;
 -- +goose StatementEnd
 
 -- +goose Down
+DROP TABLE IF EXISTS vetchium.hub_application_projections;
 DROP FUNCTION IF EXISTS vetchium.org_user_reads_applications(uuid, uuid);
 DROP TABLE IF EXISTS vetchium.org_application_history;
 DROP TABLE IF EXISTS vetchium.org_application_stages;

@@ -13,6 +13,7 @@ import (
 	"backend/internal/directoryclient"
 	"backend/internal/federation/commands"
 	"backend/internal/federation/events"
+	"backend/internal/hubapplicationclient"
 	"backend/internal/profileclient"
 	"backend/internal/publicopeningclient"
 	"backend/internal/publicopenings"
@@ -46,6 +47,7 @@ type Server struct {
 	Directory      *directoryclient.Client
 	Profiles       *profileclient.Client
 	Openings       *publicopeningclient.Client
+	Applications   *hubapplicationclient.Client
 	PublicOpenings publicopenings.Reader
 	Pictures       PictureSigner
 	Queries        sqlc.Querier

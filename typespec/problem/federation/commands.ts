@@ -34,3 +34,10 @@ export const CommandOutcomeUnknownError: Readonly<Details> = {
   status: 504,
   detail: "The command was sent but its outcome is unknown",
 };
+
+export const InitiatorMismatchError: Readonly<Details> = {
+  type: "vetchium-problem-details/federation-initiator-mismatch",
+  title: "Federation initiator mismatch",
+  status: 403,
+  detail: "The initiating principal is not homed at the sending tenant",
+};

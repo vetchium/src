@@ -13,3 +13,17 @@ export const OpeningNotAcceptingError: Readonly<Details> = {
   status: 409,
   detail: "The Opening is not accepting applications",
 };
+
+export const ApplicationNotFoundError: Readonly<Details> = {
+  type: "vetchium-problem-details/hub-application-not-found",
+  title: "Application not found",
+  status: 404,
+  detail: "The requested application was not found",
+};
+
+export const ApplicationStateConflictError: Readonly<Details> = {
+  type: "vetchium-problem-details/hub-application-state-conflict",
+  title: "Application state conflict",
+  status: 409,
+  detail: "The application's current state does not allow this action",
+};

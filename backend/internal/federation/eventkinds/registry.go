@@ -3,8 +3,13 @@
 // applies the same way at a peer and in process. Register a new kind here.
 package eventkinds
 
-import "backend/internal/federation/events"
+import (
+	"backend/internal/federation/events"
+	"backend/internal/hubapplications"
+)
 
 func Registry() *events.Registry {
-	return events.NewRegistry()
+	registry := events.NewRegistry()
+	hubapplications.Register(registry)
+	return registry
 }

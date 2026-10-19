@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/vetchium/src/typespec/hub/profile"
 	"github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/openings"
+	"github.com/vetchium/src/typespec/problem"
 
 	"backend/internal/dbvalue"
 	"backend/internal/federation/commands"
@@ -65,9 +67,10 @@ func newDID(t *testing.T) pgtype.UUID {
 }
 
 type fixture struct {
-	owner    *pgxpool.Pool
-	executor *commands.Executor
-	orgDID   pgtype.UUID
+	owner     *pgxpool.Pool
+	executor  *commands.Executor
+	orgDID    pgtype.UUID
+	elsewhere pgtype.UUID
 }
 
 // newFixture seeds an active Org with opening 1 published, and removes the
@@ -94,12 +97,24 @@ func newFixture(t *testing.T) *fixture {
 			[]any{userID, orgDID}},
 		// now() is the statement time, so the expiry is exactly 180 days after
 		// the first publication, as the table requires.
+		{`INSERT INTO vetchium.org_domains (org_did, domain,
+            verification_token, last_verified_at, last_conclusive_at,
+            next_check_at)
+            VALUES ($1, $2, 'abcdefghijklmnopqrstuvwxyz', now(), now(),
+                now() + interval '1 day')`,
+			[]any{orgDID, "apply-" + text[len(text)-12:] + ".example"}},
 		{`INSERT INTO vetchium.org_openings (org_opening_id, org_did,
             opening_number, opening_state, created_by, first_published_at,
             expires_at)
             VALUES ($1, $2, 1, 'published', $3, now(),
                 now() + interval '180 days')`,
 			[]any{openingID, orgDID, userID}},
+		{`INSERT INTO vetchium.org_opening_contents (org_opening_id, slot,
+            title, description, language, employing_country,
+            work_arrangement, employment_type, positions, updated_by)
+            VALUES ($1, 'live', 'Engineer', 'Build things', 'en', 'DE',
+                'on_site', 'full_time', 1, $2)`,
+			[]any{openingID, userID}},
 	}
 	for _, statement := range statements {
 		if _, err := owner.Exec(ctx, statement.sql, statement.args...); err != nil {
@@ -109,6 +124,8 @@ func newFixture(t *testing.T) *fixture {
 	t.Cleanup(func() {
 		_, _ = owner.Exec(ctx, `DELETE FROM vetchium.federation_command_ledger
             WHERE aggregate_id LIKE $1`, text+"%")
+		_, _ = owner.Exec(ctx, `DELETE FROM vetchium.federation_outbox
+            WHERE aggregate_id LIKE $1`, text+"%")
 		_, _ = owner.Exec(ctx, `DELETE FROM vetchium.audit_events
             WHERE subject_org_did = $1 OR entity_id LIKE $2`, orgDID, text+"%")
 		_, _ = owner.Exec(ctx, `DELETE FROM vetchium.orgs WHERE org_did = $1`,
@@ -116,12 +133,27 @@ func newFixture(t *testing.T) *fixture {
 	})
 	registry := commands.NewRegistry()
 	Register(registry)
-	return &fixture{
-		owner: owner, orgDID: orgDID,
-		executor: commands.NewExecutor(commands.ExecutorConfig{
-			Pool: app, TenantID: "sgp", Registry: registry,
-		}),
+	f := &fixture{owner: owner, orgDID: orgDID, elsewhere: newDID(t)}
+	// The Org's tenant is usa1 and every command comes from sgp, which the
+	// directory says homes every applicant but f.elsewhere.
+	f.executor = commands.NewExecutor(commands.ExecutorConfig{
+		Pool: app, TenantID: "usa1", Registry: registry, Directory: f,
+	})
+	return f
+}
+
+func (f *fixture) ResolvePrincipal(
+	_ context.Context, request directoryspec.ResolvePrincipalRequest,
+) (directoryspec.ResolvePrincipalResponse, *problem.Details, error) {
+	home := directoryspec.TenantID("sgp")
+	if string(request.PrincipalDID) == dbvalue.FormatUUID(f.elsewhere) {
+		home = "deu"
 	}
+	return directoryspec.ResolvePrincipalResponse{
+		PrincipalType: request.PrincipalType,
+		PrincipalDID:  request.PrincipalDID, HomeTenantID: home,
+		RoutingVersion: 1,
+	}, nil, nil
 }
 
 func (f *fixture) scalar(t *testing.T, sql string, args ...any) int {
@@ -437,4 +469,53 @@ func TestHubApplyForAnUnknownOrgIsMisdirectedIntegration(t *testing.T) {
 
 func ptrDID(did pgtype.UUID) hub.HubUserDID {
 	return hub.HubUserDID(dbvalue.FormatUUID(did))
+}
+
+func TestHubApplyEnqueuesTheApplicantsProjectionIntegration(t *testing.T) {
+	f := newFixture(t)
+	applicant := newDID(t)
+	if response := f.apply(t, newDID(t), applicant, 1, nil); response.Status != 201 {
+		t.Fatalf("application = %d %s", response.Status, response.Body)
+	}
+	var kind, aggregateType, aggregateID string
+	var version int
+	var payload []byte
+	if err := f.owner.QueryRow(context.Background(), `SELECT kind,
+        aggregate_type, aggregate_id, aggregate_version, payload_bytes
+        FROM vetchium.federation_outbox
+        WHERE destination_principal_type = 'hub_user'
+          AND destination_principal_did = $1`, applicant).
+		Scan(&kind, &aggregateType, &aggregateID, &version, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if kind != "hub-application-changed" || aggregateType != "org_application" ||
+		aggregateID != dbvalue.FormatUUID(f.orgDID)+":1:1" || version != 1 {
+		t.Fatalf("event = %s %s %s v%d", kind, aggregateType, aggregateID, version)
+	}
+	var projected federationspec.HubApplicationChangedPayload
+	if err := json.Unmarshal(payload, &projected); err != nil ||
+		len(projected.Validate()) != 0 || projected.Status != "applied" ||
+		projected.OpeningTitle != "Engineer" ||
+		projected.OrgDisplayName != "Apply Test" ||
+		len(projected.PendingActions) != 0 {
+		t.Fatalf("payload = %s (%v)", payload, err)
+	}
+	for _, private := range []string{"Lovelace", "snapshot", "stage", "owner@"} {
+		if strings.Contains(string(payload), private) {
+			t.Fatalf("payload carries %q: %s", private, payload)
+		}
+	}
+}
+
+func TestHubApplyRefusesAnApplicantHomedElsewhereIntegration(t *testing.T) {
+	f := newFixture(t)
+	response := f.apply(t, newDID(t), f.elsewhere, 1, nil)
+	if response.Status != 403 || problemType(t, response) !=
+		"vetchium-problem-details/federation-initiator-mismatch" {
+		t.Fatalf("response = %d %s", response.Status, response.Body)
+	}
+	if got := f.scalar(t, `SELECT count(*) FROM vetchium.org_applicants
+        WHERE org_did = $1`, f.orgDID); got != 0 {
+		t.Fatalf("a refusal left %d applicants", got)
+	}
 }

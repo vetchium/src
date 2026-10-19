@@ -233,7 +233,7 @@ func (s *Sender) Send(ctx context.Context, request Request) (Outcome, error) {
 	}
 	// A local authority executes in this transaction, so the operation is
 	// created and resolved together and never left pending.
-	response, err := s.config.Executor.executeInTx(ctx, tx, command)
+	response, err := s.config.Executor.executeInTx(ctx, tx, command, nil)
 	if errors.Is(err, ErrMisdirected) {
 		if err := tx.Commit(ctx); err != nil {
 			return Outcome{}, fmt.Errorf("commit federation operation: %w", err)
@@ -370,7 +370,7 @@ func (s *Sender) drive(
 		return Outcome{}, fmt.Errorf("begin federation operation: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	response, err := s.config.Executor.executeInTx(ctx, tx, command)
+	response, err := s.config.Executor.executeInTx(ctx, tx, command, nil)
 	if errors.Is(err, ErrMisdirected) {
 		_ = tx.Rollback(ctx)
 		return s.deliver(ctx, operation, command, actor, false)

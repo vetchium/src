@@ -4,7 +4,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	hubapplications "github.com/vetchium/src/typespec/hub/applications"
 	"github.com/vetchium/src/typespec/hub/profile"
 	"github.com/vetchium/src/typespec/orgs/applications"
 )
@@ -67,5 +69,68 @@ func TestHubApplyPayloadValidation(t *testing.T) {
 	good.CoverNote = &exact
 	if got := good.Validate(); len(got) != 0 {
 		t.Fatalf("5,000 code points rejected: %v", got)
+	}
+}
+
+func TestHubWithdrawAndProjectionKinds(t *testing.T) {
+	t.Parallel()
+	if !IsCommandKind(HubWithdrawKind) || HubWithdrawKind != "hub-withdraw" {
+		t.Fatalf("kind = %q", HubWithdrawKind)
+	}
+	if !IsEventKind(HubApplicationChangedKind) ||
+		!IsAggregateType(OrgApplicationAggregate) {
+		t.Fatalf("event = %q %q", HubApplicationChangedKind,
+			OrgApplicationAggregate)
+	}
+}
+
+func TestHubWithdrawPayloadValidation(t *testing.T) {
+	t.Parallel()
+	good := HubWithdrawPayload{
+		OpeningNumber: 1, ApplicationNumber: 2,
+		ApplicantDID: "01900000-0000-7000-8000-000000000001",
+	}
+	if got := good.Validate(); len(got) != 0 {
+		t.Fatalf("valid payload rejected: %v", got)
+	}
+	bad := HubWithdrawPayload{ApplicantDID: "01900000-0000-4000-8000-000000000001"}
+	want := []string{"opening_number", "application_number", "applicant_did"}
+	if got := bad.Validate(); !slices.Equal(got, want) {
+		t.Fatalf("fields = %v, want %v", got, want)
+	}
+}
+
+func TestHubApplicationChangedPayloadValidation(t *testing.T) {
+	t.Parallel()
+	applied := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	good := HubApplicationChangedPayload{
+		OrgDID:    "01900000-0000-7000-8000-000000000002",
+		OrgDomain: "example.com", OrgDisplayName: "Example",
+		OpeningNumber: 1, OpeningTitle: "Engineer", ApplicationNumber: 1,
+		Status:         hubapplications.Applied,
+		PendingActions: []hubapplications.PendingActionKind{},
+		AppliedAt:      applied, LastActivityAt: applied,
+	}
+	if got := good.Validate(); len(got) != 0 {
+		t.Fatalf("valid payload rejected: %v", got)
+	}
+	bad := HubApplicationChangedPayload{
+		OrgDID: "x", OrgDomain: "Example.COM", OpeningTitle: " ",
+		Status:         "archived",
+		PendingActions: []hubapplications.PendingActionKind{"sign"},
+		AppliedAt:      applied, LastActivityAt: applied.Add(-time.Second),
+	}
+	want := []string{
+		"org_did", "org_domain", "org_display_name", "opening_number",
+		"opening_title", "application_number", "status", "pending_actions",
+		"last_activity_at",
+	}
+	if got := bad.Validate(); !slices.Equal(got, want) {
+		t.Fatalf("fields = %v, want %v", got, want)
+	}
+	bad.PendingActions, bad.AppliedAt = nil, time.Time{}
+	if got := bad.Validate(); !slices.Contains(got, "pending_actions") ||
+		!slices.Contains(got, "applied_at") {
+		t.Fatalf("fields = %v", got)
 	}
 }

@@ -192,3 +192,112 @@ WHERE o.org_did = sqlc.arg(org_did)
   AND vetchium.org_user_reads_applications(o.org_opening_id, sqlc.arg(viewer_id))
 ORDER BY h.created_at DESC NULLS LAST, h.org_application_history_id DESC NULLS LAST
 LIMIT sqlc.arg(page_limit);
+
+-- What the applicant's home tenant projects for an application
+-- (HP-GEN-004), read in the transaction that changed it.
+-- name: GetHubApplicationChange :one
+SELECT applicant.hub_user_did, o.org_did, d.domain::text AS org_domain,
+    org.display_name AS org_display_name, o.opening_number,
+    COALESCE(c.title, '')::text AS opening_title, a.application_number,
+    a.application_state, stage.stage_kind, a.version, a.created_at,
+    a.updated_at
+FROM vetchium.org_applications AS a
+JOIN vetchium.org_applicants AS applicant
+    ON applicant.org_applicant_id = a.org_applicant_id
+JOIN vetchium.org_openings AS o ON o.org_opening_id = a.org_opening_id
+JOIN vetchium.orgs AS org ON org.org_did = o.org_did
+JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
+JOIN vetchium.org_opening_contents AS c
+    ON c.org_opening_id = o.org_opening_id AND c.slot = 'live'
+LEFT JOIN vetchium.org_opening_stages AS stage
+    ON stage.org_opening_stage_id = a.current_stage_id
+WHERE a.org_application_id = sqlc.arg(application_id);
+
+-- Taken first by hub-withdraw, so the state decision and the update below
+-- see the same row. Only the applicant's own application matches.
+-- name: LockOrgApplicationForApplicant :one
+SELECT a.org_application_id, a.application_state, a.version
+FROM vetchium.org_applications AS a
+JOIN vetchium.org_openings AS o ON o.org_opening_id = a.org_opening_id
+JOIN vetchium.org_applicants AS applicant
+    ON applicant.org_applicant_id = a.org_applicant_id
+WHERE o.org_did = sqlc.arg(org_did)
+  AND o.opening_number = sqlc.arg(opening_number)::integer
+  AND a.application_number = sqlc.arg(application_number)::integer
+  AND applicant.hub_user_did = sqlc.arg(hub_user_did)
+FOR UPDATE OF a;
+
+-- The caller holds the application row lock from
+-- LockOrgApplicationForApplicant.
+-- name: WithdrawOrgApplication :one
+WITH withdrawn AS (
+    UPDATE vetchium.org_applications AS a
+    SET application_state = 'withdrawn', version = a.version + 1,
+        updated_at = now()
+    WHERE a.org_application_id = sqlc.arg(application_id)
+      AND a.version = sqlc.arg(version)::integer
+      AND a.application_state IN
+          ('submitted', 'in_pipeline', 'offered', 'offer_accepted')
+    RETURNING a.org_application_id, a.application_number, a.version
+), history AS (
+    INSERT INTO vetchium.org_application_history (
+        org_application_history_id, org_application_id, action, actor_kind,
+        application_state, application_version
+    )
+    SELECT sqlc.arg(history_id), withdrawn.org_application_id, 'withdrawn',
+        'applicant', 'withdrawn', withdrawn.version
+    FROM withdrawn
+    RETURNING org_application_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_org_did, source, idempotency_key, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'org.application.withdrawn',
+        'org_application',
+        sqlc.arg(org_did)::uuid::text || ':' ||
+            sqlc.arg(opening_number)::integer::text || ':' ||
+            withdrawn.application_number::text,
+        'hub_user', sqlc.arg(hub_user_did)::text, sqlc.arg(org_did),
+        'federation-command', sqlc.arg(command_id)::text,
+        jsonb_build_object('opening_number', sqlc.arg(opening_number)::integer,
+            'application_number', withdrawn.application_number,
+            'action', 'withdrawn', 'version', withdrawn.version,
+            'previous_state', sqlc.arg(previous_state)::text,
+            'source_tenant_id', sqlc.arg(source_tenant_id)::text)
+    FROM withdrawn
+    RETURNING audit_event_id
+)
+SELECT (SELECT count(*) FROM withdrawn) AS withdrawn_rows,
+    (SELECT count(*) FROM history) AS history_rows,
+    (SELECT count(*) FROM audit) AS audit_rows;
+
+-- The applicant's live read of their own application, addressed by the
+-- Org's domain as the Hub sees it. Org suspension does not hide it.
+-- name: GetOrgApplicationForApplicant :one
+SELECT d.domain::text AS org_domain, org.display_name AS org_display_name,
+    o.opening_number, COALESCE(c.title, '')::text AS opening_title,
+    a.application_number, a.application_state, stage.stage_kind
+FROM vetchium.org_domains AS d
+JOIN vetchium.orgs AS org ON org.org_did = d.org_did
+JOIN vetchium.org_openings AS o ON o.org_did = d.org_did
+JOIN vetchium.org_applications AS a ON a.org_opening_id = o.org_opening_id
+JOIN vetchium.org_applicants AS applicant
+    ON applicant.org_applicant_id = a.org_applicant_id
+JOIN vetchium.org_opening_contents AS c
+    ON c.org_opening_id = o.org_opening_id AND c.slot = 'live'
+LEFT JOIN vetchium.org_opening_stages AS stage
+    ON stage.org_opening_stage_id = a.current_stage_id
+WHERE d.domain = sqlc.arg(domain)
+  AND d.domain_state IN ('verified', 'failing', 'releasing')
+  AND o.opening_number = sqlc.arg(opening_number)::integer
+  AND a.application_number = sqlc.arg(application_number)::integer
+  AND applicant.hub_user_did = sqlc.arg(hub_user_did);
+
+-- The Org this tenant homes for a Hub-facing domain, whatever its state:
+-- the Org's tenant decides what a suspended Org still allows.
+-- name: GetLocalOrgForDomain :one
+SELECT d.org_did
+FROM vetchium.org_domains AS d
+WHERE d.domain = sqlc.arg(domain)
+  AND d.domain_state IN ('verified', 'failing', 'releasing');

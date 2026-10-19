@@ -1,6 +1,12 @@
 import { randomBytes } from "node:crypto";
 import type { APIRequestContext, APIResponse } from "@playwright/test";
 import type {
+  ApplyToOpeningRequest,
+  GetMyApplicationRequest,
+  ListMyApplicationsRequest,
+  WithdrawApplicationRequest,
+} from "typespec/hub/applications/applications";
+import type {
   GetOrgOpeningRequest,
   ListOrgOpeningsRequest,
 } from "typespec/hub/openings/public";
@@ -116,6 +122,34 @@ export class HubAPI {
     token: string,
   ): Promise<APIResponse> {
     return this.post("/get-org-opening", body, { token });
+  }
+
+  applyToOpening(
+    body: ApplyToOpeningRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post("/apply-to-opening", body, options);
+  }
+
+  withdrawApplication(
+    body: WithdrawApplicationRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post("/withdraw-application", body, options);
+  }
+
+  listMyApplications(
+    body: ListMyApplicationsRequest,
+    token: string,
+  ): Promise<APIResponse> {
+    return this.post("/list-my-applications", body, { token });
+  }
+
+  getMyApplication(
+    body: GetMyApplicationRequest,
+    token: string,
+  ): Promise<APIResponse> {
+    return this.post("/get-my-application", body, { token });
   }
 
   setPublicFields(

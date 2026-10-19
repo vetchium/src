@@ -11,6 +11,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	directoryspec "github.com/vetchium/src/typespec/directory"
+	"github.com/vetchium/src/typespec/problem"
+	federationproblem "github.com/vetchium/src/typespec/problem/federation"
+	coordinatorproblem "github.com/vetchium/src/typespec/problem/global-coordinator"
+
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
 )
@@ -34,21 +39,42 @@ func (DatabaseLocator) IsLocal(
 		})
 }
 
+// PrincipalDirectory is the global directory's resolve-principal;
+// directoryclient.Client satisfies it.
+type PrincipalDirectory interface {
+	ResolvePrincipal(
+		context.Context, directoryspec.ResolvePrincipalRequest,
+	) (directoryspec.ResolvePrincipalResponse, *problem.Details, error)
+}
+
 type ExecutorConfig struct {
 	Pool     *pgxpool.Pool
 	TenantID string
 	Registry *Registry
 	// Locator defaults to DatabaseLocator.
 	Locator Locator
+	// Directory proves where the initiator of a command from another tenant
+	// is homed. Only mesh-api, which receives such commands, needs it.
+	Directory PrincipalDirectory
 }
 
 // Executor runs commands at their authority and keeps the command-result
 // ledger, so each command id executes once and replays its stored outcome.
 type Executor struct {
-	pool     *pgxpool.Pool
-	tenantID string
-	registry *Registry
-	locator  Locator
+	pool      *pgxpool.Pool
+	tenantID  string
+	registry  *Registry
+	locator   Locator
+	directory PrincipalDirectory
+}
+
+// initiatorHome is where the directory homes a remote command's initiator,
+// resolved before the command's transaction opens.
+type initiatorHome struct {
+	principal Principal
+	tenantID  string
+	found     bool
+	err       error
 }
 
 func NewExecutor(config ExecutorConfig) *Executor {
@@ -59,17 +85,21 @@ func NewExecutor(config ExecutorConfig) *Executor {
 	return &Executor{
 		pool: config.Pool, tenantID: config.TenantID,
 		registry: config.Registry, locator: locator,
+		directory: config.Directory,
 	}
 }
 
-// Execute runs command in its own transaction.
+// Execute runs command in its own transaction. The initiator of a command
+// from another tenant is resolved first, so no transaction is held across
+// the directory call.
 func (e *Executor) Execute(ctx context.Context, command Command) (Response, error) {
+	home := e.resolveInitiator(ctx, command)
 	tx, err := e.pool.Begin(ctx)
 	if err != nil {
 		return Response{}, fmt.Errorf("begin federation command: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	response, err := e.executeInTx(ctx, tx, command)
+	response, err := e.executeInTx(ctx, tx, command, home)
 	if err != nil {
 		return Response{}, err
 	}
@@ -79,10 +109,77 @@ func (e *Executor) Execute(ctx context.Context, command Command) (Response, erro
 	return response, nil
 }
 
+// resolveInitiator looks up where the directory homes the initiator of a
+// command from another tenant. A command from this tenant is checked against
+// the local database in its transaction instead.
+func (e *Executor) resolveInitiator(
+	ctx context.Context, command Command,
+) *initiatorHome {
+	if command.SourceTenantID == e.tenantID {
+		return nil
+	}
+	entry, ok := e.registry.registration(command.Kind)
+	if !ok {
+		return nil
+	}
+	principal, ok := entry.initiator(command)
+	if !ok || !principal.valid() {
+		return nil
+	}
+	home := &initiatorHome{principal: principal}
+	if e.directory == nil {
+		home.err = errors.New("no directory to locate the command initiator")
+		return home
+	}
+	resolved, details, err := e.directory.ResolvePrincipal(ctx,
+		directoryspec.ResolvePrincipalRequest{
+			PrincipalType: principal.Type,
+			PrincipalDID: directoryspec.PrincipalDID(
+				dbvalue.FormatUUID(principal.DID),
+			),
+		})
+	switch {
+	case err != nil:
+		home.err = fmt.Errorf("resolve federation command initiator: %w", err)
+	case details != nil &&
+		details.Type == coordinatorproblem.DirectoryEntryNotFoundError.Type:
+	case details != nil:
+		home.err = fmt.Errorf("resolve federation command initiator: %s",
+			details.Type)
+	default:
+		home.tenantID, home.found = string(resolved.HomeTenantID), true
+	}
+	return home
+}
+
+// initiatorHomed reports whether the command's initiator is homed at the
+// tenant that sent it: this tenant's database proves a local initiator, the
+// directory a remote one.
+func (e *Executor) initiatorHomed(
+	ctx context.Context, q *sqlc.Queries, command Command,
+	initiator Principal, home *initiatorHome,
+) (bool, error) {
+	if command.SourceTenantID == e.tenantID {
+		local, err := e.locator.IsLocal(ctx, q, initiator)
+		if err != nil {
+			return false, fmt.Errorf("locate federation command initiator: %w", err)
+		}
+		return local, nil
+	}
+	if home == nil || home.principal != initiator {
+		return false, errors.New("federation command initiator not resolved")
+	}
+	if home.err != nil {
+		return false, home.err
+	}
+	return home.found && home.tenantID == command.SourceTenantID, nil
+}
+
 // executeInTx returns ErrMisdirected before writing anything, so a sender
-// may keep tx and route the command elsewhere.
+// may keep tx and route the command elsewhere. home is nil for a command
+// from this tenant.
 func (e *Executor) executeInTx(
-	ctx context.Context, tx pgx.Tx, command Command,
+	ctx context.Context, tx pgx.Tx, command Command, home *initiatorHome,
 ) (Response, error) {
 	command.TenantID = e.tenantID
 	if !command.Authority.valid() {
@@ -121,11 +218,27 @@ func (e *Executor) executeInTx(
 	if !local {
 		return Response{}, ErrMisdirected
 	}
-	handler, ok := e.registry.handler(command.Kind)
+	entry, ok := e.registry.registration(command.Kind)
 	if !ok {
 		return Response{}, ErrUnsupportedKind
 	}
-	response, err := runHandler(ctx, tx, handler, command)
+	var response Response
+	initiator, ok := entry.initiator(command)
+	if !ok || !initiator.valid() {
+		details := problem.ValidationFailedError
+		details.Fields = []string{"payload"}
+		response, err = rejection(details)
+	} else {
+		var homed bool
+		homed, err = e.initiatorHomed(ctx, q, command, initiator, home)
+		switch {
+		case err != nil:
+		case homed:
+			response, err = runHandler(ctx, tx, entry.handler, command)
+		default:
+			response, err = rejection(federationproblem.InitiatorMismatchError)
+		}
+	}
 	if err != nil {
 		return Response{}, err
 	}
@@ -139,6 +252,14 @@ func (e *Executor) executeInTx(
 		return Response{}, fmt.Errorf("record federation command result: %w", err)
 	}
 	return response, nil
+}
+
+func rejection(details problem.Details) (Response, error) {
+	body, err := json.Marshal(details)
+	if err != nil {
+		return Response{}, fmt.Errorf("encode federation command rejection: %w", err)
+	}
+	return Response{Status: details.Status, Body: body}, nil
 }
 
 // runHandler keeps the handler's writes only for a success; a rejection's

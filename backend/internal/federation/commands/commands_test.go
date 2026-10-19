@@ -64,15 +64,21 @@ func TestRegistryRejectsInvalidAndDuplicateKinds(t *testing.T) {
 	handler := func(context.Context, pgx.Tx, Command) (Result, error) {
 		return Succeeded(200, struct{}{}), nil
 	}
+	initiator := func(command Command) (Principal, bool) {
+		return command.Authority, true
+	}
 	registry := NewRegistry()
-	registry.Register("test-command", handler)
-	if _, ok := registry.handler("test-command"); !ok {
+	registry.Register("test-command", handler, initiator)
+	if _, ok := registry.registration("test-command"); !ok {
 		t.Fatal("registered kind not found")
 	}
 	for name, register := range map[string]func(){
-		"duplicate": func() { registry.Register("test-command", handler) },
-		"invalid":   func() { registry.Register("Test_Command", handler) },
-		"nil":       func() { registry.Register("other-command", nil) },
+		"duplicate": func() { registry.Register("test-command", handler, initiator) },
+		"invalid":   func() { registry.Register("Test_Command", handler, initiator) },
+		"nil":       func() { registry.Register("other-command", nil, initiator) },
+		"nil initiator": func() {
+			registry.Register("third-command", handler, nil)
+		},
 	} {
 		func() {
 			defer func() {
@@ -84,7 +90,7 @@ func TestRegistryRejectsInvalidAndDuplicateKinds(t *testing.T) {
 		}()
 	}
 	var missing *Registry
-	if _, ok := missing.handler("test-command"); ok {
+	if _, ok := missing.registration("test-command"); ok {
 		t.Fatal("nil registry found a handler")
 	}
 }

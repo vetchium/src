@@ -17,6 +17,7 @@ import (
 	"backend/internal/hub/auth"
 	"backend/internal/hub/emailchange"
 	"backend/internal/hub/signupcompletion"
+	"backend/internal/hubapplicationclient"
 	"backend/internal/profileclient"
 	"backend/internal/profilepicture"
 	"backend/internal/publicopeningclient"
@@ -45,6 +46,7 @@ type Server struct {
 	Directory        *directoryclient.Client
 	Profiles         *profileclient.Client
 	Openings         *publicopeningclient.Client
+	Applications     *hubapplicationclient.Client
 	PublicOpenings   publicopenings.Reader
 	Pictures         PictureStorage
 	SignupCompletion *signupcompletion.Service

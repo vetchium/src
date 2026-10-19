@@ -1,6 +1,10 @@
+import "../common/localization.tsp";
+import "../hub/applications/applications.tsp";
 import "../hub/profile/snapshot.tsp";
 import "../hub/types.tsp";
 import "../orgs/applications/applications.tsp";
+import "../orgs/types.tsp";
+import "../problem/federation/commands.tsp";
 import "../problem/hub/applications.tsp";
 import "../problem/hub/openings.tsp";
 
@@ -27,9 +31,58 @@ model HubApplyResult {
 /**
  * The deterministic rejections of `hub-apply`, stored as the command's
  * outcome: an unknown Opening, an Opening not accepting applications
- * (including one of a suspended Org), and a second application.
+ * (including one of a suspended Org), a second application, and an applicant
+ * the sending tenant does not home.
  */
 alias HubApplyRejections =
   | Vetchium.Problem.HubOpeningNotFoundErrorResponse
   | Vetchium.Problem.HubOpeningNotAcceptingErrorResponse
-  | Vetchium.Problem.HubApplicationExistsErrorResponse;
+  | Vetchium.Problem.HubApplicationExistsErrorResponse
+  | Vetchium.Problem.FederationInitiatorMismatchErrorResponse;
+
+/**
+ * The payload of the `hub-withdraw` command, whose authority principal is the
+ * Org and whose aggregate id is the Opening number as decimal text.
+ */
+model HubWithdrawPayload {
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  application_number: Vetchium.Orgs.Applications.ApplicationNumber;
+  applicant_did: Vetchium.Hub.HubUserDID;
+}
+
+/** The stored `200` result of `hub-withdraw`. */
+model HubWithdrawResult {
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  application_number: Vetchium.Orgs.Applications.ApplicationNumber;
+}
+
+/**
+ * The deterministic rejections of `hub-withdraw`: an application that is
+ * unknown or not the applicant's, one in a state the applicant may not
+ * withdraw from, and an applicant the sending tenant does not home.
+ */
+alias HubWithdrawRejections =
+  | Vetchium.Problem.HubApplicationNotFoundErrorResponse
+  | Vetchium.Problem.HubApplicationStateConflictErrorResponse
+  | Vetchium.Problem.FederationInitiatorMismatchErrorResponse;
+
+/**
+ * The payload of the `hub-application-changed` event the Org's tenant
+ * enqueues on every change of an application, for the applicant Hub user's
+ * home tenant to project. Its aggregate type is `org_application`, its
+ * aggregate id `<org did>:<opening number>:<application number>`, and its
+ * version the application's version. It carries no stage name, routing,
+ * result, feedback, or Org user data.
+ */
+model HubApplicationChangedPayload {
+  org_did: Vetchium.Orgs.OrgDID;
+  org_domain: Vetchium.Orgs.OrgDomain;
+  org_display_name: Vetchium.DisplayName;
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  opening_title: string;
+  application_number: Vetchium.Orgs.Applications.ApplicationNumber;
+  status: Vetchium.Hub.Applications.ApplicationStatus;
+  pending_actions: Vetchium.Hub.Applications.PendingActionKind[];
+  applied_at: utcDateTime;
+  last_activity_at: utcDateTime;
+}

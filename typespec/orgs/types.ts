@@ -16,6 +16,13 @@ export function isFrontendLocale(value: unknown): value is FrontendLocale {
 export type OrgDID = string;
 export type OrgDomain = string;
 
+const orgDIDPattern =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+
+export function isOrgDID(value: OrgDID): boolean {
+  return orgDIDPattern.test(value);
+}
+
 export function normalizeOrgDomain(value: OrgDomain): OrgDomain {
   return normalizeProfessionalDomain(value);
 }

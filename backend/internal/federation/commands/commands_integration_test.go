@@ -21,6 +21,8 @@ import (
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	federationspec "github.com/vetchium/src/typespec/federation"
 	"github.com/vetchium/src/typespec/problem"
+	federationproblem "github.com/vetchium/src/typespec/problem/federation"
+	coordinatorproblem "github.com/vetchium/src/typespec/problem/global-coordinator"
 
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
@@ -141,6 +143,39 @@ func renameHandler(calls *atomic.Int32) Handler {
 	}
 }
 
+// authorityInitiator makes the renamed Hub user the command's initiator.
+func authorityInitiator(command Command) (Principal, bool) {
+	return command.Authority, true
+}
+
+// fixedDirectory homes every principal at home, or answers notFound or err.
+type fixedDirectory struct {
+	home     directoryspec.TenantID
+	notFound bool
+	err      error
+	calls    *atomic.Int32
+}
+
+func (d fixedDirectory) ResolvePrincipal(
+	_ context.Context, request directoryspec.ResolvePrincipalRequest,
+) (directoryspec.ResolvePrincipalResponse, *problem.Details, error) {
+	if d.calls != nil {
+		d.calls.Add(1)
+	}
+	if d.err != nil {
+		return directoryspec.ResolvePrincipalResponse{}, nil, d.err
+	}
+	if d.notFound {
+		details := coordinatorproblem.DirectoryEntryNotFoundError
+		return directoryspec.ResolvePrincipalResponse{}, &details, nil
+	}
+	return directoryspec.ResolvePrincipalResponse{
+		PrincipalType: request.PrincipalType,
+		PrincipalDID:  request.PrincipalDID,
+		HomeTenantID:  d.home, RoutingVersion: 1,
+	}, nil, nil
+}
+
 type fixedLocator bool
 
 func (l fixedLocator) IsLocal(
@@ -243,7 +278,7 @@ func TestLocalCommandExecutesInProcessAndReplays(t *testing.T) {
 	principal := seedHubUser(t, owner)
 	var calls atomic.Int32
 	registry := NewRegistry()
-	registry.Register(testKind, renameHandler(&calls))
+	registry.Register(testKind, renameHandler(&calls), authorityInitiator)
 	relay := &scriptedRelay{}
 	sender := newTestSender(app, NewExecutor(ExecutorConfig{
 		Pool: app, TenantID: "sgp", Registry: registry,
@@ -304,9 +339,10 @@ func TestExecutorReplaysRejectsConflictsAndRollsBackRejections(t *testing.T) {
 	principal := seedHubUser(t, owner)
 	var calls atomic.Int32
 	registry := NewRegistry()
-	registry.Register(testKind, renameHandler(&calls))
+	registry.Register(testKind, renameHandler(&calls), authorityInitiator)
 	executor := NewExecutor(ExecutorConfig{
 		Pool: app, TenantID: "usa1", Registry: registry,
+		Directory: fixedDirectory{home: "sgp"},
 	})
 	ctx := context.Background()
 	commandID, _ := dbvalue.NewUUID()
@@ -379,7 +415,7 @@ func TestRemoteCommandOutcomesAndRecovery(t *testing.T) {
 	principal := seedHubUser(t, owner)
 	registry := NewRegistry()
 	var calls atomic.Int32
-	registry.Register(testKind, renameHandler(&calls))
+	registry.Register(testKind, renameHandler(&calls), authorityInitiator)
 	executor := NewExecutor(ExecutorConfig{
 		Pool: app, TenantID: "sgp", Registry: registry,
 		Locator: fixedLocator(false),
@@ -615,4 +651,120 @@ func TestRemoteCommandOutcomesAndRecovery(t *testing.T) {
 			t.Fatal("operation not failed")
 		}
 	})
+}
+
+// A command runs only for an initiator the sending tenant homes: the
+// directory decides for another tenant, this tenant's database for itself.
+// Every refusal is stored, so a replay returns it without asking again.
+func TestExecutorRefusesInitiatorsNotHomedAtTheSource(t *testing.T) {
+	owner, app := integrationPools(t)
+	principal := seedHubUser(t, owner)
+	var calls atomic.Int32
+	stranger, err := dbvalue.NewUUIDv7(time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	registry := NewRegistry()
+	registry.Register(testKind, renameHandler(&calls), authorityInitiator)
+	registry.Register("test-rename-for-stranger", renameHandler(&calls),
+		func(Command) (Principal, bool) {
+			return Principal{Type: directoryspec.PrincipalHubUser, DID: stranger}, true
+		})
+	registry.Register("test-rename-without-initiator", renameHandler(&calls),
+		func(Command) (Principal, bool) { return Principal{}, false })
+	ctx := context.Background()
+	command := func(kind federationspec.CommandKind, source string) Command {
+		commandID, _ := dbvalue.NewUUID()
+		return Command{
+			CommandID: commandID, CorrelationID: commandID,
+			SourceTenantID: source, Kind: kind, Authority: principal,
+			AggregateID: dbvalue.FormatUUID(principal.DID),
+			Payload:     json.RawMessage(`{"display_name":"Refused"}`),
+		}
+	}
+	expectMismatch := func(t *testing.T, executor *Executor, sent Command) {
+		t.Helper()
+		response, err := executor.Execute(ctx, sent)
+		if err != nil || response.Status != 403 {
+			t.Fatalf("response = %+v (%s), err = %v", response, response.Body, err)
+		}
+		var details problem.Details
+		if err := json.Unmarshal(response.Body, &details); err != nil ||
+			details.Type != federationproblem.InitiatorMismatchError.Type {
+			t.Fatalf("body = %s", response.Body)
+		}
+		if count := countRows(t, owner, `SELECT count(*)
+            FROM vetchium.federation_command_ledger
+            WHERE command_id = $1 AND response_status = 403`,
+			sent.CommandID); count != 1 {
+			t.Fatalf("stored refusals = %d", count)
+		}
+	}
+
+	t.Run("directory homes the initiator elsewhere", func(t *testing.T) {
+		var lookups atomic.Int32
+		executor := NewExecutor(ExecutorConfig{
+			Pool: app, TenantID: "usa1", Registry: registry,
+			Directory: fixedDirectory{home: "deu", calls: &lookups},
+		})
+		sent := command(testKind, "sgp")
+		expectMismatch(t, executor, sent)
+		replayed, err := executor.Execute(ctx, sent)
+		if err != nil || replayed.Status != 403 {
+			t.Fatalf("replay = %+v, err = %v", replayed, err)
+		}
+		if lookups.Load() != 2 {
+			t.Fatalf("directory lookups = %d", lookups.Load())
+		}
+	})
+	t.Run("directory does not know the initiator", func(t *testing.T) {
+		executor := NewExecutor(ExecutorConfig{
+			Pool: app, TenantID: "usa1", Registry: registry,
+			Directory: fixedDirectory{notFound: true},
+		})
+		expectMismatch(t, executor, command(testKind, "sgp"))
+	})
+	t.Run("an unreachable directory stores nothing", func(t *testing.T) {
+		executor := NewExecutor(ExecutorConfig{
+			Pool: app, TenantID: "usa1", Registry: registry,
+			Directory: fixedDirectory{err: errors.New("directory down")},
+		})
+		sent := command(testKind, "sgp")
+		if _, err := executor.Execute(ctx, sent); err == nil {
+			t.Fatal("expected an error")
+		}
+		withoutDirectory := NewExecutor(ExecutorConfig{
+			Pool: app, TenantID: "usa1", Registry: registry,
+		})
+		if _, err := withoutDirectory.Execute(ctx, sent); err == nil {
+			t.Fatal("expected an error without a directory")
+		}
+		if count := countRows(t, owner, `SELECT count(*)
+            FROM vetchium.federation_command_ledger WHERE command_id = $1`,
+			sent.CommandID); count != 0 {
+			t.Fatalf("ledger rows = %d", count)
+		}
+	})
+	t.Run("a local initiator must be in this tenant", func(t *testing.T) {
+		executor := NewExecutor(ExecutorConfig{
+			Pool: app, TenantID: "sgp", Registry: registry,
+		})
+		expectMismatch(t, executor, command("test-rename-for-stranger", "sgp"))
+	})
+	t.Run("a command naming no initiator is invalid", func(t *testing.T) {
+		executor := NewExecutor(ExecutorConfig{
+			Pool: app, TenantID: "sgp", Registry: registry,
+		})
+		response, err := executor.Execute(ctx,
+			command("test-rename-without-initiator", "sgp"))
+		if err != nil || response.Status != 400 {
+			t.Fatalf("response = %+v (%s), err = %v", response, response.Body, err)
+		}
+	})
+	if calls.Load() != 0 {
+		t.Fatalf("handler ran %d times for refused commands", calls.Load())
+	}
+	if name := displayName(t, owner, principal); name != "Before" {
+		t.Fatalf("display name = %q", name)
+	}
 }

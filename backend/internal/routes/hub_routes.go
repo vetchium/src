@@ -3,6 +3,7 @@ package routes
 import (
 	"net/http"
 
+	hubapplications "backend/handlers/hub/applications"
 	hubauth "backend/handlers/hub/auth"
 	hubopenings "backend/handlers/hub/openings"
 	huboperations "backend/handlers/hub/operations"
@@ -139,6 +140,14 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(hubprofile.AliasState(s)))
 	mux.Handle("POST /api/hub/profile/alias/set",
 		hubAuth(hubprofile.SetAlias(s)))
+	mux.Handle("POST /api/hub/apply-to-opening",
+		hubAuth(hubapplications.Apply(s)))
+	mux.Handle("POST /api/hub/withdraw-application",
+		hubAuth(hubapplications.Withdraw(s)))
+	mux.Handle("POST /api/hub/list-my-applications",
+		hubAuth(hubapplications.List(s)))
+	mux.Handle("POST /api/hub/get-my-application",
+		hubAuth(hubapplications.Get(s)))
 	mux.Handle("POST /api/hub/operations/status",
 		hubAuth(huboperations.Status(s)))
 }

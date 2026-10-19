@@ -112,6 +112,11 @@ Application states:
   value.
 - **HP-STA-006** Hiring more applicants than `positions` is allowed; the
   portal warns.
+- **HP-STA-007** The applicant withdraws through the `hub-withdraw` command
+  (`backend/internal/hubwithdraw`), authority the Org, aggregate id the
+  Opening number; it finds only the applicant's own application
+  (`hub-application-not-found`) and refuses any other state with
+  `hub-application-state-conflict`.
 
 ## Pipelines
 
@@ -212,6 +217,12 @@ below.
 - **HP-HUB-004** Detail names a provider performing a step for the Org
   ([`marketplace.md`](marketplace.md) MKT-WRK-005).
 - **HP-HUB-005** Ship every string in every `hub-ui` locale.
+- **HP-HUB-006** The projection event is `hub-application-changed`
+  (`typespec/federation/hiring`), aggregate `org_application`
+  `<org did>:<opening number>:<application number>`, versioned by the
+  application's `version`. `backend/internal/hubapplications` derives the Hub
+  status and enqueues the event in every transaction that changes an
+  application.
 
 ## Orgs Candidacies pages
 
@@ -252,6 +263,7 @@ below.
 | `hub-application-exists` | 409 | the applicant already applied to the Opening |
 | `hub-opening-not-accepting` | 409 | the Opening is not `published` |
 | `hub-application-not-found` | 404 | unknown application, or not the caller's |
+| `hub-application-state-conflict` | 409 | the application's state does not allow the applicant's action |
 
 ## Tests and fixtures
 
