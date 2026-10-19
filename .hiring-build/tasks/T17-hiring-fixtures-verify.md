@@ -30,3 +30,4 @@ portals.
 
 - From T09: fixtures need offered applications with real PDF letters (and one accepted, one declined, one expired offer).
 - From T09: run `make clean` before `make test-environment`; dev SeaweedFS secrets predate the `org-offer-letters` bucket. Production S3 identity configs must be regenerated for the new bucket (note it in `deploy/README.md` if not already there).
+- From T11: seed an assessment stage with a result and a background-check stage with consent requests in each state (requested, given with results, declined).

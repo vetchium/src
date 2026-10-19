@@ -46,3 +46,5 @@ them.
 - From T10: retention deletes interviews, interviewers, and feedback with their application explicitly (do not rely on the cascade alone).
 - From T10: interview scheduled, changed, or cancelled emails to the Hub user, driven by the projection event.
 - From T10: the Hub list projection derives "upcoming"/"unanswered" interview pending actions only when an event is written (HP-HUB-007); add a time-based refresh so a passed, unanswered interview leaves the list's pending actions.
+- From T11: retention deletes `org_application_assessments`, `org_background_checks`, and `org_background_check_results` (notes, links) with the application; history and audit stay free of their content.
+- From T11: consent requested emails to the Hub user (no check details beyond what the Hub detail shows).

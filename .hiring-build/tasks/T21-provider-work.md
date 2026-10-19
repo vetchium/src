@@ -42,3 +42,7 @@ answering.
 ## Acceptance
 
 Providers do routed work and see nothing beyond it.
+
+## Carried over
+
+- From T11: provider performers need a performer column on `org_background_checks` and provider `WorkPerformer` values; the Hub consent detail must then name the provider. Store and expose the consent disclosure copied at routing (MKT-DAT-009).
