@@ -108,10 +108,10 @@ type Outgoing struct {
 	Payload any
 }
 
-// Enqueue inserts the event into the outbox in tx, the transaction that
-// commits the change it reports and that change's audit event. Delivery
-// starts once tx commits.
-func Enqueue(ctx context.Context, tx pgx.Tx, event Outgoing) (pgtype.UUID, error) {
+// Enqueue inserts the event into the outbox through q, which must run in the
+// transaction that commits the change it reports and that change's audit
+// event. Delivery starts once that transaction commits.
+func Enqueue(ctx context.Context, q sqlc.Querier, event Outgoing) (pgtype.UUID, error) {
 	if !federationspec.IsEventKind(event.Kind) || !event.Destination.valid() ||
 		!federationspec.IsAggregateType(event.AggregateType) ||
 		!federationspec.IsAggregateID(event.AggregateID) ||
@@ -129,7 +129,7 @@ func Enqueue(ctx context.Context, tx pgx.Tx, event Outgoing) (pgtype.UUID, error
 	if err != nil {
 		return pgtype.UUID{}, err
 	}
-	if err := sqlc.New(tx).CreateFederationOutboxEvent(ctx,
+	if err := q.CreateFederationOutboxEvent(ctx,
 		sqlc.CreateFederationOutboxEventParams{
 			EventID: eventID, Kind: string(event.Kind),
 			DestinationPrincipalType: string(event.Destination.Type),

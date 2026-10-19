@@ -107,7 +107,7 @@ function seedApplication(
       INSERT INTO vetchium.org_applications (
         org_application_id, org_opening_id, application_number,
         org_applicant_id, application_state, snapshot, cover_note,
-        current_stage_id
+        current_stage_id, joined_on, joined_recorded_at
       )
       SELECT gen_random_uuid(), o.org_opening_id, o.next_application_number,
         applicant.org_applicant_id, ${sqlLiteral(state)},
@@ -118,7 +118,10 @@ function seedApplication(
           'websites', '[]'::jsonb, 'work_experiences', '[]'::jsonb,
           'certifications', '[]'::jsonb, 'language_abilities', '[]'::jsonb,
           'educational_qualifications', '[]'::jsonb),
-        ${note}, ${stage}::uuid
+        ${note}, ${stage}::uuid,
+        CASE WHEN ${sqlLiteral(state)} = 'joined'
+          THEN current_date - 1 END,
+        CASE WHEN ${sqlLiteral(state)} = 'joined' THEN now() END
       FROM o, applicant
       RETURNING org_application_id, application_number
     ), counter AS (

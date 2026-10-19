@@ -32,6 +32,11 @@ type StageStatus string
 type ApplicationHistoryAction string
 type ApplicationActorKind string
 
+// CalendarDate is a `YYYY-MM-DD` date with no time or zone.
+type CalendarDate string
+
+const calendarDateLayout = "2006-01-02"
+
 const (
 	Submitted      ApplicationState = "submitted"
 	InPipeline     ApplicationState = "in_pipeline"
@@ -67,6 +72,11 @@ const (
 	DidNotJoinAction     ApplicationHistoryAction = "did_not_join"
 	NotProgressingAction ApplicationHistoryAction = "not_progressing"
 	WithdrawnAction      ApplicationHistoryAction = "withdrawn"
+
+	StageCompletedAction     ApplicationHistoryAction = "stage_completed"
+	SeparatedAction          ApplicationHistoryAction = "separated"
+	JoinedCorrectedAction    ApplicationHistoryAction = "joined_corrected"
+	SeparatedCorrectedAction ApplicationHistoryAction = "separated_corrected"
 )
 
 const (
@@ -113,6 +123,25 @@ func IsCandidacy(state ApplicationState) bool {
 	}
 }
 
+// ParseCalendarDate reads a canonical `YYYY-MM-DD` date as midnight UTC.
+func ParseCalendarDate(value CalendarDate) (time.Time, bool) {
+	parsed, err := time.Parse(calendarDateLayout, string(value))
+	if err != nil || parsed.Format(calendarDateLayout) != string(value) {
+		return time.Time{}, false
+	}
+	return parsed, true
+}
+
+func IsCalendarDate(value CalendarDate) bool {
+	_, ok := ParseCalendarDate(value)
+	return ok
+}
+
+// FormatCalendarDate renders the UTC calendar date of instant.
+func FormatCalendarDate(instant time.Time) CalendarDate {
+	return CalendarDate(instant.UTC().Format(calendarDateLayout))
+}
+
 func IsApplicationNumber(value ApplicationNumber) bool { return value >= 1 }
 
 func IsApplicationCoverNote(value ApplicationCoverNote) bool {
@@ -156,17 +185,24 @@ type ApplicationDetail struct {
 	CoverNote         *ApplicationCoverNote     `json:"cover_note,omitempty"`
 	CurrentStage      *hiring.PipelineStage     `json:"current_stage,omitempty"`
 	StageRecords      []ApplicationStageRecord  `json:"stage_records"`
+	JoinedOn          *CalendarDate             `json:"joined_on,omitempty"`
+	SeparatedOn       *CalendarDate             `json:"separated_on,omitempty"`
+	Positions         int32                     `json:"positions"`
+	JoinedCount       int32                     `json:"joined_count"`
 	SubmittedAt       time.Time                 `json:"submitted_at"`
 	UpdatedAt         time.Time                 `json:"updated_at"`
 }
 
 type ApplicationHistoryEntry struct {
-	Action     ApplicationHistoryAction `json:"action"`
-	Actor      ApplicationActorKind     `json:"actor"`
-	ActorEmail *common.EmailAddress     `json:"actor_email,omitempty"`
-	State      ApplicationState         `json:"state"`
-	Version    ApplicationVersion       `json:"version"`
-	CreatedAt  time.Time                `json:"created_at"`
+	Action      ApplicationHistoryAction `json:"action"`
+	Actor       ApplicationActorKind     `json:"actor"`
+	ActorEmail  *common.EmailAddress     `json:"actor_email,omitempty"`
+	State       ApplicationState         `json:"state"`
+	Version     ApplicationVersion       `json:"version"`
+	Stage       *hiring.PipelineStage    `json:"stage,omitempty"`
+	JoinedOn    *CalendarDate            `json:"joined_on,omitempty"`
+	SeparatedOn *CalendarDate            `json:"separated_on,omitempty"`
+	CreatedAt   time.Time                `json:"created_at"`
 }
 
 type ApplicationStateCount struct {
@@ -321,6 +357,99 @@ func validateNumbers(
 	}
 	if !IsApplicationNumber(application) {
 		fields = append(fields, "application_number")
+	}
+	return fields
+}
+
+// ApplicationReference names an application at the version the caller read.
+type ApplicationReference struct {
+	OpeningNumber     openings.OpeningNumber `json:"opening_number"`
+	ApplicationNumber ApplicationNumber      `json:"application_number"`
+	Version           ApplicationVersion     `json:"version"`
+}
+
+func (r ApplicationReference) validate() []string {
+	fields := validateNumbers(r.OpeningNumber, r.ApplicationNumber)
+	if r.Version < 1 {
+		fields = append(fields, "version")
+	}
+	return fields
+}
+
+// ApplicationActionRequest names no input beyond the application: complete
+// the current review stage, mark not progressing, or record did not join.
+type ApplicationActionRequest struct {
+	OpeningNumber     openings.OpeningNumber `json:"opening_number"`
+	ApplicationNumber ApplicationNumber      `json:"application_number"`
+	Version           ApplicationVersion     `json:"version"`
+}
+
+func (r *ApplicationActionRequest) Normalize() {}
+
+func (r ApplicationActionRequest) Validate() []string {
+	return ApplicationReference(r).validate()
+}
+
+// ApplicationStageRequest shortlists to, or moves forward to, a stage.
+type ApplicationStageRequest struct {
+	OpeningNumber     openings.OpeningNumber `json:"opening_number"`
+	ApplicationNumber ApplicationNumber      `json:"application_number"`
+	Version           ApplicationVersion     `json:"version"`
+	StageID           hiring.PipelineStageID `json:"stage_id"`
+}
+
+func (r *ApplicationStageRequest) Normalize() {}
+
+func (r ApplicationStageRequest) Validate() []string {
+	fields := ApplicationReference{
+		OpeningNumber: r.OpeningNumber, ApplicationNumber: r.ApplicationNumber,
+		Version: r.Version,
+	}.validate()
+	if !hiring.IsPipelineStageID(r.StageID) {
+		fields = append(fields, "stage_id")
+	}
+	return fields
+}
+
+// ApplicationJoinedOnRequest records or corrects the joining date. The date
+// rules that need the application (the offer, the clock) are the API's.
+type ApplicationJoinedOnRequest struct {
+	OpeningNumber     openings.OpeningNumber `json:"opening_number"`
+	ApplicationNumber ApplicationNumber      `json:"application_number"`
+	Version           ApplicationVersion     `json:"version"`
+	JoinedOn          CalendarDate           `json:"joined_on"`
+}
+
+func (r *ApplicationJoinedOnRequest) Normalize() {}
+
+func (r ApplicationJoinedOnRequest) Validate() []string {
+	fields := ApplicationReference{
+		OpeningNumber: r.OpeningNumber, ApplicationNumber: r.ApplicationNumber,
+		Version: r.Version,
+	}.validate()
+	if !IsCalendarDate(r.JoinedOn) {
+		fields = append(fields, "joined_on")
+	}
+	return fields
+}
+
+// ApplicationSeparatedOnRequest records or corrects the separation date.
+type ApplicationSeparatedOnRequest struct {
+	OpeningNumber     openings.OpeningNumber `json:"opening_number"`
+	ApplicationNumber ApplicationNumber      `json:"application_number"`
+	Version           ApplicationVersion     `json:"version"`
+	SeparatedOn       CalendarDate           `json:"separated_on"`
+}
+
+func (r *ApplicationSeparatedOnRequest) Normalize() {}
+
+func (r ApplicationSeparatedOnRequest) Validate() []string {
+	fields := ApplicationReference{
+		OpeningNumber: r.OpeningNumber, ApplicationNumber: r.ApplicationNumber,
+		Version: r.Version,
+	}.validate()
+	if !IsCalendarDate(r.SeparatedOn) {
+		fields = append(fields, "separated_on")
 	}
 	return fields
 }

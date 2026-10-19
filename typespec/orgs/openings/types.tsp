@@ -69,6 +69,9 @@ model PendingOpeningRequest {
   requested_by_email: Vetchium.EmailAddress;
   requested_at: utcDateTime;
   note?: string;
+
+  /** A `close` request only: applying it marks every open application. */
+  mark_applications_not_progressing?: boolean;
 }
 
 model OrgOpening {

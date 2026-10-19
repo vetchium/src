@@ -116,6 +116,16 @@ LIMIT sqlc.arg(page_limit);
 SELECT a.application_number, a.application_state, a.version, a.snapshot,
     a.cover_note, stage.org_opening_stage_id AS stage_id,
     stage.name AS stage_name, stage.stage_kind, a.created_at, a.updated_at,
+    a.joined_on, a.separated_on,
+    COALESCE((
+        SELECT c.positions FROM vetchium.org_opening_contents AS c
+        WHERE c.org_opening_id = o.org_opening_id AND c.slot = 'live'
+    ), 0)::integer AS positions,
+    (
+        SELECT count(*) FROM vetchium.org_applications AS j
+        WHERE j.org_opening_id = o.org_opening_id
+          AND j.application_state = 'joined'
+    )::integer AS joined_count,
     COALESCE((
         SELECT jsonb_agg(jsonb_build_object(
             'stage', jsonb_build_object('id', s.org_opening_stage_id,
@@ -175,7 +185,9 @@ WHERE o.org_did = sqlc.arg(org_did)
 -- name: ListOrgApplicationHistory :many
 SELECT h.org_application_history_id, h.action, h.actor_kind,
     actor.email_address AS actor_email, h.application_state,
-    h.application_version, h.created_at
+    h.application_version, h.created_at, h.joined_on, h.separated_on,
+    hs.org_opening_stage_id AS stage_id, hs.name AS stage_name,
+    hs.stage_kind
 FROM vetchium.org_openings AS o
 JOIN vetchium.org_applications AS a ON a.org_opening_id = o.org_opening_id
 LEFT JOIN vetchium.org_application_history AS h
@@ -186,6 +198,8 @@ LEFT JOIN vetchium.org_application_history AS h
              sqlc.narg(after_history_id)::uuid))
 LEFT JOIN vetchium.org_users AS actor
     ON actor.org_user_id = h.actor_org_user_id
+LEFT JOIN vetchium.org_opening_stages AS hs
+    ON hs.org_opening_stage_id = h.org_opening_stage_id
 WHERE o.org_did = sqlc.arg(org_did)
   AND o.opening_number = sqlc.arg(opening_number)::integer
   AND a.application_number = sqlc.arg(application_number)::integer
@@ -193,9 +207,9 @@ WHERE o.org_did = sqlc.arg(org_did)
 ORDER BY h.created_at DESC NULLS LAST, h.org_application_history_id DESC NULLS LAST
 LIMIT sqlc.arg(page_limit);
 
--- What the applicant's home tenant projects for an application
--- (HP-GEN-004), read in the transaction that changed it.
--- name: GetHubApplicationChange :one
+-- What the applicant's home tenant projects for each application
+-- (HP-GEN-004), read in the transaction that changed them.
+-- name: GetHubApplicationChanges :many
 SELECT applicant.hub_user_did, o.org_did, d.domain::text AS org_domain,
     org.display_name AS org_display_name, o.opening_number,
     COALESCE(c.title, '')::text AS opening_title, a.application_number,
@@ -211,7 +225,8 @@ JOIN vetchium.org_opening_contents AS c
     ON c.org_opening_id = o.org_opening_id AND c.slot = 'live'
 LEFT JOIN vetchium.org_opening_stages AS stage
     ON stage.org_opening_stage_id = a.current_stage_id
-WHERE a.org_application_id = sqlc.arg(application_id);
+WHERE a.org_application_id = ANY(sqlc.arg(application_ids)::uuid[])
+ORDER BY a.application_number;
 
 -- Taken first by hub-withdraw, so the state decision and the update below
 -- see the same row. Only the applicant's own application matches.

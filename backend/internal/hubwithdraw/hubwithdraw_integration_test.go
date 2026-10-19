@@ -169,10 +169,13 @@ func (f *fixture) seed(
         )
         INSERT INTO vetchium.org_applications (org_application_id,
             org_opening_id, application_number, org_applicant_id,
-            application_state, snapshot, current_stage_id)
+            application_state, snapshot, current_stage_id, joined_on,
+            joined_recorded_at)
         SELECT gen_random_uuid(), $3, $4, org_applicant_id,
             $5::vetchium.org_application_state,
-            '{"display_name":"Ada Lovelace"}'::jsonb, $6
+            '{"display_name":"Ada Lovelace"}'::jsonb, $6,
+            CASE WHEN $5 = 'joined' THEN current_date END,
+            CASE WHEN $5 = 'joined' THEN now() END
         FROM applicant`,
 		f.orgDID, applicant, f.openingID, number, state, stage); err != nil {
 		t.Fatal(err)

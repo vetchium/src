@@ -93,40 +93,55 @@ func AggregateID(
 // home tenant. Call it in every transaction that changes an application,
 // after the change, beside that change's audit event.
 func EnqueueChange(
-	ctx context.Context, tx pgx.Tx, applicationID pgtype.UUID,
+	ctx context.Context, q sqlc.Querier, applicationID pgtype.UUID,
 ) error {
-	row, err := sqlc.New(tx).GetHubApplicationChange(ctx, applicationID)
+	return EnqueueChanges(ctx, q, []pgtype.UUID{applicationID})
+}
+
+// EnqueueChanges is EnqueueChange for several applications, read together.
+func EnqueueChanges(
+	ctx context.Context, q sqlc.Querier, applicationIDs []pgtype.UUID,
+) error {
+	rows, err := q.GetHubApplicationChanges(ctx, applicationIDs)
 	if err != nil {
-		return fmt.Errorf("read application change: %w", err)
+		return fmt.Errorf("read application changes: %w", err)
 	}
-	status, err := Status(row.ApplicationState, row.StageKind)
-	if err != nil {
-		return err
+	if len(rows) != len(applicationIDs) {
+		return fmt.Errorf("read %d of %d changed applications",
+			len(rows), len(applicationIDs))
 	}
-	_, err = events.Enqueue(ctx, tx, events.Outgoing{
-		Kind: federationspec.HubApplicationChangedKind,
-		Destination: events.Principal{
-			Type: directoryspec.PrincipalHubUser, DID: row.HubUserDid,
-		},
-		AggregateType: federationspec.OrgApplicationAggregate,
-		AggregateID: AggregateID(
-			row.OrgDid, row.OpeningNumber, row.ApplicationNumber,
-		),
-		AggregateVersion: int64(row.Version),
-		Payload: federationspec.HubApplicationChangedPayload{
-			OrgDID:            orgs.OrgDID(dbvalue.FormatUUID(row.OrgDid)),
-			OrgDomain:         orgs.OrgDomain(row.OrgDomain),
-			OrgDisplayName:    common.DisplayName(row.OrgDisplayName),
-			OpeningNumber:     openings.OpeningNumber(row.OpeningNumber),
-			OpeningTitle:      row.OpeningTitle,
-			ApplicationNumber: orgapplications.ApplicationNumber(row.ApplicationNumber),
-			Status:            status,
-			PendingActions:    []hubspec.PendingActionKind{},
-			AppliedAt:         row.CreatedAt.Time.UTC(),
-			LastActivityAt:    row.UpdatedAt.Time.UTC(),
-		},
-	})
-	return err
+	for _, row := range rows {
+		status, err := Status(row.ApplicationState, row.StageKind)
+		if err != nil {
+			return err
+		}
+		if _, err := events.Enqueue(ctx, q, events.Outgoing{
+			Kind: federationspec.HubApplicationChangedKind,
+			Destination: events.Principal{
+				Type: directoryspec.PrincipalHubUser, DID: row.HubUserDid,
+			},
+			AggregateType: federationspec.OrgApplicationAggregate,
+			AggregateID: AggregateID(
+				row.OrgDid, row.OpeningNumber, row.ApplicationNumber,
+			),
+			AggregateVersion: int64(row.Version),
+			Payload: federationspec.HubApplicationChangedPayload{
+				OrgDID:            orgs.OrgDID(dbvalue.FormatUUID(row.OrgDid)),
+				OrgDomain:         orgs.OrgDomain(row.OrgDomain),
+				OrgDisplayName:    common.DisplayName(row.OrgDisplayName),
+				OpeningNumber:     openings.OpeningNumber(row.OpeningNumber),
+				OpeningTitle:      row.OpeningTitle,
+				ApplicationNumber: orgapplications.ApplicationNumber(row.ApplicationNumber),
+				Status:            status,
+				PendingActions:    []hubspec.PendingActionKind{},
+				AppliedAt:         row.CreatedAt.Time.UTC(),
+				LastActivityAt:    row.UpdatedAt.Time.UTC(),
+			},
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ReadForApplicant reads one application live at the Org's tenant, only if

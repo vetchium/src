@@ -16,6 +16,10 @@ import type {
   SetAISettingsRequest,
 } from "typespec/orgs/ai/ai";
 import type {
+  ApplicationActionRequest,
+  ApplicationJoinedOnRequest,
+  ApplicationSeparatedOnRequest,
+  ApplicationStageRequest,
   GetApplicationCountsRequest,
   GetApplicationRequest,
   ListApplicationHistoryRequest,
@@ -269,6 +273,105 @@ export class OrgsAPI {
     request: ListApplicationHistoryRequest,
   ): Promise<APIResponse> {
     return this.post("/list-application-history", request, { token });
+  }
+
+  shortlistApplication(
+    token: string,
+    request: ApplicationStageRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/shortlist-application", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  moveApplicationStage(
+    token: string,
+    request: ApplicationStageRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/move-application-stage", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  completeApplicationStage(
+    token: string,
+    request: ApplicationActionRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/complete-application-stage", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  markApplicationNotProgressing(
+    token: string,
+    request: ApplicationActionRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/mark-application-not-progressing", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordApplicationJoined(
+    token: string,
+    request: ApplicationJoinedOnRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-application-joined", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordApplicationDidNotJoin(
+    token: string,
+    request: ApplicationActionRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-application-did-not-join", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordApplicationSeparated(
+    token: string,
+    request: ApplicationSeparatedOnRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-application-separated", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  correctApplicationJoinedOn(
+    token: string,
+    request: ApplicationJoinedOnRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/correct-application-joined-on", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  correctApplicationSeparatedOn(
+    token: string,
+    request: ApplicationSeparatedOnRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/correct-application-separated-on", request, {
+      token,
+      idempotencyKey,
+    });
   }
 
   discardOpening(

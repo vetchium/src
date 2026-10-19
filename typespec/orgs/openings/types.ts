@@ -70,6 +70,7 @@ export interface PendingOpeningRequest {
   requested_by_email: EmailAddress;
   requested_at: string;
   note?: string;
+  mark_applications_not_progressing?: boolean;
 }
 
 export interface OrgOpening {

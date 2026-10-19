@@ -347,6 +347,8 @@ type RequestOpeningChangeRequest struct {
 	Version       OpeningVersion     `json:"version"`
 	Kind          OpeningRequestKind `json:"kind"`
 	Note          *string            `json:"note,omitempty"`
+	// MarkApplicationsNotProgressing applies to a close request only.
+	MarkApplicationsNotProgressing *bool `json:"mark_applications_not_progressing,omitempty"`
 }
 
 func (r *RequestOpeningChangeRequest) Normalize() { r.Note = normalizeNotes(r.Note) }
@@ -357,6 +359,9 @@ func (r RequestOpeningChangeRequest) Validate() []string {
 	}
 	if !validNotes(r.Note) {
 		fields = append(fields, "note")
+	}
+	if r.MarkApplicationsNotProgressing != nil && r.Kind != CloseRequest {
+		fields = append(fields, "mark_applications_not_progressing")
 	}
 	return fields
 }

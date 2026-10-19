@@ -7,11 +7,16 @@ import {
   isApplicationCoverNote,
   isCandidacy,
   normalizeListApplicationsRequest,
+  validateApplicationActionRequest,
+  validateApplicationJoinedOnRequest,
+  validateApplicationSeparatedOnRequest,
+  validateApplicationStageRequest,
   validateGetApplicationCountsRequest,
   validateGetApplicationRequest,
   validateListApplicationHistoryRequest,
   validateListApplicationsRequest,
 } from "./applications/applications.ts";
+import { validateRequestOpeningChangeRequest } from "./openings/openings.ts";
 
 const stage = "01900000-0000-7000-8000-000000000000";
 
@@ -119,4 +124,59 @@ test("application numbers and the cover note are bounded", () => {
   assert.equal(isApplicationCoverNote("é".repeat(5000)), true);
   assert.equal(isApplicationCoverNote("é".repeat(5001)), false);
   assert.equal(isApplicationCoverNote(""), false);
+});
+
+test("write requests validate numbers, version, stage, and dates", () => {
+  const base = { opening_number: 1, application_number: 2, version: 3 };
+  assert.deepEqual(validateApplicationActionRequest(base), []);
+  assert.deepEqual(
+    validateApplicationActionRequest({
+      opening_number: 0,
+      application_number: 0,
+      version: 0,
+    }),
+    ["opening_number", "application_number", "version"],
+  );
+  assert.deepEqual(
+    validateApplicationStageRequest({ ...base, stage_id: stage }),
+    [],
+  );
+  assert.deepEqual(
+    validateApplicationStageRequest({ ...base, stage_id: "x" }),
+    ["stage_id"],
+  );
+  assert.deepEqual(
+    validateApplicationJoinedOnRequest({ ...base, joined_on: "2028-02-29" }),
+    [],
+  );
+  for (const bad of ["2026-02-30", "2026-2-1", "", "2026-02-28T00:00:00Z"]) {
+    assert.deepEqual(
+      validateApplicationJoinedOnRequest({ ...base, joined_on: bad }),
+      ["joined_on"],
+    );
+    assert.deepEqual(
+      validateApplicationSeparatedOnRequest({ ...base, separated_on: bad }),
+      ["separated_on"],
+    );
+  }
+});
+
+test("the bulk choice belongs to a close request", () => {
+  const request = { opening_number: 1, version: 1 };
+  assert.deepEqual(
+    validateRequestOpeningChangeRequest({
+      ...request,
+      kind: "close",
+      mark_applications_not_progressing: true,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateRequestOpeningChangeRequest({
+      ...request,
+      kind: "pause",
+      mark_applications_not_progressing: false,
+    }),
+    ["mark_applications_not_progressing"],
+  );
 });

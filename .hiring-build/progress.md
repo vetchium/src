@@ -1,6 +1,6 @@
 # Hiring and marketplace build progress
 
-current: T08
+current: T09
 phase: implement
 
 ## Tasks
@@ -12,7 +12,7 @@ T04 done Federation: Outbox delivery and inbox between tenants
 T05 done Hiring: Pipeline templates and Opening pipelines
 T06 done Hiring: Applications at the Org tenant and Orgs reads
 T07 done Hiring: Hub apply, withdraw, and the applications projection
-T08 todo Hiring: Shortlisting, stage moves, outcomes, and closing
+T08 done Hiring: Shortlisting, stage moves, outcomes, and closing
 T09 todo Hiring: Offers and offer letters
 T10 todo Hiring: Interviews and feedback
 T11 todo Hiring: Assessment and background-check results and consent

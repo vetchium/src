@@ -117,6 +117,27 @@ Application states:
   Opening number; it finds only the applicant's own application
   (`hub-application-not-found`) and refuses any other state with
   `hub-application-state-conflict`.
+- **HP-STA-008** The Org's writes are `shortlist-application`,
+  `move-application-stage`, `complete-application-stage` (a pending `review`
+  stage only), `mark-application-not-progressing`, `record-application-joined`,
+  `record-application-did-not-join`, `record-application-separated`,
+  `correct-application-joined-on`, and `correct-application-separated-on`.
+  `backend/handlers/orgs/applications/transitions.go` runs each: it locks the
+  application, answers `org-application-not-found` (unreadable),
+  `org-permission-required` (a reader who may not act: hiring-team members),
+  version conflict, state conflict, then `validation-failed` for a date or
+  stage rule, applies one guarded statement, and calls
+  `internal/orgs/applicationchanges.Record` for history, audit, and the Hub
+  projection event. Responses are `ApplicationDetail`, which carries
+  `positions` and `joined_count` for the over-hiring warning (HP-STA-006).
+  Acting is `vetchium.org_user_acts_on_applications`.
+- **HP-STA-009** Dates are UTC calendar dates; "today" is the UTC date.
+  `offer_extended_at` on the application bounds `joined_on`; the offer
+  extension must set it.
+- **HP-STA-010** Closing an Opening (`request-opening-change` kind `close`)
+  takes `mark_applications_not_progressing`, stored on the request and applied
+  by `applicationchanges.MarkClosedOpeningNotProgressing` in the transaction
+  that closes (self-approved or approved).
 
 ## Pipelines
 

@@ -89,7 +89,7 @@ func Handle(
 		return commands.Result{}, fmt.Errorf("incomplete application withdrawal")
 	}
 	if err := hubapplications.EnqueueChange(
-		ctx, tx, locked.OrgApplicationID,
+		ctx, q, locked.OrgApplicationID,
 	); err != nil {
 		return commands.Result{}, err
 	}

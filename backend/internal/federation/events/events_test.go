@@ -52,7 +52,7 @@ func TestEnqueueRejectsInvalidEventsBeforeWriting(t *testing.T) {
 		event := valid
 		change(&event)
 		// A nil transaction proves nothing was written.
-		if _, err := Enqueue(context.Background(), pgx.Tx(nil), event); err == nil {
+		if _, err := Enqueue(context.Background(), nil, event); err == nil {
 			t.Errorf("%s: invalid event enqueued", name)
 		}
 	}

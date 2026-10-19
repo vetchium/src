@@ -133,6 +133,12 @@ model RequestOpeningChangeRequest {
   @minLength(1)
   @maxLength(2000)
   note?: string;
+
+  /**
+   * `close` only: when the close applies, in the same transaction, mark every
+   * non-terminal application `not_progressing`. Defaults to false.
+   */
+  mark_applications_not_progressing?: boolean;
 }
 
 model DecideOpeningRequestRequest {

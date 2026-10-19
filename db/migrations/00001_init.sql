@@ -2106,6 +2106,12 @@ CREATE TABLE vetchium.org_opening_requests (
     decided_at timestamptz,
     decision_note text,
     self_approved boolean NOT NULL DEFAULT false,
+    -- A close request's choice to mark every non-terminal application
+    -- not_progressing when the close applies (HP-APP-005).
+    mark_applications_not_progressing boolean NOT NULL DEFAULT false,
+    CONSTRAINT org_opening_requests_close_check CHECK (
+        NOT mark_applications_not_progressing OR request_kind = 'close'
+    ),
     CONSTRAINT org_opening_requests_pending_check CHECK (
         (request_state = 'pending') = (decided_at IS NULL)
     ),
@@ -2217,7 +2223,8 @@ CREATE TYPE vetchium.org_application_stage_status AS ENUM (
 CREATE TYPE vetchium.org_application_history_action AS ENUM (
     'applied', 'shortlisted', 'stage_moved', 'offer_extended',
     'offer_withdrawn', 'offer_accepted', 'offer_declined', 'joined',
-    'did_not_join', 'not_progressing', 'withdrawn'
+    'did_not_join', 'not_progressing', 'withdrawn', 'stage_completed',
+    'separated', 'joined_corrected', 'separated_corrected'
 );
 CREATE TYPE vetchium.org_application_actor_kind AS ENUM (
     'applicant', 'org_user', 'system'
@@ -2254,6 +2261,15 @@ CREATE TABLE vetchium.org_applications (
     cover_note text,
     current_stage_id uuid REFERENCES vetchium.org_opening_stages
         (org_opening_stage_id) ON DELETE SET NULL,
+    -- When the offer that led to offer_accepted was extended; the offer
+    -- extension writes it, and joined_on may not precede it (HP-STA-005).
+    offer_extended_at timestamptz,
+    -- Facts the Org records. Each *_recorded_at is the first recording, which
+    -- opens the 90-day correction window; history keeps every value.
+    joined_on date,
+    joined_recorded_at timestamptz,
+    separated_on date,
+    separated_recorded_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT org_applications_number_key
@@ -2279,6 +2295,17 @@ CREATE TABLE vetchium.org_applications (
     ),
     CONSTRAINT org_applications_timestamps_check CHECK (
         updated_at >= created_at
+    ),
+    CONSTRAINT org_applications_joined_check CHECK (
+        (application_state = 'joined') = (joined_on IS NOT NULL)
+        AND (joined_on IS NULL) = (joined_recorded_at IS NULL)
+    ),
+    CONSTRAINT org_applications_separated_check CHECK (
+        (separated_on IS NULL) = (separated_recorded_at IS NULL)
+        AND (separated_on IS NULL OR (
+            joined_on IS NOT NULL AND separated_on > joined_on
+            AND separated_on <= joined_on + 365
+        ))
     )
 );
 CREATE INDEX org_applications_stage_idx
@@ -2311,6 +2338,12 @@ CREATE TABLE vetchium.org_application_history (
         ON DELETE SET NULL,
     application_state vetchium.org_application_state NOT NULL,
     application_version integer NOT NULL CHECK (application_version >= 1),
+    -- The stage a shortlist, move, or completion concerns, and the dates a
+    -- joining or separation entry records.
+    org_opening_stage_id uuid REFERENCES vetchium.org_opening_stages
+        (org_opening_stage_id) ON DELETE SET NULL,
+    joined_on date,
+    separated_on date,
     created_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT org_application_history_actor_check CHECK (
         actor_org_user_id IS NULL OR actor_kind = 'org_user'
@@ -2340,6 +2373,25 @@ AS $$
     ) OR EXISTS (
         SELECT 1 FROM vetchium.org_opening_team_members AS tm
         WHERE tm.org_opening_id = opening_id AND tm.org_user_id = user_id
+    )
+$$;
+
+-- Who may act on an Opening's applications: its hiring manager, its
+-- recruiter, or a holder of org:manage_candidacies. Hiring-team members only
+-- read (HP-AUTH-002). Acting implies reading.
+CREATE FUNCTION vetchium.org_user_acts_on_applications(
+    opening_id uuid, user_id uuid
+) RETURNS boolean
+LANGUAGE sql STABLE
+AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM vetchium.org_effective_permissions AS ep
+        WHERE ep.org_user_id = user_id
+          AND ep.permission = 'org:manage_candidacies'
+    ) OR EXISTS (
+        SELECT 1 FROM vetchium.org_openings AS o
+        WHERE o.org_opening_id = opening_id
+          AND (o.hiring_manager_id = user_id OR o.recruiter_id = user_id)
     )
 $$;
 
@@ -2628,6 +2680,7 @@ $$;
 
 -- +goose Down
 DROP TABLE IF EXISTS vetchium.hub_application_projections;
+DROP FUNCTION IF EXISTS vetchium.org_user_acts_on_applications(uuid, uuid);
 DROP FUNCTION IF EXISTS vetchium.org_user_reads_applications(uuid, uuid);
 DROP TABLE IF EXISTS vetchium.org_application_history;
 DROP TABLE IF EXISTS vetchium.org_application_stages;

@@ -3,6 +3,7 @@ import "@typespec/openapi";
 
 import "../../common/authentication.tsp";
 import "../../common/common.tsp";
+import "../../common/idempotency.tsp";
 import "../../common/localization.tsp";
 import "../../common/pagination.tsp";
 import "../../hub/profile/snapshot.tsp";
@@ -30,6 +31,11 @@ scalar ApplicationVersion extends int32;
 @minLength(1)
 @maxLength(5000)
 scalar ApplicationCoverNote extends string;
+
+/**
+ * A calendar date, `YYYY-MM-DD`, with no time or zone: a fact the Org records.
+ */
+scalar CalendarDate extends plainDate;
 
 /** A case-insensitive substring of the applicant's display name. */
 @minLength(2)
@@ -92,7 +98,11 @@ scalar StageStatus extends string;
     "joined",
     "did_not_join",
     "not_progressing",
-    "withdrawn"
+    "withdrawn",
+    "stage_completed",
+    "separated",
+    "joined_corrected",
+    "separated_corrected"
   ]
 )
 scalar ApplicationHistoryAction extends string;
@@ -139,6 +149,18 @@ model ApplicationDetail {
   /** The candidacy's stages in pipeline order; empty before shortlisting. */
   stage_records: ApplicationStageRecord[];
 
+  /** Present once joined. */
+  joined_on?: CalendarDate;
+
+  /** Present once a separation is recorded. */
+  separated_on?: CalendarDate;
+
+  /** The Opening's live `positions`, so a portal can warn on over-hiring. */
+  positions: int32;
+
+  /** Applications of the Opening in `joined`, this one included. */
+  joined_count: int32;
+
   submitted_at: utcDateTime;
   updated_at: utcDateTime;
 }
@@ -154,6 +176,16 @@ model ApplicationHistoryEntry {
   state: ApplicationState;
 
   version: ApplicationVersion;
+
+  /** The stage a shortlist, move, or completion concerns. */
+  stage?: Vetchium.Orgs.Hiring.PipelineStage;
+
+  /** The date a joining or its correction recorded. */
+  joined_on?: CalendarDate;
+
+  /** The date a separation or its correction recorded. */
+  separated_on?: CalendarDate;
+
   created_at: utcDateTime;
 }
 
@@ -230,6 +262,43 @@ model ListApplicationHistoryResponse {
   next_pagination_key?: Vetchium.PaginationKey;
 }
 
+model ApplicationReference {
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  application_number: ApplicationNumber;
+
+  /** The `version` the caller last read. */
+  version: ApplicationVersion;
+}
+
+/** Requests that name no further input. */
+model ApplicationActionRequest {
+  ...ApplicationReference;
+}
+
+/** Shortlists a `submitted` application, or moves a candidacy forward. */
+model ApplicationStageRequest {
+  ...ApplicationReference;
+
+  /** A stage of the Opening's pipeline. */
+  stage_id: Vetchium.Orgs.Hiring.PipelineStageID;
+}
+
+/** Records or corrects when the candidate joined. */
+model ApplicationJoinedOnRequest {
+  ...ApplicationReference;
+
+  /** At most today and not before the offer was extended. */
+  joined_on: CalendarDate;
+}
+
+/** Records or corrects when the employee separated. */
+model ApplicationSeparatedOnRequest {
+  ...ApplicationReference;
+
+  /** After `joined_on`, within 365 days of it, and at most today. */
+  separated_on: CalendarDate;
+}
+
 /**
  * Reading is authorized by the Opening's team or `org:manage_candidacies`, so
  * a caller without access sees the same not-found as an unknown number.
@@ -242,6 +311,18 @@ alias ApplicationReadErrors =
   | Vetchium.Problem.RateLimitExceededErrorResponse
   | Vetchium.Problem.InternalServerErrorResponse
   | Vetchium.Problem.OrgApplicationNotFoundErrorResponse;
+
+/**
+ * Acting is authorized by the Opening's hiring manager, its recruiter, or
+ * `org:manage_candidacies`; a reader without that gets the permission
+ * problem, a caller who cannot read the application gets not-found.
+ */
+alias ApplicationWriteErrors =
+  | ApplicationReadErrors
+  | Vetchium.Problem.OrgPermissionRequiredErrorResponse
+  | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
+  | Vetchium.Problem.OrgApplicationVersionConflictErrorResponse
+  | Vetchium.Problem.OrgApplicationStateConflictErrorResponse;
 
 @route("/api/orgs")
 @tag("Org Applications")
@@ -307,4 +388,220 @@ interface ApplicationOperations {
       }
     | ApplicationReadErrors
     | Vetchium.Problem.InvalidPaginationKeyErrorResponse;
+
+  @route("/shortlist-application")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  shortlistApplication(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: ApplicationStageRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors;
+
+  @route("/move-application-stage")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  moveApplicationStage(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: ApplicationStageRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors;
+
+  @route("/complete-application-stage")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  completeApplicationStage(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: ApplicationActionRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors;
+
+  @route("/mark-application-not-progressing")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  markApplicationNotProgressing(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: ApplicationActionRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors;
+
+  @route("/record-application-joined")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  recordApplicationJoined(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: ApplicationJoinedOnRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors;
+
+  @route("/record-application-did-not-join")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  recordApplicationDidNotJoin(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: ApplicationActionRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors;
+
+  @route("/record-application-separated")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  recordApplicationSeparated(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: ApplicationSeparatedOnRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors;
+
+  @route("/correct-application-joined-on")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  correctApplicationJoinedOn(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: ApplicationJoinedOnRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors;
+
+  @route("/correct-application-separated-on")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  correctApplicationSeparatedOn(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: ApplicationSeparatedOnRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors;
 }

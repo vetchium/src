@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -180,6 +181,45 @@ func ListApplications(s *orgsruntime.Server) http.HandlerFunc {
 	}
 }
 
+func calendarDate(date pgtype.Date) *applications.CalendarDate {
+	if !date.Valid {
+		return nil
+	}
+	value := applications.FormatCalendarDate(date.Time)
+	return &value
+}
+
+// buildDetail maps the one row every application read and write returns.
+func buildDetail(
+	opening openings.OpeningNumber, row sqlc.GetOrgApplicationRow,
+) (applications.ApplicationDetail, error) {
+	detail := applications.ApplicationDetail{
+		OpeningNumber:     opening,
+		ApplicationNumber: applications.ApplicationNumber(row.ApplicationNumber),
+		State:             applications.ApplicationState(row.ApplicationState),
+		Version:           applications.ApplicationVersion(row.Version),
+		CurrentStage:      stagePointer(row.StageID, row.StageName, row.StageKind),
+		JoinedOn:          calendarDate(row.JoinedOn),
+		SeparatedOn:       calendarDate(row.SeparatedOn),
+		Positions:         row.Positions,
+		JoinedCount:       row.JoinedCount,
+		SubmittedAt:       row.CreatedAt.Time.UTC(),
+		UpdatedAt:         row.UpdatedAt.Time.UTC(),
+	}
+	if row.CoverNote.Valid {
+		note := applications.ApplicationCoverNote(row.CoverNote.String)
+		detail.CoverNote = &note
+	}
+	if err := json.Unmarshal(row.Snapshot, &detail.Snapshot); err != nil {
+		return detail, fmt.Errorf("decode application snapshot: %w", err)
+	}
+	detail.Snapshot = detail.Snapshot.Normalized()
+	if err := json.Unmarshal(row.StageRecords, &detail.StageRecords); err != nil {
+		return detail, fmt.Errorf("decode stage records: %w", err)
+	}
+	return detail, nil
+}
+
 func GetApplication(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request applications.GetApplicationRequest
@@ -199,26 +239,9 @@ func GetApplication(s *orgsruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "get application", err)
 			return
 		}
-		detail := applications.ApplicationDetail{
-			OpeningNumber:     request.OpeningNumber,
-			ApplicationNumber: applications.ApplicationNumber(row.ApplicationNumber),
-			State:             applications.ApplicationState(row.ApplicationState),
-			Version:           applications.ApplicationVersion(row.Version),
-			CurrentStage:      stagePointer(row.StageID, row.StageName, row.StageKind),
-			SubmittedAt:       row.CreatedAt.Time.UTC(),
-			UpdatedAt:         row.UpdatedAt.Time.UTC(),
-		}
-		if row.CoverNote.Valid {
-			note := applications.ApplicationCoverNote(row.CoverNote.String)
-			detail.CoverNote = &note
-		}
-		if err := json.Unmarshal(row.Snapshot, &detail.Snapshot); err != nil {
-			s.InternalError(r.Context(), w, "decode application snapshot", err)
-			return
-		}
-		detail.Snapshot = detail.Snapshot.Normalized()
-		if err := json.Unmarshal(row.StageRecords, &detail.StageRecords); err != nil {
-			s.InternalError(r.Context(), w, "decode stage records", err)
+		detail, err := buildDetail(request.OpeningNumber, row)
+		if err != nil {
+			s.InternalError(r.Context(), w, "build application detail", err)
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")
@@ -323,11 +346,14 @@ func ListApplicationHistory(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		for _, row := range rows {
 			entry := applications.ApplicationHistoryEntry{
-				Action:    applications.ApplicationHistoryAction(row.Action.VetchiumOrgApplicationHistoryAction),
-				Actor:     applications.ApplicationActorKind(row.ActorKind.VetchiumOrgApplicationActorKind),
-				State:     applications.ApplicationState(row.ApplicationState.VetchiumOrgApplicationState),
-				Version:   applications.ApplicationVersion(row.ApplicationVersion.Int32),
-				CreatedAt: row.CreatedAt.Time.UTC(),
+				Action:      applications.ApplicationHistoryAction(row.Action.VetchiumOrgApplicationHistoryAction),
+				Actor:       applications.ApplicationActorKind(row.ActorKind.VetchiumOrgApplicationActorKind),
+				State:       applications.ApplicationState(row.ApplicationState.VetchiumOrgApplicationState),
+				Version:     applications.ApplicationVersion(row.ApplicationVersion.Int32),
+				Stage:       stagePointer(row.StageID, row.StageName, row.StageKind),
+				JoinedOn:    calendarDate(row.JoinedOn),
+				SeparatedOn: calendarDate(row.SeparatedOn),
+				CreatedAt:   row.CreatedAt.Time.UTC(),
 			}
 			if row.ActorEmail.Valid {
 				email := common.EmailAddress(row.ActorEmail.String)

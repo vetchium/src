@@ -72,7 +72,10 @@ LEFT JOIN LATERAL (
         'kind', r.request_kind,
         'requested_by_email', u.email_address,
         'requested_at', r.requested_at,
-        'note', r.request_note
+        'note', r.request_note,
+        'mark_applications_not_progressing', CASE
+            WHEN r.request_kind = 'close'
+            THEN r.mark_applications_not_progressing END
     )) AS body
     FROM vetchium.org_opening_requests AS r
     JOIN vetchium.org_users AS u ON u.org_user_id = r.requested_by

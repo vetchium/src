@@ -127,6 +127,18 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/get-application", readOpening(orgsapplications.GetApplication(s)))
 	mux.Handle("POST /api/orgs/get-application-counts", readOpening(orgsapplications.GetApplicationCounts(s)))
 	mux.Handle("POST /api/orgs/list-application-history", readOpening(orgsapplications.ListApplicationHistory(s)))
+	// Application writes check the caller's right to act in SQL (the Opening's
+	// hiring manager or recruiter, or org:manage_candidacies); a caller who
+	// may read but not act gets the permission problem.
+	mux.Handle("POST /api/orgs/shortlist-application", readOpening(orgsapplications.ShortlistApplication(s)))
+	mux.Handle("POST /api/orgs/move-application-stage", readOpening(orgsapplications.MoveApplicationStage(s)))
+	mux.Handle("POST /api/orgs/complete-application-stage", readOpening(orgsapplications.CompleteApplicationStage(s)))
+	mux.Handle("POST /api/orgs/mark-application-not-progressing", readOpening(orgsapplications.MarkApplicationNotProgressing(s)))
+	mux.Handle("POST /api/orgs/record-application-joined", readOpening(orgsapplications.RecordApplicationJoined(s)))
+	mux.Handle("POST /api/orgs/record-application-did-not-join", readOpening(orgsapplications.RecordApplicationDidNotJoin(s)))
+	mux.Handle("POST /api/orgs/record-application-separated", readOpening(orgsapplications.RecordApplicationSeparated(s)))
+	mux.Handle("POST /api/orgs/correct-application-joined-on", readOpening(orgsapplications.CorrectApplicationJoinedOn(s)))
+	mux.Handle("POST /api/orgs/correct-application-separated-on", readOpening(orgsapplications.CorrectApplicationSeparatedOn(s)))
 	mux.Handle("POST /api/orgs/draft-opening-with-ai", manageOpenings(orgsai.DraftOpeningWithAI(s)))
 
 	// The options a caller may use depend on the operation, whose permission

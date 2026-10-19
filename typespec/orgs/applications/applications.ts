@@ -40,6 +40,17 @@ export const stageStatusValues = ["pending", "completed", "skipped"] as const;
 
 export type StageStatus = (typeof stageStatusValues)[number];
 
+/** A `YYYY-MM-DD` date with no time or zone. */
+export type CalendarDate = string;
+
+export function isCalendarDate(value: CalendarDate): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return (
+    !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value)
+  );
+}
+
 export const applicationHistoryActionValues = [
   "applied",
   "shortlisted",
@@ -52,6 +63,10 @@ export const applicationHistoryActionValues = [
   "did_not_join",
   "not_progressing",
   "withdrawn",
+  "stage_completed",
+  "separated",
+  "joined_corrected",
+  "separated_corrected",
 ] as const;
 
 export type ApplicationHistoryAction =
@@ -140,6 +155,10 @@ export interface ApplicationDetail {
   cover_note?: ApplicationCoverNote;
   current_stage?: PipelineStage;
   stage_records: ApplicationStageRecord[];
+  joined_on?: CalendarDate;
+  separated_on?: CalendarDate;
+  positions: number;
+  joined_count: number;
   submitted_at: string;
   updated_at: string;
 }
@@ -150,6 +169,9 @@ export interface ApplicationHistoryEntry {
   actor_email?: EmailAddress;
   state: ApplicationState;
   version: ApplicationVersion;
+  stage?: PipelineStage;
+  joined_on?: CalendarDate;
+  separated_on?: CalendarDate;
   created_at: string;
 }
 
@@ -321,4 +343,58 @@ export function validateListApplicationHistoryRequest(
 export interface ListApplicationHistoryResponse {
   entries: ApplicationHistoryEntry[];
   next_pagination_key?: PaginationKey;
+}
+
+export interface ApplicationActionRequest {
+  opening_number: OpeningNumber;
+  application_number: ApplicationNumber;
+  version: ApplicationVersion;
+}
+
+export function validateApplicationActionRequest(
+  request: ApplicationActionRequest,
+): string[] {
+  const fields = validateNumbers(
+    request.opening_number,
+    request.application_number,
+  );
+  if (!isApplicationNumber(request.version)) fields.push("version");
+  return fields;
+}
+
+export interface ApplicationStageRequest extends ApplicationActionRequest {
+  stage_id: PipelineStageID;
+}
+
+export function validateApplicationStageRequest(
+  request: ApplicationStageRequest,
+): string[] {
+  const fields = validateApplicationActionRequest(request);
+  if (!isPipelineStageID(request.stage_id)) fields.push("stage_id");
+  return fields;
+}
+
+export interface ApplicationJoinedOnRequest extends ApplicationActionRequest {
+  joined_on: CalendarDate;
+}
+
+export function validateApplicationJoinedOnRequest(
+  request: ApplicationJoinedOnRequest,
+): string[] {
+  const fields = validateApplicationActionRequest(request);
+  if (!isCalendarDate(request.joined_on)) fields.push("joined_on");
+  return fields;
+}
+
+export interface ApplicationSeparatedOnRequest
+  extends ApplicationActionRequest {
+  separated_on: CalendarDate;
+}
+
+export function validateApplicationSeparatedOnRequest(
+  request: ApplicationSeparatedOnRequest,
+): string[] {
+  const fields = validateApplicationActionRequest(request);
+  if (!isCalendarDate(request.separated_on)) fields.push("separated_on");
+  return fields;
 }

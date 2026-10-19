@@ -243,7 +243,7 @@ func (h *harness) enqueue(version int64, payload namePayload) pgtype.UUID {
             'workers')`, h.aggregateID()); err != nil {
 		h.t.Fatal(err)
 	}
-	eventID, err := Enqueue(ctx, tx, Outgoing{
+	eventID, err := Enqueue(ctx, sqlc.New(tx), Outgoing{
 		Kind: testKind, Destination: h.user, AggregateType: "test_aggregate",
 		AggregateID: h.aggregateID(), AggregateVersion: version,
 		Payload: payload,

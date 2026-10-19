@@ -12,3 +12,25 @@ alias OrgApplicationNotFoundErrorResponse = Response<
   404,
   typeof OrgApplicationNotFoundError
 >;
+
+const OrgApplicationVersionConflictError = #{
+  type: "vetchium-problem-details/org-application-version-conflict",
+  title: "Org application version conflict",
+  status: 409,
+  detail: "The application changed since it was read",
+};
+alias OrgApplicationVersionConflictErrorResponse = Response<
+  409,
+  typeof OrgApplicationVersionConflictError
+>;
+
+const OrgApplicationStateConflictError = #{
+  type: "vetchium-problem-details/org-application-state-conflict",
+  title: "Org application state conflict",
+  status: 409,
+  detail: "The action is not allowed in the application's current state",
+};
+alias OrgApplicationStateConflictErrorResponse = Response<
+  409,
+  typeof OrgApplicationStateConflictError
+>;

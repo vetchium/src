@@ -125,6 +125,7 @@ export interface RequestOpeningChangeRequest {
   version: OpeningVersion;
   kind: OpeningRequestKind;
   note?: string;
+  mark_applications_not_progressing?: boolean;
 }
 
 export interface DecideOpeningRequestRequest {
@@ -401,6 +402,9 @@ export function validateRequestOpeningChangeRequest(
   const fields = validateNumberVersion(r.opening_number, r.version);
   if (!openingRequestKinds.includes(r.kind)) fields.push("kind");
   if (!validNote(r.note)) fields.push("note");
+  if (r.mark_applications_not_progressing !== undefined && r.kind !== "close") {
+    fields.push("mark_applications_not_progressing");
+  }
   return fields;
 }
 

@@ -110,7 +110,7 @@ func Handle(
 		created.HistoryRows != 1 || created.AuditRows != 1 {
 		return commands.Result{}, fmt.Errorf("incomplete application creation")
 	}
-	if err := hubapplications.EnqueueChange(ctx, tx, ids[1]); err != nil {
+	if err := hubapplications.EnqueueChange(ctx, sqlc.New(tx), ids[1]); err != nil {
 		return commands.Result{}, err
 	}
 	return commands.Succeeded(201, federationspec.HubApplyResult{

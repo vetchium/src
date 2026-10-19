@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs/hiring"
@@ -131,5 +132,54 @@ func TestApplicationNumbersAndCoverNote(t *testing.T) {
 		IsApplicationCoverNote(ApplicationCoverNote(strings.Repeat("é", 5001))) ||
 		IsApplicationCoverNote("") {
 		t.Fatal("cover note bounds are 1 to 5000 code points")
+	}
+}
+
+func TestCalendarDates(t *testing.T) {
+	t.Parallel()
+	for _, valid := range []CalendarDate{"2026-02-28", "2028-02-29", "0999-01-01"} {
+		if !IsCalendarDate(valid) {
+			t.Errorf("%q rejected", valid)
+		}
+	}
+	for _, invalid := range []CalendarDate{
+		"", "2026-02-30", "2026-2-1", "2026-13-01", "tomorrow",
+		"2026-02-28T00:00:00Z", " 2026-02-28",
+	} {
+		if IsCalendarDate(invalid) {
+			t.Errorf("%q accepted", invalid)
+		}
+	}
+	instant := time.Date(2026, 3, 1, 23, 30, 0, 0, time.FixedZone("x", -5*3600))
+	if got := FormatCalendarDate(instant); got != "2026-03-02" {
+		t.Fatalf("FormatCalendarDate = %q, want the UTC date", got)
+	}
+}
+
+func TestWriteRequestsValidate(t *testing.T) {
+	t.Parallel()
+	action := ApplicationActionRequest{OpeningNumber: 1, ApplicationNumber: 2, Version: 3}
+	if got := action.Validate(); len(got) != 0 {
+		t.Fatalf("valid action = %v", got)
+	}
+	if got := (ApplicationActionRequest{}).Validate(); !slices.Equal(got,
+		[]string{"opening_number", "application_number", "version"}) {
+		t.Fatalf("empty action = %v", got)
+	}
+	stage := ApplicationStageRequest{OpeningNumber: 1, ApplicationNumber: 2, Version: 3, StageID: stageID}
+	if got := stage.Validate(); len(got) != 0 {
+		t.Fatalf("valid stage = %v", got)
+	}
+	stage.StageID = "nope"
+	if got := stage.Validate(); !slices.Equal(got, []string{"stage_id"}) {
+		t.Fatalf("bad stage = %v", got)
+	}
+	joined := ApplicationJoinedOnRequest{OpeningNumber: 1, ApplicationNumber: 2, Version: 3, JoinedOn: "2026-02-30"}
+	if got := joined.Validate(); !slices.Equal(got, []string{"joined_on"}) {
+		t.Fatalf("bad joined_on = %v", got)
+	}
+	separated := ApplicationSeparatedOnRequest{OpeningNumber: 1, ApplicationNumber: 2, Version: 3, SeparatedOn: "2026-02-28"}
+	if got := separated.Validate(); len(got) != 0 {
+		t.Fatalf("valid separated_on = %v", got)
 	}
 }
