@@ -69,7 +69,7 @@ DEV_SEED_DNS_URL ?= http://127.0.0.1:18081
 serving_services = $$(docker compose -f $(1) config --services | \
 	grep -vE '^(workers|dev-seed)-')
 
-.PHONY: check fmt backend dev dev-ai-models dev-secrets dev-seed dev-seed-hub-profiles dev-seed-orgs sqlc sqlc-vet \
+.PHONY: check fmt backend dev dev-ai-models dev-secrets dev-seed dev-seed-hub-profiles dev-seed-orgs dev-seed-applications sqlc sqlc-vet \
 	sql-lint migration-check sql-check \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
@@ -136,6 +136,7 @@ dev: clean
 dev-seed: dev
 	$(MAKE) --no-print-directory dev-seed-hub-profiles
 	$(MAKE) --no-print-directory dev-seed-orgs
+	$(MAKE) --no-print-directory dev-seed-applications
 
 # Seeds Hub user profiles by driving the same signup, subscription, and
 # profile-write APIs a browser would use: request signup, follow the
@@ -166,6 +167,19 @@ dev-seed-orgs: sqlc
 			DEV_SEED_ORGS_ORIGIN="http://$$t.api.vetchium.localhost" \
 			DEV_SEED_MAILPIT_URL="$(DEV_SEED_MAILPIT_URL)" \
 			DEV_SEED_DNS_URL="$(DEV_SEED_DNS_URL)" \
+			go run ./cmd/dev-seed) || exit $$?; \
+	done
+
+# Gives each seeded Org pipeline templates and applications in every state the
+# portal APIs can reach, from the Hub users of its region and the next one. It
+# needs dev-seed-hub-profiles and dev-seed-orgs to have run on the same stack.
+dev-seed-applications: sqlc
+	@for t in sgp usa1 deu ind1; do \
+		echo "==> applications $$t"; \
+		(cd backend && DEV_SEED_MODE=applications DEV_SEED_TENANT=$$t \
+			DEV_SEED_ORGS_ORIGIN="http://$$t.api.vetchium.localhost" \
+			DEV_SEED_HUB_ORIGINS="sgp=http://sgp.api.vetchium.localhost,usa1=http://usa1.api.vetchium.localhost,deu=http://deu.api.vetchium.localhost,ind1=http://ind1.api.vetchium.localhost" \
+			DEV_SEED_HUB_PROFILES_DIR="$(CURDIR)/dev/hub-seed-profiles" \
 			go run ./cmd/dev-seed) || exit $$?; \
 	done
 

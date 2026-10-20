@@ -287,13 +287,20 @@ func (s *orgSeeder) post(
 	ctx context.Context, path string, body any, bearer string, want int,
 	out any,
 ) error {
+	return s.postAt(ctx, s.settings.orgsOrigin, path, body, bearer, want, out)
+}
+
+// postAt is post against another API origin, such as a Hub region.
+func (s *orgSeeder) postAt(
+	ctx context.Context, origin, path string, body any, bearer string,
+	want int, out any,
+) error {
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return err
 	}
 	request, err := http.NewRequestWithContext(
-		ctx, http.MethodPost, s.settings.orgsOrigin+path,
-		bytes.NewReader(payload),
+		ctx, http.MethodPost, origin+path, bytes.NewReader(payload),
 	)
 	if err != nil {
 		return err

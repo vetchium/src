@@ -77,7 +77,10 @@ deploy checks that its coordinator route uses the WireGuard interface.
 - **SeaweedFS S3.** The gateway identity config and its access and secret keys
   are created together; a partial set stops deployment. Rotate all three
   together and roll the gateway and its clients (`hub-api`, `mesh-api`,
-  `workers`) at once.
+  `workers`) at once. The identity grants the `hub-profile-pictures`,
+  `org-logos`, and `org-offer-letters` buckets; a region deployed before the
+  last existed keeps its old grants, so rotate its S3 secrets once before
+  rolling an image that stores offer letters.
 - **Mesh certificates** (external): the CA bundle, the coordinator server and
   healthcheck key pairs, and a client and a server key pair per region's
   `mesh-api`. To rotate the CA: deploy a bundle with old and new CAs, roll leaf

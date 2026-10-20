@@ -334,6 +334,10 @@ func Register(registry *events.Registry) {
 		OrgOrigin)
 	registry.Register(federationspec.HubApplicationRemovedKind, ProjectRemoval,
 		OrgOrigin)
+	// Removal carries a version after every change, so a change delayed past
+	// it is superseded instead of recreating the deleted row.
+	registry.ShareWatermark(federationspec.HubApplicationRemovedKind,
+		federationspec.HubApplicationChangedKind)
 }
 
 // OrgOrigin is the origin of hub-application-changed: the Org whose

@@ -312,3 +312,30 @@ func TestPeerClientRejectsAnInvalidTenantBeforeSending(t *testing.T) {
 		t.Fatalf("err = %v, want not sent", err)
 	}
 }
+
+func TestShareWatermarkRefusesUnregisteredAndSelfKinds(t *testing.T) {
+	registry := NewRegistry()
+	handler := func(context.Context, pgx.Tx, Event) error { return nil }
+	origin := func(Event) (Principal, bool) { return Principal{}, false }
+	registry.Register(federationspec.HubApplicationChangedKind, handler, origin)
+	registry.Register(federationspec.HubApplicationRemovedKind, handler, origin)
+	registry.ShareWatermark(
+		federationspec.HubApplicationRemovedKind, federationspec.HubApplicationChangedKind)
+	entry, _ := registry.registration(federationspec.HubApplicationRemovedKind)
+	if entry.watermarkKind != federationspec.HubApplicationChangedKind {
+		t.Fatalf("watermark kind = %q", entry.watermarkKind)
+	}
+	for _, kinds := range [][2]federationspec.EventKind{
+		{federationspec.HubApplicationChangedKind, federationspec.HubApplicationChangedKind},
+		{federationspec.HubApplicationChangedKind, "no-such-kind"},
+	} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Fatalf("sharing %v did not panic", kinds)
+				}
+			}()
+			registry.ShareWatermark(kinds[0], kinds[1])
+		}()
+	}
+}

@@ -72,6 +72,9 @@ type Origin func(Event) (Principal, bool)
 type registration struct {
 	handler Handler
 	origin  Origin
+	// watermarkKind names the watermark this kind advances; it is the kind
+	// itself unless ShareWatermark joined it to another.
+	watermarkKind federationspec.EventKind
 }
 
 // Registry maps event kinds to their receiver handlers.
@@ -95,7 +98,21 @@ func (r *Registry) Register(
 	if _, exists := r.kinds[kind]; exists {
 		panic(fmt.Sprintf("duplicate federation event kind %q", kind))
 	}
-	r.kinds[kind] = registration{handler: handler, origin: origin}
+	r.kinds[kind] = registration{handler: handler, origin: origin, watermarkKind: kind}
+}
+
+// ShareWatermark makes kind advance and honor the per-aggregate watermark of
+// with, so one older event of either kind is superseded by a newer event of
+// the other. Use it when one kind ends what the other projects: a late change
+// must not recreate what a removal deleted. Both kinds must be registered.
+func (r *Registry) ShareWatermark(kind, with federationspec.EventKind) {
+	entry, ok := r.kinds[kind]
+	target, targetOK := r.kinds[with]
+	if !ok || !targetOK || kind == with {
+		panic(fmt.Sprintf("invalid federation watermark sharing %q with %q", kind, with))
+	}
+	entry.watermarkKind = target.watermarkKind
+	r.kinds[kind] = entry
 }
 
 func (r *Registry) registration(

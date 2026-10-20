@@ -341,6 +341,9 @@ command-result ledger at the authority; no per-feature reliability protocol.
     recorded `superseded` and not applied; a redelivered id is `duplicate`,
     even after its kind is withdrawn; the same id with any other field or
     payload digest is `federation-event-conflict`.
+  - A kind that ends what another projects (a removal ends a change) joins its
+    watermark with `Registry.ShareWatermark` and carries a later version, so a
+    delayed change never recreates what the removal deleted.
 - A projection is rebuildable and never authoritative. Its absence must not
   turn an acknowledged operation into a false `404`; consult the operation
   ledger or authority while delivery is pending.

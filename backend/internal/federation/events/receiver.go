@@ -230,7 +230,7 @@ func (r *Receiver) receiveInTx(
 	applied := true
 	if _, err := q.AdvanceFederationEventWatermark(ctx,
 		sqlc.AdvanceFederationEventWatermarkParams{
-			Kind:                    string(event.Kind),
+			Kind:                    string(entry.watermarkKind),
 			DestinationPrincipalDid: event.Destination.DID,
 			AggregateType:           string(event.AggregateType),
 			AggregateID:             event.AggregateID,

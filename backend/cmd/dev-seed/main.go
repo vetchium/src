@@ -15,6 +15,10 @@
 //     with its TXT record published in the development DNS server, a simulated
 //     card, the plan, invited users, and Openings in each reachable state).
 //     It runs on demand, from the host, via `make dev-seed-orgs`.
+//   - "applications" gives each seeded Org pipeline templates and Hub users'
+//     applications in every state the portal APIs can reach. It needs the
+//     Hub profiles and Orgs seeded first and runs via
+//     `make dev-seed-applications`.
 //
 // It is never built into a production image and never deployed.
 package main
@@ -41,6 +45,8 @@ func run() error {
 		return runHubProfileSeed()
 	case "orgs":
 		return runOrgSeed()
+	case "applications":
+		return runApplicationSeed()
 	default:
 		return fmt.Errorf("unknown DEV_SEED_MODE %q", mode)
 	}

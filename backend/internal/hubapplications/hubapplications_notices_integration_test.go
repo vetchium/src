@@ -173,4 +173,10 @@ func TestProjectionNoticesAndRemovalIntegration(t *testing.T) {
 	}
 	// A second removal of the same application is harmless.
 	send(federationspec.HubApplicationRemovedKind, 8, removal)
+	// A change delayed past the removal must not bring the row back.
+	change(7, hubspec.Hired, "")
+	if projected() != 0 {
+		t.Fatalf("projection rows after a change delayed past the removal = %d",
+			projected())
+	}
 }

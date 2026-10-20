@@ -1,6 +1,6 @@
 # Hiring and marketplace build progress
 
-current: T17
+current: T18
 phase: implement
 
 ## Tasks
@@ -21,7 +21,7 @@ T13 done Hiring: Orgs portal pipeline templates and Pipeline tab
 T14 done Hiring: Orgs portal Applicants, Candidates, and application detail
 T15 done Hiring: Orgs portal interviews, results, offers, and joining
 T16 done Hiring: Hub portal apply and applications
-T17 todo Hiring: Development fixtures and full verification
+T17 done Hiring: Development fixtures and full verification
 T18 todo Marketplace: Listings and provider search
 T19 todo Marketplace: Engagements
 T20 todo Marketplace: Assignment and routing
