@@ -69,6 +69,7 @@ type Worker struct {
 	subscriptionExpiryQueries    subscriptionExpiryQueries
 	openingExpiryQueries         openingExpiryQueries
 	engagementExpiryDB           *pgxpool.Pool
+	contactRetentionDB           *pgxpool.Pool
 	orgQueries                   orgEmailQueries
 	orgs                         *orgJobs
 	orgAI                        *orgAIJobs
@@ -114,6 +115,7 @@ func New(
 		subscriptionExpiryQueries:    queries,
 		openingExpiryQueries:         queries,
 		engagementExpiryDB:           db,
+		contactRetentionDB:           db,
 		orgQueries:                   queries,
 	}
 	w.jobs = []periodicJob{
@@ -156,6 +158,11 @@ func New(
 			name:     "retain-applications",
 			interval: config.RetainApplicationsTimer,
 			run:      w.retainApplications,
+		},
+		{
+			name:     "retain-org-contacts",
+			interval: config.RetainOrgContactsTimer,
+			run:      w.retainOrgContacts,
 		},
 		{
 			name:     "refresh-hub-applications",

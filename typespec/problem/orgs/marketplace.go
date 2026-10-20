@@ -130,3 +130,45 @@ var EngagementWorkNotFoundError = problem.Details{
 	Status: 404,
 	Detail: "The work item is not accessible to the provider",
 }
+
+var HubUserNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-hub-user-not-found",
+	Title:  "Org Hub user not found",
+	Status: 404,
+	Detail: "No Hub user has that handle or alias",
+}
+
+var ContactLimitReachedError = problem.Details{
+	Type:   "vetchium-problem-details/org-contact-limit-reached",
+	Title:  "Org Contact limit reached",
+	Status: 429,
+	Detail: "The agency reached its limit of new Contacts for today",
+}
+
+var ContactNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-contact-not-found",
+	Title:  "Org Contact not found",
+	Status: 404,
+	Detail: "No Contact of the agency has that identifier",
+}
+
+var ContactNoteLimitReachedError = problem.Details{
+	Type:   "vetchium-problem-details/org-contact-note-limit-reached",
+	Title:  "Org Contact note limit reached",
+	Status: 409,
+	Detail: "The Contact already has the most notes it may hold",
+}
+
+var ContactNoteNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-contact-note-not-found",
+	Title:  "Org Contact note not found",
+	Status: 404,
+	Detail: "No note of the Contact has that identifier",
+}
+
+var ContactNoteNotAuthorError = problem.Details{
+	Type:   "vetchium-problem-details/org-contact-note-not-author",
+	Title:  "Org Contact note not author",
+	Status: 403,
+	Detail: "Only the author edits a note",
+}

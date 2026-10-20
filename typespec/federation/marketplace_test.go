@@ -6,7 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vetchium/src/typespec/hub"
+	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
+	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 )
 
 const (
@@ -172,5 +175,33 @@ func TestWorkPayloadValidation(t *testing.T) {
 	assessment := WorkAssessmentPayload{WorkActor: actor, Outcome: "pass"}
 	if got := assessment.Validate(); len(got) != 0 {
 		t.Fatalf("fields = %v", got)
+	}
+}
+
+func TestAgencyEventPayloadsValidate(t *testing.T) {
+	t.Parallel()
+	const (
+		contactID = contacts.ContactID("01900000-0000-7000-8000-000000000001")
+		orgDID    = orgs.OrgDID("01900000-0000-7000-8000-000000000003")
+		hubDID    = hub.HubUserDID("01900000-0000-7000-8000-000000000004")
+	)
+	if got := (AgencyPointerChangedPayload{ContactID: contactID, AgencyOrgDID: orgDID, HubUserDID: hubDID, Present: true}).Validate(); len(got) != 0 {
+		t.Fatalf("valid pointer payload rejected: %v", got)
+	}
+	want := []string{"contact_id", "agency_org_did", "hub_user_did"}
+	if got := (AgencyPointerChangedPayload{}).Validate(); !slices.Equal(got, want) {
+		t.Fatalf("pointer fields = %v, want %v", got, want)
+	}
+	if got := (HubAccountDeletedPayload{HubUserDID: hubDID}).Validate(); len(got) != 0 {
+		t.Fatalf("valid notice rejected: %v", got)
+	}
+	if got := (HubAccountDeletedPayload{}).Validate(); !slices.Equal(got, []string{"hub_user_did"}) {
+		t.Fatalf("notice fields = %v", got)
+	}
+	if got := (HubAgencyMessagesChangedPayload{ContactID: contactID, HubUserDID: hubDID, MessagesOff: true}).Validate(); len(got) != 0 {
+		t.Fatalf("valid messages payload rejected: %v", got)
+	}
+	if got := (HubAgencyMessagesChangedPayload{}).Validate(); !slices.Equal(got, []string{"contact_id", "hub_user_did"}) {
+		t.Fatalf("messages fields = %v", got)
 	}
 }

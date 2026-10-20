@@ -3,8 +3,12 @@ import {
   isEmailAddress,
   normalizeEmailAddress,
 } from "../common/common.ts";
+import type { HubUserDID } from "../hub/types.ts";
+import { isHubUserDID } from "../hub/types.ts";
 import type { Capability } from "../orgs/marketplace/capabilities.ts";
 import { isCapability } from "../orgs/marketplace/capabilities.ts";
+import type { ContactID } from "../orgs/marketplace/contacts/contacts.ts";
+import { isContactID } from "../orgs/marketplace/contacts/contacts.ts";
 import type {
   Engagement,
   EngagementID,
@@ -307,7 +311,10 @@ export type WorkBackgroundCheckResultPayload = WorkActor &
 export function normalizeWorkScheduleInterviewPayload(
   payload: WorkScheduleInterviewPayload,
 ): WorkScheduleInterviewPayload {
-  return normalizeWorkActor(normalizeScheduleInterviewRequest(payload));
+  return {
+    ...normalizeScheduleInterviewRequest(payload),
+    ...normalizeWorkActor(payload),
+  };
 }
 
 export function validateWorkScheduleInterviewPayload(
@@ -319,7 +326,10 @@ export function validateWorkScheduleInterviewPayload(
 export function normalizeWorkChangeInterviewPayload(
   payload: WorkChangeInterviewPayload,
 ): WorkChangeInterviewPayload {
-  return normalizeWorkActor(normalizeChangeInterviewRequest(payload));
+  return {
+    ...normalizeChangeInterviewRequest(payload),
+    ...normalizeWorkActor(payload),
+  };
 }
 
 export function validateWorkChangeInterviewPayload(
@@ -346,7 +356,10 @@ export function validateWorkInterviewOutcomePayload(
 export function normalizeWorkInterviewFeedbackPayload(
   payload: WorkInterviewFeedbackPayload,
 ): WorkInterviewFeedbackPayload {
-  return normalizeWorkActor(normalizeSubmitInterviewFeedbackRequest(payload));
+  return {
+    ...normalizeSubmitInterviewFeedbackRequest(payload),
+    ...normalizeWorkActor(payload),
+  };
 }
 
 export function validateWorkInterviewFeedbackPayload(
@@ -361,7 +374,10 @@ export function validateWorkInterviewFeedbackPayload(
 export function normalizeWorkAssessmentPayload(
   payload: WorkAssessmentPayload,
 ): WorkAssessmentPayload {
-  return normalizeWorkActor(normalizeRecordAssessmentRequest(payload));
+  return {
+    ...normalizeRecordAssessmentRequest(payload),
+    ...normalizeWorkActor(payload),
+  };
 }
 
 export function validateWorkAssessmentPayload(
@@ -373,9 +389,10 @@ export function validateWorkAssessmentPayload(
 export function normalizeWorkBackgroundCheckResultPayload(
   payload: WorkBackgroundCheckResultPayload,
 ): WorkBackgroundCheckResultPayload {
-  return normalizeWorkActor(
-    normalizeRecordBackgroundCheckResultRequest(payload),
-  );
+  return {
+    ...normalizeRecordBackgroundCheckResultRequest(payload),
+    ...normalizeWorkActor(payload),
+  };
 }
 
 export function validateWorkBackgroundCheckResultPayload(
@@ -385,4 +402,67 @@ export function validateWorkBackgroundCheckResultPayload(
     actorFields(payload),
     validateRecordBackgroundCheckResultRequest(payload),
   );
+}
+
+/** The event the agency's tenant enqueues when it creates or deletes a Contact. */
+export const AgencyPointerChangedKind: EventKind = "agency-pointer-changed";
+
+/** Versions agency-pointer-changed by the Contact's pointer version; the id is the Contact id. */
+export const AgencyPointerAggregate: AggregateType = "agency_pointer";
+
+export interface AgencyPointerChangedPayload {
+  contact_id: ContactID;
+  agency_org_did: OrgDID;
+  hub_user_did: HubUserDID;
+  /** False when the Contact is gone. */
+  present: boolean;
+}
+
+export function validateAgencyPointerChangedPayload(
+  payload: AgencyPointerChangedPayload,
+): string[] {
+  const fields: string[] = [];
+  if (!isContactID(payload.contact_id)) fields.push("contact_id");
+  if (!isOrgDID(payload.agency_org_did)) fields.push("agency_org_did");
+  if (!isHubUserDID(payload.hub_user_did)) fields.push("hub_user_did");
+  return fields;
+}
+
+/** The deletion notice a Hub user's home tenant sends an agency Org. */
+export const HubAccountDeletedKind: EventKind = "hub-account-deleted";
+
+/** The account is deleted once, so the version is always 1; the id is the Hub user DID. */
+export const HubAccountAggregate: AggregateType = "hub_account";
+
+export interface HubAccountDeletedPayload {
+  hub_user_did: HubUserDID;
+}
+
+export function validateHubAccountDeletedPayload(
+  payload: HubAccountDeletedPayload,
+): string[] {
+  return isHubUserDID(payload.hub_user_did) ? [] : ["hub_user_did"];
+}
+
+/** Carries "Agencies may message me" to the agency Org of a pointer. */
+export const HubAgencyMessagesChangedKind: EventKind =
+  "hub-agency-messages-changed";
+
+/** Versions the event by the setting's version; the id is the Contact id. */
+export const AgencyContactMessagesAggregate: AggregateType =
+  "agency_contact_messages";
+
+export interface HubAgencyMessagesChangedPayload {
+  contact_id: ContactID;
+  hub_user_did: HubUserDID;
+  messages_off: boolean;
+}
+
+export function validateHubAgencyMessagesChangedPayload(
+  payload: HubAgencyMessagesChangedPayload,
+): string[] {
+  const fields: string[] = [];
+  if (!isContactID(payload.contact_id)) fields.push("contact_id");
+  if (!isHubUserDID(payload.hub_user_did)) fields.push("hub_user_did");
+  return fields;
 }

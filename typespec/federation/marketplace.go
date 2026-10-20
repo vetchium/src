@@ -6,11 +6,13 @@ import (
 	"time"
 
 	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/hub/profile"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/hiring"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
+	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/orgs/marketplace/work"
 )
 
@@ -430,4 +432,84 @@ func mergeFields(first, second []string) []string {
 		}
 	}
 	return merged
+}
+
+// AgencyPointerChangedKind is the event the agency's tenant enqueues for the
+// Hub user's home tenant when it creates or deletes a Contact, which keeps
+// one agency pointer per Contact (MKT-DAT-003).
+const AgencyPointerChangedKind EventKind = "agency-pointer-changed"
+
+// AgencyPointerAggregate versions agency-pointer-changed events by the
+// Contact's pointer version. Its aggregate id is the Contact id.
+const AgencyPointerAggregate AggregateType = "agency_pointer"
+
+type AgencyPointerChangedPayload struct {
+	ContactID    contacts.ContactID `json:"contact_id"`
+	AgencyOrgDID orgs.OrgDID        `json:"agency_org_did"`
+	HubUserDID   hub.HubUserDID     `json:"hub_user_did"`
+	// Present is false when the Contact is gone.
+	Present bool `json:"present"`
+}
+
+func (p AgencyPointerChangedPayload) Validate() []string {
+	fields := []string{}
+	if !contacts.IsContactID(p.ContactID) {
+		fields = append(fields, "contact_id")
+	}
+	if !orgs.IsOrgDID(p.AgencyOrgDID) {
+		fields = append(fields, "agency_org_did")
+	}
+	if !hub.IsHubUserDID(p.HubUserDID) {
+		fields = append(fields, "hub_user_did")
+	}
+	return fields
+}
+
+// HubAccountDeletedKind is the deletion notice a Hub user's home tenant sends
+// an agency Org: the account does not exist, so the agency's tenant deletes
+// its notes on that person (MKT-DAT-012, MKT-DAT-013). The origin is the Hub
+// user.
+const HubAccountDeletedKind EventKind = "hub-account-deleted"
+
+// HubAccountAggregate versions hub-account-deleted events; the account is
+// deleted once, so the version is always 1. Its aggregate id is the Hub user
+// DID.
+const HubAccountAggregate AggregateType = "hub_account"
+
+type HubAccountDeletedPayload struct {
+	HubUserDID hub.HubUserDID `json:"hub_user_did"`
+}
+
+func (p HubAccountDeletedPayload) Validate() []string {
+	if !hub.IsHubUserDID(p.HubUserDID) {
+		return []string{"hub_user_did"}
+	}
+	return []string{}
+}
+
+// HubAgencyMessagesChangedKind carries the Hub user's "Agencies may message
+// me" state to the agency Org of a pointer, which stores it on the Contact
+// (MKT-DAT-006). The origin is the Hub user.
+const HubAgencyMessagesChangedKind EventKind = "hub-agency-messages-changed"
+
+// AgencyContactMessagesAggregate versions hub-agency-messages-changed events
+// by the setting's version. Its aggregate id is the Contact id, so a Contact
+// created after an older one for the same person still receives the state.
+const AgencyContactMessagesAggregate AggregateType = "agency_contact_messages"
+
+type HubAgencyMessagesChangedPayload struct {
+	ContactID   contacts.ContactID `json:"contact_id"`
+	HubUserDID  hub.HubUserDID     `json:"hub_user_did"`
+	MessagesOff bool               `json:"messages_off"`
+}
+
+func (p HubAgencyMessagesChangedPayload) Validate() []string {
+	fields := []string{}
+	if !contacts.IsContactID(p.ContactID) {
+		fields = append(fields, "contact_id")
+	}
+	if !hub.IsHubUserDID(p.HubUserDID) {
+		fields = append(fields, "hub_user_did")
+	}
+	return fields
 }

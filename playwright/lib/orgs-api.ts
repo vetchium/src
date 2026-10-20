@@ -55,6 +55,16 @@ import type {
   UnassignOpeningProviderRequest,
 } from "typespec/orgs/marketplace/assignments";
 import type {
+  AddContactNoteRequest,
+  AddPersonNoteRequest,
+  ContactReference,
+  DeleteContactNoteRequest,
+  EditContactNoteRequest,
+  ListContactNotesRequest,
+  ListContactsRequest,
+  ViewHubProfileRequest,
+} from "typespec/orgs/marketplace/contacts/contacts";
+import type {
   EndEngagementRequest,
   EngagementTarget,
   GetEngagementRequest,
@@ -564,6 +574,66 @@ export class OrgsAPI {
     idempotencyKey: string = orgsIdempotencyKey(),
   ): Promise<APIResponse> {
     return this.post("/record-work-background-check-result", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  viewHubProfile(
+    token: string,
+    request: ViewHubProfileRequest,
+  ): Promise<APIResponse> {
+    return this.post("/view-hub-profile", request, { token });
+  }
+
+  listContacts(
+    token: string,
+    request: ListContactsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-contacts", request, { token });
+  }
+
+  getContact(token: string, request: ContactReference): Promise<APIResponse> {
+    return this.post("/get-contact", request, { token });
+  }
+
+  listContactNotes(
+    token: string,
+    request: ListContactNotesRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-contact-notes", request, { token });
+  }
+
+  addPersonNote(
+    token: string,
+    request: AddPersonNoteRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/add-person-note", request, { token, idempotencyKey });
+  }
+
+  addContactNote(
+    token: string,
+    request: AddContactNoteRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/add-contact-note", request, { token, idempotencyKey });
+  }
+
+  editContactNote(
+    token: string,
+    request: EditContactNoteRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/edit-contact-note", request, { token, idempotencyKey });
+  }
+
+  deleteContactNote(
+    token: string,
+    request: DeleteContactNoteRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/delete-contact-note", request, {
       token,
       idempotencyKey,
     });
@@ -1552,6 +1622,8 @@ export function cleanupOrg(domain: string, tenant: TestTenant = "sgp"): void {
       SELECT org_user_id::text FROM vetchium.org_users
       WHERE email_address LIKE ${pattern}
     ) OR binding_id LIKE ${pattern} OR binding_id LIKE ${sqlLiteral(`${domain}/%`)};
+    DELETE FROM vetchium.org_contacts WHERE ${hasDID("org_did::text")};
+    DELETE FROM vetchium.org_contact_creations WHERE ${hasDID("org_did::text")};
     DELETE FROM vetchium.orgs WHERE ${hasDID("org_did::text")};
     `,
   );

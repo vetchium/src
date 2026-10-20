@@ -23,6 +23,7 @@ import (
 	"backend/internal/orgs/listingsearch"
 	"backend/internal/orgs/signupcompletion"
 	"backend/internal/orgs/workfanout"
+	"backend/internal/profileclient"
 	"backend/internal/regions"
 	"backend/internal/workclient"
 )
@@ -54,7 +55,9 @@ type Server struct {
 	// merges the answers of every tenant.
 	WorkRelay  *workclient.Client
 	WorkFanout workfanout.Fanout
-	Signup     regions.Admission
+	// Profiles reads a Hub user's profile for an agency (MKT-PRF).
+	Profiles *profileclient.Client
+	Signup   regions.Admission
 	// AllowSpecialUseDomains admits signups for names such as acme.test.
 	AllowSpecialUseDomains bool
 

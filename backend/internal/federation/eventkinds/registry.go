@@ -4,6 +4,7 @@
 package eventkinds
 
 import (
+	"backend/internal/agencycontacts"
 	"backend/internal/engagements"
 	"backend/internal/federation/events"
 	"backend/internal/hubapplications"
@@ -13,5 +14,6 @@ func Registry() *events.Registry {
 	registry := events.NewRegistry()
 	hubapplications.Register(registry)
 	engagements.RegisterEvents(registry)
+	agencycontacts.RegisterEvents(registry)
 	return registry
 }

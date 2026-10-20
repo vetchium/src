@@ -1,0 +1,286 @@
+// Package agencycontacts carries an agency's Contacts between tenants
+// (agent-guides/marketplace.md, Agency contacts). The agency's tenant is
+// authoritative for the Contact and its notes; the Hub user's tenant keeps one
+// pointer per Contact so the messages setting and deletion notices reach the
+// agency (MKT-DAT-003), and no Hub API returns it (MKT-CON-006).
+package agencycontacts
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+
+	directoryspec "github.com/vetchium/src/typespec/directory"
+	federationspec "github.com/vetchium/src/typespec/federation"
+	"github.com/vetchium/src/typespec/hub"
+	"github.com/vetchium/src/typespec/orgs"
+	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
+
+	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
+	"backend/internal/federation/events"
+)
+
+// Pointer is a Contact as the Hub user's tenant keeps it.
+type Pointer struct {
+	ContactID, OrgDID, HubUserDID pgtype.UUID
+	// Version is the Contact's pointer version at the change: 1 for the
+	// Contact's creation, and the next one for its deletion.
+	Version int32
+	Present bool
+}
+
+// EnqueuePointer reports a created or deleted Contact to the Hub user's
+// tenant. Call it in the transaction that changes the Contact, beside that
+// change's audit event.
+func EnqueuePointer(ctx context.Context, q sqlc.Querier, p Pointer) error {
+	_, err := events.Enqueue(ctx, q, events.Outgoing{
+		Kind: federationspec.AgencyPointerChangedKind,
+		Destination: events.Principal{
+			Type: directoryspec.PrincipalHubUser, DID: p.HubUserDID,
+		},
+		AggregateType:    federationspec.AgencyPointerAggregate,
+		AggregateID:      dbvalue.FormatUUID(p.ContactID),
+		AggregateVersion: int64(p.Version),
+		Payload: federationspec.AgencyPointerChangedPayload{
+			ContactID:    contacts.ContactID(dbvalue.FormatUUID(p.ContactID)),
+			AgencyOrgDID: orgs.OrgDID(dbvalue.FormatUUID(p.OrgDID)),
+			HubUserDID:   hub.HubUserDID(dbvalue.FormatUUID(p.HubUserDID)),
+			Present:      p.Present,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("enqueue agency pointer: %w", err)
+	}
+	return nil
+}
+
+// RegisterEvents adds the pointer event and the two notices the Hub user's
+// tenant sends back.
+func RegisterEvents(registry *events.Registry) {
+	registry.Register(federationspec.AgencyPointerChangedKind,
+		applyPointer, pointerOrigin)
+	registry.Register(federationspec.HubAccountDeletedKind,
+		applyAccountDeleted, accountDeletedOrigin)
+	registry.Register(federationspec.HubAgencyMessagesChangedKind,
+		applyMessagesChanged, messagesChangedOrigin)
+}
+
+func decodePayload(event events.Event, payload interface{ Validate() []string }) error {
+	decoder := json.NewDecoder(bytes.NewReader(event.Payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(payload); err != nil ||
+		decoder.Decode(&struct{}{}) != io.EOF {
+		return fmt.Errorf("decode %s payload: %v", event.Kind, err)
+	}
+	if fields := payload.Validate(); len(fields) > 0 {
+		return fmt.Errorf("invalid %s payload: %v", event.Kind, fields)
+	}
+	return nil
+}
+
+func principalFor(kind directoryspec.PrincipalType, did string) (events.Principal, bool) {
+	parsed, err := dbvalue.ParseUUID(did)
+	if err != nil {
+		return events.Principal{}, false
+	}
+	return events.Principal{Type: kind, DID: parsed}, true
+}
+
+func payloadField(event events.Event, field string) string {
+	var payload map[string]any
+	if json.Unmarshal(event.Payload, &payload) != nil {
+		return ""
+	}
+	value, _ := payload[field].(string)
+	return value
+}
+
+// pointerOrigin is the agency Org, the Contact's authority.
+func pointerOrigin(event events.Event) (events.Principal, bool) {
+	return principalFor(directoryspec.PrincipalOrg, payloadField(event, "agency_org_did"))
+}
+
+// messagesChangedOrigin is the Hub user, whose setting it reports.
+func messagesChangedOrigin(event events.Event) (events.Principal, bool) {
+	return principalFor(directoryspec.PrincipalHubUser, payloadField(event, "hub_user_did"))
+}
+
+// accountDeletedOrigin is the Hub user, whose account the notice reports
+// gone. The account row may be gone from its home tenant by the time the
+// event arrives, so a notice this tenant sends itself names the agency Org it
+// is delivered to, which this tenant homes; a tenant's own outbox is the proof
+// that the notice is its own.
+func accountDeletedOrigin(event events.Event) (events.Principal, bool) {
+	if event.SourceTenantID == event.TenantID {
+		return event.Destination, event.Destination.Type == directoryspec.PrincipalOrg
+	}
+	return principalFor(directoryspec.PrincipalHubUser, payloadField(event, "hub_user_did"))
+}
+
+// applyPointer runs at the Hub user's tenant. An account that does not exist
+// is answered with the deletion notice (MKT-DAT-013); one that turned agency
+// messages off tells the agency at once (MKT-DAT-006).
+func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
+	var payload federationspec.AgencyPointerChangedPayload
+	if err := decodePayload(event, &payload); err != nil {
+		return err
+	}
+	hubDID, err := dbvalue.ParseUUID(string(payload.HubUserDID))
+	if err != nil {
+		return err
+	}
+	orgDID, err := dbvalue.ParseUUID(string(payload.AgencyOrgDID))
+	if err != nil {
+		return err
+	}
+	contactID, err := dbvalue.ParseUUID(string(payload.ContactID))
+	if err != nil {
+		return err
+	}
+	if event.Destination.Type != directoryspec.PrincipalHubUser ||
+		event.Destination.DID != hubDID ||
+		event.AggregateType != federationspec.AgencyPointerAggregate ||
+		event.AggregateID != string(payload.ContactID) {
+		return fmt.Errorf("agency-pointer-changed envelope does not match its payload")
+	}
+	q := sqlc.New(tx)
+	if !payload.Present {
+		if _, err := q.DeleteHubAgencyPointer(ctx, sqlc.DeleteHubAgencyPointerParams{
+			ContactID: contactID, HubUserDid: hubDID,
+		}); err != nil {
+			return fmt.Errorf("delete agency pointer: %w", err)
+		}
+		return nil
+	}
+	state, err := q.GetHubUserAgencyState(ctx, hubDID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return enqueueAccountDeleted(ctx, q, orgDID, hubDID)
+	}
+	if err != nil {
+		return fmt.Errorf("read agency messages setting: %w", err)
+	}
+	if _, err := q.InsertHubAgencyPointer(ctx, sqlc.InsertHubAgencyPointerParams{
+		ContactID: contactID, HubUserDid: hubDID, AgencyOrgDid: orgDID,
+	}); err != nil {
+		return fmt.Errorf("insert agency pointer: %w", err)
+	}
+	if state.AgenciesMayMessage {
+		return nil
+	}
+	return EnqueueMessagesState(ctx, q, MessagesState{
+		ContactID: contactID, OrgDID: orgDID, HubUserDID: hubDID,
+		Version: state.AgenciesMayMessageVersion, MessagesOff: true,
+	})
+}
+
+func enqueueAccountDeleted(
+	ctx context.Context, q sqlc.Querier, orgDID, hubDID pgtype.UUID,
+) error {
+	_, err := events.Enqueue(ctx, q, events.Outgoing{
+		Kind:             federationspec.HubAccountDeletedKind,
+		Destination:      events.Principal{Type: directoryspec.PrincipalOrg, DID: orgDID},
+		AggregateType:    federationspec.HubAccountAggregate,
+		AggregateID:      dbvalue.FormatUUID(hubDID),
+		AggregateVersion: 1,
+		Payload: federationspec.HubAccountDeletedPayload{
+			HubUserDID: hub.HubUserDID(dbvalue.FormatUUID(hubDID)),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("enqueue deletion notice: %w", err)
+	}
+	return nil
+}
+
+// MessagesState is the Hub user's "Agencies may message me" as one agency
+// Contact keeps it.
+type MessagesState struct {
+	ContactID, OrgDID, HubUserDID pgtype.UUID
+	// Version is the setting's version.
+	Version     int64
+	MessagesOff bool
+}
+
+// EnqueueMessagesState tells the agency of a pointer the state of the
+// setting. Call it in the transaction that creates the pointer or changes the
+// setting.
+func EnqueueMessagesState(ctx context.Context, q sqlc.Querier, s MessagesState) error {
+	_, err := events.Enqueue(ctx, q, events.Outgoing{
+		Kind:             federationspec.HubAgencyMessagesChangedKind,
+		Destination:      events.Principal{Type: directoryspec.PrincipalOrg, DID: s.OrgDID},
+		AggregateType:    federationspec.AgencyContactMessagesAggregate,
+		AggregateID:      dbvalue.FormatUUID(s.ContactID),
+		AggregateVersion: s.Version,
+		Payload: federationspec.HubAgencyMessagesChangedPayload{
+			ContactID:   contacts.ContactID(dbvalue.FormatUUID(s.ContactID)),
+			HubUserDID:  hub.HubUserDID(dbvalue.FormatUUID(s.HubUserDID)),
+			MessagesOff: s.MessagesOff,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("enqueue agency messages state: %w", err)
+	}
+	return nil
+}
+
+// applyAccountDeleted runs at the agency's tenant: the notes on the person
+// go at once, and with them the Contact (MKT-DAT-012).
+func applyAccountDeleted(ctx context.Context, tx pgx.Tx, event events.Event) error {
+	var payload federationspec.HubAccountDeletedPayload
+	if err := decodePayload(event, &payload); err != nil {
+		return err
+	}
+	hubDID, err := dbvalue.ParseUUID(string(payload.HubUserDID))
+	if err != nil {
+		return err
+	}
+	if event.Destination.Type != directoryspec.PrincipalOrg ||
+		event.AggregateType != federationspec.HubAccountAggregate ||
+		event.AggregateID != string(payload.HubUserDID) {
+		return fmt.Errorf("hub-account-deleted envelope does not match its payload")
+	}
+	if _, err := sqlc.New(tx).DeleteOrgContactsOfPerson(ctx,
+		sqlc.DeleteOrgContactsOfPersonParams{
+			OrgDid: event.Destination.DID, HubUserDid: hubDID,
+		}); err != nil {
+		return fmt.Errorf("delete contacts of a deleted account: %w", err)
+	}
+	return nil
+}
+
+// applyMessagesChanged runs at the agency's tenant and stores the Hub user's
+// setting on the Contact. A Contact that is gone has nothing to store it on.
+func applyMessagesChanged(ctx context.Context, tx pgx.Tx, event events.Event) error {
+	var payload federationspec.HubAgencyMessagesChangedPayload
+	if err := decodePayload(event, &payload); err != nil {
+		return err
+	}
+	hubDID, err := dbvalue.ParseUUID(string(payload.HubUserDID))
+	if err != nil {
+		return err
+	}
+	contactID, err := dbvalue.ParseUUID(string(payload.ContactID))
+	if err != nil {
+		return err
+	}
+	if event.Destination.Type != directoryspec.PrincipalOrg ||
+		event.AggregateType != federationspec.AgencyContactMessagesAggregate ||
+		event.AggregateID != string(payload.ContactID) {
+		return fmt.Errorf("hub-agency-messages-changed envelope does not match its payload")
+	}
+	if _, err := sqlc.New(tx).SetOrgContactMessagesOff(ctx,
+		sqlc.SetOrgContactMessagesOffParams{
+			ContactID: contactID, OrgDid: event.Destination.DID,
+			HubUserDid: hubDID, MessagesOff: payload.MessagesOff,
+		}); err != nil {
+		return fmt.Errorf("store agency messages state: %w", err)
+	}
+	return nil
+}

@@ -127,6 +127,11 @@ CREATE TABLE vetchium.hub_users (
     subscription_period_end timestamptz,
     scheduled_hub_plan_oid text REFERENCES vetchium.hub_plans (hub_plan_oid),
     scheduled_billing_interval vetchium.hub_billing_interval,
+    -- "Agencies may message me" (MKT-CNV-006). Its version orders the state
+    -- the agency tenants keep on their Contacts (MKT-DAT-006).
+    agencies_may_message boolean NOT NULL DEFAULT true,
+    agencies_may_message_version bigint NOT NULL DEFAULT 1
+        CHECK (agencies_may_message_version >= 1),
     subscription_cancels_at_period_end boolean NOT NULL GENERATED ALWAYS AS (
         COALESCE(scheduled_hub_plan_oid = 'hub-free-tier', false)
     ) STORED,
@@ -3366,6 +3371,91 @@ CREATE TABLE vetchium.org_ai_usage_texts (
 CREATE INDEX org_ai_usage_texts_expiry_idx
     ON vetchium.org_ai_usage_texts (expires_at, usage_id);
 
+-- Agency Contacts and notes (agent-guides/marketplace.md, Agency contacts).
+-- The agency's tenant is authoritative. The Hub user is a DID and the name and
+-- handle last read, never a reference, because the account may live in
+-- another tenant.
+CREATE TABLE vetchium.org_contacts (
+    contact_id uuid PRIMARY KEY,
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    hub_user_did uuid NOT NULL,
+    display_name text NOT NULL,
+    handle text NOT NULL,
+    -- The Hub user's "Agencies may message me" is off (MKT-DAT-006).
+    messages_off boolean NOT NULL DEFAULT false,
+    -- Versions the agency pointer the Hub user's tenant keeps; the event that
+    -- deletes it carries the next version.
+    pointer_version integer NOT NULL DEFAULT 1 CHECK (pointer_version >= 1),
+    created_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    -- The last note write or message, from which retention counts.
+    last_activity_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_contacts_id_uuidv7_check CHECK (
+        substring(contact_id::text FROM 15 FOR 1) = '7'
+    ),
+    CONSTRAINT org_contacts_names_check CHECK (
+        display_name = btrim(display_name)
+        AND char_length(display_name) BETWEEN 1 AND 200
+        AND handle ~ '^[a-z0-9]{8}-[0-9a-hjkmnp-tv-z]{11}$'
+    ),
+    CONSTRAINT org_contacts_activity_check CHECK (
+        last_activity_at >= created_at
+    )
+);
+CREATE UNIQUE INDEX org_contacts_person_key
+    ON vetchium.org_contacts (org_did, hub_user_did);
+CREATE INDEX org_contacts_list_idx
+    ON vetchium.org_contacts (org_did, last_activity_at DESC, contact_id DESC);
+CREATE INDEX org_contacts_retention_idx
+    ON vetchium.org_contacts (last_activity_at, contact_id);
+-- A deleted Hub account removes the notes of every agency at once.
+CREATE INDEX org_contacts_person_idx
+    ON vetchium.org_contacts (hub_user_did);
+
+CREATE TABLE vetchium.org_contact_notes (
+    note_id uuid PRIMARY KEY,
+    contact_id uuid NOT NULL REFERENCES vetchium.org_contacts (contact_id)
+        ON DELETE CASCADE,
+    -- A disabled user's notes stay under their email address.
+    author_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id),
+    note_text text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    edited_at timestamptz,
+    CONSTRAINT org_contact_notes_text_check CHECK (
+        note_text = btrim(note_text)
+        AND char_length(note_text) BETWEEN 1 AND 5000
+    ),
+    CONSTRAINT org_contact_notes_edited_check CHECK (
+        edited_at IS NULL OR edited_at >= created_at
+    )
+);
+CREATE INDEX org_contact_notes_list_idx
+    ON vetchium.org_contact_notes (contact_id, created_at DESC, note_id DESC);
+
+-- New Contacts per agency per UTC day (MKT-CON-005). A count of live rows
+-- would let an agency delete and recreate Contacts past the limit.
+CREATE TABLE vetchium.org_contact_creations (
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    created_on date NOT NULL,
+    created integer NOT NULL CHECK (created >= 1),
+    PRIMARY KEY (org_did, created_on)
+);
+
+-- The Hub user's tenant keeps one pointer per agency Contact so the messages
+-- setting and deletion notices reach the agency. No Hub API returns it
+-- (MKT-DAT-003, MKT-CON-006).
+CREATE TABLE vetchium.hub_agency_pointers (
+    contact_id uuid PRIMARY KEY,
+    hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
+        ON DELETE CASCADE,
+    agency_org_did uuid NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX hub_agency_pointers_user_idx
+    ON vetchium.hub_agency_pointers (hub_user_did, contact_id);
+
 CREATE TABLE vetchium.idempotency_ledger (
     operation text NOT NULL,
     binding_id text NOT NULL,
@@ -3460,6 +3550,10 @@ $$;
 -- +goose StatementEnd
 
 -- +goose Down
+DROP TABLE IF EXISTS vetchium.hub_agency_pointers;
+DROP TABLE IF EXISTS vetchium.org_contact_creations;
+DROP TABLE IF EXISTS vetchium.org_contact_notes;
+DROP TABLE IF EXISTS vetchium.org_contacts;
 DROP TABLE IF EXISTS vetchium.hub_application_notices;
 DROP TABLE IF EXISTS vetchium.hub_application_projections;
 DROP FUNCTION IF EXISTS vetchium.org_user_acts_on_applications(uuid, uuid);

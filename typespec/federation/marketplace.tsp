@@ -1,5 +1,7 @@
 import "../common/localization.tsp";
+import "../hub/types.tsp";
 import "../orgs/marketplace/capabilities.tsp";
+import "../orgs/marketplace/contacts/contacts.tsp";
 import "../orgs/marketplace/engagements.tsp";
 import "../orgs/marketplace/work/work.tsp";
 import "../orgs/types.tsp";
@@ -159,3 +161,39 @@ alias WorkRejections =
   | Vetchium.Problem.OrgInterviewFeedbackExistsErrorResponse
   | Vetchium.Problem.ValidationFailedErrorResponse
   | Vetchium.Problem.FederationInitiatorMismatchErrorResponse;
+
+/**
+ * The payload of `agency-pointer-changed`, which the agency's tenant enqueues
+ * for the Hub user's home tenant when it creates a Contact (`present`) or
+ * deletes one. The tenant keeps one agency pointer per Contact and never
+ * returns it from any Hub API (MKT-DAT-003). The aggregate is the Contact and
+ * its version is the Contact's pointer version; the origin is the agency Org.
+ */
+model AgencyPointerChangedPayload {
+  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  agency_org_did: Vetchium.Orgs.OrgDID;
+  hub_user_did: Vetchium.Hub.HubUserDID;
+  present: boolean;
+}
+
+/**
+ * The payload of `hub-account-deleted`, the deletion notice a Hub user's home
+ * tenant sends an agency Org (MKT-DAT-012, MKT-DAT-013): the account the
+ * agency's pointer named does not exist. The agency's tenant deletes the
+ * notes on that person. The origin is the Hub user.
+ */
+model HubAccountDeletedPayload {
+  hub_user_did: Vetchium.Hub.HubUserDID;
+}
+
+/**
+ * The payload of `hub-agency-messages-changed`: the state of "Agencies may
+ * message me" the agency's Contact on the Hub user keeps (MKT-DAT-006). The
+ * aggregate is the Contact and its version is the setting's version, so a
+ * Contact created later still receives the state; the origin is the Hub user.
+ */
+model HubAgencyMessagesChangedPayload {
+  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  hub_user_did: Vetchium.Hub.HubUserDID;
+  messages_off: boolean;
+}

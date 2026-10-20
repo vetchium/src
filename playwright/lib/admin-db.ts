@@ -1334,8 +1334,17 @@ export function seedGlobalHubPrincipal(
   hubUserDID: string,
   homeTenantID: TestTenant,
   alias: string,
+  handle?: string,
 ): void {
   assertHubUserDID(hubUserDID);
+  let handleInsert = "";
+  if (handle) {
+    handleInsert = `
+    INSERT INTO vetchium.hub_profile_slugs (slug, hub_user_did, kind)
+    VALUES (${sqlLiteral(handle)}, ${sqlLiteral(hubUserDID)}, 'handle')
+    ON CONFLICT (slug) DO NOTHING;
+    `;
+  }
   globalSQLScalar(`
     INSERT INTO vetchium.hub_principals (
       hub_user_did, home_tenant_id, state, routing_version,
@@ -1346,18 +1355,27 @@ export function seedGlobalHubPrincipal(
     );
     INSERT INTO vetchium.hub_profile_slugs (slug, hub_user_did, kind)
     VALUES (${sqlLiteral(alias)}, ${sqlLiteral(hubUserDID)}, 'alias');
+    ${handleInsert}
   `);
 }
 
 export function cleanupGlobalHubPrincipal(
   hubUserDID: string,
   alias: string,
+  handle?: string,
 ): void {
   assertHubUserDID(hubUserDID);
+  let handleDelete = "";
+  if (handle) {
+    handleDelete = `DELETE FROM vetchium.hub_profile_slugs WHERE slug = ${sqlLiteral(handle)};`;
+  }
   globalSQLScalar(`
+    SET session_replication_role = replica;
     DELETE FROM vetchium.hub_profile_slugs WHERE slug = ${sqlLiteral(alias)};
+    ${handleDelete}
     DELETE FROM vetchium.hub_principals
     WHERE hub_user_did = ${sqlLiteral(hubUserDID)};
+    SET session_replication_role = DEFAULT;
   `);
 }
 

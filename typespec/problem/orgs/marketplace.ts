@@ -116,3 +116,45 @@ export const EngagementWorkNotFoundError: Readonly<Details> = {
   status: 404,
   detail: "The work item is not accessible to the provider",
 };
+
+export const HubUserNotFoundError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-hub-user-not-found",
+  title: "Org Hub user not found",
+  status: 404,
+  detail: "No Hub user has that handle or alias",
+};
+
+export const ContactLimitReachedError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-contact-limit-reached",
+  title: "Org Contact limit reached",
+  status: 429,
+  detail: "The agency reached its limit of new Contacts for today",
+};
+
+export const ContactNotFoundError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-contact-not-found",
+  title: "Org Contact not found",
+  status: 404,
+  detail: "No Contact of the agency has that identifier",
+};
+
+export const ContactNoteLimitReachedError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-contact-note-limit-reached",
+  title: "Org Contact note limit reached",
+  status: 409,
+  detail: "The Contact already has the most notes it may hold",
+};
+
+export const ContactNoteNotFoundError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-contact-note-not-found",
+  title: "Org Contact note not found",
+  status: 404,
+  detail: "No note of the Contact has that identifier",
+};
+
+export const ContactNoteNotAuthorError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-contact-note-not-author",
+  title: "Org Contact note not author",
+  status: 403,
+  detail: "Only the author edits a note",
+};

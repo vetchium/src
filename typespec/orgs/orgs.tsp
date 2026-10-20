@@ -23,6 +23,8 @@ import "./marketplace/engagements.tsp";
 import "./marketplace/assignments.tsp";
 import "./marketplace/work/work.tsp";
 import "./marketplace/work/federation.tsp";
+import "./marketplace/contacts/contacts.tsp";
+import "./marketplace/contacts/federation.tsp";
 import "./marketplace/federation.tsp";
 import "../problem/orgs/logo.tsp";
 import "../problem/orgs/sso.tsp";

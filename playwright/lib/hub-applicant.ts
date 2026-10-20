@@ -35,6 +35,7 @@ export interface Applicant {
   did: string;
   token: string;
   alias: string;
+  handle: string;
   hub: HubAPI;
 }
 
@@ -50,9 +51,21 @@ export function seedApplicant(
     did: seeded.hubUserDID,
     token: seeded.sessionToken,
     alias: randomAlias(),
+    handle: seeded.handle,
     hub: new HubAPI(request, tenant),
   };
-  seedGlobalHubPrincipal(applicant.did, tenant, applicant.alias);
+  sqlScalarForTenant(
+    tenant,
+    `UPDATE vetchium.hub_users
+     SET profile_alias = ${sqlLiteral(applicant.alias)}
+     WHERE hub_user_did = ${sqlLiteral(applicant.did)}::uuid;`,
+  );
+  seedGlobalHubPrincipal(
+    applicant.did,
+    tenant,
+    applicant.alias,
+    applicant.handle,
+  );
   return applicant;
 }
 
@@ -95,7 +108,7 @@ export function cleanupApplicant(
        WHERE destination_principal_did = ${did}::uuid;`,
     );
   }
-  cleanupGlobalHubPrincipal(applicant.did, applicant.alias);
+  cleanupGlobalHubPrincipal(applicant.did, applicant.alias, applicant.handle);
   cleanupHubUser(applicant.email, applicant.tenant);
 }
 

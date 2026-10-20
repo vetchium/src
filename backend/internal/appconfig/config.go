@@ -81,6 +81,7 @@ type Workers struct {
 	ExpireOrgEngagementsTimer    time.Duration
 	ExpireApplicationOffersTimer time.Duration
 	RetainApplicationsTimer      time.Duration
+	RetainOrgContactsTimer       time.Duration
 	RefreshHubApplicationsTimer  time.Duration
 	ReconcileHubSignupTimer      time.Duration
 	ReconcileHubEmailChangeTimer time.Duration
@@ -284,6 +285,7 @@ type fileWorkers struct {
 	ExpireOrgEngagementsTimer    string `json:"expireOrgEngagementsTimer"`
 	ExpireApplicationOffersTimer string `json:"expireApplicationOffersTimer"`
 	RetainApplicationsTimer      string `json:"retainApplicationsTimer"`
+	RetainOrgContactsTimer       string `json:"retainOrgContactsTimer"`
 	RefreshHubApplicationsTimer  string `json:"refreshHubApplicationsTimer"`
 	ReconcileHubSignupTimer      string `json:"reconcileHubSignupTimer"`
 	ReconcileHubEmailChangeTimer string `json:"reconcileHubEmailChangeTimer"`
@@ -696,6 +698,12 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	retainOrgContactsTimer, err := positiveDuration(
+		"workers.retainOrgContactsTimer", raw.Workers.RetainOrgContactsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	refreshHubApplicationsTimer, err := positiveDuration(
 		"workers.refreshHubApplicationsTimer",
 		raw.Workers.RefreshHubApplicationsTimer,
@@ -788,6 +796,7 @@ func LoadFile(path string) (Config, error) {
 			ExpireOrgEngagementsTimer:    expireOrgEngagementsTimer,
 			ExpireApplicationOffersTimer: expireApplicationOffersTimer,
 			RetainApplicationsTimer:      retainApplicationsTimer,
+			RetainOrgContactsTimer:       retainOrgContactsTimer,
 			RefreshHubApplicationsTimer:  refreshHubApplicationsTimer,
 			ReconcileHubSignupTimer:      reconcileHubSignupTimer,
 			ReconcileHubEmailChangeTimer: reconcileHubEmailChangeTimer,

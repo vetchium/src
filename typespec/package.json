@@ -124,6 +124,8 @@
     "./orgs/marketplace/engagements": "./orgs/marketplace/engagements.ts",
     "./orgs/marketplace/federation": "./orgs/marketplace/federation.ts",
     "./orgs/marketplace/listings": "./orgs/marketplace/listings.ts",
+    "./orgs/marketplace/contacts/contacts": "./orgs/marketplace/contacts/contacts.ts",
+    "./orgs/marketplace/contacts/federation": "./orgs/marketplace/contacts/federation.ts",
     "./orgs/marketplace/work/federation": "./orgs/marketplace/work/federation.ts",
     "./orgs/marketplace/work/work": "./orgs/marketplace/work/work.ts",
     "./admin/ai-usage/usage": "./admin/ai-usage/usage.ts",

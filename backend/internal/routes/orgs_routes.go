@@ -7,6 +7,7 @@ import (
 	orgsai "backend/handlers/orgs/ai"
 	orgsapplications "backend/handlers/orgs/applications"
 	orgsauth "backend/handlers/orgs/auth"
+	orgscontacts "backend/handlers/orgs/contacts"
 	orgsengagements "backend/handlers/orgs/engagements"
 	orgslistings "backend/handlers/orgs/listings"
 	orgsopenings "backend/handlers/orgs/openings"
@@ -157,6 +158,14 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/submit-work-interview-feedback", fulfilEngagements(orgswork.SubmitWorkInterviewFeedback(s)))
 	mux.Handle("POST /api/orgs/record-work-assessment", fulfilEngagements(orgswork.RecordWorkAssessment(s)))
 	mux.Handle("POST /api/orgs/record-work-background-check-result", fulfilEngagements(orgswork.RecordWorkBackgroundCheckResult(s)))
+	mux.Handle("POST /api/orgs/view-hub-profile", fulfilEngagements(orgscontacts.ViewHubProfile(s)))
+	mux.Handle("POST /api/orgs/list-contacts", fulfilEngagements(orgscontacts.ListContacts(s)))
+	mux.Handle("POST /api/orgs/get-contact", fulfilEngagements(orgscontacts.GetContact(s)))
+	mux.Handle("POST /api/orgs/list-contact-notes", fulfilEngagements(orgscontacts.ListContactNotes(s)))
+	mux.Handle("POST /api/orgs/add-person-note", fulfilEngagements(orgscontacts.AddPersonNote(s)))
+	mux.Handle("POST /api/orgs/add-contact-note", fulfilEngagements(orgscontacts.AddContactNote(s)))
+	mux.Handle("POST /api/orgs/edit-contact-note", fulfilEngagements(orgscontacts.EditContactNote(s)))
+	mux.Handle("POST /api/orgs/delete-contact-note", fulfilEngagements(orgscontacts.DeleteContactNote(s)))
 	mux.Handle("POST /api/orgs/get-opening-providers", manageProviders(orgsengagements.GetOpeningProviders(s)))
 	mux.Handle("POST /api/orgs/assign-opening-provider", manageProviders(orgsengagements.AssignOpeningProvider(s)))
 	mux.Handle("POST /api/orgs/unassign-opening-provider", manageProviders(orgsengagements.UnassignOpeningProvider(s)))
