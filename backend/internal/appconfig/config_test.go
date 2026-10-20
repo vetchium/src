@@ -72,6 +72,10 @@ func TestLoadFile(t *testing.T) {
 			cfg.Workers.AdvanceHubSubscriptionsTimer,
 		)
 	}
+	if cfg.Workers.ExpireOrgEngagementsTimer != time.Minute {
+		t.Fatalf("ExpireOrgEngagementsTimer = %s",
+			cfg.Workers.ExpireOrgEngagementsTimer)
+	}
 	if cfg.Workers.ExpireApplicationOffersTimer != time.Minute {
 		t.Fatalf("ExpireApplicationOffersTimer = %s",
 			cfg.Workers.ExpireApplicationOffersTimer)
@@ -394,6 +398,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
     "expireOrgOpeningsTimer": "1m",
+    "expireOrgEngagementsTimer": "1m",
     "expireApplicationOffersTimer": "1m",
     "retainApplicationsTimer": "1m",
     "refreshHubApplicationsTimer": "1m",
@@ -552,6 +557,29 @@ func TestLoadFileRequiresPositiveExpireApplicationOffersTimer(t *testing.T) {
 	_, err = LoadFile(path)
 	if err == nil || !strings.Contains(err.Error(),
 		"workers.expireApplicationOffersTimer must be positive") {
+		t.Fatalf("LoadFile() error = %v, want positive timer error", err)
+	}
+}
+
+func TestLoadFileRequiresPositiveExpireOrgEngagementsTimer(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	path := writeConfig(t, passwordFile, "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(
+		string(contents),
+		`"expireOrgEngagementsTimer": "1m"`,
+		`"expireOrgEngagementsTimer": "0s"`,
+		1,
+	))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LoadFile(path)
+	if err == nil || !strings.Contains(err.Error(),
+		"workers.expireOrgEngagementsTimer must be positive") {
 		t.Fatalf("LoadFile() error = %v, want positive timer error", err)
 	}
 }
@@ -760,6 +788,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
     "expireOrgOpeningsTimer": "1m",
+    "expireOrgEngagementsTimer": "1m",
     "expireApplicationOffersTimer": "1m",
     "retainApplicationsTimer": "1m",
     "refreshHubApplicationsTimer": "1m",

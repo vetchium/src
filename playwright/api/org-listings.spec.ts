@@ -1,177 +1,40 @@
 import { randomUUID } from "node:crypto";
-import type { Capability } from "typespec/orgs/marketplace/capabilities";
 import type {
-  CreateListingRequest,
   Listing,
   ListingDetail,
   SearchListingsRequest,
-  SearchListingsResponse,
 } from "typespec/orgs/marketplace/listings";
 import { expectProblem } from "../lib/admin-api.ts";
-import { globalSQLScalar, type TestTenant } from "../lib/admin-db.ts";
+import { globalSQLScalar } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
 import { makePNG } from "../lib/logo-fixtures.ts";
 import { meshPeerRequest, meshRelayRequest } from "../lib/mesh.ts";
 import {
   addOrgMember,
-  cleanupOrg,
   inviteeAddress,
-  loginOrg,
   OrgsAPI,
   orgAuditEventsByKey,
   orgSQL,
   orgsIdempotencyKey,
-  type SignedUpOrg,
-  signupOrg,
 } from "../lib/orgs-api.ts";
-
-const base = "vetchium-problem-details/";
-const problems = {
-  authentication: `${base}org-authentication-required`,
-  permission: `${base}org-permission-required`,
-  suspended: `${base}org-suspended`,
-  validation: `${base}validation-failed`,
-  planRequired: `${base}org-listing-plan-required`,
-  notFound: `${base}org-listing-not-found`,
-  exists: `${base}org-listing-exists`,
-  version: `${base}org-listing-version-conflict`,
-  state: `${base}org-listing-state-conflict`,
-  unavailable: `${base}org-tenant-unavailable`,
-  paginationKey: `${base}invalid-pagination-key`,
-  keyConflict: `${base}idempotency-key-conflict`,
-  invalidJSON: `${base}invalid-json`,
-};
+import {
+  background,
+  base,
+  created,
+  domainsOf,
+  listing,
+  moneyKey,
+  onSilver,
+  problems,
+  published,
+  search,
+  unique,
+  withProvider,
+} from "../lib/orgs-marketplace.ts";
 
 // A second sgp API process whose region catalog also names `gone`, a tenant
 // that never answers.
 const unavailableOrigin = "http://127.0.0.1:18084";
-
-const moneyKey = /"[a-z_]*(amount|fee|rate|invoice|payment|currency)[a-z_]*":/;
-
-function content(
-  headline = "Structured interviews",
-  extra: Partial<CreateListingRequest> = {},
-): Omit<CreateListingRequest, "capability"> {
-  return {
-    headline,
-    description: "We run **structured** interviews.",
-    service: { worldwide: false, countries: ["SG", "IN"] },
-    languages: ["en"],
-    indicative_price: "Quoted per engagement",
-    ...extra,
-  };
-}
-
-function background(
-  headline = "Background checks",
-  extra: Partial<CreateListingRequest> = {},
-): CreateListingRequest {
-  return {
-    capability: "background_check",
-    ...content(headline),
-    check_types: ["identity", "education"],
-    consent_disclosure: "We verify what you tell us.",
-    ...extra,
-  };
-}
-
-function listing(
-  capability: Capability,
-  headline = "Structured interviews",
-  extra: Partial<CreateListingRequest> = {},
-): CreateListingRequest {
-  return { capability, ...content(headline), ...extra };
-}
-
-async function onSilver(api: OrgsAPI, owner: string): Promise<void> {
-  const response = await api.setSubscriptionPlan(owner, {
-    plan_oid: "org-silver-tier",
-    billing_interval: "month",
-  });
-  expect(response.status(), await response.text()).toBe(200);
-}
-
-interface Provider {
-  api: OrgsAPI;
-  org: SignedUpOrg;
-  owner: string;
-  tenant: TestTenant;
-}
-
-async function withProvider(
-  request: ConstructorParameters<typeof OrgsAPI>[0],
-  body: (provider: Provider) => Promise<void>,
-  options: { tenant?: TestTenant; silver?: boolean; name?: string } = {},
-): Promise<void> {
-  const tenant = options.tenant ?? "sgp";
-  const api = new OrgsAPI(request, tenant);
-  const org = await signupOrg(api);
-  try {
-    const owner = await loginOrg(api, org);
-    if (options.silver !== false) await onSilver(api, owner);
-    if (options.name !== undefined) setDisplayName(org, tenant, options.name);
-    await body({ api, org, owner, tenant });
-  } finally {
-    await deleteOrgVerificationRecord(org.domain);
-    cleanupOrg(org.domain, tenant);
-  }
-}
-
-function setDisplayName(
-  org: SignedUpOrg,
-  tenant: TestTenant,
-  name: string,
-): void {
-  orgSQL(
-    `UPDATE vetchium.orgs SET display_name = '${name}'
-     WHERE org_did = (SELECT org_did FROM vetchium.org_domains
-                      WHERE domain = '${org.domain}')`,
-    tenant,
-  );
-}
-
-async function created(
-  api: OrgsAPI,
-  token: string,
-  body: CreateListingRequest,
-): Promise<Listing> {
-  const response = await api.createListing(token, body);
-  expect(response.status(), await response.text()).toBe(201);
-  return (await response.json()) as Listing;
-}
-
-async function published(
-  api: OrgsAPI,
-  token: string,
-  body: CreateListingRequest,
-): Promise<Listing> {
-  const draft = await created(api, token, body);
-  const response = await api.publishListing(token, {
-    capability: draft.capability,
-    version: draft.version,
-  });
-  expect(response.status(), await response.text()).toBe(200);
-  return (await response.json()) as Listing;
-}
-
-async function search(
-  api: OrgsAPI,
-  token: string,
-  body: Parameters<OrgsAPI["searchListings"]>[1],
-): Promise<SearchListingsResponse> {
-  const response = await api.searchListings(token, body);
-  expect(response.status(), await response.text()).toBe(200);
-  expect(response.headers()["cache-control"]).toBe("no-store");
-  return (await response.json()) as SearchListingsResponse;
-}
-
-const domainsOf = (response: SearchListingsResponse) =>
-  response.listings.map((item) => item.provider.domain);
-
-function unique(): string {
-  return `lst${randomUUID().slice(0, 8)}`;
-}
 
 test("a Listing is created, listed, edited, published, unlisted, and deleted", async ({
   request,
@@ -487,20 +350,20 @@ test("Listing content is validated for every Capability", async ({
       },
     ];
     for (const item of cases) {
-      const response = await api.listingWriteRaw(
+      const response = await api.marketplaceWriteRaw(
         "/create-listing",
         owner,
         item.body,
       );
       await expectProblem(response, 400, problems.validation, item.fields);
-      const update = await api.listingWriteRaw("/update-listing", owner, {
+      const update = await api.marketplaceWriteRaw("/update-listing", owner, {
         ...(item.body as object),
         version: 1,
       });
       await expectProblem(update, 400, problems.validation, item.fields);
     }
     await expectProblem(
-      await api.listingWriteRaw("/update-listing", owner, {
+      await api.marketplaceWriteRaw("/update-listing", owner, {
         ...listing("sourcing"),
         version: 0,
       }),
@@ -514,7 +377,7 @@ test("Listing content is validated for every Capability", async ({
       "/delete-listing",
     ]) {
       await expectProblem(
-        await api.listingWriteRaw(path, owner, {
+        await api.marketplaceWriteRaw(path, owner, {
           capability: "nope",
           version: 0,
         }),

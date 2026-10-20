@@ -7,6 +7,7 @@ import (
 	orgsai "backend/handlers/orgs/ai"
 	orgsapplications "backend/handlers/orgs/applications"
 	orgsauth "backend/handlers/orgs/auth"
+	orgsengagements "backend/handlers/orgs/engagements"
 	orgslistings "backend/handlers/orgs/listings"
 	orgsopenings "backend/handlers/orgs/openings"
 	orgsoperations "backend/handlers/orgs/operations"
@@ -139,6 +140,18 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/delete-listing", manageListings(orgslistings.DeleteListing(s)))
 	mux.Handle("POST /api/orgs/search-listings", manageProviders(orgslistings.SearchListings(s)))
 	mux.Handle("POST /api/orgs/get-listing", manageProviders(orgslistings.GetListing(s)))
+	mux.Handle("POST /api/orgs/list-engagements", manageProviders(orgsengagements.ListEngagements(s)))
+	mux.Handle("POST /api/orgs/get-engagement", manageProviders(orgsengagements.GetEngagement(s)))
+	mux.Handle("POST /api/orgs/propose-engagement", manageProviders(orgsengagements.ProposeEngagement(s)))
+	mux.Handle("POST /api/orgs/withdraw-engagement", manageProviders(orgsengagements.WithdrawEngagement(s)))
+	mux.Handle("POST /api/orgs/end-engagement", manageProviders(orgsengagements.EndEngagement(s)))
+	mux.Handle("POST /api/orgs/set-engagement-reference", manageProviders(orgsengagements.SetEngagementReference(s)))
+	mux.Handle("POST /api/orgs/list-client-engagements", manageListings(orgsengagements.ListClientEngagements(s)))
+	mux.Handle("POST /api/orgs/get-client-engagement", manageListings(orgsengagements.GetClientEngagement(s)))
+	mux.Handle("POST /api/orgs/accept-engagement", manageListings(orgsengagements.AcceptEngagement(s)))
+	mux.Handle("POST /api/orgs/decline-engagement", manageListings(orgsengagements.DeclineEngagement(s)))
+	mux.Handle("POST /api/orgs/end-client-engagement", manageListings(orgsengagements.EndClientEngagement(s)))
+	mux.Handle("POST /api/orgs/set-client-engagement-reference", manageListings(orgsengagements.SetClientEngagementReference(s)))
 	// Application reads are authorized in SQL by the Opening's team or
 	// org:manage_candidacies; a caller without access gets the not-found an
 	// unknown number gets.

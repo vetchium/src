@@ -7,12 +7,9 @@ import (
 	"reflect"
 
 	"github.com/vetchium/src/typespec/common"
-	directoryspec "github.com/vetchium/src/typespec/directory"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/problem"
-	directoryproblem "github.com/vetchium/src/typespec/problem/global-coordinator"
-	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
 	"backend/internal/apiserver"
 	"backend/internal/credentials"
@@ -117,9 +114,7 @@ func SearchListings(s *orgsruntime.Server) http.HandlerFunc {
 	}
 }
 
-// GetListing reads a provider's `listed` Listing. This tenant is asked first,
-// so a local provider needs no directory lookup; otherwise the directory names
-// the provider's tenant.
+// GetListing reads a provider's `listed` Listing, in this tenant or another.
 func GetListing(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request marketplace.GetListingRequest
@@ -128,16 +123,7 @@ func GetListing(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), s.ListingDeadline)
 		defer cancel()
-		self := directoryspec.TenantID(s.TenantID)
-		detail, details := readListing(ctx, s, self, request)
-		if details != nil && details.Type == orgsproblem.ListingNotFoundError.Type {
-			home, homeDetails := homeTenant(ctx, s, request)
-			if homeDetails != nil {
-				details = homeDetails
-			} else if home != self {
-				detail, details = readListing(ctx, s, home, request)
-			}
-		}
+		detail, details := s.ListingRead.Get(ctx, request)
 		if details != nil {
 			s.Problem(r.Context(), w, *details)
 			return
@@ -145,45 +131,4 @@ func GetListing(s *orgsruntime.Server) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, *detail)
 	}
-}
-
-func readListing(
-	ctx context.Context, s *orgsruntime.Server, tenant directoryspec.TenantID,
-	request marketplace.GetListingRequest,
-) (*marketplace.ListingDetail, *problem.Details) {
-	outcome, err := s.Listings.RelayGet(ctx, marketplace.RelayGetListingRequest{
-		Tenant: tenant, Listing: request,
-	})
-	if err != nil {
-		s.WarnContext(ctx, "Listing read failed",
-			"event", "listing_read_failed", "peer_tenant", tenant, "error", err)
-		return nil, &orgsproblem.TenantUnavailableError
-	}
-	if outcome.Problem != nil {
-		if outcome.Problem.Type == orgsproblem.ListingNotFoundError.Type {
-			return nil, &orgsproblem.ListingNotFoundError
-		}
-		return nil, &orgsproblem.TenantUnavailableError
-	}
-	return outcome.Result, nil
-}
-
-// homeTenant asks the global directory where the provider's domain lives.
-// An unknown domain is a Listing that does not exist.
-func homeTenant(
-	ctx context.Context, s *orgsruntime.Server,
-	request marketplace.GetListingRequest,
-) (directoryspec.TenantID, *problem.Details) {
-	resolved, details, err := s.Directory.ResolveOrgDomain(
-		ctx, directoryspec.ResolveOrgDomainRequest{Domain: request.Domain},
-	)
-	if err != nil || (details != nil &&
-		details.Type != directoryproblem.DirectoryEntryNotFoundError.Type) ||
-		(details == nil && resolved.Domain != request.Domain) {
-		return "", &orgsproblem.TenantUnavailableError
-	}
-	if details != nil {
-		return "", &orgsproblem.ListingNotFoundError
-	}
-	return resolved.HomeTenantID, nil
 }

@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+
 	"github.com/vetchium/src/typespec/common"
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	"github.com/vetchium/src/typespec/orgs"
@@ -24,6 +27,7 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/listingclient"
 	orgsruntime "backend/internal/orgs"
+	"backend/internal/orgs/listingread"
 	"backend/internal/orgs/listingsearch"
 )
 
@@ -127,19 +131,30 @@ func (d directoryStub) ResolveOrgDomain(
 	_ context.Context, request directoryspec.ResolveOrgDomainRequest,
 ) (directoryspec.ResolveOrgDomainResponse, *problem.Details, error) {
 	return directoryspec.ResolveOrgDomainResponse{
+		OrgDID: "01900000-0000-7000-8000-000000000001",
 		Domain: request.Domain, HomeTenantID: d.tenant,
 	}, d.details, d.err
+}
+
+// localOrgs holds no Org: every provider is found through the directory.
+type localOrgs struct{}
+
+func (localOrgs) GetLocalOrgForDomain(context.Context, string) (pgtype.UUID, error) {
+	return pgtype.UUID{}, pgx.ErrNoRows
 }
 
 func server(t *testing.T, directory directoryStub) (*orgsruntime.Server, *relay) {
 	t.Helper()
 	client, state := newRelay(t)
 	s := &orgsruntime.Server{
-		Runtime:         apiserver.New(nil, slog.New(slog.NewTextHandler(io.Discard, nil))),
-		Directory:       directory,
-		TenantID:        "sgp",
-		CredentialKey:   [32]byte{1},
-		Listings:        client,
+		Runtime:       apiserver.New(nil, slog.New(slog.NewTextHandler(io.Discard, nil))),
+		Directory:     directory,
+		TenantID:      "sgp",
+		CredentialKey: [32]byte{1},
+		ListingRead: listingread.Reader{
+			Listings: client, Directory: directory, Orgs: localOrgs{},
+			TenantID: "sgp", Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		},
 		ListingDeadline: time.Second,
 		ListingSearch: listingsearch.Searcher{
 			Peers: client, Tenants: []directoryspec.TenantID{"sgp", "deu", "usa1"},

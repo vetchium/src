@@ -19,6 +19,7 @@ import "./hiring/pipelines.tsp";
 import "./applications/applications.tsp";
 import "./marketplace/capabilities.tsp";
 import "./marketplace/listings.tsp";
+import "./marketplace/engagements.tsp";
 import "./marketplace/federation.tsp";
 import "../problem/orgs/logo.tsp";
 import "../problem/orgs/sso.tsp";

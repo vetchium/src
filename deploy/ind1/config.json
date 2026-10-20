@@ -19,6 +19,7 @@
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
     "expireOrgOpeningsTimer": "5m",
+    "expireOrgEngagementsTimer": "5m",
     "expireApplicationOffersTimer": "5m",
     "retainApplicationsTimer": "1h",
     "refreshHubApplicationsTimer": "5m",

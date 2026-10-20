@@ -78,6 +78,7 @@ type Workers struct {
 	HubEmailMaxAttempts          int
 	AdvanceHubSubscriptionsTimer time.Duration
 	ExpireOrgOpeningsTimer       time.Duration
+	ExpireOrgEngagementsTimer    time.Duration
 	ExpireApplicationOffersTimer time.Duration
 	RetainApplicationsTimer      time.Duration
 	RefreshHubApplicationsTimer  time.Duration
@@ -280,6 +281,7 @@ type fileWorkers struct {
 	HubEmailMaxAttempts          int    `json:"hubEmailMaxAttempts"`
 	AdvanceHubSubscriptionsTimer string `json:"advanceHubSubscriptionsTimer"`
 	ExpireOrgOpeningsTimer       string `json:"expireOrgOpeningsTimer"`
+	ExpireOrgEngagementsTimer    string `json:"expireOrgEngagementsTimer"`
 	ExpireApplicationOffersTimer string `json:"expireApplicationOffersTimer"`
 	RetainApplicationsTimer      string `json:"retainApplicationsTimer"`
 	RefreshHubApplicationsTimer  string `json:"refreshHubApplicationsTimer"`
@@ -675,6 +677,12 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	expireOrgEngagementsTimer, err := positiveDuration(
+		"workers.expireOrgEngagementsTimer", raw.Workers.ExpireOrgEngagementsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	expireApplicationOffersTimer, err := positiveDuration(
 		"workers.expireApplicationOffersTimer",
 		raw.Workers.ExpireApplicationOffersTimer,
@@ -777,6 +785,7 @@ func LoadFile(path string) (Config, error) {
 			HubEmailMaxAttempts:          raw.Workers.HubEmailMaxAttempts,
 			AdvanceHubSubscriptionsTimer: advanceHubSubscriptionsTimer,
 			ExpireOrgOpeningsTimer:       expireOrgOpeningsTimer,
+			ExpireOrgEngagementsTimer:    expireOrgEngagementsTimer,
 			ExpireApplicationOffersTimer: expireApplicationOffersTimer,
 			RetainApplicationsTimer:      retainApplicationsTimer,
 			RefreshHubApplicationsTimer:  refreshHubApplicationsTimer,

@@ -68,6 +68,7 @@ type Worker struct {
 	hubSubscriptionNow           func() time.Time
 	subscriptionExpiryQueries    subscriptionExpiryQueries
 	openingExpiryQueries         openingExpiryQueries
+	engagementExpiryDB           *pgxpool.Pool
 	orgQueries                   orgEmailQueries
 	orgs                         *orgJobs
 	orgAI                        *orgAIJobs
@@ -112,6 +113,7 @@ func New(
 		aliasChangeQueries:           queries,
 		subscriptionExpiryQueries:    queries,
 		openingExpiryQueries:         queries,
+		engagementExpiryDB:           db,
 		orgQueries:                   queries,
 	}
 	w.jobs = []periodicJob{
@@ -139,6 +141,11 @@ func New(
 			name:     "expire-org-openings",
 			interval: config.ExpireOrgOpeningsTimer,
 			run:      w.expireOrgOpenings,
+		},
+		{
+			name:     "expire-org-engagements",
+			interval: config.ExpireOrgEngagementsTimer,
+			run:      w.expireOrgEngagements,
 		},
 		{
 			name:     "expire-application-offers",

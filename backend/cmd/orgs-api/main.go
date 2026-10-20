@@ -22,6 +22,7 @@ import (
 	orgai "backend/internal/orgs/ai"
 	orgsauthn "backend/internal/orgs/auth"
 	"backend/internal/orgs/domainverification"
+	"backend/internal/orgs/listingread"
 	"backend/internal/orgs/listingsearch"
 	"backend/internal/orgs/signupcompletion"
 	"backend/internal/regions"
@@ -147,7 +148,10 @@ func run(log *slog.Logger, address string) error {
 			orgsauthn.DeriveCredentialSubkey(credentialKey, "outbox"), log,
 		),
 		Commands: federationCommands,
-		Listings: listings,
+		ListingRead: listingread.Reader{
+			Listings: listings, Directory: globalDirectory, Orgs: queries,
+			TenantID: cfg.TenantID, Log: log,
+		},
 		ListingSearch: listingsearch.Searcher{
 			Peers: listings, Tenants: catalog.TenantIDs(),
 			Deadline: cfg.MeshAPIServer.RequestTimeout,

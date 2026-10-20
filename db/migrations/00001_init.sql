@@ -2232,6 +2232,147 @@ CREATE INDEX org_listings_search_idx
     ON vetchium.org_listings (capability_oid, org_did)
     WHERE listing_state = 'listed';
 
+-- Marketplace engagements (agent-guides/marketplace.md). The consumer's
+-- tenant is authoritative; the provider's tenant keeps only the projection
+-- below, fed by the consumer's outbox (MKT-GEN-004). The provider is a DID
+-- and a recorded name, never a reference, because it may live in another
+-- tenant.
+CREATE TYPE vetchium.org_engagement_state AS ENUM (
+    'proposed',
+    'active',
+    'declined',
+    'withdrawn',
+    'expired',
+    'ended'
+);
+
+CREATE TYPE vetchium.org_engagement_party AS ENUM ('consumer', 'provider');
+
+CREATE TABLE vetchium.org_engagements (
+    engagement_id uuid PRIMARY KEY,
+    consumer_org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    provider_org_did uuid NOT NULL,
+    provider_domain text NOT NULL,
+    provider_display_name text NOT NULL,
+    capability_oid text NOT NULL
+        REFERENCES vetchium.capabilities (capability_oid),
+    engagement_state vetchium.org_engagement_state NOT NULL DEFAULT 'proposed',
+    -- Proposals awaiting a decision list first, then active, then the rest.
+    state_rank smallint GENERATED ALWAYS AS (
+        CASE engagement_state
+            WHEN 'proposed' THEN 0 WHEN 'active' THEN 1 ELSE 2
+        END
+    ) STORED,
+    version integer NOT NULL DEFAULT 1 CHECK (version >= 1),
+    message text,
+    consumer_reference text,
+    provider_reference text,
+    end_note text,
+    ended_by vetchium.org_engagement_party,
+    proposed_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL,
+    decided_at timestamptz,
+    ended_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_engagements_not_self CHECK (
+        consumer_org_did <> provider_org_did
+    ),
+    CONSTRAINT org_engagements_names_check CHECK (
+        provider_domain = btrim(provider_domain)
+        AND char_length(provider_domain) BETWEEN 3 AND 253
+        AND provider_display_name = btrim(provider_display_name)
+        AND char_length(provider_display_name) BETWEEN 1 AND 200
+    ),
+    CONSTRAINT org_engagements_text_check CHECK (
+        (message IS NULL OR (message = btrim(message)
+            AND char_length(message) BETWEEN 1 AND 2000))
+        AND (consumer_reference IS NULL OR (
+            consumer_reference = btrim(consumer_reference)
+            AND char_length(consumer_reference) BETWEEN 1 AND 200))
+        AND (provider_reference IS NULL OR (
+            provider_reference = btrim(provider_reference)
+            AND char_length(provider_reference) BETWEEN 1 AND 200))
+        AND (end_note IS NULL OR (end_note = btrim(end_note)
+            AND char_length(end_note) BETWEEN 1 AND 2000))
+    ),
+    CONSTRAINT org_engagements_end_check CHECK (
+        CASE WHEN engagement_state = 'ended' THEN
+            ended_by IS NOT NULL AND ended_at IS NOT NULL
+        ELSE
+            ended_by IS NULL AND ended_at IS NULL AND end_note IS NULL
+        END
+    ),
+    CONSTRAINT org_engagements_times_check CHECK (
+        expires_at > proposed_at AND updated_at >= created_at
+    )
+);
+CREATE UNIQUE INDEX org_engagements_live_key
+    ON vetchium.org_engagements
+    (consumer_org_did, provider_org_did, capability_oid)
+    WHERE engagement_state IN ('proposed', 'active');
+CREATE INDEX org_engagements_list_idx
+    ON vetchium.org_engagements
+    (consumer_org_did, state_rank, proposed_at DESC, engagement_id DESC);
+CREATE INDEX org_engagements_expiry_idx
+    ON vetchium.org_engagements (expires_at)
+    WHERE engagement_state = 'proposed';
+
+-- The consumer's engagements with the consumer Org's domain and name, under
+-- the column names of the provider-side projection, so both sides read and
+-- map one shape.
+CREATE VIEW vetchium.org_engagement_snapshots AS
+SELECT e.engagement_id, e.version, e.consumer_org_did,
+    d.domain::text AS consumer_domain,
+    o.display_name AS consumer_display_name,
+    e.provider_org_did, e.provider_domain, e.provider_display_name,
+    e.capability_oid, e.engagement_state, e.state_rank, e.message,
+    e.consumer_reference, e.provider_reference, e.end_note, e.ended_by,
+    e.proposed_at, e.expires_at, e.decided_at, e.ended_at, e.updated_at
+FROM vetchium.org_engagements AS e
+JOIN vetchium.orgs AS o ON o.org_did = e.consumer_org_did
+JOIN vetchium.org_domains AS d ON d.org_did = e.consumer_org_did;
+
+CREATE TABLE vetchium.org_engagement_projections (
+    engagement_id uuid PRIMARY KEY,
+    provider_org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    version integer NOT NULL CHECK (version >= 1),
+    consumer_org_did uuid NOT NULL,
+    consumer_domain text NOT NULL,
+    consumer_display_name text NOT NULL,
+    provider_domain text NOT NULL,
+    provider_display_name text NOT NULL,
+    -- No reference to the Capability table: the consumer's tenant may know a
+    -- Capability this tenant does not yet, and a projection must not refuse it.
+    capability_oid text NOT NULL
+        CHECK (capability_oid ~ '^[a-z]+(_[a-z]+)*$'),
+    engagement_state vetchium.org_engagement_state NOT NULL,
+    state_rank smallint GENERATED ALWAYS AS (
+        CASE engagement_state
+            WHEN 'proposed' THEN 0 WHEN 'active' THEN 1 ELSE 2
+        END
+    ) STORED,
+    message text,
+    consumer_reference text,
+    provider_reference text,
+    end_note text,
+    ended_by vetchium.org_engagement_party,
+    proposed_at timestamptz NOT NULL,
+    expires_at timestamptz NOT NULL,
+    decided_at timestamptz,
+    ended_at timestamptz,
+    updated_at timestamptz NOT NULL,
+    received_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_engagement_projections_not_self CHECK (
+        consumer_org_did <> provider_org_did
+    )
+);
+CREATE INDEX org_engagement_projections_list_idx
+    ON vetchium.org_engagement_projections
+    (provider_org_did, state_rank, proposed_at DESC, engagement_id DESC);
+
 -- Hiring pipelines (agent-guides/hiring-pipeline.md). A template is a named
 -- stage list an Org copies into new Openings; editing one never changes an
 -- Opening. Stage positions are written 1..n from the submitted order.
@@ -3178,6 +3319,11 @@ DROP TYPE IF EXISTS vetchium.org_applicant_kind;
 DROP TABLE IF EXISTS vetchium.org_opening_stages;
 DROP TABLE IF EXISTS vetchium.org_pipeline_template_stages;
 DROP TABLE IF EXISTS vetchium.org_pipeline_templates;
+DROP TABLE IF EXISTS vetchium.org_engagement_projections;
+DROP VIEW IF EXISTS vetchium.org_engagement_snapshots;
+DROP TABLE IF EXISTS vetchium.org_engagements;
+DROP TYPE IF EXISTS vetchium.org_engagement_party;
+DROP TYPE IF EXISTS vetchium.org_engagement_state;
 DROP TABLE IF EXISTS vetchium.org_listings;
 DROP TYPE IF EXISTS vetchium.org_listing_state;
 DROP TABLE IF EXISTS vetchium.capabilities;

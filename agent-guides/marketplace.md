@@ -35,7 +35,9 @@ Compose with [`hiring-pipeline.md`](hiring-pipeline.md),
   ([`federation.md`](federation.md)). Uncertain writes are `202` with an
   Orgs `PendingOperation` and `/api/orgs/operations/status`, the Hub shape
   reused. Commands carry the provider Org DID and the acting user's display
-  name for display; the authority's audit records both.
+  name for display; the authority's audit records both. An Org user has no
+  display name of their own, so the email address stands in for it, as it does
+  everywhere the Orgs portal names a user.
 - **MKT-GEN-006** Every write takes an `Idempotency-Key`, carries the
   aggregate's `version`, and writes audit in the same transaction.
 
@@ -543,6 +545,7 @@ Billable facts, each recorded by the party that owns it:
 | `org-engagement-self` | 422 | an Org cannot engage itself |
 | `org-engagement-not-found` | 404 | unknown, or not a party to it |
 | `org-engagement-state-conflict` | 409 | the action is not allowed in the current state |
+| `org-engagement-version-conflict` | 409 | the engagement changed since it was read |
 | `org-engagement-capability-mismatch` | 422 | the engagement's Capability does not perform the stage kind |
 | `org-engagement-work-not-found` | 404 | the work item is not accessible to the provider |
 | `org-conversation-limit-reached` | 429 | daily new-conversation limit reached |

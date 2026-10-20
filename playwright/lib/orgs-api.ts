@@ -49,6 +49,14 @@ import type {
   UpdatePipelineTemplateRequest,
 } from "typespec/orgs/hiring/pipelines";
 import type {
+  EndEngagementRequest,
+  EngagementTarget,
+  GetEngagementRequest,
+  ListEngagementsRequest,
+  ProposeEngagementRequest,
+  SetEngagementReferenceRequest,
+} from "typespec/orgs/marketplace/engagements";
+import type {
   CreateListingRequest,
   GetListingRequest,
   ListingTarget,
@@ -305,8 +313,112 @@ export class OrgsAPI {
     return this.post("/get-listing", request, { token });
   }
 
+  listEngagements(
+    token: string,
+    request: ListEngagementsRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-engagements", request, { token });
+  }
+
+  getEngagement(
+    token: string,
+    request: GetEngagementRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-engagement", request, { token });
+  }
+
+  proposeEngagement(
+    token: string,
+    request: ProposeEngagementRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/propose-engagement", request, { token, idempotencyKey });
+  }
+
+  withdrawEngagement(
+    token: string,
+    request: EngagementTarget,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/withdraw-engagement", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  endEngagement(
+    token: string,
+    request: EndEngagementRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/end-engagement", request, { token, idempotencyKey });
+  }
+
+  setEngagementReference(
+    token: string,
+    request: SetEngagementReferenceRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/set-engagement-reference", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  listClientEngagements(
+    token: string,
+    request: ListEngagementsRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-client-engagements", request, { token });
+  }
+
+  getClientEngagement(
+    token: string,
+    request: GetEngagementRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-client-engagement", request, { token });
+  }
+
+  acceptEngagement(
+    token: string,
+    request: EngagementTarget,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/accept-engagement", request, { token, idempotencyKey });
+  }
+
+  declineEngagement(
+    token: string,
+    request: EngagementTarget,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/decline-engagement", request, { token, idempotencyKey });
+  }
+
+  endClientEngagement(
+    token: string,
+    request: EndEngagementRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/end-client-engagement", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  setClientEngagementReference(
+    token: string,
+    request: SetEngagementReferenceRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/set-client-engagement-reference", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
   /** Sends a body that need not satisfy the contract, to observe rejection. */
-  listingWriteRaw(
+  marketplaceWriteRaw(
     path: string,
     token: string,
     body: unknown,
