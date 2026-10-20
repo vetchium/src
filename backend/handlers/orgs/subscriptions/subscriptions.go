@@ -134,6 +134,9 @@ func SetSubscriptionPlan(s *orgsruntime.Server) http.HandlerFunc {
 					LogoPlanOids: entitlements.PlanOIDs(
 						subscriptionspec.AllowsLogo,
 					),
+					ListingPlanOids: entitlements.PlanOIDs(
+						subscriptionspec.AllowsListings,
+					),
 					TenantID:       s.TenantID,
 					ActorOrgUserID: identity.UserID,
 					IdempotencyKey: pgtype.Text{

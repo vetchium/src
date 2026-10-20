@@ -2164,6 +2164,74 @@ CREATE INDEX org_opening_history_list_idx
     ON vetchium.org_opening_history
     (org_opening_id, created_at DESC, org_opening_history_id DESC);
 
+-- Marketplace Listings (agent-guides/marketplace.md): one per (provider Org,
+-- Capability). Only `listed` appears in search. There is no amount or fee
+-- column anywhere (MKT-GEN-001); the indicative price is free text. Element
+-- uniqueness and vocabularies of the arrays are the contract's to validate.
+CREATE TYPE vetchium.org_listing_state AS ENUM (
+    'draft',
+    'listed',
+    'unlisted'
+);
+
+CREATE TABLE vetchium.org_listings (
+    org_listing_id uuid PRIMARY KEY,
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    capability_oid text NOT NULL
+        REFERENCES vetchium.capabilities (capability_oid),
+    listing_state vetchium.org_listing_state NOT NULL DEFAULT 'draft',
+    version integer NOT NULL DEFAULT 1 CHECK (version >= 1),
+    headline text NOT NULL,
+    description text NOT NULL,
+    service_worldwide boolean NOT NULL,
+    service_countries text[] NOT NULL,
+    languages text[] NOT NULL,
+    indicative_price text,
+    -- Both belong to `background_check` Listings alone.
+    check_types text[] NOT NULL,
+    consent_disclosure text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_listings_headline_check CHECK (
+        headline = btrim(headline) AND char_length(headline) BETWEEN 1 AND 200
+    ),
+    CONSTRAINT org_listings_description_check CHECK (
+        description = btrim(description)
+        AND char_length(description) BETWEEN 1 AND 10000
+    ),
+    CONSTRAINT org_listings_service_check CHECK (
+        (service_worldwide AND cardinality(service_countries) = 0)
+        OR (NOT service_worldwide
+            AND cardinality(service_countries) BETWEEN 1 AND 250)
+    ),
+    CONSTRAINT org_listings_languages_check CHECK (
+        cardinality(languages) <= 20
+    ),
+    CONSTRAINT org_listings_price_check CHECK (
+        indicative_price IS NULL OR (
+            indicative_price = btrim(indicative_price)
+            AND char_length(indicative_price) BETWEEN 1 AND 500
+        )
+    ),
+    CONSTRAINT org_listings_background_check CHECK (
+        CASE WHEN capability_oid = 'background_check' THEN
+            cardinality(check_types) BETWEEN 1 AND 20
+            AND consent_disclosure IS NOT NULL
+            AND consent_disclosure = btrim(consent_disclosure)
+            AND char_length(consent_disclosure) BETWEEN 1 AND 5000
+        ELSE
+            cardinality(check_types) = 0 AND consent_disclosure IS NULL
+        END
+    ),
+    CONSTRAINT org_listings_timestamps_check CHECK (updated_at >= created_at)
+);
+CREATE UNIQUE INDEX org_listings_capability_key
+    ON vetchium.org_listings (org_did, capability_oid);
+CREATE INDEX org_listings_search_idx
+    ON vetchium.org_listings (capability_oid, org_did)
+    WHERE listing_state = 'listed';
+
 -- Hiring pipelines (agent-guides/hiring-pipeline.md). A template is a named
 -- stage list an Org copies into new Openings; editing one never changes an
 -- Opening. Stage positions are written 1..n from the submitted order.
@@ -3110,6 +3178,8 @@ DROP TYPE IF EXISTS vetchium.org_applicant_kind;
 DROP TABLE IF EXISTS vetchium.org_opening_stages;
 DROP TABLE IF EXISTS vetchium.org_pipeline_template_stages;
 DROP TABLE IF EXISTS vetchium.org_pipeline_templates;
+DROP TABLE IF EXISTS vetchium.org_listings;
+DROP TYPE IF EXISTS vetchium.org_listing_state;
 DROP TABLE IF EXISTS vetchium.capabilities;
 DROP TYPE IF EXISTS vetchium.pipeline_stage_kind;
 DROP TABLE IF EXISTS vetchium.idempotency_ledger;

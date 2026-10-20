@@ -14,6 +14,8 @@ import (
 	"backend/internal/federation/commands"
 	"backend/internal/federation/events"
 	"backend/internal/hubapplicationclient"
+	"backend/internal/listingclient"
+	"backend/internal/listings"
 	"backend/internal/profileclient"
 	"backend/internal/publicopeningclient"
 	"backend/internal/publicopenings"
@@ -54,6 +56,10 @@ type Server struct {
 	Openings       *publicopeningclient.Client
 	Applications   *hubapplicationclient.Client
 	PublicOpenings publicopenings.Reader
+	// ListingPeers reads another tenant's Listings; PublicListings this
+	// tenant's.
+	ListingPeers   *listingclient.Client
+	PublicListings listings.Reader
 	Pictures       PictureSigner
 	OfferLetters   OfferLetterSigner
 	Queries        sqlc.Querier

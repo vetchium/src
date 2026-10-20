@@ -15,10 +15,12 @@ import (
 	"backend/internal/db/sqlc"
 	"backend/internal/federation/commands"
 	"backend/internal/imagesanitize"
+	"backend/internal/listingclient"
 	"backend/internal/oidc"
 	orgai "backend/internal/orgs/ai"
 	"backend/internal/orgs/auth"
 	"backend/internal/orgs/domainverification"
+	"backend/internal/orgs/listingsearch"
 	"backend/internal/orgs/signupcompletion"
 	"backend/internal/regions"
 )
@@ -40,7 +42,13 @@ type Server struct {
 	Domains          *domainverification.Service
 	// Commands sends durable commands to other tenants' aggregates.
 	Commands *commands.Sender
-	Signup   regions.Admission
+	// Listings reads other tenants' Listings through the local relay;
+	// ListingSearch fans a search out to every tenant. ListingDeadline
+	// bounds one such read or fan-out.
+	Listings        *listingclient.Client
+	ListingSearch   listingsearch.Searcher
+	ListingDeadline time.Duration
+	Signup          regions.Admission
 	// AllowSpecialUseDomains admits signups for names such as acme.test.
 	AllowSpecialUseDomains bool
 

@@ -7,6 +7,7 @@ import (
 	orgsai "backend/handlers/orgs/ai"
 	orgsapplications "backend/handlers/orgs/applications"
 	orgsauth "backend/handlers/orgs/auth"
+	orgslistings "backend/handlers/orgs/listings"
 	orgsopenings "backend/handlers/orgs/openings"
 	orgsoperations "backend/handlers/orgs/operations"
 	orgspipelines "backend/handlers/orgs/pipelines"
@@ -96,6 +97,16 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 			s, orgsauthorization.ManageOpenings,
 		)(next)))
 	}
+	manageListings := func(next http.Handler) http.Handler {
+		return orgAuth(activeOrg(middleware.RequireOrgPermission(
+			s, orgsauthorization.ManageListings,
+		)(next)))
+	}
+	manageProviders := func(next http.Handler) http.Handler {
+		return orgAuth(activeOrg(middleware.RequireOrgPermission(
+			s, orgsauthorization.ManageProviders,
+		)(next)))
+	}
 	mux.Handle(
 		"POST /api/orgs/operations/status",
 		orgAuth(activeOrg(orgsoperations.Status(s))),
@@ -120,6 +131,14 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/delete-pipeline-template", manageOpenings(orgspipelines.DeletePipelineTemplate(s)))
 	mux.Handle("POST /api/orgs/get-opening-pipeline", manageOpenings(orgspipelines.GetOpeningPipeline(s)))
 	mux.Handle("POST /api/orgs/replace-opening-pipeline", manageOpenings(orgspipelines.ReplaceOpeningPipeline(s)))
+	mux.Handle("POST /api/orgs/list-listings", manageListings(orgslistings.ListListings(s)))
+	mux.Handle("POST /api/orgs/create-listing", manageListings(orgslistings.CreateListing(s)))
+	mux.Handle("POST /api/orgs/update-listing", manageListings(orgslistings.UpdateListing(s)))
+	mux.Handle("POST /api/orgs/publish-listing", manageListings(orgslistings.PublishListing(s)))
+	mux.Handle("POST /api/orgs/unlist-listing", manageListings(orgslistings.UnlistListing(s)))
+	mux.Handle("POST /api/orgs/delete-listing", manageListings(orgslistings.DeleteListing(s)))
+	mux.Handle("POST /api/orgs/search-listings", manageProviders(orgslistings.SearchListings(s)))
+	mux.Handle("POST /api/orgs/get-listing", manageProviders(orgslistings.GetListing(s)))
 	// Application reads are authorized in SQL by the Opening's team or
 	// org:manage_candidacies; a caller without access gets the not-found an
 	// unknown number gets.

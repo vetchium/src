@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	subscriptionspec "github.com/vetchium/src/typespec/orgs/subscriptions"
+
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
 	"backend/internal/db"
@@ -14,10 +16,13 @@ import (
 	"backend/internal/federation/eventkinds"
 	"backend/internal/federation/events"
 	"backend/internal/hubapplicationclient"
+	"backend/internal/listingclient"
+	"backend/internal/listings"
 	"backend/internal/meshapi"
 	"backend/internal/meshtls"
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
+	"backend/internal/orgs/entitlements"
 	"backend/internal/profileclient"
 	"backend/internal/publicopeningclient"
 	"backend/internal/publicopenings"
@@ -75,6 +80,9 @@ func run(log *slog.Logger, address string) error {
 	applications := hubapplicationclient.NewPeer(
 		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
 	)
+	listingPeers := listingclient.NewPeer(
+		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+	)
 	accessKey, secretKey, err := cfg.ObjectStorage.Credentials()
 	if err != nil {
 		return err
@@ -106,6 +114,12 @@ func run(log *slog.Logger, address string) error {
 		Applications: applications,
 		PublicOpenings: publicopenings.Reader{
 			Queries: sqlc.New(pool), Logos: pictures,
+		},
+		ListingPeers: listingPeers,
+		PublicListings: listings.Reader{
+			Queries: sqlc.New(pool), Logos: pictures,
+			ListingPlanOIDs: entitlements.PlanOIDs(subscriptionspec.AllowsListings),
+			LogoPlanOIDs:    entitlements.PlanOIDs(subscriptionspec.AllowsLogo),
 		},
 		Pictures:     pictures,
 		OfferLetters: pictures,

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/vetchium/src/typespec/common"
+	directoryspec "github.com/vetchium/src/typespec/directory"
 )
 
 // Region is one tenant's entry in the signup catalog. The global portals
@@ -133,4 +134,14 @@ func (c *Catalog) Region(tenant string) (Region, bool) {
 
 func isTenantID(value string) bool {
 	return tenantPattern.MatchString(value)
+}
+
+// TenantIDs lists every tenant on the mesh, in catalog order. Fan-out reads
+// ask these tenants, whether or not they accept signups.
+func (c *Catalog) TenantIDs() []directoryspec.TenantID {
+	ids := make([]directoryspec.TenantID, len(c.Regions))
+	for index, r := range c.Regions {
+		ids[index] = directoryspec.TenantID(r.TenantID)
+	}
+	return ids
 }

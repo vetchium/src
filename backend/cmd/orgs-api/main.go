@@ -14,6 +14,7 @@ import (
 	"backend/internal/dnsverify"
 	"backend/internal/federation/commandkinds"
 	"backend/internal/federation/commands"
+	"backend/internal/listingclient"
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
 	"backend/internal/oidc"
@@ -21,6 +22,7 @@ import (
 	orgai "backend/internal/orgs/ai"
 	orgsauthn "backend/internal/orgs/auth"
 	"backend/internal/orgs/domainverification"
+	"backend/internal/orgs/listingsearch"
 	"backend/internal/orgs/signupcompletion"
 	"backend/internal/regions"
 	"backend/internal/routes"
@@ -66,6 +68,10 @@ func run(log *slog.Logger, address string) error {
 	globalDirectory := directoryclient.New(
 		cfg.MeshAPIServer.BaseURL, directoryclient.MeshPrefix,
 		meshCredential, cfg.MeshAPIServer.RequestTimeout,
+	)
+	listings := listingclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
 	)
 	verification := cfg.OrgDomainVerification
 	checker := dnsverify.New(
@@ -140,7 +146,13 @@ func run(log *slog.Logger, address string) error {
 			cfg.TenantID,
 			orgsauthn.DeriveCredentialSubkey(credentialKey, "outbox"), log,
 		),
-		Commands:               federationCommands,
+		Commands: federationCommands,
+		Listings: listings,
+		ListingSearch: listingsearch.Searcher{
+			Peers: listings, Tenants: catalog.TenantIDs(),
+			Deadline: cfg.MeshAPIServer.RequestTimeout,
+		},
+		ListingDeadline:        cfg.MeshAPIServer.RequestTimeout,
 		Signup:                 cfg.OrgsAPIServer.Signup,
 		AllowSpecialUseDomains: cfg.OrgsAPIServer.AllowSpecialUseDomains,
 		TenantID:               cfg.TenantID,

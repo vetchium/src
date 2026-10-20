@@ -49,6 +49,14 @@ import type {
   UpdatePipelineTemplateRequest,
 } from "typespec/orgs/hiring/pipelines";
 import type {
+  CreateListingRequest,
+  GetListingRequest,
+  ListingTarget,
+  ListListingsRequest,
+  SearchListingsRequest,
+  UpdateListingRequest,
+} from "typespec/orgs/marketplace/listings";
+import type {
   CreateOpeningRequest,
   DecideOpeningRequestRequest,
   DiscardOpeningRequest,
@@ -237,6 +245,74 @@ export class OrgsAPI {
       token,
       idempotencyKey,
     });
+  }
+
+  listListings(
+    token: string,
+    request: ListListingsRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-listings", request, { token });
+  }
+
+  createListing(
+    token: string,
+    request: CreateListingRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/create-listing", request, { token, idempotencyKey });
+  }
+
+  updateListing(
+    token: string,
+    request: UpdateListingRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/update-listing", request, { token, idempotencyKey });
+  }
+
+  publishListing(
+    token: string,
+    request: ListingTarget,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/publish-listing", request, { token, idempotencyKey });
+  }
+
+  unlistListing(
+    token: string,
+    request: ListingTarget,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/unlist-listing", request, { token, idempotencyKey });
+  }
+
+  deleteListing(
+    token: string,
+    request: ListingTarget,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/delete-listing", request, { token, idempotencyKey });
+  }
+
+  searchListings(
+    token: string,
+    request: SearchListingsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/search-listings", request, { token });
+  }
+
+  getListing(token: string, request: GetListingRequest): Promise<APIResponse> {
+    return this.post("/get-listing", request, { token });
+  }
+
+  /** Sends a body that need not satisfy the contract, to observe rejection. */
+  listingWriteRaw(
+    path: string,
+    token: string,
+    body: unknown,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post(path, body, { token, idempotencyKey });
   }
 
   getOpeningPipeline(

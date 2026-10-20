@@ -172,7 +172,9 @@ Seeded Capability OIDs, identical in every tenant:
   case-folded provider display name, then domain, with a composite keyset
   cursor (at most 50). A tenant that does not answer is omitted and the
   response names it as unavailable, so the portal can say results are
-  incomplete. Never cache another tenant's Listings.
+  incomplete. Never cache another tenant's Listings. Every tenant on the
+  mesh is a tenant in the region catalog (`signupRegionsFile`) that each
+  tenant program already loads, whether or not it accepts signups.
 - **MKT-DIR-003** Listing detail shows the provider's display name, domain,
   logo (when its plan allows one), country, and the Listing fields.
 
@@ -534,6 +536,9 @@ Billable facts, each recorded by the party that owns it:
 | `org-listing-plan-required` | 403 | the plan does not allow Listings |
 | `org-listing-not-available` | 409 | the Listing is not listed or its provider cannot take engagements |
 | `org-listing-not-found` | 404 | unknown (domain, Capability) |
+| `org-listing-exists` | 409 | the Org already has a Listing for the Capability |
+| `org-listing-version-conflict` | 409 | the Listing changed since it was read |
+| `org-listing-state-conflict` | 409 | the Listing's state does not allow the action (publishing a `listed` Listing; unlisting a Listing that is not `listed`; deleting one that is not a `draft`) |
 | `org-engagement-exists` | 409 | a non-terminal engagement exists for the pair and Capability |
 | `org-engagement-self` | 422 | an Org cannot engage itself |
 | `org-engagement-not-found` | 404 | unknown, or not a party to it |
