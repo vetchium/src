@@ -483,7 +483,8 @@ test("result vocabularies match the contract and reject unknown values", () => {
   assert.equal(isConsentState("ended"), true);
   assert.equal(isConsentState("x"), false);
   assert.equal(isWorkPerformer("org"), true);
-  assert.equal(isWorkPerformer("provider"), false);
+  assert.equal(isWorkPerformer("provider"), true);
+  assert.equal(isWorkPerformer("stranger"), false);
   assert.equal(isPendingApplicantAction("background_check_consent"), true);
 });
 

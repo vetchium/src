@@ -161,15 +161,15 @@ WITH changed AS (
     RETURNING a.org_application_id
 ), placed AS (
     INSERT INTO vetchium.org_application_routes (
-        org_application_id, assignment_id, consent_disclosure,
+        org_application_id, route_id, assignment_id, consent_disclosure,
         listing_check_types, routed_by
     )
-    SELECT changed.org_application_id, sqlc.arg(assignment_id),
+    SELECT changed.org_application_id, gen_random_uuid(), sqlc.arg(assignment_id),
         sqlc.narg(consent_disclosure), COALESCE(sqlc.arg(listing_check_types)::text[], '{}'),
         sqlc.arg(actor_id)::uuid
     FROM changed
     ON CONFLICT (org_application_id) DO UPDATE
-    SET assignment_id = EXCLUDED.assignment_id,
+    SET route_id = EXCLUDED.route_id, assignment_id = EXCLUDED.assignment_id,
         consent_disclosure = EXCLUDED.consent_disclosure,
         listing_check_types = EXCLUDED.listing_check_types,
         routed_by = EXCLUDED.routed_by, routed_at = now()

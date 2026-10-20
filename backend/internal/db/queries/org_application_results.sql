@@ -53,6 +53,7 @@ SELECT (SELECT count(*) FROM changed) AS changed_rows,
 -- (requested or given), with the types already recorded.
 -- name: GetOrgBackgroundCheckForWrite :one
 SELECT b.org_background_check_id, b.consent_state, b.check_types,
+    b.performer_engagement_id,
     COALESCE((
         SELECT array_agg(r.check_type ORDER BY r.check_type)
         FROM vetchium.org_background_check_results AS r
@@ -92,7 +93,8 @@ WITH changed AS (
 ), created AS (
     INSERT INTO vetchium.org_background_checks (
         org_background_check_id, org_application_id, check_number,
-        org_opening_stage_id, check_types, requested_by
+        org_opening_stage_id, check_types, requested_by,
+        performer_engagement_id, consent_disclosure
     )
     SELECT sqlc.arg(check_id), changed.org_application_id,
         COALESCE((
@@ -101,7 +103,8 @@ WITH changed AS (
             WHERE b.org_application_id = changed.org_application_id
         ), 0) + 1,
         changed.current_stage_id, sqlc.arg(check_types)::text[],
-        sqlc.arg(actor_id)
+        sqlc.arg(actor_id), sqlc.narg(performer_engagement_id)::uuid,
+        sqlc.narg(consent_disclosure)::text
     FROM changed
     RETURNING check_number
 )

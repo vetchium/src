@@ -1602,6 +1602,7 @@ export const de = {
       actors: {
         applicant: "Bewerber",
         org_user: "Organisationsmitglied",
+        provider: "Dienstleister",
         system: "System",
       },
       actions: {

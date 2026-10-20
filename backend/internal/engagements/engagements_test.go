@@ -132,7 +132,7 @@ func TestDecodeStrictRejectsWhatWillNeverSucceed(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var body federationspec.EngagementActorPayload
-			if got := decodeStrict(test.command, &body) != nil; got != test.reject {
+			if got := commands.DecodeStrict(test.command, &body) != nil; got != test.reject {
 				t.Fatalf("rejected = %t, want %t", got, test.reject)
 			}
 		})

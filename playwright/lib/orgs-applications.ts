@@ -6,20 +6,24 @@ import type {
 } from "typespec/orgs/applications/applications";
 import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import type { OrgOpening } from "typespec/orgs/openings/types";
-import { sqlLiteral } from "./admin-db.ts";
+import { sqlLiteral, type TestTenant } from "./admin-db.ts";
 import { type OrgsAPI, orgDID, orgSQL, type SignedUpOrg } from "./orgs-api.ts";
 
 type Api = OrgsAPI;
 
 /** Removes the outbox events the Org's applications queued for their
  * (fixture) applicants, which nothing delivers to, before the Org goes. */
-export function cleanupOutbox(domain: string): void {
-  const did = orgDID(domain);
+export function cleanupOutbox(
+  domain: string,
+  tenant: TestTenant = "sgp",
+): void {
+  const did = orgDID(domain, tenant);
   if (did === "") return;
   orgSQL(
     `DELETE FROM vetchium.federation_outbox
      WHERE aggregate_type = 'org_application'
        AND aggregate_id LIKE ${sqlLiteral(`${did}:%`)}`,
+    tenant,
   );
 }
 

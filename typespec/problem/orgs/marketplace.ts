@@ -109,3 +109,10 @@ export const EngagementCapabilityMismatchError: Readonly<Details> = {
   status: 422,
   detail: "The engagement's Capability does not perform the stage kind",
 };
+
+export const EngagementWorkNotFoundError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-engagement-work-not-found",
+  title: "Org engagement work not found",
+  status: 404,
+  detail: "The work item is not accessible to the provider",
+};

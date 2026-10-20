@@ -208,38 +208,70 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
             'location', i.location, 'state', i.interview_state,
             'applicant_response', i.applicant_response,
             'reschedule_note', i.reschedule_note,
+            'provider', (SELECT jsonb_build_object('domain', pe.provider_domain,
+                'display_name', pe.provider_display_name)
+             FROM vetchium.org_engagements AS pe
+             WHERE pe.engagement_id = i.performer_engagement_id),
             'interviewers', COALESCE((
-                SELECT jsonb_agg(jsonb_build_object(
-                    'email', u.email_address,
-                    'feedback_submitted', f.org_user_id IS NOT NULL
-                ) ORDER BY u.email_address)
-                FROM vetchium.org_interview_interviewers AS iv
-                JOIN vetchium.org_users AS u ON u.org_user_id = iv.org_user_id
-                LEFT JOIN vetchium.org_interview_feedback AS f
-                    ON f.org_interview_id = iv.org_interview_id
-                   AND f.org_user_id = iv.org_user_id
-                WHERE iv.org_interview_id = i.org_interview_id
+                SELECT jsonb_agg(x.entry ORDER BY x.email)
+                FROM (
+                    SELECT u.email_address AS email,
+                        jsonb_build_object('email', u.email_address,
+                            'feedback_submitted', f.org_user_id IS NOT NULL
+                        ) AS entry
+                    FROM vetchium.org_interview_interviewers AS iv
+                    JOIN vetchium.org_users AS u
+                        ON u.org_user_id = iv.org_user_id
+                    LEFT JOIN vetchium.org_interview_feedback AS f
+                        ON f.org_interview_id = iv.org_interview_id
+                       AND f.org_user_id = iv.org_user_id
+                    WHERE iv.org_interview_id = i.org_interview_id
+                    UNION ALL
+                    SELECT piv.interviewer_email,
+                        jsonb_build_object('email', piv.interviewer_email,
+                            'feedback_submitted', pf.interviewer_email IS NOT NULL
+                        )
+                    FROM vetchium.org_provider_interview_interviewers AS piv
+                    LEFT JOIN vetchium.org_provider_interview_feedback AS pf
+                        ON pf.org_interview_id = piv.org_interview_id
+                       AND pf.interviewer_email = piv.interviewer_email
+                    WHERE piv.org_interview_id = i.org_interview_id
+                ) AS x
             ), '[]'::jsonb),
             'feedback', COALESCE((
-                SELECT jsonb_agg(jsonb_build_object(
-                    'interviewer_email', fu.email_address,
-                    'recommendation', fb.recommendation,
-                    'notes', fb.notes, 'submitted_at', fb.submitted_at
-                ) ORDER BY fb.submitted_at, fu.email_address)
-                FROM vetchium.org_interview_feedback AS fb
-                JOIN vetchium.org_users AS fu ON fu.org_user_id = fb.org_user_id
-                WHERE fb.org_interview_id = i.org_interview_id
-                  AND (fb.org_user_id = sqlc.arg(viewer_id) OR NOT EXISTS (
-                      SELECT 1
-                      FROM vetchium.org_interview_interviewers AS me
-                      WHERE me.org_interview_id = i.org_interview_id
-                        AND me.org_user_id = sqlc.arg(viewer_id)
-                        AND NOT EXISTS (
-                            SELECT 1 FROM vetchium.org_interview_feedback AS own
-                            WHERE own.org_interview_id = me.org_interview_id
-                              AND own.org_user_id = me.org_user_id
-                        )
-                  ))
+                SELECT jsonb_agg(x.entry ORDER BY x.submitted_at, x.email)
+                FROM (
+                    SELECT fb.submitted_at, fu.email_address AS email,
+                        jsonb_build_object(
+                            'interviewer_email', fu.email_address,
+                            'recommendation', fb.recommendation,
+                            'notes', fb.notes,
+                            'submitted_at', fb.submitted_at) AS entry
+                    FROM vetchium.org_interview_feedback AS fb
+                    JOIN vetchium.org_users AS fu
+                        ON fu.org_user_id = fb.org_user_id
+                    WHERE fb.org_interview_id = i.org_interview_id
+                      AND (fb.org_user_id = sqlc.arg(viewer_id) OR NOT EXISTS (
+                          SELECT 1
+                          FROM vetchium.org_interview_interviewers AS me
+                          WHERE me.org_interview_id = i.org_interview_id
+                            AND me.org_user_id = sqlc.arg(viewer_id)
+                            AND NOT EXISTS (
+                                SELECT 1 FROM vetchium.org_interview_feedback AS own
+                                WHERE own.org_interview_id = me.org_interview_id
+                                  AND own.org_user_id = me.org_user_id
+                            )
+                      ))
+                    UNION ALL
+                    SELECT pfb.submitted_at, pfb.interviewer_email,
+                        jsonb_build_object(
+                            'interviewer_email', pfb.interviewer_email,
+                            'recommendation', pfb.recommendation,
+                            'notes', pfb.notes,
+                            'submitted_at', pfb.submitted_at)
+                    FROM vetchium.org_provider_interview_feedback AS pfb
+                    WHERE pfb.org_interview_id = i.org_interview_id
+                ) AS x
             ), '[]'::jsonb)
         ) ORDER BY i.starts_at, i.interview_number)
         FROM vetchium.org_interviews AS i
@@ -254,8 +286,13 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
             'stage', jsonb_build_object('id', s.org_opening_stage_id,
                 'name', s.name, 'kind', s.stage_kind),
             'outcome', x.outcome, 'score', x.score, 'notes', x.notes,
-            'report_url', x.report_url, 'recorded_by_email', u.email_address,
-            'recorded_at', x.recorded_at
+            'report_url', x.report_url,
+            'recorded_by_email', COALESCE(u.email_address, x.recorded_by_email),
+            'recorded_at', x.recorded_at,
+            'provider', (SELECT jsonb_build_object('domain', pe.provider_domain,
+                'display_name', pe.provider_display_name)
+             FROM vetchium.org_engagements AS pe
+             WHERE pe.engagement_id = x.performer_engagement_id)
         ) ORDER BY s.position)
         FROM vetchium.org_application_assessments AS x
         JOIN vetchium.org_opening_stages AS s
@@ -271,13 +308,21 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
             'stage', jsonb_build_object('id', s.org_opening_stage_id,
                 'name', s.name, 'kind', s.stage_kind),
             'consent_state', b.consent_state,
-            'check_types', to_jsonb(b.check_types), 'performer', 'org',
+            'check_types', to_jsonb(b.check_types),
+            'performer', CASE WHEN b.performer_engagement_id IS NULL
+                THEN 'org' ELSE 'provider' END,
+            'provider', (SELECT jsonb_build_object('domain', pe.provider_domain,
+                'display_name', pe.provider_display_name)
+             FROM vetchium.org_engagements AS pe
+             WHERE pe.engagement_id = b.performer_engagement_id),
+            'consent_disclosure', b.consent_disclosure,
             'requested_at', b.requested_at, 'responded_at', b.responded_at,
             'results', COALESCE((
                 SELECT jsonb_agg(jsonb_build_object(
                     'check_type', r.check_type, 'outcome', r.outcome,
                     'notes', r.notes, 'report_url', r.report_url,
-                    'recorded_by_email', ru.email_address,
+                    'recorded_by_email',
+                        COALESCE(ru.email_address, r.recorded_by_email),
                     'recorded_at', r.recorded_at
                 ) ORDER BY r.recorded_at, r.check_type)
                 FROM vetchium.org_background_check_results AS r
@@ -521,7 +566,14 @@ SELECT d.domain::text AS org_domain, org.display_name AS org_display_name,
     -- the stage it belongs to are the Org's alone.
     (
         SELECT jsonb_build_object('check_number', b.check_number,
-            'check_types', to_jsonb(b.check_types), 'performer', 'org',
+            'check_types', to_jsonb(b.check_types),
+            'performer', CASE WHEN b.performer_engagement_id IS NULL
+                THEN 'org' ELSE 'provider' END,
+            'provider', (SELECT jsonb_build_object('domain', pe.provider_domain,
+                'display_name', pe.provider_display_name)
+             FROM vetchium.org_engagements AS pe
+             WHERE pe.engagement_id = b.performer_engagement_id),
+            'disclosure', b.consent_disclosure,
             'requested_at', b.requested_at)
         FROM vetchium.org_background_checks AS b
         WHERE b.org_application_id = a.org_application_id
@@ -537,7 +589,11 @@ SELECT d.domain::text AS org_domain, org.display_name AS org_display_name,
             'mode', i.interview_mode, 'video_url', i.video_url,
             'location', i.location,
             'response', i.applicant_response,
-            'reschedule_note', i.reschedule_note
+            'reschedule_note', i.reschedule_note,
+            'provider', (SELECT jsonb_build_object('domain', pe.provider_domain,
+                'display_name', pe.provider_display_name)
+             FROM vetchium.org_engagements AS pe
+             WHERE pe.engagement_id = i.performer_engagement_id)
         ) ORDER BY i.starts_at, i.interview_number)
         FROM vetchium.org_interviews AS i
         WHERE i.org_application_id = a.org_application_id

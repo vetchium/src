@@ -24,10 +24,12 @@ import (
 	"backend/internal/objectstorage"
 	"backend/internal/orgs/entitlements"
 	"backend/internal/profileclient"
+	"backend/internal/providerwork"
 	"backend/internal/publicopeningclient"
 	"backend/internal/publicopenings"
 	"backend/internal/routes"
 	"backend/internal/service"
+	"backend/internal/workclient"
 )
 
 func main() {
@@ -83,6 +85,9 @@ func run(log *slog.Logger, address string) error {
 	listingPeers := listingclient.NewPeer(
 		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
 	)
+	workPeers := workclient.NewPeer(
+		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+	)
 	accessKey, secretKey, err := cfg.ObjectStorage.Credentials()
 	if err != nil {
 		return err
@@ -116,6 +121,8 @@ func run(log *slog.Logger, address string) error {
 			Queries: sqlc.New(pool), Logos: pictures,
 		},
 		ListingPeers: listingPeers,
+		WorkPeers:    workPeers,
+		ProviderWork: providerwork.Reader{Queries: sqlc.New(pool)},
 		PublicListings: listings.Reader{
 			Queries: sqlc.New(pool), Logos: pictures,
 			ListingPlanOIDs: entitlements.PlanOIDs(subscriptionspec.AllowsListings),

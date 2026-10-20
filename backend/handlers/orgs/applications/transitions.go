@@ -48,6 +48,9 @@ type transition struct {
 	// reach apply, which then decides permission from the interview itself
 	// (HP-AUTH-003).
 	interviewerMayAct bool
+	// inHouse marks work a provider performs on a routed stage; the Org
+	// refuses it while the candidacy is routed (MKT-WRK-001).
+	inHouse bool
 	// check refuses a state or an input the locked application cannot take;
 	// nil refuses nothing.
 	check func(locked sqlc.LockOrgApplicationForWriteRow, now time.Time) problem.Body
@@ -113,6 +116,10 @@ func (t transition) run(
 			if locked.Version != int32(t.version) {
 				return handlerauth.Failure[applications.ApplicationDetail](
 					orgsproblem.ApplicationVersionConflictError)
+			}
+			if t.inHouse && locked.Routed {
+				return handlerauth.Failure[applications.ApplicationDetail](
+					orgsproblem.ApplicationStateConflictError)
 			}
 			if t.check != nil {
 				if details := t.check(locked, now); details != nil {

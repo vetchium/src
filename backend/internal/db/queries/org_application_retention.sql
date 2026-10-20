@@ -63,6 +63,18 @@ WITH removed AS (
     WHERE iv.org_interview_id = i.org_interview_id
       AND i.org_application_id = removed.org_application_id
     RETURNING iv.org_interview_id
+), provider_feedback AS (
+    DELETE FROM vetchium.org_provider_interview_feedback AS f
+    USING vetchium.org_interviews AS i, removed
+    WHERE f.org_interview_id = i.org_interview_id
+      AND i.org_application_id = removed.org_application_id
+    RETURNING f.org_interview_id
+), provider_interviewers AS (
+    DELETE FROM vetchium.org_provider_interview_interviewers AS iv
+    USING vetchium.org_interviews AS i, removed
+    WHERE iv.org_interview_id = i.org_interview_id
+      AND i.org_application_id = removed.org_application_id
+    RETURNING iv.org_interview_id
 ), interviews AS (
     DELETE FROM vetchium.org_interviews AS i
     USING removed

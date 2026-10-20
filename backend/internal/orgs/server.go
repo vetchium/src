@@ -22,7 +22,9 @@ import (
 	"backend/internal/orgs/listingread"
 	"backend/internal/orgs/listingsearch"
 	"backend/internal/orgs/signupcompletion"
+	"backend/internal/orgs/workfanout"
 	"backend/internal/regions"
+	"backend/internal/workclient"
 )
 
 // Directory is the part of the global directory orgs-api reads directly;
@@ -48,7 +50,11 @@ type Server struct {
 	ListingRead     listingread.Reader
 	ListingSearch   listingsearch.Searcher
 	ListingDeadline time.Duration
-	Signup          regions.Admission
+	// WorkRelay reads one client tenant's work for the provider; WorkFanout
+	// merges the answers of every tenant.
+	WorkRelay  *workclient.Client
+	WorkFanout workfanout.Fanout
+	Signup     regions.Admission
 	// AllowSpecialUseDomains admits signups for names such as acme.test.
 	AllowSpecialUseDomains bool
 

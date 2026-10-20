@@ -2,6 +2,7 @@ package federation
 
 import (
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -114,5 +115,62 @@ func TestEngagementPayloadValidation(t *testing.T) {
 	ref.Reference = nil
 	if got := ref.Validate(); len(got) != 0 {
 		t.Fatalf("clearing a reference must be valid: %v", got)
+	}
+}
+
+func TestWorkCommandKinds(t *testing.T) {
+	t.Parallel()
+	kinds := []CommandKind{
+		WorkScheduleInterviewKind, WorkChangeInterviewKind, WorkCancelInterviewKind,
+		WorkInterviewOutcomeKind, WorkInterviewFeedbackKind, WorkAssessmentKind,
+		WorkBackgroundCheckResultKind,
+	}
+	seen := map[CommandKind]bool{}
+	for _, kind := range kinds {
+		if seen[kind] || !strings.HasPrefix(string(kind), "work-") {
+			t.Fatalf("%q is duplicated or not a work kind", kind)
+		}
+		seen[kind] = true
+	}
+}
+
+func TestWorkPayloadValidation(t *testing.T) {
+	t.Parallel()
+	actor := WorkActor{
+		EngagementID:   "01900000-0000-7000-8000-000000000001",
+		WorkID:         "01900000-0000-7000-8000-0000000000aa",
+		ProviderOrgDID: "01900000-0000-7000-8000-000000000002",
+		ActorEmail:     " Ada@Acme.Test ",
+	}
+	actor.Normalize()
+	if actor.ActorEmail != "ada@acme.test" {
+		t.Fatalf("actor email = %q", actor.ActorEmail)
+	}
+	if got := actor.Validate(); len(got) != 0 {
+		t.Fatalf("fields = %v", got)
+	}
+	if got := (WorkActor{}).Validate(); !slices.Equal(got,
+		[]string{"engagement_id", "work_id", "provider_org_did", "actor_email"}) {
+		t.Fatalf("fields = %v", got)
+	}
+	outcome := WorkInterviewOutcomePayload{WorkActor: actor, InterviewNumber: 1, Outcome: "late"}
+	if got := outcome.Validate(); !slices.Equal(got, []string{"outcome"}) {
+		t.Fatalf("fields = %v", got)
+	}
+	outcome.Outcome = "completed"
+	if got := outcome.Validate(); len(got) != 0 {
+		t.Fatalf("fields = %v", got)
+	}
+	reference := WorkInterviewReferencePayload{WorkActor: actor, InterviewNumber: 0}
+	if got := reference.Validate(); !slices.Equal(got, []string{"interview_number"}) {
+		t.Fatalf("fields = %v", got)
+	}
+	check := WorkBackgroundCheckResultPayload{WorkActor: actor, CheckType: "x", Outcome: "clear"}
+	if got := check.Validate(); !slices.Equal(got, []string{"check_type"}) {
+		t.Fatalf("fields = %v", got)
+	}
+	assessment := WorkAssessmentPayload{WorkActor: actor, Outcome: "pass"}
+	if got := assessment.Validate(); len(got) != 0 {
+		t.Fatalf("fields = %v", got)
 	}
 }

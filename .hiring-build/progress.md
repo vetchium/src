@@ -1,6 +1,6 @@
 # Hiring and marketplace build progress
 
-current: T21
+current: T22
 phase: implement
 
 ## Tasks
@@ -25,7 +25,7 @@ T17 done Hiring: Development fixtures and full verification
 T18 done Marketplace: Listings and provider search
 T19 done Marketplace: Engagements
 T20 done Marketplace: Assignment and routing
-T21 todo Marketplace: Provider access, stage work, Work queue, and Jobs
+T21 done Marketplace: Provider access, stage work, Work queue, and Jobs
 T22 todo Marketplace: Agency Contacts, notes, and profile view
 T23 todo Marketplace: Agency conversations and Hub messages
 T24 todo Marketplace: Sourcing attribution and credited applications

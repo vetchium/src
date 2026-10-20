@@ -123,3 +123,10 @@ var EngagementCapabilityMismatchError = problem.Details{
 	Status: 422,
 	Detail: "The engagement's Capability does not perform the stage kind",
 }
+
+var EngagementWorkNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-engagement-work-not-found",
+	Title:  "Org engagement work not found",
+	Status: 404,
+	Detail: "The work item is not accessible to the provider",
+}

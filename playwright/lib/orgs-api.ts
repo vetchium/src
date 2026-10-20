@@ -71,6 +71,19 @@ import type {
   UpdateListingRequest,
 } from "typespec/orgs/marketplace/listings";
 import type {
+  ChangeInterviewRequest as ChangeWorkInterviewRequest,
+  JobReference,
+  ListJobsRequest,
+  ListWorkQueueRequest,
+  RecordAssessmentRequest as RecordWorkAssessmentRequest,
+  RecordBackgroundCheckResultRequest as RecordWorkBackgroundCheckResultRequest,
+  RecordInterviewOutcomeRequest as RecordWorkInterviewOutcomeRequest,
+  ScheduleInterviewRequest as ScheduleWorkInterviewRequest,
+  SubmitInterviewFeedbackRequest as SubmitWorkInterviewFeedbackRequest,
+  InterviewReference as WorkInterviewReference,
+  WorkReference,
+} from "typespec/orgs/marketplace/work/work";
+import type {
   CreateOpeningRequest,
   DecideOpeningRequestRequest,
   DiscardOpeningRequest,
@@ -458,6 +471,102 @@ export class OrgsAPI {
     idempotencyKey: string = orgsIdempotencyKey(),
   ): Promise<APIResponse> {
     return this.post("/route-application", request, { token, idempotencyKey });
+  }
+
+  listWorkQueue(
+    token: string,
+    request: ListWorkQueueRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-work-queue", request, { token });
+  }
+
+  getWorkItem(token: string, request: WorkReference): Promise<APIResponse> {
+    return this.post("/get-work-item", request, { token });
+  }
+
+  listJobs(token: string, request: ListJobsRequest): Promise<APIResponse> {
+    return this.post("/list-jobs", request, { token });
+  }
+
+  getJob(token: string, request: JobReference): Promise<APIResponse> {
+    return this.post("/get-job", request, { token });
+  }
+
+  scheduleWorkInterview(
+    token: string,
+    request: ScheduleWorkInterviewRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/schedule-work-interview", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  changeWorkInterview(
+    token: string,
+    request: ChangeWorkInterviewRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/change-work-interview", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  cancelWorkInterview(
+    token: string,
+    request: WorkInterviewReference,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/cancel-work-interview", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordWorkInterviewOutcome(
+    token: string,
+    request: RecordWorkInterviewOutcomeRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-work-interview-outcome", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  submitWorkInterviewFeedback(
+    token: string,
+    request: SubmitWorkInterviewFeedbackRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/submit-work-interview-feedback", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordWorkAssessment(
+    token: string,
+    request: RecordWorkAssessmentRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-work-assessment", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordWorkBackgroundCheckResult(
+    token: string,
+    request: RecordWorkBackgroundCheckResultRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-work-background-check-result", request, {
+      token,
+      idempotencyKey,
+    });
   }
 
   /** Sends a body that need not satisfy the contract, to observe rejection. */

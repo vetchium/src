@@ -83,3 +83,43 @@ func MarkClosedOpeningNotProgressing(
 	}
 	return len(ids), nil
 }
+
+// ProviderChange describes one action a provider performed on a routed
+// candidacy. The provider appears in history as an actor kind of its own and
+// in the audit event by its Org and its user's email address.
+type ProviderChange struct {
+	Action          sqlc.VetchiumOrgApplicationHistoryAction
+	StageID         pgtype.UUID
+	InterviewNumber pgtype.Int4
+	TenantID        string
+	// CommandID correlates the audit event with the provider's command.
+	CommandID      string
+	EngagementID   pgtype.UUID
+	ProviderOrgDID pgtype.UUID
+	ActorEmail     string
+}
+
+// RecordProvider appends the history entry and audit event of a provider's
+// action on applicationID and enqueues its Hub projection event, in the
+// transaction that changed the application.
+func RecordProvider(
+	ctx context.Context, q sqlc.Querier, applicationID pgtype.UUID,
+	change ProviderChange,
+) error {
+	row, err := q.RecordProviderApplicationChange(ctx,
+		sqlc.RecordProviderApplicationChangeParams{
+			ApplicationID: applicationID, Action: string(change.Action),
+			StageID: change.StageID, InterviewNumber: change.InterviewNumber,
+			TenantID: change.TenantID, ProviderOrgDid: change.ProviderOrgDID,
+			ActorEmail: change.ActorEmail, CommandID: change.CommandID,
+			EngagementID: change.EngagementID,
+		})
+	if err != nil {
+		return fmt.Errorf("record provider application change: %w", err)
+	}
+	if row.SubjectRows != 1 || row.HistoryRows != 1 || row.AuditRows != 1 {
+		return fmt.Errorf("incomplete provider application change record")
+	}
+	return hubapplications.EnqueueNotifiedChanges(ctx, q,
+		[]pgtype.UUID{applicationID}, hubapplications.NoticeFor(change.Action))
+}

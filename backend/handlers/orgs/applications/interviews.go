@@ -99,7 +99,7 @@ func ScheduleInterview(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
 		transition{
-			operation: "orgs:schedule-interview", request: request,
+			operation: "orgs:schedule-interview", request: request, inHouse: true,
 			opening: request.OpeningNumber, number: request.ApplicationNumber,
 			version: request.Version,
 			check: func(locked sqlc.LockOrgApplicationForWriteRow, now time.Time) problem.Body {
@@ -171,7 +171,7 @@ func ChangeInterview(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
 		transition{
-			operation: "orgs:change-interview", request: request,
+			operation: "orgs:change-interview", request: request, inHouse: true,
 			opening: request.OpeningNumber, number: request.ApplicationNumber,
 			version: request.Version,
 			check: func(locked sqlc.LockOrgApplicationForWriteRow, _ time.Time) problem.Body {
@@ -227,7 +227,7 @@ func CancelInterview(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
 		transition{
-			operation: "orgs:cancel-interview", request: request,
+			operation: "orgs:cancel-interview", request: request, inHouse: true,
 			opening: request.OpeningNumber, number: request.ApplicationNumber,
 			version: request.Version,
 			check: func(locked sqlc.LockOrgApplicationForWriteRow, _ time.Time) problem.Body {
@@ -272,7 +272,7 @@ func RecordInterviewOutcome(s *orgsruntime.Server) http.HandlerFunc {
 			action = sqlc.VetchiumOrgApplicationHistoryActionInterviewNoShow
 		}
 		transition{
-			operation: "orgs:record-interview-outcome", request: request,
+			operation: "orgs:record-interview-outcome", request: request, inHouse: true,
 			opening: request.OpeningNumber, number: request.ApplicationNumber,
 			version: request.Version, interviewerMayAct: true,
 			apply: func(ctx context.Context, q *sqlc.Queries, locked sqlc.LockOrgApplicationForWriteRow, _ time.Time) (change, bool, error) {
@@ -319,7 +319,7 @@ func SubmitInterviewFeedback(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
 		transition{
-			operation: "orgs:submit-interview-feedback", request: request,
+			operation: "orgs:submit-interview-feedback", request: request, inHouse: true,
 			opening: request.OpeningNumber, number: request.ApplicationNumber,
 			version: request.Version, interviewerMayAct: true,
 			apply: func(ctx context.Context, q *sqlc.Queries, locked sqlc.LockOrgApplicationForWriteRow, _ time.Time) (change, bool, error) {

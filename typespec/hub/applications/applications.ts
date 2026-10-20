@@ -25,6 +25,7 @@ import {
   type WorkPerformer,
 } from "../../orgs/applications/applications.ts";
 import type { CheckType } from "../../orgs/hiring/vocabulary.ts";
+import type { EngagementCounterparty } from "../../orgs/marketplace/engagements.ts";
 import type { OpeningNumber } from "../../orgs/openings/types.ts";
 import {
   isOrgDomain,
@@ -122,6 +123,8 @@ export interface MyApplicationInterview {
   location?: InterviewLocation;
   response: InterviewResponse;
   reschedule_note?: InterviewRescheduleNote;
+  /** The provider holding the interview for the Org; absent when in-house. */
+  provider?: EngagementCounterparty;
 }
 
 /** The consent request awaiting the applicant. */
@@ -129,6 +132,9 @@ export interface MyBackgroundCheckConsent {
   check_number: BackgroundCheckNumber;
   check_types: CheckType[];
   performer: WorkPerformer;
+  /** The provider performing the checks, with the text it asks the applicant to consent to. */
+  provider?: EngagementCounterparty;
+  disclosure?: string;
   requested_at: string;
 }
 

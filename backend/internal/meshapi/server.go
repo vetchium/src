@@ -17,8 +17,10 @@ import (
 	"backend/internal/listingclient"
 	"backend/internal/listings"
 	"backend/internal/profileclient"
+	"backend/internal/providerwork"
 	"backend/internal/publicopeningclient"
 	"backend/internal/publicopenings"
+	"backend/internal/workclient"
 )
 
 type PictureSigner interface {
@@ -60,12 +62,16 @@ type Server struct {
 	// tenant's.
 	ListingPeers   *listingclient.Client
 	PublicListings listings.Reader
-	Pictures       PictureSigner
-	OfferLetters   OfferLetterSigner
-	Queries        sqlc.Querier
-	Credential     string
-	Commands       *commands.Executor
-	CommandPeers   CommandPeers
-	Events         *events.Receiver
-	EventPeers     EventPeers
+	// WorkPeers reads another tenant's provider work; ProviderWork answers
+	// this tenant's own.
+	WorkPeers    *workclient.Client
+	ProviderWork providerwork.Reader
+	Pictures     PictureSigner
+	OfferLetters OfferLetterSigner
+	Queries      sqlc.Querier
+	Credential   string
+	Commands     *commands.Executor
+	CommandPeers CommandPeers
+	Events       *events.Receiver
+	EventPeers   EventPeers
 }

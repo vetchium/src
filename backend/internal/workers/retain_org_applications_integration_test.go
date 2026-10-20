@@ -193,6 +193,21 @@ func (w *retentionWorld) application(
 			w.userID); err != nil {
 			t.Fatal(err)
 		}
+		// A provider's interviewer and feedback are applicant content too.
+		if _, err := w.owner.Exec(ctx, `INSERT INTO
+            vetchium.org_provider_interview_interviewers
+            (org_interview_id, interviewer_email)
+            VALUES ($1, 'provider-interviewer@agency.test')`,
+			interviewID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.owner.Exec(ctx, `INSERT INTO
+            vetchium.org_provider_interview_feedback (org_interview_id,
+                interviewer_email, recommendation, notes)
+            VALUES ($1, 'provider-interviewer@agency.test', 'no',
+                'Provider notes')`, interviewID); err != nil {
+			t.Fatal(err)
+		}
 	}
 	for _, statement := range []string{
 		`INSERT INTO vetchium.org_application_assessments (org_application_id,
@@ -337,6 +352,14 @@ func TestRetainApplicationDeletesPersonalDataAndKeepsFacts(t *testing.T) {
             WHERE org_application_id = $1`,
 		"org_interview_feedback": `SELECT count(*)::text
             FROM vetchium.org_interview_feedback
+            JOIN vetchium.org_interviews USING (org_interview_id)
+            WHERE org_application_id = $1`,
+		"org_provider_interview_interviewers": `SELECT count(*)::text
+            FROM vetchium.org_provider_interview_interviewers
+            JOIN vetchium.org_interviews USING (org_interview_id)
+            WHERE org_application_id = $1`,
+		"org_provider_interview_feedback": `SELECT count(*)::text
+            FROM vetchium.org_provider_interview_feedback
             JOIN vetchium.org_interviews USING (org_interview_id)
             WHERE org_application_id = $1`,
 		"org_background_check_results": `SELECT count(*)::text

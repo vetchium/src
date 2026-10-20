@@ -1560,6 +1560,7 @@ export const en = {
       actors: {
         applicant: "Applicant",
         org_user: "Org user",
+        provider: "Provider",
         system: "System",
       },
       actions: {

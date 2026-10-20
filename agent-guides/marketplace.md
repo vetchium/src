@@ -251,6 +251,28 @@ An engagement links a consumer Org to a provider's Listing.
   leaves the stage, leaves the pipeline, or the engagement ends. Answer any
   inaccessible item with `org-engagement-work-not-found`.
 
+- **MKT-ACC-005** A provider names work by its engagement and a work id,
+  `org_application_routes.route_id`, new at every routing, so a rerouted
+  candidacy never answers to an old id and no application number reaches the
+  provider. The consumer's tenant answers four mesh reads (work queue, work
+  item, jobs, job) only to a caller that homes the provider Org the request
+  names, and executes the `work-*` commands as the consumer Org's authority
+  with the provider Org as initiator. The provider's orgs-api merges the lists
+  from every catalog tenant under one deadline and names the tenants that did
+  not answer (`unavailable_tenants`); a get or write goes to the tenant that
+  homes the client Org.
+- **MKT-ACC-006** Provider work is stored beside the Org's own: interviews with
+  `performer_engagement_id`, their interviewers and feedback by email address
+  in `org_provider_interview_*`, results with `performer_engagement_id` and
+  `recorded_by_email`, consent requests with `performer_engagement_id` and the
+  disclosure copied at routing. History names the actor `provider`. All of it
+  is applicant content for retention. While a candidacy is routed the Org's
+  own interview, assessment, and result writes are refused with
+  `org-application-state-conflict`. A consent request on a routed stage takes
+  its performer and disclosure from the route and its check types from the
+  Listing's. The provider's tenant checks that interviewers are its own active
+  users holding `org:fulfil_engagements` before it sends.
+
 ## Agency conversations
 
 An agency is an active Org whose `sourcing` Listing is `listed`.

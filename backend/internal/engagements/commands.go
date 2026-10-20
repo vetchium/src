@@ -1,11 +1,9 @@
 package engagements
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
@@ -49,38 +47,6 @@ func Provider(command commands.Command) (commands.Principal, bool) {
 		return commands.Principal{}, false
 	}
 	return commands.Principal{Type: directoryspec.PrincipalOrg, DID: did}, true
-}
-
-// payload is a command payload the handler can validate and normalize.
-type payload interface {
-	Normalize()
-	Validate() []string
-}
-
-// decodeStrict parses command's payload into value: a malformed one will
-// never succeed, so it is a deterministic rejection rather than a retried
-// error. Authority must be an Org, the consumer.
-func decodeStrict(command commands.Command, value payload) *commands.Result {
-	reject := func(fields []string) *commands.Result {
-		details := problem.ValidationFailedError
-		details.Fields = fields
-		result := commands.Rejected(details)
-		return &result
-	}
-	decoder := json.NewDecoder(bytes.NewReader(command.Payload))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(value); err != nil ||
-		decoder.Decode(&struct{}{}) != io.EOF {
-		return reject([]string{"payload"})
-	}
-	if command.Authority.Type != directoryspec.PrincipalOrg {
-		return reject([]string{"authority_principal_type"})
-	}
-	value.Normalize()
-	if fields := value.Validate(); len(fields) > 0 {
-		return reject(fields)
-	}
-	return nil
 }
 
 type change struct {
@@ -159,7 +125,7 @@ func decide(accept bool) commands.Handler {
 		ctx context.Context, tx pgx.Tx, command commands.Command,
 	) (commands.Result, error) {
 		var body federationspec.EngagementDecisionPayload
-		if rejected := decodeStrict(command, &body); rejected != nil {
+		if rejected := commands.DecodeStrict(command, &body); rejected != nil {
 			return *rejected, nil
 		}
 		return apply(ctx, tx, command, change{
@@ -178,7 +144,7 @@ func end(
 	ctx context.Context, tx pgx.Tx, command commands.Command,
 ) (commands.Result, error) {
 	var body federationspec.EngagementEndPayload
-	if rejected := decodeStrict(command, &body); rejected != nil {
+	if rejected := commands.DecodeStrict(command, &body); rejected != nil {
 		return *rejected, nil
 	}
 	params := sqlc.ChangeOrgEngagementParams{
@@ -202,7 +168,7 @@ func setReference(
 	ctx context.Context, tx pgx.Tx, command commands.Command,
 ) (commands.Result, error) {
 	var body federationspec.EngagementReferencePayload
-	if rejected := decodeStrict(command, &body); rejected != nil {
+	if rejected := commands.DecodeStrict(command, &body); rejected != nil {
 		return *rejected, nil
 	}
 	return apply(ctx, tx, command, change{

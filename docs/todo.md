@@ -211,3 +211,7 @@ Not built:
   `*.vetchium.localhost` portal origins). Use `make dev` or Tilt, or decide a
   dev-server origin.
 - Production TLS issuance and the static-host deploy have not been exercised.
+- Provider work: a replayed write whose interviewers were deactivated since the
+  first send is refused by the provider tenant's pre-send check instead of
+  returning the stored result; rerouting a candidacy leaves the provider's
+  upcoming interviews scheduled (the client can cancel them).

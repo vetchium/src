@@ -16,7 +16,10 @@ import type { PipelineStage, PipelineStageID } from "../hiring/pipelines.ts";
 import { isPipelineStageID } from "../hiring/pipelines.ts";
 import { type CheckType, isCheckType } from "../hiring/vocabulary.ts";
 import type { ApplicationRoute } from "../marketplace/assignments.ts";
-import type { EngagementID } from "../marketplace/engagements.ts";
+import type {
+  EngagementCounterparty,
+  EngagementID,
+} from "../marketplace/engagements.ts";
 import { isEngagementID } from "../marketplace/engagements.ts";
 import type { OpeningNumber } from "../openings/types.ts";
 
@@ -110,7 +113,7 @@ export const consentStateValues = [
 ] as const;
 export type ConsentState = (typeof consentStateValues)[number];
 
-export const workPerformerValues = ["org"] as const;
+export const workPerformerValues = ["org", "provider"] as const;
 export type WorkPerformer = (typeof workPerformerValues)[number];
 
 export const pendingApplicantActionValues = [
@@ -355,6 +358,7 @@ export type ApplicationHistoryAction =
 export const applicationActorKindValues = [
   "applicant",
   "org_user",
+  "provider",
   "system",
 ] as const;
 
@@ -471,6 +475,8 @@ export interface Interview {
   reschedule_note?: InterviewRescheduleNote;
   interviewers: InterviewerStatus[];
   feedback: InterviewFeedback[];
+  /** The provider that scheduled and holds the interview; absent in-house. */
+  provider?: EngagementCounterparty;
 }
 
 /** The recorded result of an assessment stage. */
@@ -482,6 +488,8 @@ export interface AssessmentResult {
   report_url?: WebsiteURL;
   recorded_by_email?: EmailAddress;
   recorded_at: string;
+  /** The provider that recorded the result; absent in-house. */
+  provider?: EngagementCounterparty;
 }
 
 /** What one background check found. */
@@ -504,6 +512,10 @@ export interface BackgroundCheck {
   consent_state: ConsentState;
   check_types: CheckType[];
   performer: WorkPerformer;
+  /** The provider that performs the checks, when `performer` is `provider`. */
+  provider?: EngagementCounterparty;
+  /** The provider's text as copied at routing, which the applicant consents to. */
+  consent_disclosure?: string;
   requested_at: string;
   responded_at?: string;
   results: BackgroundCheckResult[];

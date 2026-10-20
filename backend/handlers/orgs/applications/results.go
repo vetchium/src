@@ -70,7 +70,7 @@ func RecordAssessmentResult(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
 		transition{
-			operation: "orgs:record-assessment-result", request: request,
+			operation: "orgs:record-assessment-result", request: request, inHouse: true,
 			opening: request.OpeningNumber, number: request.ApplicationNumber,
 			version: request.Version,
 			check:   pendingStageOf(sqlc.VetchiumPipelineStageKindAssessment),
@@ -120,10 +120,27 @@ func RequestBackgroundCheckConsent(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return change{}, false, err
 				}
-				row, err := q.RequestOrgBackgroundCheckConsent(ctx, sqlc.RequestOrgBackgroundCheckConsentParams{
+				params := sqlc.RequestOrgBackgroundCheckConsentParams{
 					ApplicationID: locked.OrgApplicationID, Version: locked.Version,
 					CheckID: id, CheckTypes: types, ActorID: identity.UserID,
-				})
+				}
+				if locked.Routed {
+					// A routed stage is performed by the provider, whose
+					// disclosure and check types were copied at routing
+					// (MKT-WRK-003).
+					if !locked.RouteDisclosure.Valid ||
+						!locked.RouteEngagementID.Valid {
+						return change{refusal: orgsproblem.ApplicationStateConflictError}, false, nil
+					}
+					for _, checkType := range types {
+						if !slices.Contains(locked.RouteCheckTypes, checkType) {
+							return change{refusal: invalidFields("check_types")}, false, nil
+						}
+					}
+					params.PerformerEngagementID = locked.RouteEngagementID
+					params.ConsentDisclosure = locked.RouteDisclosure
+				}
+				row, err := q.RequestOrgBackgroundCheckConsent(ctx, params)
 				if err != nil {
 					return change{}, false, err
 				}
@@ -149,7 +166,7 @@ func RecordBackgroundCheckResult(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
 		transition{
-			operation: "orgs:record-background-check-result", request: request,
+			operation: "orgs:record-background-check-result", request: request, inHouse: true,
 			opening: request.OpeningNumber, number: request.ApplicationNumber,
 			version: request.Version,
 			check:   pendingStageOf(sqlc.VetchiumPipelineStageKindBackgroundCheck),

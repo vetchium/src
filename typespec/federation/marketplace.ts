@@ -1,3 +1,8 @@
+import {
+  type EmailAddress,
+  isEmailAddress,
+  normalizeEmailAddress,
+} from "../common/common.ts";
 import type { Capability } from "../orgs/marketplace/capabilities.ts";
 import { isCapability } from "../orgs/marketplace/capabilities.ts";
 import type {
@@ -15,6 +20,31 @@ import {
   maxEngagementReference,
 } from "../orgs/marketplace/engagements.ts";
 import { isStorableText } from "../orgs/marketplace/listings.ts";
+import type {
+  ChangeInterviewRequest,
+  InterviewReference,
+  RecordAssessmentRequest,
+  RecordBackgroundCheckResultRequest,
+  RecordInterviewOutcomeRequest,
+  ScheduleInterviewRequest,
+  SubmitInterviewFeedbackRequest,
+  WorkID,
+} from "../orgs/marketplace/work/work.ts";
+import {
+  normalizeChangeInterviewRequest,
+  normalizeRecordAssessmentRequest,
+  normalizeRecordBackgroundCheckResultRequest,
+  normalizeScheduleInterviewRequest,
+  normalizeSubmitInterviewFeedbackRequest,
+  validateChangeInterviewRequest,
+  validateInterviewReference,
+  validateRecordAssessmentRequest,
+  validateRecordBackgroundCheckResultRequest,
+  validateRecordInterviewOutcomeRequest,
+  validateScheduleInterviewRequest,
+  validateSubmitInterviewFeedbackRequest,
+  validateWorkReference,
+} from "../orgs/marketplace/work/work.ts";
 import {
   isOrgDID,
   isOrgDomain,
@@ -218,4 +248,141 @@ export function validateEngagementReferencePayload(
   )
     fields.push("reference");
   return fields;
+}
+
+/**
+ * Provider work commands are sent by the provider's tenant to the client's
+ * tenant, which is authoritative for the candidacy. Their authority principal
+ * is the client Org, the initiator is the provider Org the payload names, and
+ * their aggregate id is the work id.
+ */
+export const WorkScheduleInterviewKind: CommandKind = "work-schedule-interview";
+export const WorkChangeInterviewKind: CommandKind = "work-change-interview";
+export const WorkCancelInterviewKind: CommandKind = "work-cancel-interview";
+export const WorkInterviewOutcomeKind: CommandKind =
+  "work-record-interview-outcome";
+export const WorkInterviewFeedbackKind: CommandKind =
+  "work-submit-interview-feedback";
+export const WorkAssessmentKind: CommandKind = "work-record-assessment";
+export const WorkBackgroundCheckResultKind: CommandKind =
+  "work-record-background-check-result";
+
+/** What every provider work command carries. */
+export interface WorkActor {
+  engagement_id: EngagementID;
+  work_id: WorkID;
+  provider_org_did: OrgDID;
+  actor_email: EmailAddress;
+}
+
+export function normalizeWorkActor<T extends WorkActor>(payload: T): T {
+  return {
+    ...payload,
+    actor_email: normalizeEmailAddress(payload.actor_email),
+  };
+}
+
+function actorFields(payload: WorkActor): string[] {
+  const fields = validateWorkReference(payload);
+  if (!isOrgDID(payload.provider_org_did)) fields.push("provider_org_did");
+  if (!isEmailAddress(payload.actor_email)) fields.push("actor_email");
+  return fields;
+}
+
+function merge(first: string[], second: string[]): string[] {
+  return [...new Set([...first, ...second])];
+}
+
+export type WorkScheduleInterviewPayload = WorkActor & ScheduleInterviewRequest;
+export type WorkChangeInterviewPayload = WorkActor & ChangeInterviewRequest;
+export type WorkInterviewReferencePayload = WorkActor & InterviewReference;
+export type WorkInterviewOutcomePayload = WorkActor &
+  RecordInterviewOutcomeRequest;
+export type WorkInterviewFeedbackPayload = WorkActor &
+  SubmitInterviewFeedbackRequest;
+export type WorkAssessmentPayload = WorkActor & RecordAssessmentRequest;
+export type WorkBackgroundCheckResultPayload = WorkActor &
+  RecordBackgroundCheckResultRequest;
+
+export function normalizeWorkScheduleInterviewPayload(
+  payload: WorkScheduleInterviewPayload,
+): WorkScheduleInterviewPayload {
+  return normalizeWorkActor(normalizeScheduleInterviewRequest(payload));
+}
+
+export function validateWorkScheduleInterviewPayload(
+  payload: WorkScheduleInterviewPayload,
+): string[] {
+  return merge(actorFields(payload), validateScheduleInterviewRequest(payload));
+}
+
+export function normalizeWorkChangeInterviewPayload(
+  payload: WorkChangeInterviewPayload,
+): WorkChangeInterviewPayload {
+  return normalizeWorkActor(normalizeChangeInterviewRequest(payload));
+}
+
+export function validateWorkChangeInterviewPayload(
+  payload: WorkChangeInterviewPayload,
+): string[] {
+  return merge(actorFields(payload), validateChangeInterviewRequest(payload));
+}
+
+export function validateWorkInterviewReferencePayload(
+  payload: WorkInterviewReferencePayload,
+): string[] {
+  return merge(actorFields(payload), validateInterviewReference(payload));
+}
+
+export function validateWorkInterviewOutcomePayload(
+  payload: WorkInterviewOutcomePayload,
+): string[] {
+  return merge(
+    actorFields(payload),
+    validateRecordInterviewOutcomeRequest(payload),
+  );
+}
+
+export function normalizeWorkInterviewFeedbackPayload(
+  payload: WorkInterviewFeedbackPayload,
+): WorkInterviewFeedbackPayload {
+  return normalizeWorkActor(normalizeSubmitInterviewFeedbackRequest(payload));
+}
+
+export function validateWorkInterviewFeedbackPayload(
+  payload: WorkInterviewFeedbackPayload,
+): string[] {
+  return merge(
+    actorFields(payload),
+    validateSubmitInterviewFeedbackRequest(payload),
+  );
+}
+
+export function normalizeWorkAssessmentPayload(
+  payload: WorkAssessmentPayload,
+): WorkAssessmentPayload {
+  return normalizeWorkActor(normalizeRecordAssessmentRequest(payload));
+}
+
+export function validateWorkAssessmentPayload(
+  payload: WorkAssessmentPayload,
+): string[] {
+  return merge(actorFields(payload), validateRecordAssessmentRequest(payload));
+}
+
+export function normalizeWorkBackgroundCheckResultPayload(
+  payload: WorkBackgroundCheckResultPayload,
+): WorkBackgroundCheckResultPayload {
+  return normalizeWorkActor(
+    normalizeRecordBackgroundCheckResultRequest(payload),
+  );
+}
+
+export function validateWorkBackgroundCheckResultPayload(
+  payload: WorkBackgroundCheckResultPayload,
+): string[] {
+  return merge(
+    actorFields(payload),
+    validateRecordBackgroundCheckResultRequest(payload),
+  );
 }

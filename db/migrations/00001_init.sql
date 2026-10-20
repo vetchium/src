@@ -2453,7 +2453,7 @@ CREATE TYPE vetchium.org_application_history_action AS ENUM (
     'background_check_result_recorded', 'routed', 'removed'
 );
 CREATE TYPE vetchium.org_application_actor_kind AS ENUM (
-    'applicant', 'org_user', 'system'
+    'applicant', 'org_user', 'provider', 'system'
 );
 
 CREATE TABLE vetchium.org_applicants (
@@ -2611,6 +2611,10 @@ CREATE INDEX org_engagement_assignments_list_idx
 CREATE TABLE vetchium.org_application_routes (
     org_application_id uuid PRIMARY KEY REFERENCES vetchium.org_applications
         (org_application_id) ON DELETE CASCADE,
+    -- What the provider calls the work. Routing again makes a new one, so an
+    -- old id never reaches new work and the provider never learns an
+    -- application number.
+    route_id uuid NOT NULL UNIQUE,
     assignment_id uuid NOT NULL REFERENCES
         vetchium.org_engagement_assignments (assignment_id) ON DELETE CASCADE,
     consent_disclosure text,
@@ -2783,6 +2787,10 @@ CREATE TABLE vetchium.org_interviews (
     reschedule_note text,
     scheduled_by uuid REFERENCES vetchium.org_users (org_user_id)
         ON DELETE SET NULL,
+    -- The provider that scheduled and holds the interview; its interviewers
+    -- and feedback are in the org_provider_interview_* tables.
+    performer_engagement_id uuid REFERENCES vetchium.org_engagements
+        (engagement_id) ON DELETE CASCADE,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     -- When the interview was recorded, cancelled, or otherwise ended.
@@ -2849,6 +2857,32 @@ CREATE TABLE vetchium.org_interview_feedback (
     )
 );
 
+-- The interviewers and feedback of an interview a provider holds. A provider's
+-- user is known to the client only by email address.
+CREATE TABLE vetchium.org_provider_interview_interviewers (
+    org_interview_id uuid NOT NULL REFERENCES vetchium.org_interviews
+        (org_interview_id) ON DELETE CASCADE,
+    interviewer_email text NOT NULL
+        CHECK (interviewer_email = lower(btrim(interviewer_email))
+            AND char_length(interviewer_email) BETWEEN 3 AND 254),
+    PRIMARY KEY (org_interview_id, interviewer_email)
+);
+
+CREATE TABLE vetchium.org_provider_interview_feedback (
+    org_interview_id uuid NOT NULL,
+    interviewer_email text NOT NULL,
+    recommendation vetchium.org_interview_recommendation NOT NULL,
+    notes text NOT NULL,
+    submitted_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (org_interview_id, interviewer_email),
+    FOREIGN KEY (org_interview_id, interviewer_email)
+        REFERENCES vetchium.org_provider_interview_interviewers
+        (org_interview_id, interviewer_email) ON DELETE CASCADE,
+    CONSTRAINT org_provider_interview_feedback_notes_check CHECK (
+        notes = btrim(notes) AND char_length(notes) BETWEEN 1 AND 10000
+    )
+);
+
 -- Leaving the pipeline cancels the upcoming interviews of the applications
 -- (HP-STA-002). Every statement that ends a candidacy calls it in the same
 -- statement, so no exit can leave an interview scheduled.
@@ -2883,6 +2917,10 @@ CREATE TABLE vetchium.org_application_assessments (
     report_url text,
     recorded_by uuid REFERENCES vetchium.org_users (org_user_id)
         ON DELETE SET NULL,
+    -- A provider's result: the engagement and the provider user's email.
+    performer_engagement_id uuid REFERENCES vetchium.org_engagements
+        (engagement_id) ON DELETE CASCADE,
+    recorded_by_email text,
     recorded_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (org_application_id, org_opening_stage_id),
     CONSTRAINT org_application_assessments_notes_check CHECK (
@@ -2919,8 +2957,17 @@ CREATE TABLE vetchium.org_background_checks (
     consent_state vetchium.org_consent_state NOT NULL DEFAULT 'requested',
     requested_by uuid REFERENCES vetchium.org_users (org_user_id)
         ON DELETE SET NULL,
+    -- The provider that performs the checks, and the text copied from its
+    -- Listing when the candidacy was routed, which the applicant consents to
+    -- and which stays with the result as evidence (MKT-DAT-009).
+    performer_engagement_id uuid REFERENCES vetchium.org_engagements
+        (engagement_id) ON DELETE CASCADE,
+    consent_disclosure text,
     requested_at timestamptz NOT NULL DEFAULT now(),
     responded_at timestamptz,
+    CONSTRAINT org_background_checks_performer_check CHECK (
+        (performer_engagement_id IS NULL) = (consent_disclosure IS NULL)
+    ),
     CONSTRAINT org_background_checks_number_key
         UNIQUE (org_application_id, check_number),
     CONSTRAINT org_background_checks_types_check CHECK (
@@ -2944,6 +2991,8 @@ CREATE TABLE vetchium.org_background_check_results (
     report_url text,
     recorded_by uuid REFERENCES vetchium.org_users (org_user_id)
         ON DELETE SET NULL,
+    -- A provider user's email, when the check's performer is a provider.
+    recorded_by_email text,
     recorded_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (org_background_check_id, check_type),
     CONSTRAINT org_background_check_results_notes_check CHECK (
@@ -2988,6 +3037,57 @@ AS $$
         RETURNING r.org_application_id
     )
     SELECT count(*)::integer FROM ended
+$$;
+
+-- What a provider's work item is waiting for, from the stage the candidacy is
+-- at and the provider's own interviews and consent request there.
+CREATE FUNCTION vetchium.provider_work_status(
+    application_id uuid, stage_id uuid, engagement_id uuid
+) RETURNS text
+LANGUAGE sql STABLE
+AS $$
+    SELECT CASE
+        WHEN EXISTS (
+            SELECT 1 FROM vetchium.org_application_stages AS r
+            WHERE r.org_application_id = application_id
+              AND r.org_opening_stage_id = stage_id
+              AND r.stage_status = 'completed'
+        ) THEN 'completed'
+        WHEN s.stage_kind = 'background_check' THEN CASE
+            WHEN EXISTS (
+                SELECT 1 FROM vetchium.org_background_checks AS b
+                WHERE b.org_application_id = application_id
+                  AND b.org_opening_stage_id = stage_id
+                  AND b.performer_engagement_id = engagement_id
+                  AND b.consent_state = 'requested'
+            ) THEN 'awaiting_consent'
+            WHEN EXISTS (
+                SELECT 1 FROM vetchium.org_background_checks AS b
+                WHERE b.org_application_id = application_id
+                  AND b.org_opening_stage_id = stage_id
+                  AND b.performer_engagement_id = engagement_id
+                  AND b.consent_state = 'given'
+            ) THEN 'in_progress'
+            ELSE 'pending' END
+        WHEN s.stage_kind = 'interview' THEN CASE
+            WHEN EXISTS (
+                SELECT 1 FROM vetchium.org_interviews AS i
+                WHERE i.org_application_id = application_id
+                  AND i.org_opening_stage_id = stage_id
+                  AND i.performer_engagement_id = engagement_id
+                  AND i.interview_state = 'scheduled'
+            ) THEN 'scheduled'
+            WHEN EXISTS (
+                SELECT 1 FROM vetchium.org_interviews AS i
+                WHERE i.org_application_id = application_id
+                  AND i.org_opening_stage_id = stage_id
+                  AND i.performer_engagement_id = engagement_id
+                  AND i.interview_state <> 'cancelled'
+            ) THEN 'in_progress'
+            ELSE 'pending' END
+        ELSE 'pending' END
+    FROM vetchium.org_opening_stages AS s
+    WHERE s.org_opening_stage_id = stage_id
 $$;
 
 -- Who may read all of an Opening's applications: the hiring manager, the
@@ -3365,6 +3465,7 @@ DROP TABLE IF EXISTS vetchium.hub_application_projections;
 DROP FUNCTION IF EXISTS vetchium.org_user_acts_on_applications(uuid, uuid);
 DROP FUNCTION IF EXISTS vetchium.cancel_upcoming_interviews(uuid[]);
 DROP FUNCTION IF EXISTS vetchium.end_pending_consents(uuid[]);
+DROP FUNCTION IF EXISTS vetchium.provider_work_status(uuid, uuid, uuid);
 DROP FUNCTION IF EXISTS vetchium.end_provider_access(uuid[]);
 DROP FUNCTION IF EXISTS vetchium.org_user_reads_applications(uuid, uuid, uuid);
 DROP FUNCTION IF EXISTS vetchium.org_user_reads_all_applications(uuid, uuid);
@@ -3374,6 +3475,8 @@ DROP TYPE IF EXISTS vetchium.org_check_outcome;
 DROP TYPE IF EXISTS vetchium.org_consent_state;
 DROP TABLE IF EXISTS vetchium.org_application_assessments;
 DROP TYPE IF EXISTS vetchium.org_assessment_outcome;
+DROP TABLE IF EXISTS vetchium.org_provider_interview_feedback;
+DROP TABLE IF EXISTS vetchium.org_provider_interview_interviewers;
 DROP TABLE IF EXISTS vetchium.org_interview_feedback;
 DROP TABLE IF EXISTS vetchium.org_interview_interviewers;
 DROP TABLE IF EXISTS vetchium.org_interviews;

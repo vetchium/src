@@ -1,6 +1,7 @@
 import "../common/localization.tsp";
 import "../orgs/marketplace/capabilities.tsp";
 import "../orgs/marketplace/engagements.tsp";
+import "../orgs/marketplace/work/work.tsp";
 import "../orgs/types.tsp";
 import "../problem/federation/commands.tsp";
 import "../problem/orgs/marketplace.tsp";
@@ -77,4 +78,84 @@ alias EngagementRejections =
   | Vetchium.Problem.OrgEngagementNotFoundErrorResponse
   | Vetchium.Problem.OrgEngagementStateConflictErrorResponse
   | Vetchium.Problem.OrgEngagementVersionConflictErrorResponse
+  | Vetchium.Problem.FederationInitiatorMismatchErrorResponse;
+
+/**
+ * What every provider work command carries: the work and its engagement, the
+ * provider Org that acts (the command's initiator), and the acting user's
+ * email address. The authority principal is the client Org and the aggregate
+ * id is the work id.
+ */
+model WorkActor {
+  engagement_id: Vetchium.Orgs.Marketplace.EngagementID;
+  work_id: Vetchium.Orgs.Marketplace.Work.WorkID;
+  provider_org_did: Vetchium.Orgs.OrgDID;
+  actor_email: Vetchium.EmailAddress;
+}
+
+/** Payload of `work-schedule-interview`. */
+model WorkScheduleInterviewPayload {
+  ...WorkActor;
+  ...Vetchium.Orgs.Applications.InterviewDetails;
+}
+
+/** Payload of `work-change-interview`. */
+model WorkChangeInterviewPayload {
+  ...WorkActor;
+  interview_number: Vetchium.Orgs.Applications.InterviewNumber;
+  ...Vetchium.Orgs.Applications.InterviewDetails;
+}
+
+/** Payload of `work-cancel-interview`. */
+model WorkInterviewReferencePayload {
+  ...WorkActor;
+  interview_number: Vetchium.Orgs.Applications.InterviewNumber;
+}
+
+/** Payload of `work-record-interview-outcome`. */
+model WorkInterviewOutcomePayload {
+  ...WorkActor;
+  interview_number: Vetchium.Orgs.Applications.InterviewNumber;
+  outcome: Vetchium.Orgs.Applications.InterviewOutcome;
+}
+
+/** Payload of `work-submit-interview-feedback`; the actor is the interviewer. */
+model WorkInterviewFeedbackPayload {
+  ...WorkActor;
+  interview_number: Vetchium.Orgs.Applications.InterviewNumber;
+  recommendation: Vetchium.Orgs.Applications.InterviewRecommendation;
+  notes: Vetchium.Orgs.Applications.InterviewFeedbackNotes;
+}
+
+/** Payload of `work-record-assessment`. */
+model WorkAssessmentPayload {
+  ...WorkActor;
+  outcome: Vetchium.Orgs.Applications.AssessmentOutcome;
+  score?: Vetchium.Orgs.Applications.AssessmentScore;
+  notes?: Vetchium.Orgs.Applications.ResultNotes;
+  report_url?: Vetchium.Hub.Profile.WebsiteURL;
+}
+
+/** Payload of `work-record-background-check-result`. */
+model WorkBackgroundCheckResultPayload {
+  ...WorkActor;
+  check_type: Vetchium.Orgs.Hiring.CheckType;
+  outcome: Vetchium.Orgs.Applications.CheckOutcome;
+  notes?: Vetchium.Orgs.Applications.ResultNotes;
+  report_url?: Vetchium.Hub.Profile.WebsiteURL;
+}
+
+/**
+ * The deterministic rejections of the provider work commands, stored as the
+ * command's outcome. A work item the provider may not reach is one answer
+ * whatever the reason (MKT-ACC-004).
+ */
+alias WorkRejections =
+  | Vetchium.Problem.OrgEngagementWorkNotFoundErrorResponse
+  | Vetchium.Problem.OrgInterviewLimitReachedErrorResponse
+  | Vetchium.Problem.OrgInterviewInterviewersInvalidErrorResponse
+  | Vetchium.Problem.OrgInterviewNotFoundErrorResponse
+  | Vetchium.Problem.OrgInterviewStateConflictErrorResponse
+  | Vetchium.Problem.OrgInterviewFeedbackExistsErrorResponse
+  | Vetchium.Problem.ValidationFailedErrorResponse
   | Vetchium.Problem.FederationInitiatorMismatchErrorResponse;

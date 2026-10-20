@@ -15,6 +15,7 @@ import (
 	orgssettings "backend/handlers/orgs/settings"
 	orgssubscriptions "backend/handlers/orgs/subscriptions"
 	orgsusers "backend/handlers/orgs/users"
+	orgswork "backend/handlers/orgs/work"
 	"backend/handlers/portal"
 	"backend/internal/apiserver"
 	"backend/internal/middleware"
@@ -108,6 +109,11 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 			s, orgsauthorization.ManageProviders,
 		)(next)))
 	}
+	fulfilEngagements := func(next http.Handler) http.Handler {
+		return orgAuth(activeOrg(middleware.RequireOrgPermission(
+			s, orgsauthorization.FulfilEngagements,
+		)(next)))
+	}
 	mux.Handle(
 		"POST /api/orgs/operations/status",
 		orgAuth(activeOrg(orgsoperations.Status(s))),
@@ -140,6 +146,17 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/delete-listing", manageListings(orgslistings.DeleteListing(s)))
 	mux.Handle("POST /api/orgs/search-listings", manageProviders(orgslistings.SearchListings(s)))
 	mux.Handle("POST /api/orgs/get-listing", manageProviders(orgslistings.GetListing(s)))
+	mux.Handle("POST /api/orgs/list-work-queue", fulfilEngagements(orgswork.ListWorkQueue(s)))
+	mux.Handle("POST /api/orgs/get-work-item", fulfilEngagements(orgswork.GetWorkItem(s)))
+	mux.Handle("POST /api/orgs/list-jobs", fulfilEngagements(orgswork.ListJobs(s)))
+	mux.Handle("POST /api/orgs/get-job", fulfilEngagements(orgswork.GetJob(s)))
+	mux.Handle("POST /api/orgs/schedule-work-interview", fulfilEngagements(orgswork.ScheduleWorkInterview(s)))
+	mux.Handle("POST /api/orgs/change-work-interview", fulfilEngagements(orgswork.ChangeWorkInterview(s)))
+	mux.Handle("POST /api/orgs/cancel-work-interview", fulfilEngagements(orgswork.CancelWorkInterview(s)))
+	mux.Handle("POST /api/orgs/record-work-interview-outcome", fulfilEngagements(orgswork.RecordWorkInterviewOutcome(s)))
+	mux.Handle("POST /api/orgs/submit-work-interview-feedback", fulfilEngagements(orgswork.SubmitWorkInterviewFeedback(s)))
+	mux.Handle("POST /api/orgs/record-work-assessment", fulfilEngagements(orgswork.RecordWorkAssessment(s)))
+	mux.Handle("POST /api/orgs/record-work-background-check-result", fulfilEngagements(orgswork.RecordWorkBackgroundCheckResult(s)))
 	mux.Handle("POST /api/orgs/get-opening-providers", manageProviders(orgsengagements.GetOpeningProviders(s)))
 	mux.Handle("POST /api/orgs/assign-opening-provider", manageProviders(orgsengagements.AssignOpeningProvider(s)))
 	mux.Handle("POST /api/orgs/unassign-opening-provider", manageProviders(orgsengagements.UnassignOpeningProvider(s)))

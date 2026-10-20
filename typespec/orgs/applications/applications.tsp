@@ -183,10 +183,11 @@ scalar BackgroundCheckNumber extends int32;
 scalar ConsentState extends string;
 
 /**
- * Who performs a stage's work. Only the Org itself does so for now; a portal
- * older than its API shows a performer it does not recognize as the raw value.
+ * Who performs a stage's work: the Org itself, or a provider the Org routed
+ * the candidacy to. A portal older than its API shows a performer it does not
+ * recognize as the raw value.
  */
-@TypeSpec.OpenAPI.extension("x-vetchium-known-values", #["org"])
+@TypeSpec.OpenAPI.extension("x-vetchium-known-values", #["org", "provider"])
 scalar WorkPerformer extends string;
 
 /**
@@ -291,7 +292,7 @@ scalar ApplicationHistoryAction extends string;
  */
 @TypeSpec.OpenAPI.extension(
   "x-vetchium-known-values",
-  #["applicant", "org_user", "system"]
+  #["applicant", "org_user", "provider", "system"]
 )
 scalar ApplicationActorKind extends string;
 
@@ -391,6 +392,9 @@ model Interview {
 
   interviewers: InterviewerStatus[];
   feedback: InterviewFeedback[];
+
+  /** The provider that scheduled and holds the interview; absent in-house. */
+  provider?: Vetchium.Orgs.Marketplace.EngagementCounterparty;
 }
 
 /** The recorded result of an assessment stage. */
@@ -403,10 +407,16 @@ model AssessmentResult {
   /** A normalized HTTPS link to the performer's report. */
   report_url?: Vetchium.Hub.Profile.WebsiteURL;
 
-  /** Present for an Org user who is still in the Org. */
+  /**
+   * Present for an Org user who is still in the Org, or the provider's user
+   * who recorded it.
+   */
   recorded_by_email?: Vetchium.EmailAddress;
 
   recorded_at: utcDateTime;
+
+  /** The provider that recorded the result; absent in-house. */
+  provider?: Vetchium.Orgs.Marketplace.EngagementCounterparty;
 }
 
 /** What one background check found. */
@@ -438,6 +448,16 @@ model BackgroundCheck {
   check_types: Vetchium.Orgs.Hiring.CheckType[];
 
   performer: WorkPerformer;
+
+  /** The provider that performs the checks, when `performer` is `provider`. */
+  provider?: Vetchium.Orgs.Marketplace.EngagementCounterparty;
+
+  /**
+   * The provider's consent disclosure as copied when the candidacy was routed,
+   * which the applicant consents to.
+   */
+  consent_disclosure?: string;
+
   requested_at: utcDateTime;
 
   /** Present once the applicant gave or declined consent. */

@@ -193,7 +193,10 @@ const (
 )
 
 // PerformerOrg is the Org doing the stage's work itself.
-const PerformerOrg WorkPerformer = "org"
+const (
+	PerformerOrg      WorkPerformer = "org"
+	PerformerProvider WorkPerformer = "provider"
+)
 
 const (
 	// MaxResultNotes bounds the notes of an assessment or a check in code
@@ -228,7 +231,7 @@ var (
 	consentStates = []ConsentState{
 		ConsentRequested, ConsentGiven, ConsentDeclined, ConsentEnded,
 	}
-	workPerformers = []WorkPerformer{PerformerOrg}
+	workPerformers = []WorkPerformer{PerformerOrg, PerformerProvider}
 )
 
 // AssessmentOutcomes returns every assessment outcome this contract version
@@ -391,6 +394,7 @@ func IsInterviewFeedbackNotes(value InterviewFeedbackNotes) bool {
 const (
 	ApplicantActor ApplicationActorKind = "applicant"
 	OrgUserActor   ApplicationActorKind = "org_user"
+	ProviderActor  ApplicationActorKind = "provider"
 	SystemActor    ApplicationActorKind = "system"
 )
 
@@ -576,6 +580,8 @@ type Interview struct {
 	RescheduleNote    *InterviewRescheduleNote `json:"reschedule_note,omitempty"`
 	Interviewers      []InterviewerStatus      `json:"interviewers"`
 	Feedback          []InterviewFeedback      `json:"feedback"`
+	// Provider scheduled and holds the interview; absent in-house.
+	Provider *marketplace.EngagementCounterparty `json:"provider,omitempty"`
 }
 
 // AssessmentResult is the recorded result of an assessment stage.
@@ -587,6 +593,8 @@ type AssessmentResult struct {
 	ReportURL       *profile.WebsiteURL  `json:"report_url,omitempty"`
 	RecordedByEmail *common.EmailAddress `json:"recorded_by_email,omitempty"`
 	RecordedAt      time.Time            `json:"recorded_at"`
+	// Provider recorded the result; absent in-house.
+	Provider *marketplace.EngagementCounterparty `json:"provider,omitempty"`
 }
 
 // BackgroundCheckResult is what one background check found.
@@ -602,14 +610,19 @@ type BackgroundCheckResult struct {
 // BackgroundCheck is one consent request at a background-check stage with the
 // results recorded after consent.
 type BackgroundCheck struct {
-	CheckNumber  BackgroundCheckNumber   `json:"check_number"`
-	Stage        hiring.PipelineStage    `json:"stage"`
-	ConsentState ConsentState            `json:"consent_state"`
-	CheckTypes   []hiring.CheckType      `json:"check_types"`
-	Performer    WorkPerformer           `json:"performer"`
-	RequestedAt  time.Time               `json:"requested_at"`
-	RespondedAt  *time.Time              `json:"responded_at,omitempty"`
-	Results      []BackgroundCheckResult `json:"results"`
+	CheckNumber  BackgroundCheckNumber `json:"check_number"`
+	Stage        hiring.PipelineStage  `json:"stage"`
+	ConsentState ConsentState          `json:"consent_state"`
+	CheckTypes   []hiring.CheckType    `json:"check_types"`
+	Performer    WorkPerformer         `json:"performer"`
+	// Provider performs the checks when Performer is `provider`.
+	Provider *marketplace.EngagementCounterparty `json:"provider,omitempty"`
+	// ConsentDisclosure is the provider's text as copied at routing, which
+	// the applicant consents to.
+	ConsentDisclosure *string                 `json:"consent_disclosure,omitempty"`
+	RequestedAt       time.Time               `json:"requested_at"`
+	RespondedAt       *time.Time              `json:"responded_at,omitempty"`
+	Results           []BackgroundCheckResult `json:"results"`
 }
 
 type ApplicationDetail struct {

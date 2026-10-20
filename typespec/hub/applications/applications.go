@@ -11,6 +11,7 @@ import (
 	"github.com/vetchium/src/typespec/orgs"
 	orgapplications "github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/hiring"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/openings"
 )
 
@@ -203,6 +204,8 @@ type MyApplicationInterview struct {
 	Location        *orgapplications.InterviewLocation       `json:"location,omitempty"`
 	Response        orgapplications.InterviewResponse        `json:"response"`
 	RescheduleNote  *orgapplications.InterviewRescheduleNote `json:"reschedule_note,omitempty"`
+	// Provider holds the interview for the Org; absent when in-house.
+	Provider *marketplace.EngagementCounterparty `json:"provider,omitempty"`
 }
 
 // Valid checks a peer's answer before it reaches the browser.
@@ -218,7 +221,13 @@ func (i MyApplicationInterview) Valid() bool {
 		(i.RescheduleNote != nil) ==
 			(i.Response == orgapplications.ResponseRescheduleRequest) &&
 		(i.RescheduleNote == nil ||
-			orgapplications.IsInterviewRescheduleNote(*i.RescheduleNote))
+			orgapplications.IsInterviewRescheduleNote(*i.RescheduleNote)) &&
+		(i.Provider == nil || validProvider(*i.Provider))
+}
+
+func validProvider(provider marketplace.EngagementCounterparty) bool {
+	return orgs.IsOrgDomain(provider.Domain) &&
+		strings.TrimSpace(provider.DisplayName) != ""
 }
 
 // MyBackgroundCheckConsent is the consent request awaiting the applicant.
@@ -226,14 +235,22 @@ type MyBackgroundCheckConsent struct {
 	CheckNumber orgapplications.BackgroundCheckNumber `json:"check_number"`
 	CheckTypes  []hiring.CheckType                    `json:"check_types"`
 	Performer   orgapplications.WorkPerformer         `json:"performer"`
-	RequestedAt time.Time                             `json:"requested_at"`
+	// Provider performs the checks when Performer is `provider`, and
+	// Disclosure is the text it asks the applicant to consent to.
+	Provider    *marketplace.EngagementCounterparty `json:"provider,omitempty"`
+	Disclosure  *string                             `json:"disclosure,omitempty"`
+	RequestedAt time.Time                           `json:"requested_at"`
 }
 
 // Valid checks a peer's answer before it reaches the browser.
 func (c MyBackgroundCheckConsent) Valid() bool {
 	if !orgapplications.IsBackgroundCheckNumber(c.CheckNumber) ||
 		len(c.CheckTypes) < 1 || len(c.CheckTypes) > orgapplications.MaxCheckTypes ||
-		!orgapplications.IsWorkPerformer(c.Performer) || c.RequestedAt.IsZero() {
+		!orgapplications.IsWorkPerformer(c.Performer) || c.RequestedAt.IsZero() ||
+		(c.Performer == orgapplications.PerformerProvider) !=
+			(c.Provider != nil && c.Disclosure != nil) ||
+		(c.Provider != nil && !validProvider(*c.Provider)) ||
+		(c.Disclosure != nil && strings.TrimSpace(*c.Disclosure) == "") {
 		return false
 	}
 	seen := make(map[hiring.CheckType]bool, len(c.CheckTypes))

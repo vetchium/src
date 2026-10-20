@@ -1555,6 +1555,7 @@ export const ta = {
       actors: {
         applicant: "விண்ணப்பதாரர்",
         org_user: "அமைப்புப் பயனர்",
+        provider: "வழங்குநர்",
         system: "அமைப்பு",
       },
       actions: {

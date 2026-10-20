@@ -179,3 +179,14 @@ alias OrgEngagementCapabilityMismatchErrorResponse = Response<
   422,
   typeof OrgEngagementCapabilityMismatchError
 >;
+
+const OrgEngagementWorkNotFoundError = #{
+  type: "vetchium-problem-details/org-engagement-work-not-found",
+  title: "Org engagement work not found",
+  status: 404,
+  detail: "The work item is not accessible to the provider",
+};
+alias OrgEngagementWorkNotFoundErrorResponse = Response<
+  404,
+  typeof OrgEngagementWorkNotFoundError
+>;

@@ -25,9 +25,11 @@ import (
 	"backend/internal/orgs/listingread"
 	"backend/internal/orgs/listingsearch"
 	"backend/internal/orgs/signupcompletion"
+	"backend/internal/orgs/workfanout"
 	"backend/internal/regions"
 	"backend/internal/routes"
 	"backend/internal/service"
+	"backend/internal/workclient"
 )
 
 func main() {
@@ -71,6 +73,10 @@ func run(log *slog.Logger, address string) error {
 		meshCredential, cfg.MeshAPIServer.RequestTimeout,
 	)
 	listings := listingclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
+	)
+	workRelay := workclient.NewRelay(
 		cfg.MeshAPIServer.BaseURL, meshCredential,
 		cfg.MeshAPIServer.RequestTimeout,
 	)
@@ -156,7 +162,12 @@ func run(log *slog.Logger, address string) error {
 			Peers: listings, Tenants: catalog.TenantIDs(),
 			Deadline: cfg.MeshAPIServer.RequestTimeout,
 		},
-		ListingDeadline:        cfg.MeshAPIServer.RequestTimeout,
+		ListingDeadline: cfg.MeshAPIServer.RequestTimeout,
+		WorkRelay:       workRelay,
+		WorkFanout: workfanout.Fanout{
+			Peers: workRelay, Tenants: catalog.TenantIDs(),
+			Deadline: cfg.MeshAPIServer.RequestTimeout,
+		},
 		Signup:                 cfg.OrgsAPIServer.Signup,
 		AllowSpecialUseDomains: cfg.OrgsAPIServer.AllowSpecialUseDomains,
 		TenantID:               cfg.TenantID,

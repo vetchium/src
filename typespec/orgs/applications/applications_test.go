@@ -485,7 +485,7 @@ func TestResultVocabulariesAreCopiesAndComplete(t *testing.T) {
 		"clear", "discrepancy", "unable_to_verify",
 	}) || !slices.Equal(ConsentStates(), []ConsentState{
 		"requested", "given", "declined", "ended",
-	}) || !slices.Equal(WorkPerformers(), []WorkPerformer{"org"}) {
+	}) || !slices.Equal(WorkPerformers(), []WorkPerformer{"org", "provider"}) {
 		t.Fatal("a result vocabulary changed")
 	}
 	AssessmentOutcomes()[0] = "changed"

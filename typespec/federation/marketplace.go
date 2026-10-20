@@ -1,11 +1,17 @@
 package federation
 
 import (
+	"slices"
 	"strings"
 	"time"
 
+	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/hub/profile"
 	"github.com/vetchium/src/typespec/orgs"
+	"github.com/vetchium/src/typespec/orgs/applications"
+	"github.com/vetchium/src/typespec/orgs/hiring"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
+	"github.com/vetchium/src/typespec/orgs/marketplace/work"
 )
 
 // Engagement commands are sent by the provider's tenant to the consumer's
@@ -218,4 +224,210 @@ func (p EngagementReferencePayload) Validate() []string {
 		fields = append(fields, "reference")
 	}
 	return fields
+}
+
+// Provider work commands are sent by the provider's tenant to the client's
+// tenant, which is authoritative for the candidacy. Their authority principal
+// is the client Org, the initiator is the provider Org the payload names, and
+// their aggregate id is the work id. Every refusal of the client's tenant is
+// one answer, org-engagement-work-not-found, so a provider learns nothing
+// about what it may not reach (MKT-ACC-004).
+const (
+	WorkScheduleInterviewKind     CommandKind = "work-schedule-interview"
+	WorkChangeInterviewKind       CommandKind = "work-change-interview"
+	WorkCancelInterviewKind       CommandKind = "work-cancel-interview"
+	WorkInterviewOutcomeKind      CommandKind = "work-record-interview-outcome"
+	WorkInterviewFeedbackKind     CommandKind = "work-submit-interview-feedback"
+	WorkAssessmentKind            CommandKind = "work-record-assessment"
+	WorkBackgroundCheckResultKind CommandKind = "work-record-background-check-result"
+)
+
+// WorkActor is what every provider work command carries: the work and its
+// engagement, the provider Org that acts (the command's initiator), and the
+// acting user's email address, who stands for the provider's user in the
+// client's records.
+type WorkActor struct {
+	EngagementID   marketplace.EngagementID `json:"engagement_id"`
+	WorkID         work.WorkID              `json:"work_id"`
+	ProviderOrgDID orgs.OrgDID              `json:"provider_org_did"`
+	ActorEmail     common.EmailAddress      `json:"actor_email"`
+}
+
+func (a *WorkActor) Normalize() {
+	a.ActorEmail = common.NormalizeEmailAddress(a.ActorEmail)
+}
+
+func (a WorkActor) Validate() []string {
+	fields := work.WorkReference{EngagementID: a.EngagementID, WorkID: a.WorkID}.Validate()
+	if !orgs.IsOrgDID(a.ProviderOrgDID) {
+		fields = append(fields, "provider_org_did")
+	}
+	if !common.IsEmailAddress(a.ActorEmail) {
+		fields = append(fields, "actor_email")
+	}
+	return fields
+}
+
+// WorkScheduleInterviewPayload is the payload of work-schedule-interview.
+type WorkScheduleInterviewPayload struct {
+	WorkActor
+	applications.InterviewDetails
+}
+
+func (p *WorkScheduleInterviewPayload) Normalize() {
+	p.WorkActor.Normalize()
+	request := work.ScheduleInterviewRequest{InterviewDetails: p.InterviewDetails}
+	request.Normalize()
+	p.InterviewDetails = request.InterviewDetails
+}
+
+func (p WorkScheduleInterviewPayload) Validate() []string {
+	fields := p.WorkActor.Validate()
+	request := work.ScheduleInterviewRequest{
+		EngagementID: p.EngagementID, WorkID: p.WorkID,
+		InterviewDetails: p.InterviewDetails,
+	}
+	return mergeFields(fields, request.Validate())
+}
+
+// WorkChangeInterviewPayload is the payload of work-change-interview.
+type WorkChangeInterviewPayload struct {
+	WorkActor
+	InterviewNumber applications.InterviewNumber `json:"interview_number"`
+	applications.InterviewDetails
+}
+
+func (p *WorkChangeInterviewPayload) Normalize() {
+	p.WorkActor.Normalize()
+	request := work.ChangeInterviewRequest{InterviewDetails: p.InterviewDetails}
+	request.Normalize()
+	p.InterviewDetails = request.InterviewDetails
+}
+
+func (p WorkChangeInterviewPayload) Validate() []string {
+	request := work.ChangeInterviewRequest{
+		EngagementID: p.EngagementID, WorkID: p.WorkID,
+		InterviewNumber:  p.InterviewNumber,
+		InterviewDetails: p.InterviewDetails,
+	}
+	return mergeFields(p.WorkActor.Validate(), request.Validate())
+}
+
+// WorkInterviewReferencePayload is the payload of work-cancel-interview.
+type WorkInterviewReferencePayload struct {
+	WorkActor
+	InterviewNumber applications.InterviewNumber `json:"interview_number"`
+}
+
+func (p *WorkInterviewReferencePayload) Normalize() { p.WorkActor.Normalize() }
+
+func (p WorkInterviewReferencePayload) Validate() []string {
+	request := work.InterviewReference{
+		EngagementID: p.EngagementID, WorkID: p.WorkID,
+		InterviewNumber: p.InterviewNumber,
+	}
+	return mergeFields(p.WorkActor.Validate(), request.Validate())
+}
+
+// WorkInterviewOutcomePayload is the payload of work-record-interview-outcome.
+type WorkInterviewOutcomePayload struct {
+	WorkActor
+	InterviewNumber applications.InterviewNumber  `json:"interview_number"`
+	Outcome         applications.InterviewOutcome `json:"outcome"`
+}
+
+func (p *WorkInterviewOutcomePayload) Normalize() { p.WorkActor.Normalize() }
+
+func (p WorkInterviewOutcomePayload) Validate() []string {
+	request := work.RecordInterviewOutcomeRequest{
+		EngagementID: p.EngagementID, WorkID: p.WorkID,
+		InterviewNumber: p.InterviewNumber, Outcome: p.Outcome,
+	}
+	return mergeFields(p.WorkActor.Validate(), request.Validate())
+}
+
+// WorkInterviewFeedbackPayload is the payload of work-submit-interview-
+// feedback. The actor is the interviewer who submits.
+type WorkInterviewFeedbackPayload struct {
+	WorkActor
+	InterviewNumber applications.InterviewNumber         `json:"interview_number"`
+	Recommendation  applications.InterviewRecommendation `json:"recommendation"`
+	Notes           applications.InterviewFeedbackNotes  `json:"notes"`
+}
+
+func (p *WorkInterviewFeedbackPayload) Normalize() {
+	p.WorkActor.Normalize()
+	request := work.SubmitInterviewFeedbackRequest{Notes: p.Notes}
+	request.Normalize()
+	p.Notes = request.Notes
+}
+
+func (p WorkInterviewFeedbackPayload) Validate() []string {
+	request := work.SubmitInterviewFeedbackRequest{
+		EngagementID: p.EngagementID, WorkID: p.WorkID,
+		InterviewNumber: p.InterviewNumber, Recommendation: p.Recommendation,
+		Notes: p.Notes,
+	}
+	return mergeFields(p.WorkActor.Validate(), request.Validate())
+}
+
+// WorkAssessmentPayload is the payload of work-record-assessment.
+type WorkAssessmentPayload struct {
+	WorkActor
+	Outcome   applications.AssessmentOutcome `json:"outcome"`
+	Score     *applications.AssessmentScore  `json:"score,omitempty"`
+	Notes     *applications.ResultNotes      `json:"notes,omitempty"`
+	ReportURL *profile.WebsiteURL            `json:"report_url,omitempty"`
+}
+
+func (p *WorkAssessmentPayload) Normalize() {
+	p.WorkActor.Normalize()
+	request := work.RecordAssessmentRequest{Notes: p.Notes, ReportURL: p.ReportURL}
+	request.Normalize()
+	p.Notes, p.ReportURL = request.Notes, request.ReportURL
+}
+
+func (p WorkAssessmentPayload) Validate() []string {
+	request := work.RecordAssessmentRequest{
+		EngagementID: p.EngagementID, WorkID: p.WorkID, Outcome: p.Outcome,
+		Score: p.Score, Notes: p.Notes, ReportURL: p.ReportURL,
+	}
+	return mergeFields(p.WorkActor.Validate(), request.Validate())
+}
+
+// WorkBackgroundCheckResultPayload is the payload of
+// work-record-background-check-result.
+type WorkBackgroundCheckResultPayload struct {
+	WorkActor
+	CheckType hiring.CheckType          `json:"check_type"`
+	Outcome   applications.CheckOutcome `json:"outcome"`
+	Notes     *applications.ResultNotes `json:"notes,omitempty"`
+	ReportURL *profile.WebsiteURL       `json:"report_url,omitempty"`
+}
+
+func (p *WorkBackgroundCheckResultPayload) Normalize() {
+	p.WorkActor.Normalize()
+	request := work.RecordBackgroundCheckResultRequest{Notes: p.Notes, ReportURL: p.ReportURL}
+	request.Normalize()
+	p.Notes, p.ReportURL = request.Notes, request.ReportURL
+}
+
+func (p WorkBackgroundCheckResultPayload) Validate() []string {
+	request := work.RecordBackgroundCheckResultRequest{
+		EngagementID: p.EngagementID, WorkID: p.WorkID, CheckType: p.CheckType,
+		Outcome: p.Outcome, Notes: p.Notes, ReportURL: p.ReportURL,
+	}
+	return mergeFields(p.WorkActor.Validate(), request.Validate())
+}
+
+// mergeFields joins two field lists, each of which names the engagement and
+// work id fields it checks, without repeating one.
+func mergeFields(first, second []string) []string {
+	merged := append([]string{}, first...)
+	for _, field := range second {
+		if !slices.Contains(merged, field) {
+			merged = append(merged, field)
+		}
+	}
+	return merged
 }

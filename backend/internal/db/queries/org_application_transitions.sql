@@ -23,9 +23,17 @@ SELECT a.org_application_id, o.org_opening_id, a.application_state, a.version,
     ), '')::text AS current_stage_status,
     target.position AS target_position,
     a.joined_on, a.joined_recorded_at, a.separated_on,
-    a.separated_recorded_at, a.offer_extended_at
+    a.separated_recorded_at, a.offer_extended_at,
+    (rt.org_application_id IS NOT NULL)::boolean AS routed,
+    route_asg.engagement_id AS route_engagement_id,
+    rt.consent_disclosure AS route_disclosure,
+    COALESCE(rt.listing_check_types, '{}')::text[] AS route_check_types
 FROM vetchium.org_openings AS o
 JOIN vetchium.org_applications AS a ON a.org_opening_id = o.org_opening_id
+LEFT JOIN vetchium.org_application_routes AS rt
+    ON rt.org_application_id = a.org_application_id
+LEFT JOIN vetchium.org_engagement_assignments AS route_asg
+    ON route_asg.assignment_id = rt.assignment_id
 LEFT JOIN vetchium.org_opening_stages AS current_stage
     ON current_stage.org_opening_stage_id = a.current_stage_id
 LEFT JOIN vetchium.org_opening_stages AS target

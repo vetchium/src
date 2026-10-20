@@ -144,6 +144,9 @@ model MyApplicationInterview {
 
   /** Present while `response` is `reschedule_requested`. */
   reschedule_note?: Vetchium.Orgs.Applications.InterviewRescheduleNote;
+
+  /** The provider holding the interview for the Org; absent when in-house. */
+  provider?: Vetchium.Orgs.Marketplace.EngagementCounterparty;
 }
 
 /**
@@ -154,6 +157,13 @@ model MyBackgroundCheckConsent {
   check_number: Vetchium.Orgs.Applications.BackgroundCheckNumber;
   check_types: Vetchium.Orgs.Hiring.CheckType[];
   performer: Vetchium.Orgs.Applications.WorkPerformer;
+
+  /** The provider performing the checks, when `performer` is `provider`. */
+  provider?: Vetchium.Orgs.Marketplace.EngagementCounterparty;
+
+  /** The provider's text the applicant consents to; with a provider only. */
+  disclosure?: string;
+
   requested_at: utcDateTime;
 }
 
