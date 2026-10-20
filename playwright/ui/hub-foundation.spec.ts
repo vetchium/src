@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { stubNoApplications } from "../lib/hub-ui-stubs.ts";
 import { HUB_PORTAL, rememberRegion } from "../lib/portals.ts";
 import { chooseRegion } from "../lib/region-ui.ts";
 
@@ -75,6 +76,7 @@ async function provideStoredSession(
   extra: Record<string, unknown> = {},
 ) {
   await provideOwnProfile(page);
+  await stubNoApplications(page);
   await page.addInitScript(
     ({ key, sessionToken, handle, extra }) =>
       sessionStorage.setItem(
@@ -127,7 +129,7 @@ test("a visitor with a stored session lands on a personal home page", async ({
     page.getByRole("link", { name: "Edit my profile" }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "See plans" })).toBeVisible();
-  await expect(page.getByRole("menuitem")).toHaveCount(6);
+  await expect(page.getByRole("menuitem")).toHaveCount(7);
   await expect(page.getByRole("menuitem", { name: "Home" })).toBeVisible();
   await expect(page.locator("body")).not.toContainText("Hub");
 });
@@ -291,10 +293,11 @@ test("the single home entry remains usable on a narrow viewport", async ({
 
   await header.getByRole("button", { name: "Open navigation" }).click();
   const navigation = page.getByRole("dialog", { name: "Navigation" });
-  await expect(navigation.getByRole("menuitem")).toHaveCount(6);
+  await expect(navigation.getByRole("menuitem")).toHaveCount(7);
   for (const name of [
     "Home",
     "My profile",
+    "Applications",
     "Plan",
     "Account & security",
     "Preferences",
@@ -367,6 +370,7 @@ test("password sign in stores the returned session and opens the home page", asy
 }) => {
   await rememberRegion(context, "hub", "sgp");
   await provideOwnProfile(page);
+  await stubNoApplications(page);
   await provideMyInfo(page);
   await provideMySubscription(page);
   await page.route("**/api/hub/login", async (route) => {

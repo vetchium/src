@@ -1,8 +1,16 @@
-import { HeartOutlined, SafetyOutlined } from "@ant-design/icons";
+import {
+  HeartOutlined,
+  IdcardOutlined,
+  SafetyOutlined,
+} from "@ant-design/icons";
 import { Card, Col, Row, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { FreeTier } from "typespec/hub/subscriptions/plans";
+import {
+  needsAnswer,
+  useMyApplicationsQuery,
+} from "../features/applications/queries";
 import { ProfileProgressCard } from "../features/profile/ProfileProgressCard";
 import { useMyInfoQuery } from "../features/profile/queries";
 import { useMySubscriptionQuery } from "../features/subscriptions/queries";
@@ -11,12 +19,15 @@ export function HomePage() {
   const { t } = useTranslation();
   const { data: me } = useMyInfoQuery();
   const subscription = useMySubscriptionQuery();
+  const applications = useMyApplicationsQuery();
+  const answerNeeded = applications.data?.filter(needsAnswer).length ?? 0;
   if (me === undefined) return null;
   // A failed subscription read must not invite a paying user to pay again.
   const showSupport =
     subscription.isSuccess && subscription.data.plan_oid === FreeTier;
   const showSecurity = !me.totp_enabled;
-  const hasAside = showSupport || showSecurity;
+  const showApplications = answerNeeded > 0;
+  const hasAside = showSupport || showSecurity || showApplications;
 
   return (
     <Space orientation="vertical" size="large" className="full-width">
@@ -31,6 +42,21 @@ export function HomePage() {
         {hasAside ? (
           <Col xs={24} lg={10}>
             <Space orientation="vertical" size="large" className="full-width">
+              {showApplications ? (
+                <Card
+                  title={
+                    <Space>
+                      <IdcardOutlined />
+                      {t("home.applicationsTitle")}
+                    </Space>
+                  }
+                >
+                  <Typography.Paragraph>
+                    {t("home.applicationsBody", { count: answerNeeded })}
+                  </Typography.Paragraph>
+                  <Link to="/applications">{t("home.applicationsAction")}</Link>
+                </Card>
+              ) : null}
               {showSupport ? (
                 <Card
                   title={

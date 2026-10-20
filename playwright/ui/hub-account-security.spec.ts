@@ -13,6 +13,7 @@ import {
   EmailAddressUnavailableError,
   EmailChangeCodeRejectedError,
 } from "typespec/problem/hub/email";
+import { stubNoApplications } from "../lib/hub-ui-stubs.ts";
 import { HUB_PORTAL } from "../lib/portals.ts";
 
 const handle = "accou000-00000000001";
@@ -36,6 +37,7 @@ async function openAccountSecurity(page: Page): Promise<Account> {
       session_authenticated_at: new Date().toISOString(),
     },
   };
+  await stubNoApplications(page);
   await page.addInitScript((userHandle) => {
     sessionStorage.setItem(
       "vetchium.hub.session",

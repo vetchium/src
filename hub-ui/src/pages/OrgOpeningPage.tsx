@@ -1,5 +1,5 @@
 import { OpeningContentView } from "@vetchium/portal-ui/openings";
-import { Button, Space, Typography } from "antd";
+import { Alert, Button, Skeleton, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
 import { isOrgDomain, normalizeOrgDomain } from "typespec/orgs/types";
@@ -11,8 +11,10 @@ import {
 import { isProblem } from "../api/client";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { NoIndex } from "../components/common/NoIndex";
+import { useMyApplicationsQuery } from "../features/applications/queries";
 import { openingContentPresentation } from "../features/openings/presentation";
 import { useOrgOpeningQuery } from "../features/openings/queries";
+import { applicationPath } from "./ApplicationsPage";
 import { OrgHeader } from "./OrgPage";
 
 export function OrgOpeningPage() {
@@ -27,6 +29,12 @@ export function OrgOpeningPage() {
     number <= 2_147_483_647;
   const result = useOrgOpeningQuery(domain, number, valid);
   const presentation = openingContentPresentation(t, i18n.language);
+  const applications = useMyApplicationsQuery(valid);
+  const applied = applications.data?.find(
+    (application) =>
+      application.org_domain === domain &&
+      application.opening_number === number,
+  );
   return (
     <>
       <NoIndex />
@@ -50,6 +58,28 @@ export function OrgOpeningPage() {
           <Link to={`/org/${encodeURIComponent(domain)}`}>
             <Button>{t("orgPage.backToOpenings")}</Button>
           </Link>
+          {applied !== undefined ? (
+            <Alert
+              type="success"
+              showIcon
+              title={t("orgPage.youApplied")}
+              action={
+                <Link to={applicationPath(applied)}>
+                  {t("orgPage.viewApplication")}
+                </Link>
+              }
+            />
+          ) : result.data.opening.state === "published" ? (
+            applications.isPending ? (
+              <Skeleton.Button active aria-label={t("orgPage.loading")} />
+            ) : (
+              <Link
+                to={`/org/${encodeURIComponent(domain)}/openings/${number}/apply`}
+              >
+                <Button type="primary">{t("orgPage.apply")}</Button>
+              </Link>
+            )
+          ) : null}
           {result.data.opening.state === "published" ? (
             <OpeningContentView
               content={result.data.opening.content}

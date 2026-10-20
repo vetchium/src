@@ -4,6 +4,12 @@ import {
   RateLimitExceededError,
 } from "typespec/problem/common";
 import {
+  ApplicationExistsError,
+  ApplicationNotFoundError,
+  ApplicationStateConflictError,
+  OpeningNotAcceptingError,
+} from "typespec/problem/hub/applications";
+import {
   HubUserDisabledError,
   IncorrectPasswordError,
   IncorrectTOTPCodeError,
@@ -18,6 +24,7 @@ import {
   EmailChangeInProgressError,
   EmailChangeUnavailableError,
 } from "typespec/problem/hub/email";
+import { OrgUnavailableError } from "typespec/problem/hub/openings";
 import {
   ProfessionalEmailCodeRejectedError,
   ProfileConflictError,
@@ -76,6 +83,11 @@ export const problemKeys: Record<string, string> = {
   [EmailAddressUnavailableError.type]: "errors.emailAddressUnavailable",
   [EmailChangeInProgressError.type]: "errors.emailChangeInProgress",
   [EmailChangeUnavailableError.type]: "errors.emailChangeUnavailable",
+  [ApplicationExistsError.type]: "errors.applicationExists",
+  [OpeningNotAcceptingError.type]: "errors.openingNotAccepting",
+  [ApplicationNotFoundError.type]: "errors.applicationNotFound",
+  [ApplicationStateConflictError.type]: "errors.applicationStateConflict",
+  [OrgUnavailableError.type]: "errors.orgUnavailable",
 };
 
 export function APIErrorAlert({ error }: { error: unknown }) {
