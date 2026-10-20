@@ -88,7 +88,10 @@ WITH changed AS (
             WHERE NOT sqlc.arg(accept)::boolean)) AS interviews,
         vetchium.end_pending_consents(ARRAY(
             SELECT org_application_id FROM changed
-            WHERE NOT sqlc.arg(accept)::boolean)) AS consents
+            WHERE NOT sqlc.arg(accept)::boolean)) AS consents,
+        vetchium.end_provider_access(ARRAY(
+            SELECT org_application_id FROM changed
+            WHERE NOT sqlc.arg(accept)::boolean)) AS access
 ), history AS (
     INSERT INTO vetchium.org_application_history (
         org_application_history_id, org_application_id, action, actor_kind,
@@ -175,7 +178,9 @@ WITH changed AS (
     SELECT vetchium.cancel_upcoming_interviews(
         ARRAY(SELECT org_application_id FROM changed)) AS interviews,
         vetchium.end_pending_consents(
-        ARRAY(SELECT org_application_id FROM changed)) AS consents
+        ARRAY(SELECT org_application_id FROM changed)) AS consents,
+        vetchium.end_provider_access(
+        ARRAY(SELECT org_application_id FROM changed)) AS access
 ), history AS (
     INSERT INTO vetchium.org_application_history (
         org_application_history_id, org_application_id, action, actor_kind,

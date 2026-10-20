@@ -32,6 +32,7 @@ import type {
   RecordBackgroundCheckResultRequest,
   RecordInterviewOutcomeRequest,
   RequestBackgroundCheckConsentRequest,
+  RouteApplicationRequest,
   ScheduleInterviewRequest,
   SubmitInterviewFeedbackRequest,
 } from "typespec/orgs/applications/applications";
@@ -48,6 +49,11 @@ import type {
   ListPipelineTemplatesRequest,
   UpdatePipelineTemplateRequest,
 } from "typespec/orgs/hiring/pipelines";
+import type {
+  AssignOpeningProviderRequest,
+  GetOpeningProvidersRequest,
+  UnassignOpeningProviderRequest,
+} from "typespec/orgs/marketplace/assignments";
 import type {
   EndEngagementRequest,
   EngagementTarget,
@@ -415,6 +421,43 @@ export class OrgsAPI {
       token,
       idempotencyKey,
     });
+  }
+
+  getOpeningProviders(
+    token: string,
+    request: GetOpeningProvidersRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-opening-providers", request, { token });
+  }
+
+  assignOpeningProvider(
+    token: string,
+    request: AssignOpeningProviderRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/assign-opening-provider", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  unassignOpeningProvider(
+    token: string,
+    request: UnassignOpeningProviderRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/unassign-opening-provider", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  routeApplication(
+    token: string,
+    request: RouteApplicationRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/route-application", request, { token, idempotencyKey });
   }
 
   /** Sends a body that need not satisfy the contract, to observe rejection. */

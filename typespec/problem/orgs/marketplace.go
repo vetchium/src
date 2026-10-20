@@ -85,3 +85,41 @@ var EngagementVersionConflictError = problem.Details{
 	Status: 409,
 	Detail: "The engagement changed since it was read",
 }
+
+var AssignmentExistsError = problem.Details{
+	Type:   "vetchium-problem-details/org-assignment-exists",
+	Title:  "Org assignment exists",
+	Status: 409,
+	Detail: "The engagement is already assigned there",
+}
+
+var AssignmentNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-assignment-not-found",
+	Title:  "Org assignment not found",
+	Status: 404,
+	Detail: "The engagement is not assigned there",
+}
+
+type AssignmentLimitReachedDetails struct {
+	problem.Details
+	Limit int32 `json:"limit"`
+}
+
+func AssignmentLimitReachedError(limit int32) AssignmentLimitReachedDetails {
+	return AssignmentLimitReachedDetails{
+		Details: problem.Details{
+			Type:   "vetchium-problem-details/org-assignment-limit-reached",
+			Title:  "Org assignment limit reached",
+			Status: 409,
+			Detail: "No more engagements may be assigned there",
+		},
+		Limit: limit,
+	}
+}
+
+var EngagementCapabilityMismatchError = problem.Details{
+	Type:   "vetchium-problem-details/org-engagement-capability-mismatch",
+	Title:  "Org engagement Capability mismatch",
+	Status: 422,
+	Detail: "The engagement's Capability does not perform the stage kind",
+}

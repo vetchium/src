@@ -113,3 +113,52 @@ func (r RelayGetListingRequest) Validate() []string {
 	}
 	return fields
 }
+
+// PeerEngagementListingRequest asks a provider's tenant for the Listing
+// behind an engagement, which may no longer be `listed`. The provider's tenant
+// answers only a caller that homes the consumer Org and only for an
+// engagement it holds.
+type PeerEngagementListingRequest struct {
+	EngagementID   EngagementID `json:"engagement_id"`
+	ConsumerOrgDID orgs.OrgDID  `json:"consumer_org_did"`
+}
+
+func (r *PeerEngagementListingRequest) Normalize() {}
+
+func (r PeerEngagementListingRequest) Validate() []string {
+	fields := []string{}
+	if !IsEngagementID(r.EngagementID) {
+		fields = append(fields, "engagement_id")
+	}
+	if !orgs.IsOrgDID(r.ConsumerOrgDID) {
+		fields = append(fields, "consumer_org_did")
+	}
+	return fields
+}
+
+// EngagementListing is what a consumer needs from the Listing when it routes
+// a candidacy: the Capability, and for a `background_check` Listing the check
+// types it performs and the consent disclosure applicants see.
+type EngagementListing struct {
+	Capability        Capability         `json:"capability"`
+	CheckTypes        []hiring.CheckType `json:"check_types,omitempty"`
+	ConsentDisclosure *string            `json:"consent_disclosure,omitempty"`
+}
+
+type RelayEngagementListingRequest struct {
+	Tenant  directoryspec.TenantID       `json:"tenant"`
+	Request PeerEngagementListingRequest `json:"request"`
+}
+
+func (r *RelayEngagementListingRequest) Normalize() {}
+
+func (r RelayEngagementListingRequest) Validate() []string {
+	fields := []string{}
+	if !directoryspec.IsTenantID(r.Tenant) {
+		fields = append(fields, "tenant")
+	}
+	for _, field := range r.Request.Validate() {
+		fields = append(fields, "request."+field)
+	}
+	return fields
+}

@@ -15,6 +15,7 @@ import "../../problem/orgs/authentication.tsp";
 import "../../problem/orgs/suspension.tsp";
 import "../hiring/pipelines.tsp";
 import "../hiring/vocabulary.tsp";
+import "../marketplace/assignments.tsp";
 import "../openings/types.tsp";
 
 using TypeSpec.Http;
@@ -278,6 +279,7 @@ scalar StageStatus extends string;
     "background_check_consent_given",
     "background_check_consent_declined",
     "background_check_result_recorded",
+    "routed",
     "removed"
   ]
 )
@@ -309,6 +311,9 @@ model ApplicationSummary {
 
   /** The stage a candidacy is at. */
   current_stage?: Vetchium.Orgs.Hiring.PipelineStage;
+
+  /** The provider performing the current stage; absent when in-house. */
+  route?: Vetchium.Orgs.Marketplace.ApplicationRoute;
 
   submitted_at: utcDateTime;
   updated_at: utcDateTime;
@@ -459,6 +464,9 @@ model ApplicationDetail {
   cover_note?: ApplicationCoverNote;
   current_stage?: Vetchium.Orgs.Hiring.PipelineStage;
 
+  /** The provider performing the current stage; absent when in-house. */
+  route?: Vetchium.Orgs.Marketplace.ApplicationRoute;
+
   /** The candidacy's stages in pipeline order; empty before shortlisting. */
   stage_records: ApplicationStageRecord[];
 
@@ -569,6 +577,9 @@ model ListApplicationsRequest {
    */
   pending_applicant_action?: PendingApplicantAction;
 
+  /** Candidates view only: candidacies routed to this engagement. */
+  routed_engagement_id?: Vetchium.Orgs.Marketplace.EngagementID;
+
   pagination_key?: Vetchium.PaginationKey;
 
   /** Defaults to 50. */
@@ -614,6 +625,15 @@ model ApplicationReference {
 /** Requests that name no further input. */
 model ApplicationActionRequest {
   ...ApplicationReference;
+}
+
+/**
+ * Routes a candidacy at its current stage to an engagement assigned to that
+ * stage, or back in-house when `engagement_id` is absent.
+ */
+model RouteApplicationRequest {
+  ...ApplicationReference;
+  engagement_id?: Vetchium.Orgs.Marketplace.EngagementID;
 }
 
 /** Shortlists a `submitted` application, or moves a candidacy forward. */
@@ -951,6 +971,38 @@ interface ApplicationOperations {
         @body body: ApplicationDetail;
       }
     | ApplicationWriteErrors;
+
+  /**
+   * Routes a candidacy at a pending stage to a provider assigned to it, or
+   * back in-house. Rerouting ends the previous provider's access; work it
+   * recorded stays. Routing to a `background_check` provider copies the
+   * Listing's current consent disclosure from the provider's tenant.
+   */
+  @route("/route-application")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  routeApplication(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: RouteApplicationRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ApplicationDetail;
+      }
+    | ApplicationWriteErrors
+    | Vetchium.Problem.OrgAssignmentNotFoundErrorResponse
+    | Vetchium.Problem.OrgTenantUnavailableErrorResponse;
 
   @route("/mark-application-not-progressing")
   @post

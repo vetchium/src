@@ -117,9 +117,9 @@ Application states:
   one whose start passed stays to be recorded (HP-WRK-004). Every statement
   that ends a candidacy (not progressing, bulk close, applicant withdrawal,
   offer decline or expiry, joined, did not join) calls
-  `vetchium.cancel_upcoming_interviews` and `vetchium.end_pending_consents`
-  (HP-WRK-012) in the same statement; moving to another stage ends the
-  consent requests too.
+  `vetchium.cancel_upcoming_interviews`, `vetchium.end_pending_consents`
+  (HP-WRK-012), and `vetchium.end_provider_access` in the same statement;
+  moving to another stage ends the consent requests and the route too.
 - **HP-STA-003** Moving forward records each passed-over stage as `skipped`.
   Moving back and per-candidacy extra stages are in `docs/todo.md`.
 - **HP-STA-004** An offer may be extended from any stage; unfinished stages
@@ -376,7 +376,7 @@ below.
 - **HP-ORG-001** Opening detail has an Applicants tab (`submitted`) and a
   Candidates tab (candidacies by stage, then terminal ones under a state
   filter). Each lists server-side with filters for
-  state, stage, routed provider, and pending applicant action
+  state, stage, routed provider (`routed_engagement_id`), and pending applicant action
   (`pending_applicant_action`: `interview_response`,
   `background_check_consent`, `offer_response`); display-name
   substring search (at least two characters); keyset pagination (at most

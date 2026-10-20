@@ -7,7 +7,6 @@ import type {
 } from "typespec/orgs/marketplace/engagements";
 import type { OperationStatus } from "typespec/orgs/operations/operations";
 import { expectProblem } from "../lib/admin-api.ts";
-import type { TestTenant } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import {
   addOrgMember,
@@ -20,14 +19,14 @@ import {
   orgsIdempotencyKey,
 } from "../lib/orgs-api.ts";
 import {
-  background,
-  listing,
+  asConsumer,
+  asProvider,
   moneyKey,
   onSilver,
-  type Provider,
   problems,
-  published,
+  propose,
   setOrgHome,
+  withPair,
   withProvider,
 } from "../lib/orgs-marketplace.ts";
 
@@ -40,99 +39,6 @@ const engagementProblems = {
   version: `${base}org-engagement-version-conflict`,
   notAvailable: `${base}org-listing-not-available`,
 };
-
-interface Pair {
-  consumer: Provider;
-  provider: Provider;
-}
-
-/**
- * A consumer Org and a provider Org, each on Silver in its own region. The
- * provider has published a Listing for every Capability named.
- */
-async function withPair(
-  request: ConstructorParameters<typeof OrgsAPI>[0],
-  options: {
-    consumer?: TestTenant;
-    provider?: TestTenant;
-    capabilities?: Capability[];
-  },
-  body: (pair: Pair) => Promise<void>,
-): Promise<void> {
-  await withProvider(
-    request,
-    async (consumer) => {
-      await withProvider(
-        request,
-        async (provider) => {
-          for (const capability of options.capabilities ?? ["sourcing"]) {
-            await published(
-              provider.api,
-              provider.owner,
-              capability === "background_check"
-                ? background("Checks")
-                : listing(capability, `${capability} services`),
-            );
-          }
-          await body({ consumer, provider });
-        },
-        { tenant: options.provider ?? "deu" },
-      );
-    },
-    { tenant: options.consumer ?? "sgp" },
-  );
-}
-
-async function propose(
-  { consumer, provider }: Pair,
-  capability: Capability = "sourcing",
-  message?: string,
-): Promise<Engagement> {
-  const response = await consumer.api.proposeEngagement(consumer.owner, {
-    provider_domain: provider.org.domain,
-    capability,
-    ...(message === undefined ? {} : { message }),
-  });
-  expect(response.status(), await response.text()).toBe(201);
-  expect(response.headers()["cache-control"]).toBe("no-store");
-  return (await response.json()) as Engagement;
-}
-
-async function asConsumer({ consumer }: Pair, id: string): Promise<Engagement> {
-  const response = await consumer.api.getEngagement(consumer.owner, {
-    engagement_id: id,
-  });
-  expect(response.status(), await response.text()).toBe(200);
-  return (await response.json()) as Engagement;
-}
-
-/**
- * The provider's view, once its tenant has received the consumer's change at
- * `version` or later.
- */
-async function asProvider(
-  { provider }: Pair,
-  id: string,
-  version: number,
-): Promise<Engagement> {
-  let latest: Engagement | undefined;
-  await expect
-    .poll(
-      async () => {
-        const response = await provider.api.getClientEngagement(
-          provider.owner,
-          { engagement_id: id },
-        );
-        if (response.status() !== 200) return 0;
-        latest = (await response.json()) as Engagement;
-        return latest.version;
-      },
-      { timeout: 30_000, intervals: [250, 500, 1000] },
-    )
-    .toBeGreaterThanOrEqual(version);
-  if (latest === undefined) throw new Error("the projection never arrived");
-  return latest;
-}
 
 const text = (length: number) => "é".repeat(length);
 

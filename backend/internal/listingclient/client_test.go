@@ -12,6 +12,7 @@ import (
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs"
+	"github.com/vetchium/src/typespec/orgs/hiring"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/problem"
 )
@@ -193,5 +194,49 @@ func TestPeerRejectsInvalidTenantConfiguration(t *testing.T) {
 	if _, err := NewPeer(nil, time.Second).PeerGet(context.Background(), "bad tenant",
 		marketplace.GetListingRequest{}); !errors.Is(err, ErrInvalidResponse) {
 		t.Fatalf("bad tenant error = %v", err)
+	}
+}
+
+func TestRelayEngagementListingHoldsTheProviderToTheCapability(t *testing.T) {
+	t.Parallel()
+	disclosure := "We verify."
+	request := marketplace.RelayEngagementListingRequest{
+		Tenant: "deu",
+		Request: marketplace.PeerEngagementListingRequest{
+			EngagementID:   "01900000-0000-7000-8000-000000000003",
+			ConsumerOrgDID: "01900000-0000-7000-8000-000000000001",
+		},
+	}
+	good := serve(t, 200, "application/json", marketplace.EngagementListing{
+		Capability: marketplace.BackgroundCheck,
+		CheckTypes: []hiring.CheckType{hiring.IdentityCheck}, ConsentDisclosure: &disclosure,
+	})
+	outcome, err := good.RelayEngagementListing(context.Background(), request)
+	if err != nil || outcome.Result == nil || *outcome.Result.ConsentDisclosure != disclosure {
+		t.Fatalf("outcome = %+v, %v", outcome, err)
+	}
+	plain := serve(t, 200, "application/json", marketplace.EngagementListing{Capability: marketplace.Sourcing})
+	if outcome, err := plain.RelayEngagementListing(context.Background(), request); err != nil || outcome.Result == nil {
+		t.Fatalf("sourcing outcome = %+v, %v", outcome, err)
+	}
+	for name, body := range map[string]marketplace.EngagementListing{
+		"background check without a disclosure": {Capability: marketplace.BackgroundCheck, CheckTypes: []hiring.CheckType{hiring.IdentityCheck}},
+		"background check without check types":  {Capability: marketplace.BackgroundCheck, ConsentDisclosure: &disclosure},
+		"disclosure on another Capability":      {Capability: marketplace.Interviewing, ConsentDisclosure: &disclosure, CheckTypes: []hiring.CheckType{hiring.IdentityCheck}},
+		"unknown Capability":                    {Capability: "plumbing"},
+	} {
+		client := serve(t, 200, "application/json", body)
+		if _, err := client.RelayEngagementListing(context.Background(), request); !errors.Is(err, ErrInvalidResponse) {
+			t.Errorf("%s: error = %v", name, err)
+		}
+	}
+	missing := serve(t, 404, problem.MediaType, problem.Details{
+		Type: "vetchium-problem-details/org-engagement-not-found", Status: 404,
+	})
+	if outcome, err := missing.RelayEngagementListing(context.Background(), request); err != nil || outcome.Problem == nil || outcome.Problem.Status != 404 {
+		t.Fatalf("missing outcome = %+v, %v", outcome, err)
+	}
+	if _, err := NewPeer(nil, time.Second).PeerEngagementListing(context.Background(), "deu", request.Request); !errors.Is(err, ErrInvalidResponse) {
+		t.Fatalf("peer configuration error = %v", err)
 	}
 }

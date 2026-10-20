@@ -149,11 +149,13 @@ func enqueue(
 	return snapshot, nil
 }
 
-// EndAccess removes what the engagement granted the provider when it ends:
-// provider access ends at once because the state itself gates every provider
-// read and command, and the engagement's assignments and routes are removed
-// here, in the ending transaction (MKT-ENG-004).
+// EndAccess removes what the engagement granted the provider when it ends,
+// in the ending transaction (MKT-ENG-004): its assignments, and with them
+// every route, through which alone a provider reaches a candidacy.
 func EndAccess(ctx context.Context, q sqlc.Querier, engagementID pgtype.UUID) error {
+	if err := q.DeleteOrgEngagementAssignments(ctx, engagementID); err != nil {
+		return fmt.Errorf("delete engagement assignments: %w", err)
+	}
 	return nil
 }
 

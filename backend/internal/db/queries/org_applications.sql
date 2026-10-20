@@ -94,7 +94,11 @@ SELECT a.application_number, a.application_state, a.version,
     COALESCE(a.snapshot ->> 'resident_country', '')::text AS resident_country,
     (a.removed_at IS NOT NULL)::boolean AS removed,
     stage.org_opening_stage_id AS stage_id, stage.name AS stage_name,
-    stage.stage_kind, a.created_at, a.updated_at
+    stage.stage_kind, a.created_at, a.updated_at,
+    eng.engagement_id AS route_engagement_id,
+    eng.provider_domain AS route_domain,
+    eng.provider_display_name AS route_display_name,
+    eng.capability_oid AS route_capability, rt.routed_at AS route_routed_at
 FROM vetchium.org_openings AS o
 LEFT JOIN vetchium.org_applications AS a
     ON a.org_opening_id = o.org_opening_id
@@ -120,6 +124,13 @@ LEFT JOIN vetchium.org_applications AS a
             WHERE b.org_application_id = a.org_application_id
               AND b.consent_state = 'requested'
         )))
+    AND (sqlc.narg(routed_engagement_id)::uuid IS NULL OR EXISTS (
+        SELECT 1 FROM vetchium.org_application_routes AS filter_rt
+        JOIN vetchium.org_engagement_assignments AS filter_asg
+            ON filter_asg.assignment_id = filter_rt.assignment_id
+        WHERE filter_rt.org_application_id = a.org_application_id
+          AND filter_asg.engagement_id = sqlc.narg(routed_engagement_id)::uuid
+    ))
     AND (sqlc.narg(stage_id)::uuid IS NULL
         OR a.current_stage_id = sqlc.narg(stage_id)::uuid)
     AND (sqlc.narg(name_query)::text IS NULL OR (
@@ -130,6 +141,11 @@ LEFT JOIN vetchium.org_applications AS a
         OR a.application_number < sqlc.narg(after_application_number)::integer)
 LEFT JOIN vetchium.org_opening_stages AS stage
     ON stage.org_opening_stage_id = a.current_stage_id
+LEFT JOIN vetchium.org_application_routes AS rt
+    ON rt.org_application_id = a.org_application_id
+LEFT JOIN vetchium.org_engagement_assignments AS asg
+    ON asg.assignment_id = rt.assignment_id
+LEFT JOIN vetchium.org_engagements AS eng ON eng.engagement_id = asg.engagement_id
 WHERE o.org_did = sqlc.arg(org_did)
   AND o.opening_number = sqlc.arg(opening_number)::integer
   AND vetchium.org_user_reads_applications(o.org_opening_id, sqlc.arg(viewer_id))
@@ -276,11 +292,20 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
         WHERE b.org_application_id = a.org_application_id
           AND vetchium.org_user_reads_all_applications(o.org_opening_id,
               sqlc.arg(viewer_id))
-    ), '[]'::jsonb)::jsonb AS background_checks
+    ), '[]'::jsonb)::jsonb AS background_checks,
+    eng.engagement_id AS route_engagement_id,
+    eng.provider_domain AS route_domain,
+    eng.provider_display_name AS route_display_name,
+    eng.capability_oid AS route_capability, rt.routed_at AS route_routed_at
 FROM vetchium.org_openings AS o
 JOIN vetchium.org_applications AS a ON a.org_opening_id = o.org_opening_id
 LEFT JOIN vetchium.org_opening_stages AS stage
     ON stage.org_opening_stage_id = a.current_stage_id
+LEFT JOIN vetchium.org_application_routes AS rt
+    ON rt.org_application_id = a.org_application_id
+LEFT JOIN vetchium.org_engagement_assignments AS asg
+    ON asg.assignment_id = rt.assignment_id
+LEFT JOIN vetchium.org_engagements AS eng ON eng.engagement_id = asg.engagement_id
 WHERE o.org_did = sqlc.arg(org_did)
   AND o.opening_number = sqlc.arg(opening_number)::integer
   AND a.application_number = sqlc.arg(application_number)::integer
@@ -428,7 +453,9 @@ WITH withdrawn AS (
     SELECT vetchium.cancel_upcoming_interviews(
         ARRAY(SELECT org_application_id FROM withdrawn)) AS interviews,
         vetchium.end_pending_consents(
-        ARRAY(SELECT org_application_id FROM withdrawn)) AS consents
+        ARRAY(SELECT org_application_id FROM withdrawn)) AS consents,
+        vetchium.end_provider_access(
+        ARRAY(SELECT org_application_id FROM withdrawn)) AS access
 ), history AS (
     INSERT INTO vetchium.org_application_history (
         org_application_history_id, org_application_id, action, actor_kind,

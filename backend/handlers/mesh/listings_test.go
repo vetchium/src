@@ -30,12 +30,21 @@ type listingQueries struct {
 	searchRows []sqlc.SearchPublicListingsRow
 	getErr     error
 	getRow     sqlc.GetPublicListingRow
+
+	engagementRow sqlc.GetEngagementListingForConsumerRow
+	engagementErr error
 }
 
 func (q listingQueries) SearchPublicListings(
 	context.Context, sqlc.SearchPublicListingsParams,
 ) ([]sqlc.SearchPublicListingsRow, error) {
 	return q.searchRows, nil
+}
+
+func (q listingQueries) GetEngagementListingForConsumer(
+	context.Context, sqlc.GetEngagementListingForConsumerParams,
+) (sqlc.GetEngagementListingForConsumerRow, error) {
+	return q.engagementRow, q.engagementErr
 }
 
 func (q listingQueries) GetPublicListing(
@@ -204,5 +213,48 @@ func TestPeerListingReadsNeedACertificateIdentity(t *testing.T) {
 	recorder := postListing(PeerGetListing(missing), get, nil, identified)
 	if recorder.Code != http.StatusNotFound || listingProblemType(t, recorder) != orgsproblem.ListingNotFoundError.Type {
 		t.Fatalf("missing peer Listing: status = %d", recorder.Code)
+	}
+}
+
+const engagementListingBody = `{"engagement_id":"01900000-0000-7000-8000-000000000003",` +
+	`"consumer_org_did":"01900000-0000-7000-8000-000000000001"}`
+
+func TestRelayEngagementListing(t *testing.T) {
+	t.Parallel()
+	found := listingQueries{engagementRow: sqlc.GetEngagementListingForConsumerRow{
+		CapabilityOid: "sourcing",
+	}}
+	body := func(tenant string) string {
+		return `{"tenant":"` + tenant + `","request":` + engagementListingBody + `}`
+	}
+	recorder := postListing(RelayEngagementListing(listingServer(found)), body("sgp"), relayAuth, context.Background())
+	if recorder.Code != http.StatusOK || recorder.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("found: status = %d body = %s", recorder.Code, recorder.Body.String())
+	}
+	missing := listingQueries{engagementErr: pgx.ErrNoRows}
+	recorder = postListing(RelayEngagementListing(listingServer(missing)), body("sgp"), relayAuth, context.Background())
+	if recorder.Code != http.StatusNotFound || listingProblemType(t, recorder) != orgsproblem.EngagementNotFoundError.Type {
+		t.Fatalf("missing: status = %d body = %s", recorder.Code, recorder.Body.String())
+	}
+	recorder = postListing(RelayEngagementListing(listingServer(found)), body("usa1"), relayAuth, context.Background())
+	if recorder.Code != http.StatusServiceUnavailable ||
+		listingProblemType(t, recorder) != orgsproblem.TenantUnavailableError.Type {
+		t.Fatalf("unreachable: status = %d body = %s", recorder.Code, recorder.Body.String())
+	}
+	if recorder := postListing(RelayEngagementListing(listingServer(found)), body("sgp"), nil, context.Background()); recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated status = %d", recorder.Code)
+	}
+	if recorder := postListing(RelayEngagementListing(listingServer(found)), `{"tenant":"sgp","request":{}}`, relayAuth, context.Background()); recorder.Code != http.StatusBadRequest {
+		t.Fatalf("invalid status = %d", recorder.Code)
+	}
+}
+
+func TestPeerEngagementListingNeedsACertificateIdentity(t *testing.T) {
+	t.Parallel()
+	server := listingServer(listingQueries{})
+	recorder := postListing(PeerEngagementListing(server), engagementListingBody, nil, context.Background())
+	if recorder.Code != http.StatusUnauthorized ||
+		listingProblemType(t, recorder) != coordinatorproblem.MeshPeerAuthenticationRequiredError.Type {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body.String())
 	}
 }

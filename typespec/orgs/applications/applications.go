@@ -12,6 +12,7 @@ import (
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/hub/profile"
 	"github.com/vetchium/src/typespec/orgs/hiring"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/openings"
 )
 
@@ -115,6 +116,8 @@ const (
 	ConsentGivenAction          ApplicationHistoryAction = "background_check_consent_given"
 	ConsentDeclinedAction       ApplicationHistoryAction = "background_check_consent_declined"
 	BackgroundCheckResultAction ApplicationHistoryAction = "background_check_result_recorded"
+
+	RoutedAction ApplicationHistoryAction = "routed"
 
 	RemovedAction ApplicationHistoryAction = "removed"
 )
@@ -523,8 +526,10 @@ type ApplicationSummary struct {
 	ResidentCountry   common.CountryCode    `json:"resident_country"`
 	Removed           bool                  `json:"removed"`
 	CurrentStage      *hiring.PipelineStage `json:"current_stage,omitempty"`
-	SubmittedAt       time.Time             `json:"submitted_at"`
-	UpdatedAt         time.Time             `json:"updated_at"`
+	// Route is the provider performing the current stage; absent in-house.
+	Route       *marketplace.ApplicationRoute `json:"route,omitempty"`
+	SubmittedAt time.Time                     `json:"submitted_at"`
+	UpdatedAt   time.Time                     `json:"updated_at"`
 }
 
 type ApplicationStageRecord struct {
@@ -616,17 +621,19 @@ type ApplicationDetail struct {
 	Removed           bool                      `json:"removed"`
 	CoverNote         *ApplicationCoverNote     `json:"cover_note,omitempty"`
 	CurrentStage      *hiring.PipelineStage     `json:"current_stage,omitempty"`
-	StageRecords      []ApplicationStageRecord  `json:"stage_records"`
-	JoinedOn          *CalendarDate             `json:"joined_on,omitempty"`
-	SeparatedOn       *CalendarDate             `json:"separated_on,omitempty"`
-	Positions         int32                     `json:"positions"`
-	JoinedCount       int32                     `json:"joined_count"`
-	Offers            []ApplicationOffer        `json:"offers"`
-	Interviews        []Interview               `json:"interviews"`
-	Assessments       []AssessmentResult        `json:"assessments"`
-	BackgroundChecks  []BackgroundCheck         `json:"background_checks"`
-	SubmittedAt       time.Time                 `json:"submitted_at"`
-	UpdatedAt         time.Time                 `json:"updated_at"`
+	// Route is the provider performing the current stage; absent in-house.
+	Route            *marketplace.ApplicationRoute `json:"route,omitempty"`
+	StageRecords     []ApplicationStageRecord      `json:"stage_records"`
+	JoinedOn         *CalendarDate                 `json:"joined_on,omitempty"`
+	SeparatedOn      *CalendarDate                 `json:"separated_on,omitempty"`
+	Positions        int32                         `json:"positions"`
+	JoinedCount      int32                         `json:"joined_count"`
+	Offers           []ApplicationOffer            `json:"offers"`
+	Interviews       []Interview                   `json:"interviews"`
+	Assessments      []AssessmentResult            `json:"assessments"`
+	BackgroundChecks []BackgroundCheck             `json:"background_checks"`
+	SubmittedAt      time.Time                     `json:"submitted_at"`
+	UpdatedAt        time.Time                     `json:"updated_at"`
 }
 
 type ApplicationHistoryEntry struct {
@@ -669,8 +676,11 @@ type ListApplicationsRequest struct {
 	// PendingApplicantAction (Candidates view) lists the candidacies with
 	// that action awaiting the applicant.
 	PendingApplicantAction *PendingApplicantAction `json:"pending_applicant_action,omitempty"`
-	PaginationKey          *common.PaginationKey   `json:"pagination_key,omitempty"`
-	Limit                  *common.PageSize        `json:"limit,omitempty"`
+	// RoutedEngagementID (Candidates view) lists the candidacies routed to
+	// that engagement.
+	RoutedEngagementID *marketplace.EngagementID `json:"routed_engagement_id,omitempty"`
+	PaginationKey      *common.PaginationKey     `json:"pagination_key,omitempty"`
+	Limit              *common.PageSize          `json:"limit,omitempty"`
 }
 
 func (r *ListApplicationsRequest) Normalize() {
@@ -723,6 +733,10 @@ func (r ListApplicationsRequest) Validate() []string {
 	if r.PendingApplicantAction != nil &&
 		(!candidates || !IsPendingApplicantAction(*r.PendingApplicantAction)) {
 		fields = append(fields, "pending_applicant_action")
+	}
+	if r.RoutedEngagementID != nil &&
+		(!candidates || !marketplace.IsEngagementID(*r.RoutedEngagementID)) {
+		fields = append(fields, "routed_engagement_id")
 	}
 	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
 		fields = append(fields, "pagination_key")
@@ -834,6 +848,29 @@ func (r *ApplicationActionRequest) Normalize() {}
 
 func (r ApplicationActionRequest) Validate() []string {
 	return ApplicationReference(r).validate()
+}
+
+// RouteApplicationRequest routes a candidacy at its current stage to an
+// engagement assigned to that stage, or back in-house when EngagementID is
+// absent.
+type RouteApplicationRequest struct {
+	OpeningNumber     openings.OpeningNumber    `json:"opening_number"`
+	ApplicationNumber ApplicationNumber         `json:"application_number"`
+	Version           ApplicationVersion        `json:"version"`
+	EngagementID      *marketplace.EngagementID `json:"engagement_id,omitempty"`
+}
+
+func (r *RouteApplicationRequest) Normalize() {}
+
+func (r RouteApplicationRequest) Validate() []string {
+	fields := ApplicationReference{
+		OpeningNumber: r.OpeningNumber, ApplicationNumber: r.ApplicationNumber,
+		Version: r.Version,
+	}.validate()
+	if r.EngagementID != nil && !marketplace.IsEngagementID(*r.EngagementID) {
+		fields = append(fields, "engagement_id")
+	}
+	return fields
 }
 
 // ApplicationStageRequest shortlists to, or moves forward to, a stage.

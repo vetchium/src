@@ -237,3 +237,58 @@ test("engagement command payloads validate", () => {
     ["reference"],
   );
 });
+
+test("assignment and routing requests validate their ids", async () => {
+  const {
+    validateAssignOpeningProviderRequest,
+    validateGetOpeningProvidersRequest,
+  } = await import("./marketplace/assignments.ts");
+  const { validateRouteApplicationRequest } = await import(
+    "./applications/applications.ts"
+  );
+  const { validatePeerEngagementListingRequest } = await import(
+    "./marketplace/federation.ts"
+  );
+  assert.deepEqual(
+    validateAssignOpeningProviderRequest({
+      opening_number: 1,
+      engagement_id: id,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateAssignOpeningProviderRequest({
+      opening_number: 0,
+      engagement_id: "x",
+      stage_id: "y",
+    }),
+    ["opening_number", "engagement_id", "stage_id"],
+  );
+  assert.deepEqual(validateGetOpeningProvidersRequest({ opening_number: 0 }), [
+    "opening_number",
+  ]);
+  const route = { opening_number: 1, application_number: 1, version: 1 };
+  assert.deepEqual(validateRouteApplicationRequest(route), []);
+  assert.deepEqual(
+    validateRouteApplicationRequest({ ...route, engagement_id: id }),
+    [],
+  );
+  assert.deepEqual(
+    validateRouteApplicationRequest({ ...route, engagement_id: "x" }),
+    ["engagement_id"],
+  );
+  assert.deepEqual(
+    validatePeerEngagementListingRequest({
+      engagement_id: id,
+      consumer_org_did: "01900000-0000-7000-8000-000000000011",
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validatePeerEngagementListingRequest({
+      engagement_id: "x",
+      consumer_org_did: "y",
+    }),
+    ["engagement_id", "consumer_org_did"],
+  );
+});

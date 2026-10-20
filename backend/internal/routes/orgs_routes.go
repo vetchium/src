@@ -140,6 +140,9 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/delete-listing", manageListings(orgslistings.DeleteListing(s)))
 	mux.Handle("POST /api/orgs/search-listings", manageProviders(orgslistings.SearchListings(s)))
 	mux.Handle("POST /api/orgs/get-listing", manageProviders(orgslistings.GetListing(s)))
+	mux.Handle("POST /api/orgs/get-opening-providers", manageProviders(orgsengagements.GetOpeningProviders(s)))
+	mux.Handle("POST /api/orgs/assign-opening-provider", manageProviders(orgsengagements.AssignOpeningProvider(s)))
+	mux.Handle("POST /api/orgs/unassign-opening-provider", manageProviders(orgsengagements.UnassignOpeningProvider(s)))
 	mux.Handle("POST /api/orgs/list-engagements", manageProviders(orgsengagements.ListEngagements(s)))
 	mux.Handle("POST /api/orgs/get-engagement", manageProviders(orgsengagements.GetEngagement(s)))
 	mux.Handle("POST /api/orgs/propose-engagement", manageProviders(orgsengagements.ProposeEngagement(s)))
@@ -164,6 +167,7 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	// may read but not act gets the permission problem.
 	mux.Handle("POST /api/orgs/shortlist-application", readOpening(orgsapplications.ShortlistApplication(s)))
 	mux.Handle("POST /api/orgs/move-application-stage", readOpening(orgsapplications.MoveApplicationStage(s)))
+	mux.Handle("POST /api/orgs/route-application", readOpening(orgsapplications.RouteApplication(s)))
 	mux.Handle("POST /api/orgs/complete-application-stage", readOpening(orgsapplications.CompleteApplicationStage(s)))
 	mux.Handle("POST /api/orgs/mark-application-not-progressing", readOpening(orgsapplications.MarkApplicationNotProgressing(s)))
 	mux.Handle("POST /api/orgs/record-application-joined", readOpening(orgsapplications.RecordApplicationJoined(s)))

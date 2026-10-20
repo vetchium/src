@@ -104,7 +104,12 @@ Compose with [`hiring-pipeline.md`](hiring-pipeline.md),
 - **MKT-DAT-009** Routing a candidacy to a `background_check` provider copies
   the Listing's current consent disclosure, read from the provider's tenant,
   onto the consent request in the consumer's tenant. The applicant consents to
-  that copy, which stays with the result as evidence.
+  that copy, which stays with the result as evidence. The consumer asks by
+  engagement, not by Listing search: an active engagement continues when its
+  Listing leaves search (MKT-LST-004), and the provider's tenant answers only a
+  caller that homes the consumer Org. Routing stores the copy (and the
+  Listing's check types) on the route; the consent request created while that
+  route stands takes it from there.
 - **MKT-DAT-010** Agency-side unread state is per agency (the shared inbox),
   kept on the conversation in the agency's tenant; marking read writes only
   there.
@@ -547,6 +552,9 @@ Billable facts, each recorded by the party that owns it:
 | `org-engagement-state-conflict` | 409 | the action is not allowed in the current state |
 | `org-engagement-version-conflict` | 409 | the engagement changed since it was read |
 | `org-engagement-capability-mismatch` | 422 | the engagement's Capability does not perform the stage kind |
+| `org-assignment-exists` | 409 | the engagement is already assigned to that Opening or stage |
+| `org-assignment-not-found` | 404 | the engagement is not assigned there, or not the caller's |
+| `org-assignment-limit-reached` | 409 | the Opening has 20 `sourcing` engagements, or the stage 10 |
 | `org-engagement-work-not-found` | 404 | the work item is not accessible to the provider |
 | `org-conversation-limit-reached` | 429 | daily new-conversation limit reached |
 | `org-contact-limit-reached` | 429 | daily new-Contact limit reached |

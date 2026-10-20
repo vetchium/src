@@ -15,6 +15,9 @@ import type { ApplicantSnapshot } from "../../hub/profile/snapshot.ts";
 import type { PipelineStage, PipelineStageID } from "../hiring/pipelines.ts";
 import { isPipelineStageID } from "../hiring/pipelines.ts";
 import { type CheckType, isCheckType } from "../hiring/vocabulary.ts";
+import type { ApplicationRoute } from "../marketplace/assignments.ts";
+import type { EngagementID } from "../marketplace/engagements.ts";
+import { isEngagementID } from "../marketplace/engagements.ts";
 import type { OpeningNumber } from "../openings/types.ts";
 
 /** The most code points an application's cover note holds. */
@@ -342,6 +345,7 @@ export const applicationHistoryActionValues = [
   "background_check_consent_given",
   "background_check_consent_declined",
   "background_check_result_recorded",
+  "routed",
   "removed",
 ] as const;
 
@@ -415,6 +419,8 @@ export interface ApplicationSummary {
   /** Retention removed the applicant's personal data (HP-RET-001). */
   removed: boolean;
   current_stage?: PipelineStage;
+  /** The provider performing the current stage; absent in-house. */
+  route?: ApplicationRoute;
   submitted_at: string;
   updated_at: string;
 }
@@ -513,6 +519,8 @@ export interface ApplicationDetail {
   removed: boolean;
   cover_note?: ApplicationCoverNote;
   current_stage?: PipelineStage;
+  /** The provider performing the current stage; absent in-house. */
+  route?: ApplicationRoute;
   stage_records: ApplicationStageRecord[];
   joined_on?: CalendarDate;
   separated_on?: CalendarDate;
@@ -564,6 +572,8 @@ export interface ListApplicationsRequest {
   name_query?: ApplicantNameQuery;
   /** Candidates view only. */
   pending_applicant_action?: PendingApplicantAction;
+  /** Candidates view only: candidacies routed to this engagement. */
+  routed_engagement_id?: EngagementID;
   pagination_key?: PaginationKey;
   limit?: PageSize;
 }
@@ -632,6 +642,12 @@ export function validateListApplicationsRequest(
     (!candidates || !isPendingApplicantAction(request.pending_applicant_action))
   ) {
     fields.push("pending_applicant_action");
+  }
+  if (
+    request.routed_engagement_id !== undefined &&
+    (!candidates || !isEngagementID(request.routed_engagement_id))
+  ) {
+    fields.push("routed_engagement_id");
   }
   if (
     request.pagination_key !== undefined &&
@@ -732,6 +748,26 @@ export function validateApplicationActionRequest(
     request.application_number,
   );
   if (!isApplicationNumber(request.version)) fields.push("version");
+  return fields;
+}
+
+/**
+ * Routes a candidacy at its current stage to an engagement assigned to that
+ * stage, or back in-house when `engagement_id` is absent.
+ */
+export interface RouteApplicationRequest extends ApplicationActionRequest {
+  engagement_id?: EngagementID;
+}
+
+export function validateRouteApplicationRequest(
+  request: RouteApplicationRequest,
+): string[] {
+  const fields = validateApplicationActionRequest(request);
+  if (
+    request.engagement_id !== undefined &&
+    !isEngagementID(request.engagement_id)
+  )
+    fields.push("engagement_id");
   return fields;
 }
 

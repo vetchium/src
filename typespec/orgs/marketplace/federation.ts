@@ -1,9 +1,11 @@
 import type { TenantID } from "../../directory/directory.ts";
 import { isTenantID } from "../../directory/directory.ts";
 import type { CheckType } from "../hiring/vocabulary.ts";
-import type { OrgDomain } from "../types.ts";
-import { isOrgDomain, normalizeOrgDomain } from "../types.ts";
+import type { OrgDID, OrgDomain } from "../types.ts";
+import { isOrgDID, isOrgDomain, normalizeOrgDomain } from "../types.ts";
 import type { Capability } from "./capabilities.ts";
+import type { EngagementID } from "./engagements.ts";
+import { isEngagementID } from "./engagements.ts";
 import type {
   GetListingRequest,
   ListingSummary,
@@ -148,5 +150,50 @@ export function validateRelayGetListingRequest(
   if (!isTenantID(request.tenant)) fields.push("tenant");
   for (const field of validateGetListingRequest(request.listing))
     fields.push(`listing.${field}`);
+  return fields;
+}
+
+/**
+ * Asks a provider's tenant for the Listing behind an engagement, which may no
+ * longer be `listed`. The provider's tenant answers only a caller that homes
+ * the consumer Org and only for an engagement it holds.
+ */
+export interface PeerEngagementListingRequest {
+  engagement_id: EngagementID;
+  consumer_org_did: OrgDID;
+}
+
+export function validatePeerEngagementListingRequest(
+  request: PeerEngagementListingRequest,
+): string[] {
+  const fields: string[] = [];
+  if (!isEngagementID(request.engagement_id)) fields.push("engagement_id");
+  if (!isOrgDID(request.consumer_org_did)) fields.push("consumer_org_did");
+  return fields;
+}
+
+/**
+ * What a consumer needs from the Listing when it routes a candidacy: for a
+ * `background_check` Listing the check types it performs and the consent
+ * disclosure applicants see.
+ */
+export interface EngagementListing {
+  capability: Capability;
+  check_types?: CheckType[];
+  consent_disclosure?: string;
+}
+
+export interface RelayEngagementListingRequest {
+  tenant: TenantID;
+  request: PeerEngagementListingRequest;
+}
+
+export function validateRelayEngagementListingRequest(
+  request: RelayEngagementListingRequest,
+): string[] {
+  const fields: string[] = [];
+  if (!isTenantID(request.tenant)) fields.push("tenant");
+  for (const field of validatePeerEngagementListingRequest(request.request))
+    fields.push(`request.${field}`);
   return fields;
 }

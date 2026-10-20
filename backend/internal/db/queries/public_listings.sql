@@ -51,3 +51,14 @@ WHERE d.domain = sqlc.arg(domain)
   AND o.org_state = 'active'
   AND o.org_plan_oid = ANY(sqlc.arg(listing_plan_oids)::text[])
   AND d.domain_state IN ('verified', 'failing', 'releasing');
+
+-- The Listing behind an engagement this tenant holds as provider, in any
+-- state of the Listing: an active engagement continues when its Listing
+-- leaves search. Only the consumer the engagement names may ask.
+-- name: GetEngagementListingForConsumer :one
+SELECT l.capability_oid, l.check_types, l.consent_disclosure
+FROM vetchium.org_engagement_projections AS p
+JOIN vetchium.org_listings AS l
+  ON l.org_did = p.provider_org_did AND l.capability_oid = p.capability_oid
+WHERE p.engagement_id = sqlc.arg(engagement_id)
+  AND p.consumer_org_did = sqlc.arg(consumer_org_did);

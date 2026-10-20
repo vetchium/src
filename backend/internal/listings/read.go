@@ -29,6 +29,9 @@ type Queries interface {
 	GetPublicListing(
 		context.Context, sqlc.GetPublicListingParams,
 	) (sqlc.GetPublicListingRow, error)
+	GetEngagementListingForConsumer(
+		context.Context, sqlc.GetEngagementListingForConsumerParams,
+	) (sqlc.GetEngagementListingForConsumerRow, error)
 }
 
 type LogoSigner interface {
@@ -199,6 +202,37 @@ func (r Reader) Get(
 			CheckTypes:      checkTypes(row.CheckTypes),
 		},
 		Description:       row.Description,
+		ConsentDisclosure: optional(row.ConsentDisclosure),
+	}, nil
+}
+
+// EngagementListing returns the Listing behind an engagement this tenant
+// holds as provider, whatever its state, to the consumer the engagement
+// names.
+func (r Reader) EngagementListing(
+	ctx context.Context, request marketplace.PeerEngagementListingRequest,
+) (marketplace.EngagementListing, error) {
+	engagementID, err := dbvalue.ParseUUID(string(request.EngagementID))
+	if err != nil {
+		return marketplace.EngagementListing{}, err
+	}
+	consumerDID, err := dbvalue.ParseUUID(string(request.ConsumerOrgDID))
+	if err != nil {
+		return marketplace.EngagementListing{}, err
+	}
+	row, err := r.Queries.GetEngagementListingForConsumer(ctx,
+		sqlc.GetEngagementListingForConsumerParams{
+			EngagementID: engagementID, ConsumerOrgDid: consumerDID,
+		})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return marketplace.EngagementListing{}, ErrNotFound
+	}
+	if err != nil {
+		return marketplace.EngagementListing{}, fmt.Errorf("get engagement Listing: %w", err)
+	}
+	return marketplace.EngagementListing{
+		Capability:        marketplace.Capability(row.CapabilityOid),
+		CheckTypes:        checkTypes(row.CheckTypes),
 		ConsentDisclosure: optional(row.ConsentDisclosure),
 	}, nil
 }

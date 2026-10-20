@@ -83,3 +83,29 @@ export const EngagementVersionConflictError: Readonly<Details> = {
   status: 409,
   detail: "The engagement changed since it was read",
 };
+
+export const AssignmentExistsError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-assignment-exists",
+  title: "Org assignment exists",
+  status: 409,
+  detail: "The engagement is already assigned there",
+};
+
+export const AssignmentNotFoundError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-assignment-not-found",
+  title: "Org assignment not found",
+  status: 404,
+  detail: "The engagement is not assigned there",
+};
+
+export interface AssignmentLimitReachedDetails extends Details {
+  type: "vetchium-problem-details/org-assignment-limit-reached";
+  limit: number;
+}
+
+export const EngagementCapabilityMismatchError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-engagement-capability-mismatch",
+  title: "Org engagement Capability mismatch",
+  status: 422,
+  detail: "The engagement's Capability does not perform the stage kind",
+};

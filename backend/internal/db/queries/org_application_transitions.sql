@@ -129,7 +129,9 @@ WITH target AS (
     RETURNING org_application_id
 ), consents AS (
     SELECT vetchium.end_pending_consents(
-        ARRAY(SELECT org_application_id FROM changed)) AS ended
+        ARRAY(SELECT org_application_id FROM changed)) AS ended,
+        vetchium.end_provider_access(
+        ARRAY(SELECT org_application_id FROM changed)) AS ended_access
 )
 SELECT (SELECT count(*) FROM changed) AS changed_rows,
     COALESCE((SELECT ended FROM consents), 0)::integer AS ended_consents;
@@ -186,7 +188,9 @@ WITH changed AS (
     SELECT vetchium.cancel_upcoming_interviews(
         ARRAY(SELECT org_application_id FROM changed)) AS interviews,
         vetchium.end_pending_consents(
-        ARRAY(SELECT org_application_id FROM changed)) AS consents
+        ARRAY(SELECT org_application_id FROM changed)) AS consents,
+        vetchium.end_provider_access(
+        ARRAY(SELECT org_application_id FROM changed)) AS access
 )
 SELECT count(*) AS changed_rows,
     COALESCE((SELECT interviews FROM cancelled), 0)::integer
@@ -207,7 +211,9 @@ WITH changed AS (
     SELECT vetchium.cancel_upcoming_interviews(
         ARRAY(SELECT org_application_id FROM changed)) AS interviews,
         vetchium.end_pending_consents(
-        ARRAY(SELECT org_application_id FROM changed)) AS consents
+        ARRAY(SELECT org_application_id FROM changed)) AS consents,
+        vetchium.end_provider_access(
+        ARRAY(SELECT org_application_id FROM changed)) AS access
 )
 SELECT changed.org_application_id
 FROM changed
@@ -226,7 +232,9 @@ WITH changed AS (
     SELECT vetchium.cancel_upcoming_interviews(
         ARRAY(SELECT org_application_id FROM changed)) AS interviews,
         vetchium.end_pending_consents(
-        ARRAY(SELECT org_application_id FROM changed)) AS consents
+        ARRAY(SELECT org_application_id FROM changed)) AS consents,
+        vetchium.end_provider_access(
+        ARRAY(SELECT org_application_id FROM changed)) AS access
 )
 SELECT changed.org_application_id
 FROM changed
@@ -363,7 +371,9 @@ WITH changed AS (
     SELECT vetchium.cancel_upcoming_interviews(
         ARRAY(SELECT org_application_id FROM changed)) AS interviews,
         vetchium.end_pending_consents(
-        ARRAY(SELECT org_application_id FROM changed)) AS consents
+        ARRAY(SELECT org_application_id FROM changed)) AS consents,
+        vetchium.end_provider_access(
+        ARRAY(SELECT org_application_id FROM changed)) AS access
 )
 SELECT changed.org_application_id
 FROM changed

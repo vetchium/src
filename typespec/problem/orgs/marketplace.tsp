@@ -133,3 +133,49 @@ alias OrgEngagementVersionConflictErrorResponse = Response<
   409,
   typeof OrgEngagementVersionConflictError
 >;
+
+const OrgAssignmentExistsError = #{
+  type: "vetchium-problem-details/org-assignment-exists",
+  title: "Org assignment exists",
+  status: 409,
+  detail: "The engagement is already assigned there",
+};
+alias OrgAssignmentExistsErrorResponse = Response<
+  409,
+  typeof OrgAssignmentExistsError
+>;
+
+const OrgAssignmentNotFoundError = #{
+  type: "vetchium-problem-details/org-assignment-not-found",
+  title: "Org assignment not found",
+  status: 404,
+  detail: "The engagement is not assigned there",
+};
+alias OrgAssignmentNotFoundErrorResponse = Response<
+  404,
+  typeof OrgAssignmentNotFoundError
+>;
+
+model OrgAssignmentLimitReachedDetails {
+  type: "vetchium-problem-details/org-assignment-limit-reached";
+  title: "Org assignment limit reached";
+  status: 409;
+  detail: "No more engagements may be assigned there";
+  limit: int32;
+  instance?: string;
+}
+alias OrgAssignmentLimitReachedErrorResponse = Response<
+  409,
+  OrgAssignmentLimitReachedDetails
+>;
+
+const OrgEngagementCapabilityMismatchError = #{
+  type: "vetchium-problem-details/org-engagement-capability-mismatch",
+  title: "Org engagement Capability mismatch",
+  status: 422,
+  detail: "The engagement's Capability does not perform the stage kind",
+};
+alias OrgEngagementCapabilityMismatchErrorResponse = Response<
+  422,
+  typeof OrgEngagementCapabilityMismatchError
+>;

@@ -5,6 +5,7 @@ import "../../directory/directory.tsp";
 import "../../problem/common.tsp";
 import "../../problem/global-coordinator/authentication.tsp";
 import "../../problem/orgs/marketplace.tsp";
+import "./engagements.tsp";
 import "./listings.tsp";
 
 using TypeSpec.Http;
@@ -68,6 +69,35 @@ model RelayGetListingRequest {
   listing: GetListingRequest;
 }
 
+/**
+ * The consumer's tenant asks a provider's tenant for the Listing behind an
+ * engagement, which may no longer be `listed`: an active engagement continues
+ * when its Listing leaves search. The provider's tenant answers only a
+ * caller that homes the consumer Org and only for an engagement it holds.
+ */
+model PeerEngagementListingRequest {
+  engagement_id: EngagementID;
+  consumer_org_did: Vetchium.Orgs.OrgDID;
+}
+
+/** What a consumer needs from the Listing when it routes a candidacy. */
+model EngagementListing {
+  capability: Capability;
+
+  @minItems(1)
+  @maxItems(20)
+  check_types?: Vetchium.Orgs.Hiring.CheckType[];
+
+  @minLength(1)
+  @maxLength(5000)
+  consent_disclosure?: string;
+}
+
+model RelayEngagementListingRequest {
+  tenant: Vetchium.Directory.TenantID;
+  request: PeerEngagementListingRequest;
+}
+
 alias PeerListingReadErrors =
   | Vetchium.Problem.InvalidJSONErrorResponse
   | Vetchium.Problem.ValidationFailedErrorResponse
@@ -101,6 +131,19 @@ interface ListingRelayOperations {
     | Vetchium.Problem.OrgListingNotFoundErrorResponse
     | Vetchium.Problem.OrgTenantUnavailableErrorResponse
     | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+
+  @route("/engagement-listing")
+  @post
+  engagementListing(@body request: RelayEngagementListingRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: EngagementListing;
+      }
+    | PeerListingReadErrors
+    | Vetchium.Problem.OrgEngagementNotFoundErrorResponse
+    | Vetchium.Problem.OrgTenantUnavailableErrorResponse
+    | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
 }
 
 @route("/api/mesh/listings")
@@ -128,5 +171,17 @@ interface ListingPeerOperations {
       }
     | PeerListingReadErrors
     | Vetchium.Problem.OrgListingNotFoundErrorResponse
+    | Vetchium.Problem.MeshPeerAuthenticationRequiredErrorResponse;
+
+  @route("/engagement-listing")
+  @post
+  engagementListing(@body request: PeerEngagementListingRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: EngagementListing;
+      }
+    | PeerListingReadErrors
+    | Vetchium.Problem.OrgEngagementNotFoundErrorResponse
     | Vetchium.Problem.MeshPeerAuthenticationRequiredErrorResponse;
 }

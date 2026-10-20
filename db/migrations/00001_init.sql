@@ -2420,6 +2420,8 @@ CREATE TABLE vetchium.org_opening_stages (
     stage_kind vetchium.pipeline_stage_kind NOT NULL,
     CONSTRAINT org_opening_stages_position_key
         UNIQUE (org_opening_id, position) DEFERRABLE INITIALLY DEFERRED,
+    CONSTRAINT org_opening_stages_opening_key
+        UNIQUE (org_opening_stage_id, org_opening_id),
     CONSTRAINT org_opening_stages_name_check CHECK (
         name = btrim(name) AND char_length(name) BETWEEN 1 AND 100
     )
@@ -2448,7 +2450,7 @@ CREATE TYPE vetchium.org_application_history_action AS ENUM (
     'interview_reschedule_requested', 'interview_feedback_submitted',
     'assessment_recorded', 'background_check_consent_requested',
     'background_check_consent_given', 'background_check_consent_declined',
-    'background_check_result_recorded', 'removed'
+    'background_check_result_recorded', 'routed', 'removed'
 );
 CREATE TYPE vetchium.org_application_actor_kind AS ENUM (
     'applicant', 'org_user', 'system'
@@ -2568,6 +2570,66 @@ CREATE TABLE vetchium.org_application_stages (
 );
 CREATE INDEX org_application_stages_stage_idx
     ON vetchium.org_application_stages (org_opening_stage_id);
+
+-- What a consumer attached to an Opening (agent-guides/marketplace.md,
+-- MKT-ASG): an active `sourcing` engagement to the whole Opening, or an
+-- engagement of the Capability that performs a stage's kind to that stage.
+-- The statements that assign check the Capability and the caps; ending the
+-- engagement deletes its assignments, and so every route through them.
+CREATE TABLE vetchium.org_engagement_assignments (
+    assignment_id uuid PRIMARY KEY,
+    engagement_id uuid NOT NULL REFERENCES vetchium.org_engagements
+        (engagement_id) ON DELETE CASCADE,
+    org_opening_id uuid NOT NULL REFERENCES vetchium.org_openings
+        (org_opening_id) ON DELETE CASCADE,
+    -- NULL assigns the engagement to the whole Opening.
+    org_opening_stage_id uuid,
+    assigned_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    assigned_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_engagement_assignments_stage_fkey
+        FOREIGN KEY (org_opening_stage_id, org_opening_id)
+        REFERENCES vetchium.org_opening_stages
+        (org_opening_stage_id, org_opening_id) ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX org_engagement_assignments_opening_key
+    ON vetchium.org_engagement_assignments (engagement_id, org_opening_id)
+    WHERE org_opening_stage_id IS NULL;
+CREATE UNIQUE INDEX org_engagement_assignments_stage_key
+    ON vetchium.org_engagement_assignments (engagement_id, org_opening_stage_id)
+    WHERE org_opening_stage_id IS NOT NULL;
+CREATE INDEX org_engagement_assignments_list_idx
+    ON vetchium.org_engagement_assignments
+    (org_opening_id, assigned_at, assignment_id);
+
+-- The provider performing a candidacy's current stage, through an assignment
+-- of that stage. A candidacy has at most one route, and only while it is at
+-- the stage: every statement that moves or ends a candidacy calls
+-- end_provider_access. The consent disclosure and check types of a
+-- `background_check` Listing are copied from the provider's tenant when the
+-- candidacy is routed (MKT-DAT-009).
+CREATE TABLE vetchium.org_application_routes (
+    org_application_id uuid PRIMARY KEY REFERENCES vetchium.org_applications
+        (org_application_id) ON DELETE CASCADE,
+    assignment_id uuid NOT NULL REFERENCES
+        vetchium.org_engagement_assignments (assignment_id) ON DELETE CASCADE,
+    consent_disclosure text,
+    listing_check_types text[] NOT NULL DEFAULT '{}',
+    routed_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    routed_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_application_routes_disclosure_check CHECK (
+        consent_disclosure IS NULL OR (
+            consent_disclosure = btrim(consent_disclosure)
+            AND char_length(consent_disclosure) BETWEEN 1 AND 5000
+        )
+    ),
+    CONSTRAINT org_application_routes_check_types_check CHECK (
+        cardinality(listing_check_types) <= 20
+    )
+);
+CREATE INDEX org_application_routes_assignment_idx
+    ON vetchium.org_application_routes (assignment_id);
 
 -- History holds numbers, actions, states, and dates, never notes, feedback,
 -- or snapshot text.
@@ -2909,6 +2971,21 @@ AS $$
         WHERE b.org_application_id = ANY(application_ids)
           AND b.consent_state = 'requested'
         RETURNING b.org_background_check_id
+    )
+    SELECT count(*)::integer FROM ended
+$$;
+
+-- Leaving the pipeline or the stage ends every provider's access to the
+-- candidacy (HP-STA-002, MKT-ACC-004): a candidacy is reachable by a provider
+-- only through its route. Called beside end_pending_consents.
+CREATE FUNCTION vetchium.end_provider_access(application_ids uuid[])
+RETURNS integer
+LANGUAGE sql VOLATILE
+AS $$
+    WITH ended AS (
+        DELETE FROM vetchium.org_application_routes AS r
+        WHERE r.org_application_id = ANY(application_ids)
+        RETURNING r.org_application_id
     )
     SELECT count(*)::integer FROM ended
 $$;
@@ -3288,6 +3365,7 @@ DROP TABLE IF EXISTS vetchium.hub_application_projections;
 DROP FUNCTION IF EXISTS vetchium.org_user_acts_on_applications(uuid, uuid);
 DROP FUNCTION IF EXISTS vetchium.cancel_upcoming_interviews(uuid[]);
 DROP FUNCTION IF EXISTS vetchium.end_pending_consents(uuid[]);
+DROP FUNCTION IF EXISTS vetchium.end_provider_access(uuid[]);
 DROP FUNCTION IF EXISTS vetchium.org_user_reads_applications(uuid, uuid, uuid);
 DROP FUNCTION IF EXISTS vetchium.org_user_reads_all_applications(uuid, uuid);
 DROP TABLE IF EXISTS vetchium.org_background_check_results;
@@ -3307,6 +3385,8 @@ DROP TABLE IF EXISTS vetchium.org_application_offers;
 DROP TYPE IF EXISTS vetchium.org_application_offer_status;
 DROP TABLE IF EXISTS vetchium.org_offer_letter_objects;
 DROP TYPE IF EXISTS vetchium.org_offer_letter_state;
+DROP TABLE IF EXISTS vetchium.org_application_routes;
+DROP TABLE IF EXISTS vetchium.org_engagement_assignments;
 DROP TABLE IF EXISTS vetchium.org_application_history;
 DROP TABLE IF EXISTS vetchium.org_application_stages;
 DROP TABLE IF EXISTS vetchium.org_applications;

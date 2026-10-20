@@ -35,6 +35,11 @@ type GetOutcome struct {
 	Problem *problem.Details
 }
 
+type EngagementListingOutcome struct {
+	Result  *marketplace.EngagementListing
+	Problem *problem.Details
+}
+
 type Client struct {
 	baseURL    string
 	credential string
@@ -89,6 +94,42 @@ func (c *Client) PeerGet(
 		return GetOutcome{}, err
 	}
 	return c.get(ctx, endpoint, request, tlsConfig, request)
+}
+
+// RelayEngagementListing asks the local relay for the Listing behind an
+// engagement at request.Tenant.
+func (c *Client) RelayEngagementListing(
+	ctx context.Context, request marketplace.RelayEngagementListingRequest,
+) (EngagementListingOutcome, error) {
+	return c.engagementListing(ctx, c.baseURL+"/mesh/listings/engagement-listing",
+		request, nil)
+}
+
+func (c *Client) PeerEngagementListing(
+	ctx context.Context, tenant directoryspec.TenantID,
+	request marketplace.PeerEngagementListingRequest,
+) (EngagementListingOutcome, error) {
+	endpoint, tlsConfig, err := c.peerEndpoint(tenant, "engagement-listing")
+	if err != nil {
+		return EngagementListingOutcome{}, err
+	}
+	return c.engagementListing(ctx, endpoint, request, tlsConfig)
+}
+
+func (c *Client) engagementListing(
+	ctx context.Context, endpoint string, payload any, tlsConfig *tls.Config,
+) (EngagementListingOutcome, error) {
+	var result marketplace.EngagementListing
+	problem, err := c.read(ctx, endpoint, payload, tlsConfig, &result)
+	if err != nil || problem != nil {
+		return EngagementListingOutcome{Problem: problem}, err
+	}
+	if !marketplace.IsCapability(result.Capability) ||
+		(result.Capability == marketplace.BackgroundCheck) !=
+			(result.ConsentDisclosure != nil && len(result.CheckTypes) > 0) {
+		return EngagementListingOutcome{}, ErrInvalidResponse
+	}
+	return EngagementListingOutcome{Result: &result}, nil
 }
 
 func (c *Client) search(

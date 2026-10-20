@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect } from "@playwright/test";
 import type { Capability } from "typespec/orgs/marketplace/capabilities";
+import type { Engagement } from "typespec/orgs/marketplace/engagements";
 import type {
   CreateListingRequest,
   Listing,
@@ -178,4 +179,118 @@ export function setOrgHome(orgDID: string, tenant: string): void {
      WHERE org_did = ${sqlLiteral(orgDID)}::uuid
        AND home_tenant_id <> ${sqlLiteral(tenant)}`,
   );
+}
+
+export interface Pair {
+  consumer: Provider;
+  provider: Provider;
+}
+
+/**
+ * A consumer Org and a provider Org, each on Silver in its own region. The
+ * provider has published a Listing for every Capability named.
+ */
+export async function withPair(
+  request: ConstructorParameters<typeof OrgsAPI>[0],
+  options: {
+    consumer?: TestTenant;
+    provider?: TestTenant;
+    capabilities?: Capability[];
+  },
+  body: (pair: Pair) => Promise<void>,
+): Promise<void> {
+  await withProvider(
+    request,
+    async (consumer) => {
+      await withProvider(
+        request,
+        async (provider) => {
+          for (const capability of options.capabilities ?? ["sourcing"]) {
+            await published(
+              provider.api,
+              provider.owner,
+              capability === "background_check"
+                ? background("Checks")
+                : listing(capability, `${capability} services`),
+            );
+          }
+          await body({ consumer, provider });
+        },
+        { tenant: options.provider ?? "deu" },
+      );
+    },
+    { tenant: options.consumer ?? "sgp" },
+  );
+}
+
+export async function propose(
+  { consumer, provider }: Pair,
+  capability: Capability = "sourcing",
+  message?: string,
+): Promise<Engagement> {
+  const response = await consumer.api.proposeEngagement(consumer.owner, {
+    provider_domain: provider.org.domain,
+    capability,
+    ...(message === undefined ? {} : { message }),
+  });
+  expect(response.status(), await response.text()).toBe(201);
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  return (await response.json()) as Engagement;
+}
+
+export async function asConsumer(
+  { consumer }: Pair,
+  id: string,
+): Promise<Engagement> {
+  const response = await consumer.api.getEngagement(consumer.owner, {
+    engagement_id: id,
+  });
+  expect(response.status(), await response.text()).toBe(200);
+  return (await response.json()) as Engagement;
+}
+
+/**
+ * The provider's view, once its tenant has received the consumer's change at
+ * `version` or later.
+ */
+export async function asProvider(
+  { provider }: Pair,
+  id: string,
+  version: number,
+): Promise<Engagement> {
+  let latest: Engagement | undefined;
+  await expect
+    .poll(
+      async () => {
+        const response = await provider.api.getClientEngagement(
+          provider.owner,
+          { engagement_id: id },
+        );
+        if (response.status() !== 200) return 0;
+        latest = (await response.json()) as Engagement;
+        return latest.version;
+      },
+      { timeout: 30_000, intervals: [250, 500, 1000] },
+    )
+    .toBeGreaterThanOrEqual(version);
+  if (latest === undefined) throw new Error("the projection never arrived");
+  return latest;
+}
+
+/**
+ * Proposes `capability` to the provider and has the provider accept it,
+ * returning the active engagement as the consumer sees it.
+ */
+export async function activate(
+  pair: Pair,
+  capability: Capability = "sourcing",
+): Promise<Engagement> {
+  const proposed = await propose(pair, capability);
+  await asProvider(pair, proposed.id, 1);
+  const accepted = await pair.provider.api.acceptEngagement(
+    pair.provider.owner,
+    { engagement_id: proposed.id, version: 1 },
+  );
+  expect(accepted.status(), await accepted.text()).toBe(200);
+  return asConsumer(pair, proposed.id);
 }

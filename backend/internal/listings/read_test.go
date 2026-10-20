@@ -15,6 +15,7 @@ import (
 	"github.com/vetchium/src/typespec/orgs/marketplace"
 
 	"backend/internal/db/sqlc"
+	"backend/internal/dbvalue"
 )
 
 type queryStub struct {
@@ -23,6 +24,10 @@ type queryStub struct {
 	getRow    sqlc.GetPublicListingRow
 	getErr    error
 	getArg    sqlc.GetPublicListingParams
+
+	engagementRow sqlc.GetEngagementListingForConsumerRow
+	engagementErr error
+	engagementArg sqlc.GetEngagementListingForConsumerParams
 }
 
 func (s *queryStub) SearchPublicListings(
@@ -37,6 +42,13 @@ func (s *queryStub) GetPublicListing(
 ) (sqlc.GetPublicListingRow, error) {
 	s.getArg = arg
 	return s.getRow, s.getErr
+}
+
+func (s *queryStub) GetEngagementListingForConsumer(
+	_ context.Context, arg sqlc.GetEngagementListingForConsumerParams,
+) (sqlc.GetEngagementListingForConsumerRow, error) {
+	s.engagementArg = arg
+	return s.engagementRow, s.engagementErr
 }
 
 type logoStub struct{ calls int }
@@ -172,6 +184,41 @@ func TestGetMapsTheListingAndHidesAbsentOnes(t *testing.T) {
 	}
 	stub.getErr = errors.New("database down")
 	if _, err := reader.Get(context.Background(), marketplace.GetListingRequest{}); err == nil || errors.Is(err, ErrNotFound) {
+		t.Fatalf("database error = %v", err)
+	}
+}
+
+func TestEngagementListingReturnsWhatARouteNeeds(t *testing.T) {
+	t.Parallel()
+	stub := &queryStub{engagementRow: sqlc.GetEngagementListingForConsumerRow{
+		CapabilityOid: "background_check", CheckTypes: []string{"identity", "criminal"},
+		ConsentDisclosure: pgtype.Text{String: "We verify.", Valid: true},
+	}}
+	request := marketplace.PeerEngagementListingRequest{
+		EngagementID:   "01900000-0000-7000-8000-000000000003",
+		ConsumerOrgDID: "01900000-0000-7000-8000-000000000001",
+	}
+	got, err := Reader{Queries: stub}.EngagementListing(context.Background(), request)
+	if err != nil || got.Capability != marketplace.BackgroundCheck ||
+		len(got.CheckTypes) != 2 || got.ConsentDisclosure == nil ||
+		*got.ConsentDisclosure != "We verify." {
+		t.Fatalf("listing = %+v, %v", got, err)
+	}
+	if dbvalue.FormatUUID(stub.engagementArg.EngagementID) != string(request.EngagementID) ||
+		dbvalue.FormatUUID(stub.engagementArg.ConsumerOrgDid) != string(request.ConsumerOrgDID) {
+		t.Fatalf("query arguments = %+v", stub.engagementArg)
+	}
+	stub.engagementRow = sqlc.GetEngagementListingForConsumerRow{CapabilityOid: "sourcing"}
+	got, err = Reader{Queries: stub}.EngagementListing(context.Background(), request)
+	if err != nil || got.CheckTypes != nil || got.ConsentDisclosure != nil {
+		t.Fatalf("sourcing listing = %+v, %v", got, err)
+	}
+	stub.engagementErr = pgx.ErrNoRows
+	if _, err := (Reader{Queries: stub}).EngagementListing(context.Background(), request); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing engagement error = %v", err)
+	}
+	stub.engagementErr = errors.New("database down")
+	if _, err := (Reader{Queries: stub}).EngagementListing(context.Background(), request); err == nil || errors.Is(err, ErrNotFound) {
 		t.Fatalf("database error = %v", err)
 	}
 }

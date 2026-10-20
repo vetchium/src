@@ -71,6 +71,30 @@ func (r Reader) Detail(
 	return outcome.Result, nil
 }
 
+// EngagementListing reads, at the provider's tenant, the Listing behind an
+// engagement this Org holds as consumer. An engagement the provider's tenant
+// does not hold for this Org is not found.
+func (r Reader) EngagementListing(
+	ctx context.Context, tenant directoryspec.TenantID,
+	request marketplace.PeerEngagementListingRequest,
+) (*marketplace.EngagementListing, *problem.Details) {
+	outcome, err := r.Listings.RelayEngagementListing(ctx,
+		marketplace.RelayEngagementListingRequest{Tenant: tenant, Request: request})
+	if err != nil {
+		r.Log.WarnContext(ctx, "engagement Listing read failed",
+			"event", "engagement_listing_read_failed", "peer_tenant", tenant,
+			"error", err)
+		return nil, &orgsproblem.TenantUnavailableError
+	}
+	if outcome.Problem != nil {
+		if outcome.Problem.Type == orgsproblem.EngagementNotFoundError.Type {
+			return nil, &orgsproblem.EngagementNotFoundError
+		}
+		return nil, &orgsproblem.TenantUnavailableError
+	}
+	return outcome.Result, nil
+}
+
 // Home asks the global directory where the provider's domain lives. An
 // unknown domain is a Listing that does not exist.
 func (r Reader) Home(

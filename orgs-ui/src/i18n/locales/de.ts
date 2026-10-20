@@ -1637,6 +1637,7 @@ export const de = {
           "Einwilligung zur Hintergrundprüfung abgelehnt",
         background_check_result_recorded:
           "Ergebnis der Hintergrundprüfung erfasst",
+        routed: "Aufgabe zugewiesen",
         removed: "Bewerberdaten entfernt",
       },
     },

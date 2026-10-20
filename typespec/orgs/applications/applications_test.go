@@ -9,6 +9,7 @@ import (
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/hub/profile"
 	"github.com/vetchium/src/typespec/orgs/hiring"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 )
 
 const stageID = hiring.PipelineStageID("01900000-0000-7000-8000-000000000000")
@@ -608,5 +609,36 @@ func TestRecordBackgroundCheckResultNormalizesAndValidates(t *testing.T) {
 	want := []string{"check_type", "outcome", "report_url"}
 	if got := request.Validate(); !slices.Equal(got, want) {
 		t.Fatalf("fields = %v, want %v", got, want)
+	}
+}
+
+func TestRouteApplicationRequestValidation(t *testing.T) {
+	t.Parallel()
+	engagement := marketplace.EngagementID("01900000-0000-7000-8000-000000000003")
+	bad := marketplace.EngagementID("x")
+	if got := (RouteApplicationRequest{OpeningNumber: 1, ApplicationNumber: 1, Version: 1}).Validate(); len(got) != 0 {
+		t.Fatalf("in-house route fields = %v", got)
+	}
+	if got := (RouteApplicationRequest{OpeningNumber: 1, ApplicationNumber: 1, Version: 1, EngagementID: &engagement}).Validate(); len(got) != 0 {
+		t.Fatalf("provider route fields = %v", got)
+	}
+	want := []string{"opening_number", "application_number", "version", "engagement_id"}
+	if got := (RouteApplicationRequest{EngagementID: &bad}).Validate(); !slices.Equal(got, want) {
+		t.Fatalf("fields = %v, want %v", got, want)
+	}
+}
+
+func TestListApplicationsRoutedFilterIsForTheCandidatesView(t *testing.T) {
+	t.Parallel()
+	engagement := marketplace.EngagementID("01900000-0000-7000-8000-000000000003")
+	bad := marketplace.EngagementID("x")
+	if got := (ListApplicationsRequest{OpeningNumber: 1, View: CandidatesView, RoutedEngagementID: &engagement}).Validate(); len(got) != 0 {
+		t.Fatalf("fields = %v", got)
+	}
+	if got := (ListApplicationsRequest{OpeningNumber: 1, View: ApplicantsView, RoutedEngagementID: &engagement}).Validate(); !slices.Equal(got, []string{"routed_engagement_id"}) {
+		t.Fatalf("applicants view fields = %v", got)
+	}
+	if got := (ListApplicationsRequest{OpeningNumber: 1, View: CandidatesView, RoutedEngagementID: &bad}).Validate(); !slices.Equal(got, []string{"routed_engagement_id"}) {
+		t.Fatalf("invalid id fields = %v", got)
 	}
 }

@@ -164,3 +164,89 @@ func peerAuthenticationRequired(
 		coordinatorproblem.MeshPeerAuthenticationRequiredError,
 		`MutualTLS realm="mesh-api"`)
 }
+
+// RelayEngagementListing reads the Listing behind an engagement at the named
+// tenant for the local orgs-api, which routes a candidacy to its provider.
+func RelayEngagementListing(s *meshapi.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !authenticateRelay(s.Runtime, w, r, s.Credential) {
+			return
+		}
+		var request marketplace.RelayEngagementListingRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		var result marketplace.EngagementListing
+		if string(request.Tenant) == s.TenantID {
+			local, err := s.PublicListings.EngagementListing(r.Context(), request.Request)
+			if errors.Is(err, listings.ErrNotFound) {
+				s.Problem(r.Context(), w, orgsproblem.EngagementNotFoundError)
+				return
+			}
+			if err != nil {
+				s.InternalError(r.Context(), w, "get local engagement Listing", err)
+				return
+			}
+			result = local
+		} else {
+			outcome, err := s.ListingPeers.PeerEngagementListing(
+				r.Context(), request.Tenant, request.Request)
+			if err == nil && outcome.Problem != nil &&
+				outcome.Problem.Type == orgsproblem.EngagementNotFoundError.Type {
+				s.Problem(r.Context(), w, orgsproblem.EngagementNotFoundError)
+				return
+			}
+			if err != nil || outcome.Problem != nil {
+				listingTenantUnavailable(s, w, r, request.Tenant, err, outcome.Problem)
+				return
+			}
+			result = *outcome.Result
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, result)
+	}
+}
+
+// PeerEngagementListing answers a consumer's tenant: only for an engagement
+// this tenant holds as provider, and only to a caller that homes the consumer
+// Org the engagement names.
+func PeerEngagementListing(s *meshapi.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		caller, ok := meshidentity.TenantFromContext(r.Context())
+		if !ok {
+			peerAuthenticationRequired(s, w, r)
+			return
+		}
+		var request marketplace.PeerEngagementListingRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		resolved, details, err := s.Directory.ResolvePrincipal(r.Context(),
+			directoryspec.ResolvePrincipalRequest{
+				PrincipalType: directoryspec.PrincipalOrg,
+				PrincipalDID:  directoryspec.PrincipalDID(request.ConsumerOrgDID),
+			})
+		if err != nil || (details != nil &&
+			details.Type != coordinatorproblem.DirectoryEntryNotFoundError.Type) {
+			listingTenantUnavailable(s, w, r, caller, err, details)
+			return
+		}
+		// An unknown consumer and one this caller does not home get the answer
+		// an unknown engagement gets.
+		if details != nil || resolved.HomeTenantID != caller {
+			s.Problem(r.Context(), w, orgsproblem.EngagementNotFoundError)
+			return
+		}
+		result, err := s.PublicListings.EngagementListing(r.Context(), request)
+		if errors.Is(err, listings.ErrNotFound) {
+			s.Problem(r.Context(), w, orgsproblem.EngagementNotFoundError)
+			return
+		}
+		if err != nil {
+			s.InternalError(r.Context(), w, "get peer engagement Listing", err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, result)
+	}
+}

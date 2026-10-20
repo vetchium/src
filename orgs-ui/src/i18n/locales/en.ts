@@ -1592,6 +1592,7 @@ export const en = {
         background_check_consent_given: "Background check consent given",
         background_check_consent_declined: "Background check consent declined",
         background_check_result_recorded: "Background check result recorded",
+        routed: "Work routed",
         removed: "Applicant data removed",
       },
     },

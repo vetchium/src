@@ -18,8 +18,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/hiring"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/openings"
 	"github.com/vetchium/src/typespec/problem"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
@@ -74,6 +76,25 @@ func stagePointer(
 	}
 }
 
+// routeFrom maps the columns the reads select for a routed candidacy; an
+// in-house candidacy has none.
+func routeFrom(
+	engagementID pgtype.UUID, domain, displayName, capability pgtype.Text,
+	routedAt pgtype.Timestamptz,
+) *marketplace.ApplicationRoute {
+	if !engagementID.Valid {
+		return nil
+	}
+	return &marketplace.ApplicationRoute{
+		EngagementID: marketplace.EngagementID(dbvalue.FormatUUID(engagementID)),
+		Provider: marketplace.EngagementCounterparty{
+			Domain: orgs.OrgDomain(domain.String), DisplayName: displayName.String,
+		},
+		Capability: marketplace.Capability(capability.String),
+		RoutedAt:   routedAt.Time.UTC(),
+	}
+}
+
 func ListApplications(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request applications.ListApplicationsRequest
@@ -108,6 +129,14 @@ func ListApplications(s *orgsruntime.Server) http.HandlerFunc {
 				return
 			}
 			params.StageID = stageID
+		}
+		if request.RoutedEngagementID != nil {
+			engagementID, err := dbvalue.ParseUUID(string(*request.RoutedEngagementID))
+			if err != nil {
+				s.InternalError(r.Context(), w, "parse routed engagement filter", err)
+				return
+			}
+			params.RoutedEngagementID = engagementID
 		}
 		if request.NameQuery != nil {
 			params.NameQuery = dbvalue.Text(string(*request.NameQuery))
@@ -163,8 +192,10 @@ func ListApplications(s *orgsruntime.Server) http.HandlerFunc {
 					ResidentCountry:   common.CountryCode(row.ResidentCountry),
 					Removed:           row.Removed,
 					CurrentStage:      stagePointer(row.StageID, row.StageName, row.StageKind),
-					SubmittedAt:       row.CreatedAt.Time.UTC(),
-					UpdatedAt:         row.UpdatedAt.Time.UTC(),
+					Route: routeFrom(row.RouteEngagementID, row.RouteDomain,
+						row.RouteDisplayName, row.RouteCapability, row.RouteRoutedAt),
+					SubmittedAt: row.CreatedAt.Time.UTC(),
+					UpdatedAt:   row.UpdatedAt.Time.UTC(),
 				})
 		}
 		if hasMore {
@@ -254,12 +285,14 @@ func buildDetail(
 		Version:           applications.ApplicationVersion(row.Version),
 		Removed:           row.Removed,
 		CurrentStage:      stagePointer(row.StageID, row.StageName, row.StageKind),
-		JoinedOn:          calendarDate(row.JoinedOn),
-		SeparatedOn:       calendarDate(row.SeparatedOn),
-		Positions:         row.Positions,
-		JoinedCount:       row.JoinedCount,
-		SubmittedAt:       row.CreatedAt.Time.UTC(),
-		UpdatedAt:         row.UpdatedAt.Time.UTC(),
+		Route: routeFrom(row.RouteEngagementID, row.RouteDomain,
+			row.RouteDisplayName, row.RouteCapability, row.RouteRoutedAt),
+		JoinedOn:    calendarDate(row.JoinedOn),
+		SeparatedOn: calendarDate(row.SeparatedOn),
+		Positions:   row.Positions,
+		JoinedCount: row.JoinedCount,
+		SubmittedAt: row.CreatedAt.Time.UTC(),
+		UpdatedAt:   row.UpdatedAt.Time.UTC(),
 	}
 	if row.CoverNote.Valid {
 		note := applications.ApplicationCoverNote(row.CoverNote.String)

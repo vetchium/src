@@ -120,6 +120,7 @@
     "./orgs/hiring/pipelines": "./orgs/hiring/pipelines.ts",
     "./orgs/hiring/vocabulary": "./orgs/hiring/vocabulary.ts",
     "./orgs/marketplace/capabilities": "./orgs/marketplace/capabilities.ts",
+    "./orgs/marketplace/assignments": "./orgs/marketplace/assignments.ts",
     "./orgs/marketplace/engagements": "./orgs/marketplace/engagements.ts",
     "./orgs/marketplace/federation": "./orgs/marketplace/federation.ts",
     "./orgs/marketplace/listings": "./orgs/marketplace/listings.ts",
