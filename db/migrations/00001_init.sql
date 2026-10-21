@@ -3443,18 +3443,120 @@ CREATE TABLE vetchium.org_contact_creations (
     PRIMARY KEY (org_did, created_on)
 );
 
--- The Hub user's tenant keeps one pointer per agency Contact so the messages
--- setting and deletion notices reach the agency. No Hub API returns it
--- (MKT-DAT-003, MKT-CON-006).
+-- Conversations between an agency and a Hub user (MKT-CNV-001).
+-- Rows have no cascading reference to orgs (MKT-CNV-012) and hold the Hub user
+-- by DID only, so deleting either party leaves them in place.
+CREATE TABLE vetchium.org_conversations (
+    conversation_id uuid PRIMARY KEY,
+    contact_id uuid NOT NULL UNIQUE,
+    org_did uuid NOT NULL,
+    hub_user_did uuid NOT NULL,
+    recorded_hub_user_name text NOT NULL,
+    recorded_hub_user_handle text NOT NULL,
+    recorded_agency_name text NOT NULL,
+    recorded_agency_domain text NOT NULL,
+    agency_unread boolean NOT NULL DEFAULT false,
+    read_only_reason text CHECK (
+        read_only_reason IS NULL OR read_only_reason IN (
+            'messages_off', 'hub_user_deleted', 'agency_deleted'
+        )
+    ),
+    party_deleted_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    last_activity_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_conversations_activity_check CHECK (
+        last_activity_at >= created_at
+    )
+);
+CREATE UNIQUE INDEX org_conversations_agency_user_key
+    ON vetchium.org_conversations (org_did, hub_user_did);
+CREATE INDEX org_conversations_list_idx
+    ON vetchium.org_conversations (org_did, last_activity_at DESC, conversation_id DESC);
+CREATE INDEX org_conversations_retention_idx
+    ON vetchium.org_conversations (last_activity_at, conversation_id);
+CREATE INDEX org_conversations_party_deleted_retention_idx
+    ON vetchium.org_conversations (party_deleted_at, conversation_id)
+    WHERE party_deleted_at IS NOT NULL;
+
+-- Messages within a conversation (MKT-CNV-005).
+CREATE TABLE vetchium.org_conversation_messages (
+    message_id uuid PRIMARY KEY,
+    conversation_id uuid NOT NULL REFERENCES vetchium.org_conversations (conversation_id)
+        ON DELETE CASCADE,
+    sender_type text NOT NULL CHECK (sender_type IN ('agency', 'hub_user')),
+    sender_user_id uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    sender_display_name text NOT NULL,
+    kind text NOT NULL CHECK (kind IN ('text', 'suggestion')),
+    message_text text,
+    consumer_domain text,
+    opening_number integer CHECK (opening_number IS NULL OR opening_number >= 1),
+    sent_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_conversation_messages_content_check CHECK (
+        (kind = 'text' AND message_text IS NOT NULL
+            AND message_text = btrim(message_text)
+            AND char_length(message_text) BETWEEN 1 AND 5000
+            AND consumer_domain IS NULL AND opening_number IS NULL)
+        OR
+        (kind = 'suggestion' AND message_text IS NULL
+            AND consumer_domain IS NOT NULL AND opening_number IS NOT NULL
+            AND sender_type = 'agency')
+    )
+);
+CREATE INDEX org_conversation_messages_list_idx
+    ON vetchium.org_conversation_messages (conversation_id, sent_at ASC, message_id ASC);
+CREATE INDEX org_conversation_messages_retention_idx
+    ON vetchium.org_conversation_messages (sent_at, message_id);
+
+-- New conversations started per agency per UTC day (MKT-CNV-003).
+CREATE TABLE vetchium.org_conversation_creations (
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    created_on date NOT NULL,
+    created integer NOT NULL CHECK (created >= 1),
+    PRIMARY KEY (org_did, created_on)
+);
+
+-- The Hub user's tenant keeps one pointer per agency Contact (MKT-DAT-003).
+-- It holds conversation metadata when one exists, but never message or note text.
 CREATE TABLE vetchium.hub_agency_pointers (
     contact_id uuid PRIMARY KEY,
     hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
         ON DELETE CASCADE,
     agency_org_did uuid NOT NULL,
+    agency_display_name text NOT NULL DEFAULT '',
+    agency_domain text NOT NULL DEFAULT '',
+    agency_logo_media_id uuid,
+    has_conversation boolean NOT NULL DEFAULT false,
+    last_activity_at timestamptz NOT NULL DEFAULT now(),
+    unread_count integer NOT NULL DEFAULT 0 CHECK (unread_count >= 0),
+    read_only_reason text CHECK (
+        read_only_reason IS NULL OR read_only_reason IN (
+            'messages_off', 'hub_user_deleted', 'agency_deleted'
+        )
+    ),
+    suggestions jsonb NOT NULL DEFAULT '[]'::jsonb,
+    pointer_version integer NOT NULL DEFAULT 1 CHECK (pointer_version >= 1),
     created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX hub_agency_pointers_user_idx
     ON vetchium.hub_agency_pointers (hub_user_did, contact_id);
+CREATE INDEX hub_agency_pointers_list_idx
+    ON vetchium.hub_agency_pointers (hub_user_did, last_activity_at DESC, contact_id DESC)
+    WHERE has_conversation = true;
+
+-- Notifications sent to the Hub user when an agency sends a new message (MKT-CNV-008).
+-- One row per notification, written beside the pointer and turned into an outbox
+-- email by the workers. It names the agency and never message content.
+CREATE TABLE vetchium.hub_message_notices (
+    notice_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
+        ON DELETE CASCADE,
+    agency_display_name text NOT NULL CHECK (length(btrim(agency_display_name)) > 0),
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX hub_message_notices_queue_idx
+    ON vetchium.hub_message_notices (created_at, notice_id);
 
 CREATE TABLE vetchium.idempotency_ledger (
     operation text NOT NULL,
@@ -3550,7 +3652,11 @@ $$;
 -- +goose StatementEnd
 
 -- +goose Down
+DROP TABLE IF EXISTS vetchium.hub_message_notices;
 DROP TABLE IF EXISTS vetchium.hub_agency_pointers;
+DROP TABLE IF EXISTS vetchium.org_conversation_creations;
+DROP TABLE IF EXISTS vetchium.org_conversation_messages;
+DROP TABLE IF EXISTS vetchium.org_conversations;
 DROP TABLE IF EXISTS vetchium.org_contact_creations;
 DROP TABLE IF EXISTS vetchium.org_contact_notes;
 DROP TABLE IF EXISTS vetchium.org_contacts;

@@ -17,3 +17,4 @@ import "./profile/picture.tsp";
 import "./operations/operations.tsp";
 import "./subscriptions/plans.tsp";
 import "./subscriptions/subscriptions.tsp";
+import "./messages/messages.tsp";

@@ -8,6 +8,7 @@ import (
 
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
+	"backend/internal/conversationclient"
 	"backend/internal/db"
 	"backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
@@ -88,6 +89,9 @@ func run(log *slog.Logger, address string) error {
 	workPeers := workclient.NewPeer(
 		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
 	)
+	conversationPeers := conversationclient.NewPeer(
+		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+	)
 	accessKey, secretKey, err := cfg.ObjectStorage.Credentials()
 	if err != nil {
 		return err
@@ -120,9 +124,10 @@ func run(log *slog.Logger, address string) error {
 		PublicOpenings: publicopenings.Reader{
 			Queries: sqlc.New(pool), Logos: pictures,
 		},
-		ListingPeers: listingPeers,
-		WorkPeers:    workPeers,
-		ProviderWork: providerwork.Reader{Queries: sqlc.New(pool)},
+		ListingPeers:      listingPeers,
+		WorkPeers:         workPeers,
+		ConversationPeers: conversationPeers,
+		ProviderWork:      providerwork.Reader{Queries: sqlc.New(pool)},
 		PublicListings: listings.Reader{
 			Queries: sqlc.New(pool), Logos: pictures,
 			ListingPlanOIDs: entitlements.PlanOIDs(subscriptionspec.AllowsListings),

@@ -256,3 +256,47 @@ alias OrgContactNoteNotAuthorErrorResponse = Response<
   403,
   typeof OrgContactNoteNotAuthorError
 >;
+
+const OrgConversationLimitReachedError = #{
+  type: "vetchium-problem-details/org-conversation-limit-reached",
+  title: "Org conversation limit reached",
+  status: 429,
+  detail: "The agency reached its limit of new conversations for today",
+};
+alias OrgConversationLimitReachedErrorResponse = Response<
+  429,
+  typeof OrgConversationLimitReachedError
+>;
+
+const OrgConversationNotFoundError = #{
+  type: "vetchium-problem-details/org-conversation-not-found",
+  title: "Org conversation not found",
+  status: 404,
+  detail: "No conversation of the agency has that identifier",
+};
+alias OrgConversationNotFoundErrorResponse = Response<
+  404,
+  typeof OrgConversationNotFoundError
+>;
+
+const OrgAgencyMessagesOffError = #{
+  type: "vetchium-problem-details/org-agency-messages-off",
+  title: "Org agency messages off",
+  status: 403,
+  detail: "The Hub user does not accept messages from agencies",
+};
+alias OrgAgencyMessagesOffErrorResponse = Response<
+  403,
+  typeof OrgAgencyMessagesOffError
+>;
+
+const OrgConversationPartyDeletedError = #{
+  type: "vetchium-problem-details/org-conversation-party-deleted",
+  title: "Org conversation party deleted",
+  status: 409,
+  detail: "The Hub user's account no longer exists",
+};
+alias OrgConversationPartyDeletedErrorResponse = Response<
+  409,
+  typeof OrgConversationPartyDeletedError
+>;

@@ -11,6 +11,13 @@ import type {
   WithdrawApplicationRequest,
 } from "typespec/hub/applications/applications";
 import type {
+  DeleteConversationRequest,
+  GetConversationRequest as HubGetConversationRequest,
+  MarkConversationReadRequest as HubMarkConversationReadRequest,
+  ListConversationsRequest,
+  ReplyToConversationRequest,
+} from "typespec/hub/messages/messages";
+import type {
   GetOrgOpeningRequest,
   ListOrgOpeningsRequest,
 } from "typespec/hub/openings/public";
@@ -375,5 +382,59 @@ export class HubAPI {
     return typeof body === "string"
       ? this.postRaw("/set-subscription-plan", body, options)
       : this.post("/set-subscription-plan", body, options);
+  }
+
+  listConversations(
+    token: string,
+    request: ListConversationsRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-conversations", request, { token });
+  }
+
+  getConversation(
+    token: string,
+    request: HubGetConversationRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-conversation", request, { token });
+  }
+
+  replyToConversation(
+    token: string,
+    request: ReplyToConversationRequest,
+    idempotencyKey: string = hubIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/reply-to-conversation", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  deleteConversation(
+    token: string,
+    request: DeleteConversationRequest,
+    idempotencyKey: string = hubIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/delete-conversation", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  markConversationRead(
+    token: string,
+    request: HubMarkConversationReadRequest,
+  ): Promise<APIResponse> {
+    return this.post("/mark-conversation-read", request, { token });
+  }
+
+  setAgenciesMayMessage(
+    token: string,
+    request: { agencies_may_message: boolean },
+  ): Promise<APIResponse> {
+    return this.post("/users/set-agencies-may-message", request, { token });
+  }
+
+  myInfo(token: string): Promise<APIResponse> {
+    return this.get("/users/my-info", token);
   }
 }

@@ -28,7 +28,7 @@ func TestNewUsesConfiguredJobInterval(t *testing.T) {
 		RetainApplicationsTimer:      interval,
 		RetainOrgContactsTimer:       interval,
 		RefreshHubApplicationsTimer:  interval,
-	}, nil, nil, nil)
+	}, appconfig.Marketplace{}, nil, nil, nil)
 
 	if len(worker.jobs) != 10 {
 		t.Fatalf("jobs = %d, want 10", len(worker.jobs))

@@ -11,6 +11,7 @@ import (
 	hubusers "github.com/vetchium/src/typespec/hub/users"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
+	"backend/internal/agencycontacts"
 	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
 	hubruntime "backend/internal/hub"
@@ -49,6 +50,7 @@ func MyInfo(s *hubruntime.Server) http.HandlerFunc {
 			TOTPEnabled:            row.TotpEnabled,
 			RecoveryCodesRemaining: common.TOTPRecoveryCodeCount(row.RecoveryCodesRemaining),
 			SessionAuthenticatedAt: row.AuthenticatedAt.Time.UTC(),
+			AgenciesMayMessage:     row.AgenciesMayMessage,
 		})
 	}
 }
@@ -136,6 +138,66 @@ func SetPreferredJobCountries(s *hubruntime.Server) http.HandlerFunc {
 			)
 			return
 		}
+		s.Empty(r.Context(), w, http.StatusNoContent)
+	}
+}
+
+func SetAgenciesMayMessage(s *hubruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request hubusers.SetAgenciesMayMessageRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		identity, _ := middleware.HubIdentityFromContext(r.Context())
+		tx, err := s.DB.Begin(r.Context())
+		if err != nil {
+			s.InternalError(r.Context(), w, "begin transaction", err)
+			return
+		}
+		defer tx.Rollback(r.Context())
+
+		q := sqlc.New(tx)
+		row, err := q.UpdateHubUserAgenciesMayMessage(r.Context(), sqlc.UpdateHubUserAgenciesMayMessageParams{
+			AgenciesMayMessage: request.AgenciesMayMessage,
+			HubUserDid:         identity.UserDID,
+			TenantID:           s.TenantID,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				s.AuthenticationProblem(
+					r.Context(), w, hubproblem.AuthenticationRequiredError,
+					hubauthn.BearerChallenge,
+				)
+				return
+			}
+			s.InternalError(r.Context(), w, "set Hub agencies may message", err)
+			return
+		}
+
+		pointers, err := q.ListHubAgencyPointersForUser(r.Context(), identity.UserDID)
+		if err != nil {
+			s.InternalError(r.Context(), w, "list agency pointers", err)
+			return
+		}
+
+		for _, p := range pointers {
+			if err := agencycontacts.EnqueueMessagesState(r.Context(), q, agencycontacts.MessagesState{
+				ContactID:   p.ContactID,
+				OrgDID:      p.AgencyOrgDid,
+				HubUserDID:  identity.UserDID,
+				Version:     row.AgenciesMayMessageVersion,
+				MessagesOff: !row.AgenciesMayMessage,
+			}); err != nil {
+				s.InternalError(r.Context(), w, "enqueue messages state", err)
+				return
+			}
+		}
+
+		if err := tx.Commit(r.Context()); err != nil {
+			s.InternalError(r.Context(), w, "commit transaction", err)
+			return
+		}
+
 		s.Empty(r.Context(), w, http.StatusNoContent)
 	}
 }

@@ -10,6 +10,7 @@ import (
 	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
 
 	"backend/internal/apiserver"
+	"backend/internal/conversationclient"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
@@ -52,6 +53,7 @@ type Server struct {
 	Profiles       *profileclient.Client
 	Openings       *publicopeningclient.Client
 	Applications   *hubapplicationclient.Client
+	Conversations  *conversationclient.Client
 	PublicOpenings publicopenings.Reader
 	Pictures       PictureStorage
 	// OfferLetters signs the letters of local Orgs' offers to this tenant's

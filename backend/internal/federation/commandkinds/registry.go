@@ -5,6 +5,7 @@
 package commandkinds
 
 import (
+	"backend/internal/agencyconversations"
 	"backend/internal/engagements"
 	"backend/internal/federation/commands"
 	"backend/internal/hubapply"
@@ -24,5 +25,6 @@ func Registry() *commands.Registry {
 	hubconsent.Register(registry)
 	engagements.Register(registry)
 	providerwork.Register(registry)
+	agencyconversations.Register(registry)
 	return registry
 }

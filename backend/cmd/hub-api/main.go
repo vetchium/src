@@ -7,6 +7,7 @@ import (
 
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
+	"backend/internal/conversationclient"
 	"backend/internal/db"
 	dbsqlc "backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
@@ -85,6 +86,10 @@ func run(log *slog.Logger, address string) error {
 		cfg.MeshAPIServer.BaseURL, meshCredential,
 		cfg.MeshAPIServer.RequestTimeout,
 	)
+	conversations := conversationclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
+	)
 	accessKey, secretKey, err := cfg.ObjectStorage.Credentials()
 	if err != nil {
 		return err
@@ -140,12 +145,13 @@ func run(log *slog.Logger, address string) error {
 		Log: log,
 	})
 	s := &hubruntime.Server{
-		Runtime:      apiserver.New(pool, log),
-		Queries:      dbsqlc.New(pool),
-		Directory:    globalDirectory,
-		Profiles:     profiles,
-		Openings:     openings,
-		Applications: applications,
+		Runtime:       apiserver.New(pool, log),
+		Queries:       dbsqlc.New(pool),
+		Directory:     globalDirectory,
+		Profiles:      profiles,
+		Openings:      openings,
+		Applications:  applications,
+		Conversations: conversations,
 		PublicOpenings: publicopenings.Reader{
 			Queries: dbsqlc.New(pool), Logos: pictures,
 		},

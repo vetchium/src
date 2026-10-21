@@ -18,6 +18,7 @@ type MyInfoResponse struct {
 	TOTPEnabled            bool                         `json:"totp_enabled"`
 	RecoveryCodesRemaining common.TOTPRecoveryCodeCount `json:"recovery_codes_remaining"`
 	SessionAuthenticatedAt time.Time                    `json:"session_authenticated_at"`
+	AgenciesMayMessage     bool                         `json:"agencies_may_message"`
 }
 
 type SetPreferredLanguageRequest struct {
@@ -52,6 +53,7 @@ type SetPreferredJobCountriesRequest struct {
 }
 
 func (r *SetPreferredJobCountriesRequest) Normalize() {}
+
 func (r SetPreferredJobCountriesRequest) Validate() []string {
 	if r.PreferredJobCountries == nil || len(r.PreferredJobCountries) > 10 {
 		return []string{"preferred_job_countries"}
@@ -63,5 +65,15 @@ func (r SetPreferredJobCountriesRequest) Validate() []string {
 		}
 		seen[country] = true
 	}
+	return []string{}
+}
+
+type SetAgenciesMayMessageRequest struct {
+	AgenciesMayMessage bool `json:"agencies_may_message"`
+}
+
+func (r *SetAgenciesMayMessageRequest) Normalize() {}
+
+func (r SetAgenciesMayMessageRequest) Validate() []string {
 	return []string{}
 }

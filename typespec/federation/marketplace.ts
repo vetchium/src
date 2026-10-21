@@ -7,8 +7,18 @@ import type { HubUserDID } from "../hub/types.ts";
 import { isHubUserDID } from "../hub/types.ts";
 import type { Capability } from "../orgs/marketplace/capabilities.ts";
 import { isCapability } from "../orgs/marketplace/capabilities.ts";
-import type { ContactID } from "../orgs/marketplace/contacts/contacts.ts";
-import { isContactID } from "../orgs/marketplace/contacts/contacts.ts";
+import type {
+  ContactID,
+  ConversationMessage,
+  ConversationReadOnlyReason,
+  ConversationSummary,
+  MessageText,
+  OpeningSuggestion,
+} from "../orgs/marketplace/contacts/contacts.ts";
+import {
+  isContactID,
+  isMessageText,
+} from "../orgs/marketplace/contacts/contacts.ts";
 import type {
   Engagement,
   EngagementID,
@@ -416,6 +426,68 @@ export interface AgencyPointerChangedPayload {
   hub_user_did: HubUserDID;
   /** False when the Contact is gone. */
   present: boolean;
+  has_conversation?: boolean;
+  agency_display_name?: string;
+  agency_domain?: OrgDomain;
+  agency_logo_media_id?: string;
+  last_activity_at?: string;
+  read_only_reason?: ConversationReadOnlyReason;
+  suggestions?: OpeningSuggestion[];
+  new_agency_message?: boolean;
+}
+
+export const HubConversationReplyKind: CommandKind = "hub-conversation-reply";
+export const HubConversationDeleteKind: CommandKind = "hub-conversation-delete";
+
+export interface HubConversationReplyPayload {
+  contact_id: ContactID;
+  hub_user_did: HubUserDID;
+  text: MessageText;
+}
+
+export function validateHubConversationReplyPayload(
+  payload: HubConversationReplyPayload,
+): string[] {
+  const fields: string[] = [];
+  if (!isContactID(payload.contact_id)) fields.push("contact_id");
+  if (!isHubUserDID(payload.hub_user_did)) fields.push("hub_user_did");
+  if (!isMessageText(payload.text)) fields.push("text");
+  return fields;
+}
+
+export interface HubConversationDeletePayload {
+  contact_id: ContactID;
+  hub_user_did: HubUserDID;
+}
+
+export function validateHubConversationDeletePayload(
+  payload: HubConversationDeletePayload,
+): string[] {
+  const fields: string[] = [];
+  if (!isContactID(payload.contact_id)) fields.push("contact_id");
+  if (!isHubUserDID(payload.hub_user_did)) fields.push("hub_user_did");
+  return fields;
+}
+
+export interface MeshReadConversationRequest {
+  contact_id: ContactID;
+  hub_user_did: HubUserDID;
+  agency_org_did: OrgDID;
+}
+
+export function validateMeshReadConversationRequest(
+  request: MeshReadConversationRequest,
+): string[] {
+  const fields: string[] = [];
+  if (!isContactID(request.contact_id)) fields.push("contact_id");
+  if (!isHubUserDID(request.hub_user_did)) fields.push("hub_user_did");
+  if (!isOrgDID(request.agency_org_did)) fields.push("agency_org_did");
+  return fields;
+}
+
+export interface MeshReadConversationResponse {
+  conversation: ConversationSummary;
+  messages: ConversationMessage[];
 }
 
 export function validateAgencyPointerChangedPayload(

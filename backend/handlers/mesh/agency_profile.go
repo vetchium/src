@@ -35,13 +35,18 @@ func localAgencyRead(
 	if err != nil {
 		return contacts.AgencyProfileRead{}, err
 	}
+	state, err := s.Queries.GetHubUserAgencyState(ctx, id)
+	if err != nil {
+		return contacts.AgencyProfileRead{}, err
+	}
 	rows, err := s.Queries.ListHubVerifiedDomains(ctx, id)
 	if err != nil {
 		return contacts.AgencyProfileRead{}, err
 	}
 	read := contacts.AgencyProfileRead{
 		HubUserDID: did, Profile: hubProfile,
-		VerifiedDomains: make([]contacts.VerifiedDomain, 0, len(rows)),
+		VerifiedDomains:    make([]contacts.VerifiedDomain, 0, len(rows)),
+		AgenciesMayMessage: state.AgenciesMayMessage,
 	}
 	for _, row := range rows {
 		read.VerifiedDomains = append(read.VerifiedDomains, contacts.VerifiedDomain{

@@ -172,3 +172,31 @@ var ContactNoteNotAuthorError = problem.Details{
 	Status: 403,
 	Detail: "Only the author edits a note",
 }
+
+var ConversationLimitReachedError = problem.Details{
+	Type:   "vetchium-problem-details/org-conversation-limit-reached",
+	Title:  "Org conversation limit reached",
+	Status: 429,
+	Detail: "The agency reached its limit of new conversations for today",
+}
+
+var ConversationNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-conversation-not-found",
+	Title:  "Org conversation not found",
+	Status: 404,
+	Detail: "No conversation of the agency has that identifier",
+}
+
+var AgencyMessagesOffError = problem.Details{
+	Type:   "vetchium-problem-details/org-agency-messages-off",
+	Title:  "Org agency messages off",
+	Status: 403,
+	Detail: "The Hub user does not accept messages from agencies",
+}
+
+var ConversationPartyDeletedError = problem.Details{
+	Type:   "vetchium-problem-details/org-conversation-party-deleted",
+	Title:  "Org conversation party deleted",
+	Status: 409,
+	Detail: "The Hub user's account no longer exists",
+}

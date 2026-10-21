@@ -40,44 +40,45 @@ type FederationEventDelivery interface {
 
 // Worker owns the dependencies and periodic jobs for the worker process.
 type Worker struct {
-	queries                      sqlc.Querier
-	hubEmailQueries              hubEmailQueries
-	hubEmailDelivery             *HubEmailDelivery
-	hubSignupRecovery            HubSignupRecovery
-	hubEmailChangeRecovery       HubEmailChangeRecovery
-	reconcileHubEmailChangeTimer time.Duration
-	federationCommandTimer       time.Duration
-	federationCommands           FederationCommandRecovery
-	federationEventTimer         time.Duration
-	federationEvents             FederationEventDelivery
-	pictureQueries               pictureDeletionQueries
-	pictureStore                 PictureStore
-	logoStore                    LogoStore
-	logoQueries                  logoDeletionQueries
-	offerLetterStore             OfferLetterStore
-	offerLetterQueries           offerLetterDeletionQueries
-	offerExpiryDB                *pgxpool.Pool
-	applicationDB                *pgxpool.Pool
-	pictureDeletionInterval      time.Duration
-	aliasReleaseQueries          aliasReleaseQueries
-	aliasReleaseDirectory        AliasReleaseDirectory
-	aliasReleaseInterval         time.Duration
-	aliasChangeDB                *pgxpool.Pool
-	aliasChangeQueries           aliasChangeQueries
-	subscriptionTransactions     subscriptionTransactions
-	hubSubscriptionNow           func() time.Time
-	subscriptionExpiryQueries    subscriptionExpiryQueries
-	openingExpiryQueries         openingExpiryQueries
-	engagementExpiryDB           *pgxpool.Pool
-	contactRetentionDB           *pgxpool.Pool
-	orgQueries                   orgEmailQueries
-	orgs                         *orgJobs
-	orgAI                        *orgAIJobs
-	hubSubscriptionExpiryNow     func() time.Time
-	log                          *slog.Logger
-	tenantID                     string
-	retryBackoffLimit            time.Duration
-	jobs                         []periodicJob
+	queries                           sqlc.Querier
+	hubEmailQueries                   hubEmailQueries
+	hubEmailDelivery                  *HubEmailDelivery
+	hubSignupRecovery                 HubSignupRecovery
+	hubEmailChangeRecovery            HubEmailChangeRecovery
+	reconcileHubEmailChangeTimer      time.Duration
+	federationCommandTimer            time.Duration
+	federationCommands                FederationCommandRecovery
+	federationEventTimer              time.Duration
+	federationEvents                  FederationEventDelivery
+	pictureQueries                    pictureDeletionQueries
+	pictureStore                      PictureStore
+	logoStore                         LogoStore
+	logoQueries                       logoDeletionQueries
+	offerLetterStore                  OfferLetterStore
+	offerLetterQueries                offerLetterDeletionQueries
+	offerExpiryDB                     *pgxpool.Pool
+	applicationDB                     *pgxpool.Pool
+	pictureDeletionInterval           time.Duration
+	aliasReleaseQueries               aliasReleaseQueries
+	aliasReleaseDirectory             AliasReleaseDirectory
+	aliasReleaseInterval              time.Duration
+	aliasChangeDB                     *pgxpool.Pool
+	aliasChangeQueries                aliasChangeQueries
+	subscriptionTransactions          subscriptionTransactions
+	hubSubscriptionNow                func() time.Time
+	subscriptionExpiryQueries         subscriptionExpiryQueries
+	openingExpiryQueries              openingExpiryQueries
+	engagementExpiryDB                *pgxpool.Pool
+	contactRetentionDB                *pgxpool.Pool
+	orgQueries                        orgEmailQueries
+	orgs                              *orgJobs
+	orgAI                             *orgAIJobs
+	hubSubscriptionExpiryNow          func() time.Time
+	log                               *slog.Logger
+	tenantID                          string
+	retryBackoffLimit                 time.Duration
+	deletedPartyConversationRetention time.Duration
+	jobs                              []periodicJob
 }
 
 func New(
@@ -85,38 +86,40 @@ func New(
 	log *slog.Logger,
 	tenantID string,
 	config appconfig.Workers,
+	marketplace appconfig.Marketplace,
 	hubEmailDelivery *HubEmailDelivery,
 	hubSignupRecovery HubSignupRecovery,
 	hubEmailChangeRecovery HubEmailChangeRecovery,
 ) *Worker {
 	queries := sqlc.New(db)
 	w := &Worker{
-		queries:                      queries,
-		hubEmailQueries:              queries,
-		log:                          log,
-		tenantID:                     tenantID,
-		retryBackoffLimit:            config.RetryBackoffLimit,
-		subscriptionTransactions:     poolSubscriptionTransactions{db: db},
-		hubSignupRecovery:            hubSignupRecovery,
-		hubEmailChangeRecovery:       hubEmailChangeRecovery,
-		reconcileHubEmailChangeTimer: config.ReconcileHubEmailChangeTimer,
-		federationCommandTimer:       config.DriveFederationCommandsTimer,
-		federationEventTimer:         config.DeliverFederationEventsTimer,
-		pictureQueries:               queries,
-		logoQueries:                  queries,
-		offerLetterQueries:           queries,
-		offerExpiryDB:                db,
-		applicationDB:                db,
-		pictureDeletionInterval:      config.PruneEphemeralDataTimer,
-		aliasReleaseQueries:          queries,
-		aliasReleaseInterval:         config.ReconcileHubSignupTimer,
-		aliasChangeDB:                db,
-		aliasChangeQueries:           queries,
-		subscriptionExpiryQueries:    queries,
-		openingExpiryQueries:         queries,
-		engagementExpiryDB:           db,
-		contactRetentionDB:           db,
-		orgQueries:                   queries,
+		queries:                           queries,
+		hubEmailQueries:                   queries,
+		log:                               log,
+		tenantID:                          tenantID,
+		retryBackoffLimit:                 config.RetryBackoffLimit,
+		deletedPartyConversationRetention: marketplace.DeletedPartyConversationRetention,
+		subscriptionTransactions:          poolSubscriptionTransactions{db: db},
+		hubSignupRecovery:                 hubSignupRecovery,
+		hubEmailChangeRecovery:            hubEmailChangeRecovery,
+		reconcileHubEmailChangeTimer:      config.ReconcileHubEmailChangeTimer,
+		federationCommandTimer:            config.DriveFederationCommandsTimer,
+		federationEventTimer:              config.DeliverFederationEventsTimer,
+		pictureQueries:                    queries,
+		logoQueries:                       queries,
+		offerLetterQueries:                queries,
+		offerExpiryDB:                     db,
+		applicationDB:                     db,
+		pictureDeletionInterval:           config.PruneEphemeralDataTimer,
+		aliasReleaseQueries:               queries,
+		aliasReleaseInterval:              config.ReconcileHubSignupTimer,
+		aliasChangeDB:                     db,
+		aliasChangeQueries:                queries,
+		subscriptionExpiryQueries:         queries,
+		openingExpiryQueries:              queries,
+		engagementExpiryDB:                db,
+		contactRetentionDB:                db,
+		orgQueries:                        queries,
 	}
 	w.jobs = []periodicJob{
 		{
@@ -181,6 +184,11 @@ func New(
 			name:     "queue-hub-application-emails",
 			interval: config.DeliverHubEmailTimer,
 			run:      w.queueHubApplicationEmails,
+		})
+		w.jobs = append(w.jobs, periodicJob{
+			name:     "queue-hub-message-emails",
+			interval: config.DeliverHubEmailTimer,
+			run:      w.queueHubMessageEmails,
 		})
 		// Shares the subscription advance job's cadence: both are periodic
 		// Hub subscription bookkeeping, and this one also needs the outbox

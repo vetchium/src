@@ -13,6 +13,8 @@ import "../../../problem/details.tsp";
 import "../../../problem/orgs/authentication.tsp";
 import "../../../problem/orgs/marketplace.tsp";
 import "../../../problem/orgs/suspension.tsp";
+import "../../openings/types.tsp";
+import "../../types.tsp";
 
 using TypeSpec.Http;
 
@@ -28,6 +30,91 @@ scalar ContactNoteID extends string;
 /** Plain text, 1–5,000 code points after trimming. */
 @maxLength(20000)
 scalar NoteText extends string;
+
+/** Plain text message, 1–5,000 code points after trimming. */
+@maxLength(20000)
+scalar MessageText extends string;
+
+@format("uuid")
+scalar ConversationID extends string;
+
+@format("uuid")
+scalar MessageID extends string;
+
+enum MessageKind {
+  text: "text",
+  suggestion: "suggestion",
+}
+
+enum MessageSenderType {
+  agency: "agency",
+  hub_user: "hub_user",
+}
+
+enum ConversationReadOnlyReason {
+  messages_off: "messages_off",
+  hub_user_deleted: "hub_user_deleted",
+  agency_deleted: "agency_deleted",
+}
+
+enum ContactFilter {
+  all: "all",
+  unread: "unread",
+  has_conversation: "has_conversation",
+}
+
+model OpeningSuggestion {
+  consumer_domain: Vetchium.Orgs.OrgDomain;
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+}
+
+model ConversationMessage {
+  message_id: MessageID;
+  sender_type: MessageSenderType;
+  sender_display_name: string;
+  kind: MessageKind;
+  text?: MessageText;
+  suggestion?: OpeningSuggestion;
+  sent_at: utcDateTime;
+}
+
+model ConversationSummary {
+  conversation_id: ConversationID;
+  contact_id: ContactID;
+  recorded_hub_user_name: string;
+  recorded_hub_user_handle: Vetchium.Hub.HubHandle;
+  recorded_agency_name: string;
+  recorded_agency_domain: Vetchium.Orgs.OrgDomain;
+  agency_unread: boolean;
+  read_only_reason?: ConversationReadOnlyReason;
+  created_at: utcDateTime;
+  last_activity_at: utcDateTime;
+}
+
+model ConversationDetail {
+  conversation: ConversationSummary;
+  messages: ConversationMessage[];
+}
+
+model StartConversationRequest {
+  address: Vetchium.Hub.Profile.ProfileAddress;
+  text?: MessageText;
+  suggestion?: OpeningSuggestion;
+}
+
+model SendMessageRequest {
+  contact_id: ContactID;
+  text?: MessageText;
+  suggestion?: OpeningSuggestion;
+}
+
+model GetConversationRequest {
+  contact_id: ContactID;
+}
+
+model MarkConversationReadRequest {
+  contact_id: ContactID;
+}
 
 @minValue(1)
 @maxValue(100)
@@ -56,6 +143,8 @@ model ContactSummary {
   messages_off: boolean;
 
   note_count: int32;
+  has_conversation: boolean;
+  unread_messages_count: int32;
   last_activity_at: utcDateTime;
 }
 
@@ -102,6 +191,8 @@ model ListContactsRequest {
 
   /** Defaults to 50. */
   limit?: ContactPageSize = 50;
+
+  filter?: ContactFilter = ContactFilter.all;
 }
 
 model ListContactsResponse {
@@ -384,4 +475,111 @@ interface ContactOperations {
     | ContactWriteErrors
     | Vetchium.Problem.OrgContactNotFoundErrorResponse
     | Vetchium.Problem.OrgContactNoteNotFoundErrorResponse;
+
+  /**
+   * Starts a conversation with a Hub user by handle or alias, or opens an
+   * existing one. The first message creates the Contact if absent.
+   */
+  @route("/start-conversation")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-required-permission",
+    "org:fulfil_engagements"
+  )
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  startConversation(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: StartConversationRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ConversationDetail;
+      }
+    | ContactWriteErrors
+    | Vetchium.Problem.OrgListingNotAvailableErrorResponse
+    | Vetchium.Problem.OrgConversationLimitReachedErrorResponse
+    | Vetchium.Problem.OrgContactLimitReachedErrorResponse
+    | Vetchium.Problem.OrgHubUserNotFoundErrorResponse
+    | Vetchium.Problem.OrgAgencyMessagesOffErrorResponse
+    | Vetchium.Problem.OrgConversationPartyDeletedErrorResponse
+    | Vetchium.Problem.OrgTenantUnavailableErrorResponse;
+
+  /** Sends a text message or an Opening suggestion in an existing conversation. */
+  @route("/send-message")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-required-permission",
+    "org:fulfil_engagements"
+  )
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  sendMessage(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: SendMessageRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ConversationMessage;
+      }
+    | ContactWriteErrors
+    | Vetchium.Problem.OrgContactNotFoundErrorResponse
+    | Vetchium.Problem.OrgConversationNotFoundErrorResponse
+    | Vetchium.Problem.OrgAgencyMessagesOffErrorResponse
+    | Vetchium.Problem.OrgConversationPartyDeletedErrorResponse;
+
+  /** Reads a Contact's conversation and its messages. */
+  @route("/get-conversation")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-required-permission",
+    "org:fulfil_engagements"
+  )
+  getConversation(@body request: GetConversationRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ConversationDetail;
+      }
+    | ContactReadErrors
+    | Vetchium.Problem.OrgContactNotFoundErrorResponse
+    | Vetchium.Problem.OrgConversationNotFoundErrorResponse;
+
+  /** Clears the agency's unread flag on a conversation. */
+  @route("/mark-conversation-read")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-required-permission",
+    "org:fulfil_engagements"
+  )
+  markConversationRead(@body request: MarkConversationReadRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+      }
+    | ContactReadErrors
+    | Vetchium.Problem.OrgContactNotFoundErrorResponse
+    | Vetchium.Problem.OrgConversationNotFoundErrorResponse;
 }

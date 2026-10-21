@@ -174,6 +174,38 @@ model AgencyPointerChangedPayload {
   agency_org_did: Vetchium.Orgs.OrgDID;
   hub_user_did: Vetchium.Hub.HubUserDID;
   present: boolean;
+  has_conversation?: boolean;
+  agency_display_name?: string;
+  agency_domain?: Vetchium.Orgs.OrgDomain;
+  agency_logo_media_id?: string;
+  last_activity_at?: utcDateTime;
+  read_only_reason?: Vetchium.Orgs.Marketplace.Contacts.ConversationReadOnlyReason;
+  suggestions?: Vetchium.Orgs.Marketplace.Contacts.OpeningSuggestion[];
+  new_agency_message?: boolean;
+}
+
+/** Payload of `hub-conversation-reply`. */
+model HubConversationReplyPayload {
+  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  hub_user_did: Vetchium.Hub.HubUserDID;
+  text: Vetchium.Orgs.Marketplace.Contacts.MessageText;
+}
+
+/** Payload of `hub-conversation-delete`. */
+model HubConversationDeletePayload {
+  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  hub_user_did: Vetchium.Hub.HubUserDID;
+}
+
+model MeshReadConversationRequest {
+  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  hub_user_did: Vetchium.Hub.HubUserDID;
+  agency_org_did: Vetchium.Orgs.OrgDID;
+}
+
+model MeshReadConversationResponse {
+  conversation: Vetchium.Orgs.Marketplace.Contacts.ConversationSummary;
+  messages: Vetchium.Orgs.Marketplace.Contacts.ConversationMessage[];
 }
 
 /**

@@ -28,8 +28,11 @@ SELECT COALESCE((
 SELECT c.contact_id, c.display_name, c.handle, c.messages_off,
     c.last_activity_at,
     (SELECT count(*) FROM vetchium.org_contact_notes AS n
-     WHERE n.contact_id = c.contact_id)::integer AS note_count
+     WHERE n.contact_id = c.contact_id)::integer AS note_count,
+    (conv.conversation_id IS NOT NULL) AS has_conversation,
+    CASE WHEN conv.agency_unread THEN 1 ELSE 0 END::integer AS unread_messages_count
 FROM vetchium.org_contacts AS c
+LEFT JOIN vetchium.org_conversations AS conv ON conv.contact_id = c.contact_id
 WHERE c.org_did = sqlc.arg(org_did)
   AND c.hub_user_did = sqlc.arg(hub_user_did);
 
@@ -37,9 +40,12 @@ WHERE c.org_did = sqlc.arg(org_did)
 SELECT c.contact_id, c.display_name, c.handle, c.messages_off,
     c.last_activity_at, c.created_at, u.email_address AS created_by,
     (SELECT count(*) FROM vetchium.org_contact_notes AS n
-     WHERE n.contact_id = c.contact_id)::integer AS note_count
+     WHERE n.contact_id = c.contact_id)::integer AS note_count,
+    (conv.conversation_id IS NOT NULL) AS has_conversation,
+    CASE WHEN conv.agency_unread THEN 1 ELSE 0 END::integer AS unread_messages_count
 FROM vetchium.org_contacts AS c
 JOIN vetchium.org_users AS u ON u.org_user_id = c.created_by
+LEFT JOIN vetchium.org_conversations AS conv ON conv.contact_id = c.contact_id
 WHERE c.org_did = sqlc.arg(org_did)
   AND c.contact_id = sqlc.arg(contact_id);
 
@@ -47,9 +53,17 @@ WHERE c.org_did = sqlc.arg(org_did)
 SELECT c.contact_id, c.display_name, c.handle, c.messages_off,
     c.last_activity_at,
     (SELECT count(*) FROM vetchium.org_contact_notes AS n
-     WHERE n.contact_id = c.contact_id)::integer AS note_count
+     WHERE n.contact_id = c.contact_id)::integer AS note_count,
+    (conv.conversation_id IS NOT NULL) AS has_conversation,
+    CASE WHEN conv.agency_unread THEN 1 ELSE 0 END::integer AS unread_messages_count
 FROM vetchium.org_contacts AS c
+LEFT JOIN vetchium.org_conversations AS conv ON conv.contact_id = c.contact_id
 WHERE c.org_did = sqlc.arg(org_did)
+  AND (
+      sqlc.arg(filter)::text = 'all'
+      OR (sqlc.arg(filter)::text = 'unread' AND conv.agency_unread = true)
+      OR (sqlc.arg(filter)::text = 'has_conversation' AND conv.conversation_id IS NOT NULL)
+  )
   AND (sqlc.narg(after_activity_at)::timestamptz IS NULL
       OR (c.last_activity_at, c.contact_id) <
           (sqlc.narg(after_activity_at)::timestamptz,
@@ -60,7 +74,7 @@ LIMIT sqlc.arg(page_limit);
 -- Serializes writes to one Contact's notes, so the cap check in the inserting
 -- statement cannot race a sibling request. The Contact must be the Org's.
 -- name: LockOrgContact :one
-SELECT c.contact_id, c.hub_user_did, c.pointer_version
+SELECT c.contact_id, c.hub_user_did, c.pointer_version, c.messages_off
 FROM vetchium.org_contacts AS c
 WHERE c.org_did = sqlc.arg(org_did) AND c.contact_id = sqlc.arg(contact_id)
 FOR UPDATE;
@@ -317,6 +331,36 @@ SELECT deleted.contact_id, deleted.org_did, deleted.hub_user_did,
     deleted.pointer_version, (SELECT count(*) FROM audit) AS audit_rows
 FROM deleted;
 
+-- Deletes a Contact if it has neither notes nor a conversation (MKT-CON-004).
+-- name: DeleteContactIfNoNotes :one
+WITH deleted AS (
+    DELETE FROM vetchium.org_contacts AS c
+    WHERE c.contact_id = sqlc.arg(contact_id)
+      AND NOT EXISTS (
+          SELECT 1 FROM vetchium.org_contact_notes AS n
+          WHERE n.contact_id = c.contact_id
+      )
+      AND NOT EXISTS (
+          SELECT 1 FROM vetchium.org_conversations AS conv
+          WHERE conv.contact_id = c.contact_id
+      )
+    RETURNING c.contact_id, c.org_did, c.hub_user_did, c.pointer_version
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, subject_org_did, source, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'org.contact.deleted', 'org_contact',
+        deleted.contact_id::text, 'worker', sqlc.arg(source)::text,
+        deleted.hub_user_did, deleted.org_did, 'workers',
+        jsonb_build_object('action', 'deleted', 'reason', 'no_notes_or_conversation')
+    FROM deleted
+    RETURNING audit_event_id
+)
+SELECT deleted.contact_id, deleted.org_did, deleted.hub_user_did,
+    deleted.pointer_version, (SELECT count(*) FROM audit) AS audit_rows
+FROM deleted;
+
 -- Forgets the daily counts of days no limit reads any more.
 -- name: PruneOrgContactCreations :many
 WITH pruned AS (
@@ -354,6 +398,13 @@ WHERE c.contact_id = sqlc.arg(contact_id)
   AND c.org_did = sqlc.arg(org_did)
   AND c.hub_user_did = sqlc.arg(hub_user_did);
 
+-- name: TouchOrgContactPointer :one
+UPDATE vetchium.org_contacts AS c
+SET last_activity_at = sqlc.arg(last_activity_at),
+    pointer_version = pointer_version + 1
+WHERE c.contact_id = sqlc.arg(contact_id)
+RETURNING c.contact_id, c.pointer_version;
+
 -- Applies hub-account-deleted at the agency's tenant: the notes on the
 -- person go at once, and with them the Contact (MKT-DAT-012).
 -- name: DeleteOrgContactsOfPerson :execrows
@@ -378,6 +429,140 @@ VALUES (
     sqlc.arg(contact_id), sqlc.arg(hub_user_did), sqlc.arg(agency_org_did)
 )
 ON CONFLICT (contact_id) DO NOTHING;
+
+-- name: UpsertHubAgencyPointer :execrows
+INSERT INTO vetchium.hub_agency_pointers (
+    contact_id, hub_user_did, agency_org_did,
+    agency_display_name, agency_domain, agency_logo_media_id,
+    has_conversation, last_activity_at, unread_count,
+    read_only_reason, suggestions, pointer_version
+)
+VALUES (
+    sqlc.arg(contact_id), sqlc.arg(hub_user_did), sqlc.arg(agency_org_did),
+    sqlc.arg(agency_display_name), sqlc.arg(agency_domain), sqlc.narg(agency_logo_media_id),
+    sqlc.arg(has_conversation), sqlc.arg(last_activity_at), sqlc.arg(unread_count),
+    sqlc.narg(read_only_reason), sqlc.arg(suggestions), sqlc.arg(pointer_version)
+)
+ON CONFLICT (contact_id) DO UPDATE
+SET agency_org_did = EXCLUDED.agency_org_did,
+    agency_display_name = EXCLUDED.agency_display_name,
+    agency_domain = EXCLUDED.agency_domain,
+    agency_logo_media_id = EXCLUDED.agency_logo_media_id,
+    has_conversation = EXCLUDED.has_conversation,
+    last_activity_at = EXCLUDED.last_activity_at,
+    unread_count = CASE WHEN sqlc.arg(increment_unread)::boolean THEN vetchium.hub_agency_pointers.unread_count + 1 ELSE EXCLUDED.unread_count END,
+    read_only_reason = EXCLUDED.read_only_reason,
+    suggestions = EXCLUDED.suggestions,
+    pointer_version = EXCLUDED.pointer_version
+WHERE vetchium.hub_agency_pointers.pointer_version <= EXCLUDED.pointer_version;
+
+-- name: MarkHubAgencyPointerRead :execrows
+UPDATE vetchium.hub_agency_pointers
+SET unread_count = 0
+WHERE contact_id = sqlc.arg(contact_id)
+  AND hub_user_did = sqlc.arg(hub_user_did);
+
+-- name: ListHubAgencyConversations :many
+SELECT contact_id, agency_org_did, agency_display_name, agency_domain,
+    agency_logo_media_id, has_conversation, last_activity_at,
+    unread_count, read_only_reason, suggestions
+FROM vetchium.hub_agency_pointers
+WHERE hub_user_did = sqlc.arg(hub_user_did)
+  AND has_conversation = true
+  AND (sqlc.narg(after_activity_at)::timestamptz IS NULL
+       OR (last_activity_at, contact_id) <
+           (sqlc.narg(after_activity_at)::timestamptz,
+            sqlc.narg(after_contact_id)::uuid))
+ORDER BY last_activity_at DESC, contact_id DESC
+LIMIT sqlc.arg(page_limit);
+
+-- name: GetHubAgencyPointer :one
+SELECT contact_id, hub_user_did, agency_org_did, agency_display_name, agency_domain,
+    agency_logo_media_id, has_conversation, last_activity_at,
+    unread_count, read_only_reason, suggestions, pointer_version
+FROM vetchium.hub_agency_pointers
+WHERE contact_id = sqlc.arg(contact_id)
+  AND hub_user_did = sqlc.arg(hub_user_did);
+
+-- name: ListHubAgencyPointersForUser :many
+SELECT contact_id, agency_org_did, pointer_version
+FROM vetchium.hub_agency_pointers
+WHERE hub_user_did = sqlc.arg(hub_user_did);
+
+-- name: UpdateHubUserAgenciesMayMessage :one
+WITH updated AS (
+    UPDATE vetchium.hub_users
+    SET agencies_may_message = sqlc.arg(agencies_may_message),
+        agencies_may_message_version = agencies_may_message_version + 1,
+        updated_at = now()
+    WHERE hub_user_did = sqlc.arg(hub_user_did)
+      AND hub_user_state = 'active'
+    RETURNING hub_user_did, agencies_may_message, agencies_may_message_version
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, source, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'hub.user.agencies-may-message-set',
+        'hub_user', updated.hub_user_did::text, 'hub_user',
+        updated.hub_user_did::text, updated.hub_user_did, 'hub-api',
+        jsonb_build_object('agencies_may_message', updated.agencies_may_message)
+    FROM updated
+    RETURNING audit_event_id
+)
+SELECT updated.agencies_may_message, updated.agencies_may_message_version,
+    (SELECT count(*) FROM audit) AS audit_rows
+FROM updated;
+
+-- name: InsertHubMessageNotice :exec
+INSERT INTO vetchium.hub_message_notices (
+    hub_user_did, agency_display_name
+)
+VALUES (
+    sqlc.arg(hub_user_did), sqlc.arg(agency_display_name)
+);
+
+-- name: ClaimHubMessageNotice :one
+WITH candidate AS (
+    SELECT notice_id
+    FROM vetchium.hub_message_notices
+    ORDER BY created_at, notice_id
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+), claimed AS (
+    DELETE FROM vetchium.hub_message_notices AS n
+    USING candidate
+    WHERE n.notice_id = candidate.notice_id
+    RETURNING n.notice_id, n.hub_user_did, n.agency_display_name
+)
+SELECT claimed.notice_id, claimed.hub_user_did, claimed.agency_display_name,
+    u.email_address, u.display_name, u.preferred_language, u.hub_user_state
+FROM claimed
+JOIN vetchium.hub_users AS u ON u.hub_user_did = claimed.hub_user_did;
+
+-- name: QueueHubMessageEmail :one
+WITH outbox AS (
+    INSERT INTO vetchium.hub_email_outbox (
+        kind, recipient_email_address, preferred_language, payload_ciphertext
+    )
+    VALUES (
+        'agency-message-received', sqlc.arg(recipient_email_address),
+        sqlc.arg(preferred_language), sqlc.arg(payload_ciphertext)
+    )
+    RETURNING hub_email_outbox_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'hub.message.notice-queued',
+        'hub_user', sqlc.arg(hub_user_did)::text, 'worker',
+        'message-notice', 'workers',
+        jsonb_build_object('kind', 'agency-message-received'::text)
+    FROM outbox
+    RETURNING audit_event_id
+)
+SELECT (SELECT count(*) FROM audit) AS audit_rows;
 
 -- Applies agency-pointer-changed with present=false.
 -- name: DeleteHubAgencyPointer :execrows

@@ -42,6 +42,7 @@ type Config struct {
 	OrgsAPIServer         OrgsAPIServer
 	OrgDomainVerification OrgDomainVerification
 	OrgBilling            OrgBilling
+	Marketplace           Marketplace
 	MCPServer             Server
 	// AI is nil when the tenant offers no AI.
 	AI *AI
@@ -153,6 +154,10 @@ type OrgDomainVerification struct {
 	InconclusiveLimit    time.Duration
 }
 
+type Marketplace struct {
+	DeletedPartyConversationRetention time.Duration
+}
+
 type ObjectStorage struct {
 	PrivateBaseURL string
 	MediaBaseURL   string
@@ -229,8 +234,13 @@ type fileConfig struct {
 	OrgsAPIServer         *fileOrgsAPIServer         `json:"orgsAPIServer"`
 	OrgDomainVerification *fileOrgDomainVerification `json:"orgDomainVerification"`
 	OrgBilling            *fileOrgBilling            `json:"orgBilling"`
+	Marketplace           *fileMarketplace           `json:"marketplace"`
 	MCPServer             *Server                    `json:"mcpServer"`
 	AI                    *fileAI                    `json:"ai"`
+}
+
+type fileMarketplace struct {
+	DeletedPartyConversationRetention string `json:"deletedPartyConversationRetention"`
 }
 
 type fileGlobalCoordinator struct {
@@ -747,6 +757,16 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	if raw.Marketplace == nil {
+		return Config{}, configError(path, fmt.Errorf("missing marketplace"))
+	}
+	deletedPartyConversationRetention, err := positiveDuration(
+		"marketplace.deletedPartyConversationRetention",
+		raw.Marketplace.DeletedPartyConversationRetention,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 
 	return Config{
 		SignupRegionsFile: raw.SignupRegionsFile,
@@ -825,8 +845,11 @@ func LoadFile(path string) (Config, error) {
 		OrgsAPIServer:         orgsAPIServer,
 		OrgDomainVerification: orgDomainVerification,
 		OrgBilling:            orgBilling,
-		AI:                    aiConfig,
-		MCPServer:             Server{},
+		Marketplace: Marketplace{
+			DeletedPartyConversationRetention: deletedPartyConversationRetention,
+		},
+		AI:        aiConfig,
+		MCPServer: Server{},
 	}, nil
 }
 

@@ -25,6 +25,7 @@ const (
 	SubscriptionEnding            Kind = "subscription-ending"
 	EmailChangeVerification       Kind = "email-change-verification"
 	EmailChanged                  Kind = "email-changed"
+	AgencyMessageReceived         Kind = "agency-message-received"
 
 	// Application notices (HP-GEN-006) name the Org and Opening title and
 	// link to the application; they carry no interview, offer, or result
@@ -51,6 +52,7 @@ var hubKinds = []Kind{
 	Signup, SignupRegisteredElsewhere, PasswordReset,
 	ProfessionalEmailVerification, SubscriptionEnding,
 	EmailChangeVerification, EmailChanged,
+	AgencyMessageReceived,
 	ApplicationStatusChanged, ApplicationInterviewScheduled,
 	ApplicationInterviewChanged, ApplicationInterviewCancelled,
 	ApplicationConsentRequested, ApplicationOfferExtended,
@@ -90,6 +92,9 @@ type TemplateData struct {
 	// RegionLabel names the tenant a signup-registered-elsewhere notice
 	// points the recipient at. Unused by every other kind.
 	RegionLabel string
+
+	// AgencyName names the agency that sent a message. Unused by every other kind.
+	AgencyName string
 }
 
 type Message struct {

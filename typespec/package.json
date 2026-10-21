@@ -56,6 +56,7 @@
     "./hub/profile/professional_email": "./hub/profile/professional_email.ts",
     "./hub/subscriptions/plans": "./hub/subscriptions/plans.ts",
     "./hub/subscriptions/subscriptions": "./hub/subscriptions/subscriptions.ts",
+    "./hub/messages/messages": "./hub/messages/messages.ts",
     "./hub/types": "./hub/types.ts",
     "./hub/users/profile": "./hub/users/profile.ts",
     "./orgs/orgs": "./orgs/orgs.ts",
@@ -130,7 +131,8 @@
     "./orgs/marketplace/work/work": "./orgs/marketplace/work/work.ts",
     "./admin/ai-usage/usage": "./admin/ai-usage/usage.ts",
     "./problem/orgs/ai": "./problem/orgs/ai.ts",
-    "./problem/admin/ai-usage": "./problem/admin/ai-usage.ts"
+    "./problem/admin/ai-usage": "./problem/admin/ai-usage.ts",
+    "./problem/hub/conversations": "./problem/hub/conversations.ts"
   },
   "files": [
     "admin/**/*.ts",

@@ -60,8 +60,12 @@ import type {
   ContactReference,
   DeleteContactNoteRequest,
   EditContactNoteRequest,
+  GetConversationRequest,
   ListContactNotesRequest,
   ListContactsRequest,
+  MarkConversationReadRequest,
+  SendMessageRequest,
+  StartConversationRequest,
   ViewHubProfileRequest,
 } from "typespec/orgs/marketplace/contacts/contacts";
 import type {
@@ -637,6 +641,42 @@ export class OrgsAPI {
       token,
       idempotencyKey,
     });
+  }
+
+  startConversation(
+    token: string,
+    request: StartConversationRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/start-conversation", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  sendMessage(
+    token: string,
+    request: SendMessageRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/send-message", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  getConversation(
+    token: string,
+    request: GetConversationRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-conversation", request, { token });
+  }
+
+  markConversationRead(
+    token: string,
+    request: MarkConversationReadRequest,
+  ): Promise<APIResponse> {
+    return this.post("/mark-conversation-read", request, { token });
   }
 
   /** Sends a body that need not satisfy the contract, to observe rejection. */

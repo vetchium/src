@@ -76,11 +76,54 @@ func TestRequestsNormalizeOnACopyAndValidate(t *testing.T) {
 		{"relay", RelayReadAgencyProfileRequest{AgencyOrgDID: orgDID, Address: "priya"}.Validate(), []string{}},
 		{"relay invalid", RelayReadAgencyProfileRequest{}.Validate(), []string{"agency_org_did", "address"}},
 		{"peer invalid", PeerReadAgencyProfileRequest{}.Validate(), []string{"agency_org_did", "target_hub_user_did"}},
+		{"start conv text", StartConversationRequest{Address: "priya", Text: messageText("hello")}.Validate(), []string{}},
+		{"start conv suggestion", StartConversationRequest{Address: "priya", Suggestion: &OpeningSuggestion{ConsumerDomain: "client.test", OpeningNumber: 1}}.Validate(), []string{}},
+		{"start conv both invalid", StartConversationRequest{Address: "priya", Text: messageText("hello"), Suggestion: &OpeningSuggestion{ConsumerDomain: "client.test", OpeningNumber: 1}}.Validate(), []string{"text"}},
+		{"start conv neither invalid", StartConversationRequest{Address: "priya"}.Validate(), []string{"text"}},
+		{"start conv bad address", StartConversationRequest{Address: " ", Text: messageText("hello")}.Validate(), []string{"address"}},
+		{"send message text", SendMessageRequest{ContactID: contactID, Text: messageText("hello")}.Validate(), []string{}},
+		{"send message suggestion", SendMessageRequest{ContactID: contactID, Suggestion: &OpeningSuggestion{ConsumerDomain: "client.test", OpeningNumber: 1}}.Validate(), []string{}},
+		{"send message both invalid", SendMessageRequest{ContactID: contactID, Text: messageText("hello"), Suggestion: &OpeningSuggestion{ConsumerDomain: "client.test", OpeningNumber: 1}}.Validate(), []string{"text"}},
+		{"send message neither invalid", SendMessageRequest{ContactID: contactID}.Validate(), []string{"text"}},
+		{"send message bad contact", SendMessageRequest{ContactID: "bad", Text: messageText("hello")}.Validate(), []string{"contact_id"}},
+		{"get conv", GetConversationRequest{ContactID: contactID}.Validate(), []string{}},
+		{"get conv invalid", GetConversationRequest{ContactID: "bad"}.Validate(), []string{"contact_id"}},
+		{"mark read", MarkConversationReadRequest{ContactID: contactID}.Validate(), []string{}},
+		{"mark read invalid", MarkConversationReadRequest{ContactID: "bad"}.Validate(), []string{"contact_id"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if !slices.Equal(test.got, test.want) {
 				t.Fatalf("fields = %v, want %v", test.got, test.want)
+			}
+		})
+	}
+}
+
+func messageText(s string) *MessageText {
+	t := MessageText(s)
+	return &t
+}
+
+func TestMessageTextBounds(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		text MessageText
+		want bool
+	}{
+		{"one letter", "a", true},
+		{"padded", "  message  ", true},
+		{"empty", "", false},
+		{"blank", " \n\t ", false},
+		{"limit in code points", MessageText(strings.Repeat("é", MaxMessageLength)), true},
+		{"over the limit", MessageText(strings.Repeat("é", MaxMessageLength+1)), false},
+		{"padding does not count", MessageText(" " + strings.Repeat("a", MaxMessageLength) + " "), true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := IsMessageText(test.text); got != test.want {
+				t.Fatalf("IsMessageText = %t, want %t", got, test.want)
 			}
 		})
 	}
@@ -94,6 +137,9 @@ func TestPageDefaultsAndCaps(t *testing.T) {
 	}
 	if MaxNotesPerContact != 200 || MaxNewContactsPerDay != 200 || MaxNoteLength != 5000 {
 		t.Fatal("the caps are 200 notes per Contact, 200 new Contacts per day, and 5,000 code points")
+	}
+	if MaxNewConversationsPerDay != 50 || MaxMessageLength != 5000 {
+		t.Fatal("the caps are 50 new conversations per day and 5,000 code points per message")
 	}
 }
 

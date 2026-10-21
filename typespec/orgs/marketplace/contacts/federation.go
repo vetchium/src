@@ -52,9 +52,10 @@ func (r PeerReadAgencyProfileRequest) Validate() []string {
 
 // AgencyProfileRead is what an agency reads of a Hub user.
 type AgencyProfileRead struct {
-	HubUserDID      hub.HubUserDID        `json:"hub_user_did"`
-	Profile         profile.PublicProfile `json:"profile"`
-	VerifiedDomains []VerifiedDomain      `json:"verified_domains"`
+	HubUserDID         hub.HubUserDID        `json:"hub_user_did"`
+	Profile            profile.PublicProfile `json:"profile"`
+	VerifiedDomains    []VerifiedDomain      `json:"verified_domains"`
+	AgenciesMayMessage bool                  `json:"agencies_may_message"`
 }
 
 // Valid holds a peer to its contract: required arrays present and the

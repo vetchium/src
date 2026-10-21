@@ -5,6 +5,7 @@ import (
 
 	hubapplications "backend/handlers/hub/applications"
 	hubauth "backend/handlers/hub/auth"
+	hubmessages "backend/handlers/hub/messages"
 	hubopenings "backend/handlers/hub/openings"
 	huboperations "backend/handlers/hub/operations"
 	hubprofile "backend/handlers/hub/profile"
@@ -85,6 +86,10 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(hubusers.SetResidentCountry(s)),
 	)
 	mux.Handle(
+		"POST /api/hub/set-agencies-may-message",
+		hubAuth(hubusers.SetAgenciesMayMessage(s)),
+	)
+	mux.Handle(
 		"GET /api/hub/my-subscription",
 		hubAuth(hubsubscriptions.MySubscription(s)),
 	)
@@ -160,6 +165,16 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(hubapplications.List(s)))
 	mux.Handle("POST /api/hub/get-my-application",
 		hubAuth(hubapplications.Get(s)))
+	mux.Handle("POST /api/hub/list-conversations",
+		hubAuth(hubmessages.ListConversations(s)))
+	mux.Handle("POST /api/hub/get-conversation",
+		hubAuth(hubmessages.GetConversation(s)))
+	mux.Handle("POST /api/hub/reply-to-conversation",
+		hubAuth(hubmessages.ReplyToConversation(s)))
+	mux.Handle("POST /api/hub/delete-conversation",
+		hubAuth(hubmessages.DeleteConversation(s)))
+	mux.Handle("POST /api/hub/mark-conversation-read",
+		hubAuth(hubmessages.MarkConversationRead(s)))
 	mux.Handle("POST /api/hub/operations/status",
 		hubAuth(huboperations.Status(s)))
 }

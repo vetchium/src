@@ -9,7 +9,8 @@ SELECT
     u.preferred_job_countries,
     u.totp_enabled,
     recovery.remaining_codes AS recovery_codes_remaining,
-    s.authenticated_at
+    s.authenticated_at,
+    u.agencies_may_message
 FROM vetchium.hub_sessions AS s
 JOIN vetchium.hub_users AS u USING (hub_user_did)
 CROSS JOIN LATERAL (

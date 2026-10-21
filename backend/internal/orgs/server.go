@@ -24,6 +24,7 @@ import (
 	"backend/internal/orgs/signupcompletion"
 	"backend/internal/orgs/workfanout"
 	"backend/internal/profileclient"
+	"backend/internal/publicopeningclient"
 	"backend/internal/regions"
 	"backend/internal/workclient"
 )
@@ -57,6 +58,8 @@ type Server struct {
 	WorkFanout workfanout.Fanout
 	// Profiles reads a Hub user's profile for an agency (MKT-PRF).
 	Profiles *profileclient.Client
+	// Openings reads public Openings across tenants (MKT-SRC-004).
+	Openings *publicopeningclient.Client
 	Signup   regions.Admission
 	// AllowSpecialUseDomains admits signups for names such as acme.test.
 	AllowSpecialUseDomains bool

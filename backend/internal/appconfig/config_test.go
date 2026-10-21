@@ -66,6 +66,10 @@ func TestLoadFile(t *testing.T) {
 		cfg.ObjectStorage.MediaBaseURL != "http://media.sgp.localhost" {
 		t.Fatalf("object storage config = %+v", cfg.ObjectStorage)
 	}
+	if cfg.Marketplace.DeletedPartyConversationRetention != 8760*time.Hour {
+		t.Fatalf("DeletedPartyConversationRetention = %s, want 8760h",
+			cfg.Marketplace.DeletedPartyConversationRetention)
+	}
 	if cfg.Workers.AdvanceHubSubscriptionsTimer != time.Minute {
 		t.Fatalf(
 			"advance hub subscriptions timer = %s, want 1m",
@@ -477,6 +481,9 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
   "orgBilling": {
     "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
   },
+  "marketplace": {
+    "deletedPartyConversationRetention": "8760h"
+  },
   "mcpServer": {}
 }`, passwordFile)
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
@@ -867,6 +874,9 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
   },
   "orgBilling": {
     "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
+  },
+  "marketplace": {
+    "deletedPartyConversationRetention": "8760h"
   },
   "mcpServer": {}
 }`, passwordFile, extraWorkerField)

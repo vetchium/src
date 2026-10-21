@@ -45,4 +45,5 @@ export interface AgencyProfileRead {
   hub_user_did: HubUserDID;
   profile: PublicProfile;
   verified_domains: VerifiedDomain[];
+  agencies_may_message: boolean;
 }

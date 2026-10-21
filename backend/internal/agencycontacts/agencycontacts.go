@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -32,8 +33,16 @@ type Pointer struct {
 	ContactID, OrgDID, HubUserDID pgtype.UUID
 	// Version is the Contact's pointer version at the change: 1 for the
 	// Contact's creation, and the next one for its deletion.
-	Version int32
-	Present bool
+	Version           int32
+	Present           bool
+	HasConversation   bool
+	AgencyDisplayName string
+	AgencyDomain      orgs.OrgDomain
+	AgencyLogoMediaID *string
+	LastActivityAt    *time.Time
+	ReadOnlyReason    *contacts.ConversationReadOnlyReason
+	Suggestions       []contacts.OpeningSuggestion
+	NewAgencyMessage  bool
 }
 
 // EnqueuePointer reports a created or deleted Contact to the Hub user's
@@ -49,10 +58,18 @@ func EnqueuePointer(ctx context.Context, q sqlc.Querier, p Pointer) error {
 		AggregateID:      dbvalue.FormatUUID(p.ContactID),
 		AggregateVersion: int64(p.Version),
 		Payload: federationspec.AgencyPointerChangedPayload{
-			ContactID:    contacts.ContactID(dbvalue.FormatUUID(p.ContactID)),
-			AgencyOrgDID: orgs.OrgDID(dbvalue.FormatUUID(p.OrgDID)),
-			HubUserDID:   hub.HubUserDID(dbvalue.FormatUUID(p.HubUserDID)),
-			Present:      p.Present,
+			ContactID:         contacts.ContactID(dbvalue.FormatUUID(p.ContactID)),
+			AgencyOrgDID:      orgs.OrgDID(dbvalue.FormatUUID(p.OrgDID)),
+			HubUserDID:        hub.HubUserDID(dbvalue.FormatUUID(p.HubUserDID)),
+			Present:           p.Present,
+			HasConversation:   p.HasConversation,
+			AgencyDisplayName: p.AgencyDisplayName,
+			AgencyDomain:      p.AgencyDomain,
+			AgencyLogoMediaID: p.AgencyLogoMediaID,
+			LastActivityAt:    p.LastActivityAt,
+			ReadOnlyReason:    p.ReadOnlyReason,
+			Suggestions:       p.Suggestions,
+			NewAgencyMessage:  p.NewAgencyMessage,
 		},
 	})
 	if err != nil {
@@ -166,11 +183,59 @@ func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 	if err != nil {
 		return fmt.Errorf("read agency messages setting: %w", err)
 	}
-	if _, err := q.InsertHubAgencyPointer(ctx, sqlc.InsertHubAgencyPointerParams{
-		ContactID: contactID, HubUserDid: hubDID, AgencyOrgDid: orgDID,
-	}); err != nil {
-		return fmt.Errorf("insert agency pointer: %w", err)
+
+	var logoID pgtype.UUID
+	if payload.AgencyLogoMediaID != nil && *payload.AgencyLogoMediaID != "" {
+		if parsed, err := dbvalue.ParseUUID(*payload.AgencyLogoMediaID); err == nil {
+			logoID = parsed
+		}
 	}
+	var lastActivity pgtype.Timestamptz
+	if payload.LastActivityAt != nil {
+		lastActivity = pgtype.Timestamptz{Time: *payload.LastActivityAt, Valid: true}
+	} else {
+		lastActivity = pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
+	}
+	var readOnly pgtype.Text
+	if payload.ReadOnlyReason != nil {
+		readOnly = pgtype.Text{String: string(*payload.ReadOnlyReason), Valid: true}
+	}
+	suggestionsBytes, err := json.Marshal(payload.Suggestions)
+	if err != nil || suggestionsBytes == nil {
+		suggestionsBytes = []byte("[]")
+	}
+	unreadCount := int32(0)
+	if payload.NewAgencyMessage {
+		unreadCount = 1
+	}
+
+	if _, err := q.UpsertHubAgencyPointer(ctx, sqlc.UpsertHubAgencyPointerParams{
+		ContactID:         contactID,
+		HubUserDid:        hubDID,
+		AgencyOrgDid:      orgDID,
+		AgencyDisplayName: payload.AgencyDisplayName,
+		AgencyDomain:      string(payload.AgencyDomain),
+		AgencyLogoMediaID: logoID,
+		HasConversation:   payload.HasConversation,
+		LastActivityAt:    lastActivity,
+		UnreadCount:       unreadCount,
+		ReadOnlyReason:    readOnly,
+		Suggestions:       suggestionsBytes,
+		PointerVersion:    int32(event.AggregateVersion),
+		IncrementUnread:   payload.NewAgencyMessage,
+	}); err != nil {
+		return fmt.Errorf("upsert agency pointer: %w", err)
+	}
+
+	if payload.NewAgencyMessage && payload.AgencyDisplayName != "" {
+		if err := q.InsertHubMessageNotice(ctx, sqlc.InsertHubMessageNoticeParams{
+			HubUserDid:        hubDID,
+			AgencyDisplayName: payload.AgencyDisplayName,
+		}); err != nil {
+			return fmt.Errorf("insert message notice: %w", err)
+		}
+	}
+
 	if state.AgenciesMayMessage {
 		return nil
 	}

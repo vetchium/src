@@ -36,6 +36,7 @@ model AgencyProfileRead {
   hub_user_did: Vetchium.Hub.HubUserDID;
   profile: Vetchium.Hub.Profile.PublicProfile;
   verified_domains: VerifiedDomain[];
+  agencies_may_message: boolean;
 }
 
 alias AgencyProfileReadResult =

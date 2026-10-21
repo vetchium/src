@@ -1,0 +1,9 @@
+Hallo {{.DisplayName}},
+
+{{.AgencyName}} hat Ihnen eine Nachricht auf Vetchium gesendet.
+
+Melden Sie sich bei Vetchium an, um Ihre Nachrichten zu lesen und zu beantworten.
+
+{{.ActionURL}}
+
+Diese E-Mail nennt bewusst keine Nachrichteninhalte; sie werden erst nach der Anmeldung angezeigt.

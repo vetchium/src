@@ -1,0 +1,9 @@
+Hello {{.DisplayName}},
+
+{{.AgencyName}} sent you a message on Vetchium.
+
+Sign in to Vetchium to read and reply to your messages.
+
+{{.ActionURL}}
+
+This email names no message content on purpose; it is only shown after you sign in.

@@ -27,7 +27,7 @@ func TestEnableFederationCommandsSchedulesRecovery(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	worker := New(nil, log, "test", appconfig.Workers{
 		DriveFederationCommandsTimer: 7 * time.Second,
-	}, nil, nil, nil)
+	}, appconfig.Marketplace{}, nil, nil, nil)
 	before := len(worker.jobs)
 	recovery := &recoveryStub{resolved: 2}
 	worker.EnableFederationCommands(recovery)

@@ -448,7 +448,15 @@ type AgencyPointerChangedPayload struct {
 	AgencyOrgDID orgs.OrgDID        `json:"agency_org_did"`
 	HubUserDID   hub.HubUserDID     `json:"hub_user_did"`
 	// Present is false when the Contact is gone.
-	Present bool `json:"present"`
+	Present           bool                                 `json:"present"`
+	HasConversation   bool                                 `json:"has_conversation,omitempty"`
+	AgencyDisplayName string                               `json:"agency_display_name,omitempty"`
+	AgencyDomain      orgs.OrgDomain                       `json:"agency_domain,omitempty"`
+	AgencyLogoMediaID *string                              `json:"agency_logo_media_id,omitempty"`
+	LastActivityAt    *time.Time                           `json:"last_activity_at,omitempty"`
+	ReadOnlyReason    *contacts.ConversationReadOnlyReason `json:"read_only_reason,omitempty"`
+	Suggestions       []contacts.OpeningSuggestion         `json:"suggestions,omitempty"`
+	NewAgencyMessage  bool                                 `json:"new_agency_message,omitempty"`
 }
 
 func (p AgencyPointerChangedPayload) Validate() []string {
@@ -463,6 +471,74 @@ func (p AgencyPointerChangedPayload) Validate() []string {
 		fields = append(fields, "hub_user_did")
 	}
 	return fields
+}
+
+const (
+	HubConversationReplyKind  CommandKind = "hub-conversation-reply"
+	HubConversationDeleteKind CommandKind = "hub-conversation-delete"
+)
+
+type HubConversationReplyPayload struct {
+	ContactID  contacts.ContactID   `json:"contact_id"`
+	HubUserDID hub.HubUserDID       `json:"hub_user_did"`
+	Text       contacts.MessageText `json:"text"`
+}
+
+func (p HubConversationReplyPayload) Validate() []string {
+	fields := []string{}
+	if !contacts.IsContactID(p.ContactID) {
+		fields = append(fields, "contact_id")
+	}
+	if !hub.IsHubUserDID(p.HubUserDID) {
+		fields = append(fields, "hub_user_did")
+	}
+	if !contacts.IsMessageText(p.Text) {
+		fields = append(fields, "text")
+	}
+	return fields
+}
+
+type HubConversationDeletePayload struct {
+	ContactID  contacts.ContactID `json:"contact_id"`
+	HubUserDID hub.HubUserDID     `json:"hub_user_did"`
+}
+
+func (p HubConversationDeletePayload) Validate() []string {
+	fields := []string{}
+	if !contacts.IsContactID(p.ContactID) {
+		fields = append(fields, "contact_id")
+	}
+	if !hub.IsHubUserDID(p.HubUserDID) {
+		fields = append(fields, "hub_user_did")
+	}
+	return fields
+}
+
+type MeshReadConversationRequest struct {
+	ContactID    contacts.ContactID `json:"contact_id"`
+	HubUserDID   hub.HubUserDID     `json:"hub_user_did"`
+	AgencyOrgDID orgs.OrgDID        `json:"agency_org_did"`
+}
+
+func (r *MeshReadConversationRequest) Normalize() {}
+
+func (r MeshReadConversationRequest) Validate() []string {
+	fields := []string{}
+	if !contacts.IsContactID(r.ContactID) {
+		fields = append(fields, "contact_id")
+	}
+	if !hub.IsHubUserDID(r.HubUserDID) {
+		fields = append(fields, "hub_user_did")
+	}
+	if !orgs.IsOrgDID(r.AgencyOrgDID) {
+		fields = append(fields, "agency_org_did")
+	}
+	return fields
+}
+
+type MeshReadConversationResponse struct {
+	Conversation contacts.ConversationSummary   `json:"conversation"`
+	Messages     []contacts.ConversationMessage `json:"messages"`
 }
 
 // HubAccountDeletedKind is the deletion notice a Hub user's home tenant sends

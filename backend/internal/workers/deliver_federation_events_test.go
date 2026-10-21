@@ -27,7 +27,7 @@ func TestEnableFederationEventsSchedulesDelivery(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	worker := New(nil, log, "test", appconfig.Workers{
 		DeliverFederationEventsTimer: 3 * time.Second,
-	}, nil, nil, nil)
+	}, appconfig.Marketplace{}, nil, nil, nil)
 	before := len(worker.jobs)
 	delivery := &deliveryStub{delivered: 2}
 	worker.EnableFederationEvents(delivery)

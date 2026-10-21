@@ -9,6 +9,7 @@ import (
 	federationspec "github.com/vetchium/src/typespec/federation"
 
 	"backend/internal/apiserver"
+	"backend/internal/conversationclient"
 	"backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
 	"backend/internal/federation/commands"
@@ -64,14 +65,15 @@ type Server struct {
 	PublicListings listings.Reader
 	// WorkPeers reads another tenant's provider work; ProviderWork answers
 	// this tenant's own.
-	WorkPeers    *workclient.Client
-	ProviderWork providerwork.Reader
-	Pictures     PictureSigner
-	OfferLetters OfferLetterSigner
-	Queries      sqlc.Querier
-	Credential   string
-	Commands     *commands.Executor
-	CommandPeers CommandPeers
-	Events       *events.Receiver
-	EventPeers   EventPeers
+	WorkPeers         *workclient.Client
+	ConversationPeers *conversationclient.Client
+	ProviderWork      providerwork.Reader
+	Pictures          PictureSigner
+	OfferLetters      OfferLetterSigner
+	Queries           sqlc.Querier
+	Credential        string
+	Commands          *commands.Executor
+	CommandPeers      CommandPeers
+	Events            *events.Receiver
+	EventPeers        EventPeers
 }

@@ -106,7 +106,7 @@ func run(log *slog.Logger) error {
 		digestKey, log, nil,
 	)
 	worker := workers.New(
-		pool, log, cfg.TenantID, cfg.Workers,
+		pool, log, cfg.TenantID, cfg.Workers, cfg.Marketplace,
 		&workers.HubEmailDelivery{
 			TenantID: cfg.TenantID,
 			Renderer: renderer,

@@ -158,3 +158,31 @@ export const ContactNoteNotAuthorError: Readonly<Details> = {
   status: 403,
   detail: "Only the author edits a note",
 };
+
+export const ConversationLimitReachedError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-conversation-limit-reached",
+  title: "Org conversation limit reached",
+  status: 429,
+  detail: "The agency reached its limit of new conversations for today",
+};
+
+export const ConversationNotFoundError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-conversation-not-found",
+  title: "Org conversation not found",
+  status: 404,
+  detail: "No conversation of the agency has that identifier",
+};
+
+export const AgencyMessagesOffError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-agency-messages-off",
+  title: "Org agency messages off",
+  status: 403,
+  detail: "The Hub user does not accept messages from agencies",
+};
+
+export const ConversationPartyDeletedError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-conversation-party-deleted",
+  title: "Org conversation party deleted",
+  status: 409,
+  detail: "The Hub user's account no longer exists",
+};
