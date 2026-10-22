@@ -63,15 +63,20 @@ func IsPendingActionKind(value PendingActionKind) bool {
 }
 
 type ApplyToOpeningRequest struct {
-	Domain        orgs.OrgDomain                        `json:"domain"`
-	OpeningNumber openings.OpeningNumber                `json:"opening_number"`
-	CoverNote     *orgapplications.ApplicationCoverNote `json:"cover_note,omitempty"`
+	Domain               orgs.OrgDomain                        `json:"domain"`
+	OpeningNumber        openings.OpeningNumber                `json:"opening_number"`
+	CoverNote            *orgapplications.ApplicationCoverNote `json:"cover_note,omitempty"`
+	ReferralAgencyDomain *orgs.OrgDomain                       `json:"referral_agency_domain,omitempty"`
 }
 
 // Normalize lower-cases the domain, trims the cover note, and drops a blank
 // one. It assigns a new pointer and never mutates the caller's note.
 func (r *ApplyToOpeningRequest) Normalize() {
 	r.Domain = orgs.NormalizeOrgDomain(r.Domain)
+	if r.ReferralAgencyDomain != nil {
+		normalized := orgs.NormalizeOrgDomain(*r.ReferralAgencyDomain)
+		r.ReferralAgencyDomain = &normalized
+	}
 	if r.CoverNote != nil {
 		trimmed := orgapplications.ApplicationCoverNote(
 			strings.TrimSpace(string(*r.CoverNote)),
@@ -91,6 +96,9 @@ func (r ApplyToOpeningRequest) Validate() []string {
 	}
 	if r.OpeningNumber < 1 {
 		fields = append(fields, "opening_number")
+	}
+	if r.ReferralAgencyDomain != nil && !orgs.IsOrgDomain(*r.ReferralAgencyDomain) {
+		fields = append(fields, "referral_agency_domain")
 	}
 	if r.CoverNote != nil &&
 		!orgapplications.IsApplicationCoverNote(*r.CoverNote) {

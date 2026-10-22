@@ -14,6 +14,7 @@ import (
 	hubspec "github.com/vetchium/src/typespec/hub"
 	applicationspec "github.com/vetchium/src/typespec/hub/applications"
 	"github.com/vetchium/src/typespec/hub/profile"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/problem"
 	federationproblem "github.com/vetchium/src/typespec/problem/federation"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
@@ -29,10 +30,11 @@ import (
 // The relay's deterministic authority-not-found means the directory no
 // longer has the Org the domain resolved to.
 var applyRejections = map[string]problem.Details{
-	hubproblem.OpeningNotFoundError.Type:          hubproblem.OpeningNotFoundError,
-	hubproblem.OpeningNotAcceptingError.Type:      hubproblem.OpeningNotAcceptingError,
-	hubproblem.ApplicationExistsError.Type:        hubproblem.ApplicationExistsError,
-	federationproblem.AuthorityNotFoundError.Type: hubproblem.OrgNotFoundError,
+	hubproblem.OpeningNotFoundError.Type:           hubproblem.OpeningNotFoundError,
+	hubproblem.OpeningNotAcceptingError.Type:       hubproblem.OpeningNotAcceptingError,
+	hubproblem.ApplicationExistsError.Type:         hubproblem.ApplicationExistsError,
+	hubproblem.ReferralAgencyNotEligibleError.Type: hubproblem.ReferralAgencyNotEligibleError,
+	federationproblem.AuthorityNotFoundError.Type:  hubproblem.OrgNotFoundError,
 }
 
 func Apply(s *hubruntime.Server) http.HandlerFunc {
@@ -62,6 +64,28 @@ func Apply(s *hubruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "digest apply request", err)
 			return
 		}
+		var referral *federationspec.ApplicationReferral
+		if request.ReferralAgencyDomain != nil {
+			hasSuggestion, err := s.Queries.HasHubAgencyPointerSuggestion(r.Context(),
+				sqlc.HasHubAgencyPointerSuggestionParams{
+					HubUserDid:     identity.UserDID,
+					AgencyDomain:   string(*request.ReferralAgencyDomain),
+					ConsumerDomain: string(request.Domain),
+					OpeningNumber:  fmt.Sprintf("%d", request.OpeningNumber),
+				})
+			if err != nil {
+				s.InternalError(r.Context(), w, "check agency pointer suggestion", err)
+				return
+			}
+			route := marketplace.ReferralRouteDeclared
+			if hasSuggestion {
+				route = marketplace.ReferralRouteSuggested
+			}
+			referral = &federationspec.ApplicationReferral{
+				AgencyDomain: *request.ReferralAgencyDomain,
+				Route:        route,
+			}
+		}
 		response, ok := sendCommand(s, w, r, commandRequest{
 			kind: federationspec.HubApplyKind, orgDID: orgDID,
 			opening: request.OpeningNumber, applicant: identity.UserDID,
@@ -72,6 +96,7 @@ func Apply(s *hubruntime.Server) http.HandlerFunc {
 					dbvalue.FormatUUID(identity.UserDID),
 				),
 				CoverNote: request.CoverNote, Snapshot: snapshot,
+				Referral: referral,
 			},
 		})
 		if !ok {

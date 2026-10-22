@@ -50,9 +50,16 @@ test("hub-apply is a valid command kind", () => {
 });
 
 test("hub-apply normalization trims the note and leaves the caller's payload", () => {
-  const withNote = { ...payload, cover_note: "  hello " };
-  assert.equal(normalizeHubApplyPayload(withNote).cover_note, "hello");
+  const withNote = {
+    ...payload,
+    cover_note: "  hello ",
+    referral: { agency_domain: " Agency.COM ", route: "suggested" as const },
+  };
+  const normalized = normalizeHubApplyPayload(withNote);
+  assert.equal(normalized.cover_note, "hello");
+  assert.equal(normalized.referral?.agency_domain, "agency.com");
   assert.equal(withNote.cover_note, "  hello ");
+  assert.equal(withNote.referral.agency_domain, " Agency.COM ");
   assert.equal(
     "cover_note" in normalizeHubApplyPayload({ ...payload, cover_note: "  " }),
     false,
@@ -64,12 +71,30 @@ test("hub-apply validation reports each invalid field", () => {
   assert.deepEqual(
     validateHubApplyPayload({
       ...payload,
+      referral: { agency_domain: "agency.com", route: "suggested" },
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateHubApplyPayload({
+      ...payload,
       opening_number: 0,
       applicant_did: "x",
+      referral: {
+        agency_domain: "not a domain",
+        route: "invalid" as unknown as ReferralRoute,
+      },
       cover_note: "a".repeat(5001),
       snapshot: { ...payload.snapshot, display_name: "" },
     }),
-    ["opening_number", "applicant_did", "cover_note", "snapshot.display_name"],
+    [
+      "opening_number",
+      "applicant_did",
+      "referral.agency_domain",
+      "referral.route",
+      "cover_note",
+      "snapshot.display_name",
+    ],
   );
 });
 

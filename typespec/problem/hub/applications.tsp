@@ -47,3 +47,15 @@ alias HubApplicationStateConflictErrorResponse = Response<
   409,
   typeof HubApplicationStateConflictError
 >;
+
+/** The named domain is not the primary domain of an agency assigned to the Opening. */
+const HubReferralAgencyNotEligibleError = #{
+  type: "vetchium-problem-details/hub-referral-agency-not-eligible",
+  title: "Referral agency not eligible",
+  status: 422,
+  detail: "The named domain is not the primary domain of an agency assigned to the Opening",
+};
+alias HubReferralAgencyNotEligibleErrorResponse = Response<
+  422,
+  typeof HubReferralAgencyNotEligibleError
+>;

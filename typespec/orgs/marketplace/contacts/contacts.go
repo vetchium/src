@@ -177,19 +177,28 @@ type ContactSummary struct {
 	NoteCount           int32              `json:"note_count"`
 	HasConversation     bool               `json:"has_conversation"`
 	UnreadMessagesCount int32              `json:"unread_messages_count"`
+	CreditedCount       int32              `json:"credited_count"`
 	LastActivityAt      time.Time          `json:"last_activity_at"`
 }
 
 func (c ContactSummary) Valid() bool {
 	return IsContactID(c.ContactID) && common.IsDisplayName(c.DisplayName) &&
 		hub.IsHubHandle(c.Handle) && c.NoteCount >= 0 &&
-		c.NoteCount <= MaxNotesPerContact && c.UnreadMessagesCount >= 0
+		c.NoteCount <= MaxNotesPerContact && c.UnreadMessagesCount >= 0 &&
+		c.CreditedCount >= 0
+}
+
+type ContactOpeningSuggestion struct {
+	ConsumerDomain orgs.OrgDomain         `json:"consumer_domain"`
+	OpeningNumber  openings.OpeningNumber `json:"opening_number"`
+	SuggestedAt    time.Time              `json:"suggested_at"`
 }
 
 type Contact struct {
 	ContactSummary
-	CreatedBy common.EmailAddress `json:"created_by"`
-	CreatedAt time.Time           `json:"created_at"`
+	CreatedBy         common.EmailAddress        `json:"created_by"`
+	SuggestedOpenings []ContactOpeningSuggestion `json:"suggested_openings"`
+	CreatedAt         time.Time                  `json:"created_at"`
 }
 
 type ContactNote struct {

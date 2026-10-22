@@ -13,10 +13,13 @@ import (
 	"reflect"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
 	directoryspec "github.com/vetchium/src/typespec/directory"
+	hubspec "github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/orgs"
+	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/orgs/marketplace/work"
 	"github.com/vetchium/src/typespec/problem"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
@@ -30,8 +33,9 @@ import (
 )
 
 const (
-	workPurpose = "orgs-list-work-queue-v1"
-	jobsPurpose = "orgs-list-jobs-v1"
+	workPurpose        = "orgs-list-work-queue-v1"
+	jobsPurpose        = "orgs-list-jobs-v1"
+	attributionPurpose = "orgs-list-credited-applications-v1"
 )
 
 // workFilters are the normalized filters a pagination key is bound to, so a
@@ -276,7 +280,31 @@ func GetJob(s *orgsruntime.Server) http.HandlerFunc {
 				EngagementID:   request.EngagementID, OpeningNumber: request.OpeningNumber,
 			},
 		})
-		answerRead(s, w, r, outcome.Result, outcome.Problem, err)
+		if err != nil || outcome.Problem != nil || outcome.Result == nil {
+			answerRead(s, w, r, outcome.Result, outcome.Problem, err)
+			return
+		}
+		jobDetail := *outcome.Result
+		sugRows, err := s.Queries.ListJobSuggestedContacts(r.Context(), sqlc.ListJobSuggestedContactsParams{
+			OrgDid:         identity.OrgDID,
+			ConsumerDomain: string(jobDetail.Job.Client.Domain),
+			OpeningNumber:  int32(jobDetail.Job.Opening.Number),
+		})
+		if err != nil {
+			s.InternalError(r.Context(), w, "list job suggested contacts", err)
+			return
+		}
+		jobDetail.SuggestedContacts = make([]work.JobSuggestedContact, 0, len(sugRows))
+		for _, sug := range sugRows {
+			jobDetail.SuggestedContacts = append(jobDetail.SuggestedContacts, work.JobSuggestedContact{
+				ContactID:   contacts.ContactID(dbvalue.FormatUUID(sug.ContactID)),
+				DisplayName: common.DisplayName(sug.DisplayName),
+				Handle:      hubspec.HubHandle(sug.Handle),
+				SuggestedAt: sug.SuggestedAt.Time.UTC(),
+			})
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, jobDetail)
 	}
 }
 
@@ -299,4 +327,141 @@ func answerRead[T any](
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	s.JSON(r.Context(), w, http.StatusOK, *result)
+}
+
+type creditedFilters struct {
+	Client  string `json:"client,omitempty"`
+	Opening int32  `json:"opening,omitempty"`
+	Route   string `json:"route,omitempty"`
+	Status  string `json:"status,omitempty"`
+	Contact string `json:"contact,omitempty"`
+}
+
+type creditedCursor struct {
+	Filters creditedFilters `json:"filters"`
+	Offset  int             `json:"offset"`
+}
+
+func creditedFiltersOf(request work.ListCreditedApplicationsRequest) creditedFilters {
+	var f creditedFilters
+	if request.ClientDomain != nil {
+		f.Client = string(*request.ClientDomain)
+	}
+	if request.OpeningNumber != nil {
+		f.Opening = int32(*request.OpeningNumber)
+	}
+	if request.Route != nil {
+		f.Route = string(*request.Route)
+	}
+	if request.Status != nil {
+		f.Status = string(*request.Status)
+	}
+	if request.ContactID != nil {
+		f.Contact = string(*request.ContactID)
+	}
+	return f
+}
+
+// ListCreditedApplications lists credited applications across all client tenants.
+func ListCreditedApplications(s *orgsruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request work.ListCreditedApplicationsRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		identity, _ := middleware.OrgIdentityFromContext(r.Context())
+		filters := creditedFiltersOf(request)
+		offset := 0
+		if request.PaginationKey != nil {
+			payload, valid := credentials.VerifySignedValue(
+				s.CredentialSubkey("pagination"), attributionPurpose, string(*request.PaginationKey))
+			var cursor creditedCursor
+			if !valid || json.Unmarshal(payload, &cursor) != nil || cursor.Filters != filters || cursor.Offset < 0 {
+				s.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
+				return
+			}
+			offset = cursor.Offset
+		}
+
+		peer := work.PeerListCreditedApplicationsRequest{
+			ProviderOrgDID: orgs.OrgDID(dbvalue.FormatUUID(identity.OrgDID)),
+			ClientDomain:   request.ClientDomain,
+			OpeningNumber:  request.OpeningNumber,
+			Route:          request.Route,
+			Status:         request.Status,
+			Limit:          work.MaxPage,
+		}
+		page := s.WorkFanout.ListCreditedApplications(r.Context(), peer)
+
+		applicantDIDs := make([]pgtype.UUID, 0, len(page.Items))
+		for _, item := range page.Items {
+			if item.ApplicantDID != nil {
+				if u, err := dbvalue.ParseUUID(string(*item.ApplicantDID)); err == nil {
+					applicantDIDs = append(applicantDIDs, u)
+				}
+			}
+		}
+		contactMap := make(map[string]contacts.ContactID)
+		if len(applicantDIDs) > 0 {
+			contactRows, err := s.Queries.ListOrgContactsByHubUsers(r.Context(), sqlc.ListOrgContactsByHubUsersParams{
+				OrgDid:      identity.OrgDID,
+				HubUserDids: applicantDIDs,
+			})
+			if err != nil {
+				s.InternalError(r.Context(), w, "list contacts by hub users", err)
+				return
+			}
+			for _, cr := range contactRows {
+				contactMap[dbvalue.FormatUUID(cr.HubUserDid)] = contacts.ContactID(dbvalue.FormatUUID(cr.ContactID))
+			}
+		}
+
+		filteredItems := make([]work.CreditedApplicationSummary, 0, len(page.Items))
+		for _, item := range page.Items {
+			if item.ApplicantDID != nil {
+				if cID, ok := contactMap[string(*item.ApplicantDID)]; ok {
+					item.ContactID = &cID
+				}
+				item.ApplicantDID = nil
+			}
+			if request.ContactID != nil {
+				if item.ContactID == nil || *item.ContactID != *request.ContactID {
+					continue
+				}
+			}
+			filteredItems = append(filteredItems, item)
+		}
+
+		limit := int(request.EffectiveLimit())
+		var responseItems []work.CreditedApplicationSummary
+		var nextKey *common.PaginationKey
+		if offset < len(filteredItems) {
+			end := offset + limit
+			if end > len(filteredItems) {
+				end = len(filteredItems)
+			}
+			responseItems = filteredItems[offset:end]
+			if end < len(filteredItems) {
+				key, err := sign(s, attributionPurpose, creditedCursor{
+					Filters: filters,
+					Offset:  end,
+				})
+				if err != nil {
+					s.InternalError(r.Context(), w, "encode attribution cursor", err)
+					return
+				}
+				nextKey = &key
+			}
+		} else {
+			responseItems = []work.CreditedApplicationSummary{}
+		}
+
+		response := work.ListCreditedApplicationsResponse{
+			Items:              responseItems,
+			UnavailableTenants: page.Unavailable,
+			NextPaginationKey:  nextKey,
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, response)
+	}
 }

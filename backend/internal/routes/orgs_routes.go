@@ -151,6 +151,7 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/get-work-item", fulfilEngagements(orgswork.GetWorkItem(s)))
 	mux.Handle("POST /api/orgs/list-jobs", fulfilEngagements(orgswork.ListJobs(s)))
 	mux.Handle("POST /api/orgs/get-job", fulfilEngagements(orgswork.GetJob(s)))
+	mux.Handle("POST /api/orgs/list-credited-applications", fulfilEngagements(orgswork.ListCreditedApplications(s)))
 	mux.Handle("POST /api/orgs/schedule-work-interview", fulfilEngagements(orgswork.ScheduleWorkInterview(s)))
 	mux.Handle("POST /api/orgs/change-work-interview", fulfilEngagements(orgswork.ChangeWorkInterview(s)))
 	mux.Handle("POST /api/orgs/cancel-work-interview", fulfilEngagements(orgswork.CancelWorkInterview(s)))

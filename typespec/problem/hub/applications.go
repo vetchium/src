@@ -29,3 +29,10 @@ var ApplicationStateConflictError = problem.Details{
 	Status: 409,
 	Detail: "The application's current state does not allow this action",
 }
+
+var ReferralAgencyNotEligibleError = problem.Details{
+	Type:   "vetchium-problem-details/hub-referral-agency-not-eligible",
+	Title:  "Referral agency not eligible",
+	Status: 422,
+	Detail: "The named domain is not the primary domain of an agency assigned to the Opening",
+}

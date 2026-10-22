@@ -54,6 +54,7 @@ import type {
   GetOpeningProvidersRequest,
   UnassignOpeningProviderRequest,
 } from "typespec/orgs/marketplace/assignments";
+import type { ListCreditedApplicationsRequest } from "typespec/orgs/marketplace/attribution";
 import type {
   AddContactNoteRequest,
   AddPersonNoteRequest,
@@ -504,6 +505,13 @@ export class OrgsAPI {
 
   getJob(token: string, request: JobReference): Promise<APIResponse> {
     return this.post("/get-job", request, { token });
+  }
+
+  listCreditedApplications(
+    token: string,
+    request: ListCreditedApplicationsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-credited-applications", request, { token });
   }
 
   scheduleWorkInterview(

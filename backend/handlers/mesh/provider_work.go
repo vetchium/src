@@ -198,3 +198,23 @@ func PeerGetJob(s *meshapi.Server) http.HandlerFunc {
 		func(r work.PeerGetJobRequest) string { return string(r.ProviderOrgDID) },
 		s.ProviderWork.GetJob, nil)
 }
+
+func RelayListCreditedApplications(s *meshapi.Server) http.HandlerFunc {
+	return relayWork(s,
+		func(r work.RelayListCreditedApplicationsRequest) (directoryspec.TenantID, work.PeerListCreditedApplicationsRequest) {
+			return r.Tenant, r.Request
+		},
+		s.ProviderWork.ListCreditedApplications,
+		func(ctx context.Context, tenant directoryspec.TenantID, r work.PeerListCreditedApplicationsRequest) (workclient.Outcome[work.PeerListCreditedApplicationsResponse], error) {
+			return s.WorkPeers.PeerListCreditedApplications(ctx, tenant, r)
+		})
+}
+
+func PeerListCreditedApplications(s *meshapi.Server) http.HandlerFunc {
+	return peerWork(s,
+		func(r work.PeerListCreditedApplicationsRequest) string { return string(r.ProviderOrgDID) },
+		s.ProviderWork.ListCreditedApplications,
+		func() work.PeerListCreditedApplicationsResponse {
+			return work.PeerListCreditedApplicationsResponse{Items: []work.CreditedApplicationSummary{}}
+		})
+}

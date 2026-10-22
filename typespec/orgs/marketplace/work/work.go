@@ -14,16 +14,25 @@ import (
 
 	"github.com/vetchium/src/typespec/common"
 	directoryspec "github.com/vetchium/src/typespec/directory"
+	"github.com/vetchium/src/typespec/hub"
+	hubspec "github.com/vetchium/src/typespec/hub/applications"
 	"github.com/vetchium/src/typespec/hub/profile"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/hiring"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
+	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/orgs/openings"
 )
 
 // MaxPage bounds one page of the work queue or the jobs.
 const MaxPage = 50
+
+type WorkPageSize int32
+
+func IsWorkPageSize(value WorkPageSize) bool {
+	return value >= 1 && value <= MaxPage
+}
 
 type WorkID string
 type WorkStatus string
@@ -183,11 +192,12 @@ type ListWorkQueueResponse struct {
 
 // Job is an Opening assigned to a `sourcing` engagement.
 type Job struct {
-	EngagementID marketplace.EngagementID           `json:"engagement_id"`
-	Client       marketplace.EngagementCounterparty `json:"client"`
-	Opening      WorkOpening                        `json:"opening"`
-	State        openings.OpeningState              `json:"state"`
-	AssignedAt   time.Time                          `json:"assigned_at"`
+	EngagementID  marketplace.EngagementID           `json:"engagement_id"`
+	Client        marketplace.EngagementCounterparty `json:"client"`
+	Opening       WorkOpening                        `json:"opening"`
+	State         openings.OpeningState              `json:"state"`
+	CreditedCount int32                              `json:"credited_count"`
+	AssignedAt    time.Time                          `json:"assigned_at"`
 }
 
 // Valid checks a peer's answer before it reaches the browser.
@@ -195,13 +205,29 @@ func (j Job) Valid() bool {
 	return marketplace.IsEngagementID(j.EngagementID) &&
 		orgs.IsOrgDomain(j.Client.Domain) && j.Client.DisplayName != "" &&
 		j.Opening.Number >= 1 && j.Opening.Title != "" &&
-		openings.IsOpeningState(j.State) && !j.AssignedAt.IsZero()
+		openings.IsOpeningState(j.State) && j.CreditedCount >= 0 && !j.AssignedAt.IsZero()
+}
+
+type JobCreditedApplication struct {
+	ApplicationNumber applications.ApplicationNumber `json:"application_number"`
+	Route             marketplace.ReferralRoute      `json:"route"`
+	Status            hubspec.ApplicationStatus      `json:"status"`
+	AppliedAt         time.Time                      `json:"applied_at"`
+}
+
+type JobSuggestedContact struct {
+	ContactID   contacts.ContactID `json:"contact_id"`
+	DisplayName common.DisplayName `json:"display_name"`
+	Handle      hub.HubHandle      `json:"handle"`
+	SuggestedAt time.Time          `json:"suggested_at"`
 }
 
 // JobDetail is the Opening's live content.
 type JobDetail struct {
-	Job     Job                   `json:"job"`
-	Content common.OpeningContent `json:"content"`
+	Job                  Job                      `json:"job"`
+	Content              common.OpeningContent    `json:"content"`
+	CreditedApplications []JobCreditedApplication `json:"credited_applications"`
+	SuggestedContacts    []JobSuggestedContact    `json:"suggested_contacts"`
 }
 
 type JobReference struct {

@@ -3,12 +3,18 @@ import "../hub/applications/applications.tsp";
 import "../hub/profile/snapshot.tsp";
 import "../hub/types.tsp";
 import "../orgs/applications/applications.tsp";
+import "../orgs/marketplace/attribution.tsp";
 import "../orgs/types.tsp";
 import "../problem/federation/commands.tsp";
 import "../problem/hub/applications.tsp";
 import "../problem/hub/openings.tsp";
 
 namespace Vetchium.Federation.Hiring;
+
+model ApplicationReferral {
+  agency_domain: Vetchium.Orgs.OrgDomain;
+  route: Vetchium.Orgs.Marketplace.ReferralRoute;
+}
 
 /**
  * The payload of the `hub-apply` command, whose authority principal is the
@@ -18,6 +24,7 @@ namespace Vetchium.Federation.Hiring;
 model HubApplyPayload {
   opening_number: Vetchium.Orgs.Openings.OpeningNumber;
   applicant_did: Vetchium.Hub.HubUserDID;
+  referral?: ApplicationReferral;
   cover_note?: Vetchium.Orgs.Applications.ApplicationCoverNote;
   snapshot: Vetchium.Hub.Profile.ApplicantSnapshot;
 }
@@ -38,6 +45,7 @@ alias HubApplyRejections =
   | Vetchium.Problem.HubOpeningNotFoundErrorResponse
   | Vetchium.Problem.HubOpeningNotAcceptingErrorResponse
   | Vetchium.Problem.HubApplicationExistsErrorResponse
+  | Vetchium.Problem.HubReferralAgencyNotEligibleErrorResponse
   | Vetchium.Problem.FederationInitiatorMismatchErrorResponse;
 
 /**

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
+	hubspec "github.com/vetchium/src/typespec/hub/applications"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/openings"
@@ -222,4 +223,60 @@ func relayFields(tenant directoryspec.TenantID, inner []string) []string {
 		fields = append(fields, "request."+field)
 	}
 	return fields
+}
+
+type PeerListCreditedApplicationsRequest struct {
+	ProviderOrgDID orgs.OrgDID                `json:"provider_org_did"`
+	ClientDomain   *orgs.OrgDomain            `json:"client_domain,omitempty"`
+	OpeningNumber  *openings.OpeningNumber    `json:"opening_number,omitempty"`
+	Route          *marketplace.ReferralRoute `json:"route,omitempty"`
+	Status         *hubspec.ApplicationStatus `json:"status,omitempty"`
+	Limit          WorkPageSize               `json:"limit"`
+}
+
+func (r *PeerListCreditedApplicationsRequest) Normalize() {
+	if r.ClientDomain != nil {
+		normalized := orgs.NormalizeOrgDomain(*r.ClientDomain)
+		r.ClientDomain = &normalized
+	}
+}
+
+func (r PeerListCreditedApplicationsRequest) Validate() []string {
+	fields := []string{}
+	if !orgs.IsOrgDID(r.ProviderOrgDID) {
+		fields = append(fields, "provider_org_did")
+	}
+	if r.ClientDomain != nil && !orgs.IsOrgDomain(*r.ClientDomain) {
+		fields = append(fields, "client_domain")
+	}
+	if r.OpeningNumber != nil && *r.OpeningNumber < 1 {
+		fields = append(fields, "opening_number")
+	}
+	if r.Route != nil && !marketplace.IsReferralRoute(*r.Route) {
+		fields = append(fields, "route")
+	}
+	if r.Status != nil && !hubspec.IsApplicationStatus(*r.Status) {
+		fields = append(fields, "status")
+	}
+	if !IsWorkPageSize(r.Limit) {
+		fields = append(fields, "limit")
+	}
+	return fields
+}
+
+type PeerListCreditedApplicationsResponse struct {
+	Items []CreditedApplicationSummary `json:"items"`
+}
+
+type RelayListCreditedApplicationsRequest struct {
+	Tenant  directoryspec.TenantID              `json:"tenant"`
+	Request PeerListCreditedApplicationsRequest `json:"request"`
+}
+
+func (r *RelayListCreditedApplicationsRequest) Normalize() {
+	r.Request.Normalize()
+}
+
+func (r RelayListCreditedApplicationsRequest) Validate() []string {
+	return relayFields(r.Tenant, r.Request.Validate())
 }

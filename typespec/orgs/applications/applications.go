@@ -11,6 +11,7 @@ import (
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/hub/profile"
+	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/hiring"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/openings"
@@ -531,9 +532,11 @@ type ApplicationSummary struct {
 	Removed           bool                  `json:"removed"`
 	CurrentStage      *hiring.PipelineStage `json:"current_stage,omitempty"`
 	// Route is the provider performing the current stage; absent in-house.
-	Route       *marketplace.ApplicationRoute `json:"route,omitempty"`
-	SubmittedAt time.Time                     `json:"submitted_at"`
-	UpdatedAt   time.Time                     `json:"updated_at"`
+	Route          *marketplace.ApplicationRoute `json:"route,omitempty"`
+	CreditedAgency *marketplace.CreditedAgency   `json:"credited_agency,omitempty"`
+	ReferralRoute  *marketplace.ReferralRoute    `json:"referral_route,omitempty"`
+	SubmittedAt    time.Time                     `json:"submitted_at"`
+	UpdatedAt      time.Time                     `json:"updated_at"`
 }
 
 type ApplicationStageRecord struct {
@@ -636,6 +639,8 @@ type ApplicationDetail struct {
 	CurrentStage      *hiring.PipelineStage     `json:"current_stage,omitempty"`
 	// Route is the provider performing the current stage; absent in-house.
 	Route            *marketplace.ApplicationRoute `json:"route,omitempty"`
+	CreditedAgency   *marketplace.CreditedAgency   `json:"credited_agency,omitempty"`
+	ReferralRoute    *marketplace.ReferralRoute    `json:"referral_route,omitempty"`
 	StageRecords     []ApplicationStageRecord      `json:"stage_records"`
 	JoinedOn         *CalendarDate                 `json:"joined_on,omitempty"`
 	SeparatedOn      *CalendarDate                 `json:"separated_on,omitempty"`
@@ -691,15 +696,21 @@ type ListApplicationsRequest struct {
 	PendingApplicantAction *PendingApplicantAction `json:"pending_applicant_action,omitempty"`
 	// RoutedEngagementID (Candidates view) lists the candidacies routed to
 	// that engagement.
-	RoutedEngagementID *marketplace.EngagementID `json:"routed_engagement_id,omitempty"`
-	PaginationKey      *common.PaginationKey     `json:"pagination_key,omitempty"`
-	Limit              *common.PageSize          `json:"limit,omitempty"`
+	RoutedEngagementID   *marketplace.EngagementID  `json:"routed_engagement_id,omitempty"`
+	CreditedAgencyDomain *orgs.OrgDomain            `json:"credited_agency_domain,omitempty"`
+	ReferralRoute        *marketplace.ReferralRoute `json:"referral_route,omitempty"`
+	PaginationKey        *common.PaginationKey      `json:"pagination_key,omitempty"`
+	Limit                *common.PageSize           `json:"limit,omitempty"`
 }
 
 func (r *ListApplicationsRequest) Normalize() {
 	if r.NameQuery != nil {
 		query := NormalizeApplicantNameQuery(*r.NameQuery)
 		r.NameQuery = &query
+	}
+	if r.CreditedAgencyDomain != nil {
+		normalized := orgs.NormalizeOrgDomain(*r.CreditedAgencyDomain)
+		r.CreditedAgencyDomain = &normalized
 	}
 }
 
@@ -750,6 +761,12 @@ func (r ListApplicationsRequest) Validate() []string {
 	if r.RoutedEngagementID != nil &&
 		(!candidates || !marketplace.IsEngagementID(*r.RoutedEngagementID)) {
 		fields = append(fields, "routed_engagement_id")
+	}
+	if r.CreditedAgencyDomain != nil && !orgs.IsOrgDomain(*r.CreditedAgencyDomain) {
+		fields = append(fields, "credited_agency_domain")
+	}
+	if r.ReferralRoute != nil && !marketplace.IsReferralRoute(*r.ReferralRoute) {
+		fields = append(fields, "referral_route")
 	}
 	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
 		fields = append(fields, "pagination_key")

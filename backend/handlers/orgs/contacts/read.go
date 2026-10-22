@@ -4,7 +4,9 @@ import (
 	"net/http"
 
 	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
+	"github.com/vetchium/src/typespec/orgs/openings"
 	"github.com/vetchium/src/typespec/problem"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
@@ -42,6 +44,7 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "list Contacts", err)
 			return
 		}
+		counts := creditedCountsForAgency(r.Context(), s, identity.OrgDID)
 		response := contacts.ListContactsResponse{Items: []contacts.ContactSummary{}}
 		for index, row := range rows {
 			if index == int(request.EffectiveLimit()) {
@@ -56,9 +59,13 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 				response.NextPaginationKey = &key
 				break
 			}
+			credited := counts[dbvalue.FormatUUID(row.HubUserDid)]
+			if row.CreditedCount > credited {
+				credited = row.CreditedCount
+			}
 			response.Items = append(response.Items, summary(row.ContactID,
 				row.DisplayName, row.Handle, row.MessagesOff, row.LastActivityAt,
-				row.NoteCount))
+				row.NoteCount, credited))
 		}
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, response)
@@ -88,12 +95,30 @@ func GetContact(s *orgsruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "read Contact", err)
 			return
 		}
+		sugRows, err := s.Queries.ListContactOpeningSuggestions(r.Context(), id)
+		if err != nil {
+			s.InternalError(r.Context(), w, "list contact opening suggestions", err)
+			return
+		}
+		suggestedOpenings := make([]contacts.ContactOpeningSuggestion, 0, len(sugRows))
+		for _, sug := range sugRows {
+			suggestedOpenings = append(suggestedOpenings, contacts.ContactOpeningSuggestion{
+				ConsumerDomain: orgs.OrgDomain(sug.ConsumerDomain),
+				OpeningNumber:  openings.OpeningNumber(sug.OpeningNumber),
+				SuggestedAt:    sug.SentAt.Time.UTC(),
+			})
+		}
+		credited := creditedCountForHubUser(r.Context(), s, identity.OrgDID, row.HubUserDid)
+		if row.CreditedCount > credited {
+			credited = row.CreditedCount
+		}
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, contacts.Contact{
 			ContactSummary: summary(row.ContactID, row.DisplayName, row.Handle,
-				row.MessagesOff, row.LastActivityAt, row.NoteCount),
-			CreatedBy: common.EmailAddress(row.CreatedBy),
-			CreatedAt: row.CreatedAt.Time.UTC(),
+				row.MessagesOff, row.LastActivityAt, row.NoteCount, credited),
+			CreatedBy:         common.EmailAddress(row.CreatedBy),
+			SuggestedOpenings: suggestedOpenings,
+			CreatedAt:         row.CreatedAt.Time.UTC(),
 		})
 	}
 }

@@ -117,9 +117,16 @@ export async function apply(
   applicant: Applicant,
   domain: string,
   openingNumber: number,
+  referralAgencyDomain?: string,
 ): Promise<ApplicationReference> {
   const applied = await applicant.hub.applyToOpening(
-    { domain, opening_number: openingNumber },
+    {
+      domain,
+      opening_number: openingNumber,
+      ...(referralAgencyDomain
+        ? { referral_agency_domain: referralAgencyDomain }
+        : {}),
+    },
     { token: applicant.token, idempotencyKey: hubIdempotencyKey() },
   );
   expect(applied.status(), await applied.text()).toBe(201);

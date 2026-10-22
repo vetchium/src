@@ -51,10 +51,11 @@ func NewPeer(baseTLS *tls.Config, timeout time.Duration) *Client {
 
 // The relay and peer paths of the four reads.
 const (
-	listWork = "provider-work/list"
-	getWork  = "provider-work/get"
-	listJobs = "provider-jobs/list"
-	getJob   = "provider-jobs/get"
+	listWork        = "provider-work/list"
+	getWork         = "provider-work/get"
+	listJobs        = "provider-jobs/list"
+	getJob          = "provider-jobs/get"
+	listAttribution = "provider-attribution/list"
 )
 
 func (c *Client) RelayListWork(
@@ -131,6 +132,29 @@ func (c *Client) PeerGetJob(
 	}
 	return call(ctx, c, endpoint, request, tlsConfig,
 		func(r work.JobDetail) bool { return validJob(r, request) })
+}
+
+func (c *Client) RelayListCreditedApplications(
+	ctx context.Context, request work.RelayListCreditedApplicationsRequest,
+) (Outcome[work.PeerListCreditedApplicationsResponse], error) {
+	return call(ctx, c, c.baseURL+"/mesh/"+listAttribution, request, nil,
+		func(r work.PeerListCreditedApplicationsResponse) bool {
+			return validAttribution(r, request.Request)
+		})
+}
+
+func (c *Client) PeerListCreditedApplications(
+	ctx context.Context, tenant directoryspec.TenantID,
+	request work.PeerListCreditedApplicationsRequest,
+) (Outcome[work.PeerListCreditedApplicationsResponse], error) {
+	endpoint, tlsConfig, err := c.peerEndpoint(tenant, listAttribution)
+	if err != nil {
+		return Outcome[work.PeerListCreditedApplicationsResponse]{}, err
+	}
+	return call(ctx, c, endpoint, request, tlsConfig,
+		func(r work.PeerListCreditedApplicationsResponse) bool {
+			return validAttribution(r, request)
+		})
 }
 
 func (c *Client) peerEndpoint(
@@ -309,4 +333,16 @@ func JobAfter(a, b work.JobPosition) bool {
 func validJob(result work.JobDetail, asked work.PeerGetJobRequest) bool {
 	return result.Job.Valid() && result.Job.EngagementID == asked.EngagementID &&
 		result.Job.Opening.Number == asked.OpeningNumber
+}
+
+func validAttribution(result work.PeerListCreditedApplicationsResponse, asked work.PeerListCreditedApplicationsRequest) bool {
+	if result.Items == nil || len(result.Items) > int(asked.Limit) {
+		return false
+	}
+	for _, item := range result.Items {
+		if !item.Valid() {
+			return false
+		}
+	}
+	return true
 }

@@ -17,10 +17,11 @@ func TestStoredRejectionsMapOnlyToDeclaredHubProblems(t *testing.T) {
 		want  map[string]string
 	}{
 		{"apply", applyRejections, map[string]string{
-			hubproblem.OpeningNotFoundError.Type:          hubproblem.OpeningNotFoundError.Type,
-			hubproblem.OpeningNotAcceptingError.Type:      hubproblem.OpeningNotAcceptingError.Type,
-			hubproblem.ApplicationExistsError.Type:        hubproblem.ApplicationExistsError.Type,
-			federationproblem.AuthorityNotFoundError.Type: hubproblem.OrgNotFoundError.Type,
+			hubproblem.OpeningNotFoundError.Type:           hubproblem.OpeningNotFoundError.Type,
+			hubproblem.OpeningNotAcceptingError.Type:       hubproblem.OpeningNotAcceptingError.Type,
+			hubproblem.ApplicationExistsError.Type:         hubproblem.ApplicationExistsError.Type,
+			hubproblem.ReferralAgencyNotEligibleError.Type: hubproblem.ReferralAgencyNotEligibleError.Type,
+			federationproblem.AuthorityNotFoundError.Type:  hubproblem.OrgNotFoundError.Type,
 		}},
 		{"withdraw", withdrawRejections, map[string]string{
 			hubproblem.ApplicationNotFoundError.Type:      hubproblem.ApplicationNotFoundError.Type,

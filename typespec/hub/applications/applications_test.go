@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vetchium/src/typespec/orgs"
 	orgapplications "github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/hiring"
 )
@@ -33,16 +34,22 @@ func TestVocabulariesAreClosedAndCopied(t *testing.T) {
 func TestApplyToOpeningRequestNormalizesWithoutMutatingTheCaller(t *testing.T) {
 	t.Parallel()
 	note := orgapplications.ApplicationCoverNote("  hello ")
+	agency := orgs.OrgDomain(" Agency.COM ")
 	request := ApplyToOpeningRequest{
 		Domain: " Example.COM ", OpeningNumber: 1, CoverNote: &note,
+		ReferralAgencyDomain: &agency,
 	}
 	normalized := request
 	normalized.Normalize()
-	if normalized.Domain != "example.com" || *normalized.CoverNote != "hello" {
+	if normalized.Domain != "example.com" || *normalized.CoverNote != "hello" ||
+		*normalized.ReferralAgencyDomain != "agency.com" {
 		t.Fatalf("normalized = %+v", normalized)
 	}
 	if note != "  hello " {
 		t.Fatal("normalization mutated the caller's note")
+	}
+	if agency != " Agency.COM " {
+		t.Fatal("normalization mutated the caller's domain")
 	}
 	blank := orgapplications.ApplicationCoverNote("  ")
 	request.CoverNote = &blank
@@ -55,15 +62,18 @@ func TestApplyToOpeningRequestNormalizesWithoutMutatingTheCaller(t *testing.T) {
 func TestApplyToOpeningRequestValidation(t *testing.T) {
 	t.Parallel()
 	exact := orgapplications.ApplicationCoverNote(strings.Repeat("é", 5000))
+	agency := orgs.OrgDomain("agency.com")
 	good := ApplyToOpeningRequest{
 		Domain: "example.com", OpeningNumber: 1, CoverNote: &exact,
+		ReferralAgencyDomain: &agency,
 	}
 	if got := good.Validate(); len(got) != 0 {
 		t.Fatalf("valid request rejected: %v", got)
 	}
 	long := orgapplications.ApplicationCoverNote(strings.Repeat("a", 5001))
-	bad := ApplyToOpeningRequest{Domain: "not a domain", CoverNote: &long}
-	want := []string{"domain", "opening_number", "cover_note"}
+	badAgency := orgs.OrgDomain("bad agency")
+	bad := ApplyToOpeningRequest{Domain: "not a domain", CoverNote: &long, ReferralAgencyDomain: &badAgency}
+	want := []string{"domain", "opening_number", "referral_agency_domain", "cover_note"}
 	if got := bad.Validate(); !slices.Equal(got, want) {
 		t.Fatalf("fields = %v, want %v", got, want)
 	}

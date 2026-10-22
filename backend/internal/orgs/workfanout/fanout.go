@@ -23,6 +23,9 @@ type Peers interface {
 	RelayListJobs(
 		context.Context, work.RelayListJobsRequest,
 	) (workclient.Outcome[work.PeerListJobsResponse], error)
+	RelayListCreditedApplications(
+		context.Context, work.RelayListCreditedApplicationsRequest,
+	) (workclient.Outcome[work.PeerListCreditedApplicationsResponse], error)
 }
 
 type Fanout struct {
@@ -146,6 +149,50 @@ func (f Fanout) ListJobs(
 	if len(page.Entries) > int(request.Limit) {
 		page.Entries = page.Entries[:request.Limit]
 		page.HasMore = true
+	}
+	return page
+}
+
+// CreditedApplicationsPage is one merged page of credited applications.
+type CreditedApplicationsPage struct {
+	Items       []work.CreditedApplicationSummary
+	Unavailable []directoryspec.TenantID
+}
+
+// ListCreditedApplications asks each tenant for credited applications.
+func (f Fanout) ListCreditedApplications(
+	ctx context.Context, request work.PeerListCreditedApplicationsRequest,
+) CreditedApplicationsPage {
+	answers, unavailable := gather(ctx, f, func(
+		ctx context.Context, tenant directoryspec.TenantID,
+	) (workclient.Outcome[work.PeerListCreditedApplicationsResponse], error) {
+		return f.Peers.RelayListCreditedApplications(ctx, work.RelayListCreditedApplicationsRequest{
+			Tenant: tenant, Request: request,
+		})
+	})
+	page := CreditedApplicationsPage{Items: []work.CreditedApplicationSummary{}, Unavailable: unavailable}
+	for _, answer := range answers {
+		if answer != nil {
+			page.Items = append(page.Items, answer.Items...)
+		}
+	}
+	slices.SortFunc(page.Items, func(a, b work.CreditedApplicationSummary) int {
+		if !a.AppliedAt.Equal(b.AppliedAt) {
+			if a.AppliedAt.After(b.AppliedAt) {
+				return -1
+			}
+			return 1
+		}
+		if a.ApplicationNumber > b.ApplicationNumber {
+			return -1
+		}
+		if a.ApplicationNumber < b.ApplicationNumber {
+			return 1
+		}
+		return 0
+	})
+	if len(page.Items) > int(request.Limit) {
+		page.Items = page.Items[:request.Limit]
 	}
 	return page
 }

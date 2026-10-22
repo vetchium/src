@@ -2,10 +2,13 @@ import type { DisplayName } from "../../../common/localization.ts";
 import type { PaginationKey } from "../../../common/pagination.ts";
 import { isPaginationKey } from "../../../common/pagination.ts";
 import type { TenantID } from "../../../directory/directory.ts";
+import type { ApplicationStatus } from "../../../hub/applications/applications.ts";
 import type { WebsiteURL } from "../../../hub/profile/public.ts";
 import type { ApplicantSnapshot } from "../../../hub/profile/snapshot.ts";
+import type { HubHandle } from "../../../hub/types.ts";
 import type {
   ApplicationCoverNote,
+  ApplicationNumber,
   AssessmentOutcome,
   AssessmentResult,
   AssessmentScore,
@@ -35,6 +38,8 @@ import {
 import type { CheckType } from "../../hiring/vocabulary.ts";
 import type { OpeningNumber, OpeningState } from "../../openings/types.ts";
 import { openingStates } from "../../openings/types.ts";
+import type { ReferralRoute } from "../attribution.ts";
+import type { ContactID } from "../contacts/contacts.ts";
 
 function isOpeningState(value: unknown): value is OpeningState {
   return openingStates.includes(value as OpeningState);
@@ -49,6 +54,17 @@ import { isEngagementID } from "../engagements.ts";
 
 /** Bounds one page of the work queue or the jobs. */
 export const maxPage = 50;
+
+export type WorkPageSize = number;
+
+export function isWorkPageSize(value: unknown): value is WorkPageSize {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= maxPage
+  );
+}
 
 export type WorkID = string;
 
@@ -203,13 +219,30 @@ export interface Job {
   client: EngagementCounterparty;
   opening: WorkOpening;
   state: OpeningState;
+  credited_count: number;
   assigned_at: string;
+}
+
+export interface JobCreditedApplication {
+  application_number: ApplicationNumber;
+  route: ReferralRoute;
+  status: ApplicationStatus;
+  applied_at: string;
+}
+
+export interface JobSuggestedContact {
+  contact_id: ContactID;
+  display_name: DisplayName;
+  handle: HubHandle;
+  suggested_at: string;
 }
 
 /** The Opening's live content. */
 export interface JobDetail {
   job: Job;
   content: Record<string, unknown>;
+  credited_applications: JobCreditedApplication[];
+  suggested_contacts: JobSuggestedContact[];
 }
 
 export interface JobReference {

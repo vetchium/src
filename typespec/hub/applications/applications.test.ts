@@ -45,11 +45,14 @@ test("apply normalization trims the note and leaves the caller's request", () =>
     domain: " Example.COM ",
     opening_number: 1,
     cover_note: "  hello ",
+    referral_agency_domain: " Agency.COM ",
   };
   const normalized = normalizeApplyToOpeningRequest(request);
   assert.equal(normalized.domain, "example.com");
   assert.equal(normalized.cover_note, "hello");
+  assert.equal(normalized.referral_agency_domain, "agency.com");
   assert.equal(request.cover_note, "  hello ");
+  assert.equal(request.referral_agency_domain, " Agency.COM ");
   assert.equal(
     "cover_note" in
       normalizeApplyToOpeningRequest({ ...request, cover_note: "  " }),
@@ -63,6 +66,7 @@ test("apply validation reports each invalid field", () => {
       domain: "example.com",
       opening_number: 1,
       cover_note: "é".repeat(5000),
+      referral_agency_domain: "agency.com",
     }),
     [],
   );
@@ -71,8 +75,9 @@ test("apply validation reports each invalid field", () => {
       domain: "not a domain",
       opening_number: 0,
       cover_note: "a".repeat(5001),
+      referral_agency_domain: "not an agency domain",
     }),
-    ["domain", "opening_number", "cover_note"],
+    ["domain", "opening_number", "referral_agency_domain", "cover_note"],
   );
 });
 

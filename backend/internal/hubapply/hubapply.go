@@ -89,16 +89,39 @@ func Handle(
 		text := string(*payload.CoverNote)
 		coverNote = &text
 	}
+	var creditedEngagementID pgtype.UUID
+	var referralRoute pgtype.Text
+	if payload.Referral != nil {
+		row, err := q.GetAssignedSourcingEngagementForDomain(ctx,
+			sqlc.GetAssignedSourcingEngagementForDomainParams{
+				OrgOpeningID:   target.OrgOpeningID,
+				ProviderDomain: string(payload.Referral.AgencyDomain),
+			})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return commands.Rejected(hubproblem.ReferralAgencyNotEligibleError), nil
+		}
+		if err != nil {
+			return commands.Result{}, fmt.Errorf("check sourcing engagement for referral: %w", err)
+		}
+		creditedEngagementID = row.EngagementID
+		referralRoute = dbvalue.Text(string(payload.Referral.Route))
+	}
 	created, err := q.CreateOrgApplication(ctx, sqlc.CreateOrgApplicationParams{
-		ApplicationID: ids[1], OrgOpeningID: target.OrgOpeningID,
-		ApplicationNumber: target.NextApplicationNumber,
-		ApplicantID:       applicantID, Snapshot: snapshot,
-		CoverNote: dbvalue.NullText(coverNote), HistoryID: ids[2],
-		TenantID: command.TenantID, OrgDid: command.Authority.DID,
-		OpeningNumber:  int32(payload.OpeningNumber),
-		HubUserDid:     dbvalue.FormatUUID(applicantDID),
-		CommandID:      dbvalue.FormatUUID(command.CommandID),
-		SourceTenantID: command.SourceTenantID,
+		ApplicationID:        ids[1],
+		OrgOpeningID:         target.OrgOpeningID,
+		ApplicationNumber:    target.NextApplicationNumber,
+		ApplicantID:          applicantID,
+		Snapshot:             snapshot,
+		CoverNote:            dbvalue.NullText(coverNote),
+		CreditedEngagementID: creditedEngagementID,
+		ReferralRoute:        referralRoute,
+		HistoryID:            ids[2],
+		TenantID:             command.TenantID,
+		OrgDid:               command.Authority.DID,
+		OpeningNumber:        int32(payload.OpeningNumber),
+		HubUserDid:           dbvalue.FormatUUID(applicantDID),
+		CommandID:            dbvalue.FormatUUID(command.CommandID),
+		SourceTenantID:       command.SourceTenantID,
 	})
 	if err != nil {
 		return commands.Result{}, fmt.Errorf("create application: %w", err)

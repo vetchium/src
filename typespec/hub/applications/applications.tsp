@@ -60,6 +60,9 @@ model ApplyToOpeningRequest {
 
   /** Trimmed; a blank note is no note. */
   cover_note?: Vetchium.Orgs.Applications.ApplicationCoverNote;
+
+  /** Primary domain of the agency to credit with this application. */
+  referral_agency_domain?: Vetchium.Orgs.OrgDomain;
 }
 
 /** Names one application on the wire. */
@@ -271,7 +274,8 @@ interface ApplicationOperations {
     | Vetchium.Problem.HubOrgNotFoundErrorResponse
     | Vetchium.Problem.HubOpeningNotFoundErrorResponse
     | Vetchium.Problem.HubOpeningNotAcceptingErrorResponse
-    | Vetchium.Problem.HubApplicationExistsErrorResponse;
+    | Vetchium.Problem.HubApplicationExistsErrorResponse
+    | Vetchium.Problem.HubReferralAgencyNotEligibleErrorResponse;
 
   /** Withdraws the caller's own application from `submitted`, `in_pipeline`,
    * `offered`, or `offer_accepted`, with the same outcomes as applying. */

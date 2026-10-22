@@ -5,6 +5,7 @@
 package contacts
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
+	"github.com/vetchium/src/typespec/orgs/marketplace/work"
 	"github.com/vetchium/src/typespec/problem"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
@@ -30,18 +32,56 @@ const (
 // summary converts the columns every Contact read selects.
 func summary(
 	id pgtype.UUID, name, handle string, off bool, active pgtype.Timestamptz,
-	notes int32,
+	notes int32, credited int32,
 ) contacts.ContactSummary {
 	return contacts.ContactSummary{
 		ContactID:   contacts.ContactID(dbvalue.FormatUUID(id)),
 		DisplayName: common.DisplayName(name), Handle: hubHandle(handle),
 		MessagesOff: off, NoteCount: notes,
+		CreditedCount:  credited,
 		LastActivityAt: active.Time.UTC(),
 	}
 }
 
 func orgDID(identityOrg pgtype.UUID) orgs.OrgDID {
 	return orgs.OrgDID(dbvalue.FormatUUID(identityOrg))
+}
+
+func creditedCountForHubUser(ctx context.Context, s *orgsruntime.Server, orgDID pgtype.UUID, hubUserDID pgtype.UUID) int32 {
+	if len(s.WorkFanout.Tenants) == 0 {
+		return 0
+	}
+	peer := work.PeerListCreditedApplicationsRequest{
+		ProviderOrgDID: orgs.OrgDID(dbvalue.FormatUUID(orgDID)),
+		Limit:          work.MaxPage,
+	}
+	page := s.WorkFanout.ListCreditedApplications(ctx, peer)
+	hubDIDStr := dbvalue.FormatUUID(hubUserDID)
+	var count int32
+	for _, item := range page.Items {
+		if item.ApplicantDID != nil && string(*item.ApplicantDID) == hubDIDStr {
+			count++
+		}
+	}
+	return count
+}
+
+func creditedCountsForAgency(ctx context.Context, s *orgsruntime.Server, orgDID pgtype.UUID) map[string]int32 {
+	counts := make(map[string]int32)
+	if len(s.WorkFanout.Tenants) == 0 {
+		return counts
+	}
+	peer := work.PeerListCreditedApplicationsRequest{
+		ProviderOrgDID: orgs.OrgDID(dbvalue.FormatUUID(orgDID)),
+		Limit:          work.MaxPage,
+	}
+	page := s.WorkFanout.ListCreditedApplications(ctx, peer)
+	for _, item := range page.Items {
+		if item.ApplicantDID != nil {
+			counts[string(*item.ApplicantDID)]++
+		}
+	}
+	return counts
 }
 
 // pageCursor is where the next page of a list resumes. It is bound to the Org,

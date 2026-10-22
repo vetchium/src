@@ -11,6 +11,7 @@ import (
 	"github.com/vetchium/src/typespec/hub/profile"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/applications"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/openings"
 )
 
@@ -19,9 +20,15 @@ import (
 // and its aggregate id is the Opening number as decimal text.
 const HubApplyKind CommandKind = "hub-apply"
 
+type ApplicationReferral struct {
+	AgencyDomain orgs.OrgDomain            `json:"agency_domain"`
+	Route        marketplace.ReferralRoute `json:"route"`
+}
+
 type HubApplyPayload struct {
 	OpeningNumber openings.OpeningNumber             `json:"opening_number"`
 	ApplicantDID  hub.HubUserDID                     `json:"applicant_did"`
+	Referral      *ApplicationReferral               `json:"referral,omitempty"`
 	CoverNote     *applications.ApplicationCoverNote `json:"cover_note,omitempty"`
 	Snapshot      profile.ApplicantSnapshot          `json:"snapshot"`
 }
@@ -30,6 +37,11 @@ type HubApplyPayload struct {
 // snapshot's required arrays empty rather than nil. It assigns new values and
 // never mutates storage the caller shares.
 func (p *HubApplyPayload) Normalize() {
+	if p.Referral != nil {
+		referralCopy := *p.Referral
+		referralCopy.AgencyDomain = orgs.NormalizeOrgDomain(referralCopy.AgencyDomain)
+		p.Referral = &referralCopy
+	}
 	if p.CoverNote != nil {
 		trimmed := applications.ApplicationCoverNote(
 			strings.TrimSpace(string(*p.CoverNote)),
@@ -50,6 +62,14 @@ func (p HubApplyPayload) Validate() []string {
 	}
 	if !hub.IsHubUserDID(p.ApplicantDID) {
 		fields = append(fields, "applicant_did")
+	}
+	if p.Referral != nil {
+		if !orgs.IsOrgDomain(p.Referral.AgencyDomain) {
+			fields = append(fields, "referral.agency_domain")
+		}
+		if !marketplace.IsReferralRoute(p.Referral.Route) {
+			fields = append(fields, "referral.route")
+		}
 	}
 	if p.CoverNote != nil && !applications.IsApplicationCoverNote(*p.CoverNote) {
 		fields = append(fields, "cover_note")

@@ -1,5 +1,9 @@
 import type { TenantID } from "../../../directory/directory.ts";
 import { isTenantID } from "../../../directory/directory.ts";
+import {
+  type ApplicationStatus,
+  isApplicationStatus,
+} from "../../../hub/applications/applications.ts";
 import type { OpeningNumber, OpeningState } from "../../openings/types.ts";
 import { openingStates } from "../../openings/types.ts";
 
@@ -9,6 +13,11 @@ function isOpeningState(value: unknown): value is OpeningState {
 
 import type { OrgDID, OrgDomain } from "../../types.ts";
 import { isOrgDID, isOrgDomain, normalizeOrgDomain } from "../../types.ts";
+import {
+  type CreditedApplicationSummary,
+  isReferralRoute,
+  type ReferralRoute,
+} from "../attribution.ts";
 import type { Capability } from "../capabilities.ts";
 import type { EngagementID } from "../engagements.ts";
 import type {
@@ -244,6 +253,81 @@ export function validateRelayGetJobRequest(
   return relayFields(
     request.tenant,
     validatePeerGetJobRequest(request.request),
+  );
+}
+
+export interface PeerListCreditedApplicationsRequest {
+  provider_org_did: OrgDID;
+  client_domain?: OrgDomain;
+  opening_number?: OpeningNumber;
+  route?: ReferralRoute;
+  status?: ApplicationStatus;
+  limit: number;
+}
+
+export function normalizePeerListCreditedApplicationsRequest(
+  request: PeerListCreditedApplicationsRequest,
+): PeerListCreditedApplicationsRequest {
+  if (request.client_domain !== undefined) {
+    return {
+      ...request,
+      client_domain: normalizeOrgDomain(request.client_domain),
+    };
+  }
+  return request;
+}
+
+export function validatePeerListCreditedApplicationsRequest(
+  request: PeerListCreditedApplicationsRequest,
+): string[] {
+  const fields: string[] = [];
+  if (!isOrgDID(request.provider_org_did)) fields.push("provider_org_did");
+  if (
+    request.client_domain !== undefined &&
+    !isOrgDomain(request.client_domain)
+  ) {
+    fields.push("client_domain");
+  }
+  if (
+    request.opening_number !== undefined &&
+    (!Number.isInteger(request.opening_number) || request.opening_number < 1)
+  ) {
+    fields.push("opening_number");
+  }
+  if (request.route !== undefined && !isReferralRoute(request.route)) {
+    fields.push("route");
+  }
+  if (request.status !== undefined && !isApplicationStatus(request.status)) {
+    fields.push("status");
+  }
+  if (!validLimit(request.limit)) fields.push("limit");
+  return fields;
+}
+
+export interface PeerListCreditedApplicationsResponse {
+  items: CreditedApplicationSummary[];
+}
+
+export interface RelayListCreditedApplicationsRequest {
+  tenant: TenantID;
+  request: PeerListCreditedApplicationsRequest;
+}
+
+export function normalizeRelayListCreditedApplicationsRequest(
+  request: RelayListCreditedApplicationsRequest,
+): RelayListCreditedApplicationsRequest {
+  return {
+    ...request,
+    request: normalizePeerListCreditedApplicationsRequest(request.request),
+  };
+}
+
+export function validateRelayListCreditedApplicationsRequest(
+  request: RelayListCreditedApplicationsRequest,
+): string[] {
+  return relayFields(
+    request.tenant,
+    validatePeerListCreditedApplicationsRequest(request.request),
   );
 }
 

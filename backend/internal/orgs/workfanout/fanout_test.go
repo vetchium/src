@@ -61,6 +61,21 @@ func (f fakePeers) RelayListJobs(
 	return workclient.Outcome[work.PeerListJobsResponse]{Result: &result}, nil
 }
 
+func (f fakePeers) RelayListCreditedApplications(
+	ctx context.Context, request work.RelayListCreditedApplicationsRequest,
+) (workclient.Outcome[work.PeerListCreditedApplicationsResponse], error) {
+	declared, err := f.outcome(request.Tenant, ctx)
+	if err != nil {
+		return workclient.Outcome[work.PeerListCreditedApplicationsResponse]{}, err
+	}
+	if declared {
+		return workclient.Outcome[work.PeerListCreditedApplicationsResponse]{Problem: &problem.Details{Status: 503}}, nil
+	}
+	return workclient.Outcome[work.PeerListCreditedApplicationsResponse]{
+		Result: &work.PeerListCreditedApplicationsResponse{Items: []work.CreditedApplicationSummary{}},
+	}, nil
+}
+
 func entry(bucket int32, sort int64, id string) work.PeerWorkEntry {
 	return work.PeerWorkEntry{
 		Position: work.Position{Bucket: bucket, Sort: sort, WorkID: work.WorkID(id)},

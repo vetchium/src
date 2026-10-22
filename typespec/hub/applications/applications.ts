@@ -71,6 +71,7 @@ export interface ApplyToOpeningRequest {
   domain: OrgDomain;
   opening_number: OpeningNumber;
   cover_note?: ApplicationCoverNote;
+  referral_agency_domain?: OrgDomain;
 }
 
 export interface ApplicationReference {
@@ -229,12 +230,24 @@ export interface ListMyApplicationsResponse {
 export function normalizeApplyToOpeningRequest(
   request: ApplyToOpeningRequest,
 ): ApplyToOpeningRequest {
-  const { cover_note: note, ...rest } = request;
+  const {
+    cover_note: note,
+    referral_agency_domain: referral,
+    ...rest
+  } = request;
   const domain = normalizeOrgDomain(rest.domain);
   const trimmed = note?.trim();
-  return trimmed
-    ? { ...rest, domain, cover_note: trimmed }
-    : { ...rest, domain };
+  const normalizedReferral = referral
+    ? normalizeOrgDomain(referral)
+    : undefined;
+  return {
+    ...rest,
+    domain,
+    ...(trimmed ? { cover_note: trimmed } : {}),
+    ...(normalizedReferral
+      ? { referral_agency_domain: normalizedReferral }
+      : {}),
+  };
 }
 
 export function validateApplyToOpeningRequest(
@@ -244,6 +257,12 @@ export function validateApplyToOpeningRequest(
   if (!isOrgDomain(request.domain)) fields.push("domain");
   if (!Number.isInteger(request.opening_number) || request.opening_number < 1) {
     fields.push("opening_number");
+  }
+  if (
+    request.referral_agency_domain !== undefined &&
+    !isOrgDomain(request.referral_agency_domain)
+  ) {
+    fields.push("referral_agency_domain");
   }
   if (
     request.cover_note !== undefined &&

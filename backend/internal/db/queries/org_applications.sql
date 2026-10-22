@@ -31,12 +31,15 @@ RETURNING org_applicant_id;
 WITH created AS (
     INSERT INTO vetchium.org_applications (
         org_application_id, org_opening_id, application_number,
-        org_applicant_id, snapshot, cover_note
+        org_applicant_id, snapshot, cover_note,
+        credited_engagement_id, referral_route
     )
     VALUES (
         sqlc.arg(application_id), sqlc.arg(org_opening_id),
         sqlc.arg(application_number)::integer, sqlc.arg(applicant_id),
-        sqlc.arg(snapshot)::jsonb, sqlc.narg(cover_note)::text
+        sqlc.arg(snapshot)::jsonb, sqlc.narg(cover_note)::text,
+        sqlc.narg(credited_engagement_id)::uuid,
+        sqlc.narg(referral_route)::text
     )
     ON CONFLICT (org_opening_id, org_applicant_id) DO NOTHING
     RETURNING org_application_id, application_number, application_state,
@@ -98,7 +101,11 @@ SELECT a.application_number, a.application_state, a.version,
     eng.engagement_id AS route_engagement_id,
     eng.provider_domain AS route_domain,
     eng.provider_display_name AS route_display_name,
-    eng.capability_oid AS route_capability, rt.routed_at AS route_routed_at
+    eng.capability_oid AS route_capability, rt.routed_at AS route_routed_at,
+    a.credited_engagement_id,
+    cred_eng.provider_domain AS credited_provider_domain,
+    cred_eng.provider_display_name AS credited_provider_display_name,
+    a.referral_route
 FROM vetchium.org_openings AS o
 LEFT JOIN vetchium.org_applications AS a
     ON a.org_opening_id = o.org_opening_id
@@ -137,6 +144,13 @@ LEFT JOIN vetchium.org_applications AS a
         a.removed_at IS NULL
         AND strpos(lower(a.snapshot ->> 'display_name'),
             lower(sqlc.narg(name_query)::text)) > 0))
+    AND (sqlc.narg(credited_agency_domain)::text IS NULL OR EXISTS (
+        SELECT 1 FROM vetchium.org_engagements AS filter_cred
+        WHERE filter_cred.engagement_id = a.credited_engagement_id
+          AND filter_cred.provider_domain = sqlc.narg(credited_agency_domain)::text
+    ))
+    AND (sqlc.narg(referral_route)::text IS NULL
+        OR a.referral_route = sqlc.narg(referral_route)::text)
     AND (sqlc.narg(after_application_number)::integer IS NULL
         OR a.application_number < sqlc.narg(after_application_number)::integer)
 LEFT JOIN vetchium.org_opening_stages AS stage
@@ -146,6 +160,7 @@ LEFT JOIN vetchium.org_application_routes AS rt
 LEFT JOIN vetchium.org_engagement_assignments AS asg
     ON asg.assignment_id = rt.assignment_id
 LEFT JOIN vetchium.org_engagements AS eng ON eng.engagement_id = asg.engagement_id
+LEFT JOIN vetchium.org_engagements AS cred_eng ON cred_eng.engagement_id = a.credited_engagement_id
 WHERE o.org_did = sqlc.arg(org_did)
   AND o.opening_number = sqlc.arg(opening_number)::integer
   AND vetchium.org_user_reads_applications(o.org_opening_id, sqlc.arg(viewer_id))
@@ -341,7 +356,11 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
     eng.engagement_id AS route_engagement_id,
     eng.provider_domain AS route_domain,
     eng.provider_display_name AS route_display_name,
-    eng.capability_oid AS route_capability, rt.routed_at AS route_routed_at
+    eng.capability_oid AS route_capability, rt.routed_at AS route_routed_at,
+    a.credited_engagement_id,
+    cred_eng.provider_domain AS credited_provider_domain,
+    cred_eng.provider_display_name AS credited_provider_display_name,
+    a.referral_route
 FROM vetchium.org_openings AS o
 JOIN vetchium.org_applications AS a ON a.org_opening_id = o.org_opening_id
 LEFT JOIN vetchium.org_opening_stages AS stage
@@ -351,6 +370,7 @@ LEFT JOIN vetchium.org_application_routes AS rt
 LEFT JOIN vetchium.org_engagement_assignments AS asg
     ON asg.assignment_id = rt.assignment_id
 LEFT JOIN vetchium.org_engagements AS eng ON eng.engagement_id = asg.engagement_id
+LEFT JOIN vetchium.org_engagements AS cred_eng ON cred_eng.engagement_id = a.credited_engagement_id
 WHERE o.org_did = sqlc.arg(org_did)
   AND o.opening_number = sqlc.arg(opening_number)::integer
   AND a.application_number = sqlc.arg(application_number)::integer
@@ -650,3 +670,16 @@ SET hub_refresh_at = (
       AND i.applicant_response = 'pending'
 )
 WHERE a.org_application_id = ANY(sqlc.arg(application_ids)::uuid[]);
+
+-- Finds an active sourcing engagement of an agency with the given primary
+-- domain assigned whole to the Opening (MKT-SRC-003).
+-- name: GetAssignedSourcingEngagementForDomain :one
+SELECT e.engagement_id, e.provider_domain, e.provider_display_name
+FROM vetchium.org_engagements AS e
+JOIN vetchium.org_engagement_assignments AS a
+  ON a.engagement_id = e.engagement_id
+WHERE a.org_opening_id = sqlc.arg(org_opening_id)
+  AND a.org_opening_stage_id IS NULL
+  AND e.capability_oid = 'sourcing'
+  AND e.engagement_state = 'active'
+  AND e.provider_domain = sqlc.arg(provider_domain);

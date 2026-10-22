@@ -24,13 +24,15 @@ const (
 
 type fakeQueries struct {
 	sqlc.Querier
-	list    []sqlc.ListProviderWorkRow
-	listed  sqlc.ListProviderWorkParams
-	jobs    []sqlc.ListProviderJobsRow
-	jobsAsk sqlc.ListProviderJobsParams
-	work    sqlc.GetProviderWorkRow
-	job     sqlc.GetProviderJobRow
-	err     error
+	list     []sqlc.ListProviderWorkRow
+	listed   sqlc.ListProviderWorkParams
+	jobs     []sqlc.ListProviderJobsRow
+	jobsAsk  sqlc.ListProviderJobsParams
+	work     sqlc.GetProviderWorkRow
+	job      sqlc.GetProviderJobRow
+	jobCred  []sqlc.ListJobCreditedApplicationsRow
+	peerCred []sqlc.ListPeerCreditedApplicationsRow
+	err      error
 }
 
 func (f *fakeQueries) ListProviderWork(
@@ -57,6 +59,18 @@ func (f *fakeQueries) GetProviderJob(
 	context.Context, sqlc.GetProviderJobParams,
 ) (sqlc.GetProviderJobRow, error) {
 	return f.job, f.err
+}
+
+func (f *fakeQueries) ListJobCreditedApplications(
+	context.Context, sqlc.ListJobCreditedApplicationsParams,
+) ([]sqlc.ListJobCreditedApplicationsRow, error) {
+	return f.jobCred, f.err
+}
+
+func (f *fakeQueries) ListPeerCreditedApplications(
+	context.Context, sqlc.ListPeerCreditedApplicationsParams,
+) ([]sqlc.ListPeerCreditedApplicationsRow, error) {
+	return f.peerCred, f.err
 }
 
 func uuid(t *testing.T, value string) pgtype.UUID {

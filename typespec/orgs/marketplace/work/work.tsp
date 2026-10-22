@@ -17,7 +17,9 @@ import "../../applications/applications.tsp";
 import "../../hiring/vocabulary.tsp";
 import "../../openings/types.tsp";
 import "../../operations/operations.tsp";
+import "../attribution.tsp";
 import "../capabilities.tsp";
+import "../contacts/contacts.tsp";
 import "../engagements.tsp";
 
 using TypeSpec.Http;
@@ -125,13 +127,30 @@ model Job {
   client: EngagementCounterparty;
   opening: WorkOpening;
   state: Vetchium.Orgs.Openings.OpeningState;
+  credited_count: int32;
   assigned_at: utcDateTime;
+}
+
+model JobCreditedApplication {
+  application_number: Vetchium.Orgs.Applications.ApplicationNumber;
+  route: ReferralRoute;
+  status: Vetchium.Hub.Applications.ApplicationStatus;
+  applied_at: utcDateTime;
+}
+
+model JobSuggestedContact {
+  contact_id: Contacts.ContactID;
+  display_name: Vetchium.DisplayName;
+  handle: Vetchium.Hub.HubHandle;
+  suggested_at: utcDateTime;
 }
 
 /** The Opening's live content, as Hub users see a published one. */
 model JobDetail {
   job: Job;
   content: Vetchium.OpeningContent;
+  credited_applications: JobCreditedApplication[];
+  suggested_contacts: JobSuggestedContact[];
 }
 
 model JobReference {

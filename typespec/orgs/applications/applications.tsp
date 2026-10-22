@@ -16,6 +16,7 @@ import "../../problem/orgs/suspension.tsp";
 import "../hiring/pipelines.tsp";
 import "../hiring/vocabulary.tsp";
 import "../marketplace/assignments.tsp";
+import "../marketplace/attribution.tsp";
 import "../openings/types.tsp";
 
 using TypeSpec.Http;
@@ -316,6 +317,12 @@ model ApplicationSummary {
   /** The provider performing the current stage; absent when in-house. */
   route?: Vetchium.Orgs.Marketplace.ApplicationRoute;
 
+  /** The agency credited with the application; absent when uncredited. */
+  credited_agency?: Vetchium.Orgs.Marketplace.CreditedAgency;
+
+  /** The route of the credit: suggested by the agency or declared by the applicant. */
+  referral_route?: Vetchium.Orgs.Marketplace.ReferralRoute;
+
   submitted_at: utcDateTime;
   updated_at: utcDateTime;
 }
@@ -487,6 +494,12 @@ model ApplicationDetail {
   /** The provider performing the current stage; absent when in-house. */
   route?: Vetchium.Orgs.Marketplace.ApplicationRoute;
 
+  /** The agency credited with the application; absent when uncredited. */
+  credited_agency?: Vetchium.Orgs.Marketplace.CreditedAgency;
+
+  /** The route of the credit: suggested by the agency or declared by the applicant. */
+  referral_route?: Vetchium.Orgs.Marketplace.ReferralRoute;
+
   /** The candidacy's stages in pipeline order; empty before shortlisting. */
   stage_records: ApplicationStageRecord[];
 
@@ -599,6 +612,9 @@ model ListApplicationsRequest {
 
   /** Candidates view only: candidacies routed to this engagement. */
   routed_engagement_id?: Vetchium.Orgs.Marketplace.EngagementID;
+
+  credited_agency_domain?: Vetchium.Orgs.OrgDomain;
+  referral_route?: Vetchium.Orgs.Marketplace.ReferralRoute;
 
   pagination_key?: Vetchium.PaginationKey;
 

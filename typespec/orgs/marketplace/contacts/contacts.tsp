@@ -145,7 +145,14 @@ model ContactSummary {
   note_count: int32;
   has_conversation: boolean;
   unread_messages_count: int32;
+  credited_count: int32;
   last_activity_at: utcDateTime;
+}
+
+model ContactOpeningSuggestion {
+  consumer_domain: Vetchium.Orgs.OrgDomain;
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  suggested_at: utcDateTime;
 }
 
 model Contact {
@@ -153,6 +160,8 @@ model Contact {
 
   /** The email address of the agency user who created the Contact. */
   created_by: Vetchium.EmailAddress;
+
+  suggested_openings: ContactOpeningSuggestion[];
 
   created_at: utcDateTime;
 }

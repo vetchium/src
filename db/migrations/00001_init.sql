@@ -2510,12 +2510,19 @@ CREATE TABLE vetchium.org_applications (
     -- Every projection event rewrites it; the refresh job re-reports the
     -- application once it passes.
     hub_refresh_at timestamptz,
+    -- One sourcing engagement may be credited with the application (MKT-SRC-001).
+    credited_engagement_id uuid REFERENCES vetchium.org_engagements
+        (engagement_id) ON DELETE SET NULL,
+    referral_route text CHECK (referral_route IS NULL OR referral_route IN ('suggested', 'declared')),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT org_applications_number_key
         UNIQUE (org_opening_id, application_number),
     CONSTRAINT org_applications_applicant_key
         UNIQUE (org_opening_id, org_applicant_id),
+    CONSTRAINT org_applications_referral_check CHECK (
+        (credited_engagement_id IS NULL) = (referral_route IS NULL)
+    ),
     CONSTRAINT org_applications_snapshot_check CHECK (
         jsonb_typeof(snapshot) = 'object'
         AND jsonb_typeof(snapshot -> 'display_name') = 'string'
@@ -2551,6 +2558,9 @@ CREATE TABLE vetchium.org_applications (
 CREATE INDEX org_applications_stage_idx
     ON vetchium.org_applications (current_stage_id)
     WHERE current_stage_id IS NOT NULL;
+CREATE INDEX org_applications_credited_engagement_idx
+    ON vetchium.org_applications (credited_engagement_id)
+    WHERE credited_engagement_id IS NOT NULL;
 CREATE INDEX org_applications_hub_refresh_idx
     ON vetchium.org_applications (hub_refresh_at)
     WHERE hub_refresh_at IS NOT NULL;

@@ -16,12 +16,18 @@ import type { PipelineStage, PipelineStageID } from "../hiring/pipelines.ts";
 import { isPipelineStageID } from "../hiring/pipelines.ts";
 import { type CheckType, isCheckType } from "../hiring/vocabulary.ts";
 import type { ApplicationRoute } from "../marketplace/assignments.ts";
+import {
+  type CreditedAgency,
+  isReferralRoute,
+  type ReferralRoute,
+} from "../marketplace/attribution.ts";
 import type {
   EngagementCounterparty,
   EngagementID,
 } from "../marketplace/engagements.ts";
 import { isEngagementID } from "../marketplace/engagements.ts";
 import type { OpeningNumber } from "../openings/types.ts";
+import { isOrgDomain, normalizeOrgDomain, type OrgDomain } from "../types.ts";
 
 /** The most code points an application's cover note holds. */
 export const maxCoverNote = 5000;
@@ -425,6 +431,10 @@ export interface ApplicationSummary {
   current_stage?: PipelineStage;
   /** The provider performing the current stage; absent in-house. */
   route?: ApplicationRoute;
+  /** The agency credited with the application; absent when uncredited. */
+  credited_agency?: CreditedAgency;
+  /** The route of the credit: suggested by the agency or declared by the applicant. */
+  referral_route?: ReferralRoute;
   submitted_at: string;
   updated_at: string;
 }
@@ -533,6 +543,10 @@ export interface ApplicationDetail {
   current_stage?: PipelineStage;
   /** The provider performing the current stage; absent in-house. */
   route?: ApplicationRoute;
+  /** The agency credited with the application; absent when uncredited. */
+  credited_agency?: CreditedAgency;
+  /** The route of the credit: suggested by the agency or declared by the applicant. */
+  referral_route?: ReferralRoute;
   stage_records: ApplicationStageRecord[];
   joined_on?: CalendarDate;
   separated_on?: CalendarDate;
@@ -586,6 +600,8 @@ export interface ListApplicationsRequest {
   pending_applicant_action?: PendingApplicantAction;
   /** Candidates view only: candidacies routed to this engagement. */
   routed_engagement_id?: EngagementID;
+  credited_agency_domain?: OrgDomain;
+  referral_route?: ReferralRoute;
   pagination_key?: PaginationKey;
   limit?: PageSize;
 }
@@ -593,12 +609,16 @@ export interface ListApplicationsRequest {
 export function normalizeListApplicationsRequest(
   request: ListApplicationsRequest,
 ): ListApplicationsRequest {
-  return request.name_query === undefined
-    ? request
-    : {
-        ...request,
-        name_query: normalizeApplicantNameQuery(request.name_query),
-      };
+  const { name_query, credited_agency_domain, ...rest } = request;
+  return {
+    ...rest,
+    ...(name_query !== undefined
+      ? { name_query: normalizeApplicantNameQuery(name_query) }
+      : {}),
+    ...(credited_agency_domain !== undefined
+      ? { credited_agency_domain: normalizeOrgDomain(credited_agency_domain) }
+      : {}),
+  };
 }
 
 export function effectiveListApplicationsLimit(
@@ -660,6 +680,18 @@ export function validateListApplicationsRequest(
     (!candidates || !isEngagementID(request.routed_engagement_id))
   ) {
     fields.push("routed_engagement_id");
+  }
+  if (
+    request.credited_agency_domain !== undefined &&
+    !isOrgDomain(request.credited_agency_domain)
+  ) {
+    fields.push("credited_agency_domain");
+  }
+  if (
+    request.referral_route !== undefined &&
+    !isReferralRoute(request.referral_route)
+  ) {
+    fields.push("referral_route");
   }
   if (
     request.pagination_key !== undefined &&

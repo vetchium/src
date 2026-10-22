@@ -1,6 +1,6 @@
 # Hiring and marketplace build progress
 
-current: T24
+current: T25
 phase: implement
 
 ## Tasks
@@ -28,7 +28,7 @@ T20 done Marketplace: Assignment and routing
 T21 done Marketplace: Provider access, stage work, Work queue, and Jobs
 T22 done Marketplace: Agency Contacts, notes, and profile view
 T23 done Marketplace: Agency conversations and Hub messages
-T24 todo Marketplace: Sourcing attribution and credited applications
+T24 done Marketplace: Sourcing attribution and credited applications
 T25 todo Marketplace: Activity statements
 T26 todo Marketplace: Orgs portal Find providers, engagements, and routing
 T27 todo Marketplace: Orgs portal Listings, Clients, and Work queue

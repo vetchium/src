@@ -148,11 +148,19 @@ export interface ContactSummary {
   note_count: number;
   has_conversation: boolean;
   unread_messages_count: number;
+  credited_count: number;
   last_activity_at: string;
+}
+
+export interface ContactOpeningSuggestion {
+  consumer_domain: OrgDomain;
+  opening_number: OpeningNumber;
+  suggested_at: string;
 }
 
 export interface Contact extends ContactSummary {
   created_by: EmailAddress;
+  suggested_openings: ContactOpeningSuggestion[];
   created_at: string;
 }
 

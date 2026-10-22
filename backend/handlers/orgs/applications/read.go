@@ -95,6 +95,27 @@ func routeFrom(
 	}
 }
 
+func creditedAgencyFrom(
+	engagementID pgtype.UUID, domain, displayName pgtype.Text,
+) *marketplace.CreditedAgency {
+	if !engagementID.Valid {
+		return nil
+	}
+	return &marketplace.CreditedAgency{
+		EngagementID: marketplace.EngagementID(dbvalue.FormatUUID(engagementID)),
+		Domain:       orgs.OrgDomain(domain.String),
+		DisplayName:  common.DisplayName(displayName.String),
+	}
+}
+
+func referralRouteFrom(route pgtype.Text) *marketplace.ReferralRoute {
+	if !route.Valid {
+		return nil
+	}
+	r := marketplace.ReferralRoute(route.String)
+	return &r
+}
+
 func ListApplications(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request applications.ListApplicationsRequest
@@ -143,6 +164,12 @@ func ListApplications(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		if request.PendingApplicantAction != nil {
 			params.PendingAction = dbvalue.Text(string(*request.PendingApplicantAction))
+		}
+		if request.CreditedAgencyDomain != nil {
+			params.CreditedAgencyDomain = dbvalue.Text(string(*request.CreditedAgencyDomain))
+		}
+		if request.ReferralRoute != nil {
+			params.ReferralRoute = dbvalue.Text(string(*request.ReferralRoute))
 		}
 		if request.PaginationKey != nil {
 			payload, valid := credentials.VerifySignedValue(
@@ -194,8 +221,10 @@ func ListApplications(s *orgsruntime.Server) http.HandlerFunc {
 					CurrentStage:      stagePointer(row.StageID, row.StageName, row.StageKind),
 					Route: routeFrom(row.RouteEngagementID, row.RouteDomain,
 						row.RouteDisplayName, row.RouteCapability, row.RouteRoutedAt),
-					SubmittedAt: row.CreatedAt.Time.UTC(),
-					UpdatedAt:   row.UpdatedAt.Time.UTC(),
+					CreditedAgency: creditedAgencyFrom(row.CreditedEngagementID, row.CreditedProviderDomain, row.CreditedProviderDisplayName),
+					ReferralRoute:  referralRouteFrom(row.ReferralRoute),
+					SubmittedAt:    row.CreatedAt.Time.UTC(),
+					UpdatedAt:      row.UpdatedAt.Time.UTC(),
 				})
 		}
 		if hasMore {
@@ -287,12 +316,14 @@ func buildDetail(
 		CurrentStage:      stagePointer(row.StageID, row.StageName, row.StageKind),
 		Route: routeFrom(row.RouteEngagementID, row.RouteDomain,
 			row.RouteDisplayName, row.RouteCapability, row.RouteRoutedAt),
-		JoinedOn:    calendarDate(row.JoinedOn),
-		SeparatedOn: calendarDate(row.SeparatedOn),
-		Positions:   row.Positions,
-		JoinedCount: row.JoinedCount,
-		SubmittedAt: row.CreatedAt.Time.UTC(),
-		UpdatedAt:   row.UpdatedAt.Time.UTC(),
+		CreditedAgency: creditedAgencyFrom(row.CreditedEngagementID, row.CreditedProviderDomain, row.CreditedProviderDisplayName),
+		ReferralRoute:  referralRouteFrom(row.ReferralRoute),
+		JoinedOn:       calendarDate(row.JoinedOn),
+		SeparatedOn:    calendarDate(row.SeparatedOn),
+		Positions:      row.Positions,
+		JoinedCount:    row.JoinedCount,
+		SubmittedAt:    row.CreatedAt.Time.UTC(),
+		UpdatedAt:      row.UpdatedAt.Time.UTC(),
 	}
 	if row.CoverNote.Valid {
 		note := applications.ApplicationCoverNote(row.CoverNote.String)

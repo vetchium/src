@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
+	directoryspec "github.com/vetchium/src/typespec/directory"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
@@ -25,6 +26,7 @@ import (
 	"backend/internal/applicationview"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
+	"backend/internal/hubapplications"
 )
 
 // ErrNotFound is the one answer for work the provider may not reach.
@@ -206,14 +208,17 @@ func jobOf(
 	engagementID pgtype.UUID, domain, displayName string,
 	number int32, title string, country pgtype.Text,
 	state sqlc.VetchiumOrgOpeningState, assigned time.Time,
+	creditedCount int32,
 ) work.Job {
 	job := work.Job{
 		EngagementID: marketplace.EngagementID(dbvalue.FormatUUID(engagementID)),
 		Client: marketplace.EngagementCounterparty{
 			Domain: orgs.OrgDomain(domain), DisplayName: displayName,
 		},
-		Opening: work.WorkOpening{Number: openings.OpeningNumber(number), Title: title},
-		State:   openings.OpeningState(state), AssignedAt: assigned.UTC(),
+		Opening:       work.WorkOpening{Number: openings.OpeningNumber(number), Title: title},
+		State:         openings.OpeningState(state),
+		AssignedAt:    assigned.UTC(),
+		CreditedCount: creditedCount,
 	}
 	if country.Valid {
 		code := common.CountryCode(country.String)
@@ -263,7 +268,8 @@ func (r Reader) ListJobs(
 			},
 			Job: jobOf(row.EngagementID, row.ConsumerDomain,
 				row.ConsumerDisplayName, row.OpeningNumber, row.OpeningTitle,
-				row.EmployingCountry, row.OpeningState, row.AssignedAt.Time),
+				row.EmployingCountry, row.OpeningState, row.AssignedAt.Time,
+				row.CreditedCount),
 		})
 	}
 	return response, nil
@@ -291,14 +297,100 @@ func (r Reader) GetJob(
 	if err != nil {
 		return work.JobDetail{}, fmt.Errorf("get provider job: %w", err)
 	}
-	detail := work.JobDetail{Job: jobOf(row.EngagementID,
-		row.ConsumerDomain, row.ConsumerDisplayName, row.OpeningNumber,
-		row.OpeningTitle, row.EmployingCountry, row.OpeningState,
-		row.AssignedAt.Time)}
+	detail := work.JobDetail{
+		Job: jobOf(row.EngagementID,
+			row.ConsumerDomain, row.ConsumerDisplayName, row.OpeningNumber,
+			row.OpeningTitle, row.EmployingCountry, row.OpeningState,
+			row.AssignedAt.Time, row.CreditedCount),
+		CreditedApplications: make([]work.JobCreditedApplication, 0),
+		SuggestedContacts:    make([]work.JobSuggestedContact, 0),
+	}
 	if len(row.LiveContent) > 0 {
 		if err := json.Unmarshal(row.LiveContent, &detail.Content); err != nil {
 			return work.JobDetail{}, fmt.Errorf("decode job content: %w", err)
 		}
 	}
+	appRows, err := r.Queries.ListJobCreditedApplications(ctx, sqlc.ListJobCreditedApplicationsParams{
+		EngagementID:   engagementID,
+		ProviderOrgDid: provider,
+		OpeningNumber:  int32(request.OpeningNumber),
+	})
+	if err != nil {
+		return work.JobDetail{}, fmt.Errorf("list job credited applications: %w", err)
+	}
+	for _, appRow := range appRows {
+		status, err := hubapplications.Status(appRow.ApplicationState, appRow.CurrentStageKind)
+		if err != nil {
+			return work.JobDetail{}, fmt.Errorf("derive credited application status: %w", err)
+		}
+		detail.CreditedApplications = append(detail.CreditedApplications, work.JobCreditedApplication{
+			ApplicationNumber: applications.ApplicationNumber(appRow.ApplicationNumber),
+			Route:             marketplace.ReferralRoute(appRow.ReferralRoute),
+			Status:            status,
+			AppliedAt:         appRow.AppliedAt.Time.UTC(),
+		})
+	}
 	return detail, nil
+}
+
+// ListCreditedApplications reads credited applications for one provider across its sourcing engagements.
+func (r Reader) ListCreditedApplications(
+	ctx context.Context, request work.PeerListCreditedApplicationsRequest,
+) (work.PeerListCreditedApplicationsResponse, error) {
+	provider, err := dbvalue.ParseUUID(string(request.ProviderOrgDID))
+	if err != nil {
+		return work.PeerListCreditedApplicationsResponse{}, err
+	}
+	params := sqlc.ListPeerCreditedApplicationsParams{
+		ProviderOrgDid: provider,
+		PageLimit:      int32(request.Limit),
+	}
+	if request.ClientDomain != nil {
+		params.ClientDomain = dbvalue.Text(string(*request.ClientDomain))
+	}
+	if request.OpeningNumber != nil {
+		params.OpeningNumber = pgtype.Int4{Int32: int32(*request.OpeningNumber), Valid: true}
+	}
+	if request.Route != nil {
+		params.ReferralRoute = dbvalue.Text(string(*request.Route))
+	}
+	rows, err := r.Queries.ListPeerCreditedApplications(ctx, params)
+	if err != nil {
+		return work.PeerListCreditedApplicationsResponse{}, fmt.Errorf("list peer credited applications: %w", err)
+	}
+	items := make([]work.CreditedApplicationSummary, 0, len(rows))
+	for _, row := range rows {
+		status, err := hubapplications.Status(row.ApplicationState, row.CurrentStageKind)
+		if err != nil {
+			return work.PeerListCreditedApplicationsResponse{}, fmt.Errorf("derive status: %w", err)
+		}
+		if request.Status != nil && status != *request.Status {
+			continue
+		}
+		item := work.CreditedApplicationSummary{
+			EngagementID: marketplace.EngagementID(dbvalue.FormatUUID(row.EngagementID)),
+			Client: marketplace.EngagementCounterparty{
+				Domain:      orgs.OrgDomain(row.ConsumerDomain),
+				DisplayName: row.ConsumerDisplayName,
+			},
+			Opening: work.WorkOpening{
+				Number: openings.OpeningNumber(row.OpeningNumber),
+				Title:  row.OpeningTitle,
+			},
+			ApplicationNumber: applications.ApplicationNumber(row.ApplicationNumber),
+			Route:             marketplace.ReferralRoute(row.ReferralRoute),
+			Status:            status,
+			AppliedAt:         row.AppliedAt.Time.UTC(),
+		}
+		if row.EmployingCountry.Valid {
+			code := common.CountryCode(row.EmployingCountry.String)
+			item.Opening.EmployingCountry = &code
+		}
+		if row.ApplicantDid.Valid {
+			did := directoryspec.PrincipalDID(dbvalue.FormatUUID(row.ApplicantDid))
+			item.ApplicantDID = &did
+		}
+		items = append(items, item)
+	}
+	return work.PeerListCreditedApplicationsResponse{Items: items}, nil
 }

@@ -27,3 +27,11 @@ export const ApplicationStateConflictError: Readonly<Details> = {
   status: 409,
   detail: "The application's current state does not allow this action",
 };
+
+export const ReferralAgencyNotEligibleError: Readonly<Details> = {
+  type: "vetchium-problem-details/hub-referral-agency-not-eligible",
+  title: "Referral agency not eligible",
+  status: 422,
+  detail:
+    "The named domain is not the primary domain of an agency assigned to the Opening",
+};

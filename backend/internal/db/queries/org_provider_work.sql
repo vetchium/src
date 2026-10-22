@@ -499,7 +499,14 @@ WHERE rt.route_id = sqlc.arg(work_id)
 SELECT asg.assignment_id, eng.engagement_id,
     snap.consumer_domain, snap.consumer_display_name,
     o.opening_number, COALESCE(c.title, '')::text AS opening_title,
-    c.employing_country, o.opening_state, asg.assigned_at
+    c.employing_country, o.opening_state, asg.assigned_at,
+    (
+        SELECT count(*)
+        FROM vetchium.org_applications AS a
+        WHERE a.org_opening_id = o.org_opening_id
+          AND a.credited_engagement_id = eng.engagement_id
+          AND a.removed_at IS NULL
+    )::integer AS credited_count
 FROM vetchium.org_engagement_assignments AS asg
 JOIN vetchium.org_engagements AS eng ON eng.engagement_id = asg.engagement_id
 JOIN vetchium.org_engagement_snapshots AS snap
@@ -529,6 +536,13 @@ SELECT asg.assignment_id, eng.engagement_id,
     o.opening_number,
     COALESCE(c.title, '')::text AS opening_title,
     c.employing_country, o.opening_state, asg.assigned_at,
+    (
+        SELECT count(*)
+        FROM vetchium.org_applications AS a
+        WHERE a.org_opening_id = o.org_opening_id
+          AND a.credited_engagement_id = eng.engagement_id
+          AND a.removed_at IS NULL
+    )::integer AS credited_count,
     (
         SELECT jsonb_strip_nulls(jsonb_build_object(
             'title', lc.title,
@@ -594,3 +608,69 @@ WHERE NOT EXISTS (
       AND ep.permission = 'org:fulfil_engagements'
 )
 ORDER BY wanted.email_address;
+
+-- The applications credited to this sourcing engagement on this opening.
+-- name: ListJobCreditedApplications :many
+SELECT a.application_number,
+    COALESCE(a.referral_route, '')::text AS referral_route,
+    a.application_state,
+    st.stage_kind AS current_stage_kind,
+    a.created_at AS applied_at
+FROM vetchium.org_applications AS a
+JOIN vetchium.org_openings AS o ON o.org_opening_id = a.org_opening_id
+JOIN vetchium.org_engagements AS eng ON eng.engagement_id = a.credited_engagement_id
+LEFT JOIN vetchium.org_opening_stages AS st ON st.org_opening_stage_id = a.current_stage_id
+WHERE eng.engagement_id = sqlc.arg(engagement_id)
+  AND eng.provider_org_did = sqlc.arg(provider_org_did)
+  AND eng.engagement_state = 'active'
+  AND o.org_did = eng.consumer_org_did
+  AND o.opening_number = sqlc.arg(opening_number)::integer
+  AND a.removed_at IS NULL
+ORDER BY a.created_at DESC, a.application_number DESC;
+
+-- Credited applications read by an agency across its sourcing engagements.
+-- name: ListPeerCreditedApplications :many
+SELECT a.org_application_id, a.application_number,
+    COALESCE(a.referral_route, '')::text AS referral_route,
+    a.application_state, a.current_stage_id,
+    st.stage_kind AS current_stage_kind,
+    a.created_at AS applied_at,
+    eng.engagement_id,
+    snap.consumer_domain, snap.consumer_display_name,
+    o.opening_number, COALESCE(c.title, '')::text AS opening_title,
+    c.employing_country,
+    app.hub_user_did AS applicant_did
+FROM vetchium.org_applications AS a
+JOIN vetchium.org_openings AS o ON o.org_opening_id = a.org_opening_id
+JOIN vetchium.org_engagements AS eng ON eng.engagement_id = a.credited_engagement_id
+JOIN vetchium.org_engagement_snapshots AS snap
+    ON snap.engagement_id = eng.engagement_id
+JOIN vetchium.org_applicants AS app ON app.org_applicant_id = a.org_applicant_id
+LEFT JOIN vetchium.org_opening_stages AS st ON st.org_opening_stage_id = a.current_stage_id
+LEFT JOIN vetchium.org_opening_contents AS c
+    ON c.org_opening_id = o.org_opening_id AND c.slot = 'live'
+WHERE eng.provider_org_did = sqlc.arg(provider_org_did)
+  AND eng.engagement_state = 'active'
+  AND eng.capability_oid = 'sourcing'
+  AND o.org_did = eng.consumer_org_did
+  AND a.removed_at IS NULL
+  AND (sqlc.narg(client_domain)::text IS NULL
+      OR snap.consumer_domain = sqlc.narg(client_domain)::text)
+  AND (sqlc.narg(opening_number)::integer IS NULL
+      OR o.opening_number = sqlc.narg(opening_number)::integer)
+  AND (sqlc.narg(referral_route)::text IS NULL
+      OR a.referral_route = sqlc.narg(referral_route)::text)
+ORDER BY a.created_at DESC, a.application_number DESC
+LIMIT sqlc.arg(page_limit);
+
+-- Contacts suggested for an Opening by this agency.
+-- name: ListJobSuggestedContacts :many
+SELECT cont.contact_id, cont.display_name, cont.handle, m.sent_at AS suggested_at
+FROM vetchium.org_conversation_messages AS m
+JOIN vetchium.org_conversations AS conv ON conv.conversation_id = m.conversation_id
+JOIN vetchium.org_contacts AS cont ON cont.contact_id = conv.contact_id
+WHERE cont.org_did = sqlc.arg(org_did)
+  AND m.kind = 'suggestion'
+  AND m.consumer_domain = sqlc.arg(consumer_domain)::text
+  AND m.opening_number = sqlc.arg(opening_number)::integer
+ORDER BY m.sent_at DESC, cont.contact_id DESC;

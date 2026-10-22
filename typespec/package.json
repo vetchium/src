@@ -129,6 +129,7 @@
     "./orgs/marketplace/contacts/federation": "./orgs/marketplace/contacts/federation.ts",
     "./orgs/marketplace/work/federation": "./orgs/marketplace/work/federation.ts",
     "./orgs/marketplace/work/work": "./orgs/marketplace/work/work.ts",
+    "./orgs/marketplace/attribution": "./orgs/marketplace/attribution.ts",
     "./admin/ai-usage/usage": "./admin/ai-usage/usage.ts",
     "./problem/orgs/ai": "./problem/orgs/ai.ts",
     "./problem/admin/ai-usage": "./problem/admin/ai-usage.ts",

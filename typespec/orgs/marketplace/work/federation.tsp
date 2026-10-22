@@ -5,6 +5,7 @@ import "../../../directory/directory.tsp";
 import "../../../problem/common.tsp";
 import "../../../problem/global-coordinator/authentication.tsp";
 import "../../../problem/orgs/marketplace.tsp";
+import "../attribution.tsp";
 import "./work.tsp";
 
 using TypeSpec.Http;
@@ -221,5 +222,56 @@ interface ProviderJobsPeerOperations {
       }
     | PeerWorkReadErrors
     | Vetchium.Problem.OrgEngagementWorkNotFoundErrorResponse
+    | Vetchium.Problem.MeshPeerAuthenticationRequiredErrorResponse;
+}
+
+model PeerListCreditedApplicationsRequest {
+  provider_org_did: Vetchium.Orgs.OrgDID;
+  client_domain?: Vetchium.Orgs.OrgDomain;
+  opening_number?: Vetchium.Orgs.Openings.OpeningNumber;
+  route?: ReferralRoute;
+  status?: Vetchium.Hub.Applications.ApplicationStatus;
+  limit: WorkPageSize;
+}
+
+model PeerListCreditedApplicationsResponse {
+  items: CreditedApplicationSummary[];
+}
+
+model RelayListCreditedApplicationsRequest {
+  tenant: Vetchium.Directory.TenantID;
+  request: PeerListCreditedApplicationsRequest;
+}
+
+@route("/mesh/provider-attribution")
+@tag("Tenant-local provider attribution relay")
+@useAuth(BearerAuth)
+interface ProviderAttributionRelayOperations {
+  @route("/list")
+  @post
+  list(@body request: RelayListCreditedApplicationsRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: PeerListCreditedApplicationsResponse;
+      }
+    | PeerWorkReadErrors
+    | Vetchium.Problem.OrgTenantUnavailableErrorResponse
+    | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+}
+
+@route("/api/mesh/provider-attribution")
+@tag("Authenticated peer provider attribution read")
+@useAuth(Vetchium.Authentication.MutualTLSAuth)
+interface ProviderAttributionPeerOperations {
+  @route("/list")
+  @post
+  list(@body request: PeerListCreditedApplicationsRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: PeerListCreditedApplicationsResponse;
+      }
+    | PeerWorkReadErrors
     | Vetchium.Problem.MeshPeerAuthenticationRequiredErrorResponse;
 }

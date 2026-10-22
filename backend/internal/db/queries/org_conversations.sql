@@ -215,6 +215,6 @@ SELECT EXISTS (
     SELECT 1 FROM vetchium.org_engagement_projections
     WHERE provider_org_did = sqlc.arg(provider_org_did)
       AND consumer_domain = sqlc.arg(consumer_domain)
-      AND capability_oid = '1.3.6.1.4.1.61453.1.1'
+      AND capability_oid = 'sourcing'
       AND engagement_state = 'active'
 ) AS is_active;

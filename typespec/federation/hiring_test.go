@@ -34,12 +34,17 @@ func TestHubApplyPayloadNormalizesWithoutMutatingTheCaller(t *testing.T) {
 	note := applications.ApplicationCoverNote("  hello ")
 	payload := validPayload()
 	payload.CoverNote = &note
+	payload.Referral = &ApplicationReferral{
+		AgencyDomain: " Agency.COM ",
+		Route:        "suggested",
+	}
 	normalized := payload
 	normalized.Normalize()
-	if *normalized.CoverNote != "hello" || normalized.Snapshot.Websites == nil {
+	if *normalized.CoverNote != "hello" || normalized.Snapshot.Websites == nil ||
+		normalized.Referral.AgencyDomain != "agency.com" {
 		t.Fatalf("unexpected normalization: %+v", normalized)
 	}
-	if note != "  hello " || payload.Snapshot.Websites != nil {
+	if note != "  hello " || payload.Snapshot.Websites != nil || payload.Referral.AgencyDomain != " Agency.COM " {
 		t.Fatal("normalization mutated the caller's values")
 	}
 	blank := applications.ApplicationCoverNote("   ")
@@ -61,8 +66,9 @@ func TestHubApplyPayloadValidation(t *testing.T) {
 	exact := applications.ApplicationCoverNote(strings.Repeat("é", 5000))
 	bad := validPayload()
 	bad.OpeningNumber, bad.ApplicantDID, bad.CoverNote = 0, "x", &long
+	bad.Referral = &ApplicationReferral{AgencyDomain: "bad domain", Route: "unknown"}
 	bad.Snapshot.DisplayName = ""
-	want := []string{"opening_number", "applicant_did", "cover_note", "snapshot.display_name"}
+	want := []string{"opening_number", "applicant_did", "referral.agency_domain", "referral.route", "cover_note", "snapshot.display_name"}
 	if got := bad.Validate(); !slices.Equal(got, want) {
 		t.Fatalf("fields = %v, want %v", got, want)
 	}

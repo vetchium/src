@@ -80,8 +80,12 @@ func ViewHubProfile(s *orgsruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "read Contact", err)
 			return
 		default:
+			credited := creditedCountForHubUser(r.Context(), s, identity.OrgDID, hubDID)
+			if row.CreditedCount > credited {
+				credited = row.CreditedCount
+			}
 			found := summary(row.ContactID, row.DisplayName, row.Handle,
-				row.MessagesOff, row.LastActivityAt, row.NoteCount)
+				row.MessagesOff, row.LastActivityAt, row.NoteCount, credited)
 			if refreshed, err := refreshNames(s, r, identity, row, read); err != nil {
 				s.InternalError(r.Context(), w, "refresh Contact names", err)
 				return

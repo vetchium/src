@@ -30,19 +30,37 @@ SELECT c.contact_id, c.display_name, c.handle, c.messages_off,
     (SELECT count(*) FROM vetchium.org_contact_notes AS n
      WHERE n.contact_id = c.contact_id)::integer AS note_count,
     (conv.conversation_id IS NOT NULL) AS has_conversation,
-    CASE WHEN conv.agency_unread THEN 1 ELSE 0 END::integer AS unread_messages_count
+    CASE WHEN conv.agency_unread THEN 1 ELSE 0 END::integer AS unread_messages_count,
+    (
+        SELECT count(*)
+        FROM vetchium.org_applications AS a
+        JOIN vetchium.org_engagements AS eng ON eng.engagement_id = a.credited_engagement_id
+        JOIN vetchium.org_applicants AS app ON app.org_applicant_id = a.org_applicant_id
+        WHERE eng.provider_org_did = c.org_did
+          AND app.hub_user_did = c.hub_user_did
+          AND a.removed_at IS NULL
+    )::integer AS credited_count
 FROM vetchium.org_contacts AS c
 LEFT JOIN vetchium.org_conversations AS conv ON conv.contact_id = c.contact_id
 WHERE c.org_did = sqlc.arg(org_did)
   AND c.hub_user_did = sqlc.arg(hub_user_did);
 
 -- name: GetOrgContact :one
-SELECT c.contact_id, c.display_name, c.handle, c.messages_off,
+SELECT c.contact_id, c.hub_user_did, c.display_name, c.handle, c.messages_off,
     c.last_activity_at, c.created_at, u.email_address AS created_by,
     (SELECT count(*) FROM vetchium.org_contact_notes AS n
      WHERE n.contact_id = c.contact_id)::integer AS note_count,
     (conv.conversation_id IS NOT NULL) AS has_conversation,
-    CASE WHEN conv.agency_unread THEN 1 ELSE 0 END::integer AS unread_messages_count
+    CASE WHEN conv.agency_unread THEN 1 ELSE 0 END::integer AS unread_messages_count,
+    (
+        SELECT count(*)
+        FROM vetchium.org_applications AS a
+        JOIN vetchium.org_engagements AS eng ON eng.engagement_id = a.credited_engagement_id
+        JOIN vetchium.org_applicants AS app ON app.org_applicant_id = a.org_applicant_id
+        WHERE eng.provider_org_did = c.org_did
+          AND app.hub_user_did = c.hub_user_did
+          AND a.removed_at IS NULL
+    )::integer AS credited_count
 FROM vetchium.org_contacts AS c
 JOIN vetchium.org_users AS u ON u.org_user_id = c.created_by
 LEFT JOIN vetchium.org_conversations AS conv ON conv.contact_id = c.contact_id
@@ -50,12 +68,21 @@ WHERE c.org_did = sqlc.arg(org_did)
   AND c.contact_id = sqlc.arg(contact_id);
 
 -- name: ListOrgContacts :many
-SELECT c.contact_id, c.display_name, c.handle, c.messages_off,
+SELECT c.contact_id, c.hub_user_did, c.display_name, c.handle, c.messages_off,
     c.last_activity_at,
     (SELECT count(*) FROM vetchium.org_contact_notes AS n
      WHERE n.contact_id = c.contact_id)::integer AS note_count,
     (conv.conversation_id IS NOT NULL) AS has_conversation,
-    CASE WHEN conv.agency_unread THEN 1 ELSE 0 END::integer AS unread_messages_count
+    CASE WHEN conv.agency_unread THEN 1 ELSE 0 END::integer AS unread_messages_count,
+    (
+        SELECT count(*)
+        FROM vetchium.org_applications AS a
+        JOIN vetchium.org_engagements AS eng ON eng.engagement_id = a.credited_engagement_id
+        JOIN vetchium.org_applicants AS app ON app.org_applicant_id = a.org_applicant_id
+        WHERE eng.provider_org_did = c.org_did
+          AND app.hub_user_did = c.hub_user_did
+          AND a.removed_at IS NULL
+    )::integer AS credited_count
 FROM vetchium.org_contacts AS c
 LEFT JOIN vetchium.org_conversations AS conv ON conv.contact_id = c.contact_id
 WHERE c.org_did = sqlc.arg(org_did)
@@ -583,3 +610,30 @@ FROM vetchium.hub_professional_emails AS e
 WHERE e.hub_user_did = sqlc.arg(hub_user_did)
   AND e.last_verified_at IS NOT NULL
 ORDER BY e.last_verified_at DESC, e.professional_email_id;
+
+-- name: ListContactOpeningSuggestions :many
+SELECT COALESCE(m.consumer_domain, '')::text AS consumer_domain,
+    COALESCE(m.opening_number, 0)::integer AS opening_number,
+    m.sent_at
+FROM vetchium.org_conversation_messages AS m
+JOIN vetchium.org_conversations AS c ON c.conversation_id = m.conversation_id
+WHERE c.contact_id = sqlc.arg(contact_id)
+  AND m.kind = 'suggestion'
+ORDER BY m.sent_at DESC, m.message_id DESC;
+
+-- name: HasHubAgencyPointerSuggestion :one
+SELECT EXISTS (
+    SELECT 1
+    FROM vetchium.hub_agency_pointers AS p,
+         jsonb_array_elements(p.suggestions) AS s
+    WHERE p.hub_user_did = sqlc.arg(hub_user_did)
+      AND p.agency_domain = sqlc.arg(agency_domain)::text
+      AND s->>'consumer_domain' = sqlc.arg(consumer_domain)::text
+      AND s->>'opening_number' = sqlc.arg(opening_number)::text
+) AS has_suggestion;
+
+-- name: ListOrgContactsByHubUsers :many
+SELECT c.contact_id, c.hub_user_did, c.display_name, c.handle
+FROM vetchium.org_contacts AS c
+WHERE c.org_did = sqlc.arg(org_did)
+  AND c.hub_user_did = ANY(sqlc.arg(hub_user_dids)::uuid[]);

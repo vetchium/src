@@ -24,10 +24,15 @@ import {
   isOfferNumber,
   type OfferNumber,
 } from "../orgs/applications/applications.ts";
+import {
+  isReferralRoute,
+  type ReferralRoute,
+} from "../orgs/marketplace/attribution.ts";
 import type { OpeningNumber } from "../orgs/openings/types.ts";
 import {
   isOrgDID,
   isOrgDomain,
+  normalizeOrgDomain,
   type OrgDID,
   type OrgDomain,
 } from "../orgs/types.ts";
@@ -41,9 +46,15 @@ import type { AggregateType, EventKind } from "./events.ts";
  */
 export const HubApplyKind: CommandKind = "hub-apply";
 
+export interface ApplicationReferral {
+  agency_domain: OrgDomain;
+  route: ReferralRoute;
+}
+
 export interface HubApplyPayload {
   opening_number: OpeningNumber;
   applicant_did: HubUserDID;
+  referral?: ApplicationReferral;
   cover_note?: ApplicationCoverNote;
   snapshot: ApplicantSnapshot;
 }
@@ -52,9 +63,19 @@ export interface HubApplyPayload {
 export function normalizeHubApplyPayload(
   payload: HubApplyPayload,
 ): HubApplyPayload {
-  const { cover_note: note, ...rest } = payload;
+  const { cover_note: note, referral, ...rest } = payload;
   const trimmed = note?.trim();
-  return trimmed ? { ...rest, cover_note: trimmed } : rest;
+  const normalizedReferral = referral
+    ? {
+        agency_domain: normalizeOrgDomain(referral.agency_domain),
+        route: referral.route,
+      }
+    : undefined;
+  return {
+    ...rest,
+    ...(trimmed ? { cover_note: trimmed } : {}),
+    ...(normalizedReferral ? { referral: normalizedReferral } : {}),
+  };
 }
 
 export function validateHubApplyPayload(payload: HubApplyPayload): string[] {
@@ -63,6 +84,14 @@ export function validateHubApplyPayload(payload: HubApplyPayload): string[] {
     fields.push("opening_number");
   }
   if (!isHubUserDID(payload.applicant_did)) fields.push("applicant_did");
+  if (payload.referral !== undefined) {
+    if (!isOrgDomain(payload.referral.agency_domain)) {
+      fields.push("referral.agency_domain");
+    }
+    if (!isReferralRoute(payload.referral.route)) {
+      fields.push("referral.route");
+    }
+  }
   if (
     payload.cover_note !== undefined &&
     !isApplicationCoverNote(payload.cover_note)
