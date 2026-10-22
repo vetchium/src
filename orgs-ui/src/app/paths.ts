@@ -19,6 +19,10 @@ export const paths = {
     `/openings/${opening}/applications/${application}`,
   myInterviews: "/my-interviews",
   pipelineTemplates: "/pipeline-templates",
+  findProviders: "/providers",
+  listingDetail: (domain: string, capability: string) =>
+    `/providers/listings/${encodeURIComponent(domain)}/${encodeURIComponent(capability)}`,
+  engagementDetail: (id: string) => `/providers/engagements/${id}`,
   plans: "/plans",
   ai: "/ai",
   settings: "/company",

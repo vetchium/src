@@ -3,7 +3,14 @@ import { useSearchParams } from "react-router";
 import type { PaginationKey } from "typespec/common/pagination";
 
 /** The URL parameters the Applicants and Candidates tabs keep. */
-export const listParams = ["q", "view", "stage", "only", "pending"] as const;
+export const listParams = [
+  "q",
+  "view",
+  "stage",
+  "only",
+  "pending",
+  "routed",
+] as const;
 
 /**
  * One list's filters live in the URL so reload, back, and shared links keep

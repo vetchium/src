@@ -1,0 +1,218 @@
+import { readFile } from "node:fs/promises";
+import { expect, test } from "../lib/admin-fixtures.ts";
+import { orgSQL } from "../lib/orgs-api.ts";
+import { activate, withPair } from "../lib/orgs-marketplace.ts";
+import { assign, candidate, withWorld } from "../lib/orgs-routing.ts";
+import { signIn } from "../lib/orgs-ui.ts";
+import { ORGS_PORTAL } from "../lib/portals.ts";
+import { chooseOption } from "../lib/region-ui.ts";
+
+test.describe.configure({ timeout: 180_000 });
+
+test("finds a provider, inspects listing, and proposes an engagement", async ({
+  page,
+  request,
+}) => {
+  await withPair(
+    request,
+    { capabilities: ["interviewing"] },
+    async ({ consumer, provider }) => {
+      await signIn(page, consumer.org);
+
+      await page.goto(`${ORGS_PORTAL}/providers`);
+      await expect(
+        page.getByRole("heading", { name: "Find providers" }),
+      ).toBeVisible();
+
+      // Switch to Interviewing capability
+      await page.getByText("Interviewing", { exact: true }).click();
+
+      // Provider's listing card is visible
+      await expect(page.getByText(provider.org.domain)).toBeVisible();
+
+      // Click card to open listing detail
+      await page.getByText(provider.org.domain).click();
+      await expect(page).toHaveURL(
+        new RegExp(`/providers/listings/${provider.org.domain}/interviewing`),
+      );
+      await expect(
+        page.getByRole("heading", { name: "Propose engagement" }),
+      ).toBeVisible();
+
+      // Fill proposal form
+      await page
+        .getByLabel("Proposal message")
+        .fill("We would like to partner with your team on interviewing.");
+      await page.getByLabel("Your reference").fill("PO-INT-2026");
+      await page.getByRole("button", { name: "Propose engagement" }).click();
+
+      // Redirects to engagement detail in proposed state
+      await expect(page).toHaveURL(/\/providers\/engagements\/[0-9a-f-]{36}/);
+      await expect(page.getByText("Proposed", { exact: true })).toBeVisible();
+      await expect(page.getByText("PO-INT-2026")).toBeVisible();
+    },
+  );
+});
+
+test("manages an engagement: updates reference, exports statement CSV, and ends engagement", async ({
+  page,
+  request,
+}) => {
+  await withPair(request, { capabilities: ["interviewing"] }, async (pair) => {
+    const engagement = await activate(pair, "interviewing");
+    await signIn(page, pair.consumer.org);
+
+    await page.goto(`${ORGS_PORTAL}/providers`);
+    await page.getByRole("tab", { name: "Your engagements" }).click();
+    await expect(page.getByText(pair.provider.org.domain)).toBeVisible();
+
+    // Navigate to engagement detail
+    await page.goto(`${ORGS_PORTAL}/providers/engagements/${engagement.id}`);
+    await expect(page.getByText("Active", { exact: true })).toBeVisible();
+
+    // Edit reference
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.getByPlaceholder("PO-2026-…").fill("CLIENT-REF-42");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("CLIENT-REF-42")).toBeVisible();
+
+    // Export statement CSV
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Export CSV" }).click();
+    const file = await (await download).path();
+    const content = await readFile(file, "utf8");
+    expect(content).toContain("Event time (UTC)");
+
+    // End engagement with note
+    await page
+      .getByRole("button", { name: "End engagement", exact: true })
+      .click();
+    const modal = page.getByRole("dialog");
+    await expect(modal).toBeVisible();
+    await modal
+      .getByPlaceholder("Reason for ending the engagement…")
+      .fill("Work completed successfully.");
+    await modal
+      .getByRole("button", { name: "End engagement", exact: true })
+      .click();
+    await expect(page.getByText("Ended", { exact: true })).toBeVisible();
+  });
+});
+
+test("assigns and unassigns opening providers and updates pipeline notes", async ({
+  page,
+  request,
+}) => {
+  await withWorld(request, async (world) => {
+    await activate(world.pair, "sourcing");
+    await activate(world.pair, "interviewing");
+
+    await signIn(page, world.pair.consumer.org);
+    const openingNumber = world.opening.opening_number;
+
+    await page.goto(`${ORGS_PORTAL}/openings/${openingNumber}?tab=providers`);
+    await expect(page.getByText("Sourcing agencies")).toBeVisible();
+
+    // Assign sourcing agency
+    await page.getByRole("button", { name: "Assign agency" }).click();
+    const agencyDialog = page.getByRole("dialog");
+    await expect(agencyDialog).toBeVisible();
+    await agencyDialog
+      .getByRole("radio", {
+        name: new RegExp(world.pair.provider.org.domain),
+      })
+      .check();
+    await agencyDialog.getByRole("button", { name: "Assign" }).click();
+    await expect(agencyDialog).toBeHidden();
+    await expect(page.getByText(world.pair.provider.org.domain)).toBeVisible();
+
+    // Assign stage provider to Panel stage
+    const panelCard = page.locator(".ant-card", { hasText: "Panel" });
+    await panelCard.getByRole("button", { name: "Assign provider" }).click();
+    const stageDialog = page.getByRole("dialog");
+    await expect(stageDialog).toBeVisible();
+    await stageDialog
+      .getByRole("radio", {
+        name: new RegExp(world.pair.provider.org.domain),
+      })
+      .check();
+    await stageDialog.getByRole("button", { name: "Assign" }).click();
+    await expect(stageDialog).toBeHidden();
+    await expect(
+      panelCard.getByText(world.pair.provider.org.domain),
+    ).toBeVisible();
+
+    // Pipeline tab reflects provider assignment
+    await page.getByRole("tab", { name: "Pipeline" }).click();
+    await expect(page.getByText("1 provider assigned")).toBeVisible();
+
+    // Remove sourcing agency
+    await page.getByRole("tab", { name: "Providers" }).click();
+    await page
+      .getByRole("button", { name: "Remove", exact: true })
+      .first()
+      .click();
+    const confirmDialog = page.getByRole("dialog");
+    await confirmDialog
+      .getByRole("button", { name: "Remove provider" })
+      .click();
+    await expect(confirmDialog).toBeHidden();
+  });
+});
+
+test("routes an application to a stage provider and displays attribution", async ({
+  page,
+  request,
+}) => {
+  await withWorld(request, async (world) => {
+    const sourcing = await activate(world.pair, "sourcing");
+    const interview = await activate(world.pair, "interviewing");
+
+    await assign(world, sourcing.id);
+    await assign(world, interview.id, world.panel);
+
+    const appDetail = await candidate(world, world.panel, "Katherine Johnson");
+
+    // Set credited agency on candidate application
+    orgSQL(
+      `UPDATE vetchium.org_applications
+       SET credited_engagement_id = '${sourcing.id}'::uuid,
+           referral_route = 'declared'
+       WHERE org_application_id = (
+         SELECT org_application_id FROM vetchium.org_applications AS a
+         JOIN vetchium.org_openings AS o USING (org_opening_id)
+         WHERE o.opening_number = ${world.opening.opening_number}
+           AND a.application_number = ${appDetail.application_number}
+       )`,
+      world.pair.consumer.tenant,
+    );
+
+    await signIn(page, world.pair.consumer.org);
+    const openingNumber = world.opening.opening_number;
+    const appNumber = appDetail.application_number;
+
+    await page.goto(
+      `${ORGS_PORTAL}/openings/${openingNumber}/applications/${appNumber}`,
+    );
+
+    // Referral attribution card is shown on sidebar
+    await expect(page.getByText("Referred by")).toBeVisible();
+    await expect(page.getByText(world.pair.provider.org.domain)).toBeVisible();
+    await expect(page.getByText("Declared", { exact: true })).toBeVisible();
+
+    // Route picker updates who performs current stage
+    const routePicker = page.getByRole("combobox", { name: "current stage" });
+    await chooseOption(page, routePicker, interview.counterparty.display_name);
+    await expect(page.getByText("Stage provider updated.")).toBeVisible();
+    await expect(
+      page.getByText("schedules these interviews and records feedback"),
+    ).toBeVisible();
+
+    // Candidates tab shows Performed by column
+    await page.goto(`${ORGS_PORTAL}/openings/${openingNumber}?tab=candidates`);
+    await expect(
+      page.getByRole("columnheader", { name: "Performed by" }),
+    ).toBeVisible();
+    await expect(page.getByText("Katherine Johnson")).toBeVisible();
+  });
+});

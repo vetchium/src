@@ -6,6 +6,7 @@ import {
   HomeOutlined,
   SafetyOutlined,
   SettingOutlined,
+  ShopOutlined,
   TeamOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
@@ -19,6 +20,7 @@ import {
   ManageAI,
   ManageBilling,
   ManageOpenings,
+  ManageProviders,
   ManageUsers,
   Superadmin,
 } from "typespec/orgs/authorization/types";
@@ -86,6 +88,15 @@ export function AppShell() {
                     key: paths.pipelineTemplates,
                     icon: <BranchesOutlined />,
                     label: t("navigation.pipelineTemplates"),
+                  },
+                ]
+              : []),
+            ...(me !== undefined && holds(me.permissions, ManageProviders)
+              ? [
+                  {
+                    key: paths.findProviders,
+                    icon: <ShopOutlined />,
+                    label: t("navigation.findProviders"),
                   },
                 ]
               : []),

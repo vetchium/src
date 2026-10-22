@@ -1,6 +1,7 @@
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Alert,
+  Avatar,
   Button,
   Card,
   Col,
@@ -31,6 +32,15 @@ import { WaitingCard } from "../features/applications/WaitingCard";
 import { OpeningsBreadcrumb } from "../features/openings/OpeningsBreadcrumb";
 import { useOpeningQuery } from "../features/openings/queries";
 import { useStageCountsQuery } from "../features/pipelines/queries";
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const first = parts[0]?.charAt(0) ?? "";
+  const last = parts[parts.length - 1]?.charAt(0) ?? "";
+  if (parts.length === 0) return "O";
+  if (parts.length === 1) return parts[0]?.slice(0, 2).toUpperCase() ?? "O";
+  return (first + last).toUpperCase();
+}
 
 export function ApplicationDetailPage() {
   const params = useParams();
@@ -176,6 +186,41 @@ export function ApplicationDetailPage() {
               suggestions={suggestions}
             />
             <WaitingCard detail={detail} />
+            {detail.credited_agency && (
+              <Card title={t("applications.referredBy.title")}>
+                <Flex align="center" gap="small" wrap>
+                  <Avatar size="small" style={{ backgroundColor: "#2563eb" }}>
+                    {getInitials(detail.credited_agency.display_name)}
+                  </Avatar>
+                  <Typography.Text strong>
+                    {detail.credited_agency.display_name}
+                  </Typography.Text>
+                  <Tag
+                    color={
+                      detail.referral_route === "suggested" ? "purple" : "blue"
+                    }
+                  >
+                    {detail.referral_route === "suggested"
+                      ? t("applications.referredBy.suggested")
+                      : t("applications.referredBy.declared")}
+                  </Tag>
+                </Flex>
+                <Typography.Text
+                  type="secondary"
+                  style={{ fontSize: 12, display: "block", marginTop: 4 }}
+                >
+                  {detail.credited_agency.domain}
+                </Typography.Text>
+                <Typography.Paragraph
+                  type="secondary"
+                  style={{ marginTop: 8, fontSize: 13, marginBottom: 0 }}
+                >
+                  {detail.referral_route === "suggested"
+                    ? t("applications.referredBy.suggestedHelp")
+                    : t("applications.referredBy.declaredHelp")}
+                </Typography.Paragraph>
+              </Card>
+            )}
           </Flex>
         </Col>
       </Row>

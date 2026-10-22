@@ -1,11 +1,14 @@
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
+import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
 import {
   Alert,
+  App,
   Button,
   Card,
   Descriptions,
   Flex,
   List,
+  Select,
   Tag,
   Typography,
 } from "antd";
@@ -17,6 +20,10 @@ import type {
 } from "typespec/orgs/applications/applications";
 import type { CheckType } from "typespec/orgs/hiring/vocabulary";
 import { useMyInfoQuery } from "../account/queries";
+import {
+  useOpeningProvidersQuery,
+  useRouteApplicationMutation,
+} from "../marketplace/queries";
 import { CheckResultDialog } from "./CheckResultDialog";
 import { InterviewDialog } from "./InterviewDialog";
 import { InterviewFeedbackDialog } from "./InterviewFeedbackDialog";
@@ -24,7 +31,7 @@ import {
   type InterviewStatusAction,
   InterviewStatusDialog,
 } from "./InterviewStatusDialog";
-import { stageKindLabel, useCalendarDate } from "./presentation";
+import { applicantName, stageKindLabel, useCalendarDate } from "./presentation";
 
 type Dialog =
   | { kind: "change"; interview: Interview }
@@ -71,11 +78,86 @@ export function StageWork({
   const { dateTime } = useDateTimeFormat();
   const calendarDate = useCalendarDate();
   const { data: me } = useMyInfoQuery();
+  const { message: toast } = App.useApp();
   const [dialog, setDialog] = useState<Dialog>();
+
+  const openingProviders = useOpeningProvidersQuery(openingNumber);
+  const routeMutation = useRouteApplicationMutation(
+    openingNumber,
+    detail.application_number,
+  );
+  const routeKey = useIdempotencyKey(
+    `route-app:${openingNumber}:${detail.application_number}`,
+  );
+
+  const stageAssignments =
+    detail.current_stage !== undefined
+      ? (openingProviders.data?.stages.find(
+          (s) => s.stage.id === detail.current_stage?.id,
+        )?.assignments ?? [])
+      : [];
+
   if (detail.removed) return null;
   const now = Date.now();
   return (
     <>
+      {detail.current_stage &&
+        detail.state === "in_pipeline" &&
+        (stageAssignments.length > 0 || detail.route) && (
+          <Card
+            title={`${detail.current_stage.name} · ${t("applications.currentStage")}`}
+            extra={
+              <Flex gap="small" align="center">
+                <Typography.Text type="secondary">
+                  {t("applications.performedBy")}
+                </Typography.Text>
+                <Select
+                  style={{ minWidth: 200 }}
+                  value={detail.route?.engagement_id ?? ""}
+                  disabled={!canAct || routeMutation.isPending}
+                  onChange={async (val) => {
+                    try {
+                      await routeMutation.mutateAsync({
+                        request: {
+                          opening_number: openingNumber,
+                          application_number: detail.application_number,
+                          version: detail.version,
+                          engagement_id: val || undefined,
+                        },
+                        key: routeKey.current(),
+                      });
+                      routeKey.rotate();
+                      void toast.success(t("applications.routeSaved"));
+                    } catch {
+                      void toast.error(t("applications.routeError"));
+                    }
+                  }}
+                  options={[
+                    { value: "", label: t("applications.inHouse") },
+                    ...stageAssignments.map((a) => ({
+                      value: a.engagement_id,
+                      label: a.counterparty.display_name,
+                    })),
+                  ]}
+                />
+              </Flex>
+            }
+          >
+            {detail.route && (
+              <Alert
+                type="info"
+                showIcon
+                message={t("applications.routedNotice", {
+                  provider: detail.route.provider.display_name,
+                  candidate: applicantName(t, {
+                    display_name: detail.snapshot.display_name,
+                    removed: detail.removed,
+                  }),
+                })}
+              />
+            )}
+          </Card>
+        )}
       {detail.interviews.length > 0 && (
         <Section title={t("applications.work.interviews")}>
           <List

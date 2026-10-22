@@ -29,6 +29,7 @@ import {
   ApproveOpenings,
   holds,
   ManageOpenings,
+  ManageProviders,
 } from "typespec/orgs/authorization/types";
 import type {
   OpeningRequestKind,
@@ -43,6 +44,7 @@ import { useCanActOnApplications } from "../features/applications/access";
 import { CandidatesTab } from "../features/applications/CandidatesTab";
 import { listParams } from "../features/applications/listState";
 import { activeStates } from "../features/applications/presentation";
+import { OpeningProvidersTab } from "../features/marketplace/OpeningProvidersTab";
 import {
   OpeningsBreadcrumb,
   openingTitle,
@@ -70,6 +72,7 @@ const overviewTab = "overview";
 const pipelineTab = "pipeline";
 const applicantsTab = "applicants";
 const candidatesTab = "candidates";
+const providersTab = "providers";
 
 interface PageError {
   title: string;
@@ -149,6 +152,8 @@ export function OpeningDetailPage() {
   const opening = query.data;
   const canAct = useCanActOnApplications(opening);
   const canManage = me !== undefined && holds(me.permissions, ManageOpenings);
+  const canManageProviders =
+    me !== undefined && holds(me.permissions, ManageProviders);
   const canApprove = me !== undefined && holds(me.permissions, ApproveOpenings);
   const actionBusy =
     requestChange.isPending || decide.isPending || withdraw.isPending;
@@ -710,6 +715,21 @@ export function OpeningDetailPage() {
                 key={number}
                 openingNumber={number}
                 editable={teamEditable}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(canManageProviders
+      ? [
+          {
+            key: providersTab,
+            label: t("openings.tabs.providers"),
+            children: (
+              <OpeningProvidersTab
+                key={number}
+                openingNumber={number}
+                canManage={teamEditable}
               />
             ),
           },

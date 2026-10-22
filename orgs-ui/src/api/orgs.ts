@@ -42,6 +42,7 @@ import type {
   RecordBackgroundCheckResultRequest,
   RecordInterviewOutcomeRequest,
   RequestBackgroundCheckConsentRequest,
+  RouteApplicationRequest,
   ScheduleInterviewRequest,
   SubmitInterviewFeedbackRequest,
 } from "typespec/orgs/applications/applications";
@@ -88,6 +89,32 @@ import type {
   PipelineTemplate,
   UpdatePipelineTemplateRequest,
 } from "typespec/orgs/hiring/pipelines";
+import type {
+  AssignOpeningProviderRequest,
+  GetOpeningProvidersRequest,
+  OpeningProviders,
+  UnassignOpeningProviderRequest,
+} from "typespec/orgs/marketplace/assignments";
+import type {
+  EndEngagementRequest,
+  Engagement,
+  EngagementTarget,
+  GetEngagementRequest,
+  ListEngagementsRequest,
+  ListEngagementsResponse,
+  ProposeEngagementRequest,
+  SetEngagementReferenceRequest,
+} from "typespec/orgs/marketplace/engagements";
+import type {
+  GetListingRequest,
+  ListingDetail,
+  SearchListingsRequest,
+  SearchListingsResponse,
+} from "typespec/orgs/marketplace/listings";
+import type {
+  GetActivityStatementRequest,
+  GetActivityStatementResponse,
+} from "typespec/orgs/marketplace/statements";
 import type {
   CreateOpeningRequest,
   DecideOpeningRequestRequest,
@@ -610,6 +637,62 @@ export const orgsAPI = {
     idempotencyKey: IdempotencyKey,
   ) =>
     apiRequest<DraftOpeningResponse>("/draft-opening-with-ai", {
+      body,
+      idempotencyKey,
+    }),
+  searchListings: (body: SearchListingsRequest) =>
+    apiRequest<SearchListingsResponse>("/search-listings", { body }),
+  getListing: (body: GetListingRequest) =>
+    apiRequest<ListingDetail>("/get-listing", { body }),
+  listEngagements: (body: ListEngagementsRequest) =>
+    apiRequest<ListEngagementsResponse>("/list-engagements", { body }),
+  getEngagement: (body: GetEngagementRequest) =>
+    apiRequest<Engagement>("/get-engagement", { body }),
+  proposeEngagement: (
+    body: ProposeEngagementRequest,
+    idempotencyKey: IdempotencyKey,
+  ) => apiRequest<Engagement>("/propose-engagement", { body, idempotencyKey }),
+  withdrawEngagement: (
+    body: EngagementTarget,
+    idempotencyKey: IdempotencyKey,
+  ) => apiRequest<Engagement>("/withdraw-engagement", { body, idempotencyKey }),
+  endEngagement: (body: EndEngagementRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Engagement>("/end-engagement", { body, idempotencyKey }),
+  setEngagementReference: (
+    body: SetEngagementReferenceRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<Engagement>("/set-engagement-reference", {
+      body,
+      idempotencyKey,
+    }),
+  getEngagementStatement: (body: GetActivityStatementRequest) =>
+    apiRequest<GetActivityStatementResponse>("/get-engagement-statement", {
+      body,
+    }),
+  getOpeningProviders: (body: GetOpeningProvidersRequest) =>
+    apiRequest<OpeningProviders>("/get-opening-providers", { body }),
+  assignOpeningProvider: (
+    body: AssignOpeningProviderRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<OpeningProviders>("/assign-opening-provider", {
+      body,
+      idempotencyKey,
+    }),
+  unassignOpeningProvider: (
+    body: UnassignOpeningProviderRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<OpeningProviders>("/unassign-opening-provider", {
+      body,
+      idempotencyKey,
+    }),
+  routeApplication: (
+    body: RouteApplicationRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/route-application", {
       body,
       idempotencyKey,
     }),

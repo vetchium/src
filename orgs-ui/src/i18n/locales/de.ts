@@ -25,6 +25,7 @@ export const de = {
     organization: "Organisation",
     pipelineTemplates: "Pipeline-Vorlagen",
     myInterviews: "Meine Interviews",
+    findProviders: "Dienstleister finden",
     organizationSecurity: "Organisationssicherheit",
   },
   theme: {
@@ -1091,6 +1092,7 @@ export const de = {
       pipeline: "Pipeline",
       applicants: "Bewerbungen",
       candidates: "Kandidaten",
+      providers: "Dienstleister",
     },
     stats: {
       quota: "Kontingent für Stellenanzeigen",
@@ -1418,6 +1420,7 @@ export const de = {
       candidate: "Kandidat",
       stage: "Phase",
       status: "Status",
+      performedBy: "Durchgeführt von",
       updated: "Aktualisiert",
     },
     pending: {
@@ -1429,6 +1432,26 @@ export const de = {
     tabs: {
       applicants: "Bewerbungen",
       candidates: "Kandidaten",
+      providers: "Dienstleister",
+    },
+    filters: {
+      performedBy: "Durchgeführt von",
+    },
+    currentStage: "Aktuelle Phase",
+    performedBy: "Durchgeführt von",
+    inHouse: "Ihr Team (intern)",
+    routedNotice:
+      "{{provider}} plant diese Interviews und erfasst Feedback. Sie sehen alle erfassten Daten. Eine Änderung beendet deren Zugriff auf {{candidate}}.",
+    routeSaved: "Phasendienstleister aktualisiert.",
+    routeError: "Aktualisierung fehlgeschlagen.",
+    referredBy: {
+      title: "Vermittelt durch",
+      suggested: "Vorgeschlagen",
+      declared: "Angegeben",
+      suggestedHelp:
+        "Die Agentur hat diese Stelle vorgeschlagen, und die Person hat sie bei der Bewerbung angegeben. Die Gutschrift ist fest verankert.",
+      declaredHelp:
+        "Die sich bewerbende Person hat diese Agentur bei der Bewerbung angegeben. Die Gutschrift ist fest verankert.",
     },
     notFound:
       "Diese Bewerbung wurde nicht gefunden oder Sie dürfen sie nicht lesen.",
@@ -1899,6 +1922,10 @@ export const de = {
     },
     candidatesHere_one: "{{count}} Kandidat",
     candidatesHere_other: "{{count}} Kandidaten",
+    inHouseOnly: "nur intern",
+    providerAssigned_one: "{{count}} Dienstleister zugewiesen",
+    providerAssigned_other: "{{count}} Dienstleister zugewiesen",
+    inHouse: "intern",
     removeHoldsCandidates:
       "„{{name}}“ kann nicht entfernt werden, solange sie Kandidaten enthält. Verschieben Sie diese zuerst in eine andere Phase oder stellen Sie die Phase wieder her.",
     removeRefused:
@@ -1966,6 +1993,202 @@ export const de = {
       empty:
         "Noch keine Pipeline-Vorlagen. Legen Sie eine an, um neue Stellenanzeigen mit denselben Phasen zu starten.",
       noMatch: "Keine Vorlage passt zu dieser Suche.",
+    },
+  },
+  marketplace: {
+    findProviders: {
+      title: "Dienstleister finden",
+      intro:
+        "Suchen Sie Organisationen, die Kandidaten vermitteln, Interviews, Assessments oder Hintergrundprüfungen durchführen. Vetchium prüft nur die Domain-Kontrolle.",
+      tabs: {
+        search: "Suche",
+        engagements: "Ihre Aufträge",
+      },
+      searchPlaceholder: "Name oder Schlagzeile",
+      servesCountry: "Bediend Land",
+      language: "Sprache",
+      incompleteResults:
+        "Ergebnisse unvollständig: Die Region {{tenants}} hat nicht rechtzeitig geantwortet.",
+      noListings: "Keine passenden Dienstleister gefunden.",
+    },
+    capabilities: {
+      sourcing: "Sourcing",
+      interviewing: "Interviewing",
+      assessment: "Assessment",
+      background_check: "Hintergrundprüfung",
+    },
+    engagementStates: {
+      proposed: "Vorgeschlagen",
+      active: "Aktiv",
+      ended: "Beendet",
+      declined: "Abgelehnt",
+      withdrawn: "Zurückgezogen",
+      expired: "Abgelaufen",
+    },
+    facts: {
+      joined: "Eingetreten",
+      separated: "Ausgeschieden",
+      interview_completed: "Interview abgeschlossen",
+      interview_no_show: "Nicht erschienen",
+      assessment_result: "Assessment-Ergebnis",
+      background_check_outcome: "Ergebnis der Hintergrundprüfung",
+    },
+    filters: {
+      open: "Offen",
+      capability: "Kompetenz",
+    },
+    columns: {
+      provider: "Dienstleister",
+      capability: "Kompetenz",
+      state: "Status",
+      yourReference: "Ihre Referenz",
+      theirReference: "Deren Referenz",
+      since: "Seit",
+      agency: "Agentur",
+      assigned: "Zugewiesen",
+    },
+    engaged: "Beauftragt",
+    basedIn: "Sitz in {{country}}",
+    serves: "Bediend",
+    worldwide: "Weltweit",
+    languages: "Sprachen",
+    indicativePrice: "Richtpreis",
+    checkTypes: "Prüfungsarten",
+    consentDisclosure: "Einwilligungshinweis",
+    expiresAt: "Läuft ab am {{date}}",
+    activeSince: "Aktiv seit {{date}}",
+    proposedAt: "Vorgeschlagen am {{date}}",
+    invalidListingParams: "Ungültige Dienstleister-Domain oder Kompetenz.",
+    listingNotFound: "Angebot nicht gefunden",
+    listingNotFoundDesc:
+      "Dieses Angebot ist nicht verfügbar oder wurde zurückgezogen.",
+    alreadyEngagedMessage:
+      "Sie haben bereits einen Auftrag mit diesem Dienstleister für diese Kompetenz.",
+    viewEngagement: "Auftrag anzeigen",
+    proposeEngagement: {
+      title: "Auftrag vorschlagen",
+      intro:
+        "{{provider}} kann annehmen oder ablehnen. Ein Vorschlag verfällt nach 30 Tagen. Verträge, Preise und Zahlungen bleiben zwischen Ihnen und dem Dienstleister; Vetchium wickelt diese nicht ab.",
+      messageLabel: "Nachricht",
+      messagePlaceholder: "Beschreiben Sie Ihren Bedarf...",
+      messageExtra: "Optional. Bis zu 2.000 Zeichen.",
+      referenceLabel: "Ihre Referenz",
+      referenceExtra:
+        "Optional, z. B. eine Bestell- oder Vertragsnummer. Beide Seiten sehen sie.",
+      submit: "Auftrag vorschlagen",
+      success: "Vorschlag erfolgreich übermittelt.",
+    },
+    references: {
+      title: "Referenzen",
+      intro:
+        "Ihre Bezeichnungen, z. B. eine Vertrags- oder Bestellnummer. Beide Seiten sehen beide. Vetchium wertet sie nicht aus.",
+      yours: "Ihre",
+      theirs: "Von {{name}}",
+    },
+    referenceSaved: "Referenz aktualisiert.",
+    referenceSaveError: "Referenz konnte nicht aktualisiert werden.",
+    assignedOpenings: "Zugewiesene Stellen",
+    assignedOpeningsIntro:
+      "Zugewiesene Agenturen sehen Ihre Stellenanzeige und schlagen Personen vor.",
+    assignedStages: "Zugewiesene Phasen",
+    assignedStagesIntro:
+      "Phasendienstleister können ausgewählt werden, um Aufgaben für Kandidaten zu übernehmen.",
+    manageInOpenings:
+      "Zuweisungen im Tab „Dienstleister“ der jeweiligen Stelle verwalten",
+    proposal: {
+      title: "Vorschlag",
+      proposed: "Vorgeschlagen",
+      accepted: "Angenommen",
+      message: "Nachricht",
+      ended: "Beendet",
+      endedBy: "Beendet durch",
+      endedByYou: "Ihre Organisation",
+      endNote: "Abschlussnotiz",
+    },
+    statement: {
+      title: "Aktivitätsnachweis — keine Rechnung",
+      intro:
+        "Abrechnungsrelevante Fakten unter diesem Auftrag im Monat (UTC). Vereinbaren Sie Preise, Rechnungen und Zahlungen mit {{provider}} außerhalb von Vetchium.",
+      exportCSV: "CSV exportieren",
+      exported: "Aktivitätsnachweis als CSV exportiert.",
+      exportError: "Aktivitätsnachweis konnte nicht exportiert werden.",
+      date: "Datum",
+      fact: "Ereignis",
+      opening: "Stelle",
+      application: "Bewerbung",
+      applicant: "Bewerbende Person",
+      corrected: "Korrigiert",
+      correctedTooltip: "Das Datum wurde nach der Erfassung korrigiert.",
+      removedApplicant: "Entfernte Person",
+    },
+    endEngagement: {
+      action: "Auftrag beenden",
+      title: "Auftrag beenden",
+      warning:
+        "Das Beenden entfernt sofort alle Stellen- und Phasenzuweisungen und entzieht dem Dienstleister den Zugriff. Erfasste Arbeiten und Nachweise bleiben erhalten.",
+      noteHelp: "Optionale Notiz zur Begründung des Endes:",
+      noteLabel: "Abschlussnotiz",
+      notePlaceholder: "Optionale Notiz (bis zu 2.000 Zeichen)",
+      confirm: "Auftrag beenden",
+      success: "Auftrag beendet.",
+      error: "Auftrag konnte nicht beendet werden.",
+    },
+    withdrawEngagement: {
+      action: "Vorschlag zurückziehen",
+      title: "Vorschlag zurückziehen",
+      confirmText: "Möchten Sie diesen Vorschlag wirklich zurückziehen?",
+      confirm: "Vorschlag zurückziehen",
+      success: "Vorschlag zurückgezogen.",
+      error: "Vorschlag konnte nicht zurückgezogen werden.",
+    },
+    invalidEngagementId: "Ungültige Auftrags-ID.",
+    engagementNotFound: "Auftrag nicht gefunden.",
+    openingProviders: {
+      loadError: "Dienstleister konnten nicht geladen werden.",
+      sourcingAgencies: "Sourcing-Agenturen",
+      limitCount: "{{count}} von {{max}}",
+      assignAgency: "Agentur zuweisen",
+      sourcingIntro:
+        "Zugewiesene Agenturen sehen diese Stelle und können sie Personen vorschlagen. Nennt eine sich bewerbende Person eine Agentur, erhält diese die Gutschrift. Entfernen stoppt neue Gutschriften; bestehende bleiben.",
+      agencyAssigned: "Agentur der Stelle zugewiesen.",
+      agencyRemoved: "Agentur von der Stelle entfernt.",
+      stageProviders: "Phasendienstleister",
+      stageIntro:
+        "Weisen Sie einer Phase aktive Dienstleister zu. Wählen Sie dann für jede Person in dieser Phase, ob Ihr Team oder einer der Dienstleister die Arbeit übernimmt.",
+      assignProvider: "Dienstleister zuweisen",
+      reviewInHouseOnly:
+        "Prüfungsphasen werden immer von Ihrem Team übernommen.",
+      noProvidersAssigned:
+        "Keine Dienstleister zugewiesen. Ihr Team übernimmt diese Phase.",
+      stageProviderAssigned: "Dienstleister der Phase zugewiesen.",
+      stageProviderRemoved: "Dienstleister von der Phase entfernt.",
+      assignAgencyModalTitle: "Sourcing-Agentur zuweisen",
+      assignAgencyModalIntro:
+        "Wählen Sie eine aktive Sourcing-Agentur für diese Stelle aus:",
+      noAvailableAgencies: "Keine aktiven Sourcing-Agenturen verfügbar.",
+      assignStageProviderModalTitle: "Dienstleister für {{stage}} zuweisen",
+      assignStageProviderModalIntro:
+        "Wählen Sie einen aktiven Dienstleister mit passender Kompetenz aus:",
+      noAvailableStageProviders:
+        "Keine passenden Dienstleister für diese Phasenart verfügbar.",
+    },
+    errors: {
+      engagementSelf: "Eine Organisation kann sich nicht selbst beauftragen.",
+      engagementExists:
+        "Es existiert bereits ein aktiver oder vorgeschlagener Auftrag für diese Kompetenz.",
+      listingNotAvailable:
+        "Das Angebot dieses Dienstleisters steht nicht für Vorschläge zur Verfügung.",
+      tenantUnavailable:
+        "Die Region des Dienstleisters hat nicht rechtzeitig geantwortet. Bitte versuchen Sie es erneut.",
+      genericProposeFailed: "Vorschlag konnte nicht übermittelt werden.",
+      agencyLimitReached:
+        "Die Höchstzahl von 20 Sourcing-Agenturen für diese Stelle ist erreicht.",
+      stageLimitReached:
+        "Die Höchstzahl von 10 Dienstleistern für diese Phase ist erreicht.",
+      capabilityMismatch:
+        "Die Kompetenz des Dienstleisters passt nicht zur Phasenart.",
+      genericAssignFailed: "Zuweisung fehlgeschlagen.",
+      genericUnassignFailed: "Entfernen fehlgeschlagen.",
     },
   },
 } satisfies LocaleResource;

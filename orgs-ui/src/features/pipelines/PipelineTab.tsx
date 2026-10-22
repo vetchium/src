@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { isDefiniteRefusal } from "../../api/client";
 import { problemMessage } from "../../components/common/APIErrorAlert";
 import { useUnsavedChangesGuard } from "../../components/common/useUnsavedChangesGuard";
+import { useOpeningProvidersQuery } from "../marketplace/queries";
 import { pipelineProblem } from "./problems";
 import {
   useOpeningPipelineQuery,
@@ -35,6 +36,7 @@ export function PipelineTab({ openingNumber, editable }: Props) {
   const { message } = App.useApp();
   const query = useOpeningPipelineQuery(openingNumber);
   const counts = useStageCountsQuery(openingNumber);
+  const openingProviders = useOpeningProvidersQuery(openingNumber);
   const replace = useReplaceOpeningPipelineMutation(openingNumber);
   const key = useIdempotencyKey(`opening-pipeline:${openingNumber}`);
   // Undefined while the user has no edits, so the rows follow the server.
@@ -117,11 +119,29 @@ export function PipelineTab({ openingNumber, editable }: Props) {
   const notes = (row: StageRow) => {
     const held = row.id === undefined ? undefined : candidates.get(row.id);
     const holdsCandidates = held !== undefined && held > 0;
+    const stageAssignments =
+      row.id !== undefined
+        ? openingProviders.data?.stages.find((s) => s.stage.id === row.id)
+            ?.assignments
+        : undefined;
+    const assignedCount = stageAssignments?.length ?? 0;
+
+    let providerNote: string;
+    if (row.kind === "review") {
+      providerNote = t("pipeline.inHouseOnly");
+    } else if (assignedCount > 0) {
+      providerNote = t("pipeline.providerAssigned", { count: assignedCount });
+    } else {
+      providerNote = t("pipeline.inHouse");
+    }
+
     return (
       <Flex vertical style={{ paddingInlineStart: "2em" }}>
-        {holdsCandidates && (
+        {!row.removed && (
           <Typography.Text type="secondary">
-            {t("pipeline.candidatesHere", { count: held })}
+            {holdsCandidates
+              ? `${t("pipeline.candidatesHere", { count: held })} · ${providerNote}`
+              : providerNote}
           </Typography.Text>
         )}
         {row.removed && holdsCandidates && (

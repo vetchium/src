@@ -23,6 +23,7 @@ export const en = {
     organization: "Organization",
     pipelineTemplates: "Pipeline templates",
     myInterviews: "My interviews",
+    findProviders: "Find providers",
     organizationSecurity: "Organization security",
   },
   theme: {
@@ -1057,6 +1058,7 @@ export const en = {
       pipeline: "Pipeline",
       applicants: "Applicants",
       candidates: "Candidates",
+      providers: "Providers",
     },
     stats: {
       quota: "Opening quota",
@@ -1380,6 +1382,7 @@ export const en = {
       candidate: "Candidate",
       stage: "Stage",
       status: "Status",
+      performedBy: "Performed by",
       updated: "Updated",
     },
     pending: {
@@ -1391,6 +1394,26 @@ export const en = {
     tabs: {
       applicants: "Applicants",
       candidates: "Candidates",
+      providers: "Providers",
+    },
+    filters: {
+      performedBy: "Performed by",
+    },
+    currentStage: "current stage",
+    performedBy: "Performed by",
+    inHouse: "Your team (in-house)",
+    routedNotice:
+      "{{provider}} schedules these interviews and records feedback. You see everything they record. Changing who performs this stage ends their access to {{candidate}}.",
+    routeSaved: "Stage provider updated.",
+    routeError: "Could not update who performs this stage.",
+    referredBy: {
+      title: "Referred by",
+      suggested: "Suggested",
+      declared: "Declared",
+      suggestedHelp:
+        "The agency suggested this Opening to them, and they named it when applying. Credit is fixed at application time.",
+      declaredHelp:
+        "The applicant declared this agency when applying. Credit is fixed at application time.",
     },
     notFound: "This application was not found, or you cannot read it.",
     backToOpening: "Back to the Opening",
@@ -1849,6 +1872,10 @@ export const en = {
     },
     candidatesHere_one: "{{count}} candidate",
     candidatesHere_other: "{{count}} candidates",
+    inHouseOnly: "in-house only",
+    providerAssigned_one: "{{count}} provider assigned",
+    providerAssigned_other: "{{count}} providers assigned",
+    inHouse: "in-house",
     removeHoldsCandidates:
       "Removing “{{name}}” will be refused while it holds candidates. Move them to another stage first, or restore it.",
     removeRefused:
@@ -1915,6 +1942,199 @@ export const en = {
       empty:
         "No pipeline templates yet. Create one to start new Openings with the same stages.",
       noMatch: "No template matches this search.",
+    },
+  },
+  marketplace: {
+    findProviders: {
+      title: "Find providers",
+      intro:
+        "Search organizations that source candidates, run interviews, assessments, or background checks. Vetchium verifies only that each one controls its domain.",
+      tabs: {
+        search: "Search",
+        engagements: "Your engagements",
+      },
+      searchPlaceholder: "Name or headline",
+      servesCountry: "Serves country",
+      language: "Language",
+      incompleteResults:
+        "Results may be incomplete: the {{tenants}} region didn't answer in time.",
+      noListings: "No providers found matching your search.",
+    },
+    capabilities: {
+      sourcing: "Sourcing",
+      interviewing: "Interviewing",
+      assessment: "Assessment",
+      background_check: "Background check",
+    },
+    engagementStates: {
+      proposed: "Proposed",
+      active: "Active",
+      ended: "Ended",
+      declined: "Declined",
+      withdrawn: "Withdrawn",
+      expired: "Expired",
+    },
+    facts: {
+      joined: "Joined",
+      separated: "Separated",
+      interview_completed: "Interview completed",
+      interview_no_show: "No-show",
+      assessment_result: "Assessment result",
+      background_check_outcome: "Background check outcome",
+    },
+    filters: {
+      open: "Open",
+      capability: "Capability",
+    },
+    columns: {
+      provider: "Provider",
+      capability: "Capability",
+      state: "State",
+      yourReference: "Your reference",
+      theirReference: "Their reference",
+      since: "Since",
+      agency: "Agency",
+      assigned: "Assigned",
+    },
+    engaged: "Engaged",
+    basedIn: "Based in {{country}}",
+    serves: "Serves",
+    worldwide: "Worldwide",
+    languages: "Languages",
+    indicativePrice: "Indicative price",
+    checkTypes: "Check types",
+    consentDisclosure: "Consent disclosure",
+    expiresAt: "Expires {{date}}",
+    activeSince: "Active since {{date}}",
+    proposedAt: "Proposed {{date}}",
+    invalidListingParams: "Invalid provider domain or capability.",
+    listingNotFound: "Listing not found",
+    listingNotFoundDesc:
+      "This listing is either not available or has been unlisted.",
+    alreadyEngagedMessage:
+      "You already have an engagement with this provider for this capability.",
+    viewEngagement: "View engagement",
+    proposeEngagement: {
+      title: "Propose engagement",
+      intro:
+        "{{provider}} can accept or decline. A proposal expires after 30 days. Contracts, prices and payments stay between you and them; Vetchium never handles them.",
+      messageLabel: "Message",
+      messagePlaceholder: "Describe the hiring or candidate needs...",
+      messageExtra: "Optional. Up to 2,000 characters.",
+      referenceLabel: "Your reference",
+      referenceExtra:
+        "Optional, such as a PO or contract number. Both sides see it.",
+      submit: "Propose engagement",
+      success: "Proposal submitted successfully.",
+    },
+    references: {
+      title: "References",
+      intro:
+        "Your own labels, such as a contract or PO number. Both sides see both. Vetchium doesn't interpret them.",
+      yours: "Yours",
+      theirs: "{{name}}'s",
+    },
+    referenceSaved: "Reference updated.",
+    referenceSaveError: "Could not update reference.",
+    assignedOpenings: "Assigned Openings",
+    assignedOpeningsIntro:
+      "Assigned agencies see your Opening and suggest candidates.",
+    assignedStages: "Assigned stages",
+    assignedStagesIntro:
+      "Stage providers can be chosen to perform work for candidates.",
+    manageInOpenings: "Manage assignments on each Opening's Providers tab",
+    proposal: {
+      title: "Proposal",
+      proposed: "Proposed",
+      accepted: "Accepted",
+      message: "Message",
+      ended: "Ended",
+      endedBy: "Ended by",
+      endedByYou: "Your organization",
+      endNote: "End note",
+    },
+    statement: {
+      title: "Activity statement — not an invoice",
+      intro:
+        "Billable facts recorded under this engagement in the month (UTC). Agree prices, invoices and payments with {{provider}} outside Vetchium.",
+      exportCSV: "Export CSV",
+      exported: "Activity statement exported as CSV.",
+      exportError: "Could not export activity statement.",
+      date: "Date",
+      fact: "Fact",
+      opening: "Opening",
+      application: "Application",
+      applicant: "Applicant",
+      corrected: "Corrected",
+      correctedTooltip: "The date was corrected after it was first recorded.",
+      removedApplicant: "Removed applicant",
+    },
+    endEngagement: {
+      action: "End engagement",
+      title: "End engagement",
+      warning:
+        "Ending an engagement removes all Opening and stage assignments immediately and ends provider access. Recorded work and statement facts remain.",
+      noteHelp: "Add an optional note explaining why the engagement is ending:",
+      noteLabel: "End note",
+      notePlaceholder: "Optional note (up to 2,000 characters)",
+      confirm: "End engagement",
+      success: "Engagement ended.",
+      error: "Could not end engagement.",
+    },
+    withdrawEngagement: {
+      action: "Withdraw proposal",
+      title: "Withdraw proposal",
+      confirmText: "Are you sure you want to withdraw this proposal?",
+      confirm: "Withdraw proposal",
+      success: "Proposal withdrawn.",
+      error: "Could not withdraw proposal.",
+    },
+    invalidEngagementId: "Invalid engagement ID.",
+    engagementNotFound: "Engagement not found.",
+    openingProviders: {
+      loadError: "Could not load Opening providers.",
+      sourcingAgencies: "Sourcing agencies",
+      limitCount: "{{count}} of {{max}}",
+      assignAgency: "Assign agency",
+      sourcingIntro:
+        "Assigned agencies see this Opening and can suggest it to people. An applicant who names an assigned agency credits it. Removing an agency stops new credits; existing credits stay.",
+      agencyAssigned: "Agency assigned to Opening.",
+      agencyRemoved: "Agency removed from Opening.",
+      stageProviders: "Stage providers",
+      stageIntro:
+        "Assign providers you have an active engagement with to a stage. Then choose, for each candidate at that stage, whether your team or one of these providers does the work.",
+      assignProvider: "Assign provider",
+      reviewInHouseOnly: "Review stages are always done by your team.",
+      noProvidersAssigned: "No providers assigned. Your team does this stage.",
+      stageProviderAssigned: "Provider assigned to stage.",
+      stageProviderRemoved: "Provider removed from stage.",
+      assignAgencyModalTitle: "Assign sourcing agency",
+      assignAgencyModalIntro:
+        "Select an active sourcing agency to assign to this Opening:",
+      noAvailableAgencies: "No active sourcing agencies available to assign.",
+      assignStageProviderModalTitle: "Assign provider to {{stage}}",
+      assignStageProviderModalIntro:
+        "Select an active provider with a matching capability to assign to this stage:",
+      noAvailableStageProviders:
+        "No active providers available for this stage kind.",
+    },
+    errors: {
+      engagementSelf: "An organization cannot engage itself.",
+      engagementExists:
+        "An active or proposed engagement already exists for this capability.",
+      listingNotAvailable:
+        "This provider's listing is not available for proposals.",
+      tenantUnavailable:
+        "The provider's region did not respond in time. Please try again.",
+      genericProposeFailed: "Failed to propose engagement.",
+      agencyLimitReached:
+        "Maximum of 20 sourcing agencies already reached for this Opening.",
+      stageLimitReached:
+        "Maximum of 10 providers already reached for this stage.",
+      capabilityMismatch:
+        "The engagement's capability does not match the stage kind.",
+      genericAssignFailed: "Failed to assign provider.",
+      genericUnassignFailed: "Failed to remove provider.",
     },
   },
 } as const;

@@ -5,6 +5,7 @@ import {
   ManageAI,
   ManageBilling,
   ManageOpenings,
+  ManageProviders,
   ManageUsers,
   Superadmin,
 } from "typespec/orgs/authorization/types";
@@ -75,6 +76,21 @@ const PipelineTemplatesPage = lazy(() =>
       default: PipelineTemplatesPage,
     }),
   ),
+);
+const FindProvidersPage = lazy(() =>
+  import("../pages/FindProvidersPage").then(({ FindProvidersPage }) => ({
+    default: FindProvidersPage,
+  })),
+);
+const ListingDetailPage = lazy(() =>
+  import("../pages/ListingDetailPage").then(({ ListingDetailPage }) => ({
+    default: ListingDetailPage,
+  })),
+);
+const EngagementDetailPage = lazy(() =>
+  import("../pages/EngagementDetailPage").then(({ EngagementDetailPage }) => ({
+    default: EngagementDetailPage,
+  })),
 );
 const OpeningEditor = lazy(() =>
   import("../features/openings/OpeningEditor").then(({ OpeningEditor }) => ({
@@ -338,6 +354,32 @@ export function App() {
                 element={
                   <Page>
                     <PipelineTemplatesPage />
+                  </Page>
+                }
+              />
+            </Route>
+            <Route element={<PermissionRoute permission={ManageProviders} />}>
+              <Route
+                path={paths.findProviders}
+                element={
+                  <Page>
+                    <FindProvidersPage />
+                  </Page>
+                }
+              />
+              <Route
+                path="/providers/listings/:domain/:capability"
+                element={
+                  <Page>
+                    <ListingDetailPage />
+                  </Page>
+                }
+              />
+              <Route
+                path="/providers/engagements/:id"
+                element={
+                  <Page>
+                    <EngagementDetailPage />
                   </Page>
                 }
               />
