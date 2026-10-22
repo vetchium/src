@@ -1,11 +1,13 @@
 import "@typespec/http";
 
 import "../../../common/authentication.tsp";
+import "../../../common/pagination.tsp";
 import "../../../directory/directory.tsp";
 import "../../../problem/common.tsp";
 import "../../../problem/global-coordinator/authentication.tsp";
 import "../../../problem/orgs/marketplace.tsp";
 import "../attribution.tsp";
+import "../statements.tsp";
 import "./work.tsp";
 
 using TypeSpec.Http;
@@ -273,5 +275,62 @@ interface ProviderAttributionPeerOperations {
         @body body: PeerListCreditedApplicationsResponse;
       }
     | PeerWorkReadErrors
+    | Vetchium.Problem.MeshPeerAuthenticationRequiredErrorResponse;
+}
+
+model PeerGetActivityStatementRequest {
+  provider_org_did: Vetchium.Orgs.OrgDID;
+  engagement_id: Vetchium.Orgs.Marketplace.EngagementID;
+  month: Vetchium.Orgs.Marketplace.StatementMonth;
+  pagination_key?: Vetchium.PaginationKey;
+  @minValue(1)
+  @maxValue(100)
+  limit: int32;
+}
+
+model PeerGetActivityStatementResponse {
+  engagement_id: Vetchium.Orgs.Marketplace.EngagementID;
+  month: Vetchium.Orgs.Marketplace.StatementMonth;
+  items: Vetchium.Orgs.Marketplace.ActivityStatementItem[];
+  next_pagination_key?: Vetchium.PaginationKey;
+}
+
+model RelayGetActivityStatementRequest {
+  tenant: Vetchium.Directory.TenantID;
+  request: PeerGetActivityStatementRequest;
+}
+
+@route("/mesh/provider-statements")
+@tag("Tenant-local provider statement relay")
+@useAuth(BearerAuth)
+interface ProviderStatementRelayOperations {
+  @route("/get")
+  @post
+  get(@body request: RelayGetActivityStatementRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: PeerGetActivityStatementResponse;
+      }
+    | PeerWorkReadErrors
+    | Vetchium.Problem.OrgEngagementNotFoundErrorResponse
+    | Vetchium.Problem.OrgTenantUnavailableErrorResponse
+    | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+}
+
+@route("/api/mesh/provider-statements")
+@tag("Authenticated peer provider statement read")
+@useAuth(Vetchium.Authentication.MutualTLSAuth)
+interface ProviderStatementPeerOperations {
+  @route("/get")
+  @post
+  get(@body request: PeerGetActivityStatementRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: PeerGetActivityStatementResponse;
+      }
+    | PeerWorkReadErrors
+    | Vetchium.Problem.OrgEngagementNotFoundErrorResponse
     | Vetchium.Problem.MeshPeerAuthenticationRequiredErrorResponse;
 }

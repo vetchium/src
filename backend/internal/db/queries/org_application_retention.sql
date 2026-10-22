@@ -107,6 +107,12 @@ WITH removed AS (
         delete_requested_at = now(), next_attempt_at = now()
     WHERE l.object_id IN (SELECT letter_object_id FROM offers)
     RETURNING l.object_id
+), facts AS (
+    UPDATE vetchium.org_activity_facts AS f
+    SET applicant_display_name = ''
+    FROM removed
+    WHERE f.org_application_id = removed.org_application_id
+    RETURNING f.fact_id
 ), history AS (
     INSERT INTO vetchium.org_application_history (
         org_application_history_id, org_application_id, action, actor_kind,

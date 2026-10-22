@@ -9,7 +9,10 @@
 -- starts here and decides from what it returns.
 -- name: LockProviderWork :one
 SELECT a.org_application_id, o.org_opening_id, o.opening_number,
-    a.application_number, a.version, eng.engagement_id,
+    COALESCE(c.title, '')::text AS opening_title,
+    a.application_number,
+    COALESCE(a.snapshot->>'display_name', '')::text AS applicant_display_name,
+    a.version, eng.engagement_id, eng.consumer_org_did,
     eng.provider_domain, eng.provider_display_name,
     rt.consent_disclosure, rt.listing_check_types,
     a.current_stage_id, st.stage_kind AS current_stage_kind,
@@ -26,6 +29,8 @@ JOIN vetchium.org_engagements AS eng ON eng.engagement_id = asg.engagement_id
 JOIN vetchium.org_applications AS a
     ON a.org_application_id = rt.org_application_id
 JOIN vetchium.org_openings AS o ON o.org_opening_id = a.org_opening_id
+LEFT JOIN vetchium.org_opening_contents AS c
+    ON c.org_opening_id = o.org_opening_id AND c.slot = 'live'
 JOIN vetchium.org_opening_stages AS st
     ON st.org_opening_stage_id = a.current_stage_id
 WHERE rt.route_id = sqlc.arg(work_id)

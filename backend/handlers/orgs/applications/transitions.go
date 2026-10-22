@@ -12,6 +12,7 @@ import (
 
 	"github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/hiring"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/openings"
 	"github.com/vetchium/src/typespec/problem"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
@@ -407,10 +408,30 @@ func RecordApplicationJoined(s *orgsruntime.Server) http.HandlerFunc {
 					ApplicationID: locked.OrgApplicationID, Version: locked.Version,
 					JoinedOn: joinedOn,
 				})
+				if err != nil || rows != 1 {
+					return change{}, false, err
+				}
+				if locked.CreditedEngagementID.Valid {
+					if err := q.InsertActivityFact(ctx, sqlc.InsertActivityFactParams{
+						OrgDid:               locked.OrgDid,
+						EngagementID:         locked.CreditedEngagementID,
+						OrgApplicationID:     locked.OrgApplicationID,
+						FactDate:             joinedOn,
+						FactKind:             string(marketplace.FactJoined),
+						ReferenceID:          "",
+						OpeningNumber:        locked.OpeningNumber,
+						OpeningTitle:         locked.OpeningTitle,
+						ApplicationNumber:    locked.ApplicationNumber,
+						ApplicantDisplayName: locked.ApplicantDisplayName,
+						Corrected:            false,
+					}); err != nil {
+						return change{}, false, err
+					}
+				}
 				return change{
 					action:   sqlc.VetchiumOrgApplicationHistoryActionJoined,
 					joinedOn: joinedOn,
-				}, rows == 1, err
+				}, true, nil
 			},
 		}.run(s, w, r)
 	}
@@ -483,10 +504,30 @@ func RecordApplicationSeparated(s *orgsruntime.Server) http.HandlerFunc {
 					ApplicationID: locked.OrgApplicationID, Version: locked.Version,
 					SeparatedOn: separatedOn,
 				})
+				if err != nil || rows != 1 {
+					return change{}, false, err
+				}
+				if locked.CreditedEngagementID.Valid {
+					if err := q.InsertActivityFact(ctx, sqlc.InsertActivityFactParams{
+						OrgDid:               locked.OrgDid,
+						EngagementID:         locked.CreditedEngagementID,
+						OrgApplicationID:     locked.OrgApplicationID,
+						FactDate:             separatedOn,
+						FactKind:             string(marketplace.FactSeparated),
+						ReferenceID:          "",
+						OpeningNumber:        locked.OpeningNumber,
+						OpeningTitle:         locked.OpeningTitle,
+						ApplicationNumber:    locked.ApplicationNumber,
+						ApplicantDisplayName: locked.ApplicantDisplayName,
+						Corrected:            false,
+					}); err != nil {
+						return change{}, false, err
+					}
+				}
 				return change{
 					action:      sqlc.VetchiumOrgApplicationHistoryActionSeparated,
 					separatedOn: separatedOn,
-				}, rows == 1, err
+				}, true, nil
 			},
 		}.run(s, w, r)
 	}
@@ -536,10 +577,29 @@ func CorrectApplicationJoinedOn(s *orgsruntime.Server) http.HandlerFunc {
 					JoinedOn:    joinedOn,
 					WindowStart: dbvalue.Timestamp(now.Add(-correctionWindow)),
 				})
+				if err != nil || rows != 1 {
+					return change{}, false, err
+				}
+				if locked.CreditedEngagementID.Valid {
+					if err := q.UpsertCorrectedActivityFact(ctx, sqlc.UpsertCorrectedActivityFactParams{
+						OrgDid:               locked.OrgDid,
+						EngagementID:         locked.CreditedEngagementID,
+						OrgApplicationID:     locked.OrgApplicationID,
+						FactDate:             joinedOn,
+						FactKind:             string(marketplace.FactJoined),
+						ReferenceID:          "",
+						OpeningNumber:        locked.OpeningNumber,
+						OpeningTitle:         locked.OpeningTitle,
+						ApplicationNumber:    locked.ApplicationNumber,
+						ApplicantDisplayName: locked.ApplicantDisplayName,
+					}); err != nil {
+						return change{}, false, err
+					}
+				}
 				return change{
 					action:   sqlc.VetchiumOrgApplicationHistoryActionJoinedCorrected,
 					joinedOn: joinedOn,
-				}, rows == 1, err
+				}, true, nil
 			},
 		}.run(s, w, r)
 	}
@@ -574,10 +634,29 @@ func CorrectApplicationSeparatedOn(s *orgsruntime.Server) http.HandlerFunc {
 					SeparatedOn: separatedOn,
 					WindowStart: dbvalue.Timestamp(now.Add(-correctionWindow)),
 				})
+				if err != nil || rows != 1 {
+					return change{}, false, err
+				}
+				if locked.CreditedEngagementID.Valid {
+					if err := q.UpsertCorrectedActivityFact(ctx, sqlc.UpsertCorrectedActivityFactParams{
+						OrgDid:               locked.OrgDid,
+						EngagementID:         locked.CreditedEngagementID,
+						OrgApplicationID:     locked.OrgApplicationID,
+						FactDate:             separatedOn,
+						FactKind:             string(marketplace.FactSeparated),
+						ReferenceID:          "",
+						OpeningNumber:        locked.OpeningNumber,
+						OpeningTitle:         locked.OpeningTitle,
+						ApplicationNumber:    locked.ApplicationNumber,
+						ApplicantDisplayName: locked.ApplicantDisplayName,
+					}); err != nil {
+						return change{}, false, err
+					}
+				}
 				return change{
 					action:      sqlc.VetchiumOrgApplicationHistoryActionSeparatedCorrected,
 					separatedOn: separatedOn,
-				}, rows == 1, err
+				}, true, nil
 			},
 		}.run(s, w, r)
 	}

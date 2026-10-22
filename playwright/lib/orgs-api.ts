@@ -85,6 +85,7 @@ import type {
   SearchListingsRequest,
   UpdateListingRequest,
 } from "typespec/orgs/marketplace/listings";
+import type { GetActivityStatementRequest } from "typespec/orgs/marketplace/statements";
 import type {
   ChangeInterviewRequest as ChangeWorkInterviewRequest,
   JobReference,
@@ -361,6 +362,13 @@ export class OrgsAPI {
     return this.post("/get-engagement", request, { token });
   }
 
+  getEngagementStatement(
+    token: string,
+    request: GetActivityStatementRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-engagement-statement", request, { token });
+  }
+
   proposeEngagement(
     token: string,
     request: ProposeEngagementRequest,
@@ -411,6 +419,13 @@ export class OrgsAPI {
     request: GetEngagementRequest,
   ): Promise<APIResponse> {
     return this.post("/get-client-engagement", request, { token });
+  }
+
+  getClientEngagementStatement(
+    token: string,
+    request: GetActivityStatementRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-client-engagement-statement", request, { token });
   }
 
   acceptEngagement(

@@ -7,6 +7,7 @@ import (
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	"github.com/vetchium/src/typespec/orgs/marketplace/work"
+	"github.com/vetchium/src/typespec/problem"
 	coordinatorproblem "github.com/vetchium/src/typespec/problem/global-coordinator"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
@@ -217,4 +218,97 @@ func PeerListCreditedApplications(s *meshapi.Server) http.HandlerFunc {
 		func() work.PeerListCreditedApplicationsResponse {
 			return work.PeerListCreditedApplicationsResponse{Items: []work.CreditedApplicationSummary{}}
 		})
+}
+
+func RelayGetActivityStatement(s *meshapi.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !authenticateRelay(s.Runtime, w, r, s.Credential) {
+			return
+		}
+		var request work.RelayGetActivityStatementRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		tenant := request.Tenant
+		inner := request.Request
+		var result work.PeerGetActivityStatementResponse
+		if string(tenant) == s.TenantID {
+			value, err := s.ProviderWork.GetActivityStatement(r.Context(), inner)
+			if errors.Is(err, providerwork.ErrNotFound) {
+				s.Problem(r.Context(), w, orgsproblem.EngagementNotFoundError)
+				return
+			}
+			if errors.Is(err, providerwork.ErrInvalidCursor) {
+				s.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
+				return
+			}
+			if err != nil {
+				s.InternalError(r.Context(), w, "read local provider statement", err)
+				return
+			}
+			result = value
+		} else {
+			outcome, err := s.WorkPeers.PeerGetActivityStatement(r.Context(), tenant, inner)
+			if err == nil && outcome.Problem != nil &&
+				outcome.Problem.Type == orgsproblem.EngagementNotFoundError.Type {
+				s.Problem(r.Context(), w, orgsproblem.EngagementNotFoundError)
+				return
+			}
+			if err == nil && outcome.Problem != nil &&
+				outcome.Problem.Type == problem.InvalidPaginationKeyError.Type {
+				s.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
+				return
+			}
+			if err != nil || outcome.Problem != nil {
+				listingTenantUnavailable(s, w, r, tenant, err, outcome.Problem)
+				return
+			}
+			result = *outcome.Result
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, result)
+	}
+}
+
+func PeerGetActivityStatement(s *meshapi.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		caller, ok := meshidentity.TenantFromContext(r.Context())
+		if !ok {
+			peerAuthenticationRequired(s, w, r)
+			return
+		}
+		var request work.PeerGetActivityStatementRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		resolved, details, err := s.Directory.ResolvePrincipal(r.Context(),
+			directoryspec.ResolvePrincipalRequest{
+				PrincipalType: directoryspec.PrincipalOrg,
+				PrincipalDID:  directoryspec.PrincipalDID(string(request.ProviderOrgDID)),
+			})
+		if err != nil || (details != nil &&
+			details.Type != coordinatorproblem.DirectoryEntryNotFoundError.Type) {
+			listingTenantUnavailable(s, w, r, caller, err, details)
+			return
+		}
+		if details != nil || resolved.HomeTenantID != caller {
+			s.Problem(r.Context(), w, orgsproblem.EngagementNotFoundError)
+			return
+		}
+		res, err := s.ProviderWork.GetActivityStatement(r.Context(), request)
+		if errors.Is(err, providerwork.ErrNotFound) {
+			s.Problem(r.Context(), w, orgsproblem.EngagementNotFoundError)
+			return
+		}
+		if errors.Is(err, providerwork.ErrInvalidCursor) {
+			s.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
+			return
+		}
+		if err != nil {
+			s.InternalError(r.Context(), w, "peer read activity statement", err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, res)
+	}
 }

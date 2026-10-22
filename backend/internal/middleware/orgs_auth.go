@@ -132,3 +132,7 @@ func OrgIdentityFromContext(ctx context.Context) (OrgIdentity, bool) {
 	identity, ok := ctx.Value(orgIdentityContextKey{}).(OrgIdentity)
 	return identity, ok
 }
+
+func ContextWithOrgIdentity(ctx context.Context, identity OrgIdentity) context.Context {
+	return context.WithValue(ctx, orgIdentityContextKey{}, identity)
+}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -15,6 +16,7 @@ import (
 	federationspec "github.com/vetchium/src/typespec/federation"
 	"github.com/vetchium/src/typespec/hub/profile"
 	"github.com/vetchium/src/typespec/orgs/applications"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/marketplace/work"
 	"github.com/vetchium/src/typespec/problem"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
@@ -289,7 +291,7 @@ func outcome(
 	return execute(ctx, tx, command, &federationspec.WorkInterviewOutcomePayload{},
 		func(p *federationspec.WorkInterviewOutcomePayload) federationspec.WorkActor { return p.WorkActor },
 		func(ctx context.Context, q *sqlc.Queries, locked sqlc.LockProviderWorkRow,
-			p *federationspec.WorkInterviewOutcomePayload, _ time.Time,
+			p *federationspec.WorkInterviewOutcomePayload, now time.Time,
 		) (done, error) {
 			interview, refusal, err := ownInterview(ctx, q, locked, p.InterviewNumber, string(p.ActorEmail))
 			if refusal != nil || err != nil {
@@ -312,8 +314,25 @@ func outcome(
 				return done{}, fmt.Errorf("incomplete interview outcome")
 			}
 			action := sqlc.VetchiumOrgApplicationHistoryActionInterviewCompleted
+			factKind := marketplace.FactInterviewCompleted
 			if p.Outcome == applications.OutcomeNoShow {
 				action = sqlc.VetchiumOrgApplicationHistoryActionInterviewNoShow
+				factKind = marketplace.FactInterviewNoShow
+			}
+			if err := q.InsertActivityFact(ctx, sqlc.InsertActivityFactParams{
+				OrgDid:               locked.ConsumerOrgDid,
+				EngagementID:         locked.EngagementID,
+				OrgApplicationID:     locked.OrgApplicationID,
+				FactDate:             pgtype.Date{Time: now.UTC().Truncate(24 * time.Hour), Valid: true},
+				FactKind:             string(factKind),
+				ReferenceID:          strconv.Itoa(int(p.InterviewNumber)),
+				OpeningNumber:        locked.OpeningNumber,
+				OpeningTitle:         locked.OpeningTitle,
+				ApplicationNumber:    locked.ApplicationNumber,
+				ApplicantDisplayName: locked.ApplicantDisplayName,
+				Corrected:            false,
+			}); err != nil {
+				return done{}, fmt.Errorf("record interview activity fact: %w", err)
 			}
 			return done{action: action, interviewNumber: interviewNumber(p.InterviewNumber)}, nil
 		})
@@ -371,7 +390,7 @@ func assessment(
 	return execute(ctx, tx, command, &federationspec.WorkAssessmentPayload{},
 		func(p *federationspec.WorkAssessmentPayload) federationspec.WorkActor { return p.WorkActor },
 		func(ctx context.Context, q *sqlc.Queries, locked sqlc.LockProviderWorkRow,
-			p *federationspec.WorkAssessmentPayload, _ time.Time,
+			p *federationspec.WorkAssessmentPayload, now time.Time,
 		) (done, error) {
 			if !pendingStage(locked, sqlc.VetchiumPipelineStageKindAssessment) {
 				return refuse(orgsproblem.ApplicationStateConflictError), nil
@@ -401,6 +420,21 @@ func assessment(
 			if marked != 1 {
 				return done{}, fmt.Errorf("assessment result not marked as the provider's")
 			}
+			if err := q.InsertActivityFact(ctx, sqlc.InsertActivityFactParams{
+				OrgDid:               locked.ConsumerOrgDid,
+				EngagementID:         locked.EngagementID,
+				OrgApplicationID:     locked.OrgApplicationID,
+				FactDate:             pgtype.Date{Time: now.UTC().Truncate(24 * time.Hour), Valid: true},
+				FactKind:             string(marketplace.FactAssessmentResult),
+				ReferenceID:          "",
+				OpeningNumber:        locked.OpeningNumber,
+				OpeningTitle:         locked.OpeningTitle,
+				ApplicationNumber:    locked.ApplicationNumber,
+				ApplicantDisplayName: locked.ApplicantDisplayName,
+				Corrected:            false,
+			}); err != nil {
+				return done{}, fmt.Errorf("record assessment activity fact: %w", err)
+			}
 			return done{action: sqlc.VetchiumOrgApplicationHistoryActionAssessmentRecorded}, nil
 		})
 }
@@ -411,7 +445,7 @@ func checkResult(
 	return execute(ctx, tx, command, &federationspec.WorkBackgroundCheckResultPayload{},
 		func(p *federationspec.WorkBackgroundCheckResultPayload) federationspec.WorkActor { return p.WorkActor },
 		func(ctx context.Context, q *sqlc.Queries, locked sqlc.LockProviderWorkRow,
-			p *federationspec.WorkBackgroundCheckResultPayload, _ time.Time,
+			p *federationspec.WorkBackgroundCheckResultPayload, now time.Time,
 		) (done, error) {
 			if !pendingStage(locked, sqlc.VetchiumPipelineStageKindBackgroundCheck) {
 				return refuse(orgsproblem.ApplicationStateConflictError), nil
@@ -463,6 +497,21 @@ func checkResult(
 			}
 			if marked != 1 {
 				return done{}, fmt.Errorf("check result not marked as the provider's")
+			}
+			if err := q.InsertActivityFact(ctx, sqlc.InsertActivityFactParams{
+				OrgDid:               locked.ConsumerOrgDid,
+				EngagementID:         locked.EngagementID,
+				OrgApplicationID:     locked.OrgApplicationID,
+				FactDate:             pgtype.Date{Time: now.UTC().Truncate(24 * time.Hour), Valid: true},
+				FactKind:             string(marketplace.FactBackgroundCheckOutcome),
+				ReferenceID:          checkType,
+				OpeningNumber:        locked.OpeningNumber,
+				OpeningTitle:         locked.OpeningTitle,
+				ApplicationNumber:    locked.ApplicationNumber,
+				ApplicantDisplayName: locked.ApplicantDisplayName,
+				Corrected:            false,
+			}); err != nil {
+				return done{}, fmt.Errorf("record background-check activity fact: %w", err)
 			}
 			return done{action: sqlc.VetchiumOrgApplicationHistoryActionBackgroundCheckResultRecorded}, nil
 		})

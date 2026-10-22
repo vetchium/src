@@ -10,7 +10,11 @@
 -- unreadable application indistinguishable from an unknown number. A null
 -- target_position means the stage is not part of the Opening's pipeline.
 -- name: LockOrgApplicationForWrite :one
-SELECT a.org_application_id, o.org_opening_id, a.application_state, a.version,
+SELECT a.org_application_id, o.org_opening_id, o.org_did, o.opening_number,
+    COALESCE(c.title, '')::text AS opening_title,
+    a.application_number,
+    COALESCE(a.snapshot->>'display_name', '')::text AS applicant_display_name,
+    a.credited_engagement_id, a.application_state, a.version,
     vetchium.org_user_acts_on_applications(o.org_opening_id,
         sqlc.arg(viewer_id)) AS can_act,
     a.current_stage_id, current_stage.position AS current_position,
@@ -30,6 +34,8 @@ SELECT a.org_application_id, o.org_opening_id, a.application_state, a.version,
     COALESCE(rt.listing_check_types, '{}')::text[] AS route_check_types
 FROM vetchium.org_openings AS o
 JOIN vetchium.org_applications AS a ON a.org_opening_id = o.org_opening_id
+LEFT JOIN vetchium.org_opening_contents AS c
+    ON c.org_opening_id = o.org_opening_id AND c.slot = 'live'
 LEFT JOIN vetchium.org_application_routes AS rt
     ON rt.org_application_id = a.org_application_id
 LEFT JOIN vetchium.org_engagement_assignments AS route_asg

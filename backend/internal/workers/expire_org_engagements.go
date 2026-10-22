@@ -30,8 +30,11 @@ func (w *Worker) expireOrgEngagements(ctx context.Context) error {
 			w.log.Info("Org engagements expired", "count", expired)
 		}
 		if expired < engagementExpiryBatchSize {
-			return nil
+			break
 		}
+	}
+	if _, err := w.queries.PruneTerminalEngagementActivityFacts(ctx, w.tenantID); err != nil {
+		return fmt.Errorf("prune terminal engagement activity facts: %w", err)
 	}
 	return nil
 }

@@ -1,8 +1,10 @@
 package work
 
 import (
+	"strings"
 	"time"
 
+	"github.com/vetchium/src/typespec/common"
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	hubspec "github.com/vetchium/src/typespec/hub/applications"
 	"github.com/vetchium/src/typespec/orgs"
@@ -278,5 +280,58 @@ func (r *RelayListCreditedApplicationsRequest) Normalize() {
 }
 
 func (r RelayListCreditedApplicationsRequest) Validate() []string {
+	return relayFields(r.Tenant, r.Request.Validate())
+}
+
+type PeerGetActivityStatementRequest struct {
+	ProviderOrgDID orgs.OrgDID                `json:"provider_org_did"`
+	EngagementID   marketplace.EngagementID   `json:"engagement_id"`
+	Month          marketplace.StatementMonth `json:"month"`
+	PaginationKey  *common.PaginationKey      `json:"pagination_key,omitempty"`
+	Limit          int32                      `json:"limit"`
+}
+
+func (r *PeerGetActivityStatementRequest) Normalize() {
+	r.EngagementID = marketplace.EngagementID(strings.TrimSpace(string(r.EngagementID)))
+	r.Month = marketplace.StatementMonth(strings.TrimSpace(string(r.Month)))
+}
+
+func (r PeerGetActivityStatementRequest) Validate() []string {
+	fields := []string{}
+	if !orgs.IsOrgDID(r.ProviderOrgDID) {
+		fields = append(fields, "provider_org_did")
+	}
+	if !marketplace.IsEngagementID(r.EngagementID) {
+		fields = append(fields, "engagement_id")
+	}
+	if !marketplace.IsStatementMonth(r.Month) {
+		fields = append(fields, "month")
+	}
+	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
+		fields = append(fields, "pagination_key")
+	}
+	if r.Limit < 1 || r.Limit > 100 {
+		fields = append(fields, "limit")
+	}
+	return fields
+}
+
+type PeerGetActivityStatementResponse struct {
+	EngagementID      marketplace.EngagementID            `json:"engagement_id"`
+	Month             marketplace.StatementMonth          `json:"month"`
+	Items             []marketplace.ActivityStatementItem `json:"items"`
+	NextPaginationKey *common.PaginationKey               `json:"next_pagination_key,omitempty"`
+}
+
+type RelayGetActivityStatementRequest struct {
+	Tenant  directoryspec.TenantID          `json:"tenant"`
+	Request PeerGetActivityStatementRequest `json:"request"`
+}
+
+func (r *RelayGetActivityStatementRequest) Normalize() {
+	r.Request.Normalize()
+}
+
+func (r RelayGetActivityStatementRequest) Validate() []string {
 	return relayFields(r.Tenant, r.Request.Validate())
 }

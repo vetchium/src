@@ -1,3 +1,5 @@
+import type { PaginationKey } from "../../../common/pagination.ts";
+import { isPaginationKey } from "../../../common/pagination.ts";
 import type { TenantID } from "../../../directory/directory.ts";
 import { isTenantID } from "../../../directory/directory.ts";
 import {
@@ -19,7 +21,9 @@ import {
   type ReferralRoute,
 } from "../attribution.ts";
 import type { Capability } from "../capabilities.ts";
-import type { EngagementID } from "../engagements.ts";
+import { type EngagementID, isEngagementID } from "../engagements.ts";
+import type { ActivityStatementItem, StatementMonth } from "../statements.ts";
+import { isStatementMonth } from "../statements.ts";
 import type {
   Job,
   JobDetail,
@@ -328,6 +332,52 @@ export function validateRelayListCreditedApplicationsRequest(
   return relayFields(
     request.tenant,
     validatePeerListCreditedApplicationsRequest(request.request),
+  );
+}
+
+export interface PeerGetActivityStatementRequest {
+  provider_org_did: OrgDID;
+  engagement_id: EngagementID;
+  month: StatementMonth;
+  pagination_key?: PaginationKey;
+  limit: number;
+}
+
+export function validatePeerGetActivityStatementRequest(
+  request: PeerGetActivityStatementRequest,
+): string[] {
+  const fields: string[] = [];
+  if (!isOrgDID(request.provider_org_did)) fields.push("provider_org_did");
+  if (!isEngagementID(request.engagement_id)) fields.push("engagement_id");
+  if (!isStatementMonth(request.month)) fields.push("month");
+  if (
+    request.pagination_key !== undefined &&
+    !isPaginationKey(request.pagination_key)
+  ) {
+    fields.push("pagination_key");
+  }
+  if (!validLimit(request.limit)) fields.push("limit");
+  return fields;
+}
+
+export interface PeerGetActivityStatementResponse {
+  engagement_id: EngagementID;
+  month: StatementMonth;
+  items: ActivityStatementItem[];
+  next_pagination_key?: PaginationKey;
+}
+
+export interface RelayGetActivityStatementRequest {
+  tenant: TenantID;
+  request: PeerGetActivityStatementRequest;
+}
+
+export function validateRelayGetActivityStatementRequest(
+  request: RelayGetActivityStatementRequest,
+): string[] {
+  return relayFields(
+    request.tenant,
+    validatePeerGetActivityStatementRequest(request.request),
   );
 }
 

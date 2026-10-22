@@ -7,6 +7,7 @@ package providerwork
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,6 +32,9 @@ import (
 
 // ErrNotFound is the one answer for work the provider may not reach.
 var ErrNotFound = errors.New("provider work not found")
+
+// ErrInvalidCursor indicates an invalid statement pagination key.
+var ErrInvalidCursor = errors.New("invalid statement cursor")
 
 // Reader answers a provider's reads from this tenant's database.
 type Reader struct {
@@ -393,4 +397,167 @@ func (r Reader) ListCreditedApplications(
 		items = append(items, item)
 	}
 	return work.PeerListCreditedApplicationsResponse{Items: items}, nil
+}
+
+type statementCursor struct {
+	EngagementID string `json:"e"`
+	Month        string `json:"m"`
+	Date         string `json:"d"`
+	FactID       string `json:"id"`
+}
+
+func encodeStatementCursor(engagementID, month, date, factID string) string {
+	payload, _ := json.Marshal(statementCursor{
+		EngagementID: engagementID,
+		Month:        month,
+		Date:         date,
+		FactID:       factID,
+	})
+	return base64.RawURLEncoding.EncodeToString(payload)
+}
+
+func decodeStatementCursor(raw, expectedEngagement, expectedMonth string) (time.Time, pgtype.UUID, bool) {
+	data, err := base64.RawURLEncoding.DecodeString(raw)
+	if err != nil {
+		return time.Time{}, pgtype.UUID{}, false
+	}
+	var cursor statementCursor
+	if err := json.Unmarshal(data, &cursor); err != nil {
+		return time.Time{}, pgtype.UUID{}, false
+	}
+	if cursor.EngagementID != expectedEngagement || cursor.Month != expectedMonth {
+		return time.Time{}, pgtype.UUID{}, false
+	}
+	d, err := time.Parse("2006-01-02", cursor.Date)
+	if err != nil {
+		return time.Time{}, pgtype.UUID{}, false
+	}
+	id, err := dbvalue.ParseUUID(cursor.FactID)
+	if err != nil {
+		return time.Time{}, pgtype.UUID{}, false
+	}
+	return d, id, true
+}
+
+// ReadActivityStatement reads billable facts for one engagement and month from the database.
+func (r Reader) ReadActivityStatement(
+	ctx context.Context,
+	engagementID string,
+	expectedOrgDID pgtype.UUID,
+	isConsumer bool,
+	month marketplace.StatementMonth,
+	paginationKey *common.PaginationKey,
+	limit int32,
+) (marketplace.GetActivityStatementResponse, error) {
+	engID, err := dbvalue.ParseUUID(engagementID)
+	if err != nil {
+		return marketplace.GetActivityStatementResponse{}, err
+	}
+	snapshot, err := r.Queries.GetOrgEngagementSnapshot(ctx, engID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return marketplace.GetActivityStatementResponse{}, ErrNotFound
+	}
+	if err != nil {
+		return marketplace.GetActivityStatementResponse{}, fmt.Errorf("read engagement snapshot: %w", err)
+	}
+	if isConsumer {
+		if snapshot.ConsumerOrgDid != expectedOrgDID {
+			return marketplace.GetActivityStatementResponse{}, ErrNotFound
+		}
+	} else {
+		if snapshot.ProviderOrgDid != expectedOrgDID {
+			return marketplace.GetActivityStatementResponse{}, ErrNotFound
+		}
+	}
+
+	startTime, err := time.Parse("2006-01", string(month))
+	if err != nil {
+		return marketplace.GetActivityStatementResponse{}, fmt.Errorf("invalid month: %w", err)
+	}
+	startDate := startTime
+	endDate := startTime.AddDate(0, 1, -1)
+
+	effLimit := int(limit)
+	if effLimit < 1 {
+		effLimit = 50
+	} else if effLimit > 100 {
+		effLimit = 100
+	}
+
+	params := sqlc.ListActivityStatementFactsParams{
+		EngagementID: engID,
+		StartDate:    pgtype.Date{Time: startDate, Valid: true},
+		EndDate:      pgtype.Date{Time: endDate, Valid: true},
+		PageLimit:    int32(effLimit) + 1,
+	}
+
+	if paginationKey != nil {
+		afterDate, afterFactID, ok := decodeStatementCursor(string(*paginationKey), engagementID, string(month))
+		if !ok {
+			return marketplace.GetActivityStatementResponse{}, ErrInvalidCursor
+		}
+		params.AfterDate = pgtype.Date{Time: afterDate, Valid: true}
+		params.AfterFactID = afterFactID
+	}
+
+	rows, err := r.Queries.ListActivityStatementFacts(ctx, params)
+	if err != nil {
+		return marketplace.GetActivityStatementResponse{}, fmt.Errorf("list activity statement facts: %w", err)
+	}
+
+	hasMore := len(rows) > effLimit
+	if hasMore {
+		rows = rows[:effLimit]
+	}
+
+	items := make([]marketplace.ActivityStatementItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, marketplace.ActivityStatementItem{
+			FactID:               dbvalue.FormatUUID(row.FactID),
+			Date:                 row.FactDate.Time.Format("2006-01-02"),
+			Fact:                 marketplace.BillableFactKind(row.FactKind),
+			OpeningNumber:        openings.OpeningNumber(row.OpeningNumber),
+			OpeningTitle:         row.OpeningTitle,
+			ApplicationNumber:    row.ApplicationNumber,
+			ApplicantDisplayName: row.ApplicantDisplayName,
+			Corrected:            row.Corrected,
+		})
+	}
+
+	response := marketplace.GetActivityStatementResponse{
+		EngagementID: marketplace.EngagementID(engagementID),
+		Month:        month,
+		Items:        items,
+	}
+
+	if hasMore {
+		last := rows[len(rows)-1]
+		key := encodeStatementCursor(engagementID, string(month), last.FactDate.Time.Format("2006-01-02"), dbvalue.FormatUUID(last.FactID))
+		pk := common.PaginationKey(key)
+		response.NextPaginationKey = &pk
+	}
+
+	return response, nil
+}
+
+// GetActivityStatement reads billable facts for one provider across one of its engagements.
+func (r Reader) GetActivityStatement(
+	ctx context.Context, request work.PeerGetActivityStatementRequest,
+) (work.PeerGetActivityStatementResponse, error) {
+	providerDID, err := dbvalue.ParseUUID(string(request.ProviderOrgDID))
+	if err != nil {
+		return work.PeerGetActivityStatementResponse{}, err
+	}
+	res, err := r.ReadActivityStatement(
+		ctx, string(request.EngagementID), providerDID, false, request.Month, request.PaginationKey, request.Limit,
+	)
+	if err != nil {
+		return work.PeerGetActivityStatementResponse{}, err
+	}
+	return work.PeerGetActivityStatementResponse{
+		EngagementID:      res.EngagementID,
+		Month:             res.Month,
+		Items:             res.Items,
+		NextPaginationKey: res.NextPaginationKey,
+	}, nil
 }

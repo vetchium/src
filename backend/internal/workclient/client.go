@@ -56,6 +56,7 @@ const (
 	listJobs        = "provider-jobs/list"
 	getJob          = "provider-jobs/get"
 	listAttribution = "provider-attribution/list"
+	getStatement    = "provider-statements/get"
 )
 
 func (c *Client) RelayListWork(
@@ -154,6 +155,29 @@ func (c *Client) PeerListCreditedApplications(
 	return call(ctx, c, endpoint, request, tlsConfig,
 		func(r work.PeerListCreditedApplicationsResponse) bool {
 			return validAttribution(r, request)
+		})
+}
+
+func (c *Client) RelayGetActivityStatement(
+	ctx context.Context, request work.RelayGetActivityStatementRequest,
+) (Outcome[work.PeerGetActivityStatementResponse], error) {
+	return call(ctx, c, c.baseURL+"/mesh/"+getStatement, request, nil,
+		func(r work.PeerGetActivityStatementResponse) bool {
+			return validStatement(r, request.Request)
+		})
+}
+
+func (c *Client) PeerGetActivityStatement(
+	ctx context.Context, tenant directoryspec.TenantID,
+	request work.PeerGetActivityStatementRequest,
+) (Outcome[work.PeerGetActivityStatementResponse], error) {
+	endpoint, tlsConfig, err := c.peerEndpoint(tenant, getStatement)
+	if err != nil {
+		return Outcome[work.PeerGetActivityStatementResponse]{}, err
+	}
+	return call(ctx, c, endpoint, request, tlsConfig,
+		func(r work.PeerGetActivityStatementResponse) bool {
+			return validStatement(r, request)
 		})
 }
 
@@ -345,4 +369,8 @@ func validAttribution(result work.PeerListCreditedApplicationsResponse, asked wo
 		}
 	}
 	return true
+}
+
+func validStatement(result work.PeerGetActivityStatementResponse, asked work.PeerGetActivityStatementRequest) bool {
+	return result.EngagementID == asked.EngagementID && result.Month == asked.Month
 }

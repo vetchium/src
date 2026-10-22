@@ -22,6 +22,7 @@ import "./marketplace/listings.tsp";
 import "./marketplace/engagements.tsp";
 import "./marketplace/assignments.tsp";
 import "./marketplace/attribution.tsp";
+import "./marketplace/statements.tsp";
 import "./marketplace/work/work.tsp";
 import "./marketplace/work/federation.tsp";
 import "./marketplace/contacts/contacts.tsp";

@@ -3568,6 +3568,41 @@ CREATE TABLE vetchium.hub_message_notices (
 CREATE INDEX hub_message_notices_queue_idx
     ON vetchium.hub_message_notices (created_at, notice_id);
 
+-- Billable facts derived from recording actions (MKT-STM-001).
+-- Authoritative on consumer tenant; outlives applicant retention with numbers only
+-- (MKT-STM-004), deleted three years after engagement becomes terminal.
+CREATE TABLE vetchium.org_activity_facts (
+    fact_id uuid PRIMARY KEY,
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did) ON DELETE CASCADE,
+    engagement_id uuid NOT NULL REFERENCES vetchium.org_engagements (engagement_id) ON DELETE CASCADE,
+    org_application_id uuid NOT NULL REFERENCES vetchium.org_applications (org_application_id) ON DELETE CASCADE,
+    fact_date date NOT NULL,
+    fact_kind text NOT NULL CHECK (
+        fact_kind IN (
+            'joined',
+            'separated',
+            'interview_completed',
+            'interview_no_show',
+            'assessment_result',
+            'background_check_outcome'
+        )
+    ),
+    reference_id text NOT NULL DEFAULT '',
+    opening_number integer NOT NULL CHECK (opening_number >= 1),
+    opening_title text NOT NULL,
+    application_number integer NOT NULL CHECK (application_number >= 1),
+    applicant_display_name text NOT NULL DEFAULT '',
+    corrected boolean NOT NULL DEFAULT false,
+    recorded_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_activity_facts_unique UNIQUE (
+        engagement_id, org_application_id, fact_kind, reference_id
+    )
+);
+CREATE INDEX org_activity_facts_statement_idx
+    ON vetchium.org_activity_facts (engagement_id, fact_date ASC, fact_id ASC);
+CREATE INDEX org_activity_facts_application_idx
+    ON vetchium.org_activity_facts (org_application_id);
+
 CREATE TABLE vetchium.idempotency_ledger (
     operation text NOT NULL,
     binding_id text NOT NULL,
@@ -3698,6 +3733,7 @@ DROP TABLE IF EXISTS vetchium.org_application_offers;
 DROP TYPE IF EXISTS vetchium.org_application_offer_status;
 DROP TABLE IF EXISTS vetchium.org_offer_letter_objects;
 DROP TYPE IF EXISTS vetchium.org_offer_letter_state;
+DROP TABLE IF EXISTS vetchium.org_activity_facts;
 DROP TABLE IF EXISTS vetchium.org_application_routes;
 DROP TABLE IF EXISTS vetchium.org_engagement_assignments;
 DROP TABLE IF EXISTS vetchium.org_application_history;
