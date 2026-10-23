@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import type { TestTenant } from "./admin-db.ts";
 import { expect } from "./admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "./dev-dns.ts";
 import {
@@ -15,11 +16,12 @@ import { chooseRegion } from "./region-ui.ts";
 export async function signIn(
   page: Page,
   user: Pick<SignedUpOrg, "domain" | "emailAddress" | "password">,
+  region: TestTenant = "sgp",
 ) {
   await page.goto(`${ORGS_PORTAL}/login?domain=${user.domain}`);
   await page.getByLabel("Email address").fill(user.emailAddress);
   await page.getByLabel("Password", { exact: true }).fill(user.password);
-  await chooseRegion(page, "sgp");
+  await chooseRegion(page, region);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(
     page.getByRole("button", { name: "Sign out", exact: true }),

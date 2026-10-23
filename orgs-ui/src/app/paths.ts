@@ -23,6 +23,14 @@ export const paths = {
   listingDetail: (domain: string, capability: string) =>
     `/providers/listings/${encodeURIComponent(domain)}/${encodeURIComponent(capability)}`,
   engagementDetail: (id: string) => `/providers/engagements/${id}`,
+  listings: "/listings",
+  listingEditor: (capability: string) =>
+    `/listings/${encodeURIComponent(capability)}`,
+  clients: "/clients",
+  clientEngagementDetail: (id: string) => `/clients/${encodeURIComponent(id)}`,
+  workQueue: "/work",
+  workItem: (engagementId: string, workId: string) =>
+    `/work/${encodeURIComponent(engagementId)}/${encodeURIComponent(workId)}`,
   plans: "/plans",
   ai: "/ai",
   settings: "/company",

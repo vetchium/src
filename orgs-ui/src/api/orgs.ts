@@ -106,15 +106,34 @@ import type {
   SetEngagementReferenceRequest,
 } from "typespec/orgs/marketplace/engagements";
 import type {
+  CreateListingRequest,
   GetListingRequest,
+  Listing,
   ListingDetail,
+  ListingTarget,
+  ListListingsResponse,
   SearchListingsRequest,
   SearchListingsResponse,
+  UpdateListingRequest,
 } from "typespec/orgs/marketplace/listings";
 import type {
   GetActivityStatementRequest,
   GetActivityStatementResponse,
 } from "typespec/orgs/marketplace/statements";
+import type {
+  InterviewReference,
+  ListWorkQueueRequest,
+  ListWorkQueueResponse,
+  RecordAssessmentRequest,
+  ChangeInterviewRequest as WorkChangeInterviewRequest,
+  WorkDetail,
+  RecordBackgroundCheckResultRequest as WorkRecordBackgroundCheckResultRequest,
+  RecordInterviewOutcomeRequest as WorkRecordInterviewOutcomeRequest,
+  WorkReference,
+  ScheduleInterviewRequest as WorkScheduleInterviewRequest,
+  SubmitInterviewFeedbackRequest as WorkSubmitInterviewFeedbackRequest,
+  WriteResult,
+} from "typespec/orgs/marketplace/work/work";
 import type {
   CreateOpeningRequest,
   DecideOpeningRequestRequest,
@@ -693,6 +712,104 @@ export const orgsAPI = {
     idempotencyKey: IdempotencyKey,
   ) =>
     apiRequest<ApplicationDetail>("/route-application", {
+      body,
+      idempotencyKey,
+    }),
+  listListings: () =>
+    apiRequest<ListListingsResponse>("/list-listings", { body: {} }),
+  createListing: (body: CreateListingRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Listing>("/create-listing", { body, idempotencyKey }),
+  updateListing: (body: UpdateListingRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Listing>("/update-listing", { body, idempotencyKey }),
+  publishListing: (body: ListingTarget, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Listing>("/publish-listing", { body, idempotencyKey }),
+  unlistListing: (body: ListingTarget, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Listing>("/unlist-listing", { body, idempotencyKey }),
+  deleteListing: (body: ListingTarget, idempotencyKey: IdempotencyKey) =>
+    apiRequest<void>("/delete-listing", { body, idempotencyKey }),
+  listClientEngagements: (body: ListEngagementsRequest) =>
+    apiRequest<ListEngagementsResponse>("/list-client-engagements", { body }),
+  getClientEngagement: (body: GetEngagementRequest) =>
+    apiRequest<Engagement>("/get-client-engagement", { body }),
+  getClientEngagementStatement: (body: GetActivityStatementRequest) =>
+    apiRequest<GetActivityStatementResponse>(
+      "/get-client-engagement-statement",
+      { body },
+    ),
+  acceptEngagement: (body: EngagementTarget, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Engagement>("/accept-engagement", { body, idempotencyKey }),
+  declineEngagement: (body: EngagementTarget, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Engagement>("/decline-engagement", { body, idempotencyKey }),
+  endClientEngagement: (
+    body: EndEngagementRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<Engagement>("/end-client-engagement", { body, idempotencyKey }),
+  setClientEngagementReference: (
+    body: SetEngagementReferenceRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<Engagement>("/set-client-engagement-reference", {
+      body,
+      idempotencyKey,
+    }),
+  listWorkQueue: (body: ListWorkQueueRequest) =>
+    apiRequest<ListWorkQueueResponse>("/list-work-queue", { body }),
+  getWorkItem: (body: WorkReference) =>
+    apiRequest<WorkDetail>("/get-work-item", { body }),
+  scheduleWorkInterview: (
+    body: WorkScheduleInterviewRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<WriteResult>("/schedule-work-interview", {
+      body,
+      idempotencyKey,
+    }),
+  changeWorkInterview: (
+    body: WorkChangeInterviewRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<WriteResult>("/change-work-interview", {
+      body,
+      idempotencyKey,
+    }),
+  cancelWorkInterview: (
+    body: InterviewReference,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<WriteResult>("/cancel-work-interview", {
+      body,
+      idempotencyKey,
+    }),
+  recordWorkInterviewOutcome: (
+    body: WorkRecordInterviewOutcomeRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<WriteResult>("/record-work-interview-outcome", {
+      body,
+      idempotencyKey,
+    }),
+  submitWorkInterviewFeedback: (
+    body: WorkSubmitInterviewFeedbackRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<WriteResult>("/submit-work-interview-feedback", {
+      body,
+      idempotencyKey,
+    }),
+  recordWorkAssessment: (
+    body: RecordAssessmentRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<WriteResult>("/record-work-assessment", {
+      body,
+      idempotencyKey,
+    }),
+  recordWorkBackgroundCheckResult: (
+    body: WorkRecordBackgroundCheckResultRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<WriteResult>("/record-work-background-check-result", {
       body,
       idempotencyKey,
     }),

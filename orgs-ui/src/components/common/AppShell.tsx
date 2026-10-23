@@ -1,4 +1,5 @@
 import {
+  AppstoreOutlined,
   BranchesOutlined,
   CalendarOutlined,
   CreditCardOutlined,
@@ -7,7 +8,9 @@ import {
   SafetyOutlined,
   SettingOutlined,
   ShopOutlined,
+  SolutionOutlined,
   TeamOutlined,
+  UnorderedListOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
 import { PortalShell } from "@vetchium/portal-ui/shell";
@@ -16,9 +19,11 @@ import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router";
 import { DomainFailing, OrgSuspended } from "typespec/orgs/account/account";
 import {
+  FulfilEngagements,
   holds,
   ManageAI,
   ManageBilling,
+  ManageListings,
   ManageOpenings,
   ManageProviders,
   ManageUsers,
@@ -102,6 +107,42 @@ export function AppShell() {
               : []),
           ],
         },
+        ...(me !== undefined &&
+        (holds(me.permissions, ManageListings) ||
+          holds(me.permissions, FulfilEngagements))
+          ? [
+              {
+                type: "group" as const,
+                key: "provider",
+                label: t("navigation.provider"),
+                children: [
+                  ...(holds(me.permissions, ManageListings)
+                    ? [
+                        {
+                          key: paths.listings,
+                          icon: <AppstoreOutlined />,
+                          label: t("navigation.listings"),
+                        },
+                        {
+                          key: paths.clients,
+                          icon: <SolutionOutlined />,
+                          label: t("navigation.clients"),
+                        },
+                      ]
+                    : []),
+                  ...(holds(me.permissions, FulfilEngagements)
+                    ? [
+                        {
+                          key: paths.workQueue,
+                          icon: <UnorderedListOutlined />,
+                          label: t("navigation.workQueue"),
+                        },
+                      ]
+                    : []),
+                ],
+              },
+            ]
+          : []),
         {
           type: "group",
           key: "organization",

@@ -2,8 +2,10 @@ import { Spin } from "antd";
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import {
+  FulfilEngagements,
   ManageAI,
   ManageBilling,
+  ManageListings,
   ManageOpenings,
   ManageProviders,
   ManageUsers,
@@ -90,6 +92,38 @@ const ListingDetailPage = lazy(() =>
 const EngagementDetailPage = lazy(() =>
   import("../pages/EngagementDetailPage").then(({ EngagementDetailPage }) => ({
     default: EngagementDetailPage,
+  })),
+);
+const ListingsPage = lazy(() =>
+  import("../pages/ListingsPage").then(({ ListingsPage }) => ({
+    default: ListingsPage,
+  })),
+);
+const ListingEditorPage = lazy(() =>
+  import("../pages/ListingEditorPage").then(({ ListingEditorPage }) => ({
+    default: ListingEditorPage,
+  })),
+);
+const ClientsPage = lazy(() =>
+  import("../pages/ClientsPage").then(({ ClientsPage }) => ({
+    default: ClientsPage,
+  })),
+);
+const ClientEngagementDetailPage = lazy(() =>
+  import("../pages/ClientEngagementDetailPage").then(
+    ({ ClientEngagementDetailPage }) => ({
+      default: ClientEngagementDetailPage,
+    }),
+  ),
+);
+const WorkQueuePage = lazy(() =>
+  import("../pages/WorkQueuePage").then(({ WorkQueuePage }) => ({
+    default: WorkQueuePage,
+  })),
+);
+const WorkItemDetailPage = lazy(() =>
+  import("../pages/WorkItemDetailPage").then(({ WorkItemDetailPage }) => ({
+    default: WorkItemDetailPage,
   })),
 );
 const OpeningEditor = lazy(() =>
@@ -380,6 +414,58 @@ export function App() {
                 element={
                   <Page>
                     <EngagementDetailPage />
+                  </Page>
+                }
+              />
+            </Route>
+            <Route element={<PermissionRoute permission={ManageListings} />}>
+              <Route
+                path={paths.listings}
+                element={
+                  <Page>
+                    <ListingsPage />
+                  </Page>
+                }
+              />
+              <Route
+                path="/listings/:capability"
+                element={
+                  <Page>
+                    <ListingEditorPage />
+                  </Page>
+                }
+              />
+              <Route
+                path={paths.clients}
+                element={
+                  <Page>
+                    <ClientsPage />
+                  </Page>
+                }
+              />
+              <Route
+                path="/clients/:id"
+                element={
+                  <Page>
+                    <ClientEngagementDetailPage />
+                  </Page>
+                }
+              />
+            </Route>
+            <Route element={<PermissionRoute permission={FulfilEngagements} />}>
+              <Route
+                path={paths.workQueue}
+                element={
+                  <Page>
+                    <WorkQueuePage />
+                  </Page>
+                }
+              />
+              <Route
+                path="/work/:engagementId/:workId"
+                element={
+                  <Page>
+                    <WorkItemDetailPage />
                   </Page>
                 }
               />
