@@ -126,6 +126,38 @@ const WorkItemDetailPage = lazy(() =>
     default: WorkItemDetailPage,
   })),
 );
+const JobsPage = lazy(() =>
+  import("../pages/JobsPage").then(({ JobsPage }) => ({
+    default: JobsPage,
+  })),
+);
+const JobDetailPage = lazy(() =>
+  import("../pages/JobDetailPage").then(({ JobDetailPage }) => ({
+    default: JobDetailPage,
+  })),
+);
+const ContactsPage = lazy(() =>
+  import("../pages/ContactsPage").then(({ ContactsPage }) => ({
+    default: ContactsPage,
+  })),
+);
+const ContactDetailPage = lazy(() =>
+  import("../pages/ContactDetailPage").then(({ ContactDetailPage }) => ({
+    default: ContactDetailPage,
+  })),
+);
+const NewContactPage = lazy(() =>
+  import("../pages/NewContactPage").then(({ NewContactPage }) => ({
+    default: NewContactPage,
+  })),
+);
+const CreditedApplicationsPage = lazy(() =>
+  import("../pages/CreditedApplicationsPage").then(
+    ({ CreditedApplicationsPage }) => ({
+      default: CreditedApplicationsPage,
+    }),
+  ),
+);
 const OpeningEditor = lazy(() =>
   import("../features/openings/OpeningEditor").then(({ OpeningEditor }) => ({
     default: OpeningEditor,
@@ -466,6 +498,54 @@ export function App() {
                 element={
                   <Page>
                     <WorkItemDetailPage />
+                  </Page>
+                }
+              />
+              <Route
+                path={paths.jobs}
+                element={
+                  <Page>
+                    <JobsPage />
+                  </Page>
+                }
+              />
+              <Route
+                path="/jobs/:engagement_id/:opening_number"
+                element={
+                  <Page>
+                    <JobDetailPage />
+                  </Page>
+                }
+              />
+              <Route
+                path={paths.contacts}
+                element={
+                  <Page>
+                    <ContactsPage />
+                  </Page>
+                }
+              />
+              <Route
+                path={paths.newContact}
+                element={
+                  <Page>
+                    <NewContactPage />
+                  </Page>
+                }
+              />
+              <Route
+                path="/contacts/:id"
+                element={
+                  <Page>
+                    <ContactDetailPage />
+                  </Page>
+                }
+              />
+              <Route
+                path={paths.creditedApplications}
+                element={
+                  <Page>
+                    <CreditedApplicationsPage />
                   </Page>
                 }
               />

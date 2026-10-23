@@ -27,8 +27,13 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
 		org := dbvalue.FormatUUID(identity.OrgDID)
+		filter := "all"
+		if request.Filter != nil {
+			filter = string(*request.Filter)
+		}
 		params := sqlc.ListOrgContactsParams{
 			OrgDid: identity.OrgDID, PageLimit: request.EffectiveLimit() + 1,
+			Filter: filter,
 		}
 		if request.PaginationKey != nil {
 			cursor, valid := verify(s, contactsPurpose, *request.PaginationKey, org, "")
@@ -65,7 +70,7 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 			}
 			response.Items = append(response.Items, summary(row.ContactID,
 				row.DisplayName, row.Handle, row.MessagesOff, row.LastActivityAt,
-				row.NoteCount, credited))
+				row.NoteCount, credited, row.HasConversation, row.UnreadMessagesCount))
 		}
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, response)
@@ -115,7 +120,8 @@ func GetContact(s *orgsruntime.Server) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, contacts.Contact{
 			ContactSummary: summary(row.ContactID, row.DisplayName, row.Handle,
-				row.MessagesOff, row.LastActivityAt, row.NoteCount, credited),
+				row.MessagesOff, row.LastActivityAt, row.NoteCount, credited,
+				row.HasConversation, row.UnreadMessagesCount),
 			CreatedBy:         common.EmailAddress(row.CreatedBy),
 			SuggestedOpenings: suggestedOpenings,
 			CreatedAt:         row.CreatedAt.Time.UTC(),

@@ -194,7 +194,8 @@ func insertNote(
 	}
 	return contacts.AddedNote{
 		Contact: summary(contact.ContactID, contact.DisplayName, contact.Handle,
-			contact.MessagesOff, contact.LastActivityAt, contact.NoteCount, contact.CreditedCount),
+			contact.MessagesOff, contact.LastActivityAt, contact.NoteCount, contact.CreditedCount,
+			contact.HasConversation, contact.UnreadMessagesCount),
 		Note: noteFrom(row.NoteID, row.Author, text, row.CreatedAt, pgtype.Timestamptz{}),
 	}, nil, nil
 }

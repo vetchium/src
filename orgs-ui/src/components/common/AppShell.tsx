@@ -1,7 +1,10 @@
 import {
+  AimOutlined,
   AppstoreOutlined,
+  AuditOutlined,
   BranchesOutlined,
   CalendarOutlined,
+  ContactsOutlined,
   CreditCardOutlined,
   FileTextOutlined,
   HomeOutlined,
@@ -14,6 +17,7 @@ import {
   WarningOutlined,
 } from "@ant-design/icons";
 import { PortalShell } from "@vetchium/portal-ui/shell";
+import { Badge } from "antd";
 import type { ItemType } from "antd/es/menu/interface.js";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router";
@@ -35,6 +39,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { useMyInfoQuery } from "../../features/account/queries";
 import { VetchiumAIIcon } from "../../features/ai/VetchiumAIIcon";
 import { DomainFailingBanner } from "../../features/domain/DomainFailingBanner";
+import { useContactsQuery } from "../../features/marketplace/queries";
 
 export function AppShell() {
   const { t } = useTranslation();
@@ -42,6 +47,13 @@ export function AppShell() {
   const auth = useAuth();
   const { data: me } = useMyInfoQuery();
   const suspended = me?.org.org_state === OrgSuspended;
+  const canFulfil =
+    me !== undefined && holds(me.permissions, FulfilEngagements);
+  const { data: unreadContactsData } = useContactsQuery(
+    { filter: "unread" },
+    canFulfil,
+  );
+  const unreadCount = unreadContactsData?.items.length ?? 0;
 
   const navigationItems: ItemType[] = suspended
     ? [
@@ -139,6 +151,46 @@ export function AppShell() {
                         },
                       ]
                     : []),
+                ],
+              },
+            ]
+          : []),
+        ...(canFulfil
+          ? [
+              {
+                type: "group" as const,
+                key: "agency",
+                label: t("navigation.agency"),
+                children: [
+                  {
+                    key: paths.jobs,
+                    icon: <AimOutlined />,
+                    label: t("navigation.jobs"),
+                  },
+                  {
+                    key: paths.contacts,
+                    icon: <ContactsOutlined />,
+                    label: (
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          width: "100%",
+                        }}
+                      >
+                        <span>{t("navigation.contacts")}</span>
+                        {unreadCount > 0 ? (
+                          <Badge count={unreadCount} size="small" />
+                        ) : null}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: paths.creditedApplications,
+                    icon: <AuditOutlined />,
+                    label: t("navigation.creditedApplications"),
+                  },
                 ],
               },
             ]

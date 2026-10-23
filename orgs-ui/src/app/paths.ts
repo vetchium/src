@@ -31,6 +31,13 @@ export const paths = {
   workQueue: "/work",
   workItem: (engagementId: string, workId: string) =>
     `/work/${encodeURIComponent(engagementId)}/${encodeURIComponent(workId)}`,
+  jobs: "/jobs",
+  jobDetail: (engagementId: string, openingNumber: number) =>
+    `/jobs/${encodeURIComponent(engagementId)}/${openingNumber}`,
+  contacts: "/contacts",
+  contactDetail: (id: string) => `/contacts/${encodeURIComponent(id)}`,
+  newContact: "/contacts/new",
+  creditedApplications: "/credited-applications",
   plans: "/plans",
   ai: "/ai",
   settings: "/company",

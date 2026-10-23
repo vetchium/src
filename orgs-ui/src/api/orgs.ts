@@ -96,6 +96,32 @@ import type {
   UnassignOpeningProviderRequest,
 } from "typespec/orgs/marketplace/assignments";
 import type {
+  ListCreditedApplicationsRequest,
+  ListCreditedApplicationsResponse,
+} from "typespec/orgs/marketplace/attribution";
+import type {
+  AddContactNoteRequest,
+  AddedNote,
+  AddPersonNoteRequest,
+  AgencyProfile,
+  Contact,
+  ContactReference,
+  ConversationDetail,
+  ConversationMessage,
+  DeleteContactNoteRequest,
+  DeletedNote,
+  EditContactNoteRequest,
+  GetConversationRequest,
+  ListContactNotesRequest,
+  ListContactNotesResponse,
+  ListContactsRequest,
+  ListContactsResponse,
+  MarkConversationReadRequest,
+  SendMessageRequest,
+  StartConversationRequest,
+  ViewHubProfileRequest,
+} from "typespec/orgs/marketplace/contacts/contacts";
+import type {
   EndEngagementRequest,
   Engagement,
   EngagementTarget,
@@ -122,6 +148,10 @@ import type {
 } from "typespec/orgs/marketplace/statements";
 import type {
   InterviewReference,
+  JobDetail,
+  JobReference,
+  ListJobsRequest,
+  ListJobsResponse,
   ListWorkQueueRequest,
   ListWorkQueueResponse,
   RecordAssessmentRequest,
@@ -813,4 +843,68 @@ export const orgsAPI = {
       body,
       idempotencyKey,
     }),
+  listJobs: (body: ListJobsRequest = {}) =>
+    apiRequest<ListJobsResponse>("/list-jobs", { body }),
+  getJob: (body: JobReference) => apiRequest<JobDetail>("/get-job", { body }),
+  listCreditedApplications: (body: ListCreditedApplicationsRequest = {}) =>
+    apiRequest<ListCreditedApplicationsResponse>(
+      "/list-credited-applications",
+      {
+        body,
+      },
+    ),
+  listContacts: (body: ListContactsRequest = {}) =>
+    apiRequest<ListContactsResponse>("/list-contacts", { body }),
+  getContact: (body: ContactReference) =>
+    apiRequest<Contact>("/get-contact", { body }),
+  viewHubProfile: (body: ViewHubProfileRequest) =>
+    apiRequest<AgencyProfile>("/view-hub-profile", { body }),
+  listContactNotes: (body: ListContactNotesRequest) =>
+    apiRequest<ListContactNotesResponse>("/list-contact-notes", { body }),
+  addPersonNote: (body: AddPersonNoteRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<AddedNote>("/add-person-note", {
+      body,
+      idempotencyKey,
+    }),
+  addContactNote: (
+    body: AddContactNoteRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<AddedNote>("/add-contact-note", {
+      body,
+      idempotencyKey,
+    }),
+  editContactNote: (
+    body: EditContactNoteRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<AddedNote>("/edit-contact-note", {
+      body,
+      idempotencyKey,
+    }),
+  deleteContactNote: (
+    body: DeleteContactNoteRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<DeletedNote>("/delete-contact-note", {
+      body,
+      idempotencyKey,
+    }),
+  startConversation: (
+    body: StartConversationRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ConversationDetail>("/start-conversation", {
+      body,
+      idempotencyKey,
+    }),
+  sendMessage: (body: SendMessageRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<ConversationMessage>("/send-message", {
+      body,
+      idempotencyKey,
+    }),
+  getConversation: (body: GetConversationRequest) =>
+    apiRequest<ConversationDetail>("/get-conversation", { body }),
+  markConversationRead: (body: MarkConversationReadRequest) =>
+    apiRequest<void>("/mark-conversation-read", { body }),
 };

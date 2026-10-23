@@ -92,3 +92,46 @@ export function assessmentOutcomeLabel(
     defaultValue: outcome,
   });
 }
+
+export function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const first = parts[0]?.charAt(0) ?? "";
+  const last = parts[parts.length - 1]?.charAt(0) ?? "";
+  if (parts.length === 0) return "C";
+  if (parts.length === 1) return parts[0]?.slice(0, 2).toUpperCase() ?? "C";
+  return (first + last).toUpperCase();
+}
+
+export const openingStateColors: Record<string, string> = {
+  published: "success",
+  paused: "warning",
+  closed: "default",
+  expired: "default",
+};
+
+export function openingStateLabel(t: TFunction, state: string): string {
+  return t(`openings.states.${state}`, { defaultValue: state });
+}
+
+export const referralRouteColors: Record<string, string> = {
+  suggested: "purple",
+  declared: "default",
+};
+
+export function referralRouteLabel(t: TFunction, route: string): string {
+  return t(`marketplace.routes.${route}`, { defaultValue: route });
+}
+
+export const hubStatusColors: Record<string, string> = {
+  applied: "processing",
+  in_review: "cyan",
+  interviewing: "purple",
+  offer: "gold",
+  hired: "success",
+  not_progressing: "default",
+  withdrawn: "default",
+};
+
+export function hubStatusLabel(t: TFunction, status: string): string {
+  return t(`applications.statuses.${status}`, { defaultValue: status });
+}

@@ -29,17 +29,28 @@ const (
 	notesPurpose    = "orgs-list-contact-notes-v1"
 )
 
+func toBool(v any) bool {
+	if b, ok := v.(bool); ok {
+		return b
+	}
+	return false
+}
+
 // summary converts the columns every Contact read selects.
 func summary(
 	id pgtype.UUID, name, handle string, off bool, active pgtype.Timestamptz,
-	notes int32, credited int32,
+	notes int32, credited int32, hasConv any, unreadCount int32,
 ) contacts.ContactSummary {
 	return contacts.ContactSummary{
-		ContactID:   contacts.ContactID(dbvalue.FormatUUID(id)),
-		DisplayName: common.DisplayName(name), Handle: hubHandle(handle),
-		MessagesOff: off, NoteCount: notes,
-		CreditedCount:  credited,
-		LastActivityAt: active.Time.UTC(),
+		ContactID:           contacts.ContactID(dbvalue.FormatUUID(id)),
+		DisplayName:         common.DisplayName(name),
+		Handle:              hubHandle(handle),
+		MessagesOff:         off,
+		NoteCount:           notes,
+		HasConversation:     toBool(hasConv),
+		UnreadMessagesCount: unreadCount,
+		CreditedCount:       credited,
+		LastActivityAt:      active.Time.UTC(),
 	}
 }
 
