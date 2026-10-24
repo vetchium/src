@@ -91,14 +91,33 @@ WHERE conversation_id = sqlc.arg(conversation_id)
 ORDER BY sent_at ASC, message_id ASC;
 
 -- name: MarkOrgConversationRead :one
-UPDATE vetchium.org_conversations
-SET agency_unread = false
-WHERE contact_id = sqlc.arg(contact_id)
-RETURNING conversation_id, contact_id, org_did, hub_user_did,
-    recorded_hub_user_name, recorded_hub_user_handle,
-    recorded_agency_name, recorded_agency_domain,
-    agency_unread, read_only_reason, party_deleted_at,
-    created_at, last_activity_at;
+WITH updated AS (
+    UPDATE vetchium.org_conversations
+    SET agency_unread = false
+    WHERE contact_id = sqlc.arg(contact_id)
+    RETURNING conversation_id, contact_id, org_did, hub_user_did,
+        recorded_hub_user_name, recorded_hub_user_handle,
+        recorded_agency_name, recorded_agency_domain,
+        agency_unread, read_only_reason, party_deleted_at,
+        created_at, last_activity_at
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, subject_org_did, source, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'org.conversation.marked_read', 'org_conversation',
+        updated.conversation_id::text, 'org_user', sqlc.arg(actor_user_id)::uuid::text,
+        updated.hub_user_did, updated.org_did, 'orgs-api',
+        jsonb_build_object('contact_id', updated.contact_id::text, 'conversation_id', updated.conversation_id::text)
+    FROM updated
+    RETURNING audit_event_id
+)
+SELECT updated.conversation_id, updated.contact_id, updated.org_did, updated.hub_user_did,
+    updated.recorded_hub_user_name, updated.recorded_hub_user_handle,
+    updated.recorded_agency_name, updated.recorded_agency_domain,
+    updated.agency_unread, updated.read_only_reason, updated.party_deleted_at,
+    updated.created_at, updated.last_activity_at
+FROM updated;
 
 -- name: DeleteOrgConversation :execrows
 DELETE FROM vetchium.org_conversations

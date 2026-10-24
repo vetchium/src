@@ -76,6 +76,8 @@ export const en = {
     unsavedContent: "Your changes on this page are not saved yet.",
     unsavedLeave: "Leave",
     unsavedStay: "Stay",
+    assign: "Assign",
+    remove: "Remove",
   },
   fields: {
     confirmPassword: "Confirm password",

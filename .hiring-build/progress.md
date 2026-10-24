@@ -1,6 +1,6 @@
 # Hiring and marketplace build progress
 
-current: T30
+current: T31
 phase: implement
 
 ## Tasks
@@ -34,7 +34,7 @@ T26 done Marketplace: Orgs portal Find providers, engagements, and routing
 T27 done Marketplace: Orgs portal Listings, Clients, and Work queue
 T28 done Marketplace: Orgs portal agency Jobs, Contacts, and credits
 T29 done Marketplace: Hub portal messages, referrals, and provider notices
-T30 todo Marketplace: Development fixtures
+T30 done Marketplace: Development fixtures
 T31 todo Guides, full verification, and plan removal
 
 ## Notes

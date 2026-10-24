@@ -78,6 +78,8 @@ export const ta = {
     unsavedContent: "இந்தப் பக்கத்தில் உங்கள் மாற்றங்கள் இன்னும் சேமிக்கப்படவில்லை.",
     unsavedLeave: "வெளியேறு",
     unsavedStay: "இரு",
+    assign: "ஒதுக்கு",
+    remove: "அகற்று",
   },
   fields: {
     confirmPassword: "கடவுச்சொல்லை உறுதிப்படுத்து",

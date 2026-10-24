@@ -21,7 +21,7 @@ Docker with Compose, GNU Make, Go 1.27, Node.js 22.13 or newer. Optional:
 
 ```bash
 make dev        # clean, then start the full stack with all four regions
-make dev-seed   # clean, start the stack, then seed Hub users and Orgs
+make dev-seed   # clean, start the stack, then seed Hub users, Orgs, and marketplace
 make clean      # stop everything and delete volumes and dev secrets
 ```
 
@@ -103,6 +103,12 @@ filled by the other accounts. Each Org has ten Openings covering drafts,
 published, paused, closed, and pending changes. A paid Org is on its plan
 with a simulated card. The Gold Org has AI turned on, its monthly AI credits,
 and one purchased credit pack.
+
+Marketplace: four provider Orgs per region (`agency.<region>.example.com` for sourcing,
+`interviews.<region>.example.com` for interviewing, `assessments.<region>.example.com`
+for assessment, and `checks.<region>.example.com` for background check) on Silver plan
+with published Listings, cross-region engagements in each state, routed work, and
+agency Contacts with notes and conversations.
 
 Hub signup accepts addresses at `<region>.example`; `sgp` also accepts
 `test1.example` to `test100.example`. Signup and reset emails arrive in Mailpit.

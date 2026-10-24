@@ -8,6 +8,7 @@ import type {
   ListConversationsResponse,
 } from "typespec/hub/messages/messages";
 import type {
+  Contact,
   ConversationDetail,
   ConversationMessage,
 } from "typespec/orgs/marketplace/contacts/contacts";
@@ -23,7 +24,12 @@ import {
   orgDID,
   orgsIdempotencyKey,
 } from "../lib/orgs-api.ts";
-import { listing, published, withProvider } from "../lib/orgs-marketplace.ts";
+import {
+  listing,
+  published,
+  setOrgHome,
+  withProvider,
+} from "../lib/orgs-marketplace.ts";
 
 const BASE = "vetchium-problem-details/";
 const PROBLEMS = {
@@ -37,10 +43,12 @@ const PROBLEMS = {
   partyDeleted: `${BASE}org-conversation-party-deleted`,
   permission: `${BASE}org-permission-required`,
   validation: `${BASE}validation-failed`,
+  orgTenantUnavailable: `${BASE}org-tenant-unavailable`,
 
   hubConversationNotFound: `${BASE}hub-conversation-not-found`,
   hubAgencyMessagesOff: `${BASE}hub-agency-messages-off`,
   hubPartyDeleted: `${BASE}hub-conversation-party-deleted`,
+  hubOrgUnavailable: `${BASE}hub-org-unavailable`,
 };
 
 test("agency starts conversation, sends messages, idempotency, shared inbox, and audit events", async ({
@@ -137,7 +145,7 @@ test("agency starts conversation, sends messages, idempotency, shared inbox, and
       expect(sendRes.status(), await sendRes.text()).toBe(200);
       const sentMsg = (await sendRes.json()) as ConversationMessage;
       expect(sentMsg.sender_type).toBe("agency");
-      expect(sentMsg.sender_display_name).toBe("recruiter-1");
+      expect(sentMsg.sender_display_name).toBe("Playwright Org");
       expect(sentMsg.text).toBe("Following up from our agency team.");
 
       // 4. Org gets conversation
@@ -356,7 +364,7 @@ test("agencies may message me toggle prevents conversation start, send message, 
           agencies_may_message: false,
         },
       );
-      expect(setOffRes.status(), await setOffRes.text()).toBe(200);
+      expect(setOffRes.status(), await setOffRes.text()).toBe(204);
 
       // Verify via myInfo
       const infoRes = await applicant.hub.myInfo(applicant.token);
@@ -371,7 +379,7 @@ test("agencies may message me toggle prevents conversation start, send message, 
         address: applicant.alias,
         text: "Trying to reach you while messages are off",
       });
-      await expectProblem(startRes, 422, PROBLEMS.agencyMessagesOff);
+      await expectProblem(startRes, 403, PROBLEMS.agencyMessagesOff);
 
       // 3. Applicant turns agencies_may_message back ON
       const setOnRes = await applicant.hub.setAgenciesMayMessage(
@@ -380,7 +388,7 @@ test("agencies may message me toggle prevents conversation start, send message, 
           agencies_may_message: true,
         },
       );
-      expect(setOnRes.status()).toBe(200);
+      expect(setOnRes.status()).toBe(204);
 
       // 4. Agency starts conversation successfully
       const startOnRes = await provider.api.startConversation(provider.owner, {
@@ -424,7 +432,7 @@ test("agencies may message me toggle prevents conversation start, send message, 
         contact_id: contactID,
         text: "Another message while off",
       });
-      await expectProblem(sendRes, 422, PROBLEMS.agencyMessagesOff);
+      await expectProblem(sendRes, 403, PROBLEMS.agencyMessagesOff);
 
       // Hub user tries to reply -> rejected with hub-agency-messages-off
       const replyRes = await applicant.hub.replyToConversation(
@@ -434,7 +442,7 @@ test("agencies may message me toggle prevents conversation start, send message, 
           text: "Hub reply while off",
         },
       );
-      await expectProblem(replyRes, 422, PROBLEMS.hubAgencyMessagesOff);
+      await expectProblem(replyRes, 403, PROBLEMS.hubAgencyMessagesOff);
     } finally {
       cleanupApplicant(applicant, [{ tenant: provider.tenant, did: orgDid }]);
     }
@@ -466,7 +474,7 @@ test("opening suggestion validation: refuses unknown opening or missing sourcing
           },
         },
       );
-      await expectProblem(invalidSuggestionRes, 422, PROBLEMS.validation);
+      await expectProblem(invalidSuggestionRes, 400, PROBLEMS.validation);
     } finally {
       cleanupApplicant(applicant, [{ tenant: provider.tenant, did: orgDid }]);
     }
@@ -491,16 +499,16 @@ test("agency daily conversation limit of 50 per UTC day", async ({
       const today = new Date().toISOString().slice(0, 10);
       sqlScalarForTenant(
         provider.tenant,
-        `INSERT INTO vetchium.org_conversation_creations (org_did, day, created_count)
+        `INSERT INTO vetchium.org_conversation_creations (org_did, created_on, created)
          VALUES ('${orgDid}', '${today}'::date, 50)
-         ON CONFLICT (org_did, day) DO UPDATE SET created_count = 50;`,
+         ON CONFLICT (org_did, created_on) DO UPDATE SET created = 50;`,
       );
 
       const capRes = await provider.api.startConversation(provider.owner, {
         address: applicant.alias,
         text: "Should be blocked by conversation limit",
       });
-      await expectProblem(capRes, 422, PROBLEMS.conversationLimit);
+      await expectProblem(capRes, 429, PROBLEMS.conversationLimit);
     } finally {
       cleanupApplicant(applicant, [{ tenant: provider.tenant, did: orgDid }]);
     }
@@ -520,7 +528,7 @@ test("unlisted sourcing listing prevents new conversations", async ({
         address: applicant.alias,
         text: "Should fail because agency is not listed",
       });
-      await expectProblem(res, 422, PROBLEMS.listingNotAvailable);
+      await expectProblem(res, 409, PROBLEMS.listingNotAvailable);
     } finally {
       cleanupApplicant(applicant, [{ tenant: provider.tenant, did: orgDid }]);
     }
@@ -564,4 +572,163 @@ test("permissions: org:fulfil_engagements is required", async ({ request }) => {
       cleanupApplicant(applicant, [{ tenant: provider.tenant, did: orgDid }]);
     }
   });
+});
+
+test("counterparty tenant unavailable during Hub conversation get and reply, recovery, and messages switch across tenants", async ({
+  request,
+  apiCoverage,
+}) => {
+  await withProvider(
+    request,
+    async (provider) => {
+      await published(
+        provider.api,
+        provider.owner,
+        listing("sourcing", "Agency Sourcing"),
+      );
+
+      const applicant = seedApplicant(request, "deu");
+      const orgDid = orgDID(provider.org.domain, provider.tenant);
+
+      try {
+        // 1. Agency starts conversation with applicant in deu
+        const startKey = orgsIdempotencyKey();
+        const startRes = await provider.api.startConversation(
+          provider.owner,
+          {
+            address: applicant.alias,
+            text: "Hello from agency in sgp!",
+          },
+          startKey,
+        );
+        expect(startRes.status(), await startRes.text()).toBe(200);
+        const conv = (await startRes.json()) as ConversationDetail;
+        const contactID = conv.conversation.contact_id;
+
+        // Deliver pointer to applicant's tenant
+        const pointerEvent = {
+          event_id: randomUUID(),
+          kind: "agency-pointer-changed",
+          destination_principal_type: "hub_user",
+          destination_principal_did: applicant.did,
+          aggregate_type: "agency_pointer",
+          aggregate_id: contactID,
+          aggregate_version: 1,
+          payload: {
+            contact_id: contactID,
+            agency_org_did: orgDid,
+            hub_user_did: applicant.did,
+            present: true,
+            has_conversation: true,
+            agency_display_name: "Agency Sourcing",
+            agency_domain: provider.org.domain,
+            suggestions: [],
+          },
+        };
+        meshPeerRequest(
+          provider.tenant,
+          applicant.tenant,
+          pointerEvent,
+          apiCoverage,
+          { path: "/api/mesh/events/deliver" },
+        );
+
+        // 2. Hub user opens conversation while agency tenant does not answer -> 503 hub-org-unavailable
+        setOrgHome(orgDid, "gone");
+        const getGone = await applicant.hub.getConversation(applicant.token, {
+          contact_id: contactID,
+        });
+        await expectProblem(getGone, 503, PROBLEMS.hubOrgUnavailable);
+
+        // 3. Hub reply while counterparty route is routed to a tenant that does not home it -> 202, then recovery
+        setOrgHome(orgDid, "usa1");
+        const replyKey = orgsIdempotencyKey();
+        const replyPending = await applicant.hub.replyToConversation(
+          applicant.token,
+          {
+            contact_id: contactID,
+            text: "Reply while remote route is uncertain",
+          },
+          replyKey,
+        );
+        expect(replyPending.status()).toBe(202);
+        expect(replyPending.headers()["cache-control"]).toBe("no-store");
+
+        // Restore route to actual tenant: repeat request with same idempotency key recovers -> 200
+        setOrgHome(orgDid, provider.tenant);
+        const replyRecovered = await applicant.hub.replyToConversation(
+          applicant.token,
+          {
+            contact_id: contactID,
+            text: "Reply while remote route is uncertain",
+          },
+          replyKey,
+        );
+        expect(replyRecovered.status()).toBe(200);
+
+        // 4. Messages switch reaching existing conversations in other tenants
+        // Applicant switches messages off
+        await applicant.hub.setAgenciesMayMessage(applicant.token, {
+          agencies_may_message: false,
+        });
+        const messagesEvent = {
+          event_id: randomUUID(),
+          aggregate_type: AgencyContactMessagesAggregate,
+          aggregate_id: contactID,
+          aggregate_version: 1,
+          kind: HubAgencyMessagesChangedKind,
+          authority: { type: "hub_user", did: applicant.did },
+          occurred_at: new Date().toISOString(),
+          payload: {
+            contact_id: contactID,
+            hub_user_did: applicant.did,
+            messages_off: true,
+          },
+        };
+        meshPeerRequest(
+          applicant.tenant,
+          provider.tenant,
+          messagesEvent,
+          apiCoverage,
+          { path: "/api/mesh/events/deliver" },
+        );
+
+        // Agency sees contact has messages_off: true
+        const contactRes = await provider.api.getContact(provider.owner, {
+          contact_id: contactID,
+        });
+        expect(contactRes.status()).toBe(200);
+        const contactData = (await contactRes.json()) as Contact;
+        expect(contactData.messages_off).toBe(true);
+
+        // Agency cannot send message
+        const agencySend = await provider.api.sendMessage(provider.owner, {
+          contact_id: contactID,
+          text: "Message while off",
+        });
+        await expectProblem(agencySend, 403, PROBLEMS.agencyMessagesOff);
+
+        // Hub user sees read_only_reason is messages_off and cannot reply
+        const hubGet = await applicant.hub.getConversation(applicant.token, {
+          contact_id: contactID,
+        });
+        expect(hubGet.status()).toBe(200);
+        const hubConv = (await hubGet.json()) as HubConversationDetail;
+        expect(hubConv.conversation.read_only_reason).toBe("messages_off");
+
+        const hubReplyOff = await applicant.hub.replyToConversation(
+          applicant.token,
+          {
+            contact_id: contactID,
+            text: "Hub reply while off",
+          },
+        );
+        await expectProblem(hubReplyOff, 403, PROBLEMS.hubAgencyMessagesOff);
+      } finally {
+        setOrgHome(orgDid, provider.tenant);
+        cleanupApplicant(applicant, [{ tenant: provider.tenant, did: orgDid }]);
+      }
+    },
+    { tenant: "sgp" },
+  );
 });

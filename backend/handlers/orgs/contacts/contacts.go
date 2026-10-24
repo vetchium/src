@@ -16,7 +16,6 @@ import (
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/orgs/marketplace/work"
-	"github.com/vetchium/src/typespec/problem"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
 	"backend/internal/credentials"
@@ -130,12 +129,6 @@ func verify(
 		return pageCursor{}, false
 	}
 	return cursor, true
-}
-
-func invalidFields(fields ...string) problem.Body {
-	details := problem.ValidationFailedError
-	details.Fields = fields
-	return details
 }
 
 func unavailable(s *orgsruntime.Server, w http.ResponseWriter, r *http.Request, err error) {

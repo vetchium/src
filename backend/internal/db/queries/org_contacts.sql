@@ -549,6 +549,16 @@ FROM vetchium.hub_agency_pointers
 WHERE contact_id = sqlc.arg(contact_id)
   AND hub_user_did = sqlc.arg(hub_user_did);
 
+-- name: SetHubAgencyPointersReadOnlyReasonForUser :execrows
+UPDATE vetchium.hub_agency_pointers
+SET read_only_reason = sqlc.narg(read_only_reason)
+WHERE hub_user_did = sqlc.arg(hub_user_did)
+  AND (
+      (sqlc.narg(read_only_reason)::text IS NOT NULL AND read_only_reason IS NULL)
+      OR
+      (sqlc.narg(read_only_reason)::text IS NULL AND read_only_reason = 'messages_off')
+  );
+
 -- name: ListHubAgencyPointersForUser :many
 SELECT contact_id, agency_org_did, pointer_version
 FROM vetchium.hub_agency_pointers

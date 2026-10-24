@@ -19,9 +19,9 @@ import {
 } from "../lib/hub-applicant.ts";
 import { meshPeerRequest, meshRelayRequest } from "../lib/mesh.ts";
 import { orgDID, orgsIdempotencyKey } from "../lib/orgs-api.ts";
-import { detailOf } from "../lib/orgs-applications.ts";
+import { detailOf, shortlist } from "../lib/orgs-applications.ts";
 import { activate, asProvider } from "../lib/orgs-marketplace.ts";
-import { assign, withWorld } from "../lib/orgs-routing.ts";
+import { assign, routed, withWorld } from "../lib/orgs-routing.ts";
 
 const BASE = "vetchium-problem-details/";
 const PROBLEMS = {
@@ -56,8 +56,8 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
     const applicant3 = seedApplicant(request, consumer.tenant);
 
     try {
-      // 3. Ineligible referral check (MKT-SRC-003)
-      // Applicant attempts to name an agency with no assigned sourcing engagement
+      // 3. Ineligible referral check (MKT-SRC-003, MKT-TST-001)
+      // 3a. Applicant attempts to name an agency with no assigned sourcing engagement
       const ineligibleRes = await applicant1.hub.applyToOpening(
         {
           domain: consumer.org.domain,
@@ -67,6 +67,28 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
         { token: applicant1.token, idempotencyKey: hubIdempotencyKey() },
       );
       await expectProblem(ineligibleRes, 422, PROBLEMS.agencyNotEligible);
+
+      // 3b. Remote agency in another tenant not assigned to the opening
+      const remoteIneligibleRes = await applicant1.hub.applyToOpening(
+        {
+          domain: consumer.org.domain,
+          opening_number: opening.opening_number,
+          referral_agency_domain: "remote-unassigned.usa1.example.test",
+        },
+        { token: applicant1.token, idempotencyKey: hubIdempotencyKey() },
+      );
+      await expectProblem(remoteIneligibleRes, 422, PROBLEMS.agencyNotEligible);
+
+      // 3c. Non-primary domain of the assigned agency
+      const nonPrimaryRes = await applicant1.hub.applyToOpening(
+        {
+          domain: consumer.org.domain,
+          opening_number: opening.opening_number,
+          referral_agency_domain: `alias.${provider.org.domain}`,
+        },
+        { token: applicant1.token, idempotencyKey: hubIdempotencyKey() },
+      );
+      await expectProblem(nonPrimaryRes, 422, PROBLEMS.agencyNotEligible);
 
       // Applicant 1 applies again, choosing declared referral to provider agency
       const ref1 = await apply(
@@ -269,6 +291,29 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
       ).json()) as ListCreditedApplicationsResponse;
       expect(creditedContactOnly.items).toHaveLength(1);
       expect(creditedContactOnly.items[0]?.application_number).toBe(2);
+
+      // 7b. Agency also engaged for a stage on the same Opening sees no credit on routed candidacies (MKT-ACC-002, MKT-TST-001)
+      const interviewing = await activate(pair, "interviewing");
+      await asProvider(pair, interviewing.id, interviewing.version);
+      await assign(world, interviewing.id, world.panel);
+
+      const shortlistedApp3 = await shortlist(
+        consumer.api,
+        consumer.owner,
+        opening.opening_number,
+        ref3.application_number,
+        world.panel,
+      );
+      await routed(world, shortlistedApp3, interviewing.id);
+
+      // Provider reads credited applications again: App 3 was routed to it for the panel stage,
+      // but it was a direct application, so the agency sees NO credit for it
+      const afterRouteCredited = (await (
+        await provider.api.listCreditedApplications(provider.owner, {})
+      ).json()) as ListCreditedApplicationsResponse;
+      expect(
+        afterRouteCredited.items.some((i) => i.application_number === 3),
+      ).toBe(false);
 
       // 8. Agency reads: Job detail and Job list with credited count and suggestions
       const jobRes = await provider.api.getJob(provider.owner, {

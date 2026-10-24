@@ -431,10 +431,10 @@ export class HubAPI {
     token: string,
     request: { agencies_may_message: boolean },
   ): Promise<APIResponse> {
-    return this.post("/users/set-agencies-may-message", request, { token });
+    return this.post("/set-agencies-may-message", request, { token });
   }
 
   myInfo(token: string): Promise<APIResponse> {
-    return this.get("/users/my-info", token);
+    return this.get("/my-info", token);
   }
 }

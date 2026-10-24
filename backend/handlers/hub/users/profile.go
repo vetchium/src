@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
 	hubspec "github.com/vetchium/src/typespec/hub"
@@ -154,7 +155,7 @@ func SetAgenciesMayMessage(s *hubruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "begin transaction", err)
 			return
 		}
-		defer tx.Rollback(r.Context())
+		defer func() { _ = tx.Rollback(r.Context()) }()
 
 		q := sqlc.New(tx)
 		row, err := q.UpdateHubUserAgenciesMayMessage(r.Context(), sqlc.UpdateHubUserAgenciesMayMessageParams{
@@ -171,6 +172,18 @@ func SetAgenciesMayMessage(s *hubruntime.Server) http.HandlerFunc {
 				return
 			}
 			s.InternalError(r.Context(), w, "set Hub agencies may message", err)
+			return
+		}
+
+		var newReason pgtype.Text
+		if !row.AgenciesMayMessage {
+			newReason = pgtype.Text{String: "messages_off", Valid: true}
+		}
+		if _, err := q.SetHubAgencyPointersReadOnlyReasonForUser(r.Context(), sqlc.SetHubAgencyPointersReadOnlyReasonForUserParams{
+			HubUserDid:     identity.UserDID,
+			ReadOnlyReason: newReason,
+		}); err != nil {
+			s.InternalError(r.Context(), w, "update agency pointers read only reason", err)
 			return
 		}
 

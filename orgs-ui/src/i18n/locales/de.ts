@@ -80,6 +80,8 @@ export const de = {
       "Ihre Änderungen auf dieser Seite sind noch nicht gespeichert.",
     unsavedLeave: "Verlassen",
     unsavedStay: "Bleiben",
+    assign: "Zuweisen",
+    remove: "Entfernen",
   },
   fields: {
     confirmPassword: "Passwort bestätigen",

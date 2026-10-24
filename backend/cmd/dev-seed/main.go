@@ -19,6 +19,9 @@
 //     applications in every state the portal APIs can reach. It needs the
 //     Hub profiles and Orgs seeded first and runs via
 //     `make dev-seed-applications`.
+//   - "marketplace" seeds provider Orgs per Capability with Listings,
+//     engagements in each state across regions, routed work, and agency Contacts
+//     with notes and conversations. It runs via `make dev-seed-marketplace`.
 //
 // It is never built into a production image and never deployed.
 package main
@@ -47,6 +50,8 @@ func run() error {
 		return runOrgSeed()
 	case "applications":
 		return runApplicationSeed()
+	case "marketplace":
+		return runMarketplaceSeed()
 	default:
 		return fmt.Errorf("unknown DEV_SEED_MODE %q", mode)
 	}

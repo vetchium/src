@@ -558,7 +558,7 @@ func GetConversation(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 
-		_, err = s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
+		contact, err := s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
 			OrgDid: identity.OrgDID, ContactID: contactID,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -591,9 +591,15 @@ func GetConversation(s *orgsruntime.Server) http.HandlerFunc {
 			resultMsgs = append(resultMsgs, messageFromMsgRow(m))
 		}
 
+		convSummary := summaryFromConvRow(conv)
+		if contact.MessagesOff && convSummary.ReadOnlyReason == nil {
+			r := contacts.ConversationReadOnlyMessagesOff
+			convSummary.ReadOnlyReason = &r
+		}
+
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, contacts.ConversationDetail{
-			Conversation: summaryFromConvRow(conv),
+			Conversation: convSummary,
 			Messages:     resultMsgs,
 		})
 	}
@@ -624,7 +630,11 @@ func MarkConversationRead(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 
-		_, err = s.Queries.MarkOrgConversationRead(r.Context(), contactID)
+		_, err = s.Queries.MarkOrgConversationRead(r.Context(), sqlc.MarkOrgConversationReadParams{
+			ContactID:   contactID,
+			TenantID:    s.TenantID,
+			ActorUserID: identity.UserID,
+		})
 		if errors.Is(err, pgx.ErrNoRows) {
 			s.Problem(r.Context(), w, orgsproblem.ConversationNotFoundError)
 			return

@@ -146,9 +146,14 @@ func GetConversation(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 
+		summary := summaryFromPointerDetailRow(pointer)
+		if summary.ReadOnlyReason == nil && outcome.Result.Conversation.ReadOnlyReason != nil {
+			summary.ReadOnlyReason = outcome.Result.Conversation.ReadOnlyReason
+		}
+
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, hubmessages.HubConversationDetail{
-			Conversation: summaryFromPointerDetailRow(pointer),
+			Conversation: summary,
 			Messages:     outcome.Result.Messages,
 		})
 	}

@@ -32,6 +32,15 @@ func ReadForHubUser(
 	}
 
 	summary := summaryFromRow(conv)
+	if summary.ReadOnlyReason == nil {
+		if contact, err := q.GetOrgContact(ctx, sqlc.GetOrgContactParams{
+			OrgDid:    conv.OrgDid,
+			ContactID: contactID,
+		}); err == nil && contact.MessagesOff {
+			r := contacts.ConversationReadOnlyMessagesOff
+			summary.ReadOnlyReason = &r
+		}
+	}
 	resultMsgs := make([]contacts.ConversationMessage, 0, len(msgs))
 	for _, m := range msgs {
 		resultMsgs = append(resultMsgs, messageFromRow(m))

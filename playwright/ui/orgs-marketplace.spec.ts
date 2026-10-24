@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { orgSQL } from "../lib/orgs-api.ts";
+import { orgDID, orgSQL } from "../lib/orgs-api.ts";
 import { activate, withPair } from "../lib/orgs-marketplace.ts";
 import { assign, candidate, withWorld } from "../lib/orgs-routing.ts";
 import { signIn } from "../lib/orgs-ui.ts";
@@ -36,19 +36,21 @@ test("finds a provider, inspects listing, and proposes an engagement", async ({
         new RegExp(`/providers/listings/${provider.org.domain}/interviewing`),
       );
       await expect(
-        page.getByRole("heading", { name: "Propose engagement" }),
+        page.getByRole("button", { name: "Propose engagement" }),
       ).toBeVisible();
 
       // Fill proposal form
       await page
-        .getByLabel("Proposal message")
+        .getByPlaceholder("Describe the hiring or candidate needs...")
         .fill("We would like to partner with your team on interviewing.");
-      await page.getByLabel("Your reference").fill("PO-INT-2026");
+      await page.getByPlaceholder("PO-2026-…").fill("PO-INT-2026");
       await page.getByRole("button", { name: "Propose engagement" }).click();
 
       // Redirects to engagement detail in proposed state
       await expect(page).toHaveURL(/\/providers\/engagements\/[0-9a-f-]{36}/);
-      await expect(page.getByText("Proposed", { exact: true })).toBeVisible();
+      await expect(
+        page.locator(".ant-tag", { hasText: "Proposed" }),
+      ).toBeVisible();
       await expect(page.getByText("PO-INT-2026")).toBeVisible();
     },
   );
@@ -81,7 +83,7 @@ test("manages an engagement: updates reference, exports statement CSV, and ends 
     await page.getByRole("button", { name: "Export CSV" }).click();
     const file = await (await download).path();
     const content = await readFile(file, "utf8");
-    expect(content).toContain("Event time (UTC)");
+    expect(content).toContain("Date,Fact,Opening");
 
     // End engagement with note
     await page
@@ -89,13 +91,11 @@ test("manages an engagement: updates reference, exports statement CSV, and ends 
       .click();
     const modal = page.getByRole("dialog");
     await expect(modal).toBeVisible();
-    await modal
-      .getByPlaceholder("Reason for ending the engagement…")
-      .fill("Work completed successfully.");
+    await modal.getByRole("textbox").fill("Work completed successfully.");
     await modal
       .getByRole("button", { name: "End engagement", exact: true })
       .click();
-    await expect(page.getByText("Ended", { exact: true })).toBeVisible();
+    await expect(page.locator(".ant-tag", { hasText: "Ended" })).toBeVisible();
   });
 });
 
@@ -124,10 +124,12 @@ test("assigns and unassigns opening providers and updates pipeline notes", async
       .check();
     await agencyDialog.getByRole("button", { name: "Assign" }).click();
     await expect(agencyDialog).toBeHidden();
-    await expect(page.getByText(world.pair.provider.org.domain)).toBeVisible();
+    await expect(
+      page.getByText(world.pair.provider.org.domain, { exact: true }),
+    ).toBeVisible();
 
     // Assign stage provider to Panel stage
-    const panelCard = page.locator(".ant-card", { hasText: "Panel" });
+    const panelCard = page.locator(".ant-card-small", { hasText: "Panel" });
     await panelCard.getByRole("button", { name: "Assign provider" }).click();
     const stageDialog = page.getByRole("dialog");
     await expect(stageDialog).toBeVisible();
@@ -152,11 +154,10 @@ test("assigns and unassigns opening providers and updates pipeline notes", async
       .getByRole("button", { name: "Remove", exact: true })
       .first()
       .click();
-    const confirmDialog = page.getByRole("dialog");
-    await confirmDialog
-      .getByRole("button", { name: "Remove provider" })
-      .click();
-    await expect(confirmDialog).toBeHidden();
+    await expect(page.getByText("Agency removed from Opening.")).toBeVisible();
+    await expect(
+      page.getByRole("table").getByText(world.pair.provider.org.domain),
+    ).toBeHidden();
   });
 });
 
@@ -179,9 +180,10 @@ test("routes an application to a stage provider and displays attribution", async
        SET credited_engagement_id = '${sourcing.id}'::uuid,
            referral_route = 'declared'
        WHERE org_application_id = (
-         SELECT org_application_id FROM vetchium.org_applications AS a
+         SELECT a.org_application_id FROM vetchium.org_applications AS a
          JOIN vetchium.org_openings AS o USING (org_opening_id)
          WHERE o.opening_number = ${world.opening.opening_number}
+           AND o.org_did = '${orgDID(world.pair.consumer.org.domain, world.pair.consumer.tenant)}'::uuid
            AND a.application_number = ${appDetail.application_number}
        )`,
       world.pair.consumer.tenant,
@@ -201,7 +203,9 @@ test("routes an application to a stage provider and displays attribution", async
     await expect(page.getByText("Declared", { exact: true })).toBeVisible();
 
     // Route picker updates who performs current stage
-    const routePicker = page.getByRole("combobox", { name: "current stage" });
+    const routePicker = page
+      .locator(".ant-card", { hasText: "current stage" })
+      .getByRole("combobox");
     await chooseOption(page, routePicker, interview.counterparty.display_name);
     await expect(page.getByText("Stage provider updated.")).toBeVisible();
     await expect(

@@ -197,7 +197,9 @@ func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 		lastActivity = pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
 	}
 	var readOnly pgtype.Text
-	if payload.ReadOnlyReason != nil {
+	if !state.AgenciesMayMessage {
+		readOnly = dbvalue.Text("messages_off")
+	} else if payload.ReadOnlyReason != nil {
 		readOnly = pgtype.Text{String: string(*payload.ReadOnlyReason), Valid: true}
 	}
 	suggestionsBytes, err := json.Marshal(payload.Suggestions)
