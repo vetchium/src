@@ -14,7 +14,7 @@ regions; the user picks the region at sign-in.
 
 ## Requirements
 
-Docker with Compose, GNU Make, Go 1.27, Node.js 22.13 or newer. Optional:
+Docker with Compose, GNU Make, Go 1.27.3, Node.js 22.13 or newer. Optional:
 [Tilt](https://tilt.dev).
 
 ## Run locally
