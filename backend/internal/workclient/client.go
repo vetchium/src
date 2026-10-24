@@ -13,10 +13,12 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
+	"github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/orgs/marketplace/work"
 	"github.com/vetchium/src/typespec/problem"
 )
@@ -51,12 +53,13 @@ func NewPeer(baseTLS *tls.Config, timeout time.Duration) *Client {
 
 // The relay and peer paths of the four reads.
 const (
-	listWork        = "provider-work/list"
-	getWork         = "provider-work/get"
-	listJobs        = "provider-jobs/list"
-	getJob          = "provider-jobs/get"
-	listAttribution = "provider-attribution/list"
-	getStatement    = "provider-statements/get"
+	listWork         = "provider-work/list"
+	getWork          = "provider-work/get"
+	listJobs         = "provider-jobs/list"
+	getJob           = "provider-jobs/get"
+	listAttribution  = "provider-attribution/list"
+	countAttribution = "provider-attribution/count"
+	getStatement     = "provider-statements/get"
 )
 
 func (c *Client) RelayListWork(
@@ -155,6 +158,29 @@ func (c *Client) PeerListCreditedApplications(
 	return call(ctx, c, endpoint, request, tlsConfig,
 		func(r work.PeerListCreditedApplicationsResponse) bool {
 			return validAttribution(r, request)
+		})
+}
+
+func (c *Client) RelayCountCreditedApplications(
+	ctx context.Context, request work.RelayCountCreditedApplicationsRequest,
+) (Outcome[work.PeerCountCreditedApplicationsResponse], error) {
+	return call(ctx, c, c.baseURL+"/mesh/"+countAttribution, request, nil,
+		func(r work.PeerCountCreditedApplicationsResponse) bool {
+			return validCounts(r, request.Request)
+		})
+}
+
+func (c *Client) PeerCountCreditedApplications(
+	ctx context.Context, tenant directoryspec.TenantID,
+	request work.PeerCountCreditedApplicationsRequest,
+) (Outcome[work.PeerCountCreditedApplicationsResponse], error) {
+	endpoint, tlsConfig, err := c.peerEndpoint(tenant, countAttribution)
+	if err != nil {
+		return Outcome[work.PeerCountCreditedApplicationsResponse]{}, err
+	}
+	return call(ctx, c, endpoint, request, tlsConfig,
+		func(r work.PeerCountCreditedApplicationsResponse) bool {
+			return validCounts(r, request)
 		})
 }
 
@@ -363,8 +389,56 @@ func validAttribution(result work.PeerListCreditedApplicationsResponse, asked wo
 	if result.Items == nil || len(result.Items) > int(asked.Limit) {
 		return false
 	}
-	for _, item := range result.Items {
-		if !item.Valid() {
+	var previous *work.CreditedPosition
+	if asked.After != nil {
+		after := *asked.After
+		previous = &after
+	}
+	for _, entry := range result.Items {
+		item := entry.Item
+		if !item.Valid() || !entry.Position.Valid() ||
+			!hub.IsHubUserDID(entry.ApplicantDID) ||
+			entry.Position.EngagementID != item.EngagementID ||
+			!entry.Position.AppliedAt.Equal(item.AppliedAt) ||
+			entry.Position.OpeningNumber != item.Opening.Number ||
+			entry.Position.ApplicationNumber != item.ApplicationNumber {
+			return false
+		}
+		if (asked.ClientDomain != nil && item.Client.Domain != *asked.ClientDomain) ||
+			(asked.Status != nil && item.Status != *asked.Status) ||
+			(asked.Route != nil && item.Route != *asked.Route) ||
+			(asked.ApplicantDIDs != nil && !slices.Contains(asked.ApplicantDIDs, entry.ApplicantDID)) {
+			return false
+		}
+		if previous != nil && !CreditedAfter(entry.Position, *previous) {
+			return false
+		}
+		previous = &entry.Position
+	}
+	return true
+}
+
+// CreditedAfter reports whether a lists strictly after b: newest application
+// first, then the larger engagement id, opening number, and application
+// number first.
+func CreditedAfter(a, b work.CreditedPosition) bool {
+	switch {
+	case !a.AppliedAt.Equal(b.AppliedAt):
+		return a.AppliedAt.Before(b.AppliedAt)
+	case a.EngagementID != b.EngagementID:
+		return a.EngagementID < b.EngagementID
+	case a.OpeningNumber != b.OpeningNumber:
+		return a.OpeningNumber < b.OpeningNumber
+	}
+	return a.ApplicationNumber < b.ApplicationNumber
+}
+
+func validCounts(result work.PeerCountCreditedApplicationsResponse, asked work.PeerCountCreditedApplicationsRequest) bool {
+	if result.Counts == nil || len(result.Counts) > len(asked.ApplicantDIDs) {
+		return false
+	}
+	for _, count := range result.Counts {
+		if count.Count < 1 || !slices.Contains(asked.ApplicantDIDs, count.ApplicantDID) {
 			return false
 		}
 	}

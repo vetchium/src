@@ -247,7 +247,7 @@ SET version = EXCLUDED.version, consumer_domain = EXCLUDED.consumer_domain,
 -- The provider's active `sourcing` engagement with a client, from the
 -- projection this tenant keeps; the client's tenant decides the rest.
 -- name: GetActiveSourcingEngagementWithClient :one
-SELECT p.engagement_id
+SELECT p.engagement_id, p.consumer_org_did
 FROM vetchium.org_engagement_projections AS p
 WHERE p.provider_org_did = sqlc.arg(provider_org_did)
   AND p.consumer_domain = sqlc.arg(consumer_domain)

@@ -227,22 +227,73 @@ interface ProviderJobsPeerOperations {
     | Vetchium.Problem.MeshPeerAuthenticationRequiredErrorResponse;
 }
 
+/**
+ * Where the next page of a provider's merged credited applications resumes.
+ * Each tenant orders newest application first, then by these values in
+ * descending order.
+ */
+model CreditedPosition {
+  applied_at: utcDateTime;
+  engagement_id: Vetchium.Orgs.Marketplace.EngagementID;
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  application_number: Vetchium.Orgs.Applications.ApplicationNumber;
+}
+
 model PeerListCreditedApplicationsRequest {
   provider_org_did: Vetchium.Orgs.OrgDID;
   client_domain?: Vetchium.Orgs.OrgDomain;
   opening_number?: Vetchium.Orgs.Openings.OpeningNumber;
   route?: ReferralRoute;
   status?: Vetchium.Hub.Applications.ApplicationStatus;
+
+  /** Only applications of these applicants, the people an agency's Contacts name. */
+  @minItems(1)
+  @maxItems(100)
+  applicant_dids?: Vetchium.Hub.HubUserDID[];
+
+  after?: CreditedPosition;
   limit: WorkPageSize;
 }
 
+/** The applicant stays on the mesh: the agency's tenant maps it to its Contact. */
+model PeerCreditedEntry {
+  position: CreditedPosition;
+  applicant_did: Vetchium.Hub.HubUserDID;
+  item: CreditedApplicationSummary;
+}
+
 model PeerListCreditedApplicationsResponse {
-  items: CreditedApplicationSummary[];
+  items: PeerCreditedEntry[];
+  has_more: boolean;
 }
 
 model RelayListCreditedApplicationsRequest {
   tenant: Vetchium.Directory.TenantID;
   request: PeerListCreditedApplicationsRequest;
+}
+
+/** How many applications credited to the provider each applicant has. */
+model PeerCountCreditedApplicationsRequest {
+  provider_org_did: Vetchium.Orgs.OrgDID;
+
+  @minItems(1)
+  @maxItems(100)
+  applicant_dids: Vetchium.Hub.HubUserDID[];
+}
+
+model CreditedCount {
+  applicant_did: Vetchium.Hub.HubUserDID;
+  count: int32;
+}
+
+/** Applicants without a credited application are left out. */
+model PeerCountCreditedApplicationsResponse {
+  counts: CreditedCount[];
+}
+
+model RelayCountCreditedApplicationsRequest {
+  tenant: Vetchium.Directory.TenantID;
+  request: PeerCountCreditedApplicationsRequest;
 }
 
 @route("/mesh/provider-attribution")
@@ -256,6 +307,18 @@ interface ProviderAttributionRelayOperations {
         @statusCode status_code: 200;
         @header("Cache-Control") cache_control: "no-store";
         @body body: PeerListCreditedApplicationsResponse;
+      }
+    | PeerWorkReadErrors
+    | Vetchium.Problem.OrgTenantUnavailableErrorResponse
+    | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+
+  @route("/count")
+  @post
+  count(@body request: RelayCountCreditedApplicationsRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: PeerCountCreditedApplicationsResponse;
       }
     | PeerWorkReadErrors
     | Vetchium.Problem.OrgTenantUnavailableErrorResponse
@@ -276,6 +339,17 @@ interface ProviderAttributionPeerOperations {
       }
     | PeerWorkReadErrors
     | Vetchium.Problem.MeshPeerAuthenticationRequiredErrorResponse;
+
+  @route("/count")
+  @post
+  count(@body request: PeerCountCreditedApplicationsRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: PeerCountCreditedApplicationsResponse;
+      }
+    | PeerWorkReadErrors
+    | Vetchium.Problem.MeshPeerAuthenticationRequiredErrorResponse;
 }
 
 model PeerGetActivityStatementRequest {
@@ -283,6 +357,7 @@ model PeerGetActivityStatementRequest {
   engagement_id: Vetchium.Orgs.Marketplace.EngagementID;
   month: Vetchium.Orgs.Marketplace.StatementMonth;
   pagination_key?: Vetchium.PaginationKey;
+
   @minValue(1)
   @maxValue(100)
   limit: int32;

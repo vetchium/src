@@ -83,7 +83,7 @@ func GetClientEngagementStatement(s *orgsruntime.Server) http.HandlerFunc {
 
 		ctx, cancel := context.WithTimeout(r.Context(), s.ListingDeadline)
 		defer cancel()
-		home, details := s.ListingRead.Locate(ctx, orgs.OrgDomain(row.ConsumerDomain))
+		tenant, details := s.ListingRead.HomeOf(ctx, row.ConsumerOrgDid)
 		if details != nil {
 			if details.Type == orgsproblem.ListingNotFoundError.Type {
 				s.Problem(r.Context(), w, orgsproblem.EngagementNotFoundError)
@@ -94,7 +94,7 @@ func GetClientEngagementStatement(s *orgsruntime.Server) http.HandlerFunc {
 		}
 
 		outcome, err := s.WorkRelay.RelayGetActivityStatement(ctx, work.RelayGetActivityStatementRequest{
-			Tenant: home.Tenant,
+			Tenant: tenant,
 			Request: work.PeerGetActivityStatementRequest{
 				ProviderOrgDID: orgs.OrgDID(dbvalue.FormatUUID(identity.OrgDID)),
 				EngagementID:   request.EngagementID,

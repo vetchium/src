@@ -39,7 +39,6 @@ model CreditedApplicationSummary {
   route: ReferralRoute;
   status: Vetchium.Hub.Applications.ApplicationStatus;
   contact_id?: Contacts.ContactID;
-  applicant_did?: Vetchium.Directory.PrincipalDID;
   applied_at: utcDateTime;
 }
 

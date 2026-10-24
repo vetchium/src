@@ -63,6 +63,8 @@ func AddPersonNote(s *orgsruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "parse Hub user DID", err)
 			return
 		}
+		credited := creditedCounts(r.Context(), s, identity.OrgDID,
+			[]pgtype.UUID{hubDID})[dbvalue.FormatUUID(hubDID)]
 		now := s.CurrentTime()
 		type result = handlerauth.Result[contacts.AddedNote]
 		handlerauth.RunIdempotent(s, w, r, "orgs:add-person-note",
@@ -142,8 +144,8 @@ func AddPersonNote(s *orgsruntime.Server) http.HandlerFunc {
 					}
 				}
 				added, problemDetails, err := insertNote(
-					r, s, q, identity, key, contact.ContactID, hubDID,
-					string(request.Text), now)
+					r, s, q, identity, key, contact.ContactID,
+					string(request.Text), credited, now)
 				if err != nil || problemDetails != nil {
 					if problemDetails != nil {
 						return fail(*problemDetails)
@@ -156,11 +158,12 @@ func AddPersonNote(s *orgsruntime.Server) http.HandlerFunc {
 }
 
 // insertNote adds a note to a Contact the caller holds the lock of and reads
-// the Contact back with its note count.
+// the Contact back with its note count. credited was counted before the
+// transaction opened: no transaction waits on another tenant.
 func insertNote(
 	r *http.Request, s *orgsruntime.Server, q *sqlc.Queries,
 	identity middleware.OrgIdentity, key common.IdempotencyKey,
-	contactID, hubDID pgtype.UUID, text string, now time.Time,
+	contactID pgtype.UUID, text string, credited int32, now time.Time,
 ) (contacts.AddedNote, *problem.Body, error) {
 	ctx := r.Context()
 	noteID, err := dbvalue.NewUUIDv7(now)
@@ -192,7 +195,7 @@ func insertNote(
 	return contacts.AddedNote{
 		Contact: summary(contact.ContactID, contact.DisplayName, contact.Handle,
 			contact.MessagesOff, contact.PartyDeleted, contact.LastActivityAt,
-			contact.NoteCount, contact.CreditedCount, contact.HasConversation,
+			contact.NoteCount, credited, contact.HasConversation,
 			contact.UnreadMessagesCount),
 		Note: noteFrom(row.NoteID, row.Author, text, row.CreatedAt, pgtype.Timestamptz{}),
 	}, nil, nil
@@ -209,16 +212,27 @@ func AddContactNote(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
+		id, err := dbvalue.ParseUUID(string(request.ContactID))
+		if err != nil {
+			s.InternalError(r.Context(), w, "parse Contact id", err)
+			return
+		}
+		var credited int32
+		if found, err := s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
+			OrgDid: identity.OrgDID, ContactID: id,
+		}); err == nil {
+			credited = creditedCounts(r.Context(), s, identity.OrgDID,
+				[]pgtype.UUID{found.HubUserDid})[dbvalue.FormatUUID(found.HubUserDid)]
+		} else if !isNoRows(err) {
+			s.InternalError(r.Context(), w, "read Contact", err)
+			return
+		}
 		now := s.CurrentTime()
 		type result = handlerauth.Result[contacts.AddedNote]
 		handlerauth.RunIdempotent(s, w, r, "orgs:add-contact-note",
 			dbvalue.FormatUUID(identity.UserID), key, request, now.Add(replayWindow),
 			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
-				id, err := dbvalue.ParseUUID(string(request.ContactID))
-				if err != nil {
-					return result{}, nil, err
-				}
-				locked, err := q.LockOrgContact(r.Context(), sqlc.LockOrgContactParams{
+				_, err := q.LockOrgContact(r.Context(), sqlc.LockOrgContactParams{
 					OrgDid: identity.OrgDID, ContactID: id,
 				})
 				if isNoRows(err) {
@@ -236,7 +250,7 @@ func AddContactNote(s *orgsruntime.Server) http.HandlerFunc {
 					return handlerauth.Failure[contacts.AddedNote](orgsproblem.ConversationPartyDeletedError)
 				}
 				added, details, err := insertNote(r, s, q, identity, key,
-					id, locked.HubUserDid, string(request.Text), now)
+					id, string(request.Text), credited, now)
 				if details != nil {
 					return handlerauth.Failure[contacts.AddedNote](*details)
 				}

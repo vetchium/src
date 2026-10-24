@@ -387,7 +387,7 @@ func confirmSuggestion(
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), s.ListingDeadline)
 	defer cancel()
-	home, details := s.ListingRead.Locate(ctx, suggestion.ConsumerDomain)
+	tenant, details := s.ListingRead.HomeOf(ctx, engagement.ConsumerOrgDid)
 	if details != nil {
 		if details.Type == orgsproblem.ListingNotFoundError.Type {
 			s.Problem(r.Context(), w, invalid)
@@ -397,10 +397,10 @@ func confirmSuggestion(
 		return false
 	}
 	outcome, err := s.WorkRelay.RelayGetJob(ctx, work.RelayGetJobRequest{
-		Tenant: home.Tenant,
+		Tenant: tenant,
 		Request: work.PeerGetJobRequest{
 			ProviderOrgDID: orgs.OrgDID(dbvalue.FormatUUID(identity.OrgDID)),
-			EngagementID:   marketplace.EngagementID(dbvalue.FormatUUID(engagement)),
+			EngagementID:   marketplace.EngagementID(dbvalue.FormatUUID(engagement.EngagementID)),
 			OpeningNumber:  suggestion.OpeningNumber,
 		},
 	})

@@ -47,6 +47,18 @@ export interface MyInfoResponse {
   /** A short-lived signed URL, present only while a logo is set. */
   logo_url?: string;
   google_sign_in_enabled: boolean;
+  marketplace: MarketplaceRoles;
+}
+
+/**
+ * What the Org does in the marketplace, which decides the navigation groups
+ * the portal shows; the API still decides every action.
+ */
+export interface MarketplaceRoles {
+  /** The Org has a Listing or an engagement as provider. */
+  provider: boolean;
+  /** The Org has a `sourcing` Listing or a `sourcing` engagement as provider. */
+  agency: boolean;
 }
 
 export const CheckPresent = "present" as const;

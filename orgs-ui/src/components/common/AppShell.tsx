@@ -51,9 +51,41 @@ export function AppShell() {
     me !== undefined && holds(me.permissions, FulfilEngagements);
   const { data: unreadContactsData } = useContactsQuery(
     { filter: "unread", limit: 1 },
-    canFulfil,
+    canFulfil && me?.marketplace.agency === true,
   );
   const unreadCount = unreadContactsData?.counts.unread ?? 0;
+  // Listings stays reachable to its editors so an Org can create its first
+  // one; the rest appear once the Org takes part as a provider.
+  const isProvider = me?.marketplace.provider === true;
+  const providerItems = [
+    ...(me !== undefined && holds(me.permissions, ManageListings)
+      ? [
+          {
+            key: paths.listings,
+            icon: <AppstoreOutlined />,
+            label: t("navigation.listings"),
+          },
+          ...(isProvider
+            ? [
+                {
+                  key: paths.clients,
+                  icon: <SolutionOutlined />,
+                  label: t("navigation.clients"),
+                },
+              ]
+            : []),
+        ]
+      : []),
+    ...(canFulfil && isProvider
+      ? [
+          {
+            key: paths.workQueue,
+            icon: <UnorderedListOutlined />,
+            label: t("navigation.workQueue"),
+          },
+        ]
+      : []),
+  ];
 
   const navigationItems: ItemType[] = suspended
     ? [
@@ -119,43 +151,17 @@ export function AppShell() {
               : []),
           ],
         },
-        ...(me !== undefined &&
-        (holds(me.permissions, ManageListings) ||
-          holds(me.permissions, FulfilEngagements))
+        ...(providerItems.length > 0
           ? [
               {
                 type: "group" as const,
                 key: "provider",
                 label: t("navigation.provider"),
-                children: [
-                  ...(holds(me.permissions, ManageListings)
-                    ? [
-                        {
-                          key: paths.listings,
-                          icon: <AppstoreOutlined />,
-                          label: t("navigation.listings"),
-                        },
-                        {
-                          key: paths.clients,
-                          icon: <SolutionOutlined />,
-                          label: t("navigation.clients"),
-                        },
-                      ]
-                    : []),
-                  ...(holds(me.permissions, FulfilEngagements)
-                    ? [
-                        {
-                          key: paths.workQueue,
-                          icon: <UnorderedListOutlined />,
-                          label: t("navigation.workQueue"),
-                        },
-                      ]
-                    : []),
-                ],
+                children: providerItems,
               },
             ]
           : []),
-        ...(canFulfil
+        ...(canFulfil && me?.marketplace.agency
           ? [
               {
                 type: "group" as const,

@@ -18,6 +18,7 @@ import (
 	coordinatorproblem "github.com/vetchium/src/typespec/problem/global-coordinator"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
+	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
 	"backend/internal/listingclient"
 )
@@ -27,11 +28,17 @@ type Directory interface {
 	ResolveOrgDomain(
 		context.Context, directoryspec.ResolveOrgDomainRequest,
 	) (directoryspec.ResolveOrgDomainResponse, *problem.Details, error)
+	ResolvePrincipal(
+		context.Context, directoryspec.ResolvePrincipalRequest,
+	) (directoryspec.ResolvePrincipalResponse, *problem.Details, error)
 }
 
-// LocalOrgs finds an Org this tenant homes by its domain.
+// LocalOrgs finds an Org this tenant homes.
 type LocalOrgs interface {
 	GetLocalOrgForDomain(context.Context, string) (pgtype.UUID, error)
+	IsLocalFederationPrincipal(
+		context.Context, sqlc.IsLocalFederationPrincipalParams,
+	) (bool, error)
 }
 
 type Reader struct {
@@ -116,6 +123,40 @@ func (r Reader) Home(
 		return Provider{}, &orgsproblem.TenantUnavailableError
 	}
 	return Provider{OrgDID: did, Tenant: resolved.HomeTenantID}, nil
+}
+
+// HomeOf finds the tenant that homes the Org with did: this tenant first,
+// then the directory. A recorded domain may since have passed to another
+// Org, so a counterparty is always found by its DID. An Org the directory no
+// longer has answers org-listing-not-found.
+func (r Reader) HomeOf(
+	ctx context.Context, did pgtype.UUID,
+) (directoryspec.TenantID, *problem.Details) {
+	local, err := r.Orgs.IsLocalFederationPrincipal(ctx,
+		sqlc.IsLocalFederationPrincipalParams{
+			PrincipalType: string(directoryspec.PrincipalOrg), PrincipalDid: did,
+		})
+	if err != nil {
+		r.Log.ErrorContext(ctx, "local Org lookup failed",
+			"event", "listing_local_lookup_failed", "error", err)
+		return "", &problem.InternalServerError
+	}
+	if local {
+		return directoryspec.TenantID(r.TenantID), nil
+	}
+	resolved, details, err := r.Directory.ResolvePrincipal(ctx,
+		directoryspec.ResolvePrincipalRequest{
+			PrincipalType: directoryspec.PrincipalOrg,
+			PrincipalDID:  directoryspec.PrincipalDID(dbvalue.FormatUUID(did)),
+		})
+	switch {
+	case err == nil && details != nil &&
+		details.Type == coordinatorproblem.DirectoryEntryNotFoundError.Type:
+		return "", &orgsproblem.ListingNotFoundError
+	case err != nil || details != nil:
+		return "", &orgsproblem.TenantUnavailableError
+	}
+	return resolved.HomeTenantID, nil
 }
 
 // Locate finds the Org holding domain: in this tenant first, so a local

@@ -253,6 +253,28 @@ func (s *Sender) Send(ctx context.Context, request Request) (Outcome, error) {
 	return outcome, nil
 }
 
+// Known reports whether an operation exists for the request's kind,
+// aggregate, and idempotency key, so a caller can let a replay through to its
+// stored outcome instead of judging it afresh: what a pre-send check refused
+// now may have been sent before.
+func (s *Sender) Known(
+	ctx context.Context, kind federationspec.CommandKind, aggregateID string,
+	key common.IdempotencyKey,
+) (bool, error) {
+	_, err := s.queries.GetFederationOperationByIdempotency(ctx,
+		sqlc.GetFederationOperationByIdempotencyParams{
+			Kind: string(kind), AggregateID: aggregateID,
+			IdempotencyKey: string(key),
+		})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("find federation operation: %w", err)
+	}
+	return true, nil
+}
+
 // Recover re-drives due pending operations of every kind. Each attempt is
 // recorded, with backoff, before it is sent, so an unreachable authority
 // never holds the front of the queue. It returns how many it resolved.

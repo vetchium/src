@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/orgs/marketplace/work"
@@ -52,41 +53,25 @@ func orgDID(identityOrg pgtype.UUID) orgs.OrgDID {
 	return orgs.OrgDID(dbvalue.FormatUUID(identityOrg))
 }
 
-func creditedCountForHubUser(ctx context.Context, s *orgsruntime.Server, orgDID pgtype.UUID, hubUserDID pgtype.UUID) int32 {
-	if len(s.WorkFanout.Tenants) == 0 {
-		return 0
+// creditedCounts asks every client tenant how many applications credited to
+// the agency each person has (MKT-UI-007), keyed by Hub user DID. A tenant
+// that does not answer adds nothing.
+func creditedCounts(
+	ctx context.Context, s *orgsruntime.Server, orgDID pgtype.UUID,
+	people []pgtype.UUID,
+) map[string]int32 {
+	if len(people) == 0 {
+		return map[string]int32{}
 	}
-	peer := work.PeerListCreditedApplicationsRequest{
-		ProviderOrgDID: orgs.OrgDID(dbvalue.FormatUUID(orgDID)),
-		Limit:          work.MaxPage,
+	dids := make([]hub.HubUserDID, len(people))
+	for index, person := range people {
+		dids[index] = hub.HubUserDID(dbvalue.FormatUUID(person))
 	}
-	page := s.WorkFanout.ListCreditedApplications(ctx, peer)
-	hubDIDStr := dbvalue.FormatUUID(hubUserDID)
-	var count int32
-	for _, item := range page.Items {
-		if item.ApplicantDID != nil && string(*item.ApplicantDID) == hubDIDStr {
-			count++
-		}
-	}
-	return count
-}
-
-func creditedCountsForAgency(ctx context.Context, s *orgsruntime.Server, orgDID pgtype.UUID) map[string]int32 {
-	counts := make(map[string]int32)
-	if len(s.WorkFanout.Tenants) == 0 {
-		return counts
-	}
-	peer := work.PeerListCreditedApplicationsRequest{
-		ProviderOrgDID: orgs.OrgDID(dbvalue.FormatUUID(orgDID)),
-		Limit:          work.MaxPage,
-	}
-	page := s.WorkFanout.ListCreditedApplications(ctx, peer)
-	for _, item := range page.Items {
-		if item.ApplicantDID != nil {
-			counts[string(*item.ApplicantDID)]++
-		}
-	}
-	return counts
+	return s.WorkFanout.CountCreditedApplications(ctx,
+		work.PeerCountCreditedApplicationsRequest{
+			ProviderOrgDID: orgs.OrgDID(dbvalue.FormatUUID(orgDID)),
+			ApplicantDIDs:  dids,
+		}).Counts
 }
 
 // pageCursor is where the next page of a list resumes. It is bound to the Org,

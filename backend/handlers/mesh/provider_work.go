@@ -216,7 +216,27 @@ func PeerListCreditedApplications(s *meshapi.Server) http.HandlerFunc {
 		func(r work.PeerListCreditedApplicationsRequest) string { return string(r.ProviderOrgDID) },
 		s.ProviderWork.ListCreditedApplications,
 		func() work.PeerListCreditedApplicationsResponse {
-			return work.PeerListCreditedApplicationsResponse{Items: []work.CreditedApplicationSummary{}}
+			return work.PeerListCreditedApplicationsResponse{Items: []work.PeerCreditedEntry{}}
+		})
+}
+
+func RelayCountCreditedApplications(s *meshapi.Server) http.HandlerFunc {
+	return relayWork(s,
+		func(r work.RelayCountCreditedApplicationsRequest) (directoryspec.TenantID, work.PeerCountCreditedApplicationsRequest) {
+			return r.Tenant, r.Request
+		},
+		s.ProviderWork.CountCreditedApplications,
+		func(ctx context.Context, tenant directoryspec.TenantID, r work.PeerCountCreditedApplicationsRequest) (workclient.Outcome[work.PeerCountCreditedApplicationsResponse], error) {
+			return s.WorkPeers.PeerCountCreditedApplications(ctx, tenant, r)
+		})
+}
+
+func PeerCountCreditedApplications(s *meshapi.Server) http.HandlerFunc {
+	return peerWork(s,
+		func(r work.PeerCountCreditedApplicationsRequest) string { return string(r.ProviderOrgDID) },
+		s.ProviderWork.CountCreditedApplications,
+		func() work.PeerCountCreditedApplicationsResponse {
+			return work.PeerCountCreditedApplicationsResponse{Counts: []work.CreditedCount{}}
 		})
 }
 

@@ -54,6 +54,17 @@ type MyInfoResponse struct {
 	PlanOID                subscriptions.PlanOID           `json:"plan_oid"`
 	LogoURL                *string                         `json:"logo_url,omitempty"`
 	GoogleSignInEnabled    bool                            `json:"google_sign_in_enabled"`
+	Marketplace            MarketplaceRoles                `json:"marketplace"`
+}
+
+// MarketplaceRoles is what the Org does in the marketplace, which decides the
+// navigation groups the portal shows; the API still decides every action.
+type MarketplaceRoles struct {
+	// Provider: the Org has a Listing or an engagement as provider.
+	Provider bool `json:"provider"`
+	// Agency: the Org has a sourcing Listing or a sourcing engagement as
+	// provider.
+	Agency bool `json:"agency"`
 }
 
 type DomainCheckResult string

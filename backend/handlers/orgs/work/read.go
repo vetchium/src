@@ -214,14 +214,14 @@ func client(
 	if err != nil {
 		return row, "", nil, err
 	}
-	home, details := s.ListingRead.Locate(ctx, orgs.OrgDomain(row.ConsumerDomain))
+	tenant, details := s.ListingRead.HomeOf(ctx, row.ConsumerOrgDid)
 	if details != nil {
 		if details.Type == orgsproblem.ListingNotFoundError.Type {
 			return row, "", &orgsproblem.EngagementWorkNotFoundError, nil
 		}
 		return row, "", details, nil
 	}
-	return row, home.Tenant, nil, nil
+	return row, tenant, nil, nil
 }
 
 // GetWorkItem reads one routed candidacy live from its client's tenant.
@@ -338,8 +338,8 @@ type creditedFilters struct {
 }
 
 type creditedCursor struct {
-	Filters creditedFilters `json:"filters"`
-	Offset  int             `json:"offset"`
+	Filters creditedFilters       `json:"filters"`
+	After   work.CreditedPosition `json:"after"`
 }
 
 func creditedFiltersOf(request work.ListCreditedApplicationsRequest) creditedFilters {
@@ -362,7 +362,9 @@ func creditedFiltersOf(request work.ListCreditedApplicationsRequest) creditedFil
 	return f
 }
 
-// ListCreditedApplications lists credited applications across all client tenants.
+// ListCreditedApplications lists the agency's credited applications across
+// every client tenant, newest first (MKT-UI-009), naming the tenants that did
+// not answer.
 func ListCreditedApplications(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request work.ListCreditedApplicationsRequest
@@ -371,95 +373,96 @@ func ListCreditedApplications(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
 		filters := creditedFiltersOf(request)
-		offset := 0
-		if request.PaginationKey != nil {
-			payload, valid := credentials.VerifySignedValue(
-				s.CredentialSubkey("pagination"), attributionPurpose, string(*request.PaginationKey))
-			var cursor creditedCursor
-			if !valid || json.Unmarshal(payload, &cursor) != nil || cursor.Filters != filters || cursor.Offset < 0 {
-				s.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
-				return
-			}
-			offset = cursor.Offset
-		}
-
 		peer := work.PeerListCreditedApplicationsRequest{
 			ProviderOrgDID: orgs.OrgDID(dbvalue.FormatUUID(identity.OrgDID)),
 			ClientDomain:   request.ClientDomain,
 			OpeningNumber:  request.OpeningNumber,
 			Route:          request.Route,
 			Status:         request.Status,
-			Limit:          work.MaxPage,
+			Limit:          request.EffectiveLimit(),
 		}
-		page := s.WorkFanout.ListCreditedApplications(r.Context(), peer)
-
-		applicantDIDs := make([]pgtype.UUID, 0, len(page.Items))
-		for _, item := range page.Items {
-			if item.ApplicantDID != nil {
-				if u, err := dbvalue.ParseUUID(string(*item.ApplicantDID)); err == nil {
-					applicantDIDs = append(applicantDIDs, u)
-				}
-			}
-		}
-		contactMap := make(map[string]contacts.ContactID)
-		if len(applicantDIDs) > 0 {
-			contactRows, err := s.Queries.ListOrgContactsByHubUsers(r.Context(), sqlc.ListOrgContactsByHubUsersParams{
-				OrgDid:      identity.OrgDID,
-				HubUserDids: applicantDIDs,
-			})
-			if err != nil {
-				s.InternalError(r.Context(), w, "list contacts by hub users", err)
+		if request.PaginationKey != nil {
+			payload, valid := credentials.VerifySignedValue(
+				s.CredentialSubkey("pagination"), attributionPurpose, string(*request.PaginationKey))
+			var cursor creditedCursor
+			if !valid || json.Unmarshal(payload, &cursor) != nil ||
+				cursor.Filters != filters || !cursor.After.Valid() {
+				s.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
 				return
 			}
-			for _, cr := range contactRows {
-				contactMap[dbvalue.FormatUUID(cr.HubUserDid)] = contacts.ContactID(dbvalue.FormatUUID(cr.ContactID))
-			}
+			peer.After = &cursor.After
 		}
-
-		filteredItems := make([]work.CreditedApplicationSummary, 0, len(page.Items))
-		for _, item := range page.Items {
-			if item.ApplicantDID != nil {
-				if cID, ok := contactMap[string(*item.ApplicantDID)]; ok {
-					item.ContactID = &cID
-				}
-				item.ApplicantDID = nil
+		if request.ContactID != nil {
+			contactID, err := dbvalue.ParseUUID(string(*request.ContactID))
+			if err != nil {
+				s.InternalError(r.Context(), w, "parse Contact id", err)
+				return
 			}
-			if request.ContactID != nil {
-				if item.ContactID == nil || *item.ContactID != *request.ContactID {
-					continue
-				}
-			}
-			filteredItems = append(filteredItems, item)
-		}
-
-		limit := int(request.EffectiveLimit())
-		var responseItems []work.CreditedApplicationSummary
-		var nextKey *common.PaginationKey
-		if offset < len(filteredItems) {
-			end := offset + limit
-			if end > len(filteredItems) {
-				end = len(filteredItems)
-			}
-			responseItems = filteredItems[offset:end]
-			if end < len(filteredItems) {
-				key, err := sign(s, attributionPurpose, creditedCursor{
-					Filters: filters,
-					Offset:  end,
+			contact, err := s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
+				OrgDid: identity.OrgDID, ContactID: contactID,
+			})
+			if errors.Is(err, pgx.ErrNoRows) {
+				w.Header().Set("Cache-Control", "no-store")
+				s.JSON(r.Context(), w, http.StatusOK, work.ListCreditedApplicationsResponse{
+					Items:              []work.CreditedApplicationSummary{},
+					UnavailableTenants: []directoryspec.TenantID{},
 				})
-				if err != nil {
-					s.InternalError(r.Context(), w, "encode attribution cursor", err)
-					return
-				}
-				nextKey = &key
+				return
 			}
-		} else {
-			responseItems = []work.CreditedApplicationSummary{}
+			if err != nil {
+				s.InternalError(r.Context(), w, "read Contact", err)
+				return
+			}
+			peer.ApplicantDIDs = []hubspec.HubUserDID{
+				hubspec.HubUserDID(dbvalue.FormatUUID(contact.HubUserDid)),
+			}
 		}
-
+		page := s.WorkFanout.ListCreditedApplications(r.Context(), peer)
+		applicants := make([]pgtype.UUID, 0, len(page.Entries))
+		for _, entry := range page.Entries {
+			did, err := dbvalue.ParseUUID(string(entry.ApplicantDID))
+			if err != nil {
+				s.InternalError(r.Context(), w, "parse applicant DID", err)
+				return
+			}
+			applicants = append(applicants, did)
+		}
+		contactOf := map[string]contacts.ContactID{}
+		if len(applicants) > 0 {
+			rows, err := s.Queries.ListOrgContactsByHubUsers(r.Context(), sqlc.ListOrgContactsByHubUsersParams{
+				OrgDid: identity.OrgDID, HubUserDids: applicants,
+			})
+			if err != nil {
+				s.InternalError(r.Context(), w, "list Contacts of applicants", err)
+				return
+			}
+			for _, row := range rows {
+				contactOf[dbvalue.FormatUUID(row.HubUserDid)] =
+					contacts.ContactID(dbvalue.FormatUUID(row.ContactID))
+			}
+		}
 		response := work.ListCreditedApplicationsResponse{
-			Items:              responseItems,
+			Items:              make([]work.CreditedApplicationSummary, 0, len(page.Entries)),
 			UnavailableTenants: page.Unavailable,
-			NextPaginationKey:  nextKey,
+		}
+		for _, entry := range page.Entries {
+			item := entry.Item
+			if contactID, ok := contactOf[string(entry.ApplicantDID)]; ok {
+				item.ContactID = &contactID
+			}
+			response.Items = append(response.Items, item)
+		}
+		if page.HasMore && len(page.Entries) > 0 {
+			encoded, err := json.Marshal(creditedCursor{
+				Filters: filters, After: page.Entries[len(page.Entries)-1].Position,
+			})
+			if err != nil {
+				s.InternalError(r.Context(), w, "encode attribution cursor", err)
+				return
+			}
+			key := common.PaginationKey(credentials.SignValue(
+				s.CredentialSubkey("pagination"), attributionPurpose, encoded))
+			response.NextPaginationKey = &key
 		}
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, response)

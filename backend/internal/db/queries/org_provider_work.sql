@@ -633,40 +633,80 @@ WHERE eng.engagement_id = sqlc.arg(engagement_id)
   AND a.removed_at IS NULL
 ORDER BY a.created_at DESC, a.application_number DESC;
 
--- Credited applications read by an agency across its sourcing engagements.
+-- The applications credited to a provider's active `sourcing` engagements
+-- with this tenant's Orgs (MKT-SRC-006), newest first, keyset paginated by
+-- (applied_at, engagement_id, opening_number, application_number), all
+-- descending. A removed application keeps its credit but leaves the list.
 -- name: ListPeerCreditedApplications :many
-SELECT a.org_application_id, a.application_number,
-    COALESCE(a.referral_route, '')::text AS referral_route,
-    a.application_state, a.current_stage_id,
-    st.stage_kind AS current_stage_kind,
-    a.created_at AS applied_at,
-    eng.engagement_id,
-    snap.consumer_domain, snap.consumer_display_name,
-    o.opening_number, COALESCE(c.title, '')::text AS opening_title,
-    c.employing_country,
-    app.hub_user_did AS applicant_did
+WITH credited AS (
+    SELECT a.application_number, a.referral_route::text AS referral_route,
+        a.created_at AS applied_at, eng.engagement_id,
+        snap.consumer_domain, snap.consumer_display_name, o.opening_number,
+        COALESCE(c.title, '')::text AS opening_title, c.employing_country,
+        app.hub_user_did AS applicant_did,
+        vetchium.hub_application_status(a.application_state, st.stage_kind)
+            AS hub_status
+    FROM vetchium.org_applications AS a
+    JOIN vetchium.org_openings AS o ON o.org_opening_id = a.org_opening_id
+    JOIN vetchium.org_engagements AS eng
+        ON eng.engagement_id = a.credited_engagement_id
+    JOIN vetchium.org_engagement_snapshots AS snap
+        ON snap.engagement_id = eng.engagement_id
+    JOIN vetchium.org_applicants AS app
+        ON app.org_applicant_id = a.org_applicant_id
+    LEFT JOIN vetchium.org_opening_stages AS st
+        ON st.org_opening_stage_id = a.current_stage_id
+    LEFT JOIN vetchium.org_opening_contents AS c
+        ON c.org_opening_id = o.org_opening_id AND c.slot = 'live'
+    WHERE eng.provider_org_did = sqlc.arg(provider_org_did)
+      AND eng.engagement_state = 'active'
+      AND eng.capability_oid = 'sourcing'
+      AND o.org_did = eng.consumer_org_did
+      AND a.removed_at IS NULL
+      AND (sqlc.narg(client_domain)::text IS NULL
+          OR snap.consumer_domain = sqlc.narg(client_domain)::text)
+      AND (sqlc.narg(opening_number)::integer IS NULL
+          OR o.opening_number = sqlc.narg(opening_number)::integer)
+      AND (sqlc.narg(referral_route)::text IS NULL
+          OR a.referral_route = sqlc.narg(referral_route)::text)
+      AND (sqlc.narg(applicant_dids)::uuid[] IS NULL
+          OR app.hub_user_did = ANY(sqlc.narg(applicant_dids)::uuid[]))
+)
+SELECT credited.application_number, credited.referral_route,
+    credited.applied_at, credited.engagement_id, credited.consumer_domain,
+    credited.consumer_display_name, credited.opening_number,
+    credited.opening_title, credited.employing_country,
+    credited.applicant_did, credited.hub_status::text AS hub_status
+FROM credited
+WHERE (sqlc.narg(hub_status)::text IS NULL
+      OR credited.hub_status = sqlc.narg(hub_status)::text)
+  AND (sqlc.narg(after_applied_at)::timestamptz IS NULL
+      OR (credited.applied_at, credited.engagement_id, credited.opening_number,
+          credited.application_number) <
+         (sqlc.narg(after_applied_at)::timestamptz,
+          sqlc.narg(after_engagement_id)::uuid,
+          sqlc.narg(after_opening_number)::integer,
+          sqlc.narg(after_application_number)::integer))
+ORDER BY credited.applied_at DESC, credited.engagement_id DESC,
+    credited.opening_number DESC, credited.application_number DESC
+LIMIT sqlc.arg(page_limit);
+
+-- How many applications credited to the provider each named applicant has
+-- with this tenant's Orgs, as ListPeerCreditedApplications lists them.
+-- name: CountPeerCreditedApplications :many
+SELECT app.hub_user_did AS applicant_did, count(*)::integer AS credited
 FROM vetchium.org_applications AS a
 JOIN vetchium.org_openings AS o ON o.org_opening_id = a.org_opening_id
-JOIN vetchium.org_engagements AS eng ON eng.engagement_id = a.credited_engagement_id
-JOIN vetchium.org_engagement_snapshots AS snap
-    ON snap.engagement_id = eng.engagement_id
+JOIN vetchium.org_engagements AS eng
+    ON eng.engagement_id = a.credited_engagement_id
 JOIN vetchium.org_applicants AS app ON app.org_applicant_id = a.org_applicant_id
-LEFT JOIN vetchium.org_opening_stages AS st ON st.org_opening_stage_id = a.current_stage_id
-LEFT JOIN vetchium.org_opening_contents AS c
-    ON c.org_opening_id = o.org_opening_id AND c.slot = 'live'
 WHERE eng.provider_org_did = sqlc.arg(provider_org_did)
   AND eng.engagement_state = 'active'
   AND eng.capability_oid = 'sourcing'
   AND o.org_did = eng.consumer_org_did
   AND a.removed_at IS NULL
-  AND (sqlc.narg(client_domain)::text IS NULL
-      OR snap.consumer_domain = sqlc.narg(client_domain)::text)
-  AND (sqlc.narg(opening_number)::integer IS NULL
-      OR o.opening_number = sqlc.narg(opening_number)::integer)
-  AND (sqlc.narg(referral_route)::text IS NULL
-      OR a.referral_route = sqlc.narg(referral_route)::text)
-ORDER BY a.created_at DESC, a.application_number DESC
-LIMIT sqlc.arg(page_limit);
+  AND app.hub_user_did = ANY(sqlc.arg(applicant_dids)::uuid[])
+GROUP BY app.hub_user_did;
 
 -- Contacts suggested for an Opening by this agency.
 -- name: ListJobSuggestedContacts :many

@@ -67,7 +67,12 @@ func send[R any, PR interface {
 			s.Problem(r.Context(), w, *details)
 			return
 		}
-		if write.precheck != nil {
+		known, err := s.Commands.Known(r.Context(), write.kind, string(workID), key)
+		if err != nil {
+			s.InternalError(r.Context(), w, "find work operation", err)
+			return
+		}
+		if write.precheck != nil && !known {
 			refusal, err := write.precheck(r.Context(), s, identity, request)
 			if err != nil {
 				s.InternalError(r.Context(), w, "check work request", err)

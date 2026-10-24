@@ -83,6 +83,20 @@ model MyInfoResponse {
 
   /** Whether Google sign-in is on for the Org; only a Gold Org can have it. */
   google_sign_in_enabled: boolean;
+
+  marketplace: MarketplaceRoles;
+}
+
+/**
+ * What the Org does in the marketplace, which decides the navigation groups
+ * the portal shows; the API still decides every action.
+ */
+model MarketplaceRoles {
+  /** The Org has a Listing or an engagement as provider. */
+  provider: boolean;
+
+  /** The Org has a `sourcing` Listing or a `sourcing` engagement as provider. */
+  agency: boolean;
 }
 
 /** The outcome of this lookup. inconclusive means the DNS query failed and

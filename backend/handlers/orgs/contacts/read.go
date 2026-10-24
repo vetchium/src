@@ -3,6 +3,8 @@ package contacts
 import (
 	"net/http"
 
+	"github.com/jackc/pgx/v5/pgtype"
+
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
@@ -57,7 +59,11 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "count Contacts", err)
 			return
 		}
-		counts := creditedCountsForAgency(r.Context(), s, identity.OrgDID)
+		people := make([]pgtype.UUID, len(rows))
+		for index, row := range rows {
+			people[index] = row.HubUserDid
+		}
+		counts := creditedCounts(r.Context(), s, identity.OrgDID, people)
 		response := contacts.ListContactsResponse{
 			Items: []contacts.ContactSummary{},
 			Counts: contacts.ContactCounts{
@@ -79,9 +85,6 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 				break
 			}
 			credited := counts[dbvalue.FormatUUID(row.HubUserDid)]
-			if row.CreditedCount > credited {
-				credited = row.CreditedCount
-			}
 			response.Items = append(response.Items, summary(row.ContactID,
 				row.DisplayName, row.Handle, row.MessagesOff, row.PartyDeleted,
 				row.LastActivityAt, row.NoteCount, credited, row.HasConversation,
@@ -129,10 +132,8 @@ func GetContact(s *orgsruntime.Server) http.HandlerFunc {
 				SuggestedAt:    sug.SentAt.Time.UTC(),
 			})
 		}
-		credited := creditedCountForHubUser(r.Context(), s, identity.OrgDID, row.HubUserDid)
-		if row.CreditedCount > credited {
-			credited = row.CreditedCount
-		}
+		credited := creditedCounts(r.Context(), s, identity.OrgDID,
+			[]pgtype.UUID{row.HubUserDid})[dbvalue.FormatUUID(row.HubUserDid)]
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, contacts.Contact{
 			ContactSummary: summary(row.ContactID, row.DisplayName, row.Handle,

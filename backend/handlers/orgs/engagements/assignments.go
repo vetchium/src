@@ -19,6 +19,7 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
+	"backend/internal/engagements"
 	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 	orgsruntime "backend/internal/orgs"
@@ -269,6 +270,12 @@ func UnassignOpeningProvider(s *orgsruntime.Server) http.HandlerFunc {
 				}
 				if row.RemovedRows != 1 || row.AuditRows != 1 {
 					return result{}, nil, fmt.Errorf("incomplete unassignment")
+				}
+				if len(row.RoutedApplicationIds) > 0 {
+					if err := engagements.EndWork(ctx, q, engagementID,
+						row.RoutedApplicationIds); err != nil {
+						return result{}, nil, err
+					}
 				}
 				providers, err := readOpeningProviders(r, q, opening.OrgOpeningID, request.OpeningNumber)
 				if err != nil {

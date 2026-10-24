@@ -31,16 +31,7 @@ SELECT c.contact_id, c.display_name, c.handle, c.messages_off,
      WHERE n.contact_id = c.contact_id)::integer AS note_count,
     (conv.conversation_id IS NOT NULL)::boolean AS has_conversation,
     COALESCE(conv.agency_unread_count, 0)::integer AS unread_messages_count,
-    (conv.party_deleted_at IS NOT NULL)::boolean AS party_deleted,
-    (
-        SELECT count(*)
-        FROM vetchium.org_applications AS a
-        JOIN vetchium.org_engagements AS eng ON eng.engagement_id = a.credited_engagement_id
-        JOIN vetchium.org_applicants AS app ON app.org_applicant_id = a.org_applicant_id
-        WHERE eng.provider_org_did = c.org_did
-          AND app.hub_user_did = c.hub_user_did
-          AND a.removed_at IS NULL
-    )::integer AS credited_count
+    (conv.party_deleted_at IS NOT NULL)::boolean AS party_deleted
 FROM vetchium.org_contacts AS c
 LEFT JOIN vetchium.org_conversations AS conv ON conv.contact_id = c.contact_id
 WHERE c.org_did = sqlc.arg(org_did)
@@ -53,16 +44,7 @@ SELECT c.contact_id, c.hub_user_did, c.display_name, c.handle, c.messages_off,
      WHERE n.contact_id = c.contact_id)::integer AS note_count,
     (conv.conversation_id IS NOT NULL)::boolean AS has_conversation,
     COALESCE(conv.agency_unread_count, 0)::integer AS unread_messages_count,
-    (conv.party_deleted_at IS NOT NULL)::boolean AS party_deleted,
-    (
-        SELECT count(*)
-        FROM vetchium.org_applications AS a
-        JOIN vetchium.org_engagements AS eng ON eng.engagement_id = a.credited_engagement_id
-        JOIN vetchium.org_applicants AS app ON app.org_applicant_id = a.org_applicant_id
-        WHERE eng.provider_org_did = c.org_did
-          AND app.hub_user_did = c.hub_user_did
-          AND a.removed_at IS NULL
-    )::integer AS credited_count
+    (conv.party_deleted_at IS NOT NULL)::boolean AS party_deleted
 FROM vetchium.org_contacts AS c
 JOIN vetchium.org_users AS u ON u.org_user_id = c.created_by
 LEFT JOIN vetchium.org_conversations AS conv ON conv.contact_id = c.contact_id
@@ -76,16 +58,7 @@ SELECT c.contact_id, c.hub_user_did, c.display_name, c.handle, c.messages_off,
      WHERE n.contact_id = c.contact_id)::integer AS note_count,
     (conv.conversation_id IS NOT NULL)::boolean AS has_conversation,
     COALESCE(conv.agency_unread_count, 0)::integer AS unread_messages_count,
-    (conv.party_deleted_at IS NOT NULL)::boolean AS party_deleted,
-    (
-        SELECT count(*)
-        FROM vetchium.org_applications AS a
-        JOIN vetchium.org_engagements AS eng ON eng.engagement_id = a.credited_engagement_id
-        JOIN vetchium.org_applicants AS app ON app.org_applicant_id = a.org_applicant_id
-        WHERE eng.provider_org_did = c.org_did
-          AND app.hub_user_did = c.hub_user_did
-          AND a.removed_at IS NULL
-    )::integer AS credited_count
+    (conv.party_deleted_at IS NOT NULL)::boolean AS party_deleted
 FROM vetchium.org_contacts AS c
 LEFT JOIN vetchium.org_conversations AS conv ON conv.contact_id = c.contact_id
 WHERE c.org_did = sqlc.arg(org_did)

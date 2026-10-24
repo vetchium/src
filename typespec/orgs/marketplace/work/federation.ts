@@ -6,6 +6,8 @@ import {
   type ApplicationStatus,
   isApplicationStatus,
 } from "../../../hub/applications/applications.ts";
+import { type HubUserDID, isHubUserDID } from "../../../hub/types.ts";
+import type { ApplicationNumber } from "../../applications/applications.ts";
 import type { OpeningNumber, OpeningState } from "../../openings/types.ts";
 import { openingStates } from "../../openings/types.ts";
 
@@ -266,6 +268,9 @@ export interface PeerListCreditedApplicationsRequest {
   opening_number?: OpeningNumber;
   route?: ReferralRoute;
   status?: ApplicationStatus;
+  /** Only applications of these applicants, the people an agency's Contacts name. */
+  applicant_dids?: HubUserDID[];
+  after?: CreditedPosition;
   limit: number;
 }
 
@@ -279,6 +284,38 @@ export function normalizePeerListCreditedApplicationsRequest(
     };
   }
   return request;
+}
+
+/**
+ * Where the next page of a provider's merged credited applications resumes.
+ * Each tenant orders newest application first, then by the other values in
+ * descending order.
+ */
+export interface CreditedPosition {
+  applied_at: string;
+  engagement_id: EngagementID;
+  opening_number: OpeningNumber;
+  application_number: ApplicationNumber;
+}
+
+export function isCreditedPosition(value: CreditedPosition): boolean {
+  return (
+    !Number.isNaN(Date.parse(value.applied_at)) &&
+    isEngagementID(value.engagement_id) &&
+    Number.isInteger(value.opening_number) &&
+    value.opening_number >= 1 &&
+    Number.isInteger(value.application_number) &&
+    value.application_number >= 1
+  );
+}
+
+/** The applicants one credited read names: a page of Contacts. */
+const maxApplicants = 100;
+
+function validApplicants(dids: readonly HubUserDID[]): boolean {
+  return (
+    dids.length >= 1 && dids.length <= maxApplicants && dids.every(isHubUserDID)
+  );
 }
 
 export function validatePeerListCreditedApplicationsRequest(
@@ -304,12 +341,68 @@ export function validatePeerListCreditedApplicationsRequest(
   if (request.status !== undefined && !isApplicationStatus(request.status)) {
     fields.push("status");
   }
+  if (
+    request.applicant_dids !== undefined &&
+    !validApplicants(request.applicant_dids)
+  ) {
+    fields.push("applicant_dids");
+  }
+  if (request.after !== undefined && !isCreditedPosition(request.after)) {
+    fields.push("after");
+  }
   if (!validLimit(request.limit)) fields.push("limit");
   return fields;
 }
 
+/** The applicant stays on the mesh: the agency's tenant maps it to its Contact. */
+export interface PeerCreditedEntry {
+  position: CreditedPosition;
+  applicant_did: HubUserDID;
+  item: CreditedApplicationSummary;
+}
+
 export interface PeerListCreditedApplicationsResponse {
-  items: CreditedApplicationSummary[];
+  items: PeerCreditedEntry[];
+  has_more: boolean;
+}
+
+/** How many applications credited to the provider each applicant has. */
+export interface PeerCountCreditedApplicationsRequest {
+  provider_org_did: OrgDID;
+  applicant_dids: HubUserDID[];
+}
+
+export function validatePeerCountCreditedApplicationsRequest(
+  request: PeerCountCreditedApplicationsRequest,
+): string[] {
+  const fields: string[] = [];
+  if (!isOrgDID(request.provider_org_did)) fields.push("provider_org_did");
+  if (!validApplicants(request.applicant_dids)) fields.push("applicant_dids");
+  return fields;
+}
+
+export interface CreditedCount {
+  applicant_did: HubUserDID;
+  count: number;
+}
+
+/** Applicants without a credited application are left out. */
+export interface PeerCountCreditedApplicationsResponse {
+  counts: CreditedCount[];
+}
+
+export interface RelayCountCreditedApplicationsRequest {
+  tenant: TenantID;
+  request: PeerCountCreditedApplicationsRequest;
+}
+
+export function validateRelayCountCreditedApplicationsRequest(
+  request: RelayCountCreditedApplicationsRequest,
+): string[] {
+  return relayFields(
+    request.tenant,
+    validatePeerCountCreditedApplicationsRequest(request.request),
+  );
 }
 
 export interface RelayListCreditedApplicationsRequest {

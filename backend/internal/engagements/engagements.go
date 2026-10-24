@@ -24,6 +24,7 @@ import (
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
 	"backend/internal/federation/events"
+	"backend/internal/hubapplications"
 )
 
 // Fields is the stored shape of an engagement, read from the consumer's view
@@ -153,8 +154,47 @@ func enqueue(
 // in the ending transaction (MKT-ENG-004): its assignments, and with them
 // every route, through which alone a provider reaches a candidacy.
 func EndAccess(ctx context.Context, q sqlc.Querier, engagementID pgtype.UUID) error {
+	if err := EndWork(ctx, q, engagementID, nil); err != nil {
+		return err
+	}
 	if err := q.DeleteOrgEngagementAssignments(ctx, engagementID); err != nil {
 		return fmt.Errorf("delete engagement assignments: %w", err)
+	}
+	return nil
+}
+
+// EndWork cancels the engagement's upcoming interviews of the candidacies and
+// ends its consent requests awaiting an answer, once its access to them ended
+// (MKT-ACC-004), and reports each changed application to its applicant. nil
+// applicationIDs means every candidacy of the engagement.
+func EndWork(
+	ctx context.Context, q sqlc.Querier, engagementID pgtype.UUID,
+	applicationIDs []pgtype.UUID,
+) error {
+	rows, err := q.EndPerformerWork(ctx, sqlc.EndPerformerWorkParams{
+		EngagementID: engagementID, ApplicationIds: applicationIDs,
+	})
+	if err != nil {
+		return fmt.Errorf("end provider work: %w", err)
+	}
+	var cancelled, ended []pgtype.UUID
+	for _, row := range rows {
+		if row.InterviewsCancelled {
+			cancelled = append(cancelled, row.OrgApplicationID)
+		} else {
+			ended = append(ended, row.OrgApplicationID)
+		}
+	}
+	if len(cancelled) > 0 {
+		if err := hubapplications.EnqueueNotifiedChanges(ctx, q, cancelled,
+			federationspec.NoticeInterviewCancelled); err != nil {
+			return err
+		}
+	}
+	if len(ended) > 0 {
+		if err := hubapplications.EnqueueChanges(ctx, q, ended); err != nil {
+			return err
+		}
 	}
 	return nil
 }

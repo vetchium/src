@@ -1,7 +1,7 @@
 import type { DisplayName } from "../../common/localization.ts";
 import type { PaginationKey } from "../../common/pagination.ts";
 import { isPaginationKey } from "../../common/pagination.ts";
-import type { PrincipalDID, TenantID } from "../../directory/directory.ts";
+import type { TenantID } from "../../directory/directory.ts";
 import {
   type ApplicationStatus,
   isApplicationStatus,
@@ -37,7 +37,6 @@ export interface CreditedApplicationSummary {
   route: ReferralRoute;
   status: ApplicationStatus;
   contact_id?: ContactID;
-  applicant_did?: PrincipalDID;
   applied_at: string;
 }
 

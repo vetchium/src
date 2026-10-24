@@ -6,8 +6,10 @@ import (
 
 	"github.com/vetchium/src/typespec/common"
 	directoryspec "github.com/vetchium/src/typespec/directory"
+	"github.com/vetchium/src/typespec/hub"
 	hubspec "github.com/vetchium/src/typespec/hub/applications"
 	"github.com/vetchium/src/typespec/orgs"
+	"github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/openings"
 )
@@ -227,13 +229,48 @@ func relayFields(tenant directoryspec.TenantID, inner []string) []string {
 	return fields
 }
 
+// CreditedPosition is where the next page of a provider's merged credited
+// applications resumes. Each tenant orders newest application first, then by
+// the other values in descending order.
+type CreditedPosition struct {
+	AppliedAt         time.Time                      `json:"applied_at"`
+	EngagementID      marketplace.EngagementID       `json:"engagement_id"`
+	OpeningNumber     openings.OpeningNumber         `json:"opening_number"`
+	ApplicationNumber applications.ApplicationNumber `json:"application_number"`
+}
+
+func (p CreditedPosition) Valid() bool {
+	return !p.AppliedAt.IsZero() && marketplace.IsEngagementID(p.EngagementID) &&
+		p.OpeningNumber >= 1 && p.ApplicationNumber >= 1
+}
+
+// maxApplicants bounds the applicants one credited read names: a page of
+// Contacts.
+const maxApplicants = 100
+
+func validApplicants(dids []hub.HubUserDID) bool {
+	if len(dids) < 1 || len(dids) > maxApplicants {
+		return false
+	}
+	for _, did := range dids {
+		if !hub.IsHubUserDID(did) {
+			return false
+		}
+	}
+	return true
+}
+
 type PeerListCreditedApplicationsRequest struct {
 	ProviderOrgDID orgs.OrgDID                `json:"provider_org_did"`
 	ClientDomain   *orgs.OrgDomain            `json:"client_domain,omitempty"`
 	OpeningNumber  *openings.OpeningNumber    `json:"opening_number,omitempty"`
 	Route          *marketplace.ReferralRoute `json:"route,omitempty"`
 	Status         *hubspec.ApplicationStatus `json:"status,omitempty"`
-	Limit          WorkPageSize               `json:"limit"`
+	// ApplicantDIDs keeps only the applications of these applicants, the
+	// people an agency's Contacts name.
+	ApplicantDIDs []hub.HubUserDID  `json:"applicant_dids,omitempty"`
+	After         *CreditedPosition `json:"after,omitempty"`
+	Limit         WorkPageSize      `json:"limit"`
 }
 
 func (r *PeerListCreditedApplicationsRequest) Normalize() {
@@ -260,14 +297,71 @@ func (r PeerListCreditedApplicationsRequest) Validate() []string {
 	if r.Status != nil && !hubspec.IsApplicationStatus(*r.Status) {
 		fields = append(fields, "status")
 	}
+	if r.ApplicantDIDs != nil && !validApplicants(r.ApplicantDIDs) {
+		fields = append(fields, "applicant_dids")
+	}
+	if r.After != nil && !r.After.Valid() {
+		fields = append(fields, "after")
+	}
 	if !IsWorkPageSize(r.Limit) {
 		fields = append(fields, "limit")
 	}
 	return fields
 }
 
+// PeerCreditedEntry keeps the applicant on the mesh: the agency's tenant maps
+// it to its Contact and never returns it.
+type PeerCreditedEntry struct {
+	Position     CreditedPosition           `json:"position"`
+	ApplicantDID hub.HubUserDID             `json:"applicant_did"`
+	Item         CreditedApplicationSummary `json:"item"`
+}
+
 type PeerListCreditedApplicationsResponse struct {
-	Items []CreditedApplicationSummary `json:"items"`
+	Items   []PeerCreditedEntry `json:"items"`
+	HasMore bool                `json:"has_more"`
+}
+
+// PeerCountCreditedApplicationsRequest asks how many applications credited to
+// the provider each applicant has.
+type PeerCountCreditedApplicationsRequest struct {
+	ProviderOrgDID orgs.OrgDID      `json:"provider_org_did"`
+	ApplicantDIDs  []hub.HubUserDID `json:"applicant_dids"`
+}
+
+func (r *PeerCountCreditedApplicationsRequest) Normalize() {}
+
+func (r PeerCountCreditedApplicationsRequest) Validate() []string {
+	fields := []string{}
+	if !orgs.IsOrgDID(r.ProviderOrgDID) {
+		fields = append(fields, "provider_org_did")
+	}
+	if !validApplicants(r.ApplicantDIDs) {
+		fields = append(fields, "applicant_dids")
+	}
+	return fields
+}
+
+type CreditedCount struct {
+	ApplicantDID hub.HubUserDID `json:"applicant_did"`
+	Count        int32          `json:"count"`
+}
+
+// PeerCountCreditedApplicationsResponse leaves out applicants without a
+// credited application.
+type PeerCountCreditedApplicationsResponse struct {
+	Counts []CreditedCount `json:"counts"`
+}
+
+type RelayCountCreditedApplicationsRequest struct {
+	Tenant  directoryspec.TenantID               `json:"tenant"`
+	Request PeerCountCreditedApplicationsRequest `json:"request"`
+}
+
+func (r *RelayCountCreditedApplicationsRequest) Normalize() {}
+
+func (r RelayCountCreditedApplicationsRequest) Validate() []string {
+	return relayFields(r.Tenant, r.Request.Validate())
 }
 
 type RelayListCreditedApplicationsRequest struct {

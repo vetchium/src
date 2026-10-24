@@ -66,22 +66,22 @@ Original build plan (removed in 1123654): `git show 1123654^:.hiring-build/`.
 
 ## B. Other backend fixes
 
-- [ ] B1 DID leaks: drop `agency_org_did` from Hub conversation summary;
+- [x] B1 DID leaks: drop `agency_org_did` from Hub conversation summary;
       `applicant_did` only on the mesh credited-application type, never on
       the Orgs browser type.
-- [ ] B2 `list-credited-applications`: keyset position fan-out like
+- [x] B2 `list-credited-applications`: keyset position fan-out like
       work/jobs, applicant DID filter pushed to peers for `contact_id`;
       Contact credited counts from a per-applicant count read, not the first
       50 credits.
-- [ ] B3 Reroute, route cleared, stage unassigned, engagement ended: cancel
+- [x] B3 Reroute, route cleared, stage unassigned, engagement ended: cancel
       the previous performer's upcoming interviews and end its requested
       consents, with history and Hub projection events. Remove the
       `docs/todo.md` deferral.
-- [ ] B4 Provider work replay: skip the interviewer precheck when an
+- [x] B4 Provider work replay: skip the interviewer precheck when an
       operation already exists for (kind, aggregate, key). Remove deferral.
-- [ ] B5 `my-info` marketplace flags + navigation per user decision.
-- [ ] B6 Provider statement locates the consumer by DID, not recorded domain.
-- [ ] B7 Activity fact pruning in bounded batches.
+- [x] B5 `my-info` marketplace flags + navigation per user decision.
+- [x] B6 Provider statement locates the consumer by DID, not recorded domain.
+- [x] B7 Activity fact pruning in bounded batches.
 
 ## C. Tests
 
@@ -104,8 +104,8 @@ Original build plan (removed in 1123654): `git show 1123654^:.hiring-build/`.
 
 - [ ] D1 Hard-coded strings: `ListingEditorPage.tsx` aria-label,
       `WorkItemDetailPage.tsx` placeholder.
-- [ ] D2 Contacts nav unread badge from a count, not page length.
-- [ ] D3 Navigation per B5; UI tests.
+- [x] D2 Contacts nav unread badge from a count, not page length.
+- [ ] D3 Navigation per B5 (done in AppShell); UI tests pending.
 
 ## E. Finish
 

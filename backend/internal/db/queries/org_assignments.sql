@@ -103,7 +103,9 @@ WITH removed AS (
       AND a.org_opening_stage_id IS NOT DISTINCT FROM sqlc.narg(stage_id)::uuid
     RETURNING a.assignment_id
 ), ended AS (
-    SELECT count(*)::integer AS routes
+    SELECT count(*)::integer AS routes,
+        COALESCE(array_agg(r.org_application_id), '{}')::uuid[]
+            AS application_ids
     FROM vetchium.org_application_routes AS r
     WHERE r.assignment_id IN (SELECT assignment_id FROM removed)
 ), audit AS (
@@ -123,7 +125,8 @@ WITH removed AS (
     RETURNING audit_event_id
 )
 SELECT (SELECT count(*) FROM removed) AS removed_rows,
-    (SELECT count(*) FROM audit) AS audit_rows;
+    (SELECT count(*) FROM audit) AS audit_rows,
+    (SELECT application_ids FROM ended) AS routed_application_ids;
 
 -- Ending an engagement removes its assignments in the ending transaction,
 -- and so every route through them (MKT-ENG-004). The caller's audit event
@@ -142,11 +145,66 @@ WHERE a.org_opening_stage_id = sqlc.arg(stage_id)
   AND a.engagement_id = sqlc.arg(engagement_id)
   AND e.consumer_org_did = sqlc.arg(org_did);
 
--- The assignment a candidacy is routed through, if it is routed.
+-- The assignment a candidacy is routed through, if it is routed, and the
+-- engagement it assigns.
 -- name: GetApplicationRouteAssignment :one
-SELECT r.assignment_id
+SELECT r.assignment_id, a.engagement_id
 FROM vetchium.org_application_routes AS r
+JOIN vetchium.org_engagement_assignments AS a
+    ON a.assignment_id = r.assignment_id
 WHERE r.org_application_id = sqlc.arg(application_id);
+
+-- Ending a provider's access to candidacies (a reroute, an unassigned stage,
+-- an ended engagement) cancels its upcoming interviews of them, with history
+-- (actor system), and ends its consent requests still awaiting an answer
+-- (MKT-ACC-004): nobody could act on either any more. Recorded work stays.
+-- NULL application_ids means every candidacy of the engagement. It returns
+-- each changed application, whose version advanced, for its Hub projection.
+-- The caller's audit event covers the change.
+-- name: EndPerformerWork :many
+WITH interviews AS (
+    UPDATE vetchium.org_interviews AS i
+    SET interview_state = 'cancelled', ended_at = now(), updated_at = now()
+    WHERE i.performer_engagement_id = sqlc.arg(engagement_id)
+      AND (sqlc.narg(application_ids)::uuid[] IS NULL
+          OR i.org_application_id = ANY(sqlc.narg(application_ids)::uuid[]))
+      AND i.interview_state = 'scheduled'
+      AND i.starts_at > now()
+    RETURNING i.org_application_id, i.interview_number
+), consents AS (
+    UPDATE vetchium.org_background_checks AS b
+    SET consent_state = 'ended'
+    WHERE b.performer_engagement_id = sqlc.arg(engagement_id)
+      AND (sqlc.narg(application_ids)::uuid[] IS NULL
+          OR b.org_application_id = ANY(sqlc.narg(application_ids)::uuid[]))
+      AND b.consent_state = 'requested'
+    RETURNING b.org_application_id
+), changed AS (
+    UPDATE vetchium.org_applications AS a
+    SET version = a.version + 1
+    WHERE a.org_application_id IN (
+        SELECT org_application_id FROM interviews
+        UNION SELECT org_application_id FROM consents
+    )
+    RETURNING a.org_application_id, a.application_state, a.version
+), history AS (
+    INSERT INTO vetchium.org_application_history (
+        org_application_history_id, org_application_id, action, actor_kind,
+        application_state, application_version, interview_number, created_at
+    )
+    SELECT gen_random_uuid(), changed.org_application_id,
+        'interview_cancelled', 'system', changed.application_state,
+        changed.version, interviews.interview_number, clock_timestamp()
+    FROM interviews
+    JOIN changed USING (org_application_id)
+    RETURNING org_application_id
+)
+SELECT changed.org_application_id,
+    EXISTS (
+        SELECT 1 FROM interviews
+        WHERE interviews.org_application_id = changed.org_application_id
+    ) AS interviews_cancelled
+FROM changed;
 
 -- Routes the candidacy through an assignment, replacing any route, in one
 -- statement that also advances the version (the caller holds the application

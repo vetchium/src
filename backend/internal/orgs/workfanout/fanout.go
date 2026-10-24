@@ -26,6 +26,9 @@ type Peers interface {
 	RelayListCreditedApplications(
 		context.Context, work.RelayListCreditedApplicationsRequest,
 	) (workclient.Outcome[work.PeerListCreditedApplicationsResponse], error)
+	RelayCountCreditedApplications(
+		context.Context, work.RelayCountCreditedApplicationsRequest,
+	) (workclient.Outcome[work.PeerCountCreditedApplicationsResponse], error)
 }
 
 type Fanout struct {
@@ -155,11 +158,13 @@ func (f Fanout) ListJobs(
 
 // CreditedApplicationsPage is one merged page of credited applications.
 type CreditedApplicationsPage struct {
-	Items       []work.CreditedApplicationSummary
+	Entries     []work.PeerCreditedEntry
+	HasMore     bool
 	Unavailable []directoryspec.TenantID
 }
 
-// ListCreditedApplications asks each tenant for credited applications.
+// ListCreditedApplications is ListWork for the applications credited to the
+// provider, newest first.
 func (f Fanout) ListCreditedApplications(
 	ctx context.Context, request work.PeerListCreditedApplicationsRequest,
 ) CreditedApplicationsPage {
@@ -170,29 +175,56 @@ func (f Fanout) ListCreditedApplications(
 			Tenant: tenant, Request: request,
 		})
 	})
-	page := CreditedApplicationsPage{Items: []work.CreditedApplicationSummary{}, Unavailable: unavailable}
+	page := CreditedApplicationsPage{Entries: []work.PeerCreditedEntry{}, Unavailable: unavailable}
 	for _, answer := range answers {
 		if answer != nil {
-			page.Items = append(page.Items, answer.Items...)
+			page.Entries = append(page.Entries, answer.Items...)
+			page.HasMore = page.HasMore || answer.HasMore
 		}
 	}
-	slices.SortFunc(page.Items, func(a, b work.CreditedApplicationSummary) int {
-		if !a.AppliedAt.Equal(b.AppliedAt) {
-			if a.AppliedAt.After(b.AppliedAt) {
-				return -1
-			}
+	slices.SortFunc(page.Entries, func(a, b work.PeerCreditedEntry) int {
+		switch {
+		case workclient.CreditedAfter(a.Position, b.Position):
 			return 1
-		}
-		if a.ApplicationNumber > b.ApplicationNumber {
+		case workclient.CreditedAfter(b.Position, a.Position):
 			return -1
-		}
-		if a.ApplicationNumber < b.ApplicationNumber {
-			return 1
 		}
 		return 0
 	})
-	if len(page.Items) > int(request.Limit) {
-		page.Items = page.Items[:request.Limit]
+	if len(page.Entries) > int(request.Limit) {
+		page.Entries = page.Entries[:request.Limit]
+		page.HasMore = true
 	}
 	return page
+}
+
+// CreditedCounts is each applicant's credited applications across every
+// tenant that answered.
+type CreditedCounts struct {
+	Counts      map[string]int32
+	Unavailable []directoryspec.TenantID
+}
+
+// CountCreditedApplications sums each applicant's credited applications
+// across tenants.
+func (f Fanout) CountCreditedApplications(
+	ctx context.Context, request work.PeerCountCreditedApplicationsRequest,
+) CreditedCounts {
+	answers, unavailable := gather(ctx, f, func(
+		ctx context.Context, tenant directoryspec.TenantID,
+	) (workclient.Outcome[work.PeerCountCreditedApplicationsResponse], error) {
+		return f.Peers.RelayCountCreditedApplications(ctx, work.RelayCountCreditedApplicationsRequest{
+			Tenant: tenant, Request: request,
+		})
+	})
+	counts := CreditedCounts{Counts: map[string]int32{}, Unavailable: unavailable}
+	for _, answer := range answers {
+		if answer == nil {
+			continue
+		}
+		for _, count := range answer.Counts {
+			counts.Counts[string(count.ApplicantDID)] += count.Count
+		}
+	}
+	return counts
 }

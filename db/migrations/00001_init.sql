@@ -3106,6 +3106,28 @@ AS $$
     WHERE s.org_opening_stage_id = stage_id
 $$;
 
+-- The status the applicant sees (HP-HUB-001), for a read that filters or
+-- orders by it in SQL. hubapplications.Status derives the same in Go; a test
+-- keeps the two in agreement. An unknown state has none.
+CREATE FUNCTION vetchium.hub_application_status(
+    state vetchium.org_application_state,
+    stage_kind vetchium.pipeline_stage_kind
+) RETURNS text
+LANGUAGE sql IMMUTABLE
+AS $$
+    SELECT CASE
+        WHEN state = 'submitted' THEN 'applied'
+        WHEN state = 'in_pipeline' AND stage_kind = 'interview'
+            THEN 'interviewing'
+        WHEN state = 'in_pipeline' THEN 'in_review'
+        WHEN state IN ('offered', 'offer_accepted') THEN 'offer'
+        WHEN state = 'joined' THEN 'hired'
+        WHEN state IN ('not_progressing', 'offer_declined', 'did_not_join')
+            THEN 'not_progressing'
+        WHEN state = 'withdrawn' THEN 'withdrawn'
+    END
+$$;
+
 -- Who may read all of an Opening's applications: the hiring manager, the
 -- recruiter, a hiring-team member, or a holder of org:manage_candidacies.
 -- org:view_openings grants none of it.
@@ -3711,6 +3733,9 @@ DROP TABLE IF EXISTS vetchium.org_contacts;
 DROP TABLE IF EXISTS vetchium.hub_application_notices;
 DROP TABLE IF EXISTS vetchium.hub_application_projections;
 DROP FUNCTION IF EXISTS vetchium.org_user_acts_on_applications(uuid, uuid);
+DROP FUNCTION IF EXISTS vetchium.hub_application_status(
+    vetchium.org_application_state, vetchium.pipeline_stage_kind
+);
 DROP FUNCTION IF EXISTS vetchium.cancel_upcoming_interviews(uuid[]);
 DROP FUNCTION IF EXISTS vetchium.end_pending_consents(uuid[]);
 DROP FUNCTION IF EXISTS vetchium.provider_work_status(uuid, uuid, uuid);

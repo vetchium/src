@@ -50,6 +50,7 @@ import type {
   SubmitInterviewFeedbackRequest as WorkSubmitInterviewFeedbackRequest,
 } from "typespec/orgs/marketplace/work/work";
 import { orgsAPI } from "../../api/orgs";
+import { myInfoQueryKey } from "../account/queries";
 import { applicationsQueryKey } from "../applications/queries";
 import { openingsQueryKey } from "../openings/queries";
 
@@ -76,6 +77,7 @@ export function useCreateListingMutation() {
       key: IdempotencyKey;
     }) => orgsAPI.createListing(request, key),
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
       void queryClient.invalidateQueries({
         queryKey: [...marketplaceQueryKey, "listings", "mine"],
       });
@@ -148,6 +150,7 @@ export function useDeleteListingMutation() {
       key: IdempotencyKey;
     }) => orgsAPI.deleteListing(request, key),
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
       void queryClient.invalidateQueries({
         queryKey: [...marketplaceQueryKey, "listings", "mine"],
       });

@@ -25,6 +25,7 @@ import (
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
 	"backend/internal/apiserver"
+	"backend/internal/db/sqlc"
 	"backend/internal/listingclient"
 	orgsruntime "backend/internal/orgs"
 	"backend/internal/orgs/listingread"
@@ -127,6 +128,15 @@ type directoryStub struct {
 	err     error
 }
 
+func (d directoryStub) ResolvePrincipal(
+	_ context.Context, request directoryspec.ResolvePrincipalRequest,
+) (directoryspec.ResolvePrincipalResponse, *problem.Details, error) {
+	return directoryspec.ResolvePrincipalResponse{
+		PrincipalType: request.PrincipalType, PrincipalDID: request.PrincipalDID,
+		HomeTenantID: d.tenant, RoutingVersion: 1,
+	}, d.details, d.err
+}
+
 func (d directoryStub) ResolveOrgDomain(
 	_ context.Context, request directoryspec.ResolveOrgDomainRequest,
 ) (directoryspec.ResolveOrgDomainResponse, *problem.Details, error) {
@@ -141,6 +151,12 @@ type localOrgs struct{}
 
 func (localOrgs) GetLocalOrgForDomain(context.Context, string) (pgtype.UUID, error) {
 	return pgtype.UUID{}, pgx.ErrNoRows
+}
+
+func (localOrgs) IsLocalFederationPrincipal(
+	context.Context, sqlc.IsLocalFederationPrincipalParams,
+) (bool, error) {
+	return false, nil
 }
 
 func server(t *testing.T, directory directoryStub) (*orgsruntime.Server, *relay) {

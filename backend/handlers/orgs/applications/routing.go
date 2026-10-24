@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	"github.com/vetchium/src/typespec/orgs"
@@ -19,6 +20,7 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
+	"backend/internal/engagements"
 	"backend/internal/middleware"
 	orgsruntime "backend/internal/orgs"
 )
@@ -84,6 +86,10 @@ func RouteApplication(s *orgsruntime.Server) http.HandlerFunc {
 					if row.ChangedRows != 1 || row.RemovedRows != 1 {
 						return change{}, false, fmt.Errorf("incomplete route removal")
 					}
+					if err := engagements.EndWork(ctx, q, current.EngagementID,
+						[]pgtype.UUID{locked.OrgApplicationID}); err != nil {
+						return change{}, false, err
+					}
 					return moved, true, nil
 				}
 				engagementID, err := dbvalue.ParseUUID(string(*request.EngagementID))
@@ -103,7 +109,7 @@ func RouteApplication(s *orgsruntime.Server) http.HandlerFunc {
 				if assignment.EngagementState != sqlc.VetchiumOrgEngagementStateActive {
 					return change{refusal: orgsproblem.EngagementStateConflictError}, false, nil
 				}
-				if routed && current == assignment.AssignmentID {
+				if routed && current.AssignmentID == assignment.AssignmentID {
 					return change{refusal: orgsproblem.ApplicationStateConflictError}, false, nil
 				}
 				params := sqlc.RouteOrgApplicationParams{
@@ -126,6 +132,12 @@ func RouteApplication(s *orgsruntime.Server) http.HandlerFunc {
 				}
 				if row.ChangedRows != 1 || row.PlacedRows != 1 {
 					return change{}, false, fmt.Errorf("incomplete route")
+				}
+				if routed {
+					if err := engagements.EndWork(ctx, q, current.EngagementID,
+						[]pgtype.UUID{locked.OrgApplicationID}); err != nil {
+						return change{}, false, err
+					}
 				}
 				return moved, true, nil
 			},

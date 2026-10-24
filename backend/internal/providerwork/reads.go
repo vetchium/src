@@ -17,7 +17,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
-	directoryspec "github.com/vetchium/src/typespec/directory"
+	"github.com/vetchium/src/typespec/hub"
+	hubspec "github.com/vetchium/src/typespec/hub/applications"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
@@ -337,7 +338,9 @@ func (r Reader) GetJob(
 	return detail, nil
 }
 
-// ListCreditedApplications reads credited applications for one provider across its sourcing engagements.
+// ListCreditedApplications reads one page of the applications credited to a
+// provider's active sourcing engagements with this tenant's Orgs, newest
+// first, each with its position in the merged list (MKT-SRC-006).
 func (r Reader) ListCreditedApplications(
 	ctx context.Context, request work.PeerListCreditedApplicationsRequest,
 ) (work.PeerListCreditedApplicationsResponse, error) {
@@ -346,8 +349,7 @@ func (r Reader) ListCreditedApplications(
 		return work.PeerListCreditedApplicationsResponse{}, err
 	}
 	params := sqlc.ListPeerCreditedApplicationsParams{
-		ProviderOrgDid: provider,
-		PageLimit:      int32(request.Limit),
+		ProviderOrgDid: provider, PageLimit: int32(request.Limit) + 1,
 	}
 	if request.ClientDomain != nil {
 		params.ClientDomain = dbvalue.Text(string(*request.ClientDomain))
@@ -358,21 +360,39 @@ func (r Reader) ListCreditedApplications(
 	if request.Route != nil {
 		params.ReferralRoute = dbvalue.Text(string(*request.Route))
 	}
+	if request.Status != nil {
+		params.HubStatus = dbvalue.Text(string(*request.Status))
+	}
+	if request.ApplicantDIDs != nil {
+		if params.ApplicantDids, err = parseDIDs(request.ApplicantDIDs); err != nil {
+			return work.PeerListCreditedApplicationsResponse{}, err
+		}
+	}
+	if after := request.After; after != nil {
+		engagement, err := dbvalue.ParseUUID(string(after.EngagementID))
+		if err != nil {
+			return work.PeerListCreditedApplicationsResponse{}, err
+		}
+		params.AfterAppliedAt = dbvalue.Timestamp(after.AppliedAt)
+		params.AfterEngagementID = engagement
+		params.AfterOpeningNumber = pgtype.Int4{Int32: int32(after.OpeningNumber), Valid: true}
+		params.AfterApplicationNumber = pgtype.Int4{Int32: int32(after.ApplicationNumber), Valid: true}
+	}
 	rows, err := r.Queries.ListPeerCreditedApplications(ctx, params)
 	if err != nil {
 		return work.PeerListCreditedApplicationsResponse{}, fmt.Errorf("list peer credited applications: %w", err)
 	}
-	items := make([]work.CreditedApplicationSummary, 0, len(rows))
-	for _, row := range rows {
-		status, err := hubapplications.Status(row.ApplicationState, row.CurrentStageKind)
-		if err != nil {
-			return work.PeerListCreditedApplicationsResponse{}, fmt.Errorf("derive status: %w", err)
+	response := work.PeerListCreditedApplicationsResponse{
+		Items: make([]work.PeerCreditedEntry, 0, len(rows)),
+	}
+	for index, row := range rows {
+		if index == int(request.Limit) {
+			response.HasMore = true
+			break
 		}
-		if request.Status != nil && status != *request.Status {
-			continue
-		}
+		engagementID := marketplace.EngagementID(dbvalue.FormatUUID(row.EngagementID))
 		item := work.CreditedApplicationSummary{
-			EngagementID: marketplace.EngagementID(dbvalue.FormatUUID(row.EngagementID)),
+			EngagementID: engagementID,
 			Client: marketplace.EngagementCounterparty{
 				Domain:      orgs.OrgDomain(row.ConsumerDomain),
 				DisplayName: row.ConsumerDisplayName,
@@ -383,20 +403,68 @@ func (r Reader) ListCreditedApplications(
 			},
 			ApplicationNumber: applications.ApplicationNumber(row.ApplicationNumber),
 			Route:             marketplace.ReferralRoute(row.ReferralRoute),
-			Status:            status,
+			Status:            hubspec.ApplicationStatus(row.HubStatus),
 			AppliedAt:         row.AppliedAt.Time.UTC(),
 		}
 		if row.EmployingCountry.Valid {
 			code := common.CountryCode(row.EmployingCountry.String)
 			item.Opening.EmployingCountry = &code
 		}
-		if row.ApplicantDid.Valid {
-			did := directoryspec.PrincipalDID(dbvalue.FormatUUID(row.ApplicantDid))
-			item.ApplicantDID = &did
-		}
-		items = append(items, item)
+		response.Items = append(response.Items, work.PeerCreditedEntry{
+			Position: work.CreditedPosition{
+				AppliedAt: item.AppliedAt, EngagementID: engagementID,
+				OpeningNumber:     item.Opening.Number,
+				ApplicationNumber: item.ApplicationNumber,
+			},
+			ApplicantDID: hub.HubUserDID(dbvalue.FormatUUID(row.ApplicantDid)),
+			Item:         item,
+		})
 	}
-	return work.PeerListCreditedApplicationsResponse{Items: items}, nil
+	return response, nil
+}
+
+// CountCreditedApplications counts each named applicant's applications
+// credited to the provider with this tenant's Orgs.
+func (r Reader) CountCreditedApplications(
+	ctx context.Context, request work.PeerCountCreditedApplicationsRequest,
+) (work.PeerCountCreditedApplicationsResponse, error) {
+	provider, err := dbvalue.ParseUUID(string(request.ProviderOrgDID))
+	if err != nil {
+		return work.PeerCountCreditedApplicationsResponse{}, err
+	}
+	dids, err := parseDIDs(request.ApplicantDIDs)
+	if err != nil {
+		return work.PeerCountCreditedApplicationsResponse{}, err
+	}
+	rows, err := r.Queries.CountPeerCreditedApplications(ctx,
+		sqlc.CountPeerCreditedApplicationsParams{
+			ProviderOrgDid: provider, ApplicantDids: dids,
+		})
+	if err != nil {
+		return work.PeerCountCreditedApplicationsResponse{}, fmt.Errorf("count peer credited applications: %w", err)
+	}
+	response := work.PeerCountCreditedApplicationsResponse{
+		Counts: make([]work.CreditedCount, len(rows)),
+	}
+	for index, row := range rows {
+		response.Counts[index] = work.CreditedCount{
+			ApplicantDID: hub.HubUserDID(dbvalue.FormatUUID(row.ApplicantDid)),
+			Count:        row.Credited,
+		}
+	}
+	return response, nil
+}
+
+func parseDIDs(values []hub.HubUserDID) ([]pgtype.UUID, error) {
+	dids := make([]pgtype.UUID, len(values))
+	for index, value := range values {
+		did, err := dbvalue.ParseUUID(string(value))
+		if err != nil {
+			return nil, err
+		}
+		dids[index] = did
+	}
+	return dids, nil
 }
 
 type statementCursor struct {

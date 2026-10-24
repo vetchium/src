@@ -33,8 +33,17 @@ func (w *Worker) expireOrgEngagements(ctx context.Context) error {
 			break
 		}
 	}
-	if _, err := w.queries.PruneTerminalEngagementActivityFacts(ctx, w.tenantID); err != nil {
-		return fmt.Errorf("prune terminal engagement activity facts: %w", err)
+	for range maxEngagementExpiryBatches {
+		pruned, err := w.queries.PruneTerminalEngagementActivityFacts(ctx,
+			sqlc.PruneTerminalEngagementActivityFactsParams{
+				BatchSize: engagementExpiryBatchSize, TenantID: w.tenantID,
+			})
+		if err != nil {
+			return fmt.Errorf("prune terminal engagement activity facts: %w", err)
+		}
+		if pruned < engagementExpiryBatchSize {
+			break
+		}
 	}
 	return nil
 }

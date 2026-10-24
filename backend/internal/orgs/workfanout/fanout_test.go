@@ -3,23 +3,29 @@ package workfanout
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
+	"github.com/vetchium/src/typespec/orgs/applications"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/marketplace/work"
+	"github.com/vetchium/src/typespec/orgs/openings"
 	"github.com/vetchium/src/typespec/problem"
 
 	"backend/internal/workclient"
 )
 
 type fakePeers struct {
-	work    map[directoryspec.TenantID]work.PeerListWorkResponse
-	jobs    map[directoryspec.TenantID]work.PeerListJobsResponse
-	failing map[directoryspec.TenantID]error
-	slow    map[directoryspec.TenantID]bool
-	problem map[directoryspec.TenantID]bool
+	work     map[directoryspec.TenantID]work.PeerListWorkResponse
+	jobs     map[directoryspec.TenantID]work.PeerListJobsResponse
+	credited map[directoryspec.TenantID]work.PeerListCreditedApplicationsResponse
+	counts   map[directoryspec.TenantID]work.PeerCountCreditedApplicationsResponse
+	failing  map[directoryspec.TenantID]error
+	slow     map[directoryspec.TenantID]bool
+	problem  map[directoryspec.TenantID]bool
 }
 
 func (f fakePeers) outcome(tenant directoryspec.TenantID, ctx context.Context) (bool, error) {
@@ -71,9 +77,22 @@ func (f fakePeers) RelayListCreditedApplications(
 	if declared {
 		return workclient.Outcome[work.PeerListCreditedApplicationsResponse]{Problem: &problem.Details{Status: 503}}, nil
 	}
-	return workclient.Outcome[work.PeerListCreditedApplicationsResponse]{
-		Result: &work.PeerListCreditedApplicationsResponse{Items: []work.CreditedApplicationSummary{}},
-	}, nil
+	result := f.credited[request.Tenant]
+	return workclient.Outcome[work.PeerListCreditedApplicationsResponse]{Result: &result}, nil
+}
+
+func (f fakePeers) RelayCountCreditedApplications(
+	ctx context.Context, request work.RelayCountCreditedApplicationsRequest,
+) (workclient.Outcome[work.PeerCountCreditedApplicationsResponse], error) {
+	declared, err := f.outcome(request.Tenant, ctx)
+	if err != nil {
+		return workclient.Outcome[work.PeerCountCreditedApplicationsResponse]{}, err
+	}
+	if declared {
+		return workclient.Outcome[work.PeerCountCreditedApplicationsResponse]{Problem: &problem.Details{Status: 503}}, nil
+	}
+	result := f.counts[request.Tenant]
+	return workclient.Outcome[work.PeerCountCreditedApplicationsResponse]{Result: &result}, nil
 }
 
 func entry(bucket int32, sort int64, id string) work.PeerWorkEntry {
@@ -165,5 +184,54 @@ func TestListJobsMergesNewestAssignmentFirst(t *testing.T) {
 	// The same instant lists the larger id first.
 	if !slices.Equal(got, []string{b, a, d}) || !page.HasMore {
 		t.Fatalf("entries = %v, page = %+v", got, page)
+	}
+}
+
+func TestListCreditedApplicationsMergesNewestFirstAcrossTenants(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	credit := func(age time.Duration, engagement string, opening, number int32) work.PeerCreditedEntry {
+		return work.PeerCreditedEntry{Position: work.CreditedPosition{
+			AppliedAt: now.Add(-age), EngagementID: marketplace.EngagementID(engagement),
+			OpeningNumber:     openings.OpeningNumber(opening),
+			ApplicationNumber: applications.ApplicationNumber(number),
+		}}
+	}
+	peers := fakePeers{credited: map[directoryspec.TenantID]work.PeerListCreditedApplicationsResponse{
+		"sgp": {Items: []work.PeerCreditedEntry{
+			credit(time.Hour, a, 2, 1), credit(time.Hour, a, 1, 9), credit(4*time.Hour, a, 1, 1),
+		}, HasMore: false},
+		"usa1": {Items: []work.PeerCreditedEntry{
+			credit(time.Hour, b, 1, 1), credit(2*time.Hour, b, 1, 2),
+		}},
+	}}
+	page := fanout(peers, "sgp", "usa1").ListCreditedApplications(context.Background(),
+		work.PeerListCreditedApplicationsRequest{Limit: 4})
+	got := []string{}
+	for _, entry := range page.Entries {
+		p := entry.Position
+		got = append(got, fmt.Sprintf("%s/%d/%d", p.EngagementID[len(p.EngagementID)-1:],
+			p.OpeningNumber, p.ApplicationNumber))
+	}
+	// The same instant lists the larger engagement, opening, and number first.
+	if !slices.Equal(got, []string{"b/1/1", "a/2/1", "a/1/9", "b/1/2"}) || !page.HasMore {
+		t.Fatalf("entries = %v, page = %+v", got, page)
+	}
+}
+
+func TestCountCreditedApplicationsSumsTenantsThatAnswer(t *testing.T) {
+	t.Parallel()
+	peers := fakePeers{
+		counts: map[directoryspec.TenantID]work.PeerCountCreditedApplicationsResponse{
+			"sgp":  {Counts: []work.CreditedCount{{ApplicantDID: a, Count: 2}}},
+			"usa1": {Counts: []work.CreditedCount{{ApplicantDID: a, Count: 1}, {ApplicantDID: b, Count: 4}}},
+		},
+		failing: map[directoryspec.TenantID]error{"deu": errors.New("down")},
+	}
+	counts := fanout(peers, "sgp", "usa1", "deu").CountCreditedApplications(
+		context.Background(), work.PeerCountCreditedApplicationsRequest{})
+	if counts.Counts[a] != 3 || counts.Counts[b] != 4 ||
+		!slices.Equal(counts.Unavailable, []directoryspec.TenantID{"deu"}) {
+		t.Fatalf("counts = %+v", counts)
 	}
 }

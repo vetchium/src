@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/hub/profile"
@@ -80,10 +81,8 @@ func ViewHubProfile(s *orgsruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "read Contact", err)
 			return
 		default:
-			credited := creditedCountForHubUser(r.Context(), s, identity.OrgDID, hubDID)
-			if row.CreditedCount > credited {
-				credited = row.CreditedCount
-			}
+			credited := creditedCounts(r.Context(), s, identity.OrgDID,
+				[]pgtype.UUID{hubDID})[dbvalue.FormatUUID(hubDID)]
 			found := summary(row.ContactID, row.DisplayName, row.Handle,
 				row.MessagesOff, row.PartyDeleted, row.LastActivityAt,
 				row.NoteCount, credited, row.HasConversation,

@@ -64,33 +64,38 @@ WHERE f.engagement_id = sqlc.arg(engagement_id)
 ORDER BY f.fact_date ASC, f.fact_id ASC
 LIMIT sqlc.arg(page_limit);
 
+-- Deletes one batch of facts of engagements terminal for three years
+-- (MKT-STM-004), oldest engagement first, with one audit event per batch.
 -- name: PruneTerminalEngagementActivityFacts :one
-WITH pruned AS (
-    DELETE FROM vetchium.org_activity_facts
-    WHERE engagement_id IN (
-        SELECT e.engagement_id
-        FROM vetchium.org_engagements AS e
-        WHERE e.engagement_state IN ('declined', 'withdrawn', 'expired', 'ended')
-          AND COALESCE(e.ended_at, e.decided_at, e.updated_at) <= now() - interval '3 years'
-    )
-    RETURNING fact_id
+WITH due AS (
+    SELECT f.fact_id
+    FROM vetchium.org_activity_facts AS f
+    JOIN vetchium.org_engagements AS e ON e.engagement_id = f.engagement_id
+    WHERE e.engagement_state IN ('declined', 'withdrawn', 'expired', 'ended')
+      AND COALESCE(e.ended_at, e.decided_at, e.updated_at)
+          <= now() - interval '3 years'
+    ORDER BY f.fact_id
+    LIMIT sqlc.arg(batch_size)
+), pruned AS (
+    DELETE FROM vetchium.org_activity_facts AS f
+    USING due
+    WHERE f.fact_id = due.fact_id
+    RETURNING f.fact_id, f.engagement_id
 ), summary AS (
-    SELECT count(*)::bigint AS facts_pruned FROM pruned
+    SELECT count(*)::bigint AS facts_pruned,
+        COALESCE(jsonb_agg(DISTINCT pruned.engagement_id::text), '[]'::jsonb)
+            AS engagements
+    FROM pruned
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         source, payload
     )
-    SELECT
-        sqlc.arg(tenant_id),
-        'org.activity_facts.pruned',
-        'engagement_facts',
-        gen_random_uuid()::text,
-        'worker',
-        'workers',
-        'workers',
-        to_jsonb(summary)
+    SELECT sqlc.arg(tenant_id), 'org.activity_facts.pruned', 'engagement_facts',
+        gen_random_uuid()::text, 'worker', 'workers', 'workers',
+        jsonb_build_object('facts_pruned', summary.facts_pruned,
+            'engagements', summary.engagements)
     FROM summary
-    WHERE facts_pruned > 0
+    WHERE summary.facts_pruned > 0
 )
 SELECT facts_pruned FROM summary;

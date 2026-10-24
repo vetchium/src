@@ -21,7 +21,6 @@ type CreditedApplicationSummary struct {
 	Route             marketplace.ReferralRoute          `json:"route"`
 	Status            hubspec.ApplicationStatus          `json:"status"`
 	ContactID         *contacts.ContactID                `json:"contact_id,omitempty"`
-	ApplicantDID      *directoryspec.PrincipalDID        `json:"applicant_did,omitempty"`
 	AppliedAt         time.Time                          `json:"applied_at"`
 }
 
