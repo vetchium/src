@@ -3,189 +3,78 @@ import type {
   ApplicationCounts,
   ApplicationDetail,
   ApplicationHistoryEntry,
-  ApplicationState,
   ListApplicationHistoryResponse,
   ListApplicationsRequest,
   ListApplicationsResponse,
-  StageStatus,
 } from "typespec/orgs/applications/applications";
 import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import type { OrgOpening } from "typespec/orgs/openings/types";
-import { sqlLiteral } from "../lib/admin-db.ts";
 import { test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
+import {
+  type ApplicationOptions,
+  cleanupApplicants,
+  type HiringOrg,
+  seedApplication,
+} from "../lib/hiring-seed.ts";
 import {
   addOrgMember,
   cleanupOrg,
   loginOrg,
   OrgsAPI,
+  orgDID,
   orgSQL,
   signupOrg,
 } from "../lib/orgs-api.ts";
+import { cleanupOutbox, publishedOpening } from "../lib/orgs-applications.ts";
 
 type Api = OrgsAPI;
+type Org = Awaited<ReturnType<typeof signupOrg>>;
 
 async function withOrg(
   request: ConstructorParameters<typeof OrgsAPI>[0],
-  body: (
-    api: Api,
-    owner: string,
-    org: Awaited<ReturnType<typeof signupOrg>>,
-  ) => Promise<void>,
+  body: (api: Api, owner: string, org: Org, world: HiringOrg) => Promise<void>,
 ): Promise<void> {
   const api = new OrgsAPI(request);
   const org = await signupOrg(api);
+  const world: HiringOrg = {
+    request,
+    tenant: "sgp",
+    api,
+    owner: "",
+    domain: org.domain,
+    did: orgDID(org.domain),
+    applicants: [],
+  };
   try {
-    await body(api, await loginOrg(api, org), org);
+    world.owner = await loginOrg(api, org);
+    await body(api, world.owner, org, world);
   } finally {
+    cleanupApplicants(world);
+    cleanupOutbox(org.domain);
     await deleteOrgVerificationRecord(org.domain);
     cleanupOrg(org.domain);
   }
 }
 
-async function newOpening(api: Api, token: string): Promise<OrgOpening> {
-  const response = await api.createOpening(token, {
-    content: { title: "Engineer" },
-    team_member_emails: [],
-  });
-  expect(response.status(), await response.text()).toBe(201);
-  return (await response.json()) as OrgOpening;
-}
-
-/** Replaces the default pipeline with Screen, Panel, and Final stages. */
-async function threeStagePipeline(
+/** A published Opening the owner manages, with the pipeline Screen
+ * (review), Panel and Final (interview). */
+async function newOpening(
   api: Api,
   token: string,
-  opening: OrgOpening,
-): Promise<PipelineStage[]> {
-  const response = await api.replaceOpeningPipeline(token, {
-    opening_number: opening.opening_number,
-    version: opening.version,
-    stages: [
-      { name: "Screen", kind: "review" },
-      { name: "Panel", kind: "interview" },
-      { name: "Final", kind: "interview" },
-    ],
-  });
-  expect(response.status(), await response.text()).toBe(200);
-  return ((await response.json()) as { stages: PipelineStage[] }).stages;
+  org: Org,
+): Promise<{ opening: OrgOpening; stages: PipelineStage[] }> {
+  return publishedOpening(api, token, org);
 }
 
-const orgDID = (domain: string) =>
-  `(SELECT org_did FROM vetchium.org_domains WHERE domain = ${sqlLiteral(domain)})`;
-
-/**
- * Inserts an application the way hub-apply would have, because the Hub side
- * that sends it is a later task. Returns its number.
- */
-function seedApplication(
-  domain: string,
+/** Applies through the Hub as a new applicant and walks the application to
+ * options.state; returns its number. */
+async function seed(
+  world: HiringOrg,
   openingNumber: number,
-  options: {
-    name: string;
-    state?: ApplicationState;
-    stageId?: string;
-    coverNote?: string;
-    country?: string;
-  },
-): number {
-  const state = options.state ?? "submitted";
-  const stage = options.stageId ? sqlLiteral(options.stageId) : "NULL";
-  const note = options.coverNote ? sqlLiteral(options.coverNote) : "NULL";
-  return Number(
-    orgSQL(`
-    WITH o AS (
-      SELECT org_opening_id, org_did, next_application_number
-      FROM vetchium.org_openings
-      WHERE org_did = ${orgDID(domain)} AND opening_number = ${openingNumber}
-    ), applicant AS (
-      INSERT INTO vetchium.org_applicants
-        (org_applicant_id, org_did, applicant_kind, hub_user_did)
-      SELECT gen_random_uuid(), o.org_did, 'hub_user', gen_random_uuid()
-      FROM o RETURNING org_applicant_id
-    ), application AS (
-      INSERT INTO vetchium.org_applications (
-        org_application_id, org_opening_id, application_number,
-        org_applicant_id, application_state, snapshot, cover_note,
-        current_stage_id, joined_on, joined_recorded_at
-      )
-      SELECT gen_random_uuid(), o.org_opening_id, o.next_application_number,
-        applicant.org_applicant_id, ${sqlLiteral(state)},
-        jsonb_build_object('display_name', ${sqlLiteral(options.name)}::text,
-          'handle', 'abcd1234-0123456789a'::text,
-          'resident_country', ${sqlLiteral(options.country ?? "GB")}::text,
-          'biography', 'Wrote the first program'::text,
-          'websites', '[]'::jsonb, 'work_experiences', '[]'::jsonb,
-          'certifications', '[]'::jsonb, 'language_abilities', '[]'::jsonb,
-          'educational_qualifications', '[]'::jsonb),
-        ${note}, ${stage}::uuid,
-        CASE WHEN ${sqlLiteral(state)} = 'joined'
-          THEN current_date - 1 END,
-        CASE WHEN ${sqlLiteral(state)} = 'joined' THEN now() END
-      FROM o, applicant
-      RETURNING org_application_id, application_number
-    ), counter AS (
-      UPDATE vetchium.org_openings
-      SET next_application_number = next_application_number + 1
-      WHERE org_opening_id IN (SELECT org_opening_id FROM o)
-      RETURNING org_opening_id
-    ), history AS (
-      INSERT INTO vetchium.org_application_history (
-        org_application_history_id, org_application_id, action, actor_kind,
-        application_state, application_version
-      )
-      SELECT gen_random_uuid(), org_application_id, 'applied', 'applicant',
-        'submitted', 1
-      FROM application RETURNING 1
-    )
-    SELECT application_number FROM application
-      WHERE (SELECT count(*) FROM counter) = 1
-        AND (SELECT count(*) FROM history) = 1`),
-  );
-}
-
-function seedStageRecord(
-  domain: string,
-  openingNumber: number,
-  applicationNumber: number,
-  stageId: string,
-  status: StageStatus,
-): void {
-  orgSQL(`INSERT INTO vetchium.org_application_stages
-    (org_application_id, org_opening_stage_id, stage_status)
-    SELECT a.org_application_id, ${sqlLiteral(stageId)}::uuid,
-      ${sqlLiteral(status)}
-    FROM vetchium.org_applications AS a
-    JOIN vetchium.org_openings AS o USING (org_opening_id)
-    WHERE o.org_did = ${orgDID(domain)} AND o.opening_number = ${openingNumber}
-      AND a.application_number = ${applicationNumber}`);
-}
-
-function seedHistory(
-  domain: string,
-  openingNumber: number,
-  applicationNumber: number,
-  action: string,
-  state: ApplicationState,
-  version: number,
-  secondsAfterApply: number,
-  actorEmail?: string,
-): void {
-  const actor = actorEmail
-    ? `(SELECT org_user_id FROM vetchium.org_users WHERE email_address = ${sqlLiteral(actorEmail)})`
-    : "NULL";
-  orgSQL(`INSERT INTO vetchium.org_application_history (
-      org_application_history_id, org_application_id, action, actor_kind,
-      actor_org_user_id, application_state, application_version, created_at
-    )
-    SELECT gen_random_uuid(), a.org_application_id, ${sqlLiteral(action)},
-      ${actorEmail ? "'org_user'" : "'system'"}, ${actor},
-      ${sqlLiteral(state)}, ${version},
-      a.created_at + interval '${secondsAfterApply} seconds'
-    FROM vetchium.org_applications AS a
-    JOIN vetchium.org_openings AS o USING (org_opening_id)
-    WHERE o.org_did = ${orgDID(domain)} AND o.opening_number = ${openingNumber}
-      AND a.application_number = ${applicationNumber}`);
+  options: ApplicationOptions,
+): Promise<number> {
+  return (await seedApplication(world, openingNumber, options)).number;
 }
 
 async function list(
@@ -205,15 +94,14 @@ const numbers = (page: ListApplicationsResponse) =>
 test("the Applicants view lists submitted applications newest first", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
-    const opening = await newOpening(api, owner);
-    const stages = await threeStagePipeline(api, owner, opening);
+  await withOrg(request, async (api, owner, org, world) => {
+    const { opening, stages } = await newOpening(api, owner, org);
     const n = opening.opening_number;
     const stage = stages[0]?.id;
     if (!stage) throw new Error("expected a stage");
-    const first = seedApplication(org.domain, n, { name: "Ada Lovelace" });
-    seedApplication(org.domain, n, { name: "Grace Hopper", country: "US" });
-    seedApplication(org.domain, n, {
+    const first = await seed(world, n, { name: "Ada Lovelace" });
+    await seed(world, n, { name: "Grace Hopper" });
+    await seed(world, n, {
       name: "Alan Turing",
       state: "in_pipeline",
       stageId: stage,
@@ -241,32 +129,31 @@ test("the Applicants view lists submitted applications newest first", async ({
 test("the Candidates view lists live candidacies and filters by state, stage, and name", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
-    const opening = await newOpening(api, owner);
-    const [screen, panel] = await threeStagePipeline(api, owner, opening);
+  await withOrg(request, async (api, owner, org, world) => {
+    const {
+      opening,
+      stages: [screen, panel],
+    } = await newOpening(api, owner, org);
     if (!screen || !panel) throw new Error("expected three stages");
     const n = opening.opening_number;
-    seedApplication(org.domain, n, { name: "Ada Lovelace" }); // 1 submitted
-    seedApplication(org.domain, n, {
+    await seed(world, n, { name: "Ada Lovelace" }); // 1 submitted
+    await seed(world, n, {
       name: "Alan Turing",
       state: "in_pipeline",
       stageId: screen.id,
     }); // 2
-    seedApplication(org.domain, n, {
+    await seed(world, n, {
       name: "Ada Byron",
       state: "in_pipeline",
       stageId: panel.id,
     }); // 3
-    seedApplication(org.domain, n, {
+    await seed(world, n, {
       name: "Edsger Dijkstra",
       state: "joined",
       stageId: panel.id,
     }); // 4
-    seedApplication(org.domain, n, {
-      name: "Barbara Liskov",
-      state: "withdrawn",
-    }); // 5
-    seedApplication(org.domain, n, {
+    await seed(world, n, { name: "Barbara Liskov", state: "withdrawn" }); // 5
+    await seed(world, n, {
       name: "Donald Knuth",
       state: "offered",
       stageId: panel.id,
@@ -340,11 +227,11 @@ test("the Candidates view lists live candidacies and filters by state, stage, an
 test("application lists are keyset paginated and bind their filters", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
-    const opening = await newOpening(api, owner);
+  await withOrg(request, async (api, owner, org, world) => {
+    const { opening } = await newOpening(api, owner, org);
     const n = opening.opening_number;
     for (const name of ["Ann", "Bob", "Cat", "Dee", "Eve"]) {
-      seedApplication(org.domain, n, { name: `${name} Example` });
+      await seed(world, n, { name: `${name} Example` });
     }
     const base = { opening_number: n, view: "applicants" as const };
     const seen: number[] = [];
@@ -403,37 +290,27 @@ test("application lists are keyset paginated and bind their filters", async ({
 test("stage and state counts cover every state and stage", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
-    const opening = await newOpening(api, owner);
-    const [screen, panel, final] = await threeStagePipeline(
-      api,
-      owner,
+  await withOrg(request, async (api, owner, org, world) => {
+    const {
       opening,
-    );
+      stages: [screen, panel, final],
+    } = await newOpening(api, owner, org);
     if (!screen || !panel || !final) throw new Error("expected three stages");
     const n = opening.opening_number;
-    seedApplication(org.domain, n, { name: "One" });
-    seedApplication(org.domain, n, { name: "Two" });
-    seedApplication(org.domain, n, {
+    await seed(world, n, { name: "One" });
+    await seed(world, n, { name: "Two" });
+    await seed(world, n, {
       name: "Three",
       state: "in_pipeline",
       stageId: screen.id,
     });
-    seedApplication(org.domain, n, {
-      name: "Four",
-      state: "offered",
-      stageId: panel.id,
-    });
-    seedApplication(org.domain, n, {
+    await seed(world, n, { name: "Four", state: "offered", stageId: panel.id });
+    await seed(world, n, {
       name: "Five",
       state: "in_pipeline",
       stageId: panel.id,
     });
-    seedApplication(org.domain, n, {
-      name: "Six",
-      state: "joined",
-      stageId: panel.id,
-    });
+    await seed(world, n, { name: "Six", state: "joined", stageId: panel.id });
 
     const response = await api.getApplicationCounts(owner, {
       opening_number: n,
@@ -461,10 +338,14 @@ test("stage and state counts cover every state and stage", async ({
       { stage: final, count: 0 },
     ]);
 
-    const empty = await newOpening(api, owner);
+    const empty = await api.createOpening(owner, {
+      content: { title: "Engineer" },
+      team_member_emails: [],
+    });
+    expect(empty.status(), await empty.text()).toBe(201);
     const emptyCounts = (await (
       await api.getApplicationCounts(owner, {
-        opening_number: empty.opening_number,
+        opening_number: ((await empty.json()) as OrgOpening).opening_number,
       })
     ).json()) as ApplicationCounts;
     expect(emptyCounts.states.every((item) => item.count === 0)).toBe(true);
@@ -476,25 +357,20 @@ test("stage and state counts cover every state and stage", async ({
 test("an application shows its snapshot, cover note, stages, dates, and history", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
-    const opening = await newOpening(api, owner);
-    const [screen, panel, final] = await threeStagePipeline(
-      api,
-      owner,
+  await withOrg(request, async (api, owner, org, world) => {
+    const {
       opening,
-    );
+      stages: [screen, panel, final],
+    } = await newOpening(api, owner, org);
     if (!screen || !panel || !final) throw new Error("expected three stages");
     const n = opening.opening_number;
-    const number = seedApplication(org.domain, n, {
+    const { number, applicant } = await seedApplication(world, n, {
       name: "Ada Lovelace",
       state: "in_pipeline",
       stageId: panel.id,
       coverNote: "I would love to join.",
     });
-    seedStageRecord(org.domain, n, number, screen.id, "skipped");
-    seedStageRecord(org.domain, n, number, panel.id, "pending");
-    seedStageRecord(org.domain, n, number, final.id, "pending");
-    const plain = seedApplication(org.domain, n, { name: "No Note" });
+    const plain = await seed(world, n, { name: "No Note" });
 
     const response = await api.getApplication(owner, {
       opening_number: n,
@@ -507,14 +383,13 @@ test("an application shows its snapshot, cover note, stages, dates, and history"
       opening_number: n,
       application_number: number,
       state: "in_pipeline",
-      version: 1,
+      version: 2,
       cover_note: "I would love to join.",
       current_stage: panel,
       snapshot: {
         display_name: "Ada Lovelace",
-        handle: "abcd1234-0123456789a",
-        resident_country: "GB",
-        biography: "Wrote the first program",
+        handle: applicant.handle,
+        resident_country: "US",
         websites: [],
         work_experiences: [],
         certifications: [],
@@ -522,7 +397,10 @@ test("an application shows its snapshot, cover note, stages, dates, and history"
         educational_qualifications: [],
       },
     });
+    // The snapshot is the profile view without the picture; the applicant
+    // seeded here wrote no biography.
     expect(detail.snapshot).not.toHaveProperty("profile_picture_url");
+    expect(detail.snapshot).not.toHaveProperty("biography");
     expect(detail.stage_records).toEqual([
       { stage: screen, status: "skipped" },
       { stage: panel, status: "pending" },
@@ -557,29 +435,18 @@ test("an application shows its snapshot, cover note, stages, dates, and history"
 test("application history is newest first, keyset paginated, and names Org actors", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
-    const opening = await newOpening(api, owner);
+  await withOrg(request, async (api, owner, org, world) => {
+    const {
+      opening,
+      stages: [screen],
+    } = await newOpening(api, owner, org);
+    if (!screen) throw new Error("expected a stage");
     const n = opening.opening_number;
-    const number = seedApplication(org.domain, n, { name: "Ada Lovelace" });
-    seedHistory(
-      org.domain,
-      n,
-      number,
-      "shortlisted",
-      "in_pipeline",
-      2,
-      10,
-      org.emailAddress,
-    );
-    seedHistory(
-      org.domain,
-      n,
-      number,
-      "not_progressing",
-      "not_progressing",
-      3,
-      20,
-    );
+    const number = await seed(world, n, {
+      name: "Ada Lovelace",
+      state: "not_progressing",
+      stageId: screen.id,
+    });
 
     const first = await api.listApplicationHistory(owner, {
       opening_number: n,
@@ -592,7 +459,8 @@ test("application history is newest first, keyset paginated, and names Org actor
     expect(page.entries).toMatchObject([
       {
         action: "not_progressing",
-        actor: "system",
+        actor: "org_user",
+        actor_email: org.emailAddress,
         state: "not_progressing",
         version: 3,
       },
@@ -604,7 +472,6 @@ test("application history is newest first, keyset paginated, and names Org actor
         version: 2,
       },
     ]);
-    expect(page.entries[0]).not.toHaveProperty("actor_email");
     expect(page.entries[0]?.created_at).toMatch(/Z$/);
     const key = page.next_pagination_key;
     if (!key) throw new Error("expected a pagination key");
@@ -619,9 +486,11 @@ test("application history is newest first, keyset paginated, and names Org actor
     expect(last.entries).toMatchObject([
       { action: "applied", actor: "applicant", state: "submitted", version: 1 },
     ] satisfies Partial<ApplicationHistoryEntry>[]);
+    // Only an Org user's entry names its actor.
+    expect(last.entries[0]).not.toHaveProperty("actor_email");
     expect(last.next_pagination_key).toBeUndefined();
 
-    const other = seedApplication(org.domain, n, { name: "Other" });
+    const other = await seed(world, n, { name: "Other" });
     const foreign = await api.listApplicationHistory(owner, {
       opening_number: n,
       application_number: other,
@@ -642,15 +511,15 @@ test("application history is newest first, keyset paginated, and names Org actor
 test("only the Opening's team and org:manage_candidacies read its applications", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
+  await withOrg(request, async (api, owner, org, world) => {
     // The free plan holds five users; this test needs ten.
     const upgraded = await api.setSubscriptionPlan(owner, {
       plan_oid: "org-silver-tier",
       billing_interval: "month",
     });
     expect(upgraded.status(), await upgraded.text()).toBe(200);
-    const opening = await newOpening(api, owner);
-    const other = await newOpening(api, owner);
+    const { opening } = await newOpening(api, owner, org);
+    const { opening: other } = await newOpening(api, owner, org);
     const member = (local: string, permissions: string[] = []) =>
       addOrgMember(
         api,
@@ -686,7 +555,7 @@ test("only the Opening's team and org:manage_candidacies read its applications",
     expect(otherTeam.status(), await otherTeam.text()).toBe(200);
 
     const n = opening.opening_number;
-    const number = seedApplication(org.domain, n, { name: "Ada Lovelace" });
+    const number = await seed(world, n, { name: "Ada Lovelace" });
     const calls = (token: string) => [
       api.listApplications(token, { opening_number: n, view: "applicants" }),
       api.listApplications(token, { opening_number: n, view: "candidates" }),
@@ -762,10 +631,10 @@ test("only the Opening's team and org:manage_candidacies read its applications",
 test("application routes authenticate, validate, and refuse suspended Orgs", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
-    const opening = await newOpening(api, owner);
+  await withOrg(request, async (api, owner, org, world) => {
+    const { opening } = await newOpening(api, owner, org);
     const n = opening.opening_number;
-    const number = seedApplication(org.domain, n, { name: "Ada Lovelace" });
+    const number = await seed(world, n, { name: "Ada Lovelace" });
     const routes: { path: string; body: object }[] = [
       {
         path: "/list-applications",
@@ -879,7 +748,7 @@ test("application routes authenticate, validate, and refuse suspended Orgs", asy
     expect(unknownCounts.status()).toBe(404);
 
     orgSQL(`UPDATE vetchium.orgs SET org_state = 'suspended', suspended_at = now()
-      WHERE org_did = ${orgDID(org.domain)}`);
+      WHERE org_did = '${world.did}'`);
     for (const route of routes) {
       const blocked = await api.post(route.path, route.body, { token: owner });
       expect(blocked.status(), `${route.path}: ${await blocked.text()}`).toBe(
@@ -893,26 +762,28 @@ test("application routes authenticate, validate, and refuse suspended Orgs", asy
 test("removing a pipeline stage that holds a candidacy is refused", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
-    const opening = await newOpening(api, owner);
-    const [screen, panel, final] = await threeStagePipeline(
-      api,
-      owner,
+  await withOrg(request, async (api, owner, org, world) => {
+    const {
       opening,
-    );
+      stages: [screen, panel, final],
+    } = await newOpening(api, owner, org);
     if (!screen || !panel || !final) throw new Error("expected three stages");
     const n = opening.opening_number;
-    seedApplication(org.domain, n, {
+    await seed(world, n, {
       name: "At Panel",
       state: "in_pipeline",
       stageId: panel.id,
     });
-    seedApplication(org.domain, n, {
+    await seed(world, n, {
       name: "Done At Final",
       state: "joined",
       stageId: final.id,
     });
-    seedApplication(org.domain, n, { name: "Left Screen", state: "withdrawn" });
+    await seed(world, n, {
+      name: "Left Screen",
+      state: "withdrawn",
+      stageId: screen.id,
+    });
 
     const pipeline = async () =>
       (await (

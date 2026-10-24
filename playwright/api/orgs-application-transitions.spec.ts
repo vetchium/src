@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { APIRequestContext, APIResponse } from "@playwright/test";
 import type {
   ApplicationReference,
@@ -13,17 +13,20 @@ import type {
 import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { expectProblem } from "../lib/admin-api.ts";
-import {
-  cleanupGlobalHubPrincipal,
-  cleanupHubUser,
-  seedActiveHubUser,
-  seedGlobalHubPrincipal,
-  sqlLiteral,
-  sqlScalarForTenant,
-} from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
-import { HubAPI, hubIdempotencyKey } from "../lib/hub-api.ts";
+import {
+  type ApplicationOptions,
+  cleanupApplicants,
+  type HiringOrg,
+  seedApplication,
+} from "../lib/hiring-seed.ts";
+import {
+  type Applicant,
+  apply,
+  cleanupApplicant,
+  seedApplicant,
+} from "../lib/hub-applicant.ts";
 import {
   addOrgMember,
   cleanupOrg,
@@ -40,8 +43,6 @@ import {
   orgDIDSQL,
   publishedOpening,
   reread,
-  type SeedOptions,
-  seedApplication,
 } from "../lib/orgs-applications.ts";
 
 type Api = OrgsAPI;
@@ -56,17 +57,43 @@ const VALIDATION = `${PREFIX}validation-failed`;
 
 async function withOrg(
   request: APIRequestContext,
-  body: (api: Api, owner: string, org: SignedUpOrg) => Promise<void>,
+  body: (
+    api: Api,
+    owner: string,
+    org: SignedUpOrg,
+    world: HiringOrg,
+  ) => Promise<void>,
 ): Promise<void> {
   const api = new OrgsAPI(request);
   const org = await signupOrg(api);
+  const world: HiringOrg = {
+    request,
+    tenant: "sgp",
+    api,
+    owner: "",
+    domain: org.domain,
+    did: orgDID(org.domain),
+    applicants: [],
+  };
   try {
-    await body(api, await loginOrg(api, org), org);
+    world.owner = await loginOrg(api, org);
+    await body(api, world.owner, org, world);
   } finally {
+    cleanupApplicants(world);
     cleanupOutbox(org.domain);
     await deleteOrgVerificationRecord(org.domain);
     cleanupOrg(org.domain);
   }
+}
+
+/** Applies through the Hub as a new applicant and walks the application to
+ * options.state; returns its number. */
+async function seed(
+  world: HiringOrg,
+  openingNumber: number,
+  options: ApplicationOptions = {},
+): Promise<number> {
+  return (await seedApplication(world, openingNumber, options)).number;
 }
 
 /** UTC calendar date `days` from today, as the API reads dates. */
@@ -125,11 +152,11 @@ const statuses = (detail: ApplicationDetail) =>
 test("shortlisting records the stages, and replays and conflicts are exact", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
+  await withOrg(request, async (api, owner, org, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
     const [screen, panel] = [stageOf(stages, 0), stageOf(stages, 1)];
-    const number = seedApplication(org.domain, n);
+    const number = await seed(world, n);
     const reference = { opening_number: n, application_number: number };
 
     // Refusals leave the application alone and run in the documented order.
@@ -241,7 +268,7 @@ test("shortlisting records the stages, and replays and conflicts are exact", asy
 test("an application moves forward, skipping, and completes review stages", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
+  await withOrg(request, async (api, owner, org, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
     const [screen, panel, final] = [
@@ -249,7 +276,7 @@ test("an application moves forward, skipping, and completes review stages", asyn
       stageOf(stages, 1),
       stageOf(stages, 2),
     ];
-    const number = seedApplication(org.domain, n);
+    const number = await seed(world, n);
     const ref = (version: number) => ({
       opening_number: n,
       application_number: number,
@@ -342,10 +369,10 @@ test("an application moves forward, skipping, and completes review stages", asyn
 test("a stage added after shortlisting is recorded when the candidacy moves", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
+  await withOrg(request, async (api, owner, org, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
-    const number = seedApplication(org.domain, n);
+    const number = await seed(world, n);
     await expectApplied(
       await api.shortlistApplication(owner, {
         opening_number: n,
@@ -395,7 +422,7 @@ test("a stage added after shortlisting is recorded when the candidacy moves", as
 test("not progressing ends any live application and nothing leaves a terminal state", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
+  await withOrg(request, async (api, owner, org, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
     const panel = stageOf(stages, 1).id;
@@ -406,7 +433,7 @@ test("not progressing ends any live application and nothing leaves a terminal st
       ["offer_accepted", panel],
     ];
     for (const [state, stageId] of live) {
-      const number = seedApplication(org.domain, n, {
+      const { number, version } = await seedApplication(world, n, {
         state,
         ...(stageId ? { stageId } : {}),
       });
@@ -414,19 +441,19 @@ test("not progressing ends any live application and nothing leaves a terminal st
         await api.markApplicationNotProgressing(owner, {
           opening_number: n,
           application_number: number,
-          version: 1,
+          version,
         }),
       );
       expect(ended, state).toMatchObject({
         state: "not_progressing",
-        version: 2,
+        version: version + 1,
       });
       const entries = await history(api, owner, n, number);
       expect(entries[0], state).toMatchObject({
         action: "not_progressing",
         actor: "org_user",
         state: "not_progressing",
-        version: 2,
+        version: version + 1,
       });
     }
   });
@@ -435,7 +462,7 @@ test("not progressing ends any live application and nothing leaves a terminal st
 test("every action refuses every state it does not allow", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
+  await withOrg(request, async (api, owner, org, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
     const [screen, panel, final] = [
@@ -444,7 +471,7 @@ test("every action refuses every state it does not allow", async ({
       stageOf(stages, 2),
     ];
     const joined = { joinedOn: utcDate(-5) };
-    const seeds: Record<ApplicationState, SeedOptions> = {
+    const seeds: Record<ApplicationState, ApplicationOptions> = {
       submitted: {},
       in_pipeline: { state: "in_pipeline", stageId: panel.id },
       offered: { state: "offered", stageId: panel.id },
@@ -459,110 +486,113 @@ test("every action refuses every state it does not allow", async ({
       string,
       {
         allowed: ApplicationState[];
-        call: (number: number) => Promise<APIResponse>;
+        call: (number: number, version: number) => Promise<APIResponse>;
       }
     > = {
       shortlist: {
         allowed: ["submitted"],
-        call: (number) =>
+        call: (number, version) =>
           api.shortlistApplication(owner, {
             opening_number: n,
             application_number: number,
-            version: 1,
+            version,
             stage_id: screen.id,
           }),
       },
       move: {
         allowed: ["in_pipeline"],
-        call: (number) =>
+        call: (number, version) =>
           api.moveApplicationStage(owner, {
             opening_number: n,
             application_number: number,
-            version: 1,
+            version,
             stage_id: final.id,
           }),
       },
       complete: {
         // The seeded candidacy is at an interview stage.
         allowed: [],
-        call: (number) =>
+        call: (number, version) =>
           api.completeApplicationStage(owner, {
             opening_number: n,
             application_number: number,
-            version: 1,
+            version,
           }),
       },
       notProgressing: {
         allowed: ["submitted", "in_pipeline", "offered", "offer_accepted"],
-        call: (number) =>
+        call: (number, version) =>
           api.markApplicationNotProgressing(owner, {
             opening_number: n,
             application_number: number,
-            version: 1,
+            version,
           }),
       },
       joined: {
         allowed: ["offer_accepted"],
-        call: (number) =>
+        call: (number, version) =>
           api.recordApplicationJoined(owner, {
             opening_number: n,
             application_number: number,
-            version: 1,
+            version,
             joined_on: utcDate(-1),
           }),
       },
       didNotJoin: {
         allowed: ["offer_accepted"],
-        call: (number) =>
+        call: (number, version) =>
           api.recordApplicationDidNotJoin(owner, {
             opening_number: n,
             application_number: number,
-            version: 1,
+            version,
           }),
       },
       separated: {
         allowed: ["joined"],
-        call: (number) =>
+        call: (number, version) =>
           api.recordApplicationSeparated(owner, {
             opening_number: n,
             application_number: number,
-            version: 1,
+            version,
             separated_on: utcDate(-1),
           }),
       },
       correctJoined: {
         allowed: ["joined"],
-        call: (number) =>
+        call: (number, version) =>
           api.correctApplicationJoinedOn(owner, {
             opening_number: n,
             application_number: number,
-            version: 1,
+            version,
             joined_on: utcDate(-2),
           }),
       },
       // No separation is recorded on the seeded joined application.
       correctSeparated: {
         allowed: [],
-        call: (number) =>
+        call: (number, version) =>
           api.correctApplicationSeparatedOn(owner, {
             opening_number: n,
             application_number: number,
-            version: 1,
+            version,
             separated_on: utcDate(-1),
           }),
       },
     };
-    const numbers = new Map<ApplicationState, number>();
+    const seeded = new Map<
+      ApplicationState,
+      { number: number; version: number }
+    >();
     for (const [state, options] of Object.entries(seeds)) {
-      numbers.set(
+      seeded.set(
         state as ApplicationState,
-        seedApplication(org.domain, n, { ...options, name: state }),
+        await seedApplication(world, n, { ...options, name: state }),
       );
     }
     for (const [name, action] of Object.entries(actions)) {
-      for (const [state, number] of numbers) {
+      for (const [state, { number, version }] of seeded) {
         if (action.allowed.includes(state)) continue;
-        const response = await action.call(number);
+        const response = await action.call(number, version);
         expect(
           response.status(),
           `${name} on ${state}: ${await response.text()}`,
@@ -573,9 +603,9 @@ test("every action refuses every state it does not allow", async ({
       }
     }
     // Nothing changed.
-    for (const [state, number] of numbers) {
+    for (const [state, { number, version }] of seeded) {
       const after = await detail(api, owner, n, number);
-      expect(after.version, state).toBe(1);
+      expect(after.version, state).toBe(version);
       expect(after.state, state).toBe(state);
     }
   });
@@ -584,21 +614,24 @@ test("every action refuses every state it does not allow", async ({
 test("joining and separation follow the date rules, keep history, and allow over-hiring", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
+  await withOrg(request, async (api, owner, org, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org, {
       positions: 1,
     });
     const n = opening.opening_number;
     const final = stageOf(stages, 2).id;
-    const accepted = (name: string, extended = 10) =>
-      seedApplication(org.domain, n, {
+    const accepted = async (name: string, extended = 10) =>
+      await seedApplication(world, n, {
         name,
         state: "offer_accepted",
         stageId: final,
         offerExtendedDaysAgo: extended,
       });
-    const first = accepted("First Hire");
-    const ref = (number: number, version = 1) => ({
+    const hire = await accepted("First Hire");
+    const first = hire.number;
+    // v(k) is the version after k more changes than seeding made.
+    const v = (k: number) => hire.version + k;
+    const ref = (number: number, version: number) => ({
       opening_number: n,
       application_number: number,
       version,
@@ -607,7 +640,10 @@ test("joining and separation follow the date rules, keep history, and allow over
     // joined_on is a real date, at most today, not before the offer.
     for (const joined_on of ["2026-02-30", "2026-1-1", "", "tomorrow"]) {
       await expectProblem(
-        await api.recordApplicationJoined(owner, { ...ref(first), joined_on }),
+        await api.recordApplicationJoined(owner, {
+          ...ref(first, v(0)),
+          joined_on,
+        }),
         400,
         VALIDATION,
         ["joined_on"],
@@ -615,7 +651,10 @@ test("joining and separation follow the date rules, keep history, and allow over
     }
     for (const joined_on of [utcDate(2), utcDate(-30)]) {
       await expectProblem(
-        await api.recordApplicationJoined(owner, { ...ref(first), joined_on }),
+        await api.recordApplicationJoined(owner, {
+          ...ref(first, v(0)),
+          joined_on,
+        }),
         400,
         VALIDATION,
         ["joined_on"],
@@ -624,13 +663,13 @@ test("joining and separation follow the date rules, keep history, and allow over
     expect((await detail(api, owner, n, first)).state).toBe("offer_accepted");
 
     const key = orgsIdempotencyKey();
-    const joinedRequest = { ...ref(first), joined_on: utcDate(-3) };
+    const joinedRequest = { ...ref(first, v(0)), joined_on: utcDate(-3) };
     const hired = await expectApplied(
       await api.recordApplicationJoined(owner, joinedRequest, key),
     );
     expect(hired).toMatchObject({
       state: "joined",
-      version: 2,
+      version: v(1),
       joined_on: utcDate(-3),
       positions: 1,
       joined_count: 1,
@@ -643,10 +682,10 @@ test("joining and separation follow the date rules, keep history, and allow over
     ).toEqual(hired);
 
     // Hiring beyond positions succeeds; the response carries both numbers.
-    const second = accepted("Second Hire");
+    const second = await accepted("Second Hire");
     const over = await expectApplied(
       await api.recordApplicationJoined(owner, {
-        ...ref(second),
+        ...ref(second.number, second.version),
         joined_on: utcDate(0),
       }),
     );
@@ -658,7 +697,7 @@ test("joining and separation follow the date rules, keep history, and allow over
     for (const separated_on of [utcDate(-3), utcDate(-5), utcDate(2)]) {
       await expectProblem(
         await api.recordApplicationSeparated(owner, {
-          ...ref(first, 2),
+          ...ref(first, v(1)),
           separated_on,
         }),
         400,
@@ -668,19 +707,19 @@ test("joining and separation follow the date rules, keep history, and allow over
     }
     const separated = await expectApplied(
       await api.recordApplicationSeparated(owner, {
-        ...ref(first, 2),
+        ...ref(first, v(1)),
         separated_on: utcDate(-1),
       }),
     );
     expect(separated).toMatchObject({
       state: "joined",
-      version: 3,
+      version: v(2),
       joined_on: utcDate(-3),
       separated_on: utcDate(-1),
     });
     await expectProblem(
       await api.recordApplicationSeparated(owner, {
-        ...ref(first, 3),
+        ...ref(first, v(2)),
         separated_on: utcDate(-1),
       }),
       409,
@@ -690,7 +729,7 @@ test("joining and separation follow the date rules, keep history, and allow over
     // Corrections keep the dates consistent and add history, not edits.
     await expectProblem(
       await api.correctApplicationJoinedOn(owner, {
-        ...ref(first, 3),
+        ...ref(first, v(2)),
         joined_on: utcDate(-1),
       }),
       400,
@@ -699,21 +738,21 @@ test("joining and separation follow the date rules, keep history, and allow over
     );
     const fixedJoin = await expectApplied(
       await api.correctApplicationJoinedOn(owner, {
-        ...ref(first, 3),
+        ...ref(first, v(2)),
         joined_on: utcDate(-4),
       }),
     );
-    expect(fixedJoin).toMatchObject({ joined_on: utcDate(-4), version: 4 });
+    expect(fixedJoin).toMatchObject({ joined_on: utcDate(-4), version: v(3) });
     const fixedSeparation = await expectApplied(
       await api.correctApplicationSeparatedOn(owner, {
-        ...ref(first, 4),
+        ...ref(first, v(3)),
         separated_on: utcDate(-2),
       }),
     );
     expect(fixedSeparation).toMatchObject({
       joined_on: utcDate(-4),
       separated_on: utcDate(-2),
-      version: 5,
+      version: v(4),
     });
     const entries = await history(api, owner, n, first);
     expect(
@@ -727,17 +766,26 @@ test("joining and separation follow the date rules, keep history, and allow over
       ["joined_corrected", utcDate(-4), undefined],
       ["separated", undefined, utcDate(-1)],
       ["joined", utcDate(-3), undefined],
+      ["offer_accepted", undefined, undefined],
+      ["offer_extended", undefined, undefined],
+      ["shortlisted", undefined, undefined],
       ["applied", undefined, undefined],
     ]);
 
     // Did not join ends an accepted offer without a date.
-    const declined = accepted("Never Joined");
+    const declined = await accepted("Never Joined");
     const none = await expectApplied(
-      await api.recordApplicationDidNotJoin(owner, ref(declined)),
+      await api.recordApplicationDidNotJoin(
+        owner,
+        ref(declined.number, declined.version),
+      ),
     );
-    expect(none).toMatchObject({ state: "did_not_join", version: 2 });
+    expect(none).toMatchObject({
+      state: "did_not_join",
+      version: declined.version + 1,
+    });
     expect(none.joined_on).toBeUndefined();
-    expect((await history(api, owner, n, declined))[0]?.action).toBe(
+    expect((await history(api, owner, n, declined.number))[0]?.action).toBe(
       "did_not_join",
     );
   });
@@ -746,10 +794,10 @@ test("joining and separation follow the date rules, keep history, and allow over
 test("a separation more than a year after joining is refused", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
+  await withOrg(request, async (api, owner, org, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
-    const number = seedApplication(org.domain, n, {
+    const { number, version } = await seedApplication(world, n, {
       state: "offer_accepted",
       stageId: stageOf(stages, 2).id,
       offerExtendedDaysAgo: 800,
@@ -758,7 +806,7 @@ test("a separation more than a year after joining is refused", async ({
       await api.recordApplicationJoined(owner, {
         opening_number: n,
         application_number: number,
-        version: 1,
+        version,
         joined_on: utcDate(-500),
       }),
     );
@@ -796,12 +844,12 @@ test("a separation more than a year after joining is refused", async ({
 test("dates are corrected only within 90 days of first recording", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
+  await withOrg(request, async (api, owner, org, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
     const panel = stageOf(stages, 1).id;
-    const seed = (recordedDaysAgo: number) =>
-      seedApplication(org.domain, n, {
+    const seedJoined = async (recordedDaysAgo: number) =>
+      await seedApplication(world, n, {
         state: "joined",
         stageId: panel,
         joinedOn: utcDate(-200),
@@ -809,12 +857,12 @@ test("dates are corrected only within 90 days of first recording", async ({
         separatedOn: utcDate(-100),
         separatedRecordedDaysAgo: recordedDaysAgo,
       });
-    const late = seed(91);
-    const timely = seed(89);
-    const body = (number: number) => ({
+    const late = await seedJoined(91);
+    const timely = await seedJoined(89);
+    const body = (seeded: { number: number; version: number }) => ({
       opening_number: n,
-      application_number: number,
-      version: 1,
+      application_number: seeded.number,
+      version: seeded.version,
     });
 
     await expectProblem(
@@ -833,7 +881,9 @@ test("dates are corrected only within 90 days of first recording", async ({
       409,
       STATE_CONFLICT,
     );
-    expect((await detail(api, owner, n, late)).version).toBe(1);
+    expect((await detail(api, owner, n, late.number)).version).toBe(
+      late.version,
+    );
 
     const joined = await expectApplied(
       await api.correctApplicationJoinedOn(owner, {
@@ -841,17 +891,20 @@ test("dates are corrected only within 90 days of first recording", async ({
         joined_on: utcDate(-201),
       }),
     );
-    expect(joined).toMatchObject({ joined_on: utcDate(-201), version: 2 });
+    expect(joined).toMatchObject({
+      joined_on: utcDate(-201),
+      version: timely.version + 1,
+    });
     const separated = await expectApplied(
       await api.correctApplicationSeparatedOn(owner, {
         ...body(timely),
-        version: 2,
+        version: timely.version + 1,
         separated_on: utcDate(-101),
       }),
     );
     expect(separated).toMatchObject({
       separated_on: utcDate(-101),
-      version: 3,
+      version: timely.version + 2,
     });
     // A correction does not reopen the window.
     const recorded = orgSQL(
@@ -861,7 +914,8 @@ test("dates are corrected only within 90 days of first recording", async ({
          SELECT a.org_application_id FROM vetchium.org_applications AS a
          JOIN vetchium.org_openings AS o USING (org_opening_id)
          WHERE o.org_did = ${orgDIDSQL(org.domain)}
-           AND o.opening_number = ${n} AND a.application_number = ${timely})`,
+           AND o.opening_number = ${n}
+           AND a.application_number = ${timely.number})`,
     );
     expect(recorded).toBe("t");
   });
@@ -870,7 +924,7 @@ test("dates are corrected only within 90 days of first recording", async ({
 test("who may act: manager, recruiter, and candidacies holders act; team members read only", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
+  await withOrg(request, async (api, owner, org, world) => {
     const upgraded = await api.setSubscriptionPlan(owner, {
       plan_oid: "org-silver-tier",
       billing_interval: "month",
@@ -905,7 +959,7 @@ test("who may act: manager, recruiter, and candidacies holders act; team members
     expect(team.status(), await team.text()).toBe(200);
 
     const attempt = async (token: string) => {
-      const number = seedApplication(org.domain, n);
+      const number = await seed(world, n);
       const response = await api.markApplicationNotProgressing(token, {
         opening_number: n,
         application_number: number,
@@ -959,10 +1013,10 @@ test("who may act: manager, recruiter, and candidacies holders act; team members
 test("application write routes authenticate, validate, and refuse suspended Orgs", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
+  await withOrg(request, async (api, owner, org, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
-    const number = seedApplication(org.domain, n);
+    const number = await seed(world, n);
     const base = { opening_number: n, application_number: number, version: 1 };
     const stage = { ...base, stage_id: stageOf(stages, 0).id };
     const routes: {
@@ -1063,31 +1117,32 @@ test("application write routes authenticate, validate, and refuse suspended Orgs
 });
 
 /** Seeds one application per state a close can reach or must leave alone. */
-function seedMixed(domain: string, n: number, stageId: string) {
+async function seedMixed(world: HiringOrg, n: number, stageId: string) {
   return {
-    submitted: seedApplication(domain, n, { name: "Submitted" }),
-    inPipeline: seedApplication(domain, n, {
+    submitted: await seed(world, n, { name: "Submitted" }),
+    inPipeline: await seed(world, n, {
       name: "In Pipeline",
       state: "in_pipeline",
       stageId,
     }),
-    offered: seedApplication(domain, n, {
+    offered: await seed(world, n, {
       name: "Offered",
       state: "offered",
       stageId,
     }),
-    offerAccepted: seedApplication(domain, n, {
+    offerAccepted: await seed(world, n, {
       name: "Accepted",
       state: "offer_accepted",
       stageId,
     }),
-    joined: seedApplication(domain, n, {
+    joined: await seed(world, n, {
       name: "Joined",
       state: "joined",
       stageId,
+      offerExtendedDaysAgo: 6,
       joinedOn: utcDate(-5),
     }),
-    withdrawn: seedApplication(domain, n, {
+    withdrawn: await seed(world, n, {
       name: "Withdrawn",
       state: "withdrawn",
     }),
@@ -1127,11 +1182,11 @@ const closed = {
 test("an approver's close marks open applications only when asked", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
+  await withOrg(request, async (api, owner, org, world) => {
     // Without the choice, a close leaves every application as it is.
     const plain = await publishedOpening(api, owner, org);
-    const plainNumbers = seedMixed(
-      org.domain,
+    const plainNumbers = await seedMixed(
+      world,
       plain.opening.opening_number,
       stageOf(plain.stages, 1).id,
     );
@@ -1149,7 +1204,10 @@ test("an approver's close marks open applications only when asked", async ({
     // With it, in the same transaction, and a repeat with the key replays.
     const marked = await publishedOpening(api, owner, org);
     const n = marked.opening.opening_number;
-    const numbers = seedMixed(org.domain, n, stageOf(marked.stages, 1).id);
+    const numbers = await seedMixed(world, n, stageOf(marked.stages, 1).id);
+    const acceptedBefore = await detail(api, owner, n, numbers.offerAccepted);
+    const joinedBefore = await detail(api, owner, n, numbers.joined);
+    const joinedHistory = await history(api, owner, n, numbers.joined);
     const key = orgsIdempotencyKey();
     const closeRequest = {
       opening_number: n,
@@ -1167,7 +1225,7 @@ test("an approver's close marks open applications only when asked", async ({
 
     // Each marked application got a history entry and its version moved.
     const accepted = await detail(api, owner, n, numbers.offerAccepted);
-    expect(accepted.version).toBe(2);
+    expect(accepted.version).toBe(acceptedBefore.version + 1);
     const entries = await history(api, owner, n, numbers.offerAccepted);
     expect(entries[0]).toMatchObject({
       action: "not_progressing",
@@ -1176,15 +1234,19 @@ test("an approver's close marks open applications only when asked", async ({
       state: "not_progressing",
     });
     // Terminal applications are not touched.
-    expect((await detail(api, owner, n, numbers.joined)).version).toBe(1);
-    expect(await history(api, owner, n, numbers.joined)).toHaveLength(1);
+    expect((await detail(api, owner, n, numbers.joined)).version).toBe(
+      joinedBefore.version,
+    );
+    expect(await history(api, owner, n, numbers.joined)).toHaveLength(
+      joinedHistory.length,
+    );
   });
 });
 
 test("a close request's bulk choice applies only when an approver approves it", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
+  await withOrg(request, async (api, owner, org, world) => {
     const manager = await addOrgMember(
       api,
       owner,
@@ -1192,10 +1254,17 @@ test("a close request's bulk choice applies only when an approver approves it", 
       `manager@${org.domain}`,
       ["org:manage_openings"],
     );
-    const ask = async (mark: boolean | undefined) => {
+    // Only the approved request needs every state; the others need one live
+    // application to show what the decision did.
+    const ask = async (mark: boolean | undefined, everyState = false) => {
       const { opening, stages } = await publishedOpening(api, owner, org);
       const n = opening.opening_number;
-      const numbers = seedMixed(org.domain, n, stageOf(stages, 1).id);
+      const stageId = stageOf(stages, 1).id;
+      const numbers: Record<string, number> = everyState
+        ? await seedMixed(world, n, stageId)
+        : {
+            inPipeline: await seed(world, n, { state: "in_pipeline", stageId }),
+          };
       const requested = await api.requestOpeningChange(manager.token, {
         opening_number: n,
         version: opening.version,
@@ -1210,7 +1279,7 @@ test("a close request's bulk choice applies only when an approver approves it", 
     };
 
     // Asking changes nothing until the decision, and shows the choice.
-    const approved = await ask(true);
+    const approved = await ask(true, true);
     expect(approved.pending.state).toBe("published");
     expect(approved.pending.pending_request).toMatchObject({
       kind: "close",
@@ -1239,9 +1308,9 @@ test("a close request's bulk choice applies only when an approver approves it", 
       note: "Not yet",
     });
     expect(rejection.status(), await rejection.text()).toBe(200);
-    expect(await states(api, owner, rejected.n, rejected.numbers)).toEqual(
-      untouched,
-    );
+    expect(await states(api, owner, rejected.n, rejected.numbers)).toEqual({
+      inPipeline: "in_pipeline",
+    });
 
     // Asked for without the choice, approving marks nothing.
     const declined = await ask(false);
@@ -1254,9 +1323,9 @@ test("a close request's bulk choice applies only when an approver approves it", 
       decision: "approve",
     });
     expect(noMark.status(), await noMark.text()).toBe(200);
-    expect(await states(api, owner, declined.n, declined.numbers)).toEqual(
-      untouched,
-    );
+    expect(await states(api, owner, declined.n, declined.numbers)).toEqual({
+      inPipeline: "in_pipeline",
+    });
 
     // An approver's own close supersedes a pending one and uses its own choice.
     const superseded = await ask(false);
@@ -1267,9 +1336,9 @@ test("a close request's bulk choice applies only when an approver approves it", 
       mark_applications_not_progressing: true,
     });
     expect(override.status(), await override.text()).toBe(200);
-    expect(await states(api, owner, superseded.n, superseded.numbers)).toEqual(
-      closed,
-    );
+    expect(await states(api, owner, superseded.n, superseded.numbers)).toEqual({
+      inPipeline: "not_progressing",
+    });
 
     // The choice belongs to a close request only.
     const { opening } = await publishedOpening(api, owner, org);
@@ -1288,79 +1357,6 @@ test("a close request's bulk choice applies only when an approver approves it", 
 });
 
 // --- Hub status after each change, with real applicants. ------------------
-
-interface Applicant {
-  email: string;
-  did: string;
-  alias: string;
-  token: string;
-  hub: HubAPI;
-}
-
-const ALIAS_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
-
-function seedApplicant(request: APIRequestContext, name: string): Applicant {
-  const email = `e2e+${randomUUID()}@e2e-org-transitions.example.test`;
-  const seeded = seedActiveHubUser("sgp", email, name);
-  let alias = "e2e-";
-  for (const byte of randomBytes(20)) {
-    alias += ALIAS_ALPHABET[byte % ALIAS_ALPHABET.length];
-  }
-  seedGlobalHubPrincipal(seeded.hubUserDID, "sgp", alias);
-  return {
-    email,
-    did: seeded.hubUserDID,
-    alias,
-    token: seeded.sessionToken,
-    hub: new HubAPI(request, "sgp"),
-  };
-}
-
-function cleanupApplicant(applicant: Applicant, orgDIDValue: string): void {
-  const did = sqlLiteral(applicant.did);
-  const commandIDs = sqlScalarForTenant(
-    "sgp",
-    `SELECT coalesce(string_agg(quote_literal(command_id::text), ','), '')
-     FROM vetchium.federation_operations
-     WHERE owner_principal_type = 'hub_user' AND owner_principal_id = ${did}`,
-  );
-  sqlScalarForTenant(
-    "sgp",
-    `${
-      commandIDs === ""
-        ? ""
-        : `DELETE FROM vetchium.federation_command_ledger
-           WHERE command_id::text IN (${commandIDs});`
-    }
-     DELETE FROM vetchium.federation_outbox
-     WHERE destination_principal_did = ${did}::uuid;
-     DELETE FROM vetchium.audit_events
-     WHERE entity_type = 'federation_event' AND entity_id IN (
-       SELECT event_id::text FROM vetchium.federation_inbox
-       WHERE aggregate_type = 'org_application'
-         AND aggregate_id LIKE ${sqlLiteral(`${orgDIDValue}:%`)});
-     DELETE FROM vetchium.federation_inbox
-     WHERE aggregate_type = 'org_application'
-       AND aggregate_id LIKE ${sqlLiteral(`${orgDIDValue}:%`)};
-     DELETE FROM vetchium.federation_event_watermarks
-     WHERE destination_principal_did = ${did}::uuid;`,
-  );
-  cleanupGlobalHubPrincipal(applicant.did, applicant.alias);
-  cleanupHubUser(applicant.email, "sgp");
-}
-
-async function applyTo(
-  applicant: Applicant,
-  domain: string,
-  opening: number,
-): Promise<ApplicationReference> {
-  const response = await applicant.hub.applyToOpening(
-    { domain, opening_number: opening },
-    { token: applicant.token, idempotencyKey: hubIdempotencyKey() },
-  );
-  expect(response.status(), await response.text()).toBe(201);
-  return (await response.json()) as ApplicationReference;
-}
 
 async function expectProjected(
   applicant: Applicant,
@@ -1391,15 +1387,15 @@ test("every change reaches the applicant's Hub status", async ({ request }) => {
   test.setTimeout(120_000);
   const api = new OrgsAPI(request);
   const org = await signupOrg(api);
-  const ada = seedApplicant(request, "Ada Applicant");
-  const grace = seedApplicant(request, "Grace Applicant");
+  const ada = seedApplicant(request, "sgp", "Ada Applicant");
+  const grace = seedApplicant(request, "sgp", "Grace Applicant");
   try {
     const owner = await loginOrg(api, org);
     const { opening, stages } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
     const [screen, panel] = [stageOf(stages, 0), stageOf(stages, 1)];
-    const adaRef = await applyTo(ada, org.domain, n);
-    const graceRef = await applyTo(grace, org.domain, n);
+    const adaRef = await apply(ada, org.domain, n);
+    const graceRef = await apply(grace, org.domain, n);
     await expectProjected(ada, adaRef, "applied");
     const at = (ref: ApplicationReference, version: number) => ({
       opening_number: n,
@@ -1452,8 +1448,8 @@ test("every change reaches the applicant's Hub status", async ({ request }) => {
     await expectProjected(grace, graceRef, "not_progressing");
   } finally {
     const did = orgDID(org.domain);
-    cleanupApplicant(ada, did);
-    cleanupApplicant(grace, did);
+    cleanupApplicant(ada, [{ tenant: "sgp", did }]);
+    cleanupApplicant(grace, [{ tenant: "sgp", did }]);
     await deleteOrgVerificationRecord(org.domain);
     cleanupOrg(org.domain);
   }

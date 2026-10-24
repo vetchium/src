@@ -42,9 +42,10 @@ export interface Applicant {
 export function seedApplicant(
   request: APIRequestContext,
   tenant: TestTenant,
+  displayName = "Ada Applicant",
 ): Applicant {
   const email = `e2e+${randomUUID()}@e2e-provider-work.example.test`;
-  const seeded = seedActiveHubUser(tenant, email, "Ada Applicant");
+  const seeded = seedActiveHubUser(tenant, email, displayName);
   const applicant: Applicant = {
     tenant,
     email,
@@ -118,6 +119,7 @@ export async function apply(
   domain: string,
   openingNumber: number,
   referralAgencyDomain?: string,
+  coverNote?: string,
 ): Promise<ApplicationReference> {
   const applied = await applicant.hub.applyToOpening(
     {
@@ -126,6 +128,7 @@ export async function apply(
       ...(referralAgencyDomain
         ? { referral_agency_domain: referralAgencyDomain }
         : {}),
+      ...(coverNote ? { cover_note: coverNote } : {}),
     },
     { token: applicant.token, idempotencyKey: hubIdempotencyKey() },
   );
