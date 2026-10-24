@@ -172,6 +172,7 @@ export function ApplicationDetailPage() {
             ) : null}
             <InterviewsCard
               reference={reference}
+              orgName={application.org_display_name}
               interviews={application.interviews}
             />
             {application.background_check_consent !== undefined ? (

@@ -983,7 +983,8 @@ CREATE TABLE vetchium.hub_email_outbox (
         'application-offer-extended',
         'application-offer-withdrawn',
         'application-offer-expiring',
-        'application-offer-expired'
+        'application-offer-expired',
+        'agency-message-received'
     )),
     recipient_email_address text NOT NULL,
     preferred_language vetchium.hub_frontend_locale NOT NULL,

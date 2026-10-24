@@ -1,5 +1,7 @@
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { OpeningContentView } from "@vetchium/portal-ui/openings";
 import { Alert, Button, Skeleton, Space, Typography } from "antd";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
 import { isOrgDomain, normalizeOrgDomain } from "typespec/orgs/types";
@@ -9,9 +11,11 @@ import {
   OrgUnavailableError,
 } from "typespec/problem/hub/openings";
 import { isProblem } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { NoIndex } from "../components/common/NoIndex";
 import { useMyApplicationsQuery } from "../features/applications/queries";
+import { useConversationsQuery } from "../features/messages/queries";
 import { openingContentPresentation } from "../features/openings/presentation";
 import { useOrgOpeningQuery } from "../features/openings/queries";
 import { applicationPath } from "./ApplicationsPage";
@@ -19,6 +23,8 @@ import { OrgHeader } from "./OrgPage";
 
 export function OrgOpeningPage() {
   const { t, i18n } = useTranslation();
+  const { date } = useDateTimeFormat();
+  const auth = useAuth();
   const params = useParams();
   const domain = normalizeOrgDomain(params.domain ?? "");
   const number = Number(params.number);
@@ -30,6 +36,26 @@ export function OrgOpeningPage() {
   const result = useOrgOpeningQuery(domain, number, valid);
   const presentation = openingContentPresentation(t, i18n.language);
   const applications = useMyApplicationsQuery(valid);
+  const conversations = useConversationsQuery(auth.authenticated);
+
+  const suggestion = useMemo(() => {
+    if (!conversations.data) return null;
+    for (const c of conversations.data.items) {
+      const match = c.suggestions.find(
+        (s) => s.consumer_domain === domain && s.opening_number === number,
+      );
+      if (match) {
+        return {
+          contact_id: c.contact_id,
+          agency_display_name: c.agency_display_name,
+          agency_domain: c.agency_domain,
+          sent_at: match.sent_at,
+        };
+      }
+    }
+    return null;
+  }, [conversations.data, domain, number]);
+
   const applied = applications.data?.find(
     (application) =>
       application.org_domain === domain &&
@@ -74,12 +100,38 @@ export function OrgOpeningPage() {
               <Skeleton.Button active aria-label={t("orgPage.loading")} />
             ) : (
               <Link
-                to={`/org/${encodeURIComponent(domain)}/openings/${number}/apply`}
+                to={
+                  suggestion
+                    ? `/org/${encodeURIComponent(domain)}/openings/${number}/apply?referred_by=${encodeURIComponent(suggestion.agency_domain)}`
+                    : `/org/${encodeURIComponent(domain)}/openings/${number}/apply`
+                }
               >
                 <Button type="primary">{t("orgPage.apply")}</Button>
               </Link>
             )
           ) : null}
+          {suggestion !== null && applied === undefined && (
+            <Alert
+              type="info"
+              showIcon
+              message={t("orgPage.agencySuggestedTitle", {
+                agency: suggestion.agency_display_name,
+              })}
+              description={
+                <span>
+                  {t("orgPage.agencySuggestedBody", {
+                    date: date(suggestion.sent_at, "medium"),
+                  })}{" "}
+                  <Link
+                    to={`/messages/${encodeURIComponent(suggestion.contact_id)}`}
+                  >
+                    {t("orgPage.yourConversation")}
+                  </Link>
+                  . {t("orgPage.agencySuggestedCredit")}
+                </span>
+              }
+            />
+          )}
           {result.data.opening.state === "published" ? (
             <OpeningContentView
               content={result.data.opening.content}

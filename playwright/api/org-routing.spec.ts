@@ -5,9 +5,7 @@ import type {
   ListApplicationHistoryResponse,
   ListApplicationsResponse,
 } from "typespec/orgs/applications/applications";
-import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import type { OpeningProviders } from "typespec/orgs/marketplace/assignments";
-import type { Capability } from "typespec/orgs/marketplace/capabilities";
 import type { Listing } from "typespec/orgs/marketplace/listings";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { expectProblem } from "../lib/admin-api.ts";
@@ -25,21 +23,18 @@ import {
   detailOf,
   publishedOpening,
   seedApplication,
-  shortlist,
   stageOf,
 } from "../lib/orgs-applications.ts";
 import {
   activate,
   asConsumer,
   asProvider,
-  type Pair,
   problems,
   propose,
   setOrgHome,
   withPair,
 } from "../lib/orgs-marketplace.ts";
 import {
-  allCapabilities,
   assign,
   candidate,
   route,

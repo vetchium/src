@@ -251,6 +251,7 @@ func ReplyToConversation(s *hubruntime.Server) http.HandlerFunc {
 	}
 }
 
+//vetchium:multiple-commits sends the federation command to the agency authority, then updates the local pointer on success
 func DeleteConversation(s *hubruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request hubmessages.DeleteConversationRequest
@@ -316,6 +317,11 @@ func DeleteConversation(s *hubruntime.Server) http.HandlerFunc {
 
 		switch outcome.State {
 		case commands.StateSucceeded:
+			_, _ = s.Queries.MarkHubAgencyPointerConversationDeleted(r.Context(), sqlc.MarkHubAgencyPointerConversationDeletedParams{
+				ContactID:  contactID,
+				HubUserDid: identity.UserDID,
+				TenantID:   s.TenantID,
+			})
 			w.Header().Set("Cache-Control", "no-store")
 			s.Empty(r.Context(), w, http.StatusOK)
 		case commands.StateFailed:
@@ -360,6 +366,7 @@ func MarkConversationRead(s *hubruntime.Server) http.HandlerFunc {
 		if _, err := s.Queries.MarkHubAgencyPointerRead(r.Context(), sqlc.MarkHubAgencyPointerReadParams{
 			ContactID:  contactID,
 			HubUserDid: identity.UserDID,
+			TenantID:   s.TenantID,
 		}); err != nil {
 			s.InternalError(r.Context(), w, "mark pointer read", err)
 			return

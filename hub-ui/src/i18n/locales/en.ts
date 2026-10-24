@@ -13,6 +13,9 @@ export const en = {
     applications: "Applications",
     applicationsNeedAnswer_one: "{{count}} application needs your answer",
     applicationsNeedAnswer_other: "{{count}} applications need your answer",
+    messages: "Messages",
+    messagesUnread_one: "{{count}} unread message",
+    messagesUnread_other: "{{count}} unread messages",
     menu: "Navigation",
     openMenu: "Open navigation",
     home: "Home",
@@ -223,6 +226,9 @@ export const en = {
     title: "Your addresses",
     privacyNote:
       "Other Hub users cannot see these addresses or their domains. Employers and recruitment agencies that search for candidates may see the domains of your verified addresses, but never the addresses themselves.",
+    whatAgenciesSeeTitle: "What agencies see",
+    whatAgenciesSeeBody:
+      "Agencies that view your profile see each verified domain with the month and year you first and last verified it — for example grab.com, Mar 2023 – Oct 2026. They never see the addresses.",
     addButton: "Add email",
     addTitle: "Add professional email",
     addressLabel: "Professional email address",
@@ -493,6 +499,12 @@ export const en = {
     jobCountriesHelp:
       "Choose up to 10 countries. Leave empty to explore all countries. Changing residence does not change these preferences.",
     saved: "Your preference was saved.",
+    agencyMessagesTitle: "Agency messages",
+    agenciesMayMessage: "Agencies may message me",
+    agenciesMayMessageHelp1:
+      "Recruitment agencies on Vetchium can start a conversation with you and suggest Openings. They never see your email address.",
+    agenciesMayMessageHelp2:
+      "Turning this off makes all your agency conversations read-only and stops new ones. Agencies can still view your profile.",
   },
   workEmails: {
     documentTitle: "Professional emails | Vetchium",
@@ -570,6 +582,10 @@ export const en = {
     search: "Search",
     backToOpenings: "All openings",
     notAccepting: "This opening is not accepting applications.",
+    agencySuggestedTitle: "{{agency}} suggested this Opening to you",
+    agencySuggestedBody: "On {{date}} in",
+    yourConversation: "your conversation",
+    agencySuggestedCredit: "You can credit them when you apply.",
     remoteWorldwide: "Worldwide",
     experienceRange: "{{min}}–{{max}} years",
     experienceMin: "From {{min}} years",
@@ -680,6 +696,8 @@ export const en = {
       yourNote: "Your note: {{note}}",
       accept: "Accept",
       requestAnotherTime: "Request another time",
+      performedBy:
+        "This interview is performed by {{provider}} ({{domain}}) for {{org}}.",
     },
     reschedule: {
       title: "Request another time",
@@ -695,8 +713,11 @@ export const en = {
       decline: "Decline",
       declineTitle: "Decline consent?",
       declineBody: "No check will be recorded. {{org}} decides what follows.",
+      disclosureTitle: "{{provider}}'s disclosure",
       performer: {
         org: "Performed by {{org}}.",
+        provider:
+          "This background check is performed by {{provider}} ({{domain}}) for {{org}}.",
         other: "Performed on behalf of {{org}}.",
       },
     },
@@ -761,6 +782,17 @@ export const en = {
       label: "Cover note (optional)",
       invalid: "Keep the note within 5,000 characters.",
       placeholder: "Why this role, and anything your profile doesn't say.",
+    },
+    referredBy: {
+      title: "Referred by",
+      description:
+        "If an agency helped you find this Opening, choose it and it is credited with your application. Choosing no agency is fine.",
+      noAgency: "No agency",
+      suggestedOn: "suggested this Opening on {{date}}",
+      anotherAgency: "Another agency",
+      agencyDomain: "Agency's domain",
+      notEligible:
+        "{{domain}} isn't an agency working on this Opening. Check the domain, or choose another agency or none.",
     },
     submit: "Submit application",
     once: "You can apply once to each opening. You can withdraw later, but you can't apply again.",
@@ -888,6 +920,40 @@ export const en = {
     paymentsTitle: "Payments",
     paymentsBody:
       "Vetchium plans are not yet billed. When payments are enabled, payment terms covering pricing, billing periods, refunds, and cancellations will be published here before any payment is taken.",
+  },
+  messages: {
+    documentTitle: "Messages | Vetchium",
+    title: "Messages",
+    subtitle:
+      "Agencies that contacted you about Openings. Reply, or delete a conversation to remove it for both of you.",
+    agency: "Agency",
+    empty:
+      "No messages yet. When recruitment agencies reach out about Openings, your conversations appear here.",
+    loading: "Loading conversation…",
+    selectPrompt: "Select a conversation to read.",
+    delete: "Delete",
+    deleteConfirmTitle: "Delete conversation?",
+    deleteConfirmBody:
+      "This deletes the conversation and opening suggestions for both of you. The agency's notes remain.",
+    deleteAction: "Delete conversation",
+    unavailableTitle: "We couldn't load this conversation",
+    unavailableBody:
+      "{{agency}}'s region didn't answer. Your messages are safe; try again in a moment.",
+    tryAgain: "Try again",
+    you: "You",
+    openingSuggestion: "Opening suggestion",
+    openingUnavailable: "Opening unavailable",
+    viewAndApply: "View and apply",
+    readOnlyTitle: "Conversation is read-only",
+    readOnlyBody: "This conversation is read-only.",
+    readOnlyPreferencesBody:
+      "This conversation is read-only because agency messages are turned off in your preferences.",
+    preferencesLink: "Open preferences",
+    replyPlaceholder: "Write a reply",
+    emailPrivateNotice: "Agencies never see your email address.",
+    send: "Send",
+    snippetSuggestion: "Opening suggestion",
+    snippetConversation: "Conversation with agency",
   },
 } as const;
 

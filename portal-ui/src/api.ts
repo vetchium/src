@@ -131,7 +131,11 @@ export function createPortalAPIClient(config: PortalAPIClientConfiguration) {
         return undefined as Response;
       }
     }
-    return (await response.json()) as Response;
+    const text = await response.text();
+    if (!text) {
+      return undefined as Response;
+    }
+    return JSON.parse(text) as Response;
   };
 
   return { isRecentAuthenticationRequired, request };

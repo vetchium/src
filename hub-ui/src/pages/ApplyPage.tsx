@@ -1,5 +1,7 @@
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Alert,
+  Avatar,
   Breadcrumb,
   Button,
   Card,
@@ -7,21 +9,28 @@ import {
   Descriptions,
   Form,
   Input,
+  Radio,
   Row,
   Space,
   Spin,
   Typography,
 } from "antd";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
   isApplicationCoverNote,
   maxCoverNote,
 } from "typespec/orgs/applications/applications";
-import { isOrgDomain, normalizeOrgDomain } from "typespec/orgs/types";
+import {
+  isOrgDomain,
+  normalizeOrgDomain,
+  type OrgDomain,
+} from "typespec/orgs/types";
 import {
   ApplicationExistsError,
   OpeningNotAcceptingError,
+  ReferralAgencyNotEligibleError,
 } from "typespec/problem/hub/applications";
 import {
   OpeningNotFoundError,
@@ -34,6 +43,7 @@ import { NoIndex } from "../components/common/NoIndex";
 import { ActionError } from "../features/applications/ActionError";
 import { useApplicationAction } from "../features/applications/actions";
 import { useMyApplicationsQuery } from "../features/applications/queries";
+import { useConversationsQuery } from "../features/messages/queries";
 import { useOrgOpeningQuery } from "../features/openings/queries";
 import {
   useMyInfoQuery,
@@ -41,13 +51,45 @@ import {
 } from "../features/profile/queries";
 import { applicationPath } from "./ApplicationsPage";
 
+const avatarColors = [
+  "#1677ff",
+  "#722ed1",
+  "#13c2c2",
+  "#52c41a",
+  "#eb2f96",
+  "#fa8c16",
+  "#faad14",
+  "#2f54eb",
+];
+
+function avatarColor(text: string): string {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = (hash << 5) - hash + text.charCodeAt(i);
+    hash |= 0;
+  }
+  return avatarColors[Math.abs(hash) % avatarColors.length] ?? "#1677ff";
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const first = parts[0];
+  if (!first) return "A";
+  if (parts.length === 1) return first.slice(0, 2).toUpperCase();
+  const last = parts[parts.length - 1];
+  if (!last) return first.slice(0, 2).toUpperCase();
+  return ((first[0] ?? "") + (last[0] ?? "")).toUpperCase() || "A";
+}
+
 interface ApplyForm {
   cover_note?: string;
 }
 
 export function ApplyPage() {
   const { t } = useTranslation();
+  const { date } = useDateTimeFormat();
   const params = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const domain = normalizeOrgDomain(params.domain ?? "");
   const number = Number(params.number);
@@ -60,15 +102,66 @@ export function ApplyPage() {
   const me = useMyInfoQuery();
   const profile = usePublicProfileQuery(me.data?.handle ?? "", me.isSuccess);
   const applications = useMyApplicationsQuery();
-  const apply = useApplicationAction((coverNote: string | undefined, key) =>
-    hubAPI.applyToOpening(
-      {
-        domain,
-        opening_number: number,
-        ...(coverNote !== undefined && { cover_note: coverNote }),
-      },
-      key,
-    ),
+  const conversations = useConversationsQuery();
+
+  const referredByParam = searchParams.get("referred_by")?.trim() ?? "";
+
+  const suggestedAgencies = useMemo(() => {
+    if (!conversations.data) return [];
+    const list: {
+      agency_display_name: string;
+      agency_domain: OrgDomain;
+      agency_logo_url?: string;
+      sent_at: string;
+    }[] = [];
+    for (const c of conversations.data.items) {
+      const match = c.suggestions.find(
+        (s) => s.consumer_domain === domain && s.opening_number === number,
+      );
+      if (match) {
+        list.push({
+          agency_display_name: c.agency_display_name,
+          agency_domain: c.agency_domain,
+          agency_logo_url: c.agency_logo_url,
+          sent_at: match.sent_at,
+        });
+      }
+    }
+    return list;
+  }, [conversations.data, domain, number]);
+
+  const [referralChoice, setReferralChoice] = useState<string>("none");
+  const [otherDomain, setOtherDomain] = useState<string>("");
+
+  useEffect(() => {
+    if (referredByParam) {
+      const match = suggestedAgencies.find(
+        (a) => a.agency_domain.toLowerCase() === referredByParam.toLowerCase(),
+      );
+      if (match) {
+        setReferralChoice(match.agency_domain);
+      } else {
+        setReferralChoice("other");
+        setOtherDomain(referredByParam);
+      }
+    }
+  }, [referredByParam, suggestedAgencies]);
+
+  const apply = useApplicationAction(
+    (request: { coverNote?: string; referralDomain?: OrgDomain }, key) =>
+      hubAPI.applyToOpening(
+        {
+          domain,
+          opening_number: number,
+          ...(request.coverNote !== undefined && {
+            cover_note: request.coverNote,
+          }),
+          ...(request.referralDomain !== undefined && {
+            referral_agency_domain: request.referralDomain,
+          }),
+        },
+        key,
+      ),
   );
   const existing = applications.data?.find(
     (a) => a.org_domain === domain && a.opening_number === number,
@@ -78,6 +171,9 @@ export function ApplyPage() {
     (apply.isError && isProblem(apply.error, ApplicationExistsError.type));
   const notAccepting =
     apply.isError && isProblem(apply.error, OpeningNotAcceptingError.type);
+  const referralNotEligible =
+    apply.isError &&
+    isProblem(apply.error, ReferralAgencyNotEligibleError.type);
   const openingPath = `/org/${encodeURIComponent(domain)}/openings/${number}`;
 
   const notFound =
@@ -161,19 +257,31 @@ export function ApplyPage() {
           layout="vertical"
           onFinish={(values) => {
             const note = values.cover_note?.trim();
-            apply.mutate(note === undefined || note === "" ? undefined : note, {
-              onSuccess: (reference) => {
-                if ("application_number" in reference) {
-                  void navigate(
-                    applicationPath({
-                      org_domain: reference.domain,
-                      opening_number: reference.opening_number,
-                      application_number: reference.application_number,
-                    }),
-                  );
-                }
+            const referral =
+              referralChoice === "none"
+                ? undefined
+                : referralChoice === "other"
+                  ? otherDomain.trim() || undefined
+                  : referralChoice;
+            apply.mutate(
+              {
+                coverNote: note === undefined || note === "" ? undefined : note,
+                referralDomain: referral as OrgDomain | undefined,
               },
-            });
+              {
+                onSuccess: (reference) => {
+                  if ("application_number" in reference) {
+                    void navigate(
+                      applicationPath({
+                        org_domain: reference.domain,
+                        opening_number: reference.opening_number,
+                        application_number: reference.application_number,
+                      }),
+                    );
+                  }
+                },
+              },
+            );
           }}
         >
           <Row gutter={[24, 24]}>
@@ -252,6 +360,101 @@ export function ApplyPage() {
                     />
                   </Form.Item>
                 </Card>
+                <Card title={t("apply.referredBy.title")}>
+                  <Space
+                    orientation="vertical"
+                    size="middle"
+                    className="full-width"
+                  >
+                    <Typography.Paragraph
+                      type="secondary"
+                      style={{ margin: 0 }}
+                    >
+                      {t("apply.referredBy.description")}
+                    </Typography.Paragraph>
+                    <Radio.Group
+                      value={referralChoice}
+                      onChange={(e) => setReferralChoice(e.target.value)}
+                    >
+                      <Space orientation="vertical" size="middle">
+                        <Radio value="none">
+                          {t("apply.referredBy.noAgency")}
+                        </Radio>
+                        {suggestedAgencies.map((agency) => (
+                          <Radio
+                            key={agency.agency_domain}
+                            value={agency.agency_domain}
+                          >
+                            <Space align="center">
+                              {agency.agency_logo_url ? (
+                                <Avatar
+                                  shape="square"
+                                  size={24}
+                                  src={agency.agency_logo_url}
+                                />
+                              ) : (
+                                <Avatar
+                                  shape="square"
+                                  size={24}
+                                  style={{
+                                    backgroundColor: avatarColor(
+                                      agency.agency_display_name,
+                                    ),
+                                    fontSize: 11,
+                                    fontWeight: "bold",
+                                  }}
+                                >
+                                  {initials(agency.agency_display_name)}
+                                </Avatar>
+                              )}
+                              <Typography.Text strong>
+                                {agency.agency_display_name}
+                              </Typography.Text>
+                              <Typography.Text type="secondary">
+                                ·{" "}
+                                {t("apply.referredBy.suggestedOn", {
+                                  date: date(agency.sent_at, "medium"),
+                                })}
+                              </Typography.Text>
+                            </Space>
+                          </Radio>
+                        ))}
+                        <Radio value="other">
+                          {t("apply.referredBy.anotherAgency")}
+                        </Radio>
+                      </Space>
+                    </Radio.Group>
+                    {referralChoice === "other" && (
+                      <div style={{ marginLeft: 24, maxWidth: 360 }}>
+                        <Typography.Text
+                          style={{ display: "block", marginBottom: 4 }}
+                        >
+                          {t("apply.referredBy.agencyDomain")}
+                        </Typography.Text>
+                        <Input
+                          placeholder="agency.example"
+                          value={otherDomain}
+                          status={referralNotEligible ? "error" : undefined}
+                          onChange={(e) => setOtherDomain(e.target.value)}
+                        />
+                        {referralNotEligible && (
+                          <Typography.Text
+                            type="danger"
+                            style={{
+                              display: "block",
+                              marginTop: 4,
+                              fontSize: 13,
+                            }}
+                          >
+                            {t("apply.referredBy.notEligible", {
+                              domain: otherDomain.trim() || referralChoice,
+                            })}
+                          </Typography.Text>
+                        )}
+                      </div>
+                    )}
+                  </Space>
+                </Card>
               </Space>
             </Col>
             <Col xs={24} lg={8}>
@@ -278,7 +481,7 @@ export function ApplyPage() {
                       showIcon
                       title={t("orgPage.notAccepting")}
                     />
-                  ) : (
+                  ) : referralNotEligible ? null : (
                     <ActionError error={apply.error} />
                   )}
                 </Space>

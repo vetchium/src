@@ -45,6 +45,15 @@ import type {
 } from "typespec/hub/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";
 import type {
+  DeleteConversationRequest,
+  GetConversationRequest,
+  HubConversationDetail,
+  ListConversationsRequest,
+  ListConversationsResponse,
+  MarkConversationReadRequest,
+  ReplyToConversationRequest,
+} from "typespec/hub/messages/messages";
+import type {
   GetOrgOpeningRequest,
   GetOrgOpeningResponse,
   ListOrgOpeningsRequest,
@@ -83,10 +92,12 @@ import type {
 } from "typespec/hub/subscriptions/subscriptions";
 import type {
   MyInfoResponse,
+  SetAgenciesMayMessageRequest,
   SetPreferredJobCountriesRequest,
   SetPreferredLanguageRequest,
   SetResidentCountryRequest,
 } from "typespec/hub/users/profile";
+import type { ConversationMessage } from "typespec/orgs/marketplace/contacts/contacts";
 import { apiRequest } from "./client";
 
 const base = "/api/hub";
@@ -439,4 +450,30 @@ export const hubAPI = {
       `${base}/regenerate-totp-recovery-codes`,
       { method: "POST", idempotencyKey },
     ),
+  listConversations: (body: ListConversationsRequest = {}) =>
+    apiRequest<ListConversationsResponse>(`${base}/list-conversations`, {
+      body,
+    }),
+  getConversation: (body: GetConversationRequest) =>
+    apiRequest<HubConversationDetail>(`${base}/get-conversation`, { body }),
+  replyToConversation: (
+    body: ReplyToConversationRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ConversationMessage | PendingOperation>(
+      `${base}/reply-to-conversation`,
+      { body, idempotencyKey },
+    ),
+  deleteConversation: (
+    body: DeleteConversationRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<PendingOperation | null>(`${base}/delete-conversation`, {
+      body,
+      idempotencyKey,
+    }),
+  markConversationRead: (body: MarkConversationReadRequest) =>
+    apiRequest<void>(`${base}/mark-conversation-read`, { body }),
+  setAgenciesMayMessage: (body: SetAgenciesMayMessageRequest) =>
+    apiRequest<void>(`${base}/set-agencies-may-message`, { body }),
 };

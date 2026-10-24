@@ -1,3 +1,4 @@
+import { SafetyCertificateOutlined } from "@ant-design/icons";
 import { Button, Card, Modal, Space, Tag, Typography } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -43,14 +44,42 @@ export function ConsentCard({
             <Tag key={type}>{t(`applications.checkTypes.${type}`, type)}</Tag>
           ))}
         </Space>
-        <Typography.Text type="secondary">
-          {t(`applications.consent.performer.${consent.performer}`, {
-            org: orgName,
-            defaultValue: t("applications.consent.performer.other", {
+        {consent.provider ? (
+          <Space align="start">
+            <SafetyCertificateOutlined
+              style={{ color: "#8c8c8c", marginTop: 4 }}
+            />
+            <Typography.Text type="secondary">
+              {t("applications.consent.performer.provider", {
+                provider: consent.provider.display_name,
+                domain: consent.provider.domain,
+                org: orgName,
+              })}
+            </Typography.Text>
+          </Space>
+        ) : (
+          <Typography.Text type="secondary">
+            {t(`applications.consent.performer.${consent.performer}`, {
               org: orgName,
-            }),
-          })}
-        </Typography.Text>
+              defaultValue: t("applications.consent.performer.other", {
+                org: orgName,
+              }),
+            })}
+          </Typography.Text>
+        )}
+        {consent.disclosure && (
+          <Card
+            size="small"
+            title={t("applications.consent.disclosureTitle", {
+              provider: consent.provider?.display_name ?? orgName,
+            })}
+            style={{ backgroundColor: "#fafafa" }}
+          >
+            <Typography.Paragraph style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+              {consent.disclosure}
+            </Typography.Paragraph>
+          </Card>
+        )}
         <Space wrap>
           <Button
             type="primary"

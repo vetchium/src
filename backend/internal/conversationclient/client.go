@@ -76,13 +76,13 @@ func (c *Client) PeerRead(
 func (c *Client) peerEndpoint(
 	tenant directoryspec.TenantID, operation string,
 ) (string, *tls.Config, error) {
-	if c.baseTLS == nil {
-		return "", nil, errors.New("peer calls require TLS configuration")
+	if !directoryspec.IsTenantID(tenant) || c.baseTLS == nil {
+		return "", nil, fmt.Errorf("%w: invalid peer configuration", ErrInvalidResponse)
 	}
-	name := fmt.Sprintf("%s.api.vetchium.internal", tenant)
+	name := string(tenant) + ".mesh.vetchium.com"
 	tlsConfig := c.baseTLS.Clone()
 	tlsConfig.ServerName = name
-	return fmt.Sprintf("https://%s/api/mesh/conversations/%s", name, operation), tlsConfig, nil
+	return "https://" + name + ":8443/api/mesh/conversations/" + operation, tlsConfig, nil
 }
 
 func (c *Client) read(

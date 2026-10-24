@@ -3,6 +3,7 @@ import {
   HomeOutlined,
   IdcardOutlined,
   MailOutlined,
+  MessageOutlined,
   SafetyOutlined,
   SettingOutlined,
   UserOutlined,
@@ -23,6 +24,7 @@ import {
   needsAnswer,
   useMyApplicationsQuery,
 } from "../../features/applications/queries";
+import { useConversationsQuery } from "../../features/messages/queries";
 import {
   type MyInfoQueryData,
   myInfoQueryKey,
@@ -32,6 +34,7 @@ import { SubscriptionEndingAlert } from "../../features/subscriptions/Subscripti
 
 const navigationPaths = [
   "/applications",
+  "/messages",
   "/settings/profile",
   "/settings/security",
   "/settings/preferences",
@@ -48,7 +51,10 @@ export function AppShell() {
   const queryClient = useQueryClient();
   const { data: me } = useMyInfoQuery();
   const applications = useMyApplicationsQuery();
+  const conversations = useConversationsQuery(auth.authenticated);
   const answerNeeded = applications.data?.filter(needsAnswer).length ?? 0;
+  const unreadMessages =
+    conversations.data?.items.filter((c) => c.unread).length ?? 0;
   const languageMutation = useMutation({
     mutationFn: (preferred_language: FrontendLocale) =>
       hubAPI.setPreferredLanguage({ preferred_language }),
@@ -90,6 +96,21 @@ export function AppShell() {
             count={answerNeeded}
             title={t("navigation.applicationsNeedAnswer", {
               count: answerNeeded,
+            })}
+          />
+        </Space>
+      ),
+    },
+    {
+      key: "/messages",
+      icon: <MessageOutlined />,
+      label: (
+        <Space>
+          {t("navigation.messages")}
+          <Badge
+            count={unreadMessages}
+            title={t("navigation.messagesUnread", {
+              count: unreadMessages,
             })}
           />
         </Space>

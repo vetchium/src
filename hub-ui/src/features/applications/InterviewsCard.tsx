@@ -1,4 +1,8 @@
-import { EnvironmentOutlined, VideoCameraOutlined } from "@ant-design/icons";
+import {
+  EnvironmentOutlined,
+  SafetyCertificateOutlined,
+  VideoCameraOutlined,
+} from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { Badge, Button, Card, Space, Tag, Typography } from "antd";
 import { useState } from "react";
@@ -25,9 +29,11 @@ function safeLink(value: string): string | null {
 
 function InterviewItem({
   reference,
+  orgName,
   interview,
 }: {
   reference: ApplicationReference;
+  orgName: string;
   interview: MyApplicationInterview;
 }) {
   const { t } = useTranslation();
@@ -109,6 +115,20 @@ function InterviewItem({
             })}
           </Typography.Text>
         ) : null}
+        {interview.provider && (
+          <Space align="start">
+            <SafetyCertificateOutlined
+              style={{ color: "#8c8c8c", marginTop: 4 }}
+            />
+            <Typography.Text type="secondary">
+              {t("applications.interviews.performedBy", {
+                provider: interview.provider.display_name,
+                domain: interview.provider.domain,
+                org: orgName,
+              })}
+            </Typography.Text>
+          </Space>
+        )}
         {answerable ? (
           <Space wrap>
             <Button
@@ -150,9 +170,11 @@ function InterviewItem({
 
 export function InterviewsCard({
   reference,
+  orgName,
   interviews,
 }: {
   reference: ApplicationReference;
+  orgName: string;
   interviews: MyApplicationInterview[];
 }) {
   const { t } = useTranslation();
@@ -177,6 +199,7 @@ export function InterviewsCard({
           <InterviewItem
             key={interview.interview_number}
             reference={reference}
+            orgName={orgName}
             interview={interview}
           />
         ))}

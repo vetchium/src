@@ -41,6 +41,11 @@ const LoginPage = lazy(() =>
     default: LoginPage,
   })),
 );
+const MessagesPage = lazy(() =>
+  import("../pages/MessagesPage").then(({ MessagesPage }) => ({
+    default: MessagesPage,
+  })),
+);
 const OrgPage = lazy(() =>
   import("../pages/OrgPage").then(({ OrgPage }) => ({ default: OrgPage })),
 );
@@ -226,6 +231,22 @@ export function App() {
             element={
               <Page>
                 <ApplicationDetailPage />
+              </Page>
+            }
+          />
+          <Route
+            path="messages"
+            element={
+              <Page>
+                <MessagesPage />
+              </Page>
+            }
+          />
+          <Route
+            path="messages/:contactId"
+            element={
+              <Page>
+                <MessagesPage />
               </Page>
             }
           />

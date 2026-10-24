@@ -483,11 +483,49 @@ SET agency_org_did = EXCLUDED.agency_org_did,
     pointer_version = EXCLUDED.pointer_version
 WHERE vetchium.hub_agency_pointers.pointer_version <= EXCLUDED.pointer_version;
 
--- name: MarkHubAgencyPointerRead :execrows
-UPDATE vetchium.hub_agency_pointers
-SET unread_count = 0
-WHERE contact_id = sqlc.arg(contact_id)
-  AND hub_user_did = sqlc.arg(hub_user_did);
+-- name: MarkHubAgencyPointerRead :one
+WITH updated AS (
+    UPDATE vetchium.hub_agency_pointers
+    SET unread_count = 0
+    WHERE contact_id = sqlc.arg(contact_id)
+      AND hub_user_did = sqlc.arg(hub_user_did)
+      AND unread_count > 0
+    RETURNING contact_id, hub_user_did
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, source, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'hub.agency-conversation.marked-read',
+        'hub_agency_pointer', updated.contact_id::text, 'hub_user',
+        updated.hub_user_did::text, updated.hub_user_did, 'hub-api',
+        jsonb_build_object('contact_id', updated.contact_id::text)
+    FROM updated
+    RETURNING audit_event_id
+)
+SELECT count(*)::bigint FROM updated;
+
+-- name: MarkHubAgencyPointerConversationDeleted :one
+WITH updated AS (
+    UPDATE vetchium.hub_agency_pointers
+    SET has_conversation = false,
+        unread_count = 0
+    WHERE contact_id = sqlc.arg(contact_id)
+      AND hub_user_did = sqlc.arg(hub_user_did)
+    RETURNING contact_id, hub_user_did
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, source, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'hub.agency-conversation.deleted',
+        'hub_agency_pointer', updated.contact_id::text, 'hub_user',
+        updated.hub_user_did::text, updated.hub_user_did, 'hub-api',
+        jsonb_build_object('contact_id', updated.contact_id::text)
+    FROM updated
+    RETURNING audit_event_id
+)
+SELECT count(*)::bigint FROM updated;
 
 -- name: ListHubAgencyConversations :many
 SELECT contact_id, agency_org_did, agency_display_name, agency_domain,

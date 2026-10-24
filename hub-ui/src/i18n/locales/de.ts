@@ -15,6 +15,9 @@ export const de = {
     applications: "Bewerbungen",
     applicationsNeedAnswer_one: "{{count}} Bewerbung braucht Ihre Antwort",
     applicationsNeedAnswer_other: "{{count}} Bewerbungen brauchen Ihre Antwort",
+    messages: "Nachrichten",
+    messagesUnread_one: "{{count}} ungelesene Nachricht",
+    messagesUnread_other: "{{count}} ungelesene Nachrichten",
     menu: "Navigation",
     openMenu: "Navigation öffnen",
     home: "Startseite",
@@ -239,6 +242,9 @@ export const de = {
     title: "Ihre Adressen",
     privacyNote:
       "Andere Hub-Nutzer sehen weder diese Adressen noch deren Domains. Arbeitgeber und Personalvermittlungen, die nach Kandidaten suchen, sehen möglicherweise die Domains Ihrer bestätigten Adressen, aber nie die Adressen selbst.",
+    whatAgenciesSeeTitle: "Was Agenturen sehen",
+    whatAgenciesSeeBody:
+      "Agenturen, die Ihr Profil ansehen, sehen jede verifizierte Domain mit dem Monat und Jahr der ersten und letzten Verifizierung – zum Beispiel grab.com, Mär 2023 – Okt 2026. Sie sehen die Adressen niemals.",
     addButton: "E-Mail hinzufügen",
     addTitle: "Berufliche E-Mail hinzufügen",
     addressLabel: "Berufliche E-Mail-Adresse",
@@ -521,6 +527,12 @@ export const de = {
     jobCountriesHelp:
       "Wählen Sie bis zu 10 Länder. Ohne Auswahl suchen Sie weltweit. Eine Änderung des Wohnsitzlands ändert diese Auswahl nicht.",
     saved: "Ihre Einstellung wurde gespeichert.",
+    agencyMessagesTitle: "Agenturnachrichten",
+    agenciesMayMessage: "Agenturen dürfen mir Nachrichten senden",
+    agenciesMayMessageHelp1:
+      "Personalvermittlungen auf Vetchium können eine Konversation mit Ihnen beginnen und Stellenausschreibungen vorschlagen. Sie sehen Ihre E-Mail-Adresse niemals.",
+    agenciesMayMessageHelp2:
+      "Wenn Sie dies deaktivieren, werden alle Ihre Agenturkonversationen schreibgeschützt und neue werden verhindert. Agenturen können Ihr Profil weiterhin ansehen.",
   },
   workEmails: {
     documentTitle: "Berufliche E-Mails | Vetchium",
@@ -600,6 +612,11 @@ export const de = {
     search: "Suchen",
     backToOpenings: "Alle Stellen",
     notAccepting: "Diese Stelle nimmt keine Bewerbungen an.",
+    agencySuggestedTitle: "{{agency}} hat Ihnen diese Stelle vorgeschlagen",
+    agencySuggestedBody: "Am {{date}} in",
+    yourConversation: "Ihrer Konversation",
+    agencySuggestedCredit:
+      "Sie können sie bei Ihrer Bewerbung anrechnen lassen.",
     remoteWorldwide: "Weltweit",
     experienceRange: "{{min}}–{{max}} Jahre",
     experienceMin: "Ab {{min}} Jahren",
@@ -710,6 +727,8 @@ export const de = {
       yourNote: "Ihre Nachricht: {{note}}",
       accept: "Zusagen",
       requestAnotherTime: "Anderen Termin erbitten",
+      performedBy:
+        "Dieses Vorstellungsgespräch wird von {{provider}} ({{domain}}) für {{org}} durchgeführt.",
     },
     reschedule: {
       title: "Anderen Termin erbitten",
@@ -726,8 +745,11 @@ export const de = {
       declineTitle: "Einwilligung ablehnen?",
       declineBody:
         "Es wird keine Prüfung erfasst. {{org}} entscheidet, wie es weitergeht.",
+      disclosureTitle: "Offenlegung von {{provider}}",
       performer: {
         org: "Durchgeführt von {{org}}.",
+        provider:
+          "Diese Zuverlässigkeitsüberprüfung wird von {{provider}} ({{domain}}) für {{org}} durchgeführt.",
         other: "Im Auftrag von {{org}} durchgeführt.",
       },
     },
@@ -793,6 +815,17 @@ export const de = {
       label: "Anschreiben (optional)",
       invalid: "Das Anschreiben darf höchstens 5.000 Zeichen lang sein.",
       placeholder: "Warum diese Stelle, und was Ihr Profil nicht sagt.",
+    },
+    referredBy: {
+      title: "Empfohlen von",
+      description:
+        "Wenn eine Agentur Ihnen geholfen hat, diese Stelle zu finden, wählen Sie sie aus und sie wird Ihrer Bewerbung angerechnet. Keine Agentur auszuwählen ist völlig in Ordnung.",
+      noAgency: "Keine Agentur",
+      suggestedOn: "hat diese Stelle am {{date}} vorgeschlagen",
+      anotherAgency: "Eine andere Agentur",
+      agencyDomain: "Domain der Agentur",
+      notEligible:
+        "{{domain}} ist keine Agentur, die an dieser Stelle arbeitet. Prüfen Sie die Domain oder wählen Sie eine andere Agentur oder keine.",
     },
     submit: "Bewerbung absenden",
     once: "Sie können sich auf jede Stelle nur einmal bewerben. Sie können später zurückziehen, sich aber nicht erneut bewerben.",
@@ -920,5 +953,39 @@ export const de = {
     paymentsTitle: "Zahlungen",
     paymentsBody:
       "Vetchium-Tarife werden noch nicht abgerechnet. Sobald Zahlungen aktiviert sind, werden hier Zahlungsbedingungen zu Preisen, Abrechnungszeiträumen, Erstattungen und Kündigungen veröffentlicht, bevor eine Zahlung erfolgt.",
+  },
+  messages: {
+    documentTitle: "Nachrichten | Vetchium",
+    title: "Nachrichten",
+    subtitle:
+      "Personalvermittlungen, die Sie bezüglich Stellenausschreibungen kontaktiert haben. Antworten Sie oder löschen Sie eine Konversation, um sie für beide Seiten zu entfernen.",
+    agency: "Agentur",
+    empty:
+      "Noch keine Nachrichten. Wenn sich Personalvermittlungen bezüglich Stellenausschreibungen melden, erscheinen Ihre Konversationen hier.",
+    loading: "Konversation wird geladen…",
+    selectPrompt: "Wählen Sie eine Konversation zum Lesen aus.",
+    delete: "Löschen",
+    deleteConfirmTitle: "Konversation löschen?",
+    deleteConfirmBody:
+      "Dadurch werden die Konversation und Stellenvorschläge für beide Seiten gelöscht. Die Notizen der Agentur bleiben erhalten.",
+    deleteAction: "Konversation löschen",
+    unavailableTitle: "Wir konnten diese Konversation nicht laden",
+    unavailableBody:
+      "Die Region von {{agency}} hat nicht geantwortet. Ihre Nachrichten sind sicher; versuchen Sie es gleich noch einmal.",
+    tryAgain: "Erneut versuchen",
+    you: "Sie",
+    openingSuggestion: "Stellenvorschlag",
+    openingUnavailable: "Stellenausschreibung nicht verfügbar",
+    viewAndApply: "Ansehen und bewerben",
+    readOnlyTitle: "Konversation ist schreibgeschützt",
+    readOnlyBody: "Diese Konversation ist schreibgeschützt.",
+    readOnlyPreferencesBody:
+      "Diese Konversation ist schreibgeschützt, da Agenturnachrichten in Ihren Einstellungen deaktiviert sind.",
+    preferencesLink: "Einstellungen öffnen",
+    replyPlaceholder: "Antwort schreiben",
+    emailPrivateNotice: "Agenturen sehen Ihre E-Mail-Adresse niemals.",
+    send: "Senden",
+    snippetSuggestion: "Stellenvorschlag",
+    snippetConversation: "Konversation mit Agentur",
   },
 } as const satisfies LocaleResource;
