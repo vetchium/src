@@ -130,7 +130,7 @@ Each item: what is not done, and what must be decided first.
 
 ## Hiring pipeline and marketplace
 
-Specified in `hiring-pipeline.md` and `marketplace.md`; not built. Deferred:
+Deferred:
 
 - Applicants without a Hub account (credited per MKT-SRC-008, or through an
   Opening invite URL). Decide identity proof, consent

@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { screens as hiringMarketplace } from "./hiring-marketplace/screens";
 
 /** The gallery groups screens by the part of `title` before " · ". */
 export interface Screen {
@@ -11,8 +10,6 @@ export interface Screen {
 }
 
 /** One entry per spec; capture.mjs writes each to mockups/<spec>/. */
-export const specs: Record<string, Screen[]> = {
-  "hiring-marketplace": hiringMarketplace,
-};
+export const specs: Record<string, Screen[]> = {};
 
 export const screens: Screen[] = Object.values(specs).flat();

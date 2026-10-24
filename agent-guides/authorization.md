@@ -44,9 +44,12 @@ the same shape rather than invent a second one.
   `DirectPermissions` before writing.
 - Build screens from the catalog, never a fixed list of access levels — a tier
   such as "manager" or "viewer" stops meaning anything once a second unrelated
-  permission exists. The one exception is the Org role presets (Superadmin,
-  Finance, User manager, Recruiter, Hiring approver, Vendor manager,
-  Provider staff, Member): a preset only
+  permission exists. The one exception is the Org role presets: Superadmin
+  (`org:superadmin`), Finance (`org:manage_billing`), User manager
+  (`org:manage_users`), Recruiter (`org:manage_openings`,
+  `org:manage_candidacies`), Hiring approver (`org:approve_openings`), Vendor
+  manager (`org:manage_providers`), Provider staff (`org:fulfil_engagements`),
+  and Member (no permissions). A preset only
   pre-ticks the catalog checkboxes, which stay authoritative. A member whose
   grants match no preset is labelled Custom. The label is derived in the
   portal, never stored.

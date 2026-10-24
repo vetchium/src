@@ -238,9 +238,14 @@ by the `workers` schedule and check-now.
   step, Google sign-in and its callback, forgot and reset password, the
   signed-in shell, account security, the failing banner, and the suspended
   (restore-domain) screen, plus members and invitations, plans and billing,
-  Company (name, country, default language, and logo), Organization security (Google sign-in),
-  Openings lists, editing (with Draft with AI), requests, approvals, and
-  history, and AI (settings, credits, and usage; [`ai.md`](ai.md)).
+  Company (name, country, default language, and logo), Organization security
+  (Google sign-in), Openings lists, editing (with Draft with AI), requests,
+  approvals, and history, pipeline templates, Applicants, Candidates, and
+  application detail (interviews, feedback, assessments, background checks,
+  offers, joining), Find providers, engagements, Opening providers, and routing,
+  Listings, Clients, and Work queue, agency Jobs, Contacts (notes and
+  conversations), and Credited applications, and AI (settings, credits, and
+  usage; [`ai.md`](ai.md)).
 - The Company page edits the display name, country, and default language in
   one `set-company-details` request (`org:superadmin`). It replaces all three,
   writes no row and no audit event when nothing changed, and otherwise audits
