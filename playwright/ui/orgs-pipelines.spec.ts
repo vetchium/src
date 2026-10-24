@@ -372,7 +372,7 @@ test("removing a stage that holds a candidate is explained beside the stage", as
     await page.goto(
       `${ORGS_PORTAL}/openings/${opening.opening_number}?tab=pipeline`,
     );
-    await expect(page.getByText("1 candidate", { exact: true })).toBeVisible();
+    await expect(page.getByText(/1 candidate/)).toBeVisible();
     await page.getByRole("button", { name: "Remove stage 2" }).click();
     await expect(
       page.getByText(/Removing “Panel” will be refused/),

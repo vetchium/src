@@ -51,6 +51,8 @@ model GetActivityStatementResponse {
   next_pagination_key?: Vetchium.PaginationKey;
 }
 
+@route("/api/orgs")
+@tag("Org marketplace statements")
 interface StatementsOperations {
   /** Reads one engagement's monthly activity statement as the consumer. */
   @route("/get-engagement-statement")
@@ -67,6 +69,7 @@ interface StatementsOperations {
         @body body: GetActivityStatementResponse;
       }
     | EngagementBaseErrors
+    | Vetchium.Problem.InvalidPaginationKeyErrorResponse
     | Vetchium.Problem.OrgEngagementNotFoundErrorResponse;
 
   /** Reads one engagement's monthly activity statement as the provider; read live from the consumer tenant. */
@@ -84,6 +87,7 @@ interface StatementsOperations {
         @body body: GetActivityStatementResponse;
       }
     | EngagementBaseErrors
+    | Vetchium.Problem.InvalidPaginationKeyErrorResponse
     | Vetchium.Problem.OrgEngagementNotFoundErrorResponse
     | Vetchium.Problem.OrgTenantUnavailableErrorResponse;
 }

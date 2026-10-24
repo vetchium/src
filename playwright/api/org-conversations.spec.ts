@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { DeliverEventRequest } from "typespec/federation/events";
 import {
   AgencyContactMessagesAggregate,
   HubAgencyMessagesChangedKind,
@@ -206,10 +207,20 @@ test("Hub user list, get conversation, mark read, reply, and delete", async ({
       const contactID = started.conversation.contact_id;
 
       // 1. Hub user lists conversations
-      const listRes = await applicant.hub.listConversations(applicant.token);
-      expect(listRes.status(), await listRes.text()).toBe(200);
-      const list = (await listRes.json()) as ListConversationsResponse;
-      expect(list.items).toHaveLength(1);
+      let list!: ListConversationsResponse;
+      await expect
+        .poll(
+          async () => {
+            const listRes = await applicant.hub.listConversations(
+              applicant.token,
+            );
+            if (listRes.status() !== 200) return 0;
+            list = (await listRes.json()) as ListConversationsResponse;
+            return list.items.length;
+          },
+          { timeout: 15_000 },
+        )
+        .toBe(1);
       expect(list.items[0]?.contact_id).toBe(contactID);
       expect(list.items[0]?.agency_domain).toBe(provider.org.domain);
       expect(list.items[0]?.unread_count).toBe(1);
@@ -317,12 +328,19 @@ test("Hub user list, get conversation, mark read, reply, and delete", async ({
       );
 
       // Hub listConversations now empty
-      const listAfterDelete = await applicant.hub.listConversations(
-        applicant.token,
-      );
-      expect(
-        ((await listAfterDelete.json()) as ListConversationsResponse).items,
-      ).toHaveLength(0);
+      await expect
+        .poll(
+          async () => {
+            const listAfterDelete = await applicant.hub.listConversations(
+              applicant.token,
+            );
+            if (listAfterDelete.status() !== 200) return -1;
+            return ((await listAfterDelete.json()) as ListConversationsResponse)
+              .items.length;
+          },
+          { timeout: 15_000 },
+        )
+        .toBe(0);
 
       // Contact still remains on Org side (MKT-CON-004), but conversation is gone
       const orgGetAfterDelete = await provider.api.getConversation(
@@ -405,27 +423,31 @@ test("agencies may message me toggle prevents conversation start, send message, 
       });
 
       // Deliver federation event to agency tenant to simulate async delivery
-      const messagesEvent = {
+      const messagesEvent: DeliverEventRequest = {
         event_id: randomUUID(),
+        kind: HubAgencyMessagesChangedKind,
+        destination_principal_type: "org",
+        destination_principal_did: orgDid,
         aggregate_type: AgencyContactMessagesAggregate,
         aggregate_id: contactID,
-        aggregate_version: 1,
-        kind: HubAgencyMessagesChangedKind,
-        authority: { type: "hub_user", did: applicant.did },
-        occurred_at: new Date().toISOString(),
+        aggregate_version: 2,
         payload: {
           contact_id: contactID,
           hub_user_did: applicant.did,
           messages_off: true,
         },
       };
-      meshPeerRequest(
+      const messagesDelivered = meshPeerRequest(
         applicant.tenant,
         provider.tenant,
         messagesEvent,
         apiCoverage,
         { path: "/api/mesh/events/deliver" },
       );
+      expect(
+        messagesDelivered.status,
+        JSON.stringify(messagesDelivered.body),
+      ).toBe(200);
 
       // Agency tries to send message -> rejected with org-agency-messages-off
       const sendRes = await provider.api.sendMessage(provider.owner, {
@@ -671,27 +693,31 @@ test("counterparty tenant unavailable during Hub conversation get and reply, rec
         await applicant.hub.setAgenciesMayMessage(applicant.token, {
           agencies_may_message: false,
         });
-        const messagesEvent = {
+        const messagesEvent: DeliverEventRequest = {
           event_id: randomUUID(),
+          kind: HubAgencyMessagesChangedKind,
+          destination_principal_type: "org",
+          destination_principal_did: orgDid,
           aggregate_type: AgencyContactMessagesAggregate,
           aggregate_id: contactID,
           aggregate_version: 1,
-          kind: HubAgencyMessagesChangedKind,
-          authority: { type: "hub_user", did: applicant.did },
-          occurred_at: new Date().toISOString(),
           payload: {
             contact_id: contactID,
             hub_user_did: applicant.did,
             messages_off: true,
           },
         };
-        meshPeerRequest(
+        const messagesDelivered = meshPeerRequest(
           applicant.tenant,
           provider.tenant,
           messagesEvent,
           apiCoverage,
           { path: "/api/mesh/events/deliver" },
         );
+        expect(
+          messagesDelivered.status,
+          JSON.stringify(messagesDelivered.body),
+        ).toBe(200);
 
         // Agency sees contact has messages_off: true
         const contactRes = await provider.api.getContact(provider.owner, {

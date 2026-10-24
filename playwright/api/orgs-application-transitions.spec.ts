@@ -754,7 +754,7 @@ test("a separation more than a year after joining is refused", async ({
       stageId: stageOf(stages, 2).id,
       offerExtendedDaysAgo: 800,
     });
-    const joined = await expectApplied(
+    await expectApplied(
       await api.recordApplicationJoined(owner, {
         opening_number: n,
         application_number: number,
@@ -762,20 +762,33 @@ test("a separation more than a year after joining is refused", async ({
         joined_on: utcDate(-500),
       }),
     );
-    const request2 = (separated_on: string) => ({
-      opening_number: n,
-      application_number: number,
-      version: joined.version,
-      separated_on,
-    });
+    const currentVersion = async () =>
+      (
+        await expectApplied(
+          await api.getApplication(owner, {
+            opening_number: n,
+            application_number: number,
+          }),
+        )
+      ).version;
     await expectProblem(
-      await api.recordApplicationSeparated(owner, request2(utcDate(-100))),
+      await api.recordApplicationSeparated(owner, {
+        opening_number: n,
+        application_number: number,
+        version: await currentVersion(),
+        separated_on: utcDate(-100),
+      }),
       400,
       VALIDATION,
       ["separated_on"],
     );
     await expectApplied(
-      await api.recordApplicationSeparated(owner, request2(utcDate(-136))),
+      await api.recordApplicationSeparated(owner, {
+        opening_number: n,
+        application_number: number,
+        version: await currentVersion(),
+        separated_on: utcDate(-136),
+      }),
     );
   });
 });
