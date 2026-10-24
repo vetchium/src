@@ -22,55 +22,90 @@ import (
 	"github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
+	"github.com/vetchium/src/typespec/orgs/openings"
 
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
 	"backend/internal/federation/events"
 )
 
-// Pointer is a Contact as the Hub user's tenant keeps it.
-type Pointer struct {
-	ContactID, OrgDID, HubUserDID pgtype.UUID
-	// Version is the Contact's pointer version at the change: 1 for the
-	// Contact's creation, and the next one for its deletion.
-	Version           int32
-	Present           bool
-	HasConversation   bool
-	AgencyDisplayName string
-	AgencyDomain      orgs.OrgDomain
-	AgencyLogoMediaID *string
-	LastActivityAt    *time.Time
-	ReadOnlyReason    *contacts.ConversationReadOnlyReason
-	Suggestions       []contacts.OpeningSuggestion
-	NewAgencyMessage  bool
+// SyncPointer reports a Contact's current state to the Hub user's tenant:
+// it takes the Contact's next pointer version and reads what the pointer
+// carries, so every event supersedes the last whatever changed. Call it in
+// the transaction that changes the Contact or its conversation, beside that
+// change's audit event. newAgencyMessage marks an agency message, which
+// counts as unread there and triggers the notification email (MKT-CNV-008).
+func SyncPointer(
+	ctx context.Context, q sqlc.Querier, orgDID, contactID pgtype.UUID,
+	newAgencyMessage bool,
+) error {
+	row, err := q.NextOrgContactPointer(ctx, sqlc.NextOrgContactPointerParams{
+		ContactID: contactID, OrgDid: orgDID,
+	})
+	if err != nil {
+		return fmt.Errorf("take agency pointer version: %w", err)
+	}
+	payload := federationspec.AgencyPointerChangedPayload{
+		ContactID:        contacts.ContactID(dbvalue.FormatUUID(row.ContactID)),
+		AgencyOrgDID:     orgs.OrgDID(dbvalue.FormatUUID(row.OrgDid)),
+		HubUserDID:       hub.HubUserDID(dbvalue.FormatUUID(row.HubUserDid)),
+		Present:          true,
+		NewAgencyMessage: newAgencyMessage,
+	}
+	if row.ConversationID.Valid {
+		suggestions, err := q.ListOrgConversationSuggestions(ctx, row.ConversationID)
+		if err != nil {
+			return fmt.Errorf("list conversation suggestions: %w", err)
+		}
+		payload.HasConversation = true
+		payload.AgencyDisplayName = row.RecordedAgencyName.String
+		payload.AgencyDomain = orgs.OrgDomain(row.RecordedAgencyDomain.String)
+		at := row.LastActivityAt.Time.UTC()
+		payload.LastActivityAt = &at
+		if row.ReadOnlyReason.Valid {
+			reason := contacts.ConversationReadOnlyReason(row.ReadOnlyReason.String)
+			payload.ReadOnlyReason = &reason
+		}
+		payload.Suggestions = make([]federationspec.AgencyPointerSuggestion, 0, len(suggestions))
+		for _, suggestion := range suggestions {
+			payload.Suggestions = append(payload.Suggestions,
+				federationspec.AgencyPointerSuggestion{
+					ConsumerDomain: orgs.OrgDomain(suggestion.ConsumerDomain),
+					OpeningNumber:  openings.OpeningNumber(suggestion.OpeningNumber),
+					SentAt:         suggestion.SentAt.Time.UTC(),
+				})
+		}
+	}
+	return enqueuePointer(ctx, q, row.HubUserDid, row.PointerVersion, payload)
 }
 
-// EnqueuePointer reports a created or deleted Contact to the Hub user's
-// tenant. Call it in the transaction that changes the Contact, beside that
-// change's audit event.
-func EnqueuePointer(ctx context.Context, q sqlc.Querier, p Pointer) error {
+// RemovePointer reports a deleted Contact; version is the pointer version
+// the Contact had, which the removal supersedes.
+func RemovePointer(
+	ctx context.Context, q sqlc.Querier, orgDID, contactID, hubDID pgtype.UUID,
+	version int32,
+) error {
+	return enqueuePointer(ctx, q, hubDID, version+1,
+		federationspec.AgencyPointerChangedPayload{
+			ContactID:    contacts.ContactID(dbvalue.FormatUUID(contactID)),
+			AgencyOrgDID: orgs.OrgDID(dbvalue.FormatUUID(orgDID)),
+			HubUserDID:   hub.HubUserDID(dbvalue.FormatUUID(hubDID)),
+		})
+}
+
+func enqueuePointer(
+	ctx context.Context, q sqlc.Querier, hubDID pgtype.UUID, version int32,
+	payload federationspec.AgencyPointerChangedPayload,
+) error {
 	_, err := events.Enqueue(ctx, q, events.Outgoing{
 		Kind: federationspec.AgencyPointerChangedKind,
 		Destination: events.Principal{
-			Type: directoryspec.PrincipalHubUser, DID: p.HubUserDID,
+			Type: directoryspec.PrincipalHubUser, DID: hubDID,
 		},
 		AggregateType:    federationspec.AgencyPointerAggregate,
-		AggregateID:      dbvalue.FormatUUID(p.ContactID),
-		AggregateVersion: int64(p.Version),
-		Payload: federationspec.AgencyPointerChangedPayload{
-			ContactID:         contacts.ContactID(dbvalue.FormatUUID(p.ContactID)),
-			AgencyOrgDID:      orgs.OrgDID(dbvalue.FormatUUID(p.OrgDID)),
-			HubUserDID:        hub.HubUserDID(dbvalue.FormatUUID(p.HubUserDID)),
-			Present:           p.Present,
-			HasConversation:   p.HasConversation,
-			AgencyDisplayName: p.AgencyDisplayName,
-			AgencyDomain:      p.AgencyDomain,
-			AgencyLogoMediaID: p.AgencyLogoMediaID,
-			LastActivityAt:    p.LastActivityAt,
-			ReadOnlyReason:    p.ReadOnlyReason,
-			Suggestions:       p.Suggestions,
-			NewAgencyMessage:  p.NewAgencyMessage,
-		},
+		AggregateID:      string(payload.ContactID),
+		AggregateVersion: int64(version),
+		Payload:          payload,
 	})
 	if err != nil {
 		return fmt.Errorf("enqueue agency pointer: %w", err)
@@ -184,17 +219,9 @@ func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 		return fmt.Errorf("read agency messages setting: %w", err)
 	}
 
-	var logoID pgtype.UUID
-	if payload.AgencyLogoMediaID != nil && *payload.AgencyLogoMediaID != "" {
-		if parsed, err := dbvalue.ParseUUID(*payload.AgencyLogoMediaID); err == nil {
-			logoID = parsed
-		}
-	}
-	var lastActivity pgtype.Timestamptz
+	lastActivity := pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
 	if payload.LastActivityAt != nil {
 		lastActivity = pgtype.Timestamptz{Time: *payload.LastActivityAt, Valid: true}
-	} else {
-		lastActivity = pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
 	}
 	var readOnly pgtype.Text
 	if !state.AgenciesMayMessage {
@@ -202,9 +229,13 @@ func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 	} else if payload.ReadOnlyReason != nil {
 		readOnly = pgtype.Text{String: string(*payload.ReadOnlyReason), Valid: true}
 	}
-	suggestionsBytes, err := json.Marshal(payload.Suggestions)
-	if err != nil || suggestionsBytes == nil {
-		suggestionsBytes = []byte("[]")
+	suggestions := payload.Suggestions
+	if suggestions == nil {
+		suggestions = []federationspec.AgencyPointerSuggestion{}
+	}
+	suggestionsBytes, err := json.Marshal(suggestions)
+	if err != nil {
+		return fmt.Errorf("encode pointer suggestions: %w", err)
 	}
 	unreadCount := int32(0)
 	if payload.NewAgencyMessage {
@@ -217,7 +248,6 @@ func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 		AgencyOrgDid:      orgDID,
 		AgencyDisplayName: payload.AgencyDisplayName,
 		AgencyDomain:      string(payload.AgencyDomain),
-		AgencyLogoMediaID: logoID,
 		HasConversation:   payload.HasConversation,
 		LastActivityAt:    lastActivity,
 		UnreadCount:       unreadCount,
@@ -279,26 +309,36 @@ type MessagesState struct {
 // setting. Call it in the transaction that creates the pointer or changes the
 // setting.
 func EnqueueMessagesState(ctx context.Context, q sqlc.Querier, s MessagesState) error {
-	_, err := events.Enqueue(ctx, q, events.Outgoing{
-		Kind:             federationspec.HubAgencyMessagesChangedKind,
-		Destination:      events.Principal{Type: directoryspec.PrincipalOrg, DID: s.OrgDID},
-		AggregateType:    federationspec.AgencyContactMessagesAggregate,
-		AggregateID:      dbvalue.FormatUUID(s.ContactID),
-		AggregateVersion: s.Version,
-		Payload: federationspec.HubAgencyMessagesChangedPayload{
-			ContactID:   contacts.ContactID(dbvalue.FormatUUID(s.ContactID)),
-			HubUserDID:  hub.HubUserDID(dbvalue.FormatUUID(s.HubUserDID)),
-			MessagesOff: s.MessagesOff,
-		},
-	})
-	if err != nil {
+	return EnqueueMessagesStates(ctx, q, []MessagesState{s})
+}
+
+// EnqueueMessagesStates is EnqueueMessagesState for several pointers.
+func EnqueueMessagesStates(ctx context.Context, q sqlc.Querier, states []MessagesState) error {
+	outgoing := make([]events.Outgoing, len(states))
+	for index, s := range states {
+		outgoing[index] = events.Outgoing{
+			Kind:             federationspec.HubAgencyMessagesChangedKind,
+			Destination:      events.Principal{Type: directoryspec.PrincipalOrg, DID: s.OrgDID},
+			AggregateType:    federationspec.AgencyContactMessagesAggregate,
+			AggregateID:      dbvalue.FormatUUID(s.ContactID),
+			AggregateVersion: s.Version,
+			Payload: federationspec.HubAgencyMessagesChangedPayload{
+				ContactID:   contacts.ContactID(dbvalue.FormatUUID(s.ContactID)),
+				HubUserDID:  hub.HubUserDID(dbvalue.FormatUUID(s.HubUserDID)),
+				MessagesOff: s.MessagesOff,
+			},
+		}
+	}
+	if err := events.EnqueueAll(ctx, q, outgoing); err != nil {
 		return fmt.Errorf("enqueue agency messages state: %w", err)
 	}
 	return nil
 }
 
-// applyAccountDeleted runs at the agency's tenant: the notes on the person
-// go at once, and with them the Contact (MKT-DAT-012).
+// applyAccountDeleted runs at the agency's tenant: the notes on the person go
+// at once; a Contact whose conversation remains stays, its conversation
+// read-only with the reason, and every other Contact of the person goes
+// (MKT-DAT-012, MKT-CON-004, MKT-CNV-011).
 func applyAccountDeleted(ctx context.Context, tx pgx.Tx, event events.Event) error {
 	var payload federationspec.HubAccountDeletedPayload
 	if err := decodePayload(event, &payload); err != nil {
@@ -313,8 +353,21 @@ func applyAccountDeleted(ctx context.Context, tx pgx.Tx, event events.Event) err
 		event.AggregateID != string(payload.HubUserDID) {
 		return fmt.Errorf("hub-account-deleted envelope does not match its payload")
 	}
-	if _, err := sqlc.New(tx).DeleteOrgContactsOfPerson(ctx,
-		sqlc.DeleteOrgContactsOfPersonParams{
+	q := sqlc.New(tx)
+	if _, err := q.DeleteOrgContactNotesOfPerson(ctx,
+		sqlc.DeleteOrgContactNotesOfPersonParams{
+			OrgDid: event.Destination.DID, HubUserDid: hubDID,
+		}); err != nil {
+		return fmt.Errorf("delete notes of a deleted account: %w", err)
+	}
+	if _, err := q.MarkOrgConversationsHubUserDeleted(ctx,
+		sqlc.MarkOrgConversationsHubUserDeletedParams{
+			OrgDid: event.Destination.DID, HubUserDid: hubDID,
+		}); err != nil {
+		return fmt.Errorf("mark conversations of a deleted account: %w", err)
+	}
+	if _, err := q.DeleteOrgContactsWithoutConversationOfPerson(ctx,
+		sqlc.DeleteOrgContactsWithoutConversationOfPersonParams{
 			OrgDid: event.Destination.DID, HubUserDid: hubDID,
 		}); err != nil {
 		return fmt.Errorf("delete contacts of a deleted account: %w", err)

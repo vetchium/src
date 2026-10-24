@@ -27,35 +27,42 @@ Original build plan (removed in 1123654): `git show 1123654^:.hiring-build/`.
 
 ## A. Agency Contacts and conversations (backend)
 
-- [ ] A1 SEC: `agencyconversations` reply/delete refuse a Contact whose
+- [x] A1 SEC: `agencyconversations` reply/delete refuse a Contact whose
       `hub_user_did` differs from the payload's (`hub-conversation-not-found`).
-- [ ] A2 One helper builds every agency pointer event from the database
+- [x] A2 One helper builds every agency pointer event from the database
       (contact, conversation, suggestions query, agency name/domain), and
       bumps `pointer_version` on every event. Fixes: StartConversation on a
       notes-first Contact re-sending the old version (Hub never sees it);
       Hub reply wiping pointer suggestions (breaks suggested referral).
-- [ ] A3 Hub deletes conversation: delete a Contact with no notes in the same
+- [x] A3 Hub deletes conversation: delete a Contact with no notes in the same
       transaction (pointer `present: false`).
-- [ ] A4 `hub-account-deleted` receiver: delete the person's notes; keep a
+- [x] A4 `hub-account-deleted` receiver: delete the person's notes; keep a
       Contact that has a conversation and mark the conversation
       `hub_user_deleted` + `party_deleted_at` (scoped to the agency Org);
       delete a Contact without one. Notes on such a Contact are refused
       (`org-conversation-party-deleted`).
-- [ ] A5 Suggestion (start/send): confirm assignment + `published` with the
+- [x] A5 Suggestion (start/send): confirm assignment + `published` with the
       consumer's tenant via the jobs mesh read, not the local projection.
-- [ ] A6 Agency unread is a count (`agency_unread_count`), incremented per Hub
+- [x] A6 Agency unread is a count (`agency_unread_count`), incremented per Hub
       message, reset by mark-read; `MarkOrgConversationRead` scoped by Org.
-- [ ] A7 Suggestions from a dedicated query, not by loading every message.
-- [ ] A8 Conversation retention never touches Contact `last_activity_at`;
+- [x] A7 Suggestions from a dedicated query, not by loading every message.
+- [x] A8 Conversation retention never touches Contact `last_activity_at`;
       stop swallowing errors in `retainConversation`.
-- [ ] A9 Hub `set-agencies-may-message`: turning on clears only
+- [x] A9 Hub `set-agencies-may-message`: turning on clears only
       `messages_off` reasons; enqueue without a query loop if possible.
-- [ ] A10 Hub `get-conversation` maps agency not-found to
+- [x] A10 Hub `get-conversation` maps agency not-found to
       `hub-conversation-not-found`; Hub delete handles the local pointer
       write error.
-- [ ] A11 Remove agency logo from pointer table, payload, Hub contract, UI;
-      todo + MKT-HUB-001 note.
-- [ ] A12 Go tests for `agencycontacts` and `agencyconversations` handlers.
+- [x] A11 Remove agency logo from pointer table, payload, Hub contract, UI
+      (todo + MKT-HUB-001 note in E1).
+- [x] A13 Contacts list: server-side `not_contacted` filter and name search
+      (at least two characters), tab counts in the response (nav badge uses
+      the unread count); UI stops filtering one page client-side.
+- [x] A14 Peer conversation read answers only the tenant homing the Hub
+      user; relay passes not-found and invalid cursor through; conversation
+      messages paginate (Orgs, mesh, Hub); mesh read names the agency, not
+      its users, and carries no agency unread state.
+- [x] A12 Go tests for `agencycontacts` and `agencyconversations` handlers.
 
 ## B. Other backend fixes
 

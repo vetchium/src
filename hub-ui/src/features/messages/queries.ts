@@ -1,5 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useRef } from "react";
+import type { PaginationKey } from "typespec/common/pagination";
 import type {
   HubConversationDetail,
   ListConversationsResponse,
@@ -29,16 +35,29 @@ export function useConversationsQuery(enabled = true) {
   });
 }
 
+/** Pages of a conversation, newest first; each page lists newest first. */
 export function useConversationDetailQuery(
   contactId: string | undefined,
   enabled = true,
 ) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: conversationDetailQueryKey(contactId ?? ""),
-    queryFn: () =>
-      hubAPI.getConversation({ contact_id: contactId as ContactID }),
+    queryFn: ({ pageParam }) =>
+      hubAPI.getConversation({
+        contact_id: contactId as ContactID,
+        ...(pageParam === undefined ? {} : { pagination_key: pageParam }),
+      }),
+    initialPageParam: undefined as PaginationKey | undefined,
+    getNextPageParam: (page) => page.next_pagination_key,
     enabled: Boolean(contactId) && enabled,
   });
+}
+
+/** The messages of the loaded pages, oldest first. */
+export function chronological(
+  pages: readonly HubConversationDetail[] | undefined,
+): ConversationMessage[] {
+  return (pages ?? []).flatMap((page) => page.messages).reverse();
 }
 
 export class OperationStillPendingError extends Error {

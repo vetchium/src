@@ -2,21 +2,19 @@ package contacts
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/hub"
-	openingsspec "github.com/vetchium/src/typespec/hub/openings"
 	"github.com/vetchium/src/typespec/orgs"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
-	orgopenings "github.com/vetchium/src/typespec/orgs/openings"
+	"github.com/vetchium/src/typespec/orgs/marketplace/work"
+	"github.com/vetchium/src/typespec/orgs/openings"
 	"github.com/vetchium/src/typespec/problem"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
@@ -29,6 +27,39 @@ import (
 	orgsruntime "backend/internal/orgs"
 )
 
+const messagesPurpose = "orgs-list-conversation-messages-v1"
+
+// outgoing is an agency message as the request names it.
+type outgoing struct {
+	text       *contacts.MessageText
+	suggestion *contacts.OpeningSuggestion
+}
+
+func (m outgoing) params(
+	messageID, conversationID pgtype.UUID, sender string,
+) sqlc.AddOrgConversationMessageParams {
+	params := sqlc.AddOrgConversationMessageParams{
+		MessageID: messageID, ConversationID: conversationID,
+		SenderType: string(contacts.MessageSenderTypeAgency), SenderDisplayName: sender,
+		Kind: string(contacts.MessageKindText),
+	}
+	if m.suggestion != nil {
+		params.Kind = string(contacts.MessageKindSuggestion)
+		params.ConsumerDomain = dbvalue.Text(string(m.suggestion.ConsumerDomain))
+		params.OpeningNumber = pgtype.Int4{
+			Int32: int32(m.suggestion.OpeningNumber), Valid: true,
+		}
+	} else if m.text != nil {
+		params.MessageText = dbvalue.Text(string(*m.text))
+	}
+	return params
+}
+
+// StartConversation opens the agency's conversation with the person at an
+// address, creating the Contact and the conversation when they do not exist
+// yet (MKT-DAT-004), and posts the first message; starting again posts into
+// the conversation that exists. The person and a suggested Opening are read
+// before the transaction opens: no transaction waits on another tenant.
 func StartConversation(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request contacts.StartConversationRequest
@@ -48,98 +79,53 @@ func StartConversation(s *orgsruntime.Server) http.HandlerFunc {
 			s.Problem(r.Context(), w, orgsproblem.AgencyMessagesOffError)
 			return
 		}
-
 		hubDID, err := dbvalue.ParseUUID(string(read.HubUserDID))
 		if err != nil {
 			s.InternalError(r.Context(), w, "parse Hub user DID", err)
 			return
 		}
-
-		if request.Suggestion != nil {
-			if !validateSuggestion(r.Context(), s, identity.OrgDID, *request.Suggestion, w) {
-				return
-			}
+		if !confirmSuggestion(s, w, r, identity, request.Suggestion) {
+			return
 		}
-
+		message := outgoing{text: request.Text, suggestion: request.Suggestion}
+		name, handle := string(read.Profile.DisplayName), string(read.Profile.Handle)
 		now := s.CurrentTime()
 		type result = handlerauth.Result[contacts.ConversationDetail]
 		handlerauth.RunIdempotent(s, w, r, "orgs:start-conversation",
 			dbvalue.FormatUUID(identity.UserID), key, request, now.Add(replayWindow),
 			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
 				ctx := r.Context()
-				fail := func(details problem.Body) (result, *handlerauth.Problem, error) {
-					return handlerauth.Failure[contacts.ConversationDetail](details)
-				}
-
+				fail := handlerauth.Failure[contacts.ConversationDetail]
 				if _, err := q.LockOrgForContacts(ctx, identity.OrgDID); err != nil {
 					return result{}, nil, fmt.Errorf("lock Org: %w", err)
 				}
-
-				userInfo, err := q.GetOrgMyInfo(ctx, identity.UserID)
+				today := pgtype.Date{Time: today(now), Valid: true}
+				listed, err := q.OrgHasListedSourcingListing(ctx, identity.OrgDID)
 				if err != nil {
-					return result{}, nil, fmt.Errorf("get user info: %w", err)
+					return result{}, nil, err
 				}
-				userDisplayName := userInfo.DisplayName
-				if userDisplayName == "" {
-					userDisplayName = userInfo.EmailAddress
-				}
-				agency, err := q.GetAgencyDetails(ctx, identity.OrgDID)
-				if err != nil {
-					return result{}, nil, fmt.Errorf("get agency details: %w", err)
-				}
-				var agencyLogo *string
-				if agency.LogoMediaID.Valid {
-					str := dbvalue.FormatUUID(agency.LogoMediaID)
-					agencyLogo = &str
-				}
-
-				name, handle := string(read.Profile.DisplayName), string(read.Profile.Handle)
-				today := pgtype.Date{Time: now.UTC().Truncate(24 * time.Hour), Valid: true}
-
 				contact, err := q.GetOrgContactByPerson(ctx, sqlc.GetOrgContactByPersonParams{
 					OrgDid: identity.OrgDID, HubUserDid: hubDID,
 				})
-
-				var contactID pgtype.UUID
-				var conversationID pgtype.UUID
-				var pointerVersion int32 = 1
-
+				contactID := contact.ContactID
 				switch {
 				case isNoRows(err):
-					// Contact does not exist
-					listed, err := q.OrgHasListedSourcingListing(ctx, identity.OrgDID)
-					if err != nil {
-						return result{}, nil, err
-					}
 					if !listed {
 						return fail(orgsproblem.ListingNotAvailableError)
 					}
-
-					contactCount, err := q.CountOrgContactsCreatedOn(ctx, sqlc.CountOrgContactsCreatedOnParams{
+					created, err := q.CountOrgContactsCreatedOn(ctx, sqlc.CountOrgContactsCreatedOnParams{
 						OrgDid: identity.OrgDID, Day: today,
 					})
 					if err != nil {
 						return result{}, nil, err
 					}
-					if contactCount >= contacts.MaxNewContactsPerDay {
+					if created >= contacts.MaxNewContactsPerDay {
 						return fail(orgsproblem.ContactLimitReachedError)
 					}
-
-					convCount, err := q.CountOrgConversationsCreatedOn(ctx, sqlc.CountOrgConversationsCreatedOnParams{
-						OrgDid: identity.OrgDID, Day: today,
-					})
-					if err != nil {
+					if contactID, err = dbvalue.NewUUIDv7(now); err != nil {
 						return result{}, nil, err
 					}
-					if convCount >= contacts.MaxNewConversationsPerDay {
-						return fail(orgsproblem.ConversationLimitReachedError)
-					}
-
-					contactID, err = dbvalue.NewUUIDv7(now)
-					if err != nil {
-						return result{}, nil, err
-					}
-					cRow, err := q.CreateOrgContact(ctx, sqlc.CreateOrgContactParams{
+					row, err := q.CreateOrgContact(ctx, sqlc.CreateOrgContactParams{
 						ContactID: contactID, OrgDid: identity.OrgDID, HubUserDid: hubDID,
 						DisplayName: name, Handle: handle, ActorID: identity.UserID,
 						Day: today, TenantID: s.TenantID,
@@ -148,215 +134,90 @@ func StartConversation(s *orgsruntime.Server) http.HandlerFunc {
 					if err != nil {
 						return result{}, nil, err
 					}
-					if cRow.CreatedRows != 1 || cRow.CountedRows != 1 || cRow.AuditRows != 1 {
+					if row.CreatedRows != 1 || row.CountedRows != 1 || row.AuditRows != 1 {
 						return result{}, nil, fmt.Errorf("incomplete Contact creation")
 					}
-
-					if _, err := q.RecordOrgConversationCreation(ctx, sqlc.RecordOrgConversationCreationParams{
-						OrgDid: identity.OrgDID, Day: today,
-					}); err != nil {
-						return result{}, nil, fmt.Errorf("record conversation creation: %w", err)
-					}
-
 				case err != nil:
 					return result{}, nil, err
-
 				default:
-					locked, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
-						OrgDid: identity.OrgDID, ContactID: contact.ContactID,
-					})
-					if err != nil {
-						return result{}, nil, fmt.Errorf("lock contact: %w", err)
+					if _, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
+						OrgDid: identity.OrgDID, ContactID: contactID,
+					}); err != nil {
+						return result{}, nil, fmt.Errorf("lock Contact: %w", err)
 					}
-					contactID = contact.ContactID
-					pointerVersion = locked.PointerVersion
-					if contact.DisplayName != name || contact.Handle != handle {
-						if _, err := q.RefreshOrgContactNames(ctx, sqlc.RefreshOrgContactNamesParams{
-							DisplayName: name, Handle: handle, ContactID: contact.ContactID,
-							OrgDid: identity.OrgDID, TenantID: s.TenantID,
-							ActorID: identity.UserID, IdempotencyKey: dbvalue.Text(string(key)),
-						}); err != nil {
-							return result{}, nil, err
-						}
-					}
-
-					conv, err := q.GetOrgConversationByContact(ctx, contactID)
-					if err == nil {
-						// Conversation already exists -> open it
-						if conv.PartyDeletedAt.Valid ||
-							(conv.ReadOnlyReason.Valid && (conv.ReadOnlyReason.String == "agency_deleted" || conv.ReadOnlyReason.String == "hub_user_deleted")) {
-							return fail(orgsproblem.ConversationPartyDeletedError)
-						}
-						if contact.MessagesOff || (conv.ReadOnlyReason.Valid && conv.ReadOnlyReason.String == "messages_off") {
-							return fail(orgsproblem.AgencyMessagesOffError)
-						}
-
-						// Post message in existing conversation
-						detail, prob, err := postMessage(ctx, s, q, identity, key, conv.ConversationID, contactID, hubDID,
-							agency.DisplayName, agency.Domain, agencyLogo, name, handle, userDisplayName, request.Text, request.Suggestion, now)
-						if err != nil || prob != nil {
-							return result{}, prob, err
-						}
-						return result{Status: http.StatusOK, Body: detail}, nil, nil
-					} else if !errors.Is(err, pgx.ErrNoRows) {
+					if _, err := q.RefreshOrgContactNames(ctx, sqlc.RefreshOrgContactNamesParams{
+						DisplayName: name, Handle: handle, ContactID: contactID,
+						OrgDid: identity.OrgDID, TenantID: s.TenantID,
+						ActorID: identity.UserID, IdempotencyKey: dbvalue.Text(string(key)),
+					}); err != nil {
 						return result{}, nil, err
 					}
-
-					// Contact exists, conversation does not exist
-					listed, err := q.OrgHasListedSourcingListing(ctx, identity.OrgDID)
-					if err != nil {
-						return result{}, nil, err
-					}
+				}
+				agency, err := q.GetAgencyDetails(ctx, identity.OrgDID)
+				if err != nil {
+					return result{}, nil, fmt.Errorf("read agency: %w", err)
+				}
+				conversation, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
+					OrgDid: identity.OrgDID, ContactID: contactID,
+				})
+				switch {
+				case isNoRows(err):
+					// A new conversation needs a listed sourcing Listing and
+					// room in the day's limit (MKT-CNV-003).
 					if !listed {
 						return fail(orgsproblem.ListingNotAvailableError)
 					}
-
-					convCount, err := q.CountOrgConversationsCreatedOn(ctx, sqlc.CountOrgConversationsCreatedOnParams{
+					started, err := q.CountOrgConversationsCreatedOn(ctx, sqlc.CountOrgConversationsCreatedOnParams{
 						OrgDid: identity.OrgDID, Day: today,
 					})
 					if err != nil {
 						return result{}, nil, err
 					}
-					if convCount >= contacts.MaxNewConversationsPerDay {
+					if started >= contacts.MaxNewConversationsPerDay {
 						return fail(orgsproblem.ConversationLimitReachedError)
 					}
-
-					if _, err := q.RecordOrgConversationCreation(ctx, sqlc.RecordOrgConversationCreationParams{
-						OrgDid: identity.OrgDID, Day: today,
-					}); err != nil {
-						return result{}, nil, fmt.Errorf("record conversation creation: %w", err)
+					conversationID, err := dbvalue.NewUUIDv7(now)
+					if err != nil {
+						return result{}, nil, err
+					}
+					row, err := q.CreateOrgConversation(ctx, sqlc.CreateOrgConversationParams{
+						ConversationID: conversationID, ContactID: contactID,
+						OrgDid: identity.OrgDID, HubUserDid: hubDID,
+						RecordedHubUserName: name, RecordedHubUserHandle: handle,
+						RecordedAgencyName: agency.DisplayName, RecordedAgencyDomain: agency.Domain,
+						Day: today, TenantID: s.TenantID, ActorID: identity.UserID,
+						IdempotencyKey: dbvalue.Text(string(key)),
+					})
+					if err != nil {
+						return result{}, nil, err
+					}
+					if row.CreatedRows != 1 || row.CountedRows != 1 || row.AuditRows != 1 {
+						return result{}, nil, fmt.Errorf("incomplete conversation creation")
+					}
+				case err != nil:
+					return result{}, nil, err
+				default:
+					if details := refusal(conversation.ReadOnlyReason, conversation.MessagesOff); details != nil {
+						return fail(details)
 					}
 				}
-
-				// Create new conversation
-				conversationID, err = dbvalue.NewUUIDv7(now)
-				if err != nil {
+				if err := post(ctx, q, s, identity, key, contactID, message,
+					agency, &name, &handle); err != nil {
 					return result{}, nil, err
 				}
-
-				convRow, err := q.InsertOrgConversation(ctx, sqlc.InsertOrgConversationParams{
-					ConversationID:        conversationID,
-					ContactID:             contactID,
-					OrgDid:                identity.OrgDID,
-					HubUserDid:            hubDID,
-					RecordedHubUserName:   name,
-					RecordedHubUserHandle: handle,
-					RecordedAgencyName:    agency.DisplayName,
-					RecordedAgencyDomain:  agency.Domain,
-					AgencyUnread:          false,
-					CreatedAt:             pgtype.Timestamptz{Time: now, Valid: true},
-					LastActivityAt:        pgtype.Timestamptz{Time: now, Valid: true},
-				})
-				if err != nil {
-					return result{}, nil, fmt.Errorf("insert conversation: %w", err)
-				}
-
-				// Insert first message
-				messageID, err := dbvalue.NewUUIDv7(now)
+				detail, err := readConversation(ctx, q, identity.OrgDID, contactID, nil,
+					contacts.DefaultPage, func(at time.Time, id string) (common.PaginationKey, error) {
+						return signMessages(s, identity.OrgDID, contactID, at, id)
+					})
 				if err != nil {
 					return result{}, nil, err
-				}
-
-				msgKind := "text"
-				var msgText pgtype.Text
-				var consumerDomain pgtype.Text
-				var openingNumber pgtype.Int4
-				var suggestionList []contacts.OpeningSuggestion
-
-				if request.Suggestion != nil {
-					msgKind = "suggestion"
-					consumerDomain = dbvalue.Text(string(request.Suggestion.ConsumerDomain))
-					openingNumber = pgtype.Int4{Int32: int32(request.Suggestion.OpeningNumber), Valid: true}
-					suggestionList = []contacts.OpeningSuggestion{*request.Suggestion}
-				} else if request.Text != nil {
-					msgText = dbvalue.Text(string(*request.Text))
-				}
-
-				msgRow, err := q.InsertOrgConversationMessage(ctx, sqlc.InsertOrgConversationMessageParams{
-					MessageID:         messageID,
-					ConversationID:    conversationID,
-					SenderType:        "agency",
-					SenderUserID:      identity.UserID,
-					SenderDisplayName: userDisplayName,
-					Kind:              msgKind,
-					MessageText:       msgText,
-					ConsumerDomain:    consumerDomain,
-					OpeningNumber:     openingNumber,
-					SentAt:            pgtype.Timestamptz{Time: now, Valid: true},
-				})
-				if err != nil {
-					return result{}, nil, fmt.Errorf("insert message: %w", err)
-				}
-
-				// Audit events
-				auditPayload, _ := json.Marshal(map[string]any{
-					"action":          "created",
-					"conversation_id": dbvalue.FormatUUID(conversationID),
-				})
-				if err := q.InsertAuditEvent(ctx, sqlc.InsertAuditEventParams{
-					TenantID:          s.TenantID,
-					Action:            "org.conversation.created",
-					EntityType:        "org_conversation",
-					EntityID:          dbvalue.FormatUUID(conversationID),
-					ActorType:         "org_user",
-					ActorID:           dbvalue.Text(dbvalue.FormatUUID(identity.UserID)),
-					SubjectHubUserDid: hubDID,
-					SubjectOrgDid:     identity.OrgDID,
-					Source:            "orgs-api",
-					IdempotencyKey:    dbvalue.Text(string(key)),
-					Payload:           auditPayload,
-				}); err != nil {
-					return result{}, nil, fmt.Errorf("insert audit event: %w", err)
-				}
-
-				msgAuditPayload, _ := json.Marshal(map[string]any{
-					"action":     "message-sent",
-					"message_id": dbvalue.FormatUUID(messageID),
-				})
-				if err := q.InsertAuditEvent(ctx, sqlc.InsertAuditEventParams{
-					TenantID:          s.TenantID,
-					Action:            "org.conversation.message-sent",
-					EntityType:        "org_conversation",
-					EntityID:          dbvalue.FormatUUID(conversationID),
-					ActorType:         "org_user",
-					ActorID:           dbvalue.Text(dbvalue.FormatUUID(identity.UserID)),
-					SubjectHubUserDid: hubDID,
-					SubjectOrgDid:     identity.OrgDID,
-					Source:            "orgs-api",
-					IdempotencyKey:    dbvalue.Text(string(key)),
-					Payload:           msgAuditPayload,
-				}); err != nil {
-					return result{}, nil, fmt.Errorf("insert message audit event: %w", err)
-				}
-
-				if err := agencycontacts.EnqueuePointer(ctx, q, agencycontacts.Pointer{
-					ContactID:         contactID,
-					OrgDID:            identity.OrgDID,
-					HubUserDID:        hubDID,
-					Version:           pointerVersion,
-					Present:           true,
-					HasConversation:   true,
-					AgencyDisplayName: agency.DisplayName,
-					AgencyDomain:      orgs.OrgDomain(agency.Domain),
-					AgencyLogoMediaID: agencyLogo,
-					LastActivityAt:    &now,
-					Suggestions:       suggestionList,
-					NewAgencyMessage:  true,
-				}); err != nil {
-					return result{}, nil, fmt.Errorf("enqueue pointer: %w", err)
-				}
-
-				detail := contacts.ConversationDetail{
-					Conversation: summaryFromConvRow(convRow),
-					Messages: []contacts.ConversationMessage{
-						messageFromMsgRow(msgRow),
-					},
 				}
 				return result{Status: http.StatusOK, Body: detail}, nil, nil
 			})
 	}
 }
 
+// SendMessage posts into a conversation the agency has (MKT-CNV-004).
 func SendMessage(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request contacts.SendMessageRequest
@@ -368,181 +229,194 @@ func SendMessage(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
-
 		contactID, err := dbvalue.ParseUUID(string(request.ContactID))
 		if err != nil {
-			s.Problem(r.Context(), w, orgsproblem.ContactNotFoundError)
+			s.InternalError(r.Context(), w, "parse Contact id", err)
 			return
 		}
-
-		if request.Suggestion != nil {
-			if !validateSuggestion(r.Context(), s, identity.OrgDID, *request.Suggestion, w) {
-				return
-			}
+		if !confirmSuggestion(s, w, r, identity, request.Suggestion) {
+			return
 		}
-
+		message := outgoing{text: request.Text, suggestion: request.Suggestion}
 		now := s.CurrentTime()
 		type result = handlerauth.Result[contacts.ConversationMessage]
 		handlerauth.RunIdempotent(s, w, r, "orgs:send-message",
 			dbvalue.FormatUUID(identity.UserID), key, request, now.Add(replayWindow),
 			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
 				ctx := r.Context()
-				fail := func(details problem.Body) (result, *handlerauth.Problem, error) {
-					return handlerauth.Failure[contacts.ConversationMessage](details)
+				fail := handlerauth.Failure[contacts.ConversationMessage]
+				if _, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
+					OrgDid: identity.OrgDID, ContactID: contactID,
+				}); isNoRows(err) {
+					return fail(orgsproblem.ContactNotFoundError)
+				} else if err != nil {
+					return result{}, nil, fmt.Errorf("lock Contact: %w", err)
 				}
-
-				contact, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
+				conversation, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
 					OrgDid: identity.OrgDID, ContactID: contactID,
 				})
-				if errors.Is(err, pgx.ErrNoRows) {
-					return fail(orgsproblem.ContactNotFoundError)
-				}
-				if err != nil {
-					return result{}, nil, fmt.Errorf("lock contact: %w", err)
-				}
-
-				conv, err := q.GetOrgConversationByContact(ctx, contactID)
-				if errors.Is(err, pgx.ErrNoRows) {
+				if isNoRows(err) {
 					return fail(orgsproblem.ConversationNotFoundError)
 				}
 				if err != nil {
-					return result{}, nil, fmt.Errorf("get conversation: %w", err)
+					return result{}, nil, err
 				}
-
-				if conv.PartyDeletedAt.Valid ||
-					(conv.ReadOnlyReason.Valid && (conv.ReadOnlyReason.String == "agency_deleted" || conv.ReadOnlyReason.String == "hub_user_deleted")) {
-					return fail(orgsproblem.ConversationPartyDeletedError)
-				}
-				if contact.MessagesOff || (conv.ReadOnlyReason.Valid && conv.ReadOnlyReason.String == "messages_off") {
-					return fail(orgsproblem.AgencyMessagesOffError)
-				}
-
-				userInfo, err := q.GetOrgMyInfo(ctx, identity.UserID)
-				if err != nil {
-					return result{}, nil, fmt.Errorf("get user info: %w", err)
-				}
-				userDisplayName := userInfo.DisplayName
-				if userDisplayName == "" {
-					userDisplayName = userInfo.EmailAddress
+				if details := refusal(conversation.ReadOnlyReason, conversation.MessagesOff); details != nil {
+					return fail(details)
 				}
 				agency, err := q.GetAgencyDetails(ctx, identity.OrgDID)
 				if err != nil {
-					return result{}, nil, fmt.Errorf("get agency details: %w", err)
+					return result{}, nil, fmt.Errorf("read agency: %w", err)
 				}
-				var agencyLogo *string
-				if agency.LogoMediaID.Valid {
-					str := dbvalue.FormatUUID(agency.LogoMediaID)
-					agencyLogo = &str
-				}
-
 				messageID, err := dbvalue.NewUUIDv7(now)
 				if err != nil {
 					return result{}, nil, err
 				}
-
-				msgKind := "text"
-				var msgText pgtype.Text
-				var consumerDomain pgtype.Text
-				var openingNumber pgtype.Int4
-
-				if request.Suggestion != nil {
-					msgKind = "suggestion"
-					consumerDomain = dbvalue.Text(string(request.Suggestion.ConsumerDomain))
-					openingNumber = pgtype.Int4{Int32: int32(request.Suggestion.OpeningNumber), Valid: true}
-				} else if request.Text != nil {
-					msgText = dbvalue.Text(string(*request.Text))
-				}
-
-				msgRow, err := q.InsertOrgConversationMessage(ctx, sqlc.InsertOrgConversationMessageParams{
-					MessageID:         messageID,
-					ConversationID:    conv.ConversationID,
-					SenderType:        "agency",
-					SenderUserID:      identity.UserID,
-					SenderDisplayName: userDisplayName,
-					Kind:              msgKind,
-					MessageText:       msgText,
-					ConsumerDomain:    consumerDomain,
-					OpeningNumber:     openingNumber,
-					SentAt:            pgtype.Timestamptz{Time: now, Valid: true},
-				})
+				posted, err := addMessage(ctx, q, s, identity, key,
+					message.params(messageID, conversation.ConversationID, ""), agency, nil, nil)
 				if err != nil {
-					return result{}, nil, fmt.Errorf("insert message: %w", err)
+					return result{}, nil, err
 				}
-
-				if _, err := q.UpdateOrgConversationOnMessage(ctx, sqlc.UpdateOrgConversationOnMessageParams{
-					ConversationID:       conv.ConversationID,
-					LastActivityAt:       pgtype.Timestamptz{Time: now, Valid: true},
-					RecordedHubUserName:  conv.RecordedHubUserName,
-					RecordedAgencyName:   agency.DisplayName,
-					RecordedAgencyDomain: agency.Domain,
-					AgencyUnread:         false,
-				}); err != nil {
-					return result{}, nil, fmt.Errorf("update conversation on message: %w", err)
+				if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contactID, true); err != nil {
+					return result{}, nil, err
 				}
-
-				cTouch, err := q.TouchOrgContactPointer(ctx, sqlc.TouchOrgContactPointerParams{
-					ContactID:      contactID,
-					LastActivityAt: pgtype.Timestamptz{Time: now, Valid: true},
-				})
-				if err != nil {
-					return result{}, nil, fmt.Errorf("touch contact pointer: %w", err)
-				}
-
-				auditPayload, _ := json.Marshal(map[string]any{
-					"action":     "message-sent",
-					"message_id": dbvalue.FormatUUID(messageID),
-				})
-				if err := q.InsertAuditEvent(ctx, sqlc.InsertAuditEventParams{
-					TenantID:          s.TenantID,
-					Action:            "org.conversation.message-sent",
-					EntityType:        "org_conversation",
-					EntityID:          dbvalue.FormatUUID(conv.ConversationID),
-					ActorType:         "org_user",
-					ActorID:           dbvalue.Text(dbvalue.FormatUUID(identity.UserID)),
-					SubjectHubUserDid: contact.HubUserDid,
-					SubjectOrgDid:     identity.OrgDID,
-					Source:            "orgs-api",
-					IdempotencyKey:    dbvalue.Text(string(key)),
-					Payload:           auditPayload,
-				}); err != nil {
-					return result{}, nil, fmt.Errorf("insert audit event: %w", err)
-				}
-
-				// Collect all suggestions for pointer update
-				allMsgs, err := q.ListOrgConversationMessages(ctx, conv.ConversationID)
-				if err != nil {
-					return result{}, nil, fmt.Errorf("list conversation messages: %w", err)
-				}
-				suggestions := make([]contacts.OpeningSuggestion, 0)
-				for _, m := range allMsgs {
-					if m.Kind == "suggestion" && m.ConsumerDomain.Valid && m.OpeningNumber.Valid {
-						suggestions = append(suggestions, contacts.OpeningSuggestion{
-							ConsumerDomain: orgs.OrgDomain(m.ConsumerDomain.String),
-							OpeningNumber:  orgopenings.OpeningNumber(m.OpeningNumber.Int32),
-						})
-					}
-				}
-
-				if err := agencycontacts.EnqueuePointer(ctx, q, agencycontacts.Pointer{
-					ContactID:         contactID,
-					OrgDID:            identity.OrgDID,
-					HubUserDID:        contact.HubUserDid,
-					Version:           cTouch.PointerVersion,
-					Present:           true,
-					HasConversation:   true,
-					AgencyDisplayName: agency.DisplayName,
-					AgencyDomain:      orgs.OrgDomain(agency.Domain),
-					AgencyLogoMediaID: agencyLogo,
-					LastActivityAt:    &now,
-					Suggestions:       suggestions,
-					NewAgencyMessage:  true,
-				}); err != nil {
-					return result{}, nil, fmt.Errorf("enqueue pointer: %w", err)
-				}
-
-				return result{Status: http.StatusOK, Body: messageFromMsgRow(msgRow)}, nil, nil
+				return result{Status: http.StatusOK, Body: posted}, nil, nil
 			})
 	}
+}
+
+// refusal names why the agency cannot write into a conversation: the other
+// party is gone (MKT-CNV-011), or the person turned agency messages off
+// (MKT-CNV-006).
+func refusal(reason pgtype.Text, messagesOff bool) problem.Body {
+	switch {
+	case reason.Valid:
+		return orgsproblem.ConversationPartyDeletedError
+	case messagesOff:
+		return orgsproblem.AgencyMessagesOffError
+	}
+	return nil
+}
+
+// post appends an agency message to the Contact's conversation and reports
+// it to the person's tenant.
+func post(
+	ctx context.Context, q *sqlc.Queries, s *orgsruntime.Server,
+	identity middleware.OrgIdentity, key common.IdempotencyKey,
+	contactID pgtype.UUID, message outgoing, agency sqlc.GetAgencyDetailsRow,
+	name, handle *string,
+) error {
+	conversation, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
+		OrgDid: identity.OrgDID, ContactID: contactID,
+	})
+	if err != nil {
+		return fmt.Errorf("read conversation: %w", err)
+	}
+	messageID, err := dbvalue.NewUUIDv7(s.CurrentTime())
+	if err != nil {
+		return err
+	}
+	if _, err := addMessage(ctx, q, s, identity, key,
+		message.params(messageID, conversation.ConversationID, ""), agency,
+		name, handle); err != nil {
+		return err
+	}
+	return agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contactID, true)
+}
+
+// addMessage stores an agency message under the sending user's email
+// address, which stands in for an Org user's name (MKT-GEN-005).
+func addMessage(
+	ctx context.Context, q *sqlc.Queries, s *orgsruntime.Server,
+	identity middleware.OrgIdentity, key common.IdempotencyKey,
+	params sqlc.AddOrgConversationMessageParams, agency sqlc.GetAgencyDetailsRow,
+	name, handle *string,
+) (contacts.ConversationMessage, error) {
+	sender, err := q.GetOrgMyInfo(ctx, identity.UserID)
+	if err != nil {
+		return contacts.ConversationMessage{}, fmt.Errorf("read sender: %w", err)
+	}
+	params.SenderUserID = identity.UserID
+	params.SenderDisplayName = sender.EmailAddress
+	params.HubUserName = dbvalue.NullText(name)
+	params.HubUserHandle = dbvalue.NullText(handle)
+	params.AgencyName = dbvalue.Text(agency.DisplayName)
+	params.AgencyDomain = dbvalue.Text(agency.Domain)
+	params.TenantID = s.TenantID
+	params.ActorType = "org_user"
+	params.ActorID = dbvalue.FormatUUID(identity.UserID)
+	params.Source = "orgs-api"
+	params.IdempotencyKey = dbvalue.Text(string(key))
+	row, err := q.AddOrgConversationMessage(ctx, params)
+	if err != nil {
+		return contacts.ConversationMessage{}, err
+	}
+	if row.ConversationRows != 1 || row.ContactRows != 1 || row.AuditRows != 1 {
+		return contacts.ConversationMessage{}, fmt.Errorf("incomplete message")
+	}
+	return message(row.MessageID, row.SenderType, row.SenderDisplayName,
+		row.Kind, row.MessageText, row.ConsumerDomain, row.OpeningNumber,
+		row.SentAt), nil
+}
+
+// confirmSuggestion asks the client's tenant whether the agency is assigned
+// to the suggested Opening and it is `published` (MKT-DAT-007): the agency's
+// tenant knows only its engagement with the client. It writes the problem
+// and reports false when the suggestion cannot be posted.
+func confirmSuggestion(
+	s *orgsruntime.Server, w http.ResponseWriter, r *http.Request,
+	identity middleware.OrgIdentity, suggestion *contacts.OpeningSuggestion,
+) bool {
+	if suggestion == nil {
+		return true
+	}
+	invalid := problem.ValidationFailedError
+	invalid.Fields = []string{"suggestion"}
+	engagement, err := s.Queries.GetActiveSourcingEngagementWithClient(r.Context(),
+		sqlc.GetActiveSourcingEngagementWithClientParams{
+			ProviderOrgDid: identity.OrgDID,
+			ConsumerDomain: string(suggestion.ConsumerDomain),
+		})
+	if isNoRows(err) {
+		s.Problem(r.Context(), w, invalid)
+		return false
+	}
+	if err != nil {
+		s.InternalError(r.Context(), w, "find sourcing engagement", err)
+		return false
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), s.ListingDeadline)
+	defer cancel()
+	home, details := s.ListingRead.Locate(ctx, suggestion.ConsumerDomain)
+	if details != nil {
+		if details.Type == orgsproblem.ListingNotFoundError.Type {
+			s.Problem(r.Context(), w, invalid)
+			return false
+		}
+		s.Problem(r.Context(), w, orgsproblem.TenantUnavailableError)
+		return false
+	}
+	outcome, err := s.WorkRelay.RelayGetJob(ctx, work.RelayGetJobRequest{
+		Tenant: home.Tenant,
+		Request: work.PeerGetJobRequest{
+			ProviderOrgDID: orgs.OrgDID(dbvalue.FormatUUID(identity.OrgDID)),
+			EngagementID:   marketplace.EngagementID(dbvalue.FormatUUID(engagement)),
+			OpeningNumber:  suggestion.OpeningNumber,
+		},
+	})
+	switch {
+	case err == nil && outcome.Problem != nil &&
+		outcome.Problem.Type == orgsproblem.EngagementWorkNotFoundError.Type:
+		s.Problem(r.Context(), w, invalid)
+		return false
+	case err != nil || outcome.Problem != nil || outcome.Result == nil:
+		s.Problem(r.Context(), w, orgsproblem.TenantUnavailableError)
+		return false
+	case outcome.Result.Job.State != openings.Published:
+		s.Problem(r.Context(), w, invalid)
+		return false
+	}
+	return true
 }
 
 func GetConversation(s *orgsruntime.Server) http.HandlerFunc {
@@ -554,57 +428,48 @@ func GetConversation(s *orgsruntime.Server) http.HandlerFunc {
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
 		contactID, err := dbvalue.ParseUUID(string(request.ContactID))
 		if err != nil {
-			s.Problem(r.Context(), w, orgsproblem.ContactNotFoundError)
+			s.InternalError(r.Context(), w, "parse Contact id", err)
 			return
 		}
-
-		contact, err := s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
+		var before *messageCursor
+		if request.PaginationKey != nil {
+			cursor, valid := verify(s, messagesPurpose, *request.PaginationKey,
+				dbvalue.FormatUUID(identity.OrgDID), string(request.ContactID))
+			if !valid {
+				s.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
+				return
+			}
+			before = &messageCursor{at: cursor.At, id: cursor.ID}
+		}
+		if _, err := s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
 			OrgDid: identity.OrgDID, ContactID: contactID,
-		})
-		if errors.Is(err, pgx.ErrNoRows) {
+		}); isNoRows(err) {
 			s.Problem(r.Context(), w, orgsproblem.ContactNotFoundError)
 			return
-		}
-		if err != nil {
-			s.InternalError(r.Context(), w, "get contact", err)
+		} else if err != nil {
+			s.InternalError(r.Context(), w, "read Contact", err)
 			return
 		}
-
-		conv, err := s.Queries.GetOrgConversationByContact(r.Context(), contactID)
-		if errors.Is(err, pgx.ErrNoRows) {
+		detail, err := readConversation(r.Context(), s.Queries, identity.OrgDID,
+			contactID, before, request.EffectiveLimit(),
+			func(at time.Time, id string) (common.PaginationKey, error) {
+				return signMessages(s, identity.OrgDID, contactID, at, id)
+			})
+		if isNoRows(err) {
 			s.Problem(r.Context(), w, orgsproblem.ConversationNotFoundError)
 			return
 		}
 		if err != nil {
-			s.InternalError(r.Context(), w, "get conversation", err)
+			s.InternalError(r.Context(), w, "read conversation", err)
 			return
 		}
-
-		msgs, err := s.Queries.ListOrgConversationMessages(r.Context(), conv.ConversationID)
-		if err != nil {
-			s.InternalError(r.Context(), w, "list conversation messages", err)
-			return
-		}
-
-		resultMsgs := make([]contacts.ConversationMessage, 0, len(msgs))
-		for _, m := range msgs {
-			resultMsgs = append(resultMsgs, messageFromMsgRow(m))
-		}
-
-		convSummary := summaryFromConvRow(conv)
-		if contact.MessagesOff && convSummary.ReadOnlyReason == nil {
-			r := contacts.ConversationReadOnlyMessagesOff
-			convSummary.ReadOnlyReason = &r
-		}
-
 		w.Header().Set("Cache-Control", "no-store")
-		s.JSON(r.Context(), w, http.StatusOK, contacts.ConversationDetail{
-			Conversation: convSummary,
-			Messages:     resultMsgs,
-		})
+		s.JSON(r.Context(), w, http.StatusOK, detail)
 	}
 }
 
+// MarkConversationRead clears the agency's unread count for every agency user
+// (MKT-DAT-010).
 func MarkConversationRead(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request contacts.MarkConversationReadRequest
@@ -614,239 +479,140 @@ func MarkConversationRead(s *orgsruntime.Server) http.HandlerFunc {
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
 		contactID, err := dbvalue.ParseUUID(string(request.ContactID))
 		if err != nil {
-			s.Problem(r.Context(), w, orgsproblem.ConversationNotFoundError)
+			s.InternalError(r.Context(), w, "parse Contact id", err)
 			return
 		}
-
-		_, err = s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
+		if _, err := s.Queries.GetOrgConversation(r.Context(), sqlc.GetOrgConversationParams{
 			OrgDid: identity.OrgDID, ContactID: contactID,
-		})
-		if errors.Is(err, pgx.ErrNoRows) {
+		}); isNoRows(err) {
 			s.Problem(r.Context(), w, orgsproblem.ConversationNotFoundError)
 			return
-		}
-		if err != nil {
-			s.InternalError(r.Context(), w, "get contact", err)
+		} else if err != nil {
+			s.InternalError(r.Context(), w, "read conversation", err)
 			return
 		}
-
-		_, err = s.Queries.MarkOrgConversationRead(r.Context(), sqlc.MarkOrgConversationReadParams{
-			ContactID:   contactID,
-			TenantID:    s.TenantID,
-			ActorUserID: identity.UserID,
-		})
-		if errors.Is(err, pgx.ErrNoRows) {
-			s.Problem(r.Context(), w, orgsproblem.ConversationNotFoundError)
-			return
-		}
-		if err != nil {
+		if _, err := s.Queries.MarkOrgConversationRead(r.Context(), sqlc.MarkOrgConversationReadParams{
+			OrgDid: identity.OrgDID, ContactID: contactID,
+			TenantID: s.TenantID, ActorID: identity.UserID,
+		}); err != nil {
 			s.InternalError(r.Context(), w, "mark conversation read", err)
 			return
 		}
-
 		w.Header().Set("Cache-Control", "no-store")
 		s.Empty(r.Context(), w, http.StatusOK)
 	}
 }
 
-func validateSuggestion(
-	ctx context.Context, s *orgsruntime.Server, orgDID pgtype.UUID,
-	suggestion contacts.OpeningSuggestion, w http.ResponseWriter,
-) bool {
-	isActive, err := s.Queries.CheckActiveSourcingEngagement(ctx, sqlc.CheckActiveSourcingEngagementParams{
-		ProviderOrgDid: orgDID,
-		ConsumerDomain: string(suggestion.ConsumerDomain),
-	})
-	if err != nil {
-		s.InternalError(ctx, w, "check active sourcing engagement", err)
-		return false
-	}
-	if !isActive {
-		details := problem.ValidationFailedError
-		details.Fields = []string{"suggestion"}
-		s.Problem(ctx, w, details)
-		return false
-	}
-
-	outcome, err := s.Openings.RelayGet(ctx, openingsspec.GetOrgOpeningRequest{
-		Domain:        suggestion.ConsumerDomain,
-		OpeningNumber: openingsspec.OpeningNumber(suggestion.OpeningNumber),
-	})
-	if err != nil {
-		s.Problem(ctx, w, orgsproblem.TenantUnavailableError)
-		return false
-	}
-	if outcome.Problem != nil || outcome.Result == nil || outcome.Result.Opening.State != "published" {
-		details := problem.ValidationFailedError
-		details.Fields = []string{"suggestion"}
-		s.Problem(ctx, w, details)
-		return false
-	}
-	return true
+type messageCursor struct {
+	at time.Time
+	id string
 }
 
-func postMessage(
-	ctx context.Context, s *orgsruntime.Server, q *sqlc.Queries,
-	identity middleware.OrgIdentity, key common.IdempotencyKey,
-	conversationID, contactID, hubDID pgtype.UUID,
-	agencyName, agencyDomain string, agencyLogo *string,
-	hubUserName, hubUserHandle, userDisplayName string,
-	text *contacts.MessageText, suggestion *contacts.OpeningSuggestion,
-	now time.Time,
-) (contacts.ConversationDetail, *handlerauth.Problem, error) {
-	messageID, err := dbvalue.NewUUIDv7(now)
-	if err != nil {
-		return contacts.ConversationDetail{}, nil, err
-	}
+func signMessages(
+	s *orgsruntime.Server, orgDID, contactID pgtype.UUID, at time.Time, id string,
+) (common.PaginationKey, error) {
+	return sign(s, messagesPurpose, pageCursor{
+		Org: dbvalue.FormatUUID(orgDID), Contact: dbvalue.FormatUUID(contactID),
+		At: at, ID: id,
+	})
+}
 
-	msgKind := "text"
-	var msgText pgtype.Text
-	var consumerDomain pgtype.Text
-	var openingNumber pgtype.Int4
-
-	if suggestion != nil {
-		msgKind = "suggestion"
-		consumerDomain = dbvalue.Text(string(suggestion.ConsumerDomain))
-		openingNumber = pgtype.Int4{Int32: int32(suggestion.OpeningNumber), Valid: true}
-	} else if text != nil {
-		msgText = dbvalue.Text(string(*text))
-	}
-
-	msgRow, err := q.InsertOrgConversationMessage(ctx, sqlc.InsertOrgConversationMessageParams{
-		MessageID:         messageID,
-		ConversationID:    conversationID,
-		SenderType:        "agency",
-		SenderUserID:      identity.UserID,
-		SenderDisplayName: userDisplayName,
-		Kind:              msgKind,
-		MessageText:       msgText,
-		ConsumerDomain:    consumerDomain,
-		OpeningNumber:     openingNumber,
-		SentAt:            pgtype.Timestamptz{Time: now, Valid: true},
+// readConversation reads the Contact's conversation with one page of its
+// messages, newest first; pgx.ErrNoRows reports none.
+func readConversation(
+	ctx context.Context, q sqlc.Querier, orgDID, contactID pgtype.UUID,
+	before *messageCursor, limit int32,
+	next func(time.Time, string) (common.PaginationKey, error),
+) (contacts.ConversationDetail, error) {
+	conversation, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
+		OrgDid: orgDID, ContactID: contactID,
 	})
 	if err != nil {
-		return contacts.ConversationDetail{}, nil, fmt.Errorf("insert message: %w", err)
+		return contacts.ConversationDetail{}, err
 	}
-
-	convRow, err := q.UpdateOrgConversationOnMessage(ctx, sqlc.UpdateOrgConversationOnMessageParams{
-		ConversationID:       conversationID,
-		LastActivityAt:       pgtype.Timestamptz{Time: now, Valid: true},
-		RecordedHubUserName:  hubUserName,
-		RecordedAgencyName:   agencyName,
-		RecordedAgencyDomain: agencyDomain,
-		AgencyUnread:         false,
-	})
-	if err != nil {
-		return contacts.ConversationDetail{}, nil, fmt.Errorf("update conversation on message: %w", err)
+	params := sqlc.ListOrgConversationMessagesParams{
+		ConversationID: conversation.ConversationID, PageLimit: limit + 1,
 	}
-
-	cTouch, err := q.TouchOrgContactPointer(ctx, sqlc.TouchOrgContactPointerParams{
-		ContactID:      contactID,
-		LastActivityAt: pgtype.Timestamptz{Time: now, Valid: true},
-	})
-	if err != nil {
-		return contacts.ConversationDetail{}, nil, fmt.Errorf("touch contact pointer: %w", err)
-	}
-
-	auditPayload, _ := json.Marshal(map[string]any{
-		"action":     "message-sent",
-		"message_id": dbvalue.FormatUUID(messageID),
-	})
-	if err := q.InsertAuditEvent(ctx, sqlc.InsertAuditEventParams{
-		TenantID:          s.TenantID,
-		Action:            "org.conversation.message-sent",
-		EntityType:        "org_conversation",
-		EntityID:          dbvalue.FormatUUID(conversationID),
-		ActorType:         "org_user",
-		ActorID:           dbvalue.Text(dbvalue.FormatUUID(identity.UserID)),
-		SubjectHubUserDid: hubDID,
-		SubjectOrgDid:     identity.OrgDID,
-		Source:            "orgs-api",
-		IdempotencyKey:    dbvalue.Text(string(key)),
-		Payload:           auditPayload,
-	}); err != nil {
-		return contacts.ConversationDetail{}, nil, fmt.Errorf("insert audit event: %w", err)
-	}
-
-	allMsgs, err := q.ListOrgConversationMessages(ctx, conversationID)
-	if err != nil {
-		return contacts.ConversationDetail{}, nil, fmt.Errorf("list conversation messages: %w", err)
-	}
-	suggestions := make([]contacts.OpeningSuggestion, 0)
-	for _, m := range allMsgs {
-		if m.Kind == "suggestion" && m.ConsumerDomain.Valid && m.OpeningNumber.Valid {
-			suggestions = append(suggestions, contacts.OpeningSuggestion{
-				ConsumerDomain: orgs.OrgDomain(m.ConsumerDomain.String),
-				OpeningNumber:  orgopenings.OpeningNumber(m.OpeningNumber.Int32),
-			})
+	if before != nil {
+		params.BeforeSentAt = dbvalue.Timestamp(before.at)
+		if params.BeforeMessageID, err = dbvalue.ParseUUID(before.id); err != nil {
+			return contacts.ConversationDetail{}, err
 		}
 	}
-
-	if err := agencycontacts.EnqueuePointer(ctx, q, agencycontacts.Pointer{
-		ContactID:         contactID,
-		OrgDID:            identity.OrgDID,
-		HubUserDID:        hubDID,
-		Version:           cTouch.PointerVersion,
-		Present:           true,
-		HasConversation:   true,
-		AgencyDisplayName: agencyName,
-		AgencyDomain:      orgs.OrgDomain(agencyDomain),
-		AgencyLogoMediaID: agencyLogo,
-		LastActivityAt:    &now,
-		Suggestions:       suggestions,
-		NewAgencyMessage:  true,
-	}); err != nil {
-		return contacts.ConversationDetail{}, nil, fmt.Errorf("enqueue pointer: %w", err)
+	rows, err := q.ListOrgConversationMessages(ctx, params)
+	if err != nil {
+		return contacts.ConversationDetail{}, err
 	}
-
-	resultMsgs := make([]contacts.ConversationMessage, 0, len(allMsgs))
-	for _, m := range allMsgs {
-		resultMsgs = append(resultMsgs, messageFromMsgRow(m))
+	detail := contacts.ConversationDetail{
+		Conversation: conversationSummary(conversation),
+		Messages:     []contacts.ConversationMessage{},
 	}
-	_ = msgRow
-
-	return contacts.ConversationDetail{
-		Conversation: summaryFromConvRow(convRow),
-		Messages:     resultMsgs,
-	}, nil, nil
+	for index, row := range rows {
+		if index == int(limit) {
+			last := detail.Messages[index-1]
+			key, err := next(last.SentAt, string(last.MessageID))
+			if err != nil {
+				return contacts.ConversationDetail{}, err
+			}
+			detail.NextPaginationKey = &key
+			break
+		}
+		detail.Messages = append(detail.Messages, message(row.MessageID,
+			row.SenderType, row.SenderDisplayName, row.Kind, row.MessageText,
+			row.ConsumerDomain, row.OpeningNumber, row.SentAt))
+	}
+	return detail, nil
 }
 
-func summaryFromConvRow(row sqlc.VetchiumOrgConversation) contacts.ConversationSummary {
-	s := contacts.ConversationSummary{
+func conversationSummary(row sqlc.GetOrgConversationRow) contacts.ConversationSummary {
+	summary := contacts.ConversationSummary{
 		ConversationID:        contacts.ConversationID(dbvalue.FormatUUID(row.ConversationID)),
 		ContactID:             contacts.ContactID(dbvalue.FormatUUID(row.ContactID)),
 		RecordedHubUserName:   row.RecordedHubUserName,
 		RecordedHubUserHandle: hub.HubHandle(row.RecordedHubUserHandle),
 		RecordedAgencyName:    row.RecordedAgencyName,
 		RecordedAgencyDomain:  orgs.OrgDomain(row.RecordedAgencyDomain),
-		AgencyUnread:          row.AgencyUnread,
+		AgencyUnread:          row.AgencyUnreadCount > 0,
 		CreatedAt:             row.CreatedAt.Time.UTC(),
 		LastActivityAt:        row.LastActivityAt.Time.UTC(),
 	}
-	if row.ReadOnlyReason.Valid {
-		r := contacts.ConversationReadOnlyReason(row.ReadOnlyReason.String)
-		s.ReadOnlyReason = &r
+	switch {
+	case row.ReadOnlyReason.Valid:
+		reason := contacts.ConversationReadOnlyReason(row.ReadOnlyReason.String)
+		summary.ReadOnlyReason = &reason
+	case row.MessagesOff:
+		reason := contacts.ConversationReadOnlyMessagesOff
+		summary.ReadOnlyReason = &reason
 	}
-	return s
+	return summary
 }
 
-func messageFromMsgRow(row sqlc.VetchiumOrgConversationMessage) contacts.ConversationMessage {
-	msg := contacts.ConversationMessage{
-		MessageID:         contacts.MessageID(dbvalue.FormatUUID(row.MessageID)),
-		SenderType:        contacts.MessageSenderType(row.SenderType),
-		SenderDisplayName: row.SenderDisplayName,
-		Kind:              contacts.MessageKind(row.Kind),
-		SentAt:            row.SentAt.Time.UTC(),
+func message(
+	id pgtype.UUID, sender, name, kind string, text, consumerDomain pgtype.Text,
+	openingNumber pgtype.Int4, sentAt pgtype.Timestamptz,
+) contacts.ConversationMessage {
+	result := contacts.ConversationMessage{
+		MessageID:         contacts.MessageID(dbvalue.FormatUUID(id)),
+		SenderType:        contacts.MessageSenderType(sender),
+		SenderDisplayName: name,
+		Kind:              contacts.MessageKind(kind),
+		SentAt:            sentAt.Time.UTC(),
 	}
-	if row.MessageText.Valid {
-		t := contacts.MessageText(row.MessageText.String)
-		msg.Text = &t
+	if text.Valid {
+		value := contacts.MessageText(text.String)
+		result.Text = &value
 	}
-	if row.ConsumerDomain.Valid && row.OpeningNumber.Valid {
-		msg.Suggestion = &contacts.OpeningSuggestion{
-			ConsumerDomain: orgs.OrgDomain(row.ConsumerDomain.String),
-			OpeningNumber:  orgopenings.OpeningNumber(row.OpeningNumber.Int32),
+	if consumerDomain.Valid && openingNumber.Valid {
+		result.Suggestion = &contacts.OpeningSuggestion{
+			ConsumerDomain: orgs.OrgDomain(consumerDomain.String),
+			OpeningNumber:  openings.OpeningNumber(openingNumber.Int32),
 		}
 	}
-	return msg
+	return result
+}
+
+// today is the UTC calendar date of now, which the daily limits count by.
+func today(now time.Time) time.Time {
+	year, month, day := now.UTC().Date()
+	return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 }

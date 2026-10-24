@@ -3466,7 +3466,10 @@ CREATE TABLE vetchium.org_conversations (
     recorded_hub_user_handle text NOT NULL,
     recorded_agency_name text NOT NULL,
     recorded_agency_domain text NOT NULL,
-    agency_unread boolean NOT NULL DEFAULT false,
+    -- Hub user messages the agency has not read; any agency user's read
+    -- clears it (MKT-DAT-010).
+    agency_unread_count integer NOT NULL DEFAULT 0
+        CHECK (agency_unread_count >= 0),
     read_only_reason text CHECK (
         read_only_reason IS NULL OR read_only_reason IN (
             'messages_off', 'hub_user_deleted', 'agency_deleted'
@@ -3537,7 +3540,6 @@ CREATE TABLE vetchium.hub_agency_pointers (
     agency_org_did uuid NOT NULL,
     agency_display_name text NOT NULL DEFAULT '',
     agency_domain text NOT NULL DEFAULT '',
-    agency_logo_media_id uuid,
     has_conversation boolean NOT NULL DEFAULT false,
     last_activity_at timestamptz NOT NULL DEFAULT now(),
     unread_count integer NOT NULL DEFAULT 0 CHECK (unread_count >= 0),

@@ -2575,6 +2575,8 @@ export const ta = {
       findPersonModalTitle: "வெட்சியத்தில் ஒருவரைக் கண்டறியவும்",
       findPersonExplainer:
         "நீங்கள் தொடர்பு கொள்ள விரும்பும் நபரின் ஹேண்டில் அல்லது மாற்றுப் பெயரை உள்ளிடவும்.",
+      loadEarlier: "முந்தைய செய்திகளை ஏற்று",
+      handlePlaceholder: "கைப்பிடி அல்லது மாற்றுப்பெயர்",
       handleOrAliasLabel: "ஹேண்டில் அல்லது மாற்றுப்பெயர்",
       viewProfile: "சுயவிவரத்தைக் காண்க",
       notFound: "தொடர்பு காணப்படவில்லை.",

@@ -193,17 +193,19 @@ func SetAgenciesMayMessage(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 
-		for _, p := range pointers {
-			if err := agencycontacts.EnqueueMessagesState(r.Context(), q, agencycontacts.MessagesState{
+		states := make([]agencycontacts.MessagesState, len(pointers))
+		for index, p := range pointers {
+			states[index] = agencycontacts.MessagesState{
 				ContactID:   p.ContactID,
 				OrgDID:      p.AgencyOrgDid,
 				HubUserDID:  identity.UserDID,
 				Version:     row.AgenciesMayMessageVersion,
 				MessagesOff: !row.AgenciesMayMessage,
-			}); err != nil {
-				s.InternalError(r.Context(), w, "enqueue messages state", err)
-				return
 			}
+		}
+		if err := agencycontacts.EnqueueMessagesStates(r.Context(), q, states); err != nil {
+			s.InternalError(r.Context(), w, "enqueue messages state", err)
+			return
 		}
 
 		if err := tx.Commit(r.Context()); err != nil {

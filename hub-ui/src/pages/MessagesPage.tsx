@@ -38,6 +38,7 @@ import { isProblem } from "../api/client";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { ActionError } from "../features/applications/ActionError";
 import {
+  chronological,
   useConversationDeleteAction,
   useConversationDetailQuery,
   useConversationReplyAction,
@@ -299,27 +300,17 @@ export function MessagesPage() {
               >
                 <List.Item.Meta
                   avatar={
-                    item.agency_logo_url ? (
-                      <Avatar
-                        shape="square"
-                        size={48}
-                        src={item.agency_logo_url}
-                      />
-                    ) : (
-                      <Avatar
-                        shape="square"
-                        size={48}
-                        style={{
-                          backgroundColor: avatarColor(
-                            item.agency_display_name,
-                          ),
-                          fontWeight: "bold",
-                          fontSize: 16,
-                        }}
-                      >
-                        {initials(item.agency_display_name)}
-                      </Avatar>
-                    )
+                    <Avatar
+                      shape="square"
+                      size={48}
+                      style={{
+                        backgroundColor: avatarColor(item.agency_display_name),
+                        fontWeight: "bold",
+                        fontSize: 16,
+                      }}
+                    >
+                      {initials(item.agency_display_name)}
+                    </Avatar>
                   }
                   title={
                     <div
@@ -419,24 +410,16 @@ export function MessagesPage() {
                   aria-label={t("common.back")}
                 />
               )}
-              {summary.agency_logo_url ? (
-                <Avatar
-                  shape="square"
-                  size={40}
-                  src={summary.agency_logo_url}
-                />
-              ) : (
-                <Avatar
-                  shape="square"
-                  size={40}
-                  style={{
-                    backgroundColor: avatarColor(summary.agency_display_name),
-                    fontWeight: "bold",
-                  }}
-                >
-                  {initials(summary.agency_display_name)}
-                </Avatar>
-              )}
+              <Avatar
+                shape="square"
+                size={40}
+                style={{
+                  backgroundColor: avatarColor(summary.agency_display_name),
+                  fontWeight: "bold",
+                }}
+              >
+                {initials(summary.agency_display_name)}
+              </Avatar>
               <Space orientation="vertical" size={0}>
                 <Typography.Text strong style={{ fontSize: 16 }}>
                   {summary.agency_display_name}
@@ -513,52 +496,66 @@ export function MessagesPage() {
                 gap: 16,
               }}
             >
-              {detailQuery.data.messages.map((msg: ConversationMessage) => {
-                const isCandidate = msg.sender_type === "hub_user";
+              {detailQuery.hasNextPage && (
+                <Button
+                  type="link"
+                  loading={detailQuery.isFetchingNextPage}
+                  onClick={() => void detailQuery.fetchNextPage()}
+                  style={{ alignSelf: "center" }}
+                >
+                  {t("messages.loadEarlier")}
+                </Button>
+              )}
+              {chronological(detailQuery.data.pages).map(
+                (msg: ConversationMessage) => {
+                  const isCandidate = msg.sender_type === "hub_user";
 
-                return (
-                  <div
-                    key={msg.message_id}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: isCandidate ? "flex-end" : "flex-start",
-                    }}
-                  >
-                    <Typography.Text
-                      type="secondary"
-                      style={{ fontSize: 12, marginBottom: 4 }}
+                  return (
+                    <div
+                      key={msg.message_id}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: isCandidate ? "flex-end" : "flex-start",
+                      }}
                     >
-                      {isCandidate
-                        ? `${t("messages.you")} · ${dateTime(msg.sent_at)}`
-                        : `${msg.sender_display_name} · ${dateTime(msg.sent_at)}`}
-                    </Typography.Text>
-                    {msg.text && (
-                      <div
-                        style={{
-                          backgroundColor: isCandidate ? "#1677ff" : "#f0f2f5",
-                          color: isCandidate ? "#ffffff" : "#000000",
-                          padding: "10px 16px",
-                          borderRadius: 12,
-                          maxWidth: "80%",
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-word",
-                          fontSize: 14,
-                          lineHeight: 1.5,
-                        }}
+                      <Typography.Text
+                        type="secondary"
+                        style={{ fontSize: 12, marginBottom: 4 }}
                       >
-                        {msg.text}
-                      </div>
-                    )}
-                    {msg.suggestion && (
-                      <OpeningSuggestionCard
-                        suggestion={msg.suggestion}
-                        agencyDomain={summary.agency_domain}
-                      />
-                    )}
-                  </div>
-                );
-              })}
+                        {isCandidate
+                          ? `${t("messages.you")} · ${dateTime(msg.sent_at)}`
+                          : `${msg.sender_display_name} · ${dateTime(msg.sent_at)}`}
+                      </Typography.Text>
+                      {msg.text && (
+                        <div
+                          style={{
+                            backgroundColor: isCandidate
+                              ? "#1677ff"
+                              : "#f0f2f5",
+                            color: isCandidate ? "#ffffff" : "#000000",
+                            padding: "10px 16px",
+                            borderRadius: 12,
+                            maxWidth: "80%",
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                            fontSize: 14,
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {msg.text}
+                        </div>
+                      )}
+                      {msg.suggestion && (
+                        <OpeningSuggestionCard
+                          suggestion={msg.suggestion}
+                          agencyDomain={summary.agency_domain}
+                        />
+                      )}
+                    </div>
+                  );
+                },
+              )}
             </div>
 
             {/* Reply section */}

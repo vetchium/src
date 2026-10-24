@@ -176,6 +176,51 @@ func Enqueue(ctx context.Context, q sqlc.Querier, event Outgoing) (pgtype.UUID, 
 	return eventID, nil
 }
 
+// EnqueueAll is Enqueue for several events in one statement.
+func EnqueueAll(ctx context.Context, q sqlc.Querier, outgoing []Outgoing) error {
+	if len(outgoing) == 0 {
+		return nil
+	}
+	var params sqlc.CreateFederationOutboxEventsParams
+	for _, event := range outgoing {
+		if !federationspec.IsEventKind(event.Kind) || !event.Destination.valid() ||
+			!federationspec.IsAggregateType(event.AggregateType) ||
+			!federationspec.IsAggregateID(event.AggregateID) ||
+			event.AggregateVersion < 1 {
+			return fmt.Errorf("invalid federation event %q", event.Kind)
+		}
+		payload, err := json.Marshal(event.Payload)
+		if err != nil {
+			return fmt.Errorf("encode federation event payload: %w", err)
+		}
+		if !federationspec.IsJSONObject(payload) {
+			return fmt.Errorf("federation event payload is not an object")
+		}
+		eventID, err := dbvalue.NewUUID()
+		if err != nil {
+			return err
+		}
+		params.EventIds = append(params.EventIds, eventID)
+		params.Kinds = append(params.Kinds, string(event.Kind))
+		params.DestinationPrincipalTypes = append(params.DestinationPrincipalTypes,
+			string(event.Destination.Type))
+		params.DestinationPrincipalDids = append(params.DestinationPrincipalDids,
+			event.Destination.DID)
+		params.AggregateTypes = append(params.AggregateTypes, string(event.AggregateType))
+		params.AggregateIds = append(params.AggregateIds, event.AggregateID)
+		params.AggregateVersions = append(params.AggregateVersions, event.AggregateVersion)
+		params.Payloads = append(params.Payloads, payload)
+	}
+	inserted, err := q.CreateFederationOutboxEvents(ctx, params)
+	if err != nil {
+		return fmt.Errorf("enqueue federation events: %w", err)
+	}
+	if inserted != int64(len(outgoing)) {
+		return fmt.Errorf("enqueued %d of %d federation events", inserted, len(outgoing))
+	}
+	return nil
+}
+
 var (
 	// ErrEventConflict reports an event id already received for another
 	// event: a protocol error that redelivery cannot fix.

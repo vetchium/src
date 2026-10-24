@@ -3,21 +3,22 @@ import {
   isEmailAddress,
   normalizeEmailAddress,
 } from "../common/common.ts";
-import type { HubUserDID } from "../hub/types.ts";
-import { isHubUserDID } from "../hub/types.ts";
+import { type DisplayName, isDisplayName } from "../common/localization.ts";
+import { isPaginationKey, type PaginationKey } from "../common/pagination.ts";
+import type { HubHandle, HubUserDID } from "../hub/types.ts";
+import { isHubHandle, isHubUserDID } from "../hub/types.ts";
 import type { Capability } from "../orgs/marketplace/capabilities.ts";
 import { isCapability } from "../orgs/marketplace/capabilities.ts";
 import type {
   ContactID,
   ConversationMessage,
   ConversationReadOnlyReason,
-  ConversationSummary,
   MessageText,
-  OpeningSuggestion,
 } from "../orgs/marketplace/contacts/contacts.ts";
 import {
   isContactID,
   isMessageText,
+  maxPage as maxContactPage,
 } from "../orgs/marketplace/contacts/contacts.ts";
 import type {
   Engagement,
@@ -59,6 +60,7 @@ import {
   validateSubmitInterviewFeedbackRequest,
   validateWorkReference,
 } from "../orgs/marketplace/work/work.ts";
+import type { OpeningNumber } from "../orgs/openings/types.ts";
 import {
   isOrgDID,
   isOrgDomain,
@@ -429,11 +431,17 @@ export interface AgencyPointerChangedPayload {
   has_conversation?: boolean;
   agency_display_name?: string;
   agency_domain?: OrgDomain;
-  agency_logo_media_id?: string;
   last_activity_at?: string;
   read_only_reason?: ConversationReadOnlyReason;
-  suggestions?: OpeningSuggestion[];
+  suggestions?: AgencyPointerSuggestion[];
   new_agency_message?: boolean;
+}
+
+/** An Opening the agency suggested in the conversation, as the pointer keeps it. */
+export interface AgencyPointerSuggestion {
+  consumer_domain: OrgDomain;
+  opening_number: OpeningNumber;
+  sent_at: string;
 }
 
 export const HubConversationReplyKind: CommandKind = "hub-conversation-reply";
@@ -442,6 +450,9 @@ export const HubConversationDeleteKind: CommandKind = "hub-conversation-delete";
 export interface HubConversationReplyPayload {
   contact_id: ContactID;
   hub_user_did: HubUserDID;
+  /** The Hub user's name and handle now, which the agency records (MKT-CNV-001). */
+  hub_user_display_name: DisplayName;
+  hub_user_handle: HubHandle;
   text: MessageText;
 }
 
@@ -451,6 +462,9 @@ export function validateHubConversationReplyPayload(
   const fields: string[] = [];
   if (!isContactID(payload.contact_id)) fields.push("contact_id");
   if (!isHubUserDID(payload.hub_user_did)) fields.push("hub_user_did");
+  if (!isDisplayName(payload.hub_user_display_name))
+    fields.push("hub_user_display_name");
+  if (!isHubHandle(payload.hub_user_handle)) fields.push("hub_user_handle");
   if (!isMessageText(payload.text)) fields.push("text");
   return fields;
 }
@@ -473,6 +487,9 @@ export interface MeshReadConversationRequest {
   contact_id: ContactID;
   hub_user_did: HubUserDID;
   agency_org_did: OrgDID;
+  pagination_key?: PaginationKey;
+  /** Defaults to 50. */
+  limit?: number;
 }
 
 export function validateMeshReadConversationRequest(
@@ -482,12 +499,29 @@ export function validateMeshReadConversationRequest(
   if (!isContactID(request.contact_id)) fields.push("contact_id");
   if (!isHubUserDID(request.hub_user_did)) fields.push("hub_user_did");
   if (!isOrgDID(request.agency_org_did)) fields.push("agency_org_did");
+  if (
+    request.pagination_key !== undefined &&
+    !isPaginationKey(request.pagination_key)
+  )
+    fields.push("pagination_key");
+  if (
+    request.limit !== undefined &&
+    (!Number.isInteger(request.limit) ||
+      request.limit < 1 ||
+      request.limit > maxContactPage)
+  )
+    fields.push("limit");
   return fields;
 }
 
+/**
+ * One page of a conversation as the Hub user reads it. Agency messages name
+ * the agency, never the agency user; no agency-side unread state is carried.
+ */
 export interface MeshReadConversationResponse {
-  conversation: ConversationSummary;
+  read_only_reason?: ConversationReadOnlyReason;
   messages: ConversationMessage[];
+  next_pagination_key?: PaginationKey;
 }
 
 export function validateAgencyPointerChangedPayload(

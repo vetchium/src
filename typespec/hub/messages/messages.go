@@ -22,10 +22,8 @@ type HubOpeningSuggestion struct {
 
 type HubConversationSummary struct {
 	ContactID         contacts.ContactID                   `json:"contact_id"`
-	AgencyOrgDID      orgs.OrgDID                          `json:"agency_org_did"`
 	AgencyDisplayName string                               `json:"agency_display_name"`
 	AgencyDomain      orgs.OrgDomain                       `json:"agency_domain"`
-	AgencyLogoURL     *string                              `json:"agency_logo_url,omitempty"`
 	HasConversation   bool                                 `json:"has_conversation"`
 	Unread            bool                                 `json:"unread"`
 	UnreadCount       int32                                `json:"unread_count"`
@@ -35,8 +33,11 @@ type HubConversationSummary struct {
 }
 
 type HubConversationDetail struct {
-	Conversation HubConversationSummary         `json:"conversation"`
-	Messages     []contacts.ConversationMessage `json:"messages"`
+	Conversation HubConversationSummary `json:"conversation"`
+	// Messages is one page, newest first.
+	Messages []contacts.ConversationMessage `json:"messages"`
+	// NextPaginationKey resumes with older messages.
+	NextPaginationKey *common.PaginationKey `json:"next_pagination_key,omitempty"`
 }
 
 type ListConversationsRequest struct {
@@ -54,11 +55,15 @@ func (r ListConversationsRequest) EffectiveLimit() int32 {
 }
 
 func (r ListConversationsRequest) Validate() []string {
+	return validPage(r.PaginationKey, r.Limit)
+}
+
+func validPage(key *common.PaginationKey, limit *int32) []string {
 	fields := []string{}
-	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
+	if key != nil && !common.IsPaginationKey(*key) {
 		fields = append(fields, "pagination_key")
 	}
-	if r.Limit != nil && (*r.Limit < 1 || *r.Limit > MaxPage) {
+	if limit != nil && (*limit < 1 || *limit > MaxPage) {
 		fields = append(fields, "limit")
 	}
 	return fields
@@ -70,16 +75,26 @@ type ListConversationsResponse struct {
 }
 
 type GetConversationRequest struct {
-	ContactID contacts.ContactID `json:"contact_id"`
+	ContactID     contacts.ContactID    `json:"contact_id"`
+	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
+	Limit         *int32                `json:"limit,omitempty"`
 }
 
 func (r *GetConversationRequest) Normalize() {}
 
-func (r GetConversationRequest) Validate() []string {
-	if !contacts.IsContactID(r.ContactID) {
-		return []string{"contact_id"}
+func (r GetConversationRequest) EffectiveLimit() int32 {
+	if r.Limit == nil {
+		return DefaultPage
 	}
-	return []string{}
+	return *r.Limit
+}
+
+func (r GetConversationRequest) Validate() []string {
+	fields := validPage(r.PaginationKey, r.Limit)
+	if !contacts.IsContactID(r.ContactID) {
+		fields = append(fields, "contact_id")
+	}
+	return fields
 }
 
 type ReplyToConversationRequest struct {

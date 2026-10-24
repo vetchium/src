@@ -2592,6 +2592,8 @@ export const en = {
       findPersonModalTitle: "Find a person on Vetchium",
       findPersonExplainer:
         "Enter the handle or alias of the person you want to contact.",
+      loadEarlier: "Load earlier messages",
+      handlePlaceholder: "handle or alias",
       handleOrAliasLabel: "Handle or alias",
       viewProfile: "View profile",
       notFound: "Contact not found.",

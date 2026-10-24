@@ -49,7 +49,12 @@ export const conversationReadOnlyReasons = [
 export type ConversationReadOnlyReason =
   (typeof conversationReadOnlyReasons)[number];
 
-export const contactFilters = ["all", "unread", "has_conversation"] as const;
+export const contactFilters = [
+  "all",
+  "unread",
+  "has_conversation",
+  "not_contacted",
+] as const;
 export type ContactFilter = (typeof contactFilters)[number];
 
 const uuidPattern =
@@ -129,7 +134,10 @@ export interface ConversationSummary {
 
 export interface ConversationDetail {
   conversation: ConversationSummary;
+  /** One page of messages, newest first. */
   messages: ConversationMessage[];
+  /** Resumes with older messages. */
+  next_pagination_key?: PaginationKey;
 }
 
 /** A verified professional-email domain with the months of its first and last verification. */
@@ -145,6 +153,8 @@ export interface ContactSummary {
   handle: HubHandle;
   /** The person does not accept messages from agencies. */
   messages_off: boolean;
+  /** The person's account no longer exists; only the conversation remains. */
+  account_deleted: boolean;
   note_count: number;
   has_conversation: boolean;
   unread_messages_count: number;
@@ -206,11 +216,29 @@ function validatePage(
   return fields;
 }
 
+/** A case-insensitive substring of the Contact's recorded display name. */
+export type ContactNameQuery = string;
+
+export function normalizeContactNameQuery(
+  value: ContactNameQuery,
+): ContactNameQuery {
+  return value.trim();
+}
+
+/** Reports a trimmed query of 2 to 100 code points. */
+export function isContactNameQuery(value: ContactNameQuery): boolean {
+  const length = Array.from(value).length;
+  return (
+    length >= 2 && length <= 100 && value === normalizeContactNameQuery(value)
+  );
+}
+
 export interface ListContactsRequest {
   pagination_key?: PaginationKey;
   /** Defaults to 50. */
   limit?: number;
   filter?: ContactFilter;
+  name_query?: ContactNameQuery;
 }
 
 export function validateListContactsRequest(
@@ -223,11 +251,27 @@ export function validateListContactsRequest(
   ) {
     fields.push("filter");
   }
+  if (
+    request.name_query !== undefined &&
+    !isContactNameQuery(request.name_query)
+  ) {
+    fields.push("name_query");
+  }
   return fields;
+}
+
+/** How many of the agency's Contacts each Contacts tab holds. */
+export interface ContactCounts {
+  all: number;
+  unread: number;
+  has_conversation: number;
+  not_contacted: number;
 }
 
 export interface ListContactsResponse {
   items: ContactSummary[];
+  /** Counts every Contact of the agency, whatever the filter and query. */
+  counts: ContactCounts;
   next_pagination_key?: PaginationKey;
 }
 
@@ -386,12 +430,18 @@ export function validateSendMessageRequest(
 
 export interface GetConversationRequest {
   contact_id: ContactID;
+  pagination_key?: PaginationKey;
+  /** Defaults to 50. */
+  limit?: number;
 }
 
 export function validateGetConversationRequest(
   request: GetConversationRequest,
 ): string[] {
-  return validateContactReference(request);
+  return [
+    ...validatePage(request.pagination_key, request.limit),
+    ...validateContactReference(request),
+  ];
 }
 
 export interface MarkConversationReadRequest {

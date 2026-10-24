@@ -74,7 +74,23 @@ const (
 	ContactFilterAll             ContactFilter = "all"
 	ContactFilterUnread          ContactFilter = "unread"
 	ContactFilterHasConversation ContactFilter = "has_conversation"
+	ContactFilterNotContacted    ContactFilter = "not_contacted"
 )
+
+// ContactNameQuery is a case-insensitive substring of the Contact's recorded
+// display name.
+type ContactNameQuery string
+
+func NormalizeContactNameQuery(value ContactNameQuery) ContactNameQuery {
+	return ContactNameQuery(strings.TrimSpace(string(value)))
+}
+
+// IsContactNameQuery reports a trimmed query of 2 to 100 code points.
+func IsContactNameQuery(value ContactNameQuery) bool {
+	length := utf8.RuneCountInString(string(value))
+	return length >= 2 && length <= 100 &&
+		value == NormalizeContactNameQuery(value)
+}
 
 var uuidPattern = regexp.MustCompile(
 	`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`,
@@ -148,8 +164,11 @@ type ConversationSummary struct {
 }
 
 type ConversationDetail struct {
-	Conversation ConversationSummary   `json:"conversation"`
-	Messages     []ConversationMessage `json:"messages"`
+	Conversation ConversationSummary `json:"conversation"`
+	// Messages is one page, newest first.
+	Messages []ConversationMessage `json:"messages"`
+	// NextPaginationKey resumes with older messages.
+	NextPaginationKey *common.PaginationKey `json:"next_pagination_key,omitempty"`
 }
 
 // VerifiedDomain is a verified professional-email domain with the months of
@@ -170,15 +189,18 @@ func (d VerifiedDomain) Valid() bool {
 
 // ContactSummary is one Contact in a list or beside a profile.
 type ContactSummary struct {
-	ContactID           ContactID          `json:"contact_id"`
-	DisplayName         common.DisplayName `json:"display_name"`
-	Handle              hub.HubHandle      `json:"handle"`
-	MessagesOff         bool               `json:"messages_off"`
-	NoteCount           int32              `json:"note_count"`
-	HasConversation     bool               `json:"has_conversation"`
-	UnreadMessagesCount int32              `json:"unread_messages_count"`
-	CreditedCount       int32              `json:"credited_count"`
-	LastActivityAt      time.Time          `json:"last_activity_at"`
+	ContactID   ContactID          `json:"contact_id"`
+	DisplayName common.DisplayName `json:"display_name"`
+	Handle      hub.HubHandle      `json:"handle"`
+	MessagesOff bool               `json:"messages_off"`
+	// AccountDeleted reports that the person's account no longer exists and
+	// only the conversation remains.
+	AccountDeleted      bool      `json:"account_deleted"`
+	NoteCount           int32     `json:"note_count"`
+	HasConversation     bool      `json:"has_conversation"`
+	UnreadMessagesCount int32     `json:"unread_messages_count"`
+	CreditedCount       int32     `json:"credited_count"`
+	LastActivityAt      time.Time `json:"last_activity_at"`
 }
 
 func (c ContactSummary) Valid() bool {
@@ -254,9 +276,15 @@ type ListContactsRequest struct {
 	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
 	Limit         *int32                `json:"limit,omitempty"`
 	Filter        *ContactFilter        `json:"filter,omitempty"`
+	NameQuery     *ContactNameQuery     `json:"name_query,omitempty"`
 }
 
-func (r *ListContactsRequest) Normalize() {}
+func (r *ListContactsRequest) Normalize() {
+	if r.NameQuery != nil {
+		query := NormalizeContactNameQuery(*r.NameQuery)
+		r.NameQuery = &query
+	}
+}
 
 func (r ListContactsRequest) EffectiveLimit() int32 { return effectiveLimit(r.Limit) }
 
@@ -271,16 +299,31 @@ func (r ListContactsRequest) Validate() []string {
 	fields := validPage(r.PaginationKey, r.Limit)
 	if r.Filter != nil {
 		switch *r.Filter {
-		case ContactFilterAll, ContactFilterUnread, ContactFilterHasConversation:
+		case ContactFilterAll, ContactFilterUnread, ContactFilterHasConversation,
+			ContactFilterNotContacted:
 		default:
 			fields = append(fields, "filter")
 		}
 	}
+	if r.NameQuery != nil && !IsContactNameQuery(*r.NameQuery) {
+		fields = append(fields, "name_query")
+	}
 	return fields
 }
 
+// ContactCounts is how many of the agency's Contacts each Contacts tab holds.
+type ContactCounts struct {
+	All             int32 `json:"all"`
+	Unread          int32 `json:"unread"`
+	HasConversation int32 `json:"has_conversation"`
+	NotContacted    int32 `json:"not_contacted"`
+}
+
 type ListContactsResponse struct {
-	Items             []ContactSummary      `json:"items"`
+	Items []ContactSummary `json:"items"`
+	// Counts counts every Contact of the agency, whatever the filter and
+	// query.
+	Counts            ContactCounts         `json:"counts"`
 	NextPaginationKey *common.PaginationKey `json:"next_pagination_key,omitempty"`
 }
 
@@ -477,14 +520,22 @@ func (r SendMessageRequest) Validate() []string {
 }
 
 type GetConversationRequest struct {
-	ContactID ContactID `json:"contact_id"`
+	ContactID     ContactID             `json:"contact_id"`
+	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
+	Limit         *int32                `json:"limit,omitempty"`
 }
 
 func (r *GetConversationRequest) Normalize() {}
 
+func (r GetConversationRequest) EffectiveLimit() int32 { return effectiveLimit(r.Limit) }
+
 func (r GetConversationRequest) Validate() []string {
+	fields := validPage(r.PaginationKey, r.Limit)
 	if !IsContactID(r.ContactID) {
-		return []string{"contact_id"}
+		fields = append(fields, "contact_id")
+	}
+	if len(fields) > 0 {
+		return fields
 	}
 	return []string{}
 }

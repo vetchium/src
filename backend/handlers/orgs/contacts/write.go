@@ -114,10 +114,7 @@ func AddPersonNote(s *orgsruntime.Server) http.HandlerFunc {
 					if row.CreatedRows != 1 || row.CountedRows != 1 || row.AuditRows != 1 {
 						return result{}, nil, fmt.Errorf("incomplete Contact creation")
 					}
-					if err := agencycontacts.EnqueuePointer(ctx, q, agencycontacts.Pointer{
-						ContactID: contactID, OrgDID: identity.OrgDID,
-						HubUserDID: hubDID, Version: 1, Present: true,
-					}); err != nil {
+					if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contactID, false); err != nil {
 						return result{}, nil, err
 					}
 					contact.ContactID = contactID
@@ -194,8 +191,9 @@ func insertNote(
 	}
 	return contacts.AddedNote{
 		Contact: summary(contact.ContactID, contact.DisplayName, contact.Handle,
-			contact.MessagesOff, contact.LastActivityAt, contact.NoteCount, contact.CreditedCount,
-			contact.HasConversation, contact.UnreadMessagesCount),
+			contact.MessagesOff, contact.PartyDeleted, contact.LastActivityAt,
+			contact.NoteCount, contact.CreditedCount, contact.HasConversation,
+			contact.UnreadMessagesCount),
 		Note: noteFrom(row.NoteID, row.Author, text, row.CreatedAt, pgtype.Timestamptz{}),
 	}, nil, nil
 }
@@ -228,6 +226,14 @@ func AddContactNote(s *orgsruntime.Server) http.HandlerFunc {
 				}
 				if err != nil {
 					return result{}, nil, err
+				}
+				// A deleted account keeps only its conversation (MKT-CON-004).
+				deleted, err := q.OrgContactAccountDeleted(r.Context(), id)
+				if err != nil {
+					return result{}, nil, err
+				}
+				if deleted {
+					return handlerauth.Failure[contacts.AddedNote](orgsproblem.ConversationPartyDeletedError)
 				}
 				added, details, err := insertNote(r, s, q, identity, key,
 					id, locked.HubUserDid, string(request.Text), now)
@@ -360,9 +366,10 @@ func DeleteContactNote(s *orgsruntime.Server) http.HandlerFunc {
 				}
 				deleted := contacts.DeletedNote{}
 				if row.Remaining == 0 {
-					gone, err := q.DeleteEmptyOrgContact(ctx, sqlc.DeleteEmptyOrgContactParams{
+					gone, err := q.DeleteUnusedOrgContact(ctx, sqlc.DeleteUnusedOrgContactParams{
 						ContactID: contactID, OrgDid: identity.OrgDID, TenantID: s.TenantID,
-						ActorID: identity.UserID, IdempotencyKey: dbvalue.Text(string(key)),
+						ActorType: "org_user", ActorID: dbvalue.FormatUUID(identity.UserID),
+						Source: "orgs-api", IdempotencyKey: dbvalue.Text(string(key)),
 					})
 					switch {
 					case isNoRows(err):
@@ -372,10 +379,8 @@ func DeleteContactNote(s *orgsruntime.Server) http.HandlerFunc {
 						if gone.AuditRows != 1 {
 							return result{}, nil, fmt.Errorf("incomplete Contact deletion")
 						}
-						if err := agencycontacts.EnqueuePointer(ctx, q, agencycontacts.Pointer{
-							ContactID: contactID, OrgDID: identity.OrgDID,
-							HubUserDID: gone.HubUserDid, Version: gone.PointerVersion + 1,
-						}); err != nil {
+						if err := agencycontacts.RemovePointer(ctx, q, identity.OrgDID,
+							contactID, gone.HubUserDid, gone.PointerVersion); err != nil {
 							return result{}, nil, err
 						}
 						deleted.ContactDeleted = true

@@ -1,5 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type { IdempotencyKey } from "typespec/common/idempotency";
+import type { PaginationKey } from "typespec/common/pagination";
 import type { RouteApplicationRequest } from "typespec/orgs/applications/applications";
 import type {
   AssignOpeningProviderRequest,
@@ -992,11 +998,17 @@ export function useDeleteContactNoteMutation(contactId: string) {
   });
 }
 
+/** Pages of a conversation, newest first; each page lists newest first. */
 export function useConversationQuery(contactId: string, enabled = true) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: [...marketplaceQueryKey, "conversation", contactId],
-    queryFn: () => orgsAPI.getConversation({ contact_id: contactId }),
-    placeholderData: (previous) => previous,
+    queryFn: ({ pageParam }) =>
+      orgsAPI.getConversation({
+        contact_id: contactId,
+        ...(pageParam !== undefined && { pagination_key: pageParam }),
+      }),
+    initialPageParam: undefined as PaginationKey | undefined,
+    getNextPageParam: (page) => page.next_pagination_key,
     retry: false,
     enabled: enabled && contactId !== "",
   });

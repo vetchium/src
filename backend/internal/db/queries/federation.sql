@@ -349,6 +349,22 @@ VALUES (
     sqlc.arg(payload_bytes)
 );
 
+-- Enqueues several events in one statement. The arrays have equal lengths;
+-- set-returning functions in one select list advance together.
+-- name: CreateFederationOutboxEvents :execrows
+INSERT INTO vetchium.federation_outbox (
+    event_id, kind, destination_principal_type, destination_principal_did,
+    aggregate_type, aggregate_id, aggregate_version, payload_bytes
+)
+SELECT unnest(sqlc.arg(event_ids)::uuid[]),
+    unnest(sqlc.arg(kinds)::text[]),
+    unnest(sqlc.arg(destination_principal_types)::text[]),
+    unnest(sqlc.arg(destination_principal_dids)::uuid[]),
+    unnest(sqlc.arg(aggregate_types)::text[]),
+    unnest(sqlc.arg(aggregate_ids)::text[]),
+    unnest(sqlc.arg(aggregate_versions)::bigint[]),
+    unnest(sqlc.arg(payloads)::bytea[]);
+
 -- name: ClaimFederationOutboxEvent :one
 WITH candidate AS (
     SELECT event_id

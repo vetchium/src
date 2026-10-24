@@ -1,4 +1,4 @@
-import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import { PlusOutlined } from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Avatar,
@@ -16,68 +16,54 @@ import {
   Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useMemo, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
-import type { ContactSummary } from "typespec/orgs/marketplace/contacts/contacts";
+import {
+  type ContactFilter,
+  type ContactSummary,
+  contactFilters,
+  isContactNameQuery,
+} from "typespec/orgs/marketplace/contacts/contacts";
 import { paths } from "../app/paths";
+import { ListPager } from "../features/applications/ListPager";
+import { useListState } from "../features/applications/listState";
+import { NameSearch } from "../features/applications/NameSearch";
 import { getInitials } from "../features/marketplace/presentation";
 import { useContactsQuery } from "../features/marketplace/queries";
 
-type TabKey = "all" | "unread" | "in_conversation" | "not_contacted";
+const pageSize = 25;
+
+function isContactFilter(value: string | undefined): value is ContactFilter {
+  return (
+    value !== undefined && (contactFilters as readonly string[]).includes(value)
+  );
+}
 
 export function ContactsPage() {
   const { t } = useTranslation();
   const { date, time } = useDateTimeFormat();
   const navigate = useNavigate();
+  const list = useListState();
 
-  const [activeTab, setActiveTab] = useState<TabKey>("all");
-  const [searchQuery, setSearchQuery] = useState("");
   const [newContactModalOpen, setNewContactModalOpen] = useState(false);
   const [handleInput, setHandleInput] = useState("");
 
-  const contactsQuery = useContactsQuery();
+  const tabParam = list.get("tab");
+  const activeTab: ContactFilter = isContactFilter(tabParam) ? tabParam : "all";
+  const nameRaw = list.get("q");
+  const name =
+    nameRaw !== undefined && isContactNameQuery(nameRaw) ? nameRaw : undefined;
+  const contactsQuery = useContactsQuery({
+    filter: activeTab,
+    ...(name !== undefined && { name_query: name }),
+    limit: pageSize,
+    ...(list.paginationKey !== undefined && {
+      pagination_key: list.paginationKey,
+    }),
+  });
   const contacts = contactsQuery.data?.items ?? [];
-
-  // Filter contacts by tab and search
-  const filteredContacts = useMemo(() => {
-    return contacts.filter((c) => {
-      // Tab filter
-      if (activeTab === "unread" && c.unread_messages_count === 0) {
-        return false;
-      }
-      if (activeTab === "in_conversation" && !c.has_conversation) {
-        return false;
-      }
-      if (activeTab === "not_contacted" && c.has_conversation) {
-        return false;
-      }
-
-      // Search filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.trim().toLowerCase();
-        const matchesName = c.display_name.toLowerCase().includes(q);
-        const matchesHandle = c.handle.toLowerCase().includes(q);
-        if (!matchesName && !matchesHandle) return false;
-      }
-
-      return true;
-    });
-  }, [contacts, activeTab, searchQuery]);
-
-  // Counts for tabs
-  const unreadCount = useMemo(
-    () => contacts.filter((c) => c.unread_messages_count > 0).length,
-    [contacts],
-  );
-  const convCount = useMemo(
-    () => contacts.filter((c) => c.has_conversation).length,
-    [contacts],
-  );
-  const notContactedCount = useMemo(
-    () => contacts.filter((c) => !c.has_conversation).length,
-    [contacts],
-  );
+  const counts = contactsQuery.data?.counts;
 
   const formatActivityTime = (iso: string) => {
     if (!iso) return "—";
@@ -152,6 +138,11 @@ export function ContactsPage() {
               {t("marketplace.contacts.statusMessagesOff")}
             </Tag>
           )}
+          {c.account_deleted && (
+            <Tag color="error">
+              {t("marketplace.contacts.statusAccountDeleted")}
+            </Tag>
+          )}
         </Space>
       ),
     },
@@ -194,27 +185,31 @@ export function ContactsPage() {
     navigate(`${paths.newContact}?address=${encodeURIComponent(clean)}`);
   };
 
-  const tabItems = [
+  const tabItems: { key: ContactFilter; label: ReactNode }[] = [
     {
       key: "all",
-      label: `${t("marketplace.contacts.tabAll")} (${contacts.length})`,
+      label: `${t("marketplace.contacts.tabAll")} (${counts?.all ?? 0})`,
     },
     {
       key: "unread",
       label: (
         <span>
           {t("marketplace.contacts.tabUnread")}{" "}
-          {unreadCount > 0 ? <Badge count={unreadCount} size="small" /> : `(0)`}
+          {(counts?.unread ?? 0) > 0 ? (
+            <Badge count={counts?.unread} size="small" />
+          ) : (
+            "(0)"
+          )}
         </span>
       ),
     },
     {
-      key: "in_conversation",
-      label: `${t("marketplace.contacts.tabInConversation")} (${convCount})`,
+      key: "has_conversation",
+      label: `${t("marketplace.contacts.tabInConversation")} (${counts?.has_conversation ?? 0})`,
     },
     {
       key: "not_contacted",
-      label: `${t("marketplace.contacts.tabNotContacted")} (${notContactedCount})`,
+      label: `${t("marketplace.contacts.tabNotContacted")} (${counts?.not_contacted ?? 0})`,
     },
   ];
 
@@ -244,26 +239,34 @@ export function ContactsPage() {
           <Flex justify="space-between" align="center" wrap="wrap" gap="middle">
             <Tabs
               activeKey={activeTab}
-              onChange={(k) => setActiveTab(k as TabKey)}
+              onChange={(key) =>
+                list.set({ tab: key === "all" ? undefined : key })
+              }
               items={tabItems}
               style={{ marginBottom: 0 }}
             />
-            <Input
-              prefix={<SearchOutlined />}
-              placeholder={t("marketplace.contacts.searchPlaceholder")}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              allowClear
-              style={{ maxWidth: 240 }}
+            <NameSearch
+              value={nameRaw}
+              onSearch={(value) => list.set({ q: value })}
             />
           </Flex>
 
           <Table<ContactSummary>
             rowKey={(c) => c.contact_id}
             columns={columns}
-            dataSource={filteredContacts}
-            loading={contactsQuery.isLoading}
-            pagination={{ pageSize: 25 }}
+            dataSource={contacts}
+            loading={contactsQuery.isFetching}
+            pagination={false}
+          />
+          <ListPager
+            hasPrevious={list.pageIndex > 0}
+            hasNext={contactsQuery.data?.next_pagination_key !== undefined}
+            busy={contactsQuery.isFetching}
+            onPrevious={list.previous}
+            onNext={() => {
+              const key = contactsQuery.data?.next_pagination_key;
+              if (key !== undefined) list.next(key);
+            }}
           />
 
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -292,7 +295,7 @@ export function ContactsPage() {
         >
           <Input
             prefix="@"
-            placeholder="handle"
+            placeholder={t("marketplace.contacts.handlePlaceholder")}
             value={handleInput}
             onChange={(e) => setHandleInput(e.target.value)}
             onPressEnter={handleOpenNewContact}

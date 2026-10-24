@@ -111,7 +111,6 @@ export function ApplyPage() {
     const list: {
       agency_display_name: string;
       agency_domain: OrgDomain;
-      agency_logo_url?: string;
       sent_at: string;
     }[] = [];
     for (const c of conversations.data.items) {
@@ -122,7 +121,6 @@ export function ApplyPage() {
         list.push({
           agency_display_name: c.agency_display_name,
           agency_domain: c.agency_domain,
-          agency_logo_url: c.agency_logo_url,
           sent_at: match.sent_at,
         });
       }
@@ -386,27 +384,19 @@ export function ApplyPage() {
                             value={agency.agency_domain}
                           >
                             <Space align="center">
-                              {agency.agency_logo_url ? (
-                                <Avatar
-                                  shape="square"
-                                  size={24}
-                                  src={agency.agency_logo_url}
-                                />
-                              ) : (
-                                <Avatar
-                                  shape="square"
-                                  size={24}
-                                  style={{
-                                    backgroundColor: avatarColor(
-                                      agency.agency_display_name,
-                                    ),
-                                    fontSize: 11,
-                                    fontWeight: "bold",
-                                  }}
-                                >
-                                  {initials(agency.agency_display_name)}
-                                </Avatar>
-                              )}
+                              <Avatar
+                                shape="square"
+                                size={24}
+                                style={{
+                                  backgroundColor: avatarColor(
+                                    agency.agency_display_name,
+                                  ),
+                                  fontSize: 11,
+                                  fontWeight: "bold",
+                                }}
+                              >
+                                {initials(agency.agency_display_name)}
+                              </Avatar>
                               <Typography.Text strong>
                                 {agency.agency_display_name}
                               </Typography.Text>

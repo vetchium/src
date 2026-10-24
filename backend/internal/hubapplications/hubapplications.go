@@ -173,12 +173,13 @@ func EnqueueNotifiedChanges(
 		return fmt.Errorf("read %d of %d changed applications",
 			len(rows), len(applicationIDs))
 	}
+	outgoing := make([]events.Outgoing, 0, len(rows))
 	for _, row := range rows {
 		status, err := Status(row.ApplicationState, row.StageKind)
 		if err != nil {
 			return err
 		}
-		if _, err := events.Enqueue(ctx, q, events.Outgoing{
+		outgoing = append(outgoing, events.Outgoing{
 			Kind: federationspec.HubApplicationChangedKind,
 			Destination: events.Principal{
 				Type: directoryspec.PrincipalHubUser, DID: row.HubUserDid,
@@ -204,9 +205,10 @@ func EnqueueNotifiedChanges(
 				LastActivityAt: row.UpdatedAt.Time.UTC(),
 				Notice:         notice,
 			},
-		}); err != nil {
-			return err
-		}
+		})
+	}
+	if err := events.EnqueueAll(ctx, q, outgoing); err != nil {
+		return err
 	}
 	if err := q.SetHubApplicationRefreshTimes(ctx, applicationIDs); err != nil {
 		return fmt.Errorf("set application refresh times: %w", err)

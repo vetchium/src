@@ -11,7 +11,7 @@ import {
   isMessageText,
 } from "../../orgs/marketplace/contacts/contacts.ts";
 import type { OpeningNumber } from "../../orgs/openings/types.ts";
-import type { OrgDID, OrgDomain } from "../../orgs/types.ts";
+import type { OrgDomain } from "../../orgs/types.ts";
 
 export const maxPage = 100;
 
@@ -23,10 +23,8 @@ export interface HubOpeningSuggestion {
 
 export interface HubConversationSummary {
   contact_id: ContactID;
-  agency_org_did: OrgDID;
   agency_display_name: string;
   agency_domain: OrgDomain;
-  agency_logo_url?: string;
   has_conversation: boolean;
   unread: boolean;
   unread_count: number;
@@ -37,7 +35,10 @@ export interface HubConversationSummary {
 
 export interface HubConversationDetail {
   conversation: HubConversationSummary;
+  /** One page of messages, newest first. */
   messages: ConversationMessage[];
+  /** Resumes with older messages. */
+  next_pagination_key?: PaginationKey;
 }
 
 function validatePage(
@@ -73,12 +74,16 @@ export interface ListConversationsResponse {
 
 export interface GetConversationRequest {
   contact_id: ContactID;
+  pagination_key?: PaginationKey;
+  limit?: number;
 }
 
 export function validateGetConversationRequest(
   request: GetConversationRequest,
 ): string[] {
-  return isContactID(request.contact_id) ? [] : ["contact_id"];
+  const fields = validatePage(request.pagination_key, request.limit);
+  if (!isContactID(request.contact_id)) fields.push("contact_id");
+  return fields;
 }
 
 export interface ReplyToConversationRequest {

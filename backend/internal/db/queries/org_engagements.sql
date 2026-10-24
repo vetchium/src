@@ -243,3 +243,13 @@ SET version = EXCLUDED.version, consumer_domain = EXCLUDED.consumer_domain,
     expires_at = EXCLUDED.expires_at, decided_at = EXCLUDED.decided_at,
     ended_at = EXCLUDED.ended_at, updated_at = EXCLUDED.updated_at,
     received_at = now();
+
+-- The provider's active `sourcing` engagement with a client, from the
+-- projection this tenant keeps; the client's tenant decides the rest.
+-- name: GetActiveSourcingEngagementWithClient :one
+SELECT p.engagement_id
+FROM vetchium.org_engagement_projections AS p
+WHERE p.provider_org_did = sqlc.arg(provider_org_did)
+  AND p.consumer_domain = sqlc.arg(consumer_domain)
+  AND p.capability_oid = 'sourcing'
+  AND p.engagement_state = 'active';

@@ -71,9 +71,11 @@ export function ContactDetailPage() {
     id,
     Boolean(contact?.has_conversation),
   );
-  const conversationDetail = conversationQuery.data;
-  const conversation = conversationDetail?.conversation;
-  const messages = conversationDetail?.messages ?? [];
+  const conversationPages = conversationQuery.data?.pages;
+  const conversation = conversationPages?.[0]?.conversation;
+  const messages = (conversationPages ?? [])
+    .flatMap((page) => page.messages)
+    .reverse();
 
   const notesQuery = useContactNotesQuery(id);
   const notes = notesQuery.data?.items ?? [];
@@ -384,6 +386,15 @@ export function ContactDetailPage() {
                     gap: 16,
                   }}
                 >
+                  {conversationQuery.hasNextPage && (
+                    <Button
+                      type="link"
+                      loading={conversationQuery.isFetchingNextPage}
+                      onClick={() => void conversationQuery.fetchNextPage()}
+                    >
+                      {t("marketplace.contacts.loadEarlier")}
+                    </Button>
+                  )}
                   {messages.map((msg) => {
                     const isAgency = msg.sender_type === "agency";
                     return (

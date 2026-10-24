@@ -955,6 +955,7 @@ export const de = {
       "Vetchium-Tarife werden noch nicht abgerechnet. Sobald Zahlungen aktiviert sind, werden hier Zahlungsbedingungen zu Preisen, Abrechnungszeiträumen, Erstattungen und Kündigungen veröffentlicht, bevor eine Zahlung erfolgt.",
   },
   messages: {
+    loadEarlier: "Ältere Nachrichten laden",
     documentTitle: "Nachrichten | Vetchium",
     title: "Nachrichten",
     subtitle:

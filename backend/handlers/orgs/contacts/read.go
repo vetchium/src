@@ -35,6 +35,9 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 			OrgDid: identity.OrgDID, PageLimit: request.EffectiveLimit() + 1,
 			Filter: filter,
 		}
+		if request.NameQuery != nil {
+			params.NameQuery = dbvalue.Text(string(*request.NameQuery))
+		}
 		if request.PaginationKey != nil {
 			cursor, valid := verify(s, contactsPurpose, *request.PaginationKey, org, "")
 			if !valid {
@@ -49,8 +52,19 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "list Contacts", err)
 			return
 		}
+		tabs, err := s.Queries.CountOrgContactsByTab(r.Context(), identity.OrgDID)
+		if err != nil {
+			s.InternalError(r.Context(), w, "count Contacts", err)
+			return
+		}
 		counts := creditedCountsForAgency(r.Context(), s, identity.OrgDID)
-		response := contacts.ListContactsResponse{Items: []contacts.ContactSummary{}}
+		response := contacts.ListContactsResponse{
+			Items: []contacts.ContactSummary{},
+			Counts: contacts.ContactCounts{
+				All: tabs.AllContacts, Unread: tabs.Unread,
+				HasConversation: tabs.HasConversation, NotContacted: tabs.NotContacted,
+			},
+		}
 		for index, row := range rows {
 			if index == int(request.EffectiveLimit()) {
 				key, err := sign(s, contactsPurpose, pageCursor{
@@ -69,8 +83,9 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 				credited = row.CreditedCount
 			}
 			response.Items = append(response.Items, summary(row.ContactID,
-				row.DisplayName, row.Handle, row.MessagesOff, row.LastActivityAt,
-				row.NoteCount, credited, row.HasConversation, row.UnreadMessagesCount))
+				row.DisplayName, row.Handle, row.MessagesOff, row.PartyDeleted,
+				row.LastActivityAt, row.NoteCount, credited, row.HasConversation,
+				row.UnreadMessagesCount))
 		}
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, response)
@@ -100,7 +115,8 @@ func GetContact(s *orgsruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "read Contact", err)
 			return
 		}
-		sugRows, err := s.Queries.ListContactOpeningSuggestions(r.Context(), id)
+		sugRows, err := s.Queries.ListContactOpeningSuggestions(r.Context(),
+			sqlc.ListContactOpeningSuggestionsParams{OrgDid: identity.OrgDID, ContactID: id})
 		if err != nil {
 			s.InternalError(r.Context(), w, "list contact opening suggestions", err)
 			return
@@ -120,8 +136,9 @@ func GetContact(s *orgsruntime.Server) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, contacts.Contact{
 			ContactSummary: summary(row.ContactID, row.DisplayName, row.Handle,
-				row.MessagesOff, row.LastActivityAt, row.NoteCount, credited,
-				row.HasConversation, row.UnreadMessagesCount),
+				row.MessagesOff, row.PartyDeleted, row.LastActivityAt,
+				row.NoteCount, credited, row.HasConversation,
+				row.UnreadMessagesCount),
 			CreatedBy:         common.EmailAddress(row.CreatedBy),
 			SuggestedOpenings: suggestedOpenings,
 			CreatedAt:         row.CreatedAt.Time.UTC(),

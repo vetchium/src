@@ -4,6 +4,7 @@ import "../orgs/marketplace/capabilities.tsp";
 import "../orgs/marketplace/contacts/contacts.tsp";
 import "../orgs/marketplace/engagements.tsp";
 import "../orgs/marketplace/work/work.tsp";
+import "../orgs/openings/types.tsp";
 import "../orgs/types.tsp";
 import "../problem/federation/commands.tsp";
 import "../problem/orgs/marketplace.tsp";
@@ -177,17 +178,28 @@ model AgencyPointerChangedPayload {
   has_conversation?: boolean;
   agency_display_name?: string;
   agency_domain?: Vetchium.Orgs.OrgDomain;
-  agency_logo_media_id?: string;
   last_activity_at?: utcDateTime;
   read_only_reason?: Vetchium.Orgs.Marketplace.Contacts.ConversationReadOnlyReason;
-  suggestions?: Vetchium.Orgs.Marketplace.Contacts.OpeningSuggestion[];
+  suggestions?: AgencyPointerSuggestion[];
   new_agency_message?: boolean;
+}
+
+/** An Opening the agency suggested in the conversation, as the pointer keeps it. */
+model AgencyPointerSuggestion {
+  consumer_domain: Vetchium.Orgs.OrgDomain;
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  sent_at: utcDateTime;
 }
 
 /** Payload of `hub-conversation-reply`. */
 model HubConversationReplyPayload {
   contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
   hub_user_did: Vetchium.Hub.HubUserDID;
+
+  /** The Hub user's name and handle now, which the agency records (MKT-CNV-001). */
+  hub_user_display_name: Vetchium.DisplayName;
+
+  hub_user_handle: Vetchium.Hub.HubHandle;
   text: Vetchium.Orgs.Marketplace.Contacts.MessageText;
 }
 
@@ -201,11 +213,18 @@ model MeshReadConversationRequest {
   contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
   hub_user_did: Vetchium.Hub.HubUserDID;
   agency_org_did: Vetchium.Orgs.OrgDID;
+  pagination_key?: Vetchium.PaginationKey;
+  limit?: Vetchium.Orgs.Marketplace.Contacts.ContactPageSize = 50;
 }
 
+/**
+ * One page of a conversation as the Hub user reads it. Agency messages name
+ * the agency, never the agency user; no agency-side unread state is carried.
+ */
 model MeshReadConversationResponse {
-  conversation: Vetchium.Orgs.Marketplace.Contacts.ConversationSummary;
+  read_only_reason?: Vetchium.Orgs.Marketplace.Contacts.ConversationReadOnlyReason;
   messages: Vetchium.Orgs.Marketplace.Contacts.ConversationMessage[];
+  next_pagination_key?: Vetchium.PaginationKey;
 }
 
 /**

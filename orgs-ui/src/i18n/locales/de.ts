@@ -2653,6 +2653,8 @@ export const de = {
       findPersonModalTitle: "Person auf Vetchium finden",
       findPersonExplainer:
         "Geben Sie den Handle oder Alias der Person ein, die Sie kontaktieren möchten.",
+      loadEarlier: "Ältere Nachrichten laden",
+      handlePlaceholder: "Handle oder Alias",
       handleOrAliasLabel: "Handle oder Alias",
       viewProfile: "Profil anzeigen",
       notFound: "Kontakt nicht gefunden.",

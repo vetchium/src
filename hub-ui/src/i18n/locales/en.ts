@@ -922,6 +922,7 @@ export const en = {
       "Vetchium plans are not yet billed. When payments are enabled, payment terms covering pricing, billing periods, refunds, and cancellations will be published here before any payment is taken.",
   },
   messages: {
+    loadEarlier: "Load earlier messages",
     documentTitle: "Messages | Vetchium",
     title: "Messages",
     subtitle:

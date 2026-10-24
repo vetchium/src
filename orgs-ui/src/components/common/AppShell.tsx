@@ -50,10 +50,10 @@ export function AppShell() {
   const canFulfil =
     me !== undefined && holds(me.permissions, FulfilEngagements);
   const { data: unreadContactsData } = useContactsQuery(
-    { filter: "unread" },
+    { filter: "unread", limit: 1 },
     canFulfil,
   );
-  const unreadCount = unreadContactsData?.items.length ?? 0;
+  const unreadCount = unreadContactsData?.counts.unread ?? 0;
 
   const navigationItems: ItemType[] = suspended
     ? [

@@ -14,6 +14,7 @@ import (
 	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/orgs/marketplace/work"
+	"github.com/vetchium/src/typespec/orgs/openings"
 )
 
 // Engagement commands are sent by the provider's tenant to the consumer's
@@ -452,11 +453,18 @@ type AgencyPointerChangedPayload struct {
 	HasConversation   bool                                 `json:"has_conversation,omitempty"`
 	AgencyDisplayName string                               `json:"agency_display_name,omitempty"`
 	AgencyDomain      orgs.OrgDomain                       `json:"agency_domain,omitempty"`
-	AgencyLogoMediaID *string                              `json:"agency_logo_media_id,omitempty"`
 	LastActivityAt    *time.Time                           `json:"last_activity_at,omitempty"`
 	ReadOnlyReason    *contacts.ConversationReadOnlyReason `json:"read_only_reason,omitempty"`
-	Suggestions       []contacts.OpeningSuggestion         `json:"suggestions,omitempty"`
+	Suggestions       []AgencyPointerSuggestion            `json:"suggestions,omitempty"`
 	NewAgencyMessage  bool                                 `json:"new_agency_message,omitempty"`
+}
+
+// AgencyPointerSuggestion is an Opening the agency suggested in the
+// conversation, as the pointer keeps it.
+type AgencyPointerSuggestion struct {
+	ConsumerDomain orgs.OrgDomain         `json:"consumer_domain"`
+	OpeningNumber  openings.OpeningNumber `json:"opening_number"`
+	SentAt         time.Time              `json:"sent_at"`
 }
 
 func (p AgencyPointerChangedPayload) Validate() []string {
@@ -479,9 +487,13 @@ const (
 )
 
 type HubConversationReplyPayload struct {
-	ContactID  contacts.ContactID   `json:"contact_id"`
-	HubUserDID hub.HubUserDID       `json:"hub_user_did"`
-	Text       contacts.MessageText `json:"text"`
+	ContactID  contacts.ContactID `json:"contact_id"`
+	HubUserDID hub.HubUserDID     `json:"hub_user_did"`
+	// HubUserDisplayName and HubUserHandle are the Hub user's name and handle
+	// now, which the agency records (MKT-CNV-001).
+	HubUserDisplayName common.DisplayName   `json:"hub_user_display_name"`
+	HubUserHandle      hub.HubHandle        `json:"hub_user_handle"`
+	Text               contacts.MessageText `json:"text"`
 }
 
 func (p HubConversationReplyPayload) Validate() []string {
@@ -491,6 +503,12 @@ func (p HubConversationReplyPayload) Validate() []string {
 	}
 	if !hub.IsHubUserDID(p.HubUserDID) {
 		fields = append(fields, "hub_user_did")
+	}
+	if !common.IsDisplayName(p.HubUserDisplayName) {
+		fields = append(fields, "hub_user_display_name")
+	}
+	if !hub.IsHubHandle(p.HubUserHandle) {
+		fields = append(fields, "hub_user_handle")
 	}
 	if !contacts.IsMessageText(p.Text) {
 		fields = append(fields, "text")
@@ -515,15 +533,30 @@ func (p HubConversationDeletePayload) Validate() []string {
 }
 
 type MeshReadConversationRequest struct {
-	ContactID    contacts.ContactID `json:"contact_id"`
-	HubUserDID   hub.HubUserDID     `json:"hub_user_did"`
-	AgencyOrgDID orgs.OrgDID        `json:"agency_org_did"`
+	ContactID     contacts.ContactID    `json:"contact_id"`
+	HubUserDID    hub.HubUserDID        `json:"hub_user_did"`
+	AgencyOrgDID  orgs.OrgDID           `json:"agency_org_did"`
+	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
+	Limit         *int32                `json:"limit,omitempty"`
 }
 
 func (r *MeshReadConversationRequest) Normalize() {}
 
+func (r MeshReadConversationRequest) EffectiveLimit() int32 {
+	if r.Limit == nil {
+		return contacts.DefaultPage
+	}
+	return *r.Limit
+}
+
 func (r MeshReadConversationRequest) Validate() []string {
 	fields := []string{}
+	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
+		fields = append(fields, "pagination_key")
+	}
+	if r.Limit != nil && (*r.Limit < 1 || *r.Limit > contacts.MaxPage) {
+		fields = append(fields, "limit")
+	}
 	if !contacts.IsContactID(r.ContactID) {
 		fields = append(fields, "contact_id")
 	}
@@ -536,9 +569,13 @@ func (r MeshReadConversationRequest) Validate() []string {
 	return fields
 }
 
+// MeshReadConversationResponse is one page of a conversation as the Hub
+// user reads it. Agency messages name the agency, never the agency user; no
+// agency-side unread state is carried.
 type MeshReadConversationResponse struct {
-	Conversation contacts.ConversationSummary   `json:"conversation"`
-	Messages     []contacts.ConversationMessage `json:"messages"`
+	ReadOnlyReason    *contacts.ConversationReadOnlyReason `json:"read_only_reason,omitempty"`
+	Messages          []contacts.ConversationMessage       `json:"messages"`
+	NextPaginationKey *common.PaginationKey                `json:"next_pagination_key,omitempty"`
 }
 
 // HubAccountDeletedKind is the deletion notice a Hub user's home tenant sends

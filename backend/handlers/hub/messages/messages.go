@@ -20,6 +20,7 @@ import (
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/problem"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
+	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
 	"backend/internal/apiserver"
 	"backend/internal/credentials"
@@ -136,25 +137,39 @@ func GetConversation(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 
+		limit := request.EffectiveLimit()
 		outcome, err := s.Conversations.RelayRead(r.Context(), federationspec.MeshReadConversationRequest{
-			ContactID:    request.ContactID,
-			HubUserDID:   hub.HubUserDID(dbvalue.FormatUUID(identity.UserDID)),
-			AgencyOrgDID: orgs.OrgDID(dbvalue.FormatUUID(pointer.AgencyOrgDid)),
+			ContactID:     request.ContactID,
+			HubUserDID:    hub.HubUserDID(dbvalue.FormatUUID(identity.UserDID)),
+			AgencyOrgDID:  orgs.OrgDID(dbvalue.FormatUUID(pointer.AgencyOrgDid)),
+			PaginationKey: request.PaginationKey,
+			Limit:         &limit,
 		})
-		if err != nil || outcome.Problem != nil || outcome.Result == nil {
+		switch {
+		case err == nil && outcome.Problem != nil &&
+			outcome.Problem.Type == orgsproblem.ConversationNotFoundError.Type:
+			// The pointer has not yet heard that the conversation is gone.
+			s.Problem(r.Context(), w, hubproblem.HubConversationNotFoundError)
+			return
+		case err == nil && outcome.Problem != nil &&
+			outcome.Problem.Type == problem.InvalidPaginationKeyError.Type:
+			s.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
+			return
+		case err != nil || outcome.Problem != nil || outcome.Result == nil:
 			s.Problem(r.Context(), w, hubproblem.OrgUnavailableError)
 			return
 		}
 
 		summary := summaryFromPointerDetailRow(pointer)
-		if summary.ReadOnlyReason == nil && outcome.Result.Conversation.ReadOnlyReason != nil {
-			summary.ReadOnlyReason = outcome.Result.Conversation.ReadOnlyReason
+		if summary.ReadOnlyReason == nil && outcome.Result.ReadOnlyReason != nil {
+			summary.ReadOnlyReason = outcome.Result.ReadOnlyReason
 		}
 
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, hubmessages.HubConversationDetail{
-			Conversation: summary,
-			Messages:     outcome.Result.Messages,
+			Conversation:      summary,
+			Messages:          outcome.Result.Messages,
+			NextPaginationKey: outcome.Result.NextPaginationKey,
 		})
 	}
 }
@@ -206,10 +221,17 @@ func ReplyToConversation(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 
+		me, err := s.Queries.GetHubPublicProfile(r.Context(), identity.UserDID)
+		if err != nil {
+			s.InternalError(r.Context(), w, "read Hub profile", err)
+			return
+		}
 		payload := federationspec.HubConversationReplyPayload{
-			ContactID:  request.ContactID,
-			HubUserDID: hub.HubUserDID(dbvalue.FormatUUID(identity.UserDID)),
-			Text:       request.Text,
+			ContactID:          request.ContactID,
+			HubUserDID:         hub.HubUserDID(dbvalue.FormatUUID(identity.UserDID)),
+			HubUserDisplayName: common.DisplayName(me.DisplayName),
+			HubUserHandle:      hub.HubHandle(me.Handle),
+			Text:               request.Text,
 		}
 
 		outcome, err := s.Commands.Send(r.Context(), commands.Request{
@@ -322,11 +344,16 @@ func DeleteConversation(s *hubruntime.Server) http.HandlerFunc {
 
 		switch outcome.State {
 		case commands.StateSucceeded:
-			_, _ = s.Queries.MarkHubAgencyPointerConversationDeleted(r.Context(), sqlc.MarkHubAgencyPointerConversationDeletedParams{
+			// The agency's pointer event follows; hiding the conversation now
+			// keeps the list consistent with the answer. A replay repeats it.
+			if _, err := s.Queries.MarkHubAgencyPointerConversationDeleted(r.Context(), sqlc.MarkHubAgencyPointerConversationDeletedParams{
 				ContactID:  contactID,
 				HubUserDid: identity.UserDID,
 				TenantID:   s.TenantID,
-			})
+			}); err != nil {
+				s.InternalError(r.Context(), w, "hide deleted conversation", err)
+				return
+			}
 			w.Header().Set("Cache-Control", "no-store")
 			s.Empty(r.Context(), w, http.StatusOK)
 		case commands.StateFailed:
@@ -395,18 +422,10 @@ func summaryFromPointerRow(row sqlc.ListHubAgencyConversationsRow) hubmessages.H
 		readOnly = &r
 	}
 
-	var logoURL *string
-	if row.AgencyLogoMediaID.Valid {
-		str := "/media/" + dbvalue.FormatUUID(row.AgencyLogoMediaID)
-		logoURL = &str
-	}
-
 	return hubmessages.HubConversationSummary{
 		ContactID:         contacts.ContactID(dbvalue.FormatUUID(row.ContactID)),
-		AgencyOrgDID:      orgs.OrgDID(dbvalue.FormatUUID(row.AgencyOrgDid)),
 		AgencyDisplayName: row.AgencyDisplayName,
 		AgencyDomain:      orgs.OrgDomain(row.AgencyDomain),
-		AgencyLogoURL:     logoURL,
 		HasConversation:   row.HasConversation,
 		Unread:            row.UnreadCount > 0,
 		UnreadCount:       row.UnreadCount,
@@ -429,18 +448,10 @@ func summaryFromPointerDetailRow(row sqlc.GetHubAgencyPointerRow) hubmessages.Hu
 		readOnly = &r
 	}
 
-	var logoURL *string
-	if row.AgencyLogoMediaID.Valid {
-		str := "/media/" + dbvalue.FormatUUID(row.AgencyLogoMediaID)
-		logoURL = &str
-	}
-
 	return hubmessages.HubConversationSummary{
 		ContactID:         contacts.ContactID(dbvalue.FormatUUID(row.ContactID)),
-		AgencyOrgDID:      orgs.OrgDID(dbvalue.FormatUUID(row.AgencyOrgDid)),
 		AgencyDisplayName: row.AgencyDisplayName,
 		AgencyDomain:      orgs.OrgDomain(row.AgencyDomain),
-		AgencyLogoURL:     logoURL,
 		HasConversation:   row.HasConversation,
 		Unread:            row.UnreadCount > 0,
 		UnreadCount:       row.UnreadCount,

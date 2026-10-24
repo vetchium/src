@@ -1,6 +1,8 @@
 import "@typespec/http";
 
 import "../../../common/authentication.tsp";
+import "../../../common/pagination.tsp";
+import "../../../federation/marketplace.tsp";
 import "../../../hub/profile/public.tsp";
 import "../../../hub/types.tsp";
 import "../../../problem/common.tsp";
@@ -70,5 +72,49 @@ interface AgencyProfilePeerOperations {
   @post
   read(@body request: PeerReadAgencyProfileRequest):
     | AgencyProfileReadResult
+    | Vetchium.Problem.MeshPeerAuthenticationRequiredErrorResponse;
+}
+
+alias ConversationReadResult =
+  | {
+      @statusCode status_code: 200;
+      @header("Cache-Control") cache_control: "no-store";
+      @body body: Vetchium.Federation.Marketplace.MeshReadConversationResponse;
+    }
+  | Vetchium.Problem.InvalidJSONErrorResponse
+  | Vetchium.Problem.ValidationFailedErrorResponse
+  | Vetchium.Problem.InvalidPaginationKeyErrorResponse
+  | Vetchium.Problem.OrgConversationNotFoundErrorResponse
+  | Vetchium.Problem.OrgTenantUnavailableErrorResponse
+  | Vetchium.Problem.InternalServerErrorResponse;
+
+/**
+ * Sent only by the local hub-api after authenticating the Hub user, which
+ * reads the conversation live from the agency's tenant (MKT-DAT-005).
+ */
+@route("/mesh/conversations")
+@tag("Tenant-local agency conversation relay")
+@useAuth(BearerAuth)
+interface ConversationRelayOperations {
+  @route("/read")
+  @post
+  read(
+    @body request: Vetchium.Federation.Marketplace.MeshReadConversationRequest,
+  ):
+    | ConversationReadResult
+    | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+}
+
+/** The agency's tenant answers only a peer that homes `hub_user_did`. */
+@route("/api/mesh/conversations")
+@tag("Authenticated peer agency conversation read")
+@useAuth(Vetchium.Authentication.MutualTLSAuth)
+interface ConversationPeerOperations {
+  @route("/read")
+  @post
+  read(
+    @body request: Vetchium.Federation.Marketplace.MeshReadConversationRequest,
+  ):
+    | ConversationReadResult
     | Vetchium.Problem.MeshPeerAuthenticationRequiredErrorResponse;
 }

@@ -61,6 +61,7 @@ enum ContactFilter {
   all: "all",
   unread: "unread",
   has_conversation: "has_conversation",
+  not_contacted: "not_contacted",
 }
 
 model OpeningSuggestion {
@@ -93,7 +94,12 @@ model ConversationSummary {
 
 model ConversationDetail {
   conversation: ConversationSummary;
+
+  /** One page of messages, newest first. */
   messages: ConversationMessage[];
+
+  /** Resumes with older messages. */
+  next_pagination_key?: Vetchium.PaginationKey;
 }
 
 model StartConversationRequest {
@@ -110,6 +116,10 @@ model SendMessageRequest {
 
 model GetConversationRequest {
   contact_id: ContactID;
+  pagination_key?: Vetchium.PaginationKey;
+
+  /** Defaults to 50. */
+  limit?: ContactPageSize = 50;
 }
 
 model MarkConversationReadRequest {
@@ -119,6 +129,19 @@ model MarkConversationReadRequest {
 @minValue(1)
 @maxValue(100)
 scalar ContactPageSize extends int32;
+
+/** A case-insensitive substring of the Contact's recorded display name. */
+@minLength(2)
+@maxLength(100)
+scalar ContactNameQuery extends string;
+
+/** How many of the agency's Contacts each Contacts tab holds. */
+model ContactCounts {
+  all: int32;
+  unread: int32;
+  has_conversation: int32;
+  not_contacted: int32;
+}
 
 /**
  * A verified professional-email domain with the months of its first and last
@@ -142,6 +165,9 @@ model ContactSummary {
   /** The person does not accept messages from agencies. */
   messages_off: boolean;
 
+  /** The person's account no longer exists; only the conversation remains. */
+  account_deleted: boolean;
+
   note_count: int32;
   has_conversation: boolean;
   unread_messages_count: int32;
@@ -162,7 +188,6 @@ model Contact {
   created_by: Vetchium.EmailAddress;
 
   suggested_openings: ContactOpeningSuggestion[];
-
   created_at: utcDateTime;
 }
 
@@ -202,10 +227,15 @@ model ListContactsRequest {
   limit?: ContactPageSize = 50;
 
   filter?: ContactFilter = ContactFilter.all;
+  name_query?: ContactNameQuery;
 }
 
 model ListContactsResponse {
   items: ContactSummary[];
+
+  /** Counts every Contact of the agency, whatever the filter and query. */
+  counts: ContactCounts;
+
   next_pagination_key?: Vetchium.PaginationKey;
 }
 
@@ -572,10 +602,11 @@ interface ContactOperations {
         @body body: ConversationDetail;
       }
     | ContactReadErrors
+    | Vetchium.Problem.InvalidPaginationKeyErrorResponse
     | Vetchium.Problem.OrgContactNotFoundErrorResponse
     | Vetchium.Problem.OrgConversationNotFoundErrorResponse;
 
-  /** Clears the agency's unread flag on a conversation. */
+  /** Clears the agency's unread count on a conversation. */
   @route("/mark-conversation-read")
   @post
   @useAuth(BearerAuth)

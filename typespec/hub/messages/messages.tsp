@@ -40,10 +40,8 @@ model HubOpeningSuggestion {
 
 model HubConversationSummary {
   contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
-  agency_org_did: Vetchium.Orgs.OrgDID;
   agency_display_name: string;
   agency_domain: Vetchium.Orgs.OrgDomain;
-  agency_logo_url?: url;
   has_conversation: boolean;
   unread: boolean;
   unread_count: int32;
@@ -54,11 +52,17 @@ model HubConversationSummary {
 
 model HubConversationDetail {
   conversation: HubConversationSummary;
+
+  /** One page of messages, newest first. */
   messages: Vetchium.Orgs.Marketplace.Contacts.ConversationMessage[];
+
+  /** Resumes with older messages. */
+  next_pagination_key?: Vetchium.PaginationKey;
 }
 
 model ListConversationsRequest {
   pagination_key?: Vetchium.PaginationKey;
+
   @minValue(1)
   @maxValue(100)
   limit?: int32;
@@ -71,6 +75,11 @@ model ListConversationsResponse {
 
 model GetConversationRequest {
   contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  pagination_key?: Vetchium.PaginationKey;
+
+  @minValue(1)
+  @maxValue(100)
+  limit?: int32;
 }
 
 model ReplyToConversationRequest {
@@ -113,6 +122,7 @@ interface MessageOperations {
         @body body: HubConversationDetail;
       }
     | MessageErrors
+    | Vetchium.Problem.InvalidPaginationKeyErrorResponse
     | Vetchium.Problem.HubConversationNotFoundErrorResponse
     | Vetchium.Problem.HubOrgUnavailableErrorResponse;
 
