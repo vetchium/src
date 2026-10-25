@@ -149,12 +149,18 @@ import type {
 import type {
   InterviewReference,
   JobDetail,
+  JobOwnership,
   JobReference,
   ListJobsRequest,
   ListJobsResponse,
   ListWorkQueueRequest,
   ListWorkQueueResponse,
   RecordAssessmentRequest,
+  SetJobOwnerRequest,
+  SuggestClientsRequest,
+  SuggestClientsResponse,
+  SuggestJobOwnersRequest,
+  SuggestJobOwnersResponse,
   ChangeInterviewRequest as WorkChangeInterviewRequest,
   WorkDetail,
   RecordBackgroundCheckResultRequest as WorkRecordBackgroundCheckResultRequest,
@@ -846,6 +852,12 @@ export const orgsAPI = {
   listJobs: (body: ListJobsRequest = {}) =>
     apiRequest<ListJobsResponse>("/list-jobs", { body }),
   getJob: (body: JobReference) => apiRequest<JobDetail>("/get-job", { body }),
+  setJobOwner: (body: SetJobOwnerRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<JobOwnership>("/set-job-owner", { body, idempotencyKey }),
+  suggestJobOwners: (body: SuggestJobOwnersRequest) =>
+    apiRequest<SuggestJobOwnersResponse>("/suggest-job-owners", { body }),
+  suggestClients: (body: SuggestClientsRequest) =>
+    apiRequest<SuggestClientsResponse>("/suggest-clients", { body }),
   listCreditedApplications: (body: ListCreditedApplicationsRequest = {}) =>
     apiRequest<ListCreditedApplicationsResponse>(
       "/list-credited-applications",

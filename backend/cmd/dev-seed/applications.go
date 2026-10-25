@@ -108,7 +108,7 @@ func runApplicationSeed() error {
 		return err
 	}
 	for _, org := range seededOrgs {
-		domain := orgs.OrgDomain(org.domainPrefix + settings.tenantID + ".example.com")
+		domain := seededOrgDomain(hiringCompanyKind, org.number, settings.tenantID)
 		if err := seeder.seedOrgApplications(ctx, domain); err != nil {
 			return fmt.Errorf("seed applications of %s: %w", domain, err)
 		}

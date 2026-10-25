@@ -9,7 +9,13 @@ import {
   withProvider,
 } from "../lib/orgs-marketplace.ts";
 import { assign, candidate, withWorld } from "../lib/orgs-routing.ts";
-import { signIn } from "../lib/orgs-ui.ts";
+import {
+  chooseWorkspace,
+  openAccountPage,
+  sidebarPage,
+  signIn,
+  signOut,
+} from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 import { chooseOption } from "../lib/region-ui.ts";
 
@@ -218,7 +224,7 @@ test("routes an application to a stage provider and displays attribution", async
   });
 });
 
-test("navigation shows Listings to its editors and the rest once the Org is a provider", async ({
+test("workspaces show the work the Org does and the user may do, and personal pages sit in the account menu", async ({
   page,
   request,
 }) => {
@@ -230,26 +236,64 @@ test("navigation shows Listings to its editors and the rest once the Org is a pr
       `openings@${provider.org.domain}`,
       ["org:manage_openings"],
     );
-    const item = (name: string) =>
-      page.getByRole("menuitem", { name: new RegExp(`${name}$`) });
-    const later = ["Clients", "Work queue", "Jobs", "Contacts"];
+    const switcher = page.getByRole("combobox", { name: "Workspace" });
+    const workspaceOptions = page.locator(
+      ".ant-select-dropdown:visible .ant-select-item-option",
+    );
 
+    // Before the Org is a provider: hiring and administration only, with
+    // Listings there so the Org can create its first.
     await signIn(page, provider.org, provider.tenant);
-    await expect(item("Listings")).toBeVisible();
-    for (const name of later) await expect(item(name)).toHaveCount(0);
+    await expect(sidebarPage(page, "Openings")).toBeVisible();
+    await switcher.click();
+    await expect(workspaceOptions).toHaveText(["Hiring", "Administration"]);
+    await page.keyboard.press("Escape");
+    await chooseWorkspace(page, "Administration");
+    await expect(page).toHaveURL(/\/members$/);
+    await expect(sidebarPage(page, "Listings")).toBeVisible();
 
+    // A listed sourcing Listing adds Agency; a stage Capability adds Services.
     await published(provider.api, provider.owner, listing("sourcing", "S"));
     await page.reload();
-    for (const name of ["Listings", ...later]) {
-      await expect(item(name)).toBeVisible();
+    await chooseWorkspace(page, "Agency");
+    await expect(page).toHaveURL(/\/jobs$/);
+    for (const name of [
+      "Jobs",
+      "Contacts",
+      "Credited applications",
+      "Clients",
+    ]) {
+      await expect(sidebarPage(page, name)).toBeVisible();
     }
+    await expect(sidebarPage(page, "Work queue")).toHaveCount(0);
+    await published(provider.api, provider.owner, listing("interviewing", "I"));
+    await page.reload();
+    // The workspace chosen last stays across pages and reloads.
+    await expect(sidebarPage(page, "Jobs")).toBeVisible();
+    await chooseWorkspace(page, "Services");
+    await expect(page).toHaveURL(/\/work$/);
+    await expect(sidebarPage(page, "Work queue")).toBeVisible();
+    // A page in two workspaces keeps the one chosen.
+    await sidebarPage(page, "Clients").click();
+    await expect(page).toHaveURL(/\/clients$/);
+    await expect(sidebarPage(page, "Work queue")).toBeVisible();
 
-    // Each page still needs its permission.
-    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    // The account menu holds the person's own pages.
+    await openAccountPage(page, "My interviews");
+    await expect(page).toHaveURL(/\/my-interviews$/);
+    await expect(sidebarPage(page, "Work queue")).toBeVisible();
+    await openAccountPage(page, "My work");
+    await expect(
+      page.getByRole("heading", { name: "My work", level: 1 }),
+    ).toBeVisible();
+
+    // Each page still needs its permission: one workspace, no switcher.
+    await signOut(page);
     await signIn(page, member, provider.tenant);
-    await expect(item("Openings")).toBeVisible();
-    for (const name of ["Listings", ...later]) {
-      await expect(item(name)).toHaveCount(0);
+    await expect(sidebarPage(page, "Openings")).toBeVisible();
+    await expect(switcher).toHaveCount(0);
+    for (const name of ["Listings", "Jobs", "Contacts", "Work queue"]) {
+      await expect(sidebarPage(page, name)).toHaveCount(0);
     }
   });
 });

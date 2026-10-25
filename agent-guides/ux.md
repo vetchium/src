@@ -40,6 +40,21 @@ first version; a screen that needs a redesign pass missed a rule here.
   saving does (quota, visibility, approval), a checklist of what the next step
   needs, and that next step. Offer a preview when others see the result.
 
+## Orgs portal navigation
+
+- The sidebar holds Org-level pages only, in one workspace at a time: Hiring,
+  Agency, Services, Administration (`orgs-ui/src/app/workspaces.ts`). A
+  workspace shows only when the Org does that work and the user may open one
+  of its pages; the switcher shows only with two or more. Keep a workspace
+  to five pages or fewer.
+- Pages about the signed-in person (My work, My interviews, My account) live
+  in the header's account menu, which names the person by address.
+- A new page joins exactly one workspace, or the account menu when it shows
+  only the person's own items. An Org-level list whose items belong to people
+  (Jobs) filters by person instead of moving to the account menu, and starts
+  on "Mine" when that is what most users come for.
+- A page in two workspaces (Clients) keeps the workspace last chosen.
+
 ## Actions and saving
 
 - One save scope per independent setting. Never put unrelated settings

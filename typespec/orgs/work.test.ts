@@ -12,9 +12,11 @@ import {
 } from "../federation/marketplace.ts";
 import {
   isCreditedPosition,
+  normalizePeerListJobsRequest,
   normalizeRelayListCreditedApplicationsRequest,
   validatePeerCountCreditedApplicationsRequest,
   validatePeerListCreditedApplicationsRequest,
+  validatePeerListJobsRequest,
   validatePeerListWorkRequest,
   validateRelayCountCreditedApplicationsRequest,
   validateRelayListCreditedApplicationsRequest,
@@ -23,10 +25,15 @@ import {
 import {
   isWorkID,
   isWorkStatus,
+  maxJobsPerOwner,
   maxPage,
+  maxSuggestions,
   normalizeListJobsRequest,
   normalizeListWorkQueueRequest,
   normalizeScheduleInterviewRequest,
+  normalizeSetJobOwnerRequest,
+  normalizeSuggestClientsRequest,
+  normalizeSuggestJobOwnersRequest,
   validateInterviewReference,
   validateJobReference,
   validateListJobsRequest,
@@ -35,7 +42,10 @@ import {
   validateRecordBackgroundCheckResultRequest,
   validateRecordInterviewOutcomeRequest,
   validateScheduleInterviewRequest,
+  validateSetJobOwnerRequest,
   validateSubmitInterviewFeedbackRequest,
+  validateSuggestClientsRequest,
+  validateSuggestJobOwnersRequest,
   workStatusValues,
 } from "./marketplace/work/work.ts";
 
@@ -88,6 +98,115 @@ test("the work queue request normalizes filters and validates them", () => {
   assert.deepEqual(validateJobReference({ engagement_id, opening_number: 0 }), [
     "opening_number",
   ]);
+});
+
+test("the jobs list filters by owner, text, and employing country", () => {
+  const request = {
+    owner_email: " Agent1@Age1.IND1.test",
+    search: "  designer ",
+  };
+  const normalized = normalizeListJobsRequest(request);
+  assert.equal(normalized.owner_email, "agent1@age1.ind1.test");
+  assert.equal(normalized.search, "designer");
+  assert.equal(request.search, "  designer ");
+  assert.deepEqual(validateListJobsRequest(normalized), []);
+  assert.deepEqual(
+    validateListJobsRequest({
+      owner_email: "nobody",
+      search: "",
+      employing_country: "in",
+    }),
+    ["owner_email", "search", "employing_country"],
+  );
+  assert.deepEqual(validateListJobsRequest({ search: "x".repeat(101) }), [
+    "search",
+  ]);
+});
+
+test("setting a Job owner names the Job, the version read, and an address", () => {
+  const request = normalizeSetJobOwnerRequest({
+    engagement_id,
+    opening_number: 3,
+    owner_version: 0,
+    owner_email: "Agent2@Age1.SGP.test",
+  });
+  assert.equal(request.owner_email, "agent2@age1.sgp.test");
+  assert.deepEqual(validateSetJobOwnerRequest(request), []);
+  assert.deepEqual(
+    validateSetJobOwnerRequest({
+      engagement_id,
+      opening_number: 3,
+      owner_version: 4,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateSetJobOwnerRequest({
+      engagement_id: "x",
+      opening_number: 0,
+      owner_version: -1,
+      owner_email: "x",
+    }),
+    ["engagement_id", "opening_number", "owner_version", "owner_email"],
+  );
+});
+
+test("suggestions trim the query and bound the answer", () => {
+  assert.equal(
+    normalizeSuggestJobOwnersRequest({ query: " acme " }).query,
+    "acme",
+  );
+  assert.equal(
+    normalizeSuggestClientsRequest({ query: " acme " }).query,
+    "acme",
+  );
+  assert.deepEqual(validateSuggestJobOwnersRequest({}), []);
+  assert.deepEqual(
+    validateSuggestJobOwnersRequest({ query: "", limit: maxSuggestions + 1 }),
+    ["query", "limit"],
+  );
+  assert.deepEqual(
+    validateSuggestClientsRequest({
+      capability: "plumbing" as never,
+      limit: 0,
+    }),
+    ["capability", "limit"],
+  );
+  assert.deepEqual(
+    validateSuggestClientsRequest({ capability: "sourcing", limit: 5 }),
+    [],
+  );
+});
+
+test("a peer's jobs read bounds the owned Jobs it names", () => {
+  const base = {
+    provider_org_did: "01900000-0000-7000-8000-000000000002",
+    state: "published" as const,
+    limit: maxPage,
+  };
+  const owned = { engagement_id, opening_number: 3 };
+  assert.deepEqual(validatePeerListJobsRequest(base), []);
+  assert.deepEqual(validatePeerListJobsRequest({ ...base, openings: [] }), [
+    "openings",
+  ]);
+  assert.deepEqual(
+    validatePeerListJobsRequest({
+      ...base,
+      openings: Array(maxJobsPerOwner).fill(owned),
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validatePeerListJobsRequest({
+      ...base,
+      openings: Array(maxJobsPerOwner + 1).fill(owned),
+    }),
+    ["openings"],
+  );
+  assert.equal(
+    normalizePeerListJobsRequest({ ...base, search: " 42 " }).search,
+    "42",
+  );
 });
 
 test("work writes check their own fields and borrow nothing of the client's records", () => {

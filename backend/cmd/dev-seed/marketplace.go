@@ -20,6 +20,7 @@ import (
 	"github.com/vetchium/src/typespec/orgs"
 	orgapplications "github.com/vetchium/src/typespec/orgs/applications"
 	orgsauth "github.com/vetchium/src/typespec/orgs/auth"
+	"github.com/vetchium/src/typespec/orgs/authorization"
 	"github.com/vetchium/src/typespec/orgs/hiring"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
@@ -32,10 +33,13 @@ import (
 
 var marketplaceSeedTenants = []string{"sgp", "usa1", "deu", "ind1"}
 
+// marketplaceAwait bounds each wait for another tenant to apply a command or
+// an outbox event.
+const marketplaceAwait = 30 * time.Second
+
 type marketplaceSeedSettings struct {
 	orgsOrigins map[string]string
 	hubOrigins  map[string]string
-	dnsOrigin   string
 	mailpitURL  string
 	profilesDir string
 	tenantID    string
@@ -44,9 +48,8 @@ type marketplaceSeedSettings struct {
 func loadMarketplaceSeedSettings() (marketplaceSeedSettings, error) {
 	var s marketplaceSeedSettings
 	s.tenantID = strings.TrimSpace(os.Getenv("DEV_SEED_TENANT"))
-	s.dnsOrigin = strings.TrimRight(strings.TrimSpace(os.Getenv("DEV_SEED_DNS_URL")), "/")
-	if s.dnsOrigin == "" {
-		s.dnsOrigin = "http://127.0.0.1:18081"
+	if s.tenantID == "" {
+		return s, fmt.Errorf("missing DEV_SEED_TENANT")
 	}
 	s.mailpitURL = strings.TrimRight(strings.TrimSpace(os.Getenv("DEV_SEED_MAILPIT_URL")), "/")
 	if s.mailpitURL == "" {
@@ -56,88 +59,104 @@ func loadMarketplaceSeedSettings() (marketplaceSeedSettings, error) {
 	if s.profilesDir == "" {
 		s.profilesDir = "dev/hub-seed-profiles"
 	}
-
-	s.orgsOrigins = map[string]string{}
-	for _, pair := range strings.Split(os.Getenv("DEV_SEED_ORGS_ORIGINS"), ",") {
-		tenant, origin, ok := strings.Cut(strings.TrimSpace(pair), "=")
-		if ok && tenant != "" && origin != "" {
-			s.orgsOrigins[tenant] = strings.TrimRight(origin, "/")
+	origins := func(variable string) map[string]string {
+		found := map[string]string{}
+		for _, pair := range strings.Split(os.Getenv(variable), ",") {
+			tenant, origin, ok := strings.Cut(strings.TrimSpace(pair), "=")
+			if ok && tenant != "" && origin != "" {
+				found[tenant] = strings.TrimRight(origin, "/")
+			}
 		}
-	}
-	if single := strings.TrimRight(strings.TrimSpace(os.Getenv("DEV_SEED_ORGS_ORIGIN")), "/"); single != "" && s.tenantID != "" {
-		s.orgsOrigins[s.tenantID] = single
-	}
-
-	s.hubOrigins = map[string]string{}
-	for _, pair := range strings.Split(os.Getenv("DEV_SEED_HUB_ORIGINS"), ",") {
-		tenant, origin, ok := strings.Cut(strings.TrimSpace(pair), "=")
-		if ok && tenant != "" && origin != "" {
-			s.hubOrigins[tenant] = strings.TrimRight(origin, "/")
+		for _, tenant := range marketplaceSeedTenants {
+			if found[tenant] == "" {
+				found[tenant] = fmt.Sprintf("http://%s.api.vetchium.localhost", tenant)
+			}
 		}
+		return found
 	}
-
-	for _, tenant := range marketplaceSeedTenants {
-		if s.orgsOrigins[tenant] == "" {
-			s.orgsOrigins[tenant] = fmt.Sprintf("http://%s.api.vetchium.localhost", tenant)
-		}
-		if s.hubOrigins[tenant] == "" {
-			s.hubOrigins[tenant] = fmt.Sprintf("http://%s.api.vetchium.localhost", tenant)
-		}
-	}
+	s.orgsOrigins = origins("DEV_SEED_ORGS_ORIGINS")
+	s.hubOrigins = origins("DEV_SEED_HUB_ORIGINS")
 	return s, nil
 }
 
-type providerCapabilitySpec struct {
+// providerSpec is one provider Org each tenant gets: its domain kind and
+// number (age1 is the first agency), its one Listing, and the users who do
+// its work, each holding org:fulfil_engagements.
+type providerSpec struct {
+	kind       string
+	number     int
+	name       string
 	capability marketplace.Capability
-	prefix     string
-	title      string
 	headline   string
 	desc       string
 	price      string
 	checkTypes []hiring.CheckType
 	disclosure *string
+	workers    []string
 }
 
-var providerCapabilitySpecs = []providerCapabilitySpec{
-	{
+func (p providerSpec) domain(tenant string) orgs.OrgDomain {
+	return seededOrgDomain(p.kind, p.number, tenant)
+}
+
+var (
+	agency1 = providerSpec{
+		kind: "age", number: 1, name: "Staffing Agency 1",
 		capability: marketplace.Sourcing,
-		prefix:     "agency.",
-		title:      "Example %s Sourcing Agency",
-		headline:   "Specialized Talent Sourcing",
-		desc:       "Executive search and tech talent sourcing across global markets.",
-		price:      "Success fee or retainer",
-	},
-	{
+		headline:   "Technology and operations hiring",
+		desc:       "A large staffing agency: each agent looks after a dozen Openings across many clients.",
+		price:      "Success fee per joined candidate",
+		workers:    []string{"agent1", "agent2", "agent3", "agent4"},
+	}
+	agency2 = providerSpec{
+		kind: "age", number: 2, name: "Staffing Agency 2",
+		capability: marketplace.Sourcing,
+		headline:   "Regional specialist recruiting",
+		desc:       "A small regional agency working with the hiring companies of its own region.",
+		price:      "Retainer or success fee",
+		workers:    []string{"agent1", "agent2"},
+	}
+	interviewProvider = providerSpec{
+		kind: "itv", number: 1, name: "Interviewing Services 1",
 		capability: marketplace.Interviewing,
-		prefix:     "interviews.",
-		title:      "Example %s Technical Interviews",
-		headline:   "Standardized Technical Interviews",
+		headline:   "Standardized technical interviews",
 		desc:       "Live technical interviews and coding panels conducted by senior engineers.",
 		price:      "Quoted per interview session",
-	},
-	{
+		workers:    []string{"staff1", "staff2"},
+	}
+	assessmentProvider = providerSpec{
+		kind: "asm", number: 1, name: "Assessment Services 1",
 		capability: marketplace.Assessment,
-		prefix:     "assessments.",
-		title:      "Example %s Skill Assessments",
-		headline:   "Real-World Coding Assessments",
+		headline:   "Real-world coding assessments",
 		desc:       "Standardized take-home evaluations and automated coding assessments.",
 		price:      "Per candidate test",
-	},
-	{
+		workers:    []string{"staff1", "staff2"},
+	}
+	checkProvider = providerSpec{
+		kind: "bgv", number: 1, name: "Background Verification 1",
 		capability: marketplace.BackgroundCheck,
-		prefix:     "checks.",
-		title:      "Example %s Background Verification",
-		headline:   "Comprehensive Background Checks",
+		headline:   "Identity, education, and employment checks",
 		desc:       "Identity, education, and employment credential verification.",
 		price:      "Tiered check packages",
 		checkTypes: []hiring.CheckType{
-			hiring.IdentityCheck,
-			hiring.EducationCheck,
-			hiring.EmploymentCheck,
+			hiring.IdentityCheck, hiring.EducationCheck, hiring.EmploymentCheck,
 		},
 		disclosure: ptr("We verify identity, education, and previous employment credentials."),
-	},
-}
+		workers:    []string{"staff1", "staff2"},
+	}
+	providerSpecs = []providerSpec{
+		agency1, agency2, interviewProvider, assessmentProvider, checkProvider,
+	}
+)
+
+// sourcedOpenings are the Openings every hiring company assigns to the
+// agencies it engages: the ones the Org seeder leaves published (3, 7, 8, 10)
+// or paused (4, 9).
+var sourcedOpenings = []openings.OpeningNumber{3, 4, 7, 8, 9, 10}
+
+// suggestedOpening is the published Opening agencies suggest to Contacts
+// ("Pending close: technical writer"); no other seed applies to it.
+const suggestedOpening = openings.OpeningNumber(10)
 
 func ptr[T any](v T) *T { return &v }
 
@@ -159,137 +178,71 @@ func runMarketplaceSeed() error {
 	}
 	ctx, stop := service.SignalContext()
 	defer stop()
-
 	seeder := &marketplaceSeeder{
 		orgSeeder: &orgSeeder{
-			settings: orgSeedSettings{
-				dnsOrigin:     settings.dnsOrigin,
-				mailpitOrigin: settings.mailpitURL,
-			},
-			client: &http.Client{Timeout: 30 * time.Second},
+			settings: orgSeedSettings{mailpitOrigin: settings.mailpitURL},
+			client:   &http.Client{Timeout: 30 * time.Second},
 		},
 		settings:    settings,
 		orgTokens:   map[string]string{},
 		hubSessions: map[string]marketplaceHubUserSession{},
 	}
-
-	tenantsToSeed := marketplaceSeedTenants
-	if settings.tenantID != "" {
-		tenantsToSeed = []string{settings.tenantID}
-	}
-
-	for _, tenant := range tenantsToSeed {
-		if err := seeder.seedTenant(ctx, tenant); err != nil {
-			return fmt.Errorf("seed marketplace for tenant %s: %w", tenant, err)
-		}
+	if err := seeder.seedTenant(ctx, settings.tenantID); err != nil {
+		return fmt.Errorf("seed marketplace for tenant %s: %w", settings.tenantID, err)
 	}
 	return nil
 }
 
-func (s *marketplaceSeeder) orgLogin(ctx context.Context, tenant string, domain orgs.OrgDomain) (string, error) {
-	key := string(domain)
-	if tok, ok := s.orgTokens[key]; ok {
-		return tok, nil
-	}
-	email := "admin@" + string(domain)
-	origin := s.settings.orgsOrigins[tenant]
-	var session orgsauth.LoginAuthenticatedResponse
-	err := s.postAt(
-		ctx, origin, "/api/orgs/login", orgsauth.LoginRequest{
-			Domain:       domain,
-			EmailAddress: common.EmailAddress(email),
-			Password:     common.Password(devSeedHubUserPassword),
-		}, "", http.StatusOK, &session,
-	)
-	if err != nil {
-		return "", err
-	}
-	tok := string(session.SessionToken)
-	s.orgTokens[key] = tok
-	return tok, nil
+func tenantOf(domain orgs.OrgDomain) string {
+	labels := strings.Split(string(domain), ".")
+	return labels[len(labels)-2]
 }
 
-func (s *marketplaceSeeder) signupProviderOrg(
-	ctx context.Context, tenant string, domain orgs.OrgDomain, displayName string,
-) (string, error) {
-	email := "admin@" + string(domain)
-	origin := s.settings.orgsOrigins[tenant]
-	if err := s.postAt(
-		ctx, origin, "/api/orgs/request-signup", orgsauth.RequestSignupRequest{
-			EmailAddress:      common.EmailAddress(email),
-			PreferredLanguage: orgs.EnglishUnitedStates,
-		}, "", http.StatusAccepted, nil,
-	); err != nil {
-		return "", fmt.Errorf("request signup: %w", err)
-	}
-	dnsEmail, err := s.awaitEmail(ctx, email, "DNS record")
-	if err != nil {
-		return "", err
-	}
-	value := orgRecordValuePattern.Find(dnsEmail)
-	if value == nil {
-		return "", fmt.Errorf("DNS instructions carried no record value")
-	}
-	if err := s.publishRecord(ctx, domain, string(value)); err != nil {
-		return "", err
-	}
-	linkEmail, err := s.awaitEmail(ctx, email, "Complete")
-	if err != nil {
-		return "", err
-	}
-	token := orgSignupTokenPattern.FindSubmatch(linkEmail)
-	if token == nil {
-		return "", fmt.Errorf("signup link email carried no token")
-	}
-	country, ok := seededOrgCountries[tenant]
+// orgPostAs sends an Orgs API write as local@domain in the domain's tenant.
+func (s *marketplaceSeeder) orgPostAs(
+	ctx context.Context, domain orgs.OrgDomain, local, path string, body any, want int, out any,
+) error {
+	key := local + "@" + string(domain)
+	origin := s.settings.orgsOrigins[tenantOf(domain)]
+	bearer, ok := s.orgTokens[key]
 	if !ok {
-		country = "US"
-	}
-	if err := s.postAt(
-		ctx, origin, "/api/orgs/complete-signup", orgsauth.CompleteSignupRequest{
-			SignupToken:          orgsauth.OrgSignupToken(token[1]),
-			OrgDisplayName:       common.DisplayName(displayName),
-			OrgCountry:           country,
-			AcceptedTermsVersion: orgsauth.CurrentTermsVersion,
-			Password:             common.NewPassword(devSeedHubUserPassword),
-		}, "", http.StatusCreated, nil,
-	); err != nil {
-		return "", fmt.Errorf("complete signup: %w", err)
-	}
-	var session orgsauth.LoginAuthenticatedResponse
-	if err := s.postAt(
-		ctx, origin, "/api/orgs/login", orgsauth.LoginRequest{
+		var session orgsauth.LoginAuthenticatedResponse
+		if err := s.postAt(ctx, origin, "/api/orgs/login", orgsauth.LoginRequest{
 			Domain:       domain,
-			EmailAddress: common.EmailAddress(email),
+			EmailAddress: common.EmailAddress(key),
 			Password:     common.Password(devSeedHubUserPassword),
-		}, "", http.StatusOK, &session,
-	); err != nil {
-		return "", fmt.Errorf("login: %w", err)
+		}, "", http.StatusOK, &session); err != nil {
+			return fmt.Errorf("sign in %s: %w", key, err)
+		}
+		bearer = string(session.SessionToken)
+		s.orgTokens[key] = bearer
 	}
-	bearer := string(session.SessionToken)
-	s.orgTokens[string(domain)] = bearer
-	if err := s.postAt(
-		ctx, origin, "/api/orgs/set-subscription-plan", subscriptionspec.SetSubscriptionPlanRequest{
-			PlanOID: subscriptionspec.SilverTier,
-			BillingInterval: subscriptionspec.OptionalBillingInterval{
-				Value: subscriptionspec.Month, Present: true,
-			},
-		}, bearer, http.StatusOK, nil,
-	); err != nil {
-		return "", fmt.Errorf("choose plan: %w", err)
+	// A loaded development stack sometimes answers 5xx before writing
+	// anything; one Idempotency-Key across attempts keeps retries safe.
+	idempotencyKey := newIdempotencyKey()
+	for attempt := 1; ; attempt++ {
+		err := s.postAtWithKey(ctx, origin, "/api/orgs/"+path, body, bearer,
+			idempotencyKey, want, out)
+		var status *statusError
+		if err == nil || attempt == 3 || !errors.As(err, &status) || status.status < 500 {
+			if err != nil {
+				return fmt.Errorf("%s as %s: %w", path, key, err)
+			}
+			return nil
+		}
+		log.Printf("retrying %s as %s after: %v", path, key, err)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Duration(attempt) * time.Second):
+		}
 	}
-	return bearer, nil
 }
 
 func (s *marketplaceSeeder) orgPost(
-	ctx context.Context, tenant string, domain orgs.OrgDomain, path string, body any, want int, out any,
+	ctx context.Context, domain orgs.OrgDomain, path string, body any, want int, out any,
 ) error {
-	bearer, err := s.orgLogin(ctx, tenant, domain)
-	if err != nil {
-		return fmt.Errorf("login to %s: %w", domain, err)
-	}
-	origin := s.settings.orgsOrigins[tenant]
-	return s.postAt(ctx, origin, "/api/orgs/"+path, body, bearer, want, out)
+	return s.orgPostAs(ctx, domain, "admin", path, body, want, out)
 }
 
 func (s *marketplaceSeeder) hubLogin(
@@ -309,9 +262,7 @@ func (s *marketplaceSeeder) hubLogin(
 		return marketplaceHubUserSession{}, fmt.Errorf("hub login %s: %w", email, err)
 	}
 	sess := marketplaceHubUserSession{
-		origin: origin,
-		token:  string(resp.SessionToken),
-		handle: string(resp.Handle),
+		origin: origin, token: string(resp.SessionToken), handle: string(resp.Handle),
 	}
 	s.hubSessions[email] = sess
 	return sess, nil
@@ -324,35 +275,61 @@ func (s *marketplaceSeeder) hubPost(
 	if err != nil {
 		return err
 	}
-	return s.postAt(ctx, sess.origin, "/api/hub/"+path, body, sess.token, want, out)
+	if err := s.postAt(ctx, sess.origin, "/api/hub/"+path, body, sess.token, want, out); err != nil {
+		return fmt.Errorf("%s as %s: %w", path, email, err)
+	}
+	return nil
 }
 
-func (s *marketplaceSeeder) ensureProvider(
-	ctx context.Context, tenant string, spec providerCapabilitySpec,
-) (orgs.OrgDomain, error) {
-	domain := orgs.OrgDomain(spec.prefix + tenant + ".example.com")
-	bearer, err := s.orgLogin(ctx, tenant, domain)
-	if err != nil {
-		displayName := fmt.Sprintf(spec.title, strings.ToUpper(tenant))
-		bearer, err = s.signupProviderOrg(ctx, tenant, domain, displayName)
-		if err != nil {
-			return "", fmt.Errorf("ensure provider org %s: %w", domain, err)
+// await retries check until it reports done or marketplaceAwait passes, for
+// state another tenant applies through the mesh.
+func await(ctx context.Context, what string, check func() (bool, error)) error {
+	deadline := time.Now().Add(marketplaceAwait)
+	for {
+		done, err := check()
+		if done {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timed out waiting for %s (last error: %v)", what, err)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(250 * time.Millisecond):
 		}
 	}
+}
 
-	var existing marketplace.Listing
-	err = s.postAt(
-		ctx, s.settings.orgsOrigins[tenant], "/api/orgs/get-listing",
-		marketplace.GetListingRequest{
-			Domain:     domain,
-			Capability: spec.capability,
-		}, bearer, http.StatusOK, &existing,
-	)
-	if err == nil && existing.State == marketplace.ListedListing {
-		return domain, nil
+// ensureProvider signs the provider up in tenant on the Silver plan (which
+// allows Listings), invites its workers, and lists its one Capability.
+func (s *marketplaceSeeder) ensureProvider(
+	ctx context.Context, tenant string, spec providerSpec,
+) error {
+	domain := spec.domain(tenant)
+	origin := s.settings.orgsOrigins[tenant]
+	country, ok := seededOrgCountries[tenant]
+	if !ok {
+		return fmt.Errorf("no seeded Org country for tenant %q", tenant)
 	}
-
-	req := marketplace.CreateListingRequest{
+	bearer, err := s.signupOrg(ctx, origin, domain,
+		fmt.Sprintf("%s %s", strings.ToUpper(tenant), spec.name), country,
+		subscriptionspec.SilverTier)
+	if err != nil {
+		return fmt.Errorf("sign up %s: %w", domain, err)
+	}
+	s.orgTokens["admin@"+string(domain)] = bearer
+	workers := make([]seededUser, 0, len(spec.workers))
+	for _, local := range spec.workers {
+		workers = append(workers, seededUser{local: local, permissions: []authorization.OrgPermissionID{
+			authorization.OrgPermissionID(authorization.FulfilEngagements),
+		}})
+	}
+	if err := s.inviteUsers(ctx, origin, bearer, domain, workers); err != nil {
+		return err
+	}
+	var created marketplace.Listing
+	if err := s.orgPost(ctx, domain, "create-listing", marketplace.CreateListingRequest{
 		Capability: spec.capability,
 		ListingContent: marketplace.ListingContent{
 			Headline:          spec.headline,
@@ -363,103 +340,119 @@ func (s *marketplaceSeeder) ensureProvider(
 			CheckTypes:        spec.checkTypes,
 			ConsentDisclosure: spec.disclosure,
 		},
+	}, http.StatusCreated, &created); err != nil {
+		return err
 	}
-	var created marketplace.Listing
-	if err := s.postAt(
-		ctx, s.settings.orgsOrigins[tenant], "/api/orgs/create-listing",
-		req, bearer, http.StatusCreated, &created,
-	); err != nil {
-		// If listing already exists in draft, get its version
-		if getErr := s.postAt(
-			ctx, s.settings.orgsOrigins[tenant], "/api/orgs/get-listing",
-			marketplace.GetListingRequest{Domain: domain, Capability: spec.capability},
-			bearer, http.StatusOK, &created,
-		); getErr != nil {
-			return "", fmt.Errorf("create listing on %s: %w", domain, err)
-		}
-	}
-
-	var published marketplace.Listing
-	if err := s.postAt(
-		ctx, s.settings.orgsOrigins[tenant], "/api/orgs/publish-listing",
-		marketplace.ListingTarget{
-			Capability: spec.capability,
-			Version:    created.Version,
-		}, bearer, http.StatusOK, &published,
-	); err != nil {
-		return "", fmt.Errorf("publish listing on %s: %w", domain, err)
-	}
-	return domain, nil
+	return s.orgPost(ctx, domain, "publish-listing", marketplace.ListingTarget{
+		Capability: spec.capability, Version: created.Version,
+	}, http.StatusOK, nil)
 }
 
-func (s *marketplaceSeeder) awaitClientEngagement(
-	ctx context.Context, tenant string, domain orgs.OrgDomain, id marketplace.EngagementID,
+// propose sends the client's proposal and waits until the provider's tenant
+// has projected it, returning the engagement as the provider reads it.
+func (s *marketplaceSeeder) propose(
+	ctx context.Context, client, provider orgs.OrgDomain, capability marketplace.Capability,
+	message string,
 ) (marketplace.Engagement, error) {
-	deadline := time.Now().Add(30 * time.Second)
-	for time.Now().Before(deadline) {
-		var eng marketplace.Engagement
-		err := s.orgPost(
-			ctx, tenant, domain, "get-client-engagement",
-			marketplace.GetEngagementRequest{EngagementID: id}, http.StatusOK, &eng,
-		)
-		if err == nil {
-			return eng, nil
-		}
-		select {
-		case <-ctx.Done():
-			return marketplace.Engagement{}, ctx.Err()
-		case <-time.After(250 * time.Millisecond):
-		}
+	var proposed marketplace.Engagement
+	if err := s.orgPost(ctx, client, "propose-engagement", marketplace.ProposeEngagementRequest{
+		ProviderDomain: provider, Capability: capability, Message: &message,
+	}, http.StatusCreated, &proposed); err != nil {
+		return marketplace.Engagement{}, err
 	}
-	return marketplace.Engagement{}, fmt.Errorf("timeout waiting for client engagement %s on %s", id, domain)
+	return s.awaitProviderEngagement(ctx, provider, proposed.ID, marketplace.ProposedEngagement)
 }
 
-func (s *marketplaceSeeder) awaitWorkItem(
-	ctx context.Context, tenant string, domain orgs.OrgDomain, engagementID marketplace.EngagementID,
-) (work.WorkItem, error) {
-	deadline := time.Now().Add(30 * time.Second)
-	for time.Now().Before(deadline) {
-		var resp work.ListWorkQueueResponse
-		err := s.orgPost(
-			ctx, tenant, domain, "list-work-queue",
-			work.ListWorkQueueRequest{}, http.StatusOK, &resp,
-		)
-		if err == nil {
-			for _, item := range resp.Items {
-				if item.EngagementID == engagementID {
-					return item, nil
-				}
+// awaitProviderEngagement waits until the provider's projection of an
+// engagement reaches state.
+func (s *marketplaceSeeder) awaitProviderEngagement(
+	ctx context.Context, provider orgs.OrgDomain, id marketplace.EngagementID,
+	state marketplace.EngagementState,
+) (marketplace.Engagement, error) {
+	var engagement marketplace.Engagement
+	err := await(ctx, fmt.Sprintf("engagement %s %s at %s", id, state, provider), func() (bool, error) {
+		err := s.orgPost(ctx, provider, "get-client-engagement",
+			marketplace.GetEngagementRequest{EngagementID: id}, http.StatusOK, &engagement)
+		return err == nil && engagement.State == state, err
+	})
+	return engagement, err
+}
+
+// engage proposes an engagement and has the provider accept it, waiting
+// until both tenants hold it as active.
+func (s *marketplaceSeeder) engage(
+	ctx context.Context, client, provider orgs.OrgDomain, capability marketplace.Capability,
+) (marketplace.Engagement, error) {
+	proposed, err := s.propose(ctx, client, provider, capability,
+		fmt.Sprintf("%s would like %s for its Openings.", client, capability))
+	if err != nil {
+		return marketplace.Engagement{}, err
+	}
+	if err := s.orgPost(ctx, provider, "accept-engagement", marketplace.EngagementTarget{
+		EngagementID: proposed.ID, Version: proposed.Version,
+	}, http.StatusOK, nil); err != nil {
+		return marketplace.Engagement{}, err
+	}
+	return s.awaitProviderEngagement(ctx, provider, proposed.ID, marketplace.ActiveEngagement)
+}
+
+func (s *marketplaceSeeder) assign(
+	ctx context.Context, client orgs.OrgDomain, engagement marketplace.EngagementID,
+	opening openings.OpeningNumber, stage *hiring.PipelineStageID,
+) error {
+	return s.orgPost(ctx, client, "assign-opening-provider", marketplace.AssignOpeningProviderRequest{
+		OpeningNumber: opening, EngagementID: engagement, StageID: stage,
+	}, http.StatusOK, nil)
+}
+
+type seededJob struct {
+	engagement marketplace.EngagementID
+	opening    openings.OpeningNumber
+}
+
+// engageAgency makes each client an active client of the agency and assigns
+// it the given Openings, returning the Jobs the agency now has.
+func (s *marketplaceSeeder) engageAgency(
+	ctx context.Context, agency orgs.OrgDomain, clients []orgs.OrgDomain,
+	assigned []openings.OpeningNumber,
+) ([]seededJob, error) {
+	var jobs []seededJob
+	for _, client := range clients {
+		engagement, err := s.engage(ctx, client, agency, marketplace.Sourcing)
+		if err != nil {
+			return nil, err
+		}
+		for _, opening := range assigned {
+			if err := s.assign(ctx, client, engagement.ID, opening, nil); err != nil {
+				return nil, err
 			}
-		}
-		select {
-		case <-ctx.Done():
-			return work.WorkItem{}, ctx.Err()
-		case <-time.After(250 * time.Millisecond):
+			jobs = append(jobs, seededJob{engagement: engagement.ID, opening: opening})
 		}
 	}
-	return work.WorkItem{}, fmt.Errorf("timeout waiting for work item on %s for engagement %s", domain, engagementID)
+	return jobs, nil
 }
 
-func (s *marketplaceSeeder) awaitHubConversation(
-	ctx context.Context, tenant, email string, contactID contacts.ContactID,
-) (hubmessages.HubConversationDetail, error) {
-	deadline := time.Now().Add(30 * time.Second)
-	for time.Now().Before(deadline) {
-		var detail hubmessages.HubConversationDetail
-		err := s.hubPost(
-			ctx, tenant, email, "get-conversation",
-			hubmessages.GetConversationRequest{ContactID: contactID}, http.StatusOK, &detail,
-		)
-		if err == nil && detail.Conversation.HasConversation {
-			return detail, nil
+// spreadOwners gives the agency's Jobs to its agents in turn, as the agency's
+// admin would, leaving every fifth Job without an owner so the "No owner"
+// state has data.
+func (s *marketplaceSeeder) spreadOwners(
+	ctx context.Context, agency orgs.OrgDomain, agents []string, jobs []seededJob,
+) (int, error) {
+	owned := 0
+	for index, job := range jobs {
+		if index%5 == 4 {
+			continue
 		}
-		select {
-		case <-ctx.Done():
-			return hubmessages.HubConversationDetail{}, ctx.Err()
-		case <-time.After(250 * time.Millisecond):
+		owner := common.EmailAddress(agents[owned%len(agents)] + "@" + string(agency))
+		if err := s.orgPost(ctx, agency, "set-job-owner", work.SetJobOwnerRequest{
+			EngagementID: job.engagement, OpeningNumber: job.opening,
+			OwnerVersion: 0, OwnerEmail: &owner,
+		}, http.StatusOK, nil); err != nil {
+			return owned, err
 		}
+		owned++
 	}
-	return hubmessages.HubConversationDetail{}, fmt.Errorf("timeout waiting for Hub conversation %s for %s", contactID, email)
+	return owned, nil
 }
 
 func (s *marketplaceSeeder) readProfileUsers(tenant string) ([]string, error) {
@@ -484,494 +477,434 @@ func (s *marketplaceSeeder) readProfileUsers(tenant string) ([]string, error) {
 	return emails, nil
 }
 
+// seedTenant gives the tenant its agencies and service providers and their
+// clients across every tenant. Every hiring company, here and elsewhere,
+// already exists (dev-seed-orgs runs for every tenant first).
 func (s *marketplaceSeeder) seedTenant(ctx context.Context, tenant string) error {
-	var tenantIndex int
+	var home int
 	for i, t := range marketplaceSeedTenants {
 		if t == tenant {
-			tenantIndex = i
-			break
+			home = i
 		}
 	}
-	other1 := marketplaceSeedTenants[(tenantIndex+1)%len(marketplaceSeedTenants)]
-	other2 := marketplaceSeedTenants[(tenantIndex+2)%len(marketplaceSeedTenants)]
-	other3 := marketplaceSeedTenants[(tenantIndex+3)%len(marketplaceSeedTenants)]
-
-	// 1. Ensure provider Orgs per Capability with published Listings
-	providers := map[marketplace.Capability]orgs.OrgDomain{}
-	for _, spec := range providerCapabilitySpecs {
-		domain, err := s.ensureProvider(ctx, tenant, spec)
-		if err != nil {
-			return fmt.Errorf("ensure provider %s: %w", spec.capability, err)
-		}
-		providers[spec.capability] = domain
+	other := func(offset int) string {
+		return marketplaceSeedTenants[(home+offset)%len(marketplaceSeedTenants)]
+	}
+	company := func(number int, in string) orgs.OrgDomain {
+		return seededOrgDomain(hiringCompanyKind, number, in)
 	}
 
-	agencyDomain := providers[marketplace.Sourcing]
-	interviewsDomain := providers[marketplace.Interviewing]
-	assessmentsDomain := providers[marketplace.Assessment]
-	checksDomain := providers[marketplace.BackgroundCheck]
-
-	consumer1Domain := orgs.OrgDomain("gold." + other1 + ".example.com")
-	consumer2Domain := orgs.OrgDomain("gold." + other2 + ".example.com")
-	consumer3Domain := orgs.OrgDomain("silver." + other3 + ".example.com")
-
-	// 2. Engagements in each state with consumers in other regions
-	// 2a. Active engagements (all 4 capabilities with Consumer 1)
-	activeEngagements := map[marketplace.Capability]marketplace.Engagement{}
-	for cap, pDomain := range map[marketplace.Capability]orgs.OrgDomain{
-		marketplace.Sourcing:        agencyDomain,
-		marketplace.Interviewing:    interviewsDomain,
-		marketplace.Assessment:      assessmentsDomain,
-		marketplace.BackgroundCheck: checksDomain,
-	} {
-		var proposed marketplace.Engagement
-		err := s.orgPost(
-			ctx, other1, consumer1Domain, "propose-engagement",
-			marketplace.ProposeEngagementRequest{
-				ProviderDomain: pDomain,
-				Capability:     cap,
-				Message:        ptr(fmt.Sprintf("Partnering with %s for %s", pDomain, cap)),
-			}, http.StatusCreated, &proposed,
-		)
-		if err != nil {
-			var listResp marketplace.ListEngagementsResponse
-			_ = s.orgPost(
-				ctx, other1, consumer1Domain, "list-engagements",
-				marketplace.ListEngagementsRequest{Capability: &cap}, http.StatusOK, &listResp,
-			)
-			for _, item := range listResp.Engagements {
-				if item.Counterparty.Domain == pDomain {
-					proposed = item
-					break
-				}
-			}
-		}
-
-		if proposed.ID == "" {
-			return fmt.Errorf("propose engagement on %s for %s: %w", consumer1Domain, cap, err)
-		}
-
-		if proposed.State != marketplace.ActiveEngagement {
-			clientEng, waitErr := s.awaitClientEngagement(ctx, tenant, pDomain, proposed.ID)
-			if waitErr != nil {
-				return waitErr
-			}
-			var accepted marketplace.Engagement
-			if err := s.orgPost(
-				ctx, tenant, pDomain, "accept-engagement",
-				marketplace.EngagementTarget{EngagementID: clientEng.ID, Version: clientEng.Version},
-				http.StatusOK, &accepted,
-			); err != nil && !errors.Is(err, context.Canceled) {
-				return fmt.Errorf("accept engagement %s: %w", proposed.ID, err)
-			}
-			activeEngagements[cap] = accepted
-		} else {
-			activeEngagements[cap] = proposed
+	for _, spec := range providerSpecs {
+		if err := s.ensureProvider(ctx, tenant, spec); err != nil {
+			return fmt.Errorf("provider %s: %w", spec.domain(tenant), err)
 		}
 	}
 
-	// 2b. Proposed engagement (Consumer 2 proposes to agency, left proposed)
-	var proposedEng marketplace.Engagement
-	_ = s.orgPost(
-		ctx, other2, consumer2Domain, "propose-engagement",
-		marketplace.ProposeEngagementRequest{
-			ProviderDomain: agencyDomain,
-			Capability:     marketplace.Sourcing,
-			Message:        ptr("Inquiry regarding technical recruitment capacity."),
-		}, http.StatusCreated, &proposedEng,
-	)
-
-	// 2c. Declined engagement (Consumer 3 proposes to interviews, provider declines)
-	var declinedEng marketplace.Engagement
-	if err := s.orgPost(
-		ctx, other3, consumer3Domain, "propose-engagement",
-		marketplace.ProposeEngagementRequest{
-			ProviderDomain: interviewsDomain,
-			Capability:     marketplace.Interviewing,
-			Message:        ptr("Requesting interviewer staff for Q4."),
-		}, http.StatusCreated, &declinedEng,
-	); err == nil {
-		clientEng, waitErr := s.awaitClientEngagement(ctx, tenant, interviewsDomain, declinedEng.ID)
-		if waitErr == nil {
-			_ = s.orgPost(
-				ctx, tenant, interviewsDomain, "decline-engagement",
-				marketplace.EngagementTarget{EngagementID: clientEng.ID, Version: clientEng.Version},
-				http.StatusOK, nil,
-			)
+	// The large agency works for every hiring company in every tenant.
+	age1 := agency1.domain(tenant)
+	var everyCompany []orgs.OrgDomain
+	for _, in := range marketplaceSeedTenants {
+		for _, org := range seededOrgs {
+			everyCompany = append(everyCompany, company(org.number, in))
 		}
 	}
-
-	// 2d. Withdrawn engagement (Consumer 2 proposes to assessments, consumer withdraws)
-	var withdrawnEng marketplace.Engagement
-	if err := s.orgPost(
-		ctx, other2, consumer2Domain, "propose-engagement",
-		marketplace.ProposeEngagementRequest{
-			ProviderDomain: assessmentsDomain,
-			Capability:     marketplace.Assessment,
-			Message:        ptr("Initial evaluation proposal."),
-		}, http.StatusCreated, &withdrawnEng,
-	); err == nil {
-		_ = s.orgPost(
-			ctx, other2, consumer2Domain, "withdraw-engagement",
-			marketplace.EngagementTarget{EngagementID: withdrawnEng.ID, Version: withdrawnEng.Version},
-			http.StatusOK, nil,
-		)
+	jobs1, err := s.engageAgency(ctx, age1, everyCompany, sourcedOpenings)
+	if err != nil {
+		return fmt.Errorf("agency %s: %w", age1, err)
+	}
+	owned1, err := s.spreadOwners(ctx, age1, agency1.workers, jobs1)
+	if err != nil {
+		return fmt.Errorf("owners at %s: %w", age1, err)
 	}
 
-	// 2e. Ended engagement (Consumer 3 proposes to checks, provider accepts, consumer ends)
-	var endedEng marketplace.Engagement
-	if err := s.orgPost(
-		ctx, other3, consumer3Domain, "propose-engagement",
-		marketplace.ProposeEngagementRequest{
-			ProviderDomain: checksDomain,
-			Capability:     marketplace.BackgroundCheck,
-			Message:        ptr("Seasonal background checks."),
-		}, http.StatusCreated, &endedEng,
-	); err == nil {
-		clientEng, waitErr := s.awaitClientEngagement(ctx, tenant, checksDomain, endedEng.ID)
-		if waitErr == nil {
-			var active marketplace.Engagement
-			if err := s.orgPost(
-				ctx, tenant, checksDomain, "accept-engagement",
-				marketplace.EngagementTarget{EngagementID: clientEng.ID, Version: clientEng.Version},
-				http.StatusOK, &active,
-			); err == nil {
-				_ = s.orgPost(
-					ctx, other3, consumer3Domain, "end-engagement",
-					marketplace.EndEngagementRequest{
-						EngagementID: active.ID,
-						Version:      active.Version,
-						Note:         ptr("Completed seasonal check engagement."),
-					}, http.StatusOK, nil,
-				)
-			}
-		}
+	// The small agency works for its own region's companies, has a proposal
+	// waiting, and an engagement its client ended.
+	age2 := agency2.domain(tenant)
+	jobs2, err := s.engageAgency(ctx, age2,
+		[]orgs.OrgDomain{company(1, tenant), company(2, tenant), company(3, tenant)},
+		[]openings.OpeningNumber{3, 7})
+	if err != nil {
+		return fmt.Errorf("agency %s: %w", age2, err)
+	}
+	owned2, err := s.spreadOwners(ctx, age2, agency2.workers, jobs2)
+	if err != nil {
+		return fmt.Errorf("owners at %s: %w", age2, err)
+	}
+	if _, err := s.propose(ctx, company(1, other(1)), age2, marketplace.Sourcing,
+		"We are hiring in your region; could you help?"); err != nil {
+		return fmt.Errorf("proposal to %s: %w", age2, err)
+	}
+	if err := s.endEngagement(ctx, company(2, other(1)), age2, marketplace.Sourcing); err != nil {
+		return fmt.Errorf("ended engagement with %s: %w", age2, err)
 	}
 
-	// 3. Assign providers to Consumer 1 Opening #3 and route work
-	sourcingEng := activeEngagements[marketplace.Sourcing]
-	interviewingEng := activeEngagements[marketplace.Interviewing]
-	assessmentEng := activeEngagements[marketplace.Assessment]
-	checkEng := activeEngagements[marketplace.BackgroundCheck]
-
-	// 3a. Assign sourcing engagement whole to Opening #3
-	_ = s.orgPost(
-		ctx, other1, consumer1Domain, "assign-opening-provider",
-		marketplace.AssignOpeningProviderRequest{
-			OpeningNumber: 3,
-			EngagementID:  sourcingEng.ID,
-		}, http.StatusOK, nil,
-	)
-
-	// 3b. Read Opening #3 stages
-	var openingPipeline openings.OpeningPipeline
-	if err := s.orgPost(
-		ctx, other1, consumer1Domain, "get-opening-pipeline",
-		openings.GetOpeningPipelineRequest{OpeningNumber: 3}, http.StatusOK, &openingPipeline,
-	); err != nil {
-		return fmt.Errorf("get opening pipeline 3 on %s: %w", consumer1Domain, err)
+	routed, err := s.seedStageProviders(ctx, tenant, company(3, other(1)))
+	if err != nil {
+		return err
 	}
-
-	var interviewStageID, assessmentStageID, checkStageID hiring.PipelineStageID
-	for _, st := range openingPipeline.Stages {
-		switch st.Kind {
-		case hiring.InterviewStage:
-			if interviewStageID == "" {
-				interviewStageID = st.ID
-			}
-		case hiring.AssessmentStage:
-			if assessmentStageID == "" {
-				assessmentStageID = st.ID
-			}
-		case hiring.BackgroundCheckStage:
-			if checkStageID == "" {
-				checkStageID = st.ID
-			}
-		}
+	if err := s.seedDeclinedAndWithdrawn(ctx, tenant, other); err != nil {
+		return err
 	}
-
-	// Assign stage providers
-	if interviewStageID != "" {
-		_ = s.orgPost(
-			ctx, other1, consumer1Domain, "assign-opening-provider",
-			marketplace.AssignOpeningProviderRequest{
-				OpeningNumber: 3,
-				EngagementID:  interviewingEng.ID,
-				StageID:       &interviewStageID,
-			}, http.StatusOK, nil,
-		)
+	contactsSeeded, err := s.seedAgencyContacts(ctx, tenant, other(1))
+	if err != nil {
+		return err
 	}
-	if assessmentStageID != "" {
-		_ = s.orgPost(
-			ctx, other1, consumer1Domain, "assign-opening-provider",
-			marketplace.AssignOpeningProviderRequest{
-				OpeningNumber: 3,
-				EngagementID:  assessmentEng.ID,
-				StageID:       &assessmentStageID,
-			}, http.StatusOK, nil,
-		)
-	}
-	if checkStageID != "" {
-		_ = s.orgPost(
-			ctx, other1, consumer1Domain, "assign-opening-provider",
-			marketplace.AssignOpeningProviderRequest{
-				OpeningNumber: 3,
-				EngagementID:  checkEng.ID,
-				StageID:       &checkStageID,
-			}, http.StatusOK, nil,
-		)
-	}
-
-	// 3c. Route work items
-	otherUsers, err := s.readProfileUsers(other1)
-	if err != nil || len(otherUsers) < 3 {
-		otherUsers, _ = s.readProfileUsers(other2)
-	}
-
-	// Candidate 1: Interview routing
-	if len(otherUsers) > 0 && interviewStageID != "" {
-		candEmail := otherUsers[len(otherUsers)-1]
-		var ref hubapplications.ApplicationReference
-		if err := s.hubPost(
-			ctx, other1, candEmail, "apply-to-opening",
-			hubapplications.ApplyToOpeningRequest{
-				Domain:        consumer1Domain,
-				OpeningNumber: 3,
-				CoverNote:     ptr(orgapplications.ApplicationCoverNote("Applying for technical panel interview.")),
-			}, http.StatusCreated, &ref,
-		); err == nil {
-			_ = s.orgPost(
-				ctx, other1, consumer1Domain, "shortlist-application",
-				orgapplications.ApplicationStageRequest{
-					OpeningNumber:     3,
-					ApplicationNumber: ref.ApplicationNumber,
-					Version:           1,
-					StageID:           interviewStageID,
-				}, http.StatusOK, nil,
-			)
-			_ = s.orgPost(
-				ctx, other1, consumer1Domain, "route-application",
-				orgapplications.RouteApplicationRequest{
-					OpeningNumber:     3,
-					ApplicationNumber: ref.ApplicationNumber,
-					Version:           2,
-					EngagementID:      &interviewingEng.ID,
-				}, http.StatusOK, nil,
-			)
-
-			// Provider schedules interview
-			if item, err := s.awaitWorkItem(ctx, tenant, interviewsDomain, interviewingEng.ID); err == nil {
-				adminEmail := common.EmailAddress("admin@" + string(interviewsDomain))
-				_ = s.orgPost(
-					ctx, tenant, interviewsDomain, "schedule-work-interview",
-					work.ScheduleInterviewRequest{
-						EngagementID: interviewingEng.ID,
-						WorkID:       item.WorkID,
-						InterviewDetails: orgapplications.InterviewDetails{
-							StartTime:         time.Now().Add(48 * time.Hour).Truncate(time.Hour).UTC(),
-							DurationMinutes:   45,
-							Mode:              orgapplications.InterviewVideo,
-							InterviewerEmails: []common.EmailAddress{adminEmail},
-						},
-					}, http.StatusOK, nil,
-				)
-			}
-		}
-	}
-
-	// Candidate 2: Assessment routing
-	if len(otherUsers) > 1 && assessmentStageID != "" {
-		candEmail := otherUsers[len(otherUsers)-2]
-		var ref hubapplications.ApplicationReference
-		if err := s.hubPost(
-			ctx, other1, candEmail, "apply-to-opening",
-			hubapplications.ApplyToOpeningRequest{
-				Domain:        consumer1Domain,
-				OpeningNumber: 3,
-				CoverNote:     ptr(orgapplications.ApplicationCoverNote("Applying for assessment.")),
-			}, http.StatusCreated, &ref,
-		); err == nil {
-			_ = s.orgPost(
-				ctx, other1, consumer1Domain, "shortlist-application",
-				orgapplications.ApplicationStageRequest{
-					OpeningNumber:     3,
-					ApplicationNumber: ref.ApplicationNumber,
-					Version:           1,
-					StageID:           assessmentStageID,
-				}, http.StatusOK, nil,
-			)
-			_ = s.orgPost(
-				ctx, other1, consumer1Domain, "route-application",
-				orgapplications.RouteApplicationRequest{
-					OpeningNumber:     3,
-					ApplicationNumber: ref.ApplicationNumber,
-					Version:           2,
-					EngagementID:      &assessmentEng.ID,
-				}, http.StatusOK, nil,
-			)
-
-			// Provider records assessment score
-			if item, err := s.awaitWorkItem(ctx, tenant, assessmentsDomain, assessmentEng.ID); err == nil {
-				score := orgapplications.AssessmentScore(88)
-				_ = s.orgPost(
-					ctx, tenant, assessmentsDomain, "record-work-assessment",
-					work.RecordAssessmentRequest{
-						EngagementID: assessmentEng.ID,
-						WorkID:       item.WorkID,
-						Outcome:      orgapplications.AssessmentPass,
-						Score:        &score,
-					}, http.StatusOK, nil,
-				)
-			}
-		}
-	}
-
-	// Candidate 3: Background check routing and consent
-	if len(otherUsers) > 2 && checkStageID != "" {
-		candEmail := otherUsers[len(otherUsers)-3]
-		var ref hubapplications.ApplicationReference
-		if err := s.hubPost(
-			ctx, other1, candEmail, "apply-to-opening",
-			hubapplications.ApplyToOpeningRequest{
-				Domain:        consumer1Domain,
-				OpeningNumber: 3,
-				CoverNote:     ptr(orgapplications.ApplicationCoverNote("Applying for background check verification.")),
-			}, http.StatusCreated, &ref,
-		); err == nil {
-			_ = s.orgPost(
-				ctx, other1, consumer1Domain, "shortlist-application",
-				orgapplications.ApplicationStageRequest{
-					OpeningNumber:     3,
-					ApplicationNumber: ref.ApplicationNumber,
-					Version:           1,
-					StageID:           checkStageID,
-				}, http.StatusOK, nil,
-			)
-			_ = s.orgPost(
-				ctx, other1, consumer1Domain, "route-application",
-				orgapplications.RouteApplicationRequest{
-					OpeningNumber:     3,
-					ApplicationNumber: ref.ApplicationNumber,
-					Version:           2,
-					EngagementID:      &checkEng.ID,
-				}, http.StatusOK, nil,
-			)
-
-			// Hub candidate provides consent
-			var myApp hubapplications.MyApplicationDetail
-			if err := s.hubPost(
-				ctx, other1, candEmail, "get-my-application",
-				hubapplications.ApplicationReference{
-					Domain:            consumer1Domain,
-					OpeningNumber:     3,
-					ApplicationNumber: ref.ApplicationNumber,
-				}, http.StatusOK, &myApp,
-			); err == nil && myApp.BackgroundCheckConsent != nil {
-				_ = s.hubPost(
-					ctx, other1, candEmail, "give-application-background-check-consent",
-					hubapplications.BackgroundCheckConsentRequest{
-						Domain:            consumer1Domain,
-						OpeningNumber:     3,
-						ApplicationNumber: ref.ApplicationNumber,
-						CheckNumber:       myApp.BackgroundCheckConsent.CheckNumber,
-					}, http.StatusOK, nil,
-				)
-
-				// Provider records result
-				if item, err := s.awaitWorkItem(ctx, tenant, checksDomain, checkEng.ID); err == nil {
-					_ = s.orgPost(
-						ctx, tenant, checksDomain, "record-work-background-check-result",
-						work.RecordBackgroundCheckResultRequest{
-							EngagementID: checkEng.ID,
-							WorkID:       item.WorkID,
-							CheckType:    hiring.IdentityCheck,
-							Outcome:      orgapplications.CheckClear,
-						}, http.StatusOK, nil,
-					)
-				}
-			}
-		}
-	}
-
-	// 4. Agency Contacts, Notes, and Conversations with Hub users in other regions
-	hubUsersOther, err := s.readProfileUsers(other1)
-	if err != nil || len(hubUsersOther) < 2 {
-		hubUsersOther, _ = s.readProfileUsers(other2)
-	}
-
-	if len(hubUsersOther) >= 2 {
-		// User 1: Conversation + Notes
-		user1Email := hubUsersOther[0]
-		sess1, err := s.hubLogin(ctx, other1, user1Email)
-		if err == nil {
-			var addedNote contacts.AddedNote
-			_ = s.orgPost(
-				ctx, tenant, agencyDomain, "add-person-note",
-				contacts.AddPersonNoteRequest{
-					Address: hubprofile.ProfileAddress(sess1.handle),
-					Text:    contacts.NoteText("Exceptional track record in distributed backend systems."),
-				}, http.StatusOK, &addedNote,
-			)
-
-			var conv contacts.ConversationDetail
-			if err := s.orgPost(
-				ctx, tenant, agencyDomain, "start-conversation",
-				contacts.StartConversationRequest{
-					Address: hubprofile.ProfileAddress(sess1.handle),
-					Text:    ptr(contacts.MessageText("Hello! We represent engineering teams hiring senior roles.")),
-				}, http.StatusOK, &conv,
-			); err == nil {
-				contactID := conv.Conversation.ContactID
-
-				// Send Opening suggestion message
-				_ = s.orgPost(
-					ctx, tenant, agencyDomain, "send-message",
-					contacts.SendMessageRequest{
-						ContactID: contactID,
-						Suggestion: &contacts.OpeningSuggestion{
-							ConsumerDomain: consumer1Domain,
-							OpeningNumber:  3,
-						},
-					}, http.StatusOK, nil,
-				)
-
-				// Wait for Hub user to see conversation, then Hub user replies
-				if _, waitErr := s.awaitHubConversation(ctx, other1, user1Email, contactID); waitErr == nil {
-					_ = s.hubPost(
-						ctx, other1, user1Email, "reply-to-conversation",
-						hubmessages.ReplyToConversationRequest{
-							ContactID: contactID,
-							Text:      contacts.MessageText("Hi! Thanks for reaching out. I would love to learn more about this role."),
-						}, http.StatusOK, nil,
-					)
-				}
-
-				// Agency adds follow-up note on Contact
-				_ = s.orgPost(
-					ctx, tenant, agencyDomain, "add-contact-note",
-					contacts.AddContactNoteRequest{
-						ContactID: contactID,
-						Text:      contacts.NoteText("Candidate expressed interest in Opening #3; scheduling intro call."),
-					}, http.StatusOK, nil,
-				)
-			}
-		}
-
-		// User 2: Notes-only Contact (no conversation started)
-		user2Email := hubUsersOther[1]
-		sess2, err := s.hubLogin(ctx, other1, user2Email)
-		if err == nil {
-			var addedNote2 contacts.AddedNote
-			_ = s.orgPost(
-				ctx, tenant, agencyDomain, "add-person-note",
-				contacts.AddPersonNoteRequest{
-					Address: hubprofile.ProfileAddress(sess2.handle),
-					Text:    contacts.NoteText("Solid product leadership profile. Kept on file for staff/lead searches."),
-				}, http.StatusOK, &addedNote2,
-			)
-		}
-	}
-
-	log.Printf("seeded marketplace tenant=%s providers=4 engagements=5 routed_work=3 contacts=2", tenant)
+	log.Printf("seeded marketplace tenant=%s agencies=%s(%d jobs, %d owned),%s(%d jobs, %d owned) routed_work=%d contacts=%d",
+		tenant, age1, len(jobs1), owned1, age2, len(jobs2), owned2, routed, contactsSeeded)
 	return nil
+}
+
+// endEngagement makes an engagement active and has its client end it.
+func (s *marketplaceSeeder) endEngagement(
+	ctx context.Context, client, provider orgs.OrgDomain, capability marketplace.Capability,
+) error {
+	engagement, err := s.engage(ctx, client, provider, capability)
+	if err != nil {
+		return err
+	}
+	var current marketplace.Engagement
+	if err := s.orgPost(ctx, client, "get-engagement",
+		marketplace.GetEngagementRequest{EngagementID: engagement.ID}, http.StatusOK, &current); err != nil {
+		return err
+	}
+	return s.orgPost(ctx, client, "end-engagement", marketplace.EndEngagementRequest{
+		EngagementID: current.ID, Version: current.Version,
+		Note: ptr("The season's hiring is complete."),
+	}, http.StatusOK, nil)
+}
+
+// seedDeclinedAndWithdrawn leaves a declined and a withdrawn proposal with
+// the tenant's service providers.
+func (s *marketplaceSeeder) seedDeclinedAndWithdrawn(
+	ctx context.Context, tenant string, other func(int) string,
+) error {
+	interviews := interviewProvider.domain(tenant)
+	declined, err := s.propose(ctx, seededOrgDomain(hiringCompanyKind, 2, other(3)), interviews,
+		marketplace.Interviewing, "Requesting interviewers for next quarter.")
+	if err != nil {
+		return fmt.Errorf("proposal to %s: %w", interviews, err)
+	}
+	if err := s.orgPost(ctx, interviews, "decline-engagement", marketplace.EngagementTarget{
+		EngagementID: declined.ID, Version: declined.Version,
+	}, http.StatusOK, nil); err != nil {
+		return err
+	}
+	assessments := assessmentProvider.domain(tenant)
+	client := seededOrgDomain(hiringCompanyKind, 2, other(2))
+	var withdrawn marketplace.Engagement
+	if err := s.orgPost(ctx, client, "propose-engagement", marketplace.ProposeEngagementRequest{
+		ProviderDomain: assessments, Capability: marketplace.Assessment,
+		Message: ptr("An initial evaluation proposal."),
+	}, http.StatusCreated, &withdrawn); err != nil {
+		return err
+	}
+	if err := s.orgPost(ctx, client, "withdraw-engagement", marketplace.EngagementTarget{
+		EngagementID: withdrawn.ID, Version: withdrawn.Version,
+	}, http.StatusOK, nil); err != nil {
+		return err
+	}
+	return s.endEngagement(ctx, seededOrgDomain(hiringCompanyKind, 3, other(3)),
+		checkProvider.domain(tenant), marketplace.BackgroundCheck)
+}
+
+// stageCandidacy has an applicant apply to the client's Opening, shortlists
+// the application to the stage, and routes it to the engagement.
+func (s *marketplaceSeeder) stageCandidacy(
+	ctx context.Context, client orgs.OrgDomain, opening openings.OpeningNumber,
+	applicantTenant, applicant string, stage hiring.PipelineStageID,
+	engagement marketplace.EngagementID,
+) (orgapplications.ApplicationNumber, error) {
+	var ref hubapplications.ApplicationReference
+	if err := s.hubPost(ctx, applicantTenant, applicant, "apply-to-opening",
+		hubapplications.ApplyToOpeningRequest{
+			Domain: client, OpeningNumber: opening,
+			CoverNote: ptr(orgapplications.ApplicationCoverNote("I would like to be considered for this role.")),
+		}, http.StatusCreated, &ref); err != nil {
+		return 0, err
+	}
+	version := func() (orgapplications.ApplicationVersion, error) {
+		var detail orgapplications.ApplicationDetail
+		err := s.orgPost(ctx, client, "get-application", orgapplications.GetApplicationRequest{
+			OpeningNumber: opening, ApplicationNumber: ref.ApplicationNumber,
+		}, http.StatusOK, &detail)
+		return detail.Version, err
+	}
+	current, err := version()
+	if err != nil {
+		return 0, err
+	}
+	if err := s.orgPost(ctx, client, "shortlist-application", orgapplications.ApplicationStageRequest{
+		OpeningNumber: opening, ApplicationNumber: ref.ApplicationNumber,
+		Version: current, StageID: stage,
+	}, http.StatusOK, nil); err != nil {
+		return 0, err
+	}
+	if current, err = version(); err != nil {
+		return 0, err
+	}
+	if err := s.orgPost(ctx, client, "route-application", orgapplications.RouteApplicationRequest{
+		OpeningNumber: opening, ApplicationNumber: ref.ApplicationNumber,
+		Version: current, EngagementID: &engagement,
+	}, http.StatusOK, nil); err != nil {
+		return 0, err
+	}
+	return ref.ApplicationNumber, nil
+}
+
+func (s *marketplaceSeeder) awaitWorkItem(
+	ctx context.Context, provider orgs.OrgDomain, engagement marketplace.EngagementID,
+) (work.WorkItem, error) {
+	var found work.WorkItem
+	err := await(ctx, fmt.Sprintf("work of %s at %s", engagement, provider), func() (bool, error) {
+		var resp work.ListWorkQueueResponse
+		err := s.orgPost(ctx, provider, "list-work-queue", work.ListWorkQueueRequest{},
+			http.StatusOK, &resp)
+		for _, item := range resp.Items {
+			if item.EngagementID == engagement {
+				found = item
+				return true, nil
+			}
+		}
+		return false, err
+	})
+	return found, err
+}
+
+// seedStageProviders makes the tenant's interviewing, assessment, and
+// background-check providers active for one client, assigns them to the
+// stages of its engineering Opening, and routes one candidacy to each, which
+// the provider then works. The applicants are this tenant's Hub users, who
+// have not applied to that client's Openings (dev-seed-applications applies
+// the client region's and the next region's users).
+func (s *marketplaceSeeder) seedStageProviders(
+	ctx context.Context, tenant string, client orgs.OrgDomain,
+) (int, error) {
+	var pipeline openings.OpeningPipeline
+	if err := s.orgPost(ctx, client, "get-opening-pipeline",
+		openings.GetOpeningPipelineRequest{OpeningNumber: engineeringOpening},
+		http.StatusOK, &pipeline); err != nil {
+		return 0, err
+	}
+	stageOf := map[hiring.StageKind]hiring.PipelineStageID{}
+	for _, stage := range pipeline.Stages {
+		if _, seen := stageOf[stage.Kind]; !seen {
+			stageOf[stage.Kind] = stage.ID
+		}
+	}
+	applicants, err := s.readProfileUsers(tenant)
+	if err != nil {
+		return 0, err
+	}
+	if len(applicants) < 3 {
+		return 0, fmt.Errorf("tenant %s has fewer than three Hub users", tenant)
+	}
+	steps := []struct {
+		spec  providerSpec
+		stage hiring.StageKind
+		work  func(provider orgs.OrgDomain, engagement marketplace.EngagementID,
+			item work.WorkItem, applicant string, number orgapplications.ApplicationNumber) error
+	}{
+		{interviewProvider, hiring.InterviewStage, func(
+			provider orgs.OrgDomain, engagement marketplace.EngagementID, item work.WorkItem,
+			_ string, _ orgapplications.ApplicationNumber,
+		) error {
+			video := hubprofile.WebsiteURL("https://meet.example.com/provider-interview")
+			return s.orgPostAs(ctx, provider, "staff1", "schedule-work-interview",
+				work.ScheduleInterviewRequest{
+					EngagementID: engagement, WorkID: item.WorkID,
+					InterviewDetails: orgapplications.InterviewDetails{
+						StartTime:       time.Now().Add(48 * time.Hour).Truncate(time.Hour).UTC(),
+						DurationMinutes: 45,
+						Mode:            orgapplications.InterviewVideo,
+						VideoURL:        &video,
+						InterviewerEmails: []common.EmailAddress{
+							common.EmailAddress("staff1@" + string(provider)),
+						},
+					},
+				}, http.StatusOK, nil)
+		}},
+		{assessmentProvider, hiring.AssessmentStage, func(
+			provider orgs.OrgDomain, engagement marketplace.EngagementID, item work.WorkItem,
+			_ string, _ orgapplications.ApplicationNumber,
+		) error {
+			score := orgapplications.AssessmentScore(88)
+			return s.orgPostAs(ctx, provider, "staff1", "record-work-assessment",
+				work.RecordAssessmentRequest{
+					EngagementID: engagement, WorkID: item.WorkID,
+					Outcome: orgapplications.AssessmentPass, Score: &score,
+				}, http.StatusOK, nil)
+		}},
+		{checkProvider, hiring.BackgroundCheckStage, func(
+			provider orgs.OrgDomain, engagement marketplace.EngagementID, item work.WorkItem,
+			applicant string, number orgapplications.ApplicationNumber,
+		) error {
+			var detail orgapplications.ApplicationDetail
+			if err := s.orgPost(ctx, client, "get-application", orgapplications.GetApplicationRequest{
+				OpeningNumber: engineeringOpening, ApplicationNumber: number,
+			}, http.StatusOK, &detail); err != nil {
+				return err
+			}
+			if err := s.orgPost(ctx, client, "request-background-check-consent",
+				orgapplications.RequestBackgroundCheckConsentRequest{
+					OpeningNumber: engineeringOpening, ApplicationNumber: number,
+					Version:    detail.Version,
+					CheckTypes: []hiring.CheckType{hiring.IdentityCheck, hiring.EmploymentCheck},
+				}, http.StatusOK, nil); err != nil {
+				return err
+			}
+			reference := hubapplications.ApplicationReference{
+				Domain: client, OpeningNumber: engineeringOpening, ApplicationNumber: number,
+			}
+			var mine hubapplications.MyApplicationDetail
+			if err := s.hubPost(ctx, tenant, applicant, "get-my-application", reference,
+				http.StatusOK, &mine); err != nil {
+				return err
+			}
+			if mine.BackgroundCheckConsent == nil {
+				return fmt.Errorf("application %d has no consent request", number)
+			}
+			if err := s.hubPost(ctx, tenant, applicant, "give-application-background-check-consent",
+				hubapplications.BackgroundCheckConsentRequest{
+					Domain: client, OpeningNumber: engineeringOpening, ApplicationNumber: number,
+					CheckNumber: mine.BackgroundCheckConsent.CheckNumber,
+				}, http.StatusOK, nil); err != nil {
+				return err
+			}
+			return s.orgPostAs(ctx, provider, "staff1", "record-work-background-check-result",
+				work.RecordBackgroundCheckResultRequest{
+					EngagementID: engagement, WorkID: item.WorkID,
+					CheckType: hiring.IdentityCheck, Outcome: orgapplications.CheckClear,
+				}, http.StatusOK, nil)
+		}},
+	}
+	for index, step := range steps {
+		provider := step.spec.domain(tenant)
+		stage, ok := stageOf[step.stage]
+		if !ok {
+			return index, fmt.Errorf("opening %d of %s has no %s stage", engineeringOpening, client, step.stage)
+		}
+		engagement, err := s.engage(ctx, client, provider, step.spec.capability)
+		if err != nil {
+			return index, fmt.Errorf("engage %s: %w", provider, err)
+		}
+		if err := s.assign(ctx, client, engagement.ID, engineeringOpening, &stage); err != nil {
+			return index, err
+		}
+		applicant := applicants[len(applicants)-1-index]
+		number, err := s.stageCandidacy(ctx, client, engineeringOpening, tenant, applicant,
+			stage, engagement.ID)
+		if err != nil {
+			return index, fmt.Errorf("route to %s: %w", provider, err)
+		}
+		item, err := s.awaitWorkItem(ctx, provider, engagement.ID)
+		if err != nil {
+			return index, err
+		}
+		if err := step.work(provider, engagement.ID, item, applicant, number); err != nil {
+			return index, fmt.Errorf("work at %s: %w", provider, err)
+		}
+	}
+	return len(steps), nil
+}
+
+// seedAgencyContacts gives the large agency Contacts among the next region's
+// Hub users, each written by a different agent: a conversation with an
+// Opening suggestion the person applied from (a `suggested` credit), a
+// conversation whose person applied naming the agency (`declared`), and a
+// Contact with notes only.
+func (s *marketplaceSeeder) seedAgencyContacts(
+	ctx context.Context, tenant, hubTenant string,
+) (int, error) {
+	agency := agency1.domain(tenant)
+	people, err := s.readProfileUsers(hubTenant)
+	if err != nil {
+		return 0, err
+	}
+	if len(people) < 3 {
+		return 0, fmt.Errorf("tenant %s has fewer than three Hub users", hubTenant)
+	}
+	handle := func(email string) (hubprofile.ProfileAddress, error) {
+		session, err := s.hubLogin(ctx, hubTenant, email)
+		return hubprofile.ProfileAddress(session.handle), err
+	}
+	converse := func(agent, email, note, text string) (contacts.ContactID, error) {
+		address, err := handle(email)
+		if err != nil {
+			return "", err
+		}
+		if err := s.orgPostAs(ctx, agency, agent, "add-person-note", contacts.AddPersonNoteRequest{
+			Address: address, Text: contacts.NoteText(note),
+		}, http.StatusOK, nil); err != nil {
+			return "", err
+		}
+		var conversation contacts.ConversationDetail
+		if err := s.orgPostAs(ctx, agency, agent, "start-conversation", contacts.StartConversationRequest{
+			Address: address, Text: ptr(contacts.MessageText(text)),
+		}, http.StatusOK, &conversation); err != nil {
+			return "", err
+		}
+		return conversation.Conversation.ContactID, nil
+	}
+	apply := func(email string, client orgs.OrgDomain) error {
+		return s.hubPost(ctx, hubTenant, email, "apply-to-opening", hubapplications.ApplyToOpeningRequest{
+			Domain: client, OpeningNumber: suggestedOpening, ReferralAgencyDomain: &agency,
+		}, http.StatusCreated, nil)
+	}
+
+	suggestedTo := people[0]
+	suggestedClient := seededOrgDomain(hiringCompanyKind, 1, tenant)
+	contactID, err := converse("agent1", suggestedTo,
+		"Strong distributed-systems background; open to a move this year.",
+		"Hello! We place engineers with teams across several regions.")
+	if err != nil {
+		return 0, err
+	}
+	if err := s.orgPostAs(ctx, agency, "agent1", "send-message", contacts.SendMessageRequest{
+		ContactID: contactID,
+		Suggestion: &contacts.OpeningSuggestion{
+			ConsumerDomain: suggestedClient, OpeningNumber: suggestedOpening,
+		},
+	}, http.StatusOK, nil); err != nil {
+		return 0, err
+	}
+	if err := await(ctx, "the Hub conversation of "+suggestedTo, func() (bool, error) {
+		var detail hubmessages.HubConversationDetail
+		err := s.hubPost(ctx, hubTenant, suggestedTo, "get-conversation",
+			hubmessages.GetConversationRequest{ContactID: contactID}, http.StatusOK, &detail)
+		return err == nil && detail.Conversation.HasConversation, err
+	}); err != nil {
+		return 0, err
+	}
+	if err := s.hubPost(ctx, hubTenant, suggestedTo, "reply-to-conversation",
+		hubmessages.ReplyToConversationRequest{
+			ContactID: contactID,
+			Text:      contacts.MessageText("Thanks, this role looks interesting. I will apply."),
+		}, http.StatusOK, nil); err != nil {
+		return 0, err
+	}
+	if err := apply(suggestedTo, suggestedClient); err != nil {
+		return 0, err
+	}
+
+	declaredBy := people[1]
+	if _, err := converse("agent2", declaredBy,
+		"Product leader; prefers hybrid roles.",
+		"Hi! We work with several product teams that are hiring."); err != nil {
+		return 1, err
+	}
+	if err := apply(declaredBy, seededOrgDomain(hiringCompanyKind, 2, tenant)); err != nil {
+		return 1, err
+	}
+
+	notesOnly, err := handle(people[2])
+	if err != nil {
+		return 2, err
+	}
+	if err := s.orgPostAs(ctx, agency, "agent3", "add-person-note", contacts.AddPersonNoteRequest{
+		Address: notesOnly,
+		Text:    contacts.NoteText("Kept on file for senior data roles; not contacted yet."),
+	}, http.StatusOK, nil); err != nil {
+		return 2, err
+	}
+	return 3, nil
 }

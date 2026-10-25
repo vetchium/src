@@ -158,9 +158,7 @@ test("signs an Org up on one request page, then proves DNS and signs in", async 
 
     await signIn(page, { domain, emailAddress, password, value });
     await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
-    await expect(
-      page.getByRole("heading", { name: "Browser Org", level: 1 }),
-    ).toBeVisible();
+    await expect(page.getByTestId("home-org-name")).toHaveText("Browser Org");
     await expect(page.getByTestId("home-domain")).toHaveText(domain);
     await expect(page.getByTestId("home-domain-state")).toHaveAttribute(
       "data-state",

@@ -109,18 +109,24 @@ func (p JobPosition) Valid() bool {
 	return !p.AssignedAt.IsZero() && IsWorkID(WorkID(p.AssignmentID))
 }
 
+// PeerListJobsRequest is one client tenant's share of a provider's jobs.
+// Openings, when present, names the only Jobs to list: those an agency user
+// owns, which only the agency's tenant knows.
 type PeerListJobsRequest struct {
-	ProviderOrgDID orgs.OrgDID           `json:"provider_org_did"`
-	ClientDomain   *orgs.OrgDomain       `json:"client_domain,omitempty"`
-	State          openings.OpeningState `json:"state"`
-	After          *JobPosition          `json:"after,omitempty"`
-	Limit          int32                 `json:"limit"`
+	ProviderOrgDID   orgs.OrgDID           `json:"provider_org_did"`
+	ClientDomain     *orgs.OrgDomain       `json:"client_domain,omitempty"`
+	State            openings.OpeningState `json:"state"`
+	Search           *JobSearchText        `json:"search,omitempty"`
+	EmployingCountry *common.CountryCode   `json:"employing_country,omitempty"`
+	Openings         []JobReference        `json:"openings,omitempty"`
+	After            *JobPosition          `json:"after,omitempty"`
+	Limit            int32                 `json:"limit"`
 }
 
 func (r *PeerListJobsRequest) Normalize() {
-	list := ListJobsRequest{ClientDomain: r.ClientDomain}
+	list := ListJobsRequest{ClientDomain: r.ClientDomain, Search: r.Search}
 	list.Normalize()
-	r.ClientDomain = list.ClientDomain
+	r.ClientDomain, r.Search = list.ClientDomain, list.Search
 }
 
 func (r PeerListJobsRequest) Validate() []string {
@@ -133,6 +139,23 @@ func (r PeerListJobsRequest) Validate() []string {
 	}
 	if !openings.IsOpeningState(r.State) {
 		fields = append(fields, "state")
+	}
+	if r.Search != nil && !IsJobSearchText(*r.Search) {
+		fields = append(fields, "search")
+	}
+	if r.EmployingCountry != nil && !common.IsCountryCode(*r.EmployingCountry) {
+		fields = append(fields, "employing_country")
+	}
+	// An empty list is absent: it would list nothing, so no caller sends it.
+	if r.Openings != nil && (len(r.Openings) < 1 || len(r.Openings) > MaxJobsPerOwner) {
+		fields = append(fields, "openings")
+	} else {
+		for _, opening := range r.Openings {
+			if len(opening.Validate()) > 0 {
+				fields = append(fields, "openings")
+				break
+			}
+		}
 	}
 	if r.After != nil && !r.After.Valid() {
 		fields = append(fields, "after")

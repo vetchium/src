@@ -42,6 +42,9 @@ import type {
   ListJobsRequest,
   ListWorkQueueRequest,
   RecordAssessmentRequest,
+  SetJobOwnerRequest,
+  SuggestClientsRequest,
+  SuggestJobOwnersRequest,
   ChangeInterviewRequest as WorkChangeInterviewRequest,
   RecordBackgroundCheckResultRequest as WorkRecordBackgroundCheckResultRequest,
   RecordInterviewOutcomeRequest as WorkRecordInterviewOutcomeRequest,
@@ -847,6 +850,50 @@ export function useJobQuery(
         engagement_id: engagementId,
         opening_number: openingNumber,
       }),
+    placeholderData: (previous) => previous,
+    retry: false,
+    enabled,
+  });
+}
+
+export function useSetJobOwnerMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      request,
+      key,
+    }: {
+      request: SetJobOwnerRequest;
+      key: IdempotencyKey;
+    }) => orgsAPI.setJobOwner(request, key),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...marketplaceQueryKey, "jobs"],
+      });
+    },
+  });
+}
+
+export function useJobOwnerSuggestionsQuery(
+  request: SuggestJobOwnersRequest,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: [...marketplaceQueryKey, "job-owner-suggestions", request],
+    queryFn: () => orgsAPI.suggestJobOwners(request),
+    placeholderData: (previous) => previous,
+    retry: false,
+    enabled,
+  });
+}
+
+export function useClientSuggestionsQuery(
+  request: SuggestClientsRequest,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: [...marketplaceQueryKey, "client-suggestions", request],
+    queryFn: () => orgsAPI.suggestClients(request),
     placeholderData: (previous) => previous,
     retry: false,
     enabled,

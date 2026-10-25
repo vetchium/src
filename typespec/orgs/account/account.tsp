@@ -97,6 +97,12 @@ model MarketplaceRoles {
 
   /** The Org has a `sourcing` Listing or a `sourcing` engagement as provider. */
   agency: boolean;
+
+  /**
+   * The Org has a Listing or an engagement as provider of a stage Capability
+   * (interviewing, assessment, background check).
+   */
+  services: boolean;
 }
 
 /** The outcome of this lookup. inconclusive means the DNS query failed and

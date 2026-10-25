@@ -11,17 +11,21 @@
 //   - "hub-profiles" seeds Hub user profiles from a hand-edited fixture file
 //     under dev/hub-seed-profiles/. It runs on demand, from the host, via
 //     `make dev-seed-hub-profiles`.
-//   - "orgs" creates an Org per plan in each tenant through the Org APIs (signup
-//     with its TXT record published in the development DNS server, a simulated
-//     card, the plan, invited users, and Openings in each reachable state).
-//     It runs on demand, from the host, via `make dev-seed-orgs`.
+//   - "orgs" creates a hiring company per plan in each tenant (org1 to
+//     org3.<tenant>.test) through the Org APIs (signup, a simulated card, the
+//     plan, invited users, and Openings in each reachable state). It runs on
+//     demand, from the host, via `make dev-seed-orgs`.
 //   - "applications" gives each seeded Org pipeline templates and Hub users'
 //     applications in every state the portal APIs can reach. It needs the
 //     Hub profiles and Orgs seeded first and runs via
 //     `make dev-seed-applications`.
-//   - "marketplace" seeds provider Orgs per Capability with Listings,
-//     engagements in each state across regions, routed work, and agency Contacts
-//     with notes and conversations. It runs via `make dev-seed-marketplace`.
+//   - "accounts" prints every account the other modes and db-seed created,
+//     read back from each tenant database, for a developer to sign in with.
+//     `make dev-seed` ends with it; `make dev-accounts` prints it again.
+//   - "marketplace" seeds each tenant's agencies (age1, age2) and stage
+//     providers (itv1, asm1, bgv1) with Listings, clients across regions, Job
+//     owners, engagements in each state, routed work, and agency Contacts with
+//     notes and conversations. It runs via `make dev-seed-marketplace`.
 //
 // It is never built into a production image and never deployed.
 package main
@@ -52,6 +56,8 @@ func run() error {
 		return runApplicationSeed()
 	case "marketplace":
 		return runMarketplaceSeed()
+	case "accounts":
+		return runAccountSummary()
 	default:
 		return fmt.Errorf("unknown DEV_SEED_MODE %q", mode)
 	}

@@ -34,6 +34,7 @@ import {
   useContactsQuery,
   useCreditedApplicationsQuery,
 } from "../features/marketplace/queries";
+import { ClientPicker } from "../features/marketplace/SuggestionSelect";
 
 const routes: ReferralRoute[] = ["suggested", "declared"];
 const statuses: ApplicationStatus[] = [
@@ -86,23 +87,6 @@ export function CreditedApplicationsPage() {
       i.status === "offer",
   ).length;
   const hiredCount = items.filter((i) => i.status === "hired").length;
-
-  // Filter options derived from items
-  const clientOptions = useMemo(() => {
-    const clients = new Map<string, string>();
-    for (const item of items) {
-      if (item.client?.domain) {
-        clients.set(
-          item.client.domain,
-          item.client.display_name || item.client.domain,
-        );
-      }
-    }
-    return Array.from(clients.entries()).map(([value, label]) => ({
-      value,
-      label,
-    }));
-  }, [items]);
 
   const openingOptions = useMemo(() => {
     const ops = new Map<number, string>();
@@ -252,13 +236,13 @@ export function CreditedApplicationsPage() {
         <Flex vertical gap="middle">
           {/* Filters row */}
           <Flex gap="middle" wrap>
-            <Select
-              allowClear
-              placeholder={t("marketplace.attribution.filterClient")}
+            <ClientPicker
+              capability="sourcing"
               value={selectedClient}
               onChange={setSelectedClient}
-              options={clientOptions}
-              style={{ minWidth: 180 }}
+              placeholder={t("marketplace.attribution.filterClient")}
+              ariaLabel={t("marketplace.attribution.filterClient")}
+              notFound={t("marketplace.jobs.noClientFound")}
             />
             <Select
               allowClear

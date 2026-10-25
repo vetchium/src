@@ -248,6 +248,23 @@ func (r Reader) ListJobs(
 	if request.ClientDomain != nil {
 		params.ClientDomain = dbvalue.Text(string(*request.ClientDomain))
 	}
+	if request.Search != nil {
+		params.Search = dbvalue.Text(string(*request.Search))
+	}
+	if request.EmployingCountry != nil {
+		params.EmployingCountry = dbvalue.Text(string(*request.EmployingCountry))
+	}
+	if request.Openings != nil {
+		params.OwnedJobs = make([]string, 0, len(request.Openings))
+		for _, opening := range request.Openings {
+			id, err := dbvalue.ParseUUID(string(opening.EngagementID))
+			if err != nil {
+				return work.PeerListJobsResponse{}, err
+			}
+			params.OwnedJobs = append(params.OwnedJobs,
+				dbvalue.JobKey(id, int32(opening.OpeningNumber)))
+		}
+	}
 	if request.After != nil {
 		after, err := dbvalue.ParseUUID(request.After.AssignmentID)
 		if err != nil {

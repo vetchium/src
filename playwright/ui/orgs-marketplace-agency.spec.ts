@@ -1,7 +1,7 @@
 import { sqlLiteral, sqlScalarForTenant } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { cleanupApplicant, seedApplicant } from "../lib/hub-applicant.ts";
-import { orgDID } from "../lib/orgs-api.ts";
+import { addOrgMember, inviteeAddress, orgDID } from "../lib/orgs-api.ts";
 import {
   activate,
   asProvider,
@@ -227,29 +227,95 @@ test("agency contact lifecycle: creates contact with note, starts conversation, 
   });
 });
 
-test("agency views jobs list and detail, and credited applications page", async ({
+test("an agent works from their own Jobs, looks across the agency by colleague and client, and changes a Job's owner", async ({
   page,
   request,
 }) => {
   await withWorld(request, async (world) => {
     const { pair, opening } = world;
-    const { provider } = pair;
+    const { consumer, provider } = pair;
     const openingTitle = opening.live_content?.title ?? "Opening";
 
     // Activate sourcing engagement and assign whole to the opening
     const sourcing = await activate(pair, "sourcing");
     await asProvider(pair, sourcing.id, sourcing.version);
     await assign(world, sourcing.id);
+    const colleague = await addOrgMember(
+      provider.api,
+      provider.owner,
+      provider.org.domain,
+      inviteeAddress(provider.org.domain, "agent"),
+      ["org:fulfil_engagements"],
+    );
 
     await signIn(page, provider.org, provider.tenant);
+    const dropdown = page.locator(".ant-select-dropdown:visible");
+    const row = page.getByRole("row", { name: new RegExp(openingTitle) });
 
-    // 1. Jobs page
+    // 1. An agent starts on their own Jobs.
     await page.goto(`${ORGS_PORTAL}/jobs`);
     await expect(
       page.getByRole("heading", { name: "Jobs", exact: true }),
     ).toBeVisible();
-    await expect(page.getByText(openingTitle)).toBeVisible();
-    await expect(page.getByText(/Playwright Org|example\.com/)).toBeVisible();
+    await expect(
+      page.getByText("No Jobs here are assigned to you.", { exact: false }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Show everyone's Jobs" }).click();
+    await expect(page).toHaveURL(/owner=all/);
+    await expect(row).toContainText("No owner");
+    await expect(row).toContainText(consumer.org.domain);
+    await expect(
+      page.getByRole("columnheader", { name: /Credited applications/ }),
+    ).toBeVisible();
+
+    // 2. Anyone in the agency sets the owner; "Assign to me" is one click.
+    await page
+      .getByRole("button", { name: `Change the owner of ${openingTitle}` })
+      .click();
+    let dialog = page.getByRole("dialog", { name: "Job owner" });
+    await dialog.getByRole("button", { name: "Assign to me" }).click();
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(
+      page.getByText(`${provider.org.emailAddress} now owns this Job.`),
+    ).toBeVisible();
+    await expect(row).toContainText(`${provider.org.emailAddress} (you)`);
+    await page.getByText("Mine", { exact: true }).click();
+    await expect(page).not.toHaveURL(/owner=/);
+    await expect(row).toBeVisible();
+
+    // 3. Handing the Job to a colleague takes it off "Mine".
+    await page
+      .getByRole("button", { name: `Change the owner of ${openingTitle}` })
+      .click();
+    dialog = page.getByRole("dialog", { name: "Job owner" });
+    await dialog
+      .getByRole("combobox", { name: "Owner" })
+      .fill(colleague.emailAddress.slice(0, 12));
+    await dropdown.getByTitle(colleague.emailAddress, { exact: true }).click();
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(row).toHaveCount(0);
+
+    // 4. One colleague's Jobs, then one client's, kept in the URL.
+    await page.getByRole("combobox", { name: "Owned by…" }).fill("agent");
+    await dropdown.getByTitle(colleague.emailAddress, { exact: true }).click();
+    await expect(page).toHaveURL(
+      new RegExp(`owner=${encodeURIComponent(colleague.emailAddress)}`),
+    );
+    await expect(row).toContainText(colleague.emailAddress);
+    await page
+      .getByRole("combobox", { name: "Search clients" })
+      .fill(consumer.org.domain.slice(0, 10));
+    await dropdown.getByTitle(new RegExp(consumer.org.domain)).click();
+    await expect(page).toHaveURL(/client=/);
+    await page.reload();
+    await expect(row).toBeVisible();
+
+    // 5. A search that matches nothing offers to clear the filters.
+    await page.getByLabel("Search title or number").fill("no-such-opening");
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("No Jobs match these filters.")).toBeVisible();
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    await expect(row).toBeVisible();
 
     // View job detail by clicking opening title link
     await page.getByRole("link", { name: openingTitle }).click();
@@ -259,6 +325,9 @@ test("agency views jobs list and detail, and credited applications page", async 
     await expect(
       page.getByRole("heading", { name: openingTitle }),
     ).toBeVisible();
+    await expect(page.getByTestId("job-owner")).toHaveText(
+      colleague.emailAddress,
+    );
 
     // Tabs in Job detail
     await expect(page.getByRole("tab", { name: "Opening" })).toBeVisible();

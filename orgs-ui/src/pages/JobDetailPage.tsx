@@ -1,4 +1,4 @@
-import { SendOutlined } from "@ant-design/icons";
+import { SendOutlined, UserOutlined } from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Avatar,
@@ -25,6 +25,8 @@ import type {
   JobSuggestedContact,
 } from "typespec/orgs/marketplace/work/work";
 import { paths } from "../app/paths";
+import { useMyInfoQuery } from "../features/account/queries";
+import { JobOwnerModal } from "../features/marketplace/JobOwnerModal";
 import {
   getInitials,
   hubStatusColors,
@@ -56,6 +58,8 @@ export function JobDetailPage() {
   const openingNum = Number(opening_number);
 
   const [suggestModalOpen, setSuggestModalOpen] = useState(false);
+  const [ownerModalOpen, setOwnerModalOpen] = useState(false);
+  const { data: me } = useMyInfoQuery();
 
   const jobQuery = useJobQuery(engagement_id, openingNum);
   const detail = jobQuery.data;
@@ -307,6 +311,34 @@ export function JobDetailPage() {
 
         <Col xs={24} lg={8}>
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <Card
+              title={t("marketplace.jobs.owner.cardTitle")}
+              extra={
+                <Button
+                  size="small"
+                  onClick={() => setOwnerModalOpen(true)}
+                  disabled={me === undefined}
+                >
+                  {t("marketplace.jobs.owner.change")}
+                </Button>
+              }
+            >
+              <Flex vertical gap={4}>
+                <Flex align="center" gap="small">
+                  <UserOutlined aria-hidden />
+                  <Typography.Text strong data-testid="job-owner">
+                    {job.owner === undefined
+                      ? t("marketplace.jobs.owner.none")
+                      : job.owner === me?.email_address
+                        ? t("marketplace.jobs.owner.you", { owner: job.owner })
+                        : job.owner}
+                  </Typography.Text>
+                </Flex>
+                <Typography.Text type="secondary">
+                  {t("marketplace.jobs.owner.privacy")}
+                </Typography.Text>
+              </Flex>
+            </Card>
             <Card title={t("marketplace.jobs.yourWorkTitle")}>
               <Row gutter={16}>
                 <Col span={12}>
@@ -375,6 +407,14 @@ export function JobDetailPage() {
         </Col>
       </Row>
 
+      {me !== undefined && ownerModalOpen ? (
+        <JobOwnerModal
+          job={job}
+          myEmail={me.email_address}
+          open={ownerModalOpen}
+          onClose={() => setOwnerModalOpen(false)}
+        />
+      ) : null}
       <SuggestToContactModal
         open={suggestModalOpen}
         onClose={() => setSuggestModalOpen(false)}

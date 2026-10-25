@@ -19,8 +19,10 @@ import (
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	hubspec "github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/orgs"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/orgs/marketplace/work"
+	"github.com/vetchium/src/typespec/orgs/openings"
 	"github.com/vetchium/src/typespec/problem"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
@@ -133,8 +135,11 @@ func sign(s *orgsruntime.Server, purpose string, cursor any) (common.PaginationK
 }
 
 type jobFilters struct {
-	Client string `json:"client,omitempty"`
-	State  string `json:"state"`
+	Client  string `json:"client,omitempty"`
+	State   string `json:"state"`
+	Owner   string `json:"owner,omitempty"`
+	Search  string `json:"search,omitempty"`
+	Country string `json:"country,omitempty"`
 }
 
 type jobCursor struct {
@@ -143,7 +148,9 @@ type jobCursor struct {
 }
 
 // ListJobs merges the Openings assigned to the provider's `sourcing`
-// engagements across every tenant, newest assignment first.
+// engagements across every tenant, newest assignment first, each with the
+// agency user who owns it. The owner filter is resolved here, where owners
+// live, into the Jobs it names (MKT-OWN-004).
 func ListJobs(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request work.ListJobsRequest
@@ -154,11 +161,21 @@ func ListJobs(s *orgsruntime.Server) http.HandlerFunc {
 		peer := work.PeerListJobsRequest{
 			ProviderOrgDID: orgs.OrgDID(dbvalue.FormatUUID(identity.OrgDID)),
 			ClientDomain:   request.ClientDomain, State: request.EffectiveState(),
+			Search: request.Search, EmployingCountry: request.EmployingCountry,
 			Limit: request.EffectiveLimit(),
 		}
 		filters := jobFilters{State: string(peer.State)}
 		if request.ClientDomain != nil {
 			filters.Client = string(*request.ClientDomain)
+		}
+		if request.Search != nil {
+			filters.Search = string(*request.Search)
+		}
+		if request.EmployingCountry != nil {
+			filters.Country = string(*request.EmployingCountry)
+		}
+		if request.OwnerEmail != nil {
+			filters.Owner = string(*request.OwnerEmail)
 		}
 		if request.PaginationKey != nil {
 			payload, valid := credentials.VerifySignedValue(
@@ -171,6 +188,30 @@ func ListJobs(s *orgsruntime.Server) http.HandlerFunc {
 			}
 			peer.After = &cursor.Position
 		}
+		if request.OwnerEmail != nil {
+			owned, err := s.Queries.ListOwnedJobs(r.Context(), sqlc.ListOwnedJobsParams{
+				OrgDid: identity.OrgDID, EmailAddress: string(*request.OwnerEmail),
+				RowLimit: work.MaxJobsPerOwner,
+			})
+			if err != nil {
+				s.InternalError(r.Context(), w, "list owned Jobs", err)
+				return
+			}
+			if len(owned) == 0 {
+				w.Header().Set("Cache-Control", "no-store")
+				s.JSON(r.Context(), w, http.StatusOK, work.ListJobsResponse{
+					Jobs: []work.Job{}, UnavailableTenants: []directoryspec.TenantID{},
+				})
+				return
+			}
+			peer.Openings = make([]work.JobReference, 0, len(owned))
+			for _, job := range owned {
+				peer.Openings = append(peer.Openings, work.JobReference{
+					EngagementID:  marketplace.EngagementID(dbvalue.FormatUUID(job.EngagementID)),
+					OpeningNumber: openings.OpeningNumber(job.OpeningNumber),
+				})
+			}
+		}
 		page := s.WorkFanout.ListJobs(r.Context(), peer)
 		response := work.ListJobsResponse{
 			Jobs:               make([]work.Job, 0, len(page.Entries)),
@@ -178,6 +219,10 @@ func ListJobs(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		for _, entry := range page.Entries {
 			response.Jobs = append(response.Jobs, entry.Job)
+		}
+		if err := withOwners(r.Context(), s, identity.OrgDID, response.Jobs); err != nil {
+			s.InternalError(r.Context(), w, "list Job owners", err)
+			return
 		}
 		if page.HasMore && len(page.Entries) > 0 {
 			key, err := sign(s, jobsPurpose, jobCursor{
@@ -285,6 +330,12 @@ func GetJob(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		jobDetail := *outcome.Result
+		jobs := []work.Job{jobDetail.Job}
+		if err := withOwners(r.Context(), s, identity.OrgDID, jobs); err != nil {
+			s.InternalError(r.Context(), w, "read Job owner", err)
+			return
+		}
+		jobDetail.Job = jobs[0]
 		sugRows, err := s.Queries.ListJobSuggestedContacts(r.Context(), sqlc.ListJobSuggestedContactsParams{
 			OrgDid:         identity.OrgDID,
 			ConsumerDomain: string(jobDetail.Job.Client.Domain),

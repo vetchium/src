@@ -14,6 +14,7 @@ import {
   type SignedUpOrg,
   signupOrg,
 } from "../lib/orgs-api.ts";
+import { accountMenu } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 import {
   chooseOption,
@@ -36,9 +37,7 @@ async function signIn(
 
 async function openMembers(page: Page, user: Parameters<typeof signIn>[1]) {
   await signIn(page, user);
-  await expect(
-    page.getByRole("button", { name: "Sign out", exact: true }),
-  ).toBeVisible();
+  await expect(accountMenu(page)).toBeVisible();
   await page.goto(`${ORGS_PORTAL}/members`);
   await expect(
     page.getByRole("heading", { name: "People", level: 1 }),

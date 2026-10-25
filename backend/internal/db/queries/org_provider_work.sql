@@ -500,6 +500,9 @@ WHERE rt.route_id = sqlc.arg(work_id)
   AND a.removed_at IS NULL;
 
 -- The Openings assigned whole to the provider's `sourcing` engagements.
+-- search matches the live title case-insensitively (strpos, so no pattern
+-- escaping) or the Opening number exactly. owned_jobs names Jobs as
+-- "<engagement id>/<opening number>"; NULL means every Job.
 -- name: ListProviderJobs :many
 SELECT asg.assignment_id, eng.engagement_id,
     snap.consumer_domain, snap.consumer_display_name,
@@ -527,6 +530,15 @@ WHERE eng.provider_org_did = sqlc.arg(provider_org_did)
   AND o.opening_state = (sqlc.arg(opening_state)::text)::vetchium.org_opening_state
   AND (sqlc.narg(client_domain)::text IS NULL
       OR snap.consumer_domain = sqlc.narg(client_domain)::text)
+  AND (sqlc.narg(search)::text IS NULL
+      OR strpos(lower(COALESCE(c.title, '')),
+          lower(sqlc.narg(search)::text)) > 0
+      OR o.opening_number::text = sqlc.narg(search)::text)
+  AND (sqlc.narg(employing_country)::text IS NULL
+      OR c.employing_country = sqlc.narg(employing_country)::text)
+  AND (sqlc.narg(owned_jobs)::text[] IS NULL
+      OR eng.engagement_id::text || '/' || o.opening_number::text
+          = ANY (sqlc.narg(owned_jobs)::text[]))
   AND (sqlc.narg(after_assigned_at)::timestamptz IS NULL
       OR (asg.assigned_at, asg.assignment_id) <
          (sqlc.narg(after_assigned_at)::timestamptz,

@@ -1,3 +1,9 @@
+import type { EmailAddress } from "../../../common/common.ts";
+import {
+  isEmailAddress,
+  normalizeEmailAddress,
+} from "../../../common/common.ts";
+import { isCountryCode } from "../../../common/countries.ts";
 import type { DisplayName } from "../../../common/localization.ts";
 import type { PaginationKey } from "../../../common/pagination.ts";
 import { isPaginationKey } from "../../../common/pagination.ts";
@@ -136,7 +142,11 @@ export function validateWorkReference(request: WorkReference): string[] {
   return fields;
 }
 
-function validStageName(value: string): boolean {
+/**
+ * Trimmed text of 1 to 100 code points without NUL, the shape of stage names
+ * and of every search and suggestion query here.
+ */
+function validText(value: string): boolean {
   const length = Array.from(value).length;
   return (
     length >= 1 &&
@@ -187,7 +197,7 @@ export function validateListWorkQueueRequest(
       request.client_domain === undefined)
   )
     fields.push("opening_number");
-  if (request.stage_name !== undefined && !validStageName(request.stage_name))
+  if (request.stage_name !== undefined && !validText(request.stage_name))
     fields.push("stage_name");
   if (request.status !== undefined && !isWorkStatus(request.status))
     fields.push("status");
@@ -213,7 +223,22 @@ export interface ListWorkQueueResponse {
   next_pagination_key?: PaginationKey;
 }
 
-/** An Opening assigned to a `sourcing` engagement. */
+/**
+ * Counts the changes to a Job's owner; 0 before the Job first had one. It
+ * keeps rising when the owner is cleared, so a stale write never matches.
+ */
+export type JobOwnerVersion = number;
+
+/**
+ * Bounds the Jobs of active engagements one agency user owns, which also
+ * bounds the owner filter a list sends to client tenants.
+ */
+export const maxJobsPerOwner = 200;
+
+/**
+ * An Opening assigned to a `sourcing` engagement. `credited_count` counts the
+ * applications credited to the agency, not to one of its users.
+ */
 export interface Job {
   engagement_id: EngagementID;
   client: EngagementCounterparty;
@@ -221,6 +246,13 @@ export interface Job {
   state: OpeningState;
   credited_count: number;
   assigned_at: string;
+  /**
+   * The agency user who looks after the Job. The agency's own tenant keeps
+   * it and sets it with `owner_version`; a client's tenant never sends
+   * either.
+   */
+  owner?: EmailAddress;
+  owner_version?: JobOwnerVersion;
 }
 
 export interface JobCreditedApplication {
@@ -258,10 +290,25 @@ export function validateJobReference(request: JobReference): string[] {
   return fields;
 }
 
+/** A title substring or an Opening number, trimmed. */
+export type JobSearchText = string;
+
+export function isJobSearchText(value: string): value is JobSearchText {
+  return validText(value);
+}
+
 export interface ListJobsRequest {
   client_domain?: OrgDomain;
   /** Defaults to `published`. */
   state?: OpeningState;
+  /**
+   * Only the Jobs this agency user owns. An address that owns none, or is
+   * not the agency's, lists nothing.
+   */
+  owner_email?: EmailAddress;
+  /** Matches the title case-insensitively, or the Opening number exactly. */
+  search?: JobSearchText;
+  employing_country?: string;
   pagination_key?: PaginationKey;
   /** Defaults to 50. */
   limit?: number;
@@ -273,6 +320,9 @@ export function normalizeListJobsRequest(
   const normalized = { ...request };
   if (request.client_domain !== undefined)
     normalized.client_domain = normalizeOrgDomain(request.client_domain);
+  if (request.owner_email !== undefined)
+    normalized.owner_email = normalizeEmailAddress(request.owner_email);
+  if (request.search !== undefined) normalized.search = request.search.trim();
   return normalized;
 }
 
@@ -285,6 +335,15 @@ export function validateListJobsRequest(request: ListJobsRequest): string[] {
     fields.push("client_domain");
   if (request.state !== undefined && !isOpeningState(request.state))
     fields.push("state");
+  if (request.owner_email !== undefined && !isEmailAddress(request.owner_email))
+    fields.push("owner_email");
+  if (request.search !== undefined && !isJobSearchText(request.search))
+    fields.push("search");
+  if (
+    request.employing_country !== undefined &&
+    !isCountryCode(request.employing_country)
+  )
+    fields.push("employing_country");
   if (
     request.pagination_key !== undefined &&
     !isPaginationKey(request.pagination_key)
@@ -304,6 +363,128 @@ export interface ListJobsResponse {
   jobs: Job[];
   unavailable_tenants: TenantID[];
   next_pagination_key?: PaginationKey;
+}
+
+/**
+ * Sets or clears the one agency user who looks after a Job. Any user with
+ * `org:fulfil_engagements` may set any colleague who also holds it.
+ */
+export interface SetJobOwnerRequest {
+  engagement_id: EngagementID;
+  opening_number: OpeningNumber;
+  /** The `owner_version` the caller read; 0 when the Job never had an owner. */
+  owner_version: JobOwnerVersion;
+  /** Absent clears the owner. */
+  owner_email?: EmailAddress;
+}
+
+export function normalizeSetJobOwnerRequest(
+  request: SetJobOwnerRequest,
+): SetJobOwnerRequest {
+  const normalized = { ...request };
+  if (request.owner_email !== undefined)
+    normalized.owner_email = normalizeEmailAddress(request.owner_email);
+  return normalized;
+}
+
+export function validateSetJobOwnerRequest(
+  request: SetJobOwnerRequest,
+): string[] {
+  const fields = validateJobReference(request);
+  if (!Number.isInteger(request.owner_version) || request.owner_version < 0)
+    fields.push("owner_version");
+  if (request.owner_email !== undefined && !isEmailAddress(request.owner_email))
+    fields.push("owner_email");
+  return fields;
+}
+
+export interface JobOwnership {
+  owner?: EmailAddress;
+  owner_version: JobOwnerVersion;
+}
+
+/** Bounds one autocomplete answer. */
+export const maxSuggestions = 20;
+
+/** Text an autocomplete matches, trimmed. */
+export type SuggestionQuery = string;
+
+export function isSuggestionQuery(value: string): value is SuggestionQuery {
+  return validText(value);
+}
+
+function validateSuggestion(query?: string, limit?: number): string[] {
+  const fields: string[] = [];
+  if (query !== undefined && !isSuggestionQuery(query)) fields.push("query");
+  if (
+    limit !== undefined &&
+    (!Number.isInteger(limit) || limit < 1 || limit > maxSuggestions)
+  )
+    fields.push("limit");
+  return fields;
+}
+
+/**
+ * Suggests the agency's users who may own a Job: active, holding
+ * `org:fulfil_engagements`, whose address contains `query`. It answers at
+ * most `limit` in address order and has no further pages.
+ */
+export interface SuggestJobOwnersRequest {
+  query?: SuggestionQuery;
+  /** Defaults to 20. */
+  limit?: number;
+}
+
+export function normalizeSuggestJobOwnersRequest(
+  request: SuggestJobOwnersRequest,
+): SuggestJobOwnersRequest {
+  const normalized = { ...request };
+  if (request.query !== undefined) normalized.query = request.query.trim();
+  return normalized;
+}
+
+export function validateSuggestJobOwnersRequest(
+  request: SuggestJobOwnersRequest,
+): string[] {
+  return validateSuggestion(request.query, request.limit);
+}
+
+export interface SuggestJobOwnersResponse {
+  owners: EmailAddress[];
+}
+
+/**
+ * Suggests the consumers of the Org's active engagements as provider, of
+ * `capability` when given, whose display name or domain contains `query`.
+ * It answers at most `limit`, ordered by display name then domain, and has
+ * no further pages.
+ */
+export interface SuggestClientsRequest {
+  capability?: Capability;
+  query?: SuggestionQuery;
+  /** Defaults to 20. */
+  limit?: number;
+}
+
+export function normalizeSuggestClientsRequest(
+  request: SuggestClientsRequest,
+): SuggestClientsRequest {
+  const normalized = { ...request };
+  if (request.query !== undefined) normalized.query = request.query.trim();
+  return normalized;
+}
+
+export function validateSuggestClientsRequest(
+  request: SuggestClientsRequest,
+): string[] {
+  const fields: string[] = [];
+  if (request.capability !== undefined && !isCapability(request.capability))
+    fields.push("capability");
+  return [...fields, ...validateSuggestion(request.query, request.limit)];
+}
+
+export interface SuggestClientsResponse {
+  clients: EngagementCounterparty[];
 }
 
 /** The work a write names and its status afterwards. */

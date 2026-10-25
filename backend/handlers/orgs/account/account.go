@@ -64,6 +64,7 @@ func MyInfo(s *orgsruntime.Server) http.HandlerFunc {
 				plan == subscriptions.PlanOID(subscriptions.GoldTier),
 			Marketplace: orgsaccount.MarketplaceRoles{
 				Provider: info.MarketplaceProvider, Agency: info.MarketplaceAgency,
+				Services: info.MarketplaceServices,
 			},
 		})
 	}

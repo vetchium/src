@@ -99,3 +99,36 @@ func TestCreditedCountsNameApplicants(t *testing.T) {
 		t.Fatalf("relay fields = %v, want %v", got, want)
 	}
 }
+
+func TestPeerListJobsRequestBoundsTheOwnedJobs(t *testing.T) {
+	t.Parallel()
+	request := PeerListJobsRequest{
+		ProviderOrgDID: providerDID, State: "published", Limit: MaxPage,
+	}
+	if got := request.Validate(); len(got) != 0 {
+		t.Fatalf("fields = %v", got)
+	}
+	owned := JobReference{EngagementID: "01900000-0000-7000-8000-000000000001", OpeningNumber: 3}
+	request.Openings = []JobReference{}
+	if got := request.Validate(); !slices.Equal(got, []string{"openings"}) {
+		t.Fatalf("an empty owner filter would list nothing; fields = %v", got)
+	}
+	request.Openings = slices.Repeat([]JobReference{owned}, MaxJobsPerOwner)
+	if got := request.Validate(); len(got) != 0 {
+		t.Fatalf("fields = %v", got)
+	}
+	request.Openings = append(request.Openings, owned)
+	if got := request.Validate(); !slices.Equal(got, []string{"openings"}) {
+		t.Fatalf("fields = %v", got)
+	}
+	request.Openings = []JobReference{{EngagementID: "x", OpeningNumber: 3}}
+	if got := request.Validate(); !slices.Equal(got, []string{"openings"}) {
+		t.Fatalf("fields = %v", got)
+	}
+	search := JobSearchText(" 42 ")
+	request = PeerListJobsRequest{Search: &search}
+	request.Normalize()
+	if *request.Search != "42" {
+		t.Fatalf("search = %q", *request.Search)
+	}
+}

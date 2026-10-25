@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import type { TestTenant } from "./admin-db.ts";
 import { expect } from "./admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "./dev-dns.ts";
@@ -13,7 +13,7 @@ import {
 } from "./orgs-api.ts";
 import { cleanupOutbox } from "./orgs-applications.ts";
 import { ORGS_PORTAL } from "./portals.ts";
-import { chooseRegion } from "./region-ui.ts";
+import { chooseOption, chooseRegion } from "./region-ui.ts";
 
 export async function signIn(
   page: Page,
@@ -25,9 +25,47 @@ export async function signIn(
   await page.getByLabel("Password", { exact: true }).fill(user.password);
   await chooseRegion(page, region);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(
-    page.getByRole("button", { name: "Sign out", exact: true }),
-  ).toBeVisible();
+  await expect(accountMenu(page)).toBeVisible();
+}
+
+/** The header button opening the signed-in person's own pages and sign-out;
+ * it shows only to a signed-in user. */
+export function accountMenu(page: Page): Locator {
+  return page.getByRole("button", { name: /^Account menu for / });
+}
+
+export async function signOut(page: Page): Promise<void> {
+  await accountMenu(page).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+}
+
+/** A menu item by its label; its accessible name also carries the icon's
+ * name before the label and a badge's count after it. */
+function menuItem(page: Page, name: string): Locator {
+  return page.getByRole("menuitem", {
+    name: new RegExp(`(^| )${name}( |$)`),
+  });
+}
+
+/** Opens a page of the account menu, such as "My work". */
+export async function openAccountPage(page: Page, name: string): Promise<void> {
+  await accountMenu(page).click();
+  await menuItem(page, name).click();
+}
+
+/** The sidebar link to a page of the workspace shown. */
+export function sidebarPage(page: Page, name: string): Locator {
+  return menuItem(page, name);
+}
+
+/** Shows a sidebar workspace (Hiring, Agency, Services, Administration). The
+ * switcher appears only when the user has more than one. */
+export async function chooseWorkspace(page: Page, name: string): Promise<void> {
+  await chooseOption(
+    page,
+    page.getByRole("combobox", { name: "Workspace" }),
+    name,
+  );
 }
 
 /** Signs up an Org, runs `body` with its owner's token and a world to seed

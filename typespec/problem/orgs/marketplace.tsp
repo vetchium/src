@@ -257,6 +257,39 @@ alias OrgContactNoteNotAuthorErrorResponse = Response<
   typeof OrgContactNoteNotAuthorError
 >;
 
+const OrgJobOwnerInvalidError = #{
+  type: "vetchium-problem-details/org-job-owner-invalid",
+  title: "Org Job owner invalid",
+  status: 422,
+  detail: "The owner is not an active user of the agency holding org:fulfil_engagements",
+};
+alias OrgJobOwnerInvalidErrorResponse = Response<
+  422,
+  typeof OrgJobOwnerInvalidError
+>;
+
+const OrgJobOwnerLimitReachedError = #{
+  type: "vetchium-problem-details/org-job-owner-limit-reached",
+  title: "Org Job owner limit reached",
+  status: 409,
+  detail: "The owner already looks after the most Jobs one user may",
+};
+alias OrgJobOwnerLimitReachedErrorResponse = Response<
+  409,
+  typeof OrgJobOwnerLimitReachedError
+>;
+
+const OrgJobOwnerVersionConflictError = #{
+  type: "vetchium-problem-details/org-job-owner-version-conflict",
+  title: "Org Job owner version conflict",
+  status: 409,
+  detail: "The Job's owner changed since it was read",
+};
+alias OrgJobOwnerVersionConflictErrorResponse = Response<
+  409,
+  typeof OrgJobOwnerVersionConflictError
+>;
+
 const OrgConversationLimitReachedError = #{
   type: "vetchium-problem-details/org-conversation-limit-reached",
   title: "Org conversation limit reached",

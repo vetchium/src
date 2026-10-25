@@ -143,10 +143,13 @@ privileges. A separate container then runs the Goose migrations.
 - `backend/cmd/dev-seed`: fixtures that must pass API validation,
   authorization, or audit. It signs in as an administrator `db-seed` created.
   `DEV_SEED_MODE` is `domains` (Hub signup allowlist; default), `hub-profiles`
-  (`dev/hub-seed-profiles/`), `orgs`, or `applications` (pipeline templates
-  and Hub users' applications in every state the portal APIs reach; run after
-  the two before it). The last three need a fresh stack. Org TXT records do
-  not survive a `dns-dev` restart. An expired offer and a removed application
-  need the clock, so no fixture holds one.
+  (`dev/hub-seed-profiles/`), `orgs` (hiring companies `org1` to
+  `org3.<tenant>.test`), `applications` (pipeline templates and Hub users'
+  applications in every state the portal APIs reach; run after the two
+  before it), or `marketplace` (MKT-TST-003; run last). The last four need a
+  fresh stack. `accounts` (`make dev-accounts`, the last step of
+  `make dev-seed`) prints every account read back from the tenant databases;
+  never keep a second list of seeded accounts. An expired offer and a removed application need the clock, so
+  no fixture holds one.
 - `deu` has no `manager@deu.example` on purpose: Playwright provokes the
   last-manager refusal there.

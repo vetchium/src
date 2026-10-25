@@ -95,7 +95,10 @@ import type {
   RecordBackgroundCheckResultRequest as RecordWorkBackgroundCheckResultRequest,
   RecordInterviewOutcomeRequest as RecordWorkInterviewOutcomeRequest,
   ScheduleInterviewRequest as ScheduleWorkInterviewRequest,
+  SetJobOwnerRequest,
   SubmitInterviewFeedbackRequest as SubmitWorkInterviewFeedbackRequest,
+  SuggestClientsRequest,
+  SuggestJobOwnersRequest,
   InterviewReference as WorkInterviewReference,
   WorkReference,
 } from "typespec/orgs/marketplace/work/work";
@@ -520,6 +523,28 @@ export class OrgsAPI {
 
   getJob(token: string, request: JobReference): Promise<APIResponse> {
     return this.post("/get-job", request, { token });
+  }
+
+  setJobOwner(
+    token: string,
+    request: SetJobOwnerRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/set-job-owner", request, { token, idempotencyKey });
+  }
+
+  suggestJobOwners(
+    token: string,
+    request: SuggestJobOwnersRequest,
+  ): Promise<APIResponse> {
+    return this.post("/suggest-job-owners", request, { token });
+  }
+
+  suggestClients(
+    token: string,
+    request: SuggestClientsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/suggest-clients", request, { token });
   }
 
   listCreditedApplications(

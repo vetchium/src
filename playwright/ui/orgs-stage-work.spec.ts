@@ -16,7 +16,7 @@ import {
   stageOf,
   utcDate,
 } from "../lib/orgs-applications.ts";
-import { signIn, withOrg } from "../lib/orgs-ui.ts";
+import { signIn, signOut, withOrg } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 
 test.describe.configure({ timeout: 180_000 });
@@ -39,10 +39,6 @@ function tomorrowAt10(): string {
 
 function applicationURL(opening: number, application: number): string {
   return `${ORGS_PORTAL}/openings/${opening}/applications/${application}`;
-}
-
-async function signOut(page: Page) {
-  await page.getByRole("button", { name: "Sign out", exact: true }).click();
 }
 
 /** Runs `set` against one application's rows of `table`, as the table owner. */

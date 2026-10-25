@@ -1,8 +1,8 @@
 # Marketplace
 
 Applies to Capabilities, Listings, engagements between Orgs, assigning
-providers to Openings and stages, provider access and work, agency
-conversations, Contacts, and notes, the agency profile view, sourcing
+providers to Openings and stages, provider access and work, Job owners,
+agency conversations, Contacts, and notes, the agency profile view, sourcing
 attribution, the Orgs and Hub marketplace pages, and activity statements.
 Compose with [`hiring-pipeline.md`](hiring-pipeline.md),
 [`openings.md`](openings.md), [`hub-profile.md`](hub-profile.md),
@@ -51,6 +51,7 @@ Compose with [`hiring-pipeline.md`](hiring-pipeline.md),
 | Provider work: interviews, feedback, results, consent | consumer's | provider users' commands; the Hub user's commands for responses and consent | nothing |
 | Billable facts | consumer's | the transaction that records the fact | nothing; statements read live |
 | Contact, notes, conversation, messages, suggestions, agency-side unread state | agency's | agency users locally; the Hub user's commands | Hub user: the agency pointer, without notes |
+| Job owner | agency's | agency users locally | nothing; the owner filter names Jobs, never users (MKT-OWN-004) |
 | Agency pointer, Hub-side unread state, "Agencies may message me" | Hub user's home | the agency's outbox; the Hub user locally | agency: the messages-off state on each Contact |
 | Operation and idempotency ledgers | the initiating tenant | the initiating tenant | nothing |
 
@@ -277,6 +278,38 @@ An engagement links a consumer Org to a provider's Listing.
   Listing's. The provider's tenant checks that interviewers are its own active
   users holding `org:fulfil_engagements` before it sends.
 
+## Job owners
+
+A Job is an Opening assigned to an agency's active `sourcing` engagement, as
+the agency sees it.
+
+- **MKT-OWN-001** A Job has at most one owner: the agency user who looks after
+  it, kept in the agency's tenant (`org_job_owners`). No client, Hub, or mesh
+  response carries it. The agency's Jobs list and Job detail show it with its
+  `owner_version` (0 before the first owner).
+- **MKT-OWN-002** Any user with `org:fulfil_engagements` sets or clears the
+  owner of a Job of the agency's active `sourcing` engagement
+  (`set-job-owner`; any other engagement is `org-engagement-work-not-found`).
+  The owner is an active agency user holding `org:fulfil_engagements`
+  (`org-job-owner-invalid`). The write carries the version read
+  (`org-job-owner-version-conflict`); clearing keeps the row with no owner so
+  the version keeps rising. It checks only the agency's engagement
+  projection: a row whose Opening the client unassigned stays and returns if
+  the Opening is assigned again. Audit `org.job.owner_set` or
+  `org.job.owner_cleared` with both owners' user ids.
+- **MKT-OWN-003** One user owns at most 200 Jobs of active engagements
+  (`org-job-owner-limit-reached`), counted under a lock on that user's row.
+- **MKT-OWN-004** The Jobs list's owner filter resolves, in the agency's
+  tenant, to the Jobs that user owns, sent to every client tenant as
+  (engagement, Opening number) pairs; a tenant matches only engagements it
+  homes. An address that owns none lists nothing. Title search (substring, or
+  the exact Opening number) and employing country filter at the client
+  tenant.
+- **MKT-OWN-005** `suggest-job-owners` and `suggest-clients` answer
+  autocompletes: at most 20 matches, no further pages, typing narrows.
+  Clients come from the agency's projections of its active engagements, so
+  any number of clients needs no cross-tenant read.
+
 ## Agency conversations
 
 An agency is an active Org whose `sourcing` Listing is `listed`.
@@ -466,18 +499,22 @@ An agency is an active Org whose `sourcing` Listing is `listed`.
 
 ## Orgs portal
 
-Navigation groups, each shown only when it applies (the API still decides):
+Marketplace pages sit in the workspaces of [`ux.md`](ux.md) (Orgs portal
+navigation), each workspace shown only when it applies (the API still
+decides):
 
-| Group | Shown when | Pages |
+| Workspace | Shown when | Marketplace pages |
 | --- | --- | --- |
-| Hiring | always | Openings (detail tabs: Applicants, Candidates, Pipeline, Providers), Pipeline templates, Find providers |
-| Provider | the Org has a Listing or a provider engagement | Listings, Clients, Work queue |
-| Agency | the Org has a `sourcing` Listing or engagement | Jobs, Contacts, Credited applications |
+| Hiring | always | Openings (detail tab Providers), Find providers |
+| Agency | the Org has a `sourcing` Listing or engagement | Jobs, Contacts, Credited applications, Clients |
+| Services | the Org has a Listing or engagement of a stage Capability | Work queue, Clients |
+| Administration | the user may open one of its pages | Listings |
 
 Listings shows to every `org:manage_listings` holder even before the Org is a
 provider, so it can create its first Listing. `my-info` `marketplace` carries
-whether the Org is a provider and an agency; each page still needs its
-permission.
+whether the Org is a provider, an agency, and a stage-Capability provider
+(`services`); each page still needs its permission. Every client filter is the
+client autocomplete (MKT-OWN-005), never a list built from one page.
 
 - **MKT-UI-001** Find providers: Listing search (MKT-DIR) with Capability
   tabs, country and language filters, and an incomplete-results notice; a
@@ -493,12 +530,16 @@ permission.
 - **MKT-UI-005** Work queue: candidacies routed to the Org across clients,
   with client, Capability, Opening, stage, and status filters; upcoming
   interviews first.
-- **MKT-UI-006** Jobs: Openings assigned to the agency across clients, with
-  client, title, employing country, state (default `published`), assigned
-  date, and the agency's own credited count. Job detail shows the Opening as
-  Hub users see it, its credited applications, the Contacts it was suggested
-  to, and "Suggest to a contact". Suggesting to a Contact without a
-  conversation starts one (MKT-CNV-002, MKT-CNV-003).
+- **MKT-UI-006** Jobs: Openings assigned to the agency across clients, server
+  paginated, with state tabs (default `published`), whose Jobs (Mine, the
+  default; Everyone's; or one colleague by autocomplete), client, title or
+  number search, and employing country under "More filters", all kept in the
+  URL. Rows show the Opening, client, owner with "Change", assigned date, and
+  the applications credited to the agency. Say "credited to your agency",
+  never "to you". Job detail shows the owner, the Opening as Hub users see
+  it, its credited applications, the Contacts it was suggested to, and
+  "Suggest to a contact". Suggesting to a Contact without a conversation
+  starts one (MKT-CNV-002, MKT-CNV-003).
 - **MKT-UI-007** Contacts, also the shared inbox: every Contact ordered by
   last activity, with name, handle, last activity, unread count, note count,
   and credited count; tabs All, Unread (its count also in the navigation),
@@ -553,7 +594,7 @@ Billable facts, each recorded by the party that owns it:
 | --- | --- |
 | `org:manage_providers` | search Listings; propose, withdraw, and end engagements as consumer; set the consumer reference; assign engagements; read statements |
 | `org:manage_listings` | edit Listings; accept, decline, and end engagements as provider; set the provider reference; read statements |
-| `org:fulfil_engagements` | read and perform assigned work (MKT-ACC, MKT-SRC, MKT-WRK); Contacts, notes, conversations, and the profile view (MKT-CON, MKT-NOTE, MKT-CNV, MKT-PRF) |
+| `org:fulfil_engagements` | read and perform assigned work (MKT-ACC, MKT-SRC, MKT-WRK); Job owners (MKT-OWN); Contacts, notes, conversations, and the profile view (MKT-CON, MKT-NOTE, MKT-CNV, MKT-PRF) |
 
 - **MKT-AUTH-001** Add the three to the Org catalog; `org:superadmin` implies
   all three. An `org:manage_users` holder may grant or revoke them.
@@ -589,6 +630,9 @@ Billable facts, each recorded by the party that owns it:
 | `org-engagement-work-not-found` | 404 | the work item is not accessible to the provider |
 | `org-conversation-limit-reached` | 429 | daily new-conversation limit reached |
 | `org-contact-limit-reached` | 429 | daily new-Contact limit reached |
+| `org-job-owner-invalid` | 422 | the owner is not an active agency user holding `org:fulfil_engagements` |
+| `org-job-owner-limit-reached` | 409 | the owner already owns 200 Jobs of active engagements |
+| `org-job-owner-version-conflict` | 409 | the Job's owner changed since it was read |
 | `org-contact-not-found` | 404 | unknown, deleted, or not the agency's |
 | `org-contact-note-limit-reached` | 409 | the Contact has 200 notes |
 | `org-contact-note-not-found` | 404 | unknown, deleted, or not the agency's |
@@ -620,7 +664,10 @@ Billable facts, each recorded by the party that owns it:
   whose pointer no Hub response reveals, no note text in any Hub, consumer,
   or mesh response, deleting the last note removing a Contact without a
   conversation, retention, account deletion removing notes at once, and a
-  first note racing account deletion), the agency profile view (domains with
+  first note racing account deletion), Job owners (set, change, clear,
+  version conflict, every invalid owner, the cap, the owner filter at the
+  client tenant, no owner in any client or mesh response), the agency profile
+  view (domains with
   months only, no address in any response or mesh payload), consent gating,
   statement contents, and that no amount or payment field exists in any
   response.
@@ -629,8 +676,11 @@ Billable facts, each recorded by the party that owns it:
   user opens a conversation. Cover the messages switch reaching existing
   conversations in other tenants, and switching off while a start is in
   flight.
-- **MKT-TST-003** `make dev-seed` gives each region a provider Org per
-  Capability with a Listing, engagements in each state with consumers in
-  other regions, routed work, and agency Contacts with notes and
-  conversations, including Contacts with notes only, with Hub users in other
-  regions.
+- **MKT-TST-003** `make dev-seed` gives each region two agencies
+  (`age1.<region>.test` working for every hiring company in every region,
+  `age2.<region>.test` for its own region's) with agents `agent1@` and up and
+  Jobs spread across their owners, one provider per stage Capability
+  (`itv1`, `asm1`, `bgv1`) with `staff1@` and `staff2@` and routed work,
+  engagements in each state, and agency Contacts with notes and
+  conversations, including a `suggested` and a `declared` credit and a
+  Contact with notes only, with Hub users in other regions.

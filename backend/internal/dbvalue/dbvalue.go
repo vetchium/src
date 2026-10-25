@@ -95,3 +95,9 @@ func TimePtr(value pgtype.Timestamptz) *time.Time {
 	t := value.Time
 	return &t
 }
+
+// JobKey names a Job (an engagement and an Opening number) the way queries
+// compare it: engagement_id::text || '/' || opening_number::text.
+func JobKey(engagementID pgtype.UUID, openingNumber int32) string {
+	return fmt.Sprintf("%s/%d", FormatUUID(engagementID), openingNumber)
+}

@@ -2379,6 +2379,29 @@ CREATE INDEX org_engagement_projections_list_idx
     ON vetchium.org_engagement_projections
     (provider_org_did, state_rank, proposed_at DESC, engagement_id DESC);
 
+-- The agency user who looks after a Job (an Opening assigned to a `sourcing`
+-- engagement), agency-private and kept in the agency's tenant
+-- (agent-guides/marketplace.md, MKT-OWN). Clearing keeps the row with a NULL
+-- owner so the version keeps rising. The Opening itself stays in the client's
+-- tenant; a row whose Opening was unassigned or whose engagement ended is
+-- inert, because every Jobs list reads live from the client's tenant.
+CREATE TABLE vetchium.org_job_owners (
+    engagement_id uuid NOT NULL
+        REFERENCES vetchium.org_engagement_projections (engagement_id)
+        ON DELETE CASCADE,
+    opening_number integer NOT NULL CHECK (opening_number >= 1),
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    owner_org_user_id uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    version integer NOT NULL CHECK (version >= 1),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (engagement_id, opening_number)
+);
+CREATE INDEX org_job_owners_owner_idx
+    ON vetchium.org_job_owners (owner_org_user_id)
+    WHERE owner_org_user_id IS NOT NULL;
+
 -- Hiring pipelines (agent-guides/hiring-pipeline.md). A template is a named
 -- stage list an Org copies into new Openings; editing one never changes an
 -- Opening. Stage positions are written 1..n from the submitted order.
@@ -3776,6 +3799,7 @@ DROP TYPE IF EXISTS vetchium.org_applicant_kind;
 DROP TABLE IF EXISTS vetchium.org_opening_stages;
 DROP TABLE IF EXISTS vetchium.org_pipeline_template_stages;
 DROP TABLE IF EXISTS vetchium.org_pipeline_templates;
+DROP TABLE IF EXISTS vetchium.org_job_owners;
 DROP TABLE IF EXISTS vetchium.org_engagement_projections;
 DROP VIEW IF EXISTS vetchium.org_engagement_snapshots;
 DROP TABLE IF EXISTS vetchium.org_engagements;

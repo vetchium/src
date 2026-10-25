@@ -40,7 +40,14 @@ SELECT
     ) OR EXISTS (
         SELECT 1 FROM vetchium.org_engagement_projections AS p
         WHERE p.provider_org_did = o.org_did AND p.capability_oid = 'sourcing'
-    ))::boolean AS marketplace_agency
+    ))::boolean AS marketplace_agency,
+    (EXISTS (
+        SELECT 1 FROM vetchium.org_listings AS l
+        WHERE l.org_did = o.org_did AND l.capability_oid <> 'sourcing'
+    ) OR EXISTS (
+        SELECT 1 FROM vetchium.org_engagement_projections AS p
+        WHERE p.provider_org_did = o.org_did AND p.capability_oid <> 'sourcing'
+    ))::boolean AS marketplace_services
 FROM vetchium.org_users AS u
 JOIN vetchium.orgs AS o ON o.org_did = u.org_did
 JOIN vetchium.org_domains AS d ON d.org_did = o.org_did

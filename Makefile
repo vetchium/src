@@ -55,8 +55,6 @@ WAIT_TIMEOUT ?= 300
 # sender uses in development; matches Mailpit's own port default and the
 # fallback playwright/lib/hub-api.ts uses.
 DEV_SEED_MAILPIT_URL ?= http://127.0.0.1:18025
-# The host-exposed HTTP API of the development DNS server.
-DEV_SEED_DNS_URL ?= http://127.0.0.1:18081
 
 # `docker compose up --wait` with no service arguments waits on every service,
 # and it fails outright on any service that has no health state instead of
@@ -69,7 +67,7 @@ DEV_SEED_DNS_URL ?= http://127.0.0.1:18081
 serving_services = $$(docker compose -f $(1) config --services | \
 	grep -vE '^(workers|dev-seed)-')
 
-.PHONY: check fmt backend dev dev-ai-models dev-secrets dev-seed dev-seed-hub-profiles dev-seed-orgs dev-seed-applications dev-seed-marketplace sqlc sqlc-vet \
+.PHONY: check fmt backend dev dev-ai-models dev-secrets dev-seed dev-seed-hub-profiles dev-seed-orgs dev-seed-applications dev-seed-marketplace dev-accounts sqlc sqlc-vet \
 	sql-lint migration-check sql-check \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
@@ -138,6 +136,7 @@ dev-seed: dev
 	$(MAKE) --no-print-directory dev-seed-orgs
 	$(MAKE) --no-print-directory dev-seed-applications
 	$(MAKE) --no-print-directory dev-seed-marketplace
+	$(MAKE) --no-print-directory dev-accounts
 
 # Seeds Hub user profiles by driving the same signup, subscription, and
 # profile-write APIs a browser would use: request signup, follow the
@@ -157,17 +156,16 @@ dev-seed-hub-profiles: sqlc
 			go run ./cmd/dev-seed) || exit $$?; \
 	done
 
-# Signs one Org up per tenant (<tenant>.example.com, superadmin
-# admin@ that domain) through the Org signup API: it follows the DNS
-# instructions Mailpit captured, publishes the TXT record in the development
-# DNS server, then completes signup from the private link.
+# Signs three hiring companies up per tenant (org1.<tenant>.test to
+# org3.<tenant>.test, one per plan, superadmin admin@ each domain) through the
+# Org signup API, completing signup from the private link Mailpit captured.
+# Development tenants trust `.test` domains, so no TXT record is published.
 dev-seed-orgs: sqlc
 	@for t in sgp usa1 deu ind1; do \
 		echo "==> orgs $$t"; \
 		(cd backend && DEV_SEED_MODE=orgs DEV_SEED_TENANT=$$t \
 			DEV_SEED_ORGS_ORIGIN="http://$$t.api.vetchium.localhost" \
 			DEV_SEED_MAILPIT_URL="$(DEV_SEED_MAILPIT_URL)" \
-			DEV_SEED_DNS_URL="$(DEV_SEED_DNS_URL)" \
 			go run ./cmd/dev-seed) || exit $$?; \
 	done
 
@@ -184,9 +182,10 @@ dev-seed-applications: sqlc
 			go run ./cmd/dev-seed) || exit $$?; \
 	done
 
-# Seeds provider Orgs per Capability with Listings, engagements across regions,
-# routed work, and agency Contacts with notes and conversations. It needs
-# dev-seed-hub-profiles, dev-seed-orgs, and dev-seed-applications.
+# Seeds each tenant's agencies (age1, age2) and service providers (itv1, asm1,
+# bgv1) with Listings, clients across regions, Job owners, routed work, and
+# agency Contacts with notes and conversations. It needs dev-seed-hub-profiles,
+# dev-seed-orgs, and dev-seed-applications.
 dev-seed-marketplace: sqlc
 	@for t in sgp usa1 deu ind1; do \
 		echo "==> marketplace $$t"; \
@@ -195,10 +194,16 @@ dev-seed-marketplace: sqlc
 			DEV_SEED_ORGS_ORIGINS="sgp=http://sgp.api.vetchium.localhost,usa1=http://usa1.api.vetchium.localhost,deu=http://deu.api.vetchium.localhost,ind1=http://ind1.api.vetchium.localhost" \
 			DEV_SEED_HUB_ORIGINS="sgp=http://sgp.api.vetchium.localhost,usa1=http://usa1.api.vetchium.localhost,deu=http://deu.api.vetchium.localhost,ind1=http://ind1.api.vetchium.localhost" \
 			DEV_SEED_MAILPIT_URL="$(DEV_SEED_MAILPIT_URL)" \
-			DEV_SEED_DNS_URL="$(DEV_SEED_DNS_URL)" \
 			DEV_SEED_HUB_PROFILES_DIR="$(CURDIR)/dev/hub-seed-profiles" \
 			go run ./cmd/dev-seed) || exit $$?; \
 	done
+
+# Prints every account of the development stack, read back from each tenant
+# database, with the portal links to sign in with.
+dev-accounts: sqlc
+	@cd backend && DEV_SEED_MODE=accounts \
+		DEV_SEED_COMPOSE_FILE="$(CURDIR)/docker-compose.json" \
+		go run ./cmd/dev-seed
 
 # The development models Docker Model Runner serves through ai-dev; keep them
 # equal to the hostModel values in config/*.json.

@@ -124,12 +124,6 @@ func (r *WorkReference) Normalize() {}
 
 func (r WorkReference) Validate() []string { return r.validate() }
 
-func validStageName(value string) bool {
-	length := utf8.RuneCountInString(value)
-	return length >= 1 && length <= 100 && value == strings.TrimSpace(value) &&
-		!strings.ContainsRune(value, 0)
-}
-
 type ListWorkQueueRequest struct {
 	ClientDomain  *orgs.OrgDomain         `json:"client_domain,omitempty"`
 	Capability    *marketplace.Capability `json:"capability,omitempty"`
@@ -169,7 +163,7 @@ func (r ListWorkQueueRequest) Validate() []string {
 	if r.OpeningNumber != nil && (*r.OpeningNumber < 1 || r.ClientDomain == nil) {
 		fields = append(fields, "opening_number")
 	}
-	if r.StageName != nil && !validStageName(*r.StageName) {
+	if r.StageName != nil && !validText(*r.StageName) {
 		fields = append(fields, "stage_name")
 	}
 	if r.Status != nil && !IsWorkStatus(*r.Status) {
@@ -191,6 +185,16 @@ type ListWorkQueueResponse struct {
 }
 
 // Job is an Opening assigned to a `sourcing` engagement.
+// JobOwnerVersion counts the changes to a Job's owner; 0 before the Job first
+// had one.
+type JobOwnerVersion int32
+
+// MaxJobsPerOwner bounds the Jobs of active engagements one agency user
+// owns, which also bounds the owner filter a list sends to client tenants.
+const MaxJobsPerOwner = 200
+
+// Job is an Opening assigned to a `sourcing` engagement. The agency's own
+// tenant sets Owner and OwnerVersion; a client's tenant never sends them.
 type Job struct {
 	EngagementID  marketplace.EngagementID           `json:"engagement_id"`
 	Client        marketplace.EngagementCounterparty `json:"client"`
@@ -198,6 +202,8 @@ type Job struct {
 	State         openings.OpeningState              `json:"state"`
 	CreditedCount int32                              `json:"credited_count"`
 	AssignedAt    time.Time                          `json:"assigned_at"`
+	Owner         *common.EmailAddress               `json:"owner,omitempty"`
+	OwnerVersion  *JobOwnerVersion                   `json:"owner_version,omitempty"`
 }
 
 // Valid checks a peer's answer before it reaches the browser.
@@ -205,7 +211,8 @@ func (j Job) Valid() bool {
 	return marketplace.IsEngagementID(j.EngagementID) &&
 		orgs.IsOrgDomain(j.Client.Domain) && j.Client.DisplayName != "" &&
 		j.Opening.Number >= 1 && j.Opening.Title != "" &&
-		openings.IsOpeningState(j.State) && j.CreditedCount >= 0 && !j.AssignedAt.IsZero()
+		openings.IsOpeningState(j.State) && j.CreditedCount >= 0 && !j.AssignedAt.IsZero() &&
+		j.Owner == nil && j.OwnerVersion == nil
 }
 
 type JobCreditedApplication struct {
@@ -248,17 +255,41 @@ func (r JobReference) Validate() []string {
 	return fields
 }
 
+// JobSearchText is a title substring or an Opening number.
+type JobSearchText string
+
+// validText accepts trimmed text of 1 to 100 code points without NUL, the
+// shape of stage names and of every search and suggestion query here.
+func validText(value string) bool {
+	length := utf8.RuneCountInString(value)
+	return length >= 1 && length <= 100 && value == strings.TrimSpace(value) &&
+		!strings.ContainsRune(value, 0)
+}
+
+func IsJobSearchText(value JobSearchText) bool { return validText(string(value)) }
+
 type ListJobsRequest struct {
-	ClientDomain  *orgs.OrgDomain        `json:"client_domain,omitempty"`
-	State         *openings.OpeningState `json:"state,omitempty"`
-	PaginationKey *common.PaginationKey  `json:"pagination_key,omitempty"`
-	Limit         *int32                 `json:"limit,omitempty"`
+	ClientDomain     *orgs.OrgDomain        `json:"client_domain,omitempty"`
+	State            *openings.OpeningState `json:"state,omitempty"`
+	OwnerEmail       *common.EmailAddress   `json:"owner_email,omitempty"`
+	Search           *JobSearchText         `json:"search,omitempty"`
+	EmployingCountry *common.CountryCode    `json:"employing_country,omitempty"`
+	PaginationKey    *common.PaginationKey  `json:"pagination_key,omitempty"`
+	Limit            *int32                 `json:"limit,omitempty"`
 }
 
 func (r *ListJobsRequest) Normalize() {
 	if r.ClientDomain != nil {
 		domain := orgs.NormalizeOrgDomain(*r.ClientDomain)
 		r.ClientDomain = &domain
+	}
+	if r.OwnerEmail != nil {
+		email := common.NormalizeEmailAddress(*r.OwnerEmail)
+		r.OwnerEmail = &email
+	}
+	if r.Search != nil {
+		search := JobSearchText(strings.TrimSpace(string(*r.Search)))
+		r.Search = &search
 	}
 }
 
@@ -285,6 +316,15 @@ func (r ListJobsRequest) Validate() []string {
 	if r.State != nil && !openings.IsOpeningState(*r.State) {
 		fields = append(fields, "state")
 	}
+	if r.OwnerEmail != nil && !common.IsEmailAddress(*r.OwnerEmail) {
+		fields = append(fields, "owner_email")
+	}
+	if r.Search != nil && !IsJobSearchText(*r.Search) {
+		fields = append(fields, "search")
+	}
+	if r.EmployingCountry != nil && !common.IsCountryCode(*r.EmployingCountry) {
+		fields = append(fields, "employing_country")
+	}
 	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
 		fields = append(fields, "pagination_key")
 	}
@@ -298,6 +338,114 @@ type ListJobsResponse struct {
 	Jobs               []Job                    `json:"jobs"`
 	UnavailableTenants []directoryspec.TenantID `json:"unavailable_tenants"`
 	NextPaginationKey  *common.PaginationKey    `json:"next_pagination_key,omitempty"`
+}
+
+// SetJobOwnerRequest sets the agency user who looks after a Job; an absent
+// OwnerEmail clears the owner.
+type SetJobOwnerRequest struct {
+	EngagementID  marketplace.EngagementID `json:"engagement_id"`
+	OpeningNumber openings.OpeningNumber   `json:"opening_number"`
+	OwnerVersion  JobOwnerVersion          `json:"owner_version"`
+	OwnerEmail    *common.EmailAddress     `json:"owner_email,omitempty"`
+}
+
+func (r *SetJobOwnerRequest) Normalize() {
+	if r.OwnerEmail != nil {
+		email := common.NormalizeEmailAddress(*r.OwnerEmail)
+		r.OwnerEmail = &email
+	}
+}
+
+func (r SetJobOwnerRequest) Validate() []string {
+	fields := []string{}
+	if !marketplace.IsEngagementID(r.EngagementID) {
+		fields = append(fields, "engagement_id")
+	}
+	if r.OpeningNumber < 1 {
+		fields = append(fields, "opening_number")
+	}
+	if r.OwnerVersion < 0 {
+		fields = append(fields, "owner_version")
+	}
+	if r.OwnerEmail != nil && !common.IsEmailAddress(*r.OwnerEmail) {
+		fields = append(fields, "owner_email")
+	}
+	return fields
+}
+
+type JobOwnership struct {
+	Owner        *common.EmailAddress `json:"owner,omitempty"`
+	OwnerVersion JobOwnerVersion      `json:"owner_version"`
+}
+
+// MaxSuggestions bounds one autocomplete answer.
+const MaxSuggestions = 20
+
+type SuggestionQuery string
+
+func IsSuggestionQuery(value SuggestionQuery) bool { return validText(string(value)) }
+
+func normalizeSuggestionQuery(query *SuggestionQuery) *SuggestionQuery {
+	if query == nil {
+		return nil
+	}
+	trimmed := SuggestionQuery(strings.TrimSpace(string(*query)))
+	return &trimmed
+}
+
+func validateSuggestion(query *SuggestionQuery, limit *int32) []string {
+	fields := []string{}
+	if query != nil && !IsSuggestionQuery(*query) {
+		fields = append(fields, "query")
+	}
+	if limit != nil && (*limit < 1 || *limit > MaxSuggestions) {
+		fields = append(fields, "limit")
+	}
+	return fields
+}
+
+func effectiveSuggestionLimit(limit *int32) int32 {
+	if limit == nil {
+		return MaxSuggestions
+	}
+	return *limit
+}
+
+type SuggestJobOwnersRequest struct {
+	Query *SuggestionQuery `json:"query,omitempty"`
+	Limit *int32           `json:"limit,omitempty"`
+}
+
+func (r *SuggestJobOwnersRequest) Normalize() { r.Query = normalizeSuggestionQuery(r.Query) }
+
+func (r SuggestJobOwnersRequest) Validate() []string { return validateSuggestion(r.Query, r.Limit) }
+
+func (r SuggestJobOwnersRequest) EffectiveLimit() int32 { return effectiveSuggestionLimit(r.Limit) }
+
+type SuggestJobOwnersResponse struct {
+	Owners []common.EmailAddress `json:"owners"`
+}
+
+type SuggestClientsRequest struct {
+	Capability *marketplace.Capability `json:"capability,omitempty"`
+	Query      *SuggestionQuery        `json:"query,omitempty"`
+	Limit      *int32                  `json:"limit,omitempty"`
+}
+
+func (r *SuggestClientsRequest) Normalize() { r.Query = normalizeSuggestionQuery(r.Query) }
+
+func (r SuggestClientsRequest) Validate() []string {
+	fields := []string{}
+	if r.Capability != nil && !marketplace.IsCapability(*r.Capability) {
+		fields = append(fields, "capability")
+	}
+	return append(fields, validateSuggestion(r.Query, r.Limit)...)
+}
+
+func (r SuggestClientsRequest) EffectiveLimit() int32 { return effectiveSuggestionLimit(r.Limit) }
+
+type SuggestClientsResponse struct {
+	Clients []marketplace.EngagementCounterparty `json:"clients"`
 }
 
 // WriteResult is the work a write names and its status afterwards. It holds

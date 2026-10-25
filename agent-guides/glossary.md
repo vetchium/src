@@ -28,6 +28,7 @@ Applies to product terms in prompts, specifications, code, and UI text.
 - Verified / failing domain — TXT record found at the last conclusive check / absent on consecutive periodic checks.
 - Org country — where an org is based, chosen at signup; unrelated to its home tenant.
 - Suspended org — an org whose only domain stayed failing past the grace period and was released; its users can sign in only to restore the domain.
+- Workspace — one group of Org-level pages in the Orgs portal sidebar (Hiring, Agency, Services, Administration); the person's own pages are in the account menu.
 
 ## Hiring
 
@@ -58,6 +59,8 @@ Applies to product terms in prompts, specifications, code, and UI text.
 - Assignment — an engagement attached to an Opening (sourcing) or an Opening stage.
 - Route — the choice, per candidacy at a stage, of in-house or one assigned engagement.
 - Agency — an org whose `sourcing` Listing is listed.
+- Job — an Opening assigned to an agency's active `sourcing` engagement, as the agency sees it.
+- Job owner — the one agency user who looks after a Job; agency-private; say "credited to your agency", never "to you", for credits.
 - Conversation — a chat an agency starts with one Hub user inside Vetchium; messages are authoritative in the agency's home tenant, and the Hub user's tenant holds a pointer; never exposes contact details.
 - Contact — an agency's own record of one Hub user, created by its first note or message about them; never an applicant or candidate; outlives the conversation.
 - Agency note — a private note an agency keeps on a Contact; never shown to the Hub user or any other Org.

@@ -128,9 +128,10 @@ invariant).
   completion and re-verification ignore it.
 - Every other name gets the real lookup. Development and CI publish records in
   the `dns-dev` server under the reserved zones `example`, `example.com`, and
-  `test` (`playwright/lib/dev-dns.ts`, `make dev-seed-orgs`). Seeds use
-  `<tenant>.example.com`; tests that need a real lookup use the default
-  `uniqueOrgDomain()`, a unique `*.example.com`.
+  `test` (`playwright/lib/dev-dns.ts`). Seeds use `.test` names
+  (`org1.<tenant>.test`), which `trustReservedDomains` accepts without a
+  record; tests that need a real lookup use the default `uniqueOrgDomain()`,
+  a unique `*.example.com`.
 - `cmd/doh-dev` (`internal/devdoh`) forwards RFC 8484 GET queries to `dns-dev`
   over TCP for browsers, at `doh.vetchium.localhost` through the edge. It is
   never published or deployed.

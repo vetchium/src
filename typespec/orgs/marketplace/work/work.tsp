@@ -121,7 +121,17 @@ model ListWorkQueueResponse {
   next_pagination_key?: Vetchium.PaginationKey;
 }
 
-/** An Opening assigned to a `sourcing` engagement. */
+/**
+ * Counts the changes to a Job's owner; 0 before the Job first had one. It
+ * keeps rising when the owner is cleared, so a stale write never matches.
+ */
+@minValue(0)
+scalar JobOwnerVersion extends int32;
+
+/**
+ * An Opening assigned to a `sourcing` engagement. `credited_count` counts
+ * the applications credited to the agency, not to one of its users.
+ */
 model Job {
   engagement_id: EngagementID;
   client: EngagementCounterparty;
@@ -129,6 +139,15 @@ model Job {
   state: Vetchium.Orgs.Openings.OpeningState;
   credited_count: int32;
   assigned_at: utcDateTime;
+
+  /**
+   * The agency user who looks after the Job. The agency's own tenant keeps
+   * it and sets it with `owner_version`; a client's tenant never sends
+   * either.
+   */
+  owner?: Vetchium.EmailAddress;
+
+  owner_version?: JobOwnerVersion;
 }
 
 model JobCreditedApplication {
@@ -158,12 +177,27 @@ model JobReference {
   opening_number: Vetchium.Orgs.Openings.OpeningNumber;
 }
 
+/** A title substring or an Opening number, trimmed. */
+@minLength(1)
+@maxLength(100)
+scalar JobSearchText extends string;
+
 model ListJobsRequest {
   client_domain?: Vetchium.Orgs.OrgDomain;
 
   /** Defaults to `published`. */
   state?: Vetchium.Orgs.Openings.OpeningState;
 
+  /**
+   * Only the Jobs this agency user owns. An address that owns none, or is
+   * not the agency's, lists nothing.
+   */
+  owner_email?: Vetchium.EmailAddress;
+
+  /** Matches the title case-insensitively, or the Opening number exactly. */
+  search?: JobSearchText;
+
+  employing_country?: Vetchium.CountryCode;
   pagination_key?: Vetchium.PaginationKey;
 
   /** Defaults to 50. */
@@ -174,6 +208,76 @@ model ListJobsResponse {
   jobs: Job[];
   unavailable_tenants: Vetchium.Directory.TenantID[];
   next_pagination_key?: Vetchium.PaginationKey;
+}
+
+/**
+ * Sets or clears the one agency user who looks after a Job. Any user with
+ * `org:fulfil_engagements` may set any colleague who also holds it; the
+ * agency's tenant keeps the owner and no client sees it.
+ */
+model SetJobOwnerRequest {
+  engagement_id: EngagementID;
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+
+  /** The `owner_version` the caller read; 0 when the Job never had an owner. */
+  owner_version: JobOwnerVersion;
+
+  /**
+   * An active user of the agency holding `org:fulfil_engagements`. Absent
+   * clears the owner.
+   */
+  owner_email?: Vetchium.EmailAddress;
+}
+
+model JobOwnership {
+  owner?: Vetchium.EmailAddress;
+  owner_version: JobOwnerVersion;
+}
+
+/** The most suggestions one autocomplete answer holds. */
+@minValue(1)
+@maxValue(20)
+scalar SuggestionLimit extends int32;
+
+/** Text an autocomplete matches, trimmed. */
+@minLength(1)
+@maxLength(100)
+scalar SuggestionQuery extends string;
+
+/**
+ * Suggests the agency's users who may own a Job: active, holding
+ * `org:fulfil_engagements`, whose address contains `query`
+ * case-insensitively. It answers at most `limit` in address order and has no
+ * further pages: typing more narrows it.
+ */
+model SuggestJobOwnersRequest {
+  query?: SuggestionQuery;
+
+  /** Defaults to 20. */
+  limit?: SuggestionLimit = 20;
+}
+
+model SuggestJobOwnersResponse {
+  owners: Vetchium.EmailAddress[];
+}
+
+/**
+ * Suggests the Org's clients: the consumers of its active engagements as
+ * provider, of `capability` when given, whose display name or domain
+ * contains `query` case-insensitively. It answers at most `limit`, ordered by
+ * display name then domain, and has no further pages: typing more narrows
+ * it.
+ */
+model SuggestClientsRequest {
+  capability?: Capability;
+  query?: SuggestionQuery;
+
+  /** Defaults to 20. */
+  limit?: SuggestionLimit = 20;
+}
+
+model SuggestClientsResponse {
+  clients: EngagementCounterparty[];
 }
 
 /** The work a write names, and its status afterwards. */
@@ -320,6 +424,76 @@ interface WorkOperations {
     | WorkReadErrors
     | Vetchium.Problem.OrgEngagementWorkNotFoundErrorResponse
     | Vetchium.Problem.OrgTenantUnavailableErrorResponse;
+
+  /**
+   * Sets or clears the agency user who looks after a Job of an active
+   * `sourcing` engagement. An owner who already looks after 200 Jobs of
+   * active engagements takes no more.
+   */
+  @route("/set-job-owner")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-required-permission",
+    "org:fulfil_engagements"
+  )
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  setJobOwner(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: SetJobOwnerRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: JobOwnership;
+      }
+    | WorkReadErrors
+    | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
+    | Vetchium.Problem.OrgEngagementWorkNotFoundErrorResponse
+    | Vetchium.Problem.OrgJobOwnerInvalidErrorResponse
+    | Vetchium.Problem.OrgJobOwnerLimitReachedErrorResponse
+    | Vetchium.Problem.OrgJobOwnerVersionConflictErrorResponse;
+
+  /** Suggests the agency users who may own a Job, for an autocomplete. */
+  @route("/suggest-job-owners")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-required-permission",
+    "org:fulfil_engagements"
+  )
+  suggestJobOwners(@body request: SuggestJobOwnersRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: SuggestJobOwnersResponse;
+      }
+    | WorkReadErrors;
+
+  /** Suggests the Org's clients by name or domain, for an autocomplete. */
+  @route("/suggest-clients")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-required-permission",
+    "org:fulfil_engagements"
+  )
+  suggestClients(@body request: SuggestClientsRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: SuggestClientsResponse;
+      }
+    | WorkReadErrors;
 
   /** Schedules an interview of a routed candidacy at an interview stage. The interviewers are the provider's own active users with `org:fulfil_engagements`. */
   @route("/schedule-work-interview")

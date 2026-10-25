@@ -65,6 +65,9 @@ type MarketplaceRoles struct {
 	// Agency: the Org has a sourcing Listing or a sourcing engagement as
 	// provider.
 	Agency bool `json:"agency"`
+	// Services: the Org has a Listing or an engagement as provider of a stage
+	// Capability (interviewing, assessment, background check).
+	Services bool `json:"services"`
 }
 
 type DomainCheckResult string

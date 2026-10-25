@@ -1,3 +1,4 @@
+import { isCountryCode } from "../../../common/countries.ts";
 import type { PaginationKey } from "../../../common/pagination.ts";
 import { isPaginationKey } from "../../../common/pagination.ts";
 import type { TenantID } from "../../../directory/directory.ts";
@@ -29,13 +30,17 @@ import { isStatementMonth } from "../statements.ts";
 import type {
   Job,
   JobDetail,
+  JobReference,
+  JobSearchText,
   WorkDetail,
   WorkID,
   WorkItem,
   WorkStatus,
 } from "./work.ts";
 import {
+  isJobSearchText,
   isWorkID,
+  maxJobsPerOwner,
   maxPage,
   normalizeListWorkQueueRequest,
   validateJobReference,
@@ -141,10 +146,18 @@ export function isJobPosition(value: JobPosition): boolean {
   );
 }
 
+/**
+ * One client tenant's share of a provider's jobs. `openings`, when present,
+ * names the only Jobs to list: those an agency user owns, which only the
+ * agency's tenant knows.
+ */
 export interface PeerListJobsRequest {
   provider_org_did: OrgDID;
   client_domain?: OrgDomain;
   state: OpeningState;
+  search?: JobSearchText;
+  employing_country?: string;
+  openings?: JobReference[];
   after?: JobPosition;
   limit: number;
 }
@@ -155,6 +168,7 @@ export function normalizePeerListJobsRequest(
   const normalized = { ...request };
   if (request.client_domain !== undefined)
     normalized.client_domain = normalizeOrgDomain(request.client_domain);
+  if (request.search !== undefined) normalized.search = request.search.trim();
   return normalized;
 }
 
@@ -169,6 +183,20 @@ export function validatePeerListJobsRequest(
   )
     fields.push("client_domain");
   if (!isOpeningState(request.state)) fields.push("state");
+  if (request.search !== undefined && !isJobSearchText(request.search))
+    fields.push("search");
+  if (
+    request.employing_country !== undefined &&
+    !isCountryCode(request.employing_country)
+  )
+    fields.push("employing_country");
+  if (
+    request.openings !== undefined &&
+    (request.openings.length < 1 ||
+      request.openings.length > maxJobsPerOwner ||
+      request.openings.some((opening) => validateJobReference(opening).length))
+  )
+    fields.push("openings");
   if (request.after !== undefined && !isJobPosition(request.after))
     fields.push("after");
   if (!validLimit(request.limit)) fields.push("limit");

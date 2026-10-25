@@ -185,3 +185,105 @@ func TestWriteResultAndItemsAreChecked(t *testing.T) {
 		t.Fatal("a work id carries no application number")
 	}
 }
+
+func TestListJobsRequestOwnerSearchAndCountryFilters(t *testing.T) {
+	t.Parallel()
+	owner := common.EmailAddress("  Agent1@Age1.IND1.test ")
+	search := JobSearchText("  designer ")
+	original := ListJobsRequest{OwnerEmail: &owner, Search: &search}
+	normalized := original
+	normalized.Normalize()
+	if *normalized.OwnerEmail != "agent1@age1.ind1.test" || *normalized.Search != "designer" {
+		t.Fatalf("normalized = %q, %q", *normalized.OwnerEmail, *normalized.Search)
+	}
+	if *original.OwnerEmail != owner || *original.Search != search {
+		t.Fatal("Normalize changed the caller's values")
+	}
+	if got := normalized.Validate(); len(got) != 0 {
+		t.Fatalf("fields = %v", got)
+	}
+	badOwner := common.EmailAddress("not-an-address")
+	empty := JobSearchText("")
+	long := JobSearchText(strings.Repeat("x", 101))
+	country := common.CountryCode("in")
+	request := ListJobsRequest{OwnerEmail: &badOwner, Search: &empty, EmployingCountry: &country}
+	if got := request.Validate(); !slices.Equal(got, []string{"owner_email", "search", "employing_country"}) {
+		t.Fatalf("fields = %v", got)
+	}
+	request = ListJobsRequest{Search: &long}
+	if got := request.Validate(); !slices.Equal(got, []string{"search"}) {
+		t.Fatalf("fields = %v", got)
+	}
+}
+
+func TestSetJobOwnerRequestValidation(t *testing.T) {
+	t.Parallel()
+	owner := common.EmailAddress(" Agent2@Age1.SGP.test")
+	request := SetJobOwnerRequest{
+		EngagementID: engagementID, OpeningNumber: 3, OwnerVersion: 0, OwnerEmail: &owner,
+	}
+	request.Normalize()
+	if *request.OwnerEmail != "agent2@age1.sgp.test" {
+		t.Fatalf("owner = %q", *request.OwnerEmail)
+	}
+	if got := request.Validate(); len(got) != 0 {
+		t.Fatalf("fields = %v", got)
+	}
+	cleared := SetJobOwnerRequest{EngagementID: engagementID, OpeningNumber: 3, OwnerVersion: 4}
+	if got := cleared.Validate(); len(got) != 0 {
+		t.Fatalf("an absent owner clears it; fields = %v", got)
+	}
+	bad := common.EmailAddress("x")
+	invalid := SetJobOwnerRequest{EngagementID: "x", OpeningNumber: 0, OwnerVersion: -1, OwnerEmail: &bad}
+	if got := invalid.Validate(); !slices.Equal(got,
+		[]string{"engagement_id", "opening_number", "owner_version", "owner_email"}) {
+		t.Fatalf("fields = %v", got)
+	}
+}
+
+func TestSuggestionRequestsBoundTheirAnswers(t *testing.T) {
+	t.Parallel()
+	query := SuggestionQuery("  acme ")
+	owners := SuggestJobOwnersRequest{Query: &query}
+	owners.Normalize()
+	if *owners.Query != "acme" || query != "  acme " {
+		t.Fatal("Normalize trims a copy of the query")
+	}
+	if owners.EffectiveLimit() != MaxSuggestions || len(owners.Validate()) != 0 {
+		t.Fatal("suggestions default to the most one answer holds")
+	}
+	empty := SuggestionQuery("")
+	tooMany, none := int32(MaxSuggestions+1), int32(0)
+	if got := (SuggestJobOwnersRequest{Query: &empty, Limit: &tooMany}).Validate(); !slices.Equal(got, []string{"query", "limit"}) {
+		t.Fatalf("fields = %v", got)
+	}
+	capability := marketplace.Capability("plumbing")
+	if got := (SuggestClientsRequest{Capability: &capability, Limit: &none}).Validate(); !slices.Equal(got, []string{"capability", "limit"}) {
+		t.Fatalf("fields = %v", got)
+	}
+	sourcing := marketplace.Sourcing
+	five := int32(5)
+	clients := SuggestClientsRequest{Capability: &sourcing, Query: &query, Limit: &five}
+	clients.Normalize()
+	if got := clients.Validate(); len(got) != 0 || clients.EffectiveLimit() != 5 {
+		t.Fatalf("fields = %v", got)
+	}
+}
+
+func TestPeerJobsCarryNoOwner(t *testing.T) {
+	t.Parallel()
+	job := Job{
+		EngagementID: engagementID,
+		Client:       marketplace.EngagementCounterparty{Domain: "org1.ind1.test", DisplayName: "IND1 Hiring Co 1"},
+		Opening:      WorkOpening{Number: 3, Title: "Designer"},
+		State:        openings.Published, AssignedAt: time.Now(),
+	}
+	if !job.Valid() {
+		t.Fatal("a peer's Job is valid")
+	}
+	owner := common.EmailAddress("agent1@age1.ind1.test")
+	job.Owner = &owner
+	if job.Valid() {
+		t.Fatal("a client's tenant never names the agency's owner")
+	}
+}

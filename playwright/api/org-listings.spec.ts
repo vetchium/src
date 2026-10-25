@@ -1513,14 +1513,24 @@ test("my-info names the Org's marketplace roles, which drive navigation", async 
   };
   await withPair(request, { capabilities: [] }, async (pair) => {
     const { consumer, provider } = pair;
-    expect(await roles(provider)).toEqual({ provider: false, agency: false });
-    // A draft Listing is enough; sourcing makes the Org an agency too.
+    const none = { provider: false, agency: false, services: false };
+    expect(await roles(provider)).toEqual(none);
+    // A draft Listing is enough: a stage Capability makes the Org a services
+    // provider, sourcing an agency.
     await created(provider.api, provider.owner, listing("interviewing"));
-    expect(await roles(provider)).toEqual({ provider: true, agency: false });
+    expect(await roles(provider)).toEqual({
+      provider: true,
+      agency: false,
+      services: true,
+    });
     await published(provider.api, provider.owner, listing("sourcing", "S"));
-    expect(await roles(provider)).toEqual({ provider: true, agency: true });
-    // Engaging a provider gives the consumer neither role.
+    expect(await roles(provider)).toEqual({
+      provider: true,
+      agency: true,
+      services: true,
+    });
+    // Engaging a provider gives the consumer no role.
     await activate(pair, "sourcing");
-    expect(await roles(consumer)).toEqual({ provider: false, agency: false });
+    expect(await roles(consumer)).toEqual(none);
   });
 });

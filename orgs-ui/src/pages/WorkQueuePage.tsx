@@ -37,6 +37,7 @@ import {
   workStatusLabel,
 } from "../features/marketplace/presentation";
 import { useWorkQueueQuery } from "../features/marketplace/queries";
+import { ClientPicker } from "../features/marketplace/SuggestionSelect";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -55,7 +56,7 @@ export function WorkQueuePage() {
   // Filters
   const [capability, setCapability] = useState<Capability>();
   const [status, setStatus] = useState<WorkStatus>();
-  const [clientDomain, setClientDomain] = useState("");
+  const [clientDomain, setClientDomain] = useState<string>();
   const [stageName, setStageName] = useState("");
 
   const [cursorStack, setCursorStack] = useState<PaginationKey[]>([]);
@@ -64,7 +65,7 @@ export function WorkQueuePage() {
   const workQueueQuery = useWorkQueueQuery({
     ...(capability && { capability }),
     ...(status && { status }),
-    ...(clientDomain.trim() && { client_domain: clientDomain.trim() }),
+    ...(clientDomain !== undefined && { client_domain: clientDomain }),
     ...(stageName.trim() && { stage_name: stageName.trim() }),
     ...(currentKey && { pagination_key: currentKey }),
     limit: 25,
@@ -244,15 +245,15 @@ export function WorkQueuePage() {
             }))}
           />
 
-          <Input
-            style={{ width: 200 }}
-            placeholder={t("marketplace.workQueue.clientDomainPlaceholder")}
-            allowClear
+          <ClientPicker
             value={clientDomain}
-            onChange={(e) => {
-              setClientDomain(e.target.value);
+            onChange={(domain) => {
+              setClientDomain(domain);
               setCursorStack([]);
             }}
+            placeholder={t("marketplace.workQueue.clientPlaceholder")}
+            ariaLabel={t("marketplace.workQueue.clientPlaceholder")}
+            notFound={t("marketplace.jobs.noClientFound")}
           />
 
           <Input

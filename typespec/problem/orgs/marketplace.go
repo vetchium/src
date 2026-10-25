@@ -173,6 +173,27 @@ var ContactNoteNotAuthorError = problem.Details{
 	Detail: "Only the author edits a note",
 }
 
+var JobOwnerInvalidError = problem.Details{
+	Type:   "vetchium-problem-details/org-job-owner-invalid",
+	Title:  "Org Job owner invalid",
+	Status: 422,
+	Detail: "The owner is not an active user of the agency holding org:fulfil_engagements",
+}
+
+var JobOwnerLimitReachedError = problem.Details{
+	Type:   "vetchium-problem-details/org-job-owner-limit-reached",
+	Title:  "Org Job owner limit reached",
+	Status: 409,
+	Detail: "The owner already looks after the most Jobs one user may",
+}
+
+var JobOwnerVersionConflictError = problem.Details{
+	Type:   "vetchium-problem-details/org-job-owner-version-conflict",
+	Title:  "Org Job owner version conflict",
+	Status: 409,
+	Detail: "The Job's owner changed since it was read",
+}
+
 var ConversationLimitReachedError = problem.Details{
 	Type:   "vetchium-problem-details/org-conversation-limit-reached",
 	Title:  "Org conversation limit reached",

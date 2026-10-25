@@ -66,6 +66,17 @@ model PeerListJobsRequest {
   provider_org_did: Vetchium.Orgs.OrgDID;
   client_domain?: Vetchium.Orgs.OrgDomain;
   state: Vetchium.Orgs.Openings.OpeningState;
+  search?: JobSearchText;
+  employing_country?: Vetchium.CountryCode;
+
+  /**
+   * Only these Jobs, the ones an agency user owns. The agency's tenant keeps
+   * which user; a tenant matches only the engagements it homes.
+   */
+  @minItems(1)
+  @maxItems(200)
+  openings?: JobReference[];
+
   after?: JobPosition;
   limit: WorkPageSize;
 }
