@@ -2003,6 +2003,11 @@ for (const [applicantTenant, label] of [
           HUB_NOT_FOUND,
         );
         await expectProblem(
+          await reschedule(applicant, reference, 9, "Another day, please."),
+          404,
+          HUB_NOT_FOUND,
+        );
+        await expectProblem(
           await accept(
             applicant,
             { ...reference, application_number: number + 5 },
@@ -2169,38 +2174,46 @@ test("how an interview went never reaches the applicant", async ({
   });
 });
 
-test("an uncertain interview answer is 202 and its replay returns the outcome", async ({
-  request,
-}) => {
-  test.setTimeout(150_000);
-  await withApplicant(request, "usa1", "sgp", async (applicant, world) => {
-    const { reference, opening } = await shortlisted(applicant, world);
-    await schedule(world, opening, reference.application_number);
-    // A stale route sends the command to deu, which does not home the Org.
-    const setHome = (tenant: TestTenant) =>
-      globalSQLScalar(
-        `UPDATE vetchium.org_principals
+for (const verb of ["accept", "reschedule"] as const) {
+  test(`an uncertain interview ${verb} is 202 and its replay returns the outcome`, async ({
+    request,
+  }) => {
+    test.setTimeout(150_000);
+    await withApplicant(request, "usa1", "sgp", async (applicant, world) => {
+      const { reference, opening } = await shortlisted(applicant, world);
+      await schedule(world, opening, reference.application_number);
+      // A stale route sends the command to deu, which does not home the Org.
+      const setHome = (tenant: TestTenant) =>
+        globalSQLScalar(
+          `UPDATE vetchium.org_principals
          SET home_tenant_id = ${sqlLiteral(tenant)},
            routing_version = routing_version + 1
          WHERE org_did = ${sqlLiteral(world.did)}::uuid`,
-      );
-    const key = hubIdempotencyKey();
-    setHome("deu");
-    try {
-      const pending = await accept(applicant, reference, 1, key);
-      expect(pending.status(), await pending.text()).toBe(202);
-      expect(pending.headers()["cache-control"]).toBe("no-store");
-    } finally {
-      setHome("sgp");
-    }
-    const accepted = await accept(applicant, reference, 1, key);
-    expect(accepted.status(), await accepted.text()).toBe(200);
-    expect(
-      interviewOf(await detail(world, opening, reference.application_number), 1)
-        .applicant_response,
-    ).toBe("accepted");
+        );
+      const answer = (key: string) =>
+        verb === "accept"
+          ? accept(applicant, reference, 1, key)
+          : reschedule(applicant, reference, 1, "Mornings suit me.", key);
+      const key = hubIdempotencyKey();
+      setHome("deu");
+      try {
+        const pending = await answer(key);
+        expect(pending.status(), await pending.text()).toBe(202);
+        expect(pending.headers()["cache-control"]).toBe("no-store");
+      } finally {
+        setHome("sgp");
+      }
+      const answered = await answer(key);
+      expect(answered.status(), await answered.text()).toBe(200);
+      expect(
+        interviewOf(
+          await detail(world, opening, reference.application_number),
+          1,
+        ).applicant_response,
+      ).toBe(verb === "accept" ? "accepted" : "reschedule_requested");
+    });
   });
-});
+}
 
 test("an applicant whose region cannot reach the directory gets hub-org-unavailable", async ({
   request,

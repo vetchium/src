@@ -1062,18 +1062,26 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
         );
       }
 
-      // Only its author edits or deletes a note.
-      for (const path of ["/edit-contact-note", "/delete-contact-note"]) {
-        const body = routes.find((entry) => entry.path === path)?.body;
-        await expectProblem(
-          await provider.api.post(path, body, {
-            token: colleague.token,
-            idempotencyKey: orgsIdempotencyKey(),
-          }),
-          403,
-          PROBLEMS.notAuthor,
-        );
-      }
+      // Only its author edits a note; any agency user deletes one.
+      await expectProblem(
+        await provider.api.post(
+          "/edit-contact-note",
+          { contact_id, note_id, text: "Not mine" },
+          { token: colleague.token, idempotencyKey: orgsIdempotencyKey() },
+        ),
+        403,
+        PROBLEMS.notAuthor,
+      );
+      const other = await provider.api.addContactNote(provider.owner, {
+        contact_id,
+        text: "Another note.",
+      });
+      expect(other.status(), await other.text()).toBe(200);
+      const removed = await provider.api.deleteContactNote(colleague.token, {
+        contact_id,
+        note_id: ((await other.json()) as AddedNote).note.note_id,
+      });
+      expect(removed.status(), await removed.text()).toBe(200);
 
       // A key stays bound to the request it first carried. The note is
       // deleted last, as the other writes still name it.

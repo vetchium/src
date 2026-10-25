@@ -1220,42 +1220,50 @@ test("withdrawing ends the consent request and the applicant can no longer answe
   });
 });
 
-test("an uncertain consent answer is 202 and its replay returns the outcome", async ({
-  request,
-}) => {
-  test.setTimeout(180_000);
-  await withApplicant(request, "usa1", "sgp", async (applicant, world) => {
-    const { reference, opening } = await shortlisted(applicant, world);
-    const asked = await askConsent(
-      world,
-      opening,
-      reference.application_number,
-    );
-    expect(asked.status(), await asked.text()).toBe(200);
-    const setHome = (tenant: TestTenant) =>
-      globalSQLScalar(
-        `UPDATE vetchium.org_principals
+for (const verb of ["give", "decline"] as const) {
+  test(`an uncertain consent ${verb} is 202 and its replay returns the outcome`, async ({
+    request,
+  }) => {
+    test.setTimeout(180_000);
+    await withApplicant(request, "usa1", "sgp", async (applicant, world) => {
+      const { reference, opening } = await shortlisted(applicant, world);
+      const asked = await askConsent(
+        world,
+        opening,
+        reference.application_number,
+      );
+      expect(asked.status(), await asked.text()).toBe(200);
+      const setHome = (tenant: TestTenant) =>
+        globalSQLScalar(
+          `UPDATE vetchium.org_principals
          SET home_tenant_id = ${sqlLiteral(tenant)},
            routing_version = routing_version + 1
          WHERE org_did = ${sqlLiteral(world.did)}::uuid`,
+        );
+      const key = hubIdempotencyKey();
+      setHome("deu");
+      try {
+        const answer = verb === "give" ? give : decline;
+        const pending = await answer(applicant, reference, 1, key);
+        expect(pending.status(), await pending.text()).toBe(202);
+        expect(pending.headers()["cache-control"]).toBe("no-store");
+      } finally {
+        setHome("sgp");
+      }
+      const answered = await (verb === "give" ? give : decline)(
+        applicant,
+        reference,
+        1,
+        key,
       );
-    const key = hubIdempotencyKey();
-    setHome("deu");
-    try {
-      const pending = await give(applicant, reference, 1, key);
-      expect(pending.status(), await pending.text()).toBe(202);
-      expect(pending.headers()["cache-control"]).toBe("no-store");
-    } finally {
-      setHome("sgp");
-    }
-    const given = await give(applicant, reference, 1, key);
-    expect(given.status(), await given.text()).toBe(200);
-    expect(
-      (await detail(world, opening, reference.application_number))
-        .background_checks[0]?.consent_state,
-    ).toBe("given");
+      expect(answered.status(), await answered.text()).toBe(200);
+      expect(
+        (await detail(world, opening, reference.application_number))
+          .background_checks[0]?.consent_state,
+      ).toBe(verb === "give" ? "given" : "declined");
+    });
   });
-});
+}
 
 test("an applicant whose region cannot reach the directory gets hub-org-unavailable", async ({
   request,

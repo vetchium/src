@@ -794,6 +794,24 @@ test("withdraw-application-offer and other exits from offered end the offer", as
       409,
       STATE_CONFLICT,
     );
+    await expectProblem(
+      await api.post(
+        "/withdraw-application-offer",
+        reference(pipelined, SHORTLISTED),
+        { idempotencyKey: orgsIdempotencyKey() },
+      ),
+      401,
+      `${PREFIX}org-authentication-required`,
+    );
+    await expectProblem(
+      await api.withdrawApplicationOffer(owner, {
+        ...reference(pipelined, SHORTLISTED),
+        opening_number: 0,
+      }),
+      400,
+      VALIDATION,
+      ["opening_number"],
+    );
     const offered = await seedAt(world, n, "in_pipeline", stage);
     await extend(world, n, offered, { version: SHORTLISTED });
     await expectProblem(
@@ -1115,38 +1133,40 @@ test("a withdrawn offer stays with the Org; others cannot read any letter", asyn
   });
 });
 
-test("an uncertain answer is 202 and its replay returns the outcome", async ({
-  request,
-}) => {
-  test.setTimeout(120_000);
-  await withApplicant(request, "usa1", "sgp", async (applicant, world) => {
-    const { reference, opening } = await shortlisted(applicant, world);
-    await extend(world, opening, reference.application_number);
-    // A stale route sends the command to deu, which does not home the Org.
-    const setHome = (tenant: TestTenant) =>
-      globalSQLScalar(
-        `UPDATE vetchium.org_principals
+for (const verb of ["accept", "decline"] as const) {
+  test(`an uncertain ${verb} is 202 and its replay returns the outcome`, async ({
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    await withApplicant(request, "usa1", "sgp", async (applicant, world) => {
+      const { reference, opening } = await shortlisted(applicant, world);
+      await extend(world, opening, reference.application_number);
+      // A stale route sends the command to deu, which does not home the Org.
+      const setHome = (tenant: TestTenant) =>
+        globalSQLScalar(
+          `UPDATE vetchium.org_principals
          SET home_tenant_id = ${sqlLiteral(tenant)},
            routing_version = routing_version + 1
          WHERE org_did = ${sqlLiteral(world.did)}::uuid`,
-      );
-    const key = hubIdempotencyKey();
-    const body = { ...reference, offer_number: 1 };
-    setHome("deu");
-    try {
-      const pending = await answer(applicant, "accept", body, key);
-      expect(pending.status(), await pending.text()).toBe(202);
-      expect(pending.headers()["cache-control"]).toBe("no-store");
-    } finally {
-      setHome("sgp");
-    }
-    const accepted = await answer(applicant, "accept", body, key);
-    expect(accepted.status(), await accepted.text()).toBe(200);
-    expect(
-      (await detail(world, opening, reference.application_number)).state,
-    ).toBe("offer_accepted");
+        );
+      const key = hubIdempotencyKey();
+      const body = { ...reference, offer_number: 1 };
+      setHome("deu");
+      try {
+        const pending = await answer(applicant, verb, body, key);
+        expect(pending.status(), await pending.text()).toBe(202);
+        expect(pending.headers()["cache-control"]).toBe("no-store");
+      } finally {
+        setHome("sgp");
+      }
+      const answered = await answer(applicant, verb, body, key);
+      expect(answered.status(), await answered.text()).toBe(200);
+      expect(
+        (await detail(world, opening, reference.application_number)).state,
+      ).toBe(verb === "accept" ? "offer_accepted" : "offer_declined");
+    });
   });
-});
+}
 
 test("an applicant whose region cannot reach the directory gets hub-org-unavailable", async ({
   request,

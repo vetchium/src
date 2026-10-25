@@ -151,6 +151,7 @@ interface MessageOperations {
       }
     | PendingMessageResponse
     | MessageErrors
+    | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.HubConversationNotFoundErrorResponse
     | Vetchium.Problem.HubAgencyMessagesOffErrorResponse
     | Vetchium.Problem.HubConversationPartyDeletedErrorResponse;
@@ -179,6 +180,7 @@ interface MessageOperations {
       }
     | PendingMessageResponse
     | MessageErrors
+    | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.HubConversationNotFoundErrorResponse;
 
   /** Marks an agency conversation read on the Hub side. */
