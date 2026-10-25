@@ -7,6 +7,7 @@ import (
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/authorization"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/subscriptions"
 )
 
@@ -60,14 +61,10 @@ type MyInfoResponse struct {
 // MarketplaceRoles is what the Org does in the marketplace, which decides the
 // navigation groups the portal shows; the API still decides every action.
 type MarketplaceRoles struct {
-	// Provider: the Org has a Listing or an engagement as provider.
-	Provider bool `json:"provider"`
-	// Agency: the Org has a sourcing Listing or a sourcing engagement as
-	// provider.
-	Agency bool `json:"agency"`
-	// Services: the Org has a Listing or an engagement as provider of a stage
-	// Capability (interviewing, assessment, background check).
-	Services bool `json:"services"`
+	// Capabilities the Org has a Listing or an engagement as provider for,
+	// each once, in no particular order; empty, never null, when it provides
+	// nothing.
+	Capabilities []marketplace.Capability `json:"capabilities"`
 }
 
 type DomainCheckResult string

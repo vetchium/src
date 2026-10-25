@@ -4,16 +4,18 @@ import {
   AuditOutlined,
   BranchesOutlined,
   CalendarOutlined,
+  CommentOutlined,
   ContactsOutlined,
   CreditCardOutlined,
+  FileSearchOutlined,
   FileTextOutlined,
+  FormOutlined,
   HomeOutlined,
   SafetyOutlined,
   SettingOutlined,
   ShopOutlined,
   SolutionOutlined,
   TeamOutlined,
-  ToolOutlined,
   UnorderedListOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
@@ -37,11 +39,14 @@ import {
   ManageUsers,
   Superadmin,
 } from "typespec/orgs/authorization/types";
+import { isCapability, Sourcing } from "typespec/orgs/marketplace/capabilities";
 import { paths } from "../../app/paths";
 import { localeConfiguration } from "../../app/preferences";
 import {
   currentWorkspace,
   isWorkspaceKey,
+  type Page,
+  type PageKey,
   pageOf,
   personalPages,
   type WorkspaceKey,
@@ -51,6 +56,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { useMyInfoQuery } from "../../features/account/queries";
 import { VetchiumAIIcon } from "../../features/ai/VetchiumAIIcon";
 import { DomainFailingBanner } from "../../features/domain/DomainFailingBanner";
+import { capabilityLabel } from "../../features/marketplace/presentation";
 import { useContactsQuery } from "../../features/marketplace/queries";
 
 const workspaceStorageKey = "vetchium.orgs.workspace";
@@ -74,51 +80,32 @@ function rememberWorkspace(key: WorkspaceKey): void {
 
 const workspaceIcons: Record<WorkspaceKey, ReactNode> = {
   hiring: <SolutionOutlined />,
-  agency: <AimOutlined />,
-  services: <ToolOutlined />,
+  sourcing: <AimOutlined />,
+  interviewing: <CommentOutlined />,
+  assessment: <FormOutlined />,
+  background_check: <FileSearchOutlined />,
   administration: <SettingOutlined />,
 };
 
-const pageIcons: Record<string, ReactNode> = {
-  [paths.openings]: <FileTextOutlined />,
-  [paths.pipelineTemplates]: <BranchesOutlined />,
-  [paths.findProviders]: <ShopOutlined />,
-  [paths.jobs]: <AimOutlined />,
-  [paths.contacts]: <ContactsOutlined />,
-  [paths.creditedApplications]: <AuditOutlined />,
-  [paths.clients]: <SolutionOutlined />,
-  [paths.workQueue]: <UnorderedListOutlined />,
-  [paths.members]: <TeamOutlined />,
-  [paths.listings]: <AppstoreOutlined />,
-  [paths.plans]: <CreditCardOutlined />,
-  [paths.ai]: <VetchiumAIIcon />,
-  [paths.settings]: <SettingOutlined />,
-  [paths.organizationSecurity]: <SafetyOutlined />,
-  [paths.home]: <HomeOutlined />,
-  [paths.myInterviews]: <CalendarOutlined />,
-  [paths.security]: <SafetyOutlined />,
-  [paths.restoreDomain]: <WarningOutlined />,
-};
-
-const pageLabelKeys: Record<string, string> = {
-  [paths.openings]: "navigation.openings",
-  [paths.pipelineTemplates]: "navigation.pipelineTemplates",
-  [paths.findProviders]: "navigation.findProviders",
-  [paths.jobs]: "navigation.jobs",
-  [paths.contacts]: "navigation.contacts",
-  [paths.creditedApplications]: "navigation.creditedApplications",
-  [paths.clients]: "navigation.clients",
-  [paths.workQueue]: "navigation.workQueue",
-  [paths.members]: "navigation.members",
-  [paths.listings]: "navigation.listings",
-  [paths.plans]: "navigation.plans",
-  [paths.ai]: "navigation.ai",
-  [paths.settings]: "navigation.settings",
-  [paths.organizationSecurity]: "navigation.organizationSecurity",
-  [paths.home]: "navigation.home",
-  [paths.myInterviews]: "navigation.myInterviews",
-  [paths.security]: "navigation.security",
-  [paths.restoreDomain]: "navigation.restoreDomain",
+const pageIcons: Record<PageKey, ReactNode> = {
+  openings: <FileTextOutlined />,
+  pipelineTemplates: <BranchesOutlined />,
+  findProviders: <ShopOutlined />,
+  jobs: <AimOutlined />,
+  contacts: <ContactsOutlined />,
+  creditedApplications: <AuditOutlined />,
+  workQueue: <UnorderedListOutlined />,
+  clients: <SolutionOutlined />,
+  members: <TeamOutlined />,
+  listings: <AppstoreOutlined />,
+  plans: <CreditCardOutlined />,
+  ai: <VetchiumAIIcon />,
+  settings: <SettingOutlined />,
+  organizationSecurity: <SafetyOutlined />,
+  home: <HomeOutlined />,
+  myInterviews: <CalendarOutlined />,
+  security: <SafetyOutlined />,
+  restoreDomain: <WarningOutlined />,
 };
 
 export function AppShell() {
@@ -133,7 +120,7 @@ export function AppShell() {
   const can = (permission: Parameters<typeof holds>[1]) =>
     me !== undefined && holds(me.permissions, permission);
   const canFulfil = can(FulfilEngagements);
-  const isAgency = me?.marketplace.agency === true;
+  const isAgency = me?.marketplace.capabilities.includes(Sourcing) === true;
   const { data: unreadContactsData } = useContactsQuery(
     { filter: "unread", limit: 1 },
     canFulfil && isAgency && !suspended,
@@ -151,8 +138,7 @@ export function AppShell() {
         manageAI: can(ManageAI),
         manageBilling: can(ManageBilling),
         superadmin: can(Superadmin),
-        agency: isAgency,
-        services: me?.marketplace.services === true,
+        capabilities: me?.marketplace.capabilities ?? [],
       });
   const [remembered, setRemembered] = useState(rememberedWorkspace);
   const workspace = currentWorkspace(workspaces, location.pathname, remembered);
@@ -163,13 +149,13 @@ export function AppShell() {
     }
   }, [workspace, remembered]);
 
-  const pageItem = (page: string): ItemType => ({
-    key: page,
-    icon: pageIcons[page],
+  const pageItem = (page: Page): ItemType => ({
+    key: page.path,
+    icon: pageIcons[page.key],
     label:
-      page === paths.contacts && unreadCount > 0 ? (
+      page.key === "contacts" && unreadCount > 0 ? (
         <Flex align="center" justify="space-between" gap="small">
-          <span>{t(pageLabelKeys[page] ?? page)}</span>
+          <span>{t(`navigation.${page.key}`)}</span>
           <Badge
             count={unreadCount}
             size="small"
@@ -179,18 +165,28 @@ export function AppShell() {
           />
         </Flex>
       ) : (
-        t(pageLabelKeys[page] ?? page)
+        t(`navigation.${page.key}`)
       ),
   });
 
-  const sidebarPages = suspended
-    ? [paths.restoreDomain, ...(can(ManageBilling) ? [paths.plans] : [])]
+  const sidebarPages: readonly Page[] = suspended
+    ? [
+        { key: "restoreDomain", path: paths.restoreDomain },
+        ...(can(ManageBilling)
+          ? [{ key: "plans", path: paths.plans } as const]
+          : []),
+      ]
     : (workspace?.pages ?? []);
-  const accountPages: string[] = suspended
-    ? [paths.security]
-    : [...personalPages];
+  const accountPages: readonly Page[] = suspended
+    ? [{ key: "security", path: paths.security }]
+    : personalPages;
   const selectedKey =
-    pageOf(location.pathname, [...sidebarPages, ...accountPages]) ?? "";
+    pageOf(location.pathname, [...sidebarPages, ...accountPages])?.path ?? "";
+
+  const workspaceLabel = (key: WorkspaceKey) =>
+    isCapability(key)
+      ? capabilityLabel(t, key)
+      : t(`navigation.workspaces.${key}`);
 
   const chooseWorkspace = (key: WorkspaceKey) => {
     const chosen = workspaces.find((candidate) => candidate.key === key);
@@ -201,7 +197,7 @@ export function AppShell() {
     }
     setRemembered(key);
     rememberWorkspace(key);
-    navigate(chosen.pages[0] ?? paths.home);
+    navigate(chosen.pages[0]?.path ?? paths.home);
   };
 
   const navigationHeader =
@@ -217,11 +213,11 @@ export function AppShell() {
           style={{ width: "100%" }}
           options={workspaces.map((candidate) => ({
             value: candidate.key,
-            title: t(`navigation.workspaces.${candidate.key}`),
+            title: workspaceLabel(candidate.key),
             label: (
               <Flex align="center" gap="small">
                 {workspaceIcons[candidate.key]}
-                <span>{t(`navigation.workspaces.${candidate.key}`)}</span>
+                <span>{workspaceLabel(candidate.key)}</span>
               </Flex>
             ),
           }))}

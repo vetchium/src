@@ -138,7 +138,7 @@ test("accepts a client proposal, edits own reference, exports statement CSV, and
     await signIn(page, pair.provider.org, pair.provider.tenant);
 
     // Open Clients page
-    await page.goto(`${ORGS_PORTAL}/clients`);
+    await page.goto(`${ORGS_PORTAL}/interviewing/clients`);
     await expect(page.getByRole("heading", { name: "Clients" })).toBeVisible();
 
     // Pending proposal is visible under awaiting decision
@@ -147,8 +147,12 @@ test("accepts a client proposal, edits own reference, exports statement CSV, and
     await expect(page.getByText("Engagement proposal accepted.")).toBeVisible();
     await asProvider(pair, proposed.id, 2);
 
-    // Navigate to engagement detail
-    await page.goto(`${ORGS_PORTAL}/clients/${proposed.id}`);
+    // Navigate to engagement detail; a link naming another Capability opens
+    // the engagement's own.
+    await page.goto(`${ORGS_PORTAL}/sourcing/clients/${proposed.id}`);
+    await expect(page).toHaveURL(
+      `${ORGS_PORTAL}/interviewing/clients/${proposed.id}`,
+    );
     await expect(page.getByText("Active", { exact: true })).toBeVisible();
 
     // Edit provider reference
@@ -191,7 +195,7 @@ test("schedules and gives feedback on routed interview work", async ({
     await signIn(page, world.pair.provider.org, world.pair.provider.tenant);
 
     // Open Work queue page
-    await page.goto(`${ORGS_PORTAL}/work`);
+    await page.goto(`${ORGS_PORTAL}/interviewing/work`);
     await expect(
       page.getByRole("heading", { name: "Work queue" }),
     ).toBeVisible();
@@ -297,7 +301,7 @@ test("records a background check outcome on routed work once consent is given", 
     await signIn(page, world.pair.provider.org, world.pair.provider.tenant);
 
     // Open Work queue page
-    await page.goto(`${ORGS_PORTAL}/work`);
+    await page.goto(`${ORGS_PORTAL}/background-check/work`);
     await expect(page.getByText("Katherine Johnson")).toBeVisible();
     await page.getByRole("button", { name: "View" }).click();
 

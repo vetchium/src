@@ -1503,34 +1503,27 @@ test("one Org's Listing writes never touch another Org's Listings", async ({
   });
 });
 
-test("my-info names the Org's marketplace roles, which drive navigation", async ({
+test("my-info names the Capabilities the Org provides, which drive navigation", async ({
   request,
 }) => {
-  const roles = async (org: Provider) => {
+  const provided = async (org: Provider) => {
     const response = await org.api.myInfo(org.owner);
     expect(response.status(), await response.text()).toBe(200);
-    return ((await response.json()) as MyInfoResponse).marketplace;
+    const { marketplace } = (await response.json()) as MyInfoResponse;
+    return [...marketplace.capabilities].sort();
   };
   await withPair(request, { capabilities: [] }, async (pair) => {
     const { consumer, provider } = pair;
-    const none = { provider: false, agency: false, services: false };
-    expect(await roles(provider)).toEqual(none);
-    // A draft Listing is enough: a stage Capability makes the Org a services
-    // provider, sourcing an agency.
+    expect(await provided(provider)).toEqual([]);
+    // A draft Listing is enough.
     await created(provider.api, provider.owner, listing("interviewing"));
-    expect(await roles(provider)).toEqual({
-      provider: true,
-      agency: false,
-      services: true,
-    });
+    expect(await provided(provider)).toEqual(["interviewing"]);
     await published(provider.api, provider.owner, listing("sourcing", "S"));
-    expect(await roles(provider)).toEqual({
-      provider: true,
-      agency: true,
-      services: true,
-    });
-    // Engaging a provider gives the consumer no role.
+    expect(await provided(provider)).toEqual(["interviewing", "sourcing"]);
+    // An engagement names its Capability once, beside its Listing; engaging a
+    // provider gives the consumer none.
     await activate(pair, "sourcing");
-    expect(await roles(consumer)).toEqual(none);
+    expect(await provided(provider)).toEqual(["interviewing", "sourcing"]);
+    expect(await provided(consumer)).toEqual([]);
   });
 });

@@ -34,7 +34,7 @@ test("agency contact lifecycle: creates contact with note, starts conversation, 
       await signIn(page, provider.org, provider.tenant);
 
       // 2. Navigate to /contacts
-      await page.goto(`${ORGS_PORTAL}/contacts`);
+      await page.goto(`${ORGS_PORTAL}/sourcing/contacts`);
       await expect(
         page.getByRole("heading", { name: "Contacts", exact: true }),
       ).toBeVisible();
@@ -48,9 +48,9 @@ test("agency contact lifecycle: creates contact with note, starts conversation, 
       await findModal.getByPlaceholder("handle").fill(applicant.handle);
       await findModal.getByRole("button", { name: "View profile" }).click();
 
-      // Navigated to /contacts/new?address=...
+      // Navigated to /sourcing/contacts/new?address=...
       await expect(page).toHaveURL(
-        new RegExp(`/contacts/new\\?address=${applicant.handle}`),
+        new RegExp(`/sourcing/contacts/new\\?address=${applicant.handle}`),
       );
       await expect(
         page.getByRole("heading", { name: "Ada Applicant" }),
@@ -62,8 +62,8 @@ test("agency contact lifecycle: creates contact with note, starts conversation, 
         .fill("Strong distributed systems background.");
       await page.getByRole("button", { name: "Add note" }).click();
 
-      // Redirects to Contact detail page (/contacts/:contactId)
-      await expect(page).toHaveURL(/\/contacts\/[0-9a-f-]{36}/);
+      // Redirects to Contact detail page (/sourcing/contacts/:contactId)
+      await expect(page).toHaveURL(/\/sourcing\/contacts\/[0-9a-f-]{36}/);
       await expect(
         page.getByRole("heading", { name: "Ada Applicant" }),
       ).toBeVisible();
@@ -75,7 +75,7 @@ test("agency contact lifecycle: creates contact with note, starts conversation, 
       expect(contactID).toBeTruthy();
 
       // Verify contact is listed in Contacts table
-      await page.goto(`${ORGS_PORTAL}/contacts`);
+      await page.goto(`${ORGS_PORTAL}/sourcing/contacts`);
       await expect(
         page.getByRole("link", { name: "Ada Applicant" }),
       ).toBeVisible();
@@ -83,7 +83,9 @@ test("agency contact lifecycle: creates contact with note, starts conversation, 
 
       // Open contact detail by clicking candidate link in table
       await page.getByRole("link", { name: "Ada Applicant" }).click();
-      await expect(page).toHaveURL(new RegExp(`/contacts/${contactID}`));
+      await expect(page).toHaveURL(
+        new RegExp(`/sourcing/contacts/${contactID}`),
+      );
 
       // 3. Send first message to start conversation
       await page.getByRole("button", { name: "Send first message" }).click();
@@ -253,7 +255,7 @@ test("an agent works from their own Jobs, looks across the agency by colleague a
     const row = page.getByRole("row", { name: new RegExp(openingTitle) });
 
     // 1. An agent starts on their own Jobs.
-    await page.goto(`${ORGS_PORTAL}/jobs`);
+    await page.goto(`${ORGS_PORTAL}/sourcing/jobs`);
     await expect(
       page.getByRole("heading", { name: "Jobs", exact: true }),
     ).toBeVisible();
@@ -320,7 +322,7 @@ test("an agent works from their own Jobs, looks across the agency by colleague a
     // View job detail by clicking opening title link
     await page.getByRole("link", { name: openingTitle }).click();
     await expect(page).toHaveURL(
-      new RegExp(`/jobs/${sourcing.id}/${opening.opening_number}`),
+      new RegExp(`/sourcing/jobs/${sourcing.id}/${opening.opening_number}`),
     );
     await expect(
       page.getByRole("heading", { name: openingTitle }),
@@ -337,7 +339,7 @@ test("an agent works from their own Jobs, looks across the agency by colleague a
     await expect(page.getByRole("tab", { name: /Suggested to/ })).toBeVisible();
 
     // 2. Credited applications page
-    await page.goto(`${ORGS_PORTAL}/credited-applications`);
+    await page.goto(`${ORGS_PORTAL}/sourcing/credited-applications`);
     await expect(
       page.getByRole("heading", { name: "Credited applications", exact: true }),
     ).toBeVisible();

@@ -10,7 +10,6 @@ import {
   Flex,
   Modal,
   Segmented,
-  Select,
   Space,
   Table,
   Tag,
@@ -21,18 +20,13 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import type { PaginationKey } from "typespec/common/pagination";
-import {
-  type Capability,
-  capabilityValues,
-} from "typespec/orgs/marketplace/capabilities";
+import type { Capability } from "typespec/orgs/marketplace/capabilities";
 import type {
   Engagement,
   EngagementState,
 } from "typespec/orgs/marketplace/engagements";
 import { paths } from "../app/paths";
 import {
-  capabilityColors,
-  capabilityLabel,
   engagementStateColors,
   engagementStateLabel,
 } from "../features/marketplace/presentation";
@@ -51,7 +45,8 @@ function getInitials(name: string): string {
   return (first + last).toUpperCase();
 }
 
-export function ClientsPage() {
+/** One Capability's engagements as provider; its workspace names it. */
+export function ClientsPage({ capability }: { capability: Capability }) {
   const { t } = useTranslation();
   const { date } = useDateTimeFormat();
   const navigate = useNavigate();
@@ -60,7 +55,6 @@ export function ClientsPage() {
   const [activeTab, setActiveTab] = useState<
     "all" | "active" | "ended" | "declined"
   >("active");
-  const [selectedCapability, setSelectedCapability] = useState<Capability>();
 
   const [cursorStack, setCursorStack] = useState<PaginationKey[]>([]);
   const currentKey = cursorStack[cursorStack.length - 1];
@@ -76,13 +70,14 @@ export function ClientsPage() {
   // Query pending proposals
   const pendingProposalsQuery = useClientEngagementsQuery({
     state: "proposed",
+    capability,
     limit: 50,
   });
 
   // Query table engagements
   const engagementsQuery = useClientEngagementsQuery({
     ...(activeTab !== "all" && { state: activeTab as EngagementState }),
-    ...(selectedCapability && { capability: selectedCapability }),
+    capability,
     ...(currentKey && { pagination_key: currentKey }),
     limit: 25,
   });
@@ -141,15 +136,6 @@ export function ClientsPage() {
       ),
     },
     {
-      title: t("marketplace.columns.capability"),
-      dataIndex: "capability",
-      render: (v) => (
-        <Tag color={capabilityColors[v as Capability]}>
-          {capabilityLabel(t, v)}
-        </Tag>
-      ),
-    },
-    {
       title: t("marketplace.columns.state"),
       dataIndex: "state",
       render: (v) => (
@@ -189,7 +175,9 @@ export function ClientsPage() {
       render: (_, r) => (
         <Button
           type="link"
-          onClick={() => navigate(paths.clientEngagementDetail(r.id))}
+          onClick={() =>
+            navigate(paths.clientEngagementDetail(capability, r.id))
+          }
         >
           {t("common.view")}
         </Button>
@@ -233,14 +221,9 @@ export function ClientsPage() {
                       {getInitials(item.counterparty.display_name)}
                     </Avatar>
                     <Flex vertical gap={4} style={{ flex: 1 }}>
-                      <Flex gap="small" align="center" wrap>
-                        <Typography.Text strong style={{ fontSize: 16 }}>
-                          {item.counterparty.display_name}
-                        </Typography.Text>
-                        <Tag color={capabilityColors[item.capability]}>
-                          {capabilityLabel(t, item.capability)}
-                        </Tag>
-                      </Flex>
+                      <Typography.Text strong style={{ fontSize: 16 }}>
+                        {item.counterparty.display_name}
+                      </Typography.Text>
                       <Typography.Text
                         type="secondary"
                         style={{ fontSize: 13 }}
@@ -337,21 +320,6 @@ export function ClientsPage() {
               },
             ]}
           />
-
-          <Select
-            style={{ width: 180 }}
-            placeholder={t("marketplace.filters.capability")}
-            value={selectedCapability}
-            onChange={(val) => {
-              setSelectedCapability(val);
-              setCursorStack([]);
-            }}
-            allowClear
-            options={capabilityValues.map((c) => ({
-              value: c,
-              label: capabilityLabel(t, c),
-            }))}
-          />
         </Flex>
 
         <Table<Engagement>
@@ -360,6 +328,7 @@ export function ClientsPage() {
           dataSource={engagementsQuery.data?.engagements ?? []}
           columns={columns}
           pagination={false}
+          scroll={{ x: "max-content" }}
         />
 
         <Flex justify="end" gap="small" style={{ marginTop: 16 }}>

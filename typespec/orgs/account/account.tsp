@@ -8,6 +8,7 @@ import "../../problem/common.tsp";
 import "../../problem/details.tsp";
 import "../../problem/orgs/authentication.tsp";
 import "../authorization/types.tsp";
+import "../marketplace/capabilities.tsp";
 import "../subscriptions/plans.tsp";
 import "../types.tsp";
 
@@ -92,17 +93,11 @@ model MyInfoResponse {
  * the portal shows; the API still decides every action.
  */
 model MarketplaceRoles {
-  /** The Org has a Listing or an engagement as provider. */
-  provider: boolean;
-
-  /** The Org has a `sourcing` Listing or a `sourcing` engagement as provider. */
-  agency: boolean;
-
   /**
-   * The Org has a Listing or an engagement as provider of a stage Capability
-   * (interviewing, assessment, background check).
+   * The Capabilities the Org has a Listing or an engagement as provider for,
+   * each once, in no particular order; empty when it provides nothing.
    */
-  services: boolean;
+  capabilities: Vetchium.Orgs.Marketplace.Capability[];
 }
 
 /** The outcome of this lookup. inconclusive means the DNS query failed and

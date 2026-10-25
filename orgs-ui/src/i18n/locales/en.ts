@@ -33,8 +33,6 @@ export const en = {
     workspace: "Workspace",
     workspaces: {
       hiring: "Hiring",
-      agency: "Agency",
-      services: "Services",
       administration: "Administration",
     },
     unreadContacts: "{{count}} unread",

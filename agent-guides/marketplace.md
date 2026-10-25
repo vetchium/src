@@ -506,15 +506,15 @@ decides):
 | Workspace | Shown when | Marketplace pages |
 | --- | --- | --- |
 | Hiring | always | Openings (detail tab Providers), Find providers |
-| Agency | the Org has a `sourcing` Listing or engagement | Jobs, Contacts, Credited applications, Clients |
-| Services | the Org has a Listing or engagement of a stage Capability | Work queue, Clients |
+| Sourcing | the Org has a `sourcing` Listing or engagement | Jobs, Contacts, Credited applications, Clients |
+| each stage Capability | the Org has a Listing or engagement of it | Work queue, Clients, both of that Capability only |
 | Administration | the user may open one of its pages | Listings |
 
 Listings shows to every `org:manage_listings` holder even before the Org is a
-provider, so it can create its first Listing. `my-info` `marketplace` carries
-whether the Org is a provider, an agency, and a stage-Capability provider
-(`services`); each page still needs its permission. Every client filter is the
-client autocomplete (MKT-OWN-005), never a list built from one page.
+provider, so it can create its first Listing. `my-info` `marketplace.capabilities`
+lists the Capabilities the Org has a Listing or provider engagement for; each
+page still needs its permission. Every client filter is the client
+autocomplete (MKT-OWN-005), never a list built from one page.
 
 - **MKT-UI-001** Find providers: Listing search (MKT-DIR) with Capability
   tabs, country and language filters, and an incomplete-results notice; a
@@ -527,9 +527,9 @@ client autocomplete (MKT-OWN-005), never a list built from one page.
 - **MKT-UI-004** Clients: proposals awaiting a decision first, then active
   and ended engagements; detail holds both references and the activity
   statements.
-- **MKT-UI-005** Work queue: candidacies routed to the Org across clients,
-  with client, Capability, Opening, stage, and status filters; upcoming
-  interviews first.
+- **MKT-UI-005** Work queue: candidacies of one stage Capability routed to
+  the Org across clients, with client, Opening, stage, and status filters;
+  upcoming interviews first.
 - **MKT-UI-006** Jobs: Openings assigned to the agency across clients, server
   paginated, with state tabs (default `published`), whose Jobs (Mine, the
   default; Everyone's; or one colleague by autocomplete), client, title or

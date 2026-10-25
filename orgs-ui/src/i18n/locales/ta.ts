@@ -35,8 +35,6 @@ export const ta = {
     workspace: "பணியிடம்",
     workspaces: {
       hiring: "பணியமர்த்தல்",
-      agency: "முகமை",
-      services: "சேவைகள்",
       administration: "நிர்வாகம்",
     },
     unreadContacts: "{{count}} படிக்காதவை",

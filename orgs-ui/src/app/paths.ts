@@ -1,3 +1,18 @@
+import {
+  type Capability,
+  Sourcing,
+} from "typespec/orgs/marketplace/capabilities";
+
+/**
+ * Where a Capability's workspace pages live. Every provider page carries its
+ * Capability in the path, so a link alone decides the workspace it opens in.
+ */
+export function capabilityPath(capability: Capability): string {
+  return `/${capability.replaceAll("_", "-")}`;
+}
+
+const sourcing = capabilityPath(Sourcing);
+
 export const paths = {
   home: "/",
   signup: "/signup",
@@ -26,18 +41,20 @@ export const paths = {
   listings: "/listings",
   listingEditor: (capability: string) =>
     `/listings/${encodeURIComponent(capability)}`,
-  clients: "/clients",
-  clientEngagementDetail: (id: string) => `/clients/${encodeURIComponent(id)}`,
-  workQueue: "/work",
-  workItem: (engagementId: string, workId: string) =>
-    `/work/${encodeURIComponent(engagementId)}/${encodeURIComponent(workId)}`,
-  jobs: "/jobs",
+  clients: (capability: Capability) => `${capabilityPath(capability)}/clients`,
+  clientEngagementDetail: (capability: Capability, id: string) =>
+    `${capabilityPath(capability)}/clients/${encodeURIComponent(id)}`,
+  workQueue: (capability: Capability) => `${capabilityPath(capability)}/work`,
+  workItem: (capability: Capability, engagementId: string, workId: string) =>
+    `${capabilityPath(capability)}/work/${encodeURIComponent(engagementId)}/${encodeURIComponent(workId)}`,
+  jobs: `${sourcing}/jobs`,
   jobDetail: (engagementId: string, openingNumber: number) =>
-    `/jobs/${encodeURIComponent(engagementId)}/${openingNumber}`,
-  contacts: "/contacts",
-  contactDetail: (id: string) => `/contacts/${encodeURIComponent(id)}`,
-  newContact: "/contacts/new",
-  creditedApplications: "/credited-applications",
+    `${sourcing}/jobs/${encodeURIComponent(engagementId)}/${openingNumber}`,
+  contacts: `${sourcing}/contacts`,
+  contactDetail: (id: string) =>
+    `${sourcing}/contacts/${encodeURIComponent(id)}`,
+  newContact: `${sourcing}/contacts/new`,
+  creditedApplications: `${sourcing}/credited-applications`,
   plans: "/plans",
   ai: "/ai",
   settings: "/company",

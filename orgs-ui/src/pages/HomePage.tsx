@@ -27,6 +27,7 @@ import {
   type OrgPermissionID,
   orgPermissions,
 } from "typespec/orgs/authorization/types";
+import { Sourcing } from "typespec/orgs/marketplace/capabilities";
 import { paths } from "../app/paths";
 import { useMyInfoQuery } from "../features/account/queries";
 import { useMyInterviewsQuery } from "../features/applications/queries";
@@ -60,7 +61,8 @@ export function HomePage() {
   const { dateTime: formatDateTime } = useDateTimeFormat();
   const { data: me } = useMyInfoQuery();
   const isAgent =
-    me?.marketplace.agency === true && holds(me.permissions, FulfilEngagements);
+    me?.marketplace.capabilities.includes(Sourcing) === true &&
+    holds(me.permissions, FulfilEngagements);
   const myJobs = useJobsQuery(
     { owner_email: me?.email_address ?? "", limit: countedJobs },
     isAgent,

@@ -58,8 +58,8 @@ export function sidebarPage(page: Page, name: string): Locator {
   return menuItem(page, name);
 }
 
-/** Shows a sidebar workspace (Hiring, Agency, Services, Administration). The
- * switcher appears only when the user has more than one. */
+/** Shows a sidebar workspace (Hiring, a Capability such as Sourcing, or
+ * Administration). The switcher appears only when the user has more than one. */
 export async function chooseWorkspace(page: Page, name: string): Promise<void> {
   await chooseOption(
     page,

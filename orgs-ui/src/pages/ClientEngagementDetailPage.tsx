@@ -22,8 +22,9 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router";
+import { Link, Navigate, useParams } from "react-router";
 import type { PaginationKey } from "typespec/common/pagination";
+import type { Capability } from "typespec/orgs/marketplace/capabilities";
 import { isEngagementID } from "typespec/orgs/marketplace/engagements";
 import type { ActivityStatementItem } from "typespec/orgs/marketplace/statements";
 import { orgsAPI } from "../api/orgs";
@@ -66,7 +67,11 @@ function escapeCSV(field: string): string {
   return field;
 }
 
-export function ClientEngagementDetailPage() {
+export function ClientEngagementDetailPage({
+  capability,
+}: {
+  capability: Capability;
+}) {
   const { t } = useTranslation();
   const { date } = useDateTimeFormat();
   const { message: toast } = App.useApp();
@@ -284,6 +289,17 @@ export function ClientEngagementDetailPage() {
     );
   }
 
+  // The path's Capability decides the workspace, so it must be the
+  // engagement's own.
+  if (engagement.capability !== capability) {
+    return (
+      <Navigate
+        replace
+        to={paths.clientEngagementDetail(engagement.capability, engagement.id)}
+      />
+    );
+  }
+
   const statementColumns: ColumnsType<ActivityStatementItem> = [
     {
       title: t("marketplace.statement.date"),
@@ -343,7 +359,9 @@ export function ClientEngagementDetailPage() {
         items={[
           {
             title: (
-              <Link to={paths.clients}>{t("marketplace.clients.title")}</Link>
+              <Link to={paths.clients(capability)}>
+                {t("marketplace.clients.title")}
+              </Link>
             ),
           },
           { title: engagement.counterparty.display_name },

@@ -28,7 +28,7 @@ import {
 } from "antd";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router";
+import { Link, Navigate, useParams } from "react-router";
 import type {
   AssessmentOutcome,
   CheckOutcome,
@@ -37,6 +37,7 @@ import type {
   InterviewRecommendation,
 } from "typespec/orgs/applications/applications";
 import type { CheckType } from "typespec/orgs/hiring/vocabulary";
+import type { Capability } from "typespec/orgs/marketplace/capabilities";
 import { paths } from "../app/paths";
 import { useMyInfoQuery } from "../features/account/queries";
 import {
@@ -76,7 +77,7 @@ function toLocalInput(isoString: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function WorkItemDetailPage() {
+export function WorkItemDetailPage({ capability }: { capability: Capability }) {
   const { t } = useTranslation();
   const { date } = useDateTimeFormat();
   const { message: toast } = App.useApp();
@@ -185,6 +186,16 @@ export function WorkItemDetailPage() {
   }
 
   const { item, snapshot, cover_note } = detail;
+
+  // The path's Capability decides the workspace, so it must be the work's own.
+  if (item.capability !== capability) {
+    return (
+      <Navigate
+        replace
+        to={paths.workItem(item.capability, item.engagement_id, item.work_id)}
+      />
+    );
+  }
 
   const handleScheduleSubmit = async () => {
     const emails =
@@ -370,7 +381,7 @@ export function WorkItemDetailPage() {
         items={[
           {
             title: (
-              <Link to={paths.workQueue}>
+              <Link to={paths.workQueue(capability)}>
                 {t("marketplace.workQueue.title")}
               </Link>
             ),

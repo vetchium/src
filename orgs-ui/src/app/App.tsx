@@ -1,5 +1,5 @@
 import { Spin } from "antd";
-import { lazy, Suspense } from "react";
+import { Fragment, lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import {
   FulfilEngagements,
@@ -11,6 +11,10 @@ import {
   ManageUsers,
   Superadmin,
 } from "typespec/orgs/authorization/types";
+import {
+  capabilityStageKind,
+  capabilityValues,
+} from "typespec/orgs/marketplace/capabilities";
 import { AppShell } from "../components/common/AppShell";
 import {
   ActiveOrgRoute,
@@ -225,6 +229,10 @@ const TwoFactorPage = lazy(() =>
   import("../pages/TwoFactorPage").then(({ TwoFactorPage }) => ({
     default: TwoFactorPage,
   })),
+);
+
+const stageCapabilities = capabilityValues.filter(
+  (capability) => capabilityStageKind(capability) !== undefined,
 );
 
 function Page({ children }: { children: React.ReactNode }) {
@@ -467,40 +475,59 @@ export function App() {
                   </Page>
                 }
               />
-              <Route
-                path={paths.clients}
-                element={
-                  <Page>
-                    <ClientsPage />
-                  </Page>
-                }
-              />
-              <Route
-                path="/clients/:id"
-                element={
-                  <Page>
-                    <ClientEngagementDetailPage />
-                  </Page>
-                }
-              />
+              {/* Keyed so a page never carries one Capability's filters or
+                  pages into another's. */}
+              {capabilityValues.map((capability) => (
+                <Fragment key={capability}>
+                  <Route
+                    path={paths.clients(capability)}
+                    element={
+                      <Page>
+                        <ClientsPage key={capability} capability={capability} />
+                      </Page>
+                    }
+                  />
+                  <Route
+                    path={`${paths.clients(capability)}/:id`}
+                    element={
+                      <Page>
+                        <ClientEngagementDetailPage
+                          key={capability}
+                          capability={capability}
+                        />
+                      </Page>
+                    }
+                  />
+                </Fragment>
+              ))}
             </Route>
             <Route element={<PermissionRoute permission={FulfilEngagements} />}>
-              <Route
-                path={paths.workQueue}
-                element={
-                  <Page>
-                    <WorkQueuePage />
-                  </Page>
-                }
-              />
-              <Route
-                path="/work/:engagementId/:workId"
-                element={
-                  <Page>
-                    <WorkItemDetailPage />
-                  </Page>
-                }
-              />
+              {stageCapabilities.map((capability) => (
+                <Fragment key={capability}>
+                  <Route
+                    path={paths.workQueue(capability)}
+                    element={
+                      <Page>
+                        <WorkQueuePage
+                          key={capability}
+                          capability={capability}
+                        />
+                      </Page>
+                    }
+                  />
+                  <Route
+                    path={`${paths.workQueue(capability)}/:engagementId/:workId`}
+                    element={
+                      <Page>
+                        <WorkItemDetailPage
+                          key={capability}
+                          capability={capability}
+                        />
+                      </Page>
+                    }
+                  />
+                </Fragment>
+              ))}
               <Route
                 path={paths.jobs}
                 element={
@@ -510,7 +537,7 @@ export function App() {
                 }
               />
               <Route
-                path="/jobs/:engagement_id/:opening_number"
+                path={`${paths.jobs}/:engagement_id/:opening_number`}
                 element={
                   <Page>
                     <JobDetailPage />
@@ -534,7 +561,7 @@ export function App() {
                 }
               />
               <Route
-                path="/contacts/:id"
+                path={`${paths.contacts}/:id`}
                 element={
                   <Page>
                     <ContactDetailPage />

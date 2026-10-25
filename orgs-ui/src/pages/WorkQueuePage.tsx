@@ -20,10 +20,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import type { PaginationKey } from "typespec/common/pagination";
-import {
-  type Capability,
-  capabilityValues,
-} from "typespec/orgs/marketplace/capabilities";
+import type { Capability } from "typespec/orgs/marketplace/capabilities";
 import {
   type WorkItem,
   type WorkStatus,
@@ -31,8 +28,6 @@ import {
 } from "typespec/orgs/marketplace/work/work";
 import { paths } from "../app/paths";
 import {
-  capabilityColors,
-  capabilityLabel,
   workStatusColors,
   workStatusLabel,
 } from "../features/marketplace/presentation";
@@ -48,13 +43,13 @@ function getInitials(name: string): string {
   return (first + last).toUpperCase();
 }
 
-export function WorkQueuePage() {
+/** One stage Capability's work across clients; its workspace names it. */
+export function WorkQueuePage({ capability }: { capability: Capability }) {
   const { t } = useTranslation();
   const { date } = useDateTimeFormat();
   const navigate = useNavigate();
 
   // Filters
-  const [capability, setCapability] = useState<Capability>();
   const [status, setStatus] = useState<WorkStatus>();
   const [clientDomain, setClientDomain] = useState<string>();
   const [stageName, setStageName] = useState("");
@@ -63,7 +58,7 @@ export function WorkQueuePage() {
   const currentKey = cursorStack[cursorStack.length - 1];
 
   const workQueueQuery = useWorkQueueQuery({
-    ...(capability && { capability }),
+    capability,
     ...(status && { status }),
     ...(clientDomain !== undefined && { client_domain: clientDomain }),
     ...(stageName.trim() && { stage_name: stageName.trim() }),
@@ -132,15 +127,6 @@ export function WorkQueuePage() {
       ),
     },
     {
-      title: t("marketplace.columns.capability"),
-      dataIndex: "capability",
-      render: (v) => (
-        <Tag color={capabilityColors[v as Capability]}>
-          {capabilityLabel(t, v)}
-        </Tag>
-      ),
-    },
-    {
       title: t("marketplace.columns.state"),
       dataIndex: "status",
       render: (v) => (
@@ -156,7 +142,9 @@ export function WorkQueuePage() {
       render: (_, r) => (
         <Button
           type="link"
-          onClick={() => navigate(paths.workItem(r.engagement_id, r.work_id))}
+          onClick={() =>
+            navigate(paths.workItem(capability, r.engagement_id, r.work_id))
+          }
         >
           {t("common.view")}
         </Button>
@@ -217,21 +205,6 @@ export function WorkQueuePage() {
         <Flex gap="small" wrap style={{ marginBottom: 16 }}>
           <Select
             style={{ width: 170 }}
-            placeholder={t("marketplace.filters.capability")}
-            allowClear
-            value={capability}
-            onChange={(val) => {
-              setCapability(val);
-              setCursorStack([]);
-            }}
-            options={capabilityValues.map((c) => ({
-              value: c,
-              label: capabilityLabel(t, c),
-            }))}
-          />
-
-          <Select
-            style={{ width: 170 }}
             placeholder={t("marketplace.workQueue.statusPlaceholder")}
             allowClear
             value={status}
@@ -274,6 +247,7 @@ export function WorkQueuePage() {
           dataSource={items}
           columns={columns}
           pagination={false}
+          scroll={{ x: "max-content" }}
         />
 
         <Flex justify="end" gap="small" style={{ marginTop: 16 }}>

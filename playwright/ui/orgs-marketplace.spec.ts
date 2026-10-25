@@ -252,11 +252,11 @@ test("workspaces show the work the Org does and the user may do, and personal pa
     await expect(page).toHaveURL(/\/members$/);
     await expect(sidebarPage(page, "Listings")).toBeVisible();
 
-    // A listed sourcing Listing adds Agency; a stage Capability adds Services.
+    // Each Capability the Org provides is its own workspace.
     await published(provider.api, provider.owner, listing("sourcing", "S"));
     await page.reload();
-    await chooseWorkspace(page, "Agency");
-    await expect(page).toHaveURL(/\/jobs$/);
+    await chooseWorkspace(page, "Sourcing");
+    await expect(page).toHaveURL(/\/sourcing\/jobs$/);
     for (const name of [
       "Jobs",
       "Contacts",
@@ -270,13 +270,28 @@ test("workspaces show the work the Org does and the user may do, and personal pa
     await page.reload();
     // The workspace chosen last stays across pages and reloads.
     await expect(sidebarPage(page, "Jobs")).toBeVisible();
-    await chooseWorkspace(page, "Services");
-    await expect(page).toHaveURL(/\/work$/);
-    await expect(sidebarPage(page, "Work queue")).toBeVisible();
-    // A page in two workspaces keeps the one chosen.
+    await switcher.click();
+    await expect(workspaceOptions).toHaveText([
+      "Hiring",
+      "Sourcing",
+      "Interviewing",
+      "Administration",
+    ]);
+    await page.keyboard.press("Escape");
+    await chooseWorkspace(page, "Interviewing");
+    await expect(page).toHaveURL(/\/interviewing\/work$/);
+    await expect(sidebarPage(page, "Jobs")).toHaveCount(0);
     await sidebarPage(page, "Clients").click();
-    await expect(page).toHaveURL(/\/clients$/);
+    await expect(page).toHaveURL(/\/interviewing\/clients$/);
     await expect(sidebarPage(page, "Work queue")).toBeVisible();
+
+    // A link opens the workspace of its Capability, whatever was chosen.
+    await page.goto(`${ORGS_PORTAL}/sourcing/clients`);
+    await expect(sidebarPage(page, "Jobs")).toBeVisible();
+    await expect(sidebarPage(page, "Work queue")).toHaveCount(0);
+    await page.goto(`${ORGS_PORTAL}/interviewing/work`);
+    await expect(sidebarPage(page, "Work queue")).toBeVisible();
+    await expect(sidebarPage(page, "Jobs")).toHaveCount(0);
 
     // The account menu holds the person's own pages.
     await openAccountPage(page, "My interviews");

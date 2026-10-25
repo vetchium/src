@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { paths } from "./paths.ts";
+import { capabilityValues } from "typespec/orgs/marketplace/capabilities";
+import { capabilityPath, paths } from "./paths.ts";
 import {
   currentWorkspace,
   pageOf,
+  type Workspace,
   type WorkspaceAccess,
   workspacesFor,
 } from "./workspaces.ts";
@@ -17,39 +19,74 @@ const nothing: WorkspaceAccess = {
   manageAI: false,
   manageBilling: false,
   superadmin: false,
-  agency: false,
-  services: false,
+  capabilities: [],
 };
 
-const everything: WorkspaceAccess = Object.fromEntries(
-  Object.keys(nothing).map((key) => [key, true]),
-) as unknown as WorkspaceAccess;
+const everything: WorkspaceAccess = {
+  ...(Object.fromEntries(
+    Object.keys(nothing).map((key) => [key, true]),
+  ) as unknown as WorkspaceAccess),
+  capabilities: capabilityValues,
+};
+
+const pathsOf = (workspace: Workspace | undefined) =>
+  workspace?.pages.map((page) => page.path);
 
 test("a member without permissions sees only Hiring with Openings", () => {
   assert.deepEqual(workspacesFor(nothing), [
-    { key: "hiring", pages: [paths.openings] },
+    { key: "hiring", pages: [{ key: "openings", path: paths.openings }] },
   ]);
 });
 
-test("an agent sees the agency pages but not Clients or administration", () => {
+test("each Capability the Org provides is its own workspace, in vocabulary order", () => {
   const workspaces = workspacesFor({
-    ...nothing,
-    agency: true,
-    fulfilEngagements: true,
+    ...everything,
+    capabilities: ["background_check", "sourcing", "interviewing"],
   });
   assert.deepEqual(
     workspaces.map((workspace) => workspace.key),
-    ["hiring", "agency"],
+    [
+      "hiring",
+      "sourcing",
+      "interviewing",
+      "background_check",
+      "administration",
+    ],
   );
-  assert.deepEqual(workspaces[1]?.pages, [
+  assert.deepEqual(pathsOf(workspaces[1]), [
     paths.jobs,
     paths.contacts,
     paths.creditedApplications,
+    "/sourcing/clients",
+  ]);
+  assert.deepEqual(pathsOf(workspaces[2]), [
+    "/interviewing/work",
+    "/interviewing/clients",
+  ]);
+  assert.deepEqual(pathsOf(workspaces[3]), [
+    "/background-check/work",
+    "/background-check/clients",
   ]);
 });
 
-test("agency and services workspaces appear only when the Org does that work", () => {
-  const keys = workspacesFor({ ...everything, agency: false, services: false })
+test("an agent sees their Capability's work but not Clients or administration", () => {
+  const workspaces = workspacesFor({
+    ...nothing,
+    fulfilEngagements: true,
+    capabilities: ["sourcing", "assessment"],
+  });
+  assert.deepEqual(
+    workspaces.map((workspace) => [workspace.key, pathsOf(workspace)]),
+    [
+      ["hiring", [paths.openings]],
+      ["sourcing", [paths.jobs, paths.contacts, paths.creditedApplications]],
+      ["assessment", ["/assessment/work"]],
+    ],
+  );
+});
+
+test("Capability workspaces appear only when the Org provides them", () => {
+  const keys = workspacesFor({ ...everything, capabilities: [] })
     .map((workspace) => workspace.key)
     .join();
   assert.equal(keys, "hiring,administration");
@@ -59,35 +96,53 @@ test("a Listings editor reaches Listings before the Org is a provider", () => {
   const workspaces = workspacesFor({ ...nothing, manageListings: true });
   assert.deepEqual(workspaces.at(-1), {
     key: "administration",
-    pages: [paths.listings],
+    pages: [{ key: "listings", path: paths.listings }],
   });
 });
 
-test("nested routes belong to their page", () => {
-  const pages = [paths.openings, paths.findProviders, paths.listings];
-  assert.equal(pageOf("/openings/12/edit", pages), paths.openings);
-  assert.equal(
-    pageOf("/providers/listings/a.test/sourcing", pages),
-    "/providers",
+test("no page is in two workspaces", () => {
+  const all = workspacesFor(everything).flatMap((workspace) =>
+    workspace.pages.map((page) => page.path),
   );
-  assert.equal(pageOf("/listings/sourcing", pages), paths.listings);
-  assert.equal(pageOf("/openingsx", pages), undefined);
-  assert.equal(pageOf("/jobs", [paths.home]), undefined);
+  assert.equal(new Set(all).size, all.length);
+  assert.equal(capabilityPath("background_check"), "/background-check");
 });
 
-test("a page in two workspaces keeps the one last chosen", () => {
+test("nested routes belong to their page", () => {
+  const pages = [
+    { key: "openings", path: paths.openings },
+    { key: "findProviders", path: paths.findProviders },
+    { key: "listings", path: paths.listings },
+  ] as const;
+  assert.equal(pageOf("/openings/12/edit", pages)?.path, paths.openings);
+  assert.equal(
+    pageOf("/providers/listings/a.test/sourcing", pages)?.path,
+    "/providers",
+  );
+  assert.equal(pageOf("/listings/sourcing", pages)?.path, paths.listings);
+  assert.equal(pageOf("/openingsx", pages), undefined);
+  assert.equal(
+    pageOf("/sourcing/jobs", [{ key: "home", path: paths.home }]),
+    undefined,
+  );
+});
+
+test("a link opens the workspace of its Capability, whatever was chosen last", () => {
   const workspaces = workspacesFor(everything);
+  const at = (pathname: string) =>
+    currentWorkspace(workspaces, pathname, "sourcing")?.key;
   assert.equal(
-    currentWorkspace(workspaces, "/clients/42", "services")?.key,
-    "services",
+    at(paths.clientEngagementDetail("interviewing", "e1")),
+    "interviewing",
   );
   assert.equal(
-    currentWorkspace(workspaces, "/clients/42", "hiring")?.key,
-    "agency",
+    at(paths.workItem("background_check", "e1", "w1")),
+    "background_check",
   );
+  assert.equal(at(paths.clients("assessment")), "assessment");
   assert.equal(
-    currentWorkspace(workspaces, "/jobs", "services")?.key,
-    "agency",
+    currentWorkspace(workspaces, paths.contactDetail("c1"), "hiring")?.key,
+    "sourcing",
   );
 });
 
@@ -98,8 +153,20 @@ test("a personal page keeps the workspace last chosen", () => {
     "administration",
   );
   assert.equal(
+    currentWorkspace(workspaces, paths.home, "assessment")?.key,
+    "assessment",
+  );
+  assert.equal(
     currentWorkspace(workspaces, paths.home, undefined)?.key,
-    "agency",
+    "sourcing",
+  );
+  assert.equal(
+    currentWorkspace(
+      workspacesFor({ ...everything, capabilities: ["assessment"] }),
+      paths.home,
+      undefined,
+    )?.key,
+    "assessment",
   );
   assert.equal(
     currentWorkspace(workspacesFor(nothing), paths.home, undefined)?.key,

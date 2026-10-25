@@ -2,6 +2,7 @@ import type { TOTPRecoveryCodeCount } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
 import type { CountryCode, DisplayName } from "../../common/localization.ts";
 import type { OrgPermissionID } from "../authorization/types.ts";
+import type { Capability } from "../marketplace/capabilities.ts";
 import type { OrgPlanOID } from "../subscriptions/plans.ts";
 import type { FrontendLocale, OrgDomain } from "../types.ts";
 
@@ -55,15 +56,11 @@ export interface MyInfoResponse {
  * the portal shows; the API still decides every action.
  */
 export interface MarketplaceRoles {
-  /** The Org has a Listing or an engagement as provider. */
-  provider: boolean;
-  /** The Org has a `sourcing` Listing or a `sourcing` engagement as provider. */
-  agency: boolean;
   /**
-   * The Org has a Listing or an engagement as provider of a stage Capability
-   * (interviewing, assessment, background check).
+   * The Capabilities the Org has a Listing or an engagement as provider for,
+   * each once, in no particular order; empty when it provides nothing.
    */
-  services: boolean;
+  capabilities: Capability[];
 }
 
 export const CheckPresent = "present" as const;

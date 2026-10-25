@@ -35,8 +35,6 @@ export const de = {
     workspace: "Arbeitsbereich",
     workspaces: {
       hiring: "Recruiting",
-      agency: "Agentur",
-      services: "Dienstleistungen",
       administration: "Verwaltung",
     },
     unreadContacts: "{{count}} ungelesen",
