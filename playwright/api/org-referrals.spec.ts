@@ -260,6 +260,30 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
       expect(creditedItem1?.route).toBe("declared");
       expect(creditedItem1?.status).toBe("applied");
 
+      // Pages resume where the last ended, newest application first.
+      const firstPage = (await (
+        await provider.api.listCreditedApplications(provider.owner, {
+          limit: 1,
+        })
+      ).json()) as ListCreditedApplicationsResponse;
+      expect(firstPage.items.map((i) => i.application_number)).toEqual([2]);
+      expect(firstPage.next_pagination_key).toBeDefined();
+      const secondPage = (await (
+        await provider.api.listCreditedApplications(provider.owner, {
+          limit: 1,
+          pagination_key: firstPage.next_pagination_key as string,
+        })
+      ).json()) as ListCreditedApplicationsResponse;
+      expect(secondPage.items.map((i) => i.application_number)).toEqual([1]);
+      expect(secondPage.next_pagination_key).toBeUndefined();
+      await expectProblem(
+        await provider.api.listCreditedApplications(provider.owner, {
+          pagination_key: "bm90LWEta2V5",
+        }),
+        400,
+        `${BASE}invalid-pagination-key`,
+      );
+
       // Filter credited applications by route
       const creditedSuggestedOnly = (await (
         await provider.api.listCreditedApplications(provider.owner, {
@@ -398,6 +422,140 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
         { authorization: null },
       );
       expect(relayUnauth.status).toBe(401);
+      const expectType = (
+        response: { status: number; body: unknown },
+        status: number,
+        type: string,
+      ) => {
+        expect(response.status, JSON.stringify(response.body)).toBe(status);
+        expect(response.body).toMatchObject({ type, status });
+      };
+      expectType(
+        meshRelayRequest(
+          consumer.tenant,
+          "/mesh/provider-attribution/list",
+          {
+            tenant: consumer.tenant,
+            request: { provider_org_did: "x", limit: 0 },
+          },
+          apiCoverage,
+        ),
+        400,
+        PROBLEMS.validation,
+      );
+      expectType(
+        meshPeerRequest(
+          provider.tenant,
+          consumer.tenant,
+          { provider_org_did: providerDID, limit: 0 },
+          apiCoverage,
+          { path: "/api/mesh/provider-attribution/list" },
+        ),
+        400,
+        PROBLEMS.validation,
+      );
+      expectType(
+        meshRelayRequest(
+          provider.tenant,
+          "/mesh/provider-attribution/list",
+          {
+            tenant: "gone",
+            request: { provider_org_did: providerDID, limit: 10 },
+          },
+          apiCoverage,
+        ),
+        503,
+        `${BASE}org-tenant-unavailable`,
+      );
+
+      // How many credited applications each named applicant has; one without
+      // any is left out.
+      const countRequest = {
+        provider_org_did: providerDID,
+        applicant_dids: [applicant1.did, applicant2.did, applicant3.did],
+      };
+      const sortedCounts = (body: unknown) =>
+        [
+          ...(
+            body as { counts: Array<{ applicant_did: string; count: number }> }
+          ).counts,
+        ].sort((a, b) => a.applicant_did.localeCompare(b.applicant_did));
+      const expectedCounts = [
+        { applicant_did: applicant1.did, count: 1 },
+        { applicant_did: applicant2.did, count: 1 },
+      ].sort((a, b) => a.applicant_did.localeCompare(b.applicant_did));
+      const countRelay = meshRelayRequest(
+        provider.tenant,
+        "/mesh/provider-attribution/count",
+        { tenant: consumer.tenant, request: countRequest },
+        apiCoverage,
+      );
+      expect(countRelay.status, JSON.stringify(countRelay.body)).toBe(200);
+      expect(sortedCounts(countRelay.body)).toEqual(expectedCounts);
+      const countPeer = meshPeerRequest(
+        provider.tenant,
+        consumer.tenant,
+        countRequest,
+        apiCoverage,
+        { path: "/api/mesh/provider-attribution/count" },
+      );
+      expect(countPeer.status, JSON.stringify(countPeer.body)).toBe(200);
+      expect(sortedCounts(countPeer.body)).toEqual(expectedCounts);
+      expect(
+        meshPeerRequest(
+          provider.tenant,
+          consumer.tenant,
+          countRequest,
+          apiCoverage,
+          {
+            path: "/api/mesh/provider-attribution/count",
+            certificate: "health",
+          },
+        ).status,
+      ).toBe(401);
+      expect(
+        meshRelayRequest(
+          provider.tenant,
+          "/mesh/provider-attribution/count",
+          { tenant: consumer.tenant, request: countRequest },
+          apiCoverage,
+          { authorization: null },
+        ).status,
+      ).toBe(401);
+      expectType(
+        meshPeerRequest(
+          provider.tenant,
+          consumer.tenant,
+          { ...countRequest, applicant_dids: [] },
+          apiCoverage,
+          { path: "/api/mesh/provider-attribution/count" },
+        ),
+        400,
+        PROBLEMS.validation,
+      );
+      expectType(
+        meshRelayRequest(
+          provider.tenant,
+          "/mesh/provider-attribution/count",
+          {
+            tenant: consumer.tenant,
+            request: { ...countRequest, applicant_dids: [] },
+          },
+          apiCoverage,
+        ),
+        400,
+        PROBLEMS.validation,
+      );
+      expectType(
+        meshRelayRequest(
+          provider.tenant,
+          "/mesh/provider-attribution/count",
+          { tenant: "gone", request: countRequest },
+          apiCoverage,
+        ),
+        503,
+        `${BASE}org-tenant-unavailable`,
+      );
     } finally {
       const consumerRef = {
         tenant: consumer.tenant,

@@ -1788,3 +1788,135 @@ test("the Hub names the provider that interviews and checks the applicant", asyn
     cleanupApplicant(applicant, cleanup);
   }
 });
+
+test("rerouting cancels the previous provider's interviews, and clearing a route ends its consent requests", async ({
+  request,
+}) => {
+  test.setTimeout(240_000);
+  await withWorld(request, async (world) => {
+    const { pair, opening } = world;
+    const { consumer, provider } = pair;
+    const scene = await routedScene(
+      world,
+      "interviewing",
+      "panel",
+      "Ada Lovelace",
+    );
+    const ada = world.hiring.applicants.at(-1);
+    if (ada === undefined) throw new Error("no applicant was seeded");
+    const scheduled = await provider.api.scheduleWorkInterview(provider.owner, {
+      ...reference(scene.item),
+      ...interview(provider),
+    });
+    expect(scheduled.status(), await scheduled.text()).toBe(200);
+
+    const [other] = await seedEngagements(world, "interviewing", 1);
+    if (other === undefined) throw new Error("no seeded engagement");
+    await assign(world, other, world.panel);
+    const rerouted = await routed(world, await consumerView(scene), other);
+    expect(rerouted.interviews.map((item) => item.state)).toEqual([
+      "cancelled",
+    ]);
+    const history = (await (
+      await consumer.api.listApplicationHistory(consumer.owner, {
+        opening_number: opening.opening_number,
+        application_number: scene.application.application_number,
+      })
+    ).json()) as ListApplicationHistoryResponse;
+    expect(
+      history.entries.find((entry) => entry.action === "interview_cancelled"),
+    ).toMatchObject({ actor: "system", interview_number: 1 });
+    await expectInaccessible(provider, scene.item, "after the reroute");
+    // The applicant's Hub page follows.
+    const adaReference = {
+      domain: consumer.org.domain,
+      opening_number: opening.opening_number,
+      application_number: scene.application.application_number,
+    };
+    await expect
+      .poll(
+        async () =>
+          (await myApplication(ada, adaReference)).interviews.map(
+            (item) => item.state,
+          ),
+        { timeout: 30_000 },
+      )
+      .toEqual(["cancelled"]);
+
+    const checks = await routedScene(
+      world,
+      "background_check",
+      "check",
+      "Grace Hopper",
+    );
+    const requested = await consumer.api.requestBackgroundCheckConsent(
+      consumer.owner,
+      {
+        opening_number: opening.opening_number,
+        application_number: checks.application.application_number,
+        version: checks.application.version,
+        check_types: ["identity", "education"],
+      },
+    );
+    expect(requested.status(), await requested.text()).toBe(200);
+    const inHouse = await routed(world, await consumerView(checks));
+    expect(inHouse.route).toBeUndefined();
+    expect(inHouse.background_checks.map((item) => item.consent_state)).toEqual(
+      ["ended"],
+    );
+    await expectInaccessible(provider, checks.item, "after the route cleared");
+  });
+});
+
+test("a replayed provider write returns its stored result after an interviewer is disabled", async ({
+  request,
+}) => {
+  test.setTimeout(240_000);
+  await withWorld(request, async (world) => {
+    const { provider } = world.pair;
+    const scene = await routedScene(
+      world,
+      "interviewing",
+      "panel",
+      "Ada Lovelace",
+    );
+    const interviewer = await addOrgMember(
+      provider.api,
+      provider.owner,
+      provider.org.domain,
+      inviteeAddress(provider.org.domain, "interviewer"),
+      ["org:fulfil_engagements"],
+    );
+    const body = {
+      ...reference(scene.item),
+      ...interview(provider),
+      interviewer_emails: [interviewer.emailAddress],
+    };
+    const key = orgsIdempotencyKey();
+    const first = await provider.api.scheduleWorkInterview(
+      provider.owner,
+      body,
+      key,
+    );
+    expect(first.status(), await first.text()).toBe(200);
+    const stored = (await first.json()) as WriteResult;
+
+    const disabled = await provider.api.disableUser(provider.owner, {
+      email_address: interviewer.emailAddress,
+    });
+    expect(disabled.status(), await disabled.text()).toBe(204);
+    const replay = await provider.api.scheduleWorkInterview(
+      provider.owner,
+      body,
+      key,
+    );
+    expect(replay.status(), await replay.text()).toBe(200);
+    expect(await replay.json()).toEqual(stored);
+    // A new write naming the disabled interviewer is refused.
+    await expectProblem(
+      await provider.api.scheduleWorkInterview(provider.owner, body),
+      422,
+      work.interviewers,
+    );
+  });
+});

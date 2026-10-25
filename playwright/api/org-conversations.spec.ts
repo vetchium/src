@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import type {
   HubConversationDetail,
+  HubConversationSummary,
   ListConversationsResponse,
 } from "typespec/hub/messages/messages";
 import type {
@@ -20,6 +22,8 @@ import {
   orgsIdempotencyKey,
 } from "../lib/orgs-api.ts";
 import {
+  activate,
+  asProvider,
   awaitHubPointer,
   awaitMessagesOff,
   listing,
@@ -27,6 +31,7 @@ import {
   setOrgHome,
   withProvider,
 } from "../lib/orgs-marketplace.ts";
+import { assign, withWorld } from "../lib/orgs-routing.ts";
 
 const BASE = "vetchium-problem-details/";
 const PROBLEMS = {
@@ -713,4 +718,280 @@ test("counterparty tenant unavailable during Hub conversation get and reply, rec
     },
     { tenant: "sgp" },
   );
+});
+
+test("a notes-first Contact's conversation reaches the Hub, a reply keeps its suggestions, and messages page newest first", async ({
+  request,
+}) => {
+  test.setTimeout(90_000);
+  await withWorld(request, async (world) => {
+    const { pair, opening } = world;
+    const { consumer, provider } = pair;
+    const sourcing = await activate(pair, "sourcing");
+    await asProvider(pair, sourcing.id, sourcing.version);
+    await assign(world, sourcing.id);
+    const applicant = seedApplicant(request, "sgp");
+    const orgDid = orgDID(provider.org.domain, provider.tenant);
+    try {
+      const noted = await provider.api.addPersonNote(provider.owner, {
+        address: applicant.alias,
+        text: "Worth a conversation.",
+      });
+      expect(noted.status(), await noted.text()).toBe(200);
+      const contactID = ((await noted.json()) as AddedNote).contact.contact_id;
+      // The note's pointer reaches the Hub, which lists only conversations.
+      await expect
+        .poll(
+          () =>
+            sqlScalarForTenant(
+              applicant.tenant,
+              `SELECT count(*)::text FROM vetchium.hub_agency_pointers
+               WHERE contact_id = '${contactID}'`,
+            ),
+          { timeout: 30_000 },
+        )
+        .toBe("1");
+      const hubList = async () => {
+        const listed = await applicant.hub.listConversations(applicant.token);
+        expect(listed.status(), await listed.text()).toBe(200);
+        return ((await listed.json()) as ListConversationsResponse).items;
+      };
+      expect(await hubList()).toEqual([]);
+
+      // The conversation reuses the Contact and reaches the Hub as a newer
+      // pointer version.
+      const suggestion = {
+        consumer_domain: consumer.org.domain,
+        opening_number: opening.opening_number,
+      };
+      const started = await provider.api.startConversation(provider.owner, {
+        address: applicant.alias,
+        suggestion,
+      });
+      expect(started.status(), await started.text()).toBe(200);
+      expect(
+        ((await started.json()) as ConversationDetail).conversation.contact_id,
+      ).toBe(contactID);
+      await awaitHubPointer(applicant, contactID);
+      const suggestedOnly = (items: HubConversationSummary[]) =>
+        items[0]?.suggestions.map((item) => [
+          item.consumer_domain,
+          item.opening_number,
+        ]);
+      expect(suggestedOnly(await hubList())).toEqual([
+        [consumer.org.domain, opening.opening_number],
+      ]);
+
+      const send = async (text: string) => {
+        const sent = await provider.api.sendMessage(provider.owner, {
+          contact_id: contactID,
+          text,
+        });
+        expect(sent.status(), await sent.text()).toBe(200);
+      };
+      await send("First note from us.");
+      const replied = await applicant.hub.replyToConversation(applicant.token, {
+        contact_id: contactID,
+        text: "Happy to talk.",
+      });
+      expect(replied.status(), await replied.text()).toBe(200);
+      await send("Great, here are the details.");
+      // The last agency message arrives after the reply's pointer update, so
+      // an unread pointer has seen the reply too, and kept the suggestion.
+      await expect
+        .poll(async () => (await hubList())[0]?.unread, { timeout: 30_000 })
+        .toBe(true);
+      expect(suggestedOnly(await hubList())).toEqual([
+        [consumer.org.domain, opening.opening_number],
+      ]);
+
+      const texts = (messages: ConversationMessage[]) =>
+        messages.map((message) => message.text ?? message.kind);
+      const orgFirst = (await (
+        await provider.api.getConversation(provider.owner, {
+          contact_id: contactID,
+          limit: 2,
+        })
+      ).json()) as ConversationDetail;
+      expect(texts(orgFirst.messages)).toEqual([
+        "Great, here are the details.",
+        "Happy to talk.",
+      ]);
+      const orgSecond = (await (
+        await provider.api.getConversation(provider.owner, {
+          contact_id: contactID,
+          limit: 2,
+          pagination_key: orgFirst.next_pagination_key as string,
+        })
+      ).json()) as ConversationDetail;
+      expect(texts(orgSecond.messages)).toEqual([
+        "First note from us.",
+        "suggestion",
+      ]);
+      expect(orgSecond.next_pagination_key).toBeUndefined();
+
+      const hubFirst = await applicant.hub.getConversation(applicant.token, {
+        contact_id: contactID,
+        limit: 3,
+      });
+      expect(hubFirst.status(), await hubFirst.text()).toBe(200);
+      const hubPage = (await hubFirst.json()) as HubConversationDetail;
+      expect(texts(hubPage.messages)).toEqual([
+        "Great, here are the details.",
+        "Happy to talk.",
+        "First note from us.",
+      ]);
+      const hubSecond = (await (
+        await applicant.hub.getConversation(applicant.token, {
+          contact_id: contactID,
+          limit: 3,
+          pagination_key: hubPage.next_pagination_key as string,
+        })
+      ).json()) as HubConversationDetail;
+      expect(texts(hubSecond.messages)).toEqual(["suggestion"]);
+      expect(hubSecond.next_pagination_key).toBeUndefined();
+      // Agency messages name the agency on the Hub, never the agency user.
+      expect(hubPage.messages[0]?.sender_display_name).not.toContain("@");
+    } finally {
+      cleanupApplicant(applicant, [
+        { tenant: provider.tenant, did: orgDid },
+        {
+          tenant: consumer.tenant,
+          did: orgDID(consumer.org.domain, consumer.tenant),
+        },
+      ]);
+    }
+  });
+});
+
+test("Hub conversation routes authenticate, validate, and answer for unknown conversations", async ({
+  request,
+}) => {
+  await withProvider(request, async (provider) => {
+    await published(
+      provider.api,
+      provider.owner,
+      listing("sourcing", "Agency Sourcing"),
+    );
+    // Remote, so a delete crosses the mesh and may be pending.
+    const applicant = seedApplicant(request, "deu");
+    const orgDid = orgDID(provider.org.domain, provider.tenant);
+    try {
+      const started = await provider.api.startConversation(provider.owner, {
+        address: applicant.alias,
+        text: "Hello.",
+      });
+      expect(started.status(), await started.text()).toBe(200);
+      const contact_id = ((await started.json()) as ConversationDetail)
+        .conversation.contact_id;
+      await awaitHubPointer(applicant, contact_id);
+
+      const routes: Array<{ path: string; body: object; write: boolean }> = [
+        { path: "/list-conversations", body: {}, write: false },
+        { path: "/get-conversation", body: { contact_id }, write: false },
+        { path: "/mark-conversation-read", body: { contact_id }, write: false },
+        {
+          path: "/reply-to-conversation",
+          body: { contact_id, text: "Hi" },
+          write: true,
+        },
+        { path: "/delete-conversation", body: { contact_id }, write: true },
+        {
+          path: "/set-agencies-may-message",
+          body: { agencies_may_message: true },
+          write: false,
+        },
+      ];
+      const keyed = (write: boolean) =>
+        write ? { idempotencyKey: orgsIdempotencyKey() } : {};
+      for (const entry of routes) {
+        await expectProblem(
+          await applicant.hub.post(entry.path, entry.body, keyed(entry.write)),
+          401,
+          `${BASE}hub-authentication-required`,
+        );
+        await expectProblem(
+          await applicant.hub.postRaw(entry.path, "{", {
+            token: applicant.token,
+            ...keyed(entry.write),
+          }),
+          400,
+          `${BASE}invalid-json`,
+        );
+      }
+      for (const [path, body, fields] of [
+        ["/list-conversations", { limit: 0 }, ["limit"]],
+        ["/get-conversation", { contact_id: "x" }, ["contact_id"]],
+        ["/mark-conversation-read", { contact_id: "x" }, ["contact_id"]],
+        ["/reply-to-conversation", { contact_id, text: " " }, ["text"]],
+        ["/delete-conversation", { contact_id: "x" }, ["contact_id"]],
+      ] as const) {
+        const write = routes.find((entry) => entry.path === path)?.write;
+        await expectProblem(
+          await applicant.hub.post(path, body, {
+            token: applicant.token,
+            ...keyed(write === true),
+          }),
+          400,
+          PROBLEMS.validation,
+          [...fields],
+        );
+      }
+      for (const entry of routes.filter(
+        (route) => "contact_id" in route.body,
+      )) {
+        await expectProblem(
+          await applicant.hub.post(
+            entry.path,
+            { ...entry.body, contact_id: randomUUID() },
+            { token: applicant.token, ...keyed(entry.write) },
+          ),
+          404,
+          PROBLEMS.hubConversationNotFound,
+        );
+      }
+
+      // A reply key stays bound to the reply it first carried.
+      const key = orgsIdempotencyKey();
+      const replied = await applicant.hub.replyToConversation(
+        applicant.token,
+        { contact_id, text: "Thanks" },
+        key,
+      );
+      expect(replied.status(), await replied.text()).toBe(200);
+      await expectProblem(
+        await applicant.hub.replyToConversation(
+          applicant.token,
+          { contact_id, text: "Something else" },
+          key,
+        ),
+        409,
+        `${BASE}idempotency-key-conflict`,
+      );
+
+      // A delete the agency's tenant cannot confirm is pending, and its
+      // repeat with the same key completes once the route is right.
+      setOrgHome(orgDid, "usa1");
+      const deleteKey = orgsIdempotencyKey();
+      try {
+        const pending = await applicant.hub.deleteConversation(
+          applicant.token,
+          { contact_id },
+          deleteKey,
+        );
+        expect(pending.status(), await pending.text()).toBe(202);
+        expect(pending.headers()["cache-control"]).toBe("no-store");
+      } finally {
+        setOrgHome(orgDid, provider.tenant);
+      }
+      const deleted = await applicant.hub.deleteConversation(
+        applicant.token,
+        { contact_id },
+        deleteKey,
+      );
+      expect(deleted.status(), await deleted.text()).toBe(200);
+    } finally {
+      cleanupApplicant(applicant, [{ tenant: provider.tenant, did: orgDid }]);
+    }
+  });
 });

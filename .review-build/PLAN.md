@@ -101,8 +101,12 @@ Original build plan (removed in 1123654): `git show 1123654^:.hiring-build/`.
 - [ ] C3 Cover every response listed missing by `make api-coverage-report`
       for this branch's operations (baseline list in git history of this
       file's commit message is not kept; rerun the report).
-- [ ] C4 Tests for A1-A11 and B1-B6 behavior. Done: contact removal
-      without notes, messages-off delivery, nav roles, contract tests.
+- [ ] C4 Tests for A1-A11 and B1-B6 behavior. Written: contact removal
+      without notes, messages-off delivery, nav roles, contract tests,
+      Contacts filters/counts/unread, account deleted with conversation,
+      notes-first conversation + reply keeps suggestions + paging, reroute
+      and clear cleanup, replay after disabled interviewer, credited paging.
+      Pending: run them.
 - [ ] C5 Fix `ui/hub-applications.spec.ts:364` (fails on baseline).
 
 ## D. UI

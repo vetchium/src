@@ -12,6 +12,7 @@ import type {
 import {
   cleanupGlobalHubPrincipals,
   cleanupHubUsers,
+  globalSQLScalar,
   seedActiveHubUser,
   seedGlobalHubPrincipal,
   sqlLiteral,
@@ -223,5 +224,18 @@ export async function verifyProfessionalEmail(
      SET first_verified_at = ${sqlLiteral(firstVerifiedAt)}::timestamptz,
        last_verified_at = ${sqlLiteral(lastVerifiedAt)}::timestamptz
      WHERE professional_email_id = ${sqlLiteral(id)}::uuid`,
+  );
+}
+
+/** Routes the Hub user to `tenant` in the global directory, as a fault for
+ * tests of a tenant that does not answer. */
+export function setHubHome(hubUserDID: string, tenant: string): void {
+  globalSQLScalar(
+    `UPDATE vetchium.hub_principals
+     SET home_tenant_id = ${sqlLiteral(tenant)},
+       routing_version = routing_version + 1,
+       directory_version = directory_version + 1
+     WHERE hub_user_did = ${sqlLiteral(hubUserDID)}::uuid
+       AND home_tenant_id <> ${sqlLiteral(tenant)}`,
   );
 }

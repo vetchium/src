@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { GetActivityStatementResponse } from "typespec/orgs/marketplace/statements";
 import type {
   ListWorkQueueResponse,
@@ -8,9 +9,15 @@ import { expect, test } from "../lib/admin-fixtures.ts";
 import { seedApplication } from "../lib/hiring-seed.ts";
 import { hubIdempotencyKey } from "../lib/hub-api.ts";
 import { meshPeerRequest, meshRelayRequest } from "../lib/mesh.ts";
-import { orgDID, orgSQL, orgsIdempotencyKey } from "../lib/orgs-api.ts";
+import {
+  addOrgMember,
+  inviteeAddress,
+  orgDID,
+  orgSQL,
+  orgsIdempotencyKey,
+} from "../lib/orgs-api.ts";
 import { detailOf, utcDate } from "../lib/orgs-applications.ts";
-import { activate, asProvider } from "../lib/orgs-marketplace.ts";
+import { activate, asProvider, setOrgHome } from "../lib/orgs-marketplace.ts";
 import { assign, candidate, routed, withWorld } from "../lib/orgs-routing.ts";
 
 const BASE = "vetchium-problem-details/";
@@ -231,16 +238,24 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
         (await providerStmt4Res.json()) as GetActivityStatementResponse;
       expect(providerStmt4.items).toEqual(consumerStmt4.items);
 
-      // Verify statement shows no money or amount fields (MKT-STM-002)
-      const rawText = await consumerStmt4Res.text();
-      expect(rawText).not.toContain("amount");
-      expect(rawText).not.toContain("price");
-      expect(rawText).not.toContain("currency");
-      expect(rawText).not.toContain("fee");
-      expect(rawText).not.toContain("invoice");
-      const rawProviderText = await providerStmt4Res.text();
-      expect(rawProviderText).not.toContain("amount");
-      expect(rawProviderText).not.toContain("invoice");
+      // No field carries money (MKT-STM-002). Field names, not values: an
+      // identifier may happen to spell one of the words.
+      const fieldNames = (value: unknown): string[] =>
+        Array.isArray(value)
+          ? value.flatMap(fieldNames)
+          : typeof value === "object" && value !== null
+            ? Object.entries(value).flatMap(([key, inner]) => [
+                key,
+                ...fieldNames(inner),
+              ])
+            : [];
+      for (const body of [consumerStmt4, providerStmt4]) {
+        expect(
+          fieldNames(body).filter((name) =>
+            /amount|price|currency|fee|invoice/.test(name),
+          ),
+        ).toEqual([]);
+      }
 
       // =======================================================================
       // 2. RETENTION: facts outlive applicant retention with numbers only (MKT-STM-004)
@@ -719,6 +734,52 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
     );
     await expectProblem(unknownProviderRes, 404, PROBLEMS.notFound);
 
+    // Both reads need a session and their permission.
+    const read = { engagement_id: bgCheck.id, month: currentMonth };
+    for (const [side, path] of [
+      [consumer, "/get-engagement-statement"],
+      [provider, "/get-client-engagement-statement"],
+    ] as const) {
+      await expectProblem(
+        await side.api.post(path, read),
+        401,
+        `${BASE}org-authentication-required`,
+      );
+      const plain = await addOrgMember(
+        side.api,
+        side.owner,
+        side.org.domain,
+        inviteeAddress(side.org.domain, "plain"),
+        [],
+      );
+      await expectProblem(
+        await side.api.post(path, read, { token: plain.token }),
+        403,
+        `${BASE}org-permission-required`,
+      );
+    }
+    await expectProblem(
+      await provider.api.getClientEngagementStatement(provider.owner, {
+        ...read,
+        month: "2026-13",
+      }),
+      400,
+      PROBLEMS.validation,
+    );
+    // The client's tenant answers the provider's read; when it cannot, the
+    // read is unavailable.
+    const consumerDID = orgDID(consumer.org.domain, consumer.tenant);
+    setOrgHome(consumerDID, "gone");
+    try {
+      await expectProblem(
+        await provider.api.getClientEngagementStatement(provider.owner, read),
+        503,
+        `${BASE}org-tenant-unavailable`,
+      );
+    } finally {
+      setOrgHome(consumerDID, consumer.tenant);
+    }
+
     const providerDID = orgDID(provider.org.domain, provider.tenant);
 
     // Mesh relay endpoint succeeds with valid auth
@@ -770,6 +831,78 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
       },
     );
     expect(unauthPeerRes.status).toBe(401);
+
+    const statement = {
+      provider_org_did: providerDID,
+      engagement_id: bgCheck.id,
+      month: currentMonth,
+      limit: 10,
+    };
+    const expectType = (
+      response: { status: number; body: unknown },
+      status: number,
+      type: string,
+    ) => {
+      expect(response.status, JSON.stringify(response.body)).toBe(status);
+      expect(response.body).toMatchObject({ type, status });
+    };
+    const statements = "/mesh/provider-statements/get";
+    const peerPath = { path: "/api/mesh/provider-statements/get" };
+    expectType(
+      meshRelayRequest(
+        provider.tenant,
+        statements,
+        {
+          tenant: consumer.tenant,
+          request: { ...statement, month: "2026-13" },
+        },
+        apiCoverage,
+      ),
+      400,
+      PROBLEMS.validation,
+    );
+    expectType(
+      meshPeerRequest(
+        provider.tenant,
+        consumer.tenant,
+        { ...statement, month: "2026-13" },
+        apiCoverage,
+        peerPath,
+      ),
+      400,
+      PROBLEMS.validation,
+    );
+    // An engagement the provider is not party to is not found.
+    for (const response of [
+      meshRelayRequest(
+        provider.tenant,
+        statements,
+        {
+          tenant: consumer.tenant,
+          request: { ...statement, engagement_id: randomUUID() },
+        },
+        apiCoverage,
+      ),
+      meshPeerRequest(
+        provider.tenant,
+        consumer.tenant,
+        { ...statement, engagement_id: randomUUID() },
+        apiCoverage,
+        peerPath,
+      ),
+    ]) {
+      expect(response.status, JSON.stringify(response.body)).toBe(404);
+    }
+    expectType(
+      meshRelayRequest(
+        provider.tenant,
+        statements,
+        { tenant: "gone", request: statement },
+        apiCoverage,
+      ),
+      503,
+      `${BASE}org-tenant-unavailable`,
+    );
 
     // Direct mesh relay call without authorization fails
     const unauthRelayRes = meshRelayRequest(

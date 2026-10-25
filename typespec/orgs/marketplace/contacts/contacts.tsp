@@ -447,7 +447,8 @@ interface ContactOperations {
       }
     | ContactWriteErrors
     | Vetchium.Problem.OrgContactNotFoundErrorResponse
-    | Vetchium.Problem.OrgContactNoteLimitReachedErrorResponse;
+    | Vetchium.Problem.OrgContactNoteLimitReachedErrorResponse
+    | Vetchium.Problem.OrgConversationPartyDeletedErrorResponse;
 
   /** Replaces the text of a note its author wrote. */
   @route("/edit-contact-note")

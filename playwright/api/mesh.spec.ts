@@ -120,6 +120,7 @@ const DIRECTORY_ROUTES = [
     name: "abandon-hub-account-email-change",
     path: "/mesh/directory/abandon-hub-account-email-change",
   },
+  { name: "resolve-principal", path: "/mesh/directory/resolve-principal" },
 ] as const;
 
 // A structurally valid body for each route, used as the base for the 400
@@ -159,6 +160,8 @@ function baseBody(
         hub_user_did: randomHubUserDID(),
         not_after: new Date(Date.now() + 60_000).toISOString(),
       };
+    case "/mesh/directory/resolve-principal":
+      return { principal_type: "hub_user", principal_did: randomHubUserDID() };
   }
 }
 
@@ -179,6 +182,8 @@ function invalidFieldBody(
     case "/mesh/directory/finalize-hub-account-email-change":
     case "/mesh/directory/abandon-hub-account-email-change":
       return { ...base, change_id: "not-a-change-id" };
+    case "/mesh/directory/resolve-principal":
+      return { ...base, principal_type: "tenant" };
   }
 }
 

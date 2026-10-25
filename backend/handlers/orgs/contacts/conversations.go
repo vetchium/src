@@ -482,6 +482,15 @@ func MarkConversationRead(s *orgsruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "parse Contact id", err)
 			return
 		}
+		if _, err := s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
+			OrgDid: identity.OrgDID, ContactID: contactID,
+		}); isNoRows(err) {
+			s.Problem(r.Context(), w, orgsproblem.ContactNotFoundError)
+			return
+		} else if err != nil {
+			s.InternalError(r.Context(), w, "read Contact", err)
+			return
+		}
 		if _, err := s.Queries.GetOrgConversation(r.Context(), sqlc.GetOrgConversationParams{
 			OrgDid: identity.OrgDID, ContactID: contactID,
 		}); isNoRows(err) {

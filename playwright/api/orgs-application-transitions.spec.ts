@@ -1080,8 +1080,41 @@ test("application write routes authenticate, validate, and refuse suspended Orgs
         fields: ["separated_on"],
       },
     ];
+    // A hiring-team member reads the application but may not act on it.
+    const teammate = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      `teammate@${org.domain}`,
+      [],
+    );
+    const team = await api.setOpeningTeam(owner, {
+      opening_number: n,
+      version: (await reread(api, owner, opening)).version,
+      hiring_manager_email: org.emailAddress,
+      recruiter_email: org.emailAddress,
+      team_member_emails: [teammate.emailAddress],
+    });
+    expect(team.status(), await team.text()).toBe(200);
     for (const route of routes) {
       const key = { idempotencyKey: orgsIdempotencyKey() };
+      await expectProblem(
+        await api.post(route.path, route.body, {
+          token: teammate.token,
+          idempotencyKey: orgsIdempotencyKey(),
+        }),
+        403,
+        PERMISSION_REQUIRED,
+      );
+      await expectProblem(
+        await api.post(
+          route.path,
+          { ...route.body, application_number: 9999 },
+          { token: owner, idempotencyKey: orgsIdempotencyKey() },
+        ),
+        404,
+        NOT_FOUND,
+      );
       const unauthenticated = await api.post(route.path, route.body, key);
       expect(unauthenticated.status(), route.path).toBe(401);
       const malformed = await api.postRaw(route.path, "{", {
