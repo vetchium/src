@@ -16,6 +16,7 @@ import type {
   PendingOperation,
 } from "typespec/hub/operations/operations";
 import type { ApplicationDetail } from "typespec/orgs/applications/applications";
+import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { expectProblem } from "../lib/admin-api.ts";
 import {
@@ -30,6 +31,7 @@ import {
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
+import { offerLetter } from "../lib/hiring-seed.ts";
 import { HubAPI, hubIdempotencyKey } from "../lib/hub-api.ts";
 import {
   type MeshResponse,
@@ -310,35 +312,63 @@ function expectNoInternals(text: string): void {
   }
 }
 
-/** Moves the application the way the Org's later transitions will, at a new
- * interview stage, without telling the applicant's tenant. */
-function moveToStage(
+/** Takes the application to state through the Org's APIs, at a new
+ * interview stage, and the applicant's acceptance for offer_accepted. */
+async function moveToStage(
   world: World,
+  applicant: Applicant,
   reference: ApplicationReference,
-  state: string,
-): void {
-  orgSQL(
-    `WITH opening AS (
-       SELECT org_opening_id FROM vetchium.org_openings
-       WHERE org_did = ${sqlLiteral(world.did)}::uuid
-         AND opening_number = ${reference.opening_number}
-     ), stage AS (
-       INSERT INTO vetchium.org_opening_stages (
-         org_opening_stage_id, org_opening_id, position, name, stage_kind
-       )
-       SELECT gen_random_uuid(), org_opening_id, 2, 'Secret Panel',
-         'interview'
-       FROM opening
-       RETURNING org_opening_stage_id, org_opening_id
-     )
-     UPDATE vetchium.org_applications AS a
-     SET application_state = ${sqlLiteral(state)},
-       current_stage_id = stage.org_opening_stage_id
-     FROM stage
-     WHERE a.org_opening_id = stage.org_opening_id
-       AND a.application_number = ${reference.application_number}`,
-    world.tenant,
+  state: "in_pipeline" | "offered" | "offer_accepted",
+): Promise<void> {
+  const { api, owner } = world;
+  const n = reference.opening_number;
+  const pipeline = (await (
+    await api.getOpeningPipeline(owner, { opening_number: n })
+  ).json()) as { version: number; stages: PipelineStage[] };
+  const replaced = await api.replaceOpeningPipeline(owner, {
+    opening_number: n,
+    version: pipeline.version,
+    stages: [
+      ...pipeline.stages.map(({ id, name, kind }) => ({ id, name, kind })),
+      { name: "Secret Panel", kind: "interview" },
+    ],
+  });
+  expect(replaced.status(), await replaced.text()).toBe(200);
+  const panel = (
+    (await replaced.json()) as { stages: PipelineStage[] }
+  ).stages.find((stage) => stage.name === "Secret Panel");
+  const target = {
+    opening_number: n,
+    application_number: reference.application_number,
+  };
+  const current = async () =>
+    (
+      (await (
+        await api.getApplication(owner, target)
+      ).json()) as ApplicationDetail
+    ).version;
+  const shortlisted = await api.shortlistApplication(owner, {
+    ...target,
+    version: await current(),
+    stage_id: panel?.id ?? "",
+  });
+  expect(shortlisted.status(), await shortlisted.text()).toBe(200);
+  if (state === "in_pipeline") return;
+  const letter = await api.uploadOfferLetter(owner, offerLetter());
+  expect(letter.status(), await letter.text()).toBe(201);
+  const extended = await api.extendApplicationOffer(owner, {
+    ...target,
+    version: await current(),
+    letter_id: ((await letter.json()) as { letter_id: string }).letter_id,
+    respond_within_days: 14,
+  });
+  expect(extended.status(), await extended.text()).toBe(200);
+  if (state === "offered") return;
+  const accepted = await applicant.hub.acceptApplicationOffer(
+    { ...reference, offer_number: 1 },
+    { token: applicant.token, idempotencyKey: hubIdempotencyKey() },
   );
+  expect(accepted.status(), await accepted.text()).toBe(200);
 }
 
 function setOrgHome(world: World, tenant: TestTenant): void {
@@ -484,7 +514,7 @@ test("a Hub user applies to and withdraws from a remote Org, which shows only Hu
         "Remote Engineer",
       );
 
-      moveToStage(world, created, "in_pipeline");
+      await moveToStage(world, applicant, created, "in_pipeline");
       const detail = await applicant.hub.getMyApplication(
         created,
         applicant.token,
@@ -654,14 +684,16 @@ test("withdraw works from every state the applicant may leave", async ({
         "in_pipeline",
         "offered",
         "offer_accepted",
-      ]) {
+      ] as const) {
         const opening = await publish(world, `Engineer ${state}`);
         const created = await expectCreated(
           await apply(applicant, world.org.domain, opening.opening_number),
           world.org.domain,
           opening.opening_number,
         );
-        if (state !== "submitted") moveToStage(world, created, state);
+        if (state !== "submitted") {
+          await moveToStage(world, applicant, created, state);
+        }
         const withdrawn = await withdraw(applicant, created);
         expect(withdrawn.status(), `${state}: ${await withdrawn.text()}`).toBe(
           200,
@@ -676,14 +708,12 @@ test("withdraw works from every state the applicant may leave", async ({
         world.org.domain,
         terminal.opening_number,
       );
-      orgSQL(
-        `UPDATE vetchium.org_applications AS a
-       SET application_state = 'not_progressing'
-       FROM vetchium.org_openings AS o
-       WHERE o.org_opening_id = a.org_opening_id
-         AND o.org_did = ${sqlLiteral(world.did)}::uuid
-         AND o.opening_number = ${terminal.opening_number}`,
-      );
+      const ended = await world.api.markApplicationNotProgressing(world.owner, {
+        opening_number: terminal.opening_number,
+        application_number: created.application_number,
+        version: 1,
+      });
+      expect(ended.status(), await ended.text()).toBe(200);
       await expectProblem(
         await withdraw(applicant, created),
         409,
@@ -708,12 +738,12 @@ test("Openings that are not accepting, unknown ones, and suspended Orgs refuse a
       const [local, remote] = worlds as [World, World];
       for (const world of worlds) {
         const paused = await publish(world, "Paused Engineer");
-        orgSQL(
-          `UPDATE vetchium.org_openings SET opening_state = 'paused'
-         WHERE org_did = ${sqlLiteral(world.did)}::uuid
-           AND opening_number = ${paused.opening_number}`,
-          world.tenant,
-        );
+        const pause = await world.api.requestOpeningChange(world.owner, {
+          opening_number: paused.opening_number,
+          version: paused.version,
+          kind: "pause",
+        });
+        expect(pause.status(), await pause.text()).toBe(200);
         await expectProblem(
           await apply(applicant, world.org.domain, paused.opening_number),
           409,
@@ -726,12 +756,12 @@ test("Openings that are not accepting, unknown ones, and suspended Orgs refuse a
         );
       }
       const closed = await publish(local, "Closed Engineer");
-      orgSQL(
-        `UPDATE vetchium.org_openings
-       SET opening_state = 'closed', ended_at = now()
-       WHERE org_did = ${sqlLiteral(local.did)}::uuid
-         AND opening_number = ${closed.opening_number}`,
-      );
+      const close = await local.api.requestOpeningChange(local.owner, {
+        opening_number: closed.opening_number,
+        version: closed.version,
+        kind: "close",
+      });
+      expect(close.status(), await close.text()).toBe(200);
       await expectProblem(
         await apply(applicant, local.org.domain, closed.opening_number),
         409,

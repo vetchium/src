@@ -93,7 +93,8 @@ Original build plan (removed in 1123654): `git show 1123654^:.hiring-build/`.
       (`seedApplication(world, opening, {state, stageId, ...})` returns
       number, version, applicant; `cleanupApplicants(world)`).
       Done: orgs-applications, orgs-application-transitions,
-      application-interviews, application-offers.
+      application-interviews, application-offers, application-results,
+      hub-applications (application-retention needed nothing).
 - [ ] C2 Remove forged mesh events that stand in for real flows
       (messages-off, referral pointer); poll the real outbox delivery. Keep
       the origin-mismatch security test and the account-deleted receiver

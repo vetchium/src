@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 import type { OpeningContent } from "typespec/common/openings";
 import type {
@@ -9,6 +9,7 @@ import type {
 import type {
   ApplicationDetail,
   ApplicationHistoryEntry,
+  ApplicationState,
   ListApplicationHistoryResponse,
   ListApplicationsResponse,
 } from "typespec/orgs/applications/applications";
@@ -16,18 +17,23 @@ import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { expectProblem } from "../lib/admin-api.ts";
 import {
-  cleanupGlobalHubPrincipal,
-  cleanupHubUser,
   globalSQLScalar,
-  seedActiveHubUser,
-  seedGlobalHubPrincipal,
   sqlLiteral,
-  sqlScalarForTenant,
   type TestTenant,
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
-import { HubAPI, hubIdempotencyKey } from "../lib/hub-api.ts";
+import {
+  offerLetter,
+  type SeededApplication,
+  seedApplication,
+} from "../lib/hiring-seed.ts";
+import { hubIdempotencyKey } from "../lib/hub-api.ts";
+import {
+  type Applicant,
+  cleanupApplicant,
+  seedApplicant,
+} from "../lib/hub-applicant.ts";
 import {
   addOrgMember,
   cleanupOrg,
@@ -78,11 +84,13 @@ function cleanupOutbox(domain: string, tenant: TestTenant = "sgp"): void {
 }
 
 interface World {
+  request: APIRequestContext;
   tenant: TestTenant;
   api: OrgsAPI;
   org: SignedUpOrg;
   owner: string;
   did: string;
+  applicants: Applicant[];
 }
 
 async function newOrg(
@@ -92,10 +100,21 @@ async function newOrg(
   const api = new OrgsAPI(request, tenant);
   const org = await signupOrg(api);
   const owner = await loginOrg(api, org);
-  return { tenant, api, org, owner, did: orgDID(org.domain, tenant) };
+  return {
+    request,
+    tenant,
+    api,
+    org,
+    owner,
+    did: orgDID(org.domain, tenant),
+    applicants: [],
+  };
 }
 
 async function removeOrg(world: World): Promise<void> {
+  for (const applicant of world.applicants.splice(0)) {
+    cleanupApplicant(applicant, [world]);
+  }
   cleanupOutbox(world.org.domain, world.tenant);
   await deleteOrgVerificationRecord(world.org.domain);
   cleanupOrg(world.org.domain, world.tenant);
@@ -121,53 +140,35 @@ async function upgrade(world: World): Promise<void> {
   expect(upgraded.status(), await upgraded.text()).toBe(200);
 }
 
-/** Inserts an application from an unreachable fixture applicant in state,
- * at stageID when given, and returns its number. */
-function seedApplication(
-  domain: string,
+/** Applies through the Hub as a new applicant and walks the application to
+ * state, at stageID for a candidacy; returns its number. */
+async function seedAt(
+  world: World,
   openingNumber: number,
-  state: string,
+  state: ApplicationState,
   stageID?: string,
-): number {
-  const stage = stageID ? sqlLiteral(stageID) : "NULL";
-  return Number(
-    orgSQL(`
-    WITH o AS (
-      SELECT org_opening_id, org_did, next_application_number
-      FROM vetchium.org_openings
-      WHERE org_did = (SELECT org_did FROM vetchium.org_domains
-        WHERE domain = ${sqlLiteral(domain)})
-        AND opening_number = ${openingNumber}
-    ), applicant AS (
-      INSERT INTO vetchium.org_applicants
-        (org_applicant_id, org_did, applicant_kind, hub_user_did)
-      SELECT gen_random_uuid(), o.org_did, 'hub_user',
-        overlay(gen_random_uuid()::text placing '7' from 15)::uuid
-      FROM o RETURNING org_applicant_id
-    ), application AS (
-      INSERT INTO vetchium.org_applications (
-        org_application_id, org_opening_id, application_number,
-        org_applicant_id, application_state, snapshot, current_stage_id
-      )
-      SELECT gen_random_uuid(), o.org_opening_id, o.next_application_number,
-        applicant.org_applicant_id, ${sqlLiteral(state)},
-        jsonb_build_object('display_name', 'Ada Lovelace'::text,
-          'handle', 'abcd1234-0123456789a'::text,
-          'resident_country', 'GB'::text, 'websites', '[]'::jsonb,
-          'work_experiences', '[]'::jsonb, 'certifications', '[]'::jsonb,
-          'language_abilities', '[]'::jsonb,
-          'educational_qualifications', '[]'::jsonb),
-        ${stage}::uuid
-      FROM o, applicant
-      RETURNING application_number
-    ), counter AS (
-      UPDATE vetchium.org_openings
-      SET next_application_number = next_application_number + 1
-      WHERE org_opening_id IN (SELECT org_opening_id FROM o)
-      RETURNING org_opening_id
-    )
-    SELECT application_number FROM application
-      WHERE (SELECT count(*) FROM counter) = 1`),
+): Promise<number> {
+  return (await seedFor(world, openingNumber, state, stageID)).number;
+}
+
+async function seedFor(
+  world: World,
+  openingNumber: number,
+  state: ApplicationState,
+  stageID?: string,
+): Promise<SeededApplication> {
+  return seedApplication(
+    {
+      request: world.request,
+      tenant: world.tenant,
+      api: world.api,
+      owner: world.owner,
+      domain: world.org.domain,
+      did: world.did,
+      applicants: world.applicants,
+    },
+    openingNumber,
+    { name: "Ada Lovelace", state, ...(stageID ? { stageId: stageID } : {}) },
   );
 }
 
@@ -202,81 +203,6 @@ async function history(
 
 // The Hub side: a real applicant, so commands and projection events travel
 // between tenants.
-
-const ALIAS_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
-
-function randomAlias(): string {
-  let out = "e2e-";
-  for (const byte of randomBytes(20)) {
-    out += ALIAS_ALPHABET[byte % ALIAS_ALPHABET.length];
-  }
-  return out;
-}
-
-interface Applicant {
-  tenant: TestTenant;
-  email: string;
-  did: string;
-  token: string;
-  alias: string;
-  hub: HubAPI;
-}
-
-function seedApplicant(
-  request: APIRequestContext,
-  tenant: TestTenant,
-): Applicant {
-  const email = `e2e+${randomUUID()}@e2e-application-interviews.example.test`;
-  const seeded = seedActiveHubUser(tenant, email, "Ada Applicant");
-  const applicant: Applicant = {
-    tenant,
-    email,
-    did: seeded.hubUserDID,
-    token: seeded.sessionToken,
-    alias: randomAlias(),
-    hub: new HubAPI(request, tenant),
-  };
-  seedGlobalHubPrincipal(applicant.did, tenant, applicant.alias);
-  return applicant;
-}
-
-function cleanupApplicant(applicant: Applicant, worlds: World[]): void {
-  const did = sqlLiteral(applicant.did);
-  const commandIDs = sqlScalarForTenant(
-    applicant.tenant,
-    `SELECT coalesce(string_agg(quote_literal(command_id::text), ','), '')
-     FROM vetchium.federation_operations
-     WHERE owner_principal_type = 'hub_user' AND owner_principal_id = ${did}`,
-  );
-  for (const world of worlds) {
-    sqlScalarForTenant(
-      world.tenant,
-      `${
-        commandIDs === ""
-          ? ""
-          : `DELETE FROM vetchium.federation_command_ledger
-             WHERE command_id::text IN (${commandIDs});`
-      }
-       DELETE FROM vetchium.federation_outbox
-       WHERE destination_principal_did = ${did}::uuid;`,
-    );
-    sqlScalarForTenant(
-      applicant.tenant,
-      `DELETE FROM vetchium.audit_events
-       WHERE entity_type = 'federation_event' AND entity_id IN (
-         SELECT event_id::text FROM vetchium.federation_inbox
-         WHERE aggregate_type = 'org_application'
-           AND aggregate_id LIKE ${sqlLiteral(`${world.did}:%`)});
-       DELETE FROM vetchium.federation_inbox
-       WHERE aggregate_type = 'org_application'
-         AND aggregate_id LIKE ${sqlLiteral(`${world.did}:%`)};
-       DELETE FROM vetchium.federation_event_watermarks
-       WHERE destination_principal_did = ${did}::uuid;`,
-    );
-  }
-  cleanupGlobalHubPrincipal(applicant.did, applicant.alias);
-  cleanupHubUser(applicant.email, applicant.tenant);
-}
 
 async function withApplicant(
   request: APIRequestContext,
@@ -435,15 +361,17 @@ async function candidacyAt(
   stages: PipelineStage[],
   index: number,
 ): Promise<number> {
-  const application = seedApplication(world.org.domain, opening, "submitted");
-  const shortlist = await world.api.shortlistApplication(world.owner, {
-    opening_number: opening,
-    application_number: application,
-    version: 1,
-    stage_id: stageOf(stages, index).id,
-  });
-  expect(shortlist.status(), await shortlist.text()).toBe(200);
-  return application;
+  return (await candidacyFor(world, opening, stages, index)).number;
+}
+
+/** A candidacy shortlisted to the stage at index, with its applicant. */
+async function candidacyFor(
+  world: World,
+  opening: number,
+  stages: PipelineStage[],
+  index: number,
+): Promise<SeededApplication> {
+  return seedFor(world, opening, "in_pipeline", stageOf(stages, index).id);
 }
 
 function stageStatus(application: ApplicationDetail, index: number): string {
@@ -640,7 +568,7 @@ test("result writes refuse the wrong stage, state, version, reader, and caller",
     const atAssess = await candidacyAt(world, opening, stages, ASSESS);
     const atChecks = await candidacyAt(world, opening, stages, CHECKS);
     const atPanel = await candidacyAt(world, opening, stages, 2);
-    const submitted = seedApplication(org.domain, opening, "submitted");
+    const submitted = await seedAt(world, opening, "submitted");
 
     // The wrong stage kind or state.
     await expectProblem(
@@ -789,7 +717,17 @@ test("consent requests name valid check types, one active per stage, and gate re
   await withOrg(request, async (world) => {
     const { opening: published, stages } = await publishedOpening(world);
     const opening = published.opening_number;
-    const application = await candidacyAt(world, opening, stages, CHECKS);
+    const { number: application, applicant } = await candidacyFor(
+      world,
+      opening,
+      stages,
+      CHECKS,
+    );
+    const reference = {
+      domain: world.org.domain,
+      opening_number: opening,
+      application_number: application,
+    };
 
     for (const types of [[], ["astrology"], ["identity", "identity"]]) {
       await expectProblem(
@@ -845,21 +783,8 @@ test("consent requests name valid check types, one active per stage, and gate re
     ).toEqual([]);
 
     // The applicant declined: nothing completes and the Org may ask again.
-    const setState = (state: string, number: number) =>
-      orgSQL(
-        `UPDATE vetchium.org_background_checks AS b
-         SET consent_state = ${sqlLiteral(state)}::vetchium.org_consent_state,
-           responded_at = CASE WHEN ${sqlLiteral(state)} = 'ended'
-             THEN NULL ELSE now() END
-         FROM vetchium.org_applications AS a
-         JOIN vetchium.org_openings AS o USING (org_opening_id)
-         WHERE a.org_application_id = b.org_application_id
-           AND o.org_did = ${sqlLiteral(world.did)}::uuid
-           AND o.opening_number = ${opening}
-           AND a.application_number = ${application}
-           AND b.check_number = ${number}`,
-      );
-    setState("declined", 1);
+    const declined = await decline(applicant, reference, 1);
+    expect(declined.status(), await declined.text()).toBe(200);
     await expectProblem(
       await recordCheck(world, opening, application, {}),
       409,
@@ -874,7 +799,8 @@ test("consent requests name valid check types, one active per stage, and gate re
     expect(stageStatus(second, CHECKS)).toBe("pending");
 
     // Only consented types are recorded, each once; the last completes.
-    setState("given", 2);
+    const given = await give(applicant, reference, 2);
+    expect(given.status(), await given.text()).toBe(200);
     await expectProblem(
       await recordCheck(world, opening, application, {
         check_type: "identity",
@@ -989,13 +915,17 @@ test("leaving a stage or the pipeline ends a consent request awaiting an answer"
       expect(asked.status(), await asked.text()).toBe(200);
     }
     // An offer is extended from any stage and leaves the request open.
-    orgSQL(
-      `UPDATE vetchium.org_applications SET application_state = 'offered'
-       WHERE org_opening_id = (SELECT org_opening_id FROM vetchium.org_openings
-         WHERE org_did = ${sqlLiteral(world.did)}::uuid
-           AND opening_number = ${opening})
-         AND application_number = ${offered}`,
+    const letter = await world.api.uploadOfferLetter(
+      world.owner,
+      offerLetter(),
     );
+    expect(letter.status(), await letter.text()).toBe(201);
+    const offer = await world.api.extendApplicationOffer(world.owner, {
+      ...REFERENCE(opening, offered, await version(world, opening, offered)),
+      letter_id: ((await letter.json()) as { letter_id: string }).letter_id,
+      respond_within_days: 14,
+    });
+    expect(offer.status(), await offer.text()).toBe(200);
     expect(await states(offered)).toEqual(["requested"]);
 
     // Add a stage after Checks and move forward.
