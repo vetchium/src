@@ -798,12 +798,19 @@ test("a provider records background checks only after the applicant consents", a
       409,
       work.applicationState,
     );
-    // The applicant's answer is given in the client's tenant.
-    orgSQL(
-      `UPDATE vetchium.org_background_checks SET consent_state = 'given', responded_at = now()
-       WHERE performer_engagement_id = '${scene.engagement.id}'`,
-      "sgp",
+    // The applicant answers through the Hub.
+    const applicant = world.hiring.applicants.at(-1);
+    if (applicant === undefined) throw new Error("no applicant was seeded");
+    const consented = await applicant.hub.giveApplicationBackgroundCheckConsent(
+      {
+        domain: consumer.org.domain,
+        opening_number: opening.opening_number,
+        application_number: scene.application.application_number,
+        check_number: 1,
+      },
+      { token: applicant.token, idempotencyKey: hubIdempotencyKey() },
     );
+    expect(consented.status(), await consented.text()).toBe(200);
     expect((await itemOf(provider, "Ada Lovelace")).status).toBe("in_progress");
     await expectProblem(
       await provider.api.recordWorkBackgroundCheckResult(

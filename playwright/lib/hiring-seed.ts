@@ -14,6 +14,7 @@ import {
   seedApplicant,
 } from "./hub-applicant.ts";
 import type { OrgsAPI } from "./orgs-api.ts";
+import { utcDate } from "./orgs-applications.ts";
 
 // Applications are created the way they are in production: a Hub applicant
 // applies through the Hub API, and the Org's own APIs and the applicant's
@@ -42,6 +43,8 @@ export interface ApplicationOptions {
    * passes through the pipeline. */
   stageId?: string;
   coverNote?: string;
+  /** The agency the applicant names as referrer, by primary domain. */
+  referralAgencyDomain?: string;
   /** Where the applicant's account lives; the Org's tenant by default. */
   applicantTenant?: TestTenant;
   /** Moves the offer's extension this many days into the past, so a
@@ -66,13 +69,6 @@ export function offerLetter(note = randomUUID()): Buffer {
   return Buffer.from(
     `%PDF-1.4\n% ${note}\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n`,
   );
-}
-
-/** The UTC calendar date `days` from today. */
-export function utcDate(days: number): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
 }
 
 const candidacies: ReadonlySet<ApplicationState> = new Set([
@@ -102,7 +98,7 @@ export async function seedApplication(
     applicant,
     org.domain,
     openingNumber,
-    undefined,
+    options.referralAgencyDomain,
     options.coverNote,
   );
   const number = reference.application_number;
@@ -128,17 +124,22 @@ export async function seedApplication(
     state === "joined" ||
     state === "did_not_join"
   ) {
-    const uploaded = await org.api.uploadOfferLetter(org.owner, offerLetter());
-    expect(uploaded.status(), await uploaded.text()).toBe(201);
-    const { letter_id } = (await uploaded.json()) as { letter_id: string };
-    await step.byOrg((version) =>
-      org.api.extendApplicationOffer(org.owner, {
-        ...target,
-        version,
-        letter_id,
-        respond_within_days: 14,
-      }),
-    );
+    await serially(org, async () => {
+      const uploaded = await org.api.uploadOfferLetter(
+        org.owner,
+        offerLetter(),
+      );
+      expect(uploaded.status(), await uploaded.text()).toBe(201);
+      const { letter_id } = (await uploaded.json()) as { letter_id: string };
+      await step.byOrg((version) =>
+        org.api.extendApplicationOffer(org.owner, {
+          ...target,
+          version,
+          letter_id,
+          respond_within_days: 14,
+        }),
+      );
+    });
     // A joining date may not precede the offer, so a past one needs the
     // offer extended at least that long ago.
     const offerDaysAgo =
@@ -234,6 +235,20 @@ export async function seedApplication(
     version: step.wrote ? await step.version() : 1,
     applicant,
   };
+}
+
+// A user's next upload replaces the letter they uploaded before, so offers
+// seeded in parallel for one Org upload and extend one at a time.
+const offerQueues = new WeakMap<HiringOrg, Promise<unknown>>();
+
+async function serially(
+  org: HiringOrg,
+  work: () => Promise<void>,
+): Promise<void> {
+  const previous = offerQueues.get(org) ?? Promise.resolve();
+  const next = previous.catch(() => undefined).then(work);
+  offerQueues.set(org, next);
+  await next;
 }
 
 /** How many whole UTC days `date` (YYYY-MM-DD) lies before today. */

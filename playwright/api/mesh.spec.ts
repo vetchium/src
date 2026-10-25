@@ -1249,9 +1249,10 @@ test("mesh peer profile read reports the profile unavailable when the receiving 
   });
 });
 
-// Durable commands. No product command kind is registered yet, so a command
-// result is seeded into the authority's ledger exactly as its first execution
-// would store it; a delivery of that command then replays it.
+// Durable commands. These cover the transport alone, so they use a probe kind
+// no handler registers: a command result is seeded into the authority's
+// ledger exactly as a first execution would store it, and a delivery of that
+// command then replays it.
 
 const COMMAND_RELAY = "/mesh/commands/execute";
 const COMMAND_PEER = "/api/mesh/commands/execute";
@@ -1521,9 +1522,9 @@ test("mesh command peer replays stored results for the calling tenant and refuse
   }
 });
 
-// Outbox events. No product event kind is registered yet, so an inbox
-// receipt is seeded exactly as a first delivery would record it; a
-// redelivery of that event is then a duplicate.
+// Outbox events. These cover the transport alone, so they use a probe kind
+// no receiver registers: an inbox receipt is seeded exactly as a first
+// delivery would record it, and a redelivery of that event is a duplicate.
 
 const EVENT_RELAY = "/mesh/events/deliver";
 const EVENT_PEER = "/api/mesh/events/deliver";

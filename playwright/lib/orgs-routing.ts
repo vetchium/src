@@ -140,12 +140,16 @@ export async function candidate(
   world: World,
   stage: PipelineStage,
   name?: string,
+  referralAgencyDomain?: string,
 ): Promise<ApplicationDetail> {
   const { consumer } = world.pair;
   const number = await seedApplicationNumber(
     world.hiring,
     world.opening.opening_number,
-    name === undefined ? {} : { name },
+    {
+      ...(name !== undefined && { name }),
+      ...(referralAgencyDomain !== undefined && { referralAgencyDomain }),
+    },
   );
   return shortlist(
     consumer.api,

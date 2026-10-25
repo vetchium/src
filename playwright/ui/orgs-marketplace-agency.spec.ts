@@ -1,7 +1,12 @@
+import { sqlLiteral, sqlScalarForTenant } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { cleanupApplicant, seedApplicant } from "../lib/hub-applicant.ts";
-import { orgDID, orgSQL } from "../lib/orgs-api.ts";
-import { activate, asProvider } from "../lib/orgs-marketplace.ts";
+import { orgDID } from "../lib/orgs-api.ts";
+import {
+  activate,
+  asProvider,
+  awaitMessagesOff,
+} from "../lib/orgs-marketplace.ts";
 import { assign, withWorld } from "../lib/orgs-routing.ts";
 import { signIn } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
@@ -65,7 +70,8 @@ test("agency contact lifecycle: creates contact with note, starts conversation, 
 
       // Extract contact ID from URL
       const contactUrl = page.url();
-      const contactID = (contactUrl.split("/contacts/")[1] ?? "").split("?")[0];
+      const contactID =
+        (contactUrl.split("/contacts/")[1] ?? "").split("?")[0] ?? "";
       expect(contactID).toBeTruthy();
 
       // Verify contact is listed in Contacts table
@@ -180,10 +186,23 @@ test("agency contact lifecycle: creates contact with note, starts conversation, 
       await expect(tempNoteCard).toBeHidden();
 
       // 6. Messages-off state
-      orgSQL(
-        `UPDATE vetchium.org_contacts SET messages_off = true WHERE contact_id = '${contactID}'`,
-        provider.tenant,
+      await expect
+        .poll(
+          () =>
+            sqlScalarForTenant(
+              applicant.tenant,
+              `SELECT count(*)::text FROM vetchium.hub_agency_pointers
+               WHERE contact_id = ${sqlLiteral(contactID)}::uuid`,
+            ),
+          { timeout: 30_000 },
+        )
+        .toBe("1");
+      const switched = await applicant.hub.setAgenciesMayMessage(
+        applicant.token,
+        { agencies_may_message: false },
       );
+      expect(switched.status(), await switched.text()).toBe(204);
+      await awaitMessagesOff(provider.api, provider.owner, contactID, true);
       await page.reload();
 
       // Check warning message

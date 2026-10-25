@@ -5,14 +5,11 @@ import type {
 } from "typespec/orgs/marketplace/work/work";
 import { expectProblem } from "../lib/admin-api.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import {
-  apply,
-  cleanupApplicant,
-  seedApplicant,
-} from "../lib/hub-applicant.ts";
+import { seedApplication } from "../lib/hiring-seed.ts";
+import { hubIdempotencyKey } from "../lib/hub-api.ts";
 import { meshPeerRequest, meshRelayRequest } from "../lib/mesh.ts";
 import { orgDID, orgSQL, orgsIdempotencyKey } from "../lib/orgs-api.ts";
-import { utcDate } from "../lib/orgs-applications.ts";
+import { detailOf, utcDate } from "../lib/orgs-applications.ts";
 import { activate, asProvider } from "../lib/orgs-marketplace.ts";
 import { assign, candidate, routed, withWorld } from "../lib/orgs-routing.ts";
 
@@ -49,26 +46,21 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
     await asProvider(pair, sourcing.id, sourcing.version);
     await assign(world, sourcing.id);
 
-    const applicant1 = seedApplicant(request, consumer.tenant);
-    try {
-      const ref1 = await apply(
-        applicant1,
-        consumer.org.domain,
+    {
+      // The applicant names the agency and accepts an offer extended 10
+      // days ago, so the joining date may lie in the past.
+      const seeded = await seedApplication(
+        world.hiring,
         opening.opening_number,
-        provider.org.domain,
+        {
+          state: "offer_accepted",
+          stageId: world.final.id,
+          referralAgencyDomain: provider.org.domain,
+          offerExtendedDaysAgo: 10,
+        },
       );
-      expect(ref1.application_number).toBe(1);
-
-      // Move application to offer_accepted state to record joining
-      orgSQL(
-        `UPDATE vetchium.org_applications
-         SET application_state = 'offer_accepted',
-             current_stage_id = '${world.final.id}'::uuid,
-             offer_extended_at = now() - interval '10 days'
-         WHERE org_opening_id = (SELECT org_opening_id FROM vetchium.org_openings WHERE opening_number = ${opening.opening_number} AND org_did = '${orgDID(consumer.org.domain)}')
-           AND application_number = ${ref1.application_number}`,
-        consumer.tenant,
-      );
+      const ref1 = { application_number: seeded.number };
+      const v = (k: number) => seeded.version + k - 1;
 
       // Record joined
       const joinedRes = await consumer.api.recordApplicationJoined(
@@ -76,7 +68,7 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
         {
           opening_number: opening.opening_number,
           application_number: ref1.application_number,
-          version: 1,
+          version: v(1),
           joined_on: joinDate,
         },
         orgsIdempotencyKey(),
@@ -131,7 +123,7 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
         {
           opening_number: opening.opening_number,
           application_number: ref1.application_number,
-          version: 2,
+          version: v(2),
           joined_on: fixedJoinDate,
         },
         orgsIdempotencyKey(),
@@ -171,7 +163,7 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
         {
           opening_number: opening.opening_number,
           application_number: ref1.application_number,
-          version: 3,
+          version: v(3),
           separated_on: separationDate,
         },
         orgsIdempotencyKey(),
@@ -202,7 +194,7 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
         {
           opening_number: opening.opening_number,
           application_number: ref1.application_number,
-          version: 4,
+          version: v(4),
           separated_on: fixedSeparationDate,
         },
         orgsIdempotencyKey(),
@@ -253,26 +245,35 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
       // =======================================================================
       // 2. RETENTION: facts outlive applicant retention with numbers only (MKT-STM-004)
       // =======================================================================
-      // Simulate retention by clearing personal data and wiping display name on activity facts
+      // Retention runs 365 days after joined_on (HP-RET-001): move the
+      // application's dates back past it and let the job remove it.
       orgSQL(
         `UPDATE vetchium.org_applications AS a
-         SET snapshot = jsonb_build_object('display_name', 'Removed applicant'),
-             removed_at = now()
+         SET created_at = a.created_at - interval '400 days',
+           offer_extended_at = a.offer_extended_at - interval '400 days',
+           joined_on = a.joined_on - 400,
+           separated_on = a.separated_on - 400
          FROM vetchium.org_openings AS o
          WHERE o.org_opening_id = a.org_opening_id
            AND o.org_did = '${orgDID(consumer.org.domain)}'::uuid
            AND o.opening_number = ${opening.opening_number}
-           AND a.application_number = ${ref1.application_number};
-         UPDATE vetchium.org_activity_facts AS f
-         SET applicant_display_name = ''
-         FROM vetchium.org_openings AS o, vetchium.org_applications AS a
-         WHERE o.org_opening_id = a.org_opening_id
-           AND f.org_application_id = a.org_application_id
-           AND o.org_did = '${orgDID(consumer.org.domain)}'::uuid
-           AND o.opening_number = ${opening.opening_number}
-           AND a.application_number = ${ref1.application_number};`,
+           AND a.application_number = ${ref1.application_number}`,
         consumer.tenant,
       );
+      await expect
+        .poll(
+          async () =>
+            (
+              await detailOf(
+                consumer.api,
+                consumer.owner,
+                opening.opening_number,
+                ref1.application_number,
+              )
+            ).removed,
+          { timeout: 30_000 },
+        )
+        .toBe(true);
 
       const retainedStmtRes = await consumer.api.getEngagementStatement(
         consumer.owner,
@@ -300,12 +301,6 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
       const retainedProviderStmt =
         (await retainedProviderRes.json()) as GetActivityStatementResponse;
       expect(retainedProviderStmt.items).toEqual(retainedStmt.items);
-    } finally {
-      const consumerRef = {
-        tenant: consumer.tenant,
-        did: orgDID(consumer.org.domain, consumer.tenant),
-      };
-      cleanupApplicant(applicant1, [consumerRef]);
     }
 
     // =========================================================================
@@ -525,13 +520,19 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
       throw new Error("workItem3 not found");
     }
 
-    // Applicant gives consent
-    orgSQL(
-      `UPDATE vetchium.org_background_checks
-       SET consent_state = 'given', responded_at = now()
-       WHERE performer_engagement_id = '${bgCheck.id}'`,
-      consumer.tenant,
+    // The applicant gives consent through the Hub.
+    const checked = world.hiring.applicants.at(-1);
+    if (checked === undefined) throw new Error("no applicant was seeded");
+    const consented = await checked.hub.giveApplicationBackgroundCheckConsent(
+      {
+        domain: consumer.org.domain,
+        opening_number: opening.opening_number,
+        application_number: cand3.application_number,
+        check_number: 1,
+      },
+      { token: checked.token, idempotencyKey: hubIdempotencyKey() },
     );
+    expect(consented.status(), await consented.text()).toBe(200);
 
     // Provider records two check outcomes
     const bg1 = await provider.api.recordWorkBackgroundCheckResult(
@@ -587,18 +588,51 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
     // 4. MONTH BOUNDARIES & PAGINATION (MKT-STM-002, MKT-STM-003)
     // =========================================================================
 
-    // Insert fact for a different month directly to test month boundary isolation
+    // Pagination test on background check (2 items in current month, page with limit 1)
+    const page1Res = await consumer.api.getEngagementStatement(consumer.owner, {
+      engagement_id: bgCheck.id,
+      month: currentMonth,
+      limit: 1,
+    });
+    expect(page1Res.status()).toBe(200);
+    const page1 = (await page1Res.json()) as GetActivityStatementResponse;
+    expect(page1.items).toHaveLength(1);
+    expect(page1.next_pagination_key).toBeDefined();
+
+    const page2Res = await consumer.api.getEngagementStatement(consumer.owner, {
+      engagement_id: bgCheck.id,
+      month: currentMonth,
+      ...(page1.next_pagination_key
+        ? { pagination_key: page1.next_pagination_key }
+        : {}),
+      limit: 1,
+    });
+    expect(page2Res.status()).toBe(200);
+    const page2 = (await page2Res.json()) as GetActivityStatementResponse;
+    expect(page2.items).toHaveLength(1);
+    expect(page2.next_pagination_key).toBeUndefined();
+
+    // Verify pagination items match unpaginated items
+    expect([...page1.items, ...page2.items]).toEqual(bgConsumerStmt.items);
+
+    // Provider pages identically
+    const providerPage1Res = await provider.api.getClientEngagementStatement(
+      provider.owner,
+      {
+        engagement_id: bgCheck.id,
+        month: currentMonth,
+        limit: 1,
+      },
+    );
+    const providerPage1 =
+      (await providerPage1Res.json()) as GetActivityStatementResponse;
+    expect(providerPage1.items).toEqual(page1.items);
+
+    // An outcome dated in another month stays out of this one.
     orgSQL(
-      `INSERT INTO vetchium.org_activity_facts (
-         fact_id, org_did, engagement_id, org_application_id,
-         fact_date, fact_kind, reference_id, opening_number, opening_title,
-         application_number, applicant_display_name, corrected, recorded_at
-       ) VALUES (
-         gen_random_uuid(), '${orgDID(consumer.org.domain)}'::uuid, '${bgCheck.id}'::uuid,
-         (SELECT a.org_application_id FROM vetchium.org_applications AS a JOIN vetchium.org_openings AS o ON o.org_opening_id = a.org_opening_id WHERE a.application_number = ${cand3.application_number} AND o.org_did = '${orgDID(consumer.org.domain)}'::uuid),
-         '2025-01-15'::date, 'background_check_outcome', 'criminal', ${opening.opening_number},
-         '${openingTitle}', ${cand3.application_number}, 'Grace Hopper', false, now()
-       )`,
+      `UPDATE vetchium.org_activity_facts SET fact_date = '2025-01-15'
+       WHERE engagement_id = '${bgCheck.id}'::uuid
+         AND reference_id = 'education'`,
       consumer.tenant,
     );
 
@@ -612,7 +646,7 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
     );
     const bgCurrentMonth =
       (await bgCurrentMonthRes.json()) as GetActivityStatementResponse;
-    expect(bgCurrentMonth.items).toHaveLength(2);
+    expect(bgCurrentMonth.items).toHaveLength(1);
     expect(
       bgCurrentMonth.items.every((i) => i.date.startsWith(currentMonth)),
     ).toBe(true);
@@ -639,46 +673,6 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
     const bgProviderPastMonth =
       (await bgProviderPastMonthRes.json()) as GetActivityStatementResponse;
     expect(bgProviderPastMonth.items).toEqual(bgPastMonth.items);
-
-    // Pagination test on background check (2 items in current month, page with limit 1)
-    const page1Res = await consumer.api.getEngagementStatement(consumer.owner, {
-      engagement_id: bgCheck.id,
-      month: currentMonth,
-      limit: 1,
-    });
-    expect(page1Res.status()).toBe(200);
-    const page1 = (await page1Res.json()) as GetActivityStatementResponse;
-    expect(page1.items).toHaveLength(1);
-    expect(page1.next_pagination_key).toBeDefined();
-
-    const page2Res = await consumer.api.getEngagementStatement(consumer.owner, {
-      engagement_id: bgCheck.id,
-      month: currentMonth,
-      ...(page1.next_pagination_key
-        ? { pagination_key: page1.next_pagination_key }
-        : {}),
-      limit: 1,
-    });
-    expect(page2Res.status()).toBe(200);
-    const page2 = (await page2Res.json()) as GetActivityStatementResponse;
-    expect(page2.items).toHaveLength(1);
-    expect(page2.next_pagination_key).toBeUndefined();
-
-    // Verify pagination items match unpaginated items
-    expect([...page1.items, ...page2.items]).toEqual(bgCurrentMonth.items);
-
-    // Provider pages identically
-    const providerPage1Res = await provider.api.getClientEngagementStatement(
-      provider.owner,
-      {
-        engagement_id: bgCheck.id,
-        month: currentMonth,
-        limit: 1,
-      },
-    );
-    const providerPage1 =
-      (await providerPage1Res.json()) as GetActivityStatementResponse;
-    expect(providerPage1.items).toEqual(page1.items);
 
     // Tampered pagination key
     const tamperedKeyRes = await consumer.api.getEngagementStatement(

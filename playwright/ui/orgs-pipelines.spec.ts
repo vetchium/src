@@ -4,9 +4,10 @@ import type {
   PipelineTemplate,
 } from "typespec/orgs/hiring/pipelines";
 import type { OrgOpening } from "typespec/orgs/openings/types";
-import { sqlLiteral } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { addOrgMember, type OrgsAPI, orgSQL } from "../lib/orgs-api.ts";
+import { seedApplication } from "../lib/hiring-seed.ts";
+import { addOrgMember, type OrgsAPI } from "../lib/orgs-api.ts";
+import { openingContent } from "../lib/orgs-applications.ts";
 import { signIn, withOrg } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 
@@ -46,43 +47,6 @@ async function pipelineOf(api: OrgsAPI, token: string, number: number) {
     version: number;
     stages: PipelineStage[];
   };
-}
-
-/** Puts an application at a stage the way hub-apply and shortlisting would. */
-function seedCandidacy(domain: string, openingNumber: number, stageId: string) {
-  orgSQL(`
-    WITH o AS (
-      SELECT org_opening_id, org_did, next_application_number
-      FROM vetchium.org_openings
-      WHERE org_did = (SELECT org_did FROM vetchium.org_domains WHERE domain = ${sqlLiteral(domain)}) AND opening_number = ${openingNumber}
-    ), applicant AS (
-      INSERT INTO vetchium.org_applicants
-        (org_applicant_id, org_did, applicant_kind, hub_user_did)
-      SELECT gen_random_uuid(), o.org_did, 'hub_user', gen_random_uuid()
-      FROM o RETURNING org_applicant_id
-    ), application AS (
-      INSERT INTO vetchium.org_applications (
-        org_application_id, org_opening_id, application_number,
-        org_applicant_id, application_state, snapshot, current_stage_id
-      )
-      SELECT gen_random_uuid(), o.org_opening_id, o.next_application_number,
-        applicant.org_applicant_id, 'in_pipeline',
-        jsonb_build_object('display_name', 'Ada Lovelace'::text,
-          'handle', 'abcd1234-0123456789a'::text,
-          'resident_country', 'GB'::text, 'biography', 'Hello'::text,
-          'websites', '[]'::jsonb, 'work_experiences', '[]'::jsonb,
-          'certifications', '[]'::jsonb, 'language_abilities', '[]'::jsonb,
-          'educational_qualifications', '[]'::jsonb),
-        ${sqlLiteral(stageId)}::uuid
-      FROM o, applicant
-      RETURNING org_application_id
-    ), counter AS (
-      UPDATE vetchium.org_openings
-      SET next_application_number = next_application_number + 1
-      WHERE org_opening_id IN (SELECT org_opening_id FROM o)
-      RETURNING org_opening_id
-    )
-    SELECT count(*) FROM application, counter`);
 }
 
 async function chooseKind(page: Page, stage: number, kind: string) {
@@ -357,16 +321,33 @@ test("removing a stage that holds a candidate is explained beside the stage", as
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const template = await createTemplate(api, owner, "Two stages", [
       { name: "Screen", kind: "review" },
       { name: "Panel", kind: "interview" },
     ]);
-    const opening = await createOpening(api, owner, template.id);
+    const created = await api.createOpening(owner, {
+      content: openingContent("Pipeline engineer"),
+      hiring_manager_email: org.emailAddress,
+      recruiter_email: org.emailAddress,
+      team_member_emails: [],
+      pipeline_template_id: template.id,
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const opening = (await created.json()) as OrgOpening;
+    const published = await api.requestOpeningChange(owner, {
+      opening_number: opening.opening_number,
+      version: opening.version,
+      kind: "publish",
+    });
+    expect(published.status(), await published.text()).toBe(200);
     const before = await pipelineOf(api, owner, opening.opening_number);
     const panel = before.stages[1];
     if (!panel) throw new Error("expected two stages");
-    seedCandidacy(org.domain, opening.opening_number, panel.id);
+    await seedApplication(world, opening.opening_number, {
+      state: "in_pipeline",
+      stageId: panel.id,
+    });
 
     await signIn(page, org);
     await page.goto(

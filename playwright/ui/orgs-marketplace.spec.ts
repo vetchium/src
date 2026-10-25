@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { orgDID, orgSQL } from "../lib/orgs-api.ts";
 import { activate, withPair } from "../lib/orgs-marketplace.ts";
 import { assign, candidate, withWorld } from "../lib/orgs-routing.ts";
 import { signIn } from "../lib/orgs-ui.ts";
@@ -172,21 +171,12 @@ test("routes an application to a stage provider and displays attribution", async
     await assign(world, sourcing.id);
     await assign(world, interview.id, world.panel);
 
-    const appDetail = await candidate(world, world.panel, "Katherine Johnson");
-
-    // Set credited agency on candidate application
-    orgSQL(
-      `UPDATE vetchium.org_applications
-       SET credited_engagement_id = '${sourcing.id}'::uuid,
-           referral_route = 'declared'
-       WHERE org_application_id = (
-         SELECT a.org_application_id FROM vetchium.org_applications AS a
-         JOIN vetchium.org_openings AS o USING (org_opening_id)
-         WHERE o.opening_number = ${world.opening.opening_number}
-           AND o.org_did = '${orgDID(world.pair.consumer.org.domain, world.pair.consumer.tenant)}'::uuid
-           AND a.application_number = ${appDetail.application_number}
-       )`,
-      world.pair.consumer.tenant,
+    // The applicant names the sourcing agency when applying.
+    const appDetail = await candidate(
+      world,
+      world.panel,
+      "Katherine Johnson",
+      world.pair.provider.org.domain,
     );
 
     await signIn(page, world.pair.consumer.org);

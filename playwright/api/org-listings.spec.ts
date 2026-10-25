@@ -1,11 +1,9 @@
-import { randomUUID } from "node:crypto";
 import type {
   Listing,
   ListingDetail,
   SearchListingsRequest,
 } from "typespec/orgs/marketplace/listings";
 import { expectProblem } from "../lib/admin-api.ts";
-import { globalSQLScalar } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { makePNG } from "../lib/logo-fixtures.ts";
 import { meshPeerRequest, meshRelayRequest } from "../lib/mesh.ts";
@@ -14,6 +12,7 @@ import {
   inviteeAddress,
   OrgsAPI,
   orgAuditEventsByKey,
+  orgDID,
   orgSQL,
   orgsIdempotencyKey,
 } from "../lib/orgs-api.ts";
@@ -28,6 +27,7 @@ import {
   problems,
   published,
   search,
+  setOrgHome,
   unique,
   withProvider,
 } from "../lib/orgs-marketplace.ts";
@@ -1197,29 +1197,26 @@ test("Listing detail reads local and remote providers", async ({ request }) => {
 test("Listing detail names a provider whose tenant does not answer", async ({
   request,
 }) => {
-  const domain = `${unique()}.example.com`;
-  const did = `01900000-0000-7000-8000-${randomUUID().slice(-12)}`;
-  globalSQLScalar(
-    `INSERT INTO vetchium.org_principals (
-       org_did, home_tenant_id, state, provisioning_operation_id, activated_at
-     ) VALUES ('${did}', 'gone', 'active', '${randomUUID()}', now());
-     INSERT INTO vetchium.org_domains (domain, org_did)
-     VALUES ('${domain}', '${did}')`,
+  await withProvider(
+    request,
+    async (remote) => {
+      await published(remote.api, remote.owner, listing("sourcing", "S"));
+      const did = orgDID(remote.org.domain, "deu");
+      setOrgHome(did, "gone");
+      try {
+        await withProvider(request, async ({ api, owner }) => {
+          const response = await api.getListing(owner, {
+            domain: remote.org.domain,
+            capability: "sourcing",
+          });
+          await expectProblem(response, 503, problems.unavailable);
+        });
+      } finally {
+        setOrgHome(did, "deu");
+      }
+    },
+    { tenant: "deu" },
   );
-  try {
-    await withProvider(request, async ({ api, owner }) => {
-      const response = await api.getListing(owner, {
-        domain,
-        capability: "sourcing",
-      });
-      await expectProblem(response, 503, problems.unavailable);
-    });
-  } finally {
-    globalSQLScalar(
-      `DELETE FROM vetchium.org_domains WHERE org_did = '${did}';
-       DELETE FROM vetchium.org_principals WHERE org_did = '${did}'`,
-    );
-  }
 });
 
 test("a provider's logo reaches search and detail only when its plan allows one", async ({

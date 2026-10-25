@@ -1,15 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { DeliverEventRequest } from "typespec/federation/events";
 import {
-  AgencyContactMessagesAggregate,
   HubAccountAggregate,
   HubAccountDeletedKind,
-  HubAgencyMessagesChangedKind,
 } from "typespec/federation/marketplace";
 import type {
   AddedNote,
   AgencyProfile,
-  Contact,
   ContactNote,
   DeletedNote,
   ListContactNotesResponse,
@@ -17,7 +14,11 @@ import type {
 import { expectProblem } from "../lib/admin-api.ts";
 import { sqlLiteral, sqlScalarForTenant } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { cleanupApplicant, seedApplicant } from "../lib/hub-applicant.ts";
+import {
+  cleanupApplicant,
+  seedApplicant,
+  verifyProfessionalEmail,
+} from "../lib/hub-applicant.ts";
 import { meshPeerRequest } from "../lib/mesh.ts";
 import {
   addOrgMember,
@@ -27,7 +28,12 @@ import {
   orgSQL,
   orgsIdempotencyKey,
 } from "../lib/orgs-api.ts";
-import { listing, published, withProvider } from "../lib/orgs-marketplace.ts";
+import {
+  awaitMessagesOff,
+  listing,
+  published,
+  withProvider,
+} from "../lib/orgs-marketplace.ts";
 
 const BASE = "vetchium-problem-details/";
 const PROBLEMS = {
@@ -58,18 +64,12 @@ test("agency profile view fields, verified domains, refusals, and mesh remote re
     const orgDid = orgDID(provider.org.domain, provider.tenant);
 
     try {
-      // Seed a verified professional domain on the applicant
-      sqlScalarForTenant(
-        applicant.tenant,
-        `INSERT INTO vetchium.hub_professional_emails (
-           hub_user_did, domain, email_address, first_verified_at, last_verified_at
-         ) VALUES (
-           ${sqlLiteral(applicant.did)}::uuid,
-           'engineering.acme.test',
-           ${sqlLiteral(`ada@engineering.acme.test`)},
-           '2024-03-15T12:00:00Z',
-           '2025-08-20T18:30:00Z'
-         ) ON CONFLICT DO NOTHING;`,
+      const localPart = `ada-${randomUUID()}`;
+      await verifyProfessionalEmail(
+        applicant,
+        `${localPart}@engineering.acme.test`,
+        "2024-03-15T12:00:00Z",
+        "2025-08-20T18:30:00Z",
       );
 
       // View by alias
@@ -90,7 +90,7 @@ test("agency profile view fields, verified domains, refusals, and mesh remote re
         },
       ]);
       // Verify no email address or timestamp leaked
-      expect(JSON.stringify(profile)).not.toContain("ada@");
+      expect(JSON.stringify(profile)).not.toContain(localPart);
       expect(JSON.stringify(profile)).not.toContain("12:00:00");
 
       // View by handle
@@ -417,18 +417,23 @@ test("caps on daily contact creations and notes per contact", async ({
         provider.tenant,
       );
 
-      // Insert 199 additional notes in DB to reach 200 notes
-      orgSQL(
-        `INSERT INTO vetchium.org_contact_notes (note_id, contact_id, author_id, note_text, created_at)
-         SELECT
-           (substring(gen_random_uuid()::text, 1, 14) || '7' || substring(gen_random_uuid()::text, 16))::uuid,
-           '${contactID}',
-           (SELECT org_user_id FROM vetchium.org_users WHERE org_did = '${orgDid}' LIMIT 1),
-           'Bulk dummy note ' || s,
-           now() - interval '1 second' * s
-         FROM generate_series(1, 199) AS s`,
-        provider.tenant,
-      );
+      // 199 more notes reach the cap of 200.
+      for (let start = 1; start <= 199; start += 20) {
+        const batch = Array.from(
+          { length: Math.min(20, 200 - start) },
+          (_, index) => start + index,
+        );
+        for (const response of await Promise.all(
+          batch.map((n) =>
+            provider.api.addContactNote(provider.owner, {
+              contact_id: contactID,
+              text: `Bulk note ${n}`,
+            }),
+          ),
+        )) {
+          expect(response.status(), await response.text()).toBe(200);
+        }
+      }
 
       // 201st note fails with note limit reached
       const noteCapReached = await provider.api.addContactNote(provider.owner, {
@@ -545,7 +550,7 @@ test("contact retention worker removes contacts inactive for 730 days and prunes
   });
 });
 
-test("notice receivers: hub-agency-messages-changed and hub-account-deleted", async ({
+test("the agency-messages switch reaches the agency, and hub-account-deleted removes contacts", async ({
   request,
   apiCoverage,
 }) => {
@@ -567,39 +572,25 @@ test("notice receivers: hub-agency-messages-changed and hub-account-deleted", as
       expect(added.status(), await added.text()).toBe(200);
       const contactID = ((await added.json()) as AddedNote).contact.contact_id;
 
-      // 1. Test hub-agency-messages-changed via mesh peer delivery
-      const messagesEvent: DeliverEventRequest = {
-        event_id: randomUUID(),
-        kind: HubAgencyMessagesChangedKind,
-        destination_principal_type: "org",
-        destination_principal_did: orgDid,
-        aggregate_type: AgencyContactMessagesAggregate,
-        aggregate_id: contactID,
-        aggregate_version: 2,
-        payload: {
-          contact_id: contactID,
-          hub_user_did: applicant.did,
-          messages_off: true,
-        },
-      };
-      const messagesDelivered = meshPeerRequest(
-        applicant.tenant,
-        provider.tenant,
-        messagesEvent,
-        apiCoverage,
-        { path: "/api/mesh/events/deliver" },
+      // 1. The person's agency-messages switch reaches the agency once the
+      // Hub tenant holds the agency's pointer.
+      await expect
+        .poll(
+          () =>
+            sqlScalarForTenant(
+              applicant.tenant,
+              `SELECT count(*)::text FROM vetchium.hub_agency_pointers
+               WHERE contact_id = ${sqlLiteral(contactID)}::uuid`,
+            ),
+          { timeout: 30_000 },
+        )
+        .toBe("1");
+      const switched = await applicant.hub.setAgenciesMayMessage(
+        applicant.token,
+        { agencies_may_message: false },
       );
-      expect(
-        messagesDelivered.status,
-        JSON.stringify(messagesDelivered.body),
-      ).toBe(200);
-      expect(messagesDelivered.body).toEqual({ outcome: "applied" });
-
-      const updated = await provider.api.getContact(provider.owner, {
-        contact_id: contactID,
-      });
-      expect(updated.status(), await updated.text()).toBe(200);
-      expect(((await updated.json()) as Contact).messages_off).toBe(true);
+      expect(switched.status(), await switched.text()).toBe(204);
+      await awaitMessagesOff(provider.api, provider.owner, contactID, true);
 
       // 2. Test hub-account-deleted via mesh peer delivery
       const accountDeletedEvent: DeliverEventRequest = {

@@ -43,6 +43,7 @@ import {
   orgDIDSQL,
   publishedOpening,
   reread,
+  utcDate,
 } from "../lib/orgs-applications.ts";
 
 type Api = OrgsAPI;
@@ -94,13 +95,6 @@ async function seed(
   options: ApplicationOptions = {},
 ): Promise<number> {
   return (await seedApplication(world, openingNumber, options)).number;
-}
-
-/** UTC calendar date `days` from today, as the API reads dates. */
-function utcDate(days: number): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
 }
 
 function stageOf(stages: PipelineStage[], index: number): PipelineStage {
@@ -958,8 +952,13 @@ test("who may act: manager, recruiter, and candidacies holders act; team members
     });
     expect(team.status(), await team.text()).toBe(200);
 
+    // One fresh application per attempt, seeded up front in parallel.
+    const fresh = await Promise.all(
+      Array.from({ length: 10 }, () => seed(world, n)),
+    );
     const attempt = async (token: string) => {
-      const number = await seed(world, n);
+      const number = fresh.shift();
+      if (number === undefined) throw new Error("seed more applications");
       const response = await api.markApplicationNotProgressing(token, {
         opening_number: n,
         application_number: number,
@@ -1118,35 +1117,22 @@ test("application write routes authenticate, validate, and refuse suspended Orgs
 
 /** Seeds one application per state a close can reach or must leave alone. */
 async function seedMixed(world: HiringOrg, n: number, stageId: string) {
-  return {
-    submitted: await seed(world, n, { name: "Submitted" }),
-    inPipeline: await seed(world, n, {
-      name: "In Pipeline",
-      state: "in_pipeline",
-      stageId,
-    }),
-    offered: await seed(world, n, {
-      name: "Offered",
-      state: "offered",
-      stageId,
-    }),
-    offerAccepted: await seed(world, n, {
-      name: "Accepted",
-      state: "offer_accepted",
-      stageId,
-    }),
-    joined: await seed(world, n, {
-      name: "Joined",
-      state: "joined",
-      stageId,
-      offerExtendedDaysAgo: 6,
-      joinedOn: utcDate(-5),
-    }),
-    withdrawn: await seed(world, n, {
-      name: "Withdrawn",
-      state: "withdrawn",
-    }),
-  };
+  const [submitted, inPipeline, offered, offerAccepted, joined, withdrawn] =
+    await Promise.all([
+      seed(world, n, { name: "Submitted" }),
+      seed(world, n, { name: "In Pipeline", state: "in_pipeline", stageId }),
+      seed(world, n, { name: "Offered", state: "offered", stageId }),
+      seed(world, n, { name: "Accepted", state: "offer_accepted", stageId }),
+      seed(world, n, {
+        name: "Joined",
+        state: "joined",
+        stageId,
+        offerExtendedDaysAgo: 6,
+        joinedOn: utcDate(-5),
+      }),
+      seed(world, n, { name: "Withdrawn", state: "withdrawn" }),
+    ]);
+  return { submitted, inPipeline, offered, offerAccepted, joined, withdrawn };
 }
 
 async function states(

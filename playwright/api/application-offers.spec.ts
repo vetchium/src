@@ -26,7 +26,11 @@ import {
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
-import { type SeededApplication, seedApplication } from "../lib/hiring-seed.ts";
+import {
+  offerLetter,
+  type SeededApplication,
+  seedApplication,
+} from "../lib/hiring-seed.ts";
 import { hubIdempotencyKey } from "../lib/hub-api.ts";
 import {
   type Applicant,
@@ -45,6 +49,7 @@ import {
   type SignedUpOrg,
   signupOrg,
 } from "../lib/orgs-api.ts";
+import { utcDate } from "../lib/orgs-applications.ts";
 
 const PREFIX = "vetchium-problem-details/";
 const LETTER_INVALID = `${PREFIX}org-offer-letter-invalid`;
@@ -59,19 +64,6 @@ const VALIDATION = `${PREFIX}validation-failed`;
 const HUB_STATE_CONFLICT = `${PREFIX}hub-application-state-conflict`;
 const HUB_NOT_FOUND = `${PREFIX}hub-application-not-found`;
 const MAX_LETTER = 5 * 1024 * 1024;
-
-/** A distinct, minimal PDF the API accepts. */
-function pdf(note = randomUUID()): Buffer {
-  return Buffer.from(
-    `%PDF-1.4\n% ${note}\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n`,
-  );
-}
-
-function utcDate(days: number): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
 
 function content(title: string): OpeningContent {
   return {
@@ -256,7 +248,7 @@ async function history(
 
 async function upload(
   world: World,
-  letter: Buffer = pdf(),
+  letter: Buffer = offerLetter(),
   token = world.owner,
 ): Promise<string> {
   const response = await world.api.uploadOfferLetter(token, letter);
@@ -301,7 +293,7 @@ test("upload-offer-letter stores only a PDF of at most 5 MiB, idempotently", asy
   await withOrg(request, async (world) => {
     await publishedOpening(world);
     const { api, owner } = world;
-    const letter = pdf();
+    const letter = offerLetter();
     const key = orgsIdempotencyKey();
     const first = await api.uploadOfferLetter(owner, letter, undefined, key);
     expect(first.status(), await first.text()).toBe(201);
@@ -313,7 +305,7 @@ test("upload-offer-letter stores only a PDF of at most 5 MiB, idempotently", asy
     expect(replay.status(), await replay.text()).toBe(201);
     expect(await replay.json()).toEqual(uploaded);
     await expectProblem(
-      await api.uploadOfferLetter(owner, pdf(), undefined, key),
+      await api.uploadOfferLetter(owner, offerLetter(), undefined, key),
       409,
       KEY_CONFLICT,
     );
@@ -403,12 +395,12 @@ test("only a user who acts on some Opening's applications uploads letters", asyn
     await publishedOpening(world, [teammate.emailAddress]);
     for (const token of [teammate.token, viewer.token]) {
       await expectProblem(
-        await api.uploadOfferLetter(token, pdf()),
+        await api.uploadOfferLetter(token, offerLetter()),
         403,
         PERMISSION_REQUIRED,
       );
     }
-    await upload(world, pdf(), candidacies.token);
+    await upload(world, offerLetter(), candidacies.token);
 
     orgSQL(
       `UPDATE vetchium.orgs SET org_state = 'suspended',
@@ -416,7 +408,7 @@ test("only a user who acts on some Opening's applications uploads letters", asyn
        WHERE org_did = ${sqlLiteral(world.did)}::uuid`,
     );
     await expectProblem(
-      await api.uploadOfferLetter(owner, pdf()),
+      await api.uploadOfferLetter(owner, offerLetter()),
       403,
       `${PREFIX}org-suspended`,
     );
@@ -428,7 +420,7 @@ test("an upload superseded after its bytes were stored is a conflict on retry", 
 }) => {
   await withOrg(request, async (world) => {
     await publishedOpening(world);
-    const letter = pdf();
+    const letter = offerLetter();
     const key = orgsIdempotencyKey();
     const first = await world.api.uploadOfferLetter(
       world.owner,
@@ -468,7 +460,7 @@ test("an offer extends from any stage, withdraws to the same stage, and keeps ev
     for (const index of [0, 1, 2]) {
       const stage = stageOf(stages, index);
       const number = await seedAt(world, n, "in_pipeline", stage.id);
-      const letter = pdf();
+      const letter = offerLetter();
       const before = Date.now();
       const offered = await extend(world, n, number, {
         letter,
@@ -505,7 +497,7 @@ test("an offer extends from any stage, withdraws to the same stage, and keeps ev
     // Withdrawing returns the candidacy to its stage; the letter stays.
     const stage = stageOf(stages, 1);
     const number = await seedAt(world, n, "in_pipeline", stage.id);
-    const first = pdf();
+    const first = offerLetter();
     await extend(world, n, number, { letter: first, version: SHORTLISTED });
     const key = orgsIdempotencyKey();
     const withdrawRequest = {
@@ -544,7 +536,7 @@ test("an offer extends from any stage, withdraws to the same stage, and keeps ev
     });
 
     // A new offer gets the next number, newest first.
-    const second = pdf();
+    const second = offerLetter();
     const reoffered = await extend(world, n, number, { letter: second });
     expect(reoffered.offers.map((offer) => offer.offer_number)).toEqual([2, 1]);
     expect(reoffered.offers.map((offer) => offer.status)).toEqual([
@@ -667,7 +659,7 @@ test("extend-application-offer refuses states, versions, readers, dates, and let
       ["letter_id"],
     );
     // Another user's letter is not the caller's to claim.
-    const othersLetter = await upload(world, pdf(), candidacies.token);
+    const othersLetter = await upload(world, offerLetter(), candidacies.token);
     await expectProblem(
       await api.extendApplicationOffer(
         owner,
@@ -678,7 +670,7 @@ test("extend-application-offer refuses states, versions, readers, dates, and let
       ["letter_id"],
     );
     // A letter past its claim window is gone.
-    const expired = await upload(world, pdf(), candidacies.token);
+    const expired = await upload(world, offerLetter(), candidacies.token);
     orgSQL(
       `UPDATE vetchium.org_offer_letter_objects
        SET upload_expires_at = now() - interval '1 second'
@@ -954,7 +946,7 @@ test("a local applicant reads the offer and its letter, then accepts it once", a
   test.setTimeout(120_000);
   await withApplicant(request, "sgp", "sgp", async (applicant, world) => {
     const { reference, opening } = await shortlisted(applicant, world);
-    const letter = pdf();
+    const letter = offerLetter();
     await extend(world, opening, reference.application_number, { letter });
 
     const read = await myApplication(applicant, reference);
@@ -1017,7 +1009,7 @@ test("an applicant in another region declines, opening the letter from the Org's
   test.setTimeout(120_000);
   await withApplicant(request, "usa1", "sgp", async (applicant, world) => {
     const { reference, opening } = await shortlisted(applicant, world);
-    const letter = pdf();
+    const letter = offerLetter();
     await extend(world, opening, reference.application_number, { letter });
     const read = await myApplication(applicant, reference);
     expect(new URL(read.offer?.letter_url ?? "").host).toContain("sgp");

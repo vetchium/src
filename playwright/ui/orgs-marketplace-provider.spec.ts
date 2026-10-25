@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "../lib/admin-fixtures.ts";
+import { hubIdempotencyKey } from "../lib/hub-api.ts";
 import { orgSQL } from "../lib/orgs-api.ts";
 import {
   activate,
@@ -305,12 +306,19 @@ test("records a background check outcome on routed work once consent is given", 
       page.getByText("Awaiting candidate consent", { exact: false }),
     ).toBeVisible();
 
-    // Candidate gives consent in consumer DB
-    orgSQL(
-      `UPDATE vetchium.org_background_checks SET consent_state = 'given', responded_at = now()
-       WHERE performer_engagement_id = '${bgCheck.id}'`,
-      world.pair.consumer.tenant,
+    // The candidate gives consent through the Hub.
+    const applicant = world.hiring.applicants.at(-1);
+    if (applicant === undefined) throw new Error("no applicant was seeded");
+    const consented = await applicant.hub.giveApplicationBackgroundCheckConsent(
+      {
+        domain: world.pair.consumer.org.domain,
+        opening_number: world.opening.opening_number,
+        application_number: appDetail.application_number,
+        check_number: 1,
+      },
+      { token: applicant.token, idempotencyKey: hubIdempotencyKey() },
     );
+    expect(consented.status(), await consented.text()).toBe(200);
 
     // Reload work item page to see live update from consumer
     await page.reload();

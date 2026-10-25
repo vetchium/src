@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { expect } from "@playwright/test";
+import type { ListConversationsResponse } from "typespec/hub/messages/messages";
 import type { MyInfoResponse } from "typespec/orgs/account/account";
 import type { Capability } from "typespec/orgs/marketplace/capabilities";
+import type { Contact } from "typespec/orgs/marketplace/contacts/contacts";
 import type { Engagement } from "typespec/orgs/marketplace/engagements";
 import type {
   CreateListingRequest,
@@ -10,6 +12,7 @@ import type {
 } from "typespec/orgs/marketplace/listings";
 import { globalSQLScalar, sqlLiteral, type TestTenant } from "./admin-db.ts";
 import { deleteOrgVerificationRecord } from "./dev-dns.ts";
+import type { Applicant } from "./hub-applicant.ts";
 import {
   cleanupOrg,
   loginOrg,
@@ -325,4 +328,45 @@ export async function activate(
   );
   expect(accepted.status(), await accepted.text()).toBe(200);
   return asConsumer(pair, proposed.id);
+}
+
+/** Waits until the agency's Contact shows the person's agency-messages
+ * switch, which reaches the agency tenant through the outbox. */
+export async function awaitMessagesOff(
+  api: OrgsAPI,
+  token: string,
+  contactID: string,
+  off: boolean,
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const response = await api.getContact(token, { contact_id: contactID });
+        return response.status() === 200
+          ? ((await response.json()) as Contact).messages_off
+          : undefined;
+      },
+      { timeout: 30_000, intervals: [250, 500, 1000] },
+    )
+    .toBe(off);
+}
+
+/** Waits until the agency's pointer for `contactID` reached the person's
+ * Hub tenant, so the person's conversation list shows the agency. */
+export async function awaitHubPointer(
+  applicant: Applicant,
+  contactID: string,
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const response = await applicant.hub.listConversations(applicant.token);
+        if (response.status() !== 200) return false;
+        return (
+          (await response.json()) as ListConversationsResponse
+        ).items.some((item) => item.contact_id === contactID);
+      },
+      { timeout: 30_000, intervals: [250, 500, 1000] },
+    )
+    .toBe(true);
 }

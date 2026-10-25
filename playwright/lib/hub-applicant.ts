@@ -5,6 +5,10 @@ import type {
   ApplicationReference,
   MyApplicationDetail,
 } from "typespec/hub/applications/applications";
+import type {
+  ProfessionalEmail,
+  ProfessionalEmailChallenge,
+} from "typespec/hub/profile/professional_email";
 import {
   cleanupGlobalHubPrincipal,
   cleanupHubUser,
@@ -14,7 +18,7 @@ import {
   sqlScalarForTenant,
   type TestTenant,
 } from "./admin-db.ts";
-import { HubAPI, hubIdempotencyKey } from "./hub-api.ts";
+import { HubAPI, hubIdempotencyKey, MAILPIT_ORIGIN } from "./hub-api.ts";
 
 // A real Hub applicant, so applications, commands, and projection events
 // travel between the applicant's tenant and the Org's.
@@ -146,4 +150,59 @@ export async function myApplication(
   );
   expect(response.status(), await response.text()).toBe(200);
   return (await response.json()) as MyApplicationDetail;
+}
+
+/** Adds and verifies a professional email through the Hub API, reading the
+ * code from Mailpit, then moves the verification instants to the ones given
+ * (ISO timestamps), so profile months are deterministic. */
+export async function verifyProfessionalEmail(
+  applicant: Applicant,
+  emailAddress: string,
+  firstVerifiedAt: string,
+  lastVerifiedAt: string,
+): Promise<void> {
+  const options = () => ({
+    token: applicant.token,
+    idempotencyKey: hubIdempotencyKey(),
+  });
+  const added = await applicant.hub.addProfessionalEmail(
+    { email_address: emailAddress },
+    options(),
+  );
+  expect(added.status(), await added.text()).toBe(201);
+  const { id } = (await added.json()) as ProfessionalEmail;
+  const requested = await applicant.hub.requestProfessionalEmailCode(
+    { id },
+    options(),
+  );
+  expect(requested.status(), await requested.text()).toBe(202);
+  const { challenge_id } =
+    (await requested.json()) as ProfessionalEmailChallenge;
+  const mailbox = `${MAILPIT_ORIGIN}/view/latest.txt?query=${encodeURIComponent(
+    `to:${emailAddress}`,
+  )}`;
+  let text = "";
+  await expect
+    .poll(
+      async () => {
+        const mail = await fetch(mailbox);
+        text = mail.ok ? await mail.text() : "";
+        return text;
+      },
+      { timeout: 15_000 },
+    )
+    .toContain("Your code is");
+  const code = text.match(/Your code is (\d{6})/)?.[1] ?? "";
+  const verified = await applicant.hub.verifyProfessionalEmailCode(
+    { id, challenge_id, code },
+    options(),
+  );
+  expect(verified.status(), await verified.text()).toBe(204);
+  sqlScalarForTenant(
+    applicant.tenant,
+    `UPDATE vetchium.hub_professional_emails
+     SET first_verified_at = ${sqlLiteral(firstVerifiedAt)}::timestamptz,
+       last_verified_at = ${sqlLiteral(lastVerifiedAt)}::timestamptz
+     WHERE professional_email_id = ${sqlLiteral(id)}::uuid`,
+  );
 }

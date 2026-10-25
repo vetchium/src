@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import type { ListConversationsResponse } from "typespec/hub/messages/messages";
 import type { ListApplicationsResponse } from "typespec/orgs/applications/applications";
 import type { ListCreditedApplicationsResponse } from "typespec/orgs/marketplace/attribution";
 import type {
@@ -131,39 +131,25 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
       const contactID = conversation.conversation.contact_id;
       expect(contactID).toBeTruthy();
 
-      // Ensure the pointer on applicant2's tenant has the suggestion in its suggestions array
-      const pointerEvent = {
-        event_id: randomUUID(),
-        kind: "agency-pointer-changed",
-        destination_principal_type: "hub_user",
-        destination_principal_did: applicant2.did,
-        aggregate_type: "agency_pointer",
-        aggregate_id: contactID,
-        aggregate_version: 1,
-        payload: {
-          contact_id: contactID,
-          agency_org_did: providerDID,
-          hub_user_did: applicant2.did,
-          present: true,
-          has_conversation: true,
-          agency_display_name: "Agency Sourcing",
-          agency_domain: provider.org.domain,
-          suggestions: [
-            {
-              consumer_domain: consumer.org.domain,
-              opening_number: opening.opening_number,
-            },
-          ],
-        },
-      };
-      const deliverRes = meshPeerRequest(
-        provider.tenant,
-        applicant2.tenant,
-        pointerEvent,
-        apiCoverage,
-        { path: "/api/mesh/events/deliver" },
-      );
-      expect(deliverRes.status).toBe(200);
+      // The suggestion reaches applicant 2 with the agency's pointer.
+      await expect
+        .poll(
+          async () => {
+            const listed = await applicant2.hub.listConversations(
+              applicant2.token,
+            );
+            if (listed.status() !== 200) return [];
+            return ((await listed.json()) as ListConversationsResponse).items
+              .filter((item) => item.contact_id === contactID)
+              .flatMap((item) => item.suggestions)
+              .map((suggestion) => [
+                suggestion.consumer_domain,
+                suggestion.opening_number,
+              ]);
+          },
+          { timeout: 30_000 },
+        )
+        .toEqual([[consumer.org.domain, opening.opening_number]]);
 
       // Applicant 2 applies naming the agency that suggested the opening
       const ref2 = await apply(
