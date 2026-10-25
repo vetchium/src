@@ -1020,7 +1020,7 @@ export function WorkItemDetailPage() {
               <Input
                 value={interviewLocation}
                 onChange={(e) => setInterviewLocation(e.target.value)}
-                placeholder="Office room 4A…"
+                placeholder={t("marketplace.work.locationPlaceholder")}
               />
             </Form.Item>
           )}

@@ -2515,6 +2515,7 @@ export const en = {
       modeInPerson: "In person",
       videoUrl: "Video meeting URL",
       location: "Physical address / room",
+      locationPlaceholder: "Office, floor, and room",
       cancelInterviewTitle: "Cancel interview",
       cancelInterviewText:
         "Are you sure you want to cancel this scheduled interview? The candidate and client will be notified.",

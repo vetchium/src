@@ -170,6 +170,10 @@ Deferred:
   including probing which agencies work on an Opening through the referral
   check (MKT-SRC-003).
 - Org terms text for the marketplace posture (MKT-GEN-001, MKT-GEN-002).
+- Agency logos in Hub Messages (MKT-HUB-001). The logo lives in the agency's
+  tenant and the Hub user's browser reaches only its home tenant. Decide
+  whether the agency tenant signs a URL the pointer carries, its lifetime,
+  and refresh when the logo or plan changes.
 
 ## AI assistance
 
@@ -211,7 +215,3 @@ Not built:
   `*.vetchium.localhost` portal origins). Use `make dev` or Tilt, or decide a
   dev-server origin.
 - Production TLS issuance and the static-host deploy have not been exercised.
-- Provider work: a replayed write whose interviewers were deactivated since the
-  first send is refused by the provider tenant's pre-send check instead of
-  returning the stored result; rerouting a candidacy leaves the provider's
-  upcoming interviews scheduled (the client can cancel them).

@@ -11,7 +11,13 @@ import {
   validateWorkScheduleInterviewPayload,
 } from "../federation/marketplace.ts";
 import {
+  isCreditedPosition,
+  normalizeRelayListCreditedApplicationsRequest,
+  validatePeerCountCreditedApplicationsRequest,
+  validatePeerListCreditedApplicationsRequest,
   validatePeerListWorkRequest,
+  validateRelayCountCreditedApplicationsRequest,
+  validateRelayListCreditedApplicationsRequest,
   validateRelayListWorkRequest,
 } from "./marketplace/work/federation.ts";
 import {
@@ -218,5 +224,93 @@ test("work command payloads validate the actor and the write", () => {
       outcome: "clear",
     }),
     ["check_type"],
+  );
+});
+
+test("credited reads resume at a position and name at most a page of applicants", () => {
+  const applicant = "01900000-0000-7000-8000-000000000004";
+  const position = {
+    applied_at: "2026-10-01T10:00:00Z",
+    engagement_id,
+    opening_number: 3,
+    application_number: 7,
+  };
+  assert.equal(isCreditedPosition(position), true);
+  assert.equal(isCreditedPosition({ ...position, applied_at: "soon" }), false);
+  assert.equal(isCreditedPosition({ ...position, opening_number: 0 }), false);
+  assert.equal(
+    isCreditedPosition({ ...position, application_number: 1.5 }),
+    false,
+  );
+  const list = {
+    provider_org_did,
+    applicant_dids: [applicant],
+    after: position,
+    limit: 50,
+  };
+  assert.deepEqual(validatePeerListCreditedApplicationsRequest(list), []);
+  assert.deepEqual(
+    validatePeerListCreditedApplicationsRequest({
+      provider_org_did: "x",
+      client_domain: "not a domain",
+      opening_number: 0,
+      route: "invited" as never,
+      status: "pending" as never,
+      applicant_dids: [],
+      after: { ...position, engagement_id: "y" },
+      limit: 0,
+    }),
+    [
+      "provider_org_did",
+      "client_domain",
+      "opening_number",
+      "route",
+      "status",
+      "applicant_dids",
+      "after",
+      "limit",
+    ],
+  );
+  assert.deepEqual(
+    validatePeerListCreditedApplicationsRequest({
+      ...list,
+      applicant_dids: Array.from({ length: 101 }, () => applicant),
+    }),
+    ["applicant_dids"],
+  );
+  const relay = {
+    tenant: "sgp",
+    request: { ...list, client_domain: " Client.Example " },
+  };
+  const normalized = normalizeRelayListCreditedApplicationsRequest(relay);
+  assert.equal(normalized.request.client_domain, "client.example");
+  assert.equal(relay.request.client_domain, " Client.Example ");
+  assert.deepEqual(
+    validateRelayListCreditedApplicationsRequest(normalized),
+    [],
+  );
+
+  const count = { provider_org_did, applicant_dids: [applicant] };
+  assert.deepEqual(validatePeerCountCreditedApplicationsRequest(count), []);
+  assert.deepEqual(
+    validatePeerCountCreditedApplicationsRequest({
+      provider_org_did: "x",
+      applicant_dids: ["y"],
+    }),
+    ["provider_org_did", "applicant_dids"],
+  );
+  assert.deepEqual(
+    validateRelayCountCreditedApplicationsRequest({
+      tenant: "sgp",
+      request: count,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateRelayCountCreditedApplicationsRequest({
+      tenant: "Nope!",
+      request: { provider_org_did, applicant_dids: [] },
+    }),
+    ["tenant", "request.applicant_dids"],
   );
 });

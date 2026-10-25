@@ -423,7 +423,10 @@ test("joining is recorded with an over-hiring warning, then separated and correc
 
     await dialog.getByLabel("Joined on").fill(utcDate(-20));
     await dialog.getByRole("button", { name: "Record joined" }).click();
-    await expect(page.getByText("Date saved.").first()).toBeVisible();
+    // The write can take longer than the default wait under the full suite.
+    await expect(page.getByText("Date saved.").first()).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(
       page.getByText("Joined", { exact: true }).first(),
     ).toBeVisible();

@@ -85,36 +85,36 @@ Original build plan (removed in 1123654): `git show 1123654^:.hiring-build/`.
 
 ## C. Tests
 
-- [ ] C1 Replace SQL application seeding (`seedApplication`,
+- [x] C1 Replace SQL application seeding (`seedApplication`,
       `seedSubmittedBatch`, inline INSERTs of applicants, applications,
       history, interviews, opening state/suspension) with Hub apply + Orgs
       API transitions; SQL only to age timestamps. Use small `limit` for
       pagination instead of 100+ rows. Helper: `playwright/lib/hiring-seed.ts`
       (`seedApplication(world, opening, {state, stageId, ...})` returns
       number, version, applicant; `cleanupApplicants(world)`).
-      Done: orgs-applications, orgs-application-transitions,
-      application-interviews, application-offers, application-results,
-      hub-applications (application-retention needed nothing).
-- [ ] C2 Remove forged mesh events that stand in for real flows
+      Done (all specs; remaining SQL ages time, suspends Orgs, injects
+      faults, or reads).
+- [x] C2 Remove forged mesh events that stand in for real flows
       (messages-off, referral pointer); poll the real outbox delivery. Keep
       the origin-mismatch security test and the account-deleted receiver
       (account deletion is not built).
 - [ ] C3 Cover every response listed missing by `make api-coverage-report`
       for this branch's operations (baseline list in git history of this
       file's commit message is not kept; rerun the report).
-- [ ] C4 Tests for A1-A11 and B1-B6 behavior.
+- [ ] C4 Tests for A1-A11 and B1-B6 behavior. Done: contact removal
+      without notes, messages-off delivery, nav roles, contract tests.
 - [ ] C5 Fix `ui/hub-applications.spec.ts:364` (fails on baseline).
 
 ## D. UI
 
-- [ ] D1 Hard-coded strings: `ListingEditorPage.tsx` aria-label,
+- [x] D1 Hard-coded strings: `ListingEditorPage.tsx` aria-label,
       `WorkItemDetailPage.tsx` placeholder.
 - [x] D2 Contacts nav unread badge from a count, not page length.
-- [ ] D3 Navigation per B5 (done in AppShell); UI tests pending.
+- [x] D3 Navigation per B5; API test (my-info roles) and UI test written.
 
 ## E. Finish
 
-- [ ] E1 Guides and `docs/todo.md` match the result.
+- [x] E1 Guides and `docs/todo.md` match the result.
 - [ ] E2 `make test` green; `make test-go-lint`, `make test-go-vuln`.
 - [ ] E3 `make dev-seed` runs on a fresh stack.
 - [ ] E4 Delete `.review-build/`, final commit, push.

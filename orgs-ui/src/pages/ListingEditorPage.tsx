@@ -404,7 +404,7 @@ export function ListingEditorPage() {
                 >
                   <Select
                     id="languages-select"
-                    aria-label="Languages"
+                    aria-label={t("marketplace.listingEditor.languagesLabel")}
                     mode="multiple"
                     style={{ width: "100%" }}
                     placeholder={t(

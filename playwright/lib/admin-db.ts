@@ -1155,10 +1155,19 @@ export function cleanupHubUser(
   emailAddress: string,
   tenant: TestTenant = "sgp",
 ): void {
-  assertOwnedHubEmail(emailAddress);
-  const email = sqlLiteral(emailAddress);
-  const did = `(SELECT hub_user_did::text FROM vetchium.hub_users
-                WHERE email_address = ${email})`;
+  cleanupHubUsers([emailAddress], tenant);
+}
+
+/** cleanupHubUser for several accounts of one tenant in one statement batch. */
+export function cleanupHubUsers(
+  emailAddresses: string[],
+  tenant: TestTenant = "sgp",
+): void {
+  if (emailAddresses.length === 0) return;
+  for (const emailAddress of emailAddresses) assertOwnedHubEmail(emailAddress);
+  const emails = emailAddresses.map(sqlLiteral).join(", ");
+  const dids = `(SELECT hub_user_did::text FROM vetchium.hub_users
+                 WHERE email_address IN (${emails}))`;
   sqlScalarForTenant(
     tenant,
     `
@@ -1167,31 +1176,31 @@ export function cleanupHubUser(
       SELECT idempotency_key FROM vetchium.hub_signup_completions
       WHERE hub_signup_request_id IN (
         SELECT hub_signup_request_id FROM vetchium.hub_signup_requests
-        WHERE email_address = ${email}
+        WHERE email_address IN (${emails})
       )
     );
     DELETE FROM vetchium.hub_signup_completions
     WHERE hub_signup_request_id IN (
       SELECT hub_signup_request_id FROM vetchium.hub_signup_requests
-      WHERE email_address = ${email}
+      WHERE email_address IN (${emails})
     );
     DELETE FROM vetchium.hub_email_outbox
-    WHERE recipient_email_address = ${email};
+    WHERE recipient_email_address IN (${emails});
     DELETE FROM vetchium.hub_signup_requests
-    WHERE email_address = ${email};
+    WHERE email_address IN (${emails});
     DELETE FROM vetchium.audit_events
-    WHERE entity_type = 'hub_user' AND entity_id = ${did};
+    WHERE entity_type = 'hub_user' AND entity_id IN ${dids};
     DELETE FROM vetchium.audit_events
-    WHERE actor_type = 'hub_user' AND actor_id = ${did};
+    WHERE actor_type = 'hub_user' AND actor_id IN ${dids};
     DELETE FROM vetchium.hub_account_email_changes
-    WHERE hub_user_did = ${did}::uuid;
+    WHERE hub_user_did::text IN ${dids};
     DELETE FROM vetchium.federation_operations
-    WHERE aggregate_id = ${did} OR
-          (owner_principal_type = 'hub_user' AND owner_principal_id = ${did});
+    WHERE aggregate_id IN ${dids} OR
+          (owner_principal_type = 'hub_user' AND owner_principal_id IN ${dids});
     DELETE FROM vetchium.hub_users
-    WHERE email_address = ${email};
+    WHERE email_address IN (${emails});
     DELETE FROM vetchium.idempotency_ledger
-    WHERE binding_id = ${email};
+    WHERE binding_id IN (${emails});
   `,
   );
 }
@@ -1280,6 +1289,7 @@ export function seedActiveHubUser(
   tenant: TestTenant,
   emailAddress: string,
   displayName: string,
+  profileAlias?: string,
 ): { hubUserDID: string; handle: string; sessionToken: string } {
   assertOwnedHubEmail(emailAddress);
   const hubUserDID = `018f7e32-7b5a-7d31-8fd0-${randomBytes(6).toString("hex")}`;
@@ -1287,22 +1297,28 @@ export function seedActiveHubUser(
     .toString("hex")
     .slice(0, 11)}`;
   const digest = randomBytes(32).toString("hex");
+  const sessionToken = randomBytes(32).toString("hex");
+  const tokenHash = createHash("sha256").update(sessionToken).digest("hex");
+  // One psql call: each costs a blocking docker exec.
   sqlScalarForTenant(
     tenant,
     `INSERT INTO vetchium.hub_users (
        hub_user_did, handle, email_address, email_digest, display_name,
-       password_hash, resident_country, hub_plan_oid
+       password_hash, resident_country, hub_plan_oid, profile_alias
      ) VALUES (
        ${sqlLiteral(hubUserDID)}::uuid, ${sqlLiteral(handle)},
        ${sqlLiteral(emailAddress)}, decode(${sqlLiteral(digest)}, 'hex'),
-       ${sqlLiteral(displayName)}, 'not-a-real-hash', 'US', 'hub-free-tier'
+       ${sqlLiteral(displayName)}, 'not-a-real-hash', 'US', 'hub-free-tier',
+       ${profileAlias === undefined ? "NULL" : sqlLiteral(profileAlias)}
+     );
+     INSERT INTO vetchium.hub_sessions (
+       hub_user_did, session_token_hash, expires_at
+     ) VALUES (
+       ${sqlLiteral(hubUserDID)}::uuid, decode(${sqlLiteral(tokenHash)}, 'hex'),
+       now() + interval '1 hour'
      );`,
   );
-  return {
-    hubUserDID,
-    handle,
-    sessionToken: seedHubSession(tenant, hubUserDID),
-  };
+  return { hubUserDID, handle, sessionToken };
 }
 
 /** Browser APIs return only the public handle; tests that inspect database
@@ -1364,17 +1380,34 @@ export function cleanupGlobalHubPrincipal(
   alias: string,
   handle?: string,
 ): void {
-  assertHubUserDID(hubUserDID);
-  let handleDelete = "";
-  if (handle) {
-    handleDelete = `DELETE FROM vetchium.hub_profile_slugs WHERE slug = ${sqlLiteral(handle)};`;
-  }
+  cleanupGlobalHubPrincipals([{ hubUserDID, alias, handle }]);
+}
+
+/** cleanupGlobalHubPrincipal for several principals in one statement batch. */
+export function cleanupGlobalHubPrincipals(
+  principals: Array<{
+    hubUserDID: string;
+    alias: string;
+    handle?: string | undefined;
+  }>,
+): void {
+  if (principals.length === 0) return;
+  for (const principal of principals) assertHubUserDID(principal.hubUserDID);
+  const slugs = principals
+    .flatMap((principal) =>
+      principal.handle
+        ? [principal.alias, principal.handle]
+        : [principal.alias],
+    )
+    .map(sqlLiteral)
+    .join(", ");
+  const dids = principals
+    .map((principal) => sqlLiteral(principal.hubUserDID))
+    .join(", ");
   globalSQLScalar(`
     SET session_replication_role = replica;
-    DELETE FROM vetchium.hub_profile_slugs WHERE slug = ${sqlLiteral(alias)};
-    ${handleDelete}
-    DELETE FROM vetchium.hub_principals
-    WHERE hub_user_did = ${sqlLiteral(hubUserDID)};
+    DELETE FROM vetchium.hub_profile_slugs WHERE slug IN (${slugs});
+    DELETE FROM vetchium.hub_principals WHERE hub_user_did IN (${dids});
     SET session_replication_role = DEFAULT;
   `);
 }

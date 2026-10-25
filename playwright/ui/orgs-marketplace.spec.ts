@@ -1,6 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { activate, withPair } from "../lib/orgs-marketplace.ts";
+import { addOrgMember } from "../lib/orgs-api.ts";
+import {
+  activate,
+  listing,
+  published,
+  withPair,
+  withProvider,
+} from "../lib/orgs-marketplace.ts";
 import { assign, candidate, withWorld } from "../lib/orgs-routing.ts";
 import { signIn } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
@@ -208,5 +215,41 @@ test("routes an application to a stage provider and displays attribution", async
       page.getByRole("columnheader", { name: "Performed by" }),
     ).toBeVisible();
     await expect(page.getByText("Katherine Johnson")).toBeVisible();
+  });
+});
+
+test("navigation shows Listings to its editors and the rest once the Org is a provider", async ({
+  page,
+  request,
+}) => {
+  await withProvider(request, async (provider) => {
+    const member = await addOrgMember(
+      provider.api,
+      provider.owner,
+      provider.org.domain,
+      `openings@${provider.org.domain}`,
+      ["org:manage_openings"],
+    );
+    const item = (name: string) =>
+      page.getByRole("menuitem", { name: new RegExp(`${name}$`) });
+    const later = ["Clients", "Work queue", "Jobs", "Contacts"];
+
+    await signIn(page, provider.org, provider.tenant);
+    await expect(item("Listings")).toBeVisible();
+    for (const name of later) await expect(item(name)).toHaveCount(0);
+
+    await published(provider.api, provider.owner, listing("sourcing", "S"));
+    await page.reload();
+    for (const name of ["Listings", ...later]) {
+      await expect(item(name)).toBeVisible();
+    }
+
+    // Each page still needs its permission.
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await signIn(page, member, provider.tenant);
+    await expect(item("Openings")).toBeVisible();
+    for (const name of ["Listings", ...later]) {
+      await expect(item(name)).toHaveCount(0);
+    }
   });
 });

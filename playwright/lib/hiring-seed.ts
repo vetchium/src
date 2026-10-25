@@ -10,7 +10,7 @@ import { hubIdempotencyKey } from "./hub-api.ts";
 import {
   type Applicant,
   apply,
-  cleanupApplicant,
+  cleanupApplicantsOf,
   seedApplicant,
 } from "./hub-applicant.ts";
 import type { OrgsAPI } from "./orgs-api.ts";
@@ -290,7 +290,7 @@ export function ageTerminalApplication(
 }
 
 /** Seeds `count` submitted applications named `<prefix> 1` to `<prefix> N`,
- * oldest first. */
+ * a few at a time. */
 export async function seedSubmitted(
   org: HiringOrg,
   openingNumber: number,
@@ -298,13 +298,19 @@ export async function seedSubmitted(
   prefix: string,
 ): Promise<number[]> {
   const numbers: number[] = [];
-  for (let index = 1; index <= count; index++) {
+  for (let start = 1; start <= count; start += 8) {
+    const batch = Array.from(
+      { length: Math.min(8, count - start + 1) },
+      (_, index) => start + index,
+    );
     numbers.push(
-      (
-        await seedApplication(org, openingNumber, {
-          name: `${prefix} ${index}`,
-        })
-      ).number,
+      ...(await Promise.all(
+        batch.map((index) =>
+          seedApplicationNumber(org, openingNumber, {
+            name: `${prefix} ${index}`,
+          }),
+        ),
+      )),
     );
   }
   return numbers;
@@ -313,9 +319,9 @@ export async function seedSubmitted(
 /** Removes every applicant seeding created for the Org, with what their
  * applications left in either tenant. */
 export function cleanupApplicants(org: HiringOrg): void {
-  for (const applicant of org.applicants.splice(0)) {
-    cleanupApplicant(applicant, [{ tenant: org.tenant, did: org.did }]);
-  }
+  cleanupApplicantsOf(org.applicants.splice(0), [
+    { tenant: org.tenant, did: org.did },
+  ]);
 }
 
 class Steps {

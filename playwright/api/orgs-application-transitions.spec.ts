@@ -952,12 +952,13 @@ test("who may act: manager, recruiter, and candidacies holders act; team members
     });
     expect(team.status(), await team.text()).toBe(200);
 
-    // One fresh application per attempt, seeded up front in parallel.
-    const fresh = await Promise.all(
-      Array.from({ length: 10 }, () => seed(world, n)),
+    // A permitted attempt moves its application, so each gets its own; a
+    // refused one changes nothing, so they share one.
+    const [shared, ...fresh] = await Promise.all(
+      Array.from({ length: 5 }, () => seed(world, n)),
     );
-    const attempt = async (token: string) => {
-      const number = fresh.shift();
+    const attempt = async (token: string, permitted = false) => {
+      const number = permitted ? fresh.shift() : shared;
       if (number === undefined) throw new Error("seed more applications");
       const response = await api.markApplicationNotProgressing(token, {
         opening_number: n,
@@ -972,7 +973,7 @@ test("who may act: manager, recruiter, and candidacies holders act; team members
       { token: recruiter.token, name: "the recruiter" },
       { token: candidacies.token, name: "an org:manage_candidacies holder" },
     ]) {
-      const { response } = await attempt(actor.token);
+      const { response } = await attempt(actor.token, true);
       expect(response.status(), `${actor.name}: ${await response.text()}`).toBe(
         200,
       );
@@ -1170,12 +1171,19 @@ test("an approver's close marks open applications only when asked", async ({
 }) => {
   await withOrg(request, async (api, owner, org, world) => {
     // Without the choice, a close leaves every application as it is.
-    const plain = await publishedOpening(api, owner, org);
-    const plainNumbers = await seedMixed(
-      world,
-      plain.opening.opening_number,
-      stageOf(plain.stages, 1).id,
-    );
+    const [plain, marked] = await Promise.all([
+      publishedOpening(api, owner, org),
+      publishedOpening(api, owner, org),
+    ]);
+    const n = marked.opening.opening_number;
+    const [plainNumbers, numbers] = await Promise.all([
+      seedMixed(
+        world,
+        plain.opening.opening_number,
+        stageOf(plain.stages, 1).id,
+      ),
+      seedMixed(world, n, stageOf(marked.stages, 1).id),
+    ]);
     const plainClose = await api.requestOpeningChange(owner, {
       opening_number: plain.opening.opening_number,
       version: plain.opening.version,
@@ -1188,9 +1196,6 @@ test("an approver's close marks open applications only when asked", async ({
     ).toEqual(untouched);
 
     // With it, in the same transaction, and a repeat with the key replays.
-    const marked = await publishedOpening(api, owner, org);
-    const n = marked.opening.opening_number;
-    const numbers = await seedMixed(world, n, stageOf(marked.stages, 1).id);
     const acceptedBefore = await detail(api, owner, n, numbers.offerAccepted);
     const joinedBefore = await detail(api, owner, n, numbers.joined);
     const joinedHistory = await history(api, owner, n, numbers.joined);

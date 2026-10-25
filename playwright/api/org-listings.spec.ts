@@ -1,3 +1,4 @@
+import type { MyInfoResponse } from "typespec/orgs/account/account";
 import type {
   Listing,
   ListingDetail,
@@ -17,6 +18,7 @@ import {
   orgsIdempotencyKey,
 } from "../lib/orgs-api.ts";
 import {
+  activate,
   background,
   base,
   created,
@@ -24,11 +26,13 @@ import {
   listing,
   moneyKey,
   onSilver,
+  type Provider,
   problems,
   published,
   search,
   setOrgHome,
   unique,
+  withPair,
   withProvider,
 } from "../lib/orgs-marketplace.ts";
 
@@ -1496,5 +1500,27 @@ test("one Org's Listing writes never touch another Org's Listings", async ({
       ).json()) as { listings: Listing[] };
       expect(unchanged.listings).toEqual([theirs]);
     });
+  });
+});
+
+test("my-info names the Org's marketplace roles, which drive navigation", async ({
+  request,
+}) => {
+  const roles = async (org: Provider) => {
+    const response = await org.api.myInfo(org.owner);
+    expect(response.status(), await response.text()).toBe(200);
+    return ((await response.json()) as MyInfoResponse).marketplace;
+  };
+  await withPair(request, { capabilities: [] }, async (pair) => {
+    const { consumer, provider } = pair;
+    expect(await roles(provider)).toEqual({ provider: false, agency: false });
+    // A draft Listing is enough; sourcing makes the Org an agency too.
+    await created(provider.api, provider.owner, listing("interviewing"));
+    expect(await roles(provider)).toEqual({ provider: true, agency: false });
+    await published(provider.api, provider.owner, listing("sourcing", "S"));
+    expect(await roles(provider)).toEqual({ provider: true, agency: true });
+    // Engaging a provider gives the consumer neither role.
+    await activate(pair, "sourcing");
+    expect(await roles(consumer)).toEqual({ provider: false, agency: false });
   });
 });

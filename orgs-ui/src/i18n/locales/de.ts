@@ -2576,6 +2576,7 @@ export const de = {
       modeInPerson: "Vor Ort",
       videoUrl: "Video-Meeting-Link",
       location: "Adresse / Raum",
+      locationPlaceholder: "Büro, Etage und Raum",
       cancelInterviewTitle: "Interview absagen",
       cancelInterviewText:
         "Möchten Sie dieses geplante Interview wirklich absagen? Kandidat und Kunde werden benachrichtigt.",

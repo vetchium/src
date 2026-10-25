@@ -121,7 +121,9 @@ Compose with [`hiring-pipeline.md`](hiring-pipeline.md),
 - **MKT-DAT-012** Deleting a Hub account (not built) sends, in its outbox, a
   deletion notice to the agency tenant of every pointer, then deletes the
   pointers. The agency's tenant deletes every note on that Contact at once,
-  and the Contact itself unless a conversation remains. Deleting an agency
+  and the Contact itself unless a conversation remains; a new note on a
+  remaining Contact is refused with `org-conversation-party-deleted`.
+  Deleting an agency
   Org (not built) deletes its notes at once and sends a notice to the Hub
   user's tenant of every Contact, which marks the pointer read-only and
   deletes a pointer without a conversation. MKT-CNV-011 then applies.
@@ -249,7 +251,9 @@ An engagement links a consumer Org to a provider's Listing.
   application's state.
 - **MKT-ACC-004** Access to a candidacy ends at once when it is rerouted,
   leaves the stage, leaves the pipeline, or the engagement ends. Answer any
-  inaccessible item with `org-engagement-work-not-found`.
+  inaccessible item with `org-engagement-work-not-found`. The same
+  transaction cancels the previous provider's scheduled interviews and ends
+  its requested consents, with history and the Hub projection.
 
 - **MKT-ACC-005** A provider names work by its engagement and a work id,
   `org_application_routes.route_id`, new at every routing, so a rerouted
@@ -470,6 +474,11 @@ Navigation groups, each shown only when it applies (the API still decides):
 | Provider | the Org has a Listing or a provider engagement | Listings, Clients, Work queue |
 | Agency | the Org has a `sourcing` Listing or engagement | Jobs, Contacts, Credited applications |
 
+Listings shows to every `org:manage_listings` holder even before the Org is a
+provider, so it can create its first Listing. `my-info` `marketplace` carries
+whether the Org is a provider and an agency; each page still needs its
+permission.
+
 - **MKT-UI-001** Find providers: Listing search (MKT-DIR) with Capability
   tabs, country and language filters, and an incomplete-results notice; a
   Listing opens its detail with "Propose engagement". Engagements as consumer
@@ -506,8 +515,8 @@ Navigation groups, each shown only when it applies (the API still decides):
 ## Hub portal
 
 - **MKT-HUB-001** Messages: agency conversations ordered by last activity,
-  each naming the agency by display name, primary domain, and logo, with
-  reply and delete. An Opening suggestion renders as a card linking
+  each naming the agency by display name and primary domain, with reply
+  and delete. An Opening suggestion renders as a card linking
   to the Opening's apply page. When the agency's tenant does not answer, the
   list still shows and the conversation shows a retry notice (MKT-DAT-005).
 - **MKT-HUB-002** Settings hold "Agencies may message me" (MKT-CNV-006).

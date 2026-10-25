@@ -167,3 +167,59 @@ func TestAgencyProfileReadMustBeComplete(t *testing.T) {
 		t.Fatal("an empty read is invalid")
 	}
 }
+
+func TestListContactsFiltersAndNameQuery(t *testing.T) {
+	t.Parallel()
+	filter := func(value ContactFilter) *ContactFilter { return &value }
+	query := func(value ContactNameQuery) *ContactNameQuery { return &value }
+	for _, value := range []ContactFilter{ContactFilterAll, ContactFilterUnread,
+		ContactFilterHasConversation, ContactFilterNotContacted} {
+		if got := (ListContactsRequest{Filter: filter(value)}).Validate(); len(got) != 0 {
+			t.Fatalf("filter %q rejected: %v", value, got)
+		}
+	}
+	if (ListContactsRequest{}).EffectiveFilter() != ContactFilterAll {
+		t.Fatal("a request without a filter lists every Contact")
+	}
+	badLimit := int32(0)
+	got := ListContactsRequest{Limit: &badLimit, Filter: filter("archived"), NameQuery: query("a")}.Validate()
+	if want := []string{"limit", "filter", "name_query"}; !slices.Equal(got, want) {
+		t.Fatalf("fields = %v, want %v", got, want)
+	}
+	for name, test := range map[string]struct {
+		query ContactNameQuery
+		want  bool
+	}{
+		"two letters":       {"ad", true},
+		"limit":             {ContactNameQuery(strings.Repeat("é", 100)), true},
+		"one letter":        {"a", false},
+		"over the limit":    {ContactNameQuery(strings.Repeat("é", 101)), false},
+		"untrimmed padding": {" ada", false},
+	} {
+		if got := IsContactNameQuery(test.query); got != test.want {
+			t.Fatalf("%s: IsContactNameQuery = %t, want %t", name, got, test.want)
+		}
+	}
+	original := ListContactsRequest{NameQuery: query("  ada ")}
+	copied := original
+	copied.Normalize()
+	if *copied.NameQuery != "ada" || *original.NameQuery != "  ada " {
+		t.Fatalf("normalized %q from %q", *copied.NameQuery, *original.NameQuery)
+	}
+}
+
+func TestGetConversationPages(t *testing.T) {
+	t.Parallel()
+	limit, badLimit := int32(1), int32(101)
+	key := common.PaginationKey("")
+	if got := (GetConversationRequest{ContactID: contactID, Limit: &limit}).Validate(); len(got) != 0 {
+		t.Fatalf("valid page rejected: %v", got)
+	}
+	got := GetConversationRequest{ContactID: "x", PaginationKey: &key, Limit: &badLimit}.Validate()
+	if want := []string{"pagination_key", "limit", "contact_id"}; !slices.Equal(got, want) {
+		t.Fatalf("fields = %v, want %v", got, want)
+	}
+	if (GetConversationRequest{}).EffectiveLimit() != DefaultPage {
+		t.Fatal("a conversation read without a limit takes the default page")
+	}
+}

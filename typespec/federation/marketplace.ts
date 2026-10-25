@@ -496,9 +496,6 @@ export function validateMeshReadConversationRequest(
   request: MeshReadConversationRequest,
 ): string[] {
   const fields: string[] = [];
-  if (!isContactID(request.contact_id)) fields.push("contact_id");
-  if (!isHubUserDID(request.hub_user_did)) fields.push("hub_user_did");
-  if (!isOrgDID(request.agency_org_did)) fields.push("agency_org_did");
   if (
     request.pagination_key !== undefined &&
     !isPaginationKey(request.pagination_key)
@@ -511,6 +508,9 @@ export function validateMeshReadConversationRequest(
       request.limit > maxContactPage)
   )
     fields.push("limit");
+  if (!isContactID(request.contact_id)) fields.push("contact_id");
+  if (!isHubUserDID(request.hub_user_did)) fields.push("hub_user_did");
+  if (!isOrgDID(request.agency_org_did)) fields.push("agency_org_did");
   return fields;
 }
 

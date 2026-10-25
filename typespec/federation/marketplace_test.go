@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
@@ -203,5 +204,47 @@ func TestAgencyEventPayloadsValidate(t *testing.T) {
 	}
 	if got := (HubAgencyMessagesChangedPayload{}).Validate(); !slices.Equal(got, []string{"contact_id", "hub_user_did"}) {
 		t.Fatalf("messages fields = %v", got)
+	}
+}
+
+func TestHubConversationCommandsAndReads(t *testing.T) {
+	t.Parallel()
+	const (
+		contactID = contacts.ContactID("01900000-0000-7000-8000-000000000001")
+		orgDID    = orgs.OrgDID("01900000-0000-7000-8000-000000000003")
+		hubDID    = hub.HubUserDID("01900000-0000-7000-8000-000000000004")
+	)
+	reply := HubConversationReplyPayload{
+		ContactID: contactID, HubUserDID: hubDID,
+		HubUserDisplayName: "Ada Lovelace", HubUserHandle: "abcd1234-0123456789a",
+		Text: "Interested",
+	}
+	if got := reply.Validate(); len(got) != 0 {
+		t.Fatalf("valid reply rejected: %v", got)
+	}
+	want := []string{"contact_id", "hub_user_did", "hub_user_display_name", "hub_user_handle", "text"}
+	if got := (HubConversationReplyPayload{Text: " "}).Validate(); !slices.Equal(got, want) {
+		t.Fatalf("reply fields = %v, want %v", got, want)
+	}
+	if got := (HubConversationDeletePayload{ContactID: contactID, HubUserDID: hubDID}).Validate(); len(got) != 0 {
+		t.Fatalf("valid delete rejected: %v", got)
+	}
+	if got := (HubConversationDeletePayload{}).Validate(); !slices.Equal(got, []string{"contact_id", "hub_user_did"}) {
+		t.Fatalf("delete fields = %v", got)
+	}
+
+	limit, badLimit := int32(contacts.MaxPage), int32(contacts.MaxPage+1)
+	read := MeshReadConversationRequest{ContactID: contactID, HubUserDID: hubDID, AgencyOrgDID: orgDID, Limit: &limit}
+	if got := read.Validate(); len(got) != 0 {
+		t.Fatalf("valid read rejected: %v", got)
+	}
+	key := common.PaginationKey("")
+	got := MeshReadConversationRequest{PaginationKey: &key, Limit: &badLimit}.Validate()
+	want = []string{"pagination_key", "limit", "contact_id", "hub_user_did", "agency_org_did"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("read fields = %v, want %v", got, want)
+	}
+	if (MeshReadConversationRequest{}).EffectiveLimit() != contacts.DefaultPage {
+		t.Fatal("a read without a limit takes the default page")
 	}
 }
