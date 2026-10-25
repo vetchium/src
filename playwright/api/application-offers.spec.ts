@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { APIRequestContext, APIResponse } from "@playwright/test";
 import type { OpeningContent } from "typespec/common/openings";
 import type { DeliverEventRequest } from "typespec/federation/events";
@@ -12,6 +12,7 @@ import type {
 import type {
   ApplicationDetail,
   ApplicationHistoryEntry,
+  ApplicationState,
   ListApplicationHistoryResponse,
   OfferLetterUploaded,
 } from "typespec/orgs/applications/applications";
@@ -19,18 +20,19 @@ import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { expectProblem } from "../lib/admin-api.ts";
 import {
-  cleanupGlobalHubPrincipal,
-  cleanupHubUser,
   globalSQLScalar,
-  seedActiveHubUser,
-  seedGlobalHubPrincipal,
   sqlLiteral,
-  sqlScalarForTenant,
   type TestTenant,
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
-import { HubAPI, hubIdempotencyKey } from "../lib/hub-api.ts";
+import { type SeededApplication, seedApplication } from "../lib/hiring-seed.ts";
+import { hubIdempotencyKey } from "../lib/hub-api.ts";
+import {
+  type Applicant,
+  cleanupApplicant,
+  seedApplicant,
+} from "../lib/hub-applicant.ts";
 import { meshPeerRequest } from "../lib/mesh.ts";
 import {
   addOrgMember,
@@ -96,11 +98,13 @@ function cleanupOutbox(domain: string, tenant: TestTenant = "sgp"): void {
 }
 
 interface World {
+  request: APIRequestContext;
   tenant: TestTenant;
   api: OrgsAPI;
   org: SignedUpOrg;
   owner: string;
   did: string;
+  applicants: Applicant[];
 }
 
 async function newOrg(
@@ -110,10 +114,21 @@ async function newOrg(
   const api = new OrgsAPI(request, tenant);
   const org = await signupOrg(api);
   const owner = await loginOrg(api, org);
-  return { tenant, api, org, owner, did: orgDID(org.domain, tenant) };
+  return {
+    request,
+    tenant,
+    api,
+    org,
+    owner,
+    did: orgDID(org.domain, tenant),
+    applicants: [],
+  };
 }
 
 async function removeOrg(world: World): Promise<void> {
+  for (const applicant of world.applicants.splice(0)) {
+    cleanupApplicant(applicant, [world]);
+  }
   cleanupOutbox(world.org.domain, world.tenant);
   await deleteOrgVerificationRecord(world.org.domain);
   cleanupOrg(world.org.domain, world.tenant);
@@ -177,53 +192,38 @@ function stageOf(stages: PipelineStage[], index: number): PipelineStage {
   return stage;
 }
 
-/** Inserts an application from an unreachable fixture applicant, in state,
- * at stageID for a candidacy, and returns its number. */
-function seedApplication(
-  domain: string,
+/** The version of a seeded candidacy: applied (1), then shortlisted. */
+const SHORTLISTED = 2;
+
+/** Applies through the Hub as a new applicant and walks the application to
+ * state, at stageID for a candidacy; returns its number. */
+async function seedAt(
+  world: World,
   openingNumber: number,
-  state: string,
+  state: ApplicationState,
   stageID?: string,
-): number {
-  const stage = stageID ? sqlLiteral(stageID) : "NULL";
-  return Number(
-    orgSQL(`
-    WITH o AS (
-      SELECT org_opening_id, org_did, next_application_number
-      FROM vetchium.org_openings
-      WHERE org_did = (SELECT org_did FROM vetchium.org_domains
-        WHERE domain = ${sqlLiteral(domain)})
-        AND opening_number = ${openingNumber}
-    ), applicant AS (
-      INSERT INTO vetchium.org_applicants
-        (org_applicant_id, org_did, applicant_kind, hub_user_did)
-      SELECT gen_random_uuid(), o.org_did, 'hub_user',
-        overlay(gen_random_uuid()::text placing '7' from 15)::uuid
-      FROM o RETURNING org_applicant_id
-    ), application AS (
-      INSERT INTO vetchium.org_applications (
-        org_application_id, org_opening_id, application_number,
-        org_applicant_id, application_state, snapshot, current_stage_id
-      )
-      SELECT gen_random_uuid(), o.org_opening_id, o.next_application_number,
-        applicant.org_applicant_id, ${sqlLiteral(state)},
-        jsonb_build_object('display_name', 'Ada Lovelace'::text,
-          'handle', 'abcd1234-0123456789a'::text,
-          'resident_country', 'GB'::text, 'websites', '[]'::jsonb,
-          'work_experiences', '[]'::jsonb, 'certifications', '[]'::jsonb,
-          'language_abilities', '[]'::jsonb,
-          'educational_qualifications', '[]'::jsonb),
-        ${stage}::uuid
-      FROM o, applicant
-      RETURNING application_number
-    ), counter AS (
-      UPDATE vetchium.org_openings
-      SET next_application_number = next_application_number + 1
-      WHERE org_opening_id IN (SELECT org_opening_id FROM o)
-      RETURNING org_opening_id
-    )
-    SELECT application_number FROM application
-      WHERE (SELECT count(*) FROM counter) = 1`),
+): Promise<number> {
+  return (await seedFor(world, openingNumber, state, stageID)).number;
+}
+
+async function seedFor(
+  world: World,
+  openingNumber: number,
+  state: ApplicationState,
+  stageID?: string,
+): Promise<SeededApplication> {
+  return seedApplication(
+    {
+      request: world.request,
+      tenant: world.tenant,
+      api: world.api,
+      owner: world.owner,
+      domain: world.org.domain,
+      did: world.did,
+      applicants: world.applicants,
+    },
+    openingNumber,
+    { name: "Ada Lovelace", state, ...(stageID ? { stageId: stageID } : {}) },
   );
 }
 
@@ -467,18 +467,16 @@ test("an offer extends from any stage, withdraws to the same stage, and keeps ev
     const n = opening.opening_number;
     for (const index of [0, 1, 2]) {
       const stage = stageOf(stages, index);
-      const number = seedApplication(
-        world.org.domain,
-        n,
-        "in_pipeline",
-        stage.id,
-      );
+      const number = await seedAt(world, n, "in_pipeline", stage.id);
       const letter = pdf();
       const before = Date.now();
-      const offered = await extend(world, n, number, { letter, version: 1 });
+      const offered = await extend(world, n, number, {
+        letter,
+        version: SHORTLISTED,
+      });
       expect(offered).toMatchObject({
         state: "offered",
-        version: 2,
+        version: SHORTLISTED + 1,
         current_stage: stage,
       });
       expect(offered.offers).toHaveLength(1);
@@ -500,25 +498,20 @@ test("an offer extends from any stage, withdraws to the same stage, and keeps ev
         action: "offer_extended",
         actor: "org_user",
         state: "offered",
-        version: 2,
+        version: SHORTLISTED + 1,
       });
     }
 
     // Withdrawing returns the candidacy to its stage; the letter stays.
     const stage = stageOf(stages, 1);
-    const number = seedApplication(
-      world.org.domain,
-      n,
-      "in_pipeline",
-      stage.id,
-    );
+    const number = await seedAt(world, n, "in_pipeline", stage.id);
     const first = pdf();
-    await extend(world, n, number, { letter: first, version: 1 });
+    await extend(world, n, number, { letter: first, version: SHORTLISTED });
     const key = orgsIdempotencyKey();
     const withdrawRequest = {
       opening_number: n,
       application_number: number,
-      version: 2,
+      version: SHORTLISTED + 1,
     };
     const withdrawn = await world.api.withdrawApplicationOffer(
       world.owner,
@@ -529,7 +522,7 @@ test("an offer extends from any stage, withdraws to the same stage, and keeps ev
     const afterWithdraw = (await withdrawn.json()) as ApplicationDetail;
     expect(afterWithdraw).toMatchObject({
       state: "in_pipeline",
-      version: 3,
+      version: SHORTLISTED + 2,
       current_stage: stage,
     });
     expect(afterWithdraw.offers[0]?.status).toBe("withdrawn");
@@ -541,11 +534,13 @@ test("an offer extends from any stage, withdraws to the same stage, and keeps ev
       key,
     );
     expect(replayed.status()).toBe(200);
-    expect(((await replayed.json()) as ApplicationDetail).version).toBe(3);
+    expect(((await replayed.json()) as ApplicationDetail).version).toBe(
+      SHORTLISTED + 2,
+    );
     expect((await history(world, n, number))[0]).toMatchObject({
       action: "offer_withdrawn",
       state: "in_pipeline",
-      version: 3,
+      version: SHORTLISTED + 2,
     });
 
     // A new offer gets the next number, newest first.
@@ -596,13 +591,13 @@ test("extend-application-offer refuses states, versions, readers, dates, and let
     ]);
     const n = opening.opening_number;
     const stage = stageOf(stages, 0).id;
-    const number = seedApplication(org.domain, n, "in_pipeline", stage);
-    const submitted = seedApplication(org.domain, n, "submitted");
+    const number = await seedAt(world, n, "in_pipeline", stage);
+    const submitted = await seedAt(world, n, "submitted");
     const letterID = await upload(world);
     const extendRequest = (overrides: Record<string, unknown> = {}) => ({
       opening_number: n,
       application_number: number,
-      version: 1,
+      version: SHORTLISTED,
       letter_id: letterID,
       respond_within_days: 7,
       ...overrides,
@@ -611,13 +606,16 @@ test("extend-application-offer refuses states, versions, readers, dates, and let
     await expectProblem(
       await api.extendApplicationOffer(
         owner,
-        extendRequest({ application_number: submitted }),
+        extendRequest({ application_number: submitted, version: 1 }),
       ),
       409,
       STATE_CONFLICT,
     );
     await expectProblem(
-      await api.extendApplicationOffer(owner, extendRequest({ version: 2 })),
+      await api.extendApplicationOffer(
+        owner,
+        extendRequest({ version: SHORTLISTED + 1 }),
+      ),
       409,
       VERSION_CONFLICT,
     );
@@ -744,12 +742,12 @@ test("extend-application-offer refuses states, versions, readers, dates, and let
     await expectProblem(
       await api.extendApplicationOffer(
         owner,
-        extendRequest({ version: 2, letter_id: current }),
+        extendRequest({ version: SHORTLISTED + 1, letter_id: current }),
       ),
       409,
       STATE_CONFLICT,
     );
-    const another = seedApplication(org.domain, n, "in_pipeline", stage);
+    const another = await seedAt(world, n, "in_pipeline", stage);
     await expectProblem(
       await api.extendApplicationOffer(
         owner,
@@ -790,38 +788,50 @@ test("withdraw-application-offer and other exits from offered end the offer", as
     ]);
     const n = opening.opening_number;
     const stage = stageOf(stages, 1).id;
-    const pipelined = seedApplication(org.domain, n, "in_pipeline", stage);
+    const pipelined = await seedAt(world, n, "in_pipeline", stage);
     const reference = (number: number, version: number) => ({
       opening_number: n,
       application_number: number,
       version,
     });
     await expectProblem(
-      await api.withdrawApplicationOffer(owner, reference(pipelined, 1)),
+      await api.withdrawApplicationOffer(
+        owner,
+        reference(pipelined, SHORTLISTED),
+      ),
       409,
       STATE_CONFLICT,
     );
-    const offered = seedApplication(org.domain, n, "in_pipeline", stage);
-    await extend(world, n, offered, { version: 1 });
+    const offered = await seedAt(world, n, "in_pipeline", stage);
+    await extend(world, n, offered, { version: SHORTLISTED });
     await expectProblem(
-      await api.withdrawApplicationOffer(owner, reference(offered, 1)),
+      await api.withdrawApplicationOffer(
+        owner,
+        reference(offered, SHORTLISTED),
+      ),
       409,
       VERSION_CONFLICT,
     );
     await expectProblem(
-      await api.withdrawApplicationOffer(teammate.token, reference(offered, 2)),
+      await api.withdrawApplicationOffer(
+        teammate.token,
+        reference(offered, SHORTLISTED + 1),
+      ),
       403,
       PERMISSION_REQUIRED,
     );
     await expectProblem(
-      await api.withdrawApplicationOffer(outsider.token, reference(offered, 2)),
+      await api.withdrawApplicationOffer(
+        outsider.token,
+        reference(offered, SHORTLISTED + 1),
+      ),
       404,
       NOT_FOUND,
     );
     // Not progressing from offered withdraws the offer with it.
     const marked = await api.markApplicationNotProgressing(
       owner,
-      reference(offered, 2),
+      reference(offered, SHORTLISTED + 1),
     );
     expect(marked.status(), await marked.text()).toBe(200);
     const notProgressing = (await marked.json()) as ApplicationDetail;
@@ -829,8 +839,8 @@ test("withdraw-application-offer and other exits from offered end the offer", as
     expect(notProgressing.offers[0]?.status).toBe("withdrawn");
 
     // So does closing the Opening with every application marked.
-    const closing = seedApplication(org.domain, n, "in_pipeline", stage);
-    await extend(world, n, closing, { version: 1 });
+    const closing = await seedAt(world, n, "in_pipeline", stage);
+    await extend(world, n, closing, { version: SHORTLISTED });
     const current = await api.getOpening(owner, { opening_number: n });
     const closed = await api.requestOpeningChange(owner, {
       opening_number: n,
@@ -847,81 +857,6 @@ test("withdraw-application-offer and other exits from offered end the offer", as
 
 // The Hub side: a real applicant, so commands and projection events travel
 // between tenants.
-
-const ALIAS_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
-
-function randomAlias(): string {
-  let out = "e2e-";
-  for (const byte of randomBytes(20)) {
-    out += ALIAS_ALPHABET[byte % ALIAS_ALPHABET.length];
-  }
-  return out;
-}
-
-interface Applicant {
-  tenant: TestTenant;
-  email: string;
-  did: string;
-  token: string;
-  alias: string;
-  hub: HubAPI;
-}
-
-function seedApplicant(
-  request: APIRequestContext,
-  tenant: TestTenant,
-): Applicant {
-  const email = `e2e+${randomUUID()}@e2e-application-offers.example.test`;
-  const seeded = seedActiveHubUser(tenant, email, "Ada Applicant");
-  const applicant: Applicant = {
-    tenant,
-    email,
-    did: seeded.hubUserDID,
-    token: seeded.sessionToken,
-    alias: randomAlias(),
-    hub: new HubAPI(request, tenant),
-  };
-  seedGlobalHubPrincipal(applicant.did, tenant, applicant.alias);
-  return applicant;
-}
-
-function cleanupApplicant(applicant: Applicant, worlds: World[]): void {
-  const did = sqlLiteral(applicant.did);
-  const commandIDs = sqlScalarForTenant(
-    applicant.tenant,
-    `SELECT coalesce(string_agg(quote_literal(command_id::text), ','), '')
-     FROM vetchium.federation_operations
-     WHERE owner_principal_type = 'hub_user' AND owner_principal_id = ${did}`,
-  );
-  for (const world of worlds) {
-    sqlScalarForTenant(
-      world.tenant,
-      `${
-        commandIDs === ""
-          ? ""
-          : `DELETE FROM vetchium.federation_command_ledger
-             WHERE command_id::text IN (${commandIDs});`
-      }
-       DELETE FROM vetchium.federation_outbox
-       WHERE destination_principal_did = ${did}::uuid;`,
-    );
-    sqlScalarForTenant(
-      applicant.tenant,
-      `DELETE FROM vetchium.audit_events
-       WHERE entity_type = 'federation_event' AND entity_id IN (
-         SELECT event_id::text FROM vetchium.federation_inbox
-         WHERE aggregate_type = 'org_application'
-           AND aggregate_id LIKE ${sqlLiteral(`${world.did}:%`)});
-       DELETE FROM vetchium.federation_inbox
-       WHERE aggregate_type = 'org_application'
-         AND aggregate_id LIKE ${sqlLiteral(`${world.did}:%`)};
-       DELETE FROM vetchium.federation_event_watermarks
-       WHERE destination_principal_did = ${did}::uuid;`,
-    );
-  }
-  cleanupGlobalHubPrincipal(applicant.did, applicant.alias);
-  cleanupHubUser(applicant.email, applicant.tenant);
-}
 
 async function withApplicant(
   request: APIRequestContext,

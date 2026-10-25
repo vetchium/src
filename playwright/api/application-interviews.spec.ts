@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 import type { OpeningContent } from "typespec/common/openings";
 import type {
@@ -10,6 +10,7 @@ import type {
   ApplicationCounts,
   ApplicationDetail,
   ApplicationHistoryEntry,
+  ApplicationState,
   Interview,
   InterviewDetails,
   ListApplicationHistoryResponse,
@@ -21,18 +22,19 @@ import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { expectProblem } from "../lib/admin-api.ts";
 import {
-  cleanupGlobalHubPrincipal,
-  cleanupHubUser,
   globalSQLScalar,
-  seedActiveHubUser,
-  seedGlobalHubPrincipal,
   sqlLiteral,
-  sqlScalarForTenant,
   type TestTenant,
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
-import { HubAPI, hubIdempotencyKey } from "../lib/hub-api.ts";
+import { type SeededApplication, seedApplication } from "../lib/hiring-seed.ts";
+import { hubIdempotencyKey } from "../lib/hub-api.ts";
+import {
+  type Applicant,
+  cleanupApplicant,
+  seedApplicant,
+} from "../lib/hub-applicant.ts";
 import {
   addOrgMember,
   cleanupOrg,
@@ -94,11 +96,13 @@ function cleanupOutbox(domain: string, tenant: TestTenant = "sgp"): void {
 }
 
 interface World {
+  request: APIRequestContext;
   tenant: TestTenant;
   api: OrgsAPI;
   org: SignedUpOrg;
   owner: string;
   did: string;
+  applicants: Applicant[];
 }
 
 async function newOrg(
@@ -108,10 +112,21 @@ async function newOrg(
   const api = new OrgsAPI(request, tenant);
   const org = await signupOrg(api);
   const owner = await loginOrg(api, org);
-  return { tenant, api, org, owner, did: orgDID(org.domain, tenant) };
+  return {
+    request,
+    tenant,
+    api,
+    org,
+    owner,
+    did: orgDID(org.domain, tenant),
+    applicants: [],
+  };
 }
 
 async function removeOrg(world: World): Promise<void> {
+  for (const applicant of world.applicants.splice(0)) {
+    cleanupApplicant(applicant, [world]);
+  }
   cleanupOutbox(world.org.domain, world.tenant);
   await deleteOrgVerificationRecord(world.org.domain);
   cleanupOrg(world.org.domain, world.tenant);
@@ -183,53 +198,35 @@ function stageOf(stages: PipelineStage[], index: number): PipelineStage {
   return stage;
 }
 
-/** Inserts an application from an unreachable fixture applicant, in state,
- * at stageID for a candidacy, and returns its number. */
-function seedApplication(
-  domain: string,
+/** Applies through the Hub as a new applicant and walks the application to
+ * state, at stageID for a candidacy; returns its number. */
+async function seedAt(
+  world: World,
   openingNumber: number,
-  state: string,
+  state: ApplicationState,
   stageID?: string,
-): number {
-  const stage = stageID ? sqlLiteral(stageID) : "NULL";
-  return Number(
-    orgSQL(`
-    WITH o AS (
-      SELECT org_opening_id, org_did, next_application_number
-      FROM vetchium.org_openings
-      WHERE org_did = (SELECT org_did FROM vetchium.org_domains
-        WHERE domain = ${sqlLiteral(domain)})
-        AND opening_number = ${openingNumber}
-    ), applicant AS (
-      INSERT INTO vetchium.org_applicants
-        (org_applicant_id, org_did, applicant_kind, hub_user_did)
-      SELECT gen_random_uuid(), o.org_did, 'hub_user',
-        overlay(gen_random_uuid()::text placing '7' from 15)::uuid
-      FROM o RETURNING org_applicant_id
-    ), application AS (
-      INSERT INTO vetchium.org_applications (
-        org_application_id, org_opening_id, application_number,
-        org_applicant_id, application_state, snapshot, current_stage_id
-      )
-      SELECT gen_random_uuid(), o.org_opening_id, o.next_application_number,
-        applicant.org_applicant_id, ${sqlLiteral(state)},
-        jsonb_build_object('display_name', 'Ada Lovelace'::text,
-          'handle', 'abcd1234-0123456789a'::text,
-          'resident_country', 'GB'::text, 'websites', '[]'::jsonb,
-          'work_experiences', '[]'::jsonb, 'certifications', '[]'::jsonb,
-          'language_abilities', '[]'::jsonb,
-          'educational_qualifications', '[]'::jsonb),
-        ${stage}::uuid
-      FROM o, applicant
-      RETURNING application_number
-    ), counter AS (
-      UPDATE vetchium.org_openings
-      SET next_application_number = next_application_number + 1
-      WHERE org_opening_id IN (SELECT org_opening_id FROM o)
-      RETURNING org_opening_id
-    )
-    SELECT application_number FROM application
-      WHERE (SELECT count(*) FROM counter) = 1`),
+): Promise<number> {
+  return (await seedFor(world, openingNumber, state, stageID)).number;
+}
+
+async function seedFor(
+  world: World,
+  openingNumber: number,
+  state: ApplicationState,
+  stageID?: string,
+): Promise<SeededApplication> {
+  return seedApplication(
+    {
+      request: world.request,
+      tenant: world.tenant,
+      api: world.api,
+      owner: world.owner,
+      domain: world.org.domain,
+      did: world.did,
+      applicants: world.applicants,
+    },
+    openingNumber,
+    { name: "Ada Lovelace", state, ...(stageID ? { stageId: stageID } : {}) },
   );
 }
 
@@ -368,16 +365,25 @@ async function panelCandidacy(
 ): Promise<{
   opening: number;
   application: number;
+  /** The version seeding left; v(k) in a test counts it as version 1. */
+  seeded: number;
+  applicant: Applicant;
   stages: PipelineStage[];
 }> {
   const { opening, stages } = await publishedOpening(world, team);
-  const application = seedApplication(
-    world.org.domain,
+  const { number, version, applicant } = await seedFor(
+    world,
     opening.opening_number,
     "in_pipeline",
     stageOf(stages, 1).id,
   );
-  return { opening: opening.opening_number, application, stages };
+  return {
+    opening: opening.opening_number,
+    application: number,
+    seeded: version,
+    applicant,
+    stages,
+  };
 }
 
 test("scheduling stores the interview, bumps the version, and records history without notes", async ({
@@ -392,7 +398,8 @@ test("scheduling stores the interview, bumps the version, and records history wi
       world.org.domain,
       `peer@${world.org.domain}`,
     );
-    const { opening, application } = await panelCandidacy(world);
+    const { opening, application, seeded } = await panelCandidacy(world);
+    const v = (k: number) => seeded + k - 1;
     const start = inFuture(180);
     const key = orgsIdempotencyKey();
     const details = interviewDetails(world, {
@@ -403,14 +410,14 @@ test("scheduling stores the interview, bumps the version, and records history wi
     const body = {
       opening_number: opening,
       application_number: application,
-      version: 1,
+      version: v(1),
       ...details,
     };
     const first = await world.api.scheduleInterview(world.owner, body, key);
     expect(first.status(), await first.text()).toBe(200);
     expect(first.headers()["cache-control"]).toBe("no-store");
     const scheduled = (await first.json()) as ApplicationDetail;
-    expect(scheduled.version).toBe(2);
+    expect(scheduled.version).toBe(v(2));
     expect(scheduled.interviews).toHaveLength(1);
     const interview = interviewOf(scheduled, 1);
     expect(interview).toMatchObject({
@@ -458,7 +465,7 @@ test("scheduling stores the interview, bumps the version, and records history wi
       actor: "org_user",
       actor_email: world.org.emailAddress,
       state: "in_pipeline",
-      version: 2,
+      version: v(2),
       interview_number: 1,
     });
     expect(JSON.stringify(entry)).not.toContain("meet.example.com");
@@ -467,7 +474,7 @@ test("scheduling stores the interview, bumps the version, and records history wi
     const second = await world.api.scheduleInterview(world.owner, {
       opening_number: opening,
       application_number: application,
-      version: 2,
+      version: v(2),
       ...interviewDetails(world, {
         mode: "in_person",
         video_url: undefined,
@@ -490,12 +497,13 @@ test("schedule-interview validates the details and names unavailable interviewer
   test.setTimeout(120_000);
   await withOrg(request, async (world) => {
     const { api, owner } = world;
-    const { opening, application } = await panelCandidacy(world);
+    const { opening, application, seeded } = await panelCandidacy(world);
+    const v = (k: number) => seeded + k - 1;
     const send = (overrides: Record<string, unknown>) =>
       api.interviewWriteRaw("schedule-interview", owner, {
         opening_number: opening,
         application_number: application,
-        version: 1,
+        version: v(1),
         ...interviewDetails(world),
         ...overrides,
       });
@@ -571,7 +579,7 @@ test("schedule-interview validates the details and names unavailable interviewer
       const ok = await api.interviewWriteRaw("schedule-interview", owner, {
         opening_number: opening,
         application_number: application,
-        version: index + 1,
+        version: v(index + 1),
         ...interviewDetails(world),
         ...overrides,
       });
@@ -592,7 +600,7 @@ test("schedule-interview validates the details and names unavailable interviewer
         ...interviewDetails(world),
         opening_number: opening,
         application_number: application,
-        version: 4,
+        version: v(4),
         stage_name: "Panel",
       }),
       400,
@@ -649,8 +657,8 @@ test("an interview is limited to ten per stage, cancelled ones excepted, and nee
     expect(interviewOf(final, 12).stage.name).toBe("Final");
 
     // A review stage cannot hold interviews.
-    const screen = seedApplication(
-      world.org.domain,
+    const screen = await seedFor(
+      world,
       opening,
       "in_pipeline",
       stageOf(stages, 0).id,
@@ -658,8 +666,8 @@ test("an interview is limited to ten per stage, cancelled ones excepted, and nee
     await expectProblem(
       await api.scheduleInterview(owner, {
         opening_number: opening,
-        application_number: screen,
-        version: 1,
+        application_number: screen.number,
+        version: screen.version,
         ...interviewDetails(world),
       }),
       409,
@@ -694,10 +702,11 @@ test("interview writes refuse the wrong state, version, reader, and caller", asy
       `manager@${org.domain}`,
       ["org:manage_candidacies"],
     );
-    const { opening, application } = await panelCandidacy(world, [
+    const { opening, application, seeded } = await panelCandidacy(world, [
       teammate.emailAddress,
     ]);
-    const submitted = seedApplication(org.domain, opening, "submitted");
+    const v = (k: number) => seeded + k - 1;
+    const submitted = await seedAt(world, opening, "submitted");
     const base = (number: number, version: number) => ({
       opening_number: opening,
       application_number: number,
@@ -711,7 +720,7 @@ test("interview writes refuse the wrong state, version, reader, and caller", asy
       STATE_CONFLICT,
     );
     await expectProblem(
-      await api.scheduleInterview(owner, base(application, 9)),
+      await api.scheduleInterview(owner, base(application, v(9))),
       409,
       VERSION_CONFLICT,
     );
@@ -721,12 +730,12 @@ test("interview writes refuse the wrong state, version, reader, and caller", asy
       NOT_FOUND,
     );
     await expectProblem(
-      await api.scheduleInterview(teammate.token, base(application, 1)),
+      await api.scheduleInterview(teammate.token, base(application, v(1))),
       403,
       PERMISSION_REQUIRED,
     );
     await expectProblem(
-      await api.scheduleInterview(outsider.token, base(application, 1)),
+      await api.scheduleInterview(outsider.token, base(application, v(1))),
       404,
       NOT_FOUND,
     );
@@ -734,28 +743,32 @@ test("interview writes refuse the wrong state, version, reader, and caller", asy
       await api.interviewWriteRaw(
         "schedule-interview",
         "not-a-token",
-        base(application, 1),
+        base(application, v(1)),
       ),
       401,
       `${PREFIX}org-authentication-required`,
     );
-    const noKey = await api.post("/schedule-interview", base(application, 1), {
-      token: owner,
-    });
+    const noKey = await api.post(
+      "/schedule-interview",
+      base(application, v(1)),
+      {
+        token: owner,
+      },
+    );
     await expectProblem(noKey, 400, VALIDATION, ["Idempotency-Key"]);
     expect((await detail(world, opening, application)).interviews).toEqual([]);
 
     // Anyone who may act on the Opening's applications may schedule.
     const scheduled = await api.scheduleInterview(
       manager.token,
-      base(application, 1),
+      base(application, v(1)),
     );
     expect(scheduled.status(), await scheduled.text()).toBe(200);
 
     const reference = (number: number) => ({
       opening_number: opening,
       application_number: application,
-      version: 2,
+      version: v(2),
       interview_number: number,
     });
     for (const call of [
@@ -778,7 +791,7 @@ test("interview writes refuse the wrong state, version, reader, and caller", asy
     await expectProblem(
       await api.changeInterview(owner, {
         ...reference(1),
-        version: 1,
+        version: v(1),
         ...interviewDetails(world),
       }),
       409,
@@ -789,19 +802,19 @@ test("interview writes refuse the wrong state, version, reader, and caller", asy
     const notProgressing = await api.markApplicationNotProgressing(owner, {
       opening_number: opening,
       application_number: application,
-      version: 2,
+      version: v(2),
     });
     expect(notProgressing.status(), await notProgressing.text()).toBe(200);
     await expectProblem(
       await api.cancelInterview(owner, {
         ...reference(1),
-        version: 3,
+        version: v(3),
       }),
       409,
       STATE_CONFLICT,
     );
     await expectProblem(
-      await api.scheduleInterview(owner, base(application, 3)),
+      await api.scheduleInterview(owner, base(application, v(3))),
       409,
       STATE_CONFLICT,
     );
@@ -812,7 +825,7 @@ test("interview writes refuse the wrong state, version, reader, and caller", asy
        WHERE org_did = ${sqlLiteral(world.did)}::uuid`,
     );
     await expectProblem(
-      await api.scheduleInterview(owner, base(application, 3)),
+      await api.scheduleInterview(owner, base(application, v(3))),
       403,
       `${PREFIX}org-suspended`,
     );
@@ -832,18 +845,22 @@ test("changing an interview resets the response only when time or mode change", 
       org.domain,
       `peer@${org.domain}`,
     );
-    const { opening, application } = await panelCandidacy(world);
+    const { opening, application, applicant } = await panelCandidacy(world);
     const start = inFuture(240);
     await schedule(world, opening, application, { start_time: start });
-    const answer = (response: string, note?: string) =>
-      interviewSQL(
-        world,
-        opening,
-        application,
-        1,
-        `applicant_response = '${response}',
-         reschedule_note = ${note ? sqlLiteral(note) : "NULL"}`,
-      );
+    const reference = {
+      domain: org.domain,
+      opening_number: opening,
+      application_number: application,
+    };
+    // The applicant answers through the Hub, as in production.
+    const answer = async (response: "accepted" | "reschedule", note = "") => {
+      const answered =
+        response === "accepted"
+          ? await accept(applicant, reference, 1)
+          : await reschedule(applicant, reference, 1, note);
+      expect(answered.status(), await answered.text()).toBe(200);
+    };
     const change = async (overrides: Overrides) => {
       const response = await api.changeInterview(owner, {
         opening_number: opening,
@@ -858,7 +875,7 @@ test("changing an interview resets the response only when time or mode change", 
 
     // The same details keep the response, and so does a change of
     // interviewers alone.
-    answer("accepted");
+    await answer("accepted");
     expect((await change({})).applicant_response).toBe("accepted");
     const kept = await change({
       interviewer_emails: [org.emailAddress, peer.emailAddress],
@@ -874,7 +891,7 @@ test("changing an interview resets the response only when time or mode change", 
     expect(trimmed.applicant_response).toBe("accepted");
 
     // A new time, duration, or mode resets it and drops the applicant's note.
-    answer("reschedule_requested", "Can we move it?");
+    await answer("reschedule", "Can we move it?");
     expect(
       interviewOf(await detail(world, opening, application), 1),
     ).toMatchObject({
@@ -884,12 +901,12 @@ test("changing an interview resets the response only when time or mode change", 
     const moved = await change({ start_time: inFuture(300) });
     expect(moved.applicant_response).toBe("pending");
     expect(moved.reschedule_note).toBeUndefined();
-    answer("accepted");
+    await answer("accepted");
     expect(
       (await change({ start_time: moved.starts_at, duration_minutes: 50 }))
         .applicant_response,
     ).toBe("pending");
-    answer("accepted");
+    await answer("accepted");
     const inPerson = await change({
       start_time: moved.starts_at,
       duration_minutes: 50,
@@ -903,7 +920,7 @@ test("changing an interview resets the response only when time or mode change", 
       location: "Room 9",
     });
     expect(inPerson.video_url).toBeUndefined();
-    answer("accepted");
+    await answer("accepted");
     expect(
       (
         await change({
@@ -949,11 +966,10 @@ test("changing an interview resets the response only when time or mode change", 
     await expectProblem(invalid, 422, INTERVIEWERS_INVALID);
     expect(await invalid.json()).toMatchObject({ email_addresses: [unknown] });
     // A disabled user is unavailable too.
-    orgSQL(
-      `UPDATE vetchium.org_users
-       SET org_user_state = 'disabled', disabled_at = now()
-       WHERE email_address = ${sqlLiteral(peer.emailAddress)}`,
-    );
+    const disabled = await api.disableUser(owner, {
+      email_address: peer.emailAddress,
+    });
+    expect(disabled.status(), await disabled.text()).toBe(204);
     await expectProblem(
       await attempt({ interviewer_emails: [peer.emailAddress] }),
       422,
@@ -1312,14 +1328,14 @@ test("an interviewer without other access reads and acts only on their own inter
     const ada = await addOrgMember(api, owner, org.domain, `ada@${org.domain}`);
     const bob = await addOrgMember(api, owner, org.domain, `bob@${org.domain}`);
     const { opening, application, stages } = await panelCandidacy(world);
-    const other = seedApplication(
-      org.domain,
+    const other = await seedAt(
+      world,
       opening,
       "in_pipeline",
       stageOf(stages, 1).id,
     );
-    const untouched = seedApplication(
-      org.domain,
+    const untouched = await seedAt(
+      world,
       opening,
       "in_pipeline",
       stageOf(stages, 1).id,
@@ -1358,8 +1374,9 @@ test("an interviewer without other access reads and acts only on their own inter
         NOT_FOUND,
       );
     }
-    expect((await history(world, opening, application, ada.token)).length).toBe(
-      2,
+    // The interviewer reads the candidacy's whole history.
+    expect(await history(world, opening, application, ada.token)).toEqual(
+      await history(world, opening, application),
     );
     const listed = await api.listApplications(ada.token, {
       opening_number: opening,
@@ -1535,8 +1552,8 @@ test("an interviewer without other access reads and acts only on their own inter
     ).toBe(other);
 
     // An interviewer reads the candidacy but not its offers.
-    const offered = seedApplication(
-      org.domain,
+    const offered = await seedAt(
+      world,
       opening,
       "in_pipeline",
       stageOf(stages, 1).id,
@@ -1559,34 +1576,37 @@ test("candidates can be filtered by the action awaiting the applicant", async ({
   await withOrg(request, async (world) => {
     const { api, owner } = world;
     const { opening, application, stages } = await panelCandidacy(world);
-    const answered = seedApplication(
-      world.org.domain,
+    const answered = await seedFor(
+      world,
       opening,
       "in_pipeline",
       stageOf(stages, 1).id,
     );
-    const past = seedApplication(
-      world.org.domain,
+    const past = await seedAt(
+      world,
       opening,
       "in_pipeline",
       stageOf(stages, 1).id,
     );
-    const none = seedApplication(
-      world.org.domain,
+    const none = await seedAt(
+      world,
       opening,
       "in_pipeline",
       stageOf(stages, 1).id,
     );
     await schedule(world, opening, application);
-    await schedule(world, opening, answered);
+    await schedule(world, opening, answered.number);
     await schedule(world, opening, past);
-    interviewSQL(
-      world,
-      opening,
-      answered,
+    const accepted = await accept(
+      answered.applicant,
+      {
+        domain: world.org.domain,
+        opening_number: opening,
+        application_number: answered.number,
+      },
       1,
-      "applicant_response = 'accepted'",
     );
+    expect(accepted.status(), await accepted.text()).toBe(200);
     startInterview(world, opening, past, 1);
     const numbers = async (action: string) => {
       const response = await api.listApplications(owner, {
@@ -1636,12 +1656,7 @@ test("every exit from the pipeline cancels upcoming interviews and spares starte
     const { api, owner, org } = world;
     const { opening, application, stages } = await panelCandidacy(world);
     const candidacy = () =>
-      seedApplication(
-        org.domain,
-        opening,
-        "in_pipeline",
-        stageOf(stages, 1).id,
-      );
+      seedAt(world, opening, "in_pipeline", stageOf(stages, 1).id);
     const states = async (number: number) =>
       (await detail(world, opening, number)).interviews.map(
         (interview) => interview.state,
@@ -1664,31 +1679,30 @@ test("every exit from the pipeline cancels upcoming interviews and spares starte
     ).toBe("scheduled");
 
     // Joining and not joining end an accepted offer's candidacy.
+    // The interview is scheduled while the candidacy is in the pipeline;
+    // the offer and its acceptance leave it upcoming.
     for (const outcome of ["joined", "did_not_join"] as const) {
-      const number = seedApplication(
-        org.domain,
+      const seeded = await seedFor(
+        world,
         opening,
-        "offer_accepted",
+        "in_pipeline",
         stageOf(stages, 1).id,
       );
-      orgSQL(
-        `UPDATE vetchium.org_applications SET offer_extended_at = now() - interval '2 days'
-         WHERE org_opening_id = (SELECT org_opening_id FROM vetchium.org_openings
-           WHERE org_did = ${sqlLiteral(world.did)}::uuid AND opening_number = ${opening})
-           AND application_number = ${number}`,
+      const number = seeded.number;
+      await schedule(world, opening, number, {
+        start_time: inFuture(24 * 60),
+      });
+      await extend(world, opening, number);
+      const answer = await seeded.applicant.hub.acceptApplicationOffer(
+        {
+          domain: world.org.domain,
+          opening_number: opening,
+          application_number: number,
+          offer_number: 1,
+        },
+        { token: seeded.applicant.token, idempotencyKey: hubIdempotencyKey() },
       );
-      orgSQL(
-        `INSERT INTO vetchium.org_interviews (
-           org_interview_id, org_application_id, interview_number,
-           org_opening_stage_id, starts_at, duration_minutes, interview_mode,
-           location)
-         SELECT gen_random_uuid(), a.org_application_id, 1,
-           a.current_stage_id, now() + interval '1 day', 30, 'in_person', 'Room'
-         FROM vetchium.org_applications AS a
-         JOIN vetchium.org_openings AS o USING (org_opening_id)
-         WHERE o.org_did = ${sqlLiteral(world.did)}::uuid
-           AND o.opening_number = ${opening} AND a.application_number = ${number}`,
-      );
+      expect(answer.status(), await answer.text()).toBe(200);
       expect(await states(number)).toEqual(["scheduled"]);
       const version1 = await version(world, opening, number);
       const finished =
@@ -1709,7 +1723,7 @@ test("every exit from the pipeline cancels upcoming interviews and spares starte
     }
 
     // Closing the Opening with every application marked.
-    const closing = candidacy();
+    const closing = await candidacy();
     await schedule(world, opening, closing);
     expect(await states(closing)).toEqual(["scheduled"]);
     const current = await api.getOpening(owner, { opening_number: opening });
@@ -1802,81 +1816,6 @@ test("an expired offer cancels upcoming interviews", async ({ request }) => {
 
 // The Hub side: a real applicant, so commands and projection events travel
 // between tenants.
-
-const ALIAS_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
-
-function randomAlias(): string {
-  let out = "e2e-";
-  for (const byte of randomBytes(20)) {
-    out += ALIAS_ALPHABET[byte % ALIAS_ALPHABET.length];
-  }
-  return out;
-}
-
-interface Applicant {
-  tenant: TestTenant;
-  email: string;
-  did: string;
-  token: string;
-  alias: string;
-  hub: HubAPI;
-}
-
-function seedApplicant(
-  request: APIRequestContext,
-  tenant: TestTenant,
-): Applicant {
-  const email = `e2e+${randomUUID()}@e2e-application-interviews.example.test`;
-  const seeded = seedActiveHubUser(tenant, email, "Ada Applicant");
-  const applicant: Applicant = {
-    tenant,
-    email,
-    did: seeded.hubUserDID,
-    token: seeded.sessionToken,
-    alias: randomAlias(),
-    hub: new HubAPI(request, tenant),
-  };
-  seedGlobalHubPrincipal(applicant.did, tenant, applicant.alias);
-  return applicant;
-}
-
-function cleanupApplicant(applicant: Applicant, worlds: World[]): void {
-  const did = sqlLiteral(applicant.did);
-  const commandIDs = sqlScalarForTenant(
-    applicant.tenant,
-    `SELECT coalesce(string_agg(quote_literal(command_id::text), ','), '')
-     FROM vetchium.federation_operations
-     WHERE owner_principal_type = 'hub_user' AND owner_principal_id = ${did}`,
-  );
-  for (const world of worlds) {
-    sqlScalarForTenant(
-      world.tenant,
-      `${
-        commandIDs === ""
-          ? ""
-          : `DELETE FROM vetchium.federation_command_ledger
-             WHERE command_id::text IN (${commandIDs});`
-      }
-       DELETE FROM vetchium.federation_outbox
-       WHERE destination_principal_did = ${did}::uuid;`,
-    );
-    sqlScalarForTenant(
-      applicant.tenant,
-      `DELETE FROM vetchium.audit_events
-       WHERE entity_type = 'federation_event' AND entity_id IN (
-         SELECT event_id::text FROM vetchium.federation_inbox
-         WHERE aggregate_type = 'org_application'
-           AND aggregate_id LIKE ${sqlLiteral(`${world.did}:%`)});
-       DELETE FROM vetchium.federation_inbox
-       WHERE aggregate_type = 'org_application'
-         AND aggregate_id LIKE ${sqlLiteral(`${world.did}:%`)};
-       DELETE FROM vetchium.federation_event_watermarks
-       WHERE destination_principal_did = ${did}::uuid;`,
-    );
-  }
-  cleanupGlobalHubPrincipal(applicant.did, applicant.alias);
-  cleanupHubUser(applicant.email, applicant.tenant);
-}
 
 async function withApplicant(
   request: APIRequestContext,
