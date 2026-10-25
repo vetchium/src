@@ -1,15 +1,18 @@
 import { randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
 import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
-import { sqlLiteral } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { addOrgMember, type OrgsAPI, orgSQL } from "../lib/orgs-api.ts";
+import {
+  type HiringOrg,
+  type SeededApplication,
+  seedApplication,
+} from "../lib/hiring-seed.ts";
+import { hubIdempotencyKey } from "../lib/hub-api.ts";
+import { addOrgMember, orgSQL } from "../lib/orgs-api.ts";
 import {
   detailOf,
   orgDIDSQL,
   publishedOpening,
-  seedApplication,
-  shortlist,
   stageOf,
   utcDate,
 } from "../lib/orgs-applications.ts";
@@ -63,24 +66,34 @@ function applicationRowsSQL(
   );
 }
 
-async function candidateAt(
-  api: OrgsAPI,
-  owner: string,
-  org: { domain: string },
+/** A candidate shortlisted to stage, with the applicant who applied. */
+async function candidateFor(
+  world: HiringOrg,
   opening: number,
   stage: PipelineStage,
   name = "Ada Lovelace",
+): Promise<SeededApplication> {
+  return seedApplication(world, opening, {
+    name,
+    state: "in_pipeline",
+    stageId: stage.id,
+  });
+}
+
+async function candidateAt(
+  world: HiringOrg,
+  opening: number,
+  stage: PipelineStage,
+  name?: string,
 ): Promise<number> {
-  const application = seedApplication(org.domain, opening, { name });
-  await shortlist(api, owner, opening, application, stage);
-  return application;
+  return (await candidateFor(world, opening, stage, name)).number;
 }
 
 test("an interview is scheduled, changed, run, and given feedback by its interviewers", async ({
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const panelist = await addOrgMember(
       api,
       owner,
@@ -91,13 +104,7 @@ test("an interview is scheduled, changed, run, and given feedback by its intervi
       stages: [...pipeline],
     });
     const n = opening.opening_number;
-    const application = await candidateAt(
-      api,
-      owner,
-      org,
-      n,
-      stageOf(stages, 2),
-    );
+    const application = await candidateAt(world, n, stageOf(stages, 2));
     await signIn(page, org);
 
     // Nobody has an interview yet.
@@ -229,23 +236,19 @@ test("an interview is cancelled and an assessment result completes its stage", a
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org, {
       stages: [...pipeline],
     });
     const n = opening.opening_number;
     const interviewed = await candidateAt(
-      api,
-      owner,
-      org,
+      world,
       n,
       stageOf(stages, 2),
       "Grace Hopper",
     );
     const assessed = await candidateAt(
-      api,
-      owner,
-      org,
+      world,
       n,
       stageOf(stages, 1),
       "Alan Turing",
@@ -309,29 +312,39 @@ test("background-check consent is requested, asked again, and results are record
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org, {
       stages: [...pipeline],
     });
     const n = opening.opening_number;
-    const application = await candidateAt(
-      api,
-      owner,
-      org,
+    const { number: application, applicant } = await candidateFor(
+      world,
       n,
       stageOf(stages, 3),
     );
-    const setConsent = (number: number, state: string) =>
-      applicationRowsSQL(
-        org.domain,
-        n,
-        application,
-        "org_background_checks",
-        `consent_state = ${sqlLiteral(state)}::vetchium.org_consent_state,
-         responded_at = CASE WHEN ${sqlLiteral(state)} = 'ended'
-           THEN NULL ELSE now() END`,
-        `AND t.check_number = ${number}`,
-      );
+    // The applicant answers through the Hub.
+    const answer = async (check: number, give: boolean) => {
+      const body = {
+        domain: org.domain,
+        opening_number: n,
+        application_number: application,
+        check_number: check,
+      };
+      const options = {
+        token: applicant.token,
+        idempotencyKey: hubIdempotencyKey(),
+      };
+      const answered = give
+        ? await applicant.hub.giveApplicationBackgroundCheckConsent(
+            body,
+            options,
+          )
+        : await applicant.hub.declineApplicationBackgroundCheckConsent(
+            body,
+            options,
+          );
+      expect(answered.status(), await answered.text()).toBe(200);
+    };
     await signIn(page, org);
     await page.goto(applicationURL(n, application));
 
@@ -358,9 +371,9 @@ test("background-check consent is requested, asked again, and results are record
     ).toHaveCount(0);
 
     // The applicant declined: the Org may ask again.
-    setConsent(1, "declined");
+    await answer(1, false);
     await page.reload();
-    await expect(page.getByText("Consent declined")).toBeVisible();
+    await expect(page.getByText("Consent declined").first()).toBeVisible();
     await page.getByRole("button", { name: "Ask for consent again" }).click();
     const again = page.getByRole("dialog", {
       name: "Ask for background-check consent again",
@@ -370,9 +383,9 @@ test("background-check consent is requested, asked again, and results are record
     await expect(page.getByText("Consent requested.").first()).toBeVisible();
 
     // The applicant agreed: each requested check can be recorded once.
-    setConsent(2, "given");
+    await answer(2, true);
     await page.reload();
-    await expect(page.getByText("Consent given")).toBeVisible();
+    await expect(page.getByText("Consent given").first()).toBeVisible();
     await page.getByRole("button", { name: "Record result" }).click();
     const result = page.getByRole("dialog", { name: "Result: Drug test" });
     await result.getByRole("radio", { name: "Discrepancy" }).check();
@@ -398,22 +411,20 @@ test("an offer is extended with a letter, withdrawn, and extended again", async 
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org, {
       stages: [...pipeline],
       positions: 1,
     });
     const n = opening.opening_number;
-    seedApplication(org.domain, n, {
+    await seedApplication(world, n, {
       name: "Already Joined",
       state: "joined",
       joinedOn: utcDate(-30),
       stageId: stageOf(stages, 2).id,
     });
     const application = await candidateAt(
-      api,
-      owner,
-      org,
+      world,
       n,
       stageOf(stages, 2),
       "Margaret Hamilton",

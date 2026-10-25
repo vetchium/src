@@ -43,6 +43,10 @@ func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 		mesh.ResolveOrgDomain(s.Runtime, s.Directory, s.Credential),
 	)
 	mux.HandleFunc(
+		"POST /mesh/directory/resolve-principal",
+		mesh.ResolvePrincipal(s.Runtime, s.Directory, s.Credential),
+	)
+	mux.HandleFunc(
 		"POST /mesh/directory/reserve-org-principal",
 		mesh.ReserveOrgPrincipal(s.Runtime, s.Directory, s.Credential),
 	)

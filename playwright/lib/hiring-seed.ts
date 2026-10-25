@@ -227,7 +227,13 @@ export async function seedApplication(
       ),
     );
   }
-  return { number, version: await step.version(), applicant };
+  // A bare submission needs no Org session, which keeps long batches inside
+  // the short session lifetime CI uses.
+  return {
+    number,
+    version: step.wrote ? await step.version() : 1,
+    applicant,
+  };
 }
 
 /** How many whole UTC days `date` (YYYY-MM-DD) lies before today. */
@@ -235,6 +241,36 @@ function daysAgo(date: string): number {
   const today = new Date(`${utcDate(0)}T00:00:00Z`).getTime();
   return Math.round(
     (today - new Date(`${date}T00:00:00Z`).getTime()) / 86_400_000,
+  );
+}
+
+/** seedApplication for a test that needs only the number. */
+export async function seedApplicationNumber(
+  org: HiringOrg,
+  openingNumber: number,
+  options: ApplicationOptions = {},
+): Promise<number> {
+  return (await seedApplication(org, openingNumber, options)).number;
+}
+
+/** Moves a terminal application `days` into the past, as if it had become
+ * terminal then, so the retention job removes it (HP-RET-001). */
+export function ageTerminalApplication(
+  org: HiringOrg,
+  openingNumber: number,
+  applicationNumber: number,
+  days: number,
+): void {
+  sqlScalarForTenant(
+    org.tenant,
+    `UPDATE vetchium.org_applications AS a
+     SET created_at = now() - make_interval(days => ${Math.trunc(days) + 30}),
+       updated_at = now() - make_interval(days => ${Math.trunc(days)})
+     FROM vetchium.org_openings AS o
+     WHERE o.org_opening_id = a.org_opening_id
+       AND o.org_did = ${sqlLiteral(org.did)}::uuid
+       AND o.opening_number = ${Math.trunc(openingNumber)}
+       AND a.application_number = ${Math.trunc(applicationNumber)}`,
   );
 }
 
@@ -268,6 +304,8 @@ export function cleanupApplicants(org: HiringOrg): void {
 }
 
 class Steps {
+  wrote = false;
+
   constructor(
     private readonly org: HiringOrg,
     private readonly opening: number,
@@ -288,6 +326,7 @@ class Steps {
       version: number,
     ) => Promise<{ status(): number; text(): Promise<string> }>,
   ): Promise<void> {
+    this.wrote = true;
     const response = await write(await this.version());
     expect(response.status(), await response.text()).toBe(200);
   }
@@ -297,6 +336,7 @@ class Steps {
       key: string,
     ) => Promise<{ status(): number; text(): Promise<string> }>,
   ): Promise<void> {
+    this.wrote = true;
     const response = await write(hubIdempotencyKey());
     expect(response.status(), await response.text()).toBe(200);
   }

@@ -5,15 +5,26 @@ import type { OpeningProviders } from "typespec/orgs/marketplace/assignments";
 import type { Capability } from "typespec/orgs/marketplace/capabilities";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import type { TestTenant } from "./admin-db.ts";
-import { orgSQL, orgsIdempotencyKey } from "./orgs-api.ts";
+import {
+  cleanupApplicants,
+  type HiringOrg,
+  seedApplicationNumber,
+} from "./hiring-seed.ts";
+import { orgDID, orgsIdempotencyKey } from "./orgs-api.ts";
 import {
   cleanupOutbox,
   publishedOpening,
-  seedApplication,
   shortlist,
   stageOf,
 } from "./orgs-applications.ts";
-import { type Pair, withPair } from "./orgs-marketplace.ts";
+import {
+  activate,
+  listedProvider,
+  type Pair,
+  type Provider,
+  removeProvider,
+  withPair,
+} from "./orgs-marketplace.ts";
 
 // A consumer with an Opening whose pipeline has a stage of every kind and a
 // provider with a Listing for each Capability, for the specs of routing and
@@ -27,7 +38,12 @@ export const allCapabilities: Capability[] = [
 ];
 
 export interface World {
+  request: Parameters<typeof withPair>[0];
   pair: Pair;
+  /** Providers of seedEngagements, removed with the world. */
+  others: Provider[];
+  /** The consumer as seeding sees it; its applicants go with the world. */
+  hiring: HiringOrg;
   opening: OrgOpening;
   screen: PipelineStage;
   panel: PipelineStage;
@@ -56,6 +72,16 @@ export async function withWorld(
     },
     async (pair) => {
       const { consumer } = pair;
+      const others: Provider[] = [];
+      const hiring: HiringOrg = {
+        request,
+        tenant: consumer.tenant,
+        api: consumer.api,
+        owner: consumer.owner,
+        domain: consumer.org.domain,
+        did: orgDID(consumer.org.domain, consumer.tenant),
+        applicants: [],
+      };
       try {
         const { opening, stages } = await publishedOpening(
           consumer.api,
@@ -73,7 +99,10 @@ export async function withWorld(
           },
         );
         await body({
+          request,
           pair,
+          others,
+          hiring,
           opening,
           screen: stageOf(stages, 0),
           panel: stageOf(stages, 1),
@@ -82,6 +111,8 @@ export async function withWorld(
           check: stageOf(stages, 4),
         });
       } finally {
+        cleanupApplicants(hiring);
+        for (const other of others) await removeProvider(other);
         cleanupOutbox(consumer.org.domain, consumer.tenant);
       }
     },
@@ -104,15 +135,15 @@ export async function assign(
   return (await response.json()) as OpeningProviders;
 }
 
-/** A candidacy waiting at `stage`, as a Hub applicant would have left it. */
+/** A candidacy waiting at `stage`, from a Hub applicant's application. */
 export async function candidate(
   world: World,
   stage: PipelineStage,
   name?: string,
 ): Promise<ApplicationDetail> {
   const { consumer } = world.pair;
-  const number = seedApplication(
-    consumer.org.domain,
+  const number = await seedApplicationNumber(
+    world.hiring,
     world.opening.opening_number,
     name === undefined ? {} : { name },
   );
@@ -155,31 +186,25 @@ export async function routed(
 }
 
 /**
- * Active engagements with providers that exist only as rows, for caps and
- * second providers: the consumer's tenant never contacts them.
+ * Active engagements of capability with providers of their own, each
+ * proposed by the consumer and accepted by its provider, for caps and second
+ * providers. The providers live in the consumer's tenant.
  */
-export function seedEngagements(
+export async function seedEngagements(
   world: World,
   capability: Capability,
   count: number,
-): string[] {
+): Promise<string[]> {
   const { consumer } = world.pair;
-  const ids = orgSQL(
-    `WITH inserted AS (
-       INSERT INTO vetchium.org_engagements (
-         engagement_id, consumer_org_did, provider_org_did, provider_domain,
-         provider_display_name, capability_oid, engagement_state, expires_at,
-         decided_at
-       )
-       SELECT gen_random_uuid(),
-         (SELECT org_did FROM vetchium.org_domains
-          WHERE domain = '${consumer.org.domain}'),
-         gen_random_uuid(), 'fake-' || n || '.example.test', 'Fake ' || n,
-         '${capability}', 'active', now() + interval '30 days', now()
-       FROM generate_series(1, ${count}) AS n
-       RETURNING engagement_id
-     )
-     SELECT string_agg(engagement_id::text, ',') FROM inserted`,
+  return Promise.all(
+    Array.from({ length: count }, async () => {
+      const provider = await listedProvider(
+        world.request,
+        capability,
+        consumer.tenant,
+      );
+      world.others.push(provider);
+      return (await activate({ consumer, provider }, capability)).id;
+    }),
   );
-  return ids.split(",");
 }

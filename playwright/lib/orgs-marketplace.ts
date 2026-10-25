@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect } from "@playwright/test";
+import type { MyInfoResponse } from "typespec/orgs/account/account";
 import type { Capability } from "typespec/orgs/marketplace/capabilities";
 import type { Engagement } from "typespec/orgs/marketplace/engagements";
 import type {
@@ -13,7 +14,6 @@ import {
   cleanupOrg,
   loginOrg,
   OrgsAPI,
-  orgSQL,
   type SignedUpOrg,
   signupOrg,
 } from "./orgs-api.ts";
@@ -102,25 +102,57 @@ export async function withProvider(
   try {
     const owner = await loginOrg(api, org);
     if (options.silver !== false) await onSilver(api, owner);
-    if (options.name !== undefined) setDisplayName(org, tenant, options.name);
+    if (options.name !== undefined) {
+      await setDisplayName({ api, owner }, options.name);
+    }
     await body({ api, org, owner, tenant });
   } finally {
-    await deleteOrgVerificationRecord(org.domain);
-    cleanupOrg(org.domain, tenant);
+    await removeProvider({ org, tenant });
   }
 }
 
-export function setDisplayName(
-  org: SignedUpOrg,
-  tenant: TestTenant,
-  name: string,
-): void {
-  orgSQL(
-    `UPDATE vetchium.orgs SET display_name = '${name}'
-     WHERE org_did = (SELECT org_did FROM vetchium.org_domains
-                      WHERE domain = '${org.domain}')`,
-    tenant,
+/** A provider on Silver with a published Listing for capability, for a test
+ * that needs many; the caller removes it with removeProvider. */
+export async function listedProvider(
+  request: ConstructorParameters<typeof OrgsAPI>[0],
+  capability: Capability,
+  tenant: TestTenant = "sgp",
+): Promise<Provider> {
+  const api = new OrgsAPI(request, tenant);
+  const org = await signupOrg(api);
+  const owner = await loginOrg(api, org);
+  await onSilver(api, owner);
+  await published(
+    api,
+    owner,
+    capability === "background_check"
+      ? background("Checks")
+      : listing(capability, `${capability} services`),
   );
+  return { api, org, owner, tenant };
+}
+
+export async function removeProvider(
+  provider: Pick<Provider, "org" | "tenant">,
+): Promise<void> {
+  await deleteOrgVerificationRecord(provider.org.domain);
+  cleanupOrg(provider.org.domain, provider.tenant);
+}
+
+/** Renames the Org through its company settings, keeping the rest. */
+export async function setDisplayName(
+  provider: Pick<Provider, "api" | "owner">,
+  name: string,
+): Promise<void> {
+  const info = await provider.api.myInfo(provider.owner);
+  expect(info.status(), await info.text()).toBe(200);
+  const { org } = (await info.json()) as MyInfoResponse;
+  const response = await provider.api.setCompanyDetails(provider.owner, {
+    display_name: name,
+    country: org.country,
+    default_language: org.default_language,
+  });
+  expect(response.status(), await response.text()).toBeLessThan(300);
 }
 
 export async function created(

@@ -10,6 +10,11 @@ import type { Listing } from "typespec/orgs/marketplace/listings";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { expectProblem } from "../lib/admin-api.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
+import {
+  cleanupApplicants,
+  type HiringOrg,
+  seedApplicationNumber,
+} from "../lib/hiring-seed.ts";
 import { meshPeerRequest, meshRelayRequest } from "../lib/mesh.ts";
 import {
   addOrgMember,
@@ -22,7 +27,6 @@ import {
   cleanupOutbox,
   detailOf,
   publishedOpening,
-  seedApplication,
   stageOf,
 } from "../lib/orgs-applications.ts";
 import {
@@ -337,7 +341,7 @@ test("an Opening takes twenty agencies and a stage ten providers", async ({
   await withWorld(request, async (world) => {
     const { pair, opening, panel } = world;
     const { consumer } = pair;
-    const agencies = seedEngagements(world, "sourcing", 20);
+    const agencies = await seedEngagements(world, "sourcing", 20);
     for (const id of agencies) {
       await assign(world, id);
     }
@@ -349,7 +353,7 @@ test("an Opening takes twenty agencies and a stage ten providers", async ({
     await expectProblem(over, 409, routing.limit);
     expect(((await over.json()) as { limit: number }).limit).toBe(20);
 
-    const panelists = seedEngagements(world, "interviewing", 10);
+    const panelists = await seedEngagements(world, "interviewing", 10);
     for (const id of panelists) {
       await assign(world, id, panel);
     }
@@ -399,8 +403,8 @@ test("a candidacy is routed to a provider assigned to its stage, rerouted, and b
     const { pair, opening, panel, screen } = world;
     const { consumer, provider } = pair;
     const real = await activate(pair, "interviewing");
-    const [other] = seedEngagements(world, "interviewing", 1);
-    const [unassigned] = seedEngagements(world, "interviewing", 1);
+    const [other] = await seedEngagements(world, "interviewing", 1);
+    const [unassigned] = await seedEngagements(world, "interviewing", 1);
     if (other === undefined || unassigned === undefined)
       throw new Error("no seeded engagements");
     await assign(world, real.id, panel);
@@ -528,8 +532,8 @@ test("a candidacy is routed to a provider assigned to its stage, rerouted, and b
 
     // A candidacy that has not been shortlisted, or whose stage has no
     // assignment, cannot be routed.
-    const submitted = seedApplication(
-      consumer.org.domain,
+    const submitted = await seedApplicationNumber(
+      world.hiring,
       opening.opening_number,
     );
     await expectProblem(
@@ -878,6 +882,15 @@ test("assignment and routing routes authenticate, authorize, validate, and refus
       viewerEmail,
       [],
     );
+    const hiring: HiringOrg = {
+      request,
+      tenant: consumer.tenant,
+      api: consumer.api,
+      owner: consumer.owner,
+      domain: consumer.org.domain,
+      did: orgDID(consumer.org.domain, consumer.tenant),
+      applicants: [],
+    };
     try {
       const { opening, stages } = await publishedOpening(
         consumer.api,
@@ -886,7 +899,10 @@ test("assignment and routing routes authenticate, authorize, validate, and refus
         { team: [viewerEmail] },
       );
       const world = {
+        request,
         pair,
+        others: [],
+        hiring,
         opening,
         screen: stageOf(stages, 0),
         panel: stageOf(stages, 1),
@@ -1027,6 +1043,7 @@ test("assignment and routing routes authenticate, authorize, validate, and refus
         );
       }
     } finally {
+      cleanupApplicants(hiring);
       cleanupOutbox(consumer.org.domain);
     }
   });

@@ -2,13 +2,15 @@ import type { Page } from "@playwright/test";
 import type { ApplicationDetail } from "typespec/orgs/applications/applications";
 import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { addOrgMember, orgSQL } from "../lib/orgs-api.ts";
+import {
+  ageTerminalApplication,
+  seedApplicationNumber,
+  seedSubmitted,
+} from "../lib/hiring-seed.ts";
+import { addOrgMember } from "../lib/orgs-api.ts";
 import {
   detailOf,
-  orgDIDSQL,
   publishedOpening,
-  seedApplication,
-  seedSubmittedBatch,
   shortlist,
   stageOf,
   utcDate,
@@ -46,12 +48,12 @@ test("Applicants tab searches by name, keeps the filter in the URL, and pages", 
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const { opening } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
-    seedApplication(org.domain, n, { name: "Grace Hopper" });
-    seedApplication(org.domain, n, { name: "Alan Turing" });
-    seedSubmittedBatch(org.domain, n, 24, "Batch");
+    await seedApplicationNumber(world, n, { name: "Grace Hopper" });
+    await seedApplicationNumber(world, n, { name: "Alan Turing" });
+    await seedSubmitted(world, n, 24, "Batch");
     await signIn(page, org);
     await openingTab(page, n, "applicants");
 
@@ -102,12 +104,12 @@ test("an applicant is shortlisted at a chosen stage and becomes a candidate", as
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org, {
       stages: [...fourStages],
     });
     const n = opening.opening_number;
-    const application = seedApplication(org.domain, n, {
+    const application = await seedApplicationNumber(world, n, {
       name: "Grace Hopper",
     });
     await signIn(page, org);
@@ -153,10 +155,10 @@ test("cancelling the shortlist dialog changes nothing", async ({
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const { opening } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
-    const application = seedApplication(org.domain, n, {
+    const application = await seedApplicationNumber(world, n, {
       name: "Grace Hopper",
     });
     await signIn(page, org);
@@ -177,10 +179,12 @@ test("an applicant is marked not progressing after a confirmation", async ({
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const { opening } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
-    const application = seedApplication(org.domain, n, { name: "Ada Byron" });
+    const application = await seedApplicationNumber(world, n, {
+      name: "Ada Byron",
+    });
     await signIn(page, org);
     await openingTab(page, n, "applicants");
     await page
@@ -208,13 +212,14 @@ test("application detail completes a review, moves past stages, and ends the app
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org, {
       stages: [...fourStages],
     });
     const n = opening.opening_number;
-    const application = seedApplication(org.domain, n, {
+    const application = await seedApplicationNumber(world, n, {
       name: "Grace Hopper",
+      coverNote: "Wrote the first program",
     });
     await shortlist(api, owner, n, application, stageOf(stages, 0));
     await signIn(page, org);
@@ -284,10 +289,12 @@ test("an action on a stale application is refused with the reason", async ({
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
-    const application = seedApplication(org.domain, n, { name: "Ada Byron" });
+    const application = await seedApplicationNumber(world, n, {
+      name: "Ada Byron",
+    });
     await signIn(page, org);
     await page.goto(`${ORGS_PORTAL}/openings/${n}/applications/${application}`);
     await expect(
@@ -308,22 +315,26 @@ test("Candidates tab filters by stage, finished state, and waiting action, all i
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org, {
       stages: [...fourStages],
     });
     const n = opening.opening_number;
-    const screening = seedApplication(org.domain, n, { name: "Screening Sam" });
-    const paneled = seedApplication(org.domain, n, { name: "Panel Pat" });
+    const screening = await seedApplicationNumber(world, n, {
+      name: "Screening Sam",
+    });
+    const paneled = await seedApplicationNumber(world, n, {
+      name: "Panel Pat",
+    });
     await shortlist(api, owner, n, screening, stageOf(stages, 0));
     await shortlist(api, owner, n, paneled, stageOf(stages, 2));
-    seedApplication(org.domain, n, {
+    await seedApplicationNumber(world, n, {
       name: "Joined Jo",
       state: "joined",
       joinedOn: utcDate(-3),
       stageId: stageOf(stages, 3).id,
     });
-    seedApplication(org.domain, n, {
+    await seedApplicationNumber(world, n, {
       name: "Stopped Stu",
       state: "not_progressing",
       stageId: stageOf(stages, 1).id,
@@ -379,18 +390,18 @@ test("joining is recorded with an over-hiring warning, then separated and correc
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org, {
       positions: 1,
     });
     const n = opening.opening_number;
-    seedApplication(org.domain, n, {
+    await seedApplicationNumber(world, n, {
       name: "Already Joined",
       state: "joined",
       joinedOn: utcDate(-30),
       stageId: stageOf(stages, 1).id,
     });
-    const accepted = seedApplication(org.domain, n, {
+    const accepted = await seedApplicationNumber(world, n, {
       name: "Grace Hopper",
       state: "offer_accepted",
       stageId: stageOf(stages, 1).id,
@@ -460,10 +471,10 @@ test("a candidate who accepted but did not join is recorded as such", async ({
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
-    const accepted = seedApplication(org.domain, n, {
+    const accepted = await seedApplicationNumber(world, n, {
       name: "Grace Hopper",
       state: "offer_accepted",
       stageId: stageOf(stages, 1).id,
@@ -487,14 +498,14 @@ test("closing an Opening offers to mark open applications not progressing", asyn
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const marked = await publishedOpening(api, owner, org, { title: "Marked" });
     const kept = await publishedOpening(api, owner, org, { title: "Kept" });
     const prepare = async (opening: number, stage: PipelineStage) => {
-      const applicant = seedApplication(org.domain, opening, {
+      const applicant = await seedApplicationNumber(world, opening, {
         name: "New One",
       });
-      const candidate = seedApplication(org.domain, opening, {
+      const candidate = await seedApplicationNumber(world, opening, {
         name: "Cand One",
       });
       await shortlist(api, owner, opening, candidate, stage);
@@ -560,7 +571,7 @@ test("a pending close request shows whether open applications will be marked", a
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const manager = await addOrgMember(
       api,
       owner,
@@ -570,7 +581,7 @@ test("a pending close request shows whether open applications will be marked", a
     );
     const { opening } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
-    seedApplication(org.domain, n, { name: "New One" });
+    await seedApplicationNumber(world, n, { name: "New One" });
     const fresh = await api.getOpening(owner, { opening_number: n });
     const version = ((await fresh.json()) as { version: number }).version;
     const requested = await api.requestOpeningChange(manager.token, {
@@ -597,7 +608,7 @@ test("people who may only read an Opening's applications see no actions", async 
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const reader = await addOrgMember(
       api,
       owner,
@@ -609,7 +620,7 @@ test("people who may only read an Opening's applications see no actions", async 
       team: [reader.emailAddress],
     });
     const n = opening.opening_number;
-    const application = seedApplication(org.domain, n, {
+    const application = await seedApplicationNumber(world, n, {
       name: "Grace Hopper",
     });
     await signIn(page, reader);
@@ -642,7 +653,7 @@ test("a holder of candidacy access acts without being on the Opening's team", as
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const recruiter = await addOrgMember(
       api,
       owner,
@@ -652,7 +663,7 @@ test("a holder of candidacy access acts without being on the Opening's team", as
     );
     const { opening } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
-    seedApplication(org.domain, n, { name: "Grace Hopper" });
+    await seedApplicationNumber(world, n, { name: "Grace Hopper" });
     await signIn(page, recruiter);
     await openingTab(page, n, "applicants");
     await expect(
@@ -665,7 +676,7 @@ test("an Opening's applications are hidden from members who cannot read them", a
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const outsider = await addOrgMember(
       api,
       owner,
@@ -675,7 +686,7 @@ test("an Opening's applications are hidden from members who cannot read them", a
     );
     const { opening } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
-    const application = seedApplication(org.domain, n, {
+    const application = await seedApplicationNumber(world, n, {
       name: "Grace Hopper",
     });
     await signIn(page, outsider);
@@ -693,23 +704,22 @@ test("a removed applicant reads as Removed applicant", async ({
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const { opening } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
-    const application = seedApplication(org.domain, n, {
+    // A withdrawn application a year old is removed by the retention job.
+    const application = await seedApplicationNumber(world, n, {
       name: "Grace Hopper",
+      state: "withdrawn",
     });
-    orgSQL(`
-      UPDATE vetchium.org_applications AS a
-      SET removed_at = now(), cover_note = NULL,
-        snapshot = jsonb_build_object('display_name', 'Removed applicant'::text)
-      FROM vetchium.org_openings AS o
-      WHERE o.org_opening_id = a.org_opening_id
-        AND o.org_did = ${orgDIDSQL(org.domain)}
-        AND o.opening_number = ${n}
-        AND a.application_number = ${application}`);
+    ageTerminalApplication(world, n, application, 366);
+    await expect
+      .poll(async () => (await detailOf(api, owner, n, application)).removed, {
+        timeout: 30_000,
+      })
+      .toBe(true);
     await signIn(page, org);
-    await openingTab(page, n, "applicants");
+    await openingTab(page, n, "candidates", "&view=withdrawn");
     await expect(
       page.getByRole("link", { name: "Removed applicant" }),
     ).toBeVisible();
@@ -723,7 +733,7 @@ test("a removed applicant reads as Removed applicant", async ({
       ),
     ).toBeVisible();
     // Nothing else of the profile is shown.
-    await expect(page.getByText("Wrote the first program")).toHaveCount(0);
+    await expect(page.getByText("Grace Hopper")).toHaveCount(0);
   });
 });
 
@@ -731,12 +741,12 @@ test("application detail shows assessment results and a pending background-check
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, world) => {
     const { opening, stages } = await publishedOpening(api, owner, org, {
       stages: [...fourStages],
     });
     const n = opening.opening_number;
-    const application = seedApplication(org.domain, n, {
+    const application = await seedApplicationNumber(world, n, {
       name: "Grace Hopper",
     });
     const shortlisted = await shortlist(
@@ -811,7 +821,7 @@ test("an unknown application says so and offers a way back", async ({
   page,
   request,
 }) => {
-  await withOrg(request, async (org, api, owner) => {
+  await withOrg(request, async (org, api, owner, _world) => {
     const { opening } = await publishedOpening(api, owner, org);
     const n = opening.opening_number;
     await signIn(page, org);

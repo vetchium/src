@@ -21,6 +21,7 @@ import {
   orgsIdempotencyKey,
   signupOrg,
 } from "../lib/orgs-api.ts";
+import { openingContent } from "../lib/orgs-applications.ts";
 
 const interview = (name: string): PipelineStageDefinition => ({
   name,
@@ -65,6 +66,22 @@ async function newOpening(
   return (await response.json()) as OrgOpening;
 }
 
+/** A draft with the content publishing needs, the owner its whole team. */
+async function fullOpening(
+  api: Api,
+  token: string,
+  org: { emailAddress: string },
+): Promise<OrgOpening> {
+  const response = await api.createOpening(token, {
+    content: openingContent("Engineer"),
+    hiring_manager_email: org.emailAddress,
+    recruiter_email: org.emailAddress,
+    team_member_emails: [],
+  });
+  expect(response.status(), await response.text()).toBe(201);
+  return (await response.json()) as OrgOpening;
+}
+
 async function pipelineOf(
   api: Api,
   token: string,
@@ -80,17 +97,44 @@ async function pipelineOf(
 const shape = (stages: PipelineStage[] | PipelineStageDefinition[]) =>
   stages.map(({ name, kind }) => ({ name, kind }));
 
-function setOpeningState(
-  domain: string,
+/** Moves the Opening through its own request API; the owner self-approves. */
+async function changeOpening(
+  api: Api,
+  token: string,
   number: number,
-  state: "published" | "paused" | "closed" | "expired",
-): void {
-  const ended = state === "closed" || state === "expired";
-  orgSQL(`UPDATE vetchium.org_openings SET opening_state = '${state}',
-    first_published_at = now(), expires_at = now() + interval '180 days'
-    ${ended ? ", ended_at = now()" : ""}
-    WHERE org_did = (SELECT org_did FROM vetchium.org_domains
-      WHERE domain = '${domain}') AND opening_number = ${number}`);
+  kind: "publish" | "pause" | "close",
+): Promise<void> {
+  const current = await api.getOpening(token, { opening_number: number });
+  const response = await api.requestOpeningChange(token, {
+    opening_number: number,
+    version: ((await current.json()) as OrgOpening).version,
+    kind,
+  });
+  expect(response.status(), await response.text()).toBe(200);
+}
+
+/** Creates `count` templates through the API, a few at a time. */
+async function createTemplates(
+  api: Api,
+  token: string,
+  count: number,
+): Promise<void> {
+  for (let start = 1; start <= count; start += 10) {
+    const batch = Array.from(
+      { length: Math.min(10, count - start + 1) },
+      (_, index) => start + index,
+    );
+    for (const response of await Promise.all(
+      batch.map((n) =>
+        api.createPipelineTemplate(token, {
+          name: `Bulk ${n}`,
+          stages: [review("Screen")],
+        }),
+      ),
+    )) {
+      expect(response.status(), await response.text()).toBe(201);
+    }
+  }
 }
 
 async function withOrg(
@@ -343,7 +387,7 @@ test("template names are unique per Org regardless of case", async ({
 });
 
 test("template and stage bounds", async ({ request }) => {
-  await withOrg(request, async (api, owner, org) => {
+  await withOrg(request, async (api, owner, _org) => {
     const fifteen = Array.from({ length: 15 }, (_, index) =>
       review(`Stage ${index + 1}`),
     );
@@ -399,14 +443,8 @@ test("template and stage bounds", async ({ request }) => {
       "stages.2.kind",
     ]);
 
-    // 50 templates is the limit. Insert 48 more for setup and use the API
-    // for the 50th and the refused 51st.
-    orgSQL(`INSERT INTO vetchium.org_pipeline_templates
-      (org_pipeline_template_id, org_did, name)
-      SELECT gen_random_uuid(),
-        (SELECT org_did FROM vetchium.org_domains WHERE domain = '${org.domain}'),
-        'Bulk ' || n
-      FROM generate_series(1, 48) AS n`);
+    // 50 templates is the limit: 48 more, then the 50th and the refused 51st.
+    await createTemplates(api, owner, 48);
     const fiftieth = await api.createPipelineTemplate(owner, {
       name: "Fiftieth",
       stages: [review("Screen")],
@@ -434,13 +472,8 @@ test("template and stage bounds", async ({ request }) => {
 test("concurrent creations cannot exceed the template limit or reuse a name", async ({
   request,
 }) => {
-  await withOrg(request, async (api, owner, org) => {
-    orgSQL(`INSERT INTO vetchium.org_pipeline_templates
-      (org_pipeline_template_id, org_did, name)
-      SELECT gen_random_uuid(),
-        (SELECT org_did FROM vetchium.org_domains WHERE domain = '${org.domain}'),
-        'Bulk ' || n
-      FROM generate_series(1, 49) AS n`);
+  await withOrg(request, async (api, owner, _org) => {
+    await createTemplates(api, owner, 49);
     const results = await Promise.all(
       ["Race A", "Race B", "Race C"].map((name) =>
         api.createPipelineTemplate(owner, { name, stages: [review("Screen")] }),
@@ -450,9 +483,16 @@ test("concurrent creations cannot exceed the template limit or reuse a name", as
       201, 409, 409,
     ]);
 
-    orgSQL(`DELETE FROM vetchium.org_pipeline_templates
-      WHERE org_did = (SELECT org_did FROM vetchium.org_domains
-        WHERE domain = '${org.domain}')`);
+    const listed = await api.listPipelineTemplates(owner, { limit: 100 });
+    expect(listed.status(), await listed.text()).toBe(200);
+    for (const template of (
+      (await listed.json()) as { templates: PipelineTemplate[] }
+    ).templates) {
+      const deleted = await api.deletePipelineTemplate(owner, {
+        template_id: template.id,
+      });
+      expect(deleted.status(), await deleted.text()).toBeLessThan(300);
+    }
     const sameName = await Promise.all(
       [1, 2, 3].map(() =>
         api.createPipelineTemplate(owner, {
@@ -900,35 +940,59 @@ test("a pipeline is editable in every live state and read in terminal ones", asy
   request,
 }) => {
   await withOrg(request, async (api, owner, org) => {
-    const opening = await newOpening(api, owner);
+    const opening = await fullOpening(api, owner, org);
     const number = opening.opening_number;
-    let version = (await pipelineOf(api, owner, number)).version;
-    for (const state of ["published", "paused"] as const) {
-      setOpeningState(org.domain, number, state);
+    for (const [state, kind] of [
+      ["published", "publish"],
+      ["paused", "pause"],
+    ] as const) {
+      await changeOpening(api, owner, number, kind);
       const response = await api.replaceOpeningPipeline(owner, {
         opening_number: number,
-        version,
+        version: (await pipelineOf(api, owner, number)).version,
         stages: [review(`In ${state}`)],
       });
       expect(response.status(), await response.text()).toBe(200);
-      version = ((await response.json()) as OpeningPipeline).version;
     }
 
-    for (const state of ["closed", "expired"] as const) {
-      setOpeningState(org.domain, number, state);
+    // Closing, and an expiry once the expiry date passed, end the Opening.
+    const expiring = await fullOpening(api, owner, org);
+    await changeOpening(api, owner, expiring.opening_number, "publish");
+    orgSQL(`UPDATE vetchium.org_openings SET
+      created_at = now() - interval '182 days',
+      first_published_at = now() - interval '181 days',
+      expires_at = now() - interval '1 day'
+      WHERE org_did = (SELECT org_did FROM vetchium.org_domains
+        WHERE domain = '${org.domain}')
+        AND opening_number = ${expiring.opening_number}`);
+    await changeOpening(api, owner, number, "close");
+    await expect
+      .poll(
+        async () =>
+          (
+            (await (
+              await api.getOpening(owner, {
+                opening_number: expiring.opening_number,
+              })
+            ).json()) as OrgOpening
+          ).state,
+        { timeout: 15_000 },
+      )
+      .toBe("expired");
+    for (const ended of [number, expiring.opening_number]) {
       const refused = await api.replaceOpeningPipeline(owner, {
-        opening_number: number,
-        version,
+        opening_number: ended,
+        version: (await pipelineOf(api, owner, ended)).version,
         stages: [review("Too late")],
       });
       expect(refused.status(), await refused.text()).toBe(409);
       expect((await refused.json()).type).toContain(
         "org-opening-state-conflict",
       );
-      expect(shape((await pipelineOf(api, owner, number)).stages)).toEqual([
-        { name: "In paused", kind: "review" },
-      ]);
     }
+    expect(shape((await pipelineOf(api, owner, number)).stages)).toEqual([
+      { name: "In paused", kind: "review" },
+    ]);
   });
 });
 

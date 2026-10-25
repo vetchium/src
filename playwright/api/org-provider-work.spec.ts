@@ -532,7 +532,7 @@ test("a provider reaches a candidacy only while it is routed to its engagement",
     const engagement = await activate(pair, "interviewing");
     await asProvider(pair, engagement.id, engagement.version);
     await assign(world, engagement.id, panel);
-    const [other] = seedEngagements(world, "interviewing", 1);
+    const [other] = await seedEngagements(world, "interviewing", 1);
     if (other === undefined) throw new Error("no second engagement");
     await assign(world, other, panel);
 

@@ -331,6 +331,18 @@ alias OrgClaimCommandResponse =
   | OrgClaimCommandResponseBase
   | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
 
+alias MeshPrincipalReadResponse =
+  | {
+      @statusCode status_code: 200;
+      @header("Cache-Control") cache_control: "no-store";
+      @body body: ResolvePrincipalResponse;
+    }
+  | Vetchium.Problem.InvalidJSONErrorResponse
+  | Vetchium.Problem.ValidationFailedErrorResponse
+  | Vetchium.Problem.DirectoryEntryNotFoundErrorResponse
+  | Vetchium.Problem.InternalServerErrorResponse
+  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+
 alias MeshOrgReadResponse =
   | OrgReadResponseBase
   | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
@@ -505,6 +517,13 @@ interface MeshOperations {
   @route("/resolve-org-domain")
   @post
   resolveOrgDomain(@body request: ResolveOrgDomainRequest): MeshOrgReadResponse;
+
+  /** Where a principal lives, so an API finds a counterparty by its DID. */
+  @route("/resolve-principal")
+  @post
+  resolvePrincipal(
+    @body request: ResolvePrincipalRequest,
+  ): MeshPrincipalReadResponse;
 
   @route("/reserve-org-principal")
   @post

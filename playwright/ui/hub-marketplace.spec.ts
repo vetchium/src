@@ -37,8 +37,8 @@ test("messages: unread badge, view suggestion, reply, and delete conversation", 
     const { pair, opening } = world;
     const { consumer, provider } = pair;
 
-    setDisplayName(consumer.org, consumer.tenant, "Consumer Corp");
-    setDisplayName(provider.org, provider.tenant, "Agency Alpha");
+    await setDisplayName(consumer, "Consumer Corp");
+    await setDisplayName(provider, "Agency Alpha");
 
     const sourcing = await activate(pair, "sourcing");
     await asProvider(pair, sourcing.id, sourcing.version);
@@ -119,8 +119,8 @@ test("apply from suggestion preselects agency referral and submits application",
     const { pair, opening } = world;
     const { consumer, provider } = pair;
 
-    setDisplayName(consumer.org, consumer.tenant, "Consumer Corp");
-    setDisplayName(provider.org, provider.tenant, "Agency Alpha");
+    await setDisplayName(consumer, "Consumer Corp");
+    await setDisplayName(provider, "Agency Alpha");
 
     const sourcing = await activate(pair, "sourcing");
     await asProvider(pair, sourcing.id, sourcing.version);
@@ -246,7 +246,7 @@ test("preferences agency messages switch toggles read-only state and professiona
     const { pair } = world;
     const { provider } = pair;
 
-    setDisplayName(provider.org, provider.tenant, "Agency Alpha");
+    await setDisplayName(provider, "Agency Alpha");
 
     const sourcing = await activate(pair, "sourcing");
     await asProvider(pair, sourcing.id, sourcing.version);
