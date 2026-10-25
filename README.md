@@ -91,8 +91,9 @@ in every region with Jobs spread across `agent1@`… owners; `age2`, for its
 own region), and one interviewing, assessment, and background-verification
 provider each (`itv1`, `asm1`, `bgv1`) with routed work.
 
-Hub signup accepts addresses at `<region>.example`; `sgp` also accepts
-`test1.example` to `test100.example`. Signup and reset emails arrive in Mailpit.
+Every seeded address ends in `.test`, such as `admin@sgp.test`,
+`wei.tan@sgp.test`, and `agent1@age1.sgp.test`. Hub signup accepts addresses at `<region>.test`; `sgp` also accepts
+`test1.test` to `test100.test`. Signup and reset emails arrive in Mailpit.
 
 ### Org signup domains
 

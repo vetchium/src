@@ -1,7 +1,7 @@
 {
   "users": [
     {
-      "email": "wei.tan@sgp.example",
+      "email": "wei.tan@sgp.test",
       "displayName": "Wei Jie Tan",
       "preferredLanguage": "en-US",
       "residentCountry": "SG",
@@ -31,7 +31,7 @@
       ]
     },
     {
-      "email": "priya.ramachandran@sgp.example",
+      "email": "priya.ramachandran@sgp.test",
       "displayName": "Priya Ramachandran",
       "preferredLanguage": "ta",
       "residentCountry": "SG",
@@ -81,7 +81,7 @@
       ]
     },
     {
-      "email": "siti.yusof@sgp.example",
+      "email": "siti.yusof@sgp.test",
       "displayName": "Siti Nurhaliza Yusof",
       "preferredLanguage": "en-US",
       "residentCountry": "SG",
@@ -112,7 +112,7 @@
       ]
     },
     {
-      "email": "arun.pillai@sgp.example",
+      "email": "arun.pillai@sgp.test",
       "displayName": "Arun Kumar Pillai",
       "preferredLanguage": "en-US",
       "residentCountry": "SG",
@@ -162,7 +162,7 @@
       ]
     },
     {
-      "email": "meiling.ong@sgp.example",
+      "email": "meiling.ong@sgp.test",
       "displayName": "Mei Ling Ong",
       "preferredLanguage": "en-US",
       "residentCountry": "SG",
@@ -192,7 +192,7 @@
       ]
     },
     {
-      "email": "faizal.rahman@sgp.example",
+      "email": "faizal.rahman@sgp.test",
       "displayName": "Faizal Rahman",
       "preferredLanguage": "en-US",
       "residentCountry": "SG",
@@ -241,7 +241,7 @@
       ]
     },
     {
-      "email": "jiahao.koh@sgp.example",
+      "email": "jiahao.koh@sgp.test",
       "displayName": "Jia Hao Koh",
       "preferredLanguage": "en-US",
       "residentCountry": "SG",
@@ -268,7 +268,7 @@
       ]
     },
     {
-      "email": "kavitha.suresh@sgp.example",
+      "email": "kavitha.suresh@sgp.test",
       "displayName": "Kavitha Suresh",
       "preferredLanguage": "ta",
       "residentCountry": "SG",

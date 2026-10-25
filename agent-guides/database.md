@@ -151,5 +151,5 @@ privileges. A separate container then runs the Goose migrations.
   `make dev-seed`) prints every account read back from the tenant databases;
   never keep a second list of seeded accounts. An expired offer and a removed application need the clock, so
   no fixture holds one.
-- `deu` has no `manager@deu.example` on purpose: Playwright provokes the
+- `deu` has no `manager@deu.test` on purpose: Playwright provokes the
   last-manager refusal there.

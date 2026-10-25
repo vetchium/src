@@ -1,13 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
-	"text/tabwriter"
+	"unicode/utf8"
 )
 
 // Portal addresses of the development stack (README.md, Development).
@@ -83,44 +82,39 @@ func runAccountSummary() error {
 	read := func(tenant, query string) ([][]string, error) {
 		return queryTenant(compose, tenant, query)
 	}
-	out := bufio.NewWriter(os.Stdout)
-	defer func() { _ = out.Flush() }()
-	table := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+	var out bytes.Buffer
+	fmt.Fprintf(&out, "\nSeeded accounts. Every password is %s\n", devSeedHubUserPassword)
+	fmt.Fprintln(&out, "Choose the region shown when you sign in to the Hub or Orgs portal.")
 
-	fmt.Fprintf(out, "\nSeeded accounts. Every password is %s\n", devSeedHubUserPassword)
-	fmt.Fprintln(out, "Choose the region shown when you sign in to the Hub or Orgs portal.")
-
-	fmt.Fprintln(out, "\nADMIN PORTAL")
+	fmt.Fprintln(&out, "\nADMIN PORTAL")
 	for _, tenant := range marketplaceSeedTenants {
 		rows, err := read(tenant, accountQueries.admins)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(table, "\n  %s\t%s\n", tenant, adminPortalURL(tenant))
+		fmt.Fprintf(&out, "\n  %s  %s\n", tenant, adminPortalURL(tenant))
+		var lines [][]string
 		for _, row := range rows {
-			fmt.Fprintf(table, "  \t%s\t%s\n", row[0], describe(row[2], row[1]))
+			lines = append(lines, []string{row[0], describe(row[2], row[1])})
 		}
-	}
-	if err := table.Flush(); err != nil {
-		return err
+		writeColumns(&out, "    ", lines)
 	}
 
-	fmt.Fprintf(out, "\nHUB PORTAL  %s\n\n", hubPortalURL)
+	fmt.Fprintf(&out, "\nHUB PORTAL  %s\n\n", hubPortalURL)
+	var hubUsers [][]string
 	for _, tenant := range marketplaceSeedTenants {
 		rows, err := read(tenant, accountQueries.hubUsers)
 		if err != nil {
 			return err
 		}
 		for _, row := range rows {
-			fmt.Fprintf(table, "  %s\t%s\t%s\n", tenant, row[0],
-				describe(row[1]+", "+planName(row[2], "hub-"), row[3]))
+			hubUsers = append(hubUsers, []string{tenant, row[0],
+				describe(row[1]+", "+planName(row[2], "hub-"), row[3])})
 		}
 	}
-	if err := table.Flush(); err != nil {
-		return err
-	}
+	writeColumns(&out, "  ", hubUsers)
 
-	fmt.Fprintf(out, "\nORGS PORTAL  %s\n", orgsPortalURL)
+	fmt.Fprintf(&out, "\nORGS PORTAL  %s\n", orgsPortalURL)
 	for _, tenant := range marketplaceSeedTenants {
 		orgs, err := read(tenant, accountQueries.orgs)
 		if err != nil {
@@ -132,25 +126,46 @@ func runAccountSummary() error {
 		}
 		usersOf := map[string][][]string{}
 		for _, user := range users {
-			usersOf[user[0]] = append(usersOf[user[0]], user)
+			usersOf[user[0]] = append(usersOf[user[0]],
+				[]string{user[1], describe(permissionNames(user[3]), user[2])})
 		}
 		for _, org := range orgs {
 			domain := org[0]
-			fmt.Fprintf(out, "\n  %s  %s  (%s, %s)\n  %slogin?domain=%s\n", tenant, org[1],
+			fmt.Fprintf(&out, "\n  %s  %s  (%s, %s)\n  %slogin?domain=%s\n", tenant, org[1],
 				orgKind(org[4]), planName(org[2], "org-"), orgsPortalURL, domain)
 			if org[3] != "active" {
-				fmt.Fprintf(out, "  Org state: %s\n", org[3])
+				fmt.Fprintf(&out, "  Org state: %s\n", org[3])
 			}
-			for _, user := range usersOf[domain] {
-				fmt.Fprintf(table, "    %s\t%s\n", user[1], describe(permissionNames(user[3]), user[2]))
-			}
-			if err := table.Flush(); err != nil {
-				return err
-			}
+			writeColumns(&out, "    ", usersOf[domain])
 		}
 	}
-	fmt.Fprintln(out)
-	return nil
+	fmt.Fprintln(&out)
+	_, err := os.Stdout.Write(out.Bytes())
+	return err
+}
+
+// writeColumns pads every column but the last to its widest value, so each
+// address stays a separate double-click selection.
+func writeColumns(out *bytes.Buffer, indent string, rows [][]string) {
+	var widths []int
+	for _, row := range rows {
+		for i, value := range row {
+			if i == len(widths) {
+				widths = append(widths, 0)
+			}
+			widths[i] = max(widths[i], utf8.RuneCountInString(value))
+		}
+	}
+	for _, row := range rows {
+		out.WriteString(indent)
+		for i, value := range row {
+			out.WriteString(value)
+			if i < len(row)-1 {
+				out.WriteString(strings.Repeat(" ", widths[i]-utf8.RuneCountInString(value)+2))
+			}
+		}
+		out.WriteString("\n")
+	}
 }
 
 // queryTenant runs one query in a tenant's database container and returns

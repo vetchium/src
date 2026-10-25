@@ -2096,7 +2096,7 @@ export function seededManagerAdminUserID(tenant: TestTenant = "sgp"): string {
     `
     SELECT admin_user_id
     FROM vetchium.admin_users
-    WHERE email_address = 'admin@${tenant}.example';
+    WHERE email_address = 'admin@${tenant}.test';
   `,
   ).trim();
   if (adminUserID.length === 0) {
@@ -2117,7 +2117,7 @@ export function createSeededManagerSession(tenant: TestTenant = "sgp"): string {
     )
     SELECT admin_user_id, decode('${tokenHash}', 'hex'), now(), now() + interval '15 minutes'
     FROM vetchium.admin_users
-    WHERE email_address = 'admin@${tenant}.example'
+    WHERE email_address = 'admin@${tenant}.test'
       AND EXISTS (
         SELECT 1 FROM vetchium.admin_permissions AS permission
         WHERE permission.admin_user_id = admin_users.admin_user_id
@@ -2147,7 +2147,7 @@ export function seededManagerGrants(tenant: TestTenant): string[] {
     tenant,
     `SELECT permission FROM vetchium.admin_permissions AS p
      JOIN vetchium.admin_users AS u USING (admin_user_id)
-     WHERE u.email_address = 'admin@${tenant}.example'
+     WHERE u.email_address = 'admin@${tenant}.test'
      ORDER BY permission;`,
   );
   return grants.length === 0 ? [] : grants.split("\n");

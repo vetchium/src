@@ -1,7 +1,7 @@
 {
   "users": [
     {
-      "email": "lukas.mueller@deu.example",
+      "email": "lukas.mueller@deu.test",
       "displayName": "Lukas Müller",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",
@@ -31,7 +31,7 @@
       ]
     },
     {
-      "email": "anna.schmidt@deu.example",
+      "email": "anna.schmidt@deu.test",
       "displayName": "Anna Schmidt",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",
@@ -80,7 +80,7 @@
       ]
     },
     {
-      "email": "jonas.weber@deu.example",
+      "email": "jonas.weber@deu.test",
       "displayName": "Jonas Weber",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",
@@ -108,7 +108,7 @@
       ]
     },
     {
-      "email": "laura.fischer@deu.example",
+      "email": "laura.fischer@deu.test",
       "displayName": "Laura Fischer",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",
@@ -163,7 +163,7 @@
       ]
     },
     {
-      "email": "max.schneider@deu.example",
+      "email": "max.schneider@deu.test",
       "displayName": "Maximilian Schneider",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",
@@ -193,7 +193,7 @@
       ]
     },
     {
-      "email": "hannah.becker@deu.example",
+      "email": "hannah.becker@deu.test",
       "displayName": "Hannah Becker",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",
@@ -233,7 +233,7 @@
       ]
     },
     {
-      "email": "felix.wagner@deu.example",
+      "email": "felix.wagner@deu.test",
       "displayName": "Felix Wagner",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",
@@ -260,7 +260,7 @@
       ]
     },
     {
-      "email": "sophie.hoffmann@deu.example",
+      "email": "sophie.hoffmann@deu.test",
       "displayName": "Sophie Hoffmann",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",

@@ -24,7 +24,7 @@ import {
   emailCredential,
 } from "./admin-db.ts";
 
-export const SEEDED_ADMIN_EMAIL = "admin@sgp.example";
+export const SEEDED_ADMIN_EMAIL = "admin@sgp.test";
 export const SEEDED_ADMIN_PASSWORD = "DevPassword123$";
 
 export interface CreatedAdmin {
