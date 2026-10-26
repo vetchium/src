@@ -14,6 +14,7 @@ the coverage reports. `make fmt` applies every formatter.
 | `admin-ui/`, `hub-ui/`, `orgs-ui/` | `make admin-ui-check`, `make hub-ui-check`, `make orgs-ui-check` |
 | `portal-ui/` | `make portal-ui-check` and all three portal checks (each portal type-checks it again) |
 | `playwright/` | `make playwright-check`; `make playwright-test` for a full run |
+| `video-demos/` | `make video-demos-check`; a `DEMO_RUN` rehearsal for changed scenes |
 | JSON outside npm packages | `make repository-json-check` |
 
 - Results must be clean with no new warnings. Never weaken a rule or exclude

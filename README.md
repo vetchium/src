@@ -127,3 +127,11 @@ make portal-dist            # build the Hub and Orgs static sites into portal-di
 ```
 
 Production deployment: [`deploy/README.md`](deploy/README.md).
+
+## Demo video
+
+```bash
+make video-demo   # records the product demo into video-demos/out/final/
+```
+
+Details, rehearsal runs, and prerequisites: [`video-demos/README.md`](video-demos/README.md).

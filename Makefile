@@ -37,7 +37,8 @@ GOVULNCHECK             := go run golang.org/x/vuln/cmd/govulncheck@v1.7.0
 GOLANGCI_LINT           := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 SQLFLUFF_IMAGE          := sqlfluff/sqlfluff:4.2.2@sha256:7e8f4f1bc8f70c6ab7da3094c3ca0ff0c66f3d721896d79c3731e549ea1921fb
 GO_MODULES             := backend typespec
-JS_WORKSPACES          := admin-ui hub-ui orgs-ui portal-ui typespec playwright
+JS_WORKSPACES          := admin-ui hub-ui orgs-ui portal-ui typespec playwright \
+	video-demos
 # Each workspace formats its own tree. These files sit outside every workspace,
 # so `repository-json` is the only thing that formats and checks them.
 REPOSITORY_JSON        := biome.json docker-compose.json docker-compose-ci.json \
@@ -80,7 +81,8 @@ serving_services = $$(docker compose -f $(1) config --services | \
 	playwright-browser-ready playwright-check playwright-check-ready \
 	playwright-test playwright-test-run api-coverage-prepare \
 	api-coverage-report repository-json-fmt repository-json-check-ready \
-	repository-json-check docker publish clean
+	repository-json-check video-demos-deps video-demos-check \
+	video-demos-check-ready video-demo docker publish clean
 
 fmt:
 	@find $(GO_MODULES) -type f -name '*.go' -print0 | xargs -0 gofmt -w
@@ -312,12 +314,12 @@ test: clean
 	$(MAKE) --no-print-directory api-coverage-report
 
 test-dependencies: admin-ui-deps hub-ui-deps orgs-ui-deps portal-ui-deps \
-	typespec-deps playwright-deps
+	typespec-deps playwright-deps video-demos-deps
 
 test-static-ready: test-go test-go-static test-go-lint test-go-vuln \
 	admin-ui-check-ready hub-ui-check-ready orgs-ui-check-ready \
 	typespec-check-ready portal-ui-check-ready playwright-check-ready \
-	repository-json-check-ready
+	video-demos-check-ready repository-json-check-ready
 
 test-environment:
 	$(MAKE) --no-print-directory playwright-browser-ready
@@ -522,6 +524,24 @@ playwright-test:
 	$(MAKE) --no-print-directory test-stack
 	$(MAKE) --no-print-directory playwright-test-run
 	$(MAKE) --no-print-directory api-coverage-report
+
+video-demos-deps:
+	cd video-demos && npm ci
+
+video-demos-check-ready: video-demos-deps
+	cd video-demos && npm run format:check
+	cd video-demos && npm run typecheck
+	cd video-demos && npm audit --audit-level=high
+
+video-demos-check: video-demos-check-ready
+
+# Records the product demo video on a fresh `make dev` stack; the result lands
+# in video-demos/out/final/. See video-demos/README.md.
+video-demo: dev video-demos-deps
+	cd video-demos && npx playwright install chromium
+	cd video-demos && npm run setup
+	cd video-demos && npm run record
+	cd video-demos && npm run compose
 
 # Build validation; keep results only in BuildKit's cache.
 docker:

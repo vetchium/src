@@ -33,7 +33,7 @@ Frontend:
 
 Contracts: `typespec/` (TypeSpec with hand-written Go and TypeScript
 companions). Tests: `playwright/`. Screen mockups of unbuilt specs:
-`mockups/`.
+`mockups/`. The scripted product demo video: `video-demos/`.
 
 ## Guides
 
@@ -66,6 +66,7 @@ Read every guide that applies before changing files.
 | [`hiring-pipeline.md`](agent-guides/hiring-pipeline.md) | Applications, pipelines, candidacies, interviews, offers, Hub Applications pages |
 | [`marketplace.md`](agent-guides/marketplace.md) | Capabilities, Listings, engagements, provider work, submissions, activity statements |
 | [`ai.md`](agent-guides/ai.md) | AI operations, model catalog, AI credits, metering, kept prompts |
+| [`video-demos.md`](agent-guides/video-demos.md) | the scripted product demo video |
 
 Guides compose: a handler using PostgreSQL needs `go.md`, `backend.md`, and
 `database.md`. A scoped `AGENTS.md` lists the baseline guides for its tree; the
