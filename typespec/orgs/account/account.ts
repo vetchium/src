@@ -2,6 +2,7 @@ import type { TOTPRecoveryCodeCount } from "../../common/authentication.ts";
 import type { EmailAddress } from "../../common/common.ts";
 import type { CountryCode, DisplayName } from "../../common/localization.ts";
 import type { OrgPermissionID } from "../authorization/types.ts";
+import type { Capability } from "../marketplace/capabilities.ts";
 import type { OrgPlanOID } from "../subscriptions/plans.ts";
 import type { FrontendLocale, OrgDomain } from "../types.ts";
 
@@ -47,6 +48,19 @@ export interface MyInfoResponse {
   /** A short-lived signed URL, present only while a logo is set. */
   logo_url?: string;
   google_sign_in_enabled: boolean;
+  marketplace: MarketplaceRoles;
+}
+
+/**
+ * What the Org does in the marketplace, which decides the navigation groups
+ * the portal shows; the API still decides every action.
+ */
+export interface MarketplaceRoles {
+  /**
+   * The Capabilities the Org has a Listing or an engagement as provider for,
+   * each once, in no particular order; empty when it provides nothing.
+   */
+  capabilities: Capability[];
 }
 
 export const CheckPresent = "present" as const;

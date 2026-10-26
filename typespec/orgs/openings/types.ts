@@ -46,6 +46,7 @@ export const openingHistoryActions = [
   "duplicated",
   "working_copy_saved",
   "team_changed",
+  "pipeline_changed",
   "revision_discarded",
   "discarded",
   "requested",
@@ -69,6 +70,7 @@ export interface PendingOpeningRequest {
   requested_by_email: EmailAddress;
   requested_at: string;
   note?: string;
+  mark_applications_not_progressing?: boolean;
 }
 
 export interface OrgOpening {

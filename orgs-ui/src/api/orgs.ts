@@ -20,6 +20,33 @@ import type {
 } from "typespec/orgs/ai/ai";
 import type { AIUsageText } from "typespec/orgs/ai/types";
 import type {
+  ApplicationActionRequest,
+  ApplicationCounts,
+  ApplicationDetail,
+  ApplicationJoinedOnRequest,
+  ApplicationSeparatedOnRequest,
+  ApplicationStageRequest,
+  CancelInterviewRequest,
+  ChangeInterviewRequest,
+  ExtendApplicationOfferRequest,
+  GetApplicationCountsRequest,
+  GetApplicationRequest,
+  ListApplicationHistoryRequest,
+  ListApplicationHistoryResponse,
+  ListApplicationsRequest,
+  ListApplicationsResponse,
+  ListMyInterviewsRequest,
+  ListMyInterviewsResponse,
+  OfferLetterUploaded,
+  RecordAssessmentResultRequest,
+  RecordBackgroundCheckResultRequest,
+  RecordInterviewOutcomeRequest,
+  RequestBackgroundCheckConsentRequest,
+  RouteApplicationRequest,
+  ScheduleInterviewRequest,
+  SubmitInterviewFeedbackRequest,
+} from "typespec/orgs/applications/applications";
+import type {
   LoginRequest,
   LoginResponse,
   ReauthenticateRequest,
@@ -55,6 +82,95 @@ import type {
 import type { AuthenticatedSessionResponse } from "typespec/orgs/auth/types";
 import type { ListPermissionsResponse } from "typespec/orgs/authorization/management";
 import type {
+  CreatePipelineTemplateRequest,
+  DeletePipelineTemplateRequest,
+  ListPipelineTemplatesRequest,
+  ListPipelineTemplatesResponse,
+  PipelineTemplate,
+  UpdatePipelineTemplateRequest,
+} from "typespec/orgs/hiring/pipelines";
+import type {
+  AssignOpeningProviderRequest,
+  GetOpeningProvidersRequest,
+  OpeningProviders,
+  UnassignOpeningProviderRequest,
+} from "typespec/orgs/marketplace/assignments";
+import type {
+  ListCreditedApplicationsRequest,
+  ListCreditedApplicationsResponse,
+} from "typespec/orgs/marketplace/attribution";
+import type {
+  AddContactNoteRequest,
+  AddedNote,
+  AddPersonNoteRequest,
+  AgencyProfile,
+  Contact,
+  ContactReference,
+  ConversationDetail,
+  ConversationMessage,
+  DeleteContactNoteRequest,
+  DeletedNote,
+  EditContactNoteRequest,
+  GetConversationRequest,
+  ListContactNotesRequest,
+  ListContactNotesResponse,
+  ListContactsRequest,
+  ListContactsResponse,
+  MarkConversationReadRequest,
+  SendMessageRequest,
+  StartConversationRequest,
+  ViewHubProfileRequest,
+} from "typespec/orgs/marketplace/contacts/contacts";
+import type {
+  EndEngagementRequest,
+  Engagement,
+  EngagementTarget,
+  GetEngagementRequest,
+  ListEngagementsRequest,
+  ListEngagementsResponse,
+  ProposeEngagementRequest,
+  SetEngagementReferenceRequest,
+} from "typespec/orgs/marketplace/engagements";
+import type {
+  CreateListingRequest,
+  GetListingRequest,
+  Listing,
+  ListingDetail,
+  ListingTarget,
+  ListListingsResponse,
+  SearchListingsRequest,
+  SearchListingsResponse,
+  UpdateListingRequest,
+} from "typespec/orgs/marketplace/listings";
+import type {
+  GetActivityStatementRequest,
+  GetActivityStatementResponse,
+} from "typespec/orgs/marketplace/statements";
+import type {
+  InterviewReference,
+  JobDetail,
+  JobOwnership,
+  JobReference,
+  ListJobsRequest,
+  ListJobsResponse,
+  ListWorkQueueRequest,
+  ListWorkQueueResponse,
+  RecordAssessmentRequest,
+  SetJobOwnerRequest,
+  SuggestClientsRequest,
+  SuggestClientsResponse,
+  SuggestJobOwnersRequest,
+  SuggestJobOwnersResponse,
+  ChangeInterviewRequest as WorkChangeInterviewRequest,
+  WorkDetail,
+  RecordBackgroundCheckResultRequest as WorkRecordBackgroundCheckResultRequest,
+  RecordInterviewOutcomeRequest as WorkRecordInterviewOutcomeRequest,
+  WorkReference,
+  ScheduleInterviewRequest as WorkScheduleInterviewRequest,
+  SubmitInterviewFeedbackRequest as WorkSubmitInterviewFeedbackRequest,
+  WriteResult,
+} from "typespec/orgs/marketplace/work/work";
+import type {
   CreateOpeningRequest,
   DecideOpeningRequestRequest,
   DiscardOpeningRequest,
@@ -73,6 +189,11 @@ import type {
   SetOpeningTeamRequest,
   WithdrawOpeningRequestRequest,
 } from "typespec/orgs/openings/openings";
+import type {
+  GetOpeningPipelineRequest,
+  OpeningPipeline,
+  ReplaceOpeningPipelineRequest,
+} from "typespec/orgs/openings/pipeline";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import type { SetCompanyDetailsRequest } from "typespec/orgs/settings/company";
 import type { SetGoogleSignInRequest } from "typespec/orgs/settings/google_sign_in";
@@ -108,6 +229,210 @@ import type {
 import { apiRequest } from "./client";
 
 export const orgsAPI = {
+  listPipelineTemplates: (body: ListPipelineTemplatesRequest) =>
+    apiRequest<ListPipelineTemplatesResponse>("/list-pipeline-templates", {
+      body,
+    }),
+  createPipelineTemplate: (
+    body: CreatePipelineTemplateRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<PipelineTemplate>("/create-pipeline-template", {
+      body,
+      idempotencyKey,
+    }),
+  updatePipelineTemplate: (
+    body: UpdatePipelineTemplateRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<PipelineTemplate>("/update-pipeline-template", {
+      body,
+      idempotencyKey,
+    }),
+  deletePipelineTemplate: (
+    body: DeletePipelineTemplateRequest,
+    idempotencyKey: IdempotencyKey,
+  ) => apiRequest<void>("/delete-pipeline-template", { body, idempotencyKey }),
+  getOpeningPipeline: (body: GetOpeningPipelineRequest) =>
+    apiRequest<OpeningPipeline>("/get-opening-pipeline", { body }),
+  replaceOpeningPipeline: (
+    body: ReplaceOpeningPipelineRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<OpeningPipeline>("/replace-opening-pipeline", {
+      body,
+      idempotencyKey,
+    }),
+  getApplicationCounts: (body: GetApplicationCountsRequest) =>
+    apiRequest<ApplicationCounts>("/get-application-counts", { body }),
+  listApplications: (body: ListApplicationsRequest) =>
+    apiRequest<ListApplicationsResponse>("/list-applications", { body }),
+  getApplication: (body: GetApplicationRequest) =>
+    apiRequest<ApplicationDetail>("/get-application", { body }),
+  listApplicationHistory: (body: ListApplicationHistoryRequest) =>
+    apiRequest<ListApplicationHistoryResponse>("/list-application-history", {
+      body,
+    }),
+  shortlistApplication: (
+    body: ApplicationStageRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/shortlist-application", {
+      body,
+      idempotencyKey,
+    }),
+  moveApplicationStage: (
+    body: ApplicationStageRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/move-application-stage", {
+      body,
+      idempotencyKey,
+    }),
+  completeApplicationStage: (
+    body: ApplicationActionRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/complete-application-stage", {
+      body,
+      idempotencyKey,
+    }),
+  markApplicationNotProgressing: (
+    body: ApplicationActionRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/mark-application-not-progressing", {
+      body,
+      idempotencyKey,
+    }),
+  recordApplicationJoined: (
+    body: ApplicationJoinedOnRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/record-application-joined", {
+      body,
+      idempotencyKey,
+    }),
+  recordApplicationDidNotJoin: (
+    body: ApplicationActionRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/record-application-did-not-join", {
+      body,
+      idempotencyKey,
+    }),
+  recordApplicationSeparated: (
+    body: ApplicationSeparatedOnRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/record-application-separated", {
+      body,
+      idempotencyKey,
+    }),
+  correctApplicationJoinedOn: (
+    body: ApplicationJoinedOnRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/correct-application-joined-on", {
+      body,
+      idempotencyKey,
+    }),
+  correctApplicationSeparatedOn: (
+    body: ApplicationSeparatedOnRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/correct-application-separated-on", {
+      body,
+      idempotencyKey,
+    }),
+  uploadOfferLetter: (letter: Blob, idempotencyKey: IdempotencyKey) =>
+    apiRequest<OfferLetterUploaded>("/upload-offer-letter", {
+      body: letter,
+      contentType: "application/pdf",
+      idempotencyKey,
+    }),
+  extendApplicationOffer: (
+    body: ExtendApplicationOfferRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/extend-application-offer", {
+      body,
+      idempotencyKey,
+    }),
+  withdrawApplicationOffer: (
+    body: ApplicationActionRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/withdraw-application-offer", {
+      body,
+      idempotencyKey,
+    }),
+  scheduleInterview: (
+    body: ScheduleInterviewRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/schedule-interview", {
+      body,
+      idempotencyKey,
+    }),
+  changeInterview: (
+    body: ChangeInterviewRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/change-interview", {
+      body,
+      idempotencyKey,
+    }),
+  cancelInterview: (
+    body: CancelInterviewRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/cancel-interview", {
+      body,
+      idempotencyKey,
+    }),
+  recordInterviewOutcome: (
+    body: RecordInterviewOutcomeRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/record-interview-outcome", {
+      body,
+      idempotencyKey,
+    }),
+  submitInterviewFeedback: (
+    body: SubmitInterviewFeedbackRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/submit-interview-feedback", {
+      body,
+      idempotencyKey,
+    }),
+  recordAssessmentResult: (
+    body: RecordAssessmentResultRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/record-assessment-result", {
+      body,
+      idempotencyKey,
+    }),
+  requestBackgroundCheckConsent: (
+    body: RequestBackgroundCheckConsentRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/request-background-check-consent", {
+      body,
+      idempotencyKey,
+    }),
+  recordBackgroundCheckResult: (
+    body: RecordBackgroundCheckResultRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/record-background-check-result", {
+      body,
+      idempotencyKey,
+    }),
+  listMyInterviews: (body: ListMyInterviewsRequest) =>
+    apiRequest<ListMyInterviewsResponse>("/list-my-interviews", { body }),
   createOpening: (body: CreateOpeningRequest, idempotencyKey: IdempotencyKey) =>
     apiRequest<OrgOpening>("/create-opening", { body, idempotencyKey }),
   duplicateOpening: (
@@ -370,4 +695,228 @@ export const orgsAPI = {
       body,
       idempotencyKey,
     }),
+  searchListings: (body: SearchListingsRequest) =>
+    apiRequest<SearchListingsResponse>("/search-listings", { body }),
+  getListing: (body: GetListingRequest) =>
+    apiRequest<ListingDetail>("/get-listing", { body }),
+  listEngagements: (body: ListEngagementsRequest) =>
+    apiRequest<ListEngagementsResponse>("/list-engagements", { body }),
+  getEngagement: (body: GetEngagementRequest) =>
+    apiRequest<Engagement>("/get-engagement", { body }),
+  proposeEngagement: (
+    body: ProposeEngagementRequest,
+    idempotencyKey: IdempotencyKey,
+  ) => apiRequest<Engagement>("/propose-engagement", { body, idempotencyKey }),
+  withdrawEngagement: (
+    body: EngagementTarget,
+    idempotencyKey: IdempotencyKey,
+  ) => apiRequest<Engagement>("/withdraw-engagement", { body, idempotencyKey }),
+  endEngagement: (body: EndEngagementRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Engagement>("/end-engagement", { body, idempotencyKey }),
+  setEngagementReference: (
+    body: SetEngagementReferenceRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<Engagement>("/set-engagement-reference", {
+      body,
+      idempotencyKey,
+    }),
+  getEngagementStatement: (body: GetActivityStatementRequest) =>
+    apiRequest<GetActivityStatementResponse>("/get-engagement-statement", {
+      body,
+    }),
+  getOpeningProviders: (body: GetOpeningProvidersRequest) =>
+    apiRequest<OpeningProviders>("/get-opening-providers", { body }),
+  assignOpeningProvider: (
+    body: AssignOpeningProviderRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<OpeningProviders>("/assign-opening-provider", {
+      body,
+      idempotencyKey,
+    }),
+  unassignOpeningProvider: (
+    body: UnassignOpeningProviderRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<OpeningProviders>("/unassign-opening-provider", {
+      body,
+      idempotencyKey,
+    }),
+  routeApplication: (
+    body: RouteApplicationRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ApplicationDetail>("/route-application", {
+      body,
+      idempotencyKey,
+    }),
+  listListings: () =>
+    apiRequest<ListListingsResponse>("/list-listings", { body: {} }),
+  createListing: (body: CreateListingRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Listing>("/create-listing", { body, idempotencyKey }),
+  updateListing: (body: UpdateListingRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Listing>("/update-listing", { body, idempotencyKey }),
+  publishListing: (body: ListingTarget, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Listing>("/publish-listing", { body, idempotencyKey }),
+  unlistListing: (body: ListingTarget, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Listing>("/unlist-listing", { body, idempotencyKey }),
+  deleteListing: (body: ListingTarget, idempotencyKey: IdempotencyKey) =>
+    apiRequest<void>("/delete-listing", { body, idempotencyKey }),
+  listClientEngagements: (body: ListEngagementsRequest) =>
+    apiRequest<ListEngagementsResponse>("/list-client-engagements", { body }),
+  getClientEngagement: (body: GetEngagementRequest) =>
+    apiRequest<Engagement>("/get-client-engagement", { body }),
+  getClientEngagementStatement: (body: GetActivityStatementRequest) =>
+    apiRequest<GetActivityStatementResponse>(
+      "/get-client-engagement-statement",
+      { body },
+    ),
+  acceptEngagement: (body: EngagementTarget, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Engagement>("/accept-engagement", { body, idempotencyKey }),
+  declineEngagement: (body: EngagementTarget, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Engagement>("/decline-engagement", { body, idempotencyKey }),
+  endClientEngagement: (
+    body: EndEngagementRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<Engagement>("/end-client-engagement", { body, idempotencyKey }),
+  setClientEngagementReference: (
+    body: SetEngagementReferenceRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<Engagement>("/set-client-engagement-reference", {
+      body,
+      idempotencyKey,
+    }),
+  listWorkQueue: (body: ListWorkQueueRequest) =>
+    apiRequest<ListWorkQueueResponse>("/list-work-queue", { body }),
+  getWorkItem: (body: WorkReference) =>
+    apiRequest<WorkDetail>("/get-work-item", { body }),
+  scheduleWorkInterview: (
+    body: WorkScheduleInterviewRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<WriteResult>("/schedule-work-interview", {
+      body,
+      idempotencyKey,
+    }),
+  changeWorkInterview: (
+    body: WorkChangeInterviewRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<WriteResult>("/change-work-interview", {
+      body,
+      idempotencyKey,
+    }),
+  cancelWorkInterview: (
+    body: InterviewReference,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<WriteResult>("/cancel-work-interview", {
+      body,
+      idempotencyKey,
+    }),
+  recordWorkInterviewOutcome: (
+    body: WorkRecordInterviewOutcomeRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<WriteResult>("/record-work-interview-outcome", {
+      body,
+      idempotencyKey,
+    }),
+  submitWorkInterviewFeedback: (
+    body: WorkSubmitInterviewFeedbackRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<WriteResult>("/submit-work-interview-feedback", {
+      body,
+      idempotencyKey,
+    }),
+  recordWorkAssessment: (
+    body: RecordAssessmentRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<WriteResult>("/record-work-assessment", {
+      body,
+      idempotencyKey,
+    }),
+  recordWorkBackgroundCheckResult: (
+    body: WorkRecordBackgroundCheckResultRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<WriteResult>("/record-work-background-check-result", {
+      body,
+      idempotencyKey,
+    }),
+  listJobs: (body: ListJobsRequest = {}) =>
+    apiRequest<ListJobsResponse>("/list-jobs", { body }),
+  getJob: (body: JobReference) => apiRequest<JobDetail>("/get-job", { body }),
+  setJobOwner: (body: SetJobOwnerRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<JobOwnership>("/set-job-owner", { body, idempotencyKey }),
+  suggestJobOwners: (body: SuggestJobOwnersRequest) =>
+    apiRequest<SuggestJobOwnersResponse>("/suggest-job-owners", { body }),
+  suggestClients: (body: SuggestClientsRequest) =>
+    apiRequest<SuggestClientsResponse>("/suggest-clients", { body }),
+  listCreditedApplications: (body: ListCreditedApplicationsRequest = {}) =>
+    apiRequest<ListCreditedApplicationsResponse>(
+      "/list-credited-applications",
+      {
+        body,
+      },
+    ),
+  listContacts: (body: ListContactsRequest = {}) =>
+    apiRequest<ListContactsResponse>("/list-contacts", { body }),
+  getContact: (body: ContactReference) =>
+    apiRequest<Contact>("/get-contact", { body }),
+  viewHubProfile: (body: ViewHubProfileRequest) =>
+    apiRequest<AgencyProfile>("/view-hub-profile", { body }),
+  listContactNotes: (body: ListContactNotesRequest) =>
+    apiRequest<ListContactNotesResponse>("/list-contact-notes", { body }),
+  addPersonNote: (body: AddPersonNoteRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<AddedNote>("/add-person-note", {
+      body,
+      idempotencyKey,
+    }),
+  addContactNote: (
+    body: AddContactNoteRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<AddedNote>("/add-contact-note", {
+      body,
+      idempotencyKey,
+    }),
+  editContactNote: (
+    body: EditContactNoteRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<AddedNote>("/edit-contact-note", {
+      body,
+      idempotencyKey,
+    }),
+  deleteContactNote: (
+    body: DeleteContactNoteRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<DeletedNote>("/delete-contact-note", {
+      body,
+      idempotencyKey,
+    }),
+  startConversation: (
+    body: StartConversationRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ConversationDetail>("/start-conversation", {
+      body,
+      idempotencyKey,
+    }),
+  sendMessage: (body: SendMessageRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<ConversationMessage>("/send-message", {
+      body,
+      idempotencyKey,
+    }),
+  getConversation: (body: GetConversationRequest) =>
+    apiRequest<ConversationDetail>("/get-conversation", { body }),
+  markConversationRead: (body: MarkConversationReadRequest) =>
+    apiRequest<void>("/mark-conversation-read", { body }),
 };

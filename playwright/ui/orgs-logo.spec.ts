@@ -11,6 +11,12 @@ import {
   type SignedUpOrg,
   signupOrg,
 } from "../lib/orgs-api.ts";
+import {
+  accountMenu,
+  chooseWorkspace,
+  openAccountPage,
+  sidebarPage,
+} from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 import { chooseRegion } from "../lib/region-ui.ts";
 
@@ -23,9 +29,7 @@ async function signIn(
   await page.getByLabel("Password", { exact: true }).fill(user.password);
   await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(
-    page.getByRole("button", { name: "Sign out", exact: true }),
-  ).toBeVisible();
+  await expect(accountMenu(page)).toBeVisible();
 }
 
 test("a Free Org is offered an upgrade; a Silver Org uploads and removes its logo", async ({
@@ -108,9 +112,8 @@ test("only a superadmin reaches the settings page", async ({
       ["org:manage_users"],
     );
     await signIn(page, member);
-    await expect(
-      page.getByRole("menuitem", { name: /Organization settings/ }),
-    ).toHaveCount(0);
+    await chooseWorkspace(page, "Administration");
+    await expect(sidebarPage(page, "Company")).toHaveCount(0);
     await page.goto(`${ORGS_PORTAL}/settings`);
     await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
   } finally {
@@ -127,8 +130,10 @@ test("company name, account privacy and old routes work together", async ({
   const org = await signupOrg(api);
   try {
     await signIn(page, org);
-    await expect(page.getByText(org.emailAddress, { exact: true })).toHaveCount(
-      0,
+    // The header names who is signed in; pages show the address only where
+    // the task needs it.
+    await expect(accountMenu(page)).toHaveAccessibleName(
+      `Account menu for ${org.emailAddress}`,
     );
     await page.goto(`${ORGS_PORTAL}/settings`);
     await expect(page).toHaveURL(`${ORGS_PORTAL}/company`);
@@ -137,10 +142,10 @@ test("company name, account privacy and old routes work together", async ({
       .fill("Updated Company");
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("Company details saved")).toBeVisible();
-    await page.getByRole("menuitem", { name: "Overview" }).click();
-    await expect(
-      page.getByRole("heading", { name: "Updated Company", level: 1 }),
-    ).toBeVisible();
+    await openAccountPage(page, "My work");
+    await expect(page.getByTestId("home-org-name")).toHaveText(
+      "Updated Company",
+    );
     await page.goto(`${ORGS_PORTAL}/company`);
     await expect(page.getByLabel("Company name", { exact: true })).toHaveValue(
       "Updated Company",
@@ -156,9 +161,9 @@ test("company name, account privacy and old routes work together", async ({
       page.getByText(org.emailAddress, { exact: true }),
     ).toBeVisible();
     await page.goto(`${ORGS_PORTAL}/organization-security`);
-    await expect(page.getByText(org.emailAddress, { exact: true })).toHaveCount(
-      0,
-    );
+    await expect(
+      page.getByRole("main").getByText(org.emailAddress, { exact: true }),
+    ).toHaveCount(0);
     await page.setViewportSize({ width: 375, height: 812 });
     await expect(page.getByTestId("google-switch")).toBeVisible();
   } finally {

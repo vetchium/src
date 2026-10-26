@@ -25,22 +25,17 @@ import (
 	"backend/internal/service"
 )
 
-// devDNSAPIKey is fixed in the Compose files; it guards a loopback-only
-// development server, not production data.
-const devDNSAPIKey = "vetchium-dev-dns-api-key"
-
 var (
 	orgSignupTokenPattern = regexp.MustCompile(
 		`complete-signup\?region=[a-z0-9-]+&token=([0-9a-f]{64})`,
 	)
-	orgRecordValuePattern     = regexp.MustCompile(`vetchium-verify=[a-z2-7]{26}`)
 	orgInvitationTokenPattern = regexp.MustCompile(
 		`accept-invitation\?region=[a-z0-9-]+&token=([A-Za-z0-9_-]+)`,
 	)
 )
 
 type orgSeedSettings struct {
-	orgsOrigin, mailpitOrigin, dnsOrigin, tenantID string
+	orgsOrigin, mailpitOrigin, tenantID string
 }
 
 func loadOrgSeedSettings() (orgSeedSettings, error) {
@@ -48,7 +43,6 @@ func loadOrgSeedSettings() (orgSeedSettings, error) {
 	for name, target := range map[string]*string{
 		"DEV_SEED_ORGS_ORIGIN": &s.orgsOrigin,
 		"DEV_SEED_MAILPIT_URL": &s.mailpitOrigin,
-		"DEV_SEED_DNS_URL":     &s.dnsOrigin,
 		"DEV_SEED_TENANT":      &s.tenantID,
 	} {
 		value := strings.TrimSpace(os.Getenv(name))
@@ -66,23 +60,41 @@ var seededOrgCountries = map[string]common.CountryCode{
 	"sgp": "SG", "usa1": "US", "deu": "DE", "ind1": "IN",
 }
 
-// seededOrgs are the Orgs every tenant gets: one per plan, so every plan-gated
-// screen has an Org to open. The Free Org keeps the tenant's own domain.
+// seededOrgDomain names a fixture Org by its kind and number in a tenant, such
+// as org1.ind1.test for a hiring company or age1.ind1.test for an agency.
+// Development tenants trust `.test` names without a DNS lookup
+// (orgDomainVerification.trustReservedDomains), so no TXT record is needed.
+func seededOrgDomain(kind string, number int, tenant string) orgs.OrgDomain {
+	return orgs.OrgDomain(fmt.Sprintf("%s%d.%s.test", kind, number, tenant))
+}
+
+// hiringCompanyKind prefixes the hiring companies' domains.
+const hiringCompanyKind = "org"
+
+// seededOrgs are the hiring companies every tenant gets: one per plan, so
+// every plan-gated screen has an Org to open.
 var seededOrgs = []struct {
-	label, domainPrefix string
-	plan                subscriptionspec.Plan
+	number int
+	label  string
+	plan   subscriptionspec.Plan
 }{
-	{"Free", "", subscriptionspec.FreeTier},
-	{"Silver", "silver.", subscriptionspec.SilverTier},
-	{"Gold", "gold.", subscriptionspec.GoldTier},
+	{1, "Free", subscriptionspec.FreeTier},
+	{2, "Silver", subscriptionspec.SilverTier},
+	{3, "Gold", subscriptionspec.GoldTier},
+}
+
+func hiringCompanyName(tenant string, number int) string {
+	return fmt.Sprintf("%s Hiring Co %d", strings.ToUpper(tenant), number)
+}
+
+type seededUser struct {
+	local       string
+	permissions []authorization.OrgPermissionID
 }
 
 // The requester is Superadmin; these invited users exercise the remaining
 // account and Opening permissions.
-var seededUsers = []struct {
-	local       string
-	permissions []authorization.OrgPermissionID
-}{
+var seededUsers = []seededUser{
 	{"finance", []authorization.OrgPermissionID{authorization.OrgPermissionID(authorization.ManageBilling)}},
 	{"users", []authorization.OrgPermissionID{authorization.OrgPermissionID(authorization.ManageUsers)}},
 	{"recruiter", []authorization.OrgPermissionID{authorization.OrgPermissionID(authorization.ManageOpenings)}},
@@ -90,11 +102,10 @@ var seededUsers = []struct {
 	{"member", nil},
 }
 
-// runOrgSeed creates an Org per plan through the same paths a real requester
-// follows: request signup, publish the TXT record from the DNS instructions
-// email in the development DNS server, complete signup from the private link,
-// sign in, choose the plan against a simulated card, and invite one user per
-// role preset. Every user has the documented development password.
+// runOrgSeed creates a hiring company per plan through the same paths a real
+// requester follows: request signup, complete it from the private link, sign
+// in, choose the plan against a simulated card, and invite one user per role
+// preset. Every user has the documented development password.
 func runOrgSeed() error {
 	settings, err := loadOrgSeedSettings()
 	if err != nil {
@@ -106,15 +117,13 @@ func runOrgSeed() error {
 		settings: settings,
 		client:   &http.Client{Timeout: hubProfileRequestTimeout},
 	}
+	country, ok := seededOrgCountries[settings.tenantID]
+	if !ok {
+		return fmt.Errorf("no seeded Org country for tenant %q", settings.tenantID)
+	}
 	for _, org := range seededOrgs {
-		domain := orgs.OrgDomain(org.domainPrefix + settings.tenantID + ".example.com")
-		displayName := fmt.Sprintf(
-			"Example %s %s Corp", strings.ToUpper(settings.tenantID), org.label,
-		)
-		country, ok := seededOrgCountries[settings.tenantID]
-		if !ok {
-			return fmt.Errorf("no seeded Org country for tenant %q", settings.tenantID)
-		}
+		domain := seededOrgDomain(hiringCompanyKind, org.number, settings.tenantID)
+		displayName := hiringCompanyName(settings.tenantID, org.number)
 		if err := seeder.seedOrg(ctx, domain, displayName, country, org.plan); err != nil {
 			return fmt.Errorf("seed %s Org %s: %w", org.label, domain, err)
 		}
@@ -122,40 +131,31 @@ func runOrgSeed() error {
 	return nil
 }
 
-func (s *orgSeeder) seedOrg(
-	ctx context.Context, domain orgs.OrgDomain, displayName string,
+// signupOrg signs an Org up at origin as admin@domain, the requester and
+// first superadmin, puts it on plan, and returns the admin's session.
+func (s *orgSeeder) signupOrg(
+	ctx context.Context, origin string, domain orgs.OrgDomain, displayName string,
 	country common.CountryCode, plan subscriptionspec.Plan,
-) error {
+) (string, error) {
 	email := "admin@" + string(domain)
-	if err := s.post(
-		ctx, "/api/orgs/request-signup", orgsauth.RequestSignupRequest{
+	if err := s.postAt(
+		ctx, origin, "/api/orgs/request-signup", orgsauth.RequestSignupRequest{
 			EmailAddress:      common.EmailAddress(email),
 			PreferredLanguage: orgs.EnglishUnitedStates,
 		}, "", http.StatusAccepted, nil,
 	); err != nil {
-		return fmt.Errorf("request Org signup: %w", err)
-	}
-	dnsEmail, err := s.awaitEmail(ctx, email, "DNS record")
-	if err != nil {
-		return err
-	}
-	value := orgRecordValuePattern.Find(dnsEmail)
-	if value == nil {
-		return fmt.Errorf("DNS instructions carried no record value")
-	}
-	if err := s.publishRecord(ctx, domain, string(value)); err != nil {
-		return err
+		return "", fmt.Errorf("request Org signup: %w", err)
 	}
 	linkEmail, err := s.awaitEmail(ctx, email, "Complete")
 	if err != nil {
-		return err
+		return "", err
 	}
 	token := orgSignupTokenPattern.FindSubmatch(linkEmail)
 	if token == nil {
-		return fmt.Errorf("signup link email carried no token")
+		return "", fmt.Errorf("signup link email carried no token")
 	}
-	if err := s.post(
-		ctx, "/api/orgs/complete-signup", orgsauth.CompleteSignupRequest{
+	if err := s.postAt(
+		ctx, origin, "/api/orgs/complete-signup", orgsauth.CompleteSignupRequest{
 			SignupToken:          orgsauth.OrgSignupToken(token[1]),
 			OrgDisplayName:       common.DisplayName(displayName),
 			OrgCountry:           country,
@@ -163,23 +163,22 @@ func (s *orgSeeder) seedOrg(
 			Password:             common.NewPassword(devSeedHubUserPassword),
 		}, "", http.StatusCreated, nil,
 	); err != nil {
-		return fmt.Errorf("complete Org signup: %w", err)
+		return "", fmt.Errorf("complete Org signup: %w", err)
 	}
-
 	var session orgsauth.LoginAuthenticatedResponse
-	if err := s.post(
-		ctx, "/api/orgs/login", orgsauth.LoginRequest{
+	if err := s.postAt(
+		ctx, origin, "/api/orgs/login", orgsauth.LoginRequest{
 			Domain:       domain,
 			EmailAddress: common.EmailAddress(email),
 			Password:     common.Password(devSeedHubUserPassword),
 		}, "", http.StatusOK, &session,
 	); err != nil {
-		return fmt.Errorf("sign in: %w", err)
+		return "", fmt.Errorf("sign in: %w", err)
 	}
 	bearer := string(session.SessionToken)
 	if plan != subscriptionspec.FreeTier {
-		if err := s.post(
-			ctx, "/api/orgs/set-subscription-plan",
+		if err := s.postAt(
+			ctx, origin, "/api/orgs/set-subscription-plan",
 			subscriptionspec.SetSubscriptionPlanRequest{
 				PlanOID: plan,
 				BillingInterval: subscriptionspec.OptionalBillingInterval{
@@ -187,16 +186,21 @@ func (s *orgSeeder) seedOrg(
 				},
 			}, bearer, http.StatusOK, nil,
 		); err != nil {
-			return fmt.Errorf("choose %s: %w", plan, err)
+			return "", fmt.Errorf("choose %s: %w", plan, err)
 		}
 	}
-	for _, user := range seededUsers {
-		if plan == subscriptionspec.FreeTier && user.local == "member" {
-			continue
-		}
+	return bearer, nil
+}
+
+// inviteUsers invites each user to the Org at domain and accepts the
+// invitation from the email Mailpit captured, with the development password.
+func (s *orgSeeder) inviteUsers(
+	ctx context.Context, origin, bearer string, domain orgs.OrgDomain, users []seededUser,
+) error {
+	for _, user := range users {
 		address := user.local + "@" + string(domain)
-		if err := s.post(
-			ctx, "/api/orgs/invite-users", orgsusers.InviteUsersRequest{
+		if err := s.postAt(
+			ctx, origin, "/api/orgs/invite-users", orgsusers.InviteUsersRequest{
 				EmailAddresses: []orgsusers.InviteeAddress{
 					orgsusers.InviteeAddress(address),
 				},
@@ -213,8 +217,8 @@ func (s *orgSeeder) seedOrg(
 		if invited == nil {
 			return fmt.Errorf("invitation email carried no token")
 		}
-		if err := s.post(
-			ctx, "/api/orgs/accept-invitation", orgsusers.AcceptInvitationRequest{
+		if err := s.postAt(
+			ctx, origin, "/api/orgs/accept-invitation", orgsusers.AcceptInvitationRequest{
 				InvitationToken:   orgsusers.OrgInvitationToken(invited[1]),
 				Password:          common.NewPassword(devSeedHubUserPassword),
 				PreferredLanguage: orgs.EnglishUnitedStates,
@@ -222,6 +226,28 @@ func (s *orgSeeder) seedOrg(
 		); err != nil {
 			return fmt.Errorf("accept the invitation of %s: %w", address, err)
 		}
+	}
+	return nil
+}
+
+func (s *orgSeeder) seedOrg(
+	ctx context.Context, domain orgs.OrgDomain, displayName string,
+	country common.CountryCode, plan subscriptionspec.Plan,
+) error {
+	email := "admin@" + string(domain)
+	bearer, err := s.signupOrg(ctx, s.settings.orgsOrigin, domain, displayName, country, plan)
+	if err != nil {
+		return err
+	}
+	users := []seededUser{}
+	for _, user := range seededUsers {
+		// The Free plan's five seats hold the admin and four invitees.
+		if plan != subscriptionspec.FreeTier || user.local != "member" {
+			users = append(users, user)
+		}
+	}
+	if err := s.inviteUsers(ctx, s.settings.orgsOrigin, bearer, domain, users); err != nil {
+		return err
 	}
 	if subscriptionspec.AllowsAI(plan) {
 		if err := s.seedOrgAI(ctx, bearer); err != nil {
@@ -231,12 +257,12 @@ func (s *orgSeeder) seedOrg(
 	if err := s.seedOrgOpenings(ctx, domain, bearer); err != nil {
 		return fmt.Errorf("seed Openings: %w", err)
 	}
-	users := "finance,users,recruiter,approver"
-	if plan != subscriptionspec.FreeTier {
-		users += ",member"
+	locals := make([]string, 0, len(users))
+	for _, user := range users {
+		locals = append(locals, user.local)
 	}
 	log.Printf("seeded %s Org domain=%s superadmin=%s users=%s openings=10 ai=%t",
-		plan, domain, email, users, subscriptionspec.AllowsAI(plan))
+		plan, domain, email, strings.Join(locals, ","), subscriptionspec.AllowsAI(plan))
 	return nil
 }
 
@@ -287,54 +313,39 @@ func (s *orgSeeder) post(
 	ctx context.Context, path string, body any, bearer string, want int,
 	out any,
 ) error {
+	return s.postAt(ctx, s.settings.orgsOrigin, path, body, bearer, want, out)
+}
+
+// postAt is post against another API origin, such as a Hub region.
+func (s *orgSeeder) postAt(
+	ctx context.Context, origin, path string, body any, bearer string,
+	want int, out any,
+) error {
+	return s.postAtWithKey(ctx, origin, path, body, bearer, newIdempotencyKey(), want, out)
+}
+
+// postAtWithKey is postAt with a caller-chosen Idempotency-Key, so a retry
+// of a write whose outcome is unknown replays instead of applying twice.
+func (s *orgSeeder) postAtWithKey(
+	ctx context.Context, origin, path string, body any, bearer, key string,
+	want int, out any,
+) error {
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return err
 	}
 	request, err := http.NewRequestWithContext(
-		ctx, http.MethodPost, s.settings.orgsOrigin+path,
-		bytes.NewReader(payload),
+		ctx, http.MethodPost, origin+path, bytes.NewReader(payload),
 	)
 	if err != nil {
 		return err
 	}
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Idempotency-Key", newIdempotencyKey())
+	request.Header.Set("Idempotency-Key", key)
 	if bearer != "" {
 		request.Header.Set("Authorization", "Bearer "+bearer)
 	}
 	return s.do(request, want, out)
-}
-
-func (s *orgSeeder) publishRecord(
-	ctx context.Context, domain orgs.OrgDomain, value string,
-) error {
-	payload, err := json.Marshal(map[string]any{
-		"rrsets": []map[string]any{{
-			"name": "_vetchium." + string(domain) + ".", "type": "TXT",
-			"ttl": 60, "changetype": "REPLACE",
-			"records": []map[string]any{
-				{"content": `"` + value + `"`, "disabled": false},
-			},
-		}},
-	})
-	if err != nil {
-		return err
-	}
-	request, err := http.NewRequestWithContext(
-		ctx, http.MethodPatch,
-		s.settings.dnsOrigin+"/api/v1/servers/localhost/zones/example.com.",
-		bytes.NewReader(payload),
-	)
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("X-API-Key", devDNSAPIKey)
-	if err := s.do(request, http.StatusNoContent, nil); err != nil {
-		return fmt.Errorf("publish development TXT record: %w", err)
-	}
-	return nil
 }
 
 func (s *orgSeeder) do(request *http.Request, want int, out any) error {
@@ -345,14 +356,25 @@ func (s *orgSeeder) do(request *http.Request, want int, out any) error {
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != want {
 		body, _ := io.ReadAll(io.LimitReader(response.Body, 1<<16))
-		return fmt.Errorf("%s %s returned %d: %s",
-			request.Method, request.URL.Path, response.StatusCode, body)
+		return &statusError{
+			status: response.StatusCode,
+			text: fmt.Sprintf("%s %s returned %d: %s",
+				request.Method, request.URL.Path, response.StatusCode, body),
+		}
 	}
 	if out == nil {
 		return nil
 	}
 	return json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(out)
 }
+
+// statusError is an answer other than the one a seed step expected.
+type statusError struct {
+	status int
+	text   string
+}
+
+func (e *statusError) Error() string { return e.text }
 
 func (s *orgSeeder) awaitEmail(
 	ctx context.Context, email, subject string,

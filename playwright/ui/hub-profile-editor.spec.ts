@@ -5,6 +5,7 @@ import type { AliasState } from "typespec/hub/profile/alias";
 import type { ProfessionalEmail } from "typespec/hub/profile/professional_email";
 import type { PublicProfile } from "typespec/hub/profile/public";
 import type { HubSubscription } from "typespec/hub/subscriptions/subscriptions";
+import { stubNoApplications } from "../lib/hub-ui-stubs.ts";
 import { HUB_PORTAL } from "../lib/portals.ts";
 
 /** Drives the month picker through its year panel rather than typing, since
@@ -66,6 +67,7 @@ async function openEditor(
     language_abilities: [],
     ...overrides,
   };
+  await stubNoApplications(page);
   await page.addInitScript(
     ({ userHandle }) => {
       sessionStorage.setItem(

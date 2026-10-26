@@ -1,5 +1,18 @@
 import type { IdempotencyKey } from "typespec/common/idempotency";
 import type {
+  AcceptInterviewRequest,
+  ApplicationReference,
+  ApplyToOpeningRequest,
+  BackgroundCheckConsentRequest,
+  GetMyApplicationRequest,
+  ListMyApplicationsRequest,
+  ListMyApplicationsResponse,
+  MyApplicationDetail,
+  RequestInterviewRescheduleRequest,
+  RespondToOfferRequest,
+  WithdrawApplicationRequest,
+} from "typespec/hub/applications/applications";
+import type {
   ConfirmEmailChangeRequest,
   EmailChangeChallenge,
   RequestEmailChangeRequest,
@@ -31,6 +44,15 @@ import type {
   VerifyRecoveryCodeResponse,
 } from "typespec/hub/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";
+import type {
+  DeleteConversationRequest,
+  GetConversationRequest,
+  HubConversationDetail,
+  ListConversationsRequest,
+  ListConversationsResponse,
+  MarkConversationReadRequest,
+  ReplyToConversationRequest,
+} from "typespec/hub/messages/messages";
 import type {
   GetOrgOpeningRequest,
   GetOrgOpeningResponse,
@@ -70,13 +92,28 @@ import type {
 } from "typespec/hub/subscriptions/subscriptions";
 import type {
   MyInfoResponse,
+  SetAgenciesMayMessageRequest,
   SetPreferredJobCountriesRequest,
   SetPreferredLanguageRequest,
   SetResidentCountryRequest,
 } from "typespec/hub/users/profile";
+import type { ConversationMessage } from "typespec/orgs/marketplace/contacts/contacts";
 import { apiRequest } from "./client";
 
 const base = "/api/hub";
+
+/** A write to an application answers with its reference, or with a pending
+ * operation when the Org's tenant has not yet confirmed it. */
+function applicationWrite(
+  endpoint: string,
+  body: unknown,
+  idempotencyKey: IdempotencyKey,
+) {
+  return apiRequest<ApplicationReference | PendingOperation>(
+    `${base}/${endpoint}`,
+    { body, idempotencyKey },
+  );
+}
 
 export const hubAPI = {
   requestSignup: (
@@ -270,6 +307,59 @@ export const hubAPI = {
       body,
       idempotencyKey,
     }),
+  listMyApplications: (body: ListMyApplicationsRequest) =>
+    apiRequest<ListMyApplicationsResponse>(`${base}/list-my-applications`, {
+      body,
+    }),
+  getMyApplication: (body: GetMyApplicationRequest) =>
+    apiRequest<MyApplicationDetail>(`${base}/get-my-application`, { body }),
+  applyToOpening: (
+    body: ApplyToOpeningRequest,
+    idempotencyKey: IdempotencyKey,
+  ) => applicationWrite("apply-to-opening", body, idempotencyKey),
+  withdrawApplication: (
+    body: WithdrawApplicationRequest,
+    idempotencyKey: IdempotencyKey,
+  ) => applicationWrite("withdraw-application", body, idempotencyKey),
+  acceptApplicationOffer: (
+    body: RespondToOfferRequest,
+    idempotencyKey: IdempotencyKey,
+  ) => applicationWrite("accept-application-offer", body, idempotencyKey),
+  declineApplicationOffer: (
+    body: RespondToOfferRequest,
+    idempotencyKey: IdempotencyKey,
+  ) => applicationWrite("decline-application-offer", body, idempotencyKey),
+  acceptApplicationInterview: (
+    body: AcceptInterviewRequest,
+    idempotencyKey: IdempotencyKey,
+  ) => applicationWrite("accept-application-interview", body, idempotencyKey),
+  requestApplicationInterviewReschedule: (
+    body: RequestInterviewRescheduleRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    applicationWrite(
+      "request-application-interview-reschedule",
+      body,
+      idempotencyKey,
+    ),
+  giveApplicationBackgroundCheckConsent: (
+    body: BackgroundCheckConsentRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    applicationWrite(
+      "give-application-background-check-consent",
+      body,
+      idempotencyKey,
+    ),
+  declineApplicationBackgroundCheckConsent: (
+    body: BackgroundCheckConsentRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    applicationWrite(
+      "decline-application-background-check-consent",
+      body,
+      idempotencyKey,
+    ),
   operationStatus: (body: GetOperationRequest) =>
     apiRequest<OperationStatus>(`${base}/operations/status`, { body }),
   uploadPicture: (
@@ -360,4 +450,30 @@ export const hubAPI = {
       `${base}/regenerate-totp-recovery-codes`,
       { method: "POST", idempotencyKey },
     ),
+  listConversations: (body: ListConversationsRequest = {}) =>
+    apiRequest<ListConversationsResponse>(`${base}/list-conversations`, {
+      body,
+    }),
+  getConversation: (body: GetConversationRequest) =>
+    apiRequest<HubConversationDetail>(`${base}/get-conversation`, { body }),
+  replyToConversation: (
+    body: ReplyToConversationRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ConversationMessage | PendingOperation>(
+      `${base}/reply-to-conversation`,
+      { body, idempotencyKey },
+    ),
+  deleteConversation: (
+    body: DeleteConversationRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<PendingOperation | null>(`${base}/delete-conversation`, {
+      body,
+      idempotencyKey,
+    }),
+  markConversationRead: (body: MarkConversationReadRequest) =>
+    apiRequest<void>(`${base}/mark-conversation-read`, { body }),
+  setAgenciesMayMessage: (body: SetAgenciesMayMessageRequest) =>
+    apiRequest<void>(`${base}/set-agencies-may-message`, { body }),
 };

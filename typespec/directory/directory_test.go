@@ -187,3 +187,27 @@ func TestEmailChangeCommandValidation(t *testing.T) {
 		t.Fatalf("abandon missing not_after fields = %v", fields)
 	}
 }
+
+func TestResolvePrincipalRequest(t *testing.T) {
+	t.Parallel()
+	const did = "018f7e32-7b5a-7d31-8fd0-f7e2a852f144"
+	for _, test := range []struct {
+		request ResolvePrincipalRequest
+		fields  []string
+	}{
+		{ResolvePrincipalRequest{PrincipalHubUser, did}, []string{}},
+		{ResolvePrincipalRequest{PrincipalOrg, did}, []string{}},
+		{ResolvePrincipalRequest{"admin", did}, []string{"principal_type"}},
+		{ResolvePrincipalRequest{PrincipalOrg, "not-a-did"}, []string{"principal_did"}},
+		{
+			ResolvePrincipalRequest{
+				PrincipalHubUser, "f4847331-5a4f-4eae-a5f4-cc131b0cd270",
+			},
+			[]string{"principal_did"},
+		},
+	} {
+		if got := test.request.Validate(); !slices.Equal(got, test.fields) {
+			t.Errorf("Validate(%+v) = %v, want %v", test.request, got, test.fields)
+		}
+	}
+}

@@ -28,6 +28,7 @@ Applies to product terms in prompts, specifications, code, and UI text.
 - Verified / failing domain — TXT record found at the last conclusive check / absent on consecutive periodic checks.
 - Org country — where an org is based, chosen at signup; unrelated to its home tenant.
 - Suspended org — an org whose only domain stayed failing past the grace period and was released; its users can sign in only to restore the domain.
+- Workspace — one group of Org-level pages in the Orgs portal sidebar (Hiring, one per provided Capability, Administration); the person's own pages are in the account menu.
 
 ## Hiring
 
@@ -37,21 +38,35 @@ Applies to product terms in prompts, specifications, code, and UI text.
 - Approver — an org user holding `org:approve_openings`; their own requests apply at once.
 - Hiring team — the hiring manager, recruiter, and team members named on an Opening; internal, never shown to Hub users.
 - Employing country — the one country of the entity hiring for an Opening.
-- Application — a Hub user applying to an opening; authoritative in the org's tenant.
-- Candidacy — an application advanced into the interview pipeline.
+- Applicant — a Hub user who applied to an Opening themselves; stored once per (org, person) in the org's tenant.
+- Application — an applicant's submission to one Opening, numbered per Opening; authoritative in the org's tenant.
+- Pipeline — an Opening's ordered stages (`review`, `assessment`, `interview`, `background_check`), copied from a pipeline template and owned by the Opening.
+- Candidate — an applicant the employing org shortlisted from the Applicants stage.
+- Candidacy — what shortlisting creates for an application: at a stage, offered, or offer accepted.
 - Interview — a scheduled event under a candidacy, with interviewers, RSVP, and feedback.
 - Offer — the offer letter extended on a candidacy; the candidate accepts or declines.
+- Joined on / separated on — dates the org records after an accepted offer; billable facts for sourcing.
 - Endorsement — a requested written vouch on an application from a user whose verified work-email stint overlaps the applicant's at one employer domain.
 - Reference — a structured Q&A the org requests on a candidacy; nominees answer.
-- Referral — an agency proposing a candidate for a client org's opening.
 - Work-email stint — a verified mailbox at an employer domain plus self-declared employment years; backs endorsement and reference eligibility and network-opportunity discovery.
 
 ## Marketplace
 
-- Capability — a seeded service category an org can offer; Staffing is the first.
-- Listing — a provider org's service offer; numbered per (org, country).
-- ServiceConsumer — a consumer org subscribing to a provider's Listing; authoritative provider-side.
-- Agency assignment — a client org officially assigning an agency to one of its openings.
+- Capability — a seeded service an org can provide: `sourcing`, `interviewing`, `assessment`, `background_check`.
+- Provider / consumer — the org performing a Capability / the org using it for its Openings.
+- Listing — a provider's offer of one Capability, with the countries it serves; one per (org, Capability).
+- Engagement — a consumer and a provider agreeing to work together on one Capability; authoritative in the consumer's tenant.
+- Assignment — an engagement attached to an Opening (sourcing) or an Opening stage.
+- Route — the choice, per candidacy at a stage, of in-house or one assigned engagement.
+- Agency — an org whose `sourcing` Listing is listed.
+- Job — an Opening assigned to an agency's active `sourcing` engagement, as the agency sees it.
+- Job owner — the one agency user who looks after a Job; agency-private; say "credited to your agency", never "to you", for credits.
+- Conversation — a chat an agency starts with one Hub user inside Vetchium; messages are authoritative in the agency's home tenant, and the Hub user's tenant holds a pointer; never exposes contact details.
+- Contact — an agency's own record of one Hub user, created by its first note or message about them; never an applicant or candidate; outlives the conversation.
+- Agency note — a private note an agency keeps on a Contact; never shown to the Hub user or any other Org.
+- Opening suggestion — an agency posting an Opening it is assigned to in a conversation; applying from it credits the agency.
+- Credit — the one `sourcing` engagement an applicant chooses as referrer when applying (one that suggested the Opening, or one named by primary domain), or none; fixed at apply time.
+- Activity statement — one engagement's billable facts for one month; never an invoice and never an amount.
 
 ## Subscriptions
 
@@ -60,7 +75,7 @@ Applies to product terms in prompts, specifications, code, and UI text.
 - Offered plans — the plans a tenant sells, configured in both the backend and `hub-ui`.
 - Org plan — `org-free-tier`, `org-silver-tier`, or `org-gold-tier`, with entitlements (seats, Openings per year, logo, Google sign-in) defined once in the contract.
 - Seat — an active Org user or an unexpired pending invitation; the plan's user cap counts seats.
-- Preset — a role label in the Orgs portal (Superadmin, Finance, User manager, Recruiter, Hiring approver, Member) that pre-ticks permission checkboxes; not stored.
+- Preset — a role label in the Orgs portal (Superadmin, Finance, User manager, Recruiter, Hiring approver, Vendor manager, Provider staff, Member) that pre-ticks permission checkboxes; not stored.
 - Google sign-in — a Gold Org's optional sign-in with its members' Google Workspace accounts; skips Vetchium TOTP.
 
 ## AI

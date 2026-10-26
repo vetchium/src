@@ -8,6 +8,7 @@ import "../../problem/common.tsp";
 import "../../problem/details.tsp";
 import "../../problem/orgs/authentication.tsp";
 import "../authorization/types.tsp";
+import "../marketplace/capabilities.tsp";
 import "../subscriptions/plans.tsp";
 import "../types.tsp";
 
@@ -83,6 +84,20 @@ model MyInfoResponse {
 
   /** Whether Google sign-in is on for the Org; only a Gold Org can have it. */
   google_sign_in_enabled: boolean;
+
+  marketplace: MarketplaceRoles;
+}
+
+/**
+ * What the Org does in the marketplace, which decides the navigation groups
+ * the portal shows; the API still decides every action.
+ */
+model MarketplaceRoles {
+  /**
+   * The Capabilities the Org has a Listing or an engagement as provider for,
+   * each once, in no particular order; empty when it provides nothing.
+   */
+  capabilities: Vetchium.Orgs.Marketplace.Capability[];
 }
 
 /** The outcome of this lookup. inconclusive means the DNS query failed and

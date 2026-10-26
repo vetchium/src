@@ -22,6 +22,7 @@ model MyInfoResponse {
   totp_enabled: boolean;
   recovery_codes_remaining: Vetchium.Authentication.TOTPRecoveryCodeCount;
   session_authenticated_at: utcDateTime;
+  agencies_may_message: boolean;
 }
 
 model SetPreferredLanguageRequest {
@@ -36,6 +37,10 @@ model SetPreferredJobCountriesRequest {
   /** Empty means no country filter. Values must be distinct ISO countries. */
   @maxItems(10)
   preferred_job_countries: CountryCode[];
+}
+
+model SetAgenciesMayMessageRequest {
+  agencies_may_message: boolean;
 }
 
 @route("/api/hub")
@@ -82,6 +87,19 @@ interface ProfileOperations {
   @post
   @useAuth(BearerAuth)
   setPreferredJobCountries(@body request: SetPreferredJobCountriesRequest):
+    | {
+        @statusCode status_code: 204;
+        @header("Cache-Control") cache_control: "no-store";
+      }
+    | Vetchium.Problem.InvalidJSONErrorResponse
+    | Vetchium.Problem.ValidationFailedErrorResponse
+    | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
+
+  @route("/set-agencies-may-message")
+  @post
+  @useAuth(BearerAuth)
+  setAgenciesMayMessage(@body request: SetAgenciesMayMessageRequest):
     | {
         @statusCode status_code: 204;
         @header("Cache-Control") cache_control: "no-store";

@@ -18,8 +18,15 @@
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1s",
     "expireOrgOpeningsTimer": "1s",
+    "expireOrgEngagementsTimer": "1s",
+    "expireApplicationOffersTimer": "1s",
+    "retainApplicationsTimer": "1s",
+    "retainOrgContactsTimer": "1s",
+    "refreshHubApplicationsTimer": "1s",
     "reconcileHubSignupTimer": "1s",
     "reconcileHubEmailChangeTimer": "1s",
+    "driveFederationCommandsTimer": "1s",
+    "deliverFederationEventsTimer": "250ms",
     "deliverOrgEmailTimer": "250ms",
     "orgEmailLeaseTTL": "10s",
     "orgEmailMaxAttempts": 5,
@@ -95,6 +102,9 @@
   },
   "orgBilling": {
     "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
+  },
+  "marketplace": {
+    "deletedPartyConversationRetention": "8760h"
   },
   "mcpServer": {},
   "signupRegionsFile": "/etc/vetchium/signup-regions.json"

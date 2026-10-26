@@ -4,20 +4,33 @@ import (
 	"log/slog"
 	"net/http"
 
+	subscriptionspec "github.com/vetchium/src/typespec/orgs/subscriptions"
+
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
+	"backend/internal/conversationclient"
 	"backend/internal/db"
 	"backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
+	"backend/internal/federation/commandkinds"
+	"backend/internal/federation/commands"
+	"backend/internal/federation/eventkinds"
+	"backend/internal/federation/events"
+	"backend/internal/hubapplicationclient"
+	"backend/internal/listingclient"
+	"backend/internal/listings"
 	"backend/internal/meshapi"
 	"backend/internal/meshtls"
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
+	"backend/internal/orgs/entitlements"
 	"backend/internal/profileclient"
+	"backend/internal/providerwork"
 	"backend/internal/publicopeningclient"
 	"backend/internal/publicopenings"
 	"backend/internal/routes"
 	"backend/internal/service"
+	"backend/internal/workclient"
 )
 
 func main() {
@@ -67,6 +80,18 @@ func run(log *slog.Logger, address string) error {
 	openings := publicopeningclient.NewPeer(
 		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
 	)
+	applications := hubapplicationclient.NewPeer(
+		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+	)
+	listingPeers := listingclient.NewPeer(
+		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+	)
+	workPeers := workclient.NewPeer(
+		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+	)
+	conversationPeers := conversationclient.NewPeer(
+		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+	)
 	accessKey, secretKey, err := cfg.ObjectStorage.Credentials()
 	if err != nil {
 		return err
@@ -90,17 +115,42 @@ func run(log *slog.Logger, address string) error {
 	defer pool.Close()
 
 	s := &meshapi.Server{
-		Runtime:   apiserver.New(pool, log),
-		TenantID:  cfg.TenantID,
-		Directory: directory,
-		Profiles:  profiles,
-		Openings:  openings,
+		Runtime:      apiserver.New(pool, log),
+		TenantID:     cfg.TenantID,
+		Directory:    directory,
+		Profiles:     profiles,
+		Openings:     openings,
+		Applications: applications,
 		PublicOpenings: publicopenings.Reader{
 			Queries: sqlc.New(pool), Logos: pictures,
 		},
-		Pictures:   pictures,
-		Queries:    sqlc.New(pool),
-		Credential: credential,
+		ListingPeers:      listingPeers,
+		WorkPeers:         workPeers,
+		ConversationPeers: conversationPeers,
+		ProviderWork:      providerwork.Reader{Queries: sqlc.New(pool)},
+		PublicListings: listings.Reader{
+			Queries: sqlc.New(pool), Logos: pictures,
+			ListingPlanOIDs: entitlements.PlanOIDs(subscriptionspec.AllowsListings),
+			LogoPlanOIDs:    entitlements.PlanOIDs(subscriptionspec.AllowsLogo),
+		},
+		Pictures:     pictures,
+		OfferLetters: pictures,
+		Queries:      sqlc.New(pool),
+		Credential:   credential,
+		Commands: commands.NewExecutor(commands.ExecutorConfig{
+			Pool: pool, TenantID: cfg.TenantID,
+			Registry: commandkinds.Registry(), Directory: directory,
+		}),
+		CommandPeers: commands.NewPeer(
+			coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+		),
+		Events: events.NewReceiver(events.ReceiverConfig{
+			Pool: pool, TenantID: cfg.TenantID, Source: "mesh-api",
+			Registry: eventkinds.Registry(), Directory: directory,
+		}),
+		EventPeers: events.NewPeer(
+			coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+		),
 	}
 	mux := http.NewServeMux()
 	routes.RegisterMeshRoutes(mux, s)

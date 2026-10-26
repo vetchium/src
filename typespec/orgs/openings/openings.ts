@@ -13,6 +13,8 @@ import {
 } from "../../common/openings.ts";
 import type { PageSize, PaginationKey } from "../../common/pagination.ts";
 import { isPageSize, isPaginationKey } from "../../common/pagination.ts";
+import type { PipelineTemplateID } from "../hiring/pipelines.ts";
+import { isPipelineTemplateID } from "../hiring/pipelines.ts";
 import type {
   OpeningDecision,
   OpeningHistoryEntry,
@@ -33,10 +35,14 @@ export interface CreateOpeningRequest {
   recruiter_email?: EmailAddress;
   team_member_emails: EmailAddress[];
   internal_notes?: string;
+  /** The new Opening copies this template; omission gives one review stage. */
+  pipeline_template_id?: PipelineTemplateID;
 }
 
 export interface DuplicateOpeningRequest {
   opening_number: OpeningNumber;
+  /** Overrides the source Opening's pipeline, which is copied by default. */
+  pipeline_template_id?: PipelineTemplateID;
 }
 export interface GetOpeningRequest {
   opening_number: OpeningNumber;
@@ -119,6 +125,7 @@ export interface RequestOpeningChangeRequest {
   version: OpeningVersion;
   kind: OpeningRequestKind;
   note?: string;
+  mark_applications_not_progressing?: boolean;
 }
 
 export interface DecideOpeningRequestRequest {
@@ -218,7 +225,14 @@ export function validateCreateOpeningRequest(
       (field) => `content.${field}`,
     ),
     ...validateTeam(normalized),
+    ...validTemplateField(request.pipeline_template_id),
   ];
+}
+
+function validTemplateField(value: PipelineTemplateID | undefined): string[] {
+  return value === undefined || isPipelineTemplateID(value)
+    ? []
+    : ["pipeline_template_id"];
 }
 
 function validNumber(number: number): boolean {
@@ -237,7 +251,10 @@ function validateNumberVersion(number: number, version: number): string[] {
 export function validateDuplicateOpeningRequest(
   request: DuplicateOpeningRequest,
 ): string[] {
-  return validNumber(request.opening_number) ? [] : ["opening_number"];
+  return [
+    ...(validNumber(request.opening_number) ? [] : ["opening_number"]),
+    ...validTemplateField(request.pipeline_template_id),
+  ];
 }
 export function validateGetOpeningRequest(
   request: GetOpeningRequest,
@@ -385,6 +402,9 @@ export function validateRequestOpeningChangeRequest(
   const fields = validateNumberVersion(r.opening_number, r.version);
   if (!openingRequestKinds.includes(r.kind)) fields.push("kind");
   if (!validNote(r.note)) fields.push("note");
+  if (r.mark_applications_not_progressing !== undefined && r.kind !== "close") {
+    fields.push("mark_applications_not_progressing");
+  }
   return fields;
 }
 

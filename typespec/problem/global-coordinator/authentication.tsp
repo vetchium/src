@@ -25,3 +25,15 @@ alias MeshRelayAuthenticationRequiredErrorResponse = AuthenticationResponse<
   "Bearer realm=\"mesh-api\"",
   typeof MeshRelayAuthenticationRequiredError
 >;
+
+const MeshPeerAuthenticationRequiredError = #{
+  type: "vetchium-problem-details/mesh-peer-authentication-required",
+  title: "Mesh peer authentication required",
+  status: 401,
+  detail: "A private-CA verified tenant mesh client certificate is required",
+};
+
+alias MeshPeerAuthenticationRequiredErrorResponse = AuthenticationResponse<
+  "MutualTLS realm=\"mesh-api\"",
+  typeof MeshPeerAuthenticationRequiredError
+>;

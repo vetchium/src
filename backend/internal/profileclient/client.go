@@ -18,6 +18,7 @@ import (
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	hubspec "github.com/vetchium/src/typespec/hub"
 	profilespec "github.com/vetchium/src/typespec/hub/profile"
+	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/problem"
 )
 
@@ -74,15 +75,121 @@ func (c *Client) PeerRead(
 func (c *Client) read(
 	ctx context.Context, endpoint string, payload any, tlsConfig *tls.Config,
 ) (Outcome, error) {
-	body, err := json.Marshal(payload)
+	response, err := c.post(ctx, endpoint, payload, tlsConfig)
 	if err != nil {
 		return Outcome{}, err
+	}
+	if response.ok() {
+		var profile profilespec.PublicProfile
+		if err := decode(response.body, &profile); err != nil {
+			return Outcome{}, err
+		}
+		if !validProfile(profile) {
+			return Outcome{}, fmt.Errorf("%w: missing public profile fields", ErrInvalidResponse)
+		}
+		return Outcome{Profile: &profile}, nil
+	}
+	details, err := response.problem()
+	return Outcome{Problem: details}, err
+}
+
+func validProfile(profile profilespec.PublicProfile) bool {
+	return hubspec.IsHubHandle(profile.Handle) &&
+		profile.Websites != nil &&
+		profile.WorkExperiences != nil &&
+		profile.Certifications != nil &&
+		profile.LanguageAbilities != nil &&
+		profile.EducationalQualifications != nil
+}
+
+// AgencyOutcome is a tenant's answer to an agency's profile read.
+type AgencyOutcome struct {
+	Read    *contacts.AgencyProfileRead
+	Problem *problem.Details
+}
+
+// RelayAgencyRead asks the local mesh-api for a Hub user's profile on behalf
+// of an agency Org of this tenant (MKT-PRF-001).
+func (c *Client) RelayAgencyRead(
+	ctx context.Context, request contacts.RelayReadAgencyProfileRequest,
+) (AgencyOutcome, error) {
+	return c.readAgency(ctx, c.baseURL+"/mesh/agency-profile/read", request, nil)
+}
+
+// PeerAgencyRead asks a Hub user's home tenant for the profile an agency
+// Org of the calling tenant may read.
+func (c *Client) PeerAgencyRead(
+	ctx context.Context, tenant directoryspec.TenantID,
+	request contacts.PeerReadAgencyProfileRequest,
+) (AgencyOutcome, error) {
+	if !directoryspec.IsTenantID(tenant) || c.baseTLS == nil {
+		return AgencyOutcome{}, fmt.Errorf("%w: invalid peer configuration", ErrInvalidResponse)
+	}
+	name := string(tenant) + ".mesh.vetchium.com"
+	tlsConfig := c.baseTLS.Clone()
+	tlsConfig.ServerName = name
+	return c.readAgency(ctx,
+		"https://"+name+":8443/api/mesh/agency-profile/read", request, tlsConfig)
+}
+
+func (c *Client) readAgency(
+	ctx context.Context, endpoint string, payload any, tlsConfig *tls.Config,
+) (AgencyOutcome, error) {
+	response, err := c.post(ctx, endpoint, payload, tlsConfig)
+	if err != nil {
+		return AgencyOutcome{}, err
+	}
+	if response.ok() {
+		var read contacts.AgencyProfileRead
+		if err := decode(response.body, &read); err != nil {
+			return AgencyOutcome{}, err
+		}
+		if !read.Valid() {
+			return AgencyOutcome{}, fmt.Errorf("%w: invalid agency profile", ErrInvalidResponse)
+		}
+		return AgencyOutcome{Read: &read}, nil
+	}
+	details, err := response.problem()
+	return AgencyOutcome{Problem: details}, err
+}
+
+type reply struct {
+	status    int
+	mediaType string
+	body      []byte
+}
+
+func (r reply) ok() bool {
+	return r.status == http.StatusOK && r.mediaType == "application/json"
+}
+
+// problem parses a declared problem, holding it to the status it came with.
+func (r reply) problem() (*problem.Details, error) {
+	if r.mediaType != problem.MediaType {
+		return nil, fmt.Errorf("%w: response type", ErrInvalidResponse)
+	}
+	var details problem.Details
+	if err := decode(r.body, &details); err != nil {
+		return nil, err
+	}
+	if details.Status != r.status || details.Type == "" {
+		return nil, fmt.Errorf("%w: inconsistent problem", ErrInvalidResponse)
+	}
+	return &details, nil
+}
+
+func (c *Client) post(
+	ctx context.Context, endpoint string, payload any, tlsConfig *tls.Config,
+) (reply, error) {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return reply{}, err
 	}
 	request, err := http.NewRequestWithContext(
 		ctx, http.MethodPost, endpoint, bytes.NewReader(body),
 	)
 	if err != nil {
-		return Outcome{}, err
+		return reply{}, err
 	}
 	request.Header.Set("Content-Type", "application/json")
 	if c.credential != "" {
@@ -99,45 +206,20 @@ func (c *Client) read(
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return Outcome{}, fmt.Errorf("read profile: %w", err)
+		return reply{}, fmt.Errorf("read profile: %w", err)
 	}
 	defer func() { _ = response.Body.Close() }()
 	data, err := io.ReadAll(io.LimitReader(
 		response.Body, maxProfileResponseBytes+1,
 	))
 	if err != nil {
-		return Outcome{}, err
+		return reply{}, err
 	}
 	if len(data) > maxProfileResponseBytes {
-		return Outcome{}, fmt.Errorf("%w: body too large", ErrInvalidResponse)
+		return reply{}, fmt.Errorf("%w: body too large", ErrInvalidResponse)
 	}
 	mediaType, _, _ := mime.ParseMediaType(response.Header.Get("Content-Type"))
-	if response.StatusCode == http.StatusOK && mediaType == "application/json" {
-		var profile profilespec.PublicProfile
-		if err := decode(data, &profile); err != nil {
-			return Outcome{}, err
-		}
-		if !hubspec.IsHubHandle(profile.Handle) ||
-			profile.Websites == nil ||
-			profile.WorkExperiences == nil ||
-			profile.Certifications == nil ||
-			profile.LanguageAbilities == nil ||
-			profile.EducationalQualifications == nil {
-			return Outcome{}, fmt.Errorf("%w: missing public profile fields", ErrInvalidResponse)
-		}
-		return Outcome{Profile: &profile}, nil
-	}
-	if mediaType != problem.MediaType {
-		return Outcome{}, fmt.Errorf("%w: response type", ErrInvalidResponse)
-	}
-	var details problem.Details
-	if err := decode(data, &details); err != nil {
-		return Outcome{}, err
-	}
-	if details.Status != response.StatusCode || details.Type == "" {
-		return Outcome{}, fmt.Errorf("%w: inconsistent problem", ErrInvalidResponse)
-	}
-	return Outcome{Problem: &details}, nil
+	return reply{status: response.StatusCode, mediaType: mediaType, body: data}, nil
 }
 
 func decode(body []byte, value any) error {

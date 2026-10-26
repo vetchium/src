@@ -1,13 +1,16 @@
 import {
   CreditCardOutlined,
   HomeOutlined,
+  IdcardOutlined,
   MailOutlined,
+  MessageOutlined,
   SafetyOutlined,
   SettingOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PortalShell } from "@vetchium/portal-ui/shell";
+import { Badge, Space } from "antd";
 import type { ItemType } from "antd/es/menu/interface.js";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,6 +21,11 @@ import { usePreferences } from "../../app/PreferencesContext";
 import { localeConfiguration } from "../../app/preferences";
 import { useAuth } from "../../auth/AuthContext";
 import {
+  needsAnswer,
+  useMyApplicationsQuery,
+} from "../../features/applications/queries";
+import { useConversationsQuery } from "../../features/messages/queries";
+import {
   type MyInfoQueryData,
   myInfoQueryKey,
   useMyInfoQuery,
@@ -25,6 +33,8 @@ import {
 import { SubscriptionEndingAlert } from "../../features/subscriptions/SubscriptionEndingAlert";
 
 const navigationPaths = [
+  "/applications",
+  "/messages",
   "/settings/profile",
   "/settings/security",
   "/settings/preferences",
@@ -40,6 +50,11 @@ export function AppShell() {
   const preferences = usePreferences();
   const queryClient = useQueryClient();
   const { data: me } = useMyInfoQuery();
+  const applications = useMyApplicationsQuery();
+  const conversations = useConversationsQuery(auth.authenticated);
+  const answerNeeded = applications.data?.filter(needsAnswer).length ?? 0;
+  const unreadMessages =
+    conversations.data?.items.filter((c) => c.unread).length ?? 0;
   const languageMutation = useMutation({
     mutationFn: (preferred_language: FrontendLocale) =>
       hubAPI.setPreferredLanguage({ preferred_language }),
@@ -70,6 +85,36 @@ export function AppShell() {
       key: "/settings/profile",
       icon: <UserOutlined />,
       label: t("navigation.profile"),
+    },
+    {
+      key: "/applications",
+      icon: <IdcardOutlined />,
+      label: (
+        <Space>
+          {t("navigation.applications")}
+          <Badge
+            count={answerNeeded}
+            title={t("navigation.applicationsNeedAnswer", {
+              count: answerNeeded,
+            })}
+          />
+        </Space>
+      ),
+    },
+    {
+      key: "/messages",
+      icon: <MessageOutlined />,
+      label: (
+        <Space>
+          {t("navigation.messages")}
+          <Badge
+            count={unreadMessages}
+            title={t("navigation.messagesUnread", {
+              count: unreadMessages,
+            })}
+          />
+        </Space>
+      ),
     },
     {
       key: "/plan",

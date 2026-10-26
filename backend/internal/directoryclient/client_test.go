@@ -205,3 +205,49 @@ func TestReserveHubAccountEmailChangeDecodesAndValidates(t *testing.T) {
 		t.Fatalf("outcome = %+v, err = %v", outcome, err)
 	}
 }
+
+func TestResolvePrincipalValidatesTheAnswerMatchesTheQuestion(t *testing.T) {
+	t.Parallel()
+	const did = "018f7e32-7b5a-7d31-8fd0-f7e2a852f144"
+	for _, test := range []struct {
+		name  string
+		body  string
+		valid bool
+	}{
+		{"matching", `{"principal_type":"org","principal_did":"` + did +
+			`","home_tenant_id":"usa1","routing_version":1}`, true},
+		{"other principal", `{"principal_type":"hub_user","principal_did":"` +
+			did + `","home_tenant_id":"usa1","routing_version":1}`, false},
+		{"bad tenant", `{"principal_type":"org","principal_did":"` + did +
+			`","home_tenant_id":"US","routing_version":1}`, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(
+				func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path != "/directory/resolve-principal" {
+						t.Errorf("path = %s", r.URL.Path)
+					}
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(test.body))
+				},
+			))
+			defer server.Close()
+			client := New(server.URL, "/directory", "secret", time.Second)
+			result, details, err := client.ResolvePrincipal(
+				context.Background(), directoryspec.ResolvePrincipalRequest{
+					PrincipalType: directoryspec.PrincipalOrg,
+					PrincipalDID:  did,
+				},
+			)
+			if test.valid && (err != nil || details != nil ||
+				result.HomeTenantID != "usa1") {
+				t.Fatalf("result = %+v, details = %+v, err = %v",
+					result, details, err)
+			}
+			if !test.valid && !errors.Is(err, ErrInvalidResponse) {
+				t.Fatalf("err = %v, want ErrInvalidResponse", err)
+			}
+		})
+	}
+}

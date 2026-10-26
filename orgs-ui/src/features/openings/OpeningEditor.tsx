@@ -57,6 +57,8 @@ import { paths } from "../../app/paths";
 import { problemMessage } from "../../components/common/APIErrorAlert";
 import { useMyInfoQuery } from "../account/queries";
 import { DraftWithAIButton } from "../ai/DraftWithAIButton";
+import { usePipelineTemplatesQuery } from "../pipelines/queries";
+import { StageSummary } from "../pipelines/StageSummary";
 import { OpeningsBreadcrumb } from "./OpeningsBreadcrumb";
 import { openingContentPresentation } from "./presentation";
 import { openingProblem } from "./problems";
@@ -74,6 +76,8 @@ interface EditorValues {
   recruiter_email?: string;
   team_member_emails?: string[];
   internal_notes?: string;
+  /** Empty starts the Opening with one review stage. */
+  pipeline_template_id?: string;
 }
 
 function cleanContent(input: OpeningContent | undefined): OpeningContent {
@@ -224,7 +228,13 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       ? ["salary"]
       : []),
     "team",
+    ...(opening ? [] : ["pipeline"]),
   ]);
+  const templates = usePipelineTemplatesQuery(!opening);
+  const templateID = Form.useWatch("pipeline_template_id", form);
+  const chosenTemplate = templates.data?.find(
+    (template) => template.id === templateID,
+  );
   const screens = Grid.useBreakpoint();
   const summary = useOpeningSummaryQuery();
   const { data: me } = useMyInfoQuery();
@@ -445,6 +455,9 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
         request: {
           content: cleanContent(values.content),
           ...teamRequest(values),
+          ...(values.pipeline_template_id && {
+            pipeline_template_id: values.pipeline_template_id,
+          }),
         },
         key: contentKey.current(),
       });
@@ -518,7 +531,11 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       layout="vertical"
       requiredMark={false}
       onFinish={(values) => void submit(values)}
-      initialValues={{ content: {}, team_member_emails: [] }}
+      initialValues={{
+        content: {},
+        team_member_emails: [],
+        pipeline_template_id: "",
+      }}
     >
       <Flex vertical gap="middle">
         {contentLocked && (
@@ -840,6 +857,56 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
                 </>
               ),
             },
+            ...(opening
+              ? []
+              : [
+                  {
+                    key: "pipeline",
+                    label: t("pipeline.title"),
+                    extra: (
+                      <Typography.Text type="secondary">
+                        {t("pipeline.internal")}
+                      </Typography.Text>
+                    ),
+                    forceRender: true,
+                    children: (
+                      <>
+                        <Form.Item
+                          name="pipeline_template_id"
+                          label={t("pipeline.startFrom")}
+                          extra={t("pipeline.startFromHelp")}
+                        >
+                          <Select
+                            loading={templates.isLoading}
+                            options={[
+                              {
+                                value: "",
+                                label: t("pipeline.defaultStart"),
+                              },
+                              ...(templates.data ?? []).map((template) => ({
+                                value: template.id,
+                                label: t("pipeline.templateOption", {
+                                  name: template.name,
+                                  count: template.stages.length,
+                                }),
+                              })),
+                            ]}
+                          />
+                        </Form.Item>
+                        {templates.isError && (
+                          <Alert
+                            type="warning"
+                            showIcon
+                            title={t("pipeline.templatesLoadError")}
+                          />
+                        )}
+                        {chosenTemplate && (
+                          <StageSummary stages={chosenTemplate.stages} />
+                        )}
+                      </>
+                    ),
+                  },
+                ]),
           ]}
         />
       </Flex>

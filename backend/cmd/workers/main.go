@@ -9,6 +9,10 @@ import (
 	"backend/internal/directoryclient"
 	"backend/internal/dnsverify"
 	"backend/internal/email"
+	"backend/internal/federation/commandkinds"
+	"backend/internal/federation/commands"
+	"backend/internal/federation/eventkinds"
+	"backend/internal/federation/events"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/hub/emailchange"
 	"backend/internal/hub/signupcompletion"
@@ -102,7 +106,7 @@ func run(log *slog.Logger) error {
 		digestKey, log, nil,
 	)
 	worker := workers.New(
-		pool, log, cfg.TenantID, cfg.Workers,
+		pool, log, cfg.TenantID, cfg.Workers, cfg.Marketplace,
 		&workers.HubEmailDelivery{
 			TenantID: cfg.TenantID,
 			Renderer: renderer,
@@ -110,8 +114,9 @@ func run(log *slog.Logger) error {
 			OutboxKey: hubauthn.DeriveCredentialSubkey(
 				hubCredentialKey, "outbox",
 			),
-			LeaseTTL:    cfg.Workers.HubEmailLeaseTTL,
-			MaxAttempts: cfg.Workers.HubEmailMaxAttempts,
+			LeaseTTL:      cfg.Workers.HubEmailLeaseTTL,
+			MaxAttempts:   cfg.Workers.HubEmailMaxAttempts,
+			PublicBaseURL: cfg.HubAPIServer.PublicBaseURL,
 		},
 		signupRecovery,
 		emailChangeRecovery,
@@ -157,7 +162,40 @@ func run(log *slog.Logger) error {
 	})
 	worker.EnablePictureDeletion(pictures)
 	worker.EnableOrgLogoDeletion(pictures)
+	worker.EnableOfferLetterDeletion(pictures)
 	worker.EnableAliasOperations(directory)
+	worker.EnableFederationCommands(commands.NewSender(commands.SenderConfig{
+		Pool: pool, TenantID: cfg.TenantID, Source: "workers",
+		Executor: commands.NewExecutor(commands.ExecutorConfig{
+			Pool: pool, TenantID: cfg.TenantID,
+			Registry: commandkinds.Registry(),
+		}),
+		Relay: commands.NewRelay(
+			cfg.MeshAPIServer.BaseURL, meshCredential,
+			cfg.MeshAPIServer.RequestTimeout,
+		),
+		ResultKeys: map[commands.OwnerType][32]byte{
+			commands.OwnerHubUser: hubauthn.DeriveCredentialSubkey(
+				hubCredentialKey, commands.ResultKeyPurpose,
+			),
+			commands.OwnerOrgUser: orgsauthn.DeriveCredentialSubkey(
+				orgsCredentialKey, commands.ResultKeyPurpose,
+			),
+		},
+		Log: log,
+	}))
+	worker.EnableFederationEvents(events.NewDeliverer(events.DelivererConfig{
+		Pool: pool, TenantID: cfg.TenantID,
+		Receiver: events.NewReceiver(events.ReceiverConfig{
+			Pool: pool, TenantID: cfg.TenantID, Source: "workers",
+			Registry: eventkinds.Registry(),
+		}),
+		Relay: events.NewRelay(
+			cfg.MeshAPIServer.BaseURL, meshCredential,
+			cfg.MeshAPIServer.RequestTimeout,
+		),
+		Log: log,
+	}))
 	if cfg.AI != nil {
 		worker.EnableOrgAI(*cfg.AI)
 	}

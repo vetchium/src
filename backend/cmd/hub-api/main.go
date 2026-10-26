@@ -7,13 +7,17 @@ import (
 
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
+	"backend/internal/conversationclient"
 	"backend/internal/db"
 	dbsqlc "backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
+	"backend/internal/federation/commandkinds"
+	"backend/internal/federation/commands"
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/hub/emailchange"
 	"backend/internal/hub/signupcompletion"
+	"backend/internal/hubapplicationclient"
 	"backend/internal/identitydigest"
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
@@ -78,6 +82,14 @@ func run(log *slog.Logger, address string) error {
 		cfg.MeshAPIServer.BaseURL, meshCredential,
 		cfg.MeshAPIServer.RequestTimeout,
 	)
+	applications := hubapplicationclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
+	)
+	conversations := conversationclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
+	)
 	accessKey, secretKey, err := cfg.ObjectStorage.Credentials()
 	if err != nil {
 		return err
@@ -115,18 +127,39 @@ func run(log *slog.Logger, address string) error {
 		hubauthn.DeriveCredentialSubkey(hubCredentialKey, "outbox"),
 		digestKey, log, nil,
 	)
+	federationCommands := commands.NewSender(commands.SenderConfig{
+		Pool: pool, TenantID: cfg.TenantID, Source: "hub-api",
+		Executor: commands.NewExecutor(commands.ExecutorConfig{
+			Pool: pool, TenantID: cfg.TenantID,
+			Registry: commandkinds.Registry(),
+		}),
+		Relay: commands.NewRelay(
+			cfg.MeshAPIServer.BaseURL, meshCredential,
+			cfg.MeshAPIServer.RequestTimeout,
+		),
+		ResultKeys: map[commands.OwnerType][32]byte{
+			commands.OwnerHubUser: hubauthn.DeriveCredentialSubkey(
+				hubCredentialKey, commands.ResultKeyPurpose,
+			),
+		},
+		Log: log,
+	})
 	s := &hubruntime.Server{
-		Runtime:   apiserver.New(pool, log),
-		Queries:   dbsqlc.New(pool),
-		Directory: globalDirectory,
-		Profiles:  profiles,
-		Openings:  openings,
+		Runtime:       apiserver.New(pool, log),
+		Queries:       dbsqlc.New(pool),
+		Directory:     globalDirectory,
+		Profiles:      profiles,
+		Openings:      openings,
+		Applications:  applications,
+		Conversations: conversations,
 		PublicOpenings: publicopenings.Reader{
 			Queries: dbsqlc.New(pool), Logos: pictures,
 		},
 		Pictures:         pictures,
+		OfferLetters:     pictures,
 		SignupCompletion: signupCompletion,
 		EmailChange:      emailChange,
+		Commands:         federationCommands,
 		DigestKey:        digestKey,
 		Regions:          catalog,
 		Signup:           cfg.HubAPIServer.Signup,

@@ -52,6 +52,29 @@ WITH previous AS (
         jsonb_build_object('org_plan_oid', sqlc.arg(org_plan_oid)::text)
     FROM logos_queued AS q
     RETURNING audit_event_id
+), listings_unlisted AS (
+    -- A plan without Listings takes every listed Listing out of search in this
+    -- same transaction; active engagements continue (MKT-LST-004).
+    UPDATE vetchium.org_listings AS l
+    SET listing_state = 'unlisted', version = l.version + 1, updated_at = now()
+    WHERE l.org_did = sqlc.arg(org_did)
+      AND l.listing_state = 'listed'
+      AND NOT (sqlc.arg(org_plan_oid) = ANY(sqlc.arg(listing_plan_oids)::text[]))
+    RETURNING l.org_listing_id, l.capability_oid
+), listings_audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, idempotency_key, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id), 'org.listing.unlisted_by_plan', 'org_listing',
+        q.org_listing_id::text, 'org_user',
+        sqlc.arg(actor_org_user_id)::uuid::text,
+        'orgs-api', sqlc.arg(idempotency_key),
+        jsonb_build_object('org_plan_oid', sqlc.arg(org_plan_oid)::text,
+            'capability', q.capability_oid)
+    FROM listings_unlisted AS q
+    RETURNING audit_event_id
 ), google_audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, actor_id,

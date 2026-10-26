@@ -43,6 +43,7 @@ const (
 	HistoryDuplicated        OpeningHistoryAction = "duplicated"
 	HistoryWorkingCopySaved  OpeningHistoryAction = "working_copy_saved"
 	HistoryTeamChanged       OpeningHistoryAction = "team_changed"
+	HistoryPipelineChanged   OpeningHistoryAction = "pipeline_changed"
 	HistoryRevisionDiscarded OpeningHistoryAction = "revision_discarded"
 	HistoryDiscarded         OpeningHistoryAction = "discarded"
 	HistoryRequested         OpeningHistoryAction = "requested"
@@ -83,6 +84,8 @@ type PendingOpeningRequest struct {
 	RequestedByEmail common.EmailAddress `json:"requested_by_email"`
 	RequestedAt      time.Time           `json:"requested_at"`
 	Note             *string             `json:"note,omitempty"`
+	// MarkApplicationsNotProgressing is the close request's choice.
+	MarkApplicationsNotProgressing *bool `json:"mark_applications_not_progressing,omitempty"`
 }
 
 type OrgOpening struct {

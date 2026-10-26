@@ -1177,9 +1177,9 @@
       },
       "environment": {
         "DEV_SEED_ADMIN_API_URL": "http://admin-api-deu:8080",
-        "DEV_SEED_ADMIN_EMAIL": "admin@deu.example",
+        "DEV_SEED_ADMIN_EMAIL": "admin@deu.test",
         "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
-        "DEV_SEED_SIGNUP_DOMAINS": "deu.example"
+        "DEV_SEED_SIGNUP_DOMAINS": "deu.test"
       },
       "networks": {
         "deu_backend": null
@@ -1202,9 +1202,9 @@
       },
       "environment": {
         "DEV_SEED_ADMIN_API_URL": "http://admin-api-ind1:8080",
-        "DEV_SEED_ADMIN_EMAIL": "admin@ind1.example",
+        "DEV_SEED_ADMIN_EMAIL": "admin@ind1.test",
         "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
-        "DEV_SEED_SIGNUP_DOMAINS": "ind1.example"
+        "DEV_SEED_SIGNUP_DOMAINS": "ind1.test"
       },
       "networks": {
         "ind1_backend": null
@@ -1227,9 +1227,9 @@
       },
       "environment": {
         "DEV_SEED_ADMIN_API_URL": "http://admin-api-sgp:8080",
-        "DEV_SEED_ADMIN_EMAIL": "admin@sgp.example",
+        "DEV_SEED_ADMIN_EMAIL": "admin@sgp.test",
         "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
-        "DEV_SEED_SIGNUP_DOMAINS": "sgp.example,test1.example,test2.example,test3.example,test4.example,test5.example,test6.example,test7.example,test8.example,test9.example,test10.example,test11.example,test12.example,test13.example,test14.example,test15.example,test16.example,test17.example,test18.example,test19.example,test20.example,test21.example,test22.example,test23.example,test24.example,test25.example,test26.example,test27.example,test28.example,test29.example,test30.example,test31.example,test32.example,test33.example,test34.example,test35.example,test36.example,test37.example,test38.example,test39.example,test40.example,test41.example,test42.example,test43.example,test44.example,test45.example,test46.example,test47.example,test48.example,test49.example,test50.example,test51.example,test52.example,test53.example,test54.example,test55.example,test56.example,test57.example,test58.example,test59.example,test60.example,test61.example,test62.example,test63.example,test64.example,test65.example,test66.example,test67.example,test68.example,test69.example,test70.example,test71.example,test72.example,test73.example,test74.example,test75.example,test76.example,test77.example,test78.example,test79.example,test80.example,test81.example,test82.example,test83.example,test84.example,test85.example,test86.example,test87.example,test88.example,test89.example,test90.example,test91.example,test92.example,test93.example,test94.example,test95.example,test96.example,test97.example,test98.example,test99.example,test100.example"
+        "DEV_SEED_SIGNUP_DOMAINS": "sgp.test,test1.test,test2.test,test3.test,test4.test,test5.test,test6.test,test7.test,test8.test,test9.test,test10.test,test11.test,test12.test,test13.test,test14.test,test15.test,test16.test,test17.test,test18.test,test19.test,test20.test,test21.test,test22.test,test23.test,test24.test,test25.test,test26.test,test27.test,test28.test,test29.test,test30.test,test31.test,test32.test,test33.test,test34.test,test35.test,test36.test,test37.test,test38.test,test39.test,test40.test,test41.test,test42.test,test43.test,test44.test,test45.test,test46.test,test47.test,test48.test,test49.test,test50.test,test51.test,test52.test,test53.test,test54.test,test55.test,test56.test,test57.test,test58.test,test59.test,test60.test,test61.test,test62.test,test63.test,test64.test,test65.test,test66.test,test67.test,test68.test,test69.test,test70.test,test71.test,test72.test,test73.test,test74.test,test75.test,test76.test,test77.test,test78.test,test79.test,test80.test,test81.test,test82.test,test83.test,test84.test,test85.test,test86.test,test87.test,test88.test,test89.test,test90.test,test91.test,test92.test,test93.test,test94.test,test95.test,test96.test,test97.test,test98.test,test99.test,test100.test"
       },
       "networks": {
         "sgp_backend": null
@@ -1252,9 +1252,9 @@
       },
       "environment": {
         "DEV_SEED_ADMIN_API_URL": "http://admin-api-usa1:8080",
-        "DEV_SEED_ADMIN_EMAIL": "admin@usa1.example",
+        "DEV_SEED_ADMIN_EMAIL": "admin@usa1.test",
         "DEV_SEED_ADMIN_PASSWORD": "${DEV_SEED_ADMIN_PASSWORD:-DevPassword123$$}",
-        "DEV_SEED_SIGNUP_DOMAINS": "usa1.example"
+        "DEV_SEED_SIGNUP_DOMAINS": "usa1.test"
       },
       "networks": {
         "usa1_backend": null

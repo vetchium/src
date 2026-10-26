@@ -13,6 +13,12 @@ import {
   type SignedUpOrg,
   signupOrg,
 } from "../lib/orgs-api.ts";
+import {
+  accountMenu,
+  chooseWorkspace,
+  openAccountPage,
+  sidebarPage,
+} from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 import { chooseRegion } from "../lib/region-ui.ts";
 
@@ -27,9 +33,7 @@ async function signIn(
   await page.getByLabel("Password", { exact: true }).fill(user.password);
   await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(
-    page.getByRole("button", { name: "Sign out", exact: true }),
-  ).toBeVisible();
+  await expect(accountMenu(page)).toBeVisible();
 }
 
 async function withOrg(
@@ -198,7 +202,8 @@ test("an AI manager turns AI on, buys credits, and reviews usage", async ({
 }) => {
   await withOrg(request, async (org, api, owner) => {
     await signIn(page, org);
-    await page.getByRole("menuitem", { name: "AI", exact: true }).click();
+    await chooseWorkspace(page, "Administration");
+    await sidebarPage(page, "AI").click();
     await expect(
       page.getByRole("heading", { name: "AI", level: 1 }),
     ).toBeVisible();
@@ -358,7 +363,7 @@ test("each AI feature saves its own models, can be turned off, and guards unsave
     await feature.getByRole("radio", { name: /^Off/ }).check();
     await expect(page.getByText("Unsaved changes")).toBeVisible();
     // Leaving with unsaved edits asks first; staying keeps them.
-    await page.getByRole("menuitem", { name: "Overview" }).click();
+    await openAccountPage(page, "My work");
     const leaving = page.getByRole("dialog", { name: "Leave without saving?" });
     await leaving.getByRole("button", { name: "Stay" }).click();
     await expect(page).toHaveURL(/\/ai\?tab=settings/);
@@ -419,7 +424,7 @@ test("each AI feature saves its own models, can be turned off, and guards unsave
       feature.getByRole("radio", { name: /Only the models I choose/ }),
     ).toBeChecked();
     await expect(page.getByText("Unsaved changes")).toHaveCount(0);
-    await page.getByRole("menuitem", { name: "Overview" }).click();
+    await openAccountPage(page, "My work");
     await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
   });
 });
@@ -437,9 +442,11 @@ test("people without org:manage_ai see no AI page", async ({
       ["org:manage_openings"],
     );
     await signIn(page, recruiter);
-    await expect(
-      page.getByRole("menuitem", { name: "AI", exact: true }),
-    ).toHaveCount(0);
+    // Without an Administration page, the recruiter has one workspace.
+    await expect(page.getByRole("combobox", { name: "Workspace" })).toHaveCount(
+      0,
+    );
+    await expect(sidebarPage(page, "AI")).toHaveCount(0);
     await page.goto(`${ORGS_PORTAL}/ai`);
     await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
 

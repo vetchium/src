@@ -4,8 +4,9 @@ Applies to creating, approving, changing, and displaying Openings in the Orgs
 portal, and to displaying an Org's Openings in the Hub portal. Compose with
 [`orgs.md`](orgs.md), [`authorization.md`](authorization.md),
 [`org-subscriptions.md`](org-subscriptions.md) (plan quota), and
-[`federation.md`](federation.md) (cross-tenant Hub reads). Applications and the
-rest of hiring are not built ([`../docs/todo.md`](../docs/todo.md)).
+[`federation.md`](federation.md) (cross-tenant Hub reads). Applications and
+pipelines are in [`hiring-pipeline.md`](hiring-pipeline.md); providers in
+[`marketplace.md`](marketplace.md).
 
 ## Ownership and identity
 

@@ -3,7 +3,9 @@ package routes
 import (
 	"net/http"
 
+	hubapplications "backend/handlers/hub/applications"
 	hubauth "backend/handlers/hub/auth"
+	hubmessages "backend/handlers/hub/messages"
 	hubopenings "backend/handlers/hub/openings"
 	huboperations "backend/handlers/hub/operations"
 	hubprofile "backend/handlers/hub/profile"
@@ -84,6 +86,10 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(hubusers.SetResidentCountry(s)),
 	)
 	mux.Handle(
+		"POST /api/hub/set-agencies-may-message",
+		hubAuth(hubusers.SetAgenciesMayMessage(s)),
+	)
+	mux.Handle(
 		"GET /api/hub/my-subscription",
 		hubAuth(hubsubscriptions.MySubscription(s)),
 	)
@@ -139,6 +145,36 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(hubprofile.AliasState(s)))
 	mux.Handle("POST /api/hub/profile/alias/set",
 		hubAuth(hubprofile.SetAlias(s)))
+	mux.Handle("POST /api/hub/apply-to-opening",
+		hubAuth(hubapplications.Apply(s)))
+	mux.Handle("POST /api/hub/withdraw-application",
+		hubAuth(hubapplications.Withdraw(s)))
+	mux.Handle("POST /api/hub/accept-application-offer",
+		hubAuth(hubapplications.AcceptOffer(s)))
+	mux.Handle("POST /api/hub/decline-application-offer",
+		hubAuth(hubapplications.DeclineOffer(s)))
+	mux.Handle("POST /api/hub/accept-application-interview",
+		hubAuth(hubapplications.AcceptInterview(s)))
+	mux.Handle("POST /api/hub/request-application-interview-reschedule",
+		hubAuth(hubapplications.RequestInterviewReschedule(s)))
+	mux.Handle("POST /api/hub/give-application-background-check-consent",
+		hubAuth(hubapplications.GiveBackgroundCheckConsent(s)))
+	mux.Handle("POST /api/hub/decline-application-background-check-consent",
+		hubAuth(hubapplications.DeclineBackgroundCheckConsent(s)))
+	mux.Handle("POST /api/hub/list-my-applications",
+		hubAuth(hubapplications.List(s)))
+	mux.Handle("POST /api/hub/get-my-application",
+		hubAuth(hubapplications.Get(s)))
+	mux.Handle("POST /api/hub/list-conversations",
+		hubAuth(hubmessages.ListConversations(s)))
+	mux.Handle("POST /api/hub/get-conversation",
+		hubAuth(hubmessages.GetConversation(s)))
+	mux.Handle("POST /api/hub/reply-to-conversation",
+		hubAuth(hubmessages.ReplyToConversation(s)))
+	mux.Handle("POST /api/hub/delete-conversation",
+		hubAuth(hubmessages.DeleteConversation(s)))
+	mux.Handle("POST /api/hub/mark-conversation-read",
+		hubAuth(hubmessages.MarkConversationRead(s)))
 	mux.Handle("POST /api/hub/operations/status",
 		hubAuth(huboperations.Status(s)))
 }

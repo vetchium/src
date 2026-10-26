@@ -70,6 +70,9 @@ are in [`hub-signup.md`](hub-signup.md).
 - Every command checks the caller tenant against the principal's
   `home_tenant_id` (`directory-caller-tenant-mismatch`) and requires an active
   principal, unless its rule says otherwise.
+- `resolve-principal` (`{principal_type, principal_did}`, `hub_user` or
+  `org`) returns the home tenant and routing version of an active principal,
+  else `directory-entry-not-found`. It routes durable commands.
 
 ## Identity digest key
 
@@ -221,9 +224,12 @@ command-result ledger at the authority; no per-feature reliability protocol.
 6. A definite success or deterministic `4xx` resolves the initiating
    operation. If the command was sent but its outcome is unknown, return `202
    Accepted` with the operation id. If no command was issued because routing or
-   connection setup failed, return a retryable `503` or `504`.
+   connection setup failed, abandon the operation in the same flow — delete it,
+   releasing its idempotency key — and return a retryable `503`: nothing
+   happened, and a retry with the same key sends afresh.
 7. A recovery worker re-resolves the owner and re-drives the identical command
-   until it obtains the stored outcome. It selects due work by
+   until it obtains the stored outcome; only possibly-sent operations (sent, or
+   a crash between commit and send) remain to drive. It selects due work by
    `next_attempt_at` and records the attempt, with backoff, before sending, so
    operations stuck on an unreachable authority never hold the front of every
    batch.
@@ -231,13 +237,55 @@ command-result ledger at the authority; no per-feature reliability protocol.
 - Never hold a database transaction open across a directory or mesh call,
   including inside an idempotency helper's callback: resolve first, then open
   the transaction.
+- `backend/internal/federation/commands` implements this protocol for every
+  tenant command; features add no ledger, routing, transport, or recovery
+  code. Register each kind with its authority `Handler` in
+  `backend/internal/federation/commandkinds`, which hub-api, orgs-api,
+  mesh-api, and workers all use, and initiate with `Sender.Send` after
+  authorizing the caller's own user.
+  - `Request.AggregateID`, kind, and idempotency key identify the operation;
+    `RequestDigest` covers the caller's request, not ids minted into the
+    payload.
+  - A local authority runs in process, in the transaction that creates and
+    resolves the operation. Otherwise the sender commits the pending operation
+    and posts to the relay `POST /mesh/commands/execute`, which resolves the
+    authority principal and executes in mesh-api for its own tenant or forwards
+    to that tenant's peer `POST /api/mesh/commands/execute`.
+  - A `Handler` gets the transaction; its writes, audit, and outbox events
+    commit with the command result. `Rejected` rolls back its writes and stores
+    the problem as the deterministic outcome.
+  - Register each kind with an `Initiator`: the acting Hub user, or the acting
+    Org user's Org. The handler runs only when the source tenant homes it —
+    this tenant's database for an in-process or relay-local command,
+    `resolve-principal` before the transaction for a peer's — else the stored
+    outcome is `403 federation-initiator-mismatch`.
+  - Outcomes: `StateSucceeded`/`StateFailed` carry the stored status and body;
+    `StatePending` is `202` with `PendingOperation`; `StateUnavailable` is a
+    retryable `503` after the sender abandoned the never-sent operation.
+  - Only the sender's first attempt may abandon, and only while
+    `attempt_count` is `0`: every other attempt (recovery, or a replay of a
+    pending operation, which drives it again) is recorded first, so a
+    not-sent later attempt stays pending and answers `202`.
+  - An operation past `expires_at` is no longer recovered, and its key is free
+    like any expired idempotency key: the next request with it deletes the
+    expired row in the transaction that creates a new operation.
+  - The authority refuses an unknown kind (`400`), a principal it does not
+    home (`421 federation-authority-misdirected`, re-resolve and resend), and a
+    command id reused with another source tenant, kind, aggregate, or digest
+    (`409 federation-command-conflict`). The relay adds
+    `federation-authority-not-found` (`404`, deterministic),
+    `federation-authority-unavailable` (`503`, not sent), and
+    `federation-command-outcome-unknown` (`504`).
+  - The workers' `drive-federation-commands` job recovers every kind.
 - For uncertain Hub browser outcomes, return HTTP `202` with
   `Vetchium.Hub.Operations.PendingOperation`. The user polls
   `/api/hub/operations/status` (`pending`, `succeeded`, `failed`) and replays
   the original request with its original idempotency key for the typed result.
   The status endpoint authorizes operation ownership and returns no payloads or
   secrets. Reuse this shape for remote job applications rather than a
-  per-feature polling protocol.
+  per-feature polling protocol. Orgs uses the same shape:
+  `Vetchium.Orgs.Operations.PendingOperation` and `/api/orgs/operations/status`,
+  readable only by the initiating Org user of an active Org.
 - Never use PostgreSQL prepared transactions, an HTTP prepare/commit protocol,
   or a cross-database transaction — they couple availability and leave
   prepared work needing operator recovery.
@@ -261,6 +309,41 @@ command-result ledger at the authority; no per-feature reliability protocol.
 - A mutable projection carries a durable aggregate version, and the receiver
   keeps a per-aggregate watermark so an older event never overwrites newer
   state.
+- `backend/internal/federation/events` implements this for every event kind;
+  features add no outbox, routing, transport, or inbox code.
+  - Enqueue with `events.Enqueue(ctx, tx, Outgoing{...})` inside the write
+    transaction, beside that change's own audit event. An event names a
+    destination principal (Hub user or Org), whose home tenant is re-resolved
+    on every attempt, an aggregate type, id, and version, and a JSON-object
+    payload with no secret.
+  - Register each kind's receiver `Handler` in
+    `backend/internal/federation/eventkinds` (mesh-api and workers). It gets
+    the receiving transaction and runs only for an event newer than the
+    watermark; its writes commit with the inbox receipt, whose
+    `federation.event.received` audit event covers them. An error rolls back
+    and the event is redelivered.
+  - The workers' `deliver-federation-events` job claims due events with a
+    lease, applies a local destination in process in the transaction that
+    completes it, and otherwise posts to the relay `POST /mesh/events/deliver`,
+    which forwards to the home tenant's peer `POST /api/mesh/events/deliver`.
+    Retries back off from 2 seconds to 5 minutes; from the tenth attempt each
+    failure logs at error. `federation-event-conflict` (`409`) and
+    `federation-destination-not-found` (`404`) fail the event, with an error
+    log; everything else is retried.
+  - Register each kind with an `Origin`: the principal the event reports on
+    (an Org for `hub-application-changed` and `hub-application-removed`). The
+    handler runs only when the source tenant homes it — this tenant's
+    database for an in-process or relay-local event, `resolve-principal`
+    before the transaction for a peer's — else the receiver records nothing and answers `403
+    federation-event-origin-mismatch`, which fails the event.
+  - The watermark key is (kind, destination principal, aggregate type, id):
+    one change may feed several projections. An event at or below it is
+    recorded `superseded` and not applied; a redelivered id is `duplicate`,
+    even after its kind is withdrawn; the same id with any other field or
+    payload digest is `federation-event-conflict`.
+  - A kind that ends what another projects (a removal ends a change) joins its
+    watermark with `Registry.ShareWatermark` and carries a later version, so a
+    delayed change never recreates what the removal deleted.
 - A projection is rebuildable and never authoritative. Its absence must not
   turn an acknowledged operation into a false `404`; consult the operation
   ledger or authority while delivery is pending.

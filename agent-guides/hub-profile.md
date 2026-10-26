@@ -108,11 +108,11 @@ claim saga, mesh trust, and durable commands in
   The reminder is UI-only: never email the account or professional address.
 - Only the owner sees addresses, pending state, and management details. Other
   Hub users never see an address, its domain, or its evidence.
-- Future authorized Org features (candidate search by employers and agencies)
-  may show each verified normalized domain with the month and year of its first
-  and last verification, never exact instants or local parts. The settings page
-  tells the owner so. Such an Org view needs its own authorization, privacy, and
-  contract design first.
+- The agency profile view ([`marketplace.md`](marketplace.md) MKT-PRF) shows
+  each verified normalized domain with the month and year of its first and
+  last verification, never exact instants or local parts, and the settings
+  page tells the owner so. Any other Org view of this evidence needs its own
+  authorization, privacy, and contract design first.
 - Complete addresses and codes never enter mesh payloads, audit-event bodies, or
   logs.
 - **PROF-WEM-013** List verified addresses by descending `last_verified_at`,
@@ -213,7 +213,8 @@ claim saga, mesh trust, and durable commands in
   problem to the browser.
 - **PROF-FED-007** The federated payload is `PublicProfile`, the view fields
   only. Professional-email data and object-store credentials never cross the
-  mesh; a picture crosses as a tenant-signed URL.
+  mesh; a picture crosses as a tenant-signed URL. The one exception is the
+  agency profile view (MKT-PRF-001): verified domains with months only.
 - The global `/u/<slug>` resolver picks the tenant and authentication flow and
   never serves profile data.
 - **PROF-XTN-002** Global claims and cross-tenant profile mutations use the

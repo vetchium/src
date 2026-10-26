@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/orgs/hiring"
 	"github.com/vetchium/src/typespec/orgs/openings"
 	subscriptionspec "github.com/vetchium/src/typespec/orgs/subscriptions"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
@@ -24,6 +26,27 @@ import (
 	orgsruntime "backend/internal/orgs"
 	"backend/internal/orgs/entitlements"
 )
+
+// newStageIDs returns an id for every position a pipeline may use; the
+// statement takes the first ones it needs.
+func newStageIDs(now time.Time) ([]pgtype.UUID, error) {
+	ids := make([]pgtype.UUID, hiring.MaxPipelineStages)
+	for index := range ids {
+		id, err := dbvalue.NewUUIDv7(now)
+		if err != nil {
+			return nil, err
+		}
+		ids[index] = id
+	}
+	return ids, nil
+}
+
+func optionalTemplate(value *hiring.PipelineTemplateID) (pgtype.UUID, error) {
+	if value == nil {
+		return pgtype.UUID{}, nil
+	}
+	return dbvalue.ParseUUID(string(*value))
+}
 
 func CreateOpening(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -69,6 +92,14 @@ func CreateOpening(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
+				stageIDs, err := newStageIDs(now)
+				if err != nil {
+					return result{}, nil, err
+				}
+				templateID, err := optionalTemplate(request.PipelineTemplateID)
+				if err != nil {
+					return result{}, nil, err
+				}
 				content, err := json.Marshal(request.Content)
 				if err != nil {
 					return result{}, nil, err
@@ -86,6 +117,8 @@ func CreateOpening(s *orgsruntime.Server) http.HandlerFunc {
 					HiringManagerEmail: optionalEmail(request.HiringManagerEmail),
 					RecruiterEmail:     optionalEmail(request.RecruiterEmail),
 					TeamMemberEmails:   team,
+					TemplateID:         templateID,
+					StageIds:           stageIDs,
 					Quota:              quota,
 					OpeningID:          openingID,
 					InternalNotes:      dbvalue.NullText(request.InternalNotes),
@@ -107,13 +140,17 @@ func CreateOpening(s *orgsruntime.Server) http.HandlerFunc {
 						orgsproblem.OpeningHiringTeamInvalidError(invalid),
 					)
 				}
+				if row.TemplateMissing {
+					return handlerauth.Failure[openings.OrgOpening](orgsproblem.PipelineTemplateNotFoundError)
+				}
 				if row.OpeningNumber == 0 {
 					return handlerauth.Failure[openings.OrgOpening](
 						orgsproblem.OpeningsQuotaExceededError(quota, row.Used),
 					)
 				}
 				if row.ContentRows != 1 || row.HistoryRows != 1 ||
-					row.AuditRows != 1 || row.TeamRows != int64(len(team)) {
+					row.AuditRows != 1 || row.TeamRows != int64(len(team)) ||
+					row.StageRows < 1 {
 					return result{}, nil, fmt.Errorf("incomplete Opening creation")
 				}
 				created, err := loadOpening(
@@ -163,7 +200,17 @@ func DuplicateOpening(s *orgsruntime.Server) http.HandlerFunc {
 				quota := int32(entitlements.OpeningQuota(
 					subscriptionspec.PlanOID(policy.OrgPlanOid),
 				))
+				stageIDs, err := newStageIDs(now)
+				if err != nil {
+					return result{}, nil, err
+				}
+				templateID, err := optionalTemplate(request.PipelineTemplateID)
+				if err != nil {
+					return result{}, nil, err
+				}
 				row, err := q.DuplicateOrgOpening(r.Context(), sqlc.DuplicateOrgOpeningParams{
+					TemplateID:      templateID,
+					StageIds:        stageIDs,
 					OrgDid:          identity.OrgDID,
 					DuplicateNumber: int32(request.OpeningNumber),
 					WindowStart:     dbvalue.Timestamp(entitlements.WindowStart(now)),
@@ -183,12 +230,16 @@ func DuplicateOpening(s *orgsruntime.Server) http.HandlerFunc {
 				if row.SourceState == string(openings.Discarded) {
 					return handlerauth.Failure[openings.OrgOpening](orgsproblem.OpeningStateConflictError)
 				}
+				if row.TemplateMissing {
+					return handlerauth.Failure[openings.OrgOpening](orgsproblem.PipelineTemplateNotFoundError)
+				}
 				if row.OpeningNumber == 0 {
 					return handlerauth.Failure[openings.OrgOpening](
 						orgsproblem.OpeningsQuotaExceededError(quota, row.Used),
 					)
 				}
-				if row.ContentRows != 1 || row.HistoryRows != 1 || row.AuditRows != 1 {
+				if row.ContentRows != 1 || row.HistoryRows != 1 || row.AuditRows != 1 ||
+					row.StageRows < 1 {
 					return result{}, nil, fmt.Errorf("incomplete Opening duplication")
 				}
 				created, err := loadOpening(

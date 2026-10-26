@@ -1,12 +1,14 @@
 package openings
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs/openings"
@@ -19,6 +21,7 @@ import (
 	"backend/internal/handlerauth"
 	"backend/internal/middleware"
 	orgsruntime "backend/internal/orgs"
+	"backend/internal/orgs/applicationchanges"
 )
 
 func requestPrecondition(current openings.OrgOpening, request openings.RequestOpeningChangeRequest, canApprove bool) problem.Body {
@@ -80,6 +83,22 @@ func requestPrecondition(current openings.OrgOpening, request openings.RequestOp
 	return nil
 }
 
+// markApplicationsNotProgressing applies a close request's bulk choice in the
+// transaction that closed the Opening (HP-APP-005). The statement itself
+// checks that the request that closed it asked for the choice.
+func markApplicationsNotProgressing(
+	ctx context.Context, q *sqlc.Queries, s *orgsruntime.Server,
+	identity middleware.OrgIdentity, opening openings.OpeningNumber,
+	key common.IdempotencyKey,
+) error {
+	_, err := applicationchanges.MarkClosedOpeningNotProgressing(ctx, q,
+		identity.OrgDID, int32(opening), applicationchanges.Change{
+			ActorID: identity.UserID, TenantID: s.TenantID,
+			IdempotencyKey: string(key),
+		})
+	return err
+}
+
 func RequestOpeningChange(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request openings.RequestOpeningChangeRequest
@@ -129,6 +148,10 @@ func RequestOpeningChange(s *orgsruntime.Server) http.HandlerFunc {
 					RequestID: requestID, Note: dbvalue.NullText(request.Note),
 					HistoryID: historyID, SupersededHistoryID: supersededHistoryID,
 					TenantID: s.TenantID, IdempotencyKey: dbvalue.Text(string(key)),
+					MarkApplications: pgtype.Bool{
+						Bool:  request.MarkApplicationsNotProgressing != nil && *request.MarkApplicationsNotProgressing,
+						Valid: request.MarkApplicationsNotProgressing != nil,
+					},
 				})
 				if err != nil {
 					return result{}, nil, err
@@ -149,6 +172,11 @@ func RequestOpeningChange(s *orgsruntime.Server) http.HandlerFunc {
 				if row.RequestRows != 1 || row.HistoryRows != 1 || row.AuditRows != 1 ||
 					row.SupersededRows != row.SupersededHistoryRows || row.SupersededRows != row.SupersededAuditRows {
 					return result{}, nil, fmt.Errorf("incomplete Opening request transition")
+				}
+				if row.SelfApproved && request.Kind == openings.CloseRequest {
+					if err := markApplicationsNotProgressing(r.Context(), q, s, identity, request.OpeningNumber, key); err != nil {
+						return result{}, nil, err
+					}
 				}
 				updated, err := loadOpening(r.Context(), q, identity, request.OpeningNumber)
 				if err != nil {
@@ -268,6 +296,12 @@ func DecideOpeningRequest(s *orgsruntime.Server) http.HandlerFunc {
 				}
 				if row.DecisionRows != 1 || row.HistoryRows != 1 || row.AuditRows != 1 {
 					return result{}, nil, fmt.Errorf("incomplete Opening decision")
+				}
+				if request.Decision == openings.ApproveDecision &&
+					current.PendingRequest.Kind == openings.CloseRequest {
+					if err := markApplicationsNotProgressing(r.Context(), q, s, identity, request.OpeningNumber, key); err != nil {
+						return result{}, nil, err
+					}
 				}
 				updated, err := loadOpening(r.Context(), q, identity, request.OpeningNumber)
 				if err != nil {

@@ -7,6 +7,7 @@ const exportedDirectories = [
   "admin",
   "common",
   "directory",
+  "federation",
   "hub",
   "orgs",
   "problem",

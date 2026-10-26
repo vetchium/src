@@ -1,9 +1,11 @@
 import {
+  DownOutlined,
   GlobalOutlined,
   LogoutOutlined,
   MenuOutlined,
   MoonOutlined,
   SunOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import {
   Alert,
@@ -11,6 +13,7 @@ import {
   Avatar,
   Button,
   Drawer,
+  Dropdown,
   Flex,
   Grid,
   Layout,
@@ -39,16 +42,35 @@ import { usePreferences } from "./preferences";
 
 const { Content, Footer, Header, Sider } = Layout;
 
+/**
+ * The signed-in person's own pages, shown in a header menu that also holds
+ * sign-out. Item keys are routes.
+ */
+export interface AccountMenu {
+  /** Names the signed-in person, such as their address. */
+  label: string;
+  items: ItemType[];
+}
+
+// Routes start with "/", so this key never collides with a page.
+const signOutKey = "sign-out";
+
 export function HeaderControls<Locale extends string = string>({
   localization,
   onSignOut,
   onSelectLanguage,
   languagePending = false,
+  account,
+  accountSelectedKey,
+  onNavigate,
 }: {
   localization: PortalLocaleConfiguration<Locale>;
   onSignOut?: () => void;
   onSelectLanguage?: (language: Locale) => Promise<void>;
   languagePending?: boolean;
+  account?: AccountMenu;
+  accountSelectedKey?: string;
+  onNavigate?: (path: string) => void;
 }) {
   const { t } = useTranslation();
   const { message } = App.useApp();
@@ -97,7 +119,43 @@ export function HeaderControls<Locale extends string = string>({
           onChange={preferences.toggleTheme}
         />
       </Tooltip>
-      {onSignOut === undefined ? null : (
+      {onSignOut === undefined ? null : account !== undefined ? (
+        <Dropdown
+          trigger={["click"]}
+          placement="bottomRight"
+          menu={{
+            selectedKeys:
+              accountSelectedKey === undefined ? [] : [accountSelectedKey],
+            items: [
+              ...account.items,
+              { type: "divider" },
+              {
+                key: signOutKey,
+                icon: <LogoutOutlined />,
+                label: t("shell.logout"),
+              },
+            ],
+            onClick: ({ key }) =>
+              key === signOutKey ? onSignOut() : onNavigate?.(key),
+          }}
+        >
+          <Button
+            type="text"
+            shape={compact ? "circle" : undefined}
+            icon={<UserOutlined />}
+            aria-label={t("shell.accountMenu", { account: account.label })}
+          >
+            {compact ? null : (
+              <Flex align="center" gap="small" wrap={false}>
+                <Typography.Text ellipsis style={{ maxWidth: 220 }}>
+                  {account.label}
+                </Typography.Text>
+                <DownOutlined />
+              </Flex>
+            )}
+          </Button>
+        </Dropdown>
+      ) : (
         <Tooltip title={t("shell.logout")}>
           <Button
             type="text"
@@ -123,6 +181,9 @@ export function AppHeader<Locale extends string = string>({
   portalTag = false,
   onSelectLanguage,
   languagePending,
+  account,
+  accountSelectedKey,
+  onNavigate,
 }: {
   homePath?: string;
   localization: PortalLocaleConfiguration<Locale>;
@@ -132,6 +193,9 @@ export function AppHeader<Locale extends string = string>({
   portalTag?: boolean;
   onSelectLanguage?: (language: Locale) => Promise<void>;
   languagePending?: boolean;
+  account?: AccountMenu;
+  accountSelectedKey?: string;
+  onNavigate?: (path: string) => void;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -222,6 +286,9 @@ export function AppHeader<Locale extends string = string>({
           onSignOut={onSignOut}
           onSelectLanguage={onSelectLanguage}
           languagePending={languagePending}
+          account={account}
+          accountSelectedKey={accountSelectedKey}
+          onNavigate={onNavigate}
         />
       </Flex>
     </Header>
@@ -237,6 +304,8 @@ export function PortalShell<Locale extends string>({
   onSelectLanguage,
   languagePending,
   banner,
+  navigationHeader,
+  account,
 }: {
   localization: PortalLocaleConfiguration<Locale>;
   navigationItems: ItemType[];
@@ -248,6 +317,10 @@ export function PortalShell<Locale extends string>({
   /** Rendered above every routed page, for notices the portal must not hide
    * behind a particular route. */
   banner?: ReactNode;
+  /** Rendered above the navigation menu, in the sidebar and the drawer. */
+  navigationHeader?: ReactNode;
+  /** Replaces the sign-out button with a menu of the person's own pages. */
+  account?: AccountMenu;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -282,6 +355,9 @@ export function PortalShell<Locale extends string>({
         portalTag={portalTag}
         onSelectLanguage={onSelectLanguage}
         languagePending={languagePending}
+        account={account}
+        accountSelectedKey={selectedKey}
+        onNavigate={navigateFromMenu}
       />
       <Drawer
         title={t("navigation.menu")}
@@ -291,6 +367,9 @@ export function PortalShell<Locale extends string>({
         styles={{ body: { padding: 0 } }}
         onClose={() => setNavigationOpen(false)}
       >
+        {navigationHeader === undefined ? null : (
+          <div className="shell-navigation-header">{navigationHeader}</div>
+        )}
         <Menu
           mode="inline"
           selectedKeys={[selectedKey]}
@@ -301,6 +380,9 @@ export function PortalShell<Locale extends string>({
       <Layout>
         {screens.lg === true ? (
           <Sider theme={preferences.themeMode} width={232}>
+            {navigationHeader === undefined ? null : (
+              <div className="shell-navigation-header">{navigationHeader}</div>
+            )}
             <Menu
               mode="inline"
               selectedKeys={[selectedKey]}

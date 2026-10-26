@@ -6,6 +6,23 @@ import { ProtectedRoute } from "../components/common/ProtectedRoute";
 import { PublicShell } from "../components/common/PublicShell";
 import { RecentAuthenticationRoute } from "../components/common/RecentAuthenticationRoute";
 
+const ApplicationDetailPage = lazy(() =>
+  import("../pages/ApplicationDetailPage").then(
+    ({ ApplicationDetailPage }) => ({
+      default: ApplicationDetailPage,
+    }),
+  ),
+);
+const ApplicationsPage = lazy(() =>
+  import("../pages/ApplicationsPage").then(({ ApplicationsPage }) => ({
+    default: ApplicationsPage,
+  })),
+);
+const ApplyPage = lazy(() =>
+  import("../pages/ApplyPage").then(({ ApplyPage }) => ({
+    default: ApplyPage,
+  })),
+);
 const CompleteSignupPage = lazy(() =>
   import("../pages/CompleteSignupPage").then(({ CompleteSignupPage }) => ({
     default: CompleteSignupPage,
@@ -22,6 +39,11 @@ const HomePage = lazy(() =>
 const LoginPage = lazy(() =>
   import("../pages/LoginPage").then(({ LoginPage }) => ({
     default: LoginPage,
+  })),
+);
+const MessagesPage = lazy(() =>
+  import("../pages/MessagesPage").then(({ MessagesPage }) => ({
+    default: MessagesPage,
   })),
 );
 const OrgPage = lazy(() =>
@@ -185,6 +207,46 @@ export function App() {
             element={
               <Page>
                 <OrgOpeningPage />
+              </Page>
+            }
+          />
+          <Route
+            path="org/:domain/openings/:number/apply"
+            element={
+              <Page>
+                <ApplyPage />
+              </Page>
+            }
+          />
+          <Route
+            path="applications"
+            element={
+              <Page>
+                <ApplicationsPage />
+              </Page>
+            }
+          />
+          <Route
+            path="applications/:domain/:openingNumber/:applicationNumber"
+            element={
+              <Page>
+                <ApplicationDetailPage />
+              </Page>
+            }
+          />
+          <Route
+            path="messages"
+            element={
+              <Page>
+                <MessagesPage />
+              </Page>
+            }
+          />
+          <Route
+            path="messages/:contactId"
+            element={
+              <Page>
+                <MessagesPage />
               </Page>
             }
           />

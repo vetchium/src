@@ -72,7 +72,10 @@ LEFT JOIN LATERAL (
         'kind', r.request_kind,
         'requested_by_email', u.email_address,
         'requested_at', r.requested_at,
-        'note', r.request_note
+        'note', r.request_note,
+        'mark_applications_not_progressing', CASE
+            WHEN r.request_kind = 'close'
+            THEN r.mark_applications_not_progressing END
     )) AS body
     FROM vetchium.org_opening_requests AS r
     JOIN vetchium.org_users AS u ON u.org_user_id = r.requested_by
@@ -239,13 +242,30 @@ WITH usage AS (
     SELECT COALESCE(array_agg(email_address ORDER BY email_address),
         ARRAY[]::text[]) AS addresses
     FROM resolved WHERE org_user_id IS NULL
+), template_missing AS (
+    SELECT sqlc.narg(template_id)::uuid IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM vetchium.org_pipeline_templates AS t
+        WHERE t.org_did = sqlc.arg(org_did)
+          AND t.org_pipeline_template_id = sqlc.narg(template_id)::uuid
+    ) AS missing
+), stage_source AS (
+    SELECT s.position::integer AS position, s.name, s.stage_kind
+    FROM vetchium.org_pipeline_template_stages AS s
+    JOIN vetchium.org_pipeline_templates AS t
+        ON t.org_pipeline_template_id = s.org_pipeline_template_id
+    WHERE t.org_did = sqlc.arg(org_did)
+      AND t.org_pipeline_template_id = sqlc.narg(template_id)::uuid
+    UNION ALL
+    SELECT 1, 'Review', 'review'::vetchium.pipeline_stage_kind
+    WHERE sqlc.narg(template_id)::uuid IS NULL
 ), numbered AS (
     UPDATE vetchium.orgs AS o
     SET next_opening_number = o.next_opening_number + 1
-    FROM usage, invalid
+    FROM usage, invalid, template_missing
     WHERE o.org_did = sqlc.arg(org_did)
       AND usage.used < sqlc.arg(quota)::integer
       AND cardinality(invalid.addresses) = 0
+      AND NOT template_missing.missing
     RETURNING o.next_opening_number - 1 AS opening_number
 ), created AS (
     INSERT INTO vetchium.org_openings (
@@ -293,6 +313,15 @@ WITH usage AS (
     FROM created
     CROSS JOIN (SELECT sqlc.arg(content)::jsonb AS body) AS input
     RETURNING org_opening_id
+), stages AS (
+    INSERT INTO vetchium.org_opening_stages (
+        org_opening_stage_id, org_opening_id, position, name, stage_kind
+    )
+    SELECT (sqlc.arg(stage_ids)::uuid[])[stage_source.position],
+        created.org_opening_id, stage_source.position, stage_source.name,
+        stage_source.stage_kind
+    FROM created CROSS JOIN stage_source
+    RETURNING org_opening_stage_id
 ), team AS (
     INSERT INTO vetchium.org_opening_team_members (
         org_opening_id, org_user_id
@@ -323,18 +352,20 @@ WITH usage AS (
         jsonb_build_object('opening_number', created.opening_number,
             'action', 'created', 'version', created.version,
             'changed_fields', jsonb_build_array('content', 'hiring_team',
-                'internal_notes'))
+                'internal_notes', 'pipeline'))
     FROM created
     RETURNING audit_event_id
 )
 SELECT usage.used,
     to_jsonb(invalid.addresses) AS invalid_addresses,
+    COALESCE(template_missing.missing, false)::boolean AS template_missing,
     COALESCE((SELECT opening_number FROM created), 0)::integer AS opening_number,
     (SELECT count(*) FROM content) AS content_rows,
+    (SELECT count(*) FROM stages) AS stage_rows,
     (SELECT count(*) FROM team) AS team_rows,
     (SELECT count(*) FROM history) AS history_rows,
     (SELECT count(*) FROM audit) AS audit_rows
-FROM usage CROSS JOIN invalid;
+FROM usage CROSS JOIN invalid CROSS JOIN template_missing;
 
 -- name: DuplicateOrgOpening :one
 WITH source AS (
@@ -355,13 +386,38 @@ WITH source AS (
     FROM vetchium.org_openings AS existing
     WHERE existing.org_did = sqlc.arg(org_did)
       AND existing.created_at > sqlc.arg(window_start)::timestamptz
+), template_missing AS (
+    SELECT sqlc.narg(template_id)::uuid IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM vetchium.org_pipeline_templates AS t
+        WHERE t.org_did = sqlc.arg(org_did)
+          AND t.org_pipeline_template_id = sqlc.narg(template_id)::uuid
+    ) AS missing
+), source_stages AS (
+    SELECT s.position::integer AS position, s.name, s.stage_kind
+    FROM vetchium.org_opening_stages AS s
+    JOIN source ON source.org_opening_id = s.org_opening_id
+), stage_source AS (
+    SELECT s.position::integer AS position, s.name, s.stage_kind
+    FROM vetchium.org_pipeline_template_stages AS s
+    JOIN vetchium.org_pipeline_templates AS t
+        ON t.org_pipeline_template_id = s.org_pipeline_template_id
+    WHERE t.org_did = sqlc.arg(org_did)
+      AND t.org_pipeline_template_id = sqlc.narg(template_id)::uuid
+    UNION ALL
+    SELECT position, name, stage_kind FROM source_stages
+    WHERE sqlc.narg(template_id)::uuid IS NULL
+    UNION ALL
+    SELECT 1, 'Review', 'review'::vetchium.pipeline_stage_kind
+    WHERE sqlc.narg(template_id)::uuid IS NULL
+      AND NOT EXISTS (SELECT 1 FROM source_stages)
 ), numbered AS (
     UPDATE vetchium.orgs AS o
     SET next_opening_number = o.next_opening_number + 1
-    FROM usage, source
+    FROM usage, source, template_missing
     WHERE o.org_did = sqlc.arg(org_did)
       AND source.opening_state <> 'discarded'
       AND EXISTS (SELECT 1 FROM source_content)
+      AND NOT template_missing.missing
       AND usage.used < sqlc.arg(quota)::integer
     RETURNING o.next_opening_number - 1 AS opening_number
 ), created AS (
@@ -401,6 +457,15 @@ WITH source AS (
         sqlc.arg(actor_id)
     FROM created CROSS JOIN source_content
     RETURNING org_opening_id
+), stages AS (
+    INSERT INTO vetchium.org_opening_stages (
+        org_opening_stage_id, org_opening_id, position, name, stage_kind
+    )
+    SELECT (sqlc.arg(stage_ids)::uuid[])[stage_source.position],
+        created.org_opening_id, stage_source.position, stage_source.name,
+        stage_source.stage_kind
+    FROM created CROSS JOIN stage_source
+    RETURNING org_opening_stage_id
 ), team AS (
     INSERT INTO vetchium.org_opening_team_members (
         org_opening_id, org_user_id
@@ -435,20 +500,22 @@ WITH source AS (
             'source_opening_number', sqlc.arg(duplicate_number),
             'action', 'duplicated', 'version', created.version,
             'changed_fields', jsonb_build_array('content', 'hiring_team',
-                'internal_notes'))
+                'internal_notes', 'pipeline'))
     FROM created
     RETURNING audit_event_id
 )
 SELECT usage.used,
     COALESCE((SELECT opening_state::text FROM source), '')::text
         AS source_state,
+    COALESCE(template_missing.missing, false)::boolean AS template_missing,
     COALESCE((SELECT opening_number FROM created), 0)::integer
         AS opening_number,
     (SELECT count(*) FROM content) AS content_rows,
+    (SELECT count(*) FROM stages) AS stage_rows,
     (SELECT count(*) FROM history) AS history_rows,
     (SELECT count(*) FROM audit) AS audit_rows,
     (SELECT count(*) FROM team) AS team_rows
-FROM usage;
+FROM usage CROSS JOIN template_missing;
 
 -- Used only after a guarded write affects no row, to choose its problem.
 -- name: GetOrgOpeningChangeState :one
@@ -661,6 +728,11 @@ WITH updated AS (
     USING updated
     WHERE tm.org_opening_id = updated.org_opening_id
     RETURNING tm.org_opening_id
+), removed_stages AS (
+    DELETE FROM vetchium.org_opening_stages AS s
+    USING updated
+    WHERE s.org_opening_id = updated.org_opening_id
+    RETURNING s.org_opening_stage_id
 ), history AS (
     INSERT INTO vetchium.org_opening_history (
         org_opening_history_id, org_opening_id, action,
@@ -682,7 +754,7 @@ WITH updated AS (
         jsonb_build_object('opening_number', updated.opening_number,
             'action', 'discarded', 'version', updated.version,
             'changed_fields', jsonb_build_array('state', 'working_content',
-                'team', 'internal_notes'))
+                'team', 'internal_notes', 'pipeline'))
     FROM updated
     RETURNING audit_event_id
 )

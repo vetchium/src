@@ -362,7 +362,7 @@ test("the last manager is warned about, and stopped from, removing their own acc
   await page.goto(`${isolatedTenantBaseURL()}/login`);
   await page
     .getByRole("textbox", { name: "Email address" })
-    .fill(`admin@${ISOLATED_TENANT}.example`);
+    .fill(`admin@${ISOLATED_TENANT}.test`);
   await page
     .getByLabel("Password", { exact: true })
     .fill(SEEDED_ADMIN_PASSWORD);
@@ -371,7 +371,7 @@ test("the last manager is warned about, and stopped from, removing their own acc
 
   const ownRow = page
     .getByRole("row")
-    .filter({ hasText: `admin@${ISOLATED_TENANT}.example` });
+    .filter({ hasText: `admin@${ISOLATED_TENANT}.test` });
   await ownRow.getByRole("button", { name: /Actions for/ }).click();
   await page.getByRole("menuitem", { name: "Manage access" }).click();
 

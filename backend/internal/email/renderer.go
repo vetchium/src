@@ -25,6 +25,20 @@ const (
 	SubscriptionEnding            Kind = "subscription-ending"
 	EmailChangeVerification       Kind = "email-change-verification"
 	EmailChanged                  Kind = "email-changed"
+	AgencyMessageReceived         Kind = "agency-message-received"
+
+	// Application notices (HP-GEN-006) name the Org and Opening title and
+	// link to the application; they carry no interview, offer, or result
+	// content.
+	ApplicationStatusChanged      Kind = "application-status-changed"
+	ApplicationInterviewScheduled Kind = "application-interview-scheduled"
+	ApplicationInterviewChanged   Kind = "application-interview-changed"
+	ApplicationInterviewCancelled Kind = "application-interview-cancelled"
+	ApplicationConsentRequested   Kind = "application-consent-requested"
+	ApplicationOfferExtended      Kind = "application-offer-extended"
+	ApplicationOfferWithdrawn     Kind = "application-offer-withdrawn"
+	ApplicationOfferExpiring      Kind = "application-offer-expiring"
+	ApplicationOfferExpired       Kind = "application-offer-expired"
 
 	OrgSignupDNSInstructions Kind = "org-signup-dns-instructions"
 	OrgSignupLink            Kind = "org-signup-link"
@@ -38,6 +52,12 @@ var hubKinds = []Kind{
 	Signup, SignupRegisteredElsewhere, PasswordReset,
 	ProfessionalEmailVerification, SubscriptionEnding,
 	EmailChangeVerification, EmailChanged,
+	AgencyMessageReceived,
+	ApplicationStatusChanged, ApplicationInterviewScheduled,
+	ApplicationInterviewChanged, ApplicationInterviewCancelled,
+	ApplicationConsentRequested, ApplicationOfferExtended,
+	ApplicationOfferWithdrawn, ApplicationOfferExpiring,
+	ApplicationOfferExpired,
 }
 
 var orgKinds = []Kind{
@@ -64,9 +84,17 @@ type TemplateData struct {
 	RecordValue  string
 	ReleaseAfter time.Time
 
+	// OrgName and OpeningTitle name the application an application notice
+	// is about. Unused by every other kind.
+	OrgName      string
+	OpeningTitle string
+
 	// RegionLabel names the tenant a signup-registered-elsewhere notice
 	// points the recipient at. Unused by every other kind.
 	RegionLabel string
+
+	// AgencyName names the agency that sent a message. Unused by every other kind.
+	AgencyName string
 }
 
 type Message struct {

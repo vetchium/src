@@ -1,6 +1,23 @@
 import { randomBytes } from "node:crypto";
 import type { APIRequestContext, APIResponse } from "@playwright/test";
 import type {
+  AcceptInterviewRequest,
+  ApplyToOpeningRequest,
+  BackgroundCheckConsentRequest,
+  GetMyApplicationRequest,
+  ListMyApplicationsRequest,
+  RequestInterviewRescheduleRequest,
+  RespondToOfferRequest,
+  WithdrawApplicationRequest,
+} from "typespec/hub/applications/applications";
+import type {
+  DeleteConversationRequest,
+  GetConversationRequest as HubGetConversationRequest,
+  MarkConversationReadRequest as HubMarkConversationReadRequest,
+  ListConversationsRequest,
+  ReplyToConversationRequest,
+} from "typespec/hub/messages/messages";
+import type {
   GetOrgOpeningRequest,
   ListOrgOpeningsRequest,
 } from "typespec/hub/openings/public";
@@ -116,6 +133,88 @@ export class HubAPI {
     token: string,
   ): Promise<APIResponse> {
     return this.post("/get-org-opening", body, { token });
+  }
+
+  applyToOpening(
+    body: ApplyToOpeningRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post("/apply-to-opening", body, options);
+  }
+
+  withdrawApplication(
+    body: WithdrawApplicationRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post("/withdraw-application", body, options);
+  }
+
+  acceptApplicationOffer(
+    body: RespondToOfferRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post("/accept-application-offer", body, options);
+  }
+
+  declineApplicationOffer(
+    body: RespondToOfferRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post("/decline-application-offer", body, options);
+  }
+
+  acceptApplicationInterview(
+    body: AcceptInterviewRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post("/accept-application-interview", body, options);
+  }
+
+  giveApplicationBackgroundCheckConsent(
+    body: BackgroundCheckConsentRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post(
+      "/give-application-background-check-consent",
+      body,
+      options,
+    );
+  }
+
+  declineApplicationBackgroundCheckConsent(
+    body: BackgroundCheckConsentRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post(
+      "/decline-application-background-check-consent",
+      body,
+      options,
+    );
+  }
+
+  requestApplicationInterviewReschedule(
+    body: RequestInterviewRescheduleRequest,
+    options: { token: string; idempotencyKey: string },
+  ): Promise<APIResponse> {
+    return this.post(
+      "/request-application-interview-reschedule",
+      body,
+      options,
+    );
+  }
+
+  listMyApplications(
+    body: ListMyApplicationsRequest,
+    token: string,
+  ): Promise<APIResponse> {
+    return this.post("/list-my-applications", body, { token });
+  }
+
+  getMyApplication(
+    body: GetMyApplicationRequest,
+    token: string,
+  ): Promise<APIResponse> {
+    return this.post("/get-my-application", body, { token });
   }
 
   setPublicFields(
@@ -283,5 +382,59 @@ export class HubAPI {
     return typeof body === "string"
       ? this.postRaw("/set-subscription-plan", body, options)
       : this.post("/set-subscription-plan", body, options);
+  }
+
+  listConversations(
+    token: string,
+    request: ListConversationsRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-conversations", request, { token });
+  }
+
+  getConversation(
+    token: string,
+    request: HubGetConversationRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-conversation", request, { token });
+  }
+
+  replyToConversation(
+    token: string,
+    request: ReplyToConversationRequest,
+    idempotencyKey: string = hubIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/reply-to-conversation", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  deleteConversation(
+    token: string,
+    request: DeleteConversationRequest,
+    idempotencyKey: string = hubIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/delete-conversation", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  markConversationRead(
+    token: string,
+    request: HubMarkConversationReadRequest,
+  ): Promise<APIResponse> {
+    return this.post("/mark-conversation-read", request, { token });
+  }
+
+  setAgenciesMayMessage(
+    token: string,
+    request: { agencies_may_message: boolean },
+  ): Promise<APIResponse> {
+    return this.post("/set-agencies-may-message", request, { token });
+  }
+
+  myInfo(token: string): Promise<APIResponse> {
+    return this.get("/my-info", token);
   }
 }

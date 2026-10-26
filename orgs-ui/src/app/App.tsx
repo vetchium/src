@@ -1,13 +1,20 @@
 import { Spin } from "antd";
-import { lazy, Suspense } from "react";
+import { Fragment, lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import {
+  FulfilEngagements,
   ManageAI,
   ManageBilling,
+  ManageListings,
   ManageOpenings,
+  ManageProviders,
   ManageUsers,
   Superadmin,
 } from "typespec/orgs/authorization/types";
+import {
+  capabilityStageKind,
+  capabilityValues,
+} from "typespec/orgs/marketplace/capabilities";
 import { AppShell } from "../components/common/AppShell";
 import {
   ActiveOrgRoute,
@@ -49,15 +56,111 @@ const OpeningsPage = lazy(() =>
     default: OpeningsPage,
   })),
 );
+const MyInterviewsPage = lazy(() =>
+  import("../pages/MyInterviewsPage").then(({ MyInterviewsPage }) => ({
+    default: MyInterviewsPage,
+  })),
+);
 const OpeningDetailPage = lazy(() =>
   import("../pages/OpeningDetailPage").then(({ OpeningDetailPage }) => ({
     default: OpeningDetailPage,
   })),
 );
+const ApplicationDetailPage = lazy(() =>
+  import("../pages/ApplicationDetailPage").then(
+    ({ ApplicationDetailPage }) => ({ default: ApplicationDetailPage }),
+  ),
+);
 const OpeningEditorPage = lazy(() =>
   import("../pages/OpeningEditorPage").then(({ OpeningEditorPage }) => ({
     default: OpeningEditorPage,
   })),
+);
+const PipelineTemplatesPage = lazy(() =>
+  import("../pages/PipelineTemplatesPage").then(
+    ({ PipelineTemplatesPage }) => ({
+      default: PipelineTemplatesPage,
+    }),
+  ),
+);
+const FindProvidersPage = lazy(() =>
+  import("../pages/FindProvidersPage").then(({ FindProvidersPage }) => ({
+    default: FindProvidersPage,
+  })),
+);
+const ListingDetailPage = lazy(() =>
+  import("../pages/ListingDetailPage").then(({ ListingDetailPage }) => ({
+    default: ListingDetailPage,
+  })),
+);
+const EngagementDetailPage = lazy(() =>
+  import("../pages/EngagementDetailPage").then(({ EngagementDetailPage }) => ({
+    default: EngagementDetailPage,
+  })),
+);
+const ListingsPage = lazy(() =>
+  import("../pages/ListingsPage").then(({ ListingsPage }) => ({
+    default: ListingsPage,
+  })),
+);
+const ListingEditorPage = lazy(() =>
+  import("../pages/ListingEditorPage").then(({ ListingEditorPage }) => ({
+    default: ListingEditorPage,
+  })),
+);
+const ClientsPage = lazy(() =>
+  import("../pages/ClientsPage").then(({ ClientsPage }) => ({
+    default: ClientsPage,
+  })),
+);
+const ClientEngagementDetailPage = lazy(() =>
+  import("../pages/ClientEngagementDetailPage").then(
+    ({ ClientEngagementDetailPage }) => ({
+      default: ClientEngagementDetailPage,
+    }),
+  ),
+);
+const WorkQueuePage = lazy(() =>
+  import("../pages/WorkQueuePage").then(({ WorkQueuePage }) => ({
+    default: WorkQueuePage,
+  })),
+);
+const WorkItemDetailPage = lazy(() =>
+  import("../pages/WorkItemDetailPage").then(({ WorkItemDetailPage }) => ({
+    default: WorkItemDetailPage,
+  })),
+);
+const JobsPage = lazy(() =>
+  import("../pages/JobsPage").then(({ JobsPage }) => ({
+    default: JobsPage,
+  })),
+);
+const JobDetailPage = lazy(() =>
+  import("../pages/JobDetailPage").then(({ JobDetailPage }) => ({
+    default: JobDetailPage,
+  })),
+);
+const ContactsPage = lazy(() =>
+  import("../pages/ContactsPage").then(({ ContactsPage }) => ({
+    default: ContactsPage,
+  })),
+);
+const ContactDetailPage = lazy(() =>
+  import("../pages/ContactDetailPage").then(({ ContactDetailPage }) => ({
+    default: ContactDetailPage,
+  })),
+);
+const NewContactPage = lazy(() =>
+  import("../pages/NewContactPage").then(({ NewContactPage }) => ({
+    default: NewContactPage,
+  })),
+);
+const CreditedApplicationsPage = lazy(() =>
+  import("../pages/CreditedApplicationsPage").then(
+    ({ CreditedApplicationsPage }) => ({
+      default: CreditedApplicationsPage,
+    }),
+  ),
 );
 const OpeningEditor = lazy(() =>
   import("../features/openings/OpeningEditor").then(({ OpeningEditor }) => ({
@@ -126,6 +229,10 @@ const TwoFactorPage = lazy(() =>
   import("../pages/TwoFactorPage").then(({ TwoFactorPage }) => ({
     default: TwoFactorPage,
   })),
+);
+
+const stageCapabilities = capabilityValues.filter(
+  (capability) => capabilityStageKind(capability) !== undefined,
 );
 
 function Page({ children }: { children: React.ReactNode }) {
@@ -274,10 +381,26 @@ export function App() {
               }
             />
             <Route
+              path={paths.myInterviews}
+              element={
+                <Page>
+                  <MyInterviewsPage />
+                </Page>
+              }
+            />
+            <Route
               path="/openings/:number"
               element={
                 <Page>
                   <OpeningDetailPage />
+                </Page>
+              }
+            />
+            <Route
+              path="/openings/:number/applications/:application"
+              element={
+                <Page>
+                  <ApplicationDetailPage />
                 </Page>
               }
             />
@@ -295,6 +418,161 @@ export function App() {
                 element={
                   <Page>
                     <OpeningEditorPage />
+                  </Page>
+                }
+              />
+            </Route>
+            <Route element={<PermissionRoute permission={ManageOpenings} />}>
+              <Route
+                path={paths.pipelineTemplates}
+                element={
+                  <Page>
+                    <PipelineTemplatesPage />
+                  </Page>
+                }
+              />
+            </Route>
+            <Route element={<PermissionRoute permission={ManageProviders} />}>
+              <Route
+                path={paths.findProviders}
+                element={
+                  <Page>
+                    <FindProvidersPage />
+                  </Page>
+                }
+              />
+              <Route
+                path="/providers/listings/:domain/:capability"
+                element={
+                  <Page>
+                    <ListingDetailPage />
+                  </Page>
+                }
+              />
+              <Route
+                path="/providers/engagements/:id"
+                element={
+                  <Page>
+                    <EngagementDetailPage />
+                  </Page>
+                }
+              />
+            </Route>
+            <Route element={<PermissionRoute permission={ManageListings} />}>
+              <Route
+                path={paths.listings}
+                element={
+                  <Page>
+                    <ListingsPage />
+                  </Page>
+                }
+              />
+              <Route
+                path="/listings/:capability"
+                element={
+                  <Page>
+                    <ListingEditorPage />
+                  </Page>
+                }
+              />
+              {/* Keyed so a page never carries one Capability's filters or
+                  pages into another's. */}
+              {capabilityValues.map((capability) => (
+                <Fragment key={capability}>
+                  <Route
+                    path={paths.clients(capability)}
+                    element={
+                      <Page>
+                        <ClientsPage key={capability} capability={capability} />
+                      </Page>
+                    }
+                  />
+                  <Route
+                    path={`${paths.clients(capability)}/:id`}
+                    element={
+                      <Page>
+                        <ClientEngagementDetailPage
+                          key={capability}
+                          capability={capability}
+                        />
+                      </Page>
+                    }
+                  />
+                </Fragment>
+              ))}
+            </Route>
+            <Route element={<PermissionRoute permission={FulfilEngagements} />}>
+              {stageCapabilities.map((capability) => (
+                <Fragment key={capability}>
+                  <Route
+                    path={paths.workQueue(capability)}
+                    element={
+                      <Page>
+                        <WorkQueuePage
+                          key={capability}
+                          capability={capability}
+                        />
+                      </Page>
+                    }
+                  />
+                  <Route
+                    path={`${paths.workQueue(capability)}/:engagementId/:workId`}
+                    element={
+                      <Page>
+                        <WorkItemDetailPage
+                          key={capability}
+                          capability={capability}
+                        />
+                      </Page>
+                    }
+                  />
+                </Fragment>
+              ))}
+              <Route
+                path={paths.jobs}
+                element={
+                  <Page>
+                    <JobsPage />
+                  </Page>
+                }
+              />
+              <Route
+                path={`${paths.jobs}/:engagement_id/:opening_number`}
+                element={
+                  <Page>
+                    <JobDetailPage />
+                  </Page>
+                }
+              />
+              <Route
+                path={paths.contacts}
+                element={
+                  <Page>
+                    <ContactsPage />
+                  </Page>
+                }
+              />
+              <Route
+                path={paths.newContact}
+                element={
+                  <Page>
+                    <NewContactPage />
+                  </Page>
+                }
+              />
+              <Route
+                path={`${paths.contacts}/:id`}
+                element={
+                  <Page>
+                    <ContactDetailPage />
+                  </Page>
+                }
+              />
+              <Route
+                path={paths.creditedApplications}
+                element={
+                  <Page>
+                    <CreditedApplicationsPage />
                   </Page>
                 }
               />

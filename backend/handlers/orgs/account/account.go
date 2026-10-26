@@ -12,6 +12,7 @@ import (
 	"github.com/vetchium/src/typespec/orgs"
 	orgsaccount "github.com/vetchium/src/typespec/orgs/account"
 	"github.com/vetchium/src/typespec/orgs/authorization"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/subscriptions"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
@@ -42,6 +43,12 @@ func MyInfo(s *orgsruntime.Server) http.HandlerFunc {
 				permissions, authorization.OrgPermissionID(permission),
 			)
 		}
+		capabilities := make(
+			[]marketplace.Capability, 0, len(info.MarketplaceCapabilities),
+		)
+		for _, capability := range info.MarketplaceCapabilities {
+			capabilities = append(capabilities, marketplace.Capability(capability))
+		}
 		plan := subscriptions.PlanOID(info.OrgPlanOid)
 		logoURL, err := logoReadURL(r.Context(), s, identity.OrgDID)
 		if err != nil {
@@ -62,6 +69,7 @@ func MyInfo(s *orgsruntime.Server) http.HandlerFunc {
 			LogoURL:                logoURL,
 			GoogleSignInEnabled: info.GoogleSignInEnabled &&
 				plan == subscriptions.PlanOID(subscriptions.GoldTier),
+			Marketplace: orgsaccount.MarketplaceRoles{Capabilities: capabilities},
 		})
 	}
 }

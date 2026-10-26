@@ -42,6 +42,7 @@ type Config struct {
 	OrgsAPIServer         OrgsAPIServer
 	OrgDomainVerification OrgDomainVerification
 	OrgBilling            OrgBilling
+	Marketplace           Marketplace
 	MCPServer             Server
 	// AI is nil when the tenant offers no AI.
 	AI *AI
@@ -78,8 +79,15 @@ type Workers struct {
 	HubEmailMaxAttempts          int
 	AdvanceHubSubscriptionsTimer time.Duration
 	ExpireOrgOpeningsTimer       time.Duration
+	ExpireOrgEngagementsTimer    time.Duration
+	ExpireApplicationOffersTimer time.Duration
+	RetainApplicationsTimer      time.Duration
+	RetainOrgContactsTimer       time.Duration
+	RefreshHubApplicationsTimer  time.Duration
 	ReconcileHubSignupTimer      time.Duration
 	ReconcileHubEmailChangeTimer time.Duration
+	DriveFederationCommandsTimer time.Duration
+	DeliverFederationEventsTimer time.Duration
 	DeliverOrgEmailTimer         time.Duration
 	OrgEmailLeaseTTL             time.Duration
 	OrgEmailMaxAttempts          int
@@ -144,6 +152,10 @@ type OrgDomainVerification struct {
 	FailingGracePeriod   time.Duration
 	InconclusiveRetry    time.Duration
 	InconclusiveLimit    time.Duration
+}
+
+type Marketplace struct {
+	DeletedPartyConversationRetention time.Duration
 }
 
 type ObjectStorage struct {
@@ -222,8 +234,13 @@ type fileConfig struct {
 	OrgsAPIServer         *fileOrgsAPIServer         `json:"orgsAPIServer"`
 	OrgDomainVerification *fileOrgDomainVerification `json:"orgDomainVerification"`
 	OrgBilling            *fileOrgBilling            `json:"orgBilling"`
+	Marketplace           *fileMarketplace           `json:"marketplace"`
 	MCPServer             *Server                    `json:"mcpServer"`
 	AI                    *fileAI                    `json:"ai"`
+}
+
+type fileMarketplace struct {
+	DeletedPartyConversationRetention string `json:"deletedPartyConversationRetention"`
 }
 
 type fileGlobalCoordinator struct {
@@ -275,8 +292,15 @@ type fileWorkers struct {
 	HubEmailMaxAttempts          int    `json:"hubEmailMaxAttempts"`
 	AdvanceHubSubscriptionsTimer string `json:"advanceHubSubscriptionsTimer"`
 	ExpireOrgOpeningsTimer       string `json:"expireOrgOpeningsTimer"`
+	ExpireOrgEngagementsTimer    string `json:"expireOrgEngagementsTimer"`
+	ExpireApplicationOffersTimer string `json:"expireApplicationOffersTimer"`
+	RetainApplicationsTimer      string `json:"retainApplicationsTimer"`
+	RetainOrgContactsTimer       string `json:"retainOrgContactsTimer"`
+	RefreshHubApplicationsTimer  string `json:"refreshHubApplicationsTimer"`
 	ReconcileHubSignupTimer      string `json:"reconcileHubSignupTimer"`
 	ReconcileHubEmailChangeTimer string `json:"reconcileHubEmailChangeTimer"`
+	DriveFederationCommandsTimer string `json:"driveFederationCommandsTimer"`
+	DeliverFederationEventsTimer string `json:"deliverFederationEventsTimer"`
 	DeliverOrgEmailTimer         string `json:"deliverOrgEmailTimer"`
 	OrgEmailLeaseTTL             string `json:"orgEmailLeaseTTL"`
 	OrgEmailMaxAttempts          int    `json:"orgEmailMaxAttempts"`
@@ -665,6 +689,38 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	expireOrgEngagementsTimer, err := positiveDuration(
+		"workers.expireOrgEngagementsTimer", raw.Workers.ExpireOrgEngagementsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	expireApplicationOffersTimer, err := positiveDuration(
+		"workers.expireApplicationOffersTimer",
+		raw.Workers.ExpireApplicationOffersTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	retainApplicationsTimer, err := positiveDuration(
+		"workers.retainApplicationsTimer", raw.Workers.RetainApplicationsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	retainOrgContactsTimer, err := positiveDuration(
+		"workers.retainOrgContactsTimer", raw.Workers.RetainOrgContactsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	refreshHubApplicationsTimer, err := positiveDuration(
+		"workers.refreshHubApplicationsTimer",
+		raw.Workers.RefreshHubApplicationsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	reconcileHubSignupTimer, err := positiveDuration(
 		"workers.reconcileHubSignupTimer",
 		raw.Workers.ReconcileHubSignupTimer,
@@ -679,11 +735,35 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	driveFederationCommandsTimer, err := positiveDuration(
+		"workers.driveFederationCommandsTimer",
+		raw.Workers.DriveFederationCommandsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	deliverFederationEventsTimer, err := positiveDuration(
+		"workers.deliverFederationEventsTimer",
+		raw.Workers.DeliverFederationEventsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	orgWorkers, err := parseOrgWorkers(raw.Workers)
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
 	smtp, err := parseSMTP(*raw.SMTP)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
+	if raw.Marketplace == nil {
+		return Config{}, configError(path, fmt.Errorf("missing marketplace"))
+	}
+	deletedPartyConversationRetention, err := positiveDuration(
+		"marketplace.deletedPartyConversationRetention",
+		raw.Marketplace.DeletedPartyConversationRetention,
+	)
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
@@ -733,8 +813,15 @@ func LoadFile(path string) (Config, error) {
 			HubEmailMaxAttempts:          raw.Workers.HubEmailMaxAttempts,
 			AdvanceHubSubscriptionsTimer: advanceHubSubscriptionsTimer,
 			ExpireOrgOpeningsTimer:       expireOrgOpeningsTimer,
+			ExpireOrgEngagementsTimer:    expireOrgEngagementsTimer,
+			ExpireApplicationOffersTimer: expireApplicationOffersTimer,
+			RetainApplicationsTimer:      retainApplicationsTimer,
+			RetainOrgContactsTimer:       retainOrgContactsTimer,
+			RefreshHubApplicationsTimer:  refreshHubApplicationsTimer,
 			ReconcileHubSignupTimer:      reconcileHubSignupTimer,
 			ReconcileHubEmailChangeTimer: reconcileHubEmailChangeTimer,
+			DriveFederationCommandsTimer: driveFederationCommandsTimer,
+			DeliverFederationEventsTimer: deliverFederationEventsTimer,
 			DeliverOrgEmailTimer:         orgWorkers.DeliverOrgEmailTimer,
 			OrgEmailLeaseTTL:             orgWorkers.OrgEmailLeaseTTL,
 			OrgEmailMaxAttempts:          orgWorkers.OrgEmailMaxAttempts,
@@ -758,8 +845,11 @@ func LoadFile(path string) (Config, error) {
 		OrgsAPIServer:         orgsAPIServer,
 		OrgDomainVerification: orgDomainVerification,
 		OrgBilling:            orgBilling,
-		AI:                    aiConfig,
-		MCPServer:             Server{},
+		Marketplace: Marketplace{
+			DeletedPartyConversationRetention: deletedPartyConversationRetention,
+		},
+		AI:        aiConfig,
+		MCPServer: Server{},
 	}, nil
 }
 

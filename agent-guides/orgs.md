@@ -128,9 +128,10 @@ invariant).
   completion and re-verification ignore it.
 - Every other name gets the real lookup. Development and CI publish records in
   the `dns-dev` server under the reserved zones `example`, `example.com`, and
-  `test` (`playwright/lib/dev-dns.ts`, `make dev-seed-orgs`). Seeds use
-  `<tenant>.example.com`; tests that need a real lookup use the default
-  `uniqueOrgDomain()`, a unique `*.example.com`.
+  `test` (`playwright/lib/dev-dns.ts`). Seeds use `.test` names
+  (`org1.<tenant>.test`), which `trustReservedDomains` accepts without a
+  record; tests that need a real lookup use the default `uniqueOrgDomain()`,
+  a unique `*.example.com`.
 - `cmd/doh-dev` (`internal/devdoh`) forwards RFC 8484 GET queries to `dns-dev`
   over TCP for browsers, at `doh.vetchium.localhost` through the edge. It is
   never published or deployed.
@@ -217,8 +218,9 @@ by the `workers` schedule and check-now.
 - Org authorization follows the shared model in
   [`authorization.md`](authorization.md). The catalog holds `org:superadmin`,
   `org:manage_users`, `org:manage_billing`, `org:manage_ai`,
-  `org:view_openings`, `org:manage_openings`, and `org:approve_openings`. The
-  superadmin implies
+  `org:view_openings`, `org:manage_openings`, `org:approve_openings`,
+  `org:manage_candidacies`, `org:manage_providers`, `org:manage_listings`, and
+  `org:fulfil_engagements`. The superadmin implies
   every other permission; manage and approve Openings each imply view.
 - Org plans are seeded rows identified by plan OIDs, identical in every tenant.
   A new Org starts on `org-free-tier`. Plans, billing, seats, user management,
@@ -237,9 +239,14 @@ by the `workers` schedule and check-now.
   step, Google sign-in and its callback, forgot and reset password, the
   signed-in shell, account security, the failing banner, and the suspended
   (restore-domain) screen, plus members and invitations, plans and billing,
-  Company (name, country, default language, and logo), Organization security (Google sign-in),
-  Openings lists, editing (with Draft with AI), requests, approvals, and
-  history, and AI (settings, credits, and usage; [`ai.md`](ai.md)).
+  Company (name, country, default language, and logo), Organization security
+  (Google sign-in), Openings lists, editing (with Draft with AI), requests,
+  approvals, and history, pipeline templates, Applicants, Candidates, and
+  application detail (interviews, feedback, assessments, background checks,
+  offers, joining), Find providers, engagements, Opening providers, and routing,
+  Listings, Clients, and Work queue, agency Jobs, Contacts (notes and
+  conversations), and Credited applications, and AI (settings, credits, and
+  usage; [`ai.md`](ai.md)).
 - The Company page edits the display name, country, and default language in
   one `set-company-details` request (`org:superadmin`). It replaces all three,
   writes no row and no audit event when nothing changed, and otherwise audits

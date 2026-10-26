@@ -1,7 +1,7 @@
 {
   "users": [
     {
-      "email": "maithili@ind1.example",
+      "email": "maithili@ind1.test",
       "displayName": "Maithili",
       "preferredLanguage": "en-US",
       "residentCountry": "IN",
@@ -31,7 +31,7 @@
       ]
     },
     {
-      "email": "rohan.verma@ind1.example",
+      "email": "rohan.verma@ind1.test",
       "displayName": "Rohan Verma",
       "preferredLanguage": "en-US",
       "residentCountry": "IN",
@@ -80,7 +80,7 @@
       ]
     },
     {
-      "email": "vaidehi@ind1.example",
+      "email": "vaidehi@ind1.test",
       "displayName": "Vaidehi",
       "preferredLanguage": "ta",
       "residentCountry": "IN",
@@ -111,7 +111,7 @@
       ]
     },
     {
-      "email": "arjun.nair@ind1.example",
+      "email": "arjun.nair@ind1.test",
       "displayName": "Arjun Nair",
       "preferredLanguage": "en-US",
       "residentCountry": "IN",
@@ -161,7 +161,7 @@
       ]
     },
     {
-      "email": "anjali@ind1.example",
+      "email": "anjali@ind1.test",
       "displayName": "Anjali",
       "preferredLanguage": "en-US",
       "residentCountry": "IN",
@@ -191,7 +191,7 @@
       ]
     },
     {
-      "email": "vikram.malhotra@ind1.example",
+      "email": "vikram.malhotra@ind1.test",
       "displayName": "Vikram Malhotra",
       "preferredLanguage": "en-US",
       "residentCountry": "IN",
@@ -246,7 +246,7 @@
       ]
     },
     {
-      "email": "geetha@ind1.example",
+      "email": "geetha@ind1.test",
       "displayName": "Geetha",
       "preferredLanguage": "ta",
       "residentCountry": "IN",
@@ -273,7 +273,7 @@
       ]
     },
     {
-      "email": "rahul.gupta@ind1.example",
+      "email": "rahul.gupta@ind1.test",
       "displayName": "Rahul Gupta",
       "preferredLanguage": "en-US",
       "residentCountry": "IN",

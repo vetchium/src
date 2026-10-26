@@ -119,3 +119,14 @@ func TestTimestampNormalizesToUTC(t *testing.T) {
 		t.Fatalf("time = %v, want 06:30 UTC", got.Time)
 	}
 }
+
+func TestJobKeyMatchesTheQueryFormat(t *testing.T) {
+	t.Parallel()
+	id, err := ParseUUID("0190F3A4-1C2B-7D3E-8F40-5A6B7C8D9E0F")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := JobKey(id, 42), "0190f3a4-1c2b-7d3e-8f40-5a6b7c8d9e0f/42"; got != want {
+		t.Fatalf("JobKey() = %q, want %q", got, want)
+	}
+}

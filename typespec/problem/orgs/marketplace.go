@@ -1,0 +1,223 @@
+package orgs
+
+import "github.com/vetchium/src/typespec/problem"
+
+var ListingPlanRequiredError = problem.Details{
+	Type:   "vetchium-problem-details/org-listing-plan-required",
+	Title:  "Org Listing plan required",
+	Status: 403,
+	Detail: "The Org's plan does not allow marketplace Listings",
+}
+
+var ListingNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-listing-not-found",
+	Title:  "Org Listing not found",
+	Status: 404,
+	Detail: "No Listing is readable for the requested provider and Capability",
+}
+
+var ListingExistsError = problem.Details{
+	Type:   "vetchium-problem-details/org-listing-exists",
+	Title:  "Org Listing exists",
+	Status: 409,
+	Detail: "The Org already has a Listing for this Capability",
+}
+
+var ListingVersionConflictError = problem.Details{
+	Type:   "vetchium-problem-details/org-listing-version-conflict",
+	Title:  "Org Listing version conflict",
+	Status: 409,
+	Detail: "The Listing changed since it was read",
+}
+
+var ListingStateConflictError = problem.Details{
+	Type:   "vetchium-problem-details/org-listing-state-conflict",
+	Title:  "Org Listing state conflict",
+	Status: 409,
+	Detail: "The Listing's state does not allow this action",
+}
+
+var TenantUnavailableError = problem.Details{
+	Type:   "vetchium-problem-details/org-tenant-unavailable",
+	Title:  "Org tenant unavailable",
+	Status: 503,
+	Detail: "The tenant that holds the requested data did not answer in time",
+}
+
+var ListingNotAvailableError = problem.Details{
+	Type:   "vetchium-problem-details/org-listing-not-available",
+	Title:  "Org Listing not available",
+	Status: 409,
+	Detail: "The Listing is not listed or its provider cannot take engagements",
+}
+
+var EngagementExistsError = problem.Details{
+	Type:   "vetchium-problem-details/org-engagement-exists",
+	Title:  "Org engagement exists",
+	Status: 409,
+	Detail: "A non-terminal engagement exists for the provider and Capability",
+}
+
+var EngagementSelfError = problem.Details{
+	Type:   "vetchium-problem-details/org-engagement-self",
+	Title:  "Org engagement with itself",
+	Status: 422,
+	Detail: "An Org cannot engage itself",
+}
+
+var EngagementNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-engagement-not-found",
+	Title:  "Org engagement not found",
+	Status: 404,
+	Detail: "No engagement with the requested id involves the Org",
+}
+
+var EngagementStateConflictError = problem.Details{
+	Type:   "vetchium-problem-details/org-engagement-state-conflict",
+	Title:  "Org engagement state conflict",
+	Status: 409,
+	Detail: "The engagement's state does not allow this action",
+}
+
+var EngagementVersionConflictError = problem.Details{
+	Type:   "vetchium-problem-details/org-engagement-version-conflict",
+	Title:  "Org engagement version conflict",
+	Status: 409,
+	Detail: "The engagement changed since it was read",
+}
+
+var AssignmentExistsError = problem.Details{
+	Type:   "vetchium-problem-details/org-assignment-exists",
+	Title:  "Org assignment exists",
+	Status: 409,
+	Detail: "The engagement is already assigned there",
+}
+
+var AssignmentNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-assignment-not-found",
+	Title:  "Org assignment not found",
+	Status: 404,
+	Detail: "The engagement is not assigned there",
+}
+
+type AssignmentLimitReachedDetails struct {
+	problem.Details
+	Limit int32 `json:"limit"`
+}
+
+func AssignmentLimitReachedError(limit int32) AssignmentLimitReachedDetails {
+	return AssignmentLimitReachedDetails{
+		Details: problem.Details{
+			Type:   "vetchium-problem-details/org-assignment-limit-reached",
+			Title:  "Org assignment limit reached",
+			Status: 409,
+			Detail: "No more engagements may be assigned there",
+		},
+		Limit: limit,
+	}
+}
+
+var EngagementCapabilityMismatchError = problem.Details{
+	Type:   "vetchium-problem-details/org-engagement-capability-mismatch",
+	Title:  "Org engagement Capability mismatch",
+	Status: 422,
+	Detail: "The engagement's Capability does not perform the stage kind",
+}
+
+var EngagementWorkNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-engagement-work-not-found",
+	Title:  "Org engagement work not found",
+	Status: 404,
+	Detail: "The work item is not accessible to the provider",
+}
+
+var HubUserNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-hub-user-not-found",
+	Title:  "Org Hub user not found",
+	Status: 404,
+	Detail: "No Hub user has that handle or alias",
+}
+
+var ContactLimitReachedError = problem.Details{
+	Type:   "vetchium-problem-details/org-contact-limit-reached",
+	Title:  "Org Contact limit reached",
+	Status: 429,
+	Detail: "The agency reached its limit of new Contacts for today",
+}
+
+var ContactNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-contact-not-found",
+	Title:  "Org Contact not found",
+	Status: 404,
+	Detail: "No Contact of the agency has that identifier",
+}
+
+var ContactNoteLimitReachedError = problem.Details{
+	Type:   "vetchium-problem-details/org-contact-note-limit-reached",
+	Title:  "Org Contact note limit reached",
+	Status: 409,
+	Detail: "The Contact already has the most notes it may hold",
+}
+
+var ContactNoteNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-contact-note-not-found",
+	Title:  "Org Contact note not found",
+	Status: 404,
+	Detail: "No note of the Contact has that identifier",
+}
+
+var ContactNoteNotAuthorError = problem.Details{
+	Type:   "vetchium-problem-details/org-contact-note-not-author",
+	Title:  "Org Contact note not author",
+	Status: 403,
+	Detail: "Only the author edits a note",
+}
+
+var JobOwnerInvalidError = problem.Details{
+	Type:   "vetchium-problem-details/org-job-owner-invalid",
+	Title:  "Org Job owner invalid",
+	Status: 422,
+	Detail: "The owner is not an active user of the agency holding org:fulfil_engagements",
+}
+
+var JobOwnerLimitReachedError = problem.Details{
+	Type:   "vetchium-problem-details/org-job-owner-limit-reached",
+	Title:  "Org Job owner limit reached",
+	Status: 409,
+	Detail: "The owner already looks after the most Jobs one user may",
+}
+
+var JobOwnerVersionConflictError = problem.Details{
+	Type:   "vetchium-problem-details/org-job-owner-version-conflict",
+	Title:  "Org Job owner version conflict",
+	Status: 409,
+	Detail: "The Job's owner changed since it was read",
+}
+
+var ConversationLimitReachedError = problem.Details{
+	Type:   "vetchium-problem-details/org-conversation-limit-reached",
+	Title:  "Org conversation limit reached",
+	Status: 429,
+	Detail: "The agency reached its limit of new conversations for today",
+}
+
+var ConversationNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-conversation-not-found",
+	Title:  "Org conversation not found",
+	Status: 404,
+	Detail: "No conversation of the agency has that identifier",
+}
+
+var AgencyMessagesOffError = problem.Details{
+	Type:   "vetchium-problem-details/org-agency-messages-off",
+	Title:  "Org agency messages off",
+	Status: 403,
+	Detail: "The Hub user does not accept messages from agencies",
+}
+
+var ConversationPartyDeletedError = problem.Details{
+	Type:   "vetchium-problem-details/org-conversation-party-deleted",
+	Title:  "Org conversation party deleted",
+	Status: 409,
+	Detail: "The Hub user's account no longer exists",
+}

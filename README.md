@@ -14,14 +14,14 @@ regions; the user picks the region at sign-in.
 
 ## Requirements
 
-Docker with Compose, GNU Make, Go 1.27, Node.js 22.13 or newer. Optional:
+Docker with Compose, GNU Make, Go 1.27.3, Node.js 22.13 or newer. Optional:
 [Tilt](https://tilt.dev).
 
 ## Run locally
 
 ```bash
 make dev        # clean, then start the full stack with all four regions
-make dev-seed   # clean, start the stack, then seed Hub users and Orgs
+make dev-seed   # clean, start the stack, then seed Hub users, Orgs, and marketplace
 make clean      # stop everything and delete volumes and dev secrets
 ```
 
@@ -77,44 +77,32 @@ If a draft fails, `docker model logs` shows Model Runner's reason. Rerun
 
 ## Seeded accounts
 
-Every seeded account uses the password `DevPassword123$`.
+`make dev-seed` ends by printing every seeded account with its portal link,
+read back from each region's database, so the list always matches what was
+seeded. `make dev-accounts` prints it again on a running stack. Every account
+uses the password `DevPassword123$`.
 
-Admin portal, in every region (`<region>` is `sgp`, `usa1`, `deu`, or `ind1`):
+The seeds give each region (`sgp`, `usa1`, `deu`, `ind1`) Admin users with
+each combination of access and state, eight Hub users
+(`dev/hub-seed-profiles/<region>.json`), three hiring companies
+(`org1`–`org3.<region>.test`, one per plan, with Openings and applications in
+every state), two staffing agencies (`age1`, a client of every hiring company
+in every region with Jobs spread across `agent1@`… owners; `age2`, for its
+own region), and one interviewing, assessment, and background-verification
+provider each (`itv1`, `asm1`, `bgv1`) with routed work.
 
-| Email | Access | State |
-| --- | --- | --- |
-| `admin@<region>.example` | every Admin permission | active |
-| `manager@<region>.example` (not in `deu`) | manage users, manage Hub signup domains | active |
-| `viewer@<region>.example` | view users | active |
-| `newcomer@<region>.example` | none | active |
-| `retired@<region>.example` | view users | disabled |
-
-Hub portal: eight users per region, listed in `dev/hub-seed-profiles/<region>.json`
-(for example `wei.tan@sgp.example`). Half are on the Silver plan with full
-profiles and pictures; half are on the free plan. Sign in with the matching
-region selected.
-
-Orgs portal: three Orgs per region, one on each plan: `<region>.example.com`
-(Free), `silver.<region>.example.com`, and `gold.<region>.example.com`. Each has
-`admin@` (Superadmin), `finance@` (Finance), `users@` (User manager),
-`recruiter@` (Opening manager), and `approver@` (Opening approver) at its
-domain. Silver and Gold also have `member@`; the Free plan's five seats are
-filled by the other accounts. Each Org has ten Openings covering drafts,
-published, paused, closed, and pending changes. A paid Org is on its plan
-with a simulated card. The Gold Org has AI turned on, its monthly AI credits,
-and one purchased credit pack.
-
-Hub signup accepts addresses at `<region>.example`; `sgp` also accepts
-`test1.example` to `test100.example`. Signup and reset emails arrive in Mailpit.
+Every seeded address ends in `.test`, such as `admin@sgp.test`,
+`wei.tan@sgp.test`, and `agent1@age1.sgp.test`. Hub signup accepts addresses at `<region>.test`; `sgp` also accepts
+`test1.test` to `test100.test`. Signup and reset emails arrive in Mailpit.
 
 ### Org signup domains
 
 Org signup proves domain ownership with a DNS TXT record. In development and CI
 the tenants skip that check for any domain ending in `.test` or `.example`
 (`google.test`, `acme.example`): signup completes with no record published.
-`example.com` and its subdomains, which the seeded Orgs use, and every other
-domain still get the real lookup against the local `dns-dev` server. Production
-never skips it.
+The seeded Orgs use such names. `example.com`, its subdomains, and every other
+domain still get the real lookup against the local `dns-dev` server.
+Production never skips it.
 
 ## Test
 

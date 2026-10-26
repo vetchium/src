@@ -14,6 +14,7 @@ import {
   type SignedUpOrg,
   signupOrg,
 } from "../lib/orgs-api.ts";
+import { accountMenu } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 import {
   chooseOption,
@@ -36,9 +37,7 @@ async function signIn(
 
 async function openMembers(page: Page, user: Parameters<typeof signIn>[1]) {
   await signIn(page, user);
-  await expect(
-    page.getByRole("button", { name: "Sign out", exact: true }),
-  ).toBeVisible();
+  await expect(accountMenu(page)).toBeVisible();
   await page.goto(`${ORGS_PORTAL}/members`);
   await expect(
     page.getByRole("heading", { name: "People", level: 1 }),
@@ -323,6 +322,47 @@ test("Opening presets appear in the member drawer and approval is superadmin-onl
     } finally {
       await managerPage.close();
     }
+  });
+});
+
+test("Candidacy and marketplace presets tick their permissions in the invite dialog", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org) => {
+    const invitee = inviteeAddress(org.domain, "market");
+    await openMembers(page, org);
+    await page.getByRole("button", { name: "Invite people" }).click();
+    const dialog = page.getByRole("dialog", { name: "Invite people" });
+    await dialog.getByLabel("Email addresses").fill(invitee);
+    const names = [
+      "MANAGE_OPENINGS",
+      "MANAGE_CANDIDACIES",
+      "MANAGE_PROVIDERS",
+      "MANAGE_LISTINGS",
+      "FULFIL_ENGAGEMENTS",
+    ];
+    const cases = [
+      ["Recruiter", ["MANAGE_OPENINGS", "MANAGE_CANDIDACIES"]],
+      ["Vendor manager", ["MANAGE_PROVIDERS"]],
+      ["Provider staff", ["FULFIL_ENGAGEMENTS"]],
+    ] as const;
+    for (const [preset, ticked] of cases) {
+      await dialog.getByRole("radio", { name: preset, exact: true }).check();
+      for (const name of names) {
+        const toggle = dialog.getByRole("switch", { name, exact: true });
+        if (ticked.some((wanted) => wanted === name)) {
+          await expect(toggle).toBeChecked();
+        } else {
+          await expect(toggle).not.toBeChecked();
+        }
+      }
+    }
+    await dialog.getByRole("button", { name: "Send invitations" }).click();
+    await expect(dialog.getByTestId("invite-outcome")).toHaveText(["Invited"]);
+    await dialog.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("tab", { name: "Invitations" }).click();
+    await expect(memberRow(page, invitee)).toContainText("Provider staff");
   });
 });
 

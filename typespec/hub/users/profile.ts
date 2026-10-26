@@ -18,6 +18,7 @@ export interface MyInfoResponse {
   totp_enabled: boolean;
   recovery_codes_remaining: TOTPRecoveryCodeCount;
   session_authenticated_at: string;
+  agencies_may_message: boolean;
 }
 
 export interface SetPreferredLanguageRequest {
@@ -55,4 +56,16 @@ export function validateSetPreferredJobCountriesRequest(
     countries.some((country) => !isCountryCode(country))
     ? ["preferred_job_countries"]
     : [];
+}
+
+export interface SetAgenciesMayMessageRequest {
+  agencies_may_message: boolean;
+}
+
+export function validateSetAgenciesMayMessageRequest(
+  request: SetAgenciesMayMessageRequest,
+): string[] {
+  return typeof request.agencies_may_message === "boolean"
+    ? []
+    : ["agencies_may_message"];
 }

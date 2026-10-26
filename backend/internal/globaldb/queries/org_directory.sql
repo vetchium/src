@@ -10,6 +10,12 @@ INNER JOIN vetchium.org_principals AS p
 WHERE d.domain = sqlc.arg(domain)
   AND p.state = 'active';
 
+-- name: ResolveOrgPrincipal :one
+SELECT org_did, home_tenant_id, routing_version
+FROM vetchium.org_principals
+WHERE org_did = sqlc.arg(org_did)
+  AND state = 'active';
+
 -- name: ReserveOrgPrincipal :one
 WITH principal AS (
     INSERT INTO vetchium.org_principals (

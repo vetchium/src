@@ -19,12 +19,10 @@ Each item: what is not done, and what must be decided first.
 - `orgs-ui` `PlanOptions`: the `mcp` comparison row falls through to the
   ticket-support entitlement, and a label ternary is a no-op.
   `users.state.disabledManual` is unused in every locale.
-- Federation tables without a production caller: `federation_outbox`,
-  `federation_inbox`, and `federation_command_ledger` are written only by
-  `internal/db` integration tests, and `PruneExpiredFederationOperations` and
-  `RetryFederationOutboxEvent` have no caller. Their writes carry no audit
-  event. Decide whether cross-tenant commands will use them; then wire them
-  with audit CTEs or delete them.
+- Federation retention: `PruneExpiredFederationOperations` has no caller, so
+  expired operations and delivered or failed `federation_outbox` rows are
+  never pruned. Decide retention for each (inbox receipts and watermarks must
+  outlive any possible redelivery), then prune in bounded, audited batches.
 - `public_org_openings.sql` hides the Org logo with a hard-coded
   `org_plan_oid <> 'org-free-tier'`, a second authority beside
   `subscriptions.AllowsLogo`. Rely on the downgrade removing the logo, or pass
@@ -109,7 +107,7 @@ Each item: what is not done, and what must be decided first.
 
 ## Openings
 
-- Not specified: applications and the rest of hiring; watchers and email
+- Not specified: watchers and email
   notifications for requests and decisions (decide recipients, batching, and
   opt-out); tags (seeded opening-tag OIDs) and cost centers; multi-step or
   per-Org approval chains; extending expiry without a new quota slot.
@@ -129,6 +127,53 @@ Each item: what is not done, and what must be decided first.
   revision is named by its draft. Decide which title names an Opening.
 - MCP for Gold Orgs: expose the Opening operations through `mcp-server`
   under the Org user's permissions, as `openings.md` OPN-GEN-005 allows.
+
+## Hiring pipeline and marketplace
+
+Deferred:
+
+- Applicants without a Hub account (credited per MKT-SRC-008, or through an
+  Opening invite URL). Decide identity proof, consent
+  capture, and the applicant `kind`.
+- Unlisted Openings for confidential searches that take candidates only
+  through providers or invites. Decide what an invited person may see.
+- Résumé files on applications. Decide formats, size, scanning, and the
+  cross-tenant upload path (the browser reaches only its home tenant).
+- In-product messaging between an employing Org and an applicant (agency
+  conversations are specified), and Org-side questions on applications
+  (notice period, expected pay). Attachments and email notifications to Org
+  users for new messages.
+- Moving a candidacy back a stage and per-candidacy extra stages.
+- Offer approval chains; sharing offered compensation with a sourcing
+  provider.
+- Reference and endorsement stages.
+- Provider API credentials and webhooks for assessment and scoring tools
+  (MKT-WRK-006).
+- Searching Hub profiles, and AI matching of people to assigned Openings
+  with outreach. Decide which profiles matching may read and how across
+  tenants, and AI credit metering ([`ai.md`](../agent-guides/ai.md)).
+- Hub account and Org deletion (neither exists) must delete agency notes at
+  once and keep agency conversations and Contacts read-only with the reason
+  (MKT-DAT-012, MKT-CNV-011, MKT-CON-004) until retention deletes them.
+  Review `marketplace.deletedPartyConversationRetention` (365 days) and the
+  730-day Contact retention against erasure law per region before launch.
+- Sourcing exclusivity per Opening, and a provider brief separate from the
+  Opening's internal notes.
+- Pushing activity statements into a provider's own accounting tool, where
+  the provider issues the invoice.
+- Principal migration for marketplace data (MKT-DAT-011) and the deletion
+  notices between agency and Hub tenants (MKT-DAT-012).
+- Contract staffing and employer of record: timesheets and ongoing billing.
+- A Hub user blocking individual agencies (refused with its own reason, as
+  MKT-CNV-010 does for the messages setting), and reporting an agency's
+  messages to Admins; abuse limits beyond the daily conversation cap,
+  including probing which agencies work on an Opening through the referral
+  check (MKT-SRC-003).
+- Org terms text for the marketplace posture (MKT-GEN-001, MKT-GEN-002).
+- Agency logos in Hub Messages (MKT-HUB-001). The logo lives in the agency's
+  tenant and the Hub user's browser reaches only its home tenant. Decide
+  whether the agency tenant signs a URL the pointer carries, its lifetime,
+  and refresh when the logo or plan changes.
 
 ## AI assistance
 

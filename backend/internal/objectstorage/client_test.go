@@ -36,6 +36,35 @@ func TestSignGetUsesBrowserOriginAndTenMinuteExpiry(t *testing.T) {
 	}
 }
 
+func TestSignOfferLetterGetUsesItsOwnBucket(t *testing.T) {
+	client, err := New(
+		"http://seaweed-s3-sgp:8333", "https://media.sgp.vetchium.com",
+		"testaccesskey1234", "testsecretkey1234567890123456789012",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := pgtype.UUID{Bytes: [16]byte{1, 2, 3}, Valid: true}
+	signed, err := client.SignOfferLetterGet(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := url.Parse(signed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.Host != "media.sgp.vetchium.com" ||
+		u.Path != "/org-offer-letters/01020300-0000-0000-0000-000000000000" ||
+		u.Query().Get("X-Amz-Expires") != "600" {
+		t.Fatalf("invalid signed offer letter URL: %s", signed)
+	}
+	if _, err := client.SignOfferLetterGet(
+		context.Background(), pgtype.UUID{},
+	); err == nil {
+		t.Fatal("signed an invalid object id")
+	}
+}
+
 func TestClientRejectsMissingCredentialsAndUnsafeOrigins(t *testing.T) {
 	for _, tc := range []struct {
 		private string

@@ -10,7 +10,7 @@ import (
 
 func validFixtureUser() hubUserFixture {
 	return hubUserFixture{
-		Email:             "alice@sgp.example",
+		Email:             "alice@sgp.test",
 		DisplayName:       "Alice Tan",
 		PreferredLanguage: "en-US",
 		ResidentCountry:   "SG",
@@ -154,7 +154,7 @@ func TestTenantFixturesAreValid(t *testing.T) {
 			if len(fixture.Users) == 0 {
 				t.Fatalf("%s defines no users", path)
 			}
-			domain := "@" + tenant + ".example"
+			domain := "@" + tenant + ".test"
 			for _, user := range fixture.Users {
 				if !strings.HasSuffix(user.Email, domain) {
 					t.Errorf(

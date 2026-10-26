@@ -12,6 +12,12 @@ export const de = {
       "Schließen Sie den laufenden Vorgang ab, bevor Sie diese Seite verlassen.",
   },
   navigation: {
+    applications: "Bewerbungen",
+    applicationsNeedAnswer_one: "{{count}} Bewerbung braucht Ihre Antwort",
+    applicationsNeedAnswer_other: "{{count}} Bewerbungen brauchen Ihre Antwort",
+    messages: "Nachrichten",
+    messagesUnread_one: "{{count}} ungelesene Nachricht",
+    messagesUnread_other: "{{count}} ungelesene Nachrichten",
     menu: "Navigation",
     openMenu: "Navigation öffnen",
     home: "Startseite",
@@ -151,6 +157,15 @@ export const de = {
     recoveryCode: "Geben Sie einen gültigen Wiederherstellungscode ein.",
   },
   errors: {
+    applicationExists:
+      "Sie haben sich auf diese Stelle bereits beworben. Pro Stelle ist nur eine Bewerbung möglich, auch nach einem Rückzug.",
+    openingNotAccepting: "Diese Stelle nimmt keine Bewerbungen an.",
+    applicationNotFound:
+      "Diese Bewerbung wurde nicht gefunden. Sie wurde möglicherweise entfernt.",
+    applicationStateConflict:
+      "Diese Bewerbung hat sich inzwischen geändert. Laden Sie sie neu und versuchen Sie es erneut.",
+    orgUnavailable:
+      "Diese Organisation ist vorübergehend nicht erreichbar. Bitte versuchen Sie es erneut.",
     signupUnavailable:
       "Diese Region nimmt derzeit keine Registrierungen aus Ihrem Land an. Wählen Sie eine andere Region.",
     generic: "Ein Fehler ist aufgetreten. Versuchen Sie es erneut.",
@@ -227,6 +242,9 @@ export const de = {
     title: "Ihre Adressen",
     privacyNote:
       "Andere Hub-Nutzer sehen weder diese Adressen noch deren Domains. Arbeitgeber und Personalvermittlungen, die nach Kandidaten suchen, sehen möglicherweise die Domains Ihrer bestätigten Adressen, aber nie die Adressen selbst.",
+    whatAgenciesSeeTitle: "Was Agenturen sehen",
+    whatAgenciesSeeBody:
+      "Agenturen, die Ihr Profil ansehen, sehen jede verifizierte Domain mit dem Monat und Jahr der ersten und letzten Verifizierung – zum Beispiel grab.com, Mär 2023 – Okt 2026. Sie sehen die Adressen niemals.",
     addButton: "E-Mail hinzufügen",
     addTitle: "Berufliche E-Mail hinzufügen",
     addressLabel: "Berufliche E-Mail-Adresse",
@@ -509,6 +527,12 @@ export const de = {
     jobCountriesHelp:
       "Wählen Sie bis zu 10 Länder. Ohne Auswahl suchen Sie weltweit. Eine Änderung des Wohnsitzlands ändert diese Auswahl nicht.",
     saved: "Ihre Einstellung wurde gespeichert.",
+    agencyMessagesTitle: "Agenturnachrichten",
+    agenciesMayMessage: "Agenturen dürfen mir Nachrichten senden",
+    agenciesMayMessageHelp1:
+      "Personalvermittlungen auf Vetchium können eine Konversation mit Ihnen beginnen und Stellenausschreibungen vorschlagen. Sie sehen Ihre E-Mail-Adresse niemals.",
+    agenciesMayMessageHelp2:
+      "Wenn Sie dies deaktivieren, werden alle Ihre Agenturkonversationen schreibgeschützt und neue werden verhindert. Agenturen können Ihr Profil weiterhin ansehen.",
   },
   workEmails: {
     documentTitle: "Berufliche E-Mails | Vetchium",
@@ -569,6 +593,9 @@ export const de = {
     saved: "Ich habe die Codes gespeichert",
   },
   orgPage: {
+    apply: "Bewerben",
+    youApplied: "Sie haben sich auf diese Stelle beworben.",
+    viewApplication: "Bewerbung ansehen",
     documentTitle: "Organisation | Vetchium",
     openingDocumentTitle: "Stelle | Vetchium",
     basedIn: "Sitz: {{country}}",
@@ -585,6 +612,11 @@ export const de = {
     search: "Suchen",
     backToOpenings: "Alle Stellen",
     notAccepting: "Diese Stelle nimmt keine Bewerbungen an.",
+    agencySuggestedTitle: "{{agency}} hat Ihnen diese Stelle vorgeschlagen",
+    agencySuggestedBody: "Am {{date}} in",
+    yourConversation: "Ihrer Konversation",
+    agencySuggestedCredit:
+      "Sie können sie bei Ihrer Bewerbung anrechnen lassen.",
     remoteWorldwide: "Weltweit",
     experienceRange: "{{min}}–{{max}} Jahre",
     experienceMin: "Ab {{min}} Jahren",
@@ -626,12 +658,188 @@ export const de = {
       year: "pro Jahr",
     },
   },
+  applications: {
+    documentTitle: "Bewerbungen | Vetchium",
+    title: "Bewerbungen",
+    subtitle:
+      "Stellen, auf die Sie sich beworben haben, der jeweilige Stand und was Ihre Antwort braucht.",
+    loading: "Bewerbungen werden geladen",
+    back: "Alle Bewerbungen",
+    otherRegion:
+      "Dieser Link gehört zu einem Konto in einer anderen Region. Melden Sie sich ab und in dieser Region an, um dessen Bewerbungen zu sehen.",
+    stillPending:
+      "Das dauert länger als üblich. Ihre Anfrage bleibt erhalten; öffnen Sie diese Seite gleich noch einmal, um das Ergebnis zu sehen.",
+    tabs: {
+      active_one: "Aktiv ({{count}})",
+      active_other: "Aktiv ({{count}})",
+      closed_one: "Abgeschlossen ({{count}})",
+      closed_other: "Abgeschlossen ({{count}})",
+    },
+    list: {
+      dates: "Beworben am {{applied}} · Aktualisiert am {{updated}}",
+      emptyActive:
+        "Sie haben keine aktiven Bewerbungen. Öffnen Sie eine Stelle auf der Seite einer Organisation, um sich zu bewerben.",
+      emptyClosed: "Noch keine abgeschlossenen Bewerbungen.",
+    },
+    status: {
+      applied: "Beworben",
+      in_review: "In Prüfung",
+      interviewing: "Im Gespräch",
+      offer: "Angebot",
+      hired: "Eingestellt",
+      not_progressing: "Nicht weiterverfolgt",
+      withdrawn: "Zurückgezogen",
+    },
+    pending: {
+      interview_response: "Auf ein Gespräch antworten",
+      background_check_consent: "Auf eine Hintergrundprüfung antworten",
+      offer_response: "Auf das Angebot antworten",
+    },
+    detail: {
+      documentTitle: "Bewerbung | Vetchium",
+      notFound: "Bewerbung nicht gefunden.",
+      orgUnavailable:
+        "Diese Organisation ist vorübergehend nicht erreichbar, daher kann der aktuelle Stand Ihrer Bewerbung nicht angezeigt werden. Bitte versuchen Sie es erneut.",
+      nothingToDo: "Im Moment braucht nichts Ihre Antwort.",
+      yourApplication: "Ihre Bewerbung",
+      number: "Bewerbung",
+      opening: "Stelle",
+      viewOpening: "Stelle ansehen",
+      orgDecides:
+        "{{org}} entscheidet, wie es mit Ihrer Bewerbung weitergeht. Sie erhalten eine E-Mail, wenn etwas Ihre Antwort braucht.",
+    },
+    withdraw: {
+      action: "Bewerbung zurückziehen",
+      title: "Diese Bewerbung zurückziehen?",
+      body: "{{org}} sieht, dass Sie zurückgezogen haben. Gespräche und Angebote zu dieser Bewerbung enden.",
+      cannotReapply: "Sie können sich auf diese Stelle nicht erneut bewerben.",
+      conflict:
+        "Diese Bewerbung hat sich inzwischen geändert und kann nicht mehr zurückgezogen werden. Laden Sie sie neu, um den Stand zu sehen.",
+    },
+    interviews: {
+      title: "Gespräche",
+      number: "Gespräch {{number}}",
+      cancelled: "Abgesagt",
+      accepted: "Zugesagt",
+      rescheduleRequested: "Anderer Termin erbeten",
+      needsAnswer: "Braucht Ihre Antwort",
+      when: "{{when}} · {{minutes}} Minuten",
+      yourNote: "Ihre Nachricht: {{note}}",
+      accept: "Zusagen",
+      requestAnotherTime: "Anderen Termin erbitten",
+      performedBy:
+        "Dieses Vorstellungsgespräch wird von {{provider}} ({{domain}}) für {{org}} durchgeführt.",
+    },
+    reschedule: {
+      title: "Anderen Termin erbitten",
+      send: "Anfrage senden",
+      note: "Nachricht an die Organisation",
+      help: "Schreiben Sie, was Ihnen stattdessen passt. Bis zu 500 Zeichen.",
+      invalid: "Geben Sie eine Nachricht mit 1 bis 500 Zeichen ein.",
+    },
+    consent: {
+      title: "Einwilligung zur Hintergrundprüfung",
+      body: "{{org}} bittet um Ihre Einwilligung für diese Prüfungen. Es wird nichts erfasst, bevor Sie zustimmen.",
+      give: "Einwilligen",
+      decline: "Ablehnen",
+      declineTitle: "Einwilligung ablehnen?",
+      declineBody:
+        "Es wird keine Prüfung erfasst. {{org}} entscheidet, wie es weitergeht.",
+      disclosureTitle: "Offenlegung von {{provider}}",
+      performer: {
+        org: "Durchgeführt von {{org}}.",
+        provider:
+          "Diese Zuverlässigkeitsüberprüfung wird von {{provider}} ({{domain}}) für {{org}} durchgeführt.",
+        other: "Im Auftrag von {{org}} durchgeführt.",
+      },
+    },
+    checkTypes: {
+      identity: "Identität",
+      education: "Ausbildung",
+      employment: "Beschäftigung",
+      criminal: "Strafregister",
+      address: "Adresse",
+      credit: "Bonität",
+      drug: "Drogentest",
+    },
+    offer: {
+      title: "Angebot",
+      respondBy: "Antwort bis",
+      joiningDate: "Vorgeschlagenes Eintrittsdatum",
+      letter: "Angebotsschreiben ansehen",
+      accept: "Angebot annehmen",
+      decline: "Angebot ablehnen",
+      acceptTitle: "Dieses Angebot annehmen?",
+      acceptBody: "{{org}} erfährt, dass Sie angenommen haben.",
+      declineTitle: "Dieses Angebot ablehnen?",
+      declineBody:
+        "{{org}} erfährt, dass Sie abgelehnt haben. Das lässt sich nicht rückgängig machen.",
+      status: {
+        extended: "Offen",
+        accepted: "Angenommen",
+        declined: "Abgelehnt",
+        expired: "Abgelaufen",
+      },
+    },
+  },
+  apply: {
+    loading: "Wird geladen",
+    documentTitle: "Bewerben | Vetchium",
+    title: "Bewerben",
+    subtitle: "{{title}} · {{org}}",
+    alreadyApplied: "Sie haben sich auf diese Stelle bereits beworben.",
+    viewApplication: "Bewerbung ansehen",
+    viewApplications: "Bewerbungen ansehen",
+    willSee: "Das sieht {{org}}",
+    editProfile: "Mein Profil bearbeiten",
+    summary: {
+      biography: "Biografie",
+      included: "Enthalten",
+      none: "Keine",
+      work: "Berufserfahrung",
+      roles_one: "{{count}} Position",
+      roles_other: "{{count}} Positionen",
+      education: "Ausbildung",
+      entries_one: "{{count}} Eintrag",
+      entries_other: "{{count}} Einträge",
+      certifications: "Zertifikate",
+      languages: "Sprachen",
+      websites: "Websites",
+      links_one: "{{count}} Link",
+      links_other: "{{count}} Links",
+    },
+    snapshotNote:
+      "Die Organisation erhält eine Kopie Ihres Profils im heutigen Stand. Spätere Änderungen wirken sich nicht darauf aus. Ihr Foto, Ihre E-Mail-Adresse und Ihre beruflichen E-Mails werden nie weitergegeben.",
+    coverNote: {
+      title: "Anschreiben",
+      label: "Anschreiben (optional)",
+      invalid: "Das Anschreiben darf höchstens 5.000 Zeichen lang sein.",
+      placeholder: "Warum diese Stelle, und was Ihr Profil nicht sagt.",
+    },
+    referredBy: {
+      title: "Empfohlen von",
+      description:
+        "Wenn eine Agentur Ihnen geholfen hat, diese Stelle zu finden, wählen Sie sie aus und sie wird Ihrer Bewerbung angerechnet. Keine Agentur auszuwählen ist völlig in Ordnung.",
+      noAgency: "Keine Agentur",
+      suggestedOn: "hat diese Stelle am {{date}} vorgeschlagen",
+      anotherAgency: "Eine andere Agentur",
+      agencyDomain: "Domain der Agentur",
+      notEligible:
+        "{{domain}} ist keine Agentur, die an dieser Stelle arbeitet. Prüfen Sie die Domain oder wählen Sie eine andere Agentur oder keine.",
+    },
+    submit: "Bewerbung absenden",
+    once: "Sie können sich auf jede Stelle nur einmal bewerben. Sie können später zurückziehen, sich aber nicht erneut bewerben.",
+  },
   notFound: {
     title: "Seite nicht gefunden",
     description: "Die angeforderte Seite existiert nicht.",
     action: "Zur Startseite",
   },
   home: {
+    applicationsTitle: "Bewerbungen, die Sie brauchen",
+    applicationsBody_one: "{{count}} Bewerbung wartet auf Ihre Antwort.",
+    applicationsBody_other: "{{count}} Bewerbungen warten auf Ihre Antwort.",
+    applicationsAction: "Bewerbungen öffnen",
     documentTitle: "Startseite | Vetchium",
     title: "Willkommen zurück, {{name}}",
     profileTitle: "Ihr Profil",
@@ -745,5 +953,40 @@ export const de = {
     paymentsTitle: "Zahlungen",
     paymentsBody:
       "Vetchium-Tarife werden noch nicht abgerechnet. Sobald Zahlungen aktiviert sind, werden hier Zahlungsbedingungen zu Preisen, Abrechnungszeiträumen, Erstattungen und Kündigungen veröffentlicht, bevor eine Zahlung erfolgt.",
+  },
+  messages: {
+    loadEarlier: "Ältere Nachrichten laden",
+    documentTitle: "Nachrichten | Vetchium",
+    title: "Nachrichten",
+    subtitle:
+      "Personalvermittlungen, die Sie bezüglich Stellenausschreibungen kontaktiert haben. Antworten Sie oder löschen Sie eine Konversation, um sie für beide Seiten zu entfernen.",
+    agency: "Agentur",
+    empty:
+      "Noch keine Nachrichten. Wenn sich Personalvermittlungen bezüglich Stellenausschreibungen melden, erscheinen Ihre Konversationen hier.",
+    loading: "Konversation wird geladen…",
+    selectPrompt: "Wählen Sie eine Konversation zum Lesen aus.",
+    delete: "Löschen",
+    deleteConfirmTitle: "Konversation löschen?",
+    deleteConfirmBody:
+      "Dadurch werden die Konversation und Stellenvorschläge für beide Seiten gelöscht. Die Notizen der Agentur bleiben erhalten.",
+    deleteAction: "Konversation löschen",
+    unavailableTitle: "Wir konnten diese Konversation nicht laden",
+    unavailableBody:
+      "Die Region von {{agency}} hat nicht geantwortet. Ihre Nachrichten sind sicher; versuchen Sie es gleich noch einmal.",
+    tryAgain: "Erneut versuchen",
+    you: "Sie",
+    openingSuggestion: "Stellenvorschlag",
+    openingUnavailable: "Stellenausschreibung nicht verfügbar",
+    viewAndApply: "Ansehen und bewerben",
+    readOnlyTitle: "Konversation ist schreibgeschützt",
+    readOnlyBody: "Diese Konversation ist schreibgeschützt.",
+    readOnlyPreferencesBody:
+      "Diese Konversation ist schreibgeschützt, da Agenturnachrichten in Ihren Einstellungen deaktiviert sind.",
+    preferencesLink: "Einstellungen öffnen",
+    replyPlaceholder: "Antwort schreiben",
+    emailPrivateNotice: "Agenturen sehen Ihre E-Mail-Adresse niemals.",
+    send: "Senden",
+    snippetSuggestion: "Stellenvorschlag",
+    snippetConversation: "Konversation mit Agentur",
   },
 } as const satisfies LocaleResource;

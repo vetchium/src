@@ -7,7 +7,10 @@ import "./admin/admin.tsp";
 import "./hub/hub.tsp";
 import "./orgs/orgs.tsp";
 import "./directory/directory.tsp";
-
+import "./federation/commands.tsp";
+import "./federation/events.tsp";
+import "./federation/hiring.tsp";
+import "./federation/marketplace.tsp";
 
 using TypeSpec.Http;
 

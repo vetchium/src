@@ -15,9 +15,12 @@ export function openingTitle(opening: OrgOpening): string | undefined {
 export function OpeningsBreadcrumb({
   opening,
   current,
+  trail = [],
 }: {
   opening?: OrgOpening;
   current?: string;
+  /** Pages between the Opening and the current one. */
+  trail?: ReadonlyArray<{ label: string; to: string }>;
 }) {
   const { t } = useTranslation();
   const openingLabel =
@@ -43,6 +46,9 @@ export function OpeningsBreadcrumb({
               },
             ]
           : []),
+        ...trail.map(({ label, to }) => ({
+          title: <Link to={to}>{label}</Link>,
+        })),
         ...(current ? [{ title: current }] : []),
       ]}
     />

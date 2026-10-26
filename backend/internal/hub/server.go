@@ -10,12 +10,15 @@ import (
 	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
 
 	"backend/internal/apiserver"
+	"backend/internal/conversationclient"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
+	"backend/internal/federation/commands"
 	"backend/internal/hub/auth"
 	"backend/internal/hub/emailchange"
 	"backend/internal/hub/signupcompletion"
+	"backend/internal/hubapplicationclient"
 	"backend/internal/profileclient"
 	"backend/internal/profilepicture"
 	"backend/internal/publicopeningclient"
@@ -38,18 +41,30 @@ type AccountEmailDigester interface {
 	ID() string
 }
 
+// OfferLetterSigner signs a short-lived read URL for an offer letter.
+type OfferLetterSigner interface {
+	SignOfferLetterGet(context.Context, pgtype.UUID) (string, error)
+}
+
 type Server struct {
 	*apiserver.Runtime
-	Regions          *regions.Catalog
-	Directory        *directoryclient.Client
-	Profiles         *profileclient.Client
-	Openings         *publicopeningclient.Client
-	PublicOpenings   publicopenings.Reader
-	Pictures         PictureStorage
+	Regions        *regions.Catalog
+	Directory      *directoryclient.Client
+	Profiles       *profileclient.Client
+	Openings       *publicopeningclient.Client
+	Applications   *hubapplicationclient.Client
+	Conversations  *conversationclient.Client
+	PublicOpenings publicopenings.Reader
+	Pictures       PictureStorage
+	// OfferLetters signs the letters of local Orgs' offers to this tenant's
+	// applicants.
+	OfferLetters     OfferLetterSigner
 	SignupCompletion *signupcompletion.Service
 	EmailChange      *emailchange.Service
-	Signup           regions.Admission
-	Queries          sqlc.Querier
+	// Commands sends durable commands to other tenants' aggregates.
+	Commands *commands.Sender
+	Signup   regions.Admission
+	Queries  sqlc.Querier
 	// DigestKey computes the keyed digests the global directory holds claims
 	// for (GU-CFG-002); it never leaves hub-api and workers.
 	DigestKey AccountEmailDigester

@@ -12,6 +12,9 @@ import (
 	dbsqlc "backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
 	"backend/internal/dnsverify"
+	"backend/internal/federation/commandkinds"
+	"backend/internal/federation/commands"
+	"backend/internal/listingclient"
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
 	"backend/internal/oidc"
@@ -19,10 +22,16 @@ import (
 	orgai "backend/internal/orgs/ai"
 	orgsauthn "backend/internal/orgs/auth"
 	"backend/internal/orgs/domainverification"
+	"backend/internal/orgs/listingread"
+	"backend/internal/orgs/listingsearch"
 	"backend/internal/orgs/signupcompletion"
+	"backend/internal/orgs/workfanout"
+	"backend/internal/profileclient"
+	"backend/internal/publicopeningclient"
 	"backend/internal/regions"
 	"backend/internal/routes"
 	"backend/internal/service"
+	"backend/internal/workclient"
 )
 
 func main() {
@@ -65,6 +74,22 @@ func run(log *slog.Logger, address string) error {
 		cfg.MeshAPIServer.BaseURL, directoryclient.MeshPrefix,
 		meshCredential, cfg.MeshAPIServer.RequestTimeout,
 	)
+	listings := listingclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
+	)
+	workRelay := workclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
+	)
+	profiles := profileclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
+	)
+	openings := publicopeningclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
+	)
 	verification := cfg.OrgDomainVerification
 	checker := dnsverify.New(
 		verification.ResolverAddress, verification.LookupTimeout,
@@ -102,6 +127,23 @@ func run(log *slog.Logger, address string) error {
 		cfg.TenantID, credentialSecret,
 	)
 	queries := dbsqlc.New(pool)
+	federationCommands := commands.NewSender(commands.SenderConfig{
+		Pool: pool, TenantID: cfg.TenantID, Source: "orgs-api",
+		Executor: commands.NewExecutor(commands.ExecutorConfig{
+			Pool: pool, TenantID: cfg.TenantID,
+			Registry: commandkinds.Registry(),
+		}),
+		Relay: commands.NewRelay(
+			cfg.MeshAPIServer.BaseURL, meshCredential,
+			cfg.MeshAPIServer.RequestTimeout,
+		),
+		ResultKeys: map[commands.OwnerType][32]byte{
+			commands.OwnerOrgUser: orgsauthn.DeriveCredentialSubkey(
+				credentialKey, commands.ResultKeyPurpose,
+			),
+		},
+		Log: log,
+	})
 	s := &orgsruntime.Server{
 		Runtime:   apiserver.New(pool, log),
 		Queries:   queries,
@@ -121,6 +163,23 @@ func run(log *slog.Logger, address string) error {
 			cfg.TenantID,
 			orgsauthn.DeriveCredentialSubkey(credentialKey, "outbox"), log,
 		),
+		Commands: federationCommands,
+		ListingRead: listingread.Reader{
+			Listings: listings, Directory: globalDirectory, Orgs: queries,
+			TenantID: cfg.TenantID, Log: log,
+		},
+		ListingSearch: listingsearch.Searcher{
+			Peers: listings, Tenants: catalog.TenantIDs(),
+			Deadline: cfg.MeshAPIServer.RequestTimeout,
+		},
+		ListingDeadline: cfg.MeshAPIServer.RequestTimeout,
+		WorkRelay:       workRelay,
+		Profiles:        profiles,
+		Openings:        openings,
+		WorkFanout: workfanout.Fanout{
+			Peers: workRelay, Tenants: catalog.TenantIDs(),
+			Deadline: cfg.MeshAPIServer.RequestTimeout,
+		},
 		Signup:                 cfg.OrgsAPIServer.Signup,
 		AllowSpecialUseDomains: cfg.OrgsAPIServer.AllowSpecialUseDomains,
 		TenantID:               cfg.TenantID,
@@ -131,6 +190,7 @@ func run(log *slog.Logger, address string) error {
 		CredentialKey:          credentialKey,
 		OfferedPlans:           cfg.OrgBilling.OfferedPlans,
 		Logos:                  logos,
+		OfferLetters:           logos,
 	}
 	if google := cfg.OrgsAPIServer.GoogleSignIn; google != nil {
 		clientSecret, err := google.ClientSecret()

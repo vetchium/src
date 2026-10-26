@@ -46,6 +46,7 @@ enum OpeningHistoryAction {
   Duplicated: "duplicated",
   WorkingCopySaved: "working_copy_saved",
   TeamChanged: "team_changed",
+  PipelineChanged: "pipeline_changed",
   RevisionDiscarded: "revision_discarded",
   Discarded: "discarded",
   Requested: "requested",
@@ -68,6 +69,9 @@ model PendingOpeningRequest {
   requested_by_email: Vetchium.EmailAddress;
   requested_at: utcDateTime;
   note?: string;
+
+  /** A `close` request only: applying it marks every open application. */
+  mark_applications_not_progressing?: boolean;
 }
 
 model OrgOpening {

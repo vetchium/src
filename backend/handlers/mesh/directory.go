@@ -29,6 +29,9 @@ type Directory interface {
 	ResolveOrgDomain(
 		context.Context, directoryspec.ResolveOrgDomainRequest,
 	) (directoryspec.ResolveOrgDomainResponse, *problem.Details, error)
+	ResolvePrincipal(
+		context.Context, directoryspec.ResolvePrincipalRequest,
+	) (directoryspec.ResolvePrincipalResponse, *problem.Details, error)
 	ReserveOrgPrincipal(
 		context.Context, directoryspec.ReserveOrgPrincipalRequest,
 	) (directoryclient.OrgOutcome, error)
@@ -59,6 +62,13 @@ func ResolveOrgDomain(
 	runtime *apiserver.Runtime, directory Directory, credential string,
 ) http.HandlerFunc {
 	return relayRead(runtime, credential, directory.ResolveOrgDomain)
+}
+
+// ResolvePrincipal relays a local API's lookup of where a principal lives.
+func ResolvePrincipal(
+	runtime *apiserver.Runtime, directory Directory, credential string,
+) http.HandlerFunc {
+	return relayRead(runtime, credential, directory.ResolvePrincipal)
 }
 
 func relayRead[T, R any, P interface {

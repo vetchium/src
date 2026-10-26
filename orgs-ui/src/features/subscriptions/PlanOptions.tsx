@@ -94,6 +94,7 @@ export function PlanOptions({
     "logo",
     "googleSignIn",
     "ai",
+    "listings",
     "ticketSupport",
     "mcp",
   ] as const;
@@ -120,6 +121,8 @@ export function PlanOptions({
               count: number.format(held.aiCreditsPerMonth),
             })
           : t("plans.no");
+      case "listings":
+        return t(held.allowsListings ? "plans.yes" : "plans.no");
       default:
         return t(held.includesTicketSupport ? "plans.comingSoon" : "plans.no");
     }
@@ -132,6 +135,7 @@ export function PlanOptions({
       ...(held.allowsLogo ? [t("plans.features.logo")] : []),
       ...(held.allowsGoogleSignIn ? [t("plans.features.googleSignIn")] : []),
       ...(held.allowsAI ? [feature(plan, "ai")] : []),
+      ...(held.allowsListings ? [t("plans.features.listings")] : []),
     ];
   };
   // Matches the comparison table, where both rows follow ticket support.

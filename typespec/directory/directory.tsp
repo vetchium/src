@@ -133,6 +133,29 @@ model OrgPrincipalCommandResponse {
   state: "provisioning" | "active";
 }
 
+enum PrincipalType {
+  HubUser: "hub_user",
+  Org: "org",
+}
+
+/** A Hub user DID or an Org DID, as principal_type says; both are UUIDv7. */
+@format("uuid")
+scalar PrincipalDID extends string;
+
+/** Finds the home tenant of an active principal, the authority for every
+ * aggregate it owns. */
+model ResolvePrincipalRequest {
+  principal_type: PrincipalType;
+  principal_did: PrincipalDID;
+}
+
+model ResolvePrincipalResponse {
+  principal_type: PrincipalType;
+  principal_did: PrincipalDID;
+  home_tenant_id: TenantID;
+  routing_version: int64;
+}
+
 model ResolveHubAccountEmailRequest {
   email_digest: EmailDigest;
   digest_key_id: DigestKeyID;
@@ -272,6 +295,18 @@ alias OrgClaimCommandResponseBase =
   | OrgCommandResponseBase
   | Vetchium.Problem.DirectoryClaimConflictErrorResponse;
 
+alias PrincipalReadResponse =
+  | {
+      @statusCode status_code: 200;
+      @header("Cache-Control") cache_control: "no-store";
+      @body body: ResolvePrincipalResponse;
+    }
+  | Vetchium.Problem.InvalidJSONErrorResponse
+  | Vetchium.Problem.ValidationFailedErrorResponse
+  | Vetchium.Problem.DirectoryEntryNotFoundErrorResponse
+  | Vetchium.Problem.InternalServerErrorResponse
+  | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
+
 alias ReadResponse =
   | ReadResponseBase
   | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
@@ -295,6 +330,18 @@ alias OrgCommandResponse =
 alias OrgClaimCommandResponse =
   | OrgClaimCommandResponseBase
   | Vetchium.Problem.DirectoryAuthenticationRequiredErrorResponse;
+
+alias MeshPrincipalReadResponse =
+  | {
+      @statusCode status_code: 200;
+      @header("Cache-Control") cache_control: "no-store";
+      @body body: ResolvePrincipalResponse;
+    }
+  | Vetchium.Problem.InvalidJSONErrorResponse
+  | Vetchium.Problem.ValidationFailedErrorResponse
+  | Vetchium.Problem.DirectoryEntryNotFoundErrorResponse
+  | Vetchium.Problem.InternalServerErrorResponse
+  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
 
 alias MeshOrgReadResponse =
   | OrgReadResponseBase
@@ -351,6 +398,12 @@ interface Operations {
   @route("/resolve-profile-slug")
   @post
   resolveProfileSlug(@body request: ResolveProfileSlugRequest): ReadResponse;
+
+  @route("/resolve-principal")
+  @post
+  resolvePrincipal(
+    @body request: ResolvePrincipalRequest,
+  ): PrincipalReadResponse;
 
   @route("/reserve-hub-principal")
   @post
@@ -464,6 +517,13 @@ interface MeshOperations {
   @route("/resolve-org-domain")
   @post
   resolveOrgDomain(@body request: ResolveOrgDomainRequest): MeshOrgReadResponse;
+
+  /** Where a principal lives, so an API finds a counterparty by its DID. */
+  @route("/resolve-principal")
+  @post
+  resolvePrincipal(
+    @body request: ResolvePrincipalRequest,
+  ): MeshPrincipalReadResponse;
 
   @route("/reserve-org-principal")
   @post

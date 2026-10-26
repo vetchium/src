@@ -10,6 +10,12 @@ export const en = {
       "Finish the operation in progress before leaving this page.",
   },
   navigation: {
+    applications: "Applications",
+    applicationsNeedAnswer_one: "{{count}} application needs your answer",
+    applicationsNeedAnswer_other: "{{count}} applications need your answer",
+    messages: "Messages",
+    messagesUnread_one: "{{count}} unread message",
+    messagesUnread_other: "{{count}} unread messages",
     menu: "Navigation",
     openMenu: "Open navigation",
     home: "Home",
@@ -144,6 +150,14 @@ export const en = {
     recoveryCode: "Enter a valid recovery code.",
   },
   errors: {
+    applicationExists:
+      "You already applied to this opening. An opening takes one application, even a withdrawn one.",
+    openingNotAccepting: "This opening is not accepting applications.",
+    applicationNotFound:
+      "This application was not found. It may have been removed.",
+    applicationStateConflict:
+      "This application changed in the meantime. Reload it and try again.",
+    orgUnavailable: "This organization is temporarily unavailable. Try again.",
     signupUnavailable:
       "This region is not accepting signup for your country. Choose another region.",
     generic: "Something went wrong. Please try again.",
@@ -212,6 +226,9 @@ export const en = {
     title: "Your addresses",
     privacyNote:
       "Other Hub users cannot see these addresses or their domains. Employers and recruitment agencies that search for candidates may see the domains of your verified addresses, but never the addresses themselves.",
+    whatAgenciesSeeTitle: "What agencies see",
+    whatAgenciesSeeBody:
+      "Agencies that view your profile see each verified domain with the month and year you first and last verified it — for example grab.com, Mar 2023 – Oct 2026. They never see the addresses.",
     addButton: "Add email",
     addTitle: "Add professional email",
     addressLabel: "Professional email address",
@@ -482,6 +499,12 @@ export const en = {
     jobCountriesHelp:
       "Choose up to 10 countries. Leave empty to explore all countries. Changing residence does not change these preferences.",
     saved: "Your preference was saved.",
+    agencyMessagesTitle: "Agency messages",
+    agenciesMayMessage: "Agencies may message me",
+    agenciesMayMessageHelp1:
+      "Recruitment agencies on Vetchium can start a conversation with you and suggest Openings. They never see your email address.",
+    agenciesMayMessageHelp2:
+      "Turning this off makes all your agency conversations read-only and stops new ones. Agencies can still view your profile.",
   },
   workEmails: {
     documentTitle: "Professional emails | Vetchium",
@@ -541,6 +564,9 @@ export const en = {
     saved: "I saved these codes",
   },
   orgPage: {
+    apply: "Apply",
+    youApplied: "You applied to this opening.",
+    viewApplication: "View application",
     documentTitle: "Organization | Vetchium",
     openingDocumentTitle: "Opening | Vetchium",
     basedIn: "Based in {{country}}",
@@ -556,6 +582,10 @@ export const en = {
     search: "Search",
     backToOpenings: "All openings",
     notAccepting: "This opening is not accepting applications.",
+    agencySuggestedTitle: "{{agency}} suggested this Opening to you",
+    agencySuggestedBody: "On {{date}} in",
+    yourConversation: "your conversation",
+    agencySuggestedCredit: "You can credit them when you apply.",
     remoteWorldwide: "Worldwide",
     experienceRange: "{{min}}–{{max}} years",
     experienceMin: "From {{min}} years",
@@ -597,12 +627,187 @@ export const en = {
       year: "per year",
     },
   },
+  applications: {
+    documentTitle: "Applications | Vetchium",
+    title: "Applications",
+    subtitle:
+      "Openings you applied to, where each one stands, and what needs your answer.",
+    loading: "Loading applications",
+    back: "All applications",
+    otherRegion:
+      "This link is for an account in another region. Sign out and sign in to that region to see its applications.",
+    stillPending:
+      "This is taking longer than usual. Your request was kept; open this page again in a moment to see the result.",
+    tabs: {
+      active_one: "Active ({{count}})",
+      active_other: "Active ({{count}})",
+      closed_one: "Closed ({{count}})",
+      closed_other: "Closed ({{count}})",
+    },
+    list: {
+      dates: "Applied {{applied}} · Updated {{updated}}",
+      emptyActive:
+        "You have no active applications. Open an opening from an organization's page to apply.",
+      emptyClosed: "No closed applications yet.",
+    },
+    status: {
+      applied: "Applied",
+      in_review: "In review",
+      interviewing: "Interviewing",
+      offer: "Offer",
+      hired: "Hired",
+      not_progressing: "Not progressing",
+      withdrawn: "Withdrawn",
+    },
+    pending: {
+      interview_response: "Respond to an interview",
+      background_check_consent: "Respond to a background check request",
+      offer_response: "Respond to the offer",
+    },
+    detail: {
+      documentTitle: "Application | Vetchium",
+      notFound: "Application not found.",
+      orgUnavailable:
+        "This organization is temporarily unavailable, so its latest news on your application cannot be shown. Try again.",
+      nothingToDo: "Nothing needs your answer right now.",
+      yourApplication: "Your application",
+      number: "Application",
+      opening: "Opening",
+      viewOpening: "View the opening",
+      orgDecides:
+        "{{org}} decides how your application moves. You get an email when something needs your answer.",
+    },
+    withdraw: {
+      action: "Withdraw application",
+      title: "Withdraw this application?",
+      body: "{{org}} will see that you withdrew. Interviews and offers on this application end.",
+      cannotReapply: "You can't apply to this opening again.",
+      conflict:
+        "This application changed in the meantime and can no longer be withdrawn. Reload it to see where it stands.",
+    },
+    interviews: {
+      title: "Interviews",
+      number: "Interview {{number}}",
+      cancelled: "Cancelled",
+      accepted: "Accepted",
+      rescheduleRequested: "Another time requested",
+      needsAnswer: "Needs your answer",
+      when: "{{when}} · {{minutes}} minutes",
+      yourNote: "Your note: {{note}}",
+      accept: "Accept",
+      requestAnotherTime: "Request another time",
+      performedBy:
+        "This interview is performed by {{provider}} ({{domain}}) for {{org}}.",
+    },
+    reschedule: {
+      title: "Request another time",
+      send: "Send request",
+      note: "Note to the organization",
+      help: "Say what would suit you instead. Up to 500 characters.",
+      invalid: "Enter a note of 1 to 500 characters.",
+    },
+    consent: {
+      title: "Background check consent",
+      body: "{{org}} asks your consent to run these checks. Nothing is recorded until you agree.",
+      give: "Give consent",
+      decline: "Decline",
+      declineTitle: "Decline consent?",
+      declineBody: "No check will be recorded. {{org}} decides what follows.",
+      disclosureTitle: "{{provider}}'s disclosure",
+      performer: {
+        org: "Performed by {{org}}.",
+        provider:
+          "This background check is performed by {{provider}} ({{domain}}) for {{org}}.",
+        other: "Performed on behalf of {{org}}.",
+      },
+    },
+    checkTypes: {
+      identity: "Identity",
+      education: "Education",
+      employment: "Employment",
+      criminal: "Criminal record",
+      address: "Address",
+      credit: "Credit",
+      drug: "Drug screening",
+    },
+    offer: {
+      title: "Offer",
+      respondBy: "Answer before",
+      joiningDate: "Proposed joining date",
+      letter: "View offer letter",
+      accept: "Accept offer",
+      decline: "Decline offer",
+      acceptTitle: "Accept this offer?",
+      acceptBody: "{{org}} is told you accepted.",
+      declineTitle: "Decline this offer?",
+      declineBody: "{{org}} is told you declined. This can't be undone.",
+      status: {
+        extended: "Open",
+        accepted: "Accepted",
+        declined: "Declined",
+        expired: "Expired",
+      },
+    },
+  },
+  apply: {
+    loading: "Loading",
+    documentTitle: "Apply | Vetchium",
+    title: "Apply",
+    subtitle: "{{title}} · {{org}}",
+    alreadyApplied: "You already applied to this opening.",
+    viewApplication: "View application",
+    viewApplications: "View applications",
+    willSee: "What {{org}} will see",
+    editProfile: "Edit my profile",
+    summary: {
+      biography: "Biography",
+      included: "Included",
+      none: "None",
+      work: "Work experience",
+      roles_one: "{{count}} role",
+      roles_other: "{{count}} roles",
+      education: "Education",
+      entries_one: "{{count}} entry",
+      entries_other: "{{count}} entries",
+      certifications: "Certifications",
+      languages: "Languages",
+      websites: "Websites",
+      links_one: "{{count}} link",
+      links_other: "{{count}} links",
+    },
+    snapshotNote:
+      "They get a copy of your profile as it is now. Later edits don't change it. Your picture, email address and professional emails are never shared.",
+    coverNote: {
+      title: "Cover note",
+      label: "Cover note (optional)",
+      invalid: "Keep the note within 5,000 characters.",
+      placeholder: "Why this role, and anything your profile doesn't say.",
+    },
+    referredBy: {
+      title: "Referred by",
+      description:
+        "If an agency helped you find this Opening, choose it and it is credited with your application. Choosing no agency is fine.",
+      noAgency: "No agency",
+      suggestedOn: "suggested this Opening on {{date}}",
+      anotherAgency: "Another agency",
+      agencyDomain: "Agency's domain",
+      notEligible:
+        "{{domain}} isn't an agency working on this Opening. Check the domain, or choose another agency or none.",
+    },
+    submit: "Submit application",
+    once: "You can apply once to each opening. You can withdraw later, but you can't apply again.",
+  },
   notFound: {
     title: "Page not found",
     description: "The page you requested does not exist.",
     action: "Go to home",
   },
   home: {
+    applicationsTitle: "Applications that need you",
+    applicationsBody_one: "{{count}} application is waiting for your answer.",
+    applicationsBody_other:
+      "{{count}} applications are waiting for your answer.",
+    applicationsAction: "Open applications",
     documentTitle: "Home | Vetchium",
     title: "Welcome back, {{name}}",
     profileTitle: "Your profile",
@@ -715,6 +920,41 @@ export const en = {
     paymentsTitle: "Payments",
     paymentsBody:
       "Vetchium plans are not yet billed. When payments are enabled, payment terms covering pricing, billing periods, refunds, and cancellations will be published here before any payment is taken.",
+  },
+  messages: {
+    loadEarlier: "Load earlier messages",
+    documentTitle: "Messages | Vetchium",
+    title: "Messages",
+    subtitle:
+      "Agencies that contacted you about Openings. Reply, or delete a conversation to remove it for both of you.",
+    agency: "Agency",
+    empty:
+      "No messages yet. When recruitment agencies reach out about Openings, your conversations appear here.",
+    loading: "Loading conversation…",
+    selectPrompt: "Select a conversation to read.",
+    delete: "Delete",
+    deleteConfirmTitle: "Delete conversation?",
+    deleteConfirmBody:
+      "This deletes the conversation and opening suggestions for both of you. The agency's notes remain.",
+    deleteAction: "Delete conversation",
+    unavailableTitle: "We couldn't load this conversation",
+    unavailableBody:
+      "{{agency}}'s region didn't answer. Your messages are safe; try again in a moment.",
+    tryAgain: "Try again",
+    you: "You",
+    openingSuggestion: "Opening suggestion",
+    openingUnavailable: "Opening unavailable",
+    viewAndApply: "View and apply",
+    readOnlyTitle: "Conversation is read-only",
+    readOnlyBody: "This conversation is read-only.",
+    readOnlyPreferencesBody:
+      "This conversation is read-only because agency messages are turned off in your preferences.",
+    preferencesLink: "Open preferences",
+    replyPlaceholder: "Write a reply",
+    emailPrivateNotice: "Agencies never see your email address.",
+    send: "Send",
+    snippetSuggestion: "Opening suggestion",
+    snippetConversation: "Conversation with agency",
   },
 } as const;
 

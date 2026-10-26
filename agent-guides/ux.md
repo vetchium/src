@@ -40,6 +40,27 @@ first version; a screen that needs a redesign pass missed a rule here.
   saving does (quota, visibility, approval), a checklist of what the next step
   needs, and that next step. Offer a preview when others see the result.
 
+## Orgs portal navigation
+
+- The sidebar holds Org-level pages only, in one workspace at a time: Hiring,
+  one per Capability the Org provides (named by the Capability's label), and
+  Administration (`orgs-ui/src/app/workspaces.ts`). A workspace shows only
+  when the Org does that work and the user may open one of its pages; the
+  switcher shows only with two or more. Keep a workspace to five pages or
+  fewer.
+- Pages about the signed-in person (My work, My interviews, My account) live
+  in the header's account menu, which names the person by address.
+- A new page joins exactly one workspace, or the account menu when it shows
+  only the person's own items. An Org-level list whose items belong to people
+  (Jobs) filters by person instead of moving to the account menu, and starts
+  on "Mine" when that is what most users come for.
+- No page is in two workspaces. A Capability workspace's routes start with
+  its Capability (`capabilityPath`: `/sourcing/jobs`,
+  `/background-check/work/...`), so the URL alone picks the workspace; a page
+  shared by Capabilities (Clients, Work queue) takes the Capability as a prop,
+  filters by it, and redirects an item opened under another Capability's path
+  to its own. The workspace last chosen applies only on account-menu pages.
+
 ## Actions and saving
 
 - One save scope per independent setting. Never put unrelated settings

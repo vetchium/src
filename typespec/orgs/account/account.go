@@ -7,6 +7,7 @@ import (
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/authorization"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/subscriptions"
 )
 
@@ -54,6 +55,16 @@ type MyInfoResponse struct {
 	PlanOID                subscriptions.PlanOID           `json:"plan_oid"`
 	LogoURL                *string                         `json:"logo_url,omitempty"`
 	GoogleSignInEnabled    bool                            `json:"google_sign_in_enabled"`
+	Marketplace            MarketplaceRoles                `json:"marketplace"`
+}
+
+// MarketplaceRoles is what the Org does in the marketplace, which decides the
+// navigation groups the portal shows; the API still decides every action.
+type MarketplaceRoles struct {
+	// Capabilities the Org has a Listing or an engagement as provider for,
+	// each once, in no particular order; empty, never null, when it provides
+	// nothing.
+	Capabilities []marketplace.Capability `json:"capabilities"`
 }
 
 type DomainCheckResult string

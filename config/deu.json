@@ -18,8 +18,15 @@
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
     "expireOrgOpeningsTimer": "1m",
+    "expireOrgEngagementsTimer": "1m",
+    "expireApplicationOffersTimer": "1m",
+    "retainApplicationsTimer": "1m",
+    "retainOrgContactsTimer": "1m",
+    "refreshHubApplicationsTimer": "1m",
     "reconcileHubSignupTimer": "10s",
     "reconcileHubEmailChangeTimer": "10s",
+    "driveFederationCommandsTimer": "10s",
+    "deliverFederationEventsTimer": "500ms",
     "deliverOrgEmailTimer": "500ms",
     "orgEmailLeaseTTL": "1m",
     "orgEmailMaxAttempts": 5,
@@ -154,6 +161,9 @@
         "priceAmountMinor": 4000
       }
     ]
+  },
+  "marketplace": {
+    "deletedPartyConversationRetention": "8760h"
   },
   "signupRegionsFile": "/etc/vetchium/signup-regions.json"
 }

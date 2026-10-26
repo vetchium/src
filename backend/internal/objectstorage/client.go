@@ -20,7 +20,12 @@ import (
 const (
 	bucketName     = "hub-profile-pictures"
 	logoBucketName = "org-logos"
-	readURLTTL     = 10 * time.Minute
+	// Offer letters are PDFs served only as downloads, so a browser never
+	// renders one on the media origin.
+	offerLetterBucketName  = "org-offer-letters"
+	offerLetterType        = "application/pdf"
+	offerLetterDisposition = `attachment; filename="offer-letter.pdf"`
+	readURLTTL             = 10 * time.Minute
 )
 
 type Client struct {
@@ -60,7 +65,9 @@ func New(privateOrigin, mediaOrigin, accessKey, secretKey string) (*Client, erro
 
 // EnsureBucket creates every bucket this tenant uses if it is missing.
 func (c *Client) EnsureBucket(ctx context.Context) error {
-	for _, bucket := range []string{bucketName, logoBucketName} {
+	for _, bucket := range []string{
+		bucketName, logoBucketName, offerLetterBucketName,
+	} {
 		if err := c.ensureBucket(ctx, bucket); err != nil {
 			return err
 		}
@@ -167,6 +174,50 @@ func (c *Client) SignLogoGet(ctx context.Context, id pgtype.UUID) (string, error
 	)
 	if err != nil {
 		return "", fmt.Errorf("sign Org logo read URL: %w", err)
+	}
+	return signed.String(), nil
+}
+
+// PutOfferLetter stores an offer letter's PDF bytes as sent.
+func (c *Client) PutOfferLetter(ctx context.Context, id pgtype.UUID, letter []byte) error {
+	if !id.Valid || len(letter) == 0 {
+		return fmt.Errorf("invalid offer letter object")
+	}
+	_, err := c.private.PutObject(
+		ctx, offerLetterBucketName, dbvalue.FormatUUID(id),
+		bytes.NewReader(letter), int64(len(letter)), minio.PutObjectOptions{
+			ContentType:        offerLetterType,
+			ContentDisposition: offerLetterDisposition,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("store offer letter: %w", err)
+	}
+	return nil
+}
+
+func (c *Client) DeleteOfferLetter(ctx context.Context, id pgtype.UUID) error {
+	if !id.Valid {
+		return fmt.Errorf("invalid offer letter object id")
+	}
+	if err := c.private.RemoveObject(ctx, offerLetterBucketName,
+		dbvalue.FormatUUID(id), minio.RemoveObjectOptions{}); err != nil {
+		return fmt.Errorf("delete offer letter: %w", err)
+	}
+	return nil
+}
+
+// SignOfferLetterGet signs a short-lived read URL for the browser-visible
+// origin.
+func (c *Client) SignOfferLetterGet(ctx context.Context, id pgtype.UUID) (string, error) {
+	if !id.Valid {
+		return "", fmt.Errorf("invalid offer letter object id")
+	}
+	signed, err := c.media.PresignedGetObject(
+		ctx, offerLetterBucketName, dbvalue.FormatUUID(id), readURLTTL, nil,
+	)
+	if err != nil {
+		return "", fmt.Errorf("sign offer letter read URL: %w", err)
 	}
 	return signed.String(), nil
 }

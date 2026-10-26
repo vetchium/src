@@ -11,6 +11,7 @@ import {
   type SignedUpOrg,
   signupOrg,
 } from "../lib/orgs-api.ts";
+import { accountMenu, signOut } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 import { chooseRegion } from "../lib/region-ui.ts";
 
@@ -25,9 +26,7 @@ async function signIn(
   await page.getByLabel("Password", { exact: true }).fill(user.password);
   await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(
-    page.getByRole("button", { name: "Sign out", exact: true }),
-  ).toBeVisible();
+  await expect(accountMenu(page)).toBeVisible();
 }
 
 async function withOrg(
@@ -83,6 +82,33 @@ test("billing separates the summary and comparison and confirms immediate change
   });
 });
 
+test("the plan comparison shows which plans allow marketplace Listings", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org) => {
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/plans`);
+    await page
+      .getByRole("button", { name: "Change plan", exact: true })
+      .click();
+    await page.getByText("Compare all features", { exact: true }).click();
+    const row = page.getByRole("row", { name: /Marketplace Listings/ });
+    await expect(row).toContainText("Not included");
+    await expect(row).toContainText("Included");
+    await expect(
+      page
+        .getByTestId("plan-org-silver-tier")
+        .getByText("Marketplace Listings", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByTestId("plan-org-gold-tier")
+        .getByText("Marketplace Listings", { exact: true }),
+    ).toBeVisible();
+  });
+});
+
 test("billing requires permission and suspended organizations cannot change plans", async ({
   page,
   request,
@@ -98,7 +124,7 @@ test("billing requires permission and suspended organizations cannot change plan
     await signIn(page, member);
     await page.goto(`${ORGS_PORTAL}/plans`);
     await expect(page.getByTestId("current-subscription")).toHaveCount(0);
-    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await signOut(page);
     await signIn(page, org);
     orgSQL(
       `UPDATE vetchium.orgs SET org_state='suspended', suspended_at=now() WHERE org_did=(SELECT org_did FROM vetchium.org_domains WHERE domain='${org.domain}')`,
@@ -139,9 +165,7 @@ test("billing and company forms work in German with keyboard navigation", async 
     // Leaving before the save answers would read the old name.
     await expect(page.getByText("Unternehmensdaten gespeichert")).toBeVisible();
     await page.goto(`${ORGS_PORTAL}/`);
-    await expect(
-      page.getByRole("heading", { name: "Beispiel GmbH", level: 1 }),
-    ).toBeVisible();
+    await expect(page.getByTestId("home-org-name")).toHaveText("Beispiel GmbH");
   });
 });
 

@@ -19,8 +19,15 @@
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
     "expireOrgOpeningsTimer": "5m",
+    "expireOrgEngagementsTimer": "5m",
+    "expireApplicationOffersTimer": "5m",
+    "retainApplicationsTimer": "1h",
+    "retainOrgContactsTimer": "1h",
+    "refreshHubApplicationsTimer": "5m",
     "reconcileHubSignupTimer": "10s",
     "reconcileHubEmailChangeTimer": "10s",
+    "driveFederationCommandsTimer": "10s",
+    "deliverFederationEventsTimer": "5s",
     "deliverOrgEmailTimer": "5s",
     "orgEmailLeaseTTL": "1m",
     "orgEmailMaxAttempts": 5,
@@ -90,6 +97,9 @@
   },
   "orgBilling": {
     "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
+  },
+  "marketplace": {
+    "deletedPartyConversationRetention": "8760h"
   },
   "mcpServer": {}
 }

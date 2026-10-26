@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import type { PublicProfile } from "typespec/hub/profile/public";
+import { stubNoApplications } from "../lib/hub-ui-stubs.ts";
 import { HUB_PORTAL } from "../lib/portals.ts";
 
 const profile: PublicProfile = {
@@ -42,6 +43,7 @@ const profile: PublicProfile = {
 };
 
 async function signedIn(page: Page) {
+  await stubNoApplications(page);
   await page.addInitScript(() => {
     sessionStorage.setItem(
       "vetchium.hub.session",

@@ -1,0 +1,9 @@
+Hello {{.DisplayName}},
+
+Your offer from {{.OrgName}} for "{{.OpeningTitle}}" expired because it was not answered in time.
+
+Sign in to Vetchium to see the details.
+
+{{.ActionURL}}
+
+This email names no details on purpose; they are only shown after you sign in.

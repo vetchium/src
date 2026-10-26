@@ -388,6 +388,13 @@ export function ProfessionalEmailsCard({
       <Typography.Paragraph type="secondary">
         {t("profileEmails.privacyNote")}
       </Typography.Paragraph>
+      <Alert
+        type="info"
+        showIcon
+        message={t("profileEmails.whatAgenciesSeeTitle")}
+        description={t("profileEmails.whatAgenciesSeeBody")}
+        style={{ marginBottom: 16 }}
+      />
       {list.isPending ? (
         <Spin aria-label={t("profileEmails.loading")} />
       ) : list.isError ? (

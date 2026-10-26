@@ -3,6 +3,7 @@ import type { APIRequest } from "@playwright/test";
 import type {
   OrgPrincipalCommandResponse,
   ResolveOrgDomainResponse,
+  ResolvePrincipalResponse,
 } from "typespec/directory/directory";
 import { globalSQLScalar, type TestTenant } from "../lib/admin-db.ts";
 import { type APIObservation, expect, test } from "../lib/admin-fixtures.ts";
@@ -12,6 +13,7 @@ import { meshRelayRequest } from "../lib/mesh.ts";
 
 const ROUTES = [
   "resolve-org-domain",
+  "resolve-principal",
   "reserve-org-principal",
   "activate-org-principal",
   "release-org-domain",
@@ -121,6 +123,8 @@ function invalidBody(route: Route): unknown {
   switch (route) {
     case "resolve-org-domain":
       return { domain: "localhost" };
+    case "resolve-principal":
+      return { principal_type: "org", principal_did: "not-a-uuid" };
     case "activate-org-principal":
       return { command_id: "not-a-uuid", org_did: orgDID() };
     case "reserve-org-principal":
@@ -197,6 +201,16 @@ for (const transport of transports) {
           404,
           "vetchium-problem-details/directory-entry-not-found",
         );
+        const principal = {
+          principal_type: "org",
+          principal_did: reserve.org_did,
+        };
+        // A principal still provisioning has no home to route to.
+        expectProblem(
+          await call("usa1", "resolve-principal", principal),
+          404,
+          "vetchium-problem-details/directory-entry-not-found",
+        );
         expectProblem(
           await call("usa1", "activate-org-principal", {
             command_id: randomUUID(),
@@ -213,6 +227,12 @@ for (const transport of transports) {
           "active",
           domain,
         );
+        const home = await call("usa1", "resolve-principal", principal);
+        expect(home.status, JSON.stringify(home.body)).toBe(200);
+        expect(home.body as ResolvePrincipalResponse).toMatchObject({
+          ...principal,
+          home_tenant_id: "sgp",
+        });
         const resolved = await call("usa1", "resolve-org-domain", { domain });
         expect(resolved.status).toBe(200);
         expect(resolved.body as ResolveOrgDomainResponse).toMatchObject({

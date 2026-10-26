@@ -66,11 +66,29 @@ func TestLoadFile(t *testing.T) {
 		cfg.ObjectStorage.MediaBaseURL != "http://media.sgp.localhost" {
 		t.Fatalf("object storage config = %+v", cfg.ObjectStorage)
 	}
+	if cfg.Marketplace.DeletedPartyConversationRetention != 8760*time.Hour {
+		t.Fatalf("DeletedPartyConversationRetention = %s, want 8760h",
+			cfg.Marketplace.DeletedPartyConversationRetention)
+	}
 	if cfg.Workers.AdvanceHubSubscriptionsTimer != time.Minute {
 		t.Fatalf(
 			"advance hub subscriptions timer = %s, want 1m",
 			cfg.Workers.AdvanceHubSubscriptionsTimer,
 		)
+	}
+	if cfg.Workers.ExpireOrgEngagementsTimer != time.Minute {
+		t.Fatalf("ExpireOrgEngagementsTimer = %s",
+			cfg.Workers.ExpireOrgEngagementsTimer)
+	}
+	if cfg.Workers.ExpireApplicationOffersTimer != time.Minute {
+		t.Fatalf("ExpireApplicationOffersTimer = %s",
+			cfg.Workers.ExpireApplicationOffersTimer)
+	}
+	if cfg.Workers.RetainApplicationsTimer != time.Minute ||
+		cfg.Workers.RefreshHubApplicationsTimer != time.Minute {
+		t.Fatalf("application timers = %s, %s",
+			cfg.Workers.RetainApplicationsTimer,
+			cfg.Workers.RefreshHubApplicationsTimer)
 	}
 	if cfg.Workers.ExpireOrgOpeningsTimer != time.Minute {
 		t.Fatalf("expire Org Openings timer = %s, want 1m",
@@ -384,8 +402,15 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
     "expireOrgOpeningsTimer": "1m",
+    "expireOrgEngagementsTimer": "1m",
+    "expireApplicationOffersTimer": "1m",
+    "retainApplicationsTimer": "1m",
+    "retainOrgContactsTimer": "1m",
+    "refreshHubApplicationsTimer": "1m",
     "reconcileHubSignupTimer": "1m",
     "reconcileHubEmailChangeTimer": "1m",
+    "driveFederationCommandsTimer": "1m",
+    "deliverFederationEventsTimer": "1m",
     "deliverOrgEmailTimer": "1s",
     "orgEmailLeaseTTL": "1m",
     "orgEmailMaxAttempts": 5,
@@ -456,6 +481,9 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
   "orgBilling": {
     "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
   },
+  "marketplace": {
+    "deletedPartyConversationRetention": "8760h"
+  },
   "mcpServer": {}
 }`, passwordFile)
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
@@ -514,6 +542,122 @@ func TestLoadFileRequiresPositiveExpireOrgOpeningsTimer(t *testing.T) {
 	_, err = LoadFile(path)
 	if err == nil || !strings.Contains(err.Error(),
 		"workers.expireOrgOpeningsTimer must be positive") {
+		t.Fatalf("LoadFile() error = %v, want positive timer error", err)
+	}
+}
+
+func TestLoadFileRequiresPositiveExpireApplicationOffersTimer(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	path := writeConfig(t, passwordFile, "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(
+		string(contents),
+		`"expireApplicationOffersTimer": "1m"`,
+		`"expireApplicationOffersTimer": "0s"`,
+		1,
+	))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LoadFile(path)
+	if err == nil || !strings.Contains(err.Error(),
+		"workers.expireApplicationOffersTimer must be positive") {
+		t.Fatalf("LoadFile() error = %v, want positive timer error", err)
+	}
+}
+
+func TestLoadFileRequiresPositiveExpireOrgEngagementsTimer(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	path := writeConfig(t, passwordFile, "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(
+		string(contents),
+		`"expireOrgEngagementsTimer": "1m"`,
+		`"expireOrgEngagementsTimer": "0s"`,
+		1,
+	))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LoadFile(path)
+	if err == nil || !strings.Contains(err.Error(),
+		"workers.expireOrgEngagementsTimer must be positive") {
+		t.Fatalf("LoadFile() error = %v, want positive timer error", err)
+	}
+}
+
+func TestLoadFileRequiresPositiveApplicationTimers(t *testing.T) {
+	for _, key := range []string{
+		"retainApplicationsTimer", "retainOrgContactsTimer", "refreshHubApplicationsTimer",
+	} {
+		passwordFile := filepath.Join(t.TempDir(), "password")
+		path := writeConfig(t, passwordFile, "")
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		contents = []byte(strings.Replace(
+			string(contents), `"`+key+`": "1m"`, `"`+key+`": "0s"`, 1,
+		))
+		if err := os.WriteFile(path, contents, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, err = LoadFile(path)
+		if err == nil || !strings.Contains(err.Error(),
+			"workers."+key+" must be positive") {
+			t.Fatalf("%s: LoadFile() error = %v", key, err)
+		}
+	}
+}
+
+func TestLoadFileRequiresPositiveDriveFederationCommandsTimer(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	path := writeConfig(t, passwordFile, "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(
+		string(contents),
+		`"driveFederationCommandsTimer": "1m"`,
+		`"driveFederationCommandsTimer": "0s"`,
+		1,
+	))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LoadFile(path)
+	if err == nil || !strings.Contains(err.Error(),
+		"workers.driveFederationCommandsTimer must be positive") {
+		t.Fatalf("LoadFile() error = %v, want positive timer error", err)
+	}
+}
+
+func TestLoadFileRequiresPositiveDeliverFederationEventsTimer(t *testing.T) {
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	path := writeConfig(t, passwordFile, "")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(
+		string(contents),
+		`"deliverFederationEventsTimer": "1m"`,
+		`"deliverFederationEventsTimer": "0s"`,
+		1,
+	))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LoadFile(path)
+	if err == nil || !strings.Contains(err.Error(),
+		"workers.deliverFederationEventsTimer must be positive") {
 		t.Fatalf("LoadFile() error = %v, want positive timer error", err)
 	}
 }
@@ -652,8 +796,15 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "hubEmailMaxAttempts": 5,
     "advanceHubSubscriptionsTimer": "1m",
     "expireOrgOpeningsTimer": "1m",
+    "expireOrgEngagementsTimer": "1m",
+    "expireApplicationOffersTimer": "1m",
+    "retainApplicationsTimer": "1m",
+    "retainOrgContactsTimer": "1m",
+    "refreshHubApplicationsTimer": "1m",
     "reconcileHubSignupTimer": "1m",
     "reconcileHubEmailChangeTimer": "1m",
+    "driveFederationCommandsTimer": "1m",
+    "deliverFederationEventsTimer": "1m",
     "deliverOrgEmailTimer": "1s",
     "orgEmailLeaseTTL": "1m",
     "orgEmailMaxAttempts": 5,
@@ -723,6 +874,9 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
   },
   "orgBilling": {
     "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
+  },
+  "marketplace": {
+    "deletedPartyConversationRetention": "8760h"
   },
   "mcpServer": {}
 }`, passwordFile, extraWorkerField)

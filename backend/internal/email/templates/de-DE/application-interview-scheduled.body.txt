@@ -1,0 +1,9 @@
+Hallo {{.DisplayName}},
+
+Für Ihre Bewerbung für „{{.OpeningTitle}}“ bei {{.OrgName}} wurde ein Gespräch angesetzt. Bitte antworten Sie darauf.
+
+Melden Sie sich bei Vetchium an, um die Einzelheiten zu sehen.
+
+{{.ActionURL}}
+
+Diese E-Mail nennt bewusst keine Einzelheiten; sie werden erst nach der Anmeldung angezeigt.

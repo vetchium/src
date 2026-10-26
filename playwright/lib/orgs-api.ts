@@ -15,6 +15,27 @@ import type {
   ListAIUsageRequest,
   SetAISettingsRequest,
 } from "typespec/orgs/ai/ai";
+import type {
+  ApplicationActionRequest,
+  ApplicationJoinedOnRequest,
+  ApplicationSeparatedOnRequest,
+  ApplicationStageRequest,
+  CancelInterviewRequest,
+  ChangeInterviewRequest,
+  ExtendApplicationOfferRequest,
+  GetApplicationCountsRequest,
+  GetApplicationRequest,
+  ListApplicationHistoryRequest,
+  ListApplicationsRequest,
+  ListMyInterviewsRequest,
+  RecordAssessmentResultRequest,
+  RecordBackgroundCheckResultRequest,
+  RecordInterviewOutcomeRequest,
+  RequestBackgroundCheckConsentRequest,
+  RouteApplicationRequest,
+  ScheduleInterviewRequest,
+  SubmitInterviewFeedbackRequest,
+} from "typespec/orgs/applications/applications";
 import type { LoginResponse } from "typespec/orgs/auth/login";
 import {
   type CompleteSignupRequest,
@@ -22,6 +43,65 @@ import {
   currentTermsVersion,
   type RequestSignupRequest,
 } from "typespec/orgs/auth/signup";
+import type {
+  CreatePipelineTemplateRequest,
+  DeletePipelineTemplateRequest,
+  ListPipelineTemplatesRequest,
+  UpdatePipelineTemplateRequest,
+} from "typespec/orgs/hiring/pipelines";
+import type {
+  AssignOpeningProviderRequest,
+  GetOpeningProvidersRequest,
+  UnassignOpeningProviderRequest,
+} from "typespec/orgs/marketplace/assignments";
+import type { ListCreditedApplicationsRequest } from "typespec/orgs/marketplace/attribution";
+import type {
+  AddContactNoteRequest,
+  AddPersonNoteRequest,
+  ContactReference,
+  DeleteContactNoteRequest,
+  EditContactNoteRequest,
+  GetConversationRequest,
+  ListContactNotesRequest,
+  ListContactsRequest,
+  MarkConversationReadRequest,
+  SendMessageRequest,
+  StartConversationRequest,
+  ViewHubProfileRequest,
+} from "typespec/orgs/marketplace/contacts/contacts";
+import type {
+  EndEngagementRequest,
+  EngagementTarget,
+  GetEngagementRequest,
+  ListEngagementsRequest,
+  ProposeEngagementRequest,
+  SetEngagementReferenceRequest,
+} from "typespec/orgs/marketplace/engagements";
+import type {
+  CreateListingRequest,
+  GetListingRequest,
+  ListingTarget,
+  ListListingsRequest,
+  SearchListingsRequest,
+  UpdateListingRequest,
+} from "typespec/orgs/marketplace/listings";
+import type { GetActivityStatementRequest } from "typespec/orgs/marketplace/statements";
+import type {
+  ChangeInterviewRequest as ChangeWorkInterviewRequest,
+  JobReference,
+  ListJobsRequest,
+  ListWorkQueueRequest,
+  RecordAssessmentRequest as RecordWorkAssessmentRequest,
+  RecordBackgroundCheckResultRequest as RecordWorkBackgroundCheckResultRequest,
+  RecordInterviewOutcomeRequest as RecordWorkInterviewOutcomeRequest,
+  ScheduleInterviewRequest as ScheduleWorkInterviewRequest,
+  SetJobOwnerRequest,
+  SubmitInterviewFeedbackRequest as SubmitWorkInterviewFeedbackRequest,
+  SuggestClientsRequest,
+  SuggestJobOwnersRequest,
+  InterviewReference as WorkInterviewReference,
+  WorkReference,
+} from "typespec/orgs/marketplace/work/work";
 import type {
   CreateOpeningRequest,
   DecideOpeningRequestRequest,
@@ -36,6 +116,11 @@ import type {
   SetOpeningTeamRequest,
   WithdrawOpeningRequestRequest,
 } from "typespec/orgs/openings/openings";
+import type {
+  GetOpeningPipelineRequest,
+  ReplaceOpeningPipelineRequest,
+} from "typespec/orgs/openings/pipeline";
+import type { GetOperationRequest } from "typespec/orgs/operations/operations";
 import type { SetCompanyDetailsRequest } from "typespec/orgs/settings/company";
 import type { SetSubscriptionPlanRequest } from "typespec/orgs/subscriptions/subscriptions";
 import type { OrgDomain } from "typespec/orgs/types";
@@ -168,6 +253,800 @@ export class OrgsAPI {
     return this.post("/set-opening-team", request, { token, idempotencyKey });
   }
 
+  listPipelineTemplates(
+    token: string,
+    request: ListPipelineTemplatesRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-pipeline-templates", request, { token });
+  }
+
+  createPipelineTemplate(
+    token: string,
+    request: CreatePipelineTemplateRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/create-pipeline-template", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  updatePipelineTemplate(
+    token: string,
+    request: UpdatePipelineTemplateRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/update-pipeline-template", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  deletePipelineTemplate(
+    token: string,
+    request: DeletePipelineTemplateRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/delete-pipeline-template", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  listListings(
+    token: string,
+    request: ListListingsRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-listings", request, { token });
+  }
+
+  createListing(
+    token: string,
+    request: CreateListingRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/create-listing", request, { token, idempotencyKey });
+  }
+
+  updateListing(
+    token: string,
+    request: UpdateListingRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/update-listing", request, { token, idempotencyKey });
+  }
+
+  publishListing(
+    token: string,
+    request: ListingTarget,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/publish-listing", request, { token, idempotencyKey });
+  }
+
+  unlistListing(
+    token: string,
+    request: ListingTarget,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/unlist-listing", request, { token, idempotencyKey });
+  }
+
+  deleteListing(
+    token: string,
+    request: ListingTarget,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/delete-listing", request, { token, idempotencyKey });
+  }
+
+  searchListings(
+    token: string,
+    request: SearchListingsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/search-listings", request, { token });
+  }
+
+  getListing(token: string, request: GetListingRequest): Promise<APIResponse> {
+    return this.post("/get-listing", request, { token });
+  }
+
+  listEngagements(
+    token: string,
+    request: ListEngagementsRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-engagements", request, { token });
+  }
+
+  getEngagement(
+    token: string,
+    request: GetEngagementRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-engagement", request, { token });
+  }
+
+  getEngagementStatement(
+    token: string,
+    request: GetActivityStatementRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-engagement-statement", request, { token });
+  }
+
+  proposeEngagement(
+    token: string,
+    request: ProposeEngagementRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/propose-engagement", request, { token, idempotencyKey });
+  }
+
+  withdrawEngagement(
+    token: string,
+    request: EngagementTarget,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/withdraw-engagement", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  endEngagement(
+    token: string,
+    request: EndEngagementRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/end-engagement", request, { token, idempotencyKey });
+  }
+
+  setEngagementReference(
+    token: string,
+    request: SetEngagementReferenceRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/set-engagement-reference", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  listClientEngagements(
+    token: string,
+    request: ListEngagementsRequest = {},
+  ): Promise<APIResponse> {
+    return this.post("/list-client-engagements", request, { token });
+  }
+
+  getClientEngagement(
+    token: string,
+    request: GetEngagementRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-client-engagement", request, { token });
+  }
+
+  getClientEngagementStatement(
+    token: string,
+    request: GetActivityStatementRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-client-engagement-statement", request, { token });
+  }
+
+  acceptEngagement(
+    token: string,
+    request: EngagementTarget,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/accept-engagement", request, { token, idempotencyKey });
+  }
+
+  declineEngagement(
+    token: string,
+    request: EngagementTarget,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/decline-engagement", request, { token, idempotencyKey });
+  }
+
+  endClientEngagement(
+    token: string,
+    request: EndEngagementRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/end-client-engagement", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  setClientEngagementReference(
+    token: string,
+    request: SetEngagementReferenceRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/set-client-engagement-reference", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  getOpeningProviders(
+    token: string,
+    request: GetOpeningProvidersRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-opening-providers", request, { token });
+  }
+
+  assignOpeningProvider(
+    token: string,
+    request: AssignOpeningProviderRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/assign-opening-provider", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  unassignOpeningProvider(
+    token: string,
+    request: UnassignOpeningProviderRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/unassign-opening-provider", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  routeApplication(
+    token: string,
+    request: RouteApplicationRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/route-application", request, { token, idempotencyKey });
+  }
+
+  listWorkQueue(
+    token: string,
+    request: ListWorkQueueRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-work-queue", request, { token });
+  }
+
+  getWorkItem(token: string, request: WorkReference): Promise<APIResponse> {
+    return this.post("/get-work-item", request, { token });
+  }
+
+  listJobs(token: string, request: ListJobsRequest): Promise<APIResponse> {
+    return this.post("/list-jobs", request, { token });
+  }
+
+  getJob(token: string, request: JobReference): Promise<APIResponse> {
+    return this.post("/get-job", request, { token });
+  }
+
+  setJobOwner(
+    token: string,
+    request: SetJobOwnerRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/set-job-owner", request, { token, idempotencyKey });
+  }
+
+  suggestJobOwners(
+    token: string,
+    request: SuggestJobOwnersRequest,
+  ): Promise<APIResponse> {
+    return this.post("/suggest-job-owners", request, { token });
+  }
+
+  suggestClients(
+    token: string,
+    request: SuggestClientsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/suggest-clients", request, { token });
+  }
+
+  listCreditedApplications(
+    token: string,
+    request: ListCreditedApplicationsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-credited-applications", request, { token });
+  }
+
+  scheduleWorkInterview(
+    token: string,
+    request: ScheduleWorkInterviewRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/schedule-work-interview", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  changeWorkInterview(
+    token: string,
+    request: ChangeWorkInterviewRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/change-work-interview", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  cancelWorkInterview(
+    token: string,
+    request: WorkInterviewReference,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/cancel-work-interview", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordWorkInterviewOutcome(
+    token: string,
+    request: RecordWorkInterviewOutcomeRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-work-interview-outcome", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  submitWorkInterviewFeedback(
+    token: string,
+    request: SubmitWorkInterviewFeedbackRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/submit-work-interview-feedback", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordWorkAssessment(
+    token: string,
+    request: RecordWorkAssessmentRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-work-assessment", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordWorkBackgroundCheckResult(
+    token: string,
+    request: RecordWorkBackgroundCheckResultRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-work-background-check-result", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  viewHubProfile(
+    token: string,
+    request: ViewHubProfileRequest,
+  ): Promise<APIResponse> {
+    return this.post("/view-hub-profile", request, { token });
+  }
+
+  listContacts(
+    token: string,
+    request: ListContactsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-contacts", request, { token });
+  }
+
+  getContact(token: string, request: ContactReference): Promise<APIResponse> {
+    return this.post("/get-contact", request, { token });
+  }
+
+  listContactNotes(
+    token: string,
+    request: ListContactNotesRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-contact-notes", request, { token });
+  }
+
+  addPersonNote(
+    token: string,
+    request: AddPersonNoteRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/add-person-note", request, { token, idempotencyKey });
+  }
+
+  addContactNote(
+    token: string,
+    request: AddContactNoteRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/add-contact-note", request, { token, idempotencyKey });
+  }
+
+  editContactNote(
+    token: string,
+    request: EditContactNoteRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/edit-contact-note", request, { token, idempotencyKey });
+  }
+
+  deleteContactNote(
+    token: string,
+    request: DeleteContactNoteRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/delete-contact-note", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  startConversation(
+    token: string,
+    request: StartConversationRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/start-conversation", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  sendMessage(
+    token: string,
+    request: SendMessageRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/send-message", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  getConversation(
+    token: string,
+    request: GetConversationRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-conversation", request, { token });
+  }
+
+  markConversationRead(
+    token: string,
+    request: MarkConversationReadRequest,
+  ): Promise<APIResponse> {
+    return this.post("/mark-conversation-read", request, { token });
+  }
+
+  /** Sends a body that need not satisfy the contract, to observe rejection. */
+  marketplaceWriteRaw(
+    path: string,
+    token: string,
+    body: unknown,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post(path, body, { token, idempotencyKey });
+  }
+
+  getOpeningPipeline(
+    token: string,
+    request: GetOpeningPipelineRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-opening-pipeline", request, { token });
+  }
+
+  replaceOpeningPipeline(
+    token: string,
+    request: ReplaceOpeningPipelineRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/replace-opening-pipeline", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  listApplications(
+    token: string,
+    request: ListApplicationsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-applications", request, { token });
+  }
+
+  getApplication(
+    token: string,
+    request: GetApplicationRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-application", request, { token });
+  }
+
+  getApplicationCounts(
+    token: string,
+    request: GetApplicationCountsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/get-application-counts", request, { token });
+  }
+
+  listApplicationHistory(
+    token: string,
+    request: ListApplicationHistoryRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-application-history", request, { token });
+  }
+
+  shortlistApplication(
+    token: string,
+    request: ApplicationStageRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/shortlist-application", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  moveApplicationStage(
+    token: string,
+    request: ApplicationStageRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/move-application-stage", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  completeApplicationStage(
+    token: string,
+    request: ApplicationActionRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/complete-application-stage", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  markApplicationNotProgressing(
+    token: string,
+    request: ApplicationActionRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/mark-application-not-progressing", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordApplicationJoined(
+    token: string,
+    request: ApplicationJoinedOnRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-application-joined", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordApplicationDidNotJoin(
+    token: string,
+    request: ApplicationActionRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-application-did-not-join", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordApplicationSeparated(
+    token: string,
+    request: ApplicationSeparatedOnRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-application-separated", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  correctApplicationJoinedOn(
+    token: string,
+    request: ApplicationJoinedOnRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/correct-application-joined-on", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  correctApplicationSeparatedOn(
+    token: string,
+    request: ApplicationSeparatedOnRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/correct-application-separated-on", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  /** Uploads body as an offer letter with the given Content-Type. */
+  uploadOfferLetter(
+    token: string,
+    body: Buffer,
+    contentType = "application/pdf",
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.request.post(`${this.origin}/api/orgs/upload-offer-letter`, {
+      data: body,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": contentType,
+        "Idempotency-Key": idempotencyKey,
+      },
+    });
+  }
+
+  extendApplicationOffer(
+    token: string,
+    request: ExtendApplicationOfferRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/extend-application-offer", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  /** Sends any JSON as an offer extension, for malformed requests. */
+  extendApplicationOfferRaw(
+    token: string,
+    request: unknown,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/extend-application-offer", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  scheduleInterview(
+    token: string,
+    request: ScheduleInterviewRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/schedule-interview", request, { token, idempotencyKey });
+  }
+
+  /** Sends any JSON as an interview write, for malformed requests. */
+  interviewWriteRaw(
+    operation:
+      | "schedule-interview"
+      | "change-interview"
+      | "cancel-interview"
+      | "record-interview-outcome"
+      | "submit-interview-feedback",
+    token: string,
+    request: unknown,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post(`/${operation}`, request, { token, idempotencyKey });
+  }
+
+  changeInterview(
+    token: string,
+    request: ChangeInterviewRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/change-interview", request, { token, idempotencyKey });
+  }
+
+  cancelInterview(
+    token: string,
+    request: CancelInterviewRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/cancel-interview", request, { token, idempotencyKey });
+  }
+
+  recordInterviewOutcome(
+    token: string,
+    request: RecordInterviewOutcomeRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-interview-outcome", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  submitInterviewFeedback(
+    token: string,
+    request: SubmitInterviewFeedbackRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/submit-interview-feedback", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordAssessmentResult(
+    token: string,
+    request: RecordAssessmentResultRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-assessment-result", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  requestBackgroundCheckConsent(
+    token: string,
+    request: RequestBackgroundCheckConsentRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/request-background-check-consent", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  recordBackgroundCheckResult(
+    token: string,
+    request: RecordBackgroundCheckResultRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/record-background-check-result", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  /** Sends any JSON as a result write, for malformed requests. */
+  resultWriteRaw(
+    operation:
+      | "record-assessment-result"
+      | "request-background-check-consent"
+      | "record-background-check-result",
+    token: string,
+    request: unknown,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post(`/${operation}`, request, { token, idempotencyKey });
+  }
+
+  listMyInterviews(
+    token: string,
+    request: ListMyInterviewsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-my-interviews", request, { token });
+  }
+
+  withdrawApplicationOffer(
+    token: string,
+    request: ApplicationActionRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/withdraw-application-offer", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
   discardOpening(
     token: string,
     request: DiscardOpeningRequest,
@@ -229,6 +1108,17 @@ export class OrgsAPI {
     request: ListOpeningHistoryRequest,
   ): Promise<APIResponse> {
     return this.post("/list-opening-history", request, { token });
+  }
+
+  operationStatus(
+    token: string | undefined,
+    request: GetOperationRequest,
+  ): Promise<APIResponse> {
+    return this.post(
+      "/operations/status",
+      request,
+      token === undefined ? {} : { token },
+    );
   }
 
   requestSignup(
@@ -820,6 +1710,8 @@ export function cleanupOrg(domain: string, tenant: TestTenant = "sgp"): void {
       SELECT org_user_id::text FROM vetchium.org_users
       WHERE email_address LIKE ${pattern}
     ) OR binding_id LIKE ${pattern} OR binding_id LIKE ${sqlLiteral(`${domain}/%`)};
+    DELETE FROM vetchium.org_contacts WHERE ${hasDID("org_did::text")};
+    DELETE FROM vetchium.org_contact_creations WHERE ${hasDID("org_did::text")};
     DELETE FROM vetchium.orgs WHERE ${hasDID("org_did::text")};
     `,
   );

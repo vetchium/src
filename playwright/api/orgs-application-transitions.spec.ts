@@ -1,0 +1,1480 @@
+import { randomUUID } from "node:crypto";
+import type { APIRequestContext, APIResponse } from "@playwright/test";
+import type {
+  ApplicationReference,
+  ListMyApplicationsResponse,
+} from "typespec/hub/applications/applications";
+import type {
+  ApplicationDetail,
+  ApplicationHistoryEntry,
+  ApplicationState,
+  ListApplicationHistoryResponse,
+} from "typespec/orgs/applications/applications";
+import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
+import type { OrgOpening } from "typespec/orgs/openings/types";
+import { expectProblem } from "../lib/admin-api.ts";
+import { expect, test } from "../lib/admin-fixtures.ts";
+import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
+import {
+  type ApplicationOptions,
+  cleanupApplicants,
+  type HiringOrg,
+  seedApplication,
+} from "../lib/hiring-seed.ts";
+import {
+  type Applicant,
+  apply,
+  cleanupApplicant,
+  seedApplicant,
+} from "../lib/hub-applicant.ts";
+import {
+  addOrgMember,
+  cleanupOrg,
+  loginOrg,
+  OrgsAPI,
+  orgDID,
+  orgSQL,
+  orgsIdempotencyKey,
+  type SignedUpOrg,
+  signupOrg,
+} from "../lib/orgs-api.ts";
+import {
+  cleanupOutbox,
+  orgDIDSQL,
+  publishedOpening,
+  reread,
+  utcDate,
+} from "../lib/orgs-applications.ts";
+
+type Api = OrgsAPI;
+
+const PREFIX = "vetchium-problem-details/";
+const NOT_FOUND = `${PREFIX}org-application-not-found`;
+const VERSION_CONFLICT = `${PREFIX}org-application-version-conflict`;
+const STATE_CONFLICT = `${PREFIX}org-application-state-conflict`;
+const PERMISSION_REQUIRED = `${PREFIX}org-permission-required`;
+const KEY_CONFLICT = `${PREFIX}idempotency-key-conflict`;
+const VALIDATION = `${PREFIX}validation-failed`;
+
+async function withOrg(
+  request: APIRequestContext,
+  body: (
+    api: Api,
+    owner: string,
+    org: SignedUpOrg,
+    world: HiringOrg,
+  ) => Promise<void>,
+): Promise<void> {
+  const api = new OrgsAPI(request);
+  const org = await signupOrg(api);
+  const world: HiringOrg = {
+    request,
+    tenant: "sgp",
+    api,
+    owner: "",
+    domain: org.domain,
+    did: orgDID(org.domain),
+    applicants: [],
+  };
+  try {
+    world.owner = await loginOrg(api, org);
+    await body(api, world.owner, org, world);
+  } finally {
+    cleanupApplicants(world);
+    cleanupOutbox(org.domain);
+    await deleteOrgVerificationRecord(org.domain);
+    cleanupOrg(org.domain);
+  }
+}
+
+/** Applies through the Hub as a new applicant and walks the application to
+ * options.state; returns its number. */
+async function seed(
+  world: HiringOrg,
+  openingNumber: number,
+  options: ApplicationOptions = {},
+): Promise<number> {
+  return (await seedApplication(world, openingNumber, options)).number;
+}
+
+function stageOf(stages: PipelineStage[], index: number): PipelineStage {
+  const stage = stages[index];
+  if (!stage) throw new Error(`expected stage ${index}`);
+  return stage;
+}
+
+async function detail(
+  api: Api,
+  token: string,
+  opening: number,
+  application: number,
+): Promise<ApplicationDetail> {
+  const response = await api.getApplication(token, {
+    opening_number: opening,
+    application_number: application,
+  });
+  expect(response.status(), await response.text()).toBe(200);
+  return (await response.json()) as ApplicationDetail;
+}
+
+async function history(
+  api: Api,
+  token: string,
+  opening: number,
+  application: number,
+): Promise<ApplicationHistoryEntry[]> {
+  const response = await api.listApplicationHistory(token, {
+    opening_number: opening,
+    application_number: application,
+  });
+  expect(response.status(), await response.text()).toBe(200);
+  return ((await response.json()) as ListApplicationHistoryResponse).entries;
+}
+
+/** A write that must succeed, returning the application it leaves. */
+async function expectApplied(
+  response: APIResponse,
+): Promise<ApplicationDetail> {
+  expect(response.status(), await response.text()).toBe(200);
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  return (await response.json()) as ApplicationDetail;
+}
+
+const statuses = (detail: ApplicationDetail) =>
+  detail.stage_records.map((record) => record.status);
+
+test("shortlisting records the stages, and replays and conflicts are exact", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, owner, org, world) => {
+    const { opening, stages } = await publishedOpening(api, owner, org);
+    const n = opening.opening_number;
+    const [screen, panel] = [stageOf(stages, 0), stageOf(stages, 1)];
+    const number = await seed(world, n);
+    const reference = { opening_number: n, application_number: number };
+
+    // Refusals leave the application alone and run in the documented order.
+    await expectProblem(
+      await api.shortlistApplication(owner, {
+        ...reference,
+        application_number: number + 50,
+        version: 1,
+        stage_id: panel.id,
+      }),
+      404,
+      NOT_FOUND,
+    );
+    await expectProblem(
+      await api.shortlistApplication(owner, {
+        ...reference,
+        opening_number: n + 50,
+        version: 1,
+        stage_id: panel.id,
+      }),
+      404,
+      NOT_FOUND,
+    );
+    await expectProblem(
+      await api.shortlistApplication(owner, {
+        ...reference,
+        version: 7,
+        stage_id: panel.id,
+      }),
+      409,
+      VERSION_CONFLICT,
+    );
+    await expectProblem(
+      await api.shortlistApplication(owner, {
+        ...reference,
+        version: 1,
+        stage_id: randomUUID(),
+      }),
+      400,
+      VALIDATION,
+      ["stage_id"],
+    );
+    expect((await detail(api, owner, n, number)).version).toBe(1);
+
+    const key = orgsIdempotencyKey();
+    const request1 = { ...reference, version: 1, stage_id: panel.id };
+    const shortlisted = await expectApplied(
+      await api.shortlistApplication(owner, request1, key),
+    );
+    expect(shortlisted).toMatchObject({
+      application_number: number,
+      state: "in_pipeline",
+      version: 2,
+      current_stage: { id: panel.id, name: "Panel", kind: "interview" },
+      positions: 1,
+      joined_count: 0,
+    });
+    // The stage passed over is skipped; the chosen and later ones wait.
+    expect(statuses(shortlisted)).toEqual(["skipped", "pending", "pending"]);
+    expect(shortlisted.stage_records.map((record) => record.stage.id)).toEqual(
+      stages.map((stage) => stage.id),
+    );
+
+    // The same key and body replays the stored result; another body does not.
+    expect(
+      await expectApplied(await api.shortlistApplication(owner, request1, key)),
+    ).toEqual(shortlisted);
+    await expectProblem(
+      await api.shortlistApplication(
+        owner,
+        { ...request1, stage_id: screen.id },
+        key,
+      ),
+      409,
+      KEY_CONFLICT,
+    );
+    expect((await detail(api, owner, n, number)).version).toBe(2);
+
+    // A fresh key sees the new state.
+    await expectProblem(
+      await api.shortlistApplication(owner, { ...request1, version: 2 }),
+      409,
+      STATE_CONFLICT,
+    );
+    await expectProblem(
+      await api.shortlistApplication(owner, request1),
+      409,
+      VERSION_CONFLICT,
+    );
+
+    const entries = await history(api, owner, n, number);
+    expect(entries[0]).toMatchObject({
+      action: "shortlisted",
+      actor: "org_user",
+      actor_email: org.emailAddress,
+      state: "in_pipeline",
+      version: 2,
+      stage: { id: panel.id, name: "Panel" },
+    });
+    expect(entries.map((entry) => entry.action)).toEqual([
+      "shortlisted",
+      "applied",
+    ]);
+    // History holds actions, states, and dates, never free text.
+    expect(JSON.stringify(entries)).not.toContain("Lovelace");
+  });
+});
+
+test("an application moves forward, skipping, and completes review stages", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, owner, org, world) => {
+    const { opening, stages } = await publishedOpening(api, owner, org);
+    const n = opening.opening_number;
+    const [screen, panel, final] = [
+      stageOf(stages, 0),
+      stageOf(stages, 1),
+      stageOf(stages, 2),
+    ];
+    const number = await seed(world, n);
+    const ref = (version: number) => ({
+      opening_number: n,
+      application_number: number,
+      version,
+    });
+
+    const first = await expectApplied(
+      await api.shortlistApplication(owner, {
+        ...ref(1),
+        stage_id: screen.id,
+      }),
+    );
+    expect(statuses(first)).toEqual(["pending", "pending", "pending"]);
+
+    // Only a review stage is completed by hand, and only while pending.
+    const completed = await expectApplied(
+      await api.completeApplicationStage(owner, ref(2)),
+    );
+    expect(completed.version).toBe(3);
+    expect(statuses(completed)).toEqual(["completed", "pending", "pending"]);
+    await expectProblem(
+      await api.completeApplicationStage(owner, ref(3)),
+      409,
+      STATE_CONFLICT,
+    );
+
+    // Moving to the same or an earlier stage, or an unknown one, is refused.
+    await expectProblem(
+      await api.moveApplicationStage(owner, { ...ref(3), stage_id: screen.id }),
+      409,
+      STATE_CONFLICT,
+    );
+    await expectProblem(
+      await api.moveApplicationStage(owner, {
+        ...ref(3),
+        stage_id: randomUUID(),
+      }),
+      400,
+      VALIDATION,
+      ["stage_id"],
+    );
+    await expectProblem(
+      await api.moveApplicationStage(owner, { ...ref(2), stage_id: final.id }),
+      409,
+      VERSION_CONFLICT,
+    );
+
+    // Moving two stages ahead skips the one passed over; a finished stage
+    // stays finished.
+    const moved = await expectApplied(
+      await api.moveApplicationStage(owner, { ...ref(3), stage_id: final.id }),
+    );
+    expect(moved).toMatchObject({
+      state: "in_pipeline",
+      version: 4,
+      current_stage: { id: final.id },
+    });
+    expect(statuses(moved)).toEqual(["completed", "skipped", "pending"]);
+    // An interview stage is never completed by hand.
+    await expectProblem(
+      await api.completeApplicationStage(owner, ref(4)),
+      409,
+      STATE_CONFLICT,
+    );
+    await expectProblem(
+      await api.moveApplicationStage(owner, { ...ref(4), stage_id: panel.id }),
+      409,
+      STATE_CONFLICT,
+    );
+
+    const entries = await history(api, owner, n, number);
+    expect(entries.map((entry) => entry.action)).toEqual([
+      "stage_moved",
+      "stage_completed",
+      "shortlisted",
+      "applied",
+    ]);
+    expect(entries[0]?.stage?.id).toBe(final.id);
+    expect(entries[1]?.stage?.id).toBe(screen.id);
+
+    const left = await expectApplied(
+      await api.markApplicationNotProgressing(owner, ref(4)),
+    );
+    expect(left).toMatchObject({ state: "not_progressing", version: 5 });
+    // The candidacy ended where it stood.
+    expect(left.current_stage?.id).toBe(final.id);
+  });
+});
+
+test("a stage added after shortlisting is recorded when the candidacy moves", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, owner, org, world) => {
+    const { opening, stages } = await publishedOpening(api, owner, org);
+    const n = opening.opening_number;
+    const number = await seed(world, n);
+    await expectApplied(
+      await api.shortlistApplication(owner, {
+        opening_number: n,
+        application_number: number,
+        version: 1,
+        stage_id: stageOf(stages, 0).id,
+      }),
+    );
+    const current = await reread(api, owner, opening);
+    const replaced = await api.replaceOpeningPipeline(owner, {
+      opening_number: n,
+      version: current.version,
+      stages: [
+        ...stages.map(({ id, name, kind }) => ({ id, name, kind })),
+        { name: "Reference check", kind: "review" },
+      ],
+    });
+    expect(replaced.status(), await replaced.text()).toBe(200);
+    const extended = ((await replaced.json()) as { stages: PipelineStage[] })
+      .stages;
+    expect(extended).toHaveLength(4);
+    expect((await detail(api, owner, n, number)).stage_records).toHaveLength(3);
+
+    const moved = await expectApplied(
+      await api.moveApplicationStage(owner, {
+        opening_number: n,
+        application_number: number,
+        version: 2,
+        stage_id: stageOf(extended, 3).id,
+      }),
+    );
+    expect(moved.stage_records.map((record) => record.stage.name)).toEqual([
+      "Screen",
+      "Panel",
+      "Final",
+      "Reference check",
+    ]);
+    expect(statuses(moved)).toEqual([
+      "skipped",
+      "skipped",
+      "skipped",
+      "pending",
+    ]);
+  });
+});
+
+test("not progressing ends any live application and nothing leaves a terminal state", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, owner, org, world) => {
+    const { opening, stages } = await publishedOpening(api, owner, org);
+    const n = opening.opening_number;
+    const panel = stageOf(stages, 1).id;
+    const live: [ApplicationState, string | undefined][] = [
+      ["submitted", undefined],
+      ["in_pipeline", panel],
+      ["offered", panel],
+      ["offer_accepted", panel],
+    ];
+    for (const [state, stageId] of live) {
+      const { number, version } = await seedApplication(world, n, {
+        state,
+        ...(stageId ? { stageId } : {}),
+      });
+      const ended = await expectApplied(
+        await api.markApplicationNotProgressing(owner, {
+          opening_number: n,
+          application_number: number,
+          version,
+        }),
+      );
+      expect(ended, state).toMatchObject({
+        state: "not_progressing",
+        version: version + 1,
+      });
+      const entries = await history(api, owner, n, number);
+      expect(entries[0], state).toMatchObject({
+        action: "not_progressing",
+        actor: "org_user",
+        state: "not_progressing",
+        version: version + 1,
+      });
+    }
+  });
+});
+
+test("every action refuses every state it does not allow", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, owner, org, world) => {
+    const { opening, stages } = await publishedOpening(api, owner, org);
+    const n = opening.opening_number;
+    const [screen, panel, final] = [
+      stageOf(stages, 0),
+      stageOf(stages, 1),
+      stageOf(stages, 2),
+    ];
+    const joined = { joinedOn: utcDate(-5) };
+    const seeds: Record<ApplicationState, ApplicationOptions> = {
+      submitted: {},
+      in_pipeline: { state: "in_pipeline", stageId: panel.id },
+      offered: { state: "offered", stageId: panel.id },
+      offer_accepted: { state: "offer_accepted", stageId: panel.id },
+      offer_declined: { state: "offer_declined", stageId: panel.id },
+      joined: { state: "joined", stageId: panel.id, ...joined },
+      did_not_join: { state: "did_not_join", stageId: panel.id },
+      not_progressing: { state: "not_progressing" },
+      withdrawn: { state: "withdrawn" },
+    };
+    const actions: Record<
+      string,
+      {
+        allowed: ApplicationState[];
+        call: (number: number, version: number) => Promise<APIResponse>;
+      }
+    > = {
+      shortlist: {
+        allowed: ["submitted"],
+        call: (number, version) =>
+          api.shortlistApplication(owner, {
+            opening_number: n,
+            application_number: number,
+            version,
+            stage_id: screen.id,
+          }),
+      },
+      move: {
+        allowed: ["in_pipeline"],
+        call: (number, version) =>
+          api.moveApplicationStage(owner, {
+            opening_number: n,
+            application_number: number,
+            version,
+            stage_id: final.id,
+          }),
+      },
+      complete: {
+        // The seeded candidacy is at an interview stage.
+        allowed: [],
+        call: (number, version) =>
+          api.completeApplicationStage(owner, {
+            opening_number: n,
+            application_number: number,
+            version,
+          }),
+      },
+      notProgressing: {
+        allowed: ["submitted", "in_pipeline", "offered", "offer_accepted"],
+        call: (number, version) =>
+          api.markApplicationNotProgressing(owner, {
+            opening_number: n,
+            application_number: number,
+            version,
+          }),
+      },
+      joined: {
+        allowed: ["offer_accepted"],
+        call: (number, version) =>
+          api.recordApplicationJoined(owner, {
+            opening_number: n,
+            application_number: number,
+            version,
+            joined_on: utcDate(-1),
+          }),
+      },
+      didNotJoin: {
+        allowed: ["offer_accepted"],
+        call: (number, version) =>
+          api.recordApplicationDidNotJoin(owner, {
+            opening_number: n,
+            application_number: number,
+            version,
+          }),
+      },
+      separated: {
+        allowed: ["joined"],
+        call: (number, version) =>
+          api.recordApplicationSeparated(owner, {
+            opening_number: n,
+            application_number: number,
+            version,
+            separated_on: utcDate(-1),
+          }),
+      },
+      correctJoined: {
+        allowed: ["joined"],
+        call: (number, version) =>
+          api.correctApplicationJoinedOn(owner, {
+            opening_number: n,
+            application_number: number,
+            version,
+            joined_on: utcDate(-2),
+          }),
+      },
+      // No separation is recorded on the seeded joined application.
+      correctSeparated: {
+        allowed: [],
+        call: (number, version) =>
+          api.correctApplicationSeparatedOn(owner, {
+            opening_number: n,
+            application_number: number,
+            version,
+            separated_on: utcDate(-1),
+          }),
+      },
+    };
+    const seeded = new Map<
+      ApplicationState,
+      { number: number; version: number }
+    >();
+    for (const [state, options] of Object.entries(seeds)) {
+      seeded.set(
+        state as ApplicationState,
+        await seedApplication(world, n, { ...options, name: state }),
+      );
+    }
+    for (const [name, action] of Object.entries(actions)) {
+      for (const [state, { number, version }] of seeded) {
+        if (action.allowed.includes(state)) continue;
+        const response = await action.call(number, version);
+        expect(
+          response.status(),
+          `${name} on ${state}: ${await response.text()}`,
+        ).toBe(409);
+        expect((await response.json()).type, `${name} on ${state}`).toBe(
+          STATE_CONFLICT,
+        );
+      }
+    }
+    // Nothing changed.
+    for (const [state, { number, version }] of seeded) {
+      const after = await detail(api, owner, n, number);
+      expect(after.version, state).toBe(version);
+      expect(after.state, state).toBe(state);
+    }
+  });
+});
+
+test("joining and separation follow the date rules, keep history, and allow over-hiring", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, owner, org, world) => {
+    const { opening, stages } = await publishedOpening(api, owner, org, {
+      positions: 1,
+    });
+    const n = opening.opening_number;
+    const final = stageOf(stages, 2).id;
+    const accepted = async (name: string, extended = 10) =>
+      await seedApplication(world, n, {
+        name,
+        state: "offer_accepted",
+        stageId: final,
+        offerExtendedDaysAgo: extended,
+      });
+    const hire = await accepted("First Hire");
+    const first = hire.number;
+    // v(k) is the version after k more changes than seeding made.
+    const v = (k: number) => hire.version + k;
+    const ref = (number: number, version: number) => ({
+      opening_number: n,
+      application_number: number,
+      version,
+    });
+
+    // joined_on is a real date, at most today, not before the offer.
+    for (const joined_on of ["2026-02-30", "2026-1-1", "", "tomorrow"]) {
+      await expectProblem(
+        await api.recordApplicationJoined(owner, {
+          ...ref(first, v(0)),
+          joined_on,
+        }),
+        400,
+        VALIDATION,
+        ["joined_on"],
+      );
+    }
+    for (const joined_on of [utcDate(2), utcDate(-30)]) {
+      await expectProblem(
+        await api.recordApplicationJoined(owner, {
+          ...ref(first, v(0)),
+          joined_on,
+        }),
+        400,
+        VALIDATION,
+        ["joined_on"],
+      );
+    }
+    expect((await detail(api, owner, n, first)).state).toBe("offer_accepted");
+
+    const key = orgsIdempotencyKey();
+    const joinedRequest = { ...ref(first, v(0)), joined_on: utcDate(-3) };
+    const hired = await expectApplied(
+      await api.recordApplicationJoined(owner, joinedRequest, key),
+    );
+    expect(hired).toMatchObject({
+      state: "joined",
+      version: v(1),
+      joined_on: utcDate(-3),
+      positions: 1,
+      joined_count: 1,
+    });
+    expect(hired.separated_on).toBeUndefined();
+    expect(
+      await expectApplied(
+        await api.recordApplicationJoined(owner, joinedRequest, key),
+      ),
+    ).toEqual(hired);
+
+    // Hiring beyond positions succeeds; the response carries both numbers.
+    const second = await accepted("Second Hire");
+    const over = await expectApplied(
+      await api.recordApplicationJoined(owner, {
+        ...ref(second.number, second.version),
+        joined_on: utcDate(0),
+      }),
+    );
+    expect(over).toMatchObject({ joined_on: utcDate(0), positions: 1 });
+    expect(over.joined_count).toBe(2);
+
+    // Separation is after joining, within a year of it, and not in the
+    // future; it is recorded once.
+    for (const separated_on of [utcDate(-3), utcDate(-5), utcDate(2)]) {
+      await expectProblem(
+        await api.recordApplicationSeparated(owner, {
+          ...ref(first, v(1)),
+          separated_on,
+        }),
+        400,
+        VALIDATION,
+        ["separated_on"],
+      );
+    }
+    const separated = await expectApplied(
+      await api.recordApplicationSeparated(owner, {
+        ...ref(first, v(1)),
+        separated_on: utcDate(-1),
+      }),
+    );
+    expect(separated).toMatchObject({
+      state: "joined",
+      version: v(2),
+      joined_on: utcDate(-3),
+      separated_on: utcDate(-1),
+    });
+    await expectProblem(
+      await api.recordApplicationSeparated(owner, {
+        ...ref(first, v(2)),
+        separated_on: utcDate(-1),
+      }),
+      409,
+      STATE_CONFLICT,
+    );
+
+    // Corrections keep the dates consistent and add history, not edits.
+    await expectProblem(
+      await api.correctApplicationJoinedOn(owner, {
+        ...ref(first, v(2)),
+        joined_on: utcDate(-1),
+      }),
+      400,
+      VALIDATION,
+      ["joined_on"],
+    );
+    const fixedJoin = await expectApplied(
+      await api.correctApplicationJoinedOn(owner, {
+        ...ref(first, v(2)),
+        joined_on: utcDate(-4),
+      }),
+    );
+    expect(fixedJoin).toMatchObject({ joined_on: utcDate(-4), version: v(3) });
+    const fixedSeparation = await expectApplied(
+      await api.correctApplicationSeparatedOn(owner, {
+        ...ref(first, v(3)),
+        separated_on: utcDate(-2),
+      }),
+    );
+    expect(fixedSeparation).toMatchObject({
+      joined_on: utcDate(-4),
+      separated_on: utcDate(-2),
+      version: v(4),
+    });
+    const entries = await history(api, owner, n, first);
+    expect(
+      entries.map((entry) => [
+        entry.action,
+        entry.joined_on,
+        entry.separated_on,
+      ]),
+    ).toEqual([
+      ["separated_corrected", undefined, utcDate(-2)],
+      ["joined_corrected", utcDate(-4), undefined],
+      ["separated", undefined, utcDate(-1)],
+      ["joined", utcDate(-3), undefined],
+      ["offer_accepted", undefined, undefined],
+      ["offer_extended", undefined, undefined],
+      ["shortlisted", undefined, undefined],
+      ["applied", undefined, undefined],
+    ]);
+
+    // Did not join ends an accepted offer without a date.
+    const declined = await accepted("Never Joined");
+    const none = await expectApplied(
+      await api.recordApplicationDidNotJoin(
+        owner,
+        ref(declined.number, declined.version),
+      ),
+    );
+    expect(none).toMatchObject({
+      state: "did_not_join",
+      version: declined.version + 1,
+    });
+    expect(none.joined_on).toBeUndefined();
+    expect((await history(api, owner, n, declined.number))[0]?.action).toBe(
+      "did_not_join",
+    );
+  });
+});
+
+test("a separation more than a year after joining is refused", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, owner, org, world) => {
+    const { opening, stages } = await publishedOpening(api, owner, org);
+    const n = opening.opening_number;
+    const { number, version } = await seedApplication(world, n, {
+      state: "offer_accepted",
+      stageId: stageOf(stages, 2).id,
+      offerExtendedDaysAgo: 800,
+    });
+    await expectApplied(
+      await api.recordApplicationJoined(owner, {
+        opening_number: n,
+        application_number: number,
+        version,
+        joined_on: utcDate(-500),
+      }),
+    );
+    const currentVersion = async () =>
+      (
+        await expectApplied(
+          await api.getApplication(owner, {
+            opening_number: n,
+            application_number: number,
+          }),
+        )
+      ).version;
+    await expectProblem(
+      await api.recordApplicationSeparated(owner, {
+        opening_number: n,
+        application_number: number,
+        version: await currentVersion(),
+        separated_on: utcDate(-100),
+      }),
+      400,
+      VALIDATION,
+      ["separated_on"],
+    );
+    await expectApplied(
+      await api.recordApplicationSeparated(owner, {
+        opening_number: n,
+        application_number: number,
+        version: await currentVersion(),
+        separated_on: utcDate(-136),
+      }),
+    );
+  });
+});
+
+test("dates are corrected only within 90 days of first recording", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, owner, org, world) => {
+    const { opening, stages } = await publishedOpening(api, owner, org);
+    const n = opening.opening_number;
+    const panel = stageOf(stages, 1).id;
+    const seedJoined = async (recordedDaysAgo: number) =>
+      await seedApplication(world, n, {
+        state: "joined",
+        stageId: panel,
+        joinedOn: utcDate(-200),
+        joinedRecordedDaysAgo: recordedDaysAgo,
+        separatedOn: utcDate(-100),
+        separatedRecordedDaysAgo: recordedDaysAgo,
+      });
+    const late = await seedJoined(91);
+    const timely = await seedJoined(89);
+    const body = (seeded: { number: number; version: number }) => ({
+      opening_number: n,
+      application_number: seeded.number,
+      version: seeded.version,
+    });
+
+    await expectProblem(
+      await api.correctApplicationJoinedOn(owner, {
+        ...body(late),
+        joined_on: utcDate(-201),
+      }),
+      409,
+      STATE_CONFLICT,
+    );
+    await expectProblem(
+      await api.correctApplicationSeparatedOn(owner, {
+        ...body(late),
+        separated_on: utcDate(-101),
+      }),
+      409,
+      STATE_CONFLICT,
+    );
+    expect((await detail(api, owner, n, late.number)).version).toBe(
+      late.version,
+    );
+
+    const joined = await expectApplied(
+      await api.correctApplicationJoinedOn(owner, {
+        ...body(timely),
+        joined_on: utcDate(-201),
+      }),
+    );
+    expect(joined).toMatchObject({
+      joined_on: utcDate(-201),
+      version: timely.version + 1,
+    });
+    const separated = await expectApplied(
+      await api.correctApplicationSeparatedOn(owner, {
+        ...body(timely),
+        version: timely.version + 1,
+        separated_on: utcDate(-101),
+      }),
+    );
+    expect(separated).toMatchObject({
+      separated_on: utcDate(-101),
+      version: timely.version + 2,
+    });
+    // A correction does not reopen the window.
+    const recorded = orgSQL(
+      `SELECT joined_recorded_at < now() - interval '88 days'
+       FROM vetchium.org_applications
+       WHERE org_application_id = (
+         SELECT a.org_application_id FROM vetchium.org_applications AS a
+         JOIN vetchium.org_openings AS o USING (org_opening_id)
+         WHERE o.org_did = ${orgDIDSQL(org.domain)}
+           AND o.opening_number = ${n}
+           AND a.application_number = ${timely.number})`,
+    );
+    expect(recorded).toBe("t");
+  });
+});
+
+test("who may act: manager, recruiter, and candidacies holders act; team members read only", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, owner, org, world) => {
+    const upgraded = await api.setSubscriptionPlan(owner, {
+      plan_oid: "org-silver-tier",
+      billing_interval: "month",
+    });
+    expect(upgraded.status(), await upgraded.text()).toBe(200);
+    const member = (local: string, permissions: string[] = []) =>
+      addOrgMember(
+        api,
+        owner,
+        org.domain,
+        `${local}@${org.domain}`,
+        permissions,
+      );
+    const hiringManager = await member("hiring-manager");
+    const recruiter = await member("recruiter");
+    const teammate = await member("teammate");
+    const candidacies = await member("candidacies", ["org:manage_candidacies"]);
+    const viewer = await member("viewer", ["org:view_openings"]);
+    const openingsManager = await member("openings", ["org:manage_openings"]);
+    const approver = await member("approver", ["org:approve_openings"]);
+    const plain = await member("plain");
+
+    const { opening } = await publishedOpening(api, owner, org);
+    const n = opening.opening_number;
+    const team = await api.setOpeningTeam(owner, {
+      opening_number: n,
+      version: (await reread(api, owner, opening)).version,
+      hiring_manager_email: hiringManager.emailAddress,
+      recruiter_email: recruiter.emailAddress,
+      team_member_emails: [teammate.emailAddress],
+    });
+    expect(team.status(), await team.text()).toBe(200);
+
+    // A permitted attempt moves its application, so each gets its own; a
+    // refused one changes nothing, so they share one.
+    const [shared, ...fresh] = await Promise.all(
+      Array.from({ length: 5 }, () => seed(world, n)),
+    );
+    const attempt = async (token: string, permitted = false) => {
+      const number = permitted ? fresh.shift() : shared;
+      if (number === undefined) throw new Error("seed more applications");
+      const response = await api.markApplicationNotProgressing(token, {
+        opening_number: n,
+        application_number: number,
+        version: 1,
+      });
+      return { number, response };
+    };
+    for (const actor of [
+      { token: owner, name: "the superadmin" },
+      { token: hiringManager.token, name: "the hiring manager" },
+      { token: recruiter.token, name: "the recruiter" },
+      { token: candidacies.token, name: "an org:manage_candidacies holder" },
+    ]) {
+      const { response } = await attempt(actor.token, true);
+      expect(response.status(), `${actor.name}: ${await response.text()}`).toBe(
+        200,
+      );
+    }
+    // A hiring-team member reads the application but cannot act on it.
+    const team1 = await attempt(teammate.token);
+    await expectProblem(team1.response, 403, PERMISSION_REQUIRED);
+    expect((await detail(api, owner, n, team1.number)).state).toBe("submitted");
+    // Everyone else cannot even tell the application exists.
+    for (const denied of [
+      { token: viewer.token, name: "an org:view_openings holder" },
+      { token: openingsManager.token, name: "an org:manage_openings holder" },
+      { token: approver.token, name: "an org:approve_openings holder" },
+      { token: plain.token, name: "a member with no grant" },
+    ]) {
+      const { number, response } = await attempt(denied.token);
+      await expectProblem(response, 404, NOT_FOUND);
+      expect((await detail(api, owner, n, number)).state, denied.name).toBe(
+        "submitted",
+      );
+    }
+
+    // The check is made on each call, so a revoked grant stops at once.
+    const revoked = await api.setUserPermissions(owner, {
+      email_address: candidacies.emailAddress,
+      permissions: [],
+    });
+    expect(revoked.status(), await revoked.text()).toBe(204);
+    await expectProblem(
+      (await attempt(candidacies.token)).response,
+      404,
+      NOT_FOUND,
+    );
+  });
+});
+
+test("application write routes authenticate, validate, and refuse suspended Orgs", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, owner, org, world) => {
+    const { opening, stages } = await publishedOpening(api, owner, org);
+    const n = opening.opening_number;
+    const number = await seed(world, n);
+    const base = { opening_number: n, application_number: number, version: 1 };
+    const stage = { ...base, stage_id: stageOf(stages, 0).id };
+    const routes: {
+      path: string;
+      body: object;
+      invalid: object;
+      fields: string[];
+    }[] = [
+      {
+        path: "/shortlist-application",
+        body: stage,
+        invalid: { ...stage, stage_id: "NOT-A-UUID" },
+        fields: ["stage_id"],
+      },
+      {
+        path: "/move-application-stage",
+        body: stage,
+        invalid: { ...stage, version: 0 },
+        fields: ["version"],
+      },
+      {
+        path: "/complete-application-stage",
+        body: base,
+        invalid: { ...base, opening_number: 0 },
+        fields: ["opening_number"],
+      },
+      {
+        path: "/mark-application-not-progressing",
+        body: base,
+        invalid: { ...base, application_number: 0 },
+        fields: ["application_number"],
+      },
+      {
+        path: "/record-application-joined",
+        body: { ...base, joined_on: utcDate(-1) },
+        invalid: { ...base, joined_on: "2026-13-01" },
+        fields: ["joined_on"],
+      },
+      {
+        path: "/record-application-did-not-join",
+        body: base,
+        invalid: { opening_number: 0, application_number: 0, version: 0 },
+        fields: ["opening_number", "application_number", "version"],
+      },
+      {
+        path: "/record-application-separated",
+        body: { ...base, separated_on: utcDate(-1) },
+        invalid: { ...base, separated_on: "soon" },
+        fields: ["separated_on"],
+      },
+      {
+        path: "/correct-application-joined-on",
+        body: { ...base, joined_on: utcDate(-1) },
+        invalid: base,
+        fields: ["joined_on"],
+      },
+      {
+        path: "/correct-application-separated-on",
+        body: { ...base, separated_on: utcDate(-1) },
+        invalid: base,
+        fields: ["separated_on"],
+      },
+    ];
+    // A hiring-team member reads the application but may not act on it.
+    const teammate = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      `teammate@${org.domain}`,
+      [],
+    );
+    const team = await api.setOpeningTeam(owner, {
+      opening_number: n,
+      version: (await reread(api, owner, opening)).version,
+      hiring_manager_email: org.emailAddress,
+      recruiter_email: org.emailAddress,
+      team_member_emails: [teammate.emailAddress],
+    });
+    expect(team.status(), await team.text()).toBe(200);
+    for (const route of routes) {
+      const key = { idempotencyKey: orgsIdempotencyKey() };
+      await expectProblem(
+        await api.post(route.path, route.body, {
+          token: teammate.token,
+          idempotencyKey: orgsIdempotencyKey(),
+        }),
+        403,
+        PERMISSION_REQUIRED,
+      );
+      await expectProblem(
+        await api.post(
+          route.path,
+          { ...route.body, application_number: 9999 },
+          { token: owner, idempotencyKey: orgsIdempotencyKey() },
+        ),
+        404,
+        NOT_FOUND,
+      );
+      const unauthenticated = await api.post(route.path, route.body, key);
+      expect(unauthenticated.status(), route.path).toBe(401);
+      const malformed = await api.postRaw(route.path, "{", {
+        token: owner,
+        ...key,
+      });
+      expect(malformed.status(), route.path).toBe(400);
+      expect((await malformed.json()).type).toContain("invalid-json");
+      const keyless = await api.post(route.path, route.body, { token: owner });
+      await expectProblem(keyless, 400, VALIDATION, ["Idempotency-Key"]);
+      await expectProblem(
+        await api.post(route.path, route.invalid, { token: owner, ...key }),
+        400,
+        VALIDATION,
+        route.fields,
+      );
+    }
+    expect((await detail(api, owner, n, number)).version).toBe(1);
+
+    orgSQL(`UPDATE vetchium.orgs SET org_state = 'suspended', suspended_at = now()
+      WHERE org_did = ${orgDIDSQL(org.domain)}`);
+    for (const route of routes) {
+      const blocked = await api.post(route.path, route.body, {
+        token: owner,
+        idempotencyKey: orgsIdempotencyKey(),
+      });
+      expect(blocked.status(), `${route.path}: ${await blocked.text()}`).toBe(
+        403,
+      );
+      expect((await blocked.json()).type).toContain("org-suspended");
+    }
+  });
+});
+
+/** Seeds one application per state a close can reach or must leave alone. */
+async function seedMixed(world: HiringOrg, n: number, stageId: string) {
+  const [submitted, inPipeline, offered, offerAccepted, joined, withdrawn] =
+    await Promise.all([
+      seed(world, n, { name: "Submitted" }),
+      seed(world, n, { name: "In Pipeline", state: "in_pipeline", stageId }),
+      seed(world, n, { name: "Offered", state: "offered", stageId }),
+      seed(world, n, { name: "Accepted", state: "offer_accepted", stageId }),
+      seed(world, n, {
+        name: "Joined",
+        state: "joined",
+        stageId,
+        offerExtendedDaysAgo: 6,
+        joinedOn: utcDate(-5),
+      }),
+      seed(world, n, { name: "Withdrawn", state: "withdrawn" }),
+    ]);
+  return { submitted, inPipeline, offered, offerAccepted, joined, withdrawn };
+}
+
+async function states(
+  api: Api,
+  token: string,
+  n: number,
+  numbers: Record<string, number>,
+): Promise<Record<string, ApplicationState>> {
+  const out: Record<string, ApplicationState> = {};
+  for (const [name, number] of Object.entries(numbers)) {
+    out[name] = (await detail(api, token, n, number)).state;
+  }
+  return out;
+}
+
+const untouched = {
+  submitted: "submitted",
+  inPipeline: "in_pipeline",
+  offered: "offered",
+  offerAccepted: "offer_accepted",
+  joined: "joined",
+  withdrawn: "withdrawn",
+};
+const closed = {
+  submitted: "not_progressing",
+  inPipeline: "not_progressing",
+  offered: "not_progressing",
+  offerAccepted: "not_progressing",
+  joined: "joined",
+  withdrawn: "withdrawn",
+};
+
+test("an approver's close marks open applications only when asked", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, owner, org, world) => {
+    // Without the choice, a close leaves every application as it is.
+    const [plain, marked] = await Promise.all([
+      publishedOpening(api, owner, org),
+      publishedOpening(api, owner, org),
+    ]);
+    const n = marked.opening.opening_number;
+    const [plainNumbers, numbers] = await Promise.all([
+      seedMixed(
+        world,
+        plain.opening.opening_number,
+        stageOf(plain.stages, 1).id,
+      ),
+      seedMixed(world, n, stageOf(marked.stages, 1).id),
+    ]);
+    const plainClose = await api.requestOpeningChange(owner, {
+      opening_number: plain.opening.opening_number,
+      version: plain.opening.version,
+      kind: "close",
+    });
+    expect(plainClose.status(), await plainClose.text()).toBe(200);
+    expect(((await plainClose.json()) as OrgOpening).state).toBe("closed");
+    expect(
+      await states(api, owner, plain.opening.opening_number, plainNumbers),
+    ).toEqual(untouched);
+
+    // With it, in the same transaction, and a repeat with the key replays.
+    const acceptedBefore = await detail(api, owner, n, numbers.offerAccepted);
+    const joinedBefore = await detail(api, owner, n, numbers.joined);
+    const joinedHistory = await history(api, owner, n, numbers.joined);
+    const key = orgsIdempotencyKey();
+    const closeRequest = {
+      opening_number: n,
+      version: marked.opening.version,
+      kind: "close" as const,
+      mark_applications_not_progressing: true,
+    };
+    const response = await api.requestOpeningChange(owner, closeRequest, key);
+    expect(response.status(), await response.text()).toBe(200);
+    expect(((await response.json()) as OrgOpening).state).toBe("closed");
+    expect(await states(api, owner, n, numbers)).toEqual(closed);
+    expect(
+      (await api.requestOpeningChange(owner, closeRequest, key)).status(),
+    ).toBe(200);
+
+    // Each marked application got a history entry and its version moved.
+    const accepted = await detail(api, owner, n, numbers.offerAccepted);
+    expect(accepted.version).toBe(acceptedBefore.version + 1);
+    const entries = await history(api, owner, n, numbers.offerAccepted);
+    expect(entries[0]).toMatchObject({
+      action: "not_progressing",
+      actor: "org_user",
+      actor_email: org.emailAddress,
+      state: "not_progressing",
+    });
+    // Terminal applications are not touched.
+    expect((await detail(api, owner, n, numbers.joined)).version).toBe(
+      joinedBefore.version,
+    );
+    expect(await history(api, owner, n, numbers.joined)).toHaveLength(
+      joinedHistory.length,
+    );
+  });
+});
+
+test("a close request's bulk choice applies only when an approver approves it", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, owner, org, world) => {
+    const manager = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      `manager@${org.domain}`,
+      ["org:manage_openings"],
+    );
+    // Only the approved request needs every state; the others need one live
+    // application to show what the decision did.
+    const ask = async (mark: boolean | undefined, everyState = false) => {
+      const { opening, stages } = await publishedOpening(api, owner, org);
+      const n = opening.opening_number;
+      const stageId = stageOf(stages, 1).id;
+      const numbers: Record<string, number> = everyState
+        ? await seedMixed(world, n, stageId)
+        : {
+            inPipeline: await seed(world, n, { state: "in_pipeline", stageId }),
+          };
+      const requested = await api.requestOpeningChange(manager.token, {
+        opening_number: n,
+        version: opening.version,
+        kind: "close",
+        ...(mark === undefined
+          ? {}
+          : { mark_applications_not_progressing: mark }),
+      });
+      expect(requested.status(), await requested.text()).toBe(200);
+      const pending = (await requested.json()) as OrgOpening;
+      return { n, numbers, pending };
+    };
+
+    // Asking changes nothing until the decision, and shows the choice.
+    const approved = await ask(true, true);
+    expect(approved.pending.state).toBe("published");
+    expect(approved.pending.pending_request).toMatchObject({
+      kind: "close",
+      mark_applications_not_progressing: true,
+    });
+    expect(await states(api, owner, approved.n, approved.numbers)).toEqual(
+      untouched,
+    );
+    const decided = await api.decideOpeningRequest(owner, {
+      opening_number: approved.n,
+      version: approved.pending.version,
+      decision: "approve",
+    });
+    expect(decided.status(), await decided.text()).toBe(200);
+    expect(((await decided.json()) as OrgOpening).state).toBe("closed");
+    expect(await states(api, owner, approved.n, approved.numbers)).toEqual(
+      closed,
+    );
+
+    // Rejected: neither the Opening nor any application changes.
+    const rejected = await ask(true);
+    const rejection = await api.decideOpeningRequest(owner, {
+      opening_number: rejected.n,
+      version: rejected.pending.version,
+      decision: "reject",
+      note: "Not yet",
+    });
+    expect(rejection.status(), await rejection.text()).toBe(200);
+    expect(await states(api, owner, rejected.n, rejected.numbers)).toEqual({
+      inPipeline: "in_pipeline",
+    });
+
+    // Asked for without the choice, approving marks nothing.
+    const declined = await ask(false);
+    expect(
+      declined.pending.pending_request?.mark_applications_not_progressing,
+    ).toBe(false);
+    const noMark = await api.decideOpeningRequest(owner, {
+      opening_number: declined.n,
+      version: declined.pending.version,
+      decision: "approve",
+    });
+    expect(noMark.status(), await noMark.text()).toBe(200);
+    expect(await states(api, owner, declined.n, declined.numbers)).toEqual({
+      inPipeline: "in_pipeline",
+    });
+
+    // An approver's own close supersedes a pending one and uses its own choice.
+    const superseded = await ask(false);
+    const override = await api.requestOpeningChange(owner, {
+      opening_number: superseded.n,
+      version: superseded.pending.version,
+      kind: "close",
+      mark_applications_not_progressing: true,
+    });
+    expect(override.status(), await override.text()).toBe(200);
+    expect(await states(api, owner, superseded.n, superseded.numbers)).toEqual({
+      inPipeline: "not_progressing",
+    });
+
+    // The choice belongs to a close request only.
+    const { opening } = await publishedOpening(api, owner, org);
+    await expectProblem(
+      await api.requestOpeningChange(owner, {
+        opening_number: opening.opening_number,
+        version: opening.version,
+        kind: "pause",
+        mark_applications_not_progressing: true,
+      }),
+      400,
+      VALIDATION,
+      ["mark_applications_not_progressing"],
+    );
+  });
+});
+
+// --- Hub status after each change, with real applicants. ------------------
+
+async function expectProjected(
+  applicant: Applicant,
+  reference: ApplicationReference,
+  status: string,
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const response = await applicant.hub.listMyApplications(
+          {},
+          applicant.token,
+        );
+        const list = (await response.json()) as ListMyApplicationsResponse;
+        return list.applications.find(
+          (entry) =>
+            entry.org_domain === reference.domain &&
+            entry.opening_number === reference.opening_number &&
+            entry.application_number === reference.application_number,
+        )?.status;
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(status);
+}
+
+test("every change reaches the applicant's Hub status", async ({ request }) => {
+  test.setTimeout(120_000);
+  const api = new OrgsAPI(request);
+  const org = await signupOrg(api);
+  const ada = seedApplicant(request, "sgp", "Ada Applicant");
+  const grace = seedApplicant(request, "sgp", "Grace Applicant");
+  try {
+    const owner = await loginOrg(api, org);
+    const { opening, stages } = await publishedOpening(api, owner, org);
+    const n = opening.opening_number;
+    const [screen, panel] = [stageOf(stages, 0), stageOf(stages, 1)];
+    const adaRef = await apply(ada, org.domain, n);
+    const graceRef = await apply(grace, org.domain, n);
+    await expectProjected(ada, adaRef, "applied");
+    const at = (ref: ApplicationReference, version: number) => ({
+      opening_number: n,
+      application_number: ref.application_number,
+      version,
+    });
+
+    await expectApplied(
+      await api.shortlistApplication(owner, {
+        ...at(adaRef, 1),
+        stage_id: screen.id,
+      }),
+    );
+    await expectProjected(ada, adaRef, "in_review");
+    await expectApplied(
+      await api.completeApplicationStage(owner, at(adaRef, 2)),
+    );
+    await expectProjected(ada, adaRef, "in_review");
+    await expectApplied(
+      await api.moveApplicationStage(owner, {
+        ...at(adaRef, 3),
+        stage_id: panel.id,
+      }),
+    );
+    await expectProjected(ada, adaRef, "interviewing");
+    // The live read agrees, and shows no stage, feedback, or version.
+    const live = await ada.hub.getMyApplication(adaRef, ada.token);
+    expect(live.status(), await live.text()).toBe(200);
+    const liveText = await live.text();
+    expect(((await live.json()) as { status: string }).status).toBe(
+      "interviewing",
+    );
+    for (const internal of ["Panel", "stage", "version", "snapshot"]) {
+      expect(liveText).not.toContain(internal);
+    }
+    await expectApplied(
+      await api.markApplicationNotProgressing(owner, at(adaRef, 4)),
+    );
+    await expectProjected(ada, adaRef, "not_progressing");
+
+    // Closing with the bulk choice reaches applicants who never heard from
+    // the Org.
+    const closedOpening = await api.requestOpeningChange(owner, {
+      opening_number: n,
+      version: (await reread(api, owner, opening)).version,
+      kind: "close",
+      mark_applications_not_progressing: true,
+    });
+    expect(closedOpening.status(), await closedOpening.text()).toBe(200);
+    await expectProjected(grace, graceRef, "not_progressing");
+  } finally {
+    const did = orgDID(org.domain);
+    cleanupApplicant(ada, [{ tenant: "sgp", did }]);
+    cleanupApplicant(grace, [{ tenant: "sgp", did }]);
+    await deleteOrgVerificationRecord(org.domain);
+    cleanupOrg(org.domain);
+  }
+});

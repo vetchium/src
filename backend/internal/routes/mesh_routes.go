@@ -43,6 +43,10 @@ func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 		mesh.ResolveOrgDomain(s.Runtime, s.Directory, s.Credential),
 	)
 	mux.HandleFunc(
+		"POST /mesh/directory/resolve-principal",
+		mesh.ResolvePrincipal(s.Runtime, s.Directory, s.Credential),
+	)
+	mux.HandleFunc(
 		"POST /mesh/directory/reserve-org-principal",
 		mesh.ReserveOrgPrincipal(s.Runtime, s.Directory, s.Credential),
 	)
@@ -61,6 +65,21 @@ func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 	mux.HandleFunc("POST /mesh/profile/read", mesh.RelayReadProfile(s))
 	mux.HandleFunc("POST /mesh/org-openings/list", mesh.RelayListOrgOpenings(s))
 	mux.HandleFunc("POST /mesh/org-openings/get", mesh.RelayGetOrgOpening(s))
+	mux.HandleFunc("POST /mesh/listings/search", mesh.RelaySearchListings(s))
+	mux.HandleFunc("POST /mesh/listings/get", mesh.RelayGetListing(s))
+	mux.HandleFunc("POST /mesh/listings/engagement-listing", mesh.RelayEngagementListing(s))
+	mux.HandleFunc("POST /mesh/agency-profile/read", mesh.RelayReadAgencyProfile(s))
+	mux.HandleFunc("POST /mesh/provider-work/list", mesh.RelayListWork(s))
+	mux.HandleFunc("POST /mesh/provider-work/get", mesh.RelayGetWork(s))
+	mux.HandleFunc("POST /mesh/provider-jobs/list", mesh.RelayListJobs(s))
+	mux.HandleFunc("POST /mesh/provider-jobs/get", mesh.RelayGetJob(s))
+	mux.HandleFunc("POST /mesh/provider-attribution/list", mesh.RelayListCreditedApplications(s))
+	mux.HandleFunc("POST /mesh/provider-attribution/count", mesh.RelayCountCreditedApplications(s))
+	mux.HandleFunc("POST /mesh/provider-statements/get", mesh.RelayGetActivityStatement(s))
+	mux.HandleFunc("POST /mesh/hub-applications/get", mesh.RelayGetHubApplication(s))
+	mux.HandleFunc("POST /mesh/conversations/read", mesh.RelayReadConversation(s))
+	mux.HandleFunc("POST /mesh/commands/execute", mesh.RelayExecuteCommand(s))
+	mux.HandleFunc("POST /mesh/events/deliver", mesh.RelayDeliverEvent(s))
 }
 
 // RegisterMeshPeerRoutes is deliberately separate from the tenant-local relay.
@@ -71,4 +90,19 @@ func RegisterMeshPeerRoutes(mux *http.ServeMux, s *meshapi.Server) {
 	mux.HandleFunc("POST /api/mesh/profile/read", mesh.PeerReadProfile(s))
 	mux.HandleFunc("POST /api/mesh/org-openings/list", mesh.PeerListOrgOpenings(s))
 	mux.HandleFunc("POST /api/mesh/org-openings/get", mesh.PeerGetOrgOpening(s))
+	mux.HandleFunc("POST /api/mesh/listings/search", mesh.PeerSearchListings(s))
+	mux.HandleFunc("POST /api/mesh/listings/get", mesh.PeerGetListing(s))
+	mux.HandleFunc("POST /api/mesh/listings/engagement-listing", mesh.PeerEngagementListing(s))
+	mux.HandleFunc("POST /api/mesh/agency-profile/read", mesh.PeerReadAgencyProfile(s))
+	mux.HandleFunc("POST /api/mesh/provider-work/list", mesh.PeerListWork(s))
+	mux.HandleFunc("POST /api/mesh/provider-work/get", mesh.PeerGetWork(s))
+	mux.HandleFunc("POST /api/mesh/provider-jobs/list", mesh.PeerListJobs(s))
+	mux.HandleFunc("POST /api/mesh/provider-jobs/get", mesh.PeerGetJob(s))
+	mux.HandleFunc("POST /api/mesh/provider-attribution/list", mesh.PeerListCreditedApplications(s))
+	mux.HandleFunc("POST /api/mesh/provider-attribution/count", mesh.PeerCountCreditedApplications(s))
+	mux.HandleFunc("POST /api/mesh/provider-statements/get", mesh.PeerGetActivityStatement(s))
+	mux.HandleFunc("POST /api/mesh/hub-applications/get", mesh.PeerGetHubApplication(s))
+	mux.HandleFunc("POST /api/mesh/conversations/read", mesh.PeerReadConversation(s))
+	mux.HandleFunc("POST /api/mesh/commands/execute", mesh.PeerExecuteCommand(s))
+	mux.HandleFunc("POST /api/mesh/events/deliver", mesh.PeerDeliverEvent(s))
 }

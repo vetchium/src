@@ -126,3 +126,20 @@ func TestLoadRejectsPortalURLs(t *testing.T) {
 		}
 	}
 }
+
+func TestTenantIDsListsEveryRegionWhetherOrNotItAcceptsSignups(t *testing.T) {
+	t.Parallel()
+	c := testCatalog(t, 3)
+	c.Regions[1].SignupEnabled = false
+	c.Regions[1].OrgSignupEnabled = false
+	got := c.TenantIDs()
+	want := []string{"region000", "region001", "region002"}
+	if len(got) != len(want) {
+		t.Fatalf("TenantIDs() = %v, want %v", got, want)
+	}
+	for index := range want {
+		if string(got[index]) != want[index] {
+			t.Fatalf("TenantIDs() = %v, want %v", got, want)
+		}
+	}
+}

@@ -92,4 +92,6 @@ Commands are in [`verification.md`](verification.md).
   signup disabled and no Google provider. Mount its matching signup catalog;
   attach `orgs_fixture_access` so Docker can publish the loopback port. Use it
   for unavailable-service responses; never toggle a shared running tenant's
-  configuration in tests.
+  configuration in tests. Its region catalog also names `gone`, a tenant that
+  never answers, so a search or read that fans out to every tenant can show an
+  unavailable one.

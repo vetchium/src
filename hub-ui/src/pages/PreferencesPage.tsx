@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { frontendLocaleOptions } from "@vetchium/portal-ui/localization";
-import { App, Card, Form, Select, Space, Typography } from "antd";
+import { App, Card, Form, Select, Space, Switch, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import type { CountryCode } from "typespec/common/localization";
 import type { FrontendLocale } from "typespec/hub/types";
@@ -31,6 +31,14 @@ export function PreferencesPage() {
   const jobs = useMutation({
     mutationFn: (preferred_job_countries: CountryCode[]) =>
       hubAPI.setPreferredJobCountries({ preferred_job_countries }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
+      void message.success(t("preferences.saved"));
+    },
+  });
+  const agencyMessages = useMutation({
+    mutationFn: (agencies_may_message: boolean) =>
+      hubAPI.setAgenciesMayMessage({ agencies_may_message }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
       void message.success(t("preferences.saved"));
@@ -87,6 +95,30 @@ export function PreferencesPage() {
           </Form.Item>
         </Form>
         <APIErrorAlert error={jobs.error} />
+      </Card>
+      <Card title={t("preferences.agencyMessagesTitle")}>
+        <Space orientation="vertical" size="middle" className="full-width">
+          <Space align="center" size="middle">
+            <Switch
+              aria-label={t("preferences.agenciesMayMessage")}
+              checked={me.agencies_may_message ?? true}
+              loading={agencyMessages.isPending}
+              onChange={(checked) => {
+                if (!agencyMessages.isPending) agencyMessages.mutate(checked);
+              }}
+            />
+            <Typography.Text strong>
+              {t("preferences.agenciesMayMessage")}
+            </Typography.Text>
+          </Space>
+          <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
+            {t("preferences.agenciesMayMessageHelp1")}
+          </Typography.Paragraph>
+          <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
+            {t("preferences.agenciesMayMessageHelp2")}
+          </Typography.Paragraph>
+          <APIErrorAlert error={agencyMessages.error} />
+        </Space>
       </Card>
     </Space>
   );

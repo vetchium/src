@@ -110,6 +110,12 @@ Google sign-in. Compose with `orgs.md` and `authorization.md`.
   code bypass, and it is never in `deploy/`. Production setup is in
   `deploy/README.md`.
 
+## Listings
+
+- `allows_listings` is a plan entitlement (Silver and Gold). It gates
+  publishing marketplace Listings and receiving engagement proposals
+  ([`marketplace.md`](marketplace.md)).
+
 ## AI credits
 
 - `allows_ai` and `ai_credits_per_month` are plan entitlements (Gold only).

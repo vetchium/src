@@ -27,7 +27,17 @@ SELECT
         FROM vetchium.org_effective_permissions AS ep
         WHERE ep.org_user_id = u.org_user_id
         ORDER BY ep.permission
-    )::text [] AS permissions
+    )::text [] AS permissions,
+    ARRAY(
+        SELECT l.capability_oid
+        FROM vetchium.org_listings AS l
+        WHERE l.org_did = o.org_did
+        UNION
+        SELECT p.capability_oid
+        FROM vetchium.org_engagement_projections AS p
+        WHERE p.provider_org_did = o.org_did
+        ORDER BY 1
+    )::text [] AS marketplace_capabilities
 FROM vetchium.org_users AS u
 JOIN vetchium.orgs AS o ON o.org_did = u.org_did
 JOIN vetchium.org_domains AS d ON d.org_did = o.org_did

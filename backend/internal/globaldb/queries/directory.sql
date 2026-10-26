@@ -11,6 +11,12 @@ INNER JOIN vetchium.hub_principals AS p
 WHERE s.slug = sqlc.arg(slug)
   AND p.state = 'active';
 
+-- name: ResolveHubPrincipal :one
+SELECT hub_user_did, home_tenant_id, routing_version
+FROM vetchium.hub_principals
+WHERE hub_user_did = sqlc.arg(hub_user_did)
+  AND state = 'active';
+
 -- name: GetPrincipal :one
 SELECT
     hub_user_did,

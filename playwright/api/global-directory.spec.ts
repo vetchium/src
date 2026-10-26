@@ -10,6 +10,8 @@ import type {
   ReserveHubPrincipalRequest,
   ResolveHubAccountEmailRequest,
   ResolveHubAccountEmailResponse,
+  ResolvePrincipalRequest,
+  ResolvePrincipalResponse,
   ResolveProfileSlugRequest,
   ResolveProfileSlugResponse,
   SetHubAliasRequest,
@@ -22,6 +24,7 @@ const DIRECTORY = "/api/global-coordinator/directory";
 
 const ROUTES = [
   { name: "resolve-profile-slug", path: "/resolve-profile-slug" },
+  { name: "resolve-principal", path: "/resolve-principal" },
   { name: "reserve-hub-principal", path: "/reserve-hub-principal" },
   { name: "activate-hub-principal", path: "/activate-hub-principal" },
   { name: "set-hub-alias", path: "/set-hub-alias" },
@@ -251,6 +254,8 @@ function baseBody(
   switch (path) {
     case "/resolve-profile-slug":
       return { slug: randomHubHandle() };
+    case "/resolve-principal":
+      return { principal_type: "hub_user", principal_did: randomHubUserDID() };
     case "/reserve-hub-principal":
       return { ...freshReservation("sgp") };
     case "/activate-hub-principal":
@@ -291,6 +296,8 @@ function invalidFieldBody(
   switch (path) {
     case "/resolve-profile-slug":
       return { ...base, slug: "ab" };
+    case "/resolve-principal":
+      return { ...base, principal_did: randomUUID() };
     case "/reserve-hub-principal":
     case "/activate-hub-principal":
       return { ...base, command_id: "not-a-command-id" };
@@ -412,6 +419,93 @@ for (const route of ROUTES) {
     }
   });
 }
+
+async function resolvePrincipal(
+  context: APIRequestContext,
+  request: ResolvePrincipalRequest,
+) {
+  return context.post(`${coordinator}${DIRECTORY}/resolve-principal`, {
+    data: request,
+  });
+}
+
+test("resolve-principal returns the home tenant of an active Hub user or Org", async ({
+  apiCoverage,
+  playwright,
+}) => {
+  const context = await coordinatorContext(
+    playwright.request,
+    "usa1",
+    apiCoverage,
+  );
+  try {
+    const { hubUserDID } = await activePrincipal(context, "usa1");
+    const hub = await resolvePrincipal(context, {
+      principal_type: "hub_user",
+      principal_did: hubUserDID,
+    });
+    expect(hub.status(), await hub.text()).toBe(200);
+    expect(hub.headers()["cache-control"]).toBe("no-store");
+    expect((await hub.json()) as ResolvePrincipalResponse).toEqual({
+      principal_type: "hub_user",
+      principal_did: hubUserDID,
+      home_tenant_id: "usa1",
+      routing_version: 1,
+    });
+
+    const orgDID = randomHubUserDID();
+    const domain = `org-${randomUUID()}.example.test`;
+    const reservedOrg = await context.post(
+      `${coordinator}${DIRECTORY}/reserve-org-principal`,
+      {
+        data: {
+          command_id: randomUUID(),
+          org_did: orgDID,
+          domain,
+          home_tenant_id: "usa1",
+          provisioning_expires_at: new Date(Date.now() + 60_000).toISOString(),
+        },
+      },
+    );
+    expect(reservedOrg.status(), await reservedOrg.text()).toBe(200);
+    // A provisioning Org has no route yet.
+    const provisioning = await resolvePrincipal(context, {
+      principal_type: "org",
+      principal_did: orgDID,
+    });
+    expect(provisioning.status(), await provisioning.text()).toBe(404);
+    const activatedOrg = await context.post(
+      `${coordinator}${DIRECTORY}/activate-org-principal`,
+      { data: { command_id: randomUUID(), org_did: orgDID } },
+    );
+    expect(activatedOrg.status(), await activatedOrg.text()).toBe(200);
+    const org = await resolvePrincipal(context, {
+      principal_type: "org",
+      principal_did: orgDID,
+    });
+    expect(org.status(), await org.text()).toBe(200);
+    expect((await org.json()) as ResolvePrincipalResponse).toMatchObject({
+      principal_type: "org",
+      principal_did: orgDID,
+      home_tenant_id: "usa1",
+    });
+
+    // The type selects the namespace: a Hub user DID is no Org.
+    for (const request of [
+      { principal_type: "org", principal_did: hubUserDID },
+      { principal_type: "hub_user", principal_did: randomHubUserDID() },
+    ] as const) {
+      const missing = await resolvePrincipal(context, request);
+      expect(missing.status(), await missing.text()).toBe(404);
+      expect(await missing.json()).toMatchObject({
+        type: "vetchium-problem-details/directory-entry-not-found",
+        status: 404,
+      });
+    }
+  } finally {
+    await context.dispose();
+  }
+});
 
 test("resolve-profile-slug resolves an active principal's handle", async ({
   apiCoverage,

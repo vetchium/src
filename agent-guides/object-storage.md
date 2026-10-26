@@ -120,6 +120,33 @@ lifecycle, and profile-picture and Org logo storage.
   parameter. Downgrading below Silver removes the reference in the
   subscription transition ([`org-subscriptions.md`](org-subscriptions.md)).
 
+## Offer letters
+
+- An offer letter (HP-WRK-008) is Org-owned, in the separate
+  `org-offer-letters` bucket of the Org's tenant gateway; orgs-api, workers,
+  hub-api, and mesh-api hold the S3 credentials, and the media proxy serves
+  `org-offer-letters` paths.
+- Accept only `Content-Type: application/pdf` whose body starts with `%PDF-`
+  (`org-offer-letter-invalid`), at most 5 MiB (5,242,880 bytes;
+  `org-offer-letter-too-large` before reading further). Store the bytes as
+  sent, with `Content-Type: application/pdf` and `Content-Disposition:
+  attachment`; never store the original filename.
+- Upload is its own request (`upload-offer-letter`), by a user who acts on
+  some Opening's applications. It follows the logo lifecycle: an audited
+  `uploading` row and idempotency entry, HMAC object id over (Org, user, key),
+  30 s Put, then `uploaded` with a one-hour claim window. One unclaimed
+  (`uploading` or `uploaded`) letter per Org user; a new upload supersedes
+  the earlier one into the delayed deletion queue, as does an expired claim
+  window.
+- `extend-application-offer` claims the caller's own `uploaded` letter in its
+  transaction (`active`); anything else is `validation-failed` on
+  `letter_id`. An active letter stays with its offer for good, withdrawn
+  offers included; only retention (HP-RET-002) removes it.
+- Readers: the Opening's application readers (every offer of the application)
+  and the applicant (the latest offer unless it was withdrawn). Each read
+  signs a ten-minute `GET`/`HEAD` URL in the Org's tenant, so the applicant's
+  link opens from any region.
+
 ## Verification
 
 - Cover oversized bodies before decode, decompression limits, disguised

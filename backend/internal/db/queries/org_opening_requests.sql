@@ -92,7 +92,7 @@ WITH actor AS (
     INSERT INTO vetchium.org_opening_requests (
         org_opening_request_id, org_opening_id, request_kind,
         request_state, requested_by, request_note, decided_by,
-        decided_at, self_approved
+        decided_at, self_approved, mark_applications_not_progressing
     )
     SELECT sqlc.arg(request_id), changed.org_opening_id,
         sqlc.arg(kind)::vetchium.org_opening_request_kind,
@@ -102,7 +102,9 @@ WITH actor AS (
         sqlc.arg(actor_id), sqlc.narg(note)::text,
         CASE WHEN changed.can_approve THEN sqlc.arg(actor_id)::uuid END,
         CASE WHEN changed.can_approve THEN now() END,
-        changed.can_approve
+        changed.can_approve,
+        sqlc.arg(kind)::text = 'close'
+            AND COALESCE(sqlc.narg(mark_applications)::boolean, false)
     FROM changed
     RETURNING org_opening_id, org_opening_request_id, request_kind,
         request_state
@@ -214,7 +216,7 @@ WITH actor AS (
     RETURNING audit_event_id
 )
 SELECT COALESCE((SELECT version FROM changed), 0)::integer AS version,
-    COALESCE((SELECT can_approve FROM changed), false) AS self_approved,
+    COALESCE((SELECT can_approve FROM changed), false)::boolean AS self_approved,
     (SELECT count(*) FROM requested) AS request_rows,
     (SELECT count(*) FROM superseded) AS superseded_rows,
     (SELECT count(*) FROM live) AS live_rows,

@@ -57,7 +57,7 @@ function request(
   url: string,
   body: unknown,
   headers: string[],
-  extra: string,
+  extra: (scratch: string) => string,
   env: string[],
   observations: APIObservation[],
   path: string,
@@ -70,12 +70,15 @@ function request(
   const output = nodeExec(
     tenant,
     `printf '%s' "$MESH_BODY" > ${scratch}.request; ` +
+      `if [ -n "$MESH_CERTIFICATE" ]; then ` +
+      `printf '%s' "$MESH_CERTIFICATE" > ${scratch}.crt; ` +
+      `printf '%s' "$MESH_KEY" > ${scratch}.key; fi; ` +
       `status=$(curl -s -o ${scratch}.response -w '%{http_code}' ` +
-      `-X POST ${headerArguments} ${extra} ` +
+      `-X POST ${headerArguments} ${extra(scratch)} ` +
       `--data @${scratch}.request ${JSON.stringify(url)}); ` +
       `printf '%s\\n' "$status"; ` +
       `if [ -f ${scratch}.response ]; then cat ${scratch}.response; fi; ` +
-      `rm -f ${scratch}.request ${scratch}.response`,
+      `rm -f ${scratch}.request ${scratch}.response ${scratch}.crt ${scratch}.key`,
     [`MESH_BODY=${JSON.stringify(body)}`, ...env],
   );
   const newline = output.indexOf("\n");
@@ -126,7 +129,7 @@ export function meshRelayRequest(
     `http://localhost:8080${path}`,
     options.rawBody ?? body,
     headers,
-    "",
+    () => "",
     env,
     observations,
     path,
@@ -136,6 +139,8 @@ export function meshRelayRequest(
 /**
  * Calls another tenant's peer listener across WireGuard, presenting the
  * calling tenant's private-CA client certificate exactly as its mesh-api does.
+ * `certificate: "health"` presents the coordinator healthcheck certificate
+ * instead: private-CA signed, but naming no tenant.
  */
 export function meshPeerRequest(
   from: TestTenant,
@@ -146,20 +151,30 @@ export function meshPeerRequest(
     rawBody?: string;
     path?: string;
     withoutCertificate?: boolean;
+    certificate?: "tenant" | "health";
   } = {},
 ): MeshResponse {
   const path = options.path ?? "/api/mesh/profile/read";
+  const health = options.certificate === "health";
   return request(
     from,
     `https://${to}.mesh.vetchium.com:8443${path}`,
     options.rawBody ?? body,
     ["Content-Type: application/json"],
-    (options.withoutCertificate
-      ? ""
-      : "--cert /run/secrets/mesh_client_certificate " +
-        "--key /run/secrets/mesh_client_key ") +
+    (scratch) =>
+      (options.withoutCertificate
+        ? ""
+        : health
+          ? `--cert ${scratch}.crt --key ${scratch}.key `
+          : "--cert /run/secrets/mesh_client_certificate " +
+            "--key /run/secrets/mesh_client_key ") +
       "--cacert /run/secrets/mesh_ca_certificate",
-    [],
+    health
+      ? [
+          `MESH_CERTIFICATE=${secret("global_coordinator_health_certificate")}`,
+          `MESH_KEY=${secret("global_coordinator_health_key")}`,
+        ]
+      : [],
     observations,
     path,
   );

@@ -13,13 +13,20 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
+	"backend/internal/federation/commands"
 	"backend/internal/imagesanitize"
 	"backend/internal/oidc"
 	orgai "backend/internal/orgs/ai"
 	"backend/internal/orgs/auth"
 	"backend/internal/orgs/domainverification"
+	"backend/internal/orgs/listingread"
+	"backend/internal/orgs/listingsearch"
 	"backend/internal/orgs/signupcompletion"
+	"backend/internal/orgs/workfanout"
+	"backend/internal/profileclient"
+	"backend/internal/publicopeningclient"
 	"backend/internal/regions"
+	"backend/internal/workclient"
 )
 
 // Directory is the part of the global directory orgs-api reads directly;
@@ -37,7 +44,23 @@ type Server struct {
 	Regions          *regions.Catalog
 	SignupCompletion *signupcompletion.Service
 	Domains          *domainverification.Service
-	Signup           regions.Admission
+	// Commands sends durable commands to other tenants' aggregates.
+	Commands *commands.Sender
+	// ListingRead reads one provider's Listing from the tenant that holds it;
+	// ListingSearch fans a search out to every tenant. ListingDeadline bounds
+	// one such read or fan-out.
+	ListingRead     listingread.Reader
+	ListingSearch   listingsearch.Searcher
+	ListingDeadline time.Duration
+	// WorkRelay reads one client tenant's work for the provider; WorkFanout
+	// merges the answers of every tenant.
+	WorkRelay  *workclient.Client
+	WorkFanout workfanout.Fanout
+	// Profiles reads a Hub user's profile for an agency (MKT-PRF).
+	Profiles *profileclient.Client
+	// Openings reads public Openings across tenants (MKT-SRC-004).
+	Openings *publicopeningclient.Client
+	Signup   regions.Admission
 	// AllowSpecialUseDomains admits signups for names such as acme.test.
 	AllowSpecialUseDomains bool
 
@@ -55,6 +78,9 @@ type Server struct {
 
 	// Logos is the tenant's object store for Org logos.
 	Logos LogoStorage
+
+	// OfferLetters is the tenant's object store for offer letters.
+	OfferLetters OfferLetterStorage
 
 	// GoogleSignIn is nil when the tenant does not offer Google sign-in.
 	GoogleSignIn SSOProvider
@@ -77,6 +103,13 @@ type LogoStorage interface {
 	PutLogo(context.Context, pgtype.UUID, imagesanitize.Image) error
 	DeleteLogo(context.Context, pgtype.UUID) error
 	SignLogoGet(context.Context, pgtype.UUID) (string, error)
+}
+
+// OfferLetterStorage stores offer letters and signs short-lived read URLs
+// for them.
+type OfferLetterStorage interface {
+	PutOfferLetter(context.Context, pgtype.UUID, []byte) error
+	SignOfferLetterGet(context.Context, pgtype.UUID) (string, error)
 }
 
 // Offers reports whether this tenant offers plan.

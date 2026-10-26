@@ -1,0 +1,1 @@
+{{.OrgName}} withdrew an offer

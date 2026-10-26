@@ -14,19 +14,19 @@ CREATE TEMP TABLE seeded_admins (
 INSERT INTO seeded_admins (
     email_address, display_name, admin_user_state, permissions
 ) VALUES
-    ('admin@sgp.example', 'sgp Administrator', 'active',
+    ('admin@sgp.test', 'sgp Administrator', 'active',
         ARRAY(SELECT c.permission FROM vetchium.admin_permission_catalog AS c
               WHERE NOT EXISTS (
                   SELECT 1 FROM vetchium.admin_permission_implications AS i
                   WHERE i.implied_permission = c.permission
               ) ORDER BY c.permission)),
-    ('manager@sgp.example', 'sgp Access Manager', 'active',
+    ('manager@sgp.test', 'sgp Access Manager', 'active',
         ARRAY['admin:manage_users', 'admin:manage_hub_signup_domains']),
-    ('viewer@sgp.example', 'sgp Access Reviewer', 'active',
+    ('viewer@sgp.test', 'sgp Access Reviewer', 'active',
         ARRAY['admin:view_users']),
-    ('newcomer@sgp.example', 'sgp Unassigned Administrator', 'active',
+    ('newcomer@sgp.test', 'sgp Unassigned Administrator', 'active',
         ARRAY[]::text[]),
-    ('retired@sgp.example', 'sgp Retired Administrator', 'disabled',
+    ('retired@sgp.test', 'sgp Retired Administrator', 'disabled',
         ARRAY['admin:view_users']);
 
 -- An administrator that already exists keeps the state and the access the

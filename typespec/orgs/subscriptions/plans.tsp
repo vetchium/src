@@ -21,7 +21,8 @@ enum OrgPlan {
  * it while the Org has Google sign-in enabled, and `null` means unlimited.
  * `openings_per_year` counts openings created in the last 365 days, drafts
  * included. `allows_ai` gates AI operations, the monthly AI credit grant, and
- * AI credit purchases; `ai_credits_per_month` is that grant.
+ * AI credit purchases; `ai_credits_per_month` is that grant. `allows_listings`
+ * gates publishing marketplace Listings and receiving engagement proposals.
  */
 @format("vetchium-org-plan-oid")
 @TypeSpec.OpenAPI.extension(
@@ -44,6 +45,7 @@ enum OrgPlan {
       includes_ticket_support: false,
       allows_ai: false,
       ai_credits_per_month: 0,
+      allows_listings: false,
     },
     `org-silver-tier`: #{
       max_users: 50,
@@ -54,6 +56,7 @@ enum OrgPlan {
       includes_ticket_support: false,
       allows_ai: false,
       ai_credits_per_month: 0,
+      allows_listings: true,
     },
     `org-gold-tier`: #{
       max_users: 1000,
@@ -64,6 +67,7 @@ enum OrgPlan {
       includes_ticket_support: true,
       allows_ai: true,
       ai_credits_per_month: 100000,
+      allows_listings: true,
     },
   }
 )
