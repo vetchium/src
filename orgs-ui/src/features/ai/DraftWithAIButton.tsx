@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { ThambiIcon, ThambiSpinner } from "@vetchium/portal-ui/thambi";
 import {
   Alert,
   Button,
@@ -34,7 +35,6 @@ import { orgsAPI } from "../../api/orgs";
 import { problemMessage } from "../../components/common/APIErrorAlert";
 import { useCanChangePlan } from "./AIUpgrade";
 import { aiQueryKey, isAIUnavailable, useAIOptionsQuery } from "./queries";
-import { VetchiumAIIcon } from "./VetchiumAIIcon";
 
 const problemKeys: Readonly<Record<string, string>> = {
   [AINotEnabledError.type]: "ai.draft.errors.notEnabled",
@@ -209,8 +209,8 @@ export function DraftWithAIButton({
       <Space>
         <Button
           type="primary"
-          icon={<VetchiumAIIcon />}
-          loading={draft.isPending}
+          icon={<ThambiIcon />}
+          loading={draft.isPending ? { icon: <ThambiSpinner /> } : false}
           disabled={trimmed === ""}
           onClick={() => draft.mutate(chosen?.model_oid)}
         >
@@ -220,6 +220,14 @@ export function DraftWithAIButton({
           {t("common.cancel")}
         </Button>
       </Space>
+      {draft.isPending ? (
+        <Flex align="center" gap="small" role="status">
+          <ThambiSpinner size="large" />
+          <Typography.Text type="secondary">
+            {t("ai.draft.writing")}
+          </Typography.Text>
+        </Flex>
+      ) : null}
       <Typography.Text type="secondary">{t("ai.draft.review")}</Typography.Text>
     </Flex>
   );
@@ -237,7 +245,7 @@ export function DraftWithAIButton({
     >
       <Tooltip title={t("ai.draft.title")}>
         <Button
-          icon={<VetchiumAIIcon />}
+          icon={<ThambiIcon />}
           aria-label={t("ai.draft.title")}
           disabled={disabled}
           data-testid="draft-with-ai"

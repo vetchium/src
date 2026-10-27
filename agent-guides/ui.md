@@ -28,7 +28,11 @@ design (layout, saving, states, copy) is in [`ux.md`](ux.md).
   one-off CSS, and never target `.ant-*` selectors. Custom CSS only for small
   app structure or branding.
 - `PortalProviders` turns off Ant Design motion (`token.motion`) while the
-  browser prefers reduced motion; never animate outside Ant Design motion.
+  browser prefers reduced motion; never animate outside Ant Design motion:
+  custom animation runs only while `theme.useToken().token.motion` is on.
+- AI controls carry `ThambiIcon` and a running AI operation shows
+  `ThambiSpinner` (`@vetchium/portal-ui/thambi`). Every other wait uses Ant
+  Design `Spin` or `LoadingOutlined`; the bee always means AI.
 
 ## Shared package (`portal-ui`)
 

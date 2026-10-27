@@ -30,7 +30,8 @@
     "./security-headers": "./src/security-headers.ts",
     "./session": "./src/session.ts",
     "./shell": "./src/shell.tsx",
-    "./styles.css": "./src/styles.css"
+    "./styles.css": "./src/styles.css",
+    "./thambi": "./src/thambi.tsx"
   },
   "files": [
     "src"

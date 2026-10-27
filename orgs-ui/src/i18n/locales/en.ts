@@ -569,6 +569,7 @@ export const en = {
       modelLabel: "Model",
       modelOption: "{{name}} ({{vendor}})",
       generate: "Generate draft",
+      writing: "Writing your draft. This can take a minute.",
       review: "AI can be wrong. Review every field before you save.",
       applied:
         "Draft filled in. {{credits}} credits used ({{input}} input and {{output}} output tokens); {{left}} credits left. Review it, then save.",

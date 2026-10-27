@@ -113,9 +113,14 @@ test("drafting with AI fills the new Opening form without saving it", async ({
     const answerLost = new Promise<void>((resolve) => {
       lost = resolve;
     });
+    let release: () => void = () => {};
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     await page.route(
       "**/api/orgs/draft-opening-with-ai",
       async (route) => {
+        await released;
         await route.fetch();
         await route.abort();
         lost();
@@ -124,8 +129,14 @@ test("drafting with AI fills the new Opening form without saving it", async ({
     );
     await prompt.fill("Recruiter");
     await generate.click();
+    const writing = page
+      .getByRole("status")
+      .filter({ hasText: "Writing your draft. This can take a minute." });
+    await expect(writing).toBeVisible();
+    release();
     await answerLost;
     await expect(prompt).toBeEnabled();
+    await expect(writing).toBeHidden();
 
     await prompt.fill("Platform engineer");
     await generate.click();

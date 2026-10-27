@@ -80,6 +80,7 @@ Applies to product terms in prompts, specifications, code, and UI text.
 
 ## AI
 
+- Thambi — Vetchium's AI assistant (Tamil: younger brother), drawn as a bee in the logo's flower colours.
 - AI operation — one AI feature, such as `org-opening-draft`, with its own permission, prompt, and output validation.
 - Model OID — Vetchium's stable name for a model a region offers, independent of the server hosting it.
 - AI credit — the whole unit AI usage is charged in; each model has credit rates per million input and output tokens.

@@ -589,6 +589,7 @@ export const de = {
       modelLabel: "Modell",
       modelOption: "{{name}} ({{vendor}})",
       generate: "Entwurf erstellen",
+      writing: "Ihr Entwurf wird geschrieben. Das kann eine Minute dauern.",
       review: "KI kann sich irren. Prüfen Sie jedes Feld, bevor Sie speichern.",
       applied:
         "Entwurf eingefügt. {{credits}} Guthaben verbraucht ({{input}} Eingabe- und {{output}} Ausgabe-Tokens); {{left}} übrig. Prüfen und dann speichern.",

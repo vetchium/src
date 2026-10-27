@@ -21,6 +21,7 @@ import {
 } from "@ant-design/icons";
 import { usePendingOperations } from "@vetchium/portal-ui/pending-operations";
 import { PortalShell } from "@vetchium/portal-ui/shell";
+import { ThambiIcon } from "@vetchium/portal-ui/thambi";
 import { App, Badge, Flex, Select, Typography } from "antd";
 import type { ItemType } from "antd/es/menu/interface.js";
 import type { ReactNode } from "react";
@@ -54,7 +55,6 @@ import {
 } from "../../app/workspaces";
 import { useAuth } from "../../auth/AuthContext";
 import { useMyInfoQuery } from "../../features/account/queries";
-import { VetchiumAIIcon } from "../../features/ai/VetchiumAIIcon";
 import { DomainFailingBanner } from "../../features/domain/DomainFailingBanner";
 import { capabilityLabel } from "../../features/marketplace/presentation";
 import { useContactsQuery } from "../../features/marketplace/queries";
@@ -99,7 +99,7 @@ const pageIcons: Record<PageKey, ReactNode> = {
   members: <TeamOutlined />,
   listings: <AppstoreOutlined />,
   plans: <CreditCardOutlined />,
-  ai: <VetchiumAIIcon />,
+  ai: <ThambiIcon />,
   settings: <SettingOutlined />,
   organizationSecurity: <SafetyOutlined />,
   home: <HomeOutlined />,
