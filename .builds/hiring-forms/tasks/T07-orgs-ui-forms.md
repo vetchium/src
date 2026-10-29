@@ -46,3 +46,4 @@ Managers define forms, interviewers fill them in-house or as a provider, and
 readers compare the answers.
 
 ## Carried over
+- From T04: replace-opening-pipeline and update-pipeline-template replace whole forms, so the editors must send every stage's `feedback_form` back with its ids (omission clears it); `OpeningPipeline.stages` are `OpeningPipelineStage` with `feedback_submitted_count` for the HP-FRM-002 warning.

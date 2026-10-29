@@ -57,3 +57,4 @@ In-house and provider interviewers answer the stage's criteria; readers see
 answers with their currency under the existing visibility rule.
 
 ## Carried over
+- From T04: the form lives in `org_opening_stages.feedback_form` as `hiring.FeedbackCriterion[]` (ids always set); `hiring.PipelineStage.FeedbackForm` (`omitzero`) is the field provider work reads should fill; criterion types and bounds are in `typespec/orgs/hiring/pipelines.{go,ts}` (`CriterionRating`, `CriterionYesNo`, `CriterionText`).

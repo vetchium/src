@@ -9,15 +9,23 @@ import (
 // PipelineStageInput is a stage of a replacement pipeline. A nil ID adds a
 // stage; an ID keeps, renames, or moves the stage that has it.
 type PipelineStageInput struct {
-	ID   *hiring.PipelineStageID `json:"id,omitempty"`
-	Name hiring.PipelineName     `json:"name"`
-	Kind hiring.StageKind        `json:"kind"`
+	ID           *hiring.PipelineStageID    `json:"id,omitempty"`
+	Name         hiring.PipelineName        `json:"name"`
+	Kind         hiring.StageKind           `json:"kind"`
+	FeedbackForm []hiring.FeedbackCriterion `json:"feedback_form,omitzero"`
+}
+
+// OpeningPipelineStage carries what the Pipeline tab warns about before a
+// form changes (HP-FRM-002).
+type OpeningPipelineStage struct {
+	hiring.PipelineStage
+	FeedbackSubmittedCount int32 `json:"feedback_submitted_count"`
 }
 
 type OpeningPipeline struct {
 	OpeningNumber OpeningNumber          `json:"opening_number"`
 	Version       OpeningVersion         `json:"version"`
-	Stages        []hiring.PipelineStage `json:"stages"`
+	Stages        []OpeningPipelineStage `json:"stages"`
 }
 
 type GetOpeningPipelineRequest struct {
@@ -46,7 +54,7 @@ func (r *ReplaceOpeningPipelineRequest) Normalize() {
 	for index, stage := range r.Stages {
 		normalized[index] = PipelineStageInput{
 			ID: stage.ID, Name: hiring.NormalizePipelineName(stage.Name),
-			Kind: stage.Kind,
+			Kind: stage.Kind, FeedbackForm: hiring.NormalizeFeedbackForm(stage.FeedbackForm),
 		}
 	}
 	r.Stages = normalized
@@ -64,6 +72,7 @@ func (r ReplaceOpeningPipelineRequest) Validate() []string {
 		return append(fields, "stages")
 	}
 	seen := make(map[hiring.PipelineStageID]bool, len(r.Stages))
+	criteria := map[hiring.FeedbackCriterionID]bool{}
 	for index, stage := range r.Stages {
 		if stage.ID != nil {
 			if !hiring.IsPipelineStageID(*stage.ID) || seen[*stage.ID] {
@@ -77,6 +86,9 @@ func (r ReplaceOpeningPipelineRequest) Validate() []string {
 		if !hiring.IsStageKind(stage.Kind) {
 			fields = append(fields, fmt.Sprintf("stages.%d.kind", index))
 		}
+		fields = append(fields, hiring.ValidateFeedbackForm(
+			fmt.Sprintf("stages.%d.feedback_form", index), stage.Kind,
+			stage.FeedbackForm, criteria)...)
 	}
 	return fields
 }

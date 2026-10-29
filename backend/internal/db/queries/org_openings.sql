@@ -251,14 +251,15 @@ WITH usage AS (
           AND t.org_pipeline_template_id = sqlc.narg(template_id)::uuid
     ) AS missing
 ), stage_source AS (
-    SELECT s.position::integer AS position, s.name, s.stage_kind
+    SELECT s.position::integer AS position, s.name, s.stage_kind,
+        s.feedback_form
     FROM vetchium.org_pipeline_template_stages AS s
     JOIN vetchium.org_pipeline_templates AS t
         ON t.org_pipeline_template_id = s.org_pipeline_template_id
     WHERE t.org_did = sqlc.arg(org_did)
       AND t.org_pipeline_template_id = sqlc.narg(template_id)::uuid
     UNION ALL
-    SELECT 1, 'Review', 'review'::vetchium.pipeline_stage_kind
+    SELECT 1, 'Review', 'review'::vetchium.pipeline_stage_kind, '[]'::jsonb
     WHERE sqlc.narg(template_id)::uuid IS NULL
 ), numbered AS (
     UPDATE vetchium.orgs AS o
@@ -319,11 +320,12 @@ WITH usage AS (
     RETURNING org_opening_id
 ), stages AS (
     INSERT INTO vetchium.org_opening_stages (
-        org_opening_stage_id, org_opening_id, position, name, stage_kind
+        org_opening_stage_id, org_opening_id, position, name, stage_kind,
+        feedback_form
     )
     SELECT (sqlc.arg(stage_ids)::uuid[])[stage_source.position],
         created.org_opening_id, stage_source.position, stage_source.name,
-        stage_source.stage_kind
+        stage_source.stage_kind, stage_source.feedback_form
     FROM created CROSS JOIN stage_source
     RETURNING org_opening_stage_id
 ), team AS (
@@ -397,21 +399,23 @@ WITH source AS (
           AND t.org_pipeline_template_id = sqlc.narg(template_id)::uuid
     ) AS missing
 ), source_stages AS (
-    SELECT s.position::integer AS position, s.name, s.stage_kind
+    SELECT s.position::integer AS position, s.name, s.stage_kind,
+        s.feedback_form
     FROM vetchium.org_opening_stages AS s
     JOIN source ON source.org_opening_id = s.org_opening_id
 ), stage_source AS (
-    SELECT s.position::integer AS position, s.name, s.stage_kind
+    SELECT s.position::integer AS position, s.name, s.stage_kind,
+        s.feedback_form
     FROM vetchium.org_pipeline_template_stages AS s
     JOIN vetchium.org_pipeline_templates AS t
         ON t.org_pipeline_template_id = s.org_pipeline_template_id
     WHERE t.org_did = sqlc.arg(org_did)
       AND t.org_pipeline_template_id = sqlc.narg(template_id)::uuid
     UNION ALL
-    SELECT position, name, stage_kind FROM source_stages
+    SELECT position, name, stage_kind, feedback_form FROM source_stages
     WHERE sqlc.narg(template_id)::uuid IS NULL
     UNION ALL
-    SELECT 1, 'Review', 'review'::vetchium.pipeline_stage_kind
+    SELECT 1, 'Review', 'review'::vetchium.pipeline_stage_kind, '[]'::jsonb
     WHERE sqlc.narg(template_id)::uuid IS NULL
       AND NOT EXISTS (SELECT 1 FROM source_stages)
 ), numbered AS (
@@ -464,11 +468,12 @@ WITH source AS (
     RETURNING org_opening_id
 ), stages AS (
     INSERT INTO vetchium.org_opening_stages (
-        org_opening_stage_id, org_opening_id, position, name, stage_kind
+        org_opening_stage_id, org_opening_id, position, name, stage_kind,
+        feedback_form
     )
     SELECT (sqlc.arg(stage_ids)::uuid[])[stage_source.position],
         created.org_opening_id, stage_source.position, stage_source.name,
-        stage_source.stage_kind
+        stage_source.stage_kind, stage_source.feedback_form
     FROM created CROSS JOIN stage_source
     RETURNING org_opening_stage_id
 ), team AS (

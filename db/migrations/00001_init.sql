@@ -2439,9 +2439,17 @@ CREATE TABLE vetchium.org_pipeline_template_stages (
     position smallint NOT NULL CHECK (position BETWEEN 1 AND 15),
     name text NOT NULL,
     stage_kind vetchium.pipeline_stage_kind NOT NULL,
+    -- FeedbackCriterion[] (HP-FRM-001).
+    feedback_form jsonb NOT NULL DEFAULT '[]',
     PRIMARY KEY (org_pipeline_template_id, position),
     CONSTRAINT org_pipeline_template_stages_name_check CHECK (
         name = btrim(name) AND char_length(name) BETWEEN 1 AND 100
+    ),
+    CONSTRAINT org_pipeline_template_stages_feedback_form_check CHECK (
+        jsonb_typeof(feedback_form) = 'array'
+        AND jsonb_array_length(feedback_form) <= 10
+        AND (stage_kind = 'interview'
+            OR jsonb_array_length(feedback_form) = 0)
     )
 );
 
@@ -2454,12 +2462,20 @@ CREATE TABLE vetchium.org_opening_stages (
     position smallint NOT NULL CHECK (position BETWEEN 1 AND 15),
     name text NOT NULL,
     stage_kind vetchium.pipeline_stage_kind NOT NULL,
+    -- FeedbackCriterion[] (HP-FRM-001); feedback keeps its own snapshot.
+    feedback_form jsonb NOT NULL DEFAULT '[]',
     CONSTRAINT org_opening_stages_position_key
         UNIQUE (org_opening_id, position) DEFERRABLE INITIALLY DEFERRED,
     CONSTRAINT org_opening_stages_opening_key
         UNIQUE (org_opening_stage_id, org_opening_id),
     CONSTRAINT org_opening_stages_name_check CHECK (
         name = btrim(name) AND char_length(name) BETWEEN 1 AND 100
+    ),
+    CONSTRAINT org_opening_stages_feedback_form_check CHECK (
+        jsonb_typeof(feedback_form) = 'array'
+        AND jsonb_array_length(feedback_form) <= 10
+        AND (stage_kind = 'interview'
+            OR jsonb_array_length(feedback_form) = 0)
     )
 );
 

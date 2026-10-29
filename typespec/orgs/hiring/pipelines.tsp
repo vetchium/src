@@ -28,10 +28,48 @@ scalar PipelineTemplateID extends string;
 @format("uuid")
 scalar PipelineStageID extends string;
 
+/**
+ * How an interviewer answers a criterion (HP-FRM-001): `rating` an integer
+ * 1–5, `yes_no` a boolean, `text` 1–2,000 code points. A portal older than its
+ * API shows a type it does not recognize as the raw value.
+ */
+@TypeSpec.OpenAPI.extension(
+  "x-vetchium-known-values",
+  #["rating", "yes_no", "text"]
+)
+scalar FeedbackCriterionType extends string;
+
+/** A stable identifier of one criterion of one stage's feedback form. */
+@format("uuid")
+scalar FeedbackCriterionID extends string;
+
+/**
+ * One criterion of an interview stage's feedback form. A criterion sent
+ * without `id` is new; an `id` must name a criterion the stage (or, for a
+ * template, the template) already holds. Responses always carry `id`.
+ */
+model FeedbackCriterion {
+  id?: FeedbackCriterionID;
+
+  @minLength(1)
+  @maxLength(500)
+  text: string;
+
+  type: FeedbackCriterionType;
+  required: boolean;
+}
+
 /** A stage as a template or a new Opening describes it. */
 model PipelineStageDefinition {
   name: PipelineName;
   kind: StageKind;
+
+  /**
+   * `interview` stages only; omission is an empty form. Responses carry it
+   * for every interview stage. Ids are unique across the template.
+   */
+  @maxItems(10)
+  feedback_form?: FeedbackCriterion[];
 }
 
 /** A stage of an Opening's pipeline. */
@@ -39,6 +77,10 @@ model PipelineStage {
   id: PipelineStageID;
   name: PipelineName;
   kind: StageKind;
+
+  /** Pipeline reads carry it for every `interview` stage, possibly empty. */
+  @maxItems(10)
+  feedback_form?: FeedbackCriterion[];
 }
 
 model PipelineTemplate {

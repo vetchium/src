@@ -1,7 +1,7 @@
 import type { PageSize, PaginationKey } from "../../common/pagination.ts";
 import { isPageSize, isPaginationKey } from "../../common/pagination.ts";
 import type { StageKind } from "./vocabulary.ts";
-import { isStageKind } from "./vocabulary.ts";
+import { InterviewStage, isStageKind } from "./vocabulary.ts";
 
 /** Bounds one pipeline, template or Opening. */
 export const maxPipelineStages = 15;
@@ -36,10 +36,90 @@ export function isPipelineName(value: string): boolean {
   return length >= 1 && length <= maxPipelineName && value === value.trim();
 }
 
+export const CriterionRating = "rating" as const;
+export const CriterionYesNo = "yes_no" as const;
+export const CriterionText = "text" as const;
+/** How an interviewer answers a criterion (HP-FRM-001). */
+export type FeedbackCriterionType =
+  | typeof CriterionRating
+  | typeof CriterionYesNo
+  | typeof CriterionText
+  | (string & {});
+
+export const maxFeedbackCriteria = 10;
+const maxFeedbackCriterion = 500;
+
+export function isFeedbackCriterionType(value: string): boolean {
+  return (
+    value === CriterionRating ||
+    value === CriterionYesNo ||
+    value === CriterionText
+  );
+}
+
+export type FeedbackCriterionID = string;
+
+/** Accepts the lowercase form the API returns. */
+export function isFeedbackCriterionID(value: string): boolean {
+  return uuidPattern.test(value);
+}
+
+/** One criterion of an interview stage's form; omit `id` for a new one. */
+export interface FeedbackCriterion {
+  id?: FeedbackCriterionID;
+  text: string;
+  type: FeedbackCriterionType;
+  required: boolean;
+}
+
+export function normalizeFeedbackForm(
+  form: FeedbackCriterion[],
+): FeedbackCriterion[] {
+  return form.map((criterion) => ({
+    ...criterion,
+    text: criterion.text.trim(),
+  }));
+}
+
+/**
+ * Reports invalid fields under prefix (the form's own path). Only an interview
+ * stage has a form; `seen` collects ids across the pipeline.
+ */
+export function validateFeedbackForm(
+  prefix: string,
+  kind: StageKind,
+  form: FeedbackCriterion[] | undefined,
+  seen: Set<string>,
+): string[] {
+  if (form === undefined || form.length === 0) return [];
+  if (kind !== InterviewStage || form.length > maxFeedbackCriteria)
+    return [prefix];
+  const fields: string[] = [];
+  form.forEach((criterion, index) => {
+    const path = `${prefix}.${index}`;
+    if (criterion.id !== undefined) {
+      if (!isFeedbackCriterionID(criterion.id) || seen.has(criterion.id))
+        fields.push(`${path}.id`);
+      seen.add(criterion.id);
+    }
+    const length = Array.from(criterion.text).length;
+    if (
+      length < 1 ||
+      length > maxFeedbackCriterion ||
+      criterion.text !== criterion.text.trim()
+    )
+      fields.push(`${path}.text`);
+    if (!isFeedbackCriterionType(criterion.type)) fields.push(`${path}.type`);
+  });
+  return fields;
+}
+
 /** A stage as a template or a new Opening describes it. */
 export interface PipelineStageDefinition {
   name: PipelineName;
   kind: StageKind;
+  /** Interview stages only; responses carry it for every interview stage. */
+  feedback_form?: FeedbackCriterion[];
 }
 
 /** A stage of an Opening's pipeline. */
@@ -47,6 +127,8 @@ export interface PipelineStage {
   id: PipelineStageID;
   name: PipelineName;
   kind: StageKind;
+  /** Pipeline reads carry it for every interview stage, possibly empty. */
+  feedback_form?: FeedbackCriterion[];
 }
 
 export function normalizeStageDefinitions(
@@ -55,6 +137,9 @@ export function normalizeStageDefinitions(
   return stages.map((stage) => ({
     name: normalizePipelineName(stage.name),
     kind: stage.kind,
+    ...(stage.feedback_form !== undefined && {
+      feedback_form: normalizeFeedbackForm(stage.feedback_form),
+    }),
   }));
 }
 
@@ -64,9 +149,18 @@ export function validateStageDefinitions(
 ): string[] {
   if (stages.length < 1 || stages.length > maxPipelineStages) return [prefix];
   const fields: string[] = [];
+  const seen = new Set<string>();
   stages.forEach((stage, index) => {
     if (!isPipelineName(stage.name)) fields.push(`${prefix}.${index}.name`);
     if (!isStageKind(stage.kind)) fields.push(`${prefix}.${index}.kind`);
+    fields.push(
+      ...validateFeedbackForm(
+        `${prefix}.${index}.feedback_form`,
+        stage.kind,
+        stage.feedback_form,
+        seen,
+      ),
+    );
   });
   return fields;
 }

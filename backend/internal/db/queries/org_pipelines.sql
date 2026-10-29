@@ -11,7 +11,9 @@ SELECT t.org_pipeline_template_id, t.name, lower(t.name)::text AS sort_name,
     t.created_at, t.updated_at,
     COALESCE((
         SELECT jsonb_agg(jsonb_build_object(
-            'name', s.name, 'kind', s.stage_kind
+            'name', s.name, 'kind', s.stage_kind,
+            'feedback_form', CASE WHEN s.stage_kind = 'interview'
+                THEN s.feedback_form END
         ) ORDER BY s.position)
         FROM vetchium.org_pipeline_template_stages AS s
         WHERE s.org_pipeline_template_id = t.org_pipeline_template_id
@@ -28,7 +30,9 @@ LIMIT sqlc.arg(page_limit);
 SELECT t.org_pipeline_template_id, t.name, t.created_at, t.updated_at,
     COALESCE((
         SELECT jsonb_agg(jsonb_build_object(
-            'name', s.name, 'kind', s.stage_kind
+            'name', s.name, 'kind', s.stage_kind,
+            'feedback_form', CASE WHEN s.stage_kind = 'interview'
+                THEN s.feedback_form END
         ) ORDER BY s.position)
         FROM vetchium.org_pipeline_template_stages AS s
         WHERE s.org_pipeline_template_id = t.org_pipeline_template_id
@@ -61,11 +65,12 @@ WITH usage AS (
     RETURNING org_pipeline_template_id
 ), stages AS (
     INSERT INTO vetchium.org_pipeline_template_stages (
-        org_pipeline_template_id, position, name, stage_kind
+        org_pipeline_template_id, position, name, stage_kind, feedback_form
     )
     SELECT created.org_pipeline_template_id, input.position::smallint,
         input.stage->>'name',
-        (input.stage->>'kind')::vetchium.pipeline_stage_kind
+        (input.stage->>'kind')::vetchium.pipeline_stage_kind,
+        COALESCE(input.stage->'feedback_form', '[]'::jsonb)
     FROM created
     CROSS JOIN jsonb_array_elements(sqlc.arg(stages)::jsonb)
         WITH ORDINALITY AS input(stage, position)
@@ -114,16 +119,18 @@ WITH existing AS (
     RETURNING t.org_pipeline_template_id
 ), kept AS (
     INSERT INTO vetchium.org_pipeline_template_stages (
-        org_pipeline_template_id, position, name, stage_kind
+        org_pipeline_template_id, position, name, stage_kind, feedback_form
     )
     SELECT updated.org_pipeline_template_id, input.position::smallint,
         input.stage->>'name',
-        (input.stage->>'kind')::vetchium.pipeline_stage_kind
+        (input.stage->>'kind')::vetchium.pipeline_stage_kind,
+        COALESCE(input.stage->'feedback_form', '[]'::jsonb)
     FROM updated
     CROSS JOIN jsonb_array_elements(sqlc.arg(stages)::jsonb)
         WITH ORDINALITY AS input(stage, position)
     ON CONFLICT (org_pipeline_template_id, position) DO UPDATE
-    SET name = EXCLUDED.name, stage_kind = EXCLUDED.stage_kind
+    SET name = EXCLUDED.name, stage_kind = EXCLUDED.stage_kind,
+        feedback_form = EXCLUDED.feedback_form
     RETURNING position
 ), removed AS (
     DELETE FROM vetchium.org_pipeline_template_stages AS s
@@ -174,12 +181,27 @@ WITH deleted AS (
 SELECT (SELECT count(*) FROM deleted) AS deleted_rows,
     (SELECT count(*) FROM audit) AS audit_rows;
 
+-- feedback_submitted_count counts in-house and provider feedback on the
+-- stage's interviews (HP-FRM-002).
 -- name: GetOrgOpeningPipeline :one
 SELECT o.opening_number, o.version, o.opening_state,
     COALESCE((
         SELECT jsonb_agg(jsonb_build_object(
             'id', s.org_opening_stage_id, 'name', s.name,
-            'kind', s.stage_kind
+            'kind', s.stage_kind,
+            'feedback_form', CASE WHEN s.stage_kind = 'interview'
+                THEN s.feedback_form END,
+            'feedback_submitted_count', (
+                SELECT count(*) FROM vetchium.org_interviews AS i
+                JOIN vetchium.org_interview_feedback AS f
+                    ON f.org_interview_id = i.org_interview_id
+                WHERE i.org_opening_stage_id = s.org_opening_stage_id
+            ) + (
+                SELECT count(*) FROM vetchium.org_interviews AS i
+                JOIN vetchium.org_provider_interview_feedback AS f
+                    ON f.org_interview_id = i.org_interview_id
+                WHERE i.org_opening_stage_id = s.org_opening_stage_id
+            )
         ) ORDER BY s.position)
         FROM vetchium.org_opening_stages AS s
         WHERE s.org_opening_id = o.org_opening_id
@@ -196,6 +218,7 @@ WITH input AS (
     SELECT (i.stage->>'id')::uuid AS id,
         (i.stage->>'is_new')::boolean AS is_new,
         i.stage->>'name' AS name, i.stage->>'kind' AS kind,
+        COALESCE(i.stage->'feedback_form', '[]'::jsonb) AS feedback_form,
         i.position::smallint AS position
     FROM jsonb_array_elements(sqlc.arg(stages)::jsonb)
         WITH ORDINALITY AS i(stage, position)
@@ -246,14 +269,15 @@ WITH input AS (
     RETURNING s.org_opening_stage_id
 ), kept AS (
     INSERT INTO vetchium.org_opening_stages (
-        org_opening_stage_id, org_opening_id, position, name, stage_kind
+        org_opening_stage_id, org_opening_id, position, name, stage_kind,
+        feedback_form
     )
     SELECT input.id, updated.org_opening_id, input.position, input.name,
-        input.kind::vetchium.pipeline_stage_kind
+        input.kind::vetchium.pipeline_stage_kind, input.feedback_form
     FROM updated CROSS JOIN input
     ON CONFLICT (org_opening_stage_id) DO UPDATE
     SET position = EXCLUDED.position, name = EXCLUDED.name,
-        stage_kind = EXCLUDED.stage_kind
+        stage_kind = EXCLUDED.stage_kind, feedback_form = EXCLUDED.feedback_form
     WHERE org_opening_stages.org_opening_id = EXCLUDED.org_opening_id
     RETURNING org_opening_stage_id
 ), history AS (

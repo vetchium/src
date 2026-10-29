@@ -1,5 +1,7 @@
 import { expect } from "@playwright/test";
+import type { ApplicationDetail } from "typespec/orgs/applications/applications";
 import type {
+  FeedbackCriterion,
   PipelineStage,
   PipelineStageDefinition,
   PipelineTemplate,
@@ -9,19 +11,30 @@ import type {
   ReplaceOpeningPipelineRequest,
 } from "typespec/orgs/openings/pipeline";
 import type { OrgOpening } from "typespec/orgs/openings/types";
+import { sqlLiteral } from "../lib/admin-db.ts";
 import { test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
+import {
+  cleanupApplicants,
+  type HiringOrg,
+  seedApplication,
+} from "../lib/hiring-seed.ts";
 import {
   addOrgMember,
   cleanupOrg,
   loginOrg,
   OrgsAPI,
   orgAuditEventsByKey,
+  orgDID,
   orgSQL,
   orgsIdempotencyKey,
   signupOrg,
 } from "../lib/orgs-api.ts";
-import { openingContent } from "../lib/orgs-applications.ts";
+import {
+  cleanupOutbox,
+  openingContent,
+  publishedOpening,
+} from "../lib/orgs-applications.ts";
 
 const interview = (name: string): PipelineStageDefinition => ({
   name,
@@ -677,6 +690,283 @@ test("duplicating an Opening copies its pipeline or applies a template", async (
       before.quota.used,
     );
   });
+});
+
+const unheldID = "01900000-0000-7000-8000-000000000000";
+
+/** The form without ids, to compare with what was sent. */
+const asSent = (form: FeedbackCriterion[] | undefined) =>
+  (form ?? []).map(({ text, type, required }) => ({ text, type, required }));
+
+function formOf(stage: PipelineStage | PipelineStageDefinition | undefined) {
+  const form = stage?.feedback_form;
+  if (!form) throw new Error("expected a feedback form");
+  return form;
+}
+
+async function expectInvalid(
+  response: Awaited<ReturnType<Api["replaceOpeningPipeline"]>>,
+  fields: string[],
+): Promise<void> {
+  expect(response.status(), await response.text()).toBe(400);
+  expect((await response.json()).fields).toEqual(fields);
+}
+
+test("interview stages carry feedback forms through templates, pipelines, and duplicates", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, owner) => {
+    const depth = { text: "System design", type: "rating", required: true };
+    const fit = { text: "Team fit", type: "yes_no", required: false };
+    const extra = { text: "Anything else", type: "text", required: false };
+    const created = await newTemplate(api, owner, "Formed", [
+      review("Screen"),
+      { ...interview("Panel"), feedback_form: [depth, fit] },
+      interview("Final"),
+    ]);
+    // Responses carry a form for every interview stage and only for those.
+    expect(created.stages[0]).not.toHaveProperty("feedback_form");
+    expect(asSent(formOf(created.stages[1]))).toEqual([depth, fit]);
+    expect(created.stages[2]?.feedback_form).toEqual([]);
+    const [d, f] = formOf(created.stages[1]) as [
+      FeedbackCriterion,
+      FeedbackCriterion,
+    ];
+    expect(d.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7/);
+
+    // A template keeps ids wherever its criteria move and assigns new ones.
+    const updated = await api.updatePipelineTemplate(owner, {
+      template_id: created.id,
+      name: "Formed",
+      stages: [
+        review("Screen"),
+        { ...interview("Panel"), feedback_form: [f] },
+        { ...interview("Final"), feedback_form: [d, extra] },
+      ],
+    });
+    expect(updated.status(), await updated.text()).toBe(200);
+    const template = (await updated.json()) as PipelineTemplate;
+    expect(formOf(template.stages[1])).toEqual([f]);
+    expect(formOf(template.stages[2])[0]).toEqual(d);
+    expect(formOf(template.stages[2])[1]?.id).not.toBe(d.id);
+
+    const unheld = { ...depth, id: unheldID };
+    await expectInvalid(
+      await api.updatePipelineTemplate(owner, {
+        template_id: template.id,
+        name: "Formed",
+        stages: [{ ...interview("Panel"), feedback_form: [unheld] }],
+      }),
+      ["stages.0.feedback_form.0.id"],
+    );
+    await expectInvalid(
+      await api.createPipelineTemplate(owner, {
+        name: "Copied ids",
+        stages: [{ ...interview("Panel"), feedback_form: [d] }],
+      }),
+      ["stages.0.feedback_form.0.id"],
+    );
+    await expectInvalid(
+      await api.createPipelineTemplate(owner, {
+        name: "Too many",
+        stages: [
+          {
+            ...interview("Panel"),
+            feedback_form: Array.from({ length: 11 }, () => depth),
+          },
+          { ...review("Screen"), feedback_form: [depth] },
+          { ...interview("Final"), feedback_form: [{ ...fit, type: "stars" }] },
+        ],
+      }),
+      [
+        "stages.0.feedback_form",
+        "stages.1.feedback_form",
+        "stages.2.feedback_form.0.type",
+      ],
+    );
+
+    // An Opening copies the template's forms with their ids, and later
+    // template edits leave it alone.
+    const opening = await newOpening(api, owner, {
+      pipeline_template_id: template.id,
+    });
+    const copied = await pipelineOf(api, owner, opening.opening_number);
+    expect(copied.stages.map((stage) => stage.feedback_form)).toEqual(
+      template.stages.map((stage) => stage.feedback_form),
+    );
+    expect(
+      copied.stages.map((stage) => stage.feedback_submitted_count),
+    ).toEqual([0, 0, 0]);
+    const cleared = await api.updatePipelineTemplate(owner, {
+      template_id: template.id,
+      name: "Formed",
+      stages: [interview("Panel")],
+    });
+    expect(cleared.status(), await cleared.text()).toBe(200);
+    expect(await pipelineOf(api, owner, opening.opening_number)).toEqual(
+      copied,
+    );
+
+    // Replacing keeps ids through a reorder and assigns new ones; an id is
+    // only ever kept by the stage that holds it.
+    const screen = stageAt(copied, 0);
+    const panel = stageAt(copied, 1);
+    const final = stageAt(copied, 2);
+    const finalForm = formOf(final);
+    const replaced = await api.replaceOpeningPipeline(owner, {
+      opening_number: opening.opening_number,
+      version: copied.version,
+      stages: [
+        {
+          id: final.id,
+          name: final.name,
+          kind: "interview",
+          feedback_form: [finalForm[1] as FeedbackCriterion, fit],
+        },
+        { id: screen.id, name: screen.name, kind: "review" },
+        { id: panel.id, name: panel.name, kind: "interview" },
+      ],
+    });
+    expect(replaced.status(), await replaced.text()).toBe(200);
+    const pipeline = (await replaced.json()) as OpeningPipeline;
+    const reordered = formOf(stageAt(pipeline, 0));
+    expect(reordered[0]).toEqual(finalForm[1]);
+    expect(reordered[1]).toMatchObject({ ...fit, id: expect.any(String) });
+    expect(reordered[1]?.id).not.toBe(formOf(panel)[0]?.id);
+    expect(stageAt(pipeline, 2).feedback_form).toEqual([]);
+
+    const moved = finalForm[1] as FeedbackCriterion;
+    await expectInvalid(
+      await api.replaceOpeningPipeline(owner, {
+        opening_number: opening.opening_number,
+        version: pipeline.version,
+        stages: [
+          { id: final.id, name: final.name, kind: "interview" },
+          { id: screen.id, name: screen.name, kind: "review" },
+          {
+            id: panel.id,
+            name: panel.name,
+            kind: "interview",
+            feedback_form: [moved],
+          },
+          { name: "New", kind: "interview", feedback_form: [unheld] },
+        ],
+      }),
+      ["stages.2.feedback_form.0.id", "stages.3.feedback_form.0.id"],
+    );
+    await expectInvalid(
+      await api.replaceOpeningPipeline(owner, {
+        opening_number: opening.opening_number,
+        version: pipeline.version,
+        stages: [
+          {
+            id: screen.id,
+            name: screen.name,
+            kind: "review",
+            feedback_form: [depth],
+          },
+          {
+            name: "Panel",
+            kind: "interview",
+            feedback_form: Array.from({ length: 11 }, () => depth),
+          },
+        ],
+      }),
+      ["stages.0.feedback_form", "stages.1.feedback_form"],
+    );
+    expect(await pipelineOf(api, owner, opening.opening_number)).toEqual(
+      pipeline,
+    );
+
+    // A duplicate copies the source's forms with their ids.
+    const duplicated = await api.duplicateOpening(owner, {
+      opening_number: opening.opening_number,
+    });
+    expect(duplicated.status(), await duplicated.text()).toBe(201);
+    const duplicate = await pipelineOf(
+      api,
+      owner,
+      ((await duplicated.json()) as OrgOpening).opening_number,
+    );
+    expect(duplicate.stages.map((stage) => stage.feedback_form)).toEqual(
+      pipeline.stages.map((stage) => stage.feedback_form),
+    );
+  });
+});
+
+test("the pipeline counts the feedback submitted on each stage", async ({
+  request,
+}) => {
+  const api = new OrgsAPI(request);
+  const org = await signupOrg(api);
+  const world: HiringOrg = {
+    request,
+    tenant: "sgp",
+    api,
+    owner: "",
+    domain: org.domain,
+    did: orgDID(org.domain),
+    applicants: [],
+  };
+  try {
+    world.owner = await loginOrg(api, org);
+    const { opening, stages } = await publishedOpening(api, world.owner, org);
+    const number = opening.opening_number;
+    const panel = stages[1] as PipelineStage;
+    const seeded = await seedApplication(world, number, {
+      state: "in_pipeline",
+      stageId: panel.id,
+    });
+    const reference = {
+      opening_number: number,
+      application_number: seeded.number,
+    };
+    const scheduled = await api.scheduleInterview(world.owner, {
+      ...reference,
+      version: seeded.version,
+      start_time: new Date(Date.now() + 3_600_000).toISOString(),
+      duration_minutes: 45,
+      mode: "video",
+      video_url: "https://meet.example.com/room",
+      interviewer_emails: [org.emailAddress],
+    });
+    expect(scheduled.status(), await scheduled.text()).toBe(200);
+    orgSQL(
+      `UPDATE vetchium.org_interviews AS i
+       SET starts_at = now() - interval '1 hour'
+       FROM vetchium.org_applications AS a
+       JOIN vetchium.org_openings AS o USING (org_opening_id)
+       WHERE a.org_application_id = i.org_application_id
+         AND o.org_did = ${sqlLiteral(world.did)}::uuid
+         AND o.opening_number = ${number}
+         AND a.application_number = ${seeded.number}`,
+      world.tenant,
+    );
+    const completed = await api.recordInterviewOutcome(world.owner, {
+      ...reference,
+      version: ((await scheduled.json()) as ApplicationDetail).version,
+      interview_number: 1,
+      outcome: "completed",
+    });
+    expect(completed.status(), await completed.text()).toBe(200);
+    const submitted = await api.submitInterviewFeedback(world.owner, {
+      ...reference,
+      version: ((await completed.json()) as ApplicationDetail).version,
+      interview_number: 1,
+      recommendation: "yes",
+      notes: "Solid systems depth",
+    });
+    expect(submitted.status(), await submitted.text()).toBe(200);
+    const pipeline = await pipelineOf(api, world.owner, number);
+    expect(
+      pipeline.stages.map((stage) => stage.feedback_submitted_count),
+    ).toEqual([0, 1, 0]);
+  } finally {
+    cleanupApplicants(world);
+    cleanupOutbox(org.domain);
+    await deleteOrgVerificationRecord(org.domain);
+    cleanupOrg(org.domain);
+  }
 });
 
 test("another Org's template is not found", async ({ request }) => {

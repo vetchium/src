@@ -84,9 +84,16 @@ export async function publishedOpening(
     ],
   });
   expect(replaced.status(), await replaced.text()).toBe(200);
-  const stages = ((await replaced.json()) as { stages: PipelineStage[] })
-    .stages;
+  const stages = applicationStages(
+    ((await replaced.json()) as { stages: PipelineStage[] }).stages,
+  );
   return { opening: await reread(api, owner, opening), stages };
+}
+
+/** Pipeline stages as application reads show them: without the feedback form
+ * and counts the pipeline read adds. */
+export function applicationStages(stages: PipelineStage[]): PipelineStage[] {
+  return stages.map(({ id, name, kind }) => ({ id, name, kind }));
 }
 
 export async function reread(

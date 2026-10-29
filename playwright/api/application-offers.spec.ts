@@ -49,7 +49,7 @@ import {
   type SignedUpOrg,
   signupOrg,
 } from "../lib/orgs-api.ts";
-import { utcDate } from "../lib/orgs-applications.ts";
+import { applicationStages, utcDate } from "../lib/orgs-applications.ts";
 
 const PREFIX = "vetchium-problem-details/";
 const LETTER_INVALID = `${PREFIX}org-offer-letter-invalid`;
@@ -170,8 +170,9 @@ async function publishedOpening(
     ],
   });
   expect(replaced.status(), await replaced.text()).toBe(200);
-  const stages = ((await replaced.json()) as { stages: PipelineStage[] })
-    .stages;
+  const stages = applicationStages(
+    ((await replaced.json()) as { stages: PipelineStage[] }).stages,
+  );
   const reread = await api.getOpening(owner, {
     opening_number: opening.opening_number,
   });

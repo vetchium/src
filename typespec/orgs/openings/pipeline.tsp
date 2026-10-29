@@ -23,6 +23,26 @@ model PipelineStageInput {
 
   name: Vetchium.Orgs.Hiring.PipelineName;
   kind: Vetchium.Orgs.Hiring.StageKind;
+
+  /**
+   * `interview` stages only; omission is an empty form. A criterion `id` must
+   * name one this stage already holds, and ids are unique across the
+   * pipeline.
+   */
+  @maxItems(10)
+  feedback_form?: Vetchium.Orgs.Hiring.FeedbackCriterion[];
+}
+
+/** A stage of the pipeline with what the Pipeline tab warns about. */
+model OpeningPipelineStage {
+  ...Vetchium.Orgs.Hiring.PipelineStage;
+
+  /**
+   * Feedback submitted on this stage's interviews, in-house and provider
+   * (HP-FRM-002).
+   */
+  @minValue(0)
+  feedback_submitted_count: int32;
 }
 
 model OpeningPipeline {
@@ -31,7 +51,7 @@ model OpeningPipeline {
 
   @minItems(1)
   @maxItems(15)
-  stages: Vetchium.Orgs.Hiring.PipelineStage[];
+  stages: OpeningPipelineStage[];
 }
 
 model GetOpeningPipelineRequest {
