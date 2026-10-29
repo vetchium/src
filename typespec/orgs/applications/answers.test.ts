@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   type ApplicationAnswer,
+  isAnswerColumnQuestion,
   maxApplicationAnswers,
   maxLongTextAnswer,
   normalizeAnswers,
@@ -80,3 +81,17 @@ const invalid: [string, ApplicationAnswer[], string[]][] = [
 for (const [name, answers, fields] of invalid) {
   test(name, () => assert.deepEqual(validateAnswerShapes(answers), fields));
 }
+
+test("only short answers can be list columns", () => {
+  assert.deepEqual(
+    [
+      "short_text",
+      "long_text",
+      "number",
+      "yes_no",
+      "single_choice",
+      "multiple_choice",
+    ].map(isAnswerColumnQuestion),
+    [false, false, true, true, true, true],
+  );
+});

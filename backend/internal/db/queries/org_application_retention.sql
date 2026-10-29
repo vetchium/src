@@ -27,18 +27,19 @@ LIMIT sqlc.arg(batch_size);
 
 -- Removes one application's personal data in one state-guarded statement
 -- (HP-RET-002): the snapshot becomes a placeholder, and the cover note,
--- interviews with their interviewers and feedback, assessments, background
--- checks with their results, and offers are deleted. Numbers, states, dates,
--- stage records, and history stay. An offer's letter is queued for the
--- object-store deletion the delete-offer-letters job already runs. Every
--- delete names its rows, so none relies on the cascade alone. History and
--- audit hold counts, never content. No row is returned when the application
--- is not due or already removed.
+-- answers, interviews with their interviewers and feedback, assessments,
+-- background checks with their results, and offers are deleted. Numbers,
+-- states, dates, stage records, and history stay. An offer's letter is
+-- queued for the object-store deletion the delete-offer-letters job already
+-- runs. Every delete names its rows, so none relies on the cascade alone.
+-- History and audit hold counts, never content. No row is returned when the
+-- application is not due or already removed.
 -- name: RetainOrgApplication :one
 WITH removed AS (
     UPDATE vetchium.org_applications AS a
     SET snapshot = jsonb_build_object('display_name', 'Removed applicant'),
-        cover_note = NULL, removed_at = now(), hub_refresh_at = NULL,
+        cover_note = NULL, answers = '[]'::jsonb, removed_at = now(),
+        hub_refresh_at = NULL,
         version = a.version + 1
     WHERE a.org_application_id = sqlc.arg(application_id)
       AND a.removed_at IS NULL

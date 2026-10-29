@@ -49,6 +49,7 @@ import {
 import {
   assign,
   candidate,
+  relocationQuestion,
   routed,
   seedEngagements,
   type World,
@@ -222,6 +223,12 @@ test("a provider performs a routed interview stage and the client sees all of it
     expect(pending.interviews).toEqual([]);
     const text = JSON.stringify(pending);
     expect(text).not.toMatch(/application_number|version|internal_notes|offer/);
+    // Application answers and the questions are the client's alone.
+    expect(text).not.toMatch(/answers|questions|relocate/i);
+    expect(JSON.stringify(item)).not.toMatch(/answers|questions|relocate/i);
+    expect((await consumerView(scene)).answers).toMatchObject([
+      { text: relocationQuestion, answer: true, current: "same" },
+    ]);
 
     // The client's own writes on a routed stage are refused.
     await expectProblem(

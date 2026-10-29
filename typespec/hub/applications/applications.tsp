@@ -187,6 +187,9 @@ model MyApplicationDetail {
 
   /** Earliest start first; empty when none was scheduled. */
   interviews: MyApplicationInterview[];
+
+  /** The questions as asked when applying, with the applicant's answers. */
+  answers: Vetchium.Orgs.Applications.AnsweredQuestion[];
 }
 
 /** Names an interview of the application, by its number. */

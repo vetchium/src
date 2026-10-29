@@ -4,6 +4,7 @@ import {
   type PaginationKey,
 } from "../../common/pagination.ts";
 import {
+  type AnsweredQuestion,
   type ApplicationAnswer,
   normalizeAnswers,
   validateAnswerShapes,
@@ -149,6 +150,8 @@ export interface MyApplicationDetail extends MyApplication {
   offer?: MyApplicationOffer;
   background_check_consent?: MyBackgroundCheckConsent;
   interviews: MyApplicationInterview[];
+  /** The questions as asked when applying, with the applicant's answers. */
+  answers: AnsweredQuestion[];
 }
 
 export interface InterviewReference extends ApplicationReference {

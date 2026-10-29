@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 import { expect } from "@playwright/test";
+import type { ApplicationAnswer } from "typespec/orgs/applications/answers";
 import type {
   ApplicationDetail,
   ApplicationState,
@@ -43,6 +44,8 @@ export interface ApplicationOptions {
    * passes through the pipeline. */
   stageId?: string;
   coverNote?: string;
+  /** Answers to the Opening's live questions. */
+  answers?: ApplicationAnswer[];
   /** The agency the applicant names as referrer, by primary domain. */
   referralAgencyDomain?: string;
   /** Where the applicant's account lives; the Org's tenant by default. */
@@ -100,6 +103,7 @@ export async function seedApplication(
     openingNumber,
     options.referralAgencyDomain,
     options.coverNote,
+    options.answers,
   );
   const number = reference.application_number;
   const target = { opening_number: openingNumber, application_number: number };

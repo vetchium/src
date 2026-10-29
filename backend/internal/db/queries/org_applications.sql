@@ -114,7 +114,24 @@ SELECT a.application_number, a.application_state, a.version,
     a.credited_engagement_id,
     cred_eng.provider_domain AS credited_provider_domain,
     cred_eng.provider_display_name AS credited_provider_display_name,
-    a.referral_route
+    a.referral_route,
+    -- The answers to the requested columns, unanswered ones omitted
+    -- (HP-QST-007); never a filter or sort key.
+    COALESCE((
+        SELECT jsonb_agg(jsonb_build_object('question_id', e.entry ->> 'id',
+            'value', e.entry -> 'answer') ORDER BY e.position)
+        FROM jsonb_array_elements(a.answers) WITH ORDINALITY AS e(entry, position)
+        WHERE e.entry ->> 'id' = ANY(sqlc.arg(answer_columns)::text[])
+          AND e.entry ? 'answer'
+    ), '[]'::jsonb)::jsonb AS column_answers,
+    -- The live questions the handler checks answer_columns against.
+    CASE WHEN cardinality(sqlc.arg(answer_columns)::text[]) = 0
+        THEN '[]'::jsonb
+        ELSE COALESCE((
+            SELECT c.questions FROM vetchium.org_opening_contents AS c
+            WHERE c.org_opening_id = o.org_opening_id AND c.slot = 'live'
+        ), '[]'::jsonb)
+    END::jsonb AS live_questions
 FROM vetchium.org_openings AS o
 LEFT JOIN vetchium.org_applications AS a
     ON a.org_opening_id = o.org_opening_id
@@ -187,6 +204,12 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
         SELECT c.positions FROM vetchium.org_opening_contents AS c
         WHERE c.org_opening_id = o.org_opening_id AND c.slot = 'live'
     ), 0)::integer AS positions,
+    -- The answers are judged against the live questions (HP-QST-006).
+    a.answers,
+    COALESCE((
+        SELECT c.questions FROM vetchium.org_opening_contents AS c
+        WHERE c.org_opening_id = o.org_opening_id AND c.slot = 'live'
+    ), '[]'::jsonb)::jsonb AS live_questions,
     (
         SELECT count(*) FROM vetchium.org_applications AS j
         WHERE j.org_opening_id = o.org_opening_id
@@ -572,6 +595,8 @@ SELECT (SELECT count(*) FROM withdrawn) AS withdrawn_rows,
 SELECT d.domain::text AS org_domain, org.display_name AS org_display_name,
     o.opening_number, COALESCE(c.title, '')::text AS opening_title,
     a.application_number, a.application_state, stage.stage_kind,
+    -- The applicant's own answers as asked; their currency is the Org's.
+    a.answers,
     (offer.offer_number IS NOT NULL)::boolean AS has_offer,
     COALESCE(offer.offer_number, 0)::integer AS offer_number,
     COALESCE(offer.offer_status::text, '')::text AS offer_status,

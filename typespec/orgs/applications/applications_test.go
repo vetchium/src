@@ -1,6 +1,7 @@
 package applications
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -74,6 +75,13 @@ func TestListApplicationsValidation(t *testing.T) {
 	limit := func(value common.PageSize) *common.PageSize { return &value }
 	stage := stageID
 	badStage := hiring.PipelineStageID("nope")
+	columns := func(numbers ...int) []common.ApplicationQuestionID {
+		ids := make([]common.ApplicationQuestionID, len(numbers))
+		for index, number := range numbers {
+			ids[index] = common.ApplicationQuestionID(fmt.Sprintf("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a%02d", number))
+		}
+		return ids
+	}
 	tests := []struct {
 		name string
 		req  ListApplicationsRequest
@@ -101,6 +109,10 @@ func TestListApplicationsValidation(t *testing.T) {
 		{"limit 100", ListApplicationsRequest{OpeningNumber: 1, View: ApplicantsView, Limit: limit(100)}, []string{}},
 		{"limit 101", ListApplicationsRequest{OpeningNumber: 1, View: ApplicantsView, Limit: limit(101)}, []string{"limit"}},
 		{"limit 0", ListApplicationsRequest{OpeningNumber: 1, View: ApplicantsView, Limit: limit(0)}, []string{"limit"}},
+		{"three answer columns", ListApplicationsRequest{OpeningNumber: 1, View: ApplicantsView, AnswerColumns: columns(1, 2, 3)}, []string{}},
+		{"four answer columns", ListApplicationsRequest{OpeningNumber: 1, View: CandidatesView, AnswerColumns: columns(1, 2, 3, 4)}, []string{"answer_columns"}},
+		{"repeated answer column", ListApplicationsRequest{OpeningNumber: 1, View: ApplicantsView, AnswerColumns: columns(1, 1)}, []string{"answer_columns.1"}},
+		{"malformed answer column", ListApplicationsRequest{OpeningNumber: 1, View: ApplicantsView, AnswerColumns: []common.ApplicationQuestionID{"Q1"}}, []string{"answer_columns.0"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

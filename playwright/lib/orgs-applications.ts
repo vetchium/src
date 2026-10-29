@@ -1,5 +1,8 @@
 import { expect } from "@playwright/test";
-import type { OpeningContent } from "typespec/common/openings";
+import type {
+  ApplicationQuestion,
+  OpeningContent,
+} from "typespec/common/openings";
 import type { ApplicationDetail } from "typespec/orgs/applications/applications";
 import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import type { OrgOpening } from "typespec/orgs/openings/types";
@@ -50,13 +53,14 @@ export async function publishedOpening(
     positions?: number;
     team?: string[];
     stages?: Array<{ name: string; kind: PipelineStage["kind"] }>;
+    questions?: ApplicationQuestion[];
   } = {},
 ): Promise<{ opening: OrgOpening; stages: PipelineStage[] }> {
   const created = await api.createOpening(owner, {
-    content: openingContent(
-      options.title ?? "Engineer",
-      options.positions ?? 1,
-    ),
+    content: {
+      ...openingContent(options.title ?? "Engineer", options.positions ?? 1),
+      ...(options.questions ? { questions: options.questions } : {}),
+    },
     hiring_manager_email: org.emailAddress,
     recruiter_email: org.emailAddress,
     team_member_emails: options.team ?? [],

@@ -9,6 +9,7 @@ import type {
   ProfessionalEmail,
   ProfessionalEmailChallenge,
 } from "typespec/hub/profile/professional_email";
+import type { ApplicationAnswer } from "typespec/orgs/applications/answers";
 import {
   cleanupGlobalHubPrincipals,
   cleanupHubUsers,
@@ -144,6 +145,7 @@ export async function apply(
   openingNumber: number,
   referralAgencyDomain?: string,
   coverNote?: string,
+  answers?: ApplicationAnswer[],
 ): Promise<ApplicationReference> {
   const applied = await applicant.hub.applyToOpening(
     {
@@ -153,6 +155,7 @@ export async function apply(
         ? { referral_agency_domain: referralAgencyDomain }
         : {}),
       ...(coverNote ? { cover_note: coverNote } : {}),
+      ...(answers ? { answers } : {}),
     },
     { token: applicant.token, idempotencyKey: hubIdempotencyKey() },
   );

@@ -279,14 +279,21 @@ type MyApplicationDetail struct {
 	Offer                  *MyApplicationOffer       `json:"offer,omitempty"`
 	BackgroundCheckConsent *MyBackgroundCheckConsent `json:"background_check_consent,omitempty"`
 	Interviews             []MyApplicationInterview  `json:"interviews"`
+	// Answers are the questions as asked when applying, with the answers.
+	Answers []orgapplications.AnsweredQuestion `json:"answers"`
 }
 
 // Valid checks a peer's answer before it reaches the browser.
 func (d MyApplicationDetail) Valid() bool {
 	if !d.MyApplication.Valid() || (d.Offer != nil && !d.Offer.Valid()) ||
 		(d.BackgroundCheckConsent != nil && !d.BackgroundCheckConsent.Valid()) ||
-		d.Interviews == nil {
+		d.Interviews == nil || d.Answers == nil {
 		return false
+	}
+	for _, answered := range d.Answers {
+		if answered.ID == nil || !common.IsApplicationQuestionID(*answered.ID) {
+			return false
+		}
 	}
 	for _, interview := range d.Interviews {
 		if !interview.Valid() {

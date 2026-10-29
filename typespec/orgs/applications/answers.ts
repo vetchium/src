@@ -1,9 +1,14 @@
 import {
   type ApplicationQuestion,
   type ApplicationQuestionID,
+  type ApplicationQuestionType,
   isApplicationQuestionID,
   maxApplicationQuestions,
   maxQuestionOptions,
+  QuestionMultipleChoice,
+  QuestionNumber,
+  QuestionSingleChoice,
+  QuestionYesNo,
 } from "../../common/openings.ts";
 
 export const maxApplicationAnswers = maxApplicationQuestions;
@@ -68,4 +73,31 @@ export function validateAnswerShapes(answers: ApplicationAnswer[]): string[] {
     if (!isAnswerValue(answer.value)) fields.push(`answers.${index}.value`);
   });
   return fields;
+}
+
+export const AnswerSame = "same" as const;
+export const AnswerChanged = "changed" as const;
+export const AnswerRemoved = "removed" as const;
+/** How an answered question compares to the live one now (HP-QST-006). */
+export type AnswerCurrency =
+  | typeof AnswerSame
+  | typeof AnswerChanged
+  | typeof AnswerRemoved
+  | (string & {});
+
+export interface AnswerRecord extends AnsweredQuestion {
+  current: AnswerCurrency;
+}
+
+/** The most `answer_columns` a list request names (HP-QST-007). */
+export const maxAnswerColumns = 3;
+
+/** Short answers only; free text never becomes a list column. */
+export function isAnswerColumnQuestion(type: ApplicationQuestionType): boolean {
+  return (
+    type === QuestionNumber ||
+    type === QuestionYesNo ||
+    type === QuestionSingleChoice ||
+    type === QuestionMultipleChoice
+  );
 }

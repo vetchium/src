@@ -176,3 +176,33 @@ type AnsweredQuestion struct {
 	common.ApplicationQuestion
 	Answer *AnswerValue `json:"answer,omitempty"`
 }
+
+// AnswerCurrency is how an answered question compares to the live question
+// with its id now (HP-QST-006).
+type AnswerCurrency string
+
+const (
+	AnswerSame    AnswerCurrency = "same"
+	AnswerChanged AnswerCurrency = "changed"
+	AnswerRemoved AnswerCurrency = "removed"
+)
+
+// AnswerRecord is an answered question with its currency, for Org readers.
+type AnswerRecord struct {
+	AnsweredQuestion
+	Current AnswerCurrency `json:"current"`
+}
+
+// MaxAnswerColumns bounds list-applications' answer_columns (HP-QST-007).
+const MaxAnswerColumns = 3
+
+// IsAnswerColumnQuestion reports whether list-applications may return
+// answers of this type as a column: short ones only, never free text.
+func IsAnswerColumnQuestion(kind common.ApplicationQuestionType) bool {
+	switch kind {
+	case common.QuestionNumber, common.QuestionYesNo,
+		common.QuestionSingleChoice, common.QuestionMultipleChoice:
+		return true
+	}
+	return false
+}

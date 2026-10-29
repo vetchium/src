@@ -13,6 +13,7 @@ import type {
   ApplicationReference,
   ListMyApplicationsResponse,
   MyApplication,
+  MyApplicationDetail,
 } from "typespec/hub/applications/applications";
 import type {
   OperationStatus,
@@ -452,6 +453,7 @@ test("a Hub user applies to a local Org, reads, and withdraws with replays", asy
         status: "applied",
         pending_actions: [],
         interviews: [],
+        answers: [],
       });
       await expectProjected(applicant, created, "applied");
       const listed = (await myApplications(applicant)).applications[0];
@@ -810,6 +812,15 @@ test("the Org's tenant checks answers to live questions and stores them as asked
         ]);
         expect(stored[2]).toMatchObject({ min: 2, max: 10, required: true });
         expect(stored[5]?.options).toEqual(["English", "Tamil", "Malay"]);
+        // The applicant reads their own answers as asked, without currency.
+        const mine = await applicant.hub.getMyApplication(
+          created,
+          applicant.token,
+        );
+        expect(mine.status(), await mine.text()).toBe(200);
+        const { answers } = (await mine.json()) as MyApplicationDetail;
+        expect(answers).toEqual(stored);
+        expect(JSON.stringify(answers)).not.toContain("current");
       }
     },
   );

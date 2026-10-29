@@ -52,9 +52,12 @@ type listCursor struct {
 	FiltersHash            string                 `json:"filters_hash"`
 }
 
+// filtersHash binds a page key to what selects rows; answer columns only add
+// cells, so a viewer may change them between pages.
 func filtersHash(request applications.ListApplicationsRequest) (string, error) {
 	request.PaginationKey = nil
 	request.Limit = nil
+	request.AnswerColumns = nil
 	data, err := json.Marshal(request)
 	if err != nil {
 		return "", err
@@ -131,6 +134,10 @@ func ListApplications(s *orgsruntime.Server) http.HandlerFunc {
 		params := sqlc.ListOrgApplicationsParams{
 			OrgDid: identity.OrgDID, OpeningNumber: int32(request.OpeningNumber),
 			ViewerID: identity.UserID, PageLimit: int32(request.EffectiveLimit()) + 1,
+			AnswerColumns: make([]string, len(request.AnswerColumns)),
+		}
+		for index, id := range request.AnswerColumns {
+			params.AnswerColumns[index] = string(id)
 		}
 		switch {
 		case request.View == applications.ApplicantsView:
@@ -196,6 +203,17 @@ func ListApplications(s *orgsruntime.Server) http.HandlerFunc {
 			s.Problem(r.Context(), w, orgsproblem.ApplicationNotFoundError)
 			return
 		}
+		if len(request.AnswerColumns) > 0 {
+			invalid, err := invalidAnswerColumns(request.AnswerColumns, rows[0].LiveQuestions)
+			if err != nil {
+				s.InternalError(r.Context(), w, "check answer columns", err)
+				return
+			}
+			if len(invalid) > 0 {
+				s.ValidationFailed(r.Context(), w, invalid)
+				return
+			}
+		}
 		// A readable Opening with nothing to list yields one row without an
 		// application.
 		if !rows[0].ApplicationNumber.Valid {
@@ -210,8 +228,16 @@ func ListApplications(s *orgsruntime.Server) http.HandlerFunc {
 			Applications: make([]applications.ApplicationSummary, 0, len(rows)),
 		}
 		for _, row := range rows {
+			var answers []applications.ApplicationAnswer
+			if len(request.AnswerColumns) > 0 {
+				if err := json.Unmarshal(row.ColumnAnswers, &answers); err != nil {
+					s.InternalError(r.Context(), w, "decode column answers", err)
+					return
+				}
+			}
 			response.Applications = append(response.Applications,
 				applications.ApplicationSummary{
+					Answers:           answers,
 					ApplicationNumber: applications.ApplicationNumber(row.ApplicationNumber.Int32),
 					State:             applications.ApplicationState(row.ApplicationState.VetchiumOrgApplicationState),
 					Version:           applications.ApplicationVersion(row.Version.Int32),
@@ -336,6 +362,15 @@ func buildDetail(
 	if err := json.Unmarshal(row.StageRecords, &detail.StageRecords); err != nil {
 		return detail, fmt.Errorf("decode stage records: %w", err)
 	}
+	var asked []applications.AnsweredQuestion
+	if err := json.Unmarshal(row.Answers, &asked); err != nil {
+		return detail, fmt.Errorf("decode answers: %w", err)
+	}
+	var live []common.ApplicationQuestion
+	if err := json.Unmarshal(row.LiveQuestions, &live); err != nil {
+		return detail, fmt.Errorf("decode live questions: %w", err)
+	}
+	detail.Answers = answerRecords(asked, live)
 	list, err := offers(ctx, letters, row.Offers)
 	if err != nil {
 		return detail, err

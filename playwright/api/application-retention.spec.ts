@@ -59,6 +59,9 @@ function content(title: string): OpeningContent {
     work_arrangement: "hybrid",
     employment_type: "full_time",
     positions: 1,
+    questions: [
+      { text: "Notice period?", type: "short_text", required: false },
+    ],
   };
 }
 
@@ -253,14 +256,16 @@ async function version(
 async function apply(
   applicant: Applicant,
   world: World,
-  opening: number,
+  opening: OrgOpening,
   coverNote?: string,
 ): Promise<ApplicationReference> {
+  const notice = opening.live_content?.questions?.[0]?.id ?? "";
   const response = await applicant.hub.applyToOpening(
     {
       domain: world.org.domain,
-      opening_number: opening,
+      opening_number: opening.opening_number,
       ...(coverNote ? { cover_note: coverNote } : {}),
+      answers: [{ question_id: notice, value: "Thirty days" }],
     },
     { token: applicant.token, idempotencyKey: hubIdempotencyKey() },
   );
@@ -351,7 +356,7 @@ for (const [applicantTenant, orgTenant, label] of [
         const reference = await apply(
           applicant,
           world,
-          opening.opening_number,
+          opening,
           "Please consider my application",
         );
         const number = reference.application_number;
@@ -378,6 +383,7 @@ for (const [applicantTenant, orgTenant, label] of [
         expect(before.offers).toHaveLength(1);
         expect(before.interviews).toHaveLength(1);
         expect(before.cover_note).toBe("Please consider my application");
+        expect(before.answers[0]?.answer).toBe("Thirty days");
         const letterIDs = orgSQL(
           `SELECT coalesce(string_agg(letter_object_id::text, ','), '')
          FROM vetchium.org_application_offers AS f
@@ -421,9 +427,11 @@ for (const [applicantTenant, orgTenant, label] of [
           background_checks: [],
         });
         expect(removed.cover_note).toBeUndefined();
+        expect(removed.answers).toEqual([]);
         expect(removed.snapshot.display_name).toBe("Removed applicant");
         expect(JSON.stringify(removed)).not.toContain("Ada");
         expect(JSON.stringify(removed)).not.toContain("Please consider");
+        expect(JSON.stringify(removed)).not.toContain("Thirty days");
         expect(JSON.stringify(removed)).not.toContain("retention-room");
 
         const listed = await world.api.listApplications(world.owner, {
@@ -546,7 +554,7 @@ for (const [applicantTenant, orgTenant, label] of [
         );
         const { opening, stages } = await publishedOpening(world);
         const n = opening.opening_number;
-        const reference = await apply(applicant, world, n);
+        const reference = await apply(applicant, world, opening);
         const number = reference.application_number;
         // Applying and the applicant's own actions send nothing.
         expect(await mailCount(applicant.email, orgName)).toBe(0);

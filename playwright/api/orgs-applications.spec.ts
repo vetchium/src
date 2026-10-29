@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test";
+import type { ApplicationQuestion } from "typespec/common/openings";
 import type {
   ApplicationCounts,
   ApplicationDetail,
@@ -625,6 +626,188 @@ test("only the Opening's team and org:manage_candidacies read its applications",
     expect(removed.status(), await removed.text()).toBe(200);
     expect(await statuses(hiringManager.token)).toEqual(refused);
     expect(await statuses(recruiter.token)).toEqual(readable);
+  });
+});
+
+test("every application reader sees the answers as asked with their currency", async ({
+  request,
+}) => {
+  await withOrg(request, async (api, owner, org, world) => {
+    const asked: ApplicationQuestion[] = [
+      { text: "Years", type: "number", required: true, min: 0, max: 40 },
+      { text: "Permit?", type: "yes_no", required: true },
+      {
+        text: "Office",
+        type: "single_choice",
+        required: false,
+        options: ["Raffles", "Jurong"],
+      },
+      { text: "Current role", type: "short_text", required: false },
+      {
+        text: "Languages",
+        type: "multiple_choice",
+        required: false,
+        options: ["English", "Tamil"],
+      },
+    ];
+    const { opening, stages } = await publishedOpening(api, owner, org, {
+      questions: asked,
+    });
+    const n = opening.opening_number;
+    const live = opening.live_content?.questions ?? [];
+    const [years, permit, office, role, languages] = live.map(
+      (question) => question.id ?? "",
+    ) as [string, string, string, string, string];
+    const answered = await seed(world, n, {
+      answers: [
+        { question_id: years, value: 7 },
+        { question_id: permit, value: true },
+        { question_id: office, value: "Jurong" },
+        { question_id: languages, value: ["Tamil"] },
+      ],
+    });
+    const panel = stages.find((stage) => stage.name === "Panel");
+    const interviewed = await seed(world, n, {
+      state: "in_pipeline",
+      stageId: panel?.id ?? "",
+      answers: [
+        { question_id: years, value: 1 },
+        { question_id: permit, value: false },
+      ],
+    });
+    const get = async (token: string, application: number) => {
+      const response = await api.getApplication(token, {
+        opening_number: n,
+        application_number: application,
+      });
+      expect(response.status(), await response.text()).toBe(200);
+      return (await response.json()) as ApplicationDetail;
+    };
+    const first = await get(owner, answered);
+    expect(first.answers.map((entry) => entry.answer)).toEqual([
+      7,
+      true,
+      "Jurong",
+      undefined,
+      ["Tamil"],
+    ]);
+    expect(first.answers.map((entry) => entry.current)).toEqual(
+      Array(5).fill("same"),
+    );
+    expect(first.answers).toMatchObject(live);
+
+    // A revise renames one question, drops another, and tightens a bound.
+    const [yearsQuestion, , officeQuestion, roleQuestion, languagesQuestion] =
+      live as [
+        ApplicationQuestion,
+        ApplicationQuestion,
+        ApplicationQuestion,
+        ApplicationQuestion,
+        ApplicationQuestion,
+      ];
+    const current = (await (
+      await api.getOpening(owner, { opening_number: n })
+    ).json()) as OrgOpening;
+    const saved = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: n,
+      version: current.version,
+      content: {
+        ...current.live_content,
+        questions: [
+          { ...yearsQuestion, min: 2 },
+          { ...officeQuestion, text: "Preferred office" },
+          roleQuestion,
+          languagesQuestion,
+        ],
+      },
+    });
+    expect(saved.status(), await saved.text()).toBe(200);
+    const revised = await api.requestOpeningChange(owner, {
+      opening_number: n,
+      version: ((await saved.json()) as OrgOpening).version,
+      kind: "revise",
+    });
+    expect(revised.status(), await revised.text()).toBe(200);
+    const after = await get(owner, answered);
+    expect(after.answers.map((entry) => entry.current)).toEqual([
+      "same",
+      "removed",
+      "changed",
+      "same",
+      "same",
+    ]);
+    expect(after.answers[2]).toMatchObject({
+      text: "Office",
+      answer: "Jurong",
+    });
+
+    // An interviewer who reads only their candidacy sees its answers too.
+    const interviewer = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      `interviewer@${org.domain}`,
+    );
+    const before = await get(owner, interviewed);
+    const scheduled = await api.scheduleInterview(owner, {
+      opening_number: n,
+      application_number: interviewed,
+      version: before.version,
+      start_time: new Date(Date.now() + 2 * 3_600_000).toISOString(),
+      duration_minutes: 45,
+      mode: "video",
+      video_url: "https://meet.example.com/room",
+      interviewer_emails: [interviewer.emailAddress],
+    });
+    expect(scheduled.status(), await scheduled.text()).toBe(200);
+    const seenByInterviewer = await get(interviewer.token, interviewed);
+    expect(seenByInterviewer.answers.map((entry) => entry.answer)).toEqual([
+      1,
+      false,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(seenByInterviewer.answers[1]?.current).toBe("removed");
+
+    // List rows carry the requested short answers only.
+    const columns = await list(api, owner, {
+      opening_number: n,
+      view: "applicants",
+      answer_columns: [office, years],
+    });
+    expect(columns.applications.map((row) => row.answers)).toEqual([
+      [
+        { question_id: years, value: 7 },
+        { question_id: office, value: "Jurong" },
+      ],
+    ]);
+    const candidates = await list(api, owner, {
+      opening_number: n,
+      view: "candidates",
+      answer_columns: [office],
+    });
+    expect(candidates.applications.map((row) => row.answers)).toEqual([[]]);
+    const plain = await list(api, owner, {
+      opening_number: n,
+      view: "applicants",
+    });
+    expect(plain.applications[0]?.answers).toBeUndefined();
+    for (const [answer_columns, fields] of [
+      [[role], ["answer_columns.0"]],
+      [[years, permit], ["answer_columns.1"]],
+      [[years, "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"], ["answer_columns.1"]],
+      [[years, office, languages, role], ["answer_columns"]],
+      [[years, years], ["answer_columns.1"]],
+    ] as [string[], string[]][]) {
+      const refused = await api.listApplications(owner, {
+        opening_number: n,
+        view: "applicants",
+        answer_columns,
+      });
+      expect(refused.status(), await refused.text()).toBe(400);
+      expect((await refused.json()).fields).toEqual(fields);
+    }
   });
 });
 

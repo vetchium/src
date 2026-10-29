@@ -49,3 +49,4 @@ Managers edit questions with the warning; readers see answers with
 highlights and optional list columns.
 
 ## Carried over
+- From T03: `ApplicationDetail.answers` is `AnswerRecord[]` (with `current`); `list-applications` takes `answer_columns` (≤3 live number/yes_no/single_choice/multiple_choice ids, `isAnswerColumnQuestion`) and each row then has `answers`; page keys ignore the columns, so the picker may change them between pages.

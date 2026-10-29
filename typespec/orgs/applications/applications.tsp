@@ -324,6 +324,12 @@ model ApplicationSummary {
   /** The route of the credit: suggested by the agency or declared by the applicant. */
   referral_route?: Vetchium.Orgs.Marketplace.ReferralRoute;
 
+  /**
+   * Present when the request named `answer_columns`: this application's
+   * answers to those questions, unanswered ones omitted.
+   */
+  answers?: ApplicationAnswer[];
+
   submitted_at: utcDateTime;
   updated_at: utcDateTime;
 }
@@ -501,6 +507,13 @@ model ApplicationDetail {
   /** The route of the credit: suggested by the agency or declared by the applicant. */
   referral_route?: Vetchium.Orgs.Marketplace.ReferralRoute;
 
+  /**
+   * The questions as the application was asked them, in order, with each
+   * answer and its currency (HP-QST-006); empty when none were asked or
+   * retention removed them.
+   */
+  answers: AnswerRecord[];
+
   /** The candidacy's stages in pipeline order; empty before shortlisting. */
   stage_records: ApplicationStageRecord[];
 
@@ -616,6 +629,14 @@ model ListApplicationsRequest {
 
   credited_agency_domain?: Vetchium.Orgs.OrgDomain;
   referral_route?: Vetchium.Orgs.Marketplace.ReferralRoute;
+
+  /**
+   * Live `number`, `yes_no`, `single_choice`, or `multiple_choice` questions
+   * whose answers each row returns (HP-QST-007); never a filter or sort key.
+   */
+  @maxItems(3)
+  @TypeSpec.OpenAPI.extension("x-vetchium-unique-items", true)
+  answer_columns?: Vetchium.ApplicationQuestionID[];
 
   pagination_key?: Vetchium.PaginationKey;
 

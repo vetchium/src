@@ -30,3 +30,20 @@ model AnsweredQuestion {
   ...Vetchium.ApplicationQuestion;
   answer?: ApplicationAnswerValue;
 }
+
+/**
+ * How an answered question compares to the live question with its id now
+ * (HP-QST-006): `same` text, type, and options; `changed` in any of them; or
+ * `removed` from the live content.
+ */
+@TypeSpec.OpenAPI.extension(
+  "x-vetchium-known-values",
+  #["same", "changed", "removed"]
+)
+scalar AnswerCurrency extends string;
+
+/** An answered question as asked, with its currency for Org readers. */
+model AnswerRecord {
+  ...AnsweredQuestion;
+  current: AnswerCurrency;
+}

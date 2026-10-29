@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs"
 	orgapplications "github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/hiring"
@@ -158,6 +159,35 @@ func TestMyApplicationValidity(t *testing.T) {
 	}
 }
 
+func TestMyApplicationDetailRequiresIdentifiedAnswers(t *testing.T) {
+	t.Parallel()
+	id := common.ApplicationQuestionID("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b")
+	answer := orgapplications.BooleanAnswer(true)
+	detail := MyApplicationDetail{
+		MyApplication: MyApplication{
+			OrgDomain: "example.com", OrgDisplayName: "Example",
+			OpeningNumber: 1, OpeningTitle: "Engineer", ApplicationNumber: 1,
+			Status: Applied, PendingActions: []PendingActionKind{},
+		},
+		Interviews: []MyApplicationInterview{},
+		Answers: []orgapplications.AnsweredQuestion{{
+			ApplicationQuestion: common.ApplicationQuestion{ID: &id, Text: "Permit?", Type: common.QuestionYesNo},
+			Answer:              &answer,
+		}},
+	}
+	if !detail.Valid() {
+		t.Fatal("valid answers rejected")
+	}
+	detail.Answers[0].ID = nil
+	if detail.Valid() {
+		t.Fatal("an answer without a question id passed")
+	}
+	detail.Answers = nil
+	if detail.Valid() {
+		t.Fatal("a detail without answers passed")
+	}
+}
+
 func TestMyApplicationDetailOfferValidity(t *testing.T) {
 	t.Parallel()
 	date := orgapplications.CalendarDate("2026-12-01")
@@ -174,12 +204,14 @@ func TestMyApplicationDetailOfferValidity(t *testing.T) {
 			RespondBy: time.Now().Add(time.Hour), ExtendedAt: time.Now(),
 		},
 		Interviews: []MyApplicationInterview{},
+		Answers:    []orgapplications.AnsweredQuestion{},
 	}
 	if !detail.Valid() {
 		t.Fatal("valid detail rejected")
 	}
 	if !(MyApplicationDetail{
 		MyApplication: detail.MyApplication, Interviews: []MyApplicationInterview{},
+		Answers: []orgapplications.AnsweredQuestion{},
 	}).Valid() {
 		t.Fatal("a detail without an offer was rejected")
 	}
@@ -266,6 +298,7 @@ func TestMyApplicationInterviewValidity(t *testing.T) {
 			Status: Applied, PendingActions: []PendingActionKind{},
 		},
 		Interviews: []MyApplicationInterview{good},
+		Answers:    []orgapplications.AnsweredQuestion{},
 	}
 	if !detail.Valid() {
 		t.Fatal("a valid detail was rejected")
@@ -317,6 +350,7 @@ func TestMyBackgroundCheckConsentValidity(t *testing.T) {
 			Performer: orgapplications.PerformerOrg, RequestedAt: time.Now(),
 		},
 		Interviews: []MyApplicationInterview{},
+		Answers:    []orgapplications.AnsweredQuestion{},
 	}
 	if !detail.Valid() {
 		t.Fatal("valid detail rejected")

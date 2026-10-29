@@ -293,6 +293,9 @@ func ReadForApplicant(
 		},
 		Interviews: []hubspec.MyApplicationInterview{},
 	}
+	if err := json.Unmarshal(row.Answers, &detail.Answers); err != nil {
+		return hubspec.MyApplicationDetail{}, fmt.Errorf("decode answers: %w", err)
+	}
 	if err := json.Unmarshal(row.Interviews, &detail.Interviews); err != nil {
 		return hubspec.MyApplicationDetail{}, fmt.Errorf("decode interviews: %w", err)
 	}

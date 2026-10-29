@@ -52,9 +52,12 @@ export interface World {
   check: PipelineStage;
 }
 
+export const relocationQuestion = "Willing to relocate?";
+
 /**
  * A consumer with a published Opening whose pipeline has a stage of every
- * kind, and a provider with a Listing for each Capability.
+ * kind and one optional question, and a provider with a Listing for each
+ * Capability.
  */
 export async function withWorld(
   request: Parameters<typeof withPair>[0],
@@ -89,6 +92,11 @@ export async function withWorld(
           consumer.org,
           {
             ...(options.team === undefined ? {} : { team: options.team }),
+            // Every candidate answers it, so provider reads can be shown to
+            // hold no answer (HP-QST-006).
+            questions: [
+              { text: relocationQuestion, type: "yes_no", required: false },
+            ],
             stages: [
               { name: "Screen", kind: "review" },
               { name: "Panel", kind: "interview" },
@@ -143,12 +151,16 @@ export async function candidate(
   referralAgencyDomain?: string,
 ): Promise<ApplicationDetail> {
   const { consumer } = world.pair;
+  const relocation = world.opening.live_content?.questions?.[0]?.id;
   const number = await seedApplicationNumber(
     world.hiring,
     world.opening.opening_number,
     {
       ...(name !== undefined && { name }),
       ...(referralAgencyDomain !== undefined && { referralAgencyDomain }),
+      ...(relocation !== undefined && {
+        answers: [{ question_id: relocation, value: true }],
+      }),
     },
   );
   return shortlist(
