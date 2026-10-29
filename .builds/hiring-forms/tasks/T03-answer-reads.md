@@ -59,3 +59,4 @@ sees their own; providers and the projection see none; retention removes
 them.
 
 ## Carried over
+- From T01: provider and agency job reads (`backend/internal/db/queries/org_provider_work.sql`) build Opening content without `questions`; keep it so, and assert in the provider test that no question or answer reaches a provider.

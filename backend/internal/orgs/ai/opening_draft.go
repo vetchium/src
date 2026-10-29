@@ -2,6 +2,7 @@ package orgai
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 
 	"github.com/vetchium/src/typespec/common"
@@ -160,7 +161,7 @@ func ParseOpeningDraft(
 			}
 		}
 	}
-	if (content == common.OpeningContent{}) {
+	if reflect.DeepEqual(content, common.OpeningContent{}) {
 		return common.OpeningContent{}, dropped, false
 	}
 	return content, dropped, true

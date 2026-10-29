@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/vetchium/src/typespec/orgs/openings"
+	"github.com/vetchium/src/typespec/problem"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
 	"backend/internal/apiserver"
@@ -20,7 +21,10 @@ import (
 	orgsruntime "backend/internal/orgs"
 )
 
-func changeFailure(q *sqlc.Queries, r *http.Request, identity middleware.OrgIdentity, number openings.OpeningNumber, version openings.OpeningVersion, pendingContentOnly bool) (handlerauth.Result[openings.OrgOpening], *handlerauth.Problem, error) {
+// changeFailure picks the refusal after a guarded write changed nothing.
+// Version, a pending request, and state outrank an invalid request field, as
+// for pipeline stages: a stale caller names question ids another edit removed.
+func changeFailure(q *sqlc.Queries, r *http.Request, identity middleware.OrgIdentity, number openings.OpeningNumber, version openings.OpeningVersion, pendingContentOnly bool, invalid ...problem.Details) (handlerauth.Result[openings.OrgOpening], *handlerauth.Problem, error) {
 	state, err := q.GetOrgOpeningChangeState(r.Context(), sqlc.GetOrgOpeningChangeStateParams{
 		OrgDid: identity.OrgDID, OpeningNumber: int32(number),
 	})
@@ -35,6 +39,12 @@ func changeFailure(q *sqlc.Queries, r *http.Request, identity middleware.OrgIden
 	}
 	if (!pendingContentOnly && state.HasPendingRequest) || (pendingContentOnly && state.HasPendingContentRequest) {
 		return handlerauth.Failure[openings.OrgOpening](orgsproblem.OpeningRequestPendingError)
+	}
+	editable := state.OpeningState == sqlc.VetchiumOrgOpeningStateDraft ||
+		state.OpeningState == sqlc.VetchiumOrgOpeningStatePublished ||
+		state.OpeningState == sqlc.VetchiumOrgOpeningStatePaused
+	if editable && len(invalid) > 0 {
+		return handlerauth.Failure[openings.OrgOpening](invalid[0])
 	}
 	return handlerauth.Failure[openings.OrgOpening](orgsproblem.OpeningStateConflictError)
 }
@@ -55,7 +65,11 @@ func SaveOpeningWorkingCopy(s *orgsruntime.Server) http.HandlerFunc {
 		handlerauth.RunIdempotent(s, w, r, "orgs:save-opening-working-copy",
 			dbvalue.FormatUUID(identity.UserID), key, request, now.Add(24*time.Hour),
 			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
-				content, err := json.Marshal(request.Content)
+				withIDs, newQuestionIDs, err := withQuestionIDs(*request.Content, now)
+				if err != nil {
+					return result{}, nil, err
+				}
+				content, err := json.Marshal(withIDs)
 				if err != nil {
 					return result{}, nil, err
 				}
@@ -64,7 +78,7 @@ func SaveOpeningWorkingCopy(s *orgsruntime.Server) http.HandlerFunc {
 					return result{}, nil, err
 				}
 				row, err := q.SaveOrgOpeningWorkingCopy(r.Context(), sqlc.SaveOrgOpeningWorkingCopyParams{
-					Content: content, OrgDid: identity.OrgDID,
+					Content: content, NewQuestionIds: newQuestionIDs, OrgDid: identity.OrgDID,
 					OpeningNumber: int32(request.OpeningNumber), Version: int32(request.Version),
 					ActorID: identity.UserID, HistoryID: historyID, TenantID: s.TenantID,
 					IdempotencyKey: dbvalue.Text(string(key)),
@@ -73,6 +87,13 @@ func SaveOpeningWorkingCopy(s *orgsruntime.Server) http.HandlerFunc {
 					return result{}, nil, err
 				}
 				if row.Version == 0 {
+					invalid, err := unknownQuestions(row.UnknownQuestionPositions)
+					if err != nil {
+						return result{}, nil, err
+					}
+					if invalid != nil {
+						return changeFailure(q, r, identity, request.OpeningNumber, request.Version, true, *invalid)
+					}
 					return changeFailure(q, r, identity, request.OpeningNumber, request.Version, true)
 				}
 				if row.SavedRows != 1 || row.HistoryRows != 1 || row.AuditRows != 1 {

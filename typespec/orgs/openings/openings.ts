@@ -220,10 +220,18 @@ export function validateCreateOpeningRequest(
   request: CreateOpeningRequest,
 ): string[] {
   const normalized = normalizeCreateOpeningRequest(request);
+  const content = validateOpeningContent(normalized.content).map(
+    (field) => `content.${field}`,
+  );
   return [
-    ...validateOpeningContent(normalized.content).map(
-      (field) => `content.${field}`,
-    ),
+    ...content,
+    // A new Opening asks only new questions (HP-QST-002).
+    ...(normalized.content.questions ?? []).flatMap((question, index) => {
+      const field = `content.questions.${index}.id`;
+      return question.id === undefined || content.includes(field)
+        ? []
+        : [field];
+    }),
     ...validateTeam(normalized),
     ...validTemplateField(request.pipeline_template_id),
   ];

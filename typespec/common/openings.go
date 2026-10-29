@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
@@ -52,6 +53,60 @@ type OpeningSalary struct {
 	Period   OpeningSalaryPeriod `json:"period"`
 }
 
+type ApplicationQuestionType string
+
+const (
+	QuestionShortText      ApplicationQuestionType = "short_text"
+	QuestionLongText       ApplicationQuestionType = "long_text"
+	QuestionNumber         ApplicationQuestionType = "number"
+	QuestionYesNo          ApplicationQuestionType = "yes_no"
+	QuestionSingleChoice   ApplicationQuestionType = "single_choice"
+	QuestionMultipleChoice ApplicationQuestionType = "multiple_choice"
+)
+
+const (
+	MaxApplicationQuestions = 10
+	MaxQuestionOptions      = 8
+	MaxQuestionNumber       = 1_000_000_000
+	maxQuestionText         = 500
+	maxQuestionOption       = 200
+)
+
+type ApplicationQuestionID string
+
+var questionIDPattern = regexp.MustCompile(
+	`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`,
+)
+
+// IsApplicationQuestionID accepts the lowercase form the API returns.
+func IsApplicationQuestionID(value ApplicationQuestionID) bool {
+	return questionIDPattern.MatchString(string(value))
+}
+
+func IsApplicationQuestionType(value ApplicationQuestionType) bool {
+	switch value {
+	case QuestionShortText, QuestionLongText, QuestionNumber, QuestionYesNo,
+		QuestionSingleChoice, QuestionMultipleChoice:
+		return true
+	}
+	return false
+}
+
+// IsChoiceQuestion reports the types whose answers come from options.
+func IsChoiceQuestion(value ApplicationQuestionType) bool {
+	return value == QuestionSingleChoice || value == QuestionMultipleChoice
+}
+
+type ApplicationQuestion struct {
+	ID       *ApplicationQuestionID  `json:"id,omitempty"`
+	Text     string                  `json:"text"`
+	Type     ApplicationQuestionType `json:"type"`
+	Required bool                    `json:"required"`
+	Min      *int64                  `json:"min,omitempty"`
+	Max      *int64                  `json:"max,omitempty"`
+	Options  []string                `json:"options,omitempty"`
+}
+
 type OpeningContent struct {
 	Title             *string                   `json:"title,omitempty"`
 	Description       *string                   `json:"description,omitempty"`
@@ -65,6 +120,7 @@ type OpeningContent struct {
 	ExperienceYears   *OpeningExperienceYears   `json:"experience_years,omitempty"`
 	MinimumEducation  *OpeningEducation         `json:"minimum_education,omitempty"`
 	Salary            *OpeningSalary            `json:"salary,omitempty"`
+	Questions         []ApplicationQuestion     `json:"questions,omitempty"`
 }
 
 // Normalize replaces nested pointer values so a shallow copy does not alter its source.
@@ -103,6 +159,21 @@ func (c *OpeningContent) Normalize() {
 		value := *c.Salary
 		value.Currency = CurrencyCode(strings.ToUpper(strings.TrimSpace(string(value.Currency))))
 		c.Salary = &value
+	}
+	if c.Questions != nil {
+		questions := make([]ApplicationQuestion, len(c.Questions))
+		for i, question := range c.Questions {
+			question.Text = strings.TrimSpace(question.Text)
+			if question.Options != nil {
+				options := make([]string, len(question.Options))
+				for j, option := range question.Options {
+					options[j] = strings.TrimSpace(option)
+				}
+				question.Options = options
+			}
+			questions[i] = question
+		}
+		c.Questions = questions
 	}
 }
 
@@ -189,6 +260,53 @@ func (c OpeningContent) Validate() []string {
 		}
 		if s.Period != OpeningHour && s.Period != OpeningDay && s.Period != OpeningMonth && s.Period != OpeningYear {
 			fields = append(fields, "salary.period")
+		}
+	}
+	return append(fields, validateQuestions(c.Questions)...)
+}
+
+func validateQuestions(questions []ApplicationQuestion) []string {
+	var fields []string
+	if len(questions) > MaxApplicationQuestions {
+		fields = append(fields, "questions")
+	}
+	ids := map[ApplicationQuestionID]bool{}
+	numberValid := func(value int64) bool { return value >= 0 && value <= MaxQuestionNumber }
+	for i, q := range questions {
+		path := fmt.Sprintf("questions.%d", i)
+		if q.ID != nil {
+			if !IsApplicationQuestionID(*q.ID) || ids[*q.ID] {
+				fields = append(fields, path+".id")
+			}
+			ids[*q.ID] = true
+		}
+		if !openingTextValid(q.Text, maxQuestionText) {
+			fields = append(fields, path+".text")
+		}
+		if !IsApplicationQuestionType(q.Type) {
+			fields = append(fields, path+".type")
+		}
+		number := q.Type == QuestionNumber
+		if q.Min != nil && (!number || !numberValid(*q.Min)) {
+			fields = append(fields, path+".min")
+		}
+		if q.Max != nil && (!number || !numberValid(*q.Max) || (q.Min != nil && *q.Min > *q.Max)) {
+			fields = append(fields, path+".max")
+		}
+		choice := IsChoiceQuestion(q.Type)
+		if (choice && (len(q.Options) < 2 || len(q.Options) > MaxQuestionOptions)) ||
+			(!choice && q.Options != nil) {
+			fields = append(fields, path+".options")
+		}
+		if choice {
+			seen := map[string]bool{}
+			for j, option := range q.Options {
+				key := strings.ToLower(option)
+				if !openingTextValid(option, maxQuestionOption) || seen[key] {
+					fields = append(fields, fmt.Sprintf("%s.options.%d", path, j))
+				}
+				seen[key] = true
+			}
 		}
 	}
 	return fields

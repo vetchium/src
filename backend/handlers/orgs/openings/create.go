@@ -100,7 +100,11 @@ func CreateOpening(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				content, err := json.Marshal(request.Content)
+				withIDs, _, err := withQuestionIDs(*request.Content, now)
+				if err != nil {
+					return result{}, nil, err
+				}
+				content, err := json.Marshal(withIDs)
 				if err != nil {
 					return result{}, nil, err
 				}

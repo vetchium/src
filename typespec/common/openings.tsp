@@ -58,6 +58,53 @@ model OpeningSalary {
   period: OpeningSalaryPeriod;
 }
 
+@TypeSpec.OpenAPI.extension(
+  "x-vetchium-known-values",
+  #[
+    "short_text",
+    "long_text",
+    "number",
+    "yes_no",
+    "single_choice",
+    "multiple_choice"
+  ]
+)
+scalar ApplicationQuestionType extends string;
+
+/** A stable identifier of one application question of one Opening. */
+@format("uuid")
+scalar ApplicationQuestionID extends string;
+
+/**
+ * A question an Opening asks applicants. A question sent without `id` is new;
+ * responses always carry `id`.
+ */
+model ApplicationQuestion {
+  id?: ApplicationQuestionID;
+
+  @minLength(1)
+  @maxLength(500)
+  text: string;
+
+  type: ApplicationQuestionType;
+  required: boolean;
+
+  /** `number` only. */
+  @minValue(0)
+  @maxValue(1000000000)
+  min?: int64;
+
+  /** `number` only; at least `min`. */
+  @minValue(0)
+  @maxValue(1000000000)
+  max?: int64;
+
+  /** `single_choice` and `multiple_choice` only; unique ignoring case. */
+  @minItems(2)
+  @maxItems(8)
+  options?: string[];
+}
+
 /** A working copy can contain any subset of valid fields. */
 model OpeningContent {
   title?: string;
@@ -72,4 +119,8 @@ model OpeningContent {
   experience_years?: OpeningExperienceYears;
   minimum_education?: OpeningEducation;
   salary?: OpeningSalary;
+
+  /** In display order. */
+  @maxItems(10)
+  questions?: ApplicationQuestion[];
 }

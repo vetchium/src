@@ -1030,3 +1030,87 @@ test("concurrent decisions allow one winner and replay its audit-free result", a
     await deleteOrgVerificationRecord(org.domain);
   }
 });
+
+test("a revision's questions stay out of live content until approved", async ({
+  request,
+}) => {
+  const api = new OrgsAPI(request);
+  const org = await signupOrg(api);
+  try {
+    const owner = await loginOrg(api, org);
+    const manager = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      `manager@${org.domain}`,
+      ["org:manage_openings"],
+    );
+    const original: OpeningContent = {
+      ...completeContent,
+      questions: [{ text: "Notice period?", type: "number", required: true }],
+    };
+    const createdResponse = await api.createOpening(manager.token, {
+      content: original,
+      hiring_manager_email: manager.emailAddress,
+      recruiter_email: manager.emailAddress,
+      team_member_emails: [],
+    });
+    expect(createdResponse.status(), await createdResponse.text()).toBe(201);
+    const created = (await createdResponse.json()) as OrgOpening;
+    const publishResponse = await api.requestOpeningChange(manager.token, {
+      opening_number: created.opening_number,
+      version: created.version,
+      kind: "publish",
+    });
+    expect(publishResponse.status(), await publishResponse.text()).toBe(200);
+    const publishRequested = (await publishResponse.json()) as OrgOpening;
+    const approvedResponse = await api.decideOpeningRequest(owner, {
+      opening_number: created.opening_number,
+      version: publishRequested.version,
+      decision: "approve",
+    });
+    expect(approvedResponse.status(), await approvedResponse.text()).toBe(200);
+    const live = (await approvedResponse.json()) as OrgOpening;
+    const liveQuestions = live.live_content?.questions;
+    expect(liveQuestions).toHaveLength(1);
+
+    const savedResponse = await api.saveOpeningWorkingCopy(manager.token, {
+      opening_number: created.opening_number,
+      version: live.version,
+      content: {
+        ...completeContent,
+        questions: [
+          { text: "Willing to relocate?", type: "yes_no", required: false },
+        ],
+      },
+    });
+    expect(savedResponse.status(), await savedResponse.text()).toBe(200);
+    const saved = (await savedResponse.json()) as OrgOpening;
+    const reviseResponse = await api.requestOpeningChange(manager.token, {
+      opening_number: created.opening_number,
+      version: saved.version,
+      kind: "revise",
+    });
+    expect(reviseResponse.status(), await reviseResponse.text()).toBe(200);
+    const pending = (await reviseResponse.json()) as OrgOpening;
+    expect(pending.live_content?.questions).toEqual(liveQuestions);
+    expect(pending.working_content?.questions).toMatchObject([
+      { text: "Willing to relocate?", type: "yes_no" },
+    ]);
+
+    const revisedResponse = await api.decideOpeningRequest(owner, {
+      opening_number: created.opening_number,
+      version: pending.version,
+      decision: "approve",
+    });
+    expect(revisedResponse.status(), await revisedResponse.text()).toBe(200);
+    const revised = (await revisedResponse.json()) as OrgOpening;
+    expect(revised.live_content?.questions).toEqual(
+      pending.working_content?.questions,
+    );
+    expect(revised.working_content).toBeUndefined();
+  } finally {
+    await deleteOrgVerificationRecord(org.domain);
+    cleanupOrg(org.domain);
+  }
+});

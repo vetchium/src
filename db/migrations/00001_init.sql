@@ -2023,6 +2023,9 @@ CREATE TABLE vetchium.org_opening_contents (
     salary_min bigint,
     salary_max bigint,
     salary_period vetchium.org_opening_salary_period,
+    -- Application questions (HP-QST-001) as the contract's question list;
+    -- NULL means none. orgs-api validates each question.
+    questions jsonb,
     updated_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
         ON DELETE CASCADE,
     updated_at timestamptz NOT NULL DEFAULT now(),
@@ -2090,6 +2093,10 @@ CREATE TABLE vetchium.org_opening_contents (
             AND salary_currency ~ '^[A-Z]{3}$'
             AND salary_min >= 0 AND salary_min <= salary_max
             AND salary_max BETWEEN 1 AND 1000000000000)
+    ),
+    CONSTRAINT org_opening_contents_questions_check CHECK (
+        questions IS NULL OR (jsonb_typeof(questions) = 'array'
+            AND jsonb_array_length(questions) BETWEEN 1 AND 10)
     ),
     CONSTRAINT org_opening_contents_live_complete_check CHECK (
         slot <> 'live' OR complete

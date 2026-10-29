@@ -114,15 +114,16 @@ WITH actor AS (
         employing_country, work_arrangement, location_details,
         remote_eligibility, remote_countries, employment_type,
         positions, experience_min, experience_max, minimum_education,
-        salary_currency, salary_min, salary_max, salary_period, updated_by,
-        updated_at
+        salary_currency, salary_min, salary_max, salary_period, questions,
+        updated_by, updated_at
     )
     SELECT changed.org_opening_id, 'live', c.title, c.description,
         c.language, c.employing_country, c.work_arrangement,
         c.location_details, c.remote_eligibility, c.remote_countries,
         c.employment_type, c.positions, c.experience_min, c.experience_max,
         c.minimum_education, c.salary_currency, c.salary_min,
-        c.salary_max, c.salary_period, sqlc.arg(actor_id), now()
+        c.salary_max, c.salary_period, c.questions, sqlc.arg(actor_id),
+        now()
     FROM changed
     JOIN vetchium.org_opening_contents AS c
       ON c.org_opening_id = changed.org_opening_id AND c.slot = 'working'
@@ -145,6 +146,7 @@ WITH actor AS (
         salary_min = EXCLUDED.salary_min,
         salary_max = EXCLUDED.salary_max,
         salary_period = EXCLUDED.salary_period,
+        questions = EXCLUDED.questions,
         updated_by = EXCLUDED.updated_by,
         updated_at = EXCLUDED.updated_at
     RETURNING org_opening_id
@@ -321,15 +323,16 @@ WITH pending AS (
         employing_country, work_arrangement, location_details,
         remote_eligibility, remote_countries, employment_type,
         positions, experience_min, experience_max, minimum_education,
-        salary_currency, salary_min, salary_max, salary_period, updated_by,
-        updated_at
+        salary_currency, salary_min, salary_max, salary_period, questions,
+        updated_by, updated_at
     )
     SELECT changed.org_opening_id, 'live', c.title, c.description,
         c.language, c.employing_country, c.work_arrangement,
         c.location_details, c.remote_eligibility, c.remote_countries,
         c.employment_type, c.positions, c.experience_min, c.experience_max,
         c.minimum_education, c.salary_currency, c.salary_min,
-        c.salary_max, c.salary_period, sqlc.arg(actor_id), now()
+        c.salary_max, c.salary_period, c.questions, sqlc.arg(actor_id),
+        now()
     FROM changed
     JOIN vetchium.org_opening_contents AS c
       ON c.org_opening_id = changed.org_opening_id AND c.slot = 'working'
@@ -353,6 +356,7 @@ WITH pending AS (
         salary_min = EXCLUDED.salary_min,
         salary_max = EXCLUDED.salary_max,
         salary_period = EXCLUDED.salary_period,
+        questions = EXCLUDED.questions,
         updated_by = EXCLUDED.updated_by,
         updated_at = EXCLUDED.updated_at
     RETURNING org_opening_id
