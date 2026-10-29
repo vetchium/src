@@ -118,6 +118,17 @@ and API contract coverage. Narrower targets per area: `make test-go`,
 `make admin-ui-check`, `make portal-ui-check`, `make playwright-check`,
 `make sql-check`.
 
+## Build a feature with a coding agent
+
+Describe the feature to the agent (in Claude Code, `/feature-build <one-line
+idea>`). It asks about requirements, confirms the API operations and portal
+routes with you, creates a branch, and commits the specification and a task
+plan under `.builds/<branch>/`. Then send `resume` in any session, with any
+model, to build it task by task; each task is reviewed, committed, and pushed.
+`.builds/<branch>/progress.md` shows where the build stands, and the last task
+removes the directory. The process is in
+[`agent-guides/feature-build.md`](agent-guides/feature-build.md).
+
 ## Publish
 
 ```bash
