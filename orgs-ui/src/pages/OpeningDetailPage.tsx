@@ -686,6 +686,7 @@ export function OpeningDetailPage() {
                   openingNumber={number}
                   canAct={canAct}
                   stages={counts.data.stages.map((entry) => entry.stage)}
+                  questions={opening.live_content?.questions ?? []}
                 />
               </Card>
             ),
@@ -699,6 +700,7 @@ export function OpeningDetailPage() {
                   key={number}
                   openingNumber={number}
                   counts={counts.data}
+                  questions={opening.live_content?.questions ?? []}
                 />
               </Card>
             ),

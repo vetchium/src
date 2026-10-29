@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
-import type { OpeningContent } from "typespec/common/openings";
+import type {
+  ApplicationQuestion,
+  OpeningContent,
+} from "typespec/common/openings";
 import { OpeningDescription } from "./OpeningDescription.tsx";
 
 export type OpeningContentLabels = Record<
@@ -33,16 +36,25 @@ export interface OpeningContentFormatters {
   ) => string;
 }
 
+/** Shows `content.questions` when given; without it they stay hidden. */
+export interface OpeningQuestionsPresentation {
+  heading: string;
+  /** One line under the question: its type, whether required, and bounds. */
+  describe: (question: ApplicationQuestion) => string;
+}
+
 export interface OpeningContentViewProps {
   content: OpeningContent;
   labels: OpeningContentLabels;
   formatters: OpeningContentFormatters;
+  questions?: OpeningQuestionsPresentation;
 }
 
 export function OpeningContentView({
   content,
   labels,
   formatters,
+  questions,
 }: OpeningContentViewProps) {
   const fields: { label: string; value: ReactNode }[] = [];
   if (content.language)
@@ -129,6 +141,19 @@ export function OpeningContentView({
           </div>
         ))}
       </dl>
+      {questions && content.questions && content.questions.length > 0 && (
+        <section aria-label={questions.heading}>
+          <h3>{questions.heading}</h3>
+          <ol>
+            {content.questions.map((question, index) => (
+              <li key={question.id ?? index}>
+                <div>{question.text}</div>
+                <small>{questions.describe(question)}</small>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
     </article>
   );
 }

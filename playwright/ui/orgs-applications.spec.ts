@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import type { ApplicationDetail } from "typespec/orgs/applications/applications";
 import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
+import type { OrgOpening } from "typespec/orgs/openings/types";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import {
   ageTerminalApplication,
@@ -834,5 +835,114 @@ test("an unknown application says so and offers a way back", async ({
     ).toBeVisible();
     await page.getByRole("link", { name: "Back to the Opening" }).click();
     await expect(page).toHaveURL(new RegExp(`/openings/${n}$`));
+  });
+});
+
+test("application detail shows answers as asked, and the lists show picked answer columns", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner, world) => {
+    const { opening } = await publishedOpening(api, owner, org, {
+      questions: [
+        {
+          text: "Notice period in days?",
+          type: "number",
+          required: true,
+        },
+        { text: "Need a visa?", type: "yes_no", required: false },
+        { text: "Portfolio link", type: "short_text", required: false },
+        {
+          text: "Preferred office",
+          type: "single_choice",
+          required: false,
+          options: ["North", "South"],
+        },
+      ],
+    });
+    const n = opening.opening_number;
+    const [notice, visa, , office] = opening.live_content?.questions ?? [];
+    if (!notice?.id || !visa?.id || !office?.id)
+      throw new Error("the published questions carry ids");
+    const application = await seedApplicationNumber(world, n, {
+      name: "Grace Hopper",
+      answers: [
+        { question_id: notice.id, value: 30 },
+        { question_id: visa.id, value: true },
+        { question_id: office.id, value: "North" },
+      ],
+    });
+
+    // A revision rewords one answered question and removes another.
+    const saved = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: n,
+      version: opening.version,
+      content: {
+        ...opening.live_content,
+        questions: (opening.live_content?.questions ?? [])
+          .filter((question) => question.id !== visa.id)
+          .map((question) =>
+            question.id === office.id
+              ? { ...question, text: "Office you prefer" }
+              : question,
+          ),
+      },
+    });
+    expect(saved.status(), await saved.text()).toBe(200);
+    const revised = await api.requestOpeningChange(owner, {
+      opening_number: n,
+      version: ((await saved.json()) as OrgOpening).version,
+      kind: "revise",
+    });
+    expect(revised.status(), await revised.text()).toBe(200);
+
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings/${n}/applications/${application}`);
+    await expect(page.getByText("Answers", { exact: true })).toBeVisible();
+    const answer = (question: string) =>
+      page.getByRole("region", { name: question, exact: true });
+    await expect(answer("Notice period in days?")).toContainText("30");
+    await expect(answer("Notice period in days?")).not.toContainText(
+      "Shown as asked",
+    );
+    await expect(answer("Need a visa?")).toContainText("Question removed");
+    await expect(answer("Need a visa?")).toContainText("Yes");
+    await expect(answer("Portfolio link")).toContainText("Not answered");
+    await expect(answer("Preferred office")).toContainText("Question changed");
+    await expect(answer("Preferred office")).toContainText(
+      "Shown as asked when they applied.",
+    );
+    await expect(answer("Preferred office")).toContainText("North");
+
+    await openingTab(page, n, "applicants");
+    const picker = page.getByRole("combobox", {
+      name: "Answer columns (up to 3)",
+    });
+    await picker.click();
+    const dropdown = page.locator(".ant-select-dropdown:visible");
+    await expect(dropdown.getByTitle("Need a visa?")).toHaveCount(0);
+    await expect(dropdown.getByTitle("Portfolio link")).toHaveCount(0);
+    await dropdown
+      .getByTitle("Notice period in days?", { exact: true })
+      .click();
+    await page.keyboard.press("Escape");
+    const column = page.getByRole("columnheader", {
+      name: "Notice period in days?",
+    });
+    await expect(column).toBeVisible();
+    await expect(
+      page.getByRole("row", { name: /Grace Hopper/ }).getByRole("cell", {
+        name: "30",
+        exact: true,
+      }),
+    ).toBeVisible();
+
+    // The choice is remembered for this Opening in this browser.
+    await page.reload();
+    await expect(column).toBeVisible();
+    await openingTab(page, n, "candidates");
+    await expect(
+      page.getByRole("combobox", { name: "Answer columns (up to 3)" }),
+    ).toBeVisible();
   });
 });

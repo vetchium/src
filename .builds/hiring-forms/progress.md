@@ -1,7 +1,7 @@
 # Hiring forms build progress
 
 branch: hiring-forms
-current: T06
+current: T07
 phase: implement
 
 ## Tasks
@@ -19,7 +19,7 @@ T05 done Hiring: Criteria answers on interview feedback
 
 ### M3 Portals
 
-T06 todo Orgs portal: Application questions and answers
+T06 done Orgs portal: Application questions and answers
 T07 todo Orgs portal: Feedback forms and criteria answers
 T08 todo Hub portal: Answering application questions
 

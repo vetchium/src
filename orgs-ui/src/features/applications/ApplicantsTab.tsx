@@ -4,6 +4,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
+import type { ApplicationQuestion } from "typespec/common/openings";
 import {
   ApplicantsView,
   type ApplicationSummary,
@@ -11,6 +12,11 @@ import {
 } from "typespec/orgs/applications/applications";
 import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import { paths } from "../../app/paths";
+import {
+  AnswerColumnPicker,
+  useAnswerColumns,
+  useAnswerTableColumns,
+} from "./AnswerColumns";
 import { ListPager } from "./ListPager";
 import { useListState } from "./listState";
 import { NameSearch } from "./NameSearch";
@@ -26,17 +32,26 @@ interface Props {
   canAct: boolean;
   /** The Opening's pipeline in order, from its stage counts. */
   stages: readonly PipelineStage[];
+  /** The live questions, which answer columns may show. */
+  questions: readonly ApplicationQuestion[];
 }
 
 type Dialog =
   | { kind: "shortlist"; application: ApplicationSummary }
   | { kind: "not-progressing"; application: ApplicationSummary };
 
-export function ApplicantsTab({ openingNumber, canAct, stages }: Props) {
+export function ApplicantsTab({
+  openingNumber,
+  canAct,
+  stages,
+  questions,
+}: Props) {
   const { t, i18n } = useTranslation();
   const { date } = useDateTimeFormat();
   const list = useListState();
   const [dialog, setDialog] = useState<Dialog>();
+  const answers = useAnswerColumns(openingNumber, questions);
+  const answerColumns = useAnswerTableColumns(answers.eligible, answers.ids);
   const nameRaw = list.get("q");
   const name =
     nameRaw !== undefined && isApplicantNameQuery(nameRaw)
@@ -46,6 +61,7 @@ export function ApplicantsTab({ openingNumber, canAct, stages }: Props) {
     opening_number: openingNumber,
     view: ApplicantsView,
     ...(name !== undefined && { name_query: name }),
+    ...(answers.ids.length > 0 && { answer_columns: answers.ids }),
     limit: pageSize,
     ...(list.paginationKey !== undefined && {
       pagination_key: list.paginationKey,
@@ -85,6 +101,7 @@ export function ApplicantsTab({ openingNumber, canAct, stages }: Props) {
       key: "applied",
       render: (_, application) => date(application.submitted_at),
     },
+    ...answerColumns,
     ...(canAct
       ? [
           {
@@ -131,11 +148,18 @@ export function ApplicantsTab({ openingNumber, canAct, stages }: Props) {
             : "applications.applicantsReadOnly",
         )}
       </Typography.Text>
-      <NameSearch
-        key={name ?? ""}
-        value={name}
-        onSearch={(value) => list.set({ q: value })}
-      />
+      <Flex gap="small" wrap align="start">
+        <NameSearch
+          key={name ?? ""}
+          value={name}
+          onSearch={(value) => list.set({ q: value })}
+        />
+        <AnswerColumnPicker
+          eligible={answers.eligible}
+          ids={answers.ids}
+          onChange={answers.choose}
+        />
+      </Flex>
       {query.isError && (
         <Alert
           type="error"

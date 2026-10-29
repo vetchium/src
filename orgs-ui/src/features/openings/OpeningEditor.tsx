@@ -57,12 +57,16 @@ import { paths } from "../../app/paths";
 import { problemMessage } from "../../components/common/APIErrorAlert";
 import { useMyInfoQuery } from "../account/queries";
 import { DraftWithAIButton } from "../ai/DraftWithAIButton";
-import { usePipelineTemplatesQuery } from "../pipelines/queries";
+import {
+  usePipelineTemplatesQuery,
+  useStageCountsQuery,
+} from "../pipelines/queries";
 import { StageSummary } from "../pipelines/StageSummary";
 import { OpeningsBreadcrumb } from "./OpeningsBreadcrumb";
 import { openingContentPresentation } from "./presentation";
 import { openingProblem } from "./problems";
-import { publicationFieldLabels } from "./publication";
+import { cleanQuestions, publicationFieldLabels } from "./publication";
+import { QuestionsEditor } from "./QuestionsEditor";
 import {
   useCreateOpeningMutation,
   useOpeningSummaryQuery,
@@ -80,7 +84,10 @@ interface EditorValues {
   pipeline_template_id?: string;
 }
 
-function cleanContent(input: OpeningContent | undefined): OpeningContent {
+function cleanContent(
+  input: OpeningContent | undefined,
+  withQuestions = true,
+): OpeningContent {
   const content = input ?? {};
   const result: OpeningContent = {};
   for (const key of [
@@ -121,6 +128,8 @@ function cleanContent(input: OpeningContent | undefined): OpeningContent {
     Object.values(content.salary).some((value) => value != null && value !== "")
   )
     result.salary = content.salary;
+  if (withQuestions && content.questions?.length)
+    result.questions = cleanQuestions(content.questions);
   return result;
 }
 
@@ -152,7 +161,14 @@ function teamRequest(values: EditorValues) {
   };
 }
 
-const editorSections = ["basics", "location", "role", "salary", "team"];
+const editorSections = [
+  "basics",
+  "location",
+  "role",
+  "salary",
+  "questions",
+  "team",
+];
 
 interface ChecklistItem {
   label: string;
@@ -219,18 +235,30 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
   const [memberSearch, setMemberSearch] = useState("");
   const [error, setError] = useState<string>();
   const [activeTab, setActiveTab] = useState("edit");
-  // Salary is optional, so its panel starts closed unless it already has one.
+  // Salary and questions are optional, so their panels start closed unless
+  // the Opening already has them.
+  const initialContent = opening?.working_content ?? opening?.live_content;
   const [openSections, setOpenSections] = useState<string[]>(() => [
     "basics",
     "location",
     "role",
-    ...((opening?.working_content ?? opening?.live_content)?.salary
-      ? ["salary"]
-      : []),
+    ...(initialContent?.salary ? ["salary"] : []),
+    ...(initialContent?.questions?.length ? ["questions"] : []),
     "team",
     ...(opening ? [] : ["pipeline"]),
   ]);
   const templates = usePipelineTemplatesQuery(!opening);
+  const liveQuestions = opening?.live_content
+    ? (opening.live_content.questions ?? [])
+    : undefined;
+  const counts = useStageCountsQuery(
+    opening?.opening_number ?? 0,
+    liveQuestions !== undefined,
+  );
+  const applicationCount = counts.data?.states.reduce(
+    (total, entry) => total + entry.count,
+    0,
+  );
   const templateID = Form.useWatch("pipeline_template_id", form);
   const chosenTemplate = templates.data?.find(
     (template) => template.id === templateID,
@@ -370,7 +398,9 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
         form.setFields(
           cause.problem.fields.map((field) => ({
             name: (field.startsWith("content.")
-              ? field.split(".")
+              ? field
+                  .split(".")
+                  .map((part) => (/^\d+$/.test(part) ? Number(part) : part))
               : field) as NonNullable<
               Parameters<typeof form.setFields>[0][number]["name"]
             >,
@@ -531,6 +561,8 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       layout="vertical"
       requiredMark={false}
       onFinish={(values) => void submit(values)}
+      onFinishFailed={() => setOpenSections(editorSections)}
+      scrollToFirstError
       initialValues={{
         content: {},
         team_member_emails: [],
@@ -803,6 +835,20 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
               ),
             },
             {
+              key: "questions",
+              label: t("openings.fields.questions"),
+              extra: optional,
+              forceRender: true,
+              children: lockable(
+                <QuestionsEditor
+                  {...(liveQuestions && { live: liveQuestions })}
+                  {...(applicationCount !== undefined && {
+                    applications: applicationCount,
+                  })}
+                />,
+              ),
+            },
+            {
               key: "team",
               label: t("openings.editor.team"),
               forceRender: true,
@@ -1048,8 +1094,10 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
               onChange={setActiveTab}
               tabBarExtraContent={
                 <DraftWithAIButton
+                  // AI drafting never returns questions (HP-QST-002), so
+                  // they would only cost prompt tokens.
                   currentContent={() =>
-                    cleanContent(form.getFieldValue("content"))
+                    cleanContent(form.getFieldValue("content"), false)
                   }
                   onDrafted={applyDraft}
                   disabled={contentLocked || pending}

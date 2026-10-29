@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
 import { paths } from "../app/paths";
 import { useMyInfoQuery } from "../features/account/queries";
+import { AnswersCard } from "../features/applications/AnswersCard";
 import { ApplicationActions } from "../features/applications/ApplicationActions";
 import { useCanActOnApplications } from "../features/applications/access";
 import { HistoryCard } from "../features/applications/HistoryCard";
@@ -163,6 +164,7 @@ export function ApplicationDetailPage() {
               suggestions={suggestions}
             />
             <SnapshotCard detail={detail} />
+            <AnswersCard detail={detail} />
             {detail.cover_note && !detail.removed && (
               <Card title={t("applications.coverNote")}>
                 <Typography.Text style={{ whiteSpace: "pre-wrap" }}>

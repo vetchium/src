@@ -42,3 +42,4 @@ Hub users answer questions within their bounds and later read their answers.
 ## Carried over
 - From T02: until the apply page sends `answers`, applying to an Opening with a required question fails with `hub-application-answers-invalid` (`typespec/problem/hub/applications.ts` exports `ApplicationAnswersInvalidDetails`); bounds are in `typespec/orgs/applications/answers.ts`.
 - From T03: `MyApplicationDetail.answers` is the applicant's `AnsweredQuestion[]` snapshot (no `current`); the read-only Hub view renders it.
+- From T06: `OpeningContentView` takes an optional `questions` presentation (`heading`, `describe`) and shows `content.questions` only when given; Orgs builds it in `orgs-ui/src/features/openings/presentation.ts` (`describeQuestion`). `typespec/common/openings.ts` now exports `maxQuestionText` and `maxQuestionOption`.

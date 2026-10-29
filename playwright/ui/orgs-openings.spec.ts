@@ -14,7 +14,7 @@ import {
 } from "../lib/orgs-api.ts";
 import { accountMenu } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
-import { chooseRegion } from "../lib/region-ui.ts";
+import { chooseOption, chooseRegion } from "../lib/region-ui.ts";
 
 const completeContent: OpeningContent = {
   title: "Opening engineer",
@@ -833,5 +833,156 @@ test("manager requests pause, reopen, and close and approver confirms each effec
     } finally {
       await managerPage.close();
     }
+  });
+});
+
+test("managers edit application questions within their bounds and see the published-questions warning", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    const created = await api.createOpening(owner, {
+      content: {
+        ...completeContent,
+        questions: [
+          {
+            text: "Notice period in days?",
+            type: "number",
+            required: true,
+            min: 0,
+            max: 90,
+          },
+        ],
+      },
+      hiring_manager_email: org.emailAddress,
+      recruiter_email: org.emailAddress,
+      team_member_emails: [],
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const draft = (await created.json()) as OrgOpening;
+    const published = await api.requestOpeningChange(owner, {
+      opening_number: 1,
+      version: draft.version,
+      kind: "publish",
+    });
+    expect(published.status(), await published.text()).toBe(200);
+    const liveID = ((await published.json()) as OrgOpening).live_content
+      ?.questions?.[0]?.id;
+    expect(liveID).toBeDefined();
+
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings/1/edit`);
+    const questionText = page.getByRole("textbox", {
+      name: "Question",
+      exact: true,
+    });
+    await expect(questionText).toHaveValue("Notice period in days?");
+    const warning = page.getByText(
+      "These questions differ from the published ones",
+    );
+    await expect(warning).toHaveCount(0);
+
+    const largest = page.getByRole("spinbutton", { name: "Largest answer" });
+    await expect(largest).toHaveAttribute("aria-valuemax", "1000000000");
+    await page.getByRole("spinbutton", { name: "Smallest answer" }).fill("100");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(
+      page.getByText("Must be at least the smallest answer."),
+    ).toBeVisible();
+    // Back to the published values, so there is nothing to warn about.
+    await page.getByRole("spinbutton", { name: "Smallest answer" }).fill("0");
+    await expect(warning).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Add question" }).click();
+    await expect(warning).toBeVisible();
+    await questionText.nth(1).fill("Where would you work?");
+    await chooseOption(
+      page,
+      page.getByRole("combobox", { name: "Answer type" }).nth(1),
+      "One choice",
+    );
+    await page.getByRole("textbox", { name: "Option 1" }).fill("Remote");
+    await page.getByRole("textbox", { name: "Option 2" }).fill("remote");
+    const addOption = page.getByRole("button", { name: "Add option" });
+    for (let count = 2; count < 8; count += 1) await addOption.click();
+    await expect(addOption).toBeDisabled();
+    await expect(
+      page.getByText("A question has at most 8 options."),
+    ).toBeVisible();
+    for (let count = 8; count > 2; count -= 1)
+      await page
+        .getByRole("button", { name: `Remove option ${count}` })
+        .click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(
+      page.getByText("Each option must be different.").first(),
+    ).toBeVisible();
+    await page.getByRole("textbox", { name: "Option 2" }).fill("Office");
+
+    const addQuestion = page.getByRole("button", { name: "Add question" });
+    for (let count = 2; count < 10; count += 1) await addQuestion.click();
+    await expect(addQuestion).toBeDisabled();
+    await expect(
+      page.getByText("An Opening asks at most 10 questions."),
+    ).toBeVisible();
+    for (let count = 10; count > 3; count -= 1)
+      await page
+        .getByRole("button", { name: `Remove question ${count}` })
+        .click();
+    // Each type shows only its own inputs; options left from a choice type
+    // are not sent.
+    await questionText.nth(2).fill("Can you travel?");
+    const thirdType = page
+      .getByRole("combobox", { name: "Answer type" })
+      .nth(2);
+    const optionInputs = page.getByRole("textbox", { name: "Option 1" });
+    for (const type of ["Long text", "Several choices"]) {
+      await chooseOption(page, thirdType, type);
+    }
+    await expect(optionInputs).toHaveCount(2);
+    await chooseOption(page, thirdType, "Whole number");
+    await expect(optionInputs).toHaveCount(1);
+    await expect(
+      page.getByRole("spinbutton", { name: "Smallest answer" }),
+    ).toHaveCount(2);
+    await chooseOption(page, thirdType, "Yes or no");
+    await expect(
+      page.getByRole("spinbutton", { name: "Smallest answer" }),
+    ).toHaveCount(1);
+    await page.getByRole("button", { name: "Move question 2 up" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page).toHaveURL(/\/openings\/1$/);
+
+    const read = await api.getOpening(owner, { opening_number: 1 });
+    const opening = (await read.json()) as OrgOpening;
+    expect(opening.working_content?.questions).toEqual([
+      {
+        id: expect.any(String),
+        text: "Where would you work?",
+        type: "single_choice",
+        required: false,
+        options: ["Remote", "Office"],
+      },
+      {
+        id: liveID,
+        text: "Notice period in days?",
+        type: "number",
+        required: true,
+        min: 0,
+        max: 90,
+      },
+      {
+        id: expect.any(String),
+        text: "Can you travel?",
+        type: "yes_no",
+        required: false,
+      },
+    ]);
+    await expect(
+      page.getByText("One choice · Optional · Options: Remote, Office"),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Whole number · Required · 0 to 90").first(),
+    ).toBeVisible();
   });
 });

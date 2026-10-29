@@ -90,8 +90,8 @@ export const applicationQuestionTypes = [
 export const maxApplicationQuestions = 10;
 export const maxQuestionOptions = 8;
 export const maxQuestionNumber = 1_000_000_000;
-const maxQuestionText = 500;
-const maxQuestionOption = 200;
+export const maxQuestionText = 500;
+export const maxQuestionOption = 200;
 
 export type ApplicationQuestionID = string;
 

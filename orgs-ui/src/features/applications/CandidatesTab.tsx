@@ -15,6 +15,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
+import type { ApplicationQuestion } from "typespec/common/openings";
 import {
   type ApplicationCounts,
   type ApplicationState,
@@ -28,6 +29,11 @@ import { isPipelineStageID } from "typespec/orgs/hiring/pipelines";
 import { isEngagementID } from "typespec/orgs/marketplace/engagements";
 import { paths } from "../../app/paths";
 import { useOpeningProvidersQuery } from "../marketplace/queries";
+import {
+  AnswerColumnPicker,
+  useAnswerColumns,
+  useAnswerTableColumns,
+} from "./AnswerColumns";
 import { FilterCard } from "./FilterCard";
 import { ListPager } from "./ListPager";
 import { useListState } from "./listState";
@@ -59,6 +65,8 @@ function getInitials(name: string): string {
 interface Props {
   openingNumber: number;
   counts: ApplicationCounts | undefined;
+  /** The live questions, which answer columns may show. */
+  questions: readonly ApplicationQuestion[];
 }
 
 function isFinished(value: string | undefined): value is ApplicationState {
@@ -67,7 +75,7 @@ function isFinished(value: string | undefined): value is ApplicationState {
   );
 }
 
-export function CandidatesTab({ openingNumber, counts }: Props) {
+export function CandidatesTab({ openingNumber, counts, questions }: Props) {
   const { t, i18n } = useTranslation();
   const { date } = useDateTimeFormat();
   const list = useListState();
@@ -97,6 +105,8 @@ export function CandidatesTab({ openingNumber, counts }: Props) {
       ? nameRaw
       : undefined;
 
+  const answers = useAnswerColumns(openingNumber, questions);
+  const answerColumns = useAnswerTableColumns(answers.eligible, answers.ids);
   const openingProviders = useOpeningProvidersQuery(openingNumber);
   const stageProviders = useMemo(() => {
     const map = new Map<string, string>();
@@ -124,6 +134,7 @@ export function CandidatesTab({ openingNumber, counts }: Props) {
     ...(name !== undefined && { name_query: name }),
     ...(pending !== undefined && { pending_applicant_action: pending }),
     ...(routed !== undefined && { routed_engagement_id: routed }),
+    ...(answers.ids.length > 0 && { answer_columns: answers.ids }),
     limit: pageSize,
     ...(list.paginationKey !== undefined && {
       pagination_key: list.paginationKey,
@@ -231,6 +242,7 @@ export function CandidatesTab({ openingNumber, counts }: Props) {
       key: "applied",
       render: (_, application) => date(application.submitted_at),
     },
+    ...answerColumns,
     {
       title: t("applications.columns.updated"),
       key: "updated",
@@ -337,6 +349,11 @@ export function CandidatesTab({ openingNumber, counts }: Props) {
             options={stageProviders}
           />
         )}
+        <AnswerColumnPicker
+          eligible={answers.eligible}
+          ids={answers.ids}
+          onChange={answers.choose}
+        />
         {filtered && (
           <Button type="link" onClick={clear}>
             {t("applications.clearFilters")}
