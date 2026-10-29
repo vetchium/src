@@ -302,6 +302,99 @@ below.
   mode, link or location, response, and note; never the stage, interviewers,
   outcome, or feedback.
 
+## Application questions
+
+An Opening may ask applicants questions; the answers are facts the Org reads.
+Vetchium never scores, ranks, or rejects an application by its answers.
+
+- **HP-QST-001** `OpeningContent.questions` holds 0–10 questions in display
+  order. Each has an `id` (UUIDv7), `text` (trimmed, 1–500 code points), a
+  `type`, and `required`. Types: `short_text` (answer 1–200 code points),
+  `long_text` (1–2,000), `number` (an integer; optional `min` and `max`, each
+  0–1,000,000,000, `min ≤ max`), `yes_no`, `single_choice` and
+  `multiple_choice` (2–8 `options`, each trimmed 1–200 code points, unique
+  ignoring case). `min` and `max` belong only to `number`, `options` only to
+  the choice types. Declare `type` extensible on responses (OPN-CNT-001).
+- **HP-QST-002** A question sent without `id` is new and the API assigns one;
+  an `id` must name a question of the same Opening's working copy or live
+  content, else `validation-failed`. Ids are unique within the list. Revising
+  keeps ids, which is how answers are matched to later edits (HP-QST-006).
+  Duplicating copies questions with their ids. AI drafting returns no
+  questions.
+- **HP-QST-003** Questions are content: they change only through `publish` and
+  `revise` approval (OPN-LIFE, OPN-WC), and the Hub sees only live questions
+  (`get-org-opening` and the mesh `org-openings/get`). Their absence never
+  makes an Opening incomplete.
+- **HP-QST-004** `apply-to-opening` and `HubApplyPayload` carry `answers`: at
+  most 10 `{question_id, value}`, with `value` a trimmed string for the text
+  types, an integer for `number`, a boolean for `yes_no`, one option for
+  `single_choice`, and 1–8 unique options for `multiple_choice` (options by
+  their exact text). hub-api checks only shape and lengths. The `hub-apply`
+  handler checks the answers against the live questions after locking the
+  Opening: every required question answered, no unknown or repeated id, each
+  value valid for its type, bounds, and options. A blank text answer is no
+  answer. A refusal is `hub-application-answers-invalid` (422, carries
+  `question_ids`), a deterministic rejection stored as the command's outcome.
+  The apply page enforces the same bounds in its inputs.
+- **HP-QST-005** The application stores its answers once, at apply time, as a
+  snapshot: every live question in order with its full definition and the
+  answer, or none for an unanswered optional question. Nothing changes it
+  later. History and audit never hold questions or answers.
+- **HP-QST-006** `ApplicationDetail.answers` lists the snapshot with
+  `current` for each question, judged against the live content at read time:
+  `same` when a live question with the id has the same text, type, and options;
+  `changed` when it differs in any of them; `removed` when none has the id.
+  Every reader of the application sees the answers, interviewer-only readers
+  included (HP-AUTH-003). Providers never see them (MKT-ACC); no provider or
+  agency read returns them.
+- **HP-QST-007** `list-applications` accepts `answer_columns`, 0–3 ids of
+  live `number`, `yes_no`, `single_choice`, or `multiple_choice` questions
+  (any other id is `validation-failed`); each row then carries `answers` for
+  those ids from its snapshot. Answers are never filters or sort keys.
+- **HP-QST-008** `get-my-application` (and the mesh `hub-applications/get`)
+  returns the applicant's own snapshot as `answers`, without `current`. The
+  Hub projection holds no answers.
+- **HP-QST-009** Orgs portal: the Opening editor edits questions with the
+  content. When the Opening has live content and the working copy's questions
+  differ from it, the editor warns that applications already received keep
+  their answers and will show changed questions as changed. Application
+  detail shows the answers and marks a `changed` or `removed` question with
+  the question as it was asked. The Applicants and Candidates tabs offer a
+  column picker for HP-QST-007, remembered per viewer and Opening in the
+  browser.
+
+## Interview feedback forms
+
+- **HP-FRM-001** An `interview` stage of a pipeline template or an Opening's
+  pipeline has `feedback_form`: 0–10 criteria. Each has an `id` (UUIDv7, assigned
+  as HP-QST-002), `text` (trimmed, 1–500 code points), a `type`, and
+  `required`. Types: `rating` (an integer 1–5), `yes_no` (a boolean), `text`
+  (trimmed, 1–2,000 code points). Other stage kinds have no form
+  (`validation-failed`). Declare `type` extensible on responses.
+- **HP-FRM-002** Forms copy with stages (HP-PIP-003) and are edited with the
+  pipeline (HP-PIP-004), keeping criterion ids. When an interview stage that
+  already has submitted feedback changes its form, the Pipeline tab warns that
+  submitted feedback keeps its answers and will show changed criteria as
+  changed; `get-opening-pipeline` returns each stage's
+  `feedback_submitted_count` (in-house and provider) for it.
+- **HP-FRM-003** `submit-interview-feedback` and
+  `submit-work-interview-feedback` carry `criteria_answers` (at most 10
+  `{criterion_id, value}`) beside the unchanged `recommendation` and `notes`,
+  checked against the form of the interview's stage when submitting: every
+  required criterion answered, no unknown or repeated id, each value valid. A
+  refusal is `org-interview-feedback-answers-invalid` (422, carries
+  `criterion_ids`), answered after the existing interview refusals.
+- **HP-FRM-004** Feedback stores its form snapshot and answers as HP-QST-005.
+  `InterviewFeedback.criteria_answers` carries `current` as HP-QST-006,
+  judged against the stage's form at read time (`removed` when the stage or
+  criterion is gone). Visibility follows HP-WRK-004. Provider interviewers
+  fill the consumer's form; provider work reads return the stage's form so
+  the provider portal can render it, and never the application's answers.
+- **HP-FRM-005** Application detail compares feedback per interview: criteria
+  as rows and interviewers as columns, with the average of the `rating`
+  answers whose `current` is `same`. A `changed` or `removed` answer shows
+  marked, with the criterion as it was asked, outside the average.
+
 ## Permissions
 
 | Permission | Allows |
@@ -405,12 +498,13 @@ below.
   `system`) and audit counts, and enqueues the offer letter's object for
   deletion. It replaces the snapshot with `{"display_name": "Removed
   applicant"}`, sets `removed_at`, bumps `version`, and deletes the
-  application's feedback, interviewers, interviews, assessments, background
+  application's answers, feedback (with its criteria answers), interviewers,
+  interviews, assessments, background
   check results and checks, and offers each by name, never by cascade alone.
   Offers go with their letters (not kept); each letter becomes
   `pending_delete` for `delete-offer-letters`. Readers return
-  `removed: true`, an empty `cover_note`, and no interviews, results, or
-  offers; the portals replace the placeholder name with their own localized
+  `removed: true`, an empty `cover_note`, and no answers, interviews,
+  results, or offers; the portals replace the placeholder name with their own localized
   "Removed applicant". Name search skips removed applications.
 
 ## Problem types
@@ -433,15 +527,20 @@ below.
 | `org-interview-interviewers-invalid` | 422 | a named interviewer is not an active user of the Org; carries `email_addresses` |
 | `hub-application-not-found` | 404 | unknown application, or not the caller's |
 | `hub-application-state-conflict` | 409 | the application's state does not allow the applicant's action |
+| `hub-application-answers-invalid` | 422 | the answers do not satisfy the Opening's live questions; carries `question_ids` |
+| `org-interview-feedback-answers-invalid` | 422 | the criteria answers do not satisfy the stage's form; carries `criterion_ids` |
 
 ## Tests and fixtures
 
 - **HP-TST-001** Cover in `playwright/api/`: every state transition and its
   refusals, applying to a local and a remote Org (including the `202` path),
   duplicate applications under concurrency, each access path in HP-AUTH,
-  interview feedback visibility, consent gating, offer expiry, date
-  corrections and their window, retention deletion, and that no stage name,
-  feedback, or result reaches a Hub or mesh response to the Hub.
+  interview feedback visibility, every question and criterion type with its
+  bounds and refusals, `current` after edits and removals, consent gating,
+  offer expiry, date corrections and their window, retention deletion, that
+  no stage name, feedback, or result reaches a Hub or mesh response to the
+  Hub, and that no provider read returns application answers.
 - **HP-TST-002** `make dev-seed` gives each seeded Org pipeline templates and
   applications in every non-terminal state from Hub users in more than one
-  region.
+  region, Openings with questions of every type, one revised after answers
+  arrived, and interview stages with feedback forms and submitted feedback.

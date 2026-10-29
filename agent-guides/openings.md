@@ -54,6 +54,7 @@ source-specific fields to it.
 | `experience_years` | optional `min` and `max`, each 0–50, `min ≤ max` |
 | `minimum_education` | optional `secondary`, `bachelor`, `master`, `doctorate` |
 | `salary` | optional `currency` (active ISO 4217), whole-unit `min` and `max` (0 ≤ min ≤ max, 1 ≤ max ≤ 10^12), `period` (`hour`, `day`, `month`, `year`) |
+| `questions` | optional, 0–10 application questions ([`hiring-pipeline.md`](hiring-pipeline.md) HP-QST) |
 
 - **OPN-CNT-001** Declare each vocabulary in TypeSpec as an extensible value on
   responses ([`typespec.md`](typespec.md)) so a portal older than its API shows
