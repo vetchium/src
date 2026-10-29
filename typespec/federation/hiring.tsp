@@ -26,6 +26,11 @@ model HubApplyPayload {
   applicant_did: Vetchium.Hub.HubUserDID;
   referral?: ApplicationReferral;
   cover_note?: Vetchium.Orgs.Applications.ApplicationCoverNote;
+
+  /** Trimmed; the Org tenant checks them against the live questions. */
+  @maxItems(10)
+  answers?: Vetchium.Orgs.Applications.ApplicationAnswer[];
+
   snapshot: Vetchium.Hub.Profile.ApplicantSnapshot;
 }
 
@@ -38,13 +43,15 @@ model HubApplyResult {
 /**
  * The deterministic rejections of `hub-apply`, stored as the command's
  * outcome: an unknown Opening, an Opening not accepting applications
- * (including one of a suspended Org), a second application, and an applicant
- * the sending tenant does not home.
+ * (including one of a suspended Org), a second application, answers that do
+ * not fit the live questions, and an applicant the sending tenant does not
+ * home.
  */
 alias HubApplyRejections =
   | Vetchium.Problem.HubOpeningNotFoundErrorResponse
   | Vetchium.Problem.HubOpeningNotAcceptingErrorResponse
   | Vetchium.Problem.HubApplicationExistsErrorResponse
+  | Vetchium.Problem.HubApplicationAnswersInvalidErrorResponse
   | Vetchium.Problem.HubReferralAgencyNotEligibleErrorResponse
   | Vetchium.Problem.FederationInitiatorMismatchErrorResponse;
 

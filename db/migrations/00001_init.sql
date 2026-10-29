@@ -2521,6 +2521,9 @@ CREATE TABLE vetchium.org_applications (
     version integer NOT NULL DEFAULT 1 CHECK (version >= 1),
     snapshot jsonb NOT NULL,
     cover_note text,
+    -- The live questions at apply time, each with its answer (HP-QST-005);
+    -- written once. Retention empties it.
+    answers jsonb NOT NULL DEFAULT '[]',
     current_stage_id uuid REFERENCES vetchium.org_opening_stages
         (org_opening_stage_id) ON DELETE SET NULL,
     -- When the offer that led to offer_accepted was extended; the offer
@@ -2563,6 +2566,9 @@ CREATE TABLE vetchium.org_applications (
             cover_note = btrim(cover_note)
             AND char_length(cover_note) BETWEEN 1 AND 5000
         )
+    ),
+    CONSTRAINT org_applications_answers_check CHECK (
+        jsonb_typeof(answers) = 'array' AND jsonb_array_length(answers) <= 10
     ),
     CONSTRAINT org_applications_stage_check CHECK (
         application_state <> 'submitted' OR current_stage_id IS NULL

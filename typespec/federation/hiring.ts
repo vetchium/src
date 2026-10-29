@@ -11,6 +11,11 @@ import { validateApplicantSnapshot } from "../hub/profile/snapshot.ts";
 import type { HubUserDID } from "../hub/types.ts";
 import { isHubUserDID } from "../hub/types.ts";
 import {
+  type ApplicationAnswer,
+  normalizeAnswers,
+  validateAnswerShapes,
+} from "../orgs/applications/answers.ts";
+import {
   type ApplicationCoverNote,
   type ApplicationNumber,
   type BackgroundCheckNumber,
@@ -56,14 +61,15 @@ export interface HubApplyPayload {
   applicant_did: HubUserDID;
   referral?: ApplicationReferral;
   cover_note?: ApplicationCoverNote;
+  answers?: ApplicationAnswer[];
   snapshot: ApplicantSnapshot;
 }
 
-/** Trims the cover note and drops a blank one, leaving the caller's value. */
+/** Trims the cover note and answers and drops a blank note, leaving the caller's values. */
 export function normalizeHubApplyPayload(
   payload: HubApplyPayload,
 ): HubApplyPayload {
-  const { cover_note: note, referral, ...rest } = payload;
+  const { cover_note: note, referral, answers, ...rest } = payload;
   const trimmed = note?.trim();
   const normalizedReferral = referral
     ? {
@@ -75,6 +81,7 @@ export function normalizeHubApplyPayload(
     ...rest,
     ...(trimmed ? { cover_note: trimmed } : {}),
     ...(normalizedReferral ? { referral: normalizedReferral } : {}),
+    ...(answers ? { answers: normalizeAnswers(answers) } : {}),
   };
 }
 
@@ -98,6 +105,7 @@ export function validateHubApplyPayload(payload: HubApplyPayload): string[] {
   ) {
     fields.push("cover_note");
   }
+  fields.push(...validateAnswerShapes(payload.answers ?? []));
   for (const field of validateApplicantSnapshot(payload.snapshot)) {
     fields.push(`snapshot.${field}`);
   }

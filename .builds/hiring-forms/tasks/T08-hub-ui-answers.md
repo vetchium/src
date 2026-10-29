@@ -40,3 +40,4 @@ after a revise; "Your answers" on detail.
 Hub users answer questions within their bounds and later read their answers.
 
 ## Carried over
+- From T02: until the apply page sends `answers`, applying to an Opening with a required question fails with `hub-application-answers-invalid` (`typespec/problem/hub/applications.ts` exports `ApplicationAnswersInvalidDetails`); bounds are in `typespec/orgs/applications/answers.ts`.

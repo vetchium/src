@@ -10,6 +10,14 @@ WHERE o.org_did = sqlc.arg(org_did)
   AND o.opening_number = sqlc.arg(opening_number)::integer
 FOR UPDATE OF o;
 
+-- Read after LockOrgOpeningForApplication, in its own statement, so a revise
+-- approval that committed while hub-apply waited for the lock is seen.
+-- name: GetOrgOpeningLiveQuestions :one
+SELECT COALESCE((
+    SELECT c.questions FROM vetchium.org_opening_contents AS c
+    WHERE c.org_opening_id = sqlc.arg(org_opening_id) AND c.slot = 'live'
+), '[]'::jsonb)::jsonb AS questions;
+
 -- The no-op update makes a concurrent first application of the same person to
 -- two Openings both return the one row.
 -- name: EnsureOrgApplicant :one
@@ -31,13 +39,14 @@ RETURNING org_applicant_id;
 WITH created AS (
     INSERT INTO vetchium.org_applications (
         org_application_id, org_opening_id, application_number,
-        org_applicant_id, snapshot, cover_note,
+        org_applicant_id, snapshot, cover_note, answers,
         credited_engagement_id, referral_route
     )
     VALUES (
         sqlc.arg(application_id), sqlc.arg(org_opening_id),
         sqlc.arg(application_number)::integer, sqlc.arg(applicant_id),
         sqlc.arg(snapshot)::jsonb, sqlc.narg(cover_note)::text,
+        sqlc.arg(answers)::jsonb,
         sqlc.narg(credited_engagement_id)::uuid,
         sqlc.narg(referral_route)::text
     )

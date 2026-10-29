@@ -40,6 +40,8 @@ test("the Hub status and pending action vocabularies match the contract", () => 
   assert.equal(isPendingActionKind("sign"), false);
 });
 
+const answerID = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b";
+
 test("apply normalization trims the note and leaves the caller's request", () => {
   const request = {
     domain: " Example.COM ",
@@ -58,6 +60,12 @@ test("apply normalization trims the note and leaves the caller's request", () =>
       normalizeApplyToOpeningRequest({ ...request, cover_note: "  " }),
     false,
   );
+  const answers = [{ question_id: answerID, value: [" a "] }];
+  assert.deepEqual(
+    normalizeApplyToOpeningRequest({ ...request, answers }).answers,
+    [{ question_id: answerID, value: ["a"] }],
+  );
+  assert.deepEqual(answers[0]?.value, [" a "]);
 });
 
 test("apply validation reports each invalid field", () => {
@@ -76,8 +84,16 @@ test("apply validation reports each invalid field", () => {
       opening_number: 0,
       cover_note: "a".repeat(5001),
       referral_agency_domain: "not an agency domain",
+      answers: [{ question_id: "x", value: 1.5 }],
     }),
-    ["domain", "opening_number", "referral_agency_domain", "cover_note"],
+    [
+      "domain",
+      "opening_number",
+      "referral_agency_domain",
+      "cover_note",
+      "answers.0.question_id",
+      "answers.0.value",
+    ],
   );
 });
 

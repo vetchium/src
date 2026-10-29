@@ -230,6 +230,12 @@ func validateGet(
 			opening.Title != nil {
 			return ErrInvalidResponse
 		}
+		// Answers name questions by id (HP-QST-004).
+		for _, question := range opening.Content.Questions {
+			if question.ID == nil {
+				return ErrInvalidResponse
+			}
+		}
 	case openingsspec.NotAccepting:
 		if opening.Title == nil || opening.Content != nil ||
 			opening.FirstPublishedAt != nil || opening.LastRevisedAt != nil {

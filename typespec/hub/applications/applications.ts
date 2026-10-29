@@ -4,6 +4,11 @@ import {
   type PaginationKey,
 } from "../../common/pagination.ts";
 import {
+  type ApplicationAnswer,
+  normalizeAnswers,
+  validateAnswerShapes,
+} from "../../orgs/applications/answers.ts";
+import {
   type ApplicationCoverNote,
   type ApplicationNumber,
   type BackgroundCheckNumber,
@@ -72,6 +77,7 @@ export interface ApplyToOpeningRequest {
   opening_number: OpeningNumber;
   cover_note?: ApplicationCoverNote;
   referral_agency_domain?: OrgDomain;
+  answers?: ApplicationAnswer[];
 }
 
 export interface ApplicationReference {
@@ -233,6 +239,7 @@ export function normalizeApplyToOpeningRequest(
   const {
     cover_note: note,
     referral_agency_domain: referral,
+    answers,
     ...rest
   } = request;
   const domain = normalizeOrgDomain(rest.domain);
@@ -247,6 +254,7 @@ export function normalizeApplyToOpeningRequest(
     ...(normalizedReferral
       ? { referral_agency_domain: normalizedReferral }
       : {}),
+    ...(answers ? { answers: normalizeAnswers(answers) } : {}),
   };
 }
 
@@ -270,7 +278,7 @@ export function validateApplyToOpeningRequest(
   ) {
     fields.push("cover_note");
   }
-  return fields;
+  return [...fields, ...validateAnswerShapes(request.answers ?? [])];
 }
 
 export function normalizeApplicationReference(

@@ -63,6 +63,13 @@ model ApplyToOpeningRequest {
 
   /** Primary domain of the agency to credit with this application. */
   referral_agency_domain?: Vetchium.Orgs.OrgDomain;
+
+  /**
+   * Answers to the Opening's live questions, trimmed; a blank text answer is
+   * no answer. The Org's tenant checks them (HP-QST-004).
+   */
+  @maxItems(10)
+  answers?: Vetchium.Orgs.Applications.ApplicationAnswer[];
 }
 
 /** Names one application on the wire. */
@@ -275,6 +282,7 @@ interface ApplicationOperations {
     | Vetchium.Problem.HubOpeningNotFoundErrorResponse
     | Vetchium.Problem.HubOpeningNotAcceptingErrorResponse
     | Vetchium.Problem.HubApplicationExistsErrorResponse
+    | Vetchium.Problem.HubApplicationAnswersInvalidErrorResponse
     | Vetchium.Problem.HubReferralAgencyNotEligibleErrorResponse;
 
   /** Withdraws the caller's own application from `submitted`, `in_pipeline`,

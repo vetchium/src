@@ -14,6 +14,7 @@ import (
 	hubspec "github.com/vetchium/src/typespec/hub"
 	applicationspec "github.com/vetchium/src/typespec/hub/applications"
 	"github.com/vetchium/src/typespec/hub/profile"
+	orgapplications "github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/problem"
 	federationproblem "github.com/vetchium/src/typespec/problem/federation"
@@ -22,6 +23,7 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
+	"backend/internal/federation/commands"
 	"backend/internal/handlerauth"
 	hubruntime "backend/internal/hub"
 	"backend/internal/middleware"
@@ -95,14 +97,18 @@ func Apply(s *hubruntime.Server) http.HandlerFunc {
 				ApplicantDID: hubspec.HubUserDID(
 					dbvalue.FormatUUID(identity.UserDID),
 				),
-				CoverNote: request.CoverNote, Snapshot: snapshot,
-				Referral: referral,
+				CoverNote: request.CoverNote, Answers: request.Answers,
+				Snapshot: snapshot, Referral: referral,
 			},
 		})
 		if !ok {
 			return
 		}
 		if response.Status != http.StatusCreated {
+			if invalid, ok := answersInvalid(response); ok {
+				s.Problem(r.Context(), w, invalid)
+				return
+			}
 			writeRejection(s, w, r, response, applyRejections)
 			return
 		}
@@ -120,6 +126,30 @@ func Apply(s *hubruntime.Server) http.HandlerFunc {
 				ApplicationNumber: result.ApplicationNumber,
 			})
 	}
+}
+
+// answersInvalid passes on the Org tenant's answer refusal with its question
+// ids, which a static rejection mapping would drop; a malformed one is left
+// to writeRejection as a fault between tenants.
+func answersInvalid(
+	response commands.Response,
+) (hubproblem.ApplicationAnswersInvalidDetails, bool) {
+	var body hubproblem.ApplicationAnswersInvalidDetails
+	if err := json.Unmarshal(response.Body, &body); err != nil {
+		return body, false
+	}
+	refusal := hubproblem.ApplicationAnswersInvalidError(body.QuestionIDs)
+	if body.Type != refusal.Type || response.Status != refusal.Status ||
+		len(body.QuestionIDs) == 0 ||
+		len(body.QuestionIDs) > 2*orgapplications.MaxApplicationAnswers {
+		return body, false
+	}
+	for _, id := range body.QuestionIDs {
+		if !common.IsApplicationQuestionID(id) {
+			return body, false
+		}
+	}
+	return refusal, true
 }
 
 // applicantSnapshot is the caller's profile view as of now, without the

@@ -18,6 +18,7 @@ import "../hiring/vocabulary.tsp";
 import "../marketplace/assignments.tsp";
 import "../marketplace/attribution.tsp";
 import "../openings/types.tsp";
+import "./answers.tsp";
 
 using TypeSpec.Http;
 

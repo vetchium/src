@@ -117,6 +117,7 @@
     "./admin/audit-logs/events": "./admin/audit-logs/events.ts",
     "./orgs/ai/types": "./orgs/ai/types.ts",
     "./orgs/ai/ai": "./orgs/ai/ai.ts",
+    "./orgs/applications/answers": "./orgs/applications/answers.ts",
     "./orgs/applications/applications": "./orgs/applications/applications.ts",
     "./orgs/hiring/pipelines": "./orgs/hiring/pipelines.ts",
     "./orgs/hiring/vocabulary": "./orgs/hiring/vocabulary.ts",

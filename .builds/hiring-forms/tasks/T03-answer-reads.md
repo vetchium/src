@@ -60,3 +60,4 @@ them.
 
 ## Carried over
 - From T01: provider and agency job reads (`backend/internal/db/queries/org_provider_work.sql`) build Opening content without `questions`; keep it so, and assert in the provider test that no question or answer reaches a provider.
+- From T02: `AnsweredQuestion` and `AnswerValue` already exist in `typespec/orgs/applications/answers.{tsp,go,ts}` and `org_applications.answers` stores `[]AnsweredQuestion`; add only `AnswerCurrency` and `current` for Org reads.

@@ -38,12 +38,20 @@ func TestApplyToOpeningRequestNormalizesWithoutMutatingTheCaller(t *testing.T) {
 	request := ApplyToOpeningRequest{
 		Domain: " Example.COM ", OpeningNumber: 1, CoverNote: &note,
 		ReferralAgencyDomain: &agency,
+		Answers: []orgapplications.ApplicationAnswer{{
+			QuestionID: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",
+			Value:      orgapplications.TextAnswer(" Berlin "),
+		}},
 	}
 	normalized := request
 	normalized.Normalize()
 	if normalized.Domain != "example.com" || *normalized.CoverNote != "hello" ||
-		*normalized.ReferralAgencyDomain != "agency.com" {
+		*normalized.ReferralAgencyDomain != "agency.com" ||
+		*normalized.Answers[0].Value.Text != "Berlin" {
 		t.Fatalf("normalized = %+v", normalized)
+	}
+	if *request.Answers[0].Value.Text != " Berlin " {
+		t.Fatal("normalization mutated the caller's answers")
 	}
 	if note != "  hello " {
 		t.Fatal("normalization mutated the caller's note")
@@ -72,8 +80,9 @@ func TestApplyToOpeningRequestValidation(t *testing.T) {
 	}
 	long := orgapplications.ApplicationCoverNote(strings.Repeat("a", 5001))
 	badAgency := orgs.OrgDomain("bad agency")
-	bad := ApplyToOpeningRequest{Domain: "not a domain", CoverNote: &long, ReferralAgencyDomain: &badAgency}
-	want := []string{"domain", "opening_number", "referral_agency_domain", "cover_note"}
+	bad := ApplyToOpeningRequest{Domain: "not a domain", CoverNote: &long, ReferralAgencyDomain: &badAgency,
+		Answers: []orgapplications.ApplicationAnswer{{QuestionID: "x", Value: orgapplications.BooleanAnswer(true)}}}
+	want := []string{"domain", "opening_number", "referral_agency_domain", "cover_note", "answers.0.question_id"}
 	if got := bad.Validate(); !slices.Equal(got, want) {
 		t.Fatalf("fields = %v, want %v", got, want)
 	}

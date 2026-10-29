@@ -57,6 +57,36 @@ func TestRelayGetRejectsPrivateOpeningFields(t *testing.T) {
 	}
 }
 
+func TestRelayGetRequiresQuestionIDs(t *testing.T) {
+	var response atomic.Value
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(response.Load().(string)))
+	}))
+	defer server.Close()
+	client := NewRelay(server.URL, "secret", time.Second)
+	request := openingsspec.GetOrgOpeningRequest{
+		Domain: orgs.OrgDomain("example.com"), OpeningNumber: 1,
+	}
+	opening := func(question string) string {
+		return `{"org":{"domain":"example.com","display_name":"Example"},` +
+			`"opening":{"opening_number":1,"state":"published",` +
+			`"first_published_at":"2026-01-01T00:00:00Z","content":{` +
+			`"title":"Role","questions":[` + question + `]}}}`
+	}
+	response.Store(opening(`{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",` +
+		`"text":"Notice?","type":"yes_no","required":true}`))
+	outcome, err := client.RelayGet(context.Background(), request)
+	if err != nil || outcome.Result == nil ||
+		len(outcome.Result.Opening.Content.Questions) != 1 {
+		t.Fatalf("get = %+v, %v", outcome, err)
+	}
+	response.Store(opening(`{"text":"Notice?","type":"yes_no","required":true}`))
+	if _, err := client.RelayGet(context.Background(), request); !errors.Is(err, ErrInvalidResponse) {
+		t.Fatalf("question without id error = %v", err)
+	}
+}
+
 func TestRelayListBoundsResponseAndRejectsRedirect(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/mesh/org-openings/list" {

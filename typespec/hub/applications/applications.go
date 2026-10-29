@@ -67,12 +67,14 @@ type ApplyToOpeningRequest struct {
 	OpeningNumber        openings.OpeningNumber                `json:"opening_number"`
 	CoverNote            *orgapplications.ApplicationCoverNote `json:"cover_note,omitempty"`
 	ReferralAgencyDomain *orgs.OrgDomain                       `json:"referral_agency_domain,omitempty"`
+	Answers              []orgapplications.ApplicationAnswer   `json:"answers,omitempty"`
 }
 
-// Normalize lower-cases the domain, trims the cover note, and drops a blank
-// one. It assigns a new pointer and never mutates the caller's note.
+// Normalize lower-cases the domain, trims the cover note and answers, and
+// drops a blank note. It assigns new values and never mutates the caller's.
 func (r *ApplyToOpeningRequest) Normalize() {
 	r.Domain = orgs.NormalizeOrgDomain(r.Domain)
+	r.Answers = orgapplications.NormalizeAnswers(r.Answers)
 	if r.ReferralAgencyDomain != nil {
 		normalized := orgs.NormalizeOrgDomain(*r.ReferralAgencyDomain)
 		r.ReferralAgencyDomain = &normalized
@@ -104,7 +106,7 @@ func (r ApplyToOpeningRequest) Validate() []string {
 		!orgapplications.IsApplicationCoverNote(*r.CoverNote) {
 		fields = append(fields, "cover_note")
 	}
-	return fields
+	return append(fields, orgapplications.ValidateAnswerShapes(r.Answers)...)
 }
 
 type ApplicationReference struct {

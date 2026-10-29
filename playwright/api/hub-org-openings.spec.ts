@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { expect } from "@playwright/test";
-import type { OpeningContent } from "typespec/common/openings";
+import type {
+  ApplicationQuestion,
+  OpeningContent,
+} from "typespec/common/openings";
 import type {
   GetOrgOpeningResponse,
   ListOrgOpeningsResponse,
@@ -444,6 +447,101 @@ test("Hub lists and reads local and remote Org Openings with only public fields"
     if (ind1ViewerCreated) cleanupHubUser(ind1Email, "ind1");
     cleanupHubIdempotency(keys, "sgp");
     cleanupHubSignupDomain(viewerDomain, "sgp");
+  }
+});
+
+test("Hub reads show only live questions, locally and across regions", async ({
+  request,
+}) => {
+  const viewerEmail = `e2e+${randomUUID()}@e2e-${randomUUID()}.example.test`;
+  const hub = new HubAPI(request, "sgp");
+  const orgs: [OrgsAPI, Awaited<ReturnType<typeof signupOrg>>][] = [];
+  try {
+    const { sessionToken: token } = seedActiveHubUser(
+      "sgp",
+      viewerEmail,
+      "Question Reader",
+    );
+    for (const api of [
+      new OrgsAPI(request, "sgp"),
+      new OrgsAPI(request, "usa1"),
+    ]) {
+      const org = await signupOrg(api);
+      orgs.push([api, org]);
+      const owner = await loginOrg(api, org);
+      const asked: ApplicationQuestion[] = [
+        {
+          text: "Notice period in days",
+          type: "number",
+          required: true,
+          min: 0,
+        },
+      ];
+      const createdResponse = await api.createOpening(owner, {
+        content: { ...content("Asking Engineer"), questions: asked },
+        hiring_manager_email: org.emailAddress,
+        recruiter_email: org.emailAddress,
+        team_member_emails: [],
+      });
+      expect(createdResponse.status(), await createdResponse.text()).toBe(201);
+      const created = (await createdResponse.json()) as OrgOpening;
+      const target = {
+        domain: org.domain,
+        opening_number: created.opening_number,
+      };
+      const draftRead = await hub.getOrgOpening(target, token);
+      expect(draftRead.status(), await draftRead.text()).toBe(404);
+
+      const publishedResponse = await api.requestOpeningChange(owner, {
+        opening_number: created.opening_number,
+        version: created.version,
+        kind: "publish",
+      });
+      expect(publishedResponse.status()).toBe(200);
+      const published = (await publishedResponse.json()) as OrgOpening;
+      const live = published.live_content?.questions ?? [];
+      const liveQuestions = async () => {
+        const response = await hub.getOrgOpening(target, token);
+        expect(response.status(), await response.text()).toBe(200);
+        const { opening } = (await response.json()) as GetOrgOpeningResponse;
+        if (opening.state !== "published") throw new Error(opening.state);
+        return opening.content.questions;
+      };
+      expect(await liveQuestions()).toEqual(live);
+
+      const revised: ApplicationQuestion[] = [
+        { ...(live[0] as ApplicationQuestion), text: "Notice period in weeks" },
+        { text: "Portfolio link", type: "short_text", required: false },
+      ];
+      const savedResponse = await api.saveOpeningWorkingCopy(owner, {
+        opening_number: published.opening_number,
+        version: published.version,
+        content: { ...content("Asking Engineer"), questions: revised },
+      });
+      expect(savedResponse.status(), await savedResponse.text()).toBe(200);
+      const saved = (await savedResponse.json()) as OrgOpening;
+      expect(await liveQuestions()).toEqual(live);
+
+      const revisedResponse = await api.requestOpeningChange(owner, {
+        opening_number: saved.opening_number,
+        version: saved.version,
+        kind: "revise",
+      });
+      expect(revisedResponse.status()).toBe(200);
+      const revisedLive = (await revisedResponse.json()) as OrgOpening;
+      expect(await liveQuestions()).toEqual(
+        revisedLive.live_content?.questions,
+      );
+      expect((await liveQuestions())?.map((question) => question.text)).toEqual(
+        ["Notice period in weeks", "Portfolio link"],
+      );
+    }
+  } finally {
+    for (const [api, org] of orgs) {
+      await deleteOrgVerificationRecord(org.domain);
+      cleanupOrg(org.domain, api.tenant);
+    }
+    cleanupHubUser(viewerEmail, "sgp");
   }
 });
 

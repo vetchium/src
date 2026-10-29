@@ -93,7 +93,8 @@ LEFT JOIN LATERAL (
                 'salary', CASE WHEN c.salary_currency IS NULL THEN NULL
                     ELSE jsonb_build_object('currency', c.salary_currency,
                         'min', c.salary_min, 'max', c.salary_max,
-                        'period', c.salary_period) END
+                        'period', c.salary_period) END,
+                'questions', c.questions
             )),
             'first_published_at', o.first_published_at,
             'last_revised_at', o.last_revised_at
