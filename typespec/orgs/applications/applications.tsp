@@ -374,6 +374,11 @@ model InterviewFeedback {
   interviewer_email: Vetchium.EmailAddress;
   recommendation: InterviewRecommendation;
   notes: InterviewFeedbackNotes;
+
+  /** The stage's form as the interviewer answered it; empty without one. */
+  @maxItems(10)
+  criteria_answers: AnsweredCriterion[];
+
   submitted_at: utcDateTime;
 }
 
@@ -783,6 +788,13 @@ model SubmitInterviewFeedbackRequest {
   ...InterviewReference;
   recommendation: InterviewRecommendation;
   notes: InterviewFeedbackNotes;
+
+  /**
+   * Answers to the criteria of the interview's stage form, checked against it
+   * when submitting (HP-FRM-003).
+   */
+  @maxItems(10)
+  criteria_answers?: CriterionAnswer[];
 }
 
 /** Records the assessment result of a candidacy at an assessment stage. */
@@ -1426,7 +1438,8 @@ interface ApplicationOperations {
         @body body: ApplicationDetail;
       }
     | InterviewWriteErrors
-    | Vetchium.Problem.OrgInterviewFeedbackExistsErrorResponse;
+    | Vetchium.Problem.OrgInterviewFeedbackExistsErrorResponse
+    | Vetchium.Problem.OrgInterviewFeedbackAnswersInvalidErrorResponse;
 
   /**
    * Records the assessment result of a candidacy `in_pipeline` at an

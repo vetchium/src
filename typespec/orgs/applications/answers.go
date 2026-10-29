@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/orgs/hiring"
 )
 
 const (
@@ -205,4 +206,62 @@ func IsAnswerColumnQuestion(kind common.ApplicationQuestionType) bool {
 		return true
 	}
 	return false
+}
+
+const (
+	MaxCriteriaAnswers    = hiring.MaxFeedbackCriteria
+	MaxCriterionTextValue = 2000
+	MinCriterionRating    = 1
+	MaxCriterionRating    = 5
+)
+
+// CriterionAnswer is an interviewer's answer to one criterion; Value is never
+// a list.
+type CriterionAnswer struct {
+	CriterionID hiring.FeedbackCriterionID `json:"criterion_id"`
+	Value       AnswerValue                `json:"value"`
+}
+
+// NormalizeCriteriaAnswers returns trimmed copies.
+func NormalizeCriteriaAnswers(answers []CriterionAnswer) []CriterionAnswer {
+	if answers == nil {
+		return nil
+	}
+	normalized := make([]CriterionAnswer, len(answers))
+	for index, answer := range answers {
+		normalized[index] = CriterionAnswer{
+			CriterionID: answer.CriterionID, Value: answer.Value.Normalized(),
+		}
+	}
+	return normalized
+}
+
+// ValidateCriteriaAnswerShapes checks only shape and lengths; the
+// interview's stage form decides the rest (HP-FRM-003).
+func ValidateCriteriaAnswerShapes(answers []CriterionAnswer) []string {
+	var fields []string
+	if len(answers) > MaxCriteriaAnswers {
+		fields = append(fields, "criteria_answers")
+	}
+	for index, answer := range answers {
+		path := fmt.Sprintf("criteria_answers.%d", index)
+		if !hiring.IsFeedbackCriterionID(answer.CriterionID) {
+			fields = append(fields, path+".criterion_id")
+		}
+		value := answer.Value
+		if value.kinds() != 1 || value.Options != nil ||
+			(value.Text != nil && utf8.RuneCountInString(*value.Text) > MaxCriterionTextValue) {
+			fields = append(fields, path+".value")
+		}
+	}
+	return fields
+}
+
+// AnsweredCriterion is one criterion as asked, with the interviewer's answer
+// (nil when an optional criterion went unanswered) and its currency against
+// the stage's form now (HP-FRM-004).
+type AnsweredCriterion struct {
+	hiring.FeedbackCriterion
+	Answer  *AnswerValue   `json:"answer,omitempty"`
+	Current AnswerCurrency `json:"current"`
 }

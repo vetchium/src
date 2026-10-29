@@ -12,6 +12,7 @@ import (
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	federationspec "github.com/vetchium/src/typespec/federation"
 	"github.com/vetchium/src/typespec/orgs"
+	"github.com/vetchium/src/typespec/orgs/hiring"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/orgs/marketplace/work"
 	operationspec "github.com/vetchium/src/typespec/orgs/operations"
@@ -126,6 +127,23 @@ var refusals = []problem.Details{
 	problem.ValidationFailedError,
 }
 
+// answersInvalid reads a stored HP-FRM-003 refusal, passing on only the
+// criterion ids the contract allows.
+func answersInvalid(body []byte) ([]hiring.FeedbackCriterionID, bool) {
+	var stored orgsproblem.InterviewFeedbackAnswersInvalidDetails
+	if json.Unmarshal(body, &stored) != nil ||
+		stored.Type != orgsproblem.InterviewFeedbackAnswersInvalidType ||
+		len(stored.CriterionIDs) < 1 || len(stored.CriterionIDs) > 20 {
+		return nil, false
+	}
+	for _, id := range stored.CriterionIDs {
+		if !hiring.IsFeedbackCriterionID(id) {
+			return nil, false
+		}
+	}
+	return stored.CriterionIDs, true
+}
+
 // answer writes the outcome of a work command: the typed result, a stored
 // refusal the contract declares, a pending operation to poll, or an
 // unreachable client tenant.
@@ -160,6 +178,10 @@ func answer(
 				s.Problem(r.Context(), w, limit)
 				return
 			}
+		}
+		if ids, ok := answersInvalid(outcome.Response.Body); ok {
+			s.Problem(r.Context(), w, orgsproblem.InterviewFeedbackAnswersInvalidError(ids))
+			return
 		}
 		for _, known := range refusals {
 			if details.Type == known.Type {
@@ -281,6 +303,7 @@ func SubmitWorkInterviewFeedback(s *orgsruntime.Server) http.HandlerFunc {
 			return federationspec.WorkInterviewFeedbackPayload{
 				WorkActor: actor, InterviewNumber: r.InterviewNumber,
 				Recommendation: r.Recommendation, Notes: r.Notes,
+				CriteriaAnswers: r.CriteriaAnswers,
 			}
 		},
 	})

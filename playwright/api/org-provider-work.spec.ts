@@ -13,6 +13,7 @@ import type {
   WorkItem,
   WriteResult,
 } from "typespec/orgs/marketplace/work/work";
+import type { OpeningPipeline } from "typespec/orgs/openings/pipeline";
 import { expectProblem } from "../lib/admin-api.ts";
 import type { TestTenant } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
@@ -428,6 +429,30 @@ test("a provider performs a routed interview stage and the client sees all of it
     expect(((await completed.json()) as WriteResult).status).toBe(
       "in_progress",
     );
+    // The provider's interviewer answers the client's form for the stage.
+    const pipeline = (await (
+      await consumer.api.getOpeningPipeline(consumer.owner, {
+        opening_number: opening.opening_number,
+      })
+    ).json()) as OpeningPipeline;
+    const formed = await consumer.api.replaceOpeningPipeline(consumer.owner, {
+      opening_number: opening.opening_number,
+      version: pipeline.version,
+      stages: pipeline.stages.map(({ id, name, kind }) => ({
+        id,
+        name,
+        kind,
+        ...(id === world.panel.id && {
+          feedback_form: [{ text: "Depth", type: "rating", required: true }],
+        }),
+      })),
+    });
+    expect(formed.status(), await formed.text()).toBe(200);
+    const form =
+      ((await formed.json()) as OpeningPipeline).stages.find(
+        (stage) => stage.id === world.panel.id,
+      )?.feedback_form ?? [];
+    const depth = form[0]?.id as string;
     const feedbackBody = {
       engagement_id: item.engagement_id,
       work_id: item.work_id,
@@ -435,9 +460,21 @@ test("a provider performs a routed interview stage and the client sees all of it
       recommendation: "strong_yes" as const,
       notes: "Clear thinker",
     };
-    const feedback = await provider.api.submitWorkInterviewFeedback(
+    const unanswered = await provider.api.submitWorkInterviewFeedback(
       provider.owner,
       feedbackBody,
+    );
+    expect(unanswered.status(), await unanswered.text()).toBe(422);
+    expect(await unanswered.json()).toMatchObject({
+      type: "vetchium-problem-details/org-interview-feedback-answers-invalid",
+      criterion_ids: [depth],
+    });
+    const feedback = await provider.api.submitWorkInterviewFeedback(
+      provider.owner,
+      {
+        ...feedbackBody,
+        criteria_answers: [{ criterion_id: depth, value: 5 }],
+      },
     );
     expect(feedback.status(), await feedback.text()).toBe(200);
     await expectProblem(
@@ -458,9 +495,17 @@ test("a provider performs a routed interview stage and the client sees all of it
     expect(own.interviews[0]?.feedback).toMatchObject([
       { recommendation: "strong_yes", notes: "Clear thinker" },
     ]);
+    // The work read shows the form, and the answers as the client sees them.
+    expect(own.interviews[0]?.stage.feedback_form).toEqual(form);
+    const answered = [{ ...form[0], answer: 5, current: "same" }];
+    expect(own.interviews[0]?.feedback[0]?.criteria_answers).toEqual(answered);
+    expect(JSON.stringify(own)).not.toMatch(/relocate/i);
     // The consumer sees the same feedback; a second candidacy sees none.
     const final = await consumerView(scene);
     expect(final.interviews[0]?.feedback).toHaveLength(1);
+    expect(final.interviews[0]?.feedback[0]?.criteria_answers).toEqual(
+      answered,
+    );
     expect(final.interviews[0]?.interviewers[0]).toMatchObject({
       feedback_submitted: true,
     });

@@ -33,9 +33,13 @@ import { isEngagementID } from "../marketplace/engagements.ts";
 import type { OpeningNumber } from "../openings/types.ts";
 import { isOrgDomain, normalizeOrgDomain, type OrgDomain } from "../types.ts";
 import {
+  type AnsweredCriterion,
   type AnswerRecord,
   type ApplicationAnswer,
+  type CriterionAnswer,
   maxAnswerColumns,
+  normalizeCriteriaAnswers,
+  validateCriteriaAnswerShapes,
 } from "./answers.ts";
 
 /** The most code points an application's cover note holds. */
@@ -475,6 +479,8 @@ export interface InterviewFeedback {
   interviewer_email: EmailAddress;
   recommendation: InterviewRecommendation;
   notes: InterviewFeedbackNotes;
+  /** The stage's form as the interviewer answered it; empty without one. */
+  criteria_answers: AnsweredCriterion[];
   submitted_at: string;
 }
 
@@ -1043,12 +1049,20 @@ export function validateRecordInterviewOutcomeRequest(
 export interface SubmitInterviewFeedbackRequest extends CancelInterviewRequest {
   recommendation: InterviewRecommendation;
   notes: InterviewFeedbackNotes;
+  /** Checked against the interview's stage form (HP-FRM-003). */
+  criteria_answers?: CriterionAnswer[];
 }
 
 export function normalizeSubmitInterviewFeedbackRequest(
   request: SubmitInterviewFeedbackRequest,
 ): SubmitInterviewFeedbackRequest {
-  return { ...request, notes: request.notes.trim() };
+  return {
+    ...request,
+    notes: request.notes.trim(),
+    ...(request.criteria_answers !== undefined && {
+      criteria_answers: normalizeCriteriaAnswers(request.criteria_answers),
+    }),
+  };
 }
 
 export function validateSubmitInterviewFeedbackRequest(
@@ -1060,7 +1074,10 @@ export function validateSubmitInterviewFeedbackRequest(
     fields.push("recommendation");
   }
   if (!isInterviewFeedbackNotes(normalized.notes)) fields.push("notes");
-  return fields;
+  return [
+    ...fields,
+    ...validateCriteriaAnswerShapes(normalized.criteria_answers ?? []),
+  ];
 }
 
 export interface ListMyInterviewsRequest {

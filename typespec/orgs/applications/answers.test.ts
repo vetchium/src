@@ -2,11 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   type ApplicationAnswer,
+  type CriterionAnswer,
   isAnswerColumnQuestion,
   maxApplicationAnswers,
+  maxCriteriaAnswers,
+  maxCriterionTextValue,
   maxLongTextAnswer,
   normalizeAnswers,
+  normalizeCriteriaAnswers,
   validateAnswerShapes,
+  validateCriteriaAnswerShapes,
 } from "./answers.ts";
 
 const id = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b";
@@ -94,4 +99,40 @@ test("only short answers can be list columns", () => {
     ].map(isAnswerColumnQuestion),
     [false, false, true, true, true, true],
   );
+});
+
+test("criteria answers accept integers, booleans, and bounded text", () => {
+  const criterion = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c";
+  const text = "界".repeat(maxCriterionTextValue);
+  const valid: CriterionAnswer[] = [
+    { criterion_id: criterion, value: 3 },
+    { criterion_id: criterion, value: true },
+    { criterion_id: criterion, value: text },
+  ];
+  assert.deepEqual(validateCriteriaAnswerShapes(valid), []);
+  assert.deepEqual(
+    validateCriteriaAnswerShapes([
+      { criterion_id: "C1", value: 1 },
+      { criterion_id: criterion, value: `${text}x` },
+      { criterion_id: criterion, value: ["a"] as unknown as string },
+      { criterion_id: criterion, value: 1.5 },
+    ]),
+    [
+      "criteria_answers.0.criterion_id",
+      "criteria_answers.1.value",
+      "criteria_answers.2.value",
+      "criteria_answers.3.value",
+    ],
+  );
+  assert.deepEqual(
+    validateCriteriaAnswerShapes(
+      Array.from({ length: maxCriteriaAnswers + 1 }, () => valid[0]!),
+    ),
+    ["criteria_answers"],
+  );
+  const source = [{ criterion_id: criterion, value: " Depth " }];
+  assert.deepEqual(normalizeCriteriaAnswers(source), [
+    { criterion_id: criterion, value: "Depth" },
+  ]);
+  assert.equal(source[0]?.value, " Depth ");
 });

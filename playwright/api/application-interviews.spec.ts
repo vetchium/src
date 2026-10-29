@@ -18,7 +18,11 @@ import type {
   ListMyInterviewsResponse,
   OfferLetterUploaded,
 } from "typespec/orgs/applications/applications";
-import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
+import type {
+  FeedbackCriterion,
+  PipelineStage,
+} from "typespec/orgs/hiring/pipelines";
+import type { OpeningPipeline } from "typespec/orgs/openings/pipeline";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { expectProblem } from "../lib/admin-api.ts";
 import {
@@ -58,6 +62,7 @@ const INTERVIEW_NOT_FOUND = `${PREFIX}org-interview-not-found`;
 const INTERVIEW_STATE = `${PREFIX}org-interview-state-conflict`;
 const INTERVIEW_LIMIT = `${PREFIX}org-interview-limit-reached`;
 const INTERVIEW_FEEDBACK_EXISTS = `${PREFIX}org-interview-feedback-exists`;
+const FEEDBACK_ANSWERS_INVALID = `${PREFIX}org-interview-feedback-answers-invalid`;
 const INTERVIEWERS_INVALID = `${PREFIX}org-interview-interviewers-invalid`;
 const HUB_STATE_CONFLICT = `${PREFIX}hub-application-state-conflict`;
 const HUB_NOT_FOUND = `${PREFIX}hub-application-not-found`;
@@ -2445,5 +2450,169 @@ test("every interview write authenticates, validates, and refuses suspended Orgs
       403,
       `${PREFIX}org-suspended`,
     );
+  });
+});
+
+/** Replaces the Opening's pipeline, giving the stage at `index` `form`. */
+async function setForm(
+  world: World,
+  opening: number,
+  index: number,
+  form: FeedbackCriterion[],
+): Promise<FeedbackCriterion[]> {
+  const current = await world.api.getOpeningPipeline(world.owner, {
+    opening_number: opening,
+  });
+  const pipeline = (await current.json()) as OpeningPipeline;
+  const replaced = await world.api.replaceOpeningPipeline(world.owner, {
+    opening_number: opening,
+    version: pipeline.version,
+    stages: pipeline.stages.map((stage, position) => ({
+      id: stage.id,
+      name: stage.name,
+      kind: stage.kind,
+      ...(stage.feedback_form && {
+        feedback_form: position === index ? form : stage.feedback_form,
+      }),
+    })),
+  });
+  expect(replaced.status(), await replaced.text()).toBe(200);
+  return (
+    ((await replaced.json()) as OpeningPipeline).stages[index]?.feedback_form ??
+    []
+  );
+}
+
+test("feedback answers the stage's form, and readers see each answer's currency", async ({
+  request,
+}) => {
+  test.setTimeout(180_000);
+  await withOrg(request, async (world) => {
+    const { api, owner, org } = world;
+    await upgrade(world);
+    const ada = await addOrgMember(api, owner, org.domain, `ada@${org.domain}`);
+    const { opening, application } = await panelCandidacy(world);
+    await schedule(world, opening, application, {
+      interviewer_emails: [org.emailAddress, ada.emailAddress],
+    });
+    startInterview(world, opening, application, 1);
+    const completed = await api.recordInterviewOutcome(owner, {
+      opening_number: opening,
+      application_number: application,
+      version: await version(world, opening, application),
+      interview_number: 1,
+      outcome: "completed",
+    });
+    expect(completed.status(), await completed.text()).toBe(200);
+    const submit = async (token: string, criteria_answers?: unknown[]) =>
+      api.interviewWriteRaw("submit-interview-feedback", token, {
+        opening_number: opening,
+        application_number: application,
+        version: await version(world, opening, application),
+        interview_number: 1,
+        recommendation: "yes",
+        notes: "Solid systems depth",
+        ...(criteria_answers && { criteria_answers }),
+      });
+    const expectInvalid = async (
+      response: Awaited<ReturnType<typeof submit>>,
+      ids: string[],
+    ) => {
+      expect(response.status(), await response.text()).toBe(422);
+      expect(await response.json()).toMatchObject({
+        type: FEEDBACK_ANSWERS_INVALID,
+        criterion_ids: ids,
+      });
+    };
+    const unknown = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a99";
+
+    // Without a form only recommendation and notes are accepted.
+    await expectInvalid(
+      await submit(owner, [{ criterion_id: unknown, value: 3 }]),
+      [unknown],
+    );
+    const plain = await submit(owner);
+    expect(plain.status(), await plain.text()).toBe(200);
+
+    const [depth, fit, notes] = (await setForm(world, opening, 1, [
+      { text: "System design", type: "rating", required: true },
+      { text: "Hire again", type: "yes_no", required: false },
+      { text: "Notes", type: "text", required: false },
+    ])) as [FeedbackCriterion, FeedbackCriterion, FeedbackCriterion];
+    const depthID = depth.id as string;
+    const fitID = fit.id as string;
+    const notesID = notes.id as string;
+    await expectInvalid(await submit(ada.token, []), [depthID]);
+    for (const value of [0, 6, "4", true]) {
+      await expectInvalid(
+        await submit(ada.token, [{ criterion_id: depthID, value }]),
+        [depthID],
+      );
+    }
+    await expectInvalid(
+      await submit(ada.token, [
+        { criterion_id: depthID, value: 4 },
+        { criterion_id: fitID, value: "yes" },
+        { criterion_id: notesID, value: false },
+      ]),
+      [fitID, notesID],
+    );
+    await expectInvalid(
+      await submit(ada.token, [
+        { criterion_id: depthID, value: 4 },
+        { criterion_id: fitID, value: true },
+        { criterion_id: fitID, value: false },
+      ]),
+      [fitID],
+    );
+    await expectProblem(
+      await submit(ada.token, [{ criterion_id: depthID, value: ["4"] }]),
+      400,
+      VALIDATION,
+      ["criteria_answers.0.value"],
+    );
+
+    // Ada sees no one else's feedback, answers included, before her own.
+    expect(
+      interviewOf(await detail(world, opening, application, ada.token), 1)
+        .feedback,
+    ).toEqual([]);
+    const adas = await submit(ada.token, [
+      { criterion_id: notesID, value: " Strong reasoning " },
+      { criterion_id: depthID, value: 4 },
+    ]);
+    expect(adas.status(), await adas.text()).toBe(200);
+    const byEmail = (application: ApplicationDetail, email: string) =>
+      interviewOf(application, 1).feedback.find(
+        (entry) => entry.interviewer_email === email,
+      );
+    const adaView = (await adas.json()) as ApplicationDetail;
+    expect(interviewOf(adaView, 1).stage.feedback_form).toEqual([
+      depth,
+      fit,
+      notes,
+    ]);
+    expect(byEmail(adaView, org.emailAddress)?.criteria_answers).toEqual([]);
+    expect(byEmail(adaView, ada.emailAddress)?.criteria_answers).toEqual([
+      { ...depth, answer: 4, current: "same" },
+      { ...fit, current: "same" },
+      { ...notes, answer: "Strong reasoning", current: "same" },
+    ]);
+
+    // Answers keep the criteria as asked; currency follows the form now, and
+    // `required` alone changes nothing.
+    await setForm(world, opening, 1, [
+      { ...depth, required: false },
+      { ...fit, text: "Would hire again" },
+    ]);
+    const after = byEmail(
+      await detail(world, opening, application),
+      ada.emailAddress,
+    );
+    expect(after?.criteria_answers).toEqual([
+      { ...depth, answer: 4, current: "same" },
+      { ...fit, current: "changed" },
+      { ...notes, answer: "Strong reasoning", current: "removed" },
+    ]);
   });
 });

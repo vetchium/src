@@ -568,6 +568,7 @@ type InterviewFeedback struct {
 	InterviewerEmail common.EmailAddress     `json:"interviewer_email"`
 	Recommendation   InterviewRecommendation `json:"recommendation"`
 	Notes            InterviewFeedbackNotes  `json:"notes"`
+	CriteriaAnswers  []AnsweredCriterion     `json:"criteria_answers"`
 	SubmittedAt      time.Time               `json:"submitted_at"`
 }
 
@@ -1185,12 +1186,14 @@ type SubmitInterviewFeedbackRequest struct {
 	InterviewNumber   InterviewNumber         `json:"interview_number"`
 	Recommendation    InterviewRecommendation `json:"recommendation"`
 	Notes             InterviewFeedbackNotes  `json:"notes"`
+	CriteriaAnswers   []CriterionAnswer       `json:"criteria_answers,omitempty"`
 }
 
-// Normalize trims the notes. It assigns a new value and never mutates
-// storage the caller shares.
+// Normalize trims the notes and answers. It assigns new values and never
+// mutates storage the caller shares.
 func (r *SubmitInterviewFeedbackRequest) Normalize() {
 	r.Notes = InterviewFeedbackNotes(strings.TrimSpace(string(r.Notes)))
+	r.CriteriaAnswers = NormalizeCriteriaAnswers(r.CriteriaAnswers)
 }
 
 func (r SubmitInterviewFeedbackRequest) Validate() []string {
@@ -1204,7 +1207,7 @@ func (r SubmitInterviewFeedbackRequest) Validate() []string {
 	if !IsInterviewFeedbackNotes(r.Notes) {
 		fields = append(fields, "notes")
 	}
-	return fields
+	return append(fields, ValidateCriteriaAnswerShapes(r.CriteriaAnswers)...)
 }
 
 type ListMyInterviewsRequest struct {

@@ -10,6 +10,12 @@ import {
   QuestionSingleChoice,
   QuestionYesNo,
 } from "../../common/openings.ts";
+import {
+  type FeedbackCriterion,
+  type FeedbackCriterionID,
+  isFeedbackCriterionID,
+  maxFeedbackCriteria,
+} from "../hiring/pipelines.ts";
 
 export const maxApplicationAnswers = maxApplicationQuestions;
 export const maxShortTextAnswer = 200;
@@ -100,4 +106,58 @@ export function isAnswerColumnQuestion(type: ApplicationQuestionType): boolean {
     type === QuestionSingleChoice ||
     type === QuestionMultipleChoice
   );
+}
+
+export const maxCriteriaAnswers = maxFeedbackCriteria;
+export const maxCriterionTextValue = 2000;
+export const minCriterionRating = 1;
+export const maxCriterionRating = 5;
+
+/** The criterion's type decides which kind is valid (HP-FRM-003). */
+export type CriterionAnswerValue = number | boolean | string;
+
+export interface CriterionAnswer {
+  criterion_id: FeedbackCriterionID;
+  value: CriterionAnswerValue;
+}
+
+/** Returns trimmed copies. */
+export function normalizeCriteriaAnswers(
+  answers: CriterionAnswer[],
+): CriterionAnswer[] {
+  return answers.map(({ criterion_id, value }) => ({
+    criterion_id,
+    value: typeof value === "string" ? value.trim() : value,
+  }));
+}
+
+function isCriterionAnswerValue(value: unknown): boolean {
+  if (typeof value === "string")
+    return codePoints(value) <= maxCriterionTextValue;
+  if (typeof value === "number") return Number.isSafeInteger(value);
+  return typeof value === "boolean";
+}
+
+/** Checks only shape and lengths; the stage's form decides the rest. */
+export function validateCriteriaAnswerShapes(
+  answers: CriterionAnswer[],
+): string[] {
+  const fields: string[] = [];
+  if (answers.length > maxCriteriaAnswers) fields.push("criteria_answers");
+  answers.forEach((answer, index) => {
+    if (!isFeedbackCriterionID(answer.criterion_id))
+      fields.push(`criteria_answers.${index}.criterion_id`);
+    if (!isCriterionAnswerValue(answer.value))
+      fields.push(`criteria_answers.${index}.value`);
+  });
+  return fields;
+}
+
+/**
+ * A criterion as asked, with the answer (absent when an optional one went
+ * unanswered) and its currency against the stage's form now (HP-FRM-004).
+ */
+export interface AnsweredCriterion extends FeedbackCriterion {
+  answer?: CriterionAnswerValue;
+  current: AnswerCurrency;
 }

@@ -1,3 +1,4 @@
+import "../../orgs/hiring/pipelines.tsp";
 import "../details.tsp";
 
 namespace Vetchium.Problem;
@@ -101,6 +102,29 @@ const OrgInterviewFeedbackExistsError = #{
 alias OrgInterviewFeedbackExistsErrorResponse = Response<
   409,
   typeof OrgInterviewFeedbackExistsError
+>;
+
+/**
+ * The criteria answers do not fit the form of the interview's stage
+ * (HP-FRM-003): a required criterion unanswered, an unknown or repeated id,
+ * or a value the criterion's type refuses.
+ */
+model OrgInterviewFeedbackAnswersInvalidDetails {
+  type: "vetchium-problem-details/org-interview-feedback-answers-invalid";
+  title: "Org interview feedback answers invalid";
+  status: 422;
+  detail: "The criteria answers do not fit the stage's feedback form";
+
+  /** The criteria whose answers to fix, in form order. */
+  @minItems(1)
+  @maxItems(20)
+  criterion_ids: Vetchium.Orgs.Hiring.FeedbackCriterionID[];
+
+  instance?: string;
+}
+alias OrgInterviewFeedbackAnswersInvalidErrorResponse = Response<
+  422,
+  OrgInterviewFeedbackAnswersInvalidDetails
 >;
 
 model OrgInterviewLimitReachedDetails {

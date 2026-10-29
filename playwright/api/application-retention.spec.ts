@@ -216,7 +216,11 @@ async function publishedOpening(
     opening_number: opening.opening_number,
     version: opening.version,
     stages: [
-      { name: "Panel", kind: "interview" },
+      {
+        name: "Panel",
+        kind: "interview",
+        feedback_form: [{ text: "Depth", type: "text", required: true }],
+      },
       { name: "Checks", kind: "background_check" },
     ],
   });
@@ -378,12 +382,48 @@ for (const [applicantTenant, orgTenant, label] of [
           interviewer_emails: [world.org.emailAddress],
         });
         expect(scheduled.status(), await scheduled.text()).toBe(200);
+        orgSQL(
+          `UPDATE vetchium.org_interviews AS i
+           SET starts_at = now() - interval '1 hour'
+           FROM vetchium.org_applications AS a
+           JOIN vetchium.org_openings AS o USING (org_opening_id)
+           WHERE a.org_application_id = i.org_application_id
+             AND o.org_did = ${sqlLiteral(world.did)}::uuid
+             AND o.opening_number = ${opening.opening_number}
+             AND a.application_number = ${number}`,
+          world.tenant,
+        );
+        const interview = {
+          opening_number: opening.opening_number,
+          application_number: number,
+          interview_number: 1,
+        };
+        const completed = await world.api.recordInterviewOutcome(world.owner, {
+          ...interview,
+          version: await version(world, opening.opening_number, number),
+          outcome: "completed",
+        });
+        expect(completed.status(), await completed.text()).toBe(200);
+        const criterion = stageOf(stages, 0).feedback_form?.[0]?.id ?? "";
+        const feedback = await world.api.submitInterviewFeedback(world.owner, {
+          ...interview,
+          version: await version(world, opening.opening_number, number),
+          recommendation: "yes",
+          notes: "Hire",
+          criteria_answers: [
+            { criterion_id: criterion, value: "Unusually deep reasoning" },
+          ],
+        });
+        expect(feedback.status(), await feedback.text()).toBe(200);
         await extendOffer(world, opening.opening_number, number, 14);
         const before = await detail(world, opening.opening_number, number);
         expect(before.offers).toHaveLength(1);
         expect(before.interviews).toHaveLength(1);
         expect(before.cover_note).toBe("Please consider my application");
         expect(before.answers[0]?.answer).toBe("Thirty days");
+        expect(
+          before.interviews[0]?.feedback[0]?.criteria_answers[0]?.answer,
+        ).toBe("Unusually deep reasoning");
         const letterIDs = orgSQL(
           `SELECT coalesce(string_agg(letter_object_id::text, ','), '')
          FROM vetchium.org_application_offers AS f
@@ -428,6 +468,7 @@ for (const [applicantTenant, orgTenant, label] of [
         });
         expect(removed.cover_note).toBeUndefined();
         expect(removed.answers).toEqual([]);
+        expect(JSON.stringify(removed)).not.toContain("Unusually deep");
         expect(removed.snapshot.display_name).toBe("Removed applicant");
         expect(JSON.stringify(removed)).not.toContain("Ada");
         expect(JSON.stringify(removed)).not.toContain("Please consider");

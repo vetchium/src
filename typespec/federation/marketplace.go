@@ -356,20 +356,23 @@ type WorkInterviewFeedbackPayload struct {
 	InterviewNumber applications.InterviewNumber         `json:"interview_number"`
 	Recommendation  applications.InterviewRecommendation `json:"recommendation"`
 	Notes           applications.InterviewFeedbackNotes  `json:"notes"`
+	CriteriaAnswers []applications.CriterionAnswer       `json:"criteria_answers,omitempty"`
 }
 
 func (p *WorkInterviewFeedbackPayload) Normalize() {
 	p.WorkActor.Normalize()
-	request := work.SubmitInterviewFeedbackRequest{Notes: p.Notes}
+	request := work.SubmitInterviewFeedbackRequest{
+		Notes: p.Notes, CriteriaAnswers: p.CriteriaAnswers,
+	}
 	request.Normalize()
-	p.Notes = request.Notes
+	p.Notes, p.CriteriaAnswers = request.Notes, request.CriteriaAnswers
 }
 
 func (p WorkInterviewFeedbackPayload) Validate() []string {
 	request := work.SubmitInterviewFeedbackRequest{
 		EngagementID: p.EngagementID, WorkID: p.WorkID,
 		InterviewNumber: p.InterviewNumber, Recommendation: p.Recommendation,
-		Notes: p.Notes,
+		Notes: p.Notes, CriteriaAnswers: p.CriteriaAnswers,
 	}
 	return mergeFields(p.WorkActor.Validate(), request.Validate())
 }

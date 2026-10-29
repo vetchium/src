@@ -78,7 +78,10 @@ model PipelineStage {
   name: PipelineName;
   kind: StageKind;
 
-  /** Pipeline reads carry it for every `interview` stage, possibly empty. */
+  /**
+   * Pipeline and interview reads carry it for every `interview` stage,
+   * possibly empty.
+   */
   @maxItems(10)
   feedback_form?: FeedbackCriterion[];
 }

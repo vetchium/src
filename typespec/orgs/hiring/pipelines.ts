@@ -127,7 +127,7 @@ export interface PipelineStage {
   id: PipelineStageID;
   name: PipelineName;
   kind: StageKind;
-  /** Pipeline reads carry it for every interview stage, possibly empty. */
+  /** Pipeline and interview reads carry it for every interview stage. */
   feedback_form?: FeedbackCriterion[];
 }
 

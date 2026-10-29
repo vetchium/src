@@ -9,10 +9,13 @@ import (
 
 	"github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/hiring"
+
+	"backend/internal/feedbackform"
 )
 
 // Interviews decodes interviews. The query already applied the feedback
-// visibility rule (HP-WRK-004), so nothing here filters again.
+// visibility rule (HP-WRK-004), so nothing here filters again; each answered
+// criterion is judged against the stage's form now (HP-FRM-004).
 func Interviews(stored json.RawMessage) ([]applications.Interview, error) {
 	list := []applications.Interview{}
 	if err := json.Unmarshal(stored, &list); err != nil {
@@ -21,8 +24,12 @@ func Interviews(stored json.RawMessage) ([]applications.Interview, error) {
 	for index := range list {
 		list[index].StartsAt = list[index].StartsAt.UTC()
 		for feedback := range list[index].Feedback {
-			list[index].Feedback[feedback].SubmittedAt =
-				list[index].Feedback[feedback].SubmittedAt.UTC()
+			entry := &list[index].Feedback[feedback]
+			entry.SubmittedAt = entry.SubmittedAt.UTC()
+			if entry.CriteriaAnswers == nil {
+				entry.CriteriaAnswers = []applications.AnsweredCriterion{}
+			}
+			feedbackform.Judge(entry.CriteriaAnswers, list[index].Stage.FeedbackForm)
 		}
 		if list[index].Interviewers == nil {
 			list[index].Interviewers = []applications.InterviewerStatus{}

@@ -99,6 +99,10 @@ SELECT (SELECT count(*) FROM subject) AS subject_rows,
 -- name: GetProviderInterview :one
 SELECT i.org_interview_id, i.interview_state, i.applicant_response,
     (i.starts_at <= now())::boolean AS started,
+    (
+        SELECT s.feedback_form FROM vetchium.org_opening_stages AS s
+        WHERE s.org_opening_stage_id = i.org_opening_stage_id
+    )::jsonb AS feedback_form,
     EXISTS (
         SELECT 1 FROM vetchium.org_provider_interview_interviewers AS iv
         WHERE iv.org_interview_id = i.org_interview_id
@@ -272,11 +276,12 @@ WITH changed AS (
     RETURNING a.org_application_id
 ), stored AS (
     INSERT INTO vetchium.org_provider_interview_feedback (
-        org_interview_id, interviewer_email, recommendation, notes
+        org_interview_id, interviewer_email, recommendation, notes,
+        criteria_answers
     )
     SELECT i.org_interview_id, sqlc.arg(actor_email)::text,
         (sqlc.arg(recommendation)::text)::vetchium.org_interview_recommendation,
-        sqlc.arg(notes)::text
+        sqlc.arg(notes)::text, sqlc.arg(criteria_answers)::jsonb
     FROM changed
     JOIN vetchium.org_interviews AS i
         ON i.org_application_id = changed.org_application_id
@@ -400,7 +405,8 @@ SELECT rt.route_id AS work_id, eng.engagement_id,
         SELECT jsonb_agg(jsonb_build_object(
             'interview_number', i.interview_number,
             'stage', jsonb_build_object('id', s.org_opening_stage_id,
-                'name', s.name, 'kind', s.stage_kind),
+                'name', s.name, 'kind', s.stage_kind,
+                'feedback_form', s.feedback_form),
             'starts_at', i.starts_at,
             'duration_minutes', i.duration_minutes,
             'mode', i.interview_mode, 'video_url', i.video_url,
@@ -422,7 +428,8 @@ SELECT rt.route_id AS work_id, eng.engagement_id,
                 SELECT jsonb_agg(jsonb_build_object(
                     'interviewer_email', fb.interviewer_email,
                     'recommendation', fb.recommendation,
-                    'notes', fb.notes, 'submitted_at', fb.submitted_at
+                    'notes', fb.notes, 'criteria_answers', fb.criteria_answers,
+                    'submitted_at', fb.submitted_at
                 ) ORDER BY fb.submitted_at, fb.interviewer_email)
                 FROM vetchium.org_provider_interview_feedback AS fb
                 WHERE fb.org_interview_id = i.org_interview_id

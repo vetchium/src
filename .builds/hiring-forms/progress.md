@@ -1,7 +1,7 @@
 # Hiring forms build progress
 
 branch: hiring-forms
-current: T05
+current: T06
 phase: implement
 
 ## Tasks
@@ -15,7 +15,7 @@ T03 done Hiring: Answers for Org readers and the applicant
 ### M2 Interview feedback forms in the API
 
 T04 done Hiring: Feedback forms on interview stages
-T05 todo Hiring: Criteria answers on interview feedback
+T05 done Hiring: Criteria answers on interview feedback
 
 ### M3 Portals
 

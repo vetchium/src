@@ -2915,6 +2915,8 @@ CREATE TABLE vetchium.org_interview_feedback (
     org_user_id uuid NOT NULL,
     recommendation vetchium.org_interview_recommendation NOT NULL,
     notes text NOT NULL,
+    -- The stage's form as answered (HP-FRM-004).
+    criteria_answers jsonb NOT NULL DEFAULT '[]',
     submitted_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (org_interview_id, org_user_id),
     FOREIGN KEY (org_interview_id, org_user_id)
@@ -2922,6 +2924,10 @@ CREATE TABLE vetchium.org_interview_feedback (
         (org_interview_id, org_user_id) ON DELETE CASCADE,
     CONSTRAINT org_interview_feedback_notes_check CHECK (
         notes = btrim(notes) AND char_length(notes) BETWEEN 1 AND 10000
+    ),
+    CONSTRAINT org_interview_feedback_criteria_answers_check CHECK (
+        jsonb_typeof(criteria_answers) = 'array'
+        AND jsonb_array_length(criteria_answers) <= 10
     )
 );
 
@@ -2941,6 +2947,8 @@ CREATE TABLE vetchium.org_provider_interview_feedback (
     interviewer_email text NOT NULL,
     recommendation vetchium.org_interview_recommendation NOT NULL,
     notes text NOT NULL,
+    -- The stage's form as answered (HP-FRM-004).
+    criteria_answers jsonb NOT NULL DEFAULT '[]',
     submitted_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (org_interview_id, interviewer_email),
     FOREIGN KEY (org_interview_id, interviewer_email)
@@ -2948,6 +2956,10 @@ CREATE TABLE vetchium.org_provider_interview_feedback (
         (org_interview_id, interviewer_email) ON DELETE CASCADE,
     CONSTRAINT org_provider_interview_feedback_notes_check CHECK (
         notes = btrim(notes) AND char_length(notes) BETWEEN 1 AND 10000
+    ),
+    CONSTRAINT org_provider_interview_feedback_criteria_answers_check CHECK (
+        jsonb_typeof(criteria_answers) = 'array'
+        AND jsonb_array_length(criteria_answers) <= 10
     )
 );
 

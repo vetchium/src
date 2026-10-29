@@ -47,3 +47,4 @@ readers compare the answers.
 
 ## Carried over
 - From T04: replace-opening-pipeline and update-pipeline-template replace whole forms, so the editors must send every stage's `feedback_form` back with its ids (omission clears it); `OpeningPipeline.stages` are `OpeningPipelineStage` with `feedback_submitted_count` for the HP-FRM-002 warning.
+- From T05: `Interview.stage.feedback_form` (in-house and Work item reads) is the form the dialog renders; `InterviewFeedback.criteria_answers` are `AnsweredCriterion` with `current`; the refusal is `org-interview-feedback-answers-invalid` with `criterion_ids` (`InterviewFeedbackAnswersInvalidDetails` in `typespec/problem/orgs/applications.ts`); bounds are in `typespec/orgs/applications/answers.ts` (`minCriterionRating`, `maxCriterionRating`, `maxCriterionTextValue`).

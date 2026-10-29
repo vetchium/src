@@ -25,6 +25,7 @@ import (
 	"backend/internal/dbvalue"
 	"backend/internal/engagements"
 	"backend/internal/federation/commands"
+	"backend/internal/feedbackform"
 	"backend/internal/orgs/applicationchanges"
 )
 
@@ -359,11 +360,15 @@ func feedback(
 			if interview.InterviewState != sqlc.VetchiumOrgInterviewStateCompleted {
 				return refuse(orgsproblem.InterviewStateConflictError), nil
 			}
+			answers, refusal, err := feedbackform.Encode(interview.FeedbackForm, p.CriteriaAnswers)
+			if refusal != nil || err != nil {
+				return refuse(refusal), err
+			}
 			row, err := q.SubmitProviderInterviewFeedback(ctx, sqlc.SubmitProviderInterviewFeedbackParams{
 				ApplicationID: locked.OrgApplicationID, Version: locked.Version,
 				ActorEmail: string(p.ActorEmail), InterviewNumber: int32(p.InterviewNumber),
 				EngagementID: locked.EngagementID, Recommendation: string(p.Recommendation),
-				Notes: string(p.Notes),
+				Notes: string(p.Notes), CriteriaAnswers: answers,
 			})
 			if err != nil {
 				return done{}, err

@@ -248,7 +248,8 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
         SELECT jsonb_agg(jsonb_build_object(
             'interview_number', i.interview_number,
             'stage', jsonb_build_object('id', s.org_opening_stage_id,
-                'name', s.name, 'kind', s.stage_kind),
+                'name', s.name, 'kind', s.stage_kind,
+                'feedback_form', s.feedback_form),
             'starts_at', i.starts_at,
             'duration_minutes', i.duration_minutes,
             'mode', i.interview_mode, 'video_url', i.video_url,
@@ -293,6 +294,7 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
                             'interviewer_email', fu.email_address,
                             'recommendation', fb.recommendation,
                             'notes', fb.notes,
+                            'criteria_answers', fb.criteria_answers,
                             'submitted_at', fb.submitted_at) AS entry
                     FROM vetchium.org_interview_feedback AS fb
                     JOIN vetchium.org_users AS fu
@@ -315,6 +317,7 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
                             'interviewer_email', pfb.interviewer_email,
                             'recommendation', pfb.recommendation,
                             'notes', pfb.notes,
+                            'criteria_answers', pfb.criteria_answers,
                             'submitted_at', pfb.submitted_at)
                     FROM vetchium.org_provider_interview_feedback AS pfb
                     WHERE pfb.org_interview_id = i.org_interview_id
