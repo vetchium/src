@@ -71,7 +71,8 @@ func TestRelayGetRequiresQuestionIDs(t *testing.T) {
 	opening := func(question string) string {
 		return `{"org":{"domain":"example.com","display_name":"Example"},` +
 			`"opening":{"opening_number":1,"state":"published",` +
-			`"first_published_at":"2026-01-01T00:00:00Z","content":{` +
+			`"first_published_at":"2026-01-01T00:00:00Z",` +
+			`"accepts_agency_referrals":false,"content":{` +
 			`"title":"Role","questions":[` + question + `]}}}`
 	}
 	response.Store(opening(`{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",` +
@@ -84,6 +85,42 @@ func TestRelayGetRequiresQuestionIDs(t *testing.T) {
 	response.Store(opening(`{"text":"Notice?","type":"yes_no","required":true}`))
 	if _, err := client.RelayGet(context.Background(), request); !errors.Is(err, ErrInvalidResponse) {
 		t.Fatalf("question without id error = %v", err)
+	}
+}
+
+func TestRelayGetChecksAgencyReferralsByState(t *testing.T) {
+	var response atomic.Value
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(response.Load().(string)))
+	}))
+	defer server.Close()
+	client := NewRelay(server.URL, "secret", time.Second)
+	request := openingsspec.GetOrgOpeningRequest{
+		Domain: orgs.OrgDomain("example.com"), OpeningNumber: 1,
+	}
+	org := `{"org":{"domain":"example.com","display_name":"Example"},`
+	published := func(referrals string) string {
+		return org + `"opening":{"opening_number":1,"state":"published",` +
+			`"first_published_at":"2026-01-01T00:00:00Z",` + referrals +
+			`"content":{"title":"Role"}}}`
+	}
+	response.Store(published(`"accepts_agency_referrals":true,`))
+	outcome, err := client.RelayGet(context.Background(), request)
+	if err != nil || outcome.Result == nil ||
+		!*outcome.Result.Opening.AcceptsAgencyReferrals {
+		t.Fatalf("get = %+v, %v", outcome, err)
+	}
+	for name, body := range map[string]string{
+		"published without the flag": published(""),
+		"not accepting with the flag": org + `"opening":{"opening_number":1,` +
+			`"state":"not_accepting","title":"Role",` +
+			`"accepts_agency_referrals":false}}`,
+	} {
+		response.Store(body)
+		if _, err := client.RelayGet(context.Background(), request); !errors.Is(err, ErrInvalidResponse) {
+			t.Fatalf("%s: error = %v", name, err)
+		}
 	}
 }
 

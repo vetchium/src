@@ -744,8 +744,18 @@ test("a Hub user answers every type of question within its bounds and reads the 
     org,
     async (world) => {
       await signIn(page, world.applicant);
+      // The Opening says what applying asks before the form does.
+      await page.goto(openingURL(world));
+      const asked = page.getByRole("region", {
+        name: "Application questions",
+      });
+      await expect(asked.getByText("6 questions, 4 required")).toBeVisible();
+      await expect(
+        asked.getByText("Whole number · Required · 1 to 40"),
+      ).toBeVisible();
       await page.goto(`${openingURL(world)}/apply`);
       await expect(page.getByText(/^Questions from /)).toBeVisible();
+      await expect(page.getByText("0 of 4 required answered")).toBeVisible();
 
       // Required questions block the submit until answered.
       await page.getByRole("button", { name: "Submit application" }).click();
@@ -775,6 +785,7 @@ test("a Hub user answers every type of question within its bounds and reads the 
       await languages.getByText("Go", { exact: true }).click();
       await languages.getByText("Rust", { exact: true }).click();
       await expect(page.getByText("Answer this question.")).toHaveCount(0);
+      await expect(page.getByText("4 of 4 required answered")).toBeVisible();
       await page.getByRole("button", { name: "Submit application" }).click();
 
       await expect(

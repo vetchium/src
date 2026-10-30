@@ -585,7 +585,34 @@ export const ta = {
     next: "அடுத்தது",
     titleSearch: "தலைப்பைத் தேடு",
     search: "தேடு",
-    backToOpenings: "அனைத்து வேலைவாய்ப்புகளும்",
+    posted: "{{date}} அன்று வெளியிடப்பட்டது",
+    postedAndUpdated:
+      "{{posted}} அன்று வெளியிடப்பட்டது · {{updated}} அன்று புதுப்பிக்கப்பட்டது",
+    applyHelp:
+      "உங்கள் சுயவிவரம் உங்கள் விண்ணப்பத்துடன் செல்லும்; விரும்பினால் ஒரு அறிமுகக் குறிப்பும் சேர்க்கலாம்.",
+    applyHelpQuestions_one:
+      "உங்கள் சுயவிவரம் {{count}} கேள்விக்கான உங்கள் பதிலுடன் விண்ணப்பத்தில் செல்லும்.",
+    applyHelpQuestions_other:
+      "உங்கள் சுயவிவரம் {{count}} கேள்விகளுக்கான உங்கள் பதில்களுடன் விண்ணப்பத்தில் செல்லும்.",
+    questions: {
+      heading: "விண்ணப்பக் கேள்விகள்",
+      summary_one: "{{count}} கேள்வி, {{required}} கட்டாயம்",
+      summary_other: "{{count}} கேள்விகள், {{required}} கட்டாயம்",
+      required: "கட்டாயம்",
+      optional: "விருப்பத்திற்குரியது",
+      range: "{{min}} முதல் {{max}} வரை",
+      atLeast: "குறைந்தது {{min}}",
+      atMost: "அதிகபட்சம் {{max}}",
+      choices: "தேர்வுகள்: {{options}}",
+      types: {
+        short_text: "சிறு உரை",
+        long_text: "நீண்ட உரை",
+        number: "முழு எண்",
+        yes_no: "ஆம் அல்லது இல்லை",
+        single_choice: "ஒரு தேர்வு",
+        multiple_choice: "பல தேர்வுகள்",
+      },
+    },
     notAccepting: "இந்த வேலைவாய்ப்பு விண்ணப்பங்களை ஏற்கவில்லை.",
     agencySuggestedTitle: "{{agency}} இந்த வேலையை உங்களுக்கு பரிந்துரைத்தது",
     agencySuggestedBody: "{{date}} அன்று",
@@ -596,6 +623,7 @@ export const ta = {
     experienceMin: "{{min}} ஆண்டுகள் முதல்",
     experienceMax: "{{max}} ஆண்டுகள் வரை",
     fields: {
+      details: "விவரங்கள்",
       description: "விளக்கம்",
       language: "மொழி",
       country: "நாடு",
@@ -807,6 +835,19 @@ export const ta = {
     },
     submit: "விண்ணப்பத்தைச் சமர்ப்பிக்கவும்",
     once: "ஒவ்வொரு வேலைவாய்ப்புக்கும் ஒருமுறை மட்டுமே விண்ணப்பிக்கலாம். பின்னர் திரும்பப் பெறலாம்; ஆனால் மீண்டும் விண்ணப்பிக்க முடியாது.",
+    steps: {
+      title: "உங்கள் விண்ணப்பம்",
+      profile: "உங்கள் சுயவிவரம்",
+      profileHelp: "இப்போதுள்ளபடி பகிரப்படும்",
+      questions: "கேள்விகள்",
+      requiredAnswered_one:
+        "{{count}} கட்டாயக் கேள்வியில் {{answered}} பதிலளிக்கப்பட்டது",
+      requiredAnswered_other:
+        "{{count}} கட்டாயக் கேள்விகளில் {{answered}} பதிலளிக்கப்பட்டன",
+      allOptional: "அனைத்தும் விருப்பத்திற்குரியவை",
+      coverNote: "அறிமுகக் குறிப்பு",
+      optional: "விருப்பத்திற்குரியது",
+    },
     questions: {
       title: "{{org}} கேட்கும் கேள்விகள்",
       required: "இந்தக் கேள்விக்குப் பதிலளிக்கவும்.",

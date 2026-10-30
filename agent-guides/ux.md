@@ -36,9 +36,23 @@ first version; a screen that needs a redesign pass missed a rule here.
   (`Col xs={24} md={12}`), "Optional" on optional fields, plain-language
   `extra` help on any field whose rule is not obvious, optional sections
   closed unless filled.
-- Editors: a side panel (`Affix` from `lg`) holding the primary action, what
-  saving does (quota, visibility, approval), a checklist of what the next step
-  needs, and that next step. Offer a preview when others see the result.
+- Right-hand panels of two-column pages use `SidePanel`
+  (`@vetchium/portal-ui/shell`) in `Col lg={8}`: sticky from `lg`, scrolling
+  inside itself when taller than the window.
+- Editors: a side panel holding the primary action, what saving does (quota,
+  visibility, approval), and a vertical `Steps` with one step per section: its
+  status, what it still needs, the section in view as current, and a click
+  opening and scrolling to it. Offer the next step (publish, submit) beside
+  Save once the checklist is complete.
+- Detail pages of an item with a lifecycle: `Title` with a status `Tag`, the
+  content on the left, and a side panel holding the state, any pending
+  request, and every lifecycle action. Disable an action the item is not ready
+  for and list what it needs above it, with a link to fix it.
+- A preview renders the same shared component as the page it previews, with
+  that page's layout around it, so the two cannot drift.
+- Long forms filled by others (apply pages): a side panel with a vertical
+  `Steps` of the form's sections and a `Progress` of required answers above
+  the submit button.
 
 ## Orgs portal navigation
 

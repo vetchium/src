@@ -227,7 +227,7 @@ func validateGet(
 	switch opening.State {
 	case openingsspec.Published:
 		if opening.Content == nil || opening.FirstPublishedAt == nil ||
-			opening.Title != nil {
+			opening.AcceptsAgencyReferrals == nil || opening.Title != nil {
 			return ErrInvalidResponse
 		}
 		// Answers name questions by id (HP-QST-004).
@@ -238,7 +238,8 @@ func validateGet(
 		}
 	case openingsspec.NotAccepting:
 		if opening.Title == nil || opening.Content != nil ||
-			opening.FirstPublishedAt != nil || opening.LastRevisedAt != nil {
+			opening.FirstPublishedAt != nil || opening.LastRevisedAt != nil ||
+			opening.AcceptsAgencyReferrals != nil {
 			return ErrInvalidResponse
 		}
 	default:

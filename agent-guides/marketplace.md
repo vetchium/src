@@ -456,7 +456,9 @@ An agency is an active Org whose `sourcing` Listing is `listed`.
   `suggested`), or another agency by its primary domain (route `declared`).
   Arriving from a suggestion preselects that agency; the applicant may change
   it or choose no agency. Applying directly from the Opening page is always
-  allowed and gives the same choice.
+  allowed and gives the same choice. The apply page offers the choice only
+  when `PublicOpening.accepts_agency_referrals` is true, and otherwise sends
+  no credit.
 - **MKT-SRC-003** The consumer's tenant accepts the chosen agency only when
   its primary domain (resolved through the directory for a remote agency)
   belongs to an Org with an active `sourcing` engagement assigned to the

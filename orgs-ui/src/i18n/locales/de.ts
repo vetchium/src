@@ -1160,6 +1160,7 @@ export const de = {
     quota:
       "In den letzten 365 Tagen erstellte Stellenanzeigen: {{used}} von {{limit}}",
     fields: {
+      details: "Details",
       title: "Titel",
       description: "Beschreibung",
       language: "Sprache",
@@ -1247,8 +1248,12 @@ export const de = {
     discardedDraft: "Entwurf verworfen.",
     revision: "Revision",
     expiresAt: "Läuft ab",
-    pendingRequest: "Ausstehender Antrag",
     publicationMissing: "Füllen Sie vor der Veröffentlichung diese Felder aus:",
+    pendingRequestTitle: "Ausstehender Antrag: {{kind}}",
+    completeInEditor: "Im Editor ergänzen",
+    publishBlocked: "Zum Veröffentlichen fehlen die oben genannten Felder.",
+    changedFields: "In der Arbeitskopie geändert: {{fields}}",
+    noChangedFields: "Die Arbeitskopie entspricht dem veröffentlichten Inhalt.",
     actions: {
       title: "Aktionen für Stellenanzeigen",
       effects: {
@@ -1295,7 +1300,6 @@ export const de = {
     copied: "URL kopiert.",
     copyFailed: "Die URL konnte nicht kopiert werden.",
     liveContent: "Veröffentlichter Inhalt",
-    draftContent: "Entwurfsinhalt",
     workingContent: "Arbeitskopie",
     notSet: "Nicht festgelegt",
     notFound: "Stellenanzeige nicht gefunden oder nicht verfügbar.",
@@ -1356,17 +1360,36 @@ export const de = {
           "Speichern aktualisiert diesen Entwurf. Bewerbende sehen nichts, bis er veröffentlicht ist.",
         revisionHelp:
           "Änderungen werden als Revision gespeichert. Bewerbende sehen weiter die veröffentlichte Fassung, bis die Revision veröffentlicht ist.",
-        nextStep:
-          "Veröffentlichen Sie die Stellenanzeige nach dem Speichern auf ihrer Seite oder reichen Sie sie dort zur Genehmigung ein.",
       },
       checklist: {
         title: "Checkliste zur Veröffentlichung",
         progress: "{{done}}/{{total}}",
         help: "Sie können jederzeit speichern. Zum Veröffentlichen ist jeder Punkt unten nötig.",
         ready: "Alles für die Veröffentlichung ist vorhanden.",
-        done: "Erledigt",
-        missing: "Nicht erledigt",
       },
+      steps: {
+        missing: "Fehlt: {{fields}}",
+        incomplete:
+          "Vervollständigen oder entfernen Sie die unvollständigen Einträge.",
+        invalid: "Prüfen Sie die markierten Felder.",
+        complete: "Vollständig",
+      },
+      saveAnd: {
+        publish: "Speichern und veröffentlichen",
+        publishRequest: "Speichern und zur Genehmigung einreichen",
+        revise: "Speichern und Änderungen veröffentlichen",
+        reviseRequest: "Speichern und Änderungen zur Genehmigung einreichen",
+      },
+      publishBlocked_one:
+        "Ergänzen Sie noch {{count}} Angabe, um zu veröffentlichen.",
+      publishBlocked_other:
+        "Ergänzen Sie noch {{count}} Angaben, um zu veröffentlichen.",
+      publishDone: {
+        publish: "Gespeichert und veröffentlicht.",
+        revise: "Gespeichert und Änderungen veröffentlicht.",
+        submitted: "Gespeichert und zur Genehmigung eingereicht.",
+      },
+      publishFailed: "Gespeichert, aber nicht veröffentlicht: {{reason}}",
       team: "Einstellungsteam und Notizen",
       recruiter: "Rekrutierende Person",
       teamMembers: "Teammitglieder",
@@ -1381,7 +1404,32 @@ export const de = {
       save: "Speichern",
       createDraft: "Entwurf erstellen",
     },
+    preview: {
+      basedIn: "Sitz in {{country}}",
+      openingPage: "Stellenseite",
+      applicationForm: "Bewerbungsformular",
+      apply: "Bewerben",
+      applyHelp:
+        "Ihr Profil wird mit Ihrer Bewerbung gesendet, dazu optional ein Anschreiben.",
+      applyHelpQuestions_one:
+        "Ihr Profil wird mit Ihrer Bewerbung gesendet, dazu Ihre Antwort auf {{count}} Frage.",
+      applyHelpQuestions_other:
+        "Ihr Profil wird mit Ihrer Bewerbung gesendet, dazu Ihre Antworten auf {{count}} Fragen.",
+      noQuestions:
+        "Diese Stelle stellt keine Fragen. Bewerbende senden ihr Profil und optional ein Anschreiben.",
+      questionsFrom: "Fragen von {{org}}",
+      answerRequired: "Beantworten Sie diese Frage.",
+      yes: "Ja",
+      no: "Nein",
+      chooseAny: "Wählen Sie alle zutreffenden aus.",
+      wholeNumber: "Geben Sie eine ganze Zahl ein.",
+      outOfRange: "Geben Sie eine ganze Zahl ein: {{bounds}}.",
+    },
     questions: {
+      summary_one: "{{count}} Frage, {{required}} erforderlich",
+      summary_other: "{{count}} Fragen, {{required}} erforderlich",
+      summaryLine: "{{number}}. {{text}}",
+      untitled: "Neue Frage",
       help: "Optional. Stellen Sie Bewerbenden bei der Bewerbung bis zu 10 Fragen. Die Antworten sind Angaben für Ihr Team; Vetchium bewertet oder lehnt Bewerbungen nie anhand der Antworten ab.",
       number: "Frage {{number}}",
       text: "Frage",

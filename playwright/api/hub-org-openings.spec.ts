@@ -165,8 +165,8 @@ test("Hub lists and reads local and remote Org Openings with only public fields"
     );
     expect(localDetail.status()).toBe(200);
     expect(
-      ((await localDetail.json()) as GetOrgOpeningResponse).opening.state,
-    ).toBe("published");
+      ((await localDetail.json()) as GetOrgOpeningResponse).opening,
+    ).toMatchObject({ state: "published", accepts_agency_referrals: false });
 
     const remoteList = await hub.listOrgOpenings(
       {
@@ -230,6 +230,7 @@ test("Hub lists and reads local and remote Org Openings with only public fields"
       opening_number: remoteOpening.opening_number,
       state: "published",
       content: content("Remote Engineer"),
+      accepts_agency_referrals: false,
     });
     for (const value of [localBody, firstPage, publicDetail]) {
       expect(JSON.stringify(value)).not.toMatch(

@@ -97,7 +97,18 @@ LEFT JOIN LATERAL (
                 'questions', c.questions
             )),
             'first_published_at', o.first_published_at,
-            'last_revised_at', o.last_revised_at
+            'last_revised_at', o.last_revised_at,
+            -- MKT-SRC-003 accepts a credit only for these engagements, so the
+            -- apply page offers "Referred by" only when one exists.
+            'accepts_agency_referrals', EXISTS (
+                SELECT 1
+                FROM vetchium.org_engagement_assignments AS a
+                JOIN vetchium.org_engagements AS e
+                  ON e.engagement_id = a.engagement_id
+                WHERE a.org_opening_id = o.org_opening_id
+                  AND a.org_opening_stage_id IS NULL
+                  AND e.capability_oid = 'sourcing'
+                  AND e.engagement_state = 'active')
         )) ELSE jsonb_build_object(
             'opening_number', o.opening_number,
             'state', 'not_accepting', 'title', c.title

@@ -1125,6 +1125,7 @@ export const en = {
     empty: "No Openings are available to you for these filters.",
     quota: "Openings created in the last 365 days: {{used}} of {{limit}}",
     fields: {
+      details: "Details",
       title: "Title",
       description: "Description",
       language: "Language",
@@ -1211,8 +1212,12 @@ export const en = {
     discardedDraft: "Draft discarded.",
     revision: "Revision",
     expiresAt: "Expires",
-    pendingRequest: "Pending request",
     publicationMissing: "Complete these fields before publishing:",
+    pendingRequestTitle: "Pending request: {{kind}}",
+    completeInEditor: "Complete them in the editor",
+    publishBlocked: "Publishing needs the fields listed above.",
+    changedFields: "Changed in the working copy: {{fields}}",
+    noChangedFields: "The working copy matches the live content.",
     actions: {
       title: "Opening actions",
       effects: {
@@ -1258,7 +1263,6 @@ export const en = {
     copied: "URL copied.",
     copyFailed: "Could not copy the URL.",
     liveContent: "Live content",
-    draftContent: "Draft content",
     workingContent: "Working copy",
     notSet: "Not set",
     notFound: "Opening not found or unavailable.",
@@ -1319,17 +1323,33 @@ export const en = {
           "Saving updates this draft. Candidates see nothing until it is published.",
         revisionHelp:
           "Changes are saved as a revision. Candidates keep seeing the live Opening until the revision is published.",
-        nextStep:
-          "After saving, publish the Opening or submit it for approval from its page.",
       },
       checklist: {
         title: "Publication checklist",
         progress: "{{done}}/{{total}}",
         help: "You can save at any time. Publishing needs every item below.",
         ready: "Everything needed to publish is in place.",
-        done: "Complete",
-        missing: "Not complete",
       },
+      steps: {
+        missing: "Missing: {{fields}}",
+        incomplete: "Finish or remove the incomplete entries.",
+        invalid: "Check the marked fields.",
+        complete: "Complete",
+      },
+      saveAnd: {
+        publish: "Save and publish",
+        publishRequest: "Save and submit for approval",
+        revise: "Save and publish changes",
+        reviseRequest: "Save and submit changes for approval",
+      },
+      publishBlocked_one: "Complete {{count}} more item to publish.",
+      publishBlocked_other: "Complete {{count}} more items to publish.",
+      publishDone: {
+        publish: "Saved and published.",
+        revise: "Saved and published the changes.",
+        submitted: "Saved and submitted for approval.",
+      },
+      publishFailed: "Saved, but not published: {{reason}}",
       team: "Hiring team and notes",
       recruiter: "Recruiter",
       teamMembers: "Team members",
@@ -1344,7 +1364,32 @@ export const en = {
       save: "Save",
       createDraft: "Create draft",
     },
+    preview: {
+      basedIn: "Based in {{country}}",
+      openingPage: "Opening page",
+      applicationForm: "Application form",
+      apply: "Apply",
+      applyHelp:
+        "Your profile goes with your application, with an optional cover note.",
+      applyHelpQuestions_one:
+        "Your profile goes with your application, with answers to {{count}} question.",
+      applyHelpQuestions_other:
+        "Your profile goes with your application, with answers to {{count}} questions.",
+      noQuestions:
+        "This Opening asks no questions. Applicants send their profile and an optional cover note.",
+      questionsFrom: "Questions from {{org}}",
+      answerRequired: "Answer this question.",
+      yes: "Yes",
+      no: "No",
+      chooseAny: "Choose any that apply.",
+      wholeNumber: "Enter a whole number.",
+      outOfRange: "Enter a whole number: {{bounds}}.",
+    },
     questions: {
+      summary_one: "{{count}} question, {{required}} required",
+      summary_other: "{{count}} questions, {{required}} required",
+      summaryLine: "{{number}}. {{text}}",
+      untitled: "New question",
       help: "Optional. Ask applicants up to 10 questions when they apply. Answers are facts for your team to read; Vetchium never scores or rejects applications by them.",
       number: "Question {{number}}",
       text: "Question",

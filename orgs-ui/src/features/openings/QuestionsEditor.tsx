@@ -2,8 +2,8 @@ import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   Alert,
   Button,
-  Card,
   Col,
+  Collapse,
   Flex,
   Form,
   Input,
@@ -13,6 +13,7 @@ import {
   Switch,
   Typography,
 } from "antd";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   type ApplicationQuestion,
@@ -28,6 +29,7 @@ import {
   QuestionShortText,
 } from "typespec/common/openings";
 import { OrderControls } from "../../components/common/OrderControls";
+import { describeQuestion } from "./presentation";
 import { questionsDiffer } from "./publication";
 
 const minQuestionOptions = 2;
@@ -40,16 +42,37 @@ const minQuestionOptions = 2;
 export function QuestionsEditor({
   live,
   applications,
+  opened,
 }: {
   live?: ApplicationQuestion[];
   /** Applications received so far; absent when the caller cannot read them. */
   applications?: number;
+  /** Each change opens every question, so errors inside them show. */
+  opened: number;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const form = Form.useFormInstance();
   const questions = (Form.useWatch(["content", "questions"], form) ??
     []) as Partial<ApplicationQuestion>[];
   const changed = live !== undefined && questionsDiffer(live, questions);
+  // Questions start closed to one summary line each; added ones open.
+  const [open, setOpen] = useState<string[]>([]);
+  const [fieldKeys, setFieldKeys] = useState<string[]>([]);
+  // Set by "Add question" until the new question's key is reported.
+  const adding = useRef(false);
+  const knownKeys = useRef<string[]>([]);
+  const reportKeys = useCallback((keys: string[]) => {
+    if (adding.current) {
+      adding.current = false;
+      const added = keys.filter((key) => !knownKeys.current.includes(key));
+      setOpen((current) => [...current, ...added]);
+    }
+    knownKeys.current = keys;
+    setFieldKeys(keys);
+  }, []);
+  useEffect(() => {
+    if (opened > 0) setOpen(fieldKeys);
+  }, [opened, fieldKeys]);
 
   return (
     <Flex vertical gap="middle">
@@ -73,16 +96,51 @@ export function QuestionsEditor({
       <Form.List name={["content", "questions"]}>
         {(fields, { add, remove, move }, { errors }) => (
           <>
-            {fields.map((field, index) => {
-              const path = ["content", "questions", field.name];
-              const type = questions[index]?.type;
-              const number = index + 1;
-              return (
-                <Card
-                  key={field.key}
-                  size="small"
-                  title={t("openings.questions.number", { number })}
-                  extra={
+            <FieldKeys
+              keys={fields.map((field) => String(field.key))}
+              onChange={reportKeys}
+            />
+            <Collapse
+              size="small"
+              activeKey={open}
+              onChange={setOpen}
+              items={fields.map((field, index) => {
+                const path = ["content", "questions", field.name];
+                const question = questions[index];
+                const type = question?.type;
+                const number = index + 1;
+                return {
+                  key: String(field.key),
+                  forceRender: true,
+                  // The order buttons in `extra` must not toggle the panel.
+                  collapsible: "header",
+                  label: (
+                    <Flex vertical>
+                      <Typography.Text>
+                        {t("openings.questions.summaryLine", {
+                          number,
+                          text:
+                            question?.text?.trim() ||
+                            t("openings.questions.untitled"),
+                        })}
+                      </Typography.Text>
+                      {type !== undefined && (
+                        <Typography.Text type="secondary">
+                          {describeQuestion(t, i18n.language, {
+                            text: question?.text ?? "",
+                            type,
+                            required: question?.required ?? false,
+                            ...(question?.min != null && { min: question.min }),
+                            ...(question?.max != null && { max: question.max }),
+                            ...(question?.options && {
+                              options: question.options.filter(Boolean),
+                            }),
+                          })}
+                        </Typography.Text>
+                      )}
+                    </Flex>
+                  ),
+                  extra: (
                     <OrderControls
                       size="small"
                       labels={{
@@ -95,129 +153,135 @@ export function QuestionsEditor({
                       onMove={(direction) => move(index, index + direction)}
                       onRemove={() => remove(field.name)}
                     />
-                  }
-                >
-                  <Form.Item name={[field.name, "id"]} hidden>
-                    <Input />
-                  </Form.Item>
-                  <Form.Item
-                    name={[field.name, "text"]}
-                    label={t("openings.questions.text")}
-                    rules={[
-                      {
-                        required: true,
-                        whitespace: true,
-                        message: t("openings.questions.textRequired"),
-                      },
-                    ]}
-                  >
-                    <Input.TextArea
-                      autoSize={{ minRows: 1, maxRows: 4 }}
-                      maxLength={maxQuestionText}
-                      showCount
-                    />
-                  </Form.Item>
-                  <Row gutter={16}>
-                    <Col xs={24} md={12}>
+                  ),
+                  children: (
+                    <>
+                      <Form.Item name={[field.name, "id"]} hidden>
+                        <Input />
+                      </Form.Item>
                       <Form.Item
-                        name={[field.name, "type"]}
-                        label={t("openings.questions.type")}
+                        name={[field.name, "text"]}
+                        label={t("openings.questions.text")}
+                        rules={[
+                          {
+                            required: true,
+                            whitespace: true,
+                            message: t("openings.questions.textRequired"),
+                          },
+                        ]}
                       >
-                        <Select
-                          options={applicationQuestionTypes.map((value) => ({
-                            value,
-                            label: t(`openings.questions.types.${value}`),
-                          }))}
-                          onChange={(next: ApplicationQuestionType) => {
-                            const options = form.getFieldValue([
-                              ...path,
-                              "options",
-                            ]) as string[] | undefined;
-                            if (isChoiceQuestion(next) && !options?.length)
-                              form.setFieldValue(
-                                [...path, "options"],
-                                Array(minQuestionOptions).fill(""),
-                              );
-                          }}
+                        <Input.TextArea
+                          autoSize={{ minRows: 1, maxRows: 4 }}
+                          maxLength={maxQuestionText}
+                          showCount
                         />
                       </Form.Item>
-                    </Col>
-                    <Col xs={24} md={12}>
-                      <Form.Item
-                        name={[field.name, "required"]}
-                        label={t("openings.questions.required")}
-                        valuePropName="checked"
-                      >
-                        <Switch />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-                  {type === QuestionNumber && (
-                    <Row gutter={16}>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          name={[field.name, "min"]}
-                          label={t("openings.questions.min")}
-                          extra={t("openings.editor.optional")}
-                        >
-                          <InputNumber
-                            min={0}
-                            max={maxQuestionNumber}
-                            precision={0}
-                            className="full-width"
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          name={[field.name, "max"]}
-                          label={t("openings.questions.max")}
-                          extra={t("openings.editor.optional")}
-                          dependencies={[[...path, "min"]]}
-                          rules={[
-                            ({ getFieldValue }) => ({
-                              validator: (_, value?: number | null) => {
-                                const min = getFieldValue([...path, "min"]) as
-                                  | number
-                                  | null
-                                  | undefined;
-                                return value == null ||
-                                  min == null ||
-                                  value >= min
-                                  ? Promise.resolve()
-                                  : Promise.reject(
-                                      new Error(
-                                        t("openings.questions.maxBelowMin"),
-                                      ),
-                                    );
-                              },
-                            }),
-                          ]}
-                        >
-                          <InputNumber
-                            min={0}
-                            max={maxQuestionNumber}
-                            precision={0}
-                            className="full-width"
-                          />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-                  )}
-                  {type !== undefined && isChoiceQuestion(type) && (
-                    <OptionsEditor name={field.name} path={path} />
-                  )}
-                </Card>
-              );
-            })}
+                      <Row gutter={16}>
+                        <Col xs={24} md={12}>
+                          <Form.Item
+                            name={[field.name, "type"]}
+                            label={t("openings.questions.type")}
+                          >
+                            <Select
+                              options={applicationQuestionTypes.map(
+                                (value) => ({
+                                  value,
+                                  label: t(`openings.questions.types.${value}`),
+                                }),
+                              )}
+                              onChange={(next: ApplicationQuestionType) => {
+                                const options = form.getFieldValue([
+                                  ...path,
+                                  "options",
+                                ]) as string[] | undefined;
+                                if (isChoiceQuestion(next) && !options?.length)
+                                  form.setFieldValue(
+                                    [...path, "options"],
+                                    Array(minQuestionOptions).fill(""),
+                                  );
+                              }}
+                            />
+                          </Form.Item>
+                        </Col>
+                        <Col xs={24} md={12}>
+                          <Form.Item
+                            name={[field.name, "required"]}
+                            label={t("openings.questions.required")}
+                            valuePropName="checked"
+                          >
+                            <Switch />
+                          </Form.Item>
+                        </Col>
+                      </Row>
+                      {type === QuestionNumber && (
+                        <Row gutter={16}>
+                          <Col xs={24} md={12}>
+                            <Form.Item
+                              name={[field.name, "min"]}
+                              label={t("openings.questions.min")}
+                              extra={t("openings.editor.optional")}
+                            >
+                              <InputNumber
+                                min={0}
+                                max={maxQuestionNumber}
+                                precision={0}
+                                className="full-width"
+                              />
+                            </Form.Item>
+                          </Col>
+                          <Col xs={24} md={12}>
+                            <Form.Item
+                              name={[field.name, "max"]}
+                              label={t("openings.questions.max")}
+                              extra={t("openings.editor.optional")}
+                              dependencies={[[...path, "min"]]}
+                              rules={[
+                                ({ getFieldValue }) => ({
+                                  validator: (_, value?: number | null) => {
+                                    const min = getFieldValue([
+                                      ...path,
+                                      "min",
+                                    ]) as number | null | undefined;
+                                    return value == null ||
+                                      min == null ||
+                                      value >= min
+                                      ? Promise.resolve()
+                                      : Promise.reject(
+                                          new Error(
+                                            t("openings.questions.maxBelowMin"),
+                                          ),
+                                        );
+                                  },
+                                }),
+                              ]}
+                            >
+                              <InputNumber
+                                min={0}
+                                max={maxQuestionNumber}
+                                precision={0}
+                                className="full-width"
+                              />
+                            </Form.Item>
+                          </Col>
+                        </Row>
+                      )}
+                      {type !== undefined && isChoiceQuestion(type) && (
+                        <OptionsEditor name={field.name} path={path} />
+                      )}
+                    </>
+                  ),
+                };
+              })}
+            />
             <Form.ErrorList errors={errors} />
             <Flex gap="middle" align="center" wrap justify="space-between">
               <Button
                 icon={<PlusOutlined />}
                 disabled={fields.length >= maxApplicationQuestions}
-                onClick={() =>
-                  add({ text: "", type: QuestionShortText, required: false })
-                }
+                onClick={() => {
+                  add({ text: "", type: QuestionShortText, required: false });
+                  adding.current = true;
+                }}
               >
                 {t("openings.questions.add")}
               </Button>
@@ -326,4 +390,19 @@ function OptionsEditor({
       )}
     </Form.List>
   );
+}
+
+/** Reports the Form.List keys, which exist only inside its render. */
+function FieldKeys({
+  keys,
+  onChange,
+}: {
+  keys: string[];
+  onChange: (keys: string[]) => void;
+}) {
+  const joined = keys.join(",");
+  useEffect(() => {
+    onChange(joined === "" ? [] : joined.split(","));
+  }, [joined, onChange]);
+  return null;
 }

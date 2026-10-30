@@ -143,7 +143,9 @@ test("Hub user browses a remote Org, filters Openings, and sees safe published a
   await expect(
     page.getByText("This opening is not accepting applications."),
   ).toBeVisible();
-  await expect(page.getByText("Closed engineer")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Closed engineer" }),
+  ).toBeVisible();
   await expect(page.getByRole("article")).toHaveCount(0);
   await page.goto(`${HUB_PORTAL}/org/${remote.domain}/openings/99999`);
   await expect(page.getByText("Opening not found.")).toBeVisible();

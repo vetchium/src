@@ -610,7 +610,34 @@ export const de = {
     next: "Weiter",
     titleSearch: "Titel suchen",
     search: "Suchen",
-    backToOpenings: "Alle Stellen",
+    posted: "Veröffentlicht am {{date}}",
+    postedAndUpdated:
+      "Veröffentlicht am {{posted}} · Aktualisiert am {{updated}}",
+    applyHelp:
+      "Ihr Profil wird mit Ihrer Bewerbung gesendet, dazu optional ein Anschreiben.",
+    applyHelpQuestions_one:
+      "Ihr Profil wird mit Ihrer Bewerbung gesendet, dazu Ihre Antwort auf {{count}} Frage.",
+    applyHelpQuestions_other:
+      "Ihr Profil wird mit Ihrer Bewerbung gesendet, dazu Ihre Antworten auf {{count}} Fragen.",
+    questions: {
+      heading: "Fragen zur Bewerbung",
+      summary_one: "{{count}} Frage, {{required}} erforderlich",
+      summary_other: "{{count}} Fragen, {{required}} erforderlich",
+      required: "Erforderlich",
+      optional: "Optional",
+      range: "{{min}} bis {{max}}",
+      atLeast: "Mindestens {{min}}",
+      atMost: "Höchstens {{max}}",
+      choices: "Optionen: {{options}}",
+      types: {
+        short_text: "Kurzer Text",
+        long_text: "Langer Text",
+        number: "Ganze Zahl",
+        yes_no: "Ja oder Nein",
+        single_choice: "Eine Auswahl",
+        multiple_choice: "Mehrfachauswahl",
+      },
+    },
     notAccepting: "Diese Stelle nimmt keine Bewerbungen an.",
     agencySuggestedTitle: "{{agency}} hat Ihnen diese Stelle vorgeschlagen",
     agencySuggestedBody: "Am {{date}} in",
@@ -622,6 +649,7 @@ export const de = {
     experienceMin: "Ab {{min}} Jahren",
     experienceMax: "Bis {{max}} Jahre",
     fields: {
+      details: "Details",
       description: "Beschreibung",
       language: "Sprache",
       country: "Land",
@@ -834,6 +862,19 @@ export const de = {
     },
     submit: "Bewerbung absenden",
     once: "Sie können sich auf jede Stelle nur einmal bewerben. Sie können später zurückziehen, sich aber nicht erneut bewerben.",
+    steps: {
+      title: "Ihre Bewerbung",
+      profile: "Ihr Profil",
+      profileHelp: "Wird im aktuellen Stand geteilt",
+      questions: "Fragen",
+      requiredAnswered_one:
+        "{{answered}} von {{count}} Pflichtfrage beantwortet",
+      requiredAnswered_other:
+        "{{answered}} von {{count}} Pflichtfragen beantwortet",
+      allOptional: "Alle optional",
+      coverNote: "Anschreiben",
+      optional: "Optional",
+    },
     questions: {
       title: "Fragen von {{org}}",
       required: "Beantworten Sie diese Frage.",
