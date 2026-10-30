@@ -15,16 +15,19 @@
 //     org3.<tenant>.test) through the Org APIs (signup, a simulated card, the
 //     plan, invited users, and Openings in each reachable state). It runs on
 //     demand, from the host, via `make dev-seed-orgs`.
-//   - "applications" gives each seeded Org pipeline templates and Hub users'
-//     applications in every state the portal APIs can reach. It needs the
-//     Hub profiles and Orgs seeded first and runs via
+//   - "applications" gives each seeded Org pipeline templates (one with
+//     feedback forms) and Hub users' applications in every state the portal
+//     APIs can reach, answering the engineering Opening's questions before a
+//     revision changes them, and one interview with submitted feedback. It
+//     needs the Hub profiles and Orgs seeded first and runs via
 //     `make dev-seed-applications`.
 //   - "accounts" prints every account the other modes and db-seed created,
 //     read back from each tenant database, for a developer to sign in with.
 //     `make dev-seed` ends with it; `make dev-accounts` prints it again.
 //   - "marketplace" seeds each tenant's agencies (age1, age2) and stage
 //     providers (itv1, asm1, bgv1) with Listings, clients across regions, Job
-//     owners, engagements in each state, routed work, and agency Contacts with
+//     owners, engagements in each state, routed work (an interview with
+//     feedback on the stage's form among it), and agency Contacts with
 //     notes and conversations. It runs via `make dev-seed-marketplace`.
 //
 // It is never built into a production image and never deployed.

@@ -614,11 +614,23 @@ func (s *marketplaceSeeder) stageCandidacy(
 	applicantTenant, applicant string, stage hiring.PipelineStageID,
 	engagement marketplace.EngagementID,
 ) (orgapplications.ApplicationNumber, error) {
+	var live openings.OrgOpening
+	if err := s.orgPost(ctx, client, "get-opening", openings.GetOpeningRequest{OpeningNumber: opening},
+		http.StatusOK, &live); err != nil {
+		return 0, err
+	}
+	var questions []common.ApplicationQuestion
+	if live.LiveContent != nil {
+		questions = live.LiveContent.Questions
+	}
 	var ref hubapplications.ApplicationReference
 	if err := s.hubPost(ctx, applicantTenant, applicant, "apply-to-opening",
 		hubapplications.ApplyToOpeningRequest{
 			Domain: client, OpeningNumber: opening,
 			CoverNote: ptr(orgapplications.ApplicationCoverNote("I would like to be considered for this role.")),
+			// Every applicant here answers alike; index 0 answers the optional
+			// questions too.
+			Answers: seedAnswers(questions, 0),
 		}, http.StatusCreated, &ref); err != nil {
 		return 0, err
 	}
@@ -651,8 +663,9 @@ func (s *marketplaceSeeder) stageCandidacy(
 	return ref.ApplicationNumber, nil
 }
 
+// awaitWorkItem waits for a work item of the engagement other than skip.
 func (s *marketplaceSeeder) awaitWorkItem(
-	ctx context.Context, provider orgs.OrgDomain, engagement marketplace.EngagementID,
+	ctx context.Context, provider orgs.OrgDomain, engagement marketplace.EngagementID, skip work.WorkID,
 ) (work.WorkItem, error) {
 	var found work.WorkItem
 	err := await(ctx, fmt.Sprintf("work of %s at %s", engagement, provider), func() (bool, error) {
@@ -660,7 +673,7 @@ func (s *marketplaceSeeder) awaitWorkItem(
 		err := s.orgPost(ctx, provider, "list-work-queue", work.ListWorkQueueRequest{},
 			http.StatusOK, &resp)
 		for _, item := range resp.Items {
-			if item.EngagementID == engagement {
+			if item.EngagementID == engagement && item.WorkID != skip {
 				found = item
 				return true, nil
 			}
@@ -695,8 +708,8 @@ func (s *marketplaceSeeder) seedStageProviders(
 	if err != nil {
 		return 0, err
 	}
-	if len(applicants) < 3 {
-		return 0, fmt.Errorf("tenant %s has fewer than three Hub users", tenant)
+	if len(applicants) < 4 {
+		return 0, fmt.Errorf("tenant %s has fewer than four Hub users", tenant)
 	}
 	steps := []struct {
 		spec  providerSpec
@@ -777,6 +790,8 @@ func (s *marketplaceSeeder) seedStageProviders(
 				}, http.StatusOK, nil)
 		}},
 	}
+	var interviewing marketplace.EngagementID
+	var upcoming work.WorkID
 	for index, step := range steps {
 		provider := step.spec.domain(tenant)
 		stage, ok := stageOf[step.stage]
@@ -796,15 +811,74 @@ func (s *marketplaceSeeder) seedStageProviders(
 		if err != nil {
 			return index, fmt.Errorf("route to %s: %w", provider, err)
 		}
-		item, err := s.awaitWorkItem(ctx, provider, engagement.ID)
+		item, err := s.awaitWorkItem(ctx, provider, engagement.ID, "")
 		if err != nil {
 			return index, err
 		}
 		if err := step.work(provider, engagement.ID, item, applicant, number); err != nil {
 			return index, fmt.Errorf("work at %s: %w", provider, err)
 		}
+		if step.stage == hiring.InterviewStage {
+			interviewing, upcoming = engagement.ID, item.WorkID
+		}
 	}
-	return len(steps), nil
+	if err := s.seedProviderFeedback(ctx, tenant, client, applicants[len(applicants)-1-len(steps)],
+		stageOf[hiring.InterviewStage], interviewing, upcoming); err != nil {
+		return len(steps), fmt.Errorf("feedback at %s: %w", interviewProvider.domain(tenant), err)
+	}
+	return len(steps) + 1, nil
+}
+
+// seedProviderFeedback routes another candidacy to the interviewing provider,
+// whose staff completes the interview and submits feedback on the stage's
+// form; skip is the provider's other, upcoming interview.
+func (s *marketplaceSeeder) seedProviderFeedback(
+	ctx context.Context, tenant string, client orgs.OrgDomain, applicant string,
+	stage hiring.PipelineStageID, engagement marketplace.EngagementID, skip work.WorkID,
+) error {
+	provider := interviewProvider.domain(tenant)
+	if _, err := s.stageCandidacy(ctx, client, engineeringOpening, tenant, applicant, stage, engagement); err != nil {
+		return err
+	}
+	item, err := s.awaitWorkItem(ctx, provider, engagement, skip)
+	if err != nil {
+		return err
+	}
+	reference := work.WorkReference{EngagementID: engagement, WorkID: item.WorkID}
+	start := soonStart()
+	video := hubprofile.WebsiteURL("https://meet.example.com/provider-panel")
+	if err := s.orgPostAs(ctx, provider, "staff1", "schedule-work-interview", work.ScheduleInterviewRequest{
+		EngagementID: engagement, WorkID: item.WorkID,
+		InterviewDetails: orgapplications.InterviewDetails{
+			StartTime: start, DurationMinutes: 45,
+			Mode: orgapplications.InterviewVideo, VideoURL: &video,
+			InterviewerEmails: []common.EmailAddress{common.EmailAddress("staff1@" + string(provider))},
+		},
+	}, http.StatusOK, nil); err != nil {
+		return err
+	}
+	if err := sleepUntil(ctx, start); err != nil {
+		return err
+	}
+	if err := s.orgPostAs(ctx, provider, "staff1", "record-work-interview-outcome", work.RecordInterviewOutcomeRequest{
+		EngagementID: engagement, WorkID: item.WorkID,
+		InterviewNumber: 1, Outcome: orgapplications.OutcomeCompleted,
+	}, http.StatusOK, nil); err != nil {
+		return err
+	}
+	var detail work.WorkDetail
+	if err := s.orgPostAs(ctx, provider, "staff1", "get-work-item", reference, http.StatusOK, &detail); err != nil {
+		return err
+	}
+	if len(detail.Interviews) == 0 {
+		return fmt.Errorf("work %s has no interview", item.WorkID)
+	}
+	return s.orgPostAs(ctx, provider, "staff1", "submit-work-interview-feedback", work.SubmitInterviewFeedbackRequest{
+		EngagementID: engagement, WorkID: item.WorkID, InterviewNumber: 1,
+		Recommendation:  orgapplications.Yes,
+		Notes:           orgapplications.InterviewFeedbackNotes("Strong fundamentals; clear trade-off reasoning under time pressure."),
+		CriteriaAnswers: seedCriteriaAnswers(detail.Interviews[0].Stage.FeedbackForm, 4),
+	}, http.StatusOK, nil)
 }
 
 // seedAgencyContacts gives the large agency Contacts among the next region's

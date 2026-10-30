@@ -177,6 +177,10 @@ type orgApplicationSeed struct {
 	// stages are the stages of the Opening being seeded, by name.
 	stages  map[string]hiring.PipelineStage
 	opening openings.OpeningNumber
+	// questions are the Opening's live questions, which each apply answers.
+	questions []common.ApplicationQuestion
+	// applied counts applications so far, to vary their answers.
+	applied int
 	// reviewers are the interviewers every seeded interview names.
 	reviewers []common.EmailAddress
 }
@@ -209,14 +213,14 @@ func (s *applicationSeeder) seedOrgApplications(ctx context.Context, domain orgs
 var engineeringStages = []hiring.PipelineStageDefinition{
 	{Name: "Screen", Kind: hiring.ReviewStage},
 	{Name: "Take-home exercise", Kind: hiring.AssessmentStage},
-	{Name: "Panel interview", Kind: hiring.InterviewStage},
+	{Name: "Panel interview", Kind: hiring.InterviewStage, FeedbackForm: panelForm},
 	{Name: "Final interview", Kind: hiring.InterviewStage},
 	{Name: "Background checks", Kind: hiring.BackgroundCheckStage},
 }
 
 var quickHireStages = []hiring.PipelineStageDefinition{
 	{Name: "Screen", Kind: hiring.ReviewStage},
-	{Name: "Conversation", Kind: hiring.InterviewStage},
+	{Name: "Conversation", Kind: hiring.InterviewStage, FeedbackForm: conversationForm},
 }
 
 func (s *orgApplicationSeed) seedTemplates(ctx context.Context) error {
@@ -237,16 +241,13 @@ func (s *orgApplicationSeed) seedTemplates(ctx context.Context) error {
 func (s *orgApplicationSeed) useStages(
 	ctx context.Context, number openings.OpeningNumber, stages []hiring.PipelineStageDefinition,
 ) error {
-	var opening openings.OrgOpening
-	if err := s.post(ctx, "/api/orgs/get-opening", openings.GetOpeningRequest{OpeningNumber: number}, s.admin, http.StatusOK, &opening); err != nil {
-		return fmt.Errorf("read Opening %d: %w", number, err)
-	}
-	if opening.State != openings.Published {
-		return fmt.Errorf("opening %d is %q, not published", number, opening.State)
+	opening, err := s.liveOpening(ctx, number)
+	if err != nil {
+		return err
 	}
 	inputs := make([]openings.PipelineStageInput, len(stages))
 	for index, stage := range stages {
-		inputs[index] = openings.PipelineStageInput{Name: stage.Name, Kind: stage.Kind}
+		inputs[index] = openings.PipelineStageInput{Name: stage.Name, Kind: stage.Kind, FeedbackForm: stage.FeedbackForm}
 	}
 	var replaced struct {
 		Stages []hiring.PipelineStage `json:"stages"`
@@ -257,6 +258,7 @@ func (s *orgApplicationSeed) useStages(
 		return fmt.Errorf("replace pipeline of Opening %d: %w", number, err)
 	}
 	s.opening = number
+	s.questions = opening.LiveContent.Questions
 	s.stages = map[string]hiring.PipelineStage{}
 	for _, stage := range replaced.Stages {
 		s.stages[string(stage.Name)] = stage
@@ -265,7 +267,10 @@ func (s *orgApplicationSeed) useStages(
 }
 
 func (s *orgApplicationSeed) apply(ctx context.Context, applicant seededApplicant, note string) (orgapplications.ApplicationNumber, error) {
-	request := hubapplications.ApplyToOpeningRequest{Domain: s.domain, OpeningNumber: s.opening}
+	request := hubapplications.ApplyToOpeningRequest{
+		Domain: s.domain, OpeningNumber: s.opening, Answers: seedAnswers(s.questions, s.applied),
+	}
+	s.applied++
 	if note != "" {
 		cover := orgapplications.ApplicationCoverNote(note)
 		request.CoverNote = &cover
@@ -433,6 +438,11 @@ func (s *orgApplicationSeed) seedEngineeringOpening(ctx context.Context) error {
 	if err := s.useStages(ctx, engineeringOpening, engineeringStages); err != nil {
 		return err
 	}
+	if err := s.reviseQuestions(ctx, func([]common.ApplicationQuestion) []common.ApplicationQuestion {
+		return engineeringQuestions
+	}); err != nil {
+		return err
+	}
 	next := 0
 	applicant := func() seededApplicant {
 		chosen := s.applicants[next%len(s.applicants)]
@@ -570,16 +580,17 @@ func (s *orgApplicationSeed) seedEngineeringOpening(ctx context.Context) error {
 			return fmt.Errorf("%s: %w", recipe.name, err)
 		}
 	}
-	return nil
+	return s.reviseQuestions(ctx, reviseAfterAnswers)
 }
 
 // seedQuickHireOpening gives the second published role the short pipeline,
-// so the Org portal shows two templates in use.
+// so the Org portal shows two templates in use, and one completed
+// conversation with both interviewers' feedback on its form.
 func (s *orgApplicationSeed) seedQuickHireOpening(ctx context.Context) error {
 	if err := s.useStages(ctx, quickHireOpening, quickHireStages); err != nil {
 		return err
 	}
-	for index, name := range []string{"submitted", "in review", "interview awaiting an answer"} {
+	for index, name := range []string{"submitted", "in review", "interview awaiting an answer", "feedback submitted"} {
 		who := s.applicants[(index+3)%len(s.applicants)]
 		number, err := s.apply(ctx, who, "")
 		if err != nil {
@@ -591,6 +602,13 @@ func (s *orgApplicationSeed) seedQuickHireOpening(ctx context.Context) error {
 		case "interview awaiting an answer":
 			if err = s.shortlist(ctx, number, "Conversation"); err == nil {
 				err = s.scheduleInterview(ctx, number, 48*time.Hour)
+			}
+		case "feedback submitted":
+			var start time.Time
+			if err = s.shortlist(ctx, number, "Conversation"); err == nil {
+				if start, err = s.scheduleSoon(ctx, number); err == nil {
+					err = s.completeWithFeedback(ctx, number, start)
+				}
 			}
 		}
 		if err != nil {

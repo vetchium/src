@@ -1,7 +1,7 @@
 # Hiring forms build progress
 
 branch: hiring-forms
-current: T09
+current: T10
 phase: implement
 
 ## Tasks
@@ -25,7 +25,7 @@ T08 done Hub portal: Answering application questions
 
 ### M4 Fixtures and finish
 
-T09 todo Hiring: Question and feedback form fixtures
+T09 done Hiring: Question and feedback form fixtures
 T10 todo Hiring forms: Guides, full verification, and plan removal
 
 ## Notes
