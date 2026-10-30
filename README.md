@@ -86,9 +86,10 @@ The seeds give each region (`sgp`, `usa1`, `deu`, `ind1`) Admin users with
 each combination of access and state, eight Hub users
 (`dev/hub-seed-profiles/<region>.json`), three hiring companies
 (`org1`–`org3.<region>.test`, one per plan, with Openings and applications in
-every state), two staffing agencies (`age1`, a client of every hiring company
-in every region with Jobs spread across `agent1@`… owners; `age2`, for its
-own region), and one interviewing, assessment, and background-verification
+every state, application questions answered and later revised, and interview
+feedback on feedback forms), two staffing agencies (`age1`, a client of every
+hiring company in every region with Jobs spread across `agent1@`… owners;
+`age2`, for its own region), and one interviewing, assessment, and background-verification
 provider each (`itv1`, `asm1`, `bgv1`) with routed work.
 
 Every seeded address ends in `.test`, such as `admin@sgp.test`,

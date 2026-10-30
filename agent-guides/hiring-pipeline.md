@@ -335,7 +335,9 @@ Vetchium never scores, ranks, or rejects an application by its answers.
   value valid for its type, bounds, and options. A blank text answer is no
   answer. A refusal is `hub-application-answers-invalid` (422, carries
   `question_ids`), a deterministic rejection stored as the command's outcome.
-  The apply page enforces the same bounds in its inputs.
+  The apply page enforces the same bounds in its inputs; on the refusal it
+  reloads the Opening, keeps the answers that still fit their questions, and
+  marks the named questions until edited.
 - **HP-QST-005** The application stores its answers once, at apply time, as a
   snapshot: every live question in order with its full definition and the
   answer, or none for an unanswered optional question. Nothing changes it
@@ -362,6 +364,11 @@ Vetchium never scores, ranks, or rejects an application by its answers.
   the question as it was asked. The Applicants and Candidates tabs offer a
   column picker for HP-QST-007, remembered per viewer and Opening in the
   browser.
+- Answer shapes and normalization live in `typespec/orgs/applications/answers`
+  (Go and TypeScript); the check against live questions is
+  `backend/internal/hubapply` `ValidateAnswers`, and `current` is judged in
+  `backend/handlers/orgs/applications/answers.go`. Extend these; never repeat
+  a check in a handler.
 
 ## Interview feedback forms
 
@@ -394,6 +401,9 @@ Vetchium never scores, ranks, or rejects an application by its answers.
   as rows and interviewers as columns, with the average of the `rating`
   answers whose `current` is `same`. A `changed` or `removed` answer shows
   marked, with the criterion as it was asked, outside the average.
+- Criteria answers are checked against a stage's form, and their `current`
+  judged, only in `backend/internal/feedbackform` (`Check`, `Judge`), for
+  in-house and provider feedback alike.
 
 ## Permissions
 

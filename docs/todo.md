@@ -140,9 +140,13 @@ Deferred:
 - Résumé files on applications. Decide formats, size, scanning, and the
   cross-tenant upload path (the browser reaches only its home tenant).
 - In-product messaging between an employing Org and an applicant (agency
-  conversations are specified), and Org-side questions on applications
-  (notice period, expected pay). Attachments and email notifications to Org
+  conversations are specified). Attachments and email notifications to Org
   users for new messages.
+- Reusable application questions and feedback criteria (a library an Org
+  picks from). Decide whether it lives beside pipeline templates and whether
+  picking copies ids (HP-QST-002).
+- Answer columns are remembered per browser (HP-QST-009). Decide where
+  per-user list settings live before saving them on the server.
 - Moving a candidacy back a stage and per-candidacy extra stages.
 - Offer approval chains; sharing offered compensation with a sourcing
   provider.
@@ -202,6 +206,8 @@ Not built:
   catalog allows another host, none is offered.
 - Admin reading of kept text needs only `admin:view_ai_usage`; decide whether
   it also needs step-up.
+- AI drafting of application questions or feedback criteria; drafting
+  returns none (HP-QST-002). Decide the operation and its credit cost.
 - Candidate scoring or any operation that evaluates people: settle EU AI Act
   high-risk duties (risk management, logging, human oversight) and NYC Local
   Law 144 bias audits first.

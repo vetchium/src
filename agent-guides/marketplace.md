@@ -680,7 +680,9 @@ Billable facts, each recorded by the party that owns it:
   (`age1.<region>.test` working for every hiring company in every region,
   `age2.<region>.test` for its own region's) with agents `agent1@` and up and
   Jobs spread across their owners, one provider per stage Capability
-  (`itv1`, `asm1`, `bgv1`) with `staff1@` and `staff2@` and routed work,
+  (`itv1`, `asm1`, `bgv1`) with `staff1@` and `staff2@` and routed work
+  (`itv1` with one upcoming interview and one completed with feedback on the
+  stage's form),
   engagements in each state, and agency Contacts with notes and
   conversations, including a `suggested` and a `declared` credit and a
   Contact with notes only, with Hub users in other regions.
