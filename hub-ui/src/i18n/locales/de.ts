@@ -701,6 +701,11 @@ export const de = {
       orgUnavailable:
         "Diese Organisation ist vorübergehend nicht erreichbar, daher kann der aktuelle Stand Ihrer Bewerbung nicht angezeigt werden. Bitte versuchen Sie es erneut.",
       nothingToDo: "Im Moment braucht nichts Ihre Antwort.",
+      answers: {
+        title: "Ihre Antworten",
+        help: "Die Fragen so, wie sie bei Ihrer Bewerbung gestellt wurden.",
+        notAnswered: "Nicht beantwortet",
+      },
       yourApplication: "Ihre Bewerbung",
       number: "Bewerbung",
       opening: "Stelle",
@@ -829,6 +834,22 @@ export const de = {
     },
     submit: "Bewerbung absenden",
     once: "Sie können sich auf jede Stelle nur einmal bewerben. Sie können später zurückziehen, sich aber nicht erneut bewerben.",
+    questions: {
+      title: "Fragen von {{org}}",
+      required: "Beantworten Sie diese Frage.",
+      range: "Von {{min}} bis {{max}}",
+      atLeast: "{{min}} oder mehr",
+      atMost: "Bis zu {{max}}",
+      wholeNumber: "Geben Sie eine ganze Zahl ein.",
+      outOfRange: "Geben Sie eine ganze Zahl ein: {{bounds}}.",
+      chooseAny: "Wählen Sie alle zutreffenden aus.",
+      yes: "Ja",
+      no: "Nein",
+      changed: "{{org}} hat diese Frage geändert. Prüfen Sie Ihre Antwort.",
+      changedTitle: "Die Fragen haben sich geändert",
+      changedHelp:
+        "Die Organisation hat ihre Fragen geändert, nachdem Sie diese Seite geöffnet haben. Antworten, die weiterhin passen, bleiben erhalten; prüfen Sie die markierten Fragen und bewerben Sie sich erneut.",
+    },
   },
   notFound: {
     title: "Seite nicht gefunden",

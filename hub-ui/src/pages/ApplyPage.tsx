@@ -18,6 +18,8 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import type { ApplicationQuestion } from "typespec/common/openings";
+import type { ApplicationAnswer } from "typespec/orgs/applications/answers";
 import {
   isApplicationCoverNote,
   maxCoverNote,
@@ -28,6 +30,8 @@ import {
   type OrgDomain,
 } from "typespec/orgs/types";
 import {
+  type ApplicationAnswersInvalidDetails,
+  ApplicationAnswersInvalidType,
   ApplicationExistsError,
   OpeningNotAcceptingError,
   ReferralAgencyNotEligibleError,
@@ -36,12 +40,18 @@ import {
   OpeningNotFoundError,
   OrgNotFoundError,
 } from "typespec/problem/hub/openings";
-import { isProblem } from "../api/client";
+import { APIError, isProblem } from "../api/client";
 import { hubAPI } from "../api/hub";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { NoIndex } from "../components/common/NoIndex";
 import { ActionError } from "../features/applications/ActionError";
 import { useApplicationAction } from "../features/applications/actions";
+import {
+  type AnswerValues,
+  answerFits,
+  answersFor,
+  QuestionInputs,
+} from "../features/applications/QuestionInputs";
 import { useMyApplicationsQuery } from "../features/applications/queries";
 import { useConversationsQuery } from "../features/messages/queries";
 import { useOrgOpeningQuery } from "../features/openings/queries";
@@ -83,7 +93,10 @@ function initials(name: string): string {
 
 interface ApplyForm {
   cover_note?: string;
+  answers?: AnswerValues;
 }
+
+const noQuestions: ApplicationQuestion[] = [];
 
 export function ApplyPage() {
   const { t } = useTranslation();
@@ -128,6 +141,9 @@ export function ApplyPage() {
     return list;
   }, [conversations.data, domain, number]);
 
+  const [form] = Form.useForm<ApplyForm>();
+  // Questions the Org's tenant refused; cleared one by one as they are edited.
+  const [refused, setRefused] = useState<string[]>([]);
   const [referralChoice, setReferralChoice] = useState<string>("none");
   const [otherDomain, setOtherDomain] = useState<string>("");
 
@@ -146,7 +162,14 @@ export function ApplyPage() {
   }, [referredByParam, suggestedAgencies]);
 
   const apply = useApplicationAction(
-    (request: { coverNote?: string; referralDomain?: OrgDomain }, key) =>
+    (
+      request: {
+        coverNote?: string;
+        referralDomain?: OrgDomain;
+        answers: ApplicationAnswer[];
+      },
+      key,
+    ) =>
       hubAPI.applyToOpening(
         {
           domain,
@@ -154,6 +177,7 @@ export function ApplyPage() {
           ...(request.coverNote !== undefined && {
             cover_note: request.coverNote,
           }),
+          ...(request.answers.length > 0 && { answers: request.answers }),
           ...(request.referralDomain !== undefined && {
             referral_agency_domain: request.referralDomain,
           }),
@@ -172,6 +196,8 @@ export function ApplyPage() {
   const referralNotEligible =
     apply.isError &&
     isProblem(apply.error, ReferralAgencyNotEligibleError.type);
+  const answersInvalid =
+    apply.isError && isProblem(apply.error, ApplicationAnswersInvalidType);
   const openingPath = `/org/${encodeURIComponent(domain)}/openings/${number}`;
 
   const notFound =
@@ -209,6 +235,38 @@ export function ApplyPage() {
       ? (opening.data.opening.content.title ?? "")
       : opening.data.opening.title;
   const data = profile.data;
+  const questions =
+    opening.data.opening.state === "published"
+      ? (opening.data.opening.content.questions ?? noQuestions)
+      : noQuestions;
+
+  // The Org changed its questions after this page loaded (HP-QST-004): read
+  // them again, keep the answers that still fit, and mark the named ones.
+  const recoverAnswers = async (error: unknown) => {
+    const named =
+      error instanceof APIError
+        ? ((error.problem as ApplicationAnswersInvalidDetails | undefined)
+            ?.question_ids ?? [])
+        : [];
+    const reloaded = await opening.refetch();
+    if (reloaded.isError) return;
+    const live =
+      reloaded.data?.opening.state === "published"
+        ? (reloaded.data.opening.content.questions ?? noQuestions)
+        : noQuestions;
+    const values = (form.getFieldValue("answers") ?? {}) as AnswerValues;
+    const kept: AnswerValues = {};
+    for (const question of live) {
+      if (question.id === undefined) continue;
+      const value = values[question.id];
+      if (value !== undefined && answerFits(question, value))
+        kept[question.id] = value;
+    }
+    form.setFieldValue("answers", kept);
+    setRefused(
+      named.filter((id) => live.some((question) => question.id === id)),
+    );
+  };
 
   return (
     <Space orientation="vertical" size="large" className="full-width">
@@ -252,7 +310,14 @@ export function ApplyPage() {
         />
       ) : (
         <Form<ApplyForm>
+          form={form}
           layout="vertical"
+          scrollToFirstError
+          onValuesChange={(changed: ApplyForm) => {
+            const edited = Object.keys(changed.answers ?? {});
+            if (edited.length > 0)
+              setRefused((ids) => ids.filter((id) => !edited.includes(id)));
+          }}
           onFinish={(values) => {
             const note = values.cover_note?.trim();
             const referral =
@@ -265,8 +330,13 @@ export function ApplyPage() {
               {
                 coverNote: note === undefined || note === "" ? undefined : note,
                 referralDomain: referral as OrgDomain | undefined,
+                answers: answersFor(questions, values.answers ?? {}),
               },
               {
+                onError: (error) => {
+                  if (isProblem(error, ApplicationAnswersInvalidType))
+                    void recoverAnswers(error);
+                },
                 onSuccess: (reference) => {
                   if ("application_number" in reference) {
                     void navigate(
@@ -332,6 +402,19 @@ export function ApplyPage() {
                     <Link to="/settings/profile">{t("apply.editProfile")}</Link>
                   </Space>
                 </Card>
+                {questions.length > 0 && (
+                  <Card
+                    title={t("apply.questions.title", {
+                      org: org.display_name,
+                    })}
+                  >
+                    <QuestionInputs
+                      questions={questions}
+                      invalid={refused}
+                      orgName={org.display_name}
+                    />
+                  </Card>
+                )}
                 <Card title={t("apply.coverNote.title")}>
                   <Form.Item
                     name="cover_note"
@@ -470,6 +553,13 @@ export function ApplyPage() {
                       type="warning"
                       showIcon
                       title={t("orgPage.notAccepting")}
+                    />
+                  ) : answersInvalid ? (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      title={t("apply.questions.changedTitle")}
+                      description={t("apply.questions.changedHelp")}
                     />
                   ) : referralNotEligible ? null : (
                     <ActionError error={apply.error} />

@@ -670,6 +670,11 @@ export const en = {
       orgUnavailable:
         "This organization is temporarily unavailable, so its latest news on your application cannot be shown. Try again.",
       nothingToDo: "Nothing needs your answer right now.",
+      answers: {
+        title: "Your answers",
+        help: "The questions as they were asked when you applied.",
+        notAnswered: "Not answered",
+      },
       yourApplication: "Your application",
       number: "Application",
       opening: "Opening",
@@ -796,6 +801,22 @@ export const en = {
     },
     submit: "Submit application",
     once: "You can apply once to each opening. You can withdraw later, but you can't apply again.",
+    questions: {
+      title: "Questions from {{org}}",
+      required: "Answer this question.",
+      range: "From {{min}} to {{max}}",
+      atLeast: "{{min}} or more",
+      atMost: "Up to {{max}}",
+      wholeNumber: "Enter a whole number.",
+      outOfRange: "Enter a whole number: {{bounds}}.",
+      chooseAny: "Choose any that apply.",
+      yes: "Yes",
+      no: "No",
+      changed: "{{org}} changed this question. Check your answer.",
+      changedTitle: "The questions changed",
+      changedHelp:
+        "The organization changed its questions after you opened this page. The answers that still fit are kept; check the marked questions and apply again.",
+    },
   },
   notFound: {
     title: "Page not found",

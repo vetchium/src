@@ -34,3 +34,4 @@ A fresh `make dev-seed` demonstrates every question type, stale answers, and
 feedback forms in-house and through a provider.
 
 ## Carried over
+- From T08: the Hub apply page sends `answers` from `hub-ui/src/features/applications/QuestionInputs.tsx` (`answersFor`); seeded applications with answers appear in the Hub "Your answers" card and the Orgs `AnswersCard`.

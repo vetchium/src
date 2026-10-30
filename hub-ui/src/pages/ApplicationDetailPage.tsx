@@ -26,6 +26,7 @@ import { isProblem } from "../api/client";
 import { hubAPI } from "../api/hub";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { ActionError } from "../features/applications/ActionError";
+import { AnswersCard } from "../features/applications/AnswersCard";
 import { useApplicationAction } from "../features/applications/actions";
 import { ConsentCard } from "../features/applications/ConsentCard";
 import { InterviewsCard } from "../features/applications/InterviewsCard";
@@ -191,6 +192,7 @@ export function ApplicationDetailPage() {
                 readLetterURL={readLetterURL}
               />
             ) : null}
+            <AnswersCard answers={application.answers} />
           </Space>
         </Col>
         <Col xs={24} lg={8}>
