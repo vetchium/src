@@ -1,9 +1,4 @@
-import {
-  ArrowDownOutlined,
-  ArrowUpOutlined,
-  DeleteOutlined,
-  PlusOutlined,
-} from "@ant-design/icons";
+import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   Alert,
   Button,
@@ -32,6 +27,7 @@ import {
   QuestionNumber,
   QuestionShortText,
 } from "typespec/common/openings";
+import { OrderControls } from "../../components/common/OrderControls";
 import { questionsDiffer } from "./publication";
 
 const minQuestionOptions = 2;
@@ -87,30 +83,18 @@ export function QuestionsEditor({
                   size="small"
                   title={t("openings.questions.number", { number })}
                   extra={
-                    <Flex gap={4}>
-                      <Button
-                        size="small"
-                        icon={<ArrowUpOutlined />}
-                        aria-label={t("openings.questions.moveUp", { number })}
-                        disabled={index === 0}
-                        onClick={() => move(index, index - 1)}
-                      />
-                      <Button
-                        size="small"
-                        icon={<ArrowDownOutlined />}
-                        aria-label={t("openings.questions.moveDown", {
-                          number,
-                        })}
-                        disabled={index === fields.length - 1}
-                        onClick={() => move(index, index + 1)}
-                      />
-                      <Button
-                        size="small"
-                        icon={<DeleteOutlined />}
-                        aria-label={t("openings.questions.remove", { number })}
-                        onClick={() => remove(field.name)}
-                      />
-                    </Flex>
+                    <OrderControls
+                      size="small"
+                      labels={{
+                        up: t("openings.questions.moveUp", { number }),
+                        down: t("openings.questions.moveDown", { number }),
+                        remove: t("openings.questions.remove", { number }),
+                      }}
+                      first={index === 0}
+                      last={index === fields.length - 1}
+                      onMove={(direction) => move(index, index + direction)}
+                      onRemove={() => remove(field.name)}
+                    />
                   }
                 >
                   <Form.Item name={[field.name, "id"]} hidden>

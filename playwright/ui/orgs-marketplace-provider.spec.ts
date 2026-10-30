@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { hubIdempotencyKey } from "../lib/hub-api.ts";
 import { orgSQL } from "../lib/orgs-api.ts";
+import { setStageForm } from "../lib/orgs-applications.ts";
 import {
   activate,
   asProvider,
@@ -188,6 +189,14 @@ test("schedules and gives feedback on routed interview work", async ({
 }) => {
   await withWorld(request, async (world) => {
     const interview = await activate(world.pair, "interviewing");
+    // The consumer's form is what the provider's interviewers fill.
+    await setStageForm(
+      world.pair.consumer.api,
+      world.pair.consumer.owner,
+      world.opening.opening_number,
+      1,
+      [{ text: "Depth", type: "rating", required: true }],
+    );
     await assign(world, interview.id, world.panel);
     const appDetail = await candidate(world, world.panel, "Margaret Hamilton");
     await route(world, appDetail, interview.id);
@@ -254,8 +263,16 @@ test("schedules and gives feedback on routed interview work", async ({
     const feedbackModal = page.getByRole("dialog");
     await expect(feedbackModal).toBeVisible();
     await feedbackModal
-      .locator("textarea")
+      .getByRole("textbox")
       .fill("Outstanding technical depth and systems knowledge.");
+    // The required rating of the consumer's form comes first.
+    await expect(
+      feedbackModal.getByRole("button", { name: "Submit feedback" }),
+    ).toBeDisabled();
+    await feedbackModal
+      .getByRole("radiogroup", { name: "Depth" })
+      .getByText("5", { exact: true })
+      .click();
     await feedbackModal
       .getByRole("button", { name: "Submit feedback" })
       .click();

@@ -12,6 +12,13 @@ import {
   maxFeedbackNotes,
 } from "typespec/orgs/applications/applications";
 import { ActionDialog } from "./ActionDialog";
+import {
+  CriteriaInputs,
+  type CriteriaValues,
+  criteriaAnswers,
+  criteriaComplete,
+} from "./CriteriaInputs";
+import { applicationProblem } from "./problems";
 import { useSubmitInterviewFeedbackMutation } from "./queries";
 
 interface Props {
@@ -34,9 +41,15 @@ export function InterviewFeedbackDialog({
   const [recommendation, setRecommendation] =
     useState<InterviewRecommendation>();
   const [notes, setNotes] = useState("");
+  const [criteria, setCriteria] = useState<CriteriaValues>({});
+  const [invalid, setInvalid] = useState<string[]>([]);
+  const form = interview.stage.feedback_form ?? [];
+  const answers = criteriaAnswers(form, criteria);
   const trimmed = notes.trim();
   const valid =
-    recommendation !== undefined && isInterviewFeedbackNotes(trimmed);
+    recommendation !== undefined &&
+    isInterviewFeedbackNotes(trimmed) &&
+    criteriaComplete(form, criteria);
 
   return (
     <ActionDialog
@@ -47,7 +60,12 @@ export function InterviewFeedbackDialog({
       okText={t("applications.feedback.confirm")}
       doneMessage={t("applications.feedback.done")}
       valid={valid}
-      fingerprint={JSON.stringify([recommendation, trimmed])}
+      fingerprint={JSON.stringify([recommendation, trimmed, answers])}
+      onRefused={(cause) => {
+        const problem = applicationProblem(cause);
+        if (problem.kind === "answers-invalid")
+          setInvalid(problem.criterionIDs);
+      }}
       submit={(key) =>
         submitFeedback.mutateAsync({
           request: {
@@ -57,6 +75,7 @@ export function InterviewFeedbackDialog({
             interview_number: interview.interview_number,
             recommendation: recommendation ?? "yes",
             notes: trimmed,
+            ...(answers.length > 0 && { criteria_answers: answers }),
           },
           key,
         })
@@ -82,6 +101,15 @@ export function InterviewFeedbackDialog({
             }))}
           />
         </Form.Item>
+        <CriteriaInputs
+          form={form}
+          values={criteria}
+          invalid={invalid}
+          onChange={(next) => {
+            setCriteria(next);
+            setInvalid([]);
+          }}
+        />
         <Form.Item
           label={t("applications.feedback.notes")}
           required

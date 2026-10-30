@@ -8,6 +8,7 @@ import {
   rowsFromStages,
   rowsProblem,
   sameRows,
+  toDefinitions,
   toInputs,
   updateRow,
 } from "./stageRows.ts";
@@ -66,4 +67,46 @@ test("a restored stage equals the stored one", () => {
   const changed = removeRow(rows, 0);
   assert.equal(sameRows(rows, changed), false);
   assert.equal(sameRows(rows, updateRow(changed, 0, { removed: false })), true);
+});
+
+test("forms travel with their criterion ids, and only interview stages send one", () => {
+  const criterion = {
+    id: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a50",
+    text: "Depth",
+    type: "rating" as const,
+    required: true,
+  };
+  const rows = rowsFromStages([
+    { id: "a", name: "Screen", kind: "review" as const },
+    { id: "b", name: "Panel", kind: "interview", feedback_form: [criterion] },
+  ]);
+  assert.deepEqual(toInputs(rows)[1]?.feedback_form, [criterion]);
+  assert.equal("feedback_form" in (toInputs(rows)[0] ?? {}), false);
+  // A new stage switched away from interview keeps its draft form unsent.
+  const switched = updateRow([newRow("interview", "Call")], 0, {
+    form: [{ text: " Clarity ", type: "yes_no", required: false }],
+  });
+  assert.deepEqual(toDefinitions(switched)[0]?.feedback_form, [
+    { text: "Clarity", type: "yes_no", required: false },
+  ]);
+  assert.equal(
+    "feedback_form" in
+      (toDefinitions(updateRow(switched, 0, { kind: "review" }))[0] ?? {}),
+    false,
+  );
+});
+
+test("a form change makes the rows differ, and a blank criterion blocks saving", () => {
+  const rows = rowsFromStages(stages);
+  const formed = updateRow(rows, 1, {
+    form: [{ text: "", type: "text", required: false }],
+  });
+  assert.equal(sameRows(rows, formed), false);
+  assert.equal(rowsProblem(formed), "criterion");
+  // A form on a review stage is never sent, so it never blocks or differs.
+  const review = updateRow(rows, 0, {
+    form: [{ text: "", type: "text", required: false }],
+  });
+  assert.equal(sameRows(rows, review), true);
+  assert.equal(rowsProblem(review), "none");
 });

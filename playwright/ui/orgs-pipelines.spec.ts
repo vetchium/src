@@ -149,7 +149,8 @@ test("a template name already taken is refused beside the name, and edits are gu
     ]);
     await signIn(page, org);
     await page.goto(`${ORGS_PORTAL}/pipeline-templates`);
-    await page.getByRole("button", { name: "New template" }).click();
+    // The empty state has its own New template button until the list loads.
+    await page.getByRole("button", { name: "New template" }).first().click();
     const drawer = page.getByRole("dialog");
     await drawer
       .getByRole("textbox", { name: "Name", exact: true })
@@ -412,5 +413,94 @@ test("members without Opening management see neither templates nor the Pipeline 
       "aria-selected",
       "true",
     );
+  });
+});
+
+test("a template's interview stage carries a feedback form, kept by id when edited", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/pipeline-templates`);
+    await page.getByRole("button", { name: "New template" }).first().click();
+    const drawer = page.getByRole("dialog");
+    await drawer
+      .getByRole("textbox", { name: "Name", exact: true })
+      .fill("Interview loop");
+    await drawer.getByRole("textbox", { name: "Stage 1 name" }).fill("Panel");
+    // Only interview stages have a form.
+    await expect(
+      drawer.getByRole("button", { name: /^Feedback form for/ }),
+    ).toHaveCount(0);
+    await chooseKind(page, 1, "Interview");
+    await drawer
+      .getByRole("button", { name: "Feedback form for Panel (0 criteria)" })
+      .click();
+    await drawer.getByRole("button", { name: "Add criterion" }).click();
+    const save = drawer.getByRole("button", { name: "Save template" });
+    await expect(save).toBeDisabled();
+    await expect(
+      drawer.getByText("Give every feedback form criterion its text."),
+    ).toBeVisible();
+    await drawer
+      .getByRole("textbox", { name: "Criterion 1 of Panel" })
+      .fill("System design");
+    await drawer.getByRole("checkbox", { name: "Required" }).check();
+    await drawer.getByRole("button", { name: "Add criterion" }).click();
+    await drawer
+      .getByRole("textbox", { name: "Criterion 2 of Panel" })
+      .fill("Would hire");
+    await drawer
+      .getByRole("combobox", { name: "Answer type of criterion 2 of Panel" })
+      .click();
+    await page
+      .locator(".ant-select-dropdown:visible")
+      .getByTitle("Yes or no", { exact: true })
+      .click();
+    await drawer
+      .getByRole("button", { name: "Move criterion 2 of Panel up" })
+      .click();
+    await save.click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    const listed = async () => {
+      const response = await api.listPipelineTemplates(owner, {});
+      expect(response.status(), await response.text()).toBe(200);
+      const body = (await response.json()) as {
+        templates: PipelineTemplate[];
+      };
+      return body.templates[0]?.stages[0]?.feedback_form ?? [];
+    };
+    const form = await listed();
+    expect(form).toEqual([
+      {
+        id: expect.any(String),
+        text: "Would hire",
+        type: "yes_no",
+        required: false,
+      },
+      {
+        id: expect.any(String),
+        text: "System design",
+        type: "rating",
+        required: true,
+      },
+    ]);
+
+    await page
+      .getByRole("button", { name: "Edit template Interview loop" })
+      .click();
+    const editor = page.getByRole("dialog");
+    // A stage with a form opens with it shown.
+    await editor
+      .getByRole("textbox", { name: "Criterion 2 of Panel" })
+      .fill("Architecture");
+    await editor.getByRole("button", { name: "Save template" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(await listed()).toEqual([
+      form[0],
+      { ...form[1], text: "Architecture" },
+    ]);
   });
 });

@@ -25,6 +25,7 @@ import {
   useRouteApplicationMutation,
 } from "../marketplace/queries";
 import { CheckResultDialog } from "./CheckResultDialog";
+import { FeedbackComparison } from "./FeedbackComparison";
 import { InterviewDialog } from "./InterviewDialog";
 import { InterviewFeedbackDialog } from "./InterviewFeedbackDialog";
 import {
@@ -266,6 +267,7 @@ export function StageWork({
                       </Typography.Text>
                     </Flex>
                   ))}
+                  <FeedbackComparison interview={interview} />
                   <InterviewRowActions
                     interview={interview}
                     now={now}

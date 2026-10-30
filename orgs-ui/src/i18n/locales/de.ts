@@ -1583,6 +1583,8 @@ export const de = {
       interviewStateConflict:
         "Status oder Zeitpunkt des Interviews erlauben diese Aktion nicht mehr. Die Ansicht wurde neu geladen.",
       feedbackExists: "Sie haben zu diesem Interview bereits Feedback gegeben.",
+      answersInvalid:
+        "Einige Antworten passen nicht zum Feedbackformular dieser Phase, das sich gerade geändert haben kann. Prüfen Sie die markierten Kriterien.",
       interviewLimit:
         "Eine Stufe enthält höchstens {{count}} Interviews. Sagen Sie eines ab, bevor Sie ein weiteres planen.",
       interviewersInvalid:
@@ -1836,6 +1838,17 @@ export const de = {
         "Was Sie gesehen haben und warum Sie dies empfehlen. Bis zu 10.000 Zeichen.",
       final:
         "Feedback lässt sich nur einmal senden und danach nicht mehr ändern.",
+      criterionInvalid: "Prüfen Sie diese Antwort anhand des Kriteriums.",
+      compare: {
+        heading: "Antworten im Feedbackformular",
+        title: "Antworten im Feedbackformular für Interview {{number}}",
+        criterion: "Kriterium",
+        average: "Durchschnittliche Bewertung",
+        notAsked: "Nicht gefragt",
+        changed: "Kriterium geändert",
+        removed: "Kriterium entfernt",
+        asked: "Gefragt als: {{text}}",
+      },
     },
     assessment: {
       action: "Testergebnis erfassen",
@@ -2017,6 +2030,29 @@ export const de = {
       empty: "Eine Pipeline braucht mindestens eine Phase.",
       tooMany: "Eine Pipeline hat höchstens 15 Phasen.",
       name: "Geben Sie jeder Phase einen Namen mit 1 bis 100 Zeichen.",
+      criterion: "Geben Sie jedem Kriterium des Feedbackformulars einen Text.",
+    },
+    form: {
+      toggle_one: "Feedbackformular für {{stage}} ({{count}} Kriterium)",
+      toggle_other: "Feedbackformular für {{stage}} ({{count}} Kriterien)",
+      unnamed: "diese Phase",
+      label: "Feedbackformular für {{stage}}",
+      help: "Optional. Interviewende beantworten diese Kriterien neben ihrer Empfehlung und ihren Notizen.",
+      criterion: "Kriterium {{number}} von {{stage}}",
+      criterionPlaceholder: "Was sollen Interviewende beurteilen?",
+      type: "Antworttyp von Kriterium {{number}} von {{stage}}",
+      types: { rating: "Bewertung 1–5", yes_no: "Ja oder Nein", text: "Text" },
+      required: "Erforderlich",
+      moveUp: "Kriterium {{number}} von {{stage}} nach oben",
+      moveDown: "Kriterium {{number}} von {{stage}} nach unten",
+      remove: "Kriterium {{number}} von {{stage}} entfernen",
+      add: "Kriterium hinzufügen",
+      count: "{{count}} von {{limit}} Kriterien",
+      limitReached: "Ein Formular hat höchstens {{limit}} Kriterien.",
+      changedWithFeedback_one:
+        "{{count}} Person hat hier bereits Feedback abgegeben. Es behält seine Antworten, und geänderte Kriterien werden als geändert angezeigt.",
+      changedWithFeedback_other:
+        "{{count}} Personen haben hier bereits Feedback abgegeben. Es behält seine Antworten, und geänderte Kriterien werden als geändert angezeigt.",
     },
     errors: {
       inUse:

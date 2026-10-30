@@ -1543,6 +1543,8 @@ export const en = {
       interviewStateConflict:
         "The interview's state or time no longer allows this action. It was reloaded.",
       feedbackExists: "You already gave feedback on this interview.",
+      answersInvalid:
+        "Some answers do not fit this stage's feedback form, which may have just changed. Check the marked criteria.",
       interviewLimit:
         "A stage holds at most {{count}} interviews. Cancel one before scheduling another.",
       interviewersInvalid:
@@ -1788,6 +1790,17 @@ export const en = {
       notesHelp:
         "What you saw and why you recommend this. Up to 10,000 characters.",
       final: "You can submit feedback once; it cannot be edited afterwards.",
+      criterionInvalid: "Check this answer against the criterion.",
+      compare: {
+        heading: "Feedback form answers",
+        title: "Feedback form answers for interview {{number}}",
+        criterion: "Criterion",
+        average: "Average rating",
+        notAsked: "Not asked",
+        changed: "Criterion changed",
+        removed: "Criterion removed",
+        asked: "Asked as: {{text}}",
+      },
     },
     assessment: {
       action: "Record assessment result",
@@ -1967,6 +1980,29 @@ export const en = {
       empty: "A pipeline needs at least one stage.",
       tooMany: "A pipeline has at most 15 stages.",
       name: "Give every stage a name of 1 to 100 characters.",
+      criterion: "Give every feedback form criterion its text.",
+    },
+    form: {
+      toggle_one: "Feedback form for {{stage}} ({{count}} criterion)",
+      toggle_other: "Feedback form for {{stage}} ({{count}} criteria)",
+      unnamed: "this stage",
+      label: "Feedback form for {{stage}}",
+      help: "Optional. Interviewers answer these criteria beside their recommendation and notes.",
+      criterion: "Criterion {{number}} of {{stage}}",
+      criterionPlaceholder: "What should interviewers judge?",
+      type: "Answer type of criterion {{number}} of {{stage}}",
+      types: { rating: "Rating 1–5", yes_no: "Yes or no", text: "Text" },
+      required: "Required",
+      moveUp: "Move criterion {{number}} of {{stage}} up",
+      moveDown: "Move criterion {{number}} of {{stage}} down",
+      remove: "Remove criterion {{number}} of {{stage}}",
+      add: "Add criterion",
+      count: "{{count}} of {{limit}} criteria",
+      limitReached: "A form has at most {{limit}} criteria.",
+      changedWithFeedback_one:
+        "{{count}} interviewer has already submitted feedback here. It keeps its answers, and changed criteria will show as changed.",
+      changedWithFeedback_other:
+        "{{count}} interviewers have already submitted feedback here. Their feedback keeps its answers, and changed criteria will show as changed.",
     },
     errors: {
       inUse:

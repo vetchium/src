@@ -4,7 +4,11 @@ import type {
   OpeningContent,
 } from "typespec/common/openings";
 import type { ApplicationDetail } from "typespec/orgs/applications/applications";
-import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
+import type {
+  FeedbackCriterion,
+  PipelineStage,
+} from "typespec/orgs/hiring/pipelines";
+import type { OpeningPipeline } from "typespec/orgs/openings/pipeline";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { sqlLiteral, type TestTenant } from "./admin-db.ts";
 import { type OrgsAPI, orgDID, orgSQL, type SignedUpOrg } from "./orgs-api.ts";
@@ -152,4 +156,35 @@ export async function detailOf(
   });
   expect(response.status(), await response.text()).toBe(200);
   return (await response.json()) as ApplicationDetail;
+}
+
+/** Replaces the feedback form of the stage at `index`, keeping the rest. */
+export async function setStageForm(
+  api: Api,
+  owner: string,
+  opening: number,
+  index: number,
+  form: FeedbackCriterion[],
+): Promise<FeedbackCriterion[]> {
+  const current = await api.getOpeningPipeline(owner, {
+    opening_number: opening,
+  });
+  const pipeline = (await current.json()) as OpeningPipeline;
+  const replaced = await api.replaceOpeningPipeline(owner, {
+    opening_number: opening,
+    version: pipeline.version,
+    stages: pipeline.stages.map((stage, position) => ({
+      id: stage.id,
+      name: stage.name,
+      kind: stage.kind,
+      ...(position === index
+        ? { feedback_form: form }
+        : stage.feedback_form && { feedback_form: stage.feedback_form }),
+    })),
+  });
+  expect(replaced.status(), await replaced.text()).toBe(200);
+  return (
+    ((await replaced.json()) as OpeningPipeline).stages[index]?.feedback_form ??
+    []
+  );
 }
