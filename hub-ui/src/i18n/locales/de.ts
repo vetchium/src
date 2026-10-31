@@ -7,6 +7,7 @@ export const de = {
     monogram: "V",
     homeLabel: "Vetchium-Startseite",
     footer: "Vetchium",
+    accountMenu: "Kontomenü für {{account}}",
     logout: "Abmelden",
     operationInProgress:
       "Schließen Sie den laufenden Vorgang ab, bevor Sie diese Seite verlassen.",

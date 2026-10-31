@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import type { PublicProfile } from "typespec/hub/profile/public";
-import { stubNoApplications } from "../lib/hub-ui-stubs.ts";
+import { stubShellReads } from "../lib/hub-ui-stubs.ts";
 import { HUB_PORTAL } from "../lib/portals.ts";
 
 const profile: PublicProfile = {
@@ -42,9 +42,17 @@ const profile: PublicProfile = {
   language_abilities: [{ language_tag: "de", ability: "speaking" }],
 };
 
+const ownHandle = "local000-00000000001";
+
+/** Whether a profile read is the shell's read of the viewer's own profile,
+ * which `stubShellReads` answers, rather than the profile the page shows. */
+function readsOwnProfile(body: unknown): boolean {
+  return (body as { address?: unknown }).address === ownHandle;
+}
+
 async function signedIn(page: Page) {
-  await stubNoApplications(page);
-  await page.addInitScript(() => {
+  await stubShellReads(page);
+  await page.addInitScript((handle) => {
     sessionStorage.setItem(
       "vetchium.hub.session",
       JSON.stringify({
@@ -54,12 +62,12 @@ async function signedIn(page: Page) {
           session_expires_at: new Date(Date.now() + 60_000).toISOString(),
           preferred_language: "en-US",
           resident_country: "SG",
-          handle: "local000-00000000001",
+          handle,
           remembered: false,
         },
       }),
     );
-  });
+  }, ownHandle);
   // The portal shell reads the subscription on every page to decide whether an
   // ending entitlement needs announcing.
   await page.route("**/api/hub/my-subscription", (route) =>
@@ -77,7 +85,7 @@ async function signedIn(page: Page) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        handle: "local000-00000000001",
+        handle: ownHandle,
         email_address: "local@example.com",
         display_name: "Local Viewer",
         preferred_language: "en-US",
@@ -96,6 +104,10 @@ test("authenticated users can view a remote profile through an alias", async ({
 }) => {
   await signedIn(page);
   await page.route("**/api/hub/profile/read", async (route) => {
+    if (readsOwnProfile(route.request().postDataJSON())) {
+      await route.fallback();
+      return;
+    }
     expect(route.request().postDataJSON()).toEqual({ address: "shared-name" });
     await route.fulfill({
       status: 200,
@@ -231,6 +243,10 @@ test("invalid profile addresses do not trigger a profile API request", async ({
   await signedIn(page);
   let requested = false;
   await page.route("**/api/hub/profile/read", async (route) => {
+    if (readsOwnProfile(route.request().postDataJSON())) {
+      await route.fallback();
+      return;
+    }
     requested = true;
     await route.abort();
   });

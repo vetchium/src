@@ -7,6 +7,7 @@ export const ta = {
     monogram: "V",
     homeLabel: "Vetchium முகப்பு",
     footer: "Vetchium",
+    accountMenu: "{{account}} கணக்கு மெனு",
     logout: "வெளியேறு",
     operationInProgress:
       "இந்தப் பக்கத்தை விட்டு வெளியேறும் முன் நடந்துகொண்டிருக்கும் செயலை முடிக்கவும்.",

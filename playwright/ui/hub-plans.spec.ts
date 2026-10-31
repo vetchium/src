@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import type { PublicProfile } from "typespec/hub/profile/public";
 import type { HubSubscription } from "typespec/hub/subscriptions/subscriptions";
-import { stubNoApplications } from "../lib/hub-ui-stubs.ts";
+import { stubShellReads } from "../lib/hub-ui-stubs.ts";
 import { HUB_PORTAL } from "../lib/portals.ts";
 
 const sessionKey = "vetchium.hub.session";
@@ -25,7 +25,7 @@ function myInfo(preferredLanguage = "en-US") {
 
 /** Stores a session issued by `tenantId`, whose plans the page offers. */
 async function provideStoredSession(page: Page, tenantId = "sgp") {
-  await stubNoApplications(page);
+  await stubShellReads(page);
   await page.addInitScript(
     ({ key, sessionToken, handle, tenantId }) =>
       sessionStorage.setItem(

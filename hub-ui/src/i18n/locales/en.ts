@@ -5,6 +5,7 @@ export const en = {
     monogram: "V",
     homeLabel: "Vetchium home",
     footer: "Vetchium",
+    accountMenu: "Account menu for {{account}}",
     logout: "Sign out",
     operationInProgress:
       "Finish the operation in progress before leaving this page.",

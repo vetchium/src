@@ -231,7 +231,9 @@ test("a Hub user applies from the Opening page and finds the application", async
 
     // What the Org will see, and that the note is optional.
     await expect(page.getByText(/^What .* will see$/)).toBeVisible();
-    await expect(page.getByText(world.applicant.displayName)).toBeVisible();
+    await expect(
+      page.getByRole("main").getByText(world.applicant.displayName),
+    ).toBeVisible();
     await expect(
       page.getByText(/never shared/, { exact: false }),
     ).toBeVisible();

@@ -26,8 +26,10 @@ import {
   type MyInfoQueryData,
   myInfoQueryKey,
   useMyInfoQuery,
+  usePublicProfileQuery,
 } from "../../features/profile/queries";
 import { SubscriptionEndingAlert } from "../../features/subscriptions/SubscriptionEndingAlert";
+import { ProfileAvatar } from "./ProfileAvatar";
 
 const navigationPaths = [
   "/applications",
@@ -47,6 +49,9 @@ export function AppShell() {
   const preferences = usePreferences();
   const queryClient = useQueryClient();
   const { data: me } = useMyInfoQuery();
+  // The picture is signed media read with the own profile; until it arrives,
+  // or when there is none, the avatar shows the display name's initial.
+  const ownProfile = usePublicProfileQuery(me?.handle ?? "", me !== undefined);
   const applicationCounts = useMyApplicationCountsQuery();
   const conversations = useConversationsQuery(auth.authenticated);
   const answerNeeded = applicationCounts.data?.awaiting_answer ?? 0;
@@ -150,6 +155,22 @@ export function AppShell() {
       onSelectLanguage={selectLanguage}
       languagePending={languageMutation.isPending}
       banner={<SubscriptionEndingAlert />}
+      account={
+        me === undefined
+          ? undefined
+          : {
+              label: me.display_name,
+              avatar: (
+                <ProfileAvatar
+                  size={24}
+                  displayName={me.display_name}
+                  src={ownProfile.data?.profile_picture_url}
+                  alt=""
+                />
+              ),
+              items: [],
+            }
+      }
     />
   );
 }

@@ -51,6 +51,8 @@ const { Content, Footer, Header, Sider } = Layout;
 export interface AccountMenu {
   /** Names the signed-in person, such as their address. */
   label: string;
+  /** Shown in place of the generic person icon, such as their picture. */
+  avatar?: ReactNode;
   items: ItemType[];
 }
 
@@ -130,7 +132,9 @@ export function HeaderControls<Locale extends string = string>({
               accountSelectedKey === undefined ? [] : [accountSelectedKey],
             items: [
               ...account.items,
-              { type: "divider" },
+              ...(account.items.length === 0
+                ? []
+                : [{ type: "divider" } as const]),
               {
                 key: signOutKey,
                 icon: <LogoutOutlined />,
@@ -144,7 +148,7 @@ export function HeaderControls<Locale extends string = string>({
           <Button
             type="text"
             shape={compact ? "circle" : undefined}
-            icon={<UserOutlined />}
+            icon={account.avatar ?? <UserOutlined />}
             aria-label={t("shell.accountMenu", { account: account.label })}
           >
             {compact ? null : (

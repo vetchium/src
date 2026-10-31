@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { stubNoApplications } from "../lib/hub-ui-stubs.ts";
+import { stubShellReads } from "../lib/hub-ui-stubs.ts";
 import { HUB_PORTAL, rememberRegion } from "../lib/portals.ts";
 import { chooseRegion } from "../lib/region-ui.ts";
 
@@ -75,8 +75,8 @@ async function provideStoredSession(
   page: import("@playwright/test").Page,
   extra: Record<string, unknown> = {},
 ) {
+  await stubShellReads(page);
   await provideOwnProfile(page);
-  await stubNoApplications(page);
   await page.addInitScript(
     ({ key, sessionToken, handle, extra }) =>
       sessionStorage.setItem(
@@ -260,13 +260,51 @@ test("sign out clears the stored session and returns to sign in", async ({
     await route.fulfill({ status: 204 });
   });
   await page.goto(HUB_PORTAL);
-  await page.getByRole("button", { name: "Sign out" }).click();
+  const accountMenu = page.getByRole("button", {
+    name: "Account menu for Example Person",
+  });
+  await expect(accountMenu).toContainText("Example Person");
+  await expect(accountMenu).toContainText("E");
+  await expect(accountMenu.locator("img")).toHaveCount(0);
+  await accountMenu.click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
 
   await expect(page).toHaveURL(`${HUB_PORTAL}/login`);
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   expect(
     await page.evaluate((key) => sessionStorage.getItem(key), sessionKey),
   ).toBeNull();
+});
+
+test("the account menu shows the profile picture", async ({ page }) => {
+  await provideStoredSession(page);
+  await provideMyInfo(page);
+  await provideMySubscription(page);
+  const picture =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+  await page.route("**/api/hub/profile/read", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        display_name: "Example Person",
+        handle,
+        resident_country: "SG",
+        profile_picture_url: picture,
+        websites: [],
+        work_experiences: [],
+        educational_qualifications: [],
+        certifications: [],
+        language_abilities: [],
+      }),
+    });
+  });
+  await page.goto(HUB_PORTAL);
+
+  const accountMenu = page.getByRole("button", {
+    name: "Account menu for Example Person",
+  });
+  await expect(accountMenu.locator("img")).toHaveAttribute("src", picture);
 });
 
 test("the single home entry remains usable on a narrow viewport", async ({
@@ -370,8 +408,8 @@ test("password sign in stores the returned session and opens the home page", asy
   page,
 }) => {
   await rememberRegion(context, "hub", "sgp");
+  await stubShellReads(page);
   await provideOwnProfile(page);
-  await stubNoApplications(page);
   await provideMyInfo(page);
   await provideMySubscription(page);
   await page.route("**/api/hub/login", async (route) => {
