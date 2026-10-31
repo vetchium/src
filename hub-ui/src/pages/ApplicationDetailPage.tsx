@@ -15,6 +15,7 @@ import {
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
+import { closedApplicationStatuses } from "typespec/hub/applications/applications";
 import { isApplicationNumber } from "typespec/orgs/applications/applications";
 import { isOrgDomain, normalizeOrgDomain } from "typespec/orgs/types";
 import {
@@ -31,16 +32,15 @@ import { useApplicationAction } from "../features/applications/actions";
 import { ConsentCard } from "../features/applications/ConsentCard";
 import { InterviewsCard } from "../features/applications/InterviewsCard";
 import { OfferCard } from "../features/applications/OfferCard";
-import { progressStatuses } from "../features/applications/presentation";
+import {
+  progressStatuses,
+  withdrawableStatuses,
+} from "../features/applications/presentation";
 import { useMyApplicationQuery } from "../features/applications/queries";
 import { StatusTag } from "../features/applications/StatusTag";
 
-const withdrawable: readonly string[] = [
-  "applied",
-  "in_review",
-  "interviewing",
-  "offer",
-];
+/** Closed statuses that end before joining, each said in one sentence. */
+const outcomes: readonly string[] = ["not_selected", "declined", "withdrawn"];
 
 export function ApplicationDetailPage() {
   const { t } = useTranslation();
@@ -110,8 +110,11 @@ export function ApplicationDetailPage() {
   const statusIndex = (progressStatuses as readonly string[]).indexOf(
     application.status,
   );
+  const closed = (closedApplicationStatuses as readonly string[]).includes(
+    application.status,
+  );
   const offerAnswerable =
-    application.offer !== undefined && application.status === "offer";
+    application.offer !== undefined && application.status === "offered";
   const readLetterURL = async () => {
     const fresh = await result.refetch();
     return fresh.data?.offer?.letter_url;
@@ -136,7 +139,7 @@ export function ApplicationDetailPage() {
           {application.opening_title}
         </Typography.Title>
         <StatusTag status={application.status} />
-        {withdrawable.includes(application.status) ? (
+        {withdrawableStatuses.includes(application.status) ? (
           <Button danger onClick={() => setWithdrawing(true)}>
             {t("applications.withdraw.action")}
           </Button>
@@ -151,12 +154,23 @@ export function ApplicationDetailPage() {
       {statusIndex >= 0 ? (
         <Card>
           <Steps
+            size="small"
+            titlePlacement="vertical"
             current={statusIndex}
+            status={application.status === "joined" ? "finish" : "process"}
             items={progressStatuses.map((status) => ({
               title: t(`applications.status.${status}`),
             }))}
           />
         </Card>
+      ) : outcomes.includes(application.status) ? (
+        <Alert
+          type="info"
+          showIcon
+          title={t(`applications.outcome.${application.status}`, {
+            org: application.org_display_name,
+          })}
+        />
       ) : null}
       <Row gutter={[24, 24]}>
         <Col xs={24} lg={16}>
@@ -211,13 +225,15 @@ export function ApplicationDetailPage() {
                 </Descriptions.Item>
               </Descriptions>
             </Card>
-            <Card>
-              <Typography.Text type="secondary">
-                {t("applications.detail.orgDecides", {
-                  org: application.org_display_name,
-                })}
-              </Typography.Text>
-            </Card>
+            {closed ? null : (
+              <Card>
+                <Typography.Text type="secondary">
+                  {t("applications.detail.orgDecides", {
+                    org: application.org_display_name,
+                  })}
+                </Typography.Text>
+              </Card>
+            )}
           </Space>
         </Col>
       </Row>

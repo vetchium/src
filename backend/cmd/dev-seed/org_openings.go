@@ -96,12 +96,12 @@ func (s *orgSeeder) seedOrgOpenings(ctx context.Context, domain orgs.OrgDomain, 
 		}
 		return change(opening, openings.PublishRequest, adminToken)
 	}
-	// Each title is stable within a fresh development stack so the states are
-	// easy to recognize in the Orgs portal.
-	if _, err := create(0, "Draft: platform engineer", false); err != nil {
+	// Plain job titles, because Hub users see them; the Orgs portal tags each
+	// Opening with its state.
+	if _, err := create(0, "Platform engineer", false); err != nil {
 		return fmt.Errorf("draft: %w", err)
 	}
-	discarded, err := create(1, "Discarded: support specialist", false)
+	discarded, err := create(1, "Support specialist", false)
 	if err != nil {
 		return fmt.Errorf("discarded draft: %w", err)
 	}
@@ -111,11 +111,11 @@ func (s *orgSeeder) seedOrgOpenings(ctx context.Context, domain orgs.OrgDomain, 
 		return fmt.Errorf("discard draft: %w", err)
 	}
 
-	revised, err := publish(2, "Published: product designer")
+	revised, err := publish(2, "Product designer")
 	if err != nil {
 		return fmt.Errorf("published: %w", err)
 	}
-	revision := seedOpeningContent(2, "Published: senior product designer")
+	revision := seedOpeningContent(2, "Senior product designer")
 	revised, err = s.openingPost(ctx, "save-opening-working-copy", openings.SaveOpeningWorkingCopyRequest{
 		OpeningNumber: revised.OpeningNumber, Version: revised.Version, Content: &revision,
 	}, adminToken, http.StatusOK)
@@ -126,14 +126,14 @@ func (s *orgSeeder) seedOrgOpenings(ctx context.Context, domain orgs.OrgDomain, 
 		return fmt.Errorf("apply revision: %w", err)
 	}
 
-	paused, err := publish(3, "Paused: data analyst")
+	paused, err := publish(3, "Data analyst")
 	if err != nil {
 		return fmt.Errorf("publish paused role: %w", err)
 	}
 	if _, err := change(paused, openings.PauseRequest, adminToken); err != nil {
 		return fmt.Errorf("pause: %w", err)
 	}
-	closed, err := publish(4, "Closed: operations lead")
+	closed, err := publish(4, "Operations lead")
 	if err != nil {
 		return fmt.Errorf("publish closed role: %w", err)
 	}
@@ -141,18 +141,18 @@ func (s *orgSeeder) seedOrgOpenings(ctx context.Context, domain orgs.OrgDomain, 
 		return fmt.Errorf("close: %w", err)
 	}
 
-	pendingPublish, err := create(5, "Pending publish: security engineer", true)
+	pendingPublish, err := create(5, "Security engineer", true)
 	if err != nil {
 		return fmt.Errorf("create pending publish: %w", err)
 	}
 	if _, err := change(pendingPublish, openings.PublishRequest, recruiterToken); err != nil {
 		return fmt.Errorf("request publish: %w", err)
 	}
-	pendingRevise, err := publish(6, "Pending revise: researcher")
+	pendingRevise, err := publish(6, "Researcher")
 	if err != nil {
 		return fmt.Errorf("publish revision target: %w", err)
 	}
-	working := seedOpeningContent(6, "Pending revise: senior researcher")
+	working := seedOpeningContent(6, "Senior researcher")
 	pendingRevise, err = s.openingPost(ctx, "save-opening-working-copy", openings.SaveOpeningWorkingCopyRequest{
 		OpeningNumber: pendingRevise.OpeningNumber, Version: pendingRevise.Version, Content: &working,
 	}, recruiterToken, http.StatusOK)
@@ -162,14 +162,14 @@ func (s *orgSeeder) seedOrgOpenings(ctx context.Context, domain orgs.OrgDomain, 
 	if _, err := change(pendingRevise, openings.ReviseRequest, recruiterToken); err != nil {
 		return fmt.Errorf("request revise: %w", err)
 	}
-	pendingPause, err := publish(7, "Pending pause: account manager")
+	pendingPause, err := publish(7, "Account manager")
 	if err != nil {
 		return fmt.Errorf("publish pause target: %w", err)
 	}
 	if _, err := change(pendingPause, openings.PauseRequest, recruiterToken); err != nil {
 		return fmt.Errorf("request pause: %w", err)
 	}
-	pendingReopen, err := publish(8, "Pending reopen: service designer")
+	pendingReopen, err := publish(8, "Service designer")
 	if err != nil {
 		return fmt.Errorf("publish reopen target: %w", err)
 	}
@@ -180,7 +180,7 @@ func (s *orgSeeder) seedOrgOpenings(ctx context.Context, domain orgs.OrgDomain, 
 	if _, err := change(pendingReopen, openings.ReopenRequest, recruiterToken); err != nil {
 		return fmt.Errorf("request reopen: %w", err)
 	}
-	pendingClose, err := publish(9, "Pending close: technical writer")
+	pendingClose, err := publish(9, "Technical writer")
 	if err != nil {
 		return fmt.Errorf("publish close target: %w", err)
 	}

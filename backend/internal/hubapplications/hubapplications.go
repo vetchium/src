@@ -65,15 +65,17 @@ func Status(
 			return hubspec.Interviewing, nil
 		}
 		return hubspec.InReview, nil
-	case sqlc.VetchiumOrgApplicationStateOffered,
-		sqlc.VetchiumOrgApplicationStateOfferAccepted:
-		return hubspec.Offer, nil
+	case sqlc.VetchiumOrgApplicationStateOffered:
+		return hubspec.Offered, nil
+	case sqlc.VetchiumOrgApplicationStateOfferAccepted:
+		return hubspec.OfferAccepted, nil
 	case sqlc.VetchiumOrgApplicationStateJoined:
-		return hubspec.Hired, nil
-	case sqlc.VetchiumOrgApplicationStateNotProgressing,
-		sqlc.VetchiumOrgApplicationStateOfferDeclined,
+		return hubspec.Joined, nil
+	case sqlc.VetchiumOrgApplicationStateNotProgressing:
+		return hubspec.NotSelected, nil
+	case sqlc.VetchiumOrgApplicationStateOfferDeclined,
 		sqlc.VetchiumOrgApplicationStateDidNotJoin:
-		return hubspec.NotProgressing, nil
+		return hubspec.Declined, nil
 	case sqlc.VetchiumOrgApplicationStateWithdrawn:
 		return hubspec.Withdrawn, nil
 	default:

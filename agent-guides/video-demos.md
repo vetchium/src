@@ -51,7 +51,7 @@ dev` stack. How to run it is in [`video-demos/README.md`](../video-demos/README.
 - Hub application views, agency client lists, and engagement state on the
   hiring Org trail the write; wait off camera with `awaitHub` or
   `reloadUntil` before going on air.
-- Ended Hub applications (Not progressing, Hired) list under the Closed tab.
+- Ended Hub applications (Not selected, Joined) list under the Closed tab.
 - An interview can be marked completed only after it starts;
   `hermioneInterview` backdates both interviews in SQL off camera.
 - Text that renders twice breaks strict mode; wait on a unique control.

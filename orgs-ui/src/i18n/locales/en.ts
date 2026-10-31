@@ -2155,6 +2155,17 @@ export const en = {
       assessment: "Assessment",
       background_check: "Background check",
     },
+    hubStatuses: {
+      applied: "Applied",
+      in_review: "In review",
+      interviewing: "Interviewing",
+      offered: "Offered",
+      offer_accepted: "Offer accepted",
+      joined: "Joined",
+      not_selected: "Not selected",
+      declined: "Declined by candidate",
+      withdrawn: "Withdrawn",
+    },
     routes: {
       suggested: "Suggested",
       declared: "Declared",

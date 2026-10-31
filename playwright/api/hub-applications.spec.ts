@@ -9,11 +9,16 @@ import type {
   HubApplyPayload,
   HubApplyResult,
 } from "typespec/federation/hiring";
-import type {
-  ApplicationReference,
-  ListMyApplicationsResponse,
-  MyApplication,
-  MyApplicationDetail,
+import {
+  ActiveView,
+  type ApplicationReference,
+  ClosedView,
+  closedApplicationStatuses,
+  type ListMyApplicationsResponse,
+  type MyApplication,
+  type MyApplicationCounts,
+  type MyApplicationDetail,
+  type MyApplicationView,
 } from "typespec/hub/applications/applications";
 import type {
   OperationStatus,
@@ -268,23 +273,37 @@ async function expectCreated(
 
 async function myApplications(
   applicant: Applicant,
+  view: MyApplicationView = ActiveView,
 ): Promise<ListMyApplicationsResponse> {
-  const response = await applicant.hub.listMyApplications({}, applicant.token);
+  const response = await applicant.hub.listMyApplications(
+    { view },
+    applicant.token,
+  );
   expect(response.status(), await response.text()).toBe(200);
   expect(response.headers()["cache-control"]).toBe("no-store");
   return (await response.json()) as ListMyApplicationsResponse;
 }
 
-/** Waits for the projection to show reference with status. */
+async function myCounts(applicant: Applicant): Promise<MyApplicationCounts> {
+  const response = await applicant.hub.myApplicationCounts(applicant.token);
+  expect(response.status(), await response.text()).toBe(200);
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  return (await response.json()) as MyApplicationCounts;
+}
+
+/** Waits for the projection to list reference with status, in its view. */
 async function expectProjected(
   applicant: Applicant,
   reference: ApplicationReference,
   status: string,
 ): Promise<void> {
+  const view = (closedApplicationStatuses as readonly string[]).includes(status)
+    ? ClosedView
+    : ActiveView;
   await expect
     .poll(
       async () =>
-        (await myApplications(applicant)).applications.find(
+        (await myApplications(applicant, view)).applications.find(
           (entry) =>
             entry.org_domain === reference.domain &&
             entry.opening_number === reference.opening_number &&
@@ -986,7 +1005,7 @@ test("withdraw works from every state the applicant may leave", async ({
         "vetchium-problem-details/hub-application-state-conflict",
       );
       expect((await myApplication(applicant, created)).status).toBe(
-        "not_progressing",
+        "not_selected",
       );
     },
   );
@@ -1068,7 +1087,7 @@ test("Openings that are not accepting, unknown ones, and suspended Orgs refuse a
   );
 });
 
-test("my applications list newest activity first with keyset pagination", async ({
+test("my applications list each view newest activity first with keyset pagination", async ({
   request,
 }) => {
   test.setTimeout(90_000);
@@ -1091,23 +1110,33 @@ test("my applications list newest activity first with keyset pagination", async 
       for (const reference of references) {
         await expectProjected(applicant, reference, "applied");
       }
-      // Withdrawing the first makes it the newest activity.
+      // Withdrawing the first moves it to the closed view.
       const first = references[0] as ApplicationReference;
       expect((await withdraw(applicant, first)).status()).toBe(200);
       await expectProjected(applicant, first, "withdrawn");
+      expect(await myCounts(applicant)).toEqual({
+        active: 2,
+        closed: 1,
+        awaiting_answer: 0,
+      });
+      expect(
+        (await myApplications(applicant, ClosedView)).applications.map(
+          (entry) => entry.opening_title,
+        ),
+      ).toEqual(["First"]);
       const page = await applicant.hub.listMyApplications(
-        { limit: 2 },
+        { view: ActiveView, limit: 1 },
         applicant.token,
       );
       expect(page.status()).toBe(200);
       const firstPage = (await page.json()) as ListMyApplicationsResponse;
       expect(
         firstPage.applications.map((entry) => entry.opening_title),
-      ).toEqual(["First", "Third"]);
+      ).toEqual(["Third"]);
       const key = firstPage.next_pagination_key;
       if (key === undefined) throw new Error("missing pagination key");
       const next = await applicant.hub.listMyApplications(
-        { limit: 2, pagination_key: key },
+        { view: ActiveView, limit: 1, pagination_key: key },
         applicant.token,
       );
       const secondPage = (await next.json()) as ListMyApplicationsResponse;
@@ -1117,16 +1146,55 @@ test("my applications list newest activity first with keyset pagination", async 
       expect(secondPage.next_pagination_key).toBeUndefined();
       await expectProblem(
         await applicant.hub.listMyApplications(
-          { pagination_key: `${key}x` },
+          { view: ActiveView, pagination_key: `${key}x` },
           applicant.token,
         ),
         400,
         "vetchium-problem-details/invalid-pagination-key",
       );
+      // A key continues only the view that issued it.
+      await expectProblem(
+        await applicant.hub.listMyApplications(
+          { view: ClosedView, pagination_key: key },
+          applicant.token,
+        ),
+        400,
+        "vetchium-problem-details/invalid-pagination-key",
+      );
+      const found = await applicant.hub.findMyOpeningApplication(
+        { domain: world.org.domain, opening_number: first.opening_number },
+        applicant.token,
+      );
+      expect(found.status(), await found.text()).toBe(200);
+      expect(found.headers()["cache-control"]).toBe("no-store");
+      expect(await found.json()).toMatchObject({
+        org_domain: world.org.domain,
+        opening_number: first.opening_number,
+        application_number: first.application_number,
+        opening_title: "First",
+        status: "withdrawn",
+        pending_actions: [],
+      });
       // Another Hub user sees none of them.
       const stranger = seedApplicant(request, "sgp", "Stranger");
       try {
         expect((await myApplications(stranger)).applications).toEqual([]);
+        expect(
+          (await myApplications(stranger, ClosedView)).applications,
+        ).toEqual([]);
+        expect(await myCounts(stranger)).toEqual({
+          active: 0,
+          closed: 0,
+          awaiting_answer: 0,
+        });
+        await expectProblem(
+          await stranger.hub.findMyOpeningApplication(
+            { domain: world.org.domain, opening_number: first.opening_number },
+            stranger.token,
+          ),
+          404,
+          "vetchium-problem-details/hub-application-not-found",
+        );
         await expectProblem(
           await stranger.hub.getMyApplication(first, stranger.token),
           404,
@@ -1165,6 +1233,7 @@ test("Hub application endpoints reject malformed, unauthenticated, and unavailab
         "/apply-to-opening",
         "/withdraw-application",
         "/list-my-applications",
+        "/find-my-opening-application",
         "/get-my-application",
       ]) {
         await expectProblem(
@@ -1219,10 +1288,33 @@ test("Hub application endpoints reject malformed, unauthenticated, and unavailab
         ["opening_number"],
       );
       await expectProblem(
-        await hub.listMyApplications({ limit: 51 }, applicant.token),
+        await hub.get("/my-application-counts", ""),
+        401,
+        "vetchium-problem-details/hub-authentication-required",
+      );
+      await expectProblem(
+        await hub.listMyApplications(
+          { view: ActiveView, limit: 51 },
+          applicant.token,
+        ),
         400,
         "vetchium-problem-details/validation-failed",
         ["limit"],
+      );
+      await expectProblem(
+        await hub.post("/list-my-applications", {}, { token: applicant.token }),
+        400,
+        "vetchium-problem-details/validation-failed",
+        ["view"],
+      );
+      await expectProblem(
+        await hub.findMyOpeningApplication(
+          { domain: "not a domain", opening_number: 0 },
+          applicant.token,
+        ),
+        400,
+        "vetchium-problem-details/validation-failed",
+        ["domain", "opening_number"],
       );
       // ind1 cannot reach its directory: nothing is sent and nothing is read.
       await expectProblem(

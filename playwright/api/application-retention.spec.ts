@@ -1,10 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 import type { OpeningContent } from "typespec/common/openings";
-import type {
-  ApplicationReference,
-  ListMyApplicationsResponse,
-} from "typespec/hub/applications/applications";
+import type { ApplicationReference } from "typespec/hub/applications/applications";
 import type {
   ApplicationDetail,
   ApplicationHistoryEntry,
@@ -327,17 +324,14 @@ async function expectMyListing(
   await expect
     .poll(
       async () => {
-        const response = await applicant.hub.listMyApplications(
-          {},
+        const response = await applicant.hub.findMyOpeningApplication(
+          {
+            domain: reference.domain,
+            opening_number: reference.opening_number,
+          },
           applicant.token,
         );
-        return (
-          (await response.json()) as ListMyApplicationsResponse
-        ).applications.some(
-          (entry) =>
-            entry.org_domain === reference.domain &&
-            entry.application_number === reference.application_number,
-        );
+        return response.status() === 200;
       },
       { timeout: 20_000 },
     )

@@ -666,25 +666,33 @@ export const en = {
     stillPending:
       "This is taking longer than usual. Your request was kept; open this page again in a moment to see the result.",
     tabs: {
-      active_one: "Active ({{count}})",
-      active_other: "Active ({{count}})",
-      closed_one: "Closed ({{count}})",
-      closed_other: "Closed ({{count}})",
+      active: "Active",
+      closed: "Closed",
+      count: "{{label}} ({{count}})",
     },
     list: {
       dates: "Applied {{applied}} · Updated {{updated}}",
       emptyActive:
         "You have no active applications. Open an opening from an organization's page to apply.",
       emptyClosed: "No closed applications yet.",
+      more: "Show more",
     },
     status: {
       applied: "Applied",
       in_review: "In review",
       interviewing: "Interviewing",
-      offer: "Offer",
-      hired: "Hired",
-      not_progressing: "Not progressing",
+      offered: "Offer received",
+      offer_accepted: "Offer accepted",
+      joined: "Joined",
+      not_selected: "Not selected",
+      declined: "You declined",
       withdrawn: "Withdrawn",
+    },
+    outcome: {
+      not_selected:
+        "{{org}} decided not to move forward with this application.",
+      declined: "You did not take up this job.",
+      withdrawn: "You withdrew this application.",
     },
     pending: {
       interview_response: "Respond to an interview",

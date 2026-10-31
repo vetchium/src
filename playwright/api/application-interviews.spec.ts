@@ -3,8 +3,8 @@ import type { APIRequestContext } from "@playwright/test";
 import type { OpeningContent } from "typespec/common/openings";
 import type {
   ApplicationReference,
-  ListMyApplicationsResponse,
   MyApplicationDetail,
+  MyApplicationSummary,
 } from "typespec/hub/applications/applications";
 import type {
   ApplicationCounts,
@@ -1882,18 +1882,16 @@ async function expectProjected(
   await expect
     .poll(
       async () => {
-        const response = await applicant.hub.listMyApplications(
-          {},
+        const response = await applicant.hub.findMyOpeningApplication(
+          {
+            domain: reference.domain,
+            opening_number: reference.opening_number,
+          },
           applicant.token,
         );
-        const listed = (
-          (await response.json()) as ListMyApplicationsResponse
-        ).applications.find(
-          (entry) =>
-            entry.org_domain === reference.domain &&
-            entry.application_number === reference.application_number,
-        );
-        return listed && [listed.status, listed.pending_actions];
+        if (response.status() !== 200) return undefined;
+        const listed = (await response.json()) as MyApplicationSummary;
+        return [listed.status, listed.pending_actions];
       },
       { timeout: 15_000 },
     )

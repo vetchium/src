@@ -4,10 +4,13 @@ import type {
   ApplicationReference,
   ApplyToOpeningRequest,
   BackgroundCheckConsentRequest,
+  FindMyOpeningApplicationRequest,
   GetMyApplicationRequest,
   ListMyApplicationsRequest,
   ListMyApplicationsResponse,
+  MyApplicationCounts,
   MyApplicationDetail,
+  MyApplicationSummary,
   RequestInterviewRescheduleRequest,
   RespondToOfferRequest,
   WithdrawApplicationRequest,
@@ -309,6 +312,12 @@ export const hubAPI = {
     }),
   listMyApplications: (body: ListMyApplicationsRequest) =>
     apiRequest<ListMyApplicationsResponse>(`${base}/list-my-applications`, {
+      body,
+    }),
+  myApplicationCounts: () =>
+    apiRequest<MyApplicationCounts>(`${base}/my-application-counts`),
+  findMyOpeningApplication: (body: FindMyOpeningApplicationRequest) =>
+    apiRequest<MyApplicationSummary>(`${base}/find-my-opening-application`, {
       body,
     }),
   getMyApplication: (body: GetMyApplicationRequest) =>

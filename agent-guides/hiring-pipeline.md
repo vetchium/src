@@ -439,15 +439,22 @@ Vetchium never scores, ranks, or rejects an application by its answers.
 
 ## Hub Applications pages
 
-- **HP-HUB-001** The Hub status is derived, never stored at the authority:
-  `applied` (`submitted`), `in_review` (`in_pipeline` not at an interview
-  stage), `interviewing` (at an interview stage), `offer` (`offered`,
-  `offer_accepted`), `hired` (`joined`), `not_progressing` (`not_progressing`,
-  `offer_declined`, `did_not_join`), `withdrawn`. Stage names, routing,
-  results, and feedback never reach the Hub.
-- **HP-HUB-002** The list reads the projection (HP-GEN-004), keyset paginated
-  (at most 50), newest activity first. Detail reads live from the Org's tenant
-  over the mesh with a deadline; failure is `hub-org-unavailable`.
+- **HP-HUB-001** The Hub status is derived, never stored at the authority,
+  and says what happened to the applicant: `applied` (`submitted`),
+  `in_review` (`in_pipeline` not at an interview stage), `interviewing` (at an
+  interview stage), `offered`, `offer_accepted`, `joined`, `not_selected`
+  (`not_progressing`), `declined` (`offer_declined`, `did_not_join`),
+  `withdrawn`. `joined`, `not_selected`, `declined`, and `withdrawn` are
+  closed (`applications.ClosedStatuses`, `vetchium.hub_application_closed`);
+  the rest are active. Stage names, routing, results, and feedback never
+  reach the Hub.
+- **HP-HUB-002** The list reads one view (`active` or `closed`) of the
+  projection (HP-GEN-004), keyset paginated (at most 50), newest activity
+  first; the portal loads 20 at a time with "Show more". Tab counts and the
+  awaiting-answer badge come from `my-application-counts`, and an Opening page
+  finds its application with `find-my-opening-application`; never walk the
+  whole list. Detail reads live from the Org's tenant over the mesh with a
+  deadline; failure is `hub-org-unavailable`.
 - **HP-HUB-003** Detail shows the actions awaiting the applicant: interview
   responses, background-check consent (the check types, the performer, and
   any provider disclosure text), and the offer to accept or decline.

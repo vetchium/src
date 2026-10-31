@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { APIRequestContext, Page } from "@playwright/test";
 import type { ApplicationQuestion } from "typespec/common/openings";
+import {
+  ClosedView,
+  type ListMyApplicationsRequest,
+  type MyApplicationSummary,
+} from "typespec/hub/applications/applications";
 import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { ApplicationStateConflictError } from "typespec/problem/hub/applications";
@@ -286,6 +291,76 @@ test("a Hub user applies from the Opening page and finds the application", async
   });
 });
 
+test("the list loads a page at a time, keeps loaded rows when a page fails, and counts each tab", async ({
+  page,
+  hubUser,
+}) => {
+  const summary = (n: number): MyApplicationSummary => ({
+    org_domain: "example.com",
+    org_display_name: "Example",
+    opening_number: n,
+    opening_title: `Role ${n}`,
+    application_number: 1,
+    status: "in_review",
+    pending_actions: [],
+    applied_at: "2026-10-01T00:00:00Z",
+    last_activity_at: "2026-10-01T00:00:00Z",
+  });
+  let failNextPage = true;
+  await page.route("**/api/hub/my-application-counts", (route) =>
+    route.fulfill({ json: { active: 21, closed: 3, awaiting_answer: 0 } }),
+  );
+  await page.route("**/api/hub/list-my-applications", (route) => {
+    const body = route.request().postDataJSON() as ListMyApplicationsRequest;
+    if (body.view === ClosedView) {
+      return route.fulfill({ json: { applications: [] } });
+    }
+    if (body.pagination_key === undefined) {
+      return route.fulfill({
+        json: {
+          applications: Array.from({ length: 20 }, (_, i) => summary(i + 1)),
+          next_pagination_key: "second-page",
+        },
+      });
+    }
+    if (failNextPage) {
+      failNextPage = false;
+      return route.fulfill({
+        status: 500,
+        contentType: "application/problem+json",
+        body: JSON.stringify({
+          type: "vetchium-problem-details/internal-server-error",
+          title: "Internal server error",
+          status: 500,
+        }),
+      });
+    }
+    return route.fulfill({ json: { applications: [summary(21)] } });
+  });
+  await signIn(page, await hubUser("sgp"));
+  await page.goto(`${HUB_PORTAL}/applications`);
+  await expect(page.getByRole("tab", { name: "Active (21)" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Closed (3)" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Role 20", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Role 21", exact: true }),
+  ).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Show more" }).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Role 20", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Show more" }).click();
+  await expect(
+    page.getByRole("link", { name: "Role 21", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Show more" })).toHaveCount(0);
+});
+
 test("a pending apply is polled and replayed with the same idempotency key", async ({
   page,
   request,
@@ -379,20 +454,20 @@ test("an interview is accepted or another time is requested", async ({
     await scheduleInterview(world, application, 2);
     await scheduleInterview(world, application, 3);
 
-    // The list reads the home tenant's projection, which trails the Org's
-    // tenant briefly.
+    // The list and the badge's counts read the home tenant's projection,
+    // which trails the Org's tenant briefly, in separate requests.
     await page.goto(`${HUB_PORTAL}/applications`);
     await expect(async () => {
       await page.reload();
       await expect(page.getByText("Respond to an interview")).toBeVisible({
         timeout: 2_000,
       });
+      await expect(
+        page
+          .getByRole("menuitem", { name: /Applications/ })
+          .getByTitle("1 application needs your answer"),
+      ).toBeVisible({ timeout: 2_000 });
     }).toPass({ timeout: 30_000 });
-    await expect(
-      page
-        .getByRole("menuitem", { name: /Applications/ })
-        .getByTitle("1 application needs your answer"),
-    ).toBeVisible();
     await page.goto(`${HUB_PORTAL}/`);
     await expect(
       page.getByText("1 application is waiting for your answer."),
@@ -536,7 +611,7 @@ test("an offer is accepted after a confirmation, and the application is withdraw
 
     await page.goto(applicationURL(world, application));
     await expect(
-      page.getByText("Offer", { exact: true }).first(),
+      page.getByText("Offer received", { exact: true }).first(),
     ).toBeVisible();
     const card = page.locator(".ant-card", {
       hasText: "Proposed joining date",
@@ -587,6 +662,10 @@ test("an offer is accepted after a confirmation, and the application is withdraw
         timeout: 2_000,
       });
     }).toPass({ timeout: 30_000 });
+    await page.getByRole("link", { name: world.title }).click();
+    await expect(
+      page.getByText("You withdrew this application."),
+    ).toBeVisible();
 
     await page.goto(`${openingURL(world)}/apply`);
     await expect(

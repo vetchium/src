@@ -126,12 +126,14 @@ export const hubStatusColors: Record<string, string> = {
   applied: "processing",
   in_review: "cyan",
   interviewing: "purple",
-  offer: "gold",
-  hired: "success",
-  not_progressing: "default",
+  offered: "gold",
+  offer_accepted: "lime",
+  joined: "success",
+  not_selected: "default",
+  declined: "default",
   withdrawn: "default",
 };
 
 export function hubStatusLabel(t: TFunction, status: string): string {
-  return t(`applications.statuses.${status}`, { defaultValue: status });
+  return t(`marketplace.hubStatuses.${status}`, { defaultValue: status });
 }

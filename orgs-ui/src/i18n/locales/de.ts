@@ -2209,6 +2209,17 @@ export const de = {
       assessment: "Assessment",
       background_check: "Hintergrundprüfung",
     },
+    hubStatuses: {
+      applied: "Beworben",
+      in_review: "In Prüfung",
+      interviewing: "Im Gespräch",
+      offered: "Angeboten",
+      offer_accepted: "Angebot angenommen",
+      joined: "Eingetreten",
+      not_selected: "Nicht ausgewählt",
+      declined: "Vom Kandidaten abgelehnt",
+      withdrawn: "Zurückgezogen",
+    },
     routes: {
       suggested: "Empfohlen",
       declared: "Angegeben",

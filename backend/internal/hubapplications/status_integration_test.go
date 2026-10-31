@@ -3,10 +3,13 @@ package hubapplications
 import (
 	"context"
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	hubspec "github.com/vetchium/src/typespec/hub/applications"
 
 	"backend/internal/db/sqlc"
 )
@@ -64,6 +67,35 @@ func TestSQLStatusAgreesWithStatusIntegration(t *testing.T) {
 				t.Fatalf("hub_application_status(%s, %v) = %v, want %s",
 					state, stage, got, want)
 			}
+		}
+	}
+}
+
+// TestSQLClosedAgreesWithClosedStatusesIntegration keeps
+// vetchium.hub_application_closed, which the list's projection filters by, in
+// step with applications.ClosedStatuses for every status.
+func TestSQLClosedAgreesWithClosedStatusesIntegration(t *testing.T) {
+	databaseURL := os.Getenv("TENANT_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TENANT_DATABASE_URL is not set")
+	}
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close(ctx) })
+	closed := hubspec.ClosedStatuses()
+	for _, status := range hubspec.ApplicationStatuses() {
+		var got bool
+		if err := conn.QueryRow(ctx,
+			`SELECT vetchium.hub_application_closed($1)`, string(status)).
+			Scan(&got); err != nil {
+			t.Fatal(err)
+		}
+		if want := slices.Contains(closed, status); got != want {
+			t.Fatalf("hub_application_closed(%s) = %v, want %v",
+				status, got, want)
 		}
 	}
 }

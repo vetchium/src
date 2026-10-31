@@ -23,7 +23,7 @@ import { isProblem } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { NoIndex } from "../components/common/NoIndex";
-import { useMyApplicationsQuery } from "../features/applications/queries";
+import { useMyOpeningApplicationQuery } from "../features/applications/queries";
 import { useConversationsQuery } from "../features/messages/queries";
 import { openingPresentation } from "../features/openings/presentation";
 import { useOrgOpeningQuery } from "../features/openings/queries";
@@ -44,7 +44,7 @@ export function OrgOpeningPage() {
     number <= 2_147_483_647;
   const result = useOrgOpeningQuery(domain, number, valid);
   const presentation = openingPresentation(t, i18n.language);
-  const applications = useMyApplicationsQuery(valid);
+  const application = useMyOpeningApplicationQuery(domain, number, valid);
   const conversations = useConversationsQuery(auth.authenticated);
 
   const suggestion = useMemo(() => {
@@ -65,11 +65,7 @@ export function OrgOpeningPage() {
     return null;
   }, [conversations.data, domain, number]);
 
-  const applied = applications.data?.find(
-    (application) =>
-      application.org_domain === domain &&
-      application.opening_number === number,
-  );
+  const applied = application.data ?? undefined;
   const orgPath = `/org/${encodeURIComponent(domain)}`;
   const applyPath = `${orgPath}/openings/${number}/apply`;
 
@@ -147,7 +143,7 @@ export function OrgOpeningPage() {
               <Flex vertical gap="middle">
                 {applied !== undefined ? (
                   appliedNotice
-                ) : applications.isPending ? (
+                ) : application.isPending ? (
                   <Skeleton.Button
                     active
                     block

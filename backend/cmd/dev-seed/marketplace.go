@@ -155,7 +155,7 @@ var (
 var sourcedOpenings = []openings.OpeningNumber{3, 4, 7, 8, 9, 10}
 
 // suggestedOpening is the published Opening agencies suggest to Contacts
-// ("Pending close: technical writer"); no other seed applies to it.
+// ("Technical writer", with a close pending); no other seed applies to it.
 const suggestedOpening = openings.OpeningNumber(10)
 
 func ptr[T any](v T) *T { return &v }

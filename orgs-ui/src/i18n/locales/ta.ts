@@ -2147,6 +2147,17 @@ export const ta = {
       assessment: "மதிப்பீடு",
       background_check: "பின்னணிச் சரிபார்ப்பு",
     },
+    hubStatuses: {
+      applied: "விண்ணப்பித்தது",
+      in_review: "மதிப்பாய்வில்",
+      interviewing: "நேர்காணலில்",
+      offered: "வேலை வாய்ப்பு வழங்கப்பட்டது",
+      offer_accepted: "வேலை வாய்ப்பு ஏற்கப்பட்டது",
+      joined: "பணியில் சேர்ந்தார்",
+      not_selected: "தேர்வாகவில்லை",
+      declined: "விண்ணப்பதாரர் மறுத்தார்",
+      withdrawn: "திரும்பப் பெறப்பட்டது",
+    },
     routes: {
       suggested: "பரிந்துரைக்கப்பட்டது",
       declared: "அறிவிக்கப்பட்டது",

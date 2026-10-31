@@ -3184,12 +3184,20 @@ AS $$
         WHEN state = 'in_pipeline' AND stage_kind = 'interview'
             THEN 'interviewing'
         WHEN state = 'in_pipeline' THEN 'in_review'
-        WHEN state IN ('offered', 'offer_accepted') THEN 'offer'
-        WHEN state = 'joined' THEN 'hired'
-        WHEN state IN ('not_progressing', 'offer_declined', 'did_not_join')
-            THEN 'not_progressing'
-        WHEN state = 'withdrawn' THEN 'withdrawn'
+        WHEN state IN ('offered', 'offer_accepted', 'joined', 'withdrawn')
+            THEN state::text
+        WHEN state = 'not_progressing' THEN 'not_selected'
+        WHEN state IN ('offer_declined', 'did_not_join') THEN 'declined'
     END
+$$;
+
+-- Whether a Hub status belongs to the closed view of the applicant's list.
+-- applications.ClosedStatuses holds the same set; a test keeps the two in
+-- agreement.
+CREATE FUNCTION vetchium.hub_application_closed(status text) RETURNS boolean
+LANGUAGE sql IMMUTABLE
+AS $$
+    SELECT status IN ('joined', 'not_selected', 'declined', 'withdrawn')
 $$;
 
 -- Who may read all of an Opening's applications: the hiring manager, the
@@ -3274,9 +3282,12 @@ CREATE TABLE vetchium.hub_application_projections (
     opening_title text NOT NULL CHECK (length(btrim(opening_title)) > 0),
     application_number integer NOT NULL CHECK (application_number >= 1),
     hub_status text NOT NULL CHECK (hub_status IN (
-        'applied', 'in_review', 'interviewing', 'offer', 'hired',
-        'not_progressing', 'withdrawn'
+        'applied', 'in_review', 'interviewing', 'offered', 'offer_accepted',
+        'joined', 'not_selected', 'declined', 'withdrawn'
     )),
+    closed boolean NOT NULL GENERATED ALWAYS AS (
+        vetchium.hub_application_closed(hub_status)
+    ) STORED,
     pending_actions text[] NOT NULL CHECK (
         pending_actions <@ ARRAY['interview_response',
             'background_check_consent', 'offer_response']::text[]
@@ -3292,7 +3303,7 @@ CREATE TABLE vetchium.hub_application_projections (
 );
 CREATE INDEX hub_application_projections_list_idx
     ON vetchium.hub_application_projections
-    (hub_user_did, last_activity_at DESC, projection_id DESC);
+    (hub_user_did, closed, last_activity_at DESC, projection_id DESC);
 
 -- What a projection event tells the applicant (HP-GEN-006): one row per
 -- notification, written beside the projection and turned into an outbox
@@ -3797,6 +3808,7 @@ DROP TABLE IF EXISTS vetchium.org_contacts;
 DROP TABLE IF EXISTS vetchium.hub_application_notices;
 DROP TABLE IF EXISTS vetchium.hub_application_projections;
 DROP FUNCTION IF EXISTS vetchium.org_user_acts_on_applications(uuid, uuid);
+DROP FUNCTION IF EXISTS vetchium.hub_application_closed(text);
 DROP FUNCTION IF EXISTS vetchium.hub_application_status(
     vetchium.org_application_state, vetchium.pipeline_stage_kind
 );

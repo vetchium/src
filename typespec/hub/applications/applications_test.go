@@ -16,10 +16,29 @@ func TestVocabulariesAreClosedAndCopied(t *testing.T) {
 	t.Parallel()
 	statuses := ApplicationStatuses()
 	if !slices.Equal(statuses, []ApplicationStatus{
-		"applied", "in_review", "interviewing", "offer", "hired",
-		"not_progressing", "withdrawn",
+		"applied", "in_review", "interviewing", "offered", "offer_accepted",
+		"joined", "not_selected", "declined", "withdrawn",
 	}) {
 		t.Fatalf("statuses = %v", statuses)
+	}
+	closed := ClosedStatuses()
+	if !slices.Equal(closed, []ApplicationStatus{
+		"joined", "not_selected", "declined", "withdrawn",
+	}) {
+		t.Fatalf("closed statuses = %v", closed)
+	}
+	closed[0] = "changed"
+	if ClosedStatuses()[0] != Joined {
+		t.Fatal("caller mutated the closed statuses")
+	}
+	for _, status := range closed {
+		if !IsApplicationStatus(status) && status != "changed" {
+			t.Errorf("closed status %q is not a status", status)
+		}
+	}
+	if !IsMyApplicationView(ActiveView) || !IsMyApplicationView(ClosedView) ||
+		IsMyApplicationView("all") {
+		t.Fatal("views are active and closed only")
 	}
 	statuses[0] = "changed"
 	if !IsApplicationStatus(Applied) || IsApplicationStatus("changed") {
@@ -118,11 +137,19 @@ func TestApplicationReferenceAndMeshReadValidation(t *testing.T) {
 
 func TestListMyApplicationsRequestValidation(t *testing.T) {
 	t.Parallel()
-	if got := (ListMyApplicationsRequest{}).Validate(); len(got) != 0 {
-		t.Fatalf("default request rejected: %v", got)
+	for _, view := range []MyApplicationView{ActiveView, ClosedView} {
+		if got := (ListMyApplicationsRequest{View: view}).Validate(); len(got) != 0 {
+			t.Fatalf("default %s request rejected: %v", view, got)
+		}
+	}
+	for _, view := range []MyApplicationView{"", "all"} {
+		got := (ListMyApplicationsRequest{View: view}).Validate()
+		if !slices.Equal(got, []string{"view"}) {
+			t.Errorf("view %q: fields = %v", view, got)
+		}
 	}
 	for _, limit := range []MyApplicationPageSize{0, 51} {
-		request := ListMyApplicationsRequest{Limit: &limit}
+		request := ListMyApplicationsRequest{View: ActiveView, Limit: &limit}
 		if got := request.Validate(); !slices.Equal(got, []string{"limit"}) {
 			t.Errorf("limit %d: fields = %v", limit, got)
 		}
@@ -130,6 +157,25 @@ func TestListMyApplicationsRequestValidation(t *testing.T) {
 	fifty := MyApplicationPageSize(50)
 	if got := (ListMyApplicationsRequest{Limit: &fifty}).EffectiveLimit(); got != 50 {
 		t.Fatalf("limit = %d", got)
+	}
+}
+
+func TestFindMyOpeningApplicationRequest(t *testing.T) {
+	t.Parallel()
+	request := FindMyOpeningApplicationRequest{
+		Domain: " Example.COM ", OpeningNumber: 2,
+	}
+	normalized := request
+	normalized.Normalize()
+	if normalized.Domain != "example.com" || request.Domain != " Example.COM " {
+		t.Fatalf("normalized = %+v, caller = %+v", normalized, request)
+	}
+	if got := normalized.Validate(); len(got) != 0 {
+		t.Fatalf("valid request rejected: %v", got)
+	}
+	got := (FindMyOpeningApplicationRequest{Domain: "not a domain"}).Validate()
+	if !slices.Equal(got, []string{"domain", "opening_number"}) {
+		t.Fatalf("fields = %v", got)
 	}
 }
 
@@ -195,7 +241,7 @@ func TestMyApplicationDetailOfferValidity(t *testing.T) {
 		MyApplication: MyApplication{
 			OrgDomain: "example.com", OrgDisplayName: "Example",
 			OpeningNumber: 1, OpeningTitle: "Engineer", ApplicationNumber: 1,
-			Status: Offer, PendingActions: []PendingActionKind{OfferResponse},
+			Status: Offered, PendingActions: []PendingActionKind{OfferResponse},
 		},
 		Offer: &MyApplicationOffer{
 			OfferNumber: 1, Status: orgapplications.OfferStatusExtended,

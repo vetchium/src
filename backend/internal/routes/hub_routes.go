@@ -163,6 +163,10 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(hubapplications.DeclineBackgroundCheckConsent(s)))
 	mux.Handle("POST /api/hub/list-my-applications",
 		hubAuth(hubapplications.List(s)))
+	mux.Handle("GET /api/hub/my-application-counts",
+		hubAuth(hubapplications.Counts(s)))
+	mux.Handle("POST /api/hub/find-my-opening-application",
+		hubAuth(hubapplications.FindForOpening(s)))
 	mux.Handle("POST /api/hub/get-my-application",
 		hubAuth(hubapplications.Get(s)))
 	mux.Handle("POST /api/hub/list-conversations",

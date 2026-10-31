@@ -20,10 +20,7 @@ import { hubAPI } from "../../api/hub";
 import { usePreferences } from "../../app/PreferencesContext";
 import { localeConfiguration } from "../../app/preferences";
 import { useAuth } from "../../auth/AuthContext";
-import {
-  needsAnswer,
-  useMyApplicationsQuery,
-} from "../../features/applications/queries";
+import { useMyApplicationCountsQuery } from "../../features/applications/queries";
 import { useConversationsQuery } from "../../features/messages/queries";
 import {
   type MyInfoQueryData,
@@ -50,9 +47,9 @@ export function AppShell() {
   const preferences = usePreferences();
   const queryClient = useQueryClient();
   const { data: me } = useMyInfoQuery();
-  const applications = useMyApplicationsQuery();
+  const applicationCounts = useMyApplicationCountsQuery();
   const conversations = useConversationsQuery(auth.authenticated);
-  const answerNeeded = applications.data?.filter(needsAnswer).length ?? 0;
+  const answerNeeded = applicationCounts.data?.awaiting_answer ?? 0;
   const unreadMessages =
     conversations.data?.items.filter((c) => c.unread).length ?? 0;
   const languageMutation = useMutation({

@@ -150,7 +150,7 @@ func TestProjectionKeepsTheNewestChangeIntegration(t *testing.T) {
 
 	// Another tenant cannot report on an Org it does not home.
 	source = "deu"
-	if _, err := receive(3, hubspec.Hired, withdrawnAt.Add(time.Hour)); !errors.Is(
+	if _, err := receive(3, hubspec.Joined, withdrawnAt.Add(time.Hour)); !errors.Is(
 		err, events.ErrOriginMismatch,
 	) {
 		t.Fatalf("forged change err = %v", err)

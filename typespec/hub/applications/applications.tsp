@@ -23,8 +23,11 @@ namespace Vetchium.Hub.Applications;
 /**
  * Where an application stands for the applicant, derived at the Org's tenant
  * from its state and current stage kind and never stored there. Stage names,
- * routing, results, and feedback never reach the Hub. A portal older than its
- * API shows a status it does not recognize as the raw value.
+ * routing, results, and feedback never reach the Hub. `declined` is the
+ * applicant turning the job down: declining the offer, or accepting it and
+ * not joining. `joined`, `not_selected`, `declined`, and `withdrawn` are
+ * closed; the rest are active. A portal older than its API shows a status it
+ * does not recognize as the raw value.
  */
 @TypeSpec.OpenAPI.extension(
   "x-vetchium-known-values",
@@ -32,13 +35,21 @@ namespace Vetchium.Hub.Applications;
     "applied",
     "in_review",
     "interviewing",
-    "offer",
-    "hired",
-    "not_progressing",
+    "offered",
+    "offer_accepted",
+    "joined",
+    "not_selected",
+    "declined",
     "withdrawn"
   ]
 )
 scalar ApplicationStatus extends string;
+
+/** Which of the applicant's applications a list reads, by status. */
+enum MyApplicationView {
+  Active: "active",
+  Closed: "closed",
+}
 
 /**
  * An action awaiting the applicant. A portal older than its API shows a kind
@@ -230,6 +241,7 @@ model MyApplicationSummary {
 }
 
 model ListMyApplicationsRequest {
+  view: MyApplicationView;
   pagination_key?: Vetchium.PaginationKey;
 
   /** Defaults to 50. */
@@ -241,6 +253,21 @@ model ListMyApplicationsResponse {
   applications: MyApplicationSummary[];
 
   next_pagination_key?: Vetchium.PaginationKey;
+}
+
+/** Counted from the same projection as the list. */
+model MyApplicationCounts {
+  active: int32;
+  closed: int32;
+
+  /** Applications with at least one pending action. */
+  awaiting_answer: int32;
+}
+
+/** Names an Opening the caller may have applied to. */
+model FindMyOpeningApplicationRequest {
+  domain: Vetchium.Orgs.OrgDomain;
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
 }
 
 alias ApplicationWriteErrors =
@@ -317,7 +344,7 @@ interface ApplicationOperations {
   )
   @TypeSpec.OpenAPI.extension(
     "x-vetchium-pagination-key-binds",
-    #["last_activity_at", "projection_id"]
+    #["view", "last_activity_at", "projection_id"]
   )
   list(@body request: ListMyApplicationsRequest):
     | {
@@ -329,6 +356,36 @@ interface ApplicationOperations {
     | Vetchium.Problem.ValidationFailedErrorResponse
     | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
     | Vetchium.Problem.InvalidPaginationKeyErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
+
+  /** Counts the caller's applications in each view of the list. */
+  @route("/my-application-counts")
+  @get
+  @useAuth(BearerAuth)
+  counts():
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: MyApplicationCounts;
+      }
+    | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
+
+  /** Reads the caller's application to an Opening from the list's projection;
+   * none is `hub-application-not-found`. */
+  @route("/find-my-opening-application")
+  @post
+  @useAuth(BearerAuth)
+  findForOpening(@body request: FindMyOpeningApplicationRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: MyApplicationSummary;
+      }
+    | Vetchium.Problem.InvalidJSONErrorResponse
+    | Vetchium.Problem.ValidationFailedErrorResponse
+    | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
+    | Vetchium.Problem.HubApplicationNotFoundErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
   /** Reads the application live from the Org's tenant, bounded by a

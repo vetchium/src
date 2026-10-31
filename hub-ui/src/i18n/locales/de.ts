@@ -698,25 +698,33 @@ export const de = {
     stillPending:
       "Das dauert länger als üblich. Ihre Anfrage bleibt erhalten; öffnen Sie diese Seite gleich noch einmal, um das Ergebnis zu sehen.",
     tabs: {
-      active_one: "Aktiv ({{count}})",
-      active_other: "Aktiv ({{count}})",
-      closed_one: "Abgeschlossen ({{count}})",
-      closed_other: "Abgeschlossen ({{count}})",
+      active: "Aktiv",
+      closed: "Abgeschlossen",
+      count: "{{label}} ({{count}})",
     },
     list: {
       dates: "Beworben am {{applied}} · Aktualisiert am {{updated}}",
       emptyActive:
         "Sie haben keine aktiven Bewerbungen. Öffnen Sie eine Stelle auf der Seite einer Organisation, um sich zu bewerben.",
       emptyClosed: "Noch keine abgeschlossenen Bewerbungen.",
+      more: "Mehr anzeigen",
     },
     status: {
       applied: "Beworben",
       in_review: "In Prüfung",
       interviewing: "Im Gespräch",
-      offer: "Angebot",
-      hired: "Eingestellt",
-      not_progressing: "Nicht weiterverfolgt",
+      offered: "Angebot erhalten",
+      offer_accepted: "Angebot angenommen",
+      joined: "Eingetreten",
+      not_selected: "Nicht ausgewählt",
+      declined: "Von Ihnen abgelehnt",
       withdrawn: "Zurückgezogen",
+    },
+    outcome: {
+      not_selected:
+        "{{org}} hat entschieden, diese Bewerbung nicht weiterzuverfolgen.",
+      declined: "Sie haben diese Stelle nicht angetreten.",
+      withdrawn: "Sie haben diese Bewerbung zurückgezogen.",
     },
     pending: {
       interview_response: "Auf ein Gespräch antworten",

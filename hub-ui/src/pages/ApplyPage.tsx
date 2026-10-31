@@ -58,7 +58,7 @@ import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { NoIndex } from "../components/common/NoIndex";
 import { ActionError } from "../features/applications/ActionError";
 import { useApplicationAction } from "../features/applications/actions";
-import { useMyApplicationsQuery } from "../features/applications/queries";
+import { useMyOpeningApplicationQuery } from "../features/applications/queries";
 import { useConversationsQuery } from "../features/messages/queries";
 import { questionFieldLabels } from "../features/openings/presentation";
 import { useOrgOpeningQuery } from "../features/openings/queries";
@@ -101,7 +101,7 @@ export function ApplyPage() {
   const opening = useOrgOpeningQuery(domain, number, valid);
   const me = useMyInfoQuery();
   const profile = usePublicProfileQuery(me.data?.handle ?? "", me.isSuccess);
-  const applications = useMyApplicationsQuery();
+  const application = useMyOpeningApplicationQuery(domain, number, valid);
   const conversations = useConversationsQuery();
 
   const referredByParam = searchParams.get("referred_by")?.trim() ?? "";
@@ -179,9 +179,7 @@ export function ApplyPage() {
         key,
       ),
   );
-  const existing = applications.data?.find(
-    (a) => a.org_domain === domain && a.opening_number === number,
-  );
+  const existing = application.data ?? undefined;
   const alreadyApplied =
     existing !== undefined ||
     (apply.isError && isProblem(apply.error, ApplicationExistsError.type));
