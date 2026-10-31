@@ -13,12 +13,7 @@ import {
   type SignedUpOrg,
   signupOrg,
 } from "../lib/orgs-api.ts";
-import {
-  accountMenu,
-  chooseWorkspace,
-  openAccountPage,
-  sidebarPage,
-} from "../lib/orgs-ui.ts";
+import { accountMenu, chooseWorkspace, sidebarPage } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 import { chooseRegion } from "../lib/region-ui.ts";
 
@@ -318,7 +313,14 @@ test("an AI manager turns AI on, buys credits, and reviews usage", async ({
       name: "Purchased credits: share used",
     });
     leave(15);
-    await page.reload();
+    // Home warns too, and leads to the AI page.
+    const usageURL = page.url();
+    await page.goto(`${ORGS_PORTAL}/`);
+    const homeAlert = page.getByTestId("home-credits-alert");
+    await expect(homeAlert).toContainText("85% of your AI credits are used.");
+    await homeAlert.getByRole("link", { name: "Manage AI credits" }).click();
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/ai`);
+    await page.goto(usageURL);
     await expect(monthly).toHaveAttribute("aria-valuenow", "85");
     await expect(purchased).toHaveAttribute("aria-valuenow", "85");
     await expect(
@@ -374,7 +376,7 @@ test("each AI feature saves its own models, can be turned off, and guards unsave
     await feature.getByRole("radio", { name: /^Off/ }).check();
     await expect(page.getByText("Unsaved changes")).toBeVisible();
     // Leaving with unsaved edits asks first; staying keeps them.
-    await openAccountPage(page, "My work");
+    await sidebarPage(page, "Home").click();
     const leaving = page.getByRole("dialog", { name: "Leave without saving?" });
     await leaving.getByRole("button", { name: "Stay" }).click();
     await expect(page).toHaveURL(/\/ai\?tab=settings/);
@@ -435,7 +437,7 @@ test("each AI feature saves its own models, can be turned off, and guards unsave
       feature.getByRole("radio", { name: /Only the models I choose/ }),
     ).toBeChecked();
     await expect(page.getByText("Unsaved changes")).toHaveCount(0);
-    await openAccountPage(page, "My work");
+    await sidebarPage(page, "Home").click();
     await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
   });
 });

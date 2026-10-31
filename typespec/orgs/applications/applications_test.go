@@ -487,6 +487,18 @@ func TestListMyInterviewsValidation(t *testing.T) {
 	if (ListMyInterviewsRequest{}).EffectiveLimit() != 50 {
 		t.Fatal("default limit")
 	}
+	for _, view := range []MyInterviewView{
+		UpcomingInterviewsView, FeedbackDueInterviewsView,
+	} {
+		if got := (ListMyInterviewsRequest{View: &view}).Validate(); len(got) != 0 {
+			t.Fatalf("view %q fields = %v", view, got)
+		}
+	}
+	unknown := MyInterviewView("all")
+	got := ListMyInterviewsRequest{View: &unknown, Limit: &zero}.Validate()
+	if !slices.Equal(got, []string{"view", "limit"}) {
+		t.Fatalf("unknown view fields = %v", got)
+	}
 }
 
 func TestResultVocabulariesAreCopiesAndComplete(t *testing.T) {

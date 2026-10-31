@@ -13,7 +13,7 @@ import type { OrgSubscription } from "typespec/orgs/subscriptions/subscriptions"
 import { planLabel } from "./labels";
 
 /** Share of the seat cap at which the gauge turns to a warning. */
-const SEAT_WARNING_PERCENT = 80;
+export const SEAT_WARNING_PERCENT = 80;
 
 export function CurrentSubscriptionCard({
   subscription,

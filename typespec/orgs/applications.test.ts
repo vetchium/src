@@ -29,6 +29,7 @@ import {
   isPendingApplicantAction,
   isResultNotes,
   isWorkPerformer,
+  type MyInterviewView,
   maxOfferLetterBytes,
   normalizeChangeInterviewRequest,
   normalizeListApplicationsRequest,
@@ -456,9 +457,21 @@ test("the candidates view accepts the pending applicant action filter", () => {
   );
 });
 
-test("my interviews validate pagination", () => {
+test("my interviews validate the view and pagination", () => {
   assert.deepEqual(validateListMyInterviewsRequest({}), []);
   assert.deepEqual(validateListMyInterviewsRequest({ limit: 0 }), ["limit"]);
+  assert.deepEqual(validateListMyInterviewsRequest({ view: "upcoming" }), []);
+  assert.deepEqual(
+    validateListMyInterviewsRequest({ view: "feedback_due" }),
+    [],
+  );
+  assert.deepEqual(
+    validateListMyInterviewsRequest({
+      view: "all" as unknown as MyInterviewView,
+      limit: 0,
+    }),
+    ["view", "limit"],
+  );
 });
 
 const reference = { opening_number: 1, application_number: 2, version: 3 };

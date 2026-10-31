@@ -403,3 +403,64 @@ WHERE iv.org_user_id = sqlc.arg(viewer_id)
       OR iv.org_interview_id < sqlc.narg(after_interview_id)::uuid)
 ORDER BY iv.org_interview_id DESC
 LIMIT sqlc.arg(page_limit);
+
+-- One view of the caller's interviews, soonest start first: upcoming
+-- (scheduled and not yet over), else feedback due (over, not cancelled or a
+-- no-show, without the caller's feedback). The two never share a row. Start
+-- order is on another table than the interviewer index, so PostgreSQL sorts
+-- the caller's interviews, which that index finds.
+-- name: ListOrgInterviewsForInterviewerByStart :many
+SELECT i.org_interview_id, o.opening_number, a.application_number,
+    COALESCE(a.snapshot ->> 'display_name', '')::text AS display_name,
+    i.interview_number, i.starts_at, i.duration_minutes,
+    i.interview_mode, i.interview_state, i.applicant_response,
+    (f.org_user_id IS NOT NULL)::boolean AS feedback_submitted
+FROM vetchium.org_interview_interviewers AS iv
+JOIN vetchium.org_interviews AS i ON i.org_interview_id = iv.org_interview_id
+JOIN vetchium.org_applications AS a
+    ON a.org_application_id = i.org_application_id
+JOIN vetchium.org_openings AS o ON o.org_opening_id = a.org_opening_id
+LEFT JOIN vetchium.org_interview_feedback AS f
+    ON f.org_interview_id = iv.org_interview_id
+   AND f.org_user_id = iv.org_user_id
+WHERE iv.org_user_id = sqlc.arg(viewer_id)
+  AND o.org_did = sqlc.arg(org_did)
+  AND CASE WHEN sqlc.arg(feedback_due)::boolean
+      THEN f.org_user_id IS NULL AND (
+          i.interview_state = 'completed' OR (
+              i.interview_state = 'scheduled'
+              AND i.starts_at + make_interval(mins => i.duration_minutes)
+                  <= now()))
+      ELSE i.interview_state = 'scheduled'
+          AND i.starts_at + make_interval(mins => i.duration_minutes) > now()
+      END
+  AND (sqlc.narg(after_starts_at)::timestamptz IS NULL
+      OR (i.starts_at, i.org_interview_id) >
+         (sqlc.narg(after_starts_at)::timestamptz,
+          sqlc.narg(after_interview_id)::uuid))
+ORDER BY i.starts_at, i.org_interview_id
+LIMIT sqlc.arg(page_limit);
+
+-- The size of each view ListOrgInterviewsForInterviewerByStart reads.
+-- name: CountOrgInterviewsForInterviewer :one
+SELECT count(*) FILTER (
+        WHERE i.interview_state = 'scheduled'
+          AND i.starts_at + make_interval(mins => i.duration_minutes) > now()
+    )::integer AS upcoming,
+    count(*) FILTER (
+        WHERE f.org_user_id IS NULL AND (
+            i.interview_state = 'completed' OR (
+                i.interview_state = 'scheduled'
+                AND i.starts_at + make_interval(mins => i.duration_minutes)
+                    <= now()))
+    )::integer AS feedback_due
+FROM vetchium.org_interview_interviewers AS iv
+JOIN vetchium.org_interviews AS i ON i.org_interview_id = iv.org_interview_id
+JOIN vetchium.org_applications AS a
+    ON a.org_application_id = i.org_application_id
+JOIN vetchium.org_openings AS o ON o.org_opening_id = a.org_opening_id
+LEFT JOIN vetchium.org_interview_feedback AS f
+    ON f.org_interview_id = iv.org_interview_id
+   AND f.org_user_id = iv.org_user_id
+WHERE iv.org_user_id = sqlc.arg(viewer_id)
+  AND o.org_did = sqlc.arg(org_did);

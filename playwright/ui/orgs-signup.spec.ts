@@ -158,9 +158,12 @@ test("signs an Org up on one request page, then proves DNS and signs in", async 
 
     await signIn(page, { domain, emailAddress, password, value });
     await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
-    await expect(page.getByTestId("home-org-name")).toHaveText("Browser Org");
-    await expect(page.getByTestId("home-domain")).toHaveText(domain);
-    await expect(page.getByTestId("home-domain-state")).toHaveAttribute(
+    await page.goto(`${ORGS_PORTAL}/company`);
+    await expect(page.getByLabel("Company name", { exact: true })).toHaveValue(
+      "Browser Org",
+    );
+    await expect(page.getByTestId("domain-name")).toHaveText(domain);
+    await expect(page.getByTestId("domain-state")).toHaveAttribute(
       "data-state",
       "verified",
     );
@@ -306,7 +309,8 @@ test("a failing domain shows the record and recovers with check-now", async ({
     await setOrgVerificationRecord(org.domain, [org.value]);
     await banner.getByRole("button", { name: "Check now" }).click();
     await expect(banner).toBeHidden();
-    await expect(page.getByTestId("home-domain-state")).toHaveAttribute(
+    await page.goto(`${ORGS_PORTAL}/company`);
+    await expect(page.getByTestId("domain-state")).toHaveAttribute(
       "data-state",
       "verified",
     );
@@ -346,7 +350,8 @@ test("a suspended Org can only restore its domain", async ({
     await setOrgVerificationRecord(org.domain, [org.value]);
     await page.getByRole("button", { name: "Check now" }).click();
     await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
-    await expect(page.getByTestId("home-domain-state")).toHaveAttribute(
+    await page.goto(`${ORGS_PORTAL}/company`);
+    await expect(page.getByTestId("domain-state")).toHaveAttribute(
       "data-state",
       "verified",
     );

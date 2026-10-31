@@ -11,7 +11,6 @@ import {
 import { assign, candidate, withWorld } from "../lib/orgs-routing.ts";
 import {
   chooseWorkspace,
-  openAccountPage,
   sidebarPage,
   signIn,
   signOut,
@@ -293,14 +292,15 @@ test("workspaces show the work the Org does and the user may do, and personal pa
     await expect(sidebarPage(page, "Work queue")).toBeVisible();
     await expect(sidebarPage(page, "Jobs")).toHaveCount(0);
 
-    // The account menu holds the person's own pages.
-    await openAccountPage(page, "My interviews");
+    // The person's own pages are pinned above the workspace, which stays.
+    await sidebarPage(page, "My interviews").click();
     await expect(page).toHaveURL(/\/my-interviews$/);
     await expect(sidebarPage(page, "Work queue")).toBeVisible();
-    await openAccountPage(page, "My work");
+    await sidebarPage(page, "Home").click();
     await expect(
-      page.getByRole("heading", { name: "My work", level: 1 }),
+      page.getByRole("heading", { name: "Home", level: 1 }),
     ).toBeVisible();
+    await expect(sidebarPage(page, "Work queue")).toBeVisible();
 
     // Each page still needs its permission: one workspace, no switcher.
     await signOut(page);

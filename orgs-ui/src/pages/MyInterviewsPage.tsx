@@ -6,32 +6,64 @@ import {
   Flex,
   Space,
   Table,
+  Tabs,
   Tag,
   Typography,
 } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import type { MyInterview } from "typespec/orgs/applications/applications";
+import {
+  FeedbackDueInterviewsView,
+  isMyInterviewView,
+  type MyInterview,
+  type MyInterviewView,
+  UpcomingInterviewsView,
+} from "typespec/orgs/applications/applications";
 import { paths } from "../app/paths";
 import { ListPager } from "../features/applications/ListPager";
 import { useListState } from "../features/applications/listState";
-import { useMyInterviewsQuery } from "../features/applications/queries";
+import {
+  useMyInterviewCountsQuery,
+  useMyInterviewsQuery,
+} from "../features/applications/queries";
+
+const allTab = "all";
+
+/** As the API judges it: over once its duration has passed. */
+function isOver(interview: MyInterview): boolean {
+  return (
+    Date.parse(interview.starts_at) + interview.duration_minutes * 60_000 <=
+    Date.now()
+  );
+}
 
 /**
- * The interviews the caller sits on, newest first, wherever they work in the
- * Org. It is how an interviewer with no other hiring access finds the
- * applications they may open.
+ * The interviews the caller sits on, wherever they work in the Org: upcoming,
+ * awaiting their feedback, or all of them. It is how an interviewer with no
+ * other hiring access finds the applications they may open.
  */
 export function MyInterviewsPage() {
   const { t } = useTranslation();
   const { dateTime } = useDateTimeFormat();
   const list = useListState();
+  const tab = list.get("tab");
+  const view: MyInterviewView | undefined = isMyInterviewView(tab)
+    ? tab
+    : tab === allTab
+      ? undefined
+      : UpcomingInterviewsView;
+  const counts = useMyInterviewCountsQuery();
   const query = useMyInterviewsQuery({
+    ...(view !== undefined && { view }),
     limit: 25,
     ...(list.paginationKey !== undefined && {
       pagination_key: list.paginationKey,
     }),
   });
+  const tabLabel = (label: string, count: number | undefined) =>
+    count === undefined
+      ? label
+      : t("myInterviews.tabs.count", { label, count });
 
   const columns = [
     {
@@ -95,6 +127,8 @@ export function MyInterviewsPage() {
           <Tag color="success">{t("myInterviews.feedbackGiven")}</Tag>
         ) : row.state === "completed" ? (
           <Tag color="warning">{t("myInterviews.feedbackDue")}</Tag>
+        ) : row.state === "scheduled" && isOver(row) ? (
+          <Tag color="warning">{t("myInterviews.outcomeDue")}</Tag>
         ) : (
           <Typography.Text type="secondary">
             {t("myInterviews.feedbackNotYet")}
@@ -124,6 +158,29 @@ export function MyInterviewsPage() {
           }
         />
       )}
+      <Tabs
+        activeKey={view ?? allTab}
+        onChange={(key) =>
+          list.set({ tab: key === UpcomingInterviewsView ? undefined : key })
+        }
+        items={[
+          {
+            key: UpcomingInterviewsView,
+            label: tabLabel(
+              t("myInterviews.tabs.upcoming"),
+              counts.data?.upcoming,
+            ),
+          },
+          {
+            key: FeedbackDueInterviewsView,
+            label: tabLabel(
+              t("myInterviews.tabs.feedbackDue"),
+              counts.data?.feedback_due,
+            ),
+          },
+          { key: allTab, label: t("myInterviews.tabs.all") },
+        ]}
+      />
       <Table
         rowKey={(row) =>
           `${row.opening_number}-${row.application_number}-${row.interview_number}`
@@ -137,7 +194,13 @@ export function MyInterviewsPage() {
           emptyText: (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={t("myInterviews.empty")}
+              description={t(
+                view === UpcomingInterviewsView
+                  ? "myInterviews.emptyUpcoming"
+                  : view === FeedbackDueInterviewsView
+                    ? "myInterviews.emptyFeedbackDue"
+                    : "myInterviews.empty",
+              )}
             />
           ),
         }}

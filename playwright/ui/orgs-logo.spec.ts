@@ -11,12 +11,7 @@ import {
   type SignedUpOrg,
   signupOrg,
 } from "../lib/orgs-api.ts";
-import {
-  accountMenu,
-  chooseWorkspace,
-  openAccountPage,
-  sidebarPage,
-} from "../lib/orgs-ui.ts";
+import { accountMenu, chooseWorkspace, sidebarPage } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 import { chooseRegion } from "../lib/region-ui.ts";
 
@@ -142,11 +137,7 @@ test("company name, account privacy and old routes work together", async ({
       .fill("Updated Company");
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("Company details saved")).toBeVisible();
-    await openAccountPage(page, "My work");
-    await expect(page.getByTestId("home-org-name")).toHaveText(
-      "Updated Company",
-    );
-    await page.goto(`${ORGS_PORTAL}/company`);
+    await page.reload();
     await expect(page.getByLabel("Company name", { exact: true })).toHaveValue(
       "Updated Company",
     );

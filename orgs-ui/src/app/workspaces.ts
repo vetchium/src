@@ -9,8 +9,9 @@ import { paths } from "./paths.ts";
 /**
  * The sidebar shows one workspace at a time, each holding Org-level pages for
  * one kind of work: Hiring, one per Capability the Org provides, and
- * Administration. Pages about the signed-in person live in the account menu
- * instead, so the sidebar never mixes "mine" and "the Org's".
+ * Administration. Pages about the signed-in person belong to no workspace:
+ * the ones they work from are pinned above the workspace, and their account
+ * is in the account menu.
  */
 export type WorkspaceKey = "hiring" | Capability | "administration";
 
@@ -139,10 +140,14 @@ export function workspacesFor(access: WorkspaceAccess): Workspace[] {
   return workspaces.filter((workspace) => workspace.pages.length > 0);
 }
 
-/** Pages about the signed-in person, in the account menu. */
-export const personalPages: readonly Page[] = [
+/** The signed-in person's own work, pinned above every workspace. */
+export const pinnedPages: readonly Page[] = [
   { key: "home", path: paths.home },
   { key: "myInterviews", path: paths.myInterviews },
+];
+
+/** The signed-in person's account, in the account menu. */
+export const accountPages: readonly Page[] = [
   { key: "security", path: paths.security },
 ];
 

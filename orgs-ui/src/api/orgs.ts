@@ -37,6 +37,7 @@ import type {
   ListApplicationsResponse,
   ListMyInterviewsRequest,
   ListMyInterviewsResponse,
+  MyInterviewCounts,
   OfferLetterUploaded,
   RecordAssessmentResultRequest,
   RecordBackgroundCheckResultRequest,
@@ -433,6 +434,8 @@ export const orgsAPI = {
     }),
   listMyInterviews: (body: ListMyInterviewsRequest) =>
     apiRequest<ListMyInterviewsResponse>("/list-my-interviews", { body }),
+  myInterviewCounts: () =>
+    apiRequest<MyInterviewCounts>("/my-interview-counts"),
   createOpening: (body: CreateOpeningRequest, idempotencyKey: IdempotencyKey) =>
     apiRequest<OrgOpening>("/create-opening", { body, idempotencyKey }),
   duplicateOpening: (

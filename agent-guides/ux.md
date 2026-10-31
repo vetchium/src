@@ -56,24 +56,33 @@ first version; a screen that needs a redesign pass missed a rule here.
 
 ## Orgs portal navigation
 
-- The sidebar holds Org-level pages only, in one workspace at a time: Hiring,
-  one per Capability the Org provides (named by the Capability's label), and
-  Administration (`orgs-ui/src/app/workspaces.ts`). A workspace shows only
-  when the Org does that work and the user may open one of its pages; the
-  switcher shows only with two or more. Keep a workspace to five pages or
-  fewer.
-- Pages about the signed-in person (My work, My interviews, My account) live
-  in the header's account menu, which names the person by address.
-- A new page joins exactly one workspace, or the account menu when it shows
-  only the person's own items. An Org-level list whose items belong to people
-  (Jobs) filters by person instead of moving to the account menu, and starts
-  on "Mine" when that is what most users come for.
+- Below the pinned pages, the sidebar holds Org-level pages in one workspace
+  at a time: Hiring, one per Capability the Org provides (named by the
+  Capability's label), and Administration (`orgs-ui/src/app/workspaces.ts`).
+  A workspace shows only when the Org does that work and the user may open
+  one of its pages; the switcher shows only with two or more. Keep a
+  workspace to five pages or fewer.
+- The person's own work (Home, My interviews) is pinned above the workspace
+  in every workspace (`pinnedPages`); their account (My account) is in the
+  header's account menu, which names the person by address. A suspended Org
+  pins nothing.
+- A new page joins exactly one workspace, the pinned pages when it shows only
+  the person's own work, or the account menu when it is account settings. An
+  Org-level list whose items belong to people (Jobs) filters by person
+  instead of moving out of its workspace, and starts on "Mine" when that is
+  what most users come for.
+- Home holds only what waits on the person or changes: alerts for limits the
+  person can fix, counts from counts operations, then one preview card per
+  role (first five rows and "See all"). A card shows only to a user its
+  permissions or Capabilities let act on it; never static account or Org
+  details.
 - No page is in two workspaces. A Capability workspace's routes start with
   its Capability (`capabilityPath`: `/sourcing/jobs`,
   `/background-check/work/...`), so the URL alone picks the workspace; a page
   shared by Capabilities (Clients, Work queue) takes the Capability as a prop,
   filters by it, and redirects an item opened under another Capability's path
-  to its own. The workspace last chosen applies only on account-menu pages.
+  to its own. The workspace last chosen applies only on pinned and
+  account-menu pages.
 
 ## Actions and saving
 

@@ -164,8 +164,10 @@ test("billing and company forms work in German with keyboard navigation", async 
     await page.getByRole("button", { name: "Speichern", exact: true }).click();
     // Leaving before the save answers would read the old name.
     await expect(page.getByText("Unternehmensdaten gespeichert")).toBeVisible();
-    await page.goto(`${ORGS_PORTAL}/`);
-    await expect(page.getByTestId("home-org-name")).toHaveText("Beispiel GmbH");
+    await page.reload();
+    await expect(
+      page.getByLabel("Unternehmensname", { exact: true }),
+    ).toHaveValue("Beispiel GmbH");
   });
 });
 

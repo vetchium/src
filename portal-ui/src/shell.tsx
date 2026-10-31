@@ -13,6 +13,7 @@ import {
   App,
   Avatar,
   Button,
+  Divider,
   Drawer,
   Dropdown,
   Flex,
@@ -305,6 +306,7 @@ export function PortalShell<Locale extends string>({
   onSelectLanguage,
   languagePending,
   banner,
+  pinnedNavigationItems,
   navigationHeader,
   account,
 }: {
@@ -318,6 +320,9 @@ export function PortalShell<Locale extends string>({
   /** Rendered above every routed page, for notices the portal must not hide
    * behind a particular route. */
   banner?: ReactNode;
+  /** Shown first in the sidebar and the drawer, above `navigationHeader`,
+   * for pages that stay in reach whatever the header selects. */
+  pinnedNavigationItems?: ItemType[];
   /** Rendered above the navigation menu, in the sidebar and the drawer. */
   navigationHeader?: ReactNode;
   /** Replaces the sign-out button with a menu of the person's own pages. */
@@ -345,6 +350,31 @@ export function PortalShell<Locale extends string>({
     await onSignOut();
     navigate("/login", { replace: true });
   };
+  const navigation = (
+    <>
+      {pinnedNavigationItems === undefined ||
+      pinnedNavigationItems.length === 0 ? null : (
+        <>
+          <Menu
+            mode="inline"
+            selectedKeys={[selectedKey]}
+            items={pinnedNavigationItems}
+            onClick={({ key }) => navigateFromMenu(key)}
+          />
+          <Divider size="small" />
+        </>
+      )}
+      {navigationHeader === undefined ? null : (
+        <div className="shell-navigation-header">{navigationHeader}</div>
+      )}
+      <Menu
+        mode="inline"
+        selectedKeys={[selectedKey]}
+        items={navigationItems}
+        onClick={({ key }) => navigateFromMenu(key)}
+      />
+    </>
+  );
   return (
     <Layout className="app-layout">
       <title>{t("shell.documentTitle")}</title>
@@ -368,28 +398,12 @@ export function PortalShell<Locale extends string>({
         styles={{ body: { padding: 0 } }}
         onClose={() => setNavigationOpen(false)}
       >
-        {navigationHeader === undefined ? null : (
-          <div className="shell-navigation-header">{navigationHeader}</div>
-        )}
-        <Menu
-          mode="inline"
-          selectedKeys={[selectedKey]}
-          items={navigationItems}
-          onClick={({ key }) => navigateFromMenu(key)}
-        />
+        {navigation}
       </Drawer>
       <Layout>
         {screens.lg === true ? (
           <Sider theme={preferences.themeMode} width={232}>
-            {navigationHeader === undefined ? null : (
-              <div className="shell-navigation-header">{navigationHeader}</div>
-            )}
-            <Menu
-              mode="inline"
-              selectedKeys={[selectedKey]}
-              items={navigationItems}
-              onClick={({ key }) => navigateFromMenu(key)}
-            />
+            {navigation}
           </Sider>
         ) : null}
         <Flex

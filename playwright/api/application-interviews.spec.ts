@@ -15,7 +15,10 @@ import type {
   InterviewDetails,
   ListApplicationHistoryResponse,
   ListApplicationsResponse,
+  ListMyInterviewsRequest,
   ListMyInterviewsResponse,
+  MyInterviewCounts,
+  MyInterviewView,
   OfferLetterUploaded,
 } from "typespec/orgs/applications/applications";
 import type {
@@ -2447,6 +2450,165 @@ test("every interview write authenticates, validates, and refuses suspended Orgs
       await api.listMyInterviews(owner, {}),
       403,
       `${PREFIX}org-suspended`,
+    );
+    await expectProblem(
+      await api.myInterviewCounts(owner),
+      403,
+      `${PREFIX}org-suspended`,
+    );
+  });
+});
+
+test("my interviews split into upcoming and feedback due, by start, for each interviewer", async ({
+  request,
+}) => {
+  test.setTimeout(120_000);
+  await withOrg(request, async (world) => {
+    await upgrade(world);
+    const { api, owner, org } = world;
+    const peer = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      `peer@${org.domain}`,
+    );
+    const { opening, application } = await panelCandidacy(world);
+    // Interview numbers follow scheduling order; each line says what the
+    // test makes of it.
+    const shapes: { set?: string; interviewers?: string[] }[] = [
+      { set: "starts_at = now() + interval '5 hours'" }, // 1 upcoming
+      { set: "starts_at = now() + interval '1 hour'" }, // 2 upcoming
+      { set: "starts_at = now() - interval '1 hour'" }, // 3 over: due
+      { set: "starts_at = now() - interval '10 minutes'" }, // 4 running
+      { interviewers: [org.emailAddress, peer.emailAddress] }, // 5 reviewed
+      {
+        set: `starts_at = now() - interval '2 hours',
+          interview_state = 'completed', ended_at = now()`,
+      }, // 6 due
+      { set: "interview_state = 'cancelled', ended_at = now()" }, // 7
+      {
+        set: `starts_at = now() - interval '3 hours',
+          interview_state = 'completed', ended_at = now()`,
+      }, // 8 due
+    ];
+    for (const shape of shapes) {
+      await schedule(world, opening, application, {
+        ...(shape.interviewers && { interviewer_emails: shape.interviewers }),
+      });
+    }
+    for (const [index, shape] of shapes.entries()) {
+      if (shape.set) {
+        interviewSQL(world, opening, application, index + 1, shape.set);
+      }
+    }
+    interviewSQL(
+      world,
+      opening,
+      application,
+      5,
+      `starts_at = now() - interval '4 hours',
+       interview_state = 'completed', ended_at = now()`,
+    );
+    const reviewed = await api.submitInterviewFeedback(owner, {
+      opening_number: opening,
+      application_number: application,
+      version: await version(world, opening, application),
+      interview_number: 5,
+      recommendation: "yes",
+      notes: "Hire",
+    });
+    expect(reviewed.status(), await reviewed.text()).toBe(200);
+
+    const numbers = async (
+      token: string,
+      body: ListMyInterviewsRequest,
+    ): Promise<{ numbers: number[]; next?: string }> => {
+      const response = await api.listMyInterviews(token, body);
+      expect(response.status(), await response.text()).toBe(200);
+      expect(response.headers()["cache-control"]).toBe("no-store");
+      const page = (await response.json()) as ListMyInterviewsResponse;
+      for (const interview of page.interviews) {
+        expect(interview.application_number).toBe(application);
+      }
+      return {
+        numbers: page.interviews.map((entry) => entry.interview_number),
+        ...(page.next_pagination_key && { next: page.next_pagination_key }),
+      };
+    };
+
+    // Soonest first; the running interview stays upcoming until it ends.
+    expect(await numbers(owner, { view: "upcoming" })).toEqual({
+      numbers: [4, 2, 1],
+    });
+    // Oldest first; the owner's reviewed interview is not due.
+    expect(await numbers(owner, { view: "feedback_due" })).toEqual({
+      numbers: [8, 6, 3],
+    });
+    expect((await numbers(owner, {})).numbers.sort((a, b) => a - b)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8,
+    ]);
+    // The peer has given no feedback on the interview they share.
+    expect(await numbers(peer.token, { view: "feedback_due" })).toEqual({
+      numbers: [5],
+    });
+    expect(await numbers(peer.token, { view: "upcoming" })).toEqual({
+      numbers: [],
+    });
+
+    const counts = async (token: string): Promise<MyInterviewCounts> => {
+      const response = await api.myInterviewCounts(token);
+      expect(response.status(), await response.text()).toBe(200);
+      expect(response.headers()["cache-control"]).toBe("no-store");
+      return (await response.json()) as MyInterviewCounts;
+    };
+    expect(await counts(owner)).toEqual({ upcoming: 3, feedback_due: 3 });
+    expect(await counts(peer.token)).toEqual({ upcoming: 0, feedback_due: 1 });
+
+    // Pages keep the view's order, and a key works only in its own view.
+    const first = await numbers(owner, { view: "upcoming", limit: 2 });
+    expect(first.numbers).toEqual([4, 2]);
+    const key = first.next ?? "";
+    expect(
+      await numbers(owner, { view: "upcoming", limit: 2, pagination_key: key }),
+    ).toEqual({ numbers: [1] });
+    const due = await numbers(owner, { view: "feedback_due", limit: 1 });
+    expect(due.numbers).toEqual([8]);
+    expect(
+      await numbers(owner, {
+        view: "feedback_due",
+        limit: 2,
+        pagination_key: due.next ?? "",
+      }),
+    ).toEqual({ numbers: [6, 3] });
+    const all = await numbers(owner, { limit: 1 });
+    for (const [body, token] of [
+      [{ view: "feedback_due", pagination_key: key }, owner],
+      [{ pagination_key: key }, owner],
+      [{ view: "upcoming", pagination_key: all.next ?? "" }, owner],
+    ] as const) {
+      await expectProblem(
+        await api.listMyInterviews(token, body),
+        400,
+        `${PREFIX}invalid-pagination-key`,
+      );
+    }
+    await expectProblem(
+      await api.listMyInterviews(owner, {
+        view: "all" as unknown as MyInterviewView,
+      }),
+      400,
+      VALIDATION,
+      ["view"],
+    );
+    await expectProblem(
+      await api.myInterviewCounts("not-a-token"),
+      401,
+      `${PREFIX}org-authentication-required`,
+    );
+    await expectProblem(
+      await api.myInterviewCounts(),
+      401,
+      `${PREFIX}org-authentication-required`,
     );
   });
 });

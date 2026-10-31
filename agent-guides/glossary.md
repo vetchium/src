@@ -28,7 +28,7 @@ Applies to product terms in prompts, specifications, code, and UI text.
 - Verified / failing domain — TXT record found at the last conclusive check / absent on consecutive periodic checks.
 - Org country — where an org is based, chosen at signup; unrelated to its home tenant.
 - Suspended org — an org whose only domain stayed failing past the grace period and was released; its users can sign in only to restore the domain.
-- Workspace — one group of Org-level pages in the Orgs portal sidebar (Hiring, one per provided Capability, Administration); the person's own pages are in the account menu.
+- Workspace — one group of Org-level pages in the Orgs portal sidebar (Hiring, one per provided Capability, Administration); the person's own work (Home, My interviews) is pinned above it.
 
 ## Hiring
 

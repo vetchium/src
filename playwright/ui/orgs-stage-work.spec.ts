@@ -105,7 +105,7 @@ test("an interview is scheduled, changed, run, and given feedback by its intervi
     await signIn(page, org);
 
     // Nobody has an interview yet.
-    await page.goto(`${ORGS_PORTAL}/my-interviews`);
+    await page.goto(`${ORGS_PORTAL}/my-interviews?tab=all`);
     await expect(
       page.getByText("You are not an interviewer on any interview yet."),
     ).toBeVisible();
@@ -195,7 +195,8 @@ test("an interview is scheduled, changed, run, and given feedback by its intervi
     await signOut(page);
     await signIn(page, panelist);
     await page.goto(`${ORGS_PORTAL}/my-interviews`);
-    await expect(page.getByText("Due")).toBeVisible();
+    await page.getByRole("tab", { name: "Feedback due (1)" }).click();
+    await expect(page.getByRole("cell", { name: "Due" })).toBeVisible();
     await page.getByRole("link", { name: "Ada Lovelace" }).click();
     await expect(page.getByText("Interview 1", { exact: true })).toBeVisible();
     await expect(

@@ -1,3 +1,4 @@
+import { accountMenu } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 import {
   chooseRegion,
@@ -46,7 +47,9 @@ test("an Org sign-in fails identically for wrong region and password and needs a
   await page.getByLabel("Password", { exact: true }).fill(signedUp.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(`${ORGS_PORTAL}/`);
-  await expect(page.getByTestId("home-domain")).toContainText(signedUp.domain);
+  await expect(accountMenu(page)).toHaveAccessibleName(
+    `Account menu for ${signedUp.emailAddress}`,
+  );
   expect(new Set(hosts)).toEqual(new Set(["sgp.api.vetchium.localhost"]));
   const next = await context.newPage();
   await next.goto(`${ORGS_PORTAL}/login`);

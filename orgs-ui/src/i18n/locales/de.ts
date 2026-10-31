@@ -14,7 +14,7 @@ export const de = {
   navigation: {
     menu: "Navigation",
     openMenu: "Navigation öffnen",
-    home: "Meine Arbeit",
+    home: "Startseite",
     members: "Personen",
     openings: "Stellenanzeigen",
     plans: "Abrechnung",
@@ -390,24 +390,41 @@ export const de = {
     confirm: "Weiter",
   },
   home: {
-    documentTitle: "Meine Arbeit | Vetchium für Organisationen",
-    title: "Meine Arbeit",
-    description: "Was in Ihrer Organisation bei Ihnen liegt.",
-    myJobs: "Ihre Stellen",
-    myJobsHelp: "Veröffentlichte Stellen, die Sie für Ihre Agentur betreuen.",
+    documentTitle: "Startseite | Vetchium für Organisationen",
+    title: "Startseite",
+    description: "Was in Ihrer Arbeit für die Organisation auf Sie wartet.",
+    upcomingInterviews: "Anstehende Interviews",
+    noUpcoming: "Es stehen keine Interviews an.",
+    feedbackDue: "Ausstehendes Feedback",
+    noFeedbackDue: "Sie schulden kein Interview-Feedback.",
     unreadConversations: "Ungelesene Unterhaltungen",
-    openInbox: "Posteingang öffnen",
-    myJobsCard: "Stellen, die Sie betreuen",
+    unavailable: "Nicht verfügbar",
     seeAll: "Alle anzeigen",
+    approvals: "Warten auf Ihre Freigabe",
+    noApprovals: "Keine Anfragen zu Stellenanzeigen warten auf Sie.",
+    openingsYouRun: "Ihre Stellenanzeigen",
+    noOpenings:
+      "Sie sind bei keiner laufenden Stellenanzeige einstellungsverantwortliche Person oder Recruiter.",
+    myJobs: "Ihre Stellen",
     noJobs: "Ihnen ist noch keine veröffentlichte Stelle zugeordnet.",
-    browseJobs: "Stellen Ihrer Agentur ansehen",
-    myInterviewsCard: "Ihre Interviews",
-    noInterviews: "Sie sind bei keinem Interview als Interviewer eingetragen.",
-    accountCard: "Ihr Konto",
-    signedInAs: "Angemeldet als",
-    organization: "Organisation",
-    accountSecurity: "Passwort und Zwei-Faktor-Anmeldung",
-    noPermissions: "Keine Berechtigungen",
+    workToStart: "Zu beginnende Arbeit",
+    noWork: "Keine Kundenarbeit wartet auf den Start.",
+    workIncomplete:
+      "Einige Kunden waren nicht erreichbar, daher ist die Liste möglicherweise unvollständig.",
+    clientRequests: "Zu beantwortende Kundenanfragen",
+    noClientRequests: "Keine Kundenanfragen warten auf eine Antwort.",
+    answerBy: "Antwort bis {{date}}",
+    proposals: "Vorschläge an Anbieter",
+    noProposals: "Keine Vorschläge warten auf Anbieter.",
+    expiresOn: "Läuft am {{date}} ab",
+    seatsNearlyFull: "{{used}} von {{limit}} Plätzen sind belegt.",
+    seatsFull:
+      "Alle {{limit}} Plätze sind belegt, niemand weiteres kann beitreten.",
+    changePlan: "Tarif ändern",
+    creditsLow: "{{percent}} % Ihrer KI-Guthaben sind verbraucht.",
+    creditsExhausted:
+      "Ihre KI-Guthaben sind aufgebraucht, die KI-Unterstützung pausiert.",
+    openAI: "KI-Guthaben verwalten",
   },
   permissions: {
     "org:superadmin": {
@@ -906,7 +923,8 @@ export const de = {
   settings: {
     documentTitle: "Unternehmen | Vetchium",
     title: "Unternehmen",
-    description: "Verwalten Sie den Namen und das Logo Ihres Unternehmens.",
+    description:
+      "Verwalten Sie den Namen, das Logo und die Domain Ihres Unternehmens.",
     logo: {
       title: "Logo",
       help: "Wird neben dem Namen Ihrer Organisation angezeigt. Verwenden Sie ein nicht animiertes PNG oder JPEG bis 2 MiB, dessen Seiten jeweils zwischen 128 und 4.096 Pixel lang sind. Das Bild wird neu kodiert und seine Metadaten werden entfernt.",
@@ -925,6 +943,9 @@ export const de = {
       off: "Aus",
       upgrade: "Die Google-Anmeldung erfordert den Tarif Gold.",
       seePlans: "Tarife ansehen",
+    },
+    domain: {
+      title: "Domain",
     },
   },
   roles: {
@@ -2040,7 +2061,7 @@ export const de = {
     documentTitle: "Meine Interviews | Vetchium",
     title: "Meine Interviews",
     description:
-      "Interviews, an denen Sie teilnehmen, das neueste zuerst. Öffnen Sie eines, um die Bewerbung zu lesen und Feedback zu geben.",
+      "Interviews, an denen Sie teilnehmen. Öffnen Sie eines, um die Bewerbung zu lesen, das Ergebnis zu erfassen und Feedback zu geben.",
     empty:
       "Sie sind noch bei keinem Interview als Interviewende bzw. Interviewender eingetragen.",
     minutes: "{{minutes}} Min.",
@@ -2054,6 +2075,15 @@ export const de = {
     feedbackGiven: "Gesendet",
     feedbackDue: "Offen",
     feedbackNotYet: "Nach dem Interview",
+    emptyUpcoming: "Es stehen keine Interviews an.",
+    emptyFeedbackDue: "Sie schulden kein Interview-Feedback.",
+    outcomeDue: "Ergebnis erfassen",
+    tabs: {
+      upcoming: "Anstehend",
+      feedbackDue: "Feedback offen",
+      all: "Alle",
+      count: "{{label}} ({{count}})",
+    },
   },
   pipeline: {
     title: "Pipeline",

@@ -196,3 +196,11 @@ export function useMyInterviewsQuery(request: ListMyInterviewsRequest) {
     retry: false,
   });
 }
+
+export function useMyInterviewCountsQuery() {
+  return useQuery({
+    queryKey: [...applicationsQueryKey, "my-interview-counts"],
+    queryFn: orgsAPI.myInterviewCounts,
+    retry: false,
+  });
+}

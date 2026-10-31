@@ -214,13 +214,14 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	// Interview writes: scheduling, changing, and cancelling need the right to
 	// act; recording an outcome and feedback also admit the interview's own
 	// interviewers, whom the handler checks against the interview. Anyone may
-	// list the interviews they interview on.
+	// list and count the interviews they interview on.
 	mux.Handle("POST /api/orgs/schedule-interview", readOpening(orgsapplications.ScheduleInterview(s)))
 	mux.Handle("POST /api/orgs/change-interview", readOpening(orgsapplications.ChangeInterview(s)))
 	mux.Handle("POST /api/orgs/cancel-interview", readOpening(orgsapplications.CancelInterview(s)))
 	mux.Handle("POST /api/orgs/record-interview-outcome", readOpening(orgsapplications.RecordInterviewOutcome(s)))
 	mux.Handle("POST /api/orgs/submit-interview-feedback", readOpening(orgsapplications.SubmitInterviewFeedback(s)))
 	mux.Handle("POST /api/orgs/list-my-interviews", readOpening(orgsapplications.ListMyInterviews(s)))
+	mux.Handle("GET /api/orgs/my-interview-counts", readOpening(orgsapplications.MyInterviewCounts(s)))
 	mux.Handle("POST /api/orgs/record-assessment-result", readOpening(orgsapplications.RecordAssessmentResult(s)))
 	mux.Handle("POST /api/orgs/request-background-check-consent", readOpening(orgsapplications.RequestBackgroundCheckConsent(s)))
 	mux.Handle("POST /api/orgs/record-background-check-result", readOpening(orgsapplications.RecordBackgroundCheckResult(s)))

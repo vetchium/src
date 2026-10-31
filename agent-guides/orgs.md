@@ -239,7 +239,8 @@ by the `workers` schedule and check-now.
   step, Google sign-in and its callback, forgot and reset password, the
   signed-in shell, account security, the failing banner, and the suspended
   (restore-domain) screen, plus members and invitations, plans and billing,
-  Company (name, country, default language, and logo), Organization security
+  Home and My interviews, Company (name, country, default language, logo,
+  and domain status), Organization security
   (Google sign-in), Openings lists, editing (with Draft with AI), requests,
   approvals, and history, pipeline templates, Applicants, Candidates, and
   application detail (interviews, feedback, assessments, background checks,
@@ -254,10 +255,10 @@ by the `workers` schedule and check-now.
 - Mail to an Org user uses that user's `preferred_language`. Mail to an
   address that is not yet a user (invitations and their resends) uses the
   Org's default language.
-- Show the signed-in email in My account and authorized People administration,
-  not in the shell or Overview. The shell shows no Org name or logo either:
-  Overview's heading names the Org, and the Company page shows the logo. Redirect `/settings` to `/company` and
-  `/security` to `/account`.
+- Show the signed-in email only in the account menu, My account, and
+  authorized People administration, never on Home. The shell shows no Org
+  name or logo; the Company page shows the name, logo, and domain status.
+  Redirect `/settings` to `/company` and `/security` to `/account`.
 - Ship every user-visible string in every `orgs-ui` locale.
 
 ## Tests

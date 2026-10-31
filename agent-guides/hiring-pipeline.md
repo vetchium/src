@@ -287,8 +287,13 @@ below.
 - **HP-WRK-010** `ApplicationDetail.interviews` lists every interview with
   its stage, interviewers (and whether each submitted), and feedback. The
   query hides every other interviewer's feedback from an interviewer who has
-  not submitted their own. `list-my-interviews` is keyed by the caller and
-  paginates by interview id (a UUIDv7, so newest scheduled first).
+  not submitted their own. `list-my-interviews` is keyed by the caller.
+  Without `view` it paginates by interview id (a UUIDv7, so newest scheduled
+  first). `upcoming` (`scheduled`, start plus duration still ahead) and
+  `feedback_due` (over, `completed` or still `scheduled`, without the
+  caller's feedback) paginate by start then id, soonest first; the two never
+  share an interview, and a key works only in its own view.
+  `my-interview-counts` counts both views.
 - **HP-WRK-011** The applicant answers an upcoming interview through
   `hub-accept-interview` and `hub-request-interview-reschedule`
   (`backend/internal/hubinterview`, payloads `HubAcceptInterviewPayload` and
@@ -500,6 +505,10 @@ Vetchium never scores, ranks, or rejects an application by its answers.
   the credited agency and its route (MKT-SRC-007), and history.
 - **HP-ORG-003** Show actions only when permissions and state allow them; the
   API still decides. Ship every string in every `orgs-ui` locale.
+- **HP-ORG-004** My interviews opens on Upcoming, then Feedback due and All,
+  with counts from `my-interview-counts` and the tab in the URL (`tab`).
+  An interview that is over but still `scheduled` shows that its outcome is
+  due.
 
 ## Retention
 

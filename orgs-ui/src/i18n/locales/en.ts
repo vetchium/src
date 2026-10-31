@@ -12,7 +12,7 @@ export const en = {
   navigation: {
     menu: "Navigation",
     openMenu: "Open navigation",
-    home: "My work",
+    home: "Home",
     members: "People",
     openings: "Openings",
     plans: "Billing",
@@ -376,24 +376,40 @@ export const en = {
     confirm: "Continue",
   },
   home: {
-    documentTitle: "My work | Vetchium for organizations",
-    title: "My work",
-    description: "What is yours to do in your organization.",
-    myJobs: "Jobs you own",
-    myJobsHelp: "Published Jobs you look after for your agency.",
+    documentTitle: "Home | Vetchium for organizations",
+    title: "Home",
+    description: "What is waiting on you across your work in the organization.",
+    upcomingInterviews: "Upcoming interviews",
+    noUpcoming: "No interviews are coming up.",
+    feedbackDue: "Feedback you owe",
+    noFeedbackDue: "You owe no interview feedback.",
     unreadConversations: "Unread conversations",
-    openInbox: "Open the inbox",
-    myJobsCard: "Jobs you own",
+    unavailable: "Unavailable",
     seeAll: "See all",
+    approvals: "Waiting for your approval",
+    noApprovals: "No Opening requests are waiting for you.",
+    openingsYouRun: "Openings you run",
+    noOpenings:
+      "You are not the hiring manager or recruiter of any running Opening.",
+    myJobs: "Jobs you own",
     noJobs: "No published Jobs are assigned to you yet.",
-    browseJobs: "Browse your agency's Jobs",
-    myInterviewsCard: "Interviews you sit on",
-    noInterviews: "You are not an interviewer on any interview.",
-    accountCard: "Your account",
-    signedInAs: "Signed in as",
-    organization: "Organization",
-    accountSecurity: "Password and two-factor sign-in",
-    noPermissions: "No permissions",
+    workToStart: "Work to start",
+    noWork: "No client work is waiting to start.",
+    workIncomplete:
+      "Some clients could not be reached, so this list may be incomplete.",
+    clientRequests: "Client requests to answer",
+    noClientRequests: "No client requests are waiting for an answer.",
+    answerBy: "Answer by {{date}}",
+    proposals: "Proposals awaiting providers",
+    noProposals: "No proposals are waiting on providers.",
+    expiresOn: "Expires on {{date}}",
+    seatsNearlyFull: "{{used}} of {{limit}} seats are in use.",
+    seatsFull: "All {{limit}} seats are in use, so no one else can join.",
+    changePlan: "Change plan",
+    creditsLow: "{{percent}}% of your AI credits are used.",
+    creditsExhausted:
+      "Your AI credits are used up, so AI assistance is paused.",
+    openAI: "Manage AI credits",
   },
   permissions: {
     "org:superadmin": {
@@ -872,7 +888,7 @@ export const en = {
   settings: {
     documentTitle: "Company | Vetchium",
     title: "Company",
-    description: "Manage your company name and logo.",
+    description: "Manage your company name, logo, and domain.",
     logo: {
       title: "Logo",
       help: "Shown next to your organization's name. Use a PNG or JPEG that is not animated, up to 2 MiB, with each side between 128 and 4,096 pixels. The image is re-encoded and its metadata removed.",
@@ -891,6 +907,9 @@ export const en = {
       off: "Off",
       upgrade: "Google sign-in needs the Gold plan.",
       seePlans: "See plans",
+    },
+    domain: {
+      title: "Domain",
     },
   },
   roles: {
@@ -1988,7 +2007,7 @@ export const en = {
     documentTitle: "My interviews | Vetchium",
     title: "My interviews",
     description:
-      "Interviews you sit on, newest first. Open one to read the application and give feedback.",
+      "Interviews you sit on. Open one to read the application, record what happened, and give feedback.",
     empty: "You are not an interviewer on any interview yet.",
     minutes: "{{minutes}} min",
     columns: {
@@ -2001,6 +2020,15 @@ export const en = {
     feedbackGiven: "Submitted",
     feedbackDue: "Due",
     feedbackNotYet: "After the interview",
+    emptyUpcoming: "No interviews are coming up.",
+    emptyFeedbackDue: "You owe no interview feedback.",
+    outcomeDue: "Record the outcome",
+    tabs: {
+      upcoming: "Upcoming",
+      feedbackDue: "Feedback due",
+      all: "All",
+      count: "{{label}} ({{count}})",
+    },
   },
   pipeline: {
     title: "Pipeline",

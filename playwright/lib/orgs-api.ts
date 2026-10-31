@@ -1036,6 +1036,12 @@ export class OrgsAPI {
     return this.post("/list-my-interviews", request, { token });
   }
 
+  myInterviewCounts(token?: string): Promise<APIResponse> {
+    return this.request.get(`${this.origin}/api/orgs/my-interview-counts`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  }
+
   withdrawApplicationOffer(
     token: string,
     request: ApplicationActionRequest,

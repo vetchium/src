@@ -56,11 +56,12 @@ export function useSetAISettings() {
   });
 }
 
-export function useAICreditsQuery() {
+export function useAICreditsQuery(enabled = true) {
   return useQuery({
     queryKey: creditsKey,
     queryFn: orgsAPI.aiCredits,
     retry: false,
+    enabled,
   });
 }
 

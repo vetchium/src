@@ -32,6 +32,7 @@ type ApplicationCoverNote string
 type ApplicantNameQuery string
 type ApplicationState string
 type ApplicationView string
+type MyInterviewView string
 type StageStatus string
 type ApplicationHistoryAction string
 type ApplicationActorKind string
@@ -78,6 +79,11 @@ const (
 const (
 	ApplicantsView ApplicationView = "applicants"
 	CandidatesView ApplicationView = "candidates"
+)
+
+const (
+	UpcomingInterviewsView    MyInterviewView = "upcoming"
+	FeedbackDueInterviewsView MyInterviewView = "feedback_due"
 )
 
 const (
@@ -470,6 +476,10 @@ func IsApplicationState(value ApplicationState) bool {
 
 func IsApplicationView(value ApplicationView) bool {
 	return value == ApplicantsView || value == CandidatesView
+}
+
+func IsMyInterviewView(value MyInterviewView) bool {
+	return value == UpcomingInterviewsView || value == FeedbackDueInterviewsView
 }
 
 func IsStageStatus(value StageStatus) bool {
@@ -1211,6 +1221,7 @@ func (r SubmitInterviewFeedbackRequest) Validate() []string {
 }
 
 type ListMyInterviewsRequest struct {
+	View          *MyInterviewView      `json:"view,omitempty"`
 	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
 	Limit         *common.PageSize      `json:"limit,omitempty"`
 }
@@ -1226,6 +1237,9 @@ func (r ListMyInterviewsRequest) EffectiveLimit() common.PageSize {
 
 func (r ListMyInterviewsRequest) Validate() []string {
 	fields := []string{}
+	if r.View != nil && !IsMyInterviewView(*r.View) {
+		fields = append(fields, "view")
+	}
 	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
 		fields = append(fields, "pagination_key")
 	}
@@ -1252,6 +1266,12 @@ type MyInterview struct {
 type ListMyInterviewsResponse struct {
 	Interviews        []MyInterview         `json:"interviews"`
 	NextPaginationKey *common.PaginationKey `json:"next_pagination_key,omitempty"`
+}
+
+// MyInterviewCounts is the size of each view of the caller's interviews.
+type MyInterviewCounts struct {
+	Upcoming    int32 `json:"upcoming"`
+	FeedbackDue int32 `json:"feedback_due"`
 }
 
 // RecordAssessmentResultRequest records the result of an assessment stage.

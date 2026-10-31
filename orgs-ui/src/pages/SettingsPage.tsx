@@ -1,18 +1,27 @@
 import { DeleteOutlined, UploadOutlined } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Alert,
   Button,
   Card,
+  Descriptions,
   Flex,
   Image,
   Space,
+  Tag,
   Typography,
   Upload,
 } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
+import {
+  DomainFailing,
+  DomainReleased,
+  type DomainVerificationState,
+  DomainVerified,
+} from "typespec/orgs/account/account";
 import { holds, ManageBilling } from "typespec/orgs/authorization/types";
 import {
   isLogoContentType,
@@ -26,8 +35,15 @@ import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { CompanyDetailsForm } from "../features/account/CompanyDetailsForm";
 import { myInfoQueryKey, useMyInfoQuery } from "../features/account/queries";
 
+const domainStateColors: Record<DomainVerificationState, string> = {
+  [DomainVerified]: "green",
+  [DomainFailing]: "orange",
+  [DomainReleased]: "red",
+};
+
 export function SettingsPage() {
   const { t } = useTranslation();
+  const { dateTime } = useDateTimeFormat();
   const [localError, setLocalError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { data: me } = useMyInfoQuery();
@@ -44,6 +60,7 @@ export function SettingsPage() {
   });
   if (me === undefined) return null;
   const entitled = allowsLogo(me.plan_oid);
+  const { domain } = me.org;
 
   return (
     <Space orientation="vertical" size="large" className="full-width">
@@ -129,6 +146,54 @@ export function SettingsPage() {
             )}
           </Flex>
         </Flex>
+      </Card>
+      <Card title={t("settings.domain.title")} data-testid="domain-card">
+        <Descriptions
+          column={1}
+          items={[
+            {
+              key: "domain",
+              label: t("fields.domain"),
+              children: (
+                <Flex gap="small" wrap align="center">
+                  <Typography.Text strong data-testid="domain-name">
+                    {domain.domain}
+                  </Typography.Text>
+                  <Tag
+                    color={domainStateColors[domain.state]}
+                    data-testid="domain-state"
+                    data-state={domain.state}
+                  >
+                    {t(`domain.states.${domain.state}`)}
+                  </Tag>
+                </Flex>
+              ),
+            },
+            {
+              key: "verified",
+              label: t("fields.lastVerified"),
+              children: dateTime(domain.last_verified_at),
+            },
+            ...(domain.failing_since === null
+              ? []
+              : [
+                  {
+                    key: "failing",
+                    label: t("fields.failingSince"),
+                    children: dateTime(domain.failing_since),
+                  },
+                ]),
+            ...(domain.release_after === null
+              ? []
+              : [
+                  {
+                    key: "release",
+                    label: t("fields.releaseAfter"),
+                    children: dateTime(domain.release_after),
+                  },
+                ]),
+          ]}
+        />
       </Card>
     </Space>
   );

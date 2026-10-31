@@ -44,12 +44,13 @@ import { isCapability, Sourcing } from "typespec/orgs/marketplace/capabilities";
 import { paths } from "../../app/paths";
 import { localeConfiguration } from "../../app/preferences";
 import {
+  accountPages,
   currentWorkspace,
   isWorkspaceKey,
   type Page,
   type PageKey,
   pageOf,
-  personalPages,
+  pinnedPages,
   type WorkspaceKey,
   workspacesFor,
 } from "../../app/workspaces";
@@ -177,11 +178,11 @@ export function AppShell() {
           : []),
       ]
     : (workspace?.pages ?? []);
-  const accountPages: readonly Page[] = suspended
-    ? [{ key: "security", path: paths.security }]
-    : personalPages;
+  // A suspended Org's own pages refuse every read, so none is pinned.
+  const pinned: readonly Page[] = suspended ? [] : pinnedPages;
   const selectedKey =
-    pageOf(location.pathname, [...sidebarPages, ...accountPages])?.path ?? "";
+    pageOf(location.pathname, [...pinned, ...sidebarPages, ...accountPages])
+      ?.path ?? "";
 
   const workspaceLabel = (key: WorkspaceKey) =>
     isCapability(key)
@@ -238,6 +239,7 @@ export function AppShell() {
   return (
     <PortalShell
       localization={localeConfiguration}
+      pinnedNavigationItems={pinned.map(pageItem)}
       navigationItems={sidebarPages.map(pageItem)}
       selectedKey={selectedKey}
       onSignOut={auth.signOut}

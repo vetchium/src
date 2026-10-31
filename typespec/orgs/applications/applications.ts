@@ -323,6 +323,12 @@ export const ApplicantsView = "applicants" as const;
 export const CandidatesView = "candidates" as const;
 export type ApplicationView = typeof ApplicantsView | typeof CandidatesView;
 
+export const UpcomingInterviewsView = "upcoming" as const;
+export const FeedbackDueInterviewsView = "feedback_due" as const;
+export type MyInterviewView =
+  | typeof UpcomingInterviewsView
+  | typeof FeedbackDueInterviewsView;
+
 export const stageStatusValues = ["pending", "completed", "skipped"] as const;
 
 export type StageStatus = (typeof stageStatusValues)[number];
@@ -392,6 +398,12 @@ export function isApplicationState(value: unknown): value is ApplicationState {
 
 export function isApplicationView(value: unknown): value is ApplicationView {
   return value === ApplicantsView || value === CandidatesView;
+}
+
+export function isMyInterviewView(value: unknown): value is MyInterviewView {
+  return (
+    value === UpcomingInterviewsView || value === FeedbackDueInterviewsView
+  );
 }
 
 export function isStageStatus(value: unknown): value is StageStatus {
@@ -1081,6 +1093,7 @@ export function validateSubmitInterviewFeedbackRequest(
 }
 
 export interface ListMyInterviewsRequest {
+  view?: MyInterviewView;
   pagination_key?: PaginationKey;
   limit?: PageSize;
 }
@@ -1095,6 +1108,9 @@ export function validateListMyInterviewsRequest(
   request: ListMyInterviewsRequest,
 ): string[] {
   const fields: string[] = [];
+  if (request.view !== undefined && !isMyInterviewView(request.view)) {
+    fields.push("view");
+  }
   if (
     request.pagination_key !== undefined &&
     !isPaginationKey(request.pagination_key)
@@ -1123,6 +1139,12 @@ export interface MyInterview {
 export interface ListMyInterviewsResponse {
   interviews: MyInterview[];
   next_pagination_key?: PaginationKey;
+}
+
+/** The size of each view of the caller's interviews. */
+export interface MyInterviewCounts {
+  upcoming: number;
+  feedback_due: number;
 }
 
 export interface RecordAssessmentResultRequest

@@ -839,7 +839,23 @@ model RecordBackgroundCheckResultRequest {
   report_url?: Vetchium.Hub.Profile.WebsiteURL;
 }
 
+/**
+ * Which of the caller's interviews a list reads. The two views never share an
+ * interview; omission reads every interview, most recently scheduled first.
+ */
+enum MyInterviewView {
+  /** `scheduled` and not yet over, soonest first. */
+  Upcoming: "upcoming",
+
+  /**
+   * Over, neither cancelled nor a no-show, and without the caller's feedback,
+   * oldest first. A `scheduled` one still needs its outcome recorded.
+   */
+  FeedbackDue: "feedback_due",
+}
+
 model ListMyInterviewsRequest {
+  view?: MyInterviewView;
   pagination_key?: Vetchium.PaginationKey;
 
   /** Defaults to 50. */
@@ -861,10 +877,16 @@ model MyInterview {
 }
 
 model ListMyInterviewsResponse {
-  /** Most recently scheduled first. */
+  /** In the order the view states. */
   interviews: MyInterview[];
 
   next_pagination_key?: Vetchium.PaginationKey;
+}
+
+/** The size of each view of the caller's interviews. */
+model MyInterviewCounts {
+  upcoming: int32;
+  feedback_due: int32;
 }
 
 model OfferLetterUploaded {
@@ -1539,7 +1561,7 @@ interface ApplicationOperations {
   )
   @TypeSpec.OpenAPI.extension(
     "x-vetchium-pagination-key-binds",
-    #["interview_id"]
+    #["view", "starts_at", "interview_id"]
   )
   listMyInterviews(@body request: ListMyInterviewsRequest):
     | {
@@ -1554,4 +1576,19 @@ interface ApplicationOperations {
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse
     | Vetchium.Problem.InvalidPaginationKeyErrorResponse;
+
+  /** Counts the caller's interviews in each view of the list. */
+  @route("/my-interview-counts")
+  @get
+  @useAuth(BearerAuth)
+  myInterviewCounts():
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: MyInterviewCounts;
+      }
+    | Vetchium.Problem.OrgAuthenticationRequiredErrorResponse
+    | Vetchium.Problem.OrgSuspendedErrorResponse
+    | Vetchium.Problem.RateLimitExceededErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
 }

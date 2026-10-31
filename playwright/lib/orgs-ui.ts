@@ -47,13 +47,13 @@ function menuItem(page: Page, name: string): Locator {
   });
 }
 
-/** Opens a page of the account menu, such as "My work". */
+/** Opens a page of the account menu, such as "My account". */
 export async function openAccountPage(page: Page, name: string): Promise<void> {
   await accountMenu(page).click();
   await menuItem(page, name).click();
 }
 
-/** The sidebar link to a page of the workspace shown. */
+/** The sidebar link to a pinned page or a page of the workspace shown. */
 export function sidebarPage(page: Page, name: string): Locator {
   return menuItem(page, name);
 }
