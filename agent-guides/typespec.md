@@ -64,6 +64,11 @@ Applies to `typespec/`, the HTTP contract that backends and portals consume.
 - POST with a body, not GET with path parameters (portal routes may use path
   parameters).
 - No query parameters except in emailed links handled by a portal.
-- Keyset pagination for every list.
+- Keyset pagination for every list. The request takes an optional `limit`
+  with a stated default and maximum; validation refuses a value outside 1 to
+  the maximum rather than clamping it.
 - Every error is an RFC 9457 problem.
-- Shape endpoints for how the portals use them.
+- Shape endpoints for how the portals use them. A list operation serves only
+  pages of rows: when a screen shows counts (tabs, badges, summary cards) or
+  needs one item it would otherwise find in a list, the contract adds a counts
+  or find operation.
