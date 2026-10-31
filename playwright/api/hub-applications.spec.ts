@@ -14,6 +14,7 @@ import {
   type ApplicationReference,
   ClosedView,
   closedApplicationStatuses,
+  type ListMyApplicationsRequest,
   type ListMyApplicationsResponse,
   type MyApplication,
   type MyApplicationCounts,
@@ -1161,6 +1162,84 @@ test("my applications list each view newest activity first with keyset paginatio
         400,
         "vetchium-problem-details/invalid-pagination-key",
       );
+      // Search matches a substring of the Opening title or the Org's display
+      // name, ignoring case, within the view.
+      const titles = async (request: ListMyApplicationsRequest) => {
+        const response = await applicant.hub.listMyApplications(
+          request,
+          applicant.token,
+        );
+        expect(response.status(), await response.text()).toBe(200);
+        expect(response.headers()["cache-control"]).toBe("no-store");
+        const body = (await response.json()) as ListMyApplicationsResponse;
+        return body.applications.map((entry) => entry.opening_title);
+      };
+      expect(await titles({ view: ActiveView, query: "  SEC " })).toEqual([
+        "Second",
+      ]);
+      expect(await titles({ view: ActiveView, query: "ir" })).toEqual([
+        "Third",
+      ]);
+      expect(await titles({ view: ClosedView, query: "ir" })).toEqual([
+        "First",
+      ]);
+      expect(await titles({ view: ActiveView, query: "none-such" })).toEqual(
+        [],
+      );
+      expect(
+        await titles({ view: ActiveView, query: "playwright ORG" }),
+      ).toEqual(["Third", "Second"]);
+      // A blank query and a false filter are no filter.
+      expect(
+        await titles({
+          view: ActiveView,
+          query: "   ",
+          awaiting_answer: false,
+        }),
+      ).toEqual(["Third", "Second"]);
+      expect(await titles({ view: ActiveView, awaiting_answer: true })).toEqual(
+        [],
+      );
+      // A filtered key continues only the same normalized filters.
+      const filtered = await applicant.hub.listMyApplications(
+        { view: ActiveView, query: "playwright org", limit: 1 },
+        applicant.token,
+      );
+      const filteredKey = (
+        (await filtered.json()) as ListMyApplicationsResponse
+      ).next_pagination_key;
+      if (filteredKey === undefined) throw new Error("missing filtered key");
+      expect(
+        await titles({
+          view: ActiveView,
+          query: " playwright org ",
+          awaiting_answer: false,
+          pagination_key: filteredKey,
+        }),
+      ).toEqual(["Second"]);
+      for (const changed of [
+        { view: ActiveView },
+        { view: ActiveView, query: "playwright" },
+        { view: ActiveView, query: "playwright org", awaiting_answer: true },
+      ] satisfies ListMyApplicationsRequest[]) {
+        await expectProblem(
+          await applicant.hub.listMyApplications(
+            { ...changed, pagination_key: filteredKey },
+            applicant.token,
+          ),
+          400,
+          "vetchium-problem-details/invalid-pagination-key",
+        );
+      }
+      // An unfiltered key does not continue a filtered list.
+      await expectProblem(
+        await applicant.hub.listMyApplications(
+          { view: ActiveView, query: "playwright org", pagination_key: key },
+          applicant.token,
+        ),
+        400,
+        "vetchium-problem-details/invalid-pagination-key",
+      );
       const found = await applicant.hub.findMyOpeningApplication(
         { domain: world.org.domain, opening_number: first.opening_number },
         applicant.token,
@@ -1306,6 +1385,15 @@ test("Hub application endpoints reject malformed, unauthenticated, and unavailab
         400,
         "vetchium-problem-details/validation-failed",
         ["view"],
+      );
+      await expectProblem(
+        await hub.listMyApplications(
+          { view: ActiveView, query: "é".repeat(201) },
+          applicant.token,
+        ),
+        400,
+        "vetchium-problem-details/validation-failed",
+        ["query"],
       );
       await expectProblem(
         await hub.findMyOpeningApplication(

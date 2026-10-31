@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs"
@@ -18,6 +19,7 @@ import (
 type ApplicationStatus string
 type PendingActionKind string
 type MyApplicationPageSize int32
+type MyApplicationQuery string
 type MyApplicationView string
 
 const (
@@ -411,12 +413,28 @@ type MyApplicationSummary struct {
 }
 
 type ListMyApplicationsRequest struct {
-	View          MyApplicationView      `json:"view"`
-	PaginationKey *common.PaginationKey  `json:"pagination_key,omitempty"`
-	Limit         *MyApplicationPageSize `json:"limit,omitempty"`
+	View           MyApplicationView      `json:"view"`
+	Query          *MyApplicationQuery    `json:"query,omitempty"`
+	AwaitingAnswer *bool                  `json:"awaiting_answer,omitempty"`
+	PaginationKey  *common.PaginationKey  `json:"pagination_key,omitempty"`
+	Limit          *MyApplicationPageSize `json:"limit,omitempty"`
 }
 
-func (r *ListMyApplicationsRequest) Normalize() {}
+// Normalize trims the query and drops a blank one and a false
+// awaiting_answer, so equivalent filters bind the same pagination key.
+func (r *ListMyApplicationsRequest) Normalize() {
+	if r.Query != nil {
+		trimmed := MyApplicationQuery(strings.TrimSpace(string(*r.Query)))
+		if trimmed == "" {
+			r.Query = nil
+		} else {
+			r.Query = &trimmed
+		}
+	}
+	if r.AwaitingAnswer != nil && !*r.AwaitingAnswer {
+		r.AwaitingAnswer = nil
+	}
+}
 
 func (r ListMyApplicationsRequest) EffectiveLimit() int32 {
 	if r.Limit == nil {
@@ -429,6 +447,12 @@ func (r ListMyApplicationsRequest) Validate() []string {
 	fields := []string{}
 	if !IsMyApplicationView(r.View) {
 		fields = append(fields, "view")
+	}
+	if r.Query != nil {
+		if length := utf8.RuneCountInString(string(*r.Query)); length < 1 ||
+			length > 200 {
+			fields = append(fields, "query")
+		}
 	}
 	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
 		fields = append(fields, "pagination_key")

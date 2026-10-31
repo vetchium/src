@@ -27,16 +27,21 @@ import (
 	"backend/internal/middleware"
 )
 
-const listPaginationPurpose = "hub-list-my-applications-v2"
+const listPaginationPurpose = "hub-list-my-applications-v3"
 
+// listCursor binds a key to the normalized filters that issued it, so a key
+// never continues a different list.
 type listCursor struct {
-	View              applicationspec.MyApplicationView `json:"view"`
-	AfterActivityAt   time.Time                         `json:"after_activity_at"`
-	AfterProjectionID string                            `json:"after_projection_id"`
+	View              applicationspec.MyApplicationView   `json:"view"`
+	Query             *applicationspec.MyApplicationQuery `json:"query,omitempty"`
+	AwaitingAnswer    bool                                `json:"awaiting_answer"`
+	AfterActivityAt   time.Time                           `json:"after_activity_at"`
+	AfterProjectionID string                              `json:"after_projection_id"`
 }
 
-// List reads one view of this tenant's projection, newest activity first. It
-// may trail the Org's tenant until the latest change is delivered.
+// List reads one view of this tenant's projection, filtered and newest
+// activity first. It may trail the Org's tenant until the latest change is
+// delivered.
 func List(s *hubruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request applicationspec.ListMyApplicationsRequest
@@ -44,10 +49,15 @@ func List(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
+		awaiting := request.AwaitingAnswer != nil
 		params := sqlc.ListHubApplicationProjectionsParams{
-			HubUserDid: identity.UserDID,
-			Closed:     request.View == applicationspec.ClosedView,
-			PageLimit:  request.EffectiveLimit() + 1,
+			HubUserDid:     identity.UserDID,
+			Closed:         request.View == applicationspec.ClosedView,
+			AwaitingAnswer: awaiting,
+			PageLimit:      request.EffectiveLimit() + 1,
+		}
+		if request.Query != nil {
+			params.Query = dbvalue.Text(string(*request.Query))
 		}
 		if request.PaginationKey != nil {
 			payload, valid := credentials.VerifySignedValue(
@@ -59,7 +69,9 @@ func List(s *hubruntime.Server) http.HandlerFunc {
 				after, _ = dbvalue.ParseUUID(cursor.AfterProjectionID)
 			}
 			if !after.Valid || cursor.AfterActivityAt.IsZero() ||
-				cursor.View != request.View {
+				cursor.View != request.View ||
+				cursor.AwaitingAnswer != awaiting ||
+				!equalQuery(cursor.Query, request.Query) {
 				s.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
 				return
 			}
@@ -79,6 +91,8 @@ func List(s *hubruntime.Server) http.HandlerFunc {
 				last := rows[index-1]
 				payload, err := json.Marshal(listCursor{
 					View:              request.View,
+					Query:             request.Query,
+					AwaitingAnswer:    awaiting,
 					AfterActivityAt:   last.LastActivityAt.Time,
 					AfterProjectionID: dbvalue.FormatUUID(last.ProjectionID),
 				})
@@ -108,6 +122,10 @@ func List(s *hubruntime.Server) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, response)
 	}
+}
+
+func equalQuery(a, b *applicationspec.MyApplicationQuery) bool {
+	return (a == nil) == (b == nil) && (a == nil || *a == *b)
 }
 
 // Counts reads the size of each view of the list from the same projection.

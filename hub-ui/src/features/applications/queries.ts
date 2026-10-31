@@ -1,9 +1,10 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import type { PaginationKey } from "typespec/common/pagination";
-import type {
-  ApplicationReference,
-  MyApplicationSummary,
-  MyApplicationView,
+import {
+  type ApplicationReference,
+  type MyApplicationSummary,
+  type MyApplicationView,
+  normalizeListMyApplicationsRequest,
 } from "typespec/hub/applications/applications";
 import type { OpeningNumber } from "typespec/orgs/openings/types";
 import type { OrgDomain } from "typespec/orgs/types";
@@ -15,13 +16,32 @@ export const applicationsQueryKey = ["hub", "applications"] as const;
 
 const pageSize = 20;
 
-/** One view of the list, a page at a time, newest activity first. */
-export function useMyApplicationsQuery(view: MyApplicationView) {
+export interface MyApplicationFilters {
+  query?: string;
+  awaitingAnswer?: boolean;
+}
+
+/** One view of the list, filtered, a page at a time, newest activity first. */
+export function useMyApplicationsQuery(
+  view: MyApplicationView,
+  filters: MyApplicationFilters,
+) {
+  const request = normalizeListMyApplicationsRequest({
+    view,
+    ...(filters.query !== undefined && { query: filters.query }),
+    ...(filters.awaitingAnswer === true && { awaiting_answer: true }),
+  });
   return useInfiniteQuery({
-    queryKey: [...applicationsQueryKey, "list", view],
+    queryKey: [
+      ...applicationsQueryKey,
+      "list",
+      view,
+      request.query ?? "",
+      request.awaiting_answer === true,
+    ],
     queryFn: ({ pageParam }) =>
       hubAPI.listMyApplications({
-        view,
+        ...request,
         limit: pageSize,
         ...(pageParam !== undefined && { pagination_key: pageParam }),
       }),

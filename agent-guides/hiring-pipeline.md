@@ -450,10 +450,14 @@ Vetchium never scores, ranks, or rejects an application by its answers.
   reach the Hub.
 - **HP-HUB-002** The list reads one view (`active` or `closed`) of the
   projection (HP-GEN-004), keyset paginated (at most 50), newest activity
-  first; the portal loads 20 at a time with "Show more". Tab counts and the
-  awaiting-answer badge come from `my-application-counts`, and an Opening page
-  finds its application with `find-my-opening-application`; never walk the
-  whole list. Detail reads live from the Org's tenant over the mesh with a
+  first; the portal loads 20 at a time with "Show more". `query` matches a
+  substring of the Org display name or Opening title ignoring case;
+  `awaiting_answer` keeps rows with a pending action; closed rows have none,
+  so the portal offers it on Active only. A pagination key binds the view and
+  normalized filters. The portal keeps the tab, `q`, and `awaiting=1` in the
+  URL. Tab counts and the awaiting-answer badge come from
+  `my-application-counts`, and an Opening page finds its application with
+  `find-my-opening-application`; never walk the whole list. Detail reads live from the Org's tenant over the mesh with a
   deadline; failure is `hub-org-unavailable`.
 - **HP-HUB-003** Detail shows the actions awaiting the applicant: interview
   responses, background-check consent (the check types, the performer, and

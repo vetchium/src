@@ -5,14 +5,17 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   Empty,
   Flex,
+  Input,
   List,
   Space,
   Spin,
   Tabs,
   Typography,
 } from "antd";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
 import {
@@ -25,10 +28,14 @@ import { regionTable } from "../app/regions";
 import { readSession } from "../auth/session";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import {
+  type MyApplicationFilters,
   useMyApplicationCountsQuery,
   useMyApplicationsQuery,
 } from "../features/applications/queries";
 import { StatusTag } from "../features/applications/StatusTag";
+
+const queryParam = "q";
+const awaitingParam = "awaiting";
 
 export function applicationPath(application: {
   org_domain: string;
@@ -88,9 +95,50 @@ function ApplicationRow({
   );
 }
 
-function ApplicationList({ view }: { view: MyApplicationView }) {
+/** Searches when submitted or cleared; follows the URL on back and forward. */
+function ApplicationSearch({
+  value,
+  onSearch,
+}: {
+  value: string;
+  onSearch: (value: string) => void;
+}) {
   const { t } = useTranslation();
-  const applications = useMyApplicationsQuery(view);
+  const [text, setText] = useState(value);
+  const [shown, setShown] = useState(value);
+  if (shown !== value) {
+    setShown(value);
+    setText(value);
+  }
+  return (
+    <Input.Search
+      className="toolbar-search"
+      aria-label={t("applications.filters.search")}
+      placeholder={t("applications.filters.search")}
+      // UTF-16 length bounds the contract's 200 characters from above.
+      maxLength={200}
+      value={text}
+      allowClear
+      onChange={(event) => {
+        setText(event.target.value);
+        if (event.target.value === "") onSearch("");
+      }}
+      onSearch={(entered) => onSearch(entered.trim())}
+    />
+  );
+}
+
+function ApplicationList({
+  view,
+  filters,
+  onClearFilters,
+}: {
+  view: MyApplicationView;
+  filters: MyApplicationFilters;
+  onClearFilters: () => void;
+}) {
+  const { t } = useTranslation();
+  const applications = useMyApplicationsQuery(view, filters);
   if (applications.isPending) {
     return <Spin aria-label={t("applications.loading")} />;
   }
@@ -107,6 +155,15 @@ function ApplicationList({ view }: { view: MyApplicationView }) {
     );
   }
   const shown = applications.data.pages.flatMap((page) => page.applications);
+  if (shown.length === 0 && (filters.query || filters.awaitingAnswer)) {
+    return (
+      <Empty description={t("applications.list.emptyFiltered")}>
+        <Button onClick={onClearFilters}>
+          {t("applications.filters.clear")}
+        </Button>
+      </Empty>
+    );
+  }
   if (shown.length === 0) {
     return (
       <Empty
@@ -153,6 +210,28 @@ export function ApplicationsPage() {
   const [search, setSearch] = useSearchParams();
   const counts = useMyApplicationCountsQuery();
   const view = search.get("tab") === ClosedView ? ClosedView : ActiveView;
+  const query = search.get(queryParam) ?? "";
+  // Closed applications await nothing, so the filter applies to Active only.
+  const awaitingAnswer =
+    view === ActiveView && search.get(awaitingParam) === "1";
+  const filters: MyApplicationFilters = {
+    ...(query !== "" && { query }),
+    awaitingAnswer,
+  };
+  const updateSearch = (change: (next: URLSearchParams) => void) =>
+    setSearch(
+      (current) => {
+        const next = new URLSearchParams(current);
+        change(next);
+        return next;
+      },
+      { replace: true },
+    );
+  const clearFilters = () =>
+    updateSearch((next) => {
+      next.delete(queryParam);
+      next.delete(awaitingParam);
+    });
   // An emailed link names the region of the account it is for. Requests go to
   // the signed-in session's region only, so a link for another account is
   // explained instead of silently showing this one's applications.
@@ -176,33 +255,75 @@ export function ApplicationsPage() {
       {otherRegion ? (
         <Alert type="warning" showIcon title={t("applications.otherRegion")} />
       ) : null}
-      <Tabs
-        activeKey={view}
-        destroyOnHidden
-        onChange={(key) =>
-          setSearch(
-            (current) => {
-              const next = new URLSearchParams(current);
-              if (key === ClosedView) next.set("tab", ClosedView);
-              else next.delete("tab");
-              return next;
+      <Flex vertical gap="middle">
+        <Tabs
+          activeKey={view}
+          onChange={(key) =>
+            updateSearch((next) => {
+              if (key === ClosedView) {
+                next.set("tab", ClosedView);
+                next.delete(awaitingParam);
+              } else {
+                next.delete("tab");
+              }
+            })
+          }
+          items={[
+            {
+              key: ActiveView,
+              label: tabLabel(
+                t("applications.tabs.active"),
+                counts.data?.active,
+              ),
             },
-            { replace: true },
-          )
-        }
-        items={[
-          {
-            key: ActiveView,
-            label: tabLabel(t("applications.tabs.active"), counts.data?.active),
-            children: <ApplicationList view={ActiveView} />,
-          },
-          {
-            key: ClosedView,
-            label: tabLabel(t("applications.tabs.closed"), counts.data?.closed),
-            children: <ApplicationList view={ClosedView} />,
-          },
-        ]}
-      />
+            {
+              key: ClosedView,
+              label: tabLabel(
+                t("applications.tabs.closed"),
+                counts.data?.closed,
+              ),
+            },
+          ]}
+        />
+        <Flex gap="middle" wrap align="center">
+          <ApplicationSearch
+            value={query}
+            onSearch={(value) =>
+              updateSearch((next) => {
+                if (value === "") next.delete(queryParam);
+                else next.set(queryParam, value);
+              })
+            }
+          />
+          {view === ActiveView ? (
+            <Checkbox
+              checked={awaitingAnswer}
+              onChange={(event) =>
+                updateSearch((next) => {
+                  if (event.target.checked) next.set(awaitingParam, "1");
+                  else next.delete(awaitingParam);
+                })
+              }
+            >
+              {tabLabel(
+                t("applications.filters.awaitingAnswer"),
+                counts.data?.awaiting_answer,
+              )}
+            </Checkbox>
+          ) : null}
+          {filters.query !== undefined || awaitingAnswer ? (
+            <Button type="link" onClick={clearFilters}>
+              {t("applications.filters.clear")}
+            </Button>
+          ) : null}
+        </Flex>
+        <ApplicationList
+          key={view}
+          view={view}
+          filters={filters}
+          onClearFilters={clearFilters}
+        />
+      </Flex>
     </Space>
   );
 }

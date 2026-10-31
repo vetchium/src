@@ -5,6 +5,8 @@ import type { DeliverEventRequest } from "typespec/federation/events";
 import type { HubApplicationChangedPayload } from "typespec/federation/hiring";
 import type {
   ApplicationReference,
+  ListMyApplicationsRequest,
+  ListMyApplicationsResponse,
   MyApplicationDetail,
   MyApplicationSummary,
   RespondToOfferRequest,
@@ -1023,6 +1025,43 @@ test("a local applicant reads the offer and its letter, then accepts it once", a
       (await history(world, opening, reference.application_number))[0],
     ).toMatchObject({ action: "offer_accepted", actor: "applicant" });
     await expectProjected(applicant, reference, "offer_accepted", []);
+  });
+});
+
+test("the Hub list filters to applications that need the applicant's answer", async ({
+  request,
+}) => {
+  test.setTimeout(120_000);
+  await withApplicant(request, "sgp", "sgp", async (applicant, world) => {
+    const waiting = await shortlisted(applicant, world);
+    const other = await shortlisted(applicant, world);
+    await extend(world, waiting.opening, waiting.reference.application_number);
+    await expectProjected(applicant, waiting.reference, "offered", [
+      "offer_response",
+    ]);
+    const openings = async (request: ListMyApplicationsRequest) => {
+      const response = await applicant.hub.listMyApplications(
+        request,
+        applicant.token,
+      );
+      expect(response.status(), await response.text()).toBe(200);
+      const body = (await response.json()) as ListMyApplicationsResponse;
+      return body.applications.map((entry) => entry.opening_number);
+    };
+    expect(await openings({ view: "active", awaiting_answer: true })).toEqual([
+      waiting.opening,
+    ]);
+    const both = [waiting.opening, other.opening].sort((a, b) => a - b);
+    await expect
+      .poll(async () =>
+        (await openings({ view: "active", awaiting_answer: false })).sort(
+          (a, b) => a - b,
+        ),
+      )
+      .toEqual(both);
+    expect(await openings({ view: "closed", awaiting_answer: true })).toEqual(
+      [],
+    );
   });
 });
 

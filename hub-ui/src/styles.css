@@ -1,1 +1,5 @@
 @import "@vetchium/portal-ui/styles.css";
+
+.toolbar-search {
+  width: min(100%, 320px);
+}

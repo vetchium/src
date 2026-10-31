@@ -675,7 +675,13 @@ export const en = {
       emptyActive:
         "You have no active applications. Open an opening from an organization's page to apply.",
       emptyClosed: "No closed applications yet.",
+      emptyFiltered: "No applications match these filters.",
       more: "Show more",
+    },
+    filters: {
+      search: "Search by organization or job title",
+      awaitingAnswer: "Needs your answer",
+      clear: "Clear filters",
     },
     status: {
       applied: "Applied",

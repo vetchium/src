@@ -51,7 +51,9 @@ export function HomePage() {
                   <Typography.Paragraph>
                     {t("home.applicationsBody", { count: answerNeeded })}
                   </Typography.Paragraph>
-                  <Link to="/applications">{t("home.applicationsAction")}</Link>
+                  <Link to="/applications?awaiting=1">
+                    {t("home.applicationsAction")}
+                  </Link>
                 </Card>
               ) : null}
               {showSupport ? (

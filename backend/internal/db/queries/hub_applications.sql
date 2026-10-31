@@ -29,6 +29,11 @@ SELECT projection_id, org_domain::text AS org_domain, org_display_name,
 FROM vetchium.hub_application_projections
 WHERE hub_user_did = sqlc.arg(hub_user_did)
   AND closed = sqlc.arg(closed)::boolean
+  AND (sqlc.narg(query)::text IS NULL
+      OR strpos(lower(org_display_name), lower(sqlc.narg(query)::text)) > 0
+      OR strpos(lower(opening_title), lower(sqlc.narg(query)::text)) > 0)
+  AND (NOT sqlc.arg(awaiting_answer)::boolean
+      OR cardinality(pending_actions) > 0)
   AND (sqlc.narg(after_activity_at)::timestamptz IS NULL
       OR (last_activity_at, projection_id) <
          (sqlc.narg(after_activity_at)::timestamptz,

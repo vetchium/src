@@ -65,6 +65,10 @@ scalar PendingActionKind extends string;
 @maxValue(50)
 scalar MyApplicationPageSize extends int32;
 
+@minLength(1)
+@maxLength(200)
+scalar MyApplicationQuery extends string;
+
 model ApplyToOpeningRequest {
   domain: Vetchium.Orgs.OrgDomain;
   opening_number: Vetchium.Orgs.Openings.OpeningNumber;
@@ -242,6 +246,15 @@ model MyApplicationSummary {
 
 model ListMyApplicationsRequest {
   view: MyApplicationView;
+
+  /** Trimmed; a blank query is no query. Matches a substring of the Org's
+   * display name or the Opening title, ignoring case. */
+  query?: MyApplicationQuery;
+
+  /** True lists only applications with a pending action; false is the same
+   * as omission. */
+  awaiting_answer?: boolean;
+
   pagination_key?: Vetchium.PaginationKey;
 
   /** Defaults to 50. */
@@ -344,7 +357,7 @@ interface ApplicationOperations {
   )
   @TypeSpec.OpenAPI.extension(
     "x-vetchium-pagination-key-binds",
-    #["view", "last_activity_at", "projection_id"]
+    #["view", "normalized-filters", "last_activity_at", "projection_id"]
   )
   list(@body request: ListMyApplicationsRequest):
     | {

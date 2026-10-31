@@ -80,6 +80,7 @@ export const pendingActionKindValues = [
 export type PendingActionKind = (typeof pendingActionKindValues)[number];
 
 export type MyApplicationPageSize = number;
+export type MyApplicationQuery = string;
 
 export function isApplicationStatus(
   value: unknown,
@@ -246,6 +247,8 @@ export interface MyApplicationSummary extends MyApplication {
 
 export interface ListMyApplicationsRequest {
   view: MyApplicationView;
+  query?: MyApplicationQuery;
+  awaiting_answer?: boolean;
   pagination_key?: PaginationKey;
   limit?: MyApplicationPageSize;
 }
@@ -345,11 +348,31 @@ export function effectiveListMyApplicationsLimit(
   return request.limit ?? 50;
 }
 
+/** Trims the query and drops a blank one and a false awaiting_answer,
+ * leaving the caller's value. */
+export function normalizeListMyApplicationsRequest(
+  request: ListMyApplicationsRequest,
+): ListMyApplicationsRequest {
+  const { query, awaiting_answer: awaiting, ...rest } = request;
+  const trimmed = query?.trim();
+  return {
+    ...rest,
+    ...(trimmed !== undefined && trimmed !== "" && { query: trimmed }),
+    ...(awaiting === true && { awaiting_answer: true }),
+  };
+}
+
 export function validateListMyApplicationsRequest(
   request: ListMyApplicationsRequest,
 ): string[] {
   const fields: string[] = [];
   if (!isMyApplicationView(request.view)) fields.push("view");
+  if (
+    request.query !== undefined &&
+    ([...request.query].length < 1 || [...request.query].length > 200)
+  ) {
+    fields.push("query");
+  }
   if (
     request.pagination_key !== undefined &&
     !isPaginationKey(request.pagination_key)

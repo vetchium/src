@@ -14,6 +14,7 @@ import {
   normalizeApplicationReference,
   normalizeApplyToOpeningRequest,
   normalizeFindMyOpeningApplicationRequest,
+  normalizeListMyApplicationsRequest,
   normalizeRequestInterviewRescheduleRequest,
   pendingActionKindValues,
   validateAcceptInterviewRequest,
@@ -158,6 +159,50 @@ test("list validation requires a view, bounds the limit, and defaults it to 50",
       view: "all" as typeof ActiveView,
     }),
     ["view"],
+  );
+  assert.deepEqual(
+    validateListMyApplicationsRequest({ view: ActiveView, query: "x" }),
+    [],
+  );
+  assert.deepEqual(
+    validateListMyApplicationsRequest({
+      view: ActiveView,
+      query: "é".repeat(200),
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateListMyApplicationsRequest({
+      view: ActiveView,
+      query: "é".repeat(201),
+    }),
+    ["query"],
+  );
+  assert.deepEqual(
+    validateListMyApplicationsRequest({ view: ActiveView, query: "" }),
+    ["query"],
+  );
+});
+
+test("list normalization trims the query and drops empty filters", () => {
+  const request = {
+    view: ActiveView,
+    query: "  Acme ",
+    awaiting_answer: true,
+  };
+  assert.deepEqual(normalizeListMyApplicationsRequest(request), {
+    view: ActiveView,
+    query: "Acme",
+    awaiting_answer: true,
+  });
+  assert.equal(request.query, "  Acme ");
+  assert.deepEqual(
+    normalizeListMyApplicationsRequest({
+      view: ClosedView,
+      query: "   ",
+      awaiting_answer: false,
+    }),
+    { view: ClosedView },
   );
 });
 

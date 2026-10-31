@@ -707,7 +707,13 @@ export const de = {
       emptyActive:
         "Sie haben keine aktiven Bewerbungen. Öffnen Sie eine Stelle auf der Seite einer Organisation, um sich zu bewerben.",
       emptyClosed: "Noch keine abgeschlossenen Bewerbungen.",
+      emptyFiltered: "Keine Bewerbungen passen zu diesen Filtern.",
       more: "Mehr anzeigen",
+    },
+    filters: {
+      search: "Nach Organisation oder Stellentitel suchen",
+      awaitingAnswer: "Braucht Ihre Antwort",
+      clear: "Filter zurücksetzen",
     },
     status: {
       applied: "Beworben",

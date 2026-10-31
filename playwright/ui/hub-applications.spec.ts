@@ -361,6 +361,120 @@ test("the list loads a page at a time, keeps loaded rows when a page fails, and 
   await expect(page.getByRole("button", { name: "Show more" })).toHaveCount(0);
 });
 
+test("search and the needs-your-answer filter are kept in the URL and cleared from an empty result", async ({
+  page,
+  hubUser,
+}) => {
+  const summary = (
+    n: number,
+    title: string,
+    pending: MyApplicationSummary["pending_actions"] = [],
+  ): MyApplicationSummary => ({
+    org_domain: "example.com",
+    org_display_name: "Example",
+    opening_number: n,
+    opening_title: title,
+    application_number: 1,
+    status: pending.length > 0 ? "offered" : "in_review",
+    pending_actions: pending,
+    applied_at: "2026-10-01T00:00:00Z",
+    last_activity_at: "2026-10-01T00:00:00Z",
+  });
+  const requests: ListMyApplicationsRequest[] = [];
+  await page.route("**/api/hub/my-application-counts", (route) =>
+    route.fulfill({ json: { active: 3, closed: 1, awaiting_answer: 1 } }),
+  );
+  await page.route("**/api/hub/list-my-applications", (route) => {
+    const body = route.request().postDataJSON() as ListMyApplicationsRequest;
+    requests.push(body);
+    const all = [
+      summary(1, "Platform engineer"),
+      summary(2, "Data engineer", ["offer_response"]),
+      summary(3, "Designer"),
+    ].filter(
+      (entry) =>
+        (body.query === undefined ||
+          entry.opening_title.toLowerCase().includes(body.query)) &&
+        (body.awaiting_answer !== true || entry.pending_actions.length > 0),
+    );
+    return route.fulfill({
+      json: { applications: body.view === ClosedView ? [] : all },
+    });
+  });
+  const lastRequest = () => requests[requests.length - 1];
+  const search = page.getByRole("searchbox", {
+    name: "Search by organization or job title",
+  });
+  const awaiting = page.getByRole("checkbox", {
+    name: "Needs your answer (1)",
+  });
+
+  await signIn(page, await hubUser("sgp"));
+  await page.goto(`${HUB_PORTAL}/applications`);
+  await expect(page.getByRole("link", { name: "Designer" })).toBeVisible();
+
+  await search.fill("  engineer ");
+  await search.press("Enter");
+  await expect(page).toHaveURL(/[?&]q=engineer(&|$)/);
+  await expect(page.getByRole("link", { name: "Designer" })).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Platform engineer" }),
+  ).toBeVisible();
+  expect(lastRequest()).toMatchObject({ view: "active", query: "engineer" });
+
+  // The box follows the URL, which the router updates after the click.
+  await awaiting.click();
+  await expect(awaiting).toBeChecked();
+  await expect(page).toHaveURL(/[?&]awaiting=1(&|$)/);
+  await expect(
+    page.getByRole("link", { name: "Platform engineer" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Data engineer" })).toBeVisible();
+  expect(lastRequest()).toMatchObject({
+    query: "engineer",
+    awaiting_answer: true,
+  });
+
+  // Reload keeps both filters.
+  await page.reload();
+  await expect(search).toHaveValue("engineer");
+  await expect(awaiting).toBeChecked();
+  await expect(page.getByRole("link", { name: "Data engineer" })).toBeVisible();
+
+  // Closed applications await nothing: the filter leaves the URL there, and
+  // the search stays.
+  await page.getByRole("tab", { name: "Closed (1)" }).click();
+  await expect(page).toHaveURL(/tab=closed/);
+  await expect(page).not.toHaveURL(/awaiting=/);
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await expect(search).toHaveValue("engineer");
+  await expect(
+    page.getByText("No applications match these filters."),
+  ).toBeVisible();
+  expect(lastRequest()).toEqual({
+    view: "closed",
+    query: "engineer",
+    limit: 20,
+  });
+
+  // An empty filtered result offers to clear the filters.
+  await page.getByRole("tab", { name: "Active (3)" }).click();
+  await search.fill("nobody");
+  await search.press("Enter");
+  await expect(
+    page.getByText("No applications match these filters."),
+  ).toBeVisible();
+  await page
+    .getByRole("main")
+    .getByRole("button", { name: "Clear filters" })
+    .last()
+    .click();
+  await expect(page).not.toHaveURL(/[?&]q=/);
+  await expect(search).toHaveValue("");
+  await expect(page.getByRole("link", { name: "Designer" })).toBeVisible();
+  expect(lastRequest()).toEqual({ view: "active", limit: 20 });
+});
+
 test("a pending apply is polled and replayed with the same idempotency key", async ({
   page,
   request,

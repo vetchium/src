@@ -158,6 +158,48 @@ func TestListMyApplicationsRequestValidation(t *testing.T) {
 	if got := (ListMyApplicationsRequest{Limit: &fifty}).EffectiveLimit(); got != 50 {
 		t.Fatalf("limit = %d", got)
 	}
+	for query, valid := range map[MyApplicationQuery]bool{
+		"x": true,
+		MyApplicationQuery(strings.Repeat("é", 200)): true,
+		MyApplicationQuery(strings.Repeat("é", 201)): false,
+		"": false,
+	} {
+		request := ListMyApplicationsRequest{View: ActiveView, Query: &query}
+		got := request.Validate()
+		if valid && len(got) != 0 || !valid && !slices.Equal(got, []string{"query"}) {
+			t.Errorf("query of %d runes: fields = %v", len([]rune(query)), got)
+		}
+	}
+}
+
+func TestListMyApplicationsRequestNormalize(t *testing.T) {
+	t.Parallel()
+	query := MyApplicationQuery("  Acme ")
+	awaiting := true
+	request := ListMyApplicationsRequest{
+		View: ActiveView, Query: &query, AwaitingAnswer: &awaiting,
+	}
+	normalized := request
+	normalized.Normalize()
+	if normalized.Query == nil || *normalized.Query != "Acme" ||
+		normalized.AwaitingAnswer == nil || !*normalized.AwaitingAnswer {
+		t.Fatalf("normalized = %+v", normalized)
+	}
+	if query != "  Acme " {
+		t.Fatalf("caller's query changed to %q", query)
+	}
+	blank := MyApplicationQuery("   ")
+	notAwaiting := false
+	empty := ListMyApplicationsRequest{
+		View: ClosedView, Query: &blank, AwaitingAnswer: &notAwaiting,
+	}
+	empty.Normalize()
+	if empty.Query != nil || empty.AwaitingAnswer != nil {
+		t.Fatalf("empty filters kept: %+v", empty)
+	}
+	if got := empty.Validate(); len(got) != 0 {
+		t.Fatalf("normalized request rejected: %v", got)
+	}
 }
 
 func TestFindMyOpeningApplicationRequest(t *testing.T) {
