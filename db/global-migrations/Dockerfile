@@ -1,11 +1,8 @@
-# syntax=docker/dockerfile:1
-
 FROM golang:1.27.3-alpine@sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c AS build
 
 ARG GOOSE_VERSION=v3.27.3
 
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go install -trimpath -ldflags="-s -w" \
     -tags='no_clickhouse no_mssql no_mysql no_sqlite3 no_libsql no_vertica no_ydb' \
     github.com/pressly/goose/v3/cmd/goose@${GOOSE_VERSION}

@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # The migration runner: the upstream goose CLI plus the versioned migrations.
 #
 # This is deliberately a *different image* from the API server so the runtime
@@ -19,8 +17,7 @@ ARG GOOSE_VERSION=v3.27.3
 # ones this project will never use, taking the binary from ~56MB to ~11MB.
 # CGO_ENABLED=0 makes it static, which is what allows the distroless base
 # below (and is also why sqlite3, which needs cgo, has to go).
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go install -trimpath -ldflags="-s -w" \
     -tags='no_clickhouse no_mssql no_mysql no_sqlite3 no_libsql no_vertica no_ydb' \
     github.com/pressly/goose/v3/cmd/goose@${GOOSE_VERSION}

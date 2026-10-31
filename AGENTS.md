@@ -33,7 +33,8 @@ Frontend:
 
 Contracts: `typespec/` (TypeSpec with hand-written Go and TypeScript
 companions). Tests: `playwright/`. Screen mockups of unbuilt specs:
-`mockups/`. The scripted product demo video: `video-demos/`.
+`mockups/`. The scripted product demo video: `video-demos/`. Pinned Go
+developer tools: `tools/`.
 
 ## Guides
 
@@ -49,6 +50,7 @@ Read every guide that applies before changing files.
 | [`typescript.md`](agent-guides/typescript.md) | hand-written TypeScript |
 | [`typespec.md`](agent-guides/typespec.md) | contracts and wire types |
 | [`backend.md`](agent-guides/backend.md) | API servers, workers, ingress |
+| [`builds.md`](agent-guides/builds.md) | Dockerfiles, Go tools, offline builds |
 | [`database.md`](agent-guides/database.md) | PostgreSQL, queries, sqlc, transactions, seeds |
 | [`authorization.md`](agent-guides/authorization.md) | permissions and their screens |
 | [`ui.md`](agent-guides/ui.md) | portals, `portal-ui`, global portals and regions |

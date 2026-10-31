@@ -1,15 +1,18 @@
-# syntax=docker/dockerfile:1
-
 FROM node:24.12.0-alpine@sha256:c921b97d4b74f51744057454b306b418cf693865e73b8100559189605f6955b8 AS build
 
 WORKDIR /app
 
+# npm ci reads only the manifests of the linked local packages; copying their
+# sources after it keeps a source edit from rerunning the install, which needs
+# the network whenever BuildKit has dropped the npm cache mount.
 COPY orgs-ui/package.json orgs-ui/package-lock.json ./orgs-ui/
-COPY portal-ui/ /app/portal-ui/
-COPY typespec/ /app/typespec/
+COPY portal-ui/package.json /app/portal-ui/
+COPY typespec/package.json /app/typespec/
 WORKDIR /app/orgs-ui
 RUN --mount=type=cache,target=/root/.npm npm ci
 
+COPY portal-ui/ /app/portal-ui/
+COPY typespec/ /app/typespec/
 COPY orgs-ui/ ./
 # dev, ci, or production: selects the compiled-in region table. The build
 # fails when it is unset or unknown.

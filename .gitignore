@@ -19,3 +19,6 @@
 /backend/internal/globaldb/sqlc/
 
 /demo-output/
+
+# Go tools installed by `make tools`
+/.tools/

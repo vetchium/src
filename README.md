@@ -30,6 +30,9 @@ Generated database code (`backend/internal/db/sqlc/` and
 `tilt up`, and the test targets generate it; run `make sqlc` after changing SQL
 queries or migrations so your editor sees the new code.
 
+The first `make dev` needs the network for images, Go modules, and npm
+packages; later runs build offline until a dependency changes.
+
 `make dev-seed` runs `make dev` itself, so it starts from a clean stack and can
 be run at any time; do not run `make dev` first. It prints each seeded Hub
 user's handle, email, region, and plan.

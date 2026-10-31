@@ -29,12 +29,15 @@ GOOGLE_OIDC_SECRET_FILE := $(DEV_SECRETS_DIR)/google_oidc_client_secret
 IDENTITY_DIGEST_KEY_FILE := $(DEV_SECRETS_DIR)/identity_digest_key
 MESH_KEY_FILE         := $(DEV_SECRETS_DIR)/mesh_credential
 MESH_CA_FILE          := $(DEV_SECRETS_DIR)/mesh_ca_certificate
-SQLC                   := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
-GOVULNCHECK             := go run golang.org/x/vuln/cmd/govulncheck@v1.7.0
-# golangci-lint decodes export data with the golang.org/x/tools version its own
-# go.mod pins, not the toolchain's. Go 1.27 writes export data V5, which needs
-# x/tools v0.50.0 or later; v2.14.0 is the first release that pins it.
-GOLANGCI_LINT           := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+# Go tools are pinned in tools/<name>/go.mod, one module each so no tool's
+# dependency versions move another's, and `make tools` installs them here.
+# `go run pkg@version` would ask the module proxy on every run, which fails
+# offline even when the module is already cached.
+TOOLS                  := sqlc govulncheck golangci-lint
+TOOLS_BIN              := $(CURDIR)/.tools/bin
+SQLC                   := $(TOOLS_BIN)/sqlc
+GOVULNCHECK            := $(TOOLS_BIN)/govulncheck
+GOLANGCI_LINT          := $(TOOLS_BIN)/golangci-lint
 SQLFLUFF_IMAGE          := sqlfluff/sqlfluff:4.2.2@sha256:7e8f4f1bc8f70c6ab7da3094c3ca0ff0c66f3d721896d79c3731e549ea1921fb
 GO_MODULES             := backend typespec
 JS_WORKSPACES          := admin-ui hub-ui orgs-ui portal-ui typespec playwright \
@@ -68,7 +71,7 @@ DEV_SEED_MAILPIT_URL ?= http://127.0.0.1:18025
 serving_services = $$(docker compose -f $(1) config --services | \
 	grep -vE '^(workers|dev-seed)-')
 
-.PHONY: check fmt backend dev dev-ai-models dev-secrets dev-seed dev-seed-hub-profiles dev-seed-orgs dev-seed-applications dev-seed-marketplace dev-accounts sqlc sqlc-vet \
+.PHONY: check fmt tools backend dev dev-ai-models dev-secrets dev-seed dev-seed-hub-profiles dev-seed-orgs dev-seed-applications dev-seed-marketplace dev-accounts sqlc sqlc-vet \
 	sql-lint migration-check sql-check \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
@@ -274,14 +277,22 @@ dev-secrets:
 		umask 077; printf '%s' "$$IDENTITY_DIGEST_KEY" > "$(IDENTITY_DIGEST_KEY_FILE)"; \
 	fi
 
+# The tool modules are deliberately outside go.work: joining the workspace
+# would let their dependencies raise the versions backend builds with.
+tools:
+	@for t in $(TOOLS); do \
+		(cd "tools/$$t" && GOWORK=off GOBIN="$(TOOLS_BIN)" go install tool) || \
+			exit $$?; \
+	done
+
 # Generated code is never committed. Regenerating into empty directories keeps
 # output whose query source was deleted from surviving.
-sqlc:
+sqlc: tools
 	rm -rf backend/internal/db/sqlc backend/internal/globaldb/sqlc
 	cd backend && $(SQLC) generate
 	cd backend && $(SQLC) generate -f sqlc-global.yaml
 
-sqlc-vet:
+sqlc-vet: tools
 	cd backend && $(SQLC) vet
 	cd backend && $(SQLC) vet -f sqlc-global.yaml
 
@@ -366,13 +377,13 @@ test-go-static: typespec-deps sqlc
 	@echo "==> singlecommit backend"
 	@cd backend && go tool singlecommit ./...
 
-test-go-lint: typespec-deps sqlc
+test-go-lint: typespec-deps sqlc tools
 	@for m in $(GO_MODULES); do \
 		echo "==> golangci-lint $$m"; \
 		(cd "$$m" && $(GOLANGCI_LINT) run) || exit $$?; \
 	done
 
-test-go-vuln: typespec-deps sqlc
+test-go-vuln: typespec-deps sqlc tools
 	@for m in $(GO_MODULES); do \
 		echo "==> govulncheck $$m"; \
 		(cd "$$m" && $(GOVULNCHECK) -test ./...) || exit $$?; \

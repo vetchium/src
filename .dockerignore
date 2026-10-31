@@ -26,6 +26,9 @@
 !dev/
 !dev/wireguard/
 !dev/wireguard/**
+!tools/
+!tools/sqlc/
+!tools/sqlc/**
 
 # Backend images regenerate these packages from SQL sources. Never copy a
 # developer's local `make sqlc` output into the build context.

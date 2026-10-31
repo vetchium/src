@@ -1,16 +1,20 @@
-# syntax=docker/dockerfile:1
-
 FROM golang:1.27.3-alpine@sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c AS build
 
 ARG VERSION=dev
 
-WORKDIR /src
+# Downloaded modules stay in image layers, never in a /go/pkg/mod cache mount:
+# BuildKit garbage-collects cache mounts while the layer that filled one stays
+# cached, so a later step would find the modules gone and need the network.
+COPY tools/sqlc/ /src/tools/sqlc/
+WORKDIR /src/tools/sqlc
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    GOBIN=/usr/local/bin go install tool
 
+WORKDIR /src
 COPY typespec/go.mod typespec/go.mod
 COPY backend/go.mod backend/go.sum backend/
 WORKDIR /src/backend
-RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download
+RUN go mod download
 
 COPY typespec/ /src/typespec/
 COPY backend/ .
@@ -20,14 +24,11 @@ COPY db/migrations /src/db/migrations
 # Generated database access is always rebuilt from the SQL sources in this
 # image. A developer's local output is excluded by .dockerignore; removing the
 # directory here as well keeps it out if the build context changes later.
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    rm -rf internal/db/sqlc internal/globaldb/sqlc && \
-    go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0 generate && \
-    go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0 generate -f sqlc-global.yaml
+RUN rm -rf internal/db/sqlc internal/globaldb/sqlc && \
+    sqlc generate && \
+    sqlc generate -f sqlc-global.yaml
 
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/admin-api ./cmd/admin-api && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/hub-api ./cmd/hub-api && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X backend/internal/version.Value=${VERSION}" -o /out/orgs-api ./cmd/orgs-api && \
