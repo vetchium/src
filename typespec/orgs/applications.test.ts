@@ -588,3 +588,30 @@ test("background-check results normalize a copy and validate", () => {
     ["check_type", "outcome", "report_url"],
   );
 });
+
+test("answer columns are at most three distinct question ids", () => {
+  const request = { opening_number: 1, view: "applicants" as const };
+  const id = (n: number) =>
+    `0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a${String(n).padStart(2, "0")}`;
+  assert.deepEqual(
+    validateListApplicationsRequest({
+      ...request,
+      answer_columns: [id(1), id(2), id(3)],
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateListApplicationsRequest({
+      ...request,
+      answer_columns: [id(1), id(2), id(3), id(4)],
+    }),
+    ["answer_columns"],
+  );
+  assert.deepEqual(
+    validateListApplicationsRequest({
+      ...request,
+      answer_columns: [id(1), id(1), "Q1"],
+    }),
+    ["answer_columns.1", "answer_columns.2"],
+  );
+});

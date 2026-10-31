@@ -1,20 +1,33 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type { APIRequestContext, APIResponse } from "@playwright/test";
-import type { OpeningContent } from "typespec/common/openings";
+import type {
+  ApplicationQuestion,
+  OpeningContent,
+} from "typespec/common/openings";
 import type { CommandResult } from "typespec/federation/commands";
 import type {
   HubApplyPayload,
   HubApplyResult,
 } from "typespec/federation/hiring";
-import type {
-  ApplicationReference,
-  ListMyApplicationsResponse,
-  MyApplication,
+import {
+  ActiveView,
+  type ApplicationReference,
+  ClosedView,
+  closedApplicationStatuses,
+  type ListMyApplicationsResponse,
+  type MyApplication,
+  type MyApplicationCounts,
+  type MyApplicationDetail,
+  type MyApplicationView,
 } from "typespec/hub/applications/applications";
 import type {
   OperationStatus,
   PendingOperation,
 } from "typespec/hub/operations/operations";
+import type {
+  AnsweredQuestion,
+  ApplicationAnswer,
+} from "typespec/orgs/applications/answers";
 import type { ApplicationDetail } from "typespec/orgs/applications/applications";
 import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import type { OrgOpening } from "typespec/orgs/openings/types";
@@ -123,9 +136,13 @@ function content(title: string): OpeningContent {
   };
 }
 
-async function publish(world: World, title: string): Promise<OrgOpening> {
+async function publish(
+  world: World,
+  title: string,
+  questions?: ApplicationQuestion[],
+): Promise<OrgOpening> {
   const created = await world.api.createOpening(world.owner, {
-    content: content(title),
+    content: { ...content(title), ...(questions ? { questions } : {}) },
     hiring_manager_email: world.org.emailAddress,
     recruiter_email: world.org.emailAddress,
     team_member_emails: [],
@@ -213,12 +230,14 @@ async function apply(
   openingNumber: number,
   key = hubIdempotencyKey(),
   coverNote?: string,
+  answers?: ApplicationAnswer[],
 ): Promise<APIResponse> {
   return applicant.hub.applyToOpening(
     {
       domain,
       opening_number: openingNumber,
       ...(coverNote === undefined ? {} : { cover_note: coverNote }),
+      ...(answers === undefined ? {} : { answers }),
     },
     { token: applicant.token, idempotencyKey: key },
   );
@@ -254,23 +273,37 @@ async function expectCreated(
 
 async function myApplications(
   applicant: Applicant,
+  view: MyApplicationView = ActiveView,
 ): Promise<ListMyApplicationsResponse> {
-  const response = await applicant.hub.listMyApplications({}, applicant.token);
+  const response = await applicant.hub.listMyApplications(
+    { view },
+    applicant.token,
+  );
   expect(response.status(), await response.text()).toBe(200);
   expect(response.headers()["cache-control"]).toBe("no-store");
   return (await response.json()) as ListMyApplicationsResponse;
 }
 
-/** Waits for the projection to show reference with status. */
+async function myCounts(applicant: Applicant): Promise<MyApplicationCounts> {
+  const response = await applicant.hub.myApplicationCounts(applicant.token);
+  expect(response.status(), await response.text()).toBe(200);
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  return (await response.json()) as MyApplicationCounts;
+}
+
+/** Waits for the projection to list reference with status, in its view. */
 async function expectProjected(
   applicant: Applicant,
   reference: ApplicationReference,
   status: string,
 ): Promise<void> {
+  const view = (closedApplicationStatuses as readonly string[]).includes(status)
+    ? ClosedView
+    : ActiveView;
   await expect
     .poll(
       async () =>
-        (await myApplications(applicant)).applications.find(
+        (await myApplications(applicant, view)).applications.find(
           (entry) =>
             entry.org_domain === reference.domain &&
             entry.opening_number === reference.opening_number &&
@@ -439,6 +472,7 @@ test("a Hub user applies to a local Org, reads, and withdraws with replays", asy
         status: "applied",
         pending_actions: [],
         interviews: [],
+        answers: [],
       });
       await expectProjected(applicant, created, "applied");
       const listed = (await myApplications(applicant)).applications[0];
@@ -617,6 +651,257 @@ test("an uncertain outcome is 202 with a pending operation and the original requ
   );
 });
 
+const askedQuestions: ApplicationQuestion[] = [
+  { text: "Current role", type: "short_text", required: true },
+  { text: "Why us?", type: "long_text", required: false },
+  {
+    text: "Years in the domain",
+    type: "number",
+    required: true,
+    min: 2,
+    max: 10,
+  },
+  { text: "Authorized to work?", type: "yes_no", required: false },
+  {
+    text: "Office",
+    type: "single_choice",
+    required: false,
+    options: ["Raffles", "Jurong"],
+  },
+  {
+    text: "Languages",
+    type: "multiple_choice",
+    required: false,
+    options: ["English", "Tamil", "Malay"],
+  },
+];
+
+/** The live questions the Hub reads, in order, with their ids. */
+async function liveQuestionIDs(
+  applicant: Applicant,
+  domain: string,
+  openingNumber: number,
+): Promise<string[]> {
+  const response = await applicant.hub.getOrgOpening(
+    { domain, opening_number: openingNumber },
+    applicant.token,
+  );
+  expect(response.status(), await response.text()).toBe(200);
+  const body = (await response.json()) as {
+    opening: { content?: { questions?: ApplicationQuestion[] } };
+  };
+  const questions = body.opening.content?.questions ?? [];
+  expect(questions.map((question) => question.text)).toEqual(
+    askedQuestions.map((question) => question.text),
+  );
+  return questions.map((question) => question.id ?? "");
+}
+
+async function expectAnswersInvalid(
+  response: APIResponse,
+  questionIDs: string[],
+): Promise<void> {
+  expect(response.status(), await response.text()).toBe(422);
+  const body = await response.json();
+  expect(body.type).toBe(
+    "vetchium-problem-details/hub-application-answers-invalid",
+  );
+  expect(body.question_ids).toEqual(questionIDs);
+}
+
+function storedAnswers(
+  world: World,
+  reference: ApplicationReference,
+): AnsweredQuestion[] {
+  return JSON.parse(
+    sqlScalarForTenant(
+      world.tenant,
+      `SELECT a.answers::text FROM vetchium.org_applications AS a
+       JOIN vetchium.org_openings AS o USING (org_opening_id)
+       WHERE o.org_did = ${sqlLiteral(world.did)}::uuid
+         AND o.opening_number = ${reference.opening_number}
+         AND a.application_number = ${reference.application_number}`,
+    ),
+  ) as AnsweredQuestion[];
+}
+
+test("the Org's tenant checks answers to live questions and stores them as asked", async ({
+  request,
+}) => {
+  test.setTimeout(120_000);
+  await withWorlds(
+    request,
+    "sgp",
+    ["sgp", "usa1"],
+    async (applicant, worlds) => {
+      for (const world of worlds) {
+        const opening = await publish(world, "Asking Engineer", askedQuestions);
+        const domain = world.org.domain;
+        const n = opening.opening_number;
+        const ids = await liveQuestionIDs(applicant, domain, n);
+        const [role, why, years, permit, office, languages] = ids as [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ];
+        const required: ApplicationAnswer[] = [
+          { question_id: role, value: "Engineer" },
+          { question_id: years, value: 5 },
+        ];
+        const unknown = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b";
+        const refusals: [ApplicationAnswer[], string[]][] = [
+          [[{ question_id: years, value: 5 }], [role]],
+          [[...required, { question_id: unknown, value: true }], [unknown]],
+          [
+            [
+              ...required,
+              { question_id: permit, value: true },
+              { question_id: permit, value: false },
+            ],
+            [permit],
+          ],
+          [
+            [
+              { question_id: role, value: "Engineer" },
+              { question_id: years, value: 11 },
+            ],
+            [years],
+          ],
+          [[...required, { question_id: office, value: "Changi" }], [office]],
+          [
+            [
+              ...required,
+              { question_id: languages, value: ["English", "English"] },
+            ],
+            [languages],
+          ],
+          [
+            [
+              { question_id: role, value: "a".repeat(201) },
+              { question_id: years, value: 1 },
+              { question_id: languages, value: [] },
+            ],
+            [role, years, languages],
+          ],
+        ];
+        for (const [answers, invalid] of refusals) {
+          await expectAnswersInvalid(
+            await apply(applicant, domain, n, undefined, undefined, answers),
+            invalid,
+          );
+        }
+        // hub-api bounds the shape before any command is sent.
+        const tooLong = await apply(
+          applicant,
+          domain,
+          n,
+          undefined,
+          undefined,
+          [...required, { question_id: why, value: "a".repeat(2001) }],
+        );
+        await expectProblem(
+          tooLong,
+          400,
+          "vetchium-problem-details/validation-failed",
+          ["answers.2.value"],
+        );
+
+        const created = await expectCreated(
+          await apply(applicant, domain, n, undefined, undefined, [
+            { question_id: languages, value: [" Tamil ", "English"] },
+            { question_id: why, value: "   " },
+            ...required,
+            { question_id: permit, value: false },
+          ]),
+          domain,
+          n,
+        );
+        const stored = storedAnswers(world, created);
+        expect(stored.map((entry) => entry.id)).toEqual(ids);
+        expect(stored.map((entry) => entry.answer)).toEqual([
+          "Engineer",
+          undefined,
+          5,
+          false,
+          undefined,
+          ["Tamil", "English"],
+        ]);
+        expect(stored[2]).toMatchObject({ min: 2, max: 10, required: true });
+        expect(stored[5]?.options).toEqual(["English", "Tamil", "Malay"]);
+        // The applicant reads their own answers as asked, without currency.
+        const mine = await applicant.hub.getMyApplication(
+          created,
+          applicant.token,
+        );
+        expect(mine.status(), await mine.text()).toBe(200);
+        const { answers } = (await mine.json()) as MyApplicationDetail;
+        expect(answers).toEqual(stored);
+        expect(JSON.stringify(answers)).not.toContain("current");
+      }
+    },
+  );
+});
+
+test("answers sent while the outcome is uncertain are checked when the original request recovers it", async ({
+  request,
+}) => {
+  test.setTimeout(90_000);
+  await withWorlds(
+    request,
+    "usa1",
+    ["sgp"],
+    async (applicant, _worlds, world) => {
+      const opening = await publish(world, "Pending Asker", askedQuestions);
+      const domain = world.org.domain;
+      const n = opening.opening_number;
+      const ids = await liveQuestionIDs(applicant, domain, n);
+      const [role, , years] = ids as [string, string, string];
+      setOrgHome(world, "deu");
+      let restored = false;
+      try {
+        const refusedKey = hubIdempotencyKey();
+        const refusedAnswers = [{ question_id: role, value: "Engineer" }];
+        const createdKey = hubIdempotencyKey();
+        const answers = [...refusedAnswers, { question_id: years, value: 2 }];
+        for (const [key, sent] of [
+          [refusedKey, refusedAnswers],
+          [createdKey, answers],
+        ] as const) {
+          const pending = await apply(applicant, domain, n, key, undefined, [
+            ...sent,
+          ]);
+          expect(pending.status(), await pending.text()).toBe(202);
+        }
+        setOrgHome(world, "sgp");
+        restored = true;
+        await expectAnswersInvalid(
+          await apply(applicant, domain, n, refusedKey, undefined, [
+            ...refusedAnswers,
+          ]),
+          [years],
+        );
+        const created = await expectCreated(
+          await apply(applicant, domain, n, createdKey, undefined, [
+            ...answers,
+          ]),
+          domain,
+          n,
+        );
+        expect(
+          storedAnswers(world, created)
+            .filter((entry) => entry.answer !== undefined)
+            .map((entry) => entry.answer),
+        ).toEqual(["Engineer", 2]);
+      } finally {
+        if (!restored) setOrgHome(world, "sgp");
+      }
+    },
+  );
+});
+
 test("concurrent applications to one Opening create exactly one", async ({
   request,
 }) => {
@@ -720,7 +1005,7 @@ test("withdraw works from every state the applicant may leave", async ({
         "vetchium-problem-details/hub-application-state-conflict",
       );
       expect((await myApplication(applicant, created)).status).toBe(
-        "not_progressing",
+        "not_selected",
       );
     },
   );
@@ -802,7 +1087,7 @@ test("Openings that are not accepting, unknown ones, and suspended Orgs refuse a
   );
 });
 
-test("my applications list newest activity first with keyset pagination", async ({
+test("my applications list each view newest activity first with keyset pagination", async ({
   request,
 }) => {
   test.setTimeout(90_000);
@@ -825,23 +1110,33 @@ test("my applications list newest activity first with keyset pagination", async 
       for (const reference of references) {
         await expectProjected(applicant, reference, "applied");
       }
-      // Withdrawing the first makes it the newest activity.
+      // Withdrawing the first moves it to the closed view.
       const first = references[0] as ApplicationReference;
       expect((await withdraw(applicant, first)).status()).toBe(200);
       await expectProjected(applicant, first, "withdrawn");
+      expect(await myCounts(applicant)).toEqual({
+        active: 2,
+        closed: 1,
+        awaiting_answer: 0,
+      });
+      expect(
+        (await myApplications(applicant, ClosedView)).applications.map(
+          (entry) => entry.opening_title,
+        ),
+      ).toEqual(["First"]);
       const page = await applicant.hub.listMyApplications(
-        { limit: 2 },
+        { view: ActiveView, limit: 1 },
         applicant.token,
       );
       expect(page.status()).toBe(200);
       const firstPage = (await page.json()) as ListMyApplicationsResponse;
       expect(
         firstPage.applications.map((entry) => entry.opening_title),
-      ).toEqual(["First", "Third"]);
+      ).toEqual(["Third"]);
       const key = firstPage.next_pagination_key;
       if (key === undefined) throw new Error("missing pagination key");
       const next = await applicant.hub.listMyApplications(
-        { limit: 2, pagination_key: key },
+        { view: ActiveView, limit: 1, pagination_key: key },
         applicant.token,
       );
       const secondPage = (await next.json()) as ListMyApplicationsResponse;
@@ -851,16 +1146,55 @@ test("my applications list newest activity first with keyset pagination", async 
       expect(secondPage.next_pagination_key).toBeUndefined();
       await expectProblem(
         await applicant.hub.listMyApplications(
-          { pagination_key: `${key}x` },
+          { view: ActiveView, pagination_key: `${key}x` },
           applicant.token,
         ),
         400,
         "vetchium-problem-details/invalid-pagination-key",
       );
+      // A key continues only the view that issued it.
+      await expectProblem(
+        await applicant.hub.listMyApplications(
+          { view: ClosedView, pagination_key: key },
+          applicant.token,
+        ),
+        400,
+        "vetchium-problem-details/invalid-pagination-key",
+      );
+      const found = await applicant.hub.findMyOpeningApplication(
+        { domain: world.org.domain, opening_number: first.opening_number },
+        applicant.token,
+      );
+      expect(found.status(), await found.text()).toBe(200);
+      expect(found.headers()["cache-control"]).toBe("no-store");
+      expect(await found.json()).toMatchObject({
+        org_domain: world.org.domain,
+        opening_number: first.opening_number,
+        application_number: first.application_number,
+        opening_title: "First",
+        status: "withdrawn",
+        pending_actions: [],
+      });
       // Another Hub user sees none of them.
       const stranger = seedApplicant(request, "sgp", "Stranger");
       try {
         expect((await myApplications(stranger)).applications).toEqual([]);
+        expect(
+          (await myApplications(stranger, ClosedView)).applications,
+        ).toEqual([]);
+        expect(await myCounts(stranger)).toEqual({
+          active: 0,
+          closed: 0,
+          awaiting_answer: 0,
+        });
+        await expectProblem(
+          await stranger.hub.findMyOpeningApplication(
+            { domain: world.org.domain, opening_number: first.opening_number },
+            stranger.token,
+          ),
+          404,
+          "vetchium-problem-details/hub-application-not-found",
+        );
         await expectProblem(
           await stranger.hub.getMyApplication(first, stranger.token),
           404,
@@ -899,6 +1233,7 @@ test("Hub application endpoints reject malformed, unauthenticated, and unavailab
         "/apply-to-opening",
         "/withdraw-application",
         "/list-my-applications",
+        "/find-my-opening-application",
         "/get-my-application",
       ]) {
         await expectProblem(
@@ -953,10 +1288,33 @@ test("Hub application endpoints reject malformed, unauthenticated, and unavailab
         ["opening_number"],
       );
       await expectProblem(
-        await hub.listMyApplications({ limit: 51 }, applicant.token),
+        await hub.get("/my-application-counts", ""),
+        401,
+        "vetchium-problem-details/hub-authentication-required",
+      );
+      await expectProblem(
+        await hub.listMyApplications(
+          { view: ActiveView, limit: 51 },
+          applicant.token,
+        ),
         400,
         "vetchium-problem-details/validation-failed",
         ["limit"],
+      );
+      await expectProblem(
+        await hub.post("/list-my-applications", {}, { token: applicant.token }),
+        400,
+        "vetchium-problem-details/validation-failed",
+        ["view"],
+      );
+      await expectProblem(
+        await hub.findMyOpeningApplication(
+          { domain: "not a domain", opening_number: 0 },
+          applicant.token,
+        ),
+        400,
+        "vetchium-problem-details/validation-failed",
+        ["domain", "opening_number"],
       );
       // ind1 cannot reach its directory: nothing is sent and nothing is read.
       await expectProblem(

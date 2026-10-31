@@ -2023,6 +2023,9 @@ CREATE TABLE vetchium.org_opening_contents (
     salary_min bigint,
     salary_max bigint,
     salary_period vetchium.org_opening_salary_period,
+    -- Application questions (HP-QST-001) as the contract's question list;
+    -- NULL means none. orgs-api validates each question.
+    questions jsonb,
     updated_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
         ON DELETE CASCADE,
     updated_at timestamptz NOT NULL DEFAULT now(),
@@ -2090,6 +2093,10 @@ CREATE TABLE vetchium.org_opening_contents (
             AND salary_currency ~ '^[A-Z]{3}$'
             AND salary_min >= 0 AND salary_min <= salary_max
             AND salary_max BETWEEN 1 AND 1000000000000)
+    ),
+    CONSTRAINT org_opening_contents_questions_check CHECK (
+        questions IS NULL OR (jsonb_typeof(questions) = 'array'
+            AND jsonb_array_length(questions) BETWEEN 1 AND 10)
     ),
     CONSTRAINT org_opening_contents_live_complete_check CHECK (
         slot <> 'live' OR complete
@@ -2432,9 +2439,17 @@ CREATE TABLE vetchium.org_pipeline_template_stages (
     position smallint NOT NULL CHECK (position BETWEEN 1 AND 15),
     name text NOT NULL,
     stage_kind vetchium.pipeline_stage_kind NOT NULL,
+    -- FeedbackCriterion[] (HP-FRM-001).
+    feedback_form jsonb NOT NULL DEFAULT '[]',
     PRIMARY KEY (org_pipeline_template_id, position),
     CONSTRAINT org_pipeline_template_stages_name_check CHECK (
         name = btrim(name) AND char_length(name) BETWEEN 1 AND 100
+    ),
+    CONSTRAINT org_pipeline_template_stages_feedback_form_check CHECK (
+        jsonb_typeof(feedback_form) = 'array'
+        AND jsonb_array_length(feedback_form) <= 10
+        AND (stage_kind = 'interview'
+            OR jsonb_array_length(feedback_form) = 0)
     )
 );
 
@@ -2447,12 +2462,20 @@ CREATE TABLE vetchium.org_opening_stages (
     position smallint NOT NULL CHECK (position BETWEEN 1 AND 15),
     name text NOT NULL,
     stage_kind vetchium.pipeline_stage_kind NOT NULL,
+    -- FeedbackCriterion[] (HP-FRM-001); feedback keeps its own snapshot.
+    feedback_form jsonb NOT NULL DEFAULT '[]',
     CONSTRAINT org_opening_stages_position_key
         UNIQUE (org_opening_id, position) DEFERRABLE INITIALLY DEFERRED,
     CONSTRAINT org_opening_stages_opening_key
         UNIQUE (org_opening_stage_id, org_opening_id),
     CONSTRAINT org_opening_stages_name_check CHECK (
         name = btrim(name) AND char_length(name) BETWEEN 1 AND 100
+    ),
+    CONSTRAINT org_opening_stages_feedback_form_check CHECK (
+        jsonb_typeof(feedback_form) = 'array'
+        AND jsonb_array_length(feedback_form) <= 10
+        AND (stage_kind = 'interview'
+            OR jsonb_array_length(feedback_form) = 0)
     )
 );
 
@@ -2514,6 +2537,9 @@ CREATE TABLE vetchium.org_applications (
     version integer NOT NULL DEFAULT 1 CHECK (version >= 1),
     snapshot jsonb NOT NULL,
     cover_note text,
+    -- The live questions at apply time, each with its answer (HP-QST-005);
+    -- written once. Retention empties it.
+    answers jsonb NOT NULL DEFAULT '[]',
     current_stage_id uuid REFERENCES vetchium.org_opening_stages
         (org_opening_stage_id) ON DELETE SET NULL,
     -- When the offer that led to offer_accepted was extended; the offer
@@ -2556,6 +2582,9 @@ CREATE TABLE vetchium.org_applications (
             cover_note = btrim(cover_note)
             AND char_length(cover_note) BETWEEN 1 AND 5000
         )
+    ),
+    CONSTRAINT org_applications_answers_check CHECK (
+        jsonb_typeof(answers) = 'array' AND jsonb_array_length(answers) <= 10
     ),
     CONSTRAINT org_applications_stage_check CHECK (
         application_state <> 'submitted' OR current_stage_id IS NULL
@@ -2886,6 +2915,8 @@ CREATE TABLE vetchium.org_interview_feedback (
     org_user_id uuid NOT NULL,
     recommendation vetchium.org_interview_recommendation NOT NULL,
     notes text NOT NULL,
+    -- The stage's form as answered (HP-FRM-004).
+    criteria_answers jsonb NOT NULL DEFAULT '[]',
     submitted_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (org_interview_id, org_user_id),
     FOREIGN KEY (org_interview_id, org_user_id)
@@ -2893,6 +2924,10 @@ CREATE TABLE vetchium.org_interview_feedback (
         (org_interview_id, org_user_id) ON DELETE CASCADE,
     CONSTRAINT org_interview_feedback_notes_check CHECK (
         notes = btrim(notes) AND char_length(notes) BETWEEN 1 AND 10000
+    ),
+    CONSTRAINT org_interview_feedback_criteria_answers_check CHECK (
+        jsonb_typeof(criteria_answers) = 'array'
+        AND jsonb_array_length(criteria_answers) <= 10
     )
 );
 
@@ -2912,6 +2947,8 @@ CREATE TABLE vetchium.org_provider_interview_feedback (
     interviewer_email text NOT NULL,
     recommendation vetchium.org_interview_recommendation NOT NULL,
     notes text NOT NULL,
+    -- The stage's form as answered (HP-FRM-004).
+    criteria_answers jsonb NOT NULL DEFAULT '[]',
     submitted_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (org_interview_id, interviewer_email),
     FOREIGN KEY (org_interview_id, interviewer_email)
@@ -2919,6 +2956,10 @@ CREATE TABLE vetchium.org_provider_interview_feedback (
         (org_interview_id, interviewer_email) ON DELETE CASCADE,
     CONSTRAINT org_provider_interview_feedback_notes_check CHECK (
         notes = btrim(notes) AND char_length(notes) BETWEEN 1 AND 10000
+    ),
+    CONSTRAINT org_provider_interview_feedback_criteria_answers_check CHECK (
+        jsonb_typeof(criteria_answers) = 'array'
+        AND jsonb_array_length(criteria_answers) <= 10
     )
 );
 
@@ -3143,12 +3184,20 @@ AS $$
         WHEN state = 'in_pipeline' AND stage_kind = 'interview'
             THEN 'interviewing'
         WHEN state = 'in_pipeline' THEN 'in_review'
-        WHEN state IN ('offered', 'offer_accepted') THEN 'offer'
-        WHEN state = 'joined' THEN 'hired'
-        WHEN state IN ('not_progressing', 'offer_declined', 'did_not_join')
-            THEN 'not_progressing'
-        WHEN state = 'withdrawn' THEN 'withdrawn'
+        WHEN state IN ('offered', 'offer_accepted', 'joined', 'withdrawn')
+            THEN state::text
+        WHEN state = 'not_progressing' THEN 'not_selected'
+        WHEN state IN ('offer_declined', 'did_not_join') THEN 'declined'
     END
+$$;
+
+-- Whether a Hub status belongs to the closed view of the applicant's list.
+-- applications.ClosedStatuses holds the same set; a test keeps the two in
+-- agreement.
+CREATE FUNCTION vetchium.hub_application_closed(status text) RETURNS boolean
+LANGUAGE sql IMMUTABLE
+AS $$
+    SELECT status IN ('joined', 'not_selected', 'declined', 'withdrawn')
 $$;
 
 -- Who may read all of an Opening's applications: the hiring manager, the
@@ -3233,9 +3282,12 @@ CREATE TABLE vetchium.hub_application_projections (
     opening_title text NOT NULL CHECK (length(btrim(opening_title)) > 0),
     application_number integer NOT NULL CHECK (application_number >= 1),
     hub_status text NOT NULL CHECK (hub_status IN (
-        'applied', 'in_review', 'interviewing', 'offer', 'hired',
-        'not_progressing', 'withdrawn'
+        'applied', 'in_review', 'interviewing', 'offered', 'offer_accepted',
+        'joined', 'not_selected', 'declined', 'withdrawn'
     )),
+    closed boolean NOT NULL GENERATED ALWAYS AS (
+        vetchium.hub_application_closed(hub_status)
+    ) STORED,
     pending_actions text[] NOT NULL CHECK (
         pending_actions <@ ARRAY['interview_response',
             'background_check_consent', 'offer_response']::text[]
@@ -3251,7 +3303,7 @@ CREATE TABLE vetchium.hub_application_projections (
 );
 CREATE INDEX hub_application_projections_list_idx
     ON vetchium.hub_application_projections
-    (hub_user_did, last_activity_at DESC, projection_id DESC);
+    (hub_user_did, closed, last_activity_at DESC, projection_id DESC);
 
 -- What a projection event tells the applicant (HP-GEN-006): one row per
 -- notification, written beside the projection and turned into an outbox
@@ -3756,6 +3808,7 @@ DROP TABLE IF EXISTS vetchium.org_contacts;
 DROP TABLE IF EXISTS vetchium.hub_application_notices;
 DROP TABLE IF EXISTS vetchium.hub_application_projections;
 DROP FUNCTION IF EXISTS vetchium.org_user_acts_on_applications(uuid, uuid);
+DROP FUNCTION IF EXISTS vetchium.hub_application_closed(text);
 DROP FUNCTION IF EXISTS vetchium.hub_application_status(
     vetchium.org_application_state, vetchium.pipeline_stage_kind
 );

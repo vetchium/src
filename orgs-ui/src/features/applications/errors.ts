@@ -20,6 +20,8 @@ export function applicationErrorMessage(t: TFunction, cause: unknown): string {
       return t("applications.errors.interviewStateConflict");
     case "feedback-exists":
       return t("applications.errors.feedbackExists");
+    case "answers-invalid":
+      return t("applications.errors.answersInvalid");
     case "interview-limit":
       return t("applications.errors.interviewLimit", { count: problem.limit });
     case "interviewers-invalid":

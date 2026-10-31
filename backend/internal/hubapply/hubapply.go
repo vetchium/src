@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/vetchium/src/typespec/common"
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	federationspec "github.com/vetchium/src/typespec/federation"
 	"github.com/vetchium/src/typespec/orgs/applications"
@@ -66,6 +67,22 @@ func Handle(
 		target.OpeningState != sqlc.VetchiumOrgOpeningStatePublished {
 		return commands.Rejected(hubproblem.OpeningNotAcceptingError), nil
 	}
+	encodedQuestions, err := q.GetOrgOpeningLiveQuestions(ctx, target.OrgOpeningID)
+	if err != nil {
+		return commands.Result{}, fmt.Errorf("read live questions: %w", err)
+	}
+	var questions []common.ApplicationQuestion
+	if err := json.Unmarshal(encodedQuestions, &questions); err != nil {
+		return commands.Result{}, fmt.Errorf("decode live questions: %w", err)
+	}
+	asked, invalid := ValidateAnswers(questions, payload.Answers)
+	if len(invalid) > 0 {
+		return commands.Rejected(hubproblem.ApplicationAnswersInvalidError(invalid)), nil
+	}
+	answers, err := json.Marshal(asked)
+	if err != nil {
+		return commands.Result{}, fmt.Errorf("encode answers: %w", err)
+	}
 	snapshot, err := json.Marshal(payload.Snapshot)
 	if err != nil {
 		return commands.Result{}, fmt.Errorf("encode applicant snapshot: %w", err)
@@ -113,6 +130,7 @@ func Handle(
 		ApplicantID:          applicantID,
 		Snapshot:             snapshot,
 		CoverNote:            dbvalue.NullText(coverNote),
+		Answers:              answers,
 		CreditedEngagementID: creditedEngagementID,
 		ReferralRoute:        referralRoute,
 		HistoryID:            ids[2],

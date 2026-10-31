@@ -1,7 +1,13 @@
-import { CopyOutlined, DeleteOutlined, EditOutlined } from "@ant-design/icons";
+import {
+  ClockCircleOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  EditOutlined,
+} from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
-import { OpeningContentView } from "@vetchium/portal-ui/openings";
+import { OpeningView } from "@vetchium/portal-ui/openings";
+import { SidePanel } from "@vetchium/portal-ui/shell";
 import {
   Alert,
   App,
@@ -11,10 +17,12 @@ import {
   Checkbox,
   Col,
   Descriptions,
+  Divider,
   Flex,
   Input,
   Modal,
   Row,
+  Segmented,
   Space,
   Statistic,
   Tabs,
@@ -24,6 +32,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import type { OpeningContent } from "typespec/common/openings";
 import type { PaginationKey } from "typespec/common/pagination";
 import {
   ApproveOpenings,
@@ -49,7 +58,10 @@ import {
   OpeningsBreadcrumb,
   openingTitle,
 } from "../features/openings/OpeningsBreadcrumb";
-import { openingContentPresentation } from "../features/openings/presentation";
+import {
+  openingPresentation,
+  openingStateColors,
+} from "../features/openings/presentation";
 import { openingProblem } from "../features/openings/problems";
 import {
   publicationFieldLabels,
@@ -167,7 +179,8 @@ export function OpeningDetailPage() {
     canManage &&
     opening !== undefined &&
     ["draft", "published", "paused"].includes(opening.state);
-  const presentation = openingContentPresentation(t, i18n.language);
+  const presentation = openingPresentation(t, i18n.language);
+  const [contentView, setContentView] = useState<"live" | "working">("working");
   const publicURL =
     me && opening
       ? `https://vetchium.com/org/${encodeURIComponent(me.org.domain.domain)}/openings/${opening.opening_number}`
@@ -379,288 +392,371 @@ export function OpeningDetailPage() {
         }
       />
     );
-  const overview = (
-    <Space orientation="vertical" size="large" className="full-width">
-      {(canManage || canApprove) && (
-        <Card title={t("openings.actions.title")}>
-          <Flex vertical gap="middle">
-            {missingForPublication.length > 0 && (
-              <Alert
-                type="warning"
-                showIcon
-                title={t("openings.publicationMissing")}
-                description={<ItemList items={missingForPublication} />}
-              />
-            )}
-            <Flex gap="small" wrap>
-              {canManage &&
-                availableKinds.map((kind) => (
-                  <Button
-                    key={kind}
-                    onClick={() =>
-                      openAction({ kind: "request", requestKind: kind })
-                    }
-                    disabled={actionBusy}
-                  >
-                    {canApprove
-                      ? t(`openings.actions.effects.${kind}`)
-                      : t("openings.actions.submitForApproval", {
-                          action: t(`openings.actions.effects.${kind}`),
-                        })}
-                  </Button>
-                ))}
-              {opening.pending_request && canApprove && (
-                <>
-                  <Button
-                    type="primary"
-                    onClick={() => openAction({ kind: "approve" })}
-                    disabled={actionBusy}
-                  >
-                    {t("openings.actions.approve")}
-                  </Button>
-                  <Button
-                    danger
-                    onClick={() => openAction({ kind: "reject" })}
-                    disabled={actionBusy}
-                  >
-                    {t("openings.actions.reject")}
-                  </Button>
-                </>
-              )}
-              {opening.pending_request && canManage && (
-                <Button
-                  onClick={() => void doWithdraw()}
-                  loading={withdraw.isPending}
-                  disabled={actionBusy}
-                >
-                  {t("openings.actions.withdraw")}
-                </Button>
-              )}
-            </Flex>
-          </Flex>
-        </Card>
-      )}
-      {opening.pending_request && (
-        <Card title={t("openings.pendingRequest")}>
-          <Descriptions
-            column={1}
-            items={[
-              {
-                key: "kind",
-                label: t("openings.actions.requestKind"),
-                children: t(
-                  `openings.requestKinds.${opening.pending_request.kind}`,
-                ),
-              },
-              {
-                key: "requester",
-                label: t("openings.actions.requester"),
-                children: opening.pending_request.requested_by_email,
-              },
-              {
-                key: "time",
-                label: t("openings.actions.requestedAt"),
-                children: formatDateTime(opening.pending_request.requested_at),
-              },
-              {
-                key: "note",
-                label: t("openings.actions.note"),
-                children: opening.pending_request.note ?? t("openings.notSet"),
-              },
-              ...(opening.pending_request.kind === "close" &&
-              opening.pending_request.mark_applications_not_progressing !==
-                undefined
-                ? [
-                    {
-                      key: "applications",
-                      label: t("openings.actions.openApplications"),
-                      children: t(
-                        opening.pending_request
-                          .mark_applications_not_progressing
-                          ? "openings.actions.applicationsMarked"
-                          : "openings.actions.applicationsKept",
-                      ),
-                    },
-                  ]
-                : []),
-            ]}
-          />
-        </Card>
-      )}
-      <Descriptions
-        bordered
-        column={1}
-        size="small"
-        items={[
-          {
-            key: "state",
-            label: t("openings.fields.state"),
-            children: t(`openings.states.${opening.state}`, {
-              defaultValue: opening.state,
-            }),
-          },
-          {
-            key: "revision",
-            label: t("openings.revision"),
-            children: opening.revision,
-          },
-          {
-            key: "expiry",
-            label: t("openings.expiresAt"),
-            children: opening.expires_at
-              ? formatDateTime(opening.expires_at)
-              : t("openings.notSet"),
-          },
-          {
-            key: "request",
-            label: t("openings.pendingRequest"),
-            children: opening.pending_request
-              ? `${t(`openings.requestKinds.${opening.pending_request.kind}`, { defaultValue: opening.pending_request.kind })} — ${opening.pending_request.requested_by_email} · ${formatDateTime(opening.pending_request.requested_at)}`
-              : t("openings.notSet"),
-          },
-        ]}
-      />
-      {publicURL && (
-        <Card title={t("openings.publicURL")}>
-          <Flex gap="small" align="center" wrap>
-            <Typography.Text copyable={{ text: publicURL }}>
-              {publicURL}
-            </Typography.Text>
-            <Button
-              onClick={() =>
-                void navigator.clipboard
-                  .writeText(publicURL)
-                  .then(() => message.success(t("openings.copied")))
-                  .catch(() => message.error(t("openings.copyFailed")))
-              }
-            >
-              {t("openings.copyURL")}
-            </Button>
-          </Flex>
-        </Card>
-      )}
-      <Flex gap="large" wrap align="start">
-        {opening.live_content && (
-          <Card title={t("openings.liveContent")} style={{ flex: "1 1 360px" }}>
-            <OpeningContentView
-              content={opening.live_content}
-              {...presentation}
-            />
-          </Card>
-        )}
-        {opening.working_content && (
-          <Card
-            title={
-              opening.state === "draft"
-                ? t("openings.draftContent")
-                : t("openings.workingContent")
-            }
-            style={{ flex: "1 1 360px" }}
-          >
-            <OpeningContentView
-              content={opening.working_content}
-              {...presentation}
-            />
-          </Card>
-        )}
-      </Flex>
-      <Card
-        title={t("openings.editor.team")}
-        extra={
-          teamEditable && (
-            <Link to={paths.openingEdit(number)}>{t("openings.editTeam")}</Link>
+  const live = opening.live_content;
+  const working = opening.working_content;
+  const shownContent: OpeningContent | undefined =
+    live && working
+      ? contentView === "live"
+        ? live
+        : working
+      : (working ?? live);
+  const changedFields =
+    live && working
+      ? publicationFieldLabels(
+          t,
+          (
+            [
+              ...new Set([...Object.keys(live), ...Object.keys(working)]),
+            ] as Array<keyof OpeningContent>
           )
-        }
-      >
+            .filter(
+              (field) =>
+                JSON.stringify(live[field]) !== JSON.stringify(working[field]),
+            )
+            .map((field) => `content.${field}`),
+        )
+      : [];
+  const isLive = ["published", "paused"].includes(opening.state);
+  const blocksRequest = (kind: OpeningRequestKind) =>
+    (kind === "publish" || kind === "revise") &&
+    missingForPublication.length > 0;
+  const primaryKinds: readonly OpeningRequestKind[] = [
+    "publish",
+    "revise",
+    "reopen",
+  ];
+  const sidePanel = (
+    <Card title={t("openings.actions.title")}>
+      <Flex vertical gap="middle">
         <Descriptions
+          size="small"
           column={1}
           items={[
             {
-              key: "manager",
-              label: t("openings.fields.hiringManager"),
-              children: teamUser(opening.hiring_manager),
-            },
-            {
-              key: "recruiter",
-              label: t("openings.editor.recruiter"),
-              children: teamUser(opening.recruiter),
-            },
-            {
-              key: "members",
-              label: t("openings.editor.teamMembers"),
-              children: opening.team_members.length ? (
-                <Space wrap>
-                  {opening.team_members.map((member) => (
-                    <span key={member.email}>{teamUser(member)}</span>
-                  ))}
-                </Space>
-              ) : (
-                t("openings.notSet")
+              key: "state",
+              label: t("openings.fields.state"),
+              children: (
+                <Tag color={openingStateColors[opening.state]}>
+                  {t(`openings.states.${opening.state}`, {
+                    defaultValue: opening.state,
+                  })}
+                </Tag>
               ),
             },
-            {
-              key: "notes",
-              label: t("openings.editor.internalNotes"),
-              children: opening.internal_notes ?? t("openings.notSet"),
-            },
+            ...(opening.revision > 0
+              ? [
+                  {
+                    key: "revision",
+                    label: t("openings.revision"),
+                    children: opening.revision,
+                  },
+                ]
+              : []),
           ]}
         />
-      </Card>
-      <Card title={t("openings.history")} loading={history.isLoading}>
-        {history.isError && (
+        {opening.pending_request && (
           <Alert
-            type="error"
-            title={t("common.loadError")}
-            action={
-              <Button onClick={() => void history.refetch()}>
-                {t("common.retry")}
-              </Button>
+            type="warning"
+            showIcon
+            icon={<ClockCircleOutlined aria-hidden />}
+            title={t("openings.pendingRequestTitle", {
+              kind: t(`openings.requestKinds.${opening.pending_request.kind}`, {
+                defaultValue: opening.pending_request.kind,
+              }),
+            })}
+            description={
+              <Descriptions
+                size="small"
+                column={1}
+                layout="vertical"
+                items={[
+                  {
+                    key: "requester",
+                    label: t("openings.actions.requester"),
+                    children: opening.pending_request.requested_by_email,
+                  },
+                  {
+                    key: "time",
+                    label: t("openings.actions.requestedAt"),
+                    children: formatDateTime(
+                      opening.pending_request.requested_at,
+                    ),
+                  },
+                  ...(opening.pending_request.note
+                    ? [
+                        {
+                          key: "note",
+                          label: t("openings.actions.note"),
+                          children: opening.pending_request.note,
+                        },
+                      ]
+                    : []),
+                  ...(opening.pending_request.kind === "close" &&
+                  opening.pending_request.mark_applications_not_progressing !==
+                    undefined
+                    ? [
+                        {
+                          key: "applications",
+                          label: t("openings.actions.openApplications"),
+                          children: t(
+                            opening.pending_request
+                              .mark_applications_not_progressing
+                              ? "openings.actions.applicationsMarked"
+                              : "openings.actions.applicationsKept",
+                          ),
+                        },
+                      ]
+                    : []),
+                ]}
+              />
             }
           />
         )}
-        <ol>
-          {history.data?.entries.map((entry) => (
-            <li key={`${entry.created_at}-${entry.version}-${entry.action}`}>
-              <Typography.Text>
-                {formatDateTime(entry.created_at)} ·{" "}
-                {t(`openings.historyActions.${entry.action}`, {
-                  defaultValue: entry.action,
-                })}{" "}
-                · {entry.actor_email ?? t("openings.systemActor")}
-                {entry.request_kind
-                  ? ` · ${t(`openings.requestKinds.${entry.request_kind}`, { defaultValue: entry.request_kind })}`
-                  : ""}
-                {entry.request_state
-                  ? ` · ${t(`openings.requestStates.${entry.request_state}`, { defaultValue: entry.request_state })}`
-                  : ""}
-                {entry.request_note ? ` · ${entry.request_note}` : ""}
-                {entry.decision_note ? ` · ${entry.decision_note}` : ""}
+        {missingForPublication.length > 0 && (
+          <Alert
+            type="warning"
+            showIcon
+            title={t("openings.publicationMissing")}
+            description={
+              <Flex vertical gap="small">
+                <ItemList items={missingForPublication} />
+                {editable && (
+                  <Link to={paths.openingEdit(number)}>
+                    {t("openings.completeInEditor")}
+                  </Link>
+                )}
+              </Flex>
+            }
+          />
+        )}
+        {(canManage || canApprove) && (
+          <Flex vertical gap="small">
+            {opening.pending_request && canApprove && (
+              <>
+                <Button
+                  type="primary"
+                  block
+                  onClick={() => openAction({ kind: "approve" })}
+                  disabled={actionBusy}
+                >
+                  {t("openings.actions.approve")}
+                </Button>
+                <Button
+                  danger
+                  block
+                  onClick={() => openAction({ kind: "reject" })}
+                  disabled={actionBusy}
+                >
+                  {t("openings.actions.reject")}
+                </Button>
+              </>
+            )}
+            {canManage &&
+              availableKinds.map((kind) => (
+                <Button
+                  key={kind}
+                  block
+                  type={
+                    primaryKinds.includes(kind) && !opening.pending_request
+                      ? "primary"
+                      : "default"
+                  }
+                  danger={kind === "close"}
+                  onClick={() =>
+                    openAction({ kind: "request", requestKind: kind })
+                  }
+                  disabled={actionBusy || blocksRequest(kind)}
+                >
+                  {canApprove
+                    ? t(`openings.actions.effects.${kind}`)
+                    : t("openings.actions.submitForApproval", {
+                        action: t(`openings.actions.effects.${kind}`),
+                      })}
+                </Button>
+              ))}
+            {opening.pending_request && canManage && (
+              <Button
+                block
+                onClick={() => void doWithdraw()}
+                loading={withdraw.isPending}
+                disabled={actionBusy}
+              >
+                {t("openings.actions.withdraw")}
+              </Button>
+            )}
+            {availableKinds.some(blocksRequest) && (
+              <Typography.Text type="secondary">
+                {t("openings.publishBlocked")}
               </Typography.Text>
-            </li>
-          ))}
-        </ol>
-        <Flex justify="end" gap="small">
-          <Button
-            disabled={pageIndex === 0 || history.isFetching}
-            onClick={() => setPageIndex(pageIndex - 1)}
+            )}
+          </Flex>
+        )}
+        {isLive && publicURL && (
+          <>
+            <Divider />
+            <Flex vertical gap="small">
+              <Typography.Text strong>
+                {t("openings.publicURL")}
+              </Typography.Text>
+              <Typography.Text copyable={{ text: publicURL }} ellipsis>
+                {publicURL}
+              </Typography.Text>
+              <Button
+                onClick={() =>
+                  void navigator.clipboard
+                    .writeText(publicURL)
+                    .then(() => message.success(t("openings.copied")))
+                    .catch(() => message.error(t("openings.copyFailed")))
+                }
+              >
+                {t("openings.copyURL")}
+              </Button>
+            </Flex>
+          </>
+        )}
+      </Flex>
+    </Card>
+  );
+  const overview = (
+    <Row gutter={[24, 24]}>
+      <Col xs={24} lg={16}>
+        <Flex vertical gap="large">
+          {shownContent && (
+            <Flex vertical gap="middle">
+              {live && working && (
+                <Flex gap="middle" align="center" wrap>
+                  <Segmented<"live" | "working">
+                    value={contentView}
+                    onChange={setContentView}
+                    options={[
+                      { value: "working", label: t("openings.workingContent") },
+                      { value: "live", label: t("openings.liveContent") },
+                    ]}
+                  />
+                  <Typography.Text type="secondary">
+                    {changedFields.length > 0
+                      ? t("openings.changedFields", {
+                          fields: changedFields.join(", "),
+                        })
+                      : t("openings.noChangedFields")}
+                  </Typography.Text>
+                </Flex>
+              )}
+              <OpeningView
+                content={shownContent}
+                presentation={presentation}
+                titleLevel={2}
+              />
+            </Flex>
+          )}
+          <Card
+            title={t("openings.editor.team")}
+            extra={
+              teamEditable && (
+                <Link to={paths.openingEdit(number)}>
+                  {t("openings.editTeam")}
+                </Link>
+              )
+            }
           >
-            {t("common.previous")}
-          </Button>
-          <Button
-            disabled={!history.data?.next_pagination_key || history.isFetching}
-            onClick={() => {
-              const key = history.data?.next_pagination_key;
-              if (key) {
-                setPageKeys((old) => [...old.slice(0, pageIndex + 1), key]);
-                setPageIndex(pageIndex + 1);
-              }
-            }}
-          >
-            {t("common.next")}
-          </Button>
+            <Descriptions
+              column={1}
+              items={[
+                {
+                  key: "manager",
+                  label: t("openings.fields.hiringManager"),
+                  children: teamUser(opening.hiring_manager),
+                },
+                {
+                  key: "recruiter",
+                  label: t("openings.editor.recruiter"),
+                  children: teamUser(opening.recruiter),
+                },
+                {
+                  key: "members",
+                  label: t("openings.editor.teamMembers"),
+                  children: opening.team_members.length ? (
+                    <Space wrap>
+                      {opening.team_members.map((member) => (
+                        <span key={member.email}>{teamUser(member)}</span>
+                      ))}
+                    </Space>
+                  ) : (
+                    t("openings.notSet")
+                  ),
+                },
+                {
+                  key: "notes",
+                  label: t("openings.editor.internalNotes"),
+                  children: opening.internal_notes ?? t("openings.notSet"),
+                },
+              ]}
+            />
+          </Card>
+          <Card title={t("openings.history")} loading={history.isLoading}>
+            {history.isError && (
+              <Alert
+                type="error"
+                title={t("common.loadError")}
+                action={
+                  <Button onClick={() => void history.refetch()}>
+                    {t("common.retry")}
+                  </Button>
+                }
+              />
+            )}
+            <ol>
+              {history.data?.entries.map((entry) => (
+                <li
+                  key={`${entry.created_at}-${entry.version}-${entry.action}`}
+                >
+                  <Typography.Text>
+                    {formatDateTime(entry.created_at)} ·{" "}
+                    {t(`openings.historyActions.${entry.action}`, {
+                      defaultValue: entry.action,
+                    })}{" "}
+                    · {entry.actor_email ?? t("openings.systemActor")}
+                    {entry.request_kind
+                      ? ` · ${t(`openings.requestKinds.${entry.request_kind}`, { defaultValue: entry.request_kind })}`
+                      : ""}
+                    {entry.request_state
+                      ? ` · ${t(`openings.requestStates.${entry.request_state}`, { defaultValue: entry.request_state })}`
+                      : ""}
+                    {entry.request_note ? ` · ${entry.request_note}` : ""}
+                    {entry.decision_note ? ` · ${entry.decision_note}` : ""}
+                  </Typography.Text>
+                </li>
+              ))}
+            </ol>
+            <Flex justify="end" gap="small">
+              <Button
+                disabled={pageIndex === 0 || history.isFetching}
+                onClick={() => setPageIndex(pageIndex - 1)}
+              >
+                {t("common.previous")}
+              </Button>
+              <Button
+                disabled={
+                  !history.data?.next_pagination_key || history.isFetching
+                }
+                onClick={() => {
+                  const key = history.data?.next_pagination_key;
+                  if (key) {
+                    setPageKeys((old) => [...old.slice(0, pageIndex + 1), key]);
+                    setPageIndex(pageIndex + 1);
+                  }
+                }}
+              >
+                {t("common.next")}
+              </Button>
+            </Flex>
+          </Card>
         </Flex>
-      </Card>
-    </Space>
+      </Col>
+      <Col xs={24} lg={8}>
+        <SidePanel>{sidePanel}</SidePanel>
+      </Col>
+    </Row>
   );
   // Later tasks add their tabs here, each shown only to who may use it.
   const countedLabel = (text: string, count: number) => (
@@ -686,6 +782,7 @@ export function OpeningDetailPage() {
                   openingNumber={number}
                   canAct={canAct}
                   stages={counts.data.stages.map((entry) => entry.stage)}
+                  questions={opening.live_content?.questions ?? []}
                 />
               </Card>
             ),
@@ -699,6 +796,7 @@ export function OpeningDetailPage() {
                   key={number}
                   openingNumber={number}
                   counts={counts.data}
+                  questions={opening.live_content?.questions ?? []}
                 />
               </Card>
             ),
@@ -746,12 +844,29 @@ export function OpeningDetailPage() {
       <title>{t("openings.detailTitle", { number })}</title>
       <OpeningsBreadcrumb opening={opening} />
       <Flex justify="space-between" align="center" wrap gap="small">
-        <div>
+        <Flex gap="small" align="center" wrap>
           <Typography.Title level={1}>
             {openingTitle(opening) ?? t("openings.untitled")}{" "}
             <Typography.Text type="secondary">#{number}</Typography.Text>
           </Typography.Title>
-        </div>
+          <Tag color={openingStateColors[opening.state]}>
+            {t(`openings.states.${opening.state}`, {
+              defaultValue: opening.state,
+            })}
+          </Tag>
+          {opening.pending_request && (
+            <Tag color="gold" icon={<ClockCircleOutlined aria-hidden />}>
+              {t("openings.pendingTag", {
+                kind: t(
+                  `openings.requestKinds.${opening.pending_request.kind}`,
+                  {
+                    defaultValue: opening.pending_request.kind,
+                  },
+                ),
+              })}
+            </Tag>
+          )}
+        </Flex>
         <Flex gap="small" wrap>
           {editable && (
             <Link to={paths.openingEdit(number)}>
@@ -793,7 +908,7 @@ export function OpeningDetailPage() {
       {error && action === undefined && (
         <ErrorAlert error={error} onClose={() => setError(undefined)} />
       )}
-      {counts.data && (
+      {counts.data && !["draft", "discarded"].includes(opening.state) && (
         <Row gutter={[16, 16]} align="stretch">
           <Col xs={12} lg={6} style={{ display: "flex" }}>
             <Card className="full-width">

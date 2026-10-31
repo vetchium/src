@@ -12,6 +12,7 @@ import type { ApplicationStatus } from "../../../hub/applications/applications.t
 import type { WebsiteURL } from "../../../hub/profile/public.ts";
 import type { ApplicantSnapshot } from "../../../hub/profile/snapshot.ts";
 import type { HubHandle } from "../../../hub/types.ts";
+import type { CriterionAnswer } from "../../applications/answers.ts";
 import type {
   ApplicationCoverNote,
   ApplicationNumber,
@@ -592,6 +593,8 @@ export function validateRecordInterviewOutcomeRequest(
 export interface SubmitInterviewFeedbackRequest extends InterviewReference {
   recommendation: InterviewRecommendation;
   notes: InterviewFeedbackNotes;
+  /** Answers to the consumer's form for the stage (HP-FRM-004). */
+  criteria_answers?: CriterionAnswer[];
 }
 
 export function normalizeSubmitInterviewFeedbackRequest(

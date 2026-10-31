@@ -610,7 +610,34 @@ export const de = {
     next: "Weiter",
     titleSearch: "Titel suchen",
     search: "Suchen",
-    backToOpenings: "Alle Stellen",
+    posted: "Veröffentlicht am {{date}}",
+    postedAndUpdated:
+      "Veröffentlicht am {{posted}} · Aktualisiert am {{updated}}",
+    applyHelp:
+      "Ihr Profil wird mit Ihrer Bewerbung gesendet, dazu optional ein Anschreiben.",
+    applyHelpQuestions_one:
+      "Ihr Profil wird mit Ihrer Bewerbung gesendet, dazu Ihre Antwort auf {{count}} Frage.",
+    applyHelpQuestions_other:
+      "Ihr Profil wird mit Ihrer Bewerbung gesendet, dazu Ihre Antworten auf {{count}} Fragen.",
+    questions: {
+      heading: "Fragen zur Bewerbung",
+      summary_one: "{{count}} Frage, {{required}} erforderlich",
+      summary_other: "{{count}} Fragen, {{required}} erforderlich",
+      required: "Erforderlich",
+      optional: "Optional",
+      range: "{{min}} bis {{max}}",
+      atLeast: "Mindestens {{min}}",
+      atMost: "Höchstens {{max}}",
+      choices: "Optionen: {{options}}",
+      types: {
+        short_text: "Kurzer Text",
+        long_text: "Langer Text",
+        number: "Ganze Zahl",
+        yes_no: "Ja oder Nein",
+        single_choice: "Eine Auswahl",
+        multiple_choice: "Mehrfachauswahl",
+      },
+    },
     notAccepting: "Diese Stelle nimmt keine Bewerbungen an.",
     agencySuggestedTitle: "{{agency}} hat Ihnen diese Stelle vorgeschlagen",
     agencySuggestedBody: "Am {{date}} in",
@@ -622,6 +649,7 @@ export const de = {
     experienceMin: "Ab {{min}} Jahren",
     experienceMax: "Bis {{max}} Jahre",
     fields: {
+      details: "Details",
       description: "Beschreibung",
       language: "Sprache",
       country: "Land",
@@ -670,25 +698,33 @@ export const de = {
     stillPending:
       "Das dauert länger als üblich. Ihre Anfrage bleibt erhalten; öffnen Sie diese Seite gleich noch einmal, um das Ergebnis zu sehen.",
     tabs: {
-      active_one: "Aktiv ({{count}})",
-      active_other: "Aktiv ({{count}})",
-      closed_one: "Abgeschlossen ({{count}})",
-      closed_other: "Abgeschlossen ({{count}})",
+      active: "Aktiv",
+      closed: "Abgeschlossen",
+      count: "{{label}} ({{count}})",
     },
     list: {
       dates: "Beworben am {{applied}} · Aktualisiert am {{updated}}",
       emptyActive:
         "Sie haben keine aktiven Bewerbungen. Öffnen Sie eine Stelle auf der Seite einer Organisation, um sich zu bewerben.",
       emptyClosed: "Noch keine abgeschlossenen Bewerbungen.",
+      more: "Mehr anzeigen",
     },
     status: {
       applied: "Beworben",
       in_review: "In Prüfung",
       interviewing: "Im Gespräch",
-      offer: "Angebot",
-      hired: "Eingestellt",
-      not_progressing: "Nicht weiterverfolgt",
+      offered: "Angebot erhalten",
+      offer_accepted: "Angebot angenommen",
+      joined: "Eingetreten",
+      not_selected: "Nicht ausgewählt",
+      declined: "Von Ihnen abgelehnt",
       withdrawn: "Zurückgezogen",
+    },
+    outcome: {
+      not_selected:
+        "{{org}} hat entschieden, diese Bewerbung nicht weiterzuverfolgen.",
+      declined: "Sie haben diese Stelle nicht angetreten.",
+      withdrawn: "Sie haben diese Bewerbung zurückgezogen.",
     },
     pending: {
       interview_response: "Auf ein Gespräch antworten",
@@ -701,6 +737,11 @@ export const de = {
       orgUnavailable:
         "Diese Organisation ist vorübergehend nicht erreichbar, daher kann der aktuelle Stand Ihrer Bewerbung nicht angezeigt werden. Bitte versuchen Sie es erneut.",
       nothingToDo: "Im Moment braucht nichts Ihre Antwort.",
+      answers: {
+        title: "Ihre Antworten",
+        help: "Die Fragen so, wie sie bei Ihrer Bewerbung gestellt wurden.",
+        notAnswered: "Nicht beantwortet",
+      },
       yourApplication: "Ihre Bewerbung",
       number: "Bewerbung",
       opening: "Stelle",
@@ -829,6 +870,35 @@ export const de = {
     },
     submit: "Bewerbung absenden",
     once: "Sie können sich auf jede Stelle nur einmal bewerben. Sie können später zurückziehen, sich aber nicht erneut bewerben.",
+    steps: {
+      title: "Ihre Bewerbung",
+      profile: "Ihr Profil",
+      profileHelp: "Wird im aktuellen Stand geteilt",
+      questions: "Fragen",
+      requiredAnswered_one:
+        "{{answered}} von {{count}} Pflichtfrage beantwortet",
+      requiredAnswered_other:
+        "{{answered}} von {{count}} Pflichtfragen beantwortet",
+      allOptional: "Alle optional",
+      coverNote: "Anschreiben",
+      optional: "Optional",
+    },
+    questions: {
+      title: "Fragen von {{org}}",
+      required: "Beantworten Sie diese Frage.",
+      range: "Von {{min}} bis {{max}}",
+      atLeast: "{{min}} oder mehr",
+      atMost: "Bis zu {{max}}",
+      wholeNumber: "Geben Sie eine ganze Zahl ein.",
+      outOfRange: "Geben Sie eine ganze Zahl ein: {{bounds}}.",
+      chooseAny: "Wählen Sie alle zutreffenden aus.",
+      yes: "Ja",
+      no: "Nein",
+      changed: "{{org}} hat diese Frage geändert. Prüfen Sie Ihre Antwort.",
+      changedTitle: "Die Fragen haben sich geändert",
+      changedHelp:
+        "Die Organisation hat ihre Fragen geändert, nachdem Sie diese Seite geöffnet haben. Antworten, die weiterhin passen, bleiben erhalten; prüfen Sie die markierten Fragen und bewerben Sie sich erneut.",
+    },
   },
   notFound: {
     title: "Seite nicht gefunden",

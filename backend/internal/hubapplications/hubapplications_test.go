@@ -37,12 +37,12 @@ func TestStatusDerivesTheHubViewOfEveryState(t *testing.T) {
 		{sqlc.VetchiumOrgApplicationStateSubmitted, none, hubspec.Applied},
 		{sqlc.VetchiumOrgApplicationStateInPipeline, review, hubspec.InReview},
 		{sqlc.VetchiumOrgApplicationStateInPipeline, interview, hubspec.Interviewing},
-		{sqlc.VetchiumOrgApplicationStateOffered, interview, hubspec.Offer},
-		{sqlc.VetchiumOrgApplicationStateOfferAccepted, review, hubspec.Offer},
-		{sqlc.VetchiumOrgApplicationStateJoined, none, hubspec.Hired},
-		{sqlc.VetchiumOrgApplicationStateNotProgressing, none, hubspec.NotProgressing},
-		{sqlc.VetchiumOrgApplicationStateOfferDeclined, none, hubspec.NotProgressing},
-		{sqlc.VetchiumOrgApplicationStateDidNotJoin, none, hubspec.NotProgressing},
+		{sqlc.VetchiumOrgApplicationStateOffered, interview, hubspec.Offered},
+		{sqlc.VetchiumOrgApplicationStateOfferAccepted, review, hubspec.OfferAccepted},
+		{sqlc.VetchiumOrgApplicationStateJoined, none, hubspec.Joined},
+		{sqlc.VetchiumOrgApplicationStateNotProgressing, none, hubspec.NotSelected},
+		{sqlc.VetchiumOrgApplicationStateOfferDeclined, none, hubspec.Declined},
+		{sqlc.VetchiumOrgApplicationStateDidNotJoin, none, hubspec.Declined},
 		{sqlc.VetchiumOrgApplicationStateWithdrawn, interview, hubspec.Withdrawn},
 	} {
 		got, err := Status(test.state, test.stage)
@@ -224,7 +224,7 @@ func TestNotifiesOnlyForRealChangesTheApplicantDidNotCause(t *testing.T) {
 		{"first projection", status(federationspec.NoticeStatusChanged, hubspec.InReview), false, "", false},
 		{"withdrawn", status(federationspec.NoticeStatusChanged, hubspec.Withdrawn), true, "applied", false},
 		{"interview", status(federationspec.NoticeInterviewScheduled, hubspec.Interviewing), true, "interviewing", true},
-		{"offer expiring", status(federationspec.NoticeOfferExpiring, hubspec.Offer), true, "offer", true},
+		{"offer expiring", status(federationspec.NoticeOfferExpiring, hubspec.Offered), true, "offered", true},
 	} {
 		if got := notifies(test.payload, test.known, test.previous); got != test.want {
 			t.Errorf("%s: notifies = %v, want %v", test.name, got, test.want)

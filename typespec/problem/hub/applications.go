@@ -1,6 +1,9 @@
 package hub
 
-import "github.com/vetchium/src/typespec/problem"
+import (
+	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/problem"
+)
 
 var ApplicationExistsError = problem.Details{
 	Type:   "vetchium-problem-details/hub-application-exists",
@@ -35,4 +38,21 @@ var ReferralAgencyNotEligibleError = problem.Details{
 	Title:  "Referral agency not eligible",
 	Status: 422,
 	Detail: "The named domain is not the primary domain of an agency assigned to the Opening",
+}
+
+type ApplicationAnswersInvalidDetails struct {
+	problem.Details
+	QuestionIDs []common.ApplicationQuestionID `json:"question_ids"`
+}
+
+func ApplicationAnswersInvalidError(questionIDs []common.ApplicationQuestionID) ApplicationAnswersInvalidDetails {
+	return ApplicationAnswersInvalidDetails{
+		Details: problem.Details{
+			Type:   "vetchium-problem-details/hub-application-answers-invalid",
+			Title:  "Application answers invalid",
+			Status: 422,
+			Detail: "The answers do not fit the Opening's questions",
+		},
+		QuestionIDs: questionIDs,
+	}
 }

@@ -3,6 +3,7 @@
 package applications
 
 import (
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -535,8 +536,11 @@ type ApplicationSummary struct {
 	Route          *marketplace.ApplicationRoute `json:"route,omitempty"`
 	CreditedAgency *marketplace.CreditedAgency   `json:"credited_agency,omitempty"`
 	ReferralRoute  *marketplace.ReferralRoute    `json:"referral_route,omitempty"`
-	SubmittedAt    time.Time                     `json:"submitted_at"`
-	UpdatedAt      time.Time                     `json:"updated_at"`
+	// Answers is present, possibly empty, when the request named
+	// answer_columns; omitzero keeps an empty list and drops a nil one.
+	Answers     []ApplicationAnswer `json:"answers,omitzero"`
+	SubmittedAt time.Time           `json:"submitted_at"`
+	UpdatedAt   time.Time           `json:"updated_at"`
 }
 
 type ApplicationStageRecord struct {
@@ -564,6 +568,7 @@ type InterviewFeedback struct {
 	InterviewerEmail common.EmailAddress     `json:"interviewer_email"`
 	Recommendation   InterviewRecommendation `json:"recommendation"`
 	Notes            InterviewFeedbackNotes  `json:"notes"`
+	CriteriaAnswers  []AnsweredCriterion     `json:"criteria_answers"`
 	SubmittedAt      time.Time               `json:"submitted_at"`
 }
 
@@ -641,6 +646,7 @@ type ApplicationDetail struct {
 	Route            *marketplace.ApplicationRoute `json:"route,omitempty"`
 	CreditedAgency   *marketplace.CreditedAgency   `json:"credited_agency,omitempty"`
 	ReferralRoute    *marketplace.ReferralRoute    `json:"referral_route,omitempty"`
+	Answers          []AnswerRecord                `json:"answers"`
 	StageRecords     []ApplicationStageRecord      `json:"stage_records"`
 	JoinedOn         *CalendarDate                 `json:"joined_on,omitempty"`
 	SeparatedOn      *CalendarDate                 `json:"separated_on,omitempty"`
@@ -699,8 +705,11 @@ type ListApplicationsRequest struct {
 	RoutedEngagementID   *marketplace.EngagementID  `json:"routed_engagement_id,omitempty"`
 	CreditedAgencyDomain *orgs.OrgDomain            `json:"credited_agency_domain,omitempty"`
 	ReferralRoute        *marketplace.ReferralRoute `json:"referral_route,omitempty"`
-	PaginationKey        *common.PaginationKey      `json:"pagination_key,omitempty"`
-	Limit                *common.PageSize           `json:"limit,omitempty"`
+	// AnswerColumns names live questions whose answers each row returns;
+	// list-applications checks them against the live content.
+	AnswerColumns []common.ApplicationQuestionID `json:"answer_columns,omitempty"`
+	PaginationKey *common.PaginationKey          `json:"pagination_key,omitempty"`
+	Limit         *common.PageSize               `json:"limit,omitempty"`
 }
 
 func (r *ListApplicationsRequest) Normalize() {
@@ -767,6 +776,14 @@ func (r ListApplicationsRequest) Validate() []string {
 	}
 	if r.ReferralRoute != nil && !marketplace.IsReferralRoute(*r.ReferralRoute) {
 		fields = append(fields, "referral_route")
+	}
+	if len(r.AnswerColumns) > MaxAnswerColumns {
+		fields = append(fields, "answer_columns")
+	}
+	for index, id := range r.AnswerColumns {
+		if !common.IsApplicationQuestionID(id) || slices.Contains(r.AnswerColumns[:index], id) {
+			fields = append(fields, fmt.Sprintf("answer_columns.%d", index))
+		}
 	}
 	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
 		fields = append(fields, "pagination_key")
@@ -1169,12 +1186,14 @@ type SubmitInterviewFeedbackRequest struct {
 	InterviewNumber   InterviewNumber         `json:"interview_number"`
 	Recommendation    InterviewRecommendation `json:"recommendation"`
 	Notes             InterviewFeedbackNotes  `json:"notes"`
+	CriteriaAnswers   []CriterionAnswer       `json:"criteria_answers,omitempty"`
 }
 
-// Normalize trims the notes. It assigns a new value and never mutates
-// storage the caller shares.
+// Normalize trims the notes and answers. It assigns new values and never
+// mutates storage the caller shares.
 func (r *SubmitInterviewFeedbackRequest) Normalize() {
 	r.Notes = InterviewFeedbackNotes(strings.TrimSpace(string(r.Notes)))
+	r.CriteriaAnswers = NormalizeCriteriaAnswers(r.CriteriaAnswers)
 }
 
 func (r SubmitInterviewFeedbackRequest) Validate() []string {
@@ -1188,7 +1207,7 @@ func (r SubmitInterviewFeedbackRequest) Validate() []string {
 	if !IsInterviewFeedbackNotes(r.Notes) {
 		fields = append(fields, "notes")
 	}
-	return fields
+	return append(fields, ValidateCriteriaAnswerShapes(r.CriteriaAnswers)...)
 }
 
 type ListMyInterviewsRequest struct {

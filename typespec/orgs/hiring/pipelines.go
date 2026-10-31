@@ -48,18 +48,107 @@ func IsPipelineName(value PipelineName) bool {
 		value == NormalizePipelineName(value)
 }
 
+// FeedbackCriterionType is how an interviewer answers a criterion
+// (HP-FRM-001).
+type FeedbackCriterionType string
+
+const (
+	CriterionRating FeedbackCriterionType = "rating"
+	CriterionYesNo  FeedbackCriterionType = "yes_no"
+	CriterionText   FeedbackCriterionType = "text"
+)
+
+const (
+	MaxFeedbackCriteria  = 10
+	maxFeedbackCriterion = 500
+)
+
+func IsFeedbackCriterionType(value FeedbackCriterionType) bool {
+	switch value {
+	case CriterionRating, CriterionYesNo, CriterionText:
+		return true
+	}
+	return false
+}
+
+type FeedbackCriterionID string
+
+// IsFeedbackCriterionID accepts the lowercase form the API returns.
+func IsFeedbackCriterionID(value FeedbackCriterionID) bool {
+	return uuidPattern.MatchString(string(value))
+}
+
+// FeedbackCriterion is one criterion of an interview stage's feedback form;
+// a nil ID is a new criterion.
+type FeedbackCriterion struct {
+	ID       *FeedbackCriterionID  `json:"id,omitempty"`
+	Text     string                `json:"text"`
+	Type     FeedbackCriterionType `json:"type"`
+	Required bool                  `json:"required"`
+}
+
+// NormalizeFeedbackForm returns a trimmed copy; nil stays nil.
+func NormalizeFeedbackForm(form []FeedbackCriterion) []FeedbackCriterion {
+	if form == nil {
+		return nil
+	}
+	normalized := make([]FeedbackCriterion, len(form))
+	for index, criterion := range form {
+		criterion.Text = strings.TrimSpace(criterion.Text)
+		normalized[index] = criterion
+	}
+	return normalized
+}
+
+// ValidateFeedbackForm reports invalid fields under prefix (the form's own
+// path). Only an interview stage has a form. seen collects ids across the
+// pipeline, so an id repeated in any stage is refused.
+func ValidateFeedbackForm(
+	prefix string, kind StageKind, form []FeedbackCriterion,
+	seen map[FeedbackCriterionID]bool,
+) []string {
+	if len(form) == 0 {
+		return nil
+	}
+	if kind != InterviewStage || len(form) > MaxFeedbackCriteria {
+		return []string{prefix}
+	}
+	var fields []string
+	for index, criterion := range form {
+		path := fmt.Sprintf("%s.%d", prefix, index)
+		if criterion.ID != nil {
+			if !IsFeedbackCriterionID(*criterion.ID) || seen[*criterion.ID] {
+				fields = append(fields, path+".id")
+			}
+			seen[*criterion.ID] = true
+		}
+		length := utf8.RuneCountInString(criterion.Text)
+		if length < 1 || length > maxFeedbackCriterion ||
+			criterion.Text != strings.TrimSpace(criterion.Text) {
+			fields = append(fields, path+".text")
+		}
+		if !IsFeedbackCriterionType(criterion.Type) {
+			fields = append(fields, path+".type")
+		}
+	}
+	return fields
+}
+
 // PipelineStageDefinition is a stage as a template or a new Opening
 // describes it.
 type PipelineStageDefinition struct {
 	Name PipelineName `json:"name"`
 	Kind StageKind    `json:"kind"`
+	// FeedbackForm is nil for a stage that is not an interview.
+	FeedbackForm []FeedbackCriterion `json:"feedback_form,omitzero"`
 }
 
 // PipelineStage is a stage of an Opening's pipeline.
 type PipelineStage struct {
-	ID   PipelineStageID `json:"id"`
-	Name PipelineName    `json:"name"`
-	Kind StageKind       `json:"kind"`
+	ID           PipelineStageID     `json:"id"`
+	Name         PipelineName        `json:"name"`
+	Kind         StageKind           `json:"kind"`
+	FeedbackForm []FeedbackCriterion `json:"feedback_form,omitzero"`
 }
 
 // NormalizeStageDefinitions returns a normalized copy, leaving the caller's
@@ -74,6 +163,7 @@ func NormalizeStageDefinitions(
 	for index, stage := range stages {
 		normalized[index] = PipelineStageDefinition{
 			Name: NormalizePipelineName(stage.Name), Kind: stage.Kind,
+			FeedbackForm: NormalizeFeedbackForm(stage.FeedbackForm),
 		}
 	}
 	return normalized
@@ -87,6 +177,7 @@ func ValidateStageDefinitions(
 		return []string{prefix}
 	}
 	fields := []string{}
+	seen := map[FeedbackCriterionID]bool{}
 	for index, stage := range stages {
 		if !IsPipelineName(stage.Name) {
 			fields = append(fields, fmt.Sprintf("%s.%d.name", prefix, index))
@@ -94,6 +185,9 @@ func ValidateStageDefinitions(
 		if !IsStageKind(stage.Kind) {
 			fields = append(fields, fmt.Sprintf("%s.%d.kind", prefix, index))
 		}
+		fields = append(fields, ValidateFeedbackForm(
+			fmt.Sprintf("%s.%d.feedback_form", prefix, index), stage.Kind,
+			stage.FeedbackForm, seen)...)
 	}
 	return fields
 }

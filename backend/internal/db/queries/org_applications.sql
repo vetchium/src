@@ -10,6 +10,14 @@ WHERE o.org_did = sqlc.arg(org_did)
   AND o.opening_number = sqlc.arg(opening_number)::integer
 FOR UPDATE OF o;
 
+-- Read after LockOrgOpeningForApplication, in its own statement, so a revise
+-- approval that committed while hub-apply waited for the lock is seen.
+-- name: GetOrgOpeningLiveQuestions :one
+SELECT COALESCE((
+    SELECT c.questions FROM vetchium.org_opening_contents AS c
+    WHERE c.org_opening_id = sqlc.arg(org_opening_id) AND c.slot = 'live'
+), '[]'::jsonb)::jsonb AS questions;
+
 -- The no-op update makes a concurrent first application of the same person to
 -- two Openings both return the one row.
 -- name: EnsureOrgApplicant :one
@@ -31,13 +39,14 @@ RETURNING org_applicant_id;
 WITH created AS (
     INSERT INTO vetchium.org_applications (
         org_application_id, org_opening_id, application_number,
-        org_applicant_id, snapshot, cover_note,
+        org_applicant_id, snapshot, cover_note, answers,
         credited_engagement_id, referral_route
     )
     VALUES (
         sqlc.arg(application_id), sqlc.arg(org_opening_id),
         sqlc.arg(application_number)::integer, sqlc.arg(applicant_id),
         sqlc.arg(snapshot)::jsonb, sqlc.narg(cover_note)::text,
+        sqlc.arg(answers)::jsonb,
         sqlc.narg(credited_engagement_id)::uuid,
         sqlc.narg(referral_route)::text
     )
@@ -105,7 +114,24 @@ SELECT a.application_number, a.application_state, a.version,
     a.credited_engagement_id,
     cred_eng.provider_domain AS credited_provider_domain,
     cred_eng.provider_display_name AS credited_provider_display_name,
-    a.referral_route
+    a.referral_route,
+    -- The answers to the requested columns, unanswered ones omitted
+    -- (HP-QST-007); never a filter or sort key.
+    COALESCE((
+        SELECT jsonb_agg(jsonb_build_object('question_id', e.entry ->> 'id',
+            'value', e.entry -> 'answer') ORDER BY e.position)
+        FROM jsonb_array_elements(a.answers) WITH ORDINALITY AS e(entry, position)
+        WHERE e.entry ->> 'id' = ANY(sqlc.arg(answer_columns)::text[])
+          AND e.entry ? 'answer'
+    ), '[]'::jsonb)::jsonb AS column_answers,
+    -- The live questions the handler checks answer_columns against.
+    CASE WHEN cardinality(sqlc.arg(answer_columns)::text[]) = 0
+        THEN '[]'::jsonb
+        ELSE COALESCE((
+            SELECT c.questions FROM vetchium.org_opening_contents AS c
+            WHERE c.org_opening_id = o.org_opening_id AND c.slot = 'live'
+        ), '[]'::jsonb)
+    END::jsonb AS live_questions
 FROM vetchium.org_openings AS o
 LEFT JOIN vetchium.org_applications AS a
     ON a.org_opening_id = o.org_opening_id
@@ -178,6 +204,12 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
         SELECT c.positions FROM vetchium.org_opening_contents AS c
         WHERE c.org_opening_id = o.org_opening_id AND c.slot = 'live'
     ), 0)::integer AS positions,
+    -- The answers are judged against the live questions (HP-QST-006).
+    a.answers,
+    COALESCE((
+        SELECT c.questions FROM vetchium.org_opening_contents AS c
+        WHERE c.org_opening_id = o.org_opening_id AND c.slot = 'live'
+    ), '[]'::jsonb)::jsonb AS live_questions,
     (
         SELECT count(*) FROM vetchium.org_applications AS j
         WHERE j.org_opening_id = o.org_opening_id
@@ -216,7 +248,8 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
         SELECT jsonb_agg(jsonb_build_object(
             'interview_number', i.interview_number,
             'stage', jsonb_build_object('id', s.org_opening_stage_id,
-                'name', s.name, 'kind', s.stage_kind),
+                'name', s.name, 'kind', s.stage_kind,
+                'feedback_form', s.feedback_form),
             'starts_at', i.starts_at,
             'duration_minutes', i.duration_minutes,
             'mode', i.interview_mode, 'video_url', i.video_url,
@@ -261,6 +294,7 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
                             'interviewer_email', fu.email_address,
                             'recommendation', fb.recommendation,
                             'notes', fb.notes,
+                            'criteria_answers', fb.criteria_answers,
                             'submitted_at', fb.submitted_at) AS entry
                     FROM vetchium.org_interview_feedback AS fb
                     JOIN vetchium.org_users AS fu
@@ -283,6 +317,7 @@ SELECT a.application_number, a.application_state, a.version, a.snapshot,
                             'interviewer_email', pfb.interviewer_email,
                             'recommendation', pfb.recommendation,
                             'notes', pfb.notes,
+                            'criteria_answers', pfb.criteria_answers,
                             'submitted_at', pfb.submitted_at)
                     FROM vetchium.org_provider_interview_feedback AS pfb
                     WHERE pfb.org_interview_id = i.org_interview_id
@@ -563,6 +598,8 @@ SELECT (SELECT count(*) FROM withdrawn) AS withdrawn_rows,
 SELECT d.domain::text AS org_domain, org.display_name AS org_display_name,
     o.opening_number, COALESCE(c.title, '')::text AS opening_title,
     a.application_number, a.application_state, stage.stage_kind,
+    -- The applicant's own answers as asked; their currency is the Org's.
+    a.answers,
     (offer.offer_number IS NOT NULL)::boolean AS has_offer,
     COALESCE(offer.offer_number, 0)::integer AS offer_number,
     COALESCE(offer.offer_status::text, '')::text AS offer_status,

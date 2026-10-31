@@ -1,36 +1,64 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import type { PaginationKey } from "typespec/common/pagination";
 import type {
   ApplicationReference,
   MyApplicationSummary,
+  MyApplicationView,
 } from "typespec/hub/applications/applications";
+import type { OpeningNumber } from "typespec/orgs/openings/types";
+import type { OrgDomain } from "typespec/orgs/types";
+import { ApplicationNotFoundError } from "typespec/problem/hub/applications";
+import { isProblem } from "../../api/client";
 import { hubAPI } from "../../api/hub";
 
 export const applicationsQueryKey = ["hub", "applications"] as const;
 
-// The list API is keyset paginated at 50. A person's applications are few, so
-// the portal follows every page: the tab counts, the navigation badge, and the
-// Home card then show real figures instead of those of the first page.
-const maxPages = 40;
+const pageSize = 20;
 
-async function listAllApplications(): Promise<MyApplicationSummary[]> {
-  const applications: MyApplicationSummary[] = [];
-  let paginationKey: string | undefined;
-  for (let page = 0; page < maxPages; page++) {
-    const result = await hubAPI.listMyApplications({
-      limit: 50,
-      ...(paginationKey !== undefined && { pagination_key: paginationKey }),
-    });
-    applications.push(...result.applications);
-    paginationKey = result.next_pagination_key;
-    if (paginationKey === undefined) break;
-  }
-  return applications;
+/** One view of the list, a page at a time, newest activity first. */
+export function useMyApplicationsQuery(view: MyApplicationView) {
+  return useInfiniteQuery({
+    queryKey: [...applicationsQueryKey, "list", view],
+    queryFn: ({ pageParam }) =>
+      hubAPI.listMyApplications({
+        view,
+        limit: pageSize,
+        ...(pageParam !== undefined && { pagination_key: pageParam }),
+      }),
+    initialPageParam: undefined as PaginationKey | undefined,
+    getNextPageParam: (page) => page.next_pagination_key,
+    retry: false,
+  });
 }
 
-export function useMyApplicationsQuery(enabled = true) {
+export function useMyApplicationCountsQuery(enabled = true) {
   return useQuery({
-    queryKey: [...applicationsQueryKey, "list"],
-    queryFn: listAllApplications,
+    queryKey: [...applicationsQueryKey, "counts"],
+    queryFn: () => hubAPI.myApplicationCounts(),
+    retry: false,
+    enabled,
+  });
+}
+
+/** The caller's application to an Opening, or null when there is none. */
+export function useMyOpeningApplicationQuery(
+  domain: OrgDomain,
+  openingNumber: OpeningNumber,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: [...applicationsQueryKey, "opening", domain, openingNumber],
+    queryFn: async (): Promise<MyApplicationSummary | null> => {
+      try {
+        return await hubAPI.findMyOpeningApplication({
+          domain,
+          opening_number: openingNumber,
+        });
+      } catch (error) {
+        if (isProblem(error, ApplicationNotFoundError.type)) return null;
+        throw error;
+      }
+    },
     retry: false,
     enabled,
   });
@@ -52,9 +80,4 @@ export function useMyApplicationQuery(
     retry: false,
     enabled,
   });
-}
-
-/** Applications whose next step is the applicant's. */
-export function needsAnswer(application: MyApplicationSummary): boolean {
-  return application.pending_actions.length > 0;
 }

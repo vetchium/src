@@ -36,6 +36,20 @@ func TestParseOpeningDraftKeepsValidFields(t *testing.T) {
 	}
 }
 
+func TestParseOpeningDraftAsksNoQuestions(t *testing.T) {
+	t.Parallel()
+	content, _, ok := ParseOpeningDraft(`{
+		"title": "Platform Engineer",
+		"questions": [{"text": "Notice period?", "type": "number", "required": true}]
+	}`)
+	if !ok || content.Questions != nil {
+		t.Fatalf("ok = %t, questions = %+v", ok, content.Questions)
+	}
+	if _, _, ok := ParseOpeningDraft(`{"questions": [{"text": "Notice?", "type": "yes_no", "required": true}]}`); ok {
+		t.Fatal("a draft holding only questions is usable")
+	}
+}
+
 func TestParseOpeningDraftDropsInvalidFields(t *testing.T) {
 	t.Parallel()
 	cases := []struct {

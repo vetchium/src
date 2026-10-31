@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  type ApplicationQuestion,
   MaxOpeningSalary,
+  maxQuestionNumber,
   missingForPublication,
   normalizeOpeningContent,
   type OpeningContent,
@@ -235,4 +237,242 @@ test("salary accepts the cap and refuses one unit above it", () => {
       },
     }).includes("salary.max"),
   );
+});
+
+type QuestionSet = [
+  ApplicationQuestion,
+  ApplicationQuestion,
+  ApplicationQuestion,
+  ApplicationQuestion,
+  ApplicationQuestion,
+  ApplicationQuestion,
+];
+
+const questions = (): QuestionSet => [
+  {
+    id: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",
+    text: "Notice period in days",
+    type: "number",
+    required: true,
+    min: 0,
+    max: maxQuestionNumber,
+  },
+  { text: "界".repeat(500), type: "short_text", required: false },
+  { text: "Why us?", type: "long_text", required: false },
+  { text: "Authorized to work in Germany?", type: "yes_no", required: true },
+  {
+    text: "Preferred office",
+    type: "single_choice",
+    required: false,
+    options: ["Berlin", "Munich"],
+  },
+  {
+    text: "Languages",
+    type: "multiple_choice",
+    required: false,
+    options: ["a", "b", "c", "d", "e", "f", "g", "界".repeat(200)],
+  },
+];
+
+const invalidQuestions: [
+  string,
+  (q: QuestionSet) => ApplicationQuestion[],
+  string,
+][] = [
+  [
+    "too many questions",
+    (q) => [...q, q[1], q[2], q[3], q[1], q[2]],
+    "questions",
+  ],
+  [
+    "malformed question id",
+    (q) => {
+      q[0].id = "0190A1B2-C3D4-7E5F-8A9B-0C1D2E3F4A5B";
+      return q;
+    },
+    "questions.0.id",
+  ],
+  [
+    "duplicate question id",
+    (q) => {
+      q[1].id = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b";
+      return q;
+    },
+    "questions.1.id",
+  ],
+  [
+    "empty question text",
+    (q) => {
+      q[2].text = "";
+      return q;
+    },
+    "questions.2.text",
+  ],
+  [
+    "question text too long",
+    (q) => {
+      q[2].text = "界".repeat(501);
+      return q;
+    },
+    "questions.2.text",
+  ],
+  [
+    "unknown question type",
+    (q) => {
+      q[2].type = "date";
+      return q;
+    },
+    "questions.2.type",
+  ],
+  [
+    "number min below",
+    (q) => {
+      q[0].min = -1;
+      return q;
+    },
+    "questions.0.min",
+  ],
+  [
+    "number min fractional",
+    (q) => {
+      q[0].min = 1.5;
+      return q;
+    },
+    "questions.0.min",
+  ],
+  [
+    "number max above",
+    (q) => {
+      q[0].max = maxQuestionNumber + 1;
+      return q;
+    },
+    "questions.0.max",
+  ],
+  [
+    "number min above max",
+    (q) => {
+      q[0].min = 5;
+      q[0].max = 4;
+      return q;
+    },
+    "questions.0.max",
+  ],
+  [
+    "min on text",
+    (q) => {
+      q[1].min = 1;
+      return q;
+    },
+    "questions.1.min",
+  ],
+  [
+    "max on choice",
+    (q) => {
+      q[4].max = 1;
+      return q;
+    },
+    "questions.4.max",
+  ],
+  [
+    "options on number",
+    (q) => {
+      q[0].options = ["a", "b"];
+      return q;
+    },
+    "questions.0.options",
+  ],
+  [
+    "options on yes no",
+    (q) => {
+      q[3].options = [];
+      return q;
+    },
+    "questions.3.options",
+  ],
+  [
+    "choice without options",
+    (q) => {
+      delete q[4].options;
+      return q;
+    },
+    "questions.4.options",
+  ],
+  [
+    "one option",
+    (q) => {
+      q[4].options = ["Berlin"];
+      return q;
+    },
+    "questions.4.options",
+  ],
+  [
+    "nine options",
+    (q) => {
+      q[5].options = [...(q[5].options ?? []), "i"];
+      return q;
+    },
+    "questions.5.options",
+  ],
+  [
+    "empty option",
+    (q) => {
+      q[4].options = ["Berlin", ""];
+      return q;
+    },
+    "questions.4.options.1",
+  ],
+  [
+    "option too long",
+    (q) => {
+      q[4].options = ["Berlin", "界".repeat(201)];
+      return q;
+    },
+    "questions.4.options.1",
+  ],
+  [
+    "duplicate option ignoring case",
+    (q) => {
+      q[4].options = ["Berlin", "BERLIN"];
+      return q;
+    },
+    "questions.4.options.1",
+  ],
+];
+
+for (const [name, change, field] of invalidQuestions) {
+  test(name, () =>
+    assert.deepEqual(
+      validateOpeningContent({ ...valid(), questions: change(questions()) }),
+      [field],
+    ),
+  );
+}
+
+test("question boundaries are valid and never required for publication", () => {
+  const content = { ...valid(), questions: questions() };
+  assert.deepEqual(validateOpeningContent(content), []);
+  assert.deepEqual(missingForPublication(content), []);
+});
+
+test("question normalization makes a copy", () => {
+  const source: OpeningContent = {
+    questions: [
+      {
+        text: "  Office  ",
+        type: "single_choice",
+        required: false,
+        options: [" Berlin ", "Munich "],
+      },
+    ],
+  };
+  const normalized = normalizeOpeningContent(source);
+  assert.equal(source.questions?.[0]?.text, "  Office  ");
+  assert.deepEqual(normalized.questions, [
+    {
+      text: "Office",
+      type: "single_choice",
+      required: false,
+      options: ["Berlin", "Munich"],
+    },
+  ]);
 });

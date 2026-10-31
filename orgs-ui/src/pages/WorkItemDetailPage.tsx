@@ -38,8 +38,16 @@ import type {
 } from "typespec/orgs/applications/applications";
 import type { CheckType } from "typespec/orgs/hiring/vocabulary";
 import type { Capability } from "typespec/orgs/marketplace/capabilities";
+import { isDefiniteRefusal } from "../api/client";
 import { paths } from "../app/paths";
 import { useMyInfoQuery } from "../features/account/queries";
+import {
+  CriteriaInputs,
+  type CriteriaValues,
+  criteriaAnswers,
+  criteriaComplete,
+} from "../features/applications/CriteriaInputs";
+import { applicationProblem } from "../features/applications/problems";
 import {
   assessmentOutcomeLabel,
   capabilityColors,
@@ -151,6 +159,9 @@ export function WorkItemDetailPage({ capability }: { capability: Capability }) {
   const [selectedRecommendation, setSelectedRecommendation] =
     useState<InterviewRecommendation>("strong_yes");
   const [feedbackNotes, setFeedbackNotes] = useState("");
+  const [feedbackCriteria, setFeedbackCriteria] = useState<CriteriaValues>({});
+  const [refusedCriteria, setRefusedCriteria] = useState<string[]>([]);
+  const feedbackForm = feedbackTarget?.stage.feedback_form ?? [];
 
   // Assessment form state
   const [assessmentOutcome, setAssessmentOutcome] =
@@ -311,6 +322,7 @@ export function WorkItemDetailPage({ capability }: { capability: Capability }) {
 
   const handleFeedbackSubmit = async () => {
     if (!feedbackTarget) return;
+    const answers = criteriaAnswers(feedbackForm, feedbackCriteria);
     try {
       await feedbackMutation.mutateAsync({
         request: {
@@ -319,6 +331,7 @@ export function WorkItemDetailPage({ capability }: { capability: Capability }) {
           interview_number: feedbackTarget.interview_number,
           recommendation: selectedRecommendation,
           notes: feedbackNotes.trim(),
+          ...(answers.length > 0 && { criteria_answers: answers }),
         },
         key: feedbackKey.current(),
       });
@@ -326,8 +339,17 @@ export function WorkItemDetailPage({ capability }: { capability: Capability }) {
       setFeedbackTarget(undefined);
       setFeedbackNotes("");
       void toast.success(t("marketplace.work.feedbackSubmitted"));
-    } catch {
-      void toast.error(t("marketplace.work.feedbackError"));
+    } catch (cause) {
+      // The refusal is stored under its key, so a corrected retry needs a
+      // new one.
+      if (isDefiniteRefusal(cause)) feedbackKey.rotate();
+      const problem = applicationProblem(cause);
+      if (problem.kind === "answers-invalid") {
+        setRefusedCriteria(problem.criterionIDs);
+        void toast.error(t("applications.errors.answersInvalid"));
+      } else {
+        void toast.error(t("marketplace.work.feedbackError"));
+      }
     }
   };
 
@@ -522,6 +544,8 @@ export function WorkItemDetailPage({ capability }: { capability: Capability }) {
                                   setFeedbackTarget(int);
                                   setSelectedRecommendation("strong_yes");
                                   setFeedbackNotes("");
+                                  setFeedbackCriteria({});
+                                  setRefusedCriteria([]);
                                 }}
                               >
                                 {t("marketplace.work.feedbackAction")}
@@ -1160,7 +1184,10 @@ export function WorkItemDetailPage({ capability }: { capability: Capability }) {
         onCancel={() => setFeedbackTarget(undefined)}
         onOk={() => void handleFeedbackSubmit()}
         okText={t("marketplace.work.submitFeedback")}
-        okButtonProps={{ loading: feedbackMutation.isPending }}
+        okButtonProps={{
+          loading: feedbackMutation.isPending,
+          disabled: !criteriaComplete(feedbackForm, feedbackCriteria),
+        }}
       >
         <Form layout="vertical">
           <Form.Item label={t("applications.work.recommendation")} required>
@@ -1196,6 +1223,15 @@ export function WorkItemDetailPage({ capability }: { capability: Capability }) {
               placeholder={t("applications.work.feedbackPlaceholder")}
             />
           </Form.Item>
+          <CriteriaInputs
+            form={feedbackForm}
+            values={feedbackCriteria}
+            invalid={refusedCriteria}
+            onChange={(next) => {
+              setFeedbackCriteria(next);
+              setRefusedCriteria([]);
+            }}
+          />
         </Form>
       </Modal>
     </Space>

@@ -4,6 +4,10 @@ import {
   normalizeEmailAddress,
 } from "../../common/common.ts";
 import type { CountryCode, DisplayName } from "../../common/localization.ts";
+import {
+  type ApplicationQuestionID,
+  isApplicationQuestionID,
+} from "../../common/openings.ts";
 import type { PageSize, PaginationKey } from "../../common/pagination.ts";
 import { isPageSize, isPaginationKey } from "../../common/pagination.ts";
 import {
@@ -28,6 +32,15 @@ import type {
 import { isEngagementID } from "../marketplace/engagements.ts";
 import type { OpeningNumber } from "../openings/types.ts";
 import { isOrgDomain, normalizeOrgDomain, type OrgDomain } from "../types.ts";
+import {
+  type AnsweredCriterion,
+  type AnswerRecord,
+  type ApplicationAnswer,
+  type CriterionAnswer,
+  maxAnswerColumns,
+  normalizeCriteriaAnswers,
+  validateCriteriaAnswerShapes,
+} from "./answers.ts";
 
 /** The most code points an application's cover note holds. */
 export const maxCoverNote = 5000;
@@ -435,6 +448,8 @@ export interface ApplicationSummary {
   credited_agency?: CreditedAgency;
   /** The route of the credit: suggested by the agency or declared by the applicant. */
   referral_route?: ReferralRoute;
+  /** Present when the request named `answer_columns`. */
+  answers?: ApplicationAnswer[];
   submitted_at: string;
   updated_at: string;
 }
@@ -464,6 +479,8 @@ export interface InterviewFeedback {
   interviewer_email: EmailAddress;
   recommendation: InterviewRecommendation;
   notes: InterviewFeedbackNotes;
+  /** The stage's form as the interviewer answered it; empty without one. */
+  criteria_answers: AnsweredCriterion[];
   submitted_at: string;
 }
 
@@ -547,6 +564,7 @@ export interface ApplicationDetail {
   credited_agency?: CreditedAgency;
   /** The route of the credit: suggested by the agency or declared by the applicant. */
   referral_route?: ReferralRoute;
+  answers: AnswerRecord[];
   stage_records: ApplicationStageRecord[];
   joined_on?: CalendarDate;
   separated_on?: CalendarDate;
@@ -602,6 +620,8 @@ export interface ListApplicationsRequest {
   routed_engagement_id?: EngagementID;
   credited_agency_domain?: OrgDomain;
   referral_route?: ReferralRoute;
+  /** Live short-answer questions whose answers each row returns. */
+  answer_columns?: ApplicationQuestionID[];
   pagination_key?: PaginationKey;
   limit?: PageSize;
 }
@@ -693,6 +713,13 @@ export function validateListApplicationsRequest(
   ) {
     fields.push("referral_route");
   }
+  const columns = request.answer_columns ?? [];
+  if (columns.length > maxAnswerColumns) fields.push("answer_columns");
+  columns.forEach((id, index) => {
+    if (!isApplicationQuestionID(id) || columns.indexOf(id) !== index) {
+      fields.push(`answer_columns.${index}`);
+    }
+  });
   if (
     request.pagination_key !== undefined &&
     !isPaginationKey(request.pagination_key)
@@ -1022,12 +1049,20 @@ export function validateRecordInterviewOutcomeRequest(
 export interface SubmitInterviewFeedbackRequest extends CancelInterviewRequest {
   recommendation: InterviewRecommendation;
   notes: InterviewFeedbackNotes;
+  /** Checked against the interview's stage form (HP-FRM-003). */
+  criteria_answers?: CriterionAnswer[];
 }
 
 export function normalizeSubmitInterviewFeedbackRequest(
   request: SubmitInterviewFeedbackRequest,
 ): SubmitInterviewFeedbackRequest {
-  return { ...request, notes: request.notes.trim() };
+  return {
+    ...request,
+    notes: request.notes.trim(),
+    ...(request.criteria_answers !== undefined && {
+      criteria_answers: normalizeCriteriaAnswers(request.criteria_answers),
+    }),
+  };
 }
 
 export function validateSubmitInterviewFeedbackRequest(
@@ -1039,7 +1074,10 @@ export function validateSubmitInterviewFeedbackRequest(
     fields.push("recommendation");
   }
   if (!isInterviewFeedbackNotes(normalized.notes)) fields.push("notes");
-  return fields;
+  return [
+    ...fields,
+    ...validateCriteriaAnswerShapes(normalized.criteria_answers ?? []),
+  ];
 }
 
 export interface ListMyInterviewsRequest {

@@ -1,4 +1,5 @@
 import type {
+  FeedbackCriterion,
   PipelineName,
   PipelineStage,
   PipelineStageID,
@@ -7,7 +8,9 @@ import {
   isPipelineName,
   isPipelineStageID,
   maxPipelineStages,
+  normalizeFeedbackForm,
   normalizePipelineName,
+  validateFeedbackForm,
 } from "../hiring/pipelines.ts";
 import type { StageKind } from "../hiring/vocabulary.ts";
 import { isStageKind } from "../hiring/vocabulary.ts";
@@ -18,12 +21,19 @@ export interface PipelineStageInput {
   id?: PipelineStageID;
   name: PipelineName;
   kind: StageKind;
+  /** Interview stages only; an id must name one this stage already holds. */
+  feedback_form?: FeedbackCriterion[];
+}
+
+/** A stage with what the Pipeline tab warns about (HP-FRM-002). */
+export interface OpeningPipelineStage extends PipelineStage {
+  feedback_submitted_count: number;
 }
 
 export interface OpeningPipeline {
   opening_number: OpeningNumber;
   version: OpeningVersion;
-  stages: PipelineStage[];
+  stages: OpeningPipelineStage[];
 }
 
 export interface GetOpeningPipelineRequest {
@@ -52,6 +62,9 @@ export function normalizeReplaceOpeningPipelineRequest(
     stages: request.stages.map((stage) => ({
       ...stage,
       name: normalizePipelineName(stage.name),
+      ...(stage.feedback_form !== undefined && {
+        feedback_form: normalizeFeedbackForm(stage.feedback_form),
+      }),
     })),
   };
 }
@@ -67,6 +80,7 @@ export function validateReplaceOpeningPipelineRequest(
   if (request.stages.length < 1 || request.stages.length > maxPipelineStages)
     return [...fields, "stages"];
   const seen = new Set<string>();
+  const criteria = new Set<string>();
   request.stages.forEach((stage, index) => {
     if (stage.id !== undefined) {
       if (!isPipelineStageID(stage.id) || seen.has(stage.id))
@@ -75,6 +89,14 @@ export function validateReplaceOpeningPipelineRequest(
     }
     if (!isPipelineName(stage.name)) fields.push(`stages.${index}.name`);
     if (!isStageKind(stage.kind)) fields.push(`stages.${index}.kind`);
+    fields.push(
+      ...validateFeedbackForm(
+        `stages.${index}.feedback_form`,
+        stage.kind,
+        stage.feedback_form,
+        criteria,
+      ),
+    );
   });
   return fields;
 }

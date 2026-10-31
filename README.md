@@ -86,9 +86,10 @@ The seeds give each region (`sgp`, `usa1`, `deu`, `ind1`) Admin users with
 each combination of access and state, eight Hub users
 (`dev/hub-seed-profiles/<region>.json`), three hiring companies
 (`org1`–`org3.<region>.test`, one per plan, with Openings and applications in
-every state), two staffing agencies (`age1`, a client of every hiring company
-in every region with Jobs spread across `agent1@`… owners; `age2`, for its
-own region), and one interviewing, assessment, and background-verification
+every state, application questions answered and later revised, and interview
+feedback on feedback forms), two staffing agencies (`age1`, a client of every
+hiring company in every region with Jobs spread across `agent1@`… owners;
+`age2`, for its own region), and one interviewing, assessment, and background-verification
 provider each (`itv1`, `asm1`, `bgv1`) with routed work.
 
 Every seeded address ends in `.test`, such as `admin@sgp.test`,
@@ -117,6 +118,17 @@ and API contract coverage. Narrower targets per area: `make test-go`,
 `make typespec-check`, `make hub-ui-check`, `make orgs-ui-check`,
 `make admin-ui-check`, `make portal-ui-check`, `make playwright-check`,
 `make sql-check`.
+
+## Build a feature with a coding agent
+
+Describe the feature to the agent (in Claude Code, `/feature-build <one-line
+idea>`). It asks about requirements, confirms the API operations and portal
+routes with you, creates a branch, and commits the specification and a task
+plan under `.builds/<branch>/`. Then send `resume` in any session, with any
+model, to build it task by task; each task is reviewed, committed, and pushed.
+`.builds/<branch>/progress.md` shows where the build stands, and the last task
+removes the directory. The process is in
+[`agent-guides/feature-build.md`](agent-guides/feature-build.md).
 
 ## Publish
 

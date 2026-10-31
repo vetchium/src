@@ -28,12 +28,31 @@ SELECT projection_id, org_domain::text AS org_domain, org_display_name,
     pending_actions, applied_at, last_activity_at
 FROM vetchium.hub_application_projections
 WHERE hub_user_did = sqlc.arg(hub_user_did)
+  AND closed = sqlc.arg(closed)::boolean
   AND (sqlc.narg(after_activity_at)::timestamptz IS NULL
       OR (last_activity_at, projection_id) <
          (sqlc.narg(after_activity_at)::timestamptz,
           sqlc.narg(after_projection_id)::uuid))
 ORDER BY last_activity_at DESC, projection_id DESC
 LIMIT sqlc.arg(page_limit);
+
+-- name: CountHubApplicationProjections :one
+SELECT count(*) FILTER (WHERE NOT closed)::integer AS active,
+    count(*) FILTER (WHERE closed)::integer AS closed,
+    count(*) FILTER (WHERE cardinality(pending_actions) > 0)::integer
+        AS awaiting_answer
+FROM vetchium.hub_application_projections
+WHERE hub_user_did = sqlc.arg(hub_user_did);
+
+-- An applicant cannot apply to an Opening again, so at most one row matches.
+-- name: FindHubApplicationProjectionForOpening :one
+SELECT org_domain::text AS org_domain, org_display_name, opening_number,
+    opening_title, application_number, hub_status, pending_actions,
+    applied_at, last_activity_at
+FROM vetchium.hub_application_projections
+WHERE hub_user_did = sqlc.arg(hub_user_did)
+  AND org_domain = sqlc.arg(org_domain)::text
+  AND opening_number = sqlc.arg(opening_number)::integer;
 
 -- The status before the event being applied, to tell a real change from a
 -- repeat. No row means the first projection of the application.

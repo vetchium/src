@@ -84,12 +84,13 @@ export function useOpeningPipelineQuery(openingNumber: number) {
  * Candidacies per stage. Readable only by callers who may read applications,
  * so a refusal just leaves the counts out.
  */
-export function useStageCountsQuery(openingNumber: number) {
+export function useStageCountsQuery(openingNumber: number, enabled = true) {
   return useQuery({
     queryKey: [...openingsQueryKey, "stage-counts", openingNumber],
     queryFn: () =>
       orgsAPI.getApplicationCounts({ opening_number: openingNumber }),
     retry: false,
+    enabled,
   });
 }
 

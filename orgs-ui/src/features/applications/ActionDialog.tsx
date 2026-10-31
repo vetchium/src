@@ -22,6 +22,8 @@ interface Props {
   width?: number;
   /** Shown above the form, for warnings the user should read first. */
   notice?: ReactNode;
+  /** Sees each refusal, to mark the fields it names. */
+  onRefused?: (cause: unknown) => void;
   children: ReactNode;
 }
 
@@ -42,6 +44,7 @@ export function ActionDialog({
   onClose,
   width,
   notice,
+  onRefused,
   children,
 }: Props) {
   const { t } = useTranslation();
@@ -66,6 +69,7 @@ export function ActionDialog({
       onClose();
     } catch (cause) {
       setError(applicationErrorMessage(t, cause));
+      onRefused?.(cause);
       if (isDefiniteRefusal(cause)) key.rotate();
       setPending(false);
     }

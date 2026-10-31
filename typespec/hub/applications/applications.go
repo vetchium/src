@@ -18,15 +18,23 @@ import (
 type ApplicationStatus string
 type PendingActionKind string
 type MyApplicationPageSize int32
+type MyApplicationView string
 
 const (
-	Applied        ApplicationStatus = "applied"
-	InReview       ApplicationStatus = "in_review"
-	Interviewing   ApplicationStatus = "interviewing"
-	Offer          ApplicationStatus = "offer"
-	Hired          ApplicationStatus = "hired"
-	NotProgressing ApplicationStatus = "not_progressing"
-	Withdrawn      ApplicationStatus = "withdrawn"
+	Applied       ApplicationStatus = "applied"
+	InReview      ApplicationStatus = "in_review"
+	Interviewing  ApplicationStatus = "interviewing"
+	Offered       ApplicationStatus = "offered"
+	OfferAccepted ApplicationStatus = "offer_accepted"
+	Joined        ApplicationStatus = "joined"
+	NotSelected   ApplicationStatus = "not_selected"
+	Declined      ApplicationStatus = "declined"
+	Withdrawn     ApplicationStatus = "withdrawn"
+)
+
+const (
+	ActiveView MyApplicationView = "active"
+	ClosedView MyApplicationView = "closed"
 )
 
 const (
@@ -36,7 +44,12 @@ const (
 )
 
 var applicationStatuses = []ApplicationStatus{
-	Applied, InReview, Interviewing, Offer, Hired, NotProgressing, Withdrawn,
+	Applied, InReview, Interviewing, Offered, OfferAccepted, Joined,
+	NotSelected, Declined, Withdrawn,
+}
+
+var closedStatuses = []ApplicationStatus{
+	Joined, NotSelected, Declined, Withdrawn,
 }
 
 var pendingActionKinds = []PendingActionKind{
@@ -62,17 +75,29 @@ func IsPendingActionKind(value PendingActionKind) bool {
 	return slices.Contains(pendingActionKinds, value)
 }
 
+// ClosedStatuses returns the statuses of the closed view; every other status
+// is active.
+func ClosedStatuses() []ApplicationStatus {
+	return slices.Clone(closedStatuses)
+}
+
+func IsMyApplicationView(value MyApplicationView) bool {
+	return value == ActiveView || value == ClosedView
+}
+
 type ApplyToOpeningRequest struct {
 	Domain               orgs.OrgDomain                        `json:"domain"`
 	OpeningNumber        openings.OpeningNumber                `json:"opening_number"`
 	CoverNote            *orgapplications.ApplicationCoverNote `json:"cover_note,omitempty"`
 	ReferralAgencyDomain *orgs.OrgDomain                       `json:"referral_agency_domain,omitempty"`
+	Answers              []orgapplications.ApplicationAnswer   `json:"answers,omitempty"`
 }
 
-// Normalize lower-cases the domain, trims the cover note, and drops a blank
-// one. It assigns a new pointer and never mutates the caller's note.
+// Normalize lower-cases the domain, trims the cover note and answers, and
+// drops a blank note. It assigns new values and never mutates the caller's.
 func (r *ApplyToOpeningRequest) Normalize() {
 	r.Domain = orgs.NormalizeOrgDomain(r.Domain)
+	r.Answers = orgapplications.NormalizeAnswers(r.Answers)
 	if r.ReferralAgencyDomain != nil {
 		normalized := orgs.NormalizeOrgDomain(*r.ReferralAgencyDomain)
 		r.ReferralAgencyDomain = &normalized
@@ -104,7 +129,7 @@ func (r ApplyToOpeningRequest) Validate() []string {
 		!orgapplications.IsApplicationCoverNote(*r.CoverNote) {
 		fields = append(fields, "cover_note")
 	}
-	return fields
+	return append(fields, orgapplications.ValidateAnswerShapes(r.Answers)...)
 }
 
 type ApplicationReference struct {
@@ -277,14 +302,21 @@ type MyApplicationDetail struct {
 	Offer                  *MyApplicationOffer       `json:"offer,omitempty"`
 	BackgroundCheckConsent *MyBackgroundCheckConsent `json:"background_check_consent,omitempty"`
 	Interviews             []MyApplicationInterview  `json:"interviews"`
+	// Answers are the questions as asked when applying, with the answers.
+	Answers []orgapplications.AnsweredQuestion `json:"answers"`
 }
 
 // Valid checks a peer's answer before it reaches the browser.
 func (d MyApplicationDetail) Valid() bool {
 	if !d.MyApplication.Valid() || (d.Offer != nil && !d.Offer.Valid()) ||
 		(d.BackgroundCheckConsent != nil && !d.BackgroundCheckConsent.Valid()) ||
-		d.Interviews == nil {
+		d.Interviews == nil || d.Answers == nil {
 		return false
+	}
+	for _, answered := range d.Answers {
+		if answered.ID == nil || !common.IsApplicationQuestionID(*answered.ID) {
+			return false
+		}
 	}
 	for _, interview := range d.Interviews {
 		if !interview.Valid() {
@@ -379,6 +411,7 @@ type MyApplicationSummary struct {
 }
 
 type ListMyApplicationsRequest struct {
+	View          MyApplicationView      `json:"view"`
 	PaginationKey *common.PaginationKey  `json:"pagination_key,omitempty"`
 	Limit         *MyApplicationPageSize `json:"limit,omitempty"`
 }
@@ -394,6 +427,9 @@ func (r ListMyApplicationsRequest) EffectiveLimit() int32 {
 
 func (r ListMyApplicationsRequest) Validate() []string {
 	fields := []string{}
+	if !IsMyApplicationView(r.View) {
+		fields = append(fields, "view")
+	}
 	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
 		fields = append(fields, "pagination_key")
 	}
@@ -406,4 +442,30 @@ func (r ListMyApplicationsRequest) Validate() []string {
 type ListMyApplicationsResponse struct {
 	Applications      []MyApplicationSummary `json:"applications"`
 	NextPaginationKey *common.PaginationKey  `json:"next_pagination_key,omitempty"`
+}
+
+type MyApplicationCounts struct {
+	Active         int32 `json:"active"`
+	Closed         int32 `json:"closed"`
+	AwaitingAnswer int32 `json:"awaiting_answer"`
+}
+
+type FindMyOpeningApplicationRequest struct {
+	Domain        orgs.OrgDomain         `json:"domain"`
+	OpeningNumber openings.OpeningNumber `json:"opening_number"`
+}
+
+func (r *FindMyOpeningApplicationRequest) Normalize() {
+	r.Domain = orgs.NormalizeOrgDomain(r.Domain)
+}
+
+func (r FindMyOpeningApplicationRequest) Validate() []string {
+	fields := []string{}
+	if !orgs.IsOrgDomain(r.Domain) {
+		fields = append(fields, "domain")
+	}
+	if r.OpeningNumber < 1 {
+		fields = append(fields, "opening_number")
+	}
+	return fields
 }

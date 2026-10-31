@@ -1,3 +1,4 @@
+import "../../common/openings.tsp";
 import "../details.tsp";
 
 namespace Vetchium.Problem;
@@ -46,6 +47,29 @@ const HubApplicationStateConflictError = #{
 alias HubApplicationStateConflictErrorResponse = Response<
   409,
   typeof HubApplicationStateConflictError
+>;
+
+/**
+ * Answers that do not fit the Opening's live questions: a required question
+ * unanswered, an unknown or repeated question id, or a value outside its
+ * question's type, bounds, or options (HP-QST-004).
+ */
+model HubApplicationAnswersInvalidDetails {
+  type: "vetchium-problem-details/hub-application-answers-invalid";
+  title: "Application answers invalid";
+  status: 422;
+  detail: "The answers do not fit the Opening's questions";
+
+  /** The questions whose answers to fix, in question order. */
+  @minItems(1)
+  @maxItems(20)
+  question_ids: Vetchium.ApplicationQuestionID[];
+
+  instance?: string;
+}
+alias HubApplicationAnswersInvalidErrorResponse = Response<
+  422,
+  HubApplicationAnswersInvalidDetails
 >;
 
 /** The named domain is not the primary domain of an agency assigned to the Opening. */

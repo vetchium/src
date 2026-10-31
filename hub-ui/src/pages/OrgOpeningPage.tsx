@@ -1,9 +1,18 @@
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
-import { OpeningContentView } from "@vetchium/portal-ui/openings";
-import { Alert, Button, Skeleton, Space, Typography } from "antd";
+import { OpeningView } from "@vetchium/portal-ui/openings";
+import {
+  Alert,
+  Breadcrumb,
+  Button,
+  Card,
+  Flex,
+  Skeleton,
+  Typography,
+} from "antd";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
+import type { FrontendLocale } from "typespec/hub/types";
 import { isOrgDomain, normalizeOrgDomain } from "typespec/orgs/types";
 import {
   OpeningNotFoundError,
@@ -14,12 +23,12 @@ import { isProblem } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { NoIndex } from "../components/common/NoIndex";
-import { useMyApplicationsQuery } from "../features/applications/queries";
+import { useMyOpeningApplicationQuery } from "../features/applications/queries";
 import { useConversationsQuery } from "../features/messages/queries";
-import { openingContentPresentation } from "../features/openings/presentation";
+import { openingPresentation } from "../features/openings/presentation";
 import { useOrgOpeningQuery } from "../features/openings/queries";
+import { countryName } from "../i18n/countries";
 import { applicationPath } from "./ApplicationsPage";
-import { OrgHeader } from "./OrgPage";
 
 export function OrgOpeningPage() {
   const { t, i18n } = useTranslation();
@@ -34,8 +43,8 @@ export function OrgOpeningPage() {
     number > 0 &&
     number <= 2_147_483_647;
   const result = useOrgOpeningQuery(domain, number, valid);
-  const presentation = openingContentPresentation(t, i18n.language);
-  const applications = useMyApplicationsQuery(valid);
+  const presentation = openingPresentation(t, i18n.language);
+  const application = useMyOpeningApplicationQuery(domain, number, valid);
   const conversations = useConversationsQuery(auth.authenticated);
 
   const suggestion = useMemo(() => {
@@ -56,97 +65,151 @@ export function OrgOpeningPage() {
     return null;
   }, [conversations.data, domain, number]);
 
-  const applied = applications.data?.find(
-    (application) =>
-      application.org_domain === domain &&
-      application.opening_number === number,
+  const applied = application.data ?? undefined;
+  const orgPath = `/org/${encodeURIComponent(domain)}`;
+  const applyPath = `${orgPath}/openings/${number}/apply`;
+
+  if (
+    !valid ||
+    (result.isError &&
+      (isProblem(result.error, OpeningNotFoundError.type) ||
+        isProblem(result.error, OrgNotFoundError.type)))
+  )
+    return <Typography.Text>{t("orgPage.openingNotFound")}</Typography.Text>;
+  if (result.isPending)
+    return <Typography.Text>{t("orgPage.loading")}</Typography.Text>;
+  if (result.isError)
+    return isProblem(result.error, OrgUnavailableError.type) ? (
+      <Typography.Text>{t("orgPage.unavailable")}</Typography.Text>
+    ) : (
+      <APIErrorAlert error={result.error} />
+    );
+
+  const { org, opening } = result.data;
+  const title =
+    opening.state === "published"
+      ? (opening.content.title ?? "")
+      : opening.title;
+  const appliedNotice = applied !== undefined && (
+    <Alert
+      type="success"
+      showIcon
+      title={t("orgPage.youApplied")}
+      action={
+        <Link to={applicationPath(applied)}>
+          {t("orgPage.viewApplication")}
+        </Link>
+      }
+    />
   );
+
   return (
-    <>
+    <Flex vertical gap="large">
       <NoIndex />
       <title>{t("orgPage.openingDocumentTitle")}</title>
-      {!valid ||
-      (result.isError &&
-        (isProblem(result.error, OpeningNotFoundError.type) ||
-          isProblem(result.error, OrgNotFoundError.type))) ? (
-        <Typography.Text>{t("orgPage.openingNotFound")}</Typography.Text>
-      ) : result.isPending ? (
-        <Typography.Text>{t("orgPage.loading")}</Typography.Text>
-      ) : result.isError ? (
-        isProblem(result.error, OrgUnavailableError.type) ? (
-          <Typography.Text>{t("orgPage.unavailable")}</Typography.Text>
-        ) : (
-          <APIErrorAlert error={result.error} />
-        )
+      <Breadcrumb
+        items={[
+          { title: <Link to={orgPath}>{org.display_name}</Link> },
+          { title },
+        ]}
+      />
+      {opening.state !== "published" ? (
+        <Card>
+          <Flex vertical gap="middle">
+            <Typography.Title level={1}>{title}</Typography.Title>
+            {appliedNotice}
+            <Alert type="info" showIcon title={t("orgPage.notAccepting")} />
+          </Flex>
+        </Card>
       ) : (
-        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
-          <OrgHeader org={result.data.org} />
-          <Link to={`/org/${encodeURIComponent(domain)}`}>
-            <Button>{t("orgPage.backToOpenings")}</Button>
-          </Link>
-          {applied !== undefined ? (
-            <Alert
-              type="success"
-              showIcon
-              title={t("orgPage.youApplied")}
-              action={
-                <Link to={applicationPath(applied)}>
-                  {t("orgPage.viewApplication")}
-                </Link>
-              }
-            />
-          ) : result.data.opening.state === "published" ? (
-            applications.isPending ? (
-              <Skeleton.Button active aria-label={t("orgPage.loading")} />
-            ) : (
-              <Link
-                to={
-                  suggestion
-                    ? `/org/${encodeURIComponent(domain)}/openings/${number}/apply?referred_by=${encodeURIComponent(suggestion.agency_domain)}`
-                    : `/org/${encodeURIComponent(domain)}/openings/${number}/apply`
-                }
-              >
-                <Button type="primary">{t("orgPage.apply")}</Button>
-              </Link>
-            )
-          ) : null}
-          {suggestion !== null && applied === undefined && (
-            <Alert
-              type="info"
-              showIcon
-              message={t("orgPage.agencySuggestedTitle", {
-                agency: suggestion.agency_display_name,
-              })}
-              description={
-                <span>
-                  {t("orgPage.agencySuggestedBody", {
-                    date: date(suggestion.sent_at, "medium"),
-                  })}{" "}
+        <OpeningView
+          content={opening.content}
+          presentation={presentation}
+          org={{
+            name: <Link to={orgPath}>{org.display_name}</Link>,
+            detail: [
+              org.domain,
+              t("orgPage.basedIn", {
+                country: countryName(
+                  org.country,
+                  i18n.language as FrontendLocale,
+                ),
+              }),
+            ].join(" · "),
+            ...(org.logo_url && { logoURL: org.logo_url }),
+          }}
+          aside={
+            <Card>
+              <Flex vertical gap="middle">
+                {applied !== undefined ? (
+                  appliedNotice
+                ) : application.isPending ? (
+                  <Skeleton.Button
+                    active
+                    block
+                    aria-label={t("orgPage.loading")}
+                  />
+                ) : (
                   <Link
-                    to={`/messages/${encodeURIComponent(suggestion.contact_id)}`}
+                    to={
+                      suggestion && opening.accepts_agency_referrals
+                        ? `${applyPath}?referred_by=${encodeURIComponent(suggestion.agency_domain)}`
+                        : applyPath
+                    }
                   >
-                    {t("orgPage.yourConversation")}
+                    <Button type="primary" size="large" block>
+                      {t("orgPage.apply")}
+                    </Button>
                   </Link>
-                  . {t("orgPage.agencySuggestedCredit")}
-                </span>
-              }
-            />
-          )}
-          {result.data.opening.state === "published" ? (
-            <OpeningContentView
-              content={result.data.opening.content}
-              {...presentation}
-            />
-          ) : (
-            <>
-              <Typography.Title level={2}>
-                {result.data.opening.title}
-              </Typography.Title>
-              <Typography.Text>{t("orgPage.notAccepting")}</Typography.Text>
-            </>
-          )}
-        </Space>
+                )}
+                {applied === undefined && (
+                  <Typography.Text type="secondary">
+                    {opening.content.questions?.length
+                      ? t("orgPage.applyHelpQuestions", {
+                          count: opening.content.questions.length,
+                        })
+                      : t("orgPage.applyHelp")}
+                  </Typography.Text>
+                )}
+                {suggestion !== null && applied === undefined && (
+                  <Alert
+                    type="info"
+                    showIcon
+                    title={t("orgPage.agencySuggestedTitle", {
+                      agency: suggestion.agency_display_name,
+                    })}
+                    description={
+                      <span>
+                        {t("orgPage.agencySuggestedBody", {
+                          date: date(suggestion.sent_at, "medium"),
+                        })}{" "}
+                        <Link
+                          to={`/messages/${encodeURIComponent(suggestion.contact_id)}`}
+                        >
+                          {t("orgPage.yourConversation")}
+                        </Link>
+                        .
+                        {opening.accepts_agency_referrals &&
+                          ` ${t("orgPage.agencySuggestedCredit")}`}
+                      </span>
+                    }
+                  />
+                )}
+                <Typography.Text type="secondary">
+                  {opening.last_revised_at
+                    ? t("orgPage.postedAndUpdated", {
+                        posted: date(opening.first_published_at, "medium"),
+                        updated: date(opening.last_revised_at, "medium"),
+                      })
+                    : t("orgPage.posted", {
+                        date: date(opening.first_published_at, "medium"),
+                      })}
+                </Typography.Text>
+              </Flex>
+            </Card>
+          }
+        />
       )}
-    </>
+    </Flex>
   );
 }

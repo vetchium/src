@@ -4,6 +4,7 @@ import type {
   AcceptInterviewRequest,
   ApplyToOpeningRequest,
   BackgroundCheckConsentRequest,
+  FindMyOpeningApplicationRequest,
   GetMyApplicationRequest,
   ListMyApplicationsRequest,
   RequestInterviewRescheduleRequest,
@@ -208,6 +209,17 @@ export class HubAPI {
     token: string,
   ): Promise<APIResponse> {
     return this.post("/list-my-applications", body, { token });
+  }
+
+  myApplicationCounts(token: string): Promise<APIResponse> {
+    return this.get("/my-application-counts", token);
+  }
+
+  findMyOpeningApplication(
+    body: FindMyOpeningApplicationRequest,
+    token: string,
+  ): Promise<APIResponse> {
+    return this.post("/find-my-opening-application", body, { token });
   }
 
   getMyApplication(

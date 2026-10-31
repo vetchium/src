@@ -27,15 +27,16 @@ import (
 	"backend/internal/middleware"
 )
 
-const listPaginationPurpose = "hub-list-my-applications-v1"
+const listPaginationPurpose = "hub-list-my-applications-v2"
 
 type listCursor struct {
-	AfterActivityAt   time.Time `json:"after_activity_at"`
-	AfterProjectionID string    `json:"after_projection_id"`
+	View              applicationspec.MyApplicationView `json:"view"`
+	AfterActivityAt   time.Time                         `json:"after_activity_at"`
+	AfterProjectionID string                            `json:"after_projection_id"`
 }
 
-// List reads this tenant's projection, newest activity first. It may trail
-// the Org's tenant until the latest change is delivered.
+// List reads one view of this tenant's projection, newest activity first. It
+// may trail the Org's tenant until the latest change is delivered.
 func List(s *hubruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request applicationspec.ListMyApplicationsRequest
@@ -45,6 +46,7 @@ func List(s *hubruntime.Server) http.HandlerFunc {
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
 		params := sqlc.ListHubApplicationProjectionsParams{
 			HubUserDid: identity.UserDID,
+			Closed:     request.View == applicationspec.ClosedView,
 			PageLimit:  request.EffectiveLimit() + 1,
 		}
 		if request.PaginationKey != nil {
@@ -56,7 +58,8 @@ func List(s *hubruntime.Server) http.HandlerFunc {
 			if valid && json.Unmarshal(payload, &cursor) == nil {
 				after, _ = dbvalue.ParseUUID(cursor.AfterProjectionID)
 			}
-			if !after.Valid || cursor.AfterActivityAt.IsZero() {
+			if !after.Valid || cursor.AfterActivityAt.IsZero() ||
+				cursor.View != request.View {
 				s.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
 				return
 			}
@@ -75,6 +78,7 @@ func List(s *hubruntime.Server) http.HandlerFunc {
 			if int32(index) == request.EffectiveLimit() {
 				last := rows[index-1]
 				payload, err := json.Marshal(listCursor{
+					View:              request.View,
 					AfterActivityAt:   last.LastActivityAt.Time,
 					AfterProjectionID: dbvalue.FormatUUID(last.ProjectionID),
 				})
@@ -88,28 +92,90 @@ func List(s *hubruntime.Server) http.HandlerFunc {
 				response.NextPaginationKey = &key
 				break
 			}
-			actions := make([]applicationspec.PendingActionKind,
-				len(row.PendingActions))
-			for i, action := range row.PendingActions {
-				actions[i] = applicationspec.PendingActionKind(action)
-			}
 			response.Applications = append(response.Applications,
-				applicationspec.MyApplicationSummary{
-					MyApplication: applicationspec.MyApplication{
-						OrgDomain:         orgs.OrgDomain(row.OrgDomain),
-						OrgDisplayName:    common.DisplayName(row.OrgDisplayName),
-						OpeningNumber:     openings.OpeningNumber(row.OpeningNumber),
-						OpeningTitle:      row.OpeningTitle,
-						ApplicationNumber: orgapplications.ApplicationNumber(row.ApplicationNumber),
-						Status:            applicationspec.ApplicationStatus(row.HubStatus),
-						PendingActions:    actions,
-					},
-					AppliedAt:      row.AppliedAt.Time.UTC(),
-					LastActivityAt: row.LastActivityAt.Time.UTC(),
-				})
+				projectedSummary(sqlc.FindHubApplicationProjectionForOpeningRow{
+					OrgDomain:         row.OrgDomain,
+					OrgDisplayName:    row.OrgDisplayName,
+					OpeningNumber:     row.OpeningNumber,
+					OpeningTitle:      row.OpeningTitle,
+					ApplicationNumber: row.ApplicationNumber,
+					HubStatus:         row.HubStatus,
+					PendingActions:    row.PendingActions,
+					AppliedAt:         row.AppliedAt,
+					LastActivityAt:    row.LastActivityAt,
+				}))
 		}
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, response)
+	}
+}
+
+// Counts reads the size of each view of the list from the same projection.
+func Counts(s *hubruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		identity, _ := middleware.HubIdentityFromContext(r.Context())
+		row, err := s.Queries.CountHubApplicationProjections(r.Context(),
+			identity.UserDID)
+		if err != nil {
+			s.InternalError(r.Context(), w, "count Hub applications", err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, applicationspec.MyApplicationCounts{
+			Active: row.Active, Closed: row.Closed,
+			AwaitingAnswer: row.AwaitingAnswer,
+		})
+	}
+}
+
+// FindForOpening reads the caller's application to one Opening from the
+// projection, so an Opening page knows it without reading the whole list.
+func FindForOpening(s *hubruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request applicationspec.FindMyOpeningApplicationRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		identity, _ := middleware.HubIdentityFromContext(r.Context())
+		row, err := s.Queries.FindHubApplicationProjectionForOpening(
+			r.Context(), sqlc.FindHubApplicationProjectionForOpeningParams{
+				HubUserDid:    identity.UserDID,
+				OrgDomain:     string(request.Domain),
+				OpeningNumber: int32(request.OpeningNumber),
+			})
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.Problem(r.Context(), w, hubproblem.ApplicationNotFoundError)
+			return
+		}
+		if err != nil {
+			s.InternalError(r.Context(), w, "find Hub application", err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, projectedSummary(row))
+	}
+}
+
+func projectedSummary(
+	row sqlc.FindHubApplicationProjectionForOpeningRow,
+) applicationspec.MyApplicationSummary {
+	actions := make([]applicationspec.PendingActionKind,
+		len(row.PendingActions))
+	for i, action := range row.PendingActions {
+		actions[i] = applicationspec.PendingActionKind(action)
+	}
+	return applicationspec.MyApplicationSummary{
+		MyApplication: applicationspec.MyApplication{
+			OrgDomain:         orgs.OrgDomain(row.OrgDomain),
+			OrgDisplayName:    common.DisplayName(row.OrgDisplayName),
+			OpeningNumber:     openings.OpeningNumber(row.OpeningNumber),
+			OpeningTitle:      row.OpeningTitle,
+			ApplicationNumber: orgapplications.ApplicationNumber(row.ApplicationNumber),
+			Status:            applicationspec.ApplicationStatus(row.HubStatus),
+			PendingActions:    actions,
+		},
+		AppliedAt:      row.AppliedAt.Time.UTC(),
+		LastActivityAt: row.LastActivityAt.Time.UTC(),
 	}
 }
 

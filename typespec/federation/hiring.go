@@ -30,11 +30,12 @@ type HubApplyPayload struct {
 	ApplicantDID  hub.HubUserDID                     `json:"applicant_did"`
 	Referral      *ApplicationReferral               `json:"referral,omitempty"`
 	CoverNote     *applications.ApplicationCoverNote `json:"cover_note,omitempty"`
+	Answers       []applications.ApplicationAnswer   `json:"answers,omitempty"`
 	Snapshot      profile.ApplicantSnapshot          `json:"snapshot"`
 }
 
-// Normalize trims the cover note, drops a blank one, and makes the
-// snapshot's required arrays empty rather than nil. It assigns new values and
+// Normalize trims the cover note and answers, drops a blank note, and makes
+// the snapshot's required arrays empty rather than nil. It assigns new values and
 // never mutates storage the caller shares.
 func (p *HubApplyPayload) Normalize() {
 	if p.Referral != nil {
@@ -52,6 +53,7 @@ func (p *HubApplyPayload) Normalize() {
 			p.CoverNote = &trimmed
 		}
 	}
+	p.Answers = applications.NormalizeAnswers(p.Answers)
 	p.Snapshot = p.Snapshot.Normalized()
 }
 
@@ -74,6 +76,7 @@ func (p HubApplyPayload) Validate() []string {
 	if p.CoverNote != nil && !applications.IsApplicationCoverNote(*p.CoverNote) {
 		fields = append(fields, "cover_note")
 	}
+	fields = append(fields, applications.ValidateAnswerShapes(p.Answers)...)
 	for _, field := range p.Snapshot.Validate() {
 		fields = append(fields, "snapshot."+field)
 	}

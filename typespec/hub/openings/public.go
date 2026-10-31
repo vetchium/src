@@ -42,7 +42,9 @@ type PublicOpening struct {
 	Content          *common.OpeningContent `json:"content,omitempty"`
 	FirstPublishedAt *time.Time             `json:"first_published_at,omitempty"`
 	LastRevisedAt    *time.Time             `json:"last_revised_at,omitempty"`
-	Title            *string                `json:"title,omitempty"`
+	// AcceptsAgencyReferrals is set exactly when State is Published.
+	AcceptsAgencyReferrals *bool   `json:"accepts_agency_referrals,omitempty"`
+	Title                  *string `json:"title,omitempty"`
 }
 
 type ListOrgOpeningsRequest struct {

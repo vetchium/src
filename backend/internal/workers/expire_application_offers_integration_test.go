@@ -187,7 +187,7 @@ func TestExpireApplicationOffersIntegration(t *testing.T) {
           AND destination_principal_did = $2`, entity, due)
 	var projected federationspec.HubApplicationChangedPayload
 	if err := json.Unmarshal([]byte(payload), &projected); err != nil ||
-		projected.Status != "not_progressing" ||
+		projected.Status != "declined" ||
 		len(projected.PendingActions) != 0 {
 		t.Fatalf("projection payload = %s", payload)
 	}

@@ -684,7 +684,7 @@ async function openClosedApplication(w: DemoWindow) {
 // Scene: Voldemort sees where he stands.
 async function voldemortTracks() {
   await ensureHub("voldemort");
-  await awaitHub(voldemort, hubAppURL("voldemort"), "Not progressing");
+  await awaitHub(voldemort, hubAppURL("voldemort"), "Not selected");
   await voldemort.goto(`${HUB}/applications`);
   await studio.onAir(voldemort, async () => {
     await say(
@@ -693,7 +693,7 @@ async function voldemortTracks() {
     await voldemort.pause(2000);
     await openClosedApplication(voldemort);
     await expect(
-      voldemort.page.getByText("Not progressing").first(),
+      voldemort.page.getByText("Not selected").first(),
     ).toBeVisible();
     await say(
       "No stage names, notes, or feedback ever reach the Hub. Only the status.",
@@ -881,15 +881,15 @@ async function afterInterviews() {
 // Scene: Draco sees his result.
 async function dracoTracks() {
   await ensureHub("draco");
-  await awaitHub(draco, hubAppURL("draco"), "Not progressing");
+  await awaitHub(draco, hubAppURL("draco"), "Not selected");
   await draco.goto(`${HUB}/applications`);
   await studio.onAir(draco, async () => {
     await say(
-      "Draco reached the interviews, but his application is now Closed: Not progressing.",
+      "Draco reached the interviews, but his application is now Closed: Not selected.",
     );
     await draco.pause(1500);
     await openClosedApplication(draco);
-    await expect(draco.page.getByText("Not progressing").first()).toBeVisible();
+    await expect(draco.page.getByText("Not selected").first()).toBeVisible();
     await draco.pause(3500);
   });
 }
@@ -990,10 +990,10 @@ async function recordJoined() {
 // Scene: Hermione is hired; Sortinghat sees its credited hire.
 async function finale() {
   await ensureHub("hermione");
-  await awaitHub(hermione, hubAppURL("hermione"), "Hired");
+  await awaitHub(hermione, hubAppURL("hermione"), "Joined");
   await hermione.goto(`${HUB}/applications`);
   await studio.onAir(hermione, async () => {
-    await say("For Hermione, the application is complete: Hired.");
+    await say("For Hermione, the application is complete: Joined.");
     await hermione.pause(1500);
     await openClosedApplication(hermione);
     await hermione.pause(3500);
@@ -1002,7 +1002,7 @@ async function finale() {
   await hat.goto(`${ORGS}/sourcing/credited-applications`);
   await studio.onAir(hat, async () => {
     await say(
-      "And Sortinghat sees the result too: its credited application, with Hermione's status, Hired.",
+      "And Sortinghat sees the result too: its credited application, with Hermione's status, Joined.",
     );
     await hat.pause(3000);
     await hat.pointAt(

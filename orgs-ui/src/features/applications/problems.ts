@@ -3,6 +3,8 @@ import {
   ApplicationNotFoundError,
   ApplicationStateConflictError,
   ApplicationVersionConflictError,
+  type InterviewFeedbackAnswersInvalidDetails,
+  InterviewFeedbackAnswersInvalidType,
   InterviewFeedbackExistsError,
   type InterviewInterviewersInvalidDetails,
   type InterviewLimitReachedDetails,
@@ -30,6 +32,7 @@ export type ApplicationProblem =
   | { kind: "interview-not-found" }
   | { kind: "interview-state-conflict" }
   | { kind: "feedback-exists" }
+  | { kind: "answers-invalid"; criterionIDs: string[] }
   | { kind: "interview-limit"; limit: number }
   | { kind: "interviewers-invalid"; emails: string[] }
   | { kind: "letter-invalid" }
@@ -53,6 +56,18 @@ export function applicationProblem(error: unknown): ApplicationProblem {
     return { kind: "interview-state-conflict" };
   if (type === InterviewFeedbackExistsError.type)
     return { kind: "feedback-exists" };
+  if (
+    type === InterviewFeedbackAnswersInvalidType &&
+    error instanceof APIError
+  ) {
+    const details = error.problem as
+      | InterviewFeedbackAnswersInvalidDetails
+      | undefined;
+    return {
+      kind: "answers-invalid",
+      criterionIDs: details?.criterion_ids ?? [],
+    };
+  }
   if (type === interviewLimitType && error instanceof APIError) {
     const details = error.problem as InterviewLimitReachedDetails | undefined;
     return { kind: "interview-limit", limit: details?.limit ?? 10 };

@@ -18,6 +18,7 @@ import "../hiring/vocabulary.tsp";
 import "../marketplace/assignments.tsp";
 import "../marketplace/attribution.tsp";
 import "../openings/types.tsp";
+import "./answers.tsp";
 
 using TypeSpec.Http;
 
@@ -323,6 +324,12 @@ model ApplicationSummary {
   /** The route of the credit: suggested by the agency or declared by the applicant. */
   referral_route?: Vetchium.Orgs.Marketplace.ReferralRoute;
 
+  /**
+   * Present when the request named `answer_columns`: this application's
+   * answers to those questions, unanswered ones omitted.
+   */
+  answers?: ApplicationAnswer[];
+
   submitted_at: utcDateTime;
   updated_at: utcDateTime;
 }
@@ -367,6 +374,11 @@ model InterviewFeedback {
   interviewer_email: Vetchium.EmailAddress;
   recommendation: InterviewRecommendation;
   notes: InterviewFeedbackNotes;
+
+  /** The stage's form as the interviewer answered it; empty without one. */
+  @maxItems(10)
+  criteria_answers: AnsweredCriterion[];
+
   submitted_at: utcDateTime;
 }
 
@@ -500,6 +512,13 @@ model ApplicationDetail {
   /** The route of the credit: suggested by the agency or declared by the applicant. */
   referral_route?: Vetchium.Orgs.Marketplace.ReferralRoute;
 
+  /**
+   * The questions as the application was asked them, in order, with each
+   * answer and its currency (HP-QST-006); empty when none were asked or
+   * retention removed them.
+   */
+  answers: AnswerRecord[];
+
   /** The candidacy's stages in pipeline order; empty before shortlisting. */
   stage_records: ApplicationStageRecord[];
 
@@ -615,6 +634,14 @@ model ListApplicationsRequest {
 
   credited_agency_domain?: Vetchium.Orgs.OrgDomain;
   referral_route?: Vetchium.Orgs.Marketplace.ReferralRoute;
+
+  /**
+   * Live `number`, `yes_no`, `single_choice`, or `multiple_choice` questions
+   * whose answers each row returns (HP-QST-007); never a filter or sort key.
+   */
+  @maxItems(3)
+  @TypeSpec.OpenAPI.extension("x-vetchium-unique-items", true)
+  answer_columns?: Vetchium.ApplicationQuestionID[];
 
   pagination_key?: Vetchium.PaginationKey;
 
@@ -761,6 +788,13 @@ model SubmitInterviewFeedbackRequest {
   ...InterviewReference;
   recommendation: InterviewRecommendation;
   notes: InterviewFeedbackNotes;
+
+  /**
+   * Answers to the criteria of the interview's stage form, checked against it
+   * when submitting (HP-FRM-003).
+   */
+  @maxItems(10)
+  criteria_answers?: CriterionAnswer[];
 }
 
 /** Records the assessment result of a candidacy at an assessment stage. */
@@ -1404,7 +1438,8 @@ interface ApplicationOperations {
         @body body: ApplicationDetail;
       }
     | InterviewWriteErrors
-    | Vetchium.Problem.OrgInterviewFeedbackExistsErrorResponse;
+    | Vetchium.Problem.OrgInterviewFeedbackExistsErrorResponse
+    | Vetchium.Problem.OrgInterviewFeedbackAnswersInvalidErrorResponse;
 
   /**
    * Records the assessment result of a candidacy `in_pipeline` at an

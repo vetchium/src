@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/vetchium/src/typespec/common"
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	federationspec "github.com/vetchium/src/typespec/federation"
 	"github.com/vetchium/src/typespec/hub"
@@ -517,5 +518,71 @@ func TestHubApplyRefusesAnApplicantHomedElsewhereIntegration(t *testing.T) {
 	if got := f.scalar(t, `SELECT count(*) FROM vetchium.org_applicants
         WHERE org_did = $1`, f.orgDID); got != 0 {
 		t.Fatalf("a refusal left %d applicants", got)
+	}
+}
+
+func TestHubApplyStoresAnswersOrRejectsThemIntegration(t *testing.T) {
+	f := newFixture(t)
+	required, optional := questionID(0), questionID(1)
+	if _, err := f.owner.Exec(context.Background(), `UPDATE vetchium.org_opening_contents AS c
+        SET questions = $2::jsonb
+        FROM vetchium.org_openings AS o
+        WHERE o.org_opening_id = c.org_opening_id AND o.org_did = $1`, f.orgDID,
+		`[{"id":"`+string(required)+`","text":"Permit?","type":"yes_no","required":true},`+
+			`{"id":"`+string(optional)+`","text":"Why?","type":"long_text","required":false}]`); err != nil {
+		t.Fatal(err)
+	}
+	applicant, commandID := newDID(t), newDID(t)
+	onlyOptional := func(p *federationspec.HubApplyPayload) {
+		p.Answers = []applications.ApplicationAnswer{
+			{QuestionID: optional, Value: applications.TextAnswer("Because")},
+		}
+	}
+	refused := f.apply(t, commandID, applicant, 1, onlyOptional)
+	var body struct {
+		Type        string                         `json:"type"`
+		QuestionIDs []common.ApplicationQuestionID `json:"question_ids"`
+	}
+	if refused.Status != 422 || json.Unmarshal(refused.Body, &body) != nil ||
+		body.Type != "vetchium-problem-details/hub-application-answers-invalid" ||
+		len(body.QuestionIDs) != 1 || body.QuestionIDs[0] != required {
+		t.Fatalf("refusal = %d %s", refused.Status, refused.Body)
+	}
+	// The rejection is the command's stored outcome, replayed as is.
+	if replay := f.apply(t, commandID, applicant, 1, onlyOptional); replay.Status != 422 ||
+		string(replay.Body) != string(refused.Body) {
+		t.Fatalf("replay = %d %s", replay.Status, replay.Body)
+	}
+	if got := f.scalar(t, `SELECT count(*) FROM vetchium.org_applications AS a
+        JOIN vetchium.org_openings AS o USING (org_opening_id)
+        WHERE o.org_did = $1`, f.orgDID); got != 0 {
+		t.Fatalf("applications after refusal = %d", got)
+	}
+	created := f.apply(t, newDID(t), applicant, 1, func(p *federationspec.HubApplyPayload) {
+		p.Answers = []applications.ApplicationAnswer{
+			{QuestionID: required, Value: applications.BooleanAnswer(true)},
+			{QuestionID: optional, Value: applications.TextAnswer("   ")},
+		}
+	})
+	if created.Status != 201 {
+		t.Fatalf("application = %d %s", created.Status, created.Body)
+	}
+	var stored []applications.AnsweredQuestion
+	var encoded []byte
+	if err := f.owner.QueryRow(context.Background(), `SELECT a.answers
+        FROM vetchium.org_applications AS a
+        JOIN vetchium.org_openings AS o USING (org_opening_id)
+        WHERE o.org_did = $1`, f.orgDID).Scan(&encoded); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(encoded, &stored); err != nil || len(stored) != 2 ||
+		*stored[0].ID != required || stored[0].Answer == nil || !*stored[0].Answer.Boolean ||
+		*stored[1].ID != optional || stored[1].Text != "Why?" || stored[1].Answer != nil {
+		t.Fatalf("stored answers = %s", encoded)
+	}
+	// History and audit hold no answers (HP-QST-005).
+	if got := f.scalar(t, `SELECT count(*) FROM vetchium.audit_events
+        WHERE subject_org_did = $1 AND payload::text LIKE '%Permit%'`, f.orgDID); got != 0 {
+		t.Fatalf("audit events with answers = %d", got)
 	}
 }

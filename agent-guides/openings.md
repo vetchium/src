@@ -54,6 +54,7 @@ source-specific fields to it.
 | `experience_years` | optional `min` and `max`, each 0–50, `min ≤ max` |
 | `minimum_education` | optional `secondary`, `bachelor`, `master`, `doctorate` |
 | `salary` | optional `currency` (active ISO 4217), whole-unit `min` and `max` (0 ≤ min ≤ max, 1 ≤ max ≤ 10^12), `period` (`hour`, `day`, `month`, `year`) |
+| `questions` | optional, 0–10 application questions ([`hiring-pipeline.md`](hiring-pipeline.md) HP-QST) |
 
 - **OPN-CNT-001** Declare each vocabulary in TypeSpec as an extensible value on
   responses ([`typespec.md`](typespec.md)) so a portal older than its API shows
@@ -224,17 +225,22 @@ transition takes or returns one.
 - **OPN-ORG-002** Callers covered only by OPN-AUTH-002 see a list limited to
   the Openings that name them.
 - **OPN-ORG-003** Opening detail shows live content and state; the working copy
-  and any pending request side by side with live content; the hiring team and
-  notes; the expiry date; the public Hub URL
-  `https://vetchium.com/org/<domain>/openings/<number>`; and the history (who,
-  when, request kind, outcome, notes).
-- **OPN-ORG-004** Offer a preview that renders content with the Hub
-  presentation component, so a user without a Hub account sees what candidates
-  will see.
+  beside live content (a switch between them naming the changed fields) and
+  any pending request; the hiring team and notes; the expiry date; the public
+  Hub URL `https://vetchium.com/org/<domain>/openings/<number>` while the
+  Opening is `published` or `paused`; and the history (who, when, request
+  kind, outcome, notes).
+- **OPN-ORG-004** Offer a preview that renders content with the Hub's
+  `OpeningView` and the Hub page layout around it (Org header, Apply panel),
+  and the application form with the Hub's `QuestionFields`
+  (`@vetchium/portal-ui/openings`), so a user without a Hub account sees
+  exactly what candidates will see.
 - **OPN-ORG-005** Show actions only when the caller's effective permissions and
   the Opening's state allow them; the API still decides. Label an action by its
   effect: "Submit for approval" without `org:approve_openings`, "Publish" with
-  it.
+  it. Disable publish and revise while `publicationGaps` names a field, listing
+  the fields above the action. The editor offers "Save and publish" (or
+  submit) once its checklist is complete: a save, then the request.
 - **OPN-ORG-006** Ship every string in every `orgs-ui` locale.
 - **OPN-ORG-007** Openings pages omit the Org name and logo from the shell
   banner; every Opening shown is the signed-in Org's own.

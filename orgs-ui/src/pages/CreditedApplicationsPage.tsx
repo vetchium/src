@@ -17,7 +17,11 @@ import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import type { ApplicationStatus } from "typespec/hub/applications/applications";
+import {
+  type ApplicationStatus,
+  applicationStatusValues,
+  closedApplicationStatuses,
+} from "typespec/hub/applications/applications";
 import type {
   CreditedApplicationSummary,
   ReferralRoute,
@@ -37,15 +41,6 @@ import {
 import { ClientPicker } from "../features/marketplace/SuggestionSelect";
 
 const routes: ReferralRoute[] = ["suggested", "declared"];
-const statuses: ApplicationStatus[] = [
-  "applied",
-  "in_review",
-  "interviewing",
-  "offer",
-  "hired",
-  "not_progressing",
-  "withdrawn",
-];
 
 export function CreditedApplicationsPage() {
   const { t } = useTranslation();
@@ -80,13 +75,9 @@ export function CreditedApplicationsPage() {
   // Summary counts across loaded items
   const totalCredited = items.length;
   const inProgressCount = items.filter(
-    (i) =>
-      i.status === "applied" ||
-      i.status === "in_review" ||
-      i.status === "interviewing" ||
-      i.status === "offer",
+    (i) => !(closedApplicationStatuses as readonly string[]).includes(i.status),
   ).length;
-  const hiredCount = items.filter((i) => i.status === "hired").length;
+  const hiredCount = items.filter((i) => i.status === "joined").length;
 
   const openingOptions = useMemo(() => {
     const ops = new Map<number, string>();
@@ -268,7 +259,7 @@ export function CreditedApplicationsPage() {
               placeholder={t("marketplace.attribution.filterStatus")}
               value={selectedStatus}
               onChange={setSelectedStatus}
-              options={statuses.map((s) => ({
+              options={applicationStatusValues.map((s) => ({
                 value: s,
                 label: hubStatusLabel(t, s),
               }))}

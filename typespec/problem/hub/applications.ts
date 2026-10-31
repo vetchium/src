@@ -1,3 +1,4 @@
+import type { ApplicationQuestionID } from "../../common/openings.ts";
 import type { Details } from "../details.ts";
 
 export const ApplicationExistsError: Readonly<Details> = {
@@ -35,3 +36,11 @@ export const ReferralAgencyNotEligibleError: Readonly<Details> = {
   detail:
     "The named domain is not the primary domain of an agency assigned to the Opening",
 };
+
+export const ApplicationAnswersInvalidType =
+  "vetchium-problem-details/hub-application-answers-invalid" as const;
+
+export interface ApplicationAnswersInvalidDetails extends Details {
+  type: typeof ApplicationAnswersInvalidType;
+  question_ids: ApplicationQuestionID[];
+}

@@ -63,6 +63,11 @@ design (layout, saving, states, copy) is in [`ux.md`](ux.md).
   or configuration used in several places.
 - Explicit `Form` and `Table` (server-side pagination) over generic CRUD
   abstractions.
+- Never follow `next_pagination_key` in a loop to show a list, a count, or one
+  item: show one page with `Table` pagination or "Show more", and read counts
+  and single items from their own operations ([`typespec.md`](typespec.md)).
+  Exceptions: an export the user starts, and a list whose size the server
+  caps, with the cap stated at the loop.
 - Keep API data in wire shape; convert only where the UI needs it.
 
 ## Dates and times

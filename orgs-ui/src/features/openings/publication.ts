@@ -1,5 +1,10 @@
 import type { TFunction } from "i18next";
-import { missingForPublication } from "typespec/common/openings";
+import {
+  type ApplicationQuestion,
+  isChoiceQuestion,
+  missingForPublication,
+  QuestionNumber,
+} from "typespec/common/openings";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 
 const contentLabelKeys: Readonly<Record<string, string>> = {
@@ -15,7 +20,50 @@ const contentLabelKeys: Readonly<Record<string, string>> = {
   experience_years: "openings.fields.experienceYears",
   minimum_education: "openings.fields.minimumEducation",
   salary: "openings.fields.salary",
+  questions: "openings.fields.questions",
 };
+
+/**
+ * The questions as the API takes them, from form values that may hold
+ * leftovers of another type: `min` and `max` only for `number`, `options` only
+ * for the choice types.
+ */
+export function cleanQuestions(
+  questions: readonly Partial<ApplicationQuestion>[],
+): ApplicationQuestion[] {
+  return questions.map((question) => {
+    const type = question.type ?? "short_text";
+    return {
+      ...(question.id && { id: question.id }),
+      text: question.text ?? "",
+      type,
+      required: Boolean(question.required),
+      ...(type === QuestionNumber &&
+        question.min != null && { min: question.min }),
+      ...(type === QuestionNumber &&
+        question.max != null && { max: question.max }),
+      ...(isChoiceQuestion(type) && { options: question.options ?? [] }),
+    };
+  });
+}
+
+/** Whether the edited questions differ from the live ones in any way. */
+export function questionsDiffer(
+  live: readonly Partial<ApplicationQuestion>[],
+  edited: readonly Partial<ApplicationQuestion>[],
+): boolean {
+  const comparable = (questions: readonly Partial<ApplicationQuestion>[]) =>
+    JSON.stringify(
+      cleanQuestions(questions).map((question) => ({
+        ...question,
+        text: question.text.trim(),
+        ...(question.options && {
+          options: question.options.map((option) => option.trim()),
+        }),
+      })),
+    );
+  return comparable(live) !== comparable(edited);
+}
 
 /**
  * Field paths, in the `org-opening-incomplete` problem's form, that would

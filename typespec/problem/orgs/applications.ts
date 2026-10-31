@@ -1,3 +1,4 @@
+import type { FeedbackCriterionID } from "../../orgs/hiring/pipelines.ts";
 import type { Details } from "../details.ts";
 
 export const ApplicationNotFoundError: Readonly<Details> = {
@@ -62,6 +63,15 @@ export const InterviewFeedbackExistsError: Readonly<Details> = {
   status: 409,
   detail: "The caller already submitted feedback on the interview",
 };
+
+export const InterviewFeedbackAnswersInvalidType =
+  "vetchium-problem-details/org-interview-feedback-answers-invalid" as const;
+
+/** The criteria answers do not fit the stage's form (HP-FRM-003). */
+export interface InterviewFeedbackAnswersInvalidDetails extends Details {
+  type: typeof InterviewFeedbackAnswersInvalidType;
+  criterion_ids: FeedbackCriterionID[];
+}
 
 export interface InterviewLimitReachedDetails extends Details {
   type: "vetchium-problem-details/org-interview-limit-reached";

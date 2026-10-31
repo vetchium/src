@@ -49,7 +49,9 @@ export function TemplateDrawer({ template, open, onClose }: Props) {
     ? t("pipeline.template.nameRequired")
     : stagesProblem === "name"
       ? t("pipeline.template.stageNameRequired")
-      : undefined;
+      : stagesProblem === "criterion"
+        ? t("pipeline.problems.criterion")
+        : undefined;
   useUnsavedChangesGuard(open && dirty);
 
   const edited = () => {

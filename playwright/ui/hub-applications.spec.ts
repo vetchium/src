@@ -1,6 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { APIRequestContext, Page } from "@playwright/test";
+import type { ApplicationQuestion } from "typespec/common/openings";
+import {
+  ClosedView,
+  type ListMyApplicationsRequest,
+  type MyApplicationSummary,
+} from "typespec/hub/applications/applications";
 import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
+import type { OrgOpening } from "typespec/orgs/openings/types";
 import { ApplicationStateConflictError } from "typespec/problem/hub/applications";
 import { OrgUnavailableError } from "typespec/problem/hub/openings";
 import {
@@ -11,6 +18,7 @@ import {
 import { loginOrg, OrgsAPI, orgDID, orgSQL } from "../lib/orgs-api.ts";
 import {
   detailOf,
+  openingContent,
   publishedOpening,
   stageOf,
   utcDate,
@@ -94,6 +102,7 @@ async function withWorld(
   hubUser: (tenant: "sgp") => Promise<HubTestUser>,
   org: (tenant: "sgp") => Promise<OrgTestOrg>,
   body: (world: World) => Promise<void>,
+  questions?: ApplicationQuestion[],
 ) {
   const signedUp = await org("sgp");
   const api = new OrgsAPI(request, "sgp");
@@ -102,6 +111,7 @@ async function withWorld(
   const { opening, stages } = await publishedOpening(api, owner, signedUp, {
     title,
     stages: [...pipeline],
+    ...(questions && { questions }),
   });
   const applicant = await hubUser("sgp");
   try {
@@ -281,6 +291,76 @@ test("a Hub user applies from the Opening page and finds the application", async
   });
 });
 
+test("the list loads a page at a time, keeps loaded rows when a page fails, and counts each tab", async ({
+  page,
+  hubUser,
+}) => {
+  const summary = (n: number): MyApplicationSummary => ({
+    org_domain: "example.com",
+    org_display_name: "Example",
+    opening_number: n,
+    opening_title: `Role ${n}`,
+    application_number: 1,
+    status: "in_review",
+    pending_actions: [],
+    applied_at: "2026-10-01T00:00:00Z",
+    last_activity_at: "2026-10-01T00:00:00Z",
+  });
+  let failNextPage = true;
+  await page.route("**/api/hub/my-application-counts", (route) =>
+    route.fulfill({ json: { active: 21, closed: 3, awaiting_answer: 0 } }),
+  );
+  await page.route("**/api/hub/list-my-applications", (route) => {
+    const body = route.request().postDataJSON() as ListMyApplicationsRequest;
+    if (body.view === ClosedView) {
+      return route.fulfill({ json: { applications: [] } });
+    }
+    if (body.pagination_key === undefined) {
+      return route.fulfill({
+        json: {
+          applications: Array.from({ length: 20 }, (_, i) => summary(i + 1)),
+          next_pagination_key: "second-page",
+        },
+      });
+    }
+    if (failNextPage) {
+      failNextPage = false;
+      return route.fulfill({
+        status: 500,
+        contentType: "application/problem+json",
+        body: JSON.stringify({
+          type: "vetchium-problem-details/internal-server-error",
+          title: "Internal server error",
+          status: 500,
+        }),
+      });
+    }
+    return route.fulfill({ json: { applications: [summary(21)] } });
+  });
+  await signIn(page, await hubUser("sgp"));
+  await page.goto(`${HUB_PORTAL}/applications`);
+  await expect(page.getByRole("tab", { name: "Active (21)" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Closed (3)" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Role 20", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Role 21", exact: true }),
+  ).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Show more" }).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Role 20", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Show more" }).click();
+  await expect(
+    page.getByRole("link", { name: "Role 21", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Show more" })).toHaveCount(0);
+});
+
 test("a pending apply is polled and replayed with the same idempotency key", async ({
   page,
   request,
@@ -374,20 +454,20 @@ test("an interview is accepted or another time is requested", async ({
     await scheduleInterview(world, application, 2);
     await scheduleInterview(world, application, 3);
 
-    // The list reads the home tenant's projection, which trails the Org's
-    // tenant briefly.
+    // The list and the badge's counts read the home tenant's projection,
+    // which trails the Org's tenant briefly, in separate requests.
     await page.goto(`${HUB_PORTAL}/applications`);
     await expect(async () => {
       await page.reload();
       await expect(page.getByText("Respond to an interview")).toBeVisible({
         timeout: 2_000,
       });
+      await expect(
+        page
+          .getByRole("menuitem", { name: /Applications/ })
+          .getByTitle("1 application needs your answer"),
+      ).toBeVisible({ timeout: 2_000 });
     }).toPass({ timeout: 30_000 });
-    await expect(
-      page
-        .getByRole("menuitem", { name: /Applications/ })
-        .getByTitle("1 application needs your answer"),
-    ).toBeVisible();
     await page.goto(`${HUB_PORTAL}/`);
     await expect(
       page.getByText("1 application is waiting for your answer."),
@@ -531,7 +611,7 @@ test("an offer is accepted after a confirmation, and the application is withdraw
 
     await page.goto(applicationURL(world, application));
     await expect(
-      page.getByText("Offer", { exact: true }).first(),
+      page.getByText("Offer received", { exact: true }).first(),
     ).toBeVisible();
     const card = page.locator(".ant-card", {
       hasText: "Proposed joining date",
@@ -582,6 +662,10 @@ test("an offer is accepted after a confirmation, and the application is withdraw
         timeout: 2_000,
       });
     }).toPass({ timeout: 30_000 });
+    await page.getByRole("link", { name: world.title }).click();
+    await expect(
+      page.getByText("You withdrew this application."),
+    ).toBeVisible();
 
     await page.goto(`${openingURL(world)}/apply`);
     await expect(
@@ -706,4 +790,212 @@ test("an offer is declined after a confirmation that says it cannot be undone", 
       card.getByRole("button", { name: "Accept offer" }),
     ).toHaveCount(0);
   });
+});
+
+const everyType: ApplicationQuestion[] = [
+  { text: "Current role", type: "short_text", required: true },
+  { text: "Why this team", type: "long_text", required: false },
+  { text: "Years of Go", type: "number", required: true, min: 1, max: 40 },
+  { text: "Can you relocate", type: "yes_no", required: true },
+  {
+    text: "Preferred office",
+    type: "single_choice",
+    required: true,
+    options: ["Singapore", "Remote"],
+  },
+  {
+    text: "Languages",
+    type: "multiple_choice",
+    required: false,
+    options: ["Go", "TypeScript", "Rust"],
+  },
+];
+
+test("a Hub user answers every type of question within its bounds and reads the answers", async ({
+  page,
+  request,
+  hubUser,
+  org,
+}) => {
+  await withWorld(
+    request,
+    hubUser,
+    org,
+    async (world) => {
+      await signIn(page, world.applicant);
+      // The Opening says what applying asks before the form does.
+      await page.goto(openingURL(world));
+      const asked = page.getByRole("region", {
+        name: "Application questions",
+      });
+      await expect(asked.getByText("6 questions, 4 required")).toBeVisible();
+      await expect(
+        asked.getByText("Whole number · Required · 1 to 40"),
+      ).toBeVisible();
+      await page.goto(`${openingURL(world)}/apply`);
+      await expect(page.getByText(/^Questions from /)).toBeVisible();
+      await expect(page.getByText("0 of 4 required answered")).toBeVisible();
+
+      // Required questions block the submit until answered.
+      await page.getByRole("button", { name: "Submit application" }).click();
+      await expect(page.getByText("Answer this question.")).toHaveCount(4);
+
+      await page.getByLabel("Current role").fill("  Platform engineer  ");
+      const years = page.getByLabel("Years of Go");
+      await expect(page.getByText("From 1 to 40")).toBeVisible();
+      await years.fill("50");
+      await years.blur();
+      await expect(years).toHaveValue("40");
+      await years.fill("0");
+      await years.blur();
+      await expect(years).toHaveValue("1");
+      await years.fill("6.6");
+      await years.blur();
+      await expect(years).toHaveValue("7");
+      await page
+        .getByRole("radiogroup", { name: "Can you relocate" })
+        .getByText("No", { exact: true })
+        .click();
+      await page
+        .getByRole("radiogroup", { name: "Preferred office" })
+        .getByText("Remote", { exact: true })
+        .click();
+      const languages = page.getByRole("group", { name: "Languages" });
+      await languages.getByText("Go", { exact: true }).click();
+      await languages.getByText("Rust", { exact: true }).click();
+      await expect(page.getByText("Answer this question.")).toHaveCount(0);
+      await expect(page.getByText("4 of 4 required answered")).toBeVisible();
+      await page.getByRole("button", { name: "Submit application" }).click();
+
+      await expect(
+        page.getByRole("heading", { name: world.title }),
+      ).toBeVisible();
+      const number = Number(new URL(page.url()).pathname.split("/").pop());
+      const stored = await detailOf(
+        world.api,
+        world.owner,
+        world.opening,
+        number,
+      );
+      expect(stored.answers.map((answered) => answered.answer)).toEqual([
+        "Platform engineer",
+        undefined,
+        7,
+        false,
+        "Remote",
+        ["Go", "Rust"],
+      ]);
+
+      await expect(
+        page.getByText("Your answers", { exact: true }),
+      ).toBeVisible();
+      const answerOf = (text: string) =>
+        page.getByRole("region", { name: text, exact: true });
+      await expect(answerOf("Current role")).toContainText("Platform engineer");
+      await expect(answerOf("Why this team")).toContainText("Not answered");
+      await expect(answerOf("Years of Go")).toContainText("7");
+      await expect(answerOf("Can you relocate")).toContainText("No");
+      await expect(answerOf("Preferred office")).toContainText("Remote");
+      await expect(answerOf("Languages")).toContainText("Go, Rust");
+    },
+    everyType,
+  );
+});
+
+test("answers refused after the Org revised its questions are kept where they fit", async ({
+  page,
+  request,
+  hubUser,
+  org,
+}) => {
+  await withWorld(
+    request,
+    hubUser,
+    org,
+    async (world) => {
+      await signIn(page, world.applicant);
+      await page.goto(`${openingURL(world)}/apply`);
+      await page.getByLabel("Current role").fill("Platform engineer");
+      await page
+        .getByRole("radiogroup", { name: "Preferred office" })
+        .getByText("Remote", { exact: true })
+        .click();
+
+      // The Org drops the chosen option and adds a required question while
+      // the page is open.
+      const read = await world.api.getOpening(world.owner, {
+        opening_number: world.opening,
+      });
+      expect(read.status(), await read.text()).toBe(200);
+      const live = (await read.json()) as OrgOpening;
+      const [role, office] = live.live_content?.questions ?? [];
+      if (role === undefined || office === undefined)
+        throw new Error("the Opening lost its questions");
+      const saved = await world.api.saveOpeningWorkingCopy(world.owner, {
+        opening_number: world.opening,
+        version: live.version,
+        content: {
+          ...openingContent(world.title),
+          questions: [
+            role,
+            { ...office, options: ["Singapore", "Hybrid"] },
+            { text: "Can you relocate", type: "yes_no", required: true },
+          ],
+        },
+      });
+      expect(saved.status(), await saved.text()).toBe(200);
+      const revised = await world.api.requestOpeningChange(world.owner, {
+        opening_number: world.opening,
+        version: ((await saved.json()) as { version: number }).version,
+        kind: "revise",
+      });
+      expect(revised.status(), await revised.text()).toBe(200);
+
+      await page.getByRole("button", { name: "Submit application" }).click();
+      await expect(page.getByText("The questions changed")).toBeVisible();
+      await expect(page.getByLabel("Current role")).toHaveValue(
+        "Platform engineer",
+      );
+      const changed = /changed this question\. Check your answer\.$/;
+      await expect(page.getByText(changed)).toHaveCount(2);
+      const offices = page.getByRole("radiogroup", {
+        name: "Preferred office",
+      });
+      await expect(offices.getByRole("radio", { checked: true })).toHaveCount(
+        0,
+      );
+      await offices.getByText("Hybrid", { exact: true }).click();
+      await expect(page.getByText(changed)).toHaveCount(1);
+      await page
+        .getByRole("radiogroup", { name: "Can you relocate" })
+        .getByText("Yes", { exact: true })
+        .click();
+      await page.getByRole("button", { name: "Submit application" }).click();
+
+      await expect(
+        page.getByRole("heading", { name: world.title }),
+      ).toBeVisible();
+      const number = Number(new URL(page.url()).pathname.split("/").pop());
+      const stored = await detailOf(
+        world.api,
+        world.owner,
+        world.opening,
+        number,
+      );
+      expect(stored.answers.map((answered) => answered.answer)).toEqual([
+        "Platform engineer",
+        "Hybrid",
+        true,
+      ]);
+    },
+    [
+      { text: "Current role", type: "short_text", required: true },
+      {
+        text: "Preferred office",
+        type: "single_choice",
+        required: true,
+        options: ["Singapore", "Remote"],
+      },
+    ],
+  );
 });

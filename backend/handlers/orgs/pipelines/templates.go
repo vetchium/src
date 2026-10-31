@@ -161,7 +161,15 @@ func CreatePipelineTemplate(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				stages, err := stagesJSON(request.Stages)
+				// A new template holds no criteria, so every sent id is unknown.
+				stored, unknown, err := templateStages(now, request.Stages, nil)
+				if err != nil {
+					return result{}, nil, err
+				}
+				if len(unknown) > 0 {
+					return handlerauth.Failure[hiring.PipelineTemplate](validationFailed(unknown))
+				}
+				stages, err := stagesJSON(stored)
 				if err != nil {
 					return result{}, nil, err
 				}
@@ -218,7 +226,25 @@ func UpdatePipelineTemplate(s *orgsruntime.Server) http.HandlerFunc {
 				} else if err != nil {
 					return result{}, nil, err
 				}
-				stages, err := stagesJSON(request.Stages)
+				current, err := loadTemplate(r, q, identity, id)
+				if errors.Is(err, pgx.ErrNoRows) {
+					return handlerauth.Failure[hiring.PipelineTemplate](orgsproblem.PipelineTemplateNotFoundError)
+				}
+				if err != nil {
+					return result{}, nil, err
+				}
+				var held [][]hiring.FeedbackCriterion
+				for _, stage := range current.Stages {
+					held = append(held, stage.FeedbackForm)
+				}
+				stored, unknown, err := templateStages(now, request.Stages, criterionIDs(held...))
+				if err != nil {
+					return result{}, nil, err
+				}
+				if len(unknown) > 0 {
+					return handlerauth.Failure[hiring.PipelineTemplate](validationFailed(unknown))
+				}
+				stages, err := stagesJSON(stored)
 				if err != nil {
 					return result{}, nil, err
 				}

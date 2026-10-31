@@ -1160,6 +1160,7 @@ export const de = {
     quota:
       "In den letzten 365 Tagen erstellte Stellenanzeigen: {{used}} von {{limit}}",
     fields: {
+      details: "Details",
       title: "Titel",
       description: "Beschreibung",
       language: "Sprache",
@@ -1175,6 +1176,7 @@ export const de = {
       experienceYears: "Erfahrung in Jahren",
       minimumEducation: "Mindestabschluss",
       salary: "Gehalt",
+      questions: "Bewerbungsfragen",
     },
     filters: {
       more: "Weitere Filter",
@@ -1246,8 +1248,12 @@ export const de = {
     discardedDraft: "Entwurf verworfen.",
     revision: "Revision",
     expiresAt: "Läuft ab",
-    pendingRequest: "Ausstehender Antrag",
     publicationMissing: "Füllen Sie vor der Veröffentlichung diese Felder aus:",
+    pendingRequestTitle: "Ausstehender Antrag: {{kind}}",
+    completeInEditor: "Im Editor ergänzen",
+    publishBlocked: "Zum Veröffentlichen fehlen die oben genannten Felder.",
+    changedFields: "In der Arbeitskopie geändert: {{fields}}",
+    noChangedFields: "Die Arbeitskopie entspricht dem veröffentlichten Inhalt.",
     actions: {
       title: "Aktionen für Stellenanzeigen",
       effects: {
@@ -1294,7 +1300,6 @@ export const de = {
     copied: "URL kopiert.",
     copyFailed: "Die URL konnte nicht kopiert werden.",
     liveContent: "Veröffentlichter Inhalt",
-    draftContent: "Entwurfsinhalt",
     workingContent: "Arbeitskopie",
     notSet: "Nicht festgelegt",
     notFound: "Stellenanzeige nicht gefunden oder nicht verfügbar.",
@@ -1355,17 +1360,36 @@ export const de = {
           "Speichern aktualisiert diesen Entwurf. Bewerbende sehen nichts, bis er veröffentlicht ist.",
         revisionHelp:
           "Änderungen werden als Revision gespeichert. Bewerbende sehen weiter die veröffentlichte Fassung, bis die Revision veröffentlicht ist.",
-        nextStep:
-          "Veröffentlichen Sie die Stellenanzeige nach dem Speichern auf ihrer Seite oder reichen Sie sie dort zur Genehmigung ein.",
       },
       checklist: {
         title: "Checkliste zur Veröffentlichung",
         progress: "{{done}}/{{total}}",
         help: "Sie können jederzeit speichern. Zum Veröffentlichen ist jeder Punkt unten nötig.",
         ready: "Alles für die Veröffentlichung ist vorhanden.",
-        done: "Erledigt",
-        missing: "Nicht erledigt",
       },
+      steps: {
+        missing: "Fehlt: {{fields}}",
+        incomplete:
+          "Vervollständigen oder entfernen Sie die unvollständigen Einträge.",
+        invalid: "Prüfen Sie die markierten Felder.",
+        complete: "Vollständig",
+      },
+      saveAnd: {
+        publish: "Speichern und veröffentlichen",
+        publishRequest: "Speichern und zur Genehmigung einreichen",
+        revise: "Speichern und Änderungen veröffentlichen",
+        reviseRequest: "Speichern und Änderungen zur Genehmigung einreichen",
+      },
+      publishBlocked_one:
+        "Ergänzen Sie noch {{count}} Angabe, um zu veröffentlichen.",
+      publishBlocked_other:
+        "Ergänzen Sie noch {{count}} Angaben, um zu veröffentlichen.",
+      publishDone: {
+        publish: "Gespeichert und veröffentlicht.",
+        revise: "Gespeichert und Änderungen veröffentlicht.",
+        submitted: "Gespeichert und zur Genehmigung eingereicht.",
+      },
+      publishFailed: "Gespeichert, aber nicht veröffentlicht: {{reason}}",
       team: "Einstellungsteam und Notizen",
       recruiter: "Rekrutierende Person",
       teamMembers: "Teammitglieder",
@@ -1379,6 +1403,77 @@ export const de = {
       preview: "Vorschau für Bewerbende",
       save: "Speichern",
       createDraft: "Entwurf erstellen",
+    },
+    preview: {
+      basedIn: "Sitz in {{country}}",
+      openingPage: "Stellenseite",
+      applicationForm: "Bewerbungsformular",
+      apply: "Bewerben",
+      applyHelp:
+        "Ihr Profil wird mit Ihrer Bewerbung gesendet, dazu optional ein Anschreiben.",
+      applyHelpQuestions_one:
+        "Ihr Profil wird mit Ihrer Bewerbung gesendet, dazu Ihre Antwort auf {{count}} Frage.",
+      applyHelpQuestions_other:
+        "Ihr Profil wird mit Ihrer Bewerbung gesendet, dazu Ihre Antworten auf {{count}} Fragen.",
+      noQuestions:
+        "Diese Stelle stellt keine Fragen. Bewerbende senden ihr Profil und optional ein Anschreiben.",
+      questionsFrom: "Fragen von {{org}}",
+      answerRequired: "Beantworten Sie diese Frage.",
+      yes: "Ja",
+      no: "Nein",
+      chooseAny: "Wählen Sie alle zutreffenden aus.",
+      wholeNumber: "Geben Sie eine ganze Zahl ein.",
+      outOfRange: "Geben Sie eine ganze Zahl ein: {{bounds}}.",
+    },
+    questions: {
+      summary_one: "{{count}} Frage, {{required}} erforderlich",
+      summary_other: "{{count}} Fragen, {{required}} erforderlich",
+      summaryLine: "{{number}}. {{text}}",
+      untitled: "Neue Frage",
+      help: "Optional. Stellen Sie Bewerbenden bei der Bewerbung bis zu 10 Fragen. Die Antworten sind Angaben für Ihr Team; Vetchium bewertet oder lehnt Bewerbungen nie anhand der Antworten ab.",
+      number: "Frage {{number}}",
+      text: "Frage",
+      type: "Antworttyp",
+      required: "Antwort erforderlich",
+      min: "Kleinste Antwort",
+      max: "Größte Antwort",
+      options: "Optionen",
+      option: "Option {{number}}",
+      optionsHelp: "Bewerbende wählen aus {{min}} bis {{limit}} Optionen.",
+      optionLimit: "Eine Frage hat höchstens {{limit}} Optionen.",
+      addOption: "Option hinzufügen",
+      removeOption: "Option {{number}} entfernen",
+      add: "Frage hinzufügen",
+      count: "{{count}} von {{limit}} Fragen",
+      limitReached: "Eine Stelle stellt höchstens {{limit}} Fragen.",
+      moveUp: "Frage {{number}} nach oben",
+      moveDown: "Frage {{number}} nach unten",
+      remove: "Frage {{number}} entfernen",
+      textRequired: "Geben Sie die Frage ein.",
+      optionRequired: "Geben Sie die Option ein.",
+      optionRepeated: "Jede Option muss sich unterscheiden.",
+      maxBelowMin: "Muss mindestens der kleinsten Antwort entsprechen.",
+      changedTitle: "Diese Fragen weichen von den veröffentlichten ab",
+      changed:
+        "Bereits eingegangene Bewerbungen behalten die bei der Bewerbung gegebenen Antworten. Die Bewerbungsdetails markieren geänderte oder entfernte Fragen.",
+      changedReceived_one:
+        "{{count}} Bewerbung ist eingegangen. Sie behält die bei der Bewerbung gegebenen Antworten, und die Bewerbungsdetails markieren geänderte oder entfernte Fragen.",
+      changedReceived_other:
+        "{{count}} Bewerbungen sind eingegangen. Sie behalten die bei der Bewerbung gegebenen Antworten, und die Bewerbungsdetails markieren geänderte oder entfernte Fragen.",
+      types: {
+        short_text: "Kurzer Text",
+        long_text: "Langer Text",
+        number: "Ganze Zahl",
+        yes_no: "Ja oder Nein",
+        single_choice: "Eine Auswahl",
+        multiple_choice: "Mehrfachauswahl",
+      },
+      requiredTag: "Erforderlich",
+      optionalTag: "Optional",
+      range: "{{min}} bis {{max}}",
+      atLeast: "Mindestens {{min}}",
+      atMost: "Höchstens {{max}}",
+      choices: "Optionen: {{options}}",
     },
     errors: {
       versionConflict:
@@ -1414,6 +1509,19 @@ export const de = {
     },
   },
   applications: {
+    answers: {
+      title: "Antworten",
+      yes: "Ja",
+      no: "Nein",
+      notAnswered: "Nicht beantwortet",
+      noAnswer: "—",
+      changed: "Frage geändert",
+      removed: "Frage entfernt",
+      asAsked: "So gezeigt, wie sie bei der Bewerbung gestellt wurde.",
+    },
+    answerColumns: {
+      label: "Antwortspalten (bis zu {{limit}})",
+    },
     removedApplicant: "Entfernte Bewerberin bzw. entfernter Bewerber",
     optional: "Optional",
     search: "Nach Namen suchen",
@@ -1523,6 +1631,8 @@ export const de = {
       interviewStateConflict:
         "Status oder Zeitpunkt des Interviews erlauben diese Aktion nicht mehr. Die Ansicht wurde neu geladen.",
       feedbackExists: "Sie haben zu diesem Interview bereits Feedback gegeben.",
+      answersInvalid:
+        "Einige Antworten passen nicht zum Feedbackformular dieser Phase, das sich gerade geändert haben kann. Prüfen Sie die markierten Kriterien.",
       interviewLimit:
         "Eine Stufe enthält höchstens {{count}} Interviews. Sagen Sie eines ab, bevor Sie ein weiteres planen.",
       interviewersInvalid:
@@ -1776,6 +1886,17 @@ export const de = {
         "Was Sie gesehen haben und warum Sie dies empfehlen. Bis zu 10.000 Zeichen.",
       final:
         "Feedback lässt sich nur einmal senden und danach nicht mehr ändern.",
+      criterionInvalid: "Prüfen Sie diese Antwort anhand des Kriteriums.",
+      compare: {
+        heading: "Antworten im Feedbackformular",
+        title: "Antworten im Feedbackformular für Interview {{number}}",
+        criterion: "Kriterium",
+        average: "Durchschnittliche Bewertung",
+        notAsked: "Nicht gefragt",
+        changed: "Kriterium geändert",
+        removed: "Kriterium entfernt",
+        asked: "Gefragt als: {{text}}",
+      },
     },
     assessment: {
       action: "Testergebnis erfassen",
@@ -1957,6 +2078,29 @@ export const de = {
       empty: "Eine Pipeline braucht mindestens eine Phase.",
       tooMany: "Eine Pipeline hat höchstens 15 Phasen.",
       name: "Geben Sie jeder Phase einen Namen mit 1 bis 100 Zeichen.",
+      criterion: "Geben Sie jedem Kriterium des Feedbackformulars einen Text.",
+    },
+    form: {
+      toggle_one: "Feedbackformular für {{stage}} ({{count}} Kriterium)",
+      toggle_other: "Feedbackformular für {{stage}} ({{count}} Kriterien)",
+      unnamed: "diese Phase",
+      label: "Feedbackformular für {{stage}}",
+      help: "Optional. Interviewende beantworten diese Kriterien neben ihrer Empfehlung und ihren Notizen.",
+      criterion: "Kriterium {{number}} von {{stage}}",
+      criterionPlaceholder: "Was sollen Interviewende beurteilen?",
+      type: "Antworttyp von Kriterium {{number}} von {{stage}}",
+      types: { rating: "Bewertung 1–5", yes_no: "Ja oder Nein", text: "Text" },
+      required: "Erforderlich",
+      moveUp: "Kriterium {{number}} von {{stage}} nach oben",
+      moveDown: "Kriterium {{number}} von {{stage}} nach unten",
+      remove: "Kriterium {{number}} von {{stage}} entfernen",
+      add: "Kriterium hinzufügen",
+      count: "{{count}} von {{limit}} Kriterien",
+      limitReached: "Ein Formular hat höchstens {{limit}} Kriterien.",
+      changedWithFeedback_one:
+        "{{count}} Person hat hier bereits Feedback abgegeben. Es behält seine Antworten, und geänderte Kriterien werden als geändert angezeigt.",
+      changedWithFeedback_other:
+        "{{count}} Personen haben hier bereits Feedback abgegeben. Es behält seine Antworten, und geänderte Kriterien werden als geändert angezeigt.",
     },
     errors: {
       inUse:
@@ -2064,6 +2208,17 @@ export const de = {
       interviewing: "Interviewing",
       assessment: "Assessment",
       background_check: "Hintergrundprüfung",
+    },
+    hubStatuses: {
+      applied: "Beworben",
+      in_review: "In Prüfung",
+      interviewing: "Im Gespräch",
+      offered: "Angeboten",
+      offer_accepted: "Angebot angenommen",
+      joined: "Eingetreten",
+      not_selected: "Nicht ausgewählt",
+      declined: "Vom Kandidaten abgelehnt",
+      withdrawn: "Zurückgezogen",
     },
     routes: {
       suggested: "Empfohlen",

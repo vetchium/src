@@ -104,7 +104,8 @@ LEFT JOIN LATERAL (
         'salary', CASE WHEN c.salary_currency IS NULL THEN NULL
             ELSE jsonb_build_object('currency', c.salary_currency,
                 'min', c.salary_min, 'max', c.salary_max,
-                'period', c.salary_period) END
+                'period', c.salary_period) END,
+        'questions', c.questions
     )) AS body
     FROM vetchium.org_opening_contents AS c
     WHERE c.org_opening_id = o.org_opening_id AND c.slot = 'live'
@@ -131,7 +132,8 @@ LEFT JOIN LATERAL (
         'salary', CASE WHEN c.salary_currency IS NULL THEN NULL
             ELSE jsonb_build_object('currency', c.salary_currency,
                 'min', c.salary_min, 'max', c.salary_max,
-                'period', c.salary_period) END
+                'period', c.salary_period) END,
+        'questions', c.questions
     )) AS body
     FROM vetchium.org_opening_contents AS c
     WHERE c.org_opening_id = o.org_opening_id AND c.slot = 'working'
@@ -249,14 +251,15 @@ WITH usage AS (
           AND t.org_pipeline_template_id = sqlc.narg(template_id)::uuid
     ) AS missing
 ), stage_source AS (
-    SELECT s.position::integer AS position, s.name, s.stage_kind
+    SELECT s.position::integer AS position, s.name, s.stage_kind,
+        s.feedback_form
     FROM vetchium.org_pipeline_template_stages AS s
     JOIN vetchium.org_pipeline_templates AS t
         ON t.org_pipeline_template_id = s.org_pipeline_template_id
     WHERE t.org_did = sqlc.arg(org_did)
       AND t.org_pipeline_template_id = sqlc.narg(template_id)::uuid
     UNION ALL
-    SELECT 1, 'Review', 'review'::vetchium.pipeline_stage_kind
+    SELECT 1, 'Review', 'review'::vetchium.pipeline_stage_kind, '[]'::jsonb
     WHERE sqlc.narg(template_id)::uuid IS NULL
 ), numbered AS (
     UPDATE vetchium.orgs AS o
@@ -286,7 +289,8 @@ WITH usage AS (
         employing_country, work_arrangement, location_details,
         remote_eligibility, remote_countries, employment_type,
         positions, experience_min, experience_max, minimum_education,
-        salary_currency, salary_min, salary_max, salary_period, updated_by
+        salary_currency, salary_min, salary_max, salary_period, questions,
+        updated_by
     )
     SELECT created.org_opening_id, 'working',
         body->>'title', body->>'description', body->>'language',
@@ -309,17 +313,19 @@ WITH usage AS (
         (body #>> '{salary,min}')::bigint,
         (body #>> '{salary,max}')::bigint,
         (body #>> '{salary,period}')::vetchium.org_opening_salary_period,
+        NULLIF(body->'questions', '[]'::jsonb),
         sqlc.arg(actor_id)
     FROM created
     CROSS JOIN (SELECT sqlc.arg(content)::jsonb AS body) AS input
     RETURNING org_opening_id
 ), stages AS (
     INSERT INTO vetchium.org_opening_stages (
-        org_opening_stage_id, org_opening_id, position, name, stage_kind
+        org_opening_stage_id, org_opening_id, position, name, stage_kind,
+        feedback_form
     )
     SELECT (sqlc.arg(stage_ids)::uuid[])[stage_source.position],
         created.org_opening_id, stage_source.position, stage_source.name,
-        stage_source.stage_kind
+        stage_source.stage_kind, stage_source.feedback_form
     FROM created CROSS JOIN stage_source
     RETURNING org_opening_stage_id
 ), team AS (
@@ -393,21 +399,23 @@ WITH source AS (
           AND t.org_pipeline_template_id = sqlc.narg(template_id)::uuid
     ) AS missing
 ), source_stages AS (
-    SELECT s.position::integer AS position, s.name, s.stage_kind
+    SELECT s.position::integer AS position, s.name, s.stage_kind,
+        s.feedback_form
     FROM vetchium.org_opening_stages AS s
     JOIN source ON source.org_opening_id = s.org_opening_id
 ), stage_source AS (
-    SELECT s.position::integer AS position, s.name, s.stage_kind
+    SELECT s.position::integer AS position, s.name, s.stage_kind,
+        s.feedback_form
     FROM vetchium.org_pipeline_template_stages AS s
     JOIN vetchium.org_pipeline_templates AS t
         ON t.org_pipeline_template_id = s.org_pipeline_template_id
     WHERE t.org_did = sqlc.arg(org_did)
       AND t.org_pipeline_template_id = sqlc.narg(template_id)::uuid
     UNION ALL
-    SELECT position, name, stage_kind FROM source_stages
+    SELECT position, name, stage_kind, feedback_form FROM source_stages
     WHERE sqlc.narg(template_id)::uuid IS NULL
     UNION ALL
-    SELECT 1, 'Review', 'review'::vetchium.pipeline_stage_kind
+    SELECT 1, 'Review', 'review'::vetchium.pipeline_stage_kind, '[]'::jsonb
     WHERE sqlc.narg(template_id)::uuid IS NULL
       AND NOT EXISTS (SELECT 1 FROM source_stages)
 ), numbered AS (
@@ -443,7 +451,8 @@ WITH source AS (
         employing_country, work_arrangement, location_details,
         remote_eligibility, remote_countries, employment_type,
         positions, experience_min, experience_max, minimum_education,
-        salary_currency, salary_min, salary_max, salary_period, updated_by
+        salary_currency, salary_min, salary_max, salary_period, questions,
+        updated_by
     )
     SELECT created.org_opening_id, 'working', source_content.title,
         source_content.description, source_content.language,
@@ -454,16 +463,17 @@ WITH source AS (
         source_content.experience_max, source_content.minimum_education,
         source_content.salary_currency, source_content.salary_min,
         source_content.salary_max, source_content.salary_period,
-        sqlc.arg(actor_id)
+        source_content.questions, sqlc.arg(actor_id)
     FROM created CROSS JOIN source_content
     RETURNING org_opening_id
 ), stages AS (
     INSERT INTO vetchium.org_opening_stages (
-        org_opening_stage_id, org_opening_id, position, name, stage_kind
+        org_opening_stage_id, org_opening_id, position, name, stage_kind,
+        feedback_form
     )
     SELECT (sqlc.arg(stage_ids)::uuid[])[stage_source.position],
         created.org_opening_id, stage_source.position, stage_source.name,
-        stage_source.stage_kind
+        stage_source.stage_kind, stage_source.feedback_form
     FROM created CROSS JOIN stage_source
     RETURNING org_opening_stage_id
 ), team AS (
@@ -568,8 +578,34 @@ WITH input AS (
         (body #>> '{salary,min}')::bigint AS salary_min,
         (body #>> '{salary,max}')::bigint AS salary_max,
         (body #>> '{salary,period}')::
-            vetchium.org_opening_salary_period AS salary_period
+            vetchium.org_opening_salary_period AS salary_period,
+        NULLIF(body->'questions', '[]'::jsonb) AS questions
     FROM input
+), known_questions AS (
+    SELECT question->>'id' AS question_id
+    FROM vetchium.org_openings AS o
+    JOIN vetchium.org_opening_contents AS c
+      ON c.org_opening_id = o.org_opening_id
+    CROSS JOIN LATERAL jsonb_array_elements(c.questions) AS question
+    WHERE o.org_did = sqlc.arg(org_did)
+      AND o.opening_number = sqlc.arg(opening_number)::integer
+      AND c.questions IS NOT NULL
+), unknown_questions AS (
+    -- A question id the caller sent must name one the Opening already asks or
+    -- will ask (HP-QST-002); new_question_ids are the ones orgs-api just
+    -- assigned. Positions are 1-based.
+    SELECT entry.position::integer AS position
+    FROM input
+    CROSS JOIN LATERAL jsonb_array_elements(
+        COALESCE(input.body->'questions', '[]'::jsonb))
+        WITH ORDINALITY AS entry(question, position)
+    WHERE entry.question ? 'id'
+      AND NOT entry.question->>'id' = ANY(
+          sqlc.arg(new_question_ids)::text[])
+      AND NOT EXISTS (
+          SELECT 1 FROM known_questions AS k
+          WHERE k.question_id = entry.question->>'id'
+      )
 ), updated AS (
     UPDATE vetchium.org_openings AS o
     SET version = o.version + 1, updated_at = now()
@@ -577,6 +613,7 @@ WITH input AS (
       AND o.opening_number = sqlc.arg(opening_number)::integer
       AND o.version = sqlc.arg(version)::integer
       AND o.opening_state IN ('draft', 'published', 'paused')
+      AND NOT EXISTS (SELECT 1 FROM unknown_questions)
       AND NOT EXISTS (
           SELECT 1 FROM vetchium.org_opening_requests AS r
           WHERE r.org_opening_id = o.org_opening_id
@@ -590,8 +627,8 @@ WITH input AS (
         employing_country, work_arrangement, location_details,
         remote_eligibility, remote_countries, employment_type,
         positions, experience_min, experience_max, minimum_education,
-        salary_currency, salary_min, salary_max, salary_period, updated_by,
-        updated_at
+        salary_currency, salary_min, salary_max, salary_period, questions,
+        updated_by, updated_at
     )
     SELECT updated.org_opening_id, 'working',
         flat.title, flat.description, flat.language,
@@ -599,7 +636,8 @@ WITH input AS (
         flat.remote_eligibility, flat.remote_countries, flat.employment_type,
         flat.positions, flat.experience_min, flat.experience_max,
         flat.minimum_education, flat.salary_currency, flat.salary_min,
-        flat.salary_max, flat.salary_period, sqlc.arg(actor_id), now()
+        flat.salary_max, flat.salary_period, flat.questions,
+        sqlc.arg(actor_id), now()
     FROM updated CROSS JOIN flat
     ON CONFLICT (org_opening_id, slot) DO UPDATE SET
         title = EXCLUDED.title,
@@ -619,6 +657,7 @@ WITH input AS (
         salary_min = EXCLUDED.salary_min,
         salary_max = EXCLUDED.salary_max,
         salary_period = EXCLUDED.salary_period,
+        questions = EXCLUDED.questions,
         updated_by = EXCLUDED.updated_by,
         updated_at = EXCLUDED.updated_at
     RETURNING org_opening_id
@@ -647,6 +686,9 @@ WITH input AS (
     RETURNING audit_event_id
 )
 SELECT COALESCE((SELECT version FROM updated), 0)::integer AS version,
+    COALESCE((SELECT jsonb_agg(position ORDER BY position)
+        FROM unknown_questions), '[]'::jsonb)::jsonb
+        AS unknown_question_positions,
     (SELECT count(*) FROM saved) AS saved_rows,
     (SELECT count(*) FROM history) AS history_rows,
     (SELECT count(*) FROM audit) AS audit_rows;

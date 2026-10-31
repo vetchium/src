@@ -14,7 +14,7 @@ import {
 } from "../lib/orgs-api.ts";
 import { accountMenu } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
-import { chooseRegion } from "../lib/region-ui.ts";
+import { chooseOption, chooseRegion } from "../lib/region-ui.ts";
 
 const completeContent: OpeningContent = {
   title: "Opening engineer",
@@ -99,7 +99,7 @@ test("creates a partial draft, previews Markdown, edits, duplicates, and discard
       page.getByText("Important <script>bad</script>"),
     ).toBeVisible();
     await expect(
-      page.getByRole("article").getByText("<script>plain</script>"),
+      page.getByRole("tabpanel").getByText("<script>plain</script>"),
     ).toBeVisible();
     await expect(page.locator("script", { hasText: "plain" })).toHaveCount(0);
     await page.getByRole("button", { name: "Create draft" }).click();
@@ -130,7 +130,10 @@ test("creates a partial draft, previews Markdown, edits, duplicates, and discard
       .getByRole("dialog")
       .getByRole("button", { name: "Discard draft" })
       .click();
-    await expect(page.getByText("Discarded", { exact: true })).toBeVisible();
+    // The header and the side panel both show the state.
+    await expect(
+      page.getByText("Discarded", { exact: true }).first(),
+    ).toBeVisible();
   });
 });
 
@@ -418,20 +421,16 @@ test("an incomplete draft names the fields that block publication", async ({
       gaps.getByRole("listitem").filter({ hasText: "Hiring manager" }),
     ).toHaveCount(0);
 
-    // The page's hint does not stop the request; the API's refusal names the
-    // same fields.
-    await confirmOpeningAction(page, "Publish");
-    const refusal = page
-      .getByRole("dialog")
-      .getByRole("alert")
-      .filter({ hasText: "This Opening is incomplete" });
-    await expect(refusal).toBeVisible();
+    // Publishing waits for those fields, and says so beside the action.
     await expect(
-      refusal.getByRole("listitem").filter({ hasText: "Work arrangement" }),
+      page.getByRole("button", { name: "Publish", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByText("Publishing needs the fields listed above."),
     ).toBeVisible();
     await expect(
-      refusal.getByRole("listitem").filter({ hasText: "Recruiter" }),
-    ).toBeVisible();
+      page.getByRole("link", { name: "Complete them in the editor" }),
+    ).toHaveAttribute("href", "/openings/1/edit");
     const unchanged = await api.getOpening(owner, { opening_number: 1 });
     const current = (await unchanged.json()) as OrgOpening;
     expect(current.state).toBe("draft");
@@ -453,8 +452,33 @@ test("an incomplete draft names the fields that block publication", async ({
     await page.reload();
     await expect(
       page.getByRole("button", { name: "Publish", exact: true }),
-    ).toBeVisible();
+    ).toBeEnabled();
     await expect(gaps).toHaveCount(0);
+
+    // The page's hint can trail the API's rules; the API's refusal names its
+    // fields in the dialog.
+    await page.route("**/api/orgs/request-opening-change", (route) =>
+      route.fulfill({
+        status: 422,
+        contentType: "application/problem+json",
+        body: JSON.stringify({
+          type: "vetchium-problem-details/org-opening-incomplete",
+          title: "Opening incomplete",
+          status: 422,
+          fields: ["content.work_arrangement", "recruiter_email"],
+        }),
+      }),
+    );
+    await confirmOpeningAction(page, "Publish");
+    const refusal = page
+      .getByRole("dialog")
+      .getByRole("alert")
+      .filter({ hasText: "This Opening is incomplete" });
+    await expect(refusal).toBeVisible();
+    for (const label of ["Work arrangement", "Recruiter"])
+      await expect(
+        refusal.getByRole("listitem").filter({ hasText: label }),
+      ).toBeVisible();
   });
 });
 
@@ -485,6 +509,104 @@ test.describe("in a British browser in India", () => {
         page.getByRole("listitem").filter({ hasText: moment }),
       ).toBeVisible();
     });
+  });
+});
+
+test("the editor's steps show what each section needs, and a complete draft saves and publishes at once", async ({
+  browser,
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings/new`);
+    await page.getByRole("textbox", { name: "Title" }).fill("Stepped engineer");
+    const steps = page.getByRole("navigation", {
+      name: "Publication checklist",
+    });
+    await expect(
+      steps.getByText("Missing: Description", { exact: false }),
+    ).toBeVisible();
+    await expect(
+      steps.getByText("Missing: Hiring manager, Recruiter"),
+    ).toBeVisible();
+    const publish = page.getByRole("button", { name: "Save and publish" });
+    await expect(publish).toBeDisabled();
+    await expect(
+      page.getByText(/^Complete \d+ more items to publish\.$/),
+    ).toBeVisible();
+
+    // A step opens its section and brings it into view.
+    await steps.getByText("Hiring team and notes", { exact: true }).click();
+    await expect(page.getByLabel("Hiring manager")).toBeInViewport();
+    await page.getByRole("button", { name: "Create draft" }).click();
+    await expect(page).toHaveURL(/\/openings\/1$/);
+
+    const draft = (await (
+      await api.getOpening(owner, { opening_number: 1 })
+    ).json()) as OrgOpening;
+    const saved = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: 1,
+      version: draft.version,
+      content: { ...completeContent, title: "Stepped engineer" },
+    });
+    expect(saved.status(), await saved.text()).toBe(200);
+    const team = await api.setOpeningTeam(owner, {
+      opening_number: 1,
+      version: ((await saved.json()) as OrgOpening).version,
+      hiring_manager_email: org.emailAddress,
+      recruiter_email: org.emailAddress,
+      team_member_emails: [],
+    });
+    expect(team.status(), await team.text()).toBe(200);
+
+    await page.goto(`${ORGS_PORTAL}/openings/1/edit`);
+    await expect(steps.getByText("Complete").first()).toBeVisible();
+    await expect(steps.getByText(/^Missing:/)).toHaveCount(0);
+    await page
+      .getByRole("textbox", { name: "Title" })
+      .fill("Published stepped engineer");
+    await publish.click();
+    await expect(page).toHaveURL(/\/openings\/1$/);
+    await expect(page.getByText("Saved and published.")).toBeVisible();
+    const read = await api.getOpening(owner, { opening_number: 1 });
+    expect((await read.json()) as OrgOpening).toMatchObject({
+      state: "published",
+      live_content: { title: "Published stepped engineer" },
+    });
+
+    // Without approval rights the same action submits a request.
+    const manager = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      `manager@${org.domain}`,
+      ["org:manage_openings"],
+    );
+    const managerPage = await browser.newPage();
+    try {
+      await signIn(managerPage, manager);
+      await managerPage.goto(`${ORGS_PORTAL}/openings/1/edit`);
+      await managerPage
+        .getByRole("textbox", { name: "Title" })
+        .fill("Revised stepped engineer");
+      await managerPage
+        .getByRole("button", { name: "Save and submit changes for approval" })
+        .click();
+      await expect(managerPage).toHaveURL(/\/openings\/1$/);
+      await expect(
+        managerPage.getByText("Saved and submitted for approval."),
+      ).toBeVisible();
+      const pending = await api.getOpening(owner, { opening_number: 1 });
+      expect((await pending.json()) as OrgOpening).toMatchObject({
+        state: "published",
+        live_content: { title: "Published stepped engineer" },
+        working_content: { title: "Revised stepped engineer" },
+        pending_request: { kind: "revise" },
+      });
+    } finally {
+      await managerPage.close();
+    }
   });
 });
 
@@ -833,5 +955,176 @@ test("manager requests pause, reopen, and close and approver confirms each effec
     } finally {
       await managerPage.close();
     }
+  });
+});
+
+test("managers edit application questions within their bounds and see the published-questions warning", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    const created = await api.createOpening(owner, {
+      content: {
+        ...completeContent,
+        questions: [
+          {
+            text: "Notice period in days?",
+            type: "number",
+            required: true,
+            min: 0,
+            max: 90,
+          },
+        ],
+      },
+      hiring_manager_email: org.emailAddress,
+      recruiter_email: org.emailAddress,
+      team_member_emails: [],
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const draft = (await created.json()) as OrgOpening;
+    const published = await api.requestOpeningChange(owner, {
+      opening_number: 1,
+      version: draft.version,
+      kind: "publish",
+    });
+    expect(published.status(), await published.text()).toBe(200);
+    const liveID = ((await published.json()) as OrgOpening).live_content
+      ?.questions?.[0]?.id;
+    expect(liveID).toBeDefined();
+
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings/1/edit`);
+    // Saved questions start closed to one summary line each.
+    const firstQuestion = page.getByRole("button", {
+      name: /1\. Notice period in days\?/,
+    });
+    await expect(firstQuestion).toContainText(
+      "Whole number · Required · 0 to 90",
+    );
+    const questionText = page.getByRole("textbox", {
+      name: "Question",
+      exact: true,
+    });
+    await expect(questionText).toHaveCount(0);
+    await firstQuestion.click();
+    await expect(questionText).toHaveValue("Notice period in days?");
+
+    // The preview shows the Hub page and the form applicants fill in.
+    await page.getByRole("tab", { name: "Candidate preview" }).click();
+    await expect(
+      page.getByRole("button", { name: "Apply", exact: true }),
+    ).toBeDisabled();
+    await page.getByText("Application form", { exact: true }).click();
+    await expect(
+      page.getByRole("spinbutton", { name: /Notice period in days\?/ }),
+    ).toBeVisible();
+    await page.getByRole("tab", { name: "Edit" }).click();
+    const warning = page.getByText(
+      "These questions differ from the published ones",
+    );
+    await expect(warning).toHaveCount(0);
+
+    const largest = page.getByRole("spinbutton", { name: "Largest answer" });
+    await expect(largest).toHaveAttribute("aria-valuemax", "1000000000");
+    await page.getByRole("spinbutton", { name: "Smallest answer" }).fill("100");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(
+      page.getByText("Must be at least the smallest answer."),
+    ).toBeVisible();
+    // Back to the published values, so there is nothing to warn about.
+    await page.getByRole("spinbutton", { name: "Smallest answer" }).fill("0");
+    await expect(warning).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Add question" }).click();
+    await expect(warning).toBeVisible();
+    await questionText.nth(1).fill("Where would you work?");
+    await chooseOption(
+      page,
+      page.getByRole("combobox", { name: "Answer type" }).nth(1),
+      "One choice",
+    );
+    await page.getByRole("textbox", { name: "Option 1" }).fill("Remote");
+    await page.getByRole("textbox", { name: "Option 2" }).fill("remote");
+    const addOption = page.getByRole("button", { name: "Add option" });
+    for (let count = 2; count < 8; count += 1) await addOption.click();
+    await expect(addOption).toBeDisabled();
+    await expect(
+      page.getByText("A question has at most 8 options."),
+    ).toBeVisible();
+    for (let count = 8; count > 2; count -= 1)
+      await page
+        .getByRole("button", { name: `Remove option ${count}` })
+        .click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(
+      page.getByText("Each option must be different.").first(),
+    ).toBeVisible();
+    await page.getByRole("textbox", { name: "Option 2" }).fill("Office");
+
+    const addQuestion = page.getByRole("button", { name: "Add question" });
+    for (let count = 2; count < 10; count += 1) await addQuestion.click();
+    await expect(addQuestion).toBeDisabled();
+    await expect(
+      page.getByText("An Opening asks at most 10 questions."),
+    ).toBeVisible();
+    for (let count = 10; count > 3; count -= 1)
+      await page
+        .getByRole("button", { name: `Remove question ${count}` })
+        .click();
+    // Each type shows only its own inputs; options left from a choice type
+    // are not sent.
+    await questionText.nth(2).fill("Can you travel?");
+    const thirdType = page
+      .getByRole("combobox", { name: "Answer type" })
+      .nth(2);
+    const optionInputs = page.getByRole("textbox", { name: "Option 1" });
+    for (const type of ["Long text", "Several choices"]) {
+      await chooseOption(page, thirdType, type);
+    }
+    await expect(optionInputs).toHaveCount(2);
+    await chooseOption(page, thirdType, "Whole number");
+    await expect(optionInputs).toHaveCount(1);
+    await expect(
+      page.getByRole("spinbutton", { name: "Smallest answer" }),
+    ).toHaveCount(2);
+    await chooseOption(page, thirdType, "Yes or no");
+    await expect(
+      page.getByRole("spinbutton", { name: "Smallest answer" }),
+    ).toHaveCount(1);
+    await page.getByRole("button", { name: "Move question 2 up" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page).toHaveURL(/\/openings\/1$/);
+
+    const read = await api.getOpening(owner, { opening_number: 1 });
+    const opening = (await read.json()) as OrgOpening;
+    expect(opening.working_content?.questions).toEqual([
+      {
+        id: expect.any(String),
+        text: "Where would you work?",
+        type: "single_choice",
+        required: false,
+        options: ["Remote", "Office"],
+      },
+      {
+        id: liveID,
+        text: "Notice period in days?",
+        type: "number",
+        required: true,
+        min: 0,
+        max: 90,
+      },
+      {
+        id: expect.any(String),
+        text: "Can you travel?",
+        type: "yes_no",
+        required: false,
+      },
+    ]);
+    await expect(
+      page.getByText("One choice · Optional · Options: Remote, Office"),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Whole number · Required · 0 to 90").first(),
+    ).toBeVisible();
   });
 });

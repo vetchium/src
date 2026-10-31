@@ -456,7 +456,9 @@ An agency is an active Org whose `sourcing` Listing is `listed`.
   `suggested`), or another agency by its primary domain (route `declared`).
   Arriving from a suggestion preselects that agency; the applicant may change
   it or choose no agency. Applying directly from the Opening page is always
-  allowed and gives the same choice.
+  allowed and gives the same choice. The apply page offers the choice only
+  when `PublicOpening.accepts_agency_referrals` is true, and otherwise sends
+  no credit.
 - **MKT-SRC-003** The consumer's tenant accepts the chosen agency only when
   its primary domain (resolved through the directory for a remote agency)
   belongs to an Org with an active `sourcing` engagement assigned to the
@@ -680,7 +682,9 @@ Billable facts, each recorded by the party that owns it:
   (`age1.<region>.test` working for every hiring company in every region,
   `age2.<region>.test` for its own region's) with agents `agent1@` and up and
   Jobs spread across their owners, one provider per stage Capability
-  (`itv1`, `asm1`, `bgv1`) with `staff1@` and `staff2@` and routed work,
+  (`itv1`, `asm1`, `bgv1`) with `staff1@` and `staff2@` and routed work
+  (`itv1` with one upcoming interview and one completed with feedback on the
+  stage's form),
   engagements in each state, and agency Contacts with notes and
   conversations, including a `suggested` and a `declared` credit and a
   Contact with notes only, with Hub users in other regions.

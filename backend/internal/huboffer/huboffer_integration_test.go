@@ -284,9 +284,9 @@ func TestHubAnswersTheOpenOfferIntegration(t *testing.T) {
 		action      string
 	}{
 		{federationspec.HubAcceptOfferKind, "offer_accepted", "accepted",
-			"offer", "offer_accepted"},
+			"offer_accepted", "offer_accepted"},
 		{federationspec.HubDeclineOfferKind, "offer_declined", "declined",
-			"not_progressing", "offer_declined"},
+			"declined", "offer_declined"},
 	} {
 		t.Run(string(test.kind), func(t *testing.T) {
 			applicant, number := newDID(t), index+1

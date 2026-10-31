@@ -6,9 +6,15 @@
 -- RecordOrgApplicationChanges in the same transaction. Timing is judged by
 -- the database clock so a decision and its statement agree.
 
+-- feedback_form is the form of the interview's stage, which feedback answers
+-- (HP-FRM-003).
 -- name: GetOrgInterviewForWrite :one
 SELECT i.org_interview_id, i.interview_state, i.applicant_response,
     (i.starts_at <= now())::boolean AS started,
+    (
+        SELECT s.feedback_form FROM vetchium.org_opening_stages AS s
+        WHERE s.org_opening_stage_id = i.org_opening_stage_id
+    )::jsonb AS feedback_form,
     EXISTS (
         SELECT 1 FROM vetchium.org_interview_interviewers AS iv
         WHERE iv.org_interview_id = i.org_interview_id
@@ -286,11 +292,11 @@ WITH changed AS (
     RETURNING a.org_application_id
 ), stored AS (
     INSERT INTO vetchium.org_interview_feedback (
-        org_interview_id, org_user_id, recommendation, notes
+        org_interview_id, org_user_id, recommendation, notes, criteria_answers
     )
     SELECT i.org_interview_id, sqlc.arg(actor_id),
         (sqlc.arg(recommendation)::text)::vetchium.org_interview_recommendation,
-        sqlc.arg(notes)::text
+        sqlc.arg(notes)::text, sqlc.arg(criteria_answers)::jsonb
     FROM changed
     JOIN vetchium.org_interviews AS i
         ON i.org_application_id = changed.org_application_id

@@ -565,12 +565,15 @@ type SubmitInterviewFeedbackRequest struct {
 	InterviewNumber applications.InterviewNumber         `json:"interview_number"`
 	Recommendation  applications.InterviewRecommendation `json:"recommendation"`
 	Notes           applications.InterviewFeedbackNotes  `json:"notes"`
+	CriteriaAnswers []applications.CriterionAnswer       `json:"criteria_answers,omitempty"`
 }
 
 func (r *SubmitInterviewFeedbackRequest) Normalize() {
-	inner := applications.SubmitInterviewFeedbackRequest{Notes: r.Notes}
+	inner := applications.SubmitInterviewFeedbackRequest{
+		Notes: r.Notes, CriteriaAnswers: r.CriteriaAnswers,
+	}
 	inner.Normalize()
-	r.Notes = inner.Notes
+	r.Notes, r.CriteriaAnswers = inner.Notes, inner.CriteriaAnswers
 }
 
 func (r SubmitInterviewFeedbackRequest) Validate() []string {
@@ -584,7 +587,7 @@ func (r SubmitInterviewFeedbackRequest) Validate() []string {
 	if !applications.IsInterviewFeedbackNotes(r.Notes) {
 		fields = append(fields, "notes")
 	}
-	return fields
+	return append(fields, applications.ValidateCriteriaAnswerShapes(r.CriteriaAnswers)...)
 }
 
 type RecordAssessmentRequest struct {

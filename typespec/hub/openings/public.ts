@@ -42,6 +42,7 @@ export type PublicOpening =
       content: OpeningContent;
       first_published_at: string;
       last_revised_at?: string;
+      accepts_agency_referrals: boolean;
     }
   | {
       opening_number: OpeningNumber;

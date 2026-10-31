@@ -1,6 +1,8 @@
 package openings
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -108,6 +110,13 @@ func (r CreateOpeningRequest) Validate() []string {
 	} else {
 		for _, field := range r.Content.Validate() {
 			fields = append(fields, "content."+field)
+		}
+		// A new Opening asks only new questions (HP-QST-002).
+		for index, question := range r.Content.Questions {
+			field := fmt.Sprintf("content.questions.%d.id", index)
+			if question.ID != nil && !slices.Contains(fields, field) {
+				fields = append(fields, field)
+			}
 		}
 	}
 	fields = append(fields, validateTeam(r.HiringManagerEmail, r.RecruiterEmail, r.TeamMemberEmails, r.InternalNotes)...)

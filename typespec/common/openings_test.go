@@ -166,3 +166,115 @@ func TestOpeningSalaryAcceptsTheCap(t *testing.T) {
 		t.Fatal(fields)
 	}
 }
+
+func validQuestions() []ApplicationQuestion {
+	return []ApplicationQuestion{
+		{ID: ptr(ApplicationQuestionID("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b")), Text: "Notice period in days", Type: QuestionNumber, Required: true, Min: ptr(int64(0)), Max: ptr(int64(MaxQuestionNumber))},
+		{Text: strings.Repeat("界", 500), Type: QuestionShortText},
+		{Text: "Why us?", Type: QuestionLongText},
+		{Text: "Authorized to work in Germany?", Type: QuestionYesNo, Required: true},
+		{Text: "Preferred office", Type: QuestionSingleChoice, Options: []string{"Berlin", "Munich"}},
+		{Text: "Languages", Type: QuestionMultipleChoice, Options: []string{"a", "b", "c", "d", "e", "f", "g", strings.Repeat("界", 200)}},
+	}
+}
+
+func TestApplicationQuestionValidation(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name, field string
+		change      func([]ApplicationQuestion) []ApplicationQuestion
+	}{
+		{"too many", "questions", func(q []ApplicationQuestion) []ApplicationQuestion { return append(q, q[1], q[2], q[3], q[1], q[2]) }},
+		{"malformed id", "questions.0.id", func(q []ApplicationQuestion) []ApplicationQuestion {
+			q[0].ID = ptr(ApplicationQuestionID("0190A1B2-C3D4-7E5F-8A9B-0C1D2E3F4A5B"))
+			return q
+		}},
+		{"duplicate id", "questions.1.id", func(q []ApplicationQuestion) []ApplicationQuestion {
+			q[1].ID = q[0].ID
+			return q
+		}},
+		{"empty text", "questions.2.text", func(q []ApplicationQuestion) []ApplicationQuestion { q[2].Text = ""; return q }},
+		{"text too long", "questions.2.text", func(q []ApplicationQuestion) []ApplicationQuestion {
+			q[2].Text = strings.Repeat("界", 501)
+			return q
+		}},
+		{"unknown type", "questions.2.type", func(q []ApplicationQuestion) []ApplicationQuestion { q[2].Type = "date"; return q }},
+		{"min below", "questions.0.min", func(q []ApplicationQuestion) []ApplicationQuestion { q[0].Min = ptr(int64(-1)); return q }},
+		{"max above", "questions.0.max", func(q []ApplicationQuestion) []ApplicationQuestion {
+			q[0].Max = ptr(int64(MaxQuestionNumber + 1))
+			return q
+		}},
+		{"min above max", "questions.0.max", func(q []ApplicationQuestion) []ApplicationQuestion {
+			q[0].Min, q[0].Max = ptr(int64(5)), ptr(int64(4))
+			return q
+		}},
+		{"min on text", "questions.1.min", func(q []ApplicationQuestion) []ApplicationQuestion { q[1].Min = ptr(int64(1)); return q }},
+		{"max on choice", "questions.4.max", func(q []ApplicationQuestion) []ApplicationQuestion { q[4].Max = ptr(int64(1)); return q }},
+		{"options on number", "questions.0.options", func(q []ApplicationQuestion) []ApplicationQuestion {
+			q[0].Options = []string{"a", "b"}
+			return q
+		}},
+		{"options on yes no", "questions.3.options", func(q []ApplicationQuestion) []ApplicationQuestion {
+			q[3].Options = []string{}
+			return q
+		}},
+		{"choice without options", "questions.4.options", func(q []ApplicationQuestion) []ApplicationQuestion { q[4].Options = nil; return q }},
+		{"one option", "questions.4.options", func(q []ApplicationQuestion) []ApplicationQuestion {
+			q[4].Options = []string{"Berlin"}
+			return q
+		}},
+		{"nine options", "questions.5.options", func(q []ApplicationQuestion) []ApplicationQuestion {
+			q[5].Options = append(q[5].Options, "i")
+			return q
+		}},
+		{"empty option", "questions.4.options.1", func(q []ApplicationQuestion) []ApplicationQuestion {
+			q[4].Options = []string{"Berlin", ""}
+			return q
+		}},
+		{"option too long", "questions.4.options.1", func(q []ApplicationQuestion) []ApplicationQuestion {
+			q[4].Options = []string{"Berlin", strings.Repeat("界", 201)}
+			return q
+		}},
+		{"duplicate option ignoring case", "questions.4.options.1", func(q []ApplicationQuestion) []ApplicationQuestion {
+			q[4].Options = []string{"Berlin", "BERLIN"}
+			return q
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			content := validOpening()
+			content.Questions = tc.change(validQuestions())
+			if fields := content.Validate(); !reflect.DeepEqual(fields, []string{tc.field}) {
+				t.Fatalf("Validate() = %v, want [%s]", fields, tc.field)
+			}
+		})
+	}
+}
+
+func TestApplicationQuestionBoundaries(t *testing.T) {
+	t.Parallel()
+	content := validOpening()
+	content.Questions = validQuestions()
+	if fields := content.Validate(); len(fields) != 0 {
+		t.Fatalf("Validate() = %v, want none", fields)
+	}
+	if fields := MissingForPublication(content); len(fields) != 0 {
+		t.Fatalf("MissingForPublication() = %v, want none", fields)
+	}
+}
+
+func TestApplicationQuestionNormalizationDoesNotMutateSource(t *testing.T) {
+	t.Parallel()
+	source := validOpening()
+	source.Questions = []ApplicationQuestion{{Text: "  Office  ", Type: QuestionSingleChoice, Options: []string{" Berlin ", "Munich "}}}
+	normalized := source
+	normalized.Normalize()
+	if source.Questions[0].Text != "  Office  " || source.Questions[0].Options[0] != " Berlin " {
+		t.Fatalf("source changed: %+v", source.Questions[0])
+	}
+	want := ApplicationQuestion{Text: "Office", Type: QuestionSingleChoice, Options: []string{"Berlin", "Munich"}}
+	if !reflect.DeepEqual(normalized.Questions[0], want) {
+		t.Fatalf("normalized = %+v, want %+v", normalized.Questions[0], want)
+	}
+}

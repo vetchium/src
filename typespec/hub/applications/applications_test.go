@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs"
 	orgapplications "github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/hiring"
@@ -15,10 +16,29 @@ func TestVocabulariesAreClosedAndCopied(t *testing.T) {
 	t.Parallel()
 	statuses := ApplicationStatuses()
 	if !slices.Equal(statuses, []ApplicationStatus{
-		"applied", "in_review", "interviewing", "offer", "hired",
-		"not_progressing", "withdrawn",
+		"applied", "in_review", "interviewing", "offered", "offer_accepted",
+		"joined", "not_selected", "declined", "withdrawn",
 	}) {
 		t.Fatalf("statuses = %v", statuses)
+	}
+	closed := ClosedStatuses()
+	if !slices.Equal(closed, []ApplicationStatus{
+		"joined", "not_selected", "declined", "withdrawn",
+	}) {
+		t.Fatalf("closed statuses = %v", closed)
+	}
+	closed[0] = "changed"
+	if ClosedStatuses()[0] != Joined {
+		t.Fatal("caller mutated the closed statuses")
+	}
+	for _, status := range closed {
+		if !IsApplicationStatus(status) && status != "changed" {
+			t.Errorf("closed status %q is not a status", status)
+		}
+	}
+	if !IsMyApplicationView(ActiveView) || !IsMyApplicationView(ClosedView) ||
+		IsMyApplicationView("all") {
+		t.Fatal("views are active and closed only")
 	}
 	statuses[0] = "changed"
 	if !IsApplicationStatus(Applied) || IsApplicationStatus("changed") {
@@ -38,12 +58,20 @@ func TestApplyToOpeningRequestNormalizesWithoutMutatingTheCaller(t *testing.T) {
 	request := ApplyToOpeningRequest{
 		Domain: " Example.COM ", OpeningNumber: 1, CoverNote: &note,
 		ReferralAgencyDomain: &agency,
+		Answers: []orgapplications.ApplicationAnswer{{
+			QuestionID: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",
+			Value:      orgapplications.TextAnswer(" Berlin "),
+		}},
 	}
 	normalized := request
 	normalized.Normalize()
 	if normalized.Domain != "example.com" || *normalized.CoverNote != "hello" ||
-		*normalized.ReferralAgencyDomain != "agency.com" {
+		*normalized.ReferralAgencyDomain != "agency.com" ||
+		*normalized.Answers[0].Value.Text != "Berlin" {
 		t.Fatalf("normalized = %+v", normalized)
+	}
+	if *request.Answers[0].Value.Text != " Berlin " {
+		t.Fatal("normalization mutated the caller's answers")
 	}
 	if note != "  hello " {
 		t.Fatal("normalization mutated the caller's note")
@@ -72,8 +100,9 @@ func TestApplyToOpeningRequestValidation(t *testing.T) {
 	}
 	long := orgapplications.ApplicationCoverNote(strings.Repeat("a", 5001))
 	badAgency := orgs.OrgDomain("bad agency")
-	bad := ApplyToOpeningRequest{Domain: "not a domain", CoverNote: &long, ReferralAgencyDomain: &badAgency}
-	want := []string{"domain", "opening_number", "referral_agency_domain", "cover_note"}
+	bad := ApplyToOpeningRequest{Domain: "not a domain", CoverNote: &long, ReferralAgencyDomain: &badAgency,
+		Answers: []orgapplications.ApplicationAnswer{{QuestionID: "x", Value: orgapplications.BooleanAnswer(true)}}}
+	want := []string{"domain", "opening_number", "referral_agency_domain", "cover_note", "answers.0.question_id"}
 	if got := bad.Validate(); !slices.Equal(got, want) {
 		t.Fatalf("fields = %v, want %v", got, want)
 	}
@@ -108,11 +137,19 @@ func TestApplicationReferenceAndMeshReadValidation(t *testing.T) {
 
 func TestListMyApplicationsRequestValidation(t *testing.T) {
 	t.Parallel()
-	if got := (ListMyApplicationsRequest{}).Validate(); len(got) != 0 {
-		t.Fatalf("default request rejected: %v", got)
+	for _, view := range []MyApplicationView{ActiveView, ClosedView} {
+		if got := (ListMyApplicationsRequest{View: view}).Validate(); len(got) != 0 {
+			t.Fatalf("default %s request rejected: %v", view, got)
+		}
+	}
+	for _, view := range []MyApplicationView{"", "all"} {
+		got := (ListMyApplicationsRequest{View: view}).Validate()
+		if !slices.Equal(got, []string{"view"}) {
+			t.Errorf("view %q: fields = %v", view, got)
+		}
 	}
 	for _, limit := range []MyApplicationPageSize{0, 51} {
-		request := ListMyApplicationsRequest{Limit: &limit}
+		request := ListMyApplicationsRequest{View: ActiveView, Limit: &limit}
 		if got := request.Validate(); !slices.Equal(got, []string{"limit"}) {
 			t.Errorf("limit %d: fields = %v", limit, got)
 		}
@@ -120,6 +157,25 @@ func TestListMyApplicationsRequestValidation(t *testing.T) {
 	fifty := MyApplicationPageSize(50)
 	if got := (ListMyApplicationsRequest{Limit: &fifty}).EffectiveLimit(); got != 50 {
 		t.Fatalf("limit = %d", got)
+	}
+}
+
+func TestFindMyOpeningApplicationRequest(t *testing.T) {
+	t.Parallel()
+	request := FindMyOpeningApplicationRequest{
+		Domain: " Example.COM ", OpeningNumber: 2,
+	}
+	normalized := request
+	normalized.Normalize()
+	if normalized.Domain != "example.com" || request.Domain != " Example.COM " {
+		t.Fatalf("normalized = %+v, caller = %+v", normalized, request)
+	}
+	if got := normalized.Validate(); len(got) != 0 {
+		t.Fatalf("valid request rejected: %v", got)
+	}
+	got := (FindMyOpeningApplicationRequest{Domain: "not a domain"}).Validate()
+	if !slices.Equal(got, []string{"domain", "opening_number"}) {
+		t.Fatalf("fields = %v", got)
 	}
 }
 
@@ -149,6 +205,35 @@ func TestMyApplicationValidity(t *testing.T) {
 	}
 }
 
+func TestMyApplicationDetailRequiresIdentifiedAnswers(t *testing.T) {
+	t.Parallel()
+	id := common.ApplicationQuestionID("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b")
+	answer := orgapplications.BooleanAnswer(true)
+	detail := MyApplicationDetail{
+		MyApplication: MyApplication{
+			OrgDomain: "example.com", OrgDisplayName: "Example",
+			OpeningNumber: 1, OpeningTitle: "Engineer", ApplicationNumber: 1,
+			Status: Applied, PendingActions: []PendingActionKind{},
+		},
+		Interviews: []MyApplicationInterview{},
+		Answers: []orgapplications.AnsweredQuestion{{
+			ApplicationQuestion: common.ApplicationQuestion{ID: &id, Text: "Permit?", Type: common.QuestionYesNo},
+			Answer:              &answer,
+		}},
+	}
+	if !detail.Valid() {
+		t.Fatal("valid answers rejected")
+	}
+	detail.Answers[0].ID = nil
+	if detail.Valid() {
+		t.Fatal("an answer without a question id passed")
+	}
+	detail.Answers = nil
+	if detail.Valid() {
+		t.Fatal("a detail without answers passed")
+	}
+}
+
 func TestMyApplicationDetailOfferValidity(t *testing.T) {
 	t.Parallel()
 	date := orgapplications.CalendarDate("2026-12-01")
@@ -156,7 +241,7 @@ func TestMyApplicationDetailOfferValidity(t *testing.T) {
 		MyApplication: MyApplication{
 			OrgDomain: "example.com", OrgDisplayName: "Example",
 			OpeningNumber: 1, OpeningTitle: "Engineer", ApplicationNumber: 1,
-			Status: Offer, PendingActions: []PendingActionKind{OfferResponse},
+			Status: Offered, PendingActions: []PendingActionKind{OfferResponse},
 		},
 		Offer: &MyApplicationOffer{
 			OfferNumber: 1, Status: orgapplications.OfferStatusExtended,
@@ -165,12 +250,14 @@ func TestMyApplicationDetailOfferValidity(t *testing.T) {
 			RespondBy: time.Now().Add(time.Hour), ExtendedAt: time.Now(),
 		},
 		Interviews: []MyApplicationInterview{},
+		Answers:    []orgapplications.AnsweredQuestion{},
 	}
 	if !detail.Valid() {
 		t.Fatal("valid detail rejected")
 	}
 	if !(MyApplicationDetail{
 		MyApplication: detail.MyApplication, Interviews: []MyApplicationInterview{},
+		Answers: []orgapplications.AnsweredQuestion{},
 	}).Valid() {
 		t.Fatal("a detail without an offer was rejected")
 	}
@@ -257,6 +344,7 @@ func TestMyApplicationInterviewValidity(t *testing.T) {
 			Status: Applied, PendingActions: []PendingActionKind{},
 		},
 		Interviews: []MyApplicationInterview{good},
+		Answers:    []orgapplications.AnsweredQuestion{},
 	}
 	if !detail.Valid() {
 		t.Fatal("a valid detail was rejected")
@@ -308,6 +396,7 @@ func TestMyBackgroundCheckConsentValidity(t *testing.T) {
 			Performer: orgapplications.PerformerOrg, RequestedAt: time.Now(),
 		},
 		Interviews: []MyApplicationInterview{},
+		Answers:    []orgapplications.AnsweredQuestion{},
 	}
 	if !detail.Valid() {
 		t.Fatal("valid detail rejected")

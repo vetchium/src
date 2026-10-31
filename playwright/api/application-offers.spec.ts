@@ -5,8 +5,8 @@ import type { DeliverEventRequest } from "typespec/federation/events";
 import type { HubApplicationChangedPayload } from "typespec/federation/hiring";
 import type {
   ApplicationReference,
-  ListMyApplicationsResponse,
   MyApplicationDetail,
+  MyApplicationSummary,
   RespondToOfferRequest,
 } from "typespec/hub/applications/applications";
 import type {
@@ -49,7 +49,7 @@ import {
   type SignedUpOrg,
   signupOrg,
 } from "../lib/orgs-api.ts";
-import { utcDate } from "../lib/orgs-applications.ts";
+import { applicationStages, utcDate } from "../lib/orgs-applications.ts";
 
 const PREFIX = "vetchium-problem-details/";
 const LETTER_INVALID = `${PREFIX}org-offer-letter-invalid`;
@@ -170,8 +170,9 @@ async function publishedOpening(
     ],
   });
   expect(replaced.status(), await replaced.text()).toBe(200);
-  const stages = ((await replaced.json()) as { stages: PipelineStage[] })
-    .stages;
+  const stages = applicationStages(
+    ((await replaced.json()) as { stages: PipelineStage[] }).stages,
+  );
   const reread = await api.getOpening(owner, {
     opening_number: opening.opening_number,
   });
@@ -928,18 +929,16 @@ async function expectProjected(
   await expect
     .poll(
       async () => {
-        const response = await applicant.hub.listMyApplications(
-          {},
+        const response = await applicant.hub.findMyOpeningApplication(
+          {
+            domain: reference.domain,
+            opening_number: reference.opening_number,
+          },
           applicant.token,
         );
-        const listed = (
-          (await response.json()) as ListMyApplicationsResponse
-        ).applications.find(
-          (entry) =>
-            entry.org_domain === reference.domain &&
-            entry.application_number === reference.application_number,
-        );
-        return listed && [listed.status, listed.pending_actions];
+        if (response.status() !== 200) return undefined;
+        const listed = (await response.json()) as MyApplicationSummary;
+        return [listed.status, listed.pending_actions];
       },
       { timeout: 15_000 },
     )
@@ -969,7 +968,7 @@ test("a local applicant reads the offer and its letter, then accepts it once", a
 
     const read = await myApplication(applicant, reference);
     expect(read).toMatchObject({
-      status: "offer",
+      status: "offered",
       pending_actions: ["offer_response"],
       offer: {
         offer_number: 1,
@@ -979,7 +978,13 @@ test("a local applicant reads the offer and its letter, then accepts it once", a
       },
     });
     await expectLetter(read.offer?.letter_url ?? "", letter);
-    await expectProjected(applicant, reference, "offer", ["offer_response"]);
+    await expectProjected(applicant, reference, "offered", ["offer_response"]);
+    const counts = await applicant.hub.myApplicationCounts(applicant.token);
+    expect(await counts.json()).toEqual({
+      active: 1,
+      closed: 0,
+      awaiting_answer: 1,
+    });
 
     await expectProblem(
       await answer(applicant, "accept", { ...reference, offer_number: 2 }),
@@ -1007,7 +1012,7 @@ test("a local applicant reads the offer and its letter, then accepts it once", a
 
     const after = await myApplication(applicant, reference);
     expect(after).toMatchObject({
-      status: "offer",
+      status: "offer_accepted",
       pending_actions: [],
       offer: { status: "accepted" },
     });
@@ -1017,7 +1022,7 @@ test("a local applicant reads the offer and its letter, then accepts it once", a
     expect(
       (await history(world, opening, reference.application_number))[0],
     ).toMatchObject({ action: "offer_accepted", actor: "applicant" });
-    await expectProjected(applicant, reference, "offer", []);
+    await expectProjected(applicant, reference, "offer_accepted", []);
   });
 });
 
@@ -1032,7 +1037,7 @@ test("an applicant in another region declines, opening the letter from the Org's
     const read = await myApplication(applicant, reference);
     expect(new URL(read.offer?.letter_url ?? "").host).toContain("sgp");
     await expectLetter(read.offer?.letter_url ?? "", letter);
-    await expectProjected(applicant, reference, "offer", ["offer_response"]);
+    await expectProjected(applicant, reference, "offered", ["offer_response"]);
 
     const declined = await answer(applicant, "decline", {
       ...reference,
@@ -1045,7 +1050,7 @@ test("an applicant in another region declines, opening the letter from the Org's
     const orgView = await detail(world, opening, reference.application_number);
     expect(orgView.state).toBe("offer_declined");
     expect(orgView.offers[0]?.status).toBe("declined");
-    await expectProjected(applicant, reference, "not_progressing", []);
+    await expectProjected(applicant, reference, "declined", []);
   });
 });
 
@@ -1193,7 +1198,7 @@ test("an unanswered offer expires as declined", async ({ request }) => {
   await withApplicant(request, "sgp", "sgp", async (applicant, world) => {
     const { reference, opening } = await shortlisted(applicant, world);
     await extend(world, opening, reference.application_number, { days: 1 });
-    await expectProjected(applicant, reference, "offer", ["offer_response"]);
+    await expectProjected(applicant, reference, "offered", ["offer_response"]);
     orgSQL(
       `UPDATE vetchium.org_application_offers AS o
        SET extended_at = now() - interval '2 days',
@@ -1220,7 +1225,7 @@ test("an unanswered offer expires as declined", async ({ request }) => {
     expect((await myApplication(applicant, reference)).offer?.status).toBe(
       "expired",
     );
-    await expectProjected(applicant, reference, "not_progressing", []);
+    await expectProjected(applicant, reference, "declined", []);
     await expectProblem(
       await answer(applicant, "accept", { ...reference, offer_number: 1 }),
       409,
@@ -1299,7 +1304,7 @@ test("a tenant that does not home an Org cannot report its applications", async 
       opening_number: 1,
       opening_title: "Forged",
       application_number: applicationNumber,
-      status: "hired",
+      status: "joined",
       pending_actions: [],
       applied_at: new Date().toISOString(),
       last_activity_at: new Date().toISOString(),
@@ -1322,13 +1327,12 @@ test("a tenant that does not home an Org cannot report its applications", async 
     expect((forged.body as { type: string }).type).toBe(
       `${PREFIX}federation-event-origin-mismatch`,
     );
-    const projected = await applicant.hub.listMyApplications(
-      {},
-      applicant.token,
-    );
-    expect(
-      ((await projected.json()) as ListMyApplicationsResponse).applications,
-    ).toEqual([]);
+    const projected = await applicant.hub.myApplicationCounts(applicant.token);
+    expect(await projected.json()).toEqual({
+      active: 0,
+      closed: 0,
+      awaiting_answer: 0,
+    });
     // The Org's own tenant may.
     const genuine = meshPeerRequest("sgp", "usa1", event(), apiCoverage, {
       path: "/api/mesh/events/deliver",

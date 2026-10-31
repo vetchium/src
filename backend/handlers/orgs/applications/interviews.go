@@ -20,6 +20,7 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
+	"backend/internal/feedbackform"
 	"backend/internal/middleware"
 	orgsruntime "backend/internal/orgs"
 )
@@ -336,12 +337,17 @@ func SubmitInterviewFeedback(s *orgsruntime.Server) http.HandlerFunc {
 				if interview.InterviewState != sqlc.VetchiumOrgInterviewStateCompleted {
 					return change{refusal: orgsproblem.InterviewStateConflictError}, false, nil
 				}
+				answers, refusal, err := feedbackform.Encode(interview.FeedbackForm, request.CriteriaAnswers)
+				if refusal != nil || err != nil {
+					return change{refusal: refusal}, false, err
+				}
 				row, err := q.SubmitOrgInterviewFeedback(ctx, sqlc.SubmitOrgInterviewFeedbackParams{
 					ApplicationID: locked.OrgApplicationID, Version: locked.Version,
 					ActorID:         identity.UserID,
 					InterviewNumber: int32(request.InterviewNumber),
 					Recommendation:  string(request.Recommendation),
 					Notes:           string(request.Notes),
+					CriteriaAnswers: answers,
 				})
 				if err != nil {
 					return change{}, false, err

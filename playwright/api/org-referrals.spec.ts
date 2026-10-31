@@ -1,4 +1,5 @@
 import type { ListConversationsResponse } from "typespec/hub/messages/messages";
+import type { GetOrgOpeningResponse } from "typespec/hub/openings/public";
 import type { ListApplicationsResponse } from "typespec/orgs/applications/applications";
 import type { ListCreditedApplicationsResponse } from "typespec/orgs/marketplace/attribution";
 import type {
@@ -56,6 +57,20 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
     const applicant3 = seedApplicant(request, consumer.tenant);
 
     try {
+      // The Hub sees that an agency may be credited, never which one.
+      const read = await applicant1.hub.getOrgOpening(
+        { domain: consumer.org.domain, opening_number: opening.opening_number },
+        applicant1.token,
+      );
+      expect(read.status(), await read.text()).toBe(200);
+      const { opening: publicOpening } =
+        (await read.json()) as GetOrgOpeningResponse;
+      expect(publicOpening).toMatchObject({
+        state: "published",
+        accepts_agency_referrals: true,
+      });
+      expect(JSON.stringify(publicOpening)).not.toContain(provider.org.domain);
+
       // 3. Ineligible referral check (MKT-SRC-003, MKT-TST-001)
       // 3a. Applicant attempts to name an agency with no assigned sourcing engagement
       const ineligibleRes = await applicant1.hub.applyToOpening(

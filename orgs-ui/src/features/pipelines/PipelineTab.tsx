@@ -18,7 +18,9 @@ import {
   rowsFromStages,
   rowsProblem,
   type StageRow,
+  sameForm,
   sameRows,
+  sentForm,
   toInputs,
 } from "./stageRows";
 
@@ -49,6 +51,9 @@ export function PipelineTab({ openingNumber, editable }: Props) {
   const problem = rowsProblem(rows);
   useUnsavedChangesGuard(dirty);
 
+  const stored = new Map(
+    (pipeline?.stages ?? []).map((stage) => [stage.id, stage]),
+  );
   const candidates = new Map(
     (counts.data?.stages ?? []).map((entry) => [entry.stage.id, entry.count]),
   );
@@ -135,8 +140,24 @@ export function PipelineTab({ openingNumber, editable }: Props) {
       providerNote = t("pipeline.inHouse");
     }
 
+    const before = row.id === undefined ? undefined : stored.get(row.id);
+    const submitted = before?.feedback_submitted_count ?? 0;
+    const formChanged =
+      before !== undefined &&
+      !sameForm(sentForm(row), before.feedback_form ?? []);
+
     return (
       <Flex vertical style={{ paddingInlineStart: "2em" }}>
+        {!row.removed && formChanged && submitted > 0 && (
+          <Alert
+            type="warning"
+            showIcon
+            role="status"
+            title={t("pipeline.form.changedWithFeedback", {
+              count: submitted,
+            })}
+          />
+        )}
         {!row.removed && (
           <Typography.Text type="secondary">
             {holdsCandidates

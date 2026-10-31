@@ -1,4 +1,5 @@
 import type {
+  FeedbackCriterion,
   PipelineStage,
   PipelineStageDefinition,
 } from "typespec/orgs/hiring/pipelines";
@@ -12,13 +13,16 @@ import type { PipelineStageInput } from "typespec/orgs/openings/pipeline";
 /**
  * One editable stage. `id` is set for a stage the server already holds; a
  * stage of an Opening's pipeline that is marked `removed` stays visible until
- * the pipeline is saved, so a refusal can be explained beside it.
+ * the pipeline is saved, so a refusal can be explained beside it. `form` is
+ * the feedback form, kept with its criterion ids because a save replaces the
+ * whole form (HP-FRM-002); only an interview stage sends it.
  */
 export interface StageRow {
   key: string;
   id?: string;
   name: string;
   kind: StageKind;
+  form: FeedbackCriterion[];
   removed?: boolean;
 }
 
@@ -29,7 +33,7 @@ function nextKey(): string {
 }
 
 export function newRow(kind: StageKind = "review", name = ""): StageRow {
-  return { key: nextKey(), name, kind };
+  return { key: nextKey(), name, kind, form: [] };
 }
 
 export function rowsFromStages(stages: readonly PipelineStage[]): StageRow[] {
@@ -38,6 +42,7 @@ export function rowsFromStages(stages: readonly PipelineStage[]): StageRow[] {
     id: stage.id,
     name: stage.name,
     kind: stage.kind,
+    form: stage.feedback_form ?? [],
   }));
 }
 
@@ -48,6 +53,7 @@ export function rowsFromDefinitions(
     key: nextKey(),
     name: stage.name,
     kind: stage.kind,
+    form: stage.feedback_form ?? [],
   }));
 }
 
@@ -74,7 +80,7 @@ export function moveRow(
 export function updateRow(
   rows: readonly StageRow[],
   index: number,
-  change: Partial<Pick<StageRow, "name" | "kind" | "removed">>,
+  change: Partial<Pick<StageRow, "name" | "kind" | "form" | "removed">>,
 ): StageRow[] {
   return rows.map((row, position) =>
     position === index ? { ...row, ...change } : row,
@@ -106,13 +112,43 @@ export function sameRows(
         row.id === other.id &&
         row.name === other.name &&
         row.kind === other.kind &&
+        sameForm(sentForm(row), sentForm(other)) &&
         Boolean(row.removed) === Boolean(other.removed)
       );
     })
   );
 }
 
-export type StageRowsProblem = "none" | "empty" | "tooMany" | "name";
+/** The form a save sends: other stage kinds have none. */
+export function sentForm(row: StageRow): FeedbackCriterion[] {
+  return row.kind === "interview" ? row.form : [];
+}
+
+export function sameForm(
+  left: readonly FeedbackCriterion[],
+  right: readonly FeedbackCriterion[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((criterion, index) => {
+      const other = right[index];
+      return (
+        other !== undefined &&
+        criterion.id === other.id &&
+        criterion.text.trim() === other.text.trim() &&
+        criterion.type === other.type &&
+        criterion.required === other.required
+      );
+    })
+  );
+}
+
+export type StageRowsProblem =
+  | "none"
+  | "empty"
+  | "tooMany"
+  | "name"
+  | "criterion";
 
 /** What keeps the kept rows from being saved, as a reason to show. */
 export function rowsProblem(rows: readonly StageRow[]): StageRowsProblem {
@@ -120,7 +156,25 @@ export function rowsProblem(rows: readonly StageRow[]): StageRowsProblem {
   if (kept.length < 1) return "empty";
   if (kept.length > maxPipelineStages) return "tooMany";
   if (kept.some((row) => !isPipelineName(row.name.trim()))) return "name";
+  if (
+    kept.some((row) =>
+      sentForm(row).some((criterion) => criterion.text.trim() === ""),
+    )
+  )
+    return "criterion";
   return "none";
+}
+
+function formField(row: StageRow): { feedback_form?: FeedbackCriterion[] } {
+  const form = sentForm(row);
+  return form.length > 0
+    ? {
+        feedback_form: form.map((criterion) => ({
+          ...criterion,
+          text: criterion.text.trim(),
+        })),
+      }
+    : {};
 }
 
 export function toDefinitions(
@@ -129,6 +183,7 @@ export function toDefinitions(
   return keptRows(rows).map((row) => ({
     name: row.name.trim(),
     kind: row.kind,
+    ...formField(row),
   }));
 }
 
@@ -137,5 +192,6 @@ export function toInputs(rows: readonly StageRow[]): PipelineStageInput[] {
     ...(row.id !== undefined && { id: row.id }),
     name: row.name.trim(),
     kind: row.kind,
+    ...formField(row),
   }));
 }

@@ -7,10 +7,7 @@ import { Card, Col, Row, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { FreeTier } from "typespec/hub/subscriptions/plans";
-import {
-  needsAnswer,
-  useMyApplicationsQuery,
-} from "../features/applications/queries";
+import { useMyApplicationCountsQuery } from "../features/applications/queries";
 import { ProfileProgressCard } from "../features/profile/ProfileProgressCard";
 import { useMyInfoQuery } from "../features/profile/queries";
 import { useMySubscriptionQuery } from "../features/subscriptions/queries";
@@ -19,8 +16,8 @@ export function HomePage() {
   const { t } = useTranslation();
   const { data: me } = useMyInfoQuery();
   const subscription = useMySubscriptionQuery();
-  const applications = useMyApplicationsQuery();
-  const answerNeeded = applications.data?.filter(needsAnswer).length ?? 0;
+  const applicationCounts = useMyApplicationCountsQuery();
+  const answerNeeded = applicationCounts.data?.awaiting_answer ?? 0;
   if (me === undefined) return null;
   // A failed subscription read must not invite a paying user to pay again.
   const showSupport =

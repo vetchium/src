@@ -78,3 +78,59 @@ func TestListPipelineTemplatesValidation(t *testing.T) {
 		t.Fatalf("fields = %v", got)
 	}
 }
+
+func TestFeedbackFormsValidateBoundsKindsAndIDs(t *testing.T) {
+	t.Parallel()
+	criterion := FeedbackCriterion{Text: "Communication", Type: CriterionRating, Required: true}
+	first := FeedbackCriterionID("01900000-0000-7000-8000-000000000001")
+	bad := FeedbackCriterionID("01900000-0000-7000-8000-00000000000A")
+	withID := func(id FeedbackCriterionID) FeedbackCriterion {
+		entry := criterion
+		entry.ID = &id
+		return entry
+	}
+	form := func(count int) []FeedbackCriterion {
+		criteria := make([]FeedbackCriterion, count)
+		for index := range criteria {
+			criteria[index] = criterion
+		}
+		return criteria
+	}
+	interview := func(form ...FeedbackCriterion) PipelineStageDefinition {
+		return PipelineStageDefinition{Name: "Panel", Kind: InterviewStage, FeedbackForm: form}
+	}
+	tests := []struct {
+		name   string
+		stages []PipelineStageDefinition
+		want   []string
+	}{
+		{"ten criteria", []PipelineStageDefinition{interview(form(10)...)}, []string{}},
+		{"eleven criteria", []PipelineStageDefinition{interview(form(11)...)}, []string{"stages.0.feedback_form"}},
+		{"form on a review stage", []PipelineStageDefinition{{Name: "Screen", Kind: ReviewStage, FeedbackForm: form(1)}}, []string{"stages.0.feedback_form"}},
+		{"empty form on a review stage", []PipelineStageDefinition{{Name: "Screen", Kind: ReviewStage, FeedbackForm: []FeedbackCriterion{}}}, []string{}},
+		{"bad text and type", []PipelineStageDefinition{interview(
+			FeedbackCriterion{Text: "", Type: CriterionText},
+			FeedbackCriterion{Text: strings.Repeat("é", 501), Type: "stars"},
+			FeedbackCriterion{Text: strings.Repeat("é", 500), Type: CriterionYesNo},
+		)}, []string{"stages.0.feedback_form.0.text", "stages.0.feedback_form.1.text", "stages.0.feedback_form.1.type"}},
+		{"ids malformed or repeated across stages", []PipelineStageDefinition{
+			interview(withID(first), withID(bad)), interview(withID(first)),
+		}, []string{"stages.0.feedback_form.1.id", "stages.1.feedback_form.0.id"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := CreatePipelineTemplateRequest{Name: "A", Stages: test.stages}.Validate()
+			if !slices.Equal(got, test.want) {
+				t.Fatalf("fields = %v, want %v", got, test.want)
+			}
+		})
+	}
+	request := CreatePipelineTemplateRequest{Name: "A", Stages: []PipelineStageDefinition{
+		interview(FeedbackCriterion{Text: " Depth ", Type: CriterionText}),
+	}}
+	original := request.Stages[0].FeedbackForm
+	request.Normalize()
+	if request.Stages[0].FeedbackForm[0].Text != "Depth" || original[0].Text != " Depth " {
+		t.Fatalf("normalized %+v from %+v", request.Stages[0].FeedbackForm, original)
+	}
+}

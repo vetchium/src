@@ -31,6 +31,8 @@ func TestCreateOpeningNormalizesWithoutMutatingSharedValues(t *testing.T) {
 
 func TestOpeningRequestValidation(t *testing.T) {
 	t.Parallel()
+	existingQuestion := common.ApplicationQuestionID("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b")
+	malformedQuestion := common.ApplicationQuestionID("not-a-uuid")
 	tests := []struct {
 		name   string
 		fields []string
@@ -38,6 +40,13 @@ func TestOpeningRequestValidation(t *testing.T) {
 	}{
 		{"empty team allowed", CreateOpeningRequest{Content: &common.OpeningContent{}, TeamMemberEmails: []common.EmailAddress{}}.Validate(), []string{}},
 		{"missing content and team rejected", CreateOpeningRequest{}.Validate(), []string{"content", "team_member_emails"}},
+		{"create refuses a question id", CreateOpeningRequest{Content: &common.OpeningContent{Questions: []common.ApplicationQuestion{
+			{Text: "New", Type: common.QuestionYesNo},
+			{ID: &existingQuestion, Text: "Old", Type: common.QuestionYesNo},
+		}}, TeamMemberEmails: []common.EmailAddress{}}.Validate(), []string{"content.questions.1.id"}},
+		{"create names a malformed question id once", CreateOpeningRequest{Content: &common.OpeningContent{Questions: []common.ApplicationQuestion{
+			{ID: &malformedQuestion, Text: "Old", Type: common.QuestionYesNo},
+		}}, TeamMemberEmails: []common.EmailAddress{}}.Validate(), []string{"content.questions.0.id"}},
 		{"duplicate team rejected", CreateOpeningRequest{Content: &common.OpeningContent{}, TeamMemberEmails: []common.EmailAddress{"a@example.com", "a@example.com"}}.Validate(), []string{"team_member_emails"}},
 		{"invalid version", DiscardOpeningRequest{OpeningNumber: 1}.Validate(), []string{"version"}},
 		{"invalid number", GetOpeningRequest{}.Validate(), []string{"opening_number"}},

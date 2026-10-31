@@ -313,6 +313,10 @@ model SubmitWorkInterviewFeedbackRequest {
   ...WorkInterviewReference;
   recommendation: Vetchium.Orgs.Applications.InterviewRecommendation;
   notes: Vetchium.Orgs.Applications.InterviewFeedbackNotes;
+
+  /** Answers to the consumer's form for the stage (HP-FRM-004). */
+  @maxItems(10)
+  criteria_answers?: Vetchium.Orgs.Applications.CriterionAnswer[];
 }
 
 model RecordWorkAssessmentRequest {
@@ -676,7 +680,8 @@ interface WorkOperations {
     | WorkWriteErrors
     | Vetchium.Problem.OrgInterviewNotFoundErrorResponse
     | Vetchium.Problem.OrgInterviewStateConflictErrorResponse
-    | Vetchium.Problem.OrgInterviewFeedbackExistsErrorResponse;
+    | Vetchium.Problem.OrgInterviewFeedbackExistsErrorResponse
+    | Vetchium.Problem.OrgInterviewFeedbackAnswersInvalidErrorResponse;
 
   /** Records the assessment result of a routed candidacy, once. */
   @route("/record-work-assessment")

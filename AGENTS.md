@@ -67,6 +67,7 @@ Read every guide that applies before changing files.
 | [`marketplace.md`](agent-guides/marketplace.md) | Capabilities, Listings, engagements, provider work, submissions, activity statements |
 | [`ai.md`](agent-guides/ai.md) | AI operations, model catalog, AI credits, metering, kept prompts |
 | [`video-demos.md`](agent-guides/video-demos.md) | the scripted product demo video |
+| [`feature-build.md`](agent-guides/feature-build.md) | planning and building one feature as resumable tasks |
 
 Guides compose: a handler using PostgreSQL needs `go.md`, `backend.md`, and
 `database.md`. A scoped `AGENTS.md` lists the baseline guides for its tree; the
@@ -85,9 +86,15 @@ nearest one wins on conflict, and a specific guide wins over a general one.
   the code.
 - Documentation layout:
   - Agent instructions live only in `AGENTS.md` files and `agent-guides/`,
-    each rule in one place.
+    each rule in one place. A `.claude/skills/` entry only points to a guide.
   - `README.md` holds human developer instructions; `deploy/README.md` the
     production runbook.
   - `docs/` holds only `todo.md`, the deferred-work list.
 - Write guides tersely: imperative bullets, exact values, a reason only when a
   rule would otherwise be misapplied. No history, plans, or ledgers.
+
+## Feature builds
+
+To plan a new feature, follow
+[`feature-build.md`](agent-guides/feature-build.md) Intake and Plan. When the
+user's whole message is `resume` (or `start`), follow its Resume section.

@@ -1125,6 +1125,7 @@ export const en = {
     empty: "No Openings are available to you for these filters.",
     quota: "Openings created in the last 365 days: {{used}} of {{limit}}",
     fields: {
+      details: "Details",
       title: "Title",
       description: "Description",
       language: "Language",
@@ -1140,6 +1141,7 @@ export const en = {
       experienceYears: "Experience in years",
       minimumEducation: "Minimum education",
       salary: "Salary",
+      questions: "Application questions",
     },
     filters: {
       more: "More filters",
@@ -1210,8 +1212,12 @@ export const en = {
     discardedDraft: "Draft discarded.",
     revision: "Revision",
     expiresAt: "Expires",
-    pendingRequest: "Pending request",
     publicationMissing: "Complete these fields before publishing:",
+    pendingRequestTitle: "Pending request: {{kind}}",
+    completeInEditor: "Complete them in the editor",
+    publishBlocked: "Publishing needs the fields listed above.",
+    changedFields: "Changed in the working copy: {{fields}}",
+    noChangedFields: "The working copy matches the live content.",
     actions: {
       title: "Opening actions",
       effects: {
@@ -1257,7 +1263,6 @@ export const en = {
     copied: "URL copied.",
     copyFailed: "Could not copy the URL.",
     liveContent: "Live content",
-    draftContent: "Draft content",
     workingContent: "Working copy",
     notSet: "Not set",
     notFound: "Opening not found or unavailable.",
@@ -1318,17 +1323,33 @@ export const en = {
           "Saving updates this draft. Candidates see nothing until it is published.",
         revisionHelp:
           "Changes are saved as a revision. Candidates keep seeing the live Opening until the revision is published.",
-        nextStep:
-          "After saving, publish the Opening or submit it for approval from its page.",
       },
       checklist: {
         title: "Publication checklist",
         progress: "{{done}}/{{total}}",
         help: "You can save at any time. Publishing needs every item below.",
         ready: "Everything needed to publish is in place.",
-        done: "Complete",
-        missing: "Not complete",
       },
+      steps: {
+        missing: "Missing: {{fields}}",
+        incomplete: "Finish or remove the incomplete entries.",
+        invalid: "Check the marked fields.",
+        complete: "Complete",
+      },
+      saveAnd: {
+        publish: "Save and publish",
+        publishRequest: "Save and submit for approval",
+        revise: "Save and publish changes",
+        reviseRequest: "Save and submit changes for approval",
+      },
+      publishBlocked_one: "Complete {{count}} more item to publish.",
+      publishBlocked_other: "Complete {{count}} more items to publish.",
+      publishDone: {
+        publish: "Saved and published.",
+        revise: "Saved and published the changes.",
+        submitted: "Saved and submitted for approval.",
+      },
+      publishFailed: "Saved, but not published: {{reason}}",
       team: "Hiring team and notes",
       recruiter: "Recruiter",
       teamMembers: "Team members",
@@ -1342,6 +1363,77 @@ export const en = {
       preview: "Candidate preview",
       save: "Save",
       createDraft: "Create draft",
+    },
+    preview: {
+      basedIn: "Based in {{country}}",
+      openingPage: "Opening page",
+      applicationForm: "Application form",
+      apply: "Apply",
+      applyHelp:
+        "Your profile goes with your application, with an optional cover note.",
+      applyHelpQuestions_one:
+        "Your profile goes with your application, with answers to {{count}} question.",
+      applyHelpQuestions_other:
+        "Your profile goes with your application, with answers to {{count}} questions.",
+      noQuestions:
+        "This Opening asks no questions. Applicants send their profile and an optional cover note.",
+      questionsFrom: "Questions from {{org}}",
+      answerRequired: "Answer this question.",
+      yes: "Yes",
+      no: "No",
+      chooseAny: "Choose any that apply.",
+      wholeNumber: "Enter a whole number.",
+      outOfRange: "Enter a whole number: {{bounds}}.",
+    },
+    questions: {
+      summary_one: "{{count}} question, {{required}} required",
+      summary_other: "{{count}} questions, {{required}} required",
+      summaryLine: "{{number}}. {{text}}",
+      untitled: "New question",
+      help: "Optional. Ask applicants up to 10 questions when they apply. Answers are facts for your team to read; Vetchium never scores or rejects applications by them.",
+      number: "Question {{number}}",
+      text: "Question",
+      type: "Answer type",
+      required: "Answer required",
+      min: "Smallest answer",
+      max: "Largest answer",
+      options: "Options",
+      option: "Option {{number}}",
+      optionsHelp: "Applicants pick from {{min}} to {{limit}} options.",
+      optionLimit: "A question has at most {{limit}} options.",
+      addOption: "Add option",
+      removeOption: "Remove option {{number}}",
+      add: "Add question",
+      count: "{{count}} of {{limit}} questions",
+      limitReached: "An Opening asks at most {{limit}} questions.",
+      moveUp: "Move question {{number}} up",
+      moveDown: "Move question {{number}} down",
+      remove: "Remove question {{number}}",
+      textRequired: "Enter the question.",
+      optionRequired: "Enter the option.",
+      optionRepeated: "Each option must be different.",
+      maxBelowMin: "Must be at least the smallest answer.",
+      changedTitle: "These questions differ from the published ones",
+      changed:
+        "Applications already received keep the answers given when applying. Application detail marks the questions you change or remove.",
+      changedReceived_one:
+        "{{count}} application has been received. It keeps the answers given when applying, and application detail marks the questions you change or remove.",
+      changedReceived_other:
+        "{{count}} applications have been received. They keep the answers given when applying, and application detail marks the questions you change or remove.",
+      types: {
+        short_text: "Short text",
+        long_text: "Long text",
+        number: "Whole number",
+        yes_no: "Yes or no",
+        single_choice: "One choice",
+        multiple_choice: "Several choices",
+      },
+      requiredTag: "Required",
+      optionalTag: "Optional",
+      range: "{{min}} to {{max}}",
+      atLeast: "At least {{min}}",
+      atMost: "At most {{max}}",
+      choices: "Options: {{options}}",
     },
     errors: {
       versionConflict:
@@ -1376,6 +1468,19 @@ export const en = {
     },
   },
   applications: {
+    answers: {
+      title: "Answers",
+      yes: "Yes",
+      no: "No",
+      notAnswered: "Not answered",
+      noAnswer: "—",
+      changed: "Question changed",
+      removed: "Question removed",
+      asAsked: "Shown as asked when they applied.",
+    },
+    answerColumns: {
+      label: "Answer columns (up to {{limit}})",
+    },
     removedApplicant: "Removed applicant",
     optional: "Optional",
     search: "Search by name",
@@ -1483,6 +1588,8 @@ export const en = {
       interviewStateConflict:
         "The interview's state or time no longer allows this action. It was reloaded.",
       feedbackExists: "You already gave feedback on this interview.",
+      answersInvalid:
+        "Some answers do not fit this stage's feedback form, which may have just changed. Check the marked criteria.",
       interviewLimit:
         "A stage holds at most {{count}} interviews. Cancel one before scheduling another.",
       interviewersInvalid:
@@ -1728,6 +1835,17 @@ export const en = {
       notesHelp:
         "What you saw and why you recommend this. Up to 10,000 characters.",
       final: "You can submit feedback once; it cannot be edited afterwards.",
+      criterionInvalid: "Check this answer against the criterion.",
+      compare: {
+        heading: "Feedback form answers",
+        title: "Feedback form answers for interview {{number}}",
+        criterion: "Criterion",
+        average: "Average rating",
+        notAsked: "Not asked",
+        changed: "Criterion changed",
+        removed: "Criterion removed",
+        asked: "Asked as: {{text}}",
+      },
     },
     assessment: {
       action: "Record assessment result",
@@ -1907,6 +2025,29 @@ export const en = {
       empty: "A pipeline needs at least one stage.",
       tooMany: "A pipeline has at most 15 stages.",
       name: "Give every stage a name of 1 to 100 characters.",
+      criterion: "Give every feedback form criterion its text.",
+    },
+    form: {
+      toggle_one: "Feedback form for {{stage}} ({{count}} criterion)",
+      toggle_other: "Feedback form for {{stage}} ({{count}} criteria)",
+      unnamed: "this stage",
+      label: "Feedback form for {{stage}}",
+      help: "Optional. Interviewers answer these criteria beside their recommendation and notes.",
+      criterion: "Criterion {{number}} of {{stage}}",
+      criterionPlaceholder: "What should interviewers judge?",
+      type: "Answer type of criterion {{number}} of {{stage}}",
+      types: { rating: "Rating 1–5", yes_no: "Yes or no", text: "Text" },
+      required: "Required",
+      moveUp: "Move criterion {{number}} of {{stage}} up",
+      moveDown: "Move criterion {{number}} of {{stage}} down",
+      remove: "Remove criterion {{number}} of {{stage}}",
+      add: "Add criterion",
+      count: "{{count}} of {{limit}} criteria",
+      limitReached: "A form has at most {{limit}} criteria.",
+      changedWithFeedback_one:
+        "{{count}} interviewer has already submitted feedback here. It keeps its answers, and changed criteria will show as changed.",
+      changedWithFeedback_other:
+        "{{count}} interviewers have already submitted feedback here. Their feedback keeps its answers, and changed criteria will show as changed.",
     },
     errors: {
       inUse:
@@ -2013,6 +2154,17 @@ export const en = {
       interviewing: "Interviewing",
       assessment: "Assessment",
       background_check: "Background check",
+    },
+    hubStatuses: {
+      applied: "Applied",
+      in_review: "In review",
+      interviewing: "Interviewing",
+      offered: "Offered",
+      offer_accepted: "Offer accepted",
+      joined: "Joined",
+      not_selected: "Not selected",
+      declined: "Declined by candidate",
+      withdrawn: "Withdrawn",
     },
     routes: {
       suggested: "Suggested",

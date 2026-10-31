@@ -13,6 +13,7 @@ import {
   detailOf,
   orgDIDSQL,
   publishedOpening,
+  setStageForm,
   stageOf,
   utcDate,
 } from "../lib/orgs-applications.ts";
@@ -488,5 +489,122 @@ test("an offer is extended with a letter, withdrawn, and extended again", async 
     expect((await detailOf(api, owner, n, application)).state).toBe(
       "in_pipeline",
     );
+  });
+});
+
+test("interviewers answer the stage's feedback form, and readers compare the answers", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner, world) => {
+    const panelist = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      `panel-${randomUUID()}@${org.domain}`,
+    );
+    const { opening, stages } = await publishedOpening(api, owner, org, {
+      stages: [...pipeline],
+    });
+    const n = opening.opening_number;
+    const [depth, again] = await setStageForm(api, owner, n, 2, [
+      { text: "Depth", type: "rating", required: true },
+      { text: "Hire again", type: "yes_no", required: false },
+    ]);
+    if (!depth?.id || !again?.id) throw new Error("criteria carry ids");
+    const application = await candidateAt(world, n, stageOf(stages, 2));
+    const before = await detailOf(api, owner, n, application);
+    const scheduled = await api.scheduleInterview(owner, {
+      opening_number: n,
+      application_number: application,
+      version: before.version,
+      start_time: new Date(Date.now() + 3_600_000).toISOString(),
+      duration_minutes: 45,
+      mode: "video",
+      video_url: "https://meet.example.com/room",
+      interviewer_emails: [org.emailAddress, panelist.emailAddress],
+    });
+    expect(scheduled.status(), await scheduled.text()).toBe(200);
+    applicationRowsSQL(
+      org.domain,
+      n,
+      application,
+      "org_interviews",
+      "starts_at = now() - interval '1 hour'",
+    );
+    const held = await api.recordInterviewOutcome(owner, {
+      opening_number: n,
+      application_number: application,
+      version: (await detailOf(api, owner, n, application)).version,
+      interview_number: 1,
+      outcome: "completed",
+    });
+    expect(held.status(), await held.text()).toBe(200);
+    const panel = await api.submitInterviewFeedback(panelist.token, {
+      opening_number: n,
+      application_number: application,
+      version: (await detailOf(api, owner, n, application)).version,
+      interview_number: 1,
+      recommendation: "no",
+      notes: "Shallow answers",
+      criteria_answers: [{ criterion_id: depth.id, value: 2 }],
+    });
+    expect(panel.status(), await panel.text()).toBe(200);
+
+    await signIn(page, org);
+    await page.goto(applicationURL(n, application));
+    await page.getByRole("button", { name: "Give feedback" }).click();
+    const feedback = page.getByRole("dialog", {
+      name: "Feedback on interview 1",
+    });
+    const submit = feedback.getByRole("button", { name: "Submit feedback" });
+    await feedback.getByRole("radio", { name: "Strong yes" }).check();
+    await feedback.getByLabel("Notes").fill("Clear and deep");
+    // The required rating is still missing.
+    await expect(submit).toBeDisabled();
+    await feedback
+      .getByRole("radiogroup", { name: "Depth" })
+      .getByText("4", { exact: true })
+      .click();
+    await feedback
+      .getByRole("radiogroup", { name: "Hire again" })
+      .getByRole("radio", { name: "Yes", exact: true })
+      .check();
+    await submit.click();
+    await expect(page.getByText("Feedback submitted.").first()).toBeVisible();
+
+    // Rewording a criterion with feedback submitted warns on the Pipeline tab.
+    await page.goto(`${ORGS_PORTAL}/openings/${n}?tab=pipeline`);
+    await expect(
+      page.getByRole("textbox", { name: "Criterion 2 of Panel" }),
+    ).toHaveValue("Hire again");
+    await page
+      .getByRole("textbox", { name: "Criterion 2 of Panel" })
+      .fill("Would hire again");
+    await expect(
+      page.getByText(
+        "2 interviewers have already submitted feedback here. Their feedback keeps its answers, and changed criteria will show as changed.",
+      ),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Save pipeline" }).click();
+    await expect(page.getByText("Unsaved changes")).toHaveCount(0);
+
+    await page.goto(applicationURL(n, application));
+    const table = page.getByRole("table", {
+      name: "Feedback form answers for interview 1",
+    });
+    const depthRow = table.getByRole("row", { name: /^Depth/ });
+    // Columns follow submission order: the panelist answered first.
+    await expect(depthRow.getByRole("cell")).toHaveText([
+      "Depth",
+      "2",
+      "4",
+      "3",
+    ]);
+    const againRow = table.getByRole("row", { name: /^Would hire again/ });
+    await expect(againRow).toContainText("Yes");
+    await expect(againRow).toContainText("Criterion changed");
+    await expect(againRow).toContainText("Asked as: Hire again");
+    await expect(againRow).toContainText("Not answered");
   });
 });

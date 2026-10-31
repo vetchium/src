@@ -1,10 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 import type { OpeningContent } from "typespec/common/openings";
-import type {
-  ApplicationReference,
-  ListMyApplicationsResponse,
-} from "typespec/hub/applications/applications";
+import type { ApplicationReference } from "typespec/hub/applications/applications";
 import type {
   ApplicationDetail,
   ApplicationHistoryEntry,
@@ -59,6 +56,9 @@ function content(title: string): OpeningContent {
     work_arrangement: "hybrid",
     employment_type: "full_time",
     positions: 1,
+    questions: [
+      { text: "Notice period?", type: "short_text", required: false },
+    ],
   };
 }
 
@@ -213,7 +213,11 @@ async function publishedOpening(
     opening_number: opening.opening_number,
     version: opening.version,
     stages: [
-      { name: "Panel", kind: "interview" },
+      {
+        name: "Panel",
+        kind: "interview",
+        feedback_form: [{ text: "Depth", type: "text", required: true }],
+      },
       { name: "Checks", kind: "background_check" },
     ],
   });
@@ -253,14 +257,16 @@ async function version(
 async function apply(
   applicant: Applicant,
   world: World,
-  opening: number,
+  opening: OrgOpening,
   coverNote?: string,
 ): Promise<ApplicationReference> {
+  const notice = opening.live_content?.questions?.[0]?.id ?? "";
   const response = await applicant.hub.applyToOpening(
     {
       domain: world.org.domain,
-      opening_number: opening,
+      opening_number: opening.opening_number,
       ...(coverNote ? { cover_note: coverNote } : {}),
+      answers: [{ question_id: notice, value: "Thirty days" }],
     },
     { token: applicant.token, idempotencyKey: hubIdempotencyKey() },
   );
@@ -318,17 +324,14 @@ async function expectMyListing(
   await expect
     .poll(
       async () => {
-        const response = await applicant.hub.listMyApplications(
-          {},
+        const response = await applicant.hub.findMyOpeningApplication(
+          {
+            domain: reference.domain,
+            opening_number: reference.opening_number,
+          },
           applicant.token,
         );
-        return (
-          (await response.json()) as ListMyApplicationsResponse
-        ).applications.some(
-          (entry) =>
-            entry.org_domain === reference.domain &&
-            entry.application_number === reference.application_number,
-        );
+        return response.status() === 200;
       },
       { timeout: 20_000 },
     )
@@ -351,7 +354,7 @@ for (const [applicantTenant, orgTenant, label] of [
         const reference = await apply(
           applicant,
           world,
-          opening.opening_number,
+          opening,
           "Please consider my application",
         );
         const number = reference.application_number;
@@ -373,11 +376,48 @@ for (const [applicantTenant, orgTenant, label] of [
           interviewer_emails: [world.org.emailAddress],
         });
         expect(scheduled.status(), await scheduled.text()).toBe(200);
+        orgSQL(
+          `UPDATE vetchium.org_interviews AS i
+           SET starts_at = now() - interval '1 hour'
+           FROM vetchium.org_applications AS a
+           JOIN vetchium.org_openings AS o USING (org_opening_id)
+           WHERE a.org_application_id = i.org_application_id
+             AND o.org_did = ${sqlLiteral(world.did)}::uuid
+             AND o.opening_number = ${opening.opening_number}
+             AND a.application_number = ${number}`,
+          world.tenant,
+        );
+        const interview = {
+          opening_number: opening.opening_number,
+          application_number: number,
+          interview_number: 1,
+        };
+        const completed = await world.api.recordInterviewOutcome(world.owner, {
+          ...interview,
+          version: await version(world, opening.opening_number, number),
+          outcome: "completed",
+        });
+        expect(completed.status(), await completed.text()).toBe(200);
+        const criterion = stageOf(stages, 0).feedback_form?.[0]?.id ?? "";
+        const feedback = await world.api.submitInterviewFeedback(world.owner, {
+          ...interview,
+          version: await version(world, opening.opening_number, number),
+          recommendation: "yes",
+          notes: "Hire",
+          criteria_answers: [
+            { criterion_id: criterion, value: "Unusually deep reasoning" },
+          ],
+        });
+        expect(feedback.status(), await feedback.text()).toBe(200);
         await extendOffer(world, opening.opening_number, number, 14);
         const before = await detail(world, opening.opening_number, number);
         expect(before.offers).toHaveLength(1);
         expect(before.interviews).toHaveLength(1);
         expect(before.cover_note).toBe("Please consider my application");
+        expect(before.answers[0]?.answer).toBe("Thirty days");
+        expect(
+          before.interviews[0]?.feedback[0]?.criteria_answers[0]?.answer,
+        ).toBe("Unusually deep reasoning");
         const letterIDs = orgSQL(
           `SELECT coalesce(string_agg(letter_object_id::text, ','), '')
          FROM vetchium.org_application_offers AS f
@@ -421,9 +461,12 @@ for (const [applicantTenant, orgTenant, label] of [
           background_checks: [],
         });
         expect(removed.cover_note).toBeUndefined();
+        expect(removed.answers).toEqual([]);
+        expect(JSON.stringify(removed)).not.toContain("Unusually deep");
         expect(removed.snapshot.display_name).toBe("Removed applicant");
         expect(JSON.stringify(removed)).not.toContain("Ada");
         expect(JSON.stringify(removed)).not.toContain("Please consider");
+        expect(JSON.stringify(removed)).not.toContain("Thirty days");
         expect(JSON.stringify(removed)).not.toContain("retention-room");
 
         const listed = await world.api.listApplications(world.owner, {
@@ -546,7 +589,7 @@ for (const [applicantTenant, orgTenant, label] of [
         );
         const { opening, stages } = await publishedOpening(world);
         const n = opening.opening_number;
-        const reference = await apply(applicant, world, n);
+        const reference = await apply(applicant, world, opening);
         const number = reference.application_number;
         // Applying and the applicant's own actions send nothing.
         expect(await mailCount(applicant.email, orgName)).toBe(0);

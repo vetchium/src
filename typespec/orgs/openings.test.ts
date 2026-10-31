@@ -83,6 +83,34 @@ test("Opening requests reject invalid team, number, version, and state filters",
   );
   assert.deepEqual(
     validateCreateOpeningRequest({
+      content: {
+        questions: [
+          { text: "New", type: "yes_no", required: false },
+          {
+            id: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",
+            text: "Old",
+            type: "yes_no",
+            required: false,
+          },
+        ],
+      },
+      team_member_emails: [],
+    }),
+    ["content.questions.1.id"],
+  );
+  assert.deepEqual(
+    validateCreateOpeningRequest({
+      content: {
+        questions: [
+          { id: "not-a-uuid", text: "Old", type: "yes_no", required: false },
+        ],
+      },
+      team_member_emails: [],
+    }),
+    ["content.questions.0.id"],
+  );
+  assert.deepEqual(
+    validateCreateOpeningRequest({
       content: {},
       team_member_emails: ["a@example.com", "a@example.com"],
     }),

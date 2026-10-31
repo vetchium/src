@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test";
+import type { ApplicationQuestion } from "typespec/common/openings";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
@@ -939,6 +940,260 @@ test("writes bind idempotency keys and suspended Orgs cannot read or write", asy
         403,
       );
     }
+  } finally {
+    await deleteOrgVerificationRecord(org.domain);
+    cleanupOrg(org.domain);
+  }
+});
+
+test("application questions are validated content that approval makes live", async ({
+  request,
+}) => {
+  const api = new OrgsAPI(request);
+  const org = await signupOrg(api);
+  try {
+    const owner = await loginOrg(api, org);
+    const questions: ApplicationQuestion[] = [
+      {
+        text: "  Notice period in days  ",
+        type: "number",
+        required: true,
+        min: 0,
+        max: 90,
+      },
+      { text: "Current role", type: "short_text", required: false },
+      { text: "Why us?", type: "long_text", required: false },
+      {
+        text: "Authorized to work in Singapore?",
+        type: "yes_no",
+        required: true,
+      },
+      {
+        text: "Preferred office",
+        type: "single_choice",
+        required: false,
+        options: [" Raffles ", "Jurong"],
+      },
+      {
+        text: "Languages",
+        type: "multiple_choice",
+        required: false,
+        options: ["English", "Mandarin", "Malay", "Tamil"],
+      },
+    ];
+    const content = {
+      title: "Questions job",
+      description: "Build software",
+      language: "en",
+      employing_country: "SG",
+      work_arrangement: "on_site",
+      employment_type: "full_time",
+      positions: 1,
+    } as const;
+    const refused: [ApplicationQuestion[], string[]][] = [
+      [
+        [
+          {
+            id: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",
+            text: "Old",
+            type: "yes_no",
+            required: false,
+          },
+        ],
+        ["content.questions.0.id"],
+      ],
+      [
+        Array.from({ length: 11 }, (_, index) => ({
+          text: `Question ${index}`,
+          type: "yes_no",
+          required: false,
+        })),
+        ["content.questions"],
+      ],
+      [
+        [
+          {
+            text: "Office",
+            type: "single_choice",
+            required: false,
+            options: ["Raffles", "RAFFLES"],
+          },
+          {
+            text: "Many",
+            type: "multiple_choice",
+            required: false,
+            options: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+          },
+          { text: "Range", type: "number", required: false, min: 5, max: 4 },
+          {
+            text: "Text with options",
+            type: "short_text",
+            required: false,
+            options: ["a", "b"],
+          },
+        ],
+        [
+          "content.questions.0.options.1",
+          "content.questions.1.options",
+          "content.questions.2.max",
+          "content.questions.3.options",
+        ],
+      ],
+    ];
+    for (const [invalid, fields] of refused) {
+      const response = await api.createOpening(owner, {
+        content: { ...content, questions: invalid },
+        team_member_emails: [],
+      });
+      expect(response.status(), await response.text()).toBe(400);
+      const body = await response.json();
+      expect(body.type).toContain("validation-failed");
+      expect(body.fields).toEqual(fields);
+    }
+
+    const createdResponse = await api.createOpening(owner, {
+      content: { ...content, questions },
+      hiring_manager_email: org.emailAddress,
+      recruiter_email: org.emailAddress,
+      team_member_emails: [],
+    });
+    expect(createdResponse.status(), await createdResponse.text()).toBe(201);
+    const created = (await createdResponse.json()) as OrgOpening;
+    const asked = created.working_content?.questions ?? [];
+    expect(asked.map((question) => question.text)).toEqual([
+      "Notice period in days",
+      "Current role",
+      "Why us?",
+      "Authorized to work in Singapore?",
+      "Preferred office",
+      "Languages",
+    ]);
+    expect(asked[4]?.options).toEqual(["Raffles", "Jurong"]);
+    const ids = asked.map((question) => question.id ?? "");
+    expect(new Set(ids).size).toBe(6);
+    for (const id of ids) expect(id).toMatch(/^[0-9a-f-]{36}$/);
+
+    const published = await api.requestOpeningChange(owner, {
+      opening_number: created.opening_number,
+      version: created.version,
+      kind: "publish",
+    });
+    expect(published.status(), await published.text()).toBe(200);
+    const live = (await published.json()) as OrgOpening;
+    expect(live.state).toBe("published");
+    expect(live.live_content?.questions).toEqual(asked);
+
+    // A revision keeps an edited question's id, drops a removed one, and
+    // gives a new question a new id.
+    const first = asked[0];
+    const last = asked[5];
+    if (first === undefined || last === undefined)
+      throw new Error("the created questions are missing");
+    const revised: ApplicationQuestion[] = [
+      { ...first, text: "Notice period in weeks" },
+      { text: "Portfolio link", type: "short_text", required: false },
+      last,
+    ];
+    const unknownID = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: created.opening_number,
+      version: live.version,
+      content: {
+        ...content,
+        questions: [
+          {
+            id: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",
+            text: "Forged",
+            type: "yes_no",
+            required: false,
+          },
+        ],
+      },
+    });
+    expect(unknownID.status(), await unknownID.text()).toBe(400);
+    expect((await unknownID.json()).fields).toEqual(["content.questions.0.id"]);
+    const staleUnknownID = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: created.opening_number,
+      version: live.version - 1,
+      content: {
+        ...content,
+        questions: [
+          {
+            id: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",
+            text: "Forged",
+            type: "yes_no",
+            required: false,
+          },
+        ],
+      },
+    });
+    expect(staleUnknownID.status(), await staleUnknownID.text()).toBe(409);
+    expect((await staleUnknownID.json()).type).toContain(
+      "org-opening-version-conflict",
+    );
+    const savedResponse = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: created.opening_number,
+      version: live.version,
+      content: { ...content, questions: revised },
+    });
+    expect(savedResponse.status(), await savedResponse.text()).toBe(200);
+    const saved = (await savedResponse.json()) as OrgOpening;
+    const working = saved.working_content?.questions ?? [];
+    expect(working.map((question) => question.id)).toEqual([
+      first.id,
+      expect.stringMatching(/^[0-9a-f-]{36}$/),
+      last.id,
+    ]);
+    expect(working[0]?.text).toBe("Notice period in weeks");
+    expect(ids).not.toContain(working[1]?.id);
+    expect(saved.live_content?.questions).toEqual(asked);
+
+    const revisedResponse = await api.requestOpeningChange(owner, {
+      opening_number: created.opening_number,
+      version: saved.version,
+      kind: "revise",
+    });
+    expect(revisedResponse.status(), await revisedResponse.text()).toBe(200);
+    const revisedLive = (await revisedResponse.json()) as OrgOpening;
+    expect(revisedLive.live_content?.questions).toEqual(working);
+
+    const duplicateResponse = await api.duplicateOpening(owner, {
+      opening_number: created.opening_number,
+    });
+    expect(duplicateResponse.status(), await duplicateResponse.text()).toBe(
+      201,
+    );
+    const duplicate = (await duplicateResponse.json()) as OrgOpening;
+    expect(duplicate.working_content?.questions).toEqual(working);
+
+    const clearedResponse = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: duplicate.opening_number,
+      version: duplicate.version,
+      content: { ...content, questions: [] },
+    });
+    expect(clearedResponse.status(), await clearedResponse.text()).toBe(200);
+    const cleared = (await clearedResponse.json()) as OrgOpening;
+    expect(cleared.working_content?.questions).toBeUndefined();
+
+    const onlyQuestionsResponse = await api.createOpening(owner, {
+      content: { title: "Questions only", questions: questions.slice(0, 1) },
+      hiring_manager_email: org.emailAddress,
+      recruiter_email: org.emailAddress,
+      team_member_emails: [],
+    });
+    expect(
+      onlyQuestionsResponse.status(),
+      await onlyQuestionsResponse.text(),
+    ).toBe(201);
+    const onlyQuestions = (await onlyQuestionsResponse.json()) as OrgOpening;
+    const incomplete = await api.requestOpeningChange(owner, {
+      opening_number: onlyQuestions.opening_number,
+      version: onlyQuestions.version,
+      kind: "publish",
+    });
+    expect(incomplete.status(), await incomplete.text()).toBe(422);
+    const missing = (await incomplete.json()).fields as string[];
+    expect(missing).toContain("content.description");
+    expect(missing).not.toContain("content.questions");
   } finally {
     await deleteOrgVerificationRecord(org.domain);
     cleanupOrg(org.domain);

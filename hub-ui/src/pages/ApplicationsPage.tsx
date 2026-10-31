@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   Empty,
+  Flex,
   List,
   Space,
   Spin,
@@ -14,12 +15,19 @@ import {
 } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
-import type { MyApplicationSummary } from "typespec/hub/applications/applications";
+import {
+  ActiveView,
+  ClosedView,
+  type MyApplicationSummary,
+  type MyApplicationView,
+} from "typespec/hub/applications/applications";
 import { regionTable } from "../app/regions";
 import { readSession } from "../auth/session";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
-import { isClosed } from "../features/applications/presentation";
-import { useMyApplicationsQuery } from "../features/applications/queries";
+import {
+  useMyApplicationCountsQuery,
+  useMyApplicationsQuery,
+} from "../features/applications/queries";
 import { StatusTag } from "../features/applications/StatusTag";
 
 export function applicationPath(application: {
@@ -80,20 +88,81 @@ function ApplicationRow({
   );
 }
 
+function ApplicationList({ view }: { view: MyApplicationView }) {
+  const { t } = useTranslation();
+  const applications = useMyApplicationsQuery(view);
+  if (applications.isPending) {
+    return <Spin aria-label={t("applications.loading")} />;
+  }
+  // A failed "Show more" keeps the loaded pages; only a failed first page
+  // replaces the list.
+  if (applications.data === undefined) {
+    return (
+      <Space orientation="vertical">
+        <APIErrorAlert error={applications.error} />
+        <Button onClick={() => void applications.refetch()}>
+          {t("common.retry")}
+        </Button>
+      </Space>
+    );
+  }
+  const shown = applications.data.pages.flatMap((page) => page.applications);
+  if (shown.length === 0) {
+    return (
+      <Empty
+        description={t(
+          view === ClosedView
+            ? "applications.list.emptyClosed"
+            : "applications.list.emptyActive",
+        )}
+      />
+    );
+  }
+  return (
+    <Card>
+      <List
+        dataSource={shown}
+        rowKey={(a) =>
+          `${a.org_domain}/${a.opening_number}/${a.application_number}`
+        }
+        renderItem={(application) => (
+          <ApplicationRow application={application} />
+        )}
+        loadMore={
+          applications.hasNextPage ? (
+            <Flex justify="center">
+              <Button
+                loading={applications.isFetchingNextPage}
+                onClick={() => void applications.fetchNextPage()}
+              >
+                {t("applications.list.more")}
+              </Button>
+            </Flex>
+          ) : null
+        }
+      />
+      {applications.isFetchNextPageError ? (
+        <APIErrorAlert error={applications.error} />
+      ) : null}
+    </Card>
+  );
+}
+
 export function ApplicationsPage() {
   const { t } = useTranslation();
   const [search, setSearch] = useSearchParams();
-  const applications = useMyApplicationsQuery();
-  const tab = search.get("tab") === "closed" ? "closed" : "active";
+  const counts = useMyApplicationCountsQuery();
+  const view = search.get("tab") === ClosedView ? ClosedView : ActiveView;
   // An emailed link names the region of the account it is for. Requests go to
   // the signed-in session's region only, so a link for another account is
   // explained instead of silently showing this one's applications.
   const linkRegion = regionFromSearchParams(regionTable, search);
   const otherRegion =
     linkRegion !== null && linkRegion !== readSession()?.tenantId;
-  const active = applications.data?.filter((a) => !isClosed(a)) ?? [];
-  const closed = applications.data?.filter(isClosed) ?? [];
-  const shown = tab === "closed" ? closed : active;
+  const tabLabel = (label: string, count: number | undefined) =>
+    count === undefined
+      ? label
+      : t("applications.tabs.count", { label, count });
 
   return (
     <Space orientation="vertical" size="large" className="full-width">
@@ -107,64 +176,33 @@ export function ApplicationsPage() {
       {otherRegion ? (
         <Alert type="warning" showIcon title={t("applications.otherRegion")} />
       ) : null}
-      {applications.isPending ? (
-        <Spin aria-label={t("applications.loading")} />
-      ) : applications.isError ? (
-        <Space orientation="vertical">
-          <APIErrorAlert error={applications.error} />
-          <Button onClick={() => void applications.refetch()}>
-            {t("common.retry")}
-          </Button>
-        </Space>
-      ) : (
-        <Tabs
-          activeKey={tab}
-          onChange={(key) =>
-            setSearch(
-              (current) => {
-                const next = new URLSearchParams(current);
-                if (key === "closed") next.set("tab", "closed");
-                else next.delete("tab");
-                return next;
-              },
-              { replace: true },
-            )
-          }
-          items={[
-            {
-              key: "active",
-              label: t("applications.tabs.active", { count: active.length }),
+      <Tabs
+        activeKey={view}
+        destroyOnHidden
+        onChange={(key) =>
+          setSearch(
+            (current) => {
+              const next = new URLSearchParams(current);
+              if (key === ClosedView) next.set("tab", ClosedView);
+              else next.delete("tab");
+              return next;
             },
-            {
-              key: "closed",
-              label: t("applications.tabs.closed", { count: closed.length }),
-            },
-          ]}
-        />
-      )}
-      {applications.isSuccess ? (
-        shown.length === 0 ? (
-          <Empty
-            description={t(
-              tab === "closed"
-                ? "applications.list.emptyClosed"
-                : "applications.list.emptyActive",
-            )}
-          />
-        ) : (
-          <Card>
-            <List
-              dataSource={shown}
-              rowKey={(a) =>
-                `${a.org_domain}/${a.opening_number}/${a.application_number}`
-              }
-              renderItem={(application) => (
-                <ApplicationRow application={application} />
-              )}
-            />
-          </Card>
-        )
-      ) : null}
+            { replace: true },
+          )
+        }
+        items={[
+          {
+            key: ActiveView,
+            label: tabLabel(t("applications.tabs.active"), counts.data?.active),
+            children: <ApplicationList view={ActiveView} />,
+          },
+          {
+            key: ClosedView,
+            label: tabLabel(t("applications.tabs.closed"), counts.data?.closed),
+            children: <ApplicationList view={ClosedView} />,
+          },
+        ]}
+      />
     </Space>
   );
 }

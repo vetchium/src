@@ -1,15 +1,16 @@
 import {
-  ArrowDownOutlined,
-  ArrowUpOutlined,
-  DeleteOutlined,
+  DownOutlined,
   PlusOutlined,
+  RightOutlined,
   UndoOutlined,
 } from "@ant-design/icons";
 import { Button, Flex, Input, Select, Typography } from "antd";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { maxPipelineStages } from "typespec/orgs/hiring/pipelines";
 import { stageKindValues } from "typespec/orgs/hiring/vocabulary";
+import { OrderControls } from "../../components/common/OrderControls";
+import { FeedbackFormEditor } from "./FeedbackFormEditor";
 import {
   keptRows,
   moveRow,
@@ -30,10 +31,20 @@ interface Props {
 /**
  * An ordered, editable list of stages shared by the template editor and an
  * Opening's Pipeline tab. A stage the server already holds keeps its kind;
- * only a new stage chooses one.
+ * only a new stage chooses one. An interview stage's feedback form is
+ * optional, so it starts closed unless the stage already has one.
  */
 export function StageListEditor({ rows, onChange, disabled, notes }: Props) {
   const { t } = useTranslation();
+  const [openForms, setOpenForms] = useState(
+    () => new Set(rows.filter((row) => row.form.length > 0).map((r) => r.key)),
+  );
+  const toggleForm = (key: string) =>
+    setOpenForms((current) => {
+      const next = new Set(current);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
   const keptCount = keptRows(rows).length;
   let position = 0;
   return (
@@ -89,26 +100,21 @@ export function StageListEditor({ rows, onChange, disabled, notes }: Props) {
                 onChange={(kind) => onChange(updateRow(rows, index, { kind }))}
               />
               {kept ? (
-                <Flex gap={4}>
-                  <Button
-                    icon={<ArrowUpOutlined />}
-                    aria-label={t("pipeline.moveUp", { number })}
-                    disabled={disabled || keptIndex === 0}
-                    onClick={() => onChange(moveRow(rows, index, -1))}
-                  />
-                  <Button
-                    icon={<ArrowDownOutlined />}
-                    aria-label={t("pipeline.moveDown", { number })}
-                    disabled={disabled || keptIndex === keptCount - 1}
-                    onClick={() => onChange(moveRow(rows, index, 1))}
-                  />
-                  <Button
-                    icon={<DeleteOutlined />}
-                    aria-label={t("pipeline.remove", { number })}
-                    disabled={disabled || keptCount <= 1}
-                    onClick={() => onChange(removeRow(rows, index))}
-                  />
-                </Flex>
+                <OrderControls
+                  labels={{
+                    up: t("pipeline.moveUp", { number }),
+                    down: t("pipeline.moveDown", { number }),
+                    remove: t("pipeline.remove", { number }),
+                  }}
+                  first={keptIndex === 0}
+                  last={keptIndex === keptCount - 1}
+                  disabled={disabled}
+                  removeDisabled={keptCount <= 1}
+                  onMove={(direction) =>
+                    onChange(moveRow(rows, index, direction))
+                  }
+                  onRemove={() => onChange(removeRow(rows, index))}
+                />
               ) : (
                 <Button
                   icon={<UndoOutlined />}
@@ -122,6 +128,39 @@ export function StageListEditor({ rows, onChange, disabled, notes }: Props) {
                 </Button>
               )}
             </Flex>
+            {kept && row.kind === "interview" && (
+              <Flex vertical gap="small" style={{ paddingInlineStart: "2em" }}>
+                <Button
+                  type="link"
+                  size="small"
+                  style={{ alignSelf: "flex-start", paddingInline: 0 }}
+                  icon={
+                    openForms.has(row.key) ? (
+                      <DownOutlined />
+                    ) : (
+                      <RightOutlined />
+                    )
+                  }
+                  aria-expanded={openForms.has(row.key)}
+                  onClick={() => toggleForm(row.key)}
+                >
+                  {t("pipeline.form.toggle", {
+                    stage: row.name.trim() || t("pipeline.form.unnamed"),
+                    count: row.form.length,
+                  })}
+                </Button>
+                {openForms.has(row.key) && (
+                  <FeedbackFormEditor
+                    stage={row.name.trim() || t("pipeline.form.unnamed")}
+                    form={row.form}
+                    disabled={disabled}
+                    onChange={(form) =>
+                      onChange(updateRow(rows, index, { form }))
+                    }
+                  />
+                )}
+              </Flex>
+            )}
             {notes?.(row)}
           </Flex>
         );

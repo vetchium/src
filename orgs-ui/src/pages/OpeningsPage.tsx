@@ -47,6 +47,7 @@ import {
 import { APIError } from "../api/client";
 import { paths } from "../app/paths";
 import { useMyInfoQuery } from "../features/account/queries";
+import { openingStateColors } from "../features/openings/presentation";
 import {
   useOpeningSummaryQuery,
   useOpeningsQuery,
@@ -59,15 +60,6 @@ const stateTabs = [
   ...openingStates.filter((state) => state !== "discarded"),
   "discarded",
 ] as const;
-
-const stateColors: Readonly<Record<OpeningState, string | undefined>> = {
-  draft: "processing",
-  published: "success",
-  paused: "warning",
-  closed: undefined,
-  expired: undefined,
-  discarded: "error",
-};
 
 const advancedFilterKeys = [
   "pending_request_kinds",
@@ -165,7 +157,7 @@ export function OpeningsPage() {
       key: "state",
       render: (_, opening) => (
         <Flex gap="small" wrap>
-          <Tag color={stateColors[opening.state]}>
+          <Tag color={openingStateColors[opening.state]}>
             {t(`openings.states.${opening.state}`, {
               defaultValue: opening.state,
             })}

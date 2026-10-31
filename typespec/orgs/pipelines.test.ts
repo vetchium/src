@@ -134,3 +134,56 @@ test("Opening pipeline requests validate ids, bounds, and the template choice", 
     ["pipeline_template_id"],
   );
 });
+
+test("feedback forms belong to interview stages with bounded, unique criteria", () => {
+  const criterion = { text: "Depth", type: "rating", required: true };
+  const panel = (form: (typeof criterion & { id?: string })[]) => ({
+    name: "Panel",
+    kind: "interview" as const,
+    feedback_form: form,
+  });
+  assert.deepEqual(
+    validateCreatePipelineTemplateRequest({
+      name: "A",
+      stages: [panel(Array.from({ length: 10 }, () => criterion))],
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateCreatePipelineTemplateRequest({
+      name: "A",
+      stages: [
+        panel(Array.from({ length: 11 }, () => criterion)),
+        { name: "Screen", kind: "review", feedback_form: [criterion] },
+        panel([
+          { ...criterion, id },
+          { text: " Fit", type: "stars", required: false },
+        ]),
+        panel([{ ...criterion, id }]),
+      ],
+    }),
+    [
+      "stages.0.feedback_form",
+      "stages.1.feedback_form",
+      "stages.2.feedback_form.1.text",
+      "stages.2.feedback_form.1.type",
+      "stages.3.feedback_form.0.id",
+    ],
+  );
+  const request = {
+    opening_number: 1,
+    version: 1,
+    stages: [panel([{ ...criterion, text: " Depth " }])],
+  };
+  const normalized = normalizeReplaceOpeningPipelineRequest(request);
+  assert.equal(normalized.stages[0].feedback_form?.[0]?.text, "Depth");
+  assert.equal(request.stages[0].feedback_form[0].text, " Depth ");
+  assert.deepEqual(validateReplaceOpeningPipelineRequest(normalized), []);
+  assert.deepEqual(
+    validateReplaceOpeningPipelineRequest({
+      ...request,
+      stages: [{ name: "Screen", kind: "review", feedback_form: [criterion] }],
+    }),
+    ["stages.0.feedback_form"],
+  );
+});

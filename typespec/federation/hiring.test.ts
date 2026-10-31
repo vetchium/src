@@ -71,6 +71,15 @@ test("hub-apply validation reports each invalid field", () => {
   assert.deepEqual(
     validateHubApplyPayload({
       ...payload,
+      answers: [
+        { question_id: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b", value: true },
+      ],
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateHubApplyPayload({
+      ...payload,
       referral: { agency_domain: "agency.com", route: "suggested" },
     }),
     [],
@@ -85,6 +94,7 @@ test("hub-apply validation reports each invalid field", () => {
         route: "invalid" as unknown as ReferralRoute,
       },
       cover_note: "a".repeat(5001),
+      answers: [{ question_id: "x", value: "" }],
       snapshot: { ...payload.snapshot, display_name: "" },
     }),
     [
@@ -93,6 +103,7 @@ test("hub-apply validation reports each invalid field", () => {
       "referral.agency_domain",
       "referral.route",
       "cover_note",
+      "answers.0.question_id",
       "snapshot.display_name",
     ],
   );

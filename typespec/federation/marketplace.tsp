@@ -128,6 +128,9 @@ model WorkInterviewFeedbackPayload {
   interview_number: Vetchium.Orgs.Applications.InterviewNumber;
   recommendation: Vetchium.Orgs.Applications.InterviewRecommendation;
   notes: Vetchium.Orgs.Applications.InterviewFeedbackNotes;
+
+  @maxItems(10)
+  criteria_answers?: Vetchium.Orgs.Applications.CriterionAnswer[];
 }
 
 /** Payload of `work-record-assessment`. */
@@ -160,6 +163,7 @@ alias WorkRejections =
   | Vetchium.Problem.OrgInterviewNotFoundErrorResponse
   | Vetchium.Problem.OrgInterviewStateConflictErrorResponse
   | Vetchium.Problem.OrgInterviewFeedbackExistsErrorResponse
+  | Vetchium.Problem.OrgInterviewFeedbackAnswersInvalidErrorResponse
   | Vetchium.Problem.ValidationFailedErrorResponse
   | Vetchium.Problem.FederationInitiatorMismatchErrorResponse;
 

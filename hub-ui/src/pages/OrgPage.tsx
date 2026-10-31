@@ -1,11 +1,19 @@
 import {
+  ClockCircleOutlined,
+  EnvironmentOutlined,
+  LaptopOutlined,
+} from "@ant-design/icons";
+import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
+import {
   Avatar,
   Button,
   Card,
   Empty,
+  Flex,
   Input,
   Select,
   Space,
+  Tag,
   Typography,
 } from "antd";
 import { useState } from "react";
@@ -58,6 +66,7 @@ export function OrgHeader({ org }: { org: PublicOrg }) {
 
 export function OrgPage() {
   const { t, i18n } = useTranslation();
+  const { date } = useDateTimeFormat();
   const domain = normalizeOrgDomain(useParams().domain ?? "");
   const validDomain = isOrgDomain(domain);
   const [country, setCountry] = useState<string | undefined>();
@@ -164,32 +173,58 @@ export function OrgPage() {
           {result.data.openings.length === 0 ? (
             <Empty description={t("orgPage.empty")} />
           ) : (
-            result.data.openings.map((opening) => (
-              <Card key={opening.opening_number}>
-                <Link
-                  to={`/org/${encodeURIComponent(domain)}/openings/${opening.opening_number}`}
-                >
-                  <Typography.Title level={3}>{opening.title}</Typography.Title>
-                </Link>
-                <Space wrap>
-                  <Typography.Text>
-                    {countries.find(
-                      (entry) => entry.value === opening.employing_country,
-                    )?.label ?? opening.employing_country}
-                  </Typography.Text>
-                  <Typography.Text>
-                    {t(`orgPage.workArrangements.${opening.work_arrangement}`, {
-                      defaultValue: opening.work_arrangement,
-                    })}
-                  </Typography.Text>
-                  <Typography.Text>
-                    {t(`orgPage.employmentTypes.${opening.employment_type}`, {
-                      defaultValue: opening.employment_type,
-                    })}
-                  </Typography.Text>
-                </Space>
-              </Card>
-            ))
+            <Flex vertical gap="middle">
+              {result.data.openings.map((opening) => (
+                <Card key={opening.opening_number} size="small">
+                  <Flex vertical gap="small">
+                    <Link
+                      to={`/org/${encodeURIComponent(domain)}/openings/${opening.opening_number}`}
+                    >
+                      <Typography.Title level={4}>
+                        {opening.title}
+                      </Typography.Title>
+                    </Link>
+                    <Flex gap="small" wrap>
+                      <Tag
+                        icon={<EnvironmentOutlined aria-hidden />}
+                        variant="filled"
+                      >
+                        {countries.find(
+                          (entry) => entry.value === opening.employing_country,
+                        )?.label ?? opening.employing_country}
+                      </Tag>
+                      <Tag
+                        icon={<LaptopOutlined aria-hidden />}
+                        variant="filled"
+                      >
+                        {t(
+                          `orgPage.workArrangements.${opening.work_arrangement}`,
+                          {
+                            defaultValue: opening.work_arrangement,
+                          },
+                        )}
+                      </Tag>
+                      <Tag
+                        icon={<ClockCircleOutlined aria-hidden />}
+                        variant="filled"
+                      >
+                        {t(
+                          `orgPage.employmentTypes.${opening.employment_type}`,
+                          {
+                            defaultValue: opening.employment_type,
+                          },
+                        )}
+                      </Tag>
+                      <Typography.Text type="secondary">
+                        {t("orgPage.posted", {
+                          date: date(opening.first_published_at, "medium"),
+                        })}
+                      </Typography.Text>
+                    </Flex>
+                  </Flex>
+                </Card>
+              ))}
+            </Flex>
           )}
           <Space>
             {pages.length > 1 && (

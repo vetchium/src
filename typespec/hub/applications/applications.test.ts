@@ -2,19 +2,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ActiveView,
   applicationStatusValues,
+  ClosedView,
+  closedApplicationStatuses,
   effectiveListMyApplicationsLimit,
   isApplicationStatus,
+  isMyApplicationView,
   isPendingActionKind,
   myInterviewStateValues,
   normalizeApplicationReference,
   normalizeApplyToOpeningRequest,
+  normalizeFindMyOpeningApplicationRequest,
   normalizeRequestInterviewRescheduleRequest,
   pendingActionKindValues,
   validateAcceptInterviewRequest,
   validateApplicationReference,
   validateApplyToOpeningRequest,
   validateBackgroundCheckConsentRequest,
+  validateFindMyOpeningApplicationRequest,
   validateListMyApplicationsRequest,
   validateRequestInterviewRescheduleRequest,
   validateRespondToOfferRequest,
@@ -26,11 +32,22 @@ test("the Hub status and pending action vocabularies match the contract", () => 
     "applied",
     "in_review",
     "interviewing",
-    "offer",
-    "hired",
-    "not_progressing",
+    "offered",
+    "offer_accepted",
+    "joined",
+    "not_selected",
+    "declined",
     "withdrawn",
   ]);
+  assert.deepEqual(closedApplicationStatuses, [
+    "joined",
+    "not_selected",
+    "declined",
+    "withdrawn",
+  ]);
+  assert.equal(isMyApplicationView(ActiveView), true);
+  assert.equal(isMyApplicationView(ClosedView), true);
+  assert.equal(isMyApplicationView("all"), false);
   assert.deepEqual(pendingActionKindValues, [
     "interview_response",
     "background_check_consent",
@@ -39,6 +56,8 @@ test("the Hub status and pending action vocabularies match the contract", () => 
   assert.equal(isApplicationStatus("archived"), false);
   assert.equal(isPendingActionKind("sign"), false);
 });
+
+const answerID = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b";
 
 test("apply normalization trims the note and leaves the caller's request", () => {
   const request = {
@@ -58,6 +77,12 @@ test("apply normalization trims the note and leaves the caller's request", () =>
       normalizeApplyToOpeningRequest({ ...request, cover_note: "  " }),
     false,
   );
+  const answers = [{ question_id: answerID, value: [" a "] }];
+  assert.deepEqual(
+    normalizeApplyToOpeningRequest({ ...request, answers }).answers,
+    [{ question_id: answerID, value: ["a"] }],
+  );
+  assert.deepEqual(answers[0]?.value, [" a "]);
 });
 
 test("apply validation reports each invalid field", () => {
@@ -76,8 +101,16 @@ test("apply validation reports each invalid field", () => {
       opening_number: 0,
       cover_note: "a".repeat(5001),
       referral_agency_domain: "not an agency domain",
+      answers: [{ question_id: "x", value: 1.5 }],
     }),
-    ["domain", "opening_number", "referral_agency_domain", "cover_note"],
+    [
+      "domain",
+      "opening_number",
+      "referral_agency_domain",
+      "cover_note",
+      "answers.0.question_id",
+      "answers.0.value",
+    ],
   );
 });
 
@@ -106,11 +139,41 @@ test("application references and mesh reads validate every field", () => {
   );
 });
 
-test("list validation bounds the limit and defaults it to 50", () => {
-  assert.equal(effectiveListMyApplicationsLimit({}), 50);
-  assert.deepEqual(validateListMyApplicationsRequest({ limit: 50 }), []);
-  assert.deepEqual(validateListMyApplicationsRequest({ limit: 51 }), ["limit"]);
-  assert.deepEqual(validateListMyApplicationsRequest({ limit: 0 }), ["limit"]);
+test("list validation requires a view, bounds the limit, and defaults it to 50", () => {
+  assert.equal(effectiveListMyApplicationsLimit({ view: ActiveView }), 50);
+  assert.deepEqual(
+    validateListMyApplicationsRequest({ view: ClosedView, limit: 50 }),
+    [],
+  );
+  assert.deepEqual(
+    validateListMyApplicationsRequest({ view: ActiveView, limit: 51 }),
+    ["limit"],
+  );
+  assert.deepEqual(
+    validateListMyApplicationsRequest({ view: ActiveView, limit: 0 }),
+    ["limit"],
+  );
+  assert.deepEqual(
+    validateListMyApplicationsRequest({
+      view: "all" as typeof ActiveView,
+    }),
+    ["view"],
+  );
+});
+
+test("finding the application to an Opening normalizes the domain", () => {
+  const request = { domain: " Example.COM ", opening_number: 2 };
+  const normalized = normalizeFindMyOpeningApplicationRequest(request);
+  assert.equal(normalized.domain, "example.com");
+  assert.equal(request.domain, " Example.COM ");
+  assert.deepEqual(validateFindMyOpeningApplicationRequest(normalized), []);
+  assert.deepEqual(
+    validateFindMyOpeningApplicationRequest({
+      domain: "not a domain",
+      opening_number: 0,
+    }),
+    ["domain", "opening_number"],
+  );
 });
 
 test("offer answers name a positive offer number", () => {

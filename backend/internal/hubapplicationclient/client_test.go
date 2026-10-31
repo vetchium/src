@@ -10,6 +10,7 @@ import (
 	"time"
 
 	hubspec "github.com/vetchium/src/typespec/hub/applications"
+	orgapplications "github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/problem"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 )
@@ -34,6 +35,7 @@ func application() hubspec.MyApplication {
 func detail(application hubspec.MyApplication) hubspec.MyApplicationDetail {
 	return hubspec.MyApplicationDetail{
 		MyApplication: application, Interviews: []hubspec.MyApplicationInterview{},
+		Answers: []orgapplications.AnsweredQuestion{},
 	}
 }
 
@@ -62,6 +64,7 @@ func TestRelayGetReturnsOnlyTheRequestedValidApplication(t *testing.T) {
 	}
 	offered := hubspec.MyApplicationDetail{
 		MyApplication: application(), Interviews: []hubspec.MyApplicationInterview{},
+		Answers: []orgapplications.AnsweredQuestion{},
 		Offer: &hubspec.MyApplicationOffer{
 			OfferNumber: 1, Status: "extended",
 			LetterURL:      "https://media.sgp.vetchium.com/org-offer-letters/x",

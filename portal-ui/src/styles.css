@@ -53,6 +53,12 @@
   gap: 16px;
 }
 
+/* Matches SidePanel's 24px offset, leaving the same gap below the panel. */
+.side-panel {
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+
 .shell-navigation-header {
   padding: 16px 16px 8px;
 }

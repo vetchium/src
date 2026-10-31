@@ -1,6 +1,9 @@
 package orgs
 
-import "github.com/vetchium/src/typespec/problem"
+import (
+	"github.com/vetchium/src/typespec/orgs/hiring"
+	"github.com/vetchium/src/typespec/problem"
+)
 
 var ApplicationNotFoundError = problem.Details{
 	Type:   "vetchium-problem-details/org-application-not-found",
@@ -63,6 +66,28 @@ var InterviewFeedbackExistsError = problem.Details{
 	Title:  "Org interview feedback exists",
 	Status: 409,
 	Detail: "The caller already submitted feedback on the interview",
+}
+
+// InterviewFeedbackAnswersInvalidType is the type of the HP-FRM-003 refusal.
+const InterviewFeedbackAnswersInvalidType = "vetchium-problem-details/org-interview-feedback-answers-invalid"
+
+type InterviewFeedbackAnswersInvalidDetails struct {
+	problem.Details
+	CriterionIDs []hiring.FeedbackCriterionID `json:"criterion_ids"`
+}
+
+func InterviewFeedbackAnswersInvalidError(
+	criterionIDs []hiring.FeedbackCriterionID,
+) InterviewFeedbackAnswersInvalidDetails {
+	return InterviewFeedbackAnswersInvalidDetails{
+		Details: problem.Details{
+			Type:   InterviewFeedbackAnswersInvalidType,
+			Title:  "Org interview feedback answers invalid",
+			Status: 422,
+			Detail: "The criteria answers do not fit the stage's feedback form",
+		},
+		CriterionIDs: criterionIDs,
+	}
 }
 
 type InterviewLimitReachedDetails struct {

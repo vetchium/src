@@ -163,7 +163,6 @@ test("apply from suggestion preselects agency referral and submits application",
     );
 
     // Referred by card has provider agency selected
-    await expect(page.getByText("Referred by")).toBeVisible();
     const agencyRadio = page.getByRole("radio", {
       name: /Agency Alpha/,
     });
@@ -181,7 +180,7 @@ test("apply from suggestion preselects agency referral and submits application",
   });
 });
 
-test("declared referral refused for ineligible agency then corrected to no agency", async ({
+test("Referred by shows only with an assigned agency; an ineligible one is refused then corrected", async ({
   page,
   request,
   hubUser,
@@ -193,13 +192,22 @@ test("declared referral refused for ineligible agency then corrected to no agenc
     const user = await hubUser("sgp", { displayName: "Ada Candidate" });
     await signIn(page, user);
 
-    // Navigate directly to apply page
-    await page.goto(
-      `${HUB_PORTAL}/org/${consumer.org.domain}/openings/${opening.opening_number}/apply`,
-    );
+    // No agency works on the Opening, so there is nothing to credit.
+    const applyURL = `${HUB_PORTAL}/org/${consumer.org.domain}/openings/${opening.opening_number}/apply`;
+    await page.goto(applyURL);
     await expect(
       page.getByRole("heading", { name: "Apply", exact: true }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Submit application" }),
+    ).toBeVisible();
+    await expect(page.getByRole("radio", { name: "No agency" })).toHaveCount(0);
+    await expect(page.getByText("Referred by")).toHaveCount(0);
+
+    const sourcing = await activate(pair, "sourcing");
+    await asProvider(pair, sourcing.id, sourcing.version);
+    await assign(world, sourcing.id);
+    await page.goto(applyURL);
 
     // "No agency" is selected by default
     const noAgencyRadio = page.getByRole("radio", { name: "No agency" });

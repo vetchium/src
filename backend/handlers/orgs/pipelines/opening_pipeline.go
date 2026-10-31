@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/vetchium/src/typespec/orgs/hiring"
 	"github.com/vetchium/src/typespec/orgs/openings"
 	"github.com/vetchium/src/typespec/problem"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
@@ -68,10 +69,20 @@ func GetOpeningPipeline(s *orgsruntime.Server) http.HandlerFunc {
 }
 
 type replacementStage struct {
-	ID    string `json:"id"`
-	IsNew bool   `json:"is_new"`
-	Name  string `json:"name"`
-	Kind  string `json:"kind"`
+	ID           string                     `json:"id"`
+	IsNew        bool                       `json:"is_new"`
+	Name         string                     `json:"name"`
+	Kind         string                     `json:"kind"`
+	FeedbackForm []hiring.FeedbackCriterion `json:"feedback_form"`
+}
+
+func editable(state sqlc.VetchiumOrgOpeningState) bool {
+	switch state {
+	case sqlc.VetchiumOrgOpeningStateDraft, sqlc.VetchiumOrgOpeningStatePublished,
+		sqlc.VetchiumOrgOpeningStatePaused:
+		return true
+	}
+	return false
 }
 
 func ReplaceOpeningPipeline(s *orgsruntime.Server) http.HandlerFunc {
@@ -90,11 +101,41 @@ func ReplaceOpeningPipeline(s *orgsruntime.Server) http.HandlerFunc {
 		handlerauth.RunIdempotent(s, w, r, "orgs:replace-opening-pipeline",
 			dbvalue.FormatUUID(identity.UserID), key, request, now.Add(24*time.Hour),
 			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
+				// Criterion ids are checked against the forms read here. A write
+				// that then succeeds saw the same version, so no other edit
+				// changed the forms in between; any other outcome is refused
+				// by the guarded write as before.
+				current, state, err := openingPipeline(r, q, identity, request.OpeningNumber)
+				if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+					return result{}, nil, err
+				}
+				checkable := err == nil && current.Version == request.Version && editable(state)
+				forms := map[hiring.PipelineStageID][]hiring.FeedbackCriterion{}
+				for _, stage := range current.Stages {
+					forms[stage.ID] = stage.FeedbackForm
+				}
+				var unknown []string
 				stages := make([]replacementStage, len(request.Stages))
 				for index, stage := range request.Stages {
 					entry := replacementStage{
 						Name: string(stage.Name), Kind: string(stage.Kind),
 					}
+					var held []hiring.FeedbackCriterion
+					if stage.ID != nil {
+						form, kept := forms[*stage.ID]
+						if !kept {
+							unknown = append(unknown, fmt.Sprintf("stages.%d.id", index))
+						}
+						held = form
+					}
+					form, invalid, err := withCriterionIDs(now,
+						fmt.Sprintf("stages.%d.feedback_form", index), stage.FeedbackForm,
+						criterionIDs(held))
+					if err != nil {
+						return result{}, nil, err
+					}
+					entry.FeedbackForm = form
+					unknown = append(unknown, invalid...)
 					if stage.ID != nil {
 						entry.ID = string(*stage.ID)
 					} else {
@@ -105,6 +146,9 @@ func ReplaceOpeningPipeline(s *orgsruntime.Server) http.HandlerFunc {
 						entry.ID, entry.IsNew = dbvalue.FormatUUID(id), true
 					}
 					stages[index] = entry
+				}
+				if checkable && len(unknown) > 0 {
+					return handlerauth.Failure[openings.OpeningPipeline](validationFailed(unknown))
 				}
 				encoded, err := json.Marshal(stages)
 				if err != nil {
@@ -156,10 +200,7 @@ func replaceFailure(
 	if current.Version != request.Version {
 		return handlerauth.Failure[openings.OpeningPipeline](orgsproblem.OpeningVersionConflictError)
 	}
-	switch state {
-	case sqlc.VetchiumOrgOpeningStateDraft, sqlc.VetchiumOrgOpeningStatePublished,
-		sqlc.VetchiumOrgOpeningStatePaused:
-	default:
+	if !editable(state) {
 		return handlerauth.Failure[openings.OpeningPipeline](orgsproblem.OpeningStateConflictError)
 	}
 	var positions []int

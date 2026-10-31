@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { APIRequestContext, APIResponse } from "@playwright/test";
 import type {
   ApplicationReference,
-  ListMyApplicationsResponse,
+  MyApplicationSummary,
 } from "typespec/hub/applications/applications";
 import type {
   ApplicationDetail,
@@ -1390,17 +1390,15 @@ async function expectProjected(
   await expect
     .poll(
       async () => {
-        const response = await applicant.hub.listMyApplications(
-          {},
+        const response = await applicant.hub.findMyOpeningApplication(
+          {
+            domain: reference.domain,
+            opening_number: reference.opening_number,
+          },
           applicant.token,
         );
-        const list = (await response.json()) as ListMyApplicationsResponse;
-        return list.applications.find(
-          (entry) =>
-            entry.org_domain === reference.domain &&
-            entry.opening_number === reference.opening_number &&
-            entry.application_number === reference.application_number,
-        )?.status;
+        if (response.status() !== 200) return undefined;
+        return ((await response.json()) as MyApplicationSummary).status;
       },
       { timeout: 15_000 },
     )
@@ -1458,7 +1456,7 @@ test("every change reaches the applicant's Hub status", async ({ request }) => {
     await expectApplied(
       await api.markApplicationNotProgressing(owner, at(adaRef, 4)),
     );
-    await expectProjected(ada, adaRef, "not_progressing");
+    await expectProjected(ada, adaRef, "not_selected");
 
     // Closing with the bulk choice reaches applicants who never heard from
     // the Org.
@@ -1469,7 +1467,7 @@ test("every change reaches the applicant's Hub status", async ({ request }) => {
       mark_applications_not_progressing: true,
     });
     expect(closedOpening.status(), await closedOpening.text()).toBe(200);
-    await expectProjected(grace, graceRef, "not_progressing");
+    await expectProjected(grace, graceRef, "not_selected");
   } finally {
     const did = orgDID(org.domain);
     cleanupApplicant(ada, [{ tenant: "sgp", did }]);

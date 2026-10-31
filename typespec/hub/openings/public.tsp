@@ -49,6 +49,12 @@ model PublishedOpening {
   content: Vetchium.OpeningContent;
   first_published_at: utcDateTime;
   last_revised_at?: utcDateTime;
+
+  /**
+   * Whether an active `sourcing` engagement is assigned to the Opening, so an
+   * application may credit an agency (MKT-SRC-003).
+   */
+  accepts_agency_referrals: boolean;
 }
 
 model NotAcceptingOpening {

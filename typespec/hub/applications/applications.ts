@@ -4,6 +4,12 @@ import {
   type PaginationKey,
 } from "../../common/pagination.ts";
 import {
+  type AnsweredQuestion,
+  type ApplicationAnswer,
+  normalizeAnswers,
+  validateAnswerShapes,
+} from "../../orgs/applications/answers.ts";
+import {
   type ApplicationCoverNote,
   type ApplicationNumber,
   type BackgroundCheckNumber,
@@ -37,13 +43,33 @@ export const applicationStatusValues = [
   "applied",
   "in_review",
   "interviewing",
-  "offer",
-  "hired",
-  "not_progressing",
+  "offered",
+  "offer_accepted",
+  "joined",
+  "not_selected",
+  "declined",
   "withdrawn",
 ] as const;
 
 export type ApplicationStatus = (typeof applicationStatusValues)[number];
+
+/** The statuses of the closed view; every other status is active. */
+export const closedApplicationStatuses = [
+  "joined",
+  "not_selected",
+  "declined",
+  "withdrawn",
+] as const satisfies readonly ApplicationStatus[];
+
+export const ActiveView = "active" as const;
+export const ClosedView = "closed" as const;
+export type MyApplicationView = typeof ActiveView | typeof ClosedView;
+
+export function isMyApplicationView(
+  value: unknown,
+): value is MyApplicationView {
+  return value === ActiveView || value === ClosedView;
+}
 
 export const pendingActionKindValues = [
   "interview_response",
@@ -72,6 +98,7 @@ export interface ApplyToOpeningRequest {
   opening_number: OpeningNumber;
   cover_note?: ApplicationCoverNote;
   referral_agency_domain?: OrgDomain;
+  answers?: ApplicationAnswer[];
 }
 
 export interface ApplicationReference {
@@ -143,6 +170,8 @@ export interface MyApplicationDetail extends MyApplication {
   offer?: MyApplicationOffer;
   background_check_consent?: MyBackgroundCheckConsent;
   interviews: MyApplicationInterview[];
+  /** The questions as asked when applying, with the applicant's answers. */
+  answers: AnsweredQuestion[];
 }
 
 export interface InterviewReference extends ApplicationReference {
@@ -216,6 +245,7 @@ export interface MyApplicationSummary extends MyApplication {
 }
 
 export interface ListMyApplicationsRequest {
+  view: MyApplicationView;
   pagination_key?: PaginationKey;
   limit?: MyApplicationPageSize;
 }
@@ -223,6 +253,17 @@ export interface ListMyApplicationsRequest {
 export interface ListMyApplicationsResponse {
   applications: MyApplicationSummary[];
   next_pagination_key?: PaginationKey;
+}
+
+export interface MyApplicationCounts {
+  active: number;
+  closed: number;
+  awaiting_answer: number;
+}
+
+export interface FindMyOpeningApplicationRequest {
+  domain: OrgDomain;
+  opening_number: OpeningNumber;
 }
 
 /** Lower-cases the domain, trims the cover note, and drops a blank one,
@@ -233,6 +274,7 @@ export function normalizeApplyToOpeningRequest(
   const {
     cover_note: note,
     referral_agency_domain: referral,
+    answers,
     ...rest
   } = request;
   const domain = normalizeOrgDomain(rest.domain);
@@ -247,6 +289,7 @@ export function normalizeApplyToOpeningRequest(
     ...(normalizedReferral
       ? { referral_agency_domain: normalizedReferral }
       : {}),
+    ...(answers ? { answers: normalizeAnswers(answers) } : {}),
   };
 }
 
@@ -270,7 +313,7 @@ export function validateApplyToOpeningRequest(
   ) {
     fields.push("cover_note");
   }
-  return fields;
+  return [...fields, ...validateAnswerShapes(request.answers ?? [])];
 }
 
 export function normalizeApplicationReference(
@@ -306,6 +349,7 @@ export function validateListMyApplicationsRequest(
   request: ListMyApplicationsRequest,
 ): string[] {
   const fields: string[] = [];
+  if (!isMyApplicationView(request.view)) fields.push("view");
   if (
     request.pagination_key !== undefined &&
     !isPaginationKey(request.pagination_key)
@@ -315,6 +359,23 @@ export function validateListMyApplicationsRequest(
   const limit = effectiveListMyApplicationsLimit(request);
   if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
     fields.push("limit");
+  }
+  return fields;
+}
+
+export function normalizeFindMyOpeningApplicationRequest(
+  request: FindMyOpeningApplicationRequest,
+): FindMyOpeningApplicationRequest {
+  return { ...request, domain: normalizeOrgDomain(request.domain) };
+}
+
+export function validateFindMyOpeningApplicationRequest(
+  request: FindMyOpeningApplicationRequest,
+): string[] {
+  const fields: string[] = [];
+  if (!isOrgDomain(request.domain)) fields.push("domain");
+  if (!Number.isInteger(request.opening_number) || request.opening_number < 1) {
+    fields.push("opening_number");
   }
   return fields;
 }

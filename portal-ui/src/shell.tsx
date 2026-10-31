@@ -8,6 +8,7 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import {
+  Affix,
   Alert,
   App,
   Avatar,
@@ -552,3 +553,20 @@ export function ReauthenticationAlert(): ReactNode {
     />
   );
 }
+
+/**
+ * The right-hand action panel of a two-column page. From `lg` it stays in view
+ * while the page scrolls, scrolling inside itself when taller than the window;
+ * below `lg` it flows after the page content.
+ */
+export function SidePanel({ children }: { children: ReactNode }): ReactNode {
+  const screens = Grid.useBreakpoint();
+  if (!screens.lg) return children;
+  return (
+    <Affix offsetTop={sidePanelOffset}>
+      <div className="side-panel">{children}</div>
+    </Affix>
+  );
+}
+
+const sidePanelOffset = 24;
