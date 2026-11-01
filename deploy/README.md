@@ -317,8 +317,12 @@ password is, and short notes on mail, signup, administrators, and data;
   tunnel-unreachable error page. `make -C deploy/staging down` stops staging
   and keeps the data.
 - Logs: `docker compose --project-name vetchium-staging-sgp logs -f hub-api`.
-- The first administrator is created as in production
-  ([First administrator](#first-administrator)), connected with
+- After migrating each region, `make staging` creates `admin@<region>.test`
+  with every permission and the password in `.secrets/<region>_admin_password`,
+  unless that address already exists. Production keeps the manual
+  [First administrator](#first-administrator) procedure: its Admin portals have
+  no generated credential.
+- Connect to a region's database with
   `docker compose --project-name vetchium-staging-<region> exec db psql -U vetchium_owner tenant_db`.
 - `staging/<region>/config.json`, `staging/signup-regions.json`, and the
   staging region tables in `portal-ui`, `hub-ui`, and `orgs-ui` must agree;

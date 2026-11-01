@@ -36,6 +36,20 @@ region_compose = REGION=$(1) REGION_NETWORK=$(REGION_NETWORK_$(1)) \
 	WIREGUARD_PEERS="$(call wg_peers,$(1))" \
 	docker compose --project-name vetchium-staging-$(1) --file region.json
 
+# pgcrypto bcrypt-hashes the region's admin password in the maintenance
+# database, so tenant_db keeps exactly the schema the migrations made;
+# credentials.ComparePassword accepts a plain bcrypt hash. The password travels
+# over stdin, never a command line.
+seed_admin = hash=$$(printf "SET client_min_messages = warning; \
+		CREATE EXTENSION IF NOT EXISTS pgcrypto; \
+		SELECT crypt('%s', gen_salt('bf', 10));" \
+		"$$(cat $(SECRETS)/$(1)_admin_password)" | \
+		docker exec -i vetchium-staging-$(1)-db-1 psql -U vetchium_owner \
+		-d postgres -v ON_ERROR_STOP=1 -qtA); \
+	docker exec -i vetchium-staging-$(1)-db-1 psql -U vetchium_owner \
+		-d tenant_db -v ON_ERROR_STOP=1 -q -v email=admin@$(1).test \
+		-v "name=$(1) Administrator" -v "hash=$$hash" < admin.sql
+
 .PHONY: up down clean secrets info
 
 # Every image is pulled before anything starts, so one deploy never mixes two
@@ -84,6 +98,7 @@ up: secrets
 			--wait-timeout $(WAIT_TIMEOUT) db; \
 		migrate migrate vetchium-staging-$(tenant)_backend db \
 			$(tenant)_postgres_password tenant_db; \
+		$(call seed_admin,$(tenant)); \
 		$(call region_compose,$(tenant)) up --detach --wait \
 			--wait-timeout $(WAIT_TIMEOUT) --remove-orphans;)
 	@echo "staging is running $(TAG) ($$(docker image inspect --format \
@@ -102,11 +117,13 @@ info:
 	@$(foreach tenant,$(TENANTS),printf '  %-8s %-30s %-32s %s\n' $(tenant) \
 		https://$(tenant)-api.vetchium.com https://$(tenant)-admin.vetchium.com \
 		https://$(tenant)-media.vetchium.com;)
+	@printf '\n%s\n' 'Admin portal sign-in, with every permission'
+	@$(foreach tenant,$(TENANTS),printf '  %-8s %-16s password in %s\n' $(tenant) \
+		admin@$(tenant).test $(CURDIR)/$(SECRETS)/$(tenant)_admin_password;)
 	@printf '\n%s\n' 'Notes'
 	@printf '  - %s\n' \
 		'All staging mail lands in Mailpit; none reaches a real inbox.' \
 		'Hub signup accepts any @test.test address in every region.' \
-		'Admin portals have no administrator until you create one: deploy/README.md, Staging > Deploy.' \
 		'make staging-clean deletes all staging data; make -C deploy/staging down stops it and keeps the data.' \
 		'Logs: docker compose --project-name vetchium-staging-<region> logs -f hub-api'
 
@@ -138,7 +155,7 @@ secrets:
 		$(foreach tenant,$(TENANTS),$(tenant)_postgres_password \
 			$(tenant)_app_postgres_password $(tenant)_admin_credential_key \
 			$(tenant)_hub_credential_key $(tenant)_orgs_credential_key \
-			$(tenant)_mesh_credential); do \
+			$(tenant)_mesh_credential $(tenant)_admin_password); do \
 		test -s "$(SECRETS)/$$name" || \
 			printf '%s' "$$(openssl rand -hex 32)" > "$(SECRETS)/$$name"; \
 	done
