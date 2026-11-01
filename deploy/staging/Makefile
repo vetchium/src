@@ -50,14 +50,14 @@ seed_admin = hash=$$(printf "SET client_min_messages = warning; \
 		-d tenant_db -v ON_ERROR_STOP=1 -q -v email=admin@$(1).test \
 		-v "name=$(1) Administrator" -v "hash=$$hash" < admin.sql
 
-.PHONY: up down clean secrets info
+.PHONY: up down clean secrets info ai-models
 
 # Every image is pulled before anything starts, so one deploy never mixes two
 # publishes of a moving tag. Each migration runs against its project's internal
 # database network before that project's services are replaced, so a failed
 # migration leaves the running stack untouched. Generated passwords are hex and
 # need no URL escaping.
-up: secrets
+up: secrets ai-models
 	@case "$(TAG)" in dev|'') echo "TAG must name a published tag"; exit 1;; esac
 	@test -n "$(CLOUDFLARE_TUNNEL_ID)" || \
 		{ echo "CLOUDFLARE_TUNNEL_ID is required; see deploy/README.md"; exit 1; }
@@ -141,6 +141,14 @@ clean:
 		down --volumes --remove-orphans;)
 	docker compose --project-name vetchium-staging down --volumes --remove-orphans
 	rm -rf $(STATE)
+
+# Every region's `ai` block names these Docker Model Runner models; the context
+# fits the opening draft prompt plus its maximum output.
+ai-models:
+	docker model pull ai/qwen3:1.7b
+	docker model pull ai/ministral3:3B-Q4_K_M
+	docker model configure --context-size 16384 ai/qwen3:1.7b
+	docker model configure --context-size 16384 ai/ministral3:3B-Q4_K_M
 
 # Creates whatever is missing and never replaces an existing secret: the
 # databases and object stores in the volumes were initialized with them.

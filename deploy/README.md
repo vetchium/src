@@ -253,6 +253,10 @@ with the staging region tables, and `wireguard-node`.
 - Linux with the WireGuard kernel module, or Docker Desktop, whose VM kernel
   has it; Docker with Compose v2, make, and OpenSSL; about 8 GB of memory for
   Docker.
+- Docker Model Runner, reachable from containers at
+  `model-runner.docker.internal` as Docker Desktop provides, hosts every
+  region's AI models; `make staging` pulls them. Elsewhere, point each
+  model's `baseURL` in `staging/<region>/config.json` at the runner.
 - `docker login ghcr.io` when the registry is private.
 - Rotate container logs on Linux: `"log-driver": "local"` in
   `/etc/docker/daemon.json`.

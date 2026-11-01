@@ -157,6 +157,8 @@ built; Hub AI is in [`../docs/todo.md`](../docs/todo.md).
   `org-ai-unavailable`.
 - Keep the development models in `make dev-ai-models` equal to the
   `hostModel` values in `config/*.json`, each with a context size that fits
-  the operation's prompt plus maximum output.
+  the operation's prompt plus maximum output. Staging calls Docker Model
+  Runner directly: keep `deploy/staging/<region>/config.json` and
+  `make -C deploy/staging ai-models` in the same agreement.
 - The fake compiles no grammar and needs no memory; check a schema or prompt
   change against Model Runner too.
