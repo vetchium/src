@@ -106,7 +106,7 @@ type HubAPIServer struct {
 type OrgsAPIServer struct {
 	Signup regions.Admission
 	// AllowSpecialUseDomains admits signups for names such as acme.test,
-	// which only development and CI DNS can serve.
+	// which no public DNS can serve. Production leaves it false.
 	AllowSpecialUseDomains bool
 	SessionTTL             time.Duration
 	SignupTTL              time.Duration
@@ -144,7 +144,7 @@ type OrgDomainVerification struct {
 	// the system resolver.
 	ResolverAddress string
 	// TrustReservedDomains makes every name under the reserved .test and
-	// .example TLDs verify without a lookup. Only development and CI set it.
+	// .example TLDs verify without a lookup. Production leaves it false.
 	TrustReservedDomains bool
 	LookupTimeout        time.Duration
 	CheckInterval        time.Duration

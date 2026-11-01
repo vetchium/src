@@ -101,8 +101,8 @@ Every seeded address ends in `.test`, such as `admin@sgp.test`,
 
 ### Org signup domains
 
-Org signup proves domain ownership with a DNS TXT record. In development and CI
-the tenants skip that check for any domain ending in `.test` or `.example`
+Org signup proves domain ownership with a DNS TXT record. In development, CI,
+and staging the tenants skip that check for any domain ending in `.test` or `.example`
 (`google.test`, `acme.example`): signup completes with no record published.
 The seeded Orgs use such names. `example.com`, its subdomains, and every other
 domain still get the real lookup against the local `dns-dev` server.

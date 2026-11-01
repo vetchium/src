@@ -79,9 +79,9 @@ func New(resolverAddress string, timeout time.Duration) *Checker {
 }
 
 // TrustReservedTLDs makes Check answer Present for every name under the
-// reserved .test and .example TLDs without querying, so development and CI need
-// no published record. example.com is deliberately not covered: it stays a real
-// lookup for tests and seeds.
+// reserved .test and .example TLDs without querying, so development, CI, and
+// staging need no published record. example.com is deliberately not covered:
+// it stays a real lookup for tests and seeds.
 func (c *Checker) TrustReservedTLDs() *Checker {
 	c.trustReservedTLDs = true
 	return c

@@ -84,10 +84,12 @@
     "sessionTTL": "24h",
     "signupTTL": "168h",
     "invitationTTL": "168h",
-    "publicBaseURL": "https://orgs.vetchium.com"
+    "publicBaseURL": "https://orgs.vetchium.com",
+    "allowSpecialUseDomains": true
   },
   "orgDomainVerification": {
     "resolverAddress": "1.1.1.1:53",
+    "trustReservedDomains": true,
     "lookupTimeout": "5s",
     "checkInterval": "168h",
     "failureThreshold": 2,

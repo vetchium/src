@@ -124,6 +124,7 @@ info:
 	@printf '  - %s\n' \
 		'All staging mail lands in Mailpit; none reaches a real inbox.' \
 		'Hub signup accepts any @test.test address in every region.' \
+		'Org signup accepts .test and .example domains with no DNS record.' \
 		'make staging-clean deletes all staging data; make -C deploy/staging down stops it and keeps the data.' \
 		'Logs: docker compose --project-name vetchium-staging-<region> logs -f hub-api'
 

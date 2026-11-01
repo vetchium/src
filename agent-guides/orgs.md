@@ -48,8 +48,9 @@ invariant).
 - Refuse a special-use domain (`orgs.IsSpecialUseDomain`: `test`, `example`,
   `example.com`, `localhost`, and the rest of that list, or a subdomain) at
   request and completion with `org-signup-domain-blocked`, unless the tenant's
-  `orgsAPIServer.allowSpecialUseDomains` is true. Only `config/` and
-  `config/ci/` set it; production leaves the default `false`.
+  `orgsAPIServer.allowSpecialUseDomains` is true. `config/`, `config/ci/`,
+  and `deploy/staging/` set it, with `orgDomainVerification.trustReservedDomains`
+  so `.test` and `.example` domains verify; production leaves both `false`.
 - `orgs-ui/src/app/regions/<env>.json` mirrors that switch per region
   (`allowSpecialUseDomains`) so the form refuses early;
   `TestPortalRegionTablesMatchCheckedInConfiguration` keeps them equal.
