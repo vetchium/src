@@ -29,7 +29,7 @@ networks. Trust and protocol rules are in [`federation.md`](federation.md).
 - Production WireGuard keys live in each host's own encrypted configuration and
   are never generated in this repository.
 
-## Development and CI Compose
+## Development, CI, and staging Compose
 
 - Run real WireGuard, not a plain Docker network. Each tenant and the coordinator
   get a `wg-*` node built from `dev/wireguard/` with a `wg0` interface at a
@@ -51,5 +51,8 @@ networks. Trust and protocol rules are in [`federation.md`](federation.md).
   four-tenant topology exceeds Docker's default address-pool capacity on some
   hosts; do not merge tenant networks to work around it. If the range overlaps a
   host VPN or LAN, set `VETCHIUM_DOCKER_NETWORK_OCTET` to a free second octet for
-  the whole Compose project before startup. Keep development and CI mappings
-  identical.
+  the whole Compose project before startup. Keep development, CI, and staging
+  mappings identical.
+- Staging (`deploy/staging/`) runs one Compose project per region with the
+  same node layout and addresses, from the published `wireguard-node` image,
+  over the shared `vetchium-staging-mesh` underlay.

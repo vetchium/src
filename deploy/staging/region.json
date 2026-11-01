@@ -1,0 +1,719 @@
+{
+  "name": "vetchium-staging-${REGION:?set REGION}",
+  "services": {
+    "traefik": {
+      "image": "traefik:v3.4.1@sha256:cd40ab7bc1f047731d5b22595203812343efcb6538014c4e93221cfc3a77217a",
+      "command": [
+        "--providers.file.filename=/etc/traefik/dynamic.json",
+        "--providers.file.watch=true",
+        "--entrypoints.web.address=:80",
+        "--ping=true",
+        "--log.level=INFO",
+        "--accesslog=true"
+      ],
+      "configs": [
+        {
+          "source": "traefik",
+          "target": "/etc/traefik/dynamic.json"
+        }
+      ],
+      "networks": {
+        "tunnel": {
+          "aliases": ["traefik-${REGION:?set REGION}"]
+        },
+        "ingress": null,
+        "admin_api_access": null,
+        "hub_api_access": null,
+        "orgs_api_access": null,
+        "media_access": null
+      },
+      "healthcheck": {
+        "test": ["CMD", "traefik", "healthcheck", "--ping"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 3,
+        "start_period": "10s"
+      },
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "db": {
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "entrypoint": ["/bin/sh", "/usr/local/bin/vetchium-entrypoint.sh"],
+      "command": ["postgres"],
+      "environment": {
+        "POSTGRES_DB": "tenant_db",
+        "POSTGRES_USER": "vetchium_owner",
+        "POSTGRES_PASSWORD_FILE": "/run/secrets/postgres_password",
+        "APP_POSTGRES_PASSWORD_FILE": "/run/secrets/app_postgres_password",
+        "POSTGRES_INITDB_ARGS": "--auth-host=scram-sha-256"
+      },
+      "secrets": ["postgres_password", "app_postgres_password"],
+      "configs": [
+        {
+          "source": "database_entrypoint",
+          "target": "/usr/local/bin/vetchium-entrypoint.sh"
+        },
+        {
+          "source": "database_init_sql",
+          "target": "/docker-entrypoint-initdb.d/10-vetchium.sql"
+        }
+      ],
+      "networks": ["backend"],
+      "volumes": ["pgdata:/var/lib/postgresql/data"],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 5,
+        "start_period": "30s"
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "seaweed-master": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "command": [
+        "master",
+        "-ip=seaweed-master",
+        "-ip.bind=0.0.0.0",
+        "-port=9333",
+        "-mdir=/data",
+        "-volumeSizeLimitMB=1024"
+      ],
+      "networks": ["backend"],
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": ["seaweed-masterdata:/data"],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:9333/cluster/status >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "30s"
+      }
+    },
+    "seaweed-volume": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "command": [
+        "volume",
+        "-ip=seaweed-volume",
+        "-ip.bind=0.0.0.0",
+        "-port=8080",
+        "-dir=/data",
+        "-master=seaweed-master:9333"
+      ],
+      "networks": ["backend"],
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": ["seaweed-volumedata:/data"],
+      "depends_on": {
+        "seaweed-master": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/status >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "30s"
+      }
+    },
+    "seaweed-filer": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "command": [
+        "filer",
+        "-ip=seaweed-filer",
+        "-ip.bind=0.0.0.0",
+        "-port=8888",
+        "-master=seaweed-master:9333",
+        "-defaultStoreDir=/data"
+      ],
+      "networks": ["backend"],
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "volumes": ["seaweed-filerdata:/data"],
+      "depends_on": {
+        "seaweed-volume": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": ["CMD-SHELL", "curl -fsS http://127.0.0.1:8888/ >/dev/null"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "30s"
+      }
+    },
+    "seaweed-s3": {
+      "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",
+      "command": [
+        "-ip=seaweed-s3",
+        "-ip.bind=0.0.0.0",
+        "-port=8333",
+        "-filer=seaweed-filer:8888",
+        "-iam=false",
+        "-port.iceberg=0",
+        "-port.lance=0"
+      ],
+      "networks": ["backend"],
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "entrypoint": ["/bin/sh", "/etc/vetchium/seaweedfs-s3-entrypoint.sh"],
+      "configs": [
+        {
+          "source": "seaweed_s3_entrypoint",
+          "target": "/etc/vetchium/seaweedfs-s3-entrypoint.sh"
+        }
+      ],
+      "secrets": ["seaweed_s3_config"],
+      "depends_on": {
+        "seaweed-filer": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/ | grep -qx 403"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "30s"
+      }
+    },
+    "media-proxy": {
+      "image": "nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
+      "networks": ["backend", "media_access"],
+      "configs": [
+        {
+          "source": "media_proxy",
+          "target": "/etc/nginx/conf.d/default.conf"
+        }
+      ],
+      "read_only": true,
+      "tmpfs": ["/tmp"],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:8080/healthz"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "10s"
+      },
+      "depends_on": {
+        "seaweed-s3": {
+          "condition": "service_healthy"
+        }
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "admin-api": {
+      "image": "${REGISTRY:-ghcr.io/vetchium}/admin-api:${TAG:?set TAG}",
+      "configs": [
+        {
+          "source": "app_config",
+          "target": "/etc/vetchium/config.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "tenant_db",
+        "PGSSLMODE": "disable"
+      },
+      "secrets": ["app_postgres_password", "admin_credential_key"],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "networks": ["admin_api_access", "backend"],
+      "healthcheck": {
+        "test": ["CMD", "/service", "healthcheck"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "10s"
+      },
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy"
+        }
+      }
+    },
+    "hub-api": {
+      "image": "${REGISTRY:-ghcr.io/vetchium}/hub-api:${TAG:?set TAG}",
+      "configs": [
+        {
+          "source": "app_config",
+          "target": "/etc/vetchium/config.json"
+        },
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "tenant_db",
+        "PGSSLMODE": "disable"
+      },
+      "secrets": [
+        "app_postgres_password",
+        "hub_credential_key",
+        "identity_digest_key",
+        "mesh_credential",
+        "seaweed_s3_access_key",
+        "seaweed_s3_secret_key"
+      ],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "networks": ["hub_api_access", "backend"],
+      "healthcheck": {
+        "test": ["CMD", "/service", "healthcheck"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "10s"
+      },
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy"
+        },
+        "seaweed-s3": {
+          "condition": "service_healthy"
+        }
+      }
+    },
+    "orgs-api": {
+      "image": "${REGISTRY:-ghcr.io/vetchium}/orgs-api:${TAG:?set TAG}",
+      "configs": [
+        {
+          "source": "app_config",
+          "target": "/etc/vetchium/config.json"
+        },
+        {
+          "source": "signup_regions",
+          "target": "/etc/vetchium/signup-regions.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "tenant_db",
+        "PGSSLMODE": "disable"
+      },
+      "secrets": [
+        "app_postgres_password",
+        "mesh_credential",
+        "orgs_credential_key",
+        "seaweed_s3_access_key",
+        "seaweed_s3_secret_key"
+      ],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "networks": ["orgs_api_access", "backend", "egress"],
+      "healthcheck": {
+        "test": ["CMD", "/service", "healthcheck"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "10s"
+      },
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy"
+        },
+        "seaweed-s3": {
+          "condition": "service_healthy"
+        }
+      }
+    },
+    "wg": {
+      "image": "${REGISTRY:-ghcr.io/vetchium}/wireguard-node:${TAG:?set TAG}",
+      "cap_add": ["NET_ADMIN"],
+      "devices": ["/dev/net/tun:/dev/net/tun"],
+      "environment": {
+        "WIREGUARD_ADDRESS": "${WIREGUARD_ADDRESS:?run via make}",
+        "WIREGUARD_PEERS": "${WIREGUARD_PEERS:?run via make}"
+      },
+      "extra_hosts": [
+        "sgp.mesh.vetchium.com:10.242.0.11",
+        "usa1.mesh.vetchium.com:10.242.0.12",
+        "deu.mesh.vetchium.com:10.242.0.13",
+        "ind1.mesh.vetchium.com:10.242.0.14",
+        "global-coordinator:10.242.0.1",
+        "global-coordinator.mesh.vetchium.com:10.242.0.1"
+      ],
+      "networks": {
+        "mesh": {
+          "aliases": ["wg-${REGION:?set REGION}"]
+        },
+        "backend": {
+          "aliases": ["mesh-api"]
+        }
+      },
+      "secrets": [
+        {
+          "source": "wireguard_private_key",
+          "target": "/run/secrets/wireguard_private_key"
+        },
+        {
+          "source": "wireguard_global-coordinator_public_key",
+          "target": "/run/secrets/wireguard_global-coordinator_public_key"
+        },
+        {
+          "source": "wireguard_sgp_public_key",
+          "target": "/run/secrets/wireguard_sgp_public_key"
+        },
+        {
+          "source": "wireguard_usa1_public_key",
+          "target": "/run/secrets/wireguard_usa1_public_key"
+        },
+        {
+          "source": "wireguard_deu_public_key",
+          "target": "/run/secrets/wireguard_deu_public_key"
+        },
+        {
+          "source": "wireguard_ind1_public_key",
+          "target": "/run/secrets/wireguard_ind1_public_key"
+        }
+      ],
+      "healthcheck": {
+        "test": ["CMD", "wg", "show", "wg0"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "5s"
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "mesh-api": {
+      "image": "${REGISTRY:-ghcr.io/vetchium}/mesh-api:${TAG:?set TAG}",
+      "configs": [
+        {
+          "source": "app_config",
+          "target": "/etc/vetchium/config.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "tenant_db",
+        "PGSSLMODE": "disable"
+      },
+      "secrets": [
+        "app_postgres_password",
+        "mesh_credential",
+        "mesh_ca_certificate",
+        "mesh_client_certificate",
+        "mesh_client_key",
+        "mesh_server_certificate",
+        "mesh_server_key",
+        "seaweed_s3_access_key",
+        "seaweed_s3_secret_key"
+      ],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "healthcheck": {
+        "test": ["CMD", "/service", "healthcheck"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "10s"
+      },
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy"
+        },
+        "seaweed-s3": {
+          "condition": "service_healthy"
+        },
+        "wg": {
+          "condition": "service_healthy"
+        }
+      },
+      "network_mode": "service:wg"
+    },
+    "mcp-server": {
+      "image": "${REGISTRY:-ghcr.io/vetchium}/mcp-server:${TAG:?set TAG}",
+      "configs": [
+        {
+          "source": "app_config",
+          "target": "/etc/vetchium/config.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "tenant_db",
+        "PGSSLMODE": "disable"
+      },
+      "secrets": ["app_postgres_password"],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "networks": ["backend"],
+      "healthcheck": {
+        "test": ["CMD", "/service", "healthcheck"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "10s"
+      },
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy"
+        }
+      }
+    },
+    "workers": {
+      "image": "${REGISTRY:-ghcr.io/vetchium}/workers:${TAG:?set TAG}",
+      "configs": [
+        {
+          "source": "app_config",
+          "target": "/etc/vetchium/config.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "tenant_db",
+        "PGSSLMODE": "disable"
+      },
+      "secrets": [
+        "app_postgres_password",
+        "hub_credential_key",
+        "identity_digest_key",
+        "mesh_credential",
+        "orgs_credential_key",
+        "seaweed_s3_access_key",
+        "seaweed_s3_secret_key"
+      ],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "networks": ["backend", "mail", "egress"],
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy"
+        },
+        "seaweed-s3": {
+          "condition": "service_healthy"
+        }
+      }
+    },
+    "admin-ui": {
+      "image": "${REGISTRY:-ghcr.io/vetchium}/admin-ui:${TAG:?set TAG}",
+      "environment": {
+        "VETCHIUM_DEFAULT_LANGUAGE": "${ADMIN_UI_DEFAULT_LANGUAGE:-en-US}"
+      },
+      "networks": ["ingress"],
+      "read_only": true,
+      "tmpfs": ["/tmp"],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:8080/healthz"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 3,
+        "start_period": "10s"
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    }
+  },
+  "networks": {
+    "backend": {
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.${REGION_NETWORK:?run via make}0.0/24"
+          }
+        ]
+      }
+    },
+    "ingress": {
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.${REGION_NETWORK:?run via make}1.0/24"
+          }
+        ]
+      }
+    },
+    "admin_api_access": {
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.${REGION_NETWORK:?run via make}2.0/24"
+          }
+        ]
+      }
+    },
+    "hub_api_access": {
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.${REGION_NETWORK:?run via make}3.0/24"
+          }
+        ]
+      }
+    },
+    "orgs_api_access": {
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.${REGION_NETWORK:?run via make}4.0/24"
+          }
+        ]
+      }
+    },
+    "media_access": {
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.${REGION_NETWORK:?run via make}5.0/24"
+          }
+        ]
+      }
+    },
+    "egress": {
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.${REGION_NETWORK:?run via make}6.0/24"
+          }
+        ]
+      }
+    },
+    "tunnel": {
+      "external": true,
+      "name": "vetchium-staging-tunnel"
+    },
+    "mesh": {
+      "external": true,
+      "name": "vetchium-staging-mesh"
+    },
+    "mail": {
+      "external": true,
+      "name": "vetchium-staging-mail"
+    }
+  },
+  "volumes": {
+    "pgdata": {},
+    "seaweed-masterdata": {},
+    "seaweed-volumedata": {},
+    "seaweed-filerdata": {}
+  },
+  "configs": {
+    "app_config": {
+      "file": "./${REGION:?set REGION}/config.json"
+    },
+    "traefik": {
+      "file": "./${REGION:?set REGION}/traefik.json"
+    },
+    "signup_regions": {
+      "file": "./signup-regions.json"
+    },
+    "media_proxy": {
+      "file": "../../media/nginx.conf"
+    },
+    "seaweed_s3_entrypoint": {
+      "file": "../../dev/seaweedfs-s3-entrypoint.sh"
+    },
+    "database_entrypoint": {
+      "file": "../../db/bootstrap/entrypoint.sh"
+    },
+    "database_init_sql": {
+      "file": "../../db/bootstrap/init.sql"
+    }
+  },
+  "secrets": {
+    "postgres_password": {
+      "file": "./.secrets/${REGION:?set REGION}_postgres_password"
+    },
+    "app_postgres_password": {
+      "file": "./.secrets/${REGION:?set REGION}_app_postgres_password"
+    },
+    "admin_credential_key": {
+      "file": "./.secrets/${REGION:?set REGION}_admin_credential_key"
+    },
+    "hub_credential_key": {
+      "file": "./.secrets/${REGION:?set REGION}_hub_credential_key"
+    },
+    "orgs_credential_key": {
+      "file": "./.secrets/${REGION:?set REGION}_orgs_credential_key"
+    },
+    "mesh_credential": {
+      "file": "./.secrets/${REGION:?set REGION}_mesh_credential"
+    },
+    "identity_digest_key": {
+      "file": "./.secrets/identity_digest_key"
+    },
+    "seaweed_s3_config": {
+      "file": "./.secrets/seaweed_s3_${REGION:?set REGION}_config"
+    },
+    "seaweed_s3_access_key": {
+      "file": "./.secrets/seaweed_s3_${REGION:?set REGION}_access_key"
+    },
+    "seaweed_s3_secret_key": {
+      "file": "./.secrets/seaweed_s3_${REGION:?set REGION}_secret_key"
+    },
+    "mesh_ca_certificate": {
+      "file": "./.secrets/mesh_ca_certificate"
+    },
+    "mesh_client_certificate": {
+      "file": "./.secrets/mesh_client_${REGION:?set REGION}_certificate"
+    },
+    "mesh_client_key": {
+      "file": "./.secrets/mesh_client_${REGION:?set REGION}_key"
+    },
+    "mesh_server_certificate": {
+      "file": "./.secrets/mesh_server_${REGION:?set REGION}_certificate"
+    },
+    "mesh_server_key": {
+      "file": "./.secrets/mesh_server_${REGION:?set REGION}_key"
+    },
+    "wireguard_private_key": {
+      "file": "./.secrets/wireguard_${REGION:?set REGION}_private_key"
+    },
+    "wireguard_global-coordinator_public_key": {
+      "file": "./.secrets/wireguard_global-coordinator_public_key"
+    },
+    "wireguard_sgp_public_key": {
+      "file": "./.secrets/wireguard_sgp_public_key"
+    },
+    "wireguard_usa1_public_key": {
+      "file": "./.secrets/wireguard_usa1_public_key"
+    },
+    "wireguard_deu_public_key": {
+      "file": "./.secrets/wireguard_deu_public_key"
+    },
+    "wireguard_ind1_public_key": {
+      "file": "./.secrets/wireguard_ind1_public_key"
+    }
+  }
+}

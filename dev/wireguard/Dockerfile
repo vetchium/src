@@ -1,7 +1,7 @@
-# A development stand-in for a production mesh host's WireGuard interface.
-# Each tenant and the coordinator run one of these; their mesh services then
-# share this container's network namespace, so every cross-node packet leaves
-# over wg0 exactly as it does between production VMs.
+# A dev, CI, and staging stand-in for a production mesh host's WireGuard
+# interface. Each tenant and the coordinator run one of these; their mesh
+# services then share this container's network namespace, so every cross-node
+# packet leaves over wg0 exactly as it does between production VMs.
 FROM alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce
 
 # curl is here for the contract-coverage suite: the mesh listeners answer only

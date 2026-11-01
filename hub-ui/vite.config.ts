@@ -4,6 +4,7 @@ import {
   buildRegions,
   securityHeadersPlugin,
 } from "@vetchium/portal-ui/portal-build";
+import { servesHTTPS } from "@vetchium/portal-ui/portal-environment";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type PluginOption } from "vite";
 
@@ -24,7 +25,7 @@ export default defineConfig(({ command, mode }) => {
           connectSources: apiOrigins,
           imageSources: hub.regions.map((region) => String(region.mediaOrigin)),
           noindexPathPrefixes: ["/u/", "/org/"],
-          strictTransportSecurity: environment === "production",
+          strictTransportSecurity: servesHTTPS(environment),
         },
         path.resolve(import.meta.dirname, "dist-nginx"),
       ),

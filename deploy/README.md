@@ -216,3 +216,100 @@ Logs are structured JSON. `event=request_error`, `event=worker_job_error`, and
 - Never pair an empty object volume with old database references. A
   database-only or object-only restore needs reconciliation of missing and
   orphaned objects before reopening the region.
+
+## Staging
+
+One Linux host runs every region, the coordinator, both global portals, and
+Mailpit with Docker Compose from published images; nothing is built there.
+Cloudflare Tunnel is the only ingress and the host publishes no ports. The
+region project template is `staging/region.json`; the rest is
+`staging/compose.json`.
+
+| Host | Serves |
+| --- | --- |
+| `vetchium.com` | Hub portal |
+| `orgs.vetchium.com` | Orgs portal |
+| `<region>-api.vetchium.com` | the region's Hub and Orgs APIs |
+| `<region>-media.vetchium.com` | the region's signed media |
+| `<region>-admin.vetchium.com` | the region's Admin portal |
+| `staging-mail.vetchium.com` | Mailpit, which receives all staging mail |
+
+Regional names are flat because Cloudflare's Universal SSL certificate covers
+one subdomain level. Staging occupies production's portal hosts; production
+needs them back before launch.
+
+Cloudflare terminates TLS, so it sees API traffic, tokens included: staging
+holds test data only.
+
+### Images
+
+`make publish TAG=v1.2.3` (repository root) also pushes `hub-ui-staging` and
+`orgs-ui-staging`, compiled with the staging region tables, and
+`wireguard-node`. A region table change needs a new tag.
+
+### Host
+
+- Linux with the WireGuard kernel module, Docker Engine with Compose v2, GNU
+  make, and OpenSSL; about 8 GB of memory.
+- `docker login ghcr.io` when the registry is private.
+- Rotate container logs: `"log-driver": "local"` in `/etc/docker/daemon.json`.
+- Networks use `10.231.0.0/16`; if that overlaps the host's networks, set
+  `VETCHIUM_DOCKER_NETWORK_OCTET` in `deploy/staging/.env` before the first
+  deploy.
+
+### Tunnel
+
+Once, on the host:
+
+```bash
+cd deploy/staging && make secrets
+```
+
+On any machine with `cloudflared`:
+
+```bash
+cloudflared tunnel login
+cloudflared tunnel create vetchium-staging
+for host in $(sed -n 's/^  - hostname: //p' deploy/staging/cloudflared.yml); do
+  cloudflared tunnel route dns --overwrite-dns vetchium-staging "$host"
+done
+```
+
+Copy `~/.cloudflared/<tunnel-id>.json` to
+`deploy/staging/.secrets/cloudflared_credentials.json` on the host and set
+`CLOUDFLARE_TUNNEL_ID=<tunnel-id>` in `deploy/staging/.env`. A new hostname in
+`cloudflared.yml` needs its own `route dns`.
+
+In the Cloudflare dashboard:
+
+- Protect `staging-mail.vetchium.com` and each `<region>-admin.vetchium.com`
+  with a Zero Trust Access application for the team. Mailpit also asks for
+  user `staging` and the password in `.secrets/mailpit_ui_password`.
+- Turn off Rocket Loader, Email Address Obfuscation, and every other feature
+  that injects scripts; the portals' CSP blocks them.
+
+### Deploy
+
+```bash
+cd deploy/staging
+make TAG=v1.2.3
+```
+
+The Makefile creates missing secrets in `.secrets/`, derives the coordinator's
+identity digest key id, pulls every image, and starts project
+`vetchium-staging` (coordinator, portals, Mailpit, cloudflared), then
+`vetchium-staging-<region>` for each region. Each database is migrated before
+its project is replaced; a failed migration leaves that project running.
+
+- `.secrets/` and the Docker volumes belong together: the databases and object
+  stores were initialized with those secrets. Back up or delete both.
+- `make down` stops every project and keeps the data. To reset staging, run
+  `docker compose --project-name <project> down --volumes` for every project;
+  resetting one region leaves its global claims in the coordinator.
+- Logs: `docker compose --project-name vetchium-staging-sgp logs -f hub-api`.
+- The first administrator is created as in production
+  ([First administrator](#first-administrator)), connected with
+  `docker compose --project-name vetchium-staging-<region> exec db psql -U vetchium_owner tenant_db`.
+- `staging/<region>/config.json`, `staging/signup-regions.json`, and the
+  staging region tables in `portal-ui`, `hub-ui`, and `orgs-ui` must agree;
+  `TestPortalRegionTablesMatchCheckedInConfiguration` checks them.

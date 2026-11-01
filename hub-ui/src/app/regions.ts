@@ -7,6 +7,7 @@ import {
 import ciRegions from "@vetchium/portal-ui/regions/ci.json";
 import devRegions from "@vetchium/portal-ui/regions/dev.json";
 import productionRegions from "@vetchium/portal-ui/regions/production.json";
+import stagingRegions from "@vetchium/portal-ui/regions/staging.json";
 import {
   type HubRegionSettings,
   parseHubRegionSettings,
@@ -14,6 +15,7 @@ import {
 import ciHub from "./regions/ci.json";
 import devHub from "./regions/dev.json";
 import productionHub from "./regions/production.json";
+import stagingHub from "./regions/staging.json";
 
 const environment: PortalEnvironment = parsePortalEnvironment(
   import.meta.env.VITE_VETCHIUM_ENVIRONMENT,
@@ -24,9 +26,11 @@ const environment: PortalEnvironment = parsePortalEnvironment(
 const tables =
   import.meta.env.VITE_VETCHIUM_ENVIRONMENT === "production"
     ? { regions: productionRegions, hub: productionHub }
-    : import.meta.env.VITE_VETCHIUM_ENVIRONMENT === "ci"
-      ? { regions: ciRegions, hub: ciHub }
-      : { regions: devRegions, hub: devHub };
+    : import.meta.env.VITE_VETCHIUM_ENVIRONMENT === "staging"
+      ? { regions: stagingRegions, hub: stagingHub }
+      : import.meta.env.VITE_VETCHIUM_ENVIRONMENT === "ci"
+        ? { regions: ciRegions, hub: ciHub }
+        : { regions: devRegions, hub: devHub };
 
 export const regionTable = parseRegionTable(tables.regions, environment);
 

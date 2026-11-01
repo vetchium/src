@@ -7,6 +7,7 @@ import {
 import ciRegions from "@vetchium/portal-ui/regions/ci.json";
 import devRegions from "@vetchium/portal-ui/regions/dev.json";
 import productionRegions from "@vetchium/portal-ui/regions/production.json";
+import stagingRegions from "@vetchium/portal-ui/regions/staging.json";
 import {
   type OrgRegionSettings,
   parseDNSOverHTTPS,
@@ -15,6 +16,7 @@ import {
 import ciOrg from "./regions/ci.json";
 import devOrg from "./regions/dev.json";
 import productionOrg from "./regions/production.json";
+import stagingOrg from "./regions/staging.json";
 
 const environment: PortalEnvironment = parsePortalEnvironment(
   import.meta.env.VITE_VETCHIUM_ENVIRONMENT,
@@ -25,9 +27,11 @@ const environment: PortalEnvironment = parsePortalEnvironment(
 const tables =
   import.meta.env.VITE_VETCHIUM_ENVIRONMENT === "production"
     ? { regions: productionRegions, org: productionOrg }
-    : import.meta.env.VITE_VETCHIUM_ENVIRONMENT === "ci"
-      ? { regions: ciRegions, org: ciOrg }
-      : { regions: devRegions, org: devOrg };
+    : import.meta.env.VITE_VETCHIUM_ENVIRONMENT === "staging"
+      ? { regions: stagingRegions, org: stagingOrg }
+      : import.meta.env.VITE_VETCHIUM_ENVIRONMENT === "ci"
+        ? { regions: ciRegions, org: ciOrg }
+        : { regions: devRegions, org: devOrg };
 
 export const regionTable = parseRegionTable(tables.regions, environment);
 

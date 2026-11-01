@@ -14,8 +14,8 @@ RUN --mount=type=cache,target=/root/.npm npm ci
 COPY portal-ui/ /app/portal-ui/
 COPY typespec/ /app/typespec/
 COPY hub-ui/ ./
-# dev, ci, or production: selects the compiled-in region table. The build
-# fails when it is unset or unknown.
+# dev, ci, staging, or production: selects the compiled-in region table. The
+# build fails when it is unset or unknown.
 ARG VITE_VETCHIUM_ENVIRONMENT
 # nginx serves the generated include instead of the static host's files.
 RUN npm run build && rm dist/_headers dist/_redirects

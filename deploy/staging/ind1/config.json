@@ -1,0 +1,105 @@
+{
+  "signupRegionsFile": "/etc/vetchium/signup-regions.json",
+  "tenantId": "ind1",
+  "env": "staging",
+  "database": {
+    "host": "db",
+    "port": 5432,
+    "user": "vetchium_app",
+    "name": "tenant_db",
+    "passwordFile": "/run/secrets/app_postgres_password",
+    "sslMode": "disable"
+  },
+  "workers": {
+    "retryBackoffLimit": "5m",
+    "pruneAdminSessionsTimer": "5m",
+    "pruneEphemeralDataTimer": "5m",
+    "deliverHubEmailTimer": "5s",
+    "hubEmailLeaseTTL": "1m",
+    "hubEmailMaxAttempts": 5,
+    "advanceHubSubscriptionsTimer": "1m",
+    "expireOrgOpeningsTimer": "5m",
+    "expireOrgEngagementsTimer": "5m",
+    "expireApplicationOffersTimer": "5m",
+    "retainApplicationsTimer": "1h",
+    "retainOrgContactsTimer": "1h",
+    "refreshHubApplicationsTimer": "5m",
+    "reconcileHubSignupTimer": "10s",
+    "reconcileHubEmailChangeTimer": "10s",
+    "driveFederationCommandsTimer": "10s",
+    "deliverFederationEventsTimer": "5s",
+    "deliverOrgEmailTimer": "5s",
+    "orgEmailLeaseTTL": "1m",
+    "orgEmailMaxAttempts": 5,
+    "reconcileOrgSignupTimer": "10s",
+    "verifyOrgDomainsTimer": "5m"
+  },
+  "adminAPIServer": {
+    "sessionTTL": "24h"
+  },
+  "globalCoordinator": {
+    "baseURL": "https://global-coordinator:8080",
+    "requestTimeout": "5s",
+    "tls": {
+      "certificateFile": "/run/secrets/mesh_client_certificate",
+      "keyFile": "/run/secrets/mesh_client_key",
+      "caFile": "/run/secrets/mesh_ca_certificate",
+      "serverName": "global-coordinator.mesh.vetchium.com"
+    }
+  },
+  "meshAPIServer": {
+    "baseURL": "http://mesh-api:8080",
+    "credentialFile": "/run/secrets/mesh_credential",
+    "requestTimeout": "5s",
+    "peerAddress": "10.242.0.14:8443",
+    "peerTLS": {
+      "certificateFile": "/run/secrets/mesh_server_certificate",
+      "keyFile": "/run/secrets/mesh_server_key",
+      "clientCAFile": "/run/secrets/mesh_ca_certificate"
+    }
+  },
+  "hubAPIServer": {
+    "sessionTTL": "24h",
+    "rememberedSessionTTL": "6360h",
+    "publicBaseURL": "https://vetchium.com",
+    "offeredPlans": ["hub-free-tier", "hub-silver-tier"]
+  },
+  "objectStorage": {
+    "privateBaseURL": "http://seaweed-s3:8333",
+    "mediaBaseURL": "https://ind1-media.vetchium.com",
+    "accessKeyFile": "/run/secrets/seaweed_s3_access_key",
+    "secretKeyFile": "/run/secrets/seaweed_s3_secret_key"
+  },
+  "smtp": {
+    "host": "mailpit",
+    "port": 1025,
+    "fromAddress": "no-reply@vetchium.com",
+    "fromName": "Vetchium",
+    "usernameFile": "",
+    "passwordFile": "",
+    "startTLS": "disabled",
+    "connectionTimeout": "10s"
+  },
+  "orgsAPIServer": {
+    "sessionTTL": "24h",
+    "signupTTL": "168h",
+    "invitationTTL": "168h",
+    "publicBaseURL": "https://orgs.vetchium.com"
+  },
+  "orgDomainVerification": {
+    "resolverAddress": "1.1.1.1:53",
+    "lookupTimeout": "5s",
+    "checkInterval": "168h",
+    "failureThreshold": 2,
+    "failingGracePeriod": "720h",
+    "inconclusiveRetry": "1h",
+    "inconclusiveLimit": "168h"
+  },
+  "orgBilling": {
+    "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
+  },
+  "marketplace": {
+    "deletedPartyConversationRetention": "8760h"
+  },
+  "mcpServer": {}
+}

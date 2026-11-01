@@ -755,6 +755,10 @@ func TestCheckedInConfigs(t *testing.T) {
 				filepath.Join(root, "deploy", region, "config.json"),
 				EnvironmentProduction,
 			},
+			{
+				filepath.Join(root, "deploy", "staging", region, "config.json"),
+				EnvironmentStaging,
+			},
 		} {
 			t.Run(test.path, func(t *testing.T) {
 				cfg, err := LoadFile(test.path)

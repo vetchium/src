@@ -21,7 +21,8 @@ Backend: one Go module, `backend/cmd/<name>`, shared code in `backend/internal/`
 - `dev-seed`: development fixtures created through portal APIs; never deployed.
 
 Tenant processes read `/etc/vetchium/config.json` (`config/`, `config/ci/`,
-`deploy/<region>/config.json`); the coordinator reads
+`deploy/<region>/config.json`, `deploy/staging/<region>/config.json`); the
+coordinator reads
 `/etc/vetchium/global-coordinator.json`. Passwords are separate secret files.
 
 Frontend:

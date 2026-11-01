@@ -1,0 +1,35 @@
+# Ingress for the staging tunnel. cloudflared keeps the browser's Host header,
+# which each region's Traefik routes on and the media proxy signs with.
+credentials-file: /run/secrets/cloudflared_credentials
+ingress:
+  - hostname: vetchium.com
+    service: http://hub-ui:8080
+  - hostname: orgs.vetchium.com
+    service: http://orgs-ui:8080
+  - hostname: staging-mail.vetchium.com
+    service: http://mailpit:8025
+  - hostname: sgp-api.vetchium.com
+    service: http://traefik-sgp:80
+  - hostname: sgp-media.vetchium.com
+    service: http://traefik-sgp:80
+  - hostname: sgp-admin.vetchium.com
+    service: http://traefik-sgp:80
+  - hostname: usa1-api.vetchium.com
+    service: http://traefik-usa1:80
+  - hostname: usa1-media.vetchium.com
+    service: http://traefik-usa1:80
+  - hostname: usa1-admin.vetchium.com
+    service: http://traefik-usa1:80
+  - hostname: deu-api.vetchium.com
+    service: http://traefik-deu:80
+  - hostname: deu-media.vetchium.com
+    service: http://traefik-deu:80
+  - hostname: deu-admin.vetchium.com
+    service: http://traefik-deu:80
+  - hostname: ind1-api.vetchium.com
+    service: http://traefik-ind1:80
+  - hostname: ind1-media.vetchium.com
+    service: http://traefik-ind1:80
+  - hostname: ind1-admin.vetchium.com
+    service: http://traefik-ind1:80
+  - service: http_status:404

@@ -1,0 +1,120 @@
+SHELL := bash
+.SHELLFLAGS := -eu -o pipefail -c
+.DEFAULT_GOAL := up
+
+ifneq ($(shell uname -s),Linux)
+$(error staging runs on its Linux host only)
+endif
+
+-include .env
+export
+
+REGISTRY ?= ghcr.io/vetchium
+ADMIN_UI_DEFAULT_LANGUAGE ?= en-US
+TENANTS := sgp usa1 deu ind1
+SECRETS := .secrets
+STATE := .state
+WAIT_TIMEOUT := 300
+
+WG_ADDRESS_global-coordinator := 10.242.0.1
+WG_ADDRESS_sgp := 10.242.0.11
+WG_ADDRESS_usa1 := 10.242.0.12
+WG_ADDRESS_deu := 10.242.0.13
+WG_ADDRESS_ind1 := 10.242.0.14
+# Region <n>'s networks take 10.<octet>.<n>0.0/24 to 10.<octet>.<n>6.0/24 and
+# the global project's 10.<octet>.1.0/24 to 10.<octet>.5.0/24, where <octet> is
+# VETCHIUM_DOCKER_NETWORK_OCTET (default 231).
+REGION_NETWORK_sgp := 1
+REGION_NETWORK_usa1 := 2
+REGION_NETWORK_deu := 3
+REGION_NETWORK_ind1 := 4
+wg_peers = $(strip $(foreach node,$(filter-out $(1),global-coordinator $(TENANTS)),\
+	/run/secrets/wireguard_$(node)_public_key=$(WG_ADDRESS_$(node))=wg-$(node)))
+
+global_compose := docker compose --project-name vetchium-staging --file compose.json
+region_compose = REGION=$(1) REGION_NETWORK=$(REGION_NETWORK_$(1)) \
+	WIREGUARD_ADDRESS=$(WG_ADDRESS_$(1)) \
+	WIREGUARD_PEERS="$(call wg_peers,$(1))" \
+	docker compose --project-name vetchium-staging-$(1) --file region.json
+
+.PHONY: up down secrets
+
+# Each migration runs against its project's internal database network before
+# that project's services are replaced, so a failed migration leaves the
+# running stack untouched. Generated passwords are hex and need no URL escaping.
+up: secrets
+	@test -n "$(TAG)" || { echo "TAG is required, e.g. TAG=v1.2.3"; exit 1; }
+	@case "$(TAG)" in dev|latest) echo "refusing floating tag $(TAG)"; exit 1;; esac
+	@test -n "$(CLOUDFLARE_TUNNEL_ID)" || \
+		{ echo "CLOUDFLARE_TUNNEL_ID is required; see deploy/README.md"; exit 1; }
+	@test -s $(SECRETS)/cloudflared_credentials.json || \
+		{ echo "$(SECRETS)/cloudflared_credentials.json is missing; see deploy/README.md"; exit 1; }
+	@chmod 644 $(SECRETS)/cloudflared_credentials.json
+	@install -d -m 700 $(STATE)
+	@secret=$$(cat $(SECRETS)/identity_digest_key); \
+	root=$$(printf 'vetchium-identity-digest-root\x00%s' "$$secret" | \
+		openssl dgst -sha256 -r | cut -d ' ' -f1); \
+	key_id=$$(printf 'vetchium/identity-digest/key-id/v1' | \
+		openssl dgst -sha256 -mac hmac -macopt "hexkey:$$root" -r | cut -c1-16); \
+	sed "s/SET_BY_MAKE_FROM_THE_IDENTITY_DIGEST_KEY/$$key_id/" \
+		global-coordinator.json > $(STATE)/global-coordinator.json
+	$(global_compose) pull --quiet
+	@$(foreach tenant,$(TENANTS),$(call region_compose,$(tenant)) pull --quiet;)
+	@set -e; \
+	migrate() { \
+		f=$$(mktemp); chmod 600 "$$f"; \
+		printf 'GOOSE_DBSTRING=postgres://vetchium_owner:%s@%s:5432/%s?sslmode=disable\n' \
+			"$$(cat "$(SECRETS)/$$4")" "$$3" "$$5" > "$$f"; \
+		if docker run --rm --network "$$2" --env-file "$$f" \
+				"$(REGISTRY)/$$1:$(TAG)" up; then rm -f "$$f"; else \
+			rm -f "$$f"; \
+			echo "$$1 on $$2 failed; that stack was not updated"; \
+			exit 1; \
+		fi; \
+	}; \
+	$(global_compose) up --detach --wait --wait-timeout $(WAIT_TIMEOUT) global-db; \
+	migrate global-migrate vetchium-staging_global_backend global-db \
+		global_postgres_password global_db; \
+	$(global_compose) up --detach --wait --wait-timeout $(WAIT_TIMEOUT) \
+		--remove-orphans; \
+	$(foreach tenant,$(TENANTS), \
+		$(call region_compose,$(tenant)) up --detach --wait \
+			--wait-timeout $(WAIT_TIMEOUT) db; \
+		migrate migrate vetchium-staging-$(tenant)_backend db \
+			$(tenant)_postgres_password tenant_db; \
+		$(call region_compose,$(tenant)) up --detach --wait \
+			--wait-timeout $(WAIT_TIMEOUT) --remove-orphans;)
+	@echo "staging is running $(TAG)"
+
+# Stops every project and keeps the volumes. Regions go first: they hold the
+# shared networks the global project created.
+down:
+	@$(foreach tenant,$(TENANTS),docker compose --project-name vetchium-staging-$(tenant) down;)
+	docker compose --project-name vetchium-staging down
+
+# Creates whatever is missing and never replaces an existing secret: the
+# databases and object stores in the volumes were initialized with them.
+# Compose bind-mounts each secret file with its host mode and the services run
+# as unprivileged users, so files are world-readable inside the 0700 directory.
+secrets:
+	@install -d -m 700 $(SECRETS)
+	@../../dev/generate-mesh-pki.sh $(SECRETS) $(TENANTS)
+	@../../dev/generate-wireguard-keys.sh $(SECRETS) global-coordinator $(TENANTS)
+	@sh ../../dev/generate-seaweed-s3-secrets.sh $(SECRETS) $(TENANTS)
+	@umask 077; for name in identity_digest_key \
+		global_postgres_password global_app_postgres_password \
+		$(foreach tenant,$(TENANTS),$(tenant)_postgres_password \
+			$(tenant)_app_postgres_password $(tenant)_admin_credential_key \
+			$(tenant)_hub_credential_key $(tenant)_orgs_credential_key \
+			$(tenant)_mesh_credential); do \
+		test -s "$(SECRETS)/$$name" || \
+			printf '%s' "$$(openssl rand -hex 32)" > "$(SECRETS)/$$name"; \
+	done
+	@umask 077; if ! test -s $(SECRETS)/mailpit_ui_password || \
+		! test -s $(SECRETS)/mailpit_ui_auth; then \
+		printf '%s' "$$(openssl rand -hex 16)" > $(SECRETS)/mailpit_ui_password; \
+		printf 'staging:%s\n' \
+			"$$(openssl passwd -apr1 -stdin < $(SECRETS)/mailpit_ui_password)" \
+			> $(SECRETS)/mailpit_ui_auth; \
+	fi
+	@find $(SECRETS) -type f ! -name mesh_ca_key -exec chmod 644 {} +

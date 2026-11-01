@@ -1,6 +1,6 @@
 import { isCountryCode } from "typespec/common/countries";
 import type { CountryCode } from "typespec/common/localization";
-import type { PortalEnvironment } from "./portal-environment.ts";
+import { type PortalEnvironment, servesHTTPS } from "./portal-environment.ts";
 
 export {
   type PortalEnvironment,
@@ -64,11 +64,11 @@ export function parseRegionTable(
     }
     if (
       typeof apiOrigin !== "string" ||
-      !isOrigin(apiOrigin, environment === "production") ||
+      !isOrigin(apiOrigin, servesHTTPS(environment)) ||
       origins.has(apiOrigin)
     ) {
       throw new Error(
-        `${at}.apiOrigin must be a unique origin, HTTPS in production`,
+        `${at}.apiOrigin must be a unique origin, HTTPS in staging and production`,
       );
     }
     origins.add(apiOrigin);

@@ -3,6 +3,7 @@ import test from "node:test";
 import ci from "./regions/ci.json" with { type: "json" };
 import dev from "./regions/dev.json" with { type: "json" };
 import production from "./regions/production.json" with { type: "json" };
+import staging from "./regions/staging.json" with { type: "json" };
 import {
   type PortalEnvironment,
   parsePortalEnvironment,
@@ -35,7 +36,12 @@ function validTable() {
 }
 
 test("every checked-in environment table is valid", () => {
-  for (const [environment, table] of Object.entries({ dev, ci, production })) {
+  for (const [environment, table] of Object.entries({
+    dev,
+    ci,
+    staging,
+    production,
+  })) {
     const name = parsePortalEnvironment(environment);
     assert.ok(parseRegionTable(table, name).regions.length > 0);
   }
@@ -83,6 +89,15 @@ test("invalid tables are rejected", () => {
         regions: [{ ...t.regions[0], apiOrigin: "http://sgp.api.example.com" }],
       }),
       /apiOrigin/,
+    ],
+    [
+      "HTTP API origin in staging",
+      (t) => ({
+        ...t,
+        regions: [{ ...t.regions[0], apiOrigin: "http://sgp.api.example.com" }],
+      }),
+      /apiOrigin/,
+      "staging",
     ],
     [
       "API origin with a path",

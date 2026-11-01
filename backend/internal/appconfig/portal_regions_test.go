@@ -76,6 +76,14 @@ func TestPortalRegionTablesMatchCheckedInConfiguration(t *testing.T) {
 			},
 		},
 		{
+			"staging",
+			filepath.Join(root, "deploy", "staging", "*", "config.json"),
+			filepath.Join(root, "deploy", "staging", "signup-regions.json"),
+			func(tenant string) string {
+				return filepath.Join(root, "deploy", "staging", tenant, "traefik.json")
+			},
+		},
+		{
 			"production",
 			filepath.Join(root, "deploy", "*", "config.json"),
 			filepath.Join(root, "deploy", "signup-regions.json"),
@@ -85,6 +93,7 @@ func TestPortalRegionTablesMatchCheckedInConfiguration(t *testing.T) {
 		},
 	} {
 		t.Run(env.name, func(t *testing.T) {
+			public := env.name == "staging" || env.name == "production"
 			configs := tenantConfigs(t, env.configGlob)
 			catalog, err := regions.Load(env.catalogPath)
 			if err != nil {
@@ -153,10 +162,10 @@ func TestPortalRegionTablesMatchCheckedInConfiguration(t *testing.T) {
 						got.TenantID, got, want,
 					)
 				}
-				if !isAPIOrigin(got.APIOrigin, env.name == "production") ||
+				if !isAPIOrigin(got.APIOrigin, public) ||
 					apiOrigins[got.APIOrigin] {
 					t.Errorf(
-						"portal region %q apiOrigin %q must be a unique origin, HTTPS in production",
+						"portal region %q apiOrigin %q must be a unique origin, HTTPS in staging and production",
 						got.TenantID, got.APIOrigin,
 					)
 				}
@@ -233,9 +242,9 @@ func TestPortalRegionTablesMatchCheckedInConfiguration(t *testing.T) {
 					)
 				}
 			}
-			// Production must not hand the domain being proven to a
-			// resolver over plain HTTP.
-			if env.name == "production" &&
+			// A public environment must not hand the domain being proven to
+			// a resolver over plain HTTP.
+			if public &&
 				!strings.HasPrefix(org.DNSOverHTTPS, "https://") {
 				t.Errorf(
 					"orgs dnsOverHTTPS = %q, want an HTTPS URL",

@@ -141,7 +141,7 @@ make publish TAG=v1.2.3     # build and push images
 make portal-dist            # build the Hub and Orgs static sites into portal-dist/
 ```
 
-Production deployment: [`deploy/README.md`](deploy/README.md).
+Production and staging deployment: [`deploy/README.md`](deploy/README.md).
 
 ## Demo video
 

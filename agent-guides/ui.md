@@ -85,7 +85,8 @@ design (layout, saving, states, copy) is in [`ux.md`](ux.md).
 
 - Hub (`vetchium.com`) and Orgs (`orgs.vetchium.com`) are one static build
   each for all regions. No regional Hub or Orgs hosts, no redirects from old
-  ones.
+  ones. Staging serves the same builds from the `hub-ui-staging` and
+  `orgs-ui-staging` images.
 - Admin stays regional, same origin as its API, with `runtime-config.sh`.
   Never put it on the static host: a static-host account must not control code
   holding Admin tokens.
@@ -96,8 +97,9 @@ design (layout, saving, states, copy) is in [`ux.md`](ux.md).
 - Region tables are compiled in: `portal-ui/src/regions/<env>.json` (API
   origin, signup flags, allowed countries, recommendations, default) and
   `hub-ui/src/app/regions/<env>.json` (media origin, offered plans).
-  `VITE_VETCHIUM_ENVIRONMENT` (`dev`, `ci`, `production`) selects them; the
-  build fails without it. `TestPortalRegionTablesMatchCheckedInConfiguration`
+  `VITE_VETCHIUM_ENVIRONMENT` (`dev`, `ci`, `staging`, `production`) selects
+  them; the build fails without it. Staging and production require HTTPS
+  (`servesHTTPS`). `TestPortalRegionTablesMatchCheckedInConfiguration`
   ties them to tenant configs, `signup-regions.json`, and Traefik hosts and
   CORS. Adding a region means rebuilding both portals.
 - Hub and Orgs read no runtime config; the fallback locale is build-time

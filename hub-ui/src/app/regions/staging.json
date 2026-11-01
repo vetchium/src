@@ -1,0 +1,24 @@
+{
+  "regions": [
+    {
+      "tenantId": "deu",
+      "mediaOrigin": "https://deu-media.vetchium.com",
+      "hubPlans": ["hub-free-tier", "hub-silver-tier"]
+    },
+    {
+      "tenantId": "ind1",
+      "mediaOrigin": "https://ind1-media.vetchium.com",
+      "hubPlans": ["hub-free-tier", "hub-silver-tier"]
+    },
+    {
+      "tenantId": "sgp",
+      "mediaOrigin": "https://sgp-media.vetchium.com",
+      "hubPlans": ["hub-free-tier", "hub-silver-tier"]
+    },
+    {
+      "tenantId": "usa1",
+      "mediaOrigin": "https://usa1-media.vetchium.com",
+      "hubPlans": ["hub-free-tier", "hub-silver-tier"]
+    }
+  ]
+}

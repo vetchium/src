@@ -1,0 +1,129 @@
+{
+  "http": {
+    "routers": {
+      "api-hub": {
+        "rule": "Host(`sgp-api.vetchium.com`) && PathPrefix(`/api/hub/`)",
+        "service": "hub-api",
+        "middlewares": ["cors-hub"],
+        "entryPoints": ["web"]
+      },
+      "api-orgs": {
+        "rule": "Host(`sgp-api.vetchium.com`) && PathPrefix(`/api/orgs/`)",
+        "service": "orgs-api",
+        "middlewares": ["cors-orgs"],
+        "entryPoints": ["web"]
+      },
+      "media": {
+        "rule": "Host(`sgp-media.vetchium.com`) && (Method(`GET`) || Method(`HEAD`)) && PathRegexp(`^/(hub-profile-pictures|org-logos|org-offer-letters)/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
+        "service": "media",
+        "middlewares": ["hsts"],
+        "entryPoints": ["web"],
+        "priority": 100
+      },
+      "admin-api": {
+        "rule": "Host(`sgp-admin.vetchium.com`) && (Path(`/api`) || PathPrefix(`/api/`))",
+        "service": "admin-api",
+        "middlewares": ["hsts"],
+        "entryPoints": ["web"],
+        "priority": 100
+      },
+      "admin-ui": {
+        "rule": "Host(`sgp-admin.vetchium.com`)",
+        "service": "admin-ui",
+        "middlewares": ["hsts"],
+        "entryPoints": ["web"]
+      }
+    },
+    "middlewares": {
+      "hsts": {
+        "headers": {
+          "stsSeconds": 31536000,
+          "stsIncludeSubdomains": true
+        }
+      },
+      "cors-hub": {
+        "headers": {
+          "accessControlAllowOriginList": ["https://vetchium.com"],
+          "accessControlAllowMethods": ["GET", "POST"],
+          "accessControlAllowHeaders": [
+            "Authorization",
+            "Content-Type",
+            "Idempotency-Key"
+          ],
+          "accessControlMaxAge": 86400,
+          "addVaryHeader": true,
+          "stsSeconds": 31536000,
+          "stsIncludeSubdomains": true
+        }
+      },
+      "cors-orgs": {
+        "headers": {
+          "accessControlAllowOriginList": ["https://orgs.vetchium.com"],
+          "accessControlAllowMethods": ["GET", "POST"],
+          "accessControlAllowHeaders": [
+            "Authorization",
+            "Content-Type",
+            "Idempotency-Key"
+          ],
+          "accessControlMaxAge": 86400,
+          "addVaryHeader": true,
+          "stsSeconds": 31536000,
+          "stsIncludeSubdomains": true
+        }
+      }
+    },
+    "services": {
+      "media": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://media-proxy:8080"
+            }
+          ],
+          "passHostHeader": true
+        }
+      },
+      "orgs-api": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://orgs-api:8080"
+            }
+          ]
+        }
+      },
+      "hub-api": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://hub-api:8080"
+            }
+          ]
+        }
+      },
+      "admin-api": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://admin-api:8080"
+            }
+          ]
+        }
+      },
+      "admin-ui": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://admin-ui:8080"
+            }
+          ],
+          "healthCheck": {
+            "path": "/healthz",
+            "interval": "10s",
+            "timeout": "3s"
+          }
+        }
+      }
+    }
+  }
+}

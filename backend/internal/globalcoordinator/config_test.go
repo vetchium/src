@@ -137,6 +137,37 @@ func TestCheckedInProductionConfigRequiresDigestKeyID(t *testing.T) {
 	}
 }
 
+// The staging template's placeholder is replaced by deploy/staging/Makefile
+// with the id of the key it generates; the result must load as staging.
+func TestCheckedInStagingConfigRequiresDigestKeyID(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "deploy", "staging", "global-coordinator.json")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const placeholder = "SET_BY_MAKE_FROM_THE_IDENTITY_DIGEST_KEY"
+	if !strings.Contains(string(contents), placeholder) {
+		t.Fatalf("%s no longer holds the Makefile's placeholder", path)
+	}
+	if _, err := LoadConfigFile(path); err == nil ||
+		!strings.Contains(err.Error(), "identityDigestKeyId") {
+		t.Fatalf("LoadConfigFile() error = %v, want identityDigestKeyId error", err)
+	}
+	filled := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(filled, []byte(strings.Replace(
+		string(contents), placeholder, "909577e87ebd5395", 1,
+	)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	config, err := LoadConfigFile(filled)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Environment != "staging" {
+		t.Fatalf("environment = %q, want staging", config.Environment)
+	}
+}
+
 func TestLoadConfigFileRejectsMalformedDigestKeyID(t *testing.T) {
 	for _, value := range []string{
 		"", "909577e87ebd539", "909577E87EBD5395", "909577e87ebd53950",

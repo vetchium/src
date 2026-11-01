@@ -1,0 +1,322 @@
+{
+  "name": "vetchium-staging",
+  "services": {
+    "global-db": {
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "entrypoint": ["/bin/sh", "/usr/local/bin/vetchium-entrypoint.sh"],
+      "command": ["postgres"],
+      "environment": {
+        "POSTGRES_DB": "global_db",
+        "POSTGRES_USER": "vetchium_owner",
+        "POSTGRES_PASSWORD_FILE": "/run/secrets/global_postgres_password",
+        "APP_POSTGRES_PASSWORD_FILE": "/run/secrets/global_app_postgres_password",
+        "POSTGRES_INITDB_ARGS": "--auth-host=scram-sha-256"
+      },
+      "secrets": ["global_postgres_password", "global_app_postgres_password"],
+      "configs": [
+        {
+          "source": "database_entrypoint",
+          "target": "/usr/local/bin/vetchium-entrypoint.sh"
+        },
+        {
+          "source": "database_init_sql",
+          "target": "/docker-entrypoint-initdb.d/10-vetchium.sql"
+        }
+      ],
+      "networks": ["global_backend"],
+      "volumes": ["global-pgdata:/var/lib/postgresql/data"],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 5,
+        "start_period": "30s"
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "wg-global-coordinator": {
+      "image": "${REGISTRY:-ghcr.io/vetchium}/wireguard-node:${TAG:?set TAG}",
+      "cap_add": ["NET_ADMIN"],
+      "devices": ["/dev/net/tun:/dev/net/tun"],
+      "environment": {
+        "WIREGUARD_ADDRESS": "10.242.0.1",
+        "WIREGUARD_PEERS": "/run/secrets/wireguard_sgp_public_key=10.242.0.11=wg-sgp /run/secrets/wireguard_usa1_public_key=10.242.0.12=wg-usa1 /run/secrets/wireguard_deu_public_key=10.242.0.13=wg-deu /run/secrets/wireguard_ind1_public_key=10.242.0.14=wg-ind1"
+      },
+      "extra_hosts": [
+        "sgp.mesh.vetchium.com:10.242.0.11",
+        "usa1.mesh.vetchium.com:10.242.0.12",
+        "deu.mesh.vetchium.com:10.242.0.13",
+        "ind1.mesh.vetchium.com:10.242.0.14",
+        "global-coordinator:10.242.0.1",
+        "global-coordinator.mesh.vetchium.com:10.242.0.1"
+      ],
+      "networks": {
+        "mesh": {
+          "aliases": ["wg-global-coordinator"]
+        },
+        "global_backend": null
+      },
+      "secrets": [
+        {
+          "source": "wireguard_global-coordinator_private_key",
+          "target": "/run/secrets/wireguard_private_key"
+        },
+        "wireguard_sgp_public_key",
+        "wireguard_usa1_public_key",
+        "wireguard_deu_public_key",
+        "wireguard_ind1_public_key"
+      ],
+      "healthcheck": {
+        "test": ["CMD", "wg", "show", "wg0"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "5s"
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "global-coordinator": {
+      "image": "${REGISTRY:-ghcr.io/vetchium}/global-coordinator:${TAG:?set TAG}",
+      "network_mode": "service:wg-global-coordinator",
+      "configs": [
+        {
+          "source": "global_coordinator_config",
+          "target": "/etc/vetchium/global-coordinator.json"
+        }
+      ],
+      "environment": {
+        "PGDATABASE": "global_db",
+        "PGSSLMODE": "disable"
+      },
+      "secrets": [
+        "global_app_postgres_password",
+        "mesh_ca_certificate",
+        "global_coordinator_tls_certificate",
+        "global_coordinator_tls_key",
+        "global_coordinator_health_certificate",
+        "global_coordinator_health_key"
+      ],
+      "read_only": true,
+      "healthcheck": {
+        "test": ["CMD", "/service", "healthcheck"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "10s"
+      },
+      "depends_on": {
+        "global-db": {
+          "condition": "service_healthy"
+        },
+        "wg-global-coordinator": {
+          "condition": "service_healthy"
+        }
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "hub-ui": {
+      "image": "${REGISTRY:-ghcr.io/vetchium}/hub-ui-staging:${TAG:?set TAG}",
+      "networks": ["tunnel"],
+      "read_only": true,
+      "tmpfs": ["/tmp"],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:8080/healthz"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 3,
+        "start_period": "10s"
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "orgs-ui": {
+      "image": "${REGISTRY:-ghcr.io/vetchium}/orgs-ui-staging:${TAG:?set TAG}",
+      "networks": ["tunnel"],
+      "read_only": true,
+      "tmpfs": ["/tmp"],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:8080/healthz"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 3,
+        "start_period": "10s"
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "mailpit": {
+      "image": "axllent/mailpit:v1.31.0@sha256:c96991d9bef73594c246d89ca81411d4e916f03e76a7d2d72fa2ab5dd3c9ce24",
+      "environment": {
+        "MP_UI_AUTH_FILE": "/run/secrets/mailpit_ui_auth"
+      },
+      "secrets": ["mailpit_ui_auth"],
+      "networks": ["mail", "tunnel"],
+      "read_only": true,
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=64m"],
+      "healthcheck": {
+        "test": ["CMD", "/mailpit", "readyz"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "5s"
+      },
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    },
+    "cloudflared": {
+      "image": "cloudflare/cloudflared:2026.10.1@sha256:a15a3b50b8dabd57ac2090e9484c0247dba9dfa1f0df4d298d4317f9d69eb2d5",
+      "command": [
+        "tunnel",
+        "--no-autoupdate",
+        "--config",
+        "/etc/cloudflared/config.yml",
+        "run",
+        "${CLOUDFLARE_TUNNEL_ID:?set CLOUDFLARE_TUNNEL_ID}"
+      ],
+      "configs": [
+        {
+          "source": "cloudflared",
+          "target": "/etc/cloudflared/config.yml"
+        }
+      ],
+      "secrets": ["cloudflared_credentials"],
+      "networks": ["tunnel", "cloudflare_egress"],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"]
+    }
+  },
+  "networks": {
+    "mesh": {
+      "name": "vetchium-staging-mesh",
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.1.0/24"
+          }
+        ]
+      }
+    },
+    "tunnel": {
+      "name": "vetchium-staging-tunnel",
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.2.0/24"
+          }
+        ]
+      }
+    },
+    "mail": {
+      "name": "vetchium-staging-mail",
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.3.0/24"
+          }
+        ]
+      }
+    },
+    "global_backend": {
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.4.0/24"
+          }
+        ]
+      }
+    },
+    "cloudflare_egress": {
+      "ipam": {
+        "config": [
+          {
+            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.5.0/24"
+          }
+        ]
+      }
+    }
+  },
+  "volumes": {
+    "global-pgdata": {}
+  },
+  "configs": {
+    "global_coordinator_config": {
+      "file": "./.state/global-coordinator.json"
+    },
+    "cloudflared": {
+      "file": "./cloudflared.yml"
+    },
+    "database_entrypoint": {
+      "file": "../../db/bootstrap/entrypoint.sh"
+    },
+    "database_init_sql": {
+      "file": "../../db/bootstrap/init.sql"
+    }
+  },
+  "secrets": {
+    "global_postgres_password": {
+      "file": "./.secrets/global_postgres_password"
+    },
+    "global_app_postgres_password": {
+      "file": "./.secrets/global_app_postgres_password"
+    },
+    "mesh_ca_certificate": {
+      "file": "./.secrets/mesh_ca_certificate"
+    },
+    "global_coordinator_tls_certificate": {
+      "file": "./.secrets/global_coordinator_tls_certificate"
+    },
+    "global_coordinator_tls_key": {
+      "file": "./.secrets/global_coordinator_tls_key"
+    },
+    "global_coordinator_health_certificate": {
+      "file": "./.secrets/global_coordinator_health_certificate"
+    },
+    "global_coordinator_health_key": {
+      "file": "./.secrets/global_coordinator_health_key"
+    },
+    "wireguard_global-coordinator_private_key": {
+      "file": "./.secrets/wireguard_global-coordinator_private_key"
+    },
+    "wireguard_sgp_public_key": {
+      "file": "./.secrets/wireguard_sgp_public_key"
+    },
+    "wireguard_usa1_public_key": {
+      "file": "./.secrets/wireguard_usa1_public_key"
+    },
+    "wireguard_deu_public_key": {
+      "file": "./.secrets/wireguard_deu_public_key"
+    },
+    "wireguard_ind1_public_key": {
+      "file": "./.secrets/wireguard_ind1_public_key"
+    },
+    "mailpit_ui_auth": {
+      "file": "./.secrets/mailpit_ui_auth"
+    },
+    "cloudflared_credentials": {
+      "file": "./.secrets/cloudflared_credentials.json"
+    }
+  }
+}
