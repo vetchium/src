@@ -219,8 +219,8 @@ Logs are structured JSON. `event=request_error`, `event=worker_job_error`, and
 
 ## Staging
 
-One Linux host runs every region, the coordinator, both global portals, and
-Mailpit with Docker Compose from published images; nothing is built there.
+One host runs every region, the coordinator, both global portals, and Mailpit
+with Docker Compose from published images; nothing is built there.
 Cloudflare Tunnel is the only ingress and the host publishes no ports. The
 region project template is `staging/region.json`; the rest is
 `staging/compose.json`.
@@ -243,16 +243,19 @@ holds test data only.
 
 ### Images
 
-`make publish TAG=v1.2.3` (repository root) also pushes `hub-ui-staging` and
-`orgs-ui-staging`, compiled with the staging region tables, and
-`wireguard-node`. A region table change needs a new tag.
+`make publish` (repository root) pushes every image under the checked-out
+commit (`git-<commit>`, refused with uncommitted changes) or `TAG`, and moves
+`latest` to them. It includes `hub-ui-staging` and `orgs-ui-staging`, compiled
+with the staging region tables, and `wireguard-node`.
 
 ### Host
 
-- Linux with the WireGuard kernel module, Docker Engine with Compose v2, GNU
-  make, and OpenSSL; about 8 GB of memory.
+- Linux with the WireGuard kernel module, or Docker Desktop, whose VM kernel
+  has it; Docker with Compose v2, make, and OpenSSL; about 8 GB of memory for
+  Docker.
 - `docker login ghcr.io` when the registry is private.
-- Rotate container logs: `"log-driver": "local"` in `/etc/docker/daemon.json`.
+- Rotate container logs on Linux: `"log-driver": "local"` in
+  `/etc/docker/daemon.json`.
 - Networks use `10.231.0.0/16`; if that overlaps the host's networks, set
   `VETCHIUM_DOCKER_NETWORK_OCTET` in `deploy/staging/.env` before the first
   deploy.
@@ -291,21 +294,25 @@ In the Cloudflare dashboard:
 ### Deploy
 
 ```bash
-cd deploy/staging
-make TAG=v1.2.3
+make staging          # repository root; deploys latest, or TAG=<tag>
+make staging-clean    # stops staging and deletes its data
 ```
 
-The Makefile creates missing secrets in `.secrets/`, derives the coordinator's
+`deploy/staging/Makefile` creates missing secrets in `.secrets/`, derives the coordinator's
 identity digest key id, pulls every image, and starts project
 `vetchium-staging` (coordinator, portals, Mailpit, cloudflared), then
 `vetchium-staging-<region>` for each region. Each database is migrated before
-its project is replaced; a failed migration leaves that project running.
+its project is replaced; a failed migration leaves that project running. It
+prints the deployed images' tag.
 
 - `.secrets/` and the Docker volumes belong together: the databases and object
-  stores were initialized with those secrets. Back up or delete both.
-- `make down` stops every project and keeps the data. To reset staging, run
-  `docker compose --project-name <project> down --volumes` for every project;
-  resetting one region leaves its global claims in the coordinator.
+  stores were initialized with those secrets. Back up or delete both; never
+  delete `.secrets/` alone.
+- `make staging-clean` removes every project's containers, networks, and
+  volumes, keeping `.secrets/` and the tunnel; the next `make staging` starts
+  empty. Meanwhile Cloudflare answers every staging host with its
+  tunnel-unreachable error page. `make -C deploy/staging down` stops staging
+  and keeps the data.
 - Logs: `docker compose --project-name vetchium-staging-sgp logs -f hub-api`.
 - The first administrator is created as in production
   ([First administrator](#first-administrator)), connected with

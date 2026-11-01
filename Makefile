@@ -85,7 +85,7 @@ serving_services = $$(docker compose -f $(1) config --services | \
 	playwright-test playwright-test-run api-coverage-prepare \
 	api-coverage-report repository-json-fmt repository-json-check-ready \
 	repository-json-check video-demos-deps video-demos-check \
-	video-demos-check-ready video-demo docker publish clean
+	video-demos-check-ready video-demo docker publish staging staging-clean clean
 
 fmt:
 	@find $(GO_MODULES) -type f -name '*.go' -print0 | xargs -0 gofmt -w
@@ -561,12 +561,32 @@ docker:
 	REGISTRY=$(REGISTRY) TAG=$(TAG) docker buildx bake --builder $(BUILDER) -f docker-bake.hcl \
 		--set '*.output=type=cacheonly'
 
+# Without TAG, the tag is the checked-out commit, so the tree must match it.
+# Every publish also moves `latest`, which `make staging` deploys.
 publish:
-	@case "$(TAG)" in dev|latest) echo "set TAG to an immutable tag, e.g. TAG=v1.2.3"; exit 1;; esac
-	@docker buildx inspect $(BUILDER) >/dev/null 2>&1 || \
-		docker buildx create --name $(BUILDER) --driver docker-container --bootstrap >/dev/null
-	REGISTRY=$(REGISTRY) TAG=$(TAG) PLATFORMS=$(PLATFORMS) \
-		docker buildx bake --builder $(BUILDER) -f docker-bake.hcl --push
+	@set -e; tag="$(TAG)"; \
+	if [ "$$tag" = dev ]; then \
+		test -z "$$(git status --porcelain)" || \
+			{ echo "commit or stash your changes first, or set TAG"; exit 1; }; \
+		tag=git-$$(git rev-parse --short=12 HEAD); \
+	fi; \
+	case "$$tag" in latest) echo "latest moves with every publish; set another TAG"; exit 1;; esac; \
+	docker buildx inspect $(BUILDER) >/dev/null 2>&1 || \
+		docker buildx create --name $(BUILDER) --driver docker-container --bootstrap >/dev/null; \
+	REGISTRY=$(REGISTRY) TAG=$$tag PLATFORMS=$(PLATFORMS) \
+		docker buildx bake --builder $(BUILDER) -f docker-bake.hcl --push; \
+	echo "published $$tag and latest to $(REGISTRY)"
+
+# Deploys the images `latest` names to the staging host (deploy/staging);
+# TAG=<tag> deploys an earlier publish instead.
+staging:
+	$(MAKE) -C deploy/staging up TAG=$(if $(filter dev,$(TAG)),latest,$(TAG))
+
+# Stops staging and deletes its data. Secrets and the tunnel stay, so the next
+# `make staging` starts empty; meanwhile Cloudflare answers with its
+# tunnel-unreachable error page.
+staging-clean:
+	$(MAKE) -C deploy/staging clean
 
 clean:
 	docker compose -f docker-compose-ci.json down --remove-orphans --volumes

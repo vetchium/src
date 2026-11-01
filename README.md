@@ -137,8 +137,11 @@ removes the directory. The process is in
 
 ```bash
 make docker                 # build every image
-make publish TAG=v1.2.3     # build and push images
+make publish                # push images tagged with this commit, and latest
+make publish TAG=v1.2.3     # push images tagged v1.2.3, and latest
 make portal-dist            # build the Hub and Orgs static sites into portal-dist/
+make staging                # deploy latest to staging on this machine
+make staging-clean          # stop staging and delete its data
 ```
 
 Production and staging deployment: [`deploy/README.md`](deploy/README.md).

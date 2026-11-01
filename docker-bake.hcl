@@ -10,6 +10,12 @@ variable "PLATFORMS" {
   default = ""
 }
 
+# Every image is pushed under TAG and `latest`; `make staging` deploys `latest`.
+function "tags" {
+  params = [name]
+  result = ["${REGISTRY}/${name}:${TAG}", "${REGISTRY}/${name}:latest"]
+}
+
 group "default" {
   targets = [
     "admin-api",
@@ -30,6 +36,9 @@ group "default" {
 
 target "_common" {
   platforms = PLATFORMS == "" ? null : split(",", PLATFORMS)
+  labels = {
+    "org.opencontainers.image.version" = TAG
+  }
 }
 
 target "_backend" {
@@ -44,62 +53,62 @@ target "_backend" {
 target "admin-api" {
   inherits = ["_backend"]
   target  = "admin-api"
-  tags    = ["${REGISTRY}/admin-api:${TAG}"]
+  tags    = tags("admin-api")
 }
 
 target "hub-api" {
   inherits = ["_backend"]
   target  = "hub-api"
-  tags    = ["${REGISTRY}/hub-api:${TAG}"]
+  tags    = tags("hub-api")
 }
 
 target "orgs-api" {
   inherits = ["_backend"]
   target  = "orgs-api"
-  tags    = ["${REGISTRY}/orgs-api:${TAG}"]
+  tags    = tags("orgs-api")
 }
 
 target "mesh-api" {
   inherits = ["_backend"]
   target  = "mesh-api"
-  tags    = ["${REGISTRY}/mesh-api:${TAG}"]
+  tags    = tags("mesh-api")
 }
 
 target "mcp-server" {
   inherits = ["_backend"]
   target  = "mcp-server"
-  tags    = ["${REGISTRY}/mcp-server:${TAG}"]
+  tags    = tags("mcp-server")
 }
 
 target "workers" {
   inherits = ["_backend"]
   target  = "workers"
-  tags    = ["${REGISTRY}/workers:${TAG}"]
+  tags    = tags("workers")
 }
 
 target "global-coordinator" {
   inherits = ["_backend"]
   target  = "global-coordinator"
-  tags    = ["${REGISTRY}/global-coordinator:${TAG}"]
+  tags    = tags("global-coordinator")
 }
 
 target "migrate" {
   inherits = ["_common"]
   context = "db/migrations"
-  tags    = ["${REGISTRY}/migrate:${TAG}"]
+  tags    = tags("migrate")
 }
 
 target "global-migrate" {
   inherits = ["_common"]
   context = "db/global-migrations"
-  tags    = ["${REGISTRY}/global-migrate:${TAG}"]
+  tags    = tags("global-migrate")
 }
 
 target "admin-ui" {
   inherits = ["_common"]
   context = "."
   dockerfile = "admin-ui/Dockerfile"
-  tags    = ["${REGISTRY}/admin-ui:${TAG}"]
+  tags    = tags("admin-ui")
 }
 
 # Production serves the Hub and Orgs portals from a static host (`make
@@ -112,7 +121,7 @@ target "hub-ui-staging" {
   args = {
     VITE_VETCHIUM_ENVIRONMENT = "staging"
   }
-  tags    = ["${REGISTRY}/hub-ui-staging:${TAG}"]
+  tags    = tags("hub-ui-staging")
 }
 
 target "orgs-ui-staging" {
@@ -122,7 +131,7 @@ target "orgs-ui-staging" {
   args = {
     VITE_VETCHIUM_ENVIRONMENT = "staging"
   }
-  tags    = ["${REGISTRY}/orgs-ui-staging:${TAG}"]
+  tags    = tags("orgs-ui-staging")
 }
 
 # Stands in for a mesh host's WireGuard interface in staging, as it does in
@@ -131,5 +140,5 @@ target "wireguard-node" {
   inherits = ["_common"]
   context = "."
   dockerfile = "dev/wireguard/Dockerfile"
-  tags    = ["${REGISTRY}/wireguard-node:${TAG}"]
+  tags    = tags("wireguard-node")
 }

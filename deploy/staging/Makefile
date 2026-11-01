@@ -2,14 +2,12 @@ SHELL := bash
 .SHELLFLAGS := -eu -o pipefail -c
 .DEFAULT_GOAL := up
 
-ifneq ($(shell uname -s),Linux)
-$(error staging runs on its Linux host only)
-endif
-
 -include .env
 export
 
 REGISTRY ?= ghcr.io/vetchium
+# `make publish` moves latest to its images; TAG=<tag> picks an earlier publish.
+TAG ?= latest
 ADMIN_UI_DEFAULT_LANGUAGE ?= en-US
 TENANTS := sgp usa1 deu ind1
 SECRETS := .secrets
@@ -37,14 +35,15 @@ region_compose = REGION=$(1) REGION_NETWORK=$(REGION_NETWORK_$(1)) \
 	WIREGUARD_PEERS="$(call wg_peers,$(1))" \
 	docker compose --project-name vetchium-staging-$(1) --file region.json
 
-.PHONY: up down secrets
+.PHONY: up down clean secrets
 
-# Each migration runs against its project's internal database network before
-# that project's services are replaced, so a failed migration leaves the
-# running stack untouched. Generated passwords are hex and need no URL escaping.
+# Every image is pulled before anything starts, so one deploy never mixes two
+# publishes of a moving tag. Each migration runs against its project's internal
+# database network before that project's services are replaced, so a failed
+# migration leaves the running stack untouched. Generated passwords are hex and
+# need no URL escaping.
 up: secrets
-	@test -n "$(TAG)" || { echo "TAG is required, e.g. TAG=v1.2.3"; exit 1; }
-	@case "$(TAG)" in dev|latest) echo "refusing floating tag $(TAG)"; exit 1;; esac
+	@case "$(TAG)" in dev|'') echo "TAG must name a published tag"; exit 1;; esac
 	@test -n "$(CLOUDFLARE_TUNNEL_ID)" || \
 		{ echo "CLOUDFLARE_TUNNEL_ID is required; see deploy/README.md"; exit 1; }
 	@test -s $(SECRETS)/cloudflared_credentials.json || \
@@ -60,6 +59,8 @@ up: secrets
 		global-coordinator.json > $(STATE)/global-coordinator.json
 	$(global_compose) pull --quiet
 	@$(foreach tenant,$(TENANTS),$(call region_compose,$(tenant)) pull --quiet;)
+	@docker pull --quiet $(REGISTRY)/global-migrate:$(TAG) >/dev/null
+	@docker pull --quiet $(REGISTRY)/migrate:$(TAG) >/dev/null
 	@set -e; \
 	migrate() { \
 		f=$$(mktemp); chmod 600 "$$f"; \
@@ -84,13 +85,23 @@ up: secrets
 			$(tenant)_postgres_password tenant_db; \
 		$(call region_compose,$(tenant)) up --detach --wait \
 			--wait-timeout $(WAIT_TIMEOUT) --remove-orphans;)
-	@echo "staging is running $(TAG)"
+	@echo "staging is running $(TAG) ($$(docker image inspect --format \
+		'{{index .Config.Labels "org.opencontainers.image.version"}}' \
+		$(REGISTRY)/hub-api:$(TAG)))"
 
 # Stops every project and keeps the volumes. Regions go first: they hold the
 # shared networks the global project created.
 down:
 	@$(foreach tenant,$(TENANTS),docker compose --project-name vetchium-staging-$(tenant) down;)
 	docker compose --project-name vetchium-staging down
+
+# Stops every project and deletes its volumes; the secrets stay and initialize
+# the next deploy's empty databases and object stores.
+clean:
+	@$(foreach tenant,$(TENANTS),docker compose --project-name vetchium-staging-$(tenant) \
+		down --volumes --remove-orphans;)
+	docker compose --project-name vetchium-staging down --volumes --remove-orphans
+	rm -rf $(STATE)
 
 # Creates whatever is missing and never replaces an existing secret: the
 # databases and object stores in the volumes were initialized with them.
