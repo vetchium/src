@@ -256,8 +256,9 @@ with the staging region tables, and `wireguard-node`.
 - `docker login ghcr.io` when the registry is private.
 - Rotate container logs on Linux: `"log-driver": "local"` in
   `/etc/docker/daemon.json`.
-- Networks use `10.231.0.0/16`; if that overlaps the host's networks, set
-  `VETCHIUM_DOCKER_NETWORK_OCTET` in `deploy/staging/.env` before the first
+- Networks use `10.232.0.0/16`, apart from the development and CI stacks'
+  `10.231.0.0/16`; if that overlaps the host's networks, set
+  `VETCHIUM_STAGING_NETWORK_OCTET` in `deploy/staging/.env` before the first
   deploy.
 
 ### Tunnel

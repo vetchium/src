@@ -545,7 +545,7 @@
       "ipam": {
         "config": [
           {
-            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.${REGION_NETWORK:?run via make}0.0/24"
+            "subnet": "10.${VETCHIUM_STAGING_NETWORK_OCTET:-232}.${REGION_NETWORK:?run via make}0.0/24"
           }
         ]
       }
@@ -555,7 +555,7 @@
       "ipam": {
         "config": [
           {
-            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.${REGION_NETWORK:?run via make}1.0/24"
+            "subnet": "10.${VETCHIUM_STAGING_NETWORK_OCTET:-232}.${REGION_NETWORK:?run via make}1.0/24"
           }
         ]
       }
@@ -565,7 +565,7 @@
       "ipam": {
         "config": [
           {
-            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.${REGION_NETWORK:?run via make}2.0/24"
+            "subnet": "10.${VETCHIUM_STAGING_NETWORK_OCTET:-232}.${REGION_NETWORK:?run via make}2.0/24"
           }
         ]
       }
@@ -575,7 +575,7 @@
       "ipam": {
         "config": [
           {
-            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.${REGION_NETWORK:?run via make}3.0/24"
+            "subnet": "10.${VETCHIUM_STAGING_NETWORK_OCTET:-232}.${REGION_NETWORK:?run via make}3.0/24"
           }
         ]
       }
@@ -585,7 +585,7 @@
       "ipam": {
         "config": [
           {
-            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.${REGION_NETWORK:?run via make}4.0/24"
+            "subnet": "10.${VETCHIUM_STAGING_NETWORK_OCTET:-232}.${REGION_NETWORK:?run via make}4.0/24"
           }
         ]
       }
@@ -595,7 +595,7 @@
       "ipam": {
         "config": [
           {
-            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.${REGION_NETWORK:?run via make}5.0/24"
+            "subnet": "10.${VETCHIUM_STAGING_NETWORK_OCTET:-232}.${REGION_NETWORK:?run via make}5.0/24"
           }
         ]
       }
@@ -604,7 +604,7 @@
       "ipam": {
         "config": [
           {
-            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.${REGION_NETWORK:?run via make}6.0/24"
+            "subnet": "10.${VETCHIUM_STAGING_NETWORK_OCTET:-232}.${REGION_NETWORK:?run via make}6.0/24"
           }
         ]
       }

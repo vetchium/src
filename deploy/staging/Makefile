@@ -21,7 +21,8 @@ WG_ADDRESS_deu := 10.242.0.13
 WG_ADDRESS_ind1 := 10.242.0.14
 # Region <n>'s networks take 10.<octet>.<n>0.0/24 to 10.<octet>.<n>6.0/24 and
 # the global project's 10.<octet>.1.0/24 to 10.<octet>.5.0/24, where <octet> is
-# VETCHIUM_DOCKER_NETWORK_OCTET (default 231).
+# VETCHIUM_STAGING_NETWORK_OCTET (default 232, apart from the development and
+# CI stacks' 231).
 REGION_NETWORK_sgp := 1
 REGION_NETWORK_usa1 := 2
 REGION_NETWORK_deu := 3

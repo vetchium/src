@@ -211,7 +211,7 @@
       "ipam": {
         "config": [
           {
-            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.1.0/24"
+            "subnet": "10.${VETCHIUM_STAGING_NETWORK_OCTET:-232}.1.0/24"
           }
         ]
       }
@@ -222,7 +222,7 @@
       "ipam": {
         "config": [
           {
-            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.2.0/24"
+            "subnet": "10.${VETCHIUM_STAGING_NETWORK_OCTET:-232}.2.0/24"
           }
         ]
       }
@@ -233,7 +233,7 @@
       "ipam": {
         "config": [
           {
-            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.3.0/24"
+            "subnet": "10.${VETCHIUM_STAGING_NETWORK_OCTET:-232}.3.0/24"
           }
         ]
       }
@@ -243,7 +243,7 @@
       "ipam": {
         "config": [
           {
-            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.4.0/24"
+            "subnet": "10.${VETCHIUM_STAGING_NETWORK_OCTET:-232}.4.0/24"
           }
         ]
       }
@@ -252,7 +252,7 @@
       "ipam": {
         "config": [
           {
-            "subnet": "10.${VETCHIUM_DOCKER_NETWORK_OCTET:-231}.5.0/24"
+            "subnet": "10.${VETCHIUM_STAGING_NETWORK_OCTET:-232}.5.0/24"
           }
         ]
       }

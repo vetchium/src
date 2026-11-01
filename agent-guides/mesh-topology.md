@@ -55,4 +55,6 @@ networks. Trust and protocol rules are in [`federation.md`](federation.md).
   mappings identical.
 - Staging (`deploy/staging/`) runs one Compose project per region with the
   same node layout and addresses, from the published `wireguard-node` image,
-  over the shared `vetchium-staging-mesh` underlay.
+  over the shared `vetchium-staging-mesh` underlay. Its networks take
+  `10.232.0.0/16` (`VETCHIUM_STAGING_NETWORK_OCTET`) so it runs beside the
+  development or CI stack.
