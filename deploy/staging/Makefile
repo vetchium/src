@@ -36,7 +36,7 @@ region_compose = REGION=$(1) REGION_NETWORK=$(REGION_NETWORK_$(1)) \
 	WIREGUARD_PEERS="$(call wg_peers,$(1))" \
 	docker compose --project-name vetchium-staging-$(1) --file region.json
 
-.PHONY: up down clean secrets
+.PHONY: up down clean secrets info
 
 # Every image is pulled before anything starts, so one deploy never mixes two
 # publishes of a moving tag. Each migration runs against its project's internal
@@ -89,6 +89,26 @@ up: secrets
 	@echo "staging is running $(TAG) ($$(docker image inspect --format \
 		'{{index .Config.Labels "org.opencontainers.image.version"}}' \
 		$(REGISTRY)/hub-api:$(TAG)))"
+	@$(MAKE) --no-print-directory info
+
+# Prints where staging answers and how to get in. Names secret files rather
+# than their contents, so deploy output never carries a password.
+info:
+	@printf '\n%s\n' 'Portals'
+	@printf '  %-8s %s\n' Hub https://vetchium.com Orgs https://orgs.vetchium.com \
+		Mail https://staging-mail.vetchium.com
+	@printf '  %-8s %s\n' '' 'user staging, password in $(CURDIR)/$(SECRETS)/mailpit_ui_password'
+	@printf '\n%s\n' 'Regions: API, Admin portal, media'
+	@$(foreach tenant,$(TENANTS),printf '  %-8s %-30s %-32s %s\n' $(tenant) \
+		https://$(tenant)-api.vetchium.com https://$(tenant)-admin.vetchium.com \
+		https://$(tenant)-media.vetchium.com;)
+	@printf '\n%s\n' 'Notes'
+	@printf '  - %s\n' \
+		'All staging mail lands in Mailpit; none reaches a real inbox.' \
+		'Hub signup accepts any @test.test address in every region.' \
+		'Admin portals have no administrator until you create one: deploy/README.md, Staging > Deploy.' \
+		'make staging-clean deletes all staging data; make -C deploy/staging down stops it and keeps the data.' \
+		'Logs: docker compose --project-name vetchium-staging-<region> logs -f hub-api'
 
 # Stops every project and keeps the volumes. Regions go first: they hold the
 # shared networks the global project created.

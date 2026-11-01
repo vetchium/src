@@ -304,7 +304,9 @@ identity digest key id, pulls every image, and starts project
 `vetchium-staging` (coordinator, portals, Mailpit, cloudflared), then
 `vetchium-staging-<region>` for each region. Each database is migrated before
 its project is replaced; a failed migration leaves that project running. It
-prints the deployed images' tag.
+prints the deployed images' tag, then every staging URL, where the Mailpit
+password is, and short notes on mail, signup, administrators, and data;
+`make -C deploy/staging info` prints that summary again.
 
 - `.secrets/` and the Docker volumes belong together: the databases and object
   stores were initialized with those secrets. Back up or delete both; never
