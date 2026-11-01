@@ -41,10 +41,17 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
     const openingTitle = opening.live_content?.title ?? "Software Engineer";
     const currentMonth = new Date().toISOString().slice(0, 7);
     const today = new Date().toISOString().slice(0, 10);
-    const joinDate = utcDate(-3);
-    const fixedJoinDate = utcDate(-4);
-    const separationDate = utcDate(-1);
-    const fixedSeparationDate = utcDate(-2);
+    // The sourcing facts take four consecutive past days inside one calendar
+    // month, so one statement month holds them all on any day of the month:
+    // the four days before today, or the last four of the previous month
+    // during a month's first four days.
+    const dayOfMonth = new Date().getUTCDate();
+    const lastFactDay = dayOfMonth > 4 ? -1 : -dayOfMonth;
+    const fixedJoinDate = utcDate(lastFactDay - 3);
+    const joinDate = utcDate(lastFactDay - 2);
+    const fixedSeparationDate = utcDate(lastFactDay - 1);
+    const separationDate = utcDate(lastFactDay);
+    const factMonth = separationDate.slice(0, 7);
 
     // =========================================================================
     // 1. SOURCING ENGAGEMENT: joined, separated, and corrections (MKT-STM-001, HP-STA-005)
@@ -87,7 +94,7 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
         consumer.owner,
         {
           engagement_id: sourcing.id,
-          month: currentMonth,
+          month: factMonth,
         },
       );
       expect(consumerStmt1Res.status(), await consumerStmt1Res.text()).toBe(
@@ -101,7 +108,7 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
         provider.owner,
         {
           engagement_id: sourcing.id,
-          month: currentMonth,
+          month: factMonth,
         },
       );
       expect(providerStmt1Res.status(), await providerStmt1Res.text()).toBe(
@@ -141,7 +148,7 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
         consumer.owner,
         {
           engagement_id: sourcing.id,
-          month: currentMonth,
+          month: factMonth,
         },
       );
       const consumerStmt2 =
@@ -157,7 +164,7 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
         provider.owner,
         {
           engagement_id: sourcing.id,
-          month: currentMonth,
+          month: factMonth,
         },
       );
       const providerStmt2 =
@@ -181,7 +188,7 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
         consumer.owner,
         {
           engagement_id: sourcing.id,
-          month: currentMonth,
+          month: factMonth,
         },
       );
       const consumerStmt3 =
@@ -212,7 +219,7 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
         consumer.owner,
         {
           engagement_id: sourcing.id,
-          month: currentMonth,
+          month: factMonth,
         },
       );
       const consumerStmt4 =
@@ -231,7 +238,7 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
         provider.owner,
         {
           engagement_id: sourcing.id,
-          month: currentMonth,
+          month: factMonth,
         },
       );
       const providerStmt4 =
@@ -294,7 +301,7 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
         consumer.owner,
         {
           engagement_id: sourcing.id,
-          month: currentMonth,
+          month: factMonth,
         },
       );
       const retainedStmt =
@@ -311,7 +318,7 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
       const retainedProviderRes =
         await provider.api.getClientEngagementStatement(provider.owner, {
           engagement_id: sourcing.id,
-          month: currentMonth,
+          month: factMonth,
         });
       const retainedProviderStmt =
         (await retainedProviderRes.json()) as GetActivityStatementResponse;
