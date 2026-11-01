@@ -137,7 +137,8 @@ privileges. A separate container then runs the Goose migrations.
 
 ## Development fixtures
 
-- No production data in the repository; no fixtures in migrations.
+- No production data in the repository; no fixtures in migrations other than
+  the `test.test` Hub signup domain (`hub-signup.md`).
 - `db/db-seed/<tenant>.sql`: plain table content, re-runnable (restores
   fixture passwords, keeps granted access and state).
 - `backend/cmd/dev-seed`: fixtures that must pass API validation,

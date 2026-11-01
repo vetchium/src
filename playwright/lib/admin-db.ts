@@ -31,7 +31,11 @@ function assertOwnedDomain(domain: string): void {
 }
 
 function assertOwnedHubEmail(emailAddress: string): void {
-  if (!/^e2e\+[a-f0-9-]+@e2e-[a-z0-9-]+\.example\.test$/.test(emailAddress)) {
+  if (
+    !/^e2e\+[a-f0-9-]+@(e2e-[a-z0-9-]+\.example\.test|test\.test)$/.test(
+      emailAddress,
+    )
+  ) {
     throw new Error(
       `refusing Hub database operation for non-test email: ${emailAddress}`,
     );

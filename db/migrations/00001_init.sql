@@ -1156,6 +1156,11 @@ CREATE TABLE vetchium.hub_signup_domains (
     )
 );
 
+-- Every environment accepts test.test so test accounts can sign up without an
+-- administrator. The .test TLD is reserved (RFC 6761), so no real person owns
+-- an address there. Administrators may disable it like any other domain.
+INSERT INTO vetchium.hub_signup_domains (domain) VALUES ('test.test');
+
 CREATE TABLE vetchium.admin_login_challenges (
     admin_login_challenge_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     admin_user_id uuid NOT NULL REFERENCES vetchium.admin_users (admin_user_id)

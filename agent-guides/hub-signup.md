@@ -16,6 +16,9 @@ which owns the directory commands, digest key, and claim protocol.
   in SQL at both initiation and completion, and recheck region eligibility at
   completion. Approval in another tenant never counts, and there is no
   any-domain bypass.
+- The tenant migration seeds `test.test` as an active allowlist row, so test
+  accounts can sign up in every environment. It is an ordinary row: never
+  special-case it in code.
 - A completion that spent a signup token owns the request until it completes,
   fails, or is abandoned; each of those deactivates the request. A new request
   for the same address gets the same `202`, is audited `hub.signup.rejected`

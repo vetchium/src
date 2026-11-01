@@ -135,6 +135,26 @@ test("online tenants claim global handles while an offline tenant remains pendin
   }
 });
 
+test("every open tenant admits test.test without an administrator", async ({
+  request,
+}) => {
+  const signups = (["ind1", "sgp", "usa1"] as const).map((tenant) => ({
+    tenant,
+    email: `e2e+${randomUUID()}@test.test`,
+    keys: [] as string[],
+  }));
+  try {
+    for (const { tenant, email, keys } of signups) {
+      await requestSignupToken(request, tenant, email, keys);
+    }
+  } finally {
+    for (const { tenant, email, keys } of signups) {
+      cleanupHubUser(email, tenant);
+      cleanupHubIdempotency(keys, tenant);
+    }
+  }
+});
+
 test("a closed tenant rejects signup without creating an account", async ({
   request,
 }) => {
