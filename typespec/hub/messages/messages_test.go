@@ -2,6 +2,7 @@ package messages
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/vetchium/src/typespec/common"
@@ -48,5 +49,49 @@ func TestPageDefaults(t *testing.T) {
 	if (ListConversationsRequest{}).EffectiveLimit() != DefaultPage ||
 		(GetConversationRequest{}).EffectiveLimit() != DefaultPage {
 		t.Fatal("a request without a limit takes the default page")
+	}
+}
+
+func TestChatRequestValidation(t *testing.T) {
+	t.Parallel()
+	const requestID = contacts.ChatRequestID("01900000-0000-7000-8000-000000000005")
+	note := contacts.ChatRequestNote("  hi  ")
+	original := HubSendChatRequestRequest{Domain: " Client.Test ", OpeningNumber: 1,
+		AgencyDomain: "Agency.Test", Note: &note}
+	copied := original
+	copied.Normalize()
+	if copied.Domain != "client.test" || copied.AgencyDomain != "agency.test" || *copied.Note != "hi" {
+		t.Fatalf("normalized = %+v %q", copied, *copied.Note)
+	}
+	if *original.Note != "  hi  " || original.Domain != " Client.Test " {
+		t.Fatal("the original changed")
+	}
+	long := contacts.ChatRequestNote(strings.Repeat("a", contacts.MaxChatRequestNoteLength+1))
+	badLimit := int32(0)
+	tests := []struct {
+		name string
+		got  []string
+		want []string
+	}{
+		{"agencies", ListOpeningAgenciesRequest{Domain: "client.test", OpeningNumber: 1}.Validate(), []string{}},
+		{"agencies invalid", ListOpeningAgenciesRequest{Domain: "x"}.Validate(), []string{"domain", "opening_number"}},
+		{"send", copied.Validate(), []string{}},
+		{"send invalid", HubSendChatRequestRequest{Note: &long}.Validate(), []string{"domain", "opening_number", "agency_domain", "note"}},
+		{"list", ListHubChatRequestsRequest{Direction: contacts.ToHubUser}.Validate(), []string{}},
+		{"list invalid", ListHubChatRequestsRequest{Limit: &badLimit}.Validate(), []string{"direction", "limit"}},
+		{"accept", HubAcceptChatRequestRequest{RequestID: requestID}.Validate(), []string{}},
+		{"accept invalid", HubAcceptChatRequestRequest{}.Validate(), []string{"request_id"}},
+		{"decline", HubDeclineChatRequestRequest{RequestID: requestID, Scope: contacts.DeclineOpening}.Validate(), []string{}},
+		{"decline invalid", HubDeclineChatRequestRequest{Scope: "x"}.Validate(), []string{"request_id", "scope"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if !slices.Equal(test.got, test.want) {
+				t.Fatalf("fields = %v, want %v", test.got, test.want)
+			}
+		})
+	}
+	if MaxChatRequestsPerDay != 10 || (ListHubChatRequestsRequest{}).EffectiveLimit() != DefaultPage {
+		t.Fatal("a Hub user sends at most 10 chat requests per day; lists default to one page")
 	}
 }

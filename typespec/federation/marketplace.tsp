@@ -186,6 +186,34 @@ model AgencyPointerChangedPayload {
   read_only_reason?: Vetchium.Orgs.Marketplace.Contacts.ConversationReadOnlyReason;
   suggestions?: AgencyPointerSuggestion[];
   new_agency_message?: boolean;
+
+  /** Until when the agency may write; absent when it may not (MKT-REQ-004). */
+  agency_may_write_until?: utcDateTime;
+
+  /** Until when the Hub user may write; absent when they may not. */
+  hub_may_write_until?: utcDateTime;
+
+  /** The latest chat request between the two, never its note. */
+  request?: AgencyPointerRequest;
+
+  /** The agency sent the Hub user a new chat request; triggers an email. */
+  new_agency_request?: boolean;
+
+  /** The agency accepted the Hub user's request; triggers an email. */
+  request_accepted_by_agency?: boolean;
+}
+
+/** A chat request as the Hub user's pointer keeps it (MKT-DAT-003). */
+model AgencyPointerRequest {
+  request_id: Vetchium.Orgs.Marketplace.Contacts.ChatRequestID;
+  direction: Vetchium.Orgs.Marketplace.Contacts.ChatRequestDirection;
+  state: Vetchium.Orgs.Marketplace.Contacts.ChatRequestState;
+  consumer_domain: Vetchium.Orgs.OrgDomain;
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  sent_at: utcDateTime;
+  answered_at?: utcDateTime;
+  decline_scope?: Vetchium.Orgs.Marketplace.Contacts.ChatRequestDeclineScope;
+  blocked_until?: utcDateTime;
 }
 
 /** An Opening the agency suggested in the conversation, as the pointer keeps it. */
@@ -205,6 +233,47 @@ model HubConversationReplyPayload {
 
   hub_user_handle: Vetchium.Hub.HubHandle;
   text: Vetchium.Orgs.Marketplace.Contacts.MessageText;
+}
+
+/**
+ * The Hub user's conversation window in seconds (MKT-REQ-004), which every
+ * Hub command about a conversation carries.
+ */
+@minValue(1)
+scalar ConversationWindowSeconds extends int64;
+
+/**
+ * Payload of `hub-chat-request`: a Hub user asks an agency assigned to a
+ * `published` Opening to open the conversation (MKT-DAT-014). The Hub tenant
+ * mints the request id, which is the aggregate; the authority is the agency
+ * Org and the initiator the Hub user.
+ */
+model HubChatRequestPayload {
+  request_id: Vetchium.Orgs.Marketplace.Contacts.ChatRequestID;
+  agency_org_did: Vetchium.Orgs.OrgDID;
+  hub_user_did: Vetchium.Hub.HubUserDID;
+  hub_user_display_name: Vetchium.DisplayName;
+  hub_user_handle: Vetchium.Hub.HubHandle;
+  consumer_domain: Vetchium.Orgs.OrgDomain;
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  note?: Vetchium.Orgs.Marketplace.Contacts.ChatRequestNote;
+  window_seconds: ConversationWindowSeconds;
+}
+
+/**
+ * Payload of `hub-chat-request-answer`: the Hub user accepts or declines an
+ * agency's request. `scope` is present exactly when declining. The aggregate
+ * is the request id.
+ */
+model HubChatRequestAnswerPayload {
+  request_id: Vetchium.Orgs.Marketplace.Contacts.ChatRequestID;
+  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  hub_user_did: Vetchium.Hub.HubUserDID;
+  hub_user_display_name: Vetchium.DisplayName;
+  hub_user_handle: Vetchium.Hub.HubHandle;
+  accept: boolean;
+  scope?: Vetchium.Orgs.Marketplace.Contacts.ChatRequestDeclineScope;
+  window_seconds: ConversationWindowSeconds;
 }
 
 /** Payload of `hub-conversation-delete`. */
@@ -227,6 +296,12 @@ model MeshReadConversationRequest {
  */
 model MeshReadConversationResponse {
   read_only_reason?: Vetchium.Orgs.Marketplace.Contacts.ConversationReadOnlyReason;
+  agency_may_write_until?: utcDateTime;
+  hub_may_write_until?: utcDateTime;
+
+  /** The note of a pending chat request between the two. */
+  pending_request_note?: Vetchium.Orgs.Marketplace.Contacts.ChatRequestNote;
+
   messages: Vetchium.Orgs.Marketplace.Contacts.ConversationMessage[];
   next_pagination_key?: Vetchium.PaginationKey;
 }

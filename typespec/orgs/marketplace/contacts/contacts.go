@@ -21,6 +21,11 @@ const (
 	MaxNewContactsPerDay = 200
 	// MaxNewConversationsPerDay bounds the new conversations per agency per UTC day (MKT-CNV-003).
 	MaxNewConversationsPerDay = 50
+	// MaxChatRequestsPerDay bounds the chat requests an agency sends per UTC
+	// day (MKT-REQ-006).
+	MaxChatRequestsPerDay = 50
+	// MaxChatRequestNoteLength bounds a chat request's note in code points.
+	MaxChatRequestNoteLength = 1000
 	// MaxNoteLength bounds a note in code points.
 	MaxNoteLength = 5000
 	// MaxMessageLength bounds a message in code points.
@@ -51,6 +56,8 @@ type MessageKind string
 const (
 	MessageKindText       MessageKind = "text"
 	MessageKindSuggestion MessageKind = "suggestion"
+	// MessageKindRequest is an accepted chat request (MKT-REQ-005).
+	MessageKindRequest MessageKind = "request"
 )
 
 type MessageSenderType string
@@ -72,6 +79,7 @@ type ContactFilter string
 
 const (
 	ContactFilterAll             ContactFilter = "all"
+	ContactFilterRequests        ContactFilter = "requests"
 	ContactFilterUnread          ContactFilter = "unread"
 	ContactFilterHasConversation ContactFilter = "has_conversation"
 	ContactFilterNotContacted    ContactFilter = "not_contacted"
@@ -131,6 +139,60 @@ func IsMessageText(value MessageText) bool {
 	return length >= 1 && length <= MaxMessageLength
 }
 
+// ChatRequestID names one chat request; never reused.
+type ChatRequestID string
+
+func IsChatRequestID(value ChatRequestID) bool {
+	return uuidPattern.MatchString(string(value))
+}
+
+// ChatRequestNote is plain text of 1–1,000 code points once trimmed.
+type ChatRequestNote string
+
+func NormalizeChatRequestNote(value ChatRequestNote) ChatRequestNote {
+	return ChatRequestNote(strings.TrimSpace(string(value)))
+}
+
+func IsChatRequestNote(value ChatRequestNote) bool {
+	length := utf8.RuneCountInString(string(NormalizeChatRequestNote(value)))
+	return length >= 1 && length <= MaxChatRequestNoteLength
+}
+
+type ChatRequestState string
+
+const (
+	ChatRequestPending  ChatRequestState = "pending"
+	ChatRequestAccepted ChatRequestState = "accepted"
+	ChatRequestDeclined ChatRequestState = "declined"
+	ChatRequestExpired  ChatRequestState = "expired"
+)
+
+// ChatRequestDirection names who the request asks.
+type ChatRequestDirection string
+
+const (
+	ToHubUser ChatRequestDirection = "to_hub_user"
+	ToAgency  ChatRequestDirection = "to_agency"
+)
+
+func IsChatRequestDirection(value ChatRequestDirection) bool {
+	return value == ToHubUser || value == ToAgency
+}
+
+// ChatRequestDeclineScope is what a decline blocks (MKT-REQ-007).
+type ChatRequestDeclineScope string
+
+const (
+	// DeclineOpening stops the sender requesting with that Opening again.
+	DeclineOpening ChatRequestDeclineScope = "opening"
+	// DeclineSender stops every request from the sender for one window.
+	DeclineSender ChatRequestDeclineScope = "sender"
+)
+
+func IsChatRequestDeclineScope(value ChatRequestDeclineScope) bool {
+	return value == DeclineOpening || value == DeclineSender
+}
+
 type OpeningSuggestion struct {
 	ConsumerDomain orgs.OrgDomain         `json:"consumer_domain"`
 	OpeningNumber  openings.OpeningNumber `json:"opening_number"`
@@ -140,14 +202,40 @@ func (s OpeningSuggestion) Valid() bool {
 	return orgs.IsOrgDomain(s.ConsumerDomain) && s.OpeningNumber > 0
 }
 
+// ChatRequest is a chat request as the agency sees it (MKT-REQ-001).
+type ChatRequest struct {
+	RequestID ChatRequestID        `json:"request_id"`
+	ContactID ContactID            `json:"contact_id"`
+	Direction ChatRequestDirection `json:"direction"`
+	State     ChatRequestState     `json:"state"`
+	Opening   OpeningSuggestion    `json:"opening"`
+	// Note is present only while the request is pending (MKT-REQ-012).
+	Note          *ChatRequestNote   `json:"note,omitempty"`
+	HubUserName   common.DisplayName `json:"hub_user_name"`
+	HubUserHandle hub.HubHandle      `json:"hub_user_handle"`
+	// SentBy is the sending agency user's email address; nil for a Hub
+	// user's request.
+	SentBy       *common.EmailAddress     `json:"sent_by,omitempty"`
+	SentAt       time.Time                `json:"sent_at"`
+	AnsweredAt   *time.Time               `json:"answered_at,omitempty"`
+	DeclineScope *ChatRequestDeclineScope `json:"decline_scope,omitempty"`
+	BlockedUntil *time.Time               `json:"blocked_until,omitempty"`
+	// WindowDays is the conversation window in whole days, for "Not for N
+	// days".
+	WindowDays *int32 `json:"window_days,omitempty"`
+}
+
 type ConversationMessage struct {
-	MessageID         MessageID          `json:"message_id"`
-	SenderType        MessageSenderType  `json:"sender_type"`
-	SenderDisplayName string             `json:"sender_display_name"`
-	Kind              MessageKind        `json:"kind"`
-	Text              *MessageText       `json:"text,omitempty"`
-	Suggestion        *OpeningSuggestion `json:"suggestion,omitempty"`
-	SentAt            time.Time          `json:"sent_at"`
+	MessageID         MessageID         `json:"message_id"`
+	SenderType        MessageSenderType `json:"sender_type"`
+	SenderDisplayName string            `json:"sender_display_name"`
+	Kind              MessageKind       `json:"kind"`
+	Text              *MessageText      `json:"text,omitempty"`
+	// Suggestion is the Opening of a suggestion or a request message.
+	Suggestion *OpeningSuggestion `json:"suggestion,omitempty"`
+	// Note is a request message's note, when its sender wrote one.
+	Note   *ChatRequestNote `json:"note,omitempty"`
+	SentAt time.Time        `json:"sent_at"`
 }
 
 type ConversationSummary struct {
@@ -159,8 +247,12 @@ type ConversationSummary struct {
 	RecordedAgencyDomain  orgs.OrgDomain              `json:"recorded_agency_domain"`
 	AgencyUnread          bool                        `json:"agency_unread"`
 	ReadOnlyReason        *ConversationReadOnlyReason `json:"read_only_reason,omitempty"`
-	CreatedAt             time.Time                   `json:"created_at"`
-	LastActivityAt        time.Time                   `json:"last_activity_at"`
+	// AgencyMayWriteUntil and HubMayWriteUntil are nil for a side that may
+	// not write (MKT-REQ-004).
+	AgencyMayWriteUntil *time.Time `json:"agency_may_write_until,omitempty"`
+	HubMayWriteUntil    *time.Time `json:"hub_may_write_until,omitempty"`
+	CreatedAt           time.Time  `json:"created_at"`
+	LastActivityAt      time.Time  `json:"last_activity_at"`
 }
 
 type ConversationDetail struct {
@@ -195,12 +287,15 @@ type ContactSummary struct {
 	MessagesOff bool               `json:"messages_off"`
 	// AccountDeleted reports that the person's account no longer exists and
 	// only the conversation remains.
-	AccountDeleted      bool      `json:"account_deleted"`
-	NoteCount           int32     `json:"note_count"`
-	HasConversation     bool      `json:"has_conversation"`
-	UnreadMessagesCount int32     `json:"unread_messages_count"`
-	CreditedCount       int32     `json:"credited_count"`
-	LastActivityAt      time.Time `json:"last_activity_at"`
+	AccountDeleted  bool  `json:"account_deleted"`
+	NoteCount       int32 `json:"note_count"`
+	HasConversation bool  `json:"has_conversation"`
+	// PendingRequestDirection is the direction of a pending chat request
+	// between the two, if any.
+	PendingRequestDirection *ChatRequestDirection `json:"pending_request_direction,omitempty"`
+	UnreadMessagesCount     int32                 `json:"unread_messages_count"`
+	CreditedCount           int32                 `json:"credited_count"`
+	LastActivityAt          time.Time             `json:"last_activity_at"`
 }
 
 func (c ContactSummary) Valid() bool {
@@ -220,7 +315,9 @@ type Contact struct {
 	ContactSummary
 	CreatedBy         common.EmailAddress        `json:"created_by"`
 	SuggestedOpenings []ContactOpeningSuggestion `json:"suggested_openings"`
-	CreatedAt         time.Time                  `json:"created_at"`
+	// LatestRequest is the latest chat request between the two, in any state.
+	LatestRequest *ChatRequest `json:"latest_request,omitempty"`
+	CreatedAt     time.Time    `json:"created_at"`
 }
 
 type ContactNote struct {
@@ -299,7 +396,8 @@ func (r ListContactsRequest) Validate() []string {
 	fields := validPage(r.PaginationKey, r.Limit)
 	if r.Filter != nil {
 		switch *r.Filter {
-		case ContactFilterAll, ContactFilterUnread, ContactFilterHasConversation,
+		case ContactFilterAll, ContactFilterRequests, ContactFilterUnread,
+			ContactFilterHasConversation,
 			ContactFilterNotContacted:
 		default:
 			fields = append(fields, "filter")
@@ -314,6 +412,7 @@ func (r ListContactsRequest) Validate() []string {
 // ContactCounts is how many of the agency's Contacts each Contacts tab holds.
 type ContactCounts struct {
 	All             int32 `json:"all"`
+	Requests        int32 `json:"requests"`
 	Unread          int32 `json:"unread"`
 	HasConversation int32 `json:"has_conversation"`
 	NotContacted    int32 `json:"not_contacted"`
@@ -483,6 +582,109 @@ func (r StartConversationRequest) Validate() []string {
 		} else {
 			fields = append(fields, "text")
 		}
+	}
+	return fields
+}
+
+// SendChatRequestRequest asks a person, by handle or alias or by the
+// agency's Contact, to open the conversation about an Opening. Exactly one of
+// Address and ContactID.
+type SendChatRequestRequest struct {
+	Address    *profile.ProfileAddress `json:"address,omitempty"`
+	ContactID  *ContactID              `json:"contact_id,omitempty"`
+	Suggestion OpeningSuggestion       `json:"suggestion"`
+	Note       *ChatRequestNote        `json:"note,omitempty"`
+}
+
+func (r *SendChatRequestRequest) Normalize() {
+	if r.Address != nil {
+		address := profile.ProfileAddress(strings.TrimSpace(string(*r.Address)))
+		r.Address = &address
+	}
+	if r.Note != nil {
+		note := NormalizeChatRequestNote(*r.Note)
+		r.Note = &note
+	}
+}
+
+func (r SendChatRequestRequest) Validate() []string {
+	fields := []string{}
+	switch {
+	case r.Address == nil && r.ContactID == nil,
+		r.Address != nil && r.ContactID != nil:
+		fields = append(fields, "address", "contact_id")
+	case r.Address != nil && !profile.IsProfileAddress(*r.Address):
+		fields = append(fields, "address")
+	case r.ContactID != nil && !IsContactID(*r.ContactID):
+		fields = append(fields, "contact_id")
+	}
+	if !r.Suggestion.Valid() {
+		fields = append(fields, "suggestion")
+	}
+	if r.Note != nil && !IsChatRequestNote(*r.Note) {
+		fields = append(fields, "note")
+	}
+	return fields
+}
+
+type ListChatRequestsRequest struct {
+	Direction     ChatRequestDirection  `json:"direction"`
+	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
+	Limit         *int32                `json:"limit,omitempty"`
+}
+
+func (r *ListChatRequestsRequest) Normalize() {}
+
+func (r ListChatRequestsRequest) EffectiveLimit() int32 { return effectiveLimit(r.Limit) }
+
+func (r ListChatRequestsRequest) Validate() []string {
+	fields := []string{}
+	if !IsChatRequestDirection(r.Direction) {
+		fields = append(fields, "direction")
+	}
+	return append(fields, validPage(r.PaginationKey, r.Limit)...)
+}
+
+type ListChatRequestsResponse struct {
+	// Items holds pending requests oldest first, then answered ones newest
+	// first.
+	Items             []ChatRequest         `json:"items"`
+	NextPaginationKey *common.PaginationKey `json:"next_pagination_key,omitempty"`
+}
+
+// PendingChatRequestCount counts the Hub users' requests awaiting the
+// agency's answer.
+type PendingChatRequestCount struct {
+	Count int32 `json:"count"`
+}
+
+type AcceptChatRequestRequest struct {
+	RequestID ChatRequestID `json:"request_id"`
+}
+
+func (r *AcceptChatRequestRequest) Normalize() {}
+
+func (r AcceptChatRequestRequest) Validate() []string {
+	if !IsChatRequestID(r.RequestID) {
+		return []string{"request_id"}
+	}
+	return []string{}
+}
+
+type DeclineChatRequestRequest struct {
+	RequestID ChatRequestID           `json:"request_id"`
+	Scope     ChatRequestDeclineScope `json:"scope"`
+}
+
+func (r *DeclineChatRequestRequest) Normalize() {}
+
+func (r DeclineChatRequestRequest) Validate() []string {
+	fields := []string{}
+	if !IsChatRequestID(r.RequestID) {
+		fields = append(fields, "request_id")
+	}
+	if !IsChatRequestDeclineScope(r.Scope) {
+		fields = append(fields, "scope")
 	}
 	return fields
 }

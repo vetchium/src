@@ -460,6 +460,61 @@ type AgencyPointerChangedPayload struct {
 	ReadOnlyReason    *contacts.ConversationReadOnlyReason `json:"read_only_reason,omitempty"`
 	Suggestions       []AgencyPointerSuggestion            `json:"suggestions,omitempty"`
 	NewAgencyMessage  bool                                 `json:"new_agency_message,omitempty"`
+	// AgencyMayWriteUntil and HubMayWriteUntil are nil for a side that may
+	// not write (MKT-REQ-004).
+	AgencyMayWriteUntil *time.Time `json:"agency_may_write_until,omitempty"`
+	HubMayWriteUntil    *time.Time `json:"hub_may_write_until,omitempty"`
+	// Request is the latest chat request between the two, never its note.
+	Request *AgencyPointerRequest `json:"request,omitempty"`
+	// NewAgencyRequest and RequestAcceptedByAgency each trigger an email to
+	// the Hub user (MKT-REQ-010).
+	NewAgencyRequest        bool `json:"new_agency_request,omitempty"`
+	RequestAcceptedByAgency bool `json:"request_accepted_by_agency,omitempty"`
+}
+
+// AgencyPointerRequest is a chat request as the Hub user's pointer keeps it
+// (MKT-DAT-003).
+type AgencyPointerRequest struct {
+	RequestID      contacts.ChatRequestID            `json:"request_id"`
+	Direction      contacts.ChatRequestDirection     `json:"direction"`
+	State          contacts.ChatRequestState         `json:"state"`
+	ConsumerDomain orgs.OrgDomain                    `json:"consumer_domain"`
+	OpeningNumber  openings.OpeningNumber            `json:"opening_number"`
+	SentAt         time.Time                         `json:"sent_at"`
+	AnsweredAt     *time.Time                        `json:"answered_at,omitempty"`
+	DeclineScope   *contacts.ChatRequestDeclineScope `json:"decline_scope,omitempty"`
+	BlockedUntil   *time.Time                        `json:"blocked_until,omitempty"`
+}
+
+func (r AgencyPointerRequest) Validate() []string {
+	fields := []string{}
+	if !contacts.IsChatRequestID(r.RequestID) {
+		fields = append(fields, "request.request_id")
+	}
+	if !contacts.IsChatRequestDirection(r.Direction) {
+		fields = append(fields, "request.direction")
+	}
+	switch r.State {
+	case contacts.ChatRequestPending, contacts.ChatRequestAccepted,
+		contacts.ChatRequestDeclined, contacts.ChatRequestExpired:
+	default:
+		fields = append(fields, "request.state")
+	}
+	if !(contacts.OpeningSuggestion{
+		ConsumerDomain: r.ConsumerDomain, OpeningNumber: r.OpeningNumber,
+	}).Valid() {
+		fields = append(fields, "request.opening")
+	}
+	declined := r.State == contacts.ChatRequestDeclined
+	if declined != (r.DeclineScope != nil) ||
+		(r.DeclineScope != nil && !contacts.IsChatRequestDeclineScope(*r.DeclineScope)) {
+		fields = append(fields, "request.decline_scope")
+	}
+	if (r.BlockedUntil != nil) !=
+		(r.DeclineScope != nil && *r.DeclineScope == contacts.DeclineSender) {
+		fields = append(fields, "request.blocked_until")
+	}
+	return fields
 }
 
 // AgencyPointerSuggestion is an Opening the agency suggested in the
@@ -480,6 +535,104 @@ func (p AgencyPointerChangedPayload) Validate() []string {
 	}
 	if !hub.IsHubUserDID(p.HubUserDID) {
 		fields = append(fields, "hub_user_did")
+	}
+	if p.Request != nil {
+		fields = append(fields, p.Request.Validate()...)
+	}
+	return fields
+}
+
+// Chat request commands go from the Hub user's tenant to the agency's
+// tenant, which is authoritative for requests (MKT-DAT-005). Their aggregate
+// id is the request id.
+const (
+	HubChatRequestKind       CommandKind = "hub-chat-request"
+	HubChatRequestAnswerKind CommandKind = "hub-chat-request-answer"
+)
+
+// HubChatRequestPayload is the payload of hub-chat-request: a Hub user asks
+// an agency assigned to a published Opening to open the conversation
+// (MKT-DAT-014). The Hub tenant mints RequestID.
+type HubChatRequestPayload struct {
+	RequestID          contacts.ChatRequestID    `json:"request_id"`
+	AgencyOrgDID       orgs.OrgDID               `json:"agency_org_did"`
+	HubUserDID         hub.HubUserDID            `json:"hub_user_did"`
+	HubUserDisplayName common.DisplayName        `json:"hub_user_display_name"`
+	HubUserHandle      hub.HubHandle             `json:"hub_user_handle"`
+	ConsumerDomain     orgs.OrgDomain            `json:"consumer_domain"`
+	OpeningNumber      openings.OpeningNumber    `json:"opening_number"`
+	Note               *contacts.ChatRequestNote `json:"note,omitempty"`
+	// WindowSeconds is the Hub tenant's conversation window (MKT-REQ-004).
+	WindowSeconds int64 `json:"window_seconds"`
+}
+
+func (p HubChatRequestPayload) Validate() []string {
+	fields := []string{}
+	if !contacts.IsChatRequestID(p.RequestID) {
+		fields = append(fields, "request_id")
+	}
+	if !orgs.IsOrgDID(p.AgencyOrgDID) {
+		fields = append(fields, "agency_org_did")
+	}
+	fields = append(fields, hubUserFields(p.HubUserDID, p.HubUserDisplayName, p.HubUserHandle)...)
+	if !(contacts.OpeningSuggestion{
+		ConsumerDomain: p.ConsumerDomain, OpeningNumber: p.OpeningNumber,
+	}).Valid() {
+		fields = append(fields, "consumer_domain", "opening_number")
+	}
+	if p.Note != nil && (!contacts.IsChatRequestNote(*p.Note) ||
+		*p.Note != contacts.NormalizeChatRequestNote(*p.Note)) {
+		fields = append(fields, "note")
+	}
+	if p.WindowSeconds < 1 {
+		fields = append(fields, "window_seconds")
+	}
+	return fields
+}
+
+// HubChatRequestAnswerPayload is the payload of hub-chat-request-answer: the
+// Hub user accepts or declines an agency's request. Scope is set exactly when
+// declining.
+type HubChatRequestAnswerPayload struct {
+	RequestID          contacts.ChatRequestID            `json:"request_id"`
+	ContactID          contacts.ContactID                `json:"contact_id"`
+	HubUserDID         hub.HubUserDID                    `json:"hub_user_did"`
+	HubUserDisplayName common.DisplayName                `json:"hub_user_display_name"`
+	HubUserHandle      hub.HubHandle                     `json:"hub_user_handle"`
+	Accept             bool                              `json:"accept"`
+	Scope              *contacts.ChatRequestDeclineScope `json:"scope,omitempty"`
+	WindowSeconds      int64                             `json:"window_seconds"`
+}
+
+func (p HubChatRequestAnswerPayload) Validate() []string {
+	fields := []string{}
+	if !contacts.IsChatRequestID(p.RequestID) {
+		fields = append(fields, "request_id")
+	}
+	if !contacts.IsContactID(p.ContactID) {
+		fields = append(fields, "contact_id")
+	}
+	fields = append(fields, hubUserFields(p.HubUserDID, p.HubUserDisplayName, p.HubUserHandle)...)
+	if p.Accept == (p.Scope != nil) ||
+		(p.Scope != nil && !contacts.IsChatRequestDeclineScope(*p.Scope)) {
+		fields = append(fields, "scope")
+	}
+	if p.WindowSeconds < 1 {
+		fields = append(fields, "window_seconds")
+	}
+	return fields
+}
+
+func hubUserFields(did hub.HubUserDID, name common.DisplayName, handle hub.HubHandle) []string {
+	fields := []string{}
+	if !hub.IsHubUserDID(did) {
+		fields = append(fields, "hub_user_did")
+	}
+	if !common.IsDisplayName(name) {
+		fields = append(fields, "hub_user_display_name")
+	}
+	if !hub.IsHubHandle(handle) {
+		fields = append(fields, "hub_user_handle")
 	}
 	return fields
 }
@@ -576,9 +729,14 @@ func (r MeshReadConversationRequest) Validate() []string {
 // user reads it. Agency messages name the agency, never the agency user; no
 // agency-side unread state is carried.
 type MeshReadConversationResponse struct {
-	ReadOnlyReason    *contacts.ConversationReadOnlyReason `json:"read_only_reason,omitempty"`
-	Messages          []contacts.ConversationMessage       `json:"messages"`
-	NextPaginationKey *common.PaginationKey                `json:"next_pagination_key,omitempty"`
+	ReadOnlyReason      *contacts.ConversationReadOnlyReason `json:"read_only_reason,omitempty"`
+	AgencyMayWriteUntil *time.Time                           `json:"agency_may_write_until,omitempty"`
+	HubMayWriteUntil    *time.Time                           `json:"hub_may_write_until,omitempty"`
+	// PendingRequestNote is the note of a pending chat request between the
+	// two.
+	PendingRequestNote *contacts.ChatRequestNote      `json:"pending_request_note,omitempty"`
+	Messages           []contacts.ConversationMessage `json:"messages"`
+	NextPaginationKey  *common.PaginationKey          `json:"next_pagination_key,omitempty"`
 }
 
 // HubAccountDeletedKind is the deletion notice a Hub user's home tenant sends

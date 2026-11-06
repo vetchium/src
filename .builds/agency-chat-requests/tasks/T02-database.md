@@ -109,3 +109,5 @@ and resets.
 - Existing behavior unchanged; `make test` passes.
 
 ## Carried over
+
+- From T01: `Contact.created_by` is still required in the contract. When the column becomes nullable, make it optional in `contacts.tsp` ("absent when a Hub user's chat request created it"), `*common.EmailAddress` in Go and `created_by?` in TypeScript, and fix every reader (orgs-api `GetContact`, `orgs-ui` Contact detail).

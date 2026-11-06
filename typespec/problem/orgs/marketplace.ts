@@ -208,3 +208,47 @@ export const ConversationPartyDeletedError: Readonly<Details> = {
   status: 409,
   detail: "The Hub user's account no longer exists",
 };
+
+export const ChatRequestLimitReachedError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-chat-request-limit-reached",
+  title: "Org chat request limit reached",
+  status: 429,
+  detail: "The agency reached its limit of chat requests for today",
+};
+
+export const ChatRequestExistsError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-chat-request-exists",
+  title: "Org chat request exists",
+  status: 409,
+  detail: "A chat request between the agency and this person is pending",
+};
+
+export const ChatRequestBlockedError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-chat-request-blocked",
+  title: "Org chat request blocked",
+  status: 403,
+  detail:
+    "This person declined chat requests from the agency for this Opening or until a later date",
+};
+
+export const ChatRequestNotFoundError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-chat-request-not-found",
+  title: "Org chat request not found",
+  status: 404,
+  detail: "No pending chat request to the agency has that identifier",
+};
+
+export const ConversationOpenError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-conversation-open",
+  title: "Org conversation open",
+  status: 409,
+  detail: "The agency may still write in the conversation",
+};
+
+export const ConversationClosedError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-conversation-closed",
+  title: "Org conversation closed",
+  status: 409,
+  detail:
+    "The conversation is closed to the agency until the person writes or accepts a new chat request",
+};

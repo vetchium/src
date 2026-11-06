@@ -333,3 +333,69 @@ alias OrgConversationPartyDeletedErrorResponse = Response<
   409,
   typeof OrgConversationPartyDeletedError
 >;
+
+const OrgChatRequestLimitReachedError = #{
+  type: "vetchium-problem-details/org-chat-request-limit-reached",
+  title: "Org chat request limit reached",
+  status: 429,
+  detail: "The agency reached its limit of chat requests for today",
+};
+alias OrgChatRequestLimitReachedErrorResponse = Response<
+  429,
+  typeof OrgChatRequestLimitReachedError
+>;
+
+const OrgChatRequestExistsError = #{
+  type: "vetchium-problem-details/org-chat-request-exists",
+  title: "Org chat request exists",
+  status: 409,
+  detail: "A chat request between the agency and this person is pending",
+};
+alias OrgChatRequestExistsErrorResponse = Response<
+  409,
+  typeof OrgChatRequestExistsError
+>;
+
+const OrgChatRequestBlockedError = #{
+  type: "vetchium-problem-details/org-chat-request-blocked",
+  title: "Org chat request blocked",
+  status: 403,
+  detail: "This person declined chat requests from the agency for this Opening or until a later date",
+};
+alias OrgChatRequestBlockedErrorResponse = Response<
+  403,
+  typeof OrgChatRequestBlockedError
+>;
+
+const OrgChatRequestNotFoundError = #{
+  type: "vetchium-problem-details/org-chat-request-not-found",
+  title: "Org chat request not found",
+  status: 404,
+  detail: "No pending chat request to the agency has that identifier",
+};
+alias OrgChatRequestNotFoundErrorResponse = Response<
+  404,
+  typeof OrgChatRequestNotFoundError
+>;
+
+const OrgConversationOpenError = #{
+  type: "vetchium-problem-details/org-conversation-open",
+  title: "Org conversation open",
+  status: 409,
+  detail: "The agency may still write in the conversation",
+};
+alias OrgConversationOpenErrorResponse = Response<
+  409,
+  typeof OrgConversationOpenError
+>;
+
+const OrgConversationClosedError = #{
+  type: "vetchium-problem-details/org-conversation-closed",
+  title: "Org conversation closed",
+  status: 409,
+  detail: "The conversation is closed to the agency until the person writes or accepts a new chat request",
+};
+alias OrgConversationClosedErrorResponse = Response<
+  409,
+  typeof OrgConversationClosedError
+>;

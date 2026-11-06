@@ -74,3 +74,5 @@ The Go integration test of step 6. Playwright coverage lands in T06.
   problem types; audit rows exist for each send.
 
 ## Carried over
+
+- From T01: the contract added `ContactCounts.requests` (Contacts with a pending request in either direction), `Contact.latest_request` (latest request in any state, with `note` only while pending and `window_days` when known), and `ConversationSummary.agency_may_write_until`/`hub_may_write_until`. `ListContacts` must fill `counts.requests`; `GetContact` must fill `latest_request`. `count-pending-chat-requests` is `GET` with no body (like `my-interview-counts`), returning `PendingChatRequestCount`. The request names the person by `address` (a `ProfileAddress`) or `contact_id`.

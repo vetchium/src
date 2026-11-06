@@ -20,6 +20,10 @@ export const maxNotesPerContact = 200;
 export const maxNewContactsPerDay = 200;
 /** Bounds the new conversations an agency starts per UTC day. */
 export const maxNewConversationsPerDay = 50;
+/** Bounds the chat requests an agency sends per UTC day. */
+export const maxChatRequestsPerDay = 50;
+/** Bounds a chat request's note in code points. */
+export const maxChatRequestNoteLength = 1000;
 /** Bounds a note in code points. */
 export const maxNoteLength = 5000;
 /** Bounds a message in code points. */
@@ -35,7 +39,7 @@ export type MessageID = string;
 export type NoteText = string;
 export type MessageText = string;
 
-export const messageKinds = ["text", "suggestion"] as const;
+export const messageKinds = ["text", "suggestion", "request"] as const;
 export type MessageKind = (typeof messageKinds)[number];
 
 export const messageSenderTypes = ["agency", "hub_user"] as const;
@@ -51,6 +55,7 @@ export type ConversationReadOnlyReason =
 
 export const contactFilters = [
   "all",
+  "requests",
   "unread",
   "has_conversation",
   "not_contacted",
@@ -109,13 +114,74 @@ export function isOpeningSuggestion(value: OpeningSuggestion): boolean {
   );
 }
 
+/** Names one chat request; never reused. */
+export type ChatRequestID = string;
+/** Plain text of 1–1,000 code points once trimmed. */
+export type ChatRequestNote = string;
+
+export function isChatRequestID(value: string): boolean {
+  return uuidPattern.test(value);
+}
+
+export function normalizeChatRequestNote(
+  value: ChatRequestNote,
+): ChatRequestNote {
+  return value.trim();
+}
+
+export function isChatRequestNote(value: string): boolean {
+  const length = Array.from(normalizeChatRequestNote(value)).length;
+  return length >= 1 && length <= maxChatRequestNoteLength;
+}
+
+export const chatRequestStates = [
+  "pending",
+  "accepted",
+  "declined",
+  "expired",
+] as const;
+export type ChatRequestState = (typeof chatRequestStates)[number];
+
+/** Who the request asks. */
+export const chatRequestDirections = ["to_hub_user", "to_agency"] as const;
+export type ChatRequestDirection = (typeof chatRequestDirections)[number];
+
+/** What a decline blocks: one Opening, or the sender for one window. */
+export const chatRequestDeclineScopes = ["opening", "sender"] as const;
+export type ChatRequestDeclineScope = (typeof chatRequestDeclineScopes)[number];
+
+/** A chat request as the agency sees it. */
+export interface ChatRequest {
+  request_id: ChatRequestID;
+  contact_id: ContactID;
+  direction: ChatRequestDirection;
+  state: ChatRequestState;
+  opening: OpeningSuggestion;
+  /** Present only while the request is pending. */
+  note?: ChatRequestNote;
+  hub_user_name: DisplayName;
+  hub_user_handle: HubHandle;
+  /** The sending agency user's email address; absent for a Hub request. */
+  sent_by?: EmailAddress;
+  sent_at: string;
+  answered_at?: string;
+  decline_scope?: ChatRequestDeclineScope;
+  /** When a `sender` decline lifts. */
+  blocked_until?: string;
+  /** The conversation window in whole days, for "Not for N days". */
+  window_days?: number;
+}
+
 export interface ConversationMessage {
   message_id: MessageID;
   sender_type: MessageSenderType;
   sender_display_name: string;
   kind: MessageKind;
   text?: MessageText;
+  /** The Opening of a `suggestion` or `request` message. */
   suggestion?: OpeningSuggestion;
+  /** The note of a `request` message, when its sender wrote one. */
+  note?: ChatRequestNote;
   sent_at: string;
 }
 
@@ -128,6 +194,10 @@ export interface ConversationSummary {
   recorded_agency_domain: OrgDomain;
   agency_unread: boolean;
   read_only_reason?: ConversationReadOnlyReason;
+  /** Until when the agency may write; absent when it may not. */
+  agency_may_write_until?: string;
+  /** Until when the Hub user may write; absent when they may not. */
+  hub_may_write_until?: string;
   created_at: string;
   last_activity_at: string;
 }
@@ -157,6 +227,8 @@ export interface ContactSummary {
   account_deleted: boolean;
   note_count: number;
   has_conversation: boolean;
+  /** The direction of a pending chat request between the two, if any. */
+  pending_request_direction?: ChatRequestDirection;
   unread_messages_count: number;
   credited_count: number;
   last_activity_at: string;
@@ -171,6 +243,8 @@ export interface ContactOpeningSuggestion {
 export interface Contact extends ContactSummary {
   created_by: EmailAddress;
   suggested_openings: ContactOpeningSuggestion[];
+  /** The latest chat request between the two, in any state. */
+  latest_request?: ChatRequest;
   created_at: string;
 }
 
@@ -263,6 +337,7 @@ export function validateListContactsRequest(
 /** How many of the agency's Contacts each Contacts tab holds. */
 export interface ContactCounts {
   all: number;
+  requests: number;
   unread: number;
   has_conversation: number;
   not_contacted: number;
@@ -397,6 +472,102 @@ export function validateStartConversationRequest(
       fields.push("text");
     }
   }
+  return fields;
+}
+
+/**
+ * Asks a person, by handle or alias or by the agency's Contact, to open the
+ * conversation about an Opening. Exactly one of `address` and `contact_id`.
+ */
+export interface SendChatRequestRequest {
+  address?: ProfileAddress;
+  contact_id?: ContactID;
+  suggestion: OpeningSuggestion;
+  note?: ChatRequestNote;
+}
+
+export function normalizeSendChatRequestRequest(
+  request: SendChatRequestRequest,
+): SendChatRequestRequest {
+  return {
+    ...request,
+    ...(request.address !== undefined && { address: request.address.trim() }),
+    ...(request.note !== undefined && {
+      note: normalizeChatRequestNote(request.note),
+    }),
+  };
+}
+
+export function validateSendChatRequestRequest(
+  request: SendChatRequestRequest,
+): string[] {
+  const fields: string[] = [];
+  if ((request.address === undefined) === (request.contact_id === undefined)) {
+    fields.push("address", "contact_id");
+  } else if (
+    request.address !== undefined &&
+    !isProfileAddress(request.address)
+  ) {
+    fields.push("address");
+  } else if (
+    request.contact_id !== undefined &&
+    !isContactID(request.contact_id)
+  ) {
+    fields.push("contact_id");
+  }
+  if (!isOpeningSuggestion(request.suggestion)) fields.push("suggestion");
+  if (request.note !== undefined && !isChatRequestNote(request.note))
+    fields.push("note");
+  return fields;
+}
+
+export interface ListChatRequestsRequest {
+  direction: ChatRequestDirection;
+  pagination_key?: PaginationKey;
+  /** Defaults to 50. */
+  limit?: number;
+}
+
+export function validateListChatRequestsRequest(
+  request: ListChatRequestsRequest,
+): string[] {
+  const fields: string[] = [];
+  if (!chatRequestDirections.includes(request.direction))
+    fields.push("direction");
+  return [...fields, ...validatePage(request.pagination_key, request.limit)];
+}
+
+export interface ListChatRequestsResponse {
+  /** Pending requests oldest first, then answered ones newest first. */
+  items: ChatRequest[];
+  next_pagination_key?: PaginationKey;
+}
+
+/** Pending requests from Hub users to the agency. */
+export interface PendingChatRequestCount {
+  count: number;
+}
+
+export interface AcceptChatRequestRequest {
+  request_id: ChatRequestID;
+}
+
+export function validateAcceptChatRequestRequest(
+  request: AcceptChatRequestRequest,
+): string[] {
+  return isChatRequestID(request.request_id) ? [] : ["request_id"];
+}
+
+export interface DeclineChatRequestRequest {
+  request_id: ChatRequestID;
+  scope: ChatRequestDeclineScope;
+}
+
+export function validateDeclineChatRequestRequest(
+  request: DeclineChatRequestRequest,
+): string[] {
+  const fields = validateAcceptChatRequestRequest(request);
+  if (!chatRequestDeclineScopes.includes(request.scope)) fields.push("scope");
   return fields;
 }
 

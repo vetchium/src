@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/hub/profile"
 	"github.com/vetchium/src/typespec/orgs"
 )
 
@@ -223,3 +224,85 @@ func TestGetConversationPages(t *testing.T) {
 		t.Fatal("a conversation read without a limit takes the default page")
 	}
 }
+
+func TestChatRequestNoteBounds(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		note ChatRequestNote
+		want bool
+	}{
+		{"one letter", "a", true},
+		{"padded", "  hi  ", true},
+		{"blank", " \n ", false},
+		{"limit in code points", ChatRequestNote(strings.Repeat("é", MaxChatRequestNoteLength)), true},
+		{"over the limit", ChatRequestNote(strings.Repeat("é", MaxChatRequestNoteLength+1)), false},
+		{"padding does not count", ChatRequestNote(" " + strings.Repeat("a", MaxChatRequestNoteLength) + " "), true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := IsChatRequestNote(test.note); got != test.want {
+				t.Fatalf("IsChatRequestNote = %t, want %t", got, test.want)
+			}
+		})
+	}
+	if MaxChatRequestsPerDay != 50 {
+		t.Fatal("an agency sends at most 50 chat requests per UTC day")
+	}
+}
+
+func TestChatRequestRequestsNormalizeOnACopyAndValidate(t *testing.T) {
+	t.Parallel()
+	address := profile.ProfileAddress(" priya ")
+	note := ChatRequestNote("  hello \n")
+	original := SendChatRequestRequest{Address: &address, Note: &note,
+		Suggestion: OpeningSuggestion{ConsumerDomain: "client.test", OpeningNumber: 1}}
+	copied := original
+	copied.Normalize()
+	if *copied.Address != "priya" || *copied.Note != "hello" {
+		t.Fatalf("normalized = %q %q", *copied.Address, *copied.Note)
+	}
+	if *original.Address != " priya " || *original.Note != "  hello \n" {
+		t.Fatalf("the original changed: %q %q", *original.Address, *original.Note)
+	}
+	contact := contactID
+	badContact := ContactID("x")
+	badAddress := profile.ProfileAddress("x")
+	blank := ChatRequestNote(" ")
+	opening := OpeningSuggestion{ConsumerDomain: "client.test", OpeningNumber: 1}
+	requestID := ChatRequestID("01900000-0000-7000-8000-000000000005")
+	badLimit := int32(101)
+	tests := []struct {
+		name string
+		got  []string
+		want []string
+	}{
+		{"by address", copied.Validate(), []string{}},
+		{"by contact", SendChatRequestRequest{ContactID: &contact, Suggestion: opening}.Validate(), []string{}},
+		{"neither person", SendChatRequestRequest{Suggestion: opening}.Validate(), []string{"address", "contact_id"}},
+		{"both people", SendChatRequestRequest{Address: &address, ContactID: &contact, Suggestion: opening}.Validate(), []string{"address", "contact_id"}},
+		{"bad address", SendChatRequestRequest{Address: &badAddress, Suggestion: opening}.Validate(), []string{"address"}},
+		{"bad contact", SendChatRequestRequest{ContactID: &badContact, Suggestion: opening}.Validate(), []string{"contact_id"}},
+		{"bad opening and note", SendChatRequestRequest{ContactID: &contact, Note: &blank}.Validate(), []string{"suggestion", "note"}},
+		{"list", ListChatRequestsRequest{Direction: ToAgency}.Validate(), []string{}},
+		{"list invalid", ListChatRequestsRequest{Direction: "sideways", Limit: &badLimit}.Validate(), []string{"direction", "limit"}},
+		{"accept", AcceptChatRequestRequest{RequestID: requestID}.Validate(), []string{}},
+		{"accept invalid", AcceptChatRequestRequest{}.Validate(), []string{"request_id"}},
+		{"decline opening", DeclineChatRequestRequest{RequestID: requestID, Scope: DeclineOpening}.Validate(), []string{}},
+		{"decline sender", DeclineChatRequestRequest{RequestID: requestID, Scope: DeclineSender}.Validate(), []string{}},
+		{"decline invalid", DeclineChatRequestRequest{RequestID: "x", Scope: "forever"}.Validate(), []string{"request_id", "scope"}},
+		{"requests filter", ListContactsRequest{Filter: ptr(ContactFilterRequests)}.Validate(), []string{}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if !slices.Equal(test.got, test.want) {
+				t.Fatalf("fields = %v, want %v", test.got, test.want)
+			}
+		})
+	}
+	if (ListChatRequestsRequest{}).EffectiveLimit() != DefaultPage {
+		t.Fatal("a request list without a limit takes the default page")
+	}
+}
+
+func ptr[T any](value T) *T { return &value }

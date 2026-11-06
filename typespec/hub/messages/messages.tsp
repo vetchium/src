@@ -38,6 +38,29 @@ model HubOpeningSuggestion {
   sent_at: utcDateTime;
 }
 
+/**
+ * A chat request between the Hub user and an agency, as the Hub user's
+ * pointer keeps it. It never carries the note; the conversation read does.
+ */
+model HubChatRequest {
+  request_id: Vetchium.Orgs.Marketplace.Contacts.ChatRequestID;
+  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  direction: Vetchium.Orgs.Marketplace.Contacts.ChatRequestDirection;
+  state: Vetchium.Orgs.Marketplace.Contacts.ChatRequestState;
+  opening: Vetchium.Orgs.Marketplace.Contacts.OpeningSuggestion;
+  agency_display_name: string;
+  agency_domain: Vetchium.Orgs.OrgDomain;
+  sent_at: utcDateTime;
+  answered_at?: utcDateTime;
+  decline_scope?: Vetchium.Orgs.Marketplace.Contacts.ChatRequestDeclineScope;
+
+  /** When a `sender` decline lifts. */
+  blocked_until?: utcDateTime;
+
+  /** The conversation window in whole days, for "Not for N days". */
+  window_days: int32;
+}
+
 model HubConversationSummary {
   contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
   agency_display_name: string;
@@ -47,6 +70,16 @@ model HubConversationSummary {
   unread_count: int32;
   read_only_reason?: Vetchium.Orgs.Marketplace.Contacts.ConversationReadOnlyReason;
   suggestions: HubOpeningSuggestion[];
+
+  /** Until when the agency may write; absent when it may not (MKT-REQ-004). */
+  agency_may_write_until?: utcDateTime;
+
+  /** Until when the Hub user may write; absent when they may not. */
+  hub_may_write_until?: utcDateTime;
+
+  /** The latest chat request between the two, in any state. */
+  latest_request?: HubChatRequest;
+
   last_activity_at: utcDateTime;
 }
 
@@ -56,8 +89,85 @@ model HubConversationDetail {
   /** One page of messages, newest first. */
   messages: Vetchium.Orgs.Marketplace.Contacts.ConversationMessage[];
 
+  /** The note of a pending chat request, read live from the agency's tenant. */
+  pending_request_note?: Vetchium.Orgs.Marketplace.Contacts.ChatRequestNote;
+
   /** Resumes with older messages. */
   next_pagination_key?: Vetchium.PaginationKey;
+}
+
+/** The Hub user's chat with one agency assigned to an Opening. */
+enum OpeningAgencyChatState {
+  /** No conversation or request between the two. */
+  none: "none",
+
+  /** The Hub user may write in the conversation. */
+  open: "open",
+
+  /** A conversation exists, but the Hub user may not write in it. */
+  closed: "closed",
+
+  request_sent: "request_sent",
+  request_received: "request_received",
+
+  /** The agency's decline blocks a request about this Opening now. */
+  declined: "declined",
+}
+
+/** An agency with an active `sourcing` engagement assigned to the Opening. */
+model OpeningAgency {
+  agency_display_name: string;
+  agency_domain: Vetchium.Orgs.OrgDomain;
+  chat_state: OpeningAgencyChatState;
+
+  /** The agency's Contact on the Hub user, when a conversation or request exists. */
+  contact_id?: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+
+  /** The latest chat request between the two, in any state. */
+  latest_request?: HubChatRequest;
+}
+
+model ListOpeningAgenciesRequest {
+  domain: Vetchium.Orgs.OrgDomain;
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+}
+
+model ListOpeningAgenciesResponse {
+  /** At most 20, the cap on `sourcing` assignments per Opening. */
+  items: OpeningAgency[];
+}
+
+/** Asks an agency assigned to a `published` Opening to open a conversation. */
+model HubSendChatRequestRequest {
+  domain: Vetchium.Orgs.OrgDomain;
+  opening_number: Vetchium.Orgs.Openings.OpeningNumber;
+  agency_domain: Vetchium.Orgs.OrgDomain;
+  note?: Vetchium.Orgs.Marketplace.Contacts.ChatRequestNote;
+}
+
+model ListHubChatRequestsRequest {
+  direction: Vetchium.Orgs.Marketplace.Contacts.ChatRequestDirection;
+  pagination_key?: Vetchium.PaginationKey;
+
+  @minValue(1)
+  @maxValue(100)
+  limit?: int32;
+}
+
+model ListHubChatRequestsResponse {
+  /** Pending requests oldest first, then answered ones newest first. */
+  items: HubChatRequest[];
+
+  next_pagination_key?: Vetchium.PaginationKey;
+}
+
+model HubAcceptChatRequestRequest {
+  request_id: Vetchium.Orgs.Marketplace.Contacts.ChatRequestID;
+}
+
+model HubDeclineChatRequestRequest {
+  request_id: Vetchium.Orgs.Marketplace.Contacts.ChatRequestID;
+  scope: Vetchium.Orgs.Marketplace.Contacts.ChatRequestDeclineScope;
 }
 
 model ListConversationsRequest {
@@ -154,7 +264,8 @@ interface MessageOperations {
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.HubConversationNotFoundErrorResponse
     | Vetchium.Problem.HubAgencyMessagesOffErrorResponse
-    | Vetchium.Problem.HubConversationPartyDeletedErrorResponse;
+    | Vetchium.Problem.HubConversationPartyDeletedErrorResponse
+    | Vetchium.Problem.HubConversationClosedErrorResponse;
 
   /** Deletes an agency conversation for both sides. */
   @route("/delete-conversation")
@@ -182,6 +293,134 @@ interface MessageOperations {
     | MessageErrors
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.HubConversationNotFoundErrorResponse;
+
+  /**
+   * Lists the agencies assigned to an Opening with the Hub user's chat state
+   * with each (MKT-HUB-005).
+   */
+  @route("/list-opening-agencies")
+  @post
+  @useAuth(BearerAuth)
+  listOpeningAgencies(@body request: ListOpeningAgenciesRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ListOpeningAgenciesResponse;
+      }
+    | MessageErrors
+    | Vetchium.Problem.HubOrgNotFoundErrorResponse
+    | Vetchium.Problem.HubOpeningNotFoundErrorResponse
+    | Vetchium.Problem.HubOrgUnavailableErrorResponse;
+
+  /**
+   * Sends a chat request to an agency assigned to a `published` Opening
+   * (MKT-REQ-002, MKT-DAT-014).
+   */
+  @route("/send-chat-request")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  sendChatRequest(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: HubSendChatRequestRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: HubChatRequest;
+      }
+    | PendingMessageResponse
+    | MessageErrors
+    | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
+    | Vetchium.Problem.HubOrgNotFoundErrorResponse
+    | Vetchium.Problem.HubOpeningNotFoundErrorResponse
+    | Vetchium.Problem.HubOrgUnavailableErrorResponse
+    | Vetchium.Problem.HubAgencyNotAssignedErrorResponse
+    | Vetchium.Problem.HubChatRequestLimitReachedErrorResponse
+    | Vetchium.Problem.HubChatRequestExistsErrorResponse
+    | Vetchium.Problem.HubConversationOpenErrorResponse
+    | Vetchium.Problem.HubChatRequestBlockedErrorResponse
+    | Vetchium.Problem.HubConversationPartyDeletedErrorResponse;
+
+  /** Lists the Hub user's chat requests in one direction. */
+  @route("/list-chat-requests")
+  @post
+  @useAuth(BearerAuth)
+  listChatRequests(@body request: ListHubChatRequestsRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ListHubChatRequestsResponse;
+      }
+    | MessageErrors
+    | Vetchium.Problem.InvalidPaginationKeyErrorResponse;
+
+  /** Accepts an agency's pending chat request, opening the conversation. */
+  @route("/accept-chat-request")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  acceptChatRequest(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: HubAcceptChatRequestRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: HubConversationDetail;
+      }
+    | PendingMessageResponse
+    | MessageErrors
+    | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
+    | Vetchium.Problem.HubChatRequestNotFoundErrorResponse
+    | Vetchium.Problem.HubConversationPartyDeletedErrorResponse
+    | Vetchium.Problem.HubOrgUnavailableErrorResponse;
+
+  /** Declines an agency's pending chat request for an Opening or a window. */
+  @route("/decline-chat-request")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  declineChatRequest(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: HubDeclineChatRequestRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: HubChatRequest;
+      }
+    | PendingMessageResponse
+    | MessageErrors
+    | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
+    | Vetchium.Problem.HubChatRequestNotFoundErrorResponse;
 
   /** Marks an agency conversation read on the Hub side. */
   @route("/mark-conversation-read")

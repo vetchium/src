@@ -5,28 +5,48 @@ import {
   AgencyPointerChangedKind,
   HubAccountDeletedKind,
   HubAgencyMessagesChangedKind,
+  HubChatRequestAnswerKind,
+  HubChatRequestKind,
   HubConversationDeleteKind,
   HubConversationReplyKind,
   validateAgencyPointerChangedPayload,
+  validateAgencyPointerRequest,
   validateHubAccountDeletedPayload,
   validateHubAgencyMessagesChangedPayload,
+  validateHubChatRequestAnswerPayload,
+  validateHubChatRequestPayload,
   validateHubConversationDeletePayload,
   validateHubConversationReplyPayload,
   validateMeshReadConversationRequest,
 } from "../federation/marketplace.ts";
-import { validateGetConversationRequest as validateHubGetConversationRequest } from "../hub/messages/messages.ts";
 import {
+  normalizeHubSendChatRequestRequest,
+  validateHubAcceptChatRequestRequest,
+  validateHubDeclineChatRequestRequest,
+  validateGetConversationRequest as validateHubGetConversationRequest,
+  validateHubSendChatRequestRequest,
+  validateListHubChatRequestsRequest,
+  validateListOpeningAgenciesRequest,
+} from "../hub/messages/messages.ts";
+import {
+  isChatRequestNote,
   isContactNameQuery,
   isNoteText,
+  maxChatRequestNoteLength,
   maxNoteLength,
+  normalizeSendChatRequestRequest,
+  validateAcceptChatRequestRequest,
   validateAddContactNoteRequest,
   validateAddPersonNoteRequest,
   validateContactReference,
+  validateDeclineChatRequestRequest,
   validateDeleteContactNoteRequest,
   validateEditContactNoteRequest,
   validateGetConversationRequest,
+  validateListChatRequestsRequest,
   validateListContactNotesRequest,
   validateListContactsRequest,
+  validateSendChatRequestRequest,
   validateViewHubProfileRequest,
 } from "./marketplace/contacts/contacts.ts";
 import {
@@ -281,5 +301,212 @@ test("Hub conversation commands carry the Hub user's name and handle", () => {
       hub_user_did: "y",
     }),
     ["contact_id", "hub_user_did"],
+  );
+});
+
+const request_id = "01900000-0000-7000-8000-000000000005";
+const opening = { consumer_domain: "client.test", opening_number: 1 };
+
+test("a chat request note is 1 to 1,000 code points once trimmed", () => {
+  assert.equal(isChatRequestNote("a"), true);
+  assert.equal(isChatRequestNote("  a  "), true);
+  assert.equal(isChatRequestNote(" \n "), false);
+  assert.equal(isChatRequestNote("é".repeat(maxChatRequestNoteLength)), true);
+  assert.equal(
+    isChatRequestNote("é".repeat(maxChatRequestNoteLength + 1)),
+    false,
+  );
+});
+
+test("agency chat requests name exactly one person and the field they reject", () => {
+  const original = { address: " priya ", note: " hi ", suggestion: opening };
+  const normalized = normalizeSendChatRequestRequest(original);
+  assert.deepEqual(normalized, {
+    address: "priya",
+    note: "hi",
+    suggestion: opening,
+  });
+  assert.equal(original.address, " priya ");
+  assert.deepEqual(validateSendChatRequestRequest(normalized), []);
+  assert.deepEqual(
+    validateSendChatRequestRequest({ contact_id, suggestion: opening }),
+    [],
+  );
+  assert.deepEqual(validateSendChatRequestRequest({ suggestion: opening }), [
+    "address",
+    "contact_id",
+  ]);
+  assert.deepEqual(
+    validateSendChatRequestRequest({
+      address: "priya",
+      contact_id,
+      suggestion: opening,
+    }),
+    ["address", "contact_id"],
+  );
+  assert.deepEqual(
+    validateSendChatRequestRequest({
+      contact_id: "x",
+      suggestion: { consumer_domain: "x", opening_number: 0 },
+      note: " ",
+    }),
+    ["contact_id", "suggestion", "note"],
+  );
+  assert.deepEqual(
+    validateListChatRequestsRequest({ direction: "to_agency" }),
+    [],
+  );
+  assert.deepEqual(
+    validateListChatRequestsRequest({
+      direction: "sideways" as never,
+      limit: 101,
+    }),
+    ["direction", "limit"],
+  );
+  assert.deepEqual(validateAcceptChatRequestRequest({ request_id }), []);
+  assert.deepEqual(validateAcceptChatRequestRequest({ request_id: "x" }), [
+    "request_id",
+  ]);
+  assert.deepEqual(
+    validateDeclineChatRequestRequest({ request_id, scope: "sender" }),
+    [],
+  );
+  assert.deepEqual(
+    validateDeclineChatRequestRequest({
+      request_id: "x",
+      scope: "forever" as never,
+    }),
+    ["request_id", "scope"],
+  );
+});
+
+test("Hub chat requests name an Opening, an agency, and the field they reject", () => {
+  const original = {
+    domain: " Client.Test ",
+    opening_number: 1,
+    agency_domain: "Agency.Test",
+    note: " hi ",
+  };
+  const normalized = normalizeHubSendChatRequestRequest(original);
+  assert.equal(normalized.domain, "client.test");
+  assert.equal(normalized.agency_domain, "agency.test");
+  assert.equal(normalized.note, "hi");
+  assert.equal(original.note, " hi ");
+  assert.deepEqual(validateHubSendChatRequestRequest(normalized), []);
+  assert.deepEqual(
+    validateHubSendChatRequestRequest({
+      domain: "x",
+      opening_number: 0,
+      agency_domain: "y",
+      note: "a".repeat(maxChatRequestNoteLength + 1),
+    }),
+    ["domain", "opening_number", "agency_domain", "note"],
+  );
+  assert.deepEqual(
+    validateListOpeningAgenciesRequest({
+      domain: "client.test",
+      opening_number: 1,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateListHubChatRequestsRequest({ direction: "to_hub_user" }),
+    [],
+  );
+  assert.deepEqual(
+    validateListHubChatRequestsRequest({
+      direction: "x" as never,
+      limit: 0,
+    }),
+    ["direction", "limit"],
+  );
+  assert.deepEqual(validateHubAcceptChatRequestRequest({ request_id }), []);
+  assert.deepEqual(
+    validateHubDeclineChatRequestRequest({
+      request_id: "x",
+      scope: "x" as never,
+    }),
+    ["request_id", "scope"],
+  );
+});
+
+test("chat request commands carry the window and a scope only when declining", () => {
+  assert.equal(HubChatRequestKind, "hub-chat-request");
+  assert.equal(HubChatRequestAnswerKind, "hub-chat-request-answer");
+  const hubUser = {
+    hub_user_did,
+    hub_user_display_name: "Ada Lovelace",
+    hub_user_handle: "abcd1234-0123456789a",
+  };
+  assert.deepEqual(
+    validateHubChatRequestPayload({
+      request_id,
+      agency_org_did: org_did,
+      ...hubUser,
+      ...opening,
+      note: "hi",
+      window_seconds: 7776000,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateHubChatRequestPayload({
+      request_id,
+      agency_org_did: org_did,
+      ...hubUser,
+      ...opening,
+      note: " hi ",
+      window_seconds: 0,
+    }),
+    ["note", "window_seconds"],
+  );
+  const answer = {
+    request_id,
+    contact_id,
+    ...hubUser,
+    accept: true,
+    window_seconds: 1,
+  };
+  assert.deepEqual(validateHubChatRequestAnswerPayload(answer), []);
+  assert.deepEqual(
+    validateHubChatRequestAnswerPayload({
+      ...answer,
+      accept: false,
+      scope: "opening",
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateHubChatRequestAnswerPayload({ ...answer, scope: "opening" }),
+    ["scope"],
+  );
+  assert.deepEqual(
+    validateHubChatRequestAnswerPayload({ ...answer, accept: false }),
+    ["scope"],
+  );
+  const pending = {
+    request_id,
+    direction: "to_hub_user" as const,
+    state: "pending" as const,
+    ...opening,
+    sent_at: "2026-11-01T00:00:00Z",
+  };
+  assert.deepEqual(validateAgencyPointerRequest(pending), []);
+  assert.deepEqual(
+    validateAgencyPointerRequest({
+      ...pending,
+      state: "declined",
+      decline_scope: "sender",
+      blocked_until: "2027-01-30T00:00:00Z",
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateAgencyPointerRequest({
+      ...pending,
+      state: "declined",
+      decline_scope: "sender",
+    }),
+    ["request.blocked_until"],
   );
 });

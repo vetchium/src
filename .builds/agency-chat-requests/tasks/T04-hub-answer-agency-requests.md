@@ -66,3 +66,5 @@ Go integration test of step 5; Playwright in T06.
   whose Opening counts as a suggestion; declining deletes the note.
 
 ## Carried over
+
+- From T01: the Hub list items are `HubChatRequest` (no note; `window_days` from `marketplace.conversationWindow`); `HubConversationSummary.latest_request` carries the latest request; the note reaches the Hub only through `HubConversationDetail.pending_request_note` from `MeshReadConversationResponse.pending_request_note`. Decline returns `HubChatRequest`. Command kinds: `federationspec.HubChatRequestAnswerKind` with `HubChatRequestAnswerPayload` (scope exactly when declining; `window_seconds` >= 1).

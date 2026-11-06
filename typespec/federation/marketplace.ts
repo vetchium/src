@@ -10,15 +10,27 @@ import { isHubHandle, isHubUserDID } from "../hub/types.ts";
 import type { Capability } from "../orgs/marketplace/capabilities.ts";
 import { isCapability } from "../orgs/marketplace/capabilities.ts";
 import type {
+  ChatRequestDeclineScope,
+  ChatRequestDirection,
+  ChatRequestID,
+  ChatRequestNote,
+  ChatRequestState,
   ContactID,
   ConversationMessage,
   ConversationReadOnlyReason,
   MessageText,
 } from "../orgs/marketplace/contacts/contacts.ts";
 import {
+  chatRequestDeclineScopes,
+  chatRequestDirections,
+  chatRequestStates,
+  isChatRequestID,
+  isChatRequestNote,
   isContactID,
   isMessageText,
+  isOpeningSuggestion,
   maxPage as maxContactPage,
+  normalizeChatRequestNote,
 } from "../orgs/marketplace/contacts/contacts.ts";
 import type {
   Engagement,
@@ -435,6 +447,55 @@ export interface AgencyPointerChangedPayload {
   read_only_reason?: ConversationReadOnlyReason;
   suggestions?: AgencyPointerSuggestion[];
   new_agency_message?: boolean;
+  /** Until when the agency may write; absent when it may not. */
+  agency_may_write_until?: string;
+  /** Until when the Hub user may write; absent when they may not. */
+  hub_may_write_until?: string;
+  /** The latest chat request between the two, never its note. */
+  request?: AgencyPointerRequest;
+  /** The agency sent the Hub user a new chat request; triggers an email. */
+  new_agency_request?: boolean;
+  /** The agency accepted the Hub user's request; triggers an email. */
+  request_accepted_by_agency?: boolean;
+}
+
+/** A chat request as the Hub user's pointer keeps it. */
+export interface AgencyPointerRequest {
+  request_id: ChatRequestID;
+  direction: ChatRequestDirection;
+  state: ChatRequestState;
+  consumer_domain: OrgDomain;
+  opening_number: OpeningNumber;
+  sent_at: string;
+  answered_at?: string;
+  decline_scope?: ChatRequestDeclineScope;
+  blocked_until?: string;
+}
+
+export function validateAgencyPointerRequest(
+  request: AgencyPointerRequest,
+): string[] {
+  const fields: string[] = [];
+  if (!isChatRequestID(request.request_id)) fields.push("request.request_id");
+  if (!chatRequestDirections.includes(request.direction))
+    fields.push("request.direction");
+  if (!chatRequestStates.includes(request.state)) fields.push("request.state");
+  if (
+    !isOpeningSuggestion({
+      consumer_domain: request.consumer_domain,
+      opening_number: request.opening_number,
+    })
+  )
+    fields.push("request.opening");
+  const scope = request.decline_scope;
+  if (
+    (request.state === "declined") !== (scope !== undefined) ||
+    (scope !== undefined && !chatRequestDeclineScopes.includes(scope))
+  )
+    fields.push("request.decline_scope");
+  if ((request.blocked_until !== undefined) !== (scope === "sender"))
+    fields.push("request.blocked_until");
+  return fields;
 }
 
 /** An Opening the agency suggested in the conversation, as the pointer keeps it. */
@@ -442,6 +503,108 @@ export interface AgencyPointerSuggestion {
   consumer_domain: OrgDomain;
   opening_number: OpeningNumber;
   sent_at: string;
+}
+
+/** Chat request commands from the Hub user's tenant; the aggregate is the request id. */
+export const HubChatRequestKind: CommandKind = "hub-chat-request";
+export const HubChatRequestAnswerKind: CommandKind = "hub-chat-request-answer";
+
+function hubUserFields(
+  did: HubUserDID,
+  name: DisplayName,
+  handle: HubHandle,
+): string[] {
+  const fields: string[] = [];
+  if (!isHubUserDID(did)) fields.push("hub_user_did");
+  if (!isDisplayName(name)) fields.push("hub_user_display_name");
+  if (!isHubHandle(handle)) fields.push("hub_user_handle");
+  return fields;
+}
+
+function isWindowSeconds(value: number): boolean {
+  return Number.isSafeInteger(value) && value >= 1;
+}
+
+/**
+ * A Hub user asks an agency assigned to a published Opening to open the
+ * conversation. The Hub tenant mints `request_id`.
+ */
+export interface HubChatRequestPayload {
+  request_id: ChatRequestID;
+  agency_org_did: OrgDID;
+  hub_user_did: HubUserDID;
+  hub_user_display_name: DisplayName;
+  hub_user_handle: HubHandle;
+  consumer_domain: OrgDomain;
+  opening_number: OpeningNumber;
+  note?: ChatRequestNote;
+  /** The Hub tenant's conversation window. */
+  window_seconds: number;
+}
+
+export function validateHubChatRequestPayload(
+  payload: HubChatRequestPayload,
+): string[] {
+  const fields: string[] = [];
+  if (!isChatRequestID(payload.request_id)) fields.push("request_id");
+  if (!isOrgDID(payload.agency_org_did)) fields.push("agency_org_did");
+  fields.push(
+    ...hubUserFields(
+      payload.hub_user_did,
+      payload.hub_user_display_name,
+      payload.hub_user_handle,
+    ),
+  );
+  if (
+    !isOpeningSuggestion({
+      consumer_domain: payload.consumer_domain,
+      opening_number: payload.opening_number,
+    })
+  )
+    fields.push("consumer_domain", "opening_number");
+  if (
+    payload.note !== undefined &&
+    (!isChatRequestNote(payload.note) ||
+      payload.note !== normalizeChatRequestNote(payload.note))
+  )
+    fields.push("note");
+  if (!isWindowSeconds(payload.window_seconds)) fields.push("window_seconds");
+  return fields;
+}
+
+/** The Hub user accepts or declines an agency's request; `scope` exactly when declining. */
+export interface HubChatRequestAnswerPayload {
+  request_id: ChatRequestID;
+  contact_id: ContactID;
+  hub_user_did: HubUserDID;
+  hub_user_display_name: DisplayName;
+  hub_user_handle: HubHandle;
+  accept: boolean;
+  scope?: ChatRequestDeclineScope;
+  window_seconds: number;
+}
+
+export function validateHubChatRequestAnswerPayload(
+  payload: HubChatRequestAnswerPayload,
+): string[] {
+  const fields: string[] = [];
+  if (!isChatRequestID(payload.request_id)) fields.push("request_id");
+  if (!isContactID(payload.contact_id)) fields.push("contact_id");
+  fields.push(
+    ...hubUserFields(
+      payload.hub_user_did,
+      payload.hub_user_display_name,
+      payload.hub_user_handle,
+    ),
+  );
+  if (
+    payload.accept === (payload.scope !== undefined) ||
+    (payload.scope !== undefined &&
+      !chatRequestDeclineScopes.includes(payload.scope))
+  )
+    fields.push("scope");
+  if (!isWindowSeconds(payload.window_seconds)) fields.push("window_seconds");
+  return fields;
 }
 
 export const HubConversationReplyKind: CommandKind = "hub-conversation-reply";
@@ -520,6 +683,10 @@ export function validateMeshReadConversationRequest(
  */
 export interface MeshReadConversationResponse {
   read_only_reason?: ConversationReadOnlyReason;
+  agency_may_write_until?: string;
+  hub_may_write_until?: string;
+  /** The note of a pending chat request between the two. */
+  pending_request_note?: ChatRequestNote;
   messages: ConversationMessage[];
   next_pagination_key?: PaginationKey;
 }
@@ -531,6 +698,8 @@ export function validateAgencyPointerChangedPayload(
   if (!isContactID(payload.contact_id)) fields.push("contact_id");
   if (!isOrgDID(payload.agency_org_did)) fields.push("agency_org_did");
   if (!isHubUserDID(payload.hub_user_did)) fields.push("hub_user_did");
+  if (payload.request !== undefined)
+    fields.push(...validateAgencyPointerRequest(payload.request));
   return fields;
 }
 

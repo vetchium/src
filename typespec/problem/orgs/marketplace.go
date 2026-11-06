@@ -221,3 +221,45 @@ var ConversationPartyDeletedError = problem.Details{
 	Status: 409,
 	Detail: "The Hub user's account no longer exists",
 }
+
+var ChatRequestLimitReachedError = problem.Details{
+	Type:   "vetchium-problem-details/org-chat-request-limit-reached",
+	Title:  "Org chat request limit reached",
+	Status: 429,
+	Detail: "The agency reached its limit of chat requests for today",
+}
+
+var ChatRequestExistsError = problem.Details{
+	Type:   "vetchium-problem-details/org-chat-request-exists",
+	Title:  "Org chat request exists",
+	Status: 409,
+	Detail: "A chat request between the agency and this person is pending",
+}
+
+var ChatRequestBlockedError = problem.Details{
+	Type:   "vetchium-problem-details/org-chat-request-blocked",
+	Title:  "Org chat request blocked",
+	Status: 403,
+	Detail: "This person declined chat requests from the agency for this Opening or until a later date",
+}
+
+var ChatRequestNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-chat-request-not-found",
+	Title:  "Org chat request not found",
+	Status: 404,
+	Detail: "No pending chat request to the agency has that identifier",
+}
+
+var ConversationOpenError = problem.Details{
+	Type:   "vetchium-problem-details/org-conversation-open",
+	Title:  "Org conversation open",
+	Status: 409,
+	Detail: "The agency may still write in the conversation",
+}
+
+var ConversationClosedError = problem.Details{
+	Type:   "vetchium-problem-details/org-conversation-closed",
+	Title:  "Org conversation closed",
+	Status: 409,
+	Detail: "The conversation is closed to the agency until the person writes or accepts a new chat request",
+}

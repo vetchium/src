@@ -70,3 +70,5 @@ Go integration tests of step 6; Playwright in T11.
   `to_agency`; every refusal and the 10-per-day cap answer correctly.
 
 ## Carried over
+
+- From T01: the assigned-agency read is its own mesh route, not a wider `org-openings/get`: relay `POST /mesh/org-openings/agencies` and peer `POST /api/mesh/org-openings/agencies`, request `MeshListOpeningAgenciesRequest` (= `GetOrgOpeningRequest`: `domain`, `opening_number`), response `MeshListOpeningAgenciesResponse { items: MeshOpeningAgency[] }`, `hub-opening-not-found` for any Opening that is not `published`. Replace step 1 with implementing these routes. The Hub requests use `domain` (not `org_domain`). The pointer keeps only the latest request, so `chat_state: declined` reflects that request; an older `opening` block surfaces as `hub-chat-request-blocked` from the command.

@@ -13,6 +13,25 @@ alias RelayListOrgOpeningsRequest = ListOrgOpeningsRequest;
 alias RelayGetOrgOpeningRequest = GetOrgOpeningRequest;
 alias PeerListOrgOpeningsRequest = ListOrgOpeningsRequest;
 alias PeerGetOrgOpeningRequest = GetOrgOpeningRequest;
+alias MeshListOpeningAgenciesRequest = GetOrgOpeningRequest;
+
+/**
+ * An agency with an active `sourcing` engagement assigned to the Opening, as
+ * the consumer's tenant recorded it. Mesh-only: the Hub never returns the DID.
+ */
+model MeshOpeningAgency {
+  agency_org_did: Vetchium.Orgs.OrgDID;
+  agency_domain: Vetchium.Orgs.OrgDomain;
+  agency_display_name: string;
+}
+
+/**
+ * The agencies assigned to a `published` Opening (MKT-DAT-014). Any other
+ * state is `hub-opening-not-found`, as the Opening read answers.
+ */
+model MeshListOpeningAgenciesResponse {
+  items: MeshOpeningAgency[];
+}
 
 alias PeerReadErrors =
   | Vetchium.Problem.InvalidJSONErrorResponse
@@ -28,6 +47,15 @@ alias PeerListOrgOpeningsResult =
     }
   | PeerReadErrors
   | Vetchium.Problem.InvalidPaginationKeyErrorResponse;
+
+alias MeshListOpeningAgenciesResult =
+  | {
+      @statusCode status_code: 200;
+      @header("Cache-Control") cache_control: "no-store";
+      @body body: MeshListOpeningAgenciesResponse;
+    }
+  | PeerReadErrors
+  | Vetchium.Problem.HubOpeningNotFoundErrorResponse;
 
 alias PeerGetOrgOpeningResult =
   | {
@@ -53,6 +81,13 @@ interface OrgOpeningRelayOperations {
   get(@body request: RelayGetOrgOpeningRequest):
     | GetOrgOpeningResult
     | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+
+  @route("/agencies")
+  @post
+  agencies(@body request: MeshListOpeningAgenciesRequest):
+    | MeshListOpeningAgenciesResult
+    | Vetchium.Problem.HubOrgUnavailableErrorResponse
+    | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
 }
 
 @route("/api/mesh/org-openings")
@@ -66,4 +101,10 @@ interface OrgOpeningPeerOperations {
   @route("/get")
   @post
   get(@body request: PeerGetOrgOpeningRequest): PeerGetOrgOpeningResult;
+
+  @route("/agencies")
+  @post
+  agencies(
+    @body request: MeshListOpeningAgenciesRequest,
+  ): MeshListOpeningAgenciesResult;
 }

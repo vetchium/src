@@ -60,3 +60,5 @@ Unit tests of step 6; Playwright in T06.
 - Both portals' reads expose the instants; existing conversation specs pass.
 
 ## Carried over
+
+- From T01: `HubConversationReplyPayload` has no `window_seconds` yet. Add it here (TypeSpec `ConversationWindowSeconds`, Go `int64` validated >= 1, TypeScript, tests in `federation/marketplace_test.go` and `orgs/contacts.test.ts`) together with the hub-api sender, so no reply is ever rejected for lacking it.

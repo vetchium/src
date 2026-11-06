@@ -248,3 +248,122 @@ func TestHubConversationCommandsAndReads(t *testing.T) {
 		t.Fatal("a read without a limit takes the default page")
 	}
 }
+
+func TestHubChatRequestCommands(t *testing.T) {
+	t.Parallel()
+	const (
+		requestID = contacts.ChatRequestID("01900000-0000-7000-8000-000000000005")
+		contactID = contacts.ContactID("01900000-0000-7000-8000-000000000001")
+		orgDID    = orgs.OrgDID("01900000-0000-7000-8000-000000000003")
+		hubDID    = hub.HubUserDID("01900000-0000-7000-8000-000000000004")
+	)
+	for _, kind := range []CommandKind{HubChatRequestKind, HubChatRequestAnswerKind} {
+		if !IsCommandKind(kind) {
+			t.Fatalf("%q is not a command kind", kind)
+		}
+	}
+	note := contacts.ChatRequestNote("About this role")
+	padded := contacts.ChatRequestNote(" About this role ")
+	request := HubChatRequestPayload{
+		RequestID: requestID, AgencyOrgDID: orgDID, HubUserDID: hubDID,
+		HubUserDisplayName: "Ada Lovelace", HubUserHandle: "abcd1234-0123456789a",
+		ConsumerDomain: "client.test", OpeningNumber: 7, Note: &note,
+		WindowSeconds: 7776000,
+	}
+	if got := request.Validate(); len(got) != 0 {
+		t.Fatalf("valid request rejected: %v", got)
+	}
+	unnormalized := request
+	unnormalized.Note = &padded
+	if got := unnormalized.Validate(); !slices.Equal(got, []string{"note"}) {
+		t.Fatalf("an untrimmed note must be refused, fields = %v", got)
+	}
+	want := []string{"request_id", "agency_org_did", "hub_user_did", "hub_user_display_name",
+		"hub_user_handle", "consumer_domain", "opening_number", "window_seconds"}
+	if got := (HubChatRequestPayload{}).Validate(); !slices.Equal(got, want) {
+		t.Fatalf("request fields = %v, want %v", got, want)
+	}
+
+	scope := contacts.DeclineSender
+	badScope := contacts.ChatRequestDeclineScope("forever")
+	answer := HubChatRequestAnswerPayload{
+		RequestID: requestID, ContactID: contactID, HubUserDID: hubDID,
+		HubUserDisplayName: "Ada Lovelace", HubUserHandle: "abcd1234-0123456789a",
+		Accept: true, WindowSeconds: 1,
+	}
+	decline := answer
+	decline.Accept, decline.Scope = false, &scope
+	acceptWithScope := answer
+	acceptWithScope.Scope = &scope
+	declineWithoutScope := answer
+	declineWithoutScope.Accept = false
+	declineBadScope := decline
+	declineBadScope.Scope = &badScope
+	tests := []struct {
+		name string
+		got  []string
+		want []string
+	}{
+		{"accept", answer.Validate(), []string{}},
+		{"decline", decline.Validate(), []string{}},
+		{"accept with a scope", acceptWithScope.Validate(), []string{"scope"}},
+		{"decline without a scope", declineWithoutScope.Validate(), []string{"scope"}},
+		{"decline with an unknown scope", declineBadScope.Validate(), []string{"scope"}},
+		{"empty", (HubChatRequestAnswerPayload{Accept: true}).Validate(), []string{"request_id", "contact_id",
+			"hub_user_did", "hub_user_display_name", "hub_user_handle", "window_seconds"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if !slices.Equal(test.got, test.want) {
+				t.Fatalf("fields = %v, want %v", test.got, test.want)
+			}
+		})
+	}
+}
+
+func TestAgencyPointerRequestCarriesNoNoteAndConsistentDecline(t *testing.T) {
+	t.Parallel()
+	sentAt := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	lifts := sentAt.Add(90 * 24 * time.Hour)
+	opening, sender := contacts.DeclineOpening, contacts.DeclineSender
+	base := AgencyPointerRequest{
+		RequestID: "01900000-0000-7000-8000-000000000005", Direction: contacts.ToHubUser,
+		State: contacts.ChatRequestPending, ConsumerDomain: "client.test", OpeningNumber: 3,
+		SentAt: sentAt,
+	}
+	declinedOpening := base
+	declinedOpening.State, declinedOpening.DeclineScope = contacts.ChatRequestDeclined, &opening
+	declinedSender := declinedOpening
+	declinedSender.DeclineScope, declinedSender.BlockedUntil = &sender, &lifts
+	senderWithoutDate := declinedSender
+	senderWithoutDate.BlockedUntil = nil
+	pendingWithScope := base
+	pendingWithScope.DeclineScope = &opening
+	tests := []struct {
+		name string
+		got  []string
+		want []string
+	}{
+		{"pending", base.Validate(), []string{}},
+		{"declined for the Opening", declinedOpening.Validate(), []string{}},
+		{"declined for the sender", declinedSender.Validate(), []string{}},
+		{"sender decline without its lift date", senderWithoutDate.Validate(), []string{"request.blocked_until"}},
+		{"pending with a scope", pendingWithScope.Validate(), []string{"request.decline_scope"}},
+		{"empty", AgencyPointerRequest{}.Validate(), []string{"request.request_id",
+			"request.direction", "request.state", "request.opening"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if !slices.Equal(test.got, test.want) {
+				t.Fatalf("fields = %v, want %v", test.got, test.want)
+			}
+		})
+	}
+	payload := AgencyPointerChangedPayload{
+		ContactID: "01900000-0000-7000-8000-000000000001", AgencyOrgDID: consumerDID,
+		HubUserDID: "01900000-0000-7000-8000-000000000004", Present: true, Request: &senderWithoutDate,
+	}
+	if got := payload.Validate(); !slices.Equal(got, []string{"request.blocked_until"}) {
+		t.Fatalf("the pointer validates its request, fields = %v", got)
+	}
+}
