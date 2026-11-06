@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { TestTenant } from "./admin-db.ts";
 import type { APIObservation } from "./admin-fixtures.ts";
+import { ciContainer } from "./ci-stack.ts";
 
 const repositoryRoot = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -21,18 +22,14 @@ function nodeExec(tenant: TestTenant, script: string, env: string[]): string {
   return execFileSync(
     "docker",
     [
-      "compose",
-      "-f",
-      resolve(repositoryRoot, "docker-compose-ci.json"),
       "exec",
-      "-T",
       ...env.flatMap((assignment) => ["-e", assignment]),
-      `wg-${tenant}`,
+      ciContainer(`wg-${tenant}`),
       "sh",
       "-c",
       script,
     ],
-    { cwd: repositoryRoot, encoding: "utf8" },
+    { encoding: "utf8" },
   );
 }
 

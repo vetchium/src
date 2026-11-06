@@ -87,6 +87,10 @@ Commands are in [`verification.md`](verification.md).
   an overlay, include, or generated file. Sync services, networks, secrets, and
   health checks by hand.
 - CI configs live in `config/ci/` (`ci` environment, short timings).
+- Run SQL through `sqlScalarForTenant` and `globalSQLScalar`, which reuse one
+  psql session per worker; reach other containers with `docker exec` on
+  `ciContainer(service)`. Never `docker compose exec` per call: loading the
+  project costs about 0.2 s of CPU each time.
 - CI-only `orgs-api-unavailable` listens on `127.0.0.1:18084`, shares the sgp
   test database, and uses `config/ci/fixtures/orgs-unavailable.json` with Org
   signup disabled and no Google provider. Mount its matching signup catalog;

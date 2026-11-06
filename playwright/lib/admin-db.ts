@@ -7,6 +7,8 @@ import {
 } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ciContainer } from "./ci-stack.ts";
+import { type PsqlTarget, psqlSync } from "./psql-sessions.ts";
 
 const repositoryRoot = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -51,7 +53,7 @@ export type TestTenant = "deu" | "sgp" | "ind1" | "usa1";
 // Parallel tests install and remove audit-failure triggers on the same
 // table. Each change takes AccessExclusiveLock on it, and two concurrent
 // trigger-and-function drops can deadlock, so every such change first takes
-// this transaction-scoped lock (psql runs a multi-statement -c string as one
+// this transaction-scoped lock (psqlSync runs a multi-statement string as one
 // transaction).
 export const AUDIT_FAULT_LOCK =
   "SELECT pg_advisory_xact_lock(hashtext('vetchium-e2e-audit-faults'));";
@@ -75,12 +77,9 @@ export async function openTenantSession(
   const session = spawn(
     "docker",
     [
-      "compose",
-      "-f",
-      resolve(repositoryRoot, "docker-compose-ci.json"),
       "exec",
-      "-T",
-      `db-${tenant}`,
+      "-i",
+      ciContainer(`db-${tenant}`),
       "env",
       "PGPASSWORD=pgpassword",
       "psql",
@@ -152,82 +151,47 @@ export async function openTenantSession(
   };
 }
 
+function tenantDatabase(tenant: TestTenant): PsqlTarget {
+  return {
+    container: ciContainer(`db-${tenant}`),
+    user: "pguser",
+    password: "pgpassword",
+    database: "tenant_db",
+  };
+}
+
 export function sqlScalarForTenant(tenant: TestTenant, sql: string): string {
-  return execFileSync(
-    "docker",
-    [
-      "compose",
-      "-f",
-      resolve(repositoryRoot, "docker-compose-ci.json"),
-      "exec",
-      "-T",
-      `db-${tenant}`,
-      "env",
-      "PGPASSWORD=pgpassword",
-      "psql",
-      "-U",
-      "pguser",
-      "-d",
-      "tenant_db",
-      "-v",
-      "ON_ERROR_STOP=1",
-      "-Atqc",
-      sql,
-    ],
-    { cwd: repositoryRoot, encoding: "utf8" },
-  ).trim();
+  return psqlSync(tenantDatabase(tenant), sql).trim();
 }
 
 export function globalSQLScalar(sql: string): string {
-  return execFileSync(
-    "docker",
-    [
-      "compose",
-      "-f",
-      resolve(repositoryRoot, "docker-compose-ci.json"),
-      "exec",
-      "-T",
-      "global-db",
-      "env",
-      "PGPASSWORD=global_pgpassword",
-      "psql",
-      "-U",
-      "global_pguser",
-      "-d",
-      "global_db",
-      "-v",
-      "ON_ERROR_STOP=1",
-      "-Atqc",
-      sql,
-    ],
-    { cwd: repositoryRoot, encoding: "utf8" },
+  return psqlSync(
+    {
+      container: ciContainer("global-db"),
+      user: "global_pguser",
+      password: "global_pgpassword",
+      database: "global_db",
+    },
+    sql,
   ).trim();
 }
 
-function dockerCompose(args: string[]): string {
-  return execFileSync(
-    "docker",
-    [
-      "compose",
-      "-f",
-      resolve(repositoryRoot, "docker-compose-ci.json"),
-      ...args,
-    ],
-    { cwd: repositoryRoot, encoding: "utf8" },
-  ).trim();
+function dockerExec(service: string, args: string[]): string {
+  return execFileSync("docker", ["exec", ciContainer(service), ...args], {
+    encoding: "utf8",
+  }).trim();
 }
 
-function dockerComposeAsync(args: string[], timeout = 10_000): Promise<string> {
+function dockerExecAsync(
+  service: string,
+  args: string[],
+  timeout = 10_000,
+): Promise<string> {
   return new Promise((resolvePromise, reject) => {
     execFile(
       "docker",
-      [
-        "compose",
-        "-f",
-        resolve(repositoryRoot, "docker-compose-ci.json"),
-        ...args,
-      ],
-      { cwd: repositoryRoot, encoding: "utf8", timeout },
+      ["exec", ciContainer(service), ...args],
+      { encoding: "utf8", timeout },
       (error, stdout, stderr) => {
         if (error !== null) {
           reject(new Error(`${error.message}: ${stderr}`));
@@ -245,15 +209,22 @@ function runMigration(databaseName: string): void {
       `refusing to migrate unsafe test database: ${databaseName}`,
     );
   }
-  dockerCompose([
-    "run",
-    "--rm",
-    "--no-deps",
-    "-e",
-    `GOOSE_DBSTRING=postgres://pguser:pgpassword@db-sgp:5432/${databaseName}?sslmode=disable`,
-    "migrate-sgp",
-    "up",
-  ]);
+  execFileSync(
+    "docker",
+    [
+      "compose",
+      "-f",
+      resolve(repositoryRoot, "docker-compose-ci.json"),
+      "run",
+      "--rm",
+      "--no-deps",
+      "-e",
+      `GOOSE_DBSTRING=postgres://pguser:pgpassword@db-sgp:5432/${databaseName}?sslmode=disable`,
+      "migrate-sgp",
+      "up",
+    ],
+    { cwd: repositoryRoot, encoding: "utf8" },
+  );
 }
 
 export async function credentialRefreshPruneRace(): Promise<{
@@ -264,10 +235,7 @@ export async function credentialRefreshPruneRace(): Promise<{
 }> {
   const databaseName = `e2e_migration_${randomBytes(16).toString("hex")}`;
   const marker = `refresh_ready_${randomBytes(8).toString("hex")}`;
-  dockerCompose([
-    "exec",
-    "-T",
-    "db-sgp",
+  dockerExec("db-sgp", [
     "env",
     "PGPASSWORD=pgpassword",
     "createdb",
@@ -279,12 +247,9 @@ export async function credentialRefreshPruneRace(): Promise<{
   const session = spawn(
     "docker",
     [
-      "compose",
-      "-f",
-      resolve(repositoryRoot, "docker-compose-ci.json"),
       "exec",
-      "-T",
-      "db-sgp",
+      "-i",
+      ciContainer("db-sgp"),
       "env",
       "PGPASSWORD=pgpassword",
       "psql",
@@ -388,10 +353,7 @@ export async function credentialRefreshPruneRace(): Promise<{
     `);
     await ready;
 
-    const pruneResult = await dockerComposeAsync([
-      "exec",
-      "-T",
-      "db-sgp",
+    const pruneResult = await dockerExecAsync("db-sgp", [
       "env",
       "PGPASSWORD=pgpassword",
       "psql",
@@ -439,10 +401,7 @@ export async function credentialRefreshPruneRace(): Promise<{
     session.stdin.write("COMMIT;\n\\q\n");
     await exited;
 
-    const freshResult = dockerCompose([
-      "exec",
-      "-T",
-      "db-sgp",
+    const freshResult = dockerExec("db-sgp", [
       "env",
       "PGPASSWORD=pgpassword",
       "psql",
@@ -489,10 +448,7 @@ export async function credentialRefreshPruneRace(): Promise<{
       session.stdin.write("ROLLBACK;\n\\q\n");
       await exited.catch(() => {});
     }
-    dockerCompose([
-      "exec",
-      "-T",
-      "db-sgp",
+    dockerExec("db-sgp", [
       "env",
       "PGPASSWORD=pgpassword",
       "dropdb",
@@ -511,10 +467,7 @@ async function waitForDatabaseLockWaiters(
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     const count = Number(
-      dockerCompose([
-        "exec",
-        "-T",
-        "db-sgp",
+      dockerExec("db-sgp", [
         "env",
         "PGPASSWORD=pgpassword",
         "psql",
@@ -550,10 +503,7 @@ export async function stalePasswordLoginCreationRace(): Promise<{
   const marker = `password_changed_${randomBytes(8).toString("hex")}`;
   const directApplication = `e2e_direct_${randomBytes(8).toString("hex")}`;
   const totpApplication = `e2e_totp_${randomBytes(8).toString("hex")}`;
-  dockerCompose([
-    "exec",
-    "-T",
-    "db-sgp",
+  dockerExec("db-sgp", [
     "env",
     "PGPASSWORD=pgpassword",
     "createdb",
@@ -567,12 +517,9 @@ export async function stalePasswordLoginCreationRace(): Promise<{
   const change = spawn(
     "docker",
     [
-      "compose",
-      "-f",
-      resolve(repositoryRoot, "docker-compose-ci.json"),
       "exec",
-      "-T",
-      "db-sgp",
+      "-i",
+      ciContainer("db-sgp"),
       "env",
       "PGPASSWORD=pgpassword",
       "psql",
@@ -654,9 +601,6 @@ export async function stalePasswordLoginCreationRace(): Promise<{
     await changed;
 
     const psqlPrefix = (applicationName: string) => [
-      "exec",
-      "-T",
-      "db-sgp",
       "env",
       "PGPASSWORD=pgpassword",
       `PGAPPNAME=${applicationName}`,
@@ -669,7 +613,8 @@ export async function stalePasswordLoginCreationRace(): Promise<{
       "ON_ERROR_STOP=1",
       "-Atqc",
     ];
-    const directAttempt = dockerComposeAsync(
+    const directAttempt = dockerExecAsync(
+      "db-sgp",
       [
         ...psqlPrefix(directApplication),
         `
@@ -694,7 +639,8 @@ export async function stalePasswordLoginCreationRace(): Promise<{
       ],
       30_000,
     );
-    const totpAttempt = dockerComposeAsync(
+    const totpAttempt = dockerExecAsync(
+      "db-sgp",
       [
         ...psqlPrefix(totpApplication),
         `
@@ -739,10 +685,7 @@ export async function stalePasswordLoginCreationRace(): Promise<{
       change.stdin.write("ROLLBACK;\n\\q\n");
       await exited.catch(() => {});
     }
-    dockerCompose([
-      "exec",
-      "-T",
-      "db-sgp",
+    dockerExec("db-sgp", [
       "env",
       "PGPASSWORD=pgpassword",
       "dropdb",
@@ -944,10 +887,7 @@ export async function staleCredentialReplacementRace(
       break;
   }
 
-  dockerCompose([
-    "exec",
-    "-T",
-    "db-sgp",
+  dockerExec("db-sgp", [
     "env",
     "PGPASSWORD=pgpassword",
     "createdb",
@@ -959,12 +899,9 @@ export async function staleCredentialReplacementRace(
   const replacement = spawn(
     "docker",
     [
-      "compose",
-      "-f",
-      resolve(repositoryRoot, "docker-compose-ci.json"),
       "exec",
-      "-T",
-      "db-sgp",
+      "-i",
+      ciContainer("db-sgp"),
       "env",
       "PGPASSWORD=pgpassword",
       "psql",
@@ -1042,10 +979,7 @@ export async function staleCredentialReplacementRace(
     `);
     await ready;
 
-    const consumer = dockerComposeAsync([
-      "exec",
-      "-T",
-      "db-sgp",
+    const consumer = dockerExecAsync("db-sgp", [
       "env",
       "PGPASSWORD=pgpassword",
       `PGAPPNAME=${applicationName}`,
@@ -1071,10 +1005,7 @@ export async function staleCredentialReplacementRace(
     return {
       oldCredentialAccepted: Number(lastResult),
       freshCredentialIntact: Number(
-        dockerCompose([
-          "exec",
-          "-T",
-          "db-sgp",
+        dockerExec("db-sgp", [
           "env",
           "PGPASSWORD=pgpassword",
           "psql",
@@ -1094,10 +1025,7 @@ export async function staleCredentialReplacementRace(
       replacement.stdin.write("ROLLBACK;\n\\q\n");
       await exited.catch(() => {});
     }
-    dockerCompose([
-      "exec",
-      "-T",
-      "db-sgp",
+    dockerExec("db-sgp", [
       "env",
       "PGPASSWORD=pgpassword",
       "dropdb",
@@ -2536,12 +2464,9 @@ function openLockSession(tenant: TestTenant): {
   const session = spawn(
     "docker",
     [
-      "compose",
-      "-f",
-      resolve(repositoryRoot, "docker-compose-ci.json"),
       "exec",
-      "-T",
-      `db-${tenant}`,
+      "-i",
+      ciContainer(`db-${tenant}`),
       "env",
       "PGPASSWORD=pgpassword",
       "psql",
