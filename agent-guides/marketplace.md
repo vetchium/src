@@ -50,9 +50,9 @@ Compose with [`hiring-pipeline.md`](hiring-pipeline.md),
 | Application credit | consumer's | the apply command from the Hub user's tenant | nothing; the agency reads live |
 | Provider work: interviews, feedback, results, consent | consumer's | provider users' commands; the Hub user's commands for responses and consent | nothing |
 | Billable facts | consumer's | the transaction that records the fact | nothing; statements read live |
-| Contact, notes, conversation, messages, suggestions, agency-side unread state | agency's | agency users locally; the Hub user's commands | Hub user: the agency pointer, without notes |
+| Contact, notes, conversation, messages, suggestions, chat requests, request blocks, agency-side unread state | agency's | agency users locally; the Hub user's commands | Hub user: the agency pointer, without notes or request notes |
 | Job owner | agency's | agency users locally | nothing; the owner filter names Jobs, never users (MKT-OWN-004) |
-| Agency pointer, Hub-side unread state, "Agencies may message me" | Hub user's home | the agency's outbox; the Hub user locally | agency: the messages-off state on each Contact |
+| Agency pointer, Hub-side unread state, "Agencies may send me chat requests", the Hub user's daily request count | Hub user's home | the agency's outbox; the Hub user locally | agency: the requests-off state on each Contact; the conversation window each conversation carries |
 | Operation and idempotency ledgers | the initiating tenant | the initiating tenant | nothing |
 
 - **MKT-DAT-001** The initiating tenant authorizes its own user (session,
@@ -66,34 +66,50 @@ Compose with [`hiring-pipeline.md`](hiring-pipeline.md),
   deadline (`org-tenant-unavailable`). The provider's tenant re-checks both
   before sending its accept.
 - **MKT-DAT-003** The Hub user's tenant keeps one agency pointer per
-  Contact, holding the agency Org DID and, while a conversation exists, the
-  agency's recorded display name and primary domain, last activity, Hub-side
-  unread count, the read-only reason if any, and the Opening suggestions
-  (consumer domain, opening number, sent at). It never holds message or note
-  text. The agency's outbox creates, updates, and deletes it; the new-message
-  event also triggers the notification email (MKT-CNV-008). A pointer
-  without a conversation exists only so the messages setting and deletion
-  notices reach the agency (MKT-DAT-006, MKT-DAT-012); no Hub API, page, or
-  email reveals it (MKT-CON-006).
-- **MKT-DAT-004** Starting a conversation: the agency's tenant resolves the
+  Contact, holding the agency Org DID and, while a conversation or a chat
+  request exists, the agency's recorded display name and primary domain,
+  last activity, Hub-side unread count, the read-only reason if any, the
+  instants until which each side may write (MKT-REQ-004), the pending or
+  last answered chat request (id, direction, state, consumer domain, opening
+  number, sent at, decline scope, blocked until), and the Opening
+  suggestions (consumer domain, opening number, sent at). It never holds
+  message, note, or request-note text. The agency's outbox creates, updates,
+  and deletes it; the new-message, new-request, and request-accepted events
+  also trigger the notification email (MKT-CNV-008). A pointer with neither
+  a conversation nor a request exists only so the requests setting and
+  deletion notices reach the agency (MKT-DAT-006, MKT-DAT-012); no Hub API,
+  page, or email reveals it (MKT-CON-006).
+- **MKT-DAT-004** An agency chat request: the agency's tenant resolves the
   handle or alias through the directory and reads, from the Hub user's tenant
-  with a deadline, that the account exists and its messages setting
-  (`org-hub-user-not-found`, `org-agency-messages-off`,
-  `org-tenant-unavailable`). It then checks the daily caps (MKT-CNV-003, and
-  MKT-CON-005 when no Contact exists) under the agency's Org lock and creates
-  the Contact if none exists, the conversation, and the first message in one
-  transaction, whose outbox creates or updates the pointer.
-- **MKT-DAT-005** The Hub user's reply and delete are durable commands from
-  the Hub user's tenant to the agency's tenant, `202` `PendingOperation` when
-  uncertain (HP-GEN-009). The Hub conversation list comes from the pointers
-  that have a conversation; opening a conversation reads its messages live
-  from the agency's tenant with a deadline (`hub-org-unavailable`). Marking
-  read writes only the pointer.
-- **MKT-DAT-006** The Hub user's tenant owns "Agencies may message me". A
-  change sends the new state through its outbox to the agency tenant of
-  every pointer, which stores it on the Contact and refuses agency
-  messages by it (MKT-CNV-006). Creating a pointer while the setting is off
+  with a deadline, that the account exists and its requests setting
+  (`org-hub-user-not-found`, `org-agency-requests-off`,
+  `org-tenant-unavailable`), and confirms the Opening (MKT-DAT-007). It then,
+  under the agency's Org lock, checks the daily caps (MKT-REQ-006, and
+  MKT-CON-005 when no Contact exists) and the refusals of MKT-REQ-003, and
+  creates the Contact if none exists and the request in one transaction,
+  whose outbox creates or updates the pointer.
+- **MKT-DAT-005** The Hub user's reply, delete, chat request, accept, and
+  decline are durable commands from the Hub user's tenant to the agency's
+  tenant, `202` `PendingOperation` when uncertain (HP-GEN-009). Each carries
+  the Hub tenant's current conversation window (MKT-REQ-004). The Hub
+  conversation list comes from the pointers that have a conversation or a
+  request; opening a conversation reads its messages and any pending
+  request's note live from the agency's tenant with a deadline
+  (`hub-org-unavailable`). Marking read writes only the pointer.
+- **MKT-DAT-006** The Hub user's tenant owns "Agencies may send me chat
+  requests". A change sends the new state through its outbox to the agency
+  tenant of every pointer, which stores it on the Contact and refuses agency
+  requests by it (MKT-REQ-008). Creating a pointer while the setting is off
   sends the off state at once, closing the race with the read in MKT-DAT-004.
+- **MKT-DAT-014** A Hub chat request: the Hub user's tenant counts the day's
+  requests (MKT-REQ-006), reads the Opening with its assigned agencies from
+  the consumer's tenant with a deadline (`hub-org-unavailable`), refuses an
+  Opening that is not `published` or an agency not among them
+  (`hub-agency-not-assigned`), and sends the request command. The Hub
+  tenant's read is the attestation; the agency's tenant checks only that it
+  has an active `sourcing` engagement with that consumer and the refusals of
+  MKT-REQ-003, then creates the Contact if none exists (not counted by
+  MKT-CON-005) and the request.
 - **MKT-DAT-007** Opening suggestion: the agency's tenant confirms the
   assignment and the `published` state with the consumer's tenant, then
   stores the message. It stores only the consumer domain and opening number;
@@ -320,23 +336,23 @@ An agency is an active Org whose `sourcing` Listing is `listed`.
   client Orgs included, sees a conversation. It records the Hub user's
   display name and the agency's display name and primary domain, refreshed
   on each message, so a deleted party still has a name (MKT-CNV-011).
-- **MKT-CNV-002** Only an agency starts a conversation: an agency user with
-  `org:fulfil_engagements` enters the person's handle or alias and a first
-  message; there is no acceptance step. One conversation per (agency, Hub
-  user); starting again opens it. The Hub user replies or deletes.
-- **MKT-CNV-003** At most 50 new conversations per agency per UTC day
-  (`org-conversation-limit-reached`). An agency that loses its listed
-  `sourcing` Listing starts none; existing conversations continue.
+- **MKT-CNV-002** A conversation starts only from an accepted chat request
+  (MKT-REQ). One conversation per (agency, Hub user); a later accepted
+  request reopens it with its history. Each side writes while the
+  conversation window lets it (MKT-REQ-004); the Hub user may delete it.
+- **MKT-CNV-003** The daily limits are on chat requests (MKT-REQ-006). An
+  agency that loses its listed `sourcing` Listing sends no requests;
+  existing conversations continue and it still answers requests.
 - **MKT-CNV-004** Shared inbox: every agency user with
   `org:fulfil_engagements` reads and answers every conversation of the
   agency. Each message shows the sending agency user's display name.
-- **MKT-CNV-005** A message is plain text of 1–5,000 code points or an
-  Opening suggestion (MKT-SRC-004). No attachments, edits, or read receipts;
-  each side keeps its own unread state.
-- **MKT-CNV-006** A Hub setting "Agencies may message me", on by default.
-  Off makes every agency conversation read-only for both sides and refuses
-  agency messages and new conversations with `org-agency-messages-off`; on
-  restores them.
+- **MKT-CNV-005** A message is plain text of 1–5,000 code points, an
+  Opening suggestion (MKT-SRC-004), or an accepted chat request
+  (MKT-REQ-005). No attachments, edits, or read receipts; each side keeps its
+  own unread state.
+- **MKT-CNV-006** The Hub user's requests setting (MKT-REQ-008) never makes
+  a conversation read-only; only the window (MKT-REQ-004) and a deleted
+  party (MKT-CNV-011) stop a side writing.
 - **MKT-CNV-007** The Hub user may delete a conversation; its messages and
   suggestions are deleted for both sides. The agency's Contact and notes stay
   (MKT-CON-004).
@@ -346,10 +362,11 @@ An agency is an active Org whose `sourcing` Listing is `listed`.
   unread counts in the Orgs portal only.
 - **MKT-CNV-009** Messages are deleted 365 days after a conversation's last
   message.
-- **MKT-CNV-010** Tell the agency why it cannot write: the conversation and
-  the new-message form show "This person does not accept messages from
-  agencies" before the agency types. The setting never hides the profile
-  view (MKT-PRF).
+- **MKT-CNV-010** Tell each side why it cannot write before it types: in
+  place of the composer, a closed conversation says it reopens when the
+  other side writes or a new chat request is accepted, with "Send chat
+  request" (MKT-UI-008, MKT-HUB-001). A Hub user's request goes only from an
+  Opening page, so the Hub notice links the Openings the agency suggested.
 - **MKT-CNV-011** Deleting a Hub account or an agency Org (neither is built;
   `docs/todo.md`) never deletes its conversations. Each becomes read-only,
   and the remaining party sees the recorded name of the other with "This
@@ -368,21 +385,93 @@ An agency is an active Org whose `sourcing` Listing is `listed`.
   the Hub user. Never link a deleted agency's recorded domain to `/org/<domain>`,
   which may now belong to another Org.
 
+## Chat requests
+
+- **MKT-REQ-001** A chat request asks the other side to open the
+  conversation about one Opening: the consumer domain and opening number,
+  and an optional note of 1–1,000 code points (trimmed). It is
+  authoritative in the agency's tenant beside the Contact. Its states:
+  `pending`, `accepted`, `declined`, `expired`; no withdrawal.
+- **MKT-REQ-002** An agency user with `org:fulfil_engagements` sends one to
+  a person by handle, alias, or Contact, with a `published` Opening the
+  agency is assigned to (MKT-DAT-004, MKT-DAT-007). A Hub user sends one only
+  from a `published` Opening's page, to an agency with an active `sourcing`
+  engagement assigned to it (MKT-DAT-014, MKT-HUB-005). The Hub user answers
+  requests to them; any agency user with `org:fulfil_engagements` answers
+  the agency's (MKT-CNV-004).
+- **MKT-REQ-003** A new request is refused, in this order, when the other
+  party is deleted (`org-conversation-party-deleted`,
+  `hub-conversation-party-deleted`), when a request between the pair is
+  `pending` in either direction (`org-chat-request-exists`,
+  `hub-chat-request-exists`), when the sender may still write in the
+  conversation (`org-conversation-open`, `hub-conversation-open`), or when
+  the recipient's decline blocks it (MKT-REQ-007; `org-chat-request-blocked`,
+  `hub-chat-request-blocked`). Where the recipient has a request pending to
+  the sender, portals offer Accept in place of Request.
+- **MKT-REQ-004** The conversation window is the Hub user's home tenant
+  config `marketplace.conversationWindow`: a positive Go duration, `"2160h"`
+  in every checked-in config, deploy included; startup refuses a missing or
+  non-positive value; portals show it in whole days. A side's activity is
+  its latest message, accepting a request, or sending a request that was
+  accepted (at its sent time). The agency may write while the Hub user's
+  activity plus the window is after now; the Hub user while the agency's is.
+  The agency's tenant decides by its clock and stores the window from the
+  latest Hub command on the conversation (MKT-DAT-005), so a config change
+  applies from the Hub tenant's next command. Writing outside it is refused
+  with `org-conversation-closed` or `hub-conversation-closed`.
+- **MKT-REQ-005** Accepting creates the conversation if none exists and
+  appends the request as a `request` message (sender, Opening, note) at its
+  sent time; an agency request's Opening becomes an Opening suggestion
+  (MKT-SRC-004, MKT-DAT-008) only then. A message from the recipient of a
+  pending request accepts it first.
+- **MKT-REQ-006** At most 50 requests per agency per UTC day, counted in
+  the agency's tenant (`org-chat-request-limit-reached`), and 10 per Hub
+  user per UTC day, counted in the Hub user's tenant before the command is
+  sent (`hub-chat-request-limit-reached`). Both count sends, never live
+  rows, so a refused or expired request still counts.
+- **MKT-REQ-007** Declining takes a scope: `opening` ("Not this Opening")
+  stops the sender requesting with that Opening for as long as the Contact
+  exists; `sender` ("Not for <N> days", N the window in days) stops every
+  request from the sender for one window from the decline. Blocks bind only
+  the sender's direction: the decliner may still send its own request. The
+  sender sees which scope and, for `sender`, the date it lifts.
+- **MKT-REQ-008** The Hub setting "Agencies may send me chat requests", on
+  by default (MKT-DAT-006). Off refuses agency requests with
+  `org-agency-requests-off`; the agency sees "This person does not accept
+  chat requests from agencies" before it types, beside the Contact
+  (MKT-CON-003), never in the profile view (MKT-PRF). Accepted
+  conversations continue, and the Hub user may still send requests.
+- **MKT-REQ-009** A `workers` job in the agency's tenant expires a
+  `pending` request 14 days after it was sent, with no block, and updates
+  the pointer.
+- **MKT-REQ-010** The Hub user's tenant emails the Hub user for a new agency
+  request and for an agency accepting their request (MKT-CNV-008). Agency
+  users are told in the Orgs portal only (MKT-UI-011); no email.
+- **MKT-REQ-011** Each send, accept, decline, and expiry appends an audit
+  event in the agency's tenant with the Contact, the request, the action, and
+  the scope, never the note; the Hub user's tenant audits its user's sends
+  and answers.
+- **MKT-REQ-012** A declined or expired request's note is deleted with the
+  answer; an accepted one's moves into the `request` message. A `sender`
+  block is deleted once it lifts; an `opening` block lives with the Contact.
+  A Contact with a `pending` request or a block is not deleted for lacking
+  notes and a conversation (MKT-CON-004), and its 730-day retention counts
+  from its latest request too.
+
 ## Agency contacts
 
 - **MKT-CON-001** A Contact is the agency's own record of one Hub user, one
   per (agency, Hub user DID), authoritative in the agency's home tenant. The
-  agency's first note (MKT-NOTE) or first message (MKT-CNV-002) creates it,
-  whichever comes first. It holds the DID, the Hub user's display name and
-  handle as last read (refreshed on each profile view, note, and message, so
+  agency's first note (MKT-NOTE) or the first chat request between the two
+  (MKT-REQ-002), from either side, creates it. It holds the DID, the Hub user's display name and
+  handle as last read (refreshed on each profile view, note, request, and message, so
   lists need no cross-tenant read), who created it and when, its notes, and
   its conversation if any. Pages read the rest of the profile live
   (MKT-PRF).
 - **MKT-CON-002** A Contact is not an applicant or a candidate. Nothing an
   agency does creates an application; only the Hub user applies (HP-APP).
-- **MKT-CON-003** While the Hub user has turned agency messages off, the
-  Contact shows that reason (MKT-CNV-010) beside the name
-  and profile.
+- **MKT-CON-003** While the Hub user has turned agency requests off, the
+  Contact shows that reason (MKT-REQ-008) beside the name.
 - **MKT-CON-004** A Contact outlives its conversation: deleting the
   conversation, by the Hub user (MKT-CNV-007) or by retention (MKT-CNV-009),
   keeps the Contact and its notes. A Contact with neither notes nor a
@@ -393,12 +482,13 @@ An agency is an active Org whose `sourcing` Listing is `listed`.
   name, shows "Account deleted", and offers no profile view or notes until
   MKT-CNV-011 deletes it.
 - **MKT-CON-005** At most 200 new Contacts per agency per UTC day, counting
-  those a conversation creates (`org-contact-limit-reached`). An agency
+  those an agency request creates but not those a Hub request creates
+  (`org-contact-limit-reached`). An agency
   without a listed `sourcing` Listing creates none; its existing Contacts,
   notes, and conversations continue.
 - **MKT-CON-006** Never tell the Hub user which agencies hold a Contact or
   notes about them: no Hub page, API, or email reveals a Contact without a
-  conversation. The Hub terms disclose that agencies may keep private notes
+  conversation or a chat request. The Hub terms disclose that agencies may keep private notes
   about Hub users, deleted with the account.
 
 ## Agency notes
@@ -433,16 +523,17 @@ An agency is an active Org whose `sourcing` Listing is `listed`.
   Professional-email evidence). Never an address, local part, exact instant,
   or unverified address.
 - **MKT-PRF-002** An unknown handle or alias is `org-hub-user-not-found`.
-  The messages setting never changes the profile view. A remote
+  The requests setting never changes the profile view. A remote
   profile is resolved
   through the directory and read over the mesh with a deadline
   (`org-tenant-unavailable`).
 - **MKT-PRF-003** Never record which agency viewed a profile. Only a note or
-  a message creates a Contact.
+  a chat request creates a Contact.
 - **MKT-PRF-004** The professional-email settings page tells the owner that
   agencies see each verified domain with those months.
 - **MKT-PRF-005** The profile view shows the agency's notes on the person
-  when a Contact exists, with "Add note".
+  when a Contact exists, with "Add note", and "Send chat request"
+  (MKT-UI-012).
 
 ## Sourcing attribution
 
@@ -467,8 +558,9 @@ An agency is an active Org whose `sourcing` Listing is `listed`.
   nothing, and the applicant may choose again. The answer tells the
   applicant whether that agency works on the Opening; accepted, because they
   already know the agency.
-- **MKT-SRC-004** Opening suggestion: in a conversation, an agency user posts
-  an Opening it is assigned to that is `published`. It is a link to the
+- **MKT-SRC-004** Opening suggestion: an agency user posts an Opening it is
+  assigned to that is `published`, in a conversation the agency may write in
+  or as its accepted chat request (MKT-REQ-005). It is a link to the
   Opening's apply page; the agency never applies for the person. Several
   agencies may suggest the same Opening to the same person.
 - **MKT-SRC-005** One application per (Opening, applicant)
@@ -540,29 +632,62 @@ autocomplete (MKT-OWN-005), never a list built from one page.
   the applications credited to the agency. Say "credited to your agency",
   never "to you". Job detail shows the owner, the Opening as Hub users see
   it, its credited applications, the Contacts it was suggested to, and
-  "Suggest to a contact". Suggesting to a Contact without a conversation
-  starts one (MKT-CNV-002, MKT-CNV-003).
+  "Suggest to a contact": a suggestion message where the agency may write,
+  otherwise a chat request with this Opening (MKT-UI-012).
 - **MKT-UI-007** Contacts, also the shared inbox: every Contact ordered by
   last activity, with name, handle, last activity, unread count, note count,
-  and credited count; tabs All, Unread (its count also in the navigation),
-  In conversation, and Not contacted; search by name. "New contact" takes a
-  handle or alias and opens the profile view to add a note or a first
-  message. There is no separate Messages page.
+  credited count, and request state; tabs All, Requests (pending requests
+  to the agency, then those it sent), Unread, In conversation, and Not
+  contacted; search by name. The navigation count is unread conversations
+  plus pending requests to the agency. "New contact" takes a handle or alias
+  and opens the profile view to add a note or send a chat request. There is
+  no separate Messages page.
 - **MKT-UI-008** Contact detail is the one page per person: Conversation (the
-  default tab when one exists), Notes (the default otherwise), Profile
-  (MKT-PRF), Suggested Openings, and Credited applications.
+  default tab when a conversation or request exists), Notes (the default
+  otherwise), Profile (MKT-PRF), Suggested Openings, and Credited
+  applications. A pending request to the agency shows above the
+  conversation with its Opening, note, Accept, "Not this Opening", and "Not
+  for <N> days"; one the agency sent shows as pending, declined (with scope
+  and lift date), or expired. Where the agency may not write, the composer
+  gives way to the notice of MKT-CNV-010.
 - **MKT-UI-009** Credited applications: every credit across clients with
   client, Opening, route, and Hub status filters.
 - **MKT-UI-010** Ship every string in every `orgs-ui` locale.
+- **MKT-UI-011** Home shows a "Chat requests" card to `org:fulfil_engagements`
+  holders of an agency: the five oldest pending requests to the agency (Hub
+  user, Opening, note start, sent at), "See all" to the Requests tab, and the
+  pending count from `count-pending-chat-requests`.
+- **MKT-UI-012** "Send chat request" is one dialog: the person (fixed when
+  opened from a Contact or profile view; a handle or alias from Job detail),
+  the Opening (fixed from Job detail; otherwise the agency's `published`
+  Jobs by the Jobs search), and the note with a live code-point count. It
+  shows the refusal of MKT-REQ-003 or MKT-REQ-008 that applies before
+  sending, and Accept in place of Request where MKT-REQ-003 says so.
 
 ## Hub portal
 
-- **MKT-HUB-001** Messages: agency conversations ordered by last activity,
-  each naming the agency by display name and primary domain, with reply
-  and delete. An Opening suggestion renders as a card linking
-  to the Opening's apply page. When the agency's tenant does not answer, the
-  list still shows and the conversation shows a retry notice (MKT-DAT-005).
-- **MKT-HUB-002** Settings hold "Agencies may message me" (MKT-CNV-006).
+- **MKT-HUB-001** Messages: pending requests to the Hub user first (agency,
+  Opening, sent at; the note on opening), then agency conversations and
+  sent requests ordered by last activity, each naming the agency by display
+  name and primary domain. A request offers Accept, "Not this Opening", and
+  "Not for <N> days"; a conversation offers reply and delete. An Opening
+  suggestion or request renders as a card linking to the Opening; the apply
+  link shows only for an agency's. A sent request shows as pending,
+  declined (scope and lift date), or expired. Where the Hub user may not
+  write, the composer gives way to the notice of MKT-CNV-010. When the
+  agency's tenant does not answer, the list still shows and the
+  conversation shows a retry notice (MKT-DAT-005).
+- **MKT-HUB-002** Settings hold "Agencies may send me chat requests"
+  (MKT-REQ-008), saying that accepted conversations continue when it is off.
+- **MKT-HUB-005** The Opening page (`/org/<domain>/openings/<number>`) of a
+  `published` Opening lists every agency with an active `sourcing`
+  engagement assigned to it, by display name and primary domain, read with
+  the Opening (MKT-DAT-014). Each shows the Hub user's state with it: Open
+  conversation (link), Request pending, Accept (a request from it is
+  pending), Declined (scope and lift date), or "Request chat", which opens a
+  dialog with the Opening fixed and the note. The section says these
+  agencies recruit for this Opening and that they see the Hub user's name
+  and profile once they reply. No agencies hides the section.
 - **MKT-HUB-003** The apply page's "Referred by" choice (MKT-SRC-002)
   explains in one sentence that the chosen agency is credited with the
   application, and that choosing none is fine.
@@ -596,7 +721,7 @@ Billable facts, each recorded by the party that owns it:
 | --- | --- |
 | `org:manage_providers` | search Listings; propose, withdraw, and end engagements as consumer; set the consumer reference; assign engagements; read statements |
 | `org:manage_listings` | edit Listings; accept, decline, and end engagements as provider; set the provider reference; read statements |
-| `org:fulfil_engagements` | read and perform assigned work (MKT-ACC, MKT-SRC, MKT-WRK); Job owners (MKT-OWN); Contacts, notes, conversations, and the profile view (MKT-CON, MKT-NOTE, MKT-CNV, MKT-PRF) |
+| `org:fulfil_engagements` | read and perform assigned work (MKT-ACC, MKT-SRC, MKT-WRK); Job owners (MKT-OWN); Contacts, notes, chat requests, conversations, and the profile view (MKT-CON, MKT-NOTE, MKT-REQ, MKT-CNV, MKT-PRF) |
 
 - **MKT-AUTH-001** Add the three to the Org catalog; `org:superadmin` implies
   all three. An `org:manage_users` holder may grant or revoke them.
@@ -630,7 +755,19 @@ Billable facts, each recorded by the party that owns it:
 | `org-assignment-not-found` | 404 | the engagement is not assigned there, or not the caller's |
 | `org-assignment-limit-reached` | 409 | the Opening has 20 `sourcing` engagements, or the stage 10 |
 | `org-engagement-work-not-found` | 404 | the work item is not accessible to the provider |
-| `org-conversation-limit-reached` | 429 | daily new-conversation limit reached |
+| `org-chat-request-limit-reached` | 429 | the agency's daily chat-request limit is reached |
+| `hub-chat-request-limit-reached` | 429 | the Hub user's daily chat-request limit is reached |
+| `org-chat-request-exists` | 409 | a chat request between the pair is pending |
+| `hub-chat-request-exists` | 409 | a chat request between the pair is pending |
+| `org-chat-request-blocked` | 403 | the person declined this Opening, or all requests until a date |
+| `hub-chat-request-blocked` | 403 | the agency declined this Opening, or all requests until a date |
+| `org-chat-request-not-found` | 404 | unknown, not the agency's, or no longer pending |
+| `hub-chat-request-not-found` | 404 | unknown, not to the Hub user, or no longer pending |
+| `org-conversation-open` | 409 | the agency may still write in the conversation |
+| `hub-conversation-open` | 409 | the Hub user may still write in the conversation |
+| `org-conversation-closed` | 409 | the window does not let the agency write (MKT-REQ-004) |
+| `hub-conversation-closed` | 409 | the window does not let the Hub user write (MKT-REQ-004) |
+| `hub-agency-not-assigned` | 422 | the Opening is not `published` or the agency is not assigned to it |
 | `org-contact-limit-reached` | 429 | daily new-Contact limit reached |
 | `org-job-owner-invalid` | 422 | the owner is not an active agency user holding `org:fulfil_engagements` |
 | `org-job-owner-limit-reached` | 409 | the owner already owns 200 Jobs of active engagements |
@@ -641,7 +778,7 @@ Billable facts, each recorded by the party that owns it:
 | `org-contact-note-not-author` | 403 | only the author edits a note |
 | `org-conversation-not-found` | 404 | unknown, deleted, or not the agency's |
 | `org-hub-user-not-found` | 404 | unknown handle or alias |
-| `org-agency-messages-off` | 403 | the Hub user does not accept messages from agencies |
+| `org-agency-requests-off` | 403 | the Hub user does not accept chat requests from agencies |
 | `org-conversation-party-deleted` | 409 | the Hub user's account no longer exists |
 | `hub-conversation-party-deleted` | 409 | the agency no longer exists |
 | `hub-referral-agency-not-eligible` | 422 | the named domain is not the primary domain of an agency assigned to the Opening |
@@ -658,10 +795,20 @@ Billable facts, each recorded by the party that owns it:
   `hub-referral-agency-not-eligible` case (including a non-primary domain and
   a remote agency), the referral choice (default none, preselected but
   changeable from a suggestion, two agencies suggesting one Opening, applying
-  directly), conversations across tenants (limit, shared inbox, the
-  messages switch refusing with its reason and leaving the profile view,
-  delete keeping the Contact and notes, either party's deletion leaving a
-  read-only conversation with the reason), notes (shared reading, author-only
+  directly), chat requests across tenants in both directions (both daily
+  limits, every MKT-REQ-003 refusal in order, accept creating or reopening
+  the conversation, a recipient's message accepting, both decline scopes
+  binding only the sender's direction and the `sender` block lifting after
+  the window, expiry, an agency request's Opening becoming a suggestion only
+  on acceptance, a Hub request for an unassigned agency or unpublished
+  Opening, a Hub-created Contact not counting toward MKT-CON-005, no note
+  text in any pointer, mesh event, or audit), the window (each side closed
+  by the other side's silence, an agency unable to keep it open alone, a
+  changed `conversationWindow` applying from the next Hub command),
+  conversations across tenants (shared inbox, the requests switch refusing
+  agency requests with its reason while accepted conversations continue and
+  the profile view stays, delete keeping the Contact and notes, either
+  party's deletion leaving a read-only conversation with the reason), notes (shared reading, author-only
   edits, any user's deletion, both caps, the first note creating a Contact
   whose pointer no Hub response reveals, no note text in any Hub, consumer,
   or mesh response, deleting the last note removing a Contact without a
@@ -675,9 +822,9 @@ Billable facts, each recorded by the party that owns it:
   response.
 - **MKT-TST-002** Cover a tenant that does not answer during search, during a
   provider command and a Hub reply (`202`, then recovery), and while a Hub
-  user opens a conversation. Cover the messages switch reaching existing
-  conversations in other tenants, and switching off while a start is in
-  flight.
+  user opens a conversation or sends, accepts, or declines a chat request.
+  Cover the requests switch reaching Contacts in other tenants, and
+  switching off while an agency request is in flight.
 - **MKT-TST-003** `make dev-seed` gives each region two agencies
   (`age1.<region>.test` working for every hiring company in every region,
   `age2.<region>.test` for its own region's) with agents `agent1@` and up and
@@ -687,4 +834,6 @@ Billable facts, each recorded by the party that owns it:
   stage's form),
   engagements in each state, and agency Contacts with notes and
   conversations, including a `suggested` and a `declared` credit and a
-  Contact with notes only, with Hub users in other regions.
+  Contact with notes only, with Hub users in other regions; per agency a
+  pending request to a Hub user, a pending request from one, a declined
+  request of each scope.

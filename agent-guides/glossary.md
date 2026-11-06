@@ -61,7 +61,9 @@ Applies to product terms in prompts, specifications, code, and UI text.
 - Agency — an org whose `sourcing` Listing is listed.
 - Job — an Opening assigned to an agency's active `sourcing` engagement, as the agency sees it.
 - Job owner — the one agency user who looks after a Job; agency-private; say "credited to your agency", never "to you", for credits.
-- Conversation — a chat an agency starts with one Hub user inside Vetchium; messages are authoritative in the agency's home tenant, and the Hub user's tenant holds a pointer; never exposes contact details.
+- Conversation — a chat between one agency and one Hub user inside Vetchium, opened by an accepted chat request; messages are authoritative in the agency's home tenant, and the Hub user's tenant holds a pointer; never exposes contact details.
+- Chat request — either side's request to open the conversation about one Opening, which the other side accepts or declines.
+- Conversation window — how long after the other side's latest activity a side may still write; the Hub user's tenant sets it.
 - Contact — an agency's own record of one Hub user, created by its first note or message about them; never an applicant or candidate; outlives the conversation.
 - Agency note — a private note an agency keeps on a Contact; never shown to the Hub user or any other Org.
 - Opening suggestion — an agency posting an Opening it is assigned to in a conversation; applying from it credits the agency.
