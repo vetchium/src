@@ -39,3 +39,4 @@ Playwright UI in T16.
 A Hub user answers agency requests and sees why they cannot write.
 
 ## Carried over
+- From T04: `list-conversations` items may have `has_conversation` false with only `latest_request`; open those as a request, not a conversation.

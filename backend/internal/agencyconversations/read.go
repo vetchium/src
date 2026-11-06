@@ -111,7 +111,12 @@ func hubMessage(
 		Kind:              contacts.MessageKind(row.Kind),
 		SentAt:            row.SentAt.Time.UTC(),
 	}
-	if row.MessageText.Valid {
+	switch {
+	case !row.MessageText.Valid:
+	case row.Kind == string(contacts.MessageKindRequest):
+		note := contacts.ChatRequestNote(row.MessageText.String)
+		message.Note = &note
+	default:
 		text := contacts.MessageText(row.MessageText.String)
 		message.Text = &text
 	}

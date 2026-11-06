@@ -552,13 +552,15 @@ WITH updated AS (
 )
 SELECT count(*)::bigint FROM updated;
 
+-- The Hub user's conversations and chat requests (MKT-DAT-005); a pointer
+-- with neither stays hidden (MKT-CON-006).
 -- name: ListHubAgencyConversations :many
 SELECT contact_id, agency_org_did, agency_display_name, agency_domain,
-    has_conversation, last_activity_at,
-    unread_count, read_only_reason, suggestions
+    has_conversation, request, agency_may_write_until, hub_may_write_until,
+    last_activity_at, unread_count, read_only_reason, suggestions
 FROM vetchium.hub_agency_pointers
 WHERE hub_user_did = sqlc.arg(hub_user_did)
-  AND has_conversation = true
+  AND (has_conversation OR has_request)
   AND (sqlc.narg(after_activity_at)::timestamptz IS NULL
        OR (last_activity_at, contact_id) <
            (sqlc.narg(after_activity_at)::timestamptz,
@@ -568,11 +570,55 @@ LIMIT sqlc.arg(page_limit);
 
 -- name: GetHubAgencyPointer :one
 SELECT contact_id, hub_user_did, agency_org_did, agency_display_name, agency_domain,
-    has_conversation, last_activity_at,
+    has_conversation, has_request, request, agency_may_write_until,
+    hub_may_write_until, last_activity_at,
     unread_count, read_only_reason, suggestions, pointer_version
 FROM vetchium.hub_agency_pointers
 WHERE contact_id = sqlc.arg(contact_id)
   AND hub_user_did = sqlc.arg(hub_user_did);
+
+-- The pointer whose latest request has the id.
+-- name: GetHubAgencyPointerByRequest :one
+SELECT contact_id, agency_org_did, agency_display_name, agency_domain, request
+FROM vetchium.hub_agency_pointers
+WHERE hub_user_did = sqlc.arg(hub_user_did)
+  AND has_request
+  AND request ->> 'request_id' = sqlc.arg(request_id)::uuid::text;
+
+-- One page of the Hub user's pending requests in one direction, oldest
+-- first. A Hub user has one pointer per agency, so the scan stays within
+-- their own pointers.
+-- name: ListHubPendingChatRequests :many
+SELECT contact_id, agency_display_name, agency_domain, request,
+    (request ->> 'sent_at')::timestamptz AS sent_at
+FROM vetchium.hub_agency_pointers
+WHERE hub_user_did = sqlc.arg(hub_user_did)
+  AND has_request
+  AND request ->> 'direction' = sqlc.arg(direction)::text
+  AND request ->> 'state' = 'pending'
+  AND (sqlc.narg(after_sent_at)::timestamptz IS NULL
+      OR ((request ->> 'sent_at')::timestamptz, contact_id) >
+          (sqlc.narg(after_sent_at)::timestamptz,
+           sqlc.narg(after_contact_id)::uuid))
+ORDER BY (request ->> 'sent_at')::timestamptz, contact_id
+LIMIT sqlc.arg(page_limit);
+
+-- One page of the Hub user's answered requests in one direction, newest
+-- answer first.
+-- name: ListHubAnsweredChatRequests :many
+SELECT contact_id, agency_display_name, agency_domain, request,
+    (request ->> 'answered_at')::timestamptz AS answered_at
+FROM vetchium.hub_agency_pointers
+WHERE hub_user_did = sqlc.arg(hub_user_did)
+  AND has_request
+  AND request ->> 'direction' = sqlc.arg(direction)::text
+  AND request ->> 'state' <> 'pending'
+  AND (sqlc.narg(before_answered_at)::timestamptz IS NULL
+      OR ((request ->> 'answered_at')::timestamptz, contact_id) <
+          (sqlc.narg(before_answered_at)::timestamptz,
+           sqlc.narg(before_contact_id)::uuid))
+ORDER BY (request ->> 'answered_at')::timestamptz DESC, contact_id DESC
+LIMIT sqlc.arg(page_limit);
 
 -- name: SetHubAgencyPointersReadOnlyReasonForUser :execrows
 UPDATE vetchium.hub_agency_pointers
@@ -693,7 +739,8 @@ FROM vetchium.org_conversation_messages AS m
 JOIN vetchium.org_conversations AS c ON c.conversation_id = m.conversation_id
 WHERE c.org_did = sqlc.arg(org_did)
   AND c.contact_id = sqlc.arg(contact_id)
-  AND m.kind = 'suggestion'
+  AND (m.kind = 'suggestion'
+      OR (m.kind = 'request' AND m.sender_type = 'agency'))
 ORDER BY m.sent_at DESC, m.message_id DESC;
 
 -- name: HasHubAgencyPointerSuggestion :one

@@ -198,13 +198,16 @@ ORDER BY m.sent_at DESC, m.message_id DESC
 LIMIT sqlc.arg(page_limit);
 
 -- The distinct Openings the agency suggested in a conversation, each with
--- when it was first suggested.
+-- when it was first suggested; an accepted agency request suggests its
+-- Opening (MKT-REQ-005).
 -- name: ListOrgConversationSuggestions :many
 SELECT m.consumer_domain::text AS consumer_domain,
     m.opening_number::integer AS opening_number,
     min(m.sent_at)::timestamptz AS sent_at
 FROM vetchium.org_conversation_messages AS m
-WHERE m.conversation_id = sqlc.arg(conversation_id) AND m.kind = 'suggestion'
+WHERE m.conversation_id = sqlc.arg(conversation_id)
+  AND (m.kind = 'suggestion'
+      OR (m.kind = 'request' AND m.sender_type = 'agency'))
 GROUP BY m.consumer_domain, m.opening_number
 ORDER BY min(m.sent_at), m.consumer_domain, m.opening_number;
 

@@ -179,6 +179,12 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(hubmessages.DeleteConversation(s)))
 	mux.Handle("POST /api/hub/mark-conversation-read",
 		hubAuth(hubmessages.MarkConversationRead(s)))
+	mux.Handle("POST /api/hub/list-chat-requests",
+		hubAuth(hubmessages.ListChatRequests(s)))
+	mux.Handle("POST /api/hub/accept-chat-request",
+		hubAuth(hubmessages.AcceptChatRequest(s)))
+	mux.Handle("POST /api/hub/decline-chat-request",
+		hubAuth(hubmessages.DeclineChatRequest(s)))
 	mux.Handle("POST /api/hub/operations/status",
 		hubAuth(huboperations.Status(s)))
 }

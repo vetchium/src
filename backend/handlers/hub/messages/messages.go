@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
+	"backend/internal/agencycontacts"
 	"backend/internal/apiserver"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
@@ -101,7 +103,12 @@ func ListConversations(s *hubruntime.Server) http.HandlerFunc {
 				return
 			}
 
-			items = append(items, summaryFromPointerRow(row))
+			item, err := summary(s, listedPointer(row))
+			if err != nil {
+				s.InternalError(r.Context(), w, "read pointer", err)
+				return
+			}
+			items = append(items, item)
 		}
 
 		w.Header().Set("Cache-Control", "no-store")
@@ -160,14 +167,18 @@ func GetConversation(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 
-		summary := summaryFromPointerDetailRow(pointer)
-		if summary.ReadOnlyReason == nil && outcome.Result.ReadOnlyReason != nil {
-			summary.ReadOnlyReason = outcome.Result.ReadOnlyReason
+		conversation, err := summary(s, detailedPointer(pointer))
+		if err != nil {
+			s.InternalError(r.Context(), w, "read pointer", err)
+			return
+		}
+		if conversation.ReadOnlyReason == nil && outcome.Result.ReadOnlyReason != nil {
+			conversation.ReadOnlyReason = outcome.Result.ReadOnlyReason
 		}
 
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, hubmessages.HubConversationDetail{
-			Conversation:      summary,
+			Conversation:      conversation,
 			Messages:          outcome.Result.Messages,
 			NextPaginationKey: outcome.Result.NextPaginationKey,
 		})
@@ -409,56 +420,84 @@ func MarkConversationRead(s *hubruntime.Server) http.HandlerFunc {
 	}
 }
 
-func summaryFromPointerRow(row sqlc.ListHubAgencyConversationsRow) hubmessages.HubConversationSummary {
-	var suggestions []hubmessages.HubOpeningSuggestion
-	_ = json.Unmarshal(row.Suggestions, &suggestions)
-	if suggestions == nil {
-		suggestions = []hubmessages.HubOpeningSuggestion{}
-	}
+// pointerView is what a Hub summary reads from the agency pointer.
+type pointerView struct {
+	contactID                pgtype.UUID
+	agencyName, agencyDomain string
+	hasConversation          bool
+	request, suggestions     []byte
+	agencyUntil, hubUntil    pgtype.Timestamptz
+	lastActivityAt           pgtype.Timestamptz
+	unreadCount              int32
+	readOnlyReason           pgtype.Text
+}
 
-	var readOnly *contacts.ConversationReadOnlyReason
-	if row.ReadOnlyReason.Valid {
-		r := contacts.ConversationReadOnlyReason(row.ReadOnlyReason.String)
-		readOnly = &r
-	}
-
-	return hubmessages.HubConversationSummary{
-		ContactID:         contacts.ContactID(dbvalue.FormatUUID(row.ContactID)),
-		AgencyDisplayName: row.AgencyDisplayName,
-		AgencyDomain:      orgs.OrgDomain(row.AgencyDomain),
-		HasConversation:   row.HasConversation,
-		Unread:            row.UnreadCount > 0,
-		UnreadCount:       row.UnreadCount,
-		ReadOnlyReason:    readOnly,
-		Suggestions:       suggestions,
-		LastActivityAt:    row.LastActivityAt.Time.UTC(),
+func listedPointer(row sqlc.ListHubAgencyConversationsRow) pointerView {
+	return pointerView{
+		contactID: row.ContactID, agencyName: row.AgencyDisplayName,
+		agencyDomain: row.AgencyDomain, hasConversation: row.HasConversation,
+		request: row.Request, suggestions: row.Suggestions,
+		agencyUntil: row.AgencyMayWriteUntil, hubUntil: row.HubMayWriteUntil,
+		lastActivityAt: row.LastActivityAt, unreadCount: row.UnreadCount,
+		readOnlyReason: row.ReadOnlyReason,
 	}
 }
 
-func summaryFromPointerDetailRow(row sqlc.GetHubAgencyPointerRow) hubmessages.HubConversationSummary {
-	var suggestions []hubmessages.HubOpeningSuggestion
-	_ = json.Unmarshal(row.Suggestions, &suggestions)
-	if suggestions == nil {
-		suggestions = []hubmessages.HubOpeningSuggestion{}
+func detailedPointer(row sqlc.GetHubAgencyPointerRow) pointerView {
+	return pointerView{
+		contactID: row.ContactID, agencyName: row.AgencyDisplayName,
+		agencyDomain: row.AgencyDomain, hasConversation: row.HasConversation,
+		request: row.Request, suggestions: row.Suggestions,
+		agencyUntil: row.AgencyMayWriteUntil, hubUntil: row.HubMayWriteUntil,
+		lastActivityAt: row.LastActivityAt, unreadCount: row.UnreadCount,
+		readOnlyReason: row.ReadOnlyReason,
 	}
+}
 
-	var readOnly *contacts.ConversationReadOnlyReason
-	if row.ReadOnlyReason.Valid {
-		r := contacts.ConversationReadOnlyReason(row.ReadOnlyReason.String)
-		readOnly = &r
+// summary is the Hub view of a pointer; a write-until instant that has
+// passed is left out (MKT-REQ-004).
+func summary(s *hubruntime.Server, view pointerView) (hubmessages.HubConversationSummary, error) {
+	suggestions := []hubmessages.HubOpeningSuggestion{}
+	if len(view.suggestions) > 0 {
+		if err := json.Unmarshal(view.suggestions, &suggestions); err != nil {
+			return hubmessages.HubConversationSummary{}, fmt.Errorf("decode suggestions: %w", err)
+		}
 	}
-
-	return hubmessages.HubConversationSummary{
-		ContactID:         contacts.ContactID(dbvalue.FormatUUID(row.ContactID)),
-		AgencyDisplayName: row.AgencyDisplayName,
-		AgencyDomain:      orgs.OrgDomain(row.AgencyDomain),
-		HasConversation:   row.HasConversation,
-		Unread:            row.UnreadCount > 0,
-		UnreadCount:       row.UnreadCount,
-		ReadOnlyReason:    readOnly,
+	result := hubmessages.HubConversationSummary{
+		ContactID:         contacts.ContactID(dbvalue.FormatUUID(view.contactID)),
+		AgencyDisplayName: view.agencyName,
+		AgencyDomain:      orgs.OrgDomain(view.agencyDomain),
+		HasConversation:   view.hasConversation,
+		Unread:            view.unreadCount > 0,
+		UnreadCount:       view.unreadCount,
 		Suggestions:       suggestions,
-		LastActivityAt:    row.LastActivityAt.Time.UTC(),
+		LastActivityAt:    view.lastActivityAt.Time.UTC(),
 	}
+	if view.readOnlyReason.Valid {
+		reason := contacts.ConversationReadOnlyReason(view.readOnlyReason.String)
+		result.ReadOnlyReason = &reason
+	}
+	window := agencycontacts.WriteWindow{
+		AgencyUntil: instant(view.agencyUntil), HubUntil: instant(view.hubUntil),
+	}.Open(s.CurrentTime())
+	result.AgencyMayWriteUntil, result.HubMayWriteUntil = window.AgencyUntil, window.HubUntil
+	if view.request != nil {
+		latest, err := chatRequest(s, view.contactID, view.agencyName,
+			view.agencyDomain, view.request)
+		if err != nil {
+			return hubmessages.HubConversationSummary{}, err
+		}
+		result.LatestRequest = &latest
+	}
+	return result, nil
+}
+
+func instant(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	at := value.Time.UTC()
+	return &at
 }
 
 func requestDigest(request any) ([]byte, error) {
@@ -485,6 +524,9 @@ func writeRejection(
 			return
 		case hubproblem.HubConversationPartyDeletedError.Type:
 			s.Problem(r.Context(), w, hubproblem.HubConversationPartyDeletedError)
+			return
+		case hubproblem.HubChatRequestNotFoundError.Type:
+			s.Problem(r.Context(), w, hubproblem.HubChatRequestNotFoundError)
 			return
 		}
 	}

@@ -165,7 +165,7 @@ func (f *fixture) contact(
 }
 
 func (f *fixture) send(
-	t *testing.T, kind federationspec.CommandKind, contactID pgtype.UUID,
+	t *testing.T, kind federationspec.CommandKind, aggregate pgtype.UUID,
 	payload any,
 ) commands.Response {
 	t.Helper()
@@ -180,7 +180,7 @@ func (f *fixture) send(
 		Authority: commands.Principal{
 			Type: directoryspec.PrincipalOrg, DID: f.orgDID,
 		},
-		AggregateID: dbvalue.FormatUUID(contactID), Payload: body,
+		AggregateID: dbvalue.FormatUUID(aggregate), Payload: body,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -367,5 +367,210 @@ func TestHubDeleteKeepsAContactWithNotesIntegration(t *testing.T) {
 	if again.Status != 404 ||
 		problemType(t, again) != "hub-conversation-not-found" {
 		t.Fatalf("delete again = %d %s", again.Status, again.Body)
+	}
+}
+
+// request seeds the agency's pending request to hubDID, sent an hour ago.
+func (f *fixture) request(t *testing.T, contactID pgtype.UUID) pgtype.UUID {
+	t.Helper()
+	requestID := newID(t)
+	f.exec(t, `INSERT INTO vetchium.org_chat_requests (request_id, contact_id,
+            org_did, hub_user_did, direction, state, consumer_domain,
+            opening_number, note, sender_user_id, sender_display_name, sent_at)
+        SELECT $2, contact_id, org_did, hub_user_did, 'to_hub_user',
+            'pending', 'client.example', 9, 'A role you would enjoy', $3,
+            'scout@conversation.example', now() - interval '1 hour'
+        FROM vetchium.org_contacts WHERE contact_id = $1`,
+		contactID, requestID, f.userID)
+	return requestID
+}
+
+const ninetyDays = 90 * 24 * 60 * 60
+
+func (f *fixture) answer(
+	t *testing.T, requestID, contactID, hubDID pgtype.UUID,
+	scope *contacts.ChatRequestDeclineScope,
+) commands.Response {
+	t.Helper()
+	return f.send(t, federationspec.HubChatRequestAnswerKind, requestID,
+		federationspec.HubChatRequestAnswerPayload{
+			RequestID:          contacts.ChatRequestID(dbvalue.FormatUUID(requestID)),
+			ContactID:          contacts.ContactID(dbvalue.FormatUUID(contactID)),
+			HubUserDID:         hub.HubUserDID(dbvalue.FormatUUID(hubDID)),
+			HubUserDisplayName: "Ada King",
+			HubUserHandle:      "abcd1234-0123456789b",
+			Accept:             scope == nil,
+			Scope:              scope,
+			WindowSeconds:      ninetyDays,
+		})
+}
+
+func TestHubAcceptOpensTheConversationWithTheRequestIntegration(t *testing.T) {
+	f := newFixture(t)
+	hubDID := newID(t)
+	contactID := f.contact(t, hubDID, 0, false)
+	requestID := f.request(t, contactID)
+
+	response := f.answer(t, requestID, contactID, hubDID, nil)
+	if response.Status != 200 {
+		t.Fatalf("accept = %d %s", response.Status, response.Body)
+	}
+	var answered federationspec.AgencyPointerRequest
+	if err := json.Unmarshal(response.Body, &answered); err != nil {
+		t.Fatal(err)
+	}
+	if answered.State != contacts.ChatRequestAccepted || answered.AnsweredAt == nil ||
+		answered.DeclineScope != nil || len(answered.Validate()) != 0 {
+		t.Fatalf("answered = %s", response.Body)
+	}
+	if got := f.scalar(t, `SELECT r.state || ':' || (r.note IS NULL)::text || ':' ||
+            r.window_seconds::text || ':' ||
+            (c.agency_activity_at = r.sent_at)::text || ':' ||
+            (c.hub_activity_at = r.answered_at)::text || ':' ||
+            c.window_seconds::text || ':' || c.recorded_hub_user_name || ':' ||
+            c.agency_unread_count::text
+        FROM vetchium.org_chat_requests AS r
+        JOIN vetchium.org_conversations AS c USING (contact_id)
+        WHERE r.request_id = $1`, requestID); got !=
+		"accepted:true:7776000:true:true:7776000:Ada King:0" {
+		t.Fatalf("request and conversation = %s", got)
+	}
+	if got := f.scalar(t, `SELECT string_agg(m.kind || ':' || m.sender_type || ':' ||
+            m.message_text || ':' || m.consumer_domain || ':' ||
+            m.opening_number::text || ':' || (m.sent_at = r.sent_at)::text, ',')
+        FROM vetchium.org_conversation_messages AS m
+        JOIN vetchium.org_conversations AS c USING (conversation_id)
+        JOIN vetchium.org_chat_requests AS r ON r.contact_id = c.contact_id
+        WHERE r.request_id = $1`, requestID); got !=
+		"request:agency:A role you would enjoy:client.example:9:true" {
+		t.Fatalf("messages = %s", got)
+	}
+	if got := f.scalar(t, `SELECT count(*)::text FROM vetchium.audit_events
+        WHERE subject_org_did = $1 AND payload::text LIKE '%enjoy%'`,
+		f.orgDID); got != "0" {
+		t.Fatalf("audit events carrying the note = %s", got)
+	}
+	_, pointer := f.pointer(t, contactID)
+	if !pointer.HasConversation || pointer.NewAgencyMessage ||
+		pointer.Request == nil || pointer.Request.State != contacts.ChatRequestAccepted ||
+		len(pointer.Suggestions) != 1 || pointer.Suggestions[0].OpeningNumber != 9 ||
+		pointer.AgencyMayWriteUntil == nil || pointer.HubMayWriteUntil == nil {
+		t.Fatalf("pointer = %+v", pointer)
+	}
+
+	again := f.answer(t, requestID, contactID, hubDID, nil)
+	if again.Status != 404 || problemType(t, again) != "hub-chat-request-not-found" {
+		t.Fatalf("accept again = %d %s", again.Status, again.Body)
+	}
+}
+
+func TestHubAcceptAppendsToAnEarlierConversationIntegration(t *testing.T) {
+	f := newFixture(t)
+	hubDID := newID(t)
+	contactID := f.contact(t, hubDID, 0, true)
+	requestID := f.request(t, contactID)
+	if response := f.answer(t, requestID, contactID, hubDID, nil); response.Status != 200 {
+		t.Fatalf("accept = %d %s", response.Status, response.Body)
+	}
+	if got := f.scalar(t, `SELECT count(*)::text || ':' ||
+            count(DISTINCT m.conversation_id)::text
+        FROM vetchium.org_conversation_messages AS m
+        JOIN vetchium.org_conversations AS c USING (conversation_id)
+        WHERE c.contact_id = $1`, contactID); got != "2:1" {
+		t.Fatalf("messages:conversations = %s", got)
+	}
+	if _, pointer := f.pointer(t, contactID); len(pointer.Suggestions) != 2 {
+		t.Fatalf("suggestions = %+v", pointer.Suggestions)
+	}
+}
+
+func TestHubAcceptRefusedWhileTheConversationIsReadOnlyIntegration(t *testing.T) {
+	f := newFixture(t)
+	hubDID := newID(t)
+	contactID := f.contact(t, hubDID, 0, true)
+	f.exec(t, `UPDATE vetchium.org_conversations
+        SET read_only_reason = 'agency_deleted', party_deleted_at = now()
+        WHERE contact_id = $1`, contactID)
+	requestID := f.request(t, contactID)
+	response := f.answer(t, requestID, contactID, hubDID, nil)
+	if response.Status != 409 ||
+		problemType(t, response) != "hub-conversation-party-deleted" {
+		t.Fatalf("accept = %d %s", response.Status, response.Body)
+	}
+	if got := f.scalar(t, `SELECT r.state || ':' || (r.note IS NOT NULL)::text || ':' ||
+            (SELECT count(*) FROM vetchium.org_conversation_messages AS m
+                JOIN vetchium.org_conversations AS c USING (conversation_id)
+                WHERE c.contact_id = r.contact_id)::text
+        FROM vetchium.org_chat_requests AS r WHERE r.request_id = $1`,
+		requestID); got != "pending:true:1" {
+		t.Fatalf("request = %s", got)
+	}
+}
+
+func TestHubDeclineBlocksByScopeIntegration(t *testing.T) {
+	f := newFixture(t)
+	for _, scope := range []contacts.ChatRequestDeclineScope{
+		contacts.DeclineOpening, contacts.DeclineSender,
+	} {
+		hubDID := newID(t)
+		contactID := f.contact(t, hubDID, 0, false)
+		requestID := f.request(t, contactID)
+		response := f.answer(t, requestID, contactID, hubDID, &scope)
+		if response.Status != 200 {
+			t.Fatalf("%s: decline = %d %s", scope, response.Status, response.Body)
+		}
+		var answered federationspec.AgencyPointerRequest
+		if err := json.Unmarshal(response.Body, &answered); err != nil {
+			t.Fatal(err)
+		}
+		if answered.State != contacts.ChatRequestDeclined || answered.DeclineScope == nil ||
+			*answered.DeclineScope != scope || len(answered.Validate()) != 0 {
+			t.Fatalf("%s: answered = %s", scope, response.Body)
+		}
+		want := "declined:true:0:opening:to_hub_user:client.example:9:"
+		if scope == contacts.DeclineSender {
+			want = "declined:true:0:sender:to_hub_user:::true"
+		}
+		if got := f.scalar(t, `SELECT r.state || ':' || (r.note IS NULL)::text || ':' ||
+                (SELECT count(*) FROM vetchium.org_conversations
+                    WHERE contact_id = r.contact_id)::text || ':' ||
+                b.scope || ':' || b.blocked_direction || ':' ||
+                coalesce(b.consumer_domain, '') || ':' ||
+                coalesce(b.opening_number::text, '') || ':' ||
+                coalesce((b.blocked_until = r.answered_at +
+                    make_interval(secs => r.window_seconds))::text, '')
+            FROM vetchium.org_chat_requests AS r
+            JOIN vetchium.org_chat_request_blocks AS b USING (contact_id)
+            WHERE r.request_id = $1`, requestID); got != want {
+			t.Fatalf("%s: request and block = %s", scope, got)
+		}
+		_, pointer := f.pointer(t, contactID)
+		if pointer.HasConversation || pointer.Request == nil ||
+			pointer.Request.State != contacts.ChatRequestDeclined ||
+			(scope == contacts.DeclineSender) != (pointer.Request.BlockedUntil != nil) ||
+			(answered.BlockedUntil != nil && !answered.BlockedUntil.Equal(*pointer.Request.BlockedUntil)) {
+			t.Fatalf("%s: pointer = %+v", scope, pointer)
+		}
+	}
+}
+
+func TestHubAnswerToAnotherPersonsRequestIsUnknownIntegration(t *testing.T) {
+	f := newFixture(t)
+	owner, intruder := newID(t), newID(t)
+	contactID := f.contact(t, owner, 0, false)
+	requestID := f.request(t, contactID)
+	scope := contacts.DeclineSender
+	for _, response := range []commands.Response{
+		f.answer(t, requestID, contactID, intruder, nil),
+		f.answer(t, requestID, contactID, intruder, &scope),
+	} {
+		if response.Status != 404 ||
+			problemType(t, response) != "hub-chat-request-not-found" {
+			t.Fatalf("response = %d %s", response.Status, response.Body)
+		}
+	}
+	if got := f.scalar(t, `SELECT state FROM vetchium.org_chat_requests
+        WHERE request_id = $1`, requestID); got != "pending" {
+		t.Fatalf("state = %s", got)
 	}
 }

@@ -75,7 +75,10 @@ type Server struct {
 	PublicBaseURL    string
 	CredentialKey    [32]byte
 	OfferedPlans     []subscriptionspec.Plan
-	Now              func() time.Time
+	// ConversationWindow is how long each side's activity lets the other
+	// write; Hub commands carry it to the agency (MKT-REQ-004).
+	ConversationWindow time.Duration
+	Now                func() time.Time
 }
 
 func (s *Server) Offers(plan subscriptionspec.Plan) bool {

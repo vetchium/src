@@ -70,3 +70,4 @@ api/org-conversations.spec.ts` against `make test-environment`;
 Every bullet in step 3 is a passing test; existing conversation specs pass.
 
 ## Carried over
+- From T04: `list-conversations` now returns request-only pointers (`has_conversation` false, `latest_request` set); `get-conversation` on one is `hub-conversation-not-found`. `accept-chat-request` returns `HubConversationDetail` whose first message is the `request` message with `note`; a repeated accept is `hub-chat-request-not-found`.

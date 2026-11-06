@@ -613,7 +613,12 @@ func message(
 		Kind:              contacts.MessageKind(kind),
 		SentAt:            sentAt.Time.UTC(),
 	}
-	if text.Valid {
+	switch {
+	case !text.Valid:
+	case kind == string(contacts.MessageKindRequest):
+		note := contacts.ChatRequestNote(text.String)
+		result.Note = &note
+	default:
 		value := contacts.MessageText(text.String)
 		result.Text = &value
 	}

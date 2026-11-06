@@ -30,6 +30,7 @@ import (
 func Register(registry *commands.Registry) {
 	registry.Register(federationspec.HubConversationReplyKind, handleReply, HubUserInitiator)
 	registry.Register(federationspec.HubConversationDeleteKind, handleDelete, HubUserInitiator)
+	registry.Register(federationspec.HubChatRequestAnswerKind, handleChatRequestAnswer, HubUserInitiator)
 }
 
 // HubUserInitiator is the Hub user the payload names, who alone may act on
@@ -49,9 +50,10 @@ func HubUserInitiator(command commands.Command) (commands.Principal, bool) {
 }
 
 // decode parses a payload strictly; a malformed one never succeeds, so it is
-// a deterministic rejection. The aggregate is the Contact.
+// a deterministic rejection. aggregate reads the aggregate id the payload
+// names.
 func decode[T interface{ Validate() []string }](
-	command commands.Command, target T, contactID func() contacts.ContactID,
+	command commands.Command, target T, aggregate func() string,
 ) *commands.Result {
 	reject := func(fields ...string) *commands.Result {
 		details := problem.ValidationFailedError
@@ -71,7 +73,7 @@ func decode[T interface{ Validate() []string }](
 	if fields := target.Validate(); len(fields) > 0 {
 		return reject(fields...)
 	}
-	if command.AggregateID != string(contactID()) {
+	if command.AggregateID != aggregate() {
 		return reject("aggregate_id")
 	}
 	return nil
@@ -109,8 +111,8 @@ func conversation(
 
 func handleReply(ctx context.Context, tx pgx.Tx, command commands.Command) (commands.Result, error) {
 	var payload federationspec.HubConversationReplyPayload
-	if rejected := decode(command, &payload, func() contacts.ContactID {
-		return payload.ContactID
+	if rejected := decode(command, &payload, func() string {
+		return string(payload.ContactID)
 	}); rejected != nil {
 		return *rejected, nil
 	}
@@ -187,8 +189,8 @@ func handleReply(ctx context.Context, tx pgx.Tx, command commands.Command) (comm
 // transaction (MKT-CON-004).
 func handleDelete(ctx context.Context, tx pgx.Tx, command commands.Command) (commands.Result, error) {
 	var payload federationspec.HubConversationDeletePayload
-	if rejected := decode(command, &payload, func() contacts.ContactID {
-		return payload.ContactID
+	if rejected := decode(command, &payload, func() string {
+		return string(payload.ContactID)
 	}); rejected != nil {
 		return *rejected, nil
 	}

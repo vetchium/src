@@ -168,9 +168,10 @@ func run(log *slog.Logger, address string) error {
 			Default:    cfg.HubAPIServer.SessionTTL,
 			Remembered: cfg.HubAPIServer.RememberedSessionTTL,
 		},
-		PublicBaseURL: cfg.HubAPIServer.PublicBaseURL,
-		CredentialKey: hubCredentialKey,
-		OfferedPlans:  cfg.HubAPIServer.OfferedPlans,
+		PublicBaseURL:      cfg.HubAPIServer.PublicBaseURL,
+		CredentialKey:      hubCredentialKey,
+		OfferedPlans:       cfg.HubAPIServer.OfferedPlans,
+		ConversationWindow: cfg.Marketplace.ConversationWindow,
 	}
 	mux := http.NewServeMux()
 	routes.RegisterHubRoutes(mux, s)
