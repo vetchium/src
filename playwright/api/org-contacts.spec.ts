@@ -694,6 +694,7 @@ test("the Contacts list filters, searches, pages, and counts every tab and unrea
         unread: 1,
         has_conversation: 2,
         not_contacted: 1,
+        requests: 0,
       });
       expect(names(all)).toEqual([
         "Grace Hopper",

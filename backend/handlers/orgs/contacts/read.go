@@ -134,13 +134,18 @@ func GetContact(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		credited := creditedCounts(r.Context(), s, identity.OrgDID,
 			[]pgtype.UUID{row.HubUserDid})[dbvalue.FormatUUID(row.HubUserDid)]
+		var createdBy *common.EmailAddress
+		if row.CreatedBy.Valid {
+			email := common.EmailAddress(row.CreatedBy.String)
+			createdBy = &email
+		}
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, contacts.Contact{
 			ContactSummary: summary(row.ContactID, row.DisplayName, row.Handle,
 				row.MessagesOff, row.PartyDeleted, row.LastActivityAt,
 				row.NoteCount, credited, row.HasConversation,
 				row.UnreadMessagesCount),
-			CreatedBy:         common.EmailAddress(row.CreatedBy),
+			CreatedBy:         createdBy,
 			SuggestedOpenings: suggestedOpenings,
 			CreatedAt:         row.CreatedAt.Time.UTC(),
 		})

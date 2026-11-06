@@ -70,6 +70,10 @@ func TestLoadFile(t *testing.T) {
 		t.Fatalf("DeletedPartyConversationRetention = %s, want 8760h",
 			cfg.Marketplace.DeletedPartyConversationRetention)
 	}
+	if cfg.Marketplace.ConversationWindow != 2160*time.Hour {
+		t.Fatalf("ConversationWindow = %s, want 2160h",
+			cfg.Marketplace.ConversationWindow)
+	}
 	if cfg.Workers.AdvanceHubSubscriptionsTimer != time.Minute {
 		t.Fatalf(
 			"advance hub subscriptions timer = %s, want 1m",
@@ -482,7 +486,8 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
   },
   "marketplace": {
-    "deletedPartyConversationRetention": "8760h"
+    "deletedPartyConversationRetention": "8760h",
+    "conversationWindow": "2160h"
   },
   "mcpServer": {}
 }`, passwordFile)
@@ -495,6 +500,41 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
 		err.Error(), "workers.retryBackoffLimit must be positive",
 	) {
 		t.Fatalf("LoadFile() error = %v, want positive retry backoff error", err)
+	}
+}
+
+func TestLoadFileRequiresPositiveConversationWindow(t *testing.T) {
+	for name, field := range map[string]string{
+		"missing":  "",
+		"zero":     `, "conversationWindow": "0s"`,
+		"negative": `, "conversationWindow": "-1h"`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			passwordFile := filepath.Join(t.TempDir(), "password")
+			path := writeConfig(t, passwordFile, "")
+			contents, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			contents = []byte(strings.Replace(
+				string(contents),
+				`"deletedPartyConversationRetention": "8760h",
+    "conversationWindow": "2160h"`,
+				`"deletedPartyConversationRetention": "8760h"`+field,
+				1,
+			))
+			if err := os.WriteFile(path, contents, 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = LoadFile(path)
+			if err == nil || !strings.Contains(
+				err.Error(), "marketplace.conversationWindow",
+			) {
+				t.Fatalf("LoadFile() error = %v, want conversation window error",
+					err)
+			}
+		})
 	}
 }
 
@@ -880,7 +920,8 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "offeredPlans": ["org-free-tier", "org-silver-tier", "org-gold-tier"]
   },
   "marketplace": {
-    "deletedPartyConversationRetention": "8760h"
+    "deletedPartyConversationRetention": "8760h",
+    "conversationWindow": "2160h"
   },
   "mcpServer": {}
 }`, passwordFile, extraWorkerField)

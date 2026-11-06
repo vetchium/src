@@ -241,7 +241,8 @@ export interface ContactOpeningSuggestion {
 }
 
 export interface Contact extends ContactSummary {
-  created_by: EmailAddress;
+  /** Absent when a Hub user's chat request created the Contact. */
+  created_by?: EmailAddress;
   suggested_openings: ContactOpeningSuggestion[];
   /** The latest chat request between the two, in any state. */
   latest_request?: ChatRequest;

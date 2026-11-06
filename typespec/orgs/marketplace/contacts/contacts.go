@@ -313,7 +313,8 @@ type ContactOpeningSuggestion struct {
 
 type Contact struct {
 	ContactSummary
-	CreatedBy         common.EmailAddress        `json:"created_by"`
+	// CreatedBy is absent when a Hub user's chat request created the Contact.
+	CreatedBy         *common.EmailAddress       `json:"created_by,omitempty"`
 	SuggestedOpenings []ContactOpeningSuggestion `json:"suggested_openings"`
 	// LatestRequest is the latest chat request between the two, in any state.
 	LatestRequest *ChatRequest `json:"latest_request,omitempty"`

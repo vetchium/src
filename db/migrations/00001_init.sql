@@ -3500,7 +3500,8 @@ CREATE TABLE vetchium.org_contacts (
     -- Versions the agency pointer the Hub user's tenant keeps; the event that
     -- deletes it carries the next version.
     pointer_version integer NOT NULL DEFAULT 1 CHECK (pointer_version >= 1),
-    created_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id),
+    -- NULL when a Hub user's chat request created the Contact (MKT-CON-005).
+    created_by uuid REFERENCES vetchium.org_users (org_user_id),
     created_at timestamptz NOT NULL DEFAULT now(),
     -- The last note write or message, from which retention counts.
     last_activity_at timestamptz NOT NULL DEFAULT now(),
@@ -3578,6 +3579,13 @@ CREATE TABLE vetchium.org_conversations (
         )
     ),
     party_deleted_at timestamptz,
+    -- Each side's latest activity (MKT-REQ-004); the other side may write
+    -- until it plus window_seconds, and not at all while it or the window is
+    -- NULL.
+    hub_activity_at timestamptz,
+    agency_activity_at timestamptz,
+    -- The Hub tenant's window from its latest command on the conversation.
+    window_seconds bigint CHECK (window_seconds IS NULL OR window_seconds > 0),
     created_at timestamptz NOT NULL DEFAULT now(),
     last_activity_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT org_conversations_activity_check CHECK (
@@ -3603,7 +3611,7 @@ CREATE TABLE vetchium.org_conversation_messages (
     sender_user_id uuid REFERENCES vetchium.org_users (org_user_id)
         ON DELETE SET NULL,
     sender_display_name text NOT NULL,
-    kind text NOT NULL CHECK (kind IN ('text', 'suggestion')),
+    kind text NOT NULL CHECK (kind IN ('text', 'suggestion', 'request')),
     message_text text,
     consumer_domain text,
     opening_number integer CHECK (opening_number IS NULL OR opening_number >= 1),
@@ -3617,6 +3625,12 @@ CREATE TABLE vetchium.org_conversation_messages (
         (kind = 'suggestion' AND message_text IS NULL
             AND consumer_domain IS NOT NULL AND opening_number IS NOT NULL
             AND sender_type = 'agency')
+        OR
+        -- An accepted chat request; message_text is its note (MKT-REQ-005).
+        (kind = 'request'
+            AND (message_text IS NULL OR (message_text = btrim(message_text)
+                AND char_length(message_text) BETWEEN 1 AND 1000))
+            AND consumer_domain IS NOT NULL AND opening_number IS NOT NULL)
     )
 );
 CREATE INDEX org_conversation_messages_list_idx
@@ -3626,6 +3640,116 @@ CREATE INDEX org_conversation_messages_retention_idx
 
 -- New conversations started per agency per UTC day (MKT-CNV-003).
 CREATE TABLE vetchium.org_conversation_creations (
+    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
+        ON DELETE CASCADE,
+    created_on date NOT NULL,
+    created integer NOT NULL CHECK (created >= 1),
+    PRIMARY KEY (org_did, created_on)
+);
+
+-- Chat requests (agent-guides/marketplace.md, Chat requests). Rows hold the
+-- Hub user by DID only, like conversations.
+CREATE TABLE vetchium.org_chat_requests (
+    request_id uuid PRIMARY KEY,
+    contact_id uuid NOT NULL REFERENCES vetchium.org_contacts (contact_id)
+        ON DELETE CASCADE,
+    org_did uuid NOT NULL,
+    hub_user_did uuid NOT NULL,
+    direction text NOT NULL CHECK (direction IN ('to_hub_user', 'to_agency')),
+    state text NOT NULL CHECK (
+        state IN ('pending', 'accepted', 'declined', 'expired')
+    ),
+    consumer_domain text NOT NULL,
+    opening_number integer NOT NULL CHECK (opening_number >= 1),
+    -- Lives only while pending; an accepted one moves into the request
+    -- message (MKT-REQ-012).
+    note text CHECK (
+        note IS NULL OR (note = btrim(note)
+            AND char_length(note) BETWEEN 1 AND 1000)
+    ),
+    -- The sending agency user; NULL for a Hub user's request.
+    sender_user_id uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    sender_display_name text NOT NULL,
+    -- The Hub tenant's window, known once a Hub command carried it.
+    window_seconds bigint CHECK (window_seconds IS NULL OR window_seconds > 0),
+    sent_at timestamptz NOT NULL DEFAULT now(),
+    answered_at timestamptz,
+    -- The answering agency user; NULL when the Hub user answered.
+    answered_by uuid REFERENCES vetchium.org_users (org_user_id)
+        ON DELETE SET NULL,
+    decline_scope text CHECK (
+        decline_scope IS NULL OR decline_scope IN ('opening', 'sender')
+    ),
+    CONSTRAINT org_chat_requests_id_uuidv7_check CHECK (
+        substring(request_id::text FROM 15 FOR 1) = '7'
+    ),
+    CONSTRAINT org_chat_requests_note_pending_check CHECK (
+        note IS NULL OR state = 'pending'
+    ),
+    CONSTRAINT org_chat_requests_answer_check CHECK (
+        (state = 'pending') = (answered_at IS NULL)
+        AND (answered_at IS NULL OR answered_at >= sent_at)
+        AND (answered_by IS NULL OR state IN ('accepted', 'declined'))
+        AND ((state = 'declined') = (decline_scope IS NOT NULL))
+    )
+);
+-- One pending request per pair, in either direction (MKT-REQ-003).
+CREATE UNIQUE INDEX org_chat_requests_pending_key
+    ON vetchium.org_chat_requests (org_did, hub_user_did)
+    WHERE state = 'pending';
+-- Lists pending requests oldest first, then answered ones newest first.
+CREATE INDEX org_chat_requests_pending_list_idx
+    ON vetchium.org_chat_requests (org_did, direction, sent_at, request_id)
+    WHERE state = 'pending';
+CREATE INDEX org_chat_requests_answered_list_idx
+    ON vetchium.org_chat_requests (
+        org_did, direction, answered_at DESC, request_id DESC
+    )
+    WHERE state <> 'pending';
+CREATE INDEX org_chat_requests_expiry_idx
+    ON vetchium.org_chat_requests (sent_at, request_id)
+    WHERE state = 'pending';
+CREATE INDEX org_chat_requests_contact_idx
+    ON vetchium.org_chat_requests (contact_id, sent_at DESC, request_id DESC);
+
+-- Declines that stop the sender's direction (MKT-REQ-007): an `opening` block
+-- lives with the Contact, a `sender` block until blocked_until.
+CREATE TABLE vetchium.org_chat_request_blocks (
+    block_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    contact_id uuid NOT NULL REFERENCES vetchium.org_contacts (contact_id)
+        ON DELETE CASCADE,
+    blocked_direction text NOT NULL CHECK (
+        blocked_direction IN ('to_hub_user', 'to_agency')
+    ),
+    scope text NOT NULL CHECK (scope IN ('opening', 'sender')),
+    consumer_domain text,
+    opening_number integer CHECK (opening_number IS NULL OR opening_number >= 1),
+    blocked_until timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT org_chat_request_blocks_scope_fields_check CHECK (
+        (scope = 'opening' AND consumer_domain IS NOT NULL
+            AND opening_number IS NOT NULL AND blocked_until IS NULL)
+        OR
+        (scope = 'sender' AND consumer_domain IS NULL
+            AND opening_number IS NULL AND blocked_until IS NOT NULL
+            AND blocked_until > created_at)
+    )
+);
+CREATE UNIQUE INDEX org_chat_request_blocks_opening_key
+    ON vetchium.org_chat_request_blocks (
+        contact_id, blocked_direction, consumer_domain, opening_number
+    )
+    WHERE scope = 'opening';
+CREATE INDEX org_chat_request_blocks_contact_idx
+    ON vetchium.org_chat_request_blocks (contact_id, blocked_direction);
+CREATE INDEX org_chat_request_blocks_lift_idx
+    ON vetchium.org_chat_request_blocks (blocked_until, block_id)
+    WHERE blocked_until IS NOT NULL;
+
+-- Chat requests sent per agency per UTC day (MKT-REQ-006). A count of live
+-- rows would let expired or answered requests free the limit.
+CREATE TABLE vetchium.org_chat_request_creations (
     org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
         ON DELETE CASCADE,
     created_on date NOT NULL,
@@ -3643,6 +3767,12 @@ CREATE TABLE vetchium.hub_agency_pointers (
     agency_display_name text NOT NULL DEFAULT '',
     agency_domain text NOT NULL DEFAULT '',
     has_conversation boolean NOT NULL DEFAULT false,
+    -- Set while the pointer holds a chat request (MKT-DAT-003).
+    has_request boolean NOT NULL DEFAULT false,
+    -- The pending or last answered request, without its note.
+    request jsonb CHECK (request IS NULL OR jsonb_typeof(request) = 'object'),
+    agency_may_write_until timestamptz,
+    hub_may_write_until timestamptz,
     last_activity_at timestamptz NOT NULL DEFAULT now(),
     unread_count integer NOT NULL DEFAULT 0 CHECK (unread_count >= 0),
     read_only_reason text CHECK (
@@ -3652,26 +3782,43 @@ CREATE TABLE vetchium.hub_agency_pointers (
     ),
     suggestions jsonb NOT NULL DEFAULT '[]'::jsonb,
     pointer_version integer NOT NULL DEFAULT 1 CHECK (pointer_version >= 1),
-    created_at timestamptz NOT NULL DEFAULT now()
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT hub_agency_pointers_has_request_check CHECK (
+        has_request = (request IS NOT NULL)
+    )
 );
 CREATE INDEX hub_agency_pointers_user_idx
     ON vetchium.hub_agency_pointers (hub_user_did, contact_id);
 CREATE INDEX hub_agency_pointers_list_idx
     ON vetchium.hub_agency_pointers (hub_user_did, last_activity_at DESC, contact_id DESC)
-    WHERE has_conversation = true;
+    WHERE has_conversation OR has_request;
 
--- Notifications sent to the Hub user when an agency sends a new message (MKT-CNV-008).
--- One row per notification, written beside the pointer and turned into an outbox
--- email by the workers. It names the agency and never message content.
+-- Notifications sent to the Hub user when an agency sends a new message, a
+-- chat request, or accepts theirs (MKT-CNV-008, MKT-REQ-010). One row per
+-- notification, written beside the pointer and turned into an outbox email by
+-- the workers. It names the agency and never message or note content.
 CREATE TABLE vetchium.hub_message_notices (
     notice_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
         ON DELETE CASCADE,
+    kind text NOT NULL DEFAULT 'message' CHECK (
+        kind IN ('message', 'request', 'request_accepted')
+    ),
     agency_display_name text NOT NULL CHECK (length(btrim(agency_display_name)) > 0),
     created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX hub_message_notices_queue_idx
     ON vetchium.hub_message_notices (created_at, notice_id);
+
+-- Chat requests sent per Hub user per UTC day (MKT-REQ-006), counted before
+-- the command leaves, so a refused request still counts.
+CREATE TABLE vetchium.hub_chat_request_creations (
+    hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
+        ON DELETE CASCADE,
+    created_on date NOT NULL,
+    created integer NOT NULL CHECK (created >= 1),
+    PRIMARY KEY (hub_user_did, created_on)
+);
 
 -- Billable facts derived from recording actions (MKT-STM-001).
 -- Authoritative on consumer tenant; outlives applicant retention with numbers only
@@ -3802,8 +3949,12 @@ $$;
 -- +goose StatementEnd
 
 -- +goose Down
+DROP TABLE IF EXISTS vetchium.hub_chat_request_creations;
 DROP TABLE IF EXISTS vetchium.hub_message_notices;
 DROP TABLE IF EXISTS vetchium.hub_agency_pointers;
+DROP TABLE IF EXISTS vetchium.org_chat_request_creations;
+DROP TABLE IF EXISTS vetchium.org_chat_request_blocks;
+DROP TABLE IF EXISTS vetchium.org_chat_requests;
 DROP TABLE IF EXISTS vetchium.org_conversation_creations;
 DROP TABLE IF EXISTS vetchium.org_conversation_messages;
 DROP TABLE IF EXISTS vetchium.org_conversations;

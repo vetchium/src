@@ -311,8 +311,11 @@ model ContactOpeningSuggestion {
 model Contact {
   ...ContactSummary;
 
-  /** The email address of the agency user who created the Contact. */
-  created_by: Vetchium.EmailAddress;
+  /**
+   * The email address of the agency user who created the Contact; absent when
+   * a Hub user's chat request created it.
+   */
+  created_by?: Vetchium.EmailAddress;
 
   suggested_openings: ContactOpeningSuggestion[];
 

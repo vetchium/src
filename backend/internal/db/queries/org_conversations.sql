@@ -51,29 +51,80 @@ SELECT (SELECT count(*) FROM created) AS created_rows,
     (SELECT count(*) FROM counted) AS counted_rows,
     (SELECT count(*) FROM audit) AS audit_rows;
 
+-- Creates the conversation of an accepted chat request (MKT-REQ-005); the
+-- request counted toward the daily limit when it was sent. The caller holds
+-- the Contact lock and found no conversation; the request message and the
+-- activity follow (AddOrgConversationMessage, SetConversationActivity).
+-- name: CreateOrgConversationFromRequest :one
+WITH created AS (
+    INSERT INTO vetchium.org_conversations (
+        conversation_id, contact_id, org_did, hub_user_did,
+        recorded_hub_user_name, recorded_hub_user_handle,
+        recorded_agency_name, recorded_agency_domain
+    )
+    VALUES (
+        sqlc.arg(conversation_id), sqlc.arg(contact_id), sqlc.arg(org_did),
+        sqlc.arg(hub_user_did), sqlc.arg(recorded_hub_user_name),
+        sqlc.arg(recorded_hub_user_handle), sqlc.arg(recorded_agency_name),
+        sqlc.arg(recorded_agency_domain)
+    )
+    RETURNING conversation_id, contact_id, org_did, hub_user_did
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, subject_org_did, source, idempotency_key,
+        payload
+    )
+    SELECT sqlc.arg(tenant_id), 'org.conversation.created', 'org_conversation',
+        created.conversation_id::text, sqlc.arg(actor_type)::text,
+        sqlc.arg(actor_id)::text, created.hub_user_did, created.org_did,
+        sqlc.arg(source)::text, sqlc.narg(idempotency_key),
+        jsonb_build_object('contact_id', created.contact_id::text,
+            'request_id', sqlc.arg(request_id)::uuid::text)
+    FROM created
+    RETURNING audit_event_id
+)
+SELECT created.conversation_id, (SELECT count(*) FROM audit) AS audit_rows
+FROM created;
+
+-- Records a side's activity and the Hub tenant's window (MKT-REQ-004). NULL
+-- arguments keep what is stored, and activity never moves back. It runs only
+-- beside an audited statement of the same operation.
+-- name: SetConversationActivity :execrows
+UPDATE vetchium.org_conversations AS c
+SET hub_activity_at = GREATEST(c.hub_activity_at,
+        sqlc.narg(hub_activity_at)::timestamptz),
+    agency_activity_at = GREATEST(c.agency_activity_at,
+        sqlc.narg(agency_activity_at)::timestamptz),
+    window_seconds = COALESCE(sqlc.narg(window_seconds)::bigint,
+        c.window_seconds)
+WHERE c.conversation_id = sqlc.arg(conversation_id);
+
 -- Appends a message: it records the parties' names as of now (MKT-CNV-001),
 -- counts the agency's unread messages (MKT-DAT-010: a Hub user message adds
--- one, an agency message means the agency has read the conversation), and
--- counts as the Contact's activity (MKT-CON-004). NULL names keep the
--- recorded ones.
+-- one, an agency message means the agency has read the conversation; an
+-- accepted request changes neither), and counts as the Contact's activity
+-- (MKT-CON-004). NULL names keep the recorded ones. An accepted request is
+-- appended at its earlier sent time (MKT-REQ-005), so activity never moves
+-- back.
 -- name: AddOrgConversationMessage :one
 WITH message AS (
     INSERT INTO vetchium.org_conversation_messages (
         message_id, conversation_id, sender_type, sender_user_id,
         sender_display_name, kind, message_text, consumer_domain,
-        opening_number
+        opening_number, sent_at
     )
     VALUES (
         sqlc.arg(message_id), sqlc.arg(conversation_id), sqlc.arg(sender_type),
         sqlc.narg(sender_user_id), sqlc.arg(sender_display_name),
         sqlc.arg(kind), sqlc.narg(message_text), sqlc.narg(consumer_domain),
-        sqlc.narg(opening_number)
+        sqlc.narg(opening_number), COALESCE(sqlc.narg(sent_at)::timestamptz, now())
     )
     RETURNING message_id, conversation_id, sender_type, sender_display_name,
         kind, message_text, consumer_domain, opening_number, sent_at
 ), conversation AS (
     UPDATE vetchium.org_conversations AS c
-    SET last_activity_at = message.sent_at,
+    SET last_activity_at = GREATEST(c.last_activity_at, message.sent_at),
         recorded_hub_user_name = COALESCE(
             sqlc.narg(hub_user_name)::text, c.recorded_hub_user_name),
         recorded_hub_user_handle = COALESCE(
@@ -82,14 +133,17 @@ WITH message AS (
             sqlc.narg(agency_name)::text, c.recorded_agency_name),
         recorded_agency_domain = COALESCE(
             sqlc.narg(agency_domain)::text, c.recorded_agency_domain),
-        agency_unread_count = CASE message.sender_type
-            WHEN 'hub_user' THEN c.agency_unread_count + 1 ELSE 0 END
+        agency_unread_count = CASE
+            WHEN message.kind = 'request' THEN c.agency_unread_count
+            WHEN message.sender_type = 'hub_user'
+                THEN c.agency_unread_count + 1
+            ELSE 0 END
     FROM message
     WHERE c.conversation_id = message.conversation_id
     RETURNING c.conversation_id, c.contact_id, c.org_did, c.hub_user_did
 ), contact AS (
     UPDATE vetchium.org_contacts AS t
-    SET last_activity_at = message.sent_at
+    SET last_activity_at = GREATEST(t.last_activity_at, message.sent_at)
     FROM conversation, message
     WHERE t.contact_id = conversation.contact_id
     RETURNING t.contact_id

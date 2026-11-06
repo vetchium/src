@@ -154,7 +154,8 @@
     ]
   },
   "marketplace": {
-    "deletedPartyConversationRetention": "8760h"
+    "deletedPartyConversationRetention": "8760h",
+    "conversationWindow": "2160h"
   },
   "mcpServer": {}
 }

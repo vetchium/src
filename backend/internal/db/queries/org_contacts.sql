@@ -46,7 +46,7 @@ SELECT c.contact_id, c.hub_user_did, c.display_name, c.handle, c.messages_off,
     COALESCE(conv.agency_unread_count, 0)::integer AS unread_messages_count,
     (conv.party_deleted_at IS NOT NULL)::boolean AS party_deleted
 FROM vetchium.org_contacts AS c
-JOIN vetchium.org_users AS u ON u.org_user_id = c.created_by
+LEFT JOIN vetchium.org_users AS u ON u.org_user_id = c.created_by
 LEFT JOIN vetchium.org_conversations AS conv ON conv.contact_id = c.contact_id
 WHERE c.org_did = sqlc.arg(org_did)
   AND c.contact_id = sqlc.arg(contact_id);

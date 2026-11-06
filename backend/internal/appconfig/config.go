@@ -156,6 +156,9 @@ type OrgDomainVerification struct {
 
 type Marketplace struct {
 	DeletedPartyConversationRetention time.Duration
+	// ConversationWindow is how long each side's activity lets the other
+	// write (MKT-REQ-004); the Hub user's tenant sends it with each command.
+	ConversationWindow time.Duration
 }
 
 type ObjectStorage struct {
@@ -241,6 +244,7 @@ type fileConfig struct {
 
 type fileMarketplace struct {
 	DeletedPartyConversationRetention string `json:"deletedPartyConversationRetention"`
+	ConversationWindow                string `json:"conversationWindow"`
 }
 
 type fileGlobalCoordinator struct {
@@ -767,6 +771,12 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	conversationWindow, err := positiveDuration(
+		"marketplace.conversationWindow", raw.Marketplace.ConversationWindow,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 
 	return Config{
 		SignupRegionsFile: raw.SignupRegionsFile,
@@ -847,6 +857,7 @@ func LoadFile(path string) (Config, error) {
 		OrgBilling:            orgBilling,
 		Marketplace: Marketplace{
 			DeletedPartyConversationRetention: deletedPartyConversationRetention,
+			ConversationWindow:                conversationWindow,
 		},
 		AI:        aiConfig,
 		MCPServer: Server{},

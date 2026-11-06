@@ -46,3 +46,4 @@ Unanswered requests expire after 14 days with no block; lifted `sender`
 blocks disappear; Contacts with requests or blocks survive retention.
 
 ## Carried over
+- From T02: `ExpirePendingChatRequests` and `DeleteLiftedChatRequestBlocks` are bounded batches that lock each Contact with `SKIP LOCKED` and audit; sync each returned Contact's pointer in the same transaction. No query prunes `org_chat_request_creations` or `hub_chat_request_creations` yet; add them like `PruneOrgConversationCreations` and run them from the retention workers in each tenant.
