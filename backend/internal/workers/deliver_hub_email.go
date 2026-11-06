@@ -65,8 +65,8 @@ type hubEmailPayload struct {
 	OrgName        string `json:"org_name"`
 	OpeningTitle   string `json:"opening_title"`
 	ApplicationURL string `json:"application_url"`
-	// AgencyName and MessagesURL carry an agency-message-received notice's
-	// sender and link; unused by every other kind.
+	// AgencyName and MessagesURL carry an agency message or chat request
+	// notice's agency and link; unused by every other kind.
 	AgencyName  string `json:"agency_name,omitempty"`
 	MessagesURL string `json:"messages_url,omitempty"`
 }
@@ -255,11 +255,12 @@ func hubEmailKind(
 			return "", "", fmt.Errorf("subscription ending lead is invalid")
 		}
 		return email.SubscriptionEnding, "", nil
-	case email.AgencyMessageReceived:
+	case email.AgencyMessageReceived, email.AgencyChatRequestReceived,
+		email.AgencyChatRequestAccepted:
 		if payload.MessagesURL == "" || payload.AgencyName == "" {
-			return "", "", fmt.Errorf("agency-message-received email is missing its agency or link")
+			return "", "", fmt.Errorf("%s email is missing its agency or link", kind)
 		}
-		return email.AgencyMessageReceived, payload.MessagesURL, nil
+		return email.Kind(kind), payload.MessagesURL, nil
 	case email.ApplicationStatusChanged, email.ApplicationInterviewScheduled,
 		email.ApplicationInterviewChanged, email.ApplicationInterviewCancelled,
 		email.ApplicationConsentRequested, email.ApplicationOfferExtended,

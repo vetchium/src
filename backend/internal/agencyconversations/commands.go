@@ -165,7 +165,7 @@ func handleReply(ctx context.Context, tx pgx.Tx, command commands.Command) (comm
 		}); err != nil {
 		return commands.Result{}, fmt.Errorf("refresh Contact names: %w", err)
 	}
-	if err := agencycontacts.SyncPointer(ctx, q, command.Authority.DID, contactID, false); err != nil {
+	if err := agencycontacts.SyncPointer(ctx, q, command.Authority.DID, contactID, agencycontacts.NoNotice); err != nil {
 		return commands.Result{}, err
 	}
 	result := contacts.ConversationMessage{
@@ -226,7 +226,7 @@ func handleDelete(ctx context.Context, tx pgx.Tx, command commands.Command) (com
 	})
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		err = agencycontacts.SyncPointer(ctx, q, command.Authority.DID, contactID, false)
+		err = agencycontacts.SyncPointer(ctx, q, command.Authority.DID, contactID, agencycontacts.NoNotice)
 	case err != nil:
 		return commands.Result{}, fmt.Errorf("delete unused Contact: %w", err)
 	default:

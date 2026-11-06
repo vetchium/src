@@ -1,0 +1,1 @@
+{{.AgencyName}} hat Ihre Chat-Anfrage auf Vetchium angenommen

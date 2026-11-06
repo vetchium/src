@@ -81,6 +81,13 @@ func NullText(value *string) pgtype.Text {
 	return pgtype.Text{String: *value, Valid: true}
 }
 
+func NullTimestamp(value *time.Time) pgtype.Timestamptz {
+	if value == nil {
+		return pgtype.Timestamptz{}
+	}
+	return Timestamp(*value)
+}
+
 func NullBool(value *bool) pgtype.Bool {
 	if value == nil {
 		return pgtype.Bool{}

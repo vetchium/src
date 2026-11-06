@@ -70,20 +70,14 @@ FROM created;
 -- The pending request between the Contact's pair, in either direction; the
 -- pending index allows at most one (MKT-REQ-003).
 -- name: GetPendingOrgChatRequest :one
-SELECT r.request_id, r.contact_id, r.org_did, r.hub_user_did, r.direction,
-    r.state, r.consumer_domain, r.opening_number, r.note, r.sender_user_id,
-    r.sender_display_name, r.window_seconds, r.sent_at, r.answered_at,
-    r.answered_by, r.decline_scope, c.display_name AS hub_user_name,
+SELECT sqlc.embed(r), c.display_name AS hub_user_name,
     c.handle AS hub_user_handle
 FROM vetchium.org_chat_requests AS r
 JOIN vetchium.org_contacts AS c ON c.contact_id = r.contact_id
 WHERE r.contact_id = sqlc.arg(contact_id) AND r.state = 'pending';
 
 -- name: GetOrgChatRequest :one
-SELECT r.request_id, r.contact_id, r.org_did, r.hub_user_did, r.direction,
-    r.state, r.consumer_domain, r.opening_number, r.note, r.sender_user_id,
-    r.sender_display_name, r.window_seconds, r.sent_at, r.answered_at,
-    r.answered_by, r.decline_scope, c.display_name AS hub_user_name,
+SELECT sqlc.embed(r), c.display_name AS hub_user_name,
     c.handle AS hub_user_handle
 FROM vetchium.org_chat_requests AS r
 JOIN vetchium.org_contacts AS c ON c.contact_id = r.contact_id
@@ -92,10 +86,7 @@ WHERE r.org_did = sqlc.arg(org_did) AND r.request_id = sqlc.arg(request_id);
 -- The Contact's latest request in any state, which the Contact and the
 -- pointer show (MKT-DAT-003).
 -- name: GetLatestOrgChatRequest :one
-SELECT r.request_id, r.contact_id, r.org_did, r.hub_user_did, r.direction,
-    r.state, r.consumer_domain, r.opening_number, r.note, r.sender_user_id,
-    r.sender_display_name, r.window_seconds, r.sent_at, r.answered_at,
-    r.answered_by, r.decline_scope, c.display_name AS hub_user_name,
+SELECT sqlc.embed(r), c.display_name AS hub_user_name,
     c.handle AS hub_user_handle
 FROM vetchium.org_chat_requests AS r
 JOIN vetchium.org_contacts AS c ON c.contact_id = r.contact_id
@@ -105,10 +96,7 @@ LIMIT 1;
 
 -- One page of the agency's pending requests in one direction, oldest first.
 -- name: ListPendingOrgChatRequests :many
-SELECT r.request_id, r.contact_id, r.org_did, r.hub_user_did, r.direction,
-    r.state, r.consumer_domain, r.opening_number, r.note, r.sender_user_id,
-    r.sender_display_name, r.window_seconds, r.sent_at, r.answered_at,
-    r.answered_by, r.decline_scope, c.display_name AS hub_user_name,
+SELECT sqlc.embed(r), c.display_name AS hub_user_name,
     c.handle AS hub_user_handle
 FROM vetchium.org_chat_requests AS r
 JOIN vetchium.org_contacts AS c ON c.contact_id = r.contact_id
@@ -125,10 +113,7 @@ LIMIT sqlc.arg(page_limit);
 -- One page of the agency's answered requests in one direction, newest
 -- answer first; the list follows the pending ones.
 -- name: ListAnsweredOrgChatRequests :many
-SELECT r.request_id, r.contact_id, r.org_did, r.hub_user_did, r.direction,
-    r.state, r.consumer_domain, r.opening_number, r.note, r.sender_user_id,
-    r.sender_display_name, r.window_seconds, r.sent_at, r.answered_at,
-    r.answered_by, r.decline_scope, c.display_name AS hub_user_name,
+SELECT sqlc.embed(r), c.display_name AS hub_user_name,
     c.handle AS hub_user_handle
 FROM vetchium.org_chat_requests AS r
 JOIN vetchium.org_contacts AS c ON c.contact_id = r.contact_id

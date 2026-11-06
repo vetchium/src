@@ -33,19 +33,25 @@ const (
 func summary(
 	id pgtype.UUID, name, handle string, off, accountDeleted bool,
 	active pgtype.Timestamptz, notes int32, credited int32, hasConversation bool,
-	unreadCount int32,
+	unreadCount int32, pendingRequest pgtype.Text,
 ) contacts.ContactSummary {
+	var pending *contacts.ChatRequestDirection
+	if pendingRequest.Valid {
+		direction := contacts.ChatRequestDirection(pendingRequest.String)
+		pending = &direction
+	}
 	return contacts.ContactSummary{
-		ContactID:           contacts.ContactID(dbvalue.FormatUUID(id)),
-		DisplayName:         common.DisplayName(name),
-		Handle:              hubHandle(handle),
-		MessagesOff:         off,
-		AccountDeleted:      accountDeleted,
-		NoteCount:           notes,
-		HasConversation:     hasConversation,
-		UnreadMessagesCount: unreadCount,
-		CreditedCount:       credited,
-		LastActivityAt:      active.Time.UTC(),
+		ContactID:               contacts.ContactID(dbvalue.FormatUUID(id)),
+		DisplayName:             common.DisplayName(name),
+		Handle:                  hubHandle(handle),
+		MessagesOff:             off,
+		AccountDeleted:          accountDeleted,
+		NoteCount:               notes,
+		HasConversation:         hasConversation,
+		PendingRequestDirection: pending,
+		UnreadMessagesCount:     unreadCount,
+		CreditedCount:           credited,
+		LastActivityAt:          active.Time.UTC(),
 	}
 }
 

@@ -206,7 +206,7 @@ func StartConversation(s *orgsruntime.Server) http.HandlerFunc {
 					return result{}, nil, err
 				}
 				detail, err := readConversation(ctx, q, identity.OrgDID, contactID, nil,
-					contacts.DefaultPage, func(at time.Time, id string) (common.PaginationKey, error) {
+					contacts.DefaultPage, now, func(at time.Time, id string) (common.PaginationKey, error) {
 						return signMessages(s, identity.OrgDID, contactID, at, id)
 					})
 				if err != nil {
@@ -277,7 +277,7 @@ func SendMessage(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contactID, true); err != nil {
+				if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contactID, agencycontacts.NoticeMessage); err != nil {
 					return result{}, nil, err
 				}
 				return result{Status: http.StatusOK, Body: posted}, nil, nil
@@ -321,7 +321,7 @@ func post(
 		name, handle); err != nil {
 		return err
 	}
-	return agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contactID, true)
+	return agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contactID, agencycontacts.NoticeMessage)
 }
 
 // addMessage stores an agency message under the sending user's email
@@ -451,7 +451,7 @@ func GetConversation(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		detail, err := readConversation(r.Context(), s.Queries, identity.OrgDID,
-			contactID, before, request.EffectiveLimit(),
+			contactID, before, request.EffectiveLimit(), s.CurrentTime(),
 			func(at time.Time, id string) (common.PaginationKey, error) {
 				return signMessages(s, identity.OrgDID, contactID, at, id)
 			})
@@ -530,7 +530,7 @@ func signMessages(
 // messages, newest first; pgx.ErrNoRows reports none.
 func readConversation(
 	ctx context.Context, q sqlc.Querier, orgDID, contactID pgtype.UUID,
-	before *messageCursor, limit int32,
+	before *messageCursor, limit int32, now time.Time,
 	next func(time.Time, string) (common.PaginationKey, error),
 ) (contacts.ConversationDetail, error) {
 	conversation, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
@@ -553,7 +553,7 @@ func readConversation(
 		return contacts.ConversationDetail{}, err
 	}
 	detail := contacts.ConversationDetail{
-		Conversation: conversationSummary(conversation),
+		Conversation: conversationSummary(conversation, now),
 		Messages:     []contacts.ConversationMessage{},
 	}
 	for index, row := range rows {
@@ -573,7 +573,11 @@ func readConversation(
 	return detail, nil
 }
 
-func conversationSummary(row sqlc.GetOrgConversationRow) contacts.ConversationSummary {
+func conversationSummary(
+	row sqlc.GetOrgConversationRow, now time.Time,
+) contacts.ConversationSummary {
+	window := agencycontacts.Window(row.HubActivityAt, row.AgencyActivityAt,
+		row.WindowSeconds).Open(now)
 	summary := contacts.ConversationSummary{
 		ConversationID:        contacts.ConversationID(dbvalue.FormatUUID(row.ConversationID)),
 		ContactID:             contacts.ContactID(dbvalue.FormatUUID(row.ContactID)),
@@ -582,6 +586,8 @@ func conversationSummary(row sqlc.GetOrgConversationRow) contacts.ConversationSu
 		RecordedAgencyName:    row.RecordedAgencyName,
 		RecordedAgencyDomain:  orgs.OrgDomain(row.RecordedAgencyDomain),
 		AgencyUnread:          row.AgencyUnreadCount > 0,
+		AgencyMayWriteUntil:   window.AgencyUntil,
+		HubMayWriteUntil:      window.HubUntil,
 		CreatedAt:             row.CreatedAt.Time.UTC(),
 		LastActivityAt:        row.LastActivityAt.Time.UTC(),
 	}

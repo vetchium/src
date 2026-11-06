@@ -116,7 +116,7 @@ func AddPersonNote(s *orgsruntime.Server) http.HandlerFunc {
 					if row.CreatedRows != 1 || row.CountedRows != 1 || row.AuditRows != 1 {
 						return result{}, nil, fmt.Errorf("incomplete Contact creation")
 					}
-					if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contactID, false); err != nil {
+					if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contactID, agencycontacts.NoNotice); err != nil {
 						return result{}, nil, err
 					}
 					contact.ContactID = contactID
@@ -196,7 +196,7 @@ func insertNote(
 		Contact: summary(contact.ContactID, contact.DisplayName, contact.Handle,
 			contact.MessagesOff, contact.PartyDeleted, contact.LastActivityAt,
 			contact.NoteCount, credited, contact.HasConversation,
-			contact.UnreadMessagesCount),
+			contact.UnreadMessagesCount, contact.PendingRequestDirection),
 		Note: noteFrom(row.NoteID, row.Author, text, row.CreatedAt, pgtype.Timestamptz{}),
 	}, nil, nil
 }

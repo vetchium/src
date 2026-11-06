@@ -1,0 +1,9 @@
+Hello {{.DisplayName}},
+
+{{.AgencyName}} accepted your chat request on Vetchium.
+
+Sign in to Vetchium to continue the conversation.
+
+{{.ActionURL}}
+
+This email names no message content on purpose; it is only shown after you sign in.

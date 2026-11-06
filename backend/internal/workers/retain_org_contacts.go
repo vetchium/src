@@ -193,7 +193,7 @@ func retainConversation(
 	})
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		err = agencycontacts.SyncPointer(ctx, q, row.OrgDid, row.ContactID, false)
+		err = agencycontacts.SyncPointer(ctx, q, row.OrgDid, row.ContactID, agencycontacts.NoNotice)
 	case err != nil:
 		return false, err
 	default:

@@ -9,15 +9,24 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"backend/internal/agencycontacts"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
+	"backend/internal/email"
 	"backend/internal/handlerauth"
 )
 
 const maxHubMessageNoticeBatchSize = 100
 
-// queueHubMessageEmails turns new-message notices (MKT-CNV-008) into outbox emails.
+var noticeEmailKinds = map[string]email.Kind{
+	agencycontacts.NoticeKindMessage:         email.AgencyMessageReceived,
+	agencycontacts.NoticeKindRequest:         email.AgencyChatRequestReceived,
+	agencycontacts.NoticeKindRequestAccepted: email.AgencyChatRequestAccepted,
+}
+
+// queueHubMessageEmails turns agency message and chat request notices
+// (MKT-CNV-008, MKT-REQ-010) into outbox emails.
 func (w *Worker) queueHubMessageEmails(ctx context.Context) error {
 	for range maxHubMessageNoticeBatchSize {
 		queued, err := queueHubMessageEmail(
@@ -53,6 +62,10 @@ func queueHubMessageEmail(
 	if row.HubUserState != sqlc.VetchiumHubUserStateActive {
 		return true, tx.Commit(ctx)
 	}
+	kind, ok := noticeEmailKinds[row.Kind]
+	if !ok {
+		return false, fmt.Errorf("unknown message notice kind %q", row.Kind)
+	}
 	payload, err := json.Marshal(hubEmailPayload{
 		DisplayName: row.DisplayName,
 		AgencyName:  row.AgencyDisplayName,
@@ -68,6 +81,7 @@ func queueHubMessageEmail(
 	}
 	queued, err := q.QueueHubMessageEmail(ctx,
 		sqlc.QueueHubMessageEmailParams{
+			Kind:                  string(kind),
 			RecipientEmailAddress: row.EmailAddress,
 			PreferredLanguage:     row.PreferredLanguage,
 			PayloadCiphertext:     ciphertext,

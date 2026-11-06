@@ -984,7 +984,9 @@ CREATE TABLE vetchium.hub_email_outbox (
         'application-offer-withdrawn',
         'application-offer-expiring',
         'application-offer-expired',
-        'agency-message-received'
+        'agency-message-received',
+        'agency-chat-request-received',
+        'agency-chat-request-accepted'
     )),
     recipient_email_address text NOT NULL,
     preferred_language vetchium.hub_frontend_locale NOT NULL,

@@ -1,0 +1,9 @@
+Hello {{.DisplayName}},
+
+{{.AgencyName}} asked to chat with you about an Opening on Vetchium.
+
+Sign in to Vetchium to accept or decline the request.
+
+{{.ActionURL}}
+
+This email names no request content on purpose; it is only shown after you sign in.

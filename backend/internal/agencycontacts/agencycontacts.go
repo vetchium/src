@@ -29,15 +29,28 @@ import (
 	"backend/internal/federation/events"
 )
 
+// Notice is what a pointer event tells the Hub user by email
+// (MKT-CNV-008, MKT-REQ-010).
+type Notice int
+
+const (
+	NoNotice Notice = iota
+	// NoticeMessage is an agency message, which also counts as unread.
+	NoticeMessage
+	// NoticeRequest is a new agency chat request.
+	NoticeRequest
+	// NoticeRequestAccepted is the agency accepting the Hub user's request.
+	NoticeRequestAccepted
+)
+
 // SyncPointer reports a Contact's current state to the Hub user's tenant:
 // it takes the Contact's next pointer version and reads what the pointer
 // carries, so every event supersedes the last whatever changed. Call it in
-// the transaction that changes the Contact or its conversation, beside that
-// change's audit event. newAgencyMessage marks an agency message, which
-// counts as unread there and triggers the notification email (MKT-CNV-008).
+// the transaction that changes the Contact, its conversation, or its chat
+// requests, beside that change's audit event.
 func SyncPointer(
 	ctx context.Context, q sqlc.Querier, orgDID, contactID pgtype.UUID,
-	newAgencyMessage bool,
+	notice Notice,
 ) error {
 	row, err := q.NextOrgContactPointer(ctx, sqlc.NextOrgContactPointerParams{
 		ContactID: contactID, OrgDid: orgDID,
@@ -46,13 +59,37 @@ func SyncPointer(
 		return fmt.Errorf("take agency pointer version: %w", err)
 	}
 	payload := federationspec.AgencyPointerChangedPayload{
-		ContactID:        contacts.ContactID(dbvalue.FormatUUID(row.ContactID)),
-		AgencyOrgDID:     orgs.OrgDID(dbvalue.FormatUUID(row.OrgDid)),
-		HubUserDID:       hub.HubUserDID(dbvalue.FormatUUID(row.HubUserDid)),
-		Present:          true,
-		NewAgencyMessage: newAgencyMessage,
+		ContactID:               contacts.ContactID(dbvalue.FormatUUID(row.ContactID)),
+		AgencyOrgDID:            orgs.OrgDID(dbvalue.FormatUUID(row.OrgDid)),
+		HubUserDID:              hub.HubUserDID(dbvalue.FormatUUID(row.HubUserDid)),
+		Present:                 true,
+		NewAgencyMessage:        notice == NoticeMessage,
+		NewAgencyRequest:        notice == NoticeRequest,
+		RequestAcceptedByAgency: notice == NoticeRequestAccepted,
+	}
+	request, err := q.GetLatestOrgChatRequest(ctx, contactID)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+	case err != nil:
+		return fmt.Errorf("read latest chat request: %w", err)
+	default:
+		pointer := PointerRequest(request.VetchiumOrgChatRequest)
+		payload.Request = &pointer
+		if !row.ConversationID.Valid {
+			// Only the conversation records the agency's name; a request
+			// alone carries it as it is now.
+			agency, err := q.GetAgencyDetails(ctx, orgDID)
+			if err != nil {
+				return fmt.Errorf("read agency: %w", err)
+			}
+			payload.AgencyDisplayName = agency.DisplayName
+			payload.AgencyDomain = orgs.OrgDomain(agency.Domain)
+		}
 	}
 	if row.ConversationID.Valid {
+		window := Window(row.HubActivityAt, row.AgencyActivityAt, row.WindowSeconds)
+		payload.AgencyMayWriteUntil = window.AgencyUntil
+		payload.HubMayWriteUntil = window.HubUntil
 		suggestions, err := q.ListOrgConversationSuggestions(ctx, row.ConversationID)
 		if err != nil {
 			return fmt.Errorf("list conversation suggestions: %w", err)
@@ -75,6 +112,13 @@ func SyncPointer(
 					SentAt:         suggestion.SentAt.Time.UTC(),
 				})
 		}
+	}
+	// A request is activity too, so a new one on an old conversation lists
+	// first.
+	if payload.Request != nil && (payload.LastActivityAt == nil ||
+		payload.Request.SentAt.After(*payload.LastActivityAt)) {
+		at := payload.Request.SentAt
+		payload.LastActivityAt = &at
 	}
 	return enqueuePointer(ctx, q, row.HubUserDid, row.PointerVersion, payload)
 }
@@ -241,27 +285,37 @@ func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 	if payload.NewAgencyMessage {
 		unreadCount = 1
 	}
+	var request []byte
+	if payload.Request != nil {
+		if request, err = json.Marshal(payload.Request); err != nil {
+			return fmt.Errorf("encode pointer request: %w", err)
+		}
+	}
 
 	if _, err := q.UpsertHubAgencyPointer(ctx, sqlc.UpsertHubAgencyPointerParams{
-		ContactID:         contactID,
-		HubUserDid:        hubDID,
-		AgencyOrgDid:      orgDID,
-		AgencyDisplayName: payload.AgencyDisplayName,
-		AgencyDomain:      string(payload.AgencyDomain),
-		HasConversation:   payload.HasConversation,
-		LastActivityAt:    lastActivity,
-		UnreadCount:       unreadCount,
-		ReadOnlyReason:    readOnly,
-		Suggestions:       suggestionsBytes,
-		PointerVersion:    int32(event.AggregateVersion),
-		IncrementUnread:   payload.NewAgencyMessage,
+		ContactID:           contactID,
+		HubUserDid:          hubDID,
+		AgencyOrgDid:        orgDID,
+		AgencyDisplayName:   payload.AgencyDisplayName,
+		AgencyDomain:        string(payload.AgencyDomain),
+		HasConversation:     payload.HasConversation,
+		Request:             request,
+		AgencyMayWriteUntil: dbvalue.NullTimestamp(payload.AgencyMayWriteUntil),
+		HubMayWriteUntil:    dbvalue.NullTimestamp(payload.HubMayWriteUntil),
+		LastActivityAt:      lastActivity,
+		UnreadCount:         unreadCount,
+		ReadOnlyReason:      readOnly,
+		Suggestions:         suggestionsBytes,
+		PointerVersion:      int32(event.AggregateVersion),
+		IncrementUnread:     payload.NewAgencyMessage,
 	}); err != nil {
 		return fmt.Errorf("upsert agency pointer: %w", err)
 	}
 
-	if payload.NewAgencyMessage && payload.AgencyDisplayName != "" {
+	if kind := noticeKind(payload); kind != "" && payload.AgencyDisplayName != "" {
 		if err := q.InsertHubMessageNotice(ctx, sqlc.InsertHubMessageNoticeParams{
 			HubUserDid:        hubDID,
+			Kind:              kind,
 			AgencyDisplayName: payload.AgencyDisplayName,
 		}); err != nil {
 			return fmt.Errorf("insert message notice: %w", err)
@@ -275,6 +329,25 @@ func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 		ContactID: contactID, OrgDID: orgDID, HubUserDID: hubDID,
 		Version: state.AgenciesMayMessageVersion, MessagesOff: true,
 	})
+}
+
+// Notice kinds as hub_message_notices stores them.
+const (
+	NoticeKindMessage         = "message"
+	NoticeKindRequest         = "request"
+	NoticeKindRequestAccepted = "request_accepted"
+)
+
+func noticeKind(payload federationspec.AgencyPointerChangedPayload) string {
+	switch {
+	case payload.NewAgencyMessage:
+		return NoticeKindMessage
+	case payload.NewAgencyRequest:
+		return NoticeKindRequest
+	case payload.RequestAcceptedByAgency:
+		return NoticeKindRequestAccepted
+	}
+	return ""
 }
 
 func enqueueAccountDeleted(

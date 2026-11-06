@@ -31,9 +31,12 @@ SELECT c.contact_id, c.display_name, c.handle, c.messages_off,
      WHERE n.contact_id = c.contact_id)::integer AS note_count,
     (conv.conversation_id IS NOT NULL)::boolean AS has_conversation,
     COALESCE(conv.agency_unread_count, 0)::integer AS unread_messages_count,
-    (conv.party_deleted_at IS NOT NULL)::boolean AS party_deleted
+    (conv.party_deleted_at IS NOT NULL)::boolean AS party_deleted,
+    req.direction AS pending_request_direction
 FROM vetchium.org_contacts AS c
 LEFT JOIN vetchium.org_conversations AS conv ON conv.contact_id = c.contact_id
+LEFT JOIN vetchium.org_chat_requests AS req
+    ON req.contact_id = c.contact_id AND req.state = 'pending'
 WHERE c.org_did = sqlc.arg(org_did)
   AND c.hub_user_did = sqlc.arg(hub_user_did);
 
@@ -44,10 +47,13 @@ SELECT c.contact_id, c.hub_user_did, c.display_name, c.handle, c.messages_off,
      WHERE n.contact_id = c.contact_id)::integer AS note_count,
     (conv.conversation_id IS NOT NULL)::boolean AS has_conversation,
     COALESCE(conv.agency_unread_count, 0)::integer AS unread_messages_count,
-    (conv.party_deleted_at IS NOT NULL)::boolean AS party_deleted
+    (conv.party_deleted_at IS NOT NULL)::boolean AS party_deleted,
+    req.direction AS pending_request_direction
 FROM vetchium.org_contacts AS c
 LEFT JOIN vetchium.org_users AS u ON u.org_user_id = c.created_by
 LEFT JOIN vetchium.org_conversations AS conv ON conv.contact_id = c.contact_id
+LEFT JOIN vetchium.org_chat_requests AS req
+    ON req.contact_id = c.contact_id AND req.state = 'pending'
 WHERE c.org_did = sqlc.arg(org_did)
   AND c.contact_id = sqlc.arg(contact_id);
 
@@ -58,12 +64,16 @@ SELECT c.contact_id, c.hub_user_did, c.display_name, c.handle, c.messages_off,
      WHERE n.contact_id = c.contact_id)::integer AS note_count,
     (conv.conversation_id IS NOT NULL)::boolean AS has_conversation,
     COALESCE(conv.agency_unread_count, 0)::integer AS unread_messages_count,
-    (conv.party_deleted_at IS NOT NULL)::boolean AS party_deleted
+    (conv.party_deleted_at IS NOT NULL)::boolean AS party_deleted,
+    req.direction AS pending_request_direction
 FROM vetchium.org_contacts AS c
 LEFT JOIN vetchium.org_conversations AS conv ON conv.contact_id = c.contact_id
+LEFT JOIN vetchium.org_chat_requests AS req
+    ON req.contact_id = c.contact_id AND req.state = 'pending'
 WHERE c.org_did = sqlc.arg(org_did)
   AND (
       sqlc.arg(filter)::text = 'all'
+      OR (sqlc.arg(filter)::text = 'requests' AND req.request_id IS NOT NULL)
       OR (sqlc.arg(filter)::text = 'unread' AND conv.agency_unread_count > 0)
       OR (sqlc.arg(filter)::text = 'has_conversation'
           AND conv.conversation_id IS NOT NULL)
@@ -82,12 +92,15 @@ LIMIT sqlc.arg(page_limit);
 -- How many of the agency's Contacts each Contacts tab holds (MKT-UI-007).
 -- name: CountOrgContactsByTab :one
 SELECT count(*)::integer AS all_contacts,
+    (count(req.request_id))::integer AS requests,
     (count(*) FILTER (WHERE conv.agency_unread_count > 0))::integer AS unread,
     (count(conv.conversation_id))::integer AS has_conversation,
     (count(*) FILTER (WHERE conv.conversation_id IS NULL))::integer
         AS not_contacted
 FROM vetchium.org_contacts AS c
 LEFT JOIN vetchium.org_conversations AS conv ON conv.contact_id = c.contact_id
+LEFT JOIN vetchium.org_chat_requests AS req
+    ON req.contact_id = c.contact_id AND req.state = 'pending'
 WHERE c.org_did = sqlc.arg(org_did);
 
 -- Serializes writes to one Contact's notes, conversation, and pointer, so the
@@ -415,8 +428,9 @@ WHERE c.contact_id = sqlc.arg(contact_id)
 
 -- Takes the Contact's next pointer version and reads what the pointer
 -- carries (MKT-DAT-003): the conversation's recorded agency name and domain,
--- last activity, and read-only reason, while one exists. Every pointer event
--- carries a new version, so the Hub user's tenant applies each one.
+-- last activity, read-only reason, and window, while one exists. Every
+-- pointer event carries a new version, so the Hub user's tenant applies each
+-- one.
 -- name: NextOrgContactPointer :one
 WITH bumped AS (
     UPDATE vetchium.org_contacts AS c
@@ -427,7 +441,8 @@ WITH bumped AS (
 SELECT bumped.contact_id, bumped.org_did, bumped.hub_user_did,
     bumped.pointer_version, conv.conversation_id,
     conv.recorded_agency_name, conv.recorded_agency_domain,
-    conv.last_activity_at, conv.read_only_reason
+    conv.last_activity_at, conv.read_only_reason, conv.hub_activity_at,
+    conv.agency_activity_at, conv.window_seconds
 FROM bumped
 LEFT JOIN vetchium.org_conversations AS conv
     ON conv.contact_id = bumped.contact_id;
@@ -464,20 +479,28 @@ WHERE u.hub_user_did = sqlc.arg(hub_user_did)
 INSERT INTO vetchium.hub_agency_pointers (
     contact_id, hub_user_did, agency_org_did,
     agency_display_name, agency_domain,
-    has_conversation, last_activity_at, unread_count,
+    has_conversation, has_request, request, agency_may_write_until,
+    hub_may_write_until, last_activity_at, unread_count,
     read_only_reason, suggestions, pointer_version
 )
 VALUES (
     sqlc.arg(contact_id), sqlc.arg(hub_user_did), sqlc.arg(agency_org_did),
     sqlc.arg(agency_display_name), sqlc.arg(agency_domain),
-    sqlc.arg(has_conversation), sqlc.arg(last_activity_at), sqlc.arg(unread_count),
-    sqlc.narg(read_only_reason), sqlc.arg(suggestions), sqlc.arg(pointer_version)
+    sqlc.arg(has_conversation), sqlc.narg(request)::jsonb IS NOT NULL,
+    sqlc.narg(request)::jsonb, sqlc.narg(agency_may_write_until),
+    sqlc.narg(hub_may_write_until), sqlc.arg(last_activity_at),
+    sqlc.arg(unread_count), sqlc.narg(read_only_reason), sqlc.arg(suggestions),
+    sqlc.arg(pointer_version)
 )
 ON CONFLICT (contact_id) DO UPDATE
 SET agency_org_did = EXCLUDED.agency_org_did,
     agency_display_name = EXCLUDED.agency_display_name,
     agency_domain = EXCLUDED.agency_domain,
     has_conversation = EXCLUDED.has_conversation,
+    has_request = EXCLUDED.has_request,
+    request = EXCLUDED.request,
+    agency_may_write_until = EXCLUDED.agency_may_write_until,
+    hub_may_write_until = EXCLUDED.hub_may_write_until,
     last_activity_at = EXCLUDED.last_activity_at,
     unread_count = CASE WHEN sqlc.arg(increment_unread)::boolean THEN vetchium.hub_agency_pointers.unread_count + 1 ELSE EXCLUDED.unread_count END,
     read_only_reason = EXCLUDED.read_only_reason,
@@ -593,10 +616,10 @@ FROM updated;
 
 -- name: InsertHubMessageNotice :exec
 INSERT INTO vetchium.hub_message_notices (
-    hub_user_did, agency_display_name
+    hub_user_did, kind, agency_display_name
 )
 VALUES (
-    sqlc.arg(hub_user_did), sqlc.arg(agency_display_name)
+    sqlc.arg(hub_user_did), sqlc.arg(kind), sqlc.arg(agency_display_name)
 );
 
 -- name: ClaimHubMessageNotice :one
@@ -610,9 +633,10 @@ WITH candidate AS (
     DELETE FROM vetchium.hub_message_notices AS n
     USING candidate
     WHERE n.notice_id = candidate.notice_id
-    RETURNING n.notice_id, n.hub_user_did, n.agency_display_name
+    RETURNING n.notice_id, n.hub_user_did, n.kind, n.agency_display_name
 )
-SELECT claimed.notice_id, claimed.hub_user_did, claimed.agency_display_name,
+SELECT claimed.notice_id, claimed.hub_user_did, claimed.kind,
+    claimed.agency_display_name,
     u.email_address, u.display_name, u.preferred_language, u.hub_user_state
 FROM claimed
 JOIN vetchium.hub_users AS u ON u.hub_user_did = claimed.hub_user_did;
@@ -623,7 +647,7 @@ WITH outbox AS (
         kind, recipient_email_address, preferred_language, payload_ciphertext
     )
     VALUES (
-        'agency-message-received', sqlc.arg(recipient_email_address),
+        sqlc.arg(kind), sqlc.arg(recipient_email_address),
         sqlc.arg(preferred_language), sqlc.arg(payload_ciphertext)
     )
     RETURNING hub_email_outbox_id
@@ -635,7 +659,7 @@ WITH outbox AS (
     SELECT sqlc.arg(tenant_id), 'hub.message.notice-queued',
         'hub_user', sqlc.arg(hub_user_did)::text, 'worker',
         'message-notice', 'workers',
-        jsonb_build_object('kind', 'agency-message-received'::text)
+        jsonb_build_object('kind', sqlc.arg(kind)::text)
     FROM outbox
     RETURNING audit_event_id
 )

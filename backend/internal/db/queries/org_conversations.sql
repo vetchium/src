@@ -178,6 +178,7 @@ SELECT c.conversation_id, c.contact_id, c.org_did, c.hub_user_did,
     c.recorded_hub_user_name, c.recorded_hub_user_handle,
     c.recorded_agency_name, c.recorded_agency_domain,
     c.agency_unread_count, c.read_only_reason, c.party_deleted_at,
+    c.hub_activity_at, c.agency_activity_at, c.window_seconds,
     c.created_at, c.last_activity_at, t.messages_off
 FROM vetchium.org_conversations AS c
 JOIN vetchium.org_contacts AS t ON t.contact_id = c.contact_id

@@ -1,0 +1,9 @@
+Hallo {{.DisplayName}},
+
+{{.AgencyName}} möchte auf Vetchium mit Ihnen über eine Stelle chatten.
+
+Melden Sie sich bei Vetchium an, um die Anfrage anzunehmen oder abzulehnen.
+
+{{.ActionURL}}
+
+Diese E-Mail nennt bewusst keine Inhalte der Anfrage; sie werden erst nach der Anmeldung angezeigt.

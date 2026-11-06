@@ -86,7 +86,7 @@ func ViewHubProfile(s *orgsruntime.Server) http.HandlerFunc {
 			found := summary(row.ContactID, row.DisplayName, row.Handle,
 				row.MessagesOff, row.PartyDeleted, row.LastActivityAt,
 				row.NoteCount, credited, row.HasConversation,
-				row.UnreadMessagesCount)
+				row.UnreadMessagesCount, row.PendingRequestDirection)
 			if refreshed, err := refreshNames(s, r, identity, row, read); err != nil {
 				s.InternalError(r.Context(), w, "refresh Contact names", err)
 				return

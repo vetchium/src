@@ -67,7 +67,7 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 		response := contacts.ListContactsResponse{
 			Items: []contacts.ContactSummary{},
 			Counts: contacts.ContactCounts{
-				All: tabs.AllContacts, Unread: tabs.Unread,
+				All: tabs.AllContacts, Requests: tabs.Requests, Unread: tabs.Unread,
 				HasConversation: tabs.HasConversation, NotContacted: tabs.NotContacted,
 			},
 		}
@@ -88,7 +88,7 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 			response.Items = append(response.Items, summary(row.ContactID,
 				row.DisplayName, row.Handle, row.MessagesOff, row.PartyDeleted,
 				row.LastActivityAt, row.NoteCount, credited, row.HasConversation,
-				row.UnreadMessagesCount))
+				row.UnreadMessagesCount, row.PendingRequestDirection))
 		}
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, response)
@@ -134,6 +134,17 @@ func GetContact(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		credited := creditedCounts(r.Context(), s, identity.OrgDID,
 			[]pgtype.UUID{row.HubUserDid})[dbvalue.FormatUUID(row.HubUserDid)]
+		var latest *contacts.ChatRequest
+		switch request, err := s.Queries.GetLatestOrgChatRequest(r.Context(), id); {
+		case isNoRows(err):
+		case err != nil:
+			s.InternalError(r.Context(), w, "read latest chat request", err)
+			return
+		default:
+			found := chatRequest(request.VetchiumOrgChatRequest,
+				request.HubUserName, request.HubUserHandle)
+			latest = &found
+		}
 		var createdBy *common.EmailAddress
 		if row.CreatedBy.Valid {
 			email := common.EmailAddress(row.CreatedBy.String)
@@ -144,9 +155,10 @@ func GetContact(s *orgsruntime.Server) http.HandlerFunc {
 			ContactSummary: summary(row.ContactID, row.DisplayName, row.Handle,
 				row.MessagesOff, row.PartyDeleted, row.LastActivityAt,
 				row.NoteCount, credited, row.HasConversation,
-				row.UnreadMessagesCount),
+				row.UnreadMessagesCount, row.PendingRequestDirection),
 			CreatedBy:         createdBy,
 			SuggestedOpenings: suggestedOpenings,
+			LatestRequest:     latest,
 			CreatedAt:         row.CreatedAt.Time.UTC(),
 		})
 	}

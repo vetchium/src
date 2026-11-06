@@ -224,7 +224,7 @@ func TestSyncPointerSupersedesEveryEarlierEventIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := SyncPointer(ctx, sqlc.New(tx), agency, contactID, false); err != nil {
+		if err := SyncPointer(ctx, sqlc.New(tx), agency, contactID, NoNotice); err != nil {
 			t.Fatal(err)
 		}
 		if err := tx.Commit(ctx); err != nil {

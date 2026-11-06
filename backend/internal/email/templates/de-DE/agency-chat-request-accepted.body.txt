@@ -1,0 +1,9 @@
+Hallo {{.DisplayName}},
+
+{{.AgencyName}} hat Ihre Chat-Anfrage auf Vetchium angenommen.
+
+Melden Sie sich bei Vetchium an, um das Gespräch fortzusetzen.
+
+{{.ActionURL}}
+
+Diese E-Mail nennt bewusst keine Nachrichteninhalte; sie werden erst nach der Anmeldung angezeigt.

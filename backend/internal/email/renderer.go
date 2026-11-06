@@ -26,6 +26,9 @@ const (
 	EmailChangeVerification       Kind = "email-change-verification"
 	EmailChanged                  Kind = "email-changed"
 	AgencyMessageReceived         Kind = "agency-message-received"
+	// Chat request notices (MKT-REQ-010) name the agency and never the note.
+	AgencyChatRequestReceived Kind = "agency-chat-request-received"
+	AgencyChatRequestAccepted Kind = "agency-chat-request-accepted"
 
 	// Application notices (HP-GEN-006) name the Org and Opening title and
 	// link to the application; they carry no interview, offer, or result
@@ -52,7 +55,7 @@ var hubKinds = []Kind{
 	Signup, SignupRegisteredElsewhere, PasswordReset,
 	ProfessionalEmailVerification, SubscriptionEnding,
 	EmailChangeVerification, EmailChanged,
-	AgencyMessageReceived,
+	AgencyMessageReceived, AgencyChatRequestReceived, AgencyChatRequestAccepted,
 	ApplicationStatusChanged, ApplicationInterviewScheduled,
 	ApplicationInterviewChanged, ApplicationInterviewCancelled,
 	ApplicationConsentRequested, ApplicationOfferExtended,
@@ -93,7 +96,8 @@ type TemplateData struct {
 	// points the recipient at. Unused by every other kind.
 	RegionLabel string
 
-	// AgencyName names the agency that sent a message. Unused by every other kind.
+	// AgencyName names the agency of an agency message or chat request
+	// notice. Unused by every other kind.
 	AgencyName string
 }
 
