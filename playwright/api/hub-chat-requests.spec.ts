@@ -6,6 +6,7 @@ import {
 } from "typespec/federation/marketplace";
 import type {
   HubChatRequest,
+  HubConversationDetail,
   ListConversationsResponse,
   ListOpeningAgenciesResponse,
   OpeningAgency,
@@ -1084,5 +1085,76 @@ test("MKT-REQ-009: a Hub user's request expires after 14 days with no block, and
     await awaitChatState(person, opening, domain, "none");
     const again = await hubSent(await hubSend(person, opening, domain));
     expect(again.request_id).not.toBe(asked.request_id);
+  });
+});
+
+test("MKT-HUB-001: Messages lists a request without a conversation only while it waits for the Hub user or is theirs and unaccepted, and opens the answered one", async ({
+  request,
+}) => {
+  await withAgency(request, async (agency) => {
+    const { provider } = agency.pair;
+    const [opening, other] = agency.openings;
+    const person = agency.person("sgp");
+    const listed = async (contactID: string) => {
+      const response = await person.hub.listConversations(person.token);
+      expect(response.status(), await response.text()).toBe(200);
+      return ((await response.json()) as ListConversationsResponse).items.some(
+        (item) => item.contact_id === contactID,
+      );
+    };
+    const until = (contactID: string, shown: boolean) =>
+      expect
+        .poll(() => listed(contactID), {
+          timeout: 30_000,
+          intervals: [250, 500, 1000],
+        })
+        .toBe(shown);
+
+    // An agency's request shows while pending and leaves once declined.
+    const asked = await sent(
+      await agency.send({ address: person.handle }, opening),
+    );
+    await pendingAt(person, asked);
+    await until(asked.contact_id, true);
+    const declined = await person.hub.declineChatRequest(person.token, {
+      request_id: asked.request_id,
+      scope: "opening",
+    });
+    expect(declined.status(), await declined.text()).toBe(200);
+    await until(asked.contact_id, false);
+
+    // The Hub user's own request shows while pending and once declined.
+    const own = await hubSent(
+      await hubSend(person, other, provider.org.domain),
+    );
+    await until(own.contact_id, true);
+    await agencyDeclines(agency, own.request_id, "opening");
+    await awaitHubRequest(
+      person,
+      "to_agency",
+      (item) => item.request_id === own.request_id && item.state === "declined",
+    );
+    expect(await listed(own.contact_id)).toBe(true);
+    // Opening it reads the pointer: the agency's tenant has no conversation.
+    const read = await person.hub.getConversation(person.token, {
+      contact_id: own.contact_id,
+    });
+    expect(read.status(), await read.text()).toBe(200);
+    const detail = (await read.json()) as HubConversationDetail;
+    expect(detail.messages).toEqual([]);
+    expect(detail.conversation.latest_request?.state).toBe("declined");
+
+    // An accepted request shows as its conversation, and deleting that
+    // conversation removes it for good.
+    const again = await sent(
+      await agency.send({ address: person.handle }, other),
+    );
+    await accepted(person, again);
+    await until(again.contact_id, true);
+    const deleted = await person.hub.deleteConversation(person.token, {
+      contact_id: again.contact_id,
+    });
+    expect(deleted.status(), await deleted.text()).toBe(200);
+    await until(again.contact_id, false);
   });
 });

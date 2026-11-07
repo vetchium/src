@@ -1,7 +1,7 @@
 import type { ApplicationDetail } from "typespec/orgs/applications/applications";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { seedApplication } from "../lib/hiring-seed.ts";
-import { inviteeAddress, orgSQL } from "../lib/orgs-api.ts";
+import { addOrgMember, inviteeAddress, orgSQL } from "../lib/orgs-api.ts";
 import {
   detailOf,
   orgDIDSQL,
@@ -9,10 +9,16 @@ import {
   stageOf,
 } from "../lib/orgs-applications.ts";
 import {
+  agencyRequestState,
+  personAsks,
+  withAgency,
+} from "../lib/orgs-chat-requests.ts";
+import {
   accountMenu,
   openAccountPage,
   sidebarPage,
   signIn,
+  signOut,
   withOrg,
 } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
@@ -70,6 +76,8 @@ test("Home shows the interviews waiting on the person and stays pinned in the si
       page.getByRole("heading", { name: "Home", level: 1 }),
     ).toBeVisible();
     await expect(page.getByTestId("home-upcoming-count")).toContainText("1");
+    // An Org without the sourcing Capability has no chat requests to show.
+    await expect(page.getByTestId("home-chat-requests")).toHaveCount(0);
     await expect(page.getByTestId("home-feedback-due-count")).toContainText(
       "1",
     );
@@ -214,5 +222,47 @@ test("Home warns billing managers as seats run out", async ({
     await expect(alert).toContainText("All 5 seats are in use");
     await alert.getByRole("link", { name: "Change plan" }).click();
     await expect(page).toHaveURL(`${ORGS_PORTAL}/plans`);
+  });
+});
+
+test("Home shows an agent the chat requests waiting for the agency, and not a colleague without fulfil_engagements", async ({
+  page,
+  request,
+}) => {
+  await withAgency(request, async (agency) => {
+    const { provider } = agency.pair;
+    const [opening] = agency.openings;
+    for (const name of ["Ana Early", "Ben Later"]) {
+      const person = agency.person("sgp", name);
+      const asked = await personAsks(agency, person, opening);
+      await agencyRequestState(
+        agency,
+        "to_agency",
+        asked.request_id,
+        "pending",
+      );
+    }
+    const colleague = await addOrgMember(
+      provider.api,
+      provider.owner,
+      provider.org.domain,
+      inviteeAddress(provider.org.domain, "viewer"),
+    );
+
+    await signIn(page, provider.org, provider.tenant);
+    const card = page.getByTestId("home-chat-requests");
+    await expect(card).toContainText("Chat requests (2)");
+    await expect(card.getByText("Ana Early")).toBeVisible();
+    await expect(card.getByText("Ben Later")).toBeVisible();
+    await card.getByRole("link", { name: "See all" }).click();
+    await expect(page).toHaveURL(/\/sourcing\/contacts\?tab=requests/);
+    await expect(page.getByText("Waiting for your answer")).toBeVisible();
+
+    await signOut(page);
+    await signIn(page, colleague, provider.tenant);
+    await expect(
+      page.getByRole("heading", { name: "Home", level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByTestId("home-chat-requests")).toHaveCount(0);
   });
 });

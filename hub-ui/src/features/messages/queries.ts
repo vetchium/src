@@ -238,12 +238,13 @@ export function useChatRequestAnswerAction(contactId: string) {
   const key = useIdempotencyKey();
   const lastRequest = useRef<string | null>(null);
 
-  const refresh = () =>
+  const refresh = (list = true) =>
     Promise.all([
       queryClient.invalidateQueries({
         queryKey: conversationDetailQueryKey(contactId),
       }),
-      queryClient.invalidateQueries({ queryKey: conversationsQueryKey }),
+      list &&
+        queryClient.invalidateQueries({ queryKey: conversationsQueryKey }),
       queryClient.invalidateQueries({ queryKey: chatRequestsQueryKey }),
     ]);
 
@@ -280,9 +281,23 @@ export function useChatRequestAnswerAction(contactId: string) {
       key.rotate();
       lastRequest.current = null;
       if ("conversation" in result) {
-        // The agencies list reads the pointer, whose window waits for the
-        // agency's pointer event; the accept response already carries it.
-        const until = result.conversation.hub_may_write_until;
+        // The list and the agencies list read the pointer, whose window and
+        // suggestions wait for the agency's pointer event; the accept
+        // response already carries them, so a refetch would go back in time.
+        const live = result.conversation;
+        queryClient.setQueryData<ListConversationsResponse>(
+          conversationsQueryKey,
+          (data) =>
+            data && {
+              ...data,
+              items: data.items.some((item) => item.contact_id === contactId)
+                ? data.items.map((item) =>
+                    item.contact_id === contactId ? live : item,
+                  )
+                : [live, ...data.items],
+            },
+        );
+        const until = live.hub_may_write_until;
         const open = until !== undefined && Date.parse(until) > Date.now();
         queryClient.setQueriesData<ListOpeningAgenciesResponse>(
           { queryKey: openingAgenciesQueryKey },
@@ -296,12 +311,13 @@ export function useChatRequestAnswerAction(contactId: string) {
               ),
             },
         );
-      } else {
-        await queryClient.invalidateQueries({
-          queryKey: openingAgenciesQueryKey,
-        });
+        await refresh(false);
+        return;
       }
-      await refresh();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: openingAgenciesQueryKey }),
+        refresh(),
+      ]);
     },
     onError: async (error) => {
       if (error instanceof OperationStillPendingError) return;

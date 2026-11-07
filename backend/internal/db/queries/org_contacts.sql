@@ -640,8 +640,11 @@ WITH updated AS (
 )
 SELECT count(*)::bigint FROM updated;
 
--- The Hub user's conversations and chat requests (MKT-DAT-005); a pointer
--- with neither stays hidden (MKT-CON-006).
+-- The Hub user's conversations and chat requests (MKT-DAT-005): without a
+-- conversation, only a request waiting for the Hub user or one they sent and
+-- the agency did not accept shows (MKT-HUB-001); any other pointer stays
+-- hidden (MKT-CON-006), such as an accepted request whose conversation the
+-- Hub user deleted.
 -- name: ListHubAgencyConversations :many
 SELECT contact_id, agency_org_did, agency_display_name, agency_domain,
     has_conversation, request, agency_may_write_until, hub_may_write_until,
@@ -649,6 +652,11 @@ SELECT contact_id, agency_org_did, agency_display_name, agency_domain,
 FROM vetchium.hub_agency_pointers
 WHERE hub_user_did = sqlc.arg(hub_user_did)
   AND (has_conversation OR has_request)
+  AND (has_conversation
+       OR (request->>'direction' = 'to_hub_user'
+           AND request->>'state' = 'pending')
+       OR (request->>'direction' = 'to_agency'
+           AND request->>'state' <> 'accepted'))
   AND (sqlc.narg(after_activity_at)::timestamptz IS NULL
        OR (last_activity_at, contact_id) <
            (sqlc.narg(after_activity_at)::timestamptz,

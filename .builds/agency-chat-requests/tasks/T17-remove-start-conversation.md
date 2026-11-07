@@ -51,3 +51,9 @@ finds only `video-demos/` (T19); `make test` passes.
   `startConversation`; when rewriting it, prove `send-chat-request` refused
   with `org-agency-requests-off` and open the conversation through an
   accepted request.
+- From T16: the UI specs no longer call `startConversation`. In
+  `org-conversations.spec.ts` "Hub user list, get conversation, mark read,
+  reply, and delete", once the conversation opens through an accepted
+  request, the 404 on get-conversation and the empty list after delete rely
+  on T16's rules: the list hides an accepted request without a conversation,
+  and only the Hub user's declined or expired request reads from the pointer.

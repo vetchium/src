@@ -145,6 +145,26 @@ func GetConversation(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 
+		conversation, err := summary(s, detailedPointer(pointer))
+		if err != nil {
+			s.InternalError(r.Context(), w, "read pointer", err)
+			return
+		}
+		// The Hub user's own request that the agency declined or let expire
+		// still shows (MKT-HUB-001), but the agency's tenant has nothing left
+		// to read for it.
+		if latest := conversation.LatestRequest; !pointer.HasConversation &&
+			latest != nil && latest.Direction == contacts.ToAgency &&
+			(latest.State == contacts.ChatRequestDeclined ||
+				latest.State == contacts.ChatRequestExpired) {
+			w.Header().Set("Cache-Control", "no-store")
+			s.JSON(r.Context(), w, http.StatusOK, hubmessages.HubConversationDetail{
+				Conversation: conversation,
+				Messages:     []contacts.ConversationMessage{},
+			})
+			return
+		}
+
 		limit := request.EffectiveLimit()
 		outcome, err := s.Conversations.RelayRead(r.Context(), federationspec.MeshReadConversationRequest{
 			ContactID:     request.ContactID,
@@ -168,11 +188,6 @@ func GetConversation(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 
-		conversation, err := summary(s, detailedPointer(pointer))
-		if err != nil {
-			s.InternalError(r.Context(), w, "read pointer", err)
-			return
-		}
 		if conversation.ReadOnlyReason == nil && outcome.Result.ReadOnlyReason != nil {
 			conversation.ReadOnlyReason = outcome.Result.ReadOnlyReason
 		}

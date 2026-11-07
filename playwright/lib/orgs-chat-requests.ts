@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import type {
   HubChatRequest,
   HubConversationDetail,
@@ -25,6 +26,7 @@ import {
   type Pair,
   type Provider,
   published,
+  setDisplayName,
   setOrgHome,
   withPair,
   withProvider,
@@ -40,7 +42,7 @@ export interface Agency {
   did: string;
   /** The Orgs whose records of the seeded people are removed afterwards. */
   orgs: Array<{ tenant: TestTenant; did: string }>;
-  person: (tenant?: "sgp" | "deu") => Applicant;
+  person: (tenant?: "sgp" | "deu", displayName?: string) => Applicant;
   send: (
     to: { address: string } | { contact_id: string },
     opening: OpeningSuggestion,
@@ -57,9 +59,12 @@ export interface Agency {
 export async function withAgency(
   request: Parameters<typeof withPair>[0],
   body: (agency: Agency) => Promise<void>,
+  agencyName?: string,
 ): Promise<void> {
   await withPair(request, {}, async (pair) => {
     const { consumer, provider } = pair;
+    // The engagement keeps the provider's name from when it starts.
+    if (agencyName !== undefined) await setDisplayName(provider, agencyName);
     const sourcing = await activate(pair, "sourcing");
     await asProvider(pair, sourcing.id, sourcing.version);
     const openings: OpeningSuggestion[] = [];
@@ -99,8 +104,8 @@ export async function withAgency(
         engagementID: sourcing.id,
         did,
         orgs,
-        person: (tenant = "sgp") => {
-          const applicant = seedApplicant(request, tenant);
+        person: (tenant = "sgp", displayName?: string) => {
+          const applicant = seedApplicant(request, tenant, displayName);
           people.push(applicant);
           return applicant;
         },
@@ -128,12 +133,14 @@ export async function withRival(
   tenant: TestTenant,
   openings: OpeningSuggestion[],
   body: (rival: Provider) => Promise<void>,
+  rivalName?: string,
 ): Promise<void> {
   const { consumer } = agency.pair;
   await withProvider(
     request,
     async (rival) => {
       const pair = { consumer, provider: rival };
+      if (rivalName !== undefined) await setDisplayName(rival, rivalName);
       await published(rival.api, rival.owner, listing("sourcing", "Sourcing"));
       const sourcing = await activate(pair, "sourcing");
       await asProvider(pair, sourcing.id, sourcing.version);
@@ -231,4 +238,75 @@ export async function orgRequests(
   expect(response.status(), await response.text()).toBe(200);
   expect(response.headers()["cache-control"]).toBe("no-store");
   return ((await response.json()) as ListChatRequestsResponse).items;
+}
+
+/** The person's request to the agency about `opening`, once the agency
+ * lists it. */
+export async function personAsks(
+  agency: Agency,
+  person: Applicant,
+  opening: OpeningSuggestion,
+  agencyDomain = agency.pair.provider.org.domain,
+): Promise<HubChatRequest> {
+  const response = await person.hub.sendChatRequest(person.token, {
+    domain: opening.consumer_domain,
+    opening_number: opening.opening_number,
+    agency_domain: agencyDomain,
+  });
+  expect(response.status(), await response.text()).toBe(200);
+  return (await response.json()) as HubChatRequest;
+}
+
+/** Waits until the agency lists the request in `state`. */
+export async function agencyRequestState(
+  agency: Agency,
+  direction: ChatRequest["direction"],
+  requestID: string,
+  state: ChatRequest["state"],
+): Promise<ChatRequest> {
+  let found: ChatRequest | undefined;
+  await expect
+    .poll(
+      async () => {
+        found = (await orgRequests(agency, direction)).find(
+          (item) => item.request_id === requestID,
+        );
+        return found?.state;
+      },
+      { timeout: 30_000, intervals: [250, 500, 1000] },
+    )
+    .toBe(state);
+  return found as ChatRequest;
+}
+
+/** Moves a request's sending back past the 14-day expiry in the agency's
+ * tenant, for the expiry worker to find. */
+export function backdateRequest(tenant: TestTenant, requestID: string): void {
+  sqlScalarForTenant(
+    tenant,
+    `UPDATE vetchium.org_chat_requests
+     SET sent_at = now() - interval '15 days'
+     WHERE request_id = ${sqlLiteral(requestID)}::uuid`,
+  );
+}
+
+/** Signs the browser in to the Hub portal with the seeded person's session,
+ * from the next navigation on. */
+export async function openHubAs(page: Page, person: Applicant): Promise<void> {
+  await page.addInitScript(
+    (stored) => {
+      sessionStorage.setItem("vetchium.hub.session", JSON.stringify(stored));
+    },
+    {
+      tenantId: person.tenant,
+      session: {
+        session_token: person.token,
+        session_expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+        preferred_language: "en-US",
+        resident_country: "US",
+        handle: person.handle,
+        remembered: false,
+      },
+    },
+  );
 }
