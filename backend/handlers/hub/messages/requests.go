@@ -16,6 +16,7 @@ import (
 	federationspec "github.com/vetchium/src/typespec/federation"
 	"github.com/vetchium/src/typespec/hub"
 	hubmessages "github.com/vetchium/src/typespec/hub/messages"
+	openingsspec "github.com/vetchium/src/typespec/hub/openings"
 	operationspec "github.com/vetchium/src/typespec/hub/operations"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
@@ -441,5 +442,204 @@ func DeclineChatRequest(s *hubruntime.Server) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, hubChatRequest(s, pointer.ContactID,
 			pointer.AgencyDisplayName, pointer.AgencyDomain, answered))
+	}
+}
+
+// refusal answers from the pointer what the agency would refuse
+// (MKT-REQ-003), so a plain refusal neither counts nor crosses the mesh.
+// The agency decides the rest, an older `opening` decline included.
+func (c agencyChat) refusal(opening contacts.OpeningSuggestion, now time.Time) *problem.Details {
+	if c.pointer == nil {
+		return nil
+	}
+	switch c.pointer.ReadOnlyReason.String {
+	case "agency_deleted", "hub_user_deleted":
+		return &hubproblem.HubConversationPartyDeletedError
+	}
+	switch c.state(opening, now) {
+	case hubmessages.OpeningAgencyRequestSent, hubmessages.OpeningAgencyRequestReceived:
+		return &hubproblem.HubChatRequestExistsError
+	case hubmessages.OpeningAgencyOpen:
+		return &hubproblem.HubConversationOpenError
+	case hubmessages.OpeningAgencyDeclined:
+		return &hubproblem.HubChatRequestBlockedError
+	}
+	return nil
+}
+
+// SendChatRequest asks an agency assigned to a published Opening to open a
+// conversation (MKT-REQ-002, MKT-DAT-014). The send counts toward the Hub
+// user's day before it leaves, so a request the agency refuses still counts
+// (MKT-REQ-006); a repeat of a sent request replays it uncounted and
+// unjudged.
+//
+//vetchium:multiple-commits counts the send before contacting the agency tenant, then records the confirmed request on the pointer
+func SendChatRequest(s *hubruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request hubmessages.HubSendChatRequestRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
+		if !ok {
+			return
+		}
+		identity, _ := middleware.HubIdentityFromContext(r.Context())
+		agencies, ok := openingAgencies(s, w, r, openingsspec.MeshListOpeningAgenciesRequest{
+			Domain: request.Domain, OpeningNumber: openingsspec.OpeningNumber(request.OpeningNumber),
+		})
+		if !ok {
+			return
+		}
+		index := slices.IndexFunc(agencies, func(agency openingsspec.MeshOpeningAgency) bool {
+			return agency.AgencyDomain == request.AgencyDomain
+		})
+		if index < 0 {
+			s.Problem(r.Context(), w, hubproblem.HubAgencyNotAssignedError)
+			return
+		}
+		agency := agencies[index]
+		agencyDID, err := dbvalue.ParseUUID(string(agency.AgencyOrgDID))
+		if err != nil {
+			s.InternalError(r.Context(), w, "parse agency DID", err)
+			return
+		}
+		opening := contacts.OpeningSuggestion{
+			ConsumerDomain: request.Domain, OpeningNumber: request.OpeningNumber,
+		}
+		now := s.CurrentTime()
+
+		known, err := s.Commands.Known(r.Context(), federationspec.HubChatRequestKind,
+			string(agency.AgencyOrgDID), key)
+		if err != nil {
+			s.InternalError(r.Context(), w, "find chat request operation", err)
+			return
+		}
+		if !known {
+			pointers, err := pointersByAgency(s, r, identity.UserDID, agencies[index:index+1])
+			if err != nil {
+				s.InternalError(r.Context(), w, "read agency pointer", err)
+				return
+			}
+			var chat agencyChat
+			if pointer, found := pointers[string(agency.AgencyOrgDID)]; found {
+				if chat, err = newAgencyChat(&pointer); err != nil {
+					s.InternalError(r.Context(), w, "read agency pointer", err)
+					return
+				}
+			}
+			if refusal := chat.refusal(opening, now); refusal != nil {
+				s.Problem(r.Context(), w, *refusal)
+				return
+			}
+			year, month, day := now.UTC().Date()
+			counted, err := s.Queries.IncrementHubChatRequestCreations(r.Context(),
+				sqlc.IncrementHubChatRequestCreationsParams{
+					HubUserDid: identity.UserDID,
+					Day: pgtype.Date{
+						Time: time.Date(year, month, day, 0, 0, 0, 0, time.UTC), Valid: true,
+					},
+					MaxPerDay: hubmessages.MaxChatRequestsPerDay,
+					TenantID:  s.TenantID,
+				})
+			if err != nil {
+				s.InternalError(r.Context(), w, "count chat request", err)
+				return
+			}
+			if counted.CountedRows != 1 {
+				s.Problem(r.Context(), w, hubproblem.HubChatRequestLimitReachedError)
+				return
+			}
+		}
+
+		me, err := s.Queries.GetHubPublicProfile(r.Context(), identity.UserDID)
+		if err != nil {
+			s.InternalError(r.Context(), w, "read Hub profile", err)
+			return
+		}
+		requestID, err := dbvalue.NewUUIDv7(now)
+		if err != nil {
+			s.InternalError(r.Context(), w, "mint request id", err)
+			return
+		}
+		digest, err := requestDigest(request)
+		if err != nil {
+			s.InternalError(r.Context(), w, "digest request", err)
+			return
+		}
+		outcome, err := s.Commands.Send(r.Context(), commands.Request{
+			Kind: federationspec.HubChatRequestKind,
+			Authority: commands.Principal{
+				Type: directoryspec.PrincipalOrg, DID: agencyDID,
+			},
+			AggregateID: string(agency.AgencyOrgDID),
+			Owner: commands.Owner{
+				Type: commands.OwnerHubUser, ID: dbvalue.FormatUUID(identity.UserDID),
+			},
+			IdempotencyKey: key,
+			RequestDigest:  digest,
+			Payload: federationspec.HubChatRequestPayload{
+				RequestID:          contacts.ChatRequestID(dbvalue.FormatUUID(requestID)),
+				AgencyOrgDID:       agency.AgencyOrgDID,
+				HubUserDID:         hub.HubUserDID(dbvalue.FormatUUID(identity.UserDID)),
+				HubUserDisplayName: common.DisplayName(me.DisplayName),
+				HubUserHandle:      hub.HubHandle(me.Handle),
+				ConsumerDomain:     request.Domain,
+				OpeningNumber:      request.OpeningNumber,
+				Note:               request.Note,
+				WindowSeconds:      int64(s.ConversationWindow / time.Second),
+			},
+		})
+		if errors.Is(err, commands.ErrIdempotencyConflict) {
+			s.Problem(r.Context(), w, problem.IdempotencyKeyConflictError)
+			return
+		}
+		if err != nil {
+			s.InternalError(r.Context(), w, "send hub-chat-request", err)
+			return
+		}
+		switch outcome.State {
+		case commands.StateSucceeded:
+			var result federationspec.HubChatRequestResult
+			if err := json.Unmarshal(outcome.Response.Body, &result); err != nil ||
+				len(result.Validate()) != 0 {
+				s.InternalError(r.Context(), w, "decode sent request",
+					fmt.Errorf("invalid hub-chat-request result: %v", err))
+				return
+			}
+			contactID, err := dbvalue.ParseUUID(string(result.ContactID))
+			if err != nil {
+				s.InternalError(r.Context(), w, "parse Contact id", err)
+				return
+			}
+			stored, err := json.Marshal(result.Request)
+			if err != nil {
+				s.InternalError(r.Context(), w, "encode sent request", err)
+				return
+			}
+			if _, err := s.Queries.RecordHubSentChatRequest(r.Context(),
+				sqlc.RecordHubSentChatRequestParams{
+					ContactID: contactID, HubUserDid: identity.UserDID,
+					AgencyOrgDid:      agencyDID,
+					AgencyDisplayName: agency.AgencyDisplayName,
+					AgencyDomain:      string(agency.AgencyDomain),
+					Request:           stored, TenantID: s.TenantID,
+				}); err != nil {
+				s.InternalError(r.Context(), w, "record sent request", err)
+				return
+			}
+			w.Header().Set("Cache-Control", "no-store")
+			s.JSON(r.Context(), w, http.StatusOK, hubChatRequest(s, contactID,
+				agency.AgencyDisplayName, string(agency.AgencyDomain), result.Request))
+		case commands.StateFailed:
+			writeRejection(s, w, r, outcome.Response)
+		case commands.StatePending:
+			w.Header().Set("Cache-Control", "no-store")
+			s.JSON(r.Context(), w, http.StatusAccepted, operationspec.PendingOperation{
+				OperationID: operationspec.OperationID(dbvalue.FormatUUID(outcome.OperationID)),
+			})
+		default:
+			s.Problem(r.Context(), w, hubproblem.OrgUnavailableError)
+		}
 	}
 }

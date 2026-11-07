@@ -543,8 +543,9 @@ func (p AgencyPointerChangedPayload) Validate() []string {
 }
 
 // Chat request commands go from the Hub user's tenant to the agency's
-// tenant, which is authoritative for requests (MKT-DAT-005). Their aggregate
-// id is the request id.
+// tenant, which is authoritative for requests (MKT-DAT-005). A request's
+// aggregate id is the agency Org DID, so a repeat replays the request it
+// first minted; an answer's is the request id.
 const (
 	HubChatRequestKind       CommandKind = "hub-chat-request"
 	HubChatRequestAnswerKind CommandKind = "hub-chat-request-answer"
@@ -586,6 +587,24 @@ func (p HubChatRequestPayload) Validate() []string {
 	}
 	if p.WindowSeconds < 1 {
 		fields = append(fields, "window_seconds")
+	}
+	return fields
+}
+
+// HubChatRequestResult is the stored 200 result of hub-chat-request.
+type HubChatRequestResult struct {
+	ContactID contacts.ContactID   `json:"contact_id"`
+	Request   AgencyPointerRequest `json:"request"`
+}
+
+func (r HubChatRequestResult) Validate() []string {
+	fields := []string{}
+	if !contacts.IsContactID(r.ContactID) {
+		fields = append(fields, "contact_id")
+	}
+	fields = append(fields, r.Request.Validate()...)
+	if r.Request.Direction != contacts.ToAgency {
+		fields = append(fields, "request.direction")
 	}
 	return fields
 }

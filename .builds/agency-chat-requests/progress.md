@@ -1,7 +1,7 @@
 # Agency chat requests build progress
 
 branch: agency-chat-requests
-current: T07
+current: T08
 phase: implement
 
 ## Tasks
@@ -17,7 +17,7 @@ T06 done Playwright: Agency chat requests and the conversation window
 
 ### M2 Hub requests to agencies
 
-T07 todo Hub: Agencies on an Opening and Hub chat requests
+T07 done Hub: Agencies on an Opening and Hub chat requests
 T08 todo Orgs: Answer Hub chat requests
 T09 todo Workers: Expire chat requests and lift blocks
 T10 todo Marketplace: Requests setting replaces the messages setting

@@ -120,3 +120,40 @@ LEFT JOIN LATERAL (
       AND o.opening_number = sqlc.arg(opening_number)::integer
       AND o.opening_state IN ('published', 'paused', 'closed', 'expired')
 ) AS opening ON true;
+
+-- The agencies a Hub user may ask about a `published` Opening (MKT-DAT-014):
+-- active `sourcing` engagements assigned to the whole Opening. No row when
+-- the Org is not homed here; published is false for any other Opening.
+-- name: ListPublicOpeningAgencies :one
+WITH owning_org AS (
+    SELECT o.org_did
+    FROM vetchium.org_domains AS d
+    JOIN vetchium.orgs AS o ON o.org_did = d.org_did
+    WHERE d.domain = sqlc.arg(domain)
+      AND d.domain_state IN ('verified', 'failing', 'releasing')
+      AND o.org_state = 'active'
+), opening AS (
+    SELECT o.org_opening_id
+    FROM owning_org AS org
+    JOIN vetchium.org_openings AS o ON o.org_did = org.org_did
+    WHERE o.opening_number = sqlc.arg(opening_number)::integer
+      AND o.opening_state = 'published'
+      AND o.expires_at > now()
+)
+SELECT EXISTS (SELECT 1 FROM opening) AS published,
+    COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+                'agency_org_did', e.provider_org_did,
+                'agency_domain', e.provider_domain,
+                'agency_display_name', e.provider_display_name)
+            ORDER BY a.assigned_at, a.assignment_id)
+        FROM opening
+        JOIN vetchium.org_engagement_assignments AS a
+          ON a.org_opening_id = opening.org_opening_id
+         AND a.org_opening_stage_id IS NULL
+        JOIN vetchium.org_engagements AS e
+          ON e.engagement_id = a.engagement_id
+         AND e.capability_oid = 'sourcing'
+         AND e.engagement_state = 'active'
+    ), '[]'::jsonb)::text AS agencies_json
+FROM owning_org;

@@ -505,7 +505,10 @@ export interface AgencyPointerSuggestion {
   sent_at: string;
 }
 
-/** Chat request commands from the Hub user's tenant; the aggregate is the request id. */
+/**
+ * Chat request commands from the Hub user's tenant. A request's aggregate is
+ * the agency Org DID; an answer's is the request id.
+ */
 export const HubChatRequestKind: CommandKind = "hub-chat-request";
 export const HubChatRequestAnswerKind: CommandKind = "hub-chat-request-answer";
 
@@ -569,6 +572,23 @@ export function validateHubChatRequestPayload(
   )
     fields.push("note");
   if (!isWindowSeconds(payload.window_seconds)) fields.push("window_seconds");
+  return fields;
+}
+
+/** The stored `200` result of `hub-chat-request`. */
+export interface HubChatRequestResult {
+  contact_id: ContactID;
+  request: AgencyPointerRequest;
+}
+
+export function validateHubChatRequestResult(
+  result: HubChatRequestResult,
+): string[] {
+  const fields: string[] = [];
+  if (!isContactID(result.contact_id)) fields.push("contact_id");
+  fields.push(...validateAgencyPointerRequest(result.request));
+  if (result.request.direction !== "to_agency")
+    fields.push("request.direction");
   return fields;
 }
 

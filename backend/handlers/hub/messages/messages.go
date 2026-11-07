@@ -539,6 +539,18 @@ func writeRejection(
 		case hubproblem.HubConversationClosedError.Type:
 			s.Problem(r.Context(), w, hubproblem.HubConversationClosedError)
 			return
+		case hubproblem.HubAgencyNotAssignedError.Type:
+			s.Problem(r.Context(), w, hubproblem.HubAgencyNotAssignedError)
+			return
+		case hubproblem.HubChatRequestExistsError.Type:
+			s.Problem(r.Context(), w, hubproblem.HubChatRequestExistsError)
+			return
+		case hubproblem.HubConversationOpenError.Type:
+			s.Problem(r.Context(), w, hubproblem.HubConversationOpenError)
+			return
+		case hubproblem.HubChatRequestBlockedError.Type:
+			s.Problem(r.Context(), w, hubproblem.HubChatRequestBlockedError)
+			return
 		}
 	}
 	s.Problem(r.Context(), w, hubproblem.OrgUnavailableError)

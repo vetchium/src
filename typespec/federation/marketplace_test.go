@@ -284,6 +284,19 @@ func TestHubChatRequestCommands(t *testing.T) {
 		t.Fatalf("request fields = %v, want %v", got, want)
 	}
 
+	sent := HubChatRequestResult{ContactID: contactID, Request: AgencyPointerRequest{
+		RequestID: requestID, Direction: contacts.ToAgency, State: contacts.ChatRequestPending,
+		ConsumerDomain: "client.test", OpeningNumber: 7, SentAt: time.Unix(1, 0),
+	}}
+	if got := sent.Validate(); len(got) != 0 {
+		t.Fatalf("valid result rejected: %v", got)
+	}
+	toHub := sent
+	toHub.Request.Direction = contacts.ToHubUser
+	if got := toHub.Validate(); !slices.Equal(got, []string{"request.direction"}) {
+		t.Fatalf("a request to the Hub user is not this result, fields = %v", got)
+	}
+
 	scope := contacts.DeclineSender
 	badScope := contacts.ChatRequestDeclineScope("forever")
 	answer := HubChatRequestAnswerPayload{

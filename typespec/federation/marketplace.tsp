@@ -246,7 +246,8 @@ scalar ConversationWindowSeconds extends int64;
 /**
  * Payload of `hub-chat-request`: a Hub user asks an agency assigned to a
  * `published` Opening to open the conversation (MKT-DAT-014). The Hub tenant
- * mints the request id, which is the aggregate; the authority is the agency
+ * mints the request id; the aggregate is the agency Org DID, so a repeat
+ * with the same key replays the first request. The authority is the agency
  * Org and the initiator the Hub user.
  */
 model HubChatRequestPayload {
@@ -259,6 +260,15 @@ model HubChatRequestPayload {
   opening_number: Vetchium.Orgs.Openings.OpeningNumber;
   note?: Vetchium.Orgs.Marketplace.Contacts.ChatRequestNote;
   window_seconds: ConversationWindowSeconds;
+}
+
+/**
+ * The stored `200` result of `hub-chat-request`: the agency's Contact on the
+ * Hub user and the request as the pointer keeps it.
+ */
+model HubChatRequestResult {
+  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  request: AgencyPointerRequest;
 }
 
 /**

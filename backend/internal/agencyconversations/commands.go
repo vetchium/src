@@ -31,6 +31,7 @@ import (
 func Register(registry *commands.Registry) {
 	registry.Register(federationspec.HubConversationReplyKind, handleReply, HubUserInitiator)
 	registry.Register(federationspec.HubConversationDeleteKind, handleDelete, HubUserInitiator)
+	registry.Register(federationspec.HubChatRequestKind, handleChatRequest, HubUserInitiator)
 	registry.Register(federationspec.HubChatRequestAnswerKind, handleChatRequestAnswer, HubUserInitiator)
 }
 

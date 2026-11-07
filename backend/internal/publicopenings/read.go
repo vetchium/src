@@ -32,6 +32,9 @@ type Queries interface {
 	GetPublicOrgOpening(
 		context.Context, sqlc.GetPublicOrgOpeningParams,
 	) (sqlc.GetPublicOrgOpeningRow, error)
+	ListPublicOpeningAgencies(
+		context.Context, sqlc.ListPublicOpeningAgenciesParams,
+	) (sqlc.ListPublicOpeningAgenciesRow, error)
 }
 
 type LogoSigner interface {
@@ -215,4 +218,33 @@ func (r Reader) Get(
 		return openingsspec.GetOrgOpeningResponse{}, err
 	}
 	return openingsspec.GetOrgOpeningResponse{Org: org, Opening: *opening}, nil
+}
+
+// Agencies lists the agencies assigned to a published Opening of an Org this
+// tenant homes (MKT-DAT-014).
+func (r Reader) Agencies(
+	ctx context.Context, request openingsspec.MeshListOpeningAgenciesRequest,
+) (openingsspec.MeshListOpeningAgenciesResponse, error) {
+	row, err := r.Queries.ListPublicOpeningAgencies(
+		ctx, sqlc.ListPublicOpeningAgenciesParams{
+			Domain:        string(request.Domain),
+			OpeningNumber: int32(request.OpeningNumber),
+		},
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return openingsspec.MeshListOpeningAgenciesResponse{}, ErrOrgNotFound
+	}
+	if err != nil {
+		return openingsspec.MeshListOpeningAgenciesResponse{}, err
+	}
+	if !row.Published {
+		return openingsspec.MeshListOpeningAgenciesResponse{}, ErrOpeningNotFound
+	}
+	response := openingsspec.MeshListOpeningAgenciesResponse{
+		Items: []openingsspec.MeshOpeningAgency{},
+	}
+	if err := json.Unmarshal([]byte(row.AgenciesJson), &response.Items); err != nil {
+		return openingsspec.MeshListOpeningAgenciesResponse{}, fmt.Errorf("decode Opening agencies: %w", err)
+	}
+	return response, nil
 }

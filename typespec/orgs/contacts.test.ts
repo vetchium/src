@@ -15,6 +15,7 @@ import {
   validateHubAgencyMessagesChangedPayload,
   validateHubChatRequestAnswerPayload,
   validateHubChatRequestPayload,
+  validateHubChatRequestResult,
   validateHubConversationDeletePayload,
   validateHubConversationReplyPayload,
   validateMeshReadConversationRequest,
@@ -462,6 +463,24 @@ test("chat request commands carry the window and a scope only when declining", (
       window_seconds: 0,
     }),
     ["note", "window_seconds"],
+  );
+  const sent = {
+    contact_id,
+    request: {
+      request_id,
+      direction: "to_agency" as const,
+      state: "pending" as const,
+      ...opening,
+      sent_at: "2026-01-01T00:00:00Z",
+    },
+  };
+  assert.deepEqual(validateHubChatRequestResult(sent), []);
+  assert.deepEqual(
+    validateHubChatRequestResult({
+      ...sent,
+      request: { ...sent.request, direction: "to_hub_user" },
+    }),
+    ["request.direction"],
   );
   const answer = {
     request_id,

@@ -176,6 +176,36 @@ SELECT (SELECT count(*) FROM created) AS created_rows,
     (SELECT count(*) FROM counted) AS counted_rows,
     (SELECT count(*) FROM audit) AS audit_rows;
 
+-- Creates the Contact a Hub user's chat request needs. It has no creator and
+-- does not count toward the agency's daily Contacts (MKT-CON-005); the
+-- caller holds the Org lock and found no Contact for the person.
+-- name: CreateOrgContactForHubRequest :one
+WITH created AS (
+    INSERT INTO vetchium.org_contacts (
+        contact_id, org_did, hub_user_did, display_name, handle
+    )
+    VALUES (
+        sqlc.arg(contact_id), sqlc.arg(org_did), sqlc.arg(hub_user_did),
+        sqlc.arg(display_name), sqlc.arg(handle)
+    )
+    RETURNING contact_id
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, subject_org_did, source, idempotency_key,
+        payload
+    )
+    SELECT sqlc.arg(tenant_id), 'org.contact.created', 'org_contact',
+        created.contact_id::text, 'hub_user', sqlc.arg(hub_user_did)::uuid::text,
+        sqlc.arg(hub_user_did), sqlc.arg(org_did), sqlc.arg(source)::text,
+        sqlc.narg(idempotency_key),
+        jsonb_build_object('action', 'created', 'by', 'chat_request')
+    FROM created
+    RETURNING audit_event_id
+)
+SELECT (SELECT count(*) FROM created) AS created_rows,
+    (SELECT count(*) FROM audit) AS audit_rows;
+
 -- Refreshes the name and handle a Contact records, when they differ from the
 -- profile just read (MKT-CON-001). No row changes when they match.
 -- name: RefreshOrgContactNames :one
@@ -608,6 +638,54 @@ SELECT contact_id, hub_user_did, agency_org_did, agency_display_name, agency_dom
 FROM vetchium.hub_agency_pointers
 WHERE contact_id = sqlc.arg(contact_id)
   AND hub_user_did = sqlc.arg(hub_user_did);
+
+-- The Hub user's pointers to the agencies an Opening lists (MKT-HUB-005).
+-- name: ListHubAgencyPointersForAgencies :many
+SELECT contact_id, agency_org_did, has_conversation, request,
+    hub_may_write_until, read_only_reason
+FROM vetchium.hub_agency_pointers
+WHERE hub_user_did = sqlc.arg(hub_user_did)
+  AND agency_org_did = ANY(sqlc.arg(agency_org_dids)::uuid[]);
+
+-- Records the Hub user's request, as the agency confirmed it, before the
+-- agency's pointer event arrives; the first event supersedes it. A replay,
+-- or the event arriving first, changes nothing.
+-- name: RecordHubSentChatRequest :one
+WITH recorded AS (
+    INSERT INTO vetchium.hub_agency_pointers AS p (
+        contact_id, hub_user_did, agency_org_did, agency_display_name,
+        agency_domain, has_request, request, last_activity_at, pointer_version
+    )
+    VALUES (
+        sqlc.arg(contact_id), sqlc.arg(hub_user_did), sqlc.arg(agency_org_did),
+        sqlc.arg(agency_display_name), sqlc.arg(agency_domain), true,
+        sqlc.arg(request)::jsonb,
+        (sqlc.arg(request)::jsonb ->> 'sent_at')::timestamptz, 1
+    )
+    ON CONFLICT (contact_id) DO UPDATE
+    SET has_request = true, request = EXCLUDED.request,
+        last_activity_at = GREATEST(p.last_activity_at, EXCLUDED.last_activity_at)
+    WHERE p.hub_user_did = EXCLUDED.hub_user_did
+      AND (NOT p.has_request
+          OR (p.request ->> 'sent_at')::timestamptz
+              < (EXCLUDED.request ->> 'sent_at')::timestamptz)
+    RETURNING p.contact_id, p.hub_user_did
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, source, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'hub.agency-chat-request.sent',
+        'hub_agency_pointer', recorded.contact_id::text, 'hub_user',
+        recorded.hub_user_did::text, recorded.hub_user_did, 'hub-api',
+        jsonb_build_object(
+            'contact_id', recorded.contact_id::text,
+            'request_id', sqlc.arg(request)::jsonb ->> 'request_id'
+        )
+    FROM recorded
+    RETURNING audit_event_id
+)
+SELECT count(*)::bigint FROM recorded;
 
 -- The pointer whose latest request has the id.
 -- name: GetHubAgencyPointerByRequest :one

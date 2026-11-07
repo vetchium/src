@@ -39,3 +39,4 @@ Playwright UI in T16.
 A Hub user sees an Opening's agencies and requests a chat from the page.
 
 ## Carried over
+- From T07: `list-opening-agencies` returns `chat_state` per agency: `none` or `closed` offer Request; `request_sent` shows pending; `request_received` offers Accept (MKT-REQ-003); `open` links to the conversation by `contact_id`; `declined` shows `latest_request.decline_scope` and `blocked_until`.

@@ -33,6 +33,12 @@ func (s *queryStub) GetPublicOrgOpening(
 	panic("unexpected get")
 }
 
+func (s *queryStub) ListPublicOpeningAgencies(
+	context.Context, sqlc.ListPublicOpeningAgenciesParams,
+) (sqlc.ListPublicOpeningAgenciesRow, error) {
+	return sqlc.ListPublicOpeningAgenciesRow{}, nil
+}
+
 type logoStub struct{ calls int }
 
 func (s *logoStub) SignLogoGet(_ context.Context, _ pgtype.UUID) (string, error) {

@@ -156,6 +156,77 @@ func PeerGetOrgOpening(s *meshapi.Server) http.HandlerFunc {
 	}
 }
 
+// RelayListOpeningAgencies answers for an Org this tenant homes, else asks
+// the Org's home tenant (MKT-DAT-014).
+func RelayListOpeningAgencies(s *meshapi.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !authenticateRelay(s.Runtime, w, r, s.Credential) {
+			return
+		}
+		var request openingsspec.MeshListOpeningAgenciesRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		result, err := s.PublicOpenings.Agencies(r.Context(), request)
+		if errors.Is(err, publicopenings.ErrOrgNotFound) {
+			home, ok := resolveOpeningHome(s, w, r, request.Domain)
+			if !ok {
+				return
+			}
+			if string(home) == s.TenantID {
+				s.Problem(r.Context(), w, hubproblem.OrgNotFoundError)
+				return
+			}
+			outcome, peerErr := s.Openings.PeerAgencies(r.Context(), home, request)
+			if peerErr != nil {
+				s.Problem(r.Context(), w, hubproblem.OrgUnavailableError)
+				return
+			}
+			if outcome.Problem != nil {
+				writeOpeningPeerProblem(s, w, r, outcome.Problem.Type)
+				return
+			}
+			result = *outcome.Result
+		} else if errors.Is(err, publicopenings.ErrOpeningNotFound) {
+			s.Problem(r.Context(), w, hubproblem.OpeningNotFoundError)
+			return
+		} else if err != nil {
+			s.InternalError(r.Context(), w, "list local Opening agencies", err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, result)
+	}
+}
+
+func PeerListOpeningAgencies(s *meshapi.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := meshidentity.TenantFromContext(r.Context()); !ok {
+			s.Problem(r.Context(), w, hubproblem.OrgNotFoundError)
+			return
+		}
+		var request openingsspec.MeshListOpeningAgenciesRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		result, err := s.PublicOpenings.Agencies(r.Context(), request)
+		if errors.Is(err, publicopenings.ErrOrgNotFound) {
+			s.Problem(r.Context(), w, hubproblem.OrgNotFoundError)
+			return
+		}
+		if errors.Is(err, publicopenings.ErrOpeningNotFound) {
+			s.Problem(r.Context(), w, hubproblem.OpeningNotFoundError)
+			return
+		}
+		if err != nil {
+			s.InternalError(r.Context(), w, "list peer Opening agencies", err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, result)
+	}
+}
+
 func resolveOpeningHome(
 	s *meshapi.Server, w http.ResponseWriter, r *http.Request,
 	domain orgs.OrgDomain,

@@ -17,6 +17,8 @@ import (
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	openingsspec "github.com/vetchium/src/typespec/hub/openings"
+	"github.com/vetchium/src/typespec/orgs"
+	"github.com/vetchium/src/typespec/orgs/marketplace"
 	"github.com/vetchium/src/typespec/problem"
 )
 
@@ -31,6 +33,11 @@ type ListOutcome struct {
 
 type GetOutcome struct {
 	Result  *openingsspec.GetOrgOpeningResponse
+	Problem *problem.Details
+}
+
+type AgenciesOutcome struct {
+	Result  *openingsspec.MeshListOpeningAgenciesResponse
 	Problem *problem.Details
 }
 
@@ -82,6 +89,21 @@ func (c *Client) RelayGet(
 	return GetOutcome{Result: &result}, nil
 }
 
+func (c *Client) RelayAgencies(
+	ctx context.Context, request openingsspec.MeshListOpeningAgenciesRequest,
+) (AgenciesOutcome, error) {
+	var result openingsspec.MeshListOpeningAgenciesResponse
+	problem, err := c.read(ctx, c.baseURL+"/mesh/org-openings/agencies",
+		request, nil, &result)
+	if err != nil || problem != nil {
+		return AgenciesOutcome{Problem: problem}, err
+	}
+	if err := validateAgencies(result); err != nil {
+		return AgenciesOutcome{}, err
+	}
+	return AgenciesOutcome{Result: &result}, nil
+}
+
 func (c *Client) PeerList(
 	ctx context.Context, tenant directoryspec.TenantID,
 	request openingsspec.ListOrgOpeningsRequest,
@@ -118,6 +140,25 @@ func (c *Client) PeerGet(
 		return GetOutcome{}, err
 	}
 	return GetOutcome{Result: &result}, nil
+}
+
+func (c *Client) PeerAgencies(
+	ctx context.Context, tenant directoryspec.TenantID,
+	request openingsspec.MeshListOpeningAgenciesRequest,
+) (AgenciesOutcome, error) {
+	endpoint, tlsConfig, err := c.peerEndpoint(tenant, "agencies")
+	if err != nil {
+		return AgenciesOutcome{}, err
+	}
+	var result openingsspec.MeshListOpeningAgenciesResponse
+	problem, err := c.read(ctx, endpoint, request, tlsConfig, &result)
+	if err != nil || problem != nil {
+		return AgenciesOutcome{Problem: problem}, err
+	}
+	if err := validateAgencies(result); err != nil {
+		return AgenciesOutcome{}, err
+	}
+	return AgenciesOutcome{Result: &result}, nil
 }
 
 func (c *Client) peerEndpoint(
@@ -244,6 +285,21 @@ func validateGet(
 		}
 	default:
 		return ErrInvalidResponse
+	}
+	return nil
+}
+
+// validateAgencies bounds the list by the cap on sourcing assignments per
+// Opening.
+func validateAgencies(result openingsspec.MeshListOpeningAgenciesResponse) error {
+	if result.Items == nil || len(result.Items) > marketplace.MaxOpeningAgencies {
+		return ErrInvalidResponse
+	}
+	for _, agency := range result.Items {
+		if !orgs.IsOrgDID(agency.AgencyOrgDID) || !orgs.IsOrgDomain(agency.AgencyDomain) ||
+			agency.AgencyDisplayName == "" {
+			return ErrInvalidResponse
+		}
 	}
 	return nil
 }
