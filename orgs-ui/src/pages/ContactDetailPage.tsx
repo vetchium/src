@@ -1,8 +1,14 @@
-import { DeleteOutlined, EditOutlined, SendOutlined } from "@ant-design/icons";
+import {
+  DeleteOutlined,
+  EditOutlined,
+  MessageOutlined,
+  SendOutlined,
+} from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
 import {
   Alert,
+  App,
   Avatar,
   Breadcrumb,
   Button,
@@ -13,10 +19,8 @@ import {
   Form,
   Input,
   Modal,
-  message,
   Popconfirm,
   Row,
-  Select,
   Space,
   Table,
   Tabs,
@@ -29,7 +33,9 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import type { CreditedApplicationSummary } from "typespec/orgs/marketplace/attribution";
 import type { ContactOpeningSuggestion } from "typespec/orgs/marketplace/contacts/contacts";
+import { isDefiniteRefusal } from "../api/client";
 import { paths } from "../app/paths";
+import { ChatRequestBanner } from "../features/marketplace/ChatRequestBanner";
 import {
   getInitials,
   hubStatusColors,
@@ -45,24 +51,27 @@ import {
   useCreditedApplicationsQuery,
   useDeleteContactNoteMutation,
   useEditContactNoteMutation,
-  useJobsQuery,
   useMarkConversationReadMutation,
   useSendMessageMutation,
-  useStartConversationMutation,
   useViewHubProfileQuery,
 } from "../features/marketplace/queries";
+import { SendChatRequestModal } from "../features/marketplace/SendChatRequestModal";
+import {
+  JobPicker,
+  openingFromKey,
+} from "../features/marketplace/SuggestionSelect";
 
 export function ContactDetailPage() {
   const { t } = useTranslation();
   const { date, time } = useDateTimeFormat();
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const { message } = App.useApp();
 
   const noteKey = useIdempotencyKey("add-contact-note");
   const editNoteKey = useIdempotencyKey("edit-contact-note");
   const deleteNoteKey = useIdempotencyKey("delete-contact-note");
   const sendMsgKey = useIdempotencyKey("send-contact-msg");
-  const startConvKey = useIdempotencyKey("start-contact-conv");
 
   const contactQuery = useContactQuery(id);
   const contact = contactQuery.data;
@@ -88,9 +97,6 @@ export function ContactDetailPage() {
   const pub = profileData?.profile;
   const verifiedDomains = profileData?.verified_domains ?? [];
 
-  const jobsQuery = useJobsQuery({ state: "published" });
-  const activeJobs = jobsQuery.data?.jobs ?? [];
-
   const creditedQuery = useCreditedApplicationsQuery({ contact_id: id });
   const creditedApps = creditedQuery.data?.items ?? [];
 
@@ -99,7 +105,6 @@ export function ContactDetailPage() {
   const editNoteMutation = useEditContactNoteMutation(id);
   const deleteNoteMutation = useDeleteContactNoteMutation(id);
   const sendMsgMutation = useSendMessageMutation(id);
-  const startConvMutation = useStartConversationMutation();
   const markReadMutation = useMarkConversationReadMutation(id);
 
   // Mark conversation read if unread
@@ -110,17 +115,18 @@ export function ContactDetailPage() {
     }
   }, [conversation?.agency_unread, markReadMutate]);
 
-  // Tab state
-  const defaultTab = contact?.has_conversation ? "conversation" : "notes";
-  const [activeTab, setActiveTab] = useState<string>(defaultTab);
-
-  // Sync tab when contact loads if user hasn't switched
-  const hasConversation = contact?.has_conversation;
+  // MKT-UI-008: Conversation is the default tab once a conversation or
+  // request exists, Notes otherwise.
+  const showConversation =
+    contact === undefined
+      ? undefined
+      : contact.has_conversation || contact.latest_request !== undefined;
+  const [activeTab, setActiveTab] = useState<string>("notes");
   useEffect(() => {
-    if (hasConversation !== undefined) {
-      setActiveTab(hasConversation ? "conversation" : "notes");
+    if (showConversation !== undefined) {
+      setActiveTab(showConversation ? "conversation" : "notes");
     }
-  }, [hasConversation]);
+  }, [showConversation]);
 
   // Note form state
   const [noteText, setNoteText] = useState("");
@@ -132,10 +138,7 @@ export function ContactDetailPage() {
   const [suggestOpeningModalOpen, setSuggestOpeningModalOpen] = useState(false);
   const [selectedOpeningKey, setSelectedOpeningKey] = useState<string>();
 
-  // First message modal state (when contact has no conversation)
-  const [firstMessageModalOpen, setFirstMessageModalOpen] = useState(false);
-  const [firstMsgText, setFirstMsgText] = useState("");
-  const [firstMsgOpeningKey, setFirstMsgOpeningKey] = useState<string>();
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
 
   if (contactQuery.isLoading) {
     return <Card loading style={{ width: "100%" }} />;
@@ -154,8 +157,12 @@ export function ContactDetailPage() {
   const firstName = contact.display_name.split(/\s+/)[0];
   const isRequestsOff = contact.requests_off;
   const isPartyDeleted =
-    conversation?.read_only_reason === "hub_user_deleted" ||
-    conversation?.read_only_reason === "agency_deleted";
+    contact.account_deleted || conversation?.read_only_reason !== undefined;
+  const writableUntil = conversation?.agency_may_write_until;
+  const mayWrite =
+    !isPartyDeleted &&
+    writableUntil !== undefined &&
+    Date.parse(writableUntil) > Date.now();
 
   // Handlers for notes
   const handleAddNote = async () => {
@@ -223,70 +230,29 @@ export function ContactDetailPage() {
         },
         key: sendMsgKey.current(),
       });
+      sendMsgKey.rotate();
       setMessageText("");
-    } catch {
+    } catch (error) {
+      if (isDefiniteRefusal(error)) sendMsgKey.rotate();
       message.error(t("marketplace.contacts.messageSendError"));
     }
   };
 
   const handleSendSuggestion = async () => {
-    if (!selectedOpeningKey) return;
-    const parts = selectedOpeningKey.split("::");
-    const domain = parts[0];
-    const numStr = parts[1];
-    if (!domain || !numStr) return;
+    const suggestion = openingFromKey(selectedOpeningKey);
+    if (suggestion === undefined) return;
     try {
       await sendMsgMutation.mutateAsync({
-        request: {
-          contact_id: id,
-          suggestion: {
-            consumer_domain: domain,
-            opening_number: Number(numStr),
-          },
-        },
+        request: { contact_id: id, suggestion },
         key: sendMsgKey.current(),
       });
+      sendMsgKey.rotate();
       message.success(t("marketplace.jobs.suggestSuccess"));
       setSuggestOpeningModalOpen(false);
       setSelectedOpeningKey(undefined);
-    } catch {
+    } catch (error) {
+      if (isDefiniteRefusal(error)) sendMsgKey.rotate();
       message.error(t("marketplace.jobs.suggestError"));
-    }
-  };
-
-  const handleSendFirstMessage = async () => {
-    if (!firstMsgText.trim() && !firstMsgOpeningKey) return;
-    let suggestion:
-      | { consumer_domain: string; opening_number: number }
-      | undefined;
-    if (firstMsgOpeningKey) {
-      const parts = firstMsgOpeningKey.split("::");
-      const dom = parts[0];
-      const numStr = parts[1];
-      if (dom && numStr) {
-        suggestion = {
-          consumer_domain: dom,
-          opening_number: Number(numStr),
-        };
-      }
-    }
-    try {
-      await startConvMutation.mutateAsync({
-        request: {
-          address: contact.handle,
-          ...(firstMsgText.trim() && { text: firstMsgText.trim() }),
-          ...(suggestion && { suggestion }),
-        },
-        key: startConvKey.current(),
-      });
-      message.success(t("marketplace.contacts.conversationStartedSuccess"));
-      setFirstMessageModalOpen(false);
-      setFirstMsgText("");
-      setFirstMsgOpeningKey(undefined);
-      void contactQuery.refetch();
-      void conversationQuery.refetch();
-    } catch {
-      message.error(t("marketplace.contacts.conversationStartedError"));
     }
   };
 
@@ -348,7 +314,7 @@ export function ContactDetailPage() {
 
   // Tabs definition
   const tabItems = [
-    ...(contact.has_conversation
+    ...(showConversation
       ? [
           {
             key: "conversation",
@@ -359,9 +325,10 @@ export function ContactDetailPage() {
                   <Alert
                     type="warning"
                     showIcon
-                    message={t("marketplace.contacts.accountDeletedBanner")}
+                    title={t("marketplace.contacts.accountDeletedBanner")}
                   />
                 )}
+                <ChatRequestBanner contact={contact} />
 
                 {/* Conversation message bubbles */}
                 <div
@@ -426,6 +393,43 @@ export function ContactDetailPage() {
                           </div>
                         )}
 
+                        {msg.kind === "request" && msg.suggestion && (
+                          <Card
+                            size="small"
+                            style={{ borderRadius: 12, maxWidth: 380 }}
+                          >
+                            <Typography.Text
+                              type="secondary"
+                              style={{
+                                fontSize: 11,
+                                display: "block",
+                                marginBottom: 6,
+                              }}
+                            >
+                              {t("marketplace.chatRequests.messageLabel")}
+                            </Typography.Text>
+                            <Typography.Text
+                              strong
+                              style={{ display: "block" }}
+                            >
+                              {t("marketplace.chatRequests.openingLine", {
+                                client: msg.suggestion.consumer_domain,
+                                number: msg.suggestion.opening_number,
+                              })}
+                            </Typography.Text>
+                            {msg.note !== undefined && (
+                              <Typography.Paragraph
+                                style={{
+                                  whiteSpace: "pre-line",
+                                  margin: "6px 0 0",
+                                }}
+                              >
+                                {msg.note}
+                              </Typography.Paragraph>
+                            )}
+                          </Card>
+                        )}
+
                         {msg.kind === "suggestion" && msg.suggestion && (
                           <Card
                             size="small"
@@ -479,56 +483,81 @@ export function ContactDetailPage() {
                   })}
                 </div>
 
-                {/* Message input area */}
-                <Card size="small" style={{ borderRadius: 8 }}>
-                  <Flex vertical gap="small">
-                    <Input.TextArea
-                      rows={3}
-                      maxLength={5000}
-                      showCount
-                      disabled={isPartyDeleted}
-                      placeholder={
-                        isPartyDeleted
-                          ? t(
-                              "marketplace.contacts.cannotWriteDisabledPlaceholder",
-                            )
-                          : t("marketplace.contacts.writeMessagePlaceholder")
-                      }
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                    />
+                {mayWrite ? (
+                  <Card size="small" style={{ borderRadius: 8 }}>
+                    <Flex vertical gap="small">
+                      <Input.TextArea
+                        rows={3}
+                        maxLength={5000}
+                        showCount
+                        aria-label={t(
+                          "marketplace.contacts.writeMessagePlaceholder",
+                        )}
+                        placeholder={t(
+                          "marketplace.contacts.writeMessagePlaceholder",
+                        )}
+                        value={messageText}
+                        onChange={(e) => setMessageText(e.target.value)}
+                      />
 
-                    <Flex
-                      justify="space-between"
-                      align="center"
-                      wrap="wrap"
-                      gap="small"
-                    >
-                      <Button
-                        disabled={isPartyDeleted}
-                        onClick={() => setSuggestOpeningModalOpen(true)}
+                      <Flex
+                        justify="space-between"
+                        align="center"
+                        wrap="wrap"
+                        gap="small"
                       >
-                        {t("marketplace.contacts.suggestAnOpening")}
-                      </Button>
+                        <Button
+                          onClick={() => setSuggestOpeningModalOpen(true)}
+                        >
+                          {t("marketplace.contacts.suggestAnOpening")}
+                        </Button>
 
-                      <Button
-                        type="primary"
-                        icon={<SendOutlined />}
-                        disabled={isPartyDeleted || !messageText.trim()}
-                        loading={sendMsgMutation.isPending}
-                        onClick={handleSendMessage}
+                        <Button
+                          type="primary"
+                          icon={<SendOutlined />}
+                          disabled={!messageText.trim()}
+                          loading={sendMsgMutation.isPending}
+                          onClick={handleSendMessage}
+                        >
+                          {t("actions.send")}
+                        </Button>
+                      </Flex>
+
+                      <Typography.Text
+                        type="secondary"
+                        style={{ fontSize: 12 }}
                       >
-                        {t("actions.send")}
-                      </Button>
+                        {t("marketplace.contacts.conversationPrivacyFooter", {
+                          name: firstName,
+                        })}
+                      </Typography.Text>
                     </Flex>
-
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                      {t("marketplace.contacts.conversationPrivacyFooter", {
+                  </Card>
+                ) : (
+                  !isPartyDeleted &&
+                  contact.has_conversation && (
+                    <Alert
+                      type="info"
+                      showIcon
+                      title={t("marketplace.chatRequests.closedNotice", {
                         name: firstName,
                       })}
-                    </Typography.Text>
-                  </Flex>
-                </Card>
+                      description={
+                        contact.pending_request_direction ===
+                        "to_hub_user" ? undefined : (
+                          <Button
+                            size="small"
+                            icon={<MessageOutlined />}
+                            onClick={() => setRequestModalOpen(true)}
+                            style={{ marginTop: 8 }}
+                          >
+                            {t("marketplace.chatRequests.sendButton")}
+                          </Button>
+                        )
+                      }
+                    />
+                  )
+                )}
               </Flex>
             ),
           },
@@ -821,7 +850,11 @@ export function ContactDetailPage() {
           </Col>
 
           <Col xs={24} lg={9}>
-            <Space direction="vertical" size="large" style={{ width: "100%" }}>
+            <Space
+              orientation="vertical"
+              size="large"
+              style={{ width: "100%" }}
+            >
               <Card title={t("marketplace.contacts.verifiedEmailsTitle")}>
                 <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>
                   {t("marketplace.contacts.verifiedEmailsExplainer", {
@@ -921,7 +954,7 @@ export function ContactDetailPage() {
   ];
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
       <Breadcrumb
         items={[
           {
@@ -980,15 +1013,18 @@ export function ContactDetailPage() {
           </Typography.Paragraph>
         </div>
 
-        {!contact.has_conversation && !isRequestsOff && (
-          <Button
-            type="primary"
-            icon={<SendOutlined />}
-            onClick={() => setFirstMessageModalOpen(true)}
-          >
-            {t("marketplace.contacts.sendFirstMessage")}
-          </Button>
-        )}
+        {!mayWrite &&
+          !isPartyDeleted &&
+          contact.pending_request_direction !== "to_hub_user" &&
+          !conversationQuery.isLoading && (
+            <Button
+              type="primary"
+              icon={<MessageOutlined />}
+              onClick={() => setRequestModalOpen(true)}
+            >
+              {t("marketplace.chatRequests.sendButton")}
+            </Button>
+          )}
       </Flex>
 
       <Card>
@@ -1014,62 +1050,22 @@ export function ContactDetailPage() {
           {t("marketplace.contacts.selectOpeningToSuggestExplainer")}
         </Typography.Paragraph>
         <Form.Item label={t("marketplace.jobs.tableOpening")} required>
-          <Select
-            placeholder={t("marketplace.contacts.selectOpeningPlaceholder")}
+          <JobPicker
             value={selectedOpeningKey}
             onChange={setSelectedOpeningKey}
-            options={activeJobs.map((j) => ({
-              value: `${j.client.domain}::${j.opening.number}`,
-              label: `${j.opening.title} (${j.client.display_name || j.client.domain})`,
-            }))}
+            placeholder={t("marketplace.contacts.selectOpeningPlaceholder")}
+            ariaLabel={t("marketplace.jobs.tableOpening")}
+            notFound={t("marketplace.chatRequests.noJobs")}
             style={{ width: "100%" }}
           />
         </Form.Item>
       </Modal>
 
-      {/* Send first message modal (when no conversation exists) */}
-      <Modal
-        open={firstMessageModalOpen}
-        title={t("marketplace.contacts.sendFirstMessage")}
-        onCancel={() => {
-          setFirstMessageModalOpen(false);
-          setFirstMsgText("");
-          setFirstMsgOpeningKey(undefined);
-        }}
-        onOk={handleSendFirstMessage}
-        okText={t("actions.send")}
-        okButtonProps={{
-          disabled: !firstMsgText.trim() && !firstMsgOpeningKey,
-          loading: startConvMutation.isPending,
-        }}
-        width={560}
-      >
-        <Flex vertical gap="middle" style={{ marginTop: 16 }}>
-          <Form.Item label={t("marketplace.contacts.messageTextLabel")}>
-            <Input.TextArea
-              rows={4}
-              maxLength={5000}
-              showCount
-              placeholder={t("marketplace.contacts.writeMessagePlaceholder")}
-              value={firstMsgText}
-              onChange={(e) => setFirstMsgText(e.target.value)}
-            />
-          </Form.Item>
-
-          <Form.Item label={t("marketplace.contacts.suggestOpeningOptional")}>
-            <Select
-              allowClear
-              placeholder={t("marketplace.contacts.selectOpeningOptional")}
-              value={firstMsgOpeningKey}
-              onChange={setFirstMsgOpeningKey}
-              options={activeJobs.map((j) => ({
-                value: `${j.client.domain}::${j.opening.number}`,
-                label: `${j.opening.title} (${j.client.display_name || j.client.domain})`,
-              }))}
-            />
-          </Form.Item>
-        </Flex>
-      </Modal>
+      <SendChatRequestModal
+        open={requestModalOpen}
+        onClose={() => setRequestModalOpen(false)}
+        person={{ contactId: contact.contact_id }}
+      />
     </Space>
   );
 }

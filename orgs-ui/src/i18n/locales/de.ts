@@ -37,7 +37,7 @@ export const de = {
       hiring: "Recruiting",
       administration: "Verwaltung",
     },
-    unreadContacts: "{{count}} ungelesen",
+    unreadContacts: "{{count}} ungelesen oder unbeantwortet",
   },
   date: {
     today: "Heute",
@@ -2813,6 +2813,8 @@ export const de = {
       sendSuggestion: "Vorschlag senden",
       suggestSuccess: "Stelle vorgeschlagen.",
       suggestError: "Stelle konnte nicht vorgeschlagen werden.",
+      requestInstead:
+        "Sie können {{name}} gerade nicht schreiben, daher wird stattdessen eine Chat-Anfrage mit dieser Stelle gesendet.",
       tabOpening: "Stelle",
       tabCredited: "Angerechnete Bewerbungen",
       tabSuggested: "Vorgeschlagen an",
@@ -2891,7 +2893,7 @@ export const de = {
       statusRequestsOff: "Chat-Anfragen deaktiviert",
       statusAccountDeleted: "Konto gelöscht",
       dailyLimitsNotice:
-        "Tägliches Limit: bis zu 200 neue Kontakte, 50 neue Unterhaltungen.",
+        "Tägliches Limit: bis zu 200 neue Kontakte und 50 Chat-Anfragen.",
       findPersonModalTitle: "Person auf Vetchium finden",
       findPersonExplainer:
         "Geben Sie den Handle oder Alias der Person ein, die Sie kontaktieren möchten.",
@@ -2905,8 +2907,6 @@ export const de = {
       accountDeletedBanner:
         "Diese Unterhaltung kann nicht fortgesetzt werden: Das Konto dieser Person existiert nicht mehr.",
       openingSuggestionLabel: "Stellenvorschlag",
-      cannotWriteDisabledPlaceholder:
-        "Sie können dieser Person derzeit keine Nachricht senden.",
       writeMessagePlaceholder: "Nachricht verfassen",
       suggestAnOpening: "Stelle vorschlagen",
       conversationPrivacyFooter:
@@ -2929,9 +2929,6 @@ export const de = {
       noteDeletedSuccess: "Notiz gelöscht.",
       noteDeletedError: "Notiz konnte nicht gelöscht werden.",
       messageSendError: "Nachricht konnte nicht gesendet werden.",
-      conversationStartedSuccess: "Unterhaltung begonnen.",
-      conversationStartedError: "Unterhaltung konnte nicht begonnen werden.",
-      sendFirstMessage: "Erste Nachricht senden",
       contactSince: "Kontakt seit {{date}}",
       profileTabTitle: "Profil",
       liveAsHubUsersSeeIt: "Live, wie Hub-Benutzer es sehen",
@@ -2956,9 +2953,6 @@ export const de = {
       selectOpeningToSuggestExplainer:
         "Wählen Sie eine aktive, Ihrer Agentur zugewiesene Stelle zum Vorschlagen aus.",
       selectOpeningPlaceholder: "Stelle auswählen",
-      messageTextLabel: "Nachricht",
-      suggestOpeningOptional: "Stelle vorschlagen (optional)",
-      selectOpeningOptional: "Stelle auswählen (optional)",
       newContactTitle: "Neuer Kontakt",
       noAddressProvided:
         "Bitte geben Sie einen Handle oder Alias ein, um das Profil anzuzeigen.",
@@ -2971,10 +2965,110 @@ export const de = {
       notesCardTitle: "Notizen",
       noNotesExplainer:
         "Noch keine Notizen. Die erste Notiz oder Nachricht fügt {{name}} zu Ihren Kontakten hinzu. Die Profilansicht zeichnet nichts auf.",
-      messageCardTitle: "Message",
-      startConversationExplainer:
-        "Beginnen Sie eine Unterhaltung auf Vetchium. {{name}} teilt keine E-Mail-Adresse mit Ihnen.",
+      tabRequests: "Anfragen",
+      tableRequest: "Anfrage",
+      requestToAgency: "Wartet auf Ihre Antwort",
+      requestToHubUser: "Anfrage gesendet",
       personFallback: "Diese Person",
+    },
+    chatRequests: {
+      dialogTitle: "Chat-Anfrage senden",
+      sendButton: "Chat-Anfrage senden",
+      send: "Anfrage senden",
+      accept: "Annehmen",
+      cardTitle: "Chat-Anfrage",
+      profileExplainer:
+        "Bitten Sie {{name}} um einen Chat zu einer Ihrer Stellen. {{name}} teilt Ihnen nie eine E-Mail-Adresse mit.",
+      explainer:
+        "{{name}} sieht Ihre Agentur, die Stelle und Ihre Notiz und kann annehmen oder ablehnen. Eine unbeantwortete Anfrage verfällt nach 14 Tagen.",
+      personLabel: "Person",
+      personHelp: "Handle oder Alias der Person auf Vetchium.",
+      openingLabel: "Stelle",
+      openingPlaceholder: "Veröffentlichte Jobs durchsuchen",
+      noJobs: "Kein veröffentlichter Job passt",
+      noteLabel: "Notiz (optional)",
+      noteColumn: "Notiz",
+      noteHelp: "Sagen Sie, warum diese Stelle passt.",
+      openConversation: "Unterhaltung öffnen",
+      sent: "Chat-Anfrage an {{name}} gesendet.",
+      sendError: "Die Chat-Anfrage konnte nicht gesendet werden.",
+      accepted: "Sie haben die Chat-Anfrage von {{name}} angenommen.",
+      declined: "Chat-Anfrage abgelehnt.",
+      answerError: "Die Chat-Anfrage konnte nicht beantwortet werden.",
+      refusal: {
+        incoming:
+          "{{name}} hat Ihre Agentur bereits um einen Chat gebeten. Nehmen Sie die Anfrage an, um die Unterhaltung zu beginnen.",
+        existsIncoming:
+          "Eine Chat-Anfrage von {{name}} wartet auf die Antwort Ihrer Agentur.",
+        exists:
+          "Die Chat-Anfrage Ihrer Agentur an {{name}} vom {{date}} wartet noch auf eine Antwort.",
+        conversationOpen:
+          "Sie können {{name}} bereits in Ihrer Unterhaltung schreiben.",
+        blockedOpening:
+          "{{name}} hat Chat-Anfragen zu dieser Stelle abgelehnt. Wählen Sie eine andere Stelle.",
+        blockedSender:
+          "{{name}} hat Chat-Anfragen Ihrer Agentur bis zum {{date}} abgelehnt.",
+        partyDeleted: "Das Konto dieser Person existiert nicht mehr.",
+      },
+      problems: {
+        "hub-user-not-found":
+          "Kein Vetchium-Konto hat dieses Handle oder diesen Alias.",
+        "contact-not-found": "Dieser Kontakt existiert nicht mehr.",
+        "contact-limit-reached":
+          "Ihre Agentur hat heute die höchstmögliche Zahl neuer Kontakte angelegt. Versuchen Sie es morgen erneut.",
+        "requests-off":
+          "Diese Person akzeptiert keine Chat-Anfragen von Agenturen",
+        "party-deleted": "Das Konto dieser Person existiert nicht mehr.",
+        "limit-reached":
+          "Ihre Agentur hat heute die höchstmögliche Zahl an Chat-Anfragen gesendet. Versuchen Sie es morgen erneut.",
+        exists:
+          "Eine Chat-Anfrage zwischen Ihrer Agentur und dieser Person wartet bereits auf eine Antwort.",
+        blocked:
+          "Diese Person hat Anfragen Ihrer Agentur vorerst oder zu dieser Stelle abgelehnt.",
+        "not-found": "Diese Chat-Anfrage wartet nicht mehr auf eine Antwort.",
+        "conversation-open":
+          "Sie können dieser Person bereits in Ihrer Unterhaltung schreiben.",
+        "conversation-closed":
+          "Die Unterhaltung ist geschlossen. Senden Sie eine Chat-Anfrage, um sie wieder zu öffnen.",
+      },
+      states: {
+        pending: "Offen",
+        accepted: "Angenommen",
+        declined: "Abgelehnt",
+        expired: "Verfallen",
+      },
+      toAgencyTitle: "Warten auf Ihre Antwort",
+      toHubUserTitle: "Von Ihrer Agentur gesendet",
+      noneToAgency: "Niemand hat Ihre Agentur um einen Chat gebeten.",
+      noneToHubUser: "Ihre Agentur hat keine Chat-Anfragen gesendet.",
+      showMore: "Mehr anzeigen",
+      sentBy: "Gesendet von",
+      sentAt: "Gesendet",
+      state: "Status",
+      openingLine: "Stelle #{{number}} bei {{client}}",
+      incomingTitle:
+        "{{name}} hat Ihre Agentur am {{date}} um einen Chat gebeten",
+      declineOpening: "Nicht diese Stelle",
+      declineOpeningConfirm:
+        "Ablehnen? Die Person kann Ihre Agentur zu dieser Stelle nicht erneut anfragen.",
+      declineSender_one: "Nicht für {{count}} Tag",
+      declineSender_other: "Nicht für {{count}} Tage",
+      declineSenderConfirm_one:
+        "Ablehnen? Die Person kann Ihrer Agentur {{count}} Tag lang keine Chat-Anfrage senden.",
+      declineSenderConfirm_other:
+        "Ablehnen? Die Person kann Ihrer Agentur {{count}} Tage lang keine Chat-Anfrage senden.",
+      sentByLine: "Gesendet von {{email}}",
+      sentPending:
+        "Chat-Anfrage am {{date}} gesendet. Wartet auf die Antwort von {{name}}.",
+      sentDeclinedOpening:
+        "{{name}} hat Chat-Anfragen zu dieser Stelle abgelehnt. Zu einer anderen Stelle dürfen Sie noch anfragen.",
+      sentDeclinedSender:
+        "{{name}} hat Chat-Anfragen Ihrer Agentur bis zum {{date}} abgelehnt.",
+      sentExpired:
+        "Ihre Chat-Anfrage vom {{date}} ist verfallen, bevor {{name}} geantwortet hat.",
+      messageLabel: "Chat-Anfrage",
+      closedNotice:
+        "Sie können {{name}} gerade nicht schreiben. Die Unterhaltung öffnet sich wieder, wenn {{name}} schreibt oder eine neue Chat-Anfrage annimmt.",
     },
     attribution: {
       title: "Angerechnete Bewerbungen",

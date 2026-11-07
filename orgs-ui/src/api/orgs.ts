@@ -101,25 +101,31 @@ import type {
   ListCreditedApplicationsResponse,
 } from "typespec/orgs/marketplace/attribution";
 import type {
+  AcceptChatRequestRequest,
   AddContactNoteRequest,
   AddedNote,
   AddPersonNoteRequest,
   AgencyProfile,
+  ChatRequest,
   Contact,
   ContactReference,
   ConversationDetail,
   ConversationMessage,
+  DeclineChatRequestRequest,
   DeleteContactNoteRequest,
   DeletedNote,
   EditContactNoteRequest,
   GetConversationRequest,
+  ListChatRequestsRequest,
+  ListChatRequestsResponse,
   ListContactNotesRequest,
   ListContactNotesResponse,
   ListContactsRequest,
   ListContactsResponse,
   MarkConversationReadRequest,
+  PendingChatRequestCount,
+  SendChatRequestRequest,
   SendMessageRequest,
-  StartConversationRequest,
   ViewHubProfileRequest,
 } from "typespec/orgs/marketplace/contacts/contacts";
 import type {
@@ -905,14 +911,29 @@ export const orgsAPI = {
       body,
       idempotencyKey,
     }),
-  startConversation: (
-    body: StartConversationRequest,
+  sendChatRequest: (
+    body: SendChatRequestRequest,
+    idempotencyKey: IdempotencyKey,
+  ) => apiRequest<ChatRequest>("/send-chat-request", { body, idempotencyKey }),
+  listChatRequests: (body: ListChatRequestsRequest) =>
+    apiRequest<ListChatRequestsResponse>("/list-chat-requests", { body }),
+  countPendingChatRequests: () =>
+    apiRequest<PendingChatRequestCount>("/count-pending-chat-requests", {
+      method: "GET",
+    }),
+  acceptChatRequest: (
+    body: AcceptChatRequestRequest,
     idempotencyKey: IdempotencyKey,
   ) =>
-    apiRequest<ConversationDetail>("/start-conversation", {
+    apiRequest<ConversationDetail>("/accept-chat-request", {
       body,
       idempotencyKey,
     }),
+  declineChatRequest: (
+    body: DeclineChatRequestRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<ChatRequest>("/decline-chat-request", { body, idempotencyKey }),
   sendMessage: (body: SendMessageRequest, idempotencyKey: IdempotencyKey) =>
     apiRequest<ConversationMessage>("/send-message", {
       body,

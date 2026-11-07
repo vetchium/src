@@ -1,4 +1,4 @@
-import { SendOutlined } from "@ant-design/icons";
+import { MessageOutlined } from "@ant-design/icons";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
 import {
   Alert,
@@ -9,12 +9,9 @@ import {
   Col,
   Descriptions,
   Flex,
-  Form,
   Input,
-  Modal,
   message,
   Row,
-  Select,
   Space,
   Typography,
 } from "antd";
@@ -25,10 +22,9 @@ import { paths } from "../app/paths";
 import { getInitials } from "../features/marketplace/presentation";
 import {
   useAddPersonNoteMutation,
-  useJobsQuery,
-  useStartConversationMutation,
   useViewHubProfileQuery,
 } from "../features/marketplace/queries";
+import { SendChatRequestModal } from "../features/marketplace/SendChatRequestModal";
 
 export function NewContactPage() {
   const { t } = useTranslation();
@@ -37,22 +33,15 @@ export function NewContactPage() {
   const address = searchParams.get("address") ?? "";
 
   const noteKey = useIdempotencyKey("new-contact-note");
-  const convKey = useIdempotencyKey("new-contact-conv");
 
   const [noteText, setNoteText] = useState("");
-  const [firstMsgModalOpen, setFirstMsgModalOpen] = useState(false);
-  const [firstMsgText, setFirstMsgText] = useState("");
-  const [selectedJobKey, setSelectedJobKey] = useState<string>();
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
 
   const profileQuery = useViewHubProfileQuery(address);
   const profileData = profileQuery.data;
   const pub = profileData?.profile;
 
   const addNoteMutation = useAddPersonNoteMutation();
-  const startConvMutation = useStartConversationMutation();
-
-  const jobsQuery = useJobsQuery({ state: "published" }, firstMsgModalOpen);
-  const activeJobs = jobsQuery.data?.jobs ?? [];
 
   const firstName = pub?.display_name
     ? pub.display_name.split(/\s+/)[0]
@@ -79,43 +68,6 @@ export function NewContactPage() {
     }
   };
 
-  const handleSendFirstMessage = async () => {
-    if (!firstMsgText.trim() && !selectedJobKey) return;
-    let suggestion:
-      | { consumer_domain: string; opening_number: number }
-      | undefined;
-    if (selectedJobKey) {
-      const parts = selectedJobKey.split("::");
-      const dom = parts[0];
-      const numStr = parts[1];
-      if (dom && numStr) {
-        suggestion = {
-          consumer_domain: dom,
-          opening_number: Number(numStr),
-        };
-      }
-    }
-    try {
-      const res = await startConvMutation.mutateAsync({
-        request: {
-          address,
-          ...(firstMsgText.trim() && { text: firstMsgText.trim() }),
-          ...(suggestion && { suggestion }),
-        },
-        key: convKey.current(),
-      });
-      message.success(t("marketplace.contacts.conversationStartedSuccess"));
-      setFirstMsgModalOpen(false);
-      if (res?.conversation?.contact_id) {
-        navigate(paths.contactDetail(res.conversation.contact_id));
-      } else {
-        navigate(paths.contacts);
-      }
-    } catch {
-      message.error(t("marketplace.contacts.conversationStartedError"));
-    }
-  };
-
   if (!address.trim()) {
     return (
       <Card>
@@ -132,7 +84,7 @@ export function NewContactPage() {
 
   if (profileQuery.isError || !pub) {
     return (
-      <Space direction="vertical" size="large" style={{ width: "100%" }}>
+      <Space orientation="vertical" size="large" style={{ width: "100%" }}>
         <Breadcrumb
           items={[
             {
@@ -148,7 +100,7 @@ export function NewContactPage() {
         <Alert
           type="error"
           showIcon
-          message={t("marketplace.contacts.hubUserNotFoundTitle")}
+          title={t("marketplace.contacts.hubUserNotFoundTitle")}
           description={t("marketplace.contacts.hubUserNotFoundDescription", {
             address,
           })}
@@ -158,7 +110,7 @@ export function NewContactPage() {
   }
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
       <Breadcrumb
         items={[
           {
@@ -174,7 +126,7 @@ export function NewContactPage() {
         <Alert
           type="info"
           showIcon
-          message={t("marketplace.contacts.alreadyInContactsNotice")}
+          title={t("marketplace.contacts.alreadyInContactsNotice")}
           action={
             <Button
               size="small"
@@ -355,7 +307,7 @@ export function NewContactPage() {
         </Col>
 
         <Col xs={24} lg={10}>
-          <Space direction="vertical" size="large" style={{ width: "100%" }}>
+          <Space orientation="vertical" size="large" style={{ width: "100%" }}>
             <Card title={t("marketplace.contacts.notesCardTitle")}>
               <Flex vertical gap="small">
                 <Typography.Text type="secondary" style={{ fontSize: 13 }}>
@@ -389,75 +341,34 @@ export function NewContactPage() {
               </Flex>
             </Card>
 
-            <Card title={t("marketplace.contacts.messageCardTitle")}>
-              {profileData.contact?.requests_off ? (
-                <Alert
-                  type="warning"
-                  showIcon
-                  message={t("marketplace.contacts.requestsOffReason")}
-                />
-              ) : (
-                <Flex vertical gap="middle">
-                  <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-                    {t("marketplace.contacts.startConversationExplainer", {
-                      name: firstName,
-                    })}
-                  </Typography.Text>
-                  <Button
-                    icon={<SendOutlined />}
-                    onClick={() => setFirstMsgModalOpen(true)}
-                  >
-                    {t("marketplace.contacts.sendFirstMessage")}
-                  </Button>
-                </Flex>
-              )}
+            <Card title={t("marketplace.chatRequests.cardTitle")}>
+              <Flex vertical gap="middle">
+                <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                  {t("marketplace.chatRequests.profileExplainer", {
+                    name: firstName,
+                  })}
+                </Typography.Text>
+                <Button
+                  icon={<MessageOutlined />}
+                  onClick={() => setRequestModalOpen(true)}
+                >
+                  {t("marketplace.chatRequests.sendButton")}
+                </Button>
+              </Flex>
             </Card>
           </Space>
         </Col>
       </Row>
 
-      <Modal
-        open={firstMsgModalOpen}
-        title={t("marketplace.contacts.sendFirstMessage")}
-        onCancel={() => {
-          setFirstMsgModalOpen(false);
-          setFirstMsgText("");
-          setSelectedJobKey(undefined);
-        }}
-        onOk={handleSendFirstMessage}
-        okText={t("actions.send")}
-        okButtonProps={{
-          disabled: !firstMsgText.trim() && !selectedJobKey,
-          loading: startConvMutation.isPending,
-        }}
-        width={560}
-      >
-        <Flex vertical gap="middle" style={{ marginTop: 16 }}>
-          <Form.Item label={t("marketplace.contacts.messageTextLabel")}>
-            <Input.TextArea
-              rows={4}
-              maxLength={5000}
-              showCount
-              placeholder={t("marketplace.contacts.writeMessagePlaceholder")}
-              value={firstMsgText}
-              onChange={(e) => setFirstMsgText(e.target.value)}
-            />
-          </Form.Item>
-
-          <Form.Item label={t("marketplace.contacts.suggestOpeningOptional")}>
-            <Select
-              allowClear
-              placeholder={t("marketplace.contacts.selectOpeningOptional")}
-              value={selectedJobKey}
-              onChange={setSelectedJobKey}
-              options={activeJobs.map((j) => ({
-                value: `${j.client.domain}::${j.opening.number}`,
-                label: `${j.opening.title} (${j.client.display_name || j.client.domain})`,
-              }))}
-            />
-          </Form.Item>
-        </Flex>
-      </Modal>
+      <SendChatRequestModal
+        open={requestModalOpen}
+        onClose={() => setRequestModalOpen(false)}
+        person={
+          profileData?.contact === undefined
+            ? { address }
+            : { contactId: profileData.contact.contact_id }
+        }
+      />
     </Space>
   );
 }

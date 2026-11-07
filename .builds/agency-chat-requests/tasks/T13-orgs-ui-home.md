@@ -36,3 +36,4 @@ Playwright UI in T16.
 Home shows pending Hub requests to the right users only.
 
 ## Carried over
+- From T12: reuse `useChatRequestsQuery("to_agency")`, `usePendingChatRequestCountQuery`, and `ChatRequestStateTag` (`features/marketplace/ChatRequestsList.tsx`); "See all" goes to `paths.contacts` with `?tab=requests`.

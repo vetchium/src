@@ -13,13 +13,16 @@ import type {
 } from "typespec/orgs/marketplace/assignments";
 import type { ListCreditedApplicationsRequest } from "typespec/orgs/marketplace/attribution";
 import type {
+  AcceptChatRequestRequest,
   AddContactNoteRequest,
   AddPersonNoteRequest,
+  ChatRequestDirection,
+  DeclineChatRequestRequest,
   DeleteContactNoteRequest,
   EditContactNoteRequest,
   ListContactsRequest,
+  SendChatRequestRequest,
   SendMessageRequest,
-  StartConversationRequest,
 } from "typespec/orgs/marketplace/contacts/contacts";
 import type {
   EndEngagementRequest,
@@ -1064,27 +1067,93 @@ export function useConversationQuery(contactId: string, enabled = true) {
   });
 }
 
-export function useStartConversationMutation() {
+/** Pages of the agency's chat requests in one direction: pending oldest
+ * first, then answered newest first. */
+export function useChatRequestsQuery(
+  direction: ChatRequestDirection,
+  enabled = true,
+) {
+  return useInfiniteQuery({
+    queryKey: [...marketplaceQueryKey, "chat-requests", direction],
+    queryFn: ({ pageParam }) =>
+      orgsAPI.listChatRequests({
+        direction,
+        limit: 25,
+        ...(pageParam !== undefined && { pagination_key: pageParam }),
+      }),
+    initialPageParam: undefined as PaginationKey | undefined,
+    getNextPageParam: (page) => page.next_pagination_key,
+    retry: false,
+    enabled,
+  });
+}
+
+export function usePendingChatRequestCountQuery(enabled = true) {
+  return useQuery({
+    queryKey: [...marketplaceQueryKey, "chat-requests", "pending-count"],
+    queryFn: () => orgsAPI.countPendingChatRequests(),
+    retry: false,
+    enabled,
+  });
+}
+
+/** Everything a chat request's send or answer can change: the Contacts, their
+ * conversations and profile views, the request lists and count, and Jobs. */
+function invalidateChatRequestViews(
+  queryClient: ReturnType<typeof useQueryClient>,
+) {
+  for (const part of [
+    "contacts",
+    "conversation",
+    "hub-profile",
+    "chat-requests",
+    "jobs",
+  ]) {
+    void queryClient.invalidateQueries({
+      queryKey: [...marketplaceQueryKey, part],
+    });
+  }
+}
+
+export function useSendChatRequestMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({
       request,
       key,
     }: {
-      request: StartConversationRequest;
+      request: SendChatRequestRequest;
       key: IdempotencyKey;
-    }) => orgsAPI.startConversation(request, key),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "contacts", "list"],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "hub-profile"],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "jobs"],
-      });
-    },
+    }) => orgsAPI.sendChatRequest(request, key),
+    onSuccess: () => invalidateChatRequestViews(queryClient),
+  });
+}
+
+export function useAcceptChatRequestMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      request,
+      key,
+    }: {
+      request: AcceptChatRequestRequest;
+      key: IdempotencyKey;
+    }) => orgsAPI.acceptChatRequest(request, key),
+    onSuccess: () => invalidateChatRequestViews(queryClient),
+  });
+}
+
+export function useDeclineChatRequestMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      request,
+      key,
+    }: {
+      request: DeclineChatRequestRequest;
+      key: IdempotencyKey;
+    }) => orgsAPI.declineChatRequest(request, key),
+    onSuccess: () => invalidateChatRequestViews(queryClient),
   });
 }
 
@@ -1110,6 +1179,10 @@ export function useSendMessageMutation(contactId: string) {
       });
       void queryClient.invalidateQueries({
         queryKey: [...marketplaceQueryKey, "jobs"],
+      });
+      // A message accepts a request pending to the agency.
+      void queryClient.invalidateQueries({
+        queryKey: [...marketplaceQueryKey, "chat-requests"],
       });
     },
   });

@@ -35,7 +35,7 @@ export const en = {
       hiring: "Hiring",
       administration: "Administration",
     },
-    unreadContacts: "{{count}} unread",
+    unreadContacts: "{{count}} unread or awaiting your answer",
   },
   date: {
     today: "Today",
@@ -2747,6 +2747,8 @@ export const en = {
       sendSuggestion: "Send suggestion",
       suggestSuccess: "Opening suggested.",
       suggestError: "Could not suggest Opening.",
+      requestInstead:
+        "You can't write to {{name}} now, so this sends a chat request with this Opening instead.",
       tabOpening: "Opening",
       tabCredited: "Credited applications",
       tabSuggested: "Suggested to",
@@ -2825,7 +2827,7 @@ export const en = {
       statusRequestsOff: "Chat requests off",
       statusAccountDeleted: "Account deleted",
       dailyLimitsNotice:
-        "Daily limit: up to 200 new contacts, 50 new conversations.",
+        "Daily limit: up to 200 new contacts and 50 chat requests.",
       findPersonModalTitle: "Find a person on Vetchium",
       findPersonExplainer:
         "Enter the handle or alias of the person you want to contact.",
@@ -2839,8 +2841,6 @@ export const en = {
       accountDeletedBanner:
         "This conversation cannot continue: this person's account no longer exists.",
       openingSuggestionLabel: "Opening suggestion",
-      cannotWriteDisabledPlaceholder:
-        "You can't write to this person right now.",
       writeMessagePlaceholder: "Write a message",
       suggestAnOpening: "Suggest an Opening",
       conversationPrivacyFooter:
@@ -2863,9 +2863,6 @@ export const en = {
       noteDeletedSuccess: "Note deleted.",
       noteDeletedError: "Could not delete note.",
       messageSendError: "Could not send message.",
-      conversationStartedSuccess: "Conversation started.",
-      conversationStartedError: "Could not start conversation.",
-      sendFirstMessage: "Send first message",
       contactSince: "Contact since {{date}}",
       profileTabTitle: "Profile",
       liveAsHubUsersSeeIt: "Live, as other Hub users see it",
@@ -2890,9 +2887,6 @@ export const en = {
       selectOpeningToSuggestExplainer:
         "Select an active Opening assigned to your agency to suggest.",
       selectOpeningPlaceholder: "Select Opening",
-      messageTextLabel: "Message",
-      suggestOpeningOptional: "Suggest an Opening (optional)",
-      selectOpeningOptional: "Select Opening (optional)",
       newContactTitle: "New contact",
       noAddressProvided:
         "Please provide a handle or alias to view the profile.",
@@ -2905,10 +2899,108 @@ export const en = {
       notesCardTitle: "Notes",
       noNotesExplainer:
         "No notes yet. Your first note or message adds {{name}} to your contacts. Viewing this profile records nothing.",
-      messageCardTitle: "Message",
-      startConversationExplainer:
-        "Start a conversation in Vetchium. {{name}} never shares an email address with you.",
+      tabRequests: "Requests",
+      tableRequest: "Request",
+      requestToAgency: "Awaiting your answer",
+      requestToHubUser: "Request sent",
       personFallback: "This person",
+    },
+    chatRequests: {
+      dialogTitle: "Send chat request",
+      sendButton: "Send chat request",
+      send: "Send request",
+      accept: "Accept",
+      cardTitle: "Chat request",
+      profileExplainer:
+        "Ask {{name}} to chat about one of your Openings. {{name}} never shares an email address with you.",
+      explainer:
+        "{{name}} sees your agency, the Opening, and your note, and may accept or decline. A request nobody answers expires after 14 days.",
+      personLabel: "Person",
+      personHelp: "Their handle or alias on Vetchium.",
+      openingLabel: "Opening",
+      openingPlaceholder: "Search your published Jobs",
+      noJobs: "No published Job matches",
+      noteLabel: "Note (optional)",
+      noteColumn: "Note",
+      noteHelp: "Say why this Opening suits them.",
+      openConversation: "Open conversation",
+      sent: "Chat request sent to {{name}}.",
+      sendError: "Could not send the chat request.",
+      accepted: "You accepted the chat request from {{name}}.",
+      declined: "Chat request declined.",
+      answerError: "Could not answer the chat request.",
+      refusal: {
+        incoming:
+          "{{name}} has already asked to chat with your agency. Accept their request to start the conversation.",
+        existsIncoming:
+          "{{name}} has a chat request waiting for your agency's answer.",
+        exists:
+          "Your agency's chat request to {{name}}, sent {{date}}, is still waiting for an answer.",
+        conversationOpen:
+          "You can already write to {{name}} in your conversation.",
+        blockedOpening:
+          "{{name}} declined chat requests about this Opening. Choose another Opening.",
+        blockedSender:
+          "{{name}} declined your agency's chat requests until {{date}}.",
+        partyDeleted: "This person's account no longer exists.",
+      },
+      problems: {
+        "hub-user-not-found": "No Vetchium user has that handle or alias.",
+        "contact-not-found": "This contact no longer exists.",
+        "contact-limit-reached":
+          "Your agency has added the most new contacts it may today. Try again tomorrow.",
+        "requests-off":
+          "This person does not accept chat requests from agencies",
+        "party-deleted": "This person's account no longer exists.",
+        "limit-reached":
+          "Your agency has sent the most chat requests it may today. Try again tomorrow.",
+        exists:
+          "A chat request between your agency and this person is already waiting for an answer.",
+        blocked:
+          "This person declined your agency's requests for now, or about this Opening.",
+        "not-found": "This chat request is no longer waiting for an answer.",
+        "conversation-open":
+          "You can already write to this person in your conversation.",
+        "conversation-closed":
+          "The conversation is closed. Send a chat request to reopen it.",
+      },
+      states: {
+        pending: "Pending",
+        accepted: "Accepted",
+        declined: "Declined",
+        expired: "Expired",
+      },
+      toAgencyTitle: "Waiting for your answer",
+      toHubUserTitle: "Sent by your agency",
+      noneToAgency: "No one has asked to chat with your agency.",
+      noneToHubUser: "Your agency has not sent any chat requests.",
+      showMore: "Show more",
+      sentBy: "Sent by",
+      sentAt: "Sent",
+      state: "State",
+      openingLine: "Opening #{{number}} at {{client}}",
+      incomingTitle: "{{name}} asked to chat with your agency on {{date}}",
+      declineOpening: "Not this Opening",
+      declineOpeningConfirm:
+        "Decline? They cannot ask your agency about this Opening again.",
+      declineSender_one: "Not for {{count}} day",
+      declineSender_other: "Not for {{count}} days",
+      declineSenderConfirm_one:
+        "Decline? They cannot send your agency a chat request for {{count}} day.",
+      declineSenderConfirm_other:
+        "Decline? They cannot send your agency a chat request for {{count}} days.",
+      sentByLine: "Sent by {{email}}",
+      sentPending:
+        "Chat request sent {{date}}. Waiting for {{name}} to answer.",
+      sentDeclinedOpening:
+        "{{name}} declined chat requests about this Opening. You may still ask about another.",
+      sentDeclinedSender:
+        "{{name}} declined your agency's chat requests until {{date}}.",
+      sentExpired:
+        "Your chat request of {{date}} expired before {{name}} answered.",
+      messageLabel: "Chat request",
+      closedNotice:
+        "You cannot write to {{name}} now. The conversation reopens when {{name}} writes or accepts a new chat request.",
     },
     attribution: {
       title: "Credited applications",

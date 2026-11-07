@@ -64,3 +64,38 @@ export function marketplaceProblem(error: unknown): MarketplaceProblem {
   }
   return { kind: "other", error };
 }
+
+/** Why the API refused a chat request, its answer, or a message. */
+export type ChatRequestProblem =
+  | "hub-user-not-found"
+  | "contact-not-found"
+  | "contact-limit-reached"
+  | "requests-off"
+  | "party-deleted"
+  | "limit-reached"
+  | "exists"
+  | "blocked"
+  | "not-found"
+  | "conversation-open"
+  | "conversation-closed";
+
+const chatRequestProblems: Record<string, ChatRequestProblem> = {
+  "vetchium-problem-details/org-hub-user-not-found": "hub-user-not-found",
+  "vetchium-problem-details/org-contact-not-found": "contact-not-found",
+  "vetchium-problem-details/org-contact-limit-reached": "contact-limit-reached",
+  "vetchium-problem-details/org-agency-requests-off": "requests-off",
+  "vetchium-problem-details/org-conversation-party-deleted": "party-deleted",
+  "vetchium-problem-details/org-chat-request-limit-reached": "limit-reached",
+  "vetchium-problem-details/org-chat-request-exists": "exists",
+  "vetchium-problem-details/org-chat-request-blocked": "blocked",
+  "vetchium-problem-details/org-chat-request-not-found": "not-found",
+  "vetchium-problem-details/org-conversation-open": "conversation-open",
+  "vetchium-problem-details/org-conversation-closed": "conversation-closed",
+};
+
+export function chatRequestProblem(
+  error: unknown,
+): ChatRequestProblem | undefined {
+  const type = getProblemType(error);
+  return type === undefined ? undefined : chatRequestProblems[type];
+}

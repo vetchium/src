@@ -1,9 +1,11 @@
 import { Select } from "antd";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Capability } from "typespec/orgs/marketplace/capabilities";
+import type { OpeningSuggestion } from "typespec/orgs/marketplace/contacts/contacts";
 import {
   useClientSuggestionsQuery,
   useJobOwnerSuggestionsQuery,
+  useJobsQuery,
 } from "./queries";
 
 const debounceMs = 250;
@@ -96,6 +98,64 @@ export function JobOwnerPicker(props: PickerProps) {
       {...props}
       options={options}
       loading={suggestions.isFetching}
+      onOpenChange={setOpen}
+      onSearch={setQuery}
+    />
+  );
+}
+
+/** The picker value of an Opening: its client's domain and its number. */
+export function openingKey(opening: OpeningSuggestion): string {
+  return `${opening.consumer_domain}::${opening.opening_number}`;
+}
+
+export function openingFromKey(
+  key: string | undefined,
+): OpeningSuggestion | undefined {
+  const [domain, number] = key?.split("::") ?? [];
+  if (domain === undefined || number === undefined) return undefined;
+  return { consumer_domain: domain, opening_number: Number(number) };
+}
+
+/**
+ * Picks one of the agency's `published` Jobs by title or Opening number,
+ * asking the API as the user types. The value is `openingKey`.
+ */
+export function JobPicker(props: PickerProps) {
+  const [query, setQuery] = useTypedQuery();
+  const [open, setOpen] = useState(false);
+  const jobs = useJobsQuery(
+    {
+      state: "published",
+      limit: 20,
+      ...(query !== undefined && { search: query }),
+    },
+    open,
+  );
+  const options = (jobs.data?.jobs ?? []).map((job) => ({
+    value: openingKey({
+      consumer_domain: job.client.domain,
+      opening_number: job.opening.number,
+    }),
+    label: `${job.opening.title} (${job.client.display_name || job.client.domain})`,
+  }));
+  // A later search may not list the chosen Job; keep its label shown.
+  const seen = useRef(new Map<string, string>());
+  for (const option of options) seen.current.set(option.value, option.label);
+  if (
+    props.value !== undefined &&
+    !options.some((option) => option.value === props.value)
+  ) {
+    options.unshift({
+      value: props.value,
+      label: seen.current.get(props.value) ?? props.value,
+    });
+  }
+  return (
+    <SuggestionSelect
+      {...props}
+      options={options}
+      loading={jobs.isFetching}
       onOpenChange={setOpen}
       onSearch={setQuery}
     />

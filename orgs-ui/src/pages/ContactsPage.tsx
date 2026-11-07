@@ -29,6 +29,7 @@ import { paths } from "../app/paths";
 import { ListPager } from "../features/applications/ListPager";
 import { useListState } from "../features/applications/listState";
 import { NameSearch } from "../features/applications/NameSearch";
+import { ChatRequestsList } from "../features/marketplace/ChatRequestsList";
 import { getInitials } from "../features/marketplace/presentation";
 import { useContactsQuery } from "../features/marketplace/queries";
 
@@ -54,8 +55,11 @@ export function ContactsPage() {
   const nameRaw = list.get("q");
   const name =
     nameRaw !== undefined && isContactNameQuery(nameRaw) ? nameRaw : undefined;
+  const showingRequests = activeTab === "requests";
+  // The Requests tab lists the requests themselves; this query still fills
+  // every tab's count.
   const contactsQuery = useContactsQuery({
-    filter: activeTab,
+    filter: showingRequests ? "all" : activeTab,
     ...(name !== undefined && { name_query: name }),
     limit: pageSize,
     ...(list.paginationKey !== undefined && {
@@ -147,6 +151,24 @@ export function ContactsPage() {
       ),
     },
     {
+      title: t("marketplace.contacts.tableRequest"),
+      key: "request",
+      render: (_, c) =>
+        c.pending_request_direction === undefined ? null : (
+          <Tag
+            color={
+              c.pending_request_direction === "to_agency" ? "gold" : undefined
+            }
+          >
+            {t(
+              c.pending_request_direction === "to_agency"
+                ? "marketplace.contacts.requestToAgency"
+                : "marketplace.contacts.requestToHubUser",
+            )}
+          </Tag>
+        ),
+    },
+    {
       title: t("marketplace.contacts.tableLastActivity"),
       key: "last_activity",
       render: (_, c) => formatActivityTime(c.last_activity_at),
@@ -191,6 +213,10 @@ export function ContactsPage() {
       label: `${t("marketplace.contacts.tabAll")} (${counts?.all ?? 0})`,
     },
     {
+      key: "requests",
+      label: `${t("marketplace.contacts.tabRequests")} (${counts?.requests ?? 0})`,
+    },
+    {
       key: "unread",
       label: (
         <span>
@@ -214,7 +240,7 @@ export function ContactsPage() {
   ];
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
       <Flex justify="space-between" align="flex-start" wrap="wrap" gap="middle">
         <div>
           <Typography.Title level={2} style={{ marginBottom: 4 }}>
@@ -245,29 +271,37 @@ export function ContactsPage() {
               items={tabItems}
               style={{ marginBottom: 0 }}
             />
-            <NameSearch
-              value={nameRaw}
-              onSearch={(value) => list.set({ q: value })}
-            />
+            {!showingRequests && (
+              <NameSearch
+                value={nameRaw}
+                onSearch={(value) => list.set({ q: value })}
+              />
+            )}
           </Flex>
 
-          <Table<ContactSummary>
-            rowKey={(c) => c.contact_id}
-            columns={columns}
-            dataSource={contacts}
-            loading={contactsQuery.isFetching}
-            pagination={false}
-          />
-          <ListPager
-            hasPrevious={list.pageIndex > 0}
-            hasNext={contactsQuery.data?.next_pagination_key !== undefined}
-            busy={contactsQuery.isFetching}
-            onPrevious={list.previous}
-            onNext={() => {
-              const key = contactsQuery.data?.next_pagination_key;
-              if (key !== undefined) list.next(key);
-            }}
-          />
+          {showingRequests ? (
+            <ChatRequestsList />
+          ) : (
+            <>
+              <Table<ContactSummary>
+                rowKey={(c) => c.contact_id}
+                columns={columns}
+                dataSource={contacts}
+                loading={contactsQuery.isFetching}
+                pagination={false}
+              />
+              <ListPager
+                hasPrevious={list.pageIndex > 0}
+                hasNext={contactsQuery.data?.next_pagination_key !== undefined}
+                busy={contactsQuery.isFetching}
+                onPrevious={list.previous}
+                onNext={() => {
+                  const key = contactsQuery.data?.next_pagination_key;
+                  if (key !== undefined) list.next(key);
+                }}
+              />
+            </>
+          )}
 
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             {t("marketplace.contacts.dailyLimitsNotice")}

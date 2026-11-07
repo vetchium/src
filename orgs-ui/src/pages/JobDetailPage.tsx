@@ -1,4 +1,4 @@
-import { SendOutlined, UserOutlined } from "@ant-design/icons";
+import { MessageOutlined, SendOutlined, UserOutlined } from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Avatar,
@@ -37,6 +37,7 @@ import {
   referralRouteLabel,
 } from "../features/marketplace/presentation";
 import { useJobQuery } from "../features/marketplace/queries";
+import { SendChatRequestModal } from "../features/marketplace/SendChatRequestModal";
 import { SuggestToContactModal } from "../features/marketplace/SuggestToContactModal";
 
 interface OpeningContent {
@@ -58,6 +59,7 @@ export function JobDetailPage() {
   const openingNum = Number(opening_number);
 
   const [suggestModalOpen, setSuggestModalOpen] = useState(false);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [ownerModalOpen, setOwnerModalOpen] = useState(false);
   const { data: me } = useMyInfoQuery();
 
@@ -184,7 +186,7 @@ export function JobDetailPage() {
             style={{ marginTop: 16 }}
           >
             {job.opening.employing_country && (
-              <Descriptions.Item label={t("openings.fields.employingCountry")}>
+              <Descriptions.Item label={t("openings.fields.country")}>
                 {t(`countries.${job.opening.employing_country}`, {
                   defaultValue: job.opening.employing_country,
                 })}
@@ -215,7 +217,7 @@ export function JobDetailPage() {
               </Descriptions.Item>
             )}
             {content?.experience && (
-              <Descriptions.Item label={t("openings.fields.experience")}>
+              <Descriptions.Item label={t("openings.fields.experienceYears")}>
                 {content.experience}
               </Descriptions.Item>
             )}
@@ -292,13 +294,21 @@ export function JobDetailPage() {
         </div>
 
         {job.state === "published" && (
-          <Button
-            type="primary"
-            icon={<SendOutlined />}
-            onClick={() => setSuggestModalOpen(true)}
-          >
-            {t("marketplace.jobs.suggestToContact")}
-          </Button>
+          <Space wrap>
+            <Button
+              icon={<MessageOutlined />}
+              onClick={() => setRequestModalOpen(true)}
+            >
+              {t("marketplace.chatRequests.sendButton")}
+            </Button>
+            <Button
+              type="primary"
+              icon={<SendOutlined />}
+              onClick={() => setSuggestModalOpen(true)}
+            >
+              {t("marketplace.jobs.suggestToContact")}
+            </Button>
+          </Space>
         )}
       </Flex>
 
@@ -422,6 +432,18 @@ export function JobDetailPage() {
         jobContent={content}
         alreadySuggestedContactIds={alreadySuggestedContactIds}
         onSuccess={() => void jobQuery.refetch()}
+      />
+      <SendChatRequestModal
+        open={requestModalOpen}
+        onClose={() => setRequestModalOpen(false)}
+        opening={{
+          suggestion: {
+            consumer_domain: job.client.domain,
+            opening_number: job.opening.number,
+          },
+          title: job.opening.title,
+          client: job.client.display_name || job.client.domain,
+        }}
       />
     </Space>
   );

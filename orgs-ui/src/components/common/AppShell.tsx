@@ -58,7 +58,10 @@ import { useAuth } from "../../auth/AuthContext";
 import { useMyInfoQuery } from "../../features/account/queries";
 import { DomainFailingBanner } from "../../features/domain/DomainFailingBanner";
 import { capabilityLabel } from "../../features/marketplace/presentation";
-import { useContactsQuery } from "../../features/marketplace/queries";
+import {
+  useContactsQuery,
+  usePendingChatRequestCountQuery,
+} from "../../features/marketplace/queries";
 
 const workspaceStorageKey = "vetchium.orgs.workspace";
 
@@ -122,11 +125,15 @@ export function AppShell() {
     me !== undefined && holds(me.permissions, permission);
   const canFulfil = can(FulfilEngagements);
   const isAgency = me?.marketplace.capabilities.includes(Sourcing) === true;
+  const inbox = canFulfil && isAgency && !suspended;
   const { data: unreadContactsData } = useContactsQuery(
     { filter: "unread", limit: 1 },
-    canFulfil && isAgency && !suspended,
+    inbox,
   );
-  const unreadCount = unreadContactsData?.counts.unread ?? 0;
+  const { data: pendingRequests } = usePendingChatRequestCountQuery(inbox);
+  // MKT-UI-007: unread conversations plus requests awaiting the agency.
+  const unreadCount =
+    (unreadContactsData?.counts.unread ?? 0) + (pendingRequests?.count ?? 0);
 
   const workspaces = suspended
     ? []

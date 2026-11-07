@@ -41,3 +41,4 @@ The three specs above.
 Both portals' chat-request screens are covered end to end.
 
 ## Carried over
+- From T12: cover the Orgs states on screen: dialog refusals (exists, conversation open, blocked, requests off) and Accept in place of Request, Requests tab sections, sent banner (pending, declined with lift date, expired), incoming banner answers, the closed-conversation notice, and Suggest to a contact handing off to a chat request when the agency may not write.
