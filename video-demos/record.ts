@@ -483,8 +483,8 @@ async function agencyAssign() {
   });
 }
 
-// Scene: Sortinghat messages Hermione and suggests the Opening.
-async function agencySuggest() {
+// Scene: Sortinghat asks Hermione to chat about the Opening.
+async function agencyRequest() {
   const p = hat.page;
   if (!state.contactURL) throw new Error("record agencyContactNote first");
   await ensureOrg(hat, HAT);
@@ -494,30 +494,72 @@ async function agencySuggest() {
       "Sortinghat now has a job to fill. Hermione, from its Contacts, looks like a perfect fit.",
     );
     await hat.pause(2000);
-    await hat.click(p.getByRole("button", { name: "Send first message" }));
-    const dialog = p.getByRole("dialog");
-    await hat.type(
-      dialog.getByPlaceholder("Write a message"),
-      "Hello Hermione! Gryffindor is hiring a Defence Against the Dark Arts professor, and we think you would be brilliant.",
-      { delay: 14 },
+    await hat.click(
+      p.getByRole("button", { name: "Send chat request" }).first(),
     );
-    await hat.click(dialog.getByRole("button", { name: "Send", exact: true }));
-    await expect(dialog).toBeHidden();
-    await say(
-      "Agencies message Hub users inside Vetchium. Hermione's email address is never shared.",
-    );
-    await hat.pause(1500);
-    await hat.click(p.getByRole("button", { name: "Suggest an Opening" }));
-    const suggest = p.getByRole("dialog");
-    await hat.click(suggest.locator(".ant-select"));
+    const dialog = p.getByRole("dialog", { name: "Send chat request" });
+    await hat.click(dialog.getByRole("combobox", { name: "Opening" }));
     await hat.click(
       p.locator(".ant-select-dropdown:visible .ant-select-item-option").first(),
     );
     await hat.pause(800);
-    await hat.click(suggest.getByRole("button", { name: "Send suggestion" }));
-    await expect(suggest).toBeHidden();
-    await say("The suggestion arrives as an Opening card in the conversation.");
-    await hat.pause(3000);
+    await hat.type(
+      dialog.getByLabel("Note (optional)"),
+      "Hello Hermione! Gryffindor is hiring a Defence Against the Dark Arts professor, and we think you would be brilliant.",
+      { delay: 14 },
+    );
+    await hat.click(dialog.getByRole("button", { name: "Send request" }));
+    await expect(dialog).toBeHidden();
+    await say(
+      "Agencies reach Hub users only about an Opening they recruit for, and only after the person accepts. Hermione's contact details are never shared.",
+    );
+    await hat.pause(2500);
+  });
+}
+
+// Scene: Hermione accepts Sortinghat's chat request.
+async function hermioneAcceptsRequest() {
+  const p = hermione.page;
+  await ensureHub("hermione");
+  await awaitHub(hermione, `${HUB}/messages`, "Asks to chat about an Opening");
+  await studio.onAir(hermione, async () => {
+    await say(
+      "Hermione signs in to the Vetchium Hub and finds a chat request.",
+    );
+    await hermione.pause(2000);
+    await hermione.click(p.getByText("Sortinghat").first());
+    const accept = p.getByRole("button", { name: "Accept", exact: true });
+    await expect(accept).toBeVisible();
+    await say(
+      "It names the Opening and carries Sortinghat's note. She may accept, or decline for this Opening or for a while.",
+    );
+    await hermione.pause(3000);
+    await hermione.click(accept);
+    await expect(p.getByPlaceholder("Write a reply")).toBeVisible();
+    await say("Accepted. Sortinghat and Hermione can now write to each other.");
+    await hermione.pause(2500);
+  });
+}
+
+// Scene: Sortinghat writes in the conversation Hermione opened.
+async function agencyWrites() {
+  const p = hat.page;
+  if (!state.contactURL) throw new Error("record agencyContactNote first");
+  const composer = p.getByPlaceholder("Write a message");
+  await ensureOrg(hat, HAT);
+  await hat.goto(state.contactURL);
+  await reloadUntil(hat, composer);
+  await studio.onAir(hat, async () => {
+    await say("Back at Sortinghat, the conversation is open.");
+    await hat.pause(1500);
+    await hat.type(
+      composer,
+      "Wonderful! The Opening is in the card above; apply whenever you are ready.",
+      { delay: 14 },
+    );
+    await hat.click(p.getByRole("button", { name: "Send", exact: true }));
+    await expect(composer).toHaveValue("");
+    await hat.pause(2500);
   });
 }
 
@@ -1024,7 +1066,9 @@ const SCENES = {
   engagementPropose,
   engagementAccept,
   agencyAssign,
-  agencySuggest,
+  agencyRequest,
+  hermioneAcceptsRequest,
+  agencyWrites,
   hermioneApplies,
   dracoApplies,
   voldemortApplies,

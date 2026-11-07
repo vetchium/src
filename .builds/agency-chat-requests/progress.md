@@ -1,7 +1,7 @@
 # Agency chat requests build progress
 
 branch: agency-chat-requests
-current: T19
+current: T20
 phase: implement
 
 ## Tasks
@@ -35,7 +35,7 @@ T16 done Playwright: Chat request screens in both portals
 
 T17 done Orgs: Remove start-conversation
 T18 done Dev seed: Chat request fixtures
-T19 todo Video demos: Chat request scene
+T19 done Video demos: Chat request scene
 T20 todo Builds: Finish the agency chat requests build
 
 ## Notes
