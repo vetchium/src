@@ -549,6 +549,15 @@ func (s *marketplaceSeeder) seedTenant(ctx context.Context, tenant string) error
 	if err != nil {
 		return err
 	}
+	for _, seeded := range []struct {
+		spec      providerSpec
+		hubTenant string
+	}{{agency1, other(1)}, {agency2, other(2)}} {
+		if err := s.seedChatRequests(ctx, seeded.spec.domain(tenant),
+			seeded.spec.workers[0], company(1, tenant), seeded.hubTenant); err != nil {
+			return fmt.Errorf("chat requests at %s: %w", seeded.spec.domain(tenant), err)
+		}
+	}
 	log.Printf("seeded marketplace tenant=%s agencies=%s(%d jobs, %d owned),%s(%d jobs, %d owned) routed_work=%d contacts=%d",
 		tenant, age1, len(jobs1), owned1, age2, len(jobs2), owned2, routed, contactsSeeded)
 	return nil
@@ -1008,4 +1017,86 @@ func (s *marketplaceSeeder) seedAgencyContacts(
 		return 2, err
 	}
 	return 3, nil
+}
+
+// seedChatRequests gives the agency, on Openings 7 and 3 of a client that
+// assigns both to it, one request of each kind with Hub users of another
+// region (MKT-TST-003): its own pending request, one a person declined for
+// that Opening, a person's pending request, and one the agency declined for
+// a window. The people come after those seedAgencyContacts writes to.
+func (s *marketplaceSeeder) seedChatRequests(
+	ctx context.Context, agency orgs.OrgDomain, agent string,
+	client orgs.OrgDomain, hubTenant string,
+) error {
+	people, err := s.readProfileUsers(hubTenant)
+	if err != nil {
+		return err
+	}
+	if len(people) < 7 {
+		return fmt.Errorf("tenant %s has fewer than seven Hub users", hubTenant)
+	}
+	pendingTo, declinedBy, pendingFrom, declinedFrom := people[3], people[4], people[5], people[6]
+	about := func(number openings.OpeningNumber) contacts.OpeningSuggestion {
+		return contacts.OpeningSuggestion{ConsumerDomain: client, OpeningNumber: number}
+	}
+
+	ask := func(email string, opening contacts.OpeningSuggestion, note string) (contacts.ChatRequest, error) {
+		session, err := s.hubLogin(ctx, hubTenant, email)
+		if err != nil {
+			return contacts.ChatRequest{}, err
+		}
+		address := hubprofile.ProfileAddress(session.handle)
+		var sent contacts.ChatRequest
+		err = s.orgPostAs(ctx, agency, agent, "send-chat-request", contacts.SendChatRequestRequest{
+			Address: &address, Suggestion: opening,
+			Note: ptr(contacts.ChatRequestNote(note)),
+		}, http.StatusOK, &sent)
+		return sent, err
+	}
+	if _, err := ask(pendingTo, about(7),
+		"Your platform experience matches this role; happy to share the details."); err != nil {
+		return err
+	}
+	declined, err := ask(declinedBy, about(3),
+		"We think you would be a strong fit for this Opening.")
+	if err != nil {
+		return err
+	}
+	// The person answers once the agency's pointer has brought the request.
+	if err := await(ctx, "the chat request to "+declinedBy, func() (bool, error) {
+		var detail hubmessages.HubConversationDetail
+		err := s.hubPost(ctx, hubTenant, declinedBy, "get-conversation",
+			hubmessages.GetConversationRequest{ContactID: declined.ContactID}, http.StatusOK, &detail)
+		latest := detail.Conversation.LatestRequest
+		return err == nil && latest != nil && latest.RequestID == declined.RequestID, err
+	}); err != nil {
+		return err
+	}
+	if err := s.hubPost(ctx, hubTenant, declinedBy, "decline-chat-request",
+		hubmessages.HubDeclineChatRequestRequest{
+			RequestID: declined.RequestID, Scope: contacts.DeclineOpening,
+		}, http.StatusOK, nil); err != nil {
+		return err
+	}
+
+	request := func(email string, opening contacts.OpeningSuggestion, note string) (hubmessages.HubChatRequest, error) {
+		var sent hubmessages.HubChatRequest
+		err := s.hubPost(ctx, hubTenant, email, "send-chat-request", hubmessages.HubSendChatRequestRequest{
+			Domain: opening.ConsumerDomain, OpeningNumber: opening.OpeningNumber,
+			AgencyDomain: agency, Note: ptr(contacts.ChatRequestNote(note)),
+		}, http.StatusOK, &sent)
+		return sent, err
+	}
+	if _, err := request(pendingFrom, about(7),
+		"I saw you recruit for this Opening and would like to hear more."); err != nil {
+		return err
+	}
+	refused, err := request(declinedFrom, about(3),
+		"Could we talk about this role?")
+	if err != nil {
+		return err
+	}
+	return s.orgPostAs(ctx, agency, agent, "decline-chat-request", contacts.DeclineChatRequestRequest{
+		RequestID: refused.RequestID, Scope: contacts.DeclineSender,
+	}, http.StatusOK, nil)
 }

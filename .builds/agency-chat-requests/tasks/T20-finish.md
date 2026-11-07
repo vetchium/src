@@ -41,3 +41,4 @@ All MKT-REQ IDs; `feature-build.md` final-task rules.
 README and todo updated; `make test` passes; the build directory is gone.
 
 ## Carried over
+- From T18: seeded chat requests, per region `<r>` and per agency, all as `agent1@age1.<r>.test` / `agent1@age2.<r>.test` on Openings 7 and 3 of `org1.<r>.test`. `age1.<r>` uses Hub users 4 to 7 of the next region in sgp, usa1, deu, ind1 order, `age2.<r>` those of the region after it: user 4 holds the agency's pending request (Hub Messages), user 5 declined one "Not this Opening", user 6 sent a pending request (the agency's Home card and Requests tab), and the agency declined user 7's request for a window. Example: `age1.sgp.test` with `david.chen@`, `ashley.williams@`, `brian.oconnor@` and `natasha.brooks@usa1.test`. Read the user order from `dev/hub-seed-profiles/<region>.json`.
