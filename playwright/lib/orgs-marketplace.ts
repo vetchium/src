@@ -1,9 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { expect } from "@playwright/test";
-import type { ListConversationsResponse } from "typespec/hub/messages/messages";
+import type {
+  HubChatRequest,
+  ListConversationsResponse,
+  ListHubChatRequestsResponse,
+} from "typespec/hub/messages/messages";
 import type { MyInfoResponse } from "typespec/orgs/account/account";
 import type { Capability } from "typespec/orgs/marketplace/capabilities";
-import type { Contact } from "typespec/orgs/marketplace/contacts/contacts";
+import type {
+  ChatRequestDirection,
+  Contact,
+} from "typespec/orgs/marketplace/contacts/contacts";
 import type { Engagement } from "typespec/orgs/marketplace/engagements";
 import type {
   CreateListingRequest,
@@ -369,4 +376,32 @@ export async function awaitHubPointer(
       { timeout: 30_000, intervals: [250, 500, 1000] },
     )
     .toBe(true);
+}
+
+/**
+ * Waits until the Hub user's tenant lists a request in direction that
+ * satisfies predicate, and returns it.
+ */
+export async function awaitHubRequest(
+  applicant: Applicant,
+  direction: ChatRequestDirection,
+  predicate: (request: HubChatRequest) => boolean,
+): Promise<HubChatRequest> {
+  let found: HubChatRequest | undefined;
+  await expect
+    .poll(
+      async () => {
+        const response = await applicant.hub.listChatRequests(applicant.token, {
+          direction,
+        });
+        if (response.status() !== 200) return false;
+        found = (
+          (await response.json()) as ListHubChatRequestsResponse
+        ).items.find(predicate);
+        return found !== undefined;
+      },
+      { timeout: 30_000, intervals: [250, 500, 1000] },
+    )
+    .toBe(true);
+  return found as HubChatRequest;
 }

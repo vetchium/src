@@ -213,9 +213,11 @@ func ListChatRequests(s *hubruntime.Server) http.HandlerFunc {
 	}
 }
 
-// pendingAgencyRequest finds the pointer holding the agency's pending
-// request with the id; anything else is not found to the Hub user.
-func pendingAgencyRequest(
+// agencyRequest finds the pointer holding the agency's request with the id;
+// anything else is not found to the Hub user. The agency decides whether it
+// is still pending, so a repeated answer replays rather than fails once the
+// pointer shows it answered.
+func agencyRequest(
 	s *hubruntime.Server, w http.ResponseWriter, r *http.Request,
 	hubDID pgtype.UUID, id contacts.ChatRequestID,
 ) (sqlc.GetHubAgencyPointerByRequestRow, bool) {
@@ -239,7 +241,7 @@ func pendingAgencyRequest(
 		s.InternalError(r.Context(), w, "decode pointer request", err)
 		return sqlc.GetHubAgencyPointerByRequestRow{}, false
 	}
-	if request.Direction != contacts.ToHubUser || request.State != contacts.ChatRequestPending {
+	if request.Direction != contacts.ToHubUser {
 		s.Problem(r.Context(), w, hubproblem.HubChatRequestNotFoundError)
 		return sqlc.GetHubAgencyPointerByRequestRow{}, false
 	}
@@ -247,8 +249,11 @@ func pendingAgencyRequest(
 }
 
 // answerChatRequest sends the Hub user's answer to the agency, which is
-// authoritative for the request (MKT-DAT-005). It writes a response unless
-// the agency answered with certainty.
+// authoritative for the request (MKT-DAT-005), and records the confirmed
+// answer on the pointer. It writes a response unless the agency answered
+// with certainty.
+//
+//vetchium:multiple-commits sends the federation command to the agency authority, then updates the local pointer on success
 func answerChatRequest(
 	s *hubruntime.Server, w http.ResponseWriter, r *http.Request,
 	pointer sqlc.GetHubAgencyPointerByRequestRow, digested any,
@@ -303,6 +308,24 @@ func answerChatRequest(
 			s.InternalError(r.Context(), w, "decode answered request", err)
 			return federationspec.AgencyPointerRequest{}, false
 		}
+		stored, err := json.Marshal(answered)
+		if err != nil {
+			s.InternalError(r.Context(), w, "encode answered request", err)
+			return federationspec.AgencyPointerRequest{}, false
+		}
+		// A replay, or the agency's event arriving first, finds nothing to
+		// change.
+		if _, err := s.Queries.SetHubAgencyPointerAnsweredRequest(r.Context(),
+			sqlc.SetHubAgencyPointerAnsweredRequestParams{
+				Request:    stored,
+				Accepted:   answered.State == contacts.ChatRequestAccepted,
+				ContactID:  pointer.ContactID,
+				HubUserDid: identity.UserDID,
+				TenantID:   s.TenantID,
+			}); err != nil {
+			s.InternalError(r.Context(), w, "record answered request", err)
+			return federationspec.AgencyPointerRequest{}, false
+		}
 		return answered, true
 	case commands.StateFailed:
 		writeRejection(s, w, r, outcome.Response)
@@ -326,7 +349,7 @@ func AcceptChatRequest(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		pointer, ok := pendingAgencyRequest(s, w, r, identity.UserDID, request.RequestID)
+		pointer, ok := agencyRequest(s, w, r, identity.UserDID, request.RequestID)
 		if !ok {
 			return
 		}
@@ -338,8 +361,8 @@ func AcceptChatRequest(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 
-		// The agency's pointer event follows; until then the pointer lacks the
-		// conversation, so the answer and a live read stand in for it.
+		// The pointer lacks the messages and the window instants until the
+		// agency's pointer event arrives, so a live read supplies them.
 		limit := int32(hubmessages.DefaultPage)
 		outcome, err := s.Conversations.RelayRead(r.Context(), federationspec.MeshReadConversationRequest{
 			ContactID:    contacts.ContactID(dbvalue.FormatUUID(pointer.ContactID)),
@@ -403,7 +426,7 @@ func DeclineChatRequest(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		pointer, ok := pendingAgencyRequest(s, w, r, identity.UserDID, request.RequestID)
+		pointer, ok := agencyRequest(s, w, r, identity.UserDID, request.RequestID)
 		if !ok {
 			return
 		}

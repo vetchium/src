@@ -62,9 +62,11 @@ import type {
   DeleteContactNoteRequest,
   EditContactNoteRequest,
   GetConversationRequest,
+  ListChatRequestsRequest,
   ListContactNotesRequest,
   ListContactsRequest,
   MarkConversationReadRequest,
+  SendChatRequestRequest,
   SendMessageRequest,
   StartConversationRequest,
   ViewHubProfileRequest,
@@ -718,6 +720,28 @@ export class OrgsAPI {
     request: GetConversationRequest,
   ): Promise<APIResponse> {
     return this.post("/get-conversation", request, { token });
+  }
+
+  sendChatRequest(
+    token: string,
+    request: SendChatRequestRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/send-chat-request", request, { token, idempotencyKey });
+  }
+
+  listChatRequests(
+    token: string,
+    request: ListChatRequestsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-chat-requests", request, { token });
+  }
+
+  countPendingChatRequests(token?: string): Promise<APIResponse> {
+    return this.request.get(
+      `${this.origin}/api/orgs/count-pending-chat-requests`,
+      { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+    );
   }
 
   markConversationRead(

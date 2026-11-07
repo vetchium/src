@@ -552,6 +552,38 @@ WITH updated AS (
 )
 SELECT count(*)::bigint FROM updated;
 
+-- Records the Hub user's answer, as the agency confirmed it, on the pointer
+-- before the agency's pointer event arrives, so the next read and reply agree
+-- with it. The version stays, so that event still replaces the row.
+-- name: SetHubAgencyPointerAnsweredRequest :one
+WITH updated AS (
+    UPDATE vetchium.hub_agency_pointers
+    SET request = sqlc.arg(request)::jsonb,
+        has_conversation = has_conversation OR sqlc.arg(accepted)::boolean
+    WHERE contact_id = sqlc.arg(contact_id)
+      AND hub_user_did = sqlc.arg(hub_user_did)
+      AND has_request
+      AND request ->> 'request_id' = sqlc.arg(request)::jsonb ->> 'request_id'
+      AND request ->> 'state' = 'pending'
+    RETURNING contact_id, hub_user_did
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, source, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'hub.agency-chat-request.answered',
+        'hub_agency_pointer', updated.contact_id::text, 'hub_user',
+        updated.hub_user_did::text, updated.hub_user_did, 'hub-api',
+        jsonb_build_object(
+            'contact_id', updated.contact_id::text,
+            'request_id', sqlc.arg(request)::jsonb ->> 'request_id',
+            'state', sqlc.arg(request)::jsonb ->> 'state'
+        )
+    FROM updated
+    RETURNING audit_event_id
+)
+SELECT count(*)::bigint FROM updated;
+
 -- The Hub user's conversations and chat requests (MKT-DAT-005); a pointer
 -- with neither stays hidden (MKT-CON-006).
 -- name: ListHubAgencyConversations :many

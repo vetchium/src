@@ -13,9 +13,12 @@ import type {
 } from "typespec/hub/applications/applications";
 import type {
   DeleteConversationRequest,
+  HubAcceptChatRequestRequest,
+  HubDeclineChatRequestRequest,
   GetConversationRequest as HubGetConversationRequest,
   MarkConversationReadRequest as HubMarkConversationReadRequest,
   ListConversationsRequest,
+  ListHubChatRequestsRequest,
   ReplyToConversationRequest,
 } from "typespec/hub/messages/messages";
 import type {
@@ -437,6 +440,35 @@ export class HubAPI {
     request: HubMarkConversationReadRequest,
   ): Promise<APIResponse> {
     return this.post("/mark-conversation-read", request, { token });
+  }
+
+  listChatRequests(
+    token: string,
+    request: ListHubChatRequestsRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-chat-requests", request, { token });
+  }
+
+  acceptChatRequest(
+    token: string,
+    request: HubAcceptChatRequestRequest,
+    idempotencyKey: string = hubIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/accept-chat-request", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  declineChatRequest(
+    token: string,
+    request: HubDeclineChatRequestRequest,
+    idempotencyKey: string = hubIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/decline-chat-request", request, {
+      token,
+      idempotencyKey,
+    });
   }
 
   setAgenciesMayMessage(

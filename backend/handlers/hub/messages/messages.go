@@ -536,6 +536,9 @@ func writeRejection(
 		case hubproblem.HubChatRequestNotFoundError.Type:
 			s.Problem(r.Context(), w, hubproblem.HubChatRequestNotFoundError)
 			return
+		case hubproblem.HubConversationClosedError.Type:
+			s.Problem(r.Context(), w, hubproblem.HubConversationClosedError)
+			return
 		}
 	}
 	s.Problem(r.Context(), w, hubproblem.OrgUnavailableError)

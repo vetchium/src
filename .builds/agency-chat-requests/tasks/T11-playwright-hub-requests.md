@@ -57,3 +57,4 @@ MKT-HUB-005, MKT-CON-005.
 Every bullet in step 2 is a passing test.
 
 ## Carried over
+- From T06: `api/org-chat-requests.spec.ts` has `withAgency` (an agency with two assigned Openings, `person` seeding, `orgs` for cleanup), `expectAnswerAudited` (MKT-REQ-011 on both tenants), `backdate`, and the Orgs and Hub route-check tests. Add there: the Orgs `accept-chat-request`/`decline-chat-request` to the Orgs route checks (401, `org:fulfil_engagements` 403, invalid JSON, validation), the decliner sending its own request after declining (MKT-REQ-007), and the Hub-side MKT-REQ-003 order and Hub daily limit. A second agency for the same Opening is built in the Hub route-check test with `withProvider`, `published`, `activate`, and `assignOpeningProvider`.

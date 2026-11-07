@@ -40,3 +40,4 @@ A Hub user answers agency requests and sees why they cannot write.
 
 ## Carried over
 - From T04: `list-conversations` items may have `has_conversation` false with only `latest_request`; open those as a request, not a conversation.
+- From T06: after `accept-chat-request` returns, the pointer already shows the conversation and the answered request, so the reply box may be used at once; `decline-chat-request` likewise updates `list-chat-requests` immediately.
