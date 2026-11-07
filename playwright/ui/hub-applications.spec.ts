@@ -461,6 +461,8 @@ test("search and the needs-your-answer filter are kept in the URL and cleared fr
 
   // An empty filtered result offers to clear the filters.
   await page.getByRole("tab", { name: "Active (3)" }).click();
+  // Searching before the router settles would submit the stale closed tab.
+  await expect(page).not.toHaveURL(/tab=closed/);
   await search.fill("nobody");
   await search.press("Enter");
   await expect(

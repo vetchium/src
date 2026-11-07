@@ -14,6 +14,7 @@ import type {
 import type {
   AddedNote,
   ChatRequest,
+  ChatRequestDeclineScope,
   Contact,
   PendingChatRequestCount,
 } from "typespec/orgs/marketplace/contacts/contacts";
@@ -32,6 +33,7 @@ import {
   inviteeAddress,
   orgAuditEventsByKey,
   orgDID,
+  orgEmailText,
   orgsIdempotencyKey,
 } from "../lib/orgs-api.ts";
 import {
@@ -91,6 +93,7 @@ function expectAnswerAudited(
   request: ChatRequest,
   key: string,
   note: string,
+  scope?: ChatRequestDeclineScope,
 ): void {
   const answers = auditEventJSONForTenant(
     agency.pair.provider.tenant,
@@ -100,9 +103,14 @@ function expectAnswerAudited(
   );
   expect(answers).toHaveLength(1);
   expect(answers[0]).toMatchObject({
+    action: `org.chat_request.${scope === undefined ? "accepted" : "declined"}`,
     actor_type: "hub_user",
     actor_id: person.did,
-    payload: { contact_id: request.contact_id, direction: "to_hub_user" },
+  });
+  expect(answers[0]?.payload).toEqual({
+    contact_id: request.contact_id,
+    direction: "to_hub_user",
+    ...(scope !== undefined && { scope }),
   });
   expect(JSON.stringify(answers)).not.toContain(note);
   const commands = auditEventJSONForTenant(
@@ -147,6 +155,20 @@ test("MKT-REQ-002: an agency sends a request by handle and by Contact; both side
         .map((event) => event.action)
         .sort(),
     ).toEqual(["org.chat_request.sent", "org.contact.created"]);
+    // MKT-REQ-010: the person's tenant emails them, naming the agency and
+    // never the note.
+    const notified = await awaitHubRequest(
+      byHandle,
+      "to_hub_user",
+      (item) => item.request_id === first.request_id,
+    );
+    const email = await orgEmailText(
+      request,
+      byHandle.email,
+      `Chat request from ${notified.agency_display_name}`,
+    );
+    expect(email).toContain(notified.agency_display_name);
+    expect(email).not.toContain(marker);
     // The same key replays the request rather than sending another.
     const replayed = await sent(
       await agency.send({ address: byHandle.handle }, opening, marker, key),
@@ -379,7 +401,7 @@ test("MKT-REQ-007: declining for an Opening refuses only that Opening, and decli
     );
     expect(declined.status(), await declined.text()).toBe(200);
     expect(declined.headers()["cache-control"]).toBe("no-store");
-    expectAnswerAudited(agency, person, first, key, "Private note");
+    expectAnswerAudited(agency, person, first, key, "Private note", "opening");
     expect((await declined.json()) as HubChatRequest).toMatchObject({
       request_id: first.request_id,
       state: "declined",

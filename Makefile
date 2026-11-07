@@ -420,7 +420,7 @@ check: test
 admin-ui-deps:
 	cd admin-ui && npm ci
 
-admin-ui-check-ready: admin-ui-deps
+admin-ui-check-ready: admin-ui-deps typespec-deps
 	cd admin-ui && npm run format:check
 	cd admin-ui && npm run typecheck
 	cd admin-ui && npm audit --audit-level=high
@@ -446,7 +446,7 @@ portal-dist: hub-ui-deps orgs-ui-deps
 hub-ui-deps:
 	cd hub-ui && npm ci
 
-hub-ui-check-ready: hub-ui-deps
+hub-ui-check-ready: hub-ui-deps typespec-deps
 	cd hub-ui && npm run format:check
 	cd hub-ui && npm run typecheck
 	cd hub-ui && npm test
@@ -458,7 +458,7 @@ hub-ui-check: hub-ui-check-ready
 orgs-ui-deps:
 	cd orgs-ui && npm ci
 
-orgs-ui-check-ready: orgs-ui-deps
+orgs-ui-check-ready: orgs-ui-deps typespec-deps
 	cd orgs-ui && npm run format:check
 	cd orgs-ui && npm run typecheck
 	cd orgs-ui && npm test
@@ -470,7 +470,7 @@ orgs-ui-check: orgs-ui-check-ready
 portal-ui-deps:
 	cd portal-ui && npm ci
 
-portal-ui-check-ready: portal-ui-deps
+portal-ui-check-ready: portal-ui-deps typespec-deps
 	cd portal-ui && npm run format:check
 	cd portal-ui && npm run typecheck
 	cd portal-ui && npm test
@@ -505,7 +505,7 @@ playwright-browser: playwright-browser-ready
 playwright-browser-ready: playwright-deps
 	cd playwright && npx playwright install chromium
 
-playwright-check-ready: playwright-deps
+playwright-check-ready: playwright-deps typespec-deps
 	cd playwright && npm run format:check
 	cd playwright && npm run typecheck
 	cd playwright && npm run test:coverage-api
@@ -539,7 +539,7 @@ playwright-test:
 video-demos-deps:
 	cd video-demos && npm ci
 
-video-demos-check-ready: video-demos-deps
+video-demos-check-ready: video-demos-deps typespec-deps
 	cd video-demos && npm run format:check
 	cd video-demos && npm run typecheck
 	cd video-demos && npm audit --audit-level=high

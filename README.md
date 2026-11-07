@@ -47,6 +47,12 @@ user's handle, email, region, and plan.
 
 `EDGE_PORT` and `MAILPIT_PORT` change the published ports.
 
+Each region's `config.json` (`config/<region>.json` locally) sets
+`marketplace.conversationWindow` (`2160h`, 90 days, everywhere checked in).
+Once a chat request is accepted, each side of an agency conversation may
+write until the other side's latest activity plus this window, and a
+"Not for N days" decline lasts one window.
+
 Tilt runs the same stack with per-service logs and incremental rebuilds:
 
 ```bash
@@ -94,6 +100,16 @@ feedback on feedback forms), two staffing agencies (`age1`, a client of every
 hiring company in every region with Jobs spread across `agent1@`… owners;
 `age2`, for its own region), and one interviewing, assessment, and background-verification
 provider each (`itv1`, `asm1`, `bgv1`) with routed work.
+
+Each agency also has chat requests, sent and answered as `agent1@` on
+Openings 7 and 3 of `org1.<region>.test`, with Hub users 4 to 7 of
+`dev/hub-seed-profiles/<other region>.json`: the next region after the
+agency's in `sgp`, `usa1`, `deu`, `ind1` order for `age1`, the one after
+that for `age2`. User 4 has the agency's pending request in Hub Messages,
+user 5 declined one "Not this Opening", user 6's pending request is on the
+agency's Home and its Contacts Requests tab, and the agency declined user
+7's for a window. For `age1.sgp.test` they are `david.chen@`,
+`ashley.williams@`, `brian.oconnor@`, and `natasha.brooks@usa1.test`.
 
 Every seeded address ends in `.test`, such as `admin@sgp.test`,
 `wei.tan@sgp.test`, and `agent1@age1.sgp.test`. Hub signup accepts addresses at `<region>.test`; `sgp` also accepts

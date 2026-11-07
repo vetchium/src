@@ -141,7 +141,7 @@ Deferred:
   cross-tenant upload path (the browser reaches only its home tenant).
 - In-product messaging between an employing Org and an applicant (agency
   conversations are specified). Attachments and email notifications to Org
-  users for new messages.
+  users for new messages and chat requests.
 - Reusable application questions and feedback criteria (a library an Org
   picks from). Decide whether it lives beside pipeline templates and whether
   picking copies ids (HP-QST-002).
@@ -168,11 +168,13 @@ Deferred:
 - Principal migration for marketplace data (MKT-DAT-011) and the deletion
   notices between agency and Hub tenants (MKT-DAT-012).
 - Contract staffing and employer of record: timesheets and ongoing billing.
-- A Hub user blocking individual agencies (refused with its own reason, as
-  MKT-CNV-010 does for the messages setting), and reporting an agency's
-  messages to Admins; abuse limits beyond the daily conversation cap,
-  including probing which agencies work on an Opening through the referral
-  check (MKT-SRC-003).
+- A Hub user blocking an agency outright, beyond a "Not for N days"
+  decline, and reporting its chat requests and messages to Admins. Decide
+  the scope and the Admin review. Abuse limits beyond the daily chat request
+  caps, including probing which agencies work on an Opening through the
+  referral check (MKT-SRC-003).
+- Hub chat requests to agencies not assigned to the Opening: decided
+  against for now; revisit with abuse data.
 - Org terms text for the marketplace posture (MKT-GEN-001, MKT-GEN-002).
 - Agency logos in Hub Messages (MKT-HUB-001). The logo lives in the agency's
   tenant and the Hub user's browser reaches only its home tenant. Decide
@@ -232,3 +234,6 @@ Not built:
   `on_site` work arrangement; the agency's suggestion card shows
   `#1 gryffindor.test` instead of the Opening title; the agency's Credited
   applications table shows a lowercase `hired` status.
+- Rehearse the chat request scenes (`agencyRequest`,
+  `hermioneAcceptsRequest`, `agencyWrites`), which replaced the first
+  message and were never run, then record the demo again.

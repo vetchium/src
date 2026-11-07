@@ -20,7 +20,11 @@ import type {
 } from "typespec/orgs/marketplace/contacts/contacts";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { expectProblem } from "../lib/admin-api.ts";
-import { sqlLiteral, sqlScalarForTenant } from "../lib/admin-db.ts";
+import {
+  auditEventJSONForTenant,
+  sqlLiteral,
+  sqlScalarForTenant,
+} from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { hubIdempotencyKey } from "../lib/hub-api.ts";
 import type { Applicant } from "../lib/hub-applicant.ts";
@@ -1082,6 +1086,19 @@ test("MKT-REQ-009: a Hub user's request expires after 14 days with no block, and
     const expired = await answeredAt(person, asked, "expired");
     expect(expired.decline_scope).toBeUndefined();
     expect(expired.blocked_until).toBeUndefined();
+    // MKT-REQ-011: the agency's tenant audits the expiry, never the note.
+    const audits = auditEventJSONForTenant(
+      provider.tenant,
+      `entity_type = 'org_chat_request'
+       AND entity_id = ${sqlLiteral(asked.request_id)}
+       AND action = 'org.chat_request.expired'`,
+    );
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toMatchObject({ actor_type: "worker" });
+    expect(audits[0]?.payload).toEqual({
+      contact_id: asked.contact_id,
+      direction: "to_agency",
+    });
     await awaitChatState(person, opening, domain, "none");
     const again = await hubSent(await hubSend(person, opening, domain));
     expect(again.request_id).not.toBe(asked.request_id);
