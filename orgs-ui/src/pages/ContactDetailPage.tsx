@@ -152,8 +152,7 @@ export function ContactDetailPage() {
   }
 
   const firstName = contact.display_name.split(/\s+/)[0];
-  const isMessagesOff =
-    contact.messages_off || conversation?.read_only_reason === "messages_off";
+  const isRequestsOff = contact.requests_off;
   const isPartyDeleted =
     conversation?.read_only_reason === "hub_user_deleted" ||
     conversation?.read_only_reason === "agency_deleted";
@@ -356,16 +355,6 @@ export function ContactDetailPage() {
             label: t("marketplace.contacts.tabConversation"),
             children: (
               <Flex vertical gap="middle">
-                {isMessagesOff && (
-                  <Alert
-                    type="warning"
-                    showIcon
-                    message={t("marketplace.contacts.messagesOffBannerTitle")}
-                    description={t(
-                      "marketplace.contacts.messagesOffBannerDescription",
-                    )}
-                  />
-                )}
                 {isPartyDeleted && (
                   <Alert
                     type="warning"
@@ -497,9 +486,9 @@ export function ContactDetailPage() {
                       rows={3}
                       maxLength={5000}
                       showCount
-                      disabled={isMessagesOff || isPartyDeleted}
+                      disabled={isPartyDeleted}
                       placeholder={
-                        isMessagesOff || isPartyDeleted
+                        isPartyDeleted
                           ? t(
                               "marketplace.contacts.cannotWriteDisabledPlaceholder",
                             )
@@ -516,7 +505,7 @@ export function ContactDetailPage() {
                       gap="small"
                     >
                       <Button
-                        disabled={isMessagesOff || isPartyDeleted}
+                        disabled={isPartyDeleted}
                         onClick={() => setSuggestOpeningModalOpen(true)}
                       >
                         {t("marketplace.contacts.suggestAnOpening")}
@@ -525,9 +514,7 @@ export function ContactDetailPage() {
                       <Button
                         type="primary"
                         icon={<SendOutlined />}
-                        disabled={
-                          isMessagesOff || isPartyDeleted || !messageText.trim()
-                        }
+                        disabled={isPartyDeleted || !messageText.trim()}
                         loading={sendMsgMutation.isPending}
                         onClick={handleSendMessage}
                       >
@@ -962,9 +949,9 @@ export function ContactDetailPage() {
             ) : (
               <Tag>{t("marketplace.contacts.statusNotContacted")}</Tag>
             )}
-            {isMessagesOff && (
+            {isRequestsOff && (
               <Tag color="warning">
-                {t("marketplace.contacts.statusMessagesOff")}
+                {t("marketplace.contacts.requestsOffReason")}
               </Tag>
             )}
             {isPartyDeleted && (
@@ -993,7 +980,7 @@ export function ContactDetailPage() {
           </Typography.Paragraph>
         </div>
 
-        {!contact.has_conversation && !isMessagesOff && (
+        {!contact.has_conversation && !isRequestsOff && (
           <Button
             type="primary"
             icon={<SendOutlined />}

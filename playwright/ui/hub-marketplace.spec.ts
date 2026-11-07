@@ -245,7 +245,7 @@ test("Referred by shows only with an assigned agency; an ineligible one is refus
   });
 });
 
-test("preferences agency messages switch toggles read-only state and professional emails notice", async ({
+test("preferences agency chat-requests switch leaves conversations open, and professional emails notice", async ({
   page,
   request,
   hubUser,
@@ -291,40 +291,36 @@ test("preferences agency messages switch toggles read-only state and professiona
     await expect(
       page.getByRole("heading", { name: "Preferences", exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("Agency messages")).toBeVisible();
+    await expect(page.getByText("Agency chat requests")).toBeVisible();
+    await expect(
+      page.getByText(
+        "Turning this off stops new chat requests from agencies. Conversations you have accepted continue, and you can still send chat requests yourself.",
+      ),
+    ).toBeVisible();
 
     // Toggle switch off
     const toggle = page.getByRole("switch", {
-      name: "Agencies may message me",
+      name: "Agencies may send me chat requests",
     });
     await expect(toggle).toBeChecked();
     await toggle.click();
     await expect(toggle).not.toBeChecked();
 
-    // 3. Open Messages: conversation is now read-only
-    await page.goto(`${HUB_PORTAL}/messages`);
-    await page.getByText("Agency Alpha").first().click();
-
-    await expect(
-      page.getByText("Conversation is read-only", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByText(
-        "This conversation is read-only because agency messages are turned off in your preferences.",
-      ),
-    ).toBeVisible();
-    await expect(page.getByPlaceholder("Write a reply")).toBeHidden();
-
-    // 4. Re-enable in Preferences
-    await page.goto(`${HUB_PORTAL}/settings/preferences`);
-    await page.getByRole("switch", { name: "Agencies may message me" }).click();
-    await expect(
-      page.getByRole("switch", { name: "Agencies may message me" }),
-    ).toBeChecked();
-
-    // Reply is available again
+    // 3. Open Messages: the existing conversation stays open for replies.
     await page.goto(`${HUB_PORTAL}/messages`);
     await page.getByText("Agency Alpha").first().click();
     await expect(page.getByPlaceholder("Write a reply")).toBeVisible();
+    await expect(
+      page.getByText("Conversation is read-only", { exact: true }),
+    ).toBeHidden();
+
+    // 4. Re-enable in Preferences
+    await page.goto(`${HUB_PORTAL}/settings/preferences`);
+    await page
+      .getByRole("switch", { name: "Agencies may send me chat requests" })
+      .click();
+    await expect(
+      page.getByRole("switch", { name: "Agencies may send me chat requests" }),
+    ).toBeChecked();
   });
 });

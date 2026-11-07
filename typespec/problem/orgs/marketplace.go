@@ -208,11 +208,11 @@ var ConversationNotFoundError = problem.Details{
 	Detail: "No conversation of the agency has that identifier",
 }
 
-var AgencyMessagesOffError = problem.Details{
-	Type:   "vetchium-problem-details/org-agency-messages-off",
-	Title:  "Org agency messages off",
+var AgencyRequestsOffError = problem.Details{
+	Type:   "vetchium-problem-details/org-agency-requests-off",
+	Title:  "This person does not accept chat requests from agencies",
 	Status: 403,
-	Detail: "The Hub user does not accept messages from agencies",
+	Detail: "The Hub user does not accept chat requests from agencies",
 }
 
 var ConversationPartyDeletedError = problem.Details{

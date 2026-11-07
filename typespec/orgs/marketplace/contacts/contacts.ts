@@ -46,7 +46,6 @@ export const messageSenderTypes = ["agency", "hub_user"] as const;
 export type MessageSenderType = (typeof messageSenderTypes)[number];
 
 export const conversationReadOnlyReasons = [
-  "messages_off",
   "hub_user_deleted",
   "agency_deleted",
 ] as const;
@@ -221,8 +220,8 @@ export interface ContactSummary {
   contact_id: ContactID;
   display_name: DisplayName;
   handle: HubHandle;
-  /** The person does not accept messages from agencies. */
-  messages_off: boolean;
+  /** The person does not accept chat requests from agencies. */
+  requests_off: boolean;
   /** The person's account no longer exists; only the conversation remains. */
   account_deleted: boolean;
   note_count: number;

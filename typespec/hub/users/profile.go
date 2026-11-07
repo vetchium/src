@@ -69,6 +69,9 @@ func (r SetPreferredJobCountriesRequest) Validate() []string {
 }
 
 type SetAgenciesMayMessageRequest struct {
+	// AgenciesMayMessage is "Agencies may send me chat requests"
+	// (MKT-REQ-008): off refuses only new agency requests, and accepted
+	// conversations continue.
 	AgenciesMayMessage bool `json:"agencies_may_message"`
 }
 

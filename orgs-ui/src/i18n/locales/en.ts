@@ -2822,7 +2822,7 @@ export const en = {
       tableCredited: "Credited",
       statusInConversation: "In conversation",
       statusNotContacted: "Not contacted",
-      statusMessagesOff: "Messages off",
+      statusRequestsOff: "Chat requests off",
       statusAccountDeleted: "Account deleted",
       dailyLimitsNotice:
         "Daily limit: up to 200 new contacts, 50 new conversations.",
@@ -2834,11 +2834,8 @@ export const en = {
       handleOrAliasLabel: "Handle or alias",
       viewProfile: "View profile",
       notFound: "Contact not found.",
-      messagesOffReason: "doesn't accept messages from agencies",
-      messagesOffBannerTitle:
-        "This person does not accept messages from agencies",
-      messagesOffBannerDescription:
-        "The conversation is read-only until they turn agency messages back on. You can still view their profile.",
+      requestsOffReason:
+        "This person does not accept chat requests from agencies",
       accountDeletedBanner:
         "This conversation cannot continue: this person's account no longer exists.",
       openingSuggestionLabel: "Opening suggestion",

@@ -98,7 +98,7 @@ export function ContactsPage() {
         <Flex align="center" gap="middle">
           <Avatar
             style={{
-              backgroundColor: c.messages_off ? "#d9d9d9" : "#1677ff",
+              backgroundColor: c.requests_off ? "#d9d9d9" : "#1677ff",
               color: "#fff",
               fontWeight: 600,
             }}
@@ -133,9 +133,9 @@ export function ContactsPage() {
           ) : (
             <Tag>{t("marketplace.contacts.statusNotContacted")}</Tag>
           )}
-          {c.messages_off && (
+          {c.requests_off && (
             <Tag color="warning">
-              {t("marketplace.contacts.statusMessagesOff")}
+              {t("marketplace.contacts.statusRequestsOff")}
             </Tag>
           )}
           {c.account_deleted && (

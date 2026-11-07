@@ -52,11 +52,11 @@ export function SuggestToContactModal({
   const contactOptions = useMemo(() => {
     return contacts.map((c) => {
       const alreadySuggested = alreadySuggestedContactIds.has(c.contact_id);
-      const disabled = c.messages_off || alreadySuggested;
+      const disabled = c.requests_off || alreadySuggested;
 
       let suffix = "";
-      if (c.messages_off) {
-        suffix = ` · ${t("marketplace.contacts.messagesOffReason")}`;
+      if (c.requests_off) {
+        suffix = ` · ${t("marketplace.contacts.requestsOffReason")}`;
       } else if (alreadySuggested) {
         suffix = ` · ${t("marketplace.jobs.alreadySuggested")}`;
       }

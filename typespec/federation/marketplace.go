@@ -785,23 +785,23 @@ func (p HubAccountDeletedPayload) Validate() []string {
 	return []string{}
 }
 
-// HubAgencyMessagesChangedKind carries the Hub user's "Agencies may message
-// me" state to the agency Org of a pointer, which stores it on the Contact
+// HubAgencyRequestsChangedKind carries the Hub user's "Agencies may send me
+// chat requests" state to the agency Org of a pointer, which stores it on the Contact
 // (MKT-DAT-006). The origin is the Hub user.
-const HubAgencyMessagesChangedKind EventKind = "hub-agency-messages-changed"
+const HubAgencyRequestsChangedKind EventKind = "hub-agency-requests-changed"
 
-// AgencyContactMessagesAggregate versions hub-agency-messages-changed events
+// AgencyContactRequestsAggregate versions hub-agency-requests-changed events
 // by the setting's version. Its aggregate id is the Contact id, so a Contact
 // created after an older one for the same person still receives the state.
-const AgencyContactMessagesAggregate AggregateType = "agency_contact_messages"
+const AgencyContactRequestsAggregate AggregateType = "agency_contact_requests"
 
-type HubAgencyMessagesChangedPayload struct {
+type HubAgencyRequestsChangedPayload struct {
 	ContactID   contacts.ContactID `json:"contact_id"`
 	HubUserDID  hub.HubUserDID     `json:"hub_user_did"`
-	MessagesOff bool               `json:"messages_off"`
+	RequestsOff bool               `json:"requests_off"`
 }
 
-func (p HubAgencyMessagesChangedPayload) Validate() []string {
+func (p HubAgencyRequestsChangedPayload) Validate() []string {
 	fields := []string{}
 	if !contacts.IsContactID(p.ContactID) {
 		fields = append(fields, "contact_id")

@@ -337,9 +337,9 @@ export async function activate(
   return asConsumer(pair, proposed.id);
 }
 
-/** Waits until the agency's Contact shows the person's agency-messages
+/** Waits until the agency's Contact shows the person's agency chat-requests
  * switch, which reaches the agency tenant through the outbox. */
-export async function awaitMessagesOff(
+export async function awaitRequestsOff(
   api: OrgsAPI,
   token: string,
   contactID: string,
@@ -350,7 +350,7 @@ export async function awaitMessagesOff(
       async () => {
         const response = await api.getContact(token, { contact_id: contactID });
         return response.status() === 200
-          ? ((await response.json()) as Contact).messages_off
+          ? ((await response.json()) as Contact).requests_off
           : undefined;
       },
       { timeout: 30_000, intervals: [250, 500, 1000] },

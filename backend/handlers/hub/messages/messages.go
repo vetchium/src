@@ -223,14 +223,8 @@ func ReplyToConversation(s *hubruntime.Server) http.HandlerFunc {
 		}
 
 		if pointer.ReadOnlyReason.Valid {
-			switch pointer.ReadOnlyReason.String {
-			case "agency_deleted", "hub_user_deleted":
-				s.Problem(r.Context(), w, hubproblem.HubConversationPartyDeletedError)
-				return
-			case "messages_off":
-				s.Problem(r.Context(), w, hubproblem.HubAgencyMessagesOffError)
-				return
-			}
+			s.Problem(r.Context(), w, hubproblem.HubConversationPartyDeletedError)
+			return
 		}
 
 		digest, err := requestDigest(request)
@@ -526,9 +520,6 @@ func writeRejection(
 		switch details.Type {
 		case hubproblem.HubConversationNotFoundError.Type:
 			s.Problem(r.Context(), w, hubproblem.HubConversationNotFoundError)
-			return
-		case hubproblem.HubAgencyMessagesOffError.Type:
-			s.Problem(r.Context(), w, hubproblem.HubAgencyMessagesOffError)
 			return
 		case hubproblem.HubConversationPartyDeletedError.Type:
 			s.Problem(r.Context(), w, hubproblem.HubConversationPartyDeletedError)

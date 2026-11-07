@@ -86,18 +86,18 @@ func decode[T interface{ Validate() []string }](
 // authority authorizes what it owns (MKT-DAT-001).
 func conversation(
 	ctx context.Context, q *sqlc.Queries, orgDID, contactID, hubDID pgtype.UUID,
-) (sqlc.GetOrgConversationRow, bool, error) {
+) (sqlc.VetchiumOrgConversation, bool, error) {
 	if ok, err := lockContact(ctx, q, orgDID, contactID, hubDID); !ok || err != nil {
-		return sqlc.GetOrgConversationRow{}, false, err
+		return sqlc.VetchiumOrgConversation{}, false, err
 	}
 	row, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
 		OrgDid: orgDID, ContactID: contactID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return sqlc.GetOrgConversationRow{}, false, nil
+		return sqlc.VetchiumOrgConversation{}, false, nil
 	}
 	if err != nil {
-		return sqlc.GetOrgConversationRow{}, false, fmt.Errorf("read conversation: %w", err)
+		return sqlc.VetchiumOrgConversation{}, false, fmt.Errorf("read conversation: %w", err)
 	}
 	return row, true, nil
 }
@@ -172,8 +172,6 @@ func handleReply(ctx context.Context, tx pgx.Tx, command commands.Command) (comm
 	switch {
 	case found.ReadOnlyReason.Valid:
 		return commands.Rejected(hubproblem.HubConversationPartyDeletedError), nil
-	case found.MessagesOff:
-		return commands.Rejected(hubproblem.HubAgencyMessagesOffError), nil
 	// The command's window applies from now on (MKT-REQ-004).
 	case !agencycontacts.Window(found.HubActivityAt, found.AgencyActivityAt, window).
 		HubMayWrite(time.Now()):

@@ -36,7 +36,7 @@ export function PreferencesPage() {
       void message.success(t("preferences.saved"));
     },
   });
-  const agencyMessages = useMutation({
+  const agencyRequests = useMutation({
     mutationFn: (agencies_may_message: boolean) =>
       hubAPI.setAgenciesMayMessage({ agencies_may_message }),
     onSuccess: async () => {
@@ -96,28 +96,28 @@ export function PreferencesPage() {
         </Form>
         <APIErrorAlert error={jobs.error} />
       </Card>
-      <Card title={t("preferences.agencyMessagesTitle")}>
+      <Card title={t("preferences.agencyRequestsTitle")}>
         <Space orientation="vertical" size="middle" className="full-width">
           <Space align="center" size="middle">
             <Switch
-              aria-label={t("preferences.agenciesMayMessage")}
+              aria-label={t("preferences.agenciesMayRequest")}
               checked={me.agencies_may_message ?? true}
-              loading={agencyMessages.isPending}
+              loading={agencyRequests.isPending}
               onChange={(checked) => {
-                if (!agencyMessages.isPending) agencyMessages.mutate(checked);
+                if (!agencyRequests.isPending) agencyRequests.mutate(checked);
               }}
             />
             <Typography.Text strong>
-              {t("preferences.agenciesMayMessage")}
+              {t("preferences.agenciesMayRequest")}
             </Typography.Text>
           </Space>
           <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
-            {t("preferences.agenciesMayMessageHelp1")}
+            {t("preferences.agenciesMayRequestHelp1")}
           </Typography.Paragraph>
           <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
-            {t("preferences.agenciesMayMessageHelp2")}
+            {t("preferences.agenciesMayRequestHelp2")}
           </Typography.Paragraph>
-          <APIErrorAlert error={agencyMessages.error} />
+          <APIErrorAlert error={agencyRequests.error} />
         </Space>
       </Card>
     </Space>

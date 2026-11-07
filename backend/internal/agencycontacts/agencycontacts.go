@@ -1,7 +1,7 @@
 // Package agencycontacts carries an agency's Contacts between tenants
 // (agent-guides/marketplace.md, Agency contacts). The agency's tenant is
 // authoritative for the Contact and its notes; the Hub user's tenant keeps one
-// pointer per Contact so the messages setting and deletion notices reach the
+// pointer per Contact so the requests setting and deletion notices reach the
 // agency (MKT-DAT-003), and no Hub API returns it (MKT-CON-006).
 package agencycontacts
 
@@ -164,8 +164,8 @@ func RegisterEvents(registry *events.Registry) {
 		applyPointer, pointerOrigin)
 	registry.Register(federationspec.HubAccountDeletedKind,
 		applyAccountDeleted, accountDeletedOrigin)
-	registry.Register(federationspec.HubAgencyMessagesChangedKind,
-		applyMessagesChanged, messagesChangedOrigin)
+	registry.Register(federationspec.HubAgencyRequestsChangedKind,
+		applyRequestsChanged, requestsChangedOrigin)
 }
 
 func decodePayload(event events.Event, payload interface{ Validate() []string }) error {
@@ -203,8 +203,8 @@ func pointerOrigin(event events.Event) (events.Principal, bool) {
 	return principalFor(directoryspec.PrincipalOrg, payloadField(event, "agency_org_did"))
 }
 
-// messagesChangedOrigin is the Hub user, whose setting it reports.
-func messagesChangedOrigin(event events.Event) (events.Principal, bool) {
+// requestsChangedOrigin is the Hub user, whose setting it reports.
+func requestsChangedOrigin(event events.Event) (events.Principal, bool) {
 	return principalFor(directoryspec.PrincipalHubUser, payloadField(event, "hub_user_did"))
 }
 
@@ -222,7 +222,7 @@ func accountDeletedOrigin(event events.Event) (events.Principal, bool) {
 
 // applyPointer runs at the Hub user's tenant. An account that does not exist
 // is answered with the deletion notice (MKT-DAT-013); one that turned agency
-// messages off tells the agency at once (MKT-DAT-006).
+// requests off tells the agency at once (MKT-DAT-006).
 func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 	var payload federationspec.AgencyPointerChangedPayload
 	if err := decodePayload(event, &payload); err != nil {
@@ -260,7 +260,7 @@ func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 		return enqueueAccountDeleted(ctx, q, orgDID, hubDID)
 	}
 	if err != nil {
-		return fmt.Errorf("read agency messages setting: %w", err)
+		return fmt.Errorf("read agency requests setting: %w", err)
 	}
 
 	lastActivity := pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
@@ -268,9 +268,7 @@ func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 		lastActivity = pgtype.Timestamptz{Time: *payload.LastActivityAt, Valid: true}
 	}
 	var readOnly pgtype.Text
-	if !state.AgenciesMayMessage {
-		readOnly = dbvalue.Text("messages_off")
-	} else if payload.ReadOnlyReason != nil {
+	if payload.ReadOnlyReason != nil {
 		readOnly = pgtype.Text{String: string(*payload.ReadOnlyReason), Valid: true}
 	}
 	suggestions := payload.Suggestions
@@ -325,9 +323,9 @@ func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 	if state.AgenciesMayMessage {
 		return nil
 	}
-	return EnqueueMessagesState(ctx, q, MessagesState{
+	return EnqueueRequestsState(ctx, q, RequestsState{
 		ContactID: contactID, OrgDID: orgDID, HubUserDID: hubDID,
-		Version: state.AgenciesMayMessageVersion, MessagesOff: true,
+		Version: state.AgenciesMayMessageVersion, RequestsOff: true,
 	})
 }
 
@@ -369,41 +367,41 @@ func enqueueAccountDeleted(
 	return nil
 }
 
-// MessagesState is the Hub user's "Agencies may message me" as one agency
+// RequestsState is the Hub user's "Agencies may send me chat requests" as one agency
 // Contact keeps it.
-type MessagesState struct {
+type RequestsState struct {
 	ContactID, OrgDID, HubUserDID pgtype.UUID
 	// Version is the setting's version.
 	Version     int64
-	MessagesOff bool
+	RequestsOff bool
 }
 
-// EnqueueMessagesState tells the agency of a pointer the state of the
+// EnqueueRequestsState tells the agency of a pointer the state of the
 // setting. Call it in the transaction that creates the pointer or changes the
 // setting.
-func EnqueueMessagesState(ctx context.Context, q sqlc.Querier, s MessagesState) error {
-	return EnqueueMessagesStates(ctx, q, []MessagesState{s})
+func EnqueueRequestsState(ctx context.Context, q sqlc.Querier, s RequestsState) error {
+	return EnqueueRequestsStates(ctx, q, []RequestsState{s})
 }
 
-// EnqueueMessagesStates is EnqueueMessagesState for several pointers.
-func EnqueueMessagesStates(ctx context.Context, q sqlc.Querier, states []MessagesState) error {
+// EnqueueRequestsStates is EnqueueRequestsState for several pointers.
+func EnqueueRequestsStates(ctx context.Context, q sqlc.Querier, states []RequestsState) error {
 	outgoing := make([]events.Outgoing, len(states))
 	for index, s := range states {
 		outgoing[index] = events.Outgoing{
-			Kind:             federationspec.HubAgencyMessagesChangedKind,
+			Kind:             federationspec.HubAgencyRequestsChangedKind,
 			Destination:      events.Principal{Type: directoryspec.PrincipalOrg, DID: s.OrgDID},
-			AggregateType:    federationspec.AgencyContactMessagesAggregate,
+			AggregateType:    federationspec.AgencyContactRequestsAggregate,
 			AggregateID:      dbvalue.FormatUUID(s.ContactID),
 			AggregateVersion: s.Version,
-			Payload: federationspec.HubAgencyMessagesChangedPayload{
+			Payload: federationspec.HubAgencyRequestsChangedPayload{
 				ContactID:   contacts.ContactID(dbvalue.FormatUUID(s.ContactID)),
 				HubUserDID:  hub.HubUserDID(dbvalue.FormatUUID(s.HubUserDID)),
-				MessagesOff: s.MessagesOff,
+				RequestsOff: s.RequestsOff,
 			},
 		}
 	}
 	if err := events.EnqueueAll(ctx, q, outgoing); err != nil {
-		return fmt.Errorf("enqueue agency messages state: %w", err)
+		return fmt.Errorf("enqueue agency requests state: %w", err)
 	}
 	return nil
 }
@@ -448,10 +446,10 @@ func applyAccountDeleted(ctx context.Context, tx pgx.Tx, event events.Event) err
 	return nil
 }
 
-// applyMessagesChanged runs at the agency's tenant and stores the Hub user's
+// applyRequestsChanged runs at the agency's tenant and stores the Hub user's
 // setting on the Contact. A Contact that is gone has nothing to store it on.
-func applyMessagesChanged(ctx context.Context, tx pgx.Tx, event events.Event) error {
-	var payload federationspec.HubAgencyMessagesChangedPayload
+func applyRequestsChanged(ctx context.Context, tx pgx.Tx, event events.Event) error {
+	var payload federationspec.HubAgencyRequestsChangedPayload
 	if err := decodePayload(event, &payload); err != nil {
 		return err
 	}
@@ -464,16 +462,16 @@ func applyMessagesChanged(ctx context.Context, tx pgx.Tx, event events.Event) er
 		return err
 	}
 	if event.Destination.Type != directoryspec.PrincipalOrg ||
-		event.AggregateType != federationspec.AgencyContactMessagesAggregate ||
+		event.AggregateType != federationspec.AgencyContactRequestsAggregate ||
 		event.AggregateID != string(payload.ContactID) {
-		return fmt.Errorf("hub-agency-messages-changed envelope does not match its payload")
+		return fmt.Errorf("hub-agency-requests-changed envelope does not match its payload")
 	}
-	if _, err := sqlc.New(tx).SetOrgContactMessagesOff(ctx,
-		sqlc.SetOrgContactMessagesOffParams{
+	if _, err := sqlc.New(tx).SetOrgContactRequestsOff(ctx,
+		sqlc.SetOrgContactRequestsOffParams{
 			ContactID: contactID, OrgDid: event.Destination.DID,
-			HubUserDid: hubDID, MessagesOff: payload.MessagesOff,
+			HubUserDid: hubDID, RequestsOff: payload.RequestsOff,
 		}); err != nil {
-		return fmt.Errorf("store agency messages state: %w", err)
+		return fmt.Errorf("store agency requests state: %w", err)
 	}
 	return nil
 }

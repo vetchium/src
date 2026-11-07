@@ -390,11 +390,11 @@ export function NewContactPage() {
             </Card>
 
             <Card title={t("marketplace.contacts.messageCardTitle")}>
-              {profileData.contact?.messages_off ? (
+              {profileData.contact?.requests_off ? (
                 <Alert
                   type="warning"
                   showIcon
-                  message={t("marketplace.contacts.messagesOffReason")}
+                  message={t("marketplace.contacts.requestsOffReason")}
                 />
               ) : (
                 <Flex vertical gap="middle">

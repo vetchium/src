@@ -500,12 +500,12 @@ export const en = {
     jobCountriesHelp:
       "Choose up to 10 countries. Leave empty to explore all countries. Changing residence does not change these preferences.",
     saved: "Your preference was saved.",
-    agencyMessagesTitle: "Agency messages",
-    agenciesMayMessage: "Agencies may message me",
-    agenciesMayMessageHelp1:
-      "Recruitment agencies on Vetchium can start a conversation with you and suggest Openings. They never see your email address.",
-    agenciesMayMessageHelp2:
-      "Turning this off makes all your agency conversations read-only and stops new ones. Agencies can still view your profile.",
+    agencyRequestsTitle: "Agency chat requests",
+    agenciesMayRequest: "Agencies may send me chat requests",
+    agenciesMayRequestHelp1:
+      "Recruitment agencies on Vetchium can ask to open a conversation with you about an Opening. They never see your email address.",
+    agenciesMayRequestHelp2:
+      "Turning this off stops new chat requests from agencies. Conversations you have accepted continue, and you can still send chat requests yourself.",
   },
   workEmails: {
     documentTitle: "Professional emails | Vetchium",
@@ -1021,9 +1021,6 @@ export const en = {
     viewAndApply: "View and apply",
     readOnlyTitle: "Conversation is read-only",
     readOnlyBody: "This conversation is read-only.",
-    readOnlyPreferencesBody:
-      "This conversation is read-only because agency messages are turned off in your preferences.",
-    preferencesLink: "Open preferences",
     replyPlaceholder: "Write a reply",
     emailPrivateNotice: "Agencies never see your email address.",
     send: "Send",

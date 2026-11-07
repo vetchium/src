@@ -741,22 +741,25 @@ export function validateHubAccountDeletedPayload(
   return isHubUserDID(payload.hub_user_did) ? [] : ["hub_user_did"];
 }
 
-/** Carries "Agencies may message me" to the agency Org of a pointer. */
-export const HubAgencyMessagesChangedKind: EventKind =
-  "hub-agency-messages-changed";
+/**
+ * Carries "Agencies may send me chat requests" to the agency Org of a
+ * pointer.
+ */
+export const HubAgencyRequestsChangedKind: EventKind =
+  "hub-agency-requests-changed";
 
 /** Versions the event by the setting's version; the id is the Contact id. */
-export const AgencyContactMessagesAggregate: AggregateType =
-  "agency_contact_messages";
+export const AgencyContactRequestsAggregate: AggregateType =
+  "agency_contact_requests";
 
-export interface HubAgencyMessagesChangedPayload {
+export interface HubAgencyRequestsChangedPayload {
   contact_id: ContactID;
   hub_user_did: HubUserDID;
-  messages_off: boolean;
+  requests_off: boolean;
 }
 
-export function validateHubAgencyMessagesChangedPayload(
-  payload: HubAgencyMessagesChangedPayload,
+export function validateHubAgencyRequestsChangedPayload(
+  payload: HubAgencyRequestsChangedPayload,
 ): string[] {
   const fields: string[] = [];
   if (!isContactID(payload.contact_id)) fields.push("contact_id");

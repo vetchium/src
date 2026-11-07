@@ -13,17 +13,6 @@ alias HubConversationNotFoundErrorResponse = Response<
   typeof HubConversationNotFoundError
 >;
 
-const HubAgencyMessagesOffError = #{
-  type: "vetchium-problem-details/hub-agency-messages-off",
-  title: "Hub agency messages off",
-  status: 403,
-  detail: "Agency messages are turned off in your settings",
-};
-alias HubAgencyMessagesOffErrorResponse = Response<
-  403,
-  typeof HubAgencyMessagesOffError
->;
-
 const HubConversationPartyDeletedError = #{
   type: "vetchium-problem-details/hub-conversation-party-deleted",
   title: "Hub conversation party deleted",

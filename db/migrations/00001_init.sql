@@ -127,7 +127,7 @@ CREATE TABLE vetchium.hub_users (
     subscription_period_end timestamptz,
     scheduled_hub_plan_oid text REFERENCES vetchium.hub_plans (hub_plan_oid),
     scheduled_billing_interval vetchium.hub_billing_interval,
-    -- "Agencies may message me" (MKT-CNV-006). Its version orders the state
+    -- "Agencies may send me chat requests" (MKT-REQ-008). Its version orders the state
     -- the agency tenants keep on their Contacts (MKT-DAT-006).
     agencies_may_message boolean NOT NULL DEFAULT true,
     agencies_may_message_version bigint NOT NULL DEFAULT 1
@@ -3497,8 +3497,9 @@ CREATE TABLE vetchium.org_contacts (
     hub_user_did uuid NOT NULL,
     display_name text NOT NULL,
     handle text NOT NULL,
-    -- The Hub user's "Agencies may message me" is off (MKT-DAT-006).
-    messages_off boolean NOT NULL DEFAULT false,
+    -- The Hub user's "Agencies may send me chat requests" is off
+    -- (MKT-REQ-008, MKT-DAT-006).
+    requests_off boolean NOT NULL DEFAULT false,
     -- Versions the agency pointer the Hub user's tenant keeps; the event that
     -- deletes it carries the next version.
     pointer_version integer NOT NULL DEFAULT 1 CHECK (pointer_version >= 1),
@@ -3577,7 +3578,7 @@ CREATE TABLE vetchium.org_conversations (
         CHECK (agency_unread_count >= 0),
     read_only_reason text CHECK (
         read_only_reason IS NULL OR read_only_reason IN (
-            'messages_off', 'hub_user_deleted', 'agency_deleted'
+            'hub_user_deleted', 'agency_deleted'
         )
     ),
     party_deleted_at timestamptz,
@@ -3781,7 +3782,7 @@ CREATE TABLE vetchium.hub_agency_pointers (
     unread_count integer NOT NULL DEFAULT 0 CHECK (unread_count >= 0),
     read_only_reason text CHECK (
         read_only_reason IS NULL OR read_only_reason IN (
-            'messages_off', 'hub_user_deleted', 'agency_deleted'
+            'hub_user_deleted', 'agency_deleted'
         )
     ),
     suggestions jsonb NOT NULL DEFAULT '[]'::jsonb,

@@ -6,6 +6,7 @@ import type {
 } from "typespec/hub/messages/messages";
 import type {
   AddedNote,
+  AgencyProfile,
   Contact,
   ConversationDetail,
   ConversationMessage,
@@ -25,7 +26,7 @@ import {
   activate,
   asProvider,
   awaitHubPointer,
-  awaitMessagesOff,
+  awaitRequestsOff,
   listing,
   published,
   setOrgHome,
@@ -41,14 +42,13 @@ const PROBLEMS = {
   conversationLimit: `${BASE}org-conversation-limit-reached`,
   contactLimit: `${BASE}org-contact-limit-reached`,
   listingNotAvailable: `${BASE}org-listing-not-available`,
-  agencyMessagesOff: `${BASE}org-agency-messages-off`,
+  agencyRequestsOff: `${BASE}org-agency-requests-off`,
   partyDeleted: `${BASE}org-conversation-party-deleted`,
   permission: `${BASE}org-permission-required`,
   validation: `${BASE}validation-failed`,
   orgTenantUnavailable: `${BASE}org-tenant-unavailable`,
 
   hubConversationNotFound: `${BASE}hub-conversation-not-found`,
-  hubAgencyMessagesOff: `${BASE}hub-agency-messages-off`,
   hubPartyDeleted: `${BASE}hub-conversation-party-deleted`,
   hubOrgUnavailable: `${BASE}hub-org-unavailable`,
 };
@@ -393,7 +393,7 @@ test("Hub user list, get conversation, mark read, reply, and delete", async ({
   });
 });
 
-test("agencies may message me toggle prevents conversation start, send message, and reply", async ({
+test("agencies may send me chat requests switch refuses new requests while conversations, replies, and the profile view continue", async ({
   request,
 }) => {
   await withProvider(request, async (provider) => {
@@ -407,16 +407,18 @@ test("agencies may message me toggle prevents conversation start, send message, 
     const orgDid = orgDID(provider.org.domain, provider.tenant);
 
     try {
-      // 1. Applicant turns agencies_may_message OFF
+      const viewBefore = await provider.api.viewHubProfile(provider.owner, {
+        address: applicant.alias,
+      });
+      expect(viewBefore.status(), await viewBefore.text()).toBe(200);
+      const before = (await viewBefore.json()) as AgencyProfile;
+
+      // 1. The person refuses chat requests from agencies.
       const setOffRes = await applicant.hub.setAgenciesMayMessage(
         applicant.token,
-        {
-          agencies_may_message: false,
-        },
+        { agencies_may_message: false },
       );
       expect(setOffRes.status(), await setOffRes.text()).toBe(204);
-
-      // Verify via myInfo
       const infoRes = await applicant.hub.myInfo(applicant.token);
       expect(infoRes.status()).toBe(200);
       expect(
@@ -424,57 +426,71 @@ test("agencies may message me toggle prevents conversation start, send message, 
           .agencies_may_message,
       ).toBe(false);
 
-      // 2. Agency tries to start conversation -> rejected with org-agency-messages-off
+      // 2. A new conversation is refused; the profile stays viewable.
       const startRes = await provider.api.startConversation(provider.owner, {
         address: applicant.alias,
-        text: "Trying to reach you while messages are off",
+        text: "Trying to reach you while requests are off",
       });
-      await expectProblem(startRes, 403, PROBLEMS.agencyMessagesOff);
+      await expectProblem(startRes, 403, PROBLEMS.agencyRequestsOff);
+      const viewOff = await provider.api.viewHubProfile(provider.owner, {
+        address: applicant.alias,
+      });
+      expect(viewOff.status(), await viewOff.text()).toBe(200);
+      const off = (await viewOff.json()) as AgencyProfile;
+      expect(off.profile).toEqual(before.profile);
+      expect(off.verified_domains).toEqual(before.verified_domains);
 
-      // 3. Applicant turns agencies_may_message back ON
+      // 3. With requests on again, the agency starts a conversation.
       const setOnRes = await applicant.hub.setAgenciesMayMessage(
         applicant.token,
-        {
-          agencies_may_message: true,
-        },
+        { agencies_may_message: true },
       );
       expect(setOnRes.status()).toBe(204);
-
-      // 4. Agency starts conversation successfully
       const startOnRes = await provider.api.startConversation(provider.owner, {
         address: applicant.alias,
-        text: "Reaching out now that messages are on!",
+        text: "Reaching out now that requests are on!",
       });
-      expect(startOnRes.status()).toBe(200);
+      expect(startOnRes.status(), await startOnRes.text()).toBe(200);
       const conv = (await startOnRes.json()) as ConversationDetail;
       const contactID = conv.conversation.contact_id;
 
-      // 5. Applicant turns messages OFF again; the switch reaches the
-      // agency once the Hub tenant knows the agency's pointer.
+      // 4. Refusing requests again reaches the agency's Contact once the Hub
+      // tenant holds the agency's pointer, and leaves the conversation open.
       await awaitHubPointer(applicant, contactID);
       const setOffAgain = await applicant.hub.setAgenciesMayMessage(
         applicant.token,
         { agencies_may_message: false },
       );
       expect(setOffAgain.status(), await setOffAgain.text()).toBe(204);
-      await awaitMessagesOff(provider.api, provider.owner, contactID, true);
+      await awaitRequestsOff(provider.api, provider.owner, contactID, true);
 
-      // Agency tries to send message -> rejected with org-agency-messages-off
       const sendRes = await provider.api.sendMessage(provider.owner, {
         contact_id: contactID,
-        text: "Another message while off",
+        text: "Another message while requests are off",
       });
-      await expectProblem(sendRes, 403, PROBLEMS.agencyMessagesOff);
+      expect(sendRes.status(), await sendRes.text()).toBe(200);
 
-      // Hub user tries to reply -> rejected with hub-agency-messages-off
+      const hubGet = await applicant.hub.getConversation(applicant.token, {
+        contact_id: contactID,
+      });
+      expect(hubGet.status(), await hubGet.text()).toBe(200);
+      expect(
+        ((await hubGet.json()) as HubConversationDetail).conversation
+          .read_only_reason,
+      ).toBeUndefined();
       const replyRes = await applicant.hub.replyToConversation(
         applicant.token,
-        {
-          contact_id: contactID,
-          text: "Hub reply while off",
-        },
+        { contact_id: contactID, text: "Hub reply while requests are off" },
       );
-      await expectProblem(replyRes, 403, PROBLEMS.hubAgencyMessagesOff);
+      expect(replyRes.status(), await replyRes.text()).toBe(200);
+
+      const viewContact = await provider.api.viewHubProfile(provider.owner, {
+        address: applicant.alias,
+      });
+      expect(viewContact.status(), await viewContact.text()).toBe(200);
+      const withContact = (await viewContact.json()) as AgencyProfile;
+      expect(withContact.profile).toEqual(before.profile);
+      expect(withContact.contact?.requests_off).toBe(true);
     } finally {
       cleanupApplicant(applicant, [{ tenant: provider.tenant, did: orgDid }]);
     }
@@ -606,7 +622,7 @@ test("permissions: org:fulfil_engagements is required", async ({ request }) => {
   });
 });
 
-test("counterparty tenant unavailable during Hub conversation get and reply, recovery, and messages switch across tenants", async ({
+test("counterparty tenant unavailable during Hub conversation get and reply, recovery, and chat-requests switch across tenants", async ({
   request,
 }) => {
   await withProvider(
@@ -671,46 +687,39 @@ test("counterparty tenant unavailable during Hub conversation get and reply, rec
         );
         expect(replyRecovered.status()).toBe(200);
 
-        // 4. Messages switch reaching existing conversations in other tenants
-        // Applicant switches messages off
+        // 4. Refusing chat requests reaches the agency in another tenant and
+        // leaves the conversation open on both sides.
         const setOff = await applicant.hub.setAgenciesMayMessage(
           applicant.token,
           { agencies_may_message: false },
         );
         expect(setOff.status(), await setOff.text()).toBe(204);
-        await awaitMessagesOff(provider.api, provider.owner, contactID, true);
+        await awaitRequestsOff(provider.api, provider.owner, contactID, true);
 
-        // Agency sees contact has messages_off: true
         const contactRes = await provider.api.getContact(provider.owner, {
           contact_id: contactID,
         });
         expect(contactRes.status()).toBe(200);
-        const contactData = (await contactRes.json()) as Contact;
-        expect(contactData.messages_off).toBe(true);
+        expect(((await contactRes.json()) as Contact).requests_off).toBe(true);
 
-        // Agency cannot send message
         const agencySend = await provider.api.sendMessage(provider.owner, {
           contact_id: contactID,
-          text: "Message while off",
+          text: "Message while requests are off",
         });
-        await expectProblem(agencySend, 403, PROBLEMS.agencyMessagesOff);
+        expect(agencySend.status(), await agencySend.text()).toBe(200);
 
-        // Hub user sees read_only_reason is messages_off and cannot reply
         const hubGet = await applicant.hub.getConversation(applicant.token, {
           contact_id: contactID,
         });
         expect(hubGet.status()).toBe(200);
         const hubConv = (await hubGet.json()) as HubConversationDetail;
-        expect(hubConv.conversation.read_only_reason).toBe("messages_off");
+        expect(hubConv.conversation.read_only_reason).toBeUndefined();
 
-        const hubReplyOff = await applicant.hub.replyToConversation(
+        const hubReply = await applicant.hub.replyToConversation(
           applicant.token,
-          {
-            contact_id: contactID,
-            text: "Hub reply while off",
-          },
+          { contact_id: contactID, text: "Hub reply while requests are off" },
         );
-        await expectProblem(hubReplyOff, 403, PROBLEMS.hubAgencyMessagesOff);
+        expect(hubReply.status(), await hubReply.text()).toBe(200);
       } finally {
         setOrgHome(orgDid, provider.tenant);
         cleanupApplicant(applicant, [{ tenant: provider.tenant, did: orgDid }]);

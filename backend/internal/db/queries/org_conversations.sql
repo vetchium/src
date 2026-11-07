@@ -171,17 +171,15 @@ SELECT message.message_id, message.sender_type, message.sender_display_name,
     (SELECT count(*) FROM audit) AS audit_rows
 FROM message;
 
--- The conversation of one of the agency's Contacts, with the Contact's
--- messages setting (MKT-DAT-006).
+-- The conversation of one of the agency's Contacts.
 -- name: GetOrgConversation :one
 SELECT c.conversation_id, c.contact_id, c.org_did, c.hub_user_did,
     c.recorded_hub_user_name, c.recorded_hub_user_handle,
     c.recorded_agency_name, c.recorded_agency_domain,
     c.agency_unread_count, c.read_only_reason, c.party_deleted_at,
     c.hub_activity_at, c.agency_activity_at, c.window_seconds,
-    c.created_at, c.last_activity_at, t.messages_off
+    c.created_at, c.last_activity_at
 FROM vetchium.org_conversations AS c
-JOIN vetchium.org_contacts AS t ON t.contact_id = c.contact_id
 WHERE c.org_did = sqlc.arg(org_did) AND c.contact_id = sqlc.arg(contact_id);
 
 -- One page of a conversation's messages, newest first.

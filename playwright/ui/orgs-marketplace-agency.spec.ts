@@ -5,7 +5,7 @@ import { addOrgMember, inviteeAddress, orgDID } from "../lib/orgs-api.ts";
 import {
   activate,
   asProvider,
-  awaitMessagesOff,
+  awaitRequestsOff,
 } from "../lib/orgs-marketplace.ts";
 import { assign, withWorld } from "../lib/orgs-routing.ts";
 import { signIn } from "../lib/orgs-ui.ts";
@@ -13,7 +13,7 @@ import { ORGS_PORTAL } from "../lib/portals.ts";
 
 test.describe.configure({ timeout: 240_000 });
 
-test("agency contact lifecycle: creates contact with note, starts conversation, suggests opening, edits/deletes notes, and respects messages-off", async ({
+test("agency contact lifecycle: creates contact with note, starts conversation, suggests opening, edits/deletes notes, and keeps the conversation open when chat requests are off", async ({
   page,
   request,
 }) => {
@@ -187,7 +187,7 @@ test("agency contact lifecycle: creates contact with note, starts conversation, 
       await confirmPopconfirm.click();
       await expect(tempNoteCard).toBeHidden();
 
-      // 6. Messages-off state
+      // 6. Chat requests off: tagged, but the conversation stays writable.
       await expect
         .poll(
           () =>
@@ -204,20 +204,18 @@ test("agency contact lifecycle: creates contact with note, starts conversation, 
         { agencies_may_message: false },
       );
       expect(switched.status(), await switched.text()).toBe(204);
-      await awaitMessagesOff(provider.api, provider.owner, contactID, true);
+      await awaitRequestsOff(provider.api, provider.owner, contactID, true);
       await page.reload();
 
-      // Check warning message
       await expect(
-        page.getByText("This person does not accept messages from agencies"),
+        page.getByText(
+          "This person does not accept chat requests from agencies",
+        ),
       ).toBeVisible();
-      await expect(
-        page.getByPlaceholder("You can't write to this person right now."),
-      ).toBeDisabled();
+      await expect(page.getByPlaceholder("Write a message")).toBeEnabled();
       await expect(
         page.getByRole("button", { name: "Suggest an Opening" }),
-      ).toBeDisabled();
-      await expect(page.getByRole("button", { name: /Send/ })).toBeDisabled();
+      ).toBeEnabled();
     } finally {
       cleanupApplicant(applicant, [
         {

@@ -55,7 +55,6 @@ enum MessageSenderType {
 }
 
 enum ConversationReadOnlyReason {
-  messages_off: "messages_off",
   hub_user_deleted: "hub_user_deleted",
   agency_deleted: "agency_deleted",
 }
@@ -285,8 +284,8 @@ model ContactSummary {
 
   handle: Vetchium.Hub.HubHandle;
 
-  /** The person does not accept messages from agencies. */
-  messages_off: boolean;
+  /** The person does not accept chat requests from agencies. */
+  requests_off: boolean;
 
   /** The person's account no longer exists; only the conversation remains. */
   account_deleted: boolean;
@@ -685,7 +684,7 @@ interface ContactOperations {
     | Vetchium.Problem.OrgConversationLimitReachedErrorResponse
     | Vetchium.Problem.OrgContactLimitReachedErrorResponse
     | Vetchium.Problem.OrgHubUserNotFoundErrorResponse
-    | Vetchium.Problem.OrgAgencyMessagesOffErrorResponse
+    | Vetchium.Problem.OrgAgencyRequestsOffErrorResponse
     | Vetchium.Problem.OrgConversationPartyDeletedErrorResponse
     | Vetchium.Problem.OrgTenantUnavailableErrorResponse;
 
@@ -725,7 +724,7 @@ interface ContactOperations {
     | Vetchium.Problem.OrgContactLimitReachedErrorResponse
     | Vetchium.Problem.OrgContactNotFoundErrorResponse
     | Vetchium.Problem.OrgHubUserNotFoundErrorResponse
-    | Vetchium.Problem.OrgAgencyMessagesOffErrorResponse
+    | Vetchium.Problem.OrgAgencyRequestsOffErrorResponse
     | Vetchium.Problem.OrgConversationPartyDeletedErrorResponse
     | Vetchium.Problem.OrgChatRequestExistsErrorResponse
     | Vetchium.Problem.OrgConversationOpenErrorResponse
@@ -860,7 +859,6 @@ interface ContactOperations {
     | ContactWriteErrors
     | Vetchium.Problem.OrgContactNotFoundErrorResponse
     | Vetchium.Problem.OrgConversationNotFoundErrorResponse
-    | Vetchium.Problem.OrgAgencyMessagesOffErrorResponse
     | Vetchium.Problem.OrgConversationPartyDeletedErrorResponse
     | Vetchium.Problem.OrgConversationClosedErrorResponse;
 

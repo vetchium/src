@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
 	hubspec "github.com/vetchium/src/typespec/hub"
@@ -171,19 +170,7 @@ func SetAgenciesMayMessage(s *hubruntime.Server) http.HandlerFunc {
 				)
 				return
 			}
-			s.InternalError(r.Context(), w, "set Hub agencies may message", err)
-			return
-		}
-
-		var newReason pgtype.Text
-		if !row.AgenciesMayMessage {
-			newReason = pgtype.Text{String: "messages_off", Valid: true}
-		}
-		if _, err := q.SetHubAgencyPointersReadOnlyReasonForUser(r.Context(), sqlc.SetHubAgencyPointersReadOnlyReasonForUserParams{
-			HubUserDid:     identity.UserDID,
-			ReadOnlyReason: newReason,
-		}); err != nil {
-			s.InternalError(r.Context(), w, "update agency pointers read only reason", err)
+			s.InternalError(r.Context(), w, "set Hub agencies may send requests", err)
 			return
 		}
 
@@ -193,18 +180,18 @@ func SetAgenciesMayMessage(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 
-		states := make([]agencycontacts.MessagesState, len(pointers))
+		states := make([]agencycontacts.RequestsState, len(pointers))
 		for index, p := range pointers {
-			states[index] = agencycontacts.MessagesState{
+			states[index] = agencycontacts.RequestsState{
 				ContactID:   p.ContactID,
 				OrgDID:      p.AgencyOrgDid,
 				HubUserDID:  identity.UserDID,
 				Version:     row.AgenciesMayMessageVersion,
-				MessagesOff: !row.AgenciesMayMessage,
+				RequestsOff: !row.AgenciesMayMessage,
 			}
 		}
-		if err := agencycontacts.EnqueueMessagesStates(r.Context(), q, states); err != nil {
-			s.InternalError(r.Context(), w, "enqueue messages state", err)
+		if err := agencycontacts.EnqueueRequestsStates(r.Context(), q, states); err != nil {
+			s.InternalError(r.Context(), w, "enqueue requests state", err)
 			return
 		}
 

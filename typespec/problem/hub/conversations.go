@@ -9,13 +9,6 @@ var HubConversationNotFoundError = problem.Details{
 	Detail: "No conversation has that identifier",
 }
 
-var HubAgencyMessagesOffError = problem.Details{
-	Type:   "vetchium-problem-details/hub-agency-messages-off",
-	Title:  "Hub agency messages off",
-	Status: 403,
-	Detail: "Agency messages are turned off in your settings",
-}
-
 var HubConversationPartyDeletedError = problem.Details{
 	Type:   "vetchium-problem-details/hub-conversation-party-deleted",
 	Title:  "Hub conversation party deleted",

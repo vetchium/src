@@ -7,13 +7,6 @@ export const HubConversationNotFoundError: Readonly<Details> = {
   detail: "No conversation has that identifier",
 };
 
-export const HubAgencyMessagesOffError: Readonly<Details> = {
-  type: "vetchium-problem-details/hub-agency-messages-off",
-  title: "Hub agency messages off",
-  status: 403,
-  detail: "Agency messages are turned off in your settings",
-};
-
 export const HubConversationPartyDeletedError: Readonly<Details> = {
   type: "vetchium-problem-details/hub-conversation-party-deleted",
   title: "Hub conversation party deleted",

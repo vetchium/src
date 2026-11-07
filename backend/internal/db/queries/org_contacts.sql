@@ -25,7 +25,7 @@ SELECT COALESCE((
 ), 0)::integer AS created;
 
 -- name: GetOrgContactByPerson :one
-SELECT c.contact_id, c.display_name, c.handle, c.messages_off,
+SELECT c.contact_id, c.display_name, c.handle, c.requests_off,
     c.last_activity_at,
     (SELECT count(*) FROM vetchium.org_contact_notes AS n
      WHERE n.contact_id = c.contact_id)::integer AS note_count,
@@ -41,7 +41,7 @@ WHERE c.org_did = sqlc.arg(org_did)
   AND c.hub_user_did = sqlc.arg(hub_user_did);
 
 -- name: GetOrgContact :one
-SELECT c.contact_id, c.hub_user_did, c.display_name, c.handle, c.messages_off,
+SELECT c.contact_id, c.hub_user_did, c.display_name, c.handle, c.requests_off,
     c.last_activity_at, c.created_at, u.email_address AS created_by,
     (SELECT count(*) FROM vetchium.org_contact_notes AS n
      WHERE n.contact_id = c.contact_id)::integer AS note_count,
@@ -58,7 +58,7 @@ WHERE c.org_did = sqlc.arg(org_did)
   AND c.contact_id = sqlc.arg(contact_id);
 
 -- name: ListOrgContacts :many
-SELECT c.contact_id, c.hub_user_did, c.display_name, c.handle, c.messages_off,
+SELECT c.contact_id, c.hub_user_did, c.display_name, c.handle, c.requests_off,
     c.last_activity_at,
     (SELECT count(*) FROM vetchium.org_contact_notes AS n
      WHERE n.contact_id = c.contact_id)::integer AS note_count,
@@ -108,7 +108,7 @@ WHERE c.org_did = sqlc.arg(org_did);
 -- Contact must be the Org's.
 -- name: LockOrgContact :one
 SELECT c.contact_id, c.hub_user_did, c.display_name, c.handle,
-    c.messages_off
+    c.requests_off
 FROM vetchium.org_contacts AS c
 WHERE c.org_did = sqlc.arg(org_did) AND c.contact_id = sqlc.arg(contact_id)
 FOR UPDATE;
@@ -472,12 +472,12 @@ WITH pruned AS (
 SELECT pruned.org_did, (SELECT count(*) FROM audit) AS audit_rows
 FROM pruned;
 
--- Applies hub-agency-messages-changed at the agency's tenant. The receiver
+-- Applies hub-agency-requests-changed at the agency's tenant. The receiver
 -- calls it only for an event newer than its watermark, so it overwrites; the
 -- receipt's audit event covers the write.
--- name: SetOrgContactMessagesOff :execrows
+-- name: SetOrgContactRequestsOff :execrows
 UPDATE vetchium.org_contacts AS c
-SET messages_off = sqlc.arg(messages_off)
+SET requests_off = sqlc.arg(requests_off)
 WHERE c.contact_id = sqlc.arg(contact_id)
   AND c.org_did = sqlc.arg(org_did)
   AND c.hub_user_did = sqlc.arg(hub_user_did);
@@ -523,7 +523,7 @@ WHERE c.org_did = sqlc.arg(org_did)
       WHERE conv.contact_id = c.contact_id
   );
 
--- The Hub user's side of agency Contacts: the messages setting and its
+-- The Hub user's side of agency Contacts: the requests setting and its
 -- version, for an account that can be reached.
 -- name: GetHubUserAgencyState :one
 SELECT u.agencies_may_message, u.agencies_may_message_version
@@ -755,16 +755,6 @@ WHERE hub_user_did = sqlc.arg(hub_user_did)
            sqlc.narg(before_contact_id)::uuid))
 ORDER BY (request ->> 'answered_at')::timestamptz DESC, contact_id DESC
 LIMIT sqlc.arg(page_limit);
-
--- name: SetHubAgencyPointersReadOnlyReasonForUser :execrows
-UPDATE vetchium.hub_agency_pointers
-SET read_only_reason = sqlc.narg(read_only_reason)
-WHERE hub_user_did = sqlc.arg(hub_user_did)
-  AND (
-      (sqlc.narg(read_only_reason)::text IS NOT NULL AND read_only_reason IS NULL)
-      OR
-      (sqlc.narg(read_only_reason)::text IS NULL AND read_only_reason = 'messages_off')
-  );
 
 -- name: ListHubAgencyPointersForUser :many
 SELECT contact_id, agency_org_did, pointer_version

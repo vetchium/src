@@ -263,7 +263,6 @@ interface MessageOperations {
     | MessageErrors
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.HubConversationNotFoundErrorResponse
-    | Vetchium.Problem.HubAgencyMessagesOffErrorResponse
     | Vetchium.Problem.HubConversationPartyDeletedErrorResponse
     | Vetchium.Problem.HubConversationClosedErrorResponse;
 

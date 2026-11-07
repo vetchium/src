@@ -528,12 +528,12 @@ export const de = {
     jobCountriesHelp:
       "Wählen Sie bis zu 10 Länder. Ohne Auswahl suchen Sie weltweit. Eine Änderung des Wohnsitzlands ändert diese Auswahl nicht.",
     saved: "Ihre Einstellung wurde gespeichert.",
-    agencyMessagesTitle: "Agenturnachrichten",
-    agenciesMayMessage: "Agenturen dürfen mir Nachrichten senden",
-    agenciesMayMessageHelp1:
-      "Personalvermittlungen auf Vetchium können eine Konversation mit Ihnen beginnen und Stellenausschreibungen vorschlagen. Sie sehen Ihre E-Mail-Adresse niemals.",
-    agenciesMayMessageHelp2:
-      "Wenn Sie dies deaktivieren, werden alle Ihre Agenturkonversationen schreibgeschützt und neue werden verhindert. Agenturen können Ihr Profil weiterhin ansehen.",
+    agencyRequestsTitle: "Chat-Anfragen von Agenturen",
+    agenciesMayRequest: "Agenturen dürfen mir Chat-Anfragen senden",
+    agenciesMayRequestHelp1:
+      "Personalvermittlungen auf Vetchium können Sie bitten, zu einer Stellenausschreibung eine Konversation zu beginnen. Sie sehen Ihre E-Mail-Adresse niemals.",
+    agenciesMayRequestHelp2:
+      "Wenn Sie dies deaktivieren, erhalten Sie keine neuen Chat-Anfragen von Agenturen. Angenommene Konversationen gehen weiter, und Sie können selbst weiterhin Chat-Anfragen senden.",
   },
   workEmails: {
     documentTitle: "Berufliche E-Mails | Vetchium",
@@ -1057,9 +1057,6 @@ export const de = {
     viewAndApply: "Ansehen und bewerben",
     readOnlyTitle: "Konversation ist schreibgeschützt",
     readOnlyBody: "Diese Konversation ist schreibgeschützt.",
-    readOnlyPreferencesBody:
-      "Diese Konversation ist schreibgeschützt, da Agenturnachrichten in Ihren Einstellungen deaktiviert sind.",
-    preferencesLink: "Einstellungen öffnen",
     replyPlaceholder: "Antwort schreiben",
     emailPrivateNotice: "Agenturen sehen Ihre E-Mail-Adresse niemals.",
     send: "Senden",

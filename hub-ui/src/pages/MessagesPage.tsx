@@ -25,7 +25,7 @@ import {
 } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import type {
   ContactID,
   ConversationMessage,
@@ -46,7 +46,6 @@ import {
   useMarkConversationRead,
 } from "../features/messages/queries";
 import { useOrgOpeningQuery } from "../features/openings/queries";
-import { useMyInfoQuery } from "../features/profile/queries";
 
 const avatarColors = [
   "#1677ff",
@@ -209,7 +208,6 @@ export function MessagesPage() {
 
   const selectedContactId = params.contactId;
   const conversations = useConversationsQuery();
-  const me = useMyInfoQuery();
 
   const [replyText, setReplyText] = useState("");
 
@@ -244,9 +242,7 @@ export function MessagesPage() {
     });
   };
 
-  const isReadOnly =
-    summary?.read_only_reason !== undefined ||
-    me.data?.agencies_may_message === false;
+  const isReadOnly = summary?.read_only_reason !== undefined;
 
   const isOrgUnavailable =
     detailQuery.isError &&
@@ -564,18 +560,7 @@ export function MessagesPage() {
                 type="info"
                 showIcon
                 message={t("messages.readOnlyTitle")}
-                description={
-                  me.data?.agencies_may_message === false ? (
-                    <span>
-                      {t("messages.readOnlyPreferencesBody")}{" "}
-                      <Link to="/settings/preferences">
-                        {t("messages.preferencesLink")}
-                      </Link>
-                    </span>
-                  ) : (
-                    t("messages.readOnlyBody")
-                  )
-                }
+                description={t("messages.readOnlyBody")}
               />
             ) : (
               <Space

@@ -67,7 +67,7 @@ const PROBLEMS = {
   partyDeleted: `${BASE}org-conversation-party-deleted`,
   hubUserNotFound: `${BASE}org-hub-user-not-found`,
   contactNotFound: `${BASE}org-contact-not-found`,
-  agencyMessagesOff: `${BASE}org-agency-messages-off`,
+  agencyRequestsOff: `${BASE}org-agency-requests-off`,
   permission: `${BASE}org-permission-required`,
   orgAuth: `${BASE}org-authentication-required`,
   validation: `${BASE}validation-failed`,
@@ -892,7 +892,7 @@ test("Orgs chat request routes authenticate, require org:fulfil_engagements, val
     await expectProblem(
       await agency.send({ address: person.handle }, opening),
       403,
-      PROBLEMS.agencyMessagesOff,
+      PROBLEMS.agencyRequestsOff,
     );
 
     // A key stays bound to the request it first carried.

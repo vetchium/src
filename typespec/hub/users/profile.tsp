@@ -40,6 +40,10 @@ model SetPreferredJobCountriesRequest {
 }
 
 model SetAgenciesMayMessageRequest {
+  /**
+   * Whether agencies may send the Hub user chat requests (MKT-REQ-008). Off
+   * refuses only new agency requests; accepted conversations continue.
+   */
   agencies_may_message: boolean;
 }
 
@@ -96,6 +100,7 @@ interface ProfileOperations {
     | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
+  /** Sets "Agencies may send me chat requests" (MKT-REQ-008, MKT-DAT-006). */
   @route("/set-agencies-may-message")
   @post
   @useAuth(BearerAuth)

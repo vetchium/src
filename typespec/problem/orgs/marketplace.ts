@@ -195,11 +195,11 @@ export const ConversationNotFoundError: Readonly<Details> = {
   detail: "No conversation of the agency has that identifier",
 };
 
-export const AgencyMessagesOffError: Readonly<Details> = {
-  type: "vetchium-problem-details/org-agency-messages-off",
-  title: "Org agency messages off",
+export const AgencyRequestsOffError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-agency-requests-off",
+  title: "This person does not accept chat requests from agencies",
   status: 403,
-  detail: "The Hub user does not accept messages from agencies",
+  detail: "The Hub user does not accept chat requests from agencies",
 };
 
 export const ConversationPartyDeletedError: Readonly<Details> = {

@@ -2806,7 +2806,7 @@ export const ta = {
       tableCredited: "வரவு வைக்கப்பட்டது",
       statusInConversation: "உரையாடலில்",
       statusNotContacted: "தொடர்பு கொள்ளப்படவில்லை",
-      statusMessagesOff: "செய்திகள் முடக்கப்பட்டுள்ளன",
+      statusRequestsOff: "அரட்டை கோரிக்கைகள் முடக்கப்பட்டுள்ளன",
       statusAccountDeleted: "கணக்கு நீக்கப்பட்டது",
       dailyLimitsNotice:
         "தினசரி வரம்பு: 200 புதிய தொடர்புகள், 50 புதிய உரையாடல்கள் வரை.",
@@ -2818,10 +2818,7 @@ export const ta = {
       handleOrAliasLabel: "ஹேண்டில் அல்லது மாற்றுப்பெயர்",
       viewProfile: "சுயவிவரத்தைக் காண்க",
       notFound: "தொடர்பு காணப்படவில்லை.",
-      messagesOffReason: "முகமைகளின் செய்திகளை ஏற்பதில்லை",
-      messagesOffBannerTitle: "இந்த நபர் முகமைகளின் செய்திகளை ஏற்பதில்லை",
-      messagesOffBannerDescription:
-        "அவர்கள் செய்திகளை இயக்கும் வரை இந்த உரையாடல் படிக்க மட்டுமே இயலும். நீங்கள் அவர்களின் சுயவிவரத்தைப் பார்க்கலாம்.",
+      requestsOffReason: "இந்த நபர் முகமைகளிடமிருந்து அரட்டை கோரிக்கைகளை ஏற்பதில்லை",
       accountDeletedBanner:
         "இந்த உரையாடலைத் தொடர முடியாது: இந்த நபரின் கணக்கு இனி இல்லை.",
       openingSuggestionLabel: "பணிப் பரிந்துரை",

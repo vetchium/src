@@ -321,11 +321,13 @@ func TestHubReplyToAnotherPersonsContactIsUnknownIntegration(t *testing.T) {
 	}
 }
 
-func TestHubReplyRefusedWhileReadOnlyIntegration(t *testing.T) {
+// Turning agency requests off never makes a conversation read-only
+// (MKT-CNV-006); only a deleted party does (MKT-CNV-011).
+func TestHubReplyRefusedOnlyWhileReadOnlyIntegration(t *testing.T) {
 	f := newFixture(t)
 	off, gone := newID(t), newID(t)
 	offContact := f.contact(t, off, 0, true)
-	f.exec(t, `UPDATE vetchium.org_contacts SET messages_off = true
+	f.exec(t, `UPDATE vetchium.org_contacts SET requests_off = true
         WHERE contact_id = $1`, offContact)
 	goneContact := f.contact(t, gone, 0, true)
 	f.exec(t, `UPDATE vetchium.org_conversations
@@ -336,12 +338,12 @@ func TestHubReplyRefusedWhileReadOnlyIntegration(t *testing.T) {
 		status       int
 		problem      string
 	}{
-		{offContact, off, 403, "hub-agency-messages-off"},
+		{offContact, off, 200, ""},
 		{goneContact, gone, 409, "hub-conversation-party-deleted"},
 	} {
 		response := f.reply(t, test.contact, test.hub, "Hello")
 		if response.Status != test.status ||
-			problemType(t, response) != test.problem {
+			(test.problem != "" && problemType(t, response) != test.problem) {
 			t.Fatalf("response = %d %s", response.Status, response.Body)
 		}
 	}

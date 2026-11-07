@@ -56,10 +56,10 @@ func TestAgencyChatState(t *testing.T) {
 		{"open", &sqlc.ListHubAgencyPointersForAgenciesRow{
 			HasConversation: true, HubMayWriteUntil: writable,
 		}, hubmessages.OpeningAgencyOpen, hubproblem.HubConversationOpenError.Type},
-		{"read-only is closed", &sqlc.ListHubAgencyPointersForAgenciesRow{
+		{"deleted party is closed", &sqlc.ListHubAgencyPointersForAgenciesRow{
 			HasConversation: true, HubMayWriteUntil: writable,
-			ReadOnlyReason: pgtype.Text{String: "messages_off", Valid: true},
-		}, hubmessages.OpeningAgencyClosed, ""},
+			ReadOnlyReason: pgtype.Text{String: "agency_deleted", Valid: true},
+		}, hubmessages.OpeningAgencyClosed, hubproblem.HubConversationPartyDeletedError.Type},
 		{"lapsed", &sqlc.ListHubAgencyPointersForAgenciesRow{
 			HasConversation: true, HubMayWriteUntil: lapsed,
 		}, hubmessages.OpeningAgencyClosed, ""},

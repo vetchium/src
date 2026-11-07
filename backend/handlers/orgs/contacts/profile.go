@@ -84,7 +84,7 @@ func ViewHubProfile(s *orgsruntime.Server) http.HandlerFunc {
 			credited := creditedCounts(r.Context(), s, identity.OrgDID,
 				[]pgtype.UUID{hubDID})[dbvalue.FormatUUID(hubDID)]
 			found := summary(row.ContactID, row.DisplayName, row.Handle,
-				row.MessagesOff, row.PartyDeleted, row.LastActivityAt,
+				row.RequestsOff, row.PartyDeleted, row.LastActivityAt,
 				row.NoteCount, credited, row.HasConversation,
 				row.UnreadMessagesCount, row.PendingRequestDirection)
 			if refreshed, err := refreshNames(s, r, identity, row, read); err != nil {

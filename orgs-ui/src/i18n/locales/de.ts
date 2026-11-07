@@ -2888,7 +2888,7 @@ export const de = {
       tableCredited: "Angerechnet",
       statusInConversation: "Im Gespräch",
       statusNotContacted: "Nicht kontaktiert",
-      statusMessagesOff: "Nachrichten deaktiviert",
+      statusRequestsOff: "Chat-Anfragen deaktiviert",
       statusAccountDeleted: "Konto gelöscht",
       dailyLimitsNotice:
         "Tägliches Limit: bis zu 200 neue Kontakte, 50 neue Unterhaltungen.",
@@ -2900,11 +2900,8 @@ export const de = {
       handleOrAliasLabel: "Handle oder Alias",
       viewProfile: "Profil anzeigen",
       notFound: "Kontakt nicht gefunden.",
-      messagesOffReason: "akzeptiert keine Nachrichten von Agenturen",
-      messagesOffBannerTitle:
-        "Diese Person akzeptiert keine Nachrichten von Agenturen",
-      messagesOffBannerDescription:
-        "Die Unterhaltung ist schreibgeschützt, bis Nachrichten wieder aktiviert werden. Das Profil bleibt einsehbar.",
+      requestsOffReason:
+        "Diese Person akzeptiert keine Chat-Anfragen von Agenturen",
       accountDeletedBanner:
         "Diese Unterhaltung kann nicht fortgesetzt werden: Das Konto dieser Person existiert nicht mehr.",
       openingSuggestionLabel: "Stellenvorschlag",

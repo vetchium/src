@@ -96,7 +96,7 @@ func SendChatRequest(s *orgsruntime.Server) http.HandlerFunc {
 				return
 			}
 			if !read.AgenciesMayMessage {
-				s.Problem(r.Context(), w, orgsproblem.AgencyMessagesOffError)
+				s.Problem(r.Context(), w, orgsproblem.AgencyRequestsOffError)
 				return
 			}
 			if hubDID, err = dbvalue.ParseUUID(string(read.HubUserDID)); err != nil {
@@ -120,8 +120,8 @@ func SendChatRequest(s *orgsruntime.Server) http.HandlerFunc {
 				s.InternalError(r.Context(), w, "read Contact", err)
 				return
 			}
-			if contact.MessagesOff {
-				s.Problem(r.Context(), w, orgsproblem.AgencyMessagesOffError)
+			if contact.RequestsOff {
+				s.Problem(r.Context(), w, orgsproblem.AgencyRequestsOffError)
 				return
 			}
 			hubDID = contact.HubUserDid
@@ -206,8 +206,8 @@ func SendChatRequest(s *orgsruntime.Server) http.HandlerFunc {
 					if err != nil {
 						return result{}, nil, fmt.Errorf("lock Contact: %w", err)
 					}
-					if contact.MessagesOff {
-						return fail(orgsproblem.AgencyMessagesOffError)
+					if contact.RequestsOff {
+						return fail(orgsproblem.AgencyRequestsOffError)
 					}
 				}
 				refusal, err := agencycontacts.Refuse(ctx, q, identity.OrgDID,

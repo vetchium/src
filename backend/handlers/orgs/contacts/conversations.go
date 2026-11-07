@@ -77,7 +77,7 @@ func StartConversation(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		if !read.AgenciesMayMessage {
-			s.Problem(r.Context(), w, orgsproblem.AgencyMessagesOffError)
+			s.Problem(r.Context(), w, orgsproblem.AgencyRequestsOffError)
 			return
 		}
 		hubDID, err := dbvalue.ParseUUID(string(read.HubUserDID))
@@ -198,8 +198,8 @@ func StartConversation(s *orgsruntime.Server) http.HandlerFunc {
 				case err != nil:
 					return result{}, nil, err
 				default:
-					if details := refusal(conversation.ReadOnlyReason, conversation.MessagesOff); details != nil {
-						return fail(details)
+					if conversation.ReadOnlyReason.Valid {
+						return fail(orgsproblem.ConversationPartyDeletedError)
 					}
 				}
 				if err := post(ctx, q, s, identity, key, contactID, message,
@@ -286,8 +286,10 @@ func SendMessage(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				if details := refusal(conversation.ReadOnlyReason, conversation.MessagesOff); details != nil {
-					return fail(details)
+				// Only a deleted party makes a conversation read-only; the
+				// requests setting never does (MKT-CNV-006).
+				if conversation.ReadOnlyReason.Valid {
+					return fail(orgsproblem.ConversationPartyDeletedError)
 				}
 				if !agencycontacts.Window(conversation.HubActivityAt,
 					conversation.AgencyActivityAt, conversation.WindowSeconds).
@@ -319,19 +321,6 @@ func SendMessage(s *orgsruntime.Server) http.HandlerFunc {
 				return result{Status: http.StatusOK, Body: posted}, nil, nil
 			})
 	}
-}
-
-// refusal names why the agency cannot write into a conversation: the other
-// party is gone (MKT-CNV-011), or the person turned agency messages off
-// (MKT-CNV-006).
-func refusal(reason pgtype.Text, messagesOff bool) problem.Body {
-	switch {
-	case reason.Valid:
-		return orgsproblem.ConversationPartyDeletedError
-	case messagesOff:
-		return orgsproblem.AgencyMessagesOffError
-	}
-	return nil
 }
 
 // post appends an agency message to the Contact's conversation and reports
@@ -632,7 +621,7 @@ func readConversation(
 }
 
 func conversationSummary(
-	row sqlc.GetOrgConversationRow, now time.Time,
+	row sqlc.VetchiumOrgConversation, now time.Time,
 ) contacts.ConversationSummary {
 	window := agencycontacts.Window(row.HubActivityAt, row.AgencyActivityAt,
 		row.WindowSeconds).Open(now)
@@ -649,12 +638,8 @@ func conversationSummary(
 		CreatedAt:             row.CreatedAt.Time.UTC(),
 		LastActivityAt:        row.LastActivityAt.Time.UTC(),
 	}
-	switch {
-	case row.ReadOnlyReason.Valid:
+	if row.ReadOnlyReason.Valid {
 		reason := contacts.ConversationReadOnlyReason(row.ReadOnlyReason.String)
-		summary.ReadOnlyReason = &reason
-	case row.MessagesOff:
-		reason := contacts.ConversationReadOnlyMessagesOff
 		summary.ReadOnlyReason = &reason
 	}
 	return summary

@@ -44,7 +44,7 @@ func summary(
 		ContactID:               contacts.ContactID(dbvalue.FormatUUID(id)),
 		DisplayName:             common.DisplayName(name),
 		Handle:                  hubHandle(handle),
-		MessagesOff:             off,
+		RequestsOff:             off,
 		AccountDeleted:          accountDeleted,
 		NoteCount:               notes,
 		HasConversation:         hasConversation,

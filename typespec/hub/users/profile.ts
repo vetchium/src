@@ -59,6 +59,10 @@ export function validateSetPreferredJobCountriesRequest(
 }
 
 export interface SetAgenciesMayMessageRequest {
+  /**
+   * "Agencies may send me chat requests" (MKT-REQ-008): off refuses only new
+   * agency requests, and accepted conversations continue.
+   */
   agencies_may_message: boolean;
 }
 

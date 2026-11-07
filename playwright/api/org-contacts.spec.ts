@@ -34,7 +34,7 @@ import {
 } from "../lib/orgs-api.ts";
 import {
   awaitHubPointer,
-  awaitMessagesOff,
+  awaitRequestsOff,
   listing,
   problems,
   published,
@@ -184,7 +184,7 @@ test("notes CRUD, permissions, first-note contact creation, and last-note deleti
       const added1 = (await firstNoteRes.json()) as AddedNote;
       expect(added1.contact.display_name).toBe("Ada Applicant");
       expect(added1.contact.note_count).toBe(1);
-      expect(added1.contact.messages_off).toBe(false);
+      expect(added1.contact.requests_off).toBe(false);
       expect(added1.note.text).toBe(
         "First contact note: strong distributed systems experience",
       );
@@ -562,7 +562,7 @@ test("contact retention worker removes contacts inactive for 730 days and prunes
   });
 });
 
-test("the agency-messages switch reaches the agency, and hub-account-deleted removes contacts", async ({
+test("the agency chat-requests switch reaches the agency, and hub-account-deleted removes contacts", async ({
   request,
   apiCoverage,
 }) => {
@@ -584,7 +584,7 @@ test("the agency-messages switch reaches the agency, and hub-account-deleted rem
       expect(added.status(), await added.text()).toBe(200);
       const contactID = ((await added.json()) as AddedNote).contact.contact_id;
 
-      // 1. The person's agency-messages switch reaches the agency once the
+      // 1. The person's agency chat-requests switch reaches the agency once the
       // Hub tenant holds the agency's pointer.
       await expect
         .poll(
@@ -602,7 +602,7 @@ test("the agency-messages switch reaches the agency, and hub-account-deleted rem
         { agencies_may_message: false },
       );
       expect(switched.status(), await switched.text()).toBe(204);
-      await awaitMessagesOff(provider.api, provider.owner, contactID, true);
+      await awaitRequestsOff(provider.api, provider.owner, contactID, true);
 
       // 2. Test hub-account-deleted via mesh peer delivery
       const accountDeletedEvent: DeliverEventRequest = {

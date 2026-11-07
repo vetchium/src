@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   AgencyPointerChangedKind,
   HubAccountDeletedKind,
-  HubAgencyMessagesChangedKind,
+  HubAgencyRequestsChangedKind,
   HubChatRequestAnswerKind,
   HubChatRequestKind,
   HubConversationDeleteKind,
@@ -12,7 +12,7 @@ import {
   validateAgencyPointerChangedPayload,
   validateAgencyPointerRequest,
   validateHubAccountDeletedPayload,
-  validateHubAgencyMessagesChangedPayload,
+  validateHubAgencyRequestsChangedPayload,
   validateHubChatRequestAnswerPayload,
   validateHubChatRequestPayload,
   validateHubChatRequestResult,
@@ -154,7 +154,7 @@ test("agency profile reads name their fields", () => {
 test("agency event payloads name their fields", () => {
   assert.equal(AgencyPointerChangedKind, "agency-pointer-changed");
   assert.equal(HubAccountDeletedKind, "hub-account-deleted");
-  assert.equal(HubAgencyMessagesChangedKind, "hub-agency-messages-changed");
+  assert.equal(HubAgencyRequestsChangedKind, "hub-agency-requests-changed");
   assert.deepEqual(
     validateAgencyPointerChangedPayload({
       contact_id,
@@ -178,18 +178,18 @@ test("agency event payloads name their fields", () => {
     "hub_user_did",
   ]);
   assert.deepEqual(
-    validateHubAgencyMessagesChangedPayload({
+    validateHubAgencyRequestsChangedPayload({
       contact_id,
       hub_user_did,
-      messages_off: true,
+      requests_off: true,
     }),
     [],
   );
   assert.deepEqual(
-    validateHubAgencyMessagesChangedPayload({
+    validateHubAgencyRequestsChangedPayload({
       contact_id: "x",
       hub_user_did: "z",
-      messages_off: false,
+      requests_off: false,
     }),
     ["contact_id", "hub_user_did"],
   );

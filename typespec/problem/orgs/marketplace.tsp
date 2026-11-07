@@ -312,15 +312,15 @@ alias OrgConversationNotFoundErrorResponse = Response<
   typeof OrgConversationNotFoundError
 >;
 
-const OrgAgencyMessagesOffError = #{
-  type: "vetchium-problem-details/org-agency-messages-off",
-  title: "Org agency messages off",
+const OrgAgencyRequestsOffError = #{
+  type: "vetchium-problem-details/org-agency-requests-off",
+  title: "This person does not accept chat requests from agencies",
   status: 403,
-  detail: "The Hub user does not accept messages from agencies",
+  detail: "The Hub user does not accept chat requests from agencies",
 };
-alias OrgAgencyMessagesOffErrorResponse = Response<
+alias OrgAgencyRequestsOffErrorResponse = Response<
   403,
-  typeof OrgAgencyMessagesOffError
+  typeof OrgAgencyRequestsOffError
 >;
 
 const OrgConversationPartyDeletedError = #{

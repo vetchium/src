@@ -328,13 +328,13 @@ model HubAccountDeletedPayload {
 }
 
 /**
- * The payload of `hub-agency-messages-changed`: the state of "Agencies may
- * message me" the agency's Contact on the Hub user keeps (MKT-DAT-006). The
+ * The payload of `hub-agency-requests-changed`: the state of "Agencies may
+ * send me chat requests" the agency's Contact on the Hub user keeps (MKT-DAT-006). The
  * aggregate is the Contact and its version is the setting's version, so a
  * Contact created later still receives the state; the origin is the Hub user.
  */
-model HubAgencyMessagesChangedPayload {
+model HubAgencyRequestsChangedPayload {
   contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
   hub_user_did: Vetchium.Hub.HubUserDID;
-  messages_off: boolean;
+  requests_off: boolean;
 }

@@ -86,7 +86,7 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 			}
 			credited := counts[dbvalue.FormatUUID(row.HubUserDid)]
 			response.Items = append(response.Items, summary(row.ContactID,
-				row.DisplayName, row.Handle, row.MessagesOff, row.PartyDeleted,
+				row.DisplayName, row.Handle, row.RequestsOff, row.PartyDeleted,
 				row.LastActivityAt, row.NoteCount, credited, row.HasConversation,
 				row.UnreadMessagesCount, row.PendingRequestDirection))
 		}
@@ -153,7 +153,7 @@ func GetContact(s *orgsruntime.Server) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, contacts.Contact{
 			ContactSummary: summary(row.ContactID, row.DisplayName, row.Handle,
-				row.MessagesOff, row.PartyDeleted, row.LastActivityAt,
+				row.RequestsOff, row.PartyDeleted, row.LastActivityAt,
 				row.NoteCount, credited, row.HasConversation,
 				row.UnreadMessagesCount, row.PendingRequestDirection),
 			CreatedBy:         createdBy,

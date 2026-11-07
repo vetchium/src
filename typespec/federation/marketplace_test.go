@@ -199,10 +199,10 @@ func TestAgencyEventPayloadsValidate(t *testing.T) {
 	if got := (HubAccountDeletedPayload{}).Validate(); !slices.Equal(got, []string{"hub_user_did"}) {
 		t.Fatalf("notice fields = %v", got)
 	}
-	if got := (HubAgencyMessagesChangedPayload{ContactID: contactID, HubUserDID: hubDID, MessagesOff: true}).Validate(); len(got) != 0 {
+	if got := (HubAgencyRequestsChangedPayload{ContactID: contactID, HubUserDID: hubDID, RequestsOff: true}).Validate(); len(got) != 0 {
 		t.Fatalf("valid messages payload rejected: %v", got)
 	}
-	if got := (HubAgencyMessagesChangedPayload{}).Validate(); !slices.Equal(got, []string{"contact_id", "hub_user_did"}) {
+	if got := (HubAgencyRequestsChangedPayload{}).Validate(); !slices.Equal(got, []string{"contact_id", "hub_user_did"}) {
 		t.Fatalf("messages fields = %v", got)
 	}
 }

@@ -46,3 +46,8 @@ The rewritten specs; `make dev-seed` on a fresh `make dev` stack.
 finds only `video-demos/` (T19); `make test` passes.
 
 ## Carried over
+- From T10: the toggle test in `playwright/api/org-conversations.spec.ts`
+  ("agencies may send me chat requests switch ...") proves the refusal with
+  `startConversation`; when rewriting it, prove `send-chat-request` refused
+  with `org-agency-requests-off` and open the conversation through an
+  accepted request.

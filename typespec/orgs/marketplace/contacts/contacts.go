@@ -70,7 +70,6 @@ const (
 type ConversationReadOnlyReason string
 
 const (
-	ConversationReadOnlyMessagesOff    ConversationReadOnlyReason = "messages_off"
 	ConversationReadOnlyHubUserDeleted ConversationReadOnlyReason = "hub_user_deleted"
 	ConversationReadOnlyAgencyDeleted  ConversationReadOnlyReason = "agency_deleted"
 )
@@ -284,7 +283,7 @@ type ContactSummary struct {
 	ContactID   ContactID          `json:"contact_id"`
 	DisplayName common.DisplayName `json:"display_name"`
 	Handle      hub.HubHandle      `json:"handle"`
-	MessagesOff bool               `json:"messages_off"`
+	RequestsOff bool               `json:"requests_off"`
 	// AccountDeleted reports that the person's account no longer exists and
 	// only the conversation remains.
 	AccountDeleted  bool  `json:"account_deleted"`
