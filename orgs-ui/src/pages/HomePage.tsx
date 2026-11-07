@@ -50,10 +50,12 @@ import {
   openingStateLabel,
 } from "../features/marketplace/presentation";
 import {
+  useChatRequestsQuery,
   useClientEngagementsQuery,
   useConsumerEngagementsQuery,
   useContactsQuery,
   useJobsQuery,
+  usePendingChatRequestCountQuery,
   useWorkQueueQuery,
 } from "../features/marketplace/queries";
 import { useOpeningsQuery } from "../features/openings/queries";
@@ -153,6 +155,11 @@ export function HomePage() {
           email={me.email_address}
           always={can(ManageOpenings)}
         />
+        {isAgent ? (
+          <Col xs={24} lg={12}>
+            <ChatRequestsCard />
+          </Col>
+        ) : null}
         {isAgent ? (
           <Col xs={24} lg={12}>
             <JobsCard email={me.email_address} />
@@ -404,6 +411,58 @@ function OpeningsYouRunCard({
         renderItem={(opening) => <OpeningItem opening={opening} />}
       />
     </Col>
+  );
+}
+
+/** Requests from Hub users awaiting the agency's answer, oldest first
+ * (MKT-UI-011). */
+function ChatRequestsCard() {
+  const { t } = useTranslation();
+  const { dateTime } = useDateTimeFormat();
+  const query = useChatRequestsQuery("to_agency", true, previewSize);
+  const count = usePendingChatRequestCountQuery();
+  const pending = (query.data?.pages[0]?.items ?? []).filter(
+    (request) => request.state === "pending",
+  );
+  return (
+    <PreviewCard
+      testId="home-chat-requests"
+      title={
+        count.data === undefined
+          ? t("home.chatRequests")
+          : t("home.chatRequestsCount", { count: count.data.count })
+      }
+      seeAll={`${paths.contacts}?tab=requests`}
+      query={query}
+      items={pending}
+      empty={t("home.noChatRequests")}
+      renderItem={(request) => (
+        <List.Item.Meta
+          title={
+            <Link to={paths.contactDetail(request.contact_id)}>
+              {request.hub_user_name}
+            </Link>
+          }
+          description={
+            <>
+              <Typography.Text type="secondary" style={{ display: "block" }}>
+                @{request.hub_user_handle} ·{" "}
+                {t("marketplace.chatRequests.openingLine", {
+                  client: request.opening.consumer_domain,
+                  number: request.opening.opening_number,
+                })}{" "}
+                · {dateTime(request.sent_at)}
+              </Typography.Text>
+              {request.note !== undefined && (
+                <Typography.Text ellipsis style={{ display: "block" }}>
+                  {request.note}
+                </Typography.Text>
+              )}
+            </>
+          }
+        />
+      )}
+    />
   );
 }
 

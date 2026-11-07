@@ -1,7 +1,7 @@
 # Agency chat requests build progress
 
 branch: agency-chat-requests
-current: T13
+current: T14
 phase: implement
 
 ## Tasks
@@ -26,7 +26,7 @@ T11 done Playwright: Hub chat requests, expiry, and the requests setting
 ### M3 Portals
 
 T12 done Orgs UI: Send and answer chat requests on Contacts and Jobs
-T13 todo Orgs UI: Chat requests card on Home
+T13 done Orgs UI: Chat requests card on Home
 T14 todo Hub UI: Chat requests and the window in Messages
 T15 todo Hub UI: Agencies on the Opening page
 T16 todo Playwright: Chat request screens in both portals

@@ -391,6 +391,10 @@ export const en = {
     openingsYouRun: "Openings you run",
     noOpenings:
       "You are not the hiring manager or recruiter of any running Opening.",
+    chatRequests: "Chat requests",
+    chatRequestsCount_one: "Chat requests ({{count}})",
+    chatRequestsCount_other: "Chat requests ({{count}})",
+    noChatRequests: "No one is waiting for your agency's answer.",
     myJobs: "Jobs you own",
     noJobs: "No published Jobs are assigned to you yet.",
     workToStart: "Work to start",

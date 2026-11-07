@@ -1072,13 +1072,14 @@ export function useConversationQuery(contactId: string, enabled = true) {
 export function useChatRequestsQuery(
   direction: ChatRequestDirection,
   enabled = true,
+  limit = 25,
 ) {
   return useInfiniteQuery({
-    queryKey: [...marketplaceQueryKey, "chat-requests", direction],
+    queryKey: [...marketplaceQueryKey, "chat-requests", direction, limit],
     queryFn: ({ pageParam }) =>
       orgsAPI.listChatRequests({
         direction,
-        limit: 25,
+        limit,
         ...(pageParam !== undefined && { pagination_key: pageParam }),
       }),
     initialPageParam: undefined as PaginationKey | undefined,
