@@ -80,6 +80,12 @@ Task rules:
   specs, development fixtures, then a final task. Group them into milestones
   (`### M1` …), each ending in a usable, tested slice.
 - Every task names the tests that prove each requirement it implements.
+- Plan no demo video work: no scenes, rehearsals, recordings, or
+  `docs/todo.md` "Demo video" items. Never change `video-demos/`, even when
+  a change breaks it; a `make test` failure only in its checks does not
+  block a task. `make test` then stops before the suites, so run
+  `make -k test-static-ready` (only `video-demos-check-ready` may fail),
+  `make test-environment`, and `make playwright-test-run` instead.
 - The final task updates `README.md` for any developer-facing change (new
   commands, services, configuration, seeded accounts), `docs/todo.md` for
   deferred items, runs `make test`, and removes `.builds/<slug>/`.
