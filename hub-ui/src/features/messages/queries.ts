@@ -8,13 +8,12 @@ import { useRef } from "react";
 import type { PaginationKey } from "typespec/common/pagination";
 import {
   type HubConversationDetail,
+  type HubSendChatRequestRequest,
   type ListConversationsResponse,
+  type ListOpeningAgenciesResponse,
   maxPage,
 } from "typespec/hub/messages/messages";
-import {
-  Pending,
-  type PendingOperation,
-} from "typespec/hub/operations/operations";
+import type { PendingOperation } from "typespec/hub/operations/operations";
 import type {
   ChatRequestDeclineScope,
   ChatRequestDirection,
@@ -26,11 +25,13 @@ import type {
 import { hubAPI } from "../../api/hub";
 import { useIdempotencyKey } from "../../api/idempotency";
 import { usePendingOperations } from "../../app/PendingOperationContext";
+import { OperationStillPendingError, settle } from "../applications/actions";
 
 export const conversationsQueryKey = ["hub", "conversations"] as const;
 export const conversationDetailQueryKey = (contactId: string) =>
   ["hub", "conversations", contactId] as const;
 const chatRequestsQueryKey = ["hub", "chat-requests"] as const;
+const openingAgenciesQueryKey = ["hub", "opening-agencies"] as const;
 
 export function useConversationsQuery(enabled = true) {
   return useQuery({
@@ -66,6 +67,22 @@ export function useChatRequestsQuery(direction: ChatRequestDirection) {
   });
 }
 
+/** The agencies recruiting for a `published` Opening, with the user's chat
+ * state with each (MKT-HUB-005). */
+export function useOpeningAgenciesQuery(
+  domain: string,
+  openingNumber: number,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [...openingAgenciesQueryKey, domain, openingNumber],
+    queryFn: () =>
+      hubAPI.listOpeningAgencies({ domain, opening_number: openingNumber }),
+    retry: false,
+    enabled,
+  });
+}
+
 /** The messages of the loaded pages, oldest first. */
 export function chronological(
   pages: readonly HubConversationDetail[] | undefined,
@@ -73,33 +90,12 @@ export function chronological(
   return (pages ?? []).flatMap((page) => page.messages).reverse();
 }
 
-export class OperationStillPendingError extends Error {
-  constructor() {
-    super("The operation is still pending");
-    this.name = "OperationStillPendingError";
-  }
-}
-
-const pollIntervalMilliseconds = 1000;
-const maxPolls = 30;
-
 function isPendingOperation(result: unknown): result is PendingOperation {
   return (
     result !== null &&
     typeof result === "object" &&
     "operation_id" in (result as Record<string, unknown>)
   );
-}
-
-async function settle(operationID: string): Promise<void> {
-  for (let poll = 0; poll < maxPolls; poll++) {
-    const status = await hubAPI.operationStatus({ operation_id: operationID });
-    if (status.state !== Pending) return;
-    await new Promise((resolve) =>
-      window.setTimeout(resolve, pollIntervalMilliseconds),
-    );
-  }
-  throw new OperationStillPendingError();
 }
 
 export function useConversationReplyAction(contactId: string) {
@@ -274,6 +270,75 @@ export function useChatRequestAnswerAction(contactId: string) {
         while (isPendingOperation(result)) {
           await settle(result.operation_id);
           result = await call();
+        }
+        return result;
+      } finally {
+        release();
+      }
+    },
+    onSuccess: async (result) => {
+      key.rotate();
+      lastRequest.current = null;
+      if ("conversation" in result) {
+        // The agencies list reads the pointer, whose window waits for the
+        // agency's pointer event; the accept response already carries it.
+        const until = result.conversation.hub_may_write_until;
+        const open = until !== undefined && Date.parse(until) > Date.now();
+        queryClient.setQueriesData<ListOpeningAgenciesResponse>(
+          { queryKey: openingAgenciesQueryKey },
+          (data) =>
+            data && {
+              ...data,
+              items: data.items.map((item) =>
+                item.contact_id === contactId
+                  ? { ...item, chat_state: open ? "open" : "closed" }
+                  : item,
+              ),
+            },
+        );
+      } else {
+        await queryClient.invalidateQueries({
+          queryKey: openingAgenciesQueryKey,
+        });
+      }
+      await refresh();
+    },
+    onError: async (error) => {
+      if (error instanceof OperationStillPendingError) return;
+      await Promise.all([
+        refresh(),
+        queryClient.invalidateQueries({ queryKey: openingAgenciesQueryKey }),
+      ]);
+    },
+  });
+}
+
+export function useSendChatRequestAction() {
+  const queryClient = useQueryClient();
+  const { hold } = usePendingOperations();
+  const key = useIdempotencyKey();
+  const lastRequest = useRef<string | null>(null);
+
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: openingAgenciesQueryKey }),
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey }),
+      queryClient.invalidateQueries({ queryKey: chatRequestsQueryKey }),
+    ]);
+
+  return useMutation({
+    mutationFn: async (request: HubSendChatRequestRequest) => {
+      const serialized = JSON.stringify(request);
+      if (lastRequest.current !== null && lastRequest.current !== serialized) {
+        key.rotate();
+      }
+      lastRequest.current = serialized;
+      const release = hold();
+      try {
+        let result = await hubAPI.sendChatRequest(request, key.current());
+        while (isPendingOperation(result)) {
+          await settle(result.operation_id);
+          result = await hubAPI.sendChatRequest(request, key.current());
         }
         return result;
       } finally {

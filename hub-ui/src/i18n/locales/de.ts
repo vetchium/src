@@ -184,6 +184,9 @@ export const de = {
     conversationClosed:
       "Sie können in dieser Konversation gerade nicht schreiben. Sie öffnet sich wieder, wenn die Agentur schreibt oder eine neue Chat-Anfrage angenommen wird.",
     agencyNotAssigned: "Diese Agentur vermittelt nicht mehr für diese Stelle.",
+    orgNotFound: "Diese Organisation gibt es auf Vetchium nicht mehr.",
+    openingNotFound:
+      "Diese Stelle wurde nicht gefunden. Sie wurde möglicherweise geschlossen oder entfernt.",
     signupUnavailable:
       "Diese Region nimmt derzeit keine Registrierungen aus Ihrem Land an. Wählen Sie eine andere Region.",
     generic: "Ein Fehler ist aufgetreten. Versuchen Sie es erneut.",
@@ -662,6 +665,31 @@ export const de = {
     yourConversation: "Ihrer Konversation",
     agencySuggestedCredit:
       "Sie können sie bei Ihrer Bewerbung anrechnen lassen.",
+    agencies: {
+      title: "Personalvermittlungen für diese Stelle",
+      intro:
+        "Diese Personalvermittlungen besetzen diese Stelle. Bitten Sie eine um ein Gespräch darüber; sie sieht Ihren Namen und Ihr Profil, sobald sie antwortet.",
+      requestChat: "Chat anfragen",
+      openConversation: "Konversation öffnen",
+      viewConversation: "Konversation ansehen",
+      pending: "Anfrage ausstehend",
+      sentAt: "Gesendet am {{date}}",
+      viewRequest: "Anfrage ansehen",
+      accept: "Annehmen",
+      accepted: "Sie können {{agency}} jetzt schreiben.",
+      declinedOpening: "Für diese Stelle abgelehnt",
+      declinedSender: "Abgelehnt bis {{date}}",
+      dialogTitle: "Chat mit {{agency}} anfragen",
+      openingLabel: "Stelle",
+      noteLabel: "Notiz (optional)",
+      noteHelp: "Schreiben Sie, warum Sie diese Stelle interessiert.",
+      dialogHelp_one:
+        "{{agency}} sieht Ihren Namen und Ihr Profil, sobald sie antwortet. Sie können {{count}} Chat-Anfrage pro Tag senden.",
+      dialogHelp_other:
+        "{{agency}} sieht Ihren Namen und Ihr Profil, sobald sie antwortet. Sie können bis zu {{count}} Chat-Anfragen pro Tag senden.",
+      send: "Anfrage senden",
+      sent: "Chat-Anfrage an {{agency}} gesendet.",
+    },
     remoteWorldwide: "Weltweit",
     experienceRange: "{{min}}–{{max}} Jahre",
     experienceMin: "Ab {{min}} Jahren",

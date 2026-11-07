@@ -176,6 +176,9 @@ export const en = {
     conversationClosed:
       "You can't write in this conversation now. It reopens when the agency writes or a new chat request is accepted.",
     agencyNotAssigned: "This agency no longer recruits for this Opening.",
+    orgNotFound: "This organization no longer exists on Vetchium.",
+    openingNotFound:
+      "This Opening was not found. It may have been closed or removed.",
     signupUnavailable:
       "This region is not accepting signup for your country. Choose another region.",
     generic: "Something went wrong. Please try again.",
@@ -630,6 +633,31 @@ export const en = {
     agencySuggestedBody: "On {{date}} in",
     yourConversation: "your conversation",
     agencySuggestedCredit: "You can credit them when you apply.",
+    agencies: {
+      title: "Agencies recruiting for this Opening",
+      intro:
+        "These agencies recruit for this Opening. Ask one to chat with you about it; they see your name and profile once they reply.",
+      requestChat: "Request chat",
+      openConversation: "Open conversation",
+      viewConversation: "View conversation",
+      pending: "Request pending",
+      sentAt: "Sent {{date}}",
+      viewRequest: "View request",
+      accept: "Accept",
+      accepted: "You can now write to {{agency}}.",
+      declinedOpening: "Declined for this Opening",
+      declinedSender: "Declined until {{date}}",
+      dialogTitle: "Request a chat with {{agency}}",
+      openingLabel: "Opening",
+      noteLabel: "Note (optional)",
+      noteHelp: "Say why this Opening interests you.",
+      dialogHelp_one:
+        "{{agency}} sees your name and profile once they reply. You can send {{count}} chat request a day.",
+      dialogHelp_other:
+        "{{agency}} sees your name and profile once they reply. You can send up to {{count}} chat requests a day.",
+      send: "Send request",
+      sent: "Chat request sent to {{agency}}.",
+    },
     remoteWorldwide: "Worldwide",
     experienceRange: "{{min}}–{{max}} years",
     experienceMin: "From {{min}} years",

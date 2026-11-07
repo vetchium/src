@@ -24,6 +24,7 @@ import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { NoIndex } from "../components/common/NoIndex";
 import { useMyOpeningApplicationQuery } from "../features/applications/queries";
+import { OpeningAgencies } from "../features/messages/OpeningAgencies";
 import { useConversationsQuery } from "../features/messages/queries";
 import { openingPresentation } from "../features/openings/presentation";
 import { useOrgOpeningQuery } from "../features/openings/queries";
@@ -95,7 +96,7 @@ export function OrgOpeningPage() {
       type="success"
       showIcon
       title={t("orgPage.youApplied")}
-      action={
+      description={
         <Link to={applicationPath(applied)}>
           {t("orgPage.viewApplication")}
         </Link>
@@ -208,6 +209,18 @@ export function OrgOpeningPage() {
               </Flex>
             </Card>
           }
+          {...(auth.authenticated && {
+            below: (
+              <OpeningAgencies
+                opening={{
+                  domain,
+                  openingNumber: number,
+                  title,
+                  orgName: org.display_name,
+                }}
+              />
+            ),
+          })}
         />
       )}
     </Flex>

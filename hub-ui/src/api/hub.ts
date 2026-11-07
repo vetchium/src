@@ -54,10 +54,13 @@ import type {
   HubChatRequest,
   HubConversationDetail,
   HubDeclineChatRequestRequest,
+  HubSendChatRequestRequest,
   ListConversationsRequest,
   ListConversationsResponse,
   ListHubChatRequestsRequest,
   ListHubChatRequestsResponse,
+  ListOpeningAgenciesRequest,
+  ListOpeningAgenciesResponse,
   MarkConversationReadRequest,
   ReplyToConversationRequest,
 } from "typespec/hub/messages/messages";
@@ -483,6 +486,18 @@ export const hubAPI = {
     idempotencyKey: IdempotencyKey,
   ) =>
     apiRequest<PendingOperation | null>(`${base}/delete-conversation`, {
+      body,
+      idempotencyKey,
+    }),
+  listOpeningAgencies: (body: ListOpeningAgenciesRequest) =>
+    apiRequest<ListOpeningAgenciesResponse>(`${base}/list-opening-agencies`, {
+      body,
+    }),
+  sendChatRequest: (
+    body: HubSendChatRequestRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<HubChatRequest | PendingOperation>(`${base}/send-chat-request`, {
       body,
       idempotencyKey,
     }),

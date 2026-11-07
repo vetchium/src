@@ -86,6 +86,9 @@ export interface OpeningViewProps {
   titleLevel?: 1 | 2 | 3 | 4;
   /** Shown beside the Opening from `lg`, and below it on narrower screens. */
   aside?: ReactNode;
+  /** Shown under the Opening in its column, after the aside on narrower
+   * screens; the aside is fixed from `lg`, so nothing may go below the row. */
+  below?: ReactNode;
 }
 
 /**
@@ -99,6 +102,7 @@ export function OpeningView({
   org,
   titleLevel = 1,
   aside,
+  below,
 }: OpeningViewProps) {
   const { labels, formatters } = presentation;
 
@@ -265,15 +269,22 @@ export function OpeningView({
       </Flex>
     </Card>
   );
-  if (aside === undefined) return opening;
+  if (aside === undefined && below === undefined) return opening;
   return (
     <Row gutter={[24, 24]}>
       <Col xs={24} lg={16}>
         {opening}
       </Col>
-      <Col xs={24} lg={8}>
-        <SidePanel>{aside}</SidePanel>
-      </Col>
+      {aside !== undefined && (
+        <Col xs={24} lg={8}>
+          <SidePanel>{aside}</SidePanel>
+        </Col>
+      )}
+      {below !== undefined && (
+        <Col xs={24} lg={16}>
+          {below}
+        </Col>
+      )}
     </Row>
   );
 }

@@ -29,7 +29,9 @@ function isPendingOperation(result: WriteResult): result is PendingOperation {
   return "operation_id" in result;
 }
 
-async function settle(operationID: string): Promise<void> {
+/** Polls a `202` operation until it settles; throws
+ * OperationStillPendingError when it has not. */
+export async function settle(operationID: string): Promise<void> {
   for (let poll = 0; poll < maxPolls; poll++) {
     const status = await hubAPI.operationStatus({ operation_id: operationID });
     if (status.state !== Pending) return;

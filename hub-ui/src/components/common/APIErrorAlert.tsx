@@ -35,7 +35,11 @@ import {
   EmailChangeInProgressError,
   EmailChangeUnavailableError,
 } from "typespec/problem/hub/email";
-import { OrgUnavailableError } from "typespec/problem/hub/openings";
+import {
+  OpeningNotFoundError,
+  OrgNotFoundError,
+  OrgUnavailableError,
+} from "typespec/problem/hub/openings";
 import {
   ProfessionalEmailCodeRejectedError,
   ProfileConflictError,
@@ -99,6 +103,8 @@ export const problemKeys: Record<string, string> = {
   [ApplicationNotFoundError.type]: "errors.applicationNotFound",
   [ApplicationStateConflictError.type]: "errors.applicationStateConflict",
   [OrgUnavailableError.type]: "errors.orgUnavailable",
+  [OrgNotFoundError.type]: "errors.orgNotFound",
+  [OpeningNotFoundError.type]: "errors.openingNotFound",
   [HubConversationNotFoundError.type]: "errors.conversationNotFound",
   [HubConversationPartyDeletedError.type]: "errors.conversationPartyDeleted",
   [HubChatRequestLimitReachedError.type]: "errors.chatRequestLimitReached",

@@ -257,8 +257,13 @@ function IncomingRequest({
   const agency = summary.agency_display_name;
   const days = request.window_days;
 
+  // An answer removes this notice before mutate's callbacks would run, so
+  // the toast follows the promise; the hook keeps the error for retries.
   const respond = (value: ChatRequestAnswer, done: string) =>
-    answer.mutate(value, { onSuccess: () => void message.success(done) });
+    answer.mutateAsync(value).then(
+      () => void message.success(done),
+      () => undefined,
+    );
 
   return (
     <Alert
