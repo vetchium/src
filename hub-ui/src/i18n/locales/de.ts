@@ -135,6 +135,7 @@ export const de = {
       "Ihr Passwort wurde zurückgesetzt. Alle bisherigen Sitzungen wurden abgemeldet.",
   },
   common: {
+    back: "Zurück",
     backToSignin: "Zurück zur Anmeldung",
     continue: "Weiter",
     continueToSignin: "Weiter zur Anmeldung",
@@ -167,6 +168,22 @@ export const de = {
       "Diese Bewerbung hat sich inzwischen geändert. Laden Sie sie neu und versuchen Sie es erneut.",
     orgUnavailable:
       "Diese Organisation ist vorübergehend nicht erreichbar. Bitte versuchen Sie es erneut.",
+    conversationNotFound: "Diese Konversation existiert nicht mehr.",
+    conversationPartyDeleted:
+      "Diese Konversation kann nicht fortgesetzt werden: Diese Agentur existiert nicht mehr auf Vetchium.",
+    chatRequestLimitReached:
+      "Sie haben heute die höchstmögliche Zahl an Chat-Anfragen gesendet. Versuchen Sie es morgen erneut.",
+    chatRequestExists:
+      "Eine Chat-Anfrage zwischen Ihnen und dieser Agentur wartet bereits auf eine Antwort.",
+    chatRequestBlocked:
+      "Diese Agentur hat Ihre Chat-Anfragen vorerst oder zu dieser Stelle abgelehnt.",
+    chatRequestNotFound:
+      "Diese Chat-Anfrage wartet nicht mehr auf eine Antwort.",
+    conversationOpen:
+      "Sie können dieser Agentur bereits in Ihrer Konversation schreiben.",
+    conversationClosed:
+      "Sie können in dieser Konversation gerade nicht schreiben. Sie öffnet sich wieder, wenn die Agentur schreibt oder eine neue Chat-Anfrage angenommen wird.",
+    agencyNotAssigned: "Diese Agentur vermittelt nicht mehr für diese Stelle.",
     signupUnavailable:
       "Diese Region nimmt derzeit keine Registrierungen aus Ihrem Land an. Wählen Sie eine andere Region.",
     generic: "Ein Fehler ist aufgetreten. Versuchen Sie es erneut.",
@@ -1032,6 +1049,43 @@ export const de = {
       "Vetchium-Tarife werden noch nicht abgerechnet. Sobald Zahlungen aktiviert sind, werden hier Zahlungsbedingungen zu Preisen, Abrechnungszeiträumen, Erstattungen und Kündigungen veröffentlicht, bevor eine Zahlung erfolgt.",
   },
   messages: {
+    viewOpening: "Stelle ansehen",
+    chatRequest: "Chat-Anfrage",
+    sentAt: "Gesendet am {{date}}",
+    incomingTitle: "{{agency}} möchte mit Ihnen über diese Stelle chatten",
+    incomingHelp:
+      "Wenn Sie annehmen, können Sie und {{agency}} einander schreiben. Wenn Sie ablehnen, wählen Sie, ob die Agentur zu anderen Stellen erneut fragen darf.",
+    accept: "Annehmen",
+    acceptedToast: "Sie haben die Chat-Anfrage von {{agency}} angenommen.",
+    declinedToast: "Chat-Anfrage abgelehnt.",
+    declineOpening: "Nicht diese Stelle",
+    declineOpeningConfirm:
+      "Ablehnen? {{agency}} kann Sie zu dieser Stelle nicht erneut fragen.",
+    declineSender_one: "Nicht für {{count}} Tag",
+    declineSender_other: "Nicht für {{count}} Tage",
+    declineSenderConfirm_one:
+      "Ablehnen? {{agency}} kann Ihnen {{count}} Tag lang keine Chat-Anfrage senden.",
+    declineSenderConfirm_other:
+      "Ablehnen? {{agency}} kann Ihnen {{count}} Tage lang keine Chat-Anfrage senden.",
+    sentPending:
+      "Ihre Chat-Anfrage vom {{date}} wartet auf die Antwort von {{agency}}.",
+    sentDeclinedOpening:
+      "{{agency}} hat Chat-Anfragen zu dieser Stelle abgelehnt. Zu einer anderen Stelle können Sie noch fragen.",
+    sentDeclinedSender:
+      "{{agency}} hat Ihre Chat-Anfragen bis zum {{date}} abgelehnt.",
+    sentExpired:
+      "Ihre Chat-Anfrage vom {{date}} ist verfallen, bevor {{agency}} geantwortet hat.",
+    closedTitle: "Sie können {{agency}} gerade nicht schreiben",
+    closedBody:
+      "Die Konversation öffnet sich wieder, wenn {{agency}} schreibt oder eine neue Chat-Anfrage angenommen wird. Öffnen Sie dazu eine von der Agentur vorgeschlagene Stelle und senden Sie dort eine Chat-Anfrage:",
+    closedBodyNoOpenings:
+      "Die Konversation öffnet sich wieder, wenn {{agency}} schreibt oder eine neue Chat-Anfrage angenommen wird.",
+    snippetIncoming: "Möchte über eine Stelle chatten",
+    snippetSent: {
+      pending: "Ihre Chat-Anfrage ist offen",
+      declined: "Ihre Chat-Anfrage wurde abgelehnt",
+      expired: "Ihre Chat-Anfrage ist verfallen",
+    },
     loadEarlier: "Ältere Nachrichten laden",
     documentTitle: "Nachrichten | Vetchium",
     title: "Nachrichten",

@@ -19,6 +19,17 @@ import {
   RecentAuthenticationRequiredError,
 } from "typespec/problem/hub/authentication";
 import {
+  HubAgencyNotAssignedError,
+  HubChatRequestBlockedError,
+  HubChatRequestExistsError,
+  HubChatRequestLimitReachedError,
+  HubChatRequestNotFoundError,
+  HubConversationClosedError,
+  HubConversationNotFoundError,
+  HubConversationOpenError,
+  HubConversationPartyDeletedError,
+} from "typespec/problem/hub/conversations";
+import {
   EmailAddressUnavailableError,
   EmailChangeCodeRejectedError,
   EmailChangeInProgressError,
@@ -88,6 +99,15 @@ export const problemKeys: Record<string, string> = {
   [ApplicationNotFoundError.type]: "errors.applicationNotFound",
   [ApplicationStateConflictError.type]: "errors.applicationStateConflict",
   [OrgUnavailableError.type]: "errors.orgUnavailable",
+  [HubConversationNotFoundError.type]: "errors.conversationNotFound",
+  [HubConversationPartyDeletedError.type]: "errors.conversationPartyDeleted",
+  [HubChatRequestLimitReachedError.type]: "errors.chatRequestLimitReached",
+  [HubChatRequestExistsError.type]: "errors.chatRequestExists",
+  [HubChatRequestBlockedError.type]: "errors.chatRequestBlocked",
+  [HubChatRequestNotFoundError.type]: "errors.chatRequestNotFound",
+  [HubConversationOpenError.type]: "errors.conversationOpen",
+  [HubConversationClosedError.type]: "errors.conversationClosed",
+  [HubAgencyNotAssignedError.type]: "errors.agencyNotAssigned",
 };
 
 export function APIErrorAlert({ error }: { error: unknown }) {

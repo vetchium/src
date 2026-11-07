@@ -129,6 +129,7 @@ export const en = {
       "Your password has been reset. All previous sessions were signed out.",
   },
   common: {
+    back: "Back",
     backToSignin: "Back to sign in",
     continue: "Continue",
     continueToSignin: "Continue to sign in",
@@ -159,6 +160,22 @@ export const en = {
     applicationStateConflict:
       "This application changed in the meantime. Reload it and try again.",
     orgUnavailable: "This organization is temporarily unavailable. Try again.",
+    conversationNotFound: "This conversation no longer exists.",
+    conversationPartyDeleted:
+      "This conversation cannot continue: this agency no longer exists on Vetchium.",
+    chatRequestLimitReached:
+      "You have sent the most chat requests you may today. Try again tomorrow.",
+    chatRequestExists:
+      "A chat request between you and this agency is already waiting for an answer.",
+    chatRequestBlocked:
+      "This agency declined your chat requests for now, or about this Opening.",
+    chatRequestNotFound:
+      "This chat request is no longer waiting for an answer.",
+    conversationOpen:
+      "You can already write to this agency in your conversation.",
+    conversationClosed:
+      "You can't write in this conversation now. It reopens when the agency writes or a new chat request is accepted.",
+    agencyNotAssigned: "This agency no longer recruits for this Opening.",
     signupUnavailable:
       "This region is not accepting signup for your country. Choose another region.",
     generic: "Something went wrong. Please try again.",
@@ -996,6 +1013,43 @@ export const en = {
       "Vetchium plans are not yet billed. When payments are enabled, payment terms covering pricing, billing periods, refunds, and cancellations will be published here before any payment is taken.",
   },
   messages: {
+    viewOpening: "View Opening",
+    chatRequest: "Chat request",
+    sentAt: "Sent {{date}}",
+    incomingTitle: "{{agency}} asks to chat with you about this Opening",
+    incomingHelp:
+      "If you accept, you and {{agency}} can write to each other. If you decline, choose whether they may ask again about other Openings.",
+    accept: "Accept",
+    acceptedToast: "You accepted the chat request from {{agency}}.",
+    declinedToast: "Chat request declined.",
+    declineOpening: "Not this Opening",
+    declineOpeningConfirm:
+      "Decline? {{agency}} cannot ask you about this Opening again.",
+    declineSender_one: "Not for {{count}} day",
+    declineSender_other: "Not for {{count}} days",
+    declineSenderConfirm_one:
+      "Decline? {{agency}} cannot send you a chat request for {{count}} day.",
+    declineSenderConfirm_other:
+      "Decline? {{agency}} cannot send you a chat request for {{count}} days.",
+    sentPending:
+      "Your chat request, sent {{date}}, is waiting for {{agency}} to answer.",
+    sentDeclinedOpening:
+      "{{agency}} declined chat requests about this Opening. You can still ask about another.",
+    sentDeclinedSender:
+      "{{agency}} declined your chat requests until {{date}}.",
+    sentExpired:
+      "Your chat request of {{date}} expired before {{agency}} answered.",
+    closedTitle: "You can't write to {{agency}} now",
+    closedBody:
+      "The conversation reopens when {{agency}} writes or a new chat request is accepted. To ask them, open an Opening they suggested and send a chat request there:",
+    closedBodyNoOpenings:
+      "The conversation reopens when {{agency}} writes or a new chat request is accepted.",
+    snippetIncoming: "Asks to chat about an Opening",
+    snippetSent: {
+      pending: "Your chat request is pending",
+      declined: "Your chat request was declined",
+      expired: "Your chat request expired",
+    },
     loadEarlier: "Load earlier messages",
     documentTitle: "Messages | Vetchium",
     title: "Messages",

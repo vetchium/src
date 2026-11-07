@@ -50,9 +50,14 @@ import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";
 import type {
   DeleteConversationRequest,
   GetConversationRequest,
+  HubAcceptChatRequestRequest,
+  HubChatRequest,
   HubConversationDetail,
+  HubDeclineChatRequestRequest,
   ListConversationsRequest,
   ListConversationsResponse,
+  ListHubChatRequestsRequest,
+  ListHubChatRequestsResponse,
   MarkConversationReadRequest,
   ReplyToConversationRequest,
 } from "typespec/hub/messages/messages";
@@ -481,6 +486,28 @@ export const hubAPI = {
       body,
       idempotencyKey,
     }),
+  listChatRequests: (body: ListHubChatRequestsRequest) =>
+    apiRequest<ListHubChatRequestsResponse>(`${base}/list-chat-requests`, {
+      body,
+    }),
+  // Like the reply, a 202 means the agency's tenant has not answered yet:
+  // poll operationStatus, then replay with the same key.
+  acceptChatRequest: (
+    body: HubAcceptChatRequestRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<HubConversationDetail | PendingOperation>(
+      `${base}/accept-chat-request`,
+      { body, idempotencyKey },
+    ),
+  declineChatRequest: (
+    body: HubDeclineChatRequestRequest,
+    idempotencyKey: IdempotencyKey,
+  ) =>
+    apiRequest<HubChatRequest | PendingOperation>(
+      `${base}/decline-chat-request`,
+      { body, idempotencyKey },
+    ),
   markConversationRead: (body: MarkConversationReadRequest) =>
     apiRequest<void>(`${base}/mark-conversation-read`, { body }),
   setAgenciesMayMessage: (body: SetAgenciesMayMessageRequest) =>

@@ -42,3 +42,5 @@ Both portals' chat-request screens are covered end to end.
 
 ## Carried over
 - From T12: cover the Orgs states on screen: dialog refusals (exists, conversation open, blocked, requests off) and Accept in place of Request, Requests tab sections, sent banner (pending, declined with lift date, expired), incoming banner answers, the closed-conversation notice, and Suggest to a contact handing off to a chat request when the agency may not write.
+- From T13: Home "Chat requests" card: shown to an agency `org:fulfil_engagements` holder with pending requests (count in the title, five oldest, "See all" to the Requests tab) and hidden from a user without the permission or the `sourcing` Capability.
+- From T14: cover the Hub Messages states on screen: an incoming request listed first with Accept, "Not this Opening" and "Not for N days" (each removing the request); Accept opening the composer at once; a sent request pending, declined (Opening, and sender with lift date) and expired; the closed notice after the window ends; `request` messages as Opening cards with apply only on the agency's.

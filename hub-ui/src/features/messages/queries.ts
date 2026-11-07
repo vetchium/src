@@ -6,15 +6,19 @@ import {
 } from "@tanstack/react-query";
 import { useRef } from "react";
 import type { PaginationKey } from "typespec/common/pagination";
-import type {
-  HubConversationDetail,
-  ListConversationsResponse,
+import {
+  type HubConversationDetail,
+  type ListConversationsResponse,
+  maxPage,
 } from "typespec/hub/messages/messages";
 import {
   Pending,
   type PendingOperation,
 } from "typespec/hub/operations/operations";
 import type {
+  ChatRequestDeclineScope,
+  ChatRequestDirection,
+  ChatRequestID,
   ContactID,
   ConversationMessage,
   MessageText,
@@ -26,6 +30,7 @@ import { usePendingOperations } from "../../app/PendingOperationContext";
 export const conversationsQueryKey = ["hub", "conversations"] as const;
 export const conversationDetailQueryKey = (contactId: string) =>
   ["hub", "conversations", contactId] as const;
+const chatRequestsQueryKey = ["hub", "chat-requests"] as const;
 
 export function useConversationsQuery(enabled = true) {
   return useQuery({
@@ -50,6 +55,14 @@ export function useConversationDetailQuery(
     initialPageParam: undefined as PaginationKey | undefined,
     getNextPageParam: (page) => page.next_pagination_key,
     enabled: Boolean(contactId) && enabled,
+  });
+}
+
+/** Pending requests oldest first, then answered ones newest first. */
+export function useChatRequestsQuery(direction: ChatRequestDirection) {
+  return useQuery({
+    queryKey: [...chatRequestsQueryKey, direction],
+    queryFn: () => hubAPI.listChatRequests({ direction, limit: maxPage }),
   });
 }
 
@@ -213,6 +226,68 @@ export function useMarkConversationRead() {
           };
         },
       );
+    },
+  });
+}
+
+/** Accepts the request, or declines it with a scope (MKT-REQ-007). */
+export interface ChatRequestAnswer {
+  request_id: ChatRequestID;
+  decline?: ChatRequestDeclineScope;
+}
+
+export function useChatRequestAnswerAction(contactId: string) {
+  const queryClient = useQueryClient();
+  const { hold } = usePendingOperations();
+  const key = useIdempotencyKey();
+  const lastRequest = useRef<string | null>(null);
+
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: conversationDetailQueryKey(contactId),
+      }),
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey }),
+      queryClient.invalidateQueries({ queryKey: chatRequestsQueryKey }),
+    ]);
+
+  return useMutation({
+    mutationFn: async (answer: ChatRequestAnswer) => {
+      const serialized = JSON.stringify(answer);
+      if (lastRequest.current !== null && lastRequest.current !== serialized) {
+        key.rotate();
+      }
+      lastRequest.current = serialized;
+      const call = () =>
+        answer.decline === undefined
+          ? hubAPI.acceptChatRequest(
+              { request_id: answer.request_id },
+              key.current(),
+            )
+          : hubAPI.declineChatRequest(
+              { request_id: answer.request_id, scope: answer.decline },
+              key.current(),
+            );
+      const release = hold();
+      try {
+        let result = await call();
+        while (isPendingOperation(result)) {
+          await settle(result.operation_id);
+          result = await call();
+        }
+        return result;
+      } finally {
+        release();
+      }
+    },
+    onSuccess: async () => {
+      key.rotate();
+      lastRequest.current = null;
+      await refresh();
+    },
+    onError: async (error) => {
+      if (error instanceof OperationStillPendingError) return;
+      await refresh();
     },
   });
 }
