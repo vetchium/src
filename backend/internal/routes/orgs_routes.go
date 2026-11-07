@@ -170,7 +170,6 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/add-contact-note", fulfilEngagements(orgscontacts.AddContactNote(s)))
 	mux.Handle("POST /api/orgs/edit-contact-note", fulfilEngagements(orgscontacts.EditContactNote(s)))
 	mux.Handle("POST /api/orgs/delete-contact-note", fulfilEngagements(orgscontacts.DeleteContactNote(s)))
-	mux.Handle("POST /api/orgs/start-conversation", fulfilEngagements(orgscontacts.StartConversation(s)))
 	mux.Handle("POST /api/orgs/send-message", fulfilEngagements(orgscontacts.SendMessage(s)))
 	mux.Handle("POST /api/orgs/get-conversation", fulfilEngagements(orgscontacts.GetConversation(s)))
 	mux.Handle("POST /api/orgs/mark-conversation-read", fulfilEngagements(orgscontacts.MarkConversationRead(s)))

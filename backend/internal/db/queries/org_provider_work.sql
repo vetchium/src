@@ -727,14 +727,16 @@ WHERE eng.provider_org_did = sqlc.arg(provider_org_did)
   AND app.hub_user_did = ANY(sqlc.arg(applicant_dids)::uuid[])
 GROUP BY app.hub_user_did;
 
--- Contacts suggested for an Opening by this agency.
+-- Contacts suggested an Opening by this agency, an accepted request of the
+-- agency's included as ListContactOpeningSuggestions does.
 -- name: ListJobSuggestedContacts :many
 SELECT cont.contact_id, cont.display_name, cont.handle, m.sent_at AS suggested_at
 FROM vetchium.org_conversation_messages AS m
 JOIN vetchium.org_conversations AS conv ON conv.conversation_id = m.conversation_id
 JOIN vetchium.org_contacts AS cont ON cont.contact_id = conv.contact_id
 WHERE cont.org_did = sqlc.arg(org_did)
-  AND m.kind = 'suggestion'
+  AND (m.kind = 'suggestion'
+      OR (m.kind = 'request' AND m.sender_type = 'agency'))
   AND m.consumer_domain = sqlc.arg(consumer_domain)::text
   AND m.opening_number = sqlc.arg(opening_number)::integer
 ORDER BY m.sent_at DESC, cont.contact_id DESC;

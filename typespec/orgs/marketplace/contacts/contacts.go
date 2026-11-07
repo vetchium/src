@@ -17,10 +17,8 @@ const (
 	// MaxNotesPerContact bounds the notes on one Contact (MKT-NOTE-001).
 	MaxNotesPerContact = 200
 	// MaxNewContactsPerDay bounds the Contacts an agency creates per UTC day,
-	// counting those a conversation creates (MKT-CON-005).
+	// counting those a chat request creates (MKT-CON-005).
 	MaxNewContactsPerDay = 200
-	// MaxNewConversationsPerDay bounds the new conversations per agency per UTC day (MKT-CNV-003).
-	MaxNewConversationsPerDay = 50
 	// MaxChatRequestsPerDay bounds the chat requests an agency sends per UTC
 	// day (MKT-REQ-006).
 	MaxChatRequestsPerDay = 50
@@ -551,39 +549,6 @@ func (r DeleteContactNoteRequest) Validate() []string {
 
 type DeletedNote struct {
 	ContactDeleted bool `json:"contact_deleted"`
-}
-
-type StartConversationRequest struct {
-	Address    profile.ProfileAddress `json:"address"`
-	Text       *MessageText           `json:"text,omitempty"`
-	Suggestion *OpeningSuggestion     `json:"suggestion,omitempty"`
-}
-
-func (r *StartConversationRequest) Normalize() {
-	r.Address = profile.ProfileAddress(strings.TrimSpace(string(r.Address)))
-	if r.Text != nil {
-		normalized := NormalizeMessageText(*r.Text)
-		r.Text = &normalized
-	}
-}
-
-func (r StartConversationRequest) Validate() []string {
-	fields := []string{}
-	if !profile.IsProfileAddress(r.Address) {
-		fields = append(fields, "address")
-	}
-	hasText := r.Text != nil && IsMessageText(*r.Text)
-	hasSuggestion := r.Suggestion != nil && r.Suggestion.Valid()
-	if (!hasText && !hasSuggestion) || (hasText && hasSuggestion) {
-		if r.Text != nil && !IsMessageText(*r.Text) {
-			fields = append(fields, "text")
-		} else if r.Suggestion != nil && !r.Suggestion.Valid() {
-			fields = append(fields, "suggestion")
-		} else {
-			fields = append(fields, "text")
-		}
-	}
-	return fields
 }
 
 // SendChatRequestRequest asks a person, by handle or alias or by the

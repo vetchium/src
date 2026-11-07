@@ -70,7 +70,6 @@ import type {
   MarkConversationReadRequest,
   SendChatRequestRequest,
   SendMessageRequest,
-  StartConversationRequest,
   ViewHubProfileRequest,
 } from "typespec/orgs/marketplace/contacts/contacts";
 import type {
@@ -690,17 +689,6 @@ export class OrgsAPI {
     idempotencyKey: string = orgsIdempotencyKey(),
   ): Promise<APIResponse> {
     return this.post("/delete-contact-note", request, {
-      token,
-      idempotencyKey,
-    });
-  }
-
-  startConversation(
-    token: string,
-    request: StartConversationRequest,
-    idempotencyKey: string = orgsIdempotencyKey(),
-  ): Promise<APIResponse> {
-    return this.post("/start-conversation", request, {
       token,
       idempotencyKey,
     });

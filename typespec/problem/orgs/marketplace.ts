@@ -181,13 +181,6 @@ export const JobOwnerVersionConflictError: Readonly<Details> = {
   detail: "The Job's owner changed since it was read",
 };
 
-export const ConversationLimitReachedError: Readonly<Details> = {
-  type: "vetchium-problem-details/org-conversation-limit-reached",
-  title: "Org conversation limit reached",
-  status: 429,
-  detail: "The agency reached its limit of new conversations for today",
-};
-
 export const ConversationNotFoundError: Readonly<Details> = {
   type: "vetchium-problem-details/org-conversation-not-found",
   title: "Org conversation not found",

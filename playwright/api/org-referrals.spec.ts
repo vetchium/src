@@ -2,10 +2,7 @@ import type { ListConversationsResponse } from "typespec/hub/messages/messages";
 import type { GetOrgOpeningResponse } from "typespec/hub/openings/public";
 import type { ListApplicationsResponse } from "typespec/orgs/applications/applications";
 import type { ListCreditedApplicationsResponse } from "typespec/orgs/marketplace/attribution";
-import type {
-  Contact,
-  ConversationDetail,
-} from "typespec/orgs/marketplace/contacts/contacts";
+import type { Contact } from "typespec/orgs/marketplace/contacts/contacts";
 import type {
   JobDetail,
   ListJobsResponse,
@@ -19,9 +16,13 @@ import {
   seedApplicant,
 } from "../lib/hub-applicant.ts";
 import { meshPeerRequest, meshRelayRequest } from "../lib/mesh.ts";
-import { orgDID, orgsIdempotencyKey } from "../lib/orgs-api.ts";
+import { orgDID } from "../lib/orgs-api.ts";
 import { detailOf, shortlist } from "../lib/orgs-applications.ts";
-import { activate, asProvider } from "../lib/orgs-marketplace.ts";
+import {
+  activate,
+  asProvider,
+  openConversation,
+} from "../lib/orgs-marketplace.ts";
 import { assign, routed, withWorld } from "../lib/orgs-routing.ts";
 
 const BASE = "vetchium-problem-details/";
@@ -128,23 +129,12 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
       });
 
       // 4. Suggested referral (MKT-SRC-004, MKT-DAT-008)
-      // Agency starts conversation with applicant 2 and sends an Opening suggestion
-      const startKey = orgsIdempotencyKey();
-      const startRes = await provider.api.startConversation(
-        provider.owner,
-        {
-          address: applicant2.handle,
-          suggestion: {
-            consumer_domain: consumer.org.domain,
-            opening_number: opening.opening_number,
-          },
-        },
-        startKey,
-      );
-      expect(startRes.status(), await startRes.text()).toBe(200);
-      const conversation = (await startRes.json()) as ConversationDetail;
-      const contactID = conversation.conversation.contact_id;
-      expect(contactID).toBeTruthy();
+      // Applicant 2 accepts the agency's chat request about the Opening.
+      const { request: asked } = await openConversation(provider, applicant2, {
+        consumer_domain: consumer.org.domain,
+        opening_number: opening.opening_number,
+      });
+      const contactID = asked.contact_id;
 
       // The suggestion reaches applicant 2 with the agency's pointer.
       await expect

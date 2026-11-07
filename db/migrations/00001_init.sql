@@ -3641,15 +3641,6 @@ CREATE INDEX org_conversation_messages_list_idx
 CREATE INDEX org_conversation_messages_retention_idx
     ON vetchium.org_conversation_messages (sent_at, message_id);
 
--- New conversations started per agency per UTC day (MKT-CNV-003).
-CREATE TABLE vetchium.org_conversation_creations (
-    org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
-        ON DELETE CASCADE,
-    created_on date NOT NULL,
-    created integer NOT NULL CHECK (created >= 1),
-    PRIMARY KEY (org_did, created_on)
-);
-
 -- Chat requests (agent-guides/marketplace.md, Chat requests). Rows hold the
 -- Hub user by DID only, like conversations.
 CREATE TABLE vetchium.org_chat_requests (
@@ -3962,7 +3953,6 @@ DROP TABLE IF EXISTS vetchium.hub_agency_pointers;
 DROP TABLE IF EXISTS vetchium.org_chat_request_creations;
 DROP TABLE IF EXISTS vetchium.org_chat_request_blocks;
 DROP TABLE IF EXISTS vetchium.org_chat_requests;
-DROP TABLE IF EXISTS vetchium.org_conversation_creations;
 DROP TABLE IF EXISTS vetchium.org_conversation_messages;
 DROP TABLE IF EXISTS vetchium.org_conversations;
 DROP TABLE IF EXISTS vetchium.org_contact_creations;

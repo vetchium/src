@@ -882,10 +882,10 @@ func (s *marketplaceSeeder) seedProviderFeedback(
 }
 
 // seedAgencyContacts gives the large agency Contacts among the next region's
-// Hub users, each written by a different agent: a conversation with an
-// Opening suggestion the person applied from (a `suggested` credit), a
-// conversation whose person applied naming the agency (`declared`), and a
-// Contact with notes only.
+// Hub users, each written by a different agent: a conversation opened by an
+// accepted chat request about an Opening the person applied from (a
+// `suggested` credit), a conversation whose person applied naming the agency
+// (`declared`), and a Contact with notes only.
 func (s *marketplaceSeeder) seedAgencyContacts(
 	ctx context.Context, tenant, hubTenant string,
 ) (int, error) {
@@ -901,7 +901,12 @@ func (s *marketplaceSeeder) seedAgencyContacts(
 		session, err := s.hubLogin(ctx, hubTenant, email)
 		return hubprofile.ProfileAddress(session.handle), err
 	}
-	converse := func(agent, email, note, text string) (contacts.ContactID, error) {
+	// converse opens the conversation the only way there is: the agent asks
+	// about one of the client's Openings and the person accepts
+	// (MKT-CNV-002).
+	converse := func(
+		agent, email, note string, about contacts.OpeningSuggestion, ask string,
+	) (contacts.ContactID, error) {
 		address, err := handle(email)
 		if err != nil {
 			return "", err
@@ -911,13 +916,47 @@ func (s *marketplaceSeeder) seedAgencyContacts(
 		}, http.StatusOK, nil); err != nil {
 			return "", err
 		}
-		var conversation contacts.ConversationDetail
-		if err := s.orgPostAs(ctx, agency, agent, "start-conversation", contacts.StartConversationRequest{
-			Address: address, Text: ptr(contacts.MessageText(text)),
-		}, http.StatusOK, &conversation); err != nil {
+		var sent contacts.ChatRequest
+		if err := s.orgPostAs(ctx, agency, agent, "send-chat-request", contacts.SendChatRequestRequest{
+			Address: &address, Suggestion: about,
+			Note: ptr(contacts.ChatRequestNote(ask)),
+		}, http.StatusOK, &sent); err != nil {
 			return "", err
 		}
-		return conversation.Conversation.ContactID, nil
+		if err := await(ctx, "the chat request to "+email, func() (bool, error) {
+			var detail hubmessages.HubConversationDetail
+			err := s.hubPost(ctx, hubTenant, email, "get-conversation",
+				hubmessages.GetConversationRequest{ContactID: sent.ContactID}, http.StatusOK, &detail)
+			latest := detail.Conversation.LatestRequest
+			return err == nil && latest != nil && latest.RequestID == sent.RequestID, err
+		}); err != nil {
+			return "", err
+		}
+		if err := s.hubPost(ctx, hubTenant, email, "accept-chat-request",
+			hubmessages.HubAcceptChatRequestRequest{RequestID: sent.RequestID},
+			http.StatusOK, nil); err != nil {
+			return "", err
+		}
+		// Applying credits a `suggested` route only once the Hub's pointer
+		// lists the Opening, which follows the acceptance.
+		if err := await(ctx, "the suggestion to "+email, func() (bool, error) {
+			var detail hubmessages.HubConversationDetail
+			err := s.hubPost(ctx, hubTenant, email, "get-conversation",
+				hubmessages.GetConversationRequest{ContactID: sent.ContactID}, http.StatusOK, &detail)
+			if err != nil {
+				return false, err
+			}
+			for _, suggestion := range detail.Conversation.Suggestions {
+				if suggestion.ConsumerDomain == about.ConsumerDomain &&
+					suggestion.OpeningNumber == about.OpeningNumber {
+					return true, nil
+				}
+			}
+			return false, nil
+		}); err != nil {
+			return "", err
+		}
+		return sent.ContactID, nil
 	}
 	apply := func(email string, client orgs.OrgDomain) error {
 		return s.hubPost(ctx, hubTenant, email, "apply-to-opening", hubapplications.ApplyToOpeningRequest{
@@ -929,24 +968,9 @@ func (s *marketplaceSeeder) seedAgencyContacts(
 	suggestedClient := seededOrgDomain(hiringCompanyKind, 1, tenant)
 	contactID, err := converse("agent1", suggestedTo,
 		"Strong distributed-systems background; open to a move this year.",
+		contacts.OpeningSuggestion{ConsumerDomain: suggestedClient, OpeningNumber: suggestedOpening},
 		"Hello! We place engineers with teams across several regions.")
 	if err != nil {
-		return 0, err
-	}
-	if err := s.orgPostAs(ctx, agency, "agent1", "send-message", contacts.SendMessageRequest{
-		ContactID: contactID,
-		Suggestion: &contacts.OpeningSuggestion{
-			ConsumerDomain: suggestedClient, OpeningNumber: suggestedOpening,
-		},
-	}, http.StatusOK, nil); err != nil {
-		return 0, err
-	}
-	if err := await(ctx, "the Hub conversation of "+suggestedTo, func() (bool, error) {
-		var detail hubmessages.HubConversationDetail
-		err := s.hubPost(ctx, hubTenant, suggestedTo, "get-conversation",
-			hubmessages.GetConversationRequest{ContactID: contactID}, http.StatusOK, &detail)
-		return err == nil && detail.Conversation.HasConversation, err
-	}); err != nil {
 		return 0, err
 	}
 	if err := s.hubPost(ctx, hubTenant, suggestedTo, "reply-to-conversation",
@@ -961,12 +985,15 @@ func (s *marketplaceSeeder) seedAgencyContacts(
 	}
 
 	declaredBy := people[1]
+	declaredClient := seededOrgDomain(hiringCompanyKind, 2, tenant)
 	if _, err := converse("agent2", declaredBy,
 		"Product leader; prefers hybrid roles.",
+		// Another Opening, so applying to the suggested one is `declared`.
+		contacts.OpeningSuggestion{ConsumerDomain: declaredClient, OpeningNumber: 3},
 		"Hi! We work with several product teams that are hiring."); err != nil {
 		return 1, err
 	}
-	if err := apply(declaredBy, seededOrgDomain(hiringCompanyKind, 2, tenant)); err != nil {
+	if err := apply(declaredBy, declaredClient); err != nil {
 		return 1, err
 	}
 

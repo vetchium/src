@@ -18,8 +18,6 @@ import { isOrgDomain } from "../../types.ts";
 export const maxNotesPerContact = 200;
 /** Bounds the Contacts an agency creates per UTC day. */
 export const maxNewContactsPerDay = 200;
-/** Bounds the new conversations an agency starts per UTC day. */
-export const maxNewConversationsPerDay = 50;
 /** Bounds the chat requests an agency sends per UTC day. */
 export const maxChatRequestsPerDay = 50;
 /** Bounds a chat request's note in code points. */
@@ -444,35 +442,6 @@ export function validateDeleteContactNoteRequest(
 export interface DeletedNote {
   /** The note was the Contact's last, and the Contact went with it. */
   contact_deleted: boolean;
-}
-
-export interface StartConversationRequest {
-  address: ProfileAddress;
-  text?: MessageText;
-  suggestion?: OpeningSuggestion;
-}
-
-export function validateStartConversationRequest(
-  request: StartConversationRequest,
-): string[] {
-  const fields: string[] = [];
-  if (!isProfileAddress(request.address)) fields.push("address");
-  const hasText = request.text !== undefined && isMessageText(request.text);
-  const hasSuggestion =
-    request.suggestion !== undefined && isOpeningSuggestion(request.suggestion);
-  if ((!hasText && !hasSuggestion) || (hasText && hasSuggestion)) {
-    if (request.text !== undefined && !isMessageText(request.text)) {
-      fields.push("text");
-    } else if (
-      request.suggestion !== undefined &&
-      !isOpeningSuggestion(request.suggestion)
-    ) {
-      fields.push("suggestion");
-    } else {
-      fields.push("text");
-    }
-  }
-  return fields;
 }
 
 /**

@@ -290,17 +290,6 @@ alias OrgJobOwnerVersionConflictErrorResponse = Response<
   typeof OrgJobOwnerVersionConflictError
 >;
 
-const OrgConversationLimitReachedError = #{
-  type: "vetchium-problem-details/org-conversation-limit-reached",
-  title: "Org conversation limit reached",
-  status: 429,
-  detail: "The agency reached its limit of new conversations for today",
-};
-alias OrgConversationLimitReachedErrorResponse = Response<
-  429,
-  typeof OrgConversationLimitReachedError
->;
-
 const OrgConversationNotFoundError = #{
   type: "vetchium-problem-details/org-conversation-not-found",
   title: "Org conversation not found",

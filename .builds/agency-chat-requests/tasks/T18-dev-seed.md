@@ -35,3 +35,4 @@ Hub Messages show the seeded requests.
 MKT-TST-003's request fixtures exist after `make dev-seed`.
 
 ## Carried over
+- From T17: `seedAgencyContacts` already opens agency1's two conversations with accepted chat requests (`people[0]` about Opening 10, `people[1]` about Opening 3, each client's) and waits for the Hub pointer to list the Opening. Seed the pending and declined requests with other people, or sending to those two is refused with `org-conversation-open`.

@@ -194,13 +194,6 @@ var JobOwnerVersionConflictError = problem.Details{
 	Detail: "The Job's owner changed since it was read",
 }
 
-var ConversationLimitReachedError = problem.Details{
-	Type:   "vetchium-problem-details/org-conversation-limit-reached",
-	Title:  "Org conversation limit reached",
-	Status: 429,
-	Detail: "The agency reached its limit of new conversations for today",
-}
-
 var ConversationNotFoundError = problem.Details{
 	Type:   "vetchium-problem-details/org-conversation-not-found",
 	Title:  "Org conversation not found",

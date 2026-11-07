@@ -2,14 +2,17 @@ import { randomUUID } from "node:crypto";
 import { expect } from "@playwright/test";
 import type {
   HubChatRequest,
+  HubConversationDetail,
   ListConversationsResponse,
   ListHubChatRequestsResponse,
 } from "typespec/hub/messages/messages";
 import type { MyInfoResponse } from "typespec/orgs/account/account";
 import type { Capability } from "typespec/orgs/marketplace/capabilities";
 import type {
+  ChatRequest,
   ChatRequestDirection,
   Contact,
+  OpeningSuggestion,
 } from "typespec/orgs/marketplace/contacts/contacts";
 import type { Engagement } from "typespec/orgs/marketplace/engagements";
 import type {
@@ -404,4 +407,35 @@ export async function awaitHubRequest(
     )
     .toBe(true);
   return found as HubChatRequest;
+}
+
+/** Opens the agency's conversation with the applicant the only way there is
+ * (MKT-CNV-002): a chat request about `opening`, which the applicant
+ * accepts. The agency must be assigned to the Opening. */
+export async function openConversation(
+  provider: Pick<Provider, "api" | "owner">,
+  applicant: Applicant,
+  opening: OpeningSuggestion,
+  note?: string,
+): Promise<{ request: ChatRequest; conversation: HubConversationDetail }> {
+  const sent = await provider.api.sendChatRequest(provider.owner, {
+    address: applicant.handle,
+    suggestion: opening,
+    ...(note !== undefined && { note }),
+  });
+  expect(sent.status(), await sent.text()).toBe(200);
+  const request = (await sent.json()) as ChatRequest;
+  await awaitHubRequest(
+    applicant,
+    "to_hub_user",
+    (item) => item.request_id === request.request_id,
+  );
+  const accepted = await applicant.hub.acceptChatRequest(applicant.token, {
+    request_id: request.request_id,
+  });
+  expect(accepted.status(), await accepted.text()).toBe(200);
+  return {
+    request,
+    conversation: (await accepted.json()) as HubConversationDetail,
+  };
 }

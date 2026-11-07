@@ -182,12 +182,6 @@ model ConversationDetail {
   next_pagination_key?: Vetchium.PaginationKey;
 }
 
-model StartConversationRequest {
-  address: Vetchium.Hub.Profile.ProfileAddress;
-  text?: MessageText;
-  suggestion?: OpeningSuggestion;
-}
-
 /**
  * Asks a person, by handle or alias or by the agency's Contact, to open the
  * conversation about an Opening the agency is assigned to. Exactly one of
@@ -648,45 +642,6 @@ interface ContactOperations {
     | ContactWriteErrors
     | Vetchium.Problem.OrgContactNotFoundErrorResponse
     | Vetchium.Problem.OrgContactNoteNotFoundErrorResponse;
-
-  /**
-   * Starts a conversation with a Hub user by handle or alias, or opens an
-   * existing one. The first message creates the Contact if absent.
-   */
-  @route("/start-conversation")
-  @post
-  @useAuth(BearerAuth)
-  @TypeSpec.OpenAPI.extension(
-    "x-vetchium-required-permission",
-    "org:fulfil_engagements"
-  )
-  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
-  @TypeSpec.OpenAPI.extension(
-    "x-vetchium-idempotency-binding",
-    #[
-      "operation",
-      "authenticated-principal",
-      "canonical-request-digest",
-      "idempotency-key"
-    ]
-  )
-  startConversation(
-    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
-    @body request: StartConversationRequest,
-  ):
-    | {
-        @statusCode status_code: 200;
-        @header("Cache-Control") cache_control: "no-store";
-        @body body: ConversationDetail;
-      }
-    | ContactWriteErrors
-    | Vetchium.Problem.OrgListingNotAvailableErrorResponse
-    | Vetchium.Problem.OrgConversationLimitReachedErrorResponse
-    | Vetchium.Problem.OrgContactLimitReachedErrorResponse
-    | Vetchium.Problem.OrgHubUserNotFoundErrorResponse
-    | Vetchium.Problem.OrgAgencyRequestsOffErrorResponse
-    | Vetchium.Problem.OrgConversationPartyDeletedErrorResponse
-    | Vetchium.Problem.OrgTenantUnavailableErrorResponse;
 
   /**
    * Sends a chat request about an Opening the agency is assigned to, creating

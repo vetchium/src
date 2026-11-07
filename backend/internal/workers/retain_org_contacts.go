@@ -112,20 +112,6 @@ func (w *Worker) retainOrgContacts(ctx context.Context) error {
 		}
 	}
 
-	// Prune conversation daily creations
-	for range maxContactRetentionBatches {
-		pruned, err := w.queries.PruneOrgConversationCreations(ctx, sqlc.PruneOrgConversationCreationsParams{
-			BatchSize: contactRetentionBatchSize,
-			TenantID:  w.tenantID,
-		})
-		if err != nil {
-			return fmt.Errorf("prune conversation creations: %w", err)
-		}
-		if len(pruned) < contactRetentionBatchSize {
-			break
-		}
-	}
-
 	return nil
 }
 

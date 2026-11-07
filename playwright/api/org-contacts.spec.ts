@@ -32,10 +32,12 @@ import {
   orgSQL,
   orgsIdempotencyKey,
 } from "../lib/orgs-api.ts";
+import { withAgency } from "../lib/orgs-chat-requests.ts";
 import {
   awaitHubPointer,
   awaitRequestsOff,
   listing,
+  openConversation,
   problems,
   published,
   setOrgHome,
@@ -644,16 +646,11 @@ test("the agency chat-requests switch reaches the agency, and hub-account-delete
 test("the Contacts list filters, searches, pages, and counts every tab and unread message", async ({
   request,
 }) => {
-  await withProvider(request, async (provider) => {
-    await published(
-      provider.api,
-      provider.owner,
-      listing("sourcing", "Agency Sourcing"),
-    );
-    const orgDid = orgDID(provider.org.domain, provider.tenant);
-    const ada = seedApplicant(request, "sgp", "Ada Lovelace");
-    const grace = seedApplicant(request, "sgp", "Grace Hopper");
-    const alan = seedApplicant(request, "sgp", "Alan Turing");
+  await withAgency(request, async (agency) => {
+    const { provider } = agency.pair;
+    const ada = agency.person("sgp", "Ada Lovelace");
+    const grace = agency.person("sgp", "Grace Hopper");
+    const alan = agency.person("sgp", "Alan Turing");
     const list = async (body: ListContactsRequest) => {
       const response = await provider.api.listContacts(provider.owner, body);
       expect(response.status(), await response.text()).toBe(200);
@@ -661,7 +658,7 @@ test("the Contacts list filters, searches, pages, and counts every tab and unrea
     };
     const names = (page: ListContactsResponse) =>
       page.items.map((item) => item.display_name);
-    try {
+    {
       const noted = await provider.api.addPersonNote(provider.owner, {
         address: ada.alias,
         text: "Met at a conference.",
@@ -669,14 +666,12 @@ test("the Contacts list filters, searches, pages, and counts every tab and unrea
       expect(noted.status(), await noted.text()).toBe(200);
       let graceContact = "";
       for (const person of [alan, grace]) {
-        const started = await provider.api.startConversation(provider.owner, {
-          address: person.alias,
-          text: "Are you open to a new role?",
-        });
-        expect(started.status(), await started.text()).toBe(200);
-        const contactID = ((await started.json()) as ConversationDetail)
-          .conversation.contact_id;
-        if (person === grace) graceContact = contactID;
+        const { request: asked } = await openConversation(
+          provider,
+          person,
+          agency.openings[0],
+        );
+        if (person === grace) graceContact = asked.contact_id;
       }
       // Each Hub reply adds one to the agency's unread count.
       await awaitHubPointer(grace, graceContact);
@@ -760,10 +755,6 @@ test("the Contacts list filters, searches, pages, and counts every tab and unrea
           [field],
         );
       }
-    } finally {
-      for (const person of [ada, grace, alan]) {
-        cleanupApplicant(person, [{ tenant: provider.tenant, did: orgDid }]);
-      }
     }
   });
 });
@@ -772,22 +763,18 @@ test("a deleted Hub account leaves a Contact with a conversation read-only and i
   request,
   apiCoverage,
 }) => {
-  await withProvider(request, async (provider) => {
-    await published(
-      provider.api,
-      provider.owner,
-      listing("sourcing", "Agency Sourcing"),
-    );
-    const applicant = seedApplicant(request, "deu", "Ada Lovelace");
-    const orgDid = orgDID(provider.org.domain, provider.tenant);
-    try {
-      const started = await provider.api.startConversation(provider.owner, {
-        address: applicant.alias,
-        text: "Hello from the agency.",
-      });
-      expect(started.status(), await started.text()).toBe(200);
-      const contactID = ((await started.json()) as ConversationDetail)
-        .conversation.contact_id;
+  await withAgency(request, async (agency) => {
+    const { provider } = agency.pair;
+    // In another tenant than the agency, so the notice crosses the mesh.
+    const applicant = agency.person("sgp", "Ada Lovelace");
+    const orgDid = agency.did;
+    {
+      const { request: asked } = await openConversation(
+        provider,
+        applicant,
+        agency.openings[0],
+      );
+      const contactID = asked.contact_id;
       const noted = await provider.api.addContactNote(provider.owner, {
         contact_id: contactID,
         text: "Strong candidate.",
@@ -851,8 +838,6 @@ test("a deleted Hub account leaves a Contact with a conversation read-only and i
         409,
         PROBLEMS.partyDeleted,
       );
-    } finally {
-      cleanupApplicant(applicant, [{ tenant: provider.tenant, did: orgDid }]);
     }
   });
 });
@@ -861,15 +846,11 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
   request,
 }) => {
   test.setTimeout(120_000);
-  await withProvider(request, async (provider) => {
-    await published(
-      provider.api,
-      provider.owner,
-      listing("sourcing", "Agency Sourcing"),
-    );
-    const orgDid = orgDID(provider.org.domain, provider.tenant);
-    const applicant = seedApplicant(request, "sgp");
-    const away = seedApplicant(request, "sgp");
+  await withAgency(request, async (agency) => {
+    const { provider } = agency.pair;
+    const orgDid = agency.did;
+    const applicant = agency.person("sgp");
+    const away = agency.person("sgp");
     const viewer = await addOrgMember(
       provider.api,
       provider.owner,
@@ -884,14 +865,13 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
       inviteeAddress(provider.org.domain, "colleague"),
       ["org:fulfil_engagements"],
     );
-    try {
-      const started = await provider.api.startConversation(provider.owner, {
-        address: applicant.alias,
-        text: "Hello.",
-      });
-      expect(started.status(), await started.text()).toBe(200);
-      const contact_id = ((await started.json()) as ConversationDetail)
-        .conversation.contact_id;
+    {
+      const { request: asked } = await openConversation(
+        provider,
+        applicant,
+        agency.openings[0],
+      );
+      const contact_id = asked.contact_id;
       const noted = await provider.api.addContactNote(provider.owner, {
         contact_id,
         text: "A note.",
@@ -929,11 +909,6 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
         {
           path: "/delete-contact-note",
           body: { contact_id, note_id },
-          write: true,
-        },
-        {
-          path: "/start-conversation",
-          body: { address: applicant.alias, text: "Hi" },
           write: true,
         },
         {
@@ -995,7 +970,6 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
           ["note_id"],
         ],
         ["/delete-contact-note", { contact_id, note_id: "x" }, ["note_id"]],
-        ["/start-conversation", { address: applicant.alias }, ["text"]],
         ["/send-message", { contact_id: "x", text: "Hi" }, ["contact_id"]],
       ];
       for (const [path, body, fields] of invalid) {
@@ -1148,10 +1122,6 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
           problems.suspended,
         );
       }
-    } finally {
-      for (const person of [applicant, away]) {
-        cleanupApplicant(person, [{ tenant: provider.tenant, did: orgDid }]);
-      }
     }
   });
 });
@@ -1160,14 +1130,10 @@ test("the mesh reads behind Contacts and conversations answer only the tenant th
   request,
   apiCoverage,
 }) => {
-  await withProvider(request, async (provider) => {
-    await published(
-      provider.api,
-      provider.owner,
-      listing("sourcing", "Agency Sourcing"),
-    );
-    const applicant = seedApplicant(request, "deu");
-    const orgDid = orgDID(provider.org.domain, provider.tenant);
+  await withAgency(request, async (agency) => {
+    const { provider } = agency.pair;
+    const applicant = agency.person("sgp");
+    const orgDid = agency.did;
     const expectType = (
       response: { status: number; body: unknown },
       status: number,
@@ -1176,14 +1142,13 @@ test("the mesh reads behind Contacts and conversations answer only the tenant th
       expect(response.status, JSON.stringify(response.body)).toBe(status);
       expect(response.body).toMatchObject({ type, status });
     };
-    try {
-      const started = await provider.api.startConversation(provider.owner, {
-        address: applicant.alias,
-        text: "Hello from the agency.",
-      });
-      expect(started.status(), await started.text()).toBe(200);
-      const contact_id = ((await started.json()) as ConversationDetail)
-        .conversation.contact_id;
+    {
+      const { request: asked } = await openConversation(
+        provider,
+        applicant,
+        agency.openings[0],
+      );
+      const contact_id = asked.contact_id;
 
       // The agency's tenant reads the profile from the Hub user's.
       const profileRelay = "/mesh/agency-profile/read";
@@ -1322,10 +1287,10 @@ test("the mesh reads behind Contacts and conversations answer only the tenant th
       );
       expect(live.status, JSON.stringify(live.body)).toBe(200);
       expect(
-        (live.body as { messages: Array<{ text?: string }> }).messages.map(
-          (message) => message.text,
+        (live.body as { messages: Array<{ kind: string }> }).messages.map(
+          (message) => message.kind,
         ),
-      ).toEqual(["Hello from the agency."]);
+      ).toEqual(["request"]);
       expectType(
         meshRelayRequest(
           applicant.tenant,
@@ -1424,8 +1389,6 @@ test("the mesh reads behind Contacts and conversations answer only the tenant th
         400,
         PROBLEMS.validation,
       );
-    } finally {
-      cleanupApplicant(applicant, [{ tenant: provider.tenant, did: orgDid }]);
     }
   });
 });
