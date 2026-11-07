@@ -1,7 +1,7 @@
 # Agency chat requests build progress
 
 branch: agency-chat-requests
-current: T11
+current: T12
 phase: implement
 
 ## Tasks
@@ -21,7 +21,7 @@ T07 done Hub: Agencies on an Opening and Hub chat requests
 T08 done Orgs: Answer Hub chat requests
 T09 done Workers: Expire chat requests and lift blocks
 T10 done Marketplace: Requests setting replaces the messages setting
-T11 todo Playwright: Hub chat requests, expiry, and the requests setting
+T11 done Playwright: Hub chat requests, expiry, and the requests setting
 
 ### M3 Portals
 

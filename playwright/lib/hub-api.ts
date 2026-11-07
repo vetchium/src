@@ -17,8 +17,10 @@ import type {
   HubDeclineChatRequestRequest,
   GetConversationRequest as HubGetConversationRequest,
   MarkConversationReadRequest as HubMarkConversationReadRequest,
+  HubSendChatRequestRequest,
   ListConversationsRequest,
   ListHubChatRequestsRequest,
+  ListOpeningAgenciesRequest,
   ReplyToConversationRequest,
 } from "typespec/hub/messages/messages";
 import type {
@@ -440,6 +442,21 @@ export class HubAPI {
     request: HubMarkConversationReadRequest,
   ): Promise<APIResponse> {
     return this.post("/mark-conversation-read", request, { token });
+  }
+
+  listOpeningAgencies(
+    token: string,
+    request: ListOpeningAgenciesRequest,
+  ): Promise<APIResponse> {
+    return this.post("/list-opening-agencies", request, { token });
+  }
+
+  sendChatRequest(
+    token: string,
+    request: HubSendChatRequestRequest,
+    idempotencyKey: string = hubIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/send-chat-request", request, { token, idempotencyKey });
   }
 
   listChatRequests(

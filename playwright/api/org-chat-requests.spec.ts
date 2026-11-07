@@ -15,9 +15,6 @@ import type {
   AddedNote,
   ChatRequest,
   Contact,
-  ConversationDetail,
-  ListChatRequestsResponse,
-  OpeningSuggestion,
   PendingChatRequestCount,
 } from "typespec/orgs/marketplace/contacts/contacts";
 import { expectProblem } from "../lib/admin-api.ts";
@@ -25,15 +22,10 @@ import {
   auditEventJSONForTenant,
   sqlLiteral,
   sqlScalarForTenant,
-  type TestTenant,
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { hubIdempotencyKey } from "../lib/hub-api.ts";
-import {
-  type Applicant,
-  cleanupApplicantsOf,
-  seedApplicant,
-} from "../lib/hub-applicant.ts";
+import type { Applicant } from "../lib/hub-applicant.ts";
 import { meshPeerRequest } from "../lib/mesh.ts";
 import {
   addOrgMember,
@@ -42,17 +34,24 @@ import {
   orgDID,
   orgsIdempotencyKey,
 } from "../lib/orgs-api.ts";
-import { publishedOpening } from "../lib/orgs-applications.ts";
+import {
+  type Agency,
+  accepted,
+  backdate,
+  orgConversation,
+  orgRequests,
+  pendingAt,
+  sent,
+  withAgency,
+} from "../lib/orgs-chat-requests.ts";
 import {
   activate,
   asProvider,
   awaitHubPointer,
   awaitHubRequest,
   listing,
-  type Pair,
   published,
   setOrgHome,
-  withPair,
   withProvider,
 } from "../lib/orgs-marketplace.ts";
 
@@ -80,128 +79,6 @@ const PROBLEMS = {
 };
 
 const DAY = 24 * 60 * 60 * 1000;
-
-interface Agency {
-  pair: Pair;
-  /** Two published Openings of the consumer, both assigned to the agency. */
-  openings: [OpeningSuggestion, OpeningSuggestion];
-  /** The agency's Org DID in its tenant. */
-  did: string;
-  /** The Orgs whose records of the seeded people are removed afterwards. */
-  orgs: Array<{ tenant: TestTenant; did: string }>;
-  person: (tenant?: "sgp" | "deu") => Applicant;
-  send: (
-    to: { address: string } | { contact_id: string },
-    opening: OpeningSuggestion,
-    note?: string,
-    key?: string,
-  ) => ReturnType<Pair["provider"]["api"]["sendChatRequest"]>;
-}
-
-/**
- * An agency (in deu) with an active sourcing engagement assigned to two
- * published Openings of a consumer (in sgp), and the Hub people the test
- * seeds through `person`, all removed afterwards.
- */
-async function withAgency(
-  request: Parameters<typeof withPair>[0],
-  body: (agency: Agency) => Promise<void>,
-): Promise<void> {
-  await withPair(request, {}, async (pair) => {
-    const { consumer, provider } = pair;
-    const sourcing = await activate(pair, "sourcing");
-    await asProvider(pair, sourcing.id, sourcing.version);
-    const openings: OpeningSuggestion[] = [];
-    for (const title of ["Engineer", "Designer"]) {
-      const { opening } = await publishedOpening(
-        consumer.api,
-        consumer.owner,
-        consumer.org,
-        { title },
-      );
-      const assigned = await consumer.api.assignOpeningProvider(
-        consumer.owner,
-        {
-          opening_number: opening.opening_number,
-          engagement_id: sourcing.id,
-        },
-      );
-      expect(assigned.status(), await assigned.text()).toBe(200);
-      openings.push({
-        consumer_domain: consumer.org.domain,
-        opening_number: opening.opening_number,
-      });
-    }
-    const did = orgDID(provider.org.domain, provider.tenant);
-    const orgs = [
-      { tenant: provider.tenant, did },
-      {
-        tenant: consumer.tenant,
-        did: orgDID(consumer.org.domain, consumer.tenant),
-      },
-    ];
-    const people: Applicant[] = [];
-    try {
-      await body({
-        pair,
-        openings: openings as [OpeningSuggestion, OpeningSuggestion],
-        did,
-        orgs,
-        person: (tenant = "sgp") => {
-          const applicant = seedApplicant(request, tenant);
-          people.push(applicant);
-          return applicant;
-        },
-        send: (to, suggestion, note, key) =>
-          provider.api.sendChatRequest(
-            provider.owner,
-            { ...to, suggestion, ...(note === undefined ? {} : { note }) },
-            key,
-          ),
-      });
-    } finally {
-      setOrgHome(did, provider.tenant);
-      cleanupApplicantsOf(people, orgs);
-    }
-  });
-}
-
-async function sent(
-  response: Awaited<ReturnType<Agency["send"]>>,
-): Promise<ChatRequest> {
-  expect(response.status(), await response.text()).toBe(200);
-  expect(response.headers()["cache-control"]).toBe("no-store");
-  return (await response.json()) as ChatRequest;
-}
-
-/** The agency's request as the Hub user's tenant lists it. */
-function pendingAt(
-  applicant: Applicant,
-  request: ChatRequest,
-): Promise<HubChatRequest> {
-  return awaitHubRequest(
-    applicant,
-    "to_hub_user",
-    (item) =>
-      item.request_id === request.request_id && item.state === "pending",
-  );
-}
-
-async function accepted(
-  applicant: Applicant,
-  request: ChatRequest,
-  key?: string,
-): Promise<HubConversationDetail> {
-  await pendingAt(applicant, request);
-  const response = await applicant.hub.acceptChatRequest(
-    applicant.token,
-    { request_id: request.request_id },
-    key,
-  );
-  expect(response.status(), await response.text()).toBe(200);
-  expect(response.headers()["cache-control"]).toBe("no-store");
-  return (await response.json()) as HubConversationDetail;
-}
 
 /**
  * MKT-REQ-011: the agency's tenant audits the answer with the Contact and the
@@ -239,45 +116,6 @@ function expectAnswerAudited(
       aggregate_id: request.request_id,
     }),
   ]);
-}
-
-/** Moves a side's latest activity back so the other side's window lapses. */
-function backdate(
-  agency: Agency,
-  contactID: string,
-  side: "hub_activity_at" | "agency_activity_at",
-): void {
-  sqlScalarForTenant(
-    agency.pair.provider.tenant,
-    `UPDATE vetchium.org_conversations
-     SET ${side} = now() - interval '91 days'
-     WHERE contact_id = ${sqlLiteral(contactID)}::uuid`,
-  );
-}
-
-async function orgConversation(
-  agency: Agency,
-  contactID: string,
-): Promise<ConversationDetail> {
-  const { provider } = agency.pair;
-  const response = await provider.api.getConversation(provider.owner, {
-    contact_id: contactID,
-  });
-  expect(response.status(), await response.text()).toBe(200);
-  return (await response.json()) as ConversationDetail;
-}
-
-async function orgRequests(
-  agency: Agency,
-  direction: ChatRequest["direction"],
-): Promise<ChatRequest[]> {
-  const { provider } = agency.pair;
-  const response = await provider.api.listChatRequests(provider.owner, {
-    direction,
-  });
-  expect(response.status(), await response.text()).toBe(200);
-  expect(response.headers()["cache-control"]).toBe("no-store");
-  return ((await response.json()) as ListChatRequestsResponse).items;
 }
 
 test("MKT-REQ-002: an agency sends a request by handle and by Contact; both sides list it, and the note stays with the agency", async ({
@@ -587,6 +425,44 @@ test("MKT-REQ-007: declining for an Opening refuses only that Opening, and decli
   });
 });
 
+test("MKT-REQ-007: the Hub user who declined the agency may still send the agency a request of their own", async ({
+  request,
+}) => {
+  test.setTimeout(120_000);
+  await withAgency(request, async (agency) => {
+    const { provider } = agency.pair;
+    const [opening, other] = agency.openings;
+    const person = agency.person("sgp");
+    const first = await sent(
+      await agency.send({ address: person.handle }, opening),
+    );
+    await pendingAt(person, first);
+    const declined = await person.hub.declineChatRequest(person.token, {
+      request_id: first.request_id,
+      scope: "sender",
+    });
+    expect(declined.status(), await declined.text()).toBe(200);
+    await expectProblem(
+      await agency.send({ address: person.handle }, other),
+      403,
+      PROBLEMS.blocked,
+    );
+
+    const own = await person.hub.sendChatRequest(person.token, {
+      domain: other.consumer_domain,
+      opening_number: other.opening_number,
+      agency_domain: provider.org.domain,
+    });
+    expect(own.status(), await own.text()).toBe(200);
+    expect((await own.json()) as HubChatRequest).toMatchObject({
+      contact_id: first.contact_id,
+      direction: "to_agency",
+      state: "pending",
+      opening: other,
+    });
+  });
+});
+
 test("MKT-REQ-004: each side writes only while the other side's activity plus the window lies ahead", async ({
   request,
 }) => {
@@ -783,7 +659,7 @@ test("MKT-CON-005: a Contact a request creates counts toward the agency's daily 
   });
 });
 
-test("Orgs chat request routes authenticate, require org:fulfil_engagements, validate, and name unknown people", async ({
+test("Orgs chat request routes, answers included, authenticate, require org:fulfil_engagements, validate, and name unknown people", async ({
   request,
 }) => {
   test.setTimeout(120_000);
@@ -809,6 +685,16 @@ test("Orgs chat request routes authenticate, require org:fulfil_engagements, val
         path: "/list-chat-requests",
         body: { direction: "to_hub_user" },
         write: false,
+      },
+      {
+        path: "/accept-chat-request",
+        body: { request_id: randomUUID() },
+        write: true,
+      },
+      {
+        path: "/decline-chat-request",
+        body: { request_id: randomUUID(), scope: "opening" },
+        write: true,
       },
     ];
     const keyed = (write: boolean) =>
@@ -866,6 +752,24 @@ test("Orgs chat request routes authenticate, require org:fulfil_engagements, val
       PROBLEMS.validation,
       ["direction"],
     );
+    for (const [path, body, fields] of [
+      ["/accept-chat-request", { request_id: "x" }, ["request_id"]],
+      [
+        "/decline-chat-request",
+        { request_id: "x", scope: "forever" },
+        ["request_id", "scope"],
+      ],
+    ] as const) {
+      await expectProblem(
+        await provider.api.post(path, body, {
+          token: provider.owner,
+          idempotencyKey: orgsIdempotencyKey(),
+        }),
+        400,
+        PROBLEMS.validation,
+        [...fields],
+      );
+    }
     await expectProblem(
       await provider.api.listChatRequests(provider.owner, {
         direction: "to_hub_user",

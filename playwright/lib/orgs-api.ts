@@ -56,9 +56,11 @@ import type {
 } from "typespec/orgs/marketplace/assignments";
 import type { ListCreditedApplicationsRequest } from "typespec/orgs/marketplace/attribution";
 import type {
+  AcceptChatRequestRequest,
   AddContactNoteRequest,
   AddPersonNoteRequest,
   ContactReference,
+  DeclineChatRequestRequest,
   DeleteContactNoteRequest,
   EditContactNoteRequest,
   GetConversationRequest,
@@ -735,6 +737,28 @@ export class OrgsAPI {
     request: ListChatRequestsRequest,
   ): Promise<APIResponse> {
     return this.post("/list-chat-requests", request, { token });
+  }
+
+  acceptChatRequest(
+    token: string,
+    request: AcceptChatRequestRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/accept-chat-request", request, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  declineChatRequest(
+    token: string,
+    request: DeclineChatRequestRequest,
+    idempotencyKey: string = orgsIdempotencyKey(),
+  ): Promise<APIResponse> {
+    return this.post("/decline-chat-request", request, {
+      token,
+      idempotencyKey,
+    });
   }
 
   countPendingChatRequests(token?: string): Promise<APIResponse> {
