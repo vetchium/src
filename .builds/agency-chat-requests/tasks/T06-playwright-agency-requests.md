@@ -71,3 +71,4 @@ Every bullet in step 3 is a passing test; existing conversation specs pass.
 
 ## Carried over
 - From T04: `list-conversations` now returns request-only pointers (`has_conversation` false, `latest_request` set); `get-conversation` on one is `hub-conversation-not-found`. `accept-chat-request` returns `HubConversationDetail` whose first message is the `request` message with `note`; a repeated accept is `hub-chat-request-not-found`.
+- From T05: replies are refused with `hub-conversation-closed` once the agency's activity plus the window has passed, and agency messages with `org-conversation-closed` once the Hub user's has; `start-conversation` stamps both sides now with a 90-day window. Hub `get-conversation` opens a request-only pointer (no messages, `pending_request_note`). An agency message or Hub reply while the other side's request is pending accepts it first.

@@ -273,6 +273,7 @@ test("Hub conversation commands carry the Hub user's name and handle", () => {
     hub_user_display_name: "Ada Lovelace",
     hub_user_handle: "abcd1234-0123456789a",
     text: "Interested",
+    window_seconds: 1,
   };
   assert.deepEqual(validateHubConversationReplyPayload(reply), []);
   assert.deepEqual(
@@ -282,6 +283,7 @@ test("Hub conversation commands carry the Hub user's name and handle", () => {
       hub_user_display_name: "",
       hub_user_handle: "nope",
       text: " ",
+      window_seconds: 0,
     }),
     [
       "contact_id",
@@ -289,6 +291,7 @@ test("Hub conversation commands carry the Hub user's name and handle", () => {
       "hub_user_display_name",
       "hub_user_handle",
       "text",
+      "window_seconds",
     ],
   );
   assert.deepEqual(

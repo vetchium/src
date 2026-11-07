@@ -3,6 +3,7 @@ package agencyconversations
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -15,9 +16,11 @@ import (
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	federationspec "github.com/vetchium/src/typespec/federation"
 	"github.com/vetchium/src/typespec/hub"
+	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/problem"
 
+	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
 	"backend/internal/federation/commands"
 )
@@ -129,7 +132,8 @@ func (f *fixture) scalar(t *testing.T, sql string, args ...any) string {
 }
 
 // contact seeds a Contact of the agency for hubDID, with notes notes and,
-// when conversation is set, a conversation holding one agency suggestion.
+// when conversation is set, a conversation holding one agency suggestion
+// that both sides wrote in a minute ago, with a one-day window.
 func (f *fixture) contact(
 	t *testing.T, hubDID pgtype.UUID, notes int, conversation bool,
 ) pgtype.UUID {
@@ -150,9 +154,11 @@ func (f *fixture) contact(
 		f.exec(t, `INSERT INTO vetchium.org_conversations (conversation_id,
             contact_id, org_did, hub_user_did, recorded_hub_user_name,
             recorded_hub_user_handle, recorded_agency_name,
-            recorded_agency_domain)
+            recorded_agency_domain, hub_activity_at, agency_activity_at,
+            window_seconds)
             VALUES ($1, $2, $3, $4, 'Ada Lovelace', 'abcd1234-0123456789a',
-                'Talent Scouts', 'scouts.example')`,
+                'Talent Scouts', 'scouts.example',
+                now() - interval '1 minute', now() - interval '1 minute', 86400)`,
 			conversationID, contactID, f.orgDID, hubDID)
 		f.exec(t, `INSERT INTO vetchium.org_conversation_messages (message_id,
             conversation_id, sender_type, sender_user_id, sender_display_name,
@@ -199,6 +205,7 @@ func (f *fixture) reply(
 			HubUserDisplayName: "Ada King",
 			HubUserHandle:      "abcd1234-0123456789b",
 			Text:               contacts.MessageText(text),
+			WindowSeconds:      ninetyDays,
 		})
 }
 
@@ -253,9 +260,12 @@ func TestHubReplyRecordsTheMessageAndKeepsSuggestionsIntegration(t *testing.T) {
 	if response.Status != 200 {
 		t.Fatalf("reply = %d %s", response.Status, response.Body)
 	}
-	if got := f.scalar(t, `SELECT agency_unread_count::text || ':' ||
-            recorded_hub_user_name FROM vetchium.org_conversations
-        WHERE contact_id = $1`, contactID); got != "1:Ada King" {
+	if got := f.scalar(t, `SELECT c.agency_unread_count::text || ':' ||
+            c.recorded_hub_user_name || ':' || c.window_seconds::text || ':' ||
+            (c.hub_activity_at = m.sent_at)::text
+        FROM vetchium.org_conversations AS c
+        JOIN vetchium.org_conversation_messages AS m USING (conversation_id)
+        WHERE c.contact_id = $1 AND m.kind = 'text'`, contactID); got != "1:Ada King:7776000:true" {
 		t.Fatalf("conversation = %s", got)
 	}
 	if got := f.scalar(t, `SELECT display_name || ':' || handle
@@ -572,5 +582,84 @@ func TestHubAnswerToAnotherPersonsRequestIsUnknownIntegration(t *testing.T) {
 	if got := f.scalar(t, `SELECT state FROM vetchium.org_chat_requests
         WHERE request_id = $1`, requestID); got != "pending" {
 		t.Fatalf("state = %s", got)
+	}
+}
+
+func TestHubReplyRefusedOnceTheWindowLapsedIntegration(t *testing.T) {
+	f := newFixture(t)
+	hubDID := newID(t)
+	contactID := f.contact(t, hubDID, 0, true)
+	// The agency wrote 91 days ago; the reply's 90-day window has passed.
+	f.exec(t, `UPDATE vetchium.org_conversations
+        SET agency_activity_at = now() - interval '91 days'
+        WHERE contact_id = $1`, contactID)
+	response := f.reply(t, contactID, hubDID, "Still there?")
+	if response.Status != 409 || problemType(t, response) != "hub-conversation-closed" {
+		t.Fatalf("reply = %d %s", response.Status, response.Body)
+	}
+	if got := f.scalar(t, `SELECT window_seconds::text FROM vetchium.org_conversations
+        WHERE contact_id = $1`, contactID); got != "86400" {
+		t.Fatalf("window after a refusal = %s", got)
+	}
+}
+
+func TestHubReplyAcceptsThePendingAgencyRequestFirstIntegration(t *testing.T) {
+	f := newFixture(t)
+	hubDID := newID(t)
+	contactID := f.contact(t, hubDID, 0, true)
+	f.exec(t, `UPDATE vetchium.org_conversations
+        SET agency_activity_at = now() - interval '91 days'
+        WHERE contact_id = $1`, contactID)
+	requestID := f.request(t, contactID)
+	if response := f.reply(t, contactID, hubDID, "Yes, tell me more"); response.Status != 200 {
+		t.Fatalf("reply = %d %s", response.Status, response.Body)
+	}
+	if got := f.scalar(t, `SELECT state FROM vetchium.org_chat_requests
+        WHERE request_id = $1`, requestID); got != "accepted" {
+		t.Fatalf("request = %s", got)
+	}
+	if got := f.scalar(t, `SELECT string_agg(m.kind, ',' ORDER BY m.sent_at)
+        FROM vetchium.org_conversation_messages AS m
+        JOIN vetchium.org_conversations AS c USING (conversation_id)
+        WHERE c.contact_id = $1`, contactID); got != "request,suggestion,text" {
+		t.Fatalf("messages = %s", got)
+	}
+	_, pointer := f.pointer(t, contactID)
+	if pointer.Request == nil || pointer.Request.State != contacts.ChatRequestAccepted ||
+		pointer.AgencyMayWriteUntil == nil || pointer.HubMayWriteUntil == nil {
+		t.Fatalf("pointer = %+v", pointer)
+	}
+}
+
+func TestReadForHubUserCarriesTheWindowAndThePendingNoteIntegration(t *testing.T) {
+	f := newFixture(t)
+	talking, asked := newID(t), newID(t)
+	conversation := f.contact(t, talking, 0, true)
+	requestOnly := f.contact(t, asked, 0, false)
+	f.request(t, requestOnly)
+	read := func(contactID, hubDID pgtype.UUID) (federationspec.MeshReadConversationResponse, error) {
+		t.Helper()
+		return ReadForHubUser(context.Background(), sqlc.New(f.owner),
+			federationspec.MeshReadConversationRequest{
+				ContactID:    contacts.ContactID(dbvalue.FormatUUID(contactID)),
+				HubUserDID:   hub.HubUserDID(dbvalue.FormatUUID(hubDID)),
+				AgencyOrgDID: orgs.OrgDID(dbvalue.FormatUUID(f.orgDID)),
+			})
+	}
+
+	open, err := read(conversation, talking)
+	if err != nil || open.AgencyMayWriteUntil == nil || open.HubMayWriteUntil == nil ||
+		open.PendingRequestNote != nil || len(open.Messages) != 1 {
+		t.Fatalf("conversation read = %+v, %v", open, err)
+	}
+	pending, err := read(requestOnly, asked)
+	if err != nil || pending.PendingRequestNote == nil ||
+		*pending.PendingRequestNote != "A role you would enjoy" ||
+		pending.Messages == nil || len(pending.Messages) != 0 ||
+		pending.AgencyMayWriteUntil != nil {
+		t.Fatalf("request-only read = %+v, %v", pending, err)
+	}
+	if _, err := read(requestOnly, talking); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("another person's read error = %v", err)
 	}
 }

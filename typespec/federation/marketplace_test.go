@@ -217,12 +217,12 @@ func TestHubConversationCommandsAndReads(t *testing.T) {
 	reply := HubConversationReplyPayload{
 		ContactID: contactID, HubUserDID: hubDID,
 		HubUserDisplayName: "Ada Lovelace", HubUserHandle: "abcd1234-0123456789a",
-		Text: "Interested",
+		Text: "Interested", WindowSeconds: 1,
 	}
 	if got := reply.Validate(); len(got) != 0 {
 		t.Fatalf("valid reply rejected: %v", got)
 	}
-	want := []string{"contact_id", "hub_user_did", "hub_user_display_name", "hub_user_handle", "text"}
+	want := []string{"contact_id", "hub_user_did", "hub_user_display_name", "hub_user_handle", "text", "window_seconds"}
 	if got := (HubConversationReplyPayload{Text: " "}).Validate(); !slices.Equal(got, want) {
 		t.Fatalf("reply fields = %v, want %v", got, want)
 	}

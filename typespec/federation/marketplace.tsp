@@ -233,6 +233,7 @@ model HubConversationReplyPayload {
 
   hub_user_handle: Vetchium.Hub.HubHandle;
   text: Vetchium.Orgs.Marketplace.Contacts.MessageText;
+  window_seconds: ConversationWindowSeconds;
 }
 
 /**

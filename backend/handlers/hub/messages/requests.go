@@ -386,9 +386,10 @@ func AcceptChatRequest(s *hubruntime.Server) http.HandlerFunc {
 		}
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, hubmessages.HubConversationDetail{
-			Conversation:      conversation,
-			Messages:          read.Messages,
-			NextPaginationKey: read.NextPaginationKey,
+			Conversation:       conversation,
+			Messages:           read.Messages,
+			PendingRequestNote: read.PendingRequestNote,
+			NextPaginationKey:  read.NextPaginationKey,
 		})
 	}
 }

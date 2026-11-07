@@ -1,7 +1,7 @@
 # Agency chat requests build progress
 
 branch: agency-chat-requests
-current: T05
+current: T06
 phase: implement
 
 ## Tasks
@@ -12,7 +12,7 @@ T01 done Contract: Chat request types, operations, and problems
 T02 done Database: Chat request tables, window columns, and conversationWindow config
 T03 done Orgs: Send, list, and count agency chat requests
 T04 done Hub: Answer agency chat requests
-T05 todo Marketplace: Conversation window on messages and reads
+T05 done Marketplace: Conversation window on messages and reads
 T06 todo Playwright: Agency chat requests and the conversation window
 
 ### M2 Hub requests to agencies

@@ -205,3 +205,75 @@ func TestSyncPointerCarriesTheRequestWithoutItsNoteIntegration(t *testing.T) {
 		t.Fatalf("payload = %s", body)
 	}
 }
+
+func TestAnswerRequestToTheAgencyMakesTheAgencyActiveIntegration(t *testing.T) {
+	f := newFixture(t)
+	agency := f.agency(t)
+	contactID := f.contact(t, agency, newID(t), false)
+	requestID := newID(t)
+	f.exec(t, `INSERT INTO vetchium.org_chat_requests (request_id, contact_id,
+            org_did, hub_user_did, direction, state, consumer_domain,
+            opening_number, note, sender_display_name, window_seconds, sent_at)
+        SELECT $2, contact_id, org_did, hub_user_did, 'to_agency', 'pending',
+            'client.example', 3, 'I would like this role', 'Ada Lovelace',
+            86400, now() - interval '1 hour'
+        FROM vetchium.org_contacts WHERE contact_id = $1`, contactID, requestID)
+
+	ctx := context.Background()
+	tx, err := f.app.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	q := sqlc.New(tx)
+	found, err := q.GetPendingOrgChatRequest(ctx, contactID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	answered, err := AnswerRequest(ctx, q, found.VetchiumOrgChatRequest,
+		Answer{Accept: true, HubUserName: "Ada Lovelace", HubUserHandle: "abcd1234-0123456789a"},
+		Answerer{
+			TenantID: "usa1", ActorType: "org_user",
+			ActorID: dbvalue.FormatUUID(f.userID), Source: "test",
+			OrgUserID: f.userID,
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if answered.State != string(contacts.ChatRequestAccepted) || answered.Note.Valid ||
+		answered.AnsweredBy != f.userID {
+		t.Fatalf("answered = %+v", answered)
+	}
+	if got := f.scalar(t, `SELECT (c.agency_activity_at = r.answered_at)::text || ':' ||
+            (c.hub_activity_at = r.sent_at)::text || ':' || c.window_seconds::text || ':' ||
+            m.sender_type || ':' || m.message_text || ':' ||
+            (SELECT count(*) FROM vetchium.org_conversation_messages AS s
+                WHERE s.conversation_id = c.conversation_id
+                  AND s.kind = 'suggestion')::text
+        FROM vetchium.org_chat_requests AS r
+        JOIN vetchium.org_conversations AS c USING (contact_id)
+        JOIN vetchium.org_conversation_messages AS m USING (conversation_id)
+        WHERE r.request_id = $1`, requestID); got !=
+		"true:true:86400:hub_user:I would like this role:0" {
+		t.Fatalf("conversation = %s", got)
+	}
+	suggestions, err := sqlc.New(f.owner).ListOrgConversationSuggestions(ctx,
+		answeredConversation(t, f, contactID))
+	if err != nil || len(suggestions) != 0 {
+		t.Fatalf("a Hub user's request suggested %v, %v", suggestions, err)
+	}
+}
+
+func answeredConversation(t *testing.T, f *fixture, contactID pgtype.UUID) pgtype.UUID {
+	t.Helper()
+	var id pgtype.UUID
+	if err := f.owner.QueryRow(context.Background(), `SELECT conversation_id
+        FROM vetchium.org_conversations WHERE contact_id = $1`, contactID).
+		Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}

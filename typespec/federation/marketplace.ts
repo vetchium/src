@@ -617,6 +617,7 @@ export interface HubConversationReplyPayload {
   hub_user_display_name: DisplayName;
   hub_user_handle: HubHandle;
   text: MessageText;
+  window_seconds: number;
 }
 
 export function validateHubConversationReplyPayload(
@@ -629,6 +630,7 @@ export function validateHubConversationReplyPayload(
     fields.push("hub_user_display_name");
   if (!isHubHandle(payload.hub_user_handle)) fields.push("hub_user_handle");
   if (!isMessageText(payload.text)) fields.push("text");
+  if (!isWindowSeconds(payload.window_seconds)) fields.push("window_seconds");
   return fields;
 }
 

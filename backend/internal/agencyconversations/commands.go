@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -85,17 +86,8 @@ func decode[T interface{ Validate() []string }](
 func conversation(
 	ctx context.Context, q *sqlc.Queries, orgDID, contactID, hubDID pgtype.UUID,
 ) (sqlc.GetOrgConversationRow, bool, error) {
-	contact, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
-		OrgDid: orgDID, ContactID: contactID,
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return sqlc.GetOrgConversationRow{}, false, nil
-	}
-	if err != nil {
-		return sqlc.GetOrgConversationRow{}, false, fmt.Errorf("lock Contact: %w", err)
-	}
-	if contact.HubUserDid != hubDID {
-		return sqlc.GetOrgConversationRow{}, false, nil
+	if ok, err := lockContact(ctx, q, orgDID, contactID, hubDID); !ok || err != nil {
+		return sqlc.GetOrgConversationRow{}, false, err
 	}
 	row, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
 		OrgDid: orgDID, ContactID: contactID,
@@ -107,6 +99,23 @@ func conversation(
 		return sqlc.GetOrgConversationRow{}, false, fmt.Errorf("read conversation: %w", err)
 	}
 	return row, true, nil
+}
+
+// lockContact locks the agency's Contact of the commanding Hub user; another
+// person's Contact answers as unknown (MKT-DAT-001).
+func lockContact(
+	ctx context.Context, q *sqlc.Queries, orgDID, contactID, hubDID pgtype.UUID,
+) (bool, error) {
+	contact, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
+		OrgDid: orgDID, ContactID: contactID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("lock Contact: %w", err)
+	}
+	return contact.HubUserDid == hubDID, nil
 }
 
 func handleReply(ctx context.Context, tx pgx.Tx, command commands.Command) (commands.Result, error) {
@@ -125,24 +134,54 @@ func handleReply(ctx context.Context, tx pgx.Tx, command commands.Command) (comm
 		return commands.Result{}, err
 	}
 	q := sqlc.New(tx)
-	found, ok, err := conversation(ctx, q, command.Authority.DID, contactID, hubDID)
-	if err != nil {
+	name, handle := string(payload.HubUserDisplayName), string(payload.HubUserHandle)
+	window := pgtype.Int8{Int64: payload.WindowSeconds, Valid: true}
+	if ok, err := lockContact(ctx, q, command.Authority.DID, contactID, hubDID); err != nil {
 		return commands.Result{}, err
-	}
-	if !ok {
+	} else if !ok {
 		return commands.Rejected(hubproblem.HubConversationNotFoundError), nil
+	}
+	// Replying to the agency's pending request accepts it first (MKT-REQ-005).
+	pending, err := q.GetPendingOrgChatRequest(ctx, contactID)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+	case err != nil:
+		return commands.Result{}, fmt.Errorf("read pending chat request: %w", err)
+	case pending.VetchiumOrgChatRequest.Direction == string(contacts.ToHubUser):
+		_, err := agencycontacts.AnswerRequest(ctx, q, pending.VetchiumOrgChatRequest,
+			agencycontacts.Answer{
+				Accept: true, Window: window, HubUserName: name, HubUserHandle: handle,
+			}, hubAnswerer(command, hubDID))
+		if errors.Is(err, agencycontacts.ErrConversationReadOnly) {
+			return commands.Rejected(hubproblem.HubConversationPartyDeletedError), nil
+		}
+		if err != nil {
+			return commands.Result{}, err
+		}
+	}
+	found, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
+		OrgDid: command.Authority.DID, ContactID: contactID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return commands.Rejected(hubproblem.HubConversationNotFoundError), nil
+	}
+	if err != nil {
+		return commands.Result{}, fmt.Errorf("read conversation: %w", err)
 	}
 	switch {
 	case found.ReadOnlyReason.Valid:
 		return commands.Rejected(hubproblem.HubConversationPartyDeletedError), nil
 	case found.MessagesOff:
 		return commands.Rejected(hubproblem.HubAgencyMessagesOffError), nil
+	// The command's window applies from now on (MKT-REQ-004).
+	case !agencycontacts.Window(found.HubActivityAt, found.AgencyActivityAt, window).
+		HubMayWrite(time.Now()):
+		return commands.Rejected(hubproblem.HubConversationClosedError), nil
 	}
 	messageID, err := dbvalue.NewUUID()
 	if err != nil {
 		return commands.Result{}, err
 	}
-	name, handle := string(payload.HubUserDisplayName), string(payload.HubUserHandle)
 	row, err := q.AddOrgConversationMessage(ctx, sqlc.AddOrgConversationMessageParams{
 		MessageID: messageID, ConversationID: found.ConversationID,
 		SenderType:        string(contacts.MessageSenderTypeHubUser),
@@ -159,6 +198,12 @@ func handleReply(ctx context.Context, tx pgx.Tx, command commands.Command) (comm
 	}
 	if row.ConversationRows != 1 || row.ContactRows != 1 || row.AuditRows != 1 {
 		return commands.Result{}, fmt.Errorf("incomplete reply")
+	}
+	if rows, err := q.SetConversationActivity(ctx, sqlc.SetConversationActivityParams{
+		ConversationID: found.ConversationID, HubActivityAt: row.SentAt,
+		WindowSeconds: window,
+	}); err != nil || rows != 1 {
+		return commands.Result{}, fmt.Errorf("record activity: %d rows, %w", rows, err)
 	}
 	if _, err := q.RefreshOrgContactNamesFromHubUser(ctx,
 		sqlc.RefreshOrgContactNamesFromHubUserParams{

@@ -135,7 +135,8 @@ func GetConversation(s *hubruntime.Server) http.HandlerFunc {
 			ContactID:  contactID,
 			HubUserDid: identity.UserDID,
 		})
-		if errors.Is(err, pgx.ErrNoRows) || !pointer.HasConversation {
+		// A pair with only a request opens too: its note is read live.
+		if errors.Is(err, pgx.ErrNoRows) || !pointer.HasConversation && !pointer.HasRequest {
 			s.Problem(r.Context(), w, hubproblem.HubConversationNotFoundError)
 			return
 		}
@@ -175,12 +176,18 @@ func GetConversation(s *hubruntime.Server) http.HandlerFunc {
 		if conversation.ReadOnlyReason == nil && outcome.Result.ReadOnlyReason != nil {
 			conversation.ReadOnlyReason = outcome.Result.ReadOnlyReason
 		}
+		if pointer.HasConversation {
+			// The live read is newer than the pointer.
+			conversation.AgencyMayWriteUntil = outcome.Result.AgencyMayWriteUntil
+			conversation.HubMayWriteUntil = outcome.Result.HubMayWriteUntil
+		}
 
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, hubmessages.HubConversationDetail{
-			Conversation:      conversation,
-			Messages:          outcome.Result.Messages,
-			NextPaginationKey: outcome.Result.NextPaginationKey,
+			Conversation:       conversation,
+			Messages:           outcome.Result.Messages,
+			PendingRequestNote: outcome.Result.PendingRequestNote,
+			NextPaginationKey:  outcome.Result.NextPaginationKey,
 		})
 	}
 }
@@ -243,6 +250,7 @@ func ReplyToConversation(s *hubruntime.Server) http.HandlerFunc {
 			HubUserDisplayName: common.DisplayName(me.DisplayName),
 			HubUserHandle:      hub.HubHandle(me.Handle),
 			Text:               request.Text,
+			WindowSeconds:      int64(s.ConversationWindow / time.Second),
 		}
 
 		outcome, err := s.Commands.Send(r.Context(), commands.Request{

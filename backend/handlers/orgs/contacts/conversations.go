@@ -2,6 +2,7 @@ package contacts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -245,12 +246,36 @@ func SendMessage(s *orgsruntime.Server) http.HandlerFunc {
 			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
 				ctx := r.Context()
 				fail := handlerauth.Failure[contacts.ConversationMessage]
-				if _, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
+				contact, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
 					OrgDid: identity.OrgDID, ContactID: contactID,
-				}); isNoRows(err) {
+				})
+				if isNoRows(err) {
 					return fail(orgsproblem.ContactNotFoundError)
-				} else if err != nil {
+				}
+				if err != nil {
 					return result{}, nil, fmt.Errorf("lock Contact: %w", err)
+				}
+				// Writing to the person whose request is pending accepts it
+				// first (MKT-REQ-005).
+				notice := agencycontacts.NoticeMessage
+				pending, err := q.GetPendingOrgChatRequest(ctx, contactID)
+				switch {
+				case isNoRows(err):
+				case err != nil:
+					return result{}, nil, fmt.Errorf("read pending chat request: %w", err)
+				case pending.VetchiumOrgChatRequest.Direction == string(contacts.ToAgency):
+					_, err := agencycontacts.AnswerRequest(ctx, q, pending.VetchiumOrgChatRequest,
+						agencycontacts.Answer{
+							Accept: true, HubUserName: contact.DisplayName,
+							HubUserHandle: contact.Handle,
+						}, orgAnswerer(s, identity, key))
+					if errors.Is(err, agencycontacts.ErrConversationReadOnly) {
+						return fail(orgsproblem.ConversationPartyDeletedError)
+					}
+					if err != nil {
+						return result{}, nil, err
+					}
+					notice = agencycontacts.NoticeRequestAccepted
 				}
 				conversation, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
 					OrgDid: identity.OrgDID, ContactID: contactID,
@@ -263,6 +288,11 @@ func SendMessage(s *orgsruntime.Server) http.HandlerFunc {
 				}
 				if details := refusal(conversation.ReadOnlyReason, conversation.MessagesOff); details != nil {
 					return fail(details)
+				}
+				if !agencycontacts.Window(conversation.HubActivityAt,
+					conversation.AgencyActivityAt, conversation.WindowSeconds).
+					AgencyMayWrite(now) {
+					return fail(orgsproblem.ConversationClosedError)
 				}
 				agency, err := q.GetAgencyDetails(ctx, identity.OrgDID)
 				if err != nil {
@@ -277,7 +307,13 @@ func SendMessage(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contactID, agencycontacts.NoticeMessage); err != nil {
+				if rows, err := q.SetConversationActivity(ctx, sqlc.SetConversationActivityParams{
+					ConversationID:   conversation.ConversationID,
+					AgencyActivityAt: dbvalue.Timestamp(posted.SentAt),
+				}); err != nil || rows != 1 {
+					return result{}, nil, fmt.Errorf("record activity: %d rows, %w", rows, err)
+				}
+				if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contactID, notice); err != nil {
 					return result{}, nil, err
 				}
 				return result{Status: http.StatusOK, Body: posted}, nil, nil
@@ -316,12 +352,34 @@ func post(
 	if err != nil {
 		return err
 	}
-	if _, err := addMessage(ctx, q, s, identity, key,
+	posted, err := addMessage(ctx, q, s, identity, key,
 		message.params(messageID, conversation.ConversationID, ""), agency,
-		name, handle); err != nil {
+		name, handle)
+	if err != nil {
 		return err
 	}
+	// StartConversation, the only caller, keeps its conversations writable
+	// for both sides with a 90-day window until T17 removes it.
+	at := dbvalue.Timestamp(posted.SentAt)
+	if rows, err := q.SetConversationActivity(ctx, sqlc.SetConversationActivityParams{
+		ConversationID: conversation.ConversationID,
+		HubActivityAt:  at, AgencyActivityAt: at,
+		WindowSeconds: pgtype.Int8{Int64: 90 * 24 * 60 * 60, Valid: true},
+	}); err != nil || rows != 1 {
+		return fmt.Errorf("record activity: %d rows, %w", rows, err)
+	}
 	return agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contactID, agencycontacts.NoticeMessage)
+}
+
+// orgAnswerer audits an agency user's answer as theirs.
+func orgAnswerer(
+	s *orgsruntime.Server, identity middleware.OrgIdentity, key common.IdempotencyKey,
+) agencycontacts.Answerer {
+	return agencycontacts.Answerer{
+		TenantID: s.TenantID, ActorType: "org_user",
+		ActorID: dbvalue.FormatUUID(identity.UserID), Source: "orgs-api",
+		IdempotencyKey: dbvalue.Text(string(key)), OrgUserID: identity.UserID,
+	}
 }
 
 // addMessage stores an agency message under the sending user's email

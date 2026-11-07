@@ -15,6 +15,7 @@ import (
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/orgs/openings"
 
+	"backend/internal/agencycontacts"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
 )
@@ -31,8 +32,11 @@ type cursor struct {
 
 // ReadForHubUser reads one page of the conversation as the Hub user sees it,
 // newest first: agency messages name the agency, never the agency user, and
-// the agency's unread state stays behind (MKT-CNV-005). pgx.ErrNoRows reports
-// a conversation that is not the Hub user's.
+// the agency's unread state stays behind (MKT-CNV-005). It carries the open
+// write-until instants and a pending request's note, which only this live
+// read reveals (MKT-DAT-005); a pair with only a pending request reads as
+// no messages. pgx.ErrNoRows reports a pair that is not the Hub user's or
+// has neither.
 func ReadForHubUser(
 	ctx context.Context, q sqlc.Querier,
 	request federationspec.MeshReadConversationRequest,
@@ -50,15 +54,32 @@ func ReadForHubUser(
 	if err != nil {
 		return response, pgx.ErrNoRows
 	}
+	found, err := q.GetPendingOrgChatRequest(ctx, contactID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return response, err
+	}
+	pending := found.VetchiumOrgChatRequest
+	hasPending := err == nil && pending.OrgDid == orgDID && pending.HubUserDid == hubDID
+	if hasPending && pending.Note.Valid {
+		note := contacts.ChatRequestNote(pending.Note.String)
+		response.PendingRequestNote = &note
+	}
 	conversation, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
 		OrgDid: orgDID, ContactID: contactID,
 	})
+	if errors.Is(err, pgx.ErrNoRows) && hasPending {
+		response.Messages = []contacts.ConversationMessage{}
+		return response, nil
+	}
 	if err != nil {
 		return response, err
 	}
 	if conversation.HubUserDid != hubDID {
 		return response, pgx.ErrNoRows
 	}
+	window := agencycontacts.Window(conversation.HubActivityAt,
+		conversation.AgencyActivityAt, conversation.WindowSeconds).Open(time.Now())
+	response.AgencyMayWriteUntil, response.HubMayWriteUntil = window.AgencyUntil, window.HubUntil
 	limit := request.EffectiveLimit()
 	params := sqlc.ListOrgConversationMessagesParams{
 		ConversationID: conversation.ConversationID, PageLimit: limit + 1,

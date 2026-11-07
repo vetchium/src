@@ -650,6 +650,8 @@ type HubConversationReplyPayload struct {
 	HubUserDisplayName common.DisplayName   `json:"hub_user_display_name"`
 	HubUserHandle      hub.HubHandle        `json:"hub_user_handle"`
 	Text               contacts.MessageText `json:"text"`
+	// WindowSeconds is the Hub tenant's conversation window (MKT-REQ-004).
+	WindowSeconds int64 `json:"window_seconds"`
 }
 
 func (p HubConversationReplyPayload) Validate() []string {
@@ -668,6 +670,9 @@ func (p HubConversationReplyPayload) Validate() []string {
 	}
 	if !contacts.IsMessageText(p.Text) {
 		fields = append(fields, "text")
+	}
+	if p.WindowSeconds < 1 {
+		fields = append(fields, "window_seconds")
 	}
 	return fields
 }
