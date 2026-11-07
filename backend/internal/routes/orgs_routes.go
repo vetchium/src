@@ -177,6 +177,8 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/send-chat-request", fulfilEngagements(orgscontacts.SendChatRequest(s)))
 	mux.Handle("POST /api/orgs/list-chat-requests", fulfilEngagements(orgscontacts.ListChatRequests(s)))
 	mux.Handle("GET /api/orgs/count-pending-chat-requests", fulfilEngagements(orgscontacts.CountPendingChatRequests(s)))
+	mux.Handle("POST /api/orgs/accept-chat-request", fulfilEngagements(orgscontacts.AcceptChatRequest(s)))
+	mux.Handle("POST /api/orgs/decline-chat-request", fulfilEngagements(orgscontacts.DeclineChatRequest(s)))
 	mux.Handle("POST /api/orgs/get-opening-providers", manageProviders(orgsengagements.GetOpeningProviders(s)))
 	mux.Handle("POST /api/orgs/assign-opening-provider", manageProviders(orgsengagements.AssignOpeningProvider(s)))
 	mux.Handle("POST /api/orgs/unassign-opening-provider", manageProviders(orgsengagements.UnassignOpeningProvider(s)))

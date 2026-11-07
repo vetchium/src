@@ -2,6 +2,7 @@ package contacts
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -257,6 +258,103 @@ func SendChatRequest(s *orgsruntime.Server) http.HandlerFunc {
 				}
 				if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID,
 					contactID, agencycontacts.NoticeRequest); err != nil {
+					return result{}, nil, err
+				}
+				row, err := q.GetOrgChatRequest(ctx, sqlc.GetOrgChatRequestParams{
+					OrgDid: identity.OrgDID, RequestID: requestID,
+				})
+				if err != nil {
+					return result{}, nil, fmt.Errorf("read chat request: %w", err)
+				}
+				return result{Status: http.StatusOK, Body: chatRequest(
+					row.VetchiumOrgChatRequest, row.HubUserName, row.HubUserHandle,
+				)}, nil, nil
+			})
+	}
+}
+
+// AcceptChatRequest accepts a Hub user's request to the agency and returns
+// the conversation it opens or reopens (MKT-REQ-005, MKT-CNV-004).
+func AcceptChatRequest(s *orgsruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request contacts.AcceptChatRequestRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
+		if !ok {
+			return
+		}
+		identity, _ := middleware.OrgIdentityFromContext(r.Context())
+		requestID, err := dbvalue.ParseUUID(string(request.RequestID))
+		if err != nil {
+			s.InternalError(r.Context(), w, "parse chat request id", err)
+			return
+		}
+		now := s.CurrentTime()
+		type result = handlerauth.Result[contacts.ConversationDetail]
+		handlerauth.RunIdempotent(s, w, r, "orgs:accept-chat-request",
+			dbvalue.FormatUUID(identity.UserID), key, request, now.Add(replayWindow),
+			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
+				ctx := r.Context()
+				fail := handlerauth.Failure[contacts.ConversationDetail]
+				answered, err := agencycontacts.AnswerAgencyRequest(ctx, q,
+					identity.OrgDID, requestID, agencycontacts.Answer{Accept: true},
+					orgAnswerer(s, identity, key))
+				switch {
+				case errors.Is(err, agencycontacts.ErrRequestNotFound):
+					return fail(orgsproblem.ChatRequestNotFoundError)
+				case errors.Is(err, agencycontacts.ErrConversationReadOnly):
+					return fail(orgsproblem.ConversationPartyDeletedError)
+				case err != nil:
+					return result{}, nil, err
+				}
+				detail, err := readConversation(ctx, q, identity.OrgDID,
+					answered.ContactID, nil, contacts.DefaultPage, now,
+					func(at time.Time, id string) (common.PaginationKey, error) {
+						return signMessages(s, identity.OrgDID, answered.ContactID, at, id)
+					})
+				if err != nil {
+					return result{}, nil, fmt.Errorf("read conversation: %w", err)
+				}
+				return result{Status: http.StatusOK, Body: detail}, nil, nil
+			})
+	}
+}
+
+// DeclineChatRequest declines a Hub user's request to the agency for its
+// Opening or, with scope sender, for one window (MKT-REQ-007).
+func DeclineChatRequest(s *orgsruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request contacts.DeclineChatRequestRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
+		if !ok {
+			return
+		}
+		identity, _ := middleware.OrgIdentityFromContext(r.Context())
+		requestID, err := dbvalue.ParseUUID(string(request.RequestID))
+		if err != nil {
+			s.InternalError(r.Context(), w, "parse chat request id", err)
+			return
+		}
+		now := s.CurrentTime()
+		type result = handlerauth.Result[contacts.ChatRequest]
+		handlerauth.RunIdempotent(s, w, r, "orgs:decline-chat-request",
+			dbvalue.FormatUUID(identity.UserID), key, request, now.Add(replayWindow),
+			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
+				ctx := r.Context()
+				_, err := agencycontacts.AnswerAgencyRequest(ctx, q,
+					identity.OrgDID, requestID,
+					agencycontacts.Answer{Scope: request.Scope},
+					orgAnswerer(s, identity, key))
+				if errors.Is(err, agencycontacts.ErrRequestNotFound) {
+					return handlerauth.Failure[contacts.ChatRequest](
+						orgsproblem.ChatRequestNotFoundError)
+				}
+				if err != nil {
 					return result{}, nil, err
 				}
 				row, err := q.GetOrgChatRequest(ctx, sqlc.GetOrgChatRequestParams{

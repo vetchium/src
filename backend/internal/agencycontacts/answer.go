@@ -18,6 +18,64 @@ import (
 // conversation whose other party is gone; nothing was written.
 var ErrConversationReadOnly = errors.New("conversation is read-only")
 
+// ErrRequestNotFound reports that the agency has no pending request from a
+// Hub user with that id: unknown, another Org's, the agency's own, or
+// already answered.
+var ErrRequestNotFound = errors.New("no pending chat request to the agency")
+
+// AnswerAgencyRequest applies an agency user's answer to a Hub user's
+// pending request (MKT-REQ-002, MKT-CNV-004) and syncs the pointer, telling
+// the Hub user when the agency accepts (MKT-REQ-010). The request keeps the
+// window its Hub command carried, and the Contact's recorded names stand in
+// for the Hub user's. It returns the answered request.
+func AnswerAgencyRequest(
+	ctx context.Context, q *sqlc.Queries, orgDID, requestID pgtype.UUID,
+	answer Answer, by Answerer,
+) (sqlc.VetchiumOrgChatRequest, error) {
+	found, err := q.GetOrgChatRequest(ctx, sqlc.GetOrgChatRequestParams{
+		OrgDid: orgDID, RequestID: requestID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return sqlc.VetchiumOrgChatRequest{}, ErrRequestNotFound
+	}
+	if err != nil {
+		return sqlc.VetchiumOrgChatRequest{}, fmt.Errorf("find chat request: %w", err)
+	}
+	contact, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
+		OrgDid: orgDID, ContactID: found.VetchiumOrgChatRequest.ContactID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return sqlc.VetchiumOrgChatRequest{}, ErrRequestNotFound
+	}
+	if err != nil {
+		return sqlc.VetchiumOrgChatRequest{}, fmt.Errorf("lock Contact: %w", err)
+	}
+	// Read again under the lock: another agency user may have answered
+	// while this one waited.
+	locked, err := q.GetOrgChatRequest(ctx, sqlc.GetOrgChatRequestParams{
+		OrgDid: orgDID, RequestID: requestID,
+	})
+	if err != nil {
+		return sqlc.VetchiumOrgChatRequest{}, fmt.Errorf("read chat request: %w", err)
+	}
+	request := locked.VetchiumOrgChatRequest
+	if request.Direction != string(contacts.ToAgency) ||
+		request.State != string(contacts.ChatRequestPending) {
+		return request, ErrRequestNotFound
+	}
+	answer.Window = pgtype.Int8{}
+	answer.HubUserName, answer.HubUserHandle = contact.DisplayName, contact.Handle
+	answered, err := AnswerRequest(ctx, q, request, answer, by)
+	if err != nil {
+		return answered, err
+	}
+	notice := NoNotice
+	if answer.Accept {
+		notice = NoticeRequestAccepted
+	}
+	return answered, SyncPointer(ctx, q, orgDID, request.ContactID, notice)
+}
+
 // Answer is the recipient's answer to a pending request.
 type Answer struct {
 	Accept bool
