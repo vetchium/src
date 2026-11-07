@@ -280,3 +280,31 @@ SELECT deleted.block_id, deleted.contact_id, c.org_did, c.hub_user_did,
     (SELECT count(*) FROM audit) AS audit_rows
 FROM deleted
 JOIN vetchium.org_contacts AS c ON c.contact_id = deleted.contact_id;
+
+-- Forgets the agency daily request counts of days no limit reads any more
+-- (MKT-REQ-006).
+-- name: PruneOrgChatRequestCreations :many
+WITH pruned AS (
+    DELETE FROM vetchium.org_chat_request_creations AS c
+    WHERE (c.org_did, c.created_on) IN (
+        SELECT s.org_did, s.created_on
+        FROM vetchium.org_chat_request_creations AS s
+        WHERE s.created_on < (now() AT TIME ZONE 'UTC')::date - 1
+        ORDER BY s.created_on, s.org_did
+        LIMIT sqlc.arg(batch_size)
+    )
+    RETURNING c.org_did, c.created_on
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_org_did, source, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'org.chat_request_creations.pruned',
+        'org_chat_request_creations', pruned.org_did::text, 'worker',
+        'expire-chat-requests', pruned.org_did, 'workers',
+        jsonb_build_object('action', 'pruned', 'day', pruned.created_on)
+    FROM pruned
+    RETURNING audit_event_id
+)
+SELECT pruned.org_did, (SELECT count(*) FROM audit) AS audit_rows
+FROM pruned;

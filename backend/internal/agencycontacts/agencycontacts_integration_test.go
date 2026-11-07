@@ -111,13 +111,21 @@ func (f *fixture) agency(t *testing.T) pgtype.UUID {
 		ctx := context.Background()
 		for _, sql := range []string{
 			`DELETE FROM vetchium.org_conversations WHERE org_did = $1`,
+			// Notes and Contacts reference the Org's users, also from another
+			// agency's Contacts that f.contact seeded with f.userID; requests
+			// and blocks go with their Contacts.
+			`DELETE FROM vetchium.org_contacts WHERE org_did = $1
+             OR created_by IN (SELECT org_user_id FROM vetchium.org_users
+                 WHERE org_did = $1)`,
 			`DELETE FROM vetchium.federation_outbox
              WHERE convert_from(payload_bytes, 'UTF8')::jsonb
                  ->> 'agency_org_did' = $1::text`,
 			`DELETE FROM vetchium.audit_events WHERE subject_org_did = $1`,
 			`DELETE FROM vetchium.orgs WHERE org_did = $1`,
 		} {
-			_, _ = f.owner.Exec(ctx, sql, orgDID)
+			if _, err := f.owner.Exec(ctx, sql, orgDID); err != nil {
+				t.Errorf("clean up: %v", err)
+			}
 		}
 	})
 	f.userID = userID

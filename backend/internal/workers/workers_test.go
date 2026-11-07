@@ -27,11 +27,12 @@ func TestNewUsesConfiguredJobInterval(t *testing.T) {
 		ExpireApplicationOffersTimer: interval,
 		RetainApplicationsTimer:      interval,
 		RetainOrgContactsTimer:       interval,
+		ExpireChatRequestsTimer:      interval,
 		RefreshHubApplicationsTimer:  interval,
 	}, appconfig.Marketplace{}, nil, nil, nil)
 
-	if len(worker.jobs) != 10 {
-		t.Fatalf("jobs = %d, want 10", len(worker.jobs))
+	if len(worker.jobs) != 11 {
+		t.Fatalf("jobs = %d, want 11", len(worker.jobs))
 	}
 	for _, job := range worker.jobs {
 		if got := job.interval; got != interval {

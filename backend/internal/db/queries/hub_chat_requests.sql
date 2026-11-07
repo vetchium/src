@@ -39,3 +39,31 @@ WITH counted AS (
 )
 SELECT (SELECT count(*) FROM counted) AS counted_rows,
     (SELECT count(*) FROM audit) AS audit_rows;
+
+-- Forgets the Hub users' daily request counts of days no limit reads any
+-- more (MKT-REQ-006).
+-- name: PruneHubChatRequestCreations :many
+WITH pruned AS (
+    DELETE FROM vetchium.hub_chat_request_creations AS c
+    WHERE (c.hub_user_did, c.created_on) IN (
+        SELECT s.hub_user_did, s.created_on
+        FROM vetchium.hub_chat_request_creations AS s
+        WHERE s.created_on < (now() AT TIME ZONE 'UTC')::date - 1
+        ORDER BY s.created_on, s.hub_user_did
+        LIMIT sqlc.arg(batch_size)
+    )
+    RETURNING c.hub_user_did, c.created_on
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        subject_hub_user_did, source, payload
+    )
+    SELECT sqlc.arg(tenant_id), 'hub.chat_request_creations.pruned',
+        'hub_chat_request_creations', pruned.hub_user_did::text, 'worker',
+        'expire-chat-requests', pruned.hub_user_did, 'workers',
+        jsonb_build_object('action', 'pruned', 'day', pruned.created_on)
+    FROM pruned
+    RETURNING audit_event_id
+)
+SELECT pruned.hub_user_did, (SELECT count(*) FROM audit) AS audit_rows
+FROM pruned;

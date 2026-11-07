@@ -213,7 +213,7 @@ func TestRecordHubSentChatRequestIntegration(t *testing.T) {
 	rows, err := tx.Query(ctx, `SELECT action || ' ' || (payload ->> 'request_id')
         FROM vetchium.audit_events
         WHERE subject_hub_user_did = $1
-        ORDER BY audit_event_id`, did)
+        ORDER BY payload ->> 'request_id'`, did)
 	if err != nil {
 		t.Fatal(err)
 	}

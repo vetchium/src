@@ -87,13 +87,18 @@ func newFixture(t *testing.T) *fixture {
 	t.Cleanup(func() {
 		for _, sql := range []string{
 			`DELETE FROM vetchium.org_conversations WHERE org_did = $1`,
+			// Notes reference the Org's users; requests and blocks go with
+			// their Contacts.
+			`DELETE FROM vetchium.org_contacts WHERE org_did = $1`,
 			`DELETE FROM vetchium.federation_outbox
              WHERE convert_from(payload_bytes, 'UTF8')::jsonb
                  ->> 'agency_org_did' = $1::text`,
 			`DELETE FROM vetchium.audit_events WHERE subject_org_did = $1`,
 			`DELETE FROM vetchium.orgs WHERE org_did = $1`,
 		} {
-			_, _ = owner.Exec(ctx, sql, f.orgDID)
+			if _, err := owner.Exec(ctx, sql, f.orgDID); err != nil {
+				t.Errorf("clean up: %v", err)
+			}
 		}
 	})
 	registry := commands.NewRegistry()

@@ -3758,6 +3758,8 @@ CREATE TABLE vetchium.org_chat_request_creations (
     created integer NOT NULL CHECK (created >= 1),
     PRIMARY KEY (org_did, created_on)
 );
+CREATE INDEX org_chat_request_creations_prune_idx
+    ON vetchium.org_chat_request_creations (created_on, org_did);
 
 -- The Hub user's tenant keeps one pointer per agency Contact (MKT-DAT-003).
 -- It holds conversation metadata when one exists, but never message or note text.
@@ -3821,6 +3823,8 @@ CREATE TABLE vetchium.hub_chat_request_creations (
     created integer NOT NULL CHECK (created >= 1),
     PRIMARY KEY (hub_user_did, created_on)
 );
+CREATE INDEX hub_chat_request_creations_prune_idx
+    ON vetchium.hub_chat_request_creations (created_on, hub_user_did);
 
 -- Billable facts derived from recording actions (MKT-STM-001).
 -- Authoritative on consumer tenant; outlives applicant retention with numbers only

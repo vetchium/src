@@ -22,6 +22,7 @@
     "expireApplicationOffersTimer": "1m",
     "retainApplicationsTimer": "1m",
     "retainOrgContactsTimer": "1m",
+    "expireChatRequestsTimer": "1m",
     "refreshHubApplicationsTimer": "1m",
     "reconcileHubSignupTimer": "10s",
     "reconcileHubEmailChangeTimer": "10s",

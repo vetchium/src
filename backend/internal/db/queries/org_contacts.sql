@@ -352,8 +352,9 @@ SELECT (SELECT count(*) FROM deleted) AS deleted_rows,
      - (SELECT count(*) FROM deleted))::integer AS remaining;
 
 -- Deletes a Contact with neither notes nor a conversation, in the
--- transaction that removed the last of them (MKT-CON-004). No row is
--- returned while either remains.
+-- transaction that removed the last of them (MKT-CON-004). A pending chat
+-- request or a block keeps it (MKT-REQ-012). No row is returned while any
+-- of them remains.
 -- name: DeleteUnusedOrgContact :one
 WITH deleted AS (
     DELETE FROM vetchium.org_contacts AS c
@@ -366,6 +367,14 @@ WITH deleted AS (
       AND NOT EXISTS (
           SELECT 1 FROM vetchium.org_conversations AS conv
           WHERE conv.contact_id = c.contact_id
+      )
+      AND NOT EXISTS (
+          SELECT 1 FROM vetchium.org_chat_requests AS r
+          WHERE r.contact_id = c.contact_id AND r.state = 'pending'
+      )
+      AND NOT EXISTS (
+          SELECT 1 FROM vetchium.org_chat_request_blocks AS b
+          WHERE b.contact_id = c.contact_id
       )
     RETURNING c.contact_id, c.hub_user_did, c.pointer_version
 ), audit AS (
@@ -386,13 +395,22 @@ SELECT deleted.contact_id, deleted.hub_user_did, deleted.pointer_version,
     (SELECT count(*) FROM audit) AS audit_rows
 FROM deleted;
 
--- Contacts whose last note write or message is older than the retention
--- period (MKT-CON-004). The worker re-checks the guard in RetainOrgContact,
--- so a stale list only costs a no-op.
+-- Contacts whose last note write, message, or chat request is older than
+-- the retention period and that hold no pending request or block
+-- (MKT-CON-004, MKT-REQ-012). The worker re-checks the guard in
+-- RetainOrgContact, so a stale list only costs a no-op.
 -- name: ListOrgContactsDueForRetention :many
 SELECT c.contact_id
 FROM vetchium.org_contacts AS c
 WHERE c.last_activity_at <= now() - interval '730 days'
+  AND NOT EXISTS (
+      SELECT 1 FROM vetchium.org_chat_requests AS r
+      WHERE r.contact_id = c.contact_id AND r.state = 'pending'
+  )
+  AND NOT EXISTS (
+      SELECT 1 FROM vetchium.org_chat_request_blocks AS b
+      WHERE b.contact_id = c.contact_id
+  )
 ORDER BY c.last_activity_at, c.contact_id
 LIMIT sqlc.arg(batch_size);
 
@@ -402,6 +420,14 @@ WITH deleted AS (
     DELETE FROM vetchium.org_contacts AS c
     WHERE c.contact_id = sqlc.arg(contact_id)
       AND c.last_activity_at <= now() - interval '730 days'
+      AND NOT EXISTS (
+          SELECT 1 FROM vetchium.org_chat_requests AS r
+          WHERE r.contact_id = c.contact_id AND r.state = 'pending'
+      )
+      AND NOT EXISTS (
+          SELECT 1 FROM vetchium.org_chat_request_blocks AS b
+          WHERE b.contact_id = c.contact_id
+      )
     RETURNING c.contact_id, c.org_did, c.hub_user_did, c.pointer_version
 ), audit AS (
     INSERT INTO vetchium.audit_events (

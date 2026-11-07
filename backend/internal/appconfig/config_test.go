@@ -410,6 +410,7 @@ func TestLoadFileRequiresPositiveDurations(t *testing.T) {
     "expireApplicationOffersTimer": "1m",
     "retainApplicationsTimer": "1m",
     "retainOrgContactsTimer": "1m",
+    "expireChatRequestsTimer": "1m",
     "refreshHubApplicationsTimer": "1m",
     "reconcileHubSignupTimer": "1m",
     "reconcileHubEmailChangeTimer": "1m",
@@ -634,7 +635,8 @@ func TestLoadFileRequiresPositiveExpireOrgEngagementsTimer(t *testing.T) {
 
 func TestLoadFileRequiresPositiveApplicationTimers(t *testing.T) {
 	for _, key := range []string{
-		"retainApplicationsTimer", "retainOrgContactsTimer", "refreshHubApplicationsTimer",
+		"retainApplicationsTimer", "retainOrgContactsTimer", "expireChatRequestsTimer",
+		"refreshHubApplicationsTimer",
 	} {
 		passwordFile := filepath.Join(t.TempDir(), "password")
 		path := writeConfig(t, passwordFile, "")
@@ -844,6 +846,7 @@ func writeConfig(t *testing.T, passwordFile, extraWorkerField string) string {
     "expireApplicationOffersTimer": "1m",
     "retainApplicationsTimer": "1m",
     "retainOrgContactsTimer": "1m",
+    "expireChatRequestsTimer": "1m",
     "refreshHubApplicationsTimer": "1m",
     "reconcileHubSignupTimer": "1m",
     "reconcileHubEmailChangeTimer": "1m",
