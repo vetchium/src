@@ -80,6 +80,20 @@ test("agency person page: found by alias at its handle, a note makes the Contact
       ).toBeVisible();
       await expect(page.getByText(/Contact since/)).toHaveCount(0);
 
+      // The request dialog opens over a person who is not a Contact yet.
+      await page.getByRole("button", { name: "Send chat request" }).click();
+      const firstRequestModal = page.getByRole("dialog", {
+        name: "Send chat request",
+      });
+      await expect(
+        firstRequestModal.getByText(`@${applicant.handle}`),
+      ).toBeVisible();
+      await firstRequestModal.getByRole("button", { name: "Cancel" }).click();
+      await expect(firstRequestModal).toBeHidden();
+      await expect(
+        page.getByText("Ada is not in your contacts yet."),
+      ).toBeVisible();
+
       // A note makes the person a Contact on the same page.
       await page
         .getByPlaceholder("Add a note for your agency")

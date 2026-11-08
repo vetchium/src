@@ -252,9 +252,12 @@ function PersonPage({ handle }: { handle: string }) {
   const contact = contactQuery.data;
   const profile = profileQuery.data;
 
+  // Gate on the first answer only: refetching a query without data (a
+  // non-Contact's 404) resets it to pending, and unmounting the page then
+  // remounts the open request dialog, whose observer refetches again.
   if (
-    contactQuery.isLoading ||
-    (contact === undefined && profileQuery.isLoading)
+    !contactQuery.isFetched ||
+    (contact === undefined && !profileQuery.isFetched)
   ) {
     return <Card loading />;
   }
