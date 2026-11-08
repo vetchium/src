@@ -36,13 +36,11 @@ type outgoing struct {
 	suggestion *contacts.OpeningSuggestion
 }
 
-func (m outgoing) params(
-	messageID, conversationID pgtype.UUID, sender string,
-) sqlc.AddOrgConversationMessageParams {
+func (m outgoing) params(orgDID, hubDID pgtype.UUID) sqlc.AddOrgConversationMessageParams {
 	params := sqlc.AddOrgConversationMessageParams{
-		MessageID: messageID, ConversationID: conversationID,
-		SenderType: string(contacts.MessageSenderTypeAgency), SenderDisplayName: sender,
-		Kind: string(contacts.MessageKindText),
+		OrgDid: orgDID, HubUserDid: hubDID,
+		SenderType: string(contacts.MessageSenderTypeAgency),
+		Kind:       string(contacts.MessageKindText),
 	}
 	if m.suggestion != nil {
 		params.Kind = string(contacts.MessageKindSuggestion)
@@ -68,11 +66,6 @@ func SendMessage(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
-		contactID, err := dbvalue.ParseUUID(string(request.ContactID))
-		if err != nil {
-			s.InternalError(r.Context(), w, "parse Contact id", err)
-			return
-		}
 		if !confirmSuggestion(s, w, r, identity, request.Suggestion) {
 			return
 		}
@@ -84,8 +77,8 @@ func SendMessage(s *orgsruntime.Server) http.HandlerFunc {
 			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
 				ctx := r.Context()
 				fail := handlerauth.Failure[contacts.ConversationMessage]
-				contact, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
-					OrgDid: identity.OrgDID, ContactID: contactID,
+				contact, err := q.LockOrgContactByHandle(ctx, sqlc.LockOrgContactByHandleParams{
+					OrgDid: identity.OrgDID, Handle: string(request.Handle),
 				})
 				if isNoRows(err) {
 					return fail(orgsproblem.ContactNotFoundError)
@@ -93,10 +86,13 @@ func SendMessage(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, fmt.Errorf("lock Contact: %w", err)
 				}
+				pair := sqlc.GetPendingOrgChatRequestParams{
+					OrgDid: identity.OrgDID, HubUserDid: contact.HubUserDid,
+				}
 				// Writing to the person whose request is pending accepts it
 				// first (MKT-REQ-005).
 				notice := agencycontacts.NoticeMessage
-				pending, err := q.GetPendingOrgChatRequest(ctx, contactID)
+				pending, err := q.GetPendingOrgChatRequest(ctx, pair)
 				switch {
 				case isNoRows(err):
 				case err != nil:
@@ -115,9 +111,7 @@ func SendMessage(s *orgsruntime.Server) http.HandlerFunc {
 					}
 					notice = agencycontacts.NoticeRequestAccepted
 				}
-				conversation, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
-					OrgDid: identity.OrgDID, ContactID: contactID,
-				})
+				conversation, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams(pair))
 				if isNoRows(err) {
 					return fail(orgsproblem.ConversationNotFoundError)
 				}
@@ -138,22 +132,18 @@ func SendMessage(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, fmt.Errorf("read agency: %w", err)
 				}
-				messageID, err := dbvalue.NewUUIDv7(now)
-				if err != nil {
-					return result{}, nil, err
-				}
 				posted, err := addMessage(ctx, q, s, identity, key,
-					message.params(messageID, conversation.ConversationID, ""), agency, nil, nil)
+					message.params(identity.OrgDID, contact.HubUserDid), agency, nil, nil)
 				if err != nil {
 					return result{}, nil, err
 				}
 				if rows, err := q.SetConversationActivity(ctx, sqlc.SetConversationActivityParams{
-					ConversationID:   conversation.ConversationID,
+					OrgDid: identity.OrgDID, HubUserDid: contact.HubUserDid,
 					AgencyActivityAt: dbvalue.Timestamp(posted.SentAt),
 				}); err != nil || rows != 1 {
 					return result{}, nil, fmt.Errorf("record activity: %d rows, %w", rows, err)
 				}
-				if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contactID, notice); err != nil {
+				if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contact.HubUserDid, notice); err != nil {
 					return result{}, nil, err
 				}
 				return result{Status: http.StatusOK, Body: posted}, nil, nil
@@ -199,12 +189,15 @@ func addMessage(
 	if err != nil {
 		return contacts.ConversationMessage{}, err
 	}
-	if row.ConversationRows != 1 || row.ContactRows != 1 || row.AuditRows != 1 {
+	if row.ContactRows != 1 || row.AuditRows != 1 {
 		return contacts.ConversationMessage{}, fmt.Errorf("incomplete message")
 	}
-	return message(row.MessageID, row.SenderType, row.SenderDisplayName,
-		row.Kind, row.MessageText, row.ConsumerDomain, row.OpeningNumber,
-		row.SentAt), nil
+	return agencycontacts.Message(sqlc.ListOrgConversationMessagesRow{
+		MessageNumber: row.MessageNumber, SenderType: row.SenderType,
+		SenderDisplayName: row.SenderDisplayName, Kind: row.Kind,
+		MessageText: row.MessageText, ConsumerDomain: row.ConsumerDomain,
+		OpeningNumber: row.OpeningNumber, SentAt: row.SentAt,
+	}, row.SenderDisplayName), nil
 }
 
 // confirmSuggestion asks the client's tenant whether the agency is assigned
@@ -274,34 +267,27 @@ func GetConversation(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
-		contactID, err := dbvalue.ParseUUID(string(request.ContactID))
-		if err != nil {
-			s.InternalError(r.Context(), w, "parse Contact id", err)
-			return
-		}
-		var before *messageCursor
+		org := dbvalue.FormatUUID(identity.OrgDID)
+		var before *pageCursor
 		if request.PaginationKey != nil {
 			cursor, valid := verify(s, messagesPurpose, *request.PaginationKey,
-				dbvalue.FormatUUID(identity.OrgDID), string(request.ContactID))
+				org, string(request.Handle))
 			if !valid {
 				s.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
 				return
 			}
-			before = &messageCursor{at: cursor.At, id: cursor.ID}
+			before = &cursor
 		}
-		if _, err := s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
-			OrgDid: identity.OrgDID, ContactID: contactID,
-		}); isNoRows(err) {
-			s.Problem(r.Context(), w, orgsproblem.ContactNotFoundError)
-			return
-		} else if err != nil {
-			s.InternalError(r.Context(), w, "read Contact", err)
+		contact, ok := contactByHandle(s, w, r, identity, request.Handle)
+		if !ok {
 			return
 		}
 		detail, err := readConversation(r.Context(), s.Queries, identity.OrgDID,
-			contactID, before, request.EffectiveLimit(), s.CurrentTime(),
-			func(at time.Time, id string) (common.PaginationKey, error) {
-				return signMessages(s, identity.OrgDID, contactID, at, id)
+			contact.HubUserDid, before, request.EffectiveLimit(), s.CurrentTime(),
+			func(at time.Time, number int32) (common.PaginationKey, error) {
+				return sign(s, messagesPurpose, pageCursor{
+					Org: org, Contact: contact.Handle, At: at, Number: number,
+				})
 			})
 		if isNoRows(err) {
 			s.Problem(r.Context(), w, orgsproblem.ConversationNotFoundError)
@@ -316,6 +302,78 @@ func GetConversation(s *orgsruntime.Server) http.HandlerFunc {
 	}
 }
 
+// DeleteMessage deletes one of the agency's own text messages; any agency
+// user may (MKT-CNV-007). Both sides keep a "Message deleted" stub; only the
+// agency's audit keeps the text, and the Hub user's tenant learns of the
+// deletion without it.
+func DeleteMessage(s *orgsruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request contacts.DeleteMessageRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
+		if !ok {
+			return
+		}
+		identity, _ := middleware.OrgIdentityFromContext(r.Context())
+		now := s.CurrentTime()
+		type result = handlerauth.Result[contacts.ConversationMessage]
+		handlerauth.RunIdempotent(s, w, r, "orgs:delete-message",
+			dbvalue.FormatUUID(identity.UserID), key, request, now.Add(replayWindow),
+			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
+				ctx := r.Context()
+				fail := handlerauth.Failure[contacts.ConversationMessage]
+				contact, err := q.LockOrgContactByHandle(ctx, sqlc.LockOrgContactByHandleParams{
+					OrgDid: identity.OrgDID, Handle: string(request.Handle),
+				})
+				if isNoRows(err) {
+					return fail(orgsproblem.ContactNotFoundError)
+				}
+				if err != nil {
+					return result{}, nil, fmt.Errorf("lock Contact: %w", err)
+				}
+				deleted, err := q.DeleteOrgConversationMessage(ctx, sqlc.DeleteOrgConversationMessageParams{
+					OrgDid: identity.OrgDID, HubUserDid: contact.HubUserDid,
+					MessageNumber: int32(request.MessageNumber),
+					SenderType:    string(contacts.MessageSenderTypeAgency),
+					TenantID:      s.TenantID, ActorType: "org_user",
+					ActorID: dbvalue.FormatUUID(identity.UserID), Source: "orgs-api",
+					IdempotencyKey: dbvalue.Text(string(key)), KeepText: true,
+				})
+				if isNoRows(err) {
+					_, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
+						OrgDid: identity.OrgDID, HubUserDid: contact.HubUserDid,
+					})
+					if isNoRows(err) {
+						return fail(orgsproblem.ConversationNotFoundError)
+					}
+					if err != nil {
+						return result{}, nil, fmt.Errorf("read conversation: %w", err)
+					}
+					return fail(orgsproblem.ConversationMessageNotFoundError)
+				}
+				if err != nil {
+					return result{}, nil, err
+				}
+				if deleted.AuditRows != 1 {
+					return result{}, nil, fmt.Errorf("incomplete message deletion")
+				}
+				agency, err := q.GetAgencyDetails(ctx, identity.OrgDID)
+				if err != nil {
+					return result{}, nil, fmt.Errorf("read agency: %w", err)
+				}
+				if err := agencycontacts.EnqueueAgencyMessageDeleted(ctx, q, identity.OrgDID,
+					contact.HubUserDid, agency.Domain, deleted.MessageNumber); err != nil {
+					return result{}, nil, err
+				}
+				return result{
+					Status: http.StatusOK, Body: agencycontacts.DeletedMessage(deleted),
+				}, nil, nil
+			})
+	}
+}
+
 // MarkConversationRead clears the agency's unread count for every agency user
 // (MKT-DAT-010).
 func MarkConversationRead(s *orgsruntime.Server) http.HandlerFunc {
@@ -325,33 +383,18 @@ func MarkConversationRead(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
-		contactID, err := dbvalue.ParseUUID(string(request.ContactID))
-		if err != nil {
-			s.InternalError(r.Context(), w, "parse Contact id", err)
+		contact, ok := contactByHandle(s, w, r, identity, request.Handle)
+		if !ok {
 			return
 		}
-		if _, err := s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
-			OrgDid: identity.OrgDID, ContactID: contactID,
-		}); isNoRows(err) {
-			s.Problem(r.Context(), w, orgsproblem.ContactNotFoundError)
-			return
-		} else if err != nil {
-			s.InternalError(r.Context(), w, "read Contact", err)
-			return
-		}
-		if _, err := s.Queries.GetOrgConversation(r.Context(), sqlc.GetOrgConversationParams{
-			OrgDid: identity.OrgDID, ContactID: contactID,
-		}); isNoRows(err) {
+		if !contact.HasConversation {
 			s.Problem(r.Context(), w, orgsproblem.ConversationNotFoundError)
-			return
-		} else if err != nil {
-			s.InternalError(r.Context(), w, "read conversation", err)
 			return
 		}
 		if _, err := s.Queries.MarkOrgConversationRead(r.Context(), sqlc.MarkOrgConversationReadParams{
-			OrgDid: identity.OrgDID, ContactID: contactID,
+			OrgDid: identity.OrgDID, HubUserDid: contact.HubUserDid,
 			TenantID: s.TenantID, ActorID: identity.UserID,
-		}); err != nil {
+		}); err != nil && !isNoRows(err) {
 			s.InternalError(r.Context(), w, "mark conversation read", err)
 			return
 		}
@@ -360,41 +403,25 @@ func MarkConversationRead(s *orgsruntime.Server) http.HandlerFunc {
 	}
 }
 
-type messageCursor struct {
-	at time.Time
-	id string
-}
-
-func signMessages(
-	s *orgsruntime.Server, orgDID, contactID pgtype.UUID, at time.Time, id string,
-) (common.PaginationKey, error) {
-	return sign(s, messagesPurpose, pageCursor{
-		Org: dbvalue.FormatUUID(orgDID), Contact: dbvalue.FormatUUID(contactID),
-		At: at, ID: id,
-	})
-}
-
-// readConversation reads the Contact's conversation with one page of its
+// readConversation reads the pair's conversation with one page of its
 // messages, newest first; pgx.ErrNoRows reports none.
 func readConversation(
-	ctx context.Context, q sqlc.Querier, orgDID, contactID pgtype.UUID,
-	before *messageCursor, limit int32, now time.Time,
-	next func(time.Time, string) (common.PaginationKey, error),
+	ctx context.Context, q sqlc.Querier, orgDID, hubDID pgtype.UUID,
+	before *pageCursor, limit int32, now time.Time,
+	next func(time.Time, int32) (common.PaginationKey, error),
 ) (contacts.ConversationDetail, error) {
 	conversation, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
-		OrgDid: orgDID, ContactID: contactID,
+		OrgDid: orgDID, HubUserDid: hubDID,
 	})
 	if err != nil {
 		return contacts.ConversationDetail{}, err
 	}
 	params := sqlc.ListOrgConversationMessagesParams{
-		ConversationID: conversation.ConversationID, PageLimit: limit + 1,
+		OrgDid: orgDID, HubUserDid: hubDID, PageLimit: limit + 1,
 	}
 	if before != nil {
-		params.BeforeSentAt = dbvalue.Timestamp(before.at)
-		if params.BeforeMessageID, err = dbvalue.ParseUUID(before.id); err != nil {
-			return contacts.ConversationDetail{}, err
-		}
+		params.BeforeSentAt = dbvalue.Timestamp(before.At)
+		params.BeforeMessageNumber = pgtype.Int4{Int32: before.Number, Valid: true}
 	}
 	rows, err := q.ListOrgConversationMessages(ctx, params)
 	if err != nil {
@@ -407,28 +434,25 @@ func readConversation(
 	for index, row := range rows {
 		if index == int(limit) {
 			last := detail.Messages[index-1]
-			key, err := next(last.SentAt, string(last.MessageID))
+			key, err := next(last.SentAt, int32(last.MessageNumber))
 			if err != nil {
 				return contacts.ConversationDetail{}, err
 			}
 			detail.NextPaginationKey = &key
 			break
 		}
-		detail.Messages = append(detail.Messages, message(row.MessageID,
-			row.SenderType, row.SenderDisplayName, row.Kind, row.MessageText,
-			row.ConsumerDomain, row.OpeningNumber, row.SentAt))
+		detail.Messages = append(detail.Messages,
+			agencycontacts.Message(row, row.SenderDisplayName))
 	}
 	return detail, nil
 }
 
 func conversationSummary(
-	row sqlc.VetchiumOrgConversation, now time.Time,
+	row sqlc.GetOrgConversationRow, now time.Time,
 ) contacts.ConversationSummary {
 	window := agencycontacts.Window(row.HubActivityAt, row.AgencyActivityAt,
 		row.WindowSeconds).Open(now)
 	summary := contacts.ConversationSummary{
-		ConversationID:        contacts.ConversationID(dbvalue.FormatUUID(row.ConversationID)),
-		ContactID:             contacts.ContactID(dbvalue.FormatUUID(row.ContactID)),
 		RecordedHubUserName:   row.RecordedHubUserName,
 		RecordedHubUserHandle: hub.HubHandle(row.RecordedHubUserHandle),
 		RecordedAgencyName:    row.RecordedAgencyName,
@@ -444,35 +468,6 @@ func conversationSummary(
 		summary.ReadOnlyReason = &reason
 	}
 	return summary
-}
-
-func message(
-	id pgtype.UUID, sender, name, kind string, text, consumerDomain pgtype.Text,
-	openingNumber pgtype.Int4, sentAt pgtype.Timestamptz,
-) contacts.ConversationMessage {
-	result := contacts.ConversationMessage{
-		MessageID:         contacts.MessageID(dbvalue.FormatUUID(id)),
-		SenderType:        contacts.MessageSenderType(sender),
-		SenderDisplayName: name,
-		Kind:              contacts.MessageKind(kind),
-		SentAt:            sentAt.Time.UTC(),
-	}
-	switch {
-	case !text.Valid:
-	case kind == string(contacts.MessageKindRequest):
-		note := contacts.ChatRequestNote(text.String)
-		result.Note = &note
-	default:
-		value := contacts.MessageText(text.String)
-		result.Text = &value
-	}
-	if consumerDomain.Valid && openingNumber.Valid {
-		result.Suggestion = &contacts.OpeningSuggestion{
-			ConsumerDomain: orgs.OrgDomain(consumerDomain.String),
-			OpeningNumber:  openings.OpeningNumber(openingNumber.Int32),
-		}
-	}
-	return result
 }
 
 // today is the UTC calendar date of now, which the daily limits count by.

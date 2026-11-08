@@ -43,25 +43,23 @@ func windowDays(s *hubruntime.Server) int32 {
 // chatRequest is the Hub view of the request a pointer keeps; the pointer
 // never holds the note (MKT-DAT-003).
 func chatRequest(
-	s *hubruntime.Server, contactID pgtype.UUID, agencyName, agencyDomain string,
-	stored []byte,
+	s *hubruntime.Server, agencyName, agencyDomain string, stored []byte,
 ) (hubmessages.HubChatRequest, error) {
 	var request federationspec.AgencyPointerRequest
 	if err := json.Unmarshal(stored, &request); err != nil {
 		return hubmessages.HubChatRequest{}, fmt.Errorf("decode pointer request: %w", err)
 	}
-	return hubChatRequest(s, contactID, agencyName, agencyDomain, request), nil
+	return hubChatRequest(s, agencyName, agencyDomain, request), nil
 }
 
 func hubChatRequest(
-	s *hubruntime.Server, contactID pgtype.UUID, agencyName, agencyDomain string,
+	s *hubruntime.Server, agencyName, agencyDomain string,
 	request federationspec.AgencyPointerRequest,
 ) hubmessages.HubChatRequest {
 	return hubmessages.HubChatRequest{
-		RequestID: request.RequestID,
-		ContactID: contacts.ContactID(dbvalue.FormatUUID(contactID)),
-		Direction: request.Direction,
-		State:     request.State,
+		RequestNumber: request.RequestNumber,
+		Direction:     request.Direction,
+		State:         request.State,
 		Opening: contacts.OpeningSuggestion{
 			ConsumerDomain: request.ConsumerDomain,
 			OpeningNumber:  request.OpeningNumber,
@@ -76,12 +74,14 @@ func hubChatRequest(
 	}
 }
 
+// requestCursor positions a page of requests; the Hub user has one pointer
+// per agency, so the agency's domain breaks ties.
 type requestCursor struct {
 	HubUser   string     `json:"hub_user"`
 	Direction string     `json:"direction"`
 	Answered  bool       `json:"answered"`
 	At        *time.Time `json:"at,omitempty"`
-	ContactID string     `json:"contact_id,omitempty"`
+	Agency    string     `json:"agency,omitempty"`
 }
 
 func signRequests(s *hubruntime.Server, cursor requestCursor) (common.PaginationKey, error) {
@@ -101,14 +101,9 @@ func verifyRequests(
 	var cursor requestCursor
 	if !valid || json.Unmarshal(payload, &cursor) != nil ||
 		cursor.HubUser != hubUser || cursor.Direction != direction ||
-		(cursor.At == nil) != (cursor.ContactID == "") ||
+		(cursor.At == nil) != (cursor.Agency == "") ||
 		(!cursor.Answered && cursor.At == nil) {
 		return requestCursor{}, false
-	}
-	if cursor.At != nil {
-		if _, err := dbvalue.ParseUUID(cursor.ContactID); err != nil {
-			return requestCursor{}, false
-		}
 	}
 	return cursor, true
 }
@@ -143,7 +138,7 @@ func ListChatRequests(s *hubruntime.Server) http.HandlerFunc {
 			}
 			if cursor != nil {
 				params.AfterSentAt = dbvalue.Timestamp(*cursor.At)
-				params.AfterContactID, _ = dbvalue.ParseUUID(cursor.ContactID)
+				params.AfterAgencyDomain = dbvalue.Text(cursor.Agency)
 			}
 			rows, err := s.Queries.ListHubPendingChatRequests(r.Context(), params)
 			if err != nil {
@@ -154,11 +149,10 @@ func ListChatRequests(s *hubruntime.Server) http.HandlerFunc {
 				if index == limit {
 					last := rows[index-1]
 					at := last.SentAt.Time.UTC()
-					next = &requestCursor{At: &at, ContactID: dbvalue.FormatUUID(last.ContactID)}
+					next = &requestCursor{At: &at, Agency: last.AgencyDomain}
 					break
 				}
-				item, err := chatRequest(s, row.ContactID, row.AgencyDisplayName,
-					row.AgencyDomain, row.Request)
+				item, err := chatRequest(s, row.AgencyDisplayName, row.AgencyDomain, row.Request)
 				if err != nil {
 					s.InternalError(r.Context(), w, "read pending chat request", err)
 					return
@@ -174,7 +168,7 @@ func ListChatRequests(s *hubruntime.Server) http.HandlerFunc {
 			}
 			if cursor != nil && cursor.Answered && cursor.At != nil {
 				params.BeforeAnsweredAt = dbvalue.Timestamp(*cursor.At)
-				params.BeforeContactID, _ = dbvalue.ParseUUID(cursor.ContactID)
+				params.BeforeAgencyDomain = dbvalue.Text(cursor.Agency)
 			}
 			rows, err := s.Queries.ListHubAnsweredChatRequests(r.Context(), params)
 			if err != nil {
@@ -187,12 +181,11 @@ func ListChatRequests(s *hubruntime.Server) http.HandlerFunc {
 					if index > 0 {
 						last := rows[index-1]
 						at := last.AnsweredAt.Time.UTC()
-						next.At, next.ContactID = &at, dbvalue.FormatUUID(last.ContactID)
+						next.At, next.Agency = &at, last.AgencyDomain
 					}
 					break
 				}
-				item, err := chatRequest(s, row.ContactID, row.AgencyDisplayName,
-					row.AgencyDomain, row.Request)
+				item, err := chatRequest(s, row.AgencyDisplayName, row.AgencyDomain, row.Request)
 				if err != nil {
 					s.InternalError(r.Context(), w, "read answered chat request", err)
 					return
@@ -214,37 +207,31 @@ func ListChatRequests(s *hubruntime.Server) http.HandlerFunc {
 	}
 }
 
-// agencyRequest finds the pointer holding the agency's request with the id;
-// anything else is not found to the Hub user. The agency decides whether it
-// is still pending, so a repeated answer replays rather than fails once the
-// pointer shows it answered.
+// agencyRequest finds the pointer to the agency holding its request with the
+// number; anything else is not found to the Hub user. The agency decides
+// whether it is still pending, so a repeated answer replays rather than
+// fails once the pointer shows it answered.
 func agencyRequest(
 	s *hubruntime.Server, w http.ResponseWriter, r *http.Request,
-	hubDID pgtype.UUID, id contacts.ChatRequestID,
-) (sqlc.GetHubAgencyPointerByRequestRow, bool) {
-	requestID, err := dbvalue.ParseUUID(string(id))
-	if err != nil {
+	hubDID pgtype.UUID, domain orgs.OrgDomain, number contacts.ChatRequestNumber,
+) (sqlc.GetHubAgencyPointerRow, bool) {
+	pointer, err := pointerByDomain(r, s, hubDID, domain)
+	if errors.Is(err, pgx.ErrNoRows) || err == nil && !pointer.HasRequest {
 		s.Problem(r.Context(), w, hubproblem.HubChatRequestNotFoundError)
-		return sqlc.GetHubAgencyPointerByRequestRow{}, false
-	}
-	pointer, err := s.Queries.GetHubAgencyPointerByRequest(r.Context(),
-		sqlc.GetHubAgencyPointerByRequestParams{HubUserDid: hubDID, RequestID: requestID})
-	if errors.Is(err, pgx.ErrNoRows) {
-		s.Problem(r.Context(), w, hubproblem.HubChatRequestNotFoundError)
-		return sqlc.GetHubAgencyPointerByRequestRow{}, false
+		return sqlc.GetHubAgencyPointerRow{}, false
 	}
 	if err != nil {
 		s.InternalError(r.Context(), w, "get agency pointer", err)
-		return sqlc.GetHubAgencyPointerByRequestRow{}, false
+		return sqlc.GetHubAgencyPointerRow{}, false
 	}
 	var request federationspec.AgencyPointerRequest
 	if err := json.Unmarshal(pointer.Request, &request); err != nil {
 		s.InternalError(r.Context(), w, "decode pointer request", err)
-		return sqlc.GetHubAgencyPointerByRequestRow{}, false
+		return sqlc.GetHubAgencyPointerRow{}, false
 	}
-	if request.Direction != contacts.ToHubUser {
+	if request.Direction != contacts.ToHubUser || request.RequestNumber != number {
 		s.Problem(r.Context(), w, hubproblem.HubChatRequestNotFoundError)
-		return sqlc.GetHubAgencyPointerByRequestRow{}, false
+		return sqlc.GetHubAgencyPointerRow{}, false
 	}
 	return pointer, true
 }
@@ -257,7 +244,7 @@ func agencyRequest(
 //vetchium:multiple-commits sends the federation command to the agency authority, then updates the local pointer on success
 func answerChatRequest(
 	s *hubruntime.Server, w http.ResponseWriter, r *http.Request,
-	pointer sqlc.GetHubAgencyPointerByRequestRow, digested any,
+	pointer sqlc.GetHubAgencyPointerRow, digested any,
 	answer federationspec.HubChatRequestAnswerPayload,
 ) (federationspec.AgencyPointerRequest, bool) {
 	key, ok := handlerauth.IdempotencyKey(s, w, r)
@@ -275,7 +262,7 @@ func answerChatRequest(
 		s.InternalError(r.Context(), w, "read Hub profile", err)
 		return federationspec.AgencyPointerRequest{}, false
 	}
-	answer.ContactID = contacts.ContactID(dbvalue.FormatUUID(pointer.ContactID))
+	answer.AgencyOrgDID = orgs.OrgDID(dbvalue.FormatUUID(pointer.AgencyOrgDid))
 	answer.HubUserDID = hub.HubUserDID(dbvalue.FormatUUID(identity.UserDID))
 	answer.HubUserDisplayName = common.DisplayName(me.DisplayName)
 	answer.HubUserHandle = hub.HubHandle(me.Handle)
@@ -286,7 +273,7 @@ func answerChatRequest(
 		Authority: commands.Principal{
 			Type: directoryspec.PrincipalOrg, DID: pointer.AgencyOrgDid,
 		},
-		AggregateID: string(answer.RequestID),
+		AggregateID: federationspec.ContactAggregateID(answer.AgencyOrgDID, answer.HubUserDID),
 		Owner: commands.Owner{
 			Type: commands.OwnerHubUser, ID: dbvalue.FormatUUID(identity.UserDID),
 		},
@@ -318,11 +305,11 @@ func answerChatRequest(
 		// change.
 		if _, err := s.Queries.SetHubAgencyPointerAnsweredRequest(r.Context(),
 			sqlc.SetHubAgencyPointerAnsweredRequestParams{
-				Request:    stored,
-				Accepted:   answered.State == contacts.ChatRequestAccepted,
-				ContactID:  pointer.ContactID,
-				HubUserDid: identity.UserDID,
-				TenantID:   s.TenantID,
+				Request:      stored,
+				Accepted:     answered.State == contacts.ChatRequestAccepted,
+				HubUserDid:   identity.UserDID,
+				AgencyOrgDid: pointer.AgencyOrgDid,
+				TenantID:     s.TenantID,
 			}); err != nil {
 			s.InternalError(r.Context(), w, "record answered request", err)
 			return federationspec.AgencyPointerRequest{}, false
@@ -350,13 +337,14 @@ func AcceptChatRequest(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		pointer, ok := agencyRequest(s, w, r, identity.UserDID, request.RequestID)
+		pointer, ok := agencyRequest(s, w, r, identity.UserDID,
+			request.AgencyDomain, request.RequestNumber)
 		if !ok {
 			return
 		}
 		answered, ok := answerChatRequest(s, w, r, pointer, request,
 			federationspec.HubChatRequestAnswerPayload{
-				RequestID: request.RequestID, Accept: true,
+				RequestNumber: request.RequestNumber, Accept: true,
 			})
 		if !ok {
 			return
@@ -366,7 +354,6 @@ func AcceptChatRequest(s *hubruntime.Server) http.HandlerFunc {
 		// agency's pointer event arrives, so a live read supplies them.
 		limit := int32(hubmessages.DefaultPage)
 		outcome, err := s.Conversations.RelayRead(r.Context(), federationspec.MeshReadConversationRequest{
-			ContactID:    contacts.ContactID(dbvalue.FormatUUID(pointer.ContactID)),
 			HubUserDID:   hub.HubUserDID(dbvalue.FormatUUID(identity.UserDID)),
 			AgencyOrgDID: orgs.OrgDID(dbvalue.FormatUUID(pointer.AgencyOrgDid)),
 			Limit:        &limit,
@@ -376,7 +363,7 @@ func AcceptChatRequest(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		current, err := s.Queries.GetHubAgencyPointer(r.Context(), sqlc.GetHubAgencyPointerParams{
-			ContactID: pointer.ContactID, HubUserDid: identity.UserDID,
+			HubUserDid: identity.UserDID, AgencyOrgDid: pointer.AgencyOrgDid,
 		})
 		if err != nil {
 			s.InternalError(r.Context(), w, "get agency pointer", err)
@@ -388,8 +375,7 @@ func AcceptChatRequest(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		read := outcome.Result
-		latest := hubChatRequest(s, pointer.ContactID, pointer.AgencyDisplayName,
-			pointer.AgencyDomain, answered)
+		latest := hubChatRequest(s, pointer.AgencyDisplayName, pointer.AgencyDomain, answered)
 		conversation.HasConversation = true
 		conversation.LatestRequest = &latest
 		conversation.ReadOnlyReason = read.ReadOnlyReason
@@ -427,20 +413,21 @@ func DeclineChatRequest(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		pointer, ok := agencyRequest(s, w, r, identity.UserDID, request.RequestID)
+		pointer, ok := agencyRequest(s, w, r, identity.UserDID,
+			request.AgencyDomain, request.RequestNumber)
 		if !ok {
 			return
 		}
 		scope := request.Scope
 		answered, ok := answerChatRequest(s, w, r, pointer, request,
 			federationspec.HubChatRequestAnswerPayload{
-				RequestID: request.RequestID, Scope: &scope,
+				RequestNumber: request.RequestNumber, Scope: &scope,
 			})
 		if !ok {
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")
-		s.JSON(r.Context(), w, http.StatusOK, hubChatRequest(s, pointer.ContactID,
+		s.JSON(r.Context(), w, http.StatusOK, hubChatRequest(s,
 			pointer.AgencyDisplayName, pointer.AgencyDomain, answered))
 	}
 }
@@ -508,9 +495,11 @@ func SendChatRequest(s *hubruntime.Server) http.HandlerFunc {
 			ConsumerDomain: request.Domain, OpeningNumber: request.OpeningNumber,
 		}
 		now := s.CurrentTime()
+		hubUserDID := hub.HubUserDID(dbvalue.FormatUUID(identity.UserDID))
+		aggregate := federationspec.ContactAggregateID(agency.AgencyOrgDID, hubUserDID)
 
 		known, err := s.Commands.Known(r.Context(), federationspec.HubChatRequestKind,
-			string(agency.AgencyOrgDID), key)
+			aggregate, key)
 		if err != nil {
 			s.InternalError(r.Context(), w, "find chat request operation", err)
 			return
@@ -557,9 +546,9 @@ func SendChatRequest(s *hubruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "read Hub profile", err)
 			return
 		}
-		requestID, err := dbvalue.NewUUIDv7(now)
+		settings, err := s.Queries.GetHubUserAgencyState(r.Context(), identity.UserDID)
 		if err != nil {
-			s.InternalError(r.Context(), w, "mint request id", err)
+			s.InternalError(r.Context(), w, "read agency settings", err)
 			return
 		}
 		digest, err := requestDigest(request)
@@ -572,22 +561,22 @@ func SendChatRequest(s *hubruntime.Server) http.HandlerFunc {
 			Authority: commands.Principal{
 				Type: directoryspec.PrincipalOrg, DID: agencyDID,
 			},
-			AggregateID: string(agency.AgencyOrgDID),
+			AggregateID: aggregate,
 			Owner: commands.Owner{
 				Type: commands.OwnerHubUser, ID: dbvalue.FormatUUID(identity.UserDID),
 			},
 			IdempotencyKey: key,
 			RequestDigest:  digest,
 			Payload: federationspec.HubChatRequestPayload{
-				RequestID:          contacts.ChatRequestID(dbvalue.FormatUUID(requestID)),
 				AgencyOrgDID:       agency.AgencyOrgDID,
-				HubUserDID:         hub.HubUserDID(dbvalue.FormatUUID(identity.UserDID)),
+				HubUserDID:         hubUserDID,
 				HubUserDisplayName: common.DisplayName(me.DisplayName),
 				HubUserHandle:      hub.HubHandle(me.Handle),
 				ConsumerDomain:     request.Domain,
 				OpeningNumber:      request.OpeningNumber,
 				Note:               request.Note,
 				WindowSeconds:      int64(s.ConversationWindow / time.Second),
+				RequestsOff:        !settings.AgenciesMayMessage,
 			},
 		})
 		if errors.Is(err, commands.ErrIdempotencyConflict) {
@@ -607,11 +596,6 @@ func SendChatRequest(s *hubruntime.Server) http.HandlerFunc {
 					fmt.Errorf("invalid hub-chat-request result: %v", err))
 				return
 			}
-			contactID, err := dbvalue.ParseUUID(string(result.ContactID))
-			if err != nil {
-				s.InternalError(r.Context(), w, "parse Contact id", err)
-				return
-			}
 			stored, err := json.Marshal(result.Request)
 			if err != nil {
 				s.InternalError(r.Context(), w, "encode sent request", err)
@@ -619,7 +603,7 @@ func SendChatRequest(s *hubruntime.Server) http.HandlerFunc {
 			}
 			if _, err := s.Queries.RecordHubSentChatRequest(r.Context(),
 				sqlc.RecordHubSentChatRequestParams{
-					ContactID: contactID, HubUserDid: identity.UserDID,
+					HubUserDid:        identity.UserDID,
 					AgencyOrgDid:      agencyDID,
 					AgencyDisplayName: agency.AgencyDisplayName,
 					AgencyDomain:      string(agency.AgencyDomain),
@@ -629,7 +613,7 @@ func SendChatRequest(s *hubruntime.Server) http.HandlerFunc {
 				return
 			}
 			w.Header().Set("Cache-Control", "no-store")
-			s.JSON(r.Context(), w, http.StatusOK, hubChatRequest(s, contactID,
+			s.JSON(r.Context(), w, http.StatusOK, hubChatRequest(s,
 				agency.AgencyDisplayName, string(agency.AgencyDomain), result.Request))
 		case commands.StateFailed:
 			writeRejection(s, w, r, outcome.Response)

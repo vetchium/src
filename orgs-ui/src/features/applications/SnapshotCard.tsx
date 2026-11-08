@@ -3,6 +3,7 @@ import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { Avatar, Card, Descriptions, Flex, Typography } from "antd";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import type { PublicProfile } from "typespec/hub/profile/public";
 import type { ApplicationDetail } from "typespec/orgs/applications/applications";
 import {
   applicantName,
@@ -36,24 +37,23 @@ function ExternalLink({
   );
 }
 
-export function SnapshotCard({ detail }: { detail: ApplicationDetail }) {
+/** What a person's profile says about them, as the application snapshot and
+ * the agency's person page show it. */
+export type ProfileFacts = Pick<
+  PublicProfile,
+  | "resident_country"
+  | "biography"
+  | "work_experiences"
+  | "educational_qualifications"
+  | "certifications"
+  | "language_abilities"
+  | "websites"
+>;
+
+export function ProfileDescriptions({ profile }: { profile: ProfileFacts }) {
   const { t, i18n } = useTranslation();
-  const { date } = useDateTimeFormat();
   const month = useMonthFormat();
-  const snapshot = detail.snapshot;
-  const name = applicantName(t, {
-    display_name: snapshot.display_name,
-    removed: detail.removed,
-  });
-  if (detail.removed) {
-    return (
-      <Card title={t("applications.snapshot.title")}>
-        <Typography.Text type="secondary">
-          {t("applications.snapshot.removed")}
-        </Typography.Text>
-      </Card>
-    );
-  }
+  const snapshot = profile;
   const period = (start?: string, end?: string) =>
     [
       start ? month(start) : undefined,
@@ -177,6 +177,25 @@ export function SnapshotCard({ detail }: { detail: ApplicationDetail }) {
         ]
       : []),
   ];
+  return <Descriptions column={1} size="small" items={items} />;
+}
+
+export function SnapshotCard({ detail }: { detail: ApplicationDetail }) {
+  const { t } = useTranslation();
+  const { date } = useDateTimeFormat();
+  const name = applicantName(t, {
+    display_name: detail.snapshot.display_name,
+    removed: detail.removed,
+  });
+  if (detail.removed) {
+    return (
+      <Card title={t("applications.snapshot.title")}>
+        <Typography.Text type="secondary">
+          {t("applications.snapshot.removed")}
+        </Typography.Text>
+      </Card>
+    );
+  }
   return (
     <Card title={t("applications.snapshot.title")}>
       <Flex vertical gap="middle">
@@ -186,7 +205,7 @@ export function SnapshotCard({ detail }: { detail: ApplicationDetail }) {
           </Avatar>
           <Typography.Text strong>{name}</Typography.Text>
         </Flex>
-        <Descriptions column={1} size="small" items={items} />
+        <ProfileDescriptions profile={detail.snapshot} />
         <Typography.Text type="secondary">
           {t("applications.snapshot.captured", {
             date: date(detail.submitted_at),

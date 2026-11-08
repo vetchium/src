@@ -345,13 +345,13 @@ export async function activate(
 export async function awaitRequestsOff(
   api: OrgsAPI,
   token: string,
-  contactID: string,
+  handle: string,
   off: boolean,
 ): Promise<void> {
   await expect
     .poll(
       async () => {
-        const response = await api.getContact(token, { contact_id: contactID });
+        const response = await api.getContact(token, { handle });
         return response.status() === 200
           ? ((await response.json()) as Contact).requests_off
           : undefined;
@@ -361,11 +361,11 @@ export async function awaitRequestsOff(
     .toBe(off);
 }
 
-/** Waits until the agency's pointer for `contactID` reached the person's
- * Hub tenant, so the person's conversation list shows the agency. */
+/** Waits until the agency's pointer reached the person's Hub tenant, so the
+ * person's conversation list shows the agency. */
 export async function awaitHubPointer(
   applicant: Applicant,
-  contactID: string,
+  agencyDomain: string,
 ): Promise<void> {
   await expect
     .poll(
@@ -374,11 +374,23 @@ export async function awaitHubPointer(
         if (response.status() !== 200) return false;
         return (
           (await response.json()) as ListConversationsResponse
-        ).items.some((item) => item.contact_id === contactID);
+        ).items.some((item) => item.agency_domain === agencyDomain);
       },
       { timeout: 30_000, intervals: [250, 500, 1000] },
     )
     .toBe(true);
+}
+
+/** Whether the Hub user's tenant's request is the agency's: requests are
+ * numbered per pair, so the number alone does not name one. */
+export function sameRequest(hub: HubChatRequest, org: ChatRequest): boolean {
+  return (
+    hub.request_number === org.request_number &&
+    hub.direction === org.direction &&
+    hub.opening.consumer_domain === org.opening.consumer_domain &&
+    hub.opening.opening_number === org.opening.opening_number &&
+    Date.parse(hub.sent_at) === Date.parse(org.sent_at)
+  );
 }
 
 /**
@@ -425,13 +437,12 @@ export async function openConversation(
   });
   expect(sent.status(), await sent.text()).toBe(200);
   const request = (await sent.json()) as ChatRequest;
-  await awaitHubRequest(
-    applicant,
-    "to_hub_user",
-    (item) => item.request_id === request.request_id,
+  const pending = await awaitHubRequest(applicant, "to_hub_user", (item) =>
+    sameRequest(item, request),
   );
   const accepted = await applicant.hub.acceptChatRequest(applicant.token, {
-    request_id: request.request_id,
+    agency_domain: pending.agency_domain,
+    request_number: pending.request_number,
   });
   expect(accepted.status(), await accepted.text()).toBe(200);
   return {

@@ -19,7 +19,9 @@ import (
 	"github.com/vetchium/src/typespec/orgs/marketplace/work"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
 
+	"backend/internal/agencycontacts"
 	"backend/internal/credentials"
+	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
 	orgsruntime "backend/internal/orgs"
 )
@@ -29,30 +31,54 @@ const (
 	notesPurpose    = "orgs-list-contact-notes-v1"
 )
 
-// summary converts the columns every Contact read selects.
-func summary(
-	id pgtype.UUID, name, handle string, off, accountDeleted bool,
-	active pgtype.Timestamptz, notes int32, credited int32, hasConversation bool,
-	unreadCount int32, pendingRequest pgtype.Text,
-) contacts.ContactSummary {
-	var pending *contacts.ChatRequestDirection
-	if pendingRequest.Valid {
-		direction := contacts.ChatRequestDirection(pendingRequest.String)
-		pending = &direction
-	}
+// summary converts the columns every Contact read selects; GetOrgContactBy*
+// rows convert to sqlc.ListOrgContactsRow.
+func summary(row sqlc.ListOrgContactsRow, credited int32, now time.Time) contacts.ContactSummary {
 	return contacts.ContactSummary{
-		ContactID:               contacts.ContactID(dbvalue.FormatUUID(id)),
-		DisplayName:             common.DisplayName(name),
-		Handle:                  hubHandle(handle),
-		RequestsOff:             off,
-		AccountDeleted:          accountDeleted,
-		NoteCount:               notes,
-		HasConversation:         hasConversation,
-		PendingRequestDirection: pending,
-		UnreadMessagesCount:     unreadCount,
-		CreditedCount:           credited,
-		LastActivityAt:          active.Time.UTC(),
+		DisplayName:         common.DisplayName(row.DisplayName),
+		Handle:              hubHandle(row.Handle),
+		Status:              status(row, now),
+		RequestsOff:         row.RequestsOff,
+		AccountDeleted:      row.PartyDeleted,
+		NoteCount:           row.NoteCount,
+		HasConversation:     row.HasConversation,
+		UnreadMessagesCount: row.UnreadMessagesCount,
+		CreditedCount:       credited,
+		LastActivityAt:      row.LastActivityAt.Time.UTC(),
 	}
+}
+
+// status is the first Contact status that holds (MKT-UI-007). The agency's
+// declined or expired request shows only while nothing newer happened in the
+// conversation.
+func status(row sqlc.ListOrgContactsRow, now time.Time) contacts.ContactStatus {
+	switch contacts.ChatRequestDirection(row.PendingRequestDirection.String) {
+	case contacts.ToAgency:
+		return contacts.ContactRequestReceived
+	case contacts.ToHubUser:
+		return contacts.ContactRequestSent
+	}
+	window := agencycontacts.Window(row.ConversationHubActivityAt,
+		pgtype.Timestamptz{}, row.ConversationWindowSeconds)
+	if row.HasConversation && !row.PartyDeleted && window.AgencyMayWrite(now) {
+		return contacts.ContactInConversation
+	}
+	newer := !row.HasConversation ||
+		row.LatestSentRequestAnsweredAt.Time.After(row.ConversationLastActivityAt.Time)
+	switch contacts.ChatRequestState(row.LatestSentRequestState) {
+	case contacts.ChatRequestDeclined:
+		if newer {
+			return contacts.ContactRequestDeclined
+		}
+	case contacts.ChatRequestExpired:
+		if newer {
+			return contacts.ContactRequestExpired
+		}
+	}
+	if row.HasConversation {
+		return contacts.ContactConversationClosed
+	}
+	return contacts.ContactNoConversation
 }
 
 func orgDID(identityOrg pgtype.UUID) orgs.OrgDID {
@@ -81,12 +107,14 @@ func creditedCounts(
 }
 
 // pageCursor is where the next page of a list resumes. It is bound to the Org,
-// and for notes to the Contact, so a key cannot resume another list.
+// and for notes and messages to the Contact, so a key cannot resume another
+// list. Handle positions a Contact list; Number a note or message list.
 type pageCursor struct {
 	Org     string    `json:"org"`
 	Contact string    `json:"contact,omitempty"`
 	At      time.Time `json:"at"`
-	ID      string    `json:"id"`
+	Handle  string    `json:"handle,omitempty"`
+	Number  int32     `json:"number,omitempty"`
 }
 
 func sign(s *orgsruntime.Server, purpose string, cursor pageCursor) (common.PaginationKey, error) {
@@ -108,10 +136,10 @@ func verify(
 		s.CredentialSubkey("pagination"), purpose, string(key))
 	var cursor pageCursor
 	if !valid || json.Unmarshal(payload, &cursor) != nil ||
-		cursor.Org != org || cursor.Contact != contact {
+		cursor.Org != org || cursor.Contact != contact || cursor.At.IsZero() {
 		return pageCursor{}, false
 	}
-	if _, err := dbvalue.ParseUUID(cursor.ID); err != nil {
+	if (contact == "") != (cursor.Handle != "") || (contact == "") == (cursor.Number > 0) {
 		return pageCursor{}, false
 	}
 	return cursor, true

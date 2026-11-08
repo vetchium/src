@@ -48,8 +48,8 @@ export interface FixedOpening {
 interface Props {
   open: boolean;
   onClose: () => void;
-  /** The person, fixed when opened from a Contact or the profile view. */
-  person?: { contactId: string } | { address: string };
+  /** The person, fixed when opened from their page. */
+  person?: { handle: string };
   /** The Opening, fixed when opened from Job detail. */
   opening?: FixedOpening;
 }
@@ -75,13 +75,13 @@ export function chatRequestRefusal(
 ): Refusal | undefined {
   if (contact.account_deleted) return { kind: "party-deleted" };
   const latest = contact.latest_request;
-  if (contact.pending_request_direction === "to_agency") {
+  if (contact.status === "request_received") {
     if (latest?.direction === "to_agency" && latest.state === "pending") {
       return { kind: "incoming", request: latest };
     }
     return { kind: "exists" };
   }
-  if (contact.pending_request_direction === "to_hub_user") {
+  if (contact.status === "request_sent") {
     return { kind: "exists", sentAt: latest?.sent_at };
   }
   const writableUntil = conversation?.agency_may_write_until;
@@ -139,23 +139,18 @@ export function SendChatRequestModal({
   const [note, setNote] = useState("");
   const typedAddress = useSettled(typed.trim().replace(/^@/, ""));
 
-  const fixedContactId =
-    person !== undefined && "contactId" in person ? person.contactId : "";
-  const address =
-    person === undefined
-      ? typedAddress
-      : "address" in person
-        ? person.address
-        : "";
+  const address = person?.handle ?? typedAddress;
   const profileQuery = useViewHubProfileQuery(address, open && address !== "");
-  const contactId = fixedContactId || profileQuery.data?.contact?.contact_id;
+  // A fixed person may be a Contact whose account no longer exists, which
+  // has no profile to view.
+  const contactHandle = person?.handle ?? profileQuery.data?.contact?.handle;
   const contactQuery = useContactQuery(
-    contactId ?? "",
-    open && contactId !== undefined,
+    contactHandle ?? "",
+    open && contactHandle !== undefined,
   );
-  const contact = contactId === undefined ? undefined : contactQuery.data;
+  const contact = contactHandle === undefined ? undefined : contactQuery.data;
   const conversationQuery = useConversationQuery(
-    contactId ?? "",
+    contactHandle ?? "",
     open && contact?.has_conversation === true,
   );
   const conversation = conversationQuery.data?.pages[0]?.conversation;
@@ -227,9 +222,7 @@ export function SendChatRequestModal({
     try {
       const sent = await send.mutateAsync({
         request: {
-          ...(contactId !== undefined
-            ? { contact_id: contactId }
-            : { address }),
+          address: contactHandle ?? address,
           suggestion,
           ...(trimmed !== "" && { note: trimmed }),
         },
@@ -240,7 +233,7 @@ export function SendChatRequestModal({
         t("marketplace.chatRequests.sent", { name: sent.hub_user_name }),
       );
       close();
-      navigate(paths.contactDetail(sent.contact_id));
+      navigate(paths.contactDetail(sent.hub_user_handle));
     } catch (error) {
       if (isDefiniteRefusal(error)) sendKey.rotate();
       showProblem(error, t("marketplace.chatRequests.sendError"));
@@ -250,13 +243,16 @@ export function SendChatRequestModal({
   const handleAccept = async (request: ChatRequest) => {
     try {
       await accept.mutateAsync({
-        request: { request_id: request.request_id },
+        request: {
+          handle: request.hub_user_handle,
+          request_number: request.request_number,
+        },
         key: acceptKey.current(),
       });
       acceptKey.rotate();
       message.success(t("marketplace.chatRequests.accepted", { name }));
       close();
-      navigate(paths.contactDetail(request.contact_id));
+      navigate(paths.contactDetail(request.hub_user_handle));
     } catch (error) {
       if (isDefiniteRefusal(error)) acceptKey.rotate();
       showProblem(error, t("marketplace.chatRequests.answerError"));
@@ -417,13 +413,13 @@ export function SendChatRequestModal({
               showIcon
               title={refusalText(refusal)}
               {...(refusal.kind === "conversation-open" &&
-                contactId !== undefined && {
+                contactHandle !== undefined && {
                   description: (
                     <Button
                       size="small"
                       onClick={() => {
                         close();
-                        navigate(paths.contactDetail(contactId));
+                        navigate(paths.contactDetail(contactHandle));
                       }}
                     >
                       {t("marketplace.chatRequests.openConversation")}

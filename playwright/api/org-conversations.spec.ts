@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
 import type {
+  AwaitingConversationCount,
   HubConversationDetail,
   HubConversationSummary,
   ListConversationsResponse,
@@ -12,7 +12,13 @@ import type {
   ConversationMessage,
 } from "typespec/orgs/marketplace/contacts/contacts";
 import { expectProblem } from "../lib/admin-api.ts";
-import { sqlScalarForTenant } from "../lib/admin-db.ts";
+import {
+  auditEventJSONForTenant,
+  hubAuditEventsByIdempotencyKey,
+  sqlLiteral,
+  sqlScalarForTenant,
+  type TestTenant,
+} from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { cleanupApplicant, seedApplicant } from "../lib/hub-applicant.ts";
 import {
@@ -27,6 +33,7 @@ import {
   activate,
   asProvider,
   awaitHubPointer,
+  awaitHubRequest,
   awaitRequestsOff,
   openConversation,
   setOrgHome,
@@ -50,7 +57,19 @@ const PROBLEMS = {
   hubConversationNotFound: `${BASE}hub-conversation-not-found`,
   hubPartyDeleted: `${BASE}hub-conversation-party-deleted`,
   hubOrgUnavailable: `${BASE}hub-org-unavailable`,
+  hubMessageNotFound: `${BASE}hub-conversation-message-not-found`,
+  messageNotFound: `${BASE}org-conversation-message-not-found`,
 };
+
+/** The agency tenant's message-deletion audit payloads for a person. */
+function messageDeletedPayloads(tenant: TestTenant, handle: string) {
+  return auditEventJSONForTenant(
+    tenant,
+    `action = 'org.conversation.message_deleted'
+     AND entity_id = ${sqlLiteral(handle)}
+     AND actor_type = 'hub_user'`,
+  ).map((event) => event.payload);
+}
 
 test("an accepted chat request opens the conversation; the agency's users share it, and another request is refused while it is open", async ({
   request,
@@ -69,13 +88,15 @@ test("an accepted chat request opens the conversation; the agency's users share 
       opening,
       "Hello! We came across your profile and would love to chat.",
     );
-    const contactID = asked.contact_id;
+    const handle = asked.hub_user_handle;
     const startRes = await provider.api.getConversation(provider.owner, {
-      contact_id: contactID,
+      handle,
     });
     expect(startRes.status(), await startRes.text()).toBe(200);
     const started = (await startRes.json()) as ConversationDetail;
-    expect(started.conversation.conversation_id).toBeTruthy();
+    expect(started.conversation.recorded_hub_user_handle).toBe(
+      applicant.handle,
+    );
     expect(started.conversation.recorded_hub_user_name).toBe("Ada Applicant");
     expect(started.conversation.recorded_agency_domain).toBe(
       provider.org.domain,
@@ -97,7 +118,7 @@ test("an accepted chat request opens the conversation; the agency's users share 
     const msgKey = orgsIdempotencyKey();
     const sendRes = await provider.api.sendMessage(
       recruiter.token,
-      { contact_id: contactID, text: "Following up from our agency team." },
+      { handle, text: "Following up from our agency team." },
       msgKey,
     );
     expect(sendRes.status(), await sendRes.text()).toBe(200);
@@ -112,19 +133,27 @@ test("an accepted chat request opens the conversation; the agency's users share 
 
     // 3. The owner reads both, newest first.
     const getRes = await provider.api.getConversation(provider.owner, {
-      contact_id: contactID,
+      handle,
     });
     expect(getRes.status(), await getRes.text()).toBe(200);
     const convDetail = (await getRes.json()) as ConversationDetail;
     expect(convDetail.messages.map((m) => m.kind)).toEqual(["text", "request"]);
-    expect(convDetail.conversation.conversation_id).toBe(
-      started.conversation.conversation_id,
-    );
+    expect(convDetail.messages.map((m) => m.message_number)).toEqual([2, 1]);
+
+    // Any agency user deletes the agency's messages, a colleague's included.
+    const colleagueDeleted = await provider.api.deleteMessage(provider.owner, {
+      handle,
+      message_number: sentMsg.message_number,
+    });
+    expect(colleagueDeleted.status(), await colleagueDeleted.text()).toBe(200);
+    expect(
+      ((await colleagueDeleted.json()) as ConversationMessage).deleted,
+    ).toBe(true);
 
     // 4. While the agency may write, it writes instead of asking again.
     await expectProblem(
       await provider.api.sendChatRequest(provider.owner, {
-        contact_id: contactID,
+        address: handle,
         suggestion: other,
       }),
       409,
@@ -133,7 +162,7 @@ test("an accepted chat request opens the conversation; the agency's users share 
   });
 });
 
-test("Hub user list, get conversation, mark read, reply, and delete", async ({
+test("Hub user list, get conversation, mark read, reply, and each side deletes its own messages", async ({
   request,
 }) => {
   await withAgency(request, async (agency) => {
@@ -146,9 +175,9 @@ test("Hub user list, get conversation, mark read, reply, and delete", async ({
         applicant,
         agency.openings[0],
       );
-      const contactID = asked.contact_id;
+      const handle = asked.hub_user_handle;
       const written = await provider.api.sendMessage(provider.owner, {
-        contact_id: contactID,
+        handle,
         text: "Hi Ada, are you open to new opportunities?",
       });
       expect(written.status(), await written.text()).toBe(200);
@@ -169,16 +198,15 @@ test("Hub user list, get conversation, mark read, reply, and delete", async ({
         )
         .toBe(1);
       expect(list.items).toHaveLength(1);
-      expect(list.items[0]?.contact_id).toBe(contactID);
       expect(list.items[0]?.agency_domain).toBe(provider.org.domain);
 
       // 2. Hub user reads conversation live through mesh
       const getRes = await applicant.hub.getConversation(applicant.token, {
-        contact_id: contactID,
+        agency_domain: provider.org.domain,
       });
       expect(getRes.status(), await getRes.text()).toBe(200);
       const hubConv = (await getRes.json()) as HubConversationDetail;
-      expect(hubConv.conversation.contact_id).toBe(contactID);
+      expect(hubConv.conversation.agency_domain).toBe(provider.org.domain);
       expect(hubConv.messages.map((m) => m.kind)).toEqual(["text", "request"]);
       expect(hubConv.messages[0]?.text).toBe(
         "Hi Ada, are you open to new opportunities?",
@@ -188,7 +216,7 @@ test("Hub user list, get conversation, mark read, reply, and delete", async ({
       const markRes = await applicant.hub.markConversationRead(
         applicant.token,
         {
-          contact_id: contactID,
+          agency_domain: provider.org.domain,
         },
       );
       expect(markRes.status()).toBe(200);
@@ -206,7 +234,7 @@ test("Hub user list, get conversation, mark read, reply, and delete", async ({
       const replyRes = await applicant.hub.replyToConversation(
         applicant.token,
         {
-          contact_id: contactID,
+          agency_domain: provider.org.domain,
           text: "Yes, I am interested! Please share more details.",
         },
         replyKey,
@@ -220,7 +248,7 @@ test("Hub user list, get conversation, mark read, reply, and delete", async ({
 
       // Org side now sees agency_unread: true and the reply message
       const orgGetRes = await provider.api.getConversation(provider.owner, {
-        contact_id: contactID,
+        handle,
       });
       expect(orgGetRes.status()).toBe(200);
       const orgConv = (await orgGetRes.json()) as ConversationDetail;
@@ -234,7 +262,7 @@ test("Hub user list, get conversation, mark read, reply, and delete", async ({
       const orgMarkRes = await provider.api.markConversationRead(
         provider.owner,
         {
-          contact_id: contactID,
+          handle,
         },
       );
       expect(orgMarkRes.status()).toBe(200);
@@ -242,7 +270,7 @@ test("Hub user list, get conversation, mark read, reply, and delete", async ({
       const orgGetAfterMark = await provider.api.getConversation(
         provider.owner,
         {
-          contact_id: contactID,
+          handle,
         },
       );
       expect(
@@ -250,87 +278,138 @@ test("Hub user list, get conversation, mark read, reply, and delete", async ({
           .agency_unread,
       ).toBe(false);
 
-      // A note keeps the Contact once the conversation is gone.
-      const noted = await provider.api.addContactNote(provider.owner, {
-        contact_id: contactID,
-        text: "Interested; follow up next week.",
-      });
-      expect(noted.status(), await noted.text()).toBe(200);
-      const noteID = ((await noted.json()) as AddedNote).note.note_id;
-
-      // 5. Hub user deletes conversation
-      const deleteKey = orgsIdempotencyKey();
-      const deleteRes = await applicant.hub.deleteConversation(
-        applicant.token,
-        {
-          contact_id: contactID,
-        },
-        deleteKey,
-      );
-      expect(deleteRes.status(), await deleteRes.text()).toBe(200);
-
-      // Hub reading conversation now gives 404
-      const getAfterDelete = await applicant.hub.getConversation(
-        applicant.token,
-        {
-          contact_id: contactID,
-        },
-      );
+      // 5. Each side deletes only its own text messages (MKT-CNV-007):
+      // messages 1 (the request) and 2 (the agency's text) are the agency's,
+      // 3 is the Hub user's reply.
       await expectProblem(
-        getAfterDelete,
-        404,
-        PROBLEMS.hubConversationNotFound,
-      );
-
-      // Hub listConversations now empty
-      await expect
-        .poll(
-          async () => {
-            const listAfterDelete = await applicant.hub.listConversations(
-              applicant.token,
-            );
-            if (listAfterDelete.status() !== 200) return -1;
-            return ((await listAfterDelete.json()) as ListConversationsResponse)
-              .items.length;
-          },
-          { timeout: 15_000 },
-        )
-        .toBe(0);
-
-      // The Contact remains with its note (MKT-CON-004); the conversation is
-      // gone.
-      const contactAfterDelete = await provider.api.getContact(provider.owner, {
-        contact_id: contactID,
-      });
-      expect(contactAfterDelete.status()).toBe(200);
-      expect(
-        ((await contactAfterDelete.json()) as Contact).has_conversation,
-      ).toBe(false);
-      const orgGetAfterDelete = await provider.api.getConversation(
-        provider.owner,
-        {
-          contact_id: contactID,
-        },
-      );
-      await expectProblem(
-        orgGetAfterDelete,
-        404,
-        PROBLEMS.conversationNotFound,
-      );
-
-      // Deleting the last note deletes the Contact, now holding neither.
-      const noteDeleted = await provider.api.deleteContactNote(provider.owner, {
-        contact_id: contactID,
-        note_id: noteID,
-      });
-      expect(noteDeleted.status(), await noteDeleted.text()).toBe(200);
-      await expectProblem(
-        await provider.api.getContact(provider.owner, {
-          contact_id: contactID,
+        await applicant.hub.deleteMessage(applicant.token, {
+          agency_domain: provider.org.domain,
+          message_number: 2,
         }),
         404,
-        PROBLEMS.contactNotFound,
+        PROBLEMS.hubMessageNotFound,
       );
+      const hubDeleteKey = orgsIdempotencyKey();
+      const hubDeleted = await applicant.hub.deleteMessage(
+        applicant.token,
+        { agency_domain: provider.org.domain, message_number: 3 },
+        hubDeleteKey,
+      );
+      expect(hubDeleted.status(), await hubDeleted.text()).toBe(200);
+      const hubStub = (await hubDeleted.json()) as ConversationMessage;
+      expect(hubStub).toMatchObject({
+        message_number: 3,
+        sender_type: "hub_user",
+        kind: "text",
+        deleted: true,
+      });
+      expect(hubStub.text).toBeUndefined();
+      // Only the Hub user's tenant keeps what the Hub user wrote.
+      expect(
+        hubAuditEventsByIdempotencyKey(hubDeleteKey)
+          .filter((event) => event.action !== "federation.operation.created")
+          .map((event) => [event.action, event.payload]),
+      ).toEqual([
+        [
+          "hub.agency-conversation.message-deleted",
+          {
+            agency_domain: provider.org.domain,
+            message_number: 3,
+            deleted_by: "hub_user",
+            deleted_text: "Yes, I am interested! Please share more details.",
+          },
+        ],
+      ]);
+      expect(messageDeletedPayloads(provider.tenant, applicant.handle)).toEqual(
+        [{ message_number: 3, deleted_by: "hub_user" }],
+      );
+      await expectProblem(
+        await applicant.hub.deleteMessage(applicant.token, {
+          agency_domain: provider.org.domain,
+          message_number: 3,
+        }),
+        404,
+        PROBLEMS.hubMessageNotFound,
+      );
+
+      // Any agency user deletes the agency's text, never the request or the
+      // Hub user's message.
+      for (const number of [1, 3]) {
+        await expectProblem(
+          await provider.api.deleteMessage(provider.owner, {
+            handle,
+            message_number: number,
+          }),
+          404,
+          PROBLEMS.messageNotFound,
+        );
+      }
+      const orgDeleteKey = orgsIdempotencyKey();
+      const orgDeleted = await provider.api.deleteMessage(
+        provider.owner,
+        { handle, message_number: 2 },
+        orgDeleteKey,
+      );
+      expect(orgDeleted.status(), await orgDeleted.text()).toBe(200);
+      const orgStub = (await orgDeleted.json()) as ConversationMessage;
+      expect(orgStub).toMatchObject({
+        message_number: 2,
+        sender_type: "agency",
+        deleted: true,
+      });
+      expect(orgStub.text).toBeUndefined();
+      expect(
+        orgAuditEventsByKey(orgDeleteKey, provider.tenant).map((event) => [
+          event.action,
+          event.payload,
+        ]),
+      ).toEqual([
+        [
+          "org.conversation.message_deleted",
+          {
+            message_number: 2,
+            deleted_by: "agency",
+            deleted_text: "Hi Ada, are you open to new opportunities?",
+          },
+        ],
+      ]);
+      // The Hub user's tenant learns of it without the text.
+      await expect
+        .poll(
+          () =>
+            auditEventJSONForTenant(
+              applicant.tenant,
+              `action = 'hub.agency-conversation.message-deleted'
+               AND actor_type = 'org'
+               AND subject_hub_user_did = ${sqlLiteral(applicant.did)}::uuid`,
+            ).map((event) => event.payload),
+          { timeout: 15_000 },
+        )
+        .toEqual([
+          {
+            agency_domain: provider.org.domain,
+            message_number: 2,
+            deleted_by: "agency",
+          },
+        ]);
+
+      // Both sides read the stubs in place.
+      const stubs = (messages: ConversationMessage[]) =>
+        messages.map((m) => [m.message_number, m.deleted, m.text ?? m.kind]);
+      const orgAfter = (await (
+        await provider.api.getConversation(provider.owner, { handle })
+      ).json()) as ConversationDetail;
+      expect(stubs(orgAfter.messages)).toEqual([
+        [3, true, "text"],
+        [2, true, "text"],
+        [1, false, "request"],
+      ]);
+      const hubAfter = (await (
+        await applicant.hub.getConversation(applicant.token, {
+          agency_domain: provider.org.domain,
+        })
+      ).json()) as HubConversationDetail;
+      expect(stubs(hubAfter.messages)).toEqual(stubs(orgAfter.messages));
     }
   });
 });
@@ -391,26 +470,26 @@ test("agencies may send me chat requests switch refuses new requests while conve
         applicant,
         other,
       );
-      const contactID = asked.contact_id;
+      const handle = asked.hub_user_handle;
 
       // 4. Refusing requests again reaches the agency's Contact once the Hub
       // tenant holds the agency's pointer, and leaves the conversation open.
-      await awaitHubPointer(applicant, contactID);
+      await awaitHubPointer(applicant, provider.org.domain);
       const setOffAgain = await applicant.hub.setAgenciesMayMessage(
         applicant.token,
         { agencies_may_message: false },
       );
       expect(setOffAgain.status(), await setOffAgain.text()).toBe(204);
-      await awaitRequestsOff(provider.api, provider.owner, contactID, true);
+      await awaitRequestsOff(provider.api, provider.owner, handle, true);
 
       const sendRes = await provider.api.sendMessage(provider.owner, {
-        contact_id: contactID,
+        handle,
         text: "Another message while requests are off",
       });
       expect(sendRes.status(), await sendRes.text()).toBe(200);
 
       const hubGet = await applicant.hub.getConversation(applicant.token, {
-        contact_id: contactID,
+        agency_domain: provider.org.domain,
       });
       expect(hubGet.status(), await hubGet.text()).toBe(200);
       expect(
@@ -419,7 +498,10 @@ test("agencies may send me chat requests switch refuses new requests while conve
       ).toBeUndefined();
       const replyRes = await applicant.hub.replyToConversation(
         applicant.token,
-        { contact_id: contactID, text: "Hub reply while requests are off" },
+        {
+          agency_domain: provider.org.domain,
+          text: "Hub reply while requests are off",
+        },
       );
       expect(replyRes.status(), await replyRes.text()).toBe(200);
 
@@ -492,12 +574,12 @@ test("MKT-CNV-003: an agency without a listed sourcing Listing sends no requests
       PROBLEMS.listingNotAvailable,
     );
     const written = await provider.api.sendMessage(provider.owner, {
-      contact_id: open.contact_id,
+      handle: open.hub_user_handle,
       text: "Still here while we are not listed.",
     });
     expect(written.status(), await written.text()).toBe(200);
     const replied = await talking.hub.replyToConversation(talking.token, {
-      contact_id: open.contact_id,
+      agency_domain: provider.org.domain,
       text: "Thanks for following up.",
     });
     expect(replied.status(), await replied.text()).toBe(200);
@@ -518,14 +600,14 @@ test("counterparty tenant unavailable during Hub conversation get and reply, rec
         applicant,
         agency.openings[0],
       );
-      const contactID = asked.contact_id;
+      const handle = asked.hub_user_handle;
 
-      await awaitHubPointer(applicant, contactID);
+      await awaitHubPointer(applicant, provider.org.domain);
 
       // 2. Hub user opens conversation while agency tenant does not answer -> 503 hub-org-unavailable
       setOrgHome(orgDid, "gone");
       const getGone = await applicant.hub.getConversation(applicant.token, {
-        contact_id: contactID,
+        agency_domain: provider.org.domain,
       });
       await expectProblem(getGone, 503, PROBLEMS.hubOrgUnavailable);
 
@@ -535,7 +617,7 @@ test("counterparty tenant unavailable during Hub conversation get and reply, rec
       const replyPending = await applicant.hub.replyToConversation(
         applicant.token,
         {
-          contact_id: contactID,
+          agency_domain: provider.org.domain,
           text: "Reply while remote route is uncertain",
         },
         replyKey,
@@ -548,7 +630,7 @@ test("counterparty tenant unavailable during Hub conversation get and reply, rec
       const replyRecovered = await applicant.hub.replyToConversation(
         applicant.token,
         {
-          contact_id: contactID,
+          agency_domain: provider.org.domain,
           text: "Reply while remote route is uncertain",
         },
         replyKey,
@@ -562,22 +644,22 @@ test("counterparty tenant unavailable during Hub conversation get and reply, rec
         { agencies_may_message: false },
       );
       expect(setOff.status(), await setOff.text()).toBe(204);
-      await awaitRequestsOff(provider.api, provider.owner, contactID, true);
+      await awaitRequestsOff(provider.api, provider.owner, handle, true);
 
       const contactRes = await provider.api.getContact(provider.owner, {
-        contact_id: contactID,
+        handle,
       });
       expect(contactRes.status()).toBe(200);
       expect(((await contactRes.json()) as Contact).requests_off).toBe(true);
 
       const agencySend = await provider.api.sendMessage(provider.owner, {
-        contact_id: contactID,
+        handle,
         text: "Message while requests are off",
       });
       expect(agencySend.status(), await agencySend.text()).toBe(200);
 
       const hubGet = await applicant.hub.getConversation(applicant.token, {
-        contact_id: contactID,
+        agency_domain: provider.org.domain,
       });
       expect(hubGet.status()).toBe(200);
       const hubConv = (await hubGet.json()) as HubConversationDetail;
@@ -585,7 +667,10 @@ test("counterparty tenant unavailable during Hub conversation get and reply, rec
 
       const hubReply = await applicant.hub.replyToConversation(
         applicant.token,
-        { contact_id: contactID, text: "Hub reply while requests are off" },
+        {
+          agency_domain: provider.org.domain,
+          text: "Hub reply while requests are off",
+        },
       );
       expect(hubReply.status(), await hubReply.text()).toBe(200);
     } finally {
@@ -612,7 +697,8 @@ test("a notes-first Contact's conversation reaches the Hub, a reply keeps its su
         text: "Worth a conversation.",
       });
       expect(noted.status(), await noted.text()).toBe(200);
-      const contactID = ((await noted.json()) as AddedNote).contact.contact_id;
+      const handle = ((await noted.json()) as AddedNote).contact.handle;
+      expect(handle).toBe(applicant.handle);
       // The note's pointer reaches the Hub, which lists only conversations.
       await expect
         .poll(
@@ -620,7 +706,8 @@ test("a notes-first Contact's conversation reaches the Hub, a reply keeps its su
             sqlScalarForTenant(
               applicant.tenant,
               `SELECT count(*)::text FROM vetchium.hub_agency_pointers
-               WHERE contact_id = '${contactID}'`,
+               WHERE hub_user_did = ${sqlLiteral(applicant.did)}::uuid
+                 AND agency_org_did = ${sqlLiteral(orgDid)}::uuid`,
             ),
           { timeout: 30_000 },
         )
@@ -638,7 +725,7 @@ test("a notes-first Contact's conversation reaches the Hub, a reply keeps its su
         consumer_domain: consumer.org.domain,
         opening_number: opening.opening_number,
       });
-      expect(asked.contact_id).toBe(contactID);
+      expect(asked.hub_user_handle).toBe(handle);
       const suggestedOnly = (items: HubConversationSummary[]) =>
         items[0]?.suggestions.map((item) => [
           item.consumer_domain,
@@ -650,14 +737,14 @@ test("a notes-first Contact's conversation reaches the Hub, a reply keeps its su
 
       const send = async (text: string) => {
         const sent = await provider.api.sendMessage(provider.owner, {
-          contact_id: contactID,
+          handle,
           text,
         });
         expect(sent.status(), await sent.text()).toBe(200);
       };
       await send("First note from us.");
       const replied = await applicant.hub.replyToConversation(applicant.token, {
-        contact_id: contactID,
+        agency_domain: provider.org.domain,
         text: "Happy to talk.",
       });
       expect(replied.status(), await replied.text()).toBe(200);
@@ -675,7 +762,7 @@ test("a notes-first Contact's conversation reaches the Hub, a reply keeps its su
         messages.map((message) => message.text ?? message.kind);
       const orgFirst = (await (
         await provider.api.getConversation(provider.owner, {
-          contact_id: contactID,
+          handle,
           limit: 2,
         })
       ).json()) as ConversationDetail;
@@ -685,7 +772,7 @@ test("a notes-first Contact's conversation reaches the Hub, a reply keeps its su
       ]);
       const orgSecond = (await (
         await provider.api.getConversation(provider.owner, {
-          contact_id: contactID,
+          handle,
           limit: 2,
           pagination_key: orgFirst.next_pagination_key as string,
         })
@@ -697,7 +784,7 @@ test("a notes-first Contact's conversation reaches the Hub, a reply keeps its su
       expect(orgSecond.next_pagination_key).toBeUndefined();
 
       const hubFirst = await applicant.hub.getConversation(applicant.token, {
-        contact_id: contactID,
+        agency_domain: provider.org.domain,
         limit: 3,
       });
       expect(hubFirst.status(), await hubFirst.text()).toBe(200);
@@ -709,7 +796,7 @@ test("a notes-first Contact's conversation reaches the Hub, a reply keeps its su
       ]);
       const hubSecond = (await (
         await applicant.hub.getConversation(applicant.token, {
-          contact_id: contactID,
+          agency_domain: provider.org.domain,
           limit: 3,
           pagination_key: hubPage.next_pagination_key as string,
         })
@@ -730,127 +817,255 @@ test("a notes-first Contact's conversation reaches the Hub, a reply keeps its su
   });
 });
 
-test("Hub conversation routes authenticate, validate, and answer for unknown conversations", async ({
+test("Hub conversation routes authenticate, validate, and answer for unknown conversations and messages", async ({
   request,
 }) => {
   await withAgency(request, async (agency) => {
     const { provider } = agency.pair;
-    // Remote, so a delete crosses the mesh and may be pending.
+    // Remote, so a delete reads the message across the mesh.
     const applicant = agency.person("sgp");
     const orgDid = agency.did;
-    {
-      const { request: asked } = await openConversation(
-        provider,
-        applicant,
-        agency.openings[0],
-      );
-      const contact_id = asked.contact_id;
-      await awaitHubPointer(applicant, contact_id);
+    await openConversation(provider, applicant, agency.openings[0]);
+    const agency_domain = provider.org.domain;
+    await awaitHubPointer(applicant, agency_domain);
 
-      const routes: Array<{ path: string; body: object; write: boolean }> = [
-        { path: "/list-conversations", body: {}, write: false },
-        { path: "/get-conversation", body: { contact_id }, write: false },
-        { path: "/mark-conversation-read", body: { contact_id }, write: false },
-        {
-          path: "/reply-to-conversation",
-          body: { contact_id, text: "Hi" },
-          write: true,
-        },
-        { path: "/delete-conversation", body: { contact_id }, write: true },
-        {
-          path: "/set-agencies-may-message",
-          body: { agencies_may_message: true },
-          write: false,
-        },
-      ];
-      const keyed = (write: boolean) =>
-        write ? { idempotencyKey: orgsIdempotencyKey() } : {};
-      for (const entry of routes) {
-        await expectProblem(
-          await applicant.hub.post(entry.path, entry.body, keyed(entry.write)),
-          401,
-          `${BASE}hub-authentication-required`,
-        );
-        await expectProblem(
-          await applicant.hub.postRaw(entry.path, "{", {
-            token: applicant.token,
-            ...keyed(entry.write),
-          }),
-          400,
-          `${BASE}invalid-json`,
-        );
-      }
-      for (const [path, body, fields] of [
-        ["/list-conversations", { limit: 0 }, ["limit"]],
-        ["/get-conversation", { contact_id: "x" }, ["contact_id"]],
-        ["/mark-conversation-read", { contact_id: "x" }, ["contact_id"]],
-        ["/reply-to-conversation", { contact_id, text: " " }, ["text"]],
-        ["/delete-conversation", { contact_id: "x" }, ["contact_id"]],
-      ] as const) {
-        const write = routes.find((entry) => entry.path === path)?.write;
-        await expectProblem(
-          await applicant.hub.post(path, body, {
-            token: applicant.token,
-            ...keyed(write === true),
-          }),
-          400,
-          PROBLEMS.validation,
-          [...fields],
-        );
-      }
-      for (const entry of routes.filter(
-        (route) => "contact_id" in route.body,
-      )) {
-        await expectProblem(
-          await applicant.hub.post(
-            entry.path,
-            { ...entry.body, contact_id: randomUUID() },
-            { token: applicant.token, ...keyed(entry.write) },
-          ),
-          404,
-          PROBLEMS.hubConversationNotFound,
-        );
-      }
-
-      // A reply key stays bound to the reply it first carried.
-      const key = orgsIdempotencyKey();
-      const replied = await applicant.hub.replyToConversation(
-        applicant.token,
-        { contact_id, text: "Thanks" },
-        key,
-      );
-      expect(replied.status(), await replied.text()).toBe(200);
+    const routes: Array<{ path: string; body: object; write: boolean }> = [
+      { path: "/list-conversations", body: {}, write: false },
+      { path: "/get-conversation", body: { agency_domain }, write: false },
+      {
+        path: "/mark-conversation-read",
+        body: { agency_domain },
+        write: false,
+      },
+      {
+        path: "/reply-to-conversation",
+        body: { agency_domain, text: "Hi" },
+        write: true,
+      },
+      {
+        path: "/delete-message",
+        body: { agency_domain, message_number: 1 },
+        write: true,
+      },
+      {
+        path: "/set-agencies-may-message",
+        body: { agencies_may_message: true },
+        write: false,
+      },
+    ];
+    const keyed = (write: boolean) =>
+      write ? { idempotencyKey: orgsIdempotencyKey() } : {};
+    for (const entry of routes) {
       await expectProblem(
-        await applicant.hub.replyToConversation(
-          applicant.token,
-          { contact_id, text: "Something else" },
-          key,
-        ),
-        409,
-        `${BASE}idempotency-key-conflict`,
+        await applicant.hub.post(entry.path, entry.body, keyed(entry.write)),
+        401,
+        `${BASE}hub-authentication-required`,
       );
-
-      // A delete the agency's tenant cannot confirm is pending, and its
-      // repeat with the same key completes once the route is right.
-      setOrgHome(orgDid, "usa1");
-      const deleteKey = orgsIdempotencyKey();
-      try {
-        const pending = await applicant.hub.deleteConversation(
-          applicant.token,
-          { contact_id },
-          deleteKey,
-        );
-        expect(pending.status(), await pending.text()).toBe(202);
-        expect(pending.headers()["cache-control"]).toBe("no-store");
-      } finally {
-        setOrgHome(orgDid, provider.tenant);
-      }
-      const deleted = await applicant.hub.deleteConversation(
-        applicant.token,
-        { contact_id },
-        deleteKey,
+      await expectProblem(
+        await applicant.hub.postRaw(entry.path, "{", {
+          token: applicant.token,
+          ...keyed(entry.write),
+        }),
+        400,
+        `${BASE}invalid-json`,
       );
-      expect(deleted.status(), await deleted.text()).toBe(200);
     }
+    await expectProblem(
+      await applicant.hub.get("/count-awaiting-conversations", ""),
+      401,
+      `${BASE}hub-authentication-required`,
+    );
+    for (const [path, body, fields] of [
+      ["/list-conversations", { limit: 0 }, ["limit"]],
+      ["/get-conversation", { agency_domain: "x" }, ["agency_domain"]],
+      ["/mark-conversation-read", { agency_domain: "x" }, ["agency_domain"]],
+      ["/reply-to-conversation", { agency_domain, text: " " }, ["text"]],
+      [
+        "/delete-message",
+        { agency_domain: "x", message_number: 0 },
+        ["agency_domain", "message_number"],
+      ],
+    ] as const) {
+      const write = routes.find((entry) => entry.path === path)?.write;
+      await expectProblem(
+        await applicant.hub.post(path, body, {
+          token: applicant.token,
+          ...keyed(write === true),
+        }),
+        400,
+        PROBLEMS.validation,
+        [...fields],
+      );
+    }
+    for (const entry of routes.filter(
+      (route) => "agency_domain" in route.body,
+    )) {
+      await expectProblem(
+        await applicant.hub.post(
+          entry.path,
+          { ...entry.body, agency_domain: "unknown-agency.example.test" },
+          { token: applicant.token, ...keyed(entry.write) },
+        ),
+        404,
+        PROBLEMS.hubConversationNotFound,
+      );
+    }
+
+    // A reply key stays bound to the reply it first carried.
+    const key = orgsIdempotencyKey();
+    const replied = await applicant.hub.replyToConversation(
+      applicant.token,
+      { agency_domain, text: "Thanks" },
+      key,
+    );
+    expect(replied.status(), await replied.text()).toBe(200);
+    const reply = (await replied.json()) as ConversationMessage;
+    await expectProblem(
+      await applicant.hub.replyToConversation(
+        applicant.token,
+        { agency_domain, text: "Something else" },
+        key,
+      ),
+      409,
+      `${BASE}idempotency-key-conflict`,
+    );
+
+    // A message number the conversation does not have, or one that is not a
+    // Hub text, is not the Hub user's to delete.
+    for (const number of [1, reply.message_number + 100]) {
+      await expectProblem(
+        await applicant.hub.deleteMessage(applicant.token, {
+          agency_domain,
+          message_number: number,
+        }),
+        404,
+        PROBLEMS.hubMessageNotFound,
+      );
+    }
+
+    // While the agency's tenant does not answer, nothing is deleted.
+    setOrgHome(orgDid, "gone");
+    try {
+      await expectProblem(
+        await applicant.hub.deleteMessage(applicant.token, {
+          agency_domain,
+          message_number: reply.message_number,
+        }),
+        503,
+        PROBLEMS.hubOrgUnavailable,
+      );
+    } finally {
+      setOrgHome(orgDid, provider.tenant);
+    }
+
+    // A delete key stays bound to the message it first deleted, and its
+    // repeat returns the same stub.
+    const deleteKey = orgsIdempotencyKey();
+    const deleted = await applicant.hub.deleteMessage(
+      applicant.token,
+      { agency_domain, message_number: reply.message_number },
+      deleteKey,
+    );
+    expect(deleted.status(), await deleted.text()).toBe(200);
+    const stub = (await deleted.json()) as ConversationMessage;
+    const repeated = await applicant.hub.deleteMessage(
+      applicant.token,
+      { agency_domain, message_number: reply.message_number },
+      deleteKey,
+    );
+    expect(repeated.status(), await repeated.text()).toBe(200);
+    expect(await repeated.json()).toEqual(stub);
+    expect(
+      hubAuditEventsByIdempotencyKey(deleteKey).map((event) => event.action),
+    ).toEqual([
+      "federation.operation.created",
+      "hub.agency-conversation.message-deleted",
+    ]);
+    await expectProblem(
+      await applicant.hub.deleteMessage(
+        applicant.token,
+        { agency_domain, message_number: 1 },
+        deleteKey,
+      ),
+      409,
+      `${BASE}idempotency-key-conflict`,
+    );
+  });
+});
+
+test("MKT-HUB-001: the Hub counts conversations awaiting the person: requests to answer and unread agency messages", async ({
+  request,
+}) => {
+  await withAgency(request, async (agency) => {
+    const { provider } = agency.pair;
+    const [opening] = agency.openings;
+    const applicant = agency.person("sgp");
+    const count = async () => {
+      const res = await applicant.hub.countAwaitingConversations(
+        applicant.token,
+      );
+      expect(res.status(), await res.text()).toBe(200);
+      expect(res.headers()["cache-control"]).toBe("no-store");
+      return ((await res.json()) as AwaitingConversationCount).count;
+    };
+    const awaiting = (expected: number) =>
+      expect.poll(count, { timeout: 15_000 }).toBe(expected);
+    await awaiting(0);
+
+    // A pending request from the agency awaits an answer.
+    const sent = await agency.send({ address: applicant.handle }, opening);
+    expect(sent.status(), await sent.text()).toBe(200);
+    const pending = await awaitHubRequest(
+      applicant,
+      "to_hub_user",
+      (item) => item.agency_domain === provider.org.domain,
+    );
+    await awaiting(1);
+
+    // Answered and read, nothing awaits.
+    const accepted = await applicant.hub.acceptChatRequest(applicant.token, {
+      agency_domain: provider.org.domain,
+      request_number: pending.request_number,
+    });
+    expect(accepted.status(), await accepted.text()).toBe(200);
+    const read = async () => {
+      const marked = await applicant.hub.markConversationRead(applicant.token, {
+        agency_domain: provider.org.domain,
+      });
+      expect(marked.status(), await marked.text()).toBe(200);
+    };
+    await read();
+    await awaiting(0);
+
+    // Two unread agency messages count once, for their conversation.
+    for (const text of ["A first update.", "A second update."]) {
+      const written = await provider.api.sendMessage(provider.owner, {
+        handle: applicant.handle,
+        text,
+      });
+      expect(written.status(), await written.text()).toBe(200);
+    }
+    await expect
+      .poll(
+        async () => {
+          const listed = await applicant.hub.listConversations(applicant.token);
+          if (listed.status() !== 200) return -1;
+          return ((await listed.json()) as ListConversationsResponse).items[0]
+            ?.unread_count;
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(2);
+    expect(await count()).toBe(1);
+
+    // Reading clears it, and the person's own reply never awaits them.
+    await read();
+    expect(await count()).toBe(0);
+    const replied = await applicant.hub.replyToConversation(applicant.token, {
+      agency_domain: provider.org.domain,
+      text: "Thanks!",
+    });
+    expect(replied.status(), await replied.text()).toBe(200);
+    expect(await count()).toBe(0);
   });
 });

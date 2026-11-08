@@ -5,6 +5,7 @@ import type {
 } from "typespec/orgs/applications/applications";
 import type { CheckType } from "typespec/orgs/hiring/vocabulary";
 import type { Capability } from "typespec/orgs/marketplace/capabilities";
+import type { ContactStatus } from "typespec/orgs/marketplace/contacts/contacts";
 import type { EngagementState } from "typespec/orgs/marketplace/engagements";
 import type { ListingState } from "typespec/orgs/marketplace/listings";
 import type { BillableFactKind } from "typespec/orgs/marketplace/statements";
@@ -136,4 +137,21 @@ export const hubStatusColors: Record<string, string> = {
 
 export function hubStatusLabel(t: TFunction, status: string): string {
   return t(`marketplace.hubStatuses.${status}`, { defaultValue: status });
+}
+
+export const contactStatusColors: Record<ContactStatus, string> = {
+  request_received: "gold",
+  request_sent: "processing",
+  in_conversation: "success",
+  request_declined: "error",
+  request_expired: "default",
+  conversation_closed: "default",
+  no_conversation: "default",
+};
+
+export function contactStatusLabel(
+  t: TFunction,
+  status: ContactStatus,
+): string {
+  return t(`marketplace.contacts.statuses.${status}`);
 }

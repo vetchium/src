@@ -243,7 +243,7 @@ export function App() {
             }
           />
           <Route
-            path="messages/:contactId"
+            path="messages/o/:domain"
             element={
               <Page>
                 <MessagesPage />

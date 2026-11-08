@@ -439,7 +439,7 @@ function ChatRequestsCard() {
       renderItem={(request) => (
         <List.Item.Meta
           title={
-            <Link to={paths.contactDetail(request.contact_id)}>
+            <Link to={paths.contactDetail(request.hub_user_handle)}>
               {request.hub_user_name}
             </Link>
           }

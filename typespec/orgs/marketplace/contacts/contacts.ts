@@ -10,6 +10,7 @@ import type {
 } from "../../../hub/profile/public.ts";
 import { isProfileAddress } from "../../../hub/profile/public.ts";
 import type { HubHandle } from "../../../hub/types.ts";
+import { isHubHandle } from "../../../hub/types.ts";
 import type { OpeningNumber } from "../../openings/types.ts";
 import type { OrgDomain } from "../../types.ts";
 import { isOrgDomain } from "../../types.ts";
@@ -29,11 +30,12 @@ export const maxMessageLength = 5000;
 /** Bounds one page of Contacts or notes. */
 export const maxPage = 100;
 
-/** Names one Contact of an agency; never reused. */
-export type ContactID = string;
-export type ContactNoteID = string;
-export type ConversationID = string;
-export type MessageID = string;
+/** Numbers the notes of one Contact from 1; never reused while it exists. */
+export type NoteNumber = number;
+/** Numbers the messages of one conversation from 1. */
+export type MessageNumber = number;
+/** Numbers the chat requests of one Contact from 1. */
+export type ChatRequestNumber = number;
 export type NoteText = string;
 export type MessageText = string;
 
@@ -55,28 +57,38 @@ export const contactFilters = [
   "requests",
   "unread",
   "has_conversation",
-  "not_contacted",
 ] as const;
 export type ContactFilter = (typeof contactFilters)[number];
 
-const uuidPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/**
+ * Where the agency stands with a Contact, in precedence order: the first
+ * that holds is the Contact's (MKT-UI-007).
+ */
+export const contactStatuses = [
+  "request_received",
+  "request_sent",
+  "in_conversation",
+  "request_declined",
+  "request_expired",
+  "conversation_closed",
+  "no_conversation",
+] as const;
+export type ContactStatus = (typeof contactStatuses)[number];
 
-/** Accepts the lowercase form the API returns. */
-export function isContactID(value: string): boolean {
-  return uuidPattern.test(value);
+function isPositiveNumber(value: number): boolean {
+  return Number.isInteger(value) && value >= 1 && value <= 2147483647;
 }
 
-export function isContactNoteID(value: string): boolean {
-  return uuidPattern.test(value);
+export function isNoteNumber(value: number): boolean {
+  return isPositiveNumber(value);
 }
 
-export function isConversationID(value: string): boolean {
-  return uuidPattern.test(value);
+export function isMessageNumber(value: number): boolean {
+  return isPositiveNumber(value);
 }
 
-export function isMessageID(value: string): boolean {
-  return uuidPattern.test(value);
+export function isChatRequestNumber(value: number): boolean {
+  return isPositiveNumber(value);
 }
 
 export function normalizeNoteText(value: NoteText): NoteText {
@@ -111,14 +123,8 @@ export function isOpeningSuggestion(value: OpeningSuggestion): boolean {
   );
 }
 
-/** Names one chat request; never reused. */
-export type ChatRequestID = string;
 /** Plain text of 1–1,000 code points once trimmed. */
 export type ChatRequestNote = string;
-
-export function isChatRequestID(value: string): boolean {
-  return uuidPattern.test(value);
-}
 
 export function normalizeChatRequestNote(
   value: ChatRequestNote,
@@ -149,14 +155,14 @@ export type ChatRequestDeclineScope = (typeof chatRequestDeclineScopes)[number];
 
 /** A chat request as the agency sees it. */
 export interface ChatRequest {
-  request_id: ChatRequestID;
-  contact_id: ContactID;
+  request_number: ChatRequestNumber;
   direction: ChatRequestDirection;
   state: ChatRequestState;
   opening: OpeningSuggestion;
   /** Present only while the request is pending. */
   note?: ChatRequestNote;
   hub_user_name: DisplayName;
+  /** Names the Contact the request belongs to. */
   hub_user_handle: HubHandle;
   /** The sending agency user's email address; absent for a Hub request. */
   sent_by?: EmailAddress;
@@ -170,10 +176,13 @@ export interface ChatRequest {
 }
 
 export interface ConversationMessage {
-  message_id: MessageID;
+  message_number: MessageNumber;
   sender_type: MessageSenderType;
   sender_display_name: string;
   kind: MessageKind;
+  /** Its sender deleted it; only this stub remains. */
+  deleted: boolean;
+  /** Absent once the message is deleted. */
   text?: MessageText;
   /** The Opening of a `suggestion` or `request` message. */
   suggestion?: OpeningSuggestion;
@@ -183,8 +192,6 @@ export interface ConversationMessage {
 }
 
 export interface ConversationSummary {
-  conversation_id: ConversationID;
-  contact_id: ContactID;
   recorded_hub_user_name: string;
   recorded_hub_user_handle: HubHandle;
   recorded_agency_name: string;
@@ -215,17 +222,16 @@ export interface VerifiedDomain {
 }
 
 export interface ContactSummary {
-  contact_id: ContactID;
   display_name: DisplayName;
+  /** Names the Contact; permanent and unique across Vetchium. */
   handle: HubHandle;
+  status: ContactStatus;
   /** The person does not accept chat requests from agencies. */
   requests_off: boolean;
   /** The person's account no longer exists; only the conversation remains. */
   account_deleted: boolean;
   note_count: number;
   has_conversation: boolean;
-  /** The direction of a pending chat request between the two, if any. */
-  pending_request_direction?: ChatRequestDirection;
   unread_messages_count: number;
   credited_count: number;
   last_activity_at: string;
@@ -238,16 +244,13 @@ export interface ContactOpeningSuggestion {
 }
 
 export interface Contact extends ContactSummary {
-  /** Absent when a Hub user's chat request created the Contact. */
-  created_by?: EmailAddress;
   suggested_openings: ContactOpeningSuggestion[];
   /** The latest chat request between the two, in any state. */
   latest_request?: ChatRequest;
-  created_at: string;
 }
 
 export interface ContactNote {
-  note_id: ContactNoteID;
+  note_number: NoteNumber;
   author: EmailAddress;
   /** The caller wrote it, so the caller may edit it. */
   mine: boolean;
@@ -338,7 +341,6 @@ export interface ContactCounts {
   requests: number;
   unread: number;
   has_conversation: number;
-  not_contacted: number;
 }
 
 export interface ListContactsResponse {
@@ -349,15 +351,15 @@ export interface ListContactsResponse {
 }
 
 export interface ContactReference {
-  contact_id: ContactID;
+  handle: HubHandle;
 }
 
 export function validateContactReference(request: ContactReference): string[] {
-  return isContactID(request.contact_id) ? [] : ["contact_id"];
+  return isHubHandle(request.handle) ? [] : ["handle"];
 }
 
 export interface ListContactNotesRequest {
-  contact_id: ContactID;
+  handle: HubHandle;
   pagination_key?: PaginationKey;
   /** Defaults to 50. */
   limit?: number;
@@ -393,7 +395,7 @@ export function validateAddPersonNoteRequest(
 }
 
 export interface AddContactNoteRequest {
-  contact_id: ContactID;
+  handle: HubHandle;
   text: NoteText;
 }
 
@@ -412,8 +414,8 @@ export interface AddedNote {
 }
 
 export interface EditContactNoteRequest {
-  contact_id: ContactID;
-  note_id: ContactNoteID;
+  handle: HubHandle;
+  note_number: NoteNumber;
   text: NoteText;
 }
 
@@ -421,36 +423,17 @@ export function validateEditContactNoteRequest(
   request: EditContactNoteRequest,
 ): string[] {
   const fields = validateContactReference(request);
-  if (!isContactNoteID(request.note_id)) fields.push("note_id");
+  if (!isNoteNumber(request.note_number)) fields.push("note_number");
   if (!isNoteText(request.text)) fields.push("text");
   return fields;
 }
 
-export interface DeleteContactNoteRequest {
-  contact_id: ContactID;
-  note_id: ContactNoteID;
-}
-
-export function validateDeleteContactNoteRequest(
-  request: DeleteContactNoteRequest,
-): string[] {
-  const fields = validateContactReference(request);
-  if (!isContactNoteID(request.note_id)) fields.push("note_id");
-  return fields;
-}
-
-export interface DeletedNote {
-  /** The note was the Contact's last, and the Contact went with it. */
-  contact_deleted: boolean;
-}
-
 /**
- * Asks a person, by handle or alias or by the agency's Contact, to open the
- * conversation about an Opening. Exactly one of `address` and `contact_id`.
+ * Asks a person, by handle or alias, to open the conversation about an
+ * Opening the agency is assigned to.
  */
 export interface SendChatRequestRequest {
-  address?: ProfileAddress;
-  contact_id?: ContactID;
+  address: ProfileAddress;
   suggestion: OpeningSuggestion;
   note?: ChatRequestNote;
 }
@@ -460,7 +443,7 @@ export function normalizeSendChatRequestRequest(
 ): SendChatRequestRequest {
   return {
     ...request,
-    ...(request.address !== undefined && { address: request.address.trim() }),
+    address: request.address.trim(),
     ...(request.note !== undefined && {
       note: normalizeChatRequestNote(request.note),
     }),
@@ -471,19 +454,7 @@ export function validateSendChatRequestRequest(
   request: SendChatRequestRequest,
 ): string[] {
   const fields: string[] = [];
-  if ((request.address === undefined) === (request.contact_id === undefined)) {
-    fields.push("address", "contact_id");
-  } else if (
-    request.address !== undefined &&
-    !isProfileAddress(request.address)
-  ) {
-    fields.push("address");
-  } else if (
-    request.contact_id !== undefined &&
-    !isContactID(request.contact_id)
-  ) {
-    fields.push("contact_id");
-  }
+  if (!isProfileAddress(request.address)) fields.push("address");
   if (!isOpeningSuggestion(request.suggestion)) fields.push("suggestion");
   if (request.note !== undefined && !isChatRequestNote(request.note))
     fields.push("note");
@@ -518,17 +489,22 @@ export interface PendingChatRequestCount {
 }
 
 export interface AcceptChatRequestRequest {
-  request_id: ChatRequestID;
+  handle: HubHandle;
+  request_number: ChatRequestNumber;
 }
 
 export function validateAcceptChatRequestRequest(
   request: AcceptChatRequestRequest,
 ): string[] {
-  return isChatRequestID(request.request_id) ? [] : ["request_id"];
+  const fields = validateContactReference(request);
+  if (!isChatRequestNumber(request.request_number))
+    fields.push("request_number");
+  return fields;
 }
 
 export interface DeclineChatRequestRequest {
-  request_id: ChatRequestID;
+  handle: HubHandle;
+  request_number: ChatRequestNumber;
   scope: ChatRequestDeclineScope;
 }
 
@@ -541,7 +517,7 @@ export function validateDeclineChatRequestRequest(
 }
 
 export interface SendMessageRequest {
-  contact_id: ContactID;
+  handle: HubHandle;
   text?: MessageText;
   suggestion?: OpeningSuggestion;
 }
@@ -568,8 +544,22 @@ export function validateSendMessageRequest(
   return fields;
 }
 
+/** Deletes one of the agency's own text messages. */
+export interface DeleteMessageRequest {
+  handle: HubHandle;
+  message_number: MessageNumber;
+}
+
+export function validateDeleteMessageRequest(
+  request: DeleteMessageRequest,
+): string[] {
+  const fields = validateContactReference(request);
+  if (!isMessageNumber(request.message_number)) fields.push("message_number");
+  return fields;
+}
+
 export interface GetConversationRequest {
-  contact_id: ContactID;
+  handle: HubHandle;
   pagination_key?: PaginationKey;
   /** Defaults to 50. */
   limit?: number;
@@ -579,13 +569,13 @@ export function validateGetConversationRequest(
   request: GetConversationRequest,
 ): string[] {
   return [
-    ...validatePage(request.pagination_key, request.limit),
     ...validateContactReference(request),
+    ...validatePage(request.pagination_key, request.limit),
   ];
 }
 
 export interface MarkConversationReadRequest {
-  contact_id: ContactID;
+  handle: HubHandle;
 }
 
 export function validateMarkConversationReadRequest(

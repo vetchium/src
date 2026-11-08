@@ -2,6 +2,7 @@ package federation
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -444,13 +445,19 @@ func mergeFields(first, second []string) []string {
 const AgencyPointerChangedKind EventKind = "agency-pointer-changed"
 
 // AgencyPointerAggregate versions agency-pointer-changed events by the
-// Contact's pointer version. Its aggregate id is the Contact id.
+// Contact's pointer version. Its aggregate id is ContactAggregateID.
 const AgencyPointerAggregate AggregateType = "agency_pointer"
 
+// ContactAggregateID names the pair of an agency and a Hub user, which a
+// Contact, its conversation, and the Hub user's pointer share:
+// `<agency_org_did>:<hub_user_did>`.
+func ContactAggregateID(agency orgs.OrgDID, hubUser hub.HubUserDID) string {
+	return string(agency) + ":" + string(hubUser)
+}
+
 type AgencyPointerChangedPayload struct {
-	ContactID    contacts.ContactID `json:"contact_id"`
-	AgencyOrgDID orgs.OrgDID        `json:"agency_org_did"`
-	HubUserDID   hub.HubUserDID     `json:"hub_user_did"`
+	AgencyOrgDID orgs.OrgDID    `json:"agency_org_did"`
+	HubUserDID   hub.HubUserDID `json:"hub_user_did"`
 	// Present is false when the Contact is gone.
 	Present           bool                                 `json:"present"`
 	HasConversation   bool                                 `json:"has_conversation,omitempty"`
@@ -475,7 +482,7 @@ type AgencyPointerChangedPayload struct {
 // AgencyPointerRequest is a chat request as the Hub user's pointer keeps it
 // (MKT-DAT-003).
 type AgencyPointerRequest struct {
-	RequestID      contacts.ChatRequestID            `json:"request_id"`
+	RequestNumber  contacts.ChatRequestNumber        `json:"request_number"`
 	Direction      contacts.ChatRequestDirection     `json:"direction"`
 	State          contacts.ChatRequestState         `json:"state"`
 	ConsumerDomain orgs.OrgDomain                    `json:"consumer_domain"`
@@ -488,8 +495,8 @@ type AgencyPointerRequest struct {
 
 func (r AgencyPointerRequest) Validate() []string {
 	fields := []string{}
-	if !contacts.IsChatRequestID(r.RequestID) {
-		fields = append(fields, "request.request_id")
+	if r.RequestNumber < 1 {
+		fields = append(fields, "request.request_number")
 	}
 	if !contacts.IsChatRequestDirection(r.Direction) {
 		fields = append(fields, "request.direction")
@@ -527,9 +534,6 @@ type AgencyPointerSuggestion struct {
 
 func (p AgencyPointerChangedPayload) Validate() []string {
 	fields := []string{}
-	if !contacts.IsContactID(p.ContactID) {
-		fields = append(fields, "contact_id")
-	}
 	if !orgs.IsOrgDID(p.AgencyOrgDID) {
 		fields = append(fields, "agency_org_did")
 	}
@@ -543,9 +547,8 @@ func (p AgencyPointerChangedPayload) Validate() []string {
 }
 
 // Chat request commands go from the Hub user's tenant to the agency's
-// tenant, which is authoritative for requests (MKT-DAT-005). A request's
-// aggregate id is the agency Org DID, so a repeat replays the request it
-// first minted; an answer's is the request id.
+// tenant, which is authoritative for requests and numbers them
+// (MKT-DAT-005). Their aggregate id is ContactAggregateID.
 const (
 	HubChatRequestKind       CommandKind = "hub-chat-request"
 	HubChatRequestAnswerKind CommandKind = "hub-chat-request-answer"
@@ -553,9 +556,8 @@ const (
 
 // HubChatRequestPayload is the payload of hub-chat-request: a Hub user asks
 // an agency assigned to a published Opening to open the conversation
-// (MKT-DAT-014). The Hub tenant mints RequestID.
+// (MKT-DAT-014).
 type HubChatRequestPayload struct {
-	RequestID          contacts.ChatRequestID    `json:"request_id"`
 	AgencyOrgDID       orgs.OrgDID               `json:"agency_org_did"`
 	HubUserDID         hub.HubUserDID            `json:"hub_user_did"`
 	HubUserDisplayName common.DisplayName        `json:"hub_user_display_name"`
@@ -565,13 +567,13 @@ type HubChatRequestPayload struct {
 	Note               *contacts.ChatRequestNote `json:"note,omitempty"`
 	// WindowSeconds is the Hub tenant's conversation window (MKT-REQ-004).
 	WindowSeconds int64 `json:"window_seconds"`
+	// RequestsOff is the Hub user's "Agencies may send me chat requests"
+	// off, which a Contact the request creates starts with.
+	RequestsOff bool `json:"requests_off"`
 }
 
 func (p HubChatRequestPayload) Validate() []string {
 	fields := []string{}
-	if !contacts.IsChatRequestID(p.RequestID) {
-		fields = append(fields, "request_id")
-	}
 	if !orgs.IsOrgDID(p.AgencyOrgDID) {
 		fields = append(fields, "agency_org_did")
 	}
@@ -593,16 +595,11 @@ func (p HubChatRequestPayload) Validate() []string {
 
 // HubChatRequestResult is the stored 200 result of hub-chat-request.
 type HubChatRequestResult struct {
-	ContactID contacts.ContactID   `json:"contact_id"`
-	Request   AgencyPointerRequest `json:"request"`
+	Request AgencyPointerRequest `json:"request"`
 }
 
 func (r HubChatRequestResult) Validate() []string {
-	fields := []string{}
-	if !contacts.IsContactID(r.ContactID) {
-		fields = append(fields, "contact_id")
-	}
-	fields = append(fields, r.Request.Validate()...)
+	fields := r.Request.Validate()
 	if r.Request.Direction != contacts.ToAgency {
 		fields = append(fields, "request.direction")
 	}
@@ -613,8 +610,8 @@ func (r HubChatRequestResult) Validate() []string {
 // Hub user accepts or declines an agency's request. Scope is set exactly when
 // declining.
 type HubChatRequestAnswerPayload struct {
-	RequestID          contacts.ChatRequestID            `json:"request_id"`
-	ContactID          contacts.ContactID                `json:"contact_id"`
+	AgencyOrgDID       orgs.OrgDID                       `json:"agency_org_did"`
+	RequestNumber      contacts.ChatRequestNumber        `json:"request_number"`
 	HubUserDID         hub.HubUserDID                    `json:"hub_user_did"`
 	HubUserDisplayName common.DisplayName                `json:"hub_user_display_name"`
 	HubUserHandle      hub.HubHandle                     `json:"hub_user_handle"`
@@ -625,11 +622,11 @@ type HubChatRequestAnswerPayload struct {
 
 func (p HubChatRequestAnswerPayload) Validate() []string {
 	fields := []string{}
-	if !contacts.IsChatRequestID(p.RequestID) {
-		fields = append(fields, "request_id")
+	if !orgs.IsOrgDID(p.AgencyOrgDID) {
+		fields = append(fields, "agency_org_did")
 	}
-	if !contacts.IsContactID(p.ContactID) {
-		fields = append(fields, "contact_id")
+	if p.RequestNumber < 1 {
+		fields = append(fields, "request_number")
 	}
 	fields = append(fields, hubUserFields(p.HubUserDID, p.HubUserDisplayName, p.HubUserHandle)...)
 	if p.Accept == (p.Scope != nil) ||
@@ -656,14 +653,16 @@ func hubUserFields(did hub.HubUserDID, name common.DisplayName, handle hub.HubHa
 	return fields
 }
 
+// Conversation commands go from the Hub user's tenant to the agency's
+// tenant. Their aggregate id is ContactAggregateID.
 const (
-	HubConversationReplyKind  CommandKind = "hub-conversation-reply"
-	HubConversationDeleteKind CommandKind = "hub-conversation-delete"
+	HubConversationReplyKind         CommandKind = "hub-conversation-reply"
+	HubConversationMessageDeleteKind CommandKind = "hub-conversation-message-delete"
 )
 
 type HubConversationReplyPayload struct {
-	ContactID  contacts.ContactID `json:"contact_id"`
-	HubUserDID hub.HubUserDID     `json:"hub_user_did"`
+	AgencyOrgDID orgs.OrgDID    `json:"agency_org_did"`
+	HubUserDID   hub.HubUserDID `json:"hub_user_did"`
 	// HubUserDisplayName and HubUserHandle are the Hub user's name and handle
 	// now, which the agency records (MKT-CNV-001).
 	HubUserDisplayName common.DisplayName   `json:"hub_user_display_name"`
@@ -675,8 +674,8 @@ type HubConversationReplyPayload struct {
 
 func (p HubConversationReplyPayload) Validate() []string {
 	fields := []string{}
-	if !contacts.IsContactID(p.ContactID) {
-		fields = append(fields, "contact_id")
+	if !orgs.IsOrgDID(p.AgencyOrgDID) {
+		fields = append(fields, "agency_org_did")
 	}
 	if !hub.IsHubUserDID(p.HubUserDID) {
 		fields = append(fields, "hub_user_did")
@@ -696,28 +695,76 @@ func (p HubConversationReplyPayload) Validate() []string {
 	return fields
 }
 
-type HubConversationDeletePayload struct {
-	ContactID  contacts.ContactID `json:"contact_id"`
-	HubUserDID hub.HubUserDID     `json:"hub_user_did"`
+// HubConversationMessageDeletePayload is the payload of
+// hub-conversation-message-delete: the Hub user deletes the text of one of
+// their own text messages (MKT-CNV-007). It never carries the text, which
+// only the Hub user's tenant records. The stored 200 result is the stub.
+type HubConversationMessageDeletePayload struct {
+	AgencyOrgDID  orgs.OrgDID            `json:"agency_org_did"`
+	HubUserDID    hub.HubUserDID         `json:"hub_user_did"`
+	MessageNumber contacts.MessageNumber `json:"message_number"`
 }
 
-func (p HubConversationDeletePayload) Validate() []string {
+func (p HubConversationMessageDeletePayload) Validate() []string {
 	fields := []string{}
-	if !contacts.IsContactID(p.ContactID) {
-		fields = append(fields, "contact_id")
+	if !orgs.IsOrgDID(p.AgencyOrgDID) {
+		fields = append(fields, "agency_org_did")
 	}
 	if !hub.IsHubUserDID(p.HubUserDID) {
 		fields = append(fields, "hub_user_did")
 	}
+	if p.MessageNumber < 1 {
+		fields = append(fields, "message_number")
+	}
 	return fields
 }
 
+// AgencyMessageDeletedKind is the event the agency's tenant enqueues for the
+// Hub user's home tenant when an agency user deletes one of the agency's text
+// messages (MKT-CNV-007). It never carries the text.
+const AgencyMessageDeletedKind EventKind = "agency-message-deleted"
+
+// AgencyMessageAggregate versions agency-message-deleted events; a message
+// is deleted once, so the version is always 1. Its aggregate id is
+// `<agency_org_did>:<hub_user_did>:<message_number>`.
+const AgencyMessageAggregate AggregateType = "agency_message"
+
+func AgencyMessageAggregateID(agency orgs.OrgDID, hubUser hub.HubUserDID, number contacts.MessageNumber) string {
+	return ContactAggregateID(agency, hubUser) + ":" + strconv.Itoa(int(number))
+}
+
+type AgencyMessageDeletedPayload struct {
+	AgencyOrgDID  orgs.OrgDID            `json:"agency_org_did"`
+	HubUserDID    hub.HubUserDID         `json:"hub_user_did"`
+	AgencyDomain  orgs.OrgDomain         `json:"agency_domain"`
+	MessageNumber contacts.MessageNumber `json:"message_number"`
+}
+
+func (p AgencyMessageDeletedPayload) Validate() []string {
+	fields := []string{}
+	if !orgs.IsOrgDID(p.AgencyOrgDID) {
+		fields = append(fields, "agency_org_did")
+	}
+	if !hub.IsHubUserDID(p.HubUserDID) {
+		fields = append(fields, "hub_user_did")
+	}
+	if !orgs.IsOrgDomain(p.AgencyDomain) {
+		fields = append(fields, "agency_domain")
+	}
+	if p.MessageNumber < 1 {
+		fields = append(fields, "message_number")
+	}
+	return fields
+}
+
+// MeshReadConversationRequest reads one page of the conversation, or with
+// MessageNumber only that message.
 type MeshReadConversationRequest struct {
-	ContactID     contacts.ContactID    `json:"contact_id"`
-	HubUserDID    hub.HubUserDID        `json:"hub_user_did"`
-	AgencyOrgDID  orgs.OrgDID           `json:"agency_org_did"`
-	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
-	Limit         *int32                `json:"limit,omitempty"`
+	HubUserDID    hub.HubUserDID          `json:"hub_user_did"`
+	AgencyOrgDID  orgs.OrgDID             `json:"agency_org_did"`
+	MessageNumber *contacts.MessageNumber `json:"message_number,omitempty"`
+	PaginationKey *common.PaginationKey   `json:"pagination_key,omitempty"`
+	Limit         *int32                  `json:"limit,omitempty"`
 }
 
 func (r *MeshReadConversationRequest) Normalize() {}
@@ -737,14 +784,14 @@ func (r MeshReadConversationRequest) Validate() []string {
 	if r.Limit != nil && (*r.Limit < 1 || *r.Limit > contacts.MaxPage) {
 		fields = append(fields, "limit")
 	}
-	if !contacts.IsContactID(r.ContactID) {
-		fields = append(fields, "contact_id")
-	}
 	if !hub.IsHubUserDID(r.HubUserDID) {
 		fields = append(fields, "hub_user_did")
 	}
 	if !orgs.IsOrgDID(r.AgencyOrgDID) {
 		fields = append(fields, "agency_org_did")
+	}
+	if r.MessageNumber != nil && *r.MessageNumber < 1 {
+		fields = append(fields, "message_number")
 	}
 	return fields
 }
@@ -791,20 +838,20 @@ func (p HubAccountDeletedPayload) Validate() []string {
 const HubAgencyRequestsChangedKind EventKind = "hub-agency-requests-changed"
 
 // AgencyContactRequestsAggregate versions hub-agency-requests-changed events
-// by the setting's version. Its aggregate id is the Contact id, so a Contact
-// created after an older one for the same person still receives the state.
+// by the setting's version. Its aggregate id is ContactAggregateID; a Contact
+// created again for the pair starts with the state its creation read.
 const AgencyContactRequestsAggregate AggregateType = "agency_contact_requests"
 
 type HubAgencyRequestsChangedPayload struct {
-	ContactID   contacts.ContactID `json:"contact_id"`
-	HubUserDID  hub.HubUserDID     `json:"hub_user_did"`
-	RequestsOff bool               `json:"requests_off"`
+	AgencyOrgDID orgs.OrgDID    `json:"agency_org_did"`
+	HubUserDID   hub.HubUserDID `json:"hub_user_did"`
+	RequestsOff  bool           `json:"requests_off"`
 }
 
 func (p HubAgencyRequestsChangedPayload) Validate() []string {
 	fields := []string{}
-	if !contacts.IsContactID(p.ContactID) {
-		fields = append(fields, "contact_id")
+	if !orgs.IsOrgDID(p.AgencyOrgDID) {
+		fields = append(fields, "agency_org_did")
 	}
 	if !hub.IsHubUserDID(p.HubUserDID) {
 		fields = append(fields, "hub_user_did")

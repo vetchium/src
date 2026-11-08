@@ -21,7 +21,7 @@ import { usePreferences } from "../../app/PreferencesContext";
 import { localeConfiguration } from "../../app/preferences";
 import { useAuth } from "../../auth/AuthContext";
 import { useMyApplicationCountsQuery } from "../../features/applications/queries";
-import { useConversationsQuery } from "../../features/messages/queries";
+import { useAwaitingConversationCountQuery } from "../../features/messages/queries";
 import {
   type MyInfoQueryData,
   myInfoQueryKey,
@@ -53,10 +53,11 @@ export function AppShell() {
   // or when there is none, the avatar shows the display name's initial.
   const ownProfile = usePublicProfileQuery(me?.handle ?? "", me !== undefined);
   const applicationCounts = useMyApplicationCountsQuery();
-  const conversations = useConversationsQuery(auth.authenticated);
+  const awaitingConversations = useAwaitingConversationCountQuery(
+    auth.authenticated,
+  );
   const answerNeeded = applicationCounts.data?.awaiting_answer ?? 0;
-  const unreadMessages =
-    conversations.data?.items.filter((c) => c.unread).length ?? 0;
+  const messagesAwaiting = awaitingConversations.data?.count ?? 0;
   const languageMutation = useMutation({
     mutationFn: (preferred_language: FrontendLocale) =>
       hubAPI.setPreferredLanguage({ preferred_language }),
@@ -110,9 +111,9 @@ export function AppShell() {
         <Space>
           {t("navigation.messages")}
           <Badge
-            count={unreadMessages}
-            title={t("navigation.messagesUnread", {
-              count: unreadMessages,
+            count={messagesAwaiting}
+            title={t("navigation.messagesAwaiting", {
+              count: messagesAwaiting,
             })}
           />
         </Space>

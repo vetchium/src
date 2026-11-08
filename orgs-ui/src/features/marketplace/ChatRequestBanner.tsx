@@ -49,7 +49,10 @@ function IncomingRequest({ request }: { request: ChatRequest }) {
   const handleAccept = async () => {
     try {
       await accept.mutateAsync({
-        request: { request_id: request.request_id },
+        request: {
+          handle: request.hub_user_handle,
+          request_number: request.request_number,
+        },
         key: acceptKey.current(),
       });
       acceptKey.rotate();
@@ -65,7 +68,11 @@ function IncomingRequest({ request }: { request: ChatRequest }) {
   const handleDecline = async (scope: ChatRequestDeclineScope) => {
     try {
       await decline.mutateAsync({
-        request: { request_id: request.request_id, scope },
+        request: {
+          handle: request.hub_user_handle,
+          request_number: request.request_number,
+          scope,
+        },
         key: declineKey.current(),
       });
       declineKey.rotate();
@@ -190,14 +197,24 @@ function SentRequest({ request }: { request: ChatRequest }) {
   );
 }
 
-/** The Contact's latest chat request, above the conversation. */
+/** The Contact's latest chat request while it is what the agency stands on
+ * with the person (MKT-UI-007): an answered request older than the
+ * conversation's latest activity says nothing current. */
 export function ChatRequestBanner({ contact }: { contact: Contact }) {
   const request = contact.latest_request;
   if (request === undefined) return null;
-  if (request.direction === "to_agency") {
-    return request.state === "pending" ? (
-      <IncomingRequest request={request} />
-    ) : null;
+  switch (contact.status) {
+    case "request_received":
+      return request.direction === "to_agency" ? (
+        <IncomingRequest request={request} />
+      ) : null;
+    case "request_sent":
+    case "request_declined":
+    case "request_expired":
+      return request.direction === "to_hub_user" ? (
+        <SentRequest request={request} />
+      ) : null;
+    default:
+      return null;
   }
-  return <SentRequest request={request} />;
 }

@@ -30,7 +30,8 @@ func (w *Worker) retainOrgContacts(ctx context.Context) error {
 			return fmt.Errorf("list contacts due for retention: %w", err)
 		}
 		for _, id := range ids {
-			done, err := retainContact(ctx, w.contactRetentionDB, w.tenantID, id)
+			done, err := retainContact(ctx, w.contactRetentionDB, w.tenantID,
+				pair{id.OrgDid, id.HubUserDid})
 			if err != nil {
 				return fmt.Errorf("retain contact: %w", err)
 			}
@@ -52,24 +53,24 @@ func (w *Worker) retainOrgContacts(ctx context.Context) error {
 	// (MKT-CNV-011).
 	cutoff := time.Now().UTC().Add(-w.deletedPartyConversationRetention)
 	convsRemoved := 0
-	for _, list := range []func() ([]pgtype.UUID, error){
-		func() ([]pgtype.UUID, error) {
+	for _, list := range []func() ([]pair, error){
+		func() ([]pair, error) {
 			rows, err := w.queries.ListOrgConversationsDueForRetention(ctx, contactRetentionBatchSize)
-			ids := make([]pgtype.UUID, len(rows))
+			ids := make([]pair, len(rows))
 			for index, row := range rows {
-				ids[index] = row.ConversationID
+				ids[index] = pair{row.OrgDid, row.HubUserDid}
 			}
 			return ids, err
 		},
-		func() ([]pgtype.UUID, error) {
+		func() ([]pair, error) {
 			rows, err := w.queries.ListDeletedPartyConversationsDueForRetention(ctx,
 				sqlc.ListDeletedPartyConversationsDueForRetentionParams{
 					CutoffPartyDeletedAt: pgtype.Timestamptz{Time: cutoff, Valid: true},
 					BatchSize:            contactRetentionBatchSize,
 				})
-			ids := make([]pgtype.UUID, len(rows))
+			ids := make([]pair, len(rows))
 			for index, row := range rows {
-				ids[index] = row.ConversationID
+				ids[index] = pair{row.OrgDid, row.HubUserDid}
 			}
 			return ids, err
 		},
@@ -115,11 +116,17 @@ func (w *Worker) retainOrgContacts(ctx context.Context) error {
 	return nil
 }
 
+// pair is an agency and a Hub user: the key of a Contact and of their
+// conversation.
+type pair struct {
+	orgDID, hubDID pgtype.UUID
+}
+
 // retainContact deletes one Contact with its notes once its retention period
 // has passed, enqueuing its pointer removal to the Hub tenant in the same
 // transaction.
 func retainContact(
-	ctx context.Context, db *pgxpool.Pool, tenantID string, id pgtype.UUID,
+	ctx context.Context, db *pgxpool.Pool, tenantID string, id pair,
 ) (bool, error) {
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -128,7 +135,7 @@ func retainContact(
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := sqlc.New(tx)
 	row, err := q.RetainOrgContact(ctx, sqlc.RetainOrgContactParams{
-		ContactID: id, TenantID: tenantID,
+		OrgDid: id.orgDID, HubUserDid: id.hubDID, TenantID: tenantID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
@@ -139,8 +146,8 @@ func retainContact(
 	if row.AuditRows != 1 {
 		return false, fmt.Errorf("incomplete contact retention")
 	}
-	if err := agencycontacts.RemovePointer(ctx, q, row.OrgDid, row.ContactID,
-		row.HubUserDid, row.PointerVersion); err != nil {
+	if err := agencycontacts.RemovePointer(ctx, q, row.OrgDid, row.HubUserDid,
+		row.PointerVersion); err != nil {
 		return false, err
 	}
 	return true, tx.Commit(ctx)
@@ -151,7 +158,7 @@ func retainContact(
 // (MKT-CON-004). Neither counts as the Contact's activity.
 func retainConversation(
 	ctx context.Context, db *pgxpool.Pool, tenantID string,
-	conversationID pgtype.UUID, cutoff time.Time,
+	id pair, cutoff time.Time,
 ) (bool, error) {
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -160,7 +167,8 @@ func retainConversation(
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := sqlc.New(tx)
 	row, err := q.RetainOrgConversation(ctx, sqlc.RetainOrgConversationParams{
-		ConversationID:       conversationID,
+		OrgDid:               id.orgDID,
+		HubUserDid:           id.hubDID,
 		CutoffPartyDeletedAt: pgtype.Timestamptz{Time: cutoff, Valid: true},
 		TenantID:             tenantID,
 	})
@@ -174,17 +182,17 @@ func retainConversation(
 		return false, fmt.Errorf("incomplete conversation retention")
 	}
 	gone, err := q.DeleteUnusedOrgContact(ctx, sqlc.DeleteUnusedOrgContactParams{
-		ContactID: row.ContactID, OrgDid: row.OrgDid, TenantID: tenantID,
+		OrgDid: row.OrgDid, HubUserDid: row.HubUserDid, TenantID: tenantID,
 		ActorType: "worker", ActorID: "retain-org-contacts", Source: "workers",
 	})
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		err = agencycontacts.SyncPointer(ctx, q, row.OrgDid, row.ContactID, agencycontacts.NoNotice)
+		err = agencycontacts.SyncPointer(ctx, q, row.OrgDid, row.HubUserDid, agencycontacts.NoNotice)
 	case err != nil:
 		return false, err
 	default:
-		err = agencycontacts.RemovePointer(ctx, q, row.OrgDid, row.ContactID,
-			row.HubUserDid, gone.PointerVersion)
+		err = agencycontacts.RemovePointer(ctx, q, row.OrgDid, row.HubUserDid,
+			gone.PointerVersion)
 	}
 	if err != nil {
 		return false, err

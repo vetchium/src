@@ -23,6 +23,7 @@ import {
   normalizeChatRequestNote,
 } from "typespec/orgs/marketplace/contacts/contacts";
 import { ActionError } from "../applications/ActionError";
+import { conversationPath } from "./paths";
 import {
   useChatRequestAnswerAction,
   useOpeningAgenciesQuery,
@@ -38,22 +39,19 @@ interface OpeningRef {
 
 const codePoints = (text: string) => Array.from(text).length;
 
-function conversationPath(contactId: string): string {
-  return `/messages/${encodeURIComponent(contactId)}`;
-}
-
 function AcceptRequest({ agency }: { agency: OpeningAgency }) {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const navigate = useNavigate();
-  const answer = useChatRequestAnswerAction(agency.contact_id ?? "");
+  const answer = useChatRequestAnswerAction(agency.agency_domain);
   const request = agency.latest_request;
-  const contactId = agency.contact_id;
-  if (request === undefined || contactId === undefined) return null;
+  if (request === undefined) return null;
   return (
     <Flex vertical gap="small">
       <Flex gap="small" wrap="wrap">
-        <Button onClick={() => navigate(conversationPath(contactId))}>
+        <Button
+          onClick={() => navigate(conversationPath(agency.agency_domain))}
+        >
           {t("orgPage.agencies.viewRequest")}
         </Button>
         <Button
@@ -62,15 +60,17 @@ function AcceptRequest({ agency }: { agency: OpeningAgency }) {
           onClick={() =>
             // Accepting turns this row into "Open conversation" before
             // mutate's callbacks would run, so the toast follows the promise.
-            void answer.mutateAsync({ request_id: request.request_id }).then(
-              () =>
-                void message.success(
-                  t("orgPage.agencies.accepted", {
-                    agency: agency.agency_display_name,
-                  }),
-                ),
-              () => undefined,
-            )
+            void answer
+              .mutateAsync({ request_number: request.request_number })
+              .then(
+                () =>
+                  void message.success(
+                    t("orgPage.agencies.accepted", {
+                      agency: agency.agency_display_name,
+                    }),
+                  ),
+                () => undefined,
+              )
           }
         >
           {t("orgPage.agencies.accept")}
@@ -104,23 +104,19 @@ function AgencyState({
     case "closed":
       return (
         <Flex gap="small" wrap="wrap">
-          {agency.contact_id !== undefined && (
-            <Button
-              onClick={() =>
-                navigate(conversationPath(agency.contact_id ?? ""))
-              }
-            >
-              {t("orgPage.agencies.viewConversation")}
-            </Button>
-          )}
+          <Button
+            onClick={() => navigate(conversationPath(agency.agency_domain))}
+          >
+            {t("orgPage.agencies.viewConversation")}
+          </Button>
           {requestButton}
         </Flex>
       );
     case "open":
-      return agency.contact_id === undefined ? null : (
+      return (
         <Button
           type="primary"
-          onClick={() => navigate(conversationPath(agency.contact_id ?? ""))}
+          onClick={() => navigate(conversationPath(agency.agency_domain))}
         >
           {t("orgPage.agencies.openConversation")}
         </Button>

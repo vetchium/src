@@ -238,7 +238,10 @@ test("Home shows an agent the chat requests waiting for the agency, and not a co
       await agencyRequestState(
         agency,
         "to_agency",
-        asked.request_id,
+        {
+          hub_user_handle: person.handle,
+          request_number: asked.request_number,
+        },
         "pending",
       );
     }
@@ -256,7 +259,12 @@ test("Home shows an agent the chat requests waiting for the agency, and not a co
     await expect(card.getByText("Ben Later")).toBeVisible();
     await card.getByRole("link", { name: "See all" }).click();
     await expect(page).toHaveURL(/\/sourcing\/contacts\?tab=requests/);
-    await expect(page.getByText("Waiting for your answer")).toBeVisible();
+    await expect(
+      page.getByRole("tab", { name: "Requests (2)", selected: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("row", { name: /Ana Early/ })).toContainText(
+      "Request received",
+    );
 
     await signOut(page);
     await signIn(page, colleague, provider.tenant);

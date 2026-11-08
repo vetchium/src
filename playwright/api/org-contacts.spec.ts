@@ -9,7 +9,6 @@ import type {
   AgencyProfile,
   ContactNote,
   ConversationDetail,
-  DeletedNote,
   ListContactNotesResponse,
   ListContactsRequest,
   ListContactsResponse,
@@ -60,6 +59,7 @@ const PROBLEMS = {
   validation: `${BASE}validation-failed`,
   tenantUnavailable: `${BASE}org-tenant-unavailable`,
   partyDeleted: `${BASE}org-conversation-party-deleted`,
+  messageNotFound: `${BASE}org-conversation-message-not-found`,
 };
 
 test("agency profile view fields, verified domains, refusals, and mesh remote reads", async ({
@@ -158,7 +158,7 @@ test("agency profile view fields, verified domains, refusals, and mesh remote re
   });
 });
 
-test("notes CRUD, permissions, first-note contact creation, and last-note deletion", async ({
+test("notes: first-note contact creation, edits by the author only, and no deletion", async ({
   request,
 }) => {
   await withProvider(request, async (provider) => {
@@ -192,8 +192,9 @@ test("notes CRUD, permissions, first-note contact creation, and last-note deleti
       );
       expect(added1.note.mine).toBe(true);
 
-      const contactID = added1.contact.contact_id;
-      const noteID1 = added1.note.note_id;
+      const handle = added1.contact.handle;
+      expect(handle).toBe(applicant.handle);
+      expect(added1.note.note_number).toBe(1);
 
       // Idempotent replay of first note
       const replayRes = await provider.api.addPersonNote(
@@ -205,9 +206,7 @@ test("notes CRUD, permissions, first-note contact creation, and last-note deleti
         addFirstKey,
       );
       expect(replayRes.status()).toBe(200);
-      expect(((await replayRes.json()) as AddedNote).note.note_id).toBe(
-        noteID1,
-      );
+      expect(((await replayRes.json()) as AddedNote).note.note_number).toBe(1);
 
       // Audit log has action org.contact.created and org.contact.note_added
       const audits = orgAuditEventsByKey(addFirstKey, provider.tenant);
@@ -223,7 +222,7 @@ test("notes CRUD, permissions, first-note contact creation, and last-note deleti
             sqlScalarForTenant(
               applicant.tenant,
               `SELECT count(*)::text FROM vetchium.hub_agency_pointers
-               WHERE contact_id = '${contactID}' AND hub_user_did = '${applicant.did}'`,
+               WHERE agency_org_did = '${orgDid}' AND hub_user_did = '${applicant.did}'`,
             ),
           { timeout: 10_000 },
         )
@@ -236,7 +235,6 @@ test("notes CRUD, permissions, first-note contact creation, and last-note deleti
       );
       expect(myProfile.status()).toBe(200);
       const profileText = await myProfile.text();
-      expect(profileText).not.toContain(contactID);
       expect(profileText).not.toContain(provider.org.domain);
 
       // 2. Add second note to existing Contact
@@ -244,7 +242,7 @@ test("notes CRUD, permissions, first-note contact creation, and last-note deleti
       const secondNoteRes = await provider.api.addContactNote(
         provider.owner,
         {
-          contact_id: contactID,
+          handle,
           text: "  Second note with whitespace around  ",
         },
         addSecondKey,
@@ -253,17 +251,17 @@ test("notes CRUD, permissions, first-note contact creation, and last-note deleti
       const added2 = (await secondNoteRes.json()) as AddedNote;
       expect(added2.contact.note_count).toBe(2);
       expect(added2.note.text).toBe("Second note with whitespace around");
-      const noteID2 = added2.note.note_id;
+      expect(added2.note.note_number).toBe(2);
 
       // 3. Note bounds validation
       const emptyNote = await provider.api.addContactNote(provider.owner, {
-        contact_id: contactID,
+        handle,
         text: "   ",
       });
       await expectProblem(emptyNote, 400, PROBLEMS.validation);
 
       const tooLongNote = await provider.api.addContactNote(provider.owner, {
-        contact_id: contactID,
+        handle,
         text: "x".repeat(5001),
       });
       await expectProblem(tooLongNote, 400, PROBLEMS.validation);
@@ -274,8 +272,8 @@ test("notes CRUD, permissions, first-note contact creation, and last-note deleti
       const editRes = await provider.api.editContactNote(
         provider.owner,
         {
-          contact_id: contactID,
-          note_id: noteID2,
+          handle,
+          note_number: 2,
           text: "Updated text of second note",
         },
         editKey,
@@ -297,69 +295,36 @@ test("notes CRUD, permissions, first-note contact creation, and last-note deleti
       const forbiddenEdit = await provider.api.editContactNote(
         colleagueMember.token,
         {
-          contact_id: contactID,
-          note_id: noteID2,
+          handle,
+          note_number: 2,
           text: "Attempted edit by non-author",
         },
       );
       await expectProblem(forbiddenEdit, 403, PROBLEMS.notAuthor);
 
-      // 5. Any user with permission deletes note:
-      // Colleague deletes noteID2
-      const deleteKey1 = orgsIdempotencyKey();
-      const del1Res = await provider.api.deleteContactNote(
-        colleagueMember.token,
-        {
-          contact_id: contactID,
-          note_id: noteID2,
-        },
-        deleteKey1,
-      );
-      expect(del1Res.status(), await del1Res.text()).toBe(200);
-      const del1 = (await del1Res.json()) as DeletedNote;
-      expect(del1.contact_deleted).toBe(false);
-
-      // Verify 1 note remains
-      const notesListRes = await provider.api.listContactNotes(provider.owner, {
-        contact_id: contactID,
+      // A note of another Contact's number is unknown.
+      const unknownNote = await provider.api.editContactNote(provider.owner, {
+        handle,
+        note_number: 3,
+        text: "No such note",
       });
+      await expectProblem(unknownNote, 404, PROBLEMS.noteNotFound);
+
+      // 5. Notes stay for the agency's later searches: the colleague reads
+      // both, newest first, and the Contact remains.
+      const notesListRes = await provider.api.listContactNotes(
+        colleagueMember.token,
+        { handle },
+      );
       expect(notesListRes.status()).toBe(200);
       const notesList = (await notesListRes.json()) as ListContactNotesResponse;
-      expect(notesList.items).toHaveLength(1);
-      expect(notesList.items[0]?.note_id).toBe(noteID1);
+      expect(notesList.items.map((note) => note.note_number)).toEqual([2, 1]);
+      expect(notesList.items.map((note) => note.mine)).toEqual([false, false]);
 
-      // 6. Delete last note removes Contact and its pointer
-      const deleteKey2 = orgsIdempotencyKey();
-      const del2Res = await provider.api.deleteContactNote(
-        provider.owner,
-        {
-          contact_id: contactID,
-          note_id: noteID1,
-        },
-        deleteKey2,
-      );
-      expect(del2Res.status(), await del2Res.text()).toBe(200);
-      const del2 = (await del2Res.json()) as DeletedNote;
-      expect(del2.contact_deleted).toBe(true);
-
-      // Getting deleted contact returns 404
       const getContactRes = await provider.api.getContact(provider.owner, {
-        contact_id: contactID,
+        handle,
       });
-      await expectProblem(getContactRes, 404, PROBLEMS.contactNotFound);
-
-      // Pointer on Hub tenant is deleted
-      await expect
-        .poll(
-          async () =>
-            sqlScalarForTenant(
-              applicant.tenant,
-              `SELECT count(*)::text FROM vetchium.hub_agency_pointers
-               WHERE contact_id = '${contactID}'`,
-            ),
-          { timeout: 10_000 },
-        )
-        .toBe("0");
+      expect(getContactRes.status()).toBe(200);
     } finally {
       cleanupApplicant(applicant, [{ tenant: provider.tenant, did: orgDid }]);
     }
@@ -397,8 +362,7 @@ test("caps on daily contact creations and notes per contact", async ({
         text: "Note with listing",
       });
       expect(created1.status(), await created1.text()).toBe(200);
-      const contactID = ((await created1.json()) as AddedNote).contact
-        .contact_id;
+      const handle = ((await created1.json()) as AddedNote).contact.handle;
 
       // 2. Simulate reaching daily cap of 200 contacts
       const today = new Date().toISOString().slice(0, 10);
@@ -440,7 +404,7 @@ test("caps on daily contact creations and notes per contact", async ({
         for (const response of await Promise.all(
           batch.map((n) =>
             provider.api.addContactNote(provider.owner, {
-              contact_id: contactID,
+              handle,
               text: `Bulk note ${n}`,
             }),
           ),
@@ -451,7 +415,7 @@ test("caps on daily contact creations and notes per contact", async ({
 
       // 201st note fails with note limit reached
       const noteCapReached = await provider.api.addContactNote(provider.owner, {
-        contact_id: contactID,
+        handle,
         text: "Note exceeding 200 per contact",
       });
       await expectProblem(noteCapReached, 409, PROBLEMS.noteLimit);
@@ -480,7 +444,7 @@ test("contact retention worker removes contacts inactive for 730 days and prunes
         text: "Note to be retained",
       });
       expect(added.status(), await added.text()).toBe(200);
-      const contactID = ((await added.json()) as AddedNote).contact.contact_id;
+      const handle = ((await added.json()) as AddedNote).contact.handle;
 
       // Pointer exists on Hub tenant
       await expect
@@ -489,7 +453,8 @@ test("contact retention worker removes contacts inactive for 730 days and prunes
             sqlScalarForTenant(
               applicant.tenant,
               `SELECT count(*)::text FROM vetchium.hub_agency_pointers
-               WHERE contact_id = '${contactID}'`,
+               WHERE agency_org_did = '${orgDid}'
+                 AND hub_user_did = '${applicant.did}'`,
             ),
           { timeout: 10_000 },
         )
@@ -508,7 +473,7 @@ test("contact retention worker removes contacts inactive for 730 days and prunes
         `UPDATE vetchium.org_contacts
          SET created_at = now() - interval '800 days',
              last_activity_at = now() - interval '731 days'
-         WHERE contact_id = '${contactID}'`,
+         WHERE org_did = '${orgDid}' AND handle = '${handle}'`,
         provider.tenant,
       );
 
@@ -517,7 +482,7 @@ test("contact retention worker removes contacts inactive for 730 days and prunes
         .poll(
           async () => {
             const res = await provider.api.getContact(provider.owner, {
-              contact_id: contactID,
+              handle,
             });
             return res.status();
           },
@@ -532,7 +497,8 @@ test("contact retention worker removes contacts inactive for 730 days and prunes
             sqlScalarForTenant(
               applicant.tenant,
               `SELECT count(*)::text FROM vetchium.hub_agency_pointers
-               WHERE contact_id = '${contactID}'`,
+               WHERE agency_org_did = '${orgDid}'
+                 AND hub_user_did = '${applicant.did}'`,
             ),
           { timeout: 10_000 },
         )
@@ -542,7 +508,7 @@ test("contact retention worker removes contacts inactive for 730 days and prunes
       const auditEvent = sqlScalarForTenant(
         provider.tenant,
         `SELECT payload->>'reason' FROM vetchium.audit_events
-         WHERE entity_id = '${contactID}' AND action = 'org.contact.deleted'`,
+         WHERE entity_id = '${handle}' AND action = 'org.contact.deleted'`,
       );
       expect(auditEvent).toBe("retention");
 
@@ -584,7 +550,7 @@ test("the agency chat-requests switch reaches the agency, and hub-account-delete
         text: "Note testing notices",
       });
       expect(added.status(), await added.text()).toBe(200);
-      const contactID = ((await added.json()) as AddedNote).contact.contact_id;
+      const handle = ((await added.json()) as AddedNote).contact.handle;
 
       // 1. The person's agency chat-requests switch reaches the agency once the
       // Hub tenant holds the agency's pointer.
@@ -594,7 +560,8 @@ test("the agency chat-requests switch reaches the agency, and hub-account-delete
             sqlScalarForTenant(
               applicant.tenant,
               `SELECT count(*)::text FROM vetchium.hub_agency_pointers
-               WHERE contact_id = ${sqlLiteral(contactID)}::uuid`,
+               WHERE agency_org_did = ${sqlLiteral(orgDid)}::uuid
+                 AND hub_user_did = ${sqlLiteral(applicant.did)}::uuid`,
             ),
           { timeout: 30_000 },
         )
@@ -604,7 +571,7 @@ test("the agency chat-requests switch reaches the agency, and hub-account-delete
         { agencies_may_message: false },
       );
       expect(switched.status(), await switched.text()).toBe(204);
-      await awaitRequestsOff(provider.api, provider.owner, contactID, true);
+      await awaitRequestsOff(provider.api, provider.owner, handle, true);
 
       // 2. Test hub-account-deleted via mesh peer delivery
       const accountDeletedEvent: DeliverEventRequest = {
@@ -634,7 +601,7 @@ test("the agency chat-requests switch reaches the agency, and hub-account-delete
 
       // When applied, all contacts of that person are deleted from the agency
       const deletedRes = await provider.api.getContact(provider.owner, {
-        contact_id: contactID,
+        handle,
       });
       expect(deletedRes.status()).toBe(404);
     } finally {
@@ -671,13 +638,13 @@ test("the Contacts list filters, searches, pages, and counts every tab and unrea
           person,
           agency.openings[0],
         );
-        if (person === grace) graceContact = asked.contact_id;
+        if (person === grace) graceContact = asked.hub_user_handle;
       }
       // Each Hub reply adds one to the agency's unread count.
-      await awaitHubPointer(grace, graceContact);
+      await awaitHubPointer(grace, provider.org.domain);
       for (const text of ["Yes, tell me more.", "Mornings work best."]) {
         const replied = await grace.hub.replyToConversation(grace.token, {
-          contact_id: graceContact,
+          agency_domain: provider.org.domain,
           text,
         });
         expect(replied.status(), await replied.text()).toBe(200);
@@ -688,7 +655,6 @@ test("the Contacts list filters, searches, pages, and counts every tab and unrea
         all: 3,
         unread: 1,
         has_conversation: 2,
-        not_contacted: 1,
         requests: 0,
       });
       expect(names(all)).toEqual([
@@ -697,9 +663,16 @@ test("the Contacts list filters, searches, pages, and counts every tab and unrea
         "Ada Lovelace",
       ]);
       expect(
-        all.items.find((item) => item.contact_id === graceContact)
+        all.items.find((item) => item.handle === graceContact)
           ?.unread_messages_count,
       ).toBe(2);
+      // A Contact with notes only has no conversation; neither "Not
+      // contacted" nor a contact date is a state of its own.
+      expect(all.items.map((item) => item.status)).toEqual([
+        "in_conversation",
+        "in_conversation",
+        "no_conversation",
+      ]);
 
       const unread = await list({ filter: "unread" });
       expect(names(unread)).toEqual(["Grace Hopper"]);
@@ -709,14 +682,12 @@ test("the Contacts list filters, searches, pages, and counts every tab and unrea
         "Grace Hopper",
         "Alan Turing",
       ]);
-      expect(names(await list({ filter: "not_contacted" }))).toEqual([
-        "Ada Lovelace",
-      ]);
+      expect(names(await list({ filter: "requests" }))).toEqual([]);
       expect(names(await list({ name_query: "HOP" }))).toEqual([
         "Grace Hopper",
       ]);
       expect(
-        names(await list({ filter: "not_contacted", name_query: "hop" })),
+        names(await list({ filter: "unread", name_query: "ada" })),
       ).toEqual([]);
 
       const first = await list({ limit: 2 });
@@ -731,19 +702,20 @@ test("the Contacts list filters, searches, pages, and counts every tab and unrea
 
       // Reading the conversation clears its unread count for the agency.
       const read = await provider.api.markConversationRead(provider.owner, {
-        contact_id: graceContact,
+        handle: graceContact,
       });
       expect(read.status(), await read.text()).toBeLessThan(300);
       const after = await list({});
       expect(after.counts.unread).toBe(0);
       expect(
-        after.items.find((item) => item.contact_id === graceContact)
+        after.items.find((item) => item.handle === graceContact)
           ?.unread_messages_count,
       ).toBe(0);
 
       for (const [body, field] of [
         [{ name_query: "a" }, "name_query"],
         [{ filter: "archived" }, "filter"],
+        [{ filter: "not_contacted" }, "filter"],
       ] as const) {
         await expectProblem(
           await provider.api.listContacts(
@@ -774,9 +746,9 @@ test("a deleted Hub account leaves a Contact with a conversation read-only and i
         applicant,
         agency.openings[0],
       );
-      const contactID = asked.contact_id;
+      const handle = asked.hub_user_handle;
       const noted = await provider.api.addContactNote(provider.owner, {
-        contact_id: contactID,
+        handle,
         text: "Strong candidate.",
       });
       expect(noted.status(), await noted.text()).toBe(200);
@@ -801,7 +773,7 @@ test("a deleted Hub account leaves a Contact with a conversation read-only and i
       expect(delivered.status, JSON.stringify(delivered.body)).toBe(200);
 
       const contact = await provider.api.getContact(provider.owner, {
-        contact_id: contactID,
+        handle,
       });
       expect(contact.status(), await contact.text()).toBe(200);
       expect(await contact.json()).toMatchObject({
@@ -810,13 +782,13 @@ test("a deleted Hub account leaves a Contact with a conversation read-only and i
         has_conversation: true,
       });
       const notes = await provider.api.listContactNotes(provider.owner, {
-        contact_id: contactID,
+        handle,
       });
       expect(((await notes.json()) as ListContactNotesResponse).items).toEqual(
         [],
       );
       const conversation = await provider.api.getConversation(provider.owner, {
-        contact_id: contactID,
+        handle,
       });
       expect(
         ((await conversation.json()) as ConversationDetail).conversation
@@ -824,7 +796,7 @@ test("a deleted Hub account leaves a Contact with a conversation read-only and i
       ).toBe("hub_user_deleted");
       await expectProblem(
         await provider.api.addContactNote(provider.owner, {
-          contact_id: contactID,
+          handle,
           text: "Another note.",
         }),
         409,
@@ -832,7 +804,7 @@ test("a deleted Hub account leaves a Contact with a conversation read-only and i
       );
       await expectProblem(
         await provider.api.sendMessage(provider.owner, {
-          contact_id: contactID,
+          handle,
           text: "Are you still there?",
         }),
         409,
@@ -871,13 +843,23 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
         applicant,
         agency.openings[0],
       );
-      const contact_id = asked.contact_id;
+      const handle = asked.hub_user_handle;
       const noted = await provider.api.addContactNote(provider.owner, {
-        contact_id,
+        handle,
         text: "A note.",
       });
       expect(noted.status(), await noted.text()).toBe(200);
-      const note_id = ((await noted.json()) as AddedNote).note.note_id;
+      const note_number = ((await noted.json()) as AddedNote).note.note_number;
+      // The agency's own text message, for delete-message to delete; the
+      // accepted request is message 1.
+      const written = await provider.api.sendMessage(provider.owner, {
+        handle,
+        text: "Delete me.",
+      });
+      expect(written.status(), await written.text()).toBe(200);
+      const message_number = (
+        (await written.json()) as { message_number: number }
+      ).message_number;
 
       const routes: Array<{ path: string; body: object; write: boolean }> = [
         {
@@ -886,10 +868,10 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
           write: false,
         },
         { path: "/list-contacts", body: {}, write: false },
-        { path: "/get-contact", body: { contact_id }, write: false },
-        { path: "/list-contact-notes", body: { contact_id }, write: false },
-        { path: "/get-conversation", body: { contact_id }, write: false },
-        { path: "/mark-conversation-read", body: { contact_id }, write: false },
+        { path: "/get-contact", body: { handle }, write: false },
+        { path: "/list-contact-notes", body: { handle }, write: false },
+        { path: "/get-conversation", body: { handle }, write: false },
+        { path: "/mark-conversation-read", body: { handle }, write: false },
         { path: "/list-credited-applications", body: {}, write: false },
         {
           path: "/add-person-note",
@@ -898,22 +880,22 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
         },
         {
           path: "/add-contact-note",
-          body: { contact_id, text: "Note" },
+          body: { handle, text: "Note" },
           write: true,
         },
         {
           path: "/edit-contact-note",
-          body: { contact_id, note_id, text: "Edited" },
-          write: true,
-        },
-        {
-          path: "/delete-contact-note",
-          body: { contact_id, note_id },
+          body: { handle, note_number, text: "Edited" },
           write: true,
         },
         {
           path: "/send-message",
-          body: { contact_id, text: "Hi" },
+          body: { handle, text: "Hi" },
+          write: true,
+        },
+        {
+          path: "/delete-message",
+          body: { handle, message_number },
           write: true,
         },
       ];
@@ -953,24 +935,25 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
         }
       }
 
-      const unknown = randomUUID();
+      // Well-formed, but nobody's.
+      const unknownHandle = "zzzzzzzz-00000000000";
       const invalid: Array<[string, object, string[]]> = [
         ["/view-hub-profile", { address: "" }, ["address"]],
         ["/list-contacts", { limit: 0 }, ["limit"]],
-        ["/get-contact", { contact_id: "x" }, ["contact_id"]],
-        ["/list-contact-notes", { contact_id: "x" }, ["contact_id"]],
-        ["/get-conversation", { contact_id: "x" }, ["contact_id"]],
-        ["/mark-conversation-read", { contact_id: "x" }, ["contact_id"]],
+        ["/get-contact", { handle: "x" }, ["handle"]],
+        ["/list-contact-notes", { handle: "x" }, ["handle"]],
+        ["/get-conversation", { handle: "x" }, ["handle"]],
+        ["/mark-conversation-read", { handle: "x" }, ["handle"]],
         ["/list-credited-applications", { limit: 0 }, ["limit"]],
         ["/add-person-note", { address: "x", text: " " }, ["address", "text"]],
-        ["/add-contact-note", { contact_id, text: " " }, ["text"]],
+        ["/add-contact-note", { handle, text: " " }, ["text"]],
         [
           "/edit-contact-note",
-          { contact_id, note_id: "x", text: "ok" },
-          ["note_id"],
+          { handle, note_number: 0, text: "ok" },
+          ["note_number"],
         ],
-        ["/delete-contact-note", { contact_id, note_id: "x" }, ["note_id"]],
-        ["/send-message", { contact_id: "x", text: "Hi" }, ["contact_id"]],
+        ["/send-message", { handle: "x", text: "Hi" }, ["handle"]],
+        ["/delete-message", { handle, message_number: 0 }, ["message_number"]],
       ];
       for (const [path, body, fields] of invalid) {
         const write = routes.find((entry) => entry.path === path)?.write;
@@ -986,7 +969,7 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
       }
       for (const [path, body] of [
         ["/list-contacts", {}],
-        ["/list-contact-notes", { contact_id }],
+        ["/list-contact-notes", { handle }],
       ] as const) {
         await expectProblem(
           await provider.api.post(
@@ -999,30 +982,38 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
         );
       }
 
-      // An unknown Contact, note, or person is not found.
-      for (const entry of routes.filter(
-        (route) => "contact_id" in route.body,
-      )) {
+      // An unknown Contact, note, message, or person is not found.
+      for (const entry of routes.filter((route) => "handle" in route.body)) {
         await expectProblem(
           await provider.api.post(
             entry.path,
-            { ...entry.body, contact_id: unknown },
+            { ...entry.body, handle: unknownHandle },
             { token: provider.owner, ...keyed(entry.write) },
           ),
           404,
           PROBLEMS.contactNotFound,
         );
       }
-      for (const path of ["/edit-contact-note", "/delete-contact-note"]) {
-        const body = routes.find((entry) => entry.path === path)?.body;
+      await expectProblem(
+        await provider.api.post(
+          "/edit-contact-note",
+          { handle, note_number: note_number + 100, text: "Edited" },
+          { token: provider.owner, idempotencyKey: orgsIdempotencyKey() },
+        ),
+        404,
+        PROBLEMS.noteNotFound,
+      );
+      // Only the agency's own text messages are its to delete: not the
+      // accepted request (message 1), and not one that does not exist.
+      for (const number of [1, message_number + 100]) {
         await expectProblem(
           await provider.api.post(
-            path,
-            { ...body, note_id: unknown },
+            "/delete-message",
+            { handle, message_number: number },
             { token: provider.owner, idempotencyKey: orgsIdempotencyKey() },
           ),
           404,
-          PROBLEMS.noteNotFound,
+          PROBLEMS.messageNotFound,
         );
       }
       for (const entry of routes.filter((route) => "address" in route.body)) {
@@ -1037,35 +1028,19 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
         );
       }
 
-      // Only its author edits a note; any agency user deletes one.
+      // Only its author edits a note.
       await expectProblem(
         await provider.api.post(
           "/edit-contact-note",
-          { contact_id, note_id, text: "Not mine" },
+          { handle, note_number, text: "Not mine" },
           { token: colleague.token, idempotencyKey: orgsIdempotencyKey() },
         ),
         403,
         PROBLEMS.notAuthor,
       );
-      const other = await provider.api.addContactNote(provider.owner, {
-        contact_id,
-        text: "Another note.",
-      });
-      expect(other.status(), await other.text()).toBe(200);
-      const removed = await provider.api.deleteContactNote(colleague.token, {
-        contact_id,
-        note_id: ((await other.json()) as AddedNote).note.note_id,
-      });
-      expect(removed.status(), await removed.text()).toBe(200);
 
-      // A key stays bound to the request it first carried. The note is
-      // deleted last, as the other writes still name it.
+      // A key stays bound to the request it first carried.
       const writes = routes.filter((route) => route.write);
-      writes.sort(
-        (a, b) =>
-          Number(a.path === "/delete-contact-note") -
-          Number(b.path === "/delete-contact-note"),
-      );
       for (const entry of writes) {
         const key = orgsIdempotencyKey();
         const first = await provider.api.post(entry.path, entry.body, {
@@ -1078,7 +1053,7 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
         const changed =
           "text" in entry.body
             ? { ...entry.body, text: "Something else" }
-            : { ...entry.body, note_id: unknown };
+            : { ...entry.body, message_number: message_number + 100 };
         await expectProblem(
           await provider.api.post(entry.path, changed, {
             token: provider.owner,
@@ -1143,13 +1118,7 @@ test("the mesh reads behind Contacts and conversations answer only the tenant th
       expect(response.body).toMatchObject({ type, status });
     };
     {
-      const { request: asked } = await openConversation(
-        provider,
-        applicant,
-        agency.openings[0],
-      );
-      const contact_id = asked.contact_id;
-
+      await openConversation(provider, applicant, agency.openings[0]);
       // The agency's tenant reads the profile from the Hub user's.
       const profileRelay = "/mesh/agency-profile/read";
       const relayProfile = { agency_org_did: orgDid, address: applicant.alias };
@@ -1275,7 +1244,6 @@ test("the mesh reads behind Contacts and conversations answer only the tenant th
       // The Hub user's tenant reads the conversation from the agency's.
       const conversationRelay = "/mesh/conversations/read";
       const conversation = {
-        contact_id,
         hub_user_did: applicant.did,
         agency_org_did: orgDid,
       };
@@ -1291,6 +1259,19 @@ test("the mesh reads behind Contacts and conversations answer only the tenant th
           (message) => message.kind,
         ),
       ).toEqual(["request"]);
+      // One message by its number, as a Hub message delete checks it.
+      const one = meshRelayRequest(
+        applicant.tenant,
+        conversationRelay,
+        { ...conversation, message_number: 1 },
+        apiCoverage,
+      );
+      expect(one.status, JSON.stringify(one.body)).toBe(200);
+      expect(
+        (
+          one.body as { messages: Array<{ message_number: number }> }
+        ).messages.map((message) => message.message_number),
+      ).toEqual([1]);
       expectType(
         meshRelayRequest(
           applicant.tenant,
@@ -1306,7 +1287,7 @@ test("the mesh reads behind Contacts and conversations answer only the tenant th
         meshRelayRequest(
           applicant.tenant,
           conversationRelay,
-          { ...conversation, contact_id: "x" },
+          { ...conversation, message_number: 0 },
           apiCoverage,
         ),
         400,
@@ -1326,7 +1307,7 @@ test("the mesh reads behind Contacts and conversations answer only the tenant th
         meshRelayRequest(
           applicant.tenant,
           conversationRelay,
-          { ...conversation, contact_id: randomUUID() },
+          { ...conversation, message_number: 99 },
           apiCoverage,
         ),
         404,

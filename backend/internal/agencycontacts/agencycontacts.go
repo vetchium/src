@@ -49,17 +49,16 @@ const (
 // the transaction that changes the Contact, its conversation, or its chat
 // requests, beside that change's audit event.
 func SyncPointer(
-	ctx context.Context, q sqlc.Querier, orgDID, contactID pgtype.UUID,
+	ctx context.Context, q sqlc.Querier, orgDID, hubDID pgtype.UUID,
 	notice Notice,
 ) error {
 	row, err := q.NextOrgContactPointer(ctx, sqlc.NextOrgContactPointerParams{
-		ContactID: contactID, OrgDid: orgDID,
+		OrgDid: orgDID, HubUserDid: hubDID,
 	})
 	if err != nil {
 		return fmt.Errorf("take agency pointer version: %w", err)
 	}
 	payload := federationspec.AgencyPointerChangedPayload{
-		ContactID:               contacts.ContactID(dbvalue.FormatUUID(row.ContactID)),
 		AgencyOrgDID:            orgs.OrgDID(dbvalue.FormatUUID(row.OrgDid)),
 		HubUserDID:              hub.HubUserDID(dbvalue.FormatUUID(row.HubUserDid)),
 		Present:                 true,
@@ -67,7 +66,9 @@ func SyncPointer(
 		NewAgencyRequest:        notice == NoticeRequest,
 		RequestAcceptedByAgency: notice == NoticeRequestAccepted,
 	}
-	request, err := q.GetLatestOrgChatRequest(ctx, contactID)
+	request, err := q.GetLatestOrgChatRequest(ctx, sqlc.GetLatestOrgChatRequestParams{
+		OrgDid: orgDID, HubUserDid: hubDID,
+	})
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 	case err != nil:
@@ -75,7 +76,7 @@ func SyncPointer(
 	default:
 		pointer := PointerRequest(request.VetchiumOrgChatRequest)
 		payload.Request = &pointer
-		if !row.ConversationID.Valid {
+		if !row.HasConversation {
 			// Only the conversation records the agency's name; a request
 			// alone carries it as it is now.
 			agency, err := q.GetAgencyDetails(ctx, orgDID)
@@ -86,11 +87,12 @@ func SyncPointer(
 			payload.AgencyDomain = orgs.OrgDomain(agency.Domain)
 		}
 	}
-	if row.ConversationID.Valid {
+	if row.HasConversation {
 		window := Window(row.HubActivityAt, row.AgencyActivityAt, row.WindowSeconds)
 		payload.AgencyMayWriteUntil = window.AgencyUntil
 		payload.HubMayWriteUntil = window.HubUntil
-		suggestions, err := q.ListOrgConversationSuggestions(ctx, row.ConversationID)
+		suggestions, err := q.ListOrgConversationSuggestions(ctx,
+			sqlc.ListOrgConversationSuggestionsParams{OrgDid: orgDID, HubUserDid: hubDID})
 		if err != nil {
 			return fmt.Errorf("list conversation suggestions: %w", err)
 		}
@@ -126,19 +128,25 @@ func SyncPointer(
 // RemovePointer reports a deleted Contact; version is the pointer version
 // the Contact had, which the removal supersedes.
 func RemovePointer(
-	ctx context.Context, q sqlc.Querier, orgDID, contactID, hubDID pgtype.UUID,
-	version int32,
+	ctx context.Context, q sqlc.Querier, orgDID, hubDID pgtype.UUID,
+	version int64,
 ) error {
 	return enqueuePointer(ctx, q, hubDID, version+1,
 		federationspec.AgencyPointerChangedPayload{
-			ContactID:    contacts.ContactID(dbvalue.FormatUUID(contactID)),
 			AgencyOrgDID: orgs.OrgDID(dbvalue.FormatUUID(orgDID)),
 			HubUserDID:   hub.HubUserDID(dbvalue.FormatUUID(hubDID)),
 		})
 }
 
+// PairID is federationspec.ContactAggregateID for database DIDs.
+func PairID(orgDID, hubDID pgtype.UUID) string {
+	return federationspec.ContactAggregateID(
+		orgs.OrgDID(dbvalue.FormatUUID(orgDID)),
+		hub.HubUserDID(dbvalue.FormatUUID(hubDID)))
+}
+
 func enqueuePointer(
-	ctx context.Context, q sqlc.Querier, hubDID pgtype.UUID, version int32,
+	ctx context.Context, q sqlc.Querier, hubDID pgtype.UUID, version int64,
 	payload federationspec.AgencyPointerChangedPayload,
 ) error {
 	_, err := events.Enqueue(ctx, q, events.Outgoing{
@@ -147,8 +155,8 @@ func enqueuePointer(
 			Type: directoryspec.PrincipalHubUser, DID: hubDID,
 		},
 		AggregateType:    federationspec.AgencyPointerAggregate,
-		AggregateID:      string(payload.ContactID),
-		AggregateVersion: int64(version),
+		AggregateID:      federationspec.ContactAggregateID(payload.AgencyOrgDID, payload.HubUserDID),
+		AggregateVersion: version,
 		Payload:          payload,
 	})
 	if err != nil {
@@ -157,8 +165,8 @@ func enqueuePointer(
 	return nil
 }
 
-// RegisterEvents adds the pointer event and the two notices the Hub user's
-// tenant sends back.
+// RegisterEvents adds the pointer and message-deleted events and the two
+// notices the Hub user's tenant sends back.
 func RegisterEvents(registry *events.Registry) {
 	registry.Register(federationspec.AgencyPointerChangedKind,
 		applyPointer, pointerOrigin)
@@ -166,6 +174,8 @@ func RegisterEvents(registry *events.Registry) {
 		applyAccountDeleted, accountDeletedOrigin)
 	registry.Register(federationspec.HubAgencyRequestsChangedKind,
 		applyRequestsChanged, requestsChangedOrigin)
+	registry.Register(federationspec.AgencyMessageDeletedKind,
+		applyAgencyMessageDeleted, pointerOrigin)
 }
 
 func decodePayload(event events.Event, payload interface{ Validate() []string }) error {
@@ -236,20 +246,16 @@ func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 	if err != nil {
 		return err
 	}
-	contactID, err := dbvalue.ParseUUID(string(payload.ContactID))
-	if err != nil {
-		return err
-	}
 	if event.Destination.Type != directoryspec.PrincipalHubUser ||
 		event.Destination.DID != hubDID ||
 		event.AggregateType != federationspec.AgencyPointerAggregate ||
-		event.AggregateID != string(payload.ContactID) {
+		event.AggregateID != federationspec.ContactAggregateID(payload.AgencyOrgDID, payload.HubUserDID) {
 		return fmt.Errorf("agency-pointer-changed envelope does not match its payload")
 	}
 	q := sqlc.New(tx)
 	if !payload.Present {
 		if _, err := q.DeleteHubAgencyPointer(ctx, sqlc.DeleteHubAgencyPointerParams{
-			ContactID: contactID, HubUserDid: hubDID,
+			HubUserDid: hubDID, AgencyOrgDid: orgDID,
 		}); err != nil {
 			return fmt.Errorf("delete agency pointer: %w", err)
 		}
@@ -291,7 +297,6 @@ func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 	}
 
 	if _, err := q.UpsertHubAgencyPointer(ctx, sqlc.UpsertHubAgencyPointerParams{
-		ContactID:           contactID,
 		HubUserDid:          hubDID,
 		AgencyOrgDid:        orgDID,
 		AgencyDisplayName:   payload.AgencyDisplayName,
@@ -304,7 +309,7 @@ func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 		UnreadCount:         unreadCount,
 		ReadOnlyReason:      readOnly,
 		Suggestions:         suggestionsBytes,
-		PointerVersion:      int32(event.AggregateVersion),
+		PointerVersion:      event.AggregateVersion,
 		IncrementUnread:     payload.NewAgencyMessage,
 	}); err != nil {
 		return fmt.Errorf("upsert agency pointer: %w", err)
@@ -324,7 +329,7 @@ func applyPointer(ctx context.Context, tx pgx.Tx, event events.Event) error {
 		return nil
 	}
 	return EnqueueRequestsState(ctx, q, RequestsState{
-		ContactID: contactID, OrgDID: orgDID, HubUserDID: hubDID,
+		OrgDID: orgDID, HubUserDID: hubDID,
 		Version: state.AgenciesMayMessageVersion, RequestsOff: true,
 	})
 }
@@ -370,7 +375,7 @@ func enqueueAccountDeleted(
 // RequestsState is the Hub user's "Agencies may send me chat requests" as one agency
 // Contact keeps it.
 type RequestsState struct {
-	ContactID, OrgDID, HubUserDID pgtype.UUID
+	OrgDID, HubUserDID pgtype.UUID
 	// Version is the setting's version.
 	Version     int64
 	RequestsOff bool
@@ -391,12 +396,12 @@ func EnqueueRequestsStates(ctx context.Context, q sqlc.Querier, states []Request
 			Kind:             federationspec.HubAgencyRequestsChangedKind,
 			Destination:      events.Principal{Type: directoryspec.PrincipalOrg, DID: s.OrgDID},
 			AggregateType:    federationspec.AgencyContactRequestsAggregate,
-			AggregateID:      dbvalue.FormatUUID(s.ContactID),
+			AggregateID:      PairID(s.OrgDID, s.HubUserDID),
 			AggregateVersion: s.Version,
 			Payload: federationspec.HubAgencyRequestsChangedPayload{
-				ContactID:   contacts.ContactID(dbvalue.FormatUUID(s.ContactID)),
-				HubUserDID:  hub.HubUserDID(dbvalue.FormatUUID(s.HubUserDID)),
-				RequestsOff: s.RequestsOff,
+				AgencyOrgDID: orgs.OrgDID(dbvalue.FormatUUID(s.OrgDID)),
+				HubUserDID:   hub.HubUserDID(dbvalue.FormatUUID(s.HubUserDID)),
+				RequestsOff:  s.RequestsOff,
 			},
 		}
 	}
@@ -457,19 +462,19 @@ func applyRequestsChanged(ctx context.Context, tx pgx.Tx, event events.Event) er
 	if err != nil {
 		return err
 	}
-	contactID, err := dbvalue.ParseUUID(string(payload.ContactID))
+	orgDID, err := dbvalue.ParseUUID(string(payload.AgencyOrgDID))
 	if err != nil {
 		return err
 	}
 	if event.Destination.Type != directoryspec.PrincipalOrg ||
+		event.Destination.DID != orgDID ||
 		event.AggregateType != federationspec.AgencyContactRequestsAggregate ||
-		event.AggregateID != string(payload.ContactID) {
+		event.AggregateID != federationspec.ContactAggregateID(payload.AgencyOrgDID, payload.HubUserDID) {
 		return fmt.Errorf("hub-agency-requests-changed envelope does not match its payload")
 	}
 	if _, err := sqlc.New(tx).SetOrgContactRequestsOff(ctx,
 		sqlc.SetOrgContactRequestsOffParams{
-			ContactID: contactID, OrgDid: event.Destination.DID,
-			HubUserDid: hubDID, RequestsOff: payload.RequestsOff,
+			OrgDid: orgDID, HubUserDid: hubDID, RequestsOff: payload.RequestsOff,
 		}); err != nil {
 		return fmt.Errorf("store agency requests state: %w", err)
 	}

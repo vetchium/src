@@ -150,11 +150,6 @@ const ContactDetailPage = lazy(() =>
     default: ContactDetailPage,
   })),
 );
-const NewContactPage = lazy(() =>
-  import("../pages/NewContactPage").then(({ NewContactPage }) => ({
-    default: NewContactPage,
-  })),
-);
 const CreditedApplicationsPage = lazy(() =>
   import("../pages/CreditedApplicationsPage").then(
     ({ CreditedApplicationsPage }) => ({
@@ -553,15 +548,7 @@ export function App() {
                 }
               />
               <Route
-                path={paths.newContact}
-                element={
-                  <Page>
-                    <NewContactPage />
-                  </Page>
-                }
-              />
-              <Route
-                path={`${paths.contacts}/:id`}
+                path={`${paths.contacts}/:address`}
                 element={
                   <Page>
                     <ContactDetailPage />

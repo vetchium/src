@@ -134,7 +134,7 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
         consumer_domain: consumer.org.domain,
         opening_number: opening.opening_number,
       });
-      const contactID = asked.contact_id;
+      const handle = asked.hub_user_handle;
 
       // The suggestion reaches applicant 2 with the agency's pointer.
       await expect
@@ -145,7 +145,7 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
             );
             if (listed.status() !== 200) return [];
             return ((await listed.json()) as ListConversationsResponse).items
-              .filter((item) => item.contact_id === contactID)
+              .filter((item) => item.agency_domain === provider.org.domain)
               .flatMap((item) => item.suggestions)
               .map((suggestion) => [
                 suggestion.consumer_domain,
@@ -249,14 +249,14 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
         false,
       );
 
-      // Contact ID is attached for the contact we have in our database (applicant 2)
+      // The handle is attached for the Contact the agency has (applicant 2)
       const creditedItem2 = creditedData.items.find(
         (i) => i.application_number === 2,
       );
       expect(creditedItem2).toBeDefined();
       expect(creditedItem2?.route).toBe("suggested");
       expect(creditedItem2?.status).toBe("applied");
-      expect(creditedItem2?.contact_id).toBe(contactID);
+      expect(creditedItem2?.contact_handle).toBe(handle);
 
       const creditedItem1 = creditedData.items.find(
         (i) => i.application_number === 1,
@@ -298,10 +298,10 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
       expect(creditedSuggestedOnly.items).toHaveLength(1);
       expect(creditedSuggestedOnly.items[0]?.application_number).toBe(2);
 
-      // Filter credited applications by contact_id
+      // Filter credited applications by Contact
       const creditedContactOnly = (await (
         await provider.api.listCreditedApplications(provider.owner, {
-          contact_id: contactID,
+          contact_handle: handle,
         })
       ).json()) as ListCreditedApplicationsResponse;
       expect(creditedContactOnly.items).toHaveLength(1);
@@ -340,7 +340,7 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
       expect(job.job.credited_count).toBe(2);
       expect(job.credited_applications).toHaveLength(2);
       expect(job.suggested_contacts).toHaveLength(1);
-      expect(job.suggested_contacts[0]?.contact_id).toBe(contactID);
+      expect(job.suggested_contacts[0]?.handle).toBe(handle);
 
       const jobsListRes = await provider.api.listJobs(provider.owner, {});
       expect(jobsListRes.status()).toBe(200);
@@ -353,7 +353,7 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
 
       // 9. Agency reads: Contact detail with credited count and suggested openings
       const contactRes = await provider.api.getContact(provider.owner, {
-        contact_id: contactID,
+        handle,
       });
       expect(contactRes.status()).toBe(200);
       const contactData = (await contactRes.json()) as Contact;

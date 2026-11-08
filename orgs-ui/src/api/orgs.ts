@@ -112,8 +112,7 @@ import type {
   ConversationDetail,
   ConversationMessage,
   DeclineChatRequestRequest,
-  DeleteContactNoteRequest,
-  DeletedNote,
+  DeleteMessageRequest,
   EditContactNoteRequest,
   GetConversationRequest,
   ListChatRequestsRequest,
@@ -903,14 +902,6 @@ export const orgsAPI = {
       body,
       idempotencyKey,
     }),
-  deleteContactNote: (
-    body: DeleteContactNoteRequest,
-    idempotencyKey: IdempotencyKey,
-  ) =>
-    apiRequest<DeletedNote>("/delete-contact-note", {
-      body,
-      idempotencyKey,
-    }),
   sendChatRequest: (
     body: SendChatRequestRequest,
     idempotencyKey: IdempotencyKey,
@@ -936,6 +927,11 @@ export const orgsAPI = {
     apiRequest<ChatRequest>("/decline-chat-request", { body, idempotencyKey }),
   sendMessage: (body: SendMessageRequest, idempotencyKey: IdempotencyKey) =>
     apiRequest<ConversationMessage>("/send-message", {
+      body,
+      idempotencyKey,
+    }),
+  deleteMessage: (body: DeleteMessageRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<ConversationMessage>("/delete-message", {
       body,
       idempotencyKey,
     }),

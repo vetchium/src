@@ -1,7 +1,6 @@
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Alert,
-  Avatar,
   Card,
   Col,
   Flex,
@@ -28,16 +27,12 @@ import type {
 } from "typespec/orgs/marketplace/attribution";
 import { paths } from "../app/paths";
 import {
-  getInitials,
   hubStatusColors,
   hubStatusLabel,
   referralRouteColors,
   referralRouteLabel,
 } from "../features/marketplace/presentation";
-import {
-  useContactsQuery,
-  useCreditedApplicationsQuery,
-} from "../features/marketplace/queries";
+import { useCreditedApplicationsQuery } from "../features/marketplace/queries";
 import { ClientPicker } from "../features/marketplace/SuggestionSelect";
 
 const routes: ReferralRoute[] = ["suggested", "declared"];
@@ -57,17 +52,6 @@ export function CreditedApplicationsPage() {
     ...(selectedRoute && { route: selectedRoute }),
     ...(selectedStatus && { status: selectedStatus }),
   });
-
-  const contactsQuery = useContactsQuery();
-  const contacts = contactsQuery.data?.items ?? [];
-
-  const contactMap = useMemo(() => {
-    const map = new Map<string, { name: string; handle: string }>();
-    for (const c of contacts) {
-      map.set(c.contact_id, { name: c.display_name, handle: c.handle });
-    }
-    return map;
-  }, [contacts]);
 
   const items = attributionQuery.data?.items ?? [];
   const unavailableTenants = attributionQuery.data?.unavailable_tenants ?? [];
@@ -100,11 +84,12 @@ export function CreditedApplicationsPage() {
       title: t("marketplace.attribution.tableApplicant"),
       key: "applicant",
       render: (_, item) => {
-        const contactInfo = item.contact_id
-          ? contactMap.get(item.contact_id)
-          : undefined;
         const displayName =
-          contactInfo?.name ?? `Applicant #${item.application_number}`;
+          item.contact_handle === undefined
+            ? t("marketplace.attribution.applicantNumber", {
+                number: item.application_number,
+              })
+            : `@${item.contact_handle}`;
         const country = item.opening?.employing_country
           ? t(`countries.${item.opening.employing_country}`, {
               defaultValue: item.opening.employing_country,
@@ -113,13 +98,10 @@ export function CreditedApplicationsPage() {
 
         return (
           <Flex align="center" gap="middle">
-            <Avatar size="small" style={{ backgroundColor: "#1677ff" }}>
-              {getInitials(displayName)}
-            </Avatar>
             <div>
-              {item.contact_id ? (
+              {item.contact_handle !== undefined ? (
                 <Link
-                  to={paths.contactDetail(item.contact_id)}
+                  to={paths.contactDetail(item.contact_handle)}
                   style={{ fontWeight: 500 }}
                 >
                   {displayName}

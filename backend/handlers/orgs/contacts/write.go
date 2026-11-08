@@ -24,11 +24,11 @@ import (
 const replayWindow = 24 * time.Hour
 
 func noteFrom(
-	id pgtype.UUID, author, text string, created, edited pgtype.Timestamptz,
+	number int32, author, text string, created, edited pgtype.Timestamptz,
 ) contacts.ContactNote {
 	note := contacts.ContactNote{
-		NoteID: contacts.ContactNoteID(dbvalue.FormatUUID(id)),
-		Author: common.EmailAddress(author), Mine: true,
+		NoteNumber: contacts.NoteNumber(number),
+		Author:     common.EmailAddress(author), Mine: true,
 		Text: contacts.NoteText(text), CreatedAt: created.Time.UTC(),
 	}
 	if edited.Valid {
@@ -100,13 +100,10 @@ func AddPersonNote(s *orgsruntime.Server) http.HandlerFunc {
 					if created >= contacts.MaxNewContactsPerDay {
 						return fail(orgsproblem.ContactLimitReachedError)
 					}
-					contactID, err := dbvalue.NewUUIDv7(now)
-					if err != nil {
-						return result{}, nil, err
-					}
 					row, err := q.CreateOrgContact(ctx, sqlc.CreateOrgContactParams{
-						ContactID: contactID, OrgDid: identity.OrgDID, HubUserDid: hubDID,
-						DisplayName: name, Handle: handle, ActorID: identity.UserID,
+						OrgDid: identity.OrgDID, HubUserDid: hubDID,
+						DisplayName: name, Handle: handle,
+						RequestsOff: !read.AgenciesMayMessage, ActorID: identity.UserID,
 						Day: today, TenantID: s.TenantID,
 						IdempotencyKey: dbvalue.Text(string(key)),
 					})
@@ -116,16 +113,15 @@ func AddPersonNote(s *orgsruntime.Server) http.HandlerFunc {
 					if row.CreatedRows != 1 || row.CountedRows != 1 || row.AuditRows != 1 {
 						return result{}, nil, fmt.Errorf("incomplete Contact creation")
 					}
-					if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contactID, agencycontacts.NoNotice); err != nil {
+					if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID, hubDID, agencycontacts.NoNotice); err != nil {
 						return result{}, nil, err
 					}
-					contact.ContactID = contactID
 				case err != nil:
 					return result{}, nil, err
 				default:
-					if contact.DisplayName != name || contact.Handle != handle {
+					if contact.DisplayName != name {
 						changed, err := q.RefreshOrgContactNames(ctx, sqlc.RefreshOrgContactNamesParams{
-							DisplayName: name, Handle: handle, ContactID: contact.ContactID,
+							DisplayName: name, HubUserDid: hubDID,
 							OrgDid: identity.OrgDID, TenantID: s.TenantID,
 							ActorID:        identity.UserID,
 							IdempotencyKey: dbvalue.Text(string(key)),
@@ -138,13 +134,13 @@ func AddPersonNote(s *orgsruntime.Server) http.HandlerFunc {
 						}
 					}
 					if _, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
-						OrgDid: identity.OrgDID, ContactID: contact.ContactID,
+						OrgDid: identity.OrgDID, HubUserDid: hubDID,
 					}); err != nil {
 						return result{}, nil, fmt.Errorf("lock Contact: %w", err)
 					}
 				}
 				added, problemDetails, err := insertNote(
-					r, s, q, identity, key, contact.ContactID,
+					r, s, q, identity, key, hubDID,
 					string(request.Text), credited, now)
 				if err != nil || problemDetails != nil {
 					if problemDetails != nil {
@@ -163,16 +159,12 @@ func AddPersonNote(s *orgsruntime.Server) http.HandlerFunc {
 func insertNote(
 	r *http.Request, s *orgsruntime.Server, q *sqlc.Queries,
 	identity middleware.OrgIdentity, key common.IdempotencyKey,
-	contactID pgtype.UUID, text string, credited int32, now time.Time,
+	hubDID pgtype.UUID, text string, credited int32, now time.Time,
 ) (contacts.AddedNote, *problem.Body, error) {
 	ctx := r.Context()
-	noteID, err := dbvalue.NewUUIDv7(now)
-	if err != nil {
-		return contacts.AddedNote{}, nil, err
-	}
 	row, err := q.AddOrgContactNote(ctx, sqlc.AddOrgContactNoteParams{
-		NoteLimit: contacts.MaxNotesPerContact, ContactID: contactID,
-		NoteID: noteID, ActorID: identity.UserID, NoteText: text,
+		NoteLimit: contacts.MaxNotesPerContact, HubUserDid: hubDID,
+		ActorID: identity.UserID, NoteText: text,
 		TenantID: s.TenantID, OrgDid: identity.OrgDID,
 		IdempotencyKey: dbvalue.Text(string(key)),
 	})
@@ -183,21 +175,19 @@ func insertNote(
 		details := problem.Body(orgsproblem.ContactNoteLimitReachedError)
 		return contacts.AddedNote{}, &details, nil
 	}
-	if !row.NoteID.Valid || row.AuditRows != 1 {
+	if !row.NoteNumber.Valid || row.AuditRows != 1 {
 		return contacts.AddedNote{}, nil, fmt.Errorf("incomplete note insertion")
 	}
-	contact, err := q.GetOrgContact(ctx, sqlc.GetOrgContactParams{
-		OrgDid: identity.OrgDID, ContactID: contactID,
+	contact, err := q.GetOrgContactByPerson(ctx, sqlc.GetOrgContactByPersonParams{
+		OrgDid: identity.OrgDID, HubUserDid: hubDID,
 	})
 	if err != nil {
 		return contacts.AddedNote{}, nil, err
 	}
 	return contacts.AddedNote{
-		Contact: summary(contact.ContactID, contact.DisplayName, contact.Handle,
-			contact.RequestsOff, contact.PartyDeleted, contact.LastActivityAt,
-			contact.NoteCount, credited, contact.HasConversation,
-			contact.UnreadMessagesCount, contact.PendingRequestDirection),
-		Note: noteFrom(row.NoteID, row.Author, text, row.CreatedAt, pgtype.Timestamptz{}),
+		Contact: summary(sqlc.ListOrgContactsRow(contact), credited, now),
+		Note: noteFrom(row.NoteNumber.Int32, row.Author, text, row.CreatedAt,
+			pgtype.Timestamptz{}),
 	}, nil, nil
 }
 
@@ -212,14 +202,9 @@ func AddContactNote(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
-		id, err := dbvalue.ParseUUID(string(request.ContactID))
-		if err != nil {
-			s.InternalError(r.Context(), w, "parse Contact id", err)
-			return
-		}
 		var credited int32
-		if found, err := s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
-			OrgDid: identity.OrgDID, ContactID: id,
+		if found, err := s.Queries.GetOrgContactByHandle(r.Context(), sqlc.GetOrgContactByHandleParams{
+			OrgDid: identity.OrgDID, Handle: string(request.Handle),
 		}); err == nil {
 			credited = creditedCounts(r.Context(), s, identity.OrgDID,
 				[]pgtype.UUID{found.HubUserDid})[dbvalue.FormatUUID(found.HubUserDid)]
@@ -232,8 +217,8 @@ func AddContactNote(s *orgsruntime.Server) http.HandlerFunc {
 		handlerauth.RunIdempotent(s, w, r, "orgs:add-contact-note",
 			dbvalue.FormatUUID(identity.UserID), key, request, now.Add(replayWindow),
 			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
-				_, err := q.LockOrgContact(r.Context(), sqlc.LockOrgContactParams{
-					OrgDid: identity.OrgDID, ContactID: id,
+				locked, err := q.LockOrgContactByHandle(r.Context(), sqlc.LockOrgContactByHandleParams{
+					OrgDid: identity.OrgDID, Handle: string(request.Handle),
 				})
 				if isNoRows(err) {
 					return handlerauth.Failure[contacts.AddedNote](orgsproblem.ContactNotFoundError)
@@ -242,7 +227,10 @@ func AddContactNote(s *orgsruntime.Server) http.HandlerFunc {
 					return result{}, nil, err
 				}
 				// A deleted account keeps only its conversation (MKT-CON-004).
-				deleted, err := q.OrgContactAccountDeleted(r.Context(), id)
+				deleted, err := q.OrgContactAccountDeleted(r.Context(),
+					sqlc.OrgContactAccountDeletedParams{
+						OrgDid: identity.OrgDID, HubUserDid: locked.HubUserDid,
+					})
 				if err != nil {
 					return result{}, nil, err
 				}
@@ -250,7 +238,7 @@ func AddContactNote(s *orgsruntime.Server) http.HandlerFunc {
 					return handlerauth.Failure[contacts.AddedNote](orgsproblem.ConversationPartyDeletedError)
 				}
 				added, details, err := insertNote(r, s, q, identity, key,
-					id, string(request.Text), credited, now)
+					locked.HubUserDid, string(request.Text), credited, now)
 				if details != nil {
 					return handlerauth.Failure[contacts.AddedNote](*details)
 				}
@@ -281,23 +269,17 @@ func EditContactNote(s *orgsruntime.Server) http.HandlerFunc {
 			dbvalue.FormatUUID(identity.UserID), key, request, now.Add(replayWindow),
 			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
 				ctx := r.Context()
-				contactID, err := dbvalue.ParseUUID(string(request.ContactID))
-				if err != nil {
-					return result{}, nil, err
-				}
-				noteID, err := dbvalue.ParseUUID(string(request.NoteID))
-				if err != nil {
-					return result{}, nil, err
-				}
-				if _, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
-					OrgDid: identity.OrgDID, ContactID: contactID,
-				}); isNoRows(err) {
+				locked, err := q.LockOrgContactByHandle(ctx, sqlc.LockOrgContactByHandleParams{
+					OrgDid: identity.OrgDID, Handle: string(request.Handle),
+				})
+				if isNoRows(err) {
 					return handlerauth.Failure[contacts.ContactNote](orgsproblem.ContactNotFoundError)
 				} else if err != nil {
 					return result{}, nil, err
 				}
 				author, err := q.GetOrgContactNoteAuthor(ctx, sqlc.GetOrgContactNoteAuthorParams{
-					ContactID: contactID, NoteID: noteID,
+					OrgDid: identity.OrgDID, HubUserDid: locked.HubUserDid,
+					NoteNumber: int32(request.NoteNumber),
 				})
 				if isNoRows(err) {
 					return handlerauth.Failure[contacts.ContactNote](orgsproblem.ContactNoteNotFoundError)
@@ -309,8 +291,9 @@ func EditContactNote(s *orgsruntime.Server) http.HandlerFunc {
 					return handlerauth.Failure[contacts.ContactNote](orgsproblem.ContactNoteNotAuthorError)
 				}
 				row, err := q.EditOrgContactNote(ctx, sqlc.EditOrgContactNoteParams{
-					NoteText: string(request.Text), NoteID: noteID, ContactID: contactID,
-					ActorID: identity.UserID, TenantID: s.TenantID, OrgDid: identity.OrgDID,
+					NoteText: string(request.Text), NoteNumber: int32(request.NoteNumber),
+					HubUserDid: locked.HubUserDid, ActorID: identity.UserID,
+					TenantID: s.TenantID, OrgDid: identity.OrgDID,
 					IdempotencyKey: dbvalue.Text(string(key)),
 				})
 				if err != nil {
@@ -320,87 +303,8 @@ func EditContactNote(s *orgsruntime.Server) http.HandlerFunc {
 					return result{}, nil, fmt.Errorf("incomplete note edit")
 				}
 				return result{Status: http.StatusOK, Body: noteFrom(
-					row.NoteID, row.Author, string(request.Text), row.CreatedAt, row.EditedAt,
+					row.NoteNumber, row.Author, string(request.Text), row.CreatedAt, row.EditedAt,
 				)}, nil, nil
-			})
-	}
-}
-
-// DeleteContactNote deletes a note; any agency user with the permission may,
-// for a correction or the person's request. Deleting the last note of a
-// Contact with nothing else to keep it deletes the Contact and its pointer
-// (MKT-CON-004).
-func DeleteContactNote(s *orgsruntime.Server) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var request contacts.DeleteContactNoteRequest
-		if !apiserver.Decode(s, w, r, &request) {
-			return
-		}
-		key, ok := handlerauth.IdempotencyKey(s, w, r)
-		if !ok {
-			return
-		}
-		identity, _ := middleware.OrgIdentityFromContext(r.Context())
-		now := s.CurrentTime()
-		type result = handlerauth.Result[contacts.DeletedNote]
-		handlerauth.RunIdempotent(s, w, r, "orgs:delete-contact-note",
-			dbvalue.FormatUUID(identity.UserID), key, request, now.Add(replayWindow),
-			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
-				ctx := r.Context()
-				contactID, err := dbvalue.ParseUUID(string(request.ContactID))
-				if err != nil {
-					return result{}, nil, err
-				}
-				noteID, err := dbvalue.ParseUUID(string(request.NoteID))
-				if err != nil {
-					return result{}, nil, err
-				}
-				locked, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
-					OrgDid: identity.OrgDID, ContactID: contactID,
-				})
-				if isNoRows(err) {
-					return handlerauth.Failure[contacts.DeletedNote](orgsproblem.ContactNotFoundError)
-				}
-				if err != nil {
-					return result{}, nil, err
-				}
-				row, err := q.DeleteOrgContactNote(ctx, sqlc.DeleteOrgContactNoteParams{
-					ContactID: contactID, NoteID: noteID, TenantID: s.TenantID,
-					ActorID: identity.UserID, HubUserDid: locked.HubUserDid,
-					OrgDid: identity.OrgDID, IdempotencyKey: dbvalue.Text(string(key)),
-				})
-				if err != nil {
-					return result{}, nil, err
-				}
-				if row.DeletedRows == 0 {
-					return handlerauth.Failure[contacts.DeletedNote](orgsproblem.ContactNoteNotFoundError)
-				}
-				if row.DeletedRows != 1 || row.AuditRows != 1 {
-					return result{}, nil, fmt.Errorf("incomplete note deletion")
-				}
-				deleted := contacts.DeletedNote{}
-				if row.Remaining == 0 {
-					gone, err := q.DeleteUnusedOrgContact(ctx, sqlc.DeleteUnusedOrgContactParams{
-						ContactID: contactID, OrgDid: identity.OrgDID, TenantID: s.TenantID,
-						ActorType: "org_user", ActorID: dbvalue.FormatUUID(identity.UserID),
-						Source: "orgs-api", IdempotencyKey: dbvalue.Text(string(key)),
-					})
-					switch {
-					case isNoRows(err):
-					case err != nil:
-						return result{}, nil, err
-					default:
-						if gone.AuditRows != 1 {
-							return result{}, nil, fmt.Errorf("incomplete Contact deletion")
-						}
-						if err := agencycontacts.RemovePointer(ctx, q, identity.OrgDID,
-							contactID, gone.HubUserDid, gone.PointerVersion); err != nil {
-							return result{}, nil, err
-						}
-						deleted.ContactDeleted = true
-					}
-				}
-				return result{Status: http.StatusOK, Body: deleted}, nil, nil
 			})
 	}
 }

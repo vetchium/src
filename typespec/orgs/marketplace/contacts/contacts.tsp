@@ -20,12 +20,9 @@ using TypeSpec.Http;
 
 namespace Vetchium.Orgs.Marketplace.Contacts;
 
-/** Names one Contact of an agency; never reused. */
-@format("uuid")
-scalar ContactID extends string;
-
-@format("uuid")
-scalar ContactNoteID extends string;
+/** Numbers the notes of one Contact from 1; never reused while it exists. */
+@minValue(1)
+scalar NoteNumber extends int32;
 
 /** Plain text, 1–5,000 code points after trimming. */
 @maxLength(20000)
@@ -35,11 +32,9 @@ scalar NoteText extends string;
 @maxLength(20000)
 scalar MessageText extends string;
 
-@format("uuid")
-scalar ConversationID extends string;
-
-@format("uuid")
-scalar MessageID extends string;
+/** Numbers the messages of one conversation from 1; never reused. */
+@minValue(1)
+scalar MessageNumber extends int32;
 
 enum MessageKind {
   text: "text",
@@ -67,7 +62,6 @@ enum ContactFilter {
 
   unread: "unread",
   has_conversation: "has_conversation",
-  not_contacted: "not_contacted",
 }
 
 model OpeningSuggestion {
@@ -75,9 +69,9 @@ model OpeningSuggestion {
   opening_number: Vetchium.Orgs.Openings.OpeningNumber;
 }
 
-/** Names one chat request; never reused. */
-@format("uuid")
-scalar ChatRequestID extends string;
+/** Numbers the chat requests of one Contact from 1; never reused while it exists. */
+@minValue(1)
+scalar ChatRequestNumber extends int32;
 
 /** Plain text, 1–1,000 code points after trimming. */
 @maxLength(4000)
@@ -108,8 +102,7 @@ enum ChatRequestDeclineScope {
 
 /** A chat request as the agency sees it (MKT-REQ-001). */
 model ChatRequest {
-  request_id: ChatRequestID;
-  contact_id: ContactID;
+  request_number: ChatRequestNumber;
   direction: ChatRequestDirection;
   state: ChatRequestState;
   opening: OpeningSuggestion;
@@ -117,9 +110,10 @@ model ChatRequest {
   /** Present only while the request is `pending` (MKT-REQ-012). */
   note?: ChatRequestNote;
 
-  /** The Hub user's name and handle as the agency last recorded them. */
+  /** The Hub user's name as the agency last recorded it. */
   hub_user_name: Vetchium.DisplayName;
 
+  /** Names the Contact the request belongs to. */
   hub_user_handle: Vetchium.Hub.HubHandle;
 
   /** The agency user who sent it, by email address; absent for a Hub request. */
@@ -137,10 +131,15 @@ model ChatRequest {
 }
 
 model ConversationMessage {
-  message_id: MessageID;
+  message_number: MessageNumber;
   sender_type: MessageSenderType;
   sender_display_name: string;
   kind: MessageKind;
+
+  /** Its sender deleted it; only this stub remains (MKT-CNV-007). */
+  deleted: boolean;
+
+  /** Absent once the message is deleted. */
   text?: MessageText;
 
   /** The Opening of a `suggestion` or a `request` message. */
@@ -153,8 +152,6 @@ model ConversationMessage {
 }
 
 model ConversationSummary {
-  conversation_id: ConversationID;
-  contact_id: ContactID;
   recorded_hub_user_name: string;
   recorded_hub_user_handle: Vetchium.Hub.HubHandle;
   recorded_agency_name: string;
@@ -183,13 +180,11 @@ model ConversationDetail {
 }
 
 /**
- * Asks a person, by handle or alias or by the agency's Contact, to open the
- * conversation about an Opening the agency is assigned to. Exactly one of
- * `address` and `contact_id`.
+ * Asks a person, by handle or alias, to open the conversation about an
+ * Opening the agency is assigned to.
  */
 model SendChatRequestRequest {
-  address?: Vetchium.Hub.Profile.ProfileAddress;
-  contact_id?: ContactID;
+  address: Vetchium.Hub.Profile.ProfileAddress;
   suggestion: OpeningSuggestion;
   note?: ChatRequestNote;
 }
@@ -215,22 +210,30 @@ model PendingChatRequestCount {
 }
 
 model AcceptChatRequestRequest {
-  request_id: ChatRequestID;
+  handle: Vetchium.Hub.HubHandle;
+  request_number: ChatRequestNumber;
 }
 
 model DeclineChatRequestRequest {
-  request_id: ChatRequestID;
+  handle: Vetchium.Hub.HubHandle;
+  request_number: ChatRequestNumber;
   scope: ChatRequestDeclineScope;
 }
 
 model SendMessageRequest {
-  contact_id: ContactID;
+  handle: Vetchium.Hub.HubHandle;
   text?: MessageText;
   suggestion?: OpeningSuggestion;
 }
 
+/** Deletes one of the agency's own text messages (MKT-CNV-007). */
+model DeleteMessageRequest {
+  handle: Vetchium.Hub.HubHandle;
+  message_number: MessageNumber;
+}
+
 model GetConversationRequest {
-  contact_id: ContactID;
+  handle: Vetchium.Hub.HubHandle;
   pagination_key?: Vetchium.PaginationKey;
 
   /** Defaults to 50. */
@@ -238,7 +241,7 @@ model GetConversationRequest {
 }
 
 model MarkConversationReadRequest {
-  contact_id: ContactID;
+  handle: Vetchium.Hub.HubHandle;
 }
 
 @minValue(1)
@@ -256,7 +259,6 @@ model ContactCounts {
   requests: int32;
   unread: int32;
   has_conversation: int32;
-  not_contacted: int32;
 }
 
 /**
@@ -269,14 +271,32 @@ model VerifiedDomain {
   last_verified_month: Vetchium.Hub.Profile.ProfileMonth;
 }
 
+/**
+ * Where the agency stands with a Contact (MKT-UI-007), the first that holds:
+ * a pending request from the person, a pending request to them, a
+ * conversation the agency may write in, the agency's latest request declined
+ * or expired after the conversation's last activity, a conversation the
+ * agency may not write in, and no conversation.
+ */
+enum ContactStatus {
+  request_received: "request_received",
+  request_sent: "request_sent",
+  in_conversation: "in_conversation",
+  request_declined: "request_declined",
+  request_expired: "request_expired",
+  conversation_closed: "conversation_closed",
+  no_conversation: "no_conversation",
+}
+
 /** One Contact in a list or beside a profile. */
 model ContactSummary {
-  contact_id: ContactID;
-
   /** As last read from the person's profile. */
   display_name: Vetchium.DisplayName;
 
+  /** Names the Contact; permanent and unique across Vetchium. */
   handle: Vetchium.Hub.HubHandle;
+
+  status: ContactStatus;
 
   /** The person does not accept chat requests from agencies. */
   requests_off: boolean;
@@ -286,10 +306,6 @@ model ContactSummary {
 
   note_count: int32;
   has_conversation: boolean;
-
-  /** The direction of a pending chat request between the two, if any. */
-  pending_request_direction?: ChatRequestDirection;
-
   unread_messages_count: int32;
   credited_count: int32;
   last_activity_at: utcDateTime;
@@ -303,23 +319,14 @@ model ContactOpeningSuggestion {
 
 model Contact {
   ...ContactSummary;
-
-  /**
-   * The email address of the agency user who created the Contact; absent when
-   * a Hub user's chat request created it.
-   */
-  created_by?: Vetchium.EmailAddress;
-
   suggested_openings: ContactOpeningSuggestion[];
 
   /** The latest chat request between the two, in any state. */
   latest_request?: ChatRequest;
-
-  created_at: utcDateTime;
 }
 
 model ContactNote {
-  note_id: ContactNoteID;
+  note_number: NoteNumber;
 
   /** The email address of the agency user who wrote it. */
   author: Vetchium.EmailAddress;
@@ -367,11 +374,11 @@ model ListContactsResponse {
 }
 
 model ContactReference {
-  contact_id: ContactID;
+  handle: Vetchium.Hub.HubHandle;
 }
 
 model ListContactNotesRequest {
-  contact_id: ContactID;
+  handle: Vetchium.Hub.HubHandle;
   pagination_key?: Vetchium.PaginationKey;
 
   /** Defaults to 50. */
@@ -393,7 +400,7 @@ model AddPersonNoteRequest {
 }
 
 model AddContactNoteRequest {
-  contact_id: ContactID;
+  handle: Vetchium.Hub.HubHandle;
   text: NoteText;
 }
 
@@ -404,19 +411,9 @@ model AddedNote {
 }
 
 model EditContactNoteRequest {
-  contact_id: ContactID;
-  note_id: ContactNoteID;
+  handle: Vetchium.Hub.HubHandle;
+  note_number: NoteNumber;
   text: NoteText;
-}
-
-model DeleteContactNoteRequest {
-  contact_id: ContactID;
-  note_id: ContactNoteID;
-}
-
-model DeletedNote {
-  /** The note was the Contact's last, and the Contact went with it. */
-  contact_deleted: boolean;
 }
 
 alias ContactReadErrors =
@@ -610,40 +607,6 @@ interface ContactOperations {
     | Vetchium.Problem.OrgContactNoteNotAuthorErrorResponse;
 
   /**
-   * Deletes a note; any agency user may. Deleting the last note of a Contact
-   * without a conversation deletes the Contact.
-   */
-  @route("/delete-contact-note")
-  @post
-  @useAuth(BearerAuth)
-  @TypeSpec.OpenAPI.extension(
-    "x-vetchium-required-permission",
-    "org:fulfil_engagements"
-  )
-  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
-  @TypeSpec.OpenAPI.extension(
-    "x-vetchium-idempotency-binding",
-    #[
-      "operation",
-      "authenticated-principal",
-      "canonical-request-digest",
-      "idempotency-key"
-    ]
-  )
-  deleteContactNote(
-    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
-    @body request: DeleteContactNoteRequest,
-  ):
-    | {
-        @statusCode status_code: 200;
-        @header("Cache-Control") cache_control: "no-store";
-        @body body: DeletedNote;
-      }
-    | ContactWriteErrors
-    | Vetchium.Problem.OrgContactNotFoundErrorResponse
-    | Vetchium.Problem.OrgContactNoteNotFoundErrorResponse;
-
-  /**
    * Sends a chat request about an Opening the agency is assigned to, creating
    * the Contact if absent (MKT-REQ-002, MKT-DAT-004).
    */
@@ -677,7 +640,6 @@ interface ContactOperations {
     | Vetchium.Problem.OrgListingNotAvailableErrorResponse
     | Vetchium.Problem.OrgChatRequestLimitReachedErrorResponse
     | Vetchium.Problem.OrgContactLimitReachedErrorResponse
-    | Vetchium.Problem.OrgContactNotFoundErrorResponse
     | Vetchium.Problem.OrgHubUserNotFoundErrorResponse
     | Vetchium.Problem.OrgAgencyRequestsOffErrorResponse
     | Vetchium.Problem.OrgConversationPartyDeletedErrorResponse
@@ -816,6 +778,42 @@ interface ContactOperations {
     | Vetchium.Problem.OrgConversationNotFoundErrorResponse
     | Vetchium.Problem.OrgConversationPartyDeletedErrorResponse
     | Vetchium.Problem.OrgConversationClosedErrorResponse;
+
+  /**
+   * Deletes the text of one of the agency's own text messages; any agency
+   * user may. The message stays as a stub, and the Hub user's tenant learns
+   * of the deletion without the text (MKT-CNV-007).
+   */
+  @route("/delete-message")
+  @post
+  @useAuth(BearerAuth)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-required-permission",
+    "org:fulfil_engagements"
+  )
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  deleteMessage(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: DeleteMessageRequest,
+  ):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: ConversationMessage;
+      }
+    | ContactWriteErrors
+    | Vetchium.Problem.OrgContactNotFoundErrorResponse
+    | Vetchium.Problem.OrgConversationNotFoundErrorResponse
+    | Vetchium.Problem.OrgConversationMessageNotFoundErrorResponse;
 
   /** Reads a Contact's conversation and its messages. */
   @route("/get-conversation")

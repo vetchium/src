@@ -4,7 +4,7 @@ export const HubConversationNotFoundError: Readonly<Details> = {
   type: "vetchium-problem-details/hub-conversation-not-found",
   title: "Hub conversation not found",
   status: 404,
-  detail: "No conversation has that identifier",
+  detail: "You have no conversation with that agency",
 };
 
 export const HubConversationPartyDeletedError: Readonly<Details> = {
@@ -40,7 +40,7 @@ export const HubChatRequestNotFoundError: Readonly<Details> = {
   type: "vetchium-problem-details/hub-chat-request-not-found",
   title: "Hub chat request not found",
   status: 404,
-  detail: "No pending chat request to you has that identifier",
+  detail: "No pending chat request to you from that agency has that number",
 };
 
 export const HubConversationOpenError: Readonly<Details> = {
@@ -63,4 +63,11 @@ export const HubAgencyNotAssignedError: Readonly<Details> = {
   title: "Hub agency not assigned",
   status: 422,
   detail: "The Opening is not published or the agency does not work on it",
+};
+
+export const HubConversationMessageNotFoundError: Readonly<Details> = {
+  type: "vetchium-problem-details/hub-conversation-message-not-found",
+  title: "Hub conversation message not found",
+  status: 404,
+  detail: "No text message you sent and have not deleted has that number",
 };

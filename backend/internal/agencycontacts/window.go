@@ -11,7 +11,6 @@ import (
 	"github.com/vetchium/src/typespec/orgs/openings"
 
 	"backend/internal/db/sqlc"
-	"backend/internal/dbvalue"
 )
 
 // WriteWindow is until when each side of a conversation may write
@@ -88,7 +87,7 @@ func WindowDays(seconds pgtype.Int8) *int32 {
 // its note (MKT-DAT-003).
 func PointerRequest(request sqlc.VetchiumOrgChatRequest) federationspec.AgencyPointerRequest {
 	pointer := federationspec.AgencyPointerRequest{
-		RequestID:      contacts.ChatRequestID(dbvalue.FormatUUID(request.RequestID)),
+		RequestNumber:  contacts.ChatRequestNumber(request.RequestNumber),
 		Direction:      contacts.ChatRequestDirection(request.Direction),
 		State:          contacts.ChatRequestState(request.State),
 		ConsumerDomain: orgs.OrgDomain(request.ConsumerDomain),

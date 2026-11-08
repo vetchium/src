@@ -6,6 +6,7 @@ import "../../common/common.tsp";
 import "../../common/pagination.tsp";
 import "../../directory/directory.tsp";
 import "../../hub/applications/applications.tsp";
+import "../../hub/types.tsp";
 import "../../problem/common.tsp";
 import "../../problem/details.tsp";
 import "../applications/applications.tsp";
@@ -38,7 +39,10 @@ model CreditedApplicationSummary {
   application_number: Vetchium.Orgs.Applications.ApplicationNumber;
   route: ReferralRoute;
   status: Vetchium.Hub.Applications.ApplicationStatus;
-  contact_id?: Contacts.ContactID;
+
+  /** The applicant's handle, when the agency has a Contact on them. */
+  contact_handle?: Vetchium.Hub.HubHandle;
+
   applied_at: utcDateTime;
 }
 
@@ -47,7 +51,10 @@ model ListCreditedApplicationsRequest {
   opening_number?: Vetchium.Orgs.Openings.OpeningNumber;
   route?: ReferralRoute;
   status?: Vetchium.Hub.Applications.ApplicationStatus;
-  contact_id?: Contacts.ContactID;
+
+  /** Only the applications of the agency's Contact with this handle. */
+  contact_handle?: Vetchium.Hub.HubHandle;
+
   pagination_key?: Vetchium.PaginationKey;
   limit?: Work.WorkPageSize = 50;
 }

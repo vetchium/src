@@ -6,14 +6,13 @@ import (
 	"testing"
 
 	"github.com/vetchium/src/typespec/common"
-	"github.com/vetchium/src/typespec/hub/profile"
+	"github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/orgs"
 )
 
 const (
-	contactID = ContactID("01900000-0000-7000-8000-000000000001")
-	noteID    = ContactNoteID("01900000-0000-7000-8000-000000000002")
-	orgDID    = orgs.OrgDID("01900000-0000-7000-8000-000000000003")
+	handle = hub.HubHandle("priyaaaa-00000000001")
+	orgDID = orgs.OrgDID("01900000-0000-7000-8000-000000000003")
 )
 
 func TestNoteTextBounds(t *testing.T) {
@@ -60,32 +59,33 @@ func TestRequestsNormalizeOnACopyAndValidate(t *testing.T) {
 	}{
 		{"person note", copied.Validate(), []string{}},
 		{"person note invalid", AddPersonNoteRequest{Address: "x", Text: " "}.Validate(), []string{"address", "text"}},
-		{"contact note", AddContactNoteRequest{ContactID: contactID, Text: "t"}.Validate(), []string{}},
-		{"contact note invalid", AddContactNoteRequest{ContactID: "x"}.Validate(), []string{"contact_id", "text"}},
-		{"edit", EditContactNoteRequest{ContactID: contactID, NoteID: noteID, Text: "t"}.Validate(), []string{}},
-		{"edit invalid", EditContactNoteRequest{}.Validate(), []string{"contact_id", "note_id", "text"}},
-		{"delete", DeleteContactNoteRequest{ContactID: contactID, NoteID: noteID}.Validate(), []string{}},
-		{"delete invalid", DeleteContactNoteRequest{NoteID: "x"}.Validate(), []string{"contact_id", "note_id"}},
-		{"reference", ContactReference{ContactID: contactID}.Validate(), []string{}},
-		{"reference invalid", ContactReference{}.Validate(), []string{"contact_id"}},
+		{"contact note", AddContactNoteRequest{Handle: handle, Text: "t"}.Validate(), []string{}},
+		{"contact note invalid", AddContactNoteRequest{Handle: "x"}.Validate(), []string{"handle", "text"}},
+		{"edit", EditContactNoteRequest{Handle: handle, NoteNumber: 1, Text: "t"}.Validate(), []string{}},
+		{"edit invalid", EditContactNoteRequest{}.Validate(), []string{"handle", "note_number", "text"}},
+		{"reference", ContactReference{Handle: handle}.Validate(), []string{}},
+		{"reference invalid", ContactReference{}.Validate(), []string{"handle"}},
+		{"reference alias", ContactReference{Handle: "priya"}.Validate(), []string{"handle"}},
 		{"view", ViewHubProfileRequest{Address: "priya"}.Validate(), []string{}},
 		{"view invalid", ViewHubProfileRequest{}.Validate(), []string{"address"}},
 		{"list", ListContactsRequest{Limit: &goodLimit}.Validate(), []string{}},
 		{"list invalid", ListContactsRequest{Limit: &badLimit, PaginationKey: &key}.Validate(), []string{"pagination_key", "limit"}},
-		{"notes", ListContactNotesRequest{ContactID: contactID}.Validate(), []string{}},
-		{"notes invalid", ListContactNotesRequest{Limit: &badLimit}.Validate(), []string{"contact_id", "limit"}},
+		{"notes", ListContactNotesRequest{Handle: handle}.Validate(), []string{}},
+		{"notes invalid", ListContactNotesRequest{Limit: &badLimit}.Validate(), []string{"handle", "limit"}},
 		{"relay", RelayReadAgencyProfileRequest{AgencyOrgDID: orgDID, Address: "priya"}.Validate(), []string{}},
 		{"relay invalid", RelayReadAgencyProfileRequest{}.Validate(), []string{"agency_org_did", "address"}},
 		{"peer invalid", PeerReadAgencyProfileRequest{}.Validate(), []string{"agency_org_did", "target_hub_user_did"}},
-		{"send message text", SendMessageRequest{ContactID: contactID, Text: messageText("hello")}.Validate(), []string{}},
-		{"send message suggestion", SendMessageRequest{ContactID: contactID, Suggestion: &OpeningSuggestion{ConsumerDomain: "client.test", OpeningNumber: 1}}.Validate(), []string{}},
-		{"send message both invalid", SendMessageRequest{ContactID: contactID, Text: messageText("hello"), Suggestion: &OpeningSuggestion{ConsumerDomain: "client.test", OpeningNumber: 1}}.Validate(), []string{"text"}},
-		{"send message neither invalid", SendMessageRequest{ContactID: contactID}.Validate(), []string{"text"}},
-		{"send message bad contact", SendMessageRequest{ContactID: "bad", Text: messageText("hello")}.Validate(), []string{"contact_id"}},
-		{"get conv", GetConversationRequest{ContactID: contactID}.Validate(), []string{}},
-		{"get conv invalid", GetConversationRequest{ContactID: "bad"}.Validate(), []string{"contact_id"}},
-		{"mark read", MarkConversationReadRequest{ContactID: contactID}.Validate(), []string{}},
-		{"mark read invalid", MarkConversationReadRequest{ContactID: "bad"}.Validate(), []string{"contact_id"}},
+		{"send message text", SendMessageRequest{Handle: handle, Text: messageText("hello")}.Validate(), []string{}},
+		{"send message suggestion", SendMessageRequest{Handle: handle, Suggestion: &OpeningSuggestion{ConsumerDomain: "client.test", OpeningNumber: 1}}.Validate(), []string{}},
+		{"send message both invalid", SendMessageRequest{Handle: handle, Text: messageText("hello"), Suggestion: &OpeningSuggestion{ConsumerDomain: "client.test", OpeningNumber: 1}}.Validate(), []string{"text"}},
+		{"send message neither invalid", SendMessageRequest{Handle: handle}.Validate(), []string{"text"}},
+		{"send message bad contact", SendMessageRequest{Handle: "bad", Text: messageText("hello")}.Validate(), []string{"handle"}},
+		{"delete message", DeleteMessageRequest{Handle: handle, MessageNumber: 3}.Validate(), []string{}},
+		{"delete message invalid", DeleteMessageRequest{}.Validate(), []string{"handle", "message_number"}},
+		{"get conv", GetConversationRequest{Handle: handle}.Validate(), []string{}},
+		{"get conv invalid", GetConversationRequest{Handle: "bad"}.Validate(), []string{"handle"}},
+		{"mark read", MarkConversationReadRequest{Handle: handle}.Validate(), []string{}},
+		{"mark read invalid", MarkConversationReadRequest{Handle: "bad"}.Validate(), []string{"handle"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -169,7 +169,7 @@ func TestListContactsFiltersAndNameQuery(t *testing.T) {
 	filter := func(value ContactFilter) *ContactFilter { return &value }
 	query := func(value ContactNameQuery) *ContactNameQuery { return &value }
 	for _, value := range []ContactFilter{ContactFilterAll, ContactFilterUnread,
-		ContactFilterHasConversation, ContactFilterNotContacted} {
+		ContactFilterRequests, ContactFilterHasConversation} {
 		if got := (ListContactsRequest{Filter: filter(value)}).Validate(); len(got) != 0 {
 			t.Fatalf("filter %q rejected: %v", value, got)
 		}
@@ -208,11 +208,11 @@ func TestGetConversationPages(t *testing.T) {
 	t.Parallel()
 	limit, badLimit := int32(1), int32(101)
 	key := common.PaginationKey("")
-	if got := (GetConversationRequest{ContactID: contactID, Limit: &limit}).Validate(); len(got) != 0 {
+	if got := (GetConversationRequest{Handle: handle, Limit: &limit}).Validate(); len(got) != 0 {
 		t.Fatalf("valid page rejected: %v", got)
 	}
-	got := GetConversationRequest{ContactID: "x", PaginationKey: &key, Limit: &badLimit}.Validate()
-	if want := []string{"pagination_key", "limit", "contact_id"}; !slices.Equal(got, want) {
+	got := GetConversationRequest{Handle: "x", PaginationKey: &key, Limit: &badLimit}.Validate()
+	if want := []string{"handle", "pagination_key", "limit"}; !slices.Equal(got, want) {
 		t.Fatalf("fields = %v, want %v", got, want)
 	}
 	if (GetConversationRequest{}).EffectiveLimit() != DefaultPage {
@@ -248,24 +248,19 @@ func TestChatRequestNoteBounds(t *testing.T) {
 
 func TestChatRequestRequestsNormalizeOnACopyAndValidate(t *testing.T) {
 	t.Parallel()
-	address := profile.ProfileAddress(" priya ")
 	note := ChatRequestNote("  hello \n")
-	original := SendChatRequestRequest{Address: &address, Note: &note,
+	original := SendChatRequestRequest{Address: " priya ", Note: &note,
 		Suggestion: OpeningSuggestion{ConsumerDomain: "client.test", OpeningNumber: 1}}
 	copied := original
 	copied.Normalize()
-	if *copied.Address != "priya" || *copied.Note != "hello" {
-		t.Fatalf("normalized = %q %q", *copied.Address, *copied.Note)
+	if copied.Address != "priya" || *copied.Note != "hello" {
+		t.Fatalf("normalized = %q %q", copied.Address, *copied.Note)
 	}
-	if *original.Address != " priya " || *original.Note != "  hello \n" {
-		t.Fatalf("the original changed: %q %q", *original.Address, *original.Note)
+	if original.Address != " priya " || *original.Note != "  hello \n" {
+		t.Fatalf("the original changed: %q %q", original.Address, *original.Note)
 	}
-	contact := contactID
-	badContact := ContactID("x")
-	badAddress := profile.ProfileAddress("x")
 	blank := ChatRequestNote(" ")
 	opening := OpeningSuggestion{ConsumerDomain: "client.test", OpeningNumber: 1}
-	requestID := ChatRequestID("01900000-0000-7000-8000-000000000005")
 	badLimit := int32(101)
 	tests := []struct {
 		name string
@@ -273,19 +268,17 @@ func TestChatRequestRequestsNormalizeOnACopyAndValidate(t *testing.T) {
 		want []string
 	}{
 		{"by address", copied.Validate(), []string{}},
-		{"by contact", SendChatRequestRequest{ContactID: &contact, Suggestion: opening}.Validate(), []string{}},
-		{"neither person", SendChatRequestRequest{Suggestion: opening}.Validate(), []string{"address", "contact_id"}},
-		{"both people", SendChatRequestRequest{Address: &address, ContactID: &contact, Suggestion: opening}.Validate(), []string{"address", "contact_id"}},
-		{"bad address", SendChatRequestRequest{Address: &badAddress, Suggestion: opening}.Validate(), []string{"address"}},
-		{"bad contact", SendChatRequestRequest{ContactID: &badContact, Suggestion: opening}.Validate(), []string{"contact_id"}},
-		{"bad opening and note", SendChatRequestRequest{ContactID: &contact, Note: &blank}.Validate(), []string{"suggestion", "note"}},
+		{"by handle", SendChatRequestRequest{Address: "priyaaaa-00000000001", Suggestion: opening}.Validate(), []string{}},
+		{"no person", SendChatRequestRequest{Suggestion: opening}.Validate(), []string{"address"}},
+		{"bad address", SendChatRequestRequest{Address: "x", Suggestion: opening}.Validate(), []string{"address"}},
+		{"bad opening and note", SendChatRequestRequest{Address: "priya", Note: &blank}.Validate(), []string{"suggestion", "note"}},
 		{"list", ListChatRequestsRequest{Direction: ToAgency}.Validate(), []string{}},
 		{"list invalid", ListChatRequestsRequest{Direction: "sideways", Limit: &badLimit}.Validate(), []string{"direction", "limit"}},
-		{"accept", AcceptChatRequestRequest{RequestID: requestID}.Validate(), []string{}},
-		{"accept invalid", AcceptChatRequestRequest{}.Validate(), []string{"request_id"}},
-		{"decline opening", DeclineChatRequestRequest{RequestID: requestID, Scope: DeclineOpening}.Validate(), []string{}},
-		{"decline sender", DeclineChatRequestRequest{RequestID: requestID, Scope: DeclineSender}.Validate(), []string{}},
-		{"decline invalid", DeclineChatRequestRequest{RequestID: "x", Scope: "forever"}.Validate(), []string{"request_id", "scope"}},
+		{"accept", AcceptChatRequestRequest{Handle: handle, RequestNumber: 1}.Validate(), []string{}},
+		{"accept invalid", AcceptChatRequestRequest{}.Validate(), []string{"handle", "request_number"}},
+		{"decline opening", DeclineChatRequestRequest{Handle: handle, RequestNumber: 2, Scope: DeclineOpening}.Validate(), []string{}},
+		{"decline sender", DeclineChatRequestRequest{Handle: handle, RequestNumber: 2, Scope: DeclineSender}.Validate(), []string{}},
+		{"decline invalid", DeclineChatRequestRequest{Handle: "x", Scope: "forever"}.Validate(), []string{"handle", "request_number", "scope"}},
 		{"requests filter", ListContactsRequest{Filter: ptr(ContactFilterRequests)}.Validate(), []string{}},
 	}
 	for _, test := range tests {
@@ -301,3 +294,18 @@ func TestChatRequestRequestsNormalizeOnACopyAndValidate(t *testing.T) {
 }
 
 func ptr[T any](value T) *T { return &value }
+
+func TestContactStatusesAreClosed(t *testing.T) {
+	t.Parallel()
+	for _, status := range []ContactStatus{ContactRequestReceived,
+		ContactRequestSent, ContactInConversation, ContactRequestDeclined,
+		ContactRequestExpired, ContactConversationClosed,
+		ContactNoConversation} {
+		if !IsContactStatus(status) {
+			t.Fatalf("status %q rejected", status)
+		}
+	}
+	if IsContactStatus("not_contacted") {
+		t.Fatal("an unknown status is accepted")
+	}
+}

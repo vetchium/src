@@ -2,10 +2,12 @@ package contacts
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/orgs/openings"
@@ -47,7 +49,7 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 				return
 			}
 			params.AfterActivityAt = dbvalue.Timestamp(cursor.At)
-			params.AfterContactID, _ = dbvalue.ParseUUID(cursor.ID)
+			params.AfterHandle = dbvalue.Text(cursor.Handle)
 		}
 		rows, err := s.Queries.ListOrgContacts(r.Context(), params)
 		if err != nil {
@@ -68,14 +70,15 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 			Items: []contacts.ContactSummary{},
 			Counts: contacts.ContactCounts{
 				All: tabs.AllContacts, Requests: tabs.Requests, Unread: tabs.Unread,
-				HasConversation: tabs.HasConversation, NotContacted: tabs.NotContacted,
+				HasConversation: tabs.HasConversation,
 			},
 		}
+		now := time.Now()
 		for index, row := range rows {
 			if index == int(request.EffectiveLimit()) {
 				key, err := sign(s, contactsPurpose, pageCursor{
 					Org: org, At: response.Items[index-1].LastActivityAt,
-					ID: string(response.Items[index-1].ContactID),
+					Handle: string(response.Items[index-1].Handle),
 				})
 				if err != nil {
 					s.InternalError(r.Context(), w, "encode Contact cursor", err)
@@ -85,14 +88,31 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 				break
 			}
 			credited := counts[dbvalue.FormatUUID(row.HubUserDid)]
-			response.Items = append(response.Items, summary(row.ContactID,
-				row.DisplayName, row.Handle, row.RequestsOff, row.PartyDeleted,
-				row.LastActivityAt, row.NoteCount, credited, row.HasConversation,
-				row.UnreadMessagesCount, row.PendingRequestDirection))
+			response.Items = append(response.Items, summary(row, credited, now))
 		}
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, response)
 	}
+}
+
+// contactByHandle reads the agency's Contact the portal names by handle, or
+// writes the not-found problem.
+func contactByHandle(
+	s *orgsruntime.Server, w http.ResponseWriter, r *http.Request,
+	identity middleware.OrgIdentity, handle hub.HubHandle,
+) (sqlc.ListOrgContactsRow, bool) {
+	row, err := s.Queries.GetOrgContactByHandle(r.Context(), sqlc.GetOrgContactByHandleParams{
+		OrgDid: identity.OrgDID, Handle: string(handle),
+	})
+	if isNoRows(err) {
+		s.Problem(r.Context(), w, orgsproblem.ContactNotFoundError)
+		return sqlc.ListOrgContactsRow{}, false
+	}
+	if err != nil {
+		s.InternalError(r.Context(), w, "read Contact", err)
+		return sqlc.ListOrgContactsRow{}, false
+	}
+	return sqlc.ListOrgContactsRow(row), true
 }
 
 func GetContact(s *orgsruntime.Server) http.HandlerFunc {
@@ -102,24 +122,14 @@ func GetContact(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
-		id, err := dbvalue.ParseUUID(string(request.ContactID))
-		if err != nil {
-			s.InternalError(r.Context(), w, "parse Contact id", err)
+		row, ok := contactByHandle(s, w, r, identity, request.Handle)
+		if !ok {
 			return
 		}
-		row, err := s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
-			OrgDid: identity.OrgDID, ContactID: id,
-		})
-		if isNoRows(err) {
-			s.Problem(r.Context(), w, orgsproblem.ContactNotFoundError)
-			return
+		pair := sqlc.ListContactOpeningSuggestionsParams{
+			OrgDid: identity.OrgDID, HubUserDid: row.HubUserDid,
 		}
-		if err != nil {
-			s.InternalError(r.Context(), w, "read Contact", err)
-			return
-		}
-		sugRows, err := s.Queries.ListContactOpeningSuggestions(r.Context(),
-			sqlc.ListContactOpeningSuggestionsParams{OrgDid: identity.OrgDID, ContactID: id})
+		sugRows, err := s.Queries.ListContactOpeningSuggestions(r.Context(), pair)
 		if err != nil {
 			s.InternalError(r.Context(), w, "list contact opening suggestions", err)
 			return
@@ -135,7 +145,8 @@ func GetContact(s *orgsruntime.Server) http.HandlerFunc {
 		credited := creditedCounts(r.Context(), s, identity.OrgDID,
 			[]pgtype.UUID{row.HubUserDid})[dbvalue.FormatUUID(row.HubUserDid)]
 		var latest *contacts.ChatRequest
-		switch request, err := s.Queries.GetLatestOrgChatRequest(r.Context(), id); {
+		switch request, err := s.Queries.GetLatestOrgChatRequest(r.Context(),
+			sqlc.GetLatestOrgChatRequestParams(pair)); {
 		case isNoRows(err):
 		case err != nil:
 			s.InternalError(r.Context(), w, "read latest chat request", err)
@@ -145,21 +156,11 @@ func GetContact(s *orgsruntime.Server) http.HandlerFunc {
 				request.HubUserName, request.HubUserHandle)
 			latest = &found
 		}
-		var createdBy *common.EmailAddress
-		if row.CreatedBy.Valid {
-			email := common.EmailAddress(row.CreatedBy.String)
-			createdBy = &email
-		}
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(r.Context(), w, http.StatusOK, contacts.Contact{
-			ContactSummary: summary(row.ContactID, row.DisplayName, row.Handle,
-				row.RequestsOff, row.PartyDeleted, row.LastActivityAt,
-				row.NoteCount, credited, row.HasConversation,
-				row.UnreadMessagesCount, row.PendingRequestDirection),
-			CreatedBy:         createdBy,
+			ContactSummary:    summary(row, credited, time.Now()),
 			SuggestedOpenings: suggestedOpenings,
 			LatestRequest:     latest,
-			CreatedAt:         row.CreatedAt.Time.UTC(),
 		})
 	}
 }
@@ -174,33 +175,24 @@ func ListContactNotes(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
 		org := dbvalue.FormatUUID(identity.OrgDID)
-		id, err := dbvalue.ParseUUID(string(request.ContactID))
-		if err != nil {
-			s.InternalError(r.Context(), w, "parse Contact id", err)
-			return
-		}
 		params := sqlc.ListOrgContactNotesParams{
-			ContactID: id, PageLimit: request.EffectiveLimit() + 1,
+			OrgDid: identity.OrgDID, PageLimit: request.EffectiveLimit() + 1,
 		}
 		if request.PaginationKey != nil {
 			cursor, valid := verify(s, notesPurpose, *request.PaginationKey,
-				org, string(request.ContactID))
+				org, string(request.Handle))
 			if !valid {
 				s.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
 				return
 			}
 			params.AfterCreatedAt = dbvalue.Timestamp(cursor.At)
-			params.AfterNoteID, _ = dbvalue.ParseUUID(cursor.ID)
+			params.AfterNoteNumber = pgtype.Int4{Int32: cursor.Number, Valid: true}
 		}
-		if _, err := s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
-			OrgDid: identity.OrgDID, ContactID: id,
-		}); isNoRows(err) {
-			s.Problem(r.Context(), w, orgsproblem.ContactNotFoundError)
-			return
-		} else if err != nil {
-			s.InternalError(r.Context(), w, "read Contact", err)
+		contact, ok := contactByHandle(s, w, r, identity, request.Handle)
+		if !ok {
 			return
 		}
+		params.HubUserDid = contact.HubUserDid
 		rows, err := s.Queries.ListOrgContactNotes(r.Context(), params)
 		if err != nil {
 			s.InternalError(r.Context(), w, "list Contact notes", err)
@@ -211,8 +203,8 @@ func ListContactNotes(s *orgsruntime.Server) http.HandlerFunc {
 			if index == int(request.EffectiveLimit()) {
 				last := response.Items[index-1]
 				key, err := sign(s, notesPurpose, pageCursor{
-					Org: org, Contact: string(request.ContactID),
-					At: last.CreatedAt, ID: string(last.NoteID),
+					Org: org, Contact: string(request.Handle),
+					At: last.CreatedAt, Number: int32(last.NoteNumber),
 				})
 				if err != nil {
 					s.InternalError(r.Context(), w, "encode note cursor", err)
@@ -222,10 +214,10 @@ func ListContactNotes(s *orgsruntime.Server) http.HandlerFunc {
 				break
 			}
 			note := contacts.ContactNote{
-				NoteID: contacts.ContactNoteID(dbvalue.FormatUUID(row.NoteID)),
-				Author: common.EmailAddress(row.Author),
-				Mine:   row.AuthorID == identity.UserID,
-				Text:   contacts.NoteText(row.NoteText), CreatedAt: row.CreatedAt.Time.UTC(),
+				NoteNumber: contacts.NoteNumber(row.NoteNumber),
+				Author:     common.EmailAddress(row.Author),
+				Mine:       row.AuthorID == identity.UserID,
+				Text:       contacts.NoteText(row.NoteText), CreatedAt: row.CreatedAt.Time.UTC(),
 			}
 			if row.EditedAt.Valid {
 				edited := row.EditedAt.Time.UTC()

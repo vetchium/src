@@ -20,7 +20,6 @@ import (
 	hubspec "github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
-	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/orgs/marketplace/work"
 	"github.com/vetchium/src/typespec/orgs/openings"
 	"github.com/vetchium/src/typespec/problem"
@@ -348,7 +347,6 @@ func GetJob(s *orgsruntime.Server) http.HandlerFunc {
 		jobDetail.SuggestedContacts = make([]work.JobSuggestedContact, 0, len(sugRows))
 		for _, sug := range sugRows {
 			jobDetail.SuggestedContacts = append(jobDetail.SuggestedContacts, work.JobSuggestedContact{
-				ContactID:   contacts.ContactID(dbvalue.FormatUUID(sug.ContactID)),
 				DisplayName: common.DisplayName(sug.DisplayName),
 				Handle:      hubspec.HubHandle(sug.Handle),
 				SuggestedAt: sug.SuggestedAt.Time.UTC(),
@@ -407,8 +405,8 @@ func creditedFiltersOf(request work.ListCreditedApplicationsRequest) creditedFil
 	if request.Status != nil {
 		f.Status = string(*request.Status)
 	}
-	if request.ContactID != nil {
-		f.Contact = string(*request.ContactID)
+	if request.ContactHandle != nil {
+		f.Contact = string(*request.ContactHandle)
 	}
 	return f
 }
@@ -443,14 +441,9 @@ func ListCreditedApplications(s *orgsruntime.Server) http.HandlerFunc {
 			}
 			peer.After = &cursor.After
 		}
-		if request.ContactID != nil {
-			contactID, err := dbvalue.ParseUUID(string(*request.ContactID))
-			if err != nil {
-				s.InternalError(r.Context(), w, "parse Contact id", err)
-				return
-			}
-			contact, err := s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
-				OrgDid: identity.OrgDID, ContactID: contactID,
+		if request.ContactHandle != nil {
+			contact, err := s.Queries.GetOrgContactByHandle(r.Context(), sqlc.GetOrgContactByHandleParams{
+				OrgDid: identity.OrgDID, Handle: string(*request.ContactHandle),
 			})
 			if errors.Is(err, pgx.ErrNoRows) {
 				w.Header().Set("Cache-Control", "no-store")
@@ -478,7 +471,7 @@ func ListCreditedApplications(s *orgsruntime.Server) http.HandlerFunc {
 			}
 			applicants = append(applicants, did)
 		}
-		contactOf := map[string]contacts.ContactID{}
+		contactOf := map[string]hubspec.HubHandle{}
 		if len(applicants) > 0 {
 			rows, err := s.Queries.ListOrgContactsByHubUsers(r.Context(), sqlc.ListOrgContactsByHubUsersParams{
 				OrgDid: identity.OrgDID, HubUserDids: applicants,
@@ -488,8 +481,7 @@ func ListCreditedApplications(s *orgsruntime.Server) http.HandlerFunc {
 				return
 			}
 			for _, row := range rows {
-				contactOf[dbvalue.FormatUUID(row.HubUserDid)] =
-					contacts.ContactID(dbvalue.FormatUUID(row.ContactID))
+				contactOf[dbvalue.FormatUUID(row.HubUserDid)] = hubspec.HubHandle(row.Handle)
 			}
 		}
 		response := work.ListCreditedApplicationsResponse{
@@ -498,8 +490,8 @@ func ListCreditedApplications(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		for _, entry := range page.Entries {
 			item := entry.Item
-			if contactID, ok := contactOf[string(entry.ApplicantDID)]; ok {
-				item.ContactID = &contactID
+			if handle, ok := contactOf[string(entry.ApplicantDID)]; ok {
+				item.ContactHandle = &handle
 			}
 			response.Items = append(response.Items, item)
 		}

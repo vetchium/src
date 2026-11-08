@@ -1,5 +1,5 @@
 // Package agencyconversations is the agency tenant's side of what a Hub user
-// does in an agency conversation: the reply and delete commands, and the
+// does in an agency conversation: the reply and message-delete commands, and the
 // live read of the conversation (agent-guides/marketplace.md, MKT-DAT-005).
 package agencyconversations
 
@@ -18,6 +18,8 @@ import (
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	federationspec "github.com/vetchium/src/typespec/federation"
+	"github.com/vetchium/src/typespec/hub"
+	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/problem"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
@@ -30,7 +32,7 @@ import (
 
 func Register(registry *commands.Registry) {
 	registry.Register(federationspec.HubConversationReplyKind, handleReply, HubUserInitiator)
-	registry.Register(federationspec.HubConversationDeleteKind, handleDelete, HubUserInitiator)
+	registry.Register(federationspec.HubConversationMessageDeleteKind, handleMessageDelete, HubUserInitiator)
 	registry.Register(federationspec.HubChatRequestKind, handleChatRequest, HubUserInitiator)
 	registry.Register(federationspec.HubChatRequestAnswerKind, handleChatRequestAnswer, HubUserInitiator)
 }
@@ -81,69 +83,63 @@ func decode[T interface{ Validate() []string }](
 	return nil
 }
 
-// conversation finds the agency's conversation with the commanding Hub user,
-// locking the Contact. Another person's Contact answers as unknown: the
-// authority authorizes what it owns (MKT-DAT-001).
-func conversation(
-	ctx context.Context, q *sqlc.Queries, orgDID, contactID, hubDID pgtype.UUID,
-) (sqlc.VetchiumOrgConversation, bool, error) {
-	if ok, err := lockContact(ctx, q, orgDID, contactID, hubDID); !ok || err != nil {
-		return sqlc.VetchiumOrgConversation{}, false, err
-	}
-	row, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
-		OrgDid: orgDID, ContactID: contactID,
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return sqlc.VetchiumOrgConversation{}, false, nil
-	}
-	if err != nil {
-		return sqlc.VetchiumOrgConversation{}, false, fmt.Errorf("read conversation: %w", err)
-	}
-	return row, true, nil
+// pairAggregate is the aggregate id of a command on the pair of the agency
+// and the Hub user its payload names.
+func pairAggregate(agency orgs.OrgDID, hubUser hub.HubUserDID) func() string {
+	return func() string { return federationspec.ContactAggregateID(agency, hubUser) }
 }
 
-// lockContact locks the agency's Contact of the commanding Hub user; another
-// person's Contact answers as unknown (MKT-DAT-001).
-func lockContact(
-	ctx context.Context, q *sqlc.Queries, orgDID, contactID, hubDID pgtype.UUID,
-) (bool, error) {
-	contact, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
-		OrgDid: orgDID, ContactID: contactID,
-	})
+// commandPair is the pair a command names: the agency must be the command's
+// authority, which authorizes only what it owns (MKT-DAT-001).
+func commandPair(
+	command commands.Command, agency orgs.OrgDID, hubUser hub.HubUserDID,
+) (pgtype.UUID, *commands.Result, error) {
+	if string(agency) != dbvalue.FormatUUID(command.Authority.DID) {
+		details := problem.ValidationFailedError
+		details.Fields = []string{"agency_org_did"}
+		result := commands.Rejected(details)
+		return pgtype.UUID{}, &result, nil
+	}
+	hubDID, err := dbvalue.ParseUUID(string(hubUser))
+	return hubDID, nil, err
+}
+
+// lockContact locks the agency's Contact of the commanding Hub user.
+func lockContact(ctx context.Context, q *sqlc.Queries, orgDID, hubDID pgtype.UUID) (bool, error) {
+	_, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{OrgDid: orgDID, HubUserDid: hubDID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("lock Contact: %w", err)
 	}
-	return contact.HubUserDid == hubDID, nil
+	return true, nil
 }
 
 func handleReply(ctx context.Context, tx pgx.Tx, command commands.Command) (commands.Result, error) {
 	var payload federationspec.HubConversationReplyPayload
 	if rejected := decode(command, &payload, func() string {
-		return string(payload.ContactID)
+		return pairAggregate(payload.AgencyOrgDID, payload.HubUserDID)()
 	}); rejected != nil {
 		return *rejected, nil
 	}
-	contactID, err := dbvalue.ParseUUID(string(payload.ContactID))
-	if err != nil {
-		return commands.Result{}, err
+	hubDID, rejected, err := commandPair(command, payload.AgencyOrgDID, payload.HubUserDID)
+	if rejected != nil || err != nil {
+		return orResult(rejected), err
 	}
-	hubDID, err := dbvalue.ParseUUID(string(payload.HubUserDID))
-	if err != nil {
-		return commands.Result{}, err
-	}
+	orgDID := command.Authority.DID
 	q := sqlc.New(tx)
 	name, handle := string(payload.HubUserDisplayName), string(payload.HubUserHandle)
 	window := pgtype.Int8{Int64: payload.WindowSeconds, Valid: true}
-	if ok, err := lockContact(ctx, q, command.Authority.DID, contactID, hubDID); err != nil {
+	if ok, err := lockContact(ctx, q, orgDID, hubDID); err != nil {
 		return commands.Result{}, err
 	} else if !ok {
 		return commands.Rejected(hubproblem.HubConversationNotFoundError), nil
 	}
 	// Replying to the agency's pending request accepts it first (MKT-REQ-005).
-	pending, err := q.GetPendingOrgChatRequest(ctx, contactID)
+	pending, err := q.GetPendingOrgChatRequest(ctx, sqlc.GetPendingOrgChatRequestParams{
+		OrgDid: orgDID, HubUserDid: hubDID,
+	})
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 	case err != nil:
@@ -161,7 +157,7 @@ func handleReply(ctx context.Context, tx pgx.Tx, command commands.Command) (comm
 		}
 	}
 	found, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
-		OrgDid: command.Authority.DID, ContactID: contactID,
+		OrgDid: orgDID, HubUserDid: hubDID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return commands.Rejected(hubproblem.HubConversationNotFoundError), nil
@@ -177,12 +173,8 @@ func handleReply(ctx context.Context, tx pgx.Tx, command commands.Command) (comm
 		HubMayWrite(time.Now()):
 		return commands.Rejected(hubproblem.HubConversationClosedError), nil
 	}
-	messageID, err := dbvalue.NewUUID()
-	if err != nil {
-		return commands.Result{}, err
-	}
 	row, err := q.AddOrgConversationMessage(ctx, sqlc.AddOrgConversationMessageParams{
-		MessageID: messageID, ConversationID: found.ConversationID,
+		OrgDid: orgDID, HubUserDid: hubDID,
 		SenderType:        string(contacts.MessageSenderTypeHubUser),
 		SenderDisplayName: name, Kind: string(contacts.MessageKindText),
 		MessageText:   dbvalue.Text(string(payload.Text)),
@@ -195,27 +187,26 @@ func handleReply(ctx context.Context, tx pgx.Tx, command commands.Command) (comm
 	if err != nil {
 		return commands.Result{}, fmt.Errorf("add reply: %w", err)
 	}
-	if row.ConversationRows != 1 || row.ContactRows != 1 || row.AuditRows != 1 {
+	if row.ContactRows != 1 || row.AuditRows != 1 {
 		return commands.Result{}, fmt.Errorf("incomplete reply")
 	}
 	if rows, err := q.SetConversationActivity(ctx, sqlc.SetConversationActivityParams{
-		ConversationID: found.ConversationID, HubActivityAt: row.SentAt,
+		OrgDid: orgDID, HubUserDid: hubDID, HubActivityAt: row.SentAt,
 		WindowSeconds: window,
 	}); err != nil || rows != 1 {
 		return commands.Result{}, fmt.Errorf("record activity: %d rows, %w", rows, err)
 	}
 	if _, err := q.RefreshOrgContactNamesFromHubUser(ctx,
 		sqlc.RefreshOrgContactNamesFromHubUserParams{
-			ContactID: contactID, OrgDid: command.Authority.DID,
-			DisplayName: name, Handle: handle,
+			OrgDid: orgDID, HubUserDid: hubDID, DisplayName: name,
 		}); err != nil {
 		return commands.Result{}, fmt.Errorf("refresh Contact names: %w", err)
 	}
-	if err := agencycontacts.SyncPointer(ctx, q, command.Authority.DID, contactID, agencycontacts.NoNotice); err != nil {
+	if err := agencycontacts.SyncPointer(ctx, q, orgDID, hubDID, agencycontacts.NoNotice); err != nil {
 		return commands.Result{}, err
 	}
 	result := contacts.ConversationMessage{
-		MessageID:         contacts.MessageID(dbvalue.FormatUUID(row.MessageID)),
+		MessageNumber:     contacts.MessageNumber(row.MessageNumber),
 		SenderType:        contacts.MessageSenderType(row.SenderType),
 		SenderDisplayName: row.SenderDisplayName,
 		Kind:              contacts.MessageKind(row.Kind),
@@ -228,59 +219,51 @@ func handleReply(ctx context.Context, tx pgx.Tx, command commands.Command) (comm
 	return commands.Succeeded(http.StatusOK, result), nil
 }
 
-// handleDelete deletes the conversation for both sides (MKT-CNV-007). The
-// Contact stays while it has notes; one with nothing left goes in the same
-// transaction (MKT-CON-004).
-func handleDelete(ctx context.Context, tx pgx.Tx, command commands.Command) (commands.Result, error) {
-	var payload federationspec.HubConversationDeletePayload
+// handleMessageDelete deletes one of the Hub user's own messages
+// (MKT-CNV-007). The agency keeps a "Message deleted" stub and an audit
+// without the text: only the Hub user's tenant keeps what they wrote.
+func handleMessageDelete(ctx context.Context, tx pgx.Tx, command commands.Command) (commands.Result, error) {
+	var payload federationspec.HubConversationMessageDeletePayload
 	if rejected := decode(command, &payload, func() string {
-		return string(payload.ContactID)
+		return pairAggregate(payload.AgencyOrgDID, payload.HubUserDID)()
 	}); rejected != nil {
 		return *rejected, nil
 	}
-	contactID, err := dbvalue.ParseUUID(string(payload.ContactID))
-	if err != nil {
-		return commands.Result{}, err
+	hubDID, rejected, err := commandPair(command, payload.AgencyOrgDID, payload.HubUserDID)
+	if rejected != nil || err != nil {
+		return orResult(rejected), err
 	}
-	hubDID, err := dbvalue.ParseUUID(string(payload.HubUserDID))
-	if err != nil {
-		return commands.Result{}, err
-	}
+	orgDID := command.Authority.DID
 	q := sqlc.New(tx)
-	if _, ok, err := conversation(ctx, q, command.Authority.DID, contactID, hubDID); err != nil {
+	if ok, err := lockContact(ctx, q, orgDID, hubDID); err != nil {
 		return commands.Result{}, err
 	} else if !ok {
-		return commands.Rejected(hubproblem.HubConversationNotFoundError), nil
+		return commands.Rejected(hubproblem.HubConversationMessageNotFoundError), nil
 	}
-	key := dbvalue.Text(dbvalue.FormatUUID(command.CommandID))
-	deleted, err := q.DeleteOrgConversationForHubUser(ctx,
-		sqlc.DeleteOrgConversationForHubUserParams{
-			OrgDid: command.Authority.DID, ContactID: contactID,
-			HubUserDid: hubDID, TenantID: command.TenantID, IdempotencyKey: key,
-		})
+	deleted, err := q.DeleteOrgConversationMessage(ctx, sqlc.DeleteOrgConversationMessageParams{
+		OrgDid: orgDID, HubUserDid: hubDID,
+		MessageNumber: int32(payload.MessageNumber),
+		SenderType:    string(contacts.MessageSenderTypeHubUser),
+		TenantID:      command.TenantID, ActorType: "hub_user",
+		ActorID: dbvalue.FormatUUID(hubDID), Source: "federation-command",
+		IdempotencyKey: dbvalue.Text(dbvalue.FormatUUID(command.CommandID)),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return commands.Rejected(hubproblem.HubConversationMessageNotFoundError), nil
+	}
 	if err != nil {
-		return commands.Result{}, fmt.Errorf("delete conversation: %w", err)
+		return commands.Result{}, fmt.Errorf("delete message: %w", err)
 	}
 	if deleted.AuditRows != 1 {
-		return commands.Result{}, fmt.Errorf("incomplete conversation deletion")
+		return commands.Result{}, fmt.Errorf("incomplete message deletion")
 	}
-	gone, err := q.DeleteUnusedOrgContact(ctx, sqlc.DeleteUnusedOrgContactParams{
-		ContactID: contactID, OrgDid: command.Authority.DID,
-		TenantID: command.TenantID, ActorType: "hub_user",
-		ActorID: dbvalue.FormatUUID(hubDID), Source: "federation-command",
-		IdempotencyKey: key,
-	})
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		err = agencycontacts.SyncPointer(ctx, q, command.Authority.DID, contactID, agencycontacts.NoNotice)
-	case err != nil:
-		return commands.Result{}, fmt.Errorf("delete unused Contact: %w", err)
-	default:
-		err = agencycontacts.RemovePointer(ctx, q, command.Authority.DID,
-			contactID, hubDID, gone.PointerVersion)
+	return commands.Succeeded(http.StatusOK, agencycontacts.DeletedMessage(deleted)), nil
+}
+
+// orResult is the rejection commandPair returned, if any.
+func orResult(rejected *commands.Result) commands.Result {
+	if rejected == nil {
+		return commands.Result{}
 	}
-	if err != nil {
-		return commands.Result{}, err
-	}
-	return commands.Succeeded(http.StatusOK, struct{}{}), nil
+	return *rejected
 }

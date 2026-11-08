@@ -61,7 +61,7 @@ import type {
   AddPersonNoteRequest,
   ContactReference,
   DeclineChatRequestRequest,
-  DeleteContactNoteRequest,
+  DeleteMessageRequest,
   EditContactNoteRequest,
   GetConversationRequest,
   ListChatRequestsRequest,
@@ -683,15 +683,12 @@ export class OrgsAPI {
     return this.post("/edit-contact-note", request, { token, idempotencyKey });
   }
 
-  deleteContactNote(
+  deleteMessage(
     token: string,
-    request: DeleteContactNoteRequest,
+    request: DeleteMessageRequest,
     idempotencyKey: string = orgsIdempotencyKey(),
   ): Promise<APIResponse> {
-    return this.post("/delete-contact-note", request, {
-      token,
-      idempotencyKey,
-    });
+    return this.post("/delete-message", request, { token, idempotencyKey });
   }
 
   sendMessage(

@@ -19,11 +19,7 @@ import type { Job } from "typespec/orgs/marketplace/work/work";
 import { isDefiniteRefusal } from "../../api/client";
 import { getInitials } from "./presentation";
 import { chatRequestProblem } from "./problems";
-import {
-  useContactsQuery,
-  useConversationQuery,
-  useSendMessageMutation,
-} from "./queries";
+import { useContactsQuery, useSendMessageMutation } from "./queries";
 import {
   type FixedOpening,
   SendChatRequestModal,
@@ -34,7 +30,7 @@ interface Props {
   onClose: () => void;
   job: Job;
   jobContent?: Record<string, unknown>;
-  alreadySuggestedContactIds?: Set<string>;
+  alreadySuggestedHandles?: Set<string>;
   onSuccess?: () => void;
 }
 
@@ -47,31 +43,24 @@ export function SuggestToContactModal({
   onClose,
   job,
   jobContent,
-  alreadySuggestedContactIds = new Set(),
+  alreadySuggestedHandles = new Set(),
   onSuccess,
 }: Props) {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const suggestKey = useIdempotencyKey("suggest-opening");
-  const [selectedContactId, setSelectedContactId] = useState<string>();
+  const [selectedHandle, setSelectedHandle] = useState<string>();
   const [requestFor, setRequestFor] = useState<string>();
 
   const contactsQuery = useContactsQuery({}, open);
   const contacts = contactsQuery.data?.items ?? [];
 
   const selectedContact: ContactSummary | undefined = useMemo(
-    () => contacts.find((c) => c.contact_id === selectedContactId),
-    [contacts, selectedContactId],
+    () => contacts.find((c) => c.handle === selectedHandle),
+    [contacts, selectedHandle],
   );
-  const conversationQuery = useConversationQuery(
-    selectedContactId ?? "",
-    open && selectedContact?.has_conversation === true,
-  );
-  const writableUntil =
-    conversationQuery.data?.pages[0]?.conversation.agency_may_write_until;
-  const mayWrite =
-    writableUntil !== undefined && Date.parse(writableUntil) > Date.now();
-  const sendMessage = useSendMessageMutation(selectedContactId ?? "");
+  const mayWrite = selectedContact?.status === "in_conversation";
+  const sendMessage = useSendMessageMutation(selectedHandle ?? "");
 
   const opening: FixedOpening = {
     suggestion: {
@@ -84,7 +73,7 @@ export function SuggestToContactModal({
 
   const contactOptions = useMemo(() => {
     return contacts.map((c) => {
-      const alreadySuggested = alreadySuggestedContactIds.has(c.contact_id);
+      const alreadySuggested = alreadySuggestedHandles.has(c.handle);
       let suffix = "";
       if (c.account_deleted) {
         suffix = ` · ${t("marketplace.contacts.statusAccountDeleted")}`;
@@ -95,13 +84,11 @@ export function SuggestToContactModal({
       }
 
       return {
-        value: c.contact_id,
+        value: c.handle,
         disabled: alreadySuggested || c.account_deleted,
         label: (
           <Flex align="center" gap="small">
-            <Avatar size="small" style={{ backgroundColor: "#1677ff" }}>
-              {getInitials(c.display_name)}
-            </Avatar>
+            <Avatar size="small">{getInitials(c.display_name)}</Avatar>
             <span>{c.display_name}</span>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               @{c.handle}
@@ -111,7 +98,7 @@ export function SuggestToContactModal({
         ),
       };
     });
-  }, [contacts, alreadySuggestedContactIds, t]);
+  }, [contacts, alreadySuggestedHandles, t]);
 
   const firstName = selectedContact
     ? selectedContact.display_name.split(/\s+/)[0]
@@ -143,7 +130,7 @@ export function SuggestToContactModal({
     .join(" · ");
 
   const close = () => {
-    setSelectedContactId(undefined);
+    setSelectedHandle(undefined);
     onClose();
   };
 
@@ -152,7 +139,7 @@ export function SuggestToContactModal({
     try {
       await sendMessage.mutateAsync({
         request: {
-          contact_id: selectedContact.contact_id,
+          handle: selectedContact.handle,
           suggestion: opening.suggestion,
         },
         key: suggestKey.current(),
@@ -172,9 +159,6 @@ export function SuggestToContactModal({
     }
   };
 
-  const checking =
-    selectedContact?.has_conversation === true && conversationQuery.isFetching;
-
   return (
     <>
       <Modal
@@ -185,12 +169,12 @@ export function SuggestToContactModal({
           <Button key="cancel" onClick={close}>
             {t("actions.cancel")}
           </Button>,
-          mayWrite || selectedContact === undefined || checking ? (
+          mayWrite || selectedContact === undefined ? (
             <Button
               key="suggest"
               type="primary"
               icon={<SendOutlined />}
-              loading={sendMessage.isPending || checking}
+              loading={sendMessage.isPending}
               disabled={selectedContact === undefined}
               onClick={() => void handleSuggest()}
             >
@@ -202,7 +186,7 @@ export function SuggestToContactModal({
               type="primary"
               icon={<MessageOutlined />}
               onClick={() => {
-                setRequestFor(selectedContact.contact_id);
+                setRequestFor(selectedContact.handle);
                 close();
               }}
             >
@@ -223,7 +207,7 @@ export function SuggestToContactModal({
               showSearch={{
                 filterOption: (input, option) => {
                   const c = contacts.find(
-                    (item) => item.contact_id === option?.value,
+                    (item) => item.handle === option?.value,
                   );
                   if (!c) return false;
                   const q = input.toLowerCase();
@@ -235,14 +219,14 @@ export function SuggestToContactModal({
               }}
               placeholder={t("marketplace.jobs.selectContactPlaceholder")}
               aria-label={t("marketplace.jobs.contactFieldLabel")}
-              value={selectedContactId}
-              onChange={setSelectedContactId}
+              value={selectedHandle}
+              onChange={setSelectedHandle}
               options={contactOptions}
               style={{ width: "100%" }}
             />
           </Form.Item>
 
-          {selectedContact !== undefined && !mayWrite && !checking && (
+          {selectedContact !== undefined && !mayWrite && (
             <Alert
               type="info"
               showIcon
@@ -261,11 +245,7 @@ export function SuggestToContactModal({
             </Typography.Text>
             <Card size="small" style={{ borderRadius: 8 }}>
               <Flex align="center" gap="middle">
-                <Avatar
-                  shape="square"
-                  size={40}
-                  style={{ backgroundColor: "#fa8c16", fontWeight: 600 }}
-                >
+                <Avatar shape="square" size={40}>
                   {getInitials(opening.client)}
                 </Avatar>
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -297,7 +277,7 @@ export function SuggestToContactModal({
           setRequestFor(undefined);
           onSuccess?.();
         }}
-        person={{ contactId: requestFor ?? "" }}
+        {...(requestFor !== undefined && { person: { handle: requestFor } })}
         opening={opening}
       />
     </>

@@ -26,6 +26,7 @@ import {
   type Pair,
   type Provider,
   published,
+  sameRequest,
   setDisplayName,
   setOrgHome,
   withPair,
@@ -44,7 +45,7 @@ export interface Agency {
   orgs: Array<{ tenant: TestTenant; did: string }>;
   person: (tenant?: "sgp" | "deu", displayName?: string) => Applicant;
   send: (
-    to: { address: string } | { contact_id: string },
+    to: { address: string },
     opening: OpeningSuggestion,
     note?: string,
     key?: string,
@@ -180,8 +181,7 @@ export function pendingAt(
   return awaitHubRequest(
     applicant,
     "to_hub_user",
-    (item) =>
-      item.request_id === request.request_id && item.state === "pending",
+    (item) => sameRequest(item, request) && item.state === "pending",
   );
 }
 
@@ -190,10 +190,13 @@ export async function accepted(
   request: ChatRequest,
   key?: string,
 ): Promise<HubConversationDetail> {
-  await pendingAt(applicant, request);
+  const pending = await pendingAt(applicant, request);
   const response = await applicant.hub.acceptChatRequest(
     applicant.token,
-    { request_id: request.request_id },
+    {
+      agency_domain: pending.agency_domain,
+      request_number: pending.request_number,
+    },
     key,
   );
   expect(response.status(), await response.text()).toBe(200);
@@ -201,27 +204,35 @@ export async function accepted(
   return (await response.json()) as HubConversationDetail;
 }
 
+/** The SQL condition naming the agency's Contact with the person `handle`. */
+export function contactPair(agency: Agency, handle: string): string {
+  return `org_did = ${sqlLiteral(agency.did)}::uuid
+     AND hub_user_did = (SELECT hub_user_did FROM vetchium.org_contacts
+         WHERE org_did = ${sqlLiteral(agency.did)}::uuid
+           AND handle = ${sqlLiteral(handle)})`;
+}
+
 /** Moves a side's latest activity back so the other side's window lapses. */
 export function backdate(
   agency: Agency,
-  contactID: string,
+  handle: string,
   side: "hub_activity_at" | "agency_activity_at",
 ): void {
   sqlScalarForTenant(
     agency.pair.provider.tenant,
     `UPDATE vetchium.org_conversations
      SET ${side} = now() - interval '91 days'
-     WHERE contact_id = ${sqlLiteral(contactID)}::uuid`,
+     WHERE ${contactPair(agency, handle)}`,
   );
 }
 
 export async function orgConversation(
   agency: Agency,
-  contactID: string,
+  handle: string,
 ): Promise<ConversationDetail> {
   const { provider } = agency.pair;
   const response = await provider.api.getConversation(provider.owner, {
-    contact_id: contactID,
+    handle,
   });
   expect(response.status(), await response.text()).toBe(200);
   return (await response.json()) as ConversationDetail;
@@ -261,7 +272,7 @@ export async function personAsks(
 export async function agencyRequestState(
   agency: Agency,
   direction: ChatRequest["direction"],
-  requestID: string,
+  request: Pick<ChatRequest, "hub_user_handle" | "request_number">,
   state: ChatRequest["state"],
 ): Promise<ChatRequest> {
   let found: ChatRequest | undefined;
@@ -269,7 +280,9 @@ export async function agencyRequestState(
     .poll(
       async () => {
         found = (await orgRequests(agency, direction)).find(
-          (item) => item.request_id === requestID,
+          (item) =>
+            item.hub_user_handle === request.hub_user_handle &&
+            item.request_number === request.request_number,
         );
         return found?.state;
       },
@@ -281,12 +294,16 @@ export async function agencyRequestState(
 
 /** Moves a request's sending back past the 14-day expiry in the agency's
  * tenant, for the expiry worker to find. */
-export function backdateRequest(tenant: TestTenant, requestID: string): void {
+export function backdateRequest(
+  agency: Agency,
+  request: Pick<ChatRequest, "hub_user_handle" | "request_number">,
+): void {
   sqlScalarForTenant(
-    tenant,
+    agency.pair.provider.tenant,
     `UPDATE vetchium.org_chat_requests
      SET sent_at = now() - interval '15 days'
-     WHERE request_id = ${sqlLiteral(requestID)}::uuid`,
+     WHERE ${contactPair(agency, request.hub_user_handle)}
+       AND request_number = ${request.request_number}`,
   );
 }
 

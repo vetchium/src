@@ -194,12 +194,8 @@ func ListOpeningAgencies(s *hubruntime.Server) http.HandlerFunc {
 					s.InternalError(r.Context(), w, "read agency pointer", err)
 					return
 				}
-				if pointer.HasConversation || chat.request != nil {
-					contactID := contacts.ContactID(dbvalue.FormatUUID(pointer.ContactID))
-					item.ContactID = &contactID
-				}
 				if chat.request != nil {
-					latest := hubChatRequest(s, pointer.ContactID,
+					latest := hubChatRequest(s,
 						agency.AgencyDisplayName, string(agency.AgencyDomain), *chat.request)
 					item.LatestRequest = &latest
 				}

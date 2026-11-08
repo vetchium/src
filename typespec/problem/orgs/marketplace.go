@@ -163,7 +163,7 @@ var ContactNoteNotFoundError = problem.Details{
 	Type:   "vetchium-problem-details/org-contact-note-not-found",
 	Title:  "Org Contact note not found",
 	Status: 404,
-	Detail: "No note of the Contact has that identifier",
+	Detail: "No note of the Contact has that number",
 }
 
 var ContactNoteNotAuthorError = problem.Details{
@@ -171,6 +171,13 @@ var ContactNoteNotAuthorError = problem.Details{
 	Title:  "Org Contact note not author",
 	Status: 403,
 	Detail: "Only the author edits a note",
+}
+
+var ConversationMessageNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/org-conversation-message-not-found",
+	Title:  "Org conversation message not found",
+	Status: 404,
+	Detail: "No text message the agency sent and has not deleted has that number",
 }
 
 var JobOwnerInvalidError = problem.Details{

@@ -12,9 +12,9 @@ import type {
   WithdrawApplicationRequest,
 } from "typespec/hub/applications/applications";
 import type {
-  DeleteConversationRequest,
   HubAcceptChatRequestRequest,
   HubDeclineChatRequestRequest,
+  DeleteMessageRequest as HubDeleteMessageRequest,
   GetConversationRequest as HubGetConversationRequest,
   MarkConversationReadRequest as HubMarkConversationReadRequest,
   HubSendChatRequestRequest,
@@ -426,15 +426,16 @@ export class HubAPI {
     });
   }
 
-  deleteConversation(
+  deleteMessage(
     token: string,
-    request: DeleteConversationRequest,
+    request: HubDeleteMessageRequest,
     idempotencyKey: string = hubIdempotencyKey(),
   ): Promise<APIResponse> {
-    return this.post("/delete-conversation", request, {
-      token,
-      idempotencyKey,
-    });
+    return this.post("/delete-message", request, { token, idempotencyKey });
+  }
+
+  countAwaitingConversations(token: string): Promise<APIResponse> {
+    return this.get("/count-awaiting-conversations", token);
   }
 
   markConversationRead(

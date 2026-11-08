@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	federationspec "github.com/vetchium/src/typespec/federation"
 	"github.com/vetchium/src/typespec/hub"
+	"github.com/vetchium/src/typespec/orgs"
 
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
@@ -132,29 +135,47 @@ func (f *fixture) agency(t *testing.T) pgtype.UUID {
 	return orgDID
 }
 
+// pair names a Contact: the agency and the person, whose handle the seed
+// derives from their DID.
+type pair struct {
+	org, hub pgtype.UUID
+	handle   string
+}
+
+func (c pair) id() string {
+	return federationspec.ContactAggregateID(
+		orgs.OrgDID(dbvalue.FormatUUID(c.org)), hub.HubUserDID(dbvalue.FormatUUID(c.hub)))
+}
+
+func handleOf(did pgtype.UUID) string {
+	digits := strings.ReplaceAll(dbvalue.FormatUUID(did), "-", "")
+	return digits[13:21] + "-" + digits[21:]
+}
+
+// contact seeds the agency's Contact of the person with one note and,
+// optionally, a conversation.
 func (f *fixture) contact(
 	t *testing.T, orgDID, hubDID pgtype.UUID, conversation bool,
-) pgtype.UUID {
+) pair {
 	t.Helper()
-	contactID := newID(t)
-	f.exec(t, `INSERT INTO vetchium.org_contacts (contact_id, org_did,
-        hub_user_did, display_name, handle, created_by)
-        VALUES ($1, $2, $3, 'Ada Lovelace', 'abcd1234-0123456789a', $4)`,
-		contactID, orgDID, hubDID, f.userID)
-	f.exec(t, `INSERT INTO vetchium.org_contact_notes (note_id, contact_id,
-        author_id, note_text)
-        VALUES (gen_random_uuid(), $1, $2, 'Met at a meetup')`,
-		contactID, f.userID)
+	c := pair{org: orgDID, hub: hubDID, handle: handleOf(hubDID)}
+	f.exec(t, `INSERT INTO vetchium.org_contacts (org_did, hub_user_did,
+        display_name, handle, created_by, last_note_number)
+        VALUES ($1, $2, 'Ada Lovelace', $3, $4, 1)`,
+		orgDID, hubDID, c.handle, f.userID)
+	f.exec(t, `INSERT INTO vetchium.org_contact_notes (org_did, hub_user_did,
+        note_number, author_id, note_text)
+        VALUES ($1, $2, 1, $3, 'Met at a meetup')`,
+		orgDID, hubDID, f.userID)
 	if conversation {
-		f.exec(t, `INSERT INTO vetchium.org_conversations (conversation_id,
-            contact_id, org_did, hub_user_did, recorded_hub_user_name,
-            recorded_hub_user_handle, recorded_agency_name,
-            recorded_agency_domain)
-            VALUES (gen_random_uuid(), $1, $2, $3, 'Ada Lovelace',
-                'abcd1234-0123456789a', 'Talent Scouts', 'scouts.example')`,
-			contactID, orgDID, hubDID)
+		f.exec(t, `INSERT INTO vetchium.org_conversations (org_did,
+            hub_user_did, recorded_hub_user_name, recorded_hub_user_handle,
+            recorded_agency_name, recorded_agency_domain)
+            VALUES ($1, $2, 'Ada Lovelace', $3, 'Talent Scouts',
+                'scouts.example')`,
+			orgDID, hubDID, c.handle)
 	}
-	return contactID
+	return c
 }
 
 func (f *fixture) accountDeleted(t *testing.T, orgDID, hubDID pgtype.UUID) {
@@ -191,24 +212,25 @@ func TestAccountDeletionKeepsOnlyConversationsIntegration(t *testing.T) {
 	f.accountDeleted(t, agency, gone)
 
 	if got := f.scalar(t, `SELECT (SELECT count(*) FROM vetchium.org_contacts
-            WHERE contact_id = $1)::text || ':' ||
+            WHERE org_did = $1 AND hub_user_did = $2)::text || ':' ||
         (SELECT count(*) FROM vetchium.org_contact_notes
-            WHERE contact_id = $1)::text || ':' ||
+            WHERE org_did = $1 AND hub_user_did = $2)::text || ':' ||
         (SELECT read_only_reason || ':' || (party_deleted_at IS NOT NULL)::text
-            FROM vetchium.org_conversations WHERE contact_id = $1)`,
-		talking); got != "1:0:hub_user_deleted:true" {
+            FROM vetchium.org_conversations
+            WHERE org_did = $1 AND hub_user_did = $2)`,
+		talking.org, talking.hub); got != "1:0:hub_user_deleted:true" {
 		t.Fatalf("contact with a conversation = %s", got)
 	}
 	// Another agency hears its own notice; this one changes nothing there.
 	if got := f.scalar(t, `SELECT count(*)::text FROM vetchium.org_contact_notes
-        WHERE contact_id = ANY($1)`,
-		[]pgtype.UUID{notesOnly, unrelated}); got != "2" {
+        WHERE (org_did, hub_user_did) IN (($1, $2), ($3, $4))`,
+		notesOnly.org, notesOnly.hub, unrelated.org, unrelated.hub); got != "2" {
 		t.Fatalf("other notes = %s", got)
 	}
 
 	f.accountDeleted(t, other, gone)
 	if got := f.scalar(t, `SELECT count(*)::text FROM vetchium.org_contacts
-        WHERE contact_id = $1`, notesOnly); got != "0" {
+        WHERE org_did = $1 AND hub_user_did = $2`, notesOnly.org, notesOnly.hub); got != "0" {
 		t.Fatalf("contact without a conversation = %s", got)
 	}
 }
@@ -217,14 +239,19 @@ func TestSyncPointerSupersedesEveryEarlierEventIntegration(t *testing.T) {
 	f := newFixture(t)
 	agency := f.agency(t)
 	hubDID := newID(t)
-	contactID := f.contact(t, agency, hubDID, true)
-	f.exec(t, `INSERT INTO vetchium.org_conversation_messages (message_id,
-            conversation_id, sender_type, sender_user_id, sender_display_name,
-            kind, consumer_domain, opening_number)
-        SELECT gen_random_uuid(), conversation_id, 'agency', $2,
-            'scout@contacts.example', 'suggestion', 'client.example', 3
-        FROM vetchium.org_conversations WHERE contact_id = $1`,
-		contactID, f.userID)
+	c := f.contact(t, agency, hubDID, true)
+	f.exec(t, `INSERT INTO vetchium.org_conversation_messages (org_did,
+            hub_user_did, message_number, sender_type, sender_user_id,
+            sender_display_name, kind, consumer_domain, opening_number)
+        VALUES ($1, $2, 1, 'agency', $3, 'scout@contacts.example',
+            'suggestion', 'client.example', 3)`,
+		c.org, c.hub, f.userID)
+	start, err := strconv.ParseInt(f.scalar(t, `SELECT pointer_version::text
+        FROM vetchium.org_contacts WHERE org_did = $1 AND hub_user_did = $2`,
+		c.org, c.hub), 10, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx := context.Background()
 	for range 2 {
@@ -232,7 +259,7 @@ func TestSyncPointerSupersedesEveryEarlierEventIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := SyncPointer(ctx, sqlc.New(tx), agency, contactID, NoNotice); err != nil {
+		if err := SyncPointer(ctx, sqlc.New(tx), c.org, c.hub, NoNotice); err != nil {
 			t.Fatal(err)
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -242,7 +269,7 @@ func TestSyncPointerSupersedesEveryEarlierEventIntegration(t *testing.T) {
 	rows, err := f.owner.Query(ctx, `SELECT aggregate_version, payload_bytes
         FROM vetchium.federation_outbox
         WHERE kind = 'agency-pointer-changed' AND aggregate_id = $1
-        ORDER BY aggregate_version`, dbvalue.FormatUUID(contactID))
+        ORDER BY aggregate_version`, c.id())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +293,7 @@ func TestSyncPointerSupersedesEveryEarlierEventIntegration(t *testing.T) {
 		}
 		versions = append(versions, version)
 	}
-	if len(versions) != 2 || versions[0] != 2 || versions[1] != 3 {
+	if len(versions) != 2 || versions[0] != start+1 || versions[1] != start+2 {
 		t.Fatalf("versions = %v", versions)
 	}
 }

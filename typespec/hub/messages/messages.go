@@ -27,8 +27,7 @@ type HubOpeningSuggestion struct {
 // the Hub user's pointer keeps it. It never carries the note; the
 // conversation read does.
 type HubChatRequest struct {
-	RequestID         contacts.ChatRequestID            `json:"request_id"`
-	ContactID         contacts.ContactID                `json:"contact_id"`
+	RequestNumber     contacts.ChatRequestNumber        `json:"request_number"`
 	Direction         contacts.ChatRequestDirection     `json:"direction"`
 	State             contacts.ChatRequestState         `json:"state"`
 	Opening           contacts.OpeningSuggestion        `json:"opening"`
@@ -44,14 +43,14 @@ type HubChatRequest struct {
 }
 
 type HubConversationSummary struct {
-	ContactID         contacts.ContactID                   `json:"contact_id"`
-	AgencyDisplayName string                               `json:"agency_display_name"`
-	AgencyDomain      orgs.OrgDomain                       `json:"agency_domain"`
-	HasConversation   bool                                 `json:"has_conversation"`
-	Unread            bool                                 `json:"unread"`
-	UnreadCount       int32                                `json:"unread_count"`
-	ReadOnlyReason    *contacts.ConversationReadOnlyReason `json:"read_only_reason,omitempty"`
-	Suggestions       []HubOpeningSuggestion               `json:"suggestions"`
+	AgencyDisplayName string `json:"agency_display_name"`
+	// AgencyDomain names the conversation: the agency's primary domain.
+	AgencyDomain    orgs.OrgDomain                       `json:"agency_domain"`
+	HasConversation bool                                 `json:"has_conversation"`
+	Unread          bool                                 `json:"unread"`
+	UnreadCount     int32                                `json:"unread_count"`
+	ReadOnlyReason  *contacts.ConversationReadOnlyReason `json:"read_only_reason,omitempty"`
+	Suggestions     []HubOpeningSuggestion               `json:"suggestions"`
 	// AgencyMayWriteUntil and HubMayWriteUntil are nil for a side that may
 	// not write (MKT-REQ-004).
 	AgencyMayWriteUntil *time.Time `json:"agency_may_write_until,omitempty"`
@@ -97,10 +96,7 @@ type OpeningAgency struct {
 	AgencyDisplayName string                 `json:"agency_display_name"`
 	AgencyDomain      orgs.OrgDomain         `json:"agency_domain"`
 	ChatState         OpeningAgencyChatState `json:"chat_state"`
-	// ContactID is the agency's Contact on the Hub user, when a
-	// conversation or request exists.
-	ContactID     *contacts.ContactID `json:"contact_id,omitempty"`
-	LatestRequest *HubChatRequest     `json:"latest_request,omitempty"`
+	LatestRequest     *HubChatRequest        `json:"latest_request,omitempty"`
 }
 
 type ListOpeningAgenciesRequest struct {
@@ -192,30 +188,39 @@ type ListHubChatRequestsResponse struct {
 }
 
 type HubAcceptChatRequestRequest struct {
-	RequestID contacts.ChatRequestID `json:"request_id"`
+	AgencyDomain  orgs.OrgDomain             `json:"agency_domain"`
+	RequestNumber contacts.ChatRequestNumber `json:"request_number"`
 }
 
-func (r *HubAcceptChatRequestRequest) Normalize() {}
+func (r *HubAcceptChatRequestRequest) Normalize() {
+	r.AgencyDomain = orgs.NormalizeOrgDomain(r.AgencyDomain)
+}
 
 func (r HubAcceptChatRequestRequest) Validate() []string {
-	if !contacts.IsChatRequestID(r.RequestID) {
-		return []string{"request_id"}
+	fields := []string{}
+	if !orgs.IsOrgDomain(r.AgencyDomain) {
+		fields = append(fields, "agency_domain")
 	}
-	return []string{}
+	if r.RequestNumber < 1 {
+		fields = append(fields, "request_number")
+	}
+	return fields
 }
 
 type HubDeclineChatRequestRequest struct {
-	RequestID contacts.ChatRequestID           `json:"request_id"`
-	Scope     contacts.ChatRequestDeclineScope `json:"scope"`
+	AgencyDomain  orgs.OrgDomain                   `json:"agency_domain"`
+	RequestNumber contacts.ChatRequestNumber       `json:"request_number"`
+	Scope         contacts.ChatRequestDeclineScope `json:"scope"`
 }
 
-func (r *HubDeclineChatRequestRequest) Normalize() {}
+func (r *HubDeclineChatRequestRequest) Normalize() {
+	r.AgencyDomain = orgs.NormalizeOrgDomain(r.AgencyDomain)
+}
 
 func (r HubDeclineChatRequestRequest) Validate() []string {
-	fields := []string{}
-	if !contacts.IsChatRequestID(r.RequestID) {
-		fields = append(fields, "request_id")
-	}
+	fields := HubAcceptChatRequestRequest{
+		AgencyDomain: r.AgencyDomain, RequestNumber: r.RequestNumber,
+	}.Validate()
 	if !contacts.IsChatRequestDeclineScope(r.Scope) {
 		fields = append(fields, "scope")
 	}
@@ -256,13 +261,28 @@ type ListConversationsResponse struct {
 	NextPaginationKey *common.PaginationKey    `json:"next_pagination_key,omitempty"`
 }
 
+// AwaitingConversationCount counts the conversations waiting on the Hub
+// user: a chat request to answer, or unread agency messages.
+type AwaitingConversationCount struct {
+	Count int32 `json:"count"`
+}
+
+func validAgencyDomain(domain orgs.OrgDomain) []string {
+	if !orgs.IsOrgDomain(domain) {
+		return []string{"agency_domain"}
+	}
+	return []string{}
+}
+
 type GetConversationRequest struct {
-	ContactID     contacts.ContactID    `json:"contact_id"`
+	AgencyDomain  orgs.OrgDomain        `json:"agency_domain"`
 	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
 	Limit         *int32                `json:"limit,omitempty"`
 }
 
-func (r *GetConversationRequest) Normalize() {}
+func (r *GetConversationRequest) Normalize() {
+	r.AgencyDomain = orgs.NormalizeOrgDomain(r.AgencyDomain)
+}
 
 func (r GetConversationRequest) EffectiveLimit() int32 {
 	if r.Limit == nil {
@@ -272,55 +292,54 @@ func (r GetConversationRequest) EffectiveLimit() int32 {
 }
 
 func (r GetConversationRequest) Validate() []string {
-	fields := validPage(r.PaginationKey, r.Limit)
-	if !contacts.IsContactID(r.ContactID) {
-		fields = append(fields, "contact_id")
-	}
-	return fields
+	return append(validAgencyDomain(r.AgencyDomain), validPage(r.PaginationKey, r.Limit)...)
 }
 
 type ReplyToConversationRequest struct {
-	ContactID contacts.ContactID   `json:"contact_id"`
-	Text      contacts.MessageText `json:"text"`
+	AgencyDomain orgs.OrgDomain       `json:"agency_domain"`
+	Text         contacts.MessageText `json:"text"`
 }
 
 func (r *ReplyToConversationRequest) Normalize() {
+	r.AgencyDomain = orgs.NormalizeOrgDomain(r.AgencyDomain)
 	r.Text = contacts.NormalizeMessageText(r.Text)
 }
 
 func (r ReplyToConversationRequest) Validate() []string {
-	fields := []string{}
-	if !contacts.IsContactID(r.ContactID) {
-		fields = append(fields, "contact_id")
-	}
+	fields := validAgencyDomain(r.AgencyDomain)
 	if !contacts.IsMessageText(r.Text) {
 		fields = append(fields, "text")
 	}
 	return fields
 }
 
-type DeleteConversationRequest struct {
-	ContactID contacts.ContactID `json:"contact_id"`
+// DeleteMessageRequest deletes one of the Hub user's own text messages
+// (MKT-CNV-007).
+type DeleteMessageRequest struct {
+	AgencyDomain  orgs.OrgDomain         `json:"agency_domain"`
+	MessageNumber contacts.MessageNumber `json:"message_number"`
 }
 
-func (r *DeleteConversationRequest) Normalize() {}
+func (r *DeleteMessageRequest) Normalize() {
+	r.AgencyDomain = orgs.NormalizeOrgDomain(r.AgencyDomain)
+}
 
-func (r DeleteConversationRequest) Validate() []string {
-	if !contacts.IsContactID(r.ContactID) {
-		return []string{"contact_id"}
+func (r DeleteMessageRequest) Validate() []string {
+	fields := validAgencyDomain(r.AgencyDomain)
+	if r.MessageNumber < 1 {
+		fields = append(fields, "message_number")
 	}
-	return []string{}
+	return fields
 }
 
 type MarkConversationReadRequest struct {
-	ContactID contacts.ContactID `json:"contact_id"`
+	AgencyDomain orgs.OrgDomain `json:"agency_domain"`
 }
 
-func (r *MarkConversationReadRequest) Normalize() {}
+func (r *MarkConversationReadRequest) Normalize() {
+	r.AgencyDomain = orgs.NormalizeOrgDomain(r.AgencyDomain)
+}
 
 func (r MarkConversationReadRequest) Validate() []string {
-	if !contacts.IsContactID(r.ContactID) {
-		return []string{"contact_id"}
-	}
-	return []string{}
+	return validAgencyDomain(r.AgencyDomain)
 }

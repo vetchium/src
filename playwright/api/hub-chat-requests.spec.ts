@@ -40,14 +40,21 @@ import { publishedOpening, reread } from "../lib/orgs-applications.ts";
 import {
   type Agency,
   accepted,
+  agencyRequestState,
   backdate,
+  backdateRequest,
+  contactPair,
   orgRequests,
   pendingAt,
   sent,
   withAgency,
   withRival,
 } from "../lib/orgs-chat-requests.ts";
-import { awaitHubRequest, setOrgHome } from "../lib/orgs-marketplace.ts";
+import {
+  awaitHubRequest,
+  sameRequest,
+  setOrgHome,
+} from "../lib/orgs-marketplace.ts";
 
 const BASE = "vetchium-problem-details/";
 const PROBLEMS = {
@@ -143,21 +150,35 @@ async function hubSent(
 /** The Hub user's request as the agency lists it. */
 async function atAgency(
   agency: Agency,
-  requestID: string,
+  request: HubChatRequest,
 ): Promise<ChatRequest | undefined> {
-  return (await orgRequests(agency, "to_agency")).find(
-    (item) => item.request_id === requestID,
+  return (await orgRequests(agency, "to_agency")).find((item) =>
+    sameRequest(request, item),
   );
+}
+
+/** The agency's name for the Hub user's request. */
+async function agencyRef(
+  agency: Agency,
+  request: HubChatRequest,
+): Promise<{ handle: string; request_number: number }> {
+  const found = await atAgency(agency, request);
+  if (found === undefined) throw new Error("the agency lists no such request");
+  return {
+    handle: found.hub_user_handle,
+    request_number: found.request_number,
+  };
 }
 
 async function agencyAccepts(
   agency: Agency,
-  requestID: string,
+  request: HubChatRequest,
   token = agency.pair.provider.owner,
 ): Promise<ConversationDetail> {
-  const response = await agency.pair.provider.api.acceptChatRequest(token, {
-    request_id: requestID,
-  });
+  const response = await agency.pair.provider.api.acceptChatRequest(
+    token,
+    await agencyRef(agency, request),
+  );
   expect(response.status(), await response.text()).toBe(200);
   expect(response.headers()["cache-control"]).toBe("no-store");
   return (await response.json()) as ConversationDetail;
@@ -165,12 +186,12 @@ async function agencyAccepts(
 
 async function agencyDeclines(
   agency: Agency,
-  requestID: string,
+  request: HubChatRequest,
   scope: ChatRequest["decline_scope"] & string,
 ): Promise<ChatRequest> {
   const response = await agency.pair.provider.api.declineChatRequest(
     agency.pair.provider.owner,
-    { request_id: requestID, scope },
+    { ...(await agencyRef(agency, request)), scope },
   );
   expect(response.status(), await response.text()).toBe(200);
   expect(response.headers()["cache-control"]).toBe("no-store");
@@ -186,7 +207,10 @@ function answeredAt(
   return awaitHubRequest(
     person,
     "to_agency",
-    (item) => item.request_id === request.request_id && item.state === state,
+    (item) =>
+      item.agency_domain === request.agency_domain &&
+      item.request_number === request.request_number &&
+      item.state === state,
   );
 }
 
@@ -196,7 +220,7 @@ function answeredAt(
  */
 async function awaitWindow(
   person: Applicant,
-  contactID: string,
+  agencyDomain: string,
 ): Promise<void> {
   await expect
     .poll(
@@ -205,7 +229,7 @@ async function awaitWindow(
         if (response.status() !== 200) return undefined;
         return (
           (await response.json()) as ListConversationsResponse
-        ).items.find((item) => item.contact_id === contactID)
+        ).items.find((item) => item.agency_domain === agencyDomain)
           ?.hub_may_write_until;
       },
       { timeout: 30_000, intervals: [250, 500, 1000] },
@@ -215,15 +239,17 @@ async function awaitWindow(
 
 /** Lapses the Hub user's window at the Hub user's tenant only. */
 async function lapseHubPointer(
+  agency: Agency,
   person: Applicant,
-  contactID: string,
 ): Promise<void> {
-  await awaitWindow(person, contactID);
+  const agencyDomain = agency.pair.provider.org.domain;
+  await awaitWindow(person, agencyDomain);
   sqlScalarForTenant(
     person.tenant,
     `UPDATE vetchium.hub_agency_pointers
      SET hub_may_write_until = now() - interval '1 minute'
-     WHERE contact_id = ${sqlLiteral(contactID)}::uuid`,
+     WHERE hub_user_did = ${sqlLiteral(person.did)}::uuid
+       AND agency_domain = ${sqlLiteral(agencyDomain)}`,
   );
 }
 
@@ -231,13 +257,9 @@ async function lapseHubPointer(
  * Lapses the Hub user's side of an open conversation in both tenants, so the
  * Hub user may only ask again while the agency may still write.
  */
-async function closeForHub(
-  agency: Agency,
-  person: Applicant,
-  contactID: string,
-): Promise<void> {
-  backdate(agency, contactID, "agency_activity_at");
-  await lapseHubPointer(person, contactID);
+async function closeForHub(agency: Agency, person: Applicant): Promise<void> {
+  backdate(agency, person.handle, "agency_activity_at");
+  await lapseHubPointer(agency, person);
 }
 
 /** Account deletion is not built, so its notice is delivered directly. */
@@ -312,7 +334,6 @@ test("MKT-HUB-005: an Opening lists every assigned agency, read locally or relay
         );
         for (const item of items) {
           expect(item.agency_display_name).toBeTruthy();
-          expect(item.contact_id).toBeUndefined();
           expect(item.latest_request).toBeUndefined();
         }
       }
@@ -506,16 +527,15 @@ test("MKT-HUB-005: the Opening shows each chat state with an agency as it change
       domain,
       "request_received",
     );
-    expect(received.contact_id).toBe(theirs.contact_id);
     expect(received.latest_request).toMatchObject({
-      request_id: theirs.request_id,
+      request_number: theirs.request_number,
       direction: "to_hub_user",
       state: "pending",
     });
     await accepted(person, theirs);
     await awaitChatState(person, opening, domain, "open");
 
-    await closeForHub(agency, person, theirs.contact_id);
+    await closeForHub(agency, person);
     await awaitChatState(person, opening, domain, "closed");
 
     const mine = await hubSent(await hubSend(person, opening, domain));
@@ -525,9 +545,12 @@ test("MKT-HUB-005: the Opening shows each chat state with an agency as it change
       domain,
       "request_sent",
     );
-    expect(sentState.latest_request?.request_id).toBe(mine.request_id);
+    expect(sentState.latest_request).toMatchObject({
+      request_number: mine.request_number,
+      direction: "to_agency",
+    });
 
-    await agencyDeclines(agency, mine.request_id, "opening");
+    await agencyDeclines(agency, mine, "opening");
     await answeredAt(person, mine, "declined");
     await awaitChatState(person, opening, domain, "declined");
     await awaitChatState(person, other, domain, "closed");
@@ -563,21 +586,21 @@ test("MKT-REQ-002, MKT-DAT-014: a Hub user's request reaches the agency across t
     const replayed = await hubSent(
       await hubSend(relayed, opening, domain, marker, key),
     );
-    expect(replayed.request_id).toBe(first.request_id);
+    expect(replayed).toEqual(first);
     await expectProblem(
       await hubSend(relayed, opening, domain, "Another note", key),
       409,
       PROBLEMS.keyConflict,
     );
-    const second = await hubSent(await hubSend(local, other, domain));
+    await hubSent(await hubSend(local, other, domain));
 
     const listed = await orgRequests(agency, "to_agency");
-    expect(listed.map((item) => item.request_id).sort()).toEqual(
-      [first.request_id, second.request_id].sort(),
+    expect(listed.map((item) => item.hub_user_handle).sort()).toEqual(
+      [relayed.handle, local.handle].sort(),
     );
-    expect(listed.find((item) => item.request_id === first.request_id)).toEqual(
+    expect(listed.find((item) => sameRequest(first, item))).toEqual(
       expect.objectContaining({
-        contact_id: first.contact_id,
+        request_number: first.request_number,
         state: "pending",
         opening,
         note: marker,
@@ -591,7 +614,7 @@ test("MKT-REQ-002, MKT-DAT-014: a Hub user's request reaches the agency across t
     const own = await awaitHubRequest(
       relayed,
       "to_agency",
-      (item) => item.request_id === first.request_id,
+      (item) => item.request_number === first.request_number,
     );
     expect(JSON.stringify(own)).not.toContain(marker);
 
@@ -619,7 +642,7 @@ test("MKT-REQ-002, MKT-DAT-014: a Hub user's request reaches the agency across t
     const recovered = await hubSent(
       await hubSend(later, opening, domain, undefined, laterKey),
     );
-    expect(await atAgency(agency, recovered.request_id)).toMatchObject({
+    expect(await atAgency(agency, recovered)).toMatchObject({
       state: "pending",
     });
   });
@@ -662,7 +685,7 @@ test("MKT-REQ-003: the Hub user's request is refused with hub-* problems, by the
     );
 
     // A decline for the Opening.
-    await agencyDeclines(agency, mine.request_id, "opening");
+    await agencyDeclines(agency, mine, "opening");
     await answeredAt(asking, mine, "declined");
     await expectProblem(
       await hubSend(asking, opening, domain),
@@ -677,7 +700,7 @@ test("MKT-REQ-003: the Hub user's request is refused with hub-* problems, by the
       await agency.send({ address: gone.handle }, opening),
     );
     await accepted(gone, opened);
-    await lapseHubPointer(gone, opened.contact_id);
+    await lapseHubPointer(agency, gone);
     deliverAccountDeleted(agency, gone, apiCoverage);
     await expectProblem(
       await hubSend(gone, other, domain),
@@ -699,10 +722,10 @@ test("MKT-REQ-006: a Hub user sends at most 10 requests a UTC day; refusals by t
     // The pointer keeps only the latest request, so the agency alone knows
     // the older decline for `opening`.
     const first = await hubSent(await hubSend(person, opening, domain));
-    await agencyDeclines(agency, first.request_id, "opening");
+    await agencyDeclines(agency, first, "opening");
     await answeredAt(person, first, "declined");
     const second = await hubSent(await hubSend(person, other, domain));
-    await agencyDeclines(agency, second.request_id, "opening");
+    await agencyDeclines(agency, second, "opening");
     await answeredAt(person, second, "declined");
 
     await withRival(request, agency, "sgp", [opening], async (rival) => {
@@ -727,7 +750,7 @@ test("MKT-REQ-006: a Hub user sends at most 10 requests a UTC day; refusals by t
       const repeat = await hubSent(
         await hubSend(person, opening, rival.org.domain, undefined, key),
       );
-      expect(repeat.request_id).toBe(tenth.request_id);
+      expect(repeat).toEqual(tenth);
       await expectProblem(
         await hubSend(person, opening, domain),
         429,
@@ -751,10 +774,10 @@ test("MKT-REQ-005, MKT-REQ-007: the agency answers a Hub user's request, and its
     const asked = await hubSent(
       await hubSend(welcome, opening, domain, "Keen on this role"),
     );
-    const detail = await agencyAccepts(agency, asked.request_id);
-    expect(detail.conversation.contact_id).toBe(asked.contact_id);
+    const detail = await agencyAccepts(agency, asked);
+    expect(detail.conversation.recorded_hub_user_handle).toBe(welcome.handle);
     expect(detail.conversation.agency_may_write_until).toBeDefined();
-    expect(await atAgency(agency, asked.request_id)).toMatchObject({
+    expect(await atAgency(agency, asked)).toMatchObject({
       state: "accepted",
     });
     expect(detail.messages).toEqual([
@@ -768,7 +791,7 @@ test("MKT-REQ-005, MKT-REQ-007: the agency answers a Hub user's request, and its
     await answeredAt(welcome, asked, "accepted");
     await awaitChatState(welcome, opening, domain, "open");
     const reply = await welcome.hub.replyToConversation(welcome.token, {
-      contact_id: asked.contact_id,
+      agency_domain: domain,
       text: "Thanks for accepting.",
     });
     expect(reply.status(), await reply.text()).toBe(200);
@@ -777,7 +800,7 @@ test("MKT-REQ-005, MKT-REQ-007: the agency answers a Hub user's request, and its
     // agency's request to the Hub user.
     const forOpening = agency.person("sgp");
     const one = await hubSent(await hubSend(forOpening, opening, domain));
-    const declinedOne = await agencyDeclines(agency, one.request_id, "opening");
+    const declinedOne = await agencyDeclines(agency, one, "opening");
     expect(declinedOne).toMatchObject({
       state: "declined",
       decline_scope: "opening",
@@ -795,7 +818,7 @@ test("MKT-REQ-005, MKT-REQ-007: the agency answers a Hub user's request, and its
     // the agency's request.
     const forSender = agency.person("sgp");
     const two = await hubSent(await hubSend(forSender, opening, domain));
-    const declinedTwo = await agencyDeclines(agency, two.request_id, "sender");
+    const declinedTwo = await agencyDeclines(agency, two, "sender");
     const until = Date.parse(declinedTwo.blocked_until ?? "");
     expect(until).toBeGreaterThan(Date.now() + 89 * DAY);
     expect(until).toBeLessThan(Date.now() + 91 * DAY);
@@ -816,7 +839,8 @@ test("MKT-REQ-005, MKT-REQ-007: the agency answers a Hub user's request, and its
     // block; the agency still refuses until it lifts.
     await pendingAt(forSender, theirs);
     const answered = await forSender.hub.declineChatRequest(forSender.token, {
-      request_id: theirs.request_id,
+      agency_domain: domain,
+      request_number: theirs.request_number,
       scope: "opening",
     });
     expect(answered.status(), await answered.text()).toBe(200);
@@ -827,11 +851,9 @@ test("MKT-REQ-005, MKT-REQ-007: the agency answers a Hub user's request, and its
     );
     sqlScalarForTenant(
       provider.tenant,
-      `UPDATE vetchium.org_chat_request_blocks
-       SET blocked_until = now() - interval '1 minute',
-         created_at = now() - interval '91 days'
-       WHERE contact_id = ${sqlLiteral(two.contact_id)}::uuid
-         AND blocked_direction = 'to_agency' AND scope = 'sender'`,
+      `UPDATE vetchium.org_contacts
+       SET hub_requests_blocked_until = now() - interval '1 minute'
+       WHERE ${contactPair(agency, forSender.handle)}`,
     );
     await hubSent(await hubSend(forSender, opening, domain));
   });
@@ -857,15 +879,16 @@ test("Orgs answers to Hub requests: a colleague answers from the shared inbox, t
     const person = agency.person("sgp");
     const asked = await hubSent(await hubSend(person, opening, domain));
     const key = orgsIdempotencyKey();
+    const askedRef = await agencyRef(agency, asked);
     const acceptedKey = await provider.api.acceptChatRequest(
       colleague.token,
-      { request_id: asked.request_id },
+      askedRef,
       key,
     );
     expect(acceptedKey.status(), await acceptedKey.text()).toBe(200);
     const replayed = await provider.api.acceptChatRequest(
       colleague.token,
-      { request_id: asked.request_id },
+      askedRef,
       key,
     );
     expect(replayed.status(), await replayed.text()).toBe(200);
@@ -873,7 +896,7 @@ test("Orgs answers to Hub requests: a colleague answers from the shared inbox, t
     await expectProblem(
       await provider.api.acceptChatRequest(
         colleague.token,
-        { request_id: randomUUID() },
+        { ...askedRef, request_number: askedRef.request_number + 1 },
         key,
       ),
       409,
@@ -894,25 +917,27 @@ test("Orgs answers to Hub requests: a colleague answers from the shared inbox, t
       await agency.send({ address: agency.person("sgp").handle }, opening),
     );
     await withRival(request, agency, "sgp", [opening], async (rival) => {
+      const another = agency.person("sgp");
       const elsewhere = await hubSent(
-        await hubSend(agency.person("sgp"), opening, rival.org.domain),
+        await hubSend(another, opening, rival.org.domain),
       );
-      for (const requestID of [
-        asked.request_id,
-        theirs.request_id,
-        elsewhere.request_id,
-        randomUUID(),
+      for (const ref of [
+        askedRef,
+        {
+          handle: theirs.hub_user_handle,
+          request_number: theirs.request_number,
+        },
+        { handle: another.handle, request_number: elsewhere.request_number },
+        { handle: person.handle, request_number: askedRef.request_number + 1 },
       ]) {
         await expectProblem(
-          await provider.api.acceptChatRequest(provider.owner, {
-            request_id: requestID,
-          }),
+          await provider.api.acceptChatRequest(provider.owner, ref),
           404,
           PROBLEMS.orgRequestNotFound,
         );
         await expectProblem(
           await provider.api.declineChatRequest(provider.owner, {
-            request_id: requestID,
+            ...ref,
             scope: "sender",
           }),
           404,
@@ -925,16 +950,17 @@ test("Orgs answers to Hub requests: a colleague answers from the shared inbox, t
     const undecided = agency.person("sgp");
     const pending = await hubSent(await hubSend(undecided, opening, domain));
     const declineKey = orgsIdempotencyKey();
+    const pendingRef = await agencyRef(agency, pending);
     const declined = await provider.api.declineChatRequest(
       provider.owner,
-      { request_id: pending.request_id, scope: "opening" },
+      { ...pendingRef, scope: "opening" },
       declineKey,
     );
     expect(declined.status(), await declined.text()).toBe(200);
     await expectProblem(
       await provider.api.declineChatRequest(
         provider.owner,
-        { request_id: pending.request_id, scope: "sender" },
+        { ...pendingRef, scope: "sender" },
         declineKey,
       ),
       409,
@@ -947,13 +973,14 @@ test("Orgs answers to Hub requests: a colleague answers from the shared inbox, t
       await agency.send({ address: gone.handle }, opening),
     );
     await accepted(gone, opened);
-    await closeForHub(agency, gone, opened.contact_id);
+    await closeForHub(agency, gone);
     const late = await hubSent(await hubSend(gone, other, domain));
     deliverAccountDeleted(agency, gone, apiCoverage);
     await expectProblem(
-      await provider.api.acceptChatRequest(provider.owner, {
-        request_id: late.request_id,
-      }),
+      await provider.api.acceptChatRequest(
+        provider.owner,
+        await agencyRef(agency, late),
+      ),
       409,
       PROBLEMS.orgPartyDeleted,
     );
@@ -978,7 +1005,7 @@ test("MKT-CON-005: a Contact a Hub user's request creates does not count toward 
     const asked = await hubSent(
       await hubSend(person, opening, provider.org.domain),
     );
-    await agencyAccepts(agency, asked.request_id);
+    await agencyAccepts(agency, asked);
     await expectProblem(
       await provider.api.addPersonNote(provider.owner, {
         address: agency.person("sgp").alias,
@@ -1002,23 +1029,23 @@ test("MKT-REQ-005: an agency message while the Hub user's request is pending acc
       await agency.send({ address: person.handle }, opening),
     );
     await accepted(person, first);
-    await closeForHub(agency, person, first.contact_id);
+    await closeForHub(agency, person);
     const asked = await hubSent(
       await hubSend(person, other, provider.org.domain),
     );
 
     const message = await provider.api.sendMessage(provider.owner, {
-      contact_id: first.contact_id,
+      handle: person.handle,
       text: "Of course, let us talk.",
     });
     expect(message.status(), await message.text()).toBe(200);
-    expect(await atAgency(agency, asked.request_id)).toMatchObject({
+    expect(await atAgency(agency, asked)).toMatchObject({
       state: "accepted",
     });
     await answeredAt(person, asked, "accepted");
     await awaitChatState(person, other, provider.org.domain, "open");
     const reply = await person.hub.replyToConversation(person.token, {
-      contact_id: first.contact_id,
+      agency_domain: provider.org.domain,
       text: "Great.",
     });
     expect(reply.status(), await reply.text()).toBe(200);
@@ -1046,15 +1073,15 @@ test("MKT-REQ-008: with chat requests off the agency may not ask, the Hub user s
     const asked = await hubSent(
       await hubSend(person, opening, provider.org.domain),
     );
-    await agencyAccepts(agency, asked.request_id);
+    await agencyAccepts(agency, asked);
     const message = await provider.api.sendMessage(provider.owner, {
-      contact_id: asked.contact_id,
+      handle: person.handle,
       text: "Welcome.",
     });
     expect(message.status(), await message.text()).toBe(200);
     await awaitChatState(person, opening, provider.org.domain, "open");
     const reply = await person.hub.replyToConversation(person.token, {
-      contact_id: asked.contact_id,
+      agency_domain: provider.org.domain,
       text: "Hello.",
     });
     expect(reply.status(), await reply.text()).toBe(200);
@@ -1071,18 +1098,12 @@ test("MKT-REQ-009: a Hub user's request expires after 14 days with no block, and
     const domain = provider.org.domain;
     const person = agency.person("sgp");
     const asked = await hubSent(await hubSend(person, opening, domain));
-    sqlScalarForTenant(
-      provider.tenant,
-      `UPDATE vetchium.org_chat_requests
-       SET sent_at = now() - interval '15 days'
-       WHERE request_id = ${sqlLiteral(asked.request_id)}::uuid`,
-    );
-    await expect
-      .poll(async () => (await atAgency(agency, asked.request_id))?.state, {
-        timeout: 30_000,
-        intervals: [250, 500, 1000],
-      })
-      .toBe("expired");
+    const ref = {
+      hub_user_handle: person.handle,
+      request_number: asked.request_number,
+    };
+    backdateRequest(agency, ref);
+    await agencyRequestState(agency, "to_agency", ref, "expired");
     const expired = await answeredAt(person, asked, "expired");
     expect(expired.decline_scope).toBeUndefined();
     expect(expired.blocked_until).toBeUndefined();
@@ -1090,18 +1111,18 @@ test("MKT-REQ-009: a Hub user's request expires after 14 days with no block, and
     const audits = auditEventJSONForTenant(
       provider.tenant,
       `entity_type = 'org_chat_request'
-       AND entity_id = ${sqlLiteral(asked.request_id)}
+       AND entity_id = ${sqlLiteral(person.handle)}
        AND action = 'org.chat_request.expired'`,
     );
     expect(audits).toHaveLength(1);
     expect(audits[0]).toMatchObject({ actor_type: "worker" });
     expect(audits[0]?.payload).toEqual({
-      contact_id: asked.contact_id,
+      request_number: asked.request_number,
       direction: "to_agency",
     });
     await awaitChatState(person, opening, domain, "none");
     const again = await hubSent(await hubSend(person, opening, domain));
-    expect(again.request_id).not.toBe(asked.request_id);
+    expect(again.request_number).toBe(asked.request_number + 1);
   });
 });
 
@@ -1112,16 +1133,16 @@ test("MKT-HUB-001: Messages lists a request without a conversation only while it
     const { provider } = agency.pair;
     const [opening, other] = agency.openings;
     const person = agency.person("sgp");
-    const listed = async (contactID: string) => {
+    const listed = async () => {
       const response = await person.hub.listConversations(person.token);
       expect(response.status(), await response.text()).toBe(200);
       return ((await response.json()) as ListConversationsResponse).items.some(
-        (item) => item.contact_id === contactID,
+        (item) => item.agency_domain === provider.org.domain,
       );
     };
-    const until = (contactID: string, shown: boolean) =>
+    const until = (shown: boolean) =>
       expect
-        .poll(() => listed(contactID), {
+        .poll(listed, {
           timeout: 30_000,
           intervals: [250, 500, 1000],
         })
@@ -1132,46 +1153,44 @@ test("MKT-HUB-001: Messages lists a request without a conversation only while it
       await agency.send({ address: person.handle }, opening),
     );
     await pendingAt(person, asked);
-    await until(asked.contact_id, true);
+    await until(true);
     const declined = await person.hub.declineChatRequest(person.token, {
-      request_id: asked.request_id,
+      agency_domain: provider.org.domain,
+      request_number: asked.request_number,
       scope: "opening",
     });
     expect(declined.status(), await declined.text()).toBe(200);
-    await until(asked.contact_id, false);
+    await until(false);
 
     // The Hub user's own request shows while pending and once declined.
     const own = await hubSent(
       await hubSend(person, other, provider.org.domain),
     );
-    await until(own.contact_id, true);
-    await agencyDeclines(agency, own.request_id, "opening");
-    await awaitHubRequest(
-      person,
-      "to_agency",
-      (item) => item.request_id === own.request_id && item.state === "declined",
-    );
-    expect(await listed(own.contact_id)).toBe(true);
+    await until(true);
+    await agencyDeclines(agency, own, "opening");
+    await answeredAt(person, own, "declined");
+    expect(await listed()).toBe(true);
     // Opening it reads the pointer: the agency's tenant has no conversation.
     const read = await person.hub.getConversation(person.token, {
-      contact_id: own.contact_id,
+      agency_domain: provider.org.domain,
     });
     expect(read.status(), await read.text()).toBe(200);
     const detail = (await read.json()) as HubConversationDetail;
     expect(detail.messages).toEqual([]);
     expect(detail.conversation.latest_request?.state).toBe("declined");
 
-    // An accepted request shows as its conversation, and deleting that
-    // conversation removes it for good.
+    // An accepted request shows as its conversation, which stays.
     const again = await sent(
       await agency.send({ address: person.handle }, other),
     );
     await accepted(person, again);
-    await until(again.contact_id, true);
-    const deleted = await person.hub.deleteConversation(person.token, {
-      contact_id: again.contact_id,
+    await until(true);
+    const conversation = await person.hub.getConversation(person.token, {
+      agency_domain: provider.org.domain,
     });
-    expect(deleted.status(), await deleted.text()).toBe(200);
-    await until(again.contact_id, false);
+    expect(
+      ((await conversation.json()) as HubConversationDetail).conversation
+        .has_conversation,
+    ).toBe(true);
   });
 });

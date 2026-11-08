@@ -35,25 +35,29 @@ const (
 // Refuse applies MKT-REQ-003 in its order to a new request in direction
 // about the Opening. The caller holds the Contact lock.
 func Refuse(
-	ctx context.Context, q sqlc.Querier, orgDID, contactID pgtype.UUID,
+	ctx context.Context, q sqlc.Querier, orgDID, hubDID pgtype.UUID,
 	direction contacts.ChatRequestDirection, opening contacts.OpeningSuggestion,
 	now time.Time,
 ) (Refusal, error) {
-	deleted, err := q.OrgContactAccountDeleted(ctx, contactID)
+	deleted, err := q.OrgContactAccountDeleted(ctx, sqlc.OrgContactAccountDeletedParams{
+		OrgDid: orgDID, HubUserDid: hubDID,
+	})
 	if err != nil {
 		return NotRefused, err
 	}
 	if deleted {
 		return RefusedPartyDeleted, nil
 	}
-	switch _, err := q.GetPendingOrgChatRequest(ctx, contactID); {
+	switch _, err := q.GetPendingOrgChatRequest(ctx, sqlc.GetPendingOrgChatRequestParams{
+		OrgDid: orgDID, HubUserDid: hubDID,
+	}); {
 	case err == nil:
 		return RefusedRequestPending, nil
 	case !errors.Is(err, pgx.ErrNoRows):
 		return NotRefused, err
 	}
 	conversation, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
-		OrgDid: orgDID, ContactID: contactID,
+		OrgDid: orgDID, HubUserDid: hubDID,
 	})
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -69,7 +73,7 @@ func Refuse(
 	}
 	switch _, err := q.FindBlockingChatRequestBlock(ctx,
 		sqlc.FindBlockingChatRequestBlockParams{
-			ContactID: contactID, BlockedDirection: string(direction),
+			OrgDid: orgDID, HubUserDid: hubDID, BlockedDirection: string(direction),
 			ConsumerDomain: string(opening.ConsumerDomain),
 			OpeningNumber:  int32(opening.OpeningNumber),
 		}); {

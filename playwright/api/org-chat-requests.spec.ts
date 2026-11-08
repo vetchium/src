@@ -40,6 +40,7 @@ import {
   type Agency,
   accepted,
   backdate,
+  contactPair,
   orgConversation,
   orgRequests,
   pendingAt,
@@ -53,6 +54,7 @@ import {
   awaitHubRequest,
   listing,
   published,
+  sameRequest,
   setOrgHome,
   withProvider,
 } from "../lib/orgs-marketplace.ts";
@@ -67,7 +69,8 @@ const PROBLEMS = {
   contactLimit: `${BASE}org-contact-limit-reached`,
   partyDeleted: `${BASE}org-conversation-party-deleted`,
   hubUserNotFound: `${BASE}org-hub-user-not-found`,
-  contactNotFound: `${BASE}org-contact-not-found`,
+  chatRequestNotFound: `${BASE}org-chat-request-not-found`,
+  conversationNotFound: `${BASE}org-conversation-not-found`,
   agencyRequestsOff: `${BASE}org-agency-requests-off`,
   permission: `${BASE}org-permission-required`,
   orgAuth: `${BASE}org-authentication-required`,
@@ -81,6 +84,14 @@ const PROBLEMS = {
 };
 
 const DAY = 24 * 60 * 60 * 1000;
+
+/** The Hub user's name for the agency's request. */
+function answerOf(agency: Agency, request: ChatRequest) {
+  return {
+    agency_domain: agency.pair.provider.org.domain,
+    request_number: request.request_number,
+  };
+}
 
 /**
  * MKT-REQ-011: the agency's tenant audits the answer with the Contact and the
@@ -98,7 +109,7 @@ function expectAnswerAudited(
   const answers = auditEventJSONForTenant(
     agency.pair.provider.tenant,
     `entity_type = 'org_chat_request'
-     AND entity_id = ${sqlLiteral(request.request_id)}
+     AND entity_id = ${sqlLiteral(request.hub_user_handle)}
      AND action IN ('org.chat_request.accepted', 'org.chat_request.declined')`,
   );
   expect(answers).toHaveLength(1);
@@ -108,7 +119,7 @@ function expectAnswerAudited(
     actor_id: person.did,
   });
   expect(answers[0]?.payload).toEqual({
-    contact_id: request.contact_id,
+    request_number: request.request_number,
     direction: "to_hub_user",
     ...(scope !== undefined && { scope }),
   });
@@ -121,7 +132,7 @@ function expectAnswerAudited(
   expect(commands.map((event) => event.payload)).toEqual([
     expect.objectContaining({
       kind: HubChatRequestAnswerKind,
-      aggregate_id: request.request_id,
+      aggregate_id: `${agency.did}:${person.did}`,
     }),
   ]);
 }
@@ -157,10 +168,8 @@ test("MKT-REQ-002: an agency sends a request by handle and by Contact; both side
     ).toEqual(["org.chat_request.sent", "org.contact.created"]);
     // MKT-REQ-010: the person's tenant emails them, naming the agency and
     // never the note.
-    const notified = await awaitHubRequest(
-      byHandle,
-      "to_hub_user",
-      (item) => item.request_id === first.request_id,
+    const notified = await awaitHubRequest(byHandle, "to_hub_user", (item) =>
+      sameRequest(item, first),
     );
     const email = await orgEmailText(
       request,
@@ -173,23 +182,23 @@ test("MKT-REQ-002: an agency sends a request by handle and by Contact; both side
     const replayed = await sent(
       await agency.send({ address: byHandle.handle }, opening, marker, key),
     );
-    expect(replayed.request_id).toBe(first.request_id);
+    expect(replayed).toEqual(first);
 
     const noted = await provider.api.addPersonNote(provider.owner, {
       address: byContact.alias,
       text: "Met at a meetup.",
     });
     expect(noted.status(), await noted.text()).toBe(200);
-    const contactID = ((await noted.json()) as AddedNote).contact.contact_id;
+    const contactHandle = ((await noted.json()) as AddedNote).contact.handle;
     const second = await sent(
-      await agency.send({ contact_id: contactID }, opening),
+      await agency.send({ address: contactHandle }, opening),
     );
-    expect(second.contact_id).toBe(contactID);
+    expect(second.hub_user_handle).toBe(contactHandle);
     expect(second.note).toBeUndefined();
 
     const listed = await orgRequests(agency, "to_hub_user");
-    expect(listed.map((item) => item.request_id).sort()).toEqual(
-      [first.request_id, second.request_id].sort(),
+    expect(listed.map((item) => item.hub_user_handle).sort()).toEqual(
+      [first.hub_user_handle, second.hub_user_handle].sort(),
     );
     expect(await orgRequests(agency, "to_agency")).toEqual([]);
     const count = await provider.api.countPendingChatRequests(provider.owner);
@@ -199,32 +208,33 @@ test("MKT-REQ-002: an agency sends a request by handle and by Contact; both side
       count: 0,
     });
     const contact = await provider.api.getContact(provider.owner, {
-      contact_id: first.contact_id,
+      handle: first.hub_user_handle,
     });
-    expect(((await contact.json()) as Contact).latest_request?.request_id).toBe(
-      first.request_id,
-    );
+    expect(((await contact.json()) as Contact).latest_request).toMatchObject({
+      request_number: first.request_number,
+      state: "pending",
+    });
 
     // The Hub user sees the request without its note; only the live read of
     // the pair carries it.
     const atHub = await pendingAt(byHandle, first);
     expect(atHub).toMatchObject({
-      contact_id: first.contact_id,
+      request_number: first.request_number,
       opening,
       agency_domain: provider.org.domain,
       window_days: 90,
     });
     expect(JSON.stringify(atHub)).not.toContain(marker);
-    await awaitHubPointer(byHandle, first.contact_id);
+    await awaitHubPointer(byHandle, provider.org.domain);
     const conversations = await byHandle.hub.listConversations(byHandle.token);
     const pointer = (
       (await conversations.json()) as ListConversationsResponse
-    ).items.find((item) => item.contact_id === first.contact_id);
+    ).items.find((item) => item.agency_domain === provider.org.domain);
     expect(pointer?.has_conversation).toBe(false);
-    expect(pointer?.latest_request?.request_id).toBe(first.request_id);
+    expect(pointer?.latest_request?.request_number).toBe(first.request_number);
     expect(JSON.stringify(pointer)).not.toContain(marker);
     const read = await byHandle.hub.getConversation(byHandle.token, {
-      contact_id: first.contact_id,
+      agency_domain: provider.org.domain,
     });
     expect(read.status(), await read.text()).toBe(200);
     const detail = (await read.json()) as HubConversationDetail;
@@ -263,11 +273,11 @@ test("MKT-REQ-003: a request is refused while one is pending or the conversation
 
     // Once the person's activity is older than the window, the agency may
     // only ask again.
-    backdate(agency, first.contact_id, "hub_activity_at");
+    backdate(agency, first.hub_user_handle, "hub_activity_at");
     const again = await sent(await agency.send(to, opening));
     await pendingAt(person, again);
     const declined = await person.hub.declineChatRequest(person.token, {
-      request_id: again.request_id,
+      ...answerOf(agency, again),
       scope: "opening",
     });
     expect(declined.status(), await declined.text()).toBe(200);
@@ -292,7 +302,7 @@ test("MKT-REQ-003: a request is refused while one is pending or the conversation
     );
     expect(delivered.status, JSON.stringify(delivered.body)).toBe(200);
     await expectProblem(
-      await agency.send({ contact_id: first.contact_id }, opening),
+      await agency.send({ address: first.hub_user_handle }, opening),
       409,
       PROBLEMS.partyDeleted,
     );
@@ -315,15 +325,18 @@ test("MKT-REQ-005: accepting opens the conversation with the request and its Ope
     const listed = await person.hub.listConversations(person.token);
     expect(
       ((await listed.json()) as ListConversationsResponse).items.find(
-        (item) => item.contact_id === first.contact_id,
+        (item) => item.agency_domain === agency.pair.provider.org.domain,
       ),
     ).toMatchObject({
       has_conversation: true,
-      latest_request: { request_id: first.request_id, state: "accepted" },
+      latest_request: {
+        request_number: first.request_number,
+        state: "accepted",
+      },
     });
     const replayed = await person.hub.acceptChatRequest(
       person.token,
-      { request_id: first.request_id },
+      { ...answerOf(agency, first) },
       key,
     );
     expect(replayed.status(), await replayed.text()).toBe(200);
@@ -333,9 +346,12 @@ test("MKT-REQ-005: accepting opens the conversation with the request and its Ope
     ).toBe(true);
     expectAnswerAudited(agency, person, first, key, "A role for you");
     expect(detail.conversation).toMatchObject({
-      contact_id: first.contact_id,
+      agency_domain: agency.pair.provider.org.domain,
       has_conversation: true,
-      latest_request: { request_id: first.request_id, state: "accepted" },
+      latest_request: {
+        request_number: first.request_number,
+        state: "accepted",
+      },
     });
     expect(detail.conversation.suggestions).toEqual([
       expect.objectContaining({ ...opening }),
@@ -353,13 +369,13 @@ test("MKT-REQ-005: accepting opens the conversation with the request and its Ope
     expect(detail.pending_request_note).toBeUndefined();
     await expectProblem(
       await person.hub.acceptChatRequest(person.token, {
-        request_id: first.request_id,
+        ...answerOf(agency, first),
       }),
       404,
       PROBLEMS.hubNotFound,
     );
 
-    const opened = await orgConversation(agency, first.contact_id);
+    const opened = await orgConversation(agency, first.hub_user_handle);
     expect(opened.messages).toEqual([
       expect.objectContaining({ kind: "request", note: "A role for you" }),
     ]);
@@ -367,17 +383,22 @@ test("MKT-REQ-005: accepting opens the conversation with the request and its Ope
     expect(answered).toMatchObject({ state: "accepted" });
     expect(answered?.note).toBeUndefined();
 
-    backdate(agency, first.contact_id, "hub_activity_at");
+    backdate(agency, first.hub_user_handle, "hub_activity_at");
     const second = await sent(await agency.send(to, other));
     const reopened = await accepted(person, second);
     expect(reopened.messages.map((message) => message.suggestion)).toEqual([
       other,
       opening,
     ]);
+    // The same conversation: the first request is still its first message.
     expect(
-      (await orgConversation(agency, first.contact_id)).conversation
-        .conversation_id,
-    ).toBe(opened.conversation.conversation_id);
+      (await orgConversation(agency, first.hub_user_handle)).messages.map(
+        (message) => [message.message_number, message.kind],
+      ),
+    ).toEqual([
+      [2, "request"],
+      [1, "request"],
+    ]);
   });
 });
 
@@ -396,14 +417,14 @@ test("MKT-REQ-007: declining for an Opening refuses only that Opening, and decli
     const key = hubIdempotencyKey();
     const declined = await person.hub.declineChatRequest(
       person.token,
-      { request_id: first.request_id, scope: "opening" },
+      { ...answerOf(agency, first), scope: "opening" },
       key,
     );
     expect(declined.status(), await declined.text()).toBe(200);
     expect(declined.headers()["cache-control"]).toBe("no-store");
     expectAnswerAudited(agency, person, first, key, "Private note", "opening");
     expect((await declined.json()) as HubChatRequest).toMatchObject({
-      request_id: first.request_id,
+      request_number: first.request_number,
       state: "declined",
       decline_scope: "opening",
       window_days: 90,
@@ -420,7 +441,7 @@ test("MKT-REQ-007: declining for an Opening refuses only that Opening, and decli
     const second = await sent(await agency.send(to, other));
     await pendingAt(person, second);
     const away = await person.hub.declineChatRequest(person.token, {
-      request_id: second.request_id,
+      ...answerOf(agency, second),
       scope: "sender",
     });
     expect(away.status(), await away.text()).toBe(200);
@@ -429,7 +450,7 @@ test("MKT-REQ-007: declining for an Opening refuses only that Opening, and decli
     expect(until).toBeGreaterThan(Date.now() + 89 * DAY);
     expect(until).toBeLessThan(Date.now() + 91 * DAY);
     const latest = (await orgRequests(agency, "to_hub_user")).find(
-      (item) => item.request_id === second.request_id,
+      (item) => item.request_number === second.request_number,
     );
     expect(latest?.blocked_until).toBe(blocked.blocked_until);
     await expectProblem(await agency.send(to, other), 403, PROBLEMS.blocked);
@@ -437,11 +458,9 @@ test("MKT-REQ-007: declining for an Opening refuses only that Opening, and decli
 
     sqlScalarForTenant(
       provider.tenant,
-      `UPDATE vetchium.org_chat_request_blocks
-       SET blocked_until = now() - interval '1 minute',
-         created_at = now() - interval '91 days'
-       WHERE contact_id = ${sqlLiteral(first.contact_id)}::uuid
-         AND scope = 'sender'`,
+      `UPDATE vetchium.org_contacts
+       SET agency_requests_blocked_until = now() - interval '1 minute'
+       WHERE ${contactPair(agency, first.hub_user_handle)}`,
     );
     await sent(await agency.send(to, other));
   });
@@ -460,7 +479,7 @@ test("MKT-REQ-007: the Hub user who declined the agency may still send the agenc
     );
     await pendingAt(person, first);
     const declined = await person.hub.declineChatRequest(person.token, {
-      request_id: first.request_id,
+      ...answerOf(agency, first),
       scope: "sender",
     });
     expect(declined.status(), await declined.text()).toBe(200);
@@ -477,7 +496,8 @@ test("MKT-REQ-007: the Hub user who declined the agency may still send the agenc
     });
     expect(own.status(), await own.text()).toBe(200);
     expect((await own.json()) as HubChatRequest).toMatchObject({
-      contact_id: first.contact_id,
+      agency_domain: provider.org.domain,
+      request_number: 2,
       direction: "to_agency",
       state: "pending",
       opening: other,
@@ -497,60 +517,60 @@ test("MKT-REQ-004: each side writes only while the other side's activity plus th
       await agency.send({ address: person.handle }, opening),
     );
     await accepted(person, first);
-    const contact_id = first.contact_id;
+    const handle = first.hub_user_handle;
 
-    const before = (await orgConversation(agency, contact_id)).conversation;
+    const before = (await orgConversation(agency, handle)).conversation;
     expect(Date.parse(before.agency_may_write_until ?? "")).toBeGreaterThan(
       Date.now() + 89 * DAY,
     );
     expect(before.hub_may_write_until).toBeDefined();
     // The agency's own messages never extend the agency's window.
     const message = await provider.api.sendMessage(provider.owner, {
-      contact_id,
+      handle,
       text: "Here are the details.",
     });
     expect(message.status(), await message.text()).toBe(200);
-    const after = (await orgConversation(agency, contact_id)).conversation;
+    const after = (await orgConversation(agency, handle)).conversation;
     expect(after.agency_may_write_until).toBe(before.agency_may_write_until);
     expect(Date.parse(after.hub_may_write_until ?? "")).toBeGreaterThanOrEqual(
       Date.parse(before.hub_may_write_until ?? ""),
     );
 
     // The person went quiet: the agency may not write, the person still may.
-    backdate(agency, contact_id, "hub_activity_at");
-    const closed = (await orgConversation(agency, contact_id)).conversation;
+    backdate(agency, handle, "hub_activity_at");
+    const closed = (await orgConversation(agency, handle)).conversation;
     expect(closed.agency_may_write_until).toBeUndefined();
     await expectProblem(
       await provider.api.sendMessage(provider.owner, {
-        contact_id,
+        handle,
         text: "Anyone there?",
       }),
       409,
       PROBLEMS.closed,
     );
     const replied = await person.hub.replyToConversation(person.token, {
-      contact_id,
+      agency_domain: provider.org.domain,
       text: "Back now.",
     });
     expect(replied.status(), await replied.text()).toBe(200);
     const resumed = await provider.api.sendMessage(provider.owner, {
-      contact_id,
+      handle,
       text: "Welcome back.",
     });
     expect(resumed.status(), await resumed.text()).toBe(200);
 
     // The agency went quiet: the person may not write.
-    backdate(agency, contact_id, "agency_activity_at");
+    backdate(agency, handle, "agency_activity_at");
     await expectProblem(
       await person.hub.replyToConversation(person.token, {
-        contact_id,
+        agency_domain: provider.org.domain,
         text: "Hello?",
       }),
       409,
       PROBLEMS.hubClosed,
     );
     const hubRead = await person.hub.getConversation(person.token, {
-      contact_id,
+      agency_domain: provider.org.domain,
     });
     expect(hubRead.status(), await hubRead.text()).toBe(200);
     const hubConversation = ((await hubRead.json()) as HubConversationDetail)
@@ -564,18 +584,18 @@ test("MKT-REQ-004: each side writes only while the other side's activity plus th
       provider.tenant,
       `UPDATE vetchium.org_conversations
        SET window_seconds = 86400, agency_activity_at = now()
-       WHERE contact_id = ${sqlLiteral(contact_id)}::uuid`,
+       WHERE ${contactPair(agency, handle)}`,
     );
-    const short = (await orgConversation(agency, contact_id)).conversation;
+    const short = (await orgConversation(agency, handle)).conversation;
     expect(Date.parse(short.hub_may_write_until ?? "")).toBeLessThan(
       Date.now() + 2 * DAY,
     );
     const widened = await person.hub.replyToConversation(person.token, {
-      contact_id,
+      agency_domain: provider.org.domain,
       text: "Still interested.",
     });
     expect(widened.status(), await widened.text()).toBe(200);
-    const wide = (await orgConversation(agency, contact_id)).conversation;
+    const wide = (await orgConversation(agency, handle)).conversation;
     expect(Date.parse(wide.hub_may_write_until ?? "")).toBeGreaterThan(
       Date.now() + 89 * DAY,
     );
@@ -595,21 +615,22 @@ test("MKT-REQ-005: a Hub reply while the agency's request is pending accepts it 
     const to = { address: person.handle };
     const first = await sent(await agency.send(to, opening));
     await accepted(person, first);
-    backdate(agency, first.contact_id, "hub_activity_at");
+    backdate(agency, first.hub_user_handle, "hub_activity_at");
     const second = await sent(await agency.send(to, other, "One more role"));
     await pendingAt(person, second);
 
     const replied = await person.hub.replyToConversation(person.token, {
-      contact_id: first.contact_id,
+      agency_domain: agency.pair.provider.org.domain,
       text: "Tell me more.",
     });
     expect(replied.status(), await replied.text()).toBe(200);
     expect(
       (await orgRequests(agency, "to_hub_user")).find(
-        (item) => item.request_id === second.request_id,
+        (item) => item.request_number === second.request_number,
       )?.state,
     ).toBe("accepted");
-    const messages = (await orgConversation(agency, first.contact_id)).messages;
+    const messages = (await orgConversation(agency, first.hub_user_handle))
+      .messages;
     expect(
       messages.map((message) => message.text ?? message.note ?? message.kind),
     ).toEqual(["Tell me more.", "One more role", "request"]);
@@ -636,7 +657,7 @@ test("MKT-REQ-006: an agency sends at most 50 requests a UTC day, and a declined
     );
     await pendingAt(first, last);
     const declined = await first.hub.declineChatRequest(first.token, {
-      request_id: last.request_id,
+      ...answerOf(agency, last),
       scope: "opening",
     });
     expect(declined.status(), await declined.text()).toBe(200);
@@ -710,12 +731,12 @@ test("Orgs chat request routes, answers included, authenticate, require org:fulf
       },
       {
         path: "/accept-chat-request",
-        body: { request_id: randomUUID() },
+        body: { handle: person.handle, request_number: 1 },
         write: true,
       },
       {
         path: "/decline-chat-request",
-        body: { request_id: randomUUID(), scope: "opening" },
+        body: { handle: person.handle, request_number: 1, scope: "opening" },
         write: true,
       },
     ];
@@ -775,11 +796,15 @@ test("Orgs chat request routes, answers included, authenticate, require org:fulf
       ["direction"],
     );
     for (const [path, body, fields] of [
-      ["/accept-chat-request", { request_id: "x" }, ["request_id"]],
+      [
+        "/accept-chat-request",
+        { handle: "x", request_number: 0 },
+        ["handle", "request_number"],
+      ],
       [
         "/decline-chat-request",
-        { request_id: "x", scope: "forever" },
-        ["request_id", "scope"],
+        { handle: "x", request_number: 0, scope: "forever" },
+        ["handle", "request_number", "scope"],
       ],
     ] as const) {
       await expectProblem(
@@ -805,11 +830,65 @@ test("Orgs chat request routes, answers included, authenticate, require org:fulf
       404,
       PROBLEMS.hubUserNotFound,
     );
-    await expectProblem(
-      await agency.send({ contact_id: randomUUID() }, opening),
-      404,
-      PROBLEMS.contactNotFound,
-    );
+    // A person who is no Contact has no request to answer.
+    for (const [path, body] of [
+      [
+        "/accept-chat-request",
+        { handle: "zzzzzzzz-00000000000", request_number: 1 },
+      ],
+      [
+        "/decline-chat-request",
+        { handle: "zzzzzzzz-00000000000", request_number: 1, scope: "opening" },
+      ],
+    ] as const) {
+      await expectProblem(
+        await provider.api.post(path, body, {
+          token: provider.owner,
+          idempotencyKey: orgsIdempotencyKey(),
+        }),
+        404,
+        PROBLEMS.chatRequestNotFound,
+      );
+    }
+    // A Contact with notes only has no conversation to read or write.
+    const noted = agency.person("sgp");
+    const note = await provider.api.addPersonNote(provider.owner, {
+      address: noted.handle,
+      text: "Notes only.",
+    });
+    expect(note.status(), await note.text()).toBe(200);
+    for (const [path, body, write] of [
+      ["/get-conversation", { handle: noted.handle }, false],
+      ["/mark-conversation-read", { handle: noted.handle }, false],
+      ["/send-message", { handle: noted.handle, text: "Hi" }, true],
+      ["/delete-message", { handle: noted.handle, message_number: 1 }, true],
+    ] as const) {
+      await expectProblem(
+        await provider.api.post(path, body, {
+          token: provider.owner,
+          ...(write && { idempotencyKey: orgsIdempotencyKey() }),
+        }),
+        404,
+        PROBLEMS.conversationNotFound,
+      );
+    }
+    // The agency answers only a request the person sent it.
+    for (const [path, body] of [
+      ["/accept-chat-request", { handle: person.handle, request_number: 1 }],
+      [
+        "/decline-chat-request",
+        { handle: person.handle, request_number: 1, scope: "opening" },
+      ],
+    ] as const) {
+      await expectProblem(
+        await provider.api.post(path, body, {
+          token: provider.owner,
+          idempotencyKey: orgsIdempotencyKey(),
+        }),
+        404,
+        PROBLEMS.chatRequestNotFound,
+      );
+    }
 
     const off = await person.hub.setAgenciesMayMessage(person.token, {
       agencies_may_message: false,
@@ -854,12 +933,12 @@ test("Hub chat request routes authenticate, validate, page, and answer only pend
       },
       {
         path: "/accept-chat-request",
-        body: { request_id: first.request_id },
+        body: { ...answerOf(agency, first) },
         write: true,
       },
       {
         path: "/decline-chat-request",
-        body: { request_id: first.request_id, scope: "opening" },
+        body: { ...answerOf(agency, first), scope: "opening" },
         write: true,
       },
     ];
@@ -887,11 +966,16 @@ test("Hub chat request routes authenticate, validate, page, and answer only pend
         ["direction", "limit"],
         false,
       ],
-      ["/accept-chat-request", { request_id: "x" }, ["request_id"], true],
+      [
+        "/accept-chat-request",
+        { agency_domain: "x", request_number: 0 },
+        ["agency_domain", "request_number"],
+        true,
+      ],
       [
         "/decline-chat-request",
-        { request_id: "x", scope: "forever" },
-        ["request_id", "scope"],
+        { agency_domain: "x", request_number: 0, scope: "forever" },
+        ["agency_domain", "request_number", "scope"],
         true,
       ],
     ] as const) {
@@ -917,16 +1001,22 @@ test("Hub chat request routes authenticate, validate, page, and answer only pend
     for (const answer of [
       () =>
         stranger.hub.acceptChatRequest(stranger.token, {
-          request_id: first.request_id,
+          ...answerOf(agency, first),
         }),
       () =>
         stranger.hub.declineChatRequest(stranger.token, {
-          request_id: first.request_id,
+          ...answerOf(agency, first),
           scope: "sender",
         }),
       () =>
         person.hub.acceptChatRequest(person.token, {
-          request_id: randomUUID(),
+          ...answerOf(agency, first),
+          request_number: first.request_number + 1,
+        }),
+      () =>
+        person.hub.acceptChatRequest(person.token, {
+          agency_domain: "unknown-agency.example.test",
+          request_number: first.request_number,
         }),
     ]) {
       await expectProblem(await answer(), 404, PROBLEMS.hubNotFound);
@@ -936,14 +1026,14 @@ test("Hub chat request routes authenticate, validate, page, and answer only pend
     const declineKey = hubIdempotencyKey();
     const declined = await person.hub.declineChatRequest(
       person.token,
-      { request_id: first.request_id, scope: "opening" },
+      { ...answerOf(agency, first), scope: "opening" },
       declineKey,
     );
     expect(declined.status(), await declined.text()).toBe(200);
     await expectProblem(
       await person.hub.declineChatRequest(
         person.token,
-        { request_id: first.request_id, scope: "sender" },
+        { ...answerOf(agency, first), scope: "sender" },
         declineKey,
       ),
       409,
@@ -952,8 +1042,7 @@ test("Hub chat request routes authenticate, validate, page, and answer only pend
     await awaitHubRequest(
       person,
       "to_hub_user",
-      (item) =>
-        item.request_id === first.request_id && item.state === "declined",
+      (item) => sameRequest(item, first) && item.state === "declined",
     );
     // The pointer keeps only the latest request with each agency, so a
     // second agency pages against the first.
@@ -989,8 +1078,8 @@ test("Hub chat request routes authenticate, validate, page, and answer only pend
       expect(page.status(), await page.text()).toBe(200);
       expect(page.headers()["cache-control"]).toBe("no-store");
       const firstPage = (await page.json()) as ListHubChatRequestsResponse;
-      expect(firstPage.items.map((item) => item.request_id)).toEqual([
-        second.request_id,
+      expect(firstPage.items.map((item) => item.agency_domain)).toEqual([
+        rival.org.domain,
       ]);
       expect(firstPage.next_pagination_key).toBeDefined();
       const rest = await person.hub.listChatRequests(person.token, {
@@ -1000,8 +1089,8 @@ test("Hub chat request routes authenticate, validate, page, and answer only pend
       });
       expect(rest.status(), await rest.text()).toBe(200);
       const lastPage = (await rest.json()) as ListHubChatRequestsResponse;
-      expect(lastPage.items.map((item) => item.request_id)).toEqual([
-        first.request_id,
+      expect(lastPage.items.map((item) => item.agency_domain)).toEqual([
+        agency.pair.provider.org.domain,
       ]);
       expect(lastPage.next_pagination_key).toBeUndefined();
     });
@@ -1037,12 +1126,12 @@ test("MKT-TST-002: an accept or decline the agency's tenant cannot confirm is pe
       for (const pending of [
         await accepting.hub.acceptChatRequest(
           accepting.token,
-          { request_id: toAccept.request_id },
+          { ...answerOf(agency, toAccept) },
           acceptKey,
         ),
         await declining.hub.declineChatRequest(
           declining.token,
-          { request_id: toDecline.request_id, scope: "sender" },
+          { ...answerOf(agency, toDecline), scope: "sender" },
           declineKey,
         ),
       ]) {
@@ -1057,7 +1146,7 @@ test("MKT-TST-002: an accept or decline the agency's tenant cannot confirm is pe
     }
     const acceptedNow = await accepting.hub.acceptChatRequest(
       accepting.token,
-      { request_id: toAccept.request_id },
+      { ...answerOf(agency, toAccept) },
       acceptKey,
     );
     expect(acceptedNow.status(), await acceptedNow.text()).toBe(200);
@@ -1067,7 +1156,7 @@ test("MKT-TST-002: an accept or decline the agency's tenant cannot confirm is pe
     ).toBe(true);
     const declinedNow = await declining.hub.declineChatRequest(
       declining.token,
-      { request_id: toDecline.request_id, scope: "sender" },
+      { ...answerOf(agency, toDecline), scope: "sender" },
       declineKey,
     );
     expect(declinedNow.status(), await declinedNow.text()).toBe(200);

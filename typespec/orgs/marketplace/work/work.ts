@@ -46,7 +46,6 @@ import type { CheckType } from "../../hiring/vocabulary.ts";
 import type { OpeningNumber, OpeningState } from "../../openings/types.ts";
 import { openingStates } from "../../openings/types.ts";
 import type { ReferralRoute } from "../attribution.ts";
-import type { ContactID } from "../contacts/contacts.ts";
 
 function isOpeningState(value: unknown): value is OpeningState {
   return openingStates.includes(value as OpeningState);
@@ -264,7 +263,6 @@ export interface JobCreditedApplication {
 }
 
 export interface JobSuggestedContact {
-  contact_id: ContactID;
   display_name: DisplayName;
   handle: HubHandle;
   suggested_at: string;

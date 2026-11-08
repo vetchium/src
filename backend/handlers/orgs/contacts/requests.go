@@ -35,10 +35,9 @@ func chatRequest(
 	row sqlc.VetchiumOrgChatRequest, name, handle string,
 ) contacts.ChatRequest {
 	request := contacts.ChatRequest{
-		RequestID: contacts.ChatRequestID(dbvalue.FormatUUID(row.RequestID)),
-		ContactID: contacts.ContactID(dbvalue.FormatUUID(row.ContactID)),
-		Direction: contacts.ChatRequestDirection(row.Direction),
-		State:     contacts.ChatRequestState(row.State),
+		RequestNumber: contacts.ChatRequestNumber(row.RequestNumber),
+		Direction:     contacts.ChatRequestDirection(row.Direction),
+		State:         contacts.ChatRequestState(row.State),
 		Opening: contacts.OpeningSuggestion{
 			ConsumerDomain: orgs.OrgDomain(row.ConsumerDomain),
 			OpeningNumber:  openings.OpeningNumber(row.OpeningNumber),
@@ -85,47 +84,20 @@ func SendChatRequest(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
-		var (
-			hubDID, contactID pgtype.UUID
-			name, handle      string
-			err               error
-		)
-		if request.Address != nil {
-			read, ok := readProfile(s, w, r, identity, string(*request.Address))
-			if !ok {
-				return
-			}
-			if !read.AgenciesMayMessage {
-				s.Problem(r.Context(), w, orgsproblem.AgencyRequestsOffError)
-				return
-			}
-			if hubDID, err = dbvalue.ParseUUID(string(read.HubUserDID)); err != nil {
-				s.InternalError(r.Context(), w, "parse Hub user DID", err)
-				return
-			}
-			name, handle = string(read.Profile.DisplayName), string(read.Profile.Handle)
-		} else {
-			if contactID, err = dbvalue.ParseUUID(string(*request.ContactID)); err != nil {
-				s.InternalError(r.Context(), w, "parse Contact id", err)
-				return
-			}
-			contact, err := s.Queries.GetOrgContact(r.Context(), sqlc.GetOrgContactParams{
-				OrgDid: identity.OrgDID, ContactID: contactID,
-			})
-			if isNoRows(err) {
-				s.Problem(r.Context(), w, orgsproblem.ContactNotFoundError)
-				return
-			}
-			if err != nil {
-				s.InternalError(r.Context(), w, "read Contact", err)
-				return
-			}
-			if contact.RequestsOff {
-				s.Problem(r.Context(), w, orgsproblem.AgencyRequestsOffError)
-				return
-			}
-			hubDID = contact.HubUserDid
+		read, ok := readProfile(s, w, r, identity, string(request.Address))
+		if !ok {
+			return
 		}
+		if !read.AgenciesMayMessage {
+			s.Problem(r.Context(), w, orgsproblem.AgencyRequestsOffError)
+			return
+		}
+		hubDID, err := dbvalue.ParseUUID(string(read.HubUserDID))
+		if err != nil {
+			s.InternalError(r.Context(), w, "parse Hub user DID", err)
+			return
+		}
+		name, handle := string(read.Profile.DisplayName), string(read.Profile.Handle)
 		if !confirmSuggestion(s, w, r, identity, &request.Suggestion) {
 			return
 		}
@@ -149,69 +121,52 @@ func SendChatRequest(s *orgsruntime.Server) http.HandlerFunc {
 					return fail(orgsproblem.ListingNotAvailableError)
 				}
 				day := pgtype.Date{Time: today(now), Valid: true}
-				if request.Address != nil {
-					existing, err := q.GetOrgContactByPerson(ctx, sqlc.GetOrgContactByPersonParams{
-						OrgDid: identity.OrgDID, HubUserDid: hubDID,
+				existing, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
+					OrgDid: identity.OrgDID, HubUserDid: hubDID,
+				})
+				switch {
+				case isNoRows(err):
+					created, err := q.CountOrgContactsCreatedOn(ctx, sqlc.CountOrgContactsCreatedOnParams{
+						OrgDid: identity.OrgDID, Day: day,
 					})
-					switch {
-					case isNoRows(err):
-						created, err := q.CountOrgContactsCreatedOn(ctx, sqlc.CountOrgContactsCreatedOnParams{
-							OrgDid: identity.OrgDID, Day: day,
-						})
-						if err != nil {
-							return result{}, nil, err
-						}
-						if created >= contacts.MaxNewContactsPerDay {
-							return fail(orgsproblem.ContactLimitReachedError)
-						}
-						if contactID, err = dbvalue.NewUUIDv7(now); err != nil {
-							return result{}, nil, err
-						}
-						row, err := q.CreateOrgContact(ctx, sqlc.CreateOrgContactParams{
-							ContactID: contactID, OrgDid: identity.OrgDID, HubUserDid: hubDID,
-							DisplayName: name, Handle: handle, ActorID: identity.UserID,
-							Day: day, TenantID: s.TenantID,
-							IdempotencyKey: dbvalue.Text(string(key)),
-						})
-						if err != nil {
-							return result{}, nil, err
-						}
-						if row.CreatedRows != 1 || row.CountedRows != 1 || row.AuditRows != 1 {
-							return result{}, nil, fmt.Errorf("incomplete Contact creation")
-						}
-					case err != nil:
+					if err != nil {
 						return result{}, nil, err
-					default:
-						contactID = existing.ContactID
-						if _, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
-							OrgDid: identity.OrgDID, ContactID: contactID,
-						}); err != nil {
-							return result{}, nil, fmt.Errorf("lock Contact: %w", err)
-						}
+					}
+					if created >= contacts.MaxNewContactsPerDay {
+						return fail(orgsproblem.ContactLimitReachedError)
+					}
+					row, err := q.CreateOrgContact(ctx, sqlc.CreateOrgContactParams{
+						OrgDid: identity.OrgDID, HubUserDid: hubDID,
+						DisplayName: name, Handle: handle, ActorID: identity.UserID,
+						Day: day, TenantID: s.TenantID,
+						IdempotencyKey: dbvalue.Text(string(key)),
+					})
+					if err != nil {
+						return result{}, nil, err
+					}
+					if row.CreatedRows != 1 || row.CountedRows != 1 || row.AuditRows != 1 {
+						return result{}, nil, fmt.Errorf("incomplete Contact creation")
+					}
+				case err != nil:
+					return result{}, nil, fmt.Errorf("lock Contact: %w", err)
+				default:
+					// The live read is newer than the setting the Contact
+					// keeps; the Hub user's tenant reports the change too.
+					if existing.RequestsOff {
+						return fail(orgsproblem.AgencyRequestsOffError)
+					}
+					if existing.DisplayName != name {
 						if _, err := q.RefreshOrgContactNames(ctx, sqlc.RefreshOrgContactNamesParams{
-							DisplayName: name, Handle: handle, ContactID: contactID,
+							DisplayName: name, HubUserDid: hubDID,
 							OrgDid: identity.OrgDID, TenantID: s.TenantID,
 							ActorID: identity.UserID, IdempotencyKey: dbvalue.Text(string(key)),
 						}); err != nil {
 							return result{}, nil, err
 						}
 					}
-				} else {
-					contact, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
-						OrgDid: identity.OrgDID, ContactID: contactID,
-					})
-					if isNoRows(err) {
-						return fail(orgsproblem.ContactNotFoundError)
-					}
-					if err != nil {
-						return result{}, nil, fmt.Errorf("lock Contact: %w", err)
-					}
-					if contact.RequestsOff {
-						return fail(orgsproblem.AgencyRequestsOffError)
-					}
 				}
 				refusal, err := agencycontacts.Refuse(ctx, q, identity.OrgDID,
-					contactID, contacts.ToHubUser, request.Suggestion, now)
+					hubDID, contacts.ToHubUser, request.Suggestion, now)
 				if err != nil {
 					return result{}, nil, err
 				}
@@ -231,17 +186,12 @@ func SendChatRequest(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, fmt.Errorf("read sender: %w", err)
 				}
-				requestID, err := dbvalue.NewUUIDv7(now)
-				if err != nil {
-					return result{}, nil, err
-				}
 				var note pgtype.Text
 				if request.Note != nil {
 					note = dbvalue.Text(string(*request.Note))
 				}
 				created, err := q.CreateOrgChatRequest(ctx, sqlc.CreateOrgChatRequestParams{
-					RequestID: requestID, ContactID: contactID, OrgDid: identity.OrgDID,
-					HubUserDid: hubDID, Direction: string(contacts.ToHubUser),
+					OrgDid: identity.OrgDID, HubUserDid: hubDID, Direction: string(contacts.ToHubUser),
 					ConsumerDomain: string(request.Suggestion.ConsumerDomain),
 					OpeningNumber:  int32(request.Suggestion.OpeningNumber),
 					Note:           note, SenderUserID: identity.UserID,
@@ -253,15 +203,16 @@ func SendChatRequest(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				if created.CountedRows != 1 || created.ContactRows != 1 || created.AuditRows != 1 {
+				if created.CountedRows != 1 || created.AuditRows != 1 {
 					return result{}, nil, fmt.Errorf("incomplete chat request")
 				}
 				if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID,
-					contactID, agencycontacts.NoticeRequest); err != nil {
+					hubDID, agencycontacts.NoticeRequest); err != nil {
 					return result{}, nil, err
 				}
 				row, err := q.GetOrgChatRequest(ctx, sqlc.GetOrgChatRequestParams{
-					OrgDid: identity.OrgDID, RequestID: requestID,
+					OrgDid: identity.OrgDID, HubUserDid: hubDID,
+					RequestNumber: created.RequestNumber,
 				})
 				if err != nil {
 					return result{}, nil, fmt.Errorf("read chat request: %w", err)
@@ -286,11 +237,7 @@ func AcceptChatRequest(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
-		requestID, err := dbvalue.ParseUUID(string(request.RequestID))
-		if err != nil {
-			s.InternalError(r.Context(), w, "parse chat request id", err)
-			return
-		}
+		org := dbvalue.FormatUUID(identity.OrgDID)
 		now := s.CurrentTime()
 		type result = handlerauth.Result[contacts.ConversationDetail]
 		handlerauth.RunIdempotent(s, w, r, "orgs:accept-chat-request",
@@ -299,7 +246,8 @@ func AcceptChatRequest(s *orgsruntime.Server) http.HandlerFunc {
 				ctx := r.Context()
 				fail := handlerauth.Failure[contacts.ConversationDetail]
 				answered, err := agencycontacts.AnswerAgencyRequest(ctx, q,
-					identity.OrgDID, requestID, agencycontacts.Answer{Accept: true},
+					identity.OrgDID, string(request.Handle), int32(request.RequestNumber),
+					agencycontacts.Answer{Accept: true},
 					orgAnswerer(s, identity, key))
 				switch {
 				case errors.Is(err, agencycontacts.ErrRequestNotFound):
@@ -310,9 +258,11 @@ func AcceptChatRequest(s *orgsruntime.Server) http.HandlerFunc {
 					return result{}, nil, err
 				}
 				detail, err := readConversation(ctx, q, identity.OrgDID,
-					answered.ContactID, nil, contacts.DefaultPage, now,
-					func(at time.Time, id string) (common.PaginationKey, error) {
-						return signMessages(s, identity.OrgDID, answered.ContactID, at, id)
+					answered.HubUserDid, nil, contacts.DefaultPage, now,
+					func(at time.Time, number int32) (common.PaginationKey, error) {
+						return sign(s, messagesPurpose, pageCursor{
+							Org: org, Contact: string(request.Handle), At: at, Number: number,
+						})
 					})
 				if err != nil {
 					return result{}, nil, fmt.Errorf("read conversation: %w", err)
@@ -335,19 +285,14 @@ func DeclineChatRequest(s *orgsruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
-		requestID, err := dbvalue.ParseUUID(string(request.RequestID))
-		if err != nil {
-			s.InternalError(r.Context(), w, "parse chat request id", err)
-			return
-		}
 		now := s.CurrentTime()
 		type result = handlerauth.Result[contacts.ChatRequest]
 		handlerauth.RunIdempotent(s, w, r, "orgs:decline-chat-request",
 			dbvalue.FormatUUID(identity.UserID), key, request, now.Add(replayWindow),
 			func(q *sqlc.Queries) (result, *handlerauth.Problem, error) {
 				ctx := r.Context()
-				_, err := agencycontacts.AnswerAgencyRequest(ctx, q,
-					identity.OrgDID, requestID,
+				answered, err := agencycontacts.AnswerAgencyRequest(ctx, q,
+					identity.OrgDID, string(request.Handle), int32(request.RequestNumber),
 					agencycontacts.Answer{Scope: request.Scope},
 					orgAnswerer(s, identity, key))
 				if errors.Is(err, agencycontacts.ErrRequestNotFound) {
@@ -358,7 +303,8 @@ func DeclineChatRequest(s *orgsruntime.Server) http.HandlerFunc {
 					return result{}, nil, err
 				}
 				row, err := q.GetOrgChatRequest(ctx, sqlc.GetOrgChatRequestParams{
-					OrgDid: identity.OrgDID, RequestID: requestID,
+					OrgDid: identity.OrgDID, HubUserDid: answered.HubUserDid,
+					RequestNumber: answered.RequestNumber,
 				})
 				if err != nil {
 					return result{}, nil, fmt.Errorf("read chat request: %w", err)
@@ -380,13 +326,16 @@ var refusals = map[agencycontacts.Refusal]problem.Body{
 
 // requestCursor is where the next page of requests resumes: within the
 // pending ones, or within the answered ones that follow them (At nil starts
-// those). It is bound to the Org and the direction.
+// those). It is bound to the Org and the direction. A pending request is
+// the only one of its pair, so its handle positions it; an answered one also
+// needs its number.
 type requestCursor struct {
 	Org       string     `json:"org"`
 	Direction string     `json:"direction"`
 	Answered  bool       `json:"answered"`
 	At        *time.Time `json:"at,omitempty"`
-	ID        string     `json:"id,omitempty"`
+	Handle    string     `json:"handle,omitempty"`
+	Number    int32      `json:"number,omitempty"`
 }
 
 func signRequests(s *orgsruntime.Server, cursor requestCursor) (common.PaginationKey, error) {
@@ -406,14 +355,10 @@ func verifyRequests(
 	var cursor requestCursor
 	if !valid || json.Unmarshal(payload, &cursor) != nil ||
 		cursor.Org != org || cursor.Direction != direction ||
-		(cursor.At == nil) != (cursor.ID == "") ||
-		(!cursor.Answered && cursor.At == nil) {
+		(cursor.At == nil) != (cursor.Handle == "") ||
+		(!cursor.Answered && cursor.At == nil) ||
+		(cursor.Answered && cursor.At != nil) != (cursor.Number > 0) {
 		return requestCursor{}, false
-	}
-	if cursor.At != nil {
-		if _, err := dbvalue.ParseUUID(cursor.ID); err != nil {
-			return requestCursor{}, false
-		}
 	}
 	return cursor, true
 }
@@ -447,7 +392,7 @@ func ListChatRequests(s *orgsruntime.Server) http.HandlerFunc {
 			}
 			if cursor != nil {
 				params.AfterSentAt = dbvalue.Timestamp(*cursor.At)
-				params.AfterRequestID, _ = dbvalue.ParseUUID(cursor.ID)
+				params.AfterHandle = dbvalue.Text(cursor.Handle)
 			}
 			rows, err := s.Queries.ListPendingOrgChatRequests(r.Context(), params)
 			if err != nil {
@@ -456,11 +401,9 @@ func ListChatRequests(s *orgsruntime.Server) http.HandlerFunc {
 			}
 			for index, row := range rows {
 				if index == limit {
-					last := rows[index-1].VetchiumOrgChatRequest
-					at := last.SentAt.Time.UTC()
-					next = &requestCursor{
-						At: &at, ID: dbvalue.FormatUUID(last.RequestID),
-					}
+					last := rows[index-1]
+					at := last.VetchiumOrgChatRequest.SentAt.Time.UTC()
+					next = &requestCursor{At: &at, Handle: last.HubUserHandle}
 					break
 				}
 				response.Items = append(response.Items, chatRequest(
@@ -475,7 +418,8 @@ func ListChatRequests(s *orgsruntime.Server) http.HandlerFunc {
 			}
 			if cursor != nil && cursor.Answered && cursor.At != nil {
 				params.BeforeAnsweredAt = dbvalue.Timestamp(*cursor.At)
-				params.BeforeRequestID, _ = dbvalue.ParseUUID(cursor.ID)
+				params.BeforeHandle = dbvalue.Text(cursor.Handle)
+				params.BeforeRequestNumber = pgtype.Int4{Int32: cursor.Number, Valid: true}
 			}
 			rows, err := s.Queries.ListAnsweredOrgChatRequests(r.Context(), params)
 			if err != nil {
@@ -486,9 +430,10 @@ func ListChatRequests(s *orgsruntime.Server) http.HandlerFunc {
 				if index == remaining {
 					next = &requestCursor{Answered: true}
 					if index > 0 {
-						last := rows[index-1].VetchiumOrgChatRequest
-						at := last.AnsweredAt.Time.UTC()
-						next.At, next.ID = &at, dbvalue.FormatUUID(last.RequestID)
+						last := rows[index-1]
+						at := last.VetchiumOrgChatRequest.AnsweredAt.Time.UTC()
+						next.At, next.Handle = &at, last.HubUserHandle
+						next.Number = last.VetchiumOrgChatRequest.RequestNumber
 					}
 					break
 				}

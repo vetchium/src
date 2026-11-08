@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	federationspec "github.com/vetchium/src/typespec/federation"
+	"github.com/vetchium/src/typespec/hub"
+	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 
 	"backend/internal/db/sqlc"
@@ -111,39 +114,38 @@ func TestExpireChatRequestsIntegration(t *testing.T) {
 		hubDID, "chatexpy-"+hubText[len(hubText)-11:],
 		"ada-"+hubText[len(hubText)-12:]+"@expiry.example")
 
-	// contact seeds a Contact without notes or a conversation, last active
-	// age ago.
+	// contact seeds a Contact of the person hubDID without notes or a
+	// conversation, last active age ago.
 	contact := func(age string) pgtype.UUID {
 		t.Helper()
-		id := newID()
-		exec(`INSERT INTO vetchium.org_contacts (contact_id, org_did,
-            hub_user_did, display_name, handle, created_by, created_at,
-            last_activity_at)
-            VALUES ($1, $2, $3, 'Ada Lovelace', 'abcd1234-0123456789a', $4,
-                now() - $5::interval, now() - $5::interval)`,
-			id, orgDID, newID(), userID, age)
-		return id
+		person := newID()
+		exec(`INSERT INTO vetchium.org_contacts (org_did, hub_user_did,
+            display_name, handle, created_by, created_at, last_activity_at)
+            VALUES ($1, $2, 'Ada Lovelace', $3, $4, now() - $5::interval,
+                now() - $5::interval)`,
+			orgDID, person, contactHandle(person), userID, age)
+		return person
 	}
-	request := func(contactID pgtype.UUID, age string) pgtype.UUID {
+	// request seeds the person's pending request, sent age ago, as the
+	// Contact's first.
+	request := func(person pgtype.UUID, age string) pgtype.UUID {
 		t.Helper()
-		id := newID()
-		exec(`INSERT INTO vetchium.org_chat_requests (request_id, contact_id,
-                org_did, hub_user_did, direction, state, consumer_domain,
+		exec(`UPDATE vetchium.org_contacts SET last_request_number = 1
+            WHERE org_did = $1 AND hub_user_did = $2`, orgDID, person)
+		exec(`INSERT INTO vetchium.org_chat_requests (org_did, hub_user_did,
+                request_number, direction, state, consumer_domain,
                 opening_number, note, sender_display_name, window_seconds,
                 sent_at)
-            SELECT $2, contact_id, org_did, hub_user_did, 'to_agency',
-                'pending', 'client.example', 3, 'I would like this role',
-                'Ada Lovelace', 86400, now() - $3::interval
-            FROM vetchium.org_contacts WHERE contact_id = $1`,
-			contactID, id, age)
-		return id
+            VALUES ($1, $2, 1, 'to_agency', 'pending', 'client.example', 3,
+                'I would like this role', 'Ada Lovelace', 86400,
+                now() - $3::interval)`, orgDID, person, age)
+		return person
 	}
-	senderBlock := func(contactID pgtype.UUID, until string) {
+	senderBlock := func(person pgtype.UUID, until string) {
 		t.Helper()
-		exec(`INSERT INTO vetchium.org_chat_request_blocks (contact_id,
-                blocked_direction, scope, blocked_until, created_at)
-            VALUES ($1, 'to_agency', 'sender', now() + $2::interval,
-                now() - interval '30 days')`, contactID, until)
+		exec(`UPDATE vetchium.org_contacts
+            SET hub_requests_blocked_until = now() + $3::interval
+            WHERE org_did = $1 AND hub_user_did = $2`, orgDID, person, until)
 	}
 
 	due := request(contact("15 days"), "14 days 1 minute")
@@ -166,33 +168,36 @@ func TestExpireChatRequestsIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	state := func(requestID pgtype.UUID) string {
-		return scalar(`SELECT state || ':' || (note IS NULL)::text || ':' ||
-                (answered_at IS NOT NULL)::text || ':' ||
-                (SELECT count(*) FROM vetchium.org_chat_request_blocks AS b
-                    WHERE b.contact_id = r.contact_id)::text
-            FROM vetchium.org_chat_requests AS r WHERE request_id = $1`,
-			requestID)
+	state := func(person pgtype.UUID) string {
+		return scalar(`SELECT r.state || ':' || (r.note IS NULL)::text || ':' ||
+                (r.answered_at IS NOT NULL)::text || ':' ||
+                (SELECT count(*) FROM vetchium.org_chat_request_opening_blocks AS b
+                    WHERE b.org_did = r.org_did
+                      AND b.hub_user_did = r.hub_user_did)::text || ':' ||
+                (c.hub_requests_blocked_until IS NOT NULL)::text
+            FROM vetchium.org_chat_requests AS r
+            JOIN vetchium.org_contacts AS c USING (org_did, hub_user_did)
+            WHERE r.org_did = $1 AND r.hub_user_did = $2
+              AND r.request_number = 1`, orgDID, person)
 	}
-	if got := state(due); got != "expired:true:true:0" {
+	if got := state(due); got != "expired:true:true:0:false" {
 		t.Fatalf("request past 14 days = %s", got)
 	}
-	if got := state(waiting); got != "pending:false:false:0" {
+	if got := state(waiting); got != "pending:false:false:0:false" {
 		t.Fatalf("request within 14 days = %s", got)
 	}
 	if got := scalar(`SELECT actor_type || ':' || (payload ? 'note')::text
         FROM vetchium.audit_events
         WHERE action = 'org.chat_request.expired' AND entity_id = $1`,
-		dbvalue.FormatUUID(due)); got != "worker:false" {
+		contactHandle(due)); got != "worker:false" {
 		t.Fatalf("expiry audit = %s", got)
 	}
 	var body []byte
-	if err := owner.QueryRow(ctx, `SELECT o.payload_bytes
-        FROM vetchium.federation_outbox AS o
-        JOIN vetchium.org_chat_requests AS r
-            ON o.aggregate_id = r.contact_id::text
-        WHERE o.kind = 'agency-pointer-changed' AND r.request_id = $1
-        ORDER BY o.aggregate_version DESC LIMIT 1`, due).Scan(&body); err != nil {
+	if err := owner.QueryRow(ctx, `SELECT payload_bytes
+        FROM vetchium.federation_outbox
+        WHERE kind = 'agency-pointer-changed' AND aggregate_id = $1
+        ORDER BY aggregate_version DESC LIMIT 1`,
+		pairID(orgDID, due)).Scan(&body); err != nil {
 		t.Fatal(err)
 	}
 	var pointer federationspec.AgencyPointerChangedPayload
@@ -202,25 +207,25 @@ func TestExpireChatRequestsIntegration(t *testing.T) {
 		t.Fatalf("expiry pointer = %s, %v", body, err)
 	}
 
-	blocks := func(contactID pgtype.UUID) string {
-		return scalar(`SELECT count(*)::text
-            FROM vetchium.org_chat_request_blocks WHERE contact_id = $1`,
-			contactID)
+	blocked := func(person pgtype.UUID) string {
+		return scalar(`SELECT (hub_requests_blocked_until IS NOT NULL)::text
+            FROM vetchium.org_contacts
+            WHERE org_did = $1 AND hub_user_did = $2`, orgDID, person)
 	}
-	if got := blocks(lifted); got != "0" {
+	if got := blocked(lifted); got != "false" {
 		t.Fatalf("a lifted block remains: %s", got)
 	}
-	if got := blocks(standing); got != "1" {
+	if got := blocked(standing); got != "true" {
 		t.Fatalf("a standing block was deleted: %s", got)
 	}
 	if got := scalar(`SELECT count(*)::text FROM vetchium.audit_events
         WHERE action = 'org.chat_request_block.lifted' AND entity_id = $1`,
-		dbvalue.FormatUUID(lifted)); got != "1" {
+		contactHandle(lifted)); got != "1" {
 		t.Fatalf("lift audit events = %s", got)
 	}
 	if got := scalar(`SELECT count(*)::text FROM vetchium.federation_outbox
         WHERE kind = 'agency-pointer-changed' AND aggregate_id = $1`,
-		dbvalue.FormatUUID(lifted)); got != "1" {
+		pairID(orgDID, lifted)); got != "1" {
 		t.Fatalf("lift pointer events = %s", got)
 	}
 
@@ -305,49 +310,48 @@ func TestRetentionKeepsContactsWithRequestsOrBlocksIntegration(t *testing.T) {
 
 	// Each Contact was last active past the 730-day retention and has
 	// neither notes nor a conversation.
-	contact := func() pgtype.UUID {
+	contact := func() pair {
 		t.Helper()
-		id := newID()
-		exec(`INSERT INTO vetchium.org_contacts (contact_id, org_did,
-            hub_user_did, display_name, handle, created_by, created_at,
-            last_activity_at)
-            VALUES ($1, $2, $3, 'Ada Lovelace', 'abcd1234-0123456789a', $4,
+		person := newID()
+		exec(`INSERT INTO vetchium.org_contacts (org_did, hub_user_did,
+            display_name, handle, created_by, created_at, last_activity_at)
+            VALUES ($1, $2, 'Ada Lovelace', $3, $4,
                 now() - interval '731 days', now() - interval '731 days')`,
-			id, orgDID, newID(), userID)
-		return id
+			orgDID, person, contactHandle(person), userID)
+		return pair{orgDID, person}
 	}
 	pending, opening, sender, expired, bare := contact(), contact(), contact(),
 		contact(), contact()
-	for id, state := range map[pgtype.UUID]string{pending: "pending", expired: "expired"} {
-		exec(`INSERT INTO vetchium.org_chat_requests (request_id, contact_id,
-                org_did, hub_user_did, direction, state, consumer_domain,
+	for id, state := range map[pair]string{pending: "pending", expired: "expired"} {
+		exec(`UPDATE vetchium.org_contacts SET last_request_number = 1
+            WHERE org_did = $1 AND hub_user_did = $2`, id.orgDID, id.hubDID)
+		exec(`INSERT INTO vetchium.org_chat_requests (org_did, hub_user_did,
+                request_number, direction, state, consumer_domain,
                 opening_number, sender_display_name, window_seconds, sent_at,
                 answered_at)
-            SELECT $2, contact_id, org_did, hub_user_did, 'to_agency', $3,
-                'client.example', 3, 'Ada Lovelace', 86400,
-                now() - interval '731 days',
-                CASE WHEN $3 = 'pending' THEN NULL
-                    ELSE now() - interval '731 days' END
-            FROM vetchium.org_contacts WHERE contact_id = $1`,
-			id, newID(), state)
+            VALUES ($1, $2, 1, 'to_agency', $3::text, 'client.example', 3,
+                'Ada Lovelace', 86400, now() - interval '731 days',
+                CASE WHEN $3::text = 'pending' THEN NULL
+                    ELSE now() - interval '731 days' END)`,
+			id.orgDID, id.hubDID, state)
 	}
-	exec(`INSERT INTO vetchium.org_chat_request_blocks (contact_id,
-            blocked_direction, scope, consumer_domain, opening_number)
-        VALUES ($1, 'to_agency', 'opening', 'client.example', 3)`, opening)
-	exec(`INSERT INTO vetchium.org_chat_request_blocks (contact_id,
-            blocked_direction, scope, blocked_until, created_at)
-        VALUES ($1, 'to_agency', 'sender', now() + interval '1 day',
-            now() - interval '1 day')`, sender)
+	exec(`INSERT INTO vetchium.org_chat_request_opening_blocks (org_did,
+            hub_user_did, blocked_direction, consumer_domain, opening_number)
+        VALUES ($1, $2, 'to_agency', 'client.example', 3)`,
+		opening.orgDID, opening.hubDID)
+	exec(`UPDATE vetchium.org_contacts
+        SET hub_requests_blocked_until = now() + interval '1 day'
+        WHERE org_did = $1 AND hub_user_did = $2`, sender.orgDID, sender.hubDID)
 
 	listed, err := sqlc.New(owner).ListOrgContactsDueForRetention(ctx, 100000)
 	if err != nil {
 		t.Fatal(err)
 	}
-	due := map[pgtype.UUID]bool{}
-	for _, id := range listed {
-		due[id] = true
+	due := map[pair]bool{}
+	for _, row := range listed {
+		due[pair{row.OrgDid, row.HubUserDid}] = true
 	}
-	for name, id := range map[string]pgtype.UUID{
+	for name, id := range map[string]pair{
 		"pending request": pending, "opening block": opening,
 		"sender block": sender,
 	} {
@@ -359,13 +363,13 @@ func TestRetentionKeepsContactsWithRequestsOrBlocksIntegration(t *testing.T) {
 		}
 		if _, err := sqlc.New(app).DeleteUnusedOrgContact(ctx,
 			sqlc.DeleteUnusedOrgContactParams{
-				ContactID: id, OrgDid: orgDID, TenantID: "usa1",
+				OrgDid: id.orgDID, HubUserDid: id.hubDID, TenantID: "usa1",
 				ActorType: "worker", ActorID: "test", Source: "test",
 			}); !errors.Is(err, pgx.ErrNoRows) {
 			t.Errorf("%s: deleted as unused: %v", name, err)
 		}
 	}
-	for name, id := range map[string]pgtype.UUID{
+	for name, id := range map[string]pair{
 		"expired request only": expired, "nothing": bare,
 	} {
 		if !due[id] {
@@ -380,4 +384,17 @@ func TestRetentionKeepsContactsWithRequestsOrBlocksIntegration(t *testing.T) {
         WHERE org_did = $1`, orgDID).Scan(&kept); err != nil || kept != "3" {
 		t.Fatalf("Contacts kept = %s, %v", kept, err)
 	}
+}
+
+// contactHandle is a Hub handle unique to the person, as Contacts of one
+// agency need.
+func contactHandle(person pgtype.UUID) string {
+	digits := strings.ReplaceAll(dbvalue.FormatUUID(person), "-", "")
+	return digits[13:21] + "-" + digits[21:]
+}
+
+func pairID(orgDID, hubDID pgtype.UUID) string {
+	return federationspec.ContactAggregateID(
+		orgs.OrgDID(dbvalue.FormatUUID(orgDID)),
+		hub.HubUserDID(dbvalue.FormatUUID(hubDID)))
 }

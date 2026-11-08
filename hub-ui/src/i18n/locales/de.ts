@@ -17,8 +17,8 @@ export const de = {
     applicationsNeedAnswer_one: "{{count}} Bewerbung braucht Ihre Antwort",
     applicationsNeedAnswer_other: "{{count}} Bewerbungen brauchen Ihre Antwort",
     messages: "Nachrichten",
-    messagesUnread_one: "{{count}} ungelesene Nachricht",
-    messagesUnread_other: "{{count}} ungelesene Nachrichten",
+    messagesAwaiting_one: "{{count}} Unterhaltung wartet auf Sie",
+    messagesAwaiting_other: "{{count}} Unterhaltungen warten auf Sie",
     menu: "Navigation",
     openMenu: "Navigation öffnen",
     home: "Startseite",
@@ -1117,18 +1117,11 @@ export const de = {
     loadEarlier: "Ältere Nachrichten laden",
     documentTitle: "Nachrichten | Vetchium",
     title: "Nachrichten",
-    subtitle:
-      "Personalvermittlungen, die Sie bezüglich Stellenausschreibungen kontaktiert haben. Antworten Sie oder löschen Sie eine Konversation, um sie für beide Seiten zu entfernen.",
     agency: "Agentur",
     empty:
       "Noch keine Nachrichten. Wenn sich Personalvermittlungen bezüglich Stellenausschreibungen melden, erscheinen Ihre Konversationen hier.",
     loading: "Konversation wird geladen…",
     selectPrompt: "Wählen Sie eine Konversation zum Lesen aus.",
-    delete: "Löschen",
-    deleteConfirmTitle: "Konversation löschen?",
-    deleteConfirmBody:
-      "Dadurch werden die Konversation und Stellenvorschläge für beide Seiten gelöscht. Die Notizen der Agentur bleiben erhalten.",
-    deleteAction: "Konversation löschen",
     unavailableTitle: "Wir konnten diese Konversation nicht laden",
     unavailableBody:
       "Die Region von {{agency}} hat nicht geantwortet. Ihre Nachrichten sind sicher; versuchen Sie es gleich noch einmal.",
@@ -1144,5 +1137,12 @@ export const de = {
     send: "Senden",
     snippetSuggestion: "Stellenvorschlag",
     snippetConversation: "Konversation mit Agentur",
+    subtitle:
+      "Personalvermittlungen, die Sie zu Stellen kontaktiert haben, und Ihre Chat-Anfragen an sie. Sie können Ihre eigenen Nachrichten löschen; die Vermittlung sieht dann nur, dass eine Nachricht gelöscht wurde.",
+    deleteAction: "Löschen",
+    deleteMessage: "Nachricht löschen",
+    deleteMessageConfirm:
+      "Diese Nachricht löschen? {{agency}} sieht, dass eine Nachricht gelöscht wurde, aber nicht ihren Inhalt.",
+    messageDeleted: "Nachricht gelöscht",
   },
 } as const satisfies LocaleResource;

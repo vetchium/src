@@ -19,7 +19,6 @@ import "../../openings/types.tsp";
 import "../../operations/operations.tsp";
 import "../attribution.tsp";
 import "../capabilities.tsp";
-import "../contacts/contacts.tsp";
 import "../engagements.tsp";
 
 using TypeSpec.Http;
@@ -158,7 +157,6 @@ model JobCreditedApplication {
 }
 
 model JobSuggestedContact {
-  contact_id: Contacts.ContactID;
   display_name: Vetchium.DisplayName;
   handle: Vetchium.Hub.HubHandle;
   suggested_at: utcDateTime;

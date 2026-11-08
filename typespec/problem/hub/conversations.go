@@ -6,7 +6,7 @@ var HubConversationNotFoundError = problem.Details{
 	Type:   "vetchium-problem-details/hub-conversation-not-found",
 	Title:  "Hub conversation not found",
 	Status: 404,
-	Detail: "No conversation has that identifier",
+	Detail: "You have no conversation with that agency",
 }
 
 var HubConversationPartyDeletedError = problem.Details{
@@ -41,7 +41,7 @@ var HubChatRequestNotFoundError = problem.Details{
 	Type:   "vetchium-problem-details/hub-chat-request-not-found",
 	Title:  "Hub chat request not found",
 	Status: 404,
-	Detail: "No pending chat request to you has that identifier",
+	Detail: "No pending chat request to you from that agency has that number",
 }
 
 var HubConversationOpenError = problem.Details{
@@ -63,4 +63,11 @@ var HubAgencyNotAssignedError = problem.Details{
 	Title:  "Hub agency not assigned",
 	Status: 422,
 	Detail: "The Opening is not published or the agency does not work on it",
+}
+
+var HubConversationMessageNotFoundError = problem.Details{
+	Type:   "vetchium-problem-details/hub-conversation-message-not-found",
+	Title:  "Hub conversation message not found",
+	Status: 404,
+	Detail: "No text message you sent and have not deleted has that number",
 }

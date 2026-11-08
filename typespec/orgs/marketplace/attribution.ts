@@ -6,10 +6,10 @@ import {
   type ApplicationStatus,
   isApplicationStatus,
 } from "../../hub/applications/applications.ts";
+import { type HubHandle, isHubHandle } from "../../hub/types.ts";
 import type { ApplicationNumber } from "../applications/applications.ts";
 import type { OpeningNumber } from "../openings/types.ts";
 import { isOrgDomain, normalizeOrgDomain, type OrgDomain } from "../types.ts";
-import { type ContactID, isContactID } from "./contacts/contacts.ts";
 import type { EngagementCounterparty, EngagementID } from "./engagements.ts";
 import {
   isWorkPageSize,
@@ -36,7 +36,8 @@ export interface CreditedApplicationSummary {
   application_number: ApplicationNumber;
   route: ReferralRoute;
   status: ApplicationStatus;
-  contact_id?: ContactID;
+  /** The applicant's handle, when the agency has a Contact on them. */
+  contact_handle?: HubHandle;
   applied_at: string;
 }
 
@@ -45,7 +46,8 @@ export interface ListCreditedApplicationsRequest {
   opening_number?: OpeningNumber;
   route?: ReferralRoute;
   status?: ApplicationStatus;
-  contact_id?: ContactID;
+  /** Only the applications of the agency's Contact with this handle. */
+  contact_handle?: HubHandle;
   pagination_key?: PaginationKey;
   limit?: WorkPageSize;
 }
@@ -90,8 +92,11 @@ export function validateListCreditedApplicationsRequest(
   if (request.status !== undefined && !isApplicationStatus(request.status)) {
     fields.push("status");
   }
-  if (request.contact_id !== undefined && !isContactID(request.contact_id)) {
-    fields.push("contact_id");
+  if (
+    request.contact_handle !== undefined &&
+    !isHubHandle(request.contact_handle)
+  ) {
+    fields.push("contact_handle");
   }
   if (
     request.pagination_key !== undefined &&

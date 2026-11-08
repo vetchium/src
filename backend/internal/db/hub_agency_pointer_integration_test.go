@@ -35,7 +35,7 @@ func TestSetHubAgencyPointerAnsweredRequestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	contactID, err := dbvalue.NewUUIDv7(time.Now())
+	agencyDID, err := dbvalue.NewUUIDv7(time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,12 +52,12 @@ func TestSetHubAgencyPointerAnsweredRequestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO vetchium.hub_agency_pointers
-        (contact_id, hub_user_did, agency_org_did, has_request, request,
+        (hub_user_did, agency_org_did, agency_domain, has_request, request,
          pointer_version)
-        VALUES ($1, $2, gen_random_uuid(), true, jsonb_build_object(
-            'request_id', 'a0000000-0000-7000-8000-000000000001',
+        VALUES ($1, $2, 'scouts.example', true, jsonb_build_object(
+            'request_number', 1,
             'state', 'pending', 'direction', 'to_hub_user'), 4)`,
-		contactID, did); err != nil {
+		did, agencyDID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -66,18 +66,18 @@ func TestSetHubAgencyPointerAnsweredRequestIntegration(t *testing.T) {
 		rows, err := q.SetHubAgencyPointerAnsweredRequest(ctx,
 			sqlc.SetHubAgencyPointerAnsweredRequestParams{
 				Request: []byte(request), Accepted: true,
-				ContactID: contactID, HubUserDid: did, TenantID: "sgp",
+				HubUserDid: did, AgencyOrgDid: agencyDID, TenantID: "sgp",
 			})
 		if err != nil {
 			t.Fatal(err)
 		}
 		return rows
 	}
-	if rows := answer(`{"request_id":"a0000000-0000-7000-8000-000000000002",
+	if rows := answer(`{"request_number":2,
         "state":"accepted","direction":"to_hub_user"}`); rows != 0 {
 		t.Fatalf("another request changed %d pointers", rows)
 	}
-	accepted := `{"request_id":"a0000000-0000-7000-8000-000000000001",
+	accepted := `{"request_number":1,
         "state":"accepted","direction":"to_hub_user"}`
 	if rows := answer(accepted); rows != 1 {
 		t.Fatalf("answer changed %d pointers", rows)
@@ -89,11 +89,12 @@ func TestSetHubAgencyPointerAnsweredRequestIntegration(t *testing.T) {
 
 	var hasConversation bool
 	var state string
-	var version int32
+	var version int64
 	if err := tx.QueryRow(ctx, `SELECT has_conversation, request ->> 'state',
             pointer_version
-        FROM vetchium.hub_agency_pointers WHERE contact_id = $1`,
-		contactID).Scan(&hasConversation, &state, &version); err != nil {
+        FROM vetchium.hub_agency_pointers
+        WHERE hub_user_did = $1 AND agency_org_did = $2`,
+		did, agencyDID).Scan(&hasConversation, &state, &version); err != nil {
 		t.Fatal(err)
 	}
 	if !hasConversation || state != "accepted" || version != 4 {
@@ -119,11 +120,10 @@ func TestSetHubAgencyPointerAnsweredRequestIntegration(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	contact := dbvalue.FormatUUID(contactID)
 	if len(audits) != 1 || !strings.HasPrefix(audits[0],
-		"hub.agency-chat-request.answered hub_user "+contact+" ") ||
+		"hub.agency-chat-request.answered hub_user scouts.example ") ||
 		!strings.Contains(audits[0], `"state": "accepted"`) ||
-		!strings.Contains(audits[0], `"request_id": "a0000000-0000-7000-8000-000000000001"`) {
+		!strings.Contains(audits[0], `"request_number": 1`) {
 		t.Fatalf("audit events = %q", audits)
 	}
 }
@@ -150,10 +150,6 @@ func TestRecordHubSentChatRequestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	contactID, err := dbvalue.NewUUIDv7(time.Now())
-	if err != nil {
-		t.Fatal(err)
-	}
 	agencyDID, err := dbvalue.NewUUIDv7(time.Now())
 	if err != nil {
 		t.Fatal(err)
@@ -170,12 +166,12 @@ func TestRecordHubSentChatRequestIntegration(t *testing.T) {
 		did, "pointer-sent-"+dbvalue.FormatUUID(did)+"@example.com"); err != nil {
 		t.Fatal(err)
 	}
-	record := func(requestID, sentAt string) int64 {
+	record := func(number, sentAt string) int64 {
 		t.Helper()
 		rows, err := q.RecordHubSentChatRequest(ctx, sqlc.RecordHubSentChatRequestParams{
-			ContactID: contactID, HubUserDid: did, AgencyOrgDid: agencyDID,
+			HubUserDid: did, AgencyOrgDid: agencyDID,
 			AgencyDisplayName: "Talent Scouts", AgencyDomain: "scouts.example",
-			Request: []byte(`{"request_id":"` + requestID + `","direction":"to_agency",
+			Request: []byte(`{"request_number":` + number + `,"direction":"to_agency",
                 "state":"pending","sent_at":"` + sentAt + `"}`),
 			TenantID: "sgp",
 		})
@@ -184,36 +180,37 @@ func TestRecordHubSentChatRequestIntegration(t *testing.T) {
 		}
 		return rows
 	}
-	if rows := record("a0000000-0000-7000-8000-000000000001", "2026-01-02T00:00:00Z"); rows != 1 {
+	if rows := record("2", "2026-01-02T00:00:00Z"); rows != 1 {
 		t.Fatalf("first record changed %d pointers", rows)
 	}
 	// A replay, and an older request, change nothing.
-	if rows := record("a0000000-0000-7000-8000-000000000001", "2026-01-02T00:00:00Z"); rows != 0 {
+	if rows := record("2", "2026-01-02T00:00:00Z"); rows != 0 {
 		t.Fatalf("replay changed %d pointers", rows)
 	}
-	if rows := record("a0000000-0000-7000-8000-000000000000", "2026-01-01T00:00:00Z"); rows != 0 {
+	if rows := record("1", "2026-01-01T00:00:00Z"); rows != 0 {
 		t.Fatalf("older request changed %d pointers", rows)
 	}
-	if rows := record("a0000000-0000-7000-8000-000000000002", "2026-01-03T00:00:00Z"); rows != 1 {
+	if rows := record("3", "2026-01-03T00:00:00Z"); rows != 1 {
 		t.Fatalf("newer request changed %d pointers", rows)
 	}
 
 	var line string
 	if err := tx.QueryRow(ctx, `SELECT concat_ws(' ', has_conversation,
-            has_request, request ->> 'request_id', pointer_version,
+            has_request, request ->> 'request_number', pointer_version,
             agency_domain, last_activity_at = '2026-01-03T00:00:00Z')
-        FROM vetchium.hub_agency_pointers WHERE contact_id = $1`,
-		contactID).Scan(&line); err != nil {
+        FROM vetchium.hub_agency_pointers
+        WHERE hub_user_did = $1 AND agency_org_did = $2`,
+		did, agencyDID).Scan(&line); err != nil {
 		t.Fatal(err)
 	}
-	if line != "f t a0000000-0000-7000-8000-000000000002 1 scouts.example t" {
+	if line != "f t 3 1 scouts.example t" {
 		t.Fatalf("pointer = %q", line)
 	}
 	var audits []string
-	rows, err := tx.Query(ctx, `SELECT action || ' ' || (payload ->> 'request_id')
+	rows, err := tx.Query(ctx, `SELECT action || ' ' || (payload ->> 'request_number')
         FROM vetchium.audit_events
         WHERE subject_hub_user_did = $1
-        ORDER BY payload ->> 'request_id'`, did)
+        ORDER BY payload ->> 'request_number'`, did)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,8 +225,8 @@ func TestRecordHubSentChatRequestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(audits) != 2 ||
-		audits[0] != "hub.agency-chat-request.sent a0000000-0000-7000-8000-000000000001" ||
-		audits[1] != "hub.agency-chat-request.sent a0000000-0000-7000-8000-000000000002" {
+		audits[0] != "hub.agency-chat-request.sent 2" ||
+		audits[1] != "hub.agency-chat-request.sent 3" {
 		t.Fatalf("audit events = %q", audits)
 	}
 }

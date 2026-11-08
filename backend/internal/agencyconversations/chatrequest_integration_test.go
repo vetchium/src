@@ -37,11 +37,10 @@ func (f *fixture) hubRequest(
 ) (commands.Response, federationspec.HubChatRequestPayload) {
 	t.Helper()
 	payload := federationspec.HubChatRequestPayload{
-		RequestID:          contacts.ChatRequestID(dbvalue.FormatUUID(newID(t))),
-		AgencyOrgDID:       orgs.OrgDID(dbvalue.FormatUUID(f.orgDID)),
-		HubUserDID:         hub.HubUserDID(dbvalue.FormatUUID(hubDID)),
+		AgencyOrgDID:       f.agencyDID(),
+		HubUserDID:         hubUser(hubDID),
 		HubUserDisplayName: "Ada King",
-		HubUserHandle:      "abcd1234-0123456789b",
+		HubUserHandle:      hub.HubHandle(handleOf(hubDID)),
 		ConsumerDomain:     "client.example",
 		OpeningNumber:      openings.OpeningNumber(openingNumber),
 		WindowSeconds:      ninetyDays,
@@ -50,14 +49,14 @@ func (f *fixture) hubRequest(
 		text := contacts.ChatRequestNote(note)
 		payload.Note = &text
 	}
-	return f.send(t, federationspec.HubChatRequestKind, f.orgDID, payload), payload
+	return f.send(t, federationspec.HubChatRequestKind, f.aggregate(hubDID), payload), payload
 }
 
 func TestHubChatRequestCreatesAnUncountedContactIntegration(t *testing.T) {
 	f := newFixture(t)
 	f.sourcing(t)
 	hubDID := newID(t)
-	response, payload := f.hubRequest(t, hubDID, 7, "Is this role still open?")
+	response, _ := f.hubRequest(t, hubDID, 7, "Is this role still open?")
 	if response.Status != 200 {
 		t.Fatalf("status = %d: %s", response.Status, response.Body)
 	}
@@ -66,22 +65,22 @@ func TestHubChatRequestCreatesAnUncountedContactIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	if fields := result.Validate(); len(fields) != 0 ||
-		result.Request.RequestID != payload.RequestID ||
+		result.Request.RequestNumber != 1 ||
 		result.Request.State != contacts.ChatRequestPending ||
 		result.Request.OpeningNumber != 7 {
 		t.Fatalf("result = %+v, invalid %v", result, result.Validate())
 	}
-	contactID := string(result.ContactID)
-
 	if got := f.scalar(t, `SELECT concat_ws(' ', created_by IS NULL,
-            display_name, handle)
-        FROM vetchium.org_contacts WHERE contact_id = $1`, contactID); got != "t Ada King abcd1234-0123456789b" {
+            display_name, handle, requests_off, last_request_number)
+        FROM vetchium.org_contacts WHERE org_did = $1 AND hub_user_did = $2`,
+		f.orgDID, hubDID); got != "t Ada King "+handleOf(hubDID)+" f 1" {
 		t.Fatalf("Contact = %q", got)
 	}
 	if got := f.scalar(t, `SELECT concat_ws(' ', direction, state, note,
             sender_user_id IS NULL, sender_display_name, window_seconds)
-        FROM vetchium.org_chat_requests WHERE request_id = $1`,
-		string(payload.RequestID)); got != "to_agency pending Is this role still open? t Ada King 7776000" {
+        FROM vetchium.org_chat_requests
+        WHERE org_did = $1 AND hub_user_did = $2 AND request_number = 1`,
+		f.orgDID, hubDID); got != "to_agency pending Is this role still open? t Ada King 7776000" {
 		t.Fatalf("request = %q", got)
 	}
 	// Neither the Contact nor the request counts toward the agency's day.
@@ -100,11 +99,7 @@ func TestHubChatRequestCreatesAnUncountedContactIntegration(t *testing.T) {
 		strings.Contains(audits, "still open") {
 		t.Fatalf("audit events = %s", audits)
 	}
-	contact, err := dbvalue.ParseUUID(contactID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, pointer := f.pointer(t, contact)
+	_, _, pointer := f.pointer(t, hubDID)
 	if pointer.NewAgencyRequest || pointer.Request == nil ||
 		pointer.Request.Direction != contacts.ToAgency ||
 		pointer.Request.State != contacts.ChatRequestPending {
@@ -136,17 +131,18 @@ func TestHubChatRequestRefusalsIntegration(t *testing.T) {
 	}
 
 	pending := newID(t)
-	f.request(t, f.contact(t, pending, 1, false))
+	f.contact(t, pending, 1, false)
+	f.request(t, pending)
 	response, _ = f.hubRequest(t, pending, 7, "")
 	if got := problemType(t, response); got != "hub-chat-request-exists" {
 		t.Fatalf("pending request: problem = %q", got)
 	}
 
 	blocked := newID(t)
-	contactID := f.contact(t, blocked, 1, false)
-	f.exec(t, `INSERT INTO vetchium.org_chat_request_blocks (contact_id,
-            blocked_direction, scope, consumer_domain, opening_number)
-        VALUES ($1, 'to_agency', 'opening', 'client.example', 7)`, contactID)
+	f.contact(t, blocked, 1, false)
+	f.exec(t, `INSERT INTO vetchium.org_chat_request_opening_blocks (org_did,
+            hub_user_did, blocked_direction, consumer_domain, opening_number)
+        VALUES ($1, $2, 'to_agency', 'client.example', 7)`, f.orgDID, blocked)
 	response, _ = f.hubRequest(t, blocked, 7, "")
 	if got := problemType(t, response); got != "hub-chat-request-blocked" {
 		t.Fatalf("opening block: problem = %q", got)
@@ -158,7 +154,7 @@ func TestHubChatRequestRefusalsIntegration(t *testing.T) {
 		t.Fatalf("another Opening: status = %d: %s", response.Status, response.Body)
 	}
 	if got := f.scalar(t, `SELECT display_name FROM vetchium.org_contacts
-        WHERE contact_id = $1`, contactID); got != "Ada King" {
+        WHERE org_did = $1 AND hub_user_did = $2`, f.orgDID, blocked); got != "Ada King" {
 		t.Fatalf("Contact name = %q", got)
 	}
 
@@ -166,7 +162,7 @@ func TestHubChatRequestRefusalsIntegration(t *testing.T) {
 	f.contact(t, gone, 0, true)
 	f.exec(t, `UPDATE vetchium.org_conversations
         SET read_only_reason = 'hub_user_deleted'
-        WHERE hub_user_did = $1`, gone)
+        WHERE org_did = $1 AND hub_user_did = $2`, f.orgDID, gone)
 	response, _ = f.hubRequest(t, gone, 7, "")
 	if got := problemType(t, response); got != "hub-conversation-party-deleted" {
 		t.Fatalf("deleted party: problem = %q", got)
@@ -177,21 +173,18 @@ func TestHubChatRequestToAnotherAgencyIsRejectedIntegration(t *testing.T) {
 	f := newFixture(t)
 	f.sourcing(t)
 	hubDID := newID(t)
+	other := orgs.OrgDID(dbvalue.FormatUUID(newID(t)))
 	payload := federationspec.HubChatRequestPayload{
-		RequestID:          contacts.ChatRequestID(dbvalue.FormatUUID(newID(t))),
-		AgencyOrgDID:       orgs.OrgDID(dbvalue.FormatUUID(newID(t))),
-		HubUserDID:         hub.HubUserDID(dbvalue.FormatUUID(hubDID)),
+		AgencyOrgDID:       other,
+		HubUserDID:         hubUser(hubDID),
 		HubUserDisplayName: "Ada King",
-		HubUserHandle:      "abcd1234-0123456789b",
+		HubUserHandle:      hub.HubHandle(handleOf(hubDID)),
 		ConsumerDomain:     "client.example",
 		OpeningNumber:      7,
 		WindowSeconds:      ninetyDays,
 	}
-	agency, err := dbvalue.ParseUUID(string(payload.AgencyOrgDID))
-	if err != nil {
-		t.Fatal(err)
-	}
-	response := f.send(t, federationspec.HubChatRequestKind, agency, payload)
+	response := f.send(t, federationspec.HubChatRequestKind,
+		federationspec.ContactAggregateID(other, hubUser(hubDID)), payload)
 	if got := problemType(t, response); got != "validation-failed" {
 		t.Fatalf("problem = %q", got)
 	}

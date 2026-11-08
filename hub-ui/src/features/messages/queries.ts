@@ -1,4 +1,5 @@
 import {
+  type InfiniteData,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -17,9 +18,9 @@ import type { PendingOperation } from "typespec/hub/operations/operations";
 import type {
   ChatRequestDeclineScope,
   ChatRequestDirection,
-  ChatRequestID,
-  ContactID,
+  ChatRequestNumber,
   ConversationMessage,
+  MessageNumber,
   MessageText,
 } from "typespec/orgs/marketplace/contacts/contacts";
 import { hubAPI } from "../../api/hub";
@@ -28,8 +29,9 @@ import { usePendingOperations } from "../../app/PendingOperationContext";
 import { OperationStillPendingError, settle } from "../applications/actions";
 
 export const conversationsQueryKey = ["hub", "conversations"] as const;
-export const conversationDetailQueryKey = (contactId: string) =>
-  ["hub", "conversations", contactId] as const;
+export const conversationDetailQueryKey = (agencyDomain: string) =>
+  ["hub", "conversations", agencyDomain] as const;
+const awaitingCountQueryKey = ["hub", "conversations-awaiting"] as const;
 const chatRequestsQueryKey = ["hub", "chat-requests"] as const;
 const openingAgenciesQueryKey = ["hub", "opening-agencies"] as const;
 
@@ -41,21 +43,31 @@ export function useConversationsQuery(enabled = true) {
   });
 }
 
+/** Conversations waiting on the user: a chat request to answer, or unread
+ * agency messages (MKT-HUB-001). */
+export function useAwaitingConversationCountQuery(enabled = true) {
+  return useQuery({
+    queryKey: awaitingCountQueryKey,
+    queryFn: () => hubAPI.countAwaitingConversations(),
+    enabled,
+  });
+}
+
 /** Pages of a conversation, newest first; each page lists newest first. */
 export function useConversationDetailQuery(
-  contactId: string | undefined,
+  agencyDomain: string | undefined,
   enabled = true,
 ) {
   return useInfiniteQuery({
-    queryKey: conversationDetailQueryKey(contactId ?? ""),
+    queryKey: conversationDetailQueryKey(agencyDomain ?? ""),
     queryFn: ({ pageParam }) =>
       hubAPI.getConversation({
-        contact_id: contactId as ContactID,
+        agency_domain: agencyDomain ?? "",
         ...(pageParam === undefined ? {} : { pagination_key: pageParam }),
       }),
     initialPageParam: undefined as PaginationKey | undefined,
     getNextPageParam: (page) => page.next_pagination_key,
-    enabled: Boolean(contactId) && enabled,
+    enabled: Boolean(agencyDomain) && enabled,
   });
 }
 
@@ -98,7 +110,7 @@ function isPendingOperation(result: unknown): result is PendingOperation {
   );
 }
 
-export function useConversationReplyAction(contactId: string) {
+export function useConversationReplyAction(agencyDomain: string) {
   const queryClient = useQueryClient();
   const { hold } = usePendingOperations();
   const key = useIdempotencyKey();
@@ -106,7 +118,7 @@ export function useConversationReplyAction(contactId: string) {
 
   return useMutation({
     mutationFn: async (text: MessageText) => {
-      const request = { contact_id: contactId as ContactID, text };
+      const request = { agency_domain: agencyDomain, text };
       const serialized = JSON.stringify(request);
       if (lastRequest.current !== null && lastRequest.current !== serialized) {
         key.rotate();
@@ -129,7 +141,7 @@ export function useConversationReplyAction(contactId: string) {
       lastRequest.current = null;
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: conversationDetailQueryKey(contactId),
+          queryKey: conversationDetailQueryKey(agencyDomain),
         }),
         queryClient.invalidateQueries({ queryKey: conversationsQueryKey }),
       ]);
@@ -138,7 +150,7 @@ export function useConversationReplyAction(contactId: string) {
       if (error instanceof OperationStillPendingError) return;
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: conversationDetailQueryKey(contactId),
+          queryKey: conversationDetailQueryKey(agencyDomain),
         }),
         queryClient.invalidateQueries({ queryKey: conversationsQueryKey }),
       ]);
@@ -146,15 +158,20 @@ export function useConversationReplyAction(contactId: string) {
   });
 }
 
-export function useConversationDeleteAction(contactId: string) {
+/** Deletes one of the user's own text messages; the agency sees that a
+ * message was deleted, never what it said (MKT-CNV-007). */
+export function useMessageDeleteAction(agencyDomain: string) {
   const queryClient = useQueryClient();
   const { hold } = usePendingOperations();
   const key = useIdempotencyKey();
   const lastRequest = useRef<string | null>(null);
 
   return useMutation({
-    mutationFn: async () => {
-      const request = { contact_id: contactId as ContactID };
+    mutationFn: async (messageNumber: MessageNumber) => {
+      const request = {
+        agency_domain: agencyDomain,
+        message_number: messageNumber,
+      };
       const serialized = JSON.stringify(request);
       if (lastRequest.current !== null && lastRequest.current !== serialized) {
         key.rotate();
@@ -162,12 +179,12 @@ export function useConversationDeleteAction(contactId: string) {
       lastRequest.current = serialized;
       const release = hold();
       try {
-        let result = await hubAPI.deleteConversation(request, key.current());
+        let result = await hubAPI.deleteMessage(request, key.current());
         while (isPendingOperation(result)) {
           await settle(result.operation_id);
-          result = await hubAPI.deleteConversation(request, key.current());
+          result = await hubAPI.deleteMessage(request, key.current());
         }
-        return result;
+        return result as ConversationMessage;
       } finally {
         release();
       }
@@ -175,14 +192,15 @@ export function useConversationDeleteAction(contactId: string) {
     onSuccess: async () => {
       key.rotate();
       lastRequest.current = null;
-      queryClient.removeQueries({
-        queryKey: conversationDetailQueryKey(contactId),
+      await queryClient.invalidateQueries({
+        queryKey: conversationDetailQueryKey(agencyDomain),
       });
-      await queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
     },
     onError: async (error) => {
       if (error instanceof OperationStillPendingError) return;
-      await queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+      await queryClient.invalidateQueries({
+        queryKey: conversationDetailQueryKey(agencyDomain),
+      });
     },
   });
 }
@@ -191,9 +209,10 @@ export function useMarkConversationRead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (contactId: ContactID) =>
-      hubAPI.markConversationRead({ contact_id: contactId }),
-    onSuccess: (_, contactId) => {
+    mutationFn: (agencyDomain: string) =>
+      hubAPI.markConversationRead({ agency_domain: agencyDomain }),
+    onSuccess: (_, agencyDomain) => {
+      void queryClient.invalidateQueries({ queryKey: awaitingCountQueryKey });
       queryClient.setQueryData<ListConversationsResponse>(
         conversationsQueryKey,
         (current) => {
@@ -201,26 +220,27 @@ export function useMarkConversationRead() {
           return {
             ...current,
             items: current.items.map((item) =>
-              item.contact_id === contactId
+              item.agency_domain === agencyDomain
                 ? { ...item, unread: false, unread_count: 0 }
                 : item,
             ),
           };
         },
       );
-      queryClient.setQueryData<HubConversationDetail>(
-        conversationDetailQueryKey(contactId),
-        (current) => {
-          if (!current) return current;
-          return {
+      queryClient.setQueryData<InfiniteData<HubConversationDetail>>(
+        conversationDetailQueryKey(agencyDomain),
+        (current) =>
+          current && {
             ...current,
-            conversation: {
-              ...current.conversation,
-              unread: false,
-              unread_count: 0,
-            },
-          };
-        },
+            pages: current.pages.map((page) => ({
+              ...page,
+              conversation: {
+                ...page.conversation,
+                unread: false,
+                unread_count: 0,
+              },
+            })),
+          },
       );
     },
   });
@@ -228,11 +248,11 @@ export function useMarkConversationRead() {
 
 /** Accepts the request, or declines it with a scope (MKT-REQ-007). */
 export interface ChatRequestAnswer {
-  request_id: ChatRequestID;
+  request_number: ChatRequestNumber;
   decline?: ChatRequestDeclineScope;
 }
 
-export function useChatRequestAnswerAction(contactId: string) {
+export function useChatRequestAnswerAction(agencyDomain: string) {
   const queryClient = useQueryClient();
   const { hold } = usePendingOperations();
   const key = useIdempotencyKey();
@@ -241,11 +261,12 @@ export function useChatRequestAnswerAction(contactId: string) {
   const refresh = (list = true) =>
     Promise.all([
       queryClient.invalidateQueries({
-        queryKey: conversationDetailQueryKey(contactId),
+        queryKey: conversationDetailQueryKey(agencyDomain),
       }),
       list &&
         queryClient.invalidateQueries({ queryKey: conversationsQueryKey }),
       queryClient.invalidateQueries({ queryKey: chatRequestsQueryKey }),
+      queryClient.invalidateQueries({ queryKey: awaitingCountQueryKey }),
     ]);
 
   return useMutation({
@@ -258,11 +279,18 @@ export function useChatRequestAnswerAction(contactId: string) {
       const call = () =>
         answer.decline === undefined
           ? hubAPI.acceptChatRequest(
-              { request_id: answer.request_id },
+              {
+                agency_domain: agencyDomain,
+                request_number: answer.request_number,
+              },
               key.current(),
             )
           : hubAPI.declineChatRequest(
-              { request_id: answer.request_id, scope: answer.decline },
+              {
+                agency_domain: agencyDomain,
+                request_number: answer.request_number,
+                scope: answer.decline,
+              },
               key.current(),
             );
       const release = hold();
@@ -290,9 +318,11 @@ export function useChatRequestAnswerAction(contactId: string) {
           (data) =>
             data && {
               ...data,
-              items: data.items.some((item) => item.contact_id === contactId)
+              items: data.items.some(
+                (item) => item.agency_domain === agencyDomain,
+              )
                 ? data.items.map((item) =>
-                    item.contact_id === contactId ? live : item,
+                    item.agency_domain === agencyDomain ? live : item,
                   )
                 : [live, ...data.items],
             },
@@ -305,7 +335,7 @@ export function useChatRequestAnswerAction(contactId: string) {
             data && {
               ...data,
               items: data.items.map((item) =>
-                item.contact_id === contactId
+                item.agency_domain === agencyDomain
                   ? { ...item, chat_state: open ? "open" : "closed" }
                   : item,
               ),

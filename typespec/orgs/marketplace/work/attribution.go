@@ -5,11 +5,11 @@ import (
 
 	"github.com/vetchium/src/typespec/common"
 	directoryspec "github.com/vetchium/src/typespec/directory"
+	"github.com/vetchium/src/typespec/hub"
 	hubspec "github.com/vetchium/src/typespec/hub/applications"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
-	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/orgs/openings"
 )
 
@@ -20,8 +20,10 @@ type CreditedApplicationSummary struct {
 	ApplicationNumber applications.ApplicationNumber     `json:"application_number"`
 	Route             marketplace.ReferralRoute          `json:"route"`
 	Status            hubspec.ApplicationStatus          `json:"status"`
-	ContactID         *contacts.ContactID                `json:"contact_id,omitempty"`
-	AppliedAt         time.Time                          `json:"applied_at"`
+	// ContactHandle is the applicant's handle, when the agency has a Contact
+	// on them.
+	ContactHandle *hub.HubHandle `json:"contact_handle,omitempty"`
+	AppliedAt     time.Time      `json:"applied_at"`
 }
 
 func (s CreditedApplicationSummary) Valid() bool {
@@ -41,7 +43,7 @@ type ListCreditedApplicationsRequest struct {
 	OpeningNumber *openings.OpeningNumber    `json:"opening_number,omitempty"`
 	Route         *marketplace.ReferralRoute `json:"route,omitempty"`
 	Status        *hubspec.ApplicationStatus `json:"status,omitempty"`
-	ContactID     *contacts.ContactID        `json:"contact_id,omitempty"`
+	ContactHandle *hub.HubHandle             `json:"contact_handle,omitempty"`
 	PaginationKey *common.PaginationKey      `json:"pagination_key,omitempty"`
 	Limit         *WorkPageSize              `json:"limit,omitempty"`
 }
@@ -74,8 +76,8 @@ func (r ListCreditedApplicationsRequest) Validate() []string {
 	if r.Status != nil && !hubspec.IsApplicationStatus(*r.Status) {
 		fields = append(fields, "status")
 	}
-	if r.ContactID != nil && !contacts.IsContactID(*r.ContactID) {
-		fields = append(fields, "contact_id")
+	if r.ContactHandle != nil && !hub.IsHubHandle(*r.ContactHandle) {
+		fields = append(fields, "contact_handle")
 	}
 	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
 		fields = append(fields, "pagination_key")

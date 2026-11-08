@@ -43,13 +43,15 @@ model HubOpeningSuggestion {
  * pointer keeps it. It never carries the note; the conversation read does.
  */
 model HubChatRequest {
-  request_id: Vetchium.Orgs.Marketplace.Contacts.ChatRequestID;
-  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  request_number: Vetchium.Orgs.Marketplace.Contacts.ChatRequestNumber;
   direction: Vetchium.Orgs.Marketplace.Contacts.ChatRequestDirection;
   state: Vetchium.Orgs.Marketplace.Contacts.ChatRequestState;
   opening: Vetchium.Orgs.Marketplace.Contacts.OpeningSuggestion;
   agency_display_name: string;
+
+  /** Names the agency: its primary domain. */
   agency_domain: Vetchium.Orgs.OrgDomain;
+
   sent_at: utcDateTime;
   answered_at?: utcDateTime;
   decline_scope?: Vetchium.Orgs.Marketplace.Contacts.ChatRequestDeclineScope;
@@ -62,9 +64,11 @@ model HubChatRequest {
 }
 
 model HubConversationSummary {
-  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
   agency_display_name: string;
+
+  /** Names the conversation: the agency's primary domain. */
   agency_domain: Vetchium.Orgs.OrgDomain;
+
   has_conversation: boolean;
   unread: boolean;
   unread_count: int32;
@@ -120,9 +124,6 @@ model OpeningAgency {
   agency_domain: Vetchium.Orgs.OrgDomain;
   chat_state: OpeningAgencyChatState;
 
-  /** The agency's Contact on the Hub user, when a conversation or request exists. */
-  contact_id?: Vetchium.Orgs.Marketplace.Contacts.ContactID;
-
   /** The latest chat request between the two, in any state. */
   latest_request?: HubChatRequest;
 }
@@ -162,11 +163,13 @@ model ListHubChatRequestsResponse {
 }
 
 model HubAcceptChatRequestRequest {
-  request_id: Vetchium.Orgs.Marketplace.Contacts.ChatRequestID;
+  agency_domain: Vetchium.Orgs.OrgDomain;
+  request_number: Vetchium.Orgs.Marketplace.Contacts.ChatRequestNumber;
 }
 
 model HubDeclineChatRequestRequest {
-  request_id: Vetchium.Orgs.Marketplace.Contacts.ChatRequestID;
+  agency_domain: Vetchium.Orgs.OrgDomain;
+  request_number: Vetchium.Orgs.Marketplace.Contacts.ChatRequestNumber;
   scope: Vetchium.Orgs.Marketplace.Contacts.ChatRequestDeclineScope;
 }
 
@@ -183,8 +186,13 @@ model ListConversationsResponse {
   next_pagination_key?: Vetchium.PaginationKey;
 }
 
+/** Conversations waiting on the Hub user: a request to answer or unread messages. */
+model AwaitingConversationCount {
+  count: int32;
+}
+
 model GetConversationRequest {
-  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  agency_domain: Vetchium.Orgs.OrgDomain;
   pagination_key?: Vetchium.PaginationKey;
 
   @minValue(1)
@@ -193,16 +201,18 @@ model GetConversationRequest {
 }
 
 model ReplyToConversationRequest {
-  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  agency_domain: Vetchium.Orgs.OrgDomain;
   text: Vetchium.Orgs.Marketplace.Contacts.MessageText;
 }
 
-model DeleteConversationRequest {
-  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+/** Deletes one of the Hub user's own text messages (MKT-CNV-007). */
+model DeleteMessageRequest {
+  agency_domain: Vetchium.Orgs.OrgDomain;
+  message_number: Vetchium.Orgs.Marketplace.Contacts.MessageNumber;
 }
 
 model MarkConversationReadRequest {
-  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  agency_domain: Vetchium.Orgs.OrgDomain;
 }
 
 @route("/api/hub")
@@ -266,8 +276,11 @@ interface MessageOperations {
     | Vetchium.Problem.HubConversationPartyDeletedErrorResponse
     | Vetchium.Problem.HubConversationClosedErrorResponse;
 
-  /** Deletes an agency conversation for both sides. */
-  @route("/delete-conversation")
+  /**
+   * Deletes the text of one of the Hub user's own text messages; the message
+   * stays as a stub for both sides (MKT-CNV-007).
+   */
+  @route("/delete-message")
   @post
   @useAuth(BearerAuth)
   @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
@@ -280,18 +293,37 @@ interface MessageOperations {
       "idempotency-key"
     ]
   )
-  deleteConversation(
+  deleteMessage(
     @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
-    @body request: DeleteConversationRequest,
+    @body request: DeleteMessageRequest,
   ):
     | {
         @statusCode status_code: 200;
         @header("Cache-Control") cache_control: "no-store";
+        @body body: Vetchium.Orgs.Marketplace.Contacts.ConversationMessage;
       }
     | PendingMessageResponse
     | MessageErrors
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
-    | Vetchium.Problem.HubConversationNotFoundErrorResponse;
+    | Vetchium.Problem.HubConversationNotFoundErrorResponse
+    | Vetchium.Problem.HubConversationMessageNotFoundErrorResponse
+    | Vetchium.Problem.HubOrgUnavailableErrorResponse;
+
+  /**
+   * Counts the conversations waiting on the Hub user: a chat request to
+   * answer, or agency messages not yet read (MKT-HUB-001).
+   */
+  @route("/count-awaiting-conversations")
+  @get
+  @useAuth(BearerAuth)
+  countAwaitingConversations():
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: AwaitingConversationCount;
+      }
+    | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
 
   /**
    * Lists the agencies assigned to an Opening with the Hub user's chat state

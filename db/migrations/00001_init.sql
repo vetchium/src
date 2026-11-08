@@ -3489,9 +3489,9 @@ CREATE INDEX org_ai_usage_texts_expiry_idx
 -- Agency Contacts and notes (agent-guides/marketplace.md, Agency contacts).
 -- The agency's tenant is authoritative. The Hub user is a DID and the name and
 -- handle last read, never a reference, because the account may live in
--- another tenant.
+-- another tenant. A Contact is the pair (agency, Hub user); portals name it by
+-- the person's permanent handle.
 CREATE TABLE vetchium.org_contacts (
-    contact_id uuid PRIMARY KEY,
     org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
         ON DELETE CASCADE,
     hub_user_did uuid NOT NULL,
@@ -3501,16 +3501,28 @@ CREATE TABLE vetchium.org_contacts (
     -- (MKT-REQ-008, MKT-DAT-006).
     requests_off boolean NOT NULL DEFAULT false,
     -- Versions the agency pointer the Hub user's tenant keeps; the event that
-    -- deletes it carries the next version.
-    pointer_version integer NOT NULL DEFAULT 1 CHECK (pointer_version >= 1),
+    -- deletes it carries the next version. It starts at the creation instant
+    -- in microseconds: the Hub tenant's watermark is per pair, so a Contact
+    -- created again for the pair must outrank every earlier version.
+    pointer_version bigint NOT NULL
+        DEFAULT (floor(extract(epoch FROM clock_timestamp()) * 1000000))::bigint
+        CHECK (pointer_version >= 1),
+    -- The last number given to a note and a chat request of the pair, so a
+    -- number is never reused while the Contact exists.
+    last_note_number integer NOT NULL DEFAULT 0 CHECK (last_note_number >= 0),
+    last_request_number integer NOT NULL DEFAULT 0
+        CHECK (last_request_number >= 0),
+    -- A `sender` decline stops that direction's requests until the instant
+    -- (MKT-REQ-007): the agency's after the Hub user declined, the Hub
+    -- user's after the agency did.
+    agency_requests_blocked_until timestamptz,
+    hub_requests_blocked_until timestamptz,
     -- NULL when a Hub user's chat request created the Contact (MKT-CON-005).
     created_by uuid REFERENCES vetchium.org_users (org_user_id),
     created_at timestamptz NOT NULL DEFAULT now(),
     -- The last note write or message, from which retention counts.
     last_activity_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT org_contacts_id_uuidv7_check CHECK (
-        substring(contact_id::text FROM 15 FOR 1) = '7'
-    ),
+    PRIMARY KEY (org_did, hub_user_did),
     CONSTRAINT org_contacts_names_check CHECK (
         display_name = btrim(display_name)
         AND char_length(display_name) BETWEEN 1 AND 200
@@ -3520,25 +3532,38 @@ CREATE TABLE vetchium.org_contacts (
         last_activity_at >= created_at
     )
 );
-CREATE UNIQUE INDEX org_contacts_person_key
-    ON vetchium.org_contacts (org_did, hub_user_did);
+-- Handles are permanent and globally unique, so one names a Contact.
+CREATE UNIQUE INDEX org_contacts_handle_key
+    ON vetchium.org_contacts (org_did, handle);
 CREATE INDEX org_contacts_list_idx
-    ON vetchium.org_contacts (org_did, last_activity_at DESC, contact_id DESC);
+    ON vetchium.org_contacts (org_did, last_activity_at DESC, handle DESC);
 CREATE INDEX org_contacts_retention_idx
-    ON vetchium.org_contacts (last_activity_at, contact_id);
+    ON vetchium.org_contacts (last_activity_at, org_did, hub_user_did);
 -- A deleted Hub account removes the notes of every agency at once.
 CREATE INDEX org_contacts_person_idx
     ON vetchium.org_contacts (hub_user_did);
+CREATE INDEX org_contacts_agency_block_lift_idx
+    ON vetchium.org_contacts (agency_requests_blocked_until)
+    WHERE agency_requests_blocked_until IS NOT NULL;
+CREATE INDEX org_contacts_hub_block_lift_idx
+    ON vetchium.org_contacts (hub_requests_blocked_until)
+    WHERE hub_requests_blocked_until IS NOT NULL;
 
+-- Notes are never deleted by a user (MKT-NOTE-002); they go only with the
+-- Contact's retention or the account's deletion.
 CREATE TABLE vetchium.org_contact_notes (
-    note_id uuid PRIMARY KEY,
-    contact_id uuid NOT NULL REFERENCES vetchium.org_contacts (contact_id)
-        ON DELETE CASCADE,
+    org_did uuid NOT NULL,
+    hub_user_did uuid NOT NULL,
+    note_number integer NOT NULL CHECK (note_number >= 1),
     -- A disabled user's notes stay under their email address.
     author_id uuid NOT NULL REFERENCES vetchium.org_users (org_user_id),
     note_text text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now(),
     edited_at timestamptz,
+    PRIMARY KEY (org_did, hub_user_did, note_number),
+    FOREIGN KEY (org_did, hub_user_did)
+        REFERENCES vetchium.org_contacts (org_did, hub_user_did)
+        ON DELETE CASCADE,
     CONSTRAINT org_contact_notes_text_check CHECK (
         note_text = btrim(note_text)
         AND char_length(note_text) BETWEEN 1 AND 5000
@@ -3548,7 +3573,9 @@ CREATE TABLE vetchium.org_contact_notes (
     )
 );
 CREATE INDEX org_contact_notes_list_idx
-    ON vetchium.org_contact_notes (contact_id, created_at DESC, note_id DESC);
+    ON vetchium.org_contact_notes (
+        org_did, hub_user_did, created_at DESC, note_number DESC
+    );
 
 -- New Contacts per agency per UTC day (MKT-CON-005). A count of live rows
 -- would let an agency delete and recreate Contacts past the limit.
@@ -3560,12 +3587,10 @@ CREATE TABLE vetchium.org_contact_creations (
     PRIMARY KEY (org_did, created_on)
 );
 
--- Conversations between an agency and a Hub user (MKT-CNV-001).
--- Rows have no cascading reference to orgs (MKT-CNV-012) and hold the Hub user
--- by DID only, so deleting either party leaves them in place.
+-- Conversations between an agency and a Hub user (MKT-CNV-001), one per
+-- pair. Rows have no cascading reference to orgs (MKT-CNV-012) and hold the
+-- Hub user by DID only, so deleting either party leaves them in place.
 CREATE TABLE vetchium.org_conversations (
-    conversation_id uuid PRIMARY KEY,
-    contact_id uuid NOT NULL UNIQUE,
     org_did uuid NOT NULL,
     hub_user_did uuid NOT NULL,
     recorded_hub_user_name text NOT NULL,
@@ -3589,27 +3614,29 @@ CREATE TABLE vetchium.org_conversations (
     agency_activity_at timestamptz,
     -- The Hub tenant's window from its latest command on the conversation.
     window_seconds bigint CHECK (window_seconds IS NULL OR window_seconds > 0),
+    -- The last number given to a message; a conversation outlives a deleted
+    -- agency's Contact (MKT-CNV-012), so the numbering lives here.
+    last_message_number integer NOT NULL DEFAULT 0
+        CHECK (last_message_number >= 0),
     created_at timestamptz NOT NULL DEFAULT now(),
     last_activity_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (org_did, hub_user_did),
     CONSTRAINT org_conversations_activity_check CHECK (
         last_activity_at >= created_at
     )
 );
-CREATE UNIQUE INDEX org_conversations_agency_user_key
-    ON vetchium.org_conversations (org_did, hub_user_did);
-CREATE INDEX org_conversations_list_idx
-    ON vetchium.org_conversations (org_did, last_activity_at DESC, conversation_id DESC);
 CREATE INDEX org_conversations_retention_idx
-    ON vetchium.org_conversations (last_activity_at, conversation_id);
+    ON vetchium.org_conversations (last_activity_at, org_did, hub_user_did);
 CREATE INDEX org_conversations_party_deleted_retention_idx
-    ON vetchium.org_conversations (party_deleted_at, conversation_id)
+    ON vetchium.org_conversations (party_deleted_at, org_did, hub_user_did)
     WHERE party_deleted_at IS NOT NULL;
 
--- Messages within a conversation (MKT-CNV-005).
+-- Messages within a conversation (MKT-CNV-005). A sender's deletion keeps
+-- the row as a stub without its text (MKT-CNV-007).
 CREATE TABLE vetchium.org_conversation_messages (
-    message_id uuid PRIMARY KEY,
-    conversation_id uuid NOT NULL REFERENCES vetchium.org_conversations (conversation_id)
-        ON DELETE CASCADE,
+    org_did uuid NOT NULL,
+    hub_user_did uuid NOT NULL,
+    message_number integer NOT NULL CHECK (message_number >= 1),
     sender_type text NOT NULL CHECK (sender_type IN ('agency', 'hub_user')),
     sender_user_id uuid REFERENCES vetchium.org_users (org_user_id)
         ON DELETE SET NULL,
@@ -3619,36 +3646,47 @@ CREATE TABLE vetchium.org_conversation_messages (
     consumer_domain text,
     opening_number integer CHECK (opening_number IS NULL OR opening_number >= 1),
     sent_at timestamptz NOT NULL DEFAULT now(),
+    deleted_at timestamptz,
+    PRIMARY KEY (org_did, hub_user_did, message_number),
+    FOREIGN KEY (org_did, hub_user_did)
+        REFERENCES vetchium.org_conversations (org_did, hub_user_did)
+        ON DELETE CASCADE,
     CONSTRAINT org_conversation_messages_content_check CHECK (
-        (kind = 'text' AND message_text IS NOT NULL
+        (kind = 'text' AND deleted_at IS NULL AND message_text IS NOT NULL
             AND message_text = btrim(message_text)
             AND char_length(message_text) BETWEEN 1 AND 5000
             AND consumer_domain IS NULL AND opening_number IS NULL)
         OR
-        (kind = 'suggestion' AND message_text IS NULL
+        (kind = 'text' AND deleted_at IS NOT NULL AND message_text IS NULL
+            AND consumer_domain IS NULL AND opening_number IS NULL)
+        OR
+        (kind = 'suggestion' AND deleted_at IS NULL AND message_text IS NULL
             AND consumer_domain IS NOT NULL AND opening_number IS NOT NULL
             AND sender_type = 'agency')
         OR
         -- An accepted chat request; message_text is its note (MKT-REQ-005).
-        (kind = 'request'
+        (kind = 'request' AND deleted_at IS NULL
             AND (message_text IS NULL OR (message_text = btrim(message_text)
                 AND char_length(message_text) BETWEEN 1 AND 1000))
             AND consumer_domain IS NOT NULL AND opening_number IS NOT NULL)
+    ),
+    CONSTRAINT org_conversation_messages_deleted_check CHECK (
+        deleted_at IS NULL OR deleted_at >= sent_at
     )
 );
 CREATE INDEX org_conversation_messages_list_idx
-    ON vetchium.org_conversation_messages (conversation_id, sent_at ASC, message_id ASC);
+    ON vetchium.org_conversation_messages (
+        org_did, hub_user_did, sent_at DESC, message_number DESC
+    );
 CREATE INDEX org_conversation_messages_retention_idx
-    ON vetchium.org_conversation_messages (sent_at, message_id);
+    ON vetchium.org_conversation_messages (sent_at);
 
--- Chat requests (agent-guides/marketplace.md, Chat requests). Rows hold the
--- Hub user by DID only, like conversations.
+-- Chat requests (agent-guides/marketplace.md, Chat requests), numbered per
+-- pair.
 CREATE TABLE vetchium.org_chat_requests (
-    request_id uuid PRIMARY KEY,
-    contact_id uuid NOT NULL REFERENCES vetchium.org_contacts (contact_id)
-        ON DELETE CASCADE,
     org_did uuid NOT NULL,
     hub_user_did uuid NOT NULL,
+    request_number integer NOT NULL CHECK (request_number >= 1),
     direction text NOT NULL CHECK (direction IN ('to_hub_user', 'to_agency')),
     state text NOT NULL CHECK (
         state IN ('pending', 'accepted', 'declined', 'expired')
@@ -3675,9 +3713,10 @@ CREATE TABLE vetchium.org_chat_requests (
     decline_scope text CHECK (
         decline_scope IS NULL OR decline_scope IN ('opening', 'sender')
     ),
-    CONSTRAINT org_chat_requests_id_uuidv7_check CHECK (
-        substring(request_id::text FROM 15 FOR 1) = '7'
-    ),
+    PRIMARY KEY (org_did, hub_user_did, request_number),
+    FOREIGN KEY (org_did, hub_user_did)
+        REFERENCES vetchium.org_contacts (org_did, hub_user_did)
+        ON DELETE CASCADE,
     CONSTRAINT org_chat_requests_note_pending_check CHECK (
         note IS NULL OR state = 'pending'
     ),
@@ -3694,52 +3733,36 @@ CREATE UNIQUE INDEX org_chat_requests_pending_key
     WHERE state = 'pending';
 -- Lists pending requests oldest first, then answered ones newest first.
 CREATE INDEX org_chat_requests_pending_list_idx
-    ON vetchium.org_chat_requests (org_did, direction, sent_at, request_id)
+    ON vetchium.org_chat_requests (org_did, direction, sent_at, hub_user_did)
     WHERE state = 'pending';
 CREATE INDEX org_chat_requests_answered_list_idx
     ON vetchium.org_chat_requests (
-        org_did, direction, answered_at DESC, request_id DESC
+        org_did, direction, answered_at DESC, hub_user_did DESC
     )
     WHERE state <> 'pending';
 CREATE INDEX org_chat_requests_expiry_idx
-    ON vetchium.org_chat_requests (sent_at, request_id)
+    ON vetchium.org_chat_requests (sent_at)
     WHERE state = 'pending';
-CREATE INDEX org_chat_requests_contact_idx
-    ON vetchium.org_chat_requests (contact_id, sent_at DESC, request_id DESC);
 
--- Declines that stop the sender's direction (MKT-REQ-007): an `opening` block
--- lives with the Contact, a `sender` block until blocked_until.
-CREATE TABLE vetchium.org_chat_request_blocks (
-    block_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    contact_id uuid NOT NULL REFERENCES vetchium.org_contacts (contact_id)
-        ON DELETE CASCADE,
+-- `opening` declines (MKT-REQ-007): the sender's direction may never request
+-- with that Opening again while the Contact exists.
+CREATE TABLE vetchium.org_chat_request_opening_blocks (
+    org_did uuid NOT NULL,
+    hub_user_did uuid NOT NULL,
     blocked_direction text NOT NULL CHECK (
         blocked_direction IN ('to_hub_user', 'to_agency')
     ),
-    scope text NOT NULL CHECK (scope IN ('opening', 'sender')),
-    consumer_domain text,
-    opening_number integer CHECK (opening_number IS NULL OR opening_number >= 1),
-    blocked_until timestamptz,
+    consumer_domain text NOT NULL,
+    opening_number integer NOT NULL CHECK (opening_number >= 1),
     created_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT org_chat_request_blocks_scope_fields_check CHECK (
-        (scope = 'opening' AND consumer_domain IS NOT NULL
-            AND opening_number IS NOT NULL AND blocked_until IS NULL)
-        OR
-        (scope = 'sender' AND consumer_domain IS NULL
-            AND opening_number IS NULL AND blocked_until IS NOT NULL
-            AND blocked_until > created_at)
-    )
+    PRIMARY KEY (
+        org_did, hub_user_did, blocked_direction, consumer_domain,
+        opening_number
+    ),
+    FOREIGN KEY (org_did, hub_user_did)
+        REFERENCES vetchium.org_contacts (org_did, hub_user_did)
+        ON DELETE CASCADE
 );
-CREATE UNIQUE INDEX org_chat_request_blocks_opening_key
-    ON vetchium.org_chat_request_blocks (
-        contact_id, blocked_direction, consumer_domain, opening_number
-    )
-    WHERE scope = 'opening';
-CREATE INDEX org_chat_request_blocks_contact_idx
-    ON vetchium.org_chat_request_blocks (contact_id, blocked_direction);
-CREATE INDEX org_chat_request_blocks_lift_idx
-    ON vetchium.org_chat_request_blocks (blocked_until, block_id)
-    WHERE blocked_until IS NOT NULL;
 
 -- Chat requests sent per agency per UTC day (MKT-REQ-006). A count of live
 -- rows would let expired or answered requests free the limit.
@@ -3754,9 +3777,9 @@ CREATE INDEX org_chat_request_creations_prune_idx
     ON vetchium.org_chat_request_creations (created_on, org_did);
 
 -- The Hub user's tenant keeps one pointer per agency Contact (MKT-DAT-003).
--- It holds conversation metadata when one exists, but never message or note text.
+-- It holds conversation metadata when one exists, but never message or note
+-- text. Portals name it by the agency's primary domain.
 CREATE TABLE vetchium.hub_agency_pointers (
-    contact_id uuid PRIMARY KEY,
     hub_user_did uuid NOT NULL REFERENCES vetchium.hub_users (hub_user_did)
         ON DELETE CASCADE,
     agency_org_did uuid NOT NULL,
@@ -3777,16 +3800,19 @@ CREATE TABLE vetchium.hub_agency_pointers (
         )
     ),
     suggestions jsonb NOT NULL DEFAULT '[]'::jsonb,
-    pointer_version integer NOT NULL DEFAULT 1 CHECK (pointer_version >= 1),
+    pointer_version bigint NOT NULL DEFAULT 1 CHECK (pointer_version >= 1),
     created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (hub_user_did, agency_org_did),
     CONSTRAINT hub_agency_pointers_has_request_check CHECK (
         has_request = (request IS NOT NULL)
     )
 );
-CREATE INDEX hub_agency_pointers_user_idx
-    ON vetchium.hub_agency_pointers (hub_user_did, contact_id);
+CREATE INDEX hub_agency_pointers_domain_idx
+    ON vetchium.hub_agency_pointers (hub_user_did, agency_domain);
 CREATE INDEX hub_agency_pointers_list_idx
-    ON vetchium.hub_agency_pointers (hub_user_did, last_activity_at DESC, contact_id DESC)
+    ON vetchium.hub_agency_pointers (
+        hub_user_did, last_activity_at DESC, agency_domain DESC
+    )
     WHERE has_conversation OR has_request;
 
 -- Notifications sent to the Hub user when an agency sends a new message, a
@@ -3951,7 +3977,7 @@ DROP TABLE IF EXISTS vetchium.hub_chat_request_creations;
 DROP TABLE IF EXISTS vetchium.hub_message_notices;
 DROP TABLE IF EXISTS vetchium.hub_agency_pointers;
 DROP TABLE IF EXISTS vetchium.org_chat_request_creations;
-DROP TABLE IF EXISTS vetchium.org_chat_request_blocks;
+DROP TABLE IF EXISTS vetchium.org_chat_request_opening_blocks;
 DROP TABLE IF EXISTS vetchium.org_chat_requests;
 DROP TABLE IF EXISTS vetchium.org_conversation_messages;
 DROP TABLE IF EXISTS vetchium.org_conversations;

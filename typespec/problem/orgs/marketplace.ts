@@ -149,7 +149,7 @@ export const ContactNoteNotFoundError: Readonly<Details> = {
   type: "vetchium-problem-details/org-contact-note-not-found",
   title: "Org Contact note not found",
   status: 404,
-  detail: "No note of the Contact has that identifier",
+  detail: "No note of the Contact has that number",
 };
 
 export const ContactNoteNotAuthorError: Readonly<Details> = {
@@ -157,6 +157,13 @@ export const ContactNoteNotAuthorError: Readonly<Details> = {
   title: "Org Contact note not author",
   status: 403,
   detail: "Only the author edits a note",
+};
+
+export const ConversationMessageNotFoundError: Readonly<Details> = {
+  type: "vetchium-problem-details/org-conversation-message-not-found",
+  title: "Org conversation message not found",
+  status: 404,
+  detail: "No text message the agency sent and has not deleted has that number",
 };
 
 export const JobOwnerInvalidError: Readonly<Details> = {

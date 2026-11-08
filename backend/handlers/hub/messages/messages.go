@@ -38,7 +38,19 @@ const listPaginationPurpose = "hub:conversations:list"
 
 type listCursor struct {
 	AfterActivityAt time.Time `json:"after_activity_at"`
-	AfterContactID  string    `json:"after_contact_id"`
+	AfterAgency     string    `json:"after_agency"`
+}
+
+// pointerByDomain reads the Hub user's pointer to the agency a portal names
+// by its domain.
+func pointerByDomain(
+	r *http.Request, s *hubruntime.Server, hubDID pgtype.UUID, domain orgs.OrgDomain,
+) (sqlc.GetHubAgencyPointerRow, error) {
+	row, err := s.Queries.GetHubAgencyPointerByDomain(r.Context(),
+		sqlc.GetHubAgencyPointerByDomainParams{
+			HubUserDid: hubDID, AgencyDomain: string(domain),
+		})
+	return sqlc.GetHubAgencyPointerRow(row), err
 }
 
 func ListConversations(s *hubruntime.Server) http.HandlerFunc {
@@ -61,16 +73,13 @@ func ListConversations(s *hubruntime.Server) http.HandlerFunc {
 				string(*request.PaginationKey),
 			)
 			var cursor listCursor
-			var afterContact pgtype.UUID
-			if valid && json.Unmarshal(payload, &cursor) == nil {
-				afterContact, _ = dbvalue.ParseUUID(cursor.AfterContactID)
-			}
-			if !afterContact.Valid || cursor.AfterActivityAt.IsZero() {
+			if !valid || json.Unmarshal(payload, &cursor) != nil ||
+				cursor.AfterAgency == "" || cursor.AfterActivityAt.IsZero() {
 				s.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
 				return
 			}
 			params.AfterActivityAt = dbvalue.Timestamp(cursor.AfterActivityAt)
-			params.AfterContactID = afterContact
+			params.AfterAgencyDomain = dbvalue.Text(cursor.AfterAgency)
 		}
 
 		rows, err := s.Queries.ListHubAgencyConversations(r.Context(), params)
@@ -85,7 +94,7 @@ func ListConversations(s *hubruntime.Server) http.HandlerFunc {
 				last := rows[index-1]
 				payload, err := json.Marshal(listCursor{
 					AfterActivityAt: last.LastActivityAt.Time.UTC(),
-					AfterContactID:  dbvalue.FormatUUID(last.ContactID),
+					AfterAgency:     last.AgencyDomain,
 				})
 				if err != nil {
 					s.InternalError(r.Context(), w, "encode pagination key", err)
@@ -125,16 +134,7 @@ func GetConversation(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		contactID, err := dbvalue.ParseUUID(string(request.ContactID))
-		if err != nil {
-			s.Problem(r.Context(), w, hubproblem.HubConversationNotFoundError)
-			return
-		}
-
-		pointer, err := s.Queries.GetHubAgencyPointer(r.Context(), sqlc.GetHubAgencyPointerParams{
-			ContactID:  contactID,
-			HubUserDid: identity.UserDID,
-		})
+		pointer, err := pointerByDomain(r, s, identity.UserDID, request.AgencyDomain)
 		// A pair with only a request opens too: its note is read live.
 		if errors.Is(err, pgx.ErrNoRows) || !pointer.HasConversation && !pointer.HasRequest {
 			s.Problem(r.Context(), w, hubproblem.HubConversationNotFoundError)
@@ -167,7 +167,6 @@ func GetConversation(s *hubruntime.Server) http.HandlerFunc {
 
 		limit := request.EffectiveLimit()
 		outcome, err := s.Conversations.RelayRead(r.Context(), federationspec.MeshReadConversationRequest{
-			ContactID:     request.ContactID,
 			HubUserDID:    hub.HubUserDID(dbvalue.FormatUUID(identity.UserDID)),
 			AgencyOrgDID:  orgs.OrgDID(dbvalue.FormatUUID(pointer.AgencyOrgDid)),
 			PaginationKey: request.PaginationKey,
@@ -218,17 +217,8 @@ func ReplyToConversation(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		contactID, err := dbvalue.ParseUUID(string(request.ContactID))
-		if err != nil {
-			s.Problem(r.Context(), w, hubproblem.HubConversationNotFoundError)
-			return
-		}
-
-		pointer, err := s.Queries.GetHubAgencyPointer(r.Context(), sqlc.GetHubAgencyPointerParams{
-			ContactID:  contactID,
-			HubUserDid: identity.UserDID,
-		})
-		if errors.Is(err, pgx.ErrNoRows) || !pointer.HasConversation {
+		pointer, err := pointerByDomain(r, s, identity.UserDID, request.AgencyDomain)
+		if errors.Is(err, pgx.ErrNoRows) || err == nil && !pointer.HasConversation {
 			s.Problem(r.Context(), w, hubproblem.HubConversationNotFoundError)
 			return
 		}
@@ -254,7 +244,7 @@ func ReplyToConversation(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		payload := federationspec.HubConversationReplyPayload{
-			ContactID:          request.ContactID,
+			AgencyOrgDID:       orgs.OrgDID(dbvalue.FormatUUID(pointer.AgencyOrgDid)),
 			HubUserDID:         hub.HubUserDID(dbvalue.FormatUUID(identity.UserDID)),
 			HubUserDisplayName: common.DisplayName(me.DisplayName),
 			HubUserHandle:      hub.HubHandle(me.Handle),
@@ -267,7 +257,7 @@ func ReplyToConversation(s *hubruntime.Server) http.HandlerFunc {
 			Authority: commands.Principal{
 				Type: directoryspec.PrincipalOrg, DID: pointer.AgencyOrgDid,
 			},
-			AggregateID: string(request.ContactID),
+			AggregateID: federationspec.ContactAggregateID(payload.AgencyOrgDID, payload.HubUserDID),
 			Owner: commands.Owner{
 				Type: commands.OwnerHubUser, ID: dbvalue.FormatUUID(identity.UserDID),
 			},
@@ -306,10 +296,16 @@ func ReplyToConversation(s *hubruntime.Server) http.HandlerFunc {
 	}
 }
 
-//vetchium:multiple-commits sends the federation command to the agency authority, then updates the local pointer on success
-func DeleteConversation(s *hubruntime.Server) http.HandlerFunc {
+// DeleteMessage deletes one of the Hub user's own text messages
+// (MKT-CNV-007). The agency keeps a "Message deleted" stub without the text;
+// only this tenant's audit keeps what the Hub user wrote, read live just
+// before the command leaves. A repeated request replays the command without
+// reading again.
+//
+//vetchium:multiple-commits reads the message live, sends the federation command to the agency authority, then audits the deletion locally
+func DeleteMessage(s *hubruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var request hubmessages.DeleteConversationRequest
+		var request hubmessages.DeleteMessageRequest
 		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
@@ -318,17 +314,8 @@ func DeleteConversation(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		contactID, err := dbvalue.ParseUUID(string(request.ContactID))
-		if err != nil {
-			s.Problem(r.Context(), w, hubproblem.HubConversationNotFoundError)
-			return
-		}
-
-		pointer, err := s.Queries.GetHubAgencyPointer(r.Context(), sqlc.GetHubAgencyPointerParams{
-			ContactID:  contactID,
-			HubUserDid: identity.UserDID,
-		})
-		if errors.Is(err, pgx.ErrNoRows) || !pointer.HasConversation {
+		pointer, err := pointerByDomain(r, s, identity.UserDID, request.AgencyDomain)
+		if errors.Is(err, pgx.ErrNoRows) || err == nil && !pointer.HasConversation {
 			s.Problem(r.Context(), w, hubproblem.HubConversationNotFoundError)
 			return
 		}
@@ -336,24 +323,55 @@ func DeleteConversation(s *hubruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "get agency pointer", err)
 			return
 		}
+		payload := federationspec.HubConversationMessageDeletePayload{
+			AgencyOrgDID:  orgs.OrgDID(dbvalue.FormatUUID(pointer.AgencyOrgDid)),
+			HubUserDID:    hub.HubUserDID(dbvalue.FormatUUID(identity.UserDID)),
+			MessageNumber: request.MessageNumber,
+		}
+		aggregate := federationspec.ContactAggregateID(payload.AgencyOrgDID, payload.HubUserDID)
+		known, err := s.Commands.Known(r.Context(),
+			federationspec.HubConversationMessageDeleteKind, aggregate, key)
+		if err != nil {
+			s.InternalError(r.Context(), w, "find message delete operation", err)
+			return
+		}
+		var deletedText *contacts.MessageText
+		if !known {
+			number := request.MessageNumber
+			outcome, err := s.Conversations.RelayRead(r.Context(), federationspec.MeshReadConversationRequest{
+				HubUserDID: payload.HubUserDID, AgencyOrgDID: payload.AgencyOrgDID,
+				MessageNumber: &number,
+			})
+			switch {
+			case err == nil && outcome.Problem != nil &&
+				outcome.Problem.Type == orgsproblem.ConversationNotFoundError.Type:
+				s.Problem(r.Context(), w, hubproblem.HubConversationMessageNotFoundError)
+				return
+			case err != nil || outcome.Problem != nil || outcome.Result == nil ||
+				len(outcome.Result.Messages) != 1:
+				s.Problem(r.Context(), w, hubproblem.OrgUnavailableError)
+				return
+			}
+			found := outcome.Result.Messages[0]
+			if found.SenderType != contacts.MessageSenderTypeHubUser ||
+				found.Kind != contacts.MessageKindText || found.Deleted || found.Text == nil {
+				s.Problem(r.Context(), w, hubproblem.HubConversationMessageNotFoundError)
+				return
+			}
+			deletedText = found.Text
+		}
 
 		digest, err := requestDigest(request)
 		if err != nil {
 			s.InternalError(r.Context(), w, "digest request", err)
 			return
 		}
-
-		payload := federationspec.HubConversationDeletePayload{
-			ContactID:  request.ContactID,
-			HubUserDID: hub.HubUserDID(dbvalue.FormatUUID(identity.UserDID)),
-		}
-
 		outcome, err := s.Commands.Send(r.Context(), commands.Request{
-			Kind: federationspec.HubConversationDeleteKind,
+			Kind: federationspec.HubConversationMessageDeleteKind,
 			Authority: commands.Principal{
 				Type: directoryspec.PrincipalOrg, DID: pointer.AgencyOrgDid,
 			},
-			AggregateID: string(request.ContactID),
+			AggregateID: aggregate,
 			Owner: commands.Owner{
 				Type: commands.OwnerHubUser, ID: dbvalue.FormatUUID(identity.UserDID),
 			},
@@ -366,24 +384,38 @@ func DeleteConversation(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			s.InternalError(r.Context(), w, "send hub-conversation-delete", err)
+			s.InternalError(r.Context(), w, "send hub-conversation-message-delete", err)
 			return
 		}
-
+		// The first send audits the deletion it asked for, accepted or still
+		// pending; a rejected one deleted nothing.
+		if deletedText != nil && (outcome.State == commands.StateSucceeded ||
+			outcome.State == commands.StatePending) {
+			rows, err := s.Queries.AuditHubAgencyMessageDeleted(r.Context(),
+				sqlc.AuditHubAgencyMessageDeletedParams{
+					TenantID: s.TenantID, AgencyDomain: pointer.AgencyDomain,
+					ActorType: "hub_user", ActorID: dbvalue.FormatUUID(identity.UserDID),
+					HubUserDid: identity.UserDID, Source: "hub-api",
+					IdempotencyKey: dbvalue.Text(string(key)),
+					MessageNumber:  int32(request.MessageNumber),
+					DeletedBy:      string(contacts.MessageSenderTypeHubUser),
+					DeletedText:    dbvalue.Text(string(*deletedText)),
+				})
+			if err != nil || rows != 1 {
+				s.InternalError(r.Context(), w, "audit message deletion",
+					fmt.Errorf("%d audit rows: %w", rows, err))
+				return
+			}
+		}
 		switch outcome.State {
 		case commands.StateSucceeded:
-			// The agency's pointer event follows; hiding the conversation now
-			// keeps the list consistent with the answer. A replay repeats it.
-			if _, err := s.Queries.MarkHubAgencyPointerConversationDeleted(r.Context(), sqlc.MarkHubAgencyPointerConversationDeletedParams{
-				ContactID:  contactID,
-				HubUserDid: identity.UserDID,
-				TenantID:   s.TenantID,
-			}); err != nil {
-				s.InternalError(r.Context(), w, "hide deleted conversation", err)
+			var msg contacts.ConversationMessage
+			if err := json.Unmarshal(outcome.Response.Body, &msg); err != nil {
+				s.InternalError(r.Context(), w, "decode deleted message", err)
 				return
 			}
 			w.Header().Set("Cache-Control", "no-store")
-			s.Empty(r.Context(), w, http.StatusOK)
+			s.JSON(r.Context(), w, http.StatusOK, msg)
 		case commands.StateFailed:
 			writeRejection(s, w, r, outcome.Response)
 		case commands.StatePending:
@@ -404,17 +436,8 @@ func MarkConversationRead(s *hubruntime.Server) http.HandlerFunc {
 			return
 		}
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		contactID, err := dbvalue.ParseUUID(string(request.ContactID))
-		if err != nil {
-			s.Problem(r.Context(), w, hubproblem.HubConversationNotFoundError)
-			return
-		}
-
-		pointer, err := s.Queries.GetHubAgencyPointer(r.Context(), sqlc.GetHubAgencyPointerParams{
-			ContactID:  contactID,
-			HubUserDid: identity.UserDID,
-		})
-		if errors.Is(err, pgx.ErrNoRows) || !pointer.HasConversation {
+		pointer, err := pointerByDomain(r, s, identity.UserDID, request.AgencyDomain)
+		if errors.Is(err, pgx.ErrNoRows) || err == nil && !pointer.HasConversation {
 			s.Problem(r.Context(), w, hubproblem.HubConversationNotFoundError)
 			return
 		}
@@ -424,9 +447,9 @@ func MarkConversationRead(s *hubruntime.Server) http.HandlerFunc {
 		}
 
 		if _, err := s.Queries.MarkHubAgencyPointerRead(r.Context(), sqlc.MarkHubAgencyPointerReadParams{
-			ContactID:  contactID,
-			HubUserDid: identity.UserDID,
-			TenantID:   s.TenantID,
+			HubUserDid:   identity.UserDID,
+			AgencyOrgDid: pointer.AgencyOrgDid,
+			TenantID:     s.TenantID,
 		}); err != nil {
 			s.InternalError(r.Context(), w, "mark pointer read", err)
 			return
@@ -437,9 +460,23 @@ func MarkConversationRead(s *hubruntime.Server) http.HandlerFunc {
 	}
 }
 
+// CountAwaitingConversations counts the Hub user's conversations that await
+// them: an agency's pending request or unread agency messages (MKT-HUB-001).
+func CountAwaitingConversations(s *hubruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		identity, _ := middleware.HubIdentityFromContext(r.Context())
+		count, err := s.Queries.CountHubAwaitingConversations(r.Context(), identity.UserDID)
+		if err != nil {
+			s.InternalError(r.Context(), w, "count awaiting conversations", err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, hubmessages.AwaitingConversationCount{Count: count})
+	}
+}
+
 // pointerView is what a Hub summary reads from the agency pointer.
 type pointerView struct {
-	contactID                pgtype.UUID
 	agencyName, agencyDomain string
 	hasConversation          bool
 	request, suggestions     []byte
@@ -451,7 +488,7 @@ type pointerView struct {
 
 func listedPointer(row sqlc.ListHubAgencyConversationsRow) pointerView {
 	return pointerView{
-		contactID: row.ContactID, agencyName: row.AgencyDisplayName,
+		agencyName:   row.AgencyDisplayName,
 		agencyDomain: row.AgencyDomain, hasConversation: row.HasConversation,
 		request: row.Request, suggestions: row.Suggestions,
 		agencyUntil: row.AgencyMayWriteUntil, hubUntil: row.HubMayWriteUntil,
@@ -462,7 +499,7 @@ func listedPointer(row sqlc.ListHubAgencyConversationsRow) pointerView {
 
 func detailedPointer(row sqlc.GetHubAgencyPointerRow) pointerView {
 	return pointerView{
-		contactID: row.ContactID, agencyName: row.AgencyDisplayName,
+		agencyName:   row.AgencyDisplayName,
 		agencyDomain: row.AgencyDomain, hasConversation: row.HasConversation,
 		request: row.Request, suggestions: row.Suggestions,
 		agencyUntil: row.AgencyMayWriteUntil, hubUntil: row.HubMayWriteUntil,
@@ -481,7 +518,6 @@ func summary(s *hubruntime.Server, view pointerView) (hubmessages.HubConversatio
 		}
 	}
 	result := hubmessages.HubConversationSummary{
-		ContactID:         contacts.ContactID(dbvalue.FormatUUID(view.contactID)),
 		AgencyDisplayName: view.agencyName,
 		AgencyDomain:      orgs.OrgDomain(view.agencyDomain),
 		HasConversation:   view.hasConversation,
@@ -499,8 +535,7 @@ func summary(s *hubruntime.Server, view pointerView) (hubmessages.HubConversatio
 	}.Open(s.CurrentTime())
 	result.AgencyMayWriteUntil, result.HubMayWriteUntil = window.AgencyUntil, window.HubUntil
 	if view.request != nil {
-		latest, err := chatRequest(s, view.contactID, view.agencyName,
-			view.agencyDomain, view.request)
+		latest, err := chatRequest(s, view.agencyName, view.agencyDomain, view.request)
 		if err != nil {
 			return hubmessages.HubConversationSummary{}, err
 		}
@@ -535,6 +570,9 @@ func writeRejection(
 		switch details.Type {
 		case hubproblem.HubConversationNotFoundError.Type:
 			s.Problem(r.Context(), w, hubproblem.HubConversationNotFoundError)
+			return
+		case hubproblem.HubConversationMessageNotFoundError.Type:
+			s.Problem(r.Context(), w, hubproblem.HubConversationMessageNotFoundError)
 			return
 		case hubproblem.HubConversationPartyDeletedError.Type:
 			s.Problem(r.Context(), w, hubproblem.HubConversationPartyDeletedError)

@@ -23,11 +23,11 @@ const (
 // contactChange is a Contact whose pointer an expiry or a lifted block
 // changed.
 type contactChange struct {
-	orgDID, contactID pgtype.UUID
+	orgDID, hubDID pgtype.UUID
 }
 
 // expireChatRequests expires requests left unanswered past their lifetime
-// with no block (MKT-REQ-009), deletes `sender` blocks that have lifted
+// with no block (MKT-REQ-009), clears `sender` blocks that have lifted
 // (MKT-REQ-012), and forgets past daily request counts (MKT-REQ-006). Each
 // batch commits once with its audit events and pointer events.
 func (w *Worker) expireChatRequests(ctx context.Context) error {
@@ -49,12 +49,12 @@ func (w *Worker) expireChatRequests(ctx context.Context) error {
 				if row.AuditRows != int64(len(rows)) {
 					return nil, fmt.Errorf("incomplete chat request expiry")
 				}
-				changes[index] = contactChange{row.OrgDid, row.ContactID}
+				changes[index] = contactChange{row.OrgDid, row.HubUserDid}
 			}
 			return changes, nil
 		}},
 		{"lift chat request blocks", func(q *sqlc.Queries) ([]contactChange, error) {
-			rows, err := q.DeleteLiftedChatRequestBlocks(ctx, sqlc.DeleteLiftedChatRequestBlocksParams{
+			rows, err := q.LiftChatRequestSenderBlocks(ctx, sqlc.LiftChatRequestSenderBlocksParams{
 				BatchSize: chatRequestExpiryBatchSize, TenantID: w.tenantID,
 			})
 			if err != nil {
@@ -65,7 +65,7 @@ func (w *Worker) expireChatRequests(ctx context.Context) error {
 				if row.AuditRows != int64(len(rows)) {
 					return nil, fmt.Errorf("incomplete chat request block lift")
 				}
-				changes[index] = contactChange{row.OrgDid, row.ContactID}
+				changes[index] = contactChange{row.OrgDid, row.HubUserDid}
 			}
 			return changes, nil
 		}},
@@ -138,7 +138,7 @@ func chatRequestBatch(
 		}
 		synced[change] = true
 		if err := agencycontacts.SyncPointer(ctx, q, change.orgDID,
-			change.contactID, agencycontacts.NoNotice); err != nil {
+			change.hubDID, agencycontacts.NoNotice); err != nil {
 			return 0, err
 		}
 	}

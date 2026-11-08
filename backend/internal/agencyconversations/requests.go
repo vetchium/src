@@ -29,24 +29,15 @@ import (
 func handleChatRequest(ctx context.Context, tx pgx.Tx, command commands.Command) (commands.Result, error) {
 	var payload federationspec.HubChatRequestPayload
 	if rejected := decode(command, &payload, func() string {
-		return string(payload.AgencyOrgDID)
+		return pairAggregate(payload.AgencyOrgDID, payload.HubUserDID)()
 	}); rejected != nil {
 		return *rejected, nil
 	}
+	hubDID, rejected, err := commandPair(command, payload.AgencyOrgDID, payload.HubUserDID)
+	if rejected != nil || err != nil {
+		return orResult(rejected), err
+	}
 	orgDID := command.Authority.DID
-	if string(payload.AgencyOrgDID) != dbvalue.FormatUUID(orgDID) {
-		details := problem.ValidationFailedError
-		details.Fields = []string{"agency_org_did"}
-		return commands.Rejected(details), nil
-	}
-	requestID, err := dbvalue.ParseUUID(string(payload.RequestID))
-	if err != nil {
-		return commands.Result{}, err
-	}
-	hubDID, err := dbvalue.ParseUUID(string(payload.HubUserDID))
-	if err != nil {
-		return commands.Result{}, err
-	}
 	q := sqlc.New(tx)
 	if _, err := q.GetActiveSourcingEngagementWithClient(ctx,
 		sqlc.GetActiveSourcingEngagementWithClientParams{
@@ -63,18 +54,12 @@ func handleChatRequest(ctx context.Context, tx pgx.Tx, command commands.Command)
 	name, handle := string(payload.HubUserDisplayName), string(payload.HubUserHandle)
 	now := time.Now()
 	idempotencyKey := dbvalue.Text(dbvalue.FormatUUID(command.CommandID))
-	var contactID pgtype.UUID
-	existing, err := q.GetOrgContactByPerson(ctx, sqlc.GetOrgContactByPersonParams{
-		OrgDid: orgDID, HubUserDid: hubDID,
-	})
+	_, err = q.LockOrgContact(ctx, sqlc.LockOrgContactParams{OrgDid: orgDID, HubUserDid: hubDID})
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		if contactID, err = dbvalue.NewUUIDv7(now); err != nil {
-			return commands.Result{}, err
-		}
 		created, err := q.CreateOrgContactForHubRequest(ctx, sqlc.CreateOrgContactForHubRequestParams{
-			ContactID: contactID, OrgDid: orgDID, HubUserDid: hubDID,
-			DisplayName: name, Handle: handle, TenantID: command.TenantID,
+			OrgDid: orgDID, HubUserDid: hubDID, DisplayName: name, Handle: handle,
+			RequestsOff: payload.RequestsOff, TenantID: command.TenantID,
 			Source: "federation-command", IdempotencyKey: idempotencyKey,
 		})
 		if err != nil {
@@ -84,18 +69,11 @@ func handleChatRequest(ctx context.Context, tx pgx.Tx, command commands.Command)
 			return commands.Result{}, fmt.Errorf("incomplete Contact creation")
 		}
 	case err != nil:
-		return commands.Result{}, fmt.Errorf("find Contact: %w", err)
+		return commands.Result{}, fmt.Errorf("lock Contact: %w", err)
 	default:
-		contactID = existing.ContactID
-		if _, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
-			OrgDid: orgDID, ContactID: contactID,
-		}); err != nil {
-			return commands.Result{}, fmt.Errorf("lock Contact: %w", err)
-		}
 		if _, err := q.RefreshOrgContactNamesFromHubUser(ctx,
 			sqlc.RefreshOrgContactNamesFromHubUserParams{
-				ContactID: contactID, OrgDid: orgDID,
-				DisplayName: name, Handle: handle,
+				OrgDid: orgDID, HubUserDid: hubDID, DisplayName: name,
 			}); err != nil {
 			return commands.Result{}, fmt.Errorf("refresh Contact names: %w", err)
 		}
@@ -104,7 +82,7 @@ func handleChatRequest(ctx context.Context, tx pgx.Tx, command commands.Command)
 	opening := contacts.OpeningSuggestion{
 		ConsumerDomain: payload.ConsumerDomain, OpeningNumber: payload.OpeningNumber,
 	}
-	refusal, err := agencycontacts.Refuse(ctx, q, orgDID, contactID, contacts.ToAgency, opening, now)
+	refusal, err := agencycontacts.Refuse(ctx, q, orgDID, hubDID, contacts.ToAgency, opening, now)
 	if err != nil {
 		return commands.Result{}, err
 	}
@@ -117,8 +95,7 @@ func handleChatRequest(ctx context.Context, tx pgx.Tx, command commands.Command)
 	}
 	year, month, day := now.UTC().Date()
 	created, err := q.CreateOrgChatRequest(ctx, sqlc.CreateOrgChatRequestParams{
-		RequestID: requestID, ContactID: contactID, OrgDid: orgDID,
-		HubUserDid: hubDID, Direction: string(contacts.ToAgency),
+		OrgDid: orgDID, HubUserDid: hubDID, Direction: string(contacts.ToAgency),
 		ConsumerDomain: string(payload.ConsumerDomain),
 		OpeningNumber:  int32(payload.OpeningNumber),
 		Note:           note, SenderDisplayName: name,
@@ -133,21 +110,20 @@ func handleChatRequest(ctx context.Context, tx pgx.Tx, command commands.Command)
 	if err != nil {
 		return commands.Result{}, fmt.Errorf("create chat request: %w", err)
 	}
-	if created.CountedRows != 0 || created.ContactRows != 1 || created.AuditRows != 1 {
+	if created.CountedRows != 0 || created.AuditRows != 1 {
 		return commands.Result{}, fmt.Errorf("incomplete chat request")
 	}
-	if err := agencycontacts.SyncPointer(ctx, q, orgDID, contactID, agencycontacts.NoNotice); err != nil {
+	if err := agencycontacts.SyncPointer(ctx, q, orgDID, hubDID, agencycontacts.NoNotice); err != nil {
 		return commands.Result{}, err
 	}
 	row, err := q.GetOrgChatRequest(ctx, sqlc.GetOrgChatRequestParams{
-		OrgDid: orgDID, RequestID: requestID,
+		OrgDid: orgDID, HubUserDid: hubDID, RequestNumber: created.RequestNumber,
 	})
 	if err != nil {
 		return commands.Result{}, fmt.Errorf("read chat request: %w", err)
 	}
 	return commands.Succeeded(http.StatusOK, federationspec.HubChatRequestResult{
-		ContactID: contacts.ContactID(dbvalue.FormatUUID(contactID)),
-		Request:   agencycontacts.PointerRequest(row.VetchiumOrgChatRequest),
+		Request: agencycontacts.PointerRequest(row.VetchiumOrgChatRequest),
 	}), nil
 }
 
@@ -166,32 +142,24 @@ var hubRefusals = map[agencycontacts.Refusal]problem.Details{
 func handleChatRequestAnswer(ctx context.Context, tx pgx.Tx, command commands.Command) (commands.Result, error) {
 	var payload federationspec.HubChatRequestAnswerPayload
 	if rejected := decode(command, &payload, func() string {
-		return string(payload.RequestID)
+		return pairAggregate(payload.AgencyOrgDID, payload.HubUserDID)()
 	}); rejected != nil {
 		return *rejected, nil
 	}
-	requestID, err := dbvalue.ParseUUID(string(payload.RequestID))
-	if err != nil {
-		return commands.Result{}, err
-	}
-	contactID, err := dbvalue.ParseUUID(string(payload.ContactID))
-	if err != nil {
-		return commands.Result{}, err
-	}
-	hubDID, err := dbvalue.ParseUUID(string(payload.HubUserDID))
-	if err != nil {
-		return commands.Result{}, err
+	hubDID, rejected, err := commandPair(command, payload.AgencyOrgDID, payload.HubUserDID)
+	if rejected != nil || err != nil {
+		return orResult(rejected), err
 	}
 	orgDID := command.Authority.DID
 	q := sqlc.New(tx)
 
-	if ok, err := lockContact(ctx, q, orgDID, contactID, hubDID); err != nil {
+	if ok, err := lockContact(ctx, q, orgDID, hubDID); err != nil {
 		return commands.Result{}, err
 	} else if !ok {
 		return commands.Rejected(hubproblem.HubChatRequestNotFoundError), nil
 	}
 	found, err := q.GetOrgChatRequest(ctx, sqlc.GetOrgChatRequestParams{
-		OrgDid: orgDID, RequestID: requestID,
+		OrgDid: orgDID, HubUserDid: hubDID, RequestNumber: int32(payload.RequestNumber),
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return commands.Rejected(hubproblem.HubChatRequestNotFoundError), nil
@@ -200,8 +168,7 @@ func handleChatRequestAnswer(ctx context.Context, tx pgx.Tx, command commands.Co
 		return commands.Result{}, fmt.Errorf("read chat request: %w", err)
 	}
 	request := found.VetchiumOrgChatRequest
-	if request.ContactID != contactID || request.HubUserDid != hubDID ||
-		request.Direction != string(contacts.ToHubUser) ||
+	if request.Direction != string(contacts.ToHubUser) ||
 		request.State != string(contacts.ChatRequestPending) {
 		return commands.Rejected(hubproblem.HubChatRequestNotFoundError), nil
 	}
@@ -224,12 +191,11 @@ func handleChatRequestAnswer(ctx context.Context, tx pgx.Tx, command commands.Co
 	}
 	if _, err := q.RefreshOrgContactNamesFromHubUser(ctx,
 		sqlc.RefreshOrgContactNamesFromHubUserParams{
-			ContactID: contactID, OrgDid: orgDID,
-			DisplayName: name, Handle: handle,
+			OrgDid: orgDID, HubUserDid: hubDID, DisplayName: name,
 		}); err != nil {
 		return commands.Result{}, fmt.Errorf("refresh Contact names: %w", err)
 	}
-	if err := agencycontacts.SyncPointer(ctx, q, orgDID, contactID, agencycontacts.NoNotice); err != nil {
+	if err := agencycontacts.SyncPointer(ctx, q, orgDID, hubDID, agencycontacts.NoNotice); err != nil {
 		return commands.Result{}, err
 	}
 	return commands.Succeeded(http.StatusOK, agencycontacts.PointerRequest(answered)), nil

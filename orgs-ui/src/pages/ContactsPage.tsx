@@ -1,10 +1,11 @@
-import { PlusOutlined } from "@ant-design/icons";
+import { SearchOutlined } from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Avatar,
   Badge,
   Button,
   Card,
+  Empty,
   Flex,
   Form,
   Input,
@@ -16,7 +17,7 @@ import {
   Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import {
@@ -29,8 +30,11 @@ import { paths } from "../app/paths";
 import { ListPager } from "../features/applications/ListPager";
 import { useListState } from "../features/applications/listState";
 import { NameSearch } from "../features/applications/NameSearch";
-import { ChatRequestsList } from "../features/marketplace/ChatRequestsList";
-import { getInitials } from "../features/marketplace/presentation";
+import {
+  contactStatusColors,
+  contactStatusLabel,
+  getInitials,
+} from "../features/marketplace/presentation";
 import { useContactsQuery } from "../features/marketplace/queries";
 
 const pageSize = 25;
@@ -41,25 +45,37 @@ function isContactFilter(value: string | undefined): value is ContactFilter {
   );
 }
 
+const tabLabels: Record<ContactFilter, string> = {
+  all: "marketplace.contacts.tabAll",
+  requests: "marketplace.contacts.tabRequests",
+  unread: "marketplace.contacts.tabUnread",
+  has_conversation: "marketplace.contacts.tabConversations",
+};
+
+const emptyTexts: Record<ContactFilter, string> = {
+  all: "marketplace.contacts.emptyAll",
+  requests: "marketplace.contacts.emptyRequests",
+  unread: "marketplace.contacts.emptyUnread",
+  has_conversation: "marketplace.contacts.emptyConversations",
+};
+
+/** Contacts, also the agency's shared inbox (MKT-UI-007). */
 export function ContactsPage() {
   const { t } = useTranslation();
-  const { date, time } = useDateTimeFormat();
+  const { dateTime } = useDateTimeFormat();
   const navigate = useNavigate();
   const list = useListState();
 
-  const [newContactModalOpen, setNewContactModalOpen] = useState(false);
-  const [handleInput, setHandleInput] = useState("");
+  const [findOpen, setFindOpen] = useState(false);
+  const [address, setAddress] = useState("");
 
   const tabParam = list.get("tab");
   const activeTab: ContactFilter = isContactFilter(tabParam) ? tabParam : "all";
   const nameRaw = list.get("q");
   const name =
     nameRaw !== undefined && isContactNameQuery(nameRaw) ? nameRaw : undefined;
-  const showingRequests = activeTab === "requests";
-  // The Requests tab lists the requests themselves; this query still fills
-  // every tab's count.
   const contactsQuery = useContactsQuery({
-    filter: showingRequests ? "all" : activeTab,
+    filter: activeTab,
     ...(name !== undefined && { name_query: name }),
     limit: pageSize,
     ...(list.paginationKey !== undefined && {
@@ -69,58 +85,22 @@ export function ContactsPage() {
   const contacts = contactsQuery.data?.items ?? [];
   const counts = contactsQuery.data?.counts;
 
-  const formatActivityTime = (iso: string) => {
-    if (!iso) return "—";
-    const d = new Date(iso);
-    const now = new Date();
-    const isToday =
-      d.getDate() === now.getDate() &&
-      d.getMonth() === now.getMonth() &&
-      d.getFullYear() === now.getFullYear();
-
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const isYesterday =
-      d.getDate() === yesterday.getDate() &&
-      d.getMonth() === yesterday.getMonth() &&
-      d.getFullYear() === yesterday.getFullYear();
-
-    if (isToday) {
-      return `${t("date.today")}, ${time(iso)}`;
-    }
-    if (isYesterday) {
-      return t("date.yesterday");
-    }
-    return date(iso);
-  };
-
   const columns: ColumnsType<ContactSummary> = [
     {
       title: t("marketplace.contacts.tableName"),
       key: "name",
       render: (_, c) => (
         <Flex align="center" gap="middle">
-          <Avatar
-            style={{
-              backgroundColor: c.requests_off ? "#d9d9d9" : "#1677ff",
-              color: "#fff",
-              fontWeight: 600,
-            }}
-          >
-            {getInitials(c.display_name)}
-          </Avatar>
+          <Avatar>{getInitials(c.display_name)}</Avatar>
           <div>
-            <Link
-              to={paths.contactDetail(c.contact_id)}
-              style={{ fontWeight: 500 }}
-            >
-              {c.display_name}
-            </Link>
-            <div>
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                @{c.handle}
+            <Link to={paths.contactDetail(c.handle)}>
+              <Typography.Text strong={c.unread_messages_count > 0}>
+                {c.display_name}
               </Typography.Text>
-            </div>
+            </Link>
+            <Typography.Text type="secondary" style={{ display: "block" }}>
+              @{c.handle}
+            </Typography.Text>
           </div>
         </Flex>
       ),
@@ -129,54 +109,33 @@ export function ContactsPage() {
       title: t("marketplace.contacts.tableStatus"),
       key: "status",
       render: (_, c) => (
-        <Space size="small" wrap>
-          {c.has_conversation ? (
-            <Tag color="processing">
-              {t("marketplace.contacts.statusInConversation")}
-            </Tag>
-          ) : (
-            <Tag>{t("marketplace.contacts.statusNotContacted")}</Tag>
-          )}
-          {c.requests_off && (
-            <Tag color="warning">
-              {t("marketplace.contacts.statusRequestsOff")}
-            </Tag>
-          )}
-          {c.account_deleted && (
+        <Space size={[0, 4]} wrap>
+          {c.account_deleted ? (
             <Tag color="error">
               {t("marketplace.contacts.statusAccountDeleted")}
+            </Tag>
+          ) : (
+            <Tag color={contactStatusColors[c.status]}>
+              {contactStatusLabel(t, c.status)}
+            </Tag>
+          )}
+          {c.requests_off && !c.account_deleted && (
+            <Tag color="warning">
+              {t("marketplace.contacts.statusRequestsOff")}
             </Tag>
           )}
         </Space>
       ),
     },
     {
-      title: t("marketplace.contacts.tableRequest"),
-      key: "request",
-      render: (_, c) =>
-        c.pending_request_direction === undefined ? null : (
-          <Tag
-            color={
-              c.pending_request_direction === "to_agency" ? "gold" : undefined
-            }
-          >
-            {t(
-              c.pending_request_direction === "to_agency"
-                ? "marketplace.contacts.requestToAgency"
-                : "marketplace.contacts.requestToHubUser",
-            )}
-          </Tag>
-        ),
-    },
-    {
       title: t("marketplace.contacts.tableLastActivity"),
       key: "last_activity",
-      render: (_, c) => formatActivityTime(c.last_activity_at),
+      render: (_, c) => dateTime(c.last_activity_at),
     },
     {
       title: t("marketplace.contacts.tableUnread"),
       key: "unread",
-      align: "center",
+      align: "end",
       render: (_, c) =>
         c.unread_messages_count > 0 ? (
           <Badge count={c.unread_messages_count} />
@@ -185,59 +144,35 @@ export function ContactsPage() {
     {
       title: t("marketplace.contacts.tableNotes"),
       key: "notes",
-      align: "center",
-      render: (_, c) => c.note_count ?? 0,
+      align: "end",
+      render: (_, c) => c.note_count,
     },
     {
       title: t("marketplace.contacts.tableCredited"),
       key: "credited",
-      align: "center",
-      render: (_, c) => c.credited_count ?? 0,
+      align: "end",
+      render: (_, c) => c.credited_count,
     },
   ];
 
-  const handleOpenNewContact = () => {
-    let clean = handleInput.trim();
-    if (!clean) return;
-    if (clean.startsWith("@")) {
-      clean = clean.slice(1);
-    }
-    setNewContactModalOpen(false);
-    setHandleInput("");
-    navigate(`${paths.newContact}?address=${encodeURIComponent(clean)}`);
+  const closeFind = () => {
+    setFindOpen(false);
+    setAddress("");
+  };
+  const openPerson = () => {
+    const clean = address.trim().replace(/^@/, "");
+    if (clean === "") return;
+    closeFind();
+    navigate(paths.contactDetail(clean));
   };
 
-  const tabItems: { key: ContactFilter; label: ReactNode }[] = [
-    {
-      key: "all",
-      label: `${t("marketplace.contacts.tabAll")} (${counts?.all ?? 0})`,
-    },
-    {
-      key: "requests",
-      label: `${t("marketplace.contacts.tabRequests")} (${counts?.requests ?? 0})`,
-    },
-    {
-      key: "unread",
-      label: (
-        <span>
-          {t("marketplace.contacts.tabUnread")}{" "}
-          {(counts?.unread ?? 0) > 0 ? (
-            <Badge count={counts?.unread} size="small" />
-          ) : (
-            "(0)"
-          )}
-        </span>
-      ),
-    },
-    {
-      key: "has_conversation",
-      label: `${t("marketplace.contacts.tabInConversation")} (${counts?.has_conversation ?? 0})`,
-    },
-    {
-      key: "not_contacted",
-      label: `${t("marketplace.contacts.tabNotContacted")} (${counts?.not_contacted ?? 0})`,
-    },
-  ];
+  const tabItems = contactFilters.map((filter) => ({
+    key: filter,
+    label: t("marketplace.contacts.tabWithCount", {
+      tab: t(tabLabels[filter]),
+      count: counts?.[filter] ?? 0,
+    }),
+  }));
 
   return (
     <Space orientation="vertical" size="large" style={{ width: "100%" }}>
@@ -250,13 +185,12 @@ export function ContactsPage() {
             {t("marketplace.contacts.subtitle")}
           </Typography.Paragraph>
         </div>
-
         <Button
           type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setNewContactModalOpen(true)}
+          icon={<SearchOutlined />}
+          onClick={() => setFindOpen(true)}
         >
-          {t("marketplace.contacts.newContactButton")}
+          {t("marketplace.contacts.findPersonButton")}
         </Button>
       </Flex>
 
@@ -271,54 +205,61 @@ export function ContactsPage() {
               items={tabItems}
               style={{ marginBottom: 0 }}
             />
-            {!showingRequests && (
-              <NameSearch
-                value={nameRaw}
-                onSearch={(value) => list.set({ q: value })}
-              />
-            )}
+            <NameSearch
+              value={nameRaw}
+              onSearch={(value) => list.set({ q: value })}
+            />
           </Flex>
-
-          {showingRequests ? (
-            <ChatRequestsList />
-          ) : (
-            <>
-              <Table<ContactSummary>
-                rowKey={(c) => c.contact_id}
-                columns={columns}
-                dataSource={contacts}
-                loading={contactsQuery.isFetching}
-                pagination={false}
-              />
-              <ListPager
-                hasPrevious={list.pageIndex > 0}
-                hasNext={contactsQuery.data?.next_pagination_key !== undefined}
-                busy={contactsQuery.isFetching}
-                onPrevious={list.previous}
-                onNext={() => {
-                  const key = contactsQuery.data?.next_pagination_key;
-                  if (key !== undefined) list.next(key);
-                }}
-              />
-            </>
-          )}
-
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          <Table<ContactSummary>
+            rowKey={(c) => c.handle}
+            columns={columns}
+            dataSource={contacts}
+            loading={contactsQuery.isFetching}
+            pagination={false}
+            scroll={{ x: "max-content" }}
+            locale={{
+              emptyText: (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={t(
+                    name === undefined
+                      ? emptyTexts[activeTab]
+                      : "marketplace.contacts.emptySearch",
+                  )}
+                >
+                  {activeTab === "all" && name === undefined && (
+                    <Button onClick={() => setFindOpen(true)}>
+                      {t("marketplace.contacts.findPersonButton")}
+                    </Button>
+                  )}
+                </Empty>
+              ),
+            }}
+          />
+          <ListPager
+            hasPrevious={list.pageIndex > 0}
+            hasNext={contactsQuery.data?.next_pagination_key !== undefined}
+            busy={contactsQuery.isFetching}
+            onPrevious={list.previous}
+            onNext={() => {
+              const key = contactsQuery.data?.next_pagination_key;
+              if (key !== undefined) list.next(key);
+            }}
+          />
+          <Typography.Text type="secondary">
             {t("marketplace.contacts.dailyLimitsNotice")}
           </Typography.Text>
         </Flex>
       </Card>
 
       <Modal
-        open={newContactModalOpen}
+        open={findOpen}
         title={t("marketplace.contacts.findPersonModalTitle")}
-        onCancel={() => {
-          setNewContactModalOpen(false);
-          setHandleInput("");
-        }}
-        onOk={handleOpenNewContact}
+        onCancel={closeFind}
+        onOk={openPerson}
         okText={t("marketplace.contacts.viewProfile")}
-        okButtonProps={{ disabled: !handleInput.trim() }}
+        okButtonProps={{ disabled: address.trim() === "" }}
+        destroyOnHidden
       >
         <Typography.Paragraph type="secondary">
           {t("marketplace.contacts.findPersonExplainer")}
@@ -330,9 +271,9 @@ export function ContactsPage() {
           <Input
             prefix="@"
             placeholder={t("marketplace.contacts.handlePlaceholder")}
-            value={handleInput}
-            onChange={(e) => setHandleInput(e.target.value)}
-            onPressEnter={handleOpenNewContact}
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            onPressEnter={openPerson}
             autoFocus
           />
         </Form.Item>

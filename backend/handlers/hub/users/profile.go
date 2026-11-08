@@ -183,7 +183,6 @@ func SetAgenciesMayMessage(s *hubruntime.Server) http.HandlerFunc {
 		states := make([]agencycontacts.RequestsState, len(pointers))
 		for index, p := range pointers {
 			states[index] = agencycontacts.RequestsState{
-				ContactID:   p.ContactID,
 				OrgDID:      p.AgencyOrgDid,
 				HubUserDID:  identity.UserDID,
 				Version:     row.AgenciesMayMessageVersion,

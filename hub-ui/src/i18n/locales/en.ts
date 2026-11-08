@@ -15,8 +15,8 @@ export const en = {
     applicationsNeedAnswer_one: "{{count}} application needs your answer",
     applicationsNeedAnswer_other: "{{count}} applications need your answer",
     messages: "Messages",
-    messagesUnread_one: "{{count}} unread message",
-    messagesUnread_other: "{{count}} unread messages",
+    messagesAwaiting_one: "{{count}} conversation waiting for you",
+    messagesAwaiting_other: "{{count}} conversations waiting for you",
     menu: "Navigation",
     openMenu: "Open navigation",
     home: "Home",
@@ -1081,18 +1081,11 @@ export const en = {
     loadEarlier: "Load earlier messages",
     documentTitle: "Messages | Vetchium",
     title: "Messages",
-    subtitle:
-      "Agencies that contacted you about Openings. Reply, or delete a conversation to remove it for both of you.",
     agency: "Agency",
     empty:
       "No messages yet. When recruitment agencies reach out about Openings, your conversations appear here.",
     loading: "Loading conversation…",
     selectPrompt: "Select a conversation to read.",
-    delete: "Delete",
-    deleteConfirmTitle: "Delete conversation?",
-    deleteConfirmBody:
-      "This deletes the conversation and opening suggestions for both of you. The agency's notes remain.",
-    deleteAction: "Delete conversation",
     unavailableTitle: "We couldn't load this conversation",
     unavailableBody:
       "{{agency}}'s region didn't answer. Your messages are safe; try again in a moment.",
@@ -1108,6 +1101,13 @@ export const en = {
     send: "Send",
     snippetSuggestion: "Opening suggestion",
     snippetConversation: "Conversation with agency",
+    subtitle:
+      "Agencies that contacted you about Openings, and your chat requests to them. You can delete your own messages; the agency then sees only that a message was deleted.",
+    deleteAction: "Delete",
+    deleteMessage: "Delete message",
+    deleteMessageConfirm:
+      "Delete this message? {{agency}} sees that a message was deleted, not what it said.",
+    messageDeleted: "Message deleted",
   },
 } as const;
 

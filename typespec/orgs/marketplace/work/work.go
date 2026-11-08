@@ -21,7 +21,6 @@ import (
 	"github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/hiring"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
-	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 	"github.com/vetchium/src/typespec/orgs/openings"
 )
 
@@ -223,7 +222,6 @@ type JobCreditedApplication struct {
 }
 
 type JobSuggestedContact struct {
-	ContactID   contacts.ContactID `json:"contact_id"`
 	DisplayName common.DisplayName `json:"display_name"`
 	Handle      hub.HubHandle      `json:"handle"`
 	SuggestedAt time.Time          `json:"suggested_at"`

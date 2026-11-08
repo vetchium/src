@@ -3,21 +3,21 @@ import { isPaginationKey } from "../../common/pagination.ts";
 import type {
   ChatRequestDeclineScope,
   ChatRequestDirection,
-  ChatRequestID,
   ChatRequestNote,
+  ChatRequestNumber,
   ChatRequestState,
-  ContactID,
   ConversationMessage,
   ConversationReadOnlyReason,
+  MessageNumber,
   MessageText,
   OpeningSuggestion,
 } from "../../orgs/marketplace/contacts/contacts.ts";
 import {
   chatRequestDeclineScopes,
   chatRequestDirections,
-  isChatRequestID,
   isChatRequestNote,
-  isContactID,
+  isChatRequestNumber,
+  isMessageNumber,
   isMessageText,
   normalizeChatRequestNote,
 } from "../../orgs/marketplace/contacts/contacts.ts";
@@ -40,12 +40,12 @@ export interface HubOpeningSuggestion {
  * pointer keeps it. It never carries the note; the conversation read does.
  */
 export interface HubChatRequest {
-  request_id: ChatRequestID;
-  contact_id: ContactID;
+  request_number: ChatRequestNumber;
   direction: ChatRequestDirection;
   state: ChatRequestState;
   opening: OpeningSuggestion;
   agency_display_name: string;
+  /** Names the agency: its primary domain. */
   agency_domain: OrgDomain;
   sent_at: string;
   answered_at?: string;
@@ -57,8 +57,8 @@ export interface HubChatRequest {
 }
 
 export interface HubConversationSummary {
-  contact_id: ContactID;
   agency_display_name: string;
+  /** Names the conversation: the agency's primary domain. */
   agency_domain: OrgDomain;
   has_conversation: boolean;
   unread: boolean;
@@ -100,8 +100,6 @@ export interface OpeningAgency {
   agency_display_name: string;
   agency_domain: OrgDomain;
   chat_state: OpeningAgencyChatState;
-  /** The agency's Contact on the Hub user, when a conversation or request exists. */
-  contact_id?: ContactID;
   /** The latest chat request between the two, in any state. */
   latest_request?: HubChatRequest;
 }
@@ -182,17 +180,22 @@ export interface ListHubChatRequestsResponse {
 }
 
 export interface HubAcceptChatRequestRequest {
-  request_id: ChatRequestID;
+  agency_domain: OrgDomain;
+  request_number: ChatRequestNumber;
 }
 
 export function validateHubAcceptChatRequestRequest(
   request: HubAcceptChatRequestRequest,
 ): string[] {
-  return isChatRequestID(request.request_id) ? [] : ["request_id"];
+  const fields = validateAgencyDomain(request.agency_domain);
+  if (!isChatRequestNumber(request.request_number))
+    fields.push("request_number");
+  return fields;
 }
 
 export interface HubDeclineChatRequestRequest {
-  request_id: ChatRequestID;
+  agency_domain: OrgDomain;
+  request_number: ChatRequestNumber;
   scope: ChatRequestDeclineScope;
 }
 
@@ -235,8 +238,17 @@ export interface ListConversationsResponse {
   next_pagination_key?: PaginationKey;
 }
 
+/** Conversations waiting on the Hub user: a request to answer or unread messages. */
+export interface AwaitingConversationCount {
+  count: number;
+}
+
+function validateAgencyDomain(domain: OrgDomain): string[] {
+  return isOrgDomain(domain) ? [] : ["agency_domain"];
+}
+
 export interface GetConversationRequest {
-  contact_id: ContactID;
+  agency_domain: OrgDomain;
   pagination_key?: PaginationKey;
   limit?: number;
 }
@@ -244,41 +256,45 @@ export interface GetConversationRequest {
 export function validateGetConversationRequest(
   request: GetConversationRequest,
 ): string[] {
-  const fields = validatePage(request.pagination_key, request.limit);
-  if (!isContactID(request.contact_id)) fields.push("contact_id");
-  return fields;
+  return [
+    ...validateAgencyDomain(request.agency_domain),
+    ...validatePage(request.pagination_key, request.limit),
+  ];
 }
 
 export interface ReplyToConversationRequest {
-  contact_id: ContactID;
+  agency_domain: OrgDomain;
   text: MessageText;
 }
 
 export function validateReplyToConversationRequest(
   request: ReplyToConversationRequest,
 ): string[] {
-  const fields: string[] = [];
-  if (!isContactID(request.contact_id)) fields.push("contact_id");
+  const fields = validateAgencyDomain(request.agency_domain);
   if (!isMessageText(request.text)) fields.push("text");
   return fields;
 }
 
-export interface DeleteConversationRequest {
-  contact_id: ContactID;
+/** Deletes one of the Hub user's own text messages. */
+export interface DeleteMessageRequest {
+  agency_domain: OrgDomain;
+  message_number: MessageNumber;
 }
 
-export function validateDeleteConversationRequest(
-  request: DeleteConversationRequest,
+export function validateDeleteMessageRequest(
+  request: DeleteMessageRequest,
 ): string[] {
-  return isContactID(request.contact_id) ? [] : ["contact_id"];
+  const fields = validateAgencyDomain(request.agency_domain);
+  if (!isMessageNumber(request.message_number)) fields.push("message_number");
+  return fields;
 }
 
 export interface MarkConversationReadRequest {
-  contact_id: ContactID;
+  agency_domain: OrgDomain;
 }
 
 export function validateMarkConversationReadRequest(
   request: MarkConversationReadRequest,
 ): string[] {
-  return isContactID(request.contact_id) ? [] : ["contact_id"];
+  return validateAgencyDomain(request.agency_domain);
 }

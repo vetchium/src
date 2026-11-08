@@ -68,10 +68,8 @@ export function JobDetailPage() {
   const job = detail?.job;
   const content = detail?.content as OpeningContent | undefined;
 
-  const alreadySuggestedContactIds = useMemo(() => {
-    return new Set(
-      (detail?.suggested_contacts ?? []).map((sc) => sc.contact_id),
-    );
+  const alreadySuggestedHandles = useMemo(() => {
+    return new Set((detail?.suggested_contacts ?? []).map((sc) => sc.handle));
   }, [detail?.suggested_contacts]);
 
   if (jobQuery.isLoading) {
@@ -128,12 +126,10 @@ export function JobDetailPage() {
       key: "contact",
       render: (_, item) => (
         <Flex align="center" gap="small">
-          <Avatar size="small" style={{ backgroundColor: "#1677ff" }}>
-            {getInitials(item.display_name)}
-          </Avatar>
+          <Avatar size="small">{getInitials(item.display_name)}</Avatar>
           <div>
             <Link
-              to={paths.contactDetail(item.contact_id)}
+              to={paths.contactDetail(item.handle)}
               style={{ fontWeight: 500 }}
             >
               {item.display_name}
@@ -253,7 +249,7 @@ export function JobDetailPage() {
       label: `${t("marketplace.jobs.tabSuggested")} (${suggestedContacts.length})`,
       children: (
         <Table<JobSuggestedContact>
-          rowKey={(item) => item.contact_id}
+          rowKey={(item) => item.handle}
           columns={suggestedColumns}
           dataSource={suggestedContacts}
           pagination={false}
@@ -430,7 +426,7 @@ export function JobDetailPage() {
         onClose={() => setSuggestModalOpen(false)}
         job={job}
         jobContent={content}
-        alreadySuggestedContactIds={alreadySuggestedContactIds}
+        alreadySuggestedHandles={alreadySuggestedHandles}
         onSuccess={() => void jobQuery.refetch()}
       />
       <SendChatRequestModal

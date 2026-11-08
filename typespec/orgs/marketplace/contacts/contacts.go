@@ -1,7 +1,6 @@
 package contacts
 
 import (
-	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -34,14 +33,12 @@ const (
 	DefaultPage = 50
 )
 
-// ContactID names one Contact of an agency; never reused.
-type ContactID string
+// NoteNumber numbers the notes of one Contact from 1; never reused while
+// the Contact exists.
+type NoteNumber int32
 
-type ContactNoteID string
-
-type ConversationID string
-
-type MessageID string
+// MessageNumber numbers the messages of one conversation from 1.
+type MessageNumber int32
 
 // NoteText is plain text of 1–5,000 code points once trimmed.
 type NoteText string
@@ -79,7 +76,6 @@ const (
 	ContactFilterRequests        ContactFilter = "requests"
 	ContactFilterUnread          ContactFilter = "unread"
 	ContactFilterHasConversation ContactFilter = "has_conversation"
-	ContactFilterNotContacted    ContactFilter = "not_contacted"
 )
 
 // ContactNameQuery is a case-insensitive substring of the Contact's recorded
@@ -97,25 +93,8 @@ func IsContactNameQuery(value ContactNameQuery) bool {
 		value == NormalizeContactNameQuery(value)
 }
 
-var uuidPattern = regexp.MustCompile(
-	`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`,
-)
-
-// IsContactID accepts the lowercase form the API returns.
-func IsContactID(value ContactID) bool {
-	return uuidPattern.MatchString(string(value))
-}
-
-func IsContactNoteID(value ContactNoteID) bool {
-	return uuidPattern.MatchString(string(value))
-}
-
-func IsConversationID(value ConversationID) bool {
-	return uuidPattern.MatchString(string(value))
-}
-
-func IsMessageID(value MessageID) bool {
-	return uuidPattern.MatchString(string(value))
+func normalizeHandle(value hub.HubHandle) hub.HubHandle {
+	return hub.HubHandle(strings.TrimSpace(string(value)))
 }
 
 func NormalizeNoteText(value NoteText) NoteText {
@@ -136,12 +115,9 @@ func IsMessageText(value MessageText) bool {
 	return length >= 1 && length <= MaxMessageLength
 }
 
-// ChatRequestID names one chat request; never reused.
-type ChatRequestID string
-
-func IsChatRequestID(value ChatRequestID) bool {
-	return uuidPattern.MatchString(string(value))
-}
+// ChatRequestNumber numbers the chat requests of one Contact from 1; never
+// reused while the Contact exists.
+type ChatRequestNumber int32
 
 // ChatRequestNote is plain text of 1–1,000 code points once trimmed.
 type ChatRequestNote string
@@ -201,15 +177,15 @@ func (s OpeningSuggestion) Valid() bool {
 
 // ChatRequest is a chat request as the agency sees it (MKT-REQ-001).
 type ChatRequest struct {
-	RequestID ChatRequestID        `json:"request_id"`
-	ContactID ContactID            `json:"contact_id"`
-	Direction ChatRequestDirection `json:"direction"`
-	State     ChatRequestState     `json:"state"`
-	Opening   OpeningSuggestion    `json:"opening"`
+	RequestNumber ChatRequestNumber    `json:"request_number"`
+	Direction     ChatRequestDirection `json:"direction"`
+	State         ChatRequestState     `json:"state"`
+	Opening       OpeningSuggestion    `json:"opening"`
 	// Note is present only while the request is pending (MKT-REQ-012).
-	Note          *ChatRequestNote   `json:"note,omitempty"`
-	HubUserName   common.DisplayName `json:"hub_user_name"`
-	HubUserHandle hub.HubHandle      `json:"hub_user_handle"`
+	Note        *ChatRequestNote   `json:"note,omitempty"`
+	HubUserName common.DisplayName `json:"hub_user_name"`
+	// HubUserHandle names the Contact the request belongs to.
+	HubUserHandle hub.HubHandle `json:"hub_user_handle"`
 	// SentBy is the sending agency user's email address; nil for a Hub
 	// user's request.
 	SentBy       *common.EmailAddress     `json:"sent_by,omitempty"`
@@ -223,11 +199,14 @@ type ChatRequest struct {
 }
 
 type ConversationMessage struct {
-	MessageID         MessageID         `json:"message_id"`
+	MessageNumber     MessageNumber     `json:"message_number"`
 	SenderType        MessageSenderType `json:"sender_type"`
 	SenderDisplayName string            `json:"sender_display_name"`
 	Kind              MessageKind       `json:"kind"`
-	Text              *MessageText      `json:"text,omitempty"`
+	// Deleted reports that the sender deleted the message; only the stub
+	// remains, without its text (MKT-CNV-007).
+	Deleted bool         `json:"deleted"`
+	Text    *MessageText `json:"text,omitempty"`
 	// Suggestion is the Opening of a suggestion or a request message.
 	Suggestion *OpeningSuggestion `json:"suggestion,omitempty"`
 	// Note is a request message's note, when its sender wrote one.
@@ -236,8 +215,6 @@ type ConversationMessage struct {
 }
 
 type ConversationSummary struct {
-	ConversationID        ConversationID              `json:"conversation_id"`
-	ContactID             ContactID                   `json:"contact_id"`
 	RecordedHubUserName   string                      `json:"recorded_hub_user_name"`
 	RecordedHubUserHandle hub.HubHandle               `json:"recorded_hub_user_handle"`
 	RecordedAgencyName    string                      `json:"recorded_agency_name"`
@@ -276,28 +253,51 @@ func (d VerifiedDomain) Valid() bool {
 		d.FirstVerifiedMonth <= d.LastVerifiedMonth
 }
 
+// ContactStatus is where the agency stands with a Contact (MKT-UI-007).
+type ContactStatus string
+
+// The statuses in precedence order: the first that holds is the Contact's.
+const (
+	ContactRequestReceived    ContactStatus = "request_received"
+	ContactRequestSent        ContactStatus = "request_sent"
+	ContactInConversation     ContactStatus = "in_conversation"
+	ContactRequestDeclined    ContactStatus = "request_declined"
+	ContactRequestExpired     ContactStatus = "request_expired"
+	ContactConversationClosed ContactStatus = "conversation_closed"
+	ContactNoConversation     ContactStatus = "no_conversation"
+)
+
+func IsContactStatus(value ContactStatus) bool {
+	switch value {
+	case ContactRequestReceived, ContactRequestSent, ContactInConversation,
+		ContactRequestDeclined, ContactRequestExpired,
+		ContactConversationClosed, ContactNoConversation:
+		return true
+	}
+	return false
+}
+
 // ContactSummary is one Contact in a list or beside a profile.
 type ContactSummary struct {
-	ContactID   ContactID          `json:"contact_id"`
 	DisplayName common.DisplayName `json:"display_name"`
-	Handle      hub.HubHandle      `json:"handle"`
-	RequestsOff bool               `json:"requests_off"`
+	// Handle names the Contact; permanent and unique across Vetchium.
+	Handle      hub.HubHandle `json:"handle"`
+	Status      ContactStatus `json:"status"`
+	RequestsOff bool          `json:"requests_off"`
 	// AccountDeleted reports that the person's account no longer exists and
 	// only the conversation remains.
-	AccountDeleted  bool  `json:"account_deleted"`
-	NoteCount       int32 `json:"note_count"`
-	HasConversation bool  `json:"has_conversation"`
-	// PendingRequestDirection is the direction of a pending chat request
-	// between the two, if any.
-	PendingRequestDirection *ChatRequestDirection `json:"pending_request_direction,omitempty"`
-	UnreadMessagesCount     int32                 `json:"unread_messages_count"`
-	CreditedCount           int32                 `json:"credited_count"`
-	LastActivityAt          time.Time             `json:"last_activity_at"`
+	AccountDeleted      bool      `json:"account_deleted"`
+	NoteCount           int32     `json:"note_count"`
+	HasConversation     bool      `json:"has_conversation"`
+	UnreadMessagesCount int32     `json:"unread_messages_count"`
+	CreditedCount       int32     `json:"credited_count"`
+	LastActivityAt      time.Time `json:"last_activity_at"`
 }
 
 func (c ContactSummary) Valid() bool {
-	return IsContactID(c.ContactID) && common.IsDisplayName(c.DisplayName) &&
-		hub.IsHubHandle(c.Handle) && c.NoteCount >= 0 &&
+	return common.IsDisplayName(c.DisplayName) &&
+		hub.IsHubHandle(c.Handle) && IsContactStatus(c.Status) &&
+		c.NoteCount >= 0 &&
 		c.NoteCount <= MaxNotesPerContact && c.UnreadMessagesCount >= 0 &&
 		c.CreditedCount >= 0
 }
@@ -310,21 +310,18 @@ type ContactOpeningSuggestion struct {
 
 type Contact struct {
 	ContactSummary
-	// CreatedBy is absent when a Hub user's chat request created the Contact.
-	CreatedBy         *common.EmailAddress       `json:"created_by,omitempty"`
 	SuggestedOpenings []ContactOpeningSuggestion `json:"suggested_openings"`
 	// LatestRequest is the latest chat request between the two, in any state.
 	LatestRequest *ChatRequest `json:"latest_request,omitempty"`
-	CreatedAt     time.Time    `json:"created_at"`
 }
 
 type ContactNote struct {
-	NoteID    ContactNoteID       `json:"note_id"`
-	Author    common.EmailAddress `json:"author"`
-	Mine      bool                `json:"mine"`
-	Text      NoteText            `json:"text"`
-	CreatedAt time.Time           `json:"created_at"`
-	EditedAt  *time.Time          `json:"edited_at,omitempty"`
+	NoteNumber NoteNumber          `json:"note_number"`
+	Author     common.EmailAddress `json:"author"`
+	Mine       bool                `json:"mine"`
+	Text       NoteText            `json:"text"`
+	CreatedAt  time.Time           `json:"created_at"`
+	EditedAt   *time.Time          `json:"edited_at,omitempty"`
 }
 
 // AgencyProfile is a Hub user's profile as an agency sees it.
@@ -395,8 +392,7 @@ func (r ListContactsRequest) Validate() []string {
 	if r.Filter != nil {
 		switch *r.Filter {
 		case ContactFilterAll, ContactFilterRequests, ContactFilterUnread,
-			ContactFilterHasConversation,
-			ContactFilterNotContacted:
+			ContactFilterHasConversation:
 		default:
 			fields = append(fields, "filter")
 		}
@@ -413,7 +409,6 @@ type ContactCounts struct {
 	Requests        int32 `json:"requests"`
 	Unread          int32 `json:"unread"`
 	HasConversation int32 `json:"has_conversation"`
-	NotContacted    int32 `json:"not_contacted"`
 }
 
 type ListContactsResponse struct {
@@ -425,32 +420,32 @@ type ListContactsResponse struct {
 }
 
 type ContactReference struct {
-	ContactID ContactID `json:"contact_id"`
+	Handle hub.HubHandle `json:"handle"`
 }
 
-func (r *ContactReference) Normalize() {}
+func (r *ContactReference) Normalize() { r.Handle = normalizeHandle(r.Handle) }
 
 func (r ContactReference) Validate() []string {
-	if !IsContactID(r.ContactID) {
-		return []string{"contact_id"}
+	if !hub.IsHubHandle(r.Handle) {
+		return []string{"handle"}
 	}
 	return []string{}
 }
 
 type ListContactNotesRequest struct {
-	ContactID     ContactID             `json:"contact_id"`
+	Handle        hub.HubHandle         `json:"handle"`
 	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
 	Limit         *int32                `json:"limit,omitempty"`
 }
 
-func (r *ListContactNotesRequest) Normalize() {}
+func (r *ListContactNotesRequest) Normalize() { r.Handle = normalizeHandle(r.Handle) }
 
 func (r ListContactNotesRequest) EffectiveLimit() int32 { return effectiveLimit(r.Limit) }
 
 func (r ListContactNotesRequest) Validate() []string {
 	fields := []string{}
-	if !IsContactID(r.ContactID) {
-		fields = append(fields, "contact_id")
+	if !hub.IsHubHandle(r.Handle) {
+		fields = append(fields, "handle")
 	}
 	return append(fields, validPage(r.PaginationKey, r.Limit)...)
 }
@@ -484,16 +479,19 @@ func (r AddPersonNoteRequest) Validate() []string {
 }
 
 type AddContactNoteRequest struct {
-	ContactID ContactID `json:"contact_id"`
-	Text      NoteText  `json:"text"`
+	Handle hub.HubHandle `json:"handle"`
+	Text   NoteText      `json:"text"`
 }
 
-func (r *AddContactNoteRequest) Normalize() { r.Text = NormalizeNoteText(r.Text) }
+func (r *AddContactNoteRequest) Normalize() {
+	r.Handle = normalizeHandle(r.Handle)
+	r.Text = NormalizeNoteText(r.Text)
+}
 
 func (r AddContactNoteRequest) Validate() []string {
 	fields := []string{}
-	if !IsContactID(r.ContactID) {
-		fields = append(fields, "contact_id")
+	if !hub.IsHubHandle(r.Handle) {
+		fields = append(fields, "handle")
 	}
 	if !IsNoteText(r.Text) {
 		fields = append(fields, "text")
@@ -508,20 +506,23 @@ type AddedNote struct {
 }
 
 type EditContactNoteRequest struct {
-	ContactID ContactID     `json:"contact_id"`
-	NoteID    ContactNoteID `json:"note_id"`
-	Text      NoteText      `json:"text"`
+	Handle     hub.HubHandle `json:"handle"`
+	NoteNumber NoteNumber    `json:"note_number"`
+	Text       NoteText      `json:"text"`
 }
 
-func (r *EditContactNoteRequest) Normalize() { r.Text = NormalizeNoteText(r.Text) }
+func (r *EditContactNoteRequest) Normalize() {
+	r.Handle = normalizeHandle(r.Handle)
+	r.Text = NormalizeNoteText(r.Text)
+}
 
 func (r EditContactNoteRequest) Validate() []string {
 	fields := []string{}
-	if !IsContactID(r.ContactID) {
-		fields = append(fields, "contact_id")
+	if !hub.IsHubHandle(r.Handle) {
+		fields = append(fields, "handle")
 	}
-	if !IsContactNoteID(r.NoteID) {
-		fields = append(fields, "note_id")
+	if r.NoteNumber < 1 {
+		fields = append(fields, "note_number")
 	}
 	if !IsNoteText(r.Text) {
 		fields = append(fields, "text")
@@ -529,43 +530,16 @@ func (r EditContactNoteRequest) Validate() []string {
 	return fields
 }
 
-type DeleteContactNoteRequest struct {
-	ContactID ContactID     `json:"contact_id"`
-	NoteID    ContactNoteID `json:"note_id"`
-}
-
-func (r *DeleteContactNoteRequest) Normalize() {}
-
-func (r DeleteContactNoteRequest) Validate() []string {
-	fields := []string{}
-	if !IsContactID(r.ContactID) {
-		fields = append(fields, "contact_id")
-	}
-	if !IsContactNoteID(r.NoteID) {
-		fields = append(fields, "note_id")
-	}
-	return fields
-}
-
-type DeletedNote struct {
-	ContactDeleted bool `json:"contact_deleted"`
-}
-
-// SendChatRequestRequest asks a person, by handle or alias or by the
-// agency's Contact, to open the conversation about an Opening. Exactly one of
-// Address and ContactID.
+// SendChatRequestRequest asks a person, by handle or alias, to open the
+// conversation about an Opening the agency is assigned to.
 type SendChatRequestRequest struct {
-	Address    *profile.ProfileAddress `json:"address,omitempty"`
-	ContactID  *ContactID              `json:"contact_id,omitempty"`
-	Suggestion OpeningSuggestion       `json:"suggestion"`
-	Note       *ChatRequestNote        `json:"note,omitempty"`
+	Address    profile.ProfileAddress `json:"address"`
+	Suggestion OpeningSuggestion      `json:"suggestion"`
+	Note       *ChatRequestNote       `json:"note,omitempty"`
 }
 
 func (r *SendChatRequestRequest) Normalize() {
-	if r.Address != nil {
-		address := profile.ProfileAddress(strings.TrimSpace(string(*r.Address)))
-		r.Address = &address
-	}
+	r.Address = profile.ProfileAddress(strings.TrimSpace(string(r.Address)))
 	if r.Note != nil {
 		note := NormalizeChatRequestNote(*r.Note)
 		r.Note = &note
@@ -574,14 +548,8 @@ func (r *SendChatRequestRequest) Normalize() {
 
 func (r SendChatRequestRequest) Validate() []string {
 	fields := []string{}
-	switch {
-	case r.Address == nil && r.ContactID == nil,
-		r.Address != nil && r.ContactID != nil:
-		fields = append(fields, "address", "contact_id")
-	case r.Address != nil && !profile.IsProfileAddress(*r.Address):
+	if !profile.IsProfileAddress(r.Address) {
 		fields = append(fields, "address")
-	case r.ContactID != nil && !IsContactID(*r.ContactID):
-		fields = append(fields, "contact_id")
 	}
 	if !r.Suggestion.Valid() {
 		fields = append(fields, "suggestion")
@@ -624,29 +592,38 @@ type PendingChatRequestCount struct {
 }
 
 type AcceptChatRequestRequest struct {
-	RequestID ChatRequestID `json:"request_id"`
+	Handle        hub.HubHandle     `json:"handle"`
+	RequestNumber ChatRequestNumber `json:"request_number"`
 }
 
-func (r *AcceptChatRequestRequest) Normalize() {}
+func (r *AcceptChatRequestRequest) Normalize() { r.Handle = normalizeHandle(r.Handle) }
 
 func (r AcceptChatRequestRequest) Validate() []string {
-	if !IsChatRequestID(r.RequestID) {
-		return []string{"request_id"}
+	fields := []string{}
+	if !hub.IsHubHandle(r.Handle) {
+		fields = append(fields, "handle")
 	}
-	return []string{}
+	if r.RequestNumber < 1 {
+		fields = append(fields, "request_number")
+	}
+	return fields
 }
 
 type DeclineChatRequestRequest struct {
-	RequestID ChatRequestID           `json:"request_id"`
-	Scope     ChatRequestDeclineScope `json:"scope"`
+	Handle        hub.HubHandle           `json:"handle"`
+	RequestNumber ChatRequestNumber       `json:"request_number"`
+	Scope         ChatRequestDeclineScope `json:"scope"`
 }
 
-func (r *DeclineChatRequestRequest) Normalize() {}
+func (r *DeclineChatRequestRequest) Normalize() { r.Handle = normalizeHandle(r.Handle) }
 
 func (r DeclineChatRequestRequest) Validate() []string {
 	fields := []string{}
-	if !IsChatRequestID(r.RequestID) {
-		fields = append(fields, "request_id")
+	if !hub.IsHubHandle(r.Handle) {
+		fields = append(fields, "handle")
+	}
+	if r.RequestNumber < 1 {
+		fields = append(fields, "request_number")
 	}
 	if !IsChatRequestDeclineScope(r.Scope) {
 		fields = append(fields, "scope")
@@ -655,12 +632,13 @@ func (r DeclineChatRequestRequest) Validate() []string {
 }
 
 type SendMessageRequest struct {
-	ContactID  ContactID          `json:"contact_id"`
+	Handle     hub.HubHandle      `json:"handle"`
 	Text       *MessageText       `json:"text,omitempty"`
 	Suggestion *OpeningSuggestion `json:"suggestion,omitempty"`
 }
 
 func (r *SendMessageRequest) Normalize() {
+	r.Handle = normalizeHandle(r.Handle)
 	if r.Text != nil {
 		normalized := NormalizeMessageText(*r.Text)
 		r.Text = &normalized
@@ -669,8 +647,8 @@ func (r *SendMessageRequest) Normalize() {
 
 func (r SendMessageRequest) Validate() []string {
 	fields := []string{}
-	if !IsContactID(r.ContactID) {
-		fields = append(fields, "contact_id")
+	if !hub.IsHubHandle(r.Handle) {
+		fields = append(fields, "handle")
 	}
 	hasText := r.Text != nil && IsMessageText(*r.Text)
 	hasSuggestion := r.Suggestion != nil && r.Suggestion.Valid()
@@ -686,36 +664,53 @@ func (r SendMessageRequest) Validate() []string {
 	return fields
 }
 
+// DeleteMessageRequest deletes one of the agency's own text messages
+// (MKT-CNV-007).
+type DeleteMessageRequest struct {
+	Handle        hub.HubHandle `json:"handle"`
+	MessageNumber MessageNumber `json:"message_number"`
+}
+
+func (r *DeleteMessageRequest) Normalize() { r.Handle = normalizeHandle(r.Handle) }
+
+func (r DeleteMessageRequest) Validate() []string {
+	fields := []string{}
+	if !hub.IsHubHandle(r.Handle) {
+		fields = append(fields, "handle")
+	}
+	if r.MessageNumber < 1 {
+		fields = append(fields, "message_number")
+	}
+	return fields
+}
+
 type GetConversationRequest struct {
-	ContactID     ContactID             `json:"contact_id"`
+	Handle        hub.HubHandle         `json:"handle"`
 	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
 	Limit         *int32                `json:"limit,omitempty"`
 }
 
-func (r *GetConversationRequest) Normalize() {}
+func (r *GetConversationRequest) Normalize() { r.Handle = normalizeHandle(r.Handle) }
 
 func (r GetConversationRequest) EffectiveLimit() int32 { return effectiveLimit(r.Limit) }
 
 func (r GetConversationRequest) Validate() []string {
-	fields := validPage(r.PaginationKey, r.Limit)
-	if !IsContactID(r.ContactID) {
-		fields = append(fields, "contact_id")
+	fields := []string{}
+	if !hub.IsHubHandle(r.Handle) {
+		fields = append(fields, "handle")
 	}
-	if len(fields) > 0 {
-		return fields
-	}
-	return []string{}
+	return append(fields, validPage(r.PaginationKey, r.Limit)...)
 }
 
 type MarkConversationReadRequest struct {
-	ContactID ContactID `json:"contact_id"`
+	Handle hub.HubHandle `json:"handle"`
 }
 
-func (r *MarkConversationReadRequest) Normalize() {}
+func (r *MarkConversationReadRequest) Normalize() { r.Handle = normalizeHandle(r.Handle) }
 
 func (r MarkConversationReadRequest) Validate() []string {
-	if !IsContactID(r.ContactID) {
-		return []string{"contact_id"}
+	if !hub.IsHubHandle(r.Handle) {
+		return []string{"handle"}
 	}
 	return []string{}
 }

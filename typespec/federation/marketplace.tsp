@@ -170,12 +170,11 @@ alias WorkRejections =
 /**
  * The payload of `agency-pointer-changed`, which the agency's tenant enqueues
  * for the Hub user's home tenant when it creates a Contact (`present`) or
- * deletes one. The tenant keeps one agency pointer per Contact and never
- * returns it from any Hub API (MKT-DAT-003). The aggregate is the Contact and
- * its version is the Contact's pointer version; the origin is the agency Org.
+ * deletes one. The tenant keeps one agency pointer per Contact (MKT-DAT-003).
+ * The aggregate id is `<agency_org_did>:<hub_user_did>` and its version is
+ * the Contact's pointer version; the origin is the agency Org.
  */
 model AgencyPointerChangedPayload {
-  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
   agency_org_did: Vetchium.Orgs.OrgDID;
   hub_user_did: Vetchium.Hub.HubUserDID;
   present: boolean;
@@ -205,7 +204,7 @@ model AgencyPointerChangedPayload {
 
 /** A chat request as the Hub user's pointer keeps it (MKT-DAT-003). */
 model AgencyPointerRequest {
-  request_id: Vetchium.Orgs.Marketplace.Contacts.ChatRequestID;
+  request_number: Vetchium.Orgs.Marketplace.Contacts.ChatRequestNumber;
   direction: Vetchium.Orgs.Marketplace.Contacts.ChatRequestDirection;
   state: Vetchium.Orgs.Marketplace.Contacts.ChatRequestState;
   consumer_domain: Vetchium.Orgs.OrgDomain;
@@ -223,9 +222,13 @@ model AgencyPointerSuggestion {
   sent_at: utcDateTime;
 }
 
-/** Payload of `hub-conversation-reply`. */
+/**
+ * Payload of `hub-conversation-reply`. The authority is the agency Org, the
+ * initiator the Hub user, and the aggregate id
+ * `<agency_org_did>:<hub_user_did>`.
+ */
 model HubConversationReplyPayload {
-  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  agency_org_did: Vetchium.Orgs.OrgDID;
   hub_user_did: Vetchium.Hub.HubUserDID;
 
   /** The Hub user's name and handle now, which the agency records (MKT-CNV-001). */
@@ -245,13 +248,13 @@ scalar ConversationWindowSeconds extends int64;
 
 /**
  * Payload of `hub-chat-request`: a Hub user asks an agency assigned to a
- * `published` Opening to open the conversation (MKT-DAT-014). The Hub tenant
- * mints the request id; the aggregate is the agency Org DID, so a repeat
- * with the same key replays the first request. The authority is the agency
- * Org and the initiator the Hub user.
+ * `published` Opening to open the conversation (MKT-DAT-014). The agency's
+ * tenant numbers the request; the aggregate id is
+ * `<agency_org_did>:<hub_user_did>`, so a repeat with the same key replays
+ * the first request. The authority is the agency Org and the initiator the
+ * Hub user.
  */
 model HubChatRequestPayload {
-  request_id: Vetchium.Orgs.Marketplace.Contacts.ChatRequestID;
   agency_org_did: Vetchium.Orgs.OrgDID;
   hub_user_did: Vetchium.Hub.HubUserDID;
   hub_user_display_name: Vetchium.DisplayName;
@@ -260,25 +263,27 @@ model HubChatRequestPayload {
   opening_number: Vetchium.Orgs.Openings.OpeningNumber;
   note?: Vetchium.Orgs.Marketplace.Contacts.ChatRequestNote;
   window_seconds: ConversationWindowSeconds;
+
+  /** The Hub user's "Agencies may send me chat requests" is off. */
+  requests_off: boolean;
 }
 
 /**
- * The stored `200` result of `hub-chat-request`: the agency's Contact on the
- * Hub user and the request as the pointer keeps it.
+ * The stored `200` result of `hub-chat-request`: the request as the pointer
+ * keeps it.
  */
 model HubChatRequestResult {
-  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
   request: AgencyPointerRequest;
 }
 
 /**
  * Payload of `hub-chat-request-answer`: the Hub user accepts or declines an
  * agency's request. `scope` is present exactly when declining. The aggregate
- * is the request id.
+ * id is `<agency_org_did>:<hub_user_did>`.
  */
 model HubChatRequestAnswerPayload {
-  request_id: Vetchium.Orgs.Marketplace.Contacts.ChatRequestID;
-  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  agency_org_did: Vetchium.Orgs.OrgDID;
+  request_number: Vetchium.Orgs.Marketplace.Contacts.ChatRequestNumber;
   hub_user_did: Vetchium.Hub.HubUserDID;
   hub_user_display_name: Vetchium.DisplayName;
   hub_user_handle: Vetchium.Hub.HubHandle;
@@ -287,16 +292,40 @@ model HubChatRequestAnswerPayload {
   window_seconds: ConversationWindowSeconds;
 }
 
-/** Payload of `hub-conversation-delete`. */
-model HubConversationDeletePayload {
-  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+/**
+ * Payload of `hub-conversation-message-delete`: the Hub user deletes the text
+ * of one of their own text messages (MKT-CNV-007). It never carries the text,
+ * which only the Hub user's tenant records. The aggregate id is
+ * `<agency_org_did>:<hub_user_did>`; the stored `200` result is the stub.
+ */
+model HubConversationMessageDeletePayload {
+  agency_org_did: Vetchium.Orgs.OrgDID;
   hub_user_did: Vetchium.Hub.HubUserDID;
+  message_number: Vetchium.Orgs.Marketplace.Contacts.MessageNumber;
 }
 
+/**
+ * The payload of `agency-message-deleted`, which the agency's tenant enqueues
+ * for the Hub user's home tenant when an agency user deletes one of the
+ * agency's text messages (MKT-CNV-007). It never carries the text. The
+ * aggregate id is `<agency_org_did>:<hub_user_did>:<message_number>` at
+ * version 1; the origin is the agency Org.
+ */
+model AgencyMessageDeletedPayload {
+  agency_org_did: Vetchium.Orgs.OrgDID;
+  hub_user_did: Vetchium.Hub.HubUserDID;
+  agency_domain: Vetchium.Orgs.OrgDomain;
+  message_number: Vetchium.Orgs.Marketplace.Contacts.MessageNumber;
+}
+
+/**
+ * Reads one page of the conversation, or with `message_number` only that
+ * message.
+ */
 model MeshReadConversationRequest {
-  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
   hub_user_did: Vetchium.Hub.HubUserDID;
   agency_org_did: Vetchium.Orgs.OrgDID;
+  message_number?: Vetchium.Orgs.Marketplace.Contacts.MessageNumber;
   pagination_key?: Vetchium.PaginationKey;
   limit?: Vetchium.Orgs.Marketplace.Contacts.ContactPageSize = 50;
 }
@@ -329,12 +358,13 @@ model HubAccountDeletedPayload {
 
 /**
  * The payload of `hub-agency-requests-changed`: the state of "Agencies may
- * send me chat requests" the agency's Contact on the Hub user keeps (MKT-DAT-006). The
- * aggregate is the Contact and its version is the setting's version, so a
- * Contact created later still receives the state; the origin is the Hub user.
+ * send me chat requests" the agency's Contact on the Hub user keeps
+ * (MKT-DAT-006). The aggregate id is `<agency_org_did>:<hub_user_did>` and
+ * its version is the setting's version, so a Contact created later still
+ * receives the state; the origin is the Hub user.
  */
 model HubAgencyRequestsChangedPayload {
-  contact_id: Vetchium.Orgs.Marketplace.Contacts.ContactID;
+  agency_org_did: Vetchium.Orgs.OrgDID;
   hub_user_did: Vetchium.Hub.HubUserDID;
   requests_off: boolean;
 }

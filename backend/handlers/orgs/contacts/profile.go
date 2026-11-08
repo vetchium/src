@@ -3,6 +3,7 @@ package contacts
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -83,16 +84,12 @@ func ViewHubProfile(s *orgsruntime.Server) http.HandlerFunc {
 		default:
 			credited := creditedCounts(r.Context(), s, identity.OrgDID,
 				[]pgtype.UUID{hubDID})[dbvalue.FormatUUID(hubDID)]
-			found := summary(row.ContactID, row.DisplayName, row.Handle,
-				row.RequestsOff, row.PartyDeleted, row.LastActivityAt,
-				row.NoteCount, credited, row.HasConversation,
-				row.UnreadMessagesCount, row.PendingRequestDirection)
+			found := summary(sqlc.ListOrgContactsRow(row), credited, time.Now())
 			if refreshed, err := refreshNames(s, r, identity, row, read); err != nil {
 				s.InternalError(r.Context(), w, "refresh Contact names", err)
 				return
 			} else if refreshed {
 				found.DisplayName = read.Profile.DisplayName
-				found.Handle = read.Profile.Handle
 			}
 			response.Contact = &found
 		}
@@ -101,19 +98,19 @@ func ViewHubProfile(s *orgsruntime.Server) http.HandlerFunc {
 	}
 }
 
-// refreshNames keeps the name and handle a Contact records as last read, so
-// its lists need no cross-tenant read (MKT-CON-001).
+// refreshNames keeps the name a Contact records as last read, so its lists
+// need no cross-tenant read (MKT-CON-001). Handles never change.
 func refreshNames(
 	s *orgsruntime.Server, r *http.Request, identity middleware.OrgIdentity,
 	row sqlc.GetOrgContactByPersonRow, read contacts.AgencyProfileRead,
 ) (bool, error) {
-	name, handle := string(read.Profile.DisplayName), string(read.Profile.Handle)
-	if row.DisplayName == name && row.Handle == handle {
+	name := string(read.Profile.DisplayName)
+	if row.DisplayName == name {
 		return false, nil
 	}
 	changed, err := s.Queries.RefreshOrgContactNames(r.Context(),
 		sqlc.RefreshOrgContactNamesParams{
-			DisplayName: name, Handle: handle, ContactID: row.ContactID,
+			DisplayName: name, HubUserDid: row.HubUserDid,
 			OrgDid: identity.OrgDID, TenantID: s.TenantID, ActorID: identity.UserID,
 		})
 	if err != nil {

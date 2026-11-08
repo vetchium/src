@@ -16,6 +16,7 @@ import {
   Button,
   Card,
   Col,
+  Flex,
   Grid,
   Input,
   List,
@@ -35,7 +36,6 @@ import type {
 } from "typespec/hub/messages/messages";
 import type { FrontendLocale } from "typespec/hub/types";
 import type {
-  ContactID,
   ConversationMessage,
   MessageText,
 } from "typespec/orgs/marketplace/contacts/contacts";
@@ -45,39 +45,20 @@ import { OrgUnavailableError } from "typespec/problem/hub/openings";
 import { isProblem } from "../api/client";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { ActionError } from "../features/applications/ActionError";
+import { conversationPath } from "../features/messages/paths";
 import {
   type ChatRequestAnswer,
   chronological,
   useChatRequestAnswerAction,
   useChatRequestsQuery,
-  useConversationDeleteAction,
   useConversationDetailQuery,
   useConversationReplyAction,
   useConversationsQuery,
   useMarkConversationRead,
+  useMessageDeleteAction,
 } from "../features/messages/queries";
 import { useOrgOpeningQuery } from "../features/openings/queries";
 import { countryName } from "../i18n/countries";
-
-const avatarColors = [
-  "#1677ff",
-  "#722ed1",
-  "#13c2c2",
-  "#52c41a",
-  "#eb2f96",
-  "#fa8c16",
-  "#faad14",
-  "#2f54eb",
-];
-
-function avatarColor(text: string): string {
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    hash = (hash << 5) - hash + text.charCodeAt(i);
-    hash |= 0;
-  }
-  return avatarColors[Math.abs(hash) % avatarColors.length] ?? "#1677ff";
-}
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -202,14 +183,7 @@ function OpeningSuggestionCard({
           </Typography.Text>
         </Space>
         <Space align="start" size="middle">
-          <Avatar
-            shape="square"
-            size={40}
-            style={{
-              backgroundColor: avatarColor(org.display_name),
-              fontWeight: "bold",
-            }}
-          >
+          <Avatar shape="square" size={40}>
             {initials(org.display_name)}
           </Avatar>
           <Space orientation="vertical" size={2}>
@@ -253,7 +227,7 @@ function IncomingRequest({
   const { t } = useTranslation();
   const { dateTime } = useDateTimeFormat();
   const { message } = App.useApp();
-  const answer = useChatRequestAnswerAction(summary.contact_id);
+  const answer = useChatRequestAnswerAction(summary.agency_domain);
   const agency = summary.agency_display_name;
   const days = request.window_days;
 
@@ -295,7 +269,7 @@ function IncomingRequest({
               disabled={answer.isPending}
               onClick={() =>
                 respond(
-                  { request_id: request.request_id },
+                  { request_number: request.request_number },
                   t("messages.acceptedToast", { agency }),
                 )
               }
@@ -308,7 +282,10 @@ function IncomingRequest({
               cancelText={t("common.cancel")}
               onConfirm={() =>
                 respond(
-                  { request_id: request.request_id, decline: "opening" },
+                  {
+                    request_number: request.request_number,
+                    decline: "opening",
+                  },
                   t("messages.declinedToast"),
                 )
               }
@@ -326,7 +303,7 @@ function IncomingRequest({
               cancelText={t("common.cancel")}
               onConfirm={() =>
                 respond(
-                  { request_id: request.request_id, decline: "sender" },
+                  { request_number: request.request_number, decline: "sender" },
                   t("messages.declinedToast"),
                 )
               }
@@ -457,7 +434,7 @@ export function MessagesPage() {
   const screens = Grid.useBreakpoint();
   const isMobile = screens.md === false;
 
-  const selectedContactId = params.contactId;
+  const selectedDomain = params.domain;
   const conversations = useConversationsQuery();
   const incoming = useChatRequestsQuery("to_hub_user");
 
@@ -467,13 +444,13 @@ export function MessagesPage() {
     const all = conversations.data?.items ?? [];
     const order = (incoming.data?.items ?? [])
       .filter((request) => request.state === "pending")
-      .map((request) => request.contact_id);
+      .map((request) => request.agency_domain);
     const waiting = all
       .filter(hasIncoming)
       .sort(
         (a, b) =>
-          (order.indexOf(a.contact_id) + 1 || Number.MAX_SAFE_INTEGER) -
-          (order.indexOf(b.contact_id) + 1 || Number.MAX_SAFE_INTEGER),
+          (order.indexOf(a.agency_domain) + 1 || Number.MAX_SAFE_INTEGER) -
+          (order.indexOf(b.agency_domain) + 1 || Number.MAX_SAFE_INTEGER),
       );
     return [...waiting, ...all.filter((item) => !hasIncoming(item))];
   }, [conversations.data, incoming.data]);
@@ -482,25 +459,25 @@ export function MessagesPage() {
 
   const summary = useMemo(
     () =>
-      conversations.data?.items.find((c) => c.contact_id === selectedContactId),
-    [conversations.data, selectedContactId],
+      conversations.data?.items.find((c) => c.agency_domain === selectedDomain),
+    [conversations.data, selectedDomain],
   );
 
   const detailQuery = useConversationDetailQuery(
-    selectedContactId,
-    Boolean(selectedContactId),
+    selectedDomain,
+    Boolean(selectedDomain),
   );
   const markRead = useMarkConversationRead();
-  const replyAction = useConversationReplyAction(selectedContactId ?? "");
-  const deleteAction = useConversationDeleteAction(selectedContactId ?? "");
+  const replyAction = useConversationReplyAction(selectedDomain ?? "");
+  const deleteAction = useMessageDeleteAction(selectedDomain ?? "");
 
   // Auto mark read when opening an unread conversation
   useEffect(() => {
-    if (selectedContactId && summary?.has_conversation && summary.unread) {
-      markRead.mutate(selectedContactId as ContactID);
+    if (selectedDomain && summary?.has_conversation && summary.unread) {
+      markRead.mutate(selectedDomain);
     }
   }, [
-    selectedContactId,
+    selectedDomain,
     summary?.has_conversation,
     summary?.unread,
     markRead.mutate,
@@ -561,16 +538,14 @@ export function MessagesPage() {
           itemLayout="horizontal"
           dataSource={items}
           renderItem={(item) => {
-            const isSelected = item.contact_id === selectedContactId;
+            const isSelected = item.agency_domain === selectedDomain;
             const timeLabel = isToday(item.last_activity_at)
               ? time(item.last_activity_at)
               : date(item.last_activity_at, "medium");
 
             return (
               <List.Item
-                onClick={() =>
-                  navigate(`/messages/${encodeURIComponent(item.contact_id)}`)
-                }
+                onClick={() => navigate(conversationPath(item.agency_domain))}
                 style={{
                   padding: "16px 20px",
                   cursor: "pointer",
@@ -583,65 +558,46 @@ export function MessagesPage() {
               >
                 <List.Item.Meta
                   avatar={
-                    <Avatar
-                      shape="square"
-                      size={48}
-                      style={{
-                        backgroundColor: avatarColor(item.agency_display_name),
-                        fontWeight: "bold",
-                        fontSize: 16,
-                      }}
-                    >
+                    <Avatar shape="square" size={48}>
                       {initials(item.agency_display_name)}
                     </Avatar>
                   }
                   title={
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Typography.Text
-                        strong
-                        ellipsis
-                        style={{ maxWidth: 160 }}
-                      >
-                        {item.agency_display_name}
-                      </Typography.Text>
-                      <Typography.Text
-                        type="secondary"
-                        style={{ fontSize: 12, marginLeft: 8 }}
-                      >
-                        {timeLabel}
-                      </Typography.Text>
-                    </div>
+                    <Typography.Text strong ellipsis>
+                      {item.agency_display_name}
+                    </Typography.Text>
                   }
                   description={
                     <div>
-                      <Typography.Text
-                        type="secondary"
-                        ellipsis
-                        style={{ display: "block", fontSize: 13 }}
-                      >
-                        {item.agency_domain}
-                      </Typography.Text>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginTop: 4,
-                        }}
+                      <Flex justify="space-between" align="center" gap="small">
+                        <Typography.Text
+                          type="secondary"
+                          ellipsis
+                          style={{ minWidth: 0, fontSize: 13 }}
+                        >
+                          {item.agency_domain}
+                        </Typography.Text>
+                        <Typography.Text
+                          type="secondary"
+                          style={{
+                            fontSize: 12,
+                            flexShrink: 0,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {timeLabel}
+                        </Typography.Text>
+                      </Flex>
+                      <Flex
+                        justify="space-between"
+                        align="center"
+                        gap="small"
+                        style={{ marginTop: 4 }}
                       >
                         <Typography.Text
                           type="secondary"
                           ellipsis
-                          style={{
-                            maxWidth: item.unread ? 180 : 220,
-                            fontSize: 13,
-                          }}
+                          style={{ minWidth: 0, fontSize: 13 }}
                         >
                           {listSnippet(item, t)}
                         </Typography.Text>
@@ -654,7 +610,7 @@ export function MessagesPage() {
                             style={{ backgroundColor: token.colorError }}
                           />
                         )}
-                      </div>
+                      </Flex>
                     </div>
                   }
                 />
@@ -668,7 +624,7 @@ export function MessagesPage() {
 
   // Right column / view: conversation detail
   const conversationView =
-    selectedContactId && summary ? (
+    selectedDomain && summary ? (
       <Card
         styles={{
           header: { padding: "12px 20px" },
@@ -692,14 +648,7 @@ export function MessagesPage() {
                   aria-label={t("common.back")}
                 />
               )}
-              <Avatar
-                shape="square"
-                size={40}
-                style={{
-                  backgroundColor: avatarColor(summary.agency_display_name),
-                  fontWeight: "bold",
-                }}
-              >
+              <Avatar shape="square" size={40}>
                 {initials(summary.agency_display_name)}
               </Avatar>
               <Space orientation="vertical" size={0}>
@@ -711,29 +660,6 @@ export function MessagesPage() {
                 </Typography.Text>
               </Space>
             </Space>
-            {summary.has_conversation && (
-              <Popconfirm
-                title={t("messages.deleteConfirmTitle")}
-                description={t("messages.deleteConfirmBody")}
-                okText={t("messages.deleteAction")}
-                cancelText={t("common.cancel")}
-                okButtonProps={{ danger: true }}
-                onConfirm={() =>
-                  deleteAction.mutate(undefined, {
-                    onSuccess: () => navigate("/messages"),
-                  })
-                }
-              >
-                <Button
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  loading={deleteAction.isPending}
-                >
-                  {!isMobile && t("messages.delete")}
-                </Button>
-              </Popconfirm>
-            )}
           </div>
         }
       >
@@ -808,24 +734,58 @@ export function MessagesPage() {
                 {chronological(detailQuery.data.pages).map(
                   (msg: ConversationMessage) => {
                     const isCandidate = msg.sender_type === "hub_user";
+                    const deletable =
+                      isCandidate && msg.kind === "text" && !msg.deleted;
 
                     return (
                       <div
-                        key={msg.message_id}
+                        key={msg.message_number}
                         style={{
                           display: "flex",
                           flexDirection: "column",
                           alignItems: isCandidate ? "flex-end" : "flex-start",
                         }}
                       >
-                        <Typography.Text
-                          type="secondary"
-                          style={{ fontSize: 12, marginBottom: 4 }}
-                        >
-                          {isCandidate
-                            ? `${t("messages.you")} · ${dateTime(msg.sent_at)}`
-                            : `${msg.sender_display_name} · ${dateTime(msg.sent_at)}`}
-                        </Typography.Text>
+                        <Space size={4} align="center">
+                          <Typography.Text
+                            type="secondary"
+                            style={{ fontSize: 12 }}
+                          >
+                            {isCandidate
+                              ? `${t("messages.you")} · ${dateTime(msg.sent_at)}`
+                              : `${msg.sender_display_name} · ${dateTime(msg.sent_at)}`}
+                          </Typography.Text>
+                          {deletable && (
+                            <Popconfirm
+                              title={t("messages.deleteMessageConfirm", {
+                                agency: summary.agency_display_name,
+                              })}
+                              okText={t("messages.deleteAction")}
+                              cancelText={t("common.cancel")}
+                              okButtonProps={{ danger: true }}
+                              onConfirm={() =>
+                                deleteAction.mutate(msg.message_number)
+                              }
+                            >
+                              <Button
+                                type="text"
+                                size="small"
+                                danger
+                                icon={<DeleteOutlined />}
+                                loading={
+                                  deleteAction.isPending &&
+                                  deleteAction.variables === msg.message_number
+                                }
+                                aria-label={t("messages.deleteMessage")}
+                              />
+                            </Popconfirm>
+                          )}
+                        </Space>
+                        {msg.deleted && (
+                          <Typography.Text type="secondary" italic>
+                            {t("messages.messageDeleted")}
+                          </Typography.Text>
+                        )}
                         {msg.text && (
                           <div
                             style={{
@@ -871,16 +831,22 @@ export function MessagesPage() {
 
             {/* Reply section */}
             {isReadOnly ? (
-              <Alert
-                type="info"
-                showIcon
-                title={t("messages.readOnlyTitle")}
-                description={t("messages.readOnlyBody")}
-              />
+              <Space orientation="vertical" className="full-width">
+                <Alert
+                  type="info"
+                  showIcon
+                  title={t("messages.readOnlyTitle")}
+                  description={t("messages.readOnlyBody")}
+                />
+                <ActionError error={deleteAction.error} />
+              </Space>
             ) : !mayWrite ? (
-              summary.has_conversation && !hasIncoming(summary) ? (
-                <ClosedNotice summary={summary} />
-              ) : null
+              <Space orientation="vertical" className="full-width">
+                {summary.has_conversation && !hasIncoming(summary) && (
+                  <ClosedNotice summary={summary} />
+                )}
+                <ActionError error={deleteAction.error} />
+              </Space>
             ) : (
               <Space
                 orientation="vertical"
@@ -957,17 +923,17 @@ export function MessagesPage() {
       </div>
 
       {isMobile ? (
-        selectedContactId ? (
+        selectedDomain ? (
           conversationView
         ) : (
           conversationsList
         )
       ) : (
         <Row gutter={[24, 24]}>
-          <Col xs={24} md={8}>
+          <Col xs={24} md={10} xl={8}>
             {conversationsList}
           </Col>
-          <Col xs={24} md={16}>
+          <Col xs={24} md={14} xl={16}>
             {conversationView}
           </Col>
         </Row>

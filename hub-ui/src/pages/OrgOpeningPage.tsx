@@ -25,6 +25,7 @@ import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { NoIndex } from "../components/common/NoIndex";
 import { useMyOpeningApplicationQuery } from "../features/applications/queries";
 import { OpeningAgencies } from "../features/messages/OpeningAgencies";
+import { conversationPath } from "../features/messages/paths";
 import { useConversationsQuery } from "../features/messages/queries";
 import { openingPresentation } from "../features/openings/presentation";
 import { useOrgOpeningQuery } from "../features/openings/queries";
@@ -56,7 +57,6 @@ export function OrgOpeningPage() {
       );
       if (match) {
         return {
-          contact_id: c.contact_id,
           agency_display_name: c.agency_display_name,
           agency_domain: c.agency_domain,
           sent_at: match.sent_at,
@@ -184,9 +184,7 @@ export function OrgOpeningPage() {
                         {t("orgPage.agencySuggestedBody", {
                           date: date(suggestion.sent_at, "medium"),
                         })}{" "}
-                        <Link
-                          to={`/messages/${encodeURIComponent(suggestion.contact_id)}`}
-                        >
+                        <Link to={conversationPath(suggestion.agency_domain)}>
                           {t("orgPage.yourConversation")}
                         </Link>
                         .

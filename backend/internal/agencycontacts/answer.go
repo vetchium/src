@@ -19,8 +19,7 @@ import (
 var ErrConversationReadOnly = errors.New("conversation is read-only")
 
 // ErrRequestNotFound reports that the agency has no pending request from a
-// Hub user with that id: unknown, another Org's, the agency's own, or
-// already answered.
+// Hub user with that number: unknown, the agency's own, or already answered.
 var ErrRequestNotFound = errors.New("no pending chat request to the agency")
 
 // AnswerAgencyRequest applies an agency user's answer to a Hub user's
@@ -29,20 +28,11 @@ var ErrRequestNotFound = errors.New("no pending chat request to the agency")
 // window its Hub command carried, and the Contact's recorded names stand in
 // for the Hub user's. It returns the answered request.
 func AnswerAgencyRequest(
-	ctx context.Context, q *sqlc.Queries, orgDID, requestID pgtype.UUID,
-	answer Answer, by Answerer,
+	ctx context.Context, q *sqlc.Queries, orgDID pgtype.UUID, handle string,
+	requestNumber int32, answer Answer, by Answerer,
 ) (sqlc.VetchiumOrgChatRequest, error) {
-	found, err := q.GetOrgChatRequest(ctx, sqlc.GetOrgChatRequestParams{
-		OrgDid: orgDID, RequestID: requestID,
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return sqlc.VetchiumOrgChatRequest{}, ErrRequestNotFound
-	}
-	if err != nil {
-		return sqlc.VetchiumOrgChatRequest{}, fmt.Errorf("find chat request: %w", err)
-	}
-	contact, err := q.LockOrgContact(ctx, sqlc.LockOrgContactParams{
-		OrgDid: orgDID, ContactID: found.VetchiumOrgChatRequest.ContactID,
+	contact, err := q.LockOrgContactByHandle(ctx, sqlc.LockOrgContactByHandleParams{
+		OrgDid: orgDID, Handle: handle,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return sqlc.VetchiumOrgChatRequest{}, ErrRequestNotFound
@@ -50,15 +40,16 @@ func AnswerAgencyRequest(
 	if err != nil {
 		return sqlc.VetchiumOrgChatRequest{}, fmt.Errorf("lock Contact: %w", err)
 	}
-	// Read again under the lock: another agency user may have answered
-	// while this one waited.
-	locked, err := q.GetOrgChatRequest(ctx, sqlc.GetOrgChatRequestParams{
-		OrgDid: orgDID, RequestID: requestID,
+	found, err := q.GetOrgChatRequest(ctx, sqlc.GetOrgChatRequestParams{
+		OrgDid: orgDID, HubUserDid: contact.HubUserDid, RequestNumber: requestNumber,
 	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return sqlc.VetchiumOrgChatRequest{}, ErrRequestNotFound
+	}
 	if err != nil {
 		return sqlc.VetchiumOrgChatRequest{}, fmt.Errorf("read chat request: %w", err)
 	}
-	request := locked.VetchiumOrgChatRequest
+	request := found.VetchiumOrgChatRequest
 	if request.Direction != string(contacts.ToAgency) ||
 		request.State != string(contacts.ChatRequestPending) {
 		return request, ErrRequestNotFound
@@ -73,7 +64,7 @@ func AnswerAgencyRequest(
 	if answer.Accept {
 		notice = NoticeRequestAccepted
 	}
-	return answered, SyncPointer(ctx, q, orgDID, request.ContactID, notice)
+	return answered, SyncPointer(ctx, q, orgDID, request.HubUserDid, notice)
 }
 
 // Answer is the recipient's answer to a pending request.
@@ -109,18 +100,16 @@ func AnswerRequest(
 	ctx context.Context, q *sqlc.Queries, request sqlc.VetchiumOrgChatRequest,
 	answer Answer, by Answerer,
 ) (sqlc.VetchiumOrgChatRequest, error) {
-	var conversationID pgtype.UUID
 	if answer.Accept {
-		id, err := appendRequest(ctx, q, request, answer, by)
-		if err != nil {
+		if err := appendRequest(ctx, q, request, answer, by); err != nil {
 			return request, err
 		}
-		conversationID = id
 	}
 	params := sqlc.AnswerOrgChatRequestParams{
 		State:  string(contacts.ChatRequestAccepted),
-		OrgDid: request.OrgDid, RequestID: request.RequestID,
-		AnsweredBy: by.OrgUserID, WindowSeconds: answer.Window,
+		OrgDid: request.OrgDid, HubUserDid: request.HubUserDid,
+		RequestNumber: request.RequestNumber,
+		AnsweredBy:    by.OrgUserID, WindowSeconds: answer.Window,
 		TenantID: by.TenantID, ActorType: by.ActorType, ActorID: by.ActorID,
 		Source: by.Source, IdempotencyKey: by.IdempotencyKey,
 	}
@@ -143,7 +132,8 @@ func AnswerRequest(
 		return request, block(ctx, q, request)
 	}
 	activity := sqlc.SetConversationActivityParams{
-		ConversationID: conversationID, WindowSeconds: request.WindowSeconds,
+		OrgDid: request.OrgDid, HubUserDid: request.HubUserDid,
+		WindowSeconds:    request.WindowSeconds,
 		AgencyActivityAt: request.SentAt, HubActivityAt: answered.AnsweredAt,
 	}
 	if request.Direction == string(contacts.ToAgency) {
@@ -160,23 +150,18 @@ func AnswerRequest(
 func appendRequest(
 	ctx context.Context, q *sqlc.Queries, request sqlc.VetchiumOrgChatRequest,
 	answer Answer, by Answerer,
-) (pgtype.UUID, error) {
+) error {
 	existing, err := q.GetOrgConversation(ctx, sqlc.GetOrgConversationParams{
-		OrgDid: request.OrgDid, ContactID: request.ContactID,
+		OrgDid: request.OrgDid, HubUserDid: request.HubUserDid,
 	})
-	conversationID := existing.ConversationID
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		agency, err := q.GetAgencyDetails(ctx, request.OrgDid)
 		if err != nil {
-			return conversationID, fmt.Errorf("read agency: %w", err)
-		}
-		if conversationID, err = dbvalue.NewUUID(); err != nil {
-			return conversationID, err
+			return fmt.Errorf("read agency: %w", err)
 		}
 		created, err := q.CreateOrgConversationFromRequest(ctx,
 			sqlc.CreateOrgConversationFromRequestParams{
-				ConversationID: conversationID, ContactID: request.ContactID,
 				OrgDid: request.OrgDid, HubUserDid: request.HubUserDid,
 				RecordedHubUserName:   answer.HubUserName,
 				RecordedHubUserHandle: answer.HubUserHandle,
@@ -184,30 +169,26 @@ func appendRequest(
 				RecordedAgencyDomain:  agency.Domain,
 				TenantID:              by.TenantID, ActorType: by.ActorType,
 				ActorID: by.ActorID, Source: by.Source,
-				IdempotencyKey: by.IdempotencyKey, RequestID: request.RequestID,
+				IdempotencyKey: by.IdempotencyKey, RequestNumber: request.RequestNumber,
 			})
 		if err != nil {
-			return conversationID, fmt.Errorf("create conversation: %w", err)
+			return fmt.Errorf("create conversation: %w", err)
 		}
-		if created.AuditRows != 1 {
-			return conversationID, fmt.Errorf("incomplete conversation creation")
+		if created.CreatedRows != 1 || created.AuditRows != 1 {
+			return fmt.Errorf("incomplete conversation creation")
 		}
 	case err != nil:
-		return conversationID, fmt.Errorf("read conversation: %w", err)
+		return fmt.Errorf("read conversation: %w", err)
 	case existing.ReadOnlyReason.Valid:
-		return conversationID, ErrConversationReadOnly
+		return ErrConversationReadOnly
 	}
 
-	messageID, err := dbvalue.NewUUID()
-	if err != nil {
-		return conversationID, err
-	}
 	sender := contacts.MessageSenderTypeAgency
 	if request.Direction == string(contacts.ToAgency) {
 		sender = contacts.MessageSenderTypeHubUser
 	}
 	message, err := q.AddOrgConversationMessage(ctx, sqlc.AddOrgConversationMessageParams{
-		MessageID: messageID, ConversationID: conversationID,
+		OrgDid: request.OrgDid, HubUserDid: request.HubUserDid,
 		SenderType:        string(sender),
 		SenderUserID:      request.SenderUserID,
 		SenderDisplayName: request.SenderDisplayName,
@@ -222,29 +203,31 @@ func appendRequest(
 		Source: by.Source, IdempotencyKey: by.IdempotencyKey,
 	})
 	if err != nil {
-		return conversationID, fmt.Errorf("add request message: %w", err)
+		return fmt.Errorf("add request message: %w", err)
 	}
-	if message.ConversationRows != 1 || message.ContactRows != 1 || message.AuditRows != 1 {
-		return conversationID, fmt.Errorf("incomplete request message")
+	if message.ContactRows != 1 || message.AuditRows != 1 {
+		return fmt.Errorf("incomplete request message")
 	}
-	return conversationID, nil
+	return nil
 }
 
 // block records what a decline refuses the sender. A sender block ends when
 // BlockedUntil says, so the pointer and the refusal agree.
 func block(ctx context.Context, q *sqlc.Queries, request sqlc.VetchiumOrgChatRequest) error {
-	params := sqlc.CreateOrgChatRequestBlockParams{
-		ContactID:        request.ContactID,
-		BlockedDirection: request.Direction,
-		Scope:            request.DeclineScope.String,
-	}
 	if until := BlockedUntil(request); until != nil {
-		params.BlockedUntil = dbvalue.Timestamp(*until)
-	} else {
-		params.ConsumerDomain = dbvalue.Text(request.ConsumerDomain)
-		params.OpeningNumber = pgtype.Int4{Int32: request.OpeningNumber, Valid: true}
+		if _, err := q.SetOrgChatRequestSenderBlock(ctx, sqlc.SetOrgChatRequestSenderBlockParams{
+			OrgDid: request.OrgDid, HubUserDid: request.HubUserDid,
+			BlockedDirection: request.Direction, BlockedUntil: dbvalue.Timestamp(*until),
+		}); err != nil {
+			return fmt.Errorf("block chat requests: %w", err)
+		}
+		return nil
 	}
-	if _, err := q.CreateOrgChatRequestBlock(ctx, params); err != nil {
+	if _, err := q.CreateOrgChatRequestOpeningBlock(ctx, sqlc.CreateOrgChatRequestOpeningBlockParams{
+		OrgDid: request.OrgDid, HubUserDid: request.HubUserDid,
+		BlockedDirection: request.Direction, ConsumerDomain: request.ConsumerDomain,
+		OpeningNumber: request.OpeningNumber,
+	}); err != nil {
 		return fmt.Errorf("block chat requests: %w", err)
 	}
 	return nil

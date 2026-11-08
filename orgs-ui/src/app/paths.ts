@@ -51,9 +51,9 @@ export const paths = {
   jobDetail: (engagementId: string, openingNumber: number) =>
     `${sourcing}/jobs/${encodeURIComponent(engagementId)}/${openingNumber}`,
   contacts: `${sourcing}/contacts`,
-  contactDetail: (id: string) =>
-    `${sourcing}/contacts/${encodeURIComponent(id)}`,
-  newContact: `${sourcing}/contacts/new`,
+  /** A person's page, by handle; an alias opens it too, then redirects. */
+  contactDetail: (address: string) =>
+    `${sourcing}/contacts/${encodeURIComponent(address)}`,
   creditedApplications: `${sourcing}/credited-applications`,
   plans: "/plans",
   ai: "/ai",

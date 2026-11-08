@@ -12,21 +12,21 @@ import { isCapability } from "../orgs/marketplace/capabilities.ts";
 import type {
   ChatRequestDeclineScope,
   ChatRequestDirection,
-  ChatRequestID,
   ChatRequestNote,
+  ChatRequestNumber,
   ChatRequestState,
-  ContactID,
   ConversationMessage,
   ConversationReadOnlyReason,
+  MessageNumber,
   MessageText,
 } from "../orgs/marketplace/contacts/contacts.ts";
 import {
   chatRequestDeclineScopes,
   chatRequestDirections,
   chatRequestStates,
-  isChatRequestID,
   isChatRequestNote,
-  isContactID,
+  isChatRequestNumber,
+  isMessageNumber,
   isMessageText,
   isOpeningSuggestion,
   maxPage as maxContactPage,
@@ -431,11 +431,21 @@ export function validateWorkBackgroundCheckResultPayload(
 /** The event the agency's tenant enqueues when it creates or deletes a Contact. */
 export const AgencyPointerChangedKind: EventKind = "agency-pointer-changed";
 
-/** Versions agency-pointer-changed by the Contact's pointer version; the id is the Contact id. */
+/** Versions agency-pointer-changed by the Contact's pointer version; the id is contactAggregateID. */
 export const AgencyPointerAggregate: AggregateType = "agency_pointer";
 
+/**
+ * Names the pair of an agency and a Hub user, which a Contact, its
+ * conversation, and the Hub user's pointer share.
+ */
+export function contactAggregateID(
+  agency: OrgDID,
+  hubUser: HubUserDID,
+): string {
+  return `${agency}:${hubUser}`;
+}
+
 export interface AgencyPointerChangedPayload {
-  contact_id: ContactID;
   agency_org_did: OrgDID;
   hub_user_did: HubUserDID;
   /** False when the Contact is gone. */
@@ -461,7 +471,7 @@ export interface AgencyPointerChangedPayload {
 
 /** A chat request as the Hub user's pointer keeps it. */
 export interface AgencyPointerRequest {
-  request_id: ChatRequestID;
+  request_number: ChatRequestNumber;
   direction: ChatRequestDirection;
   state: ChatRequestState;
   consumer_domain: OrgDomain;
@@ -476,7 +486,8 @@ export function validateAgencyPointerRequest(
   request: AgencyPointerRequest,
 ): string[] {
   const fields: string[] = [];
-  if (!isChatRequestID(request.request_id)) fields.push("request.request_id");
+  if (!isChatRequestNumber(request.request_number))
+    fields.push("request.request_number");
   if (!chatRequestDirections.includes(request.direction))
     fields.push("request.direction");
   if (!chatRequestStates.includes(request.state)) fields.push("request.state");
@@ -506,8 +517,8 @@ export interface AgencyPointerSuggestion {
 }
 
 /**
- * Chat request commands from the Hub user's tenant. A request's aggregate is
- * the agency Org DID; an answer's is the request id.
+ * Chat request commands from the Hub user's tenant; the agency's tenant
+ * numbers requests. Their aggregate id is contactAggregateID.
  */
 export const HubChatRequestKind: CommandKind = "hub-chat-request";
 export const HubChatRequestAnswerKind: CommandKind = "hub-chat-request-answer";
@@ -530,10 +541,9 @@ function isWindowSeconds(value: number): boolean {
 
 /**
  * A Hub user asks an agency assigned to a published Opening to open the
- * conversation. The Hub tenant mints `request_id`.
+ * conversation.
  */
 export interface HubChatRequestPayload {
-  request_id: ChatRequestID;
   agency_org_did: OrgDID;
   hub_user_did: HubUserDID;
   hub_user_display_name: DisplayName;
@@ -543,13 +553,14 @@ export interface HubChatRequestPayload {
   note?: ChatRequestNote;
   /** The Hub tenant's conversation window. */
   window_seconds: number;
+  /** The Hub user's "Agencies may send me chat requests" is off. */
+  requests_off: boolean;
 }
 
 export function validateHubChatRequestPayload(
   payload: HubChatRequestPayload,
 ): string[] {
   const fields: string[] = [];
-  if (!isChatRequestID(payload.request_id)) fields.push("request_id");
   if (!isOrgDID(payload.agency_org_did)) fields.push("agency_org_did");
   fields.push(
     ...hubUserFields(
@@ -577,16 +588,13 @@ export function validateHubChatRequestPayload(
 
 /** The stored `200` result of `hub-chat-request`. */
 export interface HubChatRequestResult {
-  contact_id: ContactID;
   request: AgencyPointerRequest;
 }
 
 export function validateHubChatRequestResult(
   result: HubChatRequestResult,
 ): string[] {
-  const fields: string[] = [];
-  if (!isContactID(result.contact_id)) fields.push("contact_id");
-  fields.push(...validateAgencyPointerRequest(result.request));
+  const fields = validateAgencyPointerRequest(result.request);
   if (result.request.direction !== "to_agency")
     fields.push("request.direction");
   return fields;
@@ -594,8 +602,8 @@ export function validateHubChatRequestResult(
 
 /** The Hub user accepts or declines an agency's request; `scope` exactly when declining. */
 export interface HubChatRequestAnswerPayload {
-  request_id: ChatRequestID;
-  contact_id: ContactID;
+  agency_org_did: OrgDID;
+  request_number: ChatRequestNumber;
   hub_user_did: HubUserDID;
   hub_user_display_name: DisplayName;
   hub_user_handle: HubHandle;
@@ -608,8 +616,9 @@ export function validateHubChatRequestAnswerPayload(
   payload: HubChatRequestAnswerPayload,
 ): string[] {
   const fields: string[] = [];
-  if (!isChatRequestID(payload.request_id)) fields.push("request_id");
-  if (!isContactID(payload.contact_id)) fields.push("contact_id");
+  if (!isOrgDID(payload.agency_org_did)) fields.push("agency_org_did");
+  if (!isChatRequestNumber(payload.request_number))
+    fields.push("request_number");
   fields.push(
     ...hubUserFields(
       payload.hub_user_did,
@@ -627,11 +636,13 @@ export function validateHubChatRequestAnswerPayload(
   return fields;
 }
 
+/** Conversation commands from the Hub user's tenant; the id is contactAggregateID. */
 export const HubConversationReplyKind: CommandKind = "hub-conversation-reply";
-export const HubConversationDeleteKind: CommandKind = "hub-conversation-delete";
+export const HubConversationMessageDeleteKind: CommandKind =
+  "hub-conversation-message-delete";
 
 export interface HubConversationReplyPayload {
-  contact_id: ContactID;
+  agency_org_did: OrgDID;
   hub_user_did: HubUserDID;
   /** The Hub user's name and handle now, which the agency records (MKT-CNV-001). */
   hub_user_display_name: DisplayName;
@@ -644,7 +655,7 @@ export function validateHubConversationReplyPayload(
   payload: HubConversationReplyPayload,
 ): string[] {
   const fields: string[] = [];
-  if (!isContactID(payload.contact_id)) fields.push("contact_id");
+  if (!isOrgDID(payload.agency_org_did)) fields.push("agency_org_did");
   if (!isHubUserDID(payload.hub_user_did)) fields.push("hub_user_did");
   if (!isDisplayName(payload.hub_user_display_name))
     fields.push("hub_user_display_name");
@@ -654,24 +665,66 @@ export function validateHubConversationReplyPayload(
   return fields;
 }
 
-export interface HubConversationDeletePayload {
-  contact_id: ContactID;
+/**
+ * The Hub user deletes the text of one of their own text messages. It never
+ * carries the text; the stored `200` result is the stub.
+ */
+export interface HubConversationMessageDeletePayload {
+  agency_org_did: OrgDID;
   hub_user_did: HubUserDID;
+  message_number: MessageNumber;
 }
 
-export function validateHubConversationDeletePayload(
-  payload: HubConversationDeletePayload,
+export function validateHubConversationMessageDeletePayload(
+  payload: HubConversationMessageDeletePayload,
 ): string[] {
   const fields: string[] = [];
-  if (!isContactID(payload.contact_id)) fields.push("contact_id");
+  if (!isOrgDID(payload.agency_org_did)) fields.push("agency_org_did");
   if (!isHubUserDID(payload.hub_user_did)) fields.push("hub_user_did");
+  if (!isMessageNumber(payload.message_number)) fields.push("message_number");
   return fields;
 }
 
+/**
+ * The event the agency's tenant enqueues when an agency user deletes one of
+ * the agency's text messages. It never carries the text.
+ */
+export const AgencyMessageDeletedKind: EventKind = "agency-message-deleted";
+
+/** A message is deleted once, so the version is always 1. */
+export const AgencyMessageAggregate: AggregateType = "agency_message";
+
+export function agencyMessageAggregateID(
+  agency: OrgDID,
+  hubUser: HubUserDID,
+  messageNumber: MessageNumber,
+): string {
+  return `${contactAggregateID(agency, hubUser)}:${messageNumber}`;
+}
+
+export interface AgencyMessageDeletedPayload {
+  agency_org_did: OrgDID;
+  hub_user_did: HubUserDID;
+  agency_domain: OrgDomain;
+  message_number: MessageNumber;
+}
+
+export function validateAgencyMessageDeletedPayload(
+  payload: AgencyMessageDeletedPayload,
+): string[] {
+  const fields: string[] = [];
+  if (!isOrgDID(payload.agency_org_did)) fields.push("agency_org_did");
+  if (!isHubUserDID(payload.hub_user_did)) fields.push("hub_user_did");
+  if (!isOrgDomain(payload.agency_domain)) fields.push("agency_domain");
+  if (!isMessageNumber(payload.message_number)) fields.push("message_number");
+  return fields;
+}
+
+/** Reads one page of the conversation, or with `message_number` only that message. */
 export interface MeshReadConversationRequest {
-  contact_id: ContactID;
   hub_user_did: HubUserDID;
   agency_org_did: OrgDID;
+  message_number?: MessageNumber;
   pagination_key?: PaginationKey;
   /** Defaults to 50. */
   limit?: number;
@@ -693,9 +746,13 @@ export function validateMeshReadConversationRequest(
       request.limit > maxContactPage)
   )
     fields.push("limit");
-  if (!isContactID(request.contact_id)) fields.push("contact_id");
   if (!isHubUserDID(request.hub_user_did)) fields.push("hub_user_did");
   if (!isOrgDID(request.agency_org_did)) fields.push("agency_org_did");
+  if (
+    request.message_number !== undefined &&
+    !isMessageNumber(request.message_number)
+  )
+    fields.push("message_number");
   return fields;
 }
 
@@ -717,7 +774,6 @@ export function validateAgencyPointerChangedPayload(
   payload: AgencyPointerChangedPayload,
 ): string[] {
   const fields: string[] = [];
-  if (!isContactID(payload.contact_id)) fields.push("contact_id");
   if (!isOrgDID(payload.agency_org_did)) fields.push("agency_org_did");
   if (!isHubUserDID(payload.hub_user_did)) fields.push("hub_user_did");
   if (payload.request !== undefined)
@@ -748,12 +804,12 @@ export function validateHubAccountDeletedPayload(
 export const HubAgencyRequestsChangedKind: EventKind =
   "hub-agency-requests-changed";
 
-/** Versions the event by the setting's version; the id is the Contact id. */
+/** Versions the event by the setting's version; the id is contactAggregateID. */
 export const AgencyContactRequestsAggregate: AggregateType =
   "agency_contact_requests";
 
 export interface HubAgencyRequestsChangedPayload {
-  contact_id: ContactID;
+  agency_org_did: OrgDID;
   hub_user_did: HubUserDID;
   requests_off: boolean;
 }
@@ -762,7 +818,7 @@ export function validateHubAgencyRequestsChangedPayload(
   payload: HubAgencyRequestsChangedPayload,
 ): string[] {
   const fields: string[] = [];
-  if (!isContactID(payload.contact_id)) fields.push("contact_id");
+  if (!isOrgDID(payload.agency_org_did)) fields.push("agency_org_did");
   if (!isHubUserDID(payload.hub_user_did)) fields.push("hub_user_did");
   return fields;
 }

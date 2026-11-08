@@ -6,7 +6,7 @@ const HubConversationNotFoundError = #{
   type: "vetchium-problem-details/hub-conversation-not-found",
   title: "Hub conversation not found",
   status: 404,
-  detail: "No conversation has that identifier",
+  detail: "You have no conversation with that agency",
 };
 alias HubConversationNotFoundErrorResponse = Response<
   404,
@@ -61,7 +61,7 @@ const HubChatRequestNotFoundError = #{
   type: "vetchium-problem-details/hub-chat-request-not-found",
   title: "Hub chat request not found",
   status: 404,
-  detail: "No pending chat request to you has that identifier",
+  detail: "No pending chat request to you from that agency has that number",
 };
 alias HubChatRequestNotFoundErrorResponse = Response<
   404,
@@ -99,4 +99,15 @@ const HubAgencyNotAssignedError = #{
 alias HubAgencyNotAssignedErrorResponse = Response<
   422,
   typeof HubAgencyNotAssignedError
+>;
+
+const HubConversationMessageNotFoundError = #{
+  type: "vetchium-problem-details/hub-conversation-message-not-found",
+  title: "Hub conversation message not found",
+  status: 404,
+  detail: "No text message you sent and have not deleted has that number",
+};
+alias HubConversationMessageNotFoundErrorResponse = Response<
+  404,
+  typeof HubConversationMessageNotFoundError
 >;

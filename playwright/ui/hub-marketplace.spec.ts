@@ -2,11 +2,10 @@ import { randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
 import type { OpeningSuggestion } from "typespec/orgs/marketplace/contacts/contacts";
 import { sqlLiteral, sqlScalarForTenant } from "../lib/admin-db.ts";
-import { orgsIdempotencyKey } from "../lib/orgs-api.ts";
+import { orgDID, orgsIdempotencyKey } from "../lib/orgs-api.ts";
 import { publishedOpening } from "../lib/orgs-applications.ts";
 import {
   agencyRequestState,
-  backdateRequest,
   openHubAs,
   pendingAt,
   personAsks,
@@ -42,7 +41,7 @@ async function signIn(page: Page, user: HubTestUser) {
   ).toBeVisible();
 }
 
-test("messages: accept an agency's chat request, reply, and delete the conversation", async ({
+test("messages: the nav counts the waiting request; accept it, reply, and delete only your own message", async ({
   page,
   request,
   hubUser,
@@ -78,9 +77,13 @@ test("messages: accept an agency's chat request, reply, and delete the conversat
     // Sign in as candidate to Hub UI
     await signIn(page, user);
 
-    // 1. Navigation has Messages; the request is listed first.
+    // 1. Navigation has Messages, counting the request that waits for Ada;
+    // the request is listed first.
     const messagesNav = page.getByRole("menuitem", { name: /Messages/ });
     await expect(messagesNav).toBeVisible();
+    await expect(
+      messagesNav.getByTitle("1 conversation waiting for you"),
+    ).toBeVisible();
     await messagesNav.click();
 
     await expect(
@@ -89,6 +92,9 @@ test("messages: accept an agency's chat request, reply, and delete the conversat
     await expect(page.getByText("Asks to chat about an Opening")).toBeVisible();
     const conversationItem = page.getByText("Agency Alpha").first();
     await conversationItem.click();
+    await expect(page).toHaveURL(
+      `${HUB_PORTAL}/messages/o/${provider.org.domain}`,
+    );
 
     // 2. The request shows its Opening and note; accepting opens the
     // composer at once, and the request stays as a card.
@@ -104,6 +110,7 @@ test("messages: accept an agency's chat request, reply, and delete the conversat
       page.getByText("You accepted the chat request from Agency Alpha."),
     ).toBeVisible();
     await expect(page.getByPlaceholder("Write a reply")).toBeVisible();
+    await expect(messagesNav.getByTitle(/waiting for you/)).toHaveCount(0);
     await expect(
       page.getByText(`${provider.org.domain} · Agency`),
     ).toBeVisible();
@@ -122,19 +129,20 @@ test("messages: accept an agency's chat request, reply, and delete the conversat
     await expect(page.getByText(replyText)).toBeVisible();
     await expect(page.getByText(/You ·/)).toBeVisible();
 
-    // 4. Delete conversation
+    // 4. Ada deletes her reply; the agency's request offers no delete, and
+    // the reply leaves a stub in its place.
+    const deleteButtons = page.getByRole("button", { name: "Delete message" });
+    await expect(deleteButtons).toHaveCount(1);
+    await deleteButtons.click();
     await page
-      .getByRole("button", { name: "Delete", exact: false })
-      .first()
+      .locator(".ant-popconfirm:visible")
+      .getByRole("button", { name: "Delete" })
       .click();
-    await expect(page.getByText("Delete conversation?")).toBeVisible();
-    await page.getByRole("button", { name: "Delete conversation" }).click();
-
-    // Conversation is removed from list
+    await expect(page.getByText("Message deleted")).toBeVisible();
+    await expect(page.getByText(replyText)).toHaveCount(0);
+    await expect(deleteButtons).toHaveCount(0);
     await expect(
-      page.getByText(
-        "No messages yet. When recruitment agencies reach out about Openings, your conversations appear here.",
-      ),
+      page.getByText("Your background fits this role well."),
     ).toBeVisible();
   });
 });
@@ -381,7 +389,7 @@ test("messages: decline an agency's chat requests about one Opening, then for a 
         await agency.send({ address: person.handle }, opening),
       );
       await pendingAt(person, asked);
-      await page.goto(`${HUB_PORTAL}/messages/${asked.contact_id}`);
+      await page.goto(`${HUB_PORTAL}/messages/o/${provider.org.domain}`);
       await expect(
         page.getByText("Agency Beta asks to chat with you about this Opening"),
       ).toBeVisible();
@@ -395,7 +403,7 @@ test("messages: decline an agency's chat requests about one Opening, then for a 
       const answered = await agencyRequestState(
         agency,
         "to_hub_user",
-        asked.request_id,
+        asked,
         "declined",
       );
       expect(answered.decline_scope).toBe(scope);
@@ -475,7 +483,7 @@ test("Opening page: agencies show only to a signed-in person on an Opening they 
         "to_agency",
         (item) => item.state === "pending",
       );
-      await page.goto(`${HUB_PORTAL}/messages/${asked.contact_id}`);
+      await page.goto(`${HUB_PORTAL}/messages/o/${provider.org.domain}`);
       await expect(
         page.getByText(
           /Your chat request, sent .+, is waiting for Agency Beta to answer\./,
@@ -484,7 +492,8 @@ test("Opening page: agencies show only to a signed-in person on an Opening they 
 
       // 4. The agency declines for a window: both pages show the lift date.
       const declined = await provider.api.declineChatRequest(provider.owner, {
-        request_id: asked.request_id,
+        handle: person.handle,
+        request_number: asked.request_number,
         scope: "sender",
       });
       expect(declined.status(), await declined.text()).toBe(200);
@@ -492,7 +501,9 @@ test("Opening page: agencies show only to a signed-in person on an Opening they 
         person,
         "to_agency",
         (item) =>
-          item.request_id === asked.request_id && item.state === "declined",
+          item.agency_domain === asked.agency_domain &&
+          item.request_number === asked.request_number &&
+          item.state === "declined",
       );
       await page.reload();
       await expect(
@@ -538,15 +549,24 @@ test("Opening page: agencies show only to a signed-in person on an Opening they 
 
           // 6. Unanswered, it expires: Messages says so and the row offers a
           // new request.
-          backdateRequest(rival.tenant, crossed.request_id);
+          // The rival is no Agency fixture, so its request is backdated here.
+          sqlScalarForTenant(
+            rival.tenant,
+            `UPDATE vetchium.org_chat_requests
+             SET sent_at = now() - interval '15 days'
+             WHERE org_did = ${sqlLiteral(orgDID(rival.org.domain, rival.tenant))}::uuid
+               AND hub_user_did = ${sqlLiteral(person.did)}::uuid
+               AND request_number = ${crossed.request_number}`,
+          );
           await awaitHubRequest(
             person,
             "to_agency",
             (item) =>
-              item.request_id === crossed.request_id &&
+              item.agency_domain === rival.org.domain &&
+              item.request_number === crossed.request_number &&
               item.state === "expired",
           );
-          await page.goto(`${HUB_PORTAL}/messages/${crossed.contact_id}`);
+          await page.goto(`${HUB_PORTAL}/messages/o/${rival.org.domain}`);
           await expect(
             page.getByText(
               /Your chat request of .+ expired before Agency Gamma answered\./,
@@ -573,7 +593,7 @@ test("Opening page: agencies show only to a signed-in person on an Opening they 
           await page.reload();
           await rivalRow.getByRole("button", { name: "View request" }).click();
           await expect(page).toHaveURL(
-            `${HUB_PORTAL}/messages/${incoming.contact_id}`,
+            `${HUB_PORTAL}/messages/o/${incoming.agency_domain}`,
           );
           await expect(
             page.getByText(
@@ -589,7 +609,7 @@ test("Opening page: agencies show only to a signed-in person on an Opening they 
             .getByRole("button", { name: "Open conversation" })
             .click();
           await expect(page).toHaveURL(
-            `${HUB_PORTAL}/messages/${incoming.contact_id}`,
+            `${HUB_PORTAL}/messages/o/${incoming.agency_domain}`,
           );
           await expect(page.getByPlaceholder("Write a reply")).toBeVisible();
 
@@ -599,7 +619,8 @@ test("Opening page: agencies show only to a signed-in person on an Opening they 
             rival.tenant,
             `UPDATE vetchium.org_conversations
          SET agency_activity_at = now() - interval '91 days'
-         WHERE contact_id = ${sqlLiteral(incoming.contact_id)}::uuid`,
+         WHERE org_did = ${sqlLiteral(orgDID(rival.org.domain, rival.tenant))}::uuid
+           AND hub_user_did = ${sqlLiteral(person.did)}::uuid`,
           );
           await page.reload();
           await expect(

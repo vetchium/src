@@ -6,12 +6,11 @@ import (
 	"testing"
 
 	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace/contacts"
 )
 
-const (
-	contactID = contacts.ContactID("01900000-0000-7000-8000-000000000001")
-)
+const agency = orgs.OrgDomain("agency.test")
 
 func TestMessagesValidation(t *testing.T) {
 	t.Parallel()
@@ -24,16 +23,16 @@ func TestMessagesValidation(t *testing.T) {
 	}{
 		{"list valid", ListConversationsRequest{Limit: &goodLimit}.Validate(), []string{}},
 		{"list invalid", ListConversationsRequest{Limit: &badLimit, PaginationKey: &key}.Validate(), []string{"pagination_key", "limit"}},
-		{"get valid", GetConversationRequest{ContactID: contactID}.Validate(), []string{}},
-		{"get invalid", GetConversationRequest{ContactID: "bad"}.Validate(), []string{"contact_id"}},
-		{"get page", GetConversationRequest{ContactID: contactID, Limit: &goodLimit}.Validate(), []string{}},
-		{"get page invalid", GetConversationRequest{ContactID: "bad", PaginationKey: &key, Limit: &badLimit}.Validate(), []string{"pagination_key", "limit", "contact_id"}},
-		{"reply valid", ReplyToConversationRequest{ContactID: contactID, Text: "hello"}.Validate(), []string{}},
-		{"reply invalid", ReplyToConversationRequest{ContactID: "bad", Text: " "}.Validate(), []string{"contact_id", "text"}},
-		{"delete valid", DeleteConversationRequest{ContactID: contactID}.Validate(), []string{}},
-		{"delete invalid", DeleteConversationRequest{ContactID: "bad"}.Validate(), []string{"contact_id"}},
-		{"mark read valid", MarkConversationReadRequest{ContactID: contactID}.Validate(), []string{}},
-		{"mark read invalid", MarkConversationReadRequest{ContactID: "bad"}.Validate(), []string{"contact_id"}},
+		{"get valid", GetConversationRequest{AgencyDomain: agency}.Validate(), []string{}},
+		{"get invalid", GetConversationRequest{AgencyDomain: "bad"}.Validate(), []string{"agency_domain"}},
+		{"get page", GetConversationRequest{AgencyDomain: agency, Limit: &goodLimit}.Validate(), []string{}},
+		{"get page invalid", GetConversationRequest{AgencyDomain: "bad", PaginationKey: &key, Limit: &badLimit}.Validate(), []string{"agency_domain", "pagination_key", "limit"}},
+		{"reply valid", ReplyToConversationRequest{AgencyDomain: agency, Text: "hello"}.Validate(), []string{}},
+		{"reply invalid", ReplyToConversationRequest{AgencyDomain: "bad", Text: " "}.Validate(), []string{"agency_domain", "text"}},
+		{"delete valid", DeleteMessageRequest{AgencyDomain: agency, MessageNumber: 2}.Validate(), []string{}},
+		{"delete invalid", DeleteMessageRequest{AgencyDomain: "bad"}.Validate(), []string{"agency_domain", "message_number"}},
+		{"mark read valid", MarkConversationReadRequest{AgencyDomain: agency}.Validate(), []string{}},
+		{"mark read invalid", MarkConversationReadRequest{AgencyDomain: "bad"}.Validate(), []string{"agency_domain"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -54,7 +53,6 @@ func TestPageDefaults(t *testing.T) {
 
 func TestChatRequestValidation(t *testing.T) {
 	t.Parallel()
-	const requestID = contacts.ChatRequestID("01900000-0000-7000-8000-000000000005")
 	note := contacts.ChatRequestNote("  hi  ")
 	original := HubSendChatRequestRequest{Domain: " Client.Test ", OpeningNumber: 1,
 		AgencyDomain: "Agency.Test", Note: &note}
@@ -79,10 +77,10 @@ func TestChatRequestValidation(t *testing.T) {
 		{"send invalid", HubSendChatRequestRequest{Note: &long}.Validate(), []string{"domain", "opening_number", "agency_domain", "note"}},
 		{"list", ListHubChatRequestsRequest{Direction: contacts.ToHubUser}.Validate(), []string{}},
 		{"list invalid", ListHubChatRequestsRequest{Limit: &badLimit}.Validate(), []string{"direction", "limit"}},
-		{"accept", HubAcceptChatRequestRequest{RequestID: requestID}.Validate(), []string{}},
-		{"accept invalid", HubAcceptChatRequestRequest{}.Validate(), []string{"request_id"}},
-		{"decline", HubDeclineChatRequestRequest{RequestID: requestID, Scope: contacts.DeclineOpening}.Validate(), []string{}},
-		{"decline invalid", HubDeclineChatRequestRequest{Scope: "x"}.Validate(), []string{"request_id", "scope"}},
+		{"accept", HubAcceptChatRequestRequest{AgencyDomain: agency, RequestNumber: 1}.Validate(), []string{}},
+		{"accept invalid", HubAcceptChatRequestRequest{}.Validate(), []string{"agency_domain", "request_number"}},
+		{"decline", HubDeclineChatRequestRequest{AgencyDomain: agency, RequestNumber: 1, Scope: contacts.DeclineOpening}.Validate(), []string{}},
+		{"decline invalid", HubDeclineChatRequestRequest{Scope: "x"}.Validate(), []string{"agency_domain", "request_number", "scope"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -28,7 +28,7 @@ func TestAgencyChatState(t *testing.T) {
 		number int32, scope *contacts.ChatRequestDeclineScope, until *time.Time,
 	) []byte {
 		body, err := json.Marshal(federationspec.AgencyPointerRequest{
-			RequestID: "01900000-0000-7000-8000-000000000001", Direction: direction,
+			RequestNumber: 1, Direction: direction,
 			State: state, ConsumerDomain: "client.test", OpeningNumber: openings.OpeningNumber(number),
 			SentAt: earlier, DeclineScope: scope, BlockedUntil: until,
 		})

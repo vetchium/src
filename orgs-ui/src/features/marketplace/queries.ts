@@ -18,7 +18,7 @@ import type {
   AddPersonNoteRequest,
   ChatRequestDirection,
   DeclineChatRequestRequest,
-  DeleteContactNoteRequest,
+  DeleteMessageRequest,
   EditContactNoteRequest,
   ListContactsRequest,
   SendChatRequestRequest,
@@ -934,13 +934,12 @@ export function useContactsQuery(
   });
 }
 
-export function useContactQuery(contactId: string, enabled = true) {
+export function useContactQuery(handle: string, enabled = true) {
   return useQuery({
-    queryKey: [...marketplaceQueryKey, "contacts", "detail", contactId],
-    queryFn: () => orgsAPI.getContact({ contact_id: contactId }),
-    placeholderData: (previous) => previous,
+    queryKey: [...marketplaceQueryKey, "contacts", "detail", handle],
+    queryFn: () => orgsAPI.getContact({ handle }),
     retry: false,
-    enabled: enabled && contactId !== "",
+    enabled: enabled && handle !== "",
   });
 }
 
@@ -948,19 +947,24 @@ export function useViewHubProfileQuery(address: string, enabled = true) {
   return useQuery({
     queryKey: [...marketplaceQueryKey, "hub-profile", address],
     queryFn: () => orgsAPI.viewHubProfile({ address }),
-    placeholderData: (previous) => previous,
     retry: false,
     enabled: enabled && address.trim() !== "",
   });
 }
 
-export function useContactNotesQuery(contactId: string, enabled = true) {
-  return useQuery({
-    queryKey: [...marketplaceQueryKey, "contact-notes", contactId],
-    queryFn: () => orgsAPI.listContactNotes({ contact_id: contactId }),
-    placeholderData: (previous) => previous,
+/** Pages of a Contact's notes, newest first. */
+export function useContactNotesQuery(handle: string, enabled = true) {
+  return useInfiniteQuery({
+    queryKey: [...marketplaceQueryKey, "contact-notes", handle],
+    queryFn: ({ pageParam }) =>
+      orgsAPI.listContactNotes({
+        handle,
+        ...(pageParam !== undefined && { pagination_key: pageParam }),
+      }),
+    initialPageParam: undefined as PaginationKey | undefined,
+    getNextPageParam: (page) => page.next_pagination_key,
     retry: false,
-    enabled: enabled && contactId !== "",
+    enabled: enabled && handle !== "",
   });
 }
 
@@ -975,17 +979,16 @@ export function useAddPersonNoteMutation() {
       key: IdempotencyKey;
     }) => orgsAPI.addPersonNote(request, key),
     onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "contacts", "list"],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "hub-profile"],
-      });
+      for (const part of ["contacts", "contact-notes", "hub-profile"]) {
+        void queryClient.invalidateQueries({
+          queryKey: [...marketplaceQueryKey, part],
+        });
+      }
     },
   });
 }
 
-export function useAddContactNoteMutation(contactId: string) {
+export function useAddContactNoteMutation(handle: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -997,10 +1000,10 @@ export function useAddContactNoteMutation(contactId: string) {
     }) => orgsAPI.addContactNote(request, key),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "contact-notes", contactId],
+        queryKey: [...marketplaceQueryKey, "contact-notes", handle],
       });
       void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "contacts", "detail", contactId],
+        queryKey: [...marketplaceQueryKey, "contacts", "detail", handle],
       });
       void queryClient.invalidateQueries({
         queryKey: [...marketplaceQueryKey, "contacts", "list"],
@@ -1009,7 +1012,7 @@ export function useAddContactNoteMutation(contactId: string) {
   });
 }
 
-export function useEditContactNoteMutation(contactId: string) {
+export function useEditContactNoteMutation(handle: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -1021,49 +1024,25 @@ export function useEditContactNoteMutation(contactId: string) {
     }) => orgsAPI.editContactNote(request, key),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "contact-notes", contactId],
-      });
-    },
-  });
-}
-
-export function useDeleteContactNoteMutation(contactId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      request,
-      key,
-    }: {
-      request: DeleteContactNoteRequest;
-      key: IdempotencyKey;
-    }) => orgsAPI.deleteContactNote(request, key),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "contact-notes", contactId],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "contacts", "detail", contactId],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "contacts", "list"],
+        queryKey: [...marketplaceQueryKey, "contact-notes", handle],
       });
     },
   });
 }
 
 /** Pages of a conversation, newest first; each page lists newest first. */
-export function useConversationQuery(contactId: string, enabled = true) {
+export function useConversationQuery(handle: string, enabled = true) {
   return useInfiniteQuery({
-    queryKey: [...marketplaceQueryKey, "conversation", contactId],
+    queryKey: [...marketplaceQueryKey, "conversation", handle],
     queryFn: ({ pageParam }) =>
       orgsAPI.getConversation({
-        contact_id: contactId,
+        handle,
         ...(pageParam !== undefined && { pagination_key: pageParam }),
       }),
     initialPageParam: undefined as PaginationKey | undefined,
     getNextPageParam: (page) => page.next_pagination_key,
     retry: false,
-    enabled: enabled && contactId !== "",
+    enabled: enabled && handle !== "",
   });
 }
 
@@ -1158,7 +1137,7 @@ export function useDeclineChatRequestMutation() {
   });
 }
 
-export function useSendMessageMutation(contactId: string) {
+export function useSendMessageMutation(handle: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -1170,10 +1149,10 @@ export function useSendMessageMutation(contactId: string) {
     }) => orgsAPI.sendMessage(request, key),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "conversation", contactId],
+        queryKey: [...marketplaceQueryKey, "conversation", handle],
       });
       void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "contacts", "detail", contactId],
+        queryKey: [...marketplaceQueryKey, "contacts", "detail", handle],
       });
       void queryClient.invalidateQueries({
         queryKey: [...marketplaceQueryKey, "contacts", "list"],
@@ -1189,16 +1168,34 @@ export function useSendMessageMutation(contactId: string) {
   });
 }
 
-export function useMarkConversationReadMutation(contactId: string) {
+export function useDeleteMessageMutation(handle: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => orgsAPI.markConversationRead({ contact_id: contactId }),
+    mutationFn: ({
+      request,
+      key,
+    }: {
+      request: DeleteMessageRequest;
+      key: IdempotencyKey;
+    }) => orgsAPI.deleteMessage(request, key),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "conversation", contactId],
+        queryKey: [...marketplaceQueryKey, "conversation", handle],
+      });
+    },
+  });
+}
+
+export function useMarkConversationReadMutation(handle: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => orgsAPI.markConversationRead({ handle }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...marketplaceQueryKey, "conversation", handle],
       });
       void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "contacts", "detail", contactId],
+        queryKey: [...marketplaceQueryKey, "contacts", "detail", handle],
       });
       void queryClient.invalidateQueries({
         queryKey: [...marketplaceQueryKey, "contacts", "list"],

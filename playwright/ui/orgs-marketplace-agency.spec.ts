@@ -2,7 +2,6 @@ import type {
   ChatRequest,
   ListChatRequestsResponse,
 } from "typespec/orgs/marketplace/contacts/contacts";
-import { sqlLiteral, sqlScalarForTenant } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { cleanupApplicant, seedApplicant } from "../lib/hub-applicant.ts";
 import { addOrgMember, inviteeAddress, orgDID } from "../lib/orgs-api.ts";
@@ -20,6 +19,7 @@ import {
 import {
   activate,
   asProvider,
+  awaitHubPointer,
   awaitHubRequest,
   awaitRequestsOff,
 } from "../lib/orgs-marketplace.ts";
@@ -29,7 +29,7 @@ import { ORGS_PORTAL } from "../lib/portals.ts";
 
 test.describe.configure({ timeout: 240_000 });
 
-test("agency contact lifecycle: creates contact with note, opens a conversation by chat request, suggests opening, edits/deletes notes, and keeps the conversation open when chat requests are off", async ({
+test("agency person page: found by alias at its handle, a note makes the Contact, a chat request opens the conversation, notes are kept, and the agency deletes only its own message", async ({
   page,
   request,
 }) => {
@@ -44,64 +44,64 @@ test("agency contact lifecycle: creates contact with note, opens a conversation 
 
     // Seed applicant in consumer tenant
     const applicant = seedApplicant(request, consumer.tenant);
+    const personPath = `${ORGS_PORTAL}/sourcing/contacts/${applicant.handle}`;
 
     try {
       // 1. Sign in to Orgs UI as provider owner
       await signIn(page, provider.org, provider.tenant);
 
-      // 2. Navigate to /contacts
+      // 2. Contacts offers to find a person while it holds none.
       await page.goto(`${ORGS_PORTAL}/sourcing/contacts`);
       await expect(
         page.getByRole("heading", { name: "Contacts", exact: true }),
       ).toBeVisible();
-
-      // Open "New contact" modal
-      await page.getByRole("button", { name: "New contact" }).click();
-      const findModal = page.getByRole("dialog");
-      await expect(findModal).toBeVisible();
-
-      // Enter applicant's handle and click "View profile"
-      await findModal.getByPlaceholder("handle").fill(applicant.handle);
+      await expect(
+        page.getByRole("tab", { name: "Not contacted" }),
+      ).toHaveCount(0);
+      for (const tab of ["All", "Requests", "Unread", "Conversations"]) {
+        await expect(
+          page.getByRole("tab", { name: `${tab} (0)` }),
+        ).toBeVisible();
+      }
+      await page.getByRole("button", { name: "Find a person" }).first().click();
+      const findModal = page.getByRole("dialog", {
+        name: "Find a person on Vetchium",
+      });
+      await findModal.getByPlaceholder("handle or alias").fill(applicant.alias);
       await findModal.getByRole("button", { name: "View profile" }).click();
 
-      // Navigated to /sourcing/contacts/new?address=...
-      await expect(page).toHaveURL(
-        new RegExp(`/sourcing/contacts/new\\?address=${applicant.handle}`),
-      );
+      // The alias lands on the person's handle, which never changes.
+      await expect(page).toHaveURL(personPath);
       await expect(
         page.getByRole("heading", { name: "Ada Applicant" }),
       ).toBeVisible();
+      await expect(
+        page.getByText("Ada is not in your contacts yet."),
+      ).toBeVisible();
+      await expect(page.getByText(/Contact since/)).toHaveCount(0);
 
-      // Add a note about this candidate
+      // A note makes the person a Contact on the same page.
       await page
         .getByPlaceholder("Add a note for your agency")
         .fill("Strong distributed systems background.");
       await page.getByRole("button", { name: "Add note" }).click();
-
-      // Redirects to Contact detail page (/sourcing/contacts/:contactId)
-      await expect(page).toHaveURL(/\/sourcing\/contacts\/[0-9a-f-]{36}/);
       await expect(
-        page.getByRole("heading", { name: "Ada Applicant" }),
+        page.getByText("No conversation", { exact: true }),
       ).toBeVisible();
-
-      // Extract contact ID from URL
-      const contactUrl = page.url();
-      const contactID =
-        (contactUrl.split("/contacts/")[1] ?? "").split("?")[0] ?? "";
-      expect(contactID).toBeTruthy();
+      await expect(page).toHaveURL(new RegExp(`${personPath}(\\?|$)`));
 
       // Verify contact is listed in Contacts table
       await page.goto(`${ORGS_PORTAL}/sourcing/contacts`);
+      await expect(page.getByRole("tab", { name: "All (1)" })).toBeVisible();
       await expect(
         page.getByRole("link", { name: "Ada Applicant" }),
       ).toBeVisible();
       await expect(page.getByText(`@${applicant.handle}`)).toBeVisible();
-
-      // Open contact detail by clicking candidate link in table
+      await expect(
+        page.getByRole("row", { name: /Ada Applicant/ }),
+      ).toContainText("No conversation");
       await page.getByRole("link", { name: "Ada Applicant" }).click();
-      await expect(page).toHaveURL(
-        new RegExp(`/sourcing/contacts/${contactID}`),
-      );
+      await expect(page).toHaveURL(personPath);
 
       // 3. Ask Ada to chat from her Contact; she accepts.
       await page.getByRole("button", { name: "Send chat request" }).click();
@@ -123,13 +123,19 @@ test("agency contact lifecycle: creates contact with note, opens a conversation 
       await expect(
         page.getByText(/Waiting for Ada Applicant to answer\./),
       ).toBeVisible();
+      await expect(
+        page.getByText("Request sent", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Send chat request" }),
+      ).toHaveCount(0);
       const listed = await provider.api.listChatRequests(provider.owner, {
         direction: "to_hub_user",
       });
       expect(listed.status(), await listed.text()).toBe(200);
       const toAda = (
         (await listed.json()) as ListChatRequestsResponse
-      ).items.find((item) => item.contact_id === contactID);
+      ).items.find((item) => item.hub_user_handle === applicant.handle);
       expect(toAda).toBeDefined();
       await accepted(applicant, toAda as ChatRequest);
       await page.reload();
@@ -139,11 +145,42 @@ test("agency contact lifecycle: creates contact with note, opens a conversation 
         page.getByRole("tab", { name: "Conversation" }),
       ).toBeVisible();
       await expect(
+        page.getByText("In conversation", { exact: true }),
+      ).toBeVisible();
+      await expect(
         page
           .getByRole("tabpanel", { name: "Conversation" })
           .getByText("We came across your profile and would love to connect."),
       ).toBeVisible();
       await expect(page.getByPlaceholder("Write a message")).toBeEnabled();
+
+      // The agency deletes its own message, never the request; a stub stays.
+      await page
+        .getByPlaceholder("Write a message")
+        .fill("A message we take back.");
+      await page.getByRole("button", { name: /Send$/ }).click();
+      const conversationPanel = page.getByRole("tabpanel", {
+        name: "Conversation",
+      });
+      await expect(
+        conversationPanel.getByText("A message we take back."),
+      ).toBeVisible();
+      const deleteButtons = conversationPanel.getByRole("button", {
+        name: "Delete message",
+      });
+      await expect(deleteButtons).toHaveCount(1);
+      await deleteButtons.click();
+      await page
+        .locator(".ant-popconfirm:visible")
+        .getByRole("button", { name: "Delete" })
+        .click();
+      await expect(
+        conversationPanel.getByText("Message deleted", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        conversationPanel.getByText("A message we take back."),
+      ).toHaveCount(0);
+      await expect(deleteButtons).toHaveCount(0);
 
       // 4. Suggest an opening
       await page.getByRole("button", { name: "Suggest an Opening" }).click();
@@ -166,8 +203,10 @@ test("agency contact lifecycle: creates contact with note, opens a conversation 
       // Verify suggested opening card appears in conversation feed
       await expect(page.getByText("Opening suggestion")).toBeVisible();
 
-      // Check Suggested openings tab
+      // The tab is kept in the URL, so a reload stays on it.
       await page.getByRole("tab", { name: /Suggested Openings/ }).click();
+      await expect(page).toHaveURL(/tab=suggested_openings/);
+      await page.reload();
       await expect(
         page
           .getByRole("tabpanel", { name: /Suggested Openings/ })
@@ -175,7 +214,7 @@ test("agency contact lifecycle: creates contact with note, opens a conversation 
           .first(),
       ).toBeVisible();
 
-      // 5. Notes tab: edit and delete notes
+      // 5. Notes tab: notes are edited and added, never deleted.
       await page.getByRole("tab", { name: /Notes/ }).click();
       const notesPanel = page.getByRole("tabpanel", { name: /Notes/ });
       await expect(
@@ -200,48 +239,33 @@ test("agency contact lifecycle: creates contact with note, opens a conversation 
       // Add a second note
       await notesPanel
         .getByPlaceholder("Add a note for your agency")
-        .fill("Temporary follow-up note.");
+        .fill("Follow up after the first interview.");
       await notesPanel.getByRole("button", { name: "Add note" }).click();
       await expect(
-        notesPanel.getByText("Temporary follow-up note."),
+        notesPanel.getByText("Follow up after the first interview."),
       ).toBeVisible();
-
-      // Delete the second note
-      const tempNoteCard = notesPanel.locator(".ant-card", {
-        hasText: "Temporary follow-up note.",
-      });
-      await tempNoteCard.getByRole("button", { name: "Delete" }).click();
-      // Popconfirm "Delete"
-      const confirmPopconfirm = page
-        .locator(".ant-popconfirm:visible")
-        .getByRole("button", { name: "Delete" });
-      await confirmPopconfirm.click();
-      await expect(tempNoteCard).toBeHidden();
+      await expect(page.getByRole("tab", { name: "Notes (2)" })).toBeVisible();
+      await expect(
+        notesPanel.getByRole("button", { name: "Delete" }),
+      ).toHaveCount(0);
 
       // 6. Chat requests off: tagged, but the conversation stays writable.
-      await expect
-        .poll(
-          () =>
-            sqlScalarForTenant(
-              applicant.tenant,
-              `SELECT count(*)::text FROM vetchium.hub_agency_pointers
-               WHERE contact_id = ${sqlLiteral(contactID)}::uuid`,
-            ),
-          { timeout: 30_000 },
-        )
-        .toBe("1");
+      await awaitHubPointer(applicant, provider.org.domain);
       const switched = await applicant.hub.setAgenciesMayMessage(
         applicant.token,
         { agencies_may_message: false },
       );
       expect(switched.status(), await switched.text()).toBe(204);
-      await awaitRequestsOff(provider.api, provider.owner, contactID, true);
-      await page.reload();
+      await awaitRequestsOff(
+        provider.api,
+        provider.owner,
+        applicant.handle,
+        true,
+      );
+      await page.goto(personPath);
 
       await expect(
-        page.getByText(
-          "This person does not accept chat requests from agencies",
-        ),
+        page.getByText("Chat requests off", { exact: true }),
       ).toBeVisible();
       await expect(page.getByPlaceholder("Write a message")).toBeEnabled();
       await expect(
@@ -413,8 +437,7 @@ test("chat requests: an agency sends from a Job, meets each refusal, answers peo
     await expect(
       page.getByText("Chat request sent to Dana Declines."),
     ).toBeVisible();
-    await expect(page).toHaveURL(/\/sourcing\/contacts\/[0-9a-f-]{36}/);
-    const danaContact = page.url().split("/contacts/")[1] ?? "";
+    await expect(page).toHaveURL(contactPath(dana.handle));
     await expect(
       page.getByText(/Waiting for Dana Declines to answer\./),
     ).toBeVisible();
@@ -432,22 +455,23 @@ test("chat requests: an agency sends from a Job, meets each refusal, answers peo
     // 3. She declines for a window: the Contact shows the lift date, and
     // a new request from the Contact is refused.
     const toDana = (await orgRequests(agency, "to_hub_user")).find(
-      (item) => item.contact_id === danaContact,
+      (item) => item.hub_user_handle === dana.handle,
     );
     expect(toDana).toBeDefined();
     await pendingAt(dana, toDana as ChatRequest);
     const declined = await dana.hub.declineChatRequest(dana.token, {
-      request_id: (toDana as ChatRequest).request_id,
+      agency_domain: provider.org.domain,
+      request_number: (toDana as ChatRequest).request_number,
       scope: "sender",
     });
     expect(declined.status(), await declined.text()).toBe(200);
     await agencyRequestState(
       agency,
       "to_hub_user",
-      (toDana as ChatRequest).request_id,
+      toDana as ChatRequest,
       "declined",
     );
-    await page.goto(contactPath(danaContact));
+    await page.goto(contactPath(dana.handle));
     await expect(
       page.getByText(
         /Dana Declines declined your agency's chat requests until .+\./,
@@ -463,29 +487,35 @@ test("chat requests: an agency sends from a Job, meets each refusal, answers peo
     await dialog.getByRole("button", { name: "Cancel" }).click();
 
     // 4. People ask the agency: the navigation counts them and the
-    // Requests tab lists both directions.
-    const asked = new Map<string, string>();
+    // Requests tab lists the Contacts with a pending request; the answered
+    // one stays under All with its status.
     for (const person of [arjun, priya, nia, bo]) {
       const sentRequest = await personAsks(agency, person, opening);
-      const listed = await agencyRequestState(
+      await agencyRequestState(
         agency,
         "to_agency",
-        sentRequest.request_id,
+        {
+          hub_user_handle: person.handle,
+          request_number: sentRequest.request_number,
+        },
         "pending",
       );
-      asked.set(person.handle, listed.contact_id);
     }
     await page.goto(`${ORGS_PORTAL}/sourcing/contacts?tab=requests`);
     await expect(sidebarPage(page, "Contacts")).toContainText("4");
     await expect(page.getByRole("tab", { name: "Requests (4)" })).toBeVisible();
-    await expect(page.getByText("Waiting for your answer")).toBeVisible();
-    await expect(page.getByText("Sent by your agency")).toBeVisible();
     await expect(page.getByRole("row", { name: /Bo Busy/ })).toContainText(
-      "Pending",
+      "Request received",
     );
+    await expect(page.getByRole("row", { name: /Dana Declines/ })).toHaveCount(
+      0,
+    );
+    await page.getByRole("tab", { name: "All (5)" }).click();
+    // All is the default tab, so the URL drops it.
+    await expect(page).toHaveURL(`${ORGS_PORTAL}/sourcing/contacts`);
     await expect(
       page.getByRole("row", { name: /Dana Declines/ }),
-    ).toContainText("Declined");
+    ).toContainText("Request declined");
 
     // 5. Requesting someone who already asked offers Accept instead.
     await fromJob(bo.handle);
@@ -501,7 +531,7 @@ test("chat requests: an agency sends from a Job, meets each refusal, answers peo
     await expect(page.getByPlaceholder("Write a message")).toBeVisible();
 
     // 6. Answering on the Contact: accept, then each decline.
-    await page.goto(contactPath(asked.get(arjun.handle) ?? ""));
+    await page.goto(contactPath(arjun.handle));
     await expect(
       page.getByText(/Arjun Asks asked to chat with your agency on /),
     ).toBeVisible();
@@ -524,7 +554,7 @@ test("chat requests: an agency sends from a Job, meets each refusal, answers peo
       [priya, "Not this Opening", "opening"],
       [nia, "Not for 90 days", "sender"],
     ] as const) {
-      await page.goto(contactPath(asked.get(person.handle) ?? ""));
+      await page.goto(contactPath(person.handle));
       await page.getByRole("button", { name: answer }).click();
       await popconfirm.getByRole("button", { name: answer }).click();
       await expect(page.getByText("Chat request declined.")).toBeVisible();
@@ -539,8 +569,8 @@ test("chat requests: an agency sends from a Job, meets each refusal, answers peo
 
     // 7. Once Arjun's window lapses the Contact says why, and suggesting
     // the Opening to him hands off to a chat request.
-    backdate(agency, asked.get(arjun.handle) ?? "", "hub_activity_at");
-    await page.goto(contactPath(asked.get(arjun.handle) ?? ""));
+    backdate(agency, arjun.handle, "hub_activity_at");
+    await page.goto(contactPath(arjun.handle));
     await expect(
       page.getByText(
         "You cannot write to Arjun now. The conversation reopens when Arjun writes or accepts a new chat request.",
@@ -569,14 +599,9 @@ test("chat requests: an agency sends from a Job, meets each refusal, answers peo
     const toWen = await sent(
       await agency.send({ address: wen.handle }, opening),
     );
-    backdateRequest(provider.tenant, toWen.request_id);
-    await agencyRequestState(
-      agency,
-      "to_hub_user",
-      toWen.request_id,
-      "expired",
-    );
-    await page.goto(contactPath(toWen.contact_id));
+    backdateRequest(agency, toWen);
+    await agencyRequestState(agency, "to_hub_user", toWen, "expired");
+    await page.goto(contactPath(wen.handle));
     await expect(
       page.getByText(
         /Your chat request of .+ expired before Wen Waits answered\./,
@@ -586,12 +611,7 @@ test("chat requests: an agency sends from a Job, meets each refusal, answers peo
       agencies_may_message: false,
     });
     expect(off.status(), await off.text()).toBe(204);
-    await awaitRequestsOff(
-      provider.api,
-      provider.owner,
-      toWen.contact_id,
-      true,
-    );
+    await awaitRequestsOff(provider.api, provider.owner, wen.handle, true);
     await page.reload();
     await page.getByRole("button", { name: "Send chat request" }).click();
     await expect(

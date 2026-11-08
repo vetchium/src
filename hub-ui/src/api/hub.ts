@@ -48,7 +48,8 @@ import type {
 } from "typespec/hub/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";
 import type {
-  DeleteConversationRequest,
+  AwaitingConversationCount,
+  DeleteMessageRequest,
   GetConversationRequest,
   HubAcceptChatRequestRequest,
   HubChatRequest,
@@ -481,14 +482,16 @@ export const hubAPI = {
       `${base}/reply-to-conversation`,
       { body, idempotencyKey },
     ),
-  deleteConversation: (
-    body: DeleteConversationRequest,
-    idempotencyKey: IdempotencyKey,
-  ) =>
-    apiRequest<PendingOperation | null>(`${base}/delete-conversation`, {
-      body,
-      idempotencyKey,
-    }),
+  // Like the reply, a 202 means the agency's tenant has not answered yet.
+  deleteMessage: (body: DeleteMessageRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<ConversationMessage | PendingOperation>(
+      `${base}/delete-message`,
+      { body, idempotencyKey },
+    ),
+  countAwaitingConversations: () =>
+    apiRequest<AwaitingConversationCount>(
+      `${base}/count-awaiting-conversations`,
+    ),
   listOpeningAgencies: (body: ListOpeningAgenciesRequest) =>
     apiRequest<ListOpeningAgenciesResponse>(`${base}/list-opening-agencies`, {
       body,

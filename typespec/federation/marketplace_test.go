@@ -182,14 +182,19 @@ func TestWorkPayloadValidation(t *testing.T) {
 func TestAgencyEventPayloadsValidate(t *testing.T) {
 	t.Parallel()
 	const (
-		contactID = contacts.ContactID("01900000-0000-7000-8000-000000000001")
-		orgDID    = orgs.OrgDID("01900000-0000-7000-8000-000000000003")
-		hubDID    = hub.HubUserDID("01900000-0000-7000-8000-000000000004")
+		orgDID = orgs.OrgDID("01900000-0000-7000-8000-000000000003")
+		hubDID = hub.HubUserDID("01900000-0000-7000-8000-000000000004")
 	)
-	if got := (AgencyPointerChangedPayload{ContactID: contactID, AgencyOrgDID: orgDID, HubUserDID: hubDID, Present: true}).Validate(); len(got) != 0 {
+	if got := ContactAggregateID(orgDID, hubDID); got != string(orgDID)+":"+string(hubDID) {
+		t.Fatalf("contact aggregate id = %q", got)
+	}
+	if got := AgencyMessageAggregateID(orgDID, hubDID, 7); got != string(orgDID)+":"+string(hubDID)+":7" {
+		t.Fatalf("message aggregate id = %q", got)
+	}
+	if got := (AgencyPointerChangedPayload{AgencyOrgDID: orgDID, HubUserDID: hubDID, Present: true}).Validate(); len(got) != 0 {
 		t.Fatalf("valid pointer payload rejected: %v", got)
 	}
-	want := []string{"contact_id", "agency_org_did", "hub_user_did"}
+	want := []string{"agency_org_did", "hub_user_did"}
 	if got := (AgencyPointerChangedPayload{}).Validate(); !slices.Equal(got, want) {
 		t.Fatalf("pointer fields = %v, want %v", got, want)
 	}
@@ -199,48 +204,62 @@ func TestAgencyEventPayloadsValidate(t *testing.T) {
 	if got := (HubAccountDeletedPayload{}).Validate(); !slices.Equal(got, []string{"hub_user_did"}) {
 		t.Fatalf("notice fields = %v", got)
 	}
-	if got := (HubAgencyRequestsChangedPayload{ContactID: contactID, HubUserDID: hubDID, RequestsOff: true}).Validate(); len(got) != 0 {
+	if got := (HubAgencyRequestsChangedPayload{AgencyOrgDID: orgDID, HubUserDID: hubDID, RequestsOff: true}).Validate(); len(got) != 0 {
 		t.Fatalf("valid messages payload rejected: %v", got)
 	}
-	if got := (HubAgencyRequestsChangedPayload{}).Validate(); !slices.Equal(got, []string{"contact_id", "hub_user_did"}) {
+	if got := (HubAgencyRequestsChangedPayload{}).Validate(); !slices.Equal(got, []string{"agency_org_did", "hub_user_did"}) {
 		t.Fatalf("messages fields = %v", got)
+	}
+	deleted := AgencyMessageDeletedPayload{AgencyOrgDID: orgDID, HubUserDID: hubDID, AgencyDomain: "agency.test", MessageNumber: 4}
+	if got := deleted.Validate(); len(got) != 0 {
+		t.Fatalf("valid message deletion rejected: %v", got)
+	}
+	if got := (AgencyMessageDeletedPayload{}).Validate(); !slices.Equal(got, []string{"agency_org_did", "hub_user_did", "agency_domain", "message_number"}) {
+		t.Fatalf("message deletion fields = %v", got)
 	}
 }
 
 func TestHubConversationCommandsAndReads(t *testing.T) {
 	t.Parallel()
 	const (
-		contactID = contacts.ContactID("01900000-0000-7000-8000-000000000001")
-		orgDID    = orgs.OrgDID("01900000-0000-7000-8000-000000000003")
-		hubDID    = hub.HubUserDID("01900000-0000-7000-8000-000000000004")
+		orgDID = orgs.OrgDID("01900000-0000-7000-8000-000000000003")
+		hubDID = hub.HubUserDID("01900000-0000-7000-8000-000000000004")
 	)
 	reply := HubConversationReplyPayload{
-		ContactID: contactID, HubUserDID: hubDID,
+		AgencyOrgDID: orgDID, HubUserDID: hubDID,
 		HubUserDisplayName: "Ada Lovelace", HubUserHandle: "abcd1234-0123456789a",
 		Text: "Interested", WindowSeconds: 1,
 	}
 	if got := reply.Validate(); len(got) != 0 {
 		t.Fatalf("valid reply rejected: %v", got)
 	}
-	want := []string{"contact_id", "hub_user_did", "hub_user_display_name", "hub_user_handle", "text", "window_seconds"}
+	want := []string{"agency_org_did", "hub_user_did", "hub_user_display_name", "hub_user_handle", "text", "window_seconds"}
 	if got := (HubConversationReplyPayload{Text: " "}).Validate(); !slices.Equal(got, want) {
 		t.Fatalf("reply fields = %v, want %v", got, want)
 	}
-	if got := (HubConversationDeletePayload{ContactID: contactID, HubUserDID: hubDID}).Validate(); len(got) != 0 {
+	if !IsCommandKind(HubConversationMessageDeleteKind) {
+		t.Fatal("hub-conversation-message-delete is not a command kind")
+	}
+	if got := (HubConversationMessageDeletePayload{AgencyOrgDID: orgDID, HubUserDID: hubDID, MessageNumber: 2}).Validate(); len(got) != 0 {
 		t.Fatalf("valid delete rejected: %v", got)
 	}
-	if got := (HubConversationDeletePayload{}).Validate(); !slices.Equal(got, []string{"contact_id", "hub_user_did"}) {
+	if got := (HubConversationMessageDeletePayload{}).Validate(); !slices.Equal(got, []string{"agency_org_did", "hub_user_did", "message_number"}) {
 		t.Fatalf("delete fields = %v", got)
 	}
 
 	limit, badLimit := int32(contacts.MaxPage), int32(contacts.MaxPage+1)
-	read := MeshReadConversationRequest{ContactID: contactID, HubUserDID: hubDID, AgencyOrgDID: orgDID, Limit: &limit}
+	number, badNumber := contacts.MessageNumber(3), contacts.MessageNumber(0)
+	read := MeshReadConversationRequest{HubUserDID: hubDID, AgencyOrgDID: orgDID, Limit: &limit}
 	if got := read.Validate(); len(got) != 0 {
 		t.Fatalf("valid read rejected: %v", got)
 	}
+	one := MeshReadConversationRequest{HubUserDID: hubDID, AgencyOrgDID: orgDID, MessageNumber: &number}
+	if got := one.Validate(); len(got) != 0 {
+		t.Fatalf("valid one-message read rejected: %v", got)
+	}
 	key := common.PaginationKey("")
-	got := MeshReadConversationRequest{PaginationKey: &key, Limit: &badLimit}.Validate()
-	want = []string{"pagination_key", "limit", "contact_id", "hub_user_did", "agency_org_did"}
+	got := MeshReadConversationRequest{PaginationKey: &key, Limit: &badLimit, MessageNumber: &badNumber}.Validate()
+	want = []string{"pagination_key", "limit", "hub_user_did", "agency_org_did", "message_number"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("read fields = %v, want %v", got, want)
 	}
@@ -252,10 +271,8 @@ func TestHubConversationCommandsAndReads(t *testing.T) {
 func TestHubChatRequestCommands(t *testing.T) {
 	t.Parallel()
 	const (
-		requestID = contacts.ChatRequestID("01900000-0000-7000-8000-000000000005")
-		contactID = contacts.ContactID("01900000-0000-7000-8000-000000000001")
-		orgDID    = orgs.OrgDID("01900000-0000-7000-8000-000000000003")
-		hubDID    = hub.HubUserDID("01900000-0000-7000-8000-000000000004")
+		orgDID = orgs.OrgDID("01900000-0000-7000-8000-000000000003")
+		hubDID = hub.HubUserDID("01900000-0000-7000-8000-000000000004")
 	)
 	for _, kind := range []CommandKind{HubChatRequestKind, HubChatRequestAnswerKind} {
 		if !IsCommandKind(kind) {
@@ -265,7 +282,7 @@ func TestHubChatRequestCommands(t *testing.T) {
 	note := contacts.ChatRequestNote("About this role")
 	padded := contacts.ChatRequestNote(" About this role ")
 	request := HubChatRequestPayload{
-		RequestID: requestID, AgencyOrgDID: orgDID, HubUserDID: hubDID,
+		AgencyOrgDID: orgDID, HubUserDID: hubDID,
 		HubUserDisplayName: "Ada Lovelace", HubUserHandle: "abcd1234-0123456789a",
 		ConsumerDomain: "client.test", OpeningNumber: 7, Note: &note,
 		WindowSeconds: 7776000,
@@ -278,14 +295,14 @@ func TestHubChatRequestCommands(t *testing.T) {
 	if got := unnormalized.Validate(); !slices.Equal(got, []string{"note"}) {
 		t.Fatalf("an untrimmed note must be refused, fields = %v", got)
 	}
-	want := []string{"request_id", "agency_org_did", "hub_user_did", "hub_user_display_name",
+	want := []string{"agency_org_did", "hub_user_did", "hub_user_display_name",
 		"hub_user_handle", "consumer_domain", "opening_number", "window_seconds"}
 	if got := (HubChatRequestPayload{}).Validate(); !slices.Equal(got, want) {
 		t.Fatalf("request fields = %v, want %v", got, want)
 	}
 
-	sent := HubChatRequestResult{ContactID: contactID, Request: AgencyPointerRequest{
-		RequestID: requestID, Direction: contacts.ToAgency, State: contacts.ChatRequestPending,
+	sent := HubChatRequestResult{Request: AgencyPointerRequest{
+		RequestNumber: 1, Direction: contacts.ToAgency, State: contacts.ChatRequestPending,
 		ConsumerDomain: "client.test", OpeningNumber: 7, SentAt: time.Unix(1, 0),
 	}}
 	if got := sent.Validate(); len(got) != 0 {
@@ -300,7 +317,7 @@ func TestHubChatRequestCommands(t *testing.T) {
 	scope := contacts.DeclineSender
 	badScope := contacts.ChatRequestDeclineScope("forever")
 	answer := HubChatRequestAnswerPayload{
-		RequestID: requestID, ContactID: contactID, HubUserDID: hubDID,
+		AgencyOrgDID: orgDID, RequestNumber: 1, HubUserDID: hubDID,
 		HubUserDisplayName: "Ada Lovelace", HubUserHandle: "abcd1234-0123456789a",
 		Accept: true, WindowSeconds: 1,
 	}
@@ -322,7 +339,7 @@ func TestHubChatRequestCommands(t *testing.T) {
 		{"accept with a scope", acceptWithScope.Validate(), []string{"scope"}},
 		{"decline without a scope", declineWithoutScope.Validate(), []string{"scope"}},
 		{"decline with an unknown scope", declineBadScope.Validate(), []string{"scope"}},
-		{"empty", (HubChatRequestAnswerPayload{Accept: true}).Validate(), []string{"request_id", "contact_id",
+		{"empty", (HubChatRequestAnswerPayload{Accept: true}).Validate(), []string{"agency_org_did", "request_number",
 			"hub_user_did", "hub_user_display_name", "hub_user_handle", "window_seconds"}},
 	}
 	for _, test := range tests {
@@ -340,7 +357,7 @@ func TestAgencyPointerRequestCarriesNoNoteAndConsistentDecline(t *testing.T) {
 	lifts := sentAt.Add(90 * 24 * time.Hour)
 	opening, sender := contacts.DeclineOpening, contacts.DeclineSender
 	base := AgencyPointerRequest{
-		RequestID: "01900000-0000-7000-8000-000000000005", Direction: contacts.ToHubUser,
+		RequestNumber: 5, Direction: contacts.ToHubUser,
 		State: contacts.ChatRequestPending, ConsumerDomain: "client.test", OpeningNumber: 3,
 		SentAt: sentAt,
 	}
@@ -362,7 +379,7 @@ func TestAgencyPointerRequestCarriesNoNoteAndConsistentDecline(t *testing.T) {
 		{"declined for the sender", declinedSender.Validate(), []string{}},
 		{"sender decline without its lift date", senderWithoutDate.Validate(), []string{"request.blocked_until"}},
 		{"pending with a scope", pendingWithScope.Validate(), []string{"request.decline_scope"}},
-		{"empty", AgencyPointerRequest{}.Validate(), []string{"request.request_id",
+		{"empty", AgencyPointerRequest{}.Validate(), []string{"request.request_number",
 			"request.direction", "request.state", "request.opening"}},
 	}
 	for _, test := range tests {
@@ -373,8 +390,8 @@ func TestAgencyPointerRequestCarriesNoNoteAndConsistentDecline(t *testing.T) {
 		})
 	}
 	payload := AgencyPointerChangedPayload{
-		ContactID: "01900000-0000-7000-8000-000000000001", AgencyOrgDID: consumerDID,
-		HubUserDID: "01900000-0000-7000-8000-000000000004", Present: true, Request: &senderWithoutDate,
+		AgencyOrgDID: consumerDID,
+		HubUserDID:   "01900000-0000-7000-8000-000000000004", Present: true, Request: &senderWithoutDate,
 	}
 	if got := payload.Validate(); !slices.Equal(got, []string{"request.blocked_until"}) {
 		t.Fatalf("the pointer validates its request, fields = %v", got)
