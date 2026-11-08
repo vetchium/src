@@ -12,6 +12,11 @@ import {
   validateRequestSignupRequest,
 } from "./auth/signup.ts";
 import {
+  conversationFilters,
+  isConversationFilter,
+  validateListConversationsRequest,
+} from "./messages/messages.ts";
+import {
   type BillingInterval,
   DefaultPlan,
   FreeTier,
@@ -240,4 +245,18 @@ test("the homed-elsewhere guard requires every extension member", () => {
     false,
   );
   assert.equal(isHubAccountHomedElsewhereProblem(null), false);
+});
+
+test("the conversation list takes a known filter", () => {
+  assert.deepEqual(conversationFilters, ["all", "requests_received", "unread"]);
+  for (const filter of conversationFilters) {
+    assert.equal(isConversationFilter(filter), true);
+    assert.deepEqual(validateListConversationsRequest({ filter }), []);
+  }
+  assert.equal(isConversationFilter("requests"), false);
+  assert.equal(isConversationFilter(undefined), false);
+  assert.deepEqual(
+    validateListConversationsRequest({ filter: "requests" as never, limit: 0 }),
+    ["limit", "filter"],
+  );
 });

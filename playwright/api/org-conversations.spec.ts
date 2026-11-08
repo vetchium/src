@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type {
-  AwaitingConversationCount,
+  AwaitingConversationCounts,
+  ConversationFilter,
   HubConversationDetail,
   HubConversationSummary,
   ListConversationsResponse,
@@ -907,6 +908,7 @@ test("Hub conversation routes authenticate, validate, and answer for unknown con
     );
     for (const [path, body, fields] of [
       ["/list-conversations", { limit: 0 }, ["limit"]],
+      ["/list-conversations", { filter: "requests" }, ["filter"]],
       ["/get-conversation", { agency_domain: "x" }, ["agency_domain"]],
       ["/mark-conversation-read", { agency_domain: "x" }, ["agency_domain"]],
       ["/reply-to-conversation", { agency_domain, text: " " }, ["text"]],
@@ -1085,7 +1087,7 @@ test("Hub conversation routes authenticate, validate, and answer for unknown con
   });
 });
 
-test("MKT-HUB-001: the Hub counts conversations awaiting the person: requests to answer and unread agency messages", async ({
+test("MKT-HUB-001: the Hub counts and filters conversations awaiting the person: requests to answer and unread agency messages", async ({
   request,
 }) => {
   await withAgency(request, async (agency) => {
@@ -1098,11 +1100,23 @@ test("MKT-HUB-001: the Hub counts conversations awaiting the person: requests to
       );
       expect(res.status(), await res.text()).toBe(200);
       expect(res.headers()["cache-control"]).toBe("no-store");
-      return ((await res.json()) as AwaitingConversationCount).count;
+      return (await res.json()) as AwaitingConversationCounts;
     };
-    const awaiting = (expected: number) =>
-      expect.poll(count, { timeout: 15_000 }).toBe(expected);
-    await awaiting(0);
+    const awaiting = (requests_received: number, unread: number) =>
+      expect
+        .poll(count, { timeout: 15_000 })
+        .toEqual({ requests_received, unread });
+    // Each count matches the list filter of the same name.
+    const filtered = async (filter: ConversationFilter) => {
+      const res = await applicant.hub.listConversations(applicant.token, {
+        filter,
+      });
+      expect(res.status(), await res.text()).toBe(200);
+      return ((await res.json()) as ListConversationsResponse).items;
+    };
+    const domains = async (filter: ConversationFilter) =>
+      (await filtered(filter)).map((item) => item.agency_domain);
+    await awaiting(0, 0);
 
     // A pending request from the agency awaits an answer.
     const sent = await agency.send({ address: applicant.handle }, opening);
@@ -1112,7 +1126,10 @@ test("MKT-HUB-001: the Hub counts conversations awaiting the person: requests to
       "to_hub_user",
       (item) => item.agency_domain === provider.org.domain,
     );
-    await awaiting(1);
+    await awaiting(1, 0);
+    expect(await domains("requests_received")).toEqual([provider.org.domain]);
+    expect(await domains("unread")).toEqual([]);
+    expect(await domains("all")).toEqual([provider.org.domain]);
 
     // Answered and read, nothing awaits.
     const accepted = await applicant.hub.acceptChatRequest(applicant.token, {
@@ -1127,7 +1144,8 @@ test("MKT-HUB-001: the Hub counts conversations awaiting the person: requests to
       expect(marked.status(), await marked.text()).toBe(200);
     };
     await read();
-    await awaiting(0);
+    await awaiting(0, 0);
+    expect(await domains("requests_received")).toEqual([]);
 
     // Two unread agency messages count once, for their conversation.
     for (const text of ["A first update.", "A second update."]) {
@@ -1148,16 +1166,23 @@ test("MKT-HUB-001: the Hub counts conversations awaiting the person: requests to
         { timeout: 15_000 },
       )
       .toBe(2);
-    expect(await count()).toBe(1);
+    expect(await count()).toEqual({ requests_received: 0, unread: 1 });
+    const unread = await filtered("unread");
+    expect(unread.map((item) => item.agency_domain)).toEqual([
+      provider.org.domain,
+    ]);
+    expect(unread[0]?.unread_count).toBe(2);
+    expect(await domains("requests_received")).toEqual([]);
 
     // Reading clears it, and the person's own reply never awaits them.
     await read();
-    expect(await count()).toBe(0);
+    expect(await count()).toEqual({ requests_received: 0, unread: 0 });
+    expect(await domains("unread")).toEqual([]);
     const replied = await applicant.hub.replyToConversation(applicant.token, {
       agency_domain: provider.org.domain,
       text: "Thanks!",
     });
     expect(replied.status(), await replied.text()).toBe(200);
-    expect(await count()).toBe(0);
+    expect(await count()).toEqual({ requests_received: 0, unread: 0 });
   });
 });

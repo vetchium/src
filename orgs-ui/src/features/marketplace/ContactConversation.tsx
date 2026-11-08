@@ -170,6 +170,7 @@ export function ContactConversation({
   const conversationQuery = useConversationQuery(
     handle,
     contact.has_conversation,
+    true,
   );
   const conversation = conversationQuery.data?.pages[0]?.conversation;
   const messages = (conversationQuery.data?.pages ?? [])

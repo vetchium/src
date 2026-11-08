@@ -14,7 +14,7 @@ export async function stubShellReads(page: Page): Promise<void> {
     route.fulfill({ json: { active: 0, closed: 0, awaiting_answer: 0 } }),
   );
   await page.route("**/api/hub/count-awaiting-conversations", (route) =>
-    route.fulfill({ json: { count: 0 } }),
+    route.fulfill({ json: { requests_received: 0, unread: 0 } }),
   );
   await page.route("**/api/hub/profile/read", (route) =>
     route.fulfill({

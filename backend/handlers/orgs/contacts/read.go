@@ -69,7 +69,8 @@ func ListContacts(s *orgsruntime.Server) http.HandlerFunc {
 		response := contacts.ListContactsResponse{
 			Items: []contacts.ContactSummary{},
 			Counts: contacts.ContactCounts{
-				All: tabs.AllContacts, Requests: tabs.Requests, Unread: tabs.Unread,
+				All: tabs.AllContacts, RequestsReceived: tabs.RequestsReceived,
+				Unread: tabs.Unread, RequestsSent: tabs.RequestsSent,
 				HasConversation: tabs.HasConversation,
 			},
 		}

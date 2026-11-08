@@ -4,6 +4,10 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import {
+  inboxRefresh,
+  openConversationRefresh,
+} from "@vetchium/portal-ui/inbox";
 import type { IdempotencyKey } from "typespec/common/idempotency";
 import type { PaginationKey } from "typespec/common/pagination";
 import type { RouteApplicationRequest } from "typespec/orgs/applications/applications";
@@ -921,9 +925,11 @@ export function useCreditedApplicationsQuery(
   });
 }
 
+/** The Contacts list; `live` keeps it fresh where it is the shared inbox. */
 export function useContactsQuery(
   request: ListContactsRequest = {},
   enabled = true,
+  live = false,
 ) {
   return useQuery({
     queryKey: [...marketplaceQueryKey, "contacts", "list", request],
@@ -931,15 +937,18 @@ export function useContactsQuery(
     placeholderData: (previous) => previous,
     retry: false,
     enabled,
+    ...(live && inboxRefresh),
   });
 }
 
+/** A Contact; kept fresh because its page shows new requests and replies. */
 export function useContactQuery(handle: string, enabled = true) {
   return useQuery({
     queryKey: [...marketplaceQueryKey, "contacts", "detail", handle],
     queryFn: () => orgsAPI.getContact({ handle }),
     retry: false,
     enabled: enabled && handle !== "",
+    ...inboxRefresh,
   });
 }
 
@@ -1030,8 +1039,13 @@ export function useEditContactNoteMutation(handle: string) {
   });
 }
 
-/** Pages of a conversation, newest first; each page lists newest first. */
-export function useConversationQuery(handle: string, enabled = true) {
+/** Pages of a conversation, newest first; each page lists newest first.
+ * `live` keeps a conversation on screen fresh. */
+export function useConversationQuery(
+  handle: string,
+  enabled = true,
+  live = false,
+) {
   return useInfiniteQuery({
     queryKey: [...marketplaceQueryKey, "conversation", handle],
     queryFn: ({ pageParam }) =>
@@ -1043,6 +1057,7 @@ export function useConversationQuery(handle: string, enabled = true) {
     getNextPageParam: (page) => page.next_pagination_key,
     retry: false,
     enabled: enabled && handle !== "",
+    ...(live && openConversationRefresh),
   });
 }
 
@@ -1068,17 +1083,21 @@ export function useChatRequestsQuery(
   });
 }
 
-export function usePendingChatRequestCountQuery(enabled = true) {
+/** The Contacts waiting on the agency, for the navigation badges and the
+ * Home card; kept fresh while the portal is open (MKT-UI-007). */
+export function useAwaitingContactCountsQuery(enabled = true) {
   return useQuery({
-    queryKey: [...marketplaceQueryKey, "chat-requests", "pending-count"],
-    queryFn: () => orgsAPI.countPendingChatRequests(),
+    queryKey: [...marketplaceQueryKey, "contacts", "awaiting"],
+    queryFn: () => orgsAPI.countAwaitingContacts(),
     retry: false,
     enabled,
+    ...inboxRefresh,
   });
 }
 
-/** Everything a chat request's send or answer can change: the Contacts, their
- * conversations and profile views, the request lists and count, and Jobs. */
+/** Everything a chat request's send or answer can change: the Contacts and
+ * their counts, their conversations and profile views, the request lists, and
+ * Jobs. */
 function invalidateChatRequestViews(
   queryClient: ReturnType<typeof useQueryClient>,
 ) {
@@ -1151,11 +1170,9 @@ export function useSendMessageMutation(handle: string) {
       void queryClient.invalidateQueries({
         queryKey: [...marketplaceQueryKey, "conversation", handle],
       });
+      // The Contact, the list, and the navigation counts.
       void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "contacts", "detail", handle],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "contacts", "list"],
+        queryKey: [...marketplaceQueryKey, "contacts"],
       });
       void queryClient.invalidateQueries({
         queryKey: [...marketplaceQueryKey, "jobs"],
@@ -1194,11 +1211,9 @@ export function useMarkConversationReadMutation(handle: string) {
       void queryClient.invalidateQueries({
         queryKey: [...marketplaceQueryKey, "conversation", handle],
       });
+      // The Contact, the list, and the navigation counts.
       void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "contacts", "detail", handle],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: [...marketplaceQueryKey, "contacts", "list"],
+        queryKey: [...marketplaceQueryKey, "contacts"],
       });
     },
   });

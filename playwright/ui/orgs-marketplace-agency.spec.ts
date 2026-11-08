@@ -58,11 +58,17 @@ test("agency person page: found by alias at its handle, a note makes the Contact
       await expect(
         page.getByRole("tab", { name: "Not contacted" }),
       ).toHaveCount(0);
-      for (const tab of ["All", "Requests", "Unread", "Conversations"]) {
-        await expect(
-          page.getByRole("tab", { name: `${tab} (0)` }),
-        ).toBeVisible();
-      }
+      // What waits on the agency comes first; All stays the default.
+      await expect(page.getByRole("tab")).toHaveText([
+        "To answer (0)",
+        "Unread (0)",
+        "Waiting on them (0)",
+        "Conversations (0)",
+        "All (0)",
+      ]);
+      await expect(
+        page.getByRole("tab", { name: "All (0)", selected: true }),
+      ).toBeVisible();
       await page.getByRole("button", { name: "Find a person" }).first().click();
       const findModal = page.getByRole("dialog", {
         name: "Find a person on Vetchium",
@@ -500,9 +506,10 @@ test("chat requests: an agency sends from a Job, meets each refusal, answers peo
     await expect(sendButton).toBeDisabled();
     await dialog.getByRole("button", { name: "Cancel" }).click();
 
-    // 4. People ask the agency: the navigation counts them and the
-    // Requests tab lists the Contacts with a pending request; the answered
-    // one stays under All with its status.
+    // 4. People ask the agency: the navigation's solid badge counts them,
+    // Contacts opens on the To answer tab listing the Contacts with a
+    // pending request and the action each needs; the answered one stays
+    // under All with its status.
     for (const person of [arjun, priya, nia, bo]) {
       const sentRequest = await personAsks(agency, person, opening);
       await agencyRequestState(
@@ -515,12 +522,28 @@ test("chat requests: an agency sends from a Job, meets each refusal, answers peo
         "pending",
       );
     }
-    await page.goto(`${ORGS_PORTAL}/sourcing/contacts?tab=requests`);
-    await expect(sidebarPage(page, "Contacts")).toContainText("4");
-    await expect(page.getByRole("tab", { name: "Requests (4)" })).toBeVisible();
-    await expect(page.getByRole("row", { name: /Bo Busy/ })).toContainText(
-      "Request received",
+    await page.goto(`${ORGS_PORTAL}/sourcing/jobs`);
+    const contactsNav = sidebarPage(page, "Contacts");
+    await expect(contactsNav.getByTestId("navigation-count-action")).toHaveText(
+      /4/,
     );
+    await expect(contactsNav).toHaveAccessibleName(/4 requests to answer/);
+    await expect(
+      contactsNav.getByTestId("navigation-count-unread"),
+    ).toHaveCount(0);
+    await expect(page).toHaveTitle(/^\(4\) /);
+    await contactsNav.click();
+    await expect(page).toHaveURL(
+      `${ORGS_PORTAL}/sourcing/contacts?tab=requests_received`,
+    );
+    await expect(
+      page.getByRole("tab", { name: "To answer (4)", selected: true }),
+    ).toBeVisible();
+    const boRow = page.getByRole("row", { name: /Bo Busy/ });
+    await expect(boRow).toContainText("Request received");
+    await expect(
+      boRow.getByRole("link", { name: "Answer request" }),
+    ).toBeVisible();
     await expect(page.getByRole("row", { name: /Dana Declines/ })).toHaveCount(
       0,
     );
@@ -612,6 +635,17 @@ test("chat requests: an agency sends from a Job, meets each refusal, answers peo
     // is refused before sending.
     const toWen = await sent(
       await agency.send({ address: wen.handle }, opening),
+    );
+    // While pending, it waits on Wen: Waiting on them lists it.
+    await page.goto(`${ORGS_PORTAL}/sourcing/contacts?tab=requests_sent`);
+    await expect(
+      page.getByRole("tab", {
+        name: /^Waiting on them \(\d+\)$/,
+        selected: true,
+      }),
+    ).toBeVisible();
+    await expect(page.getByRole("row", { name: /Wen Waits/ })).toContainText(
+      "Request sent",
     );
     backdateRequest(agency, toWen);
     await agencyRequestState(agency, "to_hub_user", toWen, "expired");

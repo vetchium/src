@@ -16,6 +16,8 @@ func TestMessagesValidation(t *testing.T) {
 	t.Parallel()
 	badLimit, goodLimit := int32(101), int32(100)
 	key := common.PaginationKey("")
+	requestsReceived, unread := ConversationFilterRequestsReceived, ConversationFilterUnread
+	unknownFilter := ConversationFilter("requests")
 	tests := []struct {
 		name string
 		got  []string
@@ -23,6 +25,9 @@ func TestMessagesValidation(t *testing.T) {
 	}{
 		{"list valid", ListConversationsRequest{Limit: &goodLimit}.Validate(), []string{}},
 		{"list invalid", ListConversationsRequest{Limit: &badLimit, PaginationKey: &key}.Validate(), []string{"pagination_key", "limit"}},
+		{"list requests received", ListConversationsRequest{Filter: &requestsReceived}.Validate(), []string{}},
+		{"list unread", ListConversationsRequest{Filter: &unread}.Validate(), []string{}},
+		{"list unknown filter", ListConversationsRequest{Filter: &unknownFilter}.Validate(), []string{"filter"}},
 		{"get valid", GetConversationRequest{AgencyDomain: agency}.Validate(), []string{}},
 		{"get invalid", GetConversationRequest{AgencyDomain: "bad"}.Validate(), []string{"agency_domain"}},
 		{"get page", GetConversationRequest{AgencyDomain: agency, Limit: &goodLimit}.Validate(), []string{}},
@@ -48,6 +53,9 @@ func TestPageDefaults(t *testing.T) {
 	if (ListConversationsRequest{}).EffectiveLimit() != DefaultPage ||
 		(GetConversationRequest{}).EffectiveLimit() != DefaultPage {
 		t.Fatal("a request without a limit takes the default page")
+	}
+	if (ListConversationsRequest{}).EffectiveFilter() != ConversationFilterAll {
+		t.Fatal("a request without a filter lists every conversation")
 	}
 }
 

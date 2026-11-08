@@ -13,10 +13,11 @@ import type {
   OpeningAgencyChatState,
 } from "typespec/hub/messages/messages";
 import type {
+  AwaitingContactCounts,
   ChatRequest,
   ConversationDetail,
+  ListContactsResponse,
   OpeningSuggestion,
-  PendingChatRequestCount,
 } from "typespec/orgs/marketplace/contacts/contacts";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { expectProblem } from "../lib/admin-api.ts";
@@ -607,9 +608,23 @@ test("MKT-REQ-002, MKT-DAT-014: a Hub user's request reaches the agency across t
         hub_user_handle: relayed.handle,
       }),
     );
-    const count = await provider.api.countPendingChatRequests(provider.owner);
-    expect((await count.json()) as PendingChatRequestCount).toEqual({
-      count: 2,
+    const count = await provider.api.countAwaitingContacts(provider.owner);
+    expect((await count.json()) as AwaitingContactCounts).toEqual({
+      requests_received: 2,
+      unread: 0,
+    });
+    // The To answer tab holds exactly the Contacts the count names.
+    const toAnswer = await provider.api.listContacts(provider.owner, {
+      filter: "requests_received",
+    });
+    expect(toAnswer.status(), await toAnswer.text()).toBe(200);
+    const toAnswerPage = (await toAnswer.json()) as ListContactsResponse;
+    expect(toAnswerPage.items.map((item) => item.handle).sort()).toEqual(
+      [relayed.handle, local.handle].sort(),
+    );
+    expect(toAnswerPage.counts).toMatchObject({
+      requests_received: 2,
+      requests_sent: 0,
     });
     const own = await awaitHubRequest(
       relayed,

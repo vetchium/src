@@ -54,8 +54,9 @@ export type ConversationReadOnlyReason =
 
 export const contactFilters = [
   "all",
-  "requests",
+  "requests_received",
   "unread",
+  "requests_sent",
   "has_conversation",
 ] as const;
 export type ContactFilter = (typeof contactFilters)[number];
@@ -338,8 +339,9 @@ export function validateListContactsRequest(
 /** How many of the agency's Contacts each Contacts tab holds. */
 export interface ContactCounts {
   all: number;
-  requests: number;
+  requests_received: number;
   unread: number;
+  requests_sent: number;
   has_conversation: number;
 }
 
@@ -484,8 +486,11 @@ export interface ListChatRequestsResponse {
 }
 
 /** Pending requests from Hub users to the agency. */
-export interface PendingChatRequestCount {
-  count: number;
+/** The Contacts waiting on the agency: a pending chat request from the
+ * person, and unread messages from them. */
+export interface AwaitingContactCounts {
+  requests_received: number;
+  unread: number;
 }
 
 export interface AcceptChatRequestRequest {

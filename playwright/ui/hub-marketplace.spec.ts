@@ -41,7 +41,7 @@ async function signIn(page: Page, user: HubTestUser) {
   ).toBeVisible();
 }
 
-test("messages: the nav counts the waiting request; accept it, reply, and delete only your own message", async ({
+test("messages: the nav counts the waiting request and new unread messages; filter, accept, reply, and delete only your own message", async ({
   page,
   request,
   hubUser,
@@ -77,23 +77,40 @@ test("messages: the nav counts the waiting request; accept it, reply, and delete
     // Sign in as candidate to Hub UI
     await signIn(page, user);
 
-    // 1. Navigation has Messages, counting the request that waits for Ada;
-    // the request is listed first.
+    // 1. Navigation has Messages with a solid badge for the request that
+    // waits for Ada, read out as such, and no unread badge; the tab title
+    // carries the count.
     const messagesNav = page.getByRole("menuitem", { name: /Messages/ });
-    await expect(messagesNav).toBeVisible();
-    await expect(
-      messagesNav.getByTitle("1 conversation waiting for you"),
-    ).toBeVisible();
+    const requestBadge = messagesNav.getByTestId("navigation-count-action");
+    const unreadBadge = messagesNav.getByTestId("navigation-count-unread");
+    await expect(requestBadge).toHaveText(/1/);
+    await expect(messagesNav).toHaveAccessibleName(/1 request to answer/);
+    await expect(unreadBadge).toHaveCount(0);
+    await expect(page).toHaveTitle(/^\(1\) /);
     await messagesNav.click();
 
     await expect(
       page.getByRole("heading", { name: "Messages", exact: true }),
     ).toBeVisible();
+    // With nothing open, the right pane lists what waits on Ada.
+    const waiting = page.getByTestId("messages-waiting");
+    await expect(
+      waiting.getByTestId("messages-waiting-requests"),
+    ).toContainText("Agency Alpha");
+    await expect(waiting.getByTestId("messages-waiting-unread")).toHaveCount(0);
     await expect(page.getByText("Asks to chat about an Opening")).toBeVisible();
-    const conversationItem = page.getByText("Agency Alpha").first();
-    await conversationItem.click();
+
+    // The To answer filter holds the request and stays in the URL.
+    await page.getByRole("tab", { name: "Unread (0)" }).click();
+    await expect(page).toHaveURL(`${HUB_PORTAL}/messages?filter=unread`);
+    await expect(page.getByText("No unread messages.")).toBeVisible();
+    await page.getByRole("tab", { name: "To answer (1)" }).click();
     await expect(page).toHaveURL(
-      `${HUB_PORTAL}/messages/o/${provider.org.domain}`,
+      `${HUB_PORTAL}/messages?filter=requests_received`,
+    );
+    await waiting.getByRole("button", { name: "Answer: Agency Alpha" }).click();
+    await expect(page).toHaveURL(
+      `${HUB_PORTAL}/messages/o/${provider.org.domain}?filter=requests_received`,
     );
 
     // 2. The request shows its Opening and note; accepting opens the
@@ -110,7 +127,8 @@ test("messages: the nav counts the waiting request; accept it, reply, and delete
       page.getByText("You accepted the chat request from Agency Alpha."),
     ).toBeVisible();
     await expect(page.getByPlaceholder("Write a reply")).toBeVisible();
-    await expect(messagesNav.getByTitle(/waiting for you/)).toHaveCount(0);
+    await expect(requestBadge).toHaveCount(0);
+    await expect(page).not.toHaveTitle(/^\(\d+\) /);
     await expect(
       page.getByText(`${provider.org.domain} · Agency`),
     ).toBeVisible();
@@ -144,6 +162,42 @@ test("messages: the nav counts the waiting request; accept it, reply, and delete
     await expect(
       page.getByText("Your background fits this role well."),
     ).toBeVisible();
+
+    // 5. Away from Messages, a new agency message shows as an outlined
+    // unread badge as soon as the window regains focus, without a reload.
+    await page.getByRole("menuitem", { name: /Home/ }).click();
+    const written = await provider.api.sendMessage(provider.owner, {
+      handle: user.handle,
+      text: "One more thing about the role.",
+    });
+    expect(written.status(), await written.text()).toBe(200);
+    await expect
+      .poll(
+        async () => {
+          await page.evaluate(() =>
+            window.dispatchEvent(new Event("visibilitychange")),
+          );
+          return unreadBadge.count();
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(1);
+    await expect(unreadBadge).toHaveText(/1/);
+    await expect(messagesNav).toHaveAccessibleName(/1 unread/);
+    await expect(requestBadge).toHaveCount(0);
+    await messagesNav.click();
+    await expect(page.getByTestId("messages-waiting-unread")).toContainText(
+      "Agency Alpha",
+    );
+    await page
+      .getByTestId("messages-waiting")
+      .getByRole("button", { name: "Open: Agency Alpha" })
+      .click();
+    await expect(
+      page.getByText("One more thing about the role."),
+    ).toBeVisible();
+    // Opening it reads it.
+    await expect(unreadBadge).toHaveCount(0);
   });
 });
 

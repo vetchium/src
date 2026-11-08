@@ -222,15 +222,37 @@ function validatePage(
   return fields;
 }
 
+/** Which of the Hub user's conversations a list holds. */
+export const conversationFilters = [
+  "all",
+  "requests_received",
+  "unread",
+] as const;
+export type ConversationFilter = (typeof conversationFilters)[number];
+
+export function isConversationFilter(
+  value: string | undefined,
+): value is ConversationFilter {
+  return (
+    value !== undefined &&
+    (conversationFilters as readonly string[]).includes(value)
+  );
+}
+
 export interface ListConversationsRequest {
   pagination_key?: PaginationKey;
   limit?: number;
+  filter?: ConversationFilter;
 }
 
 export function validateListConversationsRequest(
   request: ListConversationsRequest,
 ): string[] {
-  return validatePage(request.pagination_key, request.limit);
+  const fields = validatePage(request.pagination_key, request.limit);
+  if (request.filter !== undefined && !isConversationFilter(request.filter)) {
+    fields.push("filter");
+  }
+  return fields;
 }
 
 export interface ListConversationsResponse {
@@ -238,9 +260,11 @@ export interface ListConversationsResponse {
   next_pagination_key?: PaginationKey;
 }
 
-/** Conversations waiting on the Hub user: a request to answer or unread messages. */
-export interface AwaitingConversationCount {
-  count: number;
+/** The conversations waiting on the Hub user, each counted under the
+ * filter of the same name. */
+export interface AwaitingConversationCounts {
+  requests_received: number;
+  unread: number;
 }
 
 function validateAgencyDomain(domain: OrgDomain): string[] {

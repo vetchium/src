@@ -173,12 +173,25 @@ model HubDeclineChatRequestRequest {
   scope: Vetchium.Orgs.Marketplace.Contacts.ChatRequestDeclineScope;
 }
 
+/** Which of the Hub user's conversations a list holds (MKT-HUB-001). */
+enum ConversationFilter {
+  all: "all",
+
+  /** A pending chat request from the agency to the Hub user. */
+  requests_received: "requests_received",
+
+  /** Agency messages the Hub user has not read. */
+  unread: "unread",
+}
+
 model ListConversationsRequest {
   pagination_key?: Vetchium.PaginationKey;
 
   @minValue(1)
   @maxValue(100)
   limit?: int32;
+
+  filter?: ConversationFilter = ConversationFilter.all;
 }
 
 model ListConversationsResponse {
@@ -186,9 +199,13 @@ model ListConversationsResponse {
   next_pagination_key?: Vetchium.PaginationKey;
 }
 
-/** Conversations waiting on the Hub user: a request to answer or unread messages. */
-model AwaitingConversationCount {
-  count: int32;
+/**
+ * The conversations waiting on the Hub user, each counted under the filter
+ * of the same name.
+ */
+model AwaitingConversationCounts {
+  requests_received: int32;
+  unread: int32;
 }
 
 model GetConversationRequest {
@@ -310,8 +327,9 @@ interface MessageOperations {
     | Vetchium.Problem.HubOrgUnavailableErrorResponse;
 
   /**
-   * Counts the conversations waiting on the Hub user: a chat request to
-   * answer, or agency messages not yet read (MKT-HUB-001).
+   * Counts the conversations waiting on the Hub user: chat requests to
+   * answer, and conversations with agency messages not yet read
+   * (MKT-HUB-001).
    */
   @route("/count-awaiting-conversations")
   @get
@@ -320,7 +338,7 @@ interface MessageOperations {
     | {
         @statusCode status_code: 200;
         @header("Cache-Control") cache_control: "no-store";
-        @body body: AwaitingConversationCount;
+        @body body: AwaitingConversationCounts;
       }
     | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;

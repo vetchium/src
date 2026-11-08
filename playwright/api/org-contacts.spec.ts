@@ -7,6 +7,7 @@ import {
 import type {
   AddedNote,
   AgencyProfile,
+  AwaitingContactCounts,
   ContactNote,
   ConversationDetail,
   ListContactNotesResponse,
@@ -662,10 +663,19 @@ test("the Contacts list filters, searches, pages, and counts every tab and unrea
       const all = await list({});
       expect(all.counts).toEqual({
         all: 3,
+        requests_received: 0,
         unread: 1,
+        requests_sent: 0,
         has_conversation: 2,
-        requests: 0,
       });
+      const awaiting = async () => {
+        const res = await provider.api.countAwaitingContacts(provider.owner);
+        expect(res.status(), await res.text()).toBe(200);
+        expect(res.headers()["cache-control"]).toBe("no-store");
+        return (await res.json()) as AwaitingContactCounts;
+      };
+      // The navigation badges read the tab counts.
+      expect(await awaiting()).toEqual({ requests_received: 0, unread: 1 });
       expect(names(all)).toEqual([
         "Grace Hopper",
         "Alan Turing",
@@ -691,7 +701,8 @@ test("the Contacts list filters, searches, pages, and counts every tab and unrea
         "Grace Hopper",
         "Alan Turing",
       ]);
-      expect(names(await list({ filter: "requests" }))).toEqual([]);
+      expect(names(await list({ filter: "requests_received" }))).toEqual([]);
+      expect(names(await list({ filter: "requests_sent" }))).toEqual([]);
       expect(names(await list({ name_query: "HOP" }))).toEqual([
         "Grace Hopper",
       ]);
@@ -716,6 +727,7 @@ test("the Contacts list filters, searches, pages, and counts every tab and unrea
       expect(read.status(), await read.text()).toBeLessThan(300);
       const after = await list({});
       expect(after.counts.unread).toBe(0);
+      expect(await awaiting()).toEqual({ requests_received: 0, unread: 0 });
       expect(
         after.items.find((item) => item.handle === graceContact)
           ?.unread_messages_count,
@@ -724,6 +736,7 @@ test("the Contacts list filters, searches, pages, and counts every tab and unrea
       for (const [body, field] of [
         [{ name_query: "a" }, "name_query"],
         [{ filter: "archived" }, "filter"],
+        [{ filter: "requests" }, "filter"],
         [{ filter: "not_contacted" }, "filter"],
       ] as const) {
         await expectProblem(

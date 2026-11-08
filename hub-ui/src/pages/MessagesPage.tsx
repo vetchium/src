@@ -24,15 +24,26 @@ import {
   Row,
   Space,
   Spin,
+  Tabs,
+  Tag,
   Typography,
   theme,
 } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams } from "react-router";
-import type {
-  HubChatRequest,
-  HubConversationSummary,
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
+import {
+  type ConversationFilter,
+  conversationFilters,
+  type HubChatRequest,
+  type HubConversationSummary,
+  isConversationFilter,
 } from "typespec/hub/messages/messages";
 import type { FrontendLocale } from "typespec/hub/types";
 import type {
@@ -49,6 +60,7 @@ import { conversationPath } from "../features/messages/paths";
 import {
   type ChatRequestAnswer,
   chronological,
+  useAwaitingConversationCountsQuery,
   useChatRequestAnswerAction,
   useChatRequestsQuery,
   useConversationDetailQuery,
@@ -57,6 +69,7 @@ import {
   useMarkConversationRead,
   useMessageDeleteAction,
 } from "../features/messages/queries";
+import { WaitingPanel } from "../features/messages/WaitingPanel";
 import { useOrgOpeningQuery } from "../features/openings/queries";
 import { countryName } from "../i18n/countries";
 
@@ -406,6 +419,18 @@ function ClosedNotice({ summary }: { summary: HubConversationSummary }) {
   );
 }
 
+const filterLabels: Record<ConversationFilter, string> = {
+  all: "messages.filterAll",
+  requests_received: "messages.filterRequestsReceived",
+  unread: "messages.filterUnread",
+};
+
+const emptyTexts: Record<ConversationFilter, string> = {
+  all: "messages.empty",
+  requests_received: "messages.emptyRequestsReceived",
+  unread: "messages.emptyUnread",
+};
+
 function hasIncoming(summary: HubConversationSummary): boolean {
   const request = summary.latest_request;
   return request?.direction === "to_hub_user" && request.state === "pending";
@@ -435,13 +460,28 @@ export function MessagesPage() {
   const isMobile = screens.md === false;
 
   const selectedDomain = params.domain;
-  const conversations = useConversationsQuery();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterParam = searchParams.get("filter") ?? undefined;
+  const filter: ConversationFilter = isConversationFilter(filterParam)
+    ? filterParam
+    : "all";
+  // The full list names the open conversation whatever the filter shows.
+  const conversations = useConversationsQuery("all", true, true);
+  const filtered = useConversationsQuery(filter, filter !== "all", true);
+  const listed = filter === "all" ? conversations : filtered;
+  const awaiting = useAwaitingConversationCountsQuery();
   const incoming = useChatRequestsQuery("to_hub_user");
+  const openConversation = (agencyDomain: string) =>
+    navigate({
+      pathname: conversationPath(agencyDomain),
+      search: location.search,
+    });
 
   // MKT-HUB-001: requests awaiting the Hub user first, oldest first; then
   // conversations and sent requests by last activity.
   const items = useMemo(() => {
-    const all = conversations.data?.items ?? [];
+    const all = listed.data?.items ?? [];
     const order = (incoming.data?.items ?? [])
       .filter((request) => request.state === "pending")
       .map((request) => request.agency_domain);
@@ -453,7 +493,7 @@ export function MessagesPage() {
           (order.indexOf(b.agency_domain) + 1 || Number.MAX_SAFE_INTEGER),
       );
     return [...waiting, ...all.filter((item) => !hasIncoming(item))];
-  }, [conversations.data, incoming.data]);
+  }, [listed.data, incoming.data]);
 
   const [replyText, setReplyText] = useState("");
 
@@ -471,17 +511,15 @@ export function MessagesPage() {
   const replyAction = useConversationReplyAction(selectedDomain ?? "");
   const deleteAction = useMessageDeleteAction(selectedDomain ?? "");
 
-  // Auto mark read when opening an unread conversation
+  // Marks the open conversation read on opening it and whenever its live
+  // read brings new agency messages.
+  const unreadNow =
+    detailQuery.data?.pages[0]?.conversation.unread ?? summary?.unread;
   useEffect(() => {
-    if (selectedDomain && summary?.has_conversation && summary.unread) {
+    if (selectedDomain && summary?.has_conversation && unreadNow) {
       markRead.mutate(selectedDomain);
     }
-  }, [
-    selectedDomain,
-    summary?.has_conversation,
-    summary?.unread,
-    markRead.mutate,
-  ]);
+  }, [selectedDomain, summary?.has_conversation, unreadNow, markRead.mutate]);
 
   const handleSendReply = () => {
     const trimmed = replyText.trim();
@@ -511,18 +549,45 @@ export function MessagesPage() {
     isProblem(detailQuery.error, OrgUnavailableError.type);
 
   // Left column: list of conversations
+  const countOf = (option: ConversationFilter) =>
+    option === "all" ? undefined : awaiting.data?.[option];
+  const filterTabs = (
+    <div style={{ padding: "0 16px" }}>
+      <Tabs
+        size="small"
+        activeKey={filter}
+        onChange={(key) =>
+          setSearchParams(key === "all" ? {} : { filter: key })
+        }
+        style={{ marginBottom: 0 }}
+        items={conversationFilters.map((option) => {
+          const count = countOf(option);
+          const label = t(filterLabels[option]);
+          return {
+            key: option,
+            label:
+              count === undefined
+                ? label
+                : t("messages.filterWithCount", { filter: label, count }),
+          };
+        })}
+      />
+    </div>
+  );
+
   const conversationsList = (
     <Card styles={{ body: { padding: 0 } }} style={{ overflow: "hidden" }}>
-      {conversations.isPending ? (
+      {filterTabs}
+      {listed.isPending ? (
         <div style={{ padding: 24, textAlign: "center" }}>
           <Spin aria-label={t("messages.loading")} />
         </div>
-      ) : conversations.isError ? (
+      ) : listed.isError ? (
         <div style={{ padding: 16 }}>
-          <APIErrorAlert error={conversations.error} />
+          <APIErrorAlert error={listed.error} />
           <Button
             style={{ marginTop: 8 }}
-            onClick={() => void conversations.refetch()}
+            onClick={() => void listed.refetch()}
           >
             {t("common.retry")}
           </Button>
@@ -530,7 +595,7 @@ export function MessagesPage() {
       ) : items.length === 0 ? (
         <div style={{ padding: 24, textAlign: "center" }}>
           <Typography.Paragraph type="secondary">
-            {t("messages.empty")}
+            {t(emptyTexts[filter])}
           </Typography.Paragraph>
         </div>
       ) : (
@@ -545,7 +610,7 @@ export function MessagesPage() {
 
             return (
               <List.Item
-                onClick={() => navigate(conversationPath(item.agency_domain))}
+                onClick={() => openConversation(item.agency_domain)}
                 style={{
                   padding: "16px 20px",
                   cursor: "pointer",
@@ -563,9 +628,17 @@ export function MessagesPage() {
                     </Avatar>
                   }
                   title={
-                    <Typography.Text strong ellipsis>
-                      {item.agency_display_name}
-                    </Typography.Text>
+                    <Flex align="center" gap="small">
+                      <Typography.Text
+                        strong={item.unread || hasIncoming(item)}
+                        ellipsis
+                      >
+                        {item.agency_display_name}
+                      </Typography.Text>
+                      {hasIncoming(item) && (
+                        <Tag color="gold">{t("messages.requestTag")}</Tag>
+                      )}
+                    </Flex>
                   }
                   description={
                     <div>
@@ -601,14 +674,21 @@ export function MessagesPage() {
                         >
                           {listSnippet(item, t)}
                         </Typography.Text>
-                        {(item.unread || hasIncoming(item)) && (
-                          <Badge
-                            count={
-                              item.unread_count > 0 ? item.unread_count : 1
-                            }
-                            {...(!item.unread && { dot: true })}
-                            style={{ backgroundColor: token.colorError }}
-                          />
+                        {item.unread && item.unread_count > 0 && (
+                          <span>
+                            <Badge
+                              count={item.unread_count}
+                              aria-hidden
+                              style={{
+                                backgroundColor: token.colorErrorActive,
+                              }}
+                            />
+                            <span className="visually-hidden">
+                              {t("messages.unreadCount", {
+                                count: item.unread_count,
+                              })}
+                            </span>
+                          </span>
                         )}
                       </Flex>
                     </div>
@@ -644,7 +724,9 @@ export function MessagesPage() {
                 <Button
                   type="text"
                   icon={<ArrowLeftOutlined />}
-                  onClick={() => navigate("/messages")}
+                  onClick={() =>
+                    navigate({ pathname: "/messages", search: location.search })
+                  }
                   aria-label={t("common.back")}
                 />
               )}
@@ -895,21 +977,7 @@ export function MessagesPage() {
         )}
       </Card>
     ) : (
-      <Card
-        style={{
-          minHeight: 400,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Typography.Paragraph
-          type="secondary"
-          style={{ margin: 0, textAlign: "center" }}
-        >
-          {t("messages.selectPrompt")}
-        </Typography.Paragraph>
-      </Card>
+      <WaitingPanel onOpen={openConversation} />
     );
 
   return (
@@ -926,7 +994,10 @@ export function MessagesPage() {
         selectedDomain ? (
           conversationView
         ) : (
-          conversationsList
+          <Space orientation="vertical" size="large" className="full-width">
+            <WaitingPanel onOpen={openConversation} hideWhenEmpty />
+            {conversationsList}
+          </Space>
         )
       ) : (
         <Row gutter={[24, 24]}>

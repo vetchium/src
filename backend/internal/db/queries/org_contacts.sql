@@ -124,8 +124,11 @@ LEFT JOIN LATERAL (
 WHERE c.org_did = sqlc.arg(org_did)
   AND (
       sqlc.arg(filter)::text = 'all'
-      OR (sqlc.arg(filter)::text = 'requests' AND req.org_did IS NOT NULL)
+      OR (sqlc.arg(filter)::text = 'requests_received'
+          AND req.direction = 'to_agency')
       OR (sqlc.arg(filter)::text = 'unread' AND conv.agency_unread_count > 0)
+      OR (sqlc.arg(filter)::text = 'requests_sent'
+          AND req.direction = 'to_hub_user')
       OR (sqlc.arg(filter)::text = 'has_conversation'
           AND conv.org_did IS NOT NULL)
   )
@@ -138,11 +141,15 @@ WHERE c.org_did = sqlc.arg(org_did)
 ORDER BY c.last_activity_at DESC, c.handle DESC
 LIMIT sqlc.arg(page_limit);
 
--- How many of the agency's Contacts each Contacts tab holds (MKT-UI-007).
+-- How many of the agency's Contacts each Contacts tab holds (MKT-UI-007);
+-- the navigation badges read requests_received and unread.
 -- name: CountOrgContactsByTab :one
 SELECT count(*)::integer AS all_contacts,
-    (count(req.org_did))::integer AS requests,
+    (count(*) FILTER (WHERE req.direction = 'to_agency'))::integer
+        AS requests_received,
     (count(*) FILTER (WHERE conv.agency_unread_count > 0))::integer AS unread,
+    (count(*) FILTER (WHERE req.direction = 'to_hub_user'))::integer
+        AS requests_sent,
     (count(conv.org_did))::integer AS has_conversation
 FROM vetchium.org_contacts AS c
 LEFT JOIN vetchium.org_conversations AS conv
@@ -711,6 +718,15 @@ WHERE hub_user_did = sqlc.arg(hub_user_did)
            AND request->>'state' = 'pending')
        OR (request->>'direction' = 'to_agency'
            AND request->>'state' <> 'accepted'))
+  AND (sqlc.arg(filter)::text = 'all'
+       OR (sqlc.arg(filter)::text = 'requests_received'
+           AND read_only_reason IS NULL
+           AND has_request
+           AND request->>'direction' = 'to_hub_user'
+           AND request->>'state' = 'pending')
+       OR (sqlc.arg(filter)::text = 'unread'
+           AND read_only_reason IS NULL
+           AND has_conversation AND unread_count > 0))
   AND (sqlc.narg(after_activity_at)::timestamptz IS NULL
        OR (last_activity_at, agency_domain) <
            (sqlc.narg(after_activity_at)::timestamptz,
@@ -718,17 +734,18 @@ WHERE hub_user_did = sqlc.arg(hub_user_did)
 ORDER BY last_activity_at DESC, agency_domain DESC
 LIMIT sqlc.arg(page_limit);
 
--- The conversations waiting on the Hub user (MKT-HUB-001): a chat request to
--- answer, or agency messages not yet read.
+-- The conversations waiting on the Hub user (MKT-HUB-001), each counted as
+-- ListHubAgencyConversations filters it: a chat request to answer, and agency
+-- messages not yet read.
 -- name: CountHubAwaitingConversations :one
-SELECT count(*)::integer AS awaiting
+SELECT (count(*) FILTER (WHERE has_request
+        AND request->>'direction' = 'to_hub_user'
+        AND request->>'state' = 'pending'))::integer AS requests_received,
+    (count(*) FILTER (WHERE has_conversation AND unread_count > 0))::integer
+        AS unread
 FROM vetchium.hub_agency_pointers
 WHERE hub_user_did = sqlc.arg(hub_user_did)
-  AND read_only_reason IS NULL
-  AND ((has_conversation AND unread_count > 0)
-       OR (has_request
-           AND request->>'direction' = 'to_hub_user'
-           AND request->>'state' = 'pending'));
+  AND read_only_reason IS NULL;
 
 -- name: GetHubAgencyPointer :one
 SELECT hub_user_did, agency_org_did, agency_display_name, agency_domain,

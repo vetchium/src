@@ -106,6 +106,7 @@ import type {
   AddedNote,
   AddPersonNoteRequest,
   AgencyProfile,
+  AwaitingContactCounts,
   ChatRequest,
   Contact,
   ContactReference,
@@ -122,7 +123,6 @@ import type {
   ListContactsRequest,
   ListContactsResponse,
   MarkConversationReadRequest,
-  PendingChatRequestCount,
   SendChatRequestRequest,
   SendMessageRequest,
   ViewHubProfileRequest,
@@ -908,8 +908,8 @@ export const orgsAPI = {
   ) => apiRequest<ChatRequest>("/send-chat-request", { body, idempotencyKey }),
   listChatRequests: (body: ListChatRequestsRequest) =>
     apiRequest<ListChatRequestsResponse>("/list-chat-requests", { body }),
-  countPendingChatRequests: () =>
-    apiRequest<PendingChatRequestCount>("/count-pending-chat-requests", {
+  countAwaitingContacts: () =>
+    apiRequest<AwaitingContactCounts>("/count-awaiting-contacts", {
       method: "GET",
     }),
   acceptChatRequest: (

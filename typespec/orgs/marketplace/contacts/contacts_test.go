@@ -168,8 +168,9 @@ func TestListContactsFiltersAndNameQuery(t *testing.T) {
 	t.Parallel()
 	filter := func(value ContactFilter) *ContactFilter { return &value }
 	query := func(value ContactNameQuery) *ContactNameQuery { return &value }
-	for _, value := range []ContactFilter{ContactFilterAll, ContactFilterUnread,
-		ContactFilterRequests, ContactFilterHasConversation} {
+	for _, value := range []ContactFilter{ContactFilterAll,
+		ContactFilterRequestsReceived, ContactFilterUnread,
+		ContactFilterRequestsSent, ContactFilterHasConversation} {
 		if got := (ListContactsRequest{Filter: filter(value)}).Validate(); len(got) != 0 {
 			t.Fatalf("filter %q rejected: %v", value, got)
 		}
@@ -279,7 +280,9 @@ func TestChatRequestRequestsNormalizeOnACopyAndValidate(t *testing.T) {
 		{"decline opening", DeclineChatRequestRequest{Handle: handle, RequestNumber: 2, Scope: DeclineOpening}.Validate(), []string{}},
 		{"decline sender", DeclineChatRequestRequest{Handle: handle, RequestNumber: 2, Scope: DeclineSender}.Validate(), []string{}},
 		{"decline invalid", DeclineChatRequestRequest{Handle: "x", Scope: "forever"}.Validate(), []string{"handle", "request_number", "scope"}},
-		{"requests filter", ListContactsRequest{Filter: ptr(ContactFilterRequests)}.Validate(), []string{}},
+		{"requests received filter", ListContactsRequest{Filter: ptr(ContactFilterRequestsReceived)}.Validate(), []string{}},
+		{"requests sent filter", ListContactsRequest{Filter: ptr(ContactFilterRequestsSent)}.Validate(), []string{}},
+		{"unknown filter", ListContactsRequest{Filter: ptr(ContactFilter("requests"))}.Validate(), []string{"filter"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

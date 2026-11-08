@@ -57,10 +57,14 @@ enum ConversationReadOnlyReason {
 enum ContactFilter {
   all: "all",
 
-  /** Contacts with a pending chat request in either direction. */
-  requests: "requests",
+  /** Contacts with a pending chat request from the person to the agency. */
+  requests_received: "requests_received",
 
   unread: "unread",
+
+  /** Contacts with a pending chat request from the agency to the person. */
+  requests_sent: "requests_sent",
+
   has_conversation: "has_conversation",
 }
 
@@ -204,9 +208,13 @@ model ListChatRequestsResponse {
   next_pagination_key?: Vetchium.PaginationKey;
 }
 
-/** Pending requests from Hub users to the agency. */
-model PendingChatRequestCount {
-  count: int32;
+/**
+ * What waits on the agency, counted per Contact: a pending chat request from
+ * the person, and unread messages from them (MKT-UI-007).
+ */
+model AwaitingContactCounts {
+  requests_received: int32;
+  unread: int32;
 }
 
 model AcceptChatRequestRequest {
@@ -256,8 +264,9 @@ scalar ContactNameQuery extends string;
 /** How many of the agency's Contacts each Contacts tab holds. */
 model ContactCounts {
   all: int32;
-  requests: int32;
+  requests_received: int32;
   unread: int32;
+  requests_sent: int32;
   has_conversation: int32;
 }
 
@@ -665,19 +674,19 @@ interface ContactOperations {
     | ContactReadErrors
     | Vetchium.Problem.InvalidPaginationKeyErrorResponse;
 
-  /** Counts the chat requests from Hub users awaiting the agency's answer. */
-  @route("/count-pending-chat-requests")
+  /** Counts the Contacts waiting on the agency, for the navigation badges. */
+  @route("/count-awaiting-contacts")
   @get
   @useAuth(BearerAuth)
   @TypeSpec.OpenAPI.extension(
     "x-vetchium-required-permission",
     "org:fulfil_engagements"
   )
-  countPendingChatRequests():
+  countAwaitingContacts():
     | {
         @statusCode status_code: 200;
         @header("Cache-Control") cache_control: "no-store";
-        @body body: PendingChatRequestCount;
+        @body body: AwaitingContactCounts;
       }
     | Vetchium.Problem.OrgAuthenticationRequiredErrorResponse
     | Vetchium.Problem.OrgPermissionRequiredErrorResponse

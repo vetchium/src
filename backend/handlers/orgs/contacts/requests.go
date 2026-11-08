@@ -455,17 +455,20 @@ func ListChatRequests(s *orgsruntime.Server) http.HandlerFunc {
 	}
 }
 
-// CountPendingChatRequests counts the Hub users' requests awaiting the
-// agency's answer, for the Home card and the navigation (MKT-UI-011).
-func CountPendingChatRequests(s *orgsruntime.Server) http.HandlerFunc {
+// CountAwaitingContacts counts the Contacts waiting on the agency, for the
+// navigation badges and the Home card (MKT-UI-007, MKT-UI-011); it reads the
+// Contacts tab counts so the badges always match the tabs they open.
+func CountAwaitingContacts(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, _ := middleware.OrgIdentityFromContext(r.Context())
-		count, err := s.Queries.CountPendingOrgChatRequests(r.Context(), identity.OrgDID)
+		tabs, err := s.Queries.CountOrgContactsByTab(r.Context(), identity.OrgDID)
 		if err != nil {
-			s.InternalError(r.Context(), w, "count pending chat requests", err)
+			s.InternalError(r.Context(), w, "count awaiting Contacts", err)
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")
-		s.JSON(r.Context(), w, http.StatusOK, contacts.PendingChatRequestCount{Count: count})
+		s.JSON(r.Context(), w, http.StatusOK, contacts.AwaitingContactCounts{
+			RequestsReceived: tabs.RequestsReceived, Unread: tabs.Unread,
+		})
 	}
 }

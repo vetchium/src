@@ -64,6 +64,7 @@ func ListConversations(s *hubruntime.Server) http.HandlerFunc {
 
 		params := sqlc.ListHubAgencyConversationsParams{
 			HubUserDid: identity.UserDID,
+			Filter:     string(request.EffectiveFilter()),
 			PageLimit:  limit + 1,
 		}
 
@@ -465,13 +466,15 @@ func MarkConversationRead(s *hubruntime.Server) http.HandlerFunc {
 func CountAwaitingConversations(s *hubruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		count, err := s.Queries.CountHubAwaitingConversations(r.Context(), identity.UserDID)
+		counts, err := s.Queries.CountHubAwaitingConversations(r.Context(), identity.UserDID)
 		if err != nil {
 			s.InternalError(r.Context(), w, "count awaiting conversations", err)
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")
-		s.JSON(r.Context(), w, http.StatusOK, hubmessages.AwaitingConversationCount{Count: count})
+		s.JSON(r.Context(), w, http.StatusOK, hubmessages.AwaitingConversationCounts{
+			RequestsReceived: counts.RequestsReceived, Unread: counts.Unread,
+		})
 	}
 }
 

@@ -13,10 +13,11 @@ import type {
 } from "typespec/hub/messages/messages";
 import type {
   AddedNote,
+  AwaitingContactCounts,
   ChatRequest,
   ChatRequestDeclineScope,
   Contact,
-  PendingChatRequestCount,
+  ListContactsResponse,
 } from "typespec/orgs/marketplace/contacts/contacts";
 import { expectProblem } from "../lib/admin-api.ts";
 import {
@@ -204,12 +205,28 @@ test("MKT-REQ-002: an agency sends a request by handle and by Contact; both side
       [first.hub_user_handle, second.hub_user_handle].sort(),
     );
     expect(await orgRequests(agency, "to_agency")).toEqual([]);
-    const count = await provider.api.countPendingChatRequests(provider.owner);
+    // Requests the agency sent wait on the person, not on the agency.
+    const count = await provider.api.countAwaitingContacts(provider.owner);
     expect(count.status(), await count.text()).toBe(200);
     expect(count.headers()["cache-control"]).toBe("no-store");
-    expect((await count.json()) as PendingChatRequestCount).toEqual({
-      count: 0,
+    expect((await count.json()) as AwaitingContactCounts).toEqual({
+      requests_received: 0,
+      unread: 0,
     });
+    const handles = async (filter: "requests_sent" | "requests_received") => {
+      const res = await provider.api.listContacts(provider.owner, { filter });
+      expect(res.status(), await res.text()).toBe(200);
+      const page = (await res.json()) as ListContactsResponse;
+      expect(page.counts).toMatchObject({
+        requests_received: 0,
+        requests_sent: 2,
+      });
+      return page.items.map((item) => item.handle).sort();
+    };
+    expect(await handles("requests_sent")).toEqual(
+      [first.hub_user_handle, second.hub_user_handle].sort(),
+    );
+    expect(await handles("requests_received")).toEqual([]);
     const contact = await provider.api.getContact(provider.owner, {
       handle: first.hub_user_handle,
     });
@@ -779,12 +796,12 @@ test("Orgs chat request routes, answers included, authenticate, require org:fulf
       );
     }
     await expectProblem(
-      await provider.api.countPendingChatRequests(),
+      await provider.api.countAwaitingContacts(),
       401,
       PROBLEMS.orgAuth,
     );
     await expectProblem(
-      await provider.api.countPendingChatRequests(helper.token),
+      await provider.api.countAwaitingContacts(helper.token),
       403,
       PROBLEMS.permission,
     );
@@ -952,7 +969,7 @@ test("Orgs chat request routes, answers included, authenticate, require org:fulf
       );
     }
     await expectProblem(
-      await provider.api.countPendingChatRequests(provider.owner),
+      await provider.api.countAwaitingContacts(provider.owner),
       403,
       PROBLEMS.suspended,
     );

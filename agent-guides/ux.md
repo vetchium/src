@@ -84,6 +84,19 @@ first version; a screen that needs a redesign pass missed a rule here.
   to its own. The workspace last chosen applies only on pinned and
   account-menu pages.
 
+## Navigation counts
+
+- A sidebar count shows what waits on the user, from a counts operation,
+  through `NavigationLabel` (`@vetchium/portal-ui/inbox`): one badge per kind,
+  `action` (solid, something to decide) or `unread` (outlined, something to
+  read), each with a screen-reader label naming the kind. Never tell two
+  counts apart by color alone.
+- The page it opens shows each kind as its own tab or filter with the same
+  count; the navigation opens the first non-empty one.
+- Counts and inbox lists use `inboxRefresh` (every minute and on window
+  focus); a conversation on screen uses `openConversationRefresh`. The shell
+  puts the total in the browser tab title with `useDocumentTitlePrefix`.
+
 ## Actions and saving
 
 - One save scope per independent setting. Never put unrelated settings

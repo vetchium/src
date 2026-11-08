@@ -228,8 +228,9 @@ test("the Contacts list takes a known filter and a 2 to 100 code point name quer
   assert.equal(isContactNameQuery(" ada"), false);
   for (const filter of [
     "all",
-    "requests",
+    "requests_received",
     "unread",
+    "requests_sent",
     "has_conversation",
   ] as const) {
     assert.deepEqual(validateListContactsRequest({ filter }), []);

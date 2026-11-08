@@ -19,10 +19,12 @@ import {
   UnorderedListOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
+import { useDocumentTitlePrefix } from "@vetchium/portal-ui/document-title";
+import { NavigationLabel } from "@vetchium/portal-ui/inbox";
 import { usePendingOperations } from "@vetchium/portal-ui/pending-operations";
 import { PortalShell } from "@vetchium/portal-ui/shell";
 import { ThambiIcon } from "@vetchium/portal-ui/thambi";
-import { App, Badge, Flex, Select, Typography } from "antd";
+import { App, Flex, Select, Typography } from "antd";
 import type { ItemType } from "antd/es/menu/interface.js";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
@@ -58,10 +60,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { useMyInfoQuery } from "../../features/account/queries";
 import { DomainFailingBanner } from "../../features/domain/DomainFailingBanner";
 import { capabilityLabel } from "../../features/marketplace/presentation";
-import {
-  useContactsQuery,
-  usePendingChatRequestCountQuery,
-} from "../../features/marketplace/queries";
+import { useAwaitingContactCountsQuery } from "../../features/marketplace/queries";
 
 const workspaceStorageKey = "vetchium.orgs.workspace";
 
@@ -126,14 +125,22 @@ export function AppShell() {
   const canFulfil = can(FulfilEngagements);
   const isAgency = me?.marketplace.capabilities.includes(Sourcing) === true;
   const inbox = canFulfil && isAgency && !suspended;
-  const { data: unreadContactsData } = useContactsQuery(
-    { filter: "unread", limit: 1 },
-    inbox,
+  const { data: awaiting } = useAwaitingContactCountsQuery(inbox);
+  const requestsToAnswer = awaiting?.requests_received ?? 0;
+  const unread = awaiting?.unread ?? 0;
+  // MKT-UI-007: Contacts opens on what waits on the agency, requests first.
+  const contactsTarget =
+    requestsToAnswer > 0
+      ? `${paths.contacts}?tab=requests_received`
+      : unread > 0
+        ? `${paths.contacts}?tab=unread`
+        : paths.contacts;
+  const menuKey = (page: Page) =>
+    page.key === "contacts" ? contactsTarget : page.path;
+  const waiting = requestsToAnswer + unread;
+  useDocumentTitlePrefix(
+    waiting > 0 ? t("navigation.titleCount", { count: waiting }) : undefined,
   );
-  const { data: pendingRequests } = usePendingChatRequestCountQuery(inbox);
-  // MKT-UI-007: unread conversations plus requests awaiting the agency.
-  const unreadCount =
-    (unreadContactsData?.counts.unread ?? 0) + (pendingRequests?.count ?? 0);
 
   const workspaces = suspended
     ? []
@@ -158,20 +165,28 @@ export function AppShell() {
   }, [workspace, remembered]);
 
   const pageItem = (page: Page): ItemType => ({
-    key: page.path,
+    key: menuKey(page),
     icon: pageIcons[page.key],
     label:
-      page.key === "contacts" && unreadCount > 0 ? (
-        <Flex align="center" justify="space-between" gap="small">
-          <span>{t(`navigation.${page.key}`)}</span>
-          <Badge
-            count={unreadCount}
-            size="small"
-            aria-label={t("navigation.unreadContacts", {
-              count: unreadCount,
-            })}
-          />
-        </Flex>
+      page.key === "contacts" ? (
+        <NavigationLabel
+          counts={[
+            {
+              kind: "action",
+              count: requestsToAnswer,
+              label: t("navigation.requestsToAnswer", {
+                count: requestsToAnswer,
+              }),
+            },
+            {
+              kind: "unread",
+              count: unread,
+              label: t("navigation.unreadConversations", { count: unread }),
+            },
+          ]}
+        >
+          {t(`navigation.${page.key}`)}
+        </NavigationLabel>
       ) : (
         t(`navigation.${page.key}`)
       ),
@@ -187,9 +202,12 @@ export function AppShell() {
     : (workspace?.pages ?? []);
   // A suspended Org's own pages refuse every read, so none is pinned.
   const pinned: readonly Page[] = suspended ? [] : pinnedPages;
-  const selectedKey =
-    pageOf(location.pathname, [...pinned, ...sidebarPages, ...accountPages])
-      ?.path ?? "";
+  const selectedPage = pageOf(location.pathname, [
+    ...pinned,
+    ...sidebarPages,
+    ...accountPages,
+  ]);
+  const selectedKey = selectedPage === undefined ? "" : menuKey(selectedPage);
 
   const workspaceLabel = (key: WorkspaceKey) =>
     isCapability(key)

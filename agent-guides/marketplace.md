@@ -656,11 +656,14 @@ autocomplete (MKT-OWN-005), never a list built from one page.
   last activity, with name, handle, one status (Request received, Request
   sent, In conversation, Request declined, Request expired, Conversation
   closed, or No conversation, with "Chat requests off" or "Account deleted"
-  beside it), last activity, unread count, note count, and credited count;
-  tabs All, Requests (a request pending in either direction), Unread, and
-  Conversations, each with its count and kept in `?tab=`; search by name.
-  The navigation count is unread conversations plus pending requests to the
-  agency. "Find a person" takes a handle or alias and opens the person page
+  beside it), last activity, Action ("Answer request" for a request to the
+  agency, the unread count), note count, and credited count; the name is bold
+  while either waits. Tabs To answer (`requests_received`), Unread, Waiting on
+  them (`requests_sent`), Conversations, and All (the default), each with its
+  count and kept in `?tab=`; search by name. The navigation shows two badges
+  from `count-awaiting-contacts`: requests to answer (solid) and unread
+  (outlined), and Contacts opens on To answer, else Unread, while either is
+  non-zero. "Find a person" takes a handle or alias and opens the person page
   (MKT-UI-008). Never show "Not contacted" or when the Contact began. There
   is no separate Messages page.
 - **MKT-UI-008** The person page, `/sourcing/contacts/<handle>`, is the one
@@ -682,8 +685,8 @@ autocomplete (MKT-OWN-005), never a list built from one page.
 - **MKT-UI-010** Ship every string in every `orgs-ui` locale.
 - **MKT-UI-011** Home shows a "Chat requests" card to `org:fulfil_engagements`
   holders of an agency: the five oldest pending requests to the agency (Hub
-  user, Opening, note start, sent at), "See all" to the Requests tab, and the
-  pending count from `count-pending-chat-requests`.
+  user, Opening, note start, sent at), "See all" to the To answer tab, and the
+  count `requests_received` from `count-awaiting-contacts`.
 - **MKT-UI-012** "Send chat request" is one dialog: the person (fixed when
   opened from a Contact or profile view; a handle or alias from Job detail),
   the Opening (fixed from Job detail; otherwise the agency's `published`
@@ -705,9 +708,15 @@ autocomplete (MKT-OWN-005), never a list built from one page.
   write, the composer gives way to the notice of MKT-CNV-010. When the
   agency's tenant does not answer, the list still shows and the
   conversation shows a retry notice (MKT-DAT-005). A conversation's URL is
-  `/messages/o/<agency domain>`. The navigation's Messages badge counts the
-  conversations waiting on the Hub user, `count-awaiting-conversations`: a
-  pending request to them or unread agency messages, once per agency.
+  `/messages/o/<agency domain>`. The list filters All, To answer
+  (`requests_received`), and Unread, with counts, kept in `?filter=` across
+  conversations; a request to answer carries a "Request" tag and an unread
+  one its count, each with a bold name. With no conversation open, the right
+  pane (above the list at phone width, only when non-empty) is "Waiting on
+  you": requests to answer, then unread conversations, each opening its
+  conversation. The navigation shows two badges from
+  `count-awaiting-conversations`, each once per agency: requests to answer
+  (solid) and unread (outlined).
 - **MKT-HUB-002** Settings hold "Agencies may send me chat requests"
   (MKT-REQ-008), saying that accepted conversations continue when it is off.
 - **MKT-HUB-005** The Opening page (`/org/<domain>/openings/<number>`) of a

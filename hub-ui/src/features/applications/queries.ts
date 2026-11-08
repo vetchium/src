@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { inboxRefresh } from "@vetchium/portal-ui/inbox";
 import type { PaginationKey } from "typespec/common/pagination";
 import {
   type ApplicationReference,
@@ -51,12 +52,14 @@ export function useMyApplicationsQuery(
   });
 }
 
+/** Kept fresh: it drives the Applications navigation badge. */
 export function useMyApplicationCountsQuery(enabled = true) {
   return useQuery({
     queryKey: [...applicationsQueryKey, "counts"],
     queryFn: () => hubAPI.myApplicationCounts(),
     retry: false,
     enabled,
+    ...inboxRefresh,
   });
 }
 

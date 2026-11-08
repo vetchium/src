@@ -48,7 +48,7 @@ import type {
 } from "typespec/hub/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";
 import type {
-  AwaitingConversationCount,
+  AwaitingConversationCounts,
   DeleteMessageRequest,
   GetConversationRequest,
   HubAcceptChatRequestRequest,
@@ -489,7 +489,7 @@ export const hubAPI = {
       { body, idempotencyKey },
     ),
   countAwaitingConversations: () =>
-    apiRequest<AwaitingConversationCount>(
+    apiRequest<AwaitingConversationCounts>(
       `${base}/count-awaiting-conversations`,
     ),
   listOpeningAgencies: (body: ListOpeningAgenciesRequest) =>

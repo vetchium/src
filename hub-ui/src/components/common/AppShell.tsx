@@ -9,8 +9,9 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useDocumentTitlePrefix } from "@vetchium/portal-ui/document-title";
+import { NavigationLabel } from "@vetchium/portal-ui/inbox";
 import { PortalShell } from "@vetchium/portal-ui/shell";
-import { Badge, Space } from "antd";
 import type { ItemType } from "antd/es/menu/interface.js";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -21,7 +22,7 @@ import { usePreferences } from "../../app/PreferencesContext";
 import { localeConfiguration } from "../../app/preferences";
 import { useAuth } from "../../auth/AuthContext";
 import { useMyApplicationCountsQuery } from "../../features/applications/queries";
-import { useAwaitingConversationCountQuery } from "../../features/messages/queries";
+import { useAwaitingConversationCountsQuery } from "../../features/messages/queries";
 import {
   type MyInfoQueryData,
   myInfoQueryKey,
@@ -53,11 +54,16 @@ export function AppShell() {
   // or when there is none, the avatar shows the display name's initial.
   const ownProfile = usePublicProfileQuery(me?.handle ?? "", me !== undefined);
   const applicationCounts = useMyApplicationCountsQuery();
-  const awaitingConversations = useAwaitingConversationCountQuery(
+  const awaitingConversations = useAwaitingConversationCountsQuery(
     auth.authenticated,
   );
   const answerNeeded = applicationCounts.data?.awaiting_answer ?? 0;
-  const messagesAwaiting = awaitingConversations.data?.count ?? 0;
+  const requestsToAnswer = awaitingConversations.data?.requests_received ?? 0;
+  const unreadConversations = awaitingConversations.data?.unread ?? 0;
+  const waiting = answerNeeded + requestsToAnswer + unreadConversations;
+  useDocumentTitlePrefix(
+    waiting > 0 ? t("navigation.titleCount", { count: waiting }) : undefined,
+  );
   const languageMutation = useMutation({
     mutationFn: (preferred_language: FrontendLocale) =>
       hubAPI.setPreferredLanguage({ preferred_language }),
@@ -93,30 +99,45 @@ export function AppShell() {
       key: "/applications",
       icon: <IdcardOutlined />,
       label: (
-        <Space>
-          {t("navigation.applications")}
-          <Badge
-            count={answerNeeded}
-            title={t("navigation.applicationsNeedAnswer", {
+        <NavigationLabel
+          counts={[
+            {
+              kind: "action",
               count: answerNeeded,
-            })}
-          />
-        </Space>
+              label: t("navigation.applicationsNeedAnswer", {
+                count: answerNeeded,
+              }),
+            },
+          ]}
+        >
+          {t("navigation.applications")}
+        </NavigationLabel>
       ),
     },
     {
       key: "/messages",
       icon: <MessageOutlined />,
       label: (
-        <Space>
+        <NavigationLabel
+          counts={[
+            {
+              kind: "action",
+              count: requestsToAnswer,
+              label: t("navigation.requestsToAnswer", {
+                count: requestsToAnswer,
+              }),
+            },
+            {
+              kind: "unread",
+              count: unreadConversations,
+              label: t("navigation.unreadConversations", {
+                count: unreadConversations,
+              }),
+            },
+          ]}
+        >
           {t("navigation.messages")}
-          <Badge
-            count={messagesAwaiting}
-            title={t("navigation.messagesAwaiting", {
-              count: messagesAwaiting,
-            })}
-          />
-        </Space>
+        </NavigationLabel>
       ),
     },
     {

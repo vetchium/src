@@ -50,12 +50,11 @@ import {
   openingStateLabel,
 } from "../features/marketplace/presentation";
 import {
+  useAwaitingContactCountsQuery,
   useChatRequestsQuery,
   useClientEngagementsQuery,
   useConsumerEngagementsQuery,
-  useContactsQuery,
   useJobsQuery,
-  usePendingChatRequestCountQuery,
   useWorkQueueQuery,
 } from "../features/marketplace/queries";
 import { useOpeningsQuery } from "../features/openings/queries";
@@ -89,7 +88,7 @@ export function HomePage() {
   );
 
   const interviewCounts = useMyInterviewCountsQuery();
-  const unread = useContactsQuery({ filter: "unread", limit: 1 }, isAgent);
+  const awaiting = useAwaitingContactCountsQuery(isAgent);
   if (me === undefined) return null;
 
   return (
@@ -131,8 +130,8 @@ export function HomePage() {
             <CountCard
               testId="home-unread-count"
               title={t("home.unreadConversations")}
-              value={unread.data?.counts.unread}
-              failed={unread.isError}
+              value={awaiting.data?.unread}
+              failed={awaiting.isError}
               link={`${paths.contacts}?tab=unread`}
             />
           </Col>
@@ -420,7 +419,7 @@ function ChatRequestsCard() {
   const { t } = useTranslation();
   const { dateTime } = useDateTimeFormat();
   const query = useChatRequestsQuery("to_agency", true, previewSize);
-  const count = usePendingChatRequestCountQuery();
+  const count = useAwaitingContactCountsQuery();
   const pending = (query.data?.pages[0]?.items ?? []).filter(
     (request) => request.state === "pending",
   );
@@ -430,9 +429,11 @@ function ChatRequestsCard() {
       title={
         count.data === undefined
           ? t("home.chatRequests")
-          : t("home.chatRequestsCount", { count: count.data.count })
+          : t("home.chatRequestsCount", {
+              count: count.data.requests_received,
+            })
       }
-      seeAll={`${paths.contacts}?tab=requests`}
+      seeAll={`${paths.contacts}?tab=requests_received`}
       query={query}
       items={pending}
       empty={t("home.noChatRequests")}

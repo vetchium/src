@@ -72,10 +72,11 @@ const (
 type ContactFilter string
 
 const (
-	ContactFilterAll             ContactFilter = "all"
-	ContactFilterRequests        ContactFilter = "requests"
-	ContactFilterUnread          ContactFilter = "unread"
-	ContactFilterHasConversation ContactFilter = "has_conversation"
+	ContactFilterAll              ContactFilter = "all"
+	ContactFilterRequestsReceived ContactFilter = "requests_received"
+	ContactFilterUnread           ContactFilter = "unread"
+	ContactFilterRequestsSent     ContactFilter = "requests_sent"
+	ContactFilterHasConversation  ContactFilter = "has_conversation"
 )
 
 // ContactNameQuery is a case-insensitive substring of the Contact's recorded
@@ -391,8 +392,8 @@ func (r ListContactsRequest) Validate() []string {
 	fields := validPage(r.PaginationKey, r.Limit)
 	if r.Filter != nil {
 		switch *r.Filter {
-		case ContactFilterAll, ContactFilterRequests, ContactFilterUnread,
-			ContactFilterHasConversation:
+		case ContactFilterAll, ContactFilterRequestsReceived, ContactFilterUnread,
+			ContactFilterRequestsSent, ContactFilterHasConversation:
 		default:
 			fields = append(fields, "filter")
 		}
@@ -405,10 +406,11 @@ func (r ListContactsRequest) Validate() []string {
 
 // ContactCounts is how many of the agency's Contacts each Contacts tab holds.
 type ContactCounts struct {
-	All             int32 `json:"all"`
-	Requests        int32 `json:"requests"`
-	Unread          int32 `json:"unread"`
-	HasConversation int32 `json:"has_conversation"`
+	All              int32 `json:"all"`
+	RequestsReceived int32 `json:"requests_received"`
+	Unread           int32 `json:"unread"`
+	RequestsSent     int32 `json:"requests_sent"`
+	HasConversation  int32 `json:"has_conversation"`
 }
 
 type ListContactsResponse struct {
@@ -585,10 +587,11 @@ type ListChatRequestsResponse struct {
 	NextPaginationKey *common.PaginationKey `json:"next_pagination_key,omitempty"`
 }
 
-// PendingChatRequestCount counts the Hub users' requests awaiting the
-// agency's answer.
-type PendingChatRequestCount struct {
-	Count int32 `json:"count"`
+// AwaitingContactCounts counts the Contacts waiting on the agency: a pending
+// chat request from the person, and unread messages from them.
+type AwaitingContactCounts struct {
+	RequestsReceived int32 `json:"requests_received"`
+	Unread           int32 `json:"unread"`
 }
 
 type AcceptChatRequestRequest struct {

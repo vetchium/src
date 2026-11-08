@@ -47,7 +47,7 @@ export function OrgOpeningPage() {
   const result = useOrgOpeningQuery(domain, number, valid);
   const presentation = openingPresentation(t, i18n.language);
   const application = useMyOpeningApplicationQuery(domain, number, valid);
-  const conversations = useConversationsQuery(auth.authenticated);
+  const conversations = useConversationsQuery("all", auth.authenticated);
 
   const suggestion = useMemo(() => {
     if (!conversations.data) return null;

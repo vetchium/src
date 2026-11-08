@@ -139,14 +139,6 @@ WHERE r.org_did = sqlc.arg(org_did)
 ORDER BY r.answered_at DESC, c.handle DESC, r.request_number DESC
 LIMIT sqlc.arg(page_limit);
 
--- Hub users' requests awaiting the agency's answer (MKT-UI-011).
--- name: CountPendingOrgChatRequests :one
-SELECT count(*)::integer AS pending
-FROM vetchium.org_chat_requests AS r
-WHERE r.org_did = sqlc.arg(org_did)
-  AND r.direction = 'to_agency'
-  AND r.state = 'pending';
-
 -- Answers a pending request: accepting moves the note into the request
 -- message the caller appends, declining deletes it (MKT-REQ-012). The
 -- caller holds the Contact lock; no row changes once it was answered.

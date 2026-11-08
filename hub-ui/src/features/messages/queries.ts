@@ -5,9 +5,14 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import {
+  inboxRefresh,
+  openConversationRefresh,
+} from "@vetchium/portal-ui/inbox";
 import { useRef } from "react";
 import type { PaginationKey } from "typespec/common/pagination";
 import {
+  type ConversationFilter,
   type HubConversationDetail,
   type HubSendChatRequestRequest,
   type ListConversationsResponse,
@@ -28,28 +33,40 @@ import { useIdempotencyKey } from "../../api/idempotency";
 import { usePendingOperations } from "../../app/PendingOperationContext";
 import { OperationStillPendingError, settle } from "../applications/actions";
 
+/** Prefixes every conversation list and detail. */
 export const conversationsQueryKey = ["hub", "conversations"] as const;
+const conversationListsQueryKey = [...conversationsQueryKey, "list"] as const;
+const conversationListQueryKey = (filter: ConversationFilter) =>
+  [...conversationListsQueryKey, filter] as const;
 export const conversationDetailQueryKey = (agencyDomain: string) =>
   ["hub", "conversations", agencyDomain] as const;
 const awaitingCountQueryKey = ["hub", "conversations-awaiting"] as const;
 const chatRequestsQueryKey = ["hub", "chat-requests"] as const;
 const openingAgenciesQueryKey = ["hub", "opening-agencies"] as const;
 
-export function useConversationsQuery(enabled = true) {
+/** The first page of the user's conversations; `live` keeps it fresh where
+ * it is the inbox. */
+export function useConversationsQuery(
+  filter: ConversationFilter = "all",
+  enabled = true,
+  live = false,
+) {
   return useQuery({
-    queryKey: conversationsQueryKey,
-    queryFn: () => hubAPI.listConversations(),
+    queryKey: conversationListQueryKey(filter),
+    queryFn: () => hubAPI.listConversations(filter === "all" ? {} : { filter }),
     enabled,
+    ...(live && inboxRefresh),
   });
 }
 
-/** Conversations waiting on the user: a chat request to answer, or unread
- * agency messages (MKT-HUB-001). */
-export function useAwaitingConversationCountQuery(enabled = true) {
+/** Conversations waiting on the user, kept fresh for the navigation badges:
+ * chat requests to answer, and unread agency messages (MKT-HUB-001). */
+export function useAwaitingConversationCountsQuery(enabled = true) {
   return useQuery({
     queryKey: awaitingCountQueryKey,
     queryFn: () => hubAPI.countAwaitingConversations(),
     enabled,
+    ...inboxRefresh,
   });
 }
 
@@ -68,6 +85,7 @@ export function useConversationDetailQuery(
     initialPageParam: undefined as PaginationKey | undefined,
     getNextPageParam: (page) => page.next_pagination_key,
     enabled: Boolean(agencyDomain) && enabled,
+    ...openConversationRefresh,
   });
 }
 
@@ -213,8 +231,8 @@ export function useMarkConversationRead() {
       hubAPI.markConversationRead({ agency_domain: agencyDomain }),
     onSuccess: (_, agencyDomain) => {
       void queryClient.invalidateQueries({ queryKey: awaitingCountQueryKey });
-      queryClient.setQueryData<ListConversationsResponse>(
-        conversationsQueryKey,
+      queryClient.setQueriesData<ListConversationsResponse>(
+        { queryKey: conversationListsQueryKey },
         (current) => {
           if (!current) return current;
           return {
@@ -314,7 +332,7 @@ export function useChatRequestAnswerAction(agencyDomain: string) {
         // response already carries them, so a refetch would go back in time.
         const live = result.conversation;
         queryClient.setQueryData<ListConversationsResponse>(
-          conversationsQueryKey,
+          conversationListQueryKey("all"),
           (data) =>
             data && {
               ...data,
@@ -341,7 +359,12 @@ export function useChatRequestAnswerAction(agencyDomain: string) {
               ),
             },
         );
-        await refresh(false);
+        await Promise.all([
+          refresh(false),
+          queryClient.invalidateQueries({
+            queryKey: conversationListQueryKey("requests_received"),
+          }),
+        ]);
         return;
       }
       await Promise.all([

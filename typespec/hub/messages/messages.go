@@ -227,9 +227,24 @@ func (r HubDeclineChatRequestRequest) Validate() []string {
 	return fields
 }
 
+// ConversationFilter picks which of the Hub user's conversations a list
+// holds.
+type ConversationFilter string
+
+const (
+	ConversationFilterAll ConversationFilter = "all"
+	// ConversationFilterRequestsReceived holds a pending chat request from
+	// the agency to the Hub user.
+	ConversationFilterRequestsReceived ConversationFilter = "requests_received"
+	// ConversationFilterUnread holds agency messages the Hub user has not
+	// read.
+	ConversationFilterUnread ConversationFilter = "unread"
+)
+
 type ListConversationsRequest struct {
 	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
 	Limit         *int32                `json:"limit,omitempty"`
+	Filter        *ConversationFilter   `json:"filter,omitempty"`
 }
 
 func (r *ListConversationsRequest) Normalize() {}
@@ -241,8 +256,24 @@ func (r ListConversationsRequest) EffectiveLimit() int32 {
 	return *r.Limit
 }
 
+func (r ListConversationsRequest) EffectiveFilter() ConversationFilter {
+	if r.Filter == nil {
+		return ConversationFilterAll
+	}
+	return *r.Filter
+}
+
 func (r ListConversationsRequest) Validate() []string {
-	return validPage(r.PaginationKey, r.Limit)
+	fields := validPage(r.PaginationKey, r.Limit)
+	if r.Filter != nil {
+		switch *r.Filter {
+		case ConversationFilterAll, ConversationFilterRequestsReceived,
+			ConversationFilterUnread:
+		default:
+			fields = append(fields, "filter")
+		}
+	}
+	return fields
 }
 
 func validPage(key *common.PaginationKey, limit *int32) []string {
@@ -261,10 +292,11 @@ type ListConversationsResponse struct {
 	NextPaginationKey *common.PaginationKey    `json:"next_pagination_key,omitempty"`
 }
 
-// AwaitingConversationCount counts the conversations waiting on the Hub
-// user: a chat request to answer, or unread agency messages.
-type AwaitingConversationCount struct {
-	Count int32 `json:"count"`
+// AwaitingConversationCounts counts the conversations waiting on the Hub
+// user, each under the ConversationFilter of the same name.
+type AwaitingConversationCounts struct {
+	RequestsReceived int32 `json:"requests_received"`
+	Unread           int32 `json:"unread"`
 }
 
 func validAgencyDomain(domain orgs.OrgDomain) []string {

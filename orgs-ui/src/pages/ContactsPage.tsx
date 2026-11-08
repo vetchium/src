@@ -2,7 +2,6 @@ import { SearchOutlined } from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
   Avatar,
-  Badge,
   Button,
   Card,
   Empty,
@@ -39,23 +38,40 @@ import { useContactsQuery } from "../features/marketplace/queries";
 
 const pageSize = 25;
 
+function waitsOnAgency(contact: ContactSummary): boolean {
+  return (
+    contact.status === "request_received" || contact.unread_messages_count > 0
+  );
+}
+
 function isContactFilter(value: string | undefined): value is ContactFilter {
   return (
     value !== undefined && (contactFilters as readonly string[]).includes(value)
   );
 }
 
+// What waits on the agency comes first (MKT-UI-007); All stays the default.
+const tabOrder: readonly ContactFilter[] = [
+  "requests_received",
+  "unread",
+  "requests_sent",
+  "has_conversation",
+  "all",
+];
+
 const tabLabels: Record<ContactFilter, string> = {
   all: "marketplace.contacts.tabAll",
-  requests: "marketplace.contacts.tabRequests",
+  requests_received: "marketplace.contacts.tabRequestsReceived",
   unread: "marketplace.contacts.tabUnread",
+  requests_sent: "marketplace.contacts.tabRequestsSent",
   has_conversation: "marketplace.contacts.tabConversations",
 };
 
 const emptyTexts: Record<ContactFilter, string> = {
   all: "marketplace.contacts.emptyAll",
-  requests: "marketplace.contacts.emptyRequests",
+  requests_received: "marketplace.contacts.emptyRequestsReceived",
   unread: "marketplace.contacts.emptyUnread",
+  requests_sent: "marketplace.contacts.emptyRequestsSent",
   has_conversation: "marketplace.contacts.emptyConversations",
 };
 
@@ -74,14 +90,18 @@ export function ContactsPage() {
   const nameRaw = list.get("q");
   const name =
     nameRaw !== undefined && isContactNameQuery(nameRaw) ? nameRaw : undefined;
-  const contactsQuery = useContactsQuery({
-    filter: activeTab,
-    ...(name !== undefined && { name_query: name }),
-    limit: pageSize,
-    ...(list.paginationKey !== undefined && {
-      pagination_key: list.paginationKey,
-    }),
-  });
+  const contactsQuery = useContactsQuery(
+    {
+      filter: activeTab,
+      ...(name !== undefined && { name_query: name }),
+      limit: pageSize,
+      ...(list.paginationKey !== undefined && {
+        pagination_key: list.paginationKey,
+      }),
+    },
+    true,
+    true,
+  );
   const contacts = contactsQuery.data?.items ?? [];
   const counts = contactsQuery.data?.counts;
 
@@ -94,7 +114,7 @@ export function ContactsPage() {
           <Avatar>{getInitials(c.display_name)}</Avatar>
           <div>
             <Link to={paths.contactDetail(c.handle)}>
-              <Typography.Text strong={c.unread_messages_count > 0}>
+              <Typography.Text strong={waitsOnAgency(c)}>
                 {c.display_name}
               </Typography.Text>
             </Link>
@@ -133,13 +153,24 @@ export function ContactsPage() {
       render: (_, c) => dateTime(c.last_activity_at),
     },
     {
-      title: t("marketplace.contacts.tableUnread"),
-      key: "unread",
-      align: "end",
-      render: (_, c) =>
-        c.unread_messages_count > 0 ? (
-          <Badge count={c.unread_messages_count} />
-        ) : null,
+      title: t("marketplace.contacts.tableAction"),
+      key: "action",
+      render: (_, c) => (
+        <Space orientation="vertical" size={0}>
+          {c.status === "request_received" && (
+            <Link to={paths.contactDetail(c.handle)}>
+              {t("marketplace.contacts.actionAnswerRequest")}
+            </Link>
+          )}
+          {c.unread_messages_count > 0 && (
+            <Typography.Text strong>
+              {t("marketplace.contacts.actionUnread", {
+                count: c.unread_messages_count,
+              })}
+            </Typography.Text>
+          )}
+        </Space>
+      ),
     },
     {
       title: t("marketplace.contacts.tableNotes"),
@@ -166,7 +197,7 @@ export function ContactsPage() {
     navigate(paths.contactDetail(clean));
   };
 
-  const tabItems = contactFilters.map((filter) => ({
+  const tabItems = tabOrder.map((filter) => ({
     key: filter,
     label: t("marketplace.contacts.tabWithCount", {
       tab: t(tabLabels[filter]),

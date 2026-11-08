@@ -258,9 +258,11 @@ test("Home shows an agent the chat requests waiting for the agency, and not a co
     await expect(card.getByText("Ana Early")).toBeVisible();
     await expect(card.getByText("Ben Later")).toBeVisible();
     await card.getByRole("link", { name: "See all" }).click();
-    await expect(page).toHaveURL(/\/sourcing\/contacts\?tab=requests/);
+    await expect(page).toHaveURL(
+      /\/sourcing\/contacts\?tab=requests_received$/,
+    );
     await expect(
-      page.getByRole("tab", { name: "Requests (2)", selected: true }),
+      page.getByRole("tab", { name: "To answer (2)", selected: true }),
     ).toBeVisible();
     await expect(page.getByRole("row", { name: /Ana Early/ })).toContainText(
       "Request received",

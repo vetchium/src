@@ -746,11 +746,10 @@ export class OrgsAPI {
     });
   }
 
-  countPendingChatRequests(token?: string): Promise<APIResponse> {
-    return this.request.get(
-      `${this.origin}/api/orgs/count-pending-chat-requests`,
-      { headers: token ? { Authorization: `Bearer ${token}` } : {} },
-    );
+  countAwaitingContacts(token?: string): Promise<APIResponse> {
+    return this.request.get(`${this.origin}/api/orgs/count-awaiting-contacts`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
   }
 
   markConversationRead(
