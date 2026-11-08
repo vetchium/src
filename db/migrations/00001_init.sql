@@ -3731,14 +3731,13 @@ CREATE TABLE vetchium.org_chat_requests (
 CREATE UNIQUE INDEX org_chat_requests_pending_key
     ON vetchium.org_chat_requests (org_did, hub_user_did)
     WHERE state = 'pending';
--- Lists pending requests oldest first, then answered ones newest first.
+-- Lists pending requests oldest first, then answered ones newest first. The
+-- lists break ties by the Contact's handle, which this table does not hold.
 CREATE INDEX org_chat_requests_pending_list_idx
-    ON vetchium.org_chat_requests (org_did, direction, sent_at, hub_user_did)
+    ON vetchium.org_chat_requests (org_did, direction, sent_at)
     WHERE state = 'pending';
 CREATE INDEX org_chat_requests_answered_list_idx
-    ON vetchium.org_chat_requests (
-        org_did, direction, answered_at DESC, hub_user_did DESC
-    )
+    ON vetchium.org_chat_requests (org_did, direction, answered_at DESC)
     WHERE state <> 'pending';
 CREATE INDEX org_chat_requests_expiry_idx
     ON vetchium.org_chat_requests (sent_at)
@@ -3843,6 +3842,19 @@ CREATE TABLE vetchium.hub_chat_request_creations (
 );
 CREATE INDEX hub_chat_request_creations_prune_idx
     ON vetchium.hub_chat_request_creations (created_on, hub_user_did);
+-- The sends a day's count holds, by idempotency key, so a retried send
+-- counts once (MKT-REQ-006); they go with the day's count.
+CREATE TABLE vetchium.hub_chat_request_sends (
+    hub_user_did uuid NOT NULL,
+    idempotency_key text NOT NULL,
+    created_on date NOT NULL,
+    PRIMARY KEY (hub_user_did, idempotency_key),
+    FOREIGN KEY (hub_user_did, created_on)
+        REFERENCES vetchium.hub_chat_request_creations (hub_user_did, created_on)
+        ON DELETE CASCADE
+);
+CREATE INDEX hub_chat_request_sends_day_idx
+    ON vetchium.hub_chat_request_sends (hub_user_did, created_on);
 
 -- Billable facts derived from recording actions (MKT-STM-001).
 -- Authoritative on consumer tenant; outlives applicant retention with numbers only
@@ -3973,6 +3985,7 @@ $$;
 -- +goose StatementEnd
 
 -- +goose Down
+DROP TABLE IF EXISTS vetchium.hub_chat_request_sends;
 DROP TABLE IF EXISTS vetchium.hub_chat_request_creations;
 DROP TABLE IF EXISTS vetchium.hub_message_notices;
 DROP TABLE IF EXISTS vetchium.hub_agency_pointers;

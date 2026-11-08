@@ -240,7 +240,7 @@ func TestExpireChatRequestsIntegration(t *testing.T) {
 	}
 }
 
-func TestRetentionKeepsContactsWithRequestsOrBlocksIntegration(t *testing.T) {
+func TestRetentionOfContactsWithRequestsOrBlocksIntegration(t *testing.T) {
 	databaseURL := os.Getenv("TENANT_DATABASE_URL")
 	if databaseURL == "" {
 		t.Skip("TENANT_DATABASE_URL is not set")
@@ -351,16 +351,12 @@ func TestRetentionKeepsContactsWithRequestsOrBlocksIntegration(t *testing.T) {
 	for _, row := range listed {
 		due[pair{row.OrgDid, row.HubUserDid}] = true
 	}
+	// A pending request or a block keeps a Contact without notes or a
+	// conversation (MKT-REQ-012).
 	for name, id := range map[string]pair{
 		"pending request": pending, "opening block": opening,
 		"sender block": sender,
 	} {
-		if due[id] {
-			t.Errorf("%s: listed for retention", name)
-		}
-		if done, err := retainContact(ctx, app, "usa1", id); err != nil || done {
-			t.Errorf("%s: retained = %t, %v", name, done, err)
-		}
 		if _, err := sqlc.New(app).DeleteUnusedOrgContact(ctx,
 			sqlc.DeleteUnusedOrgContactParams{
 				OrgDid: id.orgDID, HubUserDid: id.hubDID, TenantID: "usa1",
@@ -369,8 +365,21 @@ func TestRetentionKeepsContactsWithRequestsOrBlocksIntegration(t *testing.T) {
 			t.Errorf("%s: deleted as unused: %v", name, err)
 		}
 	}
+	// Retention waits out a pending request and a live `sender` block, which
+	// the expiry worker ends; an `opening` block goes with the Contact.
 	for name, id := range map[string]pair{
-		"expired request only": expired, "nothing": bare,
+		"pending request": pending, "sender block": sender,
+	} {
+		if due[id] {
+			t.Errorf("%s: listed for retention", name)
+		}
+		if done, err := retainContact(ctx, app, "usa1", id); err != nil || done {
+			t.Errorf("%s: retained = %t, %v", name, done, err)
+		}
+	}
+	for name, id := range map[string]pair{
+		"opening block": opening, "expired request only": expired,
+		"nothing": bare,
 	} {
 		if !due[id] {
 			t.Errorf("%s: not listed for retention", name)
@@ -381,8 +390,14 @@ func TestRetentionKeepsContactsWithRequestsOrBlocksIntegration(t *testing.T) {
 	}
 	var kept string
 	if err := owner.QueryRow(ctx, `SELECT count(*)::text FROM vetchium.org_contacts
-        WHERE org_did = $1`, orgDID).Scan(&kept); err != nil || kept != "3" {
+        WHERE org_did = $1`, orgDID).Scan(&kept); err != nil || kept != "2" {
 		t.Fatalf("Contacts kept = %s, %v", kept, err)
+	}
+	var blocks string
+	if err := owner.QueryRow(ctx, `SELECT count(*)::text
+        FROM vetchium.org_chat_request_opening_blocks
+        WHERE org_did = $1`, orgDID).Scan(&blocks); err != nil || blocks != "0" {
+		t.Fatalf("opening blocks kept = %s, %v", blocks, err)
 	}
 }
 

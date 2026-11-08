@@ -441,7 +441,8 @@ An agency is an active Org whose `sourcing` Listing is `listed`.
   the agency's tenant (`org-chat-request-limit-reached`), and 10 per Hub
   user per UTC day, counted in the Hub user's tenant before the command is
   sent (`hub-chat-request-limit-reached`). Both count sends, never live
-  rows, so a refused or expired request still counts.
+  rows, so a refused or expired request still counts. A Hub send counts
+  once per idempotency key, so a retried send never counts twice.
 - **MKT-REQ-007** Declining takes a scope: `opening` ("Not this Opening")
   stops the sender requesting with that Opening for as long as the Contact
   exists; `sender` ("Not for <N> days", N the window in days) stops every

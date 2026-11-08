@@ -443,7 +443,8 @@ FROM deleted;
 
 -- Contacts whose last note write, message, or chat request is older than
 -- the retention period and that hold no conversation, pending request, or
--- block (MKT-CON-004, MKT-REQ-012). The worker re-checks the guard in
+-- live `sender` block (MKT-CON-004, MKT-REQ-012). An `opening` block lives
+-- with the Contact and is deleted with it. The worker re-checks the guard in
 -- RetainOrgContact, so a stale list only costs a no-op.
 -- name: ListOrgContactsDueForRetention :many
 SELECT c.org_did, c.hub_user_did
@@ -455,10 +456,6 @@ WHERE c.last_activity_at <= now() - interval '730 days'
       SELECT 1 FROM vetchium.org_chat_requests AS r
       WHERE r.org_did = c.org_did AND r.hub_user_did = c.hub_user_did
         AND r.state = 'pending'
-  )
-  AND NOT EXISTS (
-      SELECT 1 FROM vetchium.org_chat_request_opening_blocks AS b
-      WHERE b.org_did = c.org_did AND b.hub_user_did = c.hub_user_did
   )
   AND NOT EXISTS (
       SELECT 1 FROM vetchium.org_conversations AS conv
@@ -480,10 +477,6 @@ WITH deleted AS (
           SELECT 1 FROM vetchium.org_chat_requests AS r
           WHERE r.org_did = c.org_did AND r.hub_user_did = c.hub_user_did
             AND r.state = 'pending'
-      )
-      AND NOT EXISTS (
-          SELECT 1 FROM vetchium.org_chat_request_opening_blocks AS b
-          WHERE b.org_did = c.org_did AND b.hub_user_did = c.hub_user_did
       )
       AND NOT EXISTS (
           SELECT 1 FROM vetchium.org_conversations AS conv

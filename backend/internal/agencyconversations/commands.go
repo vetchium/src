@@ -193,8 +193,10 @@ func handleReply(ctx context.Context, tx pgx.Tx, command commands.Command) (comm
 	if rows, err := q.SetConversationActivity(ctx, sqlc.SetConversationActivityParams{
 		OrgDid: orgDID, HubUserDid: hubDID, HubActivityAt: row.SentAt,
 		WindowSeconds: window,
-	}); err != nil || rows != 1 {
-		return commands.Result{}, fmt.Errorf("record activity: %d rows, %w", rows, err)
+	}); err != nil {
+		return commands.Result{}, fmt.Errorf("record activity: %w", err)
+	} else if rows != 1 {
+		return commands.Result{}, fmt.Errorf("record activity: %d rows", rows)
 	}
 	if _, err := q.RefreshOrgContactNamesFromHubUser(ctx,
 		sqlc.RefreshOrgContactNamesFromHubUserParams{

@@ -1,6 +1,7 @@
 package messages
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/vetchium/src/typespec/common"
 	directoryspec "github.com/vetchium/src/typespec/directory"
@@ -521,21 +523,13 @@ func SendChatRequest(s *hubruntime.Server) http.HandlerFunc {
 				s.Problem(r.Context(), w, *refusal)
 				return
 			}
-			year, month, day := now.UTC().Date()
-			counted, err := s.Queries.IncrementHubChatRequestCreations(r.Context(),
-				sqlc.IncrementHubChatRequestCreationsParams{
-					HubUserDid: identity.UserDID,
-					Day: pgtype.Date{
-						Time: time.Date(year, month, day, 0, 0, 0, 0, time.UTC), Valid: true,
-					},
-					MaxPerDay: hubmessages.MaxChatRequestsPerDay,
-					TenantID:  s.TenantID,
-				})
+			allowed, err := countChatRequestSend(r.Context(), s.DB, s.TenantID,
+				identity.UserDID, key, now)
 			if err != nil {
 				s.InternalError(r.Context(), w, "count chat request", err)
 				return
 			}
-			if counted.CountedRows != 1 {
+			if !allowed {
 				s.Problem(r.Context(), w, hubproblem.HubChatRequestLimitReachedError)
 				return
 			}
@@ -626,4 +620,53 @@ func SendChatRequest(s *hubruntime.Server) http.HandlerFunc {
 			s.Problem(r.Context(), w, hubproblem.OrgUnavailableError)
 		}
 	}
+}
+
+// countChatRequestSend counts a send under its idempotency key toward the
+// Hub user's UTC day (MKT-REQ-006). A key counted before is not counted
+// again, so a retry after a failure that left no operation behind does not
+// spend the limit twice. It reports false once the day is full.
+func countChatRequestSend(
+	ctx context.Context, db *pgxpool.Pool, tenantID string, hubDID pgtype.UUID,
+	key common.IdempotencyKey, now time.Time,
+) (bool, error) {
+	year, month, date := now.UTC().Date()
+	day := pgtype.Date{Time: time.Date(year, month, date, 0, 0, 0, 0, time.UTC), Valid: true}
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	q := sqlc.New(tx)
+	counted, err := q.IncrementHubChatRequestCreations(ctx,
+		sqlc.IncrementHubChatRequestCreationsParams{
+			HubUserDid: hubDID, Day: day,
+			MaxPerDay: hubmessages.MaxChatRequestsPerDay, TenantID: tenantID,
+		})
+	if err != nil {
+		return false, err
+	}
+	if counted.CountedRows != counted.AuditRows {
+		return false, fmt.Errorf("incomplete chat request count")
+	}
+	if counted.CountedRows != 1 {
+		if err := tx.Rollback(ctx); err != nil {
+			return false, err
+		}
+		return sqlc.New(db).HubChatRequestSendRecorded(ctx,
+			sqlc.HubChatRequestSendRecordedParams{
+				HubUserDid: hubDID, IdempotencyKey: string(key),
+			})
+	}
+	recorded, err := q.RecordHubChatRequestSend(ctx, sqlc.RecordHubChatRequestSendParams{
+		HubUserDid: hubDID, IdempotencyKey: string(key), Day: day,
+	})
+	if err != nil {
+		return false, err
+	}
+	if recorded == 0 {
+		// Counted before; the deferred rollback undoes this count.
+		return true, nil
+	}
+	return true, tx.Commit(ctx)
 }

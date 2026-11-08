@@ -103,7 +103,8 @@ ORDER BY r.request_number DESC
 LIMIT 1;
 
 -- One page of the agency's pending requests in one direction, oldest first.
--- A pair has one pending request, so the handle orders ties.
+-- A pair has one pending request, so the handle orders ties; the sent-at
+-- bound lets the index seek to the page.
 -- name: ListPendingOrgChatRequests :many
 SELECT sqlc.embed(r), c.display_name AS hub_user_name,
     c.handle AS hub_user_handle
@@ -114,14 +115,16 @@ WHERE r.org_did = sqlc.arg(org_did)
   AND r.direction = sqlc.arg(direction)
   AND r.state = 'pending'
   AND (sqlc.narg(after_sent_at)::timestamptz IS NULL
-      OR (r.sent_at, c.handle) >
-          (sqlc.narg(after_sent_at)::timestamptz,
-           sqlc.narg(after_handle)::text))
+      OR (r.sent_at >= sqlc.narg(after_sent_at)::timestamptz
+          AND (r.sent_at, c.handle) >
+              (sqlc.narg(after_sent_at)::timestamptz,
+               sqlc.narg(after_handle)::text)))
 ORDER BY r.sent_at, c.handle
 LIMIT sqlc.arg(page_limit);
 
 -- One page of the agency's answered requests in one direction, newest
--- answer first; the list follows the pending ones.
+-- answer first; the list follows the pending ones. The answered-at bound
+-- lets the index seek to the page.
 -- name: ListAnsweredOrgChatRequests :many
 SELECT sqlc.embed(r), c.display_name AS hub_user_name,
     c.handle AS hub_user_handle
@@ -132,10 +135,11 @@ WHERE r.org_did = sqlc.arg(org_did)
   AND r.direction = sqlc.arg(direction)
   AND r.state <> 'pending'
   AND (sqlc.narg(before_answered_at)::timestamptz IS NULL
-      OR (r.answered_at, c.handle, r.request_number) <
-          (sqlc.narg(before_answered_at)::timestamptz,
-           sqlc.narg(before_handle)::text,
-           sqlc.narg(before_request_number)::integer))
+      OR (r.answered_at <= sqlc.narg(before_answered_at)::timestamptz
+          AND (r.answered_at, c.handle, r.request_number) <
+              (sqlc.narg(before_answered_at)::timestamptz,
+               sqlc.narg(before_handle)::text,
+               sqlc.narg(before_request_number)::integer)))
 ORDER BY r.answered_at DESC, c.handle DESC, r.request_number DESC
 LIMIT sqlc.arg(page_limit);
 

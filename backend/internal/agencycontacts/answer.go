@@ -139,8 +139,10 @@ func AnswerRequest(
 	if request.Direction == string(contacts.ToAgency) {
 		activity.AgencyActivityAt, activity.HubActivityAt = answered.AnsweredAt, request.SentAt
 	}
-	if rows, err := q.SetConversationActivity(ctx, activity); err != nil || rows != 1 {
-		return request, fmt.Errorf("start the window: %d rows, %w", rows, err)
+	if rows, err := q.SetConversationActivity(ctx, activity); err != nil {
+		return request, fmt.Errorf("start the window: %w", err)
+	} else if rows != 1 {
+		return request, fmt.Errorf("start the window: %d rows", rows)
 	}
 	return request, nil
 }

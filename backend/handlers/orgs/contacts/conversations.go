@@ -140,8 +140,10 @@ func SendMessage(s *orgsruntime.Server) http.HandlerFunc {
 				if rows, err := q.SetConversationActivity(ctx, sqlc.SetConversationActivityParams{
 					OrgDid: identity.OrgDID, HubUserDid: contact.HubUserDid,
 					AgencyActivityAt: dbvalue.Timestamp(posted.SentAt),
-				}); err != nil || rows != 1 {
-					return result{}, nil, fmt.Errorf("record activity: %d rows, %w", rows, err)
+				}); err != nil {
+					return result{}, nil, fmt.Errorf("record activity: %w", err)
+				} else if rows != 1 {
+					return result{}, nil, fmt.Errorf("record activity: %d rows", rows)
 				}
 				if err := agencycontacts.SyncPointer(ctx, q, identity.OrgDID, contact.HubUserDid, notice); err != nil {
 					return result{}, nil, err
