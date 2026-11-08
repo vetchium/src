@@ -26,7 +26,7 @@ import {
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { hubIdempotencyKey } from "../lib/hub-api.ts";
-import type { Applicant } from "../lib/hub-applicant.ts";
+import { type Applicant, setHubHome } from "../lib/hub-applicant.ts";
 import { meshPeerRequest } from "../lib/mesh.ts";
 import {
   addOrgMember,
@@ -34,6 +34,7 @@ import {
   orgAuditEventsByKey,
   orgDID,
   orgEmailText,
+  orgSQL,
   orgsIdempotencyKey,
 } from "../lib/orgs-api.ts";
 import {
@@ -81,6 +82,8 @@ const PROBLEMS = {
   hubNotFound: `${BASE}hub-chat-request-not-found`,
   hubClosed: `${BASE}hub-conversation-closed`,
   hubAuth: `${BASE}hub-authentication-required`,
+  suspended: `${BASE}org-suspended`,
+  tenantUnavailable: `${BASE}org-tenant-unavailable`,
 };
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -440,6 +443,16 @@ test("MKT-REQ-007: declining for an Opening refuses only that Opening, and decli
 
     const second = await sent(await agency.send(to, other));
     await pendingAt(person, second);
+    // The first decline's key stays bound to it, so it cannot accept this one.
+    await expectProblem(
+      await person.hub.acceptChatRequest(
+        person.token,
+        { ...answerOf(agency, second) },
+        key,
+      ),
+      409,
+      PROBLEMS.keyConflict,
+    );
     const away = await person.hub.declineChatRequest(person.token, {
       ...answerOf(agency, second),
       scope: "sender",
@@ -909,6 +922,40 @@ test("Orgs chat request routes, answers included, authenticate, require org:fulf
       409,
       PROBLEMS.keyConflict,
     );
+
+    // A person whose tenant does not answer cannot be asked.
+    const away = agency.person("sgp");
+    setHubHome(away.did, "gone");
+    try {
+      await expectProblem(
+        await agency.send({ address: away.alias }, opening),
+        503,
+        PROBLEMS.tenantUnavailable,
+      );
+    } finally {
+      setHubHome(away.did, away.tenant);
+    }
+
+    orgSQL(
+      `UPDATE vetchium.orgs SET org_state = 'suspended', suspended_at = now()
+       WHERE org_did = ${sqlLiteral(agency.did)}::uuid`,
+      provider.tenant,
+    );
+    for (const route of routes) {
+      await expectProblem(
+        await provider.api.post(route.path, route.body, {
+          token: provider.owner,
+          ...keyed(route.write),
+        }),
+        403,
+        PROBLEMS.suspended,
+      );
+    }
+    await expectProblem(
+      await provider.api.countPendingChatRequests(provider.owner),
+      403,
+      PROBLEMS.suspended,
+    );
   });
 });
 
@@ -1118,6 +1165,20 @@ test("MKT-TST-002: an accept or decline the agency's tenant cannot confirm is pe
     );
     await pendingAt(accepting, toAccept);
     await pendingAt(declining, toDecline);
+
+    // An agency tenant that does not answer leaves nothing sent.
+    setOrgHome(agency.did, "gone");
+    try {
+      await expectProblem(
+        await accepting.hub.acceptChatRequest(accepting.token, {
+          ...answerOf(agency, toAccept),
+        }),
+        503,
+        `${BASE}hub-org-unavailable`,
+      );
+    } finally {
+      setOrgHome(agency.did, provider.tenant);
+    }
 
     const acceptKey = hubIdempotencyKey();
     const declineKey = hubIdempotencyKey();

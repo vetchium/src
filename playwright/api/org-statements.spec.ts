@@ -5,6 +5,7 @@ import type {
   WriteResult,
 } from "typespec/orgs/marketplace/work/work";
 import { expectProblem } from "../lib/admin-api.ts";
+import { sqlLiteral } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { seedApplication } from "../lib/hiring-seed.ts";
 import { hubIdempotencyKey } from "../lib/hub-api.ts";
@@ -25,6 +26,8 @@ const PROBLEMS = {
   notFound: `${BASE}org-engagement-not-found`,
   validation: `${BASE}validation-failed`,
   invalidPaginationKey: `${BASE}invalid-pagination-key`,
+  invalidJSON: `${BASE}invalid-json`,
+  suspended: `${BASE}org-suspended`,
   meshPeerAuth: `${BASE}mesh-peer-authentication-required`,
   meshRelayAuth: `${BASE}mesh-relay-authentication-required`,
 };
@@ -764,7 +767,20 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
         403,
         `${BASE}org-permission-required`,
       );
+      await expectProblem(
+        await side.api.postRaw(path, "{", { token: side.owner }),
+        400,
+        PROBLEMS.invalidJSON,
+      );
     }
+    await expectProblem(
+      await provider.api.getClientEngagementStatement(provider.owner, {
+        ...read,
+        pagination_key: "dGFtcGVyZWRfa2V5",
+      }),
+      400,
+      PROBLEMS.invalidPaginationKey,
+    );
     await expectProblem(
       await provider.api.getClientEngagementStatement(provider.owner, {
         ...read,
@@ -910,6 +926,27 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
       503,
       `${BASE}org-tenant-unavailable`,
     );
+    expectType(
+      meshRelayRequest(provider.tenant, statements, undefined, apiCoverage, {
+        rawBody: "{",
+      }),
+      400,
+      PROBLEMS.invalidJSON,
+    );
+    expectType(
+      meshPeerRequest(
+        provider.tenant,
+        consumer.tenant,
+        undefined,
+        apiCoverage,
+        {
+          ...peerPath,
+          rawBody: "{",
+        },
+      ),
+      400,
+      PROBLEMS.invalidJSON,
+    );
 
     // Direct mesh relay call without authorization fails
     const unauthRelayRes = meshRelayRequest(
@@ -928,5 +965,21 @@ test("activity statements: sourcing facts, corrections, provider work facts, pag
       { authorization: null },
     );
     expect(unauthRelayRes.status).toBe(401);
+
+    for (const [side, path] of [
+      [consumer, "/get-engagement-statement"],
+      [provider, "/get-client-engagement-statement"],
+    ] as const) {
+      orgSQL(
+        `UPDATE vetchium.orgs SET org_state = 'suspended', suspended_at = now()
+         WHERE org_did = ${sqlLiteral(orgDID(side.org.domain, side.tenant))}::uuid`,
+        side.tenant,
+      );
+      await expectProblem(
+        await side.api.post(path, read, { token: side.owner }),
+        403,
+        PROBLEMS.suspended,
+      );
+    }
   });
 });

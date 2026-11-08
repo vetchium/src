@@ -419,6 +419,7 @@ async function recordCheck(
   opening: number,
   application: number,
   fields: Record<string, unknown>,
+  key?: string,
 ) {
   return world.api.resultWriteRaw(
     "record-background-check-result",
@@ -433,6 +434,7 @@ async function recordCheck(
       outcome: "clear",
       ...fields,
     },
+    key,
   );
 }
 
@@ -750,6 +752,18 @@ test("consent requests name valid check types, one active per stage, and gate re
     );
     expect(asked.status(), await asked.text()).toBe(200);
     const requested = (await asked.json()) as ApplicationDetail;
+    await expectProblem(
+      await world.api.requestBackgroundCheckConsent(
+        world.owner,
+        {
+          ...REFERENCE(opening, application, requested.version - 1),
+          check_types: ["drug"],
+        },
+        key,
+      ),
+      409,
+      KEY_CONFLICT,
+    );
     expect(requested.background_checks).toHaveLength(1);
     expect(requested.background_checks[0]).toMatchObject({
       check_number: 1,
@@ -797,8 +811,14 @@ test("consent requests name valid check types, one active per stage, and gate re
     expect(stageStatus(second, CHECKS)).toBe("pending");
 
     // Only consented types are recorded, each once; the last completes.
-    const given = await give(applicant, reference, 2);
+    const giveKey = hubIdempotencyKey();
+    const given = await give(applicant, reference, 2, giveKey);
     expect(given.status(), await given.text()).toBe(200);
+    await expectProblem(
+      await give(applicant, reference, 1, giveKey),
+      409,
+      KEY_CONFLICT,
+    );
     await expectProblem(
       await recordCheck(world, opening, application, {
         check_type: "identity",
@@ -823,14 +843,35 @@ test("consent requests name valid check types, one active per stage, and gate re
         [...invalid],
       );
     }
-    const done = await recordCheck(world, opening, application, {
-      check_type: "drug",
-      outcome: "discrepancy",
-      notes: " Positive ",
-      report_url: "https://checks.example.com/r/1",
-    });
+    const recordKey = orgsIdempotencyKey();
+    const done = await recordCheck(
+      world,
+      opening,
+      application,
+      {
+        check_type: "drug",
+        outcome: "discrepancy",
+        notes: " Positive ",
+        report_url: "https://checks.example.com/r/1",
+      },
+      recordKey,
+    );
     expect(done.status(), await done.text()).toBe(200);
     const finished = (await done.json()) as ApplicationDetail;
+    await expectProblem(
+      await world.api.resultWriteRaw(
+        "record-background-check-result",
+        world.owner,
+        {
+          ...REFERENCE(opening, application, finished.version - 1),
+          check_type: "drug",
+          outcome: "clear",
+        },
+        recordKey,
+      ),
+      409,
+      KEY_CONFLICT,
+    );
     expect(stageStatus(finished, CHECKS)).toBe("completed");
     expect(finished.background_checks[1]?.results[0]).toMatchObject({
       check_type: "drug",

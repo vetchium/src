@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type {
   AwaitingConversationCount,
   HubConversationDetail,
@@ -13,6 +14,7 @@ import type {
 } from "typespec/orgs/marketplace/contacts/contacts";
 import { expectProblem } from "../lib/admin-api.ts";
 import {
+  AUDIT_FAULT_LOCK,
   auditEventJSONForTenant,
   hubAuditEventsByIdempotencyKey,
   sqlLiteral,
@@ -60,6 +62,34 @@ const PROBLEMS = {
   hubMessageNotFound: `${BASE}hub-conversation-message-not-found`,
   messageNotFound: `${BASE}org-conversation-message-not-found`,
 };
+
+/**
+ * Fails the agency tenant's audit of a Hub user's message deletion for the
+ * person `handle`, so the deletion rolls back there. Returns its removal.
+ */
+function failHubMessageDeletion(tenant: TestTenant, handle: string) {
+  const name = `e2e_fail_message_delete_${randomBytes(8).toString("hex")}`;
+  sqlScalarForTenant(
+    tenant,
+    `${AUDIT_FAULT_LOCK}
+     CREATE FUNCTION vetchium.${name}() RETURNS trigger LANGUAGE plpgsql
+     AS $function$ BEGIN RAISE EXCEPTION 'injected message deletion failure';
+     END $function$;
+     CREATE TRIGGER ${name} BEFORE INSERT ON vetchium.audit_events
+     FOR EACH ROW WHEN (
+       NEW.action = 'org.conversation.message_deleted'
+       AND NEW.actor_type = 'hub_user'
+       AND NEW.entity_id = ${sqlLiteral(handle)}
+     ) EXECUTE FUNCTION vetchium.${name}();`,
+  );
+  return () =>
+    sqlScalarForTenant(
+      tenant,
+      `${AUDIT_FAULT_LOCK}
+       DROP TRIGGER ${name} ON vetchium.audit_events;
+       DROP FUNCTION vetchium.${name}();`,
+    );
+}
 
 /** The agency tenant's message-deletion audit payloads for a person. */
 function messageDeletedPayloads(tenant: TestTenant, handle: string) {
@@ -897,6 +927,30 @@ test("Hub conversation routes authenticate, validate, and answer for unknown con
         [...fields],
       );
     }
+    await expectProblem(
+      await applicant.hub.post(
+        "/set-agencies-may-message",
+        {},
+        { token: applicant.token },
+      ),
+      400,
+      PROBLEMS.validation,
+      ["agencies_may_message"],
+    );
+    for (const [path, body] of [
+      ["/list-conversations", {}],
+      ["/get-conversation", { agency_domain }],
+    ] as const) {
+      await expectProblem(
+        await applicant.hub.post(
+          path,
+          { ...body, pagination_key: "bm90LWEta2V5" },
+          { token: applicant.token },
+        ),
+        400,
+        `${BASE}invalid-pagination-key`,
+      );
+    }
     for (const entry of routes.filter(
       (route) => "agency_domain" in route.body,
     )) {
@@ -957,6 +1011,44 @@ test("Hub conversation routes authenticate, validate, and answer for unknown con
     } finally {
       setOrgHome(orgDid, provider.tenant);
     }
+
+    // A deletion the agency's tenant fails to confirm is pending, and its
+    // repeat completes it.
+    const later = await applicant.hub.replyToConversation(applicant.token, {
+      agency_domain,
+      text: "Pending removal",
+    });
+    expect(later.status(), await later.text()).toBe(200);
+    const laterNumber = ((await later.json()) as ConversationMessage)
+      .message_number;
+    const pendingKey = orgsIdempotencyKey();
+    const removeFault = failHubMessageDeletion(
+      provider.tenant,
+      applicant.handle,
+    );
+    try {
+      const pending = await applicant.hub.deleteMessage(
+        applicant.token,
+        { agency_domain, message_number: laterNumber },
+        pendingKey,
+      );
+      expect(pending.status(), await pending.text()).toBe(202);
+      expect(pending.headers()["cache-control"]).toBe("no-store");
+      expect(
+        ((await pending.json()) as { operation_id: string }).operation_id,
+      ).toBeTruthy();
+    } finally {
+      removeFault();
+    }
+    const completed = await applicant.hub.deleteMessage(
+      applicant.token,
+      { agency_domain, message_number: laterNumber },
+      pendingKey,
+    );
+    expect(completed.status(), await completed.text()).toBe(200);
+    expect(
+      ((await completed.json()) as ConversationMessage).message_number,
+    ).toBe(laterNumber);
 
     // A delete key stays bound to the message it first deleted, and its
     // repeat returns the same stub.

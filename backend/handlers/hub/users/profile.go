@@ -158,7 +158,7 @@ func SetAgenciesMayMessage(s *hubruntime.Server) http.HandlerFunc {
 
 		q := sqlc.New(tx)
 		row, err := q.UpdateHubUserAgenciesMayMessage(r.Context(), sqlc.UpdateHubUserAgenciesMayMessageParams{
-			AgenciesMayMessage: request.AgenciesMayMessage,
+			AgenciesMayMessage: *request.AgenciesMayMessage,
 			HubUserDid:         identity.UserDID,
 			TenantID:           s.TenantID,
 		})

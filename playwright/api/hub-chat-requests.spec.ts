@@ -710,6 +710,44 @@ test("MKT-REQ-003: the Hub user's request is refused with hub-* problems, by the
   });
 });
 
+test("MKT-REQ-005: an accept or a reply into a conversation the agency holds read-only for a deleted party is refused", async ({
+  request,
+  apiCoverage,
+}) => {
+  test.setTimeout(120_000);
+  await withAgency(request, async (agency) => {
+    const [opening, other] = agency.openings;
+    const domain = agency.pair.provider.org.domain;
+    const person = agency.person("sgp");
+    const to = { address: person.handle };
+
+    const first = await sent(await agency.send(to, opening));
+    await accepted(person, first);
+    // The window lapses, so the agency may ask again in the same conversation.
+    backdate(agency, person.handle, "hub_activity_at");
+    const second = await sent(await agency.send(to, other));
+    await pendingAt(person, second);
+    deliverAccountDeleted(agency, person, apiCoverage);
+
+    await expectProblem(
+      await person.hub.acceptChatRequest(person.token, {
+        agency_domain: domain,
+        request_number: second.request_number,
+      }),
+      409,
+      PROBLEMS.partyDeleted,
+    );
+    await expectProblem(
+      await person.hub.replyToConversation(person.token, {
+        agency_domain: domain,
+        text: "Still interested.",
+      }),
+      409,
+      PROBLEMS.partyDeleted,
+    );
+  });
+});
+
 test("MKT-REQ-006: a Hub user sends at most 10 requests a UTC day; refusals by the agency count, refusals by the pointer and repeats do not", async ({
   request,
 }) => {

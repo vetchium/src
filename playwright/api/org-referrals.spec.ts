@@ -561,6 +561,33 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
         503,
         `${BASE}org-tenant-unavailable`,
       );
+      for (const operation of ["list", "count"]) {
+        expectType(
+          meshRelayRequest(
+            provider.tenant,
+            `/mesh/provider-attribution/${operation}`,
+            undefined,
+            apiCoverage,
+            { rawBody: "{" },
+          ),
+          400,
+          `${BASE}invalid-json`,
+        );
+        expectType(
+          meshPeerRequest(
+            provider.tenant,
+            consumer.tenant,
+            undefined,
+            apiCoverage,
+            {
+              path: `/api/mesh/provider-attribution/${operation}`,
+              rawBody: "{",
+            },
+          ),
+          400,
+          `${BASE}invalid-json`,
+        );
+      }
     } finally {
       const consumerRef = {
         tenant: consumer.tenant,

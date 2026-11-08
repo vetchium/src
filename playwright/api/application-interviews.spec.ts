@@ -2053,13 +2053,20 @@ for (const [applicantTenant, label] of [
         });
 
         // A reschedule request carries a note the Org reads.
+        const rescheduleKey = hubIdempotencyKey();
         const asked = await reschedule(
           applicant,
           reference,
           1,
           " Out of town ",
+          rescheduleKey,
         );
         expect(asked.status(), await asked.text()).toBe(200);
+        await expectProblem(
+          await reschedule(applicant, reference, 1, "Elsewhere", rescheduleKey),
+          409,
+          KEY_CONFLICT,
+        );
         await expectProblem(
           await reschedule(applicant, reference, 1, "Again"),
           409,
@@ -2419,6 +2426,26 @@ test("every interview write authenticates, validates, and refuses suspended Orgs
     );
     await schedule(world, opening, application);
     await conflict("cancel-interview", { ...reference, interview_number: 2 });
+
+    // An ended candidacy's interviews are not changed.
+    const ended = await api.markApplicationNotProgressing(owner, {
+      opening_number: opening,
+      application_number: application,
+      version: await version(world, opening, application),
+    });
+    expect(ended.status(), await ended.text()).toBe(200);
+    const current = {
+      ...reference,
+      version: await version(world, opening, application),
+    };
+    await expectProblem(
+      await api.changeInterview(owner, {
+        ...current,
+        ...interviewDetails(world),
+      }),
+      409,
+      STATE_CONFLICT,
+    );
     await expectProblem(
       await api.listMyInterviews(owner, { limit: 101 as never }),
       400,

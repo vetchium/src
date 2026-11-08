@@ -39,7 +39,7 @@ import {
   cleanupApplicant,
   seedApplicant,
 } from "../lib/hub-applicant.ts";
-import { meshPeerRequest } from "../lib/mesh.ts";
+import { meshPeerRequest, meshRelayRequest } from "../lib/mesh.ts";
 import {
   addOrgMember,
   cleanupOrg,
@@ -532,6 +532,15 @@ test("an offer extends from any stage, withdraws to the same stage, and keeps ev
     expect(((await replayed.json()) as ApplicationDetail).version).toBe(
       SHORTLISTED + 2,
     );
+    await expectProblem(
+      await world.api.withdrawApplicationOffer(
+        world.owner,
+        { ...withdrawRequest, version: SHORTLISTED + 2 },
+        key,
+      ),
+      409,
+      KEY_CONFLICT,
+    );
     expect((await history(world, n, number))[0]).toMatchObject({
       action: "offer_withdrawn",
       state: "in_pipeline",
@@ -752,6 +761,29 @@ test("extend-application-offer refuses states, versions, readers, dates, and let
       VALIDATION,
       ["letter_id"],
     );
+
+    orgSQL(
+      `UPDATE vetchium.orgs SET org_state = 'suspended',
+         suspended_at = now()
+       WHERE org_did = ${sqlLiteral(world.did)}::uuid`,
+    );
+    await expectProblem(
+      await api.extendApplicationOffer(
+        owner,
+        extendRequest({ application_number: another, letter_id: current }),
+      ),
+      403,
+      `${PREFIX}org-suspended`,
+    );
+    await expectProblem(
+      await api.withdrawApplicationOffer(owner, {
+        opening_number: n,
+        application_number: number,
+        version: SHORTLISTED + 1,
+      }),
+      403,
+      `${PREFIX}org-suspended`,
+    );
   });
 });
 
@@ -814,6 +846,14 @@ test("withdraw-application-offer and other exits from offered end the offer", as
       400,
       VALIDATION,
       ["opening_number"],
+    );
+    await expectProblem(
+      await api.postRaw("/withdraw-application-offer", "{not json", {
+        token: owner,
+        idempotencyKey: orgsIdempotencyKey(),
+      }),
+      400,
+      `${PREFIX}invalid-json`,
     );
     const offered = await seedAt(world, n, "in_pipeline", stage);
     await extend(world, n, offered, { version: SHORTLISTED });
@@ -1078,11 +1118,24 @@ test("an applicant in another region declines, opening the letter from the Org's
     await expectLetter(read.offer?.letter_url ?? "", letter);
     await expectProjected(applicant, reference, "offered", ["offer_response"]);
 
-    const declined = await answer(applicant, "decline", {
-      ...reference,
-      offer_number: 1,
-    });
+    const declineKey = hubIdempotencyKey();
+    const declined = await answer(
+      applicant,
+      "decline",
+      { ...reference, offer_number: 1 },
+      declineKey,
+    );
     expect(declined.status(), await declined.text()).toBe(200);
+    await expectProblem(
+      await answer(
+        applicant,
+        "decline",
+        { ...reference, offer_number: 2 },
+        declineKey,
+      ),
+      409,
+      KEY_CONFLICT,
+    );
     expect((await myApplication(applicant, reference)).offer?.status).toBe(
       "declined",
     );
@@ -1364,6 +1417,17 @@ test("a tenant that does not home an Org cannot report its applications", async 
     });
     expect(forged.status, JSON.stringify(forged.body)).toBe(403);
     expect((forged.body as { type: string }).type).toBe(
+      `${PREFIX}federation-event-origin-mismatch`,
+    );
+    // deu's relay forwards the same forgery under deu's certificate.
+    const relayed = meshRelayRequest(
+      "deu",
+      "/mesh/events/deliver",
+      event(),
+      apiCoverage,
+    );
+    expect(relayed.status, JSON.stringify(relayed.body)).toBe(403);
+    expect((relayed.body as { type: string }).type).toBe(
       `${PREFIX}federation-event-origin-mismatch`,
     );
     const projected = await applicant.hub.myApplicationCounts(applicant.token);

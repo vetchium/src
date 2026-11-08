@@ -72,11 +72,14 @@ type SetAgenciesMayMessageRequest struct {
 	// AgenciesMayMessage is "Agencies may send me chat requests"
 	// (MKT-REQ-008): off refuses only new agency requests, and accepted
 	// conversations continue.
-	AgenciesMayMessage bool `json:"agencies_may_message"`
+	AgenciesMayMessage *bool `json:"agencies_may_message"`
 }
 
 func (r *SetAgenciesMayMessageRequest) Normalize() {}
 
 func (r SetAgenciesMayMessageRequest) Validate() []string {
+	if r.AgenciesMayMessage == nil {
+		return []string{"agencies_may_message"}
+	}
 	return []string{}
 }

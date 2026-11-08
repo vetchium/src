@@ -419,6 +419,15 @@ test("caps on daily contact creations and notes per contact", async ({
         text: "Note exceeding 200 per contact",
       });
       await expectProblem(noteCapReached, 409, PROBLEMS.noteLimit);
+      // Addressing the same person by alias reaches the same full Contact.
+      await expectProblem(
+        await provider.api.addPersonNote(provider.owner, {
+          address: applicant1.alias,
+          text: "Note exceeding 200 by address",
+        }),
+        409,
+        PROBLEMS.noteLimit,
+      );
     } finally {
       cleanupApplicant(applicant1, [{ tenant: provider.tenant, did: orgDid }]);
     }
@@ -970,6 +979,7 @@ test("Contact and conversation routes authenticate, authorize, validate, and ref
       for (const [path, body] of [
         ["/list-contacts", {}],
         ["/list-contact-notes", { handle }],
+        ["/get-conversation", { handle }],
       ] as const) {
         await expectProblem(
           await provider.api.post(
@@ -1240,6 +1250,32 @@ test("the mesh reads behind Contacts and conversations answer only the tenant th
         404,
         PROBLEMS.notFound,
       );
+      expectType(
+        meshPeerRequest(
+          provider.tenant,
+          applicant.tenant,
+          undefined,
+          apiCoverage,
+          {
+            ...profilePeer,
+            rawBody: "{",
+          },
+        ),
+        400,
+        `${BASE}invalid-json`,
+      );
+      // ind1 cannot reach its directory, so it cannot place the agency.
+      expectType(
+        meshPeerRequest(
+          provider.tenant,
+          "ind1",
+          peerProfile,
+          apiCoverage,
+          profilePeer,
+        ),
+        503,
+        PROBLEMS.tenantUnavailable,
+      );
 
       // The Hub user's tenant reads the conversation from the agency's.
       const conversationRelay = "/mesh/conversations/read";
@@ -1292,6 +1328,17 @@ test("the mesh reads behind Contacts and conversations answer only the tenant th
         ),
         400,
         PROBLEMS.validation,
+      );
+      expectType(
+        meshRelayRequest(
+          applicant.tenant,
+          conversationRelay,
+          undefined,
+          apiCoverage,
+          { rawBody: "{" },
+        ),
+        400,
+        `${BASE}invalid-json`,
       );
       expectType(
         meshRelayRequest(
@@ -1369,6 +1416,43 @@ test("the mesh reads behind Contacts and conversations answer only the tenant th
         ),
         400,
         PROBLEMS.validation,
+      );
+      expectType(
+        meshPeerRequest(
+          applicant.tenant,
+          provider.tenant,
+          undefined,
+          apiCoverage,
+          {
+            ...conversationPeer,
+            rawBody: "{",
+          },
+        ),
+        400,
+        `${BASE}invalid-json`,
+      );
+      expectType(
+        meshPeerRequest(
+          applicant.tenant,
+          provider.tenant,
+          { ...conversation, pagination_key: "bm90LWEta2V5" },
+          apiCoverage,
+          conversationPeer,
+        ),
+        400,
+        `${BASE}invalid-pagination-key`,
+      );
+      // ind1 cannot reach its directory, so it cannot place the Hub user.
+      expectType(
+        meshPeerRequest(
+          applicant.tenant,
+          "ind1",
+          conversation,
+          apiCoverage,
+          conversationPeer,
+        ),
+        503,
+        PROBLEMS.tenantUnavailable,
       );
     }
   });

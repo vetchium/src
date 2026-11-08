@@ -286,11 +286,22 @@ test("an application moves forward, skipping, and completes review stages", asyn
     expect(statuses(first)).toEqual(["pending", "pending", "pending"]);
 
     // Only a review stage is completed by hand, and only while pending.
+    await expectProblem(
+      await api.completeApplicationStage(owner, ref(1)),
+      409,
+      VERSION_CONFLICT,
+    );
+    const completeKey = orgsIdempotencyKey();
     const completed = await expectApplied(
-      await api.completeApplicationStage(owner, ref(2)),
+      await api.completeApplicationStage(owner, ref(2), completeKey),
     );
     expect(completed.version).toBe(3);
     expect(statuses(completed)).toEqual(["completed", "pending", "pending"]);
+    await expectProblem(
+      await api.completeApplicationStage(owner, ref(3), completeKey),
+      409,
+      KEY_CONFLICT,
+    );
     await expectProblem(
       await api.completeApplicationStage(owner, ref(3)),
       409,
@@ -320,8 +331,22 @@ test("an application moves forward, skipping, and completes review stages", asyn
 
     // Moving two stages ahead skips the one passed over; a finished stage
     // stays finished.
+    const moveKey = orgsIdempotencyKey();
     const moved = await expectApplied(
-      await api.moveApplicationStage(owner, { ...ref(3), stage_id: final.id }),
+      await api.moveApplicationStage(
+        owner,
+        { ...ref(3), stage_id: final.id },
+        moveKey,
+      ),
+    );
+    await expectProblem(
+      await api.moveApplicationStage(
+        owner,
+        { ...ref(3), stage_id: panel.id },
+        moveKey,
+      ),
+      409,
+      KEY_CONFLICT,
     );
     expect(moved).toMatchObject({
       state: "in_pipeline",
@@ -351,10 +376,21 @@ test("an application moves forward, skipping, and completes review stages", asyn
     expect(entries[0]?.stage?.id).toBe(final.id);
     expect(entries[1]?.stage?.id).toBe(screen.id);
 
+    await expectProblem(
+      await api.markApplicationNotProgressing(owner, ref(3)),
+      409,
+      VERSION_CONFLICT,
+    );
+    const leaveKey = orgsIdempotencyKey();
     const left = await expectApplied(
-      await api.markApplicationNotProgressing(owner, ref(4)),
+      await api.markApplicationNotProgressing(owner, ref(4), leaveKey),
     );
     expect(left).toMatchObject({ state: "not_progressing", version: 5 });
+    await expectProblem(
+      await api.markApplicationNotProgressing(owner, ref(5), leaveKey),
+      409,
+      KEY_CONFLICT,
+    );
     // The candidacy ended where it stood.
     expect(left.current_stage?.id).toBe(final.id);
   });
@@ -674,9 +710,26 @@ test("joining and separation follow the date rules, keep history, and allow over
         await api.recordApplicationJoined(owner, joinedRequest, key),
       ),
     ).toEqual(hired);
+    await expectProblem(
+      await api.recordApplicationJoined(
+        owner,
+        { ...joinedRequest, joined_on: utcDate(-2) },
+        key,
+      ),
+      409,
+      KEY_CONFLICT,
+    );
 
     // Hiring beyond positions succeeds; the response carries both numbers.
     const second = await accepted("Second Hire");
+    await expectProblem(
+      await api.recordApplicationJoined(owner, {
+        ...ref(second.number, second.version + 5),
+        joined_on: utcDate(0),
+      }),
+      409,
+      VERSION_CONFLICT,
+    );
     const over = await expectApplied(
       await api.recordApplicationJoined(owner, {
         ...ref(second.number, second.version),
@@ -699,11 +752,30 @@ test("joining and separation follow the date rules, keep history, and allow over
         ["separated_on"],
       );
     }
-    const separated = await expectApplied(
+    await expectProblem(
       await api.recordApplicationSeparated(owner, {
-        ...ref(first, v(1)),
+        ...ref(first, v(0)),
         separated_on: utcDate(-1),
       }),
+      409,
+      VERSION_CONFLICT,
+    );
+    const separateKey = orgsIdempotencyKey();
+    const separated = await expectApplied(
+      await api.recordApplicationSeparated(
+        owner,
+        { ...ref(first, v(1)), separated_on: utcDate(-1) },
+        separateKey,
+      ),
+    );
+    await expectProblem(
+      await api.recordApplicationSeparated(
+        owner,
+        { ...ref(first, v(1)), separated_on: utcDate(-2) },
+        separateKey,
+      ),
+      409,
+      KEY_CONFLICT,
     );
     expect(separated).toMatchObject({
       state: "joined",
@@ -730,18 +802,56 @@ test("joining and separation follow the date rules, keep history, and allow over
       VALIDATION,
       ["joined_on"],
     );
-    const fixedJoin = await expectApplied(
+    await expectProblem(
       await api.correctApplicationJoinedOn(owner, {
-        ...ref(first, v(2)),
+        ...ref(first, v(1)),
         joined_on: utcDate(-4),
       }),
+      409,
+      VERSION_CONFLICT,
+    );
+    const fixJoinKey = orgsIdempotencyKey();
+    const fixedJoin = await expectApplied(
+      await api.correctApplicationJoinedOn(
+        owner,
+        { ...ref(first, v(2)), joined_on: utcDate(-4) },
+        fixJoinKey,
+      ),
     );
     expect(fixedJoin).toMatchObject({ joined_on: utcDate(-4), version: v(3) });
-    const fixedSeparation = await expectApplied(
+    await expectProblem(
+      await api.correctApplicationJoinedOn(
+        owner,
+        { ...ref(first, v(2)), joined_on: utcDate(-5) },
+        fixJoinKey,
+      ),
+      409,
+      KEY_CONFLICT,
+    );
+    await expectProblem(
       await api.correctApplicationSeparatedOn(owner, {
-        ...ref(first, v(3)),
+        ...ref(first, v(2)),
         separated_on: utcDate(-2),
       }),
+      409,
+      VERSION_CONFLICT,
+    );
+    const fixSeparationKey = orgsIdempotencyKey();
+    const fixedSeparation = await expectApplied(
+      await api.correctApplicationSeparatedOn(
+        owner,
+        { ...ref(first, v(3)), separated_on: utcDate(-2) },
+        fixSeparationKey,
+      ),
+    );
+    await expectProblem(
+      await api.correctApplicationSeparatedOn(
+        owner,
+        { ...ref(first, v(3)), separated_on: utcDate(-1) },
+        fixSeparationKey,
+      ),
+      409,
+      KEY_CONFLICT,
     );
     expect(fixedSeparation).toMatchObject({
       joined_on: utcDate(-4),
@@ -768,11 +878,30 @@ test("joining and separation follow the date rules, keep history, and allow over
 
     // Did not join ends an accepted offer without a date.
     const declined = await accepted("Never Joined");
+    await expectProblem(
+      await api.recordApplicationDidNotJoin(
+        owner,
+        ref(declined.number, declined.version + 5),
+      ),
+      409,
+      VERSION_CONFLICT,
+    );
+    const noJoinKey = orgsIdempotencyKey();
     const none = await expectApplied(
       await api.recordApplicationDidNotJoin(
         owner,
         ref(declined.number, declined.version),
+        noJoinKey,
       ),
+    );
+    await expectProblem(
+      await api.recordApplicationDidNotJoin(
+        owner,
+        ref(declined.number, declined.version + 1),
+        noJoinKey,
+      ),
+      409,
+      KEY_CONFLICT,
     );
     expect(none).toMatchObject({
       state: "did_not_join",

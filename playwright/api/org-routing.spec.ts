@@ -452,6 +452,29 @@ test("a candidacy is routed to a provider assigned to its stage, rerouted, and b
       409,
       routing.applicationState,
     );
+    // While routed, the consumer's own interview writes are refused.
+    const routedInterview = {
+      opening_number: opening.opening_number,
+      application_number: toReal.application_number,
+      version: toReal.version,
+      interview_number: 1,
+    };
+    for (const [operation, body] of [
+      [
+        "record-interview-outcome",
+        { ...routedInterview, outcome: "completed" },
+      ],
+      [
+        "submit-interview-feedback",
+        { ...routedInterview, recommendation: "yes", notes: "Fine" },
+      ],
+    ] as const) {
+      await expectProblem(
+        await consumer.api.interviewWriteRaw(operation, consumer.owner, body),
+        409,
+        routing.applicationState,
+      );
+    }
     await expectProblem(
       await route(world, waiting, other),
       409,

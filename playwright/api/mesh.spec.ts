@@ -1293,6 +1293,7 @@ function seedCommandResult(
   tenant: TestTenant,
   source: TestTenant,
   request: ExecuteCommandRequest,
+  responseBody = '{"seeded":true}',
 ): void {
   sqlScalarForTenant(
     tenant,
@@ -1303,7 +1304,7 @@ function seedCommandResult(
        ${sqlLiteral(request.command_id)}, ${sqlLiteral(source)},
        ${sqlLiteral(request.kind)}, ${sqlLiteral(request.aggregate_id)},
        decode(${sqlLiteral(commandDigest(request))}, 'hex'), 201,
-       convert_to('{"seeded":true}', 'UTF8')
+       convert_to(${sqlLiteral(responseBody)}, 'UTF8')
      )`,
   );
 }
@@ -1449,6 +1450,17 @@ test("mesh command relay delivers to the authority's home tenant, which replays 
       apiCoverage,
     );
     expectCommandProblem(misdirected, 421, "federation-authority-misdirected");
+
+    // A stored result the authority cannot encode fails there with a 500,
+    // which leaves the relay unsure whether the command ran.
+    const unreadable = commandRequest(homed.hubUserDID);
+    aggregates.push(unreadable.aggregate_id);
+    seedCommandResult("usa1", "sgp", unreadable, "not json");
+    expectCommandProblem(
+      meshRelayRequest("sgp", COMMAND_RELAY, unreadable, apiCoverage),
+      504,
+      "federation-command-outcome-unknown",
+    );
   } finally {
     cleanupCommandResults("usa1", aggregates);
     cleanupGlobalHubPrincipal(homed.hubUserDID, homedAlias);

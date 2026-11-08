@@ -625,7 +625,7 @@ test("Hub Org Opening reads reject malformed, unauthorized, missing, and unavail
   }
 });
 
-test("mesh Org Opening list and get routes enforce credentials, validation, and ownership", async ({
+test("mesh Org Opening list, get, and agencies routes enforce credentials, validation, and ownership", async ({
   request,
   apiCoverage,
 }) => {
@@ -649,6 +649,8 @@ test("mesh Org Opening list and get routes enforce credentials, validation, and 
     const relayGet = "/mesh/org-openings/get";
     const peerList = "/api/mesh/org-openings/list";
     const peerGet = "/api/mesh/org-openings/get";
+    const relayAgencies = "/mesh/org-openings/agencies";
+    const peerAgencies = "/api/mesh/org-openings/agencies";
 
     const relayDetail = meshRelayRequest("sgp", relayGet, getBody, apiCoverage);
     expect(relayDetail.status, JSON.stringify(relayDetail.body)).toBe(200);
@@ -662,8 +664,18 @@ test("mesh Org Opening list and get routes enforce credentials, validation, and 
     expect(peerListings.body).toMatchObject({
       openings: [{ opening_number: opening.opening_number }],
     });
+    // No agency is assigned to the Opening, so both reads list none.
+    for (const response of [
+      meshRelayRequest("sgp", relayAgencies, getBody, apiCoverage),
+      meshPeerRequest("sgp", "usa1", getBody, apiCoverage, {
+        path: peerAgencies,
+      }),
+    ]) {
+      expect(response.status, JSON.stringify(response.body)).toBe(200);
+      expect(response.body).toEqual({ items: [] });
+    }
 
-    for (const path of [relayList, relayGet]) {
+    for (const path of [relayList, relayGet, relayAgencies]) {
       expectMeshProblem(
         meshRelayRequest("sgp", path, undefined, apiCoverage, {
           rawBody: "{invalid",
@@ -696,7 +708,7 @@ test("mesh Org Opening list and get routes enforce credentials, validation, and 
         "hub-org-not-found",
       );
     }
-    for (const path of [peerList, peerGet]) {
+    for (const path of [peerList, peerGet, peerAgencies]) {
       expectMeshProblem(
         meshPeerRequest("sgp", "usa1", undefined, apiCoverage, {
           path,
@@ -736,32 +748,36 @@ test("mesh Org Opening list and get routes enforce credentials, validation, and 
         : meshRelayRequest("sgp", path, body, apiCoverage);
       expectMeshProblem(response, 400, "invalid-pagination-key");
     }
-    expectMeshProblem(
-      meshRelayRequest(
-        "sgp",
-        relayGet,
-        { domain: org.domain, opening_number: 999999 },
-        apiCoverage,
-      ),
-      404,
-      "hub-opening-not-found",
-    );
-    expectMeshProblem(
-      meshPeerRequest(
-        "sgp",
-        "usa1",
-        { domain: org.domain, opening_number: 999999 },
-        apiCoverage,
-        { path: peerGet },
-      ),
-      404,
-      "hub-opening-not-found",
-    );
-    expectMeshProblem(
-      meshRelayRequest("ind1", relayGet, getBody, apiCoverage),
-      503,
-      "hub-org-unavailable",
-    );
+    for (const path of [relayGet, relayAgencies]) {
+      expectMeshProblem(
+        meshRelayRequest(
+          "sgp",
+          path,
+          { domain: org.domain, opening_number: 999999 },
+          apiCoverage,
+        ),
+        404,
+        "hub-opening-not-found",
+      );
+      expectMeshProblem(
+        meshRelayRequest("ind1", path, getBody, apiCoverage),
+        503,
+        "hub-org-unavailable",
+      );
+    }
+    for (const path of [peerGet, peerAgencies]) {
+      expectMeshProblem(
+        meshPeerRequest(
+          "sgp",
+          "usa1",
+          { domain: org.domain, opening_number: 999999 },
+          apiCoverage,
+          { path },
+        ),
+        404,
+        "hub-opening-not-found",
+      );
+    }
   } finally {
     cleanupOrg(org.domain, "usa1");
     await deleteOrgVerificationRecord(org.domain);
