@@ -18,6 +18,7 @@ import {
   Space,
   Tag,
   Typography,
+  theme,
 } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -44,6 +45,7 @@ import {
 } from "../features/marketplace/queries";
 
 export function ListingsPage() {
+  const { token } = theme.useToken();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { message: toast } = App.useApp();
@@ -88,7 +90,7 @@ export function ListingsPage() {
             gap="middle"
             style={{ padding: "32px 0", textAlign: "center" }}
           >
-            <LockOutlined style={{ fontSize: 40, color: "#2563eb" }} />
+            <LockOutlined style={{ fontSize: 40, color: token.colorPrimary }} />
             <Typography.Title level={3} style={{ margin: 0 }}>
               {t("marketplace.listings.planGateTitle")}
             </Typography.Title>

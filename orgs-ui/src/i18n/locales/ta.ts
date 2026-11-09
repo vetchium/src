@@ -56,6 +56,15 @@ export const ta = {
   },
   theme: {
     toggleLabel: "ஒளி அல்லது இருள் பயன்முறைக்கு மாற்று",
+    primaryColorLabel: "முதன்மை நிறம்",
+    portalPrimaryColor: "Vetchium நீலம்",
+    primaryColors: {
+      blue: "நீலம்",
+      geekblue: "கருநீலம்",
+      purple: "ஊதா",
+      magenta: "மெஜந்தா",
+      volcano: "சிவப்பு ஆரஞ்சு",
+    },
   },
   language: {
     selectorLabel: "மொழியைத் தேர்ந்தெடுக்கவும்",

@@ -25,6 +25,7 @@ import {
   Space,
   Tag,
   Typography,
+  theme,
 } from "antd";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -86,6 +87,7 @@ function toLocalInput(isoString: string): string {
 }
 
 export function WorkItemDetailPage({ capability }: { capability: Capability }) {
+  const { token } = theme.useToken();
   const { t } = useTranslation();
   const { date } = useDateTimeFormat();
   const { message: toast } = App.useApp();
@@ -914,7 +916,10 @@ export function WorkItemDetailPage({ capability }: { capability: Capability }) {
           <Flex vertical gap="middle">
             <Card title={t("applications.snapshot.title")}>
               <Flex gap="middle" align="center" style={{ marginBottom: 16 }}>
-                <Avatar size={48} style={{ backgroundColor: "#2563eb" }}>
+                <Avatar
+                  size={48}
+                  style={{ backgroundColor: token.colorPrimary }}
+                >
                   {getInitials(snapshot.display_name)}
                 </Avatar>
                 <div>

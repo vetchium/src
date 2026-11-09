@@ -14,6 +14,7 @@ import {
   Table,
   Tag,
   Typography,
+  theme,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
@@ -47,6 +48,7 @@ function getInitials(name: string): string {
 
 /** One Capability's engagements as provider; its workspace names it. */
 export function ClientsPage({ capability }: { capability: Capability }) {
+  const { token } = theme.useToken();
   const { t } = useTranslation();
   const { date } = useDateTimeFormat();
   const navigate = useNavigate();
@@ -121,7 +123,7 @@ export function ClientsPage({ capability }: { capability: Capability }) {
       key: "client",
       render: (_, r) => (
         <Flex gap="small" align="center">
-          <Avatar size="small" style={{ backgroundColor: "#2563eb" }}>
+          <Avatar size="small" style={{ backgroundColor: token.colorPrimary }}>
             {getInitials(r.counterparty.display_name)}
           </Avatar>
           <Flex vertical>
@@ -216,7 +218,10 @@ export function ClientsPage({ capability }: { capability: Capability }) {
                   >
                     <Avatar
                       size={48}
-                      style={{ backgroundColor: "#2563eb", flexShrink: 0 }}
+                      style={{
+                        backgroundColor: token.colorPrimary,
+                        flexShrink: 0,
+                      }}
                     >
                       {getInitials(item.counterparty.display_name)}
                     </Avatar>

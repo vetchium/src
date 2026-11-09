@@ -34,6 +34,15 @@ export const de = {
   },
   theme: {
     toggleLabel: "Zwischen hellem und dunklem Modus wechseln",
+    primaryColorLabel: "Akzentfarbe",
+    portalPrimaryColor: "Vetchium-Blau",
+    primaryColors: {
+      blue: "Blau",
+      geekblue: "Indigo",
+      purple: "Lila",
+      magenta: "Magenta",
+      volcano: "Rotorange",
+    },
   },
   language: {
     selectorLabel: "Sprache auswählen",

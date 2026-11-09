@@ -6,7 +6,11 @@ import type { ComponentType, PropsWithChildren } from "react";
 import { useState, useSyncExternalStore } from "react";
 import type { PortalLocaleConfiguration } from "./localization";
 import { PendingOperationProvider } from "./pending-operations";
-import { PreferencesProvider, usePreferences } from "./preferences";
+import {
+  PreferencesProvider,
+  type PrimaryColorChoice,
+  usePreferences,
+} from "./preferences";
 
 const reducedMotionQuery = "(prefers-reduced-motion: reduce)";
 
@@ -22,19 +26,17 @@ function prefersReducedMotion(): boolean {
 
 function ThemedApplication<Locale extends string>({
   children,
-  primaryColor,
   localization,
   componentLocales,
   AuthProvider,
   RecoveryCodesProvider,
 }: PropsWithChildren<{
-  primaryColor: string;
   localization: PortalLocaleConfiguration<Locale>;
   componentLocales: Record<Locale, ComponentLocale>;
   AuthProvider: ComponentType<PropsWithChildren>;
   RecoveryCodesProvider: ComponentType<PropsWithChildren>;
 }>) {
-  const { language, themeMode } = usePreferences(localization);
+  const { language, themeMode, primaryColor } = usePreferences(localization);
   const reducedMotion = useSyncExternalStore(
     subscribeToReducedMotion,
     prefersReducedMotion,
@@ -63,6 +65,7 @@ export function PortalProviders<Locale extends string>({
   children,
   i18n,
   primaryColor,
+  primaryColorChoices,
   localization,
   componentLocales,
   AuthProvider,
@@ -70,6 +73,8 @@ export function PortalProviders<Locale extends string>({
 }: PropsWithChildren<{
   i18n: i18n;
   primaryColor: string;
+  /** Offered in the header beside the portal's own color; omit for none. */
+  primaryColorChoices?: readonly PrimaryColorChoice[];
   localization: PortalLocaleConfiguration<Locale>;
   componentLocales: Record<Locale, ComponentLocale>;
   AuthProvider: ComponentType<PropsWithChildren>;
@@ -84,10 +89,14 @@ export function PortalProviders<Locale extends string>({
       }),
   );
   return (
-    <PreferencesProvider i18n={i18n} localization={localization}>
+    <PreferencesProvider
+      i18n={i18n}
+      localization={localization}
+      primaryColor={primaryColor}
+      primaryColorChoices={primaryColorChoices}
+    >
       <QueryClientProvider client={queryClient}>
         <ThemedApplication
-          primaryColor={primaryColor}
           localization={localization}
           componentLocales={componentLocales}
           AuthProvider={AuthProvider}

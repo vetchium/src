@@ -19,6 +19,7 @@ import {
   Tabs,
   Tag,
   Typography,
+  theme,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
@@ -64,6 +65,7 @@ function getInitials(name: string): string {
 }
 
 export function FindProvidersPage() {
+  const { token } = theme.useToken();
   const { t, i18n } = useTranslation();
   const { date } = useDateTimeFormat();
   const navigate = useNavigate();
@@ -228,7 +230,7 @@ export function FindProvidersPage() {
       key: "provider",
       render: (_, r) => (
         <Flex gap="small" align="center">
-          <Avatar size="small" style={{ backgroundColor: "#2563eb" }}>
+          <Avatar size="small" style={{ backgroundColor: token.colorPrimary }}>
             {getInitials(r.counterparty.display_name)}
           </Avatar>
           <Flex vertical>
@@ -411,7 +413,7 @@ export function FindProvidersPage() {
                               size={48}
                               src={item.provider.logo_url}
                               style={{
-                                backgroundColor: "#2563eb",
+                                backgroundColor: token.colorPrimary,
                                 flexShrink: 0,
                               }}
                             >

@@ -1,4 +1,5 @@
 import {
+  BgColorsOutlined,
   DownOutlined,
   GlobalOutlined,
   LogoutOutlined,
@@ -12,6 +13,7 @@ import {
   Alert,
   App,
   Avatar,
+  Badge,
   Button,
   Divider,
   Drawer,
@@ -58,6 +60,69 @@ export interface AccountMenu {
 
 // Routes start with "/", so this key never collides with a page.
 const signOutKey = "sign-out";
+
+// Choice keys are prefixed so none collides with the portal's own color.
+const portalPrimaryColorKey = "portal";
+const primaryColorMenuKey = (choice: string) => `choice:${choice}`;
+
+function PrimaryColorMenu() {
+  const { t } = useTranslation();
+  const { token } = theme.useToken();
+  const preferences = usePreferences();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  if (preferences.primaryColorChoices.length === 0) return null;
+  const choiceKeys = new Map(
+    preferences.primaryColorChoices.map(({ key }) => [
+      primaryColorMenuKey(key),
+      key,
+    ]),
+  );
+  return (
+    <Dropdown
+      trigger={["click"]}
+      placement="bottomRight"
+      onOpenChange={setMenuOpen}
+      menu={{
+        selectable: true,
+        selectedKeys: [
+          preferences.primaryColorChoice === null
+            ? portalPrimaryColorKey
+            : primaryColorMenuKey(preferences.primaryColorChoice),
+        ],
+        items: [
+          {
+            key: portalPrimaryColorKey,
+            icon: <Badge color={preferences.portalPrimaryColor} />,
+            label: t("theme.portalPrimaryColor"),
+          },
+          ...preferences.primaryColorChoices.map((choice) => ({
+            key: primaryColorMenuKey(choice.key),
+            icon: <Badge color={choice.color} />,
+            label: t(choice.labelKey),
+          })),
+        ],
+        onClick: ({ key }) =>
+          preferences.setPrimaryColorChoice(choiceKeys.get(key) ?? null),
+      }}
+    >
+      {/* A tooltip opening with the menu covers it and, on a phone, overflows
+          the viewport. */}
+      <Tooltip
+        title={t("theme.primaryColorLabel")}
+        open={tooltipOpen && !menuOpen}
+        onOpenChange={setTooltipOpen}
+      >
+        <Button
+          type="text"
+          shape="circle"
+          icon={<BgColorsOutlined style={{ color: token.colorPrimary }} />}
+          aria-label={t("theme.primaryColorLabel")}
+        />
+      </Tooltip>
+    </Dropdown>
+  );
+}
 
 export function HeaderControls<Locale extends string = string>({
   localization,
@@ -123,6 +188,7 @@ export function HeaderControls<Locale extends string = string>({
           onChange={preferences.toggleTheme}
         />
       </Tooltip>
+      <PrimaryColorMenu />
       {onSignOut === undefined ? null : account !== undefined ? (
         <Dropdown
           trigger={["click"]}

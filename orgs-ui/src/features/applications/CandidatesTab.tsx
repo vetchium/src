@@ -10,6 +10,7 @@ import {
   Tabs,
   Tag,
   Typography,
+  theme,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useMemo } from "react";
@@ -76,6 +77,7 @@ function isFinished(value: string | undefined): value is ApplicationState {
 }
 
 export function CandidatesTab({ openingNumber, counts, questions }: Props) {
+  const { token } = theme.useToken();
   const { t, i18n } = useTranslation();
   const { date } = useDateTimeFormat();
   const list = useListState();
@@ -210,7 +212,10 @@ export function CandidatesTab({ openingNumber, counts, questions }: Props) {
       render: (_, application) =>
         application.route ? (
           <Flex gap="small" align="center">
-            <Avatar size="small" style={{ backgroundColor: "#2563eb" }}>
+            <Avatar
+              size="small"
+              style={{ backgroundColor: token.colorPrimary }}
+            >
               {getInitials(application.route.provider.display_name)}
             </Avatar>
             <Flex vertical>

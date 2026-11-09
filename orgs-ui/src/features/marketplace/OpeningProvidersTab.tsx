@@ -14,6 +14,7 @@ import {
   Table,
   Tag,
   Typography,
+  theme,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
@@ -53,6 +54,7 @@ interface Props {
 }
 
 export function OpeningProvidersTab({ openingNumber, canManage }: Props) {
+  const { token } = theme.useToken();
   const { t } = useTranslation();
   const { date } = useDateTimeFormat();
   const { message: toast } = App.useApp();
@@ -224,7 +226,7 @@ export function OpeningProvidersTab({ openingNumber, canManage }: Props) {
       key: "agency",
       render: (_, a) => (
         <Flex gap="small" align="center">
-          <Avatar size="small" style={{ backgroundColor: "#2563eb" }}>
+          <Avatar size="small" style={{ backgroundColor: token.colorPrimary }}>
             {getInitials(a.counterparty.display_name)}
           </Avatar>
           <Flex vertical>
@@ -360,7 +362,7 @@ export function OpeningProvidersTab({ openingNumber, canManage }: Props) {
                         <Flex gap="small" align="center">
                           <Avatar
                             size="small"
-                            style={{ backgroundColor: "#2563eb" }}
+                            style={{ backgroundColor: token.colorPrimary }}
                           >
                             {getInitials(a.counterparty.display_name)}
                           </Avatar>

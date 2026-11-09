@@ -46,6 +46,42 @@ test("language and theme choices survive a reload", async ({ page }) => {
   ).toBeChecked();
 });
 
+test("a primary color choice recolors the portal and survives a reload", async ({
+  page,
+}) => {
+  await page.goto(ORGS_PORTAL);
+  const menu = page.getByRole("button", { name: "Primary color" });
+  const swatch = menu.getByRole("img");
+  await expect(swatch).toHaveCSS("color", "rgb(37, 99, 235)");
+
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Purple" }).click();
+  await expect(swatch).toHaveCSS("color", "rgb(114, 46, 209)");
+
+  await page.reload();
+  await expect(swatch).toHaveCSS("color", "rgb(114, 46, 209)");
+
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Vetchium blue" }).click();
+  await expect(swatch).toHaveCSS("color", "rgb(37, 99, 235)");
+  expect(
+    await page.evaluate(() => localStorage.getItem("vetchium.primaryColor")),
+  ).toBeNull();
+});
+
+test("a stored primary color the portal no longer offers falls back to its own", async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem("vetchium.primaryColor", "yellow"),
+  );
+  await page.goto(ORGS_PORTAL);
+
+  await expect(
+    page.getByRole("button", { name: "Primary color" }).getByRole("img"),
+  ).toHaveCSS("color", "rgb(37, 99, 235)");
+});
+
 test("the header fits a 320px viewport", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto(ORGS_PORTAL);
@@ -55,6 +91,9 @@ test("the header fits a 320px viewport", async ({ page }) => {
   ).toBeVisible();
   await expect(
     page.getByRole("switch", { name: "Switch light or dark mode" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Primary color" }),
   ).toBeVisible();
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth,

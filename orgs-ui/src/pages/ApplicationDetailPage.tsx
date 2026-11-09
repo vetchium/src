@@ -10,6 +10,7 @@ import {
   Space,
   Tag,
   Typography,
+  theme,
 } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
@@ -44,6 +45,7 @@ function getInitials(name: string): string {
 }
 
 export function ApplicationDetailPage() {
+  const { token } = theme.useToken();
   const params = useParams();
   const openingNumber = Number(params.number);
   const applicationNumber = Number(params.application);
@@ -191,7 +193,10 @@ export function ApplicationDetailPage() {
             {detail.credited_agency && (
               <Card title={t("applications.referredBy.title")}>
                 <Flex align="center" gap="small" wrap>
-                  <Avatar size="small" style={{ backgroundColor: "#2563eb" }}>
+                  <Avatar
+                    size="small"
+                    style={{ backgroundColor: token.colorPrimary }}
+                  >
                     {getInitials(detail.credited_agency.display_name)}
                   </Avatar>
                   <Typography.Text strong>

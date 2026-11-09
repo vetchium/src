@@ -14,6 +14,7 @@ import {
   Table,
   Tag,
   Typography,
+  theme,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
@@ -45,6 +46,7 @@ function getInitials(name: string): string {
 
 /** One stage Capability's work across clients; its workspace names it. */
 export function WorkQueuePage({ capability }: { capability: Capability }) {
+  const { token } = theme.useToken();
   const { t } = useTranslation();
   const { date } = useDateTimeFormat();
   const navigate = useNavigate();
@@ -93,7 +95,7 @@ export function WorkQueuePage({ capability }: { capability: Capability }) {
       key: "candidate",
       render: (_, r) => (
         <Flex gap="small" align="center">
-          <Avatar size="small" style={{ backgroundColor: "#2563eb" }}>
+          <Avatar size="small" style={{ backgroundColor: token.colorPrimary }}>
             {getInitials(r.applicant_name)}
           </Avatar>
           <Typography.Text strong>{r.applicant_name}</Typography.Text>
