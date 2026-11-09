@@ -36,6 +36,7 @@ import {
 import {
   cleanupOutbox,
   detailOf,
+  openingContent,
   shortlist,
 } from "../lib/orgs-applications.ts";
 import {
@@ -955,7 +956,7 @@ test("a provider lists the Openings assigned to its sourcing engagement", async 
     const job = (await detail.json()) as JobDetail;
     expect(job.content).toMatchObject({
       title: "Engineer",
-      description: "Build reliable services",
+      description: openingContent("Engineer").description,
     });
     expect(JSON.stringify(job)).not.toMatch(
       /internal_notes|hiring_manager|recruiter|team_members/,

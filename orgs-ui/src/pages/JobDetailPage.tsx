@@ -1,5 +1,6 @@
 import { MessageOutlined, SendOutlined, UserOutlined } from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
+import { OpeningDescription } from "@vetchium/portal-ui/openings";
 import {
   Avatar,
   Breadcrumb,
@@ -168,11 +169,7 @@ export function JobDetailPage() {
               <Typography.Title level={4} style={{ marginTop: 0 }}>
                 {t("marketplace.jobs.aboutTheRole")}
               </Typography.Title>
-              <Typography.Paragraph
-                style={{ whiteSpace: "pre-line", fontSize: 14 }}
-              >
-                {String(content.description)}
-              </Typography.Paragraph>
+              <OpeningDescription source={String(content.description)} />
             </div>
           )}
 

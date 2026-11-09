@@ -226,14 +226,6 @@ Not built:
 
 ## Demo video
 
-- Every portal looks alike on screen; only the title bar `compose.ts` draws
-  tells viewers whose window it is. Once accounts can pick a color scheme,
-  set each cast member's scheme in `video-demos/setup.ts` from its `ROLES`
-  accent in `cast.ts`, then record again.
-- Seen while recording: the Hub's Opening suggestion card shows the raw
-  `on_site` work arrangement; the agency's suggestion card shows
-  `#1 gryffindor.test` instead of the Opening title; the agency's Credited
-  applications table shows a lowercase `hired` status.
-- Rehearse the chat request scenes (`agencyRequest`,
-  `hermioneAcceptsRequest`, `agencyWrites`), which replaced the first
-  message and were never run, then record the demo again.
+- The agency's chat request and suggestion cards read `Opening #1 at
+  hogwarts.test`: `OpeningSuggestion` carries only the client domain and
+  number. Show the Opening title there, then record the demo again.

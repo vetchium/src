@@ -6,13 +6,16 @@ dev` stack. How to run it is in [`video-demos/README.md`](../video-demos/README.
 ## Layout
 
 - `cast.ts`: every person, Org domain, and recorded window (`ROLES`: title,
-  subtitle, accent). Rename or recolor someone only here.
+  subtitle, part, portal color and mode). Rename or recolor someone only
+  here; keep every color and mode pair unique within the video.
 - `stack.ts`: dev stack origins, the typed `post` helper, Mailpit, tenant SQL.
 - `setup.ts`: off-camera fixtures through portal APIs and the
   `backend/cmd/dev-seed` `hub-profiles` mode.
-- `studio.ts`: windows, screencast capture, the visible cursor, captions.
-- `record.ts`: the scenes, in story order, in `SCENES`.
-- `compose.ts`: the ffmpeg edit, title bars, caption band, title cards, SRT.
+- `studio.ts`: windows (each with its portal color and mode set before the
+  portal loads), screencast capture, the visible cursor, captions, and cards.
+- `record.ts`: the scenes and chapter cards, in story order, in `SCENES`.
+- `compose.ts`: the ffmpeg edit, title bars, caption band, cards (the cast
+  card lists every window), SRT.
 - `state.ts`: numbers and URLs a run learns, so one scene can be re-recorded.
 - A run writes only under `out/<run>/` (`out/final/` without `DEMO_RUN`),
   which git ignores. Never commit videos, frames, or fixtures written there.
@@ -32,6 +35,7 @@ dev` stack. How to run it is in [`video-demos/README.md`](../video-demos/README.
   `reloadUntil`, or `awaitHub`.
 - Leave sign-in screens, repeated flows, and setup off camera: put them in
   `setup.ts` or an off-camera API call such as `scheduleOffCamera`.
+- Open each act with `chapter`; a card cannot interrupt a window on air.
 - Type every request with `import type` from `typespec`; Node's type
   stripping cannot load its runtime values. Pin a contract constant with
   `typeof`, as `setup.ts` does for the terms version.
@@ -53,7 +57,10 @@ dev` stack. How to run it is in [`video-demos/README.md`](../video-demos/README.
   `reloadUntil` before going on air.
 - Ended Hub applications (Not selected, Joined) list under the Closed tab.
 - An interview can be marked completed only after it starts;
-  `hermioneInterview` backdates both interviews in SQL off camera.
+  `severusFeedback` backdates both interviews in SQL off camera.
+- Thambi drafts on the dev stack's local model, so the draft differs between
+  runs; `openingDraft` sets the title and experience itself. Read its stills
+  and captions after every rehearsal.
 - Text that renders twice breaks strict mode; wait on a unique control.
 
 ## Re-recording
@@ -62,8 +69,7 @@ Follow this when asked to record the demo again, for example after portal
 changes.
 
 1. Apply the open items under "Demo video" in [`docs/todo.md`](../docs/todo.md)
-   first. Set per-account preferences such as color schemes in `setup.ts`
-   through the portal APIs, from `cast.ts`; drop each item once done.
+   first; drop each item once done.
 2. On a running stack (`make dev` if none), run `make video-demos-deps` and
    `npx playwright install chromium` in `video-demos/`.
 3. Rehearse the whole story under a new `DEMO_RUN`: `npm run setup`, then

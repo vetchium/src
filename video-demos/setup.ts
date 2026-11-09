@@ -1,7 +1,7 @@
-// Off-camera fixtures for one run: the Hogwarts Hub users with full profiles
-// (through dev-seed's hub-profiles mode), Hermione's alias, and the
-// Gryffindor hiring Org with Minerva and a pipeline template. Sortinghat is
-// not created here: its signup is on camera.
+// Off-camera fixtures for one run: the three Hub users with full profiles
+// (through dev-seed's hub-profiles mode), Hermione's alias, and the Hogwarts
+// hiring Org with Minerva, AI drafting, and a pipeline template. Ollivanders
+// is not created here, and neither is Severus: both join on camera.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -16,10 +16,20 @@ import type {
 } from "typespec/hub/auth/login";
 import type { SetAliasRequest } from "typespec/hub/profile/alias";
 import type {
+  BuyAICreditPackRequest,
+  OrgAITermsVersion,
+  SetAISettingsRequest,
+} from "typespec/orgs/ai/ai";
+import type {
   CompleteSignupRequest,
   currentTermsVersion,
   RequestSignupRequest,
 } from "typespec/orgs/auth/signup";
+import type {
+  ManageCandidacies,
+  ManageOpenings,
+  ManageProviders,
+} from "typespec/orgs/authorization/types";
 import type { CreatePipelineTemplateRequest } from "typespec/orgs/hiring/pipelines";
 import type { SetSubscriptionPlanRequest } from "typespec/orgs/subscriptions/subscriptions";
 import type {
@@ -29,11 +39,12 @@ import type {
 import {
   ALBUS,
   HERMIONE_ALIAS,
-  HOGWARTS,
   HUB_USERS,
   type HubName,
   MINERVA,
+  OWLPOST,
   RUN_DIR,
+  SCHOOL,
 } from "./cast.ts";
 import {
   ADMIN,
@@ -53,6 +64,13 @@ import { loadState, saveState } from "./state.ts";
 
 // Typed against the contract, so a new terms version fails `typecheck`.
 const TERMS: typeof currentTermsVersion = "2026-10-16-placeholder";
+const AI_TERMS: typeof OrgAITermsVersion = "ai-2026-10";
+// Minerva recruits and also engages agencies for her Openings.
+const RECRUITER: [
+  typeof ManageOpenings,
+  typeof ManageCandidacies,
+  typeof ManageProviders,
+] = ["org:manage_openings", "org:manage_candidacies", "org:manage_providers"];
 
 /** The dev-seed hub-profiles fixture shape (backend/cmd/dev-seed). */
 interface ProfileFixture {
@@ -76,36 +94,49 @@ interface ProfileFixture {
   languages: { ability: "speaking" | "writing"; languageTag: string }[];
 }
 
+// Against the Opening's requirements: Hermione fits best, Ron is solid,
+// Draco is weaker.
 const PROFILES: Record<HubName, ProfileFixture> = {
   hermione: {
     biography:
-      "Researcher in defensive magic and magical law. Top of every class at Hogwarts; founder of S.P.E.W. Happiest with a hard problem and a well-stocked library.",
+      "Software architect with twelve years of building large-scale distributed systems in Go and Java. I set architecture across teams, write the design documents, and mentor senior and staff engineers. Happiest with a hard consistency problem and a well-stocked library.",
     // An alias needs Silver, and the agency looks Hermione up by hers.
     plan: "hub-silver-tier",
     billingInterval: "month",
     workExperience: [
       {
         employerDomain: "ministry-of-magic.test",
-        jobTitle: "Research Associate, Department of Magical Law Enforcement",
-        startMonth: "2022-09",
+        jobTitle: "Principal Engineer, Magical Law Enforcement Platform",
+        startMonth: "2019-03",
         location: "London",
         description:
-          "Drafts reforms on the rights of magical creatures and trains junior Aurors in defensive spells.",
+          "Sets the architecture for six teams building the case management platform used by every Auror office: event-driven microservices on the cloud, multi-region failover, audit and privacy by design. Chairs the design review board and mentors staff engineers.",
       },
       {
-        employerDomain: HOGWARTS,
-        jobTitle: "Teaching Assistant, Defence Against the Dark Arts",
-        startMonth: "2020-09",
-        endMonth: "2022-07",
-        location: "Scotland",
+        employerDomain: "gringotts.test",
+        jobTitle: "Senior Software Engineer, Vault Ledger",
+        startMonth: "2015-06",
+        endMonth: "2019-02",
+        location: "Diagon Alley, London",
+        description:
+          "Designed the distributed, double-entry vault ledger: partitioned by vault, strongly consistent transfers, millions of Galleon movements a day. Led the on-call rotation and halved storage costs.",
+      },
+      {
+        employerDomain: "flourish-and-blotts.test",
+        jobTitle: "Software Engineer, Search and Recommendations",
+        startMonth: "2013-09",
+        endMonth: "2015-05",
+        location: "London",
+        description:
+          "Built the catalogue search and the first recommendation pipeline in Python.",
       },
     ],
     education: [
       {
-        institutionDomain: HOGWARTS,
-        degree: "N.E.W.T.s: Defence Against the Dark Arts, Charms, Arithmancy",
-        startMonth: "2012-09",
-        endMonth: "2019-06",
+        institutionDomain: SCHOOL,
+        degree: "N.E.W.T.s: Arithmancy, Ancient Runes, Charms",
+        startMonth: "2006-09",
+        endMonth: "2013-06",
       },
     ],
     languages: [
@@ -114,58 +145,73 @@ const PROFILES: Record<HubName, ProfileFixture> = {
       { ability: "speaking", languageTag: "fr" },
     ],
   },
-  draco: {
+  ron: {
     biography:
-      "Seeker, potions enthusiast, and heir to a very old family. Looking for a role worthy of my talents.",
+      "Engineering leader who scaled Weasleys' Wizard Wheezes from one shop to a global online store with millions of orders. Python and Go; strong on teams and delivery. Strategic thinker; ask me about chess.",
     plan: "hub-free-tier",
     workExperience: [
       {
+        employerDomain: "weasleys-wizard-wheezes.test",
+        jobTitle: "Head of Engineering",
+        startMonth: "2017-01",
+        location: "Diagon Alley, London",
+        description:
+          "Leads twenty engineers running the online store, owl-order fulfilment, and the stock system on the cloud. Moved the store from one server to services that handle seasonal peaks.",
+      },
+      {
+        employerDomain: "ministry-of-magic.test",
+        jobTitle: "Software Engineer, Auror Office",
+        startMonth: "2013-09",
+        endMonth: "2016-12",
+        location: "London",
+        description: "Built internal case tools in Python.",
+      },
+    ],
+    education: [
+      {
+        institutionDomain: SCHOOL,
+        degree: "N.E.W.T.s: Defence Against the Dark Arts, Charms",
+        startMonth: "2006-09",
+        endMonth: "2013-06",
+      },
+    ],
+    languages: [{ ability: "speaking", languageTag: "en" }],
+  },
+  draco: {
+    biography:
+      "Lead developer at a very old family business. Ten years of experience and the finest taste in frameworks. Looking for a role worthy of my talents.",
+    plan: "hub-free-tier",
+    workExperience: [
+      {
+        employerDomain: "malfoy-holdings.test",
+        jobTitle: "Lead Developer",
+        startMonth: "2015-04",
+        location: "Wiltshire",
+        description:
+          "Maintains the family estate's accounting application, a single server and database, with two developers.",
+      },
+      {
         employerDomain: "borgin-and-burkes.test",
-        jobTitle: "Artefact Appraiser",
-        startMonth: "2020-08",
+        jobTitle: "Developer, Inventory Systems",
+        startMonth: "2013-08",
+        endMonth: "2015-03",
         location: "Knockturn Alley, London",
       },
     ],
     education: [
       {
-        institutionDomain: HOGWARTS,
+        institutionDomain: SCHOOL,
         degree: "N.E.W.T.s: Potions, Transfiguration",
-        startMonth: "2012-09",
-        endMonth: "2019-06",
+        startMonth: "2006-09",
+        endMonth: "2013-06",
       },
     ],
     languages: [{ ability: "speaking", languageTag: "en" }],
   },
-  voldemort: {
-    biography:
-      "Former Head Boy. Extensive hands-on experience with the Dark Arts. Seeking a teaching position at Hogwarts, again.",
-    plan: "hub-free-tier",
-    workExperience: [
-      {
-        employerDomain: "borgin-and-burkes.test",
-        jobTitle: "Acquisitions Specialist",
-        startMonth: "1945-09",
-        endMonth: "1955-01",
-        location: "London",
-      },
-    ],
-    education: [
-      {
-        institutionDomain: HOGWARTS,
-        degree: "Special Award for Services to the School",
-        startMonth: "1938-09",
-        endMonth: "1945-06",
-      },
-    ],
-    languages: [
-      { ability: "speaking", languageTag: "en" },
-      { ability: "speaking", languageTag: "he" },
-    ],
-  },
 };
 
-/** Puts hogwarts.test on the sgp Hub signup allowlist. */
-async function allowHogwarts() {
+/** Puts the Hub users' mail domain on the sgp Hub signup allowlist. */
+async function allowOwlPost() {
   const admin = await post<AdminSession, AdminLoginRequest>(
     ADMIN,
     "/api/admin/login",
@@ -178,12 +224,12 @@ async function allowHogwarts() {
       Authorization: `Bearer ${admin.session_token}`,
     },
     body: JSON.stringify({
-      domain: HOGWARTS,
+      domain: OWLPOST,
     } satisfies CreateSignupDomainRequest),
   });
   // 409: an earlier run on this stack already added it.
   if (response.status !== 201 && response.status !== 409) {
-    throw new Error(`allowlist ${HOGWARTS}: ${response.status}`);
+    throw new Error(`allowlist ${OWLPOST}: ${response.status}`);
   }
 }
 
@@ -233,7 +279,7 @@ async function setHermioneAlias() {
   );
 }
 
-async function signupGryffindor() {
+async function signupHogwarts() {
   await post<unknown, RequestSignupRequest>(API, "/api/orgs/request-signup", {
     email_address: ALBUS.email,
     preferred_language: "en-US",
@@ -243,7 +289,7 @@ async function signupGryffindor() {
       await mail(ALBUS.email, "Complete"),
       "/complete-signup",
     ),
-    org_display_name: "Gryffindor",
+    org_display_name: "Hogwarts",
     org_country: "GB",
     accepted_terms_version: TERMS,
     password: PASSWORD,
@@ -255,10 +301,23 @@ async function signupGryffindor() {
     { plan_oid: "org-gold-tier", billing_interval: "month" },
     albus,
   );
+  // The monthly grant waits for a worker run; a pack is credited at once.
+  await post<unknown, SetAISettingsRequest>(
+    API,
+    "/api/orgs/set-ai-settings",
+    { enabled: true, accept_terms_version: AI_TERMS, policies: [] },
+    albus,
+  );
+  await post<unknown, BuyAICreditPackRequest>(
+    API,
+    "/api/orgs/buy-ai-credit-pack",
+    { pack_id: "credits-100k" },
+    albus,
+  );
   await post<unknown, InviteUsersRequest>(
     API,
     "/api/orgs/invite-users",
-    { email_addresses: [MINERVA.email] },
+    { email_addresses: [MINERVA.email], permissions: RECRUITER },
     albus,
   );
   await post<unknown, AcceptInvitationRequest>(
@@ -277,18 +336,38 @@ async function signupGryffindor() {
     API,
     "/api/orgs/create-pipeline-template",
     {
-      name: "Faculty hiring",
+      name: "Engineering leadership",
       stages: [
         { name: "Application review", kind: "review" },
-        { name: "Interview panel", kind: "interview" },
+        {
+          name: "System design interview",
+          kind: "interview",
+          feedback_form: [
+            {
+              text: "Designs for scale and for failure",
+              type: "rating",
+              required: true,
+            },
+            {
+              text: "Explains trade-offs clearly",
+              type: "rating",
+              required: true,
+            },
+            {
+              text: "Would you trust them with our architecture?",
+              type: "yes_no",
+              required: true,
+            },
+          ],
+        },
       ],
     },
     albus,
   );
 }
 
-await allowHogwarts();
+await allowOwlPost();
 seedHubUsers();
 await setHermioneAlias();
-await signupGryffindor();
+await signupHogwarts();
 console.log(`setup done; state in ${RUN_DIR}`);

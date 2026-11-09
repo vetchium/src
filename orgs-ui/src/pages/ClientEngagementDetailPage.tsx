@@ -29,6 +29,7 @@ import { isEngagementID } from "typespec/orgs/marketplace/engagements";
 import type { ActivityStatementItem } from "typespec/orgs/marketplace/statements";
 import { orgsAPI } from "../api/orgs";
 import { paths } from "../app/paths";
+import { useCalendarDate } from "../features/applications/presentation";
 import {
   capabilityColors,
   capabilityLabel,
@@ -74,6 +75,7 @@ export function ClientEngagementDetailPage({
 }) {
   const { t } = useTranslation();
   const { date } = useDateTimeFormat();
+  const calendarDate = useCalendarDate();
   const { message: toast } = App.useApp();
   const { id } = useParams<{ id: string }>();
 
@@ -303,8 +305,8 @@ export function ClientEngagementDetailPage({
   const statementColumns: ColumnsType<ActivityStatementItem> = [
     {
       title: t("marketplace.statement.date"),
-      dataIndex: "recorded_at",
-      render: (v) => date(v),
+      dataIndex: "date",
+      render: (v) => calendarDate(v),
     },
     {
       title: t("marketplace.statement.fact"),

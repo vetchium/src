@@ -1,8 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "../lib/admin-fixtures.ts";
-import { addOrgMember } from "../lib/orgs-api.ts";
+import { seedApplication } from "../lib/hiring-seed.ts";
+import { addOrgMember, orgsIdempotencyKey } from "../lib/orgs-api.ts";
+import { utcDate } from "../lib/orgs-applications.ts";
 import {
   activate,
+  asProvider,
   listing,
   published,
   withPair,
@@ -310,5 +313,59 @@ test("workspaces show the work the Org does and the user may do, and personal pa
     for (const name of ["Listings", "Jobs", "Contacts", "Work queue"]) {
       await expect(sidebarPage(page, name)).toHaveCount(0);
     }
+  });
+});
+
+test.describe("activity statements", () => {
+  // West of UTC, so a calendar date read as a local moment shows a day early.
+  test.use({ timezoneId: "America/Los_Angeles" });
+
+  test("both Orgs see a fact on its own calendar date", async ({
+    page,
+    request,
+  }) => {
+    await withWorld(request, async (world) => {
+      const { consumer, provider } = world.pair;
+      const sourcing = await activate(world.pair, "sourcing");
+      await asProvider(world.pair, sourcing.id, sourcing.version);
+      await assign(world, sourcing.id);
+      // A past day of this month, so the date cannot be mistaken for today.
+      const joinedOn = utcDate(new Date().getUTCDate() > 1 ? -1 : 0);
+      const seeded = await seedApplication(
+        world.hiring,
+        world.opening.opening_number,
+        {
+          state: "offer_accepted",
+          stageId: world.final.id,
+          referralAgencyDomain: provider.org.domain,
+          offerExtendedDaysAgo: 10,
+        },
+      );
+      const joined = await consumer.api.recordApplicationJoined(
+        consumer.owner,
+        {
+          opening_number: world.opening.opening_number,
+          application_number: seeded.number,
+          version: seeded.version,
+          joined_on: joinedOn,
+        },
+        orgsIdempotencyKey(),
+      );
+      expect(joined.status(), await joined.text()).toBe(200);
+      const shown = new Intl.DateTimeFormat("en-US", {
+        dateStyle: "medium",
+        timeZone: "UTC",
+      }).format(new Date(`${joinedOn}T00:00:00Z`));
+      const factRow = page.getByRole("row", { name: /Joined/ });
+
+      await signIn(page, consumer.org);
+      await page.goto(`${ORGS_PORTAL}/providers/engagements/${sourcing.id}`);
+      await expect(factRow.getByRole("cell").first()).toHaveText(shown);
+
+      await signOut(page);
+      await signIn(page, provider.org, provider.tenant);
+      await page.goto(`${ORGS_PORTAL}/sourcing/clients/${sourcing.id}`);
+      await expect(factRow.getByRole("cell").first()).toHaveText(shown);
+    });
   });
 });

@@ -29,6 +29,7 @@ import { isEngagementID } from "typespec/orgs/marketplace/engagements";
 import type { ActivityStatementItem } from "typespec/orgs/marketplace/statements";
 import { orgsAPI } from "../api/orgs";
 import { paths } from "../app/paths";
+import { useCalendarDate } from "../features/applications/presentation";
 import {
   capabilityColors,
   capabilityLabel,
@@ -69,6 +70,7 @@ function escapeCSV(field: string): string {
 export function EngagementDetailPage() {
   const { t, i18n } = useTranslation();
   const { date } = useDateTimeFormat();
+  const calendarDate = useCalendarDate();
   const { message: toast } = App.useApp();
   const { id } = useParams<{ id: string }>();
 
@@ -276,7 +278,7 @@ export function EngagementDetailPage() {
     {
       title: t("marketplace.statement.date"),
       dataIndex: "date",
-      render: (v) => date(v),
+      render: (v) => calendarDate(v),
     },
     {
       title: t("marketplace.statement.fact"),

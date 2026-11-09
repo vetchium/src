@@ -1,16 +1,17 @@
 // Edits a recorded run into the demo video. Each on-air segment becomes the
 // browser area of a 1920x1080 frame, under a title bar naming the window and
-// above a caption band; title cards open and close it. Also writes the
-// captions as SRT and as a timestamped script for the voiceover.
+// above a caption band; title cards, including the cast card, sit between
+// segments as the story placed them. Also writes the captions as SRT and as
+// a timestamped script for the voiceover.
 //
 // Homebrew's ffmpeg lacks the drawtext and subtitles filters, so the title
-// bar and captions are HTML stills rendered by Chromium and overlaid.
+// bar, captions, and cards are HTML stills rendered by Chromium and overlaid.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { chromium } from "@playwright/test";
 import { type Role, RUN_DIR } from "./cast.ts";
-import { FRAME, type Timeline } from "./studio.ts";
+import { type Card, FRAME, type Segment, type Timeline } from "./studio.ts";
 
 const INPUT = process.argv[2] ? resolve(process.argv[2]) : RUN_DIR;
 const FINAL = resolve(process.argv[3] ?? join(INPUT, "vetchium-demo.mp4"));
@@ -19,27 +20,13 @@ const OUTPUT = { width: 1920, height: 1080 };
 const TOP = 72;
 const CAPTION_BAND = OUTPUT.height - TOP - FRAME.height;
 const FPS = 30;
-const CARD_SECONDS = 5;
-
-const INTRO = {
-  title: "Hiring with a sourcing agency, end to end",
-  lines: [
-    "An agency joins the marketplace · a company hires through it",
-    "and every candidate tracks their own application",
-  ],
-};
-const OUTRO = {
-  title: "Hermione is hired",
-  lines: [
-    "Sortinghat sourced her · Gryffindor hired her",
-    "Voldemort and Draco always knew where they stood",
-  ],
-};
 
 const timeline = JSON.parse(
   readFileSync(join(INPUT, "timeline.json"), "utf8"),
 ) as Timeline;
-if (timeline.segments.length === 0) throw new Error("nothing was recorded");
+if (!timeline.segments.some((s) => s.frames.length > 0)) {
+  throw new Error("nothing was recorded");
+}
 const work = join(INPUT, "work");
 rmSync(work, { recursive: true, force: true });
 mkdirSync(work, { recursive: true });
@@ -61,44 +48,8 @@ const ENCODE = [
 // The concat demuxer resolves relative entries against the list file.
 const concatList = (file: string, entries: string[]) =>
   writeFileSync(file, entries.join("\n"));
-
-// 1. The body: each segment's frames, each shown until the next arrived.
-interface Placed {
-  window: string;
-  start: number;
-  end: number;
-  offset: number;
-  duration: number;
-  file: string;
-}
-let offset = 0;
-const placed: Placed[] = timeline.segments.map((segment, i) => {
-  const lines: string[] = [];
-  segment.frames.forEach((frame, k) => {
-    const next = segment.frames[k + 1]?.ts ?? segment.end;
-    lines.push(
-      `file '${frame.file}'`,
-      `duration ${Math.max(0.001, next - frame.ts).toFixed(4)}`,
-    );
-  });
-  // The demuxer ignores the last entry's duration unless it is repeated.
-  lines.push(`file '${segment.frames.at(-1)?.file}'`);
-  const list = join(work, `segment${i}.txt`);
-  concatList(list, lines);
-  const file = join(work, `segment${i}.mp4`);
-  ffmpeg([
-    "-f",
-    "concat",
-    "-safe",
-    "0",
-    "-i",
-    list,
-    "-vf",
-    `scale=${FRAME.width}:${FRAME.height}:flags=lanczos`,
-    ...ENCODE,
-    file,
-  ]);
-  const duration = Number(
+const duration = (file: string) =>
+  Number(
     execFileSync(
       "ffprobe",
       [
@@ -113,64 +64,6 @@ const placed: Placed[] = timeline.segments.map((segment, i) => {
       { encoding: "utf8" },
     ),
   );
-  const at: Placed = {
-    window: segment.window,
-    start: segment.frames[0]?.ts ?? segment.end,
-    end: segment.end,
-    offset,
-    duration,
-    file,
-  };
-  offset += duration;
-  return at;
-});
-const total = offset;
-const bodyList = join(work, "body.txt");
-concatList(
-  bodyList,
-  placed.map((p) => `file '${p.file}'`),
-);
-const body = join(work, "body.mp4");
-ffmpeg(["-f", "concat", "-safe", "0", "-i", bodyList, "-c", "copy", body]);
-
-// 2. Captions on the output clock. Wall time maps into the segment on air;
-// time off air collapses to the next segment's start.
-function outputTime(wall: number): number {
-  for (const p of placed) {
-    if (wall < p.start) return p.offset;
-    if (wall <= p.end) return p.offset + Math.min(wall - p.start, p.duration);
-  }
-  return total;
-}
-
-interface Cue {
-  text: string;
-  from: number;
-  to: number;
-}
-const cues: Cue[] = [];
-let open: Cue | null = null;
-for (const caption of timeline.captions) {
-  const t = outputTime(caption.at);
-  if (open) {
-    open.to = t;
-    if (open.to - open.from > 0.2) cues.push(open);
-    open = null;
-  }
-  if (caption.text) open = { text: caption.text, from: t, to: total };
-}
-if (open) cues.push(open);
-
-// 3. The chrome (title bar and caption band): one still per interval in
-// which neither the window nor the caption changes.
-const roles = new Map<string, Role>(timeline.windows.map((r) => [r.id, r]));
-const cuts = new Set<number>([0, total]);
-for (const p of placed) cuts.add(p.offset);
-for (const c of cues) {
-  cuts.add(c.from);
-  cuts.add(c.to);
-}
-const times = [...cuts].sort((a, b) => a - b);
 
 const html = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 // Single quotes only: the string sits inside double-quoted style attributes.
@@ -180,100 +73,197 @@ const FONT =
 function chromeHTML(role: Role, caption: string | null) {
   const size = caption && caption.length > 110 ? 27 : 31;
   return `<html><body style="margin:0;width:${OUTPUT.width}px;height:${OUTPUT.height}px;background:#0f1115;${FONT}">
-  <div style="height:${TOP}px;display:flex;align-items:center;gap:18px;padding:0 32px;background:#16181d;border-bottom:3px solid ${role.accent}">
-    <div style="width:16px;height:16px;border-radius:50%;background:${role.accent}"></div>
+  <div style="height:${TOP}px;display:flex;align-items:center;gap:18px;padding:0 32px;background:#16181d;border-bottom:4px solid ${role.accent}">
+    <div style="width:18px;height:18px;border-radius:50%;background:${role.accent}"></div>
     <div style="color:#fff;font-size:28px;font-weight:700">${html(role.title)}</div>
     <div style="color:#aab0bc;font-size:22px">${html(role.subtitle)}</div>
-    <div style="margin-left:auto;color:#6b7280;font-size:20px;letter-spacing:.04em">VETCHIUM DEMO</div>
+    <div style="margin-left:auto;color:#6b7280;font-size:20px;letter-spacing:.04em">VETCHIUM</div>
   </div>
   <div style="position:absolute;top:${TOP + FRAME.height}px;left:0;right:0;height:${CAPTION_BAND}px;display:flex;align-items:center;justify-content:center;padding:0 80px;box-sizing:border-box">
     <div style="color:#fff;font-size:${size}px;line-height:1.3;text-align:center;font-weight:500">${caption ? html(caption) : ""}</div>
   </div></body></html>`;
 }
 
-function cardHTML(card: { title: string; lines: string[] }) {
+function castHTML(roles: Role[]) {
+  return `<div style="margin-top:56px;display:grid;grid-template-columns:repeat(2, 640px);gap:18px 48px">${roles
+    .map(
+      (
+        r,
+      ) => `<div style="display:flex;align-items:center;gap:18px;padding:14px 22px;border-radius:14px;background:${r.theme === "dark" ? "#0b0c10" : "#f5f6f8"};border-left:10px solid ${r.accent}">
+      <div style="width:22px;height:22px;border-radius:50%;background:${r.accent};flex:none"></div>
+      <div><div style="font-size:30px;font-weight:700;color:${r.theme === "dark" ? "#fff" : "#16181d"}">${html(r.title)}</div>
+      <div style="font-size:21px;color:${r.theme === "dark" ? "#aab0bc" : "#4b5563"}">${html(r.part)} · ${r.theme} mode</div></div></div>`,
+    )
+    .join("")}</div>`;
+}
+
+function cardHTML(card: Card, roles: Role[]) {
+  const titleSize = card.cast ? 60 : 72;
   return `<html><body style="margin:0;width:${OUTPUT.width}px;height:${OUTPUT.height}px;background:linear-gradient(135deg,#16181d,#2a1215 55%,#1d1530);${FONT};display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff">
   <div style="font-size:30px;letter-spacing:.3em;color:#f5c542;margin-bottom:28px">VETCHIUM</div>
-  <div style="font-size:72px;font-weight:800;text-align:center;max-width:1500px;line-height:1.15">${html(card.title)}</div>
-  <div style="margin-top:40px;font-size:30px;color:#c9ced8;text-align:center;line-height:1.6">${card.lines.map(html).join("<br/>")}</div>
+  <div style="font-size:${titleSize}px;font-weight:800;text-align:center;max-width:1600px;line-height:1.15">${html(card.title)}</div>
+  <div style="margin-top:32px;font-size:30px;color:#c9ced8;text-align:center;line-height:1.55">${card.lines.map(html).join("<br/>")}</div>
+  ${card.cast ? castHTML(roles) : ""}
   </body></html>`;
 }
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: OUTPUT });
 const stills = new Map<string, string>();
-async function still(key: string, html: string): Promise<string> {
+async function still(key: string, markup: string): Promise<string> {
   const known = stills.get(key);
   if (known) return known;
   const file = join(work, `still${stills.size}.png`);
-  await page.setContent(html);
+  await page.setContent(markup);
   await page.screenshot({ path: file });
   stills.set(key, file);
   return file;
 }
 
-const chromeLines: string[] = [];
-let from = 0;
-for (const to of times.slice(1)) {
-  // A sliver this short folds into the next interval.
-  if (to - from < 0.001) continue;
-  const mid = (from + to) / 2;
-  const segment =
-    placed.find((p) => mid >= p.offset && mid < p.offset + p.duration) ??
-    placed.at(-1);
-  const role = roles.get(segment?.window ?? "");
-  if (!role) throw new Error(`no role for window ${segment?.window}`);
-  const cue = cues.find((c) => mid >= c.from && mid < c.to);
-  const file = await still(
-    `${role.id}|${cue?.text ?? ""}`,
-    chromeHTML(role, cue?.text ?? null),
-  );
-  chromeLines.push(`file '${file}'`, `duration ${(to - from).toFixed(4)}`);
-  from = to;
+const roles = new Map<string, Role>(timeline.windows.map((r) => [r.id, r]));
+
+interface Cue {
+  text: string;
+  from: number;
+  to: number;
 }
-chromeLines.push(chromeLines.at(-2) ?? "");
-const introStill = await still("intro", cardHTML(INTRO));
-const outroStill = await still("outro", cardHTML(OUTRO));
-await browser.close();
 
-const chromeList = join(work, "chrome.txt");
-concatList(chromeList, chromeLines);
-const chrome = join(work, "chrome.mp4");
-ffmpeg(["-f", "concat", "-safe", "0", "-i", chromeList, ...ENCODE, chrome]);
+/** Captions on one segment's own clock: wall time inside the segment, or
+ * its start for a caption set while it was preparing. */
+function segmentCues(segment: Segment, length: number): Cue[] {
+  const start = segment.frames[0]?.ts ?? segment.end;
+  const local = (wall: number) => Math.min(Math.max(0, wall - start), length);
+  const cues: Cue[] = [];
+  let open: Cue | null = null;
+  for (const caption of timeline.captions) {
+    if (caption.at < start - 0.5 || caption.at > segment.end + 0.01) continue;
+    const t = local(caption.at);
+    if (open) {
+      open.to = t;
+      if (open.to - open.from > 0.2) cues.push(open);
+      open = null;
+    }
+    if (caption.text) open = { text: caption.text, from: t, to: length };
+  }
+  if (open) cues.push(open);
+  return cues;
+}
 
-// 4. Overlay the body on the chrome, then add the cards.
-const main = join(work, "main.mp4");
-ffmpeg([
-  "-i",
-  chrome,
-  "-i",
-  body,
-  "-filter_complex",
-  `[0:v][1:v]overlay=0:${TOP}:shortest=1`,
-  ...ENCODE,
-  main,
-]);
-const card = (still: string, out: string) =>
+/** One recorded segment as a full 1920x1080 clip with its chrome. */
+async function recorded(segment: Segment, i: number) {
+  const role = roles.get(segment.window);
+  if (!role) throw new Error(`no role for window ${segment.window}`);
+  const lines: string[] = [];
+  segment.frames.forEach((frame, k) => {
+    const next = segment.frames[k + 1]?.ts ?? segment.end;
+    lines.push(
+      `file '${frame.file}'`,
+      `duration ${Math.max(0.001, next - frame.ts).toFixed(4)}`,
+    );
+  });
+  // The demuxer ignores the last entry's duration unless it is repeated.
+  lines.push(`file '${segment.frames.at(-1)?.file}'`);
+  const list = join(work, `segment${i}.txt`);
+  concatList(list, lines);
+  const body = join(work, `segment${i}-body.mp4`);
+  ffmpeg([
+    "-f",
+    "concat",
+    "-safe",
+    "0",
+    "-i",
+    list,
+    "-vf",
+    `scale=${FRAME.width}:${FRAME.height}:flags=lanczos`,
+    ...ENCODE,
+    body,
+  ]);
+  const length = duration(body);
+  const cues = segmentCues(segment, length);
+  const cuts = new Set<number>([0, length]);
+  for (const c of cues) {
+    cuts.add(c.from);
+    cuts.add(c.to);
+  }
+  const times = [...cuts].sort((a, b) => a - b);
+  const chromeLines: string[] = [];
+  let from = 0;
+  for (const to of times.slice(1)) {
+    // A sliver this short folds into the next interval.
+    if (to - from < 0.001) continue;
+    const mid = (from + to) / 2;
+    const cue = cues.find((c) => mid >= c.from && mid < c.to);
+    const file = await still(
+      `${role.id}|${cue?.text ?? ""}`,
+      chromeHTML(role, cue?.text ?? null),
+    );
+    chromeLines.push(`file '${file}'`, `duration ${(to - from).toFixed(4)}`);
+    from = to;
+  }
+  chromeLines.push(chromeLines.at(-2) ?? "");
+  const chromeList = join(work, `segment${i}-chrome.txt`);
+  concatList(chromeList, chromeLines);
+  const chrome = join(work, `segment${i}-chrome.mp4`);
+  ffmpeg(["-f", "concat", "-safe", "0", "-i", chromeList, ...ENCODE, chrome]);
+  const clip = join(work, `segment${i}.mp4`);
+  ffmpeg([
+    "-i",
+    chrome,
+    "-i",
+    body,
+    "-filter_complex",
+    `[0:v][1:v]overlay=0:${TOP}:shortest=1`,
+    ...ENCODE,
+    clip,
+  ]);
+  return { clip, length: duration(clip), cues };
+}
+
+async function carded(card: Card, i: number) {
+  const image = await still(`card${i}`, cardHTML(card, timeline.windows));
+  const clip = join(work, `segment${i}.mp4`);
   ffmpeg([
     "-loop",
     "1",
     "-t",
-    String(CARD_SECONDS),
+    String(card.seconds),
     "-i",
-    still,
+    image,
     "-vf",
     "fade=in:0:12",
     ...ENCODE,
-    out,
+    clip,
   ]);
-const intro = join(work, "intro.mp4");
-const outro = join(work, "outro.mp4");
-card(introStill, intro);
-card(outroStill, outro);
+  const spoken = `${card.title}. ${card.lines.join(" ")}`;
+  return {
+    clip,
+    length: duration(clip),
+    cues: [{ text: spoken, from: 0, to: card.seconds }],
+  };
+}
+
+const clips: string[] = [];
+const all: Cue[] = [];
+let offset = 0;
+for (const [i, segment] of timeline.segments.entries()) {
+  const part = segment.card
+    ? await carded(segment.card, i)
+    : segment.frames.length > 0
+      ? await recorded(segment, i)
+      : null;
+  if (!part) continue;
+  clips.push(part.clip);
+  for (const c of part.cues) {
+    all.push({ text: c.text, from: c.from + offset, to: c.to + offset });
+  }
+  offset += part.length;
+}
+await browser.close();
+
 const allList = join(work, "all.txt");
 concatList(
   allList,
-  [intro, main, outro].map((f) => `file '${f}'`),
+  clips.map((f) => `file '${f}'`),
 );
 ffmpeg([
   "-f",
@@ -289,29 +279,11 @@ ffmpeg([
   FINAL,
 ]);
 
-// 5. The captions, with the cards, for the voiceover.
 function srtTime(t: number): string {
   const ms = Math.round(t * 1000);
   const pad = (n: number, w = 2) => String(n).padStart(w, "0");
   return `${pad(Math.floor(ms / 3_600_000))}:${pad(Math.floor(ms / 60_000) % 60)}:${pad(Math.floor(ms / 1000) % 60)},${pad(ms % 1000, 3)}`;
 }
-const all: Cue[] = [
-  {
-    text: `${INTRO.title}. ${INTRO.lines.join(", ")}.`,
-    from: 0,
-    to: CARD_SECONDS,
-  },
-  ...cues.map((c) => ({
-    text: c.text,
-    from: c.from + CARD_SECONDS,
-    to: c.to + CARD_SECONDS,
-  })),
-  {
-    text: `${OUTRO.title}. ${OUTRO.lines.join(". ")}.`,
-    from: CARD_SECONDS + total,
-    to: 2 * CARD_SECONDS + total,
-  },
-];
 const base = FINAL.replace(/\.mp4$/, "");
 writeFileSync(
   `${base}.srt`,
@@ -332,5 +304,5 @@ writeFileSync(
     .join("\n")}\n`,
 );
 console.log(
-  `wrote ${FINAL} (${(total + 2 * CARD_SECONDS).toFixed(1)}s, ${all.length} captions)`,
+  `wrote ${FINAL} (${offset.toFixed(1)}s, ${all.length} captions, ${clips.length} clips)`,
 );

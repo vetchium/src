@@ -404,6 +404,12 @@ test("an agent works from their own Jobs, looks across the agency by colleague a
       colleague.emailAddress,
     );
 
+    // The description renders its Markdown, as candidates see it.
+    await expect(
+      page.getByRole("tabpanel").locator("strong", { hasText: "reliable" }),
+    ).toBeVisible();
+    await expect(page.getByText("**reliable**")).toHaveCount(0);
+
     // Tabs in Job detail
     await expect(page.getByRole("tab", { name: "Opening" })).toBeVisible();
     await expect(

@@ -37,7 +37,8 @@ export const orgDIDSQL = (domain: string) =>
 export function openingContent(title: string, positions = 1): OpeningContent {
   return {
     title,
-    description: "Build reliable services",
+    // Markdown, so portals can be shown to render it.
+    description: "Build **reliable** services",
     language: "en",
     employing_country: "SG",
     work_arrangement: "hybrid",

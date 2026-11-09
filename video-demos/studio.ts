@@ -29,10 +29,20 @@ export interface Frame {
   ts: number;
 }
 
+/** A full-screen title card between recorded windows. */
+export interface Card {
+  title: string;
+  lines: string[];
+  /** Lists every window's person, color, and part under the title. */
+  cast?: boolean;
+  seconds: number;
+}
+
 export interface Segment {
   window: string;
   frames: Frame[];
   end: number;
+  card?: Card;
 }
 
 export interface Caption {
@@ -77,6 +87,15 @@ const CURSOR_SCRIPT = `(() => {
   if (document.readyState === "loading") addEventListener("DOMContentLoaded", install); else install();
 })();`;
 
+/** Sets the window's portal mode, and its color unless the person picks it
+ * on camera, before the portal reads them (portal-ui/src/preferences.tsx). */
+function preferencesScript(role: Role): string {
+  const color = role.presetColor
+    ? `localStorage.setItem("vetchium.primaryColor", ${JSON.stringify(role.color)});`
+    : "";
+  return `(() => { try { localStorage.setItem("vetchium.theme", ${JSON.stringify(role.theme)}); ${color} } catch {} })();`;
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class Studio {
@@ -101,6 +120,7 @@ export class Studio {
       timezoneId: "Asia/Singapore",
     });
     await context.addInitScript(CURSOR_SCRIPT);
+    await context.addInitScript(preferencesScript(role));
     const page = await context.newPage();
     const cdp = await context.newCDPSession(page);
     return new DemoWindow(this, role, page, cdp);
@@ -132,6 +152,14 @@ export class Studio {
       "frames",
       `${String(this.frameCount).padStart(6, "0")}.jpg`,
     );
+  }
+
+  /** Places a title card between recorded windows. */
+  card(card: Card) {
+    if (this.live) throw new Error("a card cannot interrupt a window on air");
+    const now = Date.now() / 1000;
+    this.timeline.segments.push({ window: "", frames: [], end: now, card });
+    this.save();
   }
 
   /** Records `window` while `body` runs. Each segment ends its caption, so
