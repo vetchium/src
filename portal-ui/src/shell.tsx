@@ -13,8 +13,9 @@ import {
   Alert,
   App,
   Avatar,
-  Badge,
   Button,
+  ColorPicker,
+  type ColorPickerProps,
   Divider,
   Drawer,
   Dropdown,
@@ -42,7 +43,7 @@ import {
   shortLanguageName,
 } from "./localization";
 import { usePendingOperations } from "./pending-operations";
-import { usePreferences } from "./preferences";
+import { isUsablePrimaryColor, usePreferences } from "./preferences";
 
 const { Content, Footer, Header, Sider } = Layout;
 
@@ -61,56 +62,85 @@ export interface AccountMenu {
 // Routes start with "/", so this key never collides with a page.
 const signOutKey = "sign-out";
 
-// Choice keys are prefixed so none collides with the portal's own color.
-const portalPrimaryColorKey = "portal";
-const primaryColorMenuKey = (choice: string) => `choice:${choice}`;
-
-function PrimaryColorMenu() {
+function PrimaryColorPicker() {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const preferences = usePreferences();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [tooltipOpen, setTooltipOpen] = useState(false);
-  if (preferences.primaryColorChoices.length === 0) return null;
-  const choiceKeys = new Map(
-    preferences.primaryColorChoices.map(({ key }) => [
-      primaryColorMenuKey(key),
-      key,
-    ]),
-  );
+  // Follows the picker even while it rests on a color too light to apply,
+  // and keeps the picker's hue when it is dragged to gray.
+  const [draft, setDraft] = useState<ColorPickerProps["value"]>(null);
+  const [draftTooLight, setDraftTooLight] = useState(false);
+  if (preferences.primaryColorPresets.length === 0) return null;
+  const choose = (color: string) => {
+    setDraft(color);
+    setDraftTooLight(false);
+    preferences.setPrimaryColor(color);
+  };
   return (
-    <Dropdown
-      trigger={["click"]}
+    <ColorPicker
+      trigger="click"
       placement="bottomRight"
-      onOpenChange={setMenuOpen}
-      menu={{
-        selectable: true,
-        selectedKeys: [
-          preferences.primaryColorChoice === null
-            ? portalPrimaryColorKey
-            : primaryColorMenuKey(preferences.primaryColorChoice),
-        ],
-        items: [
-          {
-            key: portalPrimaryColorKey,
-            icon: <Badge color={preferences.portalPrimaryColor} />,
-            label: t("theme.portalPrimaryColor"),
-          },
-          ...preferences.primaryColorChoices.map((choice) => ({
-            key: primaryColorMenuKey(choice.key),
-            icon: <Badge color={choice.color} />,
-            label: t(choice.labelKey),
-          })),
-        ],
-        onClick: ({ key }) =>
-          preferences.setPrimaryColorChoice(choiceKeys.get(key) ?? null),
+      disabledAlpha
+      disabledFormat
+      value={draft ?? preferences.primaryColor}
+      onOpenChange={(open) => {
+        setPickerOpen(open);
+        setDraft(null);
+        setDraftTooLight(false);
       }}
+      onChange={(color) => {
+        const hex = color.toHexString().toLowerCase();
+        setDraft(color);
+        setDraftTooLight(!isUsablePrimaryColor(hex));
+        preferences.setPrimaryColor(hex);
+      }}
+      panelRender={(_panel, { components: { Picker } }) => (
+        <Flex vertical gap="small">
+          <Flex
+            wrap
+            gap="small"
+            role="group"
+            aria-label={t("theme.primaryColorPresetsLabel")}
+          >
+            {preferences.primaryColorPresets.map((color) => (
+              <Button
+                key={color}
+                shape="circle"
+                aria-label={color}
+                aria-pressed={color === preferences.primaryColor}
+                onClick={() => choose(color)}
+                style={{
+                  background: color,
+                  borderColor:
+                    color === preferences.primaryColor
+                      ? token.colorText
+                      : color,
+                  borderWidth: token.lineWidthBold,
+                }}
+              />
+            ))}
+          </Flex>
+          <Divider size="small" />
+          <Picker />
+          {draftTooLight ? (
+            // Wraps within the picker's width instead of widening the panel.
+            <Typography.Text
+              type="secondary"
+              style={{ width: 0, minWidth: "100%" }}
+            >
+              {t("theme.primaryColorTooLight")}
+            </Typography.Text>
+          ) : null}
+        </Flex>
+      )}
     >
-      {/* A tooltip opening with the menu covers it and, on a phone, overflows
-          the viewport. */}
+      {/* A tooltip opening with the picker covers it and, on a phone,
+          overflows the viewport. */}
       <Tooltip
         title={t("theme.primaryColorLabel")}
-        open={tooltipOpen && !menuOpen}
+        open={tooltipOpen && !pickerOpen}
         onOpenChange={setTooltipOpen}
       >
         <Button
@@ -120,7 +150,7 @@ function PrimaryColorMenu() {
           aria-label={t("theme.primaryColorLabel")}
         />
       </Tooltip>
-    </Dropdown>
+    </ColorPicker>
   );
 }
 
@@ -188,7 +218,7 @@ export function HeaderControls<Locale extends string = string>({
           onChange={preferences.toggleTheme}
         />
       </Tooltip>
-      <PrimaryColorMenu />
+      <PrimaryColorPicker />
       {onSignOut === undefined ? null : account !== undefined ? (
         <Dropdown
           trigger={["click"]}

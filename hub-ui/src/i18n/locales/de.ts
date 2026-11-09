@@ -35,14 +35,9 @@ export const de = {
   theme: {
     toggleLabel: "Zwischen hellem und dunklem Modus wechseln",
     primaryColorLabel: "Akzentfarbe",
-    portalPrimaryColor: "Vetchium-Blau",
-    primaryColors: {
-      blue: "Blau",
-      geekblue: "Indigo",
-      purple: "Lila",
-      magenta: "Magenta",
-      volcano: "Rotorange",
-    },
+    primaryColorPresetsLabel: "Vorgeschlagene Farben",
+    primaryColorTooLight:
+      "Zu hell für weißen Text auf Schaltflächen. Wählen Sie eine dunklere Farbe.",
   },
   language: {
     selectorLabel: "Sprache auswählen",

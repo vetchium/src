@@ -7,16 +7,6 @@ import { runtimeConfigValue } from "./runtime-config";
 
 export type ThemeMode = "light" | "dark";
 
-/** A primary color the person may pick in place of the portal's own. */
-export interface PrimaryColorChoice {
-  /** Stored in the browser, so it must stay stable across releases. */
-  key: string;
-  /** The seed color; Ant Design derives every primary shade from it. */
-  color: string;
-  /** Translation key naming the color. */
-  labelKey: string;
-}
-
 const languageStorageKey = "vetchium.language";
 const themeStorageKey = "vetchium.theme";
 const primaryColorStorageKey = "vetchium.primaryColor";
@@ -78,20 +68,41 @@ export function storeThemeMode(themeMode: ThemeMode): void {
   storeValue(themeStorageKey, themeMode);
 }
 
-/**
- * The stored choice's key, or null for the portal's own color, including when
- * the stored choice is no longer offered.
- */
-function readPrimaryColorChoice(
-  choices: readonly PrimaryColorChoice[],
-): string | null {
-  const stored = storedValue(primaryColorStorageKey);
-  return choices.some(({ key }) => key === stored) ? stored : null;
+const hexColorPattern = /^#[0-9a-f]{6}$/;
+
+function relativeLuminance(hexColor: string): number {
+  const linear = (start: number) => {
+    const channel = Number.parseInt(hexColor.slice(start, start + 2), 16) / 255;
+    return channel <= 0.04045
+      ? channel / 12.92
+      : ((channel + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * linear(1) + 0.7152 * linear(3) + 0.0722 * linear(5);
 }
 
-function storePrimaryColorChoice(key: string | null): void {
-  if (key === null) removeValue(primaryColorStorageKey);
-  else storeValue(primaryColorStorageKey, key);
+/**
+ * Whether a lowercase `#rrggbb` color may be the primary color: Ant Design
+ * puts white text on it (primary buttons), which needs a WCAG contrast of 3:1
+ * or better.
+ */
+export function isUsablePrimaryColor(color: string): boolean {
+  return (
+    hexColorPattern.test(color) && 1.05 / (relativeLuminance(color) + 0.05) >= 3
+  );
+}
+
+/**
+ * The stored color, or null for the portal's own, including when the stored
+ * value is not a usable color.
+ */
+function readChosenPrimaryColor(): string | null {
+  const stored = storedValue(primaryColorStorageKey);
+  return stored !== null && isUsablePrimaryColor(stored) ? stored : null;
+}
+
+function storeChosenPrimaryColor(color: string | null): void {
+  if (color === null) removeValue(primaryColorStorageKey);
+  else storeValue(primaryColorStorageKey, color);
 }
 
 export interface PreferencesContextValue<Locale extends string> {
@@ -100,19 +111,21 @@ export interface PreferencesContextValue<Locale extends string> {
   themeMode: ThemeMode;
   /** The color in effect: the chosen one, else the portal's own. */
   primaryColor: string;
-  /** The portal's own color, which applies until a choice is made. */
-  portalPrimaryColor: string;
-  /** The chosen key, or null while the portal's own color applies. */
-  primaryColorChoice: string | null;
-  /** Empty when the portal offers no choice of color. */
-  primaryColorChoices: readonly PrimaryColorChoice[];
+  /**
+   * Swatches offered first, the portal's own color among them. Empty when the
+   * portal offers no choice of color.
+   */
+  primaryColorPresets: readonly string[];
   setLanguage: (language: Locale) => void;
   toggleTheme: () => void;
-  /** Null restores the portal's own color; an unoffered key is ignored. */
-  setPrimaryColorChoice: (key: string | null) => void;
+  /**
+   * Takes a lowercase `#rrggbb` color; one that is not usable is ignored, and
+   * the portal's own color clears the choice.
+   */
+  setPrimaryColor: (color: string) => void;
 }
 
-const noPrimaryColorChoices: readonly PrimaryColorChoice[] = [];
+const noPrimaryColorPresets: readonly string[] = [];
 
 const PreferencesContext =
   createContext<PreferencesContextValue<string> | null>(null);
@@ -122,20 +135,20 @@ export function PreferencesProvider<Locale extends string>({
   i18n: translation,
   localization,
   primaryColor,
-  primaryColorChoices = noPrimaryColorChoices,
+  primaryColorPresets = noPrimaryColorPresets,
 }: PropsWithChildren<{
   i18n: i18n;
   localization: PortalLocaleConfiguration<Locale>;
-  /** The portal's own color, used until the person picks a choice. */
+  /** The portal's own lowercase `#rrggbb` color, used until one is chosen. */
   primaryColor: string;
-  primaryColorChoices?: readonly PrimaryColorChoice[];
+  primaryColorPresets?: readonly string[];
 }>) {
   const [language, setLanguageState] = useState(() =>
     readPreferredLanguage(localization),
   );
   const [themeMode, setThemeMode] = useState(readThemeMode);
-  const [primaryColorChoice, setPrimaryColorChoiceState] = useState(() =>
-    readPrimaryColorChoice(primaryColorChoices),
+  const [chosenPrimaryColor, setChosenPrimaryColor] = useState(
+    readChosenPrimaryColor,
   );
 
   useEffect(() => {
@@ -148,12 +161,13 @@ export function PreferencesProvider<Locale extends string>({
       language,
       supportedLocales: localization.supportedLocales,
       themeMode,
+      // A portal offering no choice ignores one stored by another portal on
+      // the same origin.
       primaryColor:
-        primaryColorChoices.find(({ key }) => key === primaryColorChoice)
-          ?.color ?? primaryColor,
-      portalPrimaryColor: primaryColor,
-      primaryColorChoice,
-      primaryColorChoices,
+        primaryColorPresets.length === 0
+          ? primaryColor
+          : (chosenPrimaryColor ?? primaryColor),
+      primaryColorPresets,
       setLanguage: (nextLanguage) => {
         if (!localization.isSupportedLocale(nextLanguage)) return;
         storePreferredLanguage(nextLanguage);
@@ -166,11 +180,12 @@ export function PreferencesProvider<Locale extends string>({
           return next;
         });
       },
-      setPrimaryColorChoice: (key) => {
-        if (key !== null && !primaryColorChoices.some((c) => c.key === key))
+      setPrimaryColor: (color) => {
+        if (primaryColorPresets.length === 0 || !isUsablePrimaryColor(color))
           return;
-        storePrimaryColorChoice(key);
-        setPrimaryColorChoiceState(key);
+        const chosen = color === primaryColor ? null : color;
+        storeChosenPrimaryColor(chosen);
+        setChosenPrimaryColor(chosen);
       },
     }),
     [
@@ -178,8 +193,8 @@ export function PreferencesProvider<Locale extends string>({
       localization,
       themeMode,
       primaryColor,
-      primaryColorChoice,
-      primaryColorChoices,
+      chosenPrimaryColor,
+      primaryColorPresets,
     ],
   );
 

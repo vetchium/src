@@ -55,14 +55,9 @@ export const en = {
   theme: {
     toggleLabel: "Switch light or dark mode",
     primaryColorLabel: "Primary color",
-    portalPrimaryColor: "Vetchium blue",
-    primaryColors: {
-      blue: "Blue",
-      geekblue: "Indigo",
-      purple: "Purple",
-      magenta: "Magenta",
-      volcano: "Red orange",
-    },
+    primaryColorPresetsLabel: "Suggested colors",
+    primaryColorTooLight:
+      "Too light for white text on buttons. Pick a darker color.",
   },
   language: {
     selectorLabel: "Select language",

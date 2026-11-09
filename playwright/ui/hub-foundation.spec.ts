@@ -113,34 +113,63 @@ test("a visitor without a session enters through sign in", async ({ page }) => {
   await expect(page.locator("body")).not.toContainText("Hub");
 });
 
-test("a primary color choice recolors the portal and survives a reload", async ({
+test("a suggested primary color recolors the portal and survives a reload", async ({
   page,
 }) => {
   await page.goto(HUB_PORTAL);
-  const menu = page.getByRole("button", { name: "Primary color" });
-  const swatch = menu.getByRole("img");
-  await expect(swatch).toHaveCSS("color", "rgb(37, 99, 235)");
+  const picker = page.getByRole("button", { name: "Primary color" });
+  const icon = picker.getByRole("img");
+  await expect(icon).toHaveCSS("color", "rgb(37, 99, 235)");
 
-  await menu.click();
-  await page.getByRole("menuitem", { name: "Purple" }).click();
-  await expect(swatch).toHaveCSS("color", "rgb(114, 46, 209)");
+  await picker.click();
+  const suggested = page.getByRole("group", { name: "Suggested colors" });
+  await suggested.getByRole("button", { name: "#722ed1" }).click();
+  await expect(icon).toHaveCSS("color", "rgb(114, 46, 209)");
+  await expect(
+    suggested.getByRole("button", { name: "#722ed1" }),
+  ).toHaveAttribute("aria-pressed", "true");
 
   await page.reload();
-  await expect(swatch).toHaveCSS("color", "rgb(114, 46, 209)");
+  await expect(icon).toHaveCSS("color", "rgb(114, 46, 209)");
 
-  await menu.click();
-  await page.getByRole("menuitem", { name: "Vetchium blue" }).click();
-  await expect(swatch).toHaveCSS("color", "rgb(37, 99, 235)");
+  await picker.click();
+  await page
+    .getByRole("group", { name: "Suggested colors" })
+    .getByRole("button", { name: "#2563eb" })
+    .click();
+  await expect(icon).toHaveCSS("color", "rgb(37, 99, 235)");
   expect(
     await page.evaluate(() => localStorage.getItem("vetchium.primaryColor")),
   ).toBeNull();
 });
 
-test("a stored primary color the portal no longer offers falls back to its own", async ({
+test("a custom primary color applies unless white text on it is unreadable", async ({
+  page,
+}) => {
+  await page.goto(HUB_PORTAL);
+  const picker = page.getByRole("button", { name: "Primary color" });
+  const icon = picker.getByRole("img");
+  await picker.click();
+  const hex = page.getByRole("tooltip").getByRole("textbox");
+
+  await hex.fill("0b6e4f");
+  await expect(icon).toHaveCSS("color", "rgb(11, 110, 79)");
+
+  await hex.fill("ffe58f");
+  await expect(
+    page.getByText("Too light for white text on buttons."),
+  ).toBeVisible();
+  await expect(icon).toHaveCSS("color", "rgb(11, 110, 79)");
+
+  await page.reload();
+  await expect(icon).toHaveCSS("color", "rgb(11, 110, 79)");
+});
+
+test("a stored primary color that is not usable falls back to the portal's own", async ({
   page,
 }) => {
   await page.addInitScript(() =>
-    localStorage.setItem("vetchium.primaryColor", "yellow"),
+    localStorage.setItem("vetchium.primaryColor", "#ffe58f"),
   );
   await page.goto(HUB_PORTAL);
 

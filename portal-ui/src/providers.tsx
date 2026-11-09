@@ -6,11 +6,7 @@ import type { ComponentType, PropsWithChildren } from "react";
 import { useState, useSyncExternalStore } from "react";
 import type { PortalLocaleConfiguration } from "./localization";
 import { PendingOperationProvider } from "./pending-operations";
-import {
-  PreferencesProvider,
-  type PrimaryColorChoice,
-  usePreferences,
-} from "./preferences";
+import { PreferencesProvider, usePreferences } from "./preferences";
 
 const reducedMotionQuery = "(prefers-reduced-motion: reduce)";
 
@@ -65,7 +61,7 @@ export function PortalProviders<Locale extends string>({
   children,
   i18n,
   primaryColor,
-  primaryColorChoices,
+  primaryColorPresets,
   localization,
   componentLocales,
   AuthProvider,
@@ -73,8 +69,11 @@ export function PortalProviders<Locale extends string>({
 }: PropsWithChildren<{
   i18n: i18n;
   primaryColor: string;
-  /** Offered in the header beside the portal's own color; omit for none. */
-  primaryColorChoices?: readonly PrimaryColorChoice[];
+  /**
+   * Swatches offered in the header's color picker, which also takes any
+   * custom color; omit to offer no choice of color.
+   */
+  primaryColorPresets?: readonly string[];
   localization: PortalLocaleConfiguration<Locale>;
   componentLocales: Record<Locale, ComponentLocale>;
   AuthProvider: ComponentType<PropsWithChildren>;
@@ -93,7 +92,7 @@ export function PortalProviders<Locale extends string>({
       i18n={i18n}
       localization={localization}
       primaryColor={primaryColor}
-      primaryColorChoices={primaryColorChoices}
+      primaryColorPresets={primaryColorPresets}
     >
       <QueryClientProvider client={queryClient}>
         <ThemedApplication
