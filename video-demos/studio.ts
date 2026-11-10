@@ -48,7 +48,9 @@ export interface Card {
   shots?: Shot[];
   /** Lists every window's person, color, and part under the title. */
   cast?: boolean;
-  seconds: number;
+  /** Time to read the card after its narration ends; compose.ts times the
+   * rest from the spoken narration. */
+  pauseSeconds?: number;
 }
 
 export interface Segment {

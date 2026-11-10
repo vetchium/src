@@ -110,8 +110,8 @@ export const ROLES = {
   albus: role(
     "albus",
     ALBUS.displayName,
-    `Hogwarts · Headmaster, approves Openings · ${ALBUS.email}`,
-    "Hogwarts · Headmaster and approver",
+    `Hogwarts · Hiring Manager, approves Openings · ${ALBUS.email}`,
+    "Hogwarts · Hiring Manager and approver",
     "purple",
     "light",
   ),

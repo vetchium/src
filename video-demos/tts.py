@@ -1,7 +1,7 @@
 """Speaks each caption with Kokoro (https://huggingface.co/hexgrad/Kokoro-82M).
 
 voiceover.ts runs this inside video-demos/.venv with a JSON job file:
-{"voice": "bf_emma", "speed": 1.0, "items": [{"text": "...", "out": "x.wav"}]}
+{"voice": "af_heart", "speed": 1.0, "items": [{"text": "...", "out": "x.wav"}]}
 Each item becomes a 24 kHz mono WAV file.
 """
 

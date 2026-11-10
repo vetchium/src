@@ -81,22 +81,11 @@ const browser = await chromium.launch({ args: CHROMIUM_ARGS });
 const studio = new Studio(browser, RUN_DIR);
 const state = loadState();
 const say = (text: string) => studio.caption(text);
-/** A card stays up as long as a caption of its spoken words would. */
-const cardSeconds = (spoken: string) =>
-  Math.ceil(spoken.split(/\s+/).length / 2.4 + 1.5);
 const chapter = (title: string, lines: string[]) =>
-  studio.card({
-    title,
-    lines,
-    seconds: cardSeconds(`${title} ${lines.join(" ")}`),
-  } satisfies Card);
-/** A card read aloud as `narration` rather than as its title and lines;
- * `extraSeconds` leaves time to read what the card shows. */
-const narrated = ({
-  extraSeconds = 0,
-  ...card
-}: Omit<Card, "seconds"> & { narration: string; extraSeconds?: number }) =>
-  studio.card({ ...card, seconds: cardSeconds(card.narration) + extraSeconds });
+  studio.card({ title, lines } satisfies Card);
+/** A card read aloud as `narration` rather than as its title and lines,
+ * which is also captioned. */
+const narrated = (card: Card & { narration: string }) => studio.card(card);
 
 const albus = await studio.window(ROLES.albus);
 const minerva = await studio.window(ROLES.minerva);
@@ -262,7 +251,7 @@ async function intro() {
       "An agency helps find candidates. Three people apply, and one is hired.",
     ],
     narration:
-      "Let us take you through an example. Hogwarts, a made-up company, needs a Software Architect. Its recruiter sets up the hiring stages, drafts the Opening with AI, and adds a few questions for applicants. The headmaster approves it, and Hogwarts brings in Ollivanders, a recruitment agency, to help find candidates. Three people apply on the Hub. Hogwarts compares their answers, interviews two of them, and hires one. You will see each step through the eyes of everyone involved.",
+      "Let us take you through an example. Hogwarts, a made-up company, needs a Software Architect. Its recruiter sets up the hiring stages, drafts the Opening with AI, and adds a few questions for applicants. The hiring manager approves it, and Hogwarts brings in Ollivanders, a recruitment agency, to help find candidates. Three people apply on the Hub. Hogwarts compares their answers, interviews two of them, and hires one. You will see each step through the eyes of everyone involved.",
   });
   const castLines = [
     "Each person has their own window, with their name in the bar on top,",
@@ -274,7 +263,7 @@ async function intro() {
     lines: castLines,
     cast: true,
     narration: `Here are the people you will meet. ${castLines.join(" ")}.`,
-    extraSeconds: 6,
+    pauseSeconds: 2,
   });
   chapter("1 · Hogwarts gets ready to hire", [
     "Minerva sets up the hiring stages and drafts the Opening with AI.",
@@ -611,7 +600,7 @@ async function openingApprove() {
   await reloadUntil(albus, p.getByText(OPENING_TITLE).first());
   await studio.onAir(albus, async () => {
     await say(
-      "Albus Dumbledore, the headmaster, approves Openings at Hogwarts. Minerva's request is waiting on his Home page.",
+      "Albus Dumbledore, the hiring manager, approves Openings at Hogwarts. Minerva's request is waiting on his Home page.",
     );
     await albus.pause(2500);
     await albus.click(p.getByText(OPENING_TITLE).first());

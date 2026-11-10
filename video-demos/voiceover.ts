@@ -1,12 +1,9 @@
-// Adds a spoken voiceover to a composed demo: each line of narration.srt is
-// spoken by Kokoro (tts.py, in video-demos/.venv) and placed at its caption's
-// start, then the track is mixed under the video as vetchium-demo-<voice>.mp4.
-// DEMO_VOICE picks another Kokoro voice, such as bm_george or bf_emma.
+// Adds the spoken voiceover to a composed demo: each line of narration.srt is
+// spoken (voice.ts) and placed at its caption's start, then the track is
+// mixed under the video as vetchium-demo-voiced.mp4.
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
-  existsSync,
-  mkdirSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -14,38 +11,15 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { RUN_DIR } from "./cast.ts";
-import { HERE } from "./stack.ts";
+import { mediaSeconds, RATE, speak } from "./voice.ts";
 
 const INPUT = process.argv[2] ? resolve(process.argv[2]) : RUN_DIR;
 const VIDEO = join(INPUT, "vetchium-demo.mp4");
-// af_heart is the warmest Kokoro voice; bf_emma sounded flat and robotic.
-const VOICE = process.env.DEMO_VOICE ?? "af_heart";
-const OUTPUT = join(INPUT, `vetchium-demo-${VOICE}.mp4`);
-const SPEED = 1;
-const RATE = 24_000;
+const OUTPUT = join(INPUT, "vetchium-demo-voiced.mp4");
 // A line that would overrun its caption is sped up, but never past this.
 const MAX_TEMPO = 1.25;
 // Silence kept before the next line starts.
 const GAP_SECONDS = 0.25;
-// Words Kokoro guesses wrong, respelled in its inline phoneme markup per
-// accent (the voice's first letter: a American, b British). Thambi rhymes
-// with "bee", not "bye".
-const PRONUNCIATIONS: Record<string, Record<string, string>> = {
-  a: { "Thambi's": "θˈʌmbiz", Thambi: "θˈʌmbi" },
-  b: { "Thambi's": "θˈʌmbiːz", Thambi: "θˈʌmbiː" },
-};
-
-const spoken = (text: string) =>
-  Object.entries(PRONUNCIATIONS[VOICE[0] ?? ""] ?? {}).reduce(
-    (said, [word, phonemes]) =>
-      // Skips a word already inside markup, and a word followed by a
-      // possessive, which is listed (and so replaced) first.
-      said.replace(
-        new RegExp(`(?<![[\\w])${word}(?![\\w']|\\])`, "g"),
-        `[${word}](/${phonemes}/)`,
-      ),
-    text,
-  );
 
 interface Cue {
   from: number;
@@ -69,23 +43,6 @@ function readCues(file: string): Cue[] {
       return { from: seconds(from), to: seconds(to), text: text.join(" ") };
     });
 }
-
-const probe = (file: string) =>
-  Number(
-    execFileSync(
-      "ffprobe",
-      [
-        "-v",
-        "error",
-        "-show_entries",
-        "format=duration",
-        "-of",
-        "csv=p=0",
-        file,
-      ],
-      { encoding: "utf8" },
-    ),
-  );
 
 /** Decodes `file` to mono float samples at RATE, sped up by `tempo`. */
 function samples(file: string, tempo: number): Float32Array {
@@ -112,64 +69,40 @@ function samples(file: string, tempo: number): Float32Array {
 }
 
 const cues = readCues(join(INPUT, "narration.srt"));
-const length = probe(VIDEO);
+const length = mediaSeconds(VIDEO);
 const voiceDir = join(INPUT, "voice");
-mkdirSync(voiceDir, { recursive: true });
+const files = speak(
+  voiceDir,
+  cues.map((cue) => cue.text),
+);
 
-// Each line is kept by a hash of what was spoken, so a re-run only speaks
-// lines whose text, pronunciation, or voice changed.
-const lines = cues.map((cue) => {
-  const said = spoken(cue.text);
-  const key = createHash("sha256")
-    .update(`${VOICE}|${SPEED}|${said}`)
-    .digest("hex")
-    .slice(0, 16);
-  return { ...cue, said, file: join(voiceDir, `${key}.wav`) };
-});
-const missing = lines.filter((line) => !existsSync(line.file));
-if (missing.length > 0) {
-  const job = join(voiceDir, `job-${VOICE}.json`);
-  writeFileSync(
-    job,
-    JSON.stringify({
-      voice: VOICE,
-      speed: SPEED,
-      items: missing.map((line) => ({ text: line.said, out: line.file })),
-    }),
-  );
-  console.log(`speaking ${missing.length} of ${lines.length} lines`);
-  execFileSync(
-    join(HERE, ".venv", "bin", "python"),
-    [join(HERE, "tts.py"), job],
-    {
-      stdio: "inherit",
-    },
-  );
+// Lines no caption speaks any more, from older cuts, are dropped.
+const used = new Set(files);
+for (const name of readdirSync(voiceDir)) {
+  const file = join(voiceDir, name);
+  if (!used.has(file)) rmSync(file);
 }
 
 const track = new Float32Array(Math.ceil(length * RATE));
 let squeezed = 0;
-for (const [i, line] of lines.entries()) {
-  const next = lines[i + 1]?.from ?? length;
-  const room = Math.max(0.5, next - line.from - GAP_SECONDS);
-  const tempo = Math.min(MAX_TEMPO, Math.max(1, probe(line.file) / room));
+for (const [i, cue] of cues.entries()) {
+  const file = files[i] as string;
+  const next = cues[i + 1]?.from ?? length;
+  const room = Math.max(0.5, next - cue.from - GAP_SECONDS);
+  const tempo = Math.min(MAX_TEMPO, Math.max(1, mediaSeconds(file) / room));
   if (tempo > 1) {
     squeezed += 1;
     console.log(
-      `line ${i + 1} sped up ${tempo.toFixed(2)}x: ${line.text.slice(0, 60)}`,
+      `line ${i + 1} sped up ${tempo.toFixed(2)}x: ${cue.text.slice(0, 60)}`,
     );
   }
-  const audio = samples(line.file, tempo);
-  track.set(
-    audio.subarray(0, track.length - Math.round(line.from * RATE)),
-    Math.round(line.from * RATE),
-  );
+  const start = Math.round(cue.from * RATE);
+  track.set(samples(file, tempo).subarray(0, track.length - start), start);
 }
 
-// Per-voice scratch files and a rename keep two voices rendered at once from
-// writing into each other's output.
-const raw = join(voiceDir, `track-${VOICE}.f32`);
-const partial = OUTPUT.replace(/\.mp4$/, ".partial.mp4");
+const raw = join(INPUT, "work", "voice-track.f32");
+// Written aside and renamed, so a failed run never leaves a broken video.
+const partial = join(INPUT, "work", "voiced.partial.mp4");
 writeFileSync(raw, new Uint8Array(track.buffer));
 execFileSync(
   "ffmpeg",
@@ -208,6 +141,4 @@ execFileSync(
 );
 renameSync(partial, OUTPUT);
 rmSync(raw);
-console.log(
-  `wrote ${OUTPUT} (${lines.length} lines, ${squeezed} sped up, voice ${VOICE})`,
-);
+console.log(`wrote ${OUTPUT} (${cues.length} lines, ${squeezed} sped up)`);

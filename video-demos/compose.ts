@@ -1,8 +1,9 @@
 // Edits a recorded run into the demo video. Each on-air segment becomes the
 // browser area of a 1920x1080 frame, under a title bar naming the window and
 // above a caption band; title cards, including the cast card, sit between
-// segments as the story placed them. Also writes the captions as SRT and as
-// a timestamped script for the voiceover.
+// segments as the story placed them. A card lasts as long as its narration
+// takes to speak (voice.ts). Also writes the captions as SRT and as a
+// timestamped script for the voiceover.
 //
 // Homebrew's ffmpeg lacks the drawtext and subtitles filters, so the title
 // bar, captions, and cards are HTML stills rendered by Chromium and overlaid.
@@ -18,6 +19,7 @@ import {
   type Shot,
   type Timeline,
 } from "./studio.ts";
+import { mediaSeconds, speak } from "./voice.ts";
 
 const INPUT = process.argv[2] ? resolve(process.argv[2]) : RUN_DIR;
 const FINAL = resolve(process.argv[3] ?? join(INPUT, "vetchium-demo.mp4"));
@@ -26,6 +28,11 @@ const OUTPUT = { width: 1920, height: 1080 };
 const TOP = 72;
 const CAPTION_BAND = OUTPUT.height - TOP - FRAME.height;
 const FPS = 30;
+// A card's narration starts once the card has faded in, pauses between
+// sentences, and leaves a breath before the next segment.
+const CARD_LEAD_SECONDS = 0.5;
+const SENTENCE_GAP_SECONDS = 0.35;
+const CARD_TAIL_SECONDS = 1;
 
 const timeline = JSON.parse(
   readFileSync(join(INPUT, "timeline.json"), "utf8"),
@@ -54,30 +61,21 @@ const ENCODE = [
 // The concat demuxer resolves relative entries against the list file.
 const concatList = (file: string, entries: string[]) =>
   writeFileSync(file, entries.join("\n"));
-const duration = (file: string) =>
-  Number(
-    execFileSync(
-      "ffprobe",
-      [
-        "-v",
-        "error",
-        "-show_entries",
-        "format=duration",
-        "-of",
-        "csv=p=0",
-        file,
-      ],
-      { encoding: "utf8" },
-    ),
-  );
+const duration = mediaSeconds;
 
 const html = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 // Single quotes only: the string sits inside double-quoted style attributes.
 const FONT =
   "font-family: Inter, -apple-system, 'Helvetica Neue', Arial, sans-serif;";
 
-function chromeHTML(role: Role, caption: string | null) {
+function captionHTML(caption: string | null) {
   const size = caption && caption.length > 110 ? 27 : 31;
+  return `<div style="position:absolute;top:${TOP + FRAME.height}px;left:0;right:0;height:${CAPTION_BAND}px;display:flex;align-items:center;justify-content:center;padding:0 80px;box-sizing:border-box">
+    <div style="color:#fff;font-size:${size}px;line-height:1.3;text-align:center;font-weight:500">${caption ? html(caption) : ""}</div>
+  </div>`;
+}
+
+function chromeHTML(role: Role, caption: string | null) {
   return `<html><body style="margin:0;width:${OUTPUT.width}px;height:${OUTPUT.height}px;background:#0f1115;${FONT}">
   <div style="height:${TOP}px;display:flex;align-items:center;gap:18px;padding:0 32px;background:#16181d;border-bottom:4px solid ${role.accent}">
     <div style="width:18px;height:18px;border-radius:50%;background:${role.accent}"></div>
@@ -85,9 +83,7 @@ function chromeHTML(role: Role, caption: string | null) {
     <div style="color:#aab0bc;font-size:22px">${html(role.subtitle)}</div>
     <div style="margin-left:auto;color:#6b7280;font-size:20px;letter-spacing:.04em">VETCHIUM</div>
   </div>
-  <div style="position:absolute;top:${TOP + FRAME.height}px;left:0;right:0;height:${CAPTION_BAND}px;display:flex;align-items:center;justify-content:center;padding:0 80px;box-sizing:border-box">
-    <div style="color:#fff;font-size:${size}px;line-height:1.3;text-align:center;font-weight:500">${caption ? html(caption) : ""}</div>
-  </div></body></html>`;
+  ${captionHTML(caption)}</body></html>`;
 }
 
 function castHTML(roles: Role[]) {
@@ -120,7 +116,9 @@ function shotsHTML(shots: Shot[]) {
     .join("")}</div>`;
 }
 
-function cardHTML(card: Card, roles: Role[]) {
+/** `caption` is null on a card whose text is what is read aloud; a captioned
+ * card keeps its content clear of the caption band. */
+function cardHTML(card: Card, roles: Role[], caption: string | null) {
   const titleSize = card.cast || card.shots ? 60 : 72;
   // The logo replaces the wordmark above the title.
   const mark = card.image
@@ -129,12 +127,16 @@ function cardHTML(card: Card, roles: Role[]) {
   const background = card.image
     ? "#000"
     : "linear-gradient(135deg,#16181d,#2a1215 55%,#1d1530)";
-  return `<html><body style="margin:0;width:${OUTPUT.width}px;height:${OUTPUT.height}px;background:${background};${FONT};display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff">
+  const bottom = card.narration ? CAPTION_BAND : 0;
+  return `<html><body style="margin:0;width:${OUTPUT.width}px;height:${OUTPUT.height}px;background:${background};${FONT};color:#fff;position:relative">
+  <div style="height:${OUTPUT.height - bottom}px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center">
   ${mark}
   <div style="font-size:${titleSize}px;font-weight:800;text-align:center;max-width:1600px;line-height:1.15">${html(card.title)}</div>
   <div style="margin-top:28px;font-size:30px;color:#c9ced8;text-align:center;line-height:1.55">${card.lines.map(html).join("<br/>")}</div>
   ${card.shots ? shotsHTML(card.shots) : ""}
   ${card.cast ? castHTML(roles) : ""}
+  </div>
+  ${card.narration ? captionHTML(caption) : ""}
   </body></html>`;
 }
 
@@ -250,27 +252,55 @@ async function recorded(segment: Segment, i: number) {
   return { clip, length: duration(clip), cues };
 }
 
+/** A narration split into sentences, so each fits the caption band. */
+const sentences = (text: string) =>
+  text.match(/[^.!?]+[.!?]+(?=\s|$)/g)?.map((s) => s.trim()) ?? [text];
+
 async function carded(card: Card, i: number) {
-  const image = await still(`card${i}`, cardHTML(card, timeline.windows));
+  const parts = card.narration
+    ? sentences(card.narration)
+    : [`${card.title}. ${card.lines.join(" ")}`];
+  const files = speak(join(INPUT, "voice"), parts);
+  const cues: Cue[] = [];
+  let at = CARD_LEAD_SECONDS;
+  for (const [k, text] of parts.entries()) {
+    const spoken = duration(files[k] as string);
+    cues.push({ text, from: at, to: at + spoken });
+    at += spoken + SENTENCE_GAP_SECONDS;
+  }
+  const seconds =
+    at - SENTENCE_GAP_SECONDS + CARD_TAIL_SECONDS + (card.pauseSeconds ?? 0);
+  // Each sentence stays on screen until the next one starts. Every still
+  // loops for its own time: the concat demuxer stretches a list of stills.
+  const inputs: string[] = [];
+  for (const [k, cue] of cues.entries()) {
+    const from = k === 0 ? 0 : cue.from;
+    const to = cues[k + 1]?.from ?? seconds;
+    const image = await still(
+      `card${i}|${k}`,
+      cardHTML(card, timeline.windows, card.narration ? cue.text : null),
+    );
+    inputs.push(
+      "-framerate",
+      String(FPS),
+      "-loop",
+      "1",
+      "-t",
+      (to - from).toFixed(4),
+      "-i",
+      image,
+    );
+  }
+  const joined = cues.map((_, k) => `[${k}:v]`).join("");
   const clip = join(work, `segment${i}.mp4`);
   ffmpeg([
-    "-loop",
-    "1",
-    "-t",
-    String(card.seconds),
-    "-i",
-    image,
-    "-vf",
-    "fade=in:0:12",
+    ...inputs,
+    "-filter_complex",
+    `${joined}concat=n=${cues.length}:v=1:a=0,fade=in:0:12`,
     ...ENCODE,
     clip,
   ]);
-  const spoken = card.narration ?? `${card.title}. ${card.lines.join(" ")}`;
-  return {
-    clip,
-    length: duration(clip),
-    cues: [{ text: spoken, from: 0, to: card.seconds }],
-  };
+  return { clip, length: duration(clip), cues };
 }
 
 const clips: string[] = [];

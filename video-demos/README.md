@@ -2,8 +2,7 @@
 
 Scripts that record the Vetchium product demo from the development stack:
 several browser windows, one per person, edited into one video with a title
-bar naming who is on screen and burnt-in captions. The captions are also
-written as SRT and a plain script, ready for a generated voiceover.
+bar naming who is on screen, burnt-in captions, and a spoken voiceover.
 
 ## The story
 
@@ -18,7 +17,8 @@ separate six acts:
 1. The hiring Org gets ready: Minerva McGonagall builds a pipeline template
    with an interview stage and its feedback form, drafts the Opening with
    Thambi from a short prompt, adds application questions, previews it, and
-   submits it for approval; Albus Dumbledore approves it and reviews the Org's
+   submits it for approval; Albus Dumbledore, the hiring manager, approves it
+   and reviews the Org's
    AI usage.
 2. A sourcing agency joins: Garrick Ollivander signs Ollivanders up, moves to
    Silver, lists its Sourcing service, and keeps a private note on Hermione
@@ -49,6 +49,7 @@ the logo is the repository's `V.png`.
 
 - Everything `make dev` needs (Docker, Go, Node 22.13 or later).
 - `ffmpeg` and `ffprobe` with libx264 (`brew install ffmpeg`).
+- `python3.12` for the voiceover (Kokoro supports 3.10 to 3.12).
 - The development AI models (`make dev-ai-models`, once): Thambi drafts the
   Opening on camera.
 
@@ -61,37 +62,22 @@ make video-demo
 This recreates the dev stack (`make dev` wipes its data), creates the
 fixtures, records every scene, and writes into `video-demos/out/final/`:
 
-- `vetchium-demo.mp4`: 1920x1080, about fifteen minutes.
-- `narration.srt`: the captions, timed to the video, for generating a
-  voiceover.
-- `narration-script.txt`: the same captions as a timestamped script.
+- `vetchium-demo-voiced.mp4`: the video to upload, 1920x1080, about
+  eighteen minutes, with captions and the voiceover.
+- `vetchium-demo.mp4`: the same picture without sound.
+- `narration.srt` and `narration-script.txt`: the captions, timed to the
+  video, as SRT and as a timestamped script.
+
+The voice is [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M)'s
+`af_heart`, an open model that runs on this machine; the first run creates
+`video-demos/.venv` and downloads the model, about 330 MB. Spoken lines are
+kept under `out/final/voice/`, so a re-run speaks only changed lines. To
+voice a composed video again, run `npm run voiceover` in `video-demos/`.
 
 The captions are already burnt into the video. Don't upload `narration.srt`
 as a subtitle track (on YouTube or elsewhere): viewers would see every line
 twice. It is named apart from the video so players such as VLC don't load it
 automatically.
-
-## Add the voiceover
-
-```bash
-make video-demo-voiceover
-```
-
-This speaks every line of `narration.srt` with
-[Kokoro](https://huggingface.co/hexgrad/Kokoro-82M), an open model that runs
-on this machine, and writes `vetchium-demo-<voice>.mp4` beside the video: the
-same picture with the narration mixed in, ready to upload. It needs
-`python3.12` (Kokoro supports 3.10 to 3.12); the first run creates
-`video-demos/.venv` and downloads the model, about 330 MB. Spoken lines are
-kept under `out/final/voice/`, so a re-run after caption changes speaks only
-the changed lines.
-
-The voice is American English, `af_heart`, Kokoro's most natural one. To
-try another, such as the British `bm_george` or `bf_emma`:
-
-```bash
-cd video-demos && DEMO_VOICE=bm_george npm run voiceover
-```
 
 ## Record again after portal changes
 
