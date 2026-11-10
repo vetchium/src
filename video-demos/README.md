@@ -71,8 +71,27 @@ as a subtitle track (on YouTube or elsewhere): viewers would see every line
 twice. It is named apart from the video so players such as VLC don't load it
 automatically.
 
-Recording takes about twenty minutes; keep the machine awake. `out/` is ignored
-by git.
+## Add the voiceover
+
+```bash
+make video-demo-voiceover
+```
+
+This speaks every line of `narration.srt` with
+[Kokoro](https://huggingface.co/hexgrad/Kokoro-82M), an open model that runs
+on this machine, and writes `vetchium-demo-voiced.mp4` beside the video: the
+same picture with the narration mixed in, ready to upload. It needs
+`python3.12` (Kokoro supports 3.10 to 3.12); the first run creates
+`video-demos/.venv` and downloads the model, about 330 MB. Spoken lines are
+kept under `out/final/voice/`, so a re-run after caption changes speaks only
+the changed lines.
+
+The voice is British English, `bf_emma`. To try another, such as
+`bm_george` or `af_heart`:
+
+```bash
+cd video-demos && DEMO_VOICE=bm_george npm run voiceover
+```
 
 ## Record again after portal changes
 

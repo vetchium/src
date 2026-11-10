@@ -19,6 +19,10 @@ dev` stack. How to run it is in [`video-demos/README.md`](../video-demos/README.
   card lists every window; a card may show an image or screenshots and voice
   its own `narration`), and the narration SRT, named apart from the video
   because the captions are burnt in.
+- `voiceover.ts`: speaks `narration.srt` with Kokoro (`tts.py` in
+  `video-demos/.venv`, from `voice-requirements.txt`) and mixes it into
+  `vetchium-demo-voiced.mp4`. A line that overruns its caption is sped up, at
+  most 1.25x; keep captions short enough that none is.
 - `state.ts`: numbers and URLs a run learns, so one scene can be re-recorded.
 - A run writes only under `out/<run>/` (`out/final/` without `DEMO_RUN`),
   which git ignores. Never commit videos, frames, or fixtures written there.
@@ -83,9 +87,10 @@ changes.
    `DEMO_SCENES` only when the failed scene wrote nothing.
 5. Compose the clean rehearsal. Read a still per segment and every caption in
    `-script.txt`; rewrite captions that no longer match a redesigned screen.
-6. Run `make video-demo` for the final cut and report the paths and length of
-   `out/final/vetchium-demo.mp4`, `narration.srt`, and
-   `narration-script.txt`.
+6. Run `make video-demo` for the final cut, then `make
+   video-demo-voiceover`, and report the paths and length of
+   `out/final/vetchium-demo.mp4`, `vetchium-demo-voiced.mp4`,
+   `narration.srt`, and `narration-script.txt`.
 
 ## Verifying
 

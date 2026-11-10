@@ -85,7 +85,8 @@ serving_services = $$(docker compose -f $(1) config --services | \
 	playwright-test playwright-test-run api-coverage-prepare \
 	api-coverage-report repository-json-fmt repository-json-check-ready \
 	repository-json-check video-demos-deps video-demos-check \
-	video-demos-check-ready video-demo docker publish staging staging-clean clean
+	video-demos-check-ready video-demo video-demos-voice-deps \
+	video-demo-voiceover docker publish staging staging-clean clean
 
 fmt:
 	@find $(GO_MODULES) -type f -name '*.go' -print0 | xargs -0 gofmt -w
@@ -553,6 +554,15 @@ video-demo: dev video-demos-deps
 	cd video-demos && npm run setup
 	cd video-demos && npm run record
 	cd video-demos && npm run compose
+
+# Kokoro supports Python 3.10 to 3.12; its model downloads on first use.
+video-demos-voice-deps:
+	cd video-demos && (test -x .venv/bin/python || python3.12 -m venv .venv)
+	cd video-demos && .venv/bin/pip install -q -r voice-requirements.txt
+
+# Adds a spoken voiceover to video-demos/out/final/vetchium-demo.mp4.
+video-demo-voiceover: video-demos-voice-deps
+	cd video-demos && npm run voiceover
 
 # Build validation; keep results only in BuildKit's cache.
 docker:

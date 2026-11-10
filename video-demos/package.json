@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "setup": "node --experimental-strip-types setup.ts",
     "record": "node --experimental-strip-types record.ts",
-    "compose": "node --experimental-strip-types compose.ts"
+    "compose": "node --experimental-strip-types compose.ts",
+    "voiceover": "node --experimental-strip-types voiceover.ts"
   },
   "dependencies": {
     "typespec": "file:../typespec"
