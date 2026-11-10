@@ -1,10 +1,11 @@
-// Off-camera fixtures for one run: the three Hub users with full profiles
-// (through dev-seed's hub-profiles mode), Hermione's alias, and the Hogwarts
-// hiring Org with Minerva, AI drafting, and a pipeline template. Ollivanders
-// is not created here, and neither is Severus: both join on camera.
+// Off-camera fixtures for one run: the three Hub users with full profiles and
+// pictures (through dev-seed's hub-profiles mode), Hermione's alias, and the
+// Hogwarts hiring Org with Minerva, Severus, and AI drafting. Ollivanders and
+// the pipeline template are created on camera.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { chromium } from "@playwright/test";
 import type {
   LoginRequest as AdminLoginRequest,
   LoginAuthenticatedResponse as AdminSession,
@@ -30,12 +31,12 @@ import type {
   ManageOpenings,
   ManageProviders,
 } from "typespec/orgs/authorization/types";
-import type { CreatePipelineTemplateRequest } from "typespec/orgs/hiring/pipelines";
 import type { SetSubscriptionPlanRequest } from "typespec/orgs/subscriptions/subscriptions";
 import type {
   AcceptInvitationRequest,
   InviteUsersRequest,
 } from "typespec/orgs/users/invitations";
+import { writeAvatars } from "./avatars.ts";
 import {
   ALBUS,
   HERMIONE_ALIAS,
@@ -45,6 +46,7 @@ import {
   OWLPOST,
   RUN_DIR,
   SCHOOL,
+  SEVERUS,
 } from "./cast.ts";
 import {
   ADMIN,
@@ -75,8 +77,9 @@ const RECRUITER: [
 /** The dev-seed hub-profiles fixture shape (backend/cmd/dev-seed). */
 interface ProfileFixture {
   biography: string;
-  plan: "hub-free-tier" | "hub-silver-tier";
-  billingInterval?: "month";
+  // A picture and an alias need Silver.
+  plan: "hub-silver-tier";
+  billingInterval: "month";
   workExperience: {
     employerDomain: string;
     jobTitle: string;
@@ -100,7 +103,6 @@ const PROFILES: Record<HubName, ProfileFixture> = {
   hermione: {
     biography:
       "Software architect with twelve years of building large-scale distributed systems in Go and Java. I set architecture across teams, write the design documents, and mentor senior and staff engineers. Happiest with a hard consistency problem and a well-stocked library.",
-    // An alias needs Silver, and the agency looks Hermione up by hers.
     plan: "hub-silver-tier",
     billingInterval: "month",
     workExperience: [
@@ -148,7 +150,8 @@ const PROFILES: Record<HubName, ProfileFixture> = {
   ron: {
     biography:
       "Engineering leader who scaled Weasleys' Wizard Wheezes from one shop to a global online store with millions of orders. Python and Go; strong on teams and delivery. Strategic thinker; ask me about chess.",
-    plan: "hub-free-tier",
+    plan: "hub-silver-tier",
+    billingInterval: "month",
     workExperience: [
       {
         employerDomain: "weasleys-wizard-wheezes.test",
@@ -180,7 +183,8 @@ const PROFILES: Record<HubName, ProfileFixture> = {
   draco: {
     biography:
       "Lead developer at a very old family business. Ten years of experience and the finest taste in frameworks. Looking for a role worthy of my talents.",
-    plan: "hub-free-tier",
+    plan: "hub-silver-tier",
+    billingInterval: "month",
     workExperience: [
       {
         employerDomain: "malfoy-holdings.test",
@@ -233,11 +237,16 @@ async function allowOwlPost() {
   }
 }
 
-function seedHubUsers() {
+async function seedHubUsers() {
   mkdirSync(RUN_DIR, { recursive: true });
   const fixture = join(RUN_DIR, "hub-profiles.json");
+  // dev-seed resolves each picture beside the fixture file.
+  const browser = await chromium.launch();
+  const pictures = await writeAvatars(browser, RUN_DIR);
+  await browser.close();
   const users = (Object.keys(PROFILES) as HubName[]).map((name) => ({
     ...PROFILES[name],
+    profilePicture: pictures[name],
     email: HUB_USERS[name].email,
     displayName: HUB_USERS[name].displayName,
     preferredLanguage: "en-US",
@@ -314,60 +323,34 @@ async function signupHogwarts() {
     { pack_id: "credits-100k" },
     albus,
   );
-  await post<unknown, InviteUsersRequest>(
-    API,
-    "/api/orgs/invite-users",
-    { email_addresses: [MINERVA.email], permissions: RECRUITER },
-    albus,
-  );
-  await post<unknown, AcceptInvitationRequest>(
-    API,
-    "/api/orgs/accept-invitation",
-    {
-      invitation_token: linkToken(
-        await mail(MINERVA.email, "invited to join"),
-        "/accept-invitation",
-      ),
-      password: PASSWORD,
-      preferred_language: "en-US",
-    },
-  );
-  await post<unknown, CreatePipelineTemplateRequest>(
-    API,
-    "/api/orgs/create-pipeline-template",
-    {
-      name: "Engineering leadership",
-      stages: [
-        { name: "Application review", kind: "review" },
-        {
-          name: "System design interview",
-          kind: "interview",
-          feedback_form: [
-            {
-              text: "Designs for scale and for failure",
-              type: "rating",
-              required: true,
-            },
-            {
-              text: "Explains trade-offs clearly",
-              type: "rating",
-              required: true,
-            },
-            {
-              text: "Would you trust them with our architecture?",
-              type: "yes_no",
-              required: true,
-            },
-          ],
-        },
-      ],
-    },
-    albus,
-  );
+  // Severus is a Member: he only sits on interview panels.
+  for (const [user, permissions] of [
+    [MINERVA, RECRUITER],
+    [SEVERUS, []],
+  ] as const) {
+    await post<unknown, InviteUsersRequest>(
+      API,
+      "/api/orgs/invite-users",
+      { email_addresses: [user.email], permissions: [...permissions] },
+      albus,
+    );
+    await post<unknown, AcceptInvitationRequest>(
+      API,
+      "/api/orgs/accept-invitation",
+      {
+        invitation_token: linkToken(
+          await mail(user.email, "invited to join"),
+          "/accept-invitation",
+        ),
+        password: PASSWORD,
+        preferred_language: "en-US",
+      },
+    );
+  }
 }
 
 await allowOwlPost();
-seedHubUsers();
+await seedHubUsers();
 await setHermioneAlias();
 await signupHogwarts();
 console.log(`setup done; state in ${RUN_DIR}`);

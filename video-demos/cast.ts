@@ -86,8 +86,6 @@ export interface Role {
   accent: string;
   color: PortalColor;
   theme: "light" | "dark";
-  /** False when the person picks the color on camera. */
-  presetColor: boolean;
 }
 
 const role = (
@@ -97,7 +95,6 @@ const role = (
   part: string,
   color: PortalColor,
   theme: "light" | "dark",
-  presetColor = true,
 ): Role => ({
   id,
   title,
@@ -106,7 +103,6 @@ const role = (
   accent: SEED[color],
   color,
   theme,
-  presetColor,
 });
 
 // Within the video, every person has a different color and mode pair.
@@ -125,8 +121,7 @@ export const ROLES = {
     `Hogwarts · Recruiter · ${MINERVA.email}`,
     "Hogwarts · Recruiter",
     "volcano",
-    "light",
-    false,
+    "dark",
   ),
   severus: role(
     "severus",
@@ -158,7 +153,7 @@ export const ROLES = {
     `Hub user · ${HUB_USERS.ron.email}`,
     "Hub user · applies directly",
     "volcano",
-    "dark",
+    "light",
   ),
   draco: role(
     "draco",

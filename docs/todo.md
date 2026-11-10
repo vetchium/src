@@ -229,9 +229,3 @@ Not built:
 - The agency's chat request and suggestion cards read `Opening #1 at
   hogwarts.test`: `OpeningSuggestion` carries only the client domain and
   number. Show the Opening title there, then record the demo again.
-
-## Notes for next video
-
-There is an existing product video and its associated scripts under @video-demos/  but I am not happy with it. The video should:
-Begin with the @V.png shown with a narrative that goes something like: Vetchium is an Open Source Jobs platform, where Organizations can hire people, Agencies can work with Organizations for tasks related to hiring, such as Candidate Sourcing, Interviews, Background verification, etc.
-Then the video should give an overview of what the video is about. Something like: "Let us take you through a scenario of a hypothetical Company Hogwarts creating an Opening for a Software Architect role ..." and proceed to explain the purpose of the video. There is no need to explain choosing a different color.

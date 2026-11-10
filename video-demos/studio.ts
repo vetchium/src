@@ -29,10 +29,23 @@ export interface Frame {
   ts: number;
 }
 
+/** A screenshot shown on a card, with a heading and a line under it. */
+export interface Shot {
+  file: string;
+  heading: string;
+  text: string;
+}
+
 /** A full-screen title card between recorded windows. */
 export interface Card {
   title: string;
   lines: string[];
+  /** The voiceover, when it is not the title and lines read aloud. */
+  narration?: string;
+  /** An image shown large above the title, such as the logo. */
+  image?: string;
+  /** Screenshots shown side by side under the lines. */
+  shots?: Shot[];
   /** Lists every window's person, color, and part under the title. */
   cast?: boolean;
   seconds: number;
@@ -87,13 +100,10 @@ const CURSOR_SCRIPT = `(() => {
   if (document.readyState === "loading") addEventListener("DOMContentLoaded", install); else install();
 })();`;
 
-/** Sets the window's portal mode, and its color unless the person picks it
- * on camera, before the portal reads them (portal-ui/src/preferences.tsx). */
+/** Sets the window's portal mode and color before the portal reads them
+ * (portal-ui/src/preferences.tsx). */
 function preferencesScript(role: Role): string {
-  const color = role.presetColor
-    ? `localStorage.setItem("vetchium.primaryColor", ${JSON.stringify(role.color)});`
-    : "";
-  return `(() => { try { localStorage.setItem("vetchium.theme", ${JSON.stringify(role.theme)}); ${color} } catch {} })();`;
+  return `(() => { try { localStorage.setItem("vetchium.theme", ${JSON.stringify(role.theme)}); localStorage.setItem("vetchium.primaryColor", ${JSON.stringify(role.accent.toLowerCase())}); } catch {} })();`;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

@@ -10,12 +10,15 @@ dev` stack. How to run it is in [`video-demos/README.md`](../video-demos/README.
   here; keep every color and mode pair unique within the video.
 - `stack.ts`: dev stack origins, the typed `post` helper, Mailpit, tenant SQL.
 - `setup.ts`: off-camera fixtures through portal APIs and the
-  `backend/cmd/dev-seed` `hub-profiles` mode.
+  `backend/cmd/dev-seed` `hub-profiles` mode; `avatars.ts` draws the Hub
+  users' pictures (a picture needs Silver).
 - `studio.ts`: windows (each with its portal color and mode set before the
   portal loads), screencast capture, the visible cursor, captions, and cards.
 - `record.ts`: the scenes and chapter cards, in story order, in `SCENES`.
 - `compose.ts`: the ffmpeg edit, title bars, caption band, cards (the cast
-  card lists every window), SRT.
+  card lists every window; a card may show an image or screenshots and voice
+  its own `narration`), and the narration SRT, named apart from the video
+  because the captions are burnt in.
 - `state.ts`: numbers and URLs a run learns, so one scene can be re-recorded.
 - A run writes only under `out/<run>/` (`out/final/` without `DEMO_RUN`),
   which git ignores. Never commit videos, frames, or fixtures written there.
@@ -24,9 +27,10 @@ dev` stack. How to run it is in [`video-demos/README.md`](../video-demos/README.
 
 - A scene prepares off camera (sign-in, navigation, waiting for data), then
   records one window inside `studio.onAir`. One window is on air at a time.
-- Caption with `say` inside `onAir`. The studio holds each caption for
-  words / 2.4 s + 0.8 s so a voiceover generated from the SRT fits; never
-  shorten that. Captions describe what is on screen and must agree with it
+- Write captions and cards as a person would say them aloud: plain words,
+  no slogans. Caption with `say` inside `onAir`. The studio holds each
+  caption for words / 2.4 s + 0.8 s so a voiceover generated from the SRT
+  fits; never shorten that. Captions describe what is on screen and must agree with it
   (times, names, statuses).
 - On camera, act through `DemoWindow` (`click`, `type`, `typeLong`, `choose`,
   `setDate`, `scroll`, `pointAt`) so the cursor moves visibly. Raw `page`
@@ -80,7 +84,8 @@ changes.
 5. Compose the clean rehearsal. Read a still per segment and every caption in
    `-script.txt`; rewrite captions that no longer match a redesigned screen.
 6. Run `make video-demo` for the final cut and report the paths and length of
-   `out/final/vetchium-demo.mp4`, `.srt`, and `-script.txt`.
+   `out/final/vetchium-demo.mp4`, `narration.srt`, and
+   `narration-script.txt`.
 
 ## Verifying
 

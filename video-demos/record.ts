@@ -1,6 +1,8 @@
-// The demo story: Hogwarts hires a Software Architect, partly through the
-// Ollivanders sourcing agency, and three Hub users follow their own
-// applications. Each scene prepares off camera, then records one window.
+// The demo story: after introducing Vetchium and its two portals, Hogwarts
+// hires a Software Architect, partly through the Ollivanders sourcing agency,
+// asking every applicant the same questions; three Hub users answer them and
+// follow their own applications. Each scene prepares off camera, then records
+// one window.
 // Chapter cards separate the acts. DEMO_SCENES=a,b records only those scenes
 // and DEMO_FROM=a resumes from one, reusing state.json.
 import { rmSync } from "node:fs";
@@ -19,7 +21,6 @@ import type {
   ScheduleInterviewRequest,
   SubmitInterviewFeedbackRequest,
 } from "typespec/orgs/applications/applications";
-import type { AcceptInvitationRequest } from "typespec/orgs/users/invitations";
 import {
   ALBUS,
   GARRICK,
@@ -44,6 +45,7 @@ import {
   orgLogin,
   PASSWORD,
   post,
+  REPO,
   sql,
 } from "./stack.ts";
 import { loadState, saveState } from "./state.ts";
@@ -53,23 +55,48 @@ const expect = baseExpect.configure({ timeout: 15_000 });
 
 const OPENING_TITLE = "Software Architect";
 const DRAFT_INSTRUCTION =
-  "Title: Software Architect. Employed in the United Kingdom; hybrid, based in Edinburgh; full time; one position; at least 10 years of experience; bachelor's degree minimum; salary 140,000 to 180,000 GBP per year. We are Hogwarts, building the student platform and the owl-post delivery network used by millions of students, parents, and staff. Write the description in Markdown with three sections. About the role: set the technical direction for the platform across teams. Responsibilities: design highly available, fault-tolerant services at very large scale; make consistency, partitioning, caching, and data modelling trade-offs; lead design reviews and write design documents; influence without authority and mentor senior and staff engineers; build security and privacy in by design. Requirements: 10+ years building large-scale distributed systems, including several years setting architecture across teams; deep experience with cloud infrastructure, microservices, event-driven systems, and observability; fluency in Java, Go, C++, or Python; BS or MS in Computer Science or equivalent experience. Preferred: running production services on call, cost and performance optimisation, ML or data platforms.";
+  "Software Architect for Hogwarts, hybrid in Edinburgh, UK. Full time, one opening, bachelor's degree, 10+ years in large-scale distributed systems. Salary 140,000 to 180,000 GBP per year. They set the technical direction for our student platform and owl-post network, lead design reviews, and mentor senior engineers. Write the description in Markdown with the headings About the role, What you'll do, and What we're looking for.";
 const INTERVIEW_STAGE = "System design interview";
+
+/** The Opening's application questions, as Minerva types them. */
+const QUESTION = {
+  years: "How many years have you designed distributed systems?",
+  edinburgh: "Can you work from our Edinburgh office three days a week?",
+  clouds: "Which clouds have you run production services on?",
+};
+const CLOUDS = ["AWS", "Google Cloud", "Azure", "Own data centres"];
+
+/** Each applicant's answers; the clouds question is optional. */
+const ANSWERS: Record<
+  HubName,
+  { years: number; edinburgh: boolean; clouds: string[] }
+> = {
+  hermione: { years: 12, edinburgh: true, clouds: ["AWS", "Google Cloud"] },
+  ron: { years: 8, edinburgh: true, clouds: ["AWS"] },
+  draco: { years: 2, edinburgh: false, clouds: [] },
+};
 
 rmSync(join(RUN_DIR, "frames"), { recursive: true, force: true });
 const browser = await chromium.launch({ args: CHROMIUM_ARGS });
 const studio = new Studio(browser, RUN_DIR);
 const state = loadState();
 const say = (text: string) => studio.caption(text);
-/** A card stays up as long as a caption of its words would. */
-const cardSeconds = (title: string, lines: string[]) =>
-  Math.ceil(`${title} ${lines.join(" ")}`.split(/\s+/).length / 2.4 + 1.5);
+/** A card stays up as long as a caption of its spoken words would. */
+const cardSeconds = (spoken: string) =>
+  Math.ceil(spoken.split(/\s+/).length / 2.4 + 1.5);
 const chapter = (title: string, lines: string[]) =>
   studio.card({
     title,
     lines,
-    seconds: cardSeconds(title, lines),
+    seconds: cardSeconds(`${title} ${lines.join(" ")}`),
   } satisfies Card);
+/** A card read aloud as `narration` rather than as its title and lines;
+ * `extraSeconds` leaves time to read what the card shows. */
+const narrated = ({
+  extraSeconds = 0,
+  ...card
+}: Omit<Card, "seconds"> & { narration: string; extraSeconds?: number }) =>
+  studio.card({ ...card, seconds: cardSeconds(card.narration) + extraSeconds });
 
 const albus = await studio.window(ROLES.albus);
 const minerva = await studio.window(ROLES.minerva);
@@ -174,110 +201,214 @@ async function getApplication(name: HubName): Promise<ApplicationDetail> {
   );
 }
 
-// ─── Act 1: Hogwarts gets ready to hire ────────────────────────────────────
+// ─── Introduction ──────────────────────────────────────────────────────────
+
+/** A person's portal Home page for the portals card, captured off camera in
+ * their own window, so it shows their colors and mode. */
+async function portalShot(w: DemoWindow, url: string, file: string) {
+  await w.goto(url);
+  await w.pause(1500);
+  const cursor = w.page.locator("#__demo_cursor");
+  await cursor.evaluate((c: HTMLElement) => {
+    c.style.visibility = "hidden";
+  });
+  const path = join(RUN_DIR, file);
+  await w.page.screenshot({ path });
+  await cursor.evaluate((c: HTMLElement) => {
+    c.style.visibility = "";
+  });
+  return path;
+}
 
 async function intro() {
-  const title = "One hire, seen by everyone involved";
-  const lines = [
-    "Hogwarts hires a Software Architect with ten years of experience,",
-    "partly through Ollivanders, a sourcing agency.",
-    "Each person below has their own window, color, and title bar.",
+  narrated({
+    title: "Vetchium",
+    lines: [
+      "An Open Source jobs platform",
+      "Organizations hire people, and agencies help them with the work:",
+      "finding candidates, interviewing, background checks, and more",
+    ],
+    image: join(REPO, "V.png"),
+    narration:
+      "Vetchium is an Open Source jobs platform. Organizations use it to hire people, and agencies use it to help those organizations with hiring work, like finding candidates, interviewing, and background checks.",
+  });
+  await ensureHub("hermione");
+  await ensureOrg(minerva, MINERVA);
+  const hubShot = await portalShot(hermione, `${HUB}/`, "portal-hub.png");
+  const orgsShot = await portalShot(minerva, `${ORGS}/`, "portal-orgs.png");
+  narrated({
+    title: "Two portals",
+    lines: ["One for individuals, one for organizations"],
+    shots: [
+      {
+        file: hubShot,
+        heading: "Hub, for individuals",
+        text: "Hermione Granger's Home page",
+      },
+      {
+        file: orgsShot,
+        heading: "Orgs, for organizations",
+        text: "Minerva McGonagall's Home page at Hogwarts",
+      },
+    ],
+    narration:
+      "Vetchium has two portals. The Hub is for individuals: your profile, Openings, applications, and messages. The Orgs portal is for organizations, both the companies that are hiring and the agencies that help them. Here are two of the people you will meet, each on their own portal.",
+  });
+  narrated({
+    title: "One hire, seen by everyone involved",
+    lines: [
+      "Hogwarts, a made-up company, needs a Software Architect.",
+      "It sets up its hiring stages, writes the Opening, and asks applicants a few questions.",
+      "An agency helps find candidates. Three people apply, and one is hired.",
+    ],
+    narration:
+      "Let us take you through an example. Hogwarts, a made-up company, needs a Software Architect. Its recruiter sets up the hiring stages, drafts the Opening with AI, and adds a few questions for applicants. The headmaster approves it, and Hogwarts brings in Ollivanders, a recruitment agency, to help find candidates. Three people apply on the Hub. Hogwarts compares their answers, interviews two of them, and hires one. You will see each step through the eyes of everyone involved.",
+  });
+  const castLines = [
+    "Each person has their own window, with their name in the bar on top,",
+    "and keeps the same colors and light or dark mode all the way through",
   ];
   // Viewers also read the cast list.
-  studio.card({
-    title,
-    lines,
+  narrated({
+    title: "The people in this story",
+    lines: castLines,
     cast: true,
-    seconds: cardSeconds(title, lines) + 6,
+    narration: `Here are the people you will meet. ${castLines.join(" ")}.`,
+    extraSeconds: 6,
   });
-  chapter("1 · The hiring Org gets ready", [
-    "Hogwarts on the Vetchium Orgs portal: a team with distinct permissions,",
-    "an Opening drafted with AI, and an approval before it goes live",
+  chapter("1 · Hogwarts gets ready to hire", [
+    "Minerva sets up the hiring stages and drafts the Opening with AI.",
+    "She adds questions for applicants, and Albus approves it",
   ]);
 }
 
-// Scene: Albus invites an interviewer and shows the team's permissions.
-async function hogwartsTeam() {
-  const p = albus.page;
-  await ensureOrg(albus, ALBUS);
-  await albus.goto(`${ORGS}/members`);
-  await studio.onAir(albus, async () => {
-    await say(
-      "Albus Dumbledore set up Hogwarts on Vetchium. An Org is identified by its verified domain, so only people at hogwarts can join it.",
-    );
-    await albus.pause(2500);
-    await say(
-      "Minerva McGonagall is already here: she recruits and engages agencies. Albus invites Severus Snape, who will interview candidates.",
-    );
-    await albus.click(p.getByRole("button", { name: "Invite people" }));
-    const dialog = p.getByRole("dialog", { name: "Invite people" });
-    await albus.type(dialog.getByRole("textbox").first(), SEVERUS.email, {
-      delay: 14,
-    });
-    await albus.click(dialog.getByRole("radio", { name: /^Member/ }));
-    await say(
-      "A role only pre-ticks permissions. A Member can sit on interview panels but cannot change Openings or decide on candidates.",
-    );
-    await albus.pause(2500);
-    await albus.click(dialog.getByRole("button", { name: "Send invitations" }));
-    await expect(dialog.getByText("Invited", { exact: true })).toBeVisible();
-    await albus.pause(2000);
-  });
-  await p.keyboard.press("Escape");
-  await post<unknown, AcceptInvitationRequest>(
-    API,
-    "/api/orgs/accept-invitation",
-    {
-      invitation_token: linkToken(
-        await mail(SEVERUS.email, "invited to join"),
-        "/accept-invitation",
-      ),
-      password: PASSWORD,
-      preferred_language: "en-US",
-    },
-  );
-  await albus.goto(`${ORGS}/members`);
-  await expect(p.getByText(SEVERUS.email).first()).toBeVisible();
-  await studio.onAir(albus, async () => {
-    await say(
-      "Severus accepted the emailed invitation. Each person's permissions are listed, and only a superadmin like Albus can grant approval of Openings.",
-    );
-    await albus.pointAt(p.getByText(MINERVA.email).first());
-    await albus.pause(2000);
-    await albus.pointAt(p.getByText(SEVERUS.email).first());
-    await albus.pause(2500);
-  });
-}
-
-// Scene: Minerva picks her color, then drafts the Opening with Thambi.
-async function openingDraft() {
+// Scene: Minerva builds the pipeline template the Opening will copy.
+async function pipelineTemplate() {
   const p = minerva.page;
+  const stage = INTERVIEW_STAGE;
   await ensureOrg(minerva, MINERVA);
   await minerva.goto(`${ORGS}/`);
   await studio.onAir(minerva, async () => {
     await say(
-      "Minerva signs in. Like everyone in this video, she picks her own portal color, so you can always tell whose screen you are watching.",
+      "This is Minerva McGonagall, Hogwarts' recruiter, on the Orgs portal. Before she writes the Opening, she decides how Hogwarts will hire for it.",
     );
     await minerva.pause(1500);
-    await minerva.click(p.getByRole("button", { name: "Primary color" }));
-    await minerva.click(p.getByRole("menuitem", { name: "Red orange" }));
+    await minerva.click(
+      p.getByRole("menuitem", { name: /Pipeline templates/ }),
+    );
+    const create = p.getByRole("button", { name: "New template" }).first();
+    await expect(create).toBeVisible();
+    await say(
+      "A pipeline is the list of stages every candidate goes through, in order. Hogwarts saves its pipelines as templates, so each Opening can start from one.",
+    );
+    await minerva.pause(2000);
+    await minerva.click(create);
+    const drawer = p.getByRole("dialog");
+    await minerva.type(
+      drawer.locator("#pipeline-template-name"),
+      "Engineering leadership",
+    );
+    await say(
+      "The first stage is a review, where someone at Hogwarts reads each application.",
+    );
+    await minerva.type(
+      drawer.getByRole("textbox", { name: "Stage 1 name" }),
+      "Application review",
+    );
+    await minerva.pointAt(
+      drawer.getByRole("combobox", { name: "Stage 1 kind" }),
+    );
+    await minerva.pause(1200);
+    await say(
+      "Next comes a system design interview. A stage can be a review, an assessment, an interview, or a background check, and a pipeline can have up to fifteen of them.",
+    );
+    await minerva.click(drawer.getByRole("button", { name: "Add stage" }));
+    await minerva.type(
+      drawer.getByRole("textbox", { name: "Stage 2 name" }),
+      stage,
+    );
+    await minerva.choose(
+      drawer.getByRole("combobox", { name: "Stage 2 kind" }),
+      "Interview",
+    );
+    await minerva.pause(800);
+    await say(
+      "An interview stage can have a feedback form, so every interviewer answers the same questions. Minerva adds two ratings and a yes or no.",
+    );
+    const toggle = drawer.getByRole("button", {
+      // The arrow icon's label comes first in the name.
+      name: new RegExp(`Feedback form for ${stage}`),
+    });
+    if ((await toggle.getAttribute("aria-expanded")) !== "true") {
+      await minerva.click(toggle);
+    }
+    for (const [i, text] of [
+      "Designs for scale and for failure",
+      "Explains trade-offs clearly",
+      "Would you trust them with our architecture?",
+    ].entries()) {
+      await minerva.click(
+        drawer.getByRole("button", { name: "Add criterion" }),
+      );
+      await minerva.type(
+        drawer.getByRole("textbox", {
+          name: `Criterion ${i + 1} of ${stage}`,
+        }),
+        text,
+        { delay: 14 },
+      );
+      if (i === 2) {
+        await minerva.choose(
+          drawer.getByRole("combobox", {
+            name: `Answer type of criterion 3 of ${stage}`,
+          }),
+          "Yes or no",
+        );
+      }
+      await minerva.click(
+        drawer.getByRole("checkbox", { name: "Required" }).nth(i),
+      );
+    }
+    await minerva.pause(800);
+    await say(
+      "Offers and joining don't need stages of their own. They always come after the last one.",
+    );
+    await minerva.click(drawer.getByRole("button", { name: "Save template" }));
+    await expect(
+      p.getByText("Engineering leadership", { exact: true }).first(),
+    ).toBeVisible();
     await minerva.pause(1500);
-    await say("She starts a new Opening in the Hiring workspace.");
+    await say(
+      "Every new Opening gets its own copy of a template. Changing that copy later affects only that Opening, and candidates never see the stage names.",
+    );
+    await minerva.pause(2000);
+  });
+}
+
+// Scene: Minerva drafts the Opening with Thambi.
+async function openingDraft() {
+  const p = minerva.page;
+  await ensureOrg(minerva, MINERVA);
+  await studio.onAir(minerva, async () => {
+    await say("Now Minerva starts the Opening itself.");
     await minerva.click(p.getByRole("menuitem", { name: /Openings/ }));
     await minerva.click(p.getByRole("button", { name: /New Opening/ }).first());
     await expect(p.getByRole("heading", { name: "New Opening" })).toBeVisible();
     await minerva.pause(1200);
     await say(
-      "Instead of a blank form, she asks Thambi, Vetchium's AI assistant, for a first draft.",
+      "Rather than start from a blank form, she gives Thambi, the built-in AI assistant, a few lines about the role.",
     );
     await minerva.click(p.getByRole("button", { name: "Draft with AI" }));
-    await minerva.typeLong(
+    await minerva.type(
       p.getByLabel("What should the AI write?"),
       DRAFT_INSTRUCTION,
+      {
+        delay: 8,
+      },
     );
     await minerva.pause(1500);
     await say(
-      "The model runs inside the region that holds Hogwarts' data. Each draft is metered in AI credits.",
+      "The AI runs in the same region as Hogwarts' data, and each draft uses a few AI credits.",
     );
     await minerva.click(p.getByRole("button", { name: "Generate draft" }));
     await expect(p.getByText(/^Draft filled in\./)).toBeVisible({
@@ -285,7 +416,7 @@ async function openingDraft() {
     });
     await minerva.pause(1500);
     await say(
-      "The draft fills the editor, and nothing is saved yet. Minerva reviews every field, because AI can be wrong.",
+      "Thambi fills in the form, but nothing is saved yet. Minerva checks each field, since AI can get things wrong.",
     );
     await minerva.pointAt(p.getByText(/^Draft filled in\./));
     await minerva.pause(2500);
@@ -302,16 +433,118 @@ async function openingDraft() {
     const maximum = p.getByLabel("Maximum years", { exact: true });
     await minerva.click(maximum);
     await maximum.fill("15");
+    await minerva.pause(800);
+    // The local model sometimes misreads the salary; Minerva sets it as asked.
+    const salaryMin = p.getByLabel("Minimum salary", { exact: true });
+    if (await salaryMin.isVisible()) {
+      await minerva.choose(
+        p.getByRole("combobox", { name: "Currency" }),
+        "GBP",
+        { search: true },
+      );
+      await minerva.click(salaryMin);
+      await salaryMin.fill("140000");
+      const salaryMax = p.getByLabel("Maximum salary", { exact: true });
+      await minerva.click(salaryMax);
+      await salaryMax.fill("180000");
+      await minerva.choose(
+        p.getByRole("combobox", { name: "Salary period" }),
+        "per year",
+      );
+    }
     await minerva.pause(1200);
   });
 }
 
-// Scene: the hiring team and pipeline, then a request for approval.
+/** The question panel at `index` inside the editor's questions section. */
+function questionPanel(index: number): Locator {
+  return minerva.page
+    .locator(".ant-collapse-item")
+    .filter({ has: minerva.page.getByRole("button", { name: "Add question" }) })
+    .locator(".ant-collapse-item")
+    .nth(index);
+}
+
+async function addQuestion(
+  index: number,
+  text: string,
+  type: string,
+  required: boolean,
+) {
+  const p = minerva.page;
+  await minerva.click(p.getByRole("button", { name: "Add question" }));
+  const panel = questionPanel(index);
+  await minerva.type(panel.getByLabel("Question", { exact: true }), text, {
+    delay: 14,
+  });
+  await minerva.choose(
+    panel.getByRole("combobox", { name: "Answer type" }),
+    type,
+  );
+  if (required) {
+    await minerva.click(panel.getByRole("switch", { name: "Answer required" }));
+  }
+  return panel;
+}
+
+// Scene: Minerva asks every applicant the same questions.
+async function openingQuestions() {
+  const p = minerva.page;
+  await studio.onAir(minerva, async () => {
+    await say(
+      "Next come the application questions. Hogwarts can ask up to ten, and every applicant answers them when they apply.",
+    );
+    // A draft with a salary opens every section, this one included.
+    const header = p.locator('[data-editor-section="questions"]');
+    if (await p.getByRole("button", { name: "Add question" }).isVisible()) {
+      await minerva.pointAt(header);
+    } else {
+      await minerva.click(header);
+    }
+    await minerva.pause(1500);
+    await say(
+      "She asks how many years they have designed distributed systems, and whether they can work from Edinburgh. Both need an answer.",
+    );
+    await addQuestion(0, QUESTION.years, "Whole number", true);
+    await addQuestion(1, QUESTION.edinburgh, "Yes or no", true);
+    await minerva.pause(800);
+    await say(
+      "The third question is optional: which clouds have they run production services on?",
+    );
+    const clouds = await addQuestion(
+      2,
+      QUESTION.clouds,
+      "Several choices",
+      false,
+    );
+    for (const [i, option] of CLOUDS.entries()) {
+      if (i >= 2) {
+        await minerva.click(clouds.getByRole("button", { name: "Add option" }));
+      }
+      await minerva.type(
+        clouds.getByRole("textbox", { name: `Option ${i + 1}` }),
+        option,
+        { delay: 20 },
+      );
+    }
+    await minerva.pause(1000);
+    await say(
+      "The answers are there for the hiring team to read. Vetchium doesn't score applicants or reject anyone based on them.",
+    );
+    await minerva.pointAt(
+      p.getByText(/^Optional\. Ask applicants up to 10 questions/),
+    );
+    await minerva.pause(2500);
+  });
+}
+
+// Scene: the hiring team and pipeline, a look at the preview, then a request
+// for approval.
 async function openingSubmit() {
   const p = minerva.page;
   await studio.onAir(minerva, async () => {
     await say(
-      "The hiring team stays internal: Albus is the hiring manager, Minerva the recruiter.",
+      "Albus will be the hiring manager and Minerva the recruiter. Applicants don't see this part.",
     );
     const manager = p.getByLabel("Hiring manager", { exact: true });
     await minerva.pointAt(manager);
@@ -321,7 +554,7 @@ async function openingSubmit() {
     await minerva.type(recruiter, MINERVA.email, { delay: 12 });
     await p.keyboard.press("Escape");
     await say(
-      "The pipeline starts from Hogwarts' template: an application review, then a system design interview with a feedback form.",
+      "For the stages, she picks the Engineering leadership template she just made.",
     );
     await minerva.choose(
       p.getByRole("combobox", { name: "Start from" }),
@@ -329,15 +562,26 @@ async function openingSubmit() {
     );
     await minerva.pause(1500);
     await say(
-      "Candidate preview shows the Opening exactly as Hub users will see it.",
+      "Before sending it for approval, she opens the candidate preview: the Opening as people on the Hub will see it, written from Thambi's draft.",
     );
     await minerva.scrollToTop();
     await minerva.click(p.getByRole("tab", { name: "Candidate preview" }));
-    await minerva.pause(2500);
-    await minerva.scroll(400);
-    await minerva.pause(2000);
+    await minerva.pause(3000);
+    await say("She reads through the whole description once more.");
+    for (let i = 0; i < 5; i++) {
+      await minerva.scroll(260);
+      await minerva.pause(2000);
+    }
+    await minerva.scrollToTop();
     await say(
-      "Minerva cannot publish on her own. Her button reads Save and submit for approval.",
+      "The Application form tab shows the questions applicants will answer.",
+    );
+    await minerva.click(p.getByText("Application form", { exact: true }));
+    await minerva.pause(1500);
+    await minerva.scroll(450);
+    await minerva.pause(2500);
+    await say(
+      "Minerva can't publish Openings herself, so her button says Save and submit for approval.",
     );
     const submit = p.getByRole("button", {
       name: "Save and submit for approval",
@@ -353,7 +597,7 @@ async function openingSubmit() {
     await expect(p.getByText(/^Pending request/).first()).toBeVisible();
     await minerva.pause(1500);
     await say(
-      "The Opening waits as a pending publish request. Its content is frozen until an approver decides.",
+      "The Opening now waits for approval, and its content can't change in the meantime.",
     );
     await minerva.pause(2500);
   });
@@ -366,12 +610,14 @@ async function openingApprove() {
   await albus.goto(`${ORGS}/`);
   await reloadUntil(albus, p.getByText(OPENING_TITLE).first());
   await studio.onAir(albus, async () => {
-    await say("On Albus's Home page, the request is waiting for his approval.");
+    await say(
+      "Albus Dumbledore, the headmaster, approves Openings at Hogwarts. Minerva's request is waiting on his Home page.",
+    );
     await albus.pause(2500);
     await albus.click(p.getByText(OPENING_TITLE).first());
     await expect(p.getByRole("button", { name: "Approve" })).toBeVisible();
     await say(
-      "He sees who asked, when, and what will go live. He could reject it with a reason instead.",
+      "He can see who asked, when, and exactly what will go live. If something is off, he can send it back with a reason.",
     );
     await albus.pause(2500);
     await albus.scroll(300);
@@ -388,7 +634,7 @@ async function openingApprove() {
       p.getByText("Published", { exact: true }).first(),
     ).toBeVisible();
     await say(
-      "Approved and published. The history records who requested and who approved it.",
+      "He approves it, and the Opening is published. Its history shows who asked for it and who approved it.",
     );
     await albus.pause(3000);
   });
@@ -401,14 +647,14 @@ async function aiUsage() {
   await albus.goto(`${ORGS}/ai`);
   await studio.onAir(albus, async () => {
     await say(
-      "Albus also oversees AI. The AI page lists every AI request in the Org: who made it, which model, the tokens, and the credits.",
+      "Albus also keeps an eye on AI use. This page lists every AI request made at Hogwarts: who made it, which model answered, and how many credits it used.",
     );
     await albus.pause(3500);
     await albus.click(
       p.getByRole("button", { name: /^View the prompt and answer/ }).first(),
     );
     await say(
-      "He can read Minerva's exact request and Thambi's answer. Both are kept for a limited time for review, then deleted.",
+      "He can even read Minerva's request and Thambi's reply. They are kept for a while for review, then deleted.",
     );
     await albus.pause(3500);
     await albus.scroll(400);
@@ -417,7 +663,7 @@ async function aiUsage() {
     await albus.pause(800);
     await albus.click(p.getByRole("tab", { name: "Credits" }));
     await say(
-      "Gold includes monthly credits, and packs add more. A superadmin can turn AI off for the whole Org at any time.",
+      "The Gold plan comes with monthly AI credits, and Hogwarts can buy more. Albus can switch AI off for everyone at any time.",
     );
     await albus.pause(3500);
   });
@@ -426,9 +672,9 @@ async function aiUsage() {
 // ─── Act 2: an agency joins ────────────────────────────────────────────────
 
 async function actAgency() {
-  chapter("2 · A sourcing agency joins", [
+  chapter("2 · A recruitment agency joins", [
     "Ollivanders signs up on the same Orgs portal",
-    "and lists the service it offers to hiring Orgs",
+    "and lists the service it offers",
   ]);
 }
 
@@ -438,7 +684,7 @@ async function agencySignup() {
   await garrick.goto(`${ORGS}/signup`);
   await studio.onAir(garrick, async () => {
     await say(
-      "Garrick Ollivander runs Ollivanders, a recruitment agency. He signs it up on the Vetchium Orgs portal.",
+      "Meet Garrick Ollivander. He runs Ollivanders, a recruitment agency, and he is signing it up on the same Orgs portal.",
     );
     await garrick.pause(1800);
     await regionSgp(garrick);
@@ -448,7 +694,7 @@ async function agencySignup() {
       GARRICK.email.slice(0, GARRICK.email.indexOf("@")),
     );
     await say(
-      "Signup proves control of the domain: a link to a mailbox on it, and a DNS record to publish.",
+      "To show that Ollivanders owns its domain, Vetchium emails a link to an address on that domain and asks for a DNS record.",
     );
     await garrick.pause(1500);
     await garrick.click(p.getByRole("button", { name: "Send signup emails" }));
@@ -463,7 +709,7 @@ async function agencySignup() {
   await garrick.goto(`${ORGS}/complete-signup?region=sgp&token=${signupToken}`);
   await studio.onAir(garrick, async () => {
     await say(
-      "From the emailed link, he publishes the TXT record and completes signup.",
+      "He opens the link from the email, adds the DNS record, and finishes signing up.",
     );
     await garrick.pause(2000);
     await garrick.type(p.getByLabel("Organization name"), "Ollivanders");
@@ -491,7 +737,7 @@ async function agencySignup() {
   await orgSignIn(garrick, GARRICK);
   await studio.onAir(garrick, async () => {
     await say(
-      "Ollivanders is in. Offering services on the marketplace needs the Silver plan or above.",
+      "Ollivanders is in. To offer services to other organizations it needs the Silver plan, so Garrick upgrades.",
     );
     await garrick.pause(2500);
     await garrick.goto(`${ORGS}/plans`);
@@ -522,7 +768,7 @@ async function agencyListing() {
   await garrick.goto(`${ORGS}/listings`);
   await studio.onAir(garrick, async () => {
     await say(
-      "On Listings, Garrick describes the service Ollivanders offers: candidate sourcing.",
+      "Under Listings, Garrick describes what Ollivanders offers: finding candidates.",
     );
     await garrick.pause(1500);
     const sourcing = p.locator(".ant-card", { hasText: "Sourcing" });
@@ -560,7 +806,7 @@ async function agencyListing() {
     await p.keyboard.press("Escape");
     await garrick.pause(800);
     await say(
-      "Publishing the listing makes Ollivanders discoverable to every hiring Org on Vetchium.",
+      "Once he publishes it, any organization hiring on Vetchium can find Ollivanders.",
     );
     await garrick.click(
       p.getByRole("button", { name: "Publish", exact: true }),
@@ -580,7 +826,7 @@ async function agencyContactNote() {
   await garrick.goto(`${ORGS}/sourcing/contacts`);
   await studio.onAir(garrick, async () => {
     await say(
-      "A Sourcing workspace now appears. Contacts are the people the agency keeps track of.",
+      "Garrick now has a Sourcing area. Contacts are the people his agency keeps track of.",
     );
     await garrick.pause(2000);
     await garrick.click(
@@ -588,7 +834,7 @@ async function agencyContactNote() {
     );
     const dialog = p.getByRole("dialog");
     await say(
-      "Garrick knows a brilliant architect. He looks her up by her public alias on the Hub.",
+      "He knows a brilliant architect, and looks her up by the alias she uses on the Hub.",
     );
     await garrick.type(
       dialog.getByPlaceholder("handle or alias"),
@@ -598,14 +844,18 @@ async function agencyContactNote() {
     await expect(
       p.getByRole("heading", { name: HUB_USERS.hermione.displayName }),
     ).toBeVisible();
+    // The page opens on the agency's Notes; the profile is its own tab.
+    await garrick.click(p.getByRole("tab", { name: "Profile", exact: true }));
     await say(
-      "Hermione's profile shows exactly as Hub users see it: twelve years at the Ministry, Gringotts, and Flourish and Blotts. Viewing it is never recorded.",
+      "Here is Hermione's public profile: twelve years at the Ministry, Gringotts, and Flourish and Blotts. Vetchium doesn't track who views a profile.",
     );
-    await garrick.pause(1500);
+    await garrick.pause(2500);
     await garrick.scroll(450);
     await garrick.pause(2500);
+    await garrick.scrollToTop();
+    await garrick.click(p.getByRole("tab", { name: "Notes", exact: true }));
     await say(
-      "Notes are private to the agency. Hermione, the agency's clients, and other agencies never see them.",
+      "He adds a note. Notes stay inside Ollivanders. Hermione, clients, and other agencies can't see them.",
     );
     await garrick.type(
       p.getByPlaceholder("Add a note for your agency"),
@@ -614,10 +864,13 @@ async function agencyContactNote() {
     );
     await garrick.click(p.getByRole("button", { name: "Add note" }));
     await expect(p).toHaveURL(/\/sourcing\/contacts\/[0-9a-z-]+/);
-    state.contactURL = p.url();
+    // Without the tab, the page reopens on the conversation once there is one.
+    const contact = new URL(p.url());
+    contact.search = "";
+    state.contactURL = contact.toString();
     saveState(state);
     await say(
-      "The first note makes Hermione a Contact, shared by everyone at Ollivanders.",
+      "With that first note, Hermione becomes a Contact that everyone at Ollivanders can see.",
     );
     await garrick.pause(2500);
   });
@@ -626,9 +879,9 @@ async function agencyContactNote() {
 // ─── Act 3: the hiring Org engages the agency ──────────────────────────────
 
 async function actEngage() {
-  chapter("3 · Hogwarts engages the agency", [
-    "Found in the marketplace, proposed, accepted, and assigned to one Opening.",
-    "Vetchium records the work; prices and invoices stay between the two Orgs",
+  chapter("3 · Hogwarts brings in the agency", [
+    "Minerva finds Ollivanders and proposes working together on the Opening.",
+    "Fees are agreed between the two companies, outside Vetchium",
   ]);
 }
 
@@ -639,7 +892,7 @@ async function engagementPropose() {
   await minerva.goto(`${ORGS}/openings/${opening()}`);
   await studio.onAir(minerva, async () => {
     await say(
-      "The Opening is live. To reach more senior candidates, Minerva looks for a sourcing agency.",
+      "Back at Hogwarts, the Opening is live. To reach more senior people, Minerva looks for a recruitment agency.",
     );
     await minerva.pause(1500);
     await minerva.click(p.getByRole("menuitem", { name: /Find providers/ }));
@@ -655,7 +908,7 @@ async function engagementPropose() {
       p.getByRole("button", { name: "Propose engagement" }),
     ).toBeVisible();
     await say(
-      "The listing shows the service, the countries served, and an indicative price. Vetchium never handles the fees.",
+      "Ollivanders' listing shows the service, the countries it covers, and a rough price. Any fees are paid between the two companies, not through Vetchium.",
     );
     await minerva.pause(3000);
     await minerva.type(
@@ -667,7 +920,7 @@ async function engagementPropose() {
     await minerva.click(p.getByRole("button", { name: "Propose engagement" }));
     await expect(p.locator(".ant-tag", { hasText: "Proposed" })).toBeVisible();
     await say(
-      "The engagement is proposed. Ollivanders decides whether to take Hogwarts on as a client.",
+      "She proposes working together. Now it's up to Ollivanders to take Hogwarts on as a client.",
     );
     await minerva.pause(2500);
   });
@@ -681,12 +934,12 @@ async function engagementAccept() {
   await reloadUntil(garrick, p.getByText(HOGWARTS).first());
   await studio.onAir(garrick, async () => {
     await say(
-      "Garrick sees Hogwarts' proposal under Clients, with its message and purchase order reference.",
+      "Garrick sees the proposal under Clients, with Minerva's message and purchase order number.",
     );
     await garrick.pause(2500);
     await garrick.click(p.getByRole("button", { name: "Accept" }).first());
     await expect(p.getByText("Engagement proposal accepted.")).toBeVisible();
-    await say("Accepted. Hogwarts is now an active client.");
+    await say("He accepts. Hogwarts is now a client.");
     await garrick.pause(2500);
   });
 }
@@ -709,9 +962,7 @@ async function agencyAssign() {
   }).toPass({ timeout: 60_000 });
   await p.keyboard.press("Escape");
   await studio.onAir(minerva, async () => {
-    await say(
-      "Back at Hogwarts, Minerva assigns Ollivanders to the Software Architect Opening.",
-    );
+    await say("Minerva assigns Ollivanders to the Software Architect Opening.");
     await minerva.pause(1800);
     await minerva.click(p.getByRole("button", { name: "Assign agency" }));
     await minerva.click(agency);
@@ -719,7 +970,7 @@ async function agencyAssign() {
     await minerva.click(dialog.getByRole("button", { name: "Assign" }));
     await expect(dialog).toBeHidden();
     await say(
-      "The agency sees this one Opening and nothing else of Hogwarts' hiring. Only applicants who name Ollivanders are credited to it.",
+      "Ollivanders can see this Opening, but nothing else about Hogwarts' hiring. It gets credit only for applicants who say Ollivanders referred them.",
     );
     await minerva.pause(3000);
   });
@@ -735,13 +986,13 @@ async function agencyJob() {
   await garrick.goto(`${ORGS}/sourcing/jobs`);
   await studio.onAir(garrick, async () => {
     await say(
-      "At Ollivanders, the Opening arrives as a Job. Garrick's own list is empty: no one owns it yet.",
+      "At Ollivanders, the Opening shows up as a Job. Garrick's own list is empty, because nobody owns it yet.",
     );
     await garrick.pause(2500);
     await garrick.click(p.getByText("Everyone's", { exact: true }));
     await expect(p.getByText(OPENING_TITLE).first()).toBeVisible();
     await say(
-      "Everyone's Jobs shows it, with the client's name and when it was assigned.",
+      "Under Everyone's, there it is, with the client's name and the date it was assigned.",
     );
     await garrick.pause(2500);
     await garrick.click(p.getByText(OPENING_TITLE).first());
@@ -749,7 +1000,7 @@ async function agencyJob() {
       p.getByRole("button", { name: "Send chat request" }),
     ).toBeVisible();
     await say(
-      "Garrick reads the Opening as candidates see it, and makes himself the Job's owner. Only his agency sees who owns it.",
+      "Garrick reads the Opening and takes the Job on himself. Only people at Ollivanders see who owns it.",
     );
     await garrick.pause(2000);
     await garrick.scroll(350);
@@ -763,7 +1014,7 @@ async function agencyJob() {
     await expect(p.getByTestId("job-owner")).toContainText(GARRICK.email);
     await garrick.pause(1500);
     await say(
-      "He asks Hermione to chat about this Opening. Agencies reach Hub users only about an Opening they recruit for.",
+      "He asks Hermione if she'd like to talk about this role. Agencies can only contact Hub users about an Opening they are recruiting for.",
     );
     await garrick.click(p.getByRole("button", { name: "Send chat request" }));
     const dialog = p.getByRole("dialog", { name: "Send chat request" });
@@ -781,7 +1032,7 @@ async function agencyJob() {
     await garrick.click(dialog.getByRole("button", { name: "Send request" }));
     await expect(dialog).toBeHidden();
     await say(
-      "Nothing reaches Hermione's inbox or phone. She decides in Vetchium, and her contact details are never shared.",
+      "Hermione won't get an email or a phone call. She'll see the request in Vetchium, and her contact details stay private.",
     );
     await garrick.pause(2500);
   });
@@ -790,9 +1041,9 @@ async function agencyJob() {
 // ─── Act 4: candidates on the Hub ──────────────────────────────────────────
 
 async function actApply() {
-  chapter("4 · Candidates apply on the Hub", [
-    "Hermione through the agency; Ron and Draco directly.",
-    "Each chooses which agency, if any, gets the credit",
+  chapter("4 · People apply on the Hub", [
+    "Hermione through Ollivanders, Ron and Draco on their own.",
+    "Each of them answers Hogwarts' questions",
   ]);
 }
 
@@ -803,20 +1054,18 @@ async function hermioneProfile() {
   await hermione.goto(`${HUB}/`);
   await studio.onAir(hermione, async () => {
     await say(
-      "Hermione signs in to the Vetchium Hub, the portal for individuals. Her Home page shows what needs her attention.",
+      "Now over to Hermione Granger on the Hub, the portal for individuals. Her Home page shows what needs her attention.",
     );
     await hermione.pause(2500);
     await hermione.click(p.getByRole("menuitem", { name: /My profile/ }));
     await say(
-      "Her profile is her résumé, kept in one place: experience, education, and languages. Every application carries a snapshot of it.",
+      "Her profile works like a résumé, with her picture, experience, education, and languages. When she applies, a copy of it goes along.",
     );
     await hermione.pause(2500);
     await hermione.scroll(400);
     await hermione.pause(2500);
     await hermione.scroll(400);
-    await say(
-      "On the Silver plan she also has a memorable alias, which is how Garrick found her.",
-    );
+    await say("She also has a short alias, which is how Garrick found her.");
     await hermione.pause(3000);
   });
 }
@@ -828,21 +1077,19 @@ async function hermioneAcceptsRequest() {
   await awaitHub(hermione, `${HUB}/messages`, "Asks to chat about an Opening");
   await studio.onAir(hermione, async () => {
     await say(
-      "In Messages, a chat request from Ollivanders is waiting for her answer.",
+      "In Messages, the chat request from Ollivanders is waiting for her.",
     );
     await hermione.pause(2000);
     await hermione.click(p.getByText("Ollivanders").first());
     const accept = p.getByRole("button", { name: "Accept", exact: true });
     await expect(accept).toBeVisible();
     await say(
-      "It names the agency, the Opening, and Garrick's note. She may accept, or decline for this Opening or for a while.",
+      "It shows the agency, the Opening, and Garrick's note. She can accept, or turn it down.",
     );
     await hermione.pause(3000);
     await hermione.click(accept);
     await expect(p.getByPlaceholder("Write a reply")).toBeVisible();
-    await say(
-      "Accepted. Ollivanders and Hermione can now write to each other.",
-    );
+    await say("She accepts, and now the two of them can message each other.");
     await hermione.pause(2500);
   });
 }
@@ -857,7 +1104,7 @@ async function agencySuggests() {
   await reloadUntil(garrick, composer);
   await studio.onAir(garrick, async () => {
     await say(
-      "On Hermione's Contact page, the conversation is open, beside the agency's private notes.",
+      "On Hermione's Contact page, Garrick sees the conversation right next to his notes.",
     );
     await garrick.pause(2000);
     await garrick.type(
@@ -869,6 +1116,27 @@ async function agencySuggests() {
     await expect(composer).toHaveValue("");
     await garrick.pause(2500);
   });
+}
+
+/** Fills Hogwarts' questions on the Hub apply page. */
+async function answerQuestions(w: DemoWindow, name: HubName) {
+  const p = w.page;
+  const answers = ANSWERS[name];
+  await w.type(
+    p.getByRole("spinbutton", { name: QUESTION.years }),
+    String(answers.years),
+  );
+  await w.click(
+    p
+      .getByRole("radiogroup", { name: QUESTION.edinburgh })
+      .getByText(answers.edinburgh ? "Yes" : "No", { exact: true }),
+  );
+  const clouds = p.getByRole("group", { name: QUESTION.clouds });
+  if (answers.clouds.length === 0) await w.pointAt(clouds);
+  for (const cloud of answers.clouds) {
+    await w.click(clouds.getByText(cloud, { exact: true }));
+  }
+  await w.pause(800);
 }
 
 // Scene: Hermione reads the message and applies through Ollivanders.
@@ -896,32 +1164,34 @@ async function hermioneApplies() {
       p.locator("#apply-referral").getByText("Referred by"),
     ).toBeVisible();
     await say(
-      "Because Ollivanders suggested this Opening, it is preselected under Referred by. The choice is Hermione's alone, and it is fixed once she applies.",
+      "Since Ollivanders suggested this Opening, it's already picked under Referred by. Hermione can change that until she applies.",
     );
     await hermione.pointAt(p.getByRole("radio", { name: /Ollivanders/ }));
     await hermione.pause(3500);
+    await say(
+      "Then she answers Hogwarts' questions: twelve years, yes to Edinburgh, and the clouds she has worked with.",
+    );
+    await answerQuestions(hermione, "hermione");
     await hermione.type(
       p.getByLabel("Cover note"),
       "I have set the architecture for the Ministry's case platform across six teams and designed the Gringotts vault ledger. I would love to do the same for Hogwarts.",
       { delay: 14 },
     );
     await say(
-      "Her application carries a snapshot of her Hub profile, so she types no résumé.",
+      "Her profile goes with the application, so there's no résumé to upload.",
     );
     await hermione.click(p.getByRole("button", { name: "Submit application" }));
     await expect(p).toHaveURL(/\/applications\//);
     state.applications.hermione = lastPathNumber(p.url());
     saveState(state);
-    await say(
-      "Submitted. Hogwarts will credit this application to Ollivanders.",
-    );
+    await say("Done. Hogwarts will see that Ollivanders referred her.");
     await hermione.pause(3000);
   });
 }
 
 async function directApply(
   name: HubName,
-  lines: { find: string; note: string; done: string },
+  lines: { find: string; answer: string; note: string; done: string },
 ) {
   const w = hub[name];
   const p = w.page;
@@ -941,6 +1211,8 @@ async function directApply(
     await w.click(p.getByRole("button", { name: "Apply", exact: true }));
     await expect(p.getByRole("heading", { name: "Apply" })).toBeVisible();
     await w.pause(1200);
+    await say(lines.answer);
+    await answerQuestions(w, name);
     await w.type(p.getByLabel("Cover note"), lines.note, { delay: 14 });
     await w.pointAt(p.getByRole("radio", { name: "No agency" }));
     await w.pause(1500);
@@ -955,17 +1227,21 @@ async function directApply(
 
 async function ronApplies() {
   await directApply("ron", {
-    find: "Ron Weasley follows the careers link Hogwarts shares. Its Hub page lists every published Opening.",
+    find: "Ron Weasley comes in through Hogwarts' careers link. Hogwarts' page on the Hub lists all its open roles.",
+    answer:
+      "Ron gets the same questions: eight years, yes to Edinburgh, and AWS.",
     note: "Ten years in engineering; I scaled the Weasleys' Wizard Wheezes store to millions of orders as Head of Engineering. Ready to set architecture at Hogwarts.",
-    done: "A direct application: no agency is credited.",
+    done: "He applies on his own, so no agency is involved.",
   });
 }
 
 async function dracoApplies() {
   await directApply("draco", {
-    find: "Draco Malfoy finds the same Opening and applies directly too.",
+    find: "Draco Malfoy applies on his own too.",
+    answer:
+      "Draco puts two years and no to Edinburgh, and skips the optional question.",
     note: "Ten years leading development of the Malfoy family systems. My father will hear about it if I am not shortlisted.",
-    done: "Three applications are in.",
+    done: "That makes three applications.",
   });
 }
 
@@ -976,13 +1252,13 @@ async function ronTracksApplying() {
   await ron.goto(`${HUB}/applications`);
   await studio.onAir(ron, async () => {
     await say(
-      "On the Hub, each applicant tracks their own applications. Ron's reads Applied.",
+      "Ron can follow his application on the Hub. Right now it says Applied.",
     );
     await ron.pause(2500);
     await ron.click(p.getByText(OPENING_TITLE).first());
     await ron.pause(2000);
     await say(
-      "He sees the Opening as it was when he applied, his cover note, and every status change, but never Hogwarts' internal notes.",
+      "He sees the Opening as it was when he applied, his cover note, and each change of status. Hogwarts' internal notes stay hidden.",
     );
     await ron.scroll(300);
     await ron.pause(2500);
@@ -992,9 +1268,9 @@ async function ronTracksApplying() {
 // ─── Act 5: Hogwarts hires ─────────────────────────────────────────────────
 
 async function actHire() {
-  chapter("5 · Hogwarts processes the applications", [
-    "Review, shortlist, interviews with blind feedback,",
-    "an offer, and a joining date",
+  chapter("5 · Hogwarts decides", [
+    "Comparing answers, interviews with independent feedback,",
+    "an offer, and a first day",
   ]);
 }
 
@@ -1005,7 +1281,7 @@ async function pipelineTab() {
   await minerva.goto(`${ORGS}/openings/${opening()}`);
   await studio.onAir(minerva, async () => {
     await say(
-      "Before deciding, Minerva opens the Opening's Pipeline: its own copy of the template, with how many candidates sit at each stage.",
+      "Back at Hogwarts, the Opening's Pipeline tab shows its own copy of the template, and how many candidates are at each stage.",
     );
     await minerva.pause(1500);
     await minerva.click(p.getByRole("tab", { name: /Pipeline/ }));
@@ -1017,7 +1293,7 @@ async function pipelineTab() {
     await expect(form).toHaveAttribute("aria-expanded", "true");
     await minerva.pointAt(form);
     await say(
-      "The interview stage carries its feedback form. Pipeline changes apply at once, need no approval, and candidates never see stage names.",
+      "The interview stage brought its feedback form along. Minerva could add or rename stages here for this Opening alone, and no approval is needed.",
     );
     await minerva.pause(2500);
     await minerva.scroll(300);
@@ -1034,23 +1310,46 @@ async function triage() {
   await reloadUntil(minerva, p.getByText(other.displayName).first());
   await studio.onAir(minerva, async () => {
     await say(
-      "At Hogwarts, the Applicants tab lists everyone waiting for a decision, with the agency that referred them.",
+      "The Applicants tab lists everyone waiting for a first decision, and which agency referred them.",
     );
     await minerva.pause(2500);
     await minerva.scroll(320);
     await minerva.pointAt(p.getByRole("link", { name: her.displayName }));
-    await minerva.pause(2000);
+    await minerva.pause(1500);
+    await say(
+      "Minerva adds two of the answers as columns: years of experience, and Edinburgh.",
+    );
+    await minerva.click(p.getByRole("combobox", { name: /^Answer columns/ }));
+    for (const question of [QUESTION.years, QUESTION.edinburgh]) {
+      await minerva.click(
+        p
+          .locator(".ant-select-dropdown:visible .ant-select-item-option")
+          .filter({ hasText: question })
+          .first(),
+      );
+    }
+    await p.keyboard.press("Escape");
+    await minerva.pause(1200);
+    await say(
+      "Draco: two years, and no. Ron: eight, and yes. Hermione: twelve, and yes.",
+    );
+    await minerva.pointAt(p.getByRole("link", { name: other.displayName }));
+    await minerva.pause(2500);
+    await minerva.pointAt(p.getByRole("link", { name: her.displayName }));
+    await minerva.pause(3000);
     await minerva.click(p.getByRole("link", { name: other.displayName }));
     await say(
-      "Each application holds the profile snapshot and cover note. Minerva reads Draco's.",
+      "Each application has the profile, the answers, and the cover note. She opens Draco's.",
     );
+    await minerva.pause(2000);
+    await minerva.pointAt(p.getByText(QUESTION.years).first());
     await minerva.pause(2500);
     await minerva.scroll(400);
-    await minerva.pause(2500);
+    await minerva.pause(2000);
     await minerva.page.goBack();
     await minerva.pause(1500);
     await say(
-      "Draco has never designed systems at this scale. Minerva marks him as not progressing.",
+      "Draco hasn't worked at this scale and can't come to Edinburgh, so Minerva doesn't take him forward.",
     );
     await minerva.click(
       p.getByRole("button", {
@@ -1070,7 +1369,7 @@ async function triage() {
     ).toBeVisible();
     await minerva.pause(1500);
     await say(
-      "Hermione and Ron are shortlisted straight to the system design interview. They become candidates.",
+      "Hermione and Ron go straight to the system design interview. They're now candidates.",
     );
     for (const { displayName } of [her, him]) {
       await minerva.click(
@@ -1111,13 +1410,13 @@ async function dracoTracks() {
   await draco.goto(`${HUB}/applications`);
   await studio.onAir(draco, async () => {
     await say(
-      "Draco learns the outcome at once, instead of waiting for an email that never comes. His application has moved to Closed.",
+      "Draco finds out right away, instead of waiting for an email that never comes. His application is now under Closed.",
     );
     await draco.pause(2000);
     await openClosedApplication(draco);
     await expect(draco.page.getByText("Not selected").first()).toBeVisible();
     await say(
-      "No stage names, notes, or feedback reach the Hub. Only the status: Not selected.",
+      "He only sees the status, Not selected. Stage names, notes, and feedback stay with Hogwarts.",
     );
     await draco.pause(3500);
   });
@@ -1162,7 +1461,7 @@ async function scheduleInterview() {
   await minerva.goto(appURL("hermione"));
   await studio.onAir(minerva, async () => {
     await say(
-      "Hermione's application shows her profile snapshot, her cover note, and the agency that referred her.",
+      "Hermione's application shows her profile, her cover note, and that Ollivanders referred her.",
     );
     await minerva.pause(2000);
     await minerva.pointAt(p.getByText("Referred by").first());
@@ -1170,7 +1469,7 @@ async function scheduleInterview() {
     await minerva.click(p.getByRole("button", { name: "Schedule interview" }));
     const dialog = p.getByRole("dialog", { name: "Schedule an interview" });
     await say(
-      "Minerva schedules a video interview, with Severus Snape and herself on the panel.",
+      "Minerva schedules a video interview, with Severus Snape and herself as the panel.",
     );
     await minerva.setDate(dialog.getByLabel("Start"), tomorrowAt10());
     await minerva.type(
@@ -1203,7 +1502,7 @@ async function hermioneInterview() {
   await awaitHub(hermione, `${HUB}/applications`, "Respond to an interview");
   await studio.onAir(hermione, async () => {
     await say(
-      "Hermione's application now reads Interviewing, and an interview is waiting for her answer.",
+      "On the Hub, Hermione's application now says Interviewing, and the interview is waiting for her reply.",
     );
     await hermione.pause(3000);
     await hermione.click(p.getByText(OPENING_TITLE).first());
@@ -1212,9 +1511,7 @@ async function hermioneInterview() {
     await hermione.pause(2500);
     await hermione.click(card.getByRole("button", { name: "Accept" }));
     await expect(card.getByText("Accepted")).toBeVisible();
-    await say(
-      "She accepts. She could also have asked for another time, with a note.",
-    );
+    await say("She accepts. She could also have asked for a different time.");
     await hermione.pause(3000);
   });
 }
@@ -1233,7 +1530,7 @@ async function ronAsksAnotherTime() {
   await awaitHub(ron, hubAppURL("ron"), "Request another time");
   await studio.onAir(ron, async () => {
     await say(
-      "Ron is invited to the same interview stage, but the time clashes with a launch at the Wheezes.",
+      "Ron is invited too, but the time clashes with a product launch at the Wheezes.",
     );
     await ron.pause(2500);
     await ron.click(p.getByRole("button", { name: "Request another time" }));
@@ -1246,7 +1543,7 @@ async function ronAsksAnotherTime() {
     await ron.click(dialog.getByRole("button", { name: "Send request" }));
     await expect(p.getByText("Another time requested").first()).toBeVisible();
     await say(
-      "He asks for another time, with a note. No email threads, and no recruiter's phone number needed.",
+      "So he asks for another time and leaves a note. No back-and-forth emails needed.",
     );
     await ron.pause(3000);
   });
@@ -1259,7 +1556,7 @@ async function minervaReschedules() {
   await minerva.goto(appURL("ron"));
   await reloadUntil(minerva, p.getByText(/asked for another time/).first());
   await studio.onAir(minerva, async () => {
-    await say("Minerva sees Ron's request and his note on his application.");
+    await say("Minerva sees Ron's request and his note.");
     await minerva.pointAt(p.getByText(/asked for another time/).first());
     await minerva.pause(3000);
     await minerva.click(
@@ -1270,7 +1567,7 @@ async function minervaReschedules() {
     await minerva.click(dialog.getByRole("button", { name: "Save changes" }));
     await expect(p.getByText(/^Interview updated\./).first()).toBeVisible();
     await say(
-      "She moves it to the afternoon he asked for. A new time asks Ron to respond again, and he accepts.",
+      "She moves it to the afternoon he suggested. Ron is asked to confirm the new time, and he does.",
     );
     await minerva.pause(3000);
   });
@@ -1399,7 +1696,7 @@ async function severusFeedback() {
   await severus.goto(`${ORGS}/my-interviews`);
   await studio.onAir(severus, async () => {
     await say(
-      "Severus Snape signs in. He is only a Member, but My interviews lists every interview he sits on, with the feedback he owes.",
+      "Severus Snape is a regular Member at Hogwarts. My interviews shows the interviews he is on, and the feedback he still owes.",
     );
     await severus.pause(2000);
     await severus.click(p.getByRole("tab", { name: /^Feedback due/ }));
@@ -1412,7 +1709,7 @@ async function severusFeedback() {
       p.getByRole("button", { name: "Give feedback" }),
     ).toBeVisible();
     await say(
-      "Minerva has already given her feedback, but Severus cannot read it until he submits his own, so hers cannot sway him.",
+      "Minerva has already written her feedback, but Severus can't see it until he submits his own. That way, hers can't sway him.",
     );
     await severus.pointAt(
       p.getByText(
@@ -1422,9 +1719,7 @@ async function severusFeedback() {
     await severus.pause(3000);
     await severus.click(p.getByRole("button", { name: "Give feedback" }));
     const dialog = p.getByRole("dialog", { name: "Feedback on interview 1" });
-    await say(
-      "The stage's feedback form asks the same questions of every interviewer.",
-    );
+    await say("He fills in the feedback form Minerva set up for this stage.");
     for (const criterion of [
       "Designs for scale and for failure",
       "Explains trade-offs clearly",
@@ -1454,9 +1749,7 @@ async function severusFeedback() {
       dialog.getByRole("button", { name: "Submit feedback" }),
     );
     await expect(p.getByText(/^Feedback submitted\./).first()).toBeVisible();
-    await say(
-      "Submitted. Now both interviewers' answers sit side by side, criterion by criterion.",
-    );
+    await say("Once he submits, both sets of feedback appear side by side.");
     await severus.scroll(400);
     await severus.pause(3500);
   });
@@ -1469,13 +1762,13 @@ async function ronDecision() {
   await minerva.goto(appURL("ron"));
   await studio.onAir(minerva, async () => {
     await say(
-      "Ron's panel agreed: a strong leader, but not this architect role. Minerva compares the feedback.",
+      "For Ron, both interviewers agreed: a strong leader, but not the right fit for this role.",
     );
     await minerva.pause(1500);
     await minerva.scroll(450);
     await minerva.pause(3000);
     await say(
-      "Ron does not progress. Ending a candidacy cancels anything still upcoming.",
+      "Minerva doesn't take him forward, and anything still scheduled for him is cancelled.",
     );
     await minerva.scrollToTop();
     await minerva.click(p.getByRole("button", { name: "Not progressing" }));
@@ -1502,7 +1795,7 @@ async function ronTracks() {
   await ron.goto(`${HUB}/applications`);
   await studio.onAir(ron, async () => {
     await say(
-      "Ron reached the interview, and he too knows where he stands: Closed, Not selected.",
+      "Ron knows where he stands, too: his application is Closed, Not selected.",
     );
     await ron.pause(1500);
     await openClosedApplication(ron);
@@ -1533,7 +1826,7 @@ async function extendOffer() {
   const letter = await offerLetter();
   await studio.onAir(minerva, async () => {
     await say(
-      "Hermione's panel was unanimous. Minerva extends an offer, with the letter as a PDF and a date to answer by.",
+      "Both interviewers loved Hermione. Minerva sends her an offer, with the letter attached and a date to reply by.",
     );
     await minerva.pause(1500);
     await minerva.click(p.getByRole("button", { name: "Extend offer" }));
@@ -1566,7 +1859,7 @@ async function hermioneAccepts() {
   await awaitHub(hermione, hubAppURL("hermione"), "Proposed joining date");
   await studio.onAir(hermione, async () => {
     await say(
-      "Hermione's application moves to Offer. She reads the letter and decides, all in one place.",
+      "Hermione sees the offer on the Hub. She can read the letter and reply in one place.",
     );
     await hermione.pause(2500);
     const card = p.locator(".ant-card", { hasText: "Proposed joining date" });
@@ -1579,7 +1872,7 @@ async function hermioneAccepts() {
         .getByRole("button", { name: "Accept offer" }),
     );
     await expect(card.getByText("Accepted")).toBeVisible();
-    await say("Offer accepted.");
+    await say("She accepts.");
     await hermione.pause(2500);
   });
 }
@@ -1591,7 +1884,7 @@ async function recordJoined() {
   await minerva.goto(appURL("hermione"));
   await reloadUntil(minerva, p.getByRole("button", { name: "Record joined" }));
   await studio.onAir(minerva, async () => {
-    await say("On her first day, Minerva records that Hermione joined.");
+    await say("On her first day, Minerva marks Hermione as joined.");
     await minerva.pause(2000);
     await minerva.click(p.getByRole("button", { name: "Record joined" }));
     const dialog = p.getByRole("dialog", { name: "Record joining date" });
@@ -1599,7 +1892,7 @@ async function recordJoined() {
     await minerva.click(dialog.getByRole("button", { name: "Record joined" }));
     await expect(p.getByText("Joined", { exact: true }).first()).toBeVisible();
     await say(
-      "The history keeps every step and who took it, from application to joining.",
+      "The history shows every step, and who took it, from application to joining.",
     );
     await minerva.scroll(500);
     await minerva.pause(3000);
@@ -1609,9 +1902,9 @@ async function recordJoined() {
 // ─── Act 6: where everyone stands ──────────────────────────────────────────
 
 async function actOutcome() {
-  chapter("6 · Where everyone stands", [
-    "The candidate, the agency, and the hiring Org",
-    "each see the outcome from their own side",
+  chapter("6 · How it ends for everyone", [
+    "Hermione, Ollivanders, and Hogwarts",
+    "each see the result from their own side",
   ]);
 }
 
@@ -1621,12 +1914,12 @@ async function hermioneJoined() {
   await awaitHub(hermione, hubAppURL("hermione"), "Joined");
   await hermione.goto(`${HUB}/applications`);
   await studio.onAir(hermione, async () => {
-    await say("For Hermione, the application is complete: Joined.");
+    await say("For Hermione, the application is now complete: Joined.");
     await hermione.pause(1500);
     await openClosedApplication(hermione);
     await hermione.pause(2500);
     await say(
-      "Every step she went through is listed with its date: applied, interviewing, offer, and joined.",
+      "She can see every step with its date: applied, interviewing, offer, and joined.",
     );
     await hermione.scroll(400);
     await hermione.pause(3000);
@@ -1644,13 +1937,13 @@ async function agencyCredit() {
   await reloadUntil(garrick, row.getByText("Joined"));
   await studio.onAir(garrick, async () => {
     await say(
-      "At Ollivanders, Credited applications shows Hermione's application, by her handle, with the same general status she sees: Joined.",
+      "At Ollivanders, Credited applications lists Hermione's application by her handle, with the same status she sees: Joined.",
     );
     await garrick.pause(2500);
     await garrick.pointAt(row.getByText("Joined"));
     await garrick.pause(2000);
     await say(
-      "Ron and Draco applied directly, so Ollivanders never sees them. Credit was fixed the moment Hermione applied.",
+      "Ron and Draco applied on their own, so Ollivanders doesn't see them at all.",
     );
     await garrick.pause(3000);
     await garrick.click(p.getByRole("menuitem", { name: /Clients/ }));
@@ -1664,7 +1957,7 @@ async function agencyCredit() {
     ).toBeVisible();
     await garrick.pause(1500);
     await say(
-      "The engagement's monthly activity statement lists the billable facts, such as the joining date. It is not an invoice: the two Orgs settle fees between themselves.",
+      "Each month there's an activity statement of what happened, like Hermione's joining date. It isn't an invoice; the two companies sort out payment themselves.",
     );
     await garrick.scroll(500);
     await garrick.pause(4000);
@@ -1678,7 +1971,7 @@ async function hogwartsStatement() {
   await minerva.goto(`${ORGS}/providers`);
   await studio.onAir(minerva, async () => {
     await say(
-      "Hogwarts sees the same engagement from its side, under Find providers, Your engagements.",
+      "Hogwarts sees the same engagement from its side, under Find providers.",
     );
     await minerva.pause(1500);
     await minerva.click(p.getByRole("tab", { name: "Your engagements" }));
@@ -1688,7 +1981,7 @@ async function hogwartsStatement() {
       p.getByText("Activity statement — not an invoice").first(),
     ).toBeVisible();
     await say(
-      "Its activity statement lists exactly the facts Ollivanders sees, so both Orgs start their invoicing from the same record.",
+      "Its activity statement shows the same facts, so both sides work from the same record.",
     );
     await minerva.pause(2000);
     await minerva.pointAt(
@@ -1705,7 +1998,7 @@ async function openingClose() {
   await albus.goto(`${ORGS}/openings/${opening()}`);
   await studio.onAir(albus, async () => {
     await say(
-      "The position is filled. As an approver, Albus closes the Opening directly; Minerva would have had to request it.",
+      "The role is filled. Albus is an approver, so he can close the Opening himself.",
     );
     await albus.pause(2000);
     await albus.click(p.getByRole("button", { name: "Close", exact: true }));
@@ -1716,7 +2009,7 @@ async function openingClose() {
     );
     await expect(p.getByText("Closed", { exact: true }).first()).toBeVisible();
     await say(
-      "Closed. Every request, approval, application, and decision stays in the Opening's history.",
+      "It's closed. The Opening's history keeps every request, approval, application, and decision.",
     );
     await albus.scroll(600);
     await albus.pause(3500);
@@ -1724,19 +2017,19 @@ async function openingClose() {
 }
 
 async function outro() {
-  const title = "Hermione is hired";
-  const lines = [
-    "Hogwarts drafted, approved, and filled the Opening as one team.",
-    "Ollivanders found her, and the credit was never in doubt.",
-    "Hermione, Ron, and Draco always knew where they stood.",
-  ];
-  studio.card({ title, lines, seconds: cardSeconds(title, lines) });
+  chapter("Hermione got the job", [
+    "Hogwarts ran the whole hire in one place, from the first draft to her first day.",
+    "Ollivanders found her, and is credited for it.",
+    "Ron and Draco always knew where they stood, too.",
+    "Vetchium is Open Source. Thanks for watching.",
+  ]);
 }
 
 const SCENES = {
   intro,
-  hogwartsTeam,
+  pipelineTemplate,
   openingDraft,
+  openingQuestions,
   openingSubmit,
   openingApprove,
   aiUsage,

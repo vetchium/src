@@ -8,10 +8,16 @@
 // bar, captions, and cards are HTML stills rendered by Chromium and overlaid.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, extname, join, resolve } from "node:path";
 import { chromium } from "@playwright/test";
 import { type Role, RUN_DIR } from "./cast.ts";
-import { type Card, FRAME, type Segment, type Timeline } from "./studio.ts";
+import {
+  type Card,
+  FRAME,
+  type Segment,
+  type Shot,
+  type Timeline,
+} from "./studio.ts";
 
 const INPUT = process.argv[2] ? resolve(process.argv[2]) : RUN_DIR;
 const FINAL = resolve(process.argv[3] ?? join(INPUT, "vetchium-demo.mp4"));
@@ -97,12 +103,37 @@ function castHTML(roles: Role[]) {
     .join("")}</div>`;
 }
 
+/** Inlined, since a page set from a string cannot load local files. */
+function dataURL(file: string) {
+  const type = extname(file).toLowerCase() === ".png" ? "png" : "jpeg";
+  return `data:image/${type};base64,${readFileSync(file).toString("base64")}`;
+}
+
+function shotsHTML(shots: Shot[]) {
+  return `<div style="margin-top:44px;display:flex;gap:48px">${shots
+    .map(
+      (shot) => `<div style="width:840px;text-align:center">
+      <img src="${dataURL(shot.file)}" style="width:840px;border-radius:12px;border:2px solid #3a3f4b;box-shadow:0 12px 40px rgba(0,0,0,.5)"/>
+      <div style="margin-top:22px;font-size:34px;font-weight:700">${html(shot.heading)}</div>
+      <div style="margin-top:6px;font-size:24px;color:#c9ced8;line-height:1.4">${html(shot.text)}</div></div>`,
+    )
+    .join("")}</div>`;
+}
+
 function cardHTML(card: Card, roles: Role[]) {
-  const titleSize = card.cast ? 60 : 72;
-  return `<html><body style="margin:0;width:${OUTPUT.width}px;height:${OUTPUT.height}px;background:linear-gradient(135deg,#16181d,#2a1215 55%,#1d1530);${FONT};display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff">
-  <div style="font-size:30px;letter-spacing:.3em;color:#f5c542;margin-bottom:28px">VETCHIUM</div>
+  const titleSize = card.cast || card.shots ? 60 : 72;
+  // The logo replaces the wordmark above the title.
+  const mark = card.image
+    ? `<img src="${dataURL(card.image)}" style="height:560px;margin-bottom:12px"/>`
+    : `<div style="font-size:30px;letter-spacing:.3em;color:#f5c542;margin-bottom:28px">VETCHIUM</div>`;
+  const background = card.image
+    ? "#000"
+    : "linear-gradient(135deg,#16181d,#2a1215 55%,#1d1530)";
+  return `<html><body style="margin:0;width:${OUTPUT.width}px;height:${OUTPUT.height}px;background:${background};${FONT};display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff">
+  ${mark}
   <div style="font-size:${titleSize}px;font-weight:800;text-align:center;max-width:1600px;line-height:1.15">${html(card.title)}</div>
-  <div style="margin-top:32px;font-size:30px;color:#c9ced8;text-align:center;line-height:1.55">${card.lines.map(html).join("<br/>")}</div>
+  <div style="margin-top:28px;font-size:30px;color:#c9ced8;text-align:center;line-height:1.55">${card.lines.map(html).join("<br/>")}</div>
+  ${card.shots ? shotsHTML(card.shots) : ""}
   ${card.cast ? castHTML(roles) : ""}
   </body></html>`;
 }
@@ -234,7 +265,7 @@ async function carded(card: Card, i: number) {
     ...ENCODE,
     clip,
   ]);
-  const spoken = `${card.title}. ${card.lines.join(" ")}`;
+  const spoken = card.narration ?? `${card.title}. ${card.lines.join(" ")}`;
   return {
     clip,
     length: duration(clip),
@@ -284,9 +315,12 @@ function srtTime(t: number): string {
   const pad = (n: number, w = 2) => String(n).padStart(w, "0");
   return `${pad(Math.floor(ms / 3_600_000))}:${pad(Math.floor(ms / 60_000) % 60)}:${pad(Math.floor(ms / 1000) % 60)},${pad(ms % 1000, 3)}`;
 }
-const base = FINAL.replace(/\.mp4$/, "");
+// The captions are burnt into the video. Players load an .srt named after
+// the video as a second subtitle track, so the narration files are named
+// apart from it; they are for generating a voiceover, not for uploading.
+const narration = join(dirname(FINAL), "narration");
 writeFileSync(
-  `${base}.srt`,
+  `${narration}.srt`,
   all
     .map(
       (c, i) =>
@@ -295,7 +329,7 @@ writeFileSync(
     .join("\n"),
 );
 writeFileSync(
-  `${base}-script.txt`,
+  `${narration}-script.txt`,
   `${all
     .map(
       (c) =>
