@@ -221,6 +221,7 @@ interface OpeningOperations {
       }
     | OpeningWriteErrors
     | Vetchium.Problem.OrgOpeningHiringTeamInvalidErrorResponse
+    | Vetchium.Problem.OrgOpeningTagUnknownErrorResponse
     | Vetchium.Problem.OrgPipelineTemplateNotFoundErrorResponse
     | Vetchium.Problem.OrgOpeningsQuotaExceededErrorResponse;
 
@@ -358,7 +359,8 @@ interface OpeningOperations {
     | Vetchium.Problem.OrgOpeningNotFoundErrorResponse
     | Vetchium.Problem.OrgOpeningVersionConflictErrorResponse
     | Vetchium.Problem.OrgOpeningRequestPendingErrorResponse
-    | Vetchium.Problem.OrgOpeningStateConflictErrorResponse;
+    | Vetchium.Problem.OrgOpeningStateConflictErrorResponse
+    | Vetchium.Problem.OrgOpeningTagUnknownErrorResponse;
 
   @route("/discard-opening-working-copy")
   @post

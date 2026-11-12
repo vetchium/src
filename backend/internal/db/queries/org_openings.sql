@@ -105,7 +105,8 @@ LEFT JOIN LATERAL (
             ELSE jsonb_build_object('currency', c.salary_currency,
                 'min', c.salary_min, 'max', c.salary_max,
                 'period', c.salary_period) END,
-        'questions', c.questions
+        'questions', c.questions,
+        'tags', c.tag_oids
     )) AS body
     FROM vetchium.org_opening_contents AS c
     WHERE c.org_opening_id = o.org_opening_id AND c.slot = 'live'
@@ -133,7 +134,8 @@ LEFT JOIN LATERAL (
             ELSE jsonb_build_object('currency', c.salary_currency,
                 'min', c.salary_min, 'max', c.salary_max,
                 'period', c.salary_period) END,
-        'questions', c.questions
+        'questions', c.questions,
+        'tags', c.tag_oids
     )) AS body
     FROM vetchium.org_opening_contents AS c
     WHERE c.org_opening_id = o.org_opening_id AND c.slot = 'working'
@@ -261,7 +263,19 @@ WITH usage AS (
     UNION ALL
     SELECT 1, 'Review', 'review'::vetchium.pipeline_stage_kind, '[]'::jsonb
     WHERE sqlc.narg(template_id)::uuid IS NULL
+), unknown_tags AS (
+    -- The trigger on org_opening_contents would abort the statement instead
+    -- (OPN-TAG-008); positions keep the caller's order.
+    SELECT tag.tag_oid, tag.position
+    FROM jsonb_array_elements_text(
+        COALESCE(sqlc.arg(content)::jsonb->'tags', '[]'::jsonb))
+        WITH ORDINALITY AS tag(tag_oid, position)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM vetchium.opening_tags AS t
+        WHERE t.tag_oid = tag.tag_oid
+    )
 ), numbered AS (
+    -- Every other write follows from the number this takes.
     UPDATE vetchium.orgs AS o
     SET next_opening_number = o.next_opening_number + 1
     FROM usage, invalid, template_missing
@@ -269,6 +283,7 @@ WITH usage AS (
       AND usage.used < sqlc.arg(quota)::integer
       AND cardinality(invalid.addresses) = 0
       AND NOT template_missing.missing
+      AND NOT EXISTS (SELECT 1 FROM unknown_tags)
     RETURNING o.next_opening_number - 1 AS opening_number
 ), created AS (
     INSERT INTO vetchium.org_openings (
@@ -290,7 +305,7 @@ WITH usage AS (
         remote_eligibility, remote_countries, employment_type,
         positions, experience_min, experience_max, minimum_education,
         salary_currency, salary_min, salary_max, salary_period, questions,
-        updated_by
+        tag_oids, updated_by
     )
     SELECT created.org_opening_id, 'working',
         body->>'title', body->>'description', body->>'language',
@@ -314,6 +329,12 @@ WITH usage AS (
         (body #>> '{salary,max}')::bigint,
         (body #>> '{salary,period}')::vetchium.org_opening_salary_period,
         NULLIF(body->'questions', '[]'::jsonb),
+        NULLIF(ARRAY(
+            SELECT tag.tag_oid
+            FROM jsonb_array_elements_text(body->'tags')
+                WITH ORDINALITY AS tag(tag_oid, position)
+            ORDER BY tag.position
+        ), '{}'),
         sqlc.arg(actor_id)
     FROM created
     CROSS JOIN (SELECT sqlc.arg(content)::jsonb AS body) AS input
@@ -365,6 +386,8 @@ WITH usage AS (
 SELECT usage.used,
     to_jsonb(invalid.addresses) AS invalid_addresses,
     COALESCE(template_missing.missing, false)::boolean AS template_missing,
+    COALESCE((SELECT jsonb_agg(tag_oid ORDER BY position)
+        FROM unknown_tags), '[]'::jsonb)::jsonb AS unknown_tag_oids,
     COALESCE((SELECT opening_number FROM created), 0)::integer AS opening_number,
     (SELECT count(*) FROM content) AS content_rows,
     (SELECT count(*) FROM stages) AS stage_rows,
@@ -452,7 +475,7 @@ WITH source AS (
         remote_eligibility, remote_countries, employment_type,
         positions, experience_min, experience_max, minimum_education,
         salary_currency, salary_min, salary_max, salary_period, questions,
-        updated_by
+        tag_oids, updated_by
     )
     SELECT created.org_opening_id, 'working', source_content.title,
         source_content.description, source_content.language,
@@ -463,7 +486,8 @@ WITH source AS (
         source_content.experience_max, source_content.minimum_education,
         source_content.salary_currency, source_content.salary_min,
         source_content.salary_max, source_content.salary_period,
-        source_content.questions, sqlc.arg(actor_id)
+        source_content.questions, source_content.tag_oids,
+        sqlc.arg(actor_id)
     FROM created CROSS JOIN source_content
     RETURNING org_opening_id
 ), stages AS (
@@ -579,7 +603,13 @@ WITH input AS (
         (body #>> '{salary,max}')::bigint AS salary_max,
         (body #>> '{salary,period}')::
             vetchium.org_opening_salary_period AS salary_period,
-        NULLIF(body->'questions', '[]'::jsonb) AS questions
+        NULLIF(body->'questions', '[]'::jsonb) AS questions,
+        NULLIF(ARRAY(
+            SELECT tag.tag_oid
+            FROM jsonb_array_elements_text(body->'tags')
+                WITH ORDINALITY AS tag(tag_oid, position)
+            ORDER BY tag.position
+        ), '{}') AS tag_oids
     FROM input
 ), known_questions AS (
     SELECT question->>'id' AS question_id
@@ -606,6 +636,17 @@ WITH input AS (
           SELECT 1 FROM known_questions AS k
           WHERE k.question_id = entry.question->>'id'
       )
+), unknown_tags AS (
+    -- The trigger on org_opening_contents would abort the statement instead
+    -- (OPN-TAG-008); positions keep the caller's order.
+    SELECT tag.tag_oid, tag.position
+    FROM jsonb_array_elements_text(
+        COALESCE(sqlc.arg(content)::jsonb->'tags', '[]'::jsonb))
+        WITH ORDINALITY AS tag(tag_oid, position)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM vetchium.opening_tags AS t
+        WHERE t.tag_oid = tag.tag_oid
+    )
 ), updated AS (
     UPDATE vetchium.org_openings AS o
     SET version = o.version + 1, updated_at = now()
@@ -614,6 +655,7 @@ WITH input AS (
       AND o.version = sqlc.arg(version)::integer
       AND o.opening_state IN ('draft', 'published', 'paused')
       AND NOT EXISTS (SELECT 1 FROM unknown_questions)
+      AND NOT EXISTS (SELECT 1 FROM unknown_tags)
       AND NOT EXISTS (
           SELECT 1 FROM vetchium.org_opening_requests AS r
           WHERE r.org_opening_id = o.org_opening_id
@@ -628,7 +670,7 @@ WITH input AS (
         remote_eligibility, remote_countries, employment_type,
         positions, experience_min, experience_max, minimum_education,
         salary_currency, salary_min, salary_max, salary_period, questions,
-        updated_by, updated_at
+        tag_oids, updated_by, updated_at
     )
     SELECT updated.org_opening_id, 'working',
         flat.title, flat.description, flat.language,
@@ -636,7 +678,7 @@ WITH input AS (
         flat.remote_eligibility, flat.remote_countries, flat.employment_type,
         flat.positions, flat.experience_min, flat.experience_max,
         flat.minimum_education, flat.salary_currency, flat.salary_min,
-        flat.salary_max, flat.salary_period, flat.questions,
+        flat.salary_max, flat.salary_period, flat.questions, flat.tag_oids,
         sqlc.arg(actor_id), now()
     FROM updated CROSS JOIN flat
     ON CONFLICT (org_opening_id, slot) DO UPDATE SET
@@ -658,6 +700,7 @@ WITH input AS (
         salary_max = EXCLUDED.salary_max,
         salary_period = EXCLUDED.salary_period,
         questions = EXCLUDED.questions,
+        tag_oids = EXCLUDED.tag_oids,
         updated_by = EXCLUDED.updated_by,
         updated_at = EXCLUDED.updated_at
     RETURNING org_opening_id
@@ -689,6 +732,8 @@ SELECT COALESCE((SELECT version FROM updated), 0)::integer AS version,
     COALESCE((SELECT jsonb_agg(position ORDER BY position)
         FROM unknown_questions), '[]'::jsonb)::jsonb
         AS unknown_question_positions,
+    COALESCE((SELECT jsonb_agg(tag_oid ORDER BY position)
+        FROM unknown_tags), '[]'::jsonb)::jsonb AS unknown_tag_oids,
     (SELECT count(*) FROM saved) AS saved_rows,
     (SELECT count(*) FROM history) AS history_rows,
     (SELECT count(*) FROM audit) AS audit_rows;

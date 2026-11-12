@@ -2,6 +2,11 @@ import { isCountryCode } from "./countries.ts";
 import { type CurrencyCode, isCurrencyCode } from "./currency_catalog.ts";
 import { isLanguageTag, type LanguageTag } from "./language_catalog.ts";
 import type { CountryCode } from "./localization.ts";
+import {
+  isOpeningTagOID,
+  maxOpeningTags,
+  type OpeningTagOID,
+} from "./opening_tags.ts";
 
 export const OpeningOnSite = "on_site" as const;
 export const OpeningHybrid = "hybrid" as const;
@@ -141,6 +146,8 @@ export interface OpeningContent {
   salary?: OpeningSalary;
   /** In display order. */
   questions?: ApplicationQuestion[];
+  /** In the Org's chosen order. */
+  tags?: OpeningTagOID[];
 }
 
 export function normalizeOpeningContent(
@@ -186,6 +193,7 @@ export function normalizeOpeningContent(
         }),
       })),
     }),
+    ...(content.tags !== undefined && { tags: [...content.tags] }),
   };
 }
 
@@ -320,6 +328,18 @@ export function validateOpeningContent(content: OpeningContent): string[] {
   }
   if (content.questions !== undefined)
     fields.push(...validateQuestions(content.questions));
+  if (content.tags !== undefined) fields.push(...validateTags(content.tags));
+  return fields;
+}
+
+function validateTags(tags: OpeningTagOID[]): string[] {
+  const fields: string[] = [];
+  if (tags.length > maxOpeningTags) fields.push("tags");
+  const seen = new Set<string>();
+  for (const [index, tag] of tags.entries()) {
+    if (!isOpeningTagOID(tag) || seen.has(tag)) fields.push(`tags.${index}`);
+    seen.add(tag);
+  }
   return fields;
 }
 

@@ -783,3 +783,73 @@ test("mesh Org Opening list, get, and agencies routes enforce credentials, valid
     await deleteOrgVerificationRecord(org.domain);
   }
 });
+
+test("Hub get-org-opening carries live tag OIDs, locally and across regions", async ({
+  request,
+}) => {
+  const viewerEmail = `e2e+${randomUUID()}@e2e-${randomUUID()}.example.test`;
+  const hub = new HubAPI(request, "sgp");
+  const orgs: [OrgsAPI, Awaited<ReturnType<typeof signupOrg>>][] = [];
+  try {
+    const { sessionToken: token } = seedActiveHubUser(
+      "sgp",
+      viewerEmail,
+      "Tag Reader",
+    );
+    for (const api of [
+      new OrgsAPI(request, "sgp"),
+      new OrgsAPI(request, "usa1"),
+    ]) {
+      const org = await signupOrg(api);
+      orgs.push([api, org]);
+      const owner = await loginOrg(api, org);
+      const createdResponse = await api.createOpening(owner, {
+        content: {
+          ...content("Tagged Engineer"),
+          tags: ["rust", "golang"],
+        },
+        hiring_manager_email: org.emailAddress,
+        recruiter_email: org.emailAddress,
+        team_member_emails: [],
+      });
+      expect(createdResponse.status(), await createdResponse.text()).toBe(201);
+      const created = (await createdResponse.json()) as OrgOpening;
+      const publishedResponse = await api.requestOpeningChange(owner, {
+        opening_number: created.opening_number,
+        version: created.version,
+        kind: "publish",
+      });
+      expect(publishedResponse.status()).toBe(200);
+      const untagged = await publish(
+        api,
+        owner,
+        org.emailAddress,
+        "Untagged Engineer",
+      );
+      const read = async (openingNumber: number) => {
+        const response = await hub.getOrgOpening(
+          { domain: org.domain, opening_number: openingNumber },
+          token,
+        );
+        expect(response.status(), await response.text()).toBe(200);
+        const { opening } = (await response.json()) as GetOrgOpeningResponse;
+        if (opening.state !== "published") throw new Error(opening.state);
+        return opening.content;
+      };
+      expect((await read(created.opening_number)).tags, api.tenant).toEqual([
+        "rust",
+        "golang",
+      ]);
+      expect(
+        await read(untagged.opening_number),
+        api.tenant,
+      ).not.toHaveProperty("tags");
+    }
+  } finally {
+    for (const [api, org] of orgs) {
+      await deleteOrgVerificationRecord(org.domain);
+      cleanupOrg(org.domain, api.tenant);
+    }
+    cleanupHubUser(viewerEmail, "sgp");
+  }
+});

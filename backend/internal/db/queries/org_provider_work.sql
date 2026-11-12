@@ -589,7 +589,8 @@ SELECT asg.assignment_id, eng.engagement_id,
             'salary', CASE WHEN lc.salary_currency IS NULL THEN NULL
                 ELSE jsonb_build_object('currency', lc.salary_currency,
                     'min', lc.salary_min, 'max', lc.salary_max,
-                    'period', lc.salary_period) END
+                    'period', lc.salary_period) END,
+            'tags', lc.tag_oids
         ))
         FROM vetchium.org_opening_contents AS lc
         WHERE lc.org_opening_id = o.org_opening_id AND lc.slot = 'live'

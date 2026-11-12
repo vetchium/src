@@ -144,6 +144,13 @@ func CreateOpening(s *orgsruntime.Server) http.HandlerFunc {
 						orgsproblem.OpeningHiringTeamInvalidError(invalid),
 					)
 				}
+				unknown, err := unknownTags(row.UnknownTagOids)
+				if err != nil {
+					return result{}, nil, err
+				}
+				if unknown != nil {
+					return handlerauth.Failure[openings.OrgOpening](*unknown)
+				}
 				if row.TemplateMissing {
 					return handlerauth.Failure[openings.OrgOpening](orgsproblem.PipelineTemplateNotFoundError)
 				}

@@ -2,6 +2,7 @@ package common
 
 import (
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -276,5 +277,56 @@ func TestApplicationQuestionNormalizationDoesNotMutateSource(t *testing.T) {
 	want := ApplicationQuestion{Text: "Office", Type: QuestionSingleChoice, Options: []string{"Berlin", "Munich"}}
 	if !reflect.DeepEqual(normalized.Questions[0], want) {
 		t.Fatalf("normalized = %+v, want %+v", normalized.Questions[0], want)
+	}
+}
+
+func TestOpeningTagValidation(t *testing.T) {
+	t.Parallel()
+	five := []OpeningTagOID{"golang", "rust", "python", "kubernetes", "artificial-intelligence"}
+	tests := []struct {
+		name string
+		tags []OpeningTagOID
+		want []string
+	}{
+		{"none", nil, nil},
+		{"empty", []OpeningTagOID{}, nil},
+		{"five", five, nil},
+		{"six", append(slices.Clone(five), "java"), []string{"tags"}},
+		{"repeat", []OpeningTagOID{"golang", "rust", "golang"}, []string{"tags.2"}},
+		{"malformed", []OpeningTagOID{"golang", "Go Lang"}, []string{"tags.1"}},
+		{"too short", []OpeningTagOID{"g"}, []string{"tags.0"}},
+		{"six with a repeat", append(slices.Clone(five), "rust"), []string{"tags", "tags.5"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			content := validOpening()
+			content.Tags = test.tags
+			if fields := content.Validate(); !slices.Equal(fields, test.want) {
+				t.Fatalf("Validate() = %v, want %v", fields, test.want)
+			}
+		})
+	}
+	content := validOpening()
+	content.Tags = five
+	if fields := MissingForPublication(content); len(fields) != 0 {
+		t.Fatalf("MissingForPublication() = %v, want none", fields)
+	}
+}
+
+func TestOpeningTagNormalizationDoesNotMutateSource(t *testing.T) {
+	t.Parallel()
+	source := validOpening()
+	source.Tags = []OpeningTagOID{"golang", "rust"}
+	normalized := source
+	normalized.Normalize()
+	normalized.Tags[0] = "python"
+	if source.Tags[0] != "golang" {
+		t.Fatalf("source changed: %v", source.Tags)
+	}
+	empty := validOpening()
+	empty.Normalize()
+	if empty.Tags != nil {
+		t.Fatalf("absent tags became %v", empty.Tags)
 	}
 }

@@ -94,7 +94,8 @@ LEFT JOIN LATERAL (
                     ELSE jsonb_build_object('currency', c.salary_currency,
                         'min', c.salary_min, 'max', c.salary_max,
                         'period', c.salary_period) END,
-                'questions', c.questions
+                'questions', c.questions,
+                'tags', c.tag_oids
             )),
             'first_published_at', o.first_published_at,
             'last_revised_at', o.last_revised_at,

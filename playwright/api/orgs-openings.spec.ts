@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect } from "@playwright/test";
 import type { ApplicationQuestion } from "typespec/common/openings";
 import type { OrgOpening } from "typespec/orgs/openings/types";
@@ -1197,5 +1198,145 @@ test("application questions are validated content that approval makes live", asy
   } finally {
     await deleteOrgVerificationRecord(org.domain);
     cleanupOrg(org.domain);
+  }
+});
+
+test("Opening tags round-trip through create-opening, save-opening-working-copy, and duplicate-opening", async ({
+  request,
+}) => {
+  const api = new OrgsAPI(request);
+  const org = await signupOrg(api);
+  const deprecated = `test-${randomUUID()}`;
+  try {
+    const owner = await loginOrg(api, org);
+    const five = [
+      "rust",
+      "golang",
+      "artificial-intelligence",
+      "python",
+      "devops",
+    ];
+    const create = (tags: string[] | undefined, title: string) =>
+      api.createOpening(owner, {
+        content: tags === undefined ? { title } : { title, tags },
+        team_member_emails: [],
+      });
+
+    const noneResponse = await create(undefined, "No tags");
+    expect(noneResponse.status(), await noneResponse.text()).toBe(201);
+    const none = (await noneResponse.json()) as OrgOpening;
+    expect(none.working_content).not.toHaveProperty("tags");
+    const emptyResponse = await create([], "Empty tags");
+    expect(emptyResponse.status(), await emptyResponse.text()).toBe(201);
+    const empty = (await emptyResponse.json()) as OrgOpening;
+    expect(empty.working_content).not.toHaveProperty("tags");
+    const oneResponse = await create(["golang"], "One tag");
+    expect(oneResponse.status(), await oneResponse.text()).toBe(201);
+    expect(
+      ((await oneResponse.json()) as OrgOpening).working_content?.tags,
+    ).toEqual(["golang"]);
+    const fiveResponse = await create(five, "Five tags");
+    expect(fiveResponse.status(), await fiveResponse.text()).toBe(201);
+    const tagged = (await fiveResponse.json()) as OrgOpening;
+    const detail = await api.getOpening(owner, {
+      opening_number: tagged.opening_number,
+    });
+    expect(detail.status(), await detail.text()).toBe(200);
+    expect(((await detail.json()) as OrgOpening).working_content?.tags).toEqual(
+      five,
+    );
+
+    const refused: [string[], string[]][] = [
+      [[...five, "java"], ["content.tags"]],
+      [["golang", "rust", "golang"], ["content.tags.2"]],
+      [["golang", "Go Lang"], ["content.tags.1"]],
+    ];
+    for (const [tags, fields] of refused) {
+      const created = await create(tags, "Refused tags");
+      expect(created.status(), await created.text()).toBe(400);
+      const createdBody = await created.json();
+      expect(createdBody.type).toContain("validation-failed");
+      expect(createdBody.fields).toEqual(fields);
+      const saved = await api.saveOpeningWorkingCopy(owner, {
+        opening_number: tagged.opening_number,
+        version: tagged.version,
+        content: { title: "Refused tags", tags },
+      });
+      expect(saved.status(), await saved.text()).toBe(400);
+      expect((await saved.json()).fields).toEqual(fields);
+    }
+
+    const usedBefore = (await (await api.openingSummary(owner)).json()).quota
+      .used;
+    const unknown = ["no-such-tag-a", "golang", "no-such-tag-b"];
+    const unknownCreate = await create(unknown, "Unknown tags");
+    expect(unknownCreate.status(), await unknownCreate.text()).toBe(422);
+    expect(await unknownCreate.json()).toMatchObject({
+      type: "vetchium-problem-details/org-opening-tag-unknown",
+      tag_oids: ["no-such-tag-a", "no-such-tag-b"],
+    });
+    const summary = await api.openingSummary(owner);
+    expect((await summary.json()).quota.used).toBe(usedBefore);
+    const unknownSave = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: tagged.opening_number,
+      version: tagged.version,
+      content: { title: "Unknown tags", tags: unknown },
+    });
+    expect(unknownSave.status(), await unknownSave.text()).toBe(422);
+    expect(await unknownSave.json()).toMatchObject({
+      type: "vetchium-problem-details/org-opening-tag-unknown",
+      tag_oids: ["no-such-tag-a", "no-such-tag-b"],
+    });
+    const unchanged = await api.getOpening(owner, {
+      opening_number: tagged.opening_number,
+    });
+    expect(await unchanged.json()).toEqual(tagged);
+
+    const changedResponse = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: tagged.opening_number,
+      version: tagged.version,
+      content: { title: "Five tags", tags: ["python", "golang"] },
+    });
+    expect(changedResponse.status(), await changedResponse.text()).toBe(200);
+    const changed = (await changedResponse.json()) as OrgOpening;
+    expect(changed.working_content?.tags).toEqual(["python", "golang"]);
+
+    const duplicateResponse = await api.duplicateOpening(owner, {
+      opening_number: tagged.opening_number,
+    });
+    expect(duplicateResponse.status(), await duplicateResponse.text()).toBe(
+      201,
+    );
+    const duplicate = (await duplicateResponse.json()) as OrgOpening;
+    expect(duplicate.working_content?.tags).toEqual(["python", "golang"]);
+
+    const clearedResponse = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: changed.opening_number,
+      version: changed.version,
+      content: { title: "Five tags", tags: [] },
+    });
+    expect(clearedResponse.status(), await clearedResponse.text()).toBe(200);
+    const cleared = (await clearedResponse.json()) as OrgOpening;
+    expect(cleared.working_content).not.toHaveProperty("tags");
+
+    orgSQL(
+      `INSERT INTO vetchium.opening_tags (tag_oid, display_name, deprecated)
+        VALUES ('${deprecated}', 'Retired test tag', true)`,
+    );
+    const deprecatedResponse = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: cleared.opening_number,
+      version: cleared.version,
+      content: { title: "Five tags", tags: [deprecated, "golang"] },
+    });
+    expect(deprecatedResponse.status(), await deprecatedResponse.text()).toBe(
+      200,
+    );
+    expect(
+      ((await deprecatedResponse.json()) as OrgOpening).working_content?.tags,
+    ).toEqual([deprecated, "golang"]);
+  } finally {
+    await deleteOrgVerificationRecord(org.domain);
+    cleanupOrg(org.domain);
+    orgSQL(`DELETE FROM vetchium.opening_tags WHERE tag_oid = '${deprecated}'`);
   }
 });

@@ -78,6 +78,23 @@ alias OrgOpeningHiringTeamInvalidErrorResponse = Response<
   OrgOpeningHiringTeamInvalidDetails
 >;
 
+model OrgOpeningTagUnknownDetails {
+  type: "vetchium-problem-details/org-opening-tag-unknown";
+  title: "Org Opening tag unknown";
+  status: 422;
+  detail: "An Opening tag is not in the catalog";
+
+  /** Each unknown OID once. */
+  @minItems(1)
+  tag_oids: string[];
+
+  instance?: string;
+}
+alias OrgOpeningTagUnknownErrorResponse = Response<
+  422,
+  OrgOpeningTagUnknownDetails
+>;
+
 model OrgOpeningsQuotaExceededDetails {
   type: "vetchium-problem-details/org-openings-quota-exceeded";
   title: "Org Openings quota exceeded";
