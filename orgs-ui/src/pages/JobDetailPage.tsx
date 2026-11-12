@@ -165,12 +165,14 @@ export function JobDetailPage() {
           </Typography.Text>
 
           {content?.description && (
-            <div style={{ marginBottom: 24 }}>
-              <Typography.Title level={4} style={{ marginTop: 0 }}>
-                {t("marketplace.jobs.aboutTheRole")}
-              </Typography.Title>
-              <OpeningDescription source={String(content.description)} />
-            </div>
+            <section
+              aria-label={t("marketplace.jobs.aboutTheRole")}
+              style={{ marginBottom: 24 }}
+            >
+              <Typography>
+                <OpeningDescription source={String(content.description)} />
+              </Typography>
+            </section>
           )}
 
           <Descriptions

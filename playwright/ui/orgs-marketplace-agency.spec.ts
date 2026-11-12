@@ -409,6 +409,16 @@ test("an agent works from their own Jobs, looks across the agency by colleague a
       page.getByRole("tabpanel").locator("strong", { hasText: "reliable" }),
     ).toBeVisible();
     await expect(page.getByText("**reliable**")).toHaveCount(0);
+    // Only the Markdown's own headings show, so a description that opens with
+    // "About the role" is not titled twice.
+    await expect(
+      page.getByRole("region", { name: "About the role" }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("tabpanel")
+        .getByRole("heading", { name: "About the role" }),
+    ).toHaveCount(0);
 
     // Tabs in Job detail
     await expect(page.getByRole("tab", { name: "Opening" })).toBeVisible();
