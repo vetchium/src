@@ -41,6 +41,7 @@ export function openingPresentation(
       experienceYears: t("openings.fields.experienceYears"),
       minimumEducation: t("openings.fields.minimumEducation"),
       salary: t("openings.fields.salary"),
+      tags: t("openings.fields.tags"),
     },
     formatters: {
       language: (value) => displayName(languages, value),
@@ -63,6 +64,7 @@ export function openingPresentation(
         t(`openings.education.${value}`, { defaultValue: value }),
       salary: (code, min, max, period) =>
         `${code} ${currency.format(min)}–${currency.format(max)} ${t(`openings.salaryPeriods.${period}`, { defaultValue: period })}`,
+      tag: (oid) => oid,
     },
     questions: {
       heading: t("openings.fields.questions"),

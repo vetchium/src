@@ -686,6 +686,7 @@ export const ta = {
       experienceYears: "அனுபவ ஆண்டுகள்",
       minimumEducation: "குறைந்தபட்ச கல்வி",
       salary: "ஊதியம்",
+      tags: "குறிச்சொற்கள்",
     },
     workArrangements: {
       on_site: "அலுவலகத்தில்",

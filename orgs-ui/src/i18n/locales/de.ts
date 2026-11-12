@@ -1209,6 +1209,7 @@ export const de = {
       experienceYears: "Erfahrung in Jahren",
       minimumEducation: "Mindestabschluss",
       salary: "Gehalt",
+      tags: "Schlagwörter",
       questions: "Bewerbungsfragen",
     },
     filters: {

@@ -714,6 +714,7 @@ export const de = {
       experienceYears: "Erfahrung in Jahren",
       minimumEducation: "Mindestabschluss",
       salary: "Gehalt",
+      tags: "Schlagwörter",
     },
     workArrangements: {
       on_site: "Vor Ort",

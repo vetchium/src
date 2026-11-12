@@ -68,3 +68,4 @@ of the editor, detail, and both lists in `en-US` and `ta`.
 - Orgs users pick, see, and filter by tags in their portal language.
 
 ## Carried over
+From T06: OpeningView now shows tags with a temporary formatter returning the OID; replace it in orgs-ui/src/features/openings/presentation.ts with openingTagName from the catalog, and run the ux.md screenshot check of the tags in OpeningView (light, dark, 390px, German).

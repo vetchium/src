@@ -1172,6 +1172,7 @@ export const en = {
       experienceYears: "Experience in years",
       minimumEducation: "Minimum education",
       salary: "Salary",
+      tags: "Tags",
       questions: "Application questions",
     },
     filters: {

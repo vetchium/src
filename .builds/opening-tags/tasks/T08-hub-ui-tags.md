@@ -48,3 +48,4 @@ of the Org page and Opening page at phone and desktop widths.
 - Hub users see tags in their language and filter an Org's Openings by tag.
 
 ## Carried over
+From T06: OpeningView now shows tags with a temporary formatter returning the OID; replace it in hub-ui/src/features/openings/presentation.ts with openingTagName from the catalog, and run the ux.md screenshot check of the tags in OpeningView (light, dark, 390px, German).

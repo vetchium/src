@@ -682,6 +682,7 @@ export const en = {
       experienceYears: "Experience in years",
       minimumEducation: "Minimum education",
       salary: "Salary",
+      tags: "Tags",
     },
     workArrangements: {
       on_site: "On site",

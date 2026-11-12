@@ -22,6 +22,7 @@ import type {
   ApplicationQuestion,
   OpeningContent,
 } from "typespec/common/openings";
+import { OpeningTagList } from "../opening-tags/OpeningTagList.tsx";
 import { SidePanel } from "../shell.tsx";
 import { OpeningDescription } from "./OpeningDescription.tsx";
 
@@ -37,7 +38,8 @@ export type OpeningContentLabels = Record<
   | "positions"
   | "experienceYears"
   | "minimumEducation"
-  | "salary",
+  | "salary"
+  | "tags",
   string
 >;
 
@@ -55,6 +57,8 @@ export interface OpeningContentFormatters {
     max: number,
     period: string,
   ) => string;
+  /** A tag's name in the portal language (OPN-TAG-004). */
+  tag: (oid: string) => string;
 }
 
 export interface OpeningQuestionsPresentation {
@@ -224,6 +228,13 @@ export function OpeningView({
               </Tag>
             )}
           </Flex>
+        )}
+        {content.tags && content.tags.length > 0 && (
+          <OpeningTagList
+            tags={content.tags}
+            name={formatters.tag}
+            label={labels.tags}
+          />
         )}
         {content.description && (
           <section aria-label={labels.description}>

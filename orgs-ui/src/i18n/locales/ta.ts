@@ -1170,6 +1170,7 @@ export const ta = {
       experienceYears: "அனுபவ ஆண்டுகள்",
       minimumEducation: "குறைந்தபட்ச கல்வி",
       salary: "ஊதியம்",
+      tags: "குறிச்சொற்கள்",
       questions: "விண்ணப்பக் கேள்விகள்",
     },
     filters: {
