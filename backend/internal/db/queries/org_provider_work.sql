@@ -543,6 +543,8 @@ WHERE eng.provider_org_did = sqlc.arg(provider_org_did)
       OR o.opening_number::text = sqlc.narg(search)::text)
   AND (sqlc.narg(employing_country)::text IS NULL
       OR c.employing_country = sqlc.narg(employing_country)::text)
+  AND (sqlc.narg(tag_oid)::text IS NULL
+      OR sqlc.narg(tag_oid)::text = ANY(c.tag_oids))
   AND (sqlc.narg(owned_jobs)::text[] IS NULL
       OR eng.engagement_id::text || '/' || o.opening_number::text
           = ANY (sqlc.narg(owned_jobs)::text[]))

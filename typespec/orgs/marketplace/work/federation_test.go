@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/hub"
 	hubspec "github.com/vetchium/src/typespec/hub/applications"
 	"github.com/vetchium/src/typespec/orgs"
@@ -123,6 +124,16 @@ func TestPeerListJobsRequestBoundsTheOwnedJobs(t *testing.T) {
 	}
 	request.Openings = []JobReference{{EngagementID: "x", OpeningNumber: 3}}
 	if got := request.Validate(); !slices.Equal(got, []string{"openings"}) {
+		t.Fatalf("fields = %v", got)
+	}
+	request.Openings = nil
+	tag := common.OpeningTagOID("golang")
+	request.TagOID = &tag
+	if got := request.Validate(); len(got) != 0 {
+		t.Fatalf("fields = %v", got)
+	}
+	tag = "Go Lang"
+	if got := request.Validate(); !slices.Equal(got, []string{"tag_oid"}) {
 		t.Fatalf("fields = %v", got)
 	}
 	search := JobSearchText(" 42 ")

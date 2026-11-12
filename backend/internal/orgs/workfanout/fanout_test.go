@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/vetchium/src/typespec/common"
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	"github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/marketplace"
@@ -26,6 +28,8 @@ type fakePeers struct {
 	failing  map[directoryspec.TenantID]error
 	slow     map[directoryspec.TenantID]bool
 	problem  map[directoryspec.TenantID]bool
+	// jobsAsked, when set, records each tenant's jobs request.
+	jobsAsked *sync.Map
 }
 
 func (f fakePeers) outcome(tenant directoryspec.TenantID, ctx context.Context) (bool, error) {
@@ -56,6 +60,9 @@ func (f fakePeers) RelayListWork(
 func (f fakePeers) RelayListJobs(
 	ctx context.Context, request work.RelayListJobsRequest,
 ) (workclient.Outcome[work.PeerListJobsResponse], error) {
+	if f.jobsAsked != nil {
+		f.jobsAsked.Store(request.Tenant, request.Request)
+	}
 	declared, err := f.outcome(request.Tenant, ctx)
 	if err != nil {
 		return workclient.Outcome[work.PeerListJobsResponse]{}, err
@@ -184,6 +191,27 @@ func TestListJobsMergesNewestAssignmentFirst(t *testing.T) {
 	// The same instant lists the larger id first.
 	if !slices.Equal(got, []string{b, a, d}) || !page.HasMore {
 		t.Fatalf("entries = %v, page = %+v", got, page)
+	}
+}
+
+func TestListJobsSendsTheFiltersToEveryTenant(t *testing.T) {
+	t.Parallel()
+	asked := &sync.Map{}
+	peers := fakePeers{jobsAsked: asked}
+	tag := common.OpeningTagOID("golang")
+	country := common.CountryCode("SG")
+	fanout(peers, "sgp", "usa1").ListJobs(context.Background(),
+		work.PeerListJobsRequest{TagOID: &tag, EmployingCountry: &country, Limit: 3})
+	for _, tenant := range []directoryspec.TenantID{"sgp", "usa1"} {
+		value, ok := asked.Load(tenant)
+		if !ok {
+			t.Fatalf("%s was not asked", tenant)
+		}
+		request := value.(work.PeerListJobsRequest)
+		if request.TagOID == nil || *request.TagOID != tag ||
+			request.EmployingCountry == nil || *request.EmployingCountry != country {
+			t.Fatalf("%s request = %+v", tenant, request)
+		}
 	}
 }
 

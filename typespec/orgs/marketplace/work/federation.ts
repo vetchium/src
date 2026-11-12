@@ -1,4 +1,8 @@
 import { isCountryCode } from "../../../common/countries.ts";
+import {
+  isOpeningTagOID,
+  type OpeningTagOID,
+} from "../../../common/opening_tags.ts";
 import type { PaginationKey } from "../../../common/pagination.ts";
 import { isPaginationKey } from "../../../common/pagination.ts";
 import type { TenantID } from "../../../directory/directory.ts";
@@ -157,6 +161,7 @@ export interface PeerListJobsRequest {
   state: OpeningState;
   search?: JobSearchText;
   employing_country?: string;
+  tag_oid?: OpeningTagOID;
   openings?: JobReference[];
   after?: JobPosition;
   limit: number;
@@ -190,6 +195,8 @@ export function validatePeerListJobsRequest(
     !isCountryCode(request.employing_country)
   )
     fields.push("employing_country");
+  if (request.tag_oid !== undefined && !isOpeningTagOID(request.tag_oid))
+    fields.push("tag_oid");
   if (
     request.openings !== undefined &&
     (request.openings.length < 1 ||

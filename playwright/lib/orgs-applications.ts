@@ -59,12 +59,14 @@ export async function publishedOpening(
     team?: string[];
     stages?: Array<{ name: string; kind: PipelineStage["kind"] }>;
     questions?: ApplicationQuestion[];
+    tags?: string[];
   } = {},
 ): Promise<{ opening: OrgOpening; stages: PipelineStage[] }> {
   const created = await api.createOpening(owner, {
     content: {
       ...openingContent(options.title ?? "Engineer", options.positions ?? 1),
       ...(options.questions ? { questions: options.questions } : {}),
+      ...(options.tags ? { tags: options.tags } : {}),
     },
     hiring_manager_email: org.emailAddress,
     recruiter_email: org.emailAddress,

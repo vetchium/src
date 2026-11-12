@@ -139,6 +139,7 @@ type jobFilters struct {
 	Owner   string `json:"owner,omitempty"`
 	Search  string `json:"search,omitempty"`
 	Country string `json:"country,omitempty"`
+	Tag     string `json:"tag,omitempty"`
 }
 
 type jobCursor struct {
@@ -161,7 +162,7 @@ func ListJobs(s *orgsruntime.Server) http.HandlerFunc {
 			ProviderOrgDID: orgs.OrgDID(dbvalue.FormatUUID(identity.OrgDID)),
 			ClientDomain:   request.ClientDomain, State: request.EffectiveState(),
 			Search: request.Search, EmployingCountry: request.EmployingCountry,
-			Limit: request.EffectiveLimit(),
+			TagOID: request.TagOID, Limit: request.EffectiveLimit(),
 		}
 		filters := jobFilters{State: string(peer.State)}
 		if request.ClientDomain != nil {
@@ -172,6 +173,9 @@ func ListJobs(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		if request.EmployingCountry != nil {
 			filters.Country = string(*request.EmployingCountry)
+		}
+		if request.TagOID != nil {
+			filters.Tag = string(*request.TagOID)
 		}
 		if request.OwnerEmail != nil {
 			filters.Owner = string(*request.OwnerEmail)

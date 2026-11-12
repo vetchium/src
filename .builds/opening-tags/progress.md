@@ -1,7 +1,7 @@
 # Opening tags build progress
 
 branch: opening-tags
-current: T05
+current: T06
 phase: implement
 
 ## Tasks
@@ -15,7 +15,7 @@ T02 done Openings: Opening tag catalog read in orgs-api and hub-api
 
 T03 done Openings: Tags in Opening content
 T04 done Openings: Tag filter on the Orgs Openings list and the Hub Org page
-T05 todo Marketplace: Tag filter on the agency Jobs list
+T05 done Marketplace: Tag filter on the agency Jobs list
 
 ### M3 Portals
 

@@ -272,6 +272,7 @@ type ListJobsRequest struct {
 	OwnerEmail       *common.EmailAddress   `json:"owner_email,omitempty"`
 	Search           *JobSearchText         `json:"search,omitempty"`
 	EmployingCountry *common.CountryCode    `json:"employing_country,omitempty"`
+	TagOID           *common.OpeningTagOID  `json:"tag_oid,omitempty"`
 	PaginationKey    *common.PaginationKey  `json:"pagination_key,omitempty"`
 	Limit            *int32                 `json:"limit,omitempty"`
 }
@@ -322,6 +323,9 @@ func (r ListJobsRequest) Validate() []string {
 	}
 	if r.EmployingCountry != nil && !common.IsCountryCode(*r.EmployingCountry) {
 		fields = append(fields, "employing_country")
+	}
+	if r.TagOID != nil && !common.IsOpeningTagOID(*r.TagOID) {
+		fields = append(fields, "tag_oid")
 	}
 	if r.PaginationKey != nil && !common.IsPaginationKey(*r.PaginationKey) {
 		fields = append(fields, "pagination_key")
