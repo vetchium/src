@@ -99,3 +99,4 @@ against `make test-environment`, then `make test`.
   covered.
 
 ## Carried over
+From T01: sqlc generates `ListOpeningTagsRow.LocalizedNames` as `[]byte` (a JSON object, `{}` when none); decode it in `openingtags.List`.
