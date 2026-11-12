@@ -1,7 +1,7 @@
 # Opening tags build progress
 
 branch: opening-tags
-current: T02
+current: T03
 phase: implement
 
 ## Tasks
@@ -9,7 +9,7 @@ phase: implement
 ### M1 Tag catalog
 
 T01 done Database: Seed the Opening tag catalog
-T02 todo Openings: Opening tag catalog read in orgs-api and hub-api
+T02 done Openings: Opening tag catalog read in orgs-api and hub-api
 
 ### M2 Tags on Openings
 

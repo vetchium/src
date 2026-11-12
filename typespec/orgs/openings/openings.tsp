@@ -3,6 +3,7 @@ import "@typespec/openapi";
 
 import "../../common/authentication.tsp";
 import "../../common/idempotency.tsp";
+import "../../common/opening_tags.tsp";
 import "../../common/pagination.tsp";
 import "../../problem/common.tsp";
 import "../../problem/details.tsp";
@@ -298,6 +299,18 @@ interface OpeningOperations {
       }
     | OpeningSummaryErrors
     | Vetchium.Problem.OrgOpeningNotFoundErrorResponse;
+
+  /** Reads the Opening tag catalog; any user of an active Org may read it. */
+  @route("/list-opening-tags")
+  @post
+  @useAuth(BearerAuth)
+  listOpeningTags(@body request: {}):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: Vetchium.ListOpeningTagsResponse;
+      }
+    | OpeningSummaryErrors;
 
   @route("/lookup-opening-team-member")
   @post

@@ -134,6 +134,10 @@ export class HubAPI {
     return this.post("/list-org-openings", body, { token });
   }
 
+  listOpeningTags(token: string): Promise<APIResponse> {
+    return this.post("/list-opening-tags", {}, { token });
+  }
+
   getOrgOpening(
     body: GetOrgOpeningRequest,
     token: string,

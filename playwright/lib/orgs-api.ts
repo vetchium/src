@@ -1141,6 +1141,10 @@ export class OrgsAPI {
     return this.post("/opening-summary", {}, { token });
   }
 
+  listOpeningTags(token: string): Promise<APIResponse> {
+    return this.post("/list-opening-tags", {}, { token });
+  }
+
   listOpeningHistory(
     token: string,
     request: ListOpeningHistoryRequest,

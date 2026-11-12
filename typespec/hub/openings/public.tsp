@@ -1,6 +1,7 @@
 import "@typespec/http";
 
 import "../../common/authentication.tsp";
+import "../../common/opening_tags.tsp";
 import "../../common/openings.tsp";
 import "../../common/pagination.tsp";
 import "../../orgs/types.tsp";
@@ -127,6 +128,20 @@ interface OrgOpeningOperations {
   list(@body request: ListOrgOpeningsRequest):
     | ListOrgOpeningsResult
     | Vetchium.Problem.HubAuthenticationRequiredErrorResponse;
+
+  /** Reads the Opening tag catalog. */
+  @route("/list-opening-tags")
+  @post
+  @useAuth(BearerAuth)
+  listOpeningTags(@body request: {}):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: Vetchium.ListOpeningTagsResponse;
+      }
+    | Vetchium.Problem.InvalidJSONErrorResponse
+    | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
 
   @route("/get-org-opening")
   @post
