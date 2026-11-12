@@ -320,8 +320,8 @@ the agency sees it.
   tenant, to the Jobs that user owns, sent to every client tenant as
   (engagement, Opening number) pairs; a tenant matches only engagements it
   homes. An address that owns none lists nothing. Title search (substring, or
-  the exact Opening number) and employing country filter at the client
-  tenant.
+  the exact Opening number), employing country, and tag (OPN-TAG-011) filter
+  at the client tenant.
 - **MKT-OWN-005** `suggest-job-owners` and `suggest-clients` answer
   autocompletes: at most 20 matches, no further pages, typing narrows.
   Clients come from the agency's projections of its active engagements, so
@@ -646,7 +646,7 @@ autocomplete (MKT-OWN-005), never a list built from one page.
 - **MKT-UI-006** Jobs: Openings assigned to the agency across clients, server
   paginated, with state tabs (default `published`), whose Jobs (Mine, the
   default; Everyone's; or one colleague by autocomplete), client, title or
-  number search, and employing country under "More filters", all kept in the
+  number search, and employing country and tag under "More filters", all kept in the
   URL. Rows show the Opening, client, owner with "Change", assigned date, and
   the applications credited to the agency. Say "credited to your agency",
   never "to you". Job detail shows the owner, the Opening as Hub users see

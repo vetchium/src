@@ -33,6 +33,7 @@ Applies to product terms in prompts, specifications, code, and UI text.
 ## Hiring
 
 - Opening — a job post owned by an org; numbered per org.
+- Opening tag — a seeded label (OID such as `golang`) an org attaches to an Opening; shown in the viewer's language.
 - Working copy — an Opening's editable content: the draft before first publication, a revision after it.
 - Opening request — a pending publish, revise, pause, reopen, or close of one Opening, awaiting an approver; at most one per Opening.
 - Approver — an org user holding `org:approve_openings`; their own requests apply at once.

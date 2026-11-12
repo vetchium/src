@@ -55,6 +55,7 @@ source-specific fields to it.
 | `minimum_education` | optional `secondary`, `bachelor`, `master`, `doctorate` |
 | `salary` | optional `currency` (active ISO 4217), whole-unit `min` and `max` (0 ≤ min ≤ max, 1 ≤ max ≤ 10^12), `period` (`hour`, `day`, `month`, `year`) |
 | `questions` | optional, 0–10 application questions ([`hiring-pipeline.md`](hiring-pipeline.md) HP-QST) |
+| `tags` | optional, 0–5 unique Opening tag OIDs (OPN-TAG), in the Org's chosen order |
 
 - **OPN-CNT-001** Declare each vocabulary in TypeSpec as an extensible value on
   responses ([`typespec.md`](typespec.md)) so a portal older than its API shows
@@ -76,6 +77,64 @@ source-specific fields to it.
 - **OPN-CNT-005** Vetchium does not verify Opening content. It may remove an
   Opening it finds unlawful, discriminatory, misleading, or abusive, as the Org
   terms disclose (moderation is in `docs/todo.md`).
+
+## Tags
+
+An Opening tag is a seeded catalog entry (an OID, [`glossary.md`](glossary.md))
+an Org attaches to an Opening, such as `golang` or
+`artificial-intelligence`.
+
+- **OPN-TAG-001** The catalog is `vetchium.opening_tags` (`tag_oid`,
+  `display_name`, `deprecated`) and `vetchium.opening_tag_names` (`tag_oid`,
+  `language`, `display_name`), seeded in `db/migrations/00001_init.sql`, so
+  every tenant holds the same rows. `vetchium_app` may only `SELECT` them.
+  Add a tag by editing that seed. Never delete or rename an OID; retire a tag
+  with `deprecated = true`.
+- **OPN-TAG-002** A tag OID matches `^[a-z0-9]+(-[a-z0-9]+)*$` and is 2–64
+  characters. `display_name` is the English default name, 1–100 code points
+  after trimming. A localized name is keyed by a base language subtag from the
+  language catalog, never `en`, with the same length rule.
+- **OPN-TAG-003** Seed a localized name only where it is the term job boards
+  in that language use; programming-language tags carry none. The catalog
+  holds at most 500 tags.
+- **OPN-TAG-004** A portal shows a tag in its UI language: the localized name
+  for the base language of the portal locale, else `display_name`. An OID the
+  portal's catalog does not hold shows as the OID. Never use the Opening's
+  `language` to pick the name.
+- **OPN-TAG-005** `portal-ui` holds an optional monochrome icon per OID: path
+  data from Simple Icons (CC0 1.0), with the release recorded beside the data,
+  for each programming-language tag Simple Icons carries. Every other tag
+  shows Ant Design `TagOutlined`. Icons are `aria-hidden`; the name is the
+  accessible text.
+- **OPN-TAG-006** `list-opening-tags` returns the whole catalog, deprecated
+  tags included, ordered by OID: `tag_oid`, `display_name`,
+  `localized_names` (language to name, `{}` when none), and `deprecated`. It
+  has no pagination because of the 500-tag cap. orgs-api serves it to any
+  authenticated user of an active Org, without a permission; hub-api to any
+  authenticated Hub user. Portals read it once per session.
+- **OPN-TAG-007** Tags are Opening content: create, save-working-copy,
+  duplicate, and approval copy them like every other field, so changing the
+  tags of a published Opening is a `revise`. They never count toward
+  completeness (OPN-CNT-002). An empty list is stored as `NULL`, and responses
+  omit `tags` when there are none.
+- **OPN-TAG-008** Contract validation refuses a malformed OID, more than five,
+  or a repeat, with `validation-failed` naming `content.tags` or
+  `content.tags.<index>`. The write statement refuses an OID missing from the
+  catalog with `org-opening-tag-unknown`, listing each unknown OID once, and
+  writes nothing. A deprecated tag is accepted; pickers do not offer it unless
+  the Opening already has it.
+- **OPN-TAG-009** Store tags in `org_opening_contents.tag_oids text[]`,
+  checked for count, nulls, repeats, and format. A trigger refuses an element
+  missing from `vetchium.opening_tags`, because a foreign key cannot cover an
+  array element.
+- **OPN-TAG-010** AI drafting (OPN-GEN-006) returns no tags; applying a draft
+  keeps the tags already in the editor.
+- **OPN-TAG-011** `list-openings`, `list-org-openings`, and `list-jobs` take an
+  optional `tag_oid` and list only Openings whose content (the slot each list
+  already reads) holds it. A well-formed OID missing from the catalog matches
+  nothing and is not an error.
+- **OPN-TAG-012** The mesh carries tag OIDs only. Hub and Orgs portals
+  resolve names and icons from their own catalog read.
 
 ## Hiring team and internal fields
 
@@ -218,8 +277,8 @@ transition takes or returns one.
 
 - **OPN-ORG-001** The Openings list is server-side: filters for state, pending
   request kind, "awaiting my approval" (pending requests the caller may
-  decide), hiring manager, recruiter, employing country, work arrangement, and
-  employment type; case-insensitive title substring search (at least two
+  decide), hiring manager, recruiter, employing country, work arrangement,
+  employment type, and tag; case-insensitive title substring search (at least two
   characters); keyset pagination (at most 100); newest-updated first; and a
   summary count per state.
 - **OPN-ORG-002** Callers covered only by OPN-AUTH-002 see a list limited to
@@ -235,6 +294,12 @@ transition takes or returns one.
   and the application form with the Hub's `QuestionFields`
   (`@vetchium/portal-ui/openings`), so a user without a Hub account sees
   exactly what candidates will see.
+- **OPN-ORG-008** The editor's Tags field is a searchable multi-select of at
+  most five, matching the default name, the name in the portal language, and
+  the OID (OPN-TAG-004, OPN-TAG-008). Opening detail, the preview, and Job
+  detail show tags through `OpeningView` as an icon and name, after the
+  facts; the working-copy switch names `tags` when they differ from live
+  content, order included.
 - **OPN-ORG-005** Show actions only when the caller's effective permissions and
   the Opening's state allow them; the API still decides. Label an action by its
   effect: "Submit for approval" without `org:approve_openings`, "Publish" with
@@ -253,9 +318,11 @@ transition takes or returns one.
   Keep `NoIndex` on these routes.
 - **OPN-HUB-002** `/org/<domain>` shows the Org's display name, logo (when its
   plan allows one), domain, country, and its `published` Openings, with filters for
-  employing country, work arrangement, employment type, and title search, and
+  employing country, work arrangement, employment type, tag, and title search, and
   keyset pagination (at most 50), ordered by first publication, newest first.
-  `/org/<domain>/openings/<number>` shows one Opening.
+  Each Opening card shows its tags (`PublicOpeningSummary.tags`, `[]` when
+  none). The tag filter offers every catalog tag that is not deprecated.
+  `/org/<domain>/openings/<number>` shows one Opening, tags included.
 - **OPN-HUB-003** The Hub representation is `PublicOpening`: live content,
   number, state, first publication time, `last_revised_at`, and the Org's
   domain, display name, country, and signed logo URL. Hiring team, internal notes,
@@ -292,6 +359,7 @@ transition takes or returns one.
 | `org-opening-incomplete` | 422 | publish or revise content is incomplete; lists fields |
 | `org-opening-hiring-team-invalid` | 422 | a named user is unknown, disabled, or in another Org |
 | `org-openings-quota-exceeded` | 409 | quota reached; carries quota and count |
+| `org-opening-tag-unknown` | 422 | a tag OID is not in the catalog; carries `tag_oids` |
 | `hub-org-not-found` | 404 | no active Org holds the domain |
 | `hub-opening-not-found` | 404 | no published or formerly published Opening has the number |
 | `hub-org-unavailable` | 503 | the Org's home tenant or the directory did not answer |
@@ -305,11 +373,17 @@ transition takes or returns one.
   quota at its edge under concurrent creations (discarded drafts still
   counting, idempotent replays taking no slot), remote eligibility,
   disabled-user and revoked-permission cases, expiry, and a suspended Org.
+- **OPN-TST-004** Cover tags in `playwright/api/`: the catalog read from both
+  APIs (seeded names, a localized name, a deprecated flag), tags through
+  create, save, duplicate, and an approved and a rejected `revise`, each
+  validation refusal, `org-opening-tag-unknown` writing nothing, and the
+  `tag_oid` filter on all three lists, including a remote-tenant Org for the
+  Hub and a remote client for Jobs.
 - **OPN-TST-002** Cover Hub reads for an Org in the viewer's tenant and in
   another tenant, a suspended Org, a released domain, and `ind1` failing closed
   with `hub-org-unavailable`. Assert that no internal field appears in any Hub
   or mesh response.
 - **OPN-TST-003** `make dev-seed` gives each seeded Org Openings in every state
   except `expired` (only time reaches it, and fixtures go through the portal
-  APIs), a pending request of each kind, and Recruiter and Hiring approver
-  users.
+  APIs), a pending request of each kind, Recruiter and Hiring approver
+  users, and tags on most published Openings.
