@@ -7,7 +7,7 @@
 #
 # The build context is ./db/migrations, so the API sources are not part of it.
 
-FROM golang:1.27.3-alpine@sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c AS build
+FROM golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS build
 
 # There is no official goose image published, so the CLI is built from source.
 # Pinned to the same version the project develops against.

@@ -1,6 +1,6 @@
 module tools/golangci-lint
 
-go 1.27.3
+go 1.27.4
 
 // golangci-lint decodes export data with the golang.org/x/tools version its
 // own go.mod pins, not the toolchain's. Go 1.27 writes export data V5, which
